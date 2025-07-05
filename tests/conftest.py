@@ -5,6 +5,7 @@ from typer.testing import CliRunner
 
 from pgbreeder.cli import app
 
+
 @pytest.fixture
 def runner():
     """Create a CLI runner for testing."""

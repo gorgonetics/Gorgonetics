@@ -1,6 +1,5 @@
 """Test the CLI interface."""
 
-import pytest
 from typer.testing import CliRunner
 
 from pgbreeder.cli import app

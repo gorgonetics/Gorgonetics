@@ -29,6 +29,10 @@ PGBreeder is a simple Python CLI application built with modern Python tooling an
 src/pgbreeder/    # Main package
 tests/            # Test files
 docs/             # Documentation
+assets/           # Static assets (e.g., genome files)
+scripts/         # Utility scripts
+.github/          # GitHub workflows and configurations
+.github/copilot-instructions.md  # Copilot instructions (this file)
 ```
 
 ## Development Workflow
