@@ -1,72 +1,86 @@
 [
   {
     "gene": "06A1",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "06A2",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "06A3",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "06A4",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "06B1",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "06B2",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "06B3",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "06B4",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "06C1",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "06C2",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
+    "notes": "|String for me to fill in|"
+  },
+  {
+    "gene": "06C3",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "|String for me to fill in|",
+    "notes": "|String for me to fill in|"
+  },
+  {
+    "gene": "06C4",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "|String for me to fill in|",
     "notes": "|String for me to fill in|"
   }
 ]

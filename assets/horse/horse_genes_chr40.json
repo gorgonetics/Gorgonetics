@@ -1,310 +1,310 @@
 [
   {
     "gene": "40A1",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "40A2",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "40A3",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "40A4",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "40B1",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "40B2",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "40B3",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "40B4",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "40C1",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "40C2",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "40C3",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "40C4",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "40D1",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "40D2",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "40D3",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "40D4",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "40E1",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "40E2",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "40E3",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "40E4",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "40F1",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "40F2",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "40F3",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "40F4",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "40G1",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "40G2",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "40G3",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "40G4",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "40H1",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "40H2",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "40H3",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "40H4",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "40I1",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "40I2",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "40I3",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "40I4",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "40J1",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "40J2",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "40J3",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "40J4",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "40K1",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "40K2",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "40K3",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "40K4",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
     "notes": "|String for me to fill in|"
   }
 ]

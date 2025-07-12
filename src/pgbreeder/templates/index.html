@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PGBreeder Gene Editor</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧬 PGBreeder Gene Editor</h1>
+            <p>Edit Project Gorgon pet genetics data with ease</p>
+        </div>
+
+        <div class="controls">
+            <div class="control-group">
+                <div class="form-group">
+                    <label for="animalType">Animal Type</label>
+                    <select id="animalType">
+                        <option value="">Select animal type...</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="chromosome">Chromosome</label>
+                    <select id="chromosome" disabled>
+                        <option value="">Select chromosome...</option>
+                    </select>
+                </div>
+                <button class="load-btn" id="loadGenes" disabled>Load Genes</button>
+            </div>
+        </div>
+
+        <div class="genes-container">
+            <div id="genesContent">
+                <div class="loading">
+                    Select an animal type and chromosome to begin editing genes
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let effectOptions = [];
+
+        // Load initial data
+        async function loadAnimalTypes() {
+            try {
+                const response = await fetch('/api/animal-types');
+                const animalTypes = await response.json();
+
+                const select = document.getElementById('animalType');
+                select.innerHTML = '<option value="">Select animal type...</option>';
+
+                animalTypes.forEach(type => {
+                    const option = document.createElement('option');
+                    option.value = type;
+                    option.textContent = type.charAt(0).toUpperCase() + type.slice(1);
+                    select.appendChild(option);
+                });
+            } catch (error) {
+                showError('Failed to load animal types: ' + error.message);
+            }
+        }
+
+        // Load effect options
+        async function loadEffectOptions() {
+            try {
+                const response = await fetch('/api/effect-options');
+                effectOptions = await response.json();
+            } catch (error) {
+                console.error('Failed to load effect options:', error);
+                effectOptions = ['None']; // Fallback
+            }
+        }
+
+        // Load chromosomes for selected animal
+        async function loadChromosomes(animalType) {
+            try {
+                const response = await fetch(`/api/chromosomes/${animalType}`);
+                const chromosomes = await response.json();
+
+                const select = document.getElementById('chromosome');
+                select.innerHTML = '<option value="">Select chromosome...</option>';
+                select.disabled = false;
+
+                chromosomes.forEach(chr => {
+                    const option = document.createElement('option');
+                    option.value = chr;
+                    option.textContent = `Chromosome ${chr}`;
+                    select.appendChild(option);
+                });
+
+                document.getElementById('loadGenes').disabled = true;
+            } catch (error) {
+                showError('Failed to load chromosomes: ' + error.message);
+            }
+        }
+
+        // Load genes for selected chromosome
+        async function loadGenes(animalType, chromosome) {
+            try {
+                showLoading('Loading genes...');
+
+                const response = await fetch(`/api/genes/${animalType}/${chromosome}`);
+                const genes = await response.json();
+
+                displayGenes(genes, animalType);
+            } catch (error) {
+                showError('Failed to load genes: ' + error.message);
+            }
+        }
+
+        // Display genes in the UI
+        function displayGenes(genes, animalType) {
+            const container = document.getElementById('genesContent');
+
+            if (genes.length === 0) {
+                container.innerHTML = '<div class="loading">No genes found for this chromosome</div>';
+                return;
+            }
+
+            // Group genes by letter prefix (e.g., 01A1, 01A2, 01A3, 01A4 -> group "01A")
+            const geneGroups = {};
+            genes.forEach(gene => {
+                // Extract letter prefix from gene name (e.g., "01A1" -> "01A")
+                const match = gene.gene.match(/^(\d+[A-Z])/);
+                if (match) {
+                    const prefix = match[1];
+                    if (!geneGroups[prefix]) {
+                        geneGroups[prefix] = [];
+                    }
+                    geneGroups[prefix].push(gene);
+                }
+            });
+
+            const grid = document.createElement('div');
+            grid.className = 'genes-grid';
+
+            // Create blocks for each gene group
+            Object.keys(geneGroups).sort().forEach(prefix => {
+                const block = document.createElement('div');
+                block.className = 'gene-block';
+
+                const header = document.createElement('div');
+                header.className = 'gene-block-header';
+                header.onclick = () => toggleGeneBlock(block);
+
+                const headerText = document.createElement('span');
+                headerText.textContent = `Gene Block ${prefix}`;
+
+                const foldIcon = document.createElement('span');
+                foldIcon.className = 'fold-icon';
+                foldIcon.textContent = '▼';
+
+                header.appendChild(headerText);
+                header.appendChild(foldIcon);
+
+                const row = document.createElement('div');
+                row.className = 'gene-row';
+
+                // Sort genes within the group (01A1, 01A2, 01A3, 01A4)
+                geneGroups[prefix].sort((a, b) => a.gene.localeCompare(b.gene)).forEach(gene => {
+                    const card = createGeneCard(gene, animalType);
+                    row.appendChild(card);
+                });
+
+                block.appendChild(header);
+                block.appendChild(row);
+                grid.appendChild(block);
+            });
+
+            container.innerHTML = '';
+            container.appendChild(grid);
+        }
+
+        // Create a gene card element
+        function createGeneCard(gene, animalType) {
+            const card = document.createElement('div');
+            card.className = 'gene-card';
+
+            // Extract just the number from the gene name (e.g., "01A1" -> "1")
+            const geneNumber = gene.gene.slice(-1);
+
+            card.innerHTML = `
+                <div class="gene-number">${geneNumber}</div>
+                
+                <div class="gene-field horizontal">
+                    <label>Dom</label>
+                    <select data-field="effectDominant" data-gene="${gene.gene}" data-animal="${animalType}" data-original="${gene.effectDominant || ''}">
+                        ${effectOptions.map(effect =>
+                `<option value="${effect}" ${effect === gene.effectDominant ? 'selected' : ''}>${effect}</option>`
+            ).join('')}
+                    </select>
+                </div>
+                
+                <div class="gene-field horizontal">
+                    <label>Rec</label>
+                    <select data-field="effectRecessive" data-gene="${gene.gene}" data-animal="${animalType}" data-original="${gene.effectRecessive || ''}">
+                        ${effectOptions.map(effect =>
+                `<option value="${effect}" ${effect === gene.effectRecessive ? 'selected' : ''}>${effect}</option>`
+            ).join('')}
+                    </select>
+                </div>
+                
+                <div class="gene-field">
+                    <label>Appearance</label>
+                    <input type="text" data-field="appearance" data-gene="${gene.gene}" data-animal="${animalType}" 
+                           value="${gene.appearance}" placeholder="Appearance" data-original="${gene.appearance || ''}">
+                </div>
+                
+                <div class="notes-section">
+                    <button type="button" class="notes-toggle" onclick="toggleNotes(this)">
+                        + Notes
+                    </button>
+                    <div class="notes-content">
+                        <input type="text" data-field="notes" data-gene="${gene.gene}" data-animal="${animalType}" 
+                               value="${gene.notes}" placeholder="Notes" data-original="${gene.notes || ''}">
+                    </div>
+                </div>
+                
+                <button class="save-btn" onclick="saveGene('${gene.gene}', '${animalType}')" disabled>
+                    Save
+                </button>
+            `;
+
+            // Add change listeners to all form elements
+            const formElements = card.querySelectorAll('[data-field]');
+            formElements.forEach(element => {
+                element.addEventListener('change', () => checkForChanges(card));
+                element.addEventListener('input', () => checkForChanges(card));
+            });
+
+            // Ensure Notes section starts collapsed
+            const notesToggle = card.querySelector('.notes-toggle');
+            const notesContent = card.querySelector('.notes-content');
+            if (notesToggle && notesContent) {
+                notesToggle.textContent = '+ Notes';
+                notesContent.classList.remove('expanded');
+            }
+
+            return card;
+        }
+
+        // Check if any fields in the gene card have been changed
+        function checkForChanges(card) {
+            const saveBtn = card.querySelector('.save-btn');
+            const formElements = card.querySelectorAll('[data-field]');
+            let hasChanges = false;
+
+            formElements.forEach(element => {
+                const originalValue = element.getAttribute('data-original') || '';
+                const currentValue = element.value || '';
+
+                if (originalValue !== currentValue) {
+                    hasChanges = true;
+                }
+            });
+
+            // Enable/disable save button and update visual state
+            saveBtn.disabled = !hasChanges;
+            if (hasChanges) {
+                card.classList.add('has-changes');
+            } else {
+                card.classList.remove('has-changes');
+            }
+        }
+
+        // Save gene changes
+        async function saveGene(geneId, animalType) {
+            try {
+                const card = document.querySelector(`[data-gene="${geneId}"][data-animal="${animalType}"]`).closest('.gene-card');
+                const fields = card.querySelectorAll('[data-field]');
+
+                const updateData = {
+                    animal_type: animalType,
+                    gene: geneId
+                };
+
+                fields.forEach(field => {
+                    const fieldName = field.dataset.field;
+                    // Convert camelCase to snake_case for API compatibility
+                    const apiFieldName = fieldName.replace(/([A-Z])/g, '_$1').toLowerCase();
+                    updateData[apiFieldName] = field.value;
+                });
+
+                const response = await fetch('/api/gene', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(updateData)
+                });
+
+                if (response.ok) {
+                    showSuccess(`Gene ${geneId} updated successfully!`);
+
+                    // Reset change tracking after successful save
+                    fields.forEach(field => {
+                        field.setAttribute('data-original', field.value || '');
+                    });
+
+                    // Disable save button and remove change indicator
+                    const saveBtn = card.querySelector('.save-btn');
+                    saveBtn.disabled = true;
+                    card.classList.remove('has-changes');
+                } else {
+                    const error = await response.json();
+                    showError(`Failed to update gene: ${error.detail}`);
+                }
+            } catch (error) {
+                showError('Failed to save gene: ' + error.message);
+            }
+        }
+
+        // Utility functions
+        function showLoading(message) {
+            document.getElementById('genesContent').innerHTML = `<div class="loading">${message}</div>`;
+        }
+
+        function showError(message) {
+            const existing = document.querySelector('.error');
+            if (existing) existing.remove();
+
+            const error = document.createElement('div');
+            error.className = 'error';
+            error.textContent = message;
+            document.querySelector('.container').insertBefore(error, document.querySelector('.genes-container'));
+
+            setTimeout(() => error.remove(), 5000);
+        }
+
+        function showSuccess(message) {
+            const existing = document.querySelector('.success');
+            if (existing) existing.remove();
+
+            const success = document.createElement('div');
+            success.className = 'success';
+            success.textContent = message;
+            document.querySelector('.container').insertBefore(success, document.querySelector('.genes-container'));
+
+            setTimeout(() => success.remove(), 3000);
+        }
+
+        // Toggle gene block visibility
+        function toggleGeneBlock(block) {
+            block.classList.toggle('collapsed');
+        }
+
+        // Toggle notes section visibility
+        function toggleNotes(button) {
+            const notesContent = button.nextElementSibling;
+            const isExpanded = notesContent.classList.contains('expanded');
+
+            if (isExpanded) {
+                notesContent.classList.remove('expanded');
+                button.textContent = '+ Notes';
+            } else {
+                notesContent.classList.add('expanded');
+                button.textContent = '📝 Notes';
+                // Focus the input when expanded
+                const input = notesContent.querySelector('input');
+                if (input) {
+                    setTimeout(() => input.focus(), 100);
+                }
+            }
+        }
+
+        // Event listeners
+        document.getElementById('animalType').addEventListener('change', function () {
+            const animalType = this.value;
+            if (animalType) {
+                loadChromosomes(animalType);
+            } else {
+                document.getElementById('chromosome').disabled = true;
+                document.getElementById('loadGenes').disabled = true;
+                document.getElementById('chromosome').innerHTML = '<option value="">Select chromosome...</option>';
+            }
+        });
+
+        document.getElementById('chromosome').addEventListener('change', function () {
+            const chromosome = this.value;
+            const animalType = document.getElementById('animalType').value;
+
+            if (chromosome && animalType) {
+                document.getElementById('loadGenes').disabled = false;
+            } else {
+                document.getElementById('loadGenes').disabled = true;
+            }
+        });
+
+        document.getElementById('loadGenes').addEventListener('click', function () {
+            const animalType = document.getElementById('animalType').value;
+            const chromosome = document.getElementById('chromosome').value;
+
+            if (animalType && chromosome) {
+                loadGenes(animalType, chromosome);
+            }
+        });
+
+        // Initialize the app
+        document.addEventListener('DOMContentLoaded', function () {
+            loadAnimalTypes();
+            loadEffectOptions();
+        });
+    </script>
+</body>
+
+</html>

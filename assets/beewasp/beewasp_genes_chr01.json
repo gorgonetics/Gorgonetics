@@ -1,282 +1,282 @@
 [
   {
     "gene": "01A1",
-    "effect": "|String for me to fill in|",
-    "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Body Color Hue",
+    "notes": ""
   },
   {
     "gene": "01A2",
-    "effect": "|String for me to fill in|",
-    "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectDominant": "None",
+    "effectRecessive": "Toughness+",
+    "appearance": "Body Color Hue",
+    "notes": ""
   },
   {
     "gene": "01A3",
-    "effect": "|String for me to fill in|",
-    "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Body Color Hue",
+    "notes": ""
   },
   {
     "gene": "01A4",
-    "effect": "|String for me to fill in|",
-    "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Body Color Hue",
+    "notes": ""
   },
   {
     "gene": "01B1",
-    "effect": "|String for me to fill in|",
-    "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectDominant": "Friendliness-",
+    "effectRecessive": "None",
+    "appearance": "Body Color Hue",
+    "notes": ""
   },
   {
     "gene": "01B2",
-    "effect": "|String for me to fill in|",
-    "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectDominant": "Ruggedness-",
+    "effectRecessive": "None",
+    "appearance": "Body Color Hue",
+    "notes": ""
   },
   {
     "gene": "01B3",
-    "effect": "|String for me to fill in|",
-    "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectDominant": "None",
+    "effectRecessive": "Ferocity+",
+    "appearance": "Body Color Hue",
+    "notes": ""
   },
   {
     "gene": "01B4",
-    "effect": "|String for me to fill in|",
-    "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Body Color Hue",
+    "notes": ""
   },
   {
     "gene": "01C1",
-    "effect": "|String for me to fill in|",
-    "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectDominant": "Enthusiasm-",
+    "effectRecessive": "None",
+    "appearance": "Body Color Hue",
+    "notes": ""
   },
   {
     "gene": "01C2",
-    "effect": "|String for me to fill in|",
-    "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectDominant": "Virility-",
+    "effectRecessive": "None",
+    "appearance": "Body Color Hue",
+    "notes": ""
   },
   {
     "gene": "01C3",
-    "effect": "|String for me to fill in|",
-    "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Body Color Hue",
+    "notes": ""
   },
   {
     "gene": "01C4",
-    "effect": "|String for me to fill in|",
-    "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Body Color Hue",
+    "notes": ""
   },
   {
     "gene": "01D1",
-    "effect": "|String for me to fill in|",
-    "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Body Color Hue",
+    "notes": ""
   },
   {
     "gene": "01D2",
-    "effect": "|String for me to fill in|",
-    "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Body Color Hue",
+    "notes": ""
   },
   {
     "gene": "01D3",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "notes": ""
   },
   {
     "gene": "01D4",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "notes": ""
   },
   {
     "gene": "01E1",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "notes": ""
   },
   {
     "gene": "01E2",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "notes": ""
   },
   {
     "gene": "01E3",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "notes": ""
   },
   {
     "gene": "01E4",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "notes": ""
   },
   {
     "gene": "01F1",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "notes": ""
   },
   {
     "gene": "01F2",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "notes": ""
   },
   {
     "gene": "01F3",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "notes": ""
   },
   {
     "gene": "01F4",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "notes": ""
   },
   {
     "gene": "01G1",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "notes": ""
   },
   {
     "gene": "01G2",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "notes": ""
   },
   {
     "gene": "01G3",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "notes": ""
   },
   {
     "gene": "01G4",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "notes": ""
   },
   {
     "gene": "01H1",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "notes": ""
   },
   {
     "gene": "01H2",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "notes": ""
   },
   {
     "gene": "01H3",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "notes": ""
   },
   {
     "gene": "01H4",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "notes": ""
   },
   {
     "gene": "01I1",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "notes": ""
   },
   {
     "gene": "01I2",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "notes": ""
   },
   {
     "gene": "01I3",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "notes": ""
   },
   {
     "gene": "01I4",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "notes": ""
   },
   {
     "gene": "01J1",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "notes": ""
   },
   {
     "gene": "01J2",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "notes": ""
   },
   {
     "gene": "01J3",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "notes": ""
   },
   {
     "gene": "01J4",
-    "effect": "|String for me to fill in|",
+    "effectDominant": "None",
+    "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
-    "trigger": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "notes": ""
   }
 ]

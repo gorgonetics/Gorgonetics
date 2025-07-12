@@ -118,9 +118,9 @@ def generate_chromosome_template(chr_num: str, gene_data: str) -> list[dict[str,
             gene_id = f"{chr_num}{block_letter}{gene_pos}"
             gene_entry = {
                 "gene": gene_id,
-                "effect": "|String for me to fill in|",
+                "effectDominant": "None",
+                "effectRecessive": "None",
                 "appearance": "|String for me to fill in|",
-                "trigger": "|String for me to fill in|",
                 "notes": "|String for me to fill in|",
             }
             genes.append(gene_entry)
@@ -171,22 +171,41 @@ def create_template_files(genome_file: str, output_dir: str) -> None:
     print(f"\\nAll template files created in: {output_path}")
 
 
-def main():
+def main() -> None:
     """Main function to run the generator."""
-    # You can modify these paths as needed
-    genome_file = "data/Genes_Roach.txt"  # Horse genome file
-    output_dir = "assets/horse"
+    # Define animal types with their genome files and output directories
+    animal_types = [
+        {
+            "name": "Bee/Wasp",
+            "genome_file": "data/Genes_BabyFaeBee178.txt",
+            "output_dir": "assets/beewasp",
+        },
+        {
+            "name": "Horse",
+            "genome_file": "data/Genes_Roach.txt",
+            "output_dir": "assets/horse",
+        },
+    ]
 
-    # Check if genome file exists
-    if not os.path.exists(genome_file):
-        print(f"Error: Genome file '{genome_file}' not found!")
-        print("Please update the genome_file path in the script.")
-        return
+    print("🧬 PGBreeder Gene Template Generator")
+    print("=" * 40)
 
-    try:
-        create_template_files(genome_file, output_dir)
-    except Exception as e:
-        print(f"Error generating templates: {e}")
+    for animal in animal_types:
+        print(f"\n📁 Processing {animal['name']} genome...")
+
+        # Check if genome file exists
+        if not os.path.exists(animal["genome_file"]):
+            print(f"❌ Error: Genome file '{animal['genome_file']}' not found!")
+            print("   Skipping this animal type.")
+            continue
+
+        try:
+            create_template_files(animal["genome_file"], animal["output_dir"])
+            print(f"✅ Successfully generated {animal['name']} templates!")
+        except Exception as e:
+            print(f"❌ Error generating {animal['name']} templates: {e}")
+
+    print("\n🎉 Gene template generation complete!")
 
 
 if __name__ == "__main__":
