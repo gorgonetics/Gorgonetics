@@ -165,6 +165,47 @@ async def get_effect_options() -> list[str]:
     return sorted(effects)
 
 
+@app.get("/api/export/{animal_type}")
+async def export_all_chromosomes(animal_type: str) -> dict[str, str | list[str]]:
+    """Export all chromosomes for an animal type to JSON files."""
+    try:
+        exported_files = db.export_all_animal_chromosomes(animal_type, "exports")
+        return {"status": "success", "files": exported_files}
+    except Exception as e:
+        logger.error(f"Error exporting chromosomes for {animal_type}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to export chromosomes") from e
+
+
+@app.get("/api/export/{animal_type}/{chromosome}")
+async def export_chromosome_json(animal_type: str, chromosome: str) -> dict[str, str]:
+    """Export a specific chromosome to JSON format."""
+    try:
+        json_data = db.export_genes_to_json(animal_type, chromosome)
+        return {"status": "success", "data": json_data}
+    except Exception as e:
+        logger.error(f"Error exporting {animal_type}/{chromosome}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to export chromosome") from e
+
+
+@app.get("/api/download/{animal_type}/{chromosome}")
+async def download_chromosome_file(animal_type: str, chromosome: str):
+    """Download a chromosome JSON file."""
+    from fastapi.responses import Response
+
+    try:
+        json_data = db.export_genes_to_json(animal_type, chromosome)
+        filename = f"{animal_type}_genes_chr{chromosome}.json"
+
+        return Response(
+            content=json_data,
+            media_type="application/json",
+            headers={"Content-Disposition": f"attachment; filename={filename}"},
+        )
+    except Exception as e:
+        logger.error(f"Error downloading {animal_type}/{chromosome}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to download file") from e
+
+
 def run_server() -> None:
     """Run the development server."""
     import uvicorn

@@ -123,9 +123,10 @@ class GeneDatabase:
         # Check if gene already exists
         existing = self.conn.execute(
             """
-            SELECT gene FROM genes WHERE animal_type = ? AND gene = ?
-        """,
-            [animal_type, gene_data["gene"]],
+            SELECT gene FROM genes
+            WHERE animal_type = $animal_type AND gene = $gene
+            """,
+            {"animal_type": animal_type, "gene": gene_data["gene"]},
         ).fetchone()
 
         if existing:
@@ -133,19 +134,23 @@ class GeneDatabase:
             self.conn.execute(
                 """
                 UPDATE genes
-                SET chromosome = ?, effect_dominant = ?, effect_recessive = ?,
-                    appearance = ?, notes = ?, updated_at = CURRENT_TIMESTAMP
-                WHERE animal_type = ? AND gene = ?
-            """,
-                [
-                    chromosome,
-                    effect_dominant,
-                    effect_recessive,
-                    gene_data.get("appearance", ""),
-                    gene_data.get("notes", ""),
-                    animal_type,
-                    gene_data["gene"],
-                ],
+                SET chromosome = $chromosome,
+                    effect_dominant = $effect_dominant,
+                    effect_recessive = $effect_recessive,
+                    appearance = $appearance,
+                    notes = $notes,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE animal_type = $animal_type AND gene = $gene
+                """,
+                {
+                    "chromosome": chromosome,
+                    "effect_dominant": effect_dominant,
+                    "effect_recessive": effect_recessive,
+                    "appearance": gene_data.get("appearance", ""),
+                    "notes": gene_data.get("notes", ""),
+                    "animal_type": animal_type,
+                    "gene": gene_data["gene"],
+                },
             )
         else:
             # Insert new record
@@ -154,17 +159,17 @@ class GeneDatabase:
                 INSERT INTO genes (
                     animal_type, chromosome, gene,
                     effect_dominant, effect_recessive, appearance, notes
-                ) VALUES (?, ?, ?, ?, ?, ?, ?)
-            """,
-                [
-                    animal_type,
-                    chromosome,
-                    gene_data["gene"],
-                    effect_dominant,
-                    effect_recessive,
-                    gene_data.get("appearance", ""),
-                    gene_data.get("notes", ""),
-                ],
+                ) VALUES ($animal_type, $chromosome, $gene, $effect_dominant, $effect_recessive, $appearance, $notes)
+                """,
+                {
+                    "animal_type": animal_type,
+                    "chromosome": chromosome,
+                    "gene": gene_data["gene"],
+                    "effect_dominant": effect_dominant,
+                    "effect_recessive": effect_recessive,
+                    "appearance": gene_data.get("appearance", ""),
+                    "notes": gene_data.get("notes", ""),
+                },
             )
 
     def get_animal_types(self) -> list[str]:
@@ -183,7 +188,8 @@ class GeneDatabase:
             List of chromosome numbers
         """
         result = self.conn.execute(
-            "SELECT DISTINCT chromosome FROM genes WHERE animal_type = ? ORDER BY chromosome", [animal_type]
+            "SELECT DISTINCT chromosome FROM genes WHERE animal_type = $animal_type ORDER BY chromosome",
+            {"animal_type": animal_type},
         ).fetchall()
         return [row[0] for row in result]
 
@@ -202,10 +208,10 @@ class GeneDatabase:
             """
             SELECT gene, effect_dominant, effect_recessive, appearance, notes
             FROM genes
-            WHERE animal_type = ? AND chromosome = ?
+            WHERE animal_type = $animal_type AND chromosome = $chromosome
             ORDER BY gene
-        """,
-            [animal_type, chromosome],
+            """,
+            {"animal_type": animal_type, "chromosome": chromosome},
         ).fetchall()
 
         return [
@@ -233,10 +239,10 @@ class GeneDatabase:
             """
             SELECT chromosome, gene, effect_dominant, effect_recessive, appearance, notes
             FROM genes
-            WHERE animal_type = ?
+            WHERE animal_type = $animal_type
             ORDER BY chromosome, gene
-        """,
-            [animal_type],
+            """,
+            {"animal_type": animal_type},
         ).fetchall()
 
         return [
@@ -275,36 +281,35 @@ class GeneDatabase:
             True if update was successful
         """
         try:
-            # Build dynamic update query
+            # Build dynamic update query with named parameters
             updates: list[str] = []
-            params: list[str | None] = []
+            params: dict[str, str] = {"animal_type": animal_type, "gene": gene}
 
             if effect_dominant is not None:
-                updates.append("effect_dominant = ?")
-                params.append(effect_dominant)
+                updates.append("effect_dominant = $effect_dominant")
+                params["effect_dominant"] = effect_dominant
 
             if effect_recessive is not None:
-                updates.append("effect_recessive = ?")
-                params.append(effect_recessive)
+                updates.append("effect_recessive = $effect_recessive")
+                params["effect_recessive"] = effect_recessive
 
             if appearance is not None:
-                updates.append("appearance = ?")
-                params.append(appearance)
+                updates.append("appearance = $appearance")
+                params["appearance"] = appearance
 
             if notes is not None:
-                updates.append("notes = ?")
-                params.append(notes)
+                updates.append("notes = $notes")
+                params["notes"] = notes
 
             if not updates:
                 return False
 
             updates.append("updated_at = CURRENT_TIMESTAMP")
-            params.extend([animal_type, gene])
 
             query = f"""
                 UPDATE genes
                 SET {", ".join(updates)}
-                WHERE animal_type = ? AND gene = ?
+                WHERE animal_type = $animal_type AND gene = $gene
             """
 
             self.conn.execute(query, params)
@@ -329,9 +334,9 @@ class GeneDatabase:
             """
             SELECT chromosome, gene, effect_dominant, effect_recessive, appearance, notes
             FROM genes
-            WHERE animal_type = ? AND gene = ?
-        """,
-            [animal_type, gene],
+            WHERE animal_type = $animal_type AND gene = $gene
+            """,
+            {"animal_type": animal_type, "gene": gene},
         ).fetchone()
 
         if result:
@@ -366,6 +371,84 @@ class GeneDatabase:
 
         except Exception as e:
             logger.error(f"Error migrating Cleverness to Intelligence: {e}")
+
+    def export_genes_to_json(
+        self, animal_type: str, chromosome: str | None = None, output_path: str | None = None
+    ) -> str:
+        """
+        Export genes to JSON format compatible with the original template files.
+
+        Args:
+            animal_type: Type of animal to export
+            chromosome: Specific chromosome to export (if None, exports all)
+            output_path: Path to save the JSON file (if None, returns JSON string)
+
+        Returns:
+            JSON string or path to saved file
+        """
+        if chromosome:
+            # Export specific chromosome
+            genes = self.get_genes_by_chromosome(animal_type, chromosome)
+            filename = f"{animal_type}_genes_chr{chromosome}.json"
+        else:
+            # Export all chromosomes for the animal
+            genes = self.get_genes_for_animal(animal_type)
+            filename = f"{animal_type}_genes_all.json"
+
+        # Convert to the original JSON format
+        json_data = []
+        for gene in genes:
+            gene_data = {
+                "gene": gene["gene"],
+                "effectDominant": gene["effectDominant"],
+                "effectRecessive": gene["effectRecessive"],
+                "appearance": gene["appearance"] or "",
+                "notes": gene["notes"] or "",
+            }
+            json_data.append(gene_data)
+
+        # Convert to JSON string
+        json_string = json.dumps(json_data, indent=2, ensure_ascii=False)
+
+        if output_path:
+            # Save to file
+            output_file = Path(output_path) / filename
+            output_file.parent.mkdir(parents=True, exist_ok=True)
+
+            with open(output_file, "w", encoding="utf-8") as f:
+                f.write(json_string)
+
+            logger.info(f"Exported {len(json_data)} genes to {output_file}")
+            return str(output_file)
+        else:
+            # Return JSON string
+            return json_string
+
+    def export_all_animal_chromosomes(self, animal_type: str, output_dir: str = "exports") -> list[str]:
+        """
+        Export all chromosomes for an animal type to separate JSON files.
+
+        Args:
+            animal_type: Type of animal to export
+            output_dir: Directory to save the JSON files
+
+        Returns:
+            List of paths to exported files
+        """
+        chromosomes = self.get_chromosomes(animal_type)
+        exported_files = []
+
+        output_path = Path(output_dir) / animal_type
+        output_path.mkdir(parents=True, exist_ok=True)
+
+        for chromosome in chromosomes:
+            file_path = self.export_genes_to_json(
+                animal_type=animal_type, chromosome=chromosome, output_path=str(output_path)
+            )
+            exported_files.append(file_path)
+
+        logger.info(f"Exported {len(exported_files)} chromosome files for {animal_type}")
+        return exported_files
 
     def close(self) -> None:
         """Close the database connection."""

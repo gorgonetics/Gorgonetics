@@ -101,6 +101,28 @@ body {
     cursor: not-allowed;
 }
 
+.export-btn {
+    background: #059669;
+    color: white;
+    border: none;
+    padding: 12px 16px;
+    border-radius: 8px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.2s;
+    height: 48px;
+    margin-left: 8px;
+}
+
+.export-btn:hover {
+    background: #047857;
+}
+
+.export-btn:disabled {
+    background: #9ca3af;
+    cursor: not-allowed;
+}
+
 .genes-container {
     padding: 20px;
 }

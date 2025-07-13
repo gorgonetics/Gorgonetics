@@ -23,7 +23,7 @@ def parse_genome_file(file_path: str) -> tuple[str, dict[str, str]]:
         Tuple of (genome_type, chromosome_data_dict)
     """
     genome_type = ""
-    chromosomes = {}
+    chromosomes: dict[str, str] = {}
 
     with open(file_path, encoding="utf-8") as f:
         lines = f.readlines()
@@ -80,7 +80,7 @@ def generate_block_letters(num_blocks: int) -> list[str]:
     Returns:
         List of block letter strings
     """
-    letters = []
+    letters: list[str] = []
 
     # First 26 blocks use single letters A-Z
     for i in range(min(num_blocks, 26)):
@@ -111,7 +111,7 @@ def generate_chromosome_template(chr_num: str, gene_data: str) -> list[dict[str,
     num_blocks = count_blocks_in_chromosome(gene_data)
     block_letters = generate_block_letters(num_blocks)
 
-    genes = []
+    genes: list[dict[str, str]] = []
 
     for block_letter in block_letters:
         for gene_pos in range(1, 5):  # 4 genes per block (1, 2, 3, 4)
