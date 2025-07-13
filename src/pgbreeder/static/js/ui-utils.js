@@ -9,6 +9,12 @@ class UIUtils {
      */
     static showLoading(message) {
         document.getElementById('genesContent').innerHTML = `<div class="loading">${message}</div>`;
+
+        // Hide the effect legend during loading
+        const legend = document.getElementById('effectLegend');
+        if (legend) {
+            legend.style.display = 'none';
+        }
     }
 
     /**
@@ -96,6 +102,20 @@ class UIUtils {
         a.click();
         document.body.removeChild(a);
         window.URL.revokeObjectURL(url);
+    }
+    /**
+     * Clear the gene display and hide legend
+     */
+    static clearGeneDisplay() {
+        document.getElementById('genesContent').innerHTML = `
+            <div class="loading">Select an animal type and chromosome to begin editing genes</div>
+        `;
+
+        // Hide the effect legend
+        const legend = document.getElementById('effectLegend');
+        if (legend) {
+            legend.style.display = 'none';
+        }
     }
 }
 

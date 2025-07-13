@@ -29,6 +29,11 @@ class GeneManager {
 
         if (genes.length === 0) {
             container.innerHTML = '<div class="loading">No genes found for this chromosome</div>';
+            // Hide the legend when no genes are displayed
+            const legend = document.getElementById('effectLegend');
+            if (legend) {
+                legend.style.display = 'none';
+            }
             return;
         }
 
@@ -84,6 +89,12 @@ class GeneManager {
 
         container.innerHTML = '';
         container.appendChild(grid);
+
+        // Show the effect legend when genes are displayed
+        const legend = document.getElementById('effectLegend');
+        if (legend) {
+            legend.style.display = 'block';
+        }
     }
 
     /**
@@ -101,20 +112,26 @@ class GeneManager {
             
             <div class="gene-field horizontal">
                 <label>Dom</label>
-                <select data-field="effectDominant" data-gene="${gene.gene}" data-animal="${animalType}" data-original="${gene.effectDominant || ''}">
-                    ${this.effectOptions.map(effect =>
-            `<option value="${effect}" ${effect === gene.effectDominant ? 'selected' : ''}>${effect}</option>`
+                <div class="custom-select-wrapper" data-field="effectDominant" data-gene="${gene.gene}" data-animal="${animalType}" data-original="${gene.effectDominant || ''}">
+                    <div class="custom-select-selected">${gene.effectDominant || 'None'}</div>
+                    <div class="custom-select-options" style="display:none;">
+                        ${this.effectOptions.map(effect =>
+            `<div class="custom-option" data-value="${effect}" ${effect === gene.effectDominant ? 'selected' : ''}>${effect}</div>`
         ).join('')}
-                </select>
+                    </div>
+                </div>
             </div>
             
             <div class="gene-field horizontal">
                 <label>Rec</label>
-                <select data-field="effectRecessive" data-gene="${gene.gene}" data-animal="${animalType}" data-original="${gene.effectRecessive || ''}">
-                    ${this.effectOptions.map(effect =>
-            `<option value="${effect}" ${effect === gene.effectRecessive ? 'selected' : ''}>${effect}</option>`
+                <div class="custom-select-wrapper" data-field="effectRecessive" data-gene="${gene.gene}" data-animal="${animalType}" data-original="${gene.effectRecessive || ''}">
+                    <div class="custom-select-selected">${gene.effectRecessive || 'None'}</div>
+                    <div class="custom-select-options" style="display:none;">
+                        ${this.effectOptions.map(effect =>
+            `<div class="custom-option" data-value="${effect}" ${effect === gene.effectRecessive ? 'selected' : ''}>${effect}</div>`
         ).join('')}
-                </select>
+                    </div>
+                </div>
             </div>
             
             <div class="gene-field">
@@ -141,7 +158,18 @@ class GeneManager {
         // Add change listeners to all form elements
         const formElements = card.querySelectorAll('[data-field]');
         formElements.forEach(element => {
-            element.addEventListener('change', () => this.checkForChanges(card));
+            if (element.classList.contains('custom-select-wrapper')) {
+                // Setup custom dropdown functionality
+                this.setupCustomDropdown(element);
+            }
+
+            element.addEventListener('change', () => {
+                this.checkForChanges(card);
+                // Update styling when effect values change
+                if (element.dataset.field === 'effectDominant' || element.dataset.field === 'effectRecessive') {
+                    this.updateGeneCardState(card);
+                }
+            });
             element.addEventListener('input', () => this.checkForChanges(card));
         });
 
@@ -152,6 +180,9 @@ class GeneManager {
             notesToggle.textContent = '+ Notes';
             notesContent.classList.remove('expanded');
         }
+
+        // Apply initial effect styling to custom dropdowns
+        this.applyInitialDropdownStyling(card);
 
         return card;
     }
@@ -245,6 +276,295 @@ class GeneManager {
             if (input) {
                 setTimeout(() => input.focus(), 100);
             }
+        }
+    }
+
+    /**
+     * Create a custom styled dropdown for effects
+     */
+    createStyledDropdown(fieldName, currentValue, gene, animalType) {
+        const dropdown = document.createElement('div');
+        dropdown.className = 'custom-select-wrapper';
+        dropdown.dataset.field = fieldName;
+        dropdown.dataset.gene = gene;
+        dropdown.dataset.animal = animalType;
+        dropdown.dataset.original = currentValue || '';
+
+        const selected = document.createElement('div');
+        selected.className = 'custom-select-selected';
+        selected.textContent = currentValue || 'None';
+
+        const optionsContainer = document.createElement('div');
+        optionsContainer.className = 'custom-select-options';
+        optionsContainer.style.display = 'none';
+
+        // Add all effect options
+        this.effectOptions.forEach(effect => {
+            const option = document.createElement('div');
+            option.className = 'custom-option';
+            option.dataset.value = effect;
+            option.textContent = effect;
+
+            // Apply styling classes based on effect
+            this.applyOptionStyling(option, effect);
+
+            if (effect === currentValue) {
+                option.classList.add('selected');
+                this.applyOptionStyling(selected, effect);
+            }
+
+            option.addEventListener('click', () => {
+                // Update selected value
+                selected.textContent = effect;
+                selected.dataset.value = effect;
+
+                // Remove selected class from all options
+                optionsContainer.querySelectorAll('.custom-option').forEach(opt => {
+                    opt.classList.remove('selected');
+                });
+
+                // Add selected class to clicked option
+                option.classList.add('selected');
+
+                // Apply styling to selected display
+                selected.className = 'custom-select-selected';
+                this.applyOptionStyling(selected, effect);
+
+                // Hide options
+                optionsContainer.style.display = 'none';
+                dropdown.classList.remove('open');
+
+                // Trigger change event for gene card update
+                const changeEvent = new Event('change', { bubbles: true });
+                dropdown.dispatchEvent(changeEvent);
+            });
+
+            optionsContainer.appendChild(option);
+        });
+
+        // Toggle dropdown on selected click
+        selected.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isOpen = optionsContainer.style.display === 'block';
+
+            // Close all other dropdowns
+            document.querySelectorAll('.custom-select-options').forEach(opts => {
+                opts.style.display = 'none';
+            });
+            document.querySelectorAll('.custom-select-wrapper').forEach(wrapper => {
+                wrapper.classList.remove('open');
+            });
+
+            if (!isOpen) {
+                optionsContainer.style.display = 'block';
+                dropdown.classList.add('open');
+
+                // Apply styling to all options
+                const options = dropdown.querySelectorAll('.custom-option');
+                options.forEach(option => {
+                    this.applyOptionStyling(option, option.dataset.value);
+                });
+            }
+        });
+
+        dropdown.appendChild(selected);
+        dropdown.appendChild(optionsContainer);
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', () => {
+            optionsContainer.style.display = 'none';
+            dropdown.classList.remove('open');
+        });
+
+        return dropdown;
+    }
+
+    /**
+     * Setup custom dropdown functionality
+     */
+    setupCustomDropdown(dropdown) {
+        const selected = dropdown.querySelector('.custom-select-selected');
+        const optionsContainer = dropdown.querySelector('.custom-select-options');
+        const options = optionsContainer.querySelectorAll('.custom-option');
+
+        // Add value property to dropdown wrapper for compatibility
+        Object.defineProperty(dropdown, 'value', {
+            get: function () {
+                return selected.dataset.value || selected.textContent;
+            },
+            set: function (value) {
+                selected.textContent = value;
+                selected.dataset.value = value;
+            }
+        });
+
+        // Toggle dropdown on selected click
+        selected.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isOpen = optionsContainer.style.display === 'block';
+
+            // Close all other dropdowns
+            document.querySelectorAll('.custom-select-options').forEach(opts => {
+                opts.style.display = 'none';
+            });
+            document.querySelectorAll('.custom-select-wrapper').forEach(wrapper => {
+                wrapper.classList.remove('open');
+            });
+
+            if (!isOpen) {
+                optionsContainer.style.display = 'block';
+                dropdown.classList.add('open');
+
+                // Apply styling to all options
+                options.forEach(option => {
+                    this.applyOptionStyling(option, option.dataset.value);
+                });
+            }
+        });
+
+        // Handle option clicks
+        options.forEach(option => {
+            option.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const value = option.dataset.value;
+
+                // Update selected value
+                selected.textContent = value;
+                selected.dataset.value = value;
+
+                // Remove selected class from all options
+                options.forEach(opt => opt.classList.remove('selected'));
+
+                // Add selected class to clicked option
+                option.classList.add('selected');
+
+                // Apply styling to selected display
+                this.applyOptionStyling(selected, value);
+
+                // Hide options
+                optionsContainer.style.display = 'none';
+                dropdown.classList.remove('open');
+
+                // Trigger change event
+                const changeEvent = new Event('change', { bubbles: true });
+                dropdown.dispatchEvent(changeEvent);
+            });
+        });
+
+        // Close dropdown when clicking outside
+        document.addEventListener('click', () => {
+            optionsContainer.style.display = 'none';
+            dropdown.classList.remove('open');
+        });
+    }
+
+    /**
+     * Apply initial styling to all dropdowns in a card
+     */
+    applyInitialDropdownStyling(card) {
+        const dropdowns = card.querySelectorAll('.custom-select-wrapper');
+        dropdowns.forEach(dropdown => {
+            const selected = dropdown.querySelector('.custom-select-selected');
+            const value = selected.textContent;
+            this.applyOptionStyling(selected, value);
+
+            // Apply styling to all options
+            const options = dropdown.querySelectorAll('.custom-option');
+            options.forEach(option => {
+                this.applyOptionStyling(option, option.dataset.value);
+            });
+        });
+    }
+
+    /**
+     * Apply styling classes to dropdown options
+     */
+    applyOptionStyling(element, value) {
+        // Remove all existing effect classes
+        element.classList.remove(
+            'option-positive', 'option-negative', 'option-none',
+            'option-intelligence', 'option-toughness', 'option-speed',
+            'option-friendliness', 'option-ruggedness', 'option-ferocity',
+            'option-enthusiasm', 'option-virility', 'option-loyalty'
+        );
+
+        if (!value || value === 'None') {
+            element.classList.add('option-none');
+            return;
+        }
+
+        // Add positive/negative class
+        if (value.endsWith('+')) {
+            element.classList.add('option-positive');
+        } else if (value.endsWith('-')) {
+            element.classList.add('option-negative');
+        }
+
+        // Add attribute-specific class
+        const attribute = value.replace(/[+-]$/, '').toLowerCase();
+        if (attribute) {
+            element.classList.add(`option-${attribute}`);
+        }
+    }
+
+    /**
+     * Apply visual styling to effect select elements based on their values
+     */
+    applyEffectStyling(selectElement) {
+        const value = selectElement.value;
+
+        // Remove all existing effect classes
+        selectElement.classList.remove(
+            'effect-positive', 'effect-negative', 'effect-none',
+            'effect-intelligence', 'effect-toughness', 'effect-speed',
+            'effect-friendliness', 'effect-ruggedness', 'effect-ferocity',
+            'effect-enthusiasm', 'effect-virility', 'effect-loyalty'
+        );
+
+        if (!value || value === 'None') {
+            selectElement.classList.add('effect-none');
+            return;
+        }
+
+        // Add positive/negative class
+        if (value.endsWith('+')) {
+            selectElement.classList.add('effect-positive');
+        } else if (value.endsWith('-')) {
+            selectElement.classList.add('effect-negative');
+        }
+
+        // Add attribute-specific class
+        const attribute = value.replace(/[+-]$/, '').toLowerCase();
+        if (attribute) {
+            selectElement.classList.add(`effect-${attribute}`);
+        }
+    }
+
+    /**
+     * Update gene card visual state based on effects
+     */
+    updateGeneCardState(card) {
+        const dominantDropdown = card.querySelector('[data-field="effectDominant"]');
+        const recessiveDropdown = card.querySelector('[data-field="effectRecessive"]');
+
+        // Apply styling to custom dropdowns
+        if (dominantDropdown) {
+            const dominantSelected = dominantDropdown.querySelector('.custom-select-selected');
+            this.applyOptionStyling(dominantSelected, dominantSelected.textContent);
+        }
+        if (recessiveDropdown) {
+            const recessiveSelected = recessiveDropdown.querySelector('.custom-select-selected');
+            this.applyOptionStyling(recessiveSelected, recessiveSelected.textContent);
+        }
+
+        // Add has-effects class if any effects are present
+        const hasEffects = (dominantDropdown && dominantDropdown.value && dominantDropdown.value !== 'None') ||
+            (recessiveDropdown && recessiveDropdown.value && recessiveDropdown.value !== 'None');
+
+        if (hasEffects) {
+            card.classList.add('has-effects');
+        } else {
+            card.classList.remove('has-effects');
         }
     }
 }

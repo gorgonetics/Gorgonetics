@@ -84,6 +84,8 @@ class AppController {
                 UIUtils.updateButtonStates(null, null);
                 UIUtils.populateSelect('chromosome', [], null, null, 'Select chromosome...');
             }
+            // Clear gene display when animal type changes
+            UIUtils.clearGeneDisplay();
         });
 
         // Chromosome selection
@@ -91,6 +93,8 @@ class AppController {
             const chromosome = e.target.value;
             const animalType = document.getElementById('animalType').value;
             UIUtils.updateButtonStates(animalType, chromosome);
+            // Clear gene display when chromosome changes (user needs to click Load Genes)
+            UIUtils.clearGeneDisplay();
         });
 
         // Load genes button

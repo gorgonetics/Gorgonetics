@@ -220,61 +220,269 @@ body {
     background: #fef3c7;
 }
 
-.gene-number {
-    font-size: 0.8em;
-    font-weight: 600;
-    color: #6b7280;
-    text-align: center;
-    margin-bottom: 6px;
-    padding: 2px 4px;
+/* Gene Effect Visual Feedback Styles */
+
+/* Base effect styling */
+.effect-select {
+    position: relative;
+    font-weight: 500;
+}
+
+/* Positive effect indicator (ends with +) */
+.effect-positive {
+    background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+    border-color: #16a34a !important;
+    color: #15803d;
+}
+
+.effect-positive:focus {
+    box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2);
+}
+
+/* Negative effect indicator (ends with -) */
+.effect-negative {
+    background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);
+    border-color: #dc2626 !important;
+    color: #dc2626;
+}
+
+.effect-negative:focus {
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
+}
+
+/* Attribute-specific color coding */
+.effect-intelligence {
+    border-left: 4px solid #8b5cf6 !important;
+    box-shadow: inset 0 0 0 1px rgba(139, 92, 246, 0.2);
+}
+
+.effect-toughness {
+    border-left: 4px solid #f97316 !important;
+    box-shadow: inset 0 0 0 1px rgba(249, 115, 22, 0.2);
+}
+
+.effect-speed {
+    border-left: 4px solid #06b6d4 !important;
+    box-shadow: inset 0 0 0 1px rgba(6, 182, 212, 0.2);
+}
+
+.effect-friendliness {
+    border-left: 4px solid #ec4899 !important;
+    box-shadow: inset 0 0 0 1px rgba(236, 72, 153, 0.2);
+}
+
+.effect-ruggedness {
+    border-left: 4px solid #84cc16 !important;
+    box-shadow: inset 0 0 0 1px rgba(132, 204, 22, 0.2);
+}
+
+.effect-ferocity {
+    border-left: 4px solid #ef4444 !important;
+    box-shadow: inset 0 0 0 1px rgba(239, 68, 68, 0.2);
+}
+
+.effect-enthusiasm {
+    border-left: 4px solid #f59e0b !important;
+    box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.2);
+}
+
+.effect-virility {
+    border-left: 4px solid #10b981 !important;
+    box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.2);
+}
+
+.effect-loyalty {
+    border-left: 4px solid #3b82f6 !important;
+    box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.2);
+}
+
+.effect-none {
+    border-left: 4px solid #6b7280 !important;
+    box-shadow: inset 0 0 0 1px rgba(107, 114, 128, 0.2);
     background: #f9fafb;
-    border-radius: 3px;
-    border: 1px solid #e5e7eb;
+    color: #6b7280;
 }
 
-.gene-field {
-    margin-bottom: 6px;
+/* Combination effects for elements with both positive/negative and attribute classes */
+.effect-positive.effect-intelligence {
+    background: linear-gradient(135deg, #f3e8ff 0%, #ddd6fe 100%);
 }
 
-.gene-field.horizontal {
+.effect-negative.effect-intelligence {
+    background: linear-gradient(135deg, #fdf4ff 0%, #f3e8ff 100%);
+}
+
+.effect-positive.effect-toughness {
+    background: linear-gradient(135deg, #fff7ed 0%, #fed7aa 100%);
+}
+
+.effect-negative.effect-toughness {
+    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+}
+
+.effect-positive.effect-speed {
+    background: linear-gradient(135deg, #ecfeff 0%, #a5f3fc 100%);
+}
+
+.effect-negative.effect-speed {
+    background: linear-gradient(135deg, #f0fdfa 0%, #ccfbf1 100%);
+}
+
+.effect-positive.effect-friendliness {
+    background: linear-gradient(135deg, #fdf2f8 0%, #fce7f3 100%);
+}
+
+.effect-negative.effect-friendliness {
+    background: linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%);
+}
+
+.effect-positive.effect-ruggedness {
+    background: linear-gradient(135deg, #f7fee7 0%, #d9f99d 100%);
+}
+
+.effect-negative.effect-ruggedness {
+    background: linear-gradient(135deg, #fefce8 0%, #fef08a 100%);
+}
+
+.effect-positive.effect-ferocity {
+    background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);
+}
+
+.effect-negative.effect-ferocity {
+    background: linear-gradient(135deg, #fffbeb 0%, #fed7aa 100%);
+}
+
+.effect-positive.effect-enthusiasm {
+    background: linear-gradient(135deg, #fffbeb 0%, #fde68a 100%);
+}
+
+.effect-negative.effect-enthusiasm {
+    background: linear-gradient(135deg, #fefce8 0%, #fef08a 100%);
+}
+
+.effect-positive.effect-virility {
+    background: linear-gradient(135deg, #ecfdf5 0%, #a7f3d0 100%);
+}
+
+.effect-negative.effect-virility {
+    background: linear-gradient(135deg, #f0fdf4 0%, #bbf7d0 100%);
+}
+
+.effect-positive.effect-loyalty {
+    background: linear-gradient(135deg, #eff6ff 0%, #bfdbfe 100%);
+}
+
+.effect-negative.effect-loyalty {
+    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+}
+
+/* Enhanced gene card styling when effects are present */
+.gene-card.has-effects {
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.gene-card.has-effects:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Effect preview badges */
+.effect-preview {
+    display: inline-block;
+    padding: 2px 6px;
+    margin: 1px;
+    border-radius: 12px;
+    font-size: 9px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.effect-preview.positive {
+    background: #16a34a;
+    color: white;
+}
+
+.effect-preview.negative {
+    background: #dc2626;
+    color: white;
+}
+
+.effect-preview.neutral {
+    background: #6b7280;
+    color: white;
+}
+
+/* Legend/Color Guide */
+.effect-legend {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 15px;
+    margin: 20px 0;
+    font-size: 12px;
+}
+
+.effect-legend h4 {
+    margin-bottom: 10px;
+    color: #374151;
+    font-size: 14px;
+}
+
+.legend-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 8px;
+}
+
+.legend-item {
     display: flex;
     align-items: center;
     gap: 6px;
 }
 
-.gene-field.horizontal label {
-    margin-bottom: 0;
-    min-width: 28px;
-    flex-shrink: 0;
-}
-
-.gene-field.horizontal select {
-    flex: 1;
-}
-
-.gene-field label {
-    display: block;
-    margin-bottom: 3px;
-    font-weight: 500;
-    color: #374151;
-    font-size: 0.75em;
-}
-
-.gene-field select,
-.gene-field input {
-    width: 100%;
-    padding: 4px 6px;
-    border: 1px solid #d1d5db;
+.legend-color {
+    width: 16px;
+    height: 16px;
     border-radius: 3px;
-    font-size: 11px;
-    background: white;
+    border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
-.gene-field select:focus,
-.gene-field input:focus {
-    outline: none;
-    border-color: #4f46e5;
-    box-shadow: 0 0 0 1px rgba(79, 70, 229, 0.1);
+.legend-intelligence {
+    background: #8b5cf6;
+}
+
+.legend-toughness {
+    background: #f97316;
+}
+
+.legend-speed {
+    background: #06b6d4;
+}
+
+.legend-friendliness {
+    background: #ec4899;
+}
+
+.legend-ruggedness {
+    background: #84cc16;
+}
+
+.legend-ferocity {
+    background: #ef4444;
+}
+
+.legend-enthusiasm {
+    background: #f59e0b;
+}
+
+.legend-virility {
+    background: #10b981;
+}
+
+.legend-loyalty {
+    background: #3b82f6;
 }
 
 .notes-section {
@@ -354,6 +562,513 @@ body {
     padding: 15px;
     border-radius: 8px;
     margin: 20px;
+}
+
+/* Dropdown Option Styling */
+
+/* Style individual options in select dropdowns */
+.gene-field select option {
+    padding: 6px 8px;
+    font-weight: 500;
+    border-radius: 3px;
+    margin: 1px 0;
+}
+
+/* Positive effect options */
+.gene-field select option[value$="+"] {
+    background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+    color: #15803d;
+    font-weight: 600;
+}
+
+/* Negative effect options */
+.gene-field select option[value$="-"] {
+    background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);
+    color: #dc2626;
+    font-weight: 600;
+}
+
+/* None/empty option */
+.gene-field select option[value="None"],
+.gene-field select option[value=""] {
+    background: #f9fafb;
+    color: #6b7280;
+    font-style: italic;
+}
+
+/* Attribute-specific option styling */
+.gene-field select option[value*="Intelligence"] {
+    border-left: 4px solid #8b5cf6;
+    background-color: #f3e8ff;
+}
+
+.gene-field select option[value*="Toughness"] {
+    border-left: 4px solid #f97316;
+    background-color: #fff7ed;
+}
+
+.gene-field select option[value*="Speed"] {
+    border-left: 4px solid #06b6d4;
+    background-color: #ecfeff;
+}
+
+.gene-field select option[value*="Friendliness"] {
+    border-left: 4px solid #ec4899;
+    background-color: #fdf2f8;
+}
+
+.gene-field select option[value*="Ruggedness"] {
+    border-left: 4px solid #84cc16;
+    background-color: #f7fee7;
+}
+
+.gene-field select option[value*="Ferocity"] {
+    border-left: 4px solid #ef4444;
+    background-color: #fef2f2;
+}
+
+.gene-field select option[value*="Enthusiasm"] {
+    border-left: 4px solid #f59e0b;
+    background-color: #fffbeb;
+}
+
+.gene-field select option[value*="Virility"] {
+    border-left: 4px solid #10b981;
+    background-color: #ecfdf5;
+}
+
+.gene-field select option[value*="Loyalty"] {
+    border-left: 4px solid #3b82f6;
+    background-color: #eff6ff;
+}
+
+/* Combined positive attribute styling */
+.gene-field select option[value="Intelligence+"] {
+    background: linear-gradient(135deg, #f3e8ff 0%, #ddd6fe 100%);
+    border-left: 4px solid #8b5cf6;
+    color: #6b21a8;
+}
+
+.gene-field select option[value="Toughness+"] {
+    background: linear-gradient(135deg, #fff7ed 0%, #fed7aa 100%);
+    border-left: 4px solid #f97316;
+    color: #c2410c;
+}
+
+.gene-field select option[value="Speed+"] {
+    background: linear-gradient(135deg, #ecfeff 0%, #a5f3fc 100%);
+    border-left: 4px solid #06b6d4;
+    color: #0e7490;
+}
+
+.gene-field select option[value="Friendliness+"] {
+    background: linear-gradient(135deg, #fdf2f8 0%, #fce7f3 100%);
+    border-left: 4px solid #ec4899;
+    color: #be185d;
+}
+
+.gene-field select option[value="Ruggedness+"] {
+    background: linear-gradient(135deg, #f7fee7 0%, #d9f99d 100%);
+    border-left: 4px solid #84cc16;
+    color: #4d7c0f;
+}
+
+.gene-field select option[value="Ferocity+"] {
+    background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);
+    border-left: 4px solid #ef4444;
+    color: #dc2626;
+}
+
+.gene-field select option[value="Enthusiasm+"] {
+    background: linear-gradient(135deg, #fffbeb 0%, #fde68a 100%);
+    border-left: 4px solid #f59e0b;
+    color: #d97706;
+}
+
+.gene-field select option[value="Virility+"] {
+    background: linear-gradient(135deg, #ecfdf5 0%, #a7f3d0 100%);
+    border-left: 4px solid #10b981;
+    color: #047857;
+}
+
+.gene-field select option[value="Loyalty+"] {
+    background: linear-gradient(135deg, #eff6ff 0%, #bfdbfe 100%);
+    border-left: 4px solid #3b82f6;
+    color: #1d4ed8;
+}
+
+/* Combined negative attribute styling */
+.gene-field select option[value="Intelligence-"] {
+    background: linear-gradient(135deg, #fdf4ff 0%, #f3e8ff 100%);
+    border-left: 4px solid #8b5cf6;
+    color: #a855f7;
+}
+
+.gene-field select option[value="Toughness-"] {
+    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+    border-left: 4px solid #f97316;
+    color: #ea580c;
+}
+
+.gene-field select option[value="Speed-"] {
+    background: linear-gradient(135deg, #f0fdfa 0%, #ccfbf1 100%);
+    border-left: 4px solid #06b6d4;
+    color: #0891b2;
+}
+
+.gene-field select option[value="Friendliness-"] {
+    background: linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%);
+    border-left: 4px solid #ec4899;
+    color: #e11d48;
+}
+
+.gene-field select option[value="Ruggedness-"] {
+    background: linear-gradient(135deg, #fefce8 0%, #fef08a 100%);
+    border-left: 4px solid #84cc16;
+    color: #65a30d;
+}
+
+.gene-field select option[value="Ferocity-"] {
+    background: linear-gradient(135deg, #fffbeb 0%, #fed7aa 100%);
+    border-left: 4px solid #ef4444;
+    color: #f97316;
+}
+
+.gene-field select option[value="Enthusiasm-"] {
+    background: linear-gradient(135deg, #fefce8 0%, #fef08a 100%);
+    border-left: 4px solid #f59e0b;
+    color: #ca8a04;
+}
+
+.gene-field select option[value="Virility-"] {
+    background: linear-gradient(135deg, #f0fdf4 0%, #bbf7d0 100%);
+    border-left: 4px solid #10b981;
+    color: #059669;
+}
+
+.gene-field select option[value="Loyalty-"] {
+    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+    border-left: 4px solid #3b82f6;
+    color: #2563eb;
+}
+
+/* Hover effects for options */
+.gene-field select option:hover {
+    filter: brightness(1.05);
+    transform: scale(1.02);
+    transition: all 0.2s ease;
+}
+
+/* Selected option styling */
+.gene-field select option:checked {
+    font-weight: 700;
+    box-shadow: inset 0 0 0 2px rgba(79, 70, 229, 0.5);
+}
+
+/* Enhanced select dropdown appearance */
+.gene-field select {
+    appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    background-size: 16px;
+    padding-right: 32px;
+    cursor: pointer;
+}
+
+.gene-field select:focus {
+    box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.2);
+    border-color: #4f46e5;
+}
+
+/* Custom scrollbar for long dropdown lists */
+.gene-field select {
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+/* Webkit browsers scrollbar styling */
+.gene-field select::-webkit-scrollbar {
+    width: 8px;
+}
+
+.gene-field select::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.gene-field select::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+}
+
+.gene-field select::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* Custom Dropdown Styling */
+
+.custom-select-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+.custom-select-selected {
+    padding: 4px 24px 4px 6px;
+    border: 1px solid #d1d5db;
+    border-radius: 3px;
+    background: white;
+    cursor: pointer;
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+    min-height: 21px;
+    transition: all 0.2s ease;
+    position: relative;
+}
+
+.custom-select-selected::after {
+    content: '▼';
+    position: absolute;
+    right: 6px;
+    font-size: 10px;
+    color: #6b7280;
+    transition: transform 0.2s ease;
+}
+
+.custom-select-wrapper.open .custom-select-selected::after {
+    transform: rotate(180deg);
+}
+
+.custom-select-selected:hover {
+    border-color: #4f46e5;
+}
+
+.custom-select-wrapper.open .custom-select-selected {
+    border-color: #4f46e5;
+    box-shadow: 0 0 0 1px rgba(79, 70, 229, 0.1);
+}
+
+.custom-select-options {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 1px solid #d1d5db;
+    border-top: none;
+    border-radius: 0 0 6px 6px;
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 1000;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.custom-option {
+    padding: 6px 8px;
+    cursor: pointer;
+    font-size: 11px;
+    transition: all 0.2s ease;
+    border-left: 4px solid transparent;
+    font-weight: 500;
+}
+
+.custom-option:hover {
+    background: #f3f4f6;
+    transform: translateX(2px);
+}
+
+.custom-option.selected {
+    font-weight: 600;
+    background: #e5e7eb;
+}
+
+/* Positive option styling */
+.option-positive {
+    background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+    color: #15803d;
+    border-left-color: #16a34a;
+}
+
+.option-positive:hover {
+    background: linear-gradient(135deg, #bbf7d0 0%, #86efac 100%);
+}
+
+/* Negative option styling */
+.option-negative {
+    background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);
+    color: #dc2626;
+    border-left-color: #dc2626;
+}
+
+.option-negative:hover {
+    background: linear-gradient(135deg, #fecaca 0%, #fca5a5 100%);
+}
+
+/* None option styling */
+.option-none {
+    background: #f9fafb;
+    color: #6b7280;
+    font-style: italic;
+    border-left-color: #6b7280;
+}
+
+.option-none:hover {
+    background: #f3f4f6;
+}
+
+/* Attribute-specific option colors */
+.option-intelligence {
+    border-left-color: #8b5cf6;
+}
+
+.option-intelligence.option-positive {
+    background: linear-gradient(135deg, #f3e8ff 0%, #ddd6fe 100%);
+    color: #6b21a8;
+}
+
+.option-intelligence.option-negative {
+    background: linear-gradient(135deg, #fdf4ff 0%, #f3e8ff 100%);
+    color: #a855f7;
+}
+
+.option-toughness {
+    border-left-color: #f97316;
+}
+
+.option-toughness.option-positive {
+    background: linear-gradient(135deg, #fff7ed 0%, #fed7aa 100%);
+    color: #c2410c;
+}
+
+.option-toughness.option-negative {
+    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+    color: #ea580c;
+}
+
+.option-speed {
+    border-left-color: #06b6d4;
+}
+
+.option-speed.option-positive {
+    background: linear-gradient(135deg, #ecfeff 0%, #a5f3fc 100%);
+    color: #0e7490;
+}
+
+.option-speed.option-negative {
+    background: linear-gradient(135deg, #f0fdfa 0%, #ccfbf1 100%);
+    color: #0891b2;
+}
+
+.option-friendliness {
+    border-left-color: #ec4899;
+}
+
+.option-friendliness.option-positive {
+    background: linear-gradient(135deg, #fdf2f8 0%, #fce7f3 100%);
+    color: #be185d;
+}
+
+.option-friendliness.option-negative {
+    background: linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%);
+    color: #e11d48;
+}
+
+.option-ruggedness {
+    border-left-color: #84cc16;
+}
+
+.option-ruggedness.option-positive {
+    background: linear-gradient(135deg, #f7fee7 0%, #d9f99d 100%);
+    color: #4d7c0f;
+}
+
+.option-ruggedness.option-negative {
+    background: linear-gradient(135deg, #fefce8 0%, #fef08a 100%);
+    color: #65a30d;
+}
+
+.option-ferocity {
+    border-left-color: #ef4444;
+}
+
+.option-ferocity.option-positive {
+    background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);
+    color: #dc2626;
+}
+
+.option-ferocity.option-negative {
+    background: linear-gradient(135deg, #fffbeb 0%, #fed7aa 100%);
+    color: #f97316;
+}
+
+.option-enthusiasm {
+    border-left-color: #f59e0b;
+}
+
+.option-enthusiasm.option-positive {
+    background: linear-gradient(135deg, #fffbeb 0%, #fde68a 100%);
+    color: #d97706;
+}
+
+.option-enthusiasm.option-negative {
+    background: linear-gradient(135deg, #fefce8 0%, #fef08a 100%);
+    color: #ca8a04;
+}
+
+.option-virility {
+    border-left-color: #10b981;
+}
+
+.option-virility.option-positive {
+    background: linear-gradient(135deg, #ecfdf5 0%, #a7f3d0 100%);
+    color: #047857;
+}
+
+.option-virility.option-negative {
+    background: linear-gradient(135deg, #f0fdf4 0%, #bbf7d0 100%);
+    color: #059669;
+}
+
+.option-loyalty {
+    border-left-color: #3b82f6;
+}
+
+.option-loyalty.option-positive {
+    background: linear-gradient(135deg, #eff6ff 0%, #bfdbfe 100%);
+    color: #1d4ed8;
+}
+
+.option-loyalty.option-negative {
+    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+    color: #2563eb;
+}
+
+/* Effect indicator badge styles for legend */
+.legend-badge {
+    background: #16a34a;
+    color: white;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 11px;
+    margin-right: 10px;
+    display: inline-block;
+}
+
+.legend-badge.positive {
+    background: #16a34a;
+}
+
+.legend-badge.negative {
+    background: #dc2626;
+}
+
+.legend-badge.neutral {
+    background: #6b7280;
+}
+
+.legend-badges {
+    margin-bottom: 10px;
 }
 
 /* Responsive Design */
