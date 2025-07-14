@@ -107,17 +107,25 @@ class GeneManager {
         // Extract just the number from the gene name (e.g., "01A1" -> "1")
         const geneNumber = gene.gene.slice(-1);
 
+        // Get emojis for current effects
+        const dominantEmoji = this.getAttributeEmoji(gene.effectDominant);
+        const recessiveEmoji = this.getAttributeEmoji(gene.effectRecessive);
+        const dominantDisplay = gene.effectDominant && dominantEmoji ? `${dominantEmoji} ${gene.effectDominant}` : (gene.effectDominant || 'None');
+        const recessiveDisplay = gene.effectRecessive && recessiveEmoji ? `${recessiveEmoji} ${gene.effectRecessive}` : (gene.effectRecessive || 'None');
+
         card.innerHTML = `
             <div class="gene-number">${geneNumber}</div>
             
             <div class="gene-field horizontal">
                 <label>Dom</label>
                 <div class="custom-select-wrapper" data-field="effectDominant" data-gene="${gene.gene}" data-animal="${animalType}" data-original="${gene.effectDominant || ''}">
-                    <div class="custom-select-selected">${gene.effectDominant || 'None'}</div>
+                    <div class="custom-select-selected">${dominantDisplay}</div>
                     <div class="custom-select-options" style="display:none;">
-                        ${this.effectOptions.map(effect =>
-            `<div class="custom-option" data-value="${effect}" ${effect === gene.effectDominant ? 'selected' : ''}>${effect}</div>`
-        ).join('')}
+                        ${this.getFilteredEffectOptions('dominant').map(effect => {
+            const emoji = this.getAttributeEmoji(effect);
+            const displayText = effect !== 'None' && emoji ? `${emoji} ${effect}` : effect;
+            return `<div class="custom-option" data-value="${effect}" ${effect === gene.effectDominant ? 'selected' : ''}>${displayText}</div>`;
+        }).join('')}
                     </div>
                 </div>
             </div>
@@ -125,11 +133,13 @@ class GeneManager {
             <div class="gene-field horizontal">
                 <label>Rec</label>
                 <div class="custom-select-wrapper" data-field="effectRecessive" data-gene="${gene.gene}" data-animal="${animalType}" data-original="${gene.effectRecessive || ''}">
-                    <div class="custom-select-selected">${gene.effectRecessive || 'None'}</div>
+                    <div class="custom-select-selected">${recessiveDisplay}</div>
                     <div class="custom-select-options" style="display:none;">
-                        ${this.effectOptions.map(effect =>
-            `<div class="custom-option" data-value="${effect}" ${effect === gene.effectRecessive ? 'selected' : ''}>${effect}</div>`
-        ).join('')}
+                        ${this.getFilteredEffectOptions('recessive').map(effect => {
+            const emoji = this.getAttributeEmoji(effect);
+            const displayText = effect !== 'None' && emoji ? `${emoji} ${effect}` : effect;
+            return `<div class="custom-option" data-value="${effect}" ${effect === gene.effectRecessive ? 'selected' : ''}>${displayText}</div>`;
+        }).join('')}
                     </div>
                 </div>
             </div>
@@ -292,30 +302,44 @@ class GeneManager {
 
         const selected = document.createElement('div');
         selected.className = 'custom-select-selected';
-        selected.textContent = currentValue || 'None';
+        const initialEmoji = this.getAttributeEmoji(currentValue);
+        selected.textContent = currentValue && currentValue !== 'None' && initialEmoji
+            ? `${initialEmoji} ${currentValue}`
+            : (currentValue || 'None');
 
         const optionsContainer = document.createElement('div');
         optionsContainer.className = 'custom-select-options';
         optionsContainer.style.display = 'none';
 
-        // Add all effect options
-        this.effectOptions.forEach(effect => {
+        // Get filtered options based on field type
+        const filterType = fieldName === 'effectDominant' ? 'dominant' : 'recessive';
+        const filteredOptions = this.getFilteredEffectOptions(filterType);
+
+        // Add filtered effect options
+        filteredOptions.forEach(effect => {
             const option = document.createElement('div');
             option.className = 'custom-option';
             option.dataset.value = effect;
-            option.textContent = effect;
+
+            // Add emoji to effect text
+            const emoji = this.getAttributeEmoji(effect);
+            option.textContent = emoji ? `${emoji} ${effect}` : effect;
 
             // Apply styling classes based on effect
             this.applyOptionStyling(option, effect);
 
             if (effect === currentValue) {
                 option.classList.add('selected');
-                this.applyOptionStyling(selected, effect);
+                this.applyOptionStyling(selected, effect); // Use original effect value, not display text
+                // Update selected display with emoji
+                const selectedEmoji = this.getAttributeEmoji(currentValue);
+                selected.textContent = selectedEmoji ? `${selectedEmoji} ${currentValue}` : currentValue;
             }
 
             option.addEventListener('click', () => {
-                // Update selected value
-                selected.textContent = effect;
+                // Update selected value with emoji
+                const clickedEmoji = this.getAttributeEmoji(effect);
+                selected.textContent = clickedEmoji ? `${clickedEmoji} ${effect}` : effect;
                 selected.dataset.value = effect;
 
                 // Remove selected class from all options
@@ -326,9 +350,9 @@ class GeneManager {
                 // Add selected class to clicked option
                 option.classList.add('selected');
 
-                // Apply styling to selected display
+                // Apply styling to selected display using original effect value
                 selected.className = 'custom-select-selected';
-                this.applyOptionStyling(selected, effect);
+                this.applyOptionStyling(selected, effect); // Use original effect value
 
                 // Hide options
                 optionsContainer.style.display = 'none';
@@ -390,10 +414,11 @@ class GeneManager {
         // Add value property to dropdown wrapper for compatibility
         Object.defineProperty(dropdown, 'value', {
             get: function () {
-                return selected.dataset.value || selected.textContent;
+                return selected.dataset.value || selected.textContent.replace(/^[^\s]+ /, ''); // Remove emoji from textContent
             },
             set: function (value) {
-                selected.textContent = value;
+                const emoji = this.getAttributeEmoji ? this.getAttributeEmoji(value) : '';
+                selected.textContent = emoji && value !== 'None' ? `${emoji} ${value}` : value;
                 selected.dataset.value = value;
             }
         });
@@ -465,7 +490,7 @@ class GeneManager {
         const dropdowns = card.querySelectorAll('.custom-select-wrapper');
         dropdowns.forEach(dropdown => {
             const selected = dropdown.querySelector('.custom-select-selected');
-            const value = selected.textContent;
+            const value = selected.dataset.value || selected.textContent.replace(/^[^\s]+ /, '') || selected.textContent;
             this.applyOptionStyling(selected, value);
 
             // Apply styling to all options
@@ -493,16 +518,28 @@ class GeneManager {
             return;
         }
 
+        // Extract just the attribute name and +/- from the original value (not display text)
+        let effectValue = value;
+
+        // If this is display text with emoji, extract the actual effect value
+        if (typeof value === 'string' && value.includes(' ')) {
+            // Extract effect from "🧠 Intelligence+" format
+            const parts = value.split(' ');
+            if (parts.length >= 2) {
+                effectValue = parts[parts.length - 1]; // Get the last part (e.g., "Intelligence+")
+            }
+        }
+
         // Add positive/negative class
-        if (value.endsWith('+')) {
+        if (effectValue.endsWith('+')) {
             element.classList.add('option-positive');
-        } else if (value.endsWith('-')) {
+        } else if (effectValue.endsWith('-')) {
             element.classList.add('option-negative');
         }
 
         // Add attribute-specific class
-        const attribute = value.replace(/[+-]$/, '').toLowerCase();
-        if (attribute) {
+        const attribute = effectValue.replace(/[+-]$/, '').toLowerCase();
+        if (attribute && attribute !== 'none') {
             element.classList.add(`option-${attribute}`);
         }
     }
@@ -550,11 +587,13 @@ class GeneManager {
         // Apply styling to custom dropdowns
         if (dominantDropdown) {
             const dominantSelected = dominantDropdown.querySelector('.custom-select-selected');
-            this.applyOptionStyling(dominantSelected, dominantSelected.textContent);
+            const dominantValue = dominantSelected.dataset.value || dominantSelected.textContent.replace(/^[^\s]+ /, '') || dominantSelected.textContent;
+            this.applyOptionStyling(dominantSelected, dominantValue);
         }
         if (recessiveDropdown) {
             const recessiveSelected = recessiveDropdown.querySelector('.custom-select-selected');
-            this.applyOptionStyling(recessiveSelected, recessiveSelected.textContent);
+            const recessiveValue = recessiveSelected.dataset.value || recessiveSelected.textContent.replace(/^[^\s]+ /, '') || recessiveSelected.textContent;
+            this.applyOptionStyling(recessiveSelected, recessiveValue);
         }
 
         // Add has-effects class if any effects are present
@@ -566,6 +605,59 @@ class GeneManager {
         } else {
             card.classList.remove('has-effects');
         }
+    }
+
+    /**
+     * Get filtered effect options based on type (dominant or recessive)
+     * Dominant effects are always negative (ending with -)
+     * Recessive effects are always positive (ending with +)
+     */
+    getFilteredEffectOptions(type) {
+        let filteredOptions;
+
+        if (type === 'dominant') {
+            // Show only negative effects (ending with -) and None
+            filteredOptions = this.effectOptions.filter(effect =>
+                effect === 'None' || effect.endsWith('-')
+            );
+        } else if (type === 'recessive') {
+            // Show only positive effects (ending with +) and None
+            filteredOptions = this.effectOptions.filter(effect =>
+                effect === 'None' || effect.endsWith('+')
+            );
+        } else {
+            // Fallback to all options if type not recognized
+            filteredOptions = this.effectOptions;
+        }
+
+        // Sort with "None" first, then alphabetically
+        return filteredOptions.sort((a, b) => {
+            if (a === 'None') return -1;
+            if (b === 'None') return 1;
+            return a.localeCompare(b);
+        });
+    }
+
+    /**
+     * Get emoji for each attribute type
+     */
+    getAttributeEmoji(effect) {
+        if (!effect || effect === 'None') return '';
+
+        const attribute = effect.replace(/[+-]$/, ''); // Remove +/- suffix
+        const emojiMap = {
+            'Intelligence': '🧠',
+            'Toughness': '💪',
+            'Speed': '⚡',
+            'Friendliness': '😊',
+            'Ruggedness': '🏔️',
+            'Ferocity': '🔥',
+            'Enthusiasm': '✨',
+            'Virility': '💜',
+            'Loyalty': '💎'
+        };
+
+        return emojiMap[attribute] || '';
     }
 }
 

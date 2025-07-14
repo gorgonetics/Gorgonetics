@@ -250,50 +250,18 @@ body {
     box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
 }
 
-/* Attribute-specific color coding */
-.effect-intelligence {
-    border-left: 4px solid #8b5cf6 !important;
-    box-shadow: inset 0 0 0 1px rgba(139, 92, 246, 0.2);
-}
-
-.effect-toughness {
-    border-left: 4px solid #f97316 !important;
-    box-shadow: inset 0 0 0 1px rgba(249, 115, 22, 0.2);
-}
-
-.effect-speed {
-    border-left: 4px solid #06b6d4 !important;
-    box-shadow: inset 0 0 0 1px rgba(6, 182, 212, 0.2);
-}
-
-.effect-friendliness {
-    border-left: 4px solid #ec4899 !important;
-    box-shadow: inset 0 0 0 1px rgba(236, 72, 153, 0.2);
-}
-
-.effect-ruggedness {
-    border-left: 4px solid #84cc16 !important;
-    box-shadow: inset 0 0 0 1px rgba(132, 204, 22, 0.2);
-}
-
-.effect-ferocity {
-    border-left: 4px solid #ef4444 !important;
-    box-shadow: inset 0 0 0 1px rgba(239, 68, 68, 0.2);
-}
-
-.effect-enthusiasm {
-    border-left: 4px solid #f59e0b !important;
-    box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.2);
-}
-
-.effect-virility {
-    border-left: 4px solid #10b981 !important;
-    box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.2);
-}
-
+/* Attribute-specific color coding - All attributes use same neutral base color */
+.effect-intelligence,
+.effect-toughness,
+.effect-speed,
+.effect-friendliness,
+.effect-ruggedness,
+.effect-ferocity,
+.effect-enthusiasm,
+.effect-virility,
 .effect-loyalty {
-    border-left: 4px solid #3b82f6 !important;
-    box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.2);
+    border-left: 4px solid #64748b !important;
+    box-shadow: inset 0 0 0 1px rgba(100, 116, 139, 0.2);
 }
 
 .effect-none {
@@ -303,77 +271,31 @@ body {
     color: #6b7280;
 }
 
-/* Combination effects for elements with both positive/negative and attribute classes */
-.effect-positive.effect-intelligence {
-    background: linear-gradient(135deg, #f3e8ff 0%, #ddd6fe 100%);
-}
-
-.effect-negative.effect-intelligence {
-    background: linear-gradient(135deg, #fdf4ff 0%, #f3e8ff 100%);
-}
-
-.effect-positive.effect-toughness {
-    background: linear-gradient(135deg, #fff7ed 0%, #fed7aa 100%);
-}
-
-.effect-negative.effect-toughness {
-    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
-}
-
-.effect-positive.effect-speed {
-    background: linear-gradient(135deg, #ecfeff 0%, #a5f3fc 100%);
-}
-
-.effect-negative.effect-speed {
-    background: linear-gradient(135deg, #f0fdfa 0%, #ccfbf1 100%);
-}
-
-.effect-positive.effect-friendliness {
-    background: linear-gradient(135deg, #fdf2f8 0%, #fce7f3 100%);
-}
-
-.effect-negative.effect-friendliness {
-    background: linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%);
-}
-
-.effect-positive.effect-ruggedness {
-    background: linear-gradient(135deg, #f7fee7 0%, #d9f99d 100%);
-}
-
-.effect-negative.effect-ruggedness {
-    background: linear-gradient(135deg, #fefce8 0%, #fef08a 100%);
-}
-
-.effect-positive.effect-ferocity {
-    background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);
-}
-
-.effect-negative.effect-ferocity {
-    background: linear-gradient(135deg, #fffbeb 0%, #fed7aa 100%);
-}
-
-.effect-positive.effect-enthusiasm {
-    background: linear-gradient(135deg, #fffbeb 0%, #fde68a 100%);
-}
-
-.effect-negative.effect-enthusiasm {
-    background: linear-gradient(135deg, #fefce8 0%, #fef08a 100%);
-}
-
-.effect-positive.effect-virility {
-    background: linear-gradient(135deg, #ecfdf5 0%, #a7f3d0 100%);
-}
-
-.effect-negative.effect-virility {
-    background: linear-gradient(135deg, #f0fdf4 0%, #bbf7d0 100%);
-}
-
+/* Combination effects - Positive/Negative override attribute colors */
+.effect-positive.effect-intelligence,
+.effect-positive.effect-toughness,
+.effect-positive.effect-speed,
+.effect-positive.effect-friendliness,
+.effect-positive.effect-ruggedness,
+.effect-positive.effect-ferocity,
+.effect-positive.effect-enthusiasm,
+.effect-positive.effect-virility,
 .effect-positive.effect-loyalty {
-    background: linear-gradient(135deg, #eff6ff 0%, #bfdbfe 100%);
+    background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+    border-left-color: #16a34a !important;
 }
 
+.effect-negative.effect-intelligence,
+.effect-negative.effect-toughness,
+.effect-negative.effect-speed,
+.effect-negative.effect-friendliness,
+.effect-negative.effect-ruggedness,
+.effect-negative.effect-ferocity,
+.effect-negative.effect-enthusiasm,
+.effect-negative.effect-virility,
 .effect-negative.effect-loyalty {
-    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+    background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);
+    border-left-color: #dc2626 !important;
 }
 
 /* Enhanced gene card styling when effects are present */
@@ -449,40 +371,16 @@ body {
     border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
-.legend-intelligence {
-    background: #8b5cf6;
-}
-
-.legend-toughness {
-    background: #f97316;
-}
-
-.legend-speed {
-    background: #06b6d4;
-}
-
-.legend-friendliness {
-    background: #ec4899;
-}
-
-.legend-ruggedness {
-    background: #84cc16;
-}
-
-.legend-ferocity {
-    background: #ef4444;
-}
-
-.legend-enthusiasm {
-    background: #f59e0b;
-}
-
-.legend-virility {
-    background: #10b981;
-}
-
+.legend-intelligence,
+.legend-toughness,
+.legend-speed,
+.legend-friendliness,
+.legend-ruggedness,
+.legend-ferocity,
+.legend-enthusiasm,
+.legend-virility,
 .legend-loyalty {
-    background: #3b82f6;
+    background: #64748b;
 }
 
 .notes-section {
@@ -596,160 +494,48 @@ body {
     font-style: italic;
 }
 
-/* Attribute-specific option styling */
-.gene-field select option[value*="Intelligence"] {
-    border-left: 4px solid #8b5cf6;
-    background-color: #f3e8ff;
-}
-
-.gene-field select option[value*="Toughness"] {
-    border-left: 4px solid #f97316;
-    background-color: #fff7ed;
-}
-
-.gene-field select option[value*="Speed"] {
-    border-left: 4px solid #06b6d4;
-    background-color: #ecfeff;
-}
-
-.gene-field select option[value*="Friendliness"] {
-    border-left: 4px solid #ec4899;
-    background-color: #fdf2f8;
-}
-
-.gene-field select option[value*="Ruggedness"] {
-    border-left: 4px solid #84cc16;
-    background-color: #f7fee7;
-}
-
-.gene-field select option[value*="Ferocity"] {
-    border-left: 4px solid #ef4444;
-    background-color: #fef2f2;
-}
-
-.gene-field select option[value*="Enthusiasm"] {
-    border-left: 4px solid #f59e0b;
-    background-color: #fffbeb;
-}
-
-.gene-field select option[value*="Virility"] {
-    border-left: 4px solid #10b981;
-    background-color: #ecfdf5;
-}
-
+/* Attribute-specific option styling - All use same neutral color */
+.gene-field select option[value*="Intelligence"],
+.gene-field select option[value*="Toughness"],
+.gene-field select option[value*="Speed"],
+.gene-field select option[value*="Friendliness"],
+.gene-field select option[value*="Ruggedness"],
+.gene-field select option[value*="Ferocity"],
+.gene-field select option[value*="Enthusiasm"],
+.gene-field select option[value*="Virility"],
 .gene-field select option[value*="Loyalty"] {
-    border-left: 4px solid #3b82f6;
-    background-color: #eff6ff;
+    border-left: 4px solid #64748b;
+    background-color: #f8fafc;
 }
 
-/* Combined positive attribute styling */
-.gene-field select option[value="Intelligence+"] {
-    background: linear-gradient(135deg, #f3e8ff 0%, #ddd6fe 100%);
-    border-left: 4px solid #8b5cf6;
-    color: #6b21a8;
-}
-
-.gene-field select option[value="Toughness+"] {
-    background: linear-gradient(135deg, #fff7ed 0%, #fed7aa 100%);
-    border-left: 4px solid #f97316;
-    color: #c2410c;
-}
-
-.gene-field select option[value="Speed+"] {
-    background: linear-gradient(135deg, #ecfeff 0%, #a5f3fc 100%);
-    border-left: 4px solid #06b6d4;
-    color: #0e7490;
-}
-
-.gene-field select option[value="Friendliness+"] {
-    background: linear-gradient(135deg, #fdf2f8 0%, #fce7f3 100%);
-    border-left: 4px solid #ec4899;
-    color: #be185d;
-}
-
-.gene-field select option[value="Ruggedness+"] {
-    background: linear-gradient(135deg, #f7fee7 0%, #d9f99d 100%);
-    border-left: 4px solid #84cc16;
-    color: #4d7c0f;
-}
-
-.gene-field select option[value="Ferocity+"] {
-    background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);
-    border-left: 4px solid #ef4444;
-    color: #dc2626;
-}
-
-.gene-field select option[value="Enthusiasm+"] {
-    background: linear-gradient(135deg, #fffbeb 0%, #fde68a 100%);
-    border-left: 4px solid #f59e0b;
-    color: #d97706;
-}
-
-.gene-field select option[value="Virility+"] {
-    background: linear-gradient(135deg, #ecfdf5 0%, #a7f3d0 100%);
-    border-left: 4px solid #10b981;
-    color: #047857;
-}
-
+/* Combined positive attribute styling - All positive effects use green */
+.gene-field select option[value="Intelligence+"],
+.gene-field select option[value="Toughness+"],
+.gene-field select option[value="Speed+"],
+.gene-field select option[value="Friendliness+"],
+.gene-field select option[value="Ruggedness+"],
+.gene-field select option[value="Ferocity+"],
+.gene-field select option[value="Enthusiasm+"],
+.gene-field select option[value="Virility+"],
 .gene-field select option[value="Loyalty+"] {
-    background: linear-gradient(135deg, #eff6ff 0%, #bfdbfe 100%);
-    border-left: 4px solid #3b82f6;
-    color: #1d4ed8;
+    background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+    border-left: 4px solid #16a34a;
+    color: #15803d;
 }
 
-/* Combined negative attribute styling */
-.gene-field select option[value="Intelligence-"] {
-    background: linear-gradient(135deg, #fdf4ff 0%, #f3e8ff 100%);
-    border-left: 4px solid #8b5cf6;
-    color: #a855f7;
-}
-
-.gene-field select option[value="Toughness-"] {
-    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
-    border-left: 4px solid #f97316;
-    color: #ea580c;
-}
-
-.gene-field select option[value="Speed-"] {
-    background: linear-gradient(135deg, #f0fdfa 0%, #ccfbf1 100%);
-    border-left: 4px solid #06b6d4;
-    color: #0891b2;
-}
-
-.gene-field select option[value="Friendliness-"] {
-    background: linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%);
-    border-left: 4px solid #ec4899;
-    color: #e11d48;
-}
-
-.gene-field select option[value="Ruggedness-"] {
-    background: linear-gradient(135deg, #fefce8 0%, #fef08a 100%);
-    border-left: 4px solid #84cc16;
-    color: #65a30d;
-}
-
-.gene-field select option[value="Ferocity-"] {
-    background: linear-gradient(135deg, #fffbeb 0%, #fed7aa 100%);
-    border-left: 4px solid #ef4444;
-    color: #f97316;
-}
-
-.gene-field select option[value="Enthusiasm-"] {
-    background: linear-gradient(135deg, #fefce8 0%, #fef08a 100%);
-    border-left: 4px solid #f59e0b;
-    color: #ca8a04;
-}
-
-.gene-field select option[value="Virility-"] {
-    background: linear-gradient(135deg, #f0fdf4 0%, #bbf7d0 100%);
-    border-left: 4px solid #10b981;
-    color: #059669;
-}
-
+/* Combined negative attribute styling - All negative effects use red */
+.gene-field select option[value="Intelligence-"],
+.gene-field select option[value="Toughness-"],
+.gene-field select option[value="Speed-"],
+.gene-field select option[value="Friendliness-"],
+.gene-field select option[value="Ruggedness-"],
+.gene-field select option[value="Ferocity-"],
+.gene-field select option[value="Enthusiasm-"],
+.gene-field select option[value="Virility-"],
 .gene-field select option[value="Loyalty-"] {
-    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-    border-left: 4px solid #3b82f6;
-    color: #2563eb;
+    background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);
+    border-left: 4px solid #dc2626;
+    color: #dc2626;
 }
 
 /* Hover effects for options */
@@ -917,131 +703,47 @@ body {
     background: #f3f4f6;
 }
 
-/* Attribute-specific option colors */
-.option-intelligence {
-    border-left-color: #8b5cf6;
+/* Attribute-specific option colors - All use same neutral color */
+.option-intelligence,
+.option-toughness,
+.option-speed,
+.option-friendliness,
+.option-ruggedness,
+.option-ferocity,
+.option-enthusiasm,
+.option-virility,
+.option-loyalty {
+    border-left-color: #64748b;
 }
 
-.option-intelligence.option-positive {
-    background: linear-gradient(135deg, #f3e8ff 0%, #ddd6fe 100%);
-    color: #6b21a8;
+/* All positive effects use green styling */
+.option-intelligence.option-positive,
+.option-toughness.option-positive,
+.option-speed.option-positive,
+.option-friendliness.option-positive,
+.option-ruggedness.option-positive,
+.option-ferocity.option-positive,
+.option-enthusiasm.option-positive,
+.option-virility.option-positive,
+.option-loyalty.option-positive {
+    background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+    color: #15803d;
+    border-left-color: #16a34a;
 }
 
-.option-intelligence.option-negative {
-    background: linear-gradient(135deg, #fdf4ff 0%, #f3e8ff 100%);
-    color: #a855f7;
-}
-
-.option-toughness {
-    border-left-color: #f97316;
-}
-
-.option-toughness.option-positive {
-    background: linear-gradient(135deg, #fff7ed 0%, #fed7aa 100%);
-    color: #c2410c;
-}
-
-.option-toughness.option-negative {
-    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
-    color: #ea580c;
-}
-
-.option-speed {
-    border-left-color: #06b6d4;
-}
-
-.option-speed.option-positive {
-    background: linear-gradient(135deg, #ecfeff 0%, #a5f3fc 100%);
-    color: #0e7490;
-}
-
-.option-speed.option-negative {
-    background: linear-gradient(135deg, #f0fdfa 0%, #ccfbf1 100%);
-    color: #0891b2;
-}
-
-.option-friendliness {
-    border-left-color: #ec4899;
-}
-
-.option-friendliness.option-positive {
-    background: linear-gradient(135deg, #fdf2f8 0%, #fce7f3 100%);
-    color: #be185d;
-}
-
-.option-friendliness.option-negative {
-    background: linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%);
-    color: #e11d48;
-}
-
-.option-ruggedness {
-    border-left-color: #84cc16;
-}
-
-.option-ruggedness.option-positive {
-    background: linear-gradient(135deg, #f7fee7 0%, #d9f99d 100%);
-    color: #4d7c0f;
-}
-
-.option-ruggedness.option-negative {
-    background: linear-gradient(135deg, #fefce8 0%, #fef08a 100%);
-    color: #65a30d;
-}
-
-.option-ferocity {
-    border-left-color: #ef4444;
-}
-
-.option-ferocity.option-positive {
+/* All negative effects use red styling */
+.option-intelligence.option-negative,
+.option-toughness.option-negative,
+.option-speed.option-negative,
+.option-friendliness.option-negative,
+.option-ruggedness.option-negative,
+.option-ferocity.option-negative,
+.option-enthusiasm.option-negative,
+.option-virility.option-negative,
+.option-loyalty.option-negative {
     background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);
     color: #dc2626;
-}
-
-.option-ferocity.option-negative {
-    background: linear-gradient(135deg, #fffbeb 0%, #fed7aa 100%);
-    color: #f97316;
-}
-
-.option-enthusiasm {
-    border-left-color: #f59e0b;
-}
-
-.option-enthusiasm.option-positive {
-    background: linear-gradient(135deg, #fffbeb 0%, #fde68a 100%);
-    color: #d97706;
-}
-
-.option-enthusiasm.option-negative {
-    background: linear-gradient(135deg, #fefce8 0%, #fef08a 100%);
-    color: #ca8a04;
-}
-
-.option-virility {
-    border-left-color: #10b981;
-}
-
-.option-virility.option-positive {
-    background: linear-gradient(135deg, #ecfdf5 0%, #a7f3d0 100%);
-    color: #047857;
-}
-
-.option-virility.option-negative {
-    background: linear-gradient(135deg, #f0fdf4 0%, #bbf7d0 100%);
-    color: #059669;
-}
-
-.option-loyalty {
-    border-left-color: #3b82f6;
-}
-
-.option-loyalty.option-positive {
-    background: linear-gradient(135deg, #eff6ff 0%, #bfdbfe 100%);
-    color: #1d4ed8;
-}
-
-.option-loyalty.option-negative {
-    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-    color: #2563eb;
+    border-left-color: #dc2626;
 }
 
 /* Effect indicator badge styles for legend */
