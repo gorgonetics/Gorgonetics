@@ -8,123 +8,173 @@
 
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #1e293b 0%, #334155 50%, #475569 100%);
     min-height: 100vh;
-    padding: 20px;
 }
 
-.container {
-    max-width: 1200px;
-    margin: 0 auto;
-    background: white;
-    border-radius: 15px;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
-    overflow: hidden;
-}
-
-.header {
-    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-    color: white;
-    padding: 30px;
-    text-align: center;
-}
-
-.header h1 {
-    font-size: 2.5em;
-    margin-bottom: 10px;
-    font-weight: 300;
-}
-
-.header p {
-    font-size: 1.1em;
-    opacity: 0.9;
-}
-
-.controls {
-    padding: 30px;
-    background: #f8fafc;
-    border-bottom: 1px solid #e2e8f0;
-}
-
-.control-group {
+/* App Layout */
+.app-layout {
     display: flex;
-    gap: 20px;
-    align-items: end;
-    flex-wrap: wrap;
+    min-height: 100vh;
+}
+
+/* Sidebar Styles */
+.sidebar {
+    width: 320px;
+    background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+    box-shadow: 2px 0 8px rgba(0, 0, 0, 0.12);
+    position: fixed;
+    height: 100vh;
+    left: 0;
+    top: 0;
+    display: flex;
+    flex-direction: column;
+    z-index: 100;
+    overflow-y: auto;
+    border-right: 1px solid #e2e8f0;
+}
+
+.sidebar-header {
+    padding: 24px;
+    border-bottom: 1px solid #e2e8f0;
+    text-align: center;
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    color: white;
+}
+
+.sidebar-header h1 {
+    font-size: 26px;
+    margin-bottom: 6px;
+    font-weight: 600;
+    background: linear-gradient(135deg, #60a5fa 0%, #a78bfa 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.sidebar-header p {
+    font-size: 14px;
+    opacity: 0.8;
+    color: #cbd5e1;
+}
+
+.sidebar-controls {
+    padding: 20px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.sidebar-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+/* Main Content Area */
+.main-content {
+    margin-left: 320px;
+    flex: 1;
+    overflow-y: auto;
+    max-height: 100vh;
 }
 
 .form-group {
-    min-width: 200px;
-    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
 }
 
 .form-group label {
-    display: block;
-    margin-bottom: 8px;
     font-weight: 600;
     color: #374151;
+    font-size: 14px;
 }
 
 .form-group select {
     width: 100%;
-    padding: 12px;
-    border: 2px solid #d1d5db;
-    border-radius: 8px;
-    font-size: 16px;
+    padding: 12px 14px;
+    border: 2px solid #e2e8f0;
+    border-radius: 10px;
+    font-size: 14px;
     background: white;
-    transition: border-color 0.2s;
+    transition: all 0.3s ease;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .form-group select:focus {
     outline: none;
-    border-color: #4f46e5;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.form-group select:disabled {
+    background: #f8fafc;
+    color: #94a3b8;
+    cursor: not-allowed;
+    border-color: #e2e8f0;
+}
+
+.load-btn,
+.export-btn {
+    padding: 12px 18px;
+    border: none;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    width: 100%;
+    letter-spacing: 0.025em;
 }
 
 .load-btn {
-    background: #4f46e5;
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
     color: white;
     border: none;
-    padding: 12px 24px;
-    border-radius: 8px;
-    font-size: 16px;
-    cursor: pointer;
-    transition: background 0.2s;
-    height: 48px;
+    box-shadow: 0 4px 14px 0 rgba(59, 130, 246, 0.25);
 }
 
-.load-btn:hover {
-    background: #4338ca;
+.load-btn:hover:not(:disabled) {
+    background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+    box-shadow: 0 8px 25px rgba(59, 130, 246, 0.35);
 }
 
 .load-btn:disabled {
-    background: #9ca3af;
+    background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%);
     cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
 }
 
 .export-btn {
-    background: #059669;
+    background: linear-gradient(135deg, #059669 0%, #047857 100%);
     color: white;
     border: none;
-    padding: 12px 16px;
-    border-radius: 8px;
-    font-size: 14px;
-    cursor: pointer;
-    transition: background 0.2s;
-    height: 48px;
-    margin-left: 8px;
+    box-shadow: 0 4px 14px 0 rgba(5, 150, 105, 0.25);
 }
 
-.export-btn:hover {
-    background: #047857;
+.export-btn:hover:not(:disabled) {
+    background: linear-gradient(135deg, #047857 0%, #065f46 100%);
+    box-shadow: 0 8px 25px rgba(5, 150, 105, 0.35);
 }
 
 .export-btn:disabled {
-    background: #9ca3af;
+    background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%);
     cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
 }
 
 .genes-container {
-    padding: 20px;
+    padding: 24px;
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+    margin: 24px;
+    border-radius: 20px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(10px);
 }
 
 .genes-grid {
@@ -134,37 +184,44 @@ body {
 }
 
 .gene-block {
-    background: white;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    padding: 12px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-    margin-bottom: 12px;
+    background: linear-gradient(135deg, #ffffff 0%, #f9fafb 100%);
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 16px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(255, 255, 255, 0.05);
+    margin-bottom: 16px;
+    transition: all 0.3s ease;
+}
+
+.gene-block:hover {
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(255, 255, 255, 0.1);
 }
 
 .gene-block-header {
     font-size: 0.95em;
     font-weight: 700;
-    color: #1f2937;
-    background: #f3f4f6;
-    border-radius: 6px;
-    padding: 8px 12px;
-    margin-bottom: 12px;
+    color: #0f172a;
+    background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+    border-radius: 12px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
     display: flex;
     justify-content: space-between;
     align-items: center;
     cursor: pointer;
-    transition: background-color 0.2s;
+    transition: all 0.3s ease;
+    border: 1px solid #cbd5e1;
 }
 
 .gene-block-header:hover {
-    background: #e5e7eb;
+    background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .gene-block-header .fold-icon {
     font-size: 12px;
-    color: #6b7280;
-    transition: transform 0.2s;
+    color: #475569;
+    transition: transform 0.3s;
 }
 
 .gene-block.collapsed .fold-icon {
@@ -197,27 +254,30 @@ body {
 }
 
 .gene-card {
-    background: #fafafa;
-    border: 1px solid #d1d5db;
-    border-radius: 6px;
-    padding: 8px;
-    transition: all 0.2s;
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 12px;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 .gene-card:hover {
-    border-color: #4f46e5;
-    background: white;
-    box-shadow: 0 2px 8px rgba(79, 70, 229, 0.1);
+    border-color: #3b82f6;
+    background: linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%);
+    box-shadow: 0 8px 25px rgba(59, 130, 246, 0.15);
 }
 
 .gene-card.has-changes {
     border-color: #f59e0b;
-    background: #fffbeb;
+    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+    box-shadow: 0 4px 16px rgba(245, 158, 11, 0.2);
 }
 
 .gene-card.has-changes:hover {
     border-color: #d97706;
-    background: #fef3c7;
+    background: linear-gradient(135deg, #fef3c7 0%, #fed7aa 100%);
+    box-shadow: 0 8px 25px rgba(217, 119, 6, 0.25);
 }
 
 /* Gene Effect Visual Feedback Styles */
@@ -338,18 +398,20 @@ body {
 
 /* Legend/Color Guide */
 .effect-legend {
-    background: #f8fafc;
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
     border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    padding: 15px;
-    margin: 20px 0;
+    border-radius: 12px;
+    padding: 16px;
+    margin-top: 20px;
     font-size: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 .effect-legend h4 {
-    margin-bottom: 10px;
-    color: #374151;
+    margin-bottom: 12px;
+    color: #0f172a;
     font-size: 14px;
+    font-weight: 600;
 }
 
 .legend-grid {
@@ -388,21 +450,23 @@ body {
 }
 
 .notes-toggle {
-    background: #f3f4f6;
-    border: 1px solid #d1d5db;
-    color: #6b7280;
-    padding: 3px 8px;
-    border-radius: 3px;
+    background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+    border: 1px solid #cbd5e1;
+    color: #475569;
+    padding: 4px 10px;
+    border-radius: 6px;
     font-size: 10px;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.3s ease;
     width: 100%;
     text-align: center;
+    font-weight: 600;
 }
 
 .notes-toggle:hover {
-    background: #e5e7eb;
-    color: #374151;
+    background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
+    color: #334155;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .notes-content {
@@ -415,33 +479,40 @@ body {
 }
 
 .save-btn {
-    background: #10b981;
+    background: linear-gradient(135deg, #059669 0%, #047857 100%);
     color: white;
     border: none;
-    padding: 4px 8px;
-    border-radius: 3px;
-    font-size: 10px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 11px;
     cursor: pointer;
-    transition: background 0.2s;
+    transition: all 0.3s ease;
     width: 100%;
-    font-weight: 500;
-    margin-top: 4px;
+    font-weight: 600;
+    margin-top: 8px;
+    letter-spacing: 0.025em;
+    box-shadow: 0 2px 8px rgba(5, 150, 105, 0.2);
 }
 
 .save-btn:hover:not(:disabled) {
-    background: #059669;
+    background: linear-gradient(135deg, #047857 0%, #065f46 100%);
+    box-shadow: 0 4px 12px rgba(5, 150, 105, 0.3);
 }
 
 .save-btn:disabled {
-    background: #d1d5db;
-    color: #9ca3af;
+    background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%);
+    color: #e2e8f0;
     cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
 }
 
 .loading {
     text-align: center;
-    padding: 40px;
-    color: #6b7280;
+    padding: 48px;
+    color: #64748b;
+    font-size: 16px;
+    font-weight: 500;
 }
 
 .error {
@@ -600,26 +671,28 @@ body {
 }
 
 .custom-select-selected {
-    padding: 4px 24px 4px 6px;
-    border: 1px solid #d1d5db;
-    border-radius: 3px;
-    background: white;
+    padding: 6px 26px 6px 8px;
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
     cursor: pointer;
     font-size: 11px;
     display: flex;
     align-items: center;
-    min-height: 21px;
-    transition: all 0.2s ease;
+    min-height: 24px;
+    transition: all 0.3s ease;
     position: relative;
+    font-weight: 500;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .custom-select-selected::after {
     content: '▼';
     position: absolute;
-    right: 6px;
+    right: 8px;
     font-size: 10px;
-    color: #6b7280;
-    transition: transform 0.2s ease;
+    color: #64748b;
+    transition: transform 0.3s ease;
 }
 
 .custom-select-wrapper.open .custom-select-selected::after {
@@ -627,12 +700,15 @@ body {
 }
 
 .custom-select-selected:hover {
-    border-color: #4f46e5;
+    border-color: #3b82f6;
+    background: linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
 }
 
 .custom-select-wrapper.open .custom-select-selected {
-    border-color: #4f46e5;
-    box-shadow: 0 0 0 1px rgba(79, 70, 229, 0.1);
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    background: linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%);
 }
 
 .custom-select-options {
@@ -641,32 +717,37 @@ body {
     left: 0;
     right: 0;
     background: white;
-    border: 1px solid #d1d5db;
+    border: 2px solid #3b82f6;
     border-top: none;
-    border-radius: 0 0 6px 6px;
+    border-radius: 0 0 8px 8px;
     max-height: 200px;
     overflow-y: auto;
     z-index: 1000;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    backdrop-filter: blur(10px);
 }
 
 .custom-option {
-    padding: 6px 8px;
+    padding: 8px 12px;
     cursor: pointer;
     font-size: 11px;
-    transition: all 0.2s ease;
+    transition: all 0.3s ease;
     border-left: 4px solid transparent;
     font-weight: 500;
 }
 
 .custom-option:hover {
-    background: #f3f4f6;
-    transform: translateX(2px);
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    border-left-color: #1d4ed8;
+    color: white;
+    font-weight: 700;
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
 }
 
 .custom-option.selected {
     font-weight: 600;
-    background: #e5e7eb;
+    background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
+    border-left-color: #3b82f6;
 }
 
 /* Positive option styling */
@@ -677,7 +758,11 @@ body {
 }
 
 .option-positive:hover {
-    background: linear-gradient(135deg, #bbf7d0 0%, #86efac 100%);
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+    border-left-color: #1d4ed8 !important;
+    color: white !important;
+    font-weight: 700 !important;
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3) !important;
 }
 
 /* Negative option styling */
@@ -688,19 +773,26 @@ body {
 }
 
 .option-negative:hover {
-    background: linear-gradient(135deg, #fecaca 0%, #fca5a5 100%);
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+    border-left-color: #1d4ed8 !important;
+    color: white !important;
+    font-weight: 700 !important;
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3) !important;
 }
 
 /* None option styling */
 .option-none {
     background: #f9fafb;
     color: #6b7280;
-    font-style: italic;
     border-left-color: #6b7280;
 }
 
 .option-none:hover {
-    background: #f3f4f6;
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+    border-left-color: #1d4ed8 !important;
+    color: white !important;
+    font-weight: 700 !important;
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3) !important;
 }
 
 /* Attribute-specific option colors - All use same neutral color */
@@ -792,4 +884,26 @@ body {
     .genes-container {
         padding: 10px;
     }
+}
+
+/* Input Field Styles */
+input[type="text"] {
+    width: 100%;
+    padding: 8px 12px;
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 12px;
+    background: white;
+    transition: all 0.3s ease;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+input[type="text"]:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+input[type="text"]:placeholder-shown {
+    color: #94a3b8;
 }

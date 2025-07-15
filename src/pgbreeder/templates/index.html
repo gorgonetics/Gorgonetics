@@ -9,63 +9,75 @@
 </head>
 
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>🧬 PGBreeder Gene Editor</h1>
-            <p>Edit Project Gorgon pet genetics data with ease</p>
-        </div>
+    <div class="app-layout">
+        <!-- Fixed Sidebar -->
+        <div class="sidebar">
+            <!-- Logo & Title -->
+            <div class="sidebar-header">
+                <h1>
+                    🧬 PGBreeder
+                </h1>
+                <p>Gene Editor</p>
+            </div>
 
-        <div class="controls">
-            <div class="control-group">
+            <!-- Controls -->
+            <div class="sidebar-controls">
                 <div class="form-group">
                     <label for="animalType">Animal Type</label>
                     <select id="animalType">
                         <option value="">Select animal type...</option>
                     </select>
                 </div>
+
                 <div class="form-group">
                     <label for="chromosome">Chromosome</label>
                     <select id="chromosome" disabled>
                         <option value="">Select chromosome...</option>
                     </select>
                 </div>
-                <button class="load-btn" id="loadGenes" disabled>Load Genes</button>
-                <button class="export-btn" id="exportChromosome" disabled>📥 Export Chromosome</button>
-                <button class="export-btn" id="exportAll" disabled>📦 Export All</button>
-            </div>
-        </div>
 
-        <!-- Effect Color Legend -->
-        <div class="effect-legend" style="display: none;" id="effectLegend">
-            <h4>🎨 Effect Color Guide</h4>
-            <div class="legend-badges">
-                <span class="legend-badge positive">+ Recessive (Positive)</span>
-                <span class="legend-badge negative">- Dominant (Negative)</span>
-                <span class="legend-badge neutral">None</span>
-            </div>
-            <div style="margin-top: 12px; font-size: 11px; color: #374151;">
-                <strong>Attribute Icons:</strong>
-                <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px;">
-                    <span>🧠 Intelligence</span>
-                    <span>💪 Toughness</span>
-                    <span>⚡ Speed</span>
-                    <span>😊 Friendliness</span>
-                    <span>🏔️ Ruggedness</span>
-                    <span>🔥 Ferocity</span>
-                    <span>✨ Enthusiasm</span>
-                    <span>💜 Virility</span>
-                    <span>💎 Loyalty</span>
+                <div class="sidebar-buttons">
+                    <button class="load-btn" id="loadGenes" disabled>Load Genes</button>
+                    <button class="export-btn" id="exportChromosome" disabled>📥 Export Chromosome</button>
+                    <button class="export-btn" id="exportAll" disabled>📦 Export All</button>
                 </div>
             </div>
-            <p style="font-size: 11px; color: #6b7280; margin-top: 8px;">
-                Icons identify attributes, colors show effect type (+/-).
-            </p>
+
+            <!-- Effect Color Legend -->
+            <div class="effect-legend" style="display: none;" id="effectLegend">
+                <h4>🎨 Effect Color Guide</h4>
+                <div class="legend-badges">
+                    <span class="legend-badge positive">+ Recessive (Positive)</span>
+                    <span class="legend-badge negative">- Dominant (Negative)</span>
+                    <span class="legend-badge neutral">None</span>
+                </div>
+                <div style="margin-top: 12px; font-size: 11px; color: #374151;">
+                    <strong>Attribute Icons:</strong>
+                    <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px;">
+                        <span>🧠 Intelligence</span>
+                        <span>💪 Toughness</span>
+                        <span>⚡ Speed</span>
+                        <span>😊 Friendliness</span>
+                        <span>🏔️ Ruggedness</span>
+                        <span>🔥 Ferocity</span>
+                        <span>✨ Enthusiasm</span>
+                        <span>💜 Virility</span>
+                        <span>💎 Loyalty</span>
+                    </div>
+                </div>
+                <p style="font-size: 11px; color: #6b7280; margin-top: 8px;">
+                    Icons identify attributes, colors show effect type (+/-).
+                </p>
+            </div>
         </div>
 
-        <div class="genes-container">
-            <div id="genesContent">
-                <div class="loading">
-                    Select an animal type and chromosome to begin editing genes
+        <!-- Main Content Area -->
+        <div class="main-content">
+            <div class="genes-container">
+                <div id="genesContent">
+                    <div class="loading">
+                        Select an animal type and chromosome to begin editing genes
+                    </div>
                 </div>
             </div>
         </div>
