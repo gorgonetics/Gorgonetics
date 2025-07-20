@@ -1,86 +1,72 @@
 [
   {
     "gene": "06A1",
-    "effectDominant": "None",
+    "effectDominant": "Toughness-",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Body Scale",
+    "notes": ""
   },
   {
     "gene": "06A2",
-    "effectDominant": "None",
+    "effectDominant": "Virility-",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Body Scale",
+    "notes": ""
   },
   {
     "gene": "06A3",
-    "effectDominant": "None",
+    "effectDominant": "Ferocity-",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Body Scale",
+    "notes": ""
   },
   {
     "gene": "06A4",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Body Scale",
+    "notes": ""
   },
   {
     "gene": "06B1",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Ruggedness+",
+    "appearance": "Body Scale",
+    "notes": ""
   },
   {
     "gene": "06B2",
-    "effectDominant": "None",
+    "effectDominant": "Friendliness-",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Body Scale",
+    "notes": ""
   },
   {
     "gene": "06B3",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Ferocity+",
+    "appearance": "Body Scale",
+    "notes": ""
   },
   {
     "gene": "06B4",
-    "effectDominant": "None",
+    "effectDominant": "Toughness-",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Body Scale",
+    "notes": ""
   },
   {
     "gene": "06C1",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Body Scale",
+    "notes": ""
   },
   {
     "gene": "06C2",
-    "effectDominant": "None",
+    "effectDominant": "Ruggedness-",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
-  },
-  {
-    "gene": "06C3",
-    "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
-  },
-  {
-    "gene": "06C4",
-    "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Body Scale",
+    "notes": ""
   }
 ]
