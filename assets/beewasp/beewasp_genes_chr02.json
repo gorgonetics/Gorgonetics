@@ -2,141 +2,141 @@
   {
     "gene": "02A1",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
+    "effectRecessive": "Toughness+",
+    "appearance": "Body Color Saturation",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "02A2",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
+    "appearance": "Body Color Saturation",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "02A3",
-    "effectDominant": "None",
+    "effectDominant": "Ruggedness-",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
+    "appearance": "Body Color Saturation",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "02A4",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
+    "appearance": "Body Color Saturation",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "02B1",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
+    "appearance": "Body Color Saturation",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "02B2",
-    "effectDominant": "None",
+    "effectDominant": "Intelligence-",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
+    "appearance": "Body Color Saturation",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "02B3",
-    "effectDominant": "None",
+    "effectDominant": "Ferocity-",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
+    "appearance": "Body Color Saturation",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "02B4",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
+    "effectRecessive": "Friendliness+",
+    "appearance": "Body Color Saturation",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "02C1",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
+    "effectRecessive": "Virility+",
+    "appearance": "Body Color Saturation",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "02C2",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
+    "appearance": "Body Color Saturation",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "02C3",
-    "effectDominant": "None",
+    "effectDominant": "Enthusiasm-",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
+    "appearance": "Body Color Intensity",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "02C4",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
+    "effectRecessive": "Ruggedness+",
+    "appearance": "Body Color Intensity",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "02D1",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
+    "appearance": "Body Color Intensity",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "02D2",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
+    "effectRecessive": "Enthusiasm+",
+    "appearance": "Body Color Intensity",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "02D3",
-    "effectDominant": "None",
+    "effectDominant": "Toughness-",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
+    "appearance": "Body Color Intensity",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "02D4",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
+    "appearance": "Body Color Intensity",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "02E1",
-    "effectDominant": "None",
+    "effectDominant": "Ferocity-",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
+    "appearance": "Body Color Intensity",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "02E2",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
+    "effectRecessive": "Intelligence+",
+    "appearance": "Body Color Intensity",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "02E3",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
+    "appearance": "Body Color Intensity",
     "notes": "|String for me to fill in|"
   },
   {
     "gene": "02E4",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
+    "effectRecessive": "Intelligence+",
+    "appearance": "Body Color Intensity",
     "notes": "|String for me to fill in|"
   }
 ]
