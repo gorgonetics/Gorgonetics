@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DNA Emoji Font Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #f8fafc;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        }
+
+        h1 {
+            color: #1e293b;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .emoji-test {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            margin: 10px 0;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            background: #f8fafc;
+        }
+
+        .emoji {
+            font-size: 24px;
+            margin-right: 20px;
+            min-width: 40px;
+        }
+
+        .font-name {
+            font-weight: 600;
+            color: #374151;
+            min-width: 200px;
+        }
+
+        .description {
+            color: #6b7280;
+            font-size: 14px;
+        }
+
+        .header-preview {
+            background: #1e293b;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 6px;
+            margin-top: 10px;
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .header-preview .emoji {
+            margin-right: 8px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>🧬 DNA Emoji Font Test</h1>
+        <p style="text-align: center; color: #6b7280; margin-bottom: 30px;">
+            Pick the DNA emoji that looks most scientific and least candy-like!
+        </p>
+
+        <!-- Default System Font -->
+        <div class="emoji-test">
+            <span class="emoji" style="font-family: inherit;">🧬</span>
+            <div>
+                <div class="font-name">Default System Font</div>
+                <div class="description">Whatever your browser defaults to</div>
+                <div class="header-preview" style="font-family: inherit;">
+                    <span class="emoji">🧬</span>PGBreeder
+                </div>
+            </div>
+        </div>
+
+        <!-- Segoe UI Emoji -->
+        <div class="emoji-test">
+            <span class="emoji" style="font-family: 'Segoe UI Emoji', sans-serif;">🧬</span>
+            <div>
+                <div class="font-name">Segoe UI Emoji</div>
+                <div class="description">Windows modern emoji font</div>
+                <div class="header-preview">
+                    <span class="emoji" style="font-family: 'Segoe UI Emoji', sans-serif;">🧬</span>PGBreeder
+                </div>
+            </div>
+        </div>
+
+        <!-- Apple Color Emoji -->
+        <div class="emoji-test">
+            <span class="emoji" style="font-family: 'Apple Color Emoji', sans-serif;">🧬</span>
+            <div>
+                <div class="font-name">Apple Color Emoji</div>
+                <div class="description">macOS/iOS emoji font</div>
+                <div class="header-preview">
+                    <span class="emoji" style="font-family: 'Apple Color Emoji', sans-serif;">🧬</span>PGBreeder
+                </div>
+            </div>
+        </div>
+
+        <!-- Noto Color Emoji -->
+        <div class="emoji-test">
+            <span class="emoji" style="font-family: 'Noto Color Emoji', sans-serif;">🧬</span>
+            <div>
+                <div class="font-name">Noto Color Emoji</div>
+                <div class="description">Google's emoji font</div>
+                <div class="header-preview">
+                    <span class="emoji" style="font-family: 'Noto Color Emoji', sans-serif;">🧬</span>PGBreeder
+                </div>
+            </div>
+        </div>
+
+        <!-- Twemoji -->
+        <div class="emoji-test">
+            <span class="emoji" style="font-family: 'Twemoji Mozilla', sans-serif;">🧬</span>
+            <div>
+                <div class="font-name">Twemoji Mozilla</div>
+                <div class="description">Twitter's emoji design (if available)</div>
+                <div class="header-preview">
+                    <span class="emoji" style="font-family: 'Twemoji Mozilla', sans-serif;">🧬</span>PGBreeder
+                </div>
+            </div>
+        </div>
+
+        <!-- Monospace -->
+        <div class="emoji-test">
+            <span class="emoji" style="font-family: 'Consolas', 'Monaco', 'Courier New', monospace;">🧬</span>
+            <div>
+                <div class="font-name">Monospace (Consolas/Monaco)</div>
+                <div class="description">Technical/coding font style</div>
+                <div class="header-preview">
+                    <span class="emoji"
+                        style="font-family: 'Consolas', 'Monaco', 'Courier New', monospace;">🧬</span>PGBreeder
+                </div>
+            </div>
+        </div>
+
+        <!-- Helvetica/Arial -->
+        <div class="emoji-test">
+            <span class="emoji" style="font-family: 'Helvetica Neue', 'Arial', sans-serif;">🧬</span>
+            <div>
+                <div class="font-name">Helvetica Neue / Arial</div>
+                <div class="description">Clean system fonts</div>
+                <div class="header-preview">
+                    <span class="emoji" style="font-family: 'Helvetica Neue', 'Arial', sans-serif;">🧬</span>PGBreeder
+                </div>
+            </div>
+        </div>
+
+        <!-- Combined Stack -->
+        <div class="emoji-test">
+            <span class="emoji"
+                style="font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;">🧬</span>
+            <div>
+                <div class="font-name">Combined Stack</div>
+                <div class="description">Apple → Segoe UI → Noto fallback</div>
+                <div class="header-preview">
+                    <span class="emoji"
+                        style="font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;">🧬</span>PGBreeder
+                </div>
+            </div>
+        </div>
+
+        <div style="margin-top: 30px; padding: 20px; background: #f1f5f9; border-radius: 8px;">
+            <p style="margin: 0; color: #475569; font-size: 14px; text-align: center;">
+                <strong>Instructions:</strong> Look at each emoji and header preview above.
+                Tell me which number looks most like proper DNA and least like candy!
+                I'll then apply that font to your app.
+            </p>
+        </div>
+    </div>
+</body>
+
+</html>

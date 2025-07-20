@@ -37,25 +37,55 @@ body {
 .sidebar-header {
     padding: 24px;
     border-bottom: 1px solid #e2e8f0;
-    text-align: center;
     background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
     color: white;
+    display: flex;
+    align-items: center;
+    gap: 16px;
 }
 
-.sidebar-header h1 {
+.logo-box {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 60px;
+    height: 60px;
+    background: rgba(59, 130, 246, 0.1);
+    border-radius: 12px;
+    border: 2px solid rgba(59, 130, 246, 0.2);
+}
+
+.title-box {
+    flex: 1;
+    text-align: left;
+}
+
+.title-box h1 {
     font-size: 26px;
     margin-bottom: 6px;
     font-weight: 600;
+}
+
+.title-box p {
+    font-size: 14px;
+    color: #94a3b8;
+    font-weight: 400;
+}
+
+.dna-emoji {
+    font-family: 'Twemoji Mozilla', sans-serif;
+    -webkit-text-fill-color: initial;
+    color: initial;
+    background: none;
+    font-size: 2.5em;
+}
+
+.gradient-text {
     background: linear-gradient(135deg, #60a5fa 0%, #a78bfa 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
-}
-
-.sidebar-header p {
-    font-size: 14px;
-    opacity: 0.8;
-    color: #cbd5e1;
 }
 
 .sidebar-controls {
