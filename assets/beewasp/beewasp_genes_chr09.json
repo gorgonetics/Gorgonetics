@@ -2,141 +2,141 @@
   {
     "gene": "09A1",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Toughness+",
+    "appearance": "Particle Location",
+    "notes": ""
   },
   {
     "gene": "09A2",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Particle Location",
+    "notes": ""
   },
   {
     "gene": "09A3",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Virility+",
+    "appearance": "Particle Location",
+    "notes": ""
   },
   {
     "gene": "09A4",
-    "effectDominant": "None",
+    "effectDominant": "Toughness-",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Particle Location",
+    "notes": ""
   },
   {
     "gene": "09B1",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Particle Location",
+    "notes": ""
   },
   {
     "gene": "09B2",
-    "effectDominant": "None",
+    "effectDominant": "Ferocity-",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Particle Location",
+    "notes": ""
   },
   {
     "gene": "09B3",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Ferocity+",
+    "appearance": "Particle Location",
+    "notes": ""
   },
   {
     "gene": "09B4",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Enthusiasm+",
+    "appearance": "Particle Location",
+    "notes": ""
   },
   {
     "gene": "09C1",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Particle Location",
+    "notes": ""
   },
   {
     "gene": "09C2",
-    "effectDominant": "None",
+    "effectDominant": "Friendliness-",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Particle Location",
+    "notes": ""
   },
   {
     "gene": "09C3",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Particles",
+    "notes": ""
   },
   {
     "gene": "09C4",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Particles",
+    "notes": ""
   },
   {
     "gene": "09D1",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Friendliness+",
+    "appearance": "Particles",
+    "notes": ""
   },
   {
     "gene": "09D2",
-    "effectDominant": "None",
+    "effectDominant": "Ruggedness-",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Particles",
+    "notes": ""
   },
   {
     "gene": "09D3",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Particles",
+    "notes": ""
   },
   {
     "gene": "09D4",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Enthusiasm+",
+    "appearance": "Particles",
+    "notes": ""
   },
   {
     "gene": "09E1",
-    "effectDominant": "None",
+    "effectDominant": "Intelligence-",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Particles",
+    "notes": ""
   },
   {
     "gene": "09E2",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Particles",
+    "notes": ""
   },
   {
     "gene": "09E3",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Particles",
+    "notes": ""
   },
   {
     "gene": "09E4",
-    "effectDominant": "None",
+    "effectDominant": "Virility-",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Particles",
+    "notes": ""
   }
 ]
