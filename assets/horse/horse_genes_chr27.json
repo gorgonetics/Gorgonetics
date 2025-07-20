@@ -292,19 +292,5 @@
     "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
     "notes": "|String for me to fill in|"
-  },
-  {
-    "gene": "27K3",
-    "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
-  },
-  {
-    "gene": "27K4",
-    "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
   }
 ]

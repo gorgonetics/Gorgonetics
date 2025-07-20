@@ -96,19 +96,5 @@
     "effectRecessive": "None",
     "appearance": "|String for me to fill in|",
     "notes": "|String for me to fill in|"
-  },
-  {
-    "gene": "10D3",
-    "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
-  },
-  {
-    "gene": "10D4",
-    "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
   }
 ]

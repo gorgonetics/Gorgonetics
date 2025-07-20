@@ -108,13 +108,18 @@ def generate_chromosome_template(chr_num: str, gene_data: str) -> list[dict[str,
     Returns:
         List of gene dictionaries
     """
-    num_blocks = count_blocks_in_chromosome(gene_data)
-    block_letters = generate_block_letters(num_blocks)
+    # Split gene data into blocks
+    blocks = [block for block in gene_data.split() if block and len(block) >= 2]
+    block_letters = generate_block_letters(len(blocks))
 
     genes: list[dict[str, str]] = []
 
-    for block_letter in block_letters:
-        for gene_pos in range(1, 5):  # 4 genes per block (1, 2, 3, 4)
+    for i, block_letter in enumerate(block_letters):
+        # Get the actual block data to determine how many genes it has
+        block_data = blocks[i] if i < len(blocks) else ""
+        num_genes_in_block = len(block_data)
+
+        for gene_pos in range(1, num_genes_in_block + 1):  # Only create genes based on actual data
             gene_id = f"{chr_num}{block_letter}{gene_pos}"
             gene_entry = {
                 "gene": gene_id,
