@@ -1,142 +1,142 @@
 [
   {
     "gene": "04A1",
-    "effectDominant": "None",
+    "effectDominant": "Virility-",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Wing Color Saturation",
+    "notes": ""
   },
   {
     "gene": "04A2",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Wing Color Saturation",
+    "notes": ""
   },
   {
     "gene": "04A3",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Wing Color Saturation",
+    "notes": ""
   },
   {
     "gene": "04A4",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Wing Color Saturation",
+    "notes": ""
   },
   {
     "gene": "04B1",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Toughness+",
+    "appearance": "Wing Color Saturation",
+    "notes": ""
   },
   {
     "gene": "04B2",
-    "effectDominant": "None",
+    "effectDominant": "Friendliness-",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Wing Color Saturation",
+    "notes": ""
   },
   {
     "gene": "04B3",
-    "effectDominant": "None",
+    "effectDominant": "Ferocity-",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Wing Color Saturation",
+    "notes": ""
   },
   {
     "gene": "04B4",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Wing Color Saturation",
+    "notes": ""
   },
   {
     "gene": "04C1",
-    "effectDominant": "None",
+    "effectDominant": "Intelligence-",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Wing Color Saturation",
+    "notes": ""
   },
   {
     "gene": "04C2",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Virility+",
+    "appearance": "Wing Color Saturation",
+    "notes": ""
   },
   {
     "gene": "04C3",
-    "effectDominant": "None",
+    "effectDominant": "Ruggedness-",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Wing Color Intensity",
+    "notes": ""
   },
   {
     "gene": "04C4",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Wing Color Intensity",
+    "notes": ""
   },
   {
     "gene": "04D1",
-    "effectDominant": "None",
+    "effectDominant": "Ruggedness-",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Wing Color Intensity",
+    "notes": ""
   },
   {
     "gene": "04D2",
-    "effectDominant": "None",
+    "effectDominant": "Enthusiasm-",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Wing Color Intensity",
+    "notes": ""
   },
   {
     "gene": "04D3",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Enthusiasm+",
+    "appearance": "Wing Color Intensity",
+    "notes": ""
   },
   {
     "gene": "04D4",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Wing Color Intensity",
+    "notes": ""
   },
   {
     "gene": "04E1",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Intelligence+",
+    "appearance": "Wing Color Intensity",
+    "notes": ""
   },
   {
     "gene": "04E2",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Intelligence+",
+    "appearance": "Wing Color Intensity",
+    "notes": ""
   },
   {
     "gene": "04E3",
-    "effectDominant": "None",
+    "effectDominant": "Ferocity-",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Wing Color Intensity",
+    "notes": ""
   },
   {
     "gene": "04E4",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Wing Color Intensity",
+    "notes": ""
   }
 ]
