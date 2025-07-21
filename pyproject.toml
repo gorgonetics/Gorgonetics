@@ -14,7 +14,7 @@ dependencies = [
     "uvicorn[standard]>=0.24.0",
     "jinja2>=3.1.0",
     "python-multipart>=0.0.6",
-    "cattrs>=25.1.1",
+    "pydantic>=2.0.0",
 ]
 authors = [{ name = "Your Name", email = "your.email@example.com" }]
 classifiers = [
