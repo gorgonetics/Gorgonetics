@@ -9,12 +9,19 @@ placeholder gene information.
 
 import json
 import os
+import sys
 from pathlib import Path
+
+# Add src to path to import shared utilities
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+
+from pgbreeder.genome_parser import count_blocks_in_chromosome, generate_block_letters
 
 
 def parse_genome_file(file_path: str) -> tuple[str, dict[str, str]]:
     """
     Parse a genome file and extract genome type and chromosome data.
+    This function is kept for backward compatibility with existing code.
 
     Args:
         file_path: Path to the genome file
@@ -22,79 +29,12 @@ def parse_genome_file(file_path: str) -> tuple[str, dict[str, str]]:
     Returns:
         Tuple of (genome_type, chromosome_data_dict)
     """
-    genome_type = ""
-    chromosomes: dict[str, str] = {}
+    from pgbreeder.genome_parser import parse_genome_file_genes, parse_genome_file_header
 
-    with open(file_path, encoding="utf-8") as f:
-        lines = f.readlines()
+    header_info = parse_genome_file_header(file_path)
+    chromosome_data = parse_genome_file_genes(file_path)
 
-    # Find genome type
-    for line in lines:
-        if line.startswith("Genome="):
-            genome_type = line.split("=")[1].strip()
-            break
-
-    # Find genes section and parse chromosomes
-    in_genes_section = False
-    for line in lines:
-        line = line.strip()
-
-        if line == "[Genes]":
-            in_genes_section = True
-            continue
-
-        if in_genes_section and "=" in line:
-            # Parse chromosome line like "01=       RDRD RDRR RDRD ..."
-            chr_num, gene_data = line.split("=", 1)
-            chr_num = chr_num.strip()
-            gene_data = gene_data.strip()
-            chromosomes[chr_num] = gene_data
-
-    return genome_type.lower(), chromosomes
-
-
-def count_blocks_in_chromosome(gene_data: str) -> int:
-    """
-    Count the number of gene blocks in a chromosome.
-    Each block is a 4-character sequence separated by spaces.
-    Handles R, D, ?, and x characters as valid gene data.
-
-    Args:
-        gene_data: String containing gene data like "RDRD RDRR ?D?? x?xR"
-
-    Returns:
-        Number of blocks
-    """
-    # Split by spaces and filter out empty strings
-    blocks = [block for block in gene_data.split() if block and len(block) >= 2]
-    return len(blocks)
-
-
-def generate_block_letters(num_blocks: int) -> list[str]:
-    """
-    Generate block letters (A, B, C, ..., Z, AA, AB, ...).
-
-    Args:
-        num_blocks: Number of blocks needed
-
-    Returns:
-        List of block letter strings
-    """
-    letters: list[str] = []
-
-    # First 26 blocks use single letters A-Z
-    for i in range(min(num_blocks, 26)):
-        letters.append(chr(ord("A") + i))
-
-    # If more than 26 blocks, use double letters AA, AB, AC, etc.
-    remaining = num_blocks - 26
-    if remaining > 0:
-        for i in range(remaining):
-            first_letter = chr(ord("A") + (i // 26))
-            second_letter = chr(ord("A") + (i % 26))
-            letters.append(first_letter + second_letter)
-
-    return letters
+    return header_info["genome_type"].lower(), chromosome_data
 
 
 def generate_chromosome_template(chr_num: str, gene_data: str) -> list[dict[str, str]]:

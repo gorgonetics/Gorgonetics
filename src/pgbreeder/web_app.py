@@ -6,21 +6,43 @@ through a web interface with DuckDB backend.
 """
 
 import logging
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
 from .database import GeneDatabase
 
+
+@asynccontextmanager
+async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
+    """Application lifespan handler."""
+    # Startup
+    try:
+        # Just verify database connection, don't load data
+        animal_types = db.get_animal_types()
+        if animal_types:
+            logger.info(f"Database connected successfully. Found {len(animal_types)} animal types.")
+        else:
+            logger.warning("Database is empty. Run 'python populate_database.py' to load gene data.")
+    except Exception as e:
+        logger.warning(f"Database connection issue: {e}. Make sure to run 'python populate_database.py' first.")
+
+    yield
+
+    # Shutdown (nothing needed for now)
+
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Initialize FastAPI app
-app = FastAPI(title="PGBreeder Gene Editor", version="1.0.0")
+# Initialize FastAPI app with lifespan
+app = FastAPI(title="PGBreeder Gene Editor", version="1.0.0", lifespan=lifespan)
 
 # Initialize database
 db = GeneDatabase()
@@ -41,23 +63,6 @@ class GeneUpdate(BaseModel):
     effect_recessive: str | None = None
     appearance: str | None = None
     notes: str | None = None
-
-
-@app.on_event("startup")
-async def startup_event() -> None:
-    """Initialize the application."""
-    try:
-        # Run migration to update Cleverness to Intelligence
-        db.migrate_cleverness_to_intelligence()
-
-        # Just verify database connection, don't load data
-        animal_types = db.get_animal_types()
-        if animal_types:
-            logger.info(f"Database connected successfully. Found {len(animal_types)} animal types.")
-        else:
-            logger.warning("Database is empty. Run 'python populate_database.py' to load gene data.")
-    except Exception as e:
-        logger.warning(f"Database connection issue: {e}. Make sure to run 'python populate_database.py' first.")
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -87,7 +92,7 @@ async def get_chromosomes(animal_type: str) -> list[str]:
 
 
 @app.get("/api/genes/{animal_type}/{chromosome}")
-async def get_genes(animal_type: str, chromosome: str) -> list[dict]:
+async def get_genes(animal_type: str, chromosome: str) -> list[dict[str, str | int]]:
     """Get all genes for a specific chromosome."""
     try:
         return db.get_genes_by_chromosome(animal_type, chromosome)
@@ -97,7 +102,7 @@ async def get_genes(animal_type: str, chromosome: str) -> list[dict]:
 
 
 @app.get("/api/gene/{animal_type}/{gene}")
-async def get_gene(animal_type: str, gene: str) -> dict:
+async def get_gene(animal_type: str, gene: str) -> dict[str, str | int | None]:
     """Get a specific gene."""
     try:
         gene_data = db.get_gene(animal_type, gene)
@@ -188,10 +193,8 @@ async def export_chromosome_json(animal_type: str, chromosome: str) -> dict[str,
 
 
 @app.get("/api/download/{animal_type}/{chromosome}")
-async def download_chromosome_file(animal_type: str, chromosome: str):
+async def download_chromosome_file(animal_type: str, chromosome: str) -> Response:
     """Download a chromosome JSON file."""
-    from fastapi.responses import Response
-
     try:
         json_data = db.export_genes_to_json(animal_type, chromosome)
         filename = f"{animal_type}_genes_chr{chromosome}.json"

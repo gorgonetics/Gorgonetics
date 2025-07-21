@@ -14,6 +14,7 @@ dependencies = [
     "uvicorn[standard]>=0.24.0",
     "jinja2>=3.1.0",
     "python-multipart>=0.0.6",
+    "cattrs>=25.1.1",
 ]
 authors = [{ name = "Your Name", email = "your.email@example.com" }]
 classifiers = [
@@ -98,6 +99,8 @@ warn_unused_ignores = true
 warn_no_return = true
 warn_unreachable = true
 strict_equality = true
+mypy_path = "src"
+packages = ["pgbreeder"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
