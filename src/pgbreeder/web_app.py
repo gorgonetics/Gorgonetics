@@ -5,11 +5,13 @@ This module provides a FastAPI web application for managing gene data
 through a web interface with DuckDB backend.
 """
 
+import hashlib
 import logging
 import os
 import tempfile
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from typing import Any
 
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, Response
@@ -237,7 +239,7 @@ async def download_chromosome_file(animal_type: str, chromosome: str) -> Respons
 @app.post("/api/pets/upload")
 async def upload_pet_genome(
     file: UploadFile = File(...),
-    name: str = "New Pet",
+    name: str = "",  # Optional override name
     intelligence: float = 50.0,
     toughness: float = 50.0,
     speed: float = 50.0,
@@ -247,6 +249,17 @@ async def upload_pet_genome(
     try:
         # Read the uploaded file content
         content = await file.read()
+
+        # Compute SHA-256 hash of file content
+        content_hash = hashlib.sha256(content).hexdigest()
+
+        # Check if this exact file was already uploaded
+        existing_pet = db.find_pet_by_hash(content_hash)
+        if existing_pet:
+            raise HTTPException(
+                status_code=409,
+                detail=f"This file has already been uploaded as '{existing_pet['name']}' on {existing_pet['created_at']}",
+            )
 
         # Decode content as text
         try:
@@ -266,19 +279,33 @@ async def upload_pet_genome(
             # Parse the genome
             genome = Genome.from_file(temp_file_path)
 
+            # Use the pet name from the genome file, or user override, or filename as fallback
+            pet_name = (
+                genome.name.strip()
+                if genome.name.strip()
+                else (
+                    name.strip()
+                    if name.strip()
+                    else file.filename.replace(".txt", "")
+                    if file.filename
+                    else "Unknown Pet"
+                )
+            )
+
             # Create the pet in the database
             pet_id = db.add_pet(
-                name=name,
+                name=pet_name,
                 species=genome.genome_type,
                 breeder=genome.breeder,
                 genome_data=genome.to_json(),
+                content_hash=content_hash,
                 intelligence=intelligence,
                 toughness=toughness,
                 speed=speed,
                 notes=notes,
             )
 
-            return {"status": "success", "message": "Pet created successfully", "pet_id": pet_id}
+            return {"status": "success", "message": "Pet created successfully", "pet_id": pet_id, "name": pet_name}
 
         finally:
             # Clean up temp file
@@ -292,22 +319,38 @@ async def upload_pet_genome(
 
 
 @app.get("/api/pets")
-async def get_pets() -> list[dict[str, str | int | float]]:
+async def get_pets() -> list[dict[str, Any]]:
     """Get all pets."""
     try:
-        return db.get_all_pets()
+        pets = db.get_all_pets()
+        # Convert datetime objects to strings and handle None values
+        for pet in pets:
+            if pet.get("created_at"):
+                pet["created_at"] = pet["created_at"].isoformat()
+            if pet.get("notes") is None:
+                pet["notes"] = ""
+        return pets
     except Exception as e:
         logger.error(f"Error getting pets: {e}")
         raise HTTPException(status_code=500, detail="Failed to get pets") from e
 
 
 @app.get("/api/pets/{pet_id}")
-async def get_pet(pet_id: int) -> dict[str, str | int | float]:
+async def get_pet(pet_id: int) -> dict[str, Any]:
     """Get a specific pet by ID."""
     try:
         pet = db.get_pet(pet_id)
         if pet is None:
             raise HTTPException(status_code=404, detail="Pet not found")
+
+        # Convert datetime objects to strings and handle None values
+        if pet.get("created_at"):
+            pet["created_at"] = pet["created_at"].isoformat()
+        if pet.get("updated_at"):
+            pet["updated_at"] = pet["updated_at"].isoformat()
+        if pet.get("notes") is None:
+            pet["notes"] = ""
+
         return pet
     except HTTPException:
         raise

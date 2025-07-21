@@ -29,6 +29,7 @@ class GeneDatabase:
         self.db_path = db_path
         self.conn = duckdb.connect(db_path)
         self._create_tables()
+        self.migrate_add_content_hash_column()  # Ensure existing databases have the new column
 
     def _create_tables(self) -> None:
         """Create the necessary database tables."""
@@ -56,6 +57,7 @@ class GeneDatabase:
                 species VARCHAR NOT NULL,
                 breeder VARCHAR,
                 genome_data TEXT NOT NULL,  -- Serialized genome JSON
+                content_hash VARCHAR NOT NULL,  -- SHA-256 hash of original file content
                 intelligence REAL DEFAULT 50.0,
                 toughness REAL DEFAULT 50.0,
                 speed REAL DEFAULT 50.0,
@@ -74,6 +76,11 @@ class GeneDatabase:
         self.conn.execute("""
             CREATE INDEX IF NOT EXISTS idx_pets_species
             ON pets(species)
+        """)
+
+        self.conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_pets_content_hash
+            ON pets(content_hash)
         """)
 
     def load_from_json_files(self, assets_dir: str = "assets") -> None:
@@ -481,6 +488,7 @@ class GeneDatabase:
         species: str,
         breeder: str | None,
         genome_data: str,
+        content_hash: str,
         intelligence: float = 50.0,
         toughness: float = 50.0,
         speed: float = 50.0,
@@ -494,6 +502,7 @@ class GeneDatabase:
             species: Pet's species (e.g., BeeWasp, Horse)
             breeder: Breeder name
             genome_data: Serialized genome JSON
+            content_hash: SHA-256 hash of original file content
             intelligence: Intelligence attribute (0-100)
             toughness: Toughness attribute (0-100)
             speed: Speed attribute (0-100)
@@ -502,22 +511,24 @@ class GeneDatabase:
         Returns:
             The ID of the newly created pet
         """
-        result = self.conn.execute(
+        # Get the next ID first
+        result = self.conn.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM pets").fetchone()
+        if result is None:
+            next_id = 1
+        else:
+            next_id = cast(int, result[0])
+
+        # Insert the pet with explicit ID
+        self.conn.execute(
             """
-            INSERT INTO pets (name, species, breeder, genome_data, intelligence, toughness, speed, notes)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            RETURNING id
+            INSERT INTO pets (id, name, species, breeder, genome_data, content_hash, intelligence, toughness, speed, notes)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
-            [name, species, breeder, genome_data, intelligence, toughness, speed, notes],
+            [next_id, name, species, breeder, genome_data, content_hash, intelligence, toughness, speed, notes],
         )
 
-        pet_id = result.fetchone()
-        if pet_id is None:
-            raise RuntimeError("Failed to create pet")
-
-        pet_id_value = cast(int, pet_id[0])
-        logger.info(f"Added pet '{name}' with ID {pet_id_value}")
-        return pet_id_value
+        logger.info(f"Added pet '{name}' with ID {next_id}")
+        return next_id
 
     def get_pet(self, pet_id: int) -> dict[str, Any] | None:
         """
@@ -703,6 +714,86 @@ class GeneDatabase:
             )
 
         return pets
+
+    def find_pet_by_hash(self, content_hash: str) -> dict[str, Any] | None:
+        """
+        Find a pet by its content hash.
+
+        Args:
+            content_hash: SHA-256 hash of the file content
+
+        Returns:
+            Pet data dictionary or None if not found
+        """
+        result = self.conn.execute(
+            """
+            SELECT id, name, species, breeder, content_hash, created_at
+            FROM pets
+            WHERE content_hash = ?
+        """,
+            [content_hash],
+        ).fetchone()
+
+        if result is None:
+            return None
+
+        return {
+            "id": result[0],
+            "name": result[1],
+            "species": result[2],
+            "breeder": result[3],
+            "content_hash": result[4],
+            "created_at": result[5],
+        }
+
+    def migrate_add_content_hash_column(self) -> None:
+        """Recreate pets table with content_hash column if it doesn't exist."""
+        try:
+            # Check if content_hash column exists
+            try:
+                self.conn.execute("SELECT content_hash FROM pets LIMIT 1").fetchall()
+                # If we get here, column exists
+                return
+            except Exception:
+                # Column doesn't exist, recreate the table
+                logger.info("Recreating pets table with content_hash column")
+
+                # Drop existing table
+                self.conn.execute("DROP TABLE IF EXISTS pets")
+
+                # Recreate table with content_hash column
+                self.conn.execute("""
+                    CREATE TABLE pets (
+                        id INTEGER PRIMARY KEY,
+                        name VARCHAR NOT NULL,
+                        species VARCHAR NOT NULL,
+                        breeder VARCHAR,
+                        genome_data TEXT NOT NULL,
+                        content_hash VARCHAR NOT NULL,
+                        intelligence REAL DEFAULT 50.0,
+                        toughness REAL DEFAULT 50.0,
+                        speed REAL DEFAULT 50.0,
+                        notes TEXT,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """)
+
+                # Create indexes
+                self.conn.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_pets_species
+                    ON pets(species)
+                """)
+
+                self.conn.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_pets_content_hash
+                    ON pets(content_hash)
+                """)
+
+                logger.info("Successfully recreated pets table with content_hash column")
+
+        except Exception as e:
+            logger.error(f"Error recreating pets table: {e}")
 
     def close(self) -> None:
         """Close the database connection."""
