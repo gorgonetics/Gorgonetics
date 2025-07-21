@@ -1,28 +1,22 @@
 """
 Pet and Genetic Data Models for PGBreeder
 
-This module contains classes to represent pets, their genomes, and genetic attributes.
-Uses cattrs for automatic serialization/deserialization.
+This module contains Pydantic models to represent pets, their genomes, and genetic attributes.
+Provides automatic validation, serialization, and API documentation.
 """
 
 from __future__ import annotations
 
-import json
-from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import Any
 
-import cattrs
+from pydantic import BaseModel, Field
 
 from .genome_parser import generate_block_letters, parse_genome_file_genes, parse_genome_file_header
 
-# Configure cattrs to handle Path objects
-cattrs.register_unstructure_hook(Path, lambda p: str(p) if p else None)
-cattrs.register_structure_hook(Path, lambda d, _: Path(d) if d else None)
 
-
-class GeneType(Enum):
+class GeneType(str, Enum):
     """Represents the type of gene combination."""
 
     RECESSIVE = "R"  # Both alleles recessive
@@ -31,7 +25,7 @@ class GeneType(Enum):
     UNKNOWN = "?"  # Unknown gene type
 
 
-class Attribute(Enum):
+class Attribute(str, Enum):
     """Pet attributes that can be affected by genes."""
 
     INTELLIGENCE = "Intelligence"
@@ -45,8 +39,7 @@ class Attribute(Enum):
     LOYALTY = "Loyalty"
 
 
-@dataclass
-class Gene:
+class Gene(BaseModel):
     """Represents a single gene with its combination type and position."""
 
     chromosome: str
@@ -54,39 +47,8 @@ class Gene:
     position: int
     gene_type: GeneType
 
-    @property
-    def gene_id(self) -> str:
-        """Returns the gene ID in format like '01A1'."""
-        return f"{self.chromosome}{self.block}{self.position}"
 
-    @property
-    def is_homozygous_dominant(self) -> bool:
-        """Returns True if both alleles are dominant (D)."""
-        return self.gene_type == GeneType.DOMINANT
-
-    @property
-    def is_homozygous_recessive(self) -> bool:
-        """Returns True if both alleles are recessive (R)."""
-        return self.gene_type == GeneType.RECESSIVE
-
-    @property
-    def is_heterozygous(self) -> bool:
-        """Returns True if one allele is dominant and one recessive (x)."""
-        return self.gene_type == GeneType.MIXED
-
-    @property
-    def has_dominant_effect(self) -> bool:
-        """Returns True if gene has dominant effect (D or x)."""
-        return self.gene_type in (GeneType.DOMINANT, GeneType.MIXED)
-
-    @property
-    def is_unknown(self) -> bool:
-        """Returns True if gene type is unknown (?)."""
-        return self.gene_type == GeneType.UNKNOWN
-
-
-@dataclass
-class AttributeValues:
+class AttributeValues(BaseModel):
     """Represents the calculated attribute values for a pet."""
 
     intelligence: float = 0.0
@@ -109,15 +71,14 @@ class AttributeValues:
         setattr(self, attribute.value.lower(), value)
 
 
-@dataclass
-class Genome:
+class Genome(BaseModel):
     """Represents a pet's complete genome."""
 
     format_version: str
     breeder: str
     name: str
     genome_type: str
-    genes: dict[str, list[Gene]] = field(default_factory=lambda: {})
+    genes: dict[str, list[Gene]] = Field(default_factory=dict)
 
     @classmethod
     def from_file(cls, file_path: str | Path) -> Genome:
@@ -201,32 +162,30 @@ class Genome:
         return all_genes
 
     def to_dict(self) -> dict[str, Any]:
-        """Export genome data to dictionary format using cattrs."""
-        return cattrs.unstructure(self)  # type: ignore[no-any-return]
+        """Export genome data to dictionary format."""
+        return self.model_dump()
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Genome:
-        """Create a genome from dictionary data using cattrs."""
-        return cattrs.structure(data, cls)
+        """Create a genome from dictionary data."""
+        return cls.model_validate(data)
 
     def to_json(self) -> str:
-        """Export genome data to JSON format using cattrs."""
-        return json.dumps(cattrs.unstructure(self), indent=2)
+        """Export genome data to JSON format."""
+        return self.model_dump_json(indent=2)
 
     @classmethod
     def from_json(cls, json_str: str) -> Genome:
-        """Create a genome from JSON string using cattrs."""
-        data = json.loads(json_str)
-        return cattrs.structure(data, cls)
+        """Create a genome from JSON string."""
+        return cls.model_validate_json(json_str)
 
 
-@dataclass
-class Pet:
+class Pet(BaseModel):
     """Represents a complete pet with genome, attributes, and metadata."""
 
     name: str
     genome: Genome
-    attributes: AttributeValues = field(default_factory=AttributeValues)
+    attributes: AttributeValues = Field(default_factory=AttributeValues)
     screenshot_path: Path | None = None
     notes: str = ""
 
@@ -280,35 +239,19 @@ class Pet:
         return self.genome.get_chromosome_genes(chromosome)
 
     def to_dict(self) -> dict[str, Any]:
-        """Export pet data to dictionary format using cattrs."""
-        return cattrs.unstructure(self)  # type: ignore[no-any-return]
+        """Export pet data to dictionary format."""
+        return self.model_dump()
 
     def to_json(self) -> str:
-        """Export pet data to JSON format using cattrs."""
-        return json.dumps(cattrs.unstructure(self), indent=2)
+        """Export pet data to JSON format."""
+        return self.model_dump_json(indent=2)
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Pet:
-        """Create a pet from dictionary data using cattrs."""
-        return cattrs.structure(data, cls)
+        """Create a pet from dictionary data."""
+        return cls.model_validate(data)
 
     @classmethod
     def from_json(cls, json_str: str) -> Pet:
-        """Create a pet from JSON string using cattrs."""
-        data = json.loads(json_str)
-        return cattrs.structure(data, cls)
-
-    @property
-    def species(self) -> str:
-        """Get the pet's species from genome type."""
-        return self.genome.genome_type
-
-    @property
-    def total_genes(self) -> int:
-        """Get the total number of genes."""
-        return len(self.genome.get_all_genes())
-
-    @property
-    def chromosomes(self) -> list[str]:
-        """Get list of chromosome IDs."""
-        return sorted(self.genome.genes.keys())
+        """Create a pet from JSON string."""
+        return cls.model_validate_json(json_str)

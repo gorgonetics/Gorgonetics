@@ -9,7 +9,7 @@ import json
 import logging
 from pathlib import Path
 from types import TracebackType
-from typing import Any
+from typing import Any, cast
 
 import duckdb
 
@@ -32,6 +32,7 @@ class GeneDatabase:
 
     def _create_tables(self) -> None:
         """Create the necessary database tables."""
+        # Genes table (static data)
         self.conn.execute("""
             CREATE TABLE IF NOT EXISTS genes (
                 animal_type VARCHAR NOT NULL,
@@ -47,10 +48,32 @@ class GeneDatabase:
             )
         """)
 
+        # Pets table (user's pet collection)
+        self.conn.execute("""
+            CREATE TABLE IF NOT EXISTS pets (
+                id INTEGER PRIMARY KEY,
+                name VARCHAR NOT NULL,
+                species VARCHAR NOT NULL,
+                breeder VARCHAR,
+                genome_data TEXT NOT NULL,  -- Serialized genome JSON
+                intelligence REAL DEFAULT 50.0,
+                toughness REAL DEFAULT 50.0,
+                speed REAL DEFAULT 50.0,
+                notes TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
         # Create index for faster lookups
         self.conn.execute("""
             CREATE INDEX IF NOT EXISTS idx_animal_chromosome
             ON genes(animal_type, chromosome)
+        """)
+
+        self.conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_pets_species
+            ON pets(species)
         """)
 
     def load_from_json_files(self, assets_dir: str = "assets") -> None:
@@ -449,6 +472,237 @@ class GeneDatabase:
 
         logger.info(f"Exported {len(exported_files)} chromosome files for {animal_type}")
         return exported_files
+
+    # Pet management methods
+
+    def add_pet(
+        self,
+        name: str,
+        species: str,
+        breeder: str | None,
+        genome_data: str,
+        intelligence: float = 50.0,
+        toughness: float = 50.0,
+        speed: float = 50.0,
+        notes: str | None = None,
+    ) -> int:
+        """
+        Add a new pet to the database.
+
+        Args:
+            name: Pet's name
+            species: Pet's species (e.g., BeeWasp, Horse)
+            breeder: Breeder name
+            genome_data: Serialized genome JSON
+            intelligence: Intelligence attribute (0-100)
+            toughness: Toughness attribute (0-100)
+            speed: Speed attribute (0-100)
+            notes: Optional notes about the pet
+
+        Returns:
+            The ID of the newly created pet
+        """
+        result = self.conn.execute(
+            """
+            INSERT INTO pets (name, species, breeder, genome_data, intelligence, toughness, speed, notes)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            RETURNING id
+        """,
+            [name, species, breeder, genome_data, intelligence, toughness, speed, notes],
+        )
+
+        pet_id = result.fetchone()
+        if pet_id is None:
+            raise RuntimeError("Failed to create pet")
+
+        pet_id_value = cast(int, pet_id[0])
+        logger.info(f"Added pet '{name}' with ID {pet_id_value}")
+        return pet_id_value
+
+    def get_pet(self, pet_id: int) -> dict[str, Any] | None:
+        """
+        Get a pet by ID.
+
+        Args:
+            pet_id: Pet ID
+
+        Returns:
+            Pet data dictionary or None if not found
+        """
+        result = self.conn.execute(
+            """
+            SELECT id, name, species, breeder, genome_data, intelligence, toughness, speed, notes, created_at, updated_at
+            FROM pets
+            WHERE id = ?
+        """,
+            [pet_id],
+        ).fetchone()
+
+        if result is None:
+            return None
+
+        return {
+            "id": result[0],
+            "name": result[1],
+            "species": result[2],
+            "breeder": result[3],
+            "genome_data": result[4],
+            "intelligence": result[5],
+            "toughness": result[6],
+            "speed": result[7],
+            "notes": result[8],
+            "created_at": result[9],
+            "updated_at": result[10],
+        }
+
+    def get_all_pets(self) -> list[dict[str, Any]]:
+        """
+        Get all pets from the database.
+
+        Returns:
+            List of pet dictionaries
+        """
+        results = self.conn.execute("""
+            SELECT id, name, species, breeder, intelligence, toughness, speed, notes, created_at
+            FROM pets
+            ORDER BY created_at DESC
+        """).fetchall()
+
+        pets = []
+        for row in results:
+            pets.append(
+                {
+                    "id": row[0],
+                    "name": row[1],
+                    "species": row[2],
+                    "breeder": row[3],
+                    "intelligence": row[4],
+                    "toughness": row[5],
+                    "speed": row[6],
+                    "notes": row[7],
+                    "created_at": row[8],
+                }
+            )
+
+        return pets
+
+    def update_pet(
+        self,
+        pet_id: int,
+        name: str | None = None,
+        intelligence: float | None = None,
+        toughness: float | None = None,
+        speed: float | None = None,
+        notes: str | None = None,
+    ) -> bool:
+        """
+        Update a pet's information.
+
+        Args:
+            pet_id: Pet ID
+            name: New name (optional)
+            intelligence: New intelligence value (optional)
+            toughness: New toughness value (optional)
+            speed: New speed value (optional)
+            notes: New notes (optional)
+
+        Returns:
+            True if the pet was updated, False otherwise
+        """
+        updates: list[str] = []
+        values: list[Any] = []
+
+        if name is not None:
+            updates.append("name = ?")
+            values.append(name)
+        if intelligence is not None:
+            updates.append("intelligence = ?")
+            values.append(intelligence)
+        if toughness is not None:
+            updates.append("toughness = ?")
+            values.append(toughness)
+        if speed is not None:
+            updates.append("speed = ?")
+            values.append(speed)
+        if notes is not None:
+            updates.append("notes = ?")
+            values.append(notes)
+
+        if not updates:
+            return False
+
+        updates.append("updated_at = CURRENT_TIMESTAMP")
+        values.append(pet_id)
+
+        query = f"""
+            UPDATE pets
+            SET {", ".join(updates)}
+            WHERE id = ?
+        """
+
+        result = self.conn.execute(query, values)
+        success = result.rowcount > 0
+
+        if success:
+            logger.info(f"Updated pet {pet_id}")
+
+        return success
+
+    def delete_pet(self, pet_id: int) -> bool:
+        """
+        Delete a pet from the database.
+
+        Args:
+            pet_id: Pet ID
+
+        Returns:
+            True if the pet was deleted, False otherwise
+        """
+        result = self.conn.execute("DELETE FROM pets WHERE id = ?", [pet_id])
+        success = result.rowcount > 0
+
+        if success:
+            logger.info(f"Deleted pet {pet_id}")
+
+        return success
+
+    def get_pets_by_species(self, species: str) -> list[dict[str, Any]]:
+        """
+        Get all pets of a specific species.
+
+        Args:
+            species: Species name
+
+        Returns:
+            List of pet dictionaries
+        """
+        results = self.conn.execute(
+            """
+            SELECT id, name, species, breeder, intelligence, toughness, speed, notes, created_at
+            FROM pets
+            WHERE species = ?
+            ORDER BY created_at DESC
+        """,
+            [species],
+        ).fetchall()
+
+        pets = []
+        for row in results:
+            pets.append(
+                {
+                    "id": row[0],
+                    "name": row[1],
+                    "species": row[2],
+                    "breeder": row[3],
+                    "intelligence": row[4],
+                    "toughness": row[5],
+                    "speed": row[6],
+                    "notes": row[7],
+                    "created_at": row[8],
+                }
+            )
+
+        return pets
 
     def close(self) -> None:
         """Close the database connection."""

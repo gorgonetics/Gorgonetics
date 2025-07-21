@@ -6,10 +6,12 @@ through a web interface with DuckDB backend.
 """
 
 import logging
+import os
+import tempfile
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -62,6 +64,26 @@ class GeneUpdate(BaseModel):
     effect_dominant: str | None = None
     effect_recessive: str | None = None
     appearance: str | None = None
+    notes: str | None = None
+
+
+class PetCreate(BaseModel):
+    """Model for creating a new pet."""
+
+    name: str
+    intelligence: float = 50.0
+    toughness: float = 50.0
+    speed: float = 50.0
+    notes: str | None = None
+
+
+class PetUpdate(BaseModel):
+    """Model for updating pet attributes."""
+
+    name: str | None = None
+    intelligence: float | None = None
+    toughness: float | None = None
+    speed: float | None = None
     notes: str | None = None
 
 
@@ -207,6 +229,144 @@ async def download_chromosome_file(animal_type: str, chromosome: str) -> Respons
     except Exception as e:
         logger.error(f"Error downloading {animal_type}/{chromosome}: {e}")
         raise HTTPException(status_code=500, detail="Failed to download file") from e
+
+
+# Pet Management Endpoints
+
+
+@app.post("/api/pets/upload")
+async def upload_pet_genome(
+    file: UploadFile = File(...),
+    name: str = "New Pet",
+    intelligence: float = 50.0,
+    toughness: float = 50.0,
+    speed: float = 50.0,
+    notes: str | None = None,
+) -> dict[str, str | int]:
+    """Upload a genome file and create a new pet."""
+    try:
+        # Read the uploaded file content
+        content = await file.read()
+
+        # Decode content as text
+        try:
+            genome_content = content.decode("utf-8")
+        except UnicodeDecodeError as e:
+            raise HTTPException(status_code=400, detail="File must be a valid text file") from e
+
+        # Parse the genome using our models
+        from .models import Genome
+
+        # Create a temporary file to use with our existing parser
+        with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".txt") as temp_file:
+            temp_file.write(genome_content)
+            temp_file_path = temp_file.name
+
+        try:
+            # Parse the genome
+            genome = Genome.from_file(temp_file_path)
+
+            # Create the pet in the database
+            pet_id = db.add_pet(
+                name=name,
+                species=genome.genome_type,
+                breeder=genome.breeder,
+                genome_data=genome.to_json(),
+                intelligence=intelligence,
+                toughness=toughness,
+                speed=speed,
+                notes=notes,
+            )
+
+            return {"status": "success", "message": "Pet created successfully", "pet_id": pet_id}
+
+        finally:
+            # Clean up temp file
+            os.unlink(temp_file_path)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error uploading pet genome: {e}")
+        raise HTTPException(status_code=500, detail="Failed to create pet") from e
+
+
+@app.get("/api/pets")
+async def get_pets() -> list[dict[str, str | int | float]]:
+    """Get all pets."""
+    try:
+        return db.get_all_pets()
+    except Exception as e:
+        logger.error(f"Error getting pets: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get pets") from e
+
+
+@app.get("/api/pets/{pet_id}")
+async def get_pet(pet_id: int) -> dict[str, str | int | float]:
+    """Get a specific pet by ID."""
+    try:
+        pet = db.get_pet(pet_id)
+        if pet is None:
+            raise HTTPException(status_code=404, detail="Pet not found")
+        return pet
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting pet {pet_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get pet") from e
+
+
+@app.put("/api/pets/{pet_id}")
+async def update_pet(pet_id: int, pet_update: PetUpdate) -> dict[str, str]:
+    """Update a pet's attributes."""
+    try:
+        success = db.update_pet(
+            pet_id=pet_id,
+            name=pet_update.name,
+            intelligence=pet_update.intelligence,
+            toughness=pet_update.toughness,
+            speed=pet_update.speed,
+            notes=pet_update.notes,
+        )
+
+        if success:
+            return {"status": "success", "message": "Pet updated successfully"}
+        else:
+            raise HTTPException(status_code=404, detail="Pet not found")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating pet {pet_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to update pet") from e
+
+
+@app.delete("/api/pets/{pet_id}")
+async def delete_pet(pet_id: int) -> dict[str, str]:
+    """Delete a pet."""
+    try:
+        success = db.delete_pet(pet_id)
+
+        if success:
+            return {"status": "success", "message": "Pet deleted successfully"}
+        else:
+            raise HTTPException(status_code=404, detail="Pet not found")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting pet {pet_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to delete pet") from e
+
+
+@app.get("/api/pets/species/{species}")
+async def get_pets_by_species(species: str) -> list[dict[str, str | int | float]]:
+    """Get all pets of a specific species."""
+    try:
+        return db.get_pets_by_species(species)
+    except Exception as e:
+        logger.error(f"Error getting pets for species {species}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get pets") from e
 
 
 def run_server() -> None:

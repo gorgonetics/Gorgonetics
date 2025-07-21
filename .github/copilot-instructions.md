@@ -2,6 +2,12 @@
 
 <!-- Use this file to provide workspace-specific custom instructions to Copilot. For more details, visit https://code.visualstudio.com/docs/copilot/copilot-customization#_use-a-githubcopilotinstructionsmd-file -->
 
+## Response Style
+
+- Do not provide summaries of work completed unless specifically requested
+- Keep responses concise and focused on the immediate task
+- Only explain what you're doing if there's ambiguity or complexity that needs clarification
+
 ## Project Overview
 
 PGBreeder is a simple Python CLI application built with modern Python tooling and follows best practices.
@@ -42,7 +48,6 @@ scripts/         # Utility scripts
 3. Use `ruff format` for formatting
 4. Use `mypy` for type checking
 5. Use `pytest` for running tests
-6. Use `typos` for spell checking
 
 ## Testing
 

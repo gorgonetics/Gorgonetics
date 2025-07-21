@@ -32,45 +32,6 @@ class TestGene:
         assert gene.position == 1
         assert gene.gene_type == GeneType.DOMINANT
 
-    def test_gene_id(self) -> None:
-        """Test gene ID generation."""
-        gene = Gene("01", "A", 1, GeneType.DOMINANT)
-        assert gene.gene_id == "01A1"
-
-    def test_gene_properties(self) -> None:
-        """Test gene property methods."""
-        # Test dominant gene
-        dominant_gene = Gene("01", "A", 1, GeneType.DOMINANT)
-        assert dominant_gene.is_homozygous_dominant
-        assert not dominant_gene.is_homozygous_recessive
-        assert not dominant_gene.is_heterozygous
-        assert dominant_gene.has_dominant_effect
-        assert not dominant_gene.is_unknown
-
-        # Test recessive gene
-        recessive_gene = Gene("01", "A", 2, GeneType.RECESSIVE)
-        assert not recessive_gene.is_homozygous_dominant
-        assert recessive_gene.is_homozygous_recessive
-        assert not recessive_gene.is_heterozygous
-        assert not recessive_gene.has_dominant_effect
-        assert not recessive_gene.is_unknown
-
-        # Test mixed gene
-        mixed_gene = Gene("01", "A", 3, GeneType.MIXED)
-        assert not mixed_gene.is_homozygous_dominant
-        assert not mixed_gene.is_homozygous_recessive
-        assert mixed_gene.is_heterozygous
-        assert mixed_gene.has_dominant_effect
-        assert not mixed_gene.is_unknown
-
-        # Test unknown gene
-        unknown_gene = Gene("01", "A", 4, GeneType.UNKNOWN)
-        assert not unknown_gene.is_homozygous_dominant
-        assert not unknown_gene.is_homozygous_recessive
-        assert not unknown_gene.is_heterozygous
-        assert not unknown_gene.has_dominant_effect
-        assert unknown_gene.is_unknown
-
 
 class TestAttributeValues:
     """Test the AttributeValues class."""
@@ -143,7 +104,13 @@ class TestGenome:
     def test_get_gene(self) -> None:
         """Test getting specific genes."""
         genes = Genome.parse_chromosome_genes("01", "RDDR")
-        genome = Genome("v1.0", "Test Breeder", "Test Pet", "TestSpecies", {"01": genes})
+        genome = Genome(
+            format_version="v1.0",
+            breeder="Test Breeder",
+            name="Test Pet",
+            genome_type="TestSpecies",
+            genes={"01": genes},
+        )
 
         gene = genome.get_gene("01A1")
         assert gene is not None
@@ -158,9 +125,15 @@ class TestGenome:
         assert gene is None
 
     def test_genome_serialization(self) -> None:
-        """Test genome serialization with cattrs."""
+        """Test genome serialization with Pydantic."""
         genes = Genome.parse_chromosome_genes("01", "RDDR")
-        genome = Genome("v1.0", "Test Breeder", "Test Genome", "TestSpecies", {"01": genes})
+        genome = Genome(
+            format_version="v1.0",
+            breeder="Test Breeder",
+            name="Test Genome",
+            genome_type="TestSpecies",
+            genes={"01": genes},
+        )
 
         # Test dict serialization
         genome_dict = genome.to_dict()
@@ -181,14 +154,20 @@ class TestPet:
     def test_pet_creation(self) -> None:
         """Test creating a pet with genome."""
         genes = Genome.parse_chromosome_genes("01", "RDDR")
-        genome = Genome("v1.0", "Test Breeder", "Test Pet", "TestSpecies", {"01": genes})
+        genome = Genome(
+            format_version="v1.0",
+            breeder="Test Breeder",
+            name="Test Pet",
+            genome_type="TestSpecies",
+            genes={"01": genes},
+        )
 
         pet = Pet(name="Test Pet", genome=genome)
 
         assert pet.name == "Test Pet"
-        assert pet.species == "TestSpecies"
-        assert pet.total_genes == 4
-        assert pet.chromosomes == ["01"]
+        assert pet.genome.genome_type == "TestSpecies"
+        assert len(pet.genome.get_all_genes()) == 4
+        assert sorted(pet.genome.genes.keys()) == ["01"]
 
     def test_pet_from_file(self) -> None:
         """Test creating pet from genome file if available."""
@@ -198,9 +177,9 @@ class TestPet:
             pet = Pet.from_genome_file(name="Test Bee", genome_file=test_file, notes="Test pet")
 
             assert pet.name == "Test Bee"
-            assert pet.species == "BeeWasp"
+            assert pet.genome.genome_type == "BeeWasp"
             assert pet.notes == "Test pet"
-            assert pet.total_genes > 0
+            assert len(pet.genome.get_all_genes()) > 0
 
             # Test default attributes are set
             assert pet.attributes.intelligence == 50.0
@@ -211,7 +190,13 @@ class TestPet:
     def test_pet_json_export(self) -> None:
         """Test exporting pet to JSON."""
         genes = Genome.parse_chromosome_genes("01", "RD")
-        genome = Genome("v1.0", "Test Breeder", "Test Pet", "TestSpecies", {"01": genes})
+        genome = Genome(
+            format_version="v1.0",
+            breeder="Test Breeder",
+            name="Test Pet",
+            genome_type="TestSpecies",
+            genes={"01": genes},
+        )
 
         pet = Pet(name="Test Pet", genome=genome)
 
@@ -228,10 +213,10 @@ class TestPet:
         # Test round-trip serialization
         restored_pet = Pet.from_json(json_str)
         assert restored_pet.name == "Test Pet"
-        assert restored_pet.species == "TestSpecies"
-        assert restored_pet.total_genes == 2
+        assert restored_pet.genome.genome_type == "TestSpecies"
+        assert len(restored_pet.genome.get_all_genes()) == 2
 
         # Test dict round-trip
         dict_restored = Pet.from_dict(pet_dict)
         assert dict_restored.name == "Test Pet"
-        assert dict_restored.species == "TestSpecies"
+        assert dict_restored.genome.genome_type == "TestSpecies"
