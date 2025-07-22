@@ -36,7 +36,6 @@ class Attribute(str, Enum):
     FEROCITY = "Ferocity"
     ENTHUSIASM = "Enthusiasm"
     VIRILITY = "Virility"
-    LOYALTY = "Loyalty"
 
 
 class Gene(BaseModel):
@@ -59,7 +58,6 @@ class AttributeValues(BaseModel):
     ferocity: float = 0.0
     enthusiasm: float = 0.0
     virility: float = 0.0
-    loyalty: float = 0.0
 
     def get_attribute_value(self, attribute: Attribute) -> float:
         """Get the value for a specific attribute."""
@@ -221,7 +219,6 @@ class Pet(BaseModel):
             ferocity=50.0,
             enthusiasm=50.0,
             virility=50.0,
-            loyalty=50.0,
         )
 
         # TODO: Implement actual genetic calculation using the gene database

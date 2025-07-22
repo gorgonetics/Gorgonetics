@@ -188,8 +188,6 @@ async def get_effect_options() -> list[str]:
         "Speed-",
         "Intelligence+",
         "Intelligence-",
-        "Loyalty+",
-        "Loyalty-",
     ]
     return sorted(effects)
 

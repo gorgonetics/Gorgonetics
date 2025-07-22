@@ -428,8 +428,7 @@ body {
 .effect-ruggedness,
 .effect-ferocity,
 .effect-enthusiasm,
-.effect-virility,
-.effect-loyalty {
+.effect-virility {
     border-left: 4px solid #64748b !important;
     box-shadow: inset 0 0 0 1px rgba(100, 116, 139, 0.2);
 }
@@ -449,8 +448,7 @@ body {
 .effect-positive.effect-ruggedness,
 .effect-positive.effect-ferocity,
 .effect-positive.effect-enthusiasm,
-.effect-positive.effect-virility,
-.effect-positive.effect-loyalty {
+.effect-positive.effect-virility {
     background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
     border-left-color: #16a34a !important;
 }
@@ -462,8 +460,7 @@ body {
 .effect-negative.effect-ruggedness,
 .effect-negative.effect-ferocity,
 .effect-negative.effect-enthusiasm,
-.effect-negative.effect-virility,
-.effect-negative.effect-loyalty {
+.effect-negative.effect-virility {
     background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);
     border-left-color: #dc2626 !important;
 }
@@ -550,8 +547,7 @@ body {
 .legend-ruggedness,
 .legend-ferocity,
 .legend-enthusiasm,
-.legend-virility,
-.legend-loyalty {
+.legend-virility {
     background: #64748b;
 }
 
@@ -683,8 +679,7 @@ body {
 .gene-field select option[value*="Ruggedness"],
 .gene-field select option[value*="Ferocity"],
 .gene-field select option[value*="Enthusiasm"],
-.gene-field select option[value*="Virility"],
-.gene-field select option[value*="Loyalty"] {
+.gene-field select option[value*="Virility"] {
     border-left: 4px solid #64748b;
     background-color: #f8fafc;
 }
@@ -697,8 +692,7 @@ body {
 .gene-field select option[value="Ruggedness+"],
 .gene-field select option[value="Ferocity+"],
 .gene-field select option[value="Enthusiasm+"],
-.gene-field select option[value="Virility+"],
-.gene-field select option[value="Loyalty+"] {
+.gene-field select option[value="Virility+"] {
     background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
     border-left: 4px solid #16a34a;
     color: #15803d;
@@ -712,8 +706,7 @@ body {
 .gene-field select option[value="Ruggedness-"],
 .gene-field select option[value="Ferocity-"],
 .gene-field select option[value="Enthusiasm-"],
-.gene-field select option[value="Virility-"],
-.gene-field select option[value="Loyalty-"] {
+.gene-field select option[value="Virility-"] {
     background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);
     border-left: 4px solid #dc2626;
     color: #dc2626;
@@ -926,8 +919,7 @@ body {
 .option-ruggedness.option-positive,
 .option-ferocity.option-positive,
 .option-enthusiasm.option-positive,
-.option-virility.option-positive,
-.option-loyalty.option-positive {
+.option-virility.option-positive {
     background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
     color: #15803d;
     border-left-color: #16a34a;
@@ -941,8 +933,7 @@ body {
 .option-ruggedness.option-negative,
 .option-ferocity.option-negative,
 .option-enthusiasm.option-negative,
-.option-virility.option-negative,
-.option-loyalty.option-negative {
+.option-virility.option-negative {
     background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);
     color: #dc2626;
     border-left-color: #dc2626;

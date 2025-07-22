@@ -29,7 +29,6 @@ class GeneDatabase:
         self.db_path = db_path
         self.conn = duckdb.connect(db_path)
         self._create_tables()
-        self.migrate_add_content_hash_column()  # Ensure existing databases have the new column
 
     def _create_tables(self) -> None:
         """Create the necessary database tables."""
@@ -522,9 +521,20 @@ class GeneDatabase:
         self.conn.execute(
             """
             INSERT INTO pets (id, name, species, breeder, genome_data, content_hash, intelligence, toughness, speed, notes)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES ($id, $name, $species, $breeder, $genome_data, $content_hash, $intelligence, $toughness, $speed, $notes)
         """,
-            [next_id, name, species, breeder, genome_data, content_hash, intelligence, toughness, speed, notes],
+            {
+                "id": next_id,
+                "name": name,
+                "species": species,
+                "breeder": breeder,
+                "genome_data": genome_data,
+                "content_hash": content_hash,
+                "intelligence": intelligence,
+                "toughness": toughness,
+                "speed": speed,
+                "notes": notes,
+            },
         )
 
         logger.info(f"Added pet '{name}' with ID {next_id}")
@@ -544,9 +554,9 @@ class GeneDatabase:
             """
             SELECT id, name, species, breeder, genome_data, intelligence, toughness, speed, notes, created_at, updated_at
             FROM pets
-            WHERE id = ?
+            WHERE id = $pet_id
         """,
-            [pet_id],
+            {"pet_id": pet_id},
         ).fetchone()
 
         if result is None:
@@ -621,37 +631,37 @@ class GeneDatabase:
             True if the pet was updated, False otherwise
         """
         updates: list[str] = []
-        values: list[Any] = []
+        params: dict[str, Any] = {}
 
         if name is not None:
-            updates.append("name = ?")
-            values.append(name)
+            updates.append("name = $name")
+            params["name"] = name
         if intelligence is not None:
-            updates.append("intelligence = ?")
-            values.append(intelligence)
+            updates.append("intelligence = $intelligence")
+            params["intelligence"] = intelligence
         if toughness is not None:
-            updates.append("toughness = ?")
-            values.append(toughness)
+            updates.append("toughness = $toughness")
+            params["toughness"] = toughness
         if speed is not None:
-            updates.append("speed = ?")
-            values.append(speed)
+            updates.append("speed = $speed")
+            params["speed"] = speed
         if notes is not None:
-            updates.append("notes = ?")
-            values.append(notes)
+            updates.append("notes = $notes")
+            params["notes"] = notes
 
         if not updates:
             return False
 
         updates.append("updated_at = CURRENT_TIMESTAMP")
-        values.append(pet_id)
+        params["pet_id"] = pet_id
 
         query = f"""
             UPDATE pets
             SET {", ".join(updates)}
-            WHERE id = ?
+            WHERE id = $pet_id
         """
 
-        result = self.conn.execute(query, values)
+        result = self.conn.execute(query, params)
         success = result.rowcount > 0
 
         if success:
@@ -669,7 +679,7 @@ class GeneDatabase:
         Returns:
             True if the pet was deleted, False otherwise
         """
-        result = self.conn.execute("DELETE FROM pets WHERE id = ?", [pet_id])
+        result = self.conn.execute("DELETE FROM pets WHERE id = $pet_id", {"pet_id": pet_id})
         success = result.rowcount > 0
 
         if success:
@@ -691,10 +701,10 @@ class GeneDatabase:
             """
             SELECT id, name, species, breeder, intelligence, toughness, speed, notes, created_at
             FROM pets
-            WHERE species = ?
+            WHERE species = $species
             ORDER BY created_at DESC
         """,
-            [species],
+            {"species": species},
         ).fetchall()
 
         pets = []
@@ -729,9 +739,9 @@ class GeneDatabase:
             """
             SELECT id, name, species, breeder, content_hash, created_at
             FROM pets
-            WHERE content_hash = ?
+            WHERE content_hash = $content_hash
         """,
-            [content_hash],
+            {"content_hash": content_hash},
         ).fetchone()
 
         if result is None:
@@ -745,55 +755,6 @@ class GeneDatabase:
             "content_hash": result[4],
             "created_at": result[5],
         }
-
-    def migrate_add_content_hash_column(self) -> None:
-        """Recreate pets table with content_hash column if it doesn't exist."""
-        try:
-            # Check if content_hash column exists
-            try:
-                self.conn.execute("SELECT content_hash FROM pets LIMIT 1").fetchall()
-                # If we get here, column exists
-                return
-            except Exception:
-                # Column doesn't exist, recreate the table
-                logger.info("Recreating pets table with content_hash column")
-
-                # Drop existing table
-                self.conn.execute("DROP TABLE IF EXISTS pets")
-
-                # Recreate table with content_hash column
-                self.conn.execute("""
-                    CREATE TABLE pets (
-                        id INTEGER PRIMARY KEY,
-                        name VARCHAR NOT NULL,
-                        species VARCHAR NOT NULL,
-                        breeder VARCHAR,
-                        genome_data TEXT NOT NULL,
-                        content_hash VARCHAR NOT NULL,
-                        intelligence REAL DEFAULT 50.0,
-                        toughness REAL DEFAULT 50.0,
-                        speed REAL DEFAULT 50.0,
-                        notes TEXT,
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                    )
-                """)
-
-                # Create indexes
-                self.conn.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_pets_species
-                    ON pets(species)
-                """)
-
-                self.conn.execute("""
-                    CREATE INDEX IF NOT EXISTS idx_pets_content_hash
-                    ON pets(content_hash)
-                """)
-
-                logger.info("Successfully recreated pets table with content_hash column")
-
-        except Exception as e:
-            logger.error(f"Error recreating pets table: {e}")
 
     def close(self) -> None:
         """Close the database connection."""

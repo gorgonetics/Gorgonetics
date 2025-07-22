@@ -510,7 +510,7 @@ class GeneManager {
             'option-positive', 'option-negative', 'option-none',
             'option-intelligence', 'option-toughness', 'option-speed',
             'option-friendliness', 'option-ruggedness', 'option-ferocity',
-            'option-enthusiasm', 'option-virility', 'option-loyalty'
+            'option-enthusiasm', 'option-virility'
         );
 
         if (!value || value === 'None') {
@@ -555,7 +555,7 @@ class GeneManager {
             'effect-positive', 'effect-negative', 'effect-none',
             'effect-intelligence', 'effect-toughness', 'effect-speed',
             'effect-friendliness', 'effect-ruggedness', 'effect-ferocity',
-            'effect-enthusiasm', 'effect-virility', 'effect-loyalty'
+            'effect-enthusiasm', 'effect-virility'
         );
 
         if (!value || value === 'None') {
@@ -653,8 +653,7 @@ class GeneManager {
             'Ruggedness': '🏔️',
             'Ferocity': '🔥',
             'Enthusiasm': '✨',
-            'Virility': '💜',
-            'Loyalty': '💎'
+            'Virility': '💜'
         };
 
         return emojiMap[attribute] || '';
