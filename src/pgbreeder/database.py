@@ -591,19 +591,53 @@ class GeneDatabase:
 
         pets = []
         for row in results:
-            pets.append(
-                {
-                    "id": row[0],
-                    "name": row[1],
-                    "species": row[2],
-                    "breeder": row[3],
-                    "intelligence": row[4],
-                    "toughness": row[5],
-                    "speed": row[6],
-                    "notes": row[7],
-                    "created_at": row[8],
-                }
-            )
+            # Parse genome_data to count genes
+            pet_data = {
+                "id": row[0],
+                "name": row[1],
+                "species": row[2],
+                "breeder": row[3],
+                "intelligence": row[4],
+                "toughness": row[5],
+                "speed": row[6],
+                "notes": row[7],
+                "created_at": row[8],
+                "total_genes": 0,
+            }
+
+            # Get the pet's genome data to count genes
+            genome_result = self.conn.execute("SELECT genome_data FROM pets WHERE id = $id", {"id": row[0]}).fetchone()
+
+            if genome_result and genome_result[0]:
+                try:
+                    genome_data = json.loads(genome_result[0])
+                    # Count genes in the genome data
+                    gene_count = 0
+                    if isinstance(genome_data, dict):
+                        if "genome" in genome_data:
+                            # Standard JSON structure
+                            for chromosome_data in genome_data["genome"].values():
+                                if isinstance(chromosome_data, list):
+                                    gene_count += len(chromosome_data)
+                        elif "genes" in genome_data:
+                            # New structure with "genes" key
+                            genes_data = genome_data["genes"]
+                            for chromosome_data in genes_data.values():
+                                if isinstance(chromosome_data, list):
+                                    gene_count += len(chromosome_data)
+                        elif "Genes" in genome_data:
+                            # Parsed text file structure
+                            genes_data = genome_data["Genes"]
+                            for gene_string in genes_data.values():
+                                if isinstance(gene_string, str):
+                                    # Count space-separated genes, excluding 'x' placeholders
+                                    genes = gene_string.strip().split()
+                                    gene_count += len([g for g in genes if g and g.lower() != "x"])
+                    pet_data["total_genes"] = gene_count
+                except (json.JSONDecodeError, KeyError, TypeError):
+                    pet_data["total_genes"] = 0
+
+            pets.append(pet_data)
 
         return pets
 
