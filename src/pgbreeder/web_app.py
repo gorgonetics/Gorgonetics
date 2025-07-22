@@ -85,7 +85,11 @@ class PetUpdate(BaseModel):
     name: str | None = None
     intelligence: float | None = None
     toughness: float | None = None
-    speed: float | None = None
+    friendliness: float | None = None
+    ruggedness: float | None = None
+    ferocity: float | None = None
+    enthusiasm: float | None = None
+    virility: float | None = None
     notes: str | None = None
 
 
@@ -240,7 +244,11 @@ async def upload_pet_genome(
     name: str = "",  # Optional override name
     intelligence: float = 50.0,
     toughness: float = 50.0,
-    speed: float = 50.0,
+    friendliness: float = 50.0,
+    ruggedness: float = 50.0,
+    ferocity: float = 50.0,
+    enthusiasm: float = 50.0,
+    virility: float = 50.0,
     notes: str | None = None,
 ) -> dict[str, str | int]:
     """Upload a genome file and create a new pet."""
@@ -299,7 +307,11 @@ async def upload_pet_genome(
                 content_hash=content_hash,
                 intelligence=intelligence,
                 toughness=toughness,
-                speed=speed,
+                friendliness=friendliness,
+                ruggedness=ruggedness,
+                ferocity=ferocity,
+                enthusiasm=enthusiasm,
+                virility=virility,
                 notes=notes,
             )
 
@@ -366,7 +378,11 @@ async def update_pet(pet_id: int, pet_update: PetUpdate) -> dict[str, str]:
             name=pet_update.name,
             intelligence=pet_update.intelligence,
             toughness=pet_update.toughness,
-            speed=pet_update.speed,
+            friendliness=pet_update.friendliness,
+            ruggedness=pet_update.ruggedness,
+            ferocity=pet_update.ferocity,
+            enthusiasm=pet_update.enthusiasm,
+            virility=pet_update.virility,
             notes=pet_update.notes,
         )
 

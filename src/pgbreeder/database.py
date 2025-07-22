@@ -59,7 +59,11 @@ class GeneDatabase:
                 content_hash VARCHAR NOT NULL,  -- SHA-256 hash of original file content
                 intelligence REAL DEFAULT 50.0,
                 toughness REAL DEFAULT 50.0,
-                speed REAL DEFAULT 50.0,
+                friendliness REAL DEFAULT 50.0,
+                ruggedness REAL DEFAULT 50.0,
+                ferocity REAL DEFAULT 50.0,
+                enthusiasm REAL DEFAULT 50.0,
+                virility REAL DEFAULT 50.0,
                 notes TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -490,7 +494,11 @@ class GeneDatabase:
         content_hash: str,
         intelligence: float = 50.0,
         toughness: float = 50.0,
-        speed: float = 50.0,
+        friendliness: float = 50.0,
+        ruggedness: float = 50.0,
+        ferocity: float = 50.0,
+        enthusiasm: float = 50.0,
+        virility: float = 50.0,
         notes: str | None = None,
     ) -> int:
         """
@@ -504,7 +512,11 @@ class GeneDatabase:
             content_hash: SHA-256 hash of original file content
             intelligence: Intelligence attribute (0-100)
             toughness: Toughness attribute (0-100)
-            speed: Speed attribute (0-100)
+            friendliness: Friendliness attribute (0-100)
+            ruggedness: Ruggedness attribute (0-100)
+            ferocity: Ferocity attribute (0-100)
+            enthusiasm: Enthusiasm attribute (0-100)
+            virility: Virility attribute (0-100)
             notes: Optional notes about the pet
 
         Returns:
@@ -520,8 +532,8 @@ class GeneDatabase:
         # Insert the pet with explicit ID
         self.conn.execute(
             """
-            INSERT INTO pets (id, name, species, breeder, genome_data, content_hash, intelligence, toughness, speed, notes)
-            VALUES ($id, $name, $species, $breeder, $genome_data, $content_hash, $intelligence, $toughness, $speed, $notes)
+            INSERT INTO pets (id, name, species, breeder, genome_data, content_hash, intelligence, toughness, friendliness, ruggedness, ferocity, enthusiasm, virility, notes)
+            VALUES ($id, $name, $species, $breeder, $genome_data, $content_hash, $intelligence, $toughness, $friendliness, $ruggedness, $ferocity, $enthusiasm, $virility, $notes)
         """,
             {
                 "id": next_id,
@@ -532,7 +544,11 @@ class GeneDatabase:
                 "content_hash": content_hash,
                 "intelligence": intelligence,
                 "toughness": toughness,
-                "speed": speed,
+                "friendliness": friendliness,
+                "ruggedness": ruggedness,
+                "ferocity": ferocity,
+                "enthusiasm": enthusiasm,
+                "virility": virility,
                 "notes": notes,
             },
         )
@@ -552,7 +568,7 @@ class GeneDatabase:
         """
         result = self.conn.execute(
             """
-            SELECT id, name, species, breeder, genome_data, intelligence, toughness, speed, notes, created_at, updated_at
+            SELECT id, name, species, breeder, genome_data, intelligence, toughness, friendliness, ruggedness, ferocity, enthusiasm, virility, notes, created_at, updated_at
             FROM pets
             WHERE id = $pet_id
         """,
@@ -570,10 +586,14 @@ class GeneDatabase:
             "genome_data": result[4],
             "intelligence": result[5],
             "toughness": result[6],
-            "speed": result[7],
-            "notes": result[8],
-            "created_at": result[9],
-            "updated_at": result[10],
+            "friendliness": result[7],
+            "ruggedness": result[8],
+            "ferocity": result[9],
+            "enthusiasm": result[10],
+            "virility": result[11],
+            "notes": result[12],
+            "created_at": result[13],
+            "updated_at": result[14],
         }
 
     def get_all_pets(self) -> list[dict[str, Any]]:
@@ -584,7 +604,7 @@ class GeneDatabase:
             List of pet dictionaries
         """
         results = self.conn.execute("""
-            SELECT id, name, species, breeder, intelligence, toughness, speed, notes, created_at
+            SELECT id, name, species, breeder, intelligence, toughness, friendliness, ruggedness, ferocity, enthusiasm, virility, notes, created_at
             FROM pets
             ORDER BY created_at DESC
         """).fetchall()
@@ -599,9 +619,13 @@ class GeneDatabase:
                 "breeder": row[3],
                 "intelligence": row[4],
                 "toughness": row[5],
-                "speed": row[6],
-                "notes": row[7],
-                "created_at": row[8],
+                "friendliness": row[6],
+                "ruggedness": row[7],
+                "ferocity": row[8],
+                "enthusiasm": row[9],
+                "virility": row[10],
+                "notes": row[11],
+                "created_at": row[12],
                 "total_genes": 0,
             }
 
@@ -647,7 +671,11 @@ class GeneDatabase:
         name: str | None = None,
         intelligence: float | None = None,
         toughness: float | None = None,
-        speed: float | None = None,
+        friendliness: float | None = None,
+        ruggedness: float | None = None,
+        ferocity: float | None = None,
+        enthusiasm: float | None = None,
+        virility: float | None = None,
         notes: str | None = None,
     ) -> bool:
         """
@@ -658,7 +686,11 @@ class GeneDatabase:
             name: New name (optional)
             intelligence: New intelligence value (optional)
             toughness: New toughness value (optional)
-            speed: New speed value (optional)
+            friendliness: New friendliness value (optional)
+            ruggedness: New ruggedness value (optional)
+            ferocity: New ferocity value (optional)
+            enthusiasm: New enthusiasm value (optional)
+            virility: New virility value (optional)
             notes: New notes (optional)
 
         Returns:
@@ -676,9 +708,21 @@ class GeneDatabase:
         if toughness is not None:
             updates.append("toughness = $toughness")
             params["toughness"] = toughness
-        if speed is not None:
-            updates.append("speed = $speed")
-            params["speed"] = speed
+        if friendliness is not None:
+            updates.append("friendliness = $friendliness")
+            params["friendliness"] = friendliness
+        if ruggedness is not None:
+            updates.append("ruggedness = $ruggedness")
+            params["ruggedness"] = ruggedness
+        if ferocity is not None:
+            updates.append("ferocity = $ferocity")
+            params["ferocity"] = ferocity
+        if enthusiasm is not None:
+            updates.append("enthusiasm = $enthusiasm")
+            params["enthusiasm"] = enthusiasm
+        if virility is not None:
+            updates.append("virility = $virility")
+            params["virility"] = virility
         if notes is not None:
             updates.append("notes = $notes")
             params["notes"] = notes
