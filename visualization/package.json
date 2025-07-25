@@ -1,0 +1,31 @@
+{
+    "name": "pgbreeder-visualization",
+    "version": "1.0.0",
+    "description": "Gene visualization component for PGBreeder",
+    "type": "module",
+    "main": "gene_viewer.html",
+    "scripts": {
+        "lint": "eslint *.js",
+        "lint:fix": "eslint *.js --fix",
+        "format": "prettier --write *.js *.html",
+        "format:check": "prettier --check *.js *.html",
+        "check": "npm run lint && npm run format:check",
+        "fix": "npm run lint:fix && npm run format"
+    },
+    "devDependencies": {
+        "eslint": "^8.57.0",
+        "eslint-config-prettier": "^9.1.0",
+        "eslint-plugin-html": "^7.1.0",
+        "@eslint/js": "^8.57.0",
+        "prettier": "^3.2.5",
+        "globals": "^14.0.0"
+    },
+    "keywords": [
+        "genetics",
+        "visualization",
+        "project-gorgon",
+        "breeding"
+    ],
+    "author": "PGBreeder",
+    "license": "MIT"
+}
