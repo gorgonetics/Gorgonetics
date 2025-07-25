@@ -39,6 +39,77 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+def load_gene_file(file_path: Path, animal_type: str, chr_num: str, db: GeneDatabase, progress, file_task) -> int:
+    """Load genes from a single JSON file into the database."""
+    genes_loaded = 0
+
+    with open(file_path, encoding="utf-8") as f:
+        genes_data = json.load(f)
+
+    for gene_data in genes_data:
+        # Handle both old and new JSON structure
+        effect_dominant = gene_data.get("effectDominant") or gene_data.get("effect", "None")
+        effect_recessive = gene_data.get("effectRecessive", "None")
+
+        # If using old structure with single effect + trigger
+        if "trigger" in gene_data and "effectDominant" not in gene_data:
+            trigger = gene_data.get("trigger", "").lower()
+            if trigger == "dominant":
+                effect_dominant = gene_data.get("effect", "None")
+                effect_recessive = "None"
+            elif trigger == "recessive":
+                effect_dominant = "None"
+                effect_recessive = gene_data.get("effect", "None")
+
+        # Insert gene into database
+        db.conn.execute(
+            """
+            INSERT INTO genes (
+                animal_type, chromosome, gene,
+                effect_dominant, effect_recessive, appearance, notes
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            [
+                animal_type,
+                chr_num,
+                gene_data["gene"],
+                effect_dominant,
+                effect_recessive,
+                gene_data.get("appearance", ""),
+                gene_data.get("notes", ""),
+            ],
+        )
+
+        genes_loaded += 1
+        progress.advance(file_task)
+
+    return genes_loaded
+
+
+def get_animal_type_from_filename(filename: str) -> str:
+    """Determine animal type from filename."""
+    if "beewasp" in filename:
+        return "beewasp"
+    elif "horse" in filename:
+        return "horse"
+    else:
+        return ""
+
+
+def collect_gene_files() -> list[Path]:
+    """Collect all gene files from assets directories."""
+    beewasp_dir = Path("assets/beewasp")
+    horse_dir = Path("assets/horse")
+
+    files_to_process: list[Path] = []
+    if beewasp_dir.exists():
+        files_to_process.extend(sorted(beewasp_dir.glob("beewasp_genes_chr*.json")))
+    if horse_dir.exists():
+        files_to_process.extend(sorted(horse_dir.glob("horse_genes_chr*.json")))
+
+    return files_to_process
+
+
 def populate_database() -> None:
     """Populate the database with gene data from JSON files."""
     console.print("🧬 [bold cyan]PGBreeder Database Population[/bold cyan]")
@@ -54,14 +125,7 @@ def populate_database() -> None:
         db.conn.execute("DELETE FROM genes")
 
         # Count total files to process
-        beewasp_dir = Path("assets/beewasp")
-        horse_dir = Path("assets/horse")
-
-        files_to_process: list[Path] = []
-        if beewasp_dir.exists():
-            files_to_process.extend(sorted(beewasp_dir.glob("beewasp_genes_chr*.json")))
-        if horse_dir.exists():
-            files_to_process.extend(sorted(horse_dir.glob("horse_genes_chr*.json")))
+        files_to_process = collect_gene_files()
 
         if not files_to_process:
             console.print("[red]❌ No gene files found in assets directory![/red]")
@@ -84,11 +148,8 @@ def populate_database() -> None:
 
             for file_path in files_to_process:
                 # Determine animal type and chromosome
-                if "beewasp" in file_path.name:
-                    animal_type = "beewasp"
-                elif "horse" in file_path.name:
-                    animal_type = "horse"
-                else:
+                animal_type = get_animal_type_from_filename(file_path.name)
+                if not animal_type:
                     continue
 
                 chr_num = file_path.stem.split("_chr")[1]
@@ -102,42 +163,8 @@ def populate_database() -> None:
                     # Add task for this file's genes
                     file_task = progress.add_task("[green]  Processing genes...", total=len(genes_data))
 
-                    for gene_data in genes_data:
-                        # Handle both old and new JSON structure
-                        effect_dominant = gene_data.get("effectDominant") or gene_data.get("effect", "None")
-                        effect_recessive = gene_data.get("effectRecessive", "None")
-
-                        # If using old structure with single effect + trigger
-                        if "trigger" in gene_data and "effectDominant" not in gene_data:
-                            trigger = gene_data.get("trigger", "").lower()
-                            if trigger == "dominant":
-                                effect_dominant = gene_data.get("effect", "None")
-                                effect_recessive = "None"
-                            elif trigger == "recessive":
-                                effect_dominant = "None"
-                                effect_recessive = gene_data.get("effect", "None")
-
-                        # Insert gene into database
-                        db.conn.execute(
-                            """
-                            INSERT INTO genes (
-                                animal_type, chromosome, gene,
-                                effect_dominant, effect_recessive, appearance, notes
-                            ) VALUES (?, ?, ?, ?, ?, ?, ?)
-                            """,
-                            [
-                                animal_type,
-                                chr_num,
-                                gene_data["gene"],
-                                effect_dominant,
-                                effect_recessive,
-                                gene_data.get("appearance", ""),
-                                gene_data.get("notes", ""),
-                            ],
-                        )
-
-                        total_genes += 1
-                        progress.advance(file_task)
+                    genes_loaded = load_gene_file(file_path, animal_type, chr_num, db, progress, file_task)
+                    total_genes += genes_loaded
 
                     progress.remove_task(file_task)
 
