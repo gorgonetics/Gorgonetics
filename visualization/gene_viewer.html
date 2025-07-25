@@ -532,6 +532,34 @@
                 opacity: 0.3;
             }
 
+            /* Genes with potential positive effects */
+            .gene-potential-positive.gene-dominant {
+                background-color: #3498db;
+                border-color: #3498db;
+            }
+            .gene-potential-positive.gene-recessive {
+                background-color: transparent;
+                border-color: #3498db;
+            }
+            .gene-potential-positive.gene-mixed {
+                background: linear-gradient(135deg, transparent 50%, #3498db 50%);
+                border-color: #3498db;
+            }
+
+            /* Genes with potential negative effects */
+            .gene-potential-negative.gene-dominant {
+                background-color: #9b59b6;
+                border-color: #9b59b6;
+            }
+            .gene-potential-negative.gene-recessive {
+                background-color: transparent;
+                border-color: #9b59b6;
+            }
+            .gene-potential-negative.gene-mixed {
+                background: linear-gradient(135deg, transparent 50%, #9b59b6 50%);
+                border-color: #9b59b6;
+            }
+
             /* Invisible placeholder genes to maintain layout */
             .gene-invisible {
                 background-color: transparent !important;
@@ -774,7 +802,7 @@
                 <div class="control-group">
                     <label for="hideNeutral">
                         <input type="checkbox" id="hideNeutral" />
-                        Hide genes with no effects
+                        Hide genes with no potential effects
                     </label>
                 </div>
             </div>
@@ -857,6 +885,32 @@
                         "
                     ></div>
                     <span>No Effect</span>
+                </div>
+                <div class="legend-item">
+                    <div
+                        class="legend-color gene-potential-positive gene-dominant"
+                        style="
+                            width: 16px;
+                            height: 16px;
+                            border-radius: 50%;
+                            border: 2px solid #3498db;
+                            background-color: #3498db;
+                        "
+                    ></div>
+                    <span>Potential Positive</span>
+                </div>
+                <div class="legend-item">
+                    <div
+                        class="legend-color gene-potential-negative gene-dominant"
+                        style="
+                            width: 16px;
+                            height: 16px;
+                            border-radius: 50%;
+                            border: 2px solid #9b59b6;
+                            background-color: #9b59b6;
+                        "
+                    ></div>
+                    <span>Potential Negative</span>
                 </div>
             </div>
 
@@ -1035,6 +1089,123 @@
                         effect: appearance,
                     };
                 }
+            }
+
+            // Function to check if a gene has any potential effect (dominant or recessive)
+            function hasAnyPotentialEffect(species, geneId) {
+                if (currentView === "attribute") {
+                    const dominantEffect = getGeneEffect(species, geneId, "D");
+                    const recessiveEffect = getGeneEffect(species, geneId, "R");
+
+                    // Check if either dominant or recessive has an actual effect
+                    const dominantHasEffect =
+                        dominantEffect &&
+                        dominantEffect !== "No gene data found" &&
+                        dominantEffect !== "No dominant effect" &&
+                        dominantEffect !== "Unknown gene type" &&
+                        dominantEffect !== "None" &&
+                        dominantEffect !== "null" &&
+                        dominantEffect.trim() !== "";
+                    const recessiveHasEffect =
+                        recessiveEffect &&
+                        recessiveEffect !== "No gene data found" &&
+                        recessiveEffect !== "No recessive effect" &&
+                        recessiveEffect !== "Unknown gene type" &&
+                        recessiveEffect !== "None" &&
+                        recessiveEffect !== "null" &&
+                        recessiveEffect.trim() !== "";
+
+                    return dominantHasEffect || recessiveHasEffect;
+                } else {
+                    // In appearance mode, check if the gene has any appearance effect
+                    const appearance = getGeneAppearance(species, geneId);
+                    return appearance !== "No appearance effect";
+                }
+            }
+
+            // Function to check if a gene potentially affects any selected attributes
+            function genePotentiallyAffectsSelectedAttributes(species, geneId, selectedAttributes) {
+                if (selectedAttributes.length === 0) {
+                    return true; // No filter applied
+                }
+
+                // Check current effect
+                const dominantEffect = getGeneEffect(species, geneId, "D");
+                const recessiveEffect = getGeneEffect(species, geneId, "R");
+
+                // Extract attributes from both effects
+                const allPotentialAttributes = [];
+
+                // Check dominant effect
+                if (
+                    dominantEffect &&
+                    dominantEffect !== "No gene data found" &&
+                    dominantEffect !== "No dominant effect" &&
+                    dominantEffect !== "Unknown gene type"
+                ) {
+                    if (dominantEffect.includes("Intelligence")) allPotentialAttributes.push("Intelligence");
+                    if (dominantEffect.includes("Toughness")) allPotentialAttributes.push("Toughness");
+                    if (dominantEffect.includes("Friendliness")) allPotentialAttributes.push("Friendliness");
+                    if (dominantEffect.includes("Ruggedness")) allPotentialAttributes.push("Ruggedness");
+                    if (dominantEffect.includes("Ferocity")) allPotentialAttributes.push("Ferocity");
+                    if (dominantEffect.includes("Enthusiasm")) allPotentialAttributes.push("Enthusiasm");
+                    if (dominantEffect.includes("Virility")) allPotentialAttributes.push("Virility");
+                }
+
+                // Check recessive effect
+                if (
+                    recessiveEffect &&
+                    recessiveEffect !== "No gene data found" &&
+                    recessiveEffect !== "No recessive effect" &&
+                    recessiveEffect !== "Unknown gene type"
+                ) {
+                    if (recessiveEffect.includes("Intelligence")) allPotentialAttributes.push("Intelligence");
+                    if (recessiveEffect.includes("Toughness")) allPotentialAttributes.push("Toughness");
+                    if (recessiveEffect.includes("Friendliness")) allPotentialAttributes.push("Friendliness");
+                    if (recessiveEffect.includes("Ruggedness")) allPotentialAttributes.push("Ruggedness");
+                    if (recessiveEffect.includes("Ferocity")) allPotentialAttributes.push("Ferocity");
+                    if (recessiveEffect.includes("Enthusiasm")) allPotentialAttributes.push("Enthusiasm");
+                    if (recessiveEffect.includes("Virility")) allPotentialAttributes.push("Virility");
+                }
+
+                // Check if any potential attribute matches selected attributes
+                return allPotentialAttributes.some(attr => selectedAttributes.includes(attr));
+            }
+
+            // Function to analyze potential effect type for a gene
+            function analyzePotentialEffectType(species, geneId) {
+                const dominantEffect = getGeneEffect(species, geneId, "D");
+                const recessiveEffect = getGeneEffect(species, geneId, "R");
+
+                let hasPositive = false;
+                let hasNegative = false;
+
+                // Check dominant effect
+                if (
+                    dominantEffect &&
+                    dominantEffect !== "No gene data found" &&
+                    dominantEffect !== "No dominant effect" &&
+                    dominantEffect !== "Unknown gene type"
+                ) {
+                    if (dominantEffect.includes("+")) hasPositive = true;
+                    if (dominantEffect.includes("-")) hasNegative = true;
+                }
+
+                // Check recessive effect
+                if (
+                    recessiveEffect &&
+                    recessiveEffect !== "No gene data found" &&
+                    recessiveEffect !== "No recessive effect" &&
+                    recessiveEffect !== "Unknown gene type"
+                ) {
+                    if (recessiveEffect.includes("+")) hasPositive = true;
+                    if (recessiveEffect.includes("-")) hasNegative = true;
+                }
+
+                // If has both positive and negative, prioritize positive (blue is more optimistic)
+                if (hasPositive) return "potential-positive";
+                if (hasNegative) return "potential-negative";
+                return null;
             }
 
             // Function to get gene appearance
@@ -1423,11 +1594,26 @@
                                     isVisible = false;
                                 }
 
-                                if (
-                                    selectedAttributes.length > 0 &&
-                                    !selectedAttributes.includes(geneAnalysis.attribute)
-                                ) {
-                                    isVisible = false;
+                                if (currentView === "attribute") {
+                                    // For attribute mode, check both current and potential effects
+                                    if (
+                                        selectedAttributes.length > 0 &&
+                                        !genePotentiallyAffectsSelectedAttributes(
+                                            pet.species,
+                                            `${chromosome}${gene.id}`,
+                                            selectedAttributes
+                                        )
+                                    ) {
+                                        isVisible = false;
+                                    }
+                                } else {
+                                    // For appearance mode, keep original logic
+                                    if (
+                                        selectedAttributes.length > 0 &&
+                                        !selectedAttributes.includes(geneAnalysis.attribute)
+                                    ) {
+                                        isVisible = false;
+                                    }
                                 }
 
                                 const geneCell = document.createElement("div");
@@ -1437,10 +1623,32 @@
                                 if (!isVisible) {
                                     // Make invisible but keep position
                                     cssClass += "gene-invisible";
-                                } else if (hideNeutral && geneAnalysis.type === "neutral") {
+                                } else if (
+                                    hideNeutral &&
+                                    geneAnalysis.type === "neutral" &&
+                                    !hasAnyPotentialEffect(pet.species, `${chromosome}${gene.id}`)
+                                ) {
                                     cssClass += "gene-hidden";
+                                    console.log(`Hiding gene ${chromosome}${gene.id}: no potential effects`);
                                 } else {
-                                    cssClass += `gene-${geneAnalysis.type} `;
+                                    // Check if gene has no current effect but has potential
+                                    if (
+                                        geneAnalysis.type === "neutral" &&
+                                        hasAnyPotentialEffect(pet.species, `${chromosome}${gene.id}`)
+                                    ) {
+                                        const potentialType = analyzePotentialEffectType(
+                                            pet.species,
+                                            `${chromosome}${gene.id}`
+                                        );
+
+                                        if (potentialType) {
+                                            cssClass += `gene-${potentialType} `;
+                                        } else {
+                                            cssClass += "gene-neutral ";
+                                        }
+                                    } else {
+                                        cssClass += `gene-${geneAnalysis.type} `;
+                                    }
 
                                     // Add shape class based on gene type
                                     if (gene.type === "D") {
@@ -1711,7 +1919,7 @@
                         break;
                 }
 
-                // Get comprehensive gene info
+                // Get current effect info
                 const effectInfo = cell.dataset.effect;
                 const effectType = cell.dataset.effectType;
                 const attribute = cell.dataset.attribute;
@@ -1721,11 +1929,64 @@
                     effectDisplay = `<span style="color: ${effectType === "positive" ? "#4CAF50" : "#f44336"}">${effectInfo}</span>`;
                 }
 
+                // Get potential effects for both dominant and recessive types
+                let potentialEffectsHtml = "";
+
+                // Determine species from current pet
+                let species;
+                if (currentPet.startsWith("db_")) {
+                    // For database pets, we need to get the species from the loaded pet
+                    // This is a simplified approach - in a real scenario you'd want to store this info
+                    species = "beewasp"; // Default assumption for now
+                } else {
+                    species = samplePets[currentPet] ? samplePets[currentPet].species : "beewasp";
+                }
+
+                const dominantEffect = getGeneEffect(species, geneId, "D");
+                const recessiveEffect = getGeneEffect(species, geneId, "R");
+
+                // Only show potential effects if they differ from current effect or if current is neutral
+                let showPotential = false;
+                let potentialLines = [];
+
+                if (
+                    geneType !== "D" &&
+                    dominantEffect &&
+                    dominantEffect !== "No dominant effect" &&
+                    dominantEffect !== "No gene data found" &&
+                    dominantEffect !== "Unknown gene type"
+                ) {
+                    const isPositive = dominantEffect.includes("+");
+                    const isNegative = dominantEffect.includes("-");
+                    const color = isPositive ? "#4CAF50" : isNegative ? "#f44336" : "#666";
+                    potentialLines.push(`If Dominant: <span style="color: ${color}">${dominantEffect}</span>`);
+                    showPotential = true;
+                }
+
+                if (
+                    geneType !== "R" &&
+                    recessiveEffect &&
+                    recessiveEffect !== "No recessive effect" &&
+                    recessiveEffect !== "No gene data found" &&
+                    recessiveEffect !== "Unknown gene type"
+                ) {
+                    const isPositive = recessiveEffect.includes("+");
+                    const isNegative = recessiveEffect.includes("-");
+                    const color = isPositive ? "#4CAF50" : isNegative ? "#f44336" : "#666";
+                    potentialLines.push(`If Recessive: <span style="color: ${color}">${recessiveEffect}</span>`);
+                    showPotential = true;
+                }
+
+                if (showPotential) {
+                    potentialEffectsHtml = `<br><br><strong>Potential Effects:</strong><br>${potentialLines.join("<br>")}`;
+                }
+
                 tooltip.innerHTML = `
                 <strong>Gene ${geneId}</strong><br>
                 Type: ${typeDescription}<br>
-                <strong>Effect: ${effectDisplay}</strong>
+                <strong>Current Effect: ${effectDisplay}</strong>
                 ${attribute ? `<br>Attribute: ${attribute}` : ""}
+                ${potentialEffectsHtml}
             `;
 
                 tooltip.style.display = "block";
