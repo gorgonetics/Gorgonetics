@@ -30,7 +30,6 @@ class Attribute(str, Enum):
 
     INTELLIGENCE = "Intelligence"
     TOUGHNESS = "Toughness"
-    SPEED = "Speed"
     FRIENDLINESS = "Friendliness"
     RUGGEDNESS = "Ruggedness"
     FEROCITY = "Ferocity"
@@ -52,7 +51,6 @@ class AttributeValues(BaseModel):
 
     intelligence: float = 0.0
     toughness: float = 0.0
-    speed: float = 0.0
     friendliness: float = 0.0
     ruggedness: float = 0.0
     ferocity: float = 0.0
@@ -213,7 +211,6 @@ class Pet(BaseModel):
         self.attributes = AttributeValues(
             intelligence=50.0,
             toughness=50.0,
-            speed=50.0,
             friendliness=50.0,
             ruggedness=50.0,
             ferocity=50.0,

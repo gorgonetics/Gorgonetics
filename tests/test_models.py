@@ -41,7 +41,6 @@ class TestAttributeValues:
         attrs = AttributeValues()
         assert attrs.intelligence == 0.0
         assert attrs.toughness == 0.0
-        assert attrs.speed == 0.0
 
     def test_get_set_attribute(self) -> None:
         """Test accessing attributes directly."""

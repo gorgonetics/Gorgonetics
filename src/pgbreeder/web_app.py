@@ -75,7 +75,6 @@ class PetCreate(BaseModel):
     name: str
     intelligence: float = 50.0
     toughness: float = 50.0
-    speed: float = 50.0
     notes: str | None = None
 
 
@@ -188,8 +187,6 @@ async def get_effect_options() -> list[str]:
         "Enthusiasm-",
         "Virility+",
         "Virility-",
-        "Speed+",
-        "Speed-",
         "Intelligence+",
         "Intelligence-",
     ]

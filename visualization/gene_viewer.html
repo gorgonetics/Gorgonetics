@@ -616,16 +616,29 @@
             }
 
             .stats-table tbody tr:hover {
-                background-color: rgba(76, 175, 80, 0.1);
+                background-color: rgba(76, 175, 80, 0.1) !important;
             }
 
             .stats-table tbody tr.selected {
-                background-color: rgba(76, 175, 80, 0.2);
-                border: 2px solid #4caf50;
+                background-color: rgba(76, 175, 80, 0.4) !important;
+                border: 2px solid #4caf50 !important;
+                box-shadow: 0 0 8px rgba(76, 175, 80, 0.6) !important;
+                position: relative !important;
             }
 
             .stats-table tbody tr.selected td {
-                border-color: #4caf50;
+                background-color: rgba(76, 175, 80, 0.4) !important;
+                border-color: #4caf50 !important;
+                color: #fff !important;
+                font-weight: bold !important;
+            }
+
+            /* Removed checkmark to prevent text movement */
+
+            .stats-table tbody tr.selected .positive-cell,
+            .stats-table tbody tr.selected .negative-cell {
+                background-color: rgba(76, 175, 80, 0.5) !important;
+                color: #fff !important;
             }
 
             .positive-cell {
@@ -884,6 +897,11 @@
                                 Click rows to filter by attribute
                                 <br />
                                 Ctrl+Click for multiple selection
+                                <br />
+                                <span style="color: #4caf50; font-weight: bold">
+                                    Selected:
+                                    <span id="selectedCount">0</span>
+                                </span>
                             </p>
                         </div>
                     </div>
@@ -961,7 +979,6 @@
                     let attribute = null;
                     if (effect.includes("Intelligence")) attribute = "Intelligence";
                     else if (effect.includes("Toughness")) attribute = "Toughness";
-                    else if (effect.includes("Speed")) attribute = "Speed";
                     else if (effect.includes("Friendliness")) attribute = "Friendliness";
                     else if (effect.includes("Ruggedness")) attribute = "Ruggedness";
                     else if (effect.includes("Ferocity")) attribute = "Ferocity";
@@ -1270,16 +1287,17 @@
                 document.getElementById("genomeFormat").textContent = pet.format;
 
                 let totalGenes = 0;
-                let stats = {};
+                let visibleGenes = 0;
+                let allStats = {};
 
+                // Initialize stats for all genes (not just visible ones)
                 if (currentView === "attribute") {
-                    stats = {
+                    allStats = {
                         positive: 0,
                         negative: 0,
                         neutral: 0,
                         Intelligence: { positive: 0, negative: 0 },
                         Toughness: { positive: 0, negative: 0 },
-                        Speed: { positive: 0, negative: 0 },
                         Friendliness: { positive: 0, negative: 0 },
                         Ruggedness: { positive: 0, negative: 0 },
                         Ferocity: { positive: 0, negative: 0 },
@@ -1287,7 +1305,7 @@
                         Virility: { positive: 0, negative: 0 },
                     };
                 } else {
-                    stats = {
+                    allStats = {
                         "body-color-hue": 0,
                         "body-color-saturation": 0,
                         "body-color-intensity": 0,
@@ -1384,13 +1402,25 @@
                                     gene.type
                                 );
 
+                                // Always count all genes for complete statistics
+                                totalGenes++;
+                                if (currentView === "attribute") {
+                                    allStats[geneAnalysis.type]++;
+                                    if (geneAnalysis.attribute && allStats[geneAnalysis.attribute]) {
+                                        allStats[geneAnalysis.attribute][geneAnalysis.type]++;
+                                    }
+                                } else {
+                                    // Appearance mode
+                                    if (allStats[geneAnalysis.type] !== undefined) {
+                                        allStats[geneAnalysis.type]++;
+                                    }
+                                }
+
                                 // Check if gene should be visible based on filters
                                 let isVisible = true;
-                                let shouldCount = true;
 
                                 if (currentEffectFilter !== "all" && geneAnalysis.type !== currentEffectFilter) {
                                     isVisible = false;
-                                    shouldCount = false;
                                 }
 
                                 if (
@@ -1398,25 +1428,6 @@
                                     !selectedAttributes.includes(geneAnalysis.attribute)
                                 ) {
                                     isVisible = false;
-                                    shouldCount = false;
-                                }
-
-                                // Only count visible genes in stats
-                                if (shouldCount) {
-                                    totalGenes++;
-
-                                    // Update stats
-                                    if (currentView === "attribute") {
-                                        stats[geneAnalysis.type]++;
-                                        if (geneAnalysis.attribute && stats[geneAnalysis.attribute]) {
-                                            stats[geneAnalysis.attribute][geneAnalysis.type]++;
-                                        }
-                                    } else {
-                                        // Appearance mode
-                                        if (stats[geneAnalysis.type] !== undefined) {
-                                            stats[geneAnalysis.type]++;
-                                        }
-                                    }
                                 }
 
                                 const geneCell = document.createElement("div");
@@ -1469,8 +1480,8 @@
                         container.appendChild(chromosomeRow);
                     });
 
-                // Update statistics
-                updateStatistics(stats, totalGenes);
+                // Update statistics with complete data
+                updateStatistics(allStats, totalGenes);
             }
 
             function updateTable() {
@@ -1492,7 +1503,6 @@
                         <th>Appearance Type</th>
                         <th>Count</th>
                         <th>Examples</th>
-                        <th>-</th>
                     `;
                 }
             }
@@ -1510,7 +1520,6 @@
                     const attributes = [
                         "Intelligence",
                         "Toughness",
-                        "Speed",
                         "Friendliness",
                         "Ruggedness",
                         "Ferocity",
@@ -1646,7 +1655,6 @@
                             <td>${type.name}</td>
                             <td>${count}</td>
                             <td style="font-size: 0.8em; color: #aaa;">${type.examples}</td>
-                            <td>-</td>
                         `;
                         tableBody.appendChild(row);
                     });
@@ -1657,14 +1665,27 @@
                     totalsRow.innerHTML = `
                         <td><strong>Total</strong></td>
                         <td><strong>${grandTotal}</strong></td>
-                        <td>-</td>
-                        <td>-</td>
+                        <td><em>All appearance effects</em></td>
                     `;
                     tableBody.appendChild(totalsRow);
                 }
 
                 // Re-add click handlers for the new rows
                 addTableClickHandlers();
+                updateSelectedCount();
+
+                // Restore selected state for existing selections
+                selectedAttributes.forEach(attr => {
+                    const row = document.querySelector(`tr[data-attribute="${attr}"]`);
+                    if (row) {
+                        row.classList.add("selected");
+                        row.style.backgroundColor = "rgba(76, 175, 80, 0.4)";
+                        row.style.border = "2px solid #4caf50";
+                        row.style.boxShadow = "0 0 8px rgba(76, 175, 80, 0.6)";
+                        row.style.color = "#fff";
+                        row.style.fontWeight = "bold";
+                    }
+                });
             }
 
             function showTooltip(event) {
@@ -1739,27 +1760,69 @@
                             if (index > -1) {
                                 selectedAttributes.splice(index, 1);
                                 row.classList.remove("selected");
+                                // Remove inline styles
+                                row.style.backgroundColor = "";
+                                row.style.border = "";
+                                row.style.boxShadow = "";
+                                row.style.color = "";
+                                row.style.fontWeight = "";
                             } else {
                                 selectedAttributes.push(attribute);
                                 row.classList.add("selected");
+                                // Apply inline styles immediately
+                                row.style.backgroundColor = "rgba(76, 175, 80, 0.4)";
+                                row.style.border = "2px solid #4caf50";
+                                row.style.boxShadow = "0 0 8px rgba(76, 175, 80, 0.6)";
+                                row.style.color = "#fff";
+                                row.style.fontWeight = "bold";
                             }
                         } else {
-                            // Single select
-                            document
-                                .querySelectorAll(".stats-table tbody tr")
-                                .forEach(r => r.classList.remove("selected"));
+                            // Single select - first clear all selections
+                            document.querySelectorAll(".stats-table tbody tr").forEach(r => {
+                                r.classList.remove("selected");
+                                r.style.backgroundColor = "";
+                                r.style.border = "";
+                                r.style.boxShadow = "";
+                                r.style.color = "";
+                                r.style.fontWeight = "";
+                            });
                             if (selectedAttributes.length === 1 && selectedAttributes[0] === attribute) {
                                 // Deselect if clicking the same attribute
                                 selectedAttributes = [];
                             } else {
                                 selectedAttributes = [attribute];
                                 row.classList.add("selected");
+                                // Apply inline styles immediately
+                                row.style.backgroundColor = "rgba(76, 175, 80, 0.4)";
+                                row.style.border = "2px solid #4caf50";
+                                row.style.boxShadow = "0 0 8px rgba(76, 175, 80, 0.6)";
+                                row.style.color = "#fff";
+                                row.style.fontWeight = "bold";
                             }
                         }
 
                         createGeneVisualization();
+                        updateSelectedCount();
                     });
                 });
+            }
+
+            // Function to update selected count display
+            function updateSelectedCount() {
+                const selectedCountElement = document.getElementById("selectedCount");
+                if (selectedCountElement) {
+                    selectedCountElement.textContent = selectedAttributes.length;
+
+                    // Update color based on selection
+                    const parent = selectedCountElement.parentElement;
+                    if (selectedAttributes.length > 0) {
+                        parent.style.color = "#4caf50";
+                        parent.style.fontWeight = "bold";
+                    } else {
+                        parent.style.color = "#aaa";
+                        parent.style.fontWeight = "normal";
+                    }
+                }
             }
 
             document.getElementById("hideNeutral").addEventListener("change", async e => {
@@ -1775,6 +1838,7 @@
                 document.getElementById("appearanceView").classList.remove("active");
                 updateTable();
                 createGeneVisualization();
+                updateSelectedCount();
             });
 
             document.getElementById("appearanceView").addEventListener("click", () => {
@@ -1784,6 +1848,7 @@
                 document.getElementById("appearanceView").classList.add("active");
                 updateTable();
                 createGeneVisualization();
+                updateSelectedCount();
             });
 
             // Initialize the application
@@ -1792,6 +1857,7 @@
                 await loadAvailablePets();
                 updateTable();
                 await createGeneVisualization();
+                updateSelectedCount();
             }
 
             // Start the application

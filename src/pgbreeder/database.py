@@ -777,7 +777,7 @@ class GeneDatabase:
         """
         results = self.conn.execute(
             """
-            SELECT id, name, species, breeder, intelligence, toughness, speed, notes, created_at
+            SELECT id, name, species, breeder, intelligence, toughness, notes, created_at
             FROM pets
             WHERE species = $species
             ORDER BY created_at DESC
@@ -795,9 +795,8 @@ class GeneDatabase:
                     "breeder": row[3],
                     "intelligence": row[4],
                     "toughness": row[5],
-                    "speed": row[6],
-                    "notes": row[7],
-                    "created_at": row[8],
+                    "notes": row[6],
+                    "created_at": row[7],
                 }
             )
 
