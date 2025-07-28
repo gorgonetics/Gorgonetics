@@ -40,14 +40,171 @@ class AppController {
   }
 
   /**
+   * Setup event listeners
+   */
+  setupEventListeners() {
+    // Sidebar toggle
+    const sidebarToggle = document.getElementById("sidebarToggle");
+
+    if (sidebarToggle) {
+      sidebarToggle.addEventListener("click", (e) => {
+        e.preventDefault();
+        this.toggleSidebar();
+      });
+    }
+
+    // Logo box toggle
+    const logoBox = document.querySelector(".logo-box");
+    console.log("Logo box found:", logoBox);
+    if (logoBox) {
+      logoBox.addEventListener("click", (e) => {
+        console.log("Logo box clicked!");
+        e.preventDefault();
+        e.stopPropagation();
+        this.toggleSidebar();
+      });
+      logoBox.style.cursor = "pointer";
+      logoBox.style.userSelect = "none";
+      logoBox.title = "Click to toggle sidebar";
+    } else {
+      console.error("Logo box not found!");
+    }
+
+    // Keyboard shortcut for sidebar toggle (Ctrl/Cmd + B)
+    document.addEventListener("keydown", (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "b") {
+        e.preventDefault();
+        this.toggleSidebar();
+      }
+    });
+
+    // Restore sidebar state on load
+    this.restoreSidebarState();
+
+    // Animal type selection
+    document.getElementById("animalType").addEventListener("change", (e) => {
+      const animalType = e.target.value;
+      if (animalType) {
+        this.loadChromosomes(animalType);
+        UIUtils.updateButtonStates(animalType, null);
+      } else {
+        UIUtils.updateButtonStates(null, null);
+        UIUtils.populateSelect(
+          "chromosome",
+          [],
+          null,
+          null,
+          "Select chromosome...",
+        );
+      }
+      // Clear gene display when animal type changes
+      UIUtils.clearGeneDisplay();
+    });
+
+    // Chromosome selection
+    document.getElementById("chromosome").addEventListener("change", (e) => {
+      const chromosome = e.target.value;
+      const animalType = document.getElementById("animalType").value;
+      UIUtils.updateButtonStates(animalType, chromosome);
+      // Clear gene display when chromosome changes (user needs to click Load Genes)
+      UIUtils.clearGeneDisplay();
+    });
+
+    // Load genes button
+    document.getElementById("loadGenes").addEventListener("click", () => {
+      const animalType = document.getElementById("animalType").value;
+      const chromosome = document.getElementById("chromosome").value;
+
+      if (animalType && chromosome) {
+        this.loadGenes(animalType, chromosome);
+      }
+    });
+
+    // Export buttons
+    document
+      .getElementById("exportChromosome")
+      .addEventListener("click", () => {
+        this.exportManager.exportChromosome();
+      });
+
+    document.getElementById("exportAll").addEventListener("click", () => {
+      this.exportManager.exportAllChromosomes();
+    });
+
+    // Pet upload handling
+    this.setupPetUpload();
+  }
+
+  /**
+   * Toggle sidebar collapse/expand
+   */
+  toggleSidebar() {
+    const sidebar = document.querySelector(".sidebar");
+    const mainContent = document.querySelector(".main-content");
+    const toggleBtn = document.getElementById("sidebarToggle");
+    const body = document.body;
+
+    if (!sidebar || !mainContent || !toggleBtn) {
+      return;
+    }
+
+    sidebar.classList.toggle("collapsed");
+    mainContent.classList.toggle("sidebar-collapsed");
+    body.classList.toggle("sidebar-collapsed");
+
+    // Update toggle button state
+    if (sidebar.classList.contains("collapsed")) {
+      toggleBtn.title = "Expand sidebar";
+      localStorage.setItem("sidebarCollapsed", "true");
+    } else {
+      toggleBtn.title = "Collapse sidebar";
+      localStorage.setItem("sidebarCollapsed", "false");
+    }
+  }
+
+  /**
+   * Restore sidebar state from localStorage
+   */
+  restoreSidebarState() {
+    const isCollapsed = localStorage.getItem("sidebarCollapsed") === "true";
+    if (isCollapsed) {
+      // Apply collapsed state without animation first
+      const sidebar = document.querySelector(".sidebar");
+      const mainContent = document.querySelector(".main-content");
+      const toggleBtn = document.getElementById("sidebarToggle");
+      const body = document.body;
+
+      sidebar.classList.add("collapsed");
+      mainContent.classList.add("sidebar-collapsed");
+      body.classList.add("sidebar-collapsed");
+
+      if (toggleBtn) {
+        toggleBtn.title = "Expand sidebar";
+      }
+    }
+  }
+
+  /**
    * Setup tab switching functionality
    */
   setupTabSwitching() {
     const tabs = document.querySelectorAll(".tab");
     tabs.forEach((tab) => {
       tab.addEventListener("click", (e) => {
-        const tabId = e.target.dataset.tab;
-        this.switchTab(tabId);
+        // Auto-expand sidebar if collapsed when switching tabs
+        const sidebar = document.querySelector(".sidebar");
+        if (sidebar && sidebar.classList.contains("collapsed")) {
+          this.toggleSidebar();
+        }
+
+        // Handle clicks on tab children (icon/text)
+        const tabElement = e.target.closest(".tab");
+        const tabId = tabElement
+          ? tabElement.dataset.tab
+          : e.target.dataset.tab;
+        if (tabId) {
+          this.switchTab(tabId);
+        }
       });
     });
 
@@ -59,32 +216,65 @@ class AppController {
    * Switch between tabs
    */
   switchTab(tabId) {
-    // Update tab states
-    document.querySelectorAll(".tab").forEach((tab) => {
-      tab.setAttribute("aria-selected", "false");
-    });
-    document
-      .querySelector(`[data-tab="${tabId}"]`)
-      .setAttribute("aria-selected", "true");
+    try {
+      console.log("Switching to tab:", tabId);
 
-    // Update panel visibility
-    document.querySelectorAll(".tab-panel").forEach((panel) => {
-      panel.style.display = "none";
-    });
-    document.getElementById(tabId).style.display = "block";
+      // Update tab states
+      document.querySelectorAll(".tab").forEach((tab) => {
+        tab.setAttribute("aria-selected", "false");
+      });
 
-    // Update main content
-    if (tabId === "gene-editing") {
-      document.getElementById("genesContent").style.display = "block";
-      document.getElementById("geneVisualizationContainer").style.display =
-        "none";
-      this.currentMode = "gene-editing";
-    } else if (tabId === "pet-management") {
-      document.getElementById("genesContent").style.display = "none";
-      document.getElementById("geneVisualizationContainer").style.display =
-        "block";
-      this.currentMode = "pet-management";
-      this.loadPets();
+      const targetTab = document.querySelector(`[data-tab="${tabId}"]`);
+      if (!targetTab) {
+        console.error("Tab not found:", tabId);
+        return;
+      }
+      targetTab.setAttribute("aria-selected", "true");
+
+      // Update panel visibility
+      document.querySelectorAll(".tab-panel").forEach((panel) => {
+        panel.style.display = "none";
+      });
+
+      const targetPanel = document.getElementById(tabId);
+      if (!targetPanel) {
+        console.error("Tab panel not found:", tabId);
+        return;
+      }
+      targetPanel.style.display = "block";
+
+      // Update main content
+      if (tabId === "gene-editing") {
+        const genesContent = document.getElementById("genesContent");
+        const vizContainer = document.getElementById(
+          "geneVisualizationContainer",
+        );
+
+        if (genesContent) genesContent.style.display = "block";
+        if (vizContainer) vizContainer.style.display = "none";
+
+        this.currentMode = "gene-editing";
+        console.log("Switched to gene editing mode");
+      } else if (tabId === "pet-management") {
+        const genesContent = document.getElementById("genesContent");
+        const vizContainer = document.getElementById(
+          "geneVisualizationContainer",
+        );
+
+        if (genesContent) genesContent.style.display = "none";
+        if (vizContainer) vizContainer.style.display = "block";
+
+        this.currentMode = "pet-management";
+
+        // Always reinitialize gene visualizer for pet management
+        console.log("Initializing gene visualizer for pet management");
+        this.initializeGeneVisualizer();
+        this.loadPets();
+
+        console.log("Switched to pet management mode");
+      }
+    } catch (error) {
+      console.error("Error switching tabs:", error);
     }
   }
 
@@ -225,64 +415,6 @@ class AppController {
     } catch (error) {
       UIUtils.showError("Failed to load genes: " + error.message);
     }
-  }
-
-  /**
-   * Setup all event listeners
-   */
-  setupEventListeners() {
-    // Animal type selection
-    document.getElementById("animalType").addEventListener("change", (e) => {
-      const animalType = e.target.value;
-      if (animalType) {
-        this.loadChromosomes(animalType);
-        UIUtils.updateButtonStates(animalType, null);
-      } else {
-        UIUtils.updateButtonStates(null, null);
-        UIUtils.populateSelect(
-          "chromosome",
-          [],
-          null,
-          null,
-          "Select chromosome...",
-        );
-      }
-      // Clear gene display when animal type changes
-      UIUtils.clearGeneDisplay();
-    });
-
-    // Chromosome selection
-    document.getElementById("chromosome").addEventListener("change", (e) => {
-      const chromosome = e.target.value;
-      const animalType = document.getElementById("animalType").value;
-      UIUtils.updateButtonStates(animalType, chromosome);
-      // Clear gene display when chromosome changes (user needs to click Load Genes)
-      UIUtils.clearGeneDisplay();
-    });
-
-    // Load genes button
-    document.getElementById("loadGenes").addEventListener("click", () => {
-      const animalType = document.getElementById("animalType").value;
-      const chromosome = document.getElementById("chromosome").value;
-
-      if (animalType && chromosome) {
-        this.loadGenes(animalType, chromosome);
-      }
-    });
-
-    // Export buttons
-    document
-      .getElementById("exportChromosome")
-      .addEventListener("click", () => {
-        this.exportManager.exportChromosome();
-      });
-
-    document.getElementById("exportAll").addEventListener("click", () => {
-      this.exportManager.exportAllChromosomes();
-    });
-
-    // Pet upload handling
-    this.setupPetUpload();
   }
 
   /**

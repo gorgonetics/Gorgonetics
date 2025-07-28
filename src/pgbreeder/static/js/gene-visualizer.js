@@ -106,10 +106,18 @@ class GeneVisualizer {
                     </div>
                 </div>
 
-                <!-- Tooltip -->
-                <div id="geneTooltip" class="gene-tooltip" style="display: none;"></div>
+
             </div>
         `;
+
+    // Create tooltip in document body to avoid positioning issues
+    if (!document.getElementById("geneTooltip")) {
+      const tooltip = document.createElement("div");
+      tooltip.id = "geneTooltip";
+      tooltip.className = "gene-tooltip";
+      tooltip.style.display = "none";
+      document.body.appendChild(tooltip);
+    }
   }
 
   attachEventListeners() {
@@ -1204,9 +1212,11 @@ class GeneVisualizer {
 
     tooltip.style.display = "block";
 
-    // Use cursor position directly for fixed positioning
-    tooltip.style.left = event.clientX + "px";
-    tooltip.style.top = event.clientY + "px";
+    // Get precise position using getBoundingClientRect
+    const rect = cell.getBoundingClientRect();
+
+    tooltip.style.left = rect.right + 5 + "px";
+    tooltip.style.top = rect.top - 5 + "px";
   }
 
   hideTooltip() {

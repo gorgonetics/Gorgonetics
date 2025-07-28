@@ -17,7 +17,7 @@
             <div class="sidebar-header">
                 <div class="logo-section">
                     <div class="logo-box">
-                        <span class="dna-emoji">🧬</span>
+                        <span class="dna-emoji">🔬</span>
                     </div>
                     <div class="title-box">
                         <h1 class="gradient-text">PGBreeder</h1>
@@ -29,10 +29,12 @@
                 <div class="tab-container">
                     <div class="tab-list" role="tablist">
                         <button class="tab" role="tab" data-tab="gene-editing" aria-selected="false">
-                            🧬 Gene Editor
+                            <span class="tab-icon">🧬</span>
+                            <span class="tab-text">Gene Editor</span>
                         </button>
                         <button class="tab" role="tab" data-tab="pet-management" aria-selected="false">
-                            🐾 Pet Manager
+                            <span class="tab-icon">🐾</span>
+                            <span class="tab-text">Pet Manager</span>
                         </button>
                     </div>
                 </div>
@@ -70,8 +72,10 @@
                         <div id="dropZone" class="drop-zone">
                             <div class="drop-zone-content">
                                 <span class="drop-icon">📁</span>
-                                <p>Drag & drop genome file here</p>
-                                <p class="drop-hint">or click to browse</p>
+                                <span class="drop-text">
+                                    <p>Drag & drop genome file here</p>
+                                    <p class="drop-hint">or click to browse</p>
+                                </span>
                                 <input type="file" id="fileInput" accept=".txt" style="display: none;">
                             </div>
                         </div>
@@ -115,6 +119,13 @@
                         Icons identify attributes, colors show effect type (+/-).
                     </p>
                 </div>
+            </div>
+
+            <!-- Sidebar Toggle Button -->
+            <div class="sidebar-footer">
+                <button class="sidebar-toggle" id="sidebarToggle" title="Collapse sidebar">
+                    <span class="toggle-icon">‹</span>
+                </button>
             </div>
         </div>
 
