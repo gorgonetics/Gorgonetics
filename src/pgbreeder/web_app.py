@@ -57,6 +57,9 @@ templates = Jinja2Templates(directory="src/pgbreeder/templates")
 # Mount static files
 app.mount("/static", StaticFiles(directory="src/pgbreeder/static"), name="static")
 
+# Mount visualization static files
+app.mount("/visualization", StaticFiles(directory="visualization"), name="visualization")
+
 
 class GeneUpdate(BaseModel):
     """Model for gene update requests."""
@@ -96,6 +99,91 @@ class PetUpdate(BaseModel):
 async def home(request: Request) -> HTMLResponse:
     """Serve the main gene editor page."""
     return templates.TemplateResponse("index.html", {"request": request})
+
+
+@app.get("/api/gene-effects/{species}")
+async def get_gene_effects(species: str) -> dict[str, Any]:
+    """Get all gene effects for visualization component."""
+    try:
+        # Normalize species name
+        species_key = species.lower()
+        if species_key == "horse":
+            species_key = "horse"
+        elif species_key in ["bee", "beewasp", "wasp"]:
+            species_key = "beewasp"
+
+        all_effects = {}
+
+        # Get all chromosomes for this species
+        chromosomes = db.get_chromosomes(species_key)
+
+        for chromosome in chromosomes:
+            genes = db.get_genes_by_chromosome(species_key, chromosome)
+            for gene_data in genes:
+                gene_id = gene_data["gene"]
+                all_effects[gene_id] = {
+                    "effectDominant": gene_data.get("effectDominant"),
+                    "effectRecessive": gene_data.get("effectRecessive"),
+                    "appearance": gene_data.get("appearance", ""),
+                    "notes": gene_data.get("notes", ""),
+                }
+
+        return {"effects": all_effects}
+    except Exception as e:
+        logger.error(f"Error getting gene effects for {species}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get gene effects") from e
+
+
+@app.get("/api/pet-genome/{pet_id}")
+async def get_pet_genome_for_visualization(pet_id: int) -> dict[str, Any]:
+    """Get pet genome data formatted for visualization."""
+    try:
+        pet_data = db.get_pet(pet_id)
+        if not pet_data:
+            raise HTTPException(status_code=404, detail="Pet not found")
+
+        # Parse the genome JSON
+        import json
+
+        from .models import Genome
+
+        genome_json = json.loads(pet_data["genome_data"])
+        genome = Genome.from_dict(genome_json)
+
+        # Convert genome to the format expected by the frontend
+        genome_data = {}
+        for chromosome, genes in genome.genes.items():
+            gene_string = ""
+            current_block = ""
+            current_block_genes = ""
+
+            for gene in genes:
+                if gene.block != current_block:
+                    if current_block_genes:
+                        gene_string += current_block_genes + " "
+                    current_block = gene.block
+                    current_block_genes = ""
+
+                current_block_genes += gene.gene_type.value
+
+            # Add the last block
+            if current_block_genes:
+                gene_string += current_block_genes
+
+            genome_data[chromosome] = gene_string.strip()
+
+        return {
+            "name": pet_data["name"],
+            "owner": genome.breeder,
+            "species": genome.genome_type,
+            "format": genome.format_version,
+            "genes": genome_data,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting pet genome for visualization {pet_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get pet genome") from e
 
 
 @app.get("/api/animal-types")
