@@ -28,13 +28,13 @@
                 <!-- Navigation Tabs -->
                 <div class="tab-container">
                     <div class="tab-list" role="tablist">
+                        <button class="tab" role="tab" data-tab="pet-management" aria-selected="true">
+                            <span class="tab-icon">🐾</span>
+                            <span class="tab-text">Pet Manager</span>
+                        </button>
                         <button class="tab" role="tab" data-tab="gene-editing" aria-selected="false">
                             <span class="tab-icon">🧬</span>
                             <span class="tab-text">Gene Editor</span>
-                        </button>
-                        <button class="tab" role="tab" data-tab="pet-management" aria-selected="false">
-                            <span class="tab-icon">🐾</span>
-                            <span class="tab-text">Pet Manager</span>
                         </button>
                     </div>
                 </div>
@@ -66,7 +66,7 @@
                 </div>
 
                 <!-- Pet Management Tab Panel -->
-                <div id="pet-management" class="tab-panel" role="tabpanel" style="display: none;">
+                <div id="pet-management" class="tab-panel" role="tabpanel" style="display: block;">
                     <div class="form-group">
                         <label>Add Pet to Collection</label>
                         <div id="dropZone" class="drop-zone">
@@ -151,7 +151,7 @@
     <script src="/static/js/api-client.js"></script>
     <script src="/static/js/gene-manager.js"></script>
     <script src="/static/js/export-manager.js"></script>
-    <script src="/static/js/tool-manager.js"></script>
+    <!-- <script src="/static/js/tool-manager.js"></script> -->
     <script src="/static/js/pet-upload.js"></script>
     <script src="/static/js/gene-visualizer.js"></script>
     <script src="/static/js/app-controller.js"></script>

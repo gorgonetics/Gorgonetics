@@ -9,7 +9,7 @@ class AppController {
     this.geneManager = new GeneManager(this.apiClient);
     this.exportManager = new ExportManager(this.apiClient);
     this.geneVisualizer = null;
-    this.currentMode = "gene-editing"; // 'gene-editing' or 'pet-management'
+    this.currentMode = "pet-management"; // 'gene-editing' or 'pet-management'
 
     // Make instances available globally for onclick handlers
     window.geneManager = this.geneManager;
@@ -27,6 +27,24 @@ class AppController {
       this.initializeGeneVisualizer();
       this.setupEventListeners();
       this.setupTabSwitching();
+      this.loadPets();
+
+      // Show pets dashboard in main window if Pet Manager is default tab
+      const petTab = document.querySelector('.tab[data-tab="pet-management"]');
+      if (petTab && petTab.getAttribute("aria-selected") === "true") {
+        const genesContent = document.getElementById("genesContent");
+        if (genesContent) {
+          genesContent.innerHTML = `
+            <div class="pets-dashboard">
+                <h2>Pet Collection Dashboard</h2>
+                <p>Manage your pet collection here. Upload new pets using the sidebar or select a pet to view details.</p>
+                <div class="pets-stats" id="petsStats">
+                    <div class="loading">Loading statistics...</div>
+                </div>
+            </div>
+          `;
+        }
+      }
     } catch (error) {
       UIUtils.showError("Failed to initialize application: " + error.message);
     }
@@ -208,8 +226,7 @@ class AppController {
       });
     });
 
-    // Initialize with gene editing tab
-    this.switchTab("gene-editing");
+    // No default tab selection here; handled by user click or HTML default
   }
 
   /**
