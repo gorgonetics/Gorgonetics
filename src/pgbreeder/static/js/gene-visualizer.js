@@ -15,6 +15,8 @@ class GeneVisualizer {
     this.hideNeutral = false;
     this.geneEffectsDB = null;
     this.currentStats = null;
+    this.hiddenChromosomes = [];
+    this.hiddenAttributes = [];
 
     this.init();
   }
@@ -219,7 +221,11 @@ class GeneVisualizer {
 
       // Add click handler for chromosome selection
       chromosomeLabel.addEventListener("click", (e) => {
-        this.toggleChromosomeFilter(chromosome, e.ctrlKey || e.metaKey);
+        this.toggleChromosomeFilter(
+          chromosome,
+          e.ctrlKey || e.metaKey,
+          e.altKey,
+        );
       });
 
       // Update selection state
@@ -261,6 +267,26 @@ class GeneVisualizer {
         ) {
           isVisible = false;
         }
+        // Chromosome hide/selected logic: only filter if exclusively in one, not both
+        const inSelectedChromosomes =
+          this.selectedChromosomes.includes(chromosome);
+        const inHiddenChromosomes = this.hiddenChromosomes.includes(chromosome);
+        if (
+          this.selectedChromosomes.length > 0 ||
+          this.hiddenChromosomes.length > 0
+        ) {
+          if (inSelectedChromosomes && !inHiddenChromosomes) {
+            // Only selected, apply selection logic (attribute filter below)
+            // do nothing here
+          } else if (!inSelectedChromosomes && inHiddenChromosomes) {
+            // Only hidden, filter out
+            isVisible = false;
+          } else if (inSelectedChromosomes && inHiddenChromosomes) {
+            // Both selected and hidden: treat as neutral (do nothing)
+          } else {
+            // Neither selected nor hidden: treat as neutral (do nothing)
+          }
+        }
 
         // Attribute filter
         if (this.currentView === "attribute") {
@@ -280,6 +306,29 @@ class GeneVisualizer {
             !this.selectedAttributes.includes(geneAnalysis.attribute)
           ) {
             isVisible = false;
+          }
+        }
+        // Attribute hide/selected logic: only filter if exclusively in one, not both
+        const inSelectedAttributes = this.selectedAttributes.includes(
+          geneAnalysis.attribute,
+        );
+        const inHiddenAttributes = this.hiddenAttributes.includes(
+          geneAnalysis.attribute,
+        );
+        if (
+          this.selectedAttributes.length > 0 ||
+          this.hiddenAttributes.length > 0
+        ) {
+          if (inSelectedAttributes && !inHiddenAttributes) {
+            // Only selected, apply selection logic (already handled above)
+            // do nothing here
+          } else if (!inSelectedAttributes && inHiddenAttributes) {
+            // Only hidden, filter out
+            isVisible = false;
+          } else if (inSelectedAttributes && inHiddenAttributes) {
+            // Both selected and hidden: treat as neutral (do nothing)
+          } else {
+            // Neither selected nor hidden: treat as neutral (do nothing)
           }
         }
 
@@ -909,7 +958,11 @@ class GeneVisualizer {
 
         // Add click handler for filtering
         row.addEventListener("click", (e) => {
-          this.toggleAttributeFilter(attr.key, e.ctrlKey || e.metaKey);
+          this.toggleAttributeFilter(
+            attr.key,
+            e.ctrlKey || e.metaKey,
+            e.altKey,
+          );
         });
 
         // Update selection state
@@ -1006,7 +1059,11 @@ class GeneVisualizer {
 
         // Add click handler for filtering
         row.addEventListener("click", (e) => {
-          this.toggleAttributeFilter(type.key, e.ctrlKey || e.metaKey);
+          this.toggleAttributeFilter(
+            type.key,
+            e.ctrlKey || e.metaKey,
+            e.altKey,
+          );
         });
 
         // Update selection state
@@ -1029,14 +1086,48 @@ class GeneVisualizer {
     }
   }
 
-  toggleAttributeFilter(attribute, isCtrlClick = false) {
-    if (isCtrlClick) {
+  toggleAttributeFilter(attribute, isCtrlClick = false, isAltClick = false) {
+    const isSelected = this.selectedAttributes.includes(attribute);
+    const isHidden = this.hiddenAttributes.includes(attribute);
+
+    // Always neutralize if toggling selection on a hidden item or hiding on a selected item
+    if (
+      (isAltClick && isSelected) ||
+      (isCtrlClick && isHidden) ||
+      (!isAltClick && !isCtrlClick && isHidden) // plain click on hidden attribute
+    ) {
+      this.selectedAttributes = this.selectedAttributes.filter(
+        (a) => a !== attribute,
+      );
+      this.hiddenAttributes = this.hiddenAttributes.filter(
+        (a) => a !== attribute,
+      );
+    } else if (isAltClick) {
+      // Alt+click: Hide/unhide attribute
+      const idx = this.hiddenAttributes.indexOf(attribute);
+      if (idx > -1) {
+        this.hiddenAttributes.splice(idx, 1);
+      } else {
+        this.hiddenAttributes.push(attribute);
+        // Remove from selected if present
+        this.selectedAttributes = this.selectedAttributes.filter(
+          (a) => a !== attribute,
+        );
+      }
+    } else if (isCtrlClick) {
       // Ctrl+click: Add/remove from selection
       const index = this.selectedAttributes.indexOf(attribute);
       if (index > -1) {
         this.selectedAttributes.splice(index, 1);
       } else {
-        this.selectedAttributes.push(attribute);
+        // If hidden, neutralize instead of selecting
+        if (isHidden) {
+          this.hiddenAttributes = this.hiddenAttributes.filter(
+            (a) => a !== attribute,
+          );
+        } else {
+          this.selectedAttributes.push(attribute);
+        }
       }
     } else {
       // Regular click: Replace selection
@@ -1047,9 +1138,19 @@ class GeneVisualizer {
         // If clicking the same single selected item, deselect it
         this.selectedAttributes = [];
       } else {
-        // Replace selection with this attribute
-        this.selectedAttributes = [attribute];
+        // If hidden, neutralize instead of selecting
+        if (isHidden) {
+          this.hiddenAttributes = this.hiddenAttributes.filter(
+            (a) => a !== attribute,
+          );
+        } else {
+          this.selectedAttributes = [attribute];
+        }
       }
+      // Remove from hidden if present
+      this.hiddenAttributes = this.hiddenAttributes.filter(
+        (a) => a !== attribute,
+      );
     }
 
     // Update visual selection immediately
@@ -1058,14 +1159,48 @@ class GeneVisualizer {
     this.updateVisualization();
   }
 
-  toggleChromosomeFilter(chromosome, isCtrlClick = false) {
-    if (isCtrlClick) {
+  toggleChromosomeFilter(chromosome, isCtrlClick = false, isAltClick = false) {
+    const isSelected = this.selectedChromosomes.includes(chromosome);
+    const isHidden = this.hiddenChromosomes.includes(chromosome);
+
+    // Always neutralize if toggling selection on a hidden item or hiding on a selected item
+    if (
+      (isAltClick && isSelected) ||
+      (isCtrlClick && isHidden) ||
+      (!isAltClick && !isCtrlClick && isHidden) // plain click on hidden chromosome
+    ) {
+      this.selectedChromosomes = this.selectedChromosomes.filter(
+        (c) => c !== chromosome,
+      );
+      this.hiddenChromosomes = this.hiddenChromosomes.filter(
+        (c) => c !== chromosome,
+      );
+    } else if (isAltClick) {
+      // Alt+click: Hide/unhide chromosome
+      const idx = this.hiddenChromosomes.indexOf(chromosome);
+      if (idx > -1) {
+        this.hiddenChromosomes.splice(idx, 1);
+      } else {
+        this.hiddenChromosomes.push(chromosome);
+        // Remove from selected if present
+        this.selectedChromosomes = this.selectedChromosomes.filter(
+          (c) => c !== chromosome,
+        );
+      }
+    } else if (isCtrlClick) {
       // Ctrl+click: Add/remove from selection
       const index = this.selectedChromosomes.indexOf(chromosome);
       if (index > -1) {
         this.selectedChromosomes.splice(index, 1);
       } else {
-        this.selectedChromosomes.push(chromosome);
+        // If hidden, neutralize instead of selecting
+        if (isHidden) {
+          this.hiddenChromosomes = this.hiddenChromosomes.filter(
+            (c) => c !== chromosome,
+          );
+        } else {
+          this.selectedChromosomes.push(chromosome);
+        }
       }
     } else {
       // Regular click: Replace selection
@@ -1076,9 +1211,19 @@ class GeneVisualizer {
         // If clicking the same single selected item, deselect it
         this.selectedChromosomes = [];
       } else {
-        // Replace selection with this chromosome
-        this.selectedChromosomes = [chromosome];
+        // If hidden, neutralize instead of selecting
+        if (isHidden) {
+          this.hiddenChromosomes = this.hiddenChromosomes.filter(
+            (c) => c !== chromosome,
+          );
+        } else {
+          this.selectedChromosomes = [chromosome];
+        }
       }
+      // Remove from hidden if present
+      this.hiddenChromosomes = this.hiddenChromosomes.filter(
+        (c) => c !== chromosome,
+      );
     }
 
     // Update visual selection immediately
@@ -1091,10 +1236,23 @@ class GeneVisualizer {
     document
       .querySelectorAll(".attribute-row, .appearance-row")
       .forEach((row) => {
-        if (this.selectedAttributes.includes(row.dataset.attribute)) {
+        // Only apply selected if not hidden
+        if (
+          this.selectedAttributes.includes(row.dataset.attribute) &&
+          !this.hiddenAttributes.includes(row.dataset.attribute)
+        ) {
           row.classList.add("selected");
         } else {
           row.classList.remove("selected");
+        }
+        // Only apply hidden if not selected
+        if (
+          this.hiddenAttributes.includes(row.dataset.attribute) &&
+          !this.selectedAttributes.includes(row.dataset.attribute)
+        ) {
+          row.classList.add("hidden-attribute");
+        } else {
+          row.classList.remove("hidden-attribute");
         }
       });
 
@@ -1105,10 +1263,23 @@ class GeneVisualizer {
 
   updateChromosomeSelectionState() {
     document.querySelectorAll(".chromosome-label").forEach((label) => {
-      if (this.selectedChromosomes.includes(label.dataset.chromosome)) {
+      // Only apply selected if not hidden
+      if (
+        this.selectedChromosomes.includes(label.dataset.chromosome) &&
+        !this.hiddenChromosomes.includes(label.dataset.chromosome)
+      ) {
         label.classList.add("selected");
       } else {
         label.classList.remove("selected");
+      }
+      // Only apply hidden if not selected
+      if (
+        this.hiddenChromosomes.includes(label.dataset.chromosome) &&
+        !this.selectedChromosomes.includes(label.dataset.chromosome)
+      ) {
+        label.classList.add("hidden-chromosome");
+      } else {
+        label.classList.remove("hidden-chromosome");
       }
     });
   }
@@ -1320,27 +1491,53 @@ class GeneVisualizer {
           let newHidden = Array.isArray(this.hiddenEffectFilters)
             ? [...this.hiddenEffectFilters]
             : [];
-          if (e.altKey) {
+          const isSelected = newFilter.includes(effectType);
+          const isHidden = newHidden.includes(effectType);
+
+          // Always neutralize if toggling selection on a hidden item or hiding on a selected item
+          if (
+            (e.altKey && isSelected) ||
+            ((e.ctrlKey || e.metaKey) && isHidden) ||
+            (!e.altKey && !e.ctrlKey && !e.metaKey && isHidden) || // plain click on hidden effect
+            (isSelected && isHidden)
+          ) {
+            newFilter = newFilter.filter((t) => t !== effectType);
+            newHidden = newHidden.filter((t) => t !== effectType);
+          } else if (e.altKey) {
             // Alt-click: toggle hide effect
-            if (newHidden.includes(effectType)) {
+            if (isHidden) {
               newHidden = newHidden.filter((t) => t !== effectType);
             } else {
               newHidden.push(effectType);
+              // Remove from selected if present
+              newFilter = newFilter.filter((t) => t !== effectType);
             }
           } else if (e.ctrlKey || e.metaKey) {
             // Multi-select: toggle effect type
-            if (newFilter.includes(effectType)) {
+            if (isSelected) {
               newFilter = newFilter.filter((t) => t !== effectType);
             } else {
-              newFilter.push(effectType);
+              // If hidden, neutralize instead of selecting
+              if (isHidden) {
+                newHidden = newHidden.filter((t) => t !== effectType);
+              } else {
+                newFilter.push(effectType);
+              }
             }
           } else {
             // Single select: replace with only this effect type
             if (newFilter.length === 1 && newFilter[0] === effectType) {
               newFilter = [];
             } else {
-              newFilter = [effectType];
+              // If hidden, neutralize instead of selecting
+              if (isHidden) {
+                newHidden = newHidden.filter((t) => t !== effectType);
+              } else {
+                newFilter = [effectType];
+              }
             }
+            // Remove from hidden if present
+            newHidden = newHidden.filter((t) => t !== effectType);
           }
           this.currentEffectFilter = newFilter;
           this.hiddenEffectFilters = newHidden;
@@ -1351,16 +1548,22 @@ class GeneVisualizer {
             i.classList.remove("hidden-effect");
           });
           this.currentEffectFilter.forEach((type) => {
-            const selected = legendRow.querySelector(
-              `.effect-legend-item[data-effect="${type}"]`,
-            );
-            if (selected) selected.classList.add("selected");
+            // Only apply selected if not hidden
+            if (!this.hiddenEffectFilters.includes(type)) {
+              const selected = legendRow.querySelector(
+                `.effect-legend-item[data-effect="${type}"]`,
+              );
+              if (selected) selected.classList.add("selected");
+            }
           });
           this.hiddenEffectFilters.forEach((type) => {
-            const hidden = legendRow.querySelector(
-              `.effect-legend-item[data-effect="${type}"]`,
-            );
-            if (hidden) hidden.classList.add("hidden-effect");
+            // Only apply hidden if not selected
+            if (!this.currentEffectFilter.includes(type)) {
+              const hidden = legendRow.querySelector(
+                `.effect-legend-item[data-effect="${type}"]`,
+              );
+              if (hidden) hidden.classList.add("hidden-effect");
+            }
           });
         });
       });
@@ -1439,21 +1642,44 @@ class GeneVisualizer {
           let newHiddenValueFilters = Array.isArray(this.hiddenValueFilters)
             ? [...this.hiddenValueFilters]
             : [];
-          if (e.altKey) {
+          const isSelected = newValueFilter.includes(valueType);
+          const isHidden = newHiddenValueFilters.includes(valueType);
+
+          // Always neutralize if toggling selection on a hidden item or hiding on a selected item
+          if (
+            (e.altKey && isSelected) ||
+            ((e.ctrlKey || e.metaKey) && isHidden) ||
+            (!e.altKey && !e.ctrlKey && !e.metaKey && isHidden) || // plain click on hidden value
+            (isSelected && isHidden)
+          ) {
+            newValueFilter = newValueFilter.filter((t) => t !== valueType);
+            newHiddenValueFilters = newHiddenValueFilters.filter(
+              (t) => t !== valueType,
+            );
+          } else if (e.altKey) {
             // Alt-click: toggle hide value
-            if (newHiddenValueFilters.includes(valueType)) {
+            if (isHidden) {
               newHiddenValueFilters = newHiddenValueFilters.filter(
                 (t) => t !== valueType,
               );
             } else {
               newHiddenValueFilters.push(valueType);
+              // Remove from selected if present
+              newValueFilter = newValueFilter.filter((t) => t !== valueType);
             }
           } else if (e.ctrlKey || e.metaKey) {
             // Multi-select: toggle value type
-            if (newValueFilter.includes(valueType)) {
+            if (isSelected) {
               newValueFilter = newValueFilter.filter((t) => t !== valueType);
             } else {
-              newValueFilter.push(valueType);
+              // If hidden, neutralize instead of selecting
+              if (isHidden) {
+                newHiddenValueFilters = newHiddenValueFilters.filter(
+                  (t) => t !== valueType,
+                );
+              } else {
+                newValueFilter.push(valueType);
+              }
             }
           } else {
             // Single select: replace with only this value type
@@ -1463,8 +1689,19 @@ class GeneVisualizer {
             ) {
               newValueFilter = [];
             } else {
-              newValueFilter = [valueType];
+              // If hidden, neutralize instead of selecting
+              if (isHidden) {
+                newHiddenValueFilters = newHiddenValueFilters.filter(
+                  (t) => t !== valueType,
+                );
+              } else {
+                newValueFilter = [valueType];
+              }
             }
+            // Remove from hidden if present
+            newHiddenValueFilters = newHiddenValueFilters.filter(
+              (t) => t !== valueType,
+            );
           }
           this.currentValueFilter = newValueFilter;
           this.hiddenValueFilters = newHiddenValueFilters;
@@ -1475,16 +1712,22 @@ class GeneVisualizer {
             i.classList.remove("hidden-effect");
           });
           this.currentValueFilter.forEach((type) => {
-            const selected = legendRow.querySelector(
-              `.value-legend-item[data-value="${Object.keys(valueMap).find((key) => valueMap[key] === type)}"]`,
-            );
-            if (selected) selected.classList.add("selected");
+            // Only apply selected if not hidden
+            if (!this.hiddenValueFilters.includes(type)) {
+              const selected = legendRow.querySelector(
+                `.value-legend-item[data-value="${Object.keys(valueMap).find((key) => valueMap[key] === type)}"]`,
+              );
+              if (selected) selected.classList.add("selected");
+            }
           });
           this.hiddenValueFilters.forEach((type) => {
-            const hidden = legendRow.querySelector(
-              `.value-legend-item[data-value="${Object.keys(valueMap).find((key) => valueMap[key] === type)}"]`,
-            );
-            if (hidden) hidden.classList.add("hidden-effect");
+            // Only apply hidden if not selected
+            if (!this.currentValueFilter.includes(type)) {
+              const hidden = legendRow.querySelector(
+                `.value-legend-item[data-value="${Object.keys(valueMap).find((key) => valueMap[key] === type)}"]`,
+              );
+              if (hidden) hidden.classList.add("hidden-effect");
+            }
           });
         });
       });

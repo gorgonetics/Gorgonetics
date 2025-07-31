@@ -1606,6 +1606,26 @@ body {
     font-weight: 600;
 }
 
+.chromosome-label.hidden-chromosome {
+    background: #fff7ed;
+    color: #ea580c;
+    border-left: 3px solid #ea580c;
+    font-weight: 600;
+}
+
+.attribute-row.hidden-attribute,
+.appearance-row.hidden-attribute {
+    background-color: #fee2e2 !important;
+    box-shadow:
+        inset 4px 0 0 0 #ef4444,
+        inset 0 0 0 1px rgba(239, 68, 68, 0.2);
+}
+.attribute-row.hidden-attribute td,
+.appearance-row.hidden-attribute td {
+    color: #b91c1c;
+    font-weight: 500;
+}
+
 .blocks-container {
     display: flex;
     flex: 1;
