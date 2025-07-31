@@ -158,8 +158,8 @@ class UIUtils {
    */
   static showError(message) {
     showStatusMessage(message, "error", {
-      container: document.querySelector(".container"),
-      after: document.querySelector(".genes-container"),
+      container: document.querySelector(".container") || document.body,
+      after: document.querySelector(".genes-container") || null,
       timeout: 5000,
     });
   }

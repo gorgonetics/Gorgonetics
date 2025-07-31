@@ -1448,6 +1448,7 @@ class GeneVisualizer {
 
   updateLegend() {
     const legendItems = document.getElementById("legendItems");
+    let legendRow;
 
     if (this.currentView === "attribute") {
       // Add a data-effect attribute to each effect legend item for click handling
@@ -1502,7 +1503,7 @@ class GeneVisualizer {
         "potential-negative": "potential-negative",
         negative: "negative",
       };
-      const legendRow = legendItems.querySelector(".legend-row");
+      legendRow = legendItems.querySelector(".legend-row");
       legendRow.querySelectorAll(".effect-legend-item").forEach((item) => {
         item.style.cursor = "pointer";
         item.addEventListener("click", (e) => {
@@ -1632,94 +1633,226 @@ class GeneVisualizer {
           </span>
         </div>
       `;
-    }
 
-    // Add click handlers for value legend items (multi-select with ctrl/cmd, alt to hide)
-    const valueMap = {
-      dominant: "gene-dominant",
-      recessive: "gene-recessive",
-      mixed: "gene-mixed",
-      unknown: "gene-unknown",
-    };
-    const legendRow = legendItems.querySelector(".legend-row");
-    if (legendRow) {
-      legendRow.querySelectorAll(".value-legend-item").forEach((item) => {
+      // Add click handlers for appearance legend items (multi-select with ctrl/cmd)
+      // Map legend selectors to all related gene effect types (families)
+      const appearanceFamilyMap = {
+        "body-color": [
+          "body-color-hue",
+          "body-color-saturation",
+          "body-color-intensity",
+        ],
+        "wing-color": [
+          "wing-color-hue",
+          "wing-color-saturation",
+          "wing-color-intensity",
+        ],
+        "body-scale": [
+          "body-scale",
+          "wing-scale",
+          "head-scale",
+          "tail-scale",
+          "antenna-scale",
+        ],
+        deformities: ["leg-deformity", "antenna-deformity"],
+        particles: ["particles", "particle-location"],
+        glow: ["glow"],
+        "no-effect": ["appearance-neutral"],
+      };
+      legendRow = legendItems.querySelector(".legend-row");
+      legendRow.querySelectorAll(".appearance-legend-item").forEach((item) => {
         item.style.cursor = "pointer";
         item.addEventListener("click", (e) => {
-          const valueType = valueMap[item.dataset.value];
-          let newValueFilter = Array.isArray(this.currentValueFilter)
-            ? [...this.currentValueFilter]
+          const family = appearanceFamilyMap[item.dataset.appearance] || [];
+          let newFilter = Array.isArray(this.currentEffectFilter)
+            ? [...this.currentEffectFilter]
             : [];
-          let newHiddenValueFilters = Array.isArray(this.hiddenValueFilters)
-            ? [...this.hiddenValueFilters]
+          let newHidden = Array.isArray(this.hiddenEffectFilters)
+            ? [...this.hiddenEffectFilters]
             : [];
           let result;
           if (e.altKey) {
-            result = toggleFilterState(
-              newValueFilter,
-              newHiddenValueFilters,
-              valueType,
-              "toggle-hide",
-            );
-          } else if (e.ctrlKey || e.metaKey) {
-            result = toggleFilterState(
-              newValueFilter,
-              newHiddenValueFilters,
-              valueType,
-              "toggle-select",
-            );
-          } else {
-            // Plain click: single-select (replace), but neutralize if hidden
-            if (newHiddenValueFilters.includes(valueType)) {
+            // Hide/unhide all family types
+            family.forEach((type) => {
               result = toggleFilterState(
-                [],
-                newHiddenValueFilters,
-                valueType,
+                newFilter,
+                newHidden,
+                type,
+                "toggle-hide",
+              );
+              newFilter = result.selected;
+              newHidden = result.hidden;
+            });
+          } else if (e.ctrlKey || e.metaKey) {
+            // Multi-select all family types
+            family.forEach((type) => {
+              result = toggleFilterState(
+                newFilter,
+                newHidden,
+                type,
                 "toggle-select",
               );
+              newFilter = result.selected;
+              newHidden = result.hidden;
+            });
+          } else {
+            // Plain click: single-select (replace), but neutralize if hidden
+            // If any family type is hidden, neutralize all
+            const anyHidden = family.some((type) => newHidden.includes(type));
+            if (anyHidden) {
+              family.forEach((type) => {
+                result = toggleFilterState(
+                  [],
+                  newHidden,
+                  type,
+                  "toggle-select",
+                );
+                newFilter = result.selected;
+                newHidden = result.hidden;
+              });
             } else if (
-              newValueFilter.length === 1 &&
-              newValueFilter[0] === valueType
+              family.every(
+                (type) =>
+                  newFilter.length === family.length &&
+                  newFilter.includes(type),
+              )
             ) {
-              result = {
-                selected: [],
-                hidden: newHiddenValueFilters.filter((t) => t !== valueType),
-              };
+              // All already selected: deselect all
+              family.forEach((type) => {
+                newFilter = newFilter.filter((t) => t !== type);
+                newHidden = newHidden.filter((t) => t !== type);
+              });
+              result = { selected: newFilter, hidden: newHidden };
             } else {
-              result = {
-                selected: [valueType],
-                hidden: newHiddenValueFilters.filter((t) => t !== valueType),
-              };
+              // Select all family types, remove from hidden
+              newFilter = family.slice();
+              newHidden = newHidden.filter((t) => !family.includes(t));
+              result = { selected: newFilter, hidden: newHidden };
             }
           }
-          this.currentValueFilter = result.selected;
-          this.hiddenValueFilters = result.hidden;
+          this.currentEffectFilter = result.selected;
+          this.hiddenEffectFilters = result.hidden;
           this.updateVisualization();
           // Update selected/hidden style
-          legendRow.querySelectorAll(".value-legend-item").forEach((i) => {
+          legendRow.querySelectorAll(".appearance-legend-item").forEach((i) => {
             i.classList.remove("selected");
             i.classList.remove("hidden-effect");
           });
-          this.currentValueFilter.forEach((type) => {
-            // Only apply selected if not hidden
-            if (!this.hiddenValueFilters.includes(type)) {
-              const selected = legendRow.querySelector(
-                `.value-legend-item[data-value="${Object.keys(valueMap).find((key) => valueMap[key] === type)}"]`,
-              );
-              if (selected) selected.classList.add("selected");
-            }
-          });
-          this.hiddenValueFilters.forEach((type) => {
-            // Only apply hidden if not selected
-            if (!this.currentValueFilter.includes(type)) {
-              const hidden = legendRow.querySelector(
-                `.value-legend-item[data-value="${Object.keys(valueMap).find((key) => valueMap[key] === type)}"]`,
-              );
-              if (hidden) hidden.classList.add("hidden-effect");
+          // Highlight if any family type is selected/hidden
+          Object.entries(appearanceFamilyMap).forEach(([key, types]) => {
+            const selected = types.some(
+              (type) =>
+                this.currentEffectFilter.includes(type) &&
+                !this.hiddenEffectFilters.includes(type),
+            );
+            const hidden = types.some(
+              (type) =>
+                this.hiddenEffectFilters.includes(type) &&
+                !this.currentEffectFilter.includes(type),
+            );
+            const el = legendRow.querySelector(
+              `.appearance-legend-item[data-appearance="${key}"]`,
+            );
+            if (el) {
+              if (selected) el.classList.add("selected");
+              if (hidden) el.classList.add("hidden-effect");
             }
           });
         });
       });
+      // Highlight the selected and hidden appearance types if any
+      if (
+        Array.isArray(this.currentEffectFilter) &&
+        this.currentEffectFilter.length > 0
+      ) {
+        // (handled above in the new Object.entries loop)
+      }
+
+      // Add click handlers for value legend items (multi-select with ctrl/cmd, alt to hide)
+      const valueMap = {
+        dominant: "gene-dominant",
+        recessive: "gene-recessive",
+        mixed: "gene-mixed",
+        unknown: "gene-unknown",
+      };
+      legendRow = legendItems.querySelector(".legend-row");
+      if (legendRow) {
+        legendRow.querySelectorAll(".value-legend-item").forEach((item) => {
+          item.style.cursor = "pointer";
+          item.addEventListener("click", (e) => {
+            const valueType = valueMap[item.dataset.value];
+            let newValueFilter = Array.isArray(this.currentValueFilter)
+              ? [...this.currentValueFilter]
+              : [];
+            let newHiddenValueFilters = Array.isArray(this.hiddenValueFilters)
+              ? [...this.hiddenValueFilters]
+              : [];
+            let result;
+            if (e.altKey) {
+              result = toggleFilterState(
+                newValueFilter,
+                newHiddenValueFilters,
+                valueType,
+                "toggle-hide",
+              );
+            } else if (e.ctrlKey || e.metaKey) {
+              result = toggleFilterState(
+                newValueFilter,
+                newHiddenValueFilters,
+                valueType,
+                "toggle-select",
+              );
+            } else {
+              // Plain click: single-select (replace), but neutralize if hidden
+              if (newHiddenValueFilters.includes(valueType)) {
+                result = toggleFilterState(
+                  [],
+                  newHiddenValueFilters,
+                  valueType,
+                  "toggle-select",
+                );
+              } else if (
+                newValueFilter.length === 1 &&
+                newValueFilter[0] === valueType
+              ) {
+                result = {
+                  selected: [],
+                  hidden: newHiddenValueFilters.filter((t) => t !== valueType),
+                };
+              } else {
+                result = {
+                  selected: [valueType],
+                  hidden: newHiddenValueFilters.filter((t) => t !== valueType),
+                };
+              }
+            }
+            this.currentValueFilter = result.selected;
+            this.hiddenValueFilters = result.hidden;
+            this.updateVisualization();
+            // Update selected/hidden style
+            legendRow.querySelectorAll(".value-legend-item").forEach((i) => {
+              i.classList.remove("selected");
+              i.classList.remove("hidden-effect");
+            });
+            this.currentValueFilter.forEach((type) => {
+              if (!this.hiddenValueFilters.includes(type)) {
+                const selected = legendRow.querySelector(
+                  `.value-legend-item[data-value="${Object.keys(valueMap).find((key) => valueMap[key] === type)}"]`,
+                );
+                if (selected) selected.classList.add("selected");
+              }
+            });
+            this.hiddenValueFilters.forEach((type) => {
+              if (!this.currentValueFilter.includes(type)) {
+                const hidden = legendRow.querySelector(
+                  `.value-legend-item[data-value="${Object.keys(valueMap).find((key) => valueMap[key] === type)}"]`,
+                );
+                if (hidden) hidden.classList.add("hidden-effect");
+              }
+            });
+          });
+        });
+      }
       // Highlight the selected and hidden values if any
       if (
         Array.isArray(this.currentValueFilter) &&
