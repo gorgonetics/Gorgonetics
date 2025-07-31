@@ -57,7 +57,6 @@ class GeneVisualizer {
                 <div class="visualizer-content">
                     <div class="gene-section">
                         <div class="gene-legend">
-                            <h4>Legend</h4>
                             <div class="legend-items" id="legendItems">
                                 <!-- Will be populated dynamically based on current view -->
                             </div>
@@ -349,7 +348,9 @@ class GeneVisualizer {
             }
           }
 
-          if (gene.type === "D") {
+          if (gene.type === "?") {
+            cssClass = "gene-cell gene-neutral gene-unknown";
+          } else if (gene.type === "D") {
             cssClass += "gene-dominant";
           } else if (gene.type === "R") {
             cssClass += "gene-recessive";
@@ -365,6 +366,12 @@ class GeneVisualizer {
         geneCell.dataset.geneId = gene.id;
         geneCell.dataset.geneType = gene.type;
         geneCell.dataset.effect = geneAnalysis.effect;
+
+        // Render question mark for unknown gene type
+        if (gene.type === "?") {
+          geneCell.innerHTML =
+            '<span class="gene-unknown-symbol" title="Unknown gene">?</span>';
+        }
 
         if (isVisible) {
           geneCell.addEventListener("mouseenter", (e) => this.showTooltip(e));
@@ -1233,33 +1240,45 @@ class GeneVisualizer {
 
     if (this.currentView === "attribute") {
       legendItems.innerHTML = `
-        <div class="legend-item">
-          <div class="legend-color gene-positive gene-dominant"></div>
-          <span>Positive (Dominant)</span>
-        </div>
-        <div class="legend-item">
-          <div class="legend-color gene-positive gene-recessive"></div>
-          <span>Positive (Recessive)</span>
-        </div>
-        <div class="legend-item">
-          <div class="legend-color gene-negative gene-dominant"></div>
-          <span>Negative (Dominant)</span>
-        </div>
-        <div class="legend-item">
-          <div class="legend-color gene-negative gene-recessive"></div>
-          <span>Negative (Recessive)</span>
-        </div>
-        <div class="legend-item">
-          <div class="legend-color gene-neutral gene-dominant"></div>
-          <span>No Effect</span>
-        </div>
-        <div class="legend-item">
-          <div class="legend-color gene-potential-positive gene-dominant"></div>
-          <span>Potential Positive</span>
-        </div>
-        <div class="legend-item">
-          <div class="legend-color gene-potential-negative gene-recessive"></div>
-          <span>Potential Negative</span>
+        <div class="legend-row" style="display: flex; align-items: center; flex-wrap: wrap; gap: 2.5em;">
+          <span class="legend-label" style="font-weight:600;margin-right:1em;">Effect:</span>
+          <span class="legend-item" style="display:flex;align-items:center;gap:0.4em;">
+            <span class="legend-color gene-positive gene-dominant"></span>
+            <span>Positive</span>
+          </span>
+          <span class="legend-item" style="display:flex;align-items:center;gap:0.4em;">
+            <span class="legend-color gene-potential-positive gene-dominant"></span>
+            <span>Potential Positive</span>
+          </span>
+          <span class="legend-item" style="display:flex;align-items:center;gap:0.4em;">
+            <span class="legend-color gene-neutral gene-dominant"></span>
+            <span>Neutral</span>
+          </span>
+          <span class="legend-item" style="display:flex;align-items:center;gap:0.4em;">
+            <span class="legend-color gene-potential-negative gene-dominant"></span>
+            <span>Potential Negative</span>
+          </span>
+          <span class="legend-item" style="display:flex;align-items:center;gap:0.4em;">
+            <span class="legend-color gene-negative gene-dominant"></span>
+            <span>Negative</span>
+          </span>
+          <span class="legend-label" style="font-weight:600;margin-left:2em;margin-right:1em;">Value:</span>
+          <span class="legend-item" style="display:flex;align-items:center;gap:0.4em;">
+            <span class="gene-cell gene-neutral gene-dominant"></span>
+            <span>Dominant</span>
+          </span>
+          <span class="legend-item" style="display:flex;align-items:center;gap:0.4em;">
+            <span class="gene-cell gene-neutral gene-recessive"></span>
+            <span>Recessive</span>
+          </span>
+          <span class="legend-item" style="display:flex;align-items:center;gap:0.4em;">
+            <span class="gene-cell gene-neutral gene-mixed"></span>
+            <span>Mixed</span>
+          </span>
+          <span class="legend-item" style="display:flex;align-items:center;gap:0.4em;">
+           <span class="gene-cell gene-neutral gene-unknown"><span class="gene-unknown-symbol" title="Unknown gene">?</span></span>
+           <span>Unknown</span>
+          </span>
         </div>
       `;
     } else {

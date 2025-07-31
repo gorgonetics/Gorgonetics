@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PGBreeder Gene Editor</title>
+    <link rel="icon" type="image/png" href="/static/favicon.png">
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+
+<body>
+    <div class="app-layout">
+        <!-- Fixed Sidebar -->
+        <div class="sidebar">
+            <!-- Logo & Title -->
+            <div class="sidebar-header">
+                <div class="logo-section">
+                    <div class="logo-box">
+                        <span class="dna-emoji">🔬</span>
+                    </div>
+                    <div class="title-box">
+                        <h1 class="gradient-text">PGBreeder</h1>
+                        <p>Genetic Analysis Platform</p>
+                    </div>
+                </div>
+
+                <!-- Navigation Tabs -->
+                <div class="tab-container">
+                    <div class="tab-list" role="tablist">
+                        <button class="tab" role="tab" data-tab="gene-editing" aria-selected="false">
+                            <span class="tab-icon">🧬</span>
+                            <span class="tab-text">Gene Editor</span>
+                        </button>
+                        <button class="tab" role="tab" data-tab="pet-management" aria-selected="false">
+                            <span class="tab-icon">🐾</span>
+                            <span class="tab-text">Pet Manager</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tool Controls Container -->
+            <div class="sidebar-controls">
+                <!-- Gene Editing Tab Panel -->
+                <div id="gene-editing" class="tab-panel" role="tabpanel" style="display: none;">
+                    <div class="form-group">
+                        <label for="animalType">Animal Type</label>
+                        <select id="animalType">
+                            <option value="">Select animal type...</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="chromosome">Chromosome</label>
+                        <select id="chromosome" disabled>
+                            <option value="">Select chromosome...</option>
+                        </select>
+                    </div>
+
+                    <div class="sidebar-buttons">
+                        <button class="load-btn" id="loadGenes" disabled>Load Genes</button>
+                        <button class="export-btn" id="exportChromosome" disabled>📥 Export Chromosome</button>
+                        <button class="export-btn" id="exportAll" disabled>📦 Export All</button>
+                    </div>
+                </div>
+
+                <!-- Pet Management Tab Panel -->
+                <div id="pet-management" class="tab-panel" role="tabpanel" style="display: none;">
+                    <div class="form-group">
+                        <label>Add Pet to Collection</label>
+                        <div id="dropZone" class="drop-zone">
+                            <div class="drop-zone-content">
+                                <span class="drop-icon">📁</span>
+                                <span class="drop-text">
+                                    <p>Drag & drop genome file here</p>
+                                    <p class="drop-hint">or click to browse</p>
+                                </span>
+                                <input type="file" id="fileInput" accept=".txt" style="display: none;">
+                            </div>
+                        </div>
+                        <div class="form-group" style="margin-top: 8px;">
+                            <input type="text" id="petName" placeholder="Pet name (optional)" class="pet-name-input">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>My Pets</label>
+                        <div id="petsList" class="pets-list">
+                            <div class="loading">Loading pets...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Effect Color Legend -->
+                <div class="effect-legend" style="display: none;" id="effectLegend">
+                    <h4>🎨 Effect Color Guide</h4>
+                    <div class="legend-badges">
+                        <span class="legend-badge positive">+ Recessive (Positive)</span>
+                        <span class="legend-badge negative">- Dominant (Negative)</span>
+                        <span class="legend-badge neutral">None</span>
+                    </div>
+                    <div style="margin-top: 12px; font-size: 11px; color: #374151;">
+                        <strong>Attribute Icons:</strong>
+                        <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px;">
+                            <span>🧠 Intelligence</span>
+                            <span>💪 Toughness</span>
+                            <span>⚡ Speed</span>
+                            <span>😊 Friendliness</span>
+                            <span>🏔️ Ruggedness</span>
+                            <span>🔥 Ferocity</span>
+                            <span>✨ Enthusiasm</span>
+                            <span>💜 Virility</span>
+                            <span>� Speed</span>
+                            </li>
+                        </div>
+                    </div>
+                    <p style="font-size: 11px; color: #6b7280; margin-top: 8px;">
+                        Icons identify attributes, colors show effect type (+/-).
+                    </p>
+                </div>
+            </div>
+
+            <!-- Sidebar Toggle Button -->
+            <div class="sidebar-footer">
+                <button class="sidebar-toggle" id="sidebarToggle" title="Collapse sidebar">
+                    <span class="toggle-icon">‹</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="main-content">
+            <div class="genes-container">
+                <div id="genesContent">
+                    <div class="loading">
+                        Select an animal type and chromosome to begin editing genes
+                    </div>
+                </div>
+
+                <!-- Gene Visualization Component -->
+                <div id="geneVisualizationContainer" style="display: none;">
+                    <!-- Will be populated by GeneVisualizer -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript Modules -->
+    <script src="/static/js/ui-utils.js"></script>
+    <script src="/static/js/api-client.js"></script>
+    <script src="/static/js/gene-manager.js"></script>
+    <script src="/static/js/export-manager.js"></script>
+    <script src="/static/js/tool-manager.js"></script>
+    <script src="/static/js/pet-upload.js"></script>
+    <script src="/static/js/gene-visualizer.js"></script>
+    <script src="/static/js/app-controller.js"></script>
+</body>
+
+</html>
