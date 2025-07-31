@@ -115,8 +115,11 @@ class AppController {
           "Select chromosome...",
         );
       }
-      // Clear gene display when animal type changes
-      UIUtils.clearGeneDisplay();
+      // Clear gene display when animal type changes, but only if Gene Editor is selected
+      const geneTab = document.querySelector('.tab[data-tab="gene-editing"]');
+      if (geneTab && geneTab.getAttribute("aria-selected") === "true") {
+        UIUtils.clearGeneDisplay();
+      }
     });
 
     // Chromosome selection
@@ -124,8 +127,11 @@ class AppController {
       const chromosome = e.target.value;
       const animalType = document.getElementById("animalType").value;
       UIUtils.updateButtonStates(animalType, chromosome);
-      // Clear gene display when chromosome changes (user needs to click Load Genes)
-      UIUtils.clearGeneDisplay();
+      // Clear gene display when chromosome changes, but only if Gene Editor is selected
+      const geneTab = document.querySelector('.tab[data-tab="gene-editing"]');
+      if (geneTab && geneTab.getAttribute("aria-selected") === "true") {
+        UIUtils.clearGeneDisplay();
+      }
     });
 
     // Load genes button

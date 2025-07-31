@@ -35,10 +35,7 @@ def main(
     pass
 
 
-@app.command()
-def hello(name: str = typer.Argument("World")) -> None:
-    """Say hello to someone."""
-    console.print(f"Hello, {name}!")
+
 
 
 if __name__ == "__main__":

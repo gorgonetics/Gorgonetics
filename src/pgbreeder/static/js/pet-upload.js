@@ -111,9 +111,12 @@ class PetUploadManager {
         );
         this.clearForm();
 
-        // Refresh pets list if tool manager is available
-        if (window.toolManager) {
-          window.toolManager.refreshPetsList();
+        // Refresh pets list if appController is available
+        if (
+          window.appController &&
+          typeof window.appController.loadPets === "function"
+        ) {
+          window.appController.loadPets();
         }
       } else {
         throw new Error(result.message || "Upload failed");
