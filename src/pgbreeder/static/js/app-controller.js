@@ -483,39 +483,28 @@ class AppController {
    * Handle pet file upload
    */
   async handlePetUpload(file) {
-    try {
-      UIUtils.showLoading("Uploading pet...");
-
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const petName = document.getElementById("petName").value;
-      if (petName) {
-        formData.append("name", petName);
-      }
-
-      const response = await fetch("/api/pets/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || "Upload failed");
-      }
-
-      const result = await response.json();
-      UIUtils.showSuccess(`Pet "${result.name}" uploaded successfully!`);
-
-      // Clear the input
-      document.getElementById("petName").value = "";
-      document.getElementById("fileInput").value = "";
-
-      // Refresh pets list
-      this.loadPets();
-    } catch (error) {
-      UIUtils.showError("Failed to upload pet: " + error.message);
-    }
+    const petName = document.getElementById("petName").value;
+    uploadPetFile({
+      file,
+      petName,
+      onStatus: (message, type) => {
+        if (type === "loading") {
+          UIUtils.showLoading(message);
+        } else if (type === "success") {
+          UIUtils.showSuccess(message);
+        } else if (type === "error") {
+          UIUtils.showError(message);
+        }
+      },
+      onSuccess: (result) => {
+        document.getElementById("petName").value = "";
+        document.getElementById("fileInput").value = "";
+        this.loadPets();
+      },
+      onError: (error) => {
+        // Already handled by onStatus, but could add extra logging here if desired
+      },
+    });
   }
 }
 

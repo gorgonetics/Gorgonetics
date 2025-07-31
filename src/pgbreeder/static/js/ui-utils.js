@@ -3,6 +3,117 @@
  * Handles user feedback, loading states, and common UI operations.
  */
 
+/**
+ * Show a status message (success, error, loading, custom) in a target container.
+ * type: "success" | "error" | "loading" | custom string
+ * options: {
+ *   container: HTMLElement (where to append, default: .container or body),
+ *   after: HTMLElement (insert after this element, default: null),
+ *   timeout: number (ms, auto-remove after this time, default: 3000 for success, 5000 for error, null for loading)
+ * }
+ * Returns the created status element.
+ */
+function showStatusMessage(message, type = "loading", options = {}) {
+  // Remove existing status of same type in container
+  const container =
+    options.container || document.querySelector(".container") || document.body;
+  const after = options.after || null;
+  let timeout = options.timeout;
+  if (timeout === undefined) {
+    if (type === "success") timeout = 3000;
+    else if (type === "error") timeout = 5000;
+    else timeout = null;
+  }
+  // Remove previous status of same type in container
+  container
+    .querySelectorAll(`.status-message.${type}`)
+    .forEach((el) => el.remove());
+
+  const statusDiv = document.createElement("div");
+  statusDiv.className = `status-message ${type}`;
+  statusDiv.textContent = message;
+
+  if (after && after.parentNode) {
+    after.parentNode.insertBefore(statusDiv, after.nextSibling);
+  } else {
+    container.appendChild(statusDiv);
+  }
+
+  if (timeout) {
+    setTimeout(() => {
+      statusDiv.remove();
+    }, timeout);
+  }
+  return statusDiv;
+}
+
+/**
+ * Shared pet upload logic for use by both AppController and PetUploadManager.
+ * Calls the provided callbacks for status updates and completion.
+ *
+ * @param {File} file - The file to upload
+ * @param {string} petName - The pet name (optional)
+ * @param {function} onStatus - (message, type) => void, called for status updates
+ * @param {function} onSuccess - (result) => void, called on success
+ * @param {function} onError - (error) => void, called on error
+ */
+function uploadPetFile({ file, petName, onStatus, onSuccess, onError }) {
+  if (!file) {
+    if (onStatus) onStatus("No file selected", "error");
+    return;
+  }
+  if (!file.name.endsWith(".txt")) {
+    if (onStatus) onStatus("Please select a .txt genome file", "error");
+    return;
+  }
+  if (onStatus) onStatus("Uploading pet genome...", "loading");
+  const formData = new FormData();
+  formData.append("file", file);
+  if (petName) {
+    formData.append("name", petName);
+  }
+  fetch("/api/pets/upload", {
+    method: "POST",
+    body: formData,
+  })
+    .then(async (response) => {
+      if (!response.ok) {
+        let msg = "Upload failed";
+        try {
+          const err = await response.json();
+          msg = err.detail || err.message || msg;
+        } catch {}
+        throw new Error(msg);
+      }
+      return response.json();
+    })
+    .then((result) => {
+      if (result.status === "success" || result.name) {
+        if (onStatus)
+          onStatus(
+            `✅ ${result.name || "Pet"} added to collection!`,
+            "success",
+          );
+        if (onSuccess) onSuccess(result);
+      } else {
+        throw new Error(result.message || "Upload failed");
+      }
+    })
+    .catch((error) => {
+      if (onStatus) {
+        if (error.message && error.message.includes("already been uploaded")) {
+          onStatus(
+            `⚠️ Duplicate file: ${error.message.split(": ")[1]}`,
+            "error",
+          );
+        } else {
+          onStatus(`❌ Upload failed: ${error.message}`, "error");
+        }
+      }
+      if (onError) onError(error);
+    });
+}
+
 class UIUtils {
   /**
    * Show loading message in the genes container
@@ -22,34 +133,22 @@ class UIUtils {
    * Show error message to user
    */
   static showError(message) {
-    const existing = document.querySelector(".error");
-    if (existing) existing.remove();
-
-    const error = document.createElement("div");
-    error.className = "error";
-    error.textContent = message;
-    document
-      .querySelector(".container")
-      .insertBefore(error, document.querySelector(".genes-container"));
-
-    setTimeout(() => error.remove(), 5000);
+    showStatusMessage(message, "error", {
+      container: document.querySelector(".container"),
+      after: document.querySelector(".genes-container"),
+      timeout: 5000,
+    });
   }
 
   /**
    * Show success message to user
    */
   static showSuccess(message) {
-    const existing = document.querySelector(".success");
-    if (existing) existing.remove();
-
-    const success = document.createElement("div");
-    success.className = "success";
-    success.textContent = message;
-    document
-      .querySelector(".container")
-      .insertBefore(success, document.querySelector(".genes-container"));
-
-    setTimeout(() => success.remove(), 3000);
+    showStatusMessage(message, "success", {
+      container: document.querySelector(".container"),
+      after: document.querySelector(".genes-container"),
+      timeout: 3000,
+    });
   }
 
   /**
