@@ -741,6 +741,52 @@ body {
     white-space: nowrap;
 }
 
+.value-legend-item {
+    transition: none;
+}
+.value-legend-item:hover,
+.value-legend-item:active,
+.value-legend-item:focus {
+    background: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+    color: inherit !important;
+    filter: none !important;
+    transform: none !important;
+}
+.value-legend-item .gene-cell:hover,
+.value-legend-item .gene-cell:active,
+.value-legend-item .gene-cell:focus {
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+.effect-legend-item.hidden-effect,
+.value-legend-item.hidden-effect {
+    opacity: 0.7;
+    color: #b91c1c !important;
+    text-decoration: line-through;
+    filter: grayscale(0.7);
+    pointer-events: auto;
+    background: rgba(239, 68, 68, 0.1);
+    border-radius: 6px;
+    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.1);
+    outline: 2px solid #ef4444;
+    outline-offset: 2px;
+    transition:
+        opacity 0.2s,
+        color 0.2s,
+        outline 0.2s;
+}
+
+.effect-legend-item.selected {
+    background: rgba(59, 130, 246, 0.08);
+    border-radius: 6px;
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.08);
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+}
+
 .legend-color {
     width: 16px;
     height: 16px;
@@ -1330,12 +1376,30 @@ body {
 .visualizer-header {
     background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
     color: white;
-    padding: 20px;
+    padding: 12px 20px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
+.compact-header {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    flex-wrap: wrap;
+    min-height: 0;
+}
+
+.visualizer-title {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    flex-shrink: 0;
+    line-height: 1.2;
+    padding-right: 16px;
+}
+
 .visualizer-header h3 {
-    margin: 0 0 16px 0;
+    /* legacy, not used in compact-header */
+    margin: 0;
     font-size: 18px;
     font-weight: 600;
 }
@@ -1420,7 +1484,7 @@ body {
     flex: 1;
     padding: 20px;
     border-right: 1px solid #e2e8f0;
-    max-height: 85dvh;
+    max-height: 88dvh;
 }
 
 .gene-legend {
@@ -1474,7 +1538,7 @@ body {
 
 .gene-grid-container {
     min-height: 300px;
-    max-height: 90dvh;
+    max-height: 80dvh;
     overflow: auto;
     border: 1px solid #e2e8f0;
     border-radius: 6px;
@@ -1606,6 +1670,16 @@ body {
     background-color: rgba(244, 67, 54, 0.15);
     border-color: #f44336;
     border-width: 4px;
+}
+
+.gene-filtered-out {
+    opacity: 0.25 !important;
+    filter: grayscale(1) blur(0.5px);
+    pointer-events: none !important;
+    background: #f3f4f6 !important;
+    border-color: #b0b4ba !important;
+    color: #b0b4ba !important;
+    transition: opacity 0.2s;
 }
 
 .gene-neutral.gene-recessive {

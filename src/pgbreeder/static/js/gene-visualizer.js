@@ -8,7 +8,8 @@ class GeneVisualizer {
     this.container = document.getElementById(containerId);
     this.currentPet = null;
     this.currentView = "attribute"; // 'attribute' or 'appearance'
-    this.currentEffectFilter = "all";
+    this.currentEffectFilter = [];
+    this.hiddenEffectFilters = [];
     this.selectedAttributes = [];
     this.selectedChromosomes = [];
     this.hideNeutral = false;
@@ -32,24 +33,15 @@ class GeneVisualizer {
   createUI() {
     this.container.innerHTML = `
             <div class="gene-visualizer">
-                <div class="visualizer-header">
-                    <h3>🧬 Gene Visualization</h3>
+                <div class="visualizer-header compact-header">
+                    <h3 class="visualizer-title">🧬 Gene Visualization</h3>
                     <div class="visualizer-controls">
                         <div class="view-toggle">
                             <button class="btn-view active" data-view="attribute">Attributes</button>
                             <button class="btn-view" data-view="appearance">Appearance</button>
                         </div>
                         <div class="filter-controls">
-                            <select id="effectFilter" class="filter-select">
-                                <option value="all">All Effects</option>
-                                <option value="positive">Positive Effects</option>
-                                <option value="negative">Negative Effects</option>
-                                <option value="neutral">No Effects</option>
-                            </select>
-                            <label class="checkbox-label">
-                                <input type="checkbox" id="hideNeutral" />
-                                Hide genes with no effects
-                            </label>
+
                         </div>
                     </div>
                 </div>
@@ -130,18 +122,6 @@ class GeneVisualizer {
         this.currentView = e.target.dataset.view;
         this.updateVisualization();
       });
-    });
-
-    // Effect filter
-    document.getElementById("effectFilter").addEventListener("change", (e) => {
-      this.currentEffectFilter = e.target.value;
-      this.updateVisualization();
-    });
-
-    // Hide neutral checkbox
-    document.getElementById("hideNeutral").addEventListener("change", (e) => {
-      this.hideNeutral = e.target.checked;
-      this.updateVisualization();
     });
   }
 
@@ -271,10 +251,10 @@ class GeneVisualizer {
         totalGenes++;
         this.updateStats(allStats, geneAnalysis);
 
-        // Determine visibility
+        // Unified isVisible logic for all filters
         let isVisible = true;
 
-        // Check chromosome filter
+        // Chromosome filter
         if (
           this.selectedChromosomes.length > 0 &&
           !this.selectedChromosomes.includes(chromosome)
@@ -282,13 +262,7 @@ class GeneVisualizer {
           isVisible = false;
         }
 
-        if (
-          this.currentEffectFilter !== "all" &&
-          geneAnalysis.type !== this.currentEffectFilter
-        ) {
-          isVisible = false;
-        }
-
+        // Attribute filter
         if (this.currentView === "attribute") {
           if (
             this.selectedAttributes.length > 0 &&
@@ -309,58 +283,85 @@ class GeneVisualizer {
           }
         }
 
-        const geneCell = document.createElement("div");
-
+        // Effect filter (multi-select)
         let cssClass = "gene-cell ";
-        if (!isVisible) {
-          cssClass += "gene-invisible";
-        } else if (
-          this.hideNeutral &&
-          ((this.currentView === "attribute" &&
-            geneAnalysis.type === "neutral" &&
-            !this.hasAnyPotentialEffect(pet.species, gene.id)) ||
-            (this.currentView === "appearance" &&
-              geneAnalysis.type === "appearance-neutral"))
-        ) {
-          cssClass += "gene-hidden";
+        if (this.currentView === "appearance") {
+          cssClass += `gene-${geneAnalysis.type} `;
         } else {
-          // In appearance mode, always use the appearance category for styling
-          if (this.currentView === "appearance") {
-            cssClass += `gene-${geneAnalysis.type} `;
-          } else {
-            // In attribute mode, handle potential effects
-            if (
-              geneAnalysis.type === "neutral" &&
-              this.hasAnyPotentialEffect(pet.species, gene.id)
-            ) {
-              const potentialType = this.analyzePotentialEffectType(
-                pet.species,
-                gene.id,
-              );
-
-              if (potentialType) {
-                cssClass += `gene-${potentialType} `;
-              } else {
-                cssClass += "gene-neutral ";
-              }
+          if (
+            geneAnalysis.type === "neutral" &&
+            this.hasAnyPotentialEffect(pet.species, gene.id)
+          ) {
+            const potentialType = this.analyzePotentialEffectType(
+              pet.species,
+              gene.id,
+            );
+            if (potentialType) {
+              cssClass += `gene-${potentialType} `;
             } else {
-              cssClass += `gene-${geneAnalysis.type} `;
+              cssClass += "gene-neutral ";
             }
-          }
-
-          if (gene.type === "?") {
-            cssClass = "gene-cell gene-neutral gene-unknown";
-          } else if (gene.type === "D") {
-            cssClass += "gene-dominant";
-          } else if (gene.type === "R") {
-            cssClass += "gene-recessive";
-          } else if (gene.type === "x") {
-            cssClass += "gene-mixed";
           } else {
-            cssClass += "gene-recessive";
+            cssClass += `gene-${geneAnalysis.type} `;
           }
         }
+        if (gene.type === "?") {
+          cssClass = "gene-cell gene-neutral gene-unknown";
+        } else if (gene.type === "D") {
+          cssClass += "gene-dominant";
+        } else if (gene.type === "R") {
+          cssClass += "gene-recessive";
+        } else if (gene.type === "x") {
+          cssClass += "gene-mixed";
+        } else {
+          cssClass += "gene-recessive";
+        }
 
+        // Effect filter logic
+        let matchesAny = true;
+        if (
+          Array.isArray(this.currentEffectFilter) &&
+          this.currentEffectFilter.length > 0
+        ) {
+          matchesAny = this.currentEffectFilter.some((effect) =>
+            cssClass.includes(`gene-${effect}`),
+          );
+        }
+        let isHidden = false;
+        if (
+          Array.isArray(this.hiddenEffectFilters) &&
+          this.hiddenEffectFilters.length > 0
+        ) {
+          isHidden = this.hiddenEffectFilters.some((effect) =>
+            cssClass.includes(`gene-${effect}`),
+          );
+        }
+
+        // Value filter logic
+        let matchesValue = true;
+        if (
+          Array.isArray(this.currentValueFilter) &&
+          this.currentValueFilter.length > 0
+        ) {
+          matchesValue = this.currentValueFilter.some((value) =>
+            cssClass.includes(value),
+          );
+        }
+        let isValueHidden = false;
+        if (
+          Array.isArray(this.hiddenValueFilters) &&
+          this.hiddenValueFilters.length > 0
+        ) {
+          isValueHidden = this.hiddenValueFilters.some((value) =>
+            cssClass.includes(value),
+          );
+        }
+
+        if (!matchesAny || isHidden || !matchesValue || isValueHidden) {
+          isVisible = false;
+        }
+
+        const geneCell = document.createElement("div");
         geneCell.className = cssClass;
         geneCell.dataset.chromosome = chromosome;
         geneCell.dataset.geneId = gene.id;
@@ -373,10 +374,12 @@ class GeneVisualizer {
             '<span class="gene-unknown-symbol" title="Unknown gene">?</span>';
         }
 
-        if (isVisible) {
-          geneCell.addEventListener("mouseenter", (e) => this.showTooltip(e));
-          geneCell.addEventListener("mouseleave", () => this.hideTooltip());
+        if (!isVisible) {
+          geneCell.classList.add("gene-filtered-out");
         }
+
+        geneCell.addEventListener("mouseenter", (e) => this.showTooltip(e));
+        geneCell.addEventListener("mouseleave", () => this.hideTooltip());
 
         blocksContainer.appendChild(geneCell);
       });
@@ -570,20 +573,35 @@ class GeneVisualizer {
         };
       }
 
-      const isPositive = effect.includes("+");
-      const isNegative = effect.includes("-");
-
+      // Robust potential/neutral/positive/negative detection
+      let type = "neutral";
       let attribute = null;
-      if (effect.includes("Intelligence")) attribute = "Intelligence";
-      else if (effect.includes("Toughness")) attribute = "Toughness";
-      else if (effect.includes("Friendliness")) attribute = "Friendliness";
-      else if (effect.includes("Ruggedness")) attribute = "Ruggedness";
-      else if (effect.includes("Ferocity")) attribute = "Ferocity";
-      else if (effect.includes("Enthusiasm")) attribute = "Enthusiasm";
-      else if (effect.includes("Virility")) attribute = "Virility";
+      const effectStr = effect || "";
+
+      // Attribute detection
+      if (effectStr.includes("Intelligence")) attribute = "Intelligence";
+      else if (effectStr.includes("Toughness")) attribute = "Toughness";
+      else if (effectStr.includes("Friendliness")) attribute = "Friendliness";
+      else if (effectStr.includes("Ruggedness")) attribute = "Ruggedness";
+      else if (effectStr.includes("Ferocity")) attribute = "Ferocity";
+      else if (effectStr.includes("Enthusiasm")) attribute = "Enthusiasm";
+      else if (effectStr.includes("Virility")) attribute = "Virility";
+
+      // Potential effect detection
+      const isPotential =
+        effectStr.includes("?") ||
+        effectStr.toLowerCase().includes("potential");
+      const hasPlus = effectStr.includes("+");
+      const hasMinus = effectStr.includes("-");
+
+      if (isPotential && hasPlus) type = "potential-positive";
+      else if (isPotential && hasMinus) type = "potential-negative";
+      else if (!isPotential && hasPlus) type = "positive";
+      else if (!isPotential && hasMinus) type = "negative";
+      // else remains "neutral"
 
       return {
-        type: isPositive ? "positive" : isNegative ? "negative" : "neutral",
+        type,
         attribute: attribute,
         effect: effect,
       };
@@ -1239,48 +1257,136 @@ class GeneVisualizer {
     const legendItems = document.getElementById("legendItems");
 
     if (this.currentView === "attribute") {
+      // Add a data-effect attribute to each effect legend item for click handling
       legendItems.innerHTML = `
         <div class="legend-row">
           <span class="legend-label legend-label-effect">Effect:</span>
-          <span class="legend-item">
+          <span class="legend-item effect-legend-item" data-effect="positive">
             <span class="legend-color gene-positive gene-dominant"></span>
             <span>Positive</span>
           </span>
-          <span class="legend-item">
+          <span class="legend-item effect-legend-item" data-effect="potential-positive">
             <span class="legend-color gene-potential-positive gene-dominant"></span>
             <span>Potential Positive</span>
           </span>
-          <span class="legend-item">
+          <span class="legend-item effect-legend-item" data-effect="neutral">
             <span class="legend-color gene-neutral gene-dominant"></span>
             <span>Neutral</span>
           </span>
-          <span class="legend-item">
+          <span class="legend-item effect-legend-item" data-effect="potential-negative">
             <span class="legend-color gene-potential-negative gene-dominant"></span>
             <span>Potential Negative</span>
           </span>
-          <span class="legend-item">
+          <span class="legend-item effect-legend-item" data-effect="negative">
             <span class="legend-color gene-negative gene-dominant"></span>
             <span>Negative</span>
           </span>
           <span class="legend-label legend-label-value">Value:</span>
-          <span class="legend-item">
+          <span class="legend-item value-legend-item" data-value="dominant">
             <span class="gene-cell gene-neutral gene-dominant"></span>
             <span>Dominant</span>
           </span>
-          <span class="legend-item">
+          <span class="legend-item value-legend-item" data-value="recessive">
             <span class="gene-cell gene-neutral gene-recessive"></span>
             <span>Recessive</span>
           </span>
-          <span class="legend-item">
+          <span class="legend-item value-legend-item" data-value="mixed">
             <span class="gene-cell gene-neutral gene-mixed"></span>
             <span>Mixed</span>
           </span>
-          <span class="legend-item">
+          <span class="legend-item value-legend-item" data-value="unknown">
             <span class="gene-cell gene-neutral gene-unknown"><span class="gene-unknown-symbol" title="Unknown gene">?</span></span>
             <span>Unknown</span>
           </span>
         </div>
       `;
+
+      // Add click handlers for effect legend items (multi-select with ctrl/cmd)
+      const effectMap = {
+        positive: "positive",
+        "potential-positive": "potential-positive",
+        neutral: "neutral",
+        "potential-negative": "potential-negative",
+        negative: "negative",
+      };
+      const legendRow = legendItems.querySelector(".legend-row");
+      legendRow.querySelectorAll(".effect-legend-item").forEach((item) => {
+        item.style.cursor = "pointer";
+        item.addEventListener("click", (e) => {
+          const effectType = effectMap[item.dataset.effect];
+          let newFilter = Array.isArray(this.currentEffectFilter)
+            ? [...this.currentEffectFilter]
+            : [];
+          let newHidden = Array.isArray(this.hiddenEffectFilters)
+            ? [...this.hiddenEffectFilters]
+            : [];
+          if (e.altKey) {
+            // Alt-click: toggle hide effect
+            if (newHidden.includes(effectType)) {
+              newHidden = newHidden.filter((t) => t !== effectType);
+            } else {
+              newHidden.push(effectType);
+            }
+          } else if (e.ctrlKey || e.metaKey) {
+            // Multi-select: toggle effect type
+            if (newFilter.includes(effectType)) {
+              newFilter = newFilter.filter((t) => t !== effectType);
+            } else {
+              newFilter.push(effectType);
+            }
+          } else {
+            // Single select: replace with only this effect type
+            if (newFilter.length === 1 && newFilter[0] === effectType) {
+              newFilter = [];
+            } else {
+              newFilter = [effectType];
+            }
+          }
+          this.currentEffectFilter = newFilter;
+          this.hiddenEffectFilters = newHidden;
+          this.updateVisualization();
+          // Update selected/hidden style
+          legendRow.querySelectorAll(".effect-legend-item").forEach((i) => {
+            i.classList.remove("selected");
+            i.classList.remove("hidden-effect");
+          });
+          this.currentEffectFilter.forEach((type) => {
+            const selected = legendRow.querySelector(
+              `.effect-legend-item[data-effect="${type}"]`,
+            );
+            if (selected) selected.classList.add("selected");
+          });
+          this.hiddenEffectFilters.forEach((type) => {
+            const hidden = legendRow.querySelector(
+              `.effect-legend-item[data-effect="${type}"]`,
+            );
+            if (hidden) hidden.classList.add("hidden-effect");
+          });
+        });
+      });
+      // Highlight the selected and hidden effects if any
+      if (
+        Array.isArray(this.currentEffectFilter) &&
+        this.currentEffectFilter.length > 0
+      ) {
+        this.currentEffectFilter.forEach((type) => {
+          const selected = legendRow.querySelector(
+            `.effect-legend-item[data-effect="${type}"]`,
+          );
+          if (selected) selected.classList.add("selected");
+        });
+      }
+      if (
+        Array.isArray(this.hiddenEffectFilters) &&
+        this.hiddenEffectFilters.length > 0
+      ) {
+        this.hiddenEffectFilters.forEach((type) => {
+          const hidden = legendRow.querySelector(
+            `.effect-legend-item[data-effect="${type}"]`,
+          );
+          if (hidden) hidden.classList.add("hidden-effect");
+        });
+      }
     } else {
       legendItems.innerHTML = `
         <div class="legend-item">
@@ -1312,6 +1418,99 @@ class GeneVisualizer {
           <span>No Effect</span>
         </div>
       `;
+    }
+
+    // Add click handlers for value legend items (multi-select with ctrl/cmd, alt to hide)
+    const valueMap = {
+      dominant: "gene-dominant",
+      recessive: "gene-recessive",
+      mixed: "gene-mixed",
+      unknown: "gene-unknown",
+    };
+    const legendRow = legendItems.querySelector(".legend-row");
+    if (legendRow) {
+      legendRow.querySelectorAll(".value-legend-item").forEach((item) => {
+        item.style.cursor = "pointer";
+        item.addEventListener("click", (e) => {
+          const valueType = valueMap[item.dataset.value];
+          let newValueFilter = Array.isArray(this.currentValueFilter)
+            ? [...this.currentValueFilter]
+            : [];
+          let newHiddenValueFilters = Array.isArray(this.hiddenValueFilters)
+            ? [...this.hiddenValueFilters]
+            : [];
+          if (e.altKey) {
+            // Alt-click: toggle hide value
+            if (newHiddenValueFilters.includes(valueType)) {
+              newHiddenValueFilters = newHiddenValueFilters.filter(
+                (t) => t !== valueType,
+              );
+            } else {
+              newHiddenValueFilters.push(valueType);
+            }
+          } else if (e.ctrlKey || e.metaKey) {
+            // Multi-select: toggle value type
+            if (newValueFilter.includes(valueType)) {
+              newValueFilter = newValueFilter.filter((t) => t !== valueType);
+            } else {
+              newValueFilter.push(valueType);
+            }
+          } else {
+            // Single select: replace with only this value type
+            if (
+              newValueFilter.length === 1 &&
+              newValueFilter[0] === valueType
+            ) {
+              newValueFilter = [];
+            } else {
+              newValueFilter = [valueType];
+            }
+          }
+          this.currentValueFilter = newValueFilter;
+          this.hiddenValueFilters = newHiddenValueFilters;
+          this.updateVisualization();
+          // Update selected/hidden style
+          legendRow.querySelectorAll(".value-legend-item").forEach((i) => {
+            i.classList.remove("selected");
+            i.classList.remove("hidden-effect");
+          });
+          this.currentValueFilter.forEach((type) => {
+            const selected = legendRow.querySelector(
+              `.value-legend-item[data-value="${Object.keys(valueMap).find((key) => valueMap[key] === type)}"]`,
+            );
+            if (selected) selected.classList.add("selected");
+          });
+          this.hiddenValueFilters.forEach((type) => {
+            const hidden = legendRow.querySelector(
+              `.value-legend-item[data-value="${Object.keys(valueMap).find((key) => valueMap[key] === type)}"]`,
+            );
+            if (hidden) hidden.classList.add("hidden-effect");
+          });
+        });
+      });
+      // Highlight the selected and hidden values if any
+      if (
+        Array.isArray(this.currentValueFilter) &&
+        this.currentValueFilter.length > 0
+      ) {
+        this.currentValueFilter.forEach((type) => {
+          const selected = legendRow.querySelector(
+            `.value-legend-item[data-value="${Object.keys(valueMap).find((key) => valueMap[key] === type)}"]`,
+          );
+          if (selected) selected.classList.add("selected");
+        });
+      }
+      if (
+        Array.isArray(this.hiddenValueFilters) &&
+        this.hiddenValueFilters.length > 0
+      ) {
+        this.hiddenValueFilters.forEach((type) => {
+          const hidden = legendRow.querySelector(
+            `.value-legend-item[data-value="${Object.keys(valueMap).find((key) => valueMap[key] === type)}"]`,
+          );
+          if (hidden) hidden.classList.add("hidden-effect");
+        });
+      }
     }
   }
 
