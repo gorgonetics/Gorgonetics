@@ -3,6 +3,82 @@
  * Integrated version of the standalone gene viewer for the main app
  */
 
+/**
+ * Helper to toggle filter state for selectors (selected/hidden/neutral).
+ * @param {Array} selectedArr
+ * @param {Array} hiddenArr
+ * @param {string} key
+ * @param {'select'|'hide'|'toggle-select'|'toggle-hide'} action
+ * @returns {{selected: Array, hidden: Array}}
+ */
+function toggleFilterState(selectedArr, hiddenArr, key, action) {
+  const isSelected = selectedArr.includes(key);
+  const isHidden = hiddenArr.includes(key);
+
+  // If toggling select on a hidden item or hide on a selected item, neutralize
+  if (
+    (action === "select" && isHidden) ||
+    (action === "hide" && isSelected) ||
+    (action === "toggle-select" && isHidden) ||
+    (action === "toggle-hide" && isSelected)
+  ) {
+    return {
+      selected: selectedArr.filter((k) => k !== key),
+      hidden: hiddenArr.filter((k) => k !== key),
+    };
+  }
+
+  if (action === "select" || action === "toggle-select") {
+    if (isSelected) {
+      // Deselect
+      return {
+        selected: selectedArr.filter((k) => k !== key),
+        hidden: hiddenArr,
+      };
+    } else {
+      // Select (remove from hidden if present)
+      return {
+        selected: [...selectedArr, key],
+        hidden: hiddenArr.filter((k) => k !== key),
+      };
+    }
+  }
+
+  if (action === "hide" || action === "toggle-hide") {
+    if (isHidden) {
+      // Unhide
+      return {
+        selected: selectedArr,
+        hidden: hiddenArr.filter((k) => k !== key),
+      };
+    } else {
+      // Hide (remove from selected if present)
+      return {
+        selected: selectedArr.filter((k) => k !== key),
+        hidden: [...hiddenArr, key],
+      };
+    }
+  }
+
+  // Default: return unchanged
+  return { selected: selectedArr, hidden: hiddenArr };
+}
+
+/**
+ * Helper to get filter state for selectors.
+ * @param {Array} selectedArr
+ * @param {Array} hiddenArr
+ * @param {string} key
+ * @returns {'selected'|'hidden'|'neutral'}
+ */
+function getFilterState(selectedArr, hiddenArr, key) {
+  const isSelected = selectedArr.includes(key);
+  const isHidden = hiddenArr.includes(key);
+  if (isSelected && !isHidden) return "selected";
+  if (!isSelected && isHidden) return "hidden";
+  return "neutral";
+}
+
 class GeneVisualizer {
   constructor(containerId) {
     this.container = document.getElementById(containerId);
@@ -1087,148 +1163,94 @@ class GeneVisualizer {
   }
 
   toggleAttributeFilter(attribute, isCtrlClick = false, isAltClick = false) {
-    const isSelected = this.selectedAttributes.includes(attribute);
-    const isHidden = this.hiddenAttributes.includes(attribute);
-
-    // Always neutralize if toggling selection on a hidden item or hiding on a selected item
-    if (
-      (isAltClick && isSelected) ||
-      (isCtrlClick && isHidden) ||
-      (!isAltClick && !isCtrlClick && isHidden) // plain click on hidden attribute
-    ) {
-      this.selectedAttributes = this.selectedAttributes.filter(
-        (a) => a !== attribute,
+    let result;
+    if (isAltClick) {
+      result = toggleFilterState(
+        this.selectedAttributes,
+        this.hiddenAttributes,
+        attribute,
+        "toggle-hide",
       );
-      this.hiddenAttributes = this.hiddenAttributes.filter(
-        (a) => a !== attribute,
-      );
-    } else if (isAltClick) {
-      // Alt+click: Hide/unhide attribute
-      const idx = this.hiddenAttributes.indexOf(attribute);
-      if (idx > -1) {
-        this.hiddenAttributes.splice(idx, 1);
-      } else {
-        this.hiddenAttributes.push(attribute);
-        // Remove from selected if present
-        this.selectedAttributes = this.selectedAttributes.filter(
-          (a) => a !== attribute,
-        );
-      }
     } else if (isCtrlClick) {
-      // Ctrl+click: Add/remove from selection
-      const index = this.selectedAttributes.indexOf(attribute);
-      if (index > -1) {
-        this.selectedAttributes.splice(index, 1);
-      } else {
-        // If hidden, neutralize instead of selecting
-        if (isHidden) {
-          this.hiddenAttributes = this.hiddenAttributes.filter(
-            (a) => a !== attribute,
-          );
-        } else {
-          this.selectedAttributes.push(attribute);
-        }
-      }
+      result = toggleFilterState(
+        this.selectedAttributes,
+        this.hiddenAttributes,
+        attribute,
+        "toggle-select",
+      );
     } else {
-      // Regular click: Replace selection
-      if (
+      // Regular click: replace selection, but neutralize if hidden
+      if (this.hiddenAttributes.includes(attribute)) {
+        result = toggleFilterState(
+          this.selectedAttributes,
+          this.hiddenAttributes,
+          attribute,
+          "toggle-select",
+        );
+      } else if (
         this.selectedAttributes.length === 1 &&
         this.selectedAttributes[0] === attribute
       ) {
-        // If clicking the same single selected item, deselect it
-        this.selectedAttributes = [];
+        result = {
+          selected: [],
+          hidden: this.hiddenAttributes.filter((a) => a !== attribute),
+        };
       } else {
-        // If hidden, neutralize instead of selecting
-        if (isHidden) {
-          this.hiddenAttributes = this.hiddenAttributes.filter(
-            (a) => a !== attribute,
-          );
-        } else {
-          this.selectedAttributes = [attribute];
-        }
+        result = {
+          selected: [attribute],
+          hidden: this.hiddenAttributes.filter((a) => a !== attribute),
+        };
       }
-      // Remove from hidden if present
-      this.hiddenAttributes = this.hiddenAttributes.filter(
-        (a) => a !== attribute,
-      );
     }
-
-    // Update visual selection immediately
+    this.selectedAttributes = result.selected;
+    this.hiddenAttributes = result.hidden;
     this.updateTableSelectionState();
-
     this.updateVisualization();
   }
 
   toggleChromosomeFilter(chromosome, isCtrlClick = false, isAltClick = false) {
-    const isSelected = this.selectedChromosomes.includes(chromosome);
-    const isHidden = this.hiddenChromosomes.includes(chromosome);
-
-    // Always neutralize if toggling selection on a hidden item or hiding on a selected item
-    if (
-      (isAltClick && isSelected) ||
-      (isCtrlClick && isHidden) ||
-      (!isAltClick && !isCtrlClick && isHidden) // plain click on hidden chromosome
-    ) {
-      this.selectedChromosomes = this.selectedChromosomes.filter(
-        (c) => c !== chromosome,
+    let result;
+    if (isAltClick) {
+      result = toggleFilterState(
+        this.selectedChromosomes,
+        this.hiddenChromosomes,
+        chromosome,
+        "toggle-hide",
       );
-      this.hiddenChromosomes = this.hiddenChromosomes.filter(
-        (c) => c !== chromosome,
-      );
-    } else if (isAltClick) {
-      // Alt+click: Hide/unhide chromosome
-      const idx = this.hiddenChromosomes.indexOf(chromosome);
-      if (idx > -1) {
-        this.hiddenChromosomes.splice(idx, 1);
-      } else {
-        this.hiddenChromosomes.push(chromosome);
-        // Remove from selected if present
-        this.selectedChromosomes = this.selectedChromosomes.filter(
-          (c) => c !== chromosome,
-        );
-      }
     } else if (isCtrlClick) {
-      // Ctrl+click: Add/remove from selection
-      const index = this.selectedChromosomes.indexOf(chromosome);
-      if (index > -1) {
-        this.selectedChromosomes.splice(index, 1);
-      } else {
-        // If hidden, neutralize instead of selecting
-        if (isHidden) {
-          this.hiddenChromosomes = this.hiddenChromosomes.filter(
-            (c) => c !== chromosome,
-          );
-        } else {
-          this.selectedChromosomes.push(chromosome);
-        }
-      }
+      result = toggleFilterState(
+        this.selectedChromosomes,
+        this.hiddenChromosomes,
+        chromosome,
+        "toggle-select",
+      );
     } else {
-      // Regular click: Replace selection
-      if (
+      // Regular click: replace selection, but neutralize if hidden
+      if (this.hiddenChromosomes.includes(chromosome)) {
+        result = toggleFilterState(
+          this.selectedChromosomes,
+          this.hiddenChromosomes,
+          chromosome,
+          "toggle-select",
+        );
+      } else if (
         this.selectedChromosomes.length === 1 &&
         this.selectedChromosomes[0] === chromosome
       ) {
-        // If clicking the same single selected item, deselect it
-        this.selectedChromosomes = [];
+        result = {
+          selected: [],
+          hidden: this.hiddenChromosomes.filter((c) => c !== chromosome),
+        };
       } else {
-        // If hidden, neutralize instead of selecting
-        if (isHidden) {
-          this.hiddenChromosomes = this.hiddenChromosomes.filter(
-            (c) => c !== chromosome,
-          );
-        } else {
-          this.selectedChromosomes = [chromosome];
-        }
+        result = {
+          selected: [chromosome],
+          hidden: this.hiddenChromosomes.filter((c) => c !== chromosome),
+        };
       }
-      // Remove from hidden if present
-      this.hiddenChromosomes = this.hiddenChromosomes.filter(
-        (c) => c !== chromosome,
-      );
     }
-
-    // Update visual selection immediately
+    this.selectedChromosomes = result.selected;
+    this.hiddenChromosomes = result.hidden;
     this.updateChromosomeSelectionState();
-
     this.updateVisualization();
   }
 
@@ -1491,56 +1513,44 @@ class GeneVisualizer {
           let newHidden = Array.isArray(this.hiddenEffectFilters)
             ? [...this.hiddenEffectFilters]
             : [];
-          const isSelected = newFilter.includes(effectType);
-          const isHidden = newHidden.includes(effectType);
-
-          // Always neutralize if toggling selection on a hidden item or hiding on a selected item
-          if (
-            (e.altKey && isSelected) ||
-            ((e.ctrlKey || e.metaKey) && isHidden) ||
-            (!e.altKey && !e.ctrlKey && !e.metaKey && isHidden) || // plain click on hidden effect
-            (isSelected && isHidden)
-          ) {
-            newFilter = newFilter.filter((t) => t !== effectType);
-            newHidden = newHidden.filter((t) => t !== effectType);
-          } else if (e.altKey) {
-            // Alt-click: toggle hide effect
-            if (isHidden) {
-              newHidden = newHidden.filter((t) => t !== effectType);
-            } else {
-              newHidden.push(effectType);
-              // Remove from selected if present
-              newFilter = newFilter.filter((t) => t !== effectType);
-            }
+          let result;
+          if (e.altKey) {
+            result = toggleFilterState(
+              newFilter,
+              newHidden,
+              effectType,
+              "toggle-hide",
+            );
           } else if (e.ctrlKey || e.metaKey) {
-            // Multi-select: toggle effect type
-            if (isSelected) {
-              newFilter = newFilter.filter((t) => t !== effectType);
-            } else {
-              // If hidden, neutralize instead of selecting
-              if (isHidden) {
-                newHidden = newHidden.filter((t) => t !== effectType);
-              } else {
-                newFilter.push(effectType);
-              }
-            }
+            result = toggleFilterState(
+              newFilter,
+              newHidden,
+              effectType,
+              "toggle-select",
+            );
           } else {
-            // Single select: replace with only this effect type
-            if (newFilter.length === 1 && newFilter[0] === effectType) {
-              newFilter = [];
+            // Plain click: single-select (replace), but neutralize if hidden
+            if (newHidden.includes(effectType)) {
+              result = toggleFilterState(
+                [],
+                newHidden,
+                effectType,
+                "toggle-select",
+              );
+            } else if (newFilter.length === 1 && newFilter[0] === effectType) {
+              result = {
+                selected: [],
+                hidden: newHidden.filter((t) => t !== effectType),
+              };
             } else {
-              // If hidden, neutralize instead of selecting
-              if (isHidden) {
-                newHidden = newHidden.filter((t) => t !== effectType);
-              } else {
-                newFilter = [effectType];
-              }
+              result = {
+                selected: [effectType],
+                hidden: newHidden.filter((t) => t !== effectType),
+              };
             }
-            // Remove from hidden if present
-            newHidden = newHidden.filter((t) => t !== effectType);
           }
-          this.currentEffectFilter = newFilter;
-          this.hiddenEffectFilters = newHidden;
+          this.currentEffectFilter = result.selected;
+          this.hiddenEffectFilters = result.hidden;
           this.updateVisualization();
           // Update selected/hidden style
           legendRow.querySelectorAll(".effect-legend-item").forEach((i) => {
@@ -1548,7 +1558,6 @@ class GeneVisualizer {
             i.classList.remove("hidden-effect");
           });
           this.currentEffectFilter.forEach((type) => {
-            // Only apply selected if not hidden
             if (!this.hiddenEffectFilters.includes(type)) {
               const selected = legendRow.querySelector(
                 `.effect-legend-item[data-effect="${type}"]`,
@@ -1557,7 +1566,6 @@ class GeneVisualizer {
             }
           });
           this.hiddenEffectFilters.forEach((type) => {
-            // Only apply hidden if not selected
             if (!this.currentEffectFilter.includes(type)) {
               const hidden = legendRow.querySelector(
                 `.effect-legend-item[data-effect="${type}"]`,
@@ -1642,69 +1650,47 @@ class GeneVisualizer {
           let newHiddenValueFilters = Array.isArray(this.hiddenValueFilters)
             ? [...this.hiddenValueFilters]
             : [];
-          const isSelected = newValueFilter.includes(valueType);
-          const isHidden = newHiddenValueFilters.includes(valueType);
-
-          // Always neutralize if toggling selection on a hidden item or hiding on a selected item
-          if (
-            (e.altKey && isSelected) ||
-            ((e.ctrlKey || e.metaKey) && isHidden) ||
-            (!e.altKey && !e.ctrlKey && !e.metaKey && isHidden) || // plain click on hidden value
-            (isSelected && isHidden)
-          ) {
-            newValueFilter = newValueFilter.filter((t) => t !== valueType);
-            newHiddenValueFilters = newHiddenValueFilters.filter(
-              (t) => t !== valueType,
+          let result;
+          if (e.altKey) {
+            result = toggleFilterState(
+              newValueFilter,
+              newHiddenValueFilters,
+              valueType,
+              "toggle-hide",
             );
-          } else if (e.altKey) {
-            // Alt-click: toggle hide value
-            if (isHidden) {
-              newHiddenValueFilters = newHiddenValueFilters.filter(
-                (t) => t !== valueType,
-              );
-            } else {
-              newHiddenValueFilters.push(valueType);
-              // Remove from selected if present
-              newValueFilter = newValueFilter.filter((t) => t !== valueType);
-            }
           } else if (e.ctrlKey || e.metaKey) {
-            // Multi-select: toggle value type
-            if (isSelected) {
-              newValueFilter = newValueFilter.filter((t) => t !== valueType);
-            } else {
-              // If hidden, neutralize instead of selecting
-              if (isHidden) {
-                newHiddenValueFilters = newHiddenValueFilters.filter(
-                  (t) => t !== valueType,
-                );
-              } else {
-                newValueFilter.push(valueType);
-              }
-            }
+            result = toggleFilterState(
+              newValueFilter,
+              newHiddenValueFilters,
+              valueType,
+              "toggle-select",
+            );
           } else {
-            // Single select: replace with only this value type
-            if (
+            // Plain click: single-select (replace), but neutralize if hidden
+            if (newHiddenValueFilters.includes(valueType)) {
+              result = toggleFilterState(
+                [],
+                newHiddenValueFilters,
+                valueType,
+                "toggle-select",
+              );
+            } else if (
               newValueFilter.length === 1 &&
               newValueFilter[0] === valueType
             ) {
-              newValueFilter = [];
+              result = {
+                selected: [],
+                hidden: newHiddenValueFilters.filter((t) => t !== valueType),
+              };
             } else {
-              // If hidden, neutralize instead of selecting
-              if (isHidden) {
-                newHiddenValueFilters = newHiddenValueFilters.filter(
-                  (t) => t !== valueType,
-                );
-              } else {
-                newValueFilter = [valueType];
-              }
+              result = {
+                selected: [valueType],
+                hidden: newHiddenValueFilters.filter((t) => t !== valueType),
+              };
             }
-            // Remove from hidden if present
-            newHiddenValueFilters = newHiddenValueFilters.filter(
-              (t) => t !== valueType,
-            );
           }
-          this.currentValueFilter = newValueFilter;
-          this.hiddenValueFilters = newHiddenValueFilters;
+          this.currentValueFilter = result.selected;
+          this.hiddenValueFilters = result.hidden;
           this.updateVisualization();
           // Update selected/hidden style
           legendRow.querySelectorAll(".value-legend-item").forEach((i) => {
