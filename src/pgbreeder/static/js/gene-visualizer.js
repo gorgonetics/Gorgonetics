@@ -1600,33 +1600,36 @@ class GeneVisualizer {
       }
     } else {
       legendItems.innerHTML = `
-        <div class="legend-item">
-          <div class="legend-color gene-body-color-hue gene-dominant"></div>
-          <span>Body Color</span>
-        </div>
-        <div class="legend-item">
-          <div class="legend-color gene-wing-color-hue gene-dominant"></div>
-          <span>Wing Color</span>
-        </div>
-        <div class="legend-item">
-          <div class="legend-color gene-body-scale gene-dominant"></div>
-          <span>Body Scale</span>
-        </div>
-        <div class="legend-item">
-          <div class="legend-color gene-leg-deformity gene-dominant"></div>
-          <span>Deformities</span>
-        </div>
-        <div class="legend-item">
-          <div class="legend-color gene-particles gene-dominant"></div>
-          <span>Particles</span>
-        </div>
-        <div class="legend-item">
-          <div class="legend-color gene-glow gene-dominant"></div>
-          <span>Glow</span>
-        </div>
-        <div class="legend-item">
-          <div class="legend-color gene-appearance-neutral gene-dominant"></div>
-          <span>No Effect</span>
+        <div class="legend-row">
+          <span class="legend-label legend-label-effect">Appearance:</span>
+          <span class="legend-item appearance-legend-item" data-appearance="body-color">
+            <span class="legend-color gene-body-color-hue gene-dominant"></span>
+            <span>Body Color</span>
+          </span>
+          <span class="legend-item appearance-legend-item" data-appearance="wing-color">
+            <span class="legend-color gene-wing-color-hue gene-dominant"></span>
+            <span>Wing Color</span>
+          </span>
+          <span class="legend-item appearance-legend-item" data-appearance="body-scale">
+            <span class="legend-color gene-body-scale gene-dominant"></span>
+            <span>Body Scale</span>
+          </span>
+          <span class="legend-item appearance-legend-item" data-appearance="deformities">
+            <span class="legend-color gene-leg-deformity gene-dominant"></span>
+            <span>Deformities</span>
+          </span>
+          <span class="legend-item appearance-legend-item" data-appearance="particles">
+            <span class="legend-color gene-particles gene-dominant"></span>
+            <span>Particles</span>
+          </span>
+          <span class="legend-item appearance-legend-item" data-appearance="glow">
+            <span class="legend-color gene-glow gene-dominant"></span>
+            <span>Glow</span>
+          </span>
+          <span class="legend-item appearance-legend-item" data-appearance="no-effect">
+            <span class="legend-color gene-appearance-neutral gene-dominant"></span>
+            <span>No Effect</span>
+          </span>
         </div>
       `;
     }

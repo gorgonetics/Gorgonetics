@@ -33,6 +33,9 @@ class AppController {
       const petTab = document.querySelector('.tab[data-tab="pet-management"]');
       if (petTab && petTab.getAttribute("aria-selected") === "true") {
         const genesContent = document.getElementById("genesContent");
+        const vizContainer = document.getElementById(
+          "geneVisualizationContainer",
+        );
         if (genesContent) {
           genesContent.innerHTML = `
             <div class="pets-dashboard">
@@ -43,7 +46,13 @@ class AppController {
                 </div>
             </div>
           `;
+          genesContent.style.display = "none";
         }
+        if (vizContainer) {
+          vizContainer.style.display = "block";
+        }
+        this.currentMode = "pet-management";
+        this.initializeGeneVisualizer();
       }
     } catch (error) {
       UIUtils.showError("Failed to initialize application: " + error.message);

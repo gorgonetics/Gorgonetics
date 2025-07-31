@@ -28,13 +28,7 @@ class GeneManager {
     const container = document.getElementById("genesContent");
 
     if (genes.length === 0) {
-      container.innerHTML =
-        '<div class="loading">No genes found for this chromosome</div>';
-      // Hide the legend when no genes are displayed
-      const legend = document.getElementById("effectLegend");
-      if (legend) {
-        legend.style.display = "none";
-      }
+      UIUtils.showEmptyState("No genes found for this chromosome");
       return;
     }
 
@@ -96,10 +90,7 @@ class GeneManager {
     container.appendChild(grid);
 
     // Show the effect legend when genes are displayed
-    const legend = document.getElementById("effectLegend");
-    if (legend) {
-      legend.style.display = "block";
-    }
+    UIUtils.showLegend();
   }
 
   /**
@@ -126,7 +117,7 @@ class GeneManager {
 
     card.innerHTML = `
             <div class="gene-number">${geneNumber}</div>
-            
+
             <div class="gene-field horizontal">
                 <label>Dom</label>
                 <div class="custom-select-wrapper" data-field="effectDominant" data-gene="${gene.gene}" data-animal="${animalType}" data-original="${gene.effectDominant || ""}">
@@ -145,7 +136,7 @@ class GeneManager {
                     </div>
                 </div>
             </div>
-            
+
             <div class="gene-field horizontal">
                 <label>Rec</label>
                 <div class="custom-select-wrapper" data-field="effectRecessive" data-gene="${gene.gene}" data-animal="${animalType}" data-original="${gene.effectRecessive || ""}">
@@ -164,23 +155,23 @@ class GeneManager {
                     </div>
                 </div>
             </div>
-            
+
             <div class="gene-field">
                 <label>Appearance</label>
-                <input type="text" data-field="appearance" data-gene="${gene.gene}" data-animal="${animalType}" 
+                <input type="text" data-field="appearance" data-gene="${gene.gene}" data-animal="${animalType}"
                        value="${gene.appearance}" placeholder="Appearance" data-original="${gene.appearance || ""}">
             </div>
-            
+
             <div class="notes-section">
                 <button type="button" class="notes-toggle" onclick="window.geneManager.toggleNotes(this)">
                     + Notes
                 </button>
                 <div class="notes-content">
-                    <input type="text" data-field="notes" data-gene="${gene.gene}" data-animal="${animalType}" 
+                    <input type="text" data-field="notes" data-gene="${gene.gene}" data-animal="${animalType}"
                            value="${gene.notes}" placeholder="Notes" data-original="${gene.notes || ""}">
                 </div>
             </div>
-            
+
             <button class="save-btn" onclick="window.geneManager.saveGene('${gene.gene}', '${animalType}')" disabled>
                 Save
             </button>

@@ -121,8 +121,32 @@ class UIUtils {
   static showLoading(message) {
     document.getElementById("genesContent").innerHTML =
       `<div class="loading">${message}</div>`;
+    UIUtils.hideLegend();
+  }
 
-    // Hide the effect legend during loading
+  /**
+   * Show empty state message in the genes container
+   */
+  static showEmptyState(message) {
+    document.getElementById("genesContent").innerHTML =
+      `<div class="loading">${message}</div>`;
+    UIUtils.hideLegend();
+  }
+
+  /**
+   * Show the effect legend
+   */
+  static showLegend() {
+    const legend = document.getElementById("effectLegend");
+    if (legend) {
+      legend.style.display = "block";
+    }
+  }
+
+  /**
+   * Hide the effect legend
+   */
+  static hideLegend() {
     const legend = document.getElementById("effectLegend");
     if (legend) {
       legend.style.display = "none";
@@ -226,12 +250,7 @@ class UIUtils {
     document.getElementById("genesContent").innerHTML = `
             <div class="loading">Select an animal type and chromosome to begin editing genes</div>
         `;
-
-    // Hide the effect legend
-    const legend = document.getElementById("effectLegend");
-    if (legend) {
-      legend.style.display = "none";
-    }
+    UIUtils.hideLegend();
   }
 }
 
