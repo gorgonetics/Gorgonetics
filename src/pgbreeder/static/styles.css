@@ -735,7 +735,10 @@ body {
 .legend-item {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 0.4em;
+    font-size: 11px;
+    color: #6b7280;
+    white-space: nowrap;
 }
 
 .legend-color {
@@ -1409,13 +1412,15 @@ body {
 
 .visualizer-content {
     display: flex;
-    min-height: 400px;
+    min-height: 80dvh;
+    max-height: 90dvh;
 }
 
 .gene-section {
     flex: 1;
     padding: 20px;
     border-right: 1px solid #e2e8f0;
+    max-height: 85dvh;
 }
 
 .gene-legend {
@@ -1430,20 +1435,10 @@ body {
 }
 
 .legend-items {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: 8px 16px;
-    flex-wrap: wrap;
+    width: 100%;
 }
 
-.legend-item {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 11px;
-    color: #6b7280;
-    white-space: nowrap;
-}
+/* Already defined above, no need to repeat */
 
 .legend-color {
     width: 14px;
@@ -1451,15 +1446,35 @@ body {
     border-radius: 50%;
     border: 3px solid;
     flex-shrink: 0;
+    display: inline-block;
 }
 
 .legend-color.gene-recessive {
     border-width: 4px;
 }
 
+/* Legend horizontal row and label spacing */
+.legend-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5em;
+}
+
+.legend-label-effect {
+    font-weight: 600;
+    margin-right: 1em;
+}
+
+.legend-label-value {
+    font-weight: 600;
+    margin-left: 2em;
+    margin-right: 1em;
+}
+
 .gene-grid-container {
     min-height: 300px;
-    max-height: 60vh;
+    max-height: 90dvh;
     overflow: auto;
     border: 1px solid #e2e8f0;
     border-radius: 6px;
