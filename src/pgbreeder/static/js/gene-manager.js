@@ -626,10 +626,10 @@ class GeneManager {
    */
   updateGeneCardState(card) {
     const dominantDropdown = card.querySelector(
-      "[data-field=\"effectDominant\"]",
+      '[data-field="effectDominant"]',
     );
     const recessiveDropdown = card.querySelector(
-      "[data-field=\"effectRecessive\"]",
+      '[data-field="effectRecessive"]',
     );
 
     // Apply styling to custom dropdowns

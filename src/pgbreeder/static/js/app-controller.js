@@ -30,7 +30,7 @@ class AppController {
       this.loadPets();
 
       // Show pets dashboard in main window if Pet Manager is default tab
-      const petTab = document.querySelector(".tab[data-tab=\"pet-management\"]");
+      const petTab = document.querySelector('.tab[data-tab="pet-management"]');
       if (petTab && petTab.getAttribute("aria-selected") === "true") {
         const genesContent = document.getElementById("genesContent");
         const vizContainer = document.getElementById(
@@ -92,8 +92,7 @@ class AppController {
         e.stopPropagation();
         this.toggleSidebar();
       });
-      logoBox.style.cursor = "pointer";
-      logoBox.style.userSelect = "none";
+      logoBox.classList.add("clickable");
       logoBox.title = "Click to toggle sidebar";
     }
 
@@ -125,7 +124,7 @@ class AppController {
         );
       }
       // Clear gene display when animal type changes, but only if Gene Editor is selected
-      const geneTab = document.querySelector(".tab[data-tab=\"gene-editing\"]");
+      const geneTab = document.querySelector('.tab[data-tab="gene-editing"]');
       if (geneTab && geneTab.getAttribute("aria-selected") === "true") {
         window.UIUtils.clearGeneDisplay();
       }
@@ -137,7 +136,7 @@ class AppController {
       const animalType = document.getElementById("animalType").value;
       window.UIUtils.updateButtonStates(animalType, chromosome);
       // Clear gene display when chromosome changes, but only if Gene Editor is selected
-      const geneTab = document.querySelector(".tab[data-tab=\"gene-editing\"]");
+      const geneTab = document.querySelector('.tab[data-tab="gene-editing"]');
       if (geneTab && geneTab.getAttribute("aria-selected") === "true") {
         window.UIUtils.clearGeneDisplay();
       }
@@ -331,7 +330,7 @@ class AppController {
 
     if (pets.length === 0) {
       petsList.innerHTML =
-        "<div class=\"empty-state\">No pets uploaded yet</div>";
+        '<div class="empty-state">No pets uploaded yet</div>';
       return;
     }
 

@@ -18,7 +18,7 @@ export default [
       "no-unused-vars": "warn",
       "no-undef": "error",
       semi: ["error", "always"],
-      quotes: ["error", "double"],
+      quotes: "off", // Allow both single and double quotes
       "no-console": "off",
     },
   },

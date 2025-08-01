@@ -248,7 +248,7 @@ class GeneVisualizer {
 
     if (!this.currentPet || !this.currentPet.genes) {
       container.innerHTML =
-        "<div class=\"empty-state\">No gene data available</div>";
+        '<div class="empty-state">No gene data available</div>';
       return;
     }
 
@@ -484,7 +484,7 @@ class GeneVisualizer {
         // Render question mark for unknown gene type
         if (gene.type === "?") {
           geneCell.innerHTML =
-            "<span class=\"gene-unknown-symbol\" title=\"Unknown gene\">?</span>";
+            '<span class="gene-unknown-symbol" title="Unknown gene">?</span>';
         }
 
         if (!isVisible) {
@@ -1912,7 +1912,7 @@ class GeneVisualizer {
 
     const container = document.getElementById("geneGridContainer");
     container.innerHTML =
-      "<div class=\"empty-state\">Select a pet to visualize its genes</div>";
+      '<div class="empty-state">Select a pet to visualize its genes</div>';
 
     document.getElementById("totalGenesDisplay").textContent = "0";
     document.getElementById("neutralGenesDisplay").textContent = "0";

@@ -2426,3 +2426,9 @@ body {
 .sidebar.collapsed .pets-list {
     display: none;
 }
+
+/* Safe utility classes to replace some inline styles */
+.clickable {
+    cursor: pointer;
+    user-select: none;
+}
