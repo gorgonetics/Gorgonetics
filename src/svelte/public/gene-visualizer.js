@@ -97,21 +97,6 @@ class GeneVisualizer {
 
   createUI() {
     this.container.innerHTML = `
-            <div class="gene-visualizer">
-                <div class="visualizer-header compact-header">
-                    <h3 class="visualizer-title">🧬 Gene Visualization</h3>
-                    <div class="visualizer-controls">
-                        <div class="view-toggle">
-                            <button class="btn-view active" data-view="attribute">Attributes</button>
-                            <button class="btn-view" data-view="appearance">Appearance</button>
-                        </div>
-                        <div class="filter-controls">
-
-                        </div>
-                    </div>
-                </div>
-
-                <div class="visualizer-content">
                     <div class="gene-section">
                         <div class="gene-legend">
                             <div class="legend-items" id="legendItems">
@@ -160,10 +145,6 @@ class GeneVisualizer {
                             </div>
                         </div>
                     </div>
-                </div>
-
-
-            </div>
         `;
 
     // Create tooltip in document body to avoid positioning issues
