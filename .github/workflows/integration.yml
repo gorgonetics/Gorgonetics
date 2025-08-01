@@ -148,9 +148,8 @@ jobs:
           from pathlib import Path
           from gorgonetics.database import GeneDatabase
 
-          # Create temporary database
-          with tempfile.NamedTemporaryFile(suffix='.db', delete=False) as tmp:
-              db_path = tmp.name
+          # Create temporary database path without creating the file
+          db_path = tempfile.mktemp(suffix='.db')
 
           try:
               # Initialize database
