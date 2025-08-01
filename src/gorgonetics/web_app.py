@@ -58,8 +58,6 @@ templates = Jinja2Templates(directory="src/gorgonetics/templates")
 app.mount("/static", StaticFiles(directory="src/gorgonetics/static"), name="static")
 
 
-
-
 class GeneUpdate(BaseModel):
     """Model for gene update requests."""
 

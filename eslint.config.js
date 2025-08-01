@@ -4,6 +4,25 @@
  */
 export default [
   {
+    ignores: [
+      "node_modules/",
+      "dist/",
+      "build/",
+      "coverage/",
+      "*.log",
+      ".npm",
+      ".eslintcache",
+      "__pycache__/",
+      "*.py",
+      ".vscode/",
+      ".idea/",
+      ".DS_Store",
+      "Thumbs.db",
+      "*.tmp",
+      "*.temp",
+    ],
+  },
+  {
     files: ["**/*.js"],
     languageOptions: {
       ecmaVersion: 2021,
