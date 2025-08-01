@@ -36,7 +36,6 @@ dev = [
 
 [project.scripts]
 pgbreeder = "pgbreeder.cli:main"
-pgbreeder-web = "pgbreeder.web_app:run_server"
 
 [tool.uv]
 dev-dependencies = [

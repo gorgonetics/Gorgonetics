@@ -10,11 +10,12 @@ The PGBreeder frontend is built with vanilla JavaScript using modern ES6+ featur
 
 ```
 src/pgbreeder/static/js/
-├── api-client.js      # API communication layer
-├── ui-utils.js        # UI utilities and feedback
-├── gene-manager.js    # Gene display and editing
-├── export-manager.js  # Export functionality
-└── app-controller.js  # Main application coordinator
+├── api-client.js        # API communication layer
+├── ui-utils.js          # UI utilities and feedback
+├── gene-manager.js      # Gene display and editing
+├── gene-visualizer.js   # Pet genome visualization
+├── export-manager.js    # Export functionality
+└── app-controller.js    # Main application coordinator
 ```
 
 ### Module Dependencies
@@ -24,6 +25,7 @@ app-controller.js
 ├── api-client.js
 ├── ui-utils.js
 ├── gene-manager.js
+├── gene-visualizer.js
 └── export-manager.js
 ```
 
@@ -90,6 +92,35 @@ const genes = await apiClient.getGenes('beewasp', 'chr01');
 Fetches available effect options for gene editing.
 
 **Returns**: `Promise<string[]>` - Array of effect option strings
+
+##### `async getPets()`
+Fetches all uploaded pets.
+
+**Returns**: `Promise<Object[]>` - Array of pet objects
+
+##### `async getPet(petId)`
+Fetches a specific pet by ID.
+
+**Parameters**:
+- `petId` (number): Pet ID
+
+**Returns**: `Promise<Object>` - Pet data object
+
+##### `async deletePet(petId)`
+Deletes a pet.
+
+**Parameters**:
+- `petId` (number): Pet ID
+
+**Returns**: `Promise<Object>` - API response
+
+##### `async getPetGenome(petId)`
+Fetches pet genome data for visualization.
+
+**Parameters**:
+- `petId` (number): Pet ID
+
+**Returns**: `Promise<Object>` - Pet genome data
 
 ##### `async updateGene(updateData)`
 Updates a gene with new data.
@@ -353,6 +384,131 @@ Exported files follow this structure:
 
 ---
 
+### GeneVisualizer (`gene-visualizer.js`)
+
+**Purpose**: Handles pet genome visualization with interactive gene display, filtering, and statistical analysis.
+
+#### Class Structure
+
+```javascript
+class GeneVisualizer {
+    constructor(apiClient) {
+        this.apiClient = apiClient;
+        this.currentPet = null;
+        this.currentView = 'attribute';
+        this.selectedAttributes = [];
+        this.selectedChromosomes = [];
+    }
+}
+```
+
+#### Methods
+
+##### `initialize()`
+Initializes the gene visualizer with event listeners and UI setup.
+
+##### `async loadPet(petId)`
+Loads pet genome data for visualization.
+
+**Parameters**:
+- `petId` (number): Pet ID to load
+
+**Process**:
+1. Fetches pet genome data from API
+2. Processes gene data for visualization
+3. Renders gene grid and statistics
+
+##### `renderGenomeGrid()`
+Renders the interactive genome visualization grid.
+
+**Features**:
+- Color-coded gene cells based on effects
+- Chromosome-based organization
+- Hover tooltips with gene details
+- Click interactions for selection
+
+##### `updateFilters(effectFilter, valueFilter)`
+Updates the visualization based on filter criteria.
+
+**Parameters**:
+- `effectFilter` (Array): Effect types to show
+- `valueFilter` (Array): Value types to show
+
+##### `showTooltip(cell, gene)`
+Displays detailed gene information on hover.
+
+**Parameters**:
+- `cell` (HTMLElement): Gene cell element
+- `gene` (Object): Gene data object
+
+##### `updateStatistics()`
+Updates the statistics table with current gene counts.
+
+**Features**:
+- Attribute effect counts (positive/negative)
+- Appearance type counts
+- Interactive row selection
+- Filter integration
+
+#### Visualization Features
+
+##### Color Coding System
+
+```javascript
+// Effect-based colors
+.gene-positive.gene-dominant { background: #4caf50; }    // Green
+.gene-negative.gene-dominant { background: #f44336; }    // Red  
+.gene-neutral.gene-dominant { background: #95a5a6; }     // Gray
+
+// Appearance-based colors (recessive)
+.gene-body-color-hue.gene-recessive { background: #ff9800; }
+.gene-wing-color-hue.gene-recessive { background: #2196f3; }
+```
+
+##### Interactive Elements
+
+- **Gene Cells**: Hover for tooltips, click for selection
+- **Chromosome Labels**: Click to filter by chromosome
+- **Statistics Rows**: Click to filter by attribute type
+- **Legend Items**: Click to toggle effect visibility
+
+##### View Modes
+
+1. **Attribute View**: Shows genetic effects (Intelligence, Toughness, etc.)
+2. **Appearance View**: Shows visual traits (Body Color, Wing Scale, etc.)
+
+#### Data Processing
+
+##### Gene Classification
+
+```javascript
+// Classify gene effects
+const classifyGene = (gene) => {
+    if (gene.dominant.endsWith('+') || gene.recessive.endsWith('+')) {
+        return 'positive';
+    } else if (gene.dominant.endsWith('-') || gene.recessive.endsWith('-')) {
+        return 'negative';
+    } else {
+        return 'neutral';
+    }
+};
+```
+
+##### Statistics Calculation
+
+```javascript
+// Count genes by attribute
+const stats = genes.reduce((acc, gene) => {
+    const attribute = extractAttribute(gene.effect);
+    acc[attribute] = acc[attribute] || { positive: 0, negative: 0 };
+    if (gene.type === 'positive') acc[attribute].positive++;
+    if (gene.type === 'negative') acc[attribute].negative++;
+    return acc;
+}, {});
+```
+
+---
+
 ### AppController (`app-controller.js`)
 
 **Purpose**: Main application coordinator that initializes and connects all modules.
@@ -365,7 +521,9 @@ class AppController {
         this.apiClient = new ApiClient();
         this.uiUtils = new UIUtils();
         this.geneManager = new GeneManager(this.apiClient, this.uiUtils);
+        this.geneVisualizer = null; // Initialized when needed
         this.exportManager = new ExportManager(this.apiClient, this.uiUtils);
+        this.currentMode = 'gene-editing';
     }
 }
 ```
@@ -392,12 +550,32 @@ Sets up all UI event listeners.
 - Chromosome selection change
 - Load genes button click
 - Export button clicks
+- Tab switching between gene editing and pet management
+- Pet selection and deletion
+
+##### `switchTab(tabId)`
+Switches between application tabs (gene editing vs pet management).
+
+**Parameters**:
+- `tabId` (string): Target tab identifier ('gene-editing' or 'pet-management')
 
 ##### `async loadChromosomes()`
 Loads chromosomes when animal type changes.
 
 ##### `async loadGenes()`
 Loads genes when chromosome is selected.
+
+##### `async loadPets()`
+Loads pets for the pet management tab.
+
+##### `async selectPet(petId)`
+Selects a pet for visualization.
+
+**Parameters**:
+- `petId` (number): Pet ID to select
+
+##### `initializeGeneVisualizer()`
+Initializes the gene visualizer module when needed.
 
 #### Application Flow
 
@@ -406,25 +584,20 @@ Loads genes when chromosome is selected.
 const app = new AppController();
 await app.initialize();
 
-// 2. User selects animal type
-// → Triggers loadChromosomes()
+// Gene Editing Mode:
+// 2. User selects animal type → loadChromosomes()
+// 3. User selects chromosome → enables "Load Genes" button  
+// 4. User clicks "Load Genes" → loadGenes() → displays gene cards
+// 5. User edits genes → change detection → save buttons enable/disable
+// 6. User saves changes → API call via GeneManager
+// 7. User exports data → export functions via ExportManager
 
-// 3. User selects chromosome
-// → Enables "Load Genes" button
-
-// 4. User clicks "Load Genes"
-// → Triggers loadGenes()
-// → Displays gene cards via GeneManager
-
-// 5. User edits genes
-// → Change detection via GeneManager
-// → Save buttons enable/disable
-
-// 6. User saves changes
-// → API call via GeneManager
-
-// 7. User exports data
-// → Export functions via ExportManager
+// Pet Management Mode:
+// 2. User switches to Pet Management tab → switchTab('pet-management')
+// 3. App loads pets → loadPets() → displays pet list
+// 4. User selects pet → selectPet() → loads genome visualization
+// 5. Gene visualizer displays interactive genome grid
+// 6. User interacts with visualization (filters, statistics)
 ```
 
 ## Event System
@@ -438,12 +611,23 @@ User Action → Event Listener → Controller Method → Module Method → API C
 ### Example Event Handling
 
 ```javascript
+// Tab switching
+document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', (e) => {
+        const tabId = e.target.closest('.tab').dataset.tab;
+        this.switchTab(tabId);
+    });
+});
+
 // Animal type selection
 document.getElementById('animalType').addEventListener('change', async () => {
     await this.loadChromosomes();
     this.uiUtils.clearGeneDisplay();
     this.uiUtils.updateButtonStates(null, null);
 });
+
+// Pet selection
+// Handled via onclick attributes in pet HTML elements
 
 // Gene field changes
 element.addEventListener('input', () => {
@@ -576,12 +760,15 @@ console.error('Error saving gene:', error);
 ### Potential Improvements
 
 1. **State Management**: Implement Redux-like state management
-2. **Real-time Updates**: WebSocket for live collaboration
+2. **Real-time Updates**: WebSocket for live collaboration  
 3. **Offline Support**: Service worker for offline functionality
 4. **Advanced Search**: Filter and search gene data
 5. **Undo/Redo**: Action history management
 6. **Drag & Drop**: Reorder gene cards
 7. **Bulk Edit**: Edit multiple genes simultaneously
+8. **Enhanced Visualization**: 3D genome visualization, gene relationship graphs
+9. **Export Formats**: PDF reports, CSV data export
+10. **Collaborative Features**: Multi-user editing, comments system
 
 ### Migration Considerations
 

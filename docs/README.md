@@ -21,30 +21,45 @@ PGBreeder is a web-based gene editing tool for Project Gorgon pet breeding. It p
 ```
 PGBreeder/
 ├── src/pgbreeder/           # Main Python package
-│   ├── __init__.py
+│   ├── __init__.py          # Package initialization
 │   ├── cli.py              # Command-line interface
 │   ├── database.py         # Database operations (DuckDB)
+│   ├── genome_parser.py    # Genome data parsing
+│   ├── models.py           # Data models
 │   ├── web_app.py          # FastAPI web application
 │   ├── static/             # Static web assets
 │   │   ├── styles.css      # Application styles
+│   │   ├── favicon.png     # Site icon
 │   │   └── js/             # JavaScript modules
 │   │       ├── api-client.js      # API communication
 │   │       ├── app-controller.js  # Main application coordinator
 │   │       ├── export-manager.js  # Export functionality
 │   │       ├── gene-manager.js    # Gene editing logic
+│   │       ├── gene-visualizer.js # Gene visualization
 │   │       └── ui-utils.js        # UI utilities
 │   └── templates/          # HTML templates
 │       └── index.html      # Main application interface
+├── scripts/                # Utility scripts
+│   ├── generate_gene_templates.py  # Template generation
+│   ├── populate_database.py        # Database setup
+│   └── run_web_app.py             # Development server
 ├── assets/                 # Gene template files
 │   ├── beewasp/           # Bee/Wasp gene data (JSON)
 │   └── horse/             # Horse gene data (JSON)
-├── data/                  # Raw gene data files
-├── tests/                 # Test files
-├── scripts/               # Utility scripts
-├── docs/                  # Documentation
+├── data/                  # Sample data files
+│   ├── Genes_BabyFaeBee178.txt    # Sample bee genome
+│   └── Genes_Roach.txt            # Sample roach genome
+├── docs/                  # Comprehensive documentation
+│   ├── API.md             # REST API reference
+│   ├── DATABASE.md        # Database guide
+│   ├── DEVELOPMENT.md     # Development setup
+│   ├── FRONTEND.md        # Frontend architecture
+│   └── README.md          # Complete documentation
+├── tests/                 # Test suite
+├── nbs/                   # Jupyter notebooks
+├── .github/               # GitHub workflows
 ├── pyproject.toml         # Project configuration
-├── populate_database.py   # Database population script
-├── run_web_app.py         # Web application launcher
+├── uv.lock                # Dependency lock file
 └── README.md              # Project overview
 ```
 
@@ -86,14 +101,14 @@ PGBreeder/
    uv sync --dev
    ```
 
-3. Populate the database:
+3. Populate the database (optional - auto-initializes):
    ```bash
-   uv run python populate_database.py
+   uv run python scripts/populate_database.py
    ```
 
 4. Start the web application:
    ```bash
-   uv run python run_web_app.py
+   uv run python scripts/run_web_app.py
    ```
 
 5. Open your browser to `http://127.0.0.1:8000`
@@ -132,7 +147,6 @@ PGBreeder/
 
 ### Genes
 - `GET /api/genes/{animal_type}/{chromosome}` - Get genes for chromosome
-- `GET /api/gene/{animal_type}/{gene}` - Get specific gene
 - `PUT /api/gene` - Update gene data
 
 ### Effects
@@ -140,8 +154,14 @@ PGBreeder/
 
 ### Export
 - `GET /api/export/{animal_type}` - Export all chromosomes
-- `GET /api/export/{animal_type}/{chromosome}` - Export specific chromosome
 - `GET /api/download/{animal_type}/{chromosome}` - Download chromosome file
+
+### Pets
+- `GET /api/pets` - Get all pets
+- `GET /api/pets/{pet_id}` - Get specific pet
+- `PUT /api/pets/{pet_id}` - Update pet
+- `DELETE /api/pets/{pet_id}` - Delete pet
+- `GET /api/pet-genome/{pet_id}` - Get pet genome for visualization
 
 ## Database Schema
 
@@ -197,6 +217,15 @@ Handles data export functionality.
 - `exportChromosome()` - Export single chromosome
 - `exportAllChromosomes()` - Export all chromosomes
 
+### GeneVisualizer (`gene-visualizer.js`)
+Handles pet genome visualization and interactive gene display.
+
+**Key Methods:**
+- `loadPet(petId)` - Load pet genome data
+- `renderGenomeGrid()` - Render interactive gene grid
+- `updateFilters()` - Apply gene filtering
+- `showTooltip(cell, gene)` - Display gene information
+
 ### AppController (`app-controller.js`)
 Main application coordinator that initializes and connects all modules.
 
@@ -204,14 +233,16 @@ Main application coordinator that initializes and connects all modules.
 - `initialize()` - Set up application
 - `loadAnimalTypes()` - Load animal type options
 - `setupEventListeners()` - Wire up UI events
+- `switchTab(tabId)` - Handle tab switching between gene editing and pet management
 
 ## Development
 
 ### Code Style
-- Follow PEP 8 for Python code (88 character line length)
+- Follow PEP 8 for Python code (120 character line length)
 - Use type hints for all functions and methods
 - Use double quotes for strings
 - Write docstrings for all public functions and classes
+- Target Python 3.13+ for type hints and features
 
 ### Testing
 ```bash
@@ -234,13 +265,13 @@ uv run ruff check
 uv run ruff format
 
 # Type checking
-uv run mypy src/
+uv run mypy src/pgbreeder
 ```
 
 ### Development Server
 ```bash
-# Start development server with auto-reload
-uv run python run_web_app.py
+# Start development server
+uv run python scripts/run_web_app.py
 ```
 
 ## Contributing
@@ -258,8 +289,9 @@ uv run python run_web_app.py
 1. Always run `uv sync --dev` to install dependencies
 2. Use `ruff check` for linting
 3. Use `ruff format` for formatting
-4. Use `mypy` for type checking
+4. Use `mypy src/pgbreeder` for type checking
 5. Use `pytest` for running tests
+6. All code passes strict type checking and linting before commits
 
 ## Troubleshooting
 

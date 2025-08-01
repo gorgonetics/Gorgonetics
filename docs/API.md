@@ -94,35 +94,7 @@ Returns all genes for a specific chromosome of an animal type.
 - `200 OK` - Success
 - `404 Not Found` - Animal type or chromosome not found
 
-#### Get Specific Gene
-```http
-GET /api/gene/{animal_type}/{gene}
-```
 
-Returns data for a specific gene.
-
-**Parameters:**
-- `animal_type` (path): Animal type identifier
-- `gene` (path): Gene identifier (e.g., "01A1")
-
-**Response:**
-```json
-{
-  "animal_type": "beewasp",
-  "chromosome": "chr01",
-  "gene": "01A1",
-  "effect_dominant": "Intelligence+",
-  "effect_recessive": "Intelligence-",
-  "appearance": "Brighter antenna glow",
-  "notes": "Observed in lab conditions",
-  "created_at": "2025-01-01T00:00:00",
-  "updated_at": "2025-01-01T00:00:00"
-}
-```
-
-**Status Codes:**
-- `200 OK` - Success
-- `404 Not Found` - Gene not found
 
 #### Update Gene
 ```http
@@ -223,38 +195,7 @@ Exports all chromosome data for an animal type as JSON.
 - `200 OK` - Success
 - `404 Not Found` - Animal type not found
 
-#### Export Specific Chromosome
-```http
-GET /api/export/{animal_type}/{chromosome}
-```
 
-Exports data for a specific chromosome as JSON.
-
-**Parameters:**
-- `animal_type` (path): Animal type identifier
-- `chromosome` (path): Chromosome identifier
-
-**Response:**
-```json
-{
-  "animal_type": "beewasp",
-  "chromosome": "chr01",
-  "export_date": "2025-01-01T00:00:00",
-  "genes": [
-    {
-      "gene": "01A1",
-      "effect_dominant": "Intelligence+",
-      "effect_recessive": "Intelligence-",
-      "appearance": "Brighter antenna glow",
-      "notes": "Observed in lab conditions"
-    }
-  ]
-}
-```
-
-**Status Codes:**
-- `200 OK` - Success
-- `404 Not Found` - Animal type or chromosome not found
 
 #### Download Chromosome File
 ```http
@@ -274,6 +215,143 @@ Downloads chromosome data as a JSON file.
 **Status Codes:**
 - `200 OK` - File download initiated
 - `404 Not Found` - Animal type or chromosome not found
+
+---
+
+### Pets
+
+#### Get All Pets
+```http
+GET /api/pets
+```
+
+Returns a list of all uploaded pets.
+
+**Response:**
+```json
+[
+  {
+    "id": 1,
+    "name": "BabyFaeBee178",
+    "species": "beewasp", 
+    "breeder": "PlayerName",
+    "created_at": "2025-01-01T00:00:00"
+  }
+]
+```
+
+**Status Codes:**
+- `200 OK` - Success
+
+#### Get Pet by ID
+```http
+GET /api/pets/{pet_id}
+```
+
+Returns data for a specific pet.
+
+**Parameters:**
+- `pet_id` (path): Pet identifier
+
+**Response:**
+```json
+{
+  "id": 1,
+  "name": "BabyFaeBee178",
+  "species": "beewasp",
+  "breeder": "PlayerName", 
+  "created_at": "2025-01-01T00:00:00"
+}
+```
+
+**Status Codes:**
+- `200 OK` - Success
+- `404 Not Found` - Pet not found
+
+#### Update Pet
+```http
+PUT /api/pets/{pet_id}
+```
+
+Updates pet data.
+
+**Parameters:**
+- `pet_id` (path): Pet identifier
+
+**Request Body:**
+```json
+{
+  "name": "Updated Pet Name",
+  "breeder": "Updated Breeder Name"
+}
+```
+
+**Response:**
+```json
+{
+  "message": "Pet updated successfully"
+}
+```
+
+**Status Codes:**
+- `200 OK` - Pet updated successfully
+- `404 Not Found` - Pet not found
+- `500 Internal Server Error` - Database error
+
+#### Delete Pet
+```http
+DELETE /api/pets/{pet_id}
+```
+
+Deletes a pet.
+
+**Parameters:**
+- `pet_id` (path): Pet identifier
+
+**Response:**
+```json
+{
+  "message": "Pet deleted successfully"
+}
+```
+
+**Status Codes:**
+- `200 OK` - Pet deleted successfully
+- `404 Not Found` - Pet not found
+- `500 Internal Server Error` - Database error
+
+#### Get Pet Genome
+```http
+GET /api/pet-genome/{pet_id}
+```
+
+Returns genome data for visualization.
+
+**Parameters:**
+- `pet_id` (path): Pet identifier
+
+**Response:**
+```json
+{
+  "pet_id": 1,
+  "name": "BabyFaeBee178", 
+  "species": "beewasp",
+  "genes": {
+    "chr01": [
+      {
+        "gene": "01A1",
+        "dominant": "Intelligence+",
+        "recessive": "Intelligence-",
+        "type": "positive"
+      }
+    ]
+  }
+}
+```
+
+**Status Codes:**
+- `200 OK` - Success
+- `404 Not Found` - Pet not found
 
 ---
 
@@ -340,6 +418,16 @@ curl -X PUT "http://127.0.0.1:8000/api/gene" \
 curl -X GET "http://127.0.0.1:8000/api/export/beewasp/chr01"
 ```
 
+#### Get all pets:
+```bash
+curl -X GET "http://127.0.0.1:8000/api/pets"
+```
+
+#### Delete a pet:
+```bash
+curl -X DELETE "http://127.0.0.1:8000/api/pets/1"
+```
+
 ### Using JavaScript
 
 #### Fetch animal types:
@@ -369,6 +457,17 @@ const response = await fetch('/api/gene', {
 if (response.ok) {
   const result = await response.json();
   console.log(result.message);
+}
+```
+
+#### Get pets and select one:
+```javascript
+const response = await fetch('/api/pets');
+const pets = await response.json();
+if (pets.length > 0) {
+  const petGenome = await fetch(`/api/pet-genome/${pets[0].id}`);
+  const genomeData = await petGenome.json();
+  console.log(genomeData);
 }
 ```
 

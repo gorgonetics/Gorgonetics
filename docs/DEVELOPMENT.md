@@ -35,11 +35,11 @@ cd PGBreeder
 # Install dependencies
 uv sync --dev
 
-# Populate database with sample data
-uv run python populate_database.py
+# Populate database with sample data (optional - auto-initializes)
+uv run python scripts/populate_database.py
 
 # Start the development server
-uv run python run_web_app.py
+uv run python scripts/run_web_app.py
 ```
 
 ### 2. Verify Installation
@@ -62,10 +62,10 @@ Visit `http://127.0.0.1:8000` to confirm the application is running.
 
 3. **Test your changes**
    ```bash
-   uv run pytest                # Run tests
-   uv run ruff check           # Check linting
-   uv run ruff format          # Format code
-   uv run mypy src/            # Type checking
+   uv run pytest                    # Run tests
+   uv run ruff check               # Check linting
+   uv run ruff format              # Format code
+   uv run mypy src/pgbreeder       # Type checking
    ```
 
 4. **Commit and push**
@@ -97,7 +97,7 @@ Use the pre-configured VS Code tasks:
 Follow PEP 8 with these specific guidelines:
 
 ```python
-# Line length: 88 characters (Black default)
+# Line length: 120 characters (ruff default)
 def long_function_name(
     variable_one: str, variable_two: str, variable_three: str
 ) -> str:
@@ -307,6 +307,9 @@ uv run pytest -v
 
 # Stop on first failure
 uv run pytest -x
+
+# Run tests with markers
+uv run pytest -m "not slow"  # Skip slow tests
 ```
 
 ### Frontend Testing
@@ -383,7 +386,7 @@ Create `.vscode/launch.json`:
             "name": "Python: Web App",
             "type": "python",
             "request": "launch",
-            "program": "run_web_app.py",
+            "program": "scripts/run_web_app.py",
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}"
         },
@@ -391,7 +394,7 @@ Create `.vscode/launch.json`:
             "name": "Python: Populate DB",
             "type": "python",
             "request": "launch",
-            "program": "populate_database.py",
+            "program": "scripts/populate_database.py",
             "console": "integratedTerminal",
             "cwd": "${workspaceFolder}"
         }
@@ -532,7 +535,10 @@ class GeneManager {
 ### Local Development
 
 ```bash
-# Development server with auto-reload
+# Development server (recommended)
+uv run python scripts/run_web_app.py
+
+# Alternative: Direct uvicorn (from project root)
 uv run uvicorn pgbreeder.web_app:app --reload --host 127.0.0.1 --port 8000
 ```
 
@@ -570,7 +576,7 @@ app.add_middleware(
 taskkill /F /IM python.exe
 
 # Or use uv to restart
-uv run python run_web_app.py
+uv run python scripts/run_web_app.py
 ```
 
 #### Import Errors
@@ -585,7 +591,7 @@ uv run python -c "import sys; print(sys.path)"
 #### Type Checking Errors
 ```bash
 # Run mypy with verbose output
-uv run mypy src/ --verbose
+uv run mypy src/pgbreeder --verbose
 
 # Check specific file
 uv run mypy src/pgbreeder/database.py
@@ -605,11 +611,11 @@ uv run mypy src/pgbreeder/database.py
    - Update documentation
    - Follow code style guidelines
 
-3. **Test thoroughly**
+4. **Test thoroughly**
    ```bash
    uv run pytest
    uv run ruff check
-   uv run mypy src/
+   uv run mypy src/pgbreeder
    ```
 
 4. **Submit pull request**

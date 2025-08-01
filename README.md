@@ -27,19 +27,23 @@ cd PGBreeder
 uv sync --dev
 ```
 
-### Setup Database
+### Setup Database (Optional)
+
+The database is automatically initialized when you first start the web application. To manually populate it with sample data:
 
 ```bash
-uv run python populate_database.py
+uv run python scripts/populate_database.py
 ```
 
 ### Start Web Application
 
 ```bash
-uv run python run_web_app.py
+uv run python scripts/run_web_app.py
 ```
 
 Visit `http://127.0.0.1:8000` to start editing genes!
+
+> **Note**: The database will be automatically created and initialized on first run. No manual setup required!
 
 ## Documentation
 
@@ -84,10 +88,10 @@ The project follows modern Python development practices with comprehensive tooli
 uv sync --dev
 
 # Run all quality checks
-uv run ruff check && uv run mypy src/ && uv run pytest
+uv run ruff check && uv run mypy src/pgbreeder && uv run pytest
 
-# Start development server
-uv run python run_web_app.py
+# Start development server (database auto-initializes)
+uv run python scripts/run_web_app.py
 ```
 
 ### Available Tasks (VS Code)
@@ -97,24 +101,65 @@ uv run python run_web_app.py
 - **Run Tests with Coverage**: `uv run pytest --cov=pgbreeder`
 - **Lint Code**: `uv run ruff check`
 - **Format Code**: `uv run ruff format`
-- **Type Check**: `uv run mypy src/`
+- **Type Check**: `uv run mypy src/pgbreeder`
+
+### CLI Usage
+
+The project provides a CLI interface:
+
+```bash
+# Basic CLI interface
+uv run pgbreeder --help
+
+# Web application server
+uv run python scripts/run_web_app.py
+```
 
 ### Project Architecture
 
 ```
 src/pgbreeder/           # Main Python package
+├── __init__.py          # Package initialization
+├── cli.py              # Command-line interface  
 ├── database.py          # DuckDB operations
+├── genome_parser.py     # Genome data parsing
+├── models.py           # Data models
 ├── web_app.py          # FastAPI web server
-├── cli.py              # Command-line interface
-├── static/             # Web assets (CSS, JavaScript)
+├── static/             # Web assets
+│   ├── styles.css      # Application styles
+│   ├── favicon.png     # Site icon
+│   └── js/             # JavaScript modules
+│       ├── api-client.js      # API communication
+│       ├── app-controller.js   # Main app logic
+│       ├── export-manager.js   # Data export
+│       ├── gene-manager.js     # Gene editing
+│       ├── gene-visualizer.js  # Gene visualization
+│       └── ui-utils.js        # UI utilities
 └── templates/          # HTML templates
+
+scripts/                # Utility scripts
+├── generate_gene_templates.py  # Template generation
+├── populate_database.py        # Database setup
+└── run_web_app.py             # Development server
 
 assets/                 # Gene template data
 ├── beewasp/           # Bee/Wasp genetic data
 └── horse/             # Horse genetic data
 
+data/                  # Sample data files
+├── Genes_BabyFaeBee178.txt    # Sample bee genome
+└── Genes_Roach.txt            # Sample roach genome
+
 docs/                  # Comprehensive documentation
+├── API.md             # REST API reference
+├── DATABASE.md        # Database guide
+├── DEVELOPMENT.md     # Development setup
+├── FRONTEND.md        # Frontend architecture
+└── README.md          # Complete documentation
+
 tests/                 # Test suite
+nbs/                   # Jupyter notebooks
+.github/               # GitHub workflows
 ```
 
 ## Technology Stack
@@ -126,6 +171,22 @@ tests/                 # Test suite
 - **Code Quality**: [ruff](https://docs.astral.sh/ruff/) - Fast Python linter and formatter
 - **Testing**: [pytest](https://docs.pytest.org/) - Comprehensive testing framework
 - **CLI**: [typer](https://typer.tiangolo.com/) + [rich](https://rich.readthedocs.io/) - Beautiful command-line interface
+
+## Recent Updates
+
+### Code Quality Improvements
+- ✅ **JavaScript Cleanup**: Removed unnecessary files (`emoji-test.html`, duplicate ESLint config)
+- ✅ **Cache Management**: Cleaned up development cache directories and updated `.gitignore`
+- ✅ **Test Fixes**: Updated CLI tests to match actual functionality
+- ✅ **ESLint Configuration**: Configured to allow both single and double quotes
+- ✅ **Code Formatting**: Applied consistent formatting across all JavaScript and Python files
+
+### Development Workflow
+- ✅ **Linting**: All code passes `ruff check` without issues
+- ✅ **Type Safety**: All code passes `mypy` strict type checking
+- ✅ **Testing**: 17 tests passing with 100% success rate
+- ✅ **Documentation**: Updated README to reflect current project structure
+- ✅ **Entry Points**: Removed proof-of-concept `pgbreeder-web` entry point, standardized on script-based startup
 
 ## Contributing
 

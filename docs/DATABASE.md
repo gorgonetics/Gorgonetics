@@ -12,6 +12,12 @@ PGBreeder uses DuckDB as its embedded analytical database. DuckDB provides excel
 
 ## Schema
 
+### Tables Overview
+
+The database contains two main tables:
+- **genes**: Stores genetic template data
+- **pets**: Stores uploaded pet genome data
+
 ### Genes Table
 
 The main table storing all genetic information:
@@ -51,6 +57,34 @@ CREATE TABLE genes (
 - **Not Null**: `animal_type`, `chromosome`, `gene` are required fields
 - **Foreign Key**: None (denormalized for performance)
 
+### Pets Table
+
+Stores uploaded pet genome data for visualization:
+
+```sql
+CREATE TABLE pets (
+    id INTEGER PRIMARY KEY,            -- Auto-incrementing pet ID
+    name VARCHAR NOT NULL,             -- Pet name
+    species VARCHAR NOT NULL,          -- Animal species (e.g., 'beewasp', 'horse')  
+    breeder VARCHAR,                   -- Breeder/owner name
+    genome_data JSON NOT NULL,         -- Complete genome data as JSON
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,  -- Upload timestamp
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP   -- Last update timestamp
+);
+```
+
+#### Pets Field Descriptions
+
+| Field | Type | Description | Example Values |
+|-------|------|-------------|----------------|
+| `id` | INTEGER | Auto-increment primary key | 1, 2, 3 |
+| `name` | VARCHAR | Pet's name | 'BabyFaeBee178', 'Thunderhoof' |
+| `species` | VARCHAR | Pet species | 'beewasp', 'horse' |
+| `breeder` | VARCHAR | Breeder/owner name | 'PlayerName', 'Unknown' |
+| `genome_data` | JSON | Complete genome structure | `{"chr01": [...], "chr02": [...]}` |
+| `created_at` | TIMESTAMP | Upload timestamp | '2025-01-01 10:30:00' |
+| `updated_at` | TIMESTAMP | Last update timestamp | '2025-01-01 15:45:00' |
+
 ### Indexes
 
 DuckDB automatically creates indexes for primary key constraints. Additional indexes may be added for performance:
@@ -59,8 +93,11 @@ DuckDB automatically creates indexes for primary key constraints. Additional ind
 -- Index for chromosome queries
 CREATE INDEX idx_genes_animal_chromosome ON genes(animal_type, chromosome);
 
--- Index for effect searches
+-- Index for effect searches  
 CREATE INDEX idx_genes_effects ON genes(effect_dominant, effect_recessive);
+
+-- Index for pet species queries
+CREATE INDEX idx_pets_species ON pets(species);
 ```
 
 ## Data Population
@@ -83,7 +120,7 @@ assets/
 
 ### Population Script
 
-The `populate_database.py` script handles initial data loading:
+The `scripts/populate_database.py` script handles initial data loading:
 
 ```python
 # Example JSON structure
@@ -106,7 +143,7 @@ The `populate_database.py` script handles initial data loading:
 
 ### GeneDatabase Class
 
-The `GeneDatabase` class in `src/pgbreeder/database.py` provides all database operations:
+The `GeneDatabase` class in `src/pgbreeder/database.py` provides all database operations for both genes and pets:
 
 #### Connection Management
 
@@ -123,36 +160,66 @@ class GeneDatabase:
 
 ##### Create Tables
 ```python
-def init_db(self) -> None:
-    """Initialize database tables if they don't exist."""
+def _create_tables(self) -> None:
+    """Create the necessary database tables."""
+    # Genes table (static data)
     self.conn.execute("""
         CREATE TABLE IF NOT EXISTS genes (
             animal_type VARCHAR NOT NULL,
             chromosome VARCHAR NOT NULL,
             gene VARCHAR NOT NULL,
-            effect_dominant VARCHAR,
-            effect_recessive VARCHAR,
-            appearance VARCHAR,
-            notes VARCHAR,
+            effect_dominant VARCHAR DEFAULT 'None',
+            effect_recessive VARCHAR DEFAULT 'None',
+            appearance VARCHAR DEFAULT '|String for me to fill in|',
+            notes VARCHAR DEFAULT '|String for me to fill in|',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (animal_type, gene)
+        )
+    """)
+    
+    # Pets table (uploaded pet data)
+    self.conn.execute("""
+        CREATE TABLE IF NOT EXISTS pets (
+            id INTEGER PRIMARY KEY,
+            name VARCHAR NOT NULL,
+            species VARCHAR NOT NULL,
+            breeder VARCHAR,
+            genome_data JSON NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
 ```
 
 ##### Insert/Update Operations
 ```python
-def insert_gene(self, gene_data: dict) -> None:
-    """Insert a new gene or update existing one."""
-    self.conn.execute("""
-        INSERT OR REPLACE INTO genes 
-        (animal_type, chromosome, gene, effect_dominant, effect_recessive, 
-         appearance, notes, created_at, updated_at)
-        VALUES ($animal_type, $chromosome, $gene, $effect_dominant, 
-                $effect_recessive, $appearance, $notes, 
-                COALESCE($created_at, CURRENT_TIMESTAMP), CURRENT_TIMESTAMP)
-    """, gene_data)
+def update_gene(self, gene_update: dict) -> bool:
+    """Update a gene with new data."""
+    result = self.conn.execute("""
+        UPDATE genes 
+        SET effect_dominant = $effect_dominant,
+            effect_recessive = $effect_recessive,
+            appearance = $appearance,
+            notes = $notes,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE animal_type = $animal_type AND gene = $gene
+    """, gene_update)
+    return result.rowcount > 0
+
+def insert_pet(self, name: str, species: str, breeder: str, genome_data: dict) -> int:
+    """Insert a new pet and return the pet ID."""
+    result = self.conn.execute("""
+        INSERT INTO pets (name, species, breeder, genome_data)
+        VALUES ($name, $species, $breeder, $genome_data)
+        RETURNING id
+    """, {
+        "name": name,
+        "species": species,
+        "breeder": breeder,
+        "genome_data": json.dumps(genome_data)
+    })
+    return result.fetchone()[0]
 ```
 
 ##### Query Operations
@@ -167,6 +234,34 @@ def get_genes_by_chromosome(self, animal_type: str, chromosome: str) -> list[dic
         ORDER BY gene
     """, {"animal_type": animal_type, "chromosome": chromosome})
     return [dict(zip([col[0] for col in result.description], row)) for row in result.fetchall()]
+
+def get_all_pets(self) -> list[dict]:
+    """Get all pets with basic information."""
+    result = self.conn.execute("""
+        SELECT id, name, species, breeder, created_at
+        FROM pets 
+        ORDER BY created_at DESC
+    """)
+    return [dict(zip([col[0] for col in result.description], row)) for row in result.fetchall()]
+
+def get_pet_genome(self, pet_id: int) -> dict | None:
+    """Get pet genome data for visualization."""
+    result = self.conn.execute("""
+        SELECT id, name, species, genome_data
+        FROM pets 
+        WHERE id = $pet_id
+    """, {"pet_id": pet_id})
+    
+    row = result.fetchone()
+    if not row:
+        return None
+        
+    return {
+        "pet_id": row[0],
+        "name": row[1], 
+        "species": row[2],
+        "genes": json.loads(row[3])
+    }
 ```
 
 #### Named Parameters
@@ -189,7 +284,18 @@ result = self.conn.execute("""
 
 ### Data Migration
 
-#### Cleverness to Intelligence Migration
+#### Recent Improvements
+
+The database has been enhanced with several improvements:
+
+1. **Pet Management**: Added pets table for storing uploaded pet genome data
+2. **JSON Support**: Native JSON storage for complex genome structures  
+3. **Auto-initialization**: Database tables are created automatically on first run
+4. **Improved Error Handling**: Better error messages and validation
+
+#### Historical Migrations
+
+##### Cleverness to Intelligence Migration
 
 A migration function handles updating legacy "Cleverness" effects to "Intelligence":
 
@@ -310,16 +416,30 @@ print(f"Database size: {db_size / 1024 / 1024:.2f} MB")
 ### Record Counts
 ```python
 def get_statistics(self) -> dict:
-    """Get database statistics."""
-    result = self.conn.execute("""
+    """Get comprehensive database statistics."""
+    # Gene statistics
+    gene_stats = self.conn.execute("""
         SELECT 
             animal_type,
             COUNT(*) as gene_count,
             COUNT(DISTINCT chromosome) as chromosome_count
         FROM genes 
         GROUP BY animal_type
-    """)
-    return [dict(zip([col[0] for col in result.description], row)) for row in result.fetchall()]
+    """).fetchall()
+    
+    # Pet statistics  
+    pet_stats = self.conn.execute("""
+        SELECT 
+            species,
+            COUNT(*) as pet_count
+        FROM pets
+        GROUP BY species
+    """).fetchall()
+    
+    return {
+        "genes": [dict(zip(["animal_type", "gene_count", "chromosome_count"], row)) for row in gene_stats],
+        "pets": [dict(zip(["species", "pet_count"], row)) for row in pet_stats]
+    }
 ```
 
 ## Troubleshooting
@@ -341,17 +461,24 @@ def get_statistics(self) -> dict:
 ### Diagnostic Queries
 
 ```sql
--- Check table structure
+-- Check table structures
 DESCRIBE genes;
+DESCRIBE pets;
 
 -- Check record counts
 SELECT animal_type, COUNT(*) FROM genes GROUP BY animal_type;
+SELECT species, COUNT(*) FROM pets GROUP BY species;
 
 -- Check recent updates
 SELECT * FROM genes WHERE updated_at > CURRENT_TIMESTAMP - INTERVAL 1 DAY;
+SELECT * FROM pets WHERE created_at > CURRENT_TIMESTAMP - INTERVAL 1 DAY;
 
 -- Find missing chromosomes
 SELECT DISTINCT animal_type, chromosome FROM genes ORDER BY animal_type, chromosome;
+
+-- Pet genome structure analysis
+SELECT name, species, JSON_EXTRACT_STRING(genome_data, '$.chr01[0].gene') as first_gene 
+FROM pets LIMIT 5;
 ```
 
 ## Future Considerations
