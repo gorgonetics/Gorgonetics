@@ -81,7 +81,7 @@ body {
 
 /* Sidebar Styles */
 .sidebar {
-    width: 320px;
+    width: 280px;
     background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
     box-shadow: 2px 0 8px rgba(0, 0, 0, 0.12);
     position: fixed;
@@ -379,7 +379,7 @@ body {
 
 /* Main Content Area */
 .main-content {
-    margin-left: 320px;
+    margin-left: 280px;
     flex: 1;
     overflow-y: auto;
     max-height: 100vh;
@@ -1231,8 +1231,6 @@ body {
 .legend-badges {
     margin-bottom: 10px;
 }
-
-
 
 .pets-dashboard {
     padding: 40px;

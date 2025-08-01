@@ -16,7 +16,9 @@ class ExportManager {
     const chromosome = document.getElementById("chromosome").value;
 
     if (!animalType || !chromosome) {
-      UIUtils.showError("Please select an animal type and chromosome first");
+      window.UIUtils.showError(
+        "Please select an animal type and chromosome first",
+      );
       return;
     }
 
@@ -28,10 +30,12 @@ class ExportManager {
       const blob = await response.blob();
       const filename = `${animalType}_genes_chr${chromosome}.json`;
 
-      UIUtils.downloadFile(blob, filename);
-      UIUtils.showSuccess(`Chromosome ${chromosome} exported successfully!`);
+      window.UIUtils.downloadFile(blob, filename);
+      window.UIUtils.showSuccess(
+        `Chromosome ${chromosome} exported successfully!`,
+      );
     } catch (error) {
-      UIUtils.showError("Failed to export chromosome: " + error.message);
+      window.UIUtils.showError("Failed to export chromosome: " + error.message);
     }
   }
 
@@ -42,15 +46,15 @@ class ExportManager {
     const animalType = document.getElementById("animalType").value;
 
     if (!animalType) {
-      UIUtils.showError("Please select an animal type first");
+      window.UIUtils.showError("Please select an animal type first");
       return;
     }
 
     try {
-      UIUtils.showLoading("Exporting all chromosomes...");
+      window.UIUtils.showLoading("Exporting all chromosomes...");
 
       const result = await this.apiClient.exportAllChromosomes(animalType);
-      UIUtils.showSuccess(
+      window.UIUtils.showSuccess(
         `Exported ${result.files.length} chromosome files for ${animalType}!`,
       );
 
@@ -60,7 +64,9 @@ class ExportManager {
         window.appController.loadGenes(animalType, currentChromosome);
       }
     } catch (error) {
-      UIUtils.showError("Failed to export all chromosomes: " + error.message);
+      window.UIUtils.showError(
+        "Failed to export all chromosomes: " + error.message,
+      );
     }
   }
 }

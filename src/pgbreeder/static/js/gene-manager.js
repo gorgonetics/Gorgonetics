@@ -28,7 +28,7 @@ class GeneManager {
     const container = document.getElementById("genesContent");
 
     if (genes.length === 0) {
-      UIUtils.showEmptyState("No genes found for this chromosome");
+      window.UIUtils.showEmptyState("No genes found for this chromosome");
       return;
     }
 
@@ -90,7 +90,7 @@ class GeneManager {
     container.appendChild(grid);
 
     // Show the effect legend when genes are displayed
-    UIUtils.showLegend();
+    window.UIUtils.showLegend();
   }
 
   /**
@@ -261,7 +261,7 @@ class GeneManager {
       });
 
       await this.apiClient.updateGene(updateData);
-      UIUtils.showSuccess(`Gene ${geneId} updated successfully!`);
+      window.UIUtils.showSuccess(`Gene ${geneId} updated successfully!`);
 
       // Reset change tracking after successful save
       fields.forEach((field) => {
@@ -273,7 +273,7 @@ class GeneManager {
       saveBtn.disabled = true;
       card.classList.remove("has-changes");
     } catch (error) {
-      UIUtils.showError("Failed to save gene: " + error.message);
+      window.UIUtils.showError("Failed to save gene: " + error.message);
     }
   }
 
@@ -300,7 +300,7 @@ class GeneManager {
       // Focus the input when expanded
       const input = notesContent.querySelector("input");
       if (input) {
-        setTimeout(() => input.focus(), 100);
+        window.setTimeout(() => input.focus(), 100);
       }
     }
   }
@@ -381,7 +381,7 @@ class GeneManager {
         dropdown.classList.remove("open");
 
         // Trigger change event for gene card update
-        const changeEvent = new Event("change", { bubbles: true });
+        const changeEvent = new window.Event("change", { bubbles: true });
         dropdown.dispatchEvent(changeEvent);
       });
 
@@ -498,7 +498,7 @@ class GeneManager {
         dropdown.classList.remove("open");
 
         // Trigger change event
-        const changeEvent = new Event("change", { bubbles: true });
+        const changeEvent = new window.Event("change", { bubbles: true });
         dropdown.dispatchEvent(changeEvent);
       });
     });
@@ -626,10 +626,10 @@ class GeneManager {
    */
   updateGeneCardState(card) {
     const dominantDropdown = card.querySelector(
-      '[data-field="effectDominant"]',
+      "[data-field=\"effectDominant\"]",
     );
     const recessiveDropdown = card.querySelector(
-      '[data-field="effectRecessive"]',
+      "[data-field=\"effectRecessive\"]",
     );
 
     // Apply styling to custom dropdowns

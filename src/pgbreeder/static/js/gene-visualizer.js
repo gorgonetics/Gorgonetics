@@ -64,21 +64,6 @@ function toggleFilterState(selectedArr, hiddenArr, key, action) {
   return { selected: selectedArr, hidden: hiddenArr };
 }
 
-/**
- * Helper to get filter state for selectors.
- * @param {Array} selectedArr
- * @param {Array} hiddenArr
- * @param {string} key
- * @returns {'selected'|'hidden'|'neutral'}
- */
-function getFilterState(selectedArr, hiddenArr, key) {
-  const isSelected = selectedArr.includes(key);
-  const isHidden = hiddenArr.includes(key);
-  if (isSelected && !isHidden) return "selected";
-  if (!isSelected && isHidden) return "hidden";
-  return "neutral";
-}
-
 class GeneVisualizer {
   constructor(containerId) {
     this.container = document.getElementById(containerId);
@@ -205,7 +190,7 @@ class GeneVisualizer {
 
   async loadPet(petId) {
     try {
-      const response = await fetch(`/api/pet-genome/${petId}`);
+      const response = await window.fetch(`/api/pet-genome/${petId}`);
       if (!response.ok) {
         throw new Error("Failed to load pet genome");
       }
@@ -224,7 +209,7 @@ class GeneVisualizer {
 
   async loadGeneEffectsForSpecies(species) {
     try {
-      const response = await fetch(`/api/gene-effects/${species}`);
+      const response = await window.fetch(`/api/gene-effects/${species}`);
       if (!response.ok) {
         throw new Error("Failed to load gene effects");
       }
@@ -260,7 +245,7 @@ class GeneVisualizer {
 
     if (!this.currentPet || !this.currentPet.genes) {
       container.innerHTML =
-        '<div class="empty-state">No gene data available</div>';
+        "<div class=\"empty-state\">No gene data available</div>";
       return;
     }
 
@@ -316,7 +301,7 @@ class GeneVisualizer {
 
       // Create genes with block spacing
       let currentBlock = null;
-      chromosomeData.allGenes.forEach((gene, index) => {
+      chromosomeData.allGenes.forEach((gene) => {
         // Add block spacing
         if (currentBlock !== null && currentBlock !== gene.block) {
           const spacer = document.createElement("div");
@@ -496,7 +481,7 @@ class GeneVisualizer {
         // Render question mark for unknown gene type
         if (gene.type === "?") {
           geneCell.innerHTML =
-            '<span class="gene-unknown-symbol" title="Unknown gene">?</span>';
+            "<span class=\"gene-unknown-symbol\" title=\"Unknown gene\">?</span>";
         }
 
         if (!isVisible) {
@@ -600,7 +585,7 @@ class GeneVisualizer {
 
     // Create headers for each block based on longest chromosome structure
     let currentBlock = null;
-    longestChromosome.allGenes.forEach((gene, index) => {
+    longestChromosome.allGenes.forEach((gene) => {
       // Add spacer for block gaps
       if (currentBlock !== null && currentBlock !== gene.block) {
         const spacer = document.createElement("div");
@@ -1887,7 +1872,7 @@ class GeneVisualizer {
 
     const container = document.getElementById("geneGridContainer");
     container.innerHTML =
-      '<div class="empty-state">Select a pet to visualize its genes</div>';
+      "<div class=\"empty-state\">Select a pet to visualize its genes</div>";
 
     document.getElementById("totalGenesDisplay").textContent = "0";
     document.getElementById("neutralGenesDisplay").textContent = "0";

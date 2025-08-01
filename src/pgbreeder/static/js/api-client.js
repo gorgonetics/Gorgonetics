@@ -13,7 +13,7 @@ class ApiClient {
    */
   async fetchWithErrorHandling(url, options = {}) {
     try {
-      const response = await fetch(url, options);
+      const response = await window.fetch(url, options);
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }

@@ -5,9 +5,9 @@
 
 class AppController {
   constructor() {
-    this.apiClient = new ApiClient();
-    this.geneManager = new GeneManager(this.apiClient);
-    this.exportManager = new ExportManager(this.apiClient);
+    this.apiClient = new window.ApiClient();
+    this.geneManager = new window.GeneManager(this.apiClient);
+    this.exportManager = new window.ExportManager(this.apiClient);
     this.geneVisualizer = null;
     this.currentMode = "pet-management"; // 'gene-editing' or 'pet-management'
 
@@ -30,7 +30,7 @@ class AppController {
       this.loadPets();
 
       // Show pets dashboard in main window if Pet Manager is default tab
-      const petTab = document.querySelector('.tab[data-tab="pet-management"]');
+      const petTab = document.querySelector(".tab[data-tab=\"pet-management\"]");
       if (petTab && petTab.getAttribute("aria-selected") === "true") {
         const genesContent = document.getElementById("genesContent");
         const vizContainer = document.getElementById(
@@ -55,7 +55,9 @@ class AppController {
         this.initializeGeneVisualizer();
       }
     } catch (error) {
-      UIUtils.showError("Failed to initialize application: " + error.message);
+      window.UIUtils.showError(
+        "Failed to initialize application: " + error.message,
+      );
     }
   }
 
@@ -63,7 +65,9 @@ class AppController {
    * Initialize the gene visualizer
    */
   initializeGeneVisualizer() {
-    this.geneVisualizer = new GeneVisualizer("geneVisualizationContainer");
+    this.geneVisualizer = new window.GeneVisualizer(
+      "geneVisualizationContainer",
+    );
   }
 
   /**
@@ -113,10 +117,10 @@ class AppController {
       const animalType = e.target.value;
       if (animalType) {
         this.loadChromosomes(animalType);
-        UIUtils.updateButtonStates(animalType, null);
+        window.UIUtils.updateButtonStates(animalType, null);
       } else {
-        UIUtils.updateButtonStates(null, null);
-        UIUtils.populateSelect(
+        window.UIUtils.updateButtonStates(null, null);
+        window.UIUtils.populateSelect(
           "chromosome",
           [],
           null,
@@ -125,9 +129,9 @@ class AppController {
         );
       }
       // Clear gene display when animal type changes, but only if Gene Editor is selected
-      const geneTab = document.querySelector('.tab[data-tab="gene-editing"]');
+      const geneTab = document.querySelector(".tab[data-tab=\"gene-editing\"]");
       if (geneTab && geneTab.getAttribute("aria-selected") === "true") {
-        UIUtils.clearGeneDisplay();
+        window.UIUtils.clearGeneDisplay();
       }
     });
 
@@ -135,11 +139,11 @@ class AppController {
     document.getElementById("chromosome").addEventListener("change", (e) => {
       const chromosome = e.target.value;
       const animalType = document.getElementById("animalType").value;
-      UIUtils.updateButtonStates(animalType, chromosome);
+      window.UIUtils.updateButtonStates(animalType, chromosome);
       // Clear gene display when chromosome changes, but only if Gene Editor is selected
-      const geneTab = document.querySelector('.tab[data-tab="gene-editing"]');
+      const geneTab = document.querySelector(".tab[data-tab=\"gene-editing\"]");
       if (geneTab && geneTab.getAttribute("aria-selected") === "true") {
-        UIUtils.clearGeneDisplay();
+        window.UIUtils.clearGeneDisplay();
       }
     });
 
@@ -188,10 +192,10 @@ class AppController {
     // Update toggle button state
     if (sidebar.classList.contains("collapsed")) {
       toggleBtn.title = "Expand sidebar";
-      localStorage.setItem("sidebarCollapsed", "true");
+      window.localStorage.setItem("sidebarCollapsed", "true");
     } else {
       toggleBtn.title = "Collapse sidebar";
-      localStorage.setItem("sidebarCollapsed", "false");
+      window.localStorage.setItem("sidebarCollapsed", "false");
     }
   }
 
@@ -199,7 +203,8 @@ class AppController {
    * Restore sidebar state from localStorage
    */
   restoreSidebarState() {
-    const isCollapsed = localStorage.getItem("sidebarCollapsed") === "true";
+    const isCollapsed =
+      window.localStorage.getItem("sidebarCollapsed") === "true";
     if (isCollapsed) {
       // Apply collapsed state without animation first
       const sidebar = document.querySelector(".sidebar");
@@ -330,7 +335,7 @@ class AppController {
 
     if (pets.length === 0) {
       petsList.innerHTML =
-        '<div class="empty-state">No pets uploaded yet</div>';
+        "<div class=\"empty-state\">No pets uploaded yet</div>";
       return;
     }
 
@@ -371,7 +376,7 @@ class AppController {
       // Load pet into visualizer
       await this.geneVisualizer.loadPet(petId);
     } catch (error) {
-      UIUtils.showError(
+      window.UIUtils.showError(
         "Failed to load pet for visualization: " + error.message,
       );
     }
@@ -381,7 +386,7 @@ class AppController {
    * Delete a pet
    */
   async deletePet(petId) {
-    if (!confirm("Are you sure you want to delete this pet?")) {
+    if (!window.confirm("Are you sure you want to delete this pet?")) {
       return;
     }
 
@@ -389,9 +394,9 @@ class AppController {
       await this.apiClient.deletePet(petId);
       this.loadPets(); // Refresh the list
       this.geneVisualizer.clear(); // Clear visualization
-      UIUtils.showSuccess("Pet deleted successfully");
+      window.UIUtils.showSuccess("Pet deleted successfully");
     } catch (error) {
-      UIUtils.showError("Failed to delete pet: " + error.message);
+      window.UIUtils.showError("Failed to delete pet: " + error.message);
     }
   }
 
@@ -401,7 +406,7 @@ class AppController {
   async loadAnimalTypes() {
     try {
       const animalTypes = await this.apiClient.getAnimalTypes();
-      UIUtils.populateSelect(
+      window.UIUtils.populateSelect(
         "animalType",
         animalTypes,
         null,
@@ -409,7 +414,7 @@ class AppController {
         "Select animal type...",
       );
     } catch (error) {
-      UIUtils.showError("Failed to load animal types: " + error.message);
+      window.UIUtils.showError("Failed to load animal types: " + error.message);
     }
   }
 
@@ -419,7 +424,7 @@ class AppController {
   async loadChromosomes(animalType) {
     try {
       const chromosomes = await this.apiClient.getChromosomes(animalType);
-      UIUtils.populateSelect(
+      window.UIUtils.populateSelect(
         "chromosome",
         chromosomes.map((chr) => ({
           value: chr,
@@ -430,9 +435,9 @@ class AppController {
         "Select chromosome...",
       );
 
-      UIUtils.updateButtonStates(animalType, null);
+      window.UIUtils.updateButtonStates(animalType, null);
     } catch (error) {
-      UIUtils.showError("Failed to load chromosomes: " + error.message);
+      window.UIUtils.showError("Failed to load chromosomes: " + error.message);
     }
   }
 
@@ -441,11 +446,11 @@ class AppController {
    */
   async loadGenes(animalType, chromosome) {
     try {
-      UIUtils.showLoading("Loading genes...");
+      window.UIUtils.showLoading("Loading genes...");
       const genes = await this.apiClient.getGenes(animalType, chromosome);
       this.geneManager.displayGenes(genes, animalType);
     } catch (error) {
-      UIUtils.showError("Failed to load genes: " + error.message);
+      window.UIUtils.showError("Failed to load genes: " + error.message);
     }
   }
 
@@ -493,27 +498,60 @@ class AppController {
    */
   async handlePetUpload(file) {
     const petName = document.getElementById("petName").value;
-    uploadPetFile({
-      file,
-      petName,
-      onStatus: (message, type) => {
-        if (type === "loading") {
-          UIUtils.showLoading(message);
-        } else if (type === "success") {
-          UIUtils.showSuccess(message);
-        } else if (type === "error") {
-          UIUtils.showError(message);
-        }
-      },
-      onSuccess: (result) => {
+
+    if (!file) {
+      window.UIUtils.showError("No file selected");
+      return;
+    }
+    if (!file.name.endsWith(".txt")) {
+      window.UIUtils.showError("Please select a .txt genome file");
+      return;
+    }
+
+    window.UIUtils.showLoading("Uploading pet genome...");
+
+    const formData = new window.FormData();
+    formData.append("file", file);
+    if (petName) {
+      formData.append("name", petName);
+    }
+
+    try {
+      const response = await window.fetch("/api/pets/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        let msg = "Upload failed";
+        try {
+          const err = await response.json();
+          msg = err.detail || err.message || msg;
+        } catch {}
+        throw new Error(msg);
+      }
+
+      const result = await response.json();
+
+      if (result.status === "success" || result.name) {
+        window.UIUtils.showSuccess(
+          `✅ ${result.name || "Pet"} added to collection!`,
+        );
         document.getElementById("petName").value = "";
         document.getElementById("fileInput").value = "";
         this.loadPets();
-      },
-      onError: (error) => {
-        // Already handled by onStatus, but could add extra logging here if desired
-      },
-    });
+      } else {
+        throw new Error(result.message || "Upload failed");
+      }
+    } catch (error) {
+      if (error.message && error.message.includes("already been uploaded")) {
+        window.UIUtils.showError(
+          `⚠️ Duplicate file: ${error.message.split(": ")[1]}`,
+        );
+      } else {
+        window.UIUtils.showError(`❌ Upload failed: ${error.message}`);
+      }
+    }
   }
 }
 

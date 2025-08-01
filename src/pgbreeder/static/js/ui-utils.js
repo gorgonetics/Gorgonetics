@@ -40,7 +40,7 @@ function showStatusMessage(message, type = "loading", options = {}) {
   }
 
   if (timeout) {
-    setTimeout(() => {
+    window.setTimeout(() => {
       statusDiv.remove();
     }, timeout);
   }
@@ -57,62 +57,7 @@ function showStatusMessage(message, type = "loading", options = {}) {
  * @param {function} onSuccess - (result) => void, called on success
  * @param {function} onError - (error) => void, called on error
  */
-function uploadPetFile({ file, petName, onStatus, onSuccess, onError }) {
-  if (!file) {
-    if (onStatus) onStatus("No file selected", "error");
-    return;
-  }
-  if (!file.name.endsWith(".txt")) {
-    if (onStatus) onStatus("Please select a .txt genome file", "error");
-    return;
-  }
-  if (onStatus) onStatus("Uploading pet genome...", "loading");
-  const formData = new FormData();
-  formData.append("file", file);
-  if (petName) {
-    formData.append("name", petName);
-  }
-  fetch("/api/pets/upload", {
-    method: "POST",
-    body: formData,
-  })
-    .then(async (response) => {
-      if (!response.ok) {
-        let msg = "Upload failed";
-        try {
-          const err = await response.json();
-          msg = err.detail || err.message || msg;
-        } catch {}
-        throw new Error(msg);
-      }
-      return response.json();
-    })
-    .then((result) => {
-      if (result.status === "success" || result.name) {
-        if (onStatus)
-          onStatus(
-            `✅ ${result.name || "Pet"} added to collection!`,
-            "success",
-          );
-        if (onSuccess) onSuccess(result);
-      } else {
-        throw new Error(result.message || "Upload failed");
-      }
-    })
-    .catch((error) => {
-      if (onStatus) {
-        if (error.message && error.message.includes("already been uploaded")) {
-          onStatus(
-            `⚠️ Duplicate file: ${error.message.split(": ")[1]}`,
-            "error",
-          );
-        } else {
-          onStatus(`❌ Upload failed: ${error.message}`, "error");
-        }
-      }
-      if (onError) onError(error);
-    });
-}
+// Removed unused function uploadPetFile
 
 class UIUtils {
   /**
