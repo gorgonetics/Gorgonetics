@@ -742,27 +742,40 @@ body {
 }
 
 .value-legend-item {
-    transition: none;
+    cursor: pointer;
+    transition:
+        background 0.2s,
+        box-shadow 0.2s,
+        outline 0.2s;
 }
-.value-legend-item:hover,
-.value-legend-item:active,
-.value-legend-item:focus {
-    background: none !important;
-    box-shadow: none !important;
-    outline: none !important;
-    color: inherit !important;
-    filter: none !important;
-    transform: none !important;
+
+.value-legend-item.selected {
+    background: rgba(59, 130, 246, 0.08);
+    border-radius: 6px;
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.08);
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
 }
-.value-legend-item .gene-cell:hover,
-.value-legend-item .gene-cell:active,
-.value-legend-item .gene-cell:focus {
-    transform: none !important;
-    box-shadow: none !important;
+
+.legend-item.appearance-legend-item {
+    cursor: pointer;
+    transition:
+        background 0.2s,
+        box-shadow 0.2s,
+        outline 0.2s;
+}
+
+.legend-item.appearance-legend-item.selected {
+    background: rgba(59, 130, 246, 0.08) !important;
+    border-radius: 6px;
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.08);
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
 }
 
 .effect-legend-item.hidden-effect,
-.value-legend-item.hidden-effect {
+.value-legend-item.hidden-effect,
+.legend-item.appearance-legend-item.hidden-effect {
     opacity: 0.7;
     color: #b91c1c !important;
     text-decoration: line-through;

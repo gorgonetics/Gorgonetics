@@ -71,6 +71,8 @@ class GeneVisualizer {
     this.currentView = "attribute"; // 'attribute' or 'appearance'
     this.currentEffectFilter = [];
     this.hiddenEffectFilters = [];
+    this.currentValueFilter = [];
+    this.hiddenValueFilters = [];
     this.selectedAttributes = [];
     this.selectedChromosomes = [];
     this.hideNeutral = false;
@@ -234,6 +236,7 @@ class GeneVisualizer {
       this.updateTableSelectionState();
       this.updateChromosomeSelectionState();
       this.updateLegend();
+      this.updateAppearanceLegendFeedback();
     } catch (error) {
       console.error("Error updating visualization:", error);
       this.showError("Failed to update gene visualization");
@@ -1584,6 +1587,116 @@ class GeneVisualizer {
           if (hidden) hidden.classList.add("hidden-effect");
         });
       }
+
+      // Add click handlers for value legend items (multi-select with ctrl/cmd, alt to hide)
+      const valueMap = {
+        dominant: "gene-dominant",
+        recessive: "gene-recessive",
+        mixed: "gene-mixed",
+        unknown: "gene-unknown",
+      };
+      legendRow = legendItems.querySelector(".legend-row");
+      if (legendRow) {
+        legendRow.querySelectorAll(".value-legend-item").forEach((item) => {
+          item.style.cursor = "pointer";
+          item.addEventListener("click", (e) => {
+            const valueType = valueMap[item.dataset.value];
+            let newValueFilter = Array.isArray(this.currentValueFilter)
+              ? [...this.currentValueFilter]
+              : [];
+            let newHiddenValueFilters = Array.isArray(this.hiddenValueFilters)
+              ? [...this.hiddenValueFilters]
+              : [];
+
+            let result;
+            if (e.altKey) {
+              result = toggleFilterState(
+                newValueFilter,
+                newHiddenValueFilters,
+                valueType,
+                "toggle-hide",
+              );
+            } else if (e.ctrlKey || e.metaKey) {
+              result = toggleFilterState(
+                newValueFilter,
+                newHiddenValueFilters,
+                valueType,
+                "toggle-select",
+              );
+            } else {
+              // Plain click: single-select (replace), but neutralize if hidden
+              if (newHiddenValueFilters.includes(valueType)) {
+                result = toggleFilterState(
+                  [],
+                  newHiddenValueFilters,
+                  valueType,
+                  "toggle-select",
+                );
+              } else if (
+                newValueFilter.length === 1 &&
+                newValueFilter[0] === valueType
+              ) {
+                result = {
+                  selected: [],
+                  hidden: newHiddenValueFilters.filter((t) => t !== valueType),
+                };
+              } else {
+                result = {
+                  selected: [valueType],
+                  hidden: newHiddenValueFilters.filter((t) => t !== valueType),
+                };
+              }
+            }
+            this.currentValueFilter = result.selected;
+            this.hiddenValueFilters = result.hidden;
+            this.updateVisualization();
+            // Update selected/hidden style
+            legendRow.querySelectorAll(".value-legend-item").forEach((i) => {
+              i.classList.remove("selected");
+              i.classList.remove("hidden-effect");
+            });
+            this.currentValueFilter.forEach((type) => {
+              if (!this.hiddenValueFilters.includes(type)) {
+                const selected = legendRow.querySelector(
+                  `.value-legend-item[data-value="${Object.keys(valueMap).find((key) => valueMap[key] === type)}"]`,
+                );
+                if (selected) selected.classList.add("selected");
+              }
+            });
+            this.hiddenValueFilters.forEach((type) => {
+              if (!this.currentValueFilter.includes(type)) {
+                const hidden = legendRow.querySelector(
+                  `.value-legend-item[data-value="${Object.keys(valueMap).find((key) => valueMap[key] === type)}"]`,
+                );
+                if (hidden) hidden.classList.add("hidden-effect");
+              }
+            });
+          });
+        });
+      }
+      // Highlight the selected and hidden values if any
+      if (
+        Array.isArray(this.currentValueFilter) &&
+        this.currentValueFilter.length > 0
+      ) {
+        this.currentValueFilter.forEach((type) => {
+          const selected = legendRow.querySelector(
+            `.value-legend-item[data-value="${Object.keys(valueMap).find((key) => valueMap[key] === type)}"]`,
+          );
+          if (selected) selected.classList.add("selected");
+        });
+      }
+      if (
+        Array.isArray(this.hiddenValueFilters) &&
+        this.hiddenValueFilters.length > 0
+      ) {
+        this.hiddenValueFilters.forEach((type) => {
+          const hidden = legendRow.querySelector(
+            `.value-legend-item[data-value="${Object.keys(valueMap).find((key) => valueMap[key] === type)}"]`,
+          );
+          if (hidden) hidden.classList.add("hidden-effect");
+        });
+      }
     } else {
       legendItems.innerHTML = `
         <div class="legend-row">
@@ -1718,31 +1831,7 @@ class GeneVisualizer {
           this.currentEffectFilter = result.selected;
           this.hiddenEffectFilters = result.hidden;
           this.updateVisualization();
-          // Update selected/hidden style
-          legendRow.querySelectorAll(".appearance-legend-item").forEach((i) => {
-            i.classList.remove("selected");
-            i.classList.remove("hidden-effect");
-          });
-          // Highlight if any family type is selected/hidden
-          Object.entries(appearanceFamilyMap).forEach(([key, types]) => {
-            const selected = types.some(
-              (type) =>
-                this.currentEffectFilter.includes(type) &&
-                !this.hiddenEffectFilters.includes(type),
-            );
-            const hidden = types.some(
-              (type) =>
-                this.hiddenEffectFilters.includes(type) &&
-                !this.currentEffectFilter.includes(type),
-            );
-            const el = legendRow.querySelector(
-              `.appearance-legend-item[data-appearance="${key}"]`,
-            );
-            if (el) {
-              if (selected) el.classList.add("selected");
-              if (hidden) el.classList.add("hidden-effect");
-            }
-          });
+          // Visual feedback will be applied after updateLegend() via updateAppearanceLegendFeedback()
         });
       });
       // Highlight the selected and hidden appearance types if any
@@ -1753,115 +1842,73 @@ class GeneVisualizer {
         // (handled above in the new Object.entries loop)
       }
 
-      // Add click handlers for value legend items (multi-select with ctrl/cmd, alt to hide)
-      const valueMap = {
-        dominant: "gene-dominant",
-        recessive: "gene-recessive",
-        mixed: "gene-mixed",
-        unknown: "gene-unknown",
-      };
-      legendRow = legendItems.querySelector(".legend-row");
-      if (legendRow) {
-        legendRow.querySelectorAll(".value-legend-item").forEach((item) => {
-          item.style.cursor = "pointer";
-          item.addEventListener("click", (e) => {
-            const valueType = valueMap[item.dataset.value];
-            let newValueFilter = Array.isArray(this.currentValueFilter)
-              ? [...this.currentValueFilter]
-              : [];
-            let newHiddenValueFilters = Array.isArray(this.hiddenValueFilters)
-              ? [...this.hiddenValueFilters]
-              : [];
-            let result;
-            if (e.altKey) {
-              result = toggleFilterState(
-                newValueFilter,
-                newHiddenValueFilters,
-                valueType,
-                "toggle-hide",
-              );
-            } else if (e.ctrlKey || e.metaKey) {
-              result = toggleFilterState(
-                newValueFilter,
-                newHiddenValueFilters,
-                valueType,
-                "toggle-select",
-              );
-            } else {
-              // Plain click: single-select (replace), but neutralize if hidden
-              if (newHiddenValueFilters.includes(valueType)) {
-                result = toggleFilterState(
-                  [],
-                  newHiddenValueFilters,
-                  valueType,
-                  "toggle-select",
-                );
-              } else if (
-                newValueFilter.length === 1 &&
-                newValueFilter[0] === valueType
-              ) {
-                result = {
-                  selected: [],
-                  hidden: newHiddenValueFilters.filter((t) => t !== valueType),
-                };
-              } else {
-                result = {
-                  selected: [valueType],
-                  hidden: newHiddenValueFilters.filter((t) => t !== valueType),
-                };
-              }
-            }
-            this.currentValueFilter = result.selected;
-            this.hiddenValueFilters = result.hidden;
-            this.updateVisualization();
-            // Update selected/hidden style
-            legendRow.querySelectorAll(".value-legend-item").forEach((i) => {
-              i.classList.remove("selected");
-              i.classList.remove("hidden-effect");
-            });
-            this.currentValueFilter.forEach((type) => {
-              if (!this.hiddenValueFilters.includes(type)) {
-                const selected = legendRow.querySelector(
-                  `.value-legend-item[data-value="${Object.keys(valueMap).find((key) => valueMap[key] === type)}"]`,
-                );
-                if (selected) selected.classList.add("selected");
-              }
-            });
-            this.hiddenValueFilters.forEach((type) => {
-              if (!this.currentValueFilter.includes(type)) {
-                const hidden = legendRow.querySelector(
-                  `.value-legend-item[data-value="${Object.keys(valueMap).find((key) => valueMap[key] === type)}"]`,
-                );
-                if (hidden) hidden.classList.add("hidden-effect");
-              }
-            });
-          });
-        });
-      }
-      // Highlight the selected and hidden values if any
-      if (
-        Array.isArray(this.currentValueFilter) &&
-        this.currentValueFilter.length > 0
-      ) {
-        this.currentValueFilter.forEach((type) => {
-          const selected = legendRow.querySelector(
-            `.value-legend-item[data-value="${Object.keys(valueMap).find((key) => valueMap[key] === type)}"]`,
-          );
-          if (selected) selected.classList.add("selected");
-        });
-      }
-      if (
-        Array.isArray(this.hiddenValueFilters) &&
-        this.hiddenValueFilters.length > 0
-      ) {
-        this.hiddenValueFilters.forEach((type) => {
-          const hidden = legendRow.querySelector(
-            `.value-legend-item[data-value="${Object.keys(valueMap).find((key) => valueMap[key] === type)}"]`,
-          );
-          if (hidden) hidden.classList.add("hidden-effect");
-        });
-      }
+      // Apply appearance legend visual feedback after HTML is recreated
+      this.updateAppearanceLegendFeedback();
     }
+  }
+
+  updateAppearanceLegendFeedback() {
+    if (this.currentView !== "appearance") return;
+
+    const legendItems = document.getElementById("legendItems");
+    const legendRow = legendItems.querySelector(".legend-row");
+    if (!legendRow) return;
+
+    // Map legend selectors to all related gene effect types (families)
+    const appearanceFamilyMap = {
+      "body-color": [
+        "body-color-hue",
+        "body-color-saturation",
+        "body-color-intensity",
+      ],
+      "wing-color": [
+        "wing-color-hue",
+        "wing-color-saturation",
+        "wing-color-intensity",
+      ],
+      "body-scale": [
+        "body-scale",
+        "wing-scale",
+        "head-scale",
+        "tail-scale",
+        "antenna-scale",
+      ],
+      deformities: ["leg-deformity", "antenna-deformity"],
+      particles: ["particles", "particle-location"],
+      glow: ["glow"],
+      "no-effect": ["appearance-neutral"],
+    };
+
+    // Clear existing visual feedback
+    legendRow.querySelectorAll(".appearance-legend-item").forEach((i) => {
+      i.classList.remove("selected");
+      i.classList.remove("hidden-effect");
+    });
+
+    // Apply visual feedback based on current filters
+    Object.entries(appearanceFamilyMap).forEach(([key, types]) => {
+      const selected = types.some(
+        (type) =>
+          this.currentEffectFilter.includes(type) &&
+          !this.hiddenEffectFilters.includes(type),
+      );
+      const hidden = types.some(
+        (type) =>
+          this.hiddenEffectFilters.includes(type) &&
+          !this.currentEffectFilter.includes(type),
+      );
+      const el = legendRow.querySelector(
+        `.appearance-legend-item[data-appearance="${key}"]`,
+      );
+      if (el) {
+        if (selected) {
+          el.classList.add("selected");
+        }
+        if (hidden) {
+          el.classList.add("hidden-effect");
+        }
+      }
+    });
   }
 
   clear() {

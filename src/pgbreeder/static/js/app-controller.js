@@ -86,10 +86,8 @@ class AppController {
 
     // Logo box toggle
     const logoBox = document.querySelector(".logo-box");
-    console.log("Logo box found:", logoBox);
     if (logoBox) {
       logoBox.addEventListener("click", (e) => {
-        console.log("Logo box clicked!");
         e.preventDefault();
         e.stopPropagation();
         this.toggleSidebar();
@@ -97,8 +95,6 @@ class AppController {
       logoBox.style.cursor = "pointer";
       logoBox.style.userSelect = "none";
       logoBox.title = "Click to toggle sidebar";
-    } else {
-      console.error("Logo box not found!");
     }
 
     // Keyboard shortcut for sidebar toggle (Ctrl/Cmd + B)
