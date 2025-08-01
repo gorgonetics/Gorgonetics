@@ -244,6 +244,11 @@ class GeneVisualizer {
     // Add block headers
     this.createBlockHeaders(container, parsedGenes);
 
+    // Create scrollable container for gene rows
+    const geneRowsContainer = document.createElement("div");
+    geneRowsContainer.className = "gene-rows-container";
+    container.appendChild(geneRowsContainer);
+
     // Statistics tracking
     let totalGenes = 0;
     const allStats = this.initializeStats();
@@ -479,7 +484,7 @@ class GeneVisualizer {
       });
 
       chromosomeRow.appendChild(blocksContainer);
-      container.appendChild(chromosomeRow);
+      geneRowsContainer.appendChild(chromosomeRow);
     });
 
     // Store stats for table access

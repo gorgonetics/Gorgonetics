@@ -1398,10 +1398,13 @@ body {
     padding: 10px;
     border-right: 1px solid #e2e8f0;
     max-height: 88dvh;
+    display: flex;
+    flex-direction: column;
 }
 
 .gene-legend {
     margin-bottom: 20px;
+    flex-shrink: 0;
 }
 
 .gene-legend h4 {
@@ -1451,8 +1454,8 @@ body {
 
 .gene-grid-container {
     min-height: 300px;
-    max-height: 80dvh;
-    overflow: auto;
+    flex: 1;
+    overflow: hidden;
     border: 1px solid #e2e8f0;
     border-radius: 6px;
     background: #f9fafb;
@@ -1470,6 +1473,7 @@ body {
     top: 0;
     z-index: 1;
     min-width: max-content;
+    flex-shrink: 0;
 }
 
 .chromosome-header-space {
@@ -1493,6 +1497,12 @@ body {
 
 .position-header.block-label {
     font-weight: bold;
+}
+
+.gene-rows-container {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: auto;
 }
 
 .chromosome-row {
