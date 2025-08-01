@@ -1,0 +1,2434 @@
+/* Gorgonetics Gene Editor Styles */
+
+/* CSS Custom Properties for Gene Colors */
+:root {
+    /* Core effect colors */
+    --color-positive: #4caf50;
+    --color-negative: #f44336;
+    --color-neutral: #95a5a6;
+
+    /* Appearance gene colors */
+    --gene-body-hue: #ff9800;
+    --gene-body-saturation: #ff6f00;
+    --gene-body-intensity: #ffcc02;
+    --gene-wing-hue: #2196f3;
+    --gene-wing-saturation: #1976d2;
+    --gene-wing-intensity: #0d47a1;
+    --gene-body-scale: #9c27b0;
+    --gene-wing-scale: #7b1fa2;
+    --gene-head-scale: #8e24aa;
+    --gene-tail-scale: #ab47bc;
+    --gene-antenna-scale: #ba68c8;
+    --gene-leg-deformity: #e91e63;
+    --gene-antenna-deformity: #c2185b;
+    --gene-particles: #00bcd4;
+    --gene-particle-location: #0097a7;
+    --gene-glow: #8bc34a;
+    --gene-appearance-neutral: #95a5a6;
+
+    /* Common effect colors */
+    --effect-positive-bg: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+    --effect-positive-border: #16a34a;
+    --effect-positive-text: #15803d;
+    --effect-negative-bg: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);
+    --effect-negative-border: #dc2626;
+    --effect-negative-text: #dc2626;
+    --effect-neutral-border: #64748b;
+    --effect-neutral-bg: #f8fafc;
+}
+
+/* CSS Reset and Normalization */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* Button Normalization for Cross-Browser Compatibility */
+button {
+    font-family: inherit;
+    font-size: inherit;
+    line-height: inherit;
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: none;
+    cursor: pointer;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    outline: none;
+    text-align: center;
+    text-decoration: none;
+    color: inherit;
+}
+
+button:focus {
+    outline: none;
+}
+
+body {
+    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #1e293b 0%, #334155 50%, #475569 100%);
+    min-height: 100vh;
+}
+
+/* App Layout */
+.app-layout {
+    display: flex;
+    min-height: 100vh;
+}
+
+/* Sidebar Styles */
+.sidebar {
+    width: 280px;
+    background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+    box-shadow: 2px 0 8px rgba(0, 0, 0, 0.12);
+    position: fixed;
+    height: 100vh;
+    left: 0;
+    top: 0;
+    display: flex;
+    flex-direction: column;
+    z-index: 100;
+    overflow: hidden;
+
+    transition: width 0.3s ease;
+}
+
+.sidebar.collapsed {
+    width: 80px;
+}
+
+.sidebar.collapsed .title-box {
+    visibility: hidden;
+    transition: visibility 0.2s ease;
+}
+
+.sidebar.collapsed .tab-text {
+    display: none;
+}
+
+.sidebar.collapsed .sidebar-controls {
+    padding: 16px 8px;
+    align-items: center;
+}
+
+.sidebar.collapsed .sidebar-controls {
+    display: none;
+}
+
+.sidebar.collapsed .logo-section {
+    justify-content: center;
+    padding: 24px;
+    align-items: center;
+    gap: 0;
+}
+
+.sidebar.collapsed .tab-list {
+    align-items: center;
+    padding: 16px;
+}
+
+.sidebar.collapsed .tab {
+    width: 100%;
+    height: 44px;
+    padding: 12px 16px;
+    justify-content: center;
+
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.6);
+    border: 2px solid rgba(0, 0, 0, 0.8);
+    color: white;
+}
+
+.sidebar.collapsed .tab:hover {
+    background: rgba(0, 0, 0, 0.8);
+    border-color: rgba(0, 0, 0, 0.9);
+    transform: scale(1.05);
+    color: white;
+}
+
+.sidebar.collapsed .tab[aria-selected="true"] {
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+    border-color: #1d4ed8;
+    box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+    color: white;
+}
+
+.sidebar.collapsed .tab-icon {
+    font-size: 16px;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+}
+
+.sidebar-header {
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    color: white;
+    padding: 0;
+    border-bottom: none;
+    flex-shrink: 0;
+}
+
+.logo-section {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 24px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    flex-shrink: 0;
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+.sidebar-footer {
+    padding: 20px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    display: flex;
+    justify-content: center;
+    margin-top: auto;
+    flex-shrink: 0;
+}
+
+.sidebar-toggle {
+    width: 36px;
+    height: 36px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+}
+
+.sidebar-toggle:hover {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border-color: rgba(255, 255, 255, 0.3);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.sidebar.collapsed .sidebar-toggle .toggle-icon {
+    transform: rotate(180deg);
+}
+
+.toggle-icon {
+    transition: transform 0.3s ease;
+    font-weight: bold;
+}
+
+.logo-box {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 60px;
+    height: 60px;
+    background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+    border-radius: 12px;
+    box-shadow: 0 4px 14px 0 rgba(59, 130, 246, 0.3);
+    border: none;
+}
+
+.title-box {
+    flex: 1;
+    text-align: left;
+    min-width: 0;
+    height: 48px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    /* Prevents flex item from overflowing */
+}
+
+.title-box h1 {
+    font-size: 24px;
+    margin: 0;
+    font-weight: 700;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+.title-box p {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.7);
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    margin: 0;
+    white-space: nowrap;
+}
+
+.dna-emoji {
+    font-family:
+        "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif;
+    -webkit-text-fill-color: initial;
+    color: white;
+    background: none;
+    font-size: 32px;
+    animation: glow 3s ease-in-out infinite alternate;
+}
+
+@keyframes glow {
+    0% {
+        filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.3));
+    }
+    100% {
+        filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.6));
+    }
+}
+
+.gradient-text {
+    background: linear-gradient(135deg, #60a5fa 0%, #a78bfa 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* Tab Navigation */
+.tab-container {
+    background: rgba(255, 255, 255, 0.05);
+    transition: all 0.3s ease;
+}
+
+.tab-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 16px;
+}
+
+.tab {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-align: left;
+    width: 100%;
+}
+
+.tab:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.3);
+    color: white;
+}
+
+.tab[aria-selected="true"] {
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+    border-color: #1d4ed8;
+    color: white;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.tab[aria-selected="false"] {
+    background: rgba(0, 0, 0, 0.4);
+    border-color: rgba(0, 0, 0, 0.6);
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.tab-icon {
+    font-size: 16px;
+    flex-shrink: 0;
+}
+
+.tab-text {
+    flex: 1;
+    transition: opacity 0.3s ease;
+    white-space: nowrap;
+}
+
+.tab-panel {
+    padding: 0;
+}
+
+.tab-panel[style*="block"] {
+    display: block !important;
+}
+
+.sidebar-controls {
+    flex: 1;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    transition: all 0.3s ease;
+    overflow-y: auto;
+    min-height: 0;
+}
+
+.sidebar-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+/* Main Content Area */
+.main-content {
+    margin-left: 280px;
+    flex: 1;
+    overflow-y: auto;
+    max-height: 100vh;
+    transition: margin-left 0.3s ease;
+}
+
+.main-content.sidebar-collapsed {
+    margin-left: 80px;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.form-group label {
+    font-weight: 600;
+    color: #374151;
+    font-size: 14px;
+}
+
+.form-group select {
+    width: 100%;
+    padding: 12px 14px;
+    border: 2px solid #e2e8f0;
+    border-radius: 10px;
+    font-size: 14px;
+    background: white;
+    transition: all 0.3s ease;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.form-group select:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.form-group select:disabled {
+    background: #f8fafc;
+    color: #94a3b8;
+    cursor: not-allowed;
+    border-color: #e2e8f0;
+}
+
+.load-btn,
+.export-btn {
+    padding: 12px 18px;
+    border: none;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    width: 100%;
+    letter-spacing: 0.025em;
+}
+
+.load-btn {
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+    color: white;
+    border: none;
+    box-shadow: 0 4px 14px 0 rgba(59, 130, 246, 0.25);
+}
+
+.load-btn:hover:not(:disabled) {
+    background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+    box-shadow: 0 8px 25px rgba(59, 130, 246, 0.35);
+}
+
+.load-btn:disabled {
+    background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%);
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.export-btn {
+    background: linear-gradient(135deg, #059669 0%, #047857 100%);
+    color: white;
+    border: none;
+    box-shadow: 0 4px 14px 0 rgba(5, 150, 105, 0.25);
+}
+
+.export-btn:hover:not(:disabled) {
+    background: linear-gradient(135deg, #047857 0%, #065f46 100%);
+    box-shadow: 0 8px 25px rgba(5, 150, 105, 0.35);
+}
+
+.export-btn:disabled {
+    background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%);
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.genes-container {
+    padding: 12px;
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+    margin: 12px;
+    border-radius: 12px;
+    box-shadow:
+        0 20px 40px rgba(0, 0, 0, 0.08),
+        0 0 0 1px rgba(255, 255, 255, 0.05);
+    backdrop-filter: blur(10px);
+}
+
+.genes-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.gene-block {
+    background: linear-gradient(135deg, #ffffff 0%, #f9fafb 100%);
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 16px;
+    box-shadow:
+        0 4px 16px rgba(0, 0, 0, 0.06),
+        0 0 0 1px rgba(255, 255, 255, 0.05);
+    margin-bottom: 16px;
+    transition: all 0.3s ease;
+}
+
+.gene-block:hover {
+    box-shadow:
+        0 8px 25px rgba(0, 0, 0, 0.1),
+        0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+.gene-block-header {
+    font-size: 0.95em;
+    font-weight: 700;
+    color: #0f172a;
+    background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+    border-radius: 12px;
+    padding: 12px 16px;
+    margin-bottom: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: 1px solid #cbd5e1;
+}
+
+.gene-block-header:hover {
+    background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.gene-block-header .fold-icon {
+    font-size: 12px;
+    color: #475569;
+    transition: transform 0.3s;
+}
+
+.gene-block.collapsed .fold-icon {
+    transform: rotate(-90deg);
+}
+
+.gene-block.collapsed .gene-row {
+    display: none;
+}
+
+.gene-block.collapsed {
+    margin-bottom: 2px;
+    padding: 4px 8px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.gene-block.collapsed .gene-block-header {
+    margin-bottom: 0;
+    padding: 4px 8px;
+    font-size: 0.85em;
+    background: #f9fafb;
+    border-radius: 4px;
+}
+
+.gene-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    transition: all 0.2s;
+}
+
+.gene-card {
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 12px;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.gene-card:hover {
+    border-color: #3b82f6;
+    background: linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%);
+    box-shadow: 0 8px 25px rgba(59, 130, 246, 0.15);
+}
+
+.gene-card.has-changes {
+    border-color: #f59e0b;
+    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+    box-shadow: 0 4px 16px rgba(245, 158, 11, 0.2);
+}
+
+.gene-card.has-changes:hover {
+    border-color: #d97706;
+    background: linear-gradient(135deg, #fef3c7 0%, #fed7aa 100%);
+    box-shadow: 0 8px 25px rgba(217, 119, 6, 0.25);
+}
+
+/* Gene Effect Visual Feedback Styles */
+
+/* Base effect styling */
+.effect-select {
+    position: relative;
+    font-weight: 500;
+}
+
+/* Positive effect indicator (ends with +) */
+.effect-positive {
+    background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+    border-color: #16a34a !important;
+    color: #15803d;
+}
+
+.effect-positive:focus {
+    box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2);
+}
+
+/* Negative effect indicator (ends with -) */
+.effect-negative {
+    background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);
+    border-color: #dc2626 !important;
+    color: #dc2626;
+}
+
+.effect-negative:focus {
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
+}
+
+/* Attribute-specific color coding - All attributes use same neutral base color */
+.effect-intelligence,
+.effect-toughness,
+.effect-speed,
+.effect-friendliness,
+.effect-ruggedness,
+.effect-ferocity,
+.effect-enthusiasm,
+.effect-virility {
+    border-left: 4px solid #64748b !important;
+    box-shadow: inset 0 0 0 1px rgba(100, 116, 139, 0.2);
+}
+
+.effect-none {
+    border-left: 4px solid #6b7280 !important;
+    box-shadow: inset 0 0 0 1px rgba(107, 114, 128, 0.2);
+    background: #f9fafb;
+    color: #6b7280;
+}
+
+/* Combination effects - Positive/Negative override attribute colors */
+.effect-positive.effect-intelligence,
+.effect-positive.effect-toughness,
+.effect-positive.effect-speed,
+.effect-positive.effect-friendliness,
+.effect-positive.effect-ruggedness,
+.effect-positive.effect-ferocity,
+.effect-positive.effect-enthusiasm,
+.effect-positive.effect-virility {
+    background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+    border-left-color: #16a34a !important;
+}
+
+.effect-negative.effect-intelligence,
+.effect-negative.effect-toughness,
+.effect-negative.effect-speed,
+.effect-negative.effect-friendliness,
+.effect-negative.effect-ruggedness,
+.effect-negative.effect-ferocity,
+.effect-negative.effect-enthusiasm,
+.effect-negative.effect-virility {
+    background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);
+    border-left-color: #dc2626 !important;
+}
+
+/* Enhanced gene card styling when effects are present */
+.gene-card.has-effects {
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.gene-card.has-effects:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Effect preview badges */
+.effect-preview {
+    display: inline-block;
+    padding: 2px 6px;
+    margin: 1px;
+    border-radius: 12px;
+    font-size: 9px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.effect-preview.positive {
+    background: #16a34a;
+    color: white;
+}
+
+.effect-preview.negative {
+    background: #dc2626;
+    color: white;
+}
+
+.effect-preview.neutral {
+    background: #6b7280;
+    color: white;
+}
+
+/* Legend/Color Guide */
+.effect-legend {
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 16px;
+    margin-top: 20px;
+    font-size: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.effect-legend h4 {
+    margin-bottom: 12px;
+    color: #0f172a;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.legend-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 8px;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.4em;
+    font-size: 11px;
+    color: #6b7280;
+    white-space: nowrap;
+}
+
+.value-legend-item {
+    cursor: pointer;
+    transition:
+        background 0.2s,
+        box-shadow 0.2s,
+        outline 0.2s;
+}
+
+.value-legend-item.selected {
+    background: rgba(59, 130, 246, 0.08);
+    border-radius: 6px;
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.08);
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+}
+
+.legend-item.appearance-legend-item {
+    cursor: pointer;
+    transition:
+        background 0.2s,
+        box-shadow 0.2s,
+        outline 0.2s;
+}
+
+.legend-item.appearance-legend-item.selected {
+    background: rgba(59, 130, 246, 0.08) !important;
+    border-radius: 6px;
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.08);
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+}
+
+.effect-legend-item.hidden-effect,
+.value-legend-item.hidden-effect,
+.legend-item.appearance-legend-item.hidden-effect {
+    opacity: 0.7;
+    color: #b91c1c !important;
+    text-decoration: line-through;
+    filter: grayscale(0.7);
+    pointer-events: auto;
+    background: rgba(239, 68, 68, 0.1);
+    border-radius: 6px;
+    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.1);
+    outline: 2px solid #ef4444;
+    outline-offset: 2px;
+    transition:
+        opacity 0.2s,
+        color 0.2s,
+        outline 0.2s;
+}
+
+.effect-legend-item.selected {
+    background: rgba(59, 130, 246, 0.08);
+    border-radius: 6px;
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.08);
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+}
+
+.legend-color {
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.legend-intelligence,
+.legend-toughness,
+.legend-speed,
+.legend-friendliness,
+.legend-ruggedness,
+.legend-ferocity,
+.legend-enthusiasm,
+.legend-virility {
+    background: #64748b;
+}
+
+.notes-section {
+    margin-top: 4px;
+}
+
+.notes-toggle {
+    background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+    border: 1px solid #cbd5e1;
+    color: #475569;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 10px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    width: 100%;
+    text-align: center;
+    font-weight: 600;
+}
+
+.notes-toggle:hover {
+    background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
+    color: #334155;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.notes-content {
+    display: none;
+    margin-top: 4px;
+}
+
+.notes-content.expanded {
+    display: block;
+}
+
+.save-btn {
+    background: linear-gradient(135deg, #059669 0%, #047857 100%);
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    width: 100%;
+    font-weight: 600;
+    margin-top: 8px;
+    letter-spacing: 0.025em;
+    box-shadow: 0 2px 8px rgba(5, 150, 105, 0.2);
+}
+
+.save-btn:hover:not(:disabled) {
+    background: linear-gradient(135deg, #047857 0%, #065f46 100%);
+    box-shadow: 0 4px 12px rgba(5, 150, 105, 0.3);
+}
+
+.save-btn:disabled {
+    background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%);
+    color: #e2e8f0;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.loading {
+    text-align: center;
+    padding: 48px;
+    color: #64748b;
+    font-size: 16px;
+    font-weight: 500;
+}
+
+.error {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #dc2626;
+    padding: 15px;
+    border-radius: 8px;
+    margin: 20px;
+}
+
+.success {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    color: #16a34a;
+    padding: 15px;
+    border-radius: 8px;
+    margin: 20px;
+}
+
+/* Dropdown Option Styling */
+
+/* Style individual options in select dropdowns */
+.gene-field select option {
+    padding: 6px 8px;
+    font-weight: 500;
+    border-radius: 3px;
+    margin: 1px 0;
+}
+
+/* Positive effect options */
+.gene-field select option[value$="+"] {
+    background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+    color: #15803d;
+    font-weight: 600;
+}
+
+/* Negative effect options */
+.gene-field select option[value$="-"] {
+    background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);
+    color: #dc2626;
+    font-weight: 600;
+}
+
+/* None/empty option */
+.gene-field select option[value="None"],
+.gene-field select option[value=""] {
+    background: #f9fafb;
+    color: #6b7280;
+    font-style: italic;
+}
+
+/* Attribute-specific option styling - All use same neutral color */
+.gene-field select option[value*="Intelligence"],
+.gene-field select option[value*="Toughness"],
+.gene-field select option[value*="Speed"],
+.gene-field select option[value*="Friendliness"],
+.gene-field select option[value*="Ruggedness"],
+.gene-field select option[value*="Ferocity"],
+.gene-field select option[value*="Enthusiasm"],
+.gene-field select option[value*="Virility"] {
+    border-left: 4px solid var(--effect-neutral-border);
+    background-color: var(--effect-neutral-bg);
+}
+
+/* Combined positive attribute styling - All positive effects use green */
+.gene-field select option[value="Intelligence+"],
+.gene-field select option[value="Toughness+"],
+.gene-field select option[value="Speed+"],
+.gene-field select option[value="Friendliness+"],
+.gene-field select option[value="Ruggedness+"],
+.gene-field select option[value="Ferocity+"],
+.gene-field select option[value="Enthusiasm+"],
+.gene-field select option[value="Virility+"] {
+    background: var(--effect-positive-bg);
+    border-left: 4px solid var(--effect-positive-border);
+    color: var(--effect-positive-text);
+}
+
+/* Combined negative attribute styling - All negative effects use red */
+.gene-field select option[value="Intelligence-"],
+.gene-field select option[value="Toughness-"],
+.gene-field select option[value="Speed-"],
+.gene-field select option[value="Friendliness-"],
+.gene-field select option[value="Ruggedness-"],
+.gene-field select option[value="Ferocity-"],
+.gene-field select option[value="Enthusiasm-"],
+.gene-field select option[value="Virility-"] {
+    background: var(--effect-negative-bg);
+    border-left: 4px solid var(--effect-negative-border);
+    color: var(--effect-negative-text);
+}
+
+/* Hover effects for options */
+.gene-field select option:hover {
+    filter: brightness(1.05);
+    transform: scale(1.02);
+    transition: all 0.2s ease;
+}
+
+/* Selected option styling */
+.gene-field select option:checked {
+    font-weight: 700;
+    box-shadow: inset 0 0 0 2px rgba(79, 70, 229, 0.5);
+}
+
+/* Enhanced select dropdown appearance */
+.gene-field {
+    position: relative;
+}
+
+.gene-field select {
+    appearance: none;
+    padding-right: 32px;
+    cursor: pointer;
+    width: 100%;
+}
+
+.gene-field::after {
+    content: "▼";
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
+    font-size: 12px;
+    color: #64748b;
+}
+
+.gene-field select:focus {
+    box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.2);
+    border-color: #4f46e5;
+}
+
+/* Custom scrollbar for long dropdown lists */
+.gene-field select {
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+/* Webkit browsers scrollbar styling */
+.gene-field select::-webkit-scrollbar {
+    width: 8px;
+}
+
+.gene-field select::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.gene-field select::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+}
+
+.gene-field select::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* Custom Dropdown Styling */
+
+.custom-select-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+.custom-select-selected {
+    padding: 6px 26px 6px 8px;
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+    cursor: pointer;
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+    min-height: 24px;
+    transition: all 0.3s ease;
+    position: relative;
+    font-weight: 500;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.custom-select-selected::after {
+    content: "▼";
+    position: absolute;
+    right: 8px;
+    font-size: 10px;
+    color: #64748b;
+    transition: transform 0.3s ease;
+}
+
+.custom-select-wrapper.open .custom-select-selected::after {
+    transform: rotate(180deg);
+}
+
+.custom-select-selected:hover {
+    border-color: #3b82f6;
+    background: linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+}
+
+.custom-select-wrapper.open .custom-select-selected {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    background: linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%);
+}
+
+.custom-select-options {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 2px solid #3b82f6;
+    border-top: none;
+    border-radius: 0 0 8px 8px;
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 1000;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    backdrop-filter: blur(10px);
+}
+
+.custom-option {
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 11px;
+    transition: all 0.3s ease;
+    border-left: 4px solid transparent;
+    font-weight: 500;
+}
+
+.custom-option:hover {
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    border-left-color: #1d4ed8;
+    color: white;
+    font-weight: 700;
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+}
+
+.custom-option.selected {
+    font-weight: 600;
+    background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
+    border-left-color: #3b82f6;
+}
+
+/* Positive option styling */
+.option-positive {
+    background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+    color: #15803d;
+    border-left-color: #16a34a;
+}
+
+.option-positive:hover {
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+    border-left-color: #1d4ed8 !important;
+    color: white !important;
+    font-weight: 700 !important;
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3) !important;
+}
+
+/* Negative option styling */
+.option-negative {
+    background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);
+    color: #dc2626;
+    border-left-color: #dc2626;
+}
+
+.option-negative:hover {
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+    border-left-color: #1d4ed8 !important;
+    color: white !important;
+    font-weight: 700 !important;
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3) !important;
+}
+
+/* None option styling */
+.option-none {
+    background: #f9fafb;
+    color: #6b7280;
+    border-left-color: #6b7280;
+}
+
+.option-none:hover {
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+    border-left-color: #1d4ed8 !important;
+    color: white !important;
+    font-weight: 700 !important;
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3) !important;
+}
+
+/* Attribute-specific option colors - All use same neutral color */
+.option-intelligence,
+.option-toughness,
+.option-speed,
+.option-friendliness,
+.option-ruggedness,
+.option-ferocity,
+.option-enthusiasm,
+.option-virility,
+.option-loyalty {
+    border-left-color: #64748b;
+}
+
+/* All positive effects use green styling */
+.option-intelligence.option-positive,
+.option-toughness.option-positive,
+.option-speed.option-positive,
+.option-friendliness.option-positive,
+.option-ruggedness.option-positive,
+.option-ferocity.option-positive,
+.option-enthusiasm.option-positive,
+.option-virility.option-positive {
+    background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+    color: #15803d;
+    border-left-color: #16a34a;
+}
+
+/* All negative effects use red styling */
+.option-intelligence.option-negative,
+.option-toughness.option-negative,
+.option-speed.option-negative,
+.option-friendliness.option-negative,
+.option-ruggedness.option-negative,
+.option-ferocity.option-negative,
+.option-enthusiasm.option-negative,
+.option-virility.option-negative {
+    background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);
+    color: #dc2626;
+    border-left-color: #dc2626;
+}
+
+/* Effect indicator badge styles for legend */
+.legend-badge {
+    background: #16a34a;
+    color: white;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 11px;
+    margin-right: 10px;
+    display: inline-block;
+}
+
+.legend-badge.positive {
+    background: #16a34a;
+}
+
+.legend-badge.negative {
+    background: #dc2626;
+}
+
+.legend-badge.neutral {
+    background: #6b7280;
+}
+
+.legend-badges {
+    margin-bottom: 10px;
+}
+
+.pets-dashboard {
+    padding: 40px;
+    text-align: center;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.pets-dashboard h2 {
+    font-size: 32px;
+    font-weight: 700;
+    color: #1f2937;
+    margin-bottom: 16px;
+    background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.pets-dashboard p {
+    font-size: 18px;
+    color: #6b7280;
+    margin-bottom: 32px;
+}
+
+/* Pets List Styles */
+.pets-list {
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background: white;
+}
+
+/* Gene Visualization Styles */
+.gene-visualizer {
+    background: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.visualizer-header {
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    color: white;
+    padding: 12px 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.compact-header {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    flex-wrap: wrap;
+    min-height: 0;
+}
+
+.visualizer-title {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    flex-shrink: 0;
+    line-height: 1.2;
+    padding-right: 16px;
+}
+
+.visualizer-header h3 {
+    /* legacy, not used in compact-header */
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.visualizer-controls {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.view-toggle {
+    display: flex;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.btn-view {
+    padding: 8px 16px;
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-view:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.btn-view.active {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    font-weight: 600;
+}
+
+.filter-controls {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.filter-select {
+    padding: 6px 12px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    color: white;
+    font-size: 14px;
+}
+
+.filter-select option {
+    background: #1e293b;
+    color: white;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+    margin: 0;
+}
+
+.visualizer-content {
+    display: flex;
+    min-height: 89dvh;
+    max-height: 89dvh;
+}
+
+.gene-section {
+    flex: 1;
+    padding: 10px;
+    border-right: 1px solid #e2e8f0;
+    max-height: 88dvh;
+}
+
+.gene-legend {
+    margin-bottom: 20px;
+}
+
+.gene-legend h4 {
+    margin: 0 0 12px 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #374151;
+}
+
+.legend-items {
+    width: 100%;
+}
+
+/* Already defined above, no need to repeat */
+
+.legend-color {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 3px solid;
+    flex-shrink: 0;
+    display: inline-block;
+}
+
+.legend-color.gene-recessive {
+    border-width: 4px;
+}
+
+/* Legend horizontal row and label spacing */
+.legend-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5em;
+}
+
+.legend-label-effect {
+    font-weight: 600;
+    margin-right: 1em;
+}
+
+.legend-label-value {
+    font-weight: 600;
+    margin-left: 2em;
+    margin-right: 1em;
+}
+
+.gene-grid-container {
+    min-height: 300px;
+    max-height: 80dvh;
+    overflow: auto;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    background: #f9fafb;
+    display: flex;
+    flex-direction: column;
+}
+
+.block-headers {
+    display: flex;
+    align-items: center;
+    padding: 4px 0;
+    background: #f1f5f9;
+    border-bottom: 1px solid #e2e8f0;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    min-width: max-content;
+}
+
+.chromosome-header-space {
+    width: 32px;
+    height: 32px;
+    background: #f9fafb;
+}
+
+.position-header {
+    width: 21px;
+    text-align: center;
+    font-size: 10px;
+    font-weight: normal;
+    color: #374151;
+    height: 19px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.position-header.block-label {
+    font-weight: bold;
+}
+
+.chromosome-row {
+    display: flex;
+    border-bottom: 1px solid #e2e8f0;
+    min-width: max-content;
+}
+
+.chromosome-label {
+    width: 32px;
+    padding: 8px 2px;
+    background: #f9fafb;
+    border-right: 1px solid #e2e8f0;
+    font-size: 11px;
+    font-weight: 600;
+    color: #374151;
+    text-align: center;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.chromosome-label:hover {
+    background: #f3f4f6;
+}
+
+.chromosome-label.selected {
+    background: #f3e8ff;
+    color: #7c3aed;
+    border-left: 3px solid #7c3aed;
+    font-weight: 600;
+}
+
+.chromosome-label.hidden-chromosome {
+    background: #fff7ed;
+    color: #ea580c;
+    border-left: 3px solid #ea580c;
+    font-weight: 600;
+}
+
+.attribute-row.hidden-attribute,
+.appearance-row.hidden-attribute {
+    background-color: #fee2e2 !important;
+    box-shadow:
+        inset 4px 0 0 0 #ef4444,
+        inset 0 0 0 1px rgba(239, 68, 68, 0.2);
+}
+.attribute-row.hidden-attribute td,
+.appearance-row.hidden-attribute td {
+    color: #b91c1c;
+    font-weight: 500;
+}
+
+.blocks-container {
+    display: flex;
+    flex: 1;
+    flex-wrap: nowrap;
+    overflow-x: visible;
+    align-items: center;
+    min-width: max-content;
+}
+
+.block-spacer {
+    width: 8px;
+    height: 20px;
+    flex-shrink: 0;
+}
+
+.header-spacer {
+    width: 8px;
+    height: 32px;
+    flex-shrink: 0;
+}
+
+.gene-cell {
+    width: 19px;
+    height: 19px;
+    margin: 1px;
+    border-radius: 50%;
+    border: 3px solid;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+    flex-shrink: 0;
+}
+
+.gene-cell:hover {
+    transform: scale(1.2);
+    z-index: 20;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Gene effect colors */
+.gene-positive.gene-dominant {
+    background-color: #4caf50;
+    border-color: #4caf50;
+}
+
+.gene-negative.gene-dominant {
+    background-color: #f44336;
+    border-color: #f44336;
+}
+
+.gene-neutral.gene-dominant {
+    background-color: #95a5a6;
+    border-color: #95a5a6;
+}
+
+.gene-positive.gene-recessive {
+    background-color: rgba(76, 175, 80, 0.15);
+    border-color: #4caf50;
+    border-width: 4px;
+}
+
+.gene-negative.gene-recessive {
+    background-color: rgba(244, 67, 54, 0.15);
+    border-color: #f44336;
+    border-width: 4px;
+}
+
+.gene-filtered-out {
+    opacity: 0.25 !important;
+    filter: grayscale(1) blur(0.5px);
+    pointer-events: none !important;
+    background: #f3f4f6 !important;
+    border-color: #b0b4ba !important;
+    color: #b0b4ba !important;
+    transition: opacity 0.2s;
+}
+
+.gene-neutral.gene-recessive {
+    background-color: rgba(149, 165, 166, 0.15);
+    border-color: #95a5a6;
+    border-width: 4px;
+}
+
+.gene-positive.gene-mixed {
+    background: linear-gradient(135deg, transparent 50%, #4caf50 50%);
+    border-color: #4caf50;
+}
+
+.gene-negative.gene-mixed {
+    background: linear-gradient(135deg, transparent 50%, #f44336 50%);
+    border-color: #f44336;
+}
+
+.gene-neutral.gene-mixed {
+    background: linear-gradient(135deg, transparent 50%, #95a5a6 50%);
+    border-color: #95a5a6;
+}
+
+.gene-neutral.gene-unknown {
+    background: #f3f4f6;
+    border: 2.5px dashed rgba(149, 165, 166, 0.5);
+    color: #b0b4ba;
+    opacity: 0.7;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.gene-neutral.gene-unknown .gene-unknown-symbol {
+    color: #b0b4ba;
+    font-size: 1em;
+    font-weight: 600;
+    opacity: 1;
+    text-align: center;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Potential effect colors */
+.gene-potential-positive.gene-dominant {
+    background-color: #3498db;
+    border-color: #3498db;
+}
+
+.gene-potential-positive.gene-recessive {
+    background-color: rgba(52, 152, 219, 0.15);
+    border-color: #3498db;
+    border-width: 4px;
+}
+
+.gene-potential-positive.gene-mixed {
+    background: linear-gradient(135deg, transparent 50%, #3498db 50%);
+    border-color: #3498db;
+}
+
+.gene-potential-negative.gene-dominant {
+    background-color: #9b59b6;
+    border-color: #9b59b6;
+}
+
+.gene-potential-negative.gene-recessive {
+    background-color: rgba(155, 89, 182, 0.15);
+    border-color: #9b59b6;
+    border-width: 4px;
+}
+
+.gene-potential-negative.gene-mixed {
+    background: linear-gradient(135deg, transparent 50%, #9b59b6 50%);
+    border-color: #9b59b6;
+}
+
+.gene-hidden {
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+.gene-invisible {
+    background-color: transparent !important;
+    border-color: transparent !important;
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* Appearance-based gene colors - Consolidated using CSS custom properties */
+
+/* Set color variables for each gene type */
+.gene-body-color-hue {
+    --gene-color: var(--gene-body-hue);
+}
+.gene-body-color-saturation {
+    --gene-color: var(--gene-body-saturation);
+}
+.gene-body-color-intensity {
+    --gene-color: var(--gene-body-intensity);
+}
+.gene-wing-color-hue {
+    --gene-color: var(--gene-wing-hue);
+}
+.gene-wing-color-saturation {
+    --gene-color: var(--gene-wing-saturation);
+}
+.gene-wing-color-intensity {
+    --gene-color: var(--gene-wing-intensity);
+}
+.gene-body-scale {
+    --gene-color: var(--gene-body-scale);
+}
+.gene-wing-scale {
+    --gene-color: var(--gene-wing-scale);
+}
+.gene-head-scale {
+    --gene-color: var(--gene-head-scale);
+}
+.gene-tail-scale {
+    --gene-color: var(--gene-tail-scale);
+}
+.gene-antenna-scale {
+    --gene-color: var(--gene-antenna-scale);
+}
+.gene-leg-deformity {
+    --gene-color: var(--gene-leg-deformity);
+}
+.gene-antenna-deformity {
+    --gene-color: var(--gene-antenna-deformity);
+}
+.gene-particles {
+    --gene-color: var(--gene-particles);
+}
+.gene-particle-location {
+    --gene-color: var(--gene-particle-location);
+}
+.gene-glow {
+    --gene-color: var(--gene-glow);
+}
+.gene-appearance-neutral {
+    --gene-color: var(--gene-appearance-neutral);
+}
+
+/* Universal patterns for appearance genes */
+.gene-body-color-hue.gene-dominant,
+.gene-body-color-saturation.gene-dominant,
+.gene-body-color-intensity.gene-dominant,
+.gene-wing-color-hue.gene-dominant,
+.gene-wing-color-saturation.gene-dominant,
+.gene-wing-color-intensity.gene-dominant,
+.gene-body-scale.gene-dominant,
+.gene-wing-scale.gene-dominant,
+.gene-head-scale.gene-dominant,
+.gene-tail-scale.gene-dominant,
+.gene-antenna-scale.gene-dominant,
+.gene-leg-deformity.gene-dominant,
+.gene-antenna-deformity.gene-dominant,
+.gene-particles.gene-dominant,
+.gene-particle-location.gene-dominant,
+.gene-glow.gene-dominant,
+.gene-appearance-neutral.gene-dominant {
+    background-color: var(--gene-color);
+    border-color: var(--gene-color);
+}
+
+.gene-body-color-hue.gene-recessive,
+.gene-body-color-saturation.gene-recessive,
+.gene-body-color-intensity.gene-recessive,
+.gene-wing-color-hue.gene-recessive,
+.gene-wing-color-saturation.gene-recessive,
+.gene-wing-color-intensity.gene-recessive,
+.gene-body-scale.gene-recessive,
+.gene-wing-scale.gene-recessive,
+.gene-head-scale.gene-recessive,
+.gene-tail-scale.gene-recessive,
+.gene-antenna-scale.gene-recessive,
+.gene-leg-deformity.gene-recessive,
+.gene-antenna-deformity.gene-recessive,
+.gene-particles.gene-recessive,
+.gene-particle-location.gene-recessive,
+.gene-glow.gene-recessive,
+.gene-appearance-neutral.gene-recessive {
+    border-color: var(--gene-color);
+    border-width: 4px;
+}
+
+.gene-body-color-hue.gene-mixed,
+.gene-body-color-saturation.gene-mixed,
+.gene-body-color-intensity.gene-mixed,
+.gene-wing-color-hue.gene-mixed,
+.gene-wing-color-saturation.gene-mixed,
+.gene-wing-color-intensity.gene-mixed,
+.gene-body-scale.gene-mixed,
+.gene-wing-scale.gene-mixed,
+.gene-head-scale.gene-mixed,
+.gene-tail-scale.gene-mixed,
+.gene-antenna-scale.gene-mixed,
+.gene-leg-deformity.gene-mixed,
+.gene-antenna-deformity.gene-mixed,
+.gene-particles.gene-mixed,
+.gene-particle-location.gene-mixed,
+.gene-glow.gene-mixed,
+.gene-appearance-neutral.gene-mixed {
+    background: linear-gradient(135deg, transparent 50%, var(--gene-color) 50%);
+    border-color: var(--gene-color);
+}
+
+/* Individual rgba backgrounds for recessive genes (since CSS custom properties in rgba need specific values) */
+.gene-body-color-hue.gene-recessive {
+    background-color: rgba(255, 152, 0, 0.15);
+}
+.gene-body-color-saturation.gene-recessive {
+    background-color: rgba(255, 111, 0, 0.15);
+}
+.gene-body-color-intensity.gene-recessive {
+    background-color: rgba(255, 204, 2, 0.15);
+}
+.gene-wing-color-hue.gene-recessive {
+    background-color: rgba(33, 150, 243, 0.15);
+}
+.gene-wing-color-saturation.gene-recessive {
+    background-color: rgba(25, 118, 210, 0.15);
+}
+.gene-wing-color-intensity.gene-recessive {
+    background-color: rgba(13, 71, 161, 0.15);
+}
+.gene-body-scale.gene-recessive {
+    background-color: rgba(156, 39, 176, 0.15);
+}
+.gene-wing-scale.gene-recessive {
+    background-color: rgba(123, 31, 162, 0.15);
+}
+.gene-head-scale.gene-recessive {
+    background-color: rgba(142, 36, 170, 0.15);
+}
+.gene-tail-scale.gene-recessive {
+    background-color: rgba(171, 71, 188, 0.15);
+}
+.gene-antenna-scale.gene-recessive {
+    background-color: rgba(186, 104, 200, 0.15);
+}
+.gene-leg-deformity.gene-recessive {
+    background-color: rgba(233, 30, 99, 0.15);
+}
+.gene-antenna-deformity.gene-recessive {
+    background-color: rgba(194, 24, 91, 0.15);
+}
+.gene-particles.gene-recessive {
+    background-color: rgba(0, 188, 212, 0.15);
+}
+.gene-particle-location.gene-recessive {
+    background-color: rgba(0, 151, 167, 0.15);
+}
+.gene-glow.gene-recessive {
+    background-color: rgba(139, 195, 74, 0.15);
+}
+.gene-appearance-neutral.gene-recessive {
+    background-color: rgba(149, 165, 166, 0.15);
+}
+
+.stats-section {
+    width: 300px;
+    background: #f9fafb;
+    padding: 10px;
+    overflow-y: auto;
+}
+
+.stats-table-container {
+    position: sticky;
+    top: 0;
+}
+
+.table-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.stats-table-container h4 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #374151;
+}
+
+.selection-counters {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.selection-counter {
+    background: #dbeafe;
+    color: #1d4ed8;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 500;
+    border: 1px solid #93c5fd;
+}
+
+.selection-counter span {
+    font-weight: 600;
+}
+
+#chromosomeCounter {
+    background: #f3e8ff;
+    color: #7c3aed;
+    border: 1px solid #c4b5fd;
+}
+
+.table-instructions {
+    font-size: 11px;
+    color: #6b7280;
+    margin-bottom: 8px;
+    font-style: italic;
+}
+
+.stats-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    background: white;
+    border-radius: 6px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.stats-table th,
+.stats-table td {
+    padding: 8px 12px;
+    text-align: left;
+    border-bottom: 1px solid #e2e8f0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.stats-table th {
+    background: #f3f4f6;
+    font-weight: 600;
+    color: #374151;
+}
+
+.stats-table tbody tr {
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.stats-table tbody tr:hover {
+    background-color: #f9fafb;
+}
+
+.stats-table tbody tr.selected {
+    background-color: #dbeafe;
+}
+
+.stats-table tbody tr.selected {
+    background-color: #dbeafe !important;
+    box-shadow:
+        inset 4px 0 0 0 #3b82f6,
+        inset 0 0 0 1px rgba(59, 130, 246, 0.2);
+}
+
+/* Color indicators for table rows */
+.stats-table td:first-child {
+    position: relative;
+}
+
+.stats-table .color-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 8px;
+    vertical-align: middle;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+/* Color indicators using CSS custom properties */
+.color-indicator.positive {
+    background-color: var(--color-positive);
+}
+.color-indicator.negative {
+    background-color: var(--color-negative);
+}
+.color-indicator.neutral {
+    background-color: var(--color-neutral);
+}
+.color-indicator.body-color-hue {
+    background-color: var(--gene-body-hue);
+}
+.color-indicator.body-color-saturation {
+    background-color: var(--gene-body-saturation);
+}
+.color-indicator.body-color-intensity {
+    background-color: var(--gene-body-intensity);
+}
+.color-indicator.wing-color-hue {
+    background-color: var(--gene-wing-hue);
+}
+.color-indicator.wing-color-saturation {
+    background-color: var(--gene-wing-saturation);
+}
+.color-indicator.wing-color-intensity {
+    background-color: var(--gene-wing-intensity);
+}
+.color-indicator.body-scale {
+    background-color: var(--gene-body-scale);
+}
+.color-indicator.wing-scale {
+    background-color: var(--gene-wing-scale);
+}
+.color-indicator.head-scale {
+    background-color: var(--gene-head-scale);
+}
+.color-indicator.tail-scale {
+    background-color: var(--gene-tail-scale);
+}
+.color-indicator.antenna-scale {
+    background-color: var(--gene-antenna-scale);
+}
+.color-indicator.leg-deformity {
+    background-color: var(--gene-leg-deformity);
+}
+.color-indicator.antenna-deformity {
+    background-color: var(--gene-antenna-deformity);
+}
+.color-indicator.particles {
+    background-color: var(--gene-particles);
+}
+.color-indicator.particle-location {
+    background-color: var(--gene-particle-location);
+}
+.color-indicator.glow {
+    background-color: var(--gene-glow);
+}
+.color-indicator.appearance-neutral {
+    background-color: var(--gene-appearance-neutral);
+}
+
+.stats-table tbody tr.selected td {
+    color: #1d4ed8;
+    font-weight: 500;
+}
+
+.attribute-row.selected,
+.appearance-row.selected {
+    background-color: #dbeafe !important;
+    box-shadow:
+        inset 4px 0 0 0 #3b82f6,
+        inset 0 0 0 1px rgba(59, 130, 246, 0.2);
+}
+
+.attribute-row.selected td,
+.appearance-row.selected td {
+    color: #1d4ed8;
+    font-weight: 500;
+}
+
+.stats-table tbody tr:hover {
+    background-color: #f8fafc;
+}
+
+.stats-table tbody tr.selected:hover {
+    background-color: #bfdbfe !important;
+}
+
+.summary-info {
+    margin-top: 12px;
+    display: flex;
+    gap: 16px;
+    font-size: 11px;
+    color: #6b7280;
+}
+
+.empty-state,
+.error-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 200px;
+    color: #6b7280;
+    font-style: italic;
+}
+
+.error-state {
+    color: #f44336;
+}
+
+.gene-tooltip {
+    position: fixed;
+    background: #1f2937;
+    color: white;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    line-height: 1.4;
+    max-width: 250px;
+    z-index: 1000;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    pointer-events: none;
+}
+
+.gene-tooltip strong {
+    color: #60a5fa;
+}
+
+/* Responsive adjustments */
+@media (max-width: 1200px) {
+    .visualizer-content {
+        flex-direction: column;
+    }
+
+    .gene-section {
+        border-right: none;
+        border-bottom: 1px solid #e2e8f0;
+    }
+
+    .stats-section {
+        width: 100%;
+    }
+}
+
+@media (max-width: 768px) {
+    .visualizer-controls {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+
+    .filter-controls {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+
+    .gene-cell {
+        width: 15px;
+        height: 15px;
+    }
+
+    .stats-section {
+        padding: 12px;
+    }
+}
+
+.pet-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    border-bottom: 1px solid #f1f5f9;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border-radius: 6px;
+    margin-bottom: 4px;
+}
+
+.pet-item:hover {
+    background: #f8fafc;
+    transform: translateX(2px);
+}
+
+.pet-item.selected {
+    background: #dbeafe;
+    border-color: #3b82f6;
+    box-shadow: 0 2px 4px rgba(59, 130, 246, 0.1);
+}
+
+.pet-item:last-child {
+    border-bottom: none;
+}
+
+.pet-info {
+    flex: 1;
+}
+
+.pet-name {
+    font-weight: 500;
+    color: #1e293b;
+    margin-bottom: 4px;
+    font-size: 14px;
+}
+
+.pet-details {
+    display: flex;
+    gap: 8px;
+    font-size: 11px;
+    color: #64748b;
+}
+
+.pet-actions {
+    display: flex;
+    gap: 4px;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.pet-item:hover .pet-actions {
+    opacity: 1;
+}
+
+.delete-btn {
+    padding: 4px 6px;
+    background: none;
+    border: none;
+    color: #ef4444;
+    font-size: 12px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
+}
+
+.delete-btn:hover {
+    background: #fee2e2;
+}
+
+.pet-species {
+    color: #3b82f6;
+    font-weight: 500;
+}
+
+/* Pets Dashboard Styles */
+.pets-dashboard {
+    padding: 32px;
+    max-width: 800px;
+}
+
+.pets-dashboard h2 {
+    color: #1e293b;
+    margin-bottom: 8px;
+    font-size: 24px;
+}
+
+.pets-dashboard p {
+    color: #64748b;
+    margin-bottom: 24px;
+    line-height: 1.5;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.stat-card {
+    background: white;
+    padding: 20px;
+    border-radius: 12px;
+    text-align: center;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    border: 1px solid #e2e8f0;
+}
+
+.stat-number {
+    font-size: 32px;
+    font-weight: bold;
+    color: #3b82f6;
+    margin-bottom: 4px;
+}
+
+.stat-label {
+    font-size: 14px;
+    color: #64748b;
+    font-weight: 500;
+}
+
+.species-breakdown {
+    background: white;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    border: 1px solid #e2e8f0;
+}
+
+.species-breakdown h4 {
+    color: #1e293b;
+    margin-bottom: 12px;
+    font-size: 16px;
+}
+
+.stat-item {
+    padding: 8px 0;
+    color: #475569;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.stat-item:last-child {
+    border-bottom: none;
+}
+
+.empty-state,
+.error {
+    padding: 20px;
+    text-align: center;
+    color: #64748b;
+    font-style: italic;
+}
+
+.pet-item.selected {
+    background: #dbeafe;
+    border-left: 4px solid #3b82f6;
+}
+
+/* Drop Zone Styles */
+.drop-zone {
+    border: 2px dashed #64748b;
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background: rgba(0, 0, 0, 0.1);
+}
+
+.drop-zone:hover {
+    border-color: #475569;
+    background: rgba(0, 0, 0, 0.2);
+}
+
+.drop-zone.dragover {
+    border-color: #3b82f6;
+    background: rgba(59, 130, 246, 0.1);
+}
+
+.drop-zone-content {
+    color: #374151;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.drop-icon {
+    font-size: 32px;
+    margin-bottom: 8px;
+    display: block;
+}
+
+.drop-text p {
+    margin: 4px 0;
+    font-size: 14px;
+    color: #374151;
+    font-weight: 500;
+}
+
+.drop-hint {
+    font-size: 12px;
+    color: #6b7280;
+    opacity: 1;
+}
+
+.pet-name-input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 2px solid #d1d5db;
+    border-radius: 6px;
+    background: white;
+    color: #374151;
+    font-size: 14px;
+}
+
+.pet-name-input::placeholder {
+    color: #9ca3af;
+}
+
+.pet-name-input:focus {
+    outline: none;
+    border-color: #3b82f6;
+    background: white;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Collapsed state for drop zone */
+.sidebar.collapsed .drop-zone {
+    width: 48px;
+    height: 48px;
+    padding: 0;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.sidebar.collapsed .drop-text {
+    display: none;
+}
+
+.sidebar.collapsed .drop-icon {
+    font-size: 20px;
+    margin: 0;
+}
+
+.sidebar.collapsed .pet-name-input {
+    display: none;
+}
+
+.sidebar.collapsed .pets-list {
+    display: none;
+}
+
+/* Safe utility classes to replace some inline styles */
+.clickable {
+    cursor: pointer;
+    user-select: none;
+}

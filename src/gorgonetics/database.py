@@ -636,19 +636,24 @@ class GeneDatabase:
                 try:
                     genome_data = json.loads(genome_result[0])
                     # Count genes in the genome data
-                    gene_count = 0
+                    total_genes = 0
+                    known_genes = 0
+                    unknown_genes = 0
+
                     if isinstance(genome_data, dict):
-                        if "genome" in genome_data:
-                            # Standard JSON structure
-                            for chromosome_data in genome_data["genome"].values():
-                                if isinstance(chromosome_data, list):
-                                    gene_count += len(chromosome_data)
-                        elif "genes" in genome_data:
-                            # New structure with "genes" key
+                        if "genes" in genome_data:
+                            # Standard Genome model structure with Gene objects
                             genes_data = genome_data["genes"]
                             for chromosome_data in genes_data.values():
                                 if isinstance(chromosome_data, list):
-                                    gene_count += len(chromosome_data)
+                                    for gene in chromosome_data:
+                                        if isinstance(gene, dict):
+                                            total_genes += 1
+                                            gene_type = gene.get("gene_type")
+                                            if gene_type == "?" or gene_type == "UNKNOWN":
+                                                unknown_genes += 1
+                                            else:
+                                                known_genes += 1
                         elif "Genes" in genome_data:
                             # Parsed text file structure
                             genes_data = genome_data["Genes"]
@@ -656,10 +661,23 @@ class GeneDatabase:
                                 if isinstance(gene_string, str):
                                     # Count space-separated genes, excluding 'x' placeholders
                                     genes = gene_string.strip().split()
-                                    gene_count += len([g for g in genes if g and g.lower() != "x"])
-                    pet_data["total_genes"] = gene_count
+                                    for gene in genes:
+                                        if gene and gene.lower() != "x":
+                                            total_genes += 1
+                                            if gene == "?" or gene.lower() == "unknown":
+                                                unknown_genes += 1
+                                            else:
+                                                known_genes += 1
+
+                    pet_data["total_genes"] = total_genes
+                    pet_data["known_genes"] = known_genes
+                    pet_data["unknown_genes"] = unknown_genes
+                    pet_data["has_unknown_genes"] = unknown_genes > 0
                 except (json.JSONDecodeError, KeyError, TypeError):
                     pet_data["total_genes"] = 0
+                    pet_data["known_genes"] = 0
+                    pet_data["unknown_genes"] = 0
+                    pet_data["has_unknown_genes"] = False
 
             pets.append(pet_data)
 
