@@ -13,20 +13,20 @@ def test_version_option():
     assert "PGBreeder version" in result.stdout
 
 
-def test_hello_command():
-    """Test the hello command."""
+def test_main_no_args():
+    """Test running the CLI with no arguments."""
     runner = CliRunner()
-    result = runner.invoke(app, ["hello"])
-    assert result.exit_code == 0
-    assert "Hello, World!" in result.stdout
+    result = runner.invoke(app, [])
+    # CLI shows help when no command is provided
+    assert result.exit_code == 2
 
 
-def test_hello_command_with_name():
-    """Test the hello command with a custom name."""
+def test_invalid_command():
+    """Test running the CLI with an invalid command."""
     runner = CliRunner()
-    result = runner.invoke(app, ["hello", "Alice"])
-    assert result.exit_code == 0
-    assert "Hello, Alice!" in result.stdout
+    result = runner.invoke(app, ["nonexistent"])
+    # Should exit with error code for invalid command
+    assert result.exit_code != 0
 
 
 def test_help_option():

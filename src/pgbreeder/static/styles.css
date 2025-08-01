@@ -1389,13 +1389,13 @@ body {
 
 .visualizer-content {
     display: flex;
-    min-height: 80dvh;
-    max-height: 90dvh;
+    min-height: 89dvh;
+    max-height: 89dvh;
 }
 
 .gene-section {
     flex: 1;
-    padding: 20px;
+    padding: 10px;
     border-right: 1px solid #e2e8f0;
     max-height: 88dvh;
 }
@@ -1456,45 +1456,54 @@ body {
     border: 1px solid #e2e8f0;
     border-radius: 6px;
     background: #f9fafb;
+    display: flex;
+    flex-direction: column;
 }
 
 .block-headers {
     display: flex;
-    background: #f3f4f6;
+    align-items: center;
+    padding: 4px 0;
+    background: #f1f5f9;
     border-bottom: 1px solid #e2e8f0;
     position: sticky;
     top: 0;
-    z-index: 10;
-    align-items: center;
+    z-index: 1;
+    min-width: max-content;
 }
 
 .chromosome-header-space {
-    width: 40px;
+    width: 32px;
     height: 32px;
     background: #f9fafb;
 }
 
 .position-header {
-    width: 24px;
-    padding: 8px 4px;
+    width: 21px;
     text-align: center;
-    font-size: 11px;
-    font-weight: 600;
+    font-size: 10px;
+    font-weight: normal;
     color: #374151;
-    height: 32px;
+    height: 19px;
     display: flex;
     align-items: center;
     justify-content: center;
+    flex-shrink: 0;
+}
+
+.position-header.block-label {
+    font-weight: bold;
 }
 
 .chromosome-row {
     display: flex;
     border-bottom: 1px solid #e2e8f0;
+    min-width: max-content;
 }
 
 .chromosome-label {
-    width: 40px;
-    padding: 8px 4px;
+    width: 32px;
+    padding: 8px 2px;
     background: #f9fafb;
     border-right: 1px solid #e2e8f0;
     font-size: 11px;
@@ -1503,9 +1512,6 @@ body {
     text-align: center;
     cursor: pointer;
     transition: background-color 0.2s ease;
-    position: sticky;
-    left: 0;
-    z-index: 5;
 }
 
 .chromosome-label:hover {
@@ -1543,8 +1549,9 @@ body {
     display: flex;
     flex: 1;
     flex-wrap: nowrap;
-    overflow-x: auto;
+    overflow-x: visible;
     align-items: center;
+    min-width: max-content;
 }
 
 .block-spacer {
@@ -1560,9 +1567,9 @@ body {
 }
 
 .gene-cell {
-    width: 20px;
-    height: 20px;
-    margin: 2px;
+    width: 19px;
+    height: 19px;
+    margin: 1px;
     border-radius: 50%;
     border: 3px solid;
     cursor: pointer;
@@ -1878,7 +1885,7 @@ body {
 .stats-section {
     width: 300px;
     background: #f9fafb;
-    padding: 20px;
+    padding: 10px;
     overflow-y: auto;
 }
 
@@ -2154,8 +2161,8 @@ body {
     }
 
     .gene-cell {
-        width: 16px;
-        height: 16px;
+        width: 15px;
+        height: 15px;
     }
 
     .stats-section {

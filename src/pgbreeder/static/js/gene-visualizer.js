@@ -578,12 +578,10 @@ class GeneVisualizer {
 
     const headerContainer = document.createElement("div");
     headerContainer.className = "block-headers";
-    headerContainer.style.display = "flex";
 
     // Add chromosome label space
     const chromosomeLabelSpace = document.createElement("div");
     chromosomeLabelSpace.className = "chromosome-header-space";
-    chromosomeLabelSpace.style.width = "40px";
     headerContainer.appendChild(chromosomeLabelSpace);
 
     // Create headers for each block based on longest chromosome structure
@@ -593,22 +591,17 @@ class GeneVisualizer {
       if (currentBlock !== null && currentBlock !== gene.block) {
         const spacer = document.createElement("div");
         spacer.className = "header-spacer";
-        spacer.style.width = "8px";
         headerContainer.appendChild(spacer);
       }
       currentBlock = gene.block;
 
       const header = document.createElement("div");
       header.className = "position-header";
-      header.style.width = "24px";
-      header.style.textAlign = "center";
-      header.style.fontSize = "10px";
-      header.style.padding = "4px 0";
 
       // Show block letter only on the first position of each block
       if (gene.position === 1) {
         header.textContent = gene.block;
-        header.style.fontWeight = "bold";
+        header.classList.add("block-label");
       } else {
         header.textContent = "";
       }
