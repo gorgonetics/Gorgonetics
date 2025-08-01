@@ -57,8 +57,7 @@ templates = Jinja2Templates(directory="src/pgbreeder/templates")
 # Mount static files
 app.mount("/static", StaticFiles(directory="src/pgbreeder/static"), name="static")
 
-# Mount visualization static files
-app.mount("/visualization", StaticFiles(directory="visualization"), name="visualization")
+
 
 
 class GeneUpdate(BaseModel):
