@@ -1,5 +1,5 @@
 """
-Web API for PGBreeder gene editing interface.
+Web API for Gorgonetics gene editing interface.
 
 This module provides a FastAPI web application for managing gene data
 through a web interface with DuckDB backend.
@@ -46,16 +46,16 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Initialize FastAPI app with lifespan
-app = FastAPI(title="PGBreeder Gene Editor", version="1.0.0", lifespan=lifespan)
+app = FastAPI(title="Gorgonetics Gene Editor", version="1.0.0", lifespan=lifespan)
 
 # Initialize database
 db = GeneDatabase()
 
 # Initialize templates
-templates = Jinja2Templates(directory="src/pgbreeder/templates")
+templates = Jinja2Templates(directory="src/gorgonetics/templates")
 
 # Mount static files
-app.mount("/static", StaticFiles(directory="src/pgbreeder/static"), name="static")
+app.mount("/static", StaticFiles(directory="src/gorgonetics/static"), name="static")
 
 
 

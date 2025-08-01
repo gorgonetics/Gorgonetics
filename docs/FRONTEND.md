@@ -2,14 +2,14 @@
 
 ## Overview
 
-The PGBreeder frontend is built with vanilla JavaScript using modern ES6+ features. The code is organized into modular files, each handling specific functionality. This architecture promotes reusability, maintainability, and testability.
+The Gorgonetics frontend is built with vanilla JavaScript using modern ES6+ features. The code is organized into modular files, each handling specific functionality. This architecture promotes reusability, maintainability, and testability.
 
 ## Architecture
 
 ### Module Structure
 
 ```
-src/pgbreeder/static/js/
+src/gorgonetics/static/js/
 ├── api-client.js        # API communication layer
 ├── ui-utils.js          # UI utilities and feedback
 ├── gene-manager.js      # Gene display and editing

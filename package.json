@@ -1,0 +1,24 @@
+{
+  "name": "gorgonetics",
+  "version": "0.1.0",
+  "description": "Gorgon genetics breeding tool for Project Gorgon",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "lint": "eslint src/gorgonetics/static/js/**/*.js",
+    "lint:fix": "eslint src/gorgonetics/static/js/**/*.js --fix"
+  },
+  "devDependencies": {
+    "eslint": "^9.0.0",
+    "@eslint/js": "^9.0.0",
+    "globals": "^15.0.0"
+  },
+  "keywords": [
+    "project-gorgon",
+    "genetics",
+    "breeding",
+    "game-tool"
+  ],
+  "author": "Your Name",
+  "license": "MIT"
+}

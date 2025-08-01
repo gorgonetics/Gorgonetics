@@ -2,11 +2,11 @@
 
 ## Overview
 
-PGBreeder uses DuckDB as its embedded analytical database. DuckDB provides excellent performance for analytical workloads while being embedded (no separate server required).
+Gorgonetics uses DuckDB as its embedded analytical database. DuckDB provides excellent performance for analytical workloads while being embedded (no separate server required).
 
 ## Database File
 
-- **Location**: `pgbreeder.db` (in project root)
+- **Location**: `gorgonetics.db` (in project root)
 - **Type**: DuckDB database file
 - **Size**: Typically 1-10 MB depending on data volume
 
@@ -143,13 +143,13 @@ The `scripts/populate_database.py` script handles initial data loading:
 
 ### GeneDatabase Class
 
-The `GeneDatabase` class in `src/pgbreeder/database.py` provides all database operations for both genes and pets:
+The `GeneDatabase` class in `src/gorgonetics/database.py` provides all database operations for both genes and pets:
 
 #### Connection Management
 
 ```python
 class GeneDatabase:
-    def __init__(self, db_path: str = "pgbreeder.db"):
+    def __init__(self, db_path: str = "gorgonetics.db"):
         """Initialize database connection."""
         self.db_path = db_path
         self.conn = duckdb.connect(db_path)
@@ -376,7 +376,7 @@ def bulk_insert_genes(self, genes: list[dict]) -> None:
 ### Manual Backup
 ```bash
 # Copy database file
-cp pgbreeder.db pgbreeder_backup_$(date +%Y%m%d).db
+cp gorgonetics.db gorgonetics_backup_$(date +%Y%m%d).db
 ```
 
 ### Export Data
@@ -409,7 +409,7 @@ for chromosome, genes in data["chromosomes"].items():
 ### Database Size
 ```python
 import os
-db_size = os.path.getsize("pgbreeder.db")
+db_size = os.path.getsize("gorgonetics.db")
 print(f"Database size: {db_size / 1024 / 1024:.2f} MB")
 ```
 

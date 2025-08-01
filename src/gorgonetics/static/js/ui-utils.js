@@ -1,5 +1,5 @@
 /**
- * UI Utilities for PGBreeder web application.
+ * UI Utilities for Gorgonetics web application.
  * Handles user feedback, loading states, and common UI operations.
  */
 

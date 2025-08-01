@@ -2,7 +2,7 @@
 
 from typer.testing import CliRunner
 
-from pgbreeder.cli import app
+from gorgonetics.cli import app
 
 
 def test_version_option():
@@ -10,7 +10,7 @@ def test_version_option():
     runner = CliRunner()
     result = runner.invoke(app, ["--version"])
     assert result.exit_code == 0
-    assert "PGBreeder version" in result.stdout
+    assert "Gorgonetics version" in result.stdout
 
 
 def test_main_no_args():
@@ -34,4 +34,4 @@ def test_help_option():
     runner = CliRunner()
     result = runner.invoke(app, ["--help"])
     assert result.exit_code == 0
-    assert "A simple CLI application" in result.stdout
+    assert "Gorgon genetics breeding tool for Project Gorgon" in result.stdout

@@ -2,7 +2,7 @@
 
 ## Overview
 
-The PGBreeder API is built with FastAPI and provides RESTful endpoints for managing genetic data. All endpoints return JSON responses and follow standard HTTP status codes.
+The Gorgonetics API is built with FastAPI and provides RESTful endpoints for managing genetic data. All endpoints return JSON responses and follow standard HTTP status codes.
 
 ## Base URL
 

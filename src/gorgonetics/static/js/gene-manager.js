@@ -1,5 +1,5 @@
 /**
- * Gene Management for PGBreeder web application.
+ * Gene Management for Gorgonetics web application.
  * Handles gene display, editing, and saving operations.
  */
 

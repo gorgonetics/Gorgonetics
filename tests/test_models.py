@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from pgbreeder.models import AttributeValues, Gene, GeneType, Genome, Pet
+from gorgonetics.models import AttributeValues, Gene, GeneType, Genome, Pet
 
 
 class TestGeneType:

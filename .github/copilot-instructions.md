@@ -1,4 +1,4 @@
-# Copilot Instructions for PGBreeder
+# Copilot Instructions for Gorgonetics
 
 <!-- Use this file to provide workspace-specific custom instructions to Copilot. For more details, visit https://code.visualstudio.com/docs/copilot/copilot-customization#_use-a-githubcopilotinstructionsmd-file -->
 
@@ -11,7 +11,7 @@
 
 ## Project Overview
 
-PGBreeder is a simple Python CLI application built with modern Python tooling and follows best practices.
+Gorgonetics is a simple Python CLI application built with modern Python tooling and follows best practices.
 
 ## Tech Stack
 
@@ -33,7 +33,7 @@ PGBreeder is a simple Python CLI application built with modern Python tooling an
 ## Project Structure
 
 ```
-src/pgbreeder/    # Main package
+src/gorgonetics/    # Main package
 tests/            # Test files
 docs/             # Documentation
 assets/           # Static assets (e.g., genome files)

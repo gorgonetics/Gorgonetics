@@ -1,7 +1,7 @@
 [project]
-name = "pgbreeder"
+name = "gorgonetics"
 version = "0.1.0"
-description = "A simple Python CLI application"
+description = "Gorgon genetics breeding tool for Project Gorgon"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
@@ -35,7 +35,7 @@ dev = [
 ]
 
 [project.scripts]
-pgbreeder = "pgbreeder.cli:main"
+gorgonetics = "gorgonetics.cli:main"
 
 [tool.uv]
 dev-dependencies = [
@@ -99,7 +99,7 @@ warn_no_return = true
 warn_unreachable = true
 strict_equality = true
 mypy_path = "src"
-packages = ["pgbreeder"]
+packages = ["gorgonetics"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

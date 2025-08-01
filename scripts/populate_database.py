@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Database population script for PGBreeder.
+Database population script for Gorgonetics.
 
 This script reads the JSON gene template files and populates the DuckDB database.
 Run this script whenever you want to refresh the database with the latest JSON data.
@@ -26,7 +26,7 @@ from rich.progress import (
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
-from pgbreeder.database import GeneDatabase
+from gorgonetics.database import GeneDatabase
 
 # Setup rich console and logging
 console = Console()
@@ -112,7 +112,7 @@ def collect_gene_files() -> list[Path]:
 
 def populate_database() -> None:
     """Populate the database with gene data from JSON files."""
-    console.print("🧬 [bold cyan]PGBreeder Database Population[/bold cyan]")
+    console.print("🧬 [bold cyan]Gorgonetics Database Population[/bold cyan]")
     console.print("=" * 50)
 
     try:

@@ -1,5 +1,5 @@
 /**
- * API Client for PGBreeder web application.
+ * API Client for Gorgonetics web application.
  * Handles all communication with the backend API.
  */
 

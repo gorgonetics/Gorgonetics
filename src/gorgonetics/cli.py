@@ -1,14 +1,14 @@
-"""Command line interface for PGBreeder."""
+"""Command line interface for Gorgonetics."""
 
 import typer
 from rich.console import Console
 
-from pgbreeder import __version__
+from gorgonetics import __version__
 
 console = Console()
 app = typer.Typer(
-    name="pgbreeder",
-    help="A simple CLI application",
+    name="gorgonetics",
+    help="Gorgon genetics breeding tool for Project Gorgon",
     add_completion=False,
 )
 
@@ -16,7 +16,7 @@ app = typer.Typer(
 def version_callback(value: bool) -> None:
     """Show version information."""
     if value:
-        console.print(f"PGBreeder version: {__version__}")
+        console.print(f"Gorgonetics version: {__version__}")
         raise typer.Exit()
 
 

@@ -1,5 +1,5 @@
 /**
- * Main Application Controller for PGBreeder web application.
+ * Main Application Controller for Gorgonetics web application.
  * Coordinates all modules and handles the application lifecycle.
  */
 

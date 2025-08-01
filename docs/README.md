@@ -1,8 +1,8 @@
-# PGBreeder Documentation
+# Gorgonetics Documentation
 
 ## Overview
 
-PGBreeder is a web-based gene editing tool for Project Gorgon pet breeding. It provides an intuitive interface for viewing and editing genetic data for different animal types, with support for importing/exporting gene configurations and real-time change tracking.
+Gorgonetics is a web-based gene editing tool for Project Gorgon pet breeding. It provides an intuitive interface for viewing and editing genetic data for different animal types, with support for importing/exporting gene configurations and real-time change tracking.
 
 ## Table of Contents
 
@@ -19,8 +19,8 @@ PGBreeder is a web-based gene editing tool for Project Gorgon pet breeding. It p
 ## Project Structure
 
 ```
-PGBreeder/
-├── src/pgbreeder/           # Main Python package
+Gorgonetics/
+├── src/gorgonetics/           # Main Python package
 │   ├── __init__.py          # Package initialization
 │   ├── cli.py              # Command-line interface
 │   ├── database.py         # Database operations (DuckDB)
@@ -92,8 +92,8 @@ PGBreeder/
 ### Setup
 1. Clone the repository:
    ```bash
-   git clone https://github.com/jlopezpena/PGBreeder.git
-   cd PGBreeder
+   git clone https://github.com/jlopezpena/Gorgonetics.git
+   cd Gorgonetics
    ```
 
 2. Install dependencies:
@@ -250,7 +250,7 @@ Main application coordinator that initializes and connects all modules.
 uv run pytest
 
 # Run with coverage
-uv run pytest --cov=pgbreeder
+uv run pytest --cov=gorgonetics
 
 # Run specific test file
 uv run pytest tests/test_database.py
@@ -265,7 +265,7 @@ uv run ruff check
 uv run ruff format
 
 # Type checking
-uv run mypy src/pgbreeder
+uv run mypy src/gorgonetics
 ```
 
 ### Development Server
@@ -289,7 +289,7 @@ uv run python scripts/run_web_app.py
 1. Always run `uv sync --dev` to install dependencies
 2. Use `ruff check` for linting
 3. Use `ruff format` for formatting
-4. Use `mypy src/pgbreeder` for type checking
+4. Use `mypy src/gorgonetics` for type checking
 5. Use `pytest` for running tests
 6. All code passes strict type checking and linting before commits
 

@@ -1,5 +1,5 @@
 /**
- * Gene Visualization Module for PGBreeder
+ * Gene Visualization Module for Gorgonetics
  * Integrated version of the standalone gene viewer for the main app
  */
 

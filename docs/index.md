@@ -1,6 +1,6 @@
-# PGBreeder Documentation
+# Gorgonetics Documentation
 
-Welcome to PGBreeder, a web-based gene editing tool for Project Gorgon pet breeding.
+Welcome to Gorgonetics, a web-based gene editing tool for Project Gorgon pet breeding.
 
 ## Table of Contents
 
@@ -12,7 +12,7 @@ Welcome to PGBreeder, a web-based gene editing tool for Project Gorgon pet breed
 
 ## Overview
 
-PGBreeder provides an intuitive web interface for viewing and editing genetic data for different animal types, with support for importing/exporting gene configurations and real-time change tracking.
+Gorgonetics provides an intuitive web interface for viewing and editing genetic data for different animal types, with support for importing/exporting gene configurations and real-time change tracking.
 
 ### Key Features
 
@@ -29,8 +29,8 @@ PGBreeder provides an intuitive web interface for viewing and editing genetic da
 
 ```bash
 # Clone and setup
-git clone https://github.com/jlopezpena/PGBreeder.git
-cd PGBreeder
+git clone https://github.com/jlopezpena/Gorgonetics.git
+cd Gorgonetics
 uv sync --dev
 ```
 
@@ -64,10 +64,10 @@ Visit `http://127.0.0.1:8000` to start editing genes!
 
 ## CLI Commands
 
-### `pgbreeder --version`
+### `gorgonetics --version`
 Shows the version information.
 
-### `pgbreeder --help`
+### `gorgonetics --help`
 Shows help information and available commands.
 
 ### Web Application
@@ -89,7 +89,7 @@ uv run python scripts/populate_database.py
 uv sync --dev
 
 # Run quality checks
-uv run ruff check && uv run mypy src/pgbreeder && uv run pytest
+uv run ruff check && uv run mypy src/gorgonetics && uv run pytest
 
 # Start development server
 uv run python scripts/run_web_app.py

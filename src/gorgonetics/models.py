@@ -1,5 +1,5 @@
 """
-Pet and Genetic Data Models for PGBreeder
+Pet and Genetic Data Models for Gorgonetics
 
 This module contains Pydantic models to represent pets, their genomes, and genetic attributes.
 Provides automatic validation, serialization, and API documentation.

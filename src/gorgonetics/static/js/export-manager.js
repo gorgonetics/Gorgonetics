@@ -1,5 +1,5 @@
 /**
- * Export Manager for PGBreeder web application.
+ * Export Manager for Gorgonetics web application.
  * Handles gene data export functionality.
  */
 

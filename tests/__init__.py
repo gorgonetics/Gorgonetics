@@ -1,1 +1,1 @@
-"""Tests for PGBreeder."""
+"""Tests for Gorgonetics."""

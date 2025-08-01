@@ -15,7 +15,7 @@ from pathlib import Path
 # Add src to path to import shared utilities
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from pgbreeder.genome_parser import count_blocks_in_chromosome, generate_block_letters
+from gorgonetics.genome_parser import count_blocks_in_chromosome, generate_block_letters
 
 
 def parse_genome_file(file_path: str) -> tuple[str, dict[str, str]]:
@@ -29,7 +29,7 @@ def parse_genome_file(file_path: str) -> tuple[str, dict[str, str]]:
     Returns:
         Tuple of (genome_type, chromosome_data_dict)
     """
-    from pgbreeder.genome_parser import parse_genome_file_genes, parse_genome_file_header
+    from gorgonetics.genome_parser import parse_genome_file_genes, parse_genome_file_header
 
     header_info = parse_genome_file_header(file_path)
     chromosome_data = parse_genome_file_genes(file_path)
@@ -132,7 +132,7 @@ def main() -> None:
         },
     ]
 
-    print("🧬 PGBreeder Gene Template Generator")
+    print("🧬 Gorgonetics Gene Template Generator")
     print("=" * 40)
 
     for animal in animal_types:

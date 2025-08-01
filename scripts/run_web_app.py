@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Run the PGBreeder web application.
+Run the Gorgonetics web application.
 
 This script starts the web server for the gene editing interface.
 Make sure to run 'python populate_database.py' first to set up the database.
@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 def main() -> None:
     """Run the web application."""
-    logger.info("🧬 Starting PGBreeder Web Application")
+    logger.info("🧬 Starting Gorgonetics Web Application")
 
     # Start web server
     logger.info("🚀 Starting web server...")
@@ -30,9 +30,9 @@ def main() -> None:
         import uvicorn
 
         # Use a simpler configuration without reload for better compatibility
-        uvicorn.run("pgbreeder.web_app:app", host="127.0.0.1", port=8000, reload=False, log_level="info")
+        uvicorn.run("gorgonetics.web_app:app", host="127.0.0.1", port=8000, reload=False, log_level="info")
     except KeyboardInterrupt:
-        logger.info("\n👋 Shutting down PGBreeder Web Application")
+        logger.info("\n👋 Shutting down Gorgonetics Web Application")
     except Exception as e:
         logger.error(f"❌ Error running web server: {e}")
         sys.exit(1)

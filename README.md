@@ -1,6 +1,15 @@
-# PGBreeder
+# Gorgonetics
+
+[![CI](https://github.com/jlopezpena/Gorgonetics/workflows/CI/badge.svg)](https://github.com/jlopezpena/Gorgonetics/actions/workflows/ci.yml)
+[![Code Quality](https://github.com/jlopezpena/Gorgonetics/workflows/Code%20Quality/badge.svg)](https://github.com/jlopezpena/Gorgonetics/actions/workflows/code-quality.yml)
+[![Integration Tests](https://github.com/jlopezpena/Gorgonetics/workflows/Integration%20Tests/badge.svg)](https://github.com/jlopezpena/Gorgonetics/actions/workflows/integration.yml)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![Code style: ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
 
 A web-based gene editing tool for Project Gorgon pet breeding. Provides an intuitive interface for viewing and editing genetic data for different animal types with real-time change tracking and export capabilities.
+
+> 🧬 **Gorgonetics** = *Gorgon* + *Genetics* - A punny name for a powerful breeding tool!
 
 ## Features
 
@@ -22,8 +31,8 @@ A web-based gene editing tool for Project Gorgon pet breeding. Provides an intui
 ### Installation
 
 ```bash
-git clone https://github.com/jlopezpena/PGBreeder.git
-cd PGBreeder
+git clone https://github.com/jlopezpena/Gorgonetics.git
+cd Gorgonetics
 uv sync --dev
 ```
 
@@ -88,7 +97,7 @@ The project follows modern Python development practices with comprehensive tooli
 uv sync --dev
 
 # Run all quality checks
-uv run ruff check && uv run mypy src/pgbreeder && uv run pytest
+uv run ruff check && uv run mypy src/gorgonetics && uv run pytest
 
 # Start development server (database auto-initializes)
 uv run python scripts/run_web_app.py
@@ -98,10 +107,10 @@ uv run python scripts/run_web_app.py
 
 - **Install Dependencies**: `uv sync --dev`
 - **Run Tests**: `uv run pytest`
-- **Run Tests with Coverage**: `uv run pytest --cov=pgbreeder`
+- **Run Tests with Coverage**: `uv run pytest --cov=gorgonetics`
 - **Lint Code**: `uv run ruff check`
 - **Format Code**: `uv run ruff format`
-- **Type Check**: `uv run mypy src/pgbreeder`
+- **Type Check**: `uv run mypy src/gorgonetics`
 
 ### CLI Usage
 
@@ -109,7 +118,7 @@ The project provides a CLI interface:
 
 ```bash
 # Basic CLI interface
-uv run pgbreeder --help
+uv run gorgonetics --help
 
 # Web application server
 uv run python scripts/run_web_app.py
@@ -118,7 +127,7 @@ uv run python scripts/run_web_app.py
 ### Project Architecture
 
 ```
-src/pgbreeder/           # Main Python package
+src/gorgonetics/           # Main Python package
 ├── __init__.py          # Package initialization
 ├── cli.py              # Command-line interface  
 ├── database.py          # DuckDB operations
@@ -186,7 +195,7 @@ nbs/                   # Jupyter notebooks
 - ✅ **Type Safety**: All code passes `mypy` strict type checking
 - ✅ **Testing**: 17 tests passing with 100% success rate
 - ✅ **Documentation**: Updated README to reflect current project structure
-- ✅ **Entry Points**: Removed proof-of-concept `pgbreeder-web` entry point, standardized on script-based startup
+- ✅ **Entry Points**: Removed proof-of-concept `gorgonetics-web` entry point, standardized on script-based startup
 
 ## Contributing
 

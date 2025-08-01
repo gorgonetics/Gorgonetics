@@ -1,9 +1,9 @@
-"""Test configuration and fixtures for PGBreeder."""
+"""Test configuration and fixtures for Gorgonetics."""
 
 import pytest
 from typer.testing import CliRunner
 
-from pgbreeder.cli import app
+from gorgonetics.cli import app
 
 
 @pytest.fixture

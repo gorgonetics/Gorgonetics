@@ -1,0 +1,227 @@
+name: Integration Tests
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  schedule:
+    # Run integration tests daily at 6 AM UTC
+    - cron: '0 6 * * *'
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.13"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "latest"
+
+      - name: Install dependencies
+        run: uv sync --dev
+
+      - name: Test package installation
+        run: |
+          uv run python -c "import gorgonetics; print(f'Package version: {gorgonetics.__version__}')"
+
+      - name: Test CLI functionality
+        run: |
+          echo "Testing CLI version command..."
+          uv run gorgonetics --version
+
+          echo "Testing CLI help command..."
+          uv run gorgonetics --help
+
+      - name: Test database operations
+        run: |
+          echo "Testing database initialization..."
+          uv run python -c "
+          from gorgonetics.database import GeneDatabase
+          import os
+
+          # Test database creation
+          db = GeneDatabase('test_integration.db')
+          print('Database created successfully')
+
+          # Cleanup
+          os.remove('test_integration.db')
+          print('Database cleanup completed')
+          "
+
+      - name: Test genome parser
+        run: |
+          echo "Testing genome parser functionality..."
+          uv run python -c "
+          from gorgonetics.genome_parser import count_blocks_in_chromosome, generate_block_letters
+
+          # Test basic parsing functions
+          blocks = count_blocks_in_chromosome('AABBCCDD')
+          print(f'Block count test: {blocks}')
+
+          letters = generate_block_letters(4)
+          print(f'Block letters test: {letters}')
+          "
+
+      - name: Test web app import and basic functionality
+        run: |
+          echo "Testing web app import..."
+          uv run python -c "
+          from gorgonetics.web_app import app
+          print('Web app imported successfully')
+
+          # Test FastAPI app creation
+          from fastapi.testclient import TestClient
+          client = TestClient(app)
+          print('Test client created successfully')
+          "
+
+      - name: Test data models
+        run: |
+          echo "Testing data models..."
+          uv run python -c "
+          from gorgonetics.models import Gene, GeneType, Genome, Pet
+
+          # Test basic model creation
+          gene = Gene(
+              animal_type='test',
+              chromosome='A',
+              position=1,
+              gene_type=GeneType.DOMINANT_POSITIVE,
+              dominant_effect='test effect',
+              recessive_effect='test recessive'
+          )
+          print(f'Gene model test: {gene.animal_type}')
+
+          # Test model validation
+          try:
+              invalid_gene = Gene(
+                  animal_type='',  # This should fail validation
+                  chromosome='A',
+                  position=1,
+                  gene_type=GeneType.DOMINANT_POSITIVE,
+                  dominant_effect='test',
+                  recessive_effect='test'
+              )
+          except Exception as e:
+              print(f'Model validation working: {type(e).__name__}')
+          "
+
+      - name: Test script functionality
+        run: |
+          echo "Testing script imports..."
+          uv run python -c "
+          import sys
+          from pathlib import Path
+
+          # Add scripts to path
+          scripts_path = Path('scripts')
+          sys.path.insert(0, str(scripts_path))
+
+          # Test script imports
+          import populate_database
+          import generate_gene_templates
+          import run_web_app
+
+          print('All scripts imported successfully')
+          "
+
+      - name: Test full application workflow
+        run: |
+          echo "Testing end-to-end workflow..."
+          uv run python -c "
+          import tempfile
+          import os
+          from pathlib import Path
+          from gorgonetics.database import GeneDatabase
+
+          # Create temporary database
+          with tempfile.NamedTemporaryFile(suffix='.db', delete=False) as tmp:
+              db_path = tmp.name
+
+          try:
+              # Initialize database
+              db = GeneDatabase(db_path)
+              print('✓ Database initialized')
+
+              # Test database operations
+              tables = db.conn.execute('SHOW TABLES').fetchall()
+              print(f'✓ Database tables: {len(tables)} found')
+
+              # Test that we can insert and retrieve data
+              test_gene_data = {
+                  'animal_type': 'test_animal',
+                  'chromosome': 'A',
+                  'position': 1,
+                  'gene_type': 'dominant_positive',
+                  'dominant_effect': 'Test dominant effect',
+                  'recessive_effect': 'Test recessive effect',
+                  'appearance': '',
+                  'notes': 'Integration test gene'
+              }
+
+              db.insert_gene(test_gene_data)
+              print('✓ Gene inserted successfully')
+
+              # Retrieve the gene
+              genes = db.get_genes_by_animal('test_animal')
+              print(f'✓ Retrieved {len(genes)} genes')
+
+              # Clean up
+              db.conn.close()
+
+          finally:
+              # Remove temporary database
+              if os.path.exists(db_path):
+                  os.remove(db_path)
+              print('✓ Cleanup completed')
+
+          print('🎉 End-to-end workflow test passed!')
+          "
+
+  build-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.13"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "latest"
+
+      - name: Install build dependencies
+        run: uv sync --dev
+
+      - name: Test package build
+        run: |
+          echo "Testing package build..."
+          uv build
+
+          echo "Checking build artifacts..."
+          ls -la dist/
+
+          echo "Testing wheel installation..."
+          pip install dist/*.whl
+
+          echo "Testing installed package..."
+          python -c "import gorgonetics; print('Wheel installation successful')"
+
+      - name: Clean up build artifacts
+        run: rm -rf dist/ build/

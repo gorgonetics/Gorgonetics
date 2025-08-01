@@ -1,5 +1,5 @@
 /**
- * ESLint configuration for PGBreeder (ESLint v9+)
+ * ESLint configuration for Gorgonetics (ESLint v9+)
  * See: https://eslint.org/docs/latest/use/configure/configuration-files-new
  */
 export default [

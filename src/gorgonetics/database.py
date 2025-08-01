@@ -1,5 +1,5 @@
 """
-Database module for PGBreeder gene data management.
+Database module for Gorgonetics gene data management.
 
 This module handles the DuckDB database operations for storing and retrieving
 gene information from the JSON template files.
@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 class GeneDatabase:
     """Database manager for gene data using DuckDB."""
 
-    def __init__(self, db_path: str = "pgbreeder.db"):
+    def __init__(self, db_path: str = "gorgonetics.db"):
         """
         Initialize the gene database.
 

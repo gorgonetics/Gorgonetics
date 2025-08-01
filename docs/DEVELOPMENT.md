@@ -2,7 +2,7 @@
 
 ## Getting Started
 
-This guide covers setting up the development environment, understanding the codebase, and contributing to PGBreeder.
+This guide covers setting up the development environment, understanding the codebase, and contributing to Gorgonetics.
 
 ## Prerequisites
 
@@ -29,8 +29,8 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 
 ```bash
 # Clone the repository
-git clone https://github.com/jlopezpena/PGBreeder.git
-cd PGBreeder
+git clone https://github.com/jlopezpena/Gorgonetics.git
+cd Gorgonetics
 
 # Install dependencies
 uv sync --dev
@@ -65,7 +65,7 @@ Visit `http://127.0.0.1:8000` to confirm the application is running.
    uv run pytest                    # Run tests
    uv run ruff check               # Check linting
    uv run ruff format              # Format code
-   uv run mypy src/pgbreeder       # Type checking
+   uv run mypy src/gorgonetics       # Type checking
    ```
 
 4. **Commit and push**
@@ -88,7 +88,7 @@ Use the pre-configured VS Code tasks:
   - Format Code
   - Type Check
   - Check All
-  - Run PGBreeder
+  - Run Gorgonetics
 
 ## Code Standards
 
@@ -239,7 +239,7 @@ tests/
 ```python
 # tests/test_database.py
 import pytest
-from pgbreeder.database import GeneDatabase
+from gorgonetics.database import GeneDatabase
 
 class TestGeneDatabase:
     """Test suite for GeneDatabase class."""
@@ -294,7 +294,7 @@ def temp_db():
 uv run pytest
 
 # Run with coverage
-uv run pytest --cov=pgbreeder --cov-report=html
+uv run pytest --cov=gorgonetics --cov-report=html
 
 # Run specific test file
 uv run pytest tests/test_database.py
@@ -539,7 +539,7 @@ class GeneManager {
 uv run python scripts/run_web_app.py
 
 # Alternative: Direct uvicorn (from project root)
-uv run uvicorn pgbreeder.web_app:app --reload --host 127.0.0.1 --port 8000
+uv run uvicorn gorgonetics.web_app:app --reload --host 127.0.0.1 --port 8000
 ```
 
 ### Production Considerations
@@ -550,7 +550,7 @@ import os
 
 # Use environment variables for configuration
 DEBUG = os.getenv("DEBUG", "false").lower() == "true"
-DATABASE_URL = os.getenv("DATABASE_URL", "pgbreeder.db")
+DATABASE_URL = os.getenv("DATABASE_URL", "gorgonetics.db")
 HOST = os.getenv("HOST", "127.0.0.1")
 PORT = int(os.getenv("PORT", "8000"))
 
@@ -591,10 +591,10 @@ uv run python -c "import sys; print(sys.path)"
 #### Type Checking Errors
 ```bash
 # Run mypy with verbose output
-uv run mypy src/pgbreeder --verbose
+uv run mypy src/gorgonetics --verbose
 
 # Check specific file
-uv run mypy src/pgbreeder/database.py
+uv run mypy src/gorgonetics/database.py
 ```
 
 ## Contributing
@@ -615,7 +615,7 @@ uv run mypy src/pgbreeder/database.py
    ```bash
    uv run pytest
    uv run ruff check
-   uv run mypy src/pgbreeder
+   uv run mypy src/gorgonetics
    ```
 
 4. **Submit pull request**
