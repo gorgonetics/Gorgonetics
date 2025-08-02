@@ -231,22 +231,79 @@ class GeneVisualizer {
     // Parse genes from the string format
     const parsedGenes = this.parseGenes(pet.genes);
 
-    // Create visualization
-    container.innerHTML = "";
+    // Create table structure
+    const table = document.createElement("table");
+    table.className = "gene-grid-table";
+
+    const thead = document.createElement("thead");
+    thead.className = "gene-headers";
+
+    const tbody = document.createElement("tbody");
+    tbody.className = "gene-rows";
+
+    // Create header row with gene positions
+    const headerRow = document.createElement("tr");
+
+    // Add chromosome column header
+    const chrHeader = document.createElement("th");
+    chrHeader.className = "chromosome-header";
+    chrHeader.textContent = "Chr";
+    headerRow.appendChild(chrHeader);
+
+    // Find all unique blocks and calculate max genes per block
+    const allBlocks = new Set();
+    const blockMaxGenes = new Map();
+
+    Object.values(parsedGenes).forEach((chromosomeData) => {
+      chromosomeData.allGenes.forEach((gene) => {
+        allBlocks.add(gene.block);
+      });
+    });
+
+    // Calculate max genes per block across all chromosomes
+    allBlocks.forEach((block) => {
+      let maxGenesInBlock = 0;
+      Object.values(parsedGenes).forEach((chromosomeData) => {
+        const genesInThisBlock = chromosomeData.allGenes.filter(
+          (g) => g.block === block,
+        ).length;
+        maxGenesInBlock = Math.max(maxGenesInBlock, genesInThisBlock);
+      });
+      blockMaxGenes.set(block, Math.max(1, maxGenesInBlock));
+    });
+
+    // Sort blocks
+    const sortedBlocks = Array.from(allBlocks).sort((a, b) => {
+      const numA = parseInt(a, 10);
+      const numB = parseInt(b, 10);
+      return numA - numB;
+    });
 
     // Add block headers
-    this.createBlockHeaders(container, parsedGenes);
+    sortedBlocks.forEach((block) => {
+      const columnsForBlock = blockMaxGenes.get(block);
 
-    // Create scrollable container for gene rows
-    const geneRowsContainer = document.createElement("div");
-    geneRowsContainer.className = "gene-rows-container";
-    container.appendChild(geneRowsContainer);
+      for (let i = 0; i < columnsForBlock; i++) {
+        const posHeader = document.createElement("th");
+        posHeader.className = "position-header";
+        if (i === 0) {
+          posHeader.classList.add("block-label");
+          posHeader.classList.add("block-start");
+          posHeader.textContent = block;
+        } else {
+          posHeader.textContent = "";
+        }
+        headerRow.appendChild(posHeader);
+      }
+    });
+
+    thead.appendChild(headerRow);
 
     // Statistics tracking
     let totalGenes = 0;
     const allStats = this.initializeStats();
 
-    // Create gene grid - sort chromosomes numerically
+    // Create gene rows - sort chromosomes numerically
     const sortedChromosomes = Object.entries(parsedGenes).sort(([a], [b]) => {
       const numA = parseInt(a, 10);
       const numB = parseInt(b, 10);
@@ -254,16 +311,17 @@ class GeneVisualizer {
     });
 
     sortedChromosomes.forEach(([chromosome, chromosomeData]) => {
-      const chromosomeRow = document.createElement("div");
-      chromosomeRow.className = "chromosome-row";
+      const row = document.createElement("tr");
+      row.className = "chromosome-row";
 
-      const chromosomeLabel = document.createElement("div");
-      chromosomeLabel.className = "chromosome-label";
-      chromosomeLabel.textContent = chromosome;
-      chromosomeLabel.dataset.chromosome = chromosome;
+      // Create chromosome label cell
+      const chromosomeCell = document.createElement("td");
+      chromosomeCell.className = "chromosome-label";
+      chromosomeCell.textContent = chromosome;
+      chromosomeCell.dataset.chromosome = chromosome;
 
       // Add click handler for chromosome selection
-      chromosomeLabel.addEventListener("click", (e) => {
+      chromosomeCell.addEventListener("click", (e) => {
         this.toggleChromosomeFilter(
           chromosome,
           e.ctrlKey || e.metaKey,
@@ -273,218 +331,238 @@ class GeneVisualizer {
 
       // Update selection state
       if (this.selectedChromosomes.includes(chromosome)) {
-        chromosomeLabel.classList.add("selected");
+        chromosomeCell.classList.add("selected");
       }
 
-      chromosomeRow.appendChild(chromosomeLabel);
+      row.appendChild(chromosomeCell);
 
-      const blocksContainer = document.createElement("div");
-      blocksContainer.className = "blocks-container";
-
-      // Create genes with block spacing
-      let currentBlock = null;
-      chromosomeData.allGenes.forEach((gene) => {
-        // Add block spacing
-        if (currentBlock !== null && currentBlock !== gene.block) {
-          const spacer = document.createElement("div");
-          spacer.className = "block-spacer";
-          blocksContainer.appendChild(spacer);
-        }
-        currentBlock = gene.block;
-        const geneAnalysis = this.analyzeGeneEffect(
-          pet.species,
-          gene.id,
-          gene.type,
+      // Create gene cells for each block
+      sortedBlocks.forEach((block) => {
+        // Get genes in this block for this chromosome
+        const genesInBlock = chromosomeData.allGenes.filter(
+          (g) => g.block === block,
         );
 
-        totalGenes++;
-        this.updateStats(allStats, geneAnalysis);
+        // Get the number of columns this block needs (from header calculation)
+        const columnsForBlock = blockMaxGenes.get(block);
 
-        // Unified isVisible logic for all filters
-        let isVisible = true;
-
-        // Chromosome filter
-        if (
-          this.selectedChromosomes.length > 0 &&
-          !this.selectedChromosomes.includes(chromosome)
-        ) {
-          isVisible = false;
-        }
-        // Chromosome hide/selected logic: only filter if exclusively in one, not both
-        const inSelectedChromosomes =
-          this.selectedChromosomes.includes(chromosome);
-        const inHiddenChromosomes = this.hiddenChromosomes.includes(chromosome);
-        if (
-          this.selectedChromosomes.length > 0 ||
-          this.hiddenChromosomes.length > 0
-        ) {
-          if (inSelectedChromosomes && !inHiddenChromosomes) {
-            // Only selected, apply selection logic (attribute filter below)
-            // do nothing here
-          } else if (!inSelectedChromosomes && inHiddenChromosomes) {
-            // Only hidden, filter out
-            isVisible = false;
-          } else if (inSelectedChromosomes && inHiddenChromosomes) {
-            // Both selected and hidden: treat as neutral (do nothing)
-          } else {
-            // Neither selected nor hidden: treat as neutral (do nothing)
+        // Create cells for each gene position in this block
+        for (let i = 0; i < columnsForBlock; i++) {
+          const geneCell = document.createElement("td");
+          geneCell.className = "gene-cell-container";
+          if (i === 0) {
+            geneCell.classList.add("block-start");
           }
-        }
 
-        // Attribute filter
-        if (this.currentView === "attribute") {
-          if (
-            this.selectedAttributes.length > 0 &&
-            !this.genePotentiallyAffectsSelectedAttributes(
+          const gene = genesInBlock[i];
+
+          if (gene) {
+            const geneAnalysis = this.analyzeGeneEffect(
               pet.species,
               gene.id,
-              this.selectedAttributes,
-            )
-          ) {
-            isVisible = false;
-          }
-        } else {
-          if (
-            this.selectedAttributes.length > 0 &&
-            !this.selectedAttributes.includes(geneAnalysis.attribute)
-          ) {
-            isVisible = false;
-          }
-        }
-        // Attribute hide/selected logic: only filter if exclusively in one, not both
-        const inSelectedAttributes = this.selectedAttributes.includes(
-          geneAnalysis.attribute,
-        );
-        const inHiddenAttributes = this.hiddenAttributes.includes(
-          geneAnalysis.attribute,
-        );
-        if (
-          this.selectedAttributes.length > 0 ||
-          this.hiddenAttributes.length > 0
-        ) {
-          if (inSelectedAttributes && !inHiddenAttributes) {
-            // Only selected, apply selection logic (already handled above)
-            // do nothing here
-          } else if (!inSelectedAttributes && inHiddenAttributes) {
-            // Only hidden, filter out
-            isVisible = false;
-          } else if (inSelectedAttributes && inHiddenAttributes) {
-            // Both selected and hidden: treat as neutral (do nothing)
-          } else {
-            // Neither selected nor hidden: treat as neutral (do nothing)
-          }
-        }
-
-        // Effect filter (multi-select)
-        let cssClass = "gene-cell ";
-        if (this.currentView === "appearance") {
-          cssClass += `gene-${geneAnalysis.type} `;
-        } else {
-          if (
-            geneAnalysis.type === "neutral" &&
-            this.hasAnyPotentialEffect(pet.species, gene.id)
-          ) {
-            const potentialType = this.analyzePotentialEffectType(
-              pet.species,
-              gene.id,
+              gene.type,
             );
-            if (potentialType) {
-              cssClass += `gene-${potentialType} `;
-            } else {
-              cssClass += "gene-neutral ";
+
+            totalGenes++;
+            this.updateStats(allStats, geneAnalysis);
+
+            // Unified isVisible logic for all filters
+            let isVisible = true;
+
+            // Chromosome filter
+            if (
+              this.selectedChromosomes.length > 0 &&
+              !this.selectedChromosomes.includes(chromosome)
+            ) {
+              isVisible = false;
             }
+
+            // Chromosome hide/selected logic
+            const inSelectedChromosomes =
+              this.selectedChromosomes.includes(chromosome);
+            const inHiddenChromosomes =
+              this.hiddenChromosomes.includes(chromosome);
+            if (
+              this.selectedChromosomes.length > 0 ||
+              this.hiddenChromosomes.length > 0
+            ) {
+              if (inSelectedChromosomes && !inHiddenChromosomes) {
+                // Only selected, apply selection logic
+              } else if (!inSelectedChromosomes && inHiddenChromosomes) {
+                isVisible = false;
+              } else if (inSelectedChromosomes && inHiddenChromosomes) {
+                // Both selected and hidden: treat as neutral
+              } else {
+                // Neither selected nor hidden: treat as neutral
+              }
+            }
+
+            // Attribute filter
+            if (this.currentView === "attribute") {
+              if (
+                this.selectedAttributes.length > 0 &&
+                !this.genePotentiallyAffectsSelectedAttributes(
+                  pet.species,
+                  gene.id,
+                  this.selectedAttributes,
+                )
+              ) {
+                isVisible = false;
+              }
+            } else {
+              if (
+                this.selectedAttributes.length > 0 &&
+                !this.selectedAttributes.includes(geneAnalysis.attribute)
+              ) {
+                isVisible = false;
+              }
+            }
+
+            // Attribute hide/selected logic
+            const inSelectedAttributes = this.selectedAttributes.includes(
+              geneAnalysis.attribute,
+            );
+            const inHiddenAttributes = this.hiddenAttributes.includes(
+              geneAnalysis.attribute,
+            );
+            if (
+              this.selectedAttributes.length > 0 ||
+              this.hiddenAttributes.length > 0
+            ) {
+              if (inSelectedAttributes && !inHiddenAttributes) {
+                // Only selected, apply selection logic
+              } else if (!inSelectedAttributes && inHiddenAttributes) {
+                isVisible = false;
+              } else if (inSelectedAttributes && inHiddenAttributes) {
+                // Both selected and hidden: treat as neutral
+              } else {
+                // Neither selected nor hidden: treat as neutral
+              }
+            }
+
+            // Effect filter
+            let cssClass = "gene-cell ";
+            if (this.currentView === "appearance") {
+              cssClass += `gene-${geneAnalysis.type} `;
+            } else {
+              if (
+                geneAnalysis.type === "neutral" &&
+                this.hasAnyPotentialEffect(pet.species, gene.id)
+              ) {
+                const potentialType = this.analyzePotentialEffectType(
+                  pet.species,
+                  gene.id,
+                );
+                if (potentialType) {
+                  cssClass += `gene-${potentialType} `;
+                } else {
+                  cssClass += "gene-neutral ";
+                }
+              } else {
+                cssClass += `gene-${geneAnalysis.type} `;
+              }
+            }
+            if (gene.type === "?") {
+              cssClass = "gene-cell gene-neutral gene-unknown";
+            } else if (gene.type === "D") {
+              cssClass += "gene-dominant";
+            } else if (gene.type === "R") {
+              cssClass += "gene-recessive";
+            } else if (gene.type === "x") {
+              cssClass += "gene-mixed";
+            } else {
+              cssClass += "gene-recessive";
+            }
+
+            // Effect filter logic
+            let matchesAny = true;
+            if (
+              Array.isArray(this.currentEffectFilter) &&
+              this.currentEffectFilter.length > 0
+            ) {
+              matchesAny = this.currentEffectFilter.some((effect) =>
+                cssClass.includes(`gene-${effect}`),
+              );
+            }
+            let isHidden = false;
+            if (
+              Array.isArray(this.hiddenEffectFilters) &&
+              this.hiddenEffectFilters.length > 0
+            ) {
+              isHidden = this.hiddenEffectFilters.some((effect) =>
+                cssClass.includes(`gene-${effect}`),
+              );
+            }
+
+            // Value filter logic
+            let matchesValue = true;
+            if (
+              Array.isArray(this.currentValueFilter) &&
+              this.currentValueFilter.length > 0
+            ) {
+              matchesValue = this.currentValueFilter.some((value) =>
+                cssClass.includes(value),
+              );
+            }
+            let isValueHidden = false;
+            if (
+              Array.isArray(this.hiddenValueFilters) &&
+              this.hiddenValueFilters.length > 0
+            ) {
+              isValueHidden = this.hiddenValueFilters.some((value) =>
+                cssClass.includes(value),
+              );
+            }
+
+            if (!matchesAny || isHidden || !matchesValue || isValueHidden) {
+              isVisible = false;
+            }
+
+            const geneDiv = document.createElement("div");
+            geneDiv.className = cssClass;
+            geneDiv.dataset.chromosome = chromosome;
+            geneDiv.dataset.geneId = gene.id;
+            geneDiv.dataset.geneType = gene.type;
+            geneDiv.dataset.effect = geneAnalysis.effect;
+
+            // Render question mark for unknown gene type
+            if (gene.type === "?") {
+              geneDiv.innerHTML =
+                '<span class="gene-unknown-symbol" title="Unknown gene">?</span>';
+            }
+
+            if (!isVisible) {
+              geneDiv.classList.add("gene-filtered-out");
+            }
+
+            geneDiv.addEventListener("mouseenter", (e) => {
+              e.stopPropagation();
+              this.showTooltip(e);
+            });
+            geneDiv.addEventListener("mouseleave", (e) => {
+              e.stopPropagation();
+              this.hideTooltip();
+            });
+
+            geneCell.appendChild(geneDiv);
           } else {
-            cssClass += `gene-${geneAnalysis.type} `;
+            // Empty cell for positions where this chromosome has no gene
+            geneCell.className = "gene-cell-container empty";
           }
-        }
-        if (gene.type === "?") {
-          cssClass = "gene-cell gene-neutral gene-unknown";
-        } else if (gene.type === "D") {
-          cssClass += "gene-dominant";
-        } else if (gene.type === "R") {
-          cssClass += "gene-recessive";
-        } else if (gene.type === "x") {
-          cssClass += "gene-mixed";
-        } else {
-          cssClass += "gene-recessive";
-        }
 
-        // Effect filter logic
-        let matchesAny = true;
-        if (
-          Array.isArray(this.currentEffectFilter) &&
-          this.currentEffectFilter.length > 0
-        ) {
-          matchesAny = this.currentEffectFilter.some((effect) =>
-            cssClass.includes(`gene-${effect}`),
-          );
+          row.appendChild(geneCell);
         }
-        let isHidden = false;
-        if (
-          Array.isArray(this.hiddenEffectFilters) &&
-          this.hiddenEffectFilters.length > 0
-        ) {
-          isHidden = this.hiddenEffectFilters.some((effect) =>
-            cssClass.includes(`gene-${effect}`),
-          );
-        }
-
-        // Value filter logic
-        let matchesValue = true;
-        if (
-          Array.isArray(this.currentValueFilter) &&
-          this.currentValueFilter.length > 0
-        ) {
-          matchesValue = this.currentValueFilter.some((value) =>
-            cssClass.includes(value),
-          );
-        }
-        let isValueHidden = false;
-        if (
-          Array.isArray(this.hiddenValueFilters) &&
-          this.hiddenValueFilters.length > 0
-        ) {
-          isValueHidden = this.hiddenValueFilters.some((value) =>
-            cssClass.includes(value),
-          );
-        }
-
-        if (!matchesAny || isHidden || !matchesValue || isValueHidden) {
-          isVisible = false;
-        }
-
-        const geneCell = document.createElement("div");
-        geneCell.className = cssClass;
-        geneCell.dataset.chromosome = chromosome;
-        geneCell.dataset.geneId = gene.id;
-        geneCell.dataset.geneType = gene.type;
-        geneCell.dataset.effect = geneAnalysis.effect;
-
-        // Render question mark for unknown gene type
-        if (gene.type === "?") {
-          geneCell.innerHTML =
-            '<span class="gene-unknown-symbol" title="Unknown gene">?</span>';
-        }
-
-        if (!isVisible) {
-          geneCell.classList.add("gene-filtered-out");
-        }
-
-        geneCell.addEventListener("mouseenter", (e) => {
-          e.stopPropagation();
-          this.showTooltip(e);
-        });
-        geneCell.addEventListener("mouseleave", (e) => {
-          e.stopPropagation();
-          this.hideTooltip();
-        });
-
-        blocksContainer.appendChild(geneCell);
       });
 
-      chromosomeRow.appendChild(blocksContainer);
-      geneRowsContainer.appendChild(chromosomeRow);
+      tbody.appendChild(row);
     });
+
+    table.appendChild(thead);
+    table.appendChild(tbody);
+
+    // Clear container and add table
+    container.innerHTML = "";
+    container.appendChild(table);
 
     // Store stats for table access
     this.currentStats = allStats;

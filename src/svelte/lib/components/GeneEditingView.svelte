@@ -904,4 +904,274 @@
       margin-top: 1rem;
     }
   }
+
+  /* Gene Editor Styles moved from gene-visualizer-styles.css */
+
+  .gene-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    transition: all 0.2s;
+  }
+
+  .gene-card {
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 12px;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  }
+
+  .gene-card:hover {
+    border-color: #3b82f6;
+    background: linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%);
+    box-shadow: 0 8px 25px rgba(59, 130, 246, 0.15);
+  }
+
+  .gene-card.has-changes {
+    border-color: #f59e0b;
+    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+    box-shadow: 0 4px 16px rgba(245, 158, 11, 0.2);
+  }
+
+  .gene-card.has-changes:hover {
+    border-color: #d97706;
+    background: linear-gradient(135deg, #fef3c7 0%, #fed7aa 100%);
+    box-shadow: 0 8px 25px rgba(217, 119, 6, 0.25);
+  }
+
+  /* Effect styling */
+  .effect-select {
+    position: relative;
+    font-weight: 500;
+  }
+
+  .effect-positive {
+    background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+    border-color: #16a34a !important;
+    color: #15803d;
+  }
+
+  .effect-positive:focus {
+    box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2);
+  }
+
+  .effect-negative {
+    background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);
+    border-color: #dc2626 !important;
+    color: #dc2626;
+  }
+
+  .effect-negative:focus {
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
+  }
+
+  .effect-none {
+    border-left: 4px solid #6b7280 !important;
+    box-shadow: inset 0 0 0 1px rgba(107, 114, 128, 0.2);
+    background: #f9fafb;
+    color: #6b7280;
+  }
+
+  .notes-section {
+    margin-top: 4px;
+  }
+
+  .notes-toggle {
+    background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+    border: 1px solid #cbd5e1;
+    color: #475569;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 10px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    width: 100%;
+    text-align: center;
+    font-weight: 600;
+  }
+
+  .notes-toggle:hover {
+    background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
+    color: #334155;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+
+  .notes-content {
+    display: none;
+    margin-top: 4px;
+  }
+
+  .notes-content.expanded {
+    display: block;
+  }
+
+  .gene-field {
+    position: relative;
+  }
+
+  .gene-field select {
+    appearance: none;
+    padding-right: 32px;
+    cursor: pointer;
+    width: 100%;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+
+  .gene-field::after {
+    content: "▼";
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
+    font-size: 12px;
+    color: #64748b;
+  }
+
+  .gene-field select:focus {
+    box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.2);
+    border-color: #4f46e5;
+  }
+
+  /* Custom Dropdown Styling */
+  .custom-select-wrapper {
+    position: relative;
+    width: 100%;
+  }
+
+  .custom-select-selected {
+    padding: 6px 26px 6px 8px;
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+    cursor: pointer;
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+    min-height: 24px;
+    transition: all 0.3s ease;
+    position: relative;
+    font-weight: 500;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+
+  .custom-select-selected::after {
+    content: "▼";
+    position: absolute;
+    right: 8px;
+    font-size: 10px;
+    color: #64748b;
+    transition: transform 0.3s ease;
+  }
+
+  .custom-select-wrapper.open .custom-select-selected::after {
+    transform: rotate(180deg);
+  }
+
+  .custom-select-selected:hover {
+    border-color: #3b82f6;
+    background: linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+  }
+
+  .custom-select-wrapper.open .custom-select-selected {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    background: linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%);
+  }
+
+  .custom-select-options {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 2px solid #3b82f6;
+    border-top: none;
+    border-radius: 0 0 8px 8px;
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 1000;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    backdrop-filter: blur(10px);
+  }
+
+  .custom-option {
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 11px;
+    transition: all 0.3s ease;
+    border-left: 4px solid transparent;
+    font-weight: 500;
+  }
+
+  .custom-option:hover {
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    border-left-color: #1d4ed8;
+    color: white;
+    font-weight: 700;
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+  }
+
+  .custom-option.selected {
+    font-weight: 600;
+    background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
+    border-left-color: #3b82f6;
+  }
+
+  /* Option styling */
+  .option-positive {
+    background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+    color: #15803d;
+    border-left-color: #16a34a;
+  }
+
+  .option-positive:hover {
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+    border-left-color: #1d4ed8 !important;
+    color: white !important;
+    font-weight: 700 !important;
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3) !important;
+  }
+
+  .option-negative {
+    background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);
+    color: #dc2626;
+    border-left-color: #dc2626;
+  }
+
+  .option-negative:hover {
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+    border-left-color: #1d4ed8 !important;
+    color: white !important;
+    font-weight: 700 !important;
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3) !important;
+  }
+
+  .option-none {
+    background: #f9fafb;
+    color: #6b7280;
+    border-left-color: #6b7280;
+  }
+
+  .option-none:hover {
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+    border-left-color: #1d4ed8 !important;
+    color: white !important;
+    font-weight: 700 !important;
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3) !important;
+  }
+
+  .options-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+  }
+
+  .negative-column .custom-option {
+    border-right: 1px solid #e2e8f0;
+  }
 </style>

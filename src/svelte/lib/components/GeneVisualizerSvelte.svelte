@@ -292,7 +292,6 @@
   .gene-visualization-container :global(.gene-section) {
     height: 100%;
     padding: 10px;
-    overflow-y: auto;
   }
 
   /* Hide the stats section created by GeneVisualizer since we have our own */
