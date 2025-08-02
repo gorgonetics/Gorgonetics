@@ -513,16 +513,17 @@ async def svelte_dev(request: Request) -> HTMLResponse:
     """Serve the Svelte development app (for development only)."""
     # This is a simple development route - in production you'd serve the built files
     import os
+
     svelte_html_path = os.path.join(os.path.dirname(__file__), "..", "..", "src", "svelte", "index.html")
 
     try:
-        with open(svelte_html_path, "r") as f:
+        with open(svelte_html_path) as f:
             html_content = f.read()
         return HTMLResponse(content=html_content)
     except FileNotFoundError:
         return HTMLResponse(
             content="<h1>Svelte App Not Found</h1><p>Please run 'npm run dev' to start the Svelte development server at port 5173</p>",
-            status_code=404
+            status_code=404,
         )
 
 
