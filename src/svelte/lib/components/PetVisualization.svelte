@@ -1,12 +1,12 @@
 <script>
-  import { onMount } from 'svelte';
-  import GeneVisualizerSvelte from './GeneVisualizerSvelte.svelte';
+  import { onMount } from "svelte";
+  import GeneVisualizerSvelte from "./GeneVisualizerSvelte.svelte";
 
   export let pet;
 
   let geneVisualizerRef;
   let stylesLoaded = false;
-  let currentView = 'attribute';
+  let currentView = "attribute";
 
   onMount(async () => {
     // Load scoped styles for gene visualizer
@@ -17,89 +17,29 @@
 
     // Ensure the gene visualizer script is loaded
     if (!window.GeneVisualizer) {
-      await loadScript('/gene-visualizer.js');
+      await loadScript("/gene-visualizer.js");
     }
 
     // CSS loading only - visualization handled by GeneVisualizerSvelte
   });
 
-
-
   async function loadScopedStyles() {
     try {
-      const response = await fetch('/gene-visualizer-styles.css');
+      const response = await fetch("/gene-visualizer-styles.css");
       const cssText = await response.text();
 
-      // Add tooltip styles globally first
-      if (!document.querySelector('[data-gene-tooltip-styles]')) {
-        const tooltipStyleElement = document.createElement('style');
-        tooltipStyleElement.textContent = `
-          .gene-tooltip {
-            position: fixed;
-            background: #1f2937;
-            color: white;
-            padding: 8px 12px;
-            border-radius: 6px;
-            font-size: 12px;
-            line-height: 1.4;
-            max-width: 250px;
-            z-index: 1000;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-            pointer-events: none;
-          }
-
-          .gene-tooltip strong {
-            color: #60a5fa;
-          }
-        `;
-        tooltipStyleElement.setAttribute('data-gene-tooltip-styles', 'true');
-        document.head.appendChild(tooltipStyleElement);
-      }
-
-      // Scope other styles to the gene visualizer container and remove height constraints
-      let scopedCss = cssText
-        .replace(/\.gene-tooltip[^}]*}/g, '') // Remove tooltip styles from scoped CSS
-        .replace(/max-height:\s*[^;]+;/g, '') // Remove all max-height properties
-        .replace(/min-height:\s*[^;]+;/g, '') // Remove all min-height properties
-        .replace(/\.gene-visualizer\s*{/g, '.gene-visualizer-container {') // Move gene-visualizer styles to gene-visualizer-container
-        .replace(/\.visualizer-content\s*{/g, '.gene-visualizer-container {') // Move visualizer-content styles to gene-visualizer-container
-        .replace(/([^{}]+){/g, (match, selector) => {
-          // Skip keyframes, at-rules, and already scoped selectors
-          if (selector.includes('@') || selector.includes('.gene-visualizer-container') || selector.includes('.gene-visualizer') || selector.includes('.visualizer-content')) {
-            return match;
-          }
-          // Scope each selector to the gene visualizer container
-          const trimmedSelector = selector.trim();
-          if (trimmedSelector) {
-            return `.gene-visualizer-container ${trimmedSelector} {`;
-          }
-          return match;
-        });
-
-      // Add rules to ensure full width and height for gene-visualizer-container
-      scopedCss += `
-        .gene-visualizer-container {
-          margin: 0 !important;
-          padding: 0 !important;
-          width: 100% !important;
-          max-width: 100% !important;
-          height: 100% !important;
-          display: flex !important;
-          flex-direction: column !important;
-          flex: 1 !important;
-          overflow-y: auto !important;
-        }
-      `;
+      // Scope other styles to the gene visualizer
+      let scopedCss = cssText;
 
       // Only add scoped styles if not already present
-      if (!document.querySelector('[data-gene-visualizer-scoped]')) {
-        const styleElement = document.createElement('style');
+      if (!document.querySelector("[data-gene-visualizer-scoped]")) {
+        const styleElement = document.createElement("style");
         styleElement.textContent = scopedCss;
-        styleElement.setAttribute('data-gene-visualizer-scoped', 'true');
+        styleElement.setAttribute("data-gene-visualizer-scoped", "true");
         document.head.appendChild(styleElement);
       }
     } catch (error) {
-      console.warn('Failed to load gene visualizer styles:', error);
+      console.warn("Failed to load gene visualizer styles:", error);
     }
   }
 
@@ -110,15 +50,13 @@
         return;
       }
 
-      const script = document.createElement('script');
+      const script = document.createElement("script");
       script.src = src;
       script.onload = resolve;
       script.onerror = reject;
       document.head.appendChild(script);
     });
   }
-
-
 
   // Handle view control clicks
   function handleViewChange(view) {
@@ -131,9 +69,11 @@
 
 <div class="pet-visualization">
   <div class="visualization-header">
-    <h3 class="visualization-title">🧬 Gene Visualization: {pet?.name || 'Pet'}</h3>
+    <h3 class="visualization-title">
+      🧬 Gene Visualization: {pet?.name || "Pet"}
+    </h3>
     <div class="visualization-stats">
-      <span class="stat-item">{pet?.species || 'Unknown'} species</span>
+      <span class="stat-item">{pet?.species || "Unknown"} species</span>
       <span class="stat-item">{pet?.known_genes || 0} known genes</span>
       {#if pet?.has_unknown_genes}
         <span class="unknown-indicator">⚠️ Has unknown genes</span>
@@ -142,15 +82,15 @@
     <div class="view-controls">
       <button
         class="view-btn"
-        class:active={currentView === 'attribute'}
-        on:click={() => handleViewChange('attribute')}
+        class:active={currentView === "attribute"}
+        on:click={() => handleViewChange("attribute")}
       >
         Attributes
       </button>
       <button
         class="view-btn"
-        class:active={currentView === 'appearance'}
-        on:click={() => handleViewChange('appearance')}
+        class:active={currentView === "appearance"}
+        on:click={() => handleViewChange("appearance")}
       >
         Appearance
       </button>
@@ -240,52 +180,13 @@
     color: white;
   }
 
-
-
-  .loading-state {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 4rem;
-    gap: 1rem;
-  }
-
-  .loading-spinner {
-    width: 40px;
-    height: 40px;
-    border: 4px solid #e5e7eb;
-    border-top: 4px solid #3b82f6;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-  }
-
   @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-  }
-
-  .loading-state p {
-    color: #6b7280;
-    font-style: italic;
-    margin: 0;
-  }
-
-  .error-state {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 1rem;
-    background-color: #fef2f2;
-    border: 1px solid #fecaca;
-    border-radius: 8px;
-    color: #dc2626;
-    margin-bottom: 1rem;
-  }
-
-  .error-icon {
-    font-size: 1.25rem;
-    flex-shrink: 0;
+    0% {
+      transform: rotate(0deg);
+    }
+    100% {
+      transform: rotate(360deg);
+    }
   }
 
   .gene-visualizer-container {
@@ -297,6 +198,272 @@
     contain: layout style;
   }
 
+  .empty-state,
+  .error-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 200px;
+    color: #6b7280;
+    font-style: italic;
+  }
 
+  .error-state {
+    color: #f44336;
+  }
 
+  .gene-tooltip {
+    position: fixed;
+    background: #1f2937;
+    color: white;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    line-height: 1.4;
+    max-width: 250px;
+    z-index: 1000;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    pointer-events: none;
+  }
+
+  .gene-tooltip strong {
+    color: #60a5fa;
+  }
+
+  /* Styles for the stats table */
+  .stats-section {
+    width: 300px;
+    background: #f9fafb;
+    padding: 10px;
+    overflow-y: auto;
+  }
+
+  .stats-table-container {
+    position: sticky;
+    top: 0;
+  }
+
+  .table-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+
+  .stats-table-container h4 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #374151;
+  }
+
+  .selection-counters {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .selection-counter {
+    background: #dbeafe;
+    color: #1d4ed8;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 500;
+    border: 1px solid #93c5fd;
+  }
+
+  .selection-counter span {
+    font-weight: 600;
+  }
+
+  #chromosomeCounter {
+    background: #f3e8ff;
+    color: #7c3aed;
+    border: 1px solid #c4b5fd;
+  }
+
+  .table-instructions {
+    font-size: 11px;
+    color: #6b7280;
+    margin-bottom: 8px;
+    font-style: italic;
+  }
+
+  .stats-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    background: white;
+    border-radius: 6px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+
+  .stats-table th,
+  .stats-table td {
+    padding: 8px 12px;
+    text-align: left;
+    border-bottom: 1px solid #e2e8f0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .stats-table th {
+    background: #f3f4f6;
+    font-weight: 600;
+    color: #374151;
+  }
+
+  .stats-table tbody tr {
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+  }
+
+  .stats-table tbody tr:hover {
+    background-color: #f9fafb;
+  }
+
+  .stats-table tbody tr.selected {
+    background-color: #dbeafe;
+  }
+
+  .stats-table tbody tr.selected {
+    background-color: #dbeafe !important;
+    box-shadow:
+      inset 4px 0 0 0 #3b82f6,
+      inset 0 0 0 1px rgba(59, 130, 246, 0.2);
+  }
+
+  /* Color indicators for table rows */
+  .stats-table td:first-child {
+    position: relative;
+  }
+
+  .stats-table .color-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 8px;
+    vertical-align: middle;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+  }
+
+  /* Color indicators using CSS custom properties */
+  .color-indicator.positive {
+    background-color: var(--color-positive);
+  }
+
+  .color-indicator.negative {
+    background-color: var(--color-negative);
+  }
+
+  .color-indicator.neutral {
+    background-color: var(--color-neutral);
+  }
+
+  .color-indicator.body-color-hue {
+    background-color: var(--gene-body-hue);
+  }
+
+  .color-indicator.body-color-saturation {
+    background-color: var(--gene-body-saturation);
+  }
+
+  .color-indicator.body-color-intensity {
+    background-color: var(--gene-body-intensity);
+  }
+
+  .color-indicator.wing-color-hue {
+    background-color: var(--gene-wing-hue);
+  }
+
+  .color-indicator.wing-color-saturation {
+    background-color: var(--gene-wing-saturation);
+  }
+
+  .color-indicator.wing-color-intensity {
+    background-color: var(--gene-wing-intensity);
+  }
+
+  .color-indicator.body-scale {
+    background-color: var(--gene-body-scale);
+  }
+
+  .color-indicator.wing-scale {
+    background-color: var(--gene-wing-scale);
+  }
+
+  .color-indicator.head-scale {
+    background-color: var(--gene-head-scale);
+  }
+
+  .color-indicator.tail-scale {
+    background-color: var(--gene-tail-scale);
+  }
+
+  .color-indicator.antenna-scale {
+    background-color: var(--gene-antenna-scale);
+  }
+
+  .color-indicator.leg-deformity {
+    background-color: var(--gene-leg-deformity);
+  }
+
+  .color-indicator.antenna-deformity {
+    background-color: var(--gene-antenna-deformity);
+  }
+
+  .color-indicator.particles {
+    background-color: var(--gene-particles);
+  }
+
+  .color-indicator.particle-location {
+    background-color: var(--gene-particle-location);
+  }
+
+  .color-indicator.glow {
+    background-color: var(--gene-glow);
+  }
+
+  .color-indicator.appearance-neutral {
+    background-color: var(--gene-appearance-neutral);
+  }
+
+  .stats-table tbody tr.selected td {
+    color: #1d4ed8;
+    font-weight: 500;
+  }
+
+  .attribute-row.selected,
+  .appearance-row.selected {
+    background-color: #dbeafe !important;
+    box-shadow:
+      inset 4px 0 0 0 #3b82f6,
+      inset 0 0 0 1px rgba(59, 130, 246, 0.2);
+  }
+
+  .attribute-row.selected td,
+  .appearance-row.selected td {
+    color: #1d4ed8;
+    font-weight: 500;
+  }
+
+  .stats-table tbody tr:hover {
+    background-color: #f8fafc;
+  }
+
+  .stats-table tbody tr.selected:hover {
+    background-color: #bfdbfe !important;
+  }
+
+  .summary-info {
+    margin-top: 12px;
+    display: flex;
+    gap: 16px;
+    font-size: 11px;
+    color: #6b7280;
+  }
 </style>

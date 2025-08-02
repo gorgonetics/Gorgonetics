@@ -1,5 +1,5 @@
 <script>
-  import { onMount, onDestroy } from 'svelte';
+  import { onDestroy, onMount } from "svelte";
 
   export let pet;
 
@@ -8,12 +8,12 @@
   let loading = false;
   let error = null;
   let currentPet = null;
-  let currentView = 'attribute';
+  let currentView = "attribute";
 
   onMount(async () => {
     // Load the gene visualizer script if not already loaded
     if (!window.GeneVisualizer) {
-      await loadScript('/gene-visualizer.js');
+      await loadScript("/gene-visualizer.js");
     }
 
     initializeVisualizer();
@@ -30,7 +30,7 @@
         return;
       }
 
-      const script = document.createElement('script');
+      const script = document.createElement("script");
       script.src = src;
       script.onload = resolve;
       script.onerror = reject;
@@ -50,7 +50,7 @@
       geneVisualizer = new window.GeneVisualizer(containerId);
 
       // Override showError to handle errors in Svelte
-      geneVisualizer.showError = function(message) {
+      geneVisualizer.showError = function (message) {
         error = message;
       };
 
@@ -60,7 +60,7 @@
       }
     } catch (err) {
       error = `Failed to initialize visualizer: ${err.message}`;
-      console.error('Gene visualizer initialization error:', err);
+      console.error("Gene visualizer initialization error:", err);
     }
   }
 
@@ -76,7 +76,7 @@
       currentPet = geneVisualizer.currentPet;
     } catch (err) {
       error = `Failed to load pet: ${err.message}`;
-      console.error('Error loading pet data:', err);
+      console.error("Error loading pet data:", err);
     } finally {
       loading = false;
     }
@@ -87,7 +87,7 @@
       try {
         geneVisualizer.clear();
       } catch (err) {
-        console.warn('Error during cleanup:', err);
+        console.warn("Error during cleanup:", err);
       }
       geneVisualizer = null;
     }
@@ -111,7 +111,7 @@
 </script>
 
 <div class="gene-visualizer-svelte">
-  {#if loading}
+  <!-- {#if loading}
     <div class="loading-state">
       <div class="loading-spinner"></div>
       <p>Loading gene visualization...</p>
@@ -121,10 +121,13 @@
       <span class="error-icon">⚠️</span>
       <p>{error}</p>
     </div>
-  {/if}
+  {/if} -->
 
   <!-- Visible container for GeneVisualizer instance with proper layout -->
-  <div bind:this={containerElement} class="gene-visualizer-container-inner visualizer-content"></div>
+  <div
+    bind:this={containerElement}
+    class="gene-visualizer-container-inner visualizer-content"
+  ></div>
 </div>
 
 <style>
@@ -136,7 +139,9 @@
     overflow: hidden;
   }
 
-  .loading-state, .error-state, .empty-state {
+  .loading-state,
+  .error-state,
+  .empty-state {
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -155,8 +160,12 @@
   }
 
   @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+    0% {
+      transform: rotate(0deg);
+    }
+    100% {
+      transform: rotate(360deg);
+    }
   }
 
   .error-state {
