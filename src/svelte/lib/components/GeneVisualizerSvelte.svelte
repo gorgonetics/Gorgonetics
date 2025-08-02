@@ -166,7 +166,7 @@
     const effectInfo = cell.dataset.effect;
 
     // Get potential effects
-    let potentialEffects = [];
+    const potentialEffects = [];
     if (geneVisualizer.currentPet) {
       const dominantEffect = geneVisualizer.getGeneEffect(
         geneVisualizer.currentPet.species,

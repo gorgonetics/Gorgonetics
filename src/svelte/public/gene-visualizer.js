@@ -1462,7 +1462,7 @@ class GeneVisualizer {
       );
 
       let showPotential = false;
-      let potentialLines = [];
+      const potentialLines = [];
 
       if (
         geneType !== "D" &&
@@ -1591,10 +1591,10 @@ class GeneVisualizer {
         item.style.cursor = "pointer";
         item.addEventListener("click", (e) => {
           const effectType = effectMap[item.dataset.effect];
-          let newFilter = Array.isArray(this.currentEffectFilter)
+          const newFilter = Array.isArray(this.currentEffectFilter)
             ? [...this.currentEffectFilter]
             : [];
-          let newHidden = Array.isArray(this.hiddenEffectFilters)
+          const newHidden = Array.isArray(this.hiddenEffectFilters)
             ? [...this.hiddenEffectFilters]
             : [];
           let result;
@@ -1696,10 +1696,10 @@ class GeneVisualizer {
           item.style.cursor = "pointer";
           item.addEventListener("click", (e) => {
             const valueType = valueMap[item.dataset.value];
-            let newValueFilter = Array.isArray(this.currentValueFilter)
+            const newValueFilter = Array.isArray(this.currentValueFilter)
               ? [...this.currentValueFilter]
               : [];
-            let newHiddenValueFilters = Array.isArray(this.hiddenValueFilters)
+            const newHiddenValueFilters = Array.isArray(this.hiddenValueFilters)
               ? [...this.hiddenValueFilters]
               : [];
 

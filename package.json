@@ -8,9 +8,10 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "lint": "eslint src/gorgonetics/static/js/**/*.js src/svelte/**/*.{js,svelte}",
-    "lint:fix": "eslint src/gorgonetics/static/js/**/*.js src/svelte/**/*.{js,svelte} --fix",
-    "lint:ci": "eslint src/gorgonetics/static/js/**/*.js src/svelte/**/*.{js,svelte} --max-warnings=0"
+    "lint": "eslint src/svelte/**/*.{js,svelte} *.js",
+    "lint:fix": "eslint src/svelte/**/*.{js,svelte} *.js --fix",
+    "lint:strict": "eslint src/svelte/**/*.{js,svelte} *.js --max-warnings=0",
+    "lint:ci": "eslint src/svelte/**/*.{js,svelte} *.js --max-warnings=0"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^2.4.0",

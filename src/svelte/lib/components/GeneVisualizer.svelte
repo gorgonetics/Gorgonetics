@@ -7,7 +7,7 @@
     export let pet;
 
     let containerElement;
-    let geneVisualizer = null;
+    const geneVisualizer = null;
     let loading = false;
     let error = null;
     let currentPet = null;
@@ -807,7 +807,7 @@
         const chromosome = detail.chromosome;
         const effectInfo = detail.effect;
 
-        let potentialEffects = [];
+        const potentialEffects = [];
         if (currentPet) {
             const dominantEffect = getGeneEffect(
                 currentPet.species,
@@ -1037,10 +1037,10 @@
         isCtrlClick = false,
         isAltClick = false,
     ) {
-        let newFilter = Array.isArray(currentEffectFilter)
+        const newFilter = Array.isArray(currentEffectFilter)
             ? [...currentEffectFilter]
             : [];
-        let newHidden = Array.isArray(hiddenEffectFilters)
+        const newHidden = Array.isArray(hiddenEffectFilters)
             ? [...hiddenEffectFilters]
             : [];
         let result;
@@ -1097,10 +1097,10 @@
         };
         const mappedValueType = valueMap[valueType] || valueType;
 
-        let newValueFilter = Array.isArray(currentValueFilter)
+        const newValueFilter = Array.isArray(currentValueFilter)
             ? [...currentValueFilter]
             : [];
-        let newHiddenValues = Array.isArray(hiddenValueFilters)
+        const newHiddenValues = Array.isArray(hiddenValueFilters)
             ? [...hiddenValueFilters]
             : [];
         let result;

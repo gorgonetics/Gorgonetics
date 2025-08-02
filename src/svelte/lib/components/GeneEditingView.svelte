@@ -8,7 +8,7 @@
   let genes = [];
   let effectOptions = [];
   let geneBlocks = {};
-  let hasChanges = false;
+  const hasChanges = false;
   let loadingGenes = false;
   let successMessage = '';
   let errorMessage = '';

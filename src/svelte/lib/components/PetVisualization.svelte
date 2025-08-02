@@ -29,7 +29,7 @@
             const cssText = await response.text();
 
             // Scope other styles to the gene visualizer
-            let scopedCss = cssText;
+            const scopedCss = cssText;
 
             // Only add scoped styles if not already present
             if (!document.querySelector("[data-gene-visualizer-scoped]")) {
