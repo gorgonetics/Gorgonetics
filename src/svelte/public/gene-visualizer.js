@@ -147,14 +147,7 @@ class GeneVisualizer {
                     </div>
         `;
 
-    // Create tooltip in document body to avoid positioning issues
-    if (!document.getElementById("geneTooltip")) {
-      const tooltip = document.createElement("div");
-      tooltip.id = "geneTooltip";
-      tooltip.className = "gene-tooltip";
-      tooltip.style.display = "none";
-      document.body.appendChild(tooltip);
-    }
+    // Tooltip is handled by Svelte component, no need to create here
   }
 
   attachEventListeners() {
@@ -477,8 +470,14 @@ class GeneVisualizer {
           geneCell.classList.add("gene-filtered-out");
         }
 
-        geneCell.addEventListener("mouseenter", (e) => this.showTooltip(e));
-        geneCell.addEventListener("mouseleave", () => this.hideTooltip());
+        geneCell.addEventListener("mouseenter", (e) => {
+          e.stopPropagation();
+          this.showTooltip(e);
+        });
+        geneCell.addEventListener("mouseleave", (e) => {
+          e.stopPropagation();
+          this.hideTooltip();
+        });
 
         blocksContainer.appendChild(geneCell);
       });
@@ -489,6 +488,14 @@ class GeneVisualizer {
 
     // Store stats for table access
     this.currentStats = allStats;
+    this.totalGenes = totalGenes;
+
+    // Calculate neutral genes count
+    if (this.currentView === "attribute") {
+      this.neutralGenes = allStats.neutral;
+    } else {
+      this.neutralGenes = allStats["appearance-neutral"];
+    }
 
     // Update statistics
     this.updateStatistics(allStats, totalGenes);
@@ -955,6 +962,11 @@ class GeneVisualizer {
     const tableBody = document.getElementById("tableBody");
     const tableTitle = document.getElementById("tableTitle");
 
+    // Skip if elements don't exist (using separate Svelte component)
+    if (!tableBody || !tableTitle) {
+      return;
+    }
+
     tableBody.innerHTML = "";
 
     if (this.currentView === "attribute") {
@@ -1298,20 +1310,43 @@ class GeneVisualizer {
   }
 
   updateStatistics(stats, totalGenes) {
-    document.getElementById("totalGenesDisplay").textContent = totalGenes;
+    const totalDisplay = document.getElementById("totalGenesDisplay");
+    const neutralDisplay = document.getElementById("neutralGenesDisplay");
 
-    if (this.currentView === "attribute") {
-      document.getElementById("neutralGenesDisplay").textContent =
-        stats.neutral;
-    } else {
-      document.getElementById("neutralGenesDisplay").textContent =
-        stats["appearance-neutral"];
+    if (totalDisplay) {
+      totalDisplay.textContent = totalGenes;
+    }
+
+    if (neutralDisplay) {
+      if (this.currentView === "attribute") {
+        neutralDisplay.textContent = stats.neutral;
+      } else {
+        neutralDisplay.textContent = stats["appearance-neutral"];
+      }
     }
   }
 
   showTooltip(event) {
-    const tooltip = document.getElementById("geneTooltip");
-    const cell = event.target;
+    let tooltip = document.getElementById("geneTooltip");
+    if (!tooltip) {
+      // Create tooltip if it doesn't exist
+      tooltip = document.createElement("div");
+      tooltip.id = "geneTooltip";
+      tooltip.className = "gene-tooltip";
+      tooltip.style.display = "none";
+      document.body.appendChild(tooltip);
+    }
+
+    // Get the gene cell, handling nested elements
+    let cell = event.target;
+    while (cell && !cell.dataset.geneId && cell !== document.body) {
+      cell = cell.parentElement;
+    }
+
+    if (!cell || !cell.dataset.geneId) {
+      console.warn("Could not find gene cell with data attributes");
+      return;
+    }
 
     const geneId = cell.dataset.geneId;
     const geneType = cell.dataset.geneType;
@@ -1405,7 +1440,10 @@ class GeneVisualizer {
   }
 
   hideTooltip() {
-    document.getElementById("geneTooltip").style.display = "none";
+    const tooltip = document.getElementById("geneTooltip");
+    if (tooltip) {
+      tooltip.style.display = "none";
+    }
   }
 
   showError(message) {

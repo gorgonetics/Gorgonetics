@@ -1,5 +1,7 @@
 <script>
   import { onDestroy, onMount } from "svelte";
+  import GeneStatsTable from "./GeneStatsTable.svelte";
+  import GeneTooltip from "./GeneTooltip.svelte";
 
   export let pet;
 
@@ -9,6 +11,22 @@
   let error = null;
   let currentPet = null;
   let currentView = "attribute";
+
+  // Stats-related reactive variables
+  let currentStats = null;
+  let totalGenes = 0;
+  let neutralGenes = 0;
+  let selectedAttributes = [];
+  let hiddenAttributes = [];
+
+  // Tooltip state
+  let tooltipVisible = false;
+  let tooltipX = 0;
+  let tooltipY = 0;
+  let tooltipGeneId = "";
+  let tooltipGeneType = "";
+  let tooltipEffect = "";
+  let tooltipPotentialEffects = [];
 
   onMount(async () => {
     // Load the gene visualizer script if not already loaded
@@ -52,6 +70,15 @@
       // Override showError to handle errors in Svelte
       geneVisualizer.showError = function (message) {
         error = message;
+      };
+
+      // Override tooltip methods to use Svelte tooltip
+      geneVisualizer.showTooltip = function (event) {
+        handleTooltipShow(event);
+      };
+
+      geneVisualizer.hideTooltip = function () {
+        handleTooltipHide();
       };
 
       // Load pet data if available
@@ -98,7 +125,107 @@
     if (geneVisualizer) {
       geneVisualizer.currentView = view;
       geneVisualizer.updateVisualization();
+      updateStatsFromVisualizer();
     }
+  }
+
+  function updateStatsFromVisualizer() {
+    if (geneVisualizer) {
+      currentStats = geneVisualizer.currentStats;
+      totalGenes = geneVisualizer.totalGenes || 0;
+      neutralGenes = geneVisualizer.neutralGenes || 0;
+      selectedAttributes = [...geneVisualizer.selectedAttributes];
+      hiddenAttributes = [...geneVisualizer.hiddenAttributes];
+    }
+  }
+
+  function handleAttributeFilter(event) {
+    if (geneVisualizer) {
+      geneVisualizer.toggleAttributeFilter(
+        event.detail.attribute,
+        event.detail.ctrlKey,
+        event.detail.altKey
+      );
+      updateStatsFromVisualizer();
+    }
+  }
+
+  function handleTooltipShow(event) {
+    // Get the gene cell, handling nested elements
+    let cell = event.target;
+    while (cell && !cell.dataset.geneId && cell !== document.body) {
+      cell = cell.parentElement;
+    }
+
+    if (!cell || !cell.dataset.geneId) {
+      return;
+    }
+
+    const geneId = cell.dataset.geneId;
+    const geneType = cell.dataset.geneType;
+    const effectInfo = cell.dataset.effect;
+
+    // Get potential effects
+    let potentialEffects = [];
+    if (geneVisualizer.currentPet) {
+      const dominantEffect = geneVisualizer.getGeneEffect(
+        geneVisualizer.currentPet.species,
+        geneId,
+        "D"
+      );
+      const recessiveEffect = geneVisualizer.getGeneEffect(
+        geneVisualizer.currentPet.species,
+        geneId,
+        "R"
+      );
+
+      if (
+        geneType !== "D" &&
+        dominantEffect &&
+        dominantEffect !== "No dominant effect" &&
+        dominantEffect !== "No gene data found" &&
+        dominantEffect !== "Unknown gene type"
+      ) {
+        const isPositive = dominantEffect.includes("+");
+        const isNegative = dominantEffect.includes("-");
+        const color = isPositive ? "#4CAF50" : isNegative ? "#f44336" : "#666";
+        potentialEffects.push(
+          `If Dominant: <span style="color: ${color}">${dominantEffect}</span>`
+        );
+      }
+
+      if (
+        geneType !== "R" &&
+        recessiveEffect &&
+        recessiveEffect !== "No recessive effect" &&
+        recessiveEffect !== "No gene data found" &&
+        recessiveEffect !== "Unknown gene type"
+      ) {
+        const isPositive = recessiveEffect.includes("+");
+        const isNegative = recessiveEffect.includes("-");
+        const color = isPositive ? "#4CAF50" : isNegative ? "#f44336" : "#666";
+        potentialEffects.push(
+          `If Recessive: <span style="color: ${color}">${recessiveEffect}</span>`
+        );
+      }
+    }
+
+    // Position tooltip relative to the gene visualizer container
+    const rect = cell.getBoundingClientRect();
+    const containerRect = containerElement.getBoundingClientRect();
+    tooltipX = rect.right - containerRect.left + 5;
+    tooltipY = rect.top - containerRect.top - 5;
+
+    // Set tooltip data
+    tooltipGeneId = geneId;
+    tooltipGeneType = geneType;
+    tooltipEffect = effectInfo;
+    tooltipPotentialEffects = potentialEffects;
+    tooltipVisible = true;
+  }
+
+  function handleTooltipHide() {
+    tooltipVisible = false;
   }
 
   // React to pet changes
@@ -107,207 +234,82 @@
   } else if (!pet && geneVisualizer) {
     geneVisualizer.clear();
     currentPet = null;
+    currentStats = null;
+    totalGenes = 0;
+    neutralGenes = 0;
+    selectedAttributes = [];
+    hiddenAttributes = [];
   }
 </script>
 
 <div class="gene-visualizer-svelte">
-  <!-- {#if loading}
-    <div class="loading-state">
-      <div class="loading-spinner"></div>
-      <p>Loading gene visualization...</p>
-    </div>
-  {:else if error}
-    <div class="error-state">
-      <span class="error-icon">⚠️</span>
-      <p>{error}</p>
-    </div>
-  {/if} -->
-
-  <!-- Visible container for GeneVisualizer instance with proper layout -->
+  <!-- Main gene visualization container -->
   <div
     bind:this={containerElement}
-    class="gene-visualizer-container-inner visualizer-content"
+    class="gene-visualization-container"
   ></div>
+
+  <!-- Separate stats table component -->
+  <GeneStatsTable
+    {currentStats}
+    {currentView}
+    {selectedAttributes}
+    {hiddenAttributes}
+    {totalGenes}
+    {neutralGenes}
+    on:attributeFilter={handleAttributeFilter}
+  />
 </div>
+
+<!-- Tooltip component -->
+<GeneTooltip
+  visible={tooltipVisible}
+  x={tooltipX}
+  y={tooltipY}
+  geneId={tooltipGeneId}
+  geneType={tooltipGeneType}
+  effect={tooltipEffect}
+  potentialEffects={tooltipPotentialEffects}
+/>
 
 <style>
   .gene-visualizer-svelte {
     height: 100%;
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     background: #ffffff;
     overflow: hidden;
   }
 
-  .loading-state,
-  .error-state,
-  .empty-state {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 4rem;
-    gap: 1rem;
-  }
-
-  .loading-spinner {
-    width: 40px;
-    height: 40px;
-    border: 4px solid #e5e7eb;
-    border-top: 4px solid #3b82f6;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-  }
-
-  @keyframes spin {
-    0% {
-      transform: rotate(0deg);
-    }
-    100% {
-      transform: rotate(360deg);
-    }
-  }
-
-  .error-state {
-    color: #dc2626;
-  }
-
-  .error-icon {
-    font-size: 2rem;
-  }
-
-  .gene-section {
+  .gene-visualization-container {
     flex: 1;
-    display: flex;
-    flex-direction: column;
-    padding: 1rem;
-    overflow: hidden;
-  }
-
-  .gene-legend {
-    margin-bottom: 1rem;
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    padding: 1rem;
-  }
-
-  .gene-grid-container {
-    flex: 1;
-    overflow-y: auto;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    background: white;
-  }
-
-  .stats-section {
-    border-top: 1px solid #e2e8f0;
-    background: #f9fafb;
-    padding: 1rem;
-  }
-
-  .stats-table-container {
-    max-width: 100%;
-    overflow-x: auto;
-  }
-
-  .table-controls {
-    display: flex;
-    gap: 1rem;
-    margin-bottom: 0.5rem;
-  }
-
-  .selection-counter {
-    font-size: 0.875rem;
-    color: #6b7280;
-  }
-
-  .table-instructions {
-    font-size: 0.75rem;
-    color: #9ca3af;
-    margin-bottom: 1rem;
-  }
-
-  .stats-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.875rem;
-  }
-
-  .stats-table th,
-  .stats-table td {
-    padding: 0.5rem;
-    text-align: left;
-    border-bottom: 1px solid #e5e7eb;
-  }
-
-  .stats-table th {
-    background: #f3f4f6;
-    font-weight: 600;
-  }
-
-  .summary-info {
-    display: flex;
-    gap: 2rem;
-    margin-top: 1rem;
-    font-size: 0.875rem;
-    color: #6b7280;
-  }
-
-  .empty-state {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 200px;
-    color: #9ca3af;
-    font-style: italic;
-  }
-
-  .gene-visualizer-content {
-    flex: 1;
-    overflow-y: auto;
-  }
-
-  .gene-visualizer-container-inner {
     height: 100%;
-    width: 100%;
-    display: flex;
+    overflow: hidden;
+    position: relative;
   }
 
-  /* Restore original layout structure */
-  .gene-visualizer-container-inner :global(.gene-section) {
-    flex: 1;
+  /* Ensure the gene visualizer takes full space */
+  .gene-visualization-container :global(.gene-section) {
+    height: 100%;
     padding: 10px;
-    border-right: 1px solid #e2e8f0;
     overflow-y: auto;
   }
 
-  .gene-visualizer-container-inner :global(.stats-section) {
-    width: 300px;
-    background: #f9fafb;
-    padding: 10px;
-    overflow-y: auto;
+  /* Hide the stats section created by GeneVisualizer since we have our own */
+  .gene-visualization-container :global(.stats-section) {
+    display: none !important;
+  }
+
+  /* Hide the header that GeneVisualizer creates */
+  .gene-visualization-container :global(.visualizer-header),
+  .gene-visualization-container :global(.compact-header) {
+    display: none !important;
   }
 
   /* Responsive layout */
   @media (max-width: 1200px) {
-    .gene-visualizer-container-inner {
+    .gene-visualizer-svelte {
       flex-direction: column;
     }
-
-    .gene-visualizer-container-inner :global(.gene-section) {
-      border-right: none;
-      border-bottom: 1px solid #e2e8f0;
-    }
-
-    .gene-visualizer-container-inner :global(.stats-section) {
-      width: 100%;
-    }
-  }
-
-  /* Hide the header that GeneVisualizer creates */
-  .gene-visualizer-container-inner :global(.visualizer-header),
-  .gene-visualizer-container-inner :global(.compact-header) {
-    display: none !important;
   }
 </style>
