@@ -1,14 +1,13 @@
 <script>
     import { onMount } from "svelte";
-    import { apiClient } from "../services/apiClient.js";
 
-    export let animalType;
-    export let chromosome;
+    // Props from parent
+    export let animalType = "";
+    export let chromosome = "";
 
+    // State
     let genes = [];
     let effectOptions = [];
-    let geneBlocks = {};
-
     let loadingGenes = false;
     let successMessage = "";
     let errorMessage = "";
@@ -18,1195 +17,782 @@
     let hasUnsavedChanges = false;
     let savingChanges = false;
 
+    // Load effect options on mount
     onMount(async () => {
         try {
-            effectOptions = await apiClient.getEffectOptions();
-            await loadGenes();
-        } catch (err) {
-            console.error("Failed to load gene editing data:", err);
-            errorMessage = "Failed to load gene editing data";
+            const response = await fetch("/api/effect-options");
+            if (response.ok) {
+                effectOptions = await response.json();
+            }
+        } catch (error) {
+            console.error("Failed to load effect options:", error);
         }
     });
 
+    // Load genes for the selected chromosome
     async function loadGenes() {
         if (!animalType || !chromosome) return;
 
+        loadingGenes = true;
+        errorMessage = "";
+
         try {
-            loadingGenes = true;
-            errorMessage = "";
-            genes = await apiClient.getGenes(animalType, chromosome);
-            originalGenes = JSON.parse(JSON.stringify(genes)); // Deep copy
-            geneBlocks = groupGenesByBlock(genes);
-            hasUnsavedChanges = false;
-        } catch (err) {
-            console.error("Failed to load genes:", err);
-            errorMessage = "Failed to load genes";
+            const response = await fetch(
+                `/api/genes/${animalType}/${chromosome}`,
+            );
+            if (response.ok) {
+                genes = await response.json();
+                originalGenes = JSON.parse(JSON.stringify(genes));
+                hasUnsavedChanges = false;
+            } else {
+                errorMessage = "Failed to load genes";
+            }
+        } catch (error) {
+            errorMessage = `Error loading genes: ${error.message}`;
         } finally {
             loadingGenes = false;
         }
     }
 
-    function groupGenesByBlock(genesList) {
-        const blocks = {};
-        genesList.forEach((gene) => {
-            const match = gene.gene.match(/^(\d+[A-Z])/);
-            if (match) {
-                const blockPrefix = match[1];
-                if (!blocks[blockPrefix]) {
-                    blocks[blockPrefix] = {
-                        genes: [],
-                        collapsed: false,
-                    };
-                }
-                blocks[blockPrefix].genes.push(gene);
-            }
-        });
-        return blocks;
-    }
-
-    function toggleGeneBlock(blockPrefix) {
-        geneBlocks[blockPrefix].collapsed = !geneBlocks[blockPrefix].collapsed;
-        geneBlocks = { ...geneBlocks };
-    }
-
-    function toggleNotes(geneId) {
-        expandedNotes[geneId] = !expandedNotes[geneId];
-        expandedNotes = { ...expandedNotes };
-    }
-
+    // Save all changes
     async function saveAllChanges() {
+        if (!hasUnsavedChanges) return;
+
+        savingChanges = true;
+        errorMessage = "";
+        successMessage = "";
+
         try {
-            savingChanges = true;
-            errorMessage = "";
+            const response = await fetch(
+                `/api/genes/${animalType}/${chromosome}`,
+                {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(genes),
+                },
+            );
 
-            const changedGenes = genes.filter((gene) => isGeneChanged(gene));
-
-            for (const gene of changedGenes) {
-                const updateData = {
-                    animal_type: animalType,
-                    gene: gene.gene,
-                    effect_dominant: gene.effect_dominant,
-                    effect_recessive: gene.effect_recessive,
-                    appearance: gene.appearance,
-                    notes: gene.notes || "",
-                };
-
-                await apiClient.updateGene(updateData);
+            if (response.ok) {
+                originalGenes = JSON.parse(JSON.stringify(genes));
+                hasUnsavedChanges = false;
+                successMessage = "All changes saved successfully!";
+                setTimeout(() => {
+                    successMessage = "";
+                }, 3000);
+            } else {
+                errorMessage = "Failed to save changes";
             }
-
-            // Update original state after successful save
-            originalGenes = JSON.parse(JSON.stringify(genes));
-            hasUnsavedChanges = false;
-            successMessage = `Successfully saved ${changedGenes.length} gene(s)`;
-            setTimeout(() => {
-                successMessage = "";
-            }, 3000);
-        } catch (err) {
-            console.error("Failed to save changes:", err);
-            errorMessage = "Failed to save changes";
+        } catch (error) {
+            errorMessage = `Error saving changes: ${error.message}`;
         } finally {
             savingChanges = false;
         }
     }
 
+    // Handle input changes
     function handleInputChange(gene, field, value) {
         const geneIndex = genes.findIndex((g) => g.gene === gene.gene);
         if (geneIndex !== -1) {
-            genes[geneIndex][field] = value;
+            genes[geneIndex] = { ...genes[geneIndex], [field]: value };
             genes = [...genes];
-            geneBlocks = groupGenesByBlock(genes);
             checkForUnsavedChanges();
         }
     }
 
+    // Check for unsaved changes
     function checkForUnsavedChanges() {
         hasUnsavedChanges = genes.some((gene) => isGeneChanged(gene));
     }
 
+    // Check if a specific gene has changes
     function isGeneChanged(gene) {
         const original = originalGenes.find((g) => g.gene === gene.gene);
         if (!original) return false;
 
         return (
-            (gene.effect_dominant || "None") !==
-                (original.effect_dominant || "None") ||
-            (gene.effect_recessive || "None") !==
-                (original.effect_recessive || "None") ||
+            (gene.effect_dominant || "") !== (original.effect_dominant || "") ||
+            (gene.effect_recessive || "") !==
+                (original.effect_recessive || "") ||
             (gene.appearance || "") !== (original.appearance || "") ||
             (gene.notes || "") !== (original.notes || "")
         );
     }
 
+    // Get effect class for styling
     function getEffectClass(effect) {
         if (!effect || effect === "None") return "none";
-        if (effect.includes("+")) return "positive";
-        if (effect.includes("-")) return "negative";
-        return "neutral";
+        return effect.includes("+")
+            ? "positive"
+            : effect.includes("-")
+              ? "negative"
+              : "none";
     }
 
-    function toggleDropdown(dropdownId) {
+    // Toggle dropdown
+    function toggleDropdown(geneId, field, event) {
+        const dropdownId = `${geneId}-${field}`;
         openDropdown = openDropdown === dropdownId ? null : dropdownId;
+
+        if (openDropdown) {
+            // Check if dropdown should flip upward
+            setTimeout(() => {
+                const trigger = event.target;
+                const dropdown = trigger.nextElementSibling;
+                if (dropdown && dropdown.classList.contains("dropdown")) {
+                    const rect = trigger.getBoundingClientRect();
+                    const dropdownHeight = dropdown.offsetHeight;
+                    const viewportHeight = window.innerHeight;
+
+                    if (
+                        rect.bottom + dropdownHeight > viewportHeight &&
+                        rect.top > dropdownHeight
+                    ) {
+                        dropdown.style.top = "auto";
+                        dropdown.style.bottom = "100%";
+                        dropdown.style.marginTop = "0";
+                        dropdown.style.marginBottom = "0.25rem";
+                    }
+                }
+            }, 0);
+        }
     }
 
+    // Select option from dropdown
     function selectOption(gene, field, value) {
-        handleInputChange(gene, field, value);
+        handleInputChange(gene, field, value === "None" ? "" : value);
         openDropdown = null;
     }
 
-    // Reload genes when props change
-    $: if (animalType && chromosome) loadGenes();
+    // Toggle notes expansion
+    function toggleNotes(geneId) {
+        expandedNotes[geneId] = !expandedNotes[geneId];
+        expandedNotes = { ...expandedNotes };
+    }
+
+    // Reactive statements
+    $: if (animalType && chromosome) {
+        loadGenes();
+    }
 </script>
 
-<div class="gene-editing-view">
-    <div class="genes-header">
-        <h3 class="genes-title">🧬 {animalType} - Chromosome {chromosome}</h3>
-        <div class="genes-stats">
+<div class="pet-visualization">
+    <div class="visualization-header">
+        <h3 class="visualization-title">
+            🧬 Gene Editor: {animalType} - Chromosome {chromosome}
+        </h3>
+        <div class="visualization-stats">
             <span class="stat-item">{genes.length} genes</span>
-            <span class="stat-item"
-                >{Object.keys(geneBlocks).length} blocks</span
-            >
             {#if hasUnsavedChanges}
-                <span class="unsaved-indicator">⚠️ Unsaved changes</span>
+                <span class="unknown-indicator">⚠️ Unsaved changes</span>
             {/if}
         </div>
-        <button
-            class="save-btn"
-            class:has-changes={hasUnsavedChanges}
-            on:click={saveAllChanges}
-            disabled={!hasUnsavedChanges || savingChanges}
-        >
-            {savingChanges
-                ? "Saving..."
-                : hasUnsavedChanges
-                  ? "Save Changes"
-                  : "No Changes"}
-        </button>
+        <div class="view-controls">
+            <button
+                class="view-btn"
+                class:active={hasUnsavedChanges}
+                on:click={saveAllChanges}
+                disabled={!hasUnsavedChanges || savingChanges}
+            >
+                {#if savingChanges}
+                    Saving...
+                {:else if hasUnsavedChanges}
+                    Save Changes
+                {:else}
+                    All Saved
+                {/if}
+            </button>
+        </div>
     </div>
 
-    <!-- Error/Success Messages -->
+    <!-- Messages -->
     {#if errorMessage}
-        <div class="error-message">
-            <span class="error-icon">⚠️</span>
+        <div class="message error">
+            <span class="message-icon">⚠️</span>
             {errorMessage}
         </div>
     {/if}
 
     {#if successMessage}
-        <div class="success-message">
-            <span class="success-icon">✅</span>
+        <div class="message success">
+            <span class="message-icon">✅</span>
             {successMessage}
         </div>
     {/if}
 
-    {#if loadingGenes}
-        <div class="loading-state">
-            <div class="loading-spinner"></div>
-            <p>Loading genes...</p>
-        </div>
-    {:else if Object.keys(geneBlocks).length > 0}
-        <div class="genes-content">
-            {#each Object.entries(geneBlocks) as [blockPrefix, block]}
-                <div class="gene-block" class:collapsed={block.collapsed}>
-                    <div
-                        class="gene-block-header"
-                        on:click={() => toggleGeneBlock(blockPrefix)}
-                    >
-                        <span class="fold-icon"
-                            >{block.collapsed ? "▶" : "▼"}</span
-                        >
-                        <span class="block-title">Block {blockPrefix}</span>
-                        <span class="block-count"
-                            >({block.genes.length} genes)</span
-                        >
-                    </div>
+    <!-- Content -->
+    <div class="gene-visualizer-container">
+        {#if loadingGenes}
+            <div class="loading">
+                <div class="spinner large"></div>
+                <p>Loading genes...</p>
+            </div>
+        {:else if genes.length === 0}
+            <div class="empty">
+                <p>No genes found for {animalType} chromosome {chromosome}</p>
+            </div>
+        {:else}
+            <div class="genes-grid">
+                {#each genes as gene (gene.gene)}
+                    <div class="gene-card" class:changed={isGeneChanged(gene)}>
+                        <!-- Gene Header -->
+                        <div class="gene-header">
+                            <span class="gene-id">{gene.gene}</span>
+                            <button
+                                class="notes-btn"
+                                class:active={expandedNotes[gene.gene]}
+                                on:click={() => toggleNotes(gene.gene)}
+                                title="Toggle notes"
+                            >
+                                📝
+                            </button>
+                        </div>
 
-                    {#if !block.collapsed}
-                        <div class="gene-row">
-                            {#each block.genes as gene}
-                                <div
-                                    class="gene-card"
-                                    class:has-changes={isGeneChanged(gene)}
-                                >
-                                    <div class="gene-header">
-                                        <span class="gene-id">{gene.gene}</span>
-                                    </div>
+                        <!-- Gene Fields -->
+                        <div class="gene-fields">
+                            <!-- Dominant Effect -->
+                            <div class="field">
+                                <label>Dominant</label>
+                                <div class="select-wrapper">
+                                    <button
+                                        class="select-trigger {getEffectClass(
+                                            gene.effect_dominant,
+                                        )}"
+                                        on:click|stopPropagation={(e) =>
+                                            toggleDropdown(
+                                                gene.gene,
+                                                "dominant",
+                                                e,
+                                            )}
+                                    >
+                                        {gene.effect_dominant || "None"}
+                                        <span class="chevron">▼</span>
+                                    </button>
 
-                                    <div class="gene-fields">
-                                        <div class="gene-field">
-                                            <label>Dominant:</label>
-                                            <div class="custom-select-wrapper">
+                                    {#if openDropdown === `${gene.gene}-dominant`}
+                                        <div class="dropdown">
+                                            <button
+                                                class="option none"
+                                                on:click|stopPropagation={() =>
+                                                    selectOption(
+                                                        gene,
+                                                        "effect_dominant",
+                                                        "None",
+                                                    )}
+                                            >
+                                                None
+                                            </button>
+
+                                            <div class="effects-grid">
                                                 <div
-                                                    class="custom-select-selected {getEffectClass(
-                                                        gene.effect_dominant,
-                                                    )}"
-                                                    on:click={() =>
-                                                        toggleDropdown(
-                                                            `${gene.gene}-dominant`,
-                                                        )}
+                                                    class="effects-column negative"
                                                 >
-                                                    {gene.effect_dominant ||
-                                                        "None"}
-                                                </div>
-                                                {#if openDropdown === `${gene.gene}-dominant`}
-                                                    <div
-                                                        class="custom-select-options"
-                                                    >
-                                                        <div
-                                                            class="custom-option option-none none-option"
-                                                            on:click={() =>
+                                                    {#each effectOptions
+                                                        .filter( (opt) => opt.includes("-"), )
+                                                        .sort() as option}
+                                                        <button
+                                                            class="option negative"
+                                                            on:click|stopPropagation={() =>
                                                                 selectOption(
                                                                     gene,
                                                                     "effect_dominant",
-                                                                    "None",
+                                                                    option,
                                                                 )}
                                                         >
-                                                            None
-                                                        </div>
-                                                        <div
-                                                            class="options-grid"
+                                                            {option}
+                                                        </button>
+                                                    {/each}
+                                                </div>
+
+                                                <div
+                                                    class="effects-column positive"
+                                                >
+                                                    {#each effectOptions
+                                                        .filter( (opt) => opt.includes("+"), )
+                                                        .sort() as option}
+                                                        <button
+                                                            class="option positive"
+                                                            on:click|stopPropagation={() =>
+                                                                selectOption(
+                                                                    gene,
+                                                                    "effect_dominant",
+                                                                    option,
+                                                                )}
                                                         >
-                                                            <div
-                                                                class="negative-column"
-                                                            >
-                                                                {#each effectOptions
-                                                                    .sort()
-                                                                    .filter( (option) => option.includes("-"), ) as option}
-                                                                    <div
-                                                                        class="custom-option option-negative"
-                                                                        on:click={() =>
-                                                                            selectOption(
-                                                                                gene,
-                                                                                "effect_dominant",
-                                                                                option,
-                                                                            )}
-                                                                    >
-                                                                        {option}
-                                                                    </div>
-                                                                {/each}
-                                                            </div>
-                                                            <div
-                                                                class="positive-column"
-                                                            >
-                                                                {#each effectOptions
-                                                                    .sort()
-                                                                    .filter( (option) => option.includes("+"), ) as option}
-                                                                    <div
-                                                                        class="custom-option option-positive"
-                                                                        on:click={() =>
-                                                                            selectOption(
-                                                                                gene,
-                                                                                "effect_dominant",
-                                                                                option,
-                                                                            )}
-                                                                    >
-                                                                        {option}
-                                                                    </div>
-                                                                {/each}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                {/if}
+                                                            {option}
+                                                        </button>
+                                                    {/each}
+                                                </div>
                                             </div>
                                         </div>
+                                    {/if}
+                                </div>
+                            </div>
 
-                                        <div class="gene-field">
-                                            <label>Recessive:</label>
-                                            <div class="custom-select-wrapper">
+                            <!-- Recessive Effect -->
+                            <div class="field">
+                                <label>Recessive</label>
+                                <div class="select-wrapper">
+                                    <button
+                                        class="select-trigger {getEffectClass(
+                                            gene.effect_recessive,
+                                        )}"
+                                        on:click|stopPropagation={(e) =>
+                                            toggleDropdown(
+                                                gene.gene,
+                                                "recessive",
+                                                e,
+                                            )}
+                                    >
+                                        {gene.effect_recessive || "None"}
+                                        <span class="chevron">▼</span>
+                                    </button>
+
+                                    {#if openDropdown === `${gene.gene}-recessive`}
+                                        <div class="dropdown">
+                                            <button
+                                                class="option none"
+                                                on:click|stopPropagation={() =>
+                                                    selectOption(
+                                                        gene,
+                                                        "effect_recessive",
+                                                        "None",
+                                                    )}
+                                            >
+                                                None
+                                            </button>
+
+                                            <div class="effects-grid">
                                                 <div
-                                                    class="custom-select-selected {getEffectClass(
-                                                        gene.effect_recessive,
-                                                    )}"
-                                                    on:click={() =>
-                                                        toggleDropdown(
-                                                            `${gene.gene}-recessive`,
-                                                        )}
+                                                    class="effects-column negative"
                                                 >
-                                                    {gene.effect_recessive ||
-                                                        "None"}
-                                                </div>
-                                                {#if openDropdown === `${gene.gene}-recessive`}
-                                                    <div
-                                                        class="custom-select-options"
-                                                    >
-                                                        <div
-                                                            class="custom-option option-none none-option"
-                                                            on:click={() =>
+                                                    {#each effectOptions
+                                                        .filter( (opt) => opt.includes("-"), )
+                                                        .sort() as option}
+                                                        <button
+                                                            class="option negative"
+                                                            on:click|stopPropagation={() =>
                                                                 selectOption(
                                                                     gene,
                                                                     "effect_recessive",
-                                                                    "None",
+                                                                    option,
                                                                 )}
                                                         >
-                                                            None
-                                                        </div>
-                                                        <div
-                                                            class="options-grid"
+                                                            {option}
+                                                        </button>
+                                                    {/each}
+                                                </div>
+
+                                                <div
+                                                    class="effects-column positive"
+                                                >
+                                                    {#each effectOptions
+                                                        .filter( (opt) => opt.includes("+"), )
+                                                        .sort() as option}
+                                                        <button
+                                                            class="option positive"
+                                                            on:click|stopPropagation={() =>
+                                                                selectOption(
+                                                                    gene,
+                                                                    "effect_recessive",
+                                                                    option,
+                                                                )}
                                                         >
-                                                            <div
-                                                                class="negative-column"
-                                                            >
-                                                                {#each effectOptions
-                                                                    .sort()
-                                                                    .filter( (option) => option.includes("-"), ) as option}
-                                                                    <div
-                                                                        class="custom-option option-negative"
-                                                                        on:click={() =>
-                                                                            selectOption(
-                                                                                gene,
-                                                                                "effect_recessive",
-                                                                                option,
-                                                                            )}
-                                                                    >
-                                                                        {option}
-                                                                    </div>
-                                                                {/each}
-                                                            </div>
-                                                            <div
-                                                                class="positive-column"
-                                                            >
-                                                                {#each effectOptions
-                                                                    .sort()
-                                                                    .filter( (option) => option.includes("+"), ) as option}
-                                                                    <div
-                                                                        class="custom-option option-positive"
-                                                                        on:click={() =>
-                                                                            selectOption(
-                                                                                gene,
-                                                                                "effect_recessive",
-                                                                                option,
-                                                                            )}
-                                                                    >
-                                                                        {option}
-                                                                    </div>
-                                                                {/each}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                {/if}
+                                                            {option}
+                                                        </button>
+                                                    {/each}
+                                                </div>
                                             </div>
                                         </div>
-
-                                        <div class="gene-field">
-                                            <label>Appearance:</label>
-                                            <input
-                                                type="text"
-                                                value={gene.appearance || ""}
-                                                placeholder="Appearance trait..."
-                                                on:input={(e) =>
-                                                    handleInputChange(
-                                                        gene,
-                                                        "appearance",
-                                                        e.target.value,
-                                                    )}
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div class="notes-section">
-                                        <button
-                                            class="notes-toggle"
-                                            on:click={() =>
-                                                toggleNotes(gene.gene)}
-                                        >
-                                            📝 Notes {expandedNotes[gene.gene]
-                                                ? "▼"
-                                                : "▶"}
-                                        </button>
-
-                                        {#if expandedNotes[gene.gene]}
-                                            <div class="notes-content expanded">
-                                                <textarea
-                                                    placeholder="Add notes about this gene..."
-                                                    value={gene.notes || ""}
-                                                    on:input={(e) =>
-                                                        handleInputChange(
-                                                            gene,
-                                                            "notes",
-                                                            e.target.value,
-                                                        )}
-                                                ></textarea>
-                                            </div>
-                                        {/if}
-                                    </div>
+                                    {/if}
                                 </div>
-                            {/each}
+                            </div>
+
+                            <!-- Appearance -->
+                            <div class="field">
+                                <label>Appearance</label>
+                                <input
+                                    type="text"
+                                    value={gene.appearance || ""}
+                                    on:input={(e) =>
+                                        handleInputChange(
+                                            gene,
+                                            "appearance",
+                                            e.target.value,
+                                        )}
+                                    placeholder="Enter appearance"
+                                />
+                            </div>
                         </div>
-                    {/if}
-                </div>
-            {/each}
-        </div>
-    {:else}
-        <div class="empty-state">
-            <p>No genes found for {animalType} chromosome {chromosome}</p>
-        </div>
-    {/if}
+
+                        <!-- Notes Section -->
+                        {#if expandedNotes[gene.gene]}
+                            <div class="notes-section">
+                                <textarea
+                                    value={gene.notes || ""}
+                                    on:input={(e) =>
+                                        handleInputChange(
+                                            gene,
+                                            "notes",
+                                            e.target.value,
+                                        )}
+                                    placeholder="Add notes..."
+                                    rows="3"
+                                ></textarea>
+                            </div>
+                        {/if}
+                    </div>
+                {/each}
+            </div>
+        {/if}
+    </div>
 </div>
 
+<!-- Click outside to close dropdown -->
+<svelte:window
+    on:click={(e) => {
+        if (!e.target.closest(".select-wrapper")) {
+            openDropdown = null;
+        }
+    }}
+/>
+
 <style>
-    .gene-editing-view {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        min-height: 0;
-    }
-
-    .genes-header {
-        position: sticky;
-        top: 0;
-        z-index: 100;
+    /* Messages */
+    .message {
         display: flex;
         align-items: center;
-        gap: 2rem;
-        padding: 0.75rem 1.5rem;
-        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        border-radius: 0;
-    }
-
-    .genes-title {
-        font-size: 1.25rem;
-        font-weight: 700;
-        color: white;
-        margin: 0;
-    }
-
-    .genes-stats {
-        display: flex;
-        gap: 1rem;
-        align-items: center;
-        flex: 1;
-    }
-
-    .stat-item {
-        font-size: 0.8rem;
-        color: rgba(255, 255, 255, 0.8);
-    }
-
-    .unsaved-indicator {
-        color: #f59e0b;
-        font-weight: 600;
-        font-size: 0.8rem;
-    }
-
-    .save-btn {
-        padding: 0.5rem 1rem;
-        border: 1px solid #e5e7eb;
-        border-radius: 6px;
-        background: #f9fafb;
-        color: #6b7280;
-        font-size: 0.8rem;
+        gap: 0.5rem;
+        padding: 1rem 2rem;
         font-weight: 500;
-        cursor: not-allowed;
-        transition: all 0.2s ease;
-        white-space: nowrap;
     }
 
-    .save-btn.has-changes {
-        background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
-        color: white;
-        border-color: #3b82f6;
-        cursor: pointer;
+    .message.error {
+        background: #fef2f2;
+        color: #dc2626;
+        border-bottom: 1px solid #fecaca;
     }
 
-    .save-btn.has-changes:hover:not(:disabled) {
-        transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    .message.success {
+        background: #f0fdf4;
+        color: #16a34a;
+        border-bottom: 1px solid #bbf7d0;
     }
 
-    .save-btn:disabled {
-        opacity: 0.6;
-        cursor: not-allowed;
-        transform: none;
+    .message-icon {
+        font-size: 1.1rem;
     }
 
-    .genes-content {
-        flex: 1;
-        padding: 1.5rem;
-        overflow-y: auto;
-        min-height: 0;
-    }
-
-    .loading-state {
+    .loading,
+    .empty {
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        padding: 4rem;
+        min-height: 200px;
         gap: 1rem;
+        color: #6b7280;
     }
 
-    .loading-spinner {
-        width: 40px;
-        height: 40px;
-        border: 4px solid #e5e7eb;
-        border-top: 4px solid #3b82f6;
+    /* Spinner */
+    .spinner {
+        width: 16px;
+        height: 16px;
+        border: 2px solid transparent;
+        border-top: 2px solid currentColor;
         border-radius: 50%;
         animation: spin 1s linear infinite;
     }
 
+    .spinner.large {
+        width: 32px;
+        height: 32px;
+        border-width: 3px;
+    }
+
     @keyframes spin {
-        0% {
-            transform: rotate(0deg);
-        }
-        100% {
+        to {
             transform: rotate(360deg);
         }
     }
 
-    .genes-content {
-        display: flex;
-        flex-direction: column;
+    /* Content scrolling */
+    .gene-visualizer-container {
+        overflow-y: auto;
+    }
+
+    /* Genes Grid */
+    .genes-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
         gap: 1rem;
+        padding-bottom: 2rem;
     }
 
-    .gene-block {
-        border: 1px solid #e5e7eb;
-        border-radius: 8px;
-        overflow: visible;
-        transition: all 0.2s ease;
-    }
-
-    .gene-block:hover {
-        border-color: #d1d5db;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-    }
-
-    .gene-block-header {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        padding: 1rem;
-        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-        border-bottom: 1px solid #e5e7eb;
-        cursor: pointer;
-        transition: background-color 0.2s ease;
-    }
-
-    .gene-block-header:hover {
-        background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
-    }
-
-    .fold-icon {
-        font-size: 0.875rem;
-        color: #6b7280;
-        transition: transform 0.2s ease;
-    }
-
-    .block-title {
-        font-weight: 600;
-        color: #111827;
-        flex: 1;
-    }
-
-    .block-count {
-        font-size: 0.875rem;
-        color: #6b7280;
-    }
-
-    .gene-block.collapsed .fold-icon {
-        transform: rotate(-90deg);
-    }
-
-    .gene-block.collapsed .gene-row {
-        display: none;
-    }
-
-    .gene-row {
-        display: flex;
-        flex-direction: column;
-        gap: 0.5rem;
-        padding: 1rem;
-    }
-
+    /* Gene Card */
     .gene-card {
-        border: 1px solid #e5e7eb;
-        border-radius: 8px;
-        padding: 0.75rem;
         background: white;
+        border: 2px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 1rem;
         transition: all 0.2s ease;
-        display: flex;
-        align-items: center;
-        gap: 1rem;
+        position: relative;
+        min-width: 0;
     }
 
     .gene-card:hover {
         border-color: #d1d5db;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     }
 
-    .gene-card.has-changes {
+    .gene-card.changed {
         border-color: #f59e0b;
-        background-color: #fffbeb;
+        background: #fffbeb;
     }
 
+    .gene-card.changed::before {
+        content: "●";
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        color: #f59e0b;
+        font-size: 1.2rem;
+    }
+
+    /* Gene Header */
     .gene-header {
-        min-width: 80px;
-        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 0.75rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid #e5e7eb;
     }
 
     .gene-id {
-        font-weight: 600;
-        color: #111827;
         font-size: 1rem;
+        font-weight: 700;
+        color: #111827;
     }
 
+    .notes-btn {
+        padding: 0.25rem;
+        border: none;
+        background: none;
+        cursor: pointer;
+        opacity: 0.6;
+        transition: all 0.2s ease;
+        border-radius: 4px;
+    }
+
+    .notes-btn:hover,
+    .notes-btn.active {
+        opacity: 1;
+        background: #f3f4f6;
+    }
+
+    /* Gene Fields */
     .gene-fields {
         display: flex;
-        gap: 1rem;
-        flex: 1;
-        align-items: center;
+        flex-direction: column;
+        gap: 0.75rem;
     }
 
-    .gene-field {
+    .field {
         display: flex;
         flex-direction: column;
         gap: 0.25rem;
-        min-width: 120px;
     }
 
-    .gene-field label {
-        font-size: 0.6875rem;
-        font-weight: 500;
+    .field label {
+        font-size: 0.75rem;
+        font-weight: 600;
         color: #374151;
         text-transform: uppercase;
         letter-spacing: 0.025em;
-        white-space: nowrap;
     }
 
-    .gene-field input {
-        padding: 6px 26px 6px 8px;
-        border: 2px solid #e2e8f0;
-        border-radius: 8px;
-        background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-        font-size: 11px;
-        font-weight: 500;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        transition: all 0.3s ease;
-        appearance: none;
-        cursor: pointer;
-        max-height: 200px;
-        overflow-y: auto;
+    .field input {
+        padding: 0.5rem;
+        border: 2px solid #e5e7eb;
+        border-radius: 6px;
+        font-size: 0.75rem;
+        transition: all 0.2s ease;
     }
 
-    .gene-field input:focus {
+    .field input:focus {
         outline: none;
         border-color: #3b82f6;
         box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-        background: linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%);
     }
 
-    /* Custom dropdown styling */
-    .custom-select-wrapper {
+    /* Select Wrapper */
+    .select-wrapper {
         position: relative;
-        width: 100%;
     }
 
-    .custom-select-selected {
-        padding: 6px 26px 6px 8px;
-        border: 2px solid #e2e8f0;
-        border-radius: 8px;
-        background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-        cursor: pointer;
-        font-size: 11px;
+    .select-trigger {
         display: flex;
         align-items: center;
-        min-height: 24px;
-        transition: all 0.3s ease;
-        position: relative;
+        justify-content: space-between;
+        width: 100%;
+        padding: 0.5rem;
+        border: 2px solid #e5e7eb;
+        border-radius: 6px;
+        background: white;
+        font-size: 0.75rem;
         font-weight: 500;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        text-align: left;
+        cursor: pointer;
+        transition: all 0.2s ease;
     }
 
-    .custom-select-selected::after {
-        content: "▼";
-        position: absolute;
-        right: 8px;
-        font-size: 10px;
-        color: #64748b;
-        transition: transform 0.3s ease;
+    .select-trigger:hover {
+        border-color: #d1d5db;
     }
 
-    .custom-select-selected:hover {
-        border-color: #3b82f6;
-        background: linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%);
-        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+    .select-trigger.positive {
+        background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+        border-color: #22c55e;
+        color: #059669;
     }
 
-    .custom-select-selected.positive {
-        border-color: #10b981;
-        background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
-    }
-
-    .custom-select-selected.negative {
-        border-color: #ef4444;
+    .select-trigger.negative {
         background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);
+        border-color: #ef4444;
+        color: #dc2626;
     }
 
-    .custom-select-selected.none {
-        border-color: #6b7280;
-        background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
+    .select-trigger.none {
+        color: #6b7280;
     }
 
-    .custom-select-options {
+    .chevron {
+        font-size: 0.625rem;
+        opacity: 0.6;
+        transition: transform 0.2s ease;
+    }
+
+    /* Dropdown */
+    .dropdown {
         position: absolute;
         top: 100%;
         left: 0;
         right: 0;
+        z-index: 1000;
+        margin-top: 0.25rem;
         background: white;
-        border: 2px solid #3b82f6;
-        border-top: none;
-        border-radius: 0 0 8px 8px;
+        border: 2px solid #e5e7eb;
+        border-radius: 8px;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
         max-height: 300px;
         overflow-y: auto;
-        z-index: 9999;
-        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-        width: 300px;
     }
 
-    .none-option {
+    .option {
+        display: block;
+        width: 100%;
+        padding: 0.5rem;
+        border: none;
+        background: none;
+        text-align: left;
+        font-size: 0.75rem;
+        cursor: pointer;
+        transition: background-color 0.15s ease;
+    }
+
+    .option:hover {
+        background: #f3f4f6;
+    }
+
+    .option.none {
+        color: #6b7280;
         border-bottom: 1px solid #e5e7eb;
-        margin-bottom: 4px;
     }
 
-    .options-grid {
+    .option.positive {
+        color: #059669;
+    }
+
+    .option.positive:hover {
+        background: #ecfdf5;
+    }
+
+    .option.negative {
+        color: #dc2626;
+    }
+
+    .option.negative:hover {
+        background: #fef2f2;
+    }
+
+    /* Effects Grid */
+    .effects-grid {
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 1px;
-        background: #e5e7eb;
+        border-top: 1px solid #e5e7eb;
     }
 
-    .negative-column,
-    .positive-column {
-        background: white;
+    .effects-column {
         display: flex;
         flex-direction: column;
     }
 
-    .custom-option {
-        padding: 8px 12px;
-        cursor: pointer;
-        font-size: 11px;
-        transition: all 0.3s ease;
-        border-left: 4px solid transparent;
-        font-weight: 500;
+    .effects-column:first-child {
+        border-right: 1px solid #e5e7eb;
     }
 
-    .custom-option:hover {
-        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-        border-left-color: #1d4ed8;
-        color: white;
-        font-weight: 700;
+    .effects-column .option {
+        border-radius: 0;
+        border-bottom: 1px solid #f3f4f6;
     }
 
-    .custom-option.option-positive {
-        background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
-        color: #15803d;
-        border-left-color: #16a34a;
-        font-weight: 600;
+    .effects-column .option:last-child {
+        border-bottom: none;
     }
 
-    .custom-option.option-negative {
-        background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);
-        color: #dc2626;
-        border-left-color: #dc2626;
-        font-weight: 600;
-    }
-
-    .custom-option.option-none {
-        background: #f9fafb;
-        color: #6b7280;
-        border-left-color: #6b7280;
-        font-style: italic;
-    }
-
-    .effect-select.positive {
-        border-color: #10b981;
-        background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
-    }
-
-    .effect-select.negative {
-        border-color: #ef4444;
-        background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);
-    }
-
-    .effect-select.none {
-        border-color: #6b7280;
-        background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
-    }
-
+    /* Notes */
     .notes-section {
-        border-left: 1px solid #e5e7eb;
-        padding-left: 1rem;
-        margin-left: 1rem;
-        flex-shrink: 0;
-    }
-
-    .notes-toggle {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        background: none;
-        border: none;
-        padding: 0;
-        font-size: 0.875rem;
-        color: #6b7280;
-        cursor: pointer;
-        transition: color 0.2s ease;
-    }
-
-    .notes-toggle:hover {
-        color: #374151;
-    }
-
-    .notes-content {
         margin-top: 0.75rem;
-        display: none;
+        padding-top: 0.75rem;
+        border-top: 1px solid #e5e7eb;
     }
 
-    .notes-content.expanded {
-        display: block;
-    }
-
-    .notes-content textarea {
+    .notes-section textarea {
         width: 100%;
-        min-height: 80px;
         padding: 0.5rem;
-        border: 1px solid #d1d5db;
+        border: 2px solid #e5e7eb;
         border-radius: 6px;
-        font-size: 0.875rem;
-        font-family: inherit;
+        font-size: 0.75rem;
         resize: vertical;
-        transition: border-color 0.2s ease;
+        min-height: 60px;
+        transition: all 0.2s ease;
     }
 
-    .notes-content textarea:focus {
+    .notes-section textarea:focus {
         outline: none;
         border-color: #3b82f6;
-        box-shadow: 0 0 0 1px #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
     }
 
-    .empty-state {
-        text-align: center;
-        padding: 4rem;
-        color: #6b7280;
-    }
-
-    .error-message,
-    .success-message {
-        padding: 1rem;
-        border-radius: 8px;
-        margin-bottom: 1rem;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        font-size: 0.875rem;
-    }
-
-    .error-message {
-        background-color: #fef2f2;
-        color: #dc2626;
-        border: 1px solid #fecaca;
-    }
-
-    .success-message {
-        background-color: #f0fdf4;
-        color: #059669;
-        border: 1px solid #bbf7d0;
+    /* Responsive */
+    @media (max-width: 1200px) {
+        .genes-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
     }
 
     @media (max-width: 768px) {
-        .genes-content {
-            padding: 1rem;
-        }
-
-        .genes-header {
-            flex-direction: column;
-            gap: 1rem;
-            align-items: stretch;
-            padding: 0.75rem;
-        }
-
-        .genes-stats {
-            flex-wrap: wrap;
+        .genes-grid {
+            grid-template-columns: 1fr;
+            gap: 0.75rem;
         }
 
         .gene-card {
-            flex-direction: column;
-            align-items: stretch;
-            gap: 0.75rem;
+            padding: 0.75rem;
         }
 
         .gene-fields {
-            flex-direction: column;
-            gap: 0.75rem;
+            gap: 0.5rem;
         }
-
-        .notes-section {
-            border-left: none;
-            border-top: 1px solid #e5e7eb;
-            padding-left: 0;
-            padding-top: 1rem;
-            margin-left: 0;
-            margin-top: 1rem;
-        }
-    }
-
-    /* Gene Editor Styles moved from gene-visualizer-styles.css */
-
-    .gene-row {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 12px;
-        transition: all 0.2s;
-    }
-
-    .gene-card {
-        background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-        border: 1px solid #e2e8f0;
-        border-radius: 12px;
-        padding: 12px;
-        transition: all 0.3s ease;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-    }
-
-    .gene-card:hover {
-        border-color: #3b82f6;
-        background: linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%);
-        box-shadow: 0 8px 25px rgba(59, 130, 246, 0.15);
-    }
-
-    .gene-card.has-changes {
-        border-color: #f59e0b;
-        background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
-        box-shadow: 0 4px 16px rgba(245, 158, 11, 0.2);
-    }
-
-    .gene-card.has-changes:hover {
-        border-color: #d97706;
-        background: linear-gradient(135deg, #fef3c7 0%, #fed7aa 100%);
-        box-shadow: 0 8px 25px rgba(217, 119, 6, 0.25);
-    }
-
-    /* Effect styling */
-    .effect-select {
-        position: relative;
-        font-weight: 500;
-    }
-
-    .effect-positive {
-        background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
-        border-color: #16a34a !important;
-        color: #15803d;
-    }
-
-    .effect-positive:focus {
-        box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2);
-    }
-
-    .effect-negative {
-        background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);
-        border-color: #dc2626 !important;
-        color: #dc2626;
-    }
-
-    .effect-negative:focus {
-        box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
-    }
-
-    .effect-none {
-        border-left: 4px solid #6b7280 !important;
-        box-shadow: inset 0 0 0 1px rgba(107, 114, 128, 0.2);
-        background: #f9fafb;
-        color: #6b7280;
-    }
-
-    .notes-section {
-        margin-top: 4px;
-    }
-
-    .notes-toggle {
-        background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
-        border: 1px solid #cbd5e1;
-        color: #475569;
-        padding: 4px 10px;
-        border-radius: 6px;
-        font-size: 10px;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        width: 100%;
-        text-align: center;
-        font-weight: 600;
-    }
-
-    .notes-toggle:hover {
-        background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
-        color: #334155;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    }
-
-    .notes-content {
-        display: none;
-        margin-top: 4px;
-    }
-
-    .notes-content.expanded {
-        display: block;
-    }
-
-    .gene-field {
-        position: relative;
-    }
-
-    .gene-field::after {
-        content: "▼";
-        position: absolute;
-        right: 12px;
-        top: 50%;
-        transform: translateY(-50%);
-        pointer-events: none;
-        font-size: 12px;
-        color: #64748b;
-    }
-
-    /* Custom Dropdown Styling */
-    .custom-select-wrapper {
-        position: relative;
-        width: 100%;
-    }
-
-    .custom-select-selected {
-        padding: 6px 26px 6px 8px;
-        border: 2px solid #e2e8f0;
-        border-radius: 8px;
-        background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-        cursor: pointer;
-        font-size: 11px;
-        display: flex;
-        align-items: center;
-        min-height: 24px;
-        transition: all 0.3s ease;
-        position: relative;
-        font-weight: 500;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-    }
-
-    .custom-select-selected::after {
-        content: "▼";
-        position: absolute;
-        right: 8px;
-        font-size: 10px;
-        color: #64748b;
-        transition: transform 0.3s ease;
-    }
-
-    .custom-select-selected:hover {
-        border-color: #3b82f6;
-        background: linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%);
-        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
-    }
-
-    .custom-select-options {
-        position: absolute;
-        top: 100%;
-        left: 0;
-        right: 0;
-        background: white;
-        border: 2px solid #3b82f6;
-        border-top: none;
-        border-radius: 0 0 8px 8px;
-        max-height: 200px;
-        overflow-y: auto;
-        z-index: 1000;
-        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-        backdrop-filter: blur(10px);
-    }
-
-    .custom-option {
-        padding: 8px 12px;
-        cursor: pointer;
-        font-size: 11px;
-        transition: all 0.3s ease;
-        border-left: 4px solid transparent;
-        font-weight: 500;
-    }
-
-    .custom-option:hover {
-        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-        border-left-color: #1d4ed8;
-        color: white;
-        font-weight: 700;
-        box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
-    }
-
-    .custom-option.selected {
-        font-weight: 600;
-        background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
-        border-left-color: #3b82f6;
-    }
-
-    /* Option styling */
-    .option-positive {
-        background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
-        color: #15803d;
-        border-left-color: #16a34a;
-    }
-
-    .option-positive:hover {
-        background: linear-gradient(
-            135deg,
-            #3b82f6 0%,
-            #2563eb 100%
-        ) !important;
-        border-left-color: #1d4ed8 !important;
-        color: white !important;
-        font-weight: 700 !important;
-        box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3) !important;
-    }
-
-    .option-negative {
-        background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);
-        color: #dc2626;
-        border-left-color: #dc2626;
-    }
-
-    .option-negative:hover {
-        background: linear-gradient(
-            135deg,
-            #3b82f6 0%,
-            #2563eb 100%
-        ) !important;
-        border-left-color: #1d4ed8 !important;
-        color: white !important;
-        font-weight: 700 !important;
-        box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3) !important;
-    }
-
-    .option-none {
-        background: #f9fafb;
-        color: #6b7280;
-        border-left-color: #6b7280;
-    }
-
-    .option-none:hover {
-        background: linear-gradient(
-            135deg,
-            #3b82f6 0%,
-            #2563eb 100%
-        ) !important;
-        border-left-color: #1d4ed8 !important;
-        color: white !important;
-        font-weight: 700 !important;
-        box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3) !important;
-    }
-
-    .options-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 0;
-    }
-
-    .negative-column .custom-option {
-        border-right: 1px solid #e2e8f0;
     }
 </style>
