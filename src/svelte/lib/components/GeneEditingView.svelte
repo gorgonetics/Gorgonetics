@@ -89,6 +89,32 @@
         }
     }
 
+    // Export chromosome to JSON file
+    async function exportChromosome() {
+        if (!animalType || !chromosome) return;
+
+        try {
+            const response = await fetch(
+                `/api/download/${animalType}/${chromosome}`,
+            );
+            if (response.ok) {
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `${animalType}_genes_chr${chromosome}.json`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+            } else {
+                errorMessage = "Failed to export chromosome";
+            }
+        } catch (error) {
+            errorMessage = `Error exporting chromosome: ${error.message}`;
+        }
+    }
+
     // Handle input changes
     function handleInputChange(gene, field, value) {
         const geneIndex = genes.findIndex((g) => g.gene === gene.gene);
@@ -200,6 +226,13 @@
                 {:else}
                     All Saved
                 {/if}
+            </button>
+            <button
+                class="view-btn"
+                on:click={exportChromosome}
+                title="Export chromosome as JSON"
+            >
+                📥 Export
             </button>
         </div>
     </div>
