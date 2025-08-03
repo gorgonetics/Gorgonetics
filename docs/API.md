@@ -146,8 +146,6 @@ Returns available effect options for gene editing.
   "Intelligence-",
   "Toughness+",
   "Toughness-",
-  "Speed+",
-  "Speed-",
   "Metabolism+",
   "Metabolism-",
   "Appearance Only",

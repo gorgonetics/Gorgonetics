@@ -25,7 +25,6 @@
                 "Ferocity",
                 "Enthusiasm",
                 "Virility",
-                "Speed",
             ];
             attributes.forEach((attr) => {
                 const positiveCount = currentStats[attr]?.positive || 0;
@@ -118,7 +117,7 @@
             </thead>
             <tbody id="tableBody">
                 {#if currentView === "attribute"}
-                    {#each [{ key: "Intelligence", name: "Intelligence", icon: "🧠" }, { key: "Toughness", name: "Toughness", icon: "💪" }, { key: "Friendliness", name: "Friendliness", icon: "😊" }, { key: "Ruggedness", name: "Ruggedness", icon: "🏔️" }, { key: "Ferocity", name: "Ferocity", icon: "🔥" }, { key: "Enthusiasm", name: "Enthusiasm", icon: "✨" }, { key: "Virility", name: "Virility", icon: "💜" }, { key: "Speed", name: "Speed", icon: "⚡" }] as attr}
+                    {#each [{ key: "Intelligence", name: "Intelligence", icon: "🧠" }, { key: "Toughness", name: "Toughness", icon: "💪" }, { key: "Friendliness", name: "Friendliness", icon: "😊" }, { key: "Ruggedness", name: "Ruggedness", icon: "🏔️" }, { key: "Ferocity", name: "Ferocity", icon: "🔥" }, { key: "Enthusiasm", name: "Enthusiasm", icon: "✨" }, { key: "Virility", name: "Virility", icon: "💜" }] as attr}
                         {@const positiveCount =
                             currentStats?.[attr.key]?.positive || 0}
                         {@const negativeCount =
@@ -139,7 +138,8 @@
                             <td>{totalCount}</td>
                             <td>
                                 {#if totalCount > 0}
-                                    {#if positiveCount > 0}+{positiveCount}{/if}{#if negativeCount > 0} -{negativeCount}{/if}
+                                    {#if positiveCount > 0}+{positiveCount}{/if}{#if negativeCount > 0}
+                                        -{negativeCount}{/if}
                                 {:else}
                                     <em>None</em>
                                 {/if}

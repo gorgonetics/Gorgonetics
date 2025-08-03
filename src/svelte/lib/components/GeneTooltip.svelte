@@ -31,7 +31,12 @@
         <div class="tooltip-content">
             <div class="gene-type">Type: {getTypeDescription(geneType)}</div>
             <div class="current-effect">
-                <strong>Current Effect: {effect}</strong>
+                <strong
+                    >Current Effect: <span
+                        class:positive={effect.includes("+")}
+                        class:negative={effect.includes("-")}>{effect}</span
+                    ></strong
+                >
             </div>
             {#if potentialEffects.length > 0}
                 <div class="potential-effects">
@@ -42,7 +47,7 @@
                             class:positive={potentialEffect.includes("+")}
                             class:negative={potentialEffect.includes("-")}
                         >
-                            {potentialEffect}
+                            {@html potentialEffect}
                         </div>
                     {/each}
                 </div>
@@ -93,6 +98,14 @@
 
     .current-effect strong {
         color: #fbbf24;
+    }
+
+    .current-effect .positive {
+        color: #34d399;
+    }
+
+    .current-effect .negative {
+        color: #f87171;
     }
 
     .potential-effects {

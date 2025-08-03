@@ -47,17 +47,17 @@
 
     function handleMouseEnter(event) {
         if (!gene) return;
-        dispatch('tooltip-show', {
+        dispatch("tooltip-show", {
             event,
             geneId: gene.id,
             geneType: gene.type,
             chromosome,
-            effect: geneAnalysis?.effect || ""
+            effect: geneAnalysis?.effect || "",
         });
     }
 
     function handleMouseLeave(event) {
-        dispatch('tooltip-hide', { event });
+        dispatch("tooltip-hide", { event });
     }
 </script>
 
@@ -104,7 +104,7 @@
     :global(.gene-cell) {
         width: 19px;
         height: 19px;
-        margin: 1px;
+        margin: 0px;
         border-radius: 50%;
         border: 3px solid;
         cursor: pointer;
@@ -366,7 +366,11 @@
     :global(.gene-particle-location.gene-mixed),
     :global(.gene-glow.gene-mixed),
     :global(.gene-appearance-neutral.gene-mixed) {
-        background: linear-gradient(135deg, transparent 50%, var(--gene-color) 50%);
+        background: linear-gradient(
+            135deg,
+            transparent 50%,
+            var(--gene-color) 50%
+        );
         border-color: var(--gene-color);
     }
 

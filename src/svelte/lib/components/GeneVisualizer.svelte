@@ -1264,35 +1264,6 @@
     {:else if !currentPet}
         <div class="empty-state">Select a pet to visualize its genes</div>
     {:else}
-        <!-- Header with view toggle -->
-        <div class="visualizer-header">
-            <div class="compact-header">
-                <h3 class="visualizer-title">
-                    {currentPet.name} - Gene Visualization
-                </h3>
-                <div class="visualizer-controls">
-                    <div class="view-toggle">
-                        <button
-                            class="btn-view {currentView === 'attribute'
-                                ? 'active'
-                                : ''}"
-                            on:click={() => handleViewChange("attribute")}
-                        >
-                            Attributes
-                        </button>
-                        <button
-                            class="btn-view {currentView === 'appearance'
-                                ? 'active'
-                                : ''}"
-                            on:click={() => handleViewChange("appearance")}
-                        >
-                            Appearance
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
         <div class="visualizer-content">
             <div class="gene-section">
                 <!-- Legend -->
@@ -1957,64 +1928,6 @@
         color: #f44336;
     }
 
-    .visualizer-header {
-        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-        color: white;
-        padding: 12px 20px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    }
-
-    .compact-header {
-        display: flex;
-        align-items: center;
-        gap: 20px;
-        flex-wrap: wrap;
-        min-height: 48px;
-    }
-
-    .visualizer-title {
-        margin: 0;
-        font-size: 18px;
-        font-weight: 600;
-        flex-shrink: 0;
-        line-height: 1.2;
-        padding-right: 16px;
-    }
-
-    .visualizer-controls {
-        display: flex;
-        gap: 20px;
-        align-items: center;
-        flex-wrap: wrap;
-    }
-
-    .view-toggle {
-        display: flex;
-        gap: 0;
-        border-radius: 6px;
-        overflow: hidden;
-    }
-
-    .btn-view {
-        padding: 6px 12px;
-        background: rgba(255, 255, 255, 0.1);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        color: rgba(255, 255, 255, 0.8);
-        font-size: 12px;
-        cursor: pointer;
-        transition: all 0.2s;
-    }
-
-    .btn-view:hover {
-        background: rgba(255, 255, 255, 0.2);
-        color: white;
-    }
-
-    .btn-view.active {
-        background: rgba(255, 255, 255, 0.9);
-        color: #1f2937;
-    }
-
     .visualizer-content {
         display: flex;
         flex: 1;
@@ -2142,9 +2055,9 @@
     }
 
     .gene-grid-table {
-        width: 100%;
+        width: auto;
         border-collapse: collapse;
-        table-layout: auto;
+        table-layout: fixed;
     }
 
     .gene-headers {
@@ -2171,11 +2084,15 @@
         z-index: 2;
         background: #f1f5f9;
         font-weight: bold;
+        width: 32px;
         min-width: 32px;
+        max-width: 32px;
     }
 
     .position-header {
-        min-width: 21px;
+        width: 23px;
+        min-width: 23px;
+        max-width: 23px;
         font-weight: normal;
     }
 
@@ -2217,7 +2134,9 @@
         cursor: pointer;
         transition: background-color 0.2s ease;
         user-select: none;
+        width: 32px;
         min-width: 32px;
+        max-width: 32px;
     }
 
     .chromosome-label:hover {
@@ -2239,10 +2158,11 @@
     }
 
     .gene-cell-container {
-        padding: 2px;
+        padding: 1px;
         text-align: center;
         vertical-align: middle;
         position: relative;
+        width: 23px;
     }
 
     .gene-cell-container.empty {
@@ -2250,7 +2170,7 @@
     }
 
     .gene-cell-container.block-start {
-        padding-left: 12px;
+        padding-left: 6px;
     }
 
     .gene-cell-container.block-start:first-of-type {
