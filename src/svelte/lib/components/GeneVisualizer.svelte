@@ -7,7 +7,7 @@
     export let pet;
 
     let containerElement;
-    const geneVisualizer = null;
+
     let loading = false;
     let error = null;
     let currentPet = null;
@@ -41,7 +41,6 @@
     // Parsed gene data
     let headerStructure = null;
     let chromosomeData = [];
-    let geneAnalysisCache = {};
 
     onMount(async () => {
         if (pet) {
@@ -65,7 +64,7 @@
         hiddenChromosomes = [];
         headerStructure = null;
         chromosomeData = [];
-        geneAnalysisCache = {};
+
         error = null;
     }
 
@@ -634,8 +633,8 @@
 
         try {
             await createGeneVisualization();
-        } catch (error) {
-            console.error("Error updating visualization:", error);
+        } catch (err) {
+            console.error("Error updating visualization:", err);
             error = "Failed to update gene visualization";
         }
     }
@@ -648,7 +647,7 @@
             currentStats = null;
             totalGenes = 0;
             neutralGenes = 0;
-            geneAnalysisCache = {};
+
             return;
         }
 
@@ -790,8 +789,6 @@
                     processedBlocks,
                 };
             });
-
-            geneAnalysisCache = {};
         } catch (err) {
             console.error("Error in createGeneVisualization:", err);
             error = `Failed to create gene visualization: ${err.message}`;
@@ -804,7 +801,7 @@
         const detail = event.detail;
         const geneId = detail.geneId;
         const geneType = detail.geneType;
-        const chromosome = detail.chromosome;
+
         const effectInfo = detail.effect;
 
         const potentialEffects = [];
@@ -1306,8 +1303,7 @@
                                 <span class="legend-label legend-label-effect"
                                     >Effect:</span
                                 >
-                                <!-- svelte-ignore a11y-click-events-have-key-events -->
-                                <!-- svelte-ignore a11y-no-static-element-interactions -->
+
                                 <span
                                     class="legend-item effect-legend-item {currentEffectFilter.includes(
                                         'positive',
@@ -1334,8 +1330,7 @@
                                     />
                                     <span>Positive</span>
                                 </span>
-                                <!-- svelte-ignore a11y-click-events-have-key-events -->
-                                <!-- svelte-ignore a11y-no-static-element-interactions -->
+
                                 <span
                                     class="legend-item effect-legend-item {currentEffectFilter.includes(
                                         'potential-positive',
@@ -1365,8 +1360,7 @@
                                     />
                                     <span>Potential Positive</span>
                                 </span>
-                                <!-- svelte-ignore a11y-click-events-have-key-events -->
-                                <!-- svelte-ignore a11y-no-static-element-interactions -->
+
                                 <span
                                     class="legend-item effect-legend-item {currentEffectFilter.includes(
                                         'neutral',
@@ -1393,8 +1387,7 @@
                                     />
                                     <span>Neutral</span>
                                 </span>
-                                <!-- svelte-ignore a11y-click-events-have-key-events -->
-                                <!-- svelte-ignore a11y-no-static-element-interactions -->
+
                                 <span
                                     class="legend-item effect-legend-item {currentEffectFilter.includes(
                                         'potential-negative',
@@ -1424,8 +1417,7 @@
                                     />
                                     <span>Potential Negative</span>
                                 </span>
-                                <!-- svelte-ignore a11y-click-events-have-key-events -->
-                                <!-- svelte-ignore a11y-no-static-element-interactions -->
+
                                 <span
                                     class="legend-item effect-legend-item {currentEffectFilter.includes(
                                         'negative',
@@ -1455,8 +1447,7 @@
                                 <span class="legend-label legend-label-value"
                                     >Value:</span
                                 >
-                                <!-- svelte-ignore a11y-click-events-have-key-events -->
-                                <!-- svelte-ignore a11y-no-static-element-interactions -->
+
                                 <span
                                     class="legend-item value-legend-item {currentValueFilter.includes(
                                         'gene-dominant',
@@ -1483,8 +1474,7 @@
                                     />
                                     <span>Dominant</span>
                                 </span>
-                                <!-- svelte-ignore a11y-click-events-have-key-events -->
-                                <!-- svelte-ignore a11y-no-static-element-interactions -->
+
                                 <span
                                     class="legend-item value-legend-item {currentValueFilter.includes(
                                         'gene-recessive',
@@ -1511,8 +1501,7 @@
                                     />
                                     <span>Recessive</span>
                                 </span>
-                                <!-- svelte-ignore a11y-click-events-have-key-events -->
-                                <!-- svelte-ignore a11y-no-static-element-interactions -->
+
                                 <span
                                     class="legend-item value-legend-item {currentValueFilter.includes(
                                         'gene-mixed',
@@ -1539,8 +1528,7 @@
                                     />
                                     <span>Mixed</span>
                                 </span>
-                                <!-- svelte-ignore a11y-click-events-have-key-events -->
-                                <!-- svelte-ignore a11y-no-static-element-interactions -->
+
                                 <span
                                     class="legend-item value-legend-item {currentValueFilter.includes(
                                         'gene-unknown',
@@ -1573,8 +1561,7 @@
                                 <span class="legend-label legend-label-effect"
                                     >Appearance:</span
                                 >
-                                <!-- svelte-ignore a11y-click-events-have-key-events -->
-                                <!-- svelte-ignore a11y-no-static-element-interactions -->
+
                                 <span
                                     class="legend-item appearance-legend-item {selectedAttributes.some(
                                         (attr) =>
@@ -1613,8 +1600,7 @@
                                     />
                                     <span>Body Color</span>
                                 </span>
-                                <!-- svelte-ignore a11y-click-events-have-key-events -->
-                                <!-- svelte-ignore a11y-no-static-element-interactions -->
+
                                 <span
                                     class="legend-item appearance-legend-item {selectedAttributes.some(
                                         (attr) =>
@@ -1653,8 +1639,7 @@
                                     />
                                     <span>Wing Color</span>
                                 </span>
-                                <!-- svelte-ignore a11y-click-events-have-key-events -->
-                                <!-- svelte-ignore a11y-no-static-element-interactions -->
+
                                 <span
                                     class="legend-item appearance-legend-item {selectedAttributes.some(
                                         (attr) =>
@@ -1694,8 +1679,7 @@
                                     />
                                     <span>Body Scale</span>
                                 </span>
-                                <!-- svelte-ignore a11y-click-events-have-key-events -->
-                                <!-- svelte-ignore a11y-no-static-element-interactions -->
+
                                 <span
                                     class="legend-item appearance-legend-item {selectedAttributes.some(
                                         (attr) =>
@@ -1729,8 +1713,7 @@
                                     />
                                     <span>Deformities</span>
                                 </span>
-                                <!-- svelte-ignore a11y-click-events-have-key-events -->
-                                <!-- svelte-ignore a11y-no-static-element-interactions -->
+
                                 <span
                                     class="legend-item appearance-legend-item {selectedAttributes.some(
                                         (attr) =>
@@ -1764,8 +1747,7 @@
                                     />
                                     <span>Particles</span>
                                 </span>
-                                <!-- svelte-ignore a11y-click-events-have-key-events -->
-                                <!-- svelte-ignore a11y-no-static-element-interactions -->
+
                                 <span
                                     class="legend-item appearance-legend-item {selectedAttributes.includes(
                                         'glow',
@@ -1790,8 +1772,7 @@
                                     />
                                     <span>Glow</span>
                                 </span>
-                                <!-- svelte-ignore a11y-click-events-have-key-events -->
-                                <!-- svelte-ignore a11y-no-static-element-interactions -->
+
                                 <span
                                     class="legend-item appearance-legend-item {selectedAttributes.includes(
                                         'appearance-neutral',
@@ -1831,7 +1812,7 @@
                                 <tr>
                                     <th class="chromosome-header">Chr</th>
                                     {#each headerStructure.sortedBlocks as block}
-                                        {#each Array(headerStructure.blockMaxGenes.get(block)) as _, i}
+                                        {#each Array.from({ length: headerStructure.blockMaxGenes.get(block) }, (_, i) => i) as i}
                                             <th
                                                 class="position-header {i === 0
                                                     ? 'block-label block-start'
@@ -1844,7 +1825,7 @@
                                 </tr>
                             </thead>
                             <tbody class="gene-rows">
-                                {#each chromosomeData as { chromosome, data, processedBlocks }}
+                                {#each chromosomeData as { chromosome, processedBlocks }}
                                     <tr class="chromosome-row">
                                         <td
                                             class="chromosome-label {selectedChromosomes.includes(
@@ -1867,7 +1848,7 @@
                                             {chromosome}
                                         </td>
                                         {#each headerStructure.sortedBlocks as block}
-                                            {#each Array(headerStructure.blockMaxGenes.get(block)) as _, i}
+                                            {#each Array.from({ length: headerStructure.blockMaxGenes.get(block) }, (_, i) => i) as i}
                                                 {@const gene =
                                                     processedBlocks?.[block]?.[
                                                         i

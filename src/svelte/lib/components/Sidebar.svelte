@@ -1,524 +1,521 @@
 <script>
-  import { createEventDispatcher } from 'svelte';
-  import {
-    pets,
-    selectedPet,
-    loading,
-    error,
-    appState
-  } from '../stores/appState.js';
-  import PetUpload from './PetUpload.svelte';
-  import PetsList from './PetsList.svelte';
-  import GeneEditor from './GeneEditor.svelte';
+    import { error, appState } from "../stores/appState.js";
+    import PetUpload from "./PetUpload.svelte";
+    import PetsList from "./PetsList.svelte";
+    import GeneEditor from "./GeneEditor.svelte";
 
-  export let sidebarCollapsed = false;
-  export let toggleSidebar;
+    export let sidebarCollapsed = false;
+    export let toggleSidebar;
 
-  const dispatch = createEventDispatcher();
+    let activeTab = "pets";
 
-  let fileInput;
-  let activeTab = 'pets';
-
-  function switchTab(tab) {
-    activeTab = tab;
-  }
+    function switchTab(tab) {
+        activeTab = tab;
+    }
 </script>
 
 <div class="sidebar" class:collapsed={sidebarCollapsed}>
-  <!-- Logo & Title -->
-  <div class="sidebar-header">
-    <div class="logo-section">
-      <div class="logo-box">
-        <span class="dna-emoji">🔬</span>
-      </div>
-      <div class="title-box" class:hidden={sidebarCollapsed}>
-        <h1 class="gradient-text">Gorgonetics</h1>
-        <p>Project Gorgon Breeding Tool</p>
-      </div>
+    <!-- Logo & Title -->
+    <div class="sidebar-header">
+        <div class="logo-section">
+            <div class="logo-box">
+                <span class="dna-emoji">🔬</span>
+            </div>
+            <div class="title-box" class:hidden={sidebarCollapsed}>
+                <h1 class="gradient-text">Gorgonetics</h1>
+                <p>Project Gorgon Breeding Tool</p>
+            </div>
+        </div>
+
+        <!-- Tab Navigation -->
+        <div class="tab-container">
+            <div class="tab-list">
+                <button
+                    class="tab"
+                    class:active={activeTab === "pets"}
+                    aria-selected={activeTab === "pets"}
+                    on:click={() => switchTab("pets")}
+                >
+                    <span class="tab-icon">🐾</span>
+                    {#if !sidebarCollapsed}
+                        <span class="tab-text">Pet Manager</span>
+                    {/if}
+                </button>
+
+                <button
+                    class="tab"
+                    class:active={activeTab === "editor"}
+                    aria-selected={activeTab === "editor"}
+                    on:click={() => switchTab("editor")}
+                >
+                    <span class="tab-icon">🧬</span>
+                    {#if !sidebarCollapsed}
+                        <span class="tab-text">Gene Editor</span>
+                    {/if}
+                </button>
+            </div>
+        </div>
     </div>
 
-    <!-- Tab Navigation -->
-    <div class="tab-container">
-      <div class="tab-list">
+    <!-- Tool Controls Container -->
+    {#if !sidebarCollapsed}
+        <div class="sidebar-controls">
+            <!-- Error Display -->
+            {#if $error}
+                <div class="error" role="alert">
+                    {$error}
+                    <button
+                        class="error-close"
+                        on:click={() => appState.clearError()}>×</button
+                    >
+                </div>
+            {/if}
+
+            <!-- Pet Management Panel -->
+            {#if activeTab === "pets"}
+                <div class="tab-panel" role="tabpanel">
+                    <PetUpload />
+                    <PetsList />
+                </div>
+            {/if}
+
+            <!-- Gene Editor Panel -->
+            {#if activeTab === "editor"}
+                <div class="tab-panel" role="tabpanel">
+                    <GeneEditor />
+                </div>
+            {/if}
+        </div>
+    {/if}
+
+    <!-- Sidebar Toggle Button -->
+    <div class="sidebar-footer">
         <button
-          class="tab"
-          class:active={activeTab === 'pets'}
-          aria-selected={activeTab === 'pets'}
-          on:click={() => switchTab('pets')}
+            class="sidebar-toggle"
+            on:click={toggleSidebar}
+            title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
-          <span class="tab-icon">🐾</span>
-          {#if !sidebarCollapsed}
-            <span class="tab-text">Pet Manager</span>
-          {/if}
+            <span class="toggle-icon" class:rotated={sidebarCollapsed}>‹</span>
         </button>
-
-        <button
-          class="tab"
-          class:active={activeTab === 'editor'}
-          aria-selected={activeTab === 'editor'}
-          on:click={() => switchTab('editor')}
-        >
-          <span class="tab-icon">🧬</span>
-          {#if !sidebarCollapsed}
-            <span class="tab-text">Gene Editor</span>
-          {/if}
-        </button>
-      </div>
     </div>
-  </div>
-
-  <!-- Tool Controls Container -->
-  {#if !sidebarCollapsed}
-    <div class="sidebar-controls">
-      <!-- Error Display -->
-      {#if $error}
-        <div class="error" role="alert">
-          {$error}
-          <button class="error-close" on:click={() => appState.clearError()}>×</button>
-        </div>
-      {/if}
-
-      <!-- Pet Management Panel -->
-      {#if activeTab === 'pets'}
-        <div class="tab-panel" role="tabpanel">
-          <PetUpload />
-          <PetsList />
-        </div>
-      {/if}
-
-      <!-- Gene Editor Panel -->
-      {#if activeTab === 'editor'}
-        <div class="tab-panel" role="tabpanel">
-          <GeneEditor />
-        </div>
-      {/if}
-    </div>
-  {/if}
-
-  <!-- Sidebar Toggle Button -->
-  <div class="sidebar-footer">
-    <button
-      class="sidebar-toggle"
-      on:click={toggleSidebar}
-      title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-    >
-      <span class="toggle-icon" class:rotated={sidebarCollapsed}>‹</span>
-    </button>
-  </div>
 </div>
 
 <style>
-  .sidebar {
-    width: 280px;
-    background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
-    box-shadow: 2px 0 8px rgba(0, 0, 0, 0.12);
-    display: flex;
-    flex-direction: column;
-    transition: width 0.3s ease;
-    position: relative;
-    height: 100vh;
-    overflow: hidden;
-    flex-shrink: 0;
-    contain: layout style;
-  }
-
-  .sidebar.collapsed {
-    width: 80px;
-  }
-
-  .sidebar-header {
-    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-    color: white;
-    padding: 0;
-    border-bottom: none;
-    flex-shrink: 0;
-  }
-
-  .logo-section {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    padding: 24px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    flex-shrink: 0;
-    position: relative;
-    transition: all 0.3s ease;
-    margin-bottom: 0;
-  }
-
-  .logo-box {
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 60px;
-    height: 60px;
-    background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
-    border-radius: 12px;
-    box-shadow: 0 4px 14px 0 rgba(59, 130, 246, 0.3);
-    border: none;
-  }
-
-  .dna-emoji {
-    font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif;
-    -webkit-text-fill-color: initial;
-    color: white;
-    background: none;
-    font-size: 32px;
-    animation: glow 3s ease-in-out infinite alternate;
-  }
-
-  @keyframes glow {
-    0% {
-      filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.3));
+    .sidebar {
+        width: 280px;
+        background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+        box-shadow: 2px 0 8px rgba(0, 0, 0, 0.12);
+        display: flex;
+        flex-direction: column;
+        transition: width 0.3s ease;
+        position: relative;
+        height: 100vh;
+        overflow: hidden;
+        flex-shrink: 0;
+        contain: layout style;
     }
-    100% {
-      filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.6));
+
+    .sidebar.collapsed {
+        width: 80px;
     }
-  }
 
-  .title-box {
-    flex: 1;
-    text-align: left;
-    min-width: 0;
-    height: 48px;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    transition: visibility 0.2s ease;
-  }
+    .sidebar-header {
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        color: white;
+        padding: 0;
+        border-bottom: none;
+        flex-shrink: 0;
+    }
 
-  .title-box.hidden {
-    visibility: hidden;
-  }
+    .logo-section {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 24px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        flex-shrink: 0;
+        position: relative;
+        transition: all 0.3s ease;
+        margin-bottom: 0;
+    }
 
-  .gradient-text {
-    font-size: 24px;
-    margin: 0;
-    font-weight: 700;
-    line-height: 1.2;
-    white-space: nowrap;
-    background: linear-gradient(135deg, #60a5fa 0%, #a78bfa 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
+    .logo-box {
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 60px;
+        height: 60px;
+        background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+        border-radius: 12px;
+        box-shadow: 0 4px 14px 0 rgba(59, 130, 246, 0.3);
+        border: none;
+    }
 
-  .title-box p {
-    font-size: 12px;
-    color: rgba(255, 255, 255, 0.7);
-    font-weight: 500;
-    letter-spacing: 0.5px;
-    margin: 0;
-    white-space: nowrap;
-  }
+    .dna-emoji {
+        font-family:
+            "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji",
+            sans-serif;
+        -webkit-text-fill-color: initial;
+        color: white;
+        background: none;
+        font-size: 32px;
+        animation: glow 3s ease-in-out infinite alternate;
+    }
 
-  .tab-container {
-    background: rgba(255, 255, 255, 0.05);
-    transition: all 0.3s ease;
-  }
+    @keyframes glow {
+        0% {
+            filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.3));
+        }
+        100% {
+            filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.6));
+        }
+    }
 
-  .tab-list {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    padding: 16px;
-  }
+    .title-box {
+        flex: 1;
+        text-align: left;
+        min-width: 0;
+        height: 48px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        transition: visibility 0.2s ease;
+    }
 
-  .tab {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 12px 16px;
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 8px;
-    color: rgba(255, 255, 255, 0.8);
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    text-align: left;
-    width: 100%;
-  }
+    .title-box.hidden {
+        visibility: hidden;
+    }
 
-  .tab:hover {
-    background: rgba(255, 255, 255, 0.15);
-    border-color: rgba(255, 255, 255, 0.3);
-    color: white;
-  }
+    .gradient-text {
+        font-size: 24px;
+        margin: 0;
+        font-weight: 700;
+        line-height: 1.2;
+        white-space: nowrap;
+        background: linear-gradient(135deg, #60a5fa 0%, #a78bfa 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
 
-  .tab[aria-selected="true"] {
-    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-    border-color: #1d4ed8;
-    color: white;
-    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
-  }
+    .title-box p {
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.7);
+        font-weight: 500;
+        letter-spacing: 0.5px;
+        margin: 0;
+        white-space: nowrap;
+    }
 
-  .tab[aria-selected="false"] {
-    background: rgba(0, 0, 0, 0.4);
-    border-color: rgba(0, 0, 0, 0.6);
-    color: rgba(255, 255, 255, 0.9);
-  }
+    .tab-container {
+        background: rgba(255, 255, 255, 0.05);
+        transition: all 0.3s ease;
+    }
 
-  .tab-icon {
-    font-size: 16px;
-    flex-shrink: 0;
-  }
+    .tab-list {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        padding: 16px;
+    }
 
-  .tab-text {
-    flex: 1;
-    transition: opacity 0.3s ease;
-    white-space: nowrap;
-  }
+    .tab {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 16px;
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 8px;
+        color: rgba(255, 255, 255, 0.8);
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-align: left;
+        width: 100%;
+    }
 
-  .sidebar.collapsed .tab-text {
-    display: none;
-  }
+    .tab:hover {
+        background: rgba(255, 255, 255, 0.15);
+        border-color: rgba(255, 255, 255, 0.3);
+        color: white;
+    }
 
-  .sidebar.collapsed .tab-list {
-    align-items: center;
-    padding: 16px;
-  }
+    .tab[aria-selected="true"] {
+        background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+        border-color: #1d4ed8;
+        color: white;
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    }
 
-  .sidebar.collapsed .tab {
-    width: 100%;
-    height: 44px;
-    padding: 12px 16px;
-    justify-content: center;
-    border-radius: 8px;
-    background: rgba(0, 0, 0, 0.6);
-    border: 2px solid rgba(0, 0, 0, 0.8);
-    color: white;
-  }
+    .tab[aria-selected="false"] {
+        background: rgba(0, 0, 0, 0.4);
+        border-color: rgba(0, 0, 0, 0.6);
+        color: rgba(255, 255, 255, 0.9);
+    }
 
-  .sidebar.collapsed .tab:hover {
-    background: rgba(0, 0, 0, 0.8);
-    border-color: rgba(0, 0, 0, 0.9);
-    transform: scale(1.05);
-    color: white;
-  }
+    .tab-icon {
+        font-size: 16px;
+        flex-shrink: 0;
+    }
 
-  .sidebar.collapsed .tab[aria-selected="true"] {
-    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-    border-color: #1d4ed8;
-    box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
-    color: white;
-  }
+    .tab-text {
+        flex: 1;
+        transition: opacity 0.3s ease;
+        white-space: nowrap;
+    }
 
-  .sidebar.collapsed .tab-icon {
-    font-size: 16px;
-    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
-  }
+    .sidebar.collapsed .tab-text {
+        display: none;
+    }
 
-  .sidebar-controls {
-    flex: 1;
-    padding: 24px;
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-    transition: all 0.3s ease;
-    overflow-y: auto;
-    min-height: 0;
-  }
+    .sidebar.collapsed .tab-list {
+        align-items: center;
+        padding: 16px;
+    }
 
-  .sidebar.collapsed .sidebar-controls {
-    display: none;
-  }
+    .sidebar.collapsed .tab {
+        width: 100%;
+        height: 44px;
+        padding: 12px 16px;
+        justify-content: center;
+        border-radius: 8px;
+        background: rgba(0, 0, 0, 0.6);
+        border: 2px solid rgba(0, 0, 0, 0.8);
+        color: white;
+    }
 
-  .tab-panel {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-    padding: 0;
-  }
+    .sidebar.collapsed .tab:hover {
+        background: rgba(0, 0, 0, 0.8);
+        border-color: rgba(0, 0, 0, 0.9);
+        transform: scale(1.05);
+        color: white;
+    }
 
-  .form-group {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
+    .sidebar.collapsed .tab[aria-selected="true"] {
+        background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+        border-color: #1d4ed8;
+        box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+        color: white;
+    }
 
-  .form-group label {
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: #374151;
-  }
+    .sidebar.collapsed .tab-icon {
+        font-size: 16px;
+        filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+    }
 
-  .form-group select {
-    padding: 0.5rem;
-    border: 1px solid #d1d5db;
-    border-radius: 6px;
-    font-size: 0.875rem;
-    background: white;
-  }
+    .sidebar-controls {
+        flex: 1;
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        transition: all 0.3s ease;
+        overflow-y: auto;
+        min-height: 0;
+    }
 
-  .form-group select:disabled {
-    background-color: #f9fafb;
-    color: #9ca3af;
-  }
+    .sidebar.collapsed .sidebar-controls {
+        display: none;
+    }
 
-  .sidebar-buttons {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
+    .tab-panel {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        padding: 0;
+    }
 
-  .load-btn, .export-btn {
-    padding: 0.5rem 1rem;
-    border: none;
-    border-radius: 6px;
-    font-size: 0.875rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s ease;
-  }
+    .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
 
-  .load-btn {
-    background-color: #3b82f6;
-    color: white;
-  }
+    .form-group label {
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: #374151;
+    }
 
-  .load-btn:hover:not(:disabled) {
-    background-color: #2563eb;
-  }
+    .form-group select {
+        padding: 0.5rem;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        font-size: 0.875rem;
+        background: white;
+    }
 
-  .export-btn {
-    background-color: #f3f4f6;
-    color: #374151;
-  }
+    .form-group select:disabled {
+        background-color: #f9fafb;
+        color: #9ca3af;
+    }
 
-  .export-btn:hover:not(:disabled) {
-    background-color: #e5e7eb;
-  }
+    .sidebar-buttons {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
 
-  .load-btn:disabled, .export-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
+    .load-btn,
+    .export-btn {
+        padding: 0.5rem 1rem;
+        border: none;
+        border-radius: 6px;
+        font-size: 0.875rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
 
-  .effect-legend {
-    margin-top: 1.5rem;
-    padding: 1rem;
-    background-color: #f9fafb;
-    border-radius: 8px;
-    font-size: 0.75rem;
-  }
+    .load-btn {
+        background-color: #3b82f6;
+        color: white;
+    }
 
-  .effect-legend h4 {
-    margin: 0 0 0.75rem 0;
-    font-size: 0.875rem;
-    color: #374151;
-  }
+    .load-btn:hover:not(:disabled) {
+        background-color: #2563eb;
+    }
 
-  .legend-badges {
-    display: flex;
-    flex-direction: column;
-    gap: 0.375rem;
-    margin-bottom: 0.75rem;
-  }
+    .export-btn {
+        background-color: #f3f4f6;
+        color: #374151;
+    }
 
-  .legend-badge {
-    padding: 0.25rem 0.5rem;
-    border-radius: 4px;
-    font-size: 0.6875rem;
-    font-weight: 500;
-  }
+    .export-btn:hover:not(:disabled) {
+        background-color: #e5e7eb;
+    }
 
-  .legend-badge.positive {
-    background-color: #dcfce7;
-    color: #166534;
-  }
+    .load-btn:disabled,
+    .export-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
 
-  .legend-badge.negative {
-    background-color: #fef2f2;
-    color: #991b1b;
-  }
+    .effect-legend {
+        margin-top: 1.5rem;
+        padding: 1rem;
+        background-color: #f9fafb;
+        border-radius: 8px;
+        font-size: 0.75rem;
+    }
 
-  .legend-badge.neutral {
-    background-color: #f3f4f6;
-    color: #374151;
-  }
+    .effect-legend h4 {
+        margin: 0 0 0.75rem 0;
+        font-size: 0.875rem;
+        color: #374151;
+    }
 
-  .legend-details {
-    margin-bottom: 0.5rem;
-  }
+    .legend-badges {
+        display: flex;
+        flex-direction: column;
+        gap: 0.375rem;
+        margin-bottom: 0.75rem;
+    }
 
-  .attribute-icons {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.375rem;
-    margin-top: 0.375rem;
-  }
+    .legend-badge {
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.6875rem;
+        font-weight: 500;
+    }
 
-  .attribute-icons span {
-    font-size: 0.625rem;
-  }
+    .legend-badge.positive {
+        background-color: #dcfce7;
+        color: #166534;
+    }
 
-  .legend-note {
-    color: #6b7280;
-    margin: 0;
-    font-size: 0.6875rem;
-  }
+    .legend-badge.negative {
+        background-color: #fef2f2;
+        color: #991b1b;
+    }
 
-  .sidebar-footer {
-    padding: 20px;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-    display: flex;
-    justify-content: center;
-    margin-top: auto;
-    flex-shrink: 0;
-    overflow: hidden;
-  }
+    .legend-badge.neutral {
+        background-color: #f3f4f6;
+        color: #374151;
+    }
 
-  .sidebar-toggle {
-    width: 36px;
-    height: 36px;
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 8px;
-    color: rgba(255, 255, 255, 0.8);
-    font-size: 16px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.3s ease;
-    backdrop-filter: blur(10px);
-    flex-shrink: 0;
-  }
+    .legend-details {
+        margin-bottom: 0.5rem;
+    }
 
-  .sidebar-toggle:hover {
-    background: rgba(255, 255, 255, 0.2);
-    color: white;
-    border-color: rgba(255, 255, 255, 0.3);
-  }
+    .attribute-icons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.375rem;
+        margin-top: 0.375rem;
+    }
 
-  .toggle-icon {
-    transition: transform 0.3s ease;
-    font-weight: bold;
-  }
+    .attribute-icons span {
+        font-size: 0.625rem;
+    }
 
-  .sidebar.collapsed .toggle-icon {
-    transform: rotate(180deg);
-  }
+    .legend-note {
+        color: #6b7280;
+        margin: 0;
+        font-size: 0.6875rem;
+    }
 
-  .error {
-    position: relative;
-    margin-bottom: 1rem;
-  }
+    .sidebar-footer {
+        padding: 20px;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        display: flex;
+        justify-content: center;
+        margin-top: auto;
+        flex-shrink: 0;
+        overflow: hidden;
+    }
 
-  .error-close {
-    position: absolute;
-    top: 0.5rem;
-    right: 0.75rem;
-    background: none;
-    border: none;
-    font-size: 1.25rem;
-    cursor: pointer;
-    color: #dc2626;
-    line-height: 1;
-  }
+    .sidebar-toggle {
+        width: 36px;
+        height: 36px;
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 8px;
+        color: rgba(255, 255, 255, 0.8);
+        font-size: 16px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s ease;
+        backdrop-filter: blur(10px);
+        flex-shrink: 0;
+    }
+
+    .sidebar-toggle:hover {
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+        border-color: rgba(255, 255, 255, 0.3);
+    }
+
+    .toggle-icon {
+        transition: transform 0.3s ease;
+        font-weight: bold;
+    }
+
+    .sidebar.collapsed .toggle-icon {
+        transform: rotate(180deg);
+    }
+
+    .error {
+        position: relative;
+        margin-bottom: 1rem;
+    }
+
+    .error-close {
+        position: absolute;
+        top: 0.5rem;
+        right: 0.75rem;
+        background: none;
+        border: none;
+        font-size: 1.25rem;
+        cursor: pointer;
+        color: #dc2626;
+        line-height: 1;
+    }
 </style>

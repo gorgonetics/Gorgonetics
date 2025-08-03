@@ -69,14 +69,6 @@
         });
     }
 
-    function isAttributeSelected(attributeKey) {
-        return selectedAttributes.includes(attributeKey);
-    }
-
-    function isAttributeHidden(attributeKey) {
-        return hiddenAttributes.includes(attributeKey);
-    }
-
     $: selectedCount = selectedAttributes.length;
 
     // Create reactive object lookups
@@ -147,8 +139,7 @@
                             <td>{totalCount}</td>
                             <td>
                                 {#if totalCount > 0}
-                                    {#if positiveCount > 0}+{positiveCount}{/if}
-                                    {#if negativeCount > 0}{#if positiveCount > 0}{/if}-{negativeCount}{/if}
+                                    {#if positiveCount > 0}+{positiveCount}{/if}{#if negativeCount > 0} -{negativeCount}{/if}
                                 {:else}
                                     <em>None</em>
                                 {/if}
