@@ -19,6 +19,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
+from .attribute_config import AttributeConfig
 from .database import GeneDatabase
 
 
@@ -73,8 +74,7 @@ class PetCreate(BaseModel):
     """Model for creating a new pet."""
 
     name: str
-    intelligence: float = 50.0
-    toughness: float = 50.0
+    attributes: dict[str, float] | None = None
     notes: str | None = None
 
 
@@ -82,13 +82,7 @@ class PetUpdate(BaseModel):
     """Model for updating pet attributes."""
 
     name: str | None = None
-    intelligence: float | None = None
-    toughness: float | None = None
-    friendliness: float | None = None
-    ruggedness: float | None = None
-    ferocity: float | None = None
-    enthusiasm: float | None = None
-    virility: float | None = None
+    attributes: dict[str, float] | None = None
     notes: str | None = None
 
 
@@ -255,27 +249,55 @@ async def update_gene(gene_update: GeneUpdate) -> dict[str, str]:
 
 @app.get("/api/effect-options")
 async def get_effect_options() -> list[str]:
-    """Get list of possible effect values for dropdown."""
-    # You mentioned you'll provide these values later
-    # For now, I'll include some common ones based on the data I saw
-    effects = [
-        "None",
-        "Toughness+",
-        "Toughness-",
-        "Friendliness+",
-        "Friendliness-",
-        "Ruggedness+",
-        "Ruggedness-",
-        "Ferocity+",
-        "Ferocity-",
-        "Enthusiasm+",
-        "Enthusiasm-",
-        "Virility+",
-        "Virility-",
-        "Intelligence+",
-        "Intelligence-",
-    ]
-    return sorted(effects)
+    """Get all possible gene effect options."""
+    return AttributeConfig.get_effect_options()
+
+
+@app.get("/api/effect-options/{species}")
+async def get_effect_options_for_species(species: str) -> list[str]:
+    """Get gene effect options for a specific species."""
+    try:
+        logger.info(f"Getting effect options for species: '{species}'")
+
+        # Normalize species name to handle database vs config mismatches
+        # Database might have "BeeWasp" while config expects "beewasp"
+        normalized_species = species.lower()
+
+        # Map common database names to config names
+        species_mapping = {
+            "beewasp": "beewasp",
+            "bee": "beewasp",
+            "wasp": "beewasp",
+            "horse": "horse"
+        }
+
+        config_species = species_mapping.get(normalized_species, normalized_species)
+        logger.info(f"Mapped '{species}' -> '{config_species}' for AttributeConfig")
+
+        effects = AttributeConfig.get_effect_options_for_species(config_species)
+        logger.info(f"Returning {len(effects)} effect options for {config_species}")
+        return effects
+    except Exception as e:
+        logger.error(f"Error getting effect options for species {species}: {e}")
+        # Return all options as fallback instead of failing
+        logger.info("Falling back to all effect options")
+        return AttributeConfig.get_effect_options()
+
+
+@app.get("/api/attribute-config/{species}")
+async def get_attribute_config(species: str) -> dict[str, Any]:
+    """Get attribute configuration for a specific species."""
+    try:
+        return {
+            "species": species,
+            "attributes": AttributeConfig.get_attribute_display_info(species),
+            "all_attribute_names": AttributeConfig.get_all_attribute_names(species),
+            "core_attributes": list(AttributeConfig.get_core_attributes().keys()),
+            "species_attributes": list(AttributeConfig.get_species_attributes(species).keys()),
+        }
+    except Exception as e:
+        logger.error(f"Error getting attribute config for species {species}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get attribute configuration") from e
 
 
 @app.get("/api/export/{animal_type}")
@@ -324,13 +346,6 @@ async def download_chromosome_file(animal_type: str, chromosome: str) -> Respons
 async def upload_pet_genome(
     file: UploadFile = File(...),
     name: str = "",  # Optional override name
-    intelligence: float = 50.0,
-    toughness: float = 50.0,
-    friendliness: float = 50.0,
-    ruggedness: float = 50.0,
-    ferocity: float = 50.0,
-    enthusiasm: float = 50.0,
-    virility: float = 50.0,
     notes: str | None = None,
 ) -> dict[str, str | int]:
     """Upload a genome file and create a new pet."""
@@ -380,6 +395,9 @@ async def upload_pet_genome(
                 )
             )
 
+            # Create species-specific attributes using config
+            attributes_dict = AttributeConfig.get_default_values(genome.genome_type)
+
             # Create the pet in the database
             pet_id = db.add_pet(
                 name=pet_name,
@@ -387,13 +405,7 @@ async def upload_pet_genome(
                 breeder=genome.breeder,
                 genome_data=genome.to_json(),
                 content_hash=content_hash,
-                intelligence=intelligence,
-                toughness=toughness,
-                friendliness=friendliness,
-                ruggedness=ruggedness,
-                ferocity=ferocity,
-                enthusiasm=enthusiasm,
-                virility=virility,
+                attributes=attributes_dict,
                 notes=notes,
             )
 
@@ -458,13 +470,7 @@ async def update_pet(pet_id: int, pet_update: PetUpdate) -> dict[str, str]:
         success = db.update_pet(
             pet_id=pet_id,
             name=pet_update.name,
-            intelligence=pet_update.intelligence,
-            toughness=pet_update.toughness,
-            friendliness=pet_update.friendliness,
-            ruggedness=pet_update.ruggedness,
-            ferocity=pet_update.ferocity,
-            enthusiasm=pet_update.enthusiasm,
-            virility=pet_update.virility,
+            attributes=pet_update.attributes,
             notes=pet_update.notes,
         )
 
@@ -509,7 +515,7 @@ async def get_pets_by_species(species: str) -> list[dict[str, str | int | float]
 
 
 @app.get("/svelte", response_class=HTMLResponse)
-async def svelte_dev(request: Request) -> HTMLResponse:
+async def svelte_dev(_request: Request) -> HTMLResponse:
     """Serve the Svelte development app (for development only)."""
     # This is a simple development route - in production you'd serve the built files
     import os

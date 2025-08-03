@@ -9,26 +9,66 @@
     export let hiddenAttributes = [];
     export let totalGenes = 0;
     export let neutralGenes = 0;
+    export let petSpecies = null;
+
+    let attributeList = [];
+    let attributeConfig = null;
 
     $: grandTotal = calculateGrandTotal();
+    $: if (petSpecies) {
+        loadAttributeConfig(petSpecies);
+    }
+
+    async function loadAttributeConfig(species) {
+        if (!species) {
+            // Default to BeeWasp if no species specified
+            species = "BeeWasp";
+        }
+
+        try {
+            const response = await fetch(`/api/attribute-config/${species}`);
+            if (response.ok) {
+                attributeConfig = await response.json();
+                attributeList = attributeConfig.attributes || [];
+            } else {
+                console.warn(`Failed to load attribute config for ${species}`);
+                // Fallback to hardcoded BeeWasp attributes
+                attributeList = [
+                    { key: "Intelligence", name: "Intelligence", icon: "🧠" },
+                    { key: "Toughness", name: "Toughness", icon: "💪" },
+                    { key: "Friendliness", name: "Friendliness", icon: "😊" },
+                    { key: "Ruggedness", name: "Ruggedness", icon: "🏔️" },
+                    { key: "Enthusiasm", name: "Enthusiasm", icon: "✨" },
+                    { key: "Virility", name: "Virility", icon: "💜" },
+                    { key: "Ferocity", name: "Ferocity", icon: "🔥" },
+                ];
+            }
+        } catch (error) {
+            console.error(
+                `Error loading attribute config for ${species}:`,
+                error,
+            );
+            // Fallback to hardcoded attributes
+            attributeList = [
+                { key: "Intelligence", name: "Intelligence", icon: "🧠" },
+                { key: "Toughness", name: "Toughness", icon: "💪" },
+                { key: "Friendliness", name: "Friendliness", icon: "😊" },
+                { key: "Ruggedness", name: "Ruggedness", icon: "🏔️" },
+                { key: "Enthusiasm", name: "Enthusiasm", icon: "✨" },
+                { key: "Virility", name: "Virility", icon: "💜" },
+                { key: "Ferocity", name: "Ferocity", icon: "🔥" },
+            ];
+        }
+    }
 
     function calculateGrandTotal() {
         if (!currentStats) return 0;
 
         let total = 0;
         if (currentView === "attribute") {
-            const attributes = [
-                "Intelligence",
-                "Toughness",
-                "Friendliness",
-                "Ruggedness",
-                "Ferocity",
-                "Enthusiasm",
-                "Virility",
-            ];
-            attributes.forEach((attr) => {
-                const positiveCount = currentStats[attr]?.positive || 0;
-                const negativeCount = currentStats[attr]?.negative || 0;
+            attributeList.forEach((attr) => {
+                const positiveCount = currentStats[attr.key]?.positive || 0;
+                const negativeCount = currentStats[attr.key]?.negative || 0;
                 total += positiveCount + negativeCount;
             });
         } else {
@@ -117,7 +157,7 @@
             </thead>
             <tbody id="tableBody">
                 {#if currentView === "attribute"}
-                    {#each [{ key: "Intelligence", name: "Intelligence", icon: "🧠" }, { key: "Toughness", name: "Toughness", icon: "💪" }, { key: "Friendliness", name: "Friendliness", icon: "😊" }, { key: "Ruggedness", name: "Ruggedness", icon: "🏔️" }, { key: "Ferocity", name: "Ferocity", icon: "🔥" }, { key: "Enthusiasm", name: "Enthusiasm", icon: "✨" }, { key: "Virility", name: "Virility", icon: "💜" }] as attr}
+                    {#each attributeList as attr}
                         {@const positiveCount =
                             currentStats?.[attr.key]?.positive || 0}
                         {@const negativeCount =

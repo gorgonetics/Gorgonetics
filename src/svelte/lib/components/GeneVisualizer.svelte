@@ -167,20 +167,73 @@
         }
     }
 
-    function initializeStats() {
+    async function initializeStats() {
         if (currentView === "attribute") {
-            return {
+            const stats = {
                 positive: 0,
                 negative: 0,
                 neutral: 0,
-                Intelligence: { positive: 0, negative: 0 },
-                Toughness: { positive: 0, negative: 0 },
-                Friendliness: { positive: 0, negative: 0 },
-                Ruggedness: { positive: 0, negative: 0 },
-                Ferocity: { positive: 0, negative: 0 },
-                Enthusiasm: { positive: 0, negative: 0 },
-                Virility: { positive: 0, negative: 0 },
             };
+
+            // Load species-specific attributes from configuration
+            if (currentPet?.species) {
+                try {
+                    const response = await fetch(
+                        `/api/attribute-config/${currentPet.species}`,
+                    );
+                    if (response.ok) {
+                        const config = await response.json();
+                        config.all_attribute_names.forEach((attrName) => {
+                            const attrKey =
+                                attrName.charAt(0).toUpperCase() +
+                                attrName.slice(1);
+                            stats[attrKey] = { positive: 0, negative: 0 };
+                        });
+                    } else {
+                        // Fallback to default attributes
+                        [
+                            "Intelligence",
+                            "Toughness",
+                            "Friendliness",
+                            "Ruggedness",
+                            "Enthusiasm",
+                            "Virility",
+                            "Ferocity",
+                        ].forEach((attr) => {
+                            stats[attr] = { positive: 0, negative: 0 };
+                        });
+                    }
+                } catch (error) {
+                    console.error("Error loading attribute config:", error);
+                    // Fallback to default attributes
+                    [
+                        "Intelligence",
+                        "Toughness",
+                        "Friendliness",
+                        "Ruggedness",
+                        "Enthusiasm",
+                        "Virility",
+                        "Ferocity",
+                    ].forEach((attr) => {
+                        stats[attr] = { positive: 0, negative: 0 };
+                    });
+                }
+            } else {
+                // Default attributes if no species specified
+                [
+                    "Intelligence",
+                    "Toughness",
+                    "Friendliness",
+                    "Ruggedness",
+                    "Enthusiasm",
+                    "Virility",
+                    "Ferocity",
+                ].forEach((attr) => {
+                    stats[attr] = { positive: 0, negative: 0 };
+                });
+            }
+
+            return stats;
         } else {
             return {
                 "body-color-hue": 0,
@@ -1862,6 +1915,7 @@
                 {hiddenAttributes}
                 {totalGenes}
                 {neutralGenes}
+                petSpecies={currentPet?.species}
                 on:attributeFilter={handleAttributeFilter}
             />
         </div>

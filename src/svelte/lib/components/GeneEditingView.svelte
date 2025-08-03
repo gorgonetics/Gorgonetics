@@ -17,17 +17,34 @@
     let hasUnsavedChanges = false;
     let savingChanges = false;
 
-    // Load effect options on mount
-    onMount(async () => {
+    // Load effect options when animalType changes
+    $: if (animalType) {
+        loadEffectOptions();
+    }
+
+    async function loadEffectOptions() {
+        if (!animalType) return;
+
         try {
-            const response = await fetch("/api/effect-options");
+            const response = await fetch(`/api/effect-options/${animalType}`);
+
             if (response.ok) {
                 effectOptions = await response.json();
+            } else {
+                console.error(
+                    "Failed to load effect options:",
+                    response.statusText,
+                );
+                // Fallback to all options if species-specific fails
+                const fallbackResponse = await fetch("/api/effect-options");
+                if (fallbackResponse.ok) {
+                    effectOptions = await fallbackResponse.json();
+                }
             }
         } catch (error) {
             console.error("Failed to load effect options:", error);
         }
-    });
+    }
 
     // Load genes for the selected chromosome
     async function loadGenes() {

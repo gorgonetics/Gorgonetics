@@ -13,6 +13,8 @@ from typing import Any, cast
 
 import duckdb
 
+from .attribute_config import AttributeConfig
+
 logger = logging.getLogger(__name__)
 
 
@@ -48,27 +50,8 @@ class GeneDatabase:
             )
         """)
 
-        # Pets table (user's pet collection)
-        self.conn.execute("""
-            CREATE TABLE IF NOT EXISTS pets (
-                id INTEGER PRIMARY KEY,
-                name VARCHAR NOT NULL,
-                species VARCHAR NOT NULL,
-                breeder VARCHAR,
-                genome_data TEXT NOT NULL,  -- Serialized genome JSON
-                content_hash VARCHAR NOT NULL,  -- SHA-256 hash of original file content
-                intelligence REAL DEFAULT 50.0,
-                toughness REAL DEFAULT 50.0,
-                friendliness REAL DEFAULT 50.0,
-                ruggedness REAL DEFAULT 50.0,
-                ferocity REAL DEFAULT 50.0,
-                enthusiasm REAL DEFAULT 50.0,
-                virility REAL DEFAULT 50.0,
-                notes TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
+        # Create pets table with dynamic attribute columns
+        self._create_pets_table()
 
         # Create index for faster lookups
         self.conn.execute("""
@@ -85,6 +68,42 @@ class GeneDatabase:
             CREATE INDEX IF NOT EXISTS idx_pets_content_hash
             ON pets(content_hash)
         """)
+
+    def _create_pets_table(self) -> None:
+        """Create pets table with all possible attribute columns."""
+        # Get all possible attribute columns
+        attribute_columns = AttributeConfig.get_database_columns()
+
+        # Build column definitions
+        attribute_cols = []
+        for attr_name in attribute_columns:
+            attribute_cols.append(f"{attr_name} REAL DEFAULT 50.0")
+
+        # Create table with dynamic columns
+        column_defs = ",\n                ".join(attribute_cols)
+
+        self.conn.execute(f"""
+            CREATE TABLE IF NOT EXISTS pets (
+                id INTEGER PRIMARY KEY,
+                name VARCHAR NOT NULL,
+                species VARCHAR NOT NULL,
+                breeder VARCHAR,
+                genome_data TEXT NOT NULL,  -- Serialized genome JSON
+                content_hash VARCHAR NOT NULL,  -- SHA-256 hash of original file content
+                {column_defs},
+                notes TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+        # Add any missing attribute columns (for migration)
+        for attr_name in attribute_columns:
+            try:
+                self.conn.execute(f"ALTER TABLE pets ADD COLUMN {attr_name} REAL DEFAULT 50.0")
+            except Exception:
+                # Column already exists, ignore
+                pass
 
     def load_from_json_files(self, assets_dir: str = "assets") -> None:
         """
@@ -492,13 +511,7 @@ class GeneDatabase:
         breeder: str | None,
         genome_data: str,
         content_hash: str,
-        intelligence: float = 50.0,
-        toughness: float = 50.0,
-        friendliness: float = 50.0,
-        ruggedness: float = 50.0,
-        ferocity: float = 50.0,
-        enthusiasm: float = 50.0,
-        virility: float = 50.0,
+        attributes: dict[str, float] | None = None,
         notes: str | None = None,
     ) -> int:
         """
@@ -510,13 +523,7 @@ class GeneDatabase:
             breeder: Breeder name
             genome_data: Serialized genome JSON
             content_hash: SHA-256 hash of original file content
-            intelligence: Intelligence attribute (0-100)
-            toughness: Toughness attribute (0-100)
-            friendliness: Friendliness attribute (0-100)
-            ruggedness: Ruggedness attribute (0-100)
-            ferocity: Ferocity attribute (0-100)
-            enthusiasm: Enthusiasm attribute (0-100)
-            virility: Virility attribute (0-100)
+            attributes: Dictionary of attribute values (species-specific)
             notes: Optional notes about the pet
 
         Returns:
@@ -529,29 +536,41 @@ class GeneDatabase:
         else:
             next_id = cast(int, result[0])
 
-        # Insert the pet with explicit ID
-        self.conn.execute(
-            """
-            INSERT INTO pets (id, name, species, breeder, genome_data, content_hash, intelligence, toughness, friendliness, ruggedness, ferocity, enthusiasm, virility, notes)
-            VALUES ($id, $name, $species, $breeder, $genome_data, $content_hash, $intelligence, $toughness, $friendliness, $ruggedness, $ferocity, $enthusiasm, $virility, $notes)
-        """,
-            {
-                "id": next_id,
-                "name": name,
-                "species": species,
-                "breeder": breeder,
-                "genome_data": genome_data,
-                "content_hash": content_hash,
-                "intelligence": intelligence,
-                "toughness": toughness,
-                "friendliness": friendliness,
-                "ruggedness": ruggedness,
-                "ferocity": ferocity,
-                "enthusiasm": enthusiasm,
-                "virility": virility,
-                "notes": notes,
-            },
-        )
+        # Set default attributes if not provided
+        if attributes is None:
+            attributes = {}
+
+        # Get all possible attributes with defaults
+        all_possible_attrs = AttributeConfig.get_database_columns()
+        species_defaults = AttributeConfig.get_default_values(species)
+
+        # Build attribute values with species-specific defaults
+        attr_values = {}
+        for attr_name in all_possible_attrs:
+            attr_values[attr_name] = attributes.get(attr_name, species_defaults.get(attr_name, 50.0))
+
+        # Build dynamic insert query
+        all_possible_attrs = AttributeConfig.get_database_columns()
+        attr_columns = ", ".join(all_possible_attrs)
+        attr_placeholders = ", ".join(f"${attr}" for attr in all_possible_attrs)
+
+        query = f"""
+            INSERT INTO pets (id, name, species, breeder, genome_data, content_hash, {attr_columns}, notes)
+            VALUES ($id, $name, $species, $breeder, $genome_data, $content_hash, {attr_placeholders}, $notes)
+        """
+
+        params = {
+            "id": next_id,
+            "name": name,
+            "species": species,
+            "breeder": breeder,
+            "genome_data": genome_data,
+            "content_hash": content_hash,
+            **attr_values,
+            "notes": notes,
+        }
+
+        self.conn.execute(query, params)
 
         logger.info(f"Added pet '{name}' with ID {next_id}")
         return next_id
@@ -566,35 +585,42 @@ class GeneDatabase:
         Returns:
             Pet data dictionary or None if not found
         """
-        result = self.conn.execute(
-            """
-            SELECT id, name, species, breeder, genome_data, intelligence, toughness, friendliness, ruggedness, ferocity, enthusiasm, virility, notes, created_at, updated_at
+        # Build dynamic select query
+        all_possible_attrs = AttributeConfig.get_database_columns()
+        attr_columns = ", ".join(all_possible_attrs)
+
+        query = f"""
+            SELECT id, name, species, breeder, genome_data, {attr_columns}, notes, created_at, updated_at
             FROM pets
             WHERE id = $pet_id
-        """,
-            {"pet_id": pet_id},
-        ).fetchone()
+        """
+
+        result = self.conn.execute(query, {"pet_id": pet_id}).fetchone()
 
         if result is None:
             return None
 
-        return {
+        # Build result dictionary dynamically
+        all_possible_attrs = list(AttributeConfig.get_database_columns())
+        result_dict = {
             "id": result[0],
             "name": result[1],
             "species": result[2],
             "breeder": result[3],
             "genome_data": result[4],
-            "intelligence": result[5],
-            "toughness": result[6],
-            "friendliness": result[7],
-            "ruggedness": result[8],
-            "ferocity": result[9],
-            "enthusiasm": result[10],
-            "virility": result[11],
-            "notes": result[12],
-            "created_at": result[13],
-            "updated_at": result[14],
         }
+
+        # Add attribute values
+        for i, attr_name in enumerate(all_possible_attrs, start=5):
+            result_dict[attr_name] = result[i]
+
+        # Add remaining fields
+        attr_count = len(all_possible_attrs)
+        result_dict["notes"] = result[5 + attr_count]
+        result_dict["created_at"] = result[6 + attr_count]
+        result_dict["updated_at"] = result[7 + attr_count]
+
+        return result_dict
 
     def get_all_pets(self) -> list[dict[str, Any]]:
         """
@@ -603,31 +629,38 @@ class GeneDatabase:
         Returns:
             List of pet dictionaries
         """
-        results = self.conn.execute("""
-            SELECT id, name, species, breeder, intelligence, toughness, friendliness, ruggedness, ferocity, enthusiasm, virility, notes, created_at
+        # Build dynamic select query for all pets
+        all_possible_attrs = AttributeConfig.get_database_columns()
+        attr_columns = ", ".join(all_possible_attrs)
+
+        query = f"""
+            SELECT id, name, species, breeder, {attr_columns}, notes, created_at
             FROM pets
             ORDER BY created_at DESC
-        """).fetchall()
+        """
+
+        results = self.conn.execute(query).fetchall()
 
         pets = []
         for row in results:
             # Parse genome_data to count genes
+            # Build pet data dictionary dynamically
+            all_possible_attrs = list(AttributeConfig.get_database_columns())
             pet_data = {
                 "id": row[0],
                 "name": row[1],
                 "species": row[2],
                 "breeder": row[3],
-                "intelligence": row[4],
-                "toughness": row[5],
-                "friendliness": row[6],
-                "ruggedness": row[7],
-                "ferocity": row[8],
-                "enthusiasm": row[9],
-                "virility": row[10],
-                "notes": row[11],
-                "created_at": row[12],
-                "total_genes": 0,
             }
+
+            # Add attribute values
+            for i, attr_name in enumerate(all_possible_attrs, start=4):
+                pet_data[attr_name] = row[i]
+
+            # Add remaining fields
+            attr_count = len(all_possible_attrs)
+            pet_data["notes"] = row[4 + attr_count]
+            pet_data["created_at"] = row[5 + attr_count]
 
             # Get the pet's genome data to count genes
             genome_result = self.conn.execute("SELECT genome_data FROM pets WHERE id = $id", {"id": row[0]}).fetchone()
@@ -687,13 +720,7 @@ class GeneDatabase:
         self,
         pet_id: int,
         name: str | None = None,
-        intelligence: float | None = None,
-        toughness: float | None = None,
-        friendliness: float | None = None,
-        ruggedness: float | None = None,
-        ferocity: float | None = None,
-        enthusiasm: float | None = None,
-        virility: float | None = None,
+        attributes: dict[str, float] | None = None,
         notes: str | None = None,
     ) -> bool:
         """
@@ -702,45 +729,24 @@ class GeneDatabase:
         Args:
             pet_id: Pet ID
             name: New name (optional)
-            intelligence: New intelligence value (optional)
-            toughness: New toughness value (optional)
-            friendliness: New friendliness value (optional)
-            ruggedness: New ruggedness value (optional)
-            ferocity: New ferocity value (optional)
-            enthusiasm: New enthusiasm value (optional)
-            virility: New virility value (optional)
+            attributes: Dictionary of attribute values to update (optional)
             notes: New notes (optional)
-
-        Returns:
-            True if the pet was updated, False otherwise
         """
         updates: list[str] = []
-        params: dict[str, Any] = {}
+        params: dict[str, Any] = {"pet_id": pet_id}
 
         if name is not None:
             updates.append("name = $name")
             params["name"] = name
-        if intelligence is not None:
-            updates.append("intelligence = $intelligence")
-            params["intelligence"] = intelligence
-        if toughness is not None:
-            updates.append("toughness = $toughness")
-            params["toughness"] = toughness
-        if friendliness is not None:
-            updates.append("friendliness = $friendliness")
-            params["friendliness"] = friendliness
-        if ruggedness is not None:
-            updates.append("ruggedness = $ruggedness")
-            params["ruggedness"] = ruggedness
-        if ferocity is not None:
-            updates.append("ferocity = $ferocity")
-            params["ferocity"] = ferocity
-        if enthusiasm is not None:
-            updates.append("enthusiasm = $enthusiasm")
-            params["enthusiasm"] = enthusiasm
-        if virility is not None:
-            updates.append("virility = $virility")
-            params["virility"] = virility
+
+        if attributes is not None:
+            # Get all valid attribute columns from configuration
+            valid_attrs = AttributeConfig.get_database_columns()
+            for attr_name, attr_value in attributes.items():
+                if attr_name.lower() in valid_attrs:
+                    updates.append(f"{attr_name.lower()} = ${attr_name.lower()}")
+                    params[attr_name.lower()] = attr_value
+
         if notes is not None:
             updates.append("notes = $notes")
             params["notes"] = notes
