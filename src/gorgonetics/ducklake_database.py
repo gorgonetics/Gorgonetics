@@ -516,6 +516,61 @@ class DuckLakeGeneDatabase:
                     # Serialize datetime fields
                     pet = self._serialize_datetime_fields(pet)
 
+                    # --- Gene counting logic ---
+                    # Try to parse genome_data and count genes
+                    import json
+                    total_genes = 0
+                    known_genes = 0
+                    unknown_genes = 0
+
+                    genome_data = pet.get("genome_data")
+                    # DuckDB JSON column may already be parsed, but handle string case
+                    if isinstance(genome_data, str):
+                        try:
+                            genome_data = json.loads(genome_data)
+                        except Exception:
+                            genome_data = None
+
+                    if isinstance(genome_data, dict):
+                        # 1. Standard Genome model structure with Gene objects
+                        if "genes" in genome_data and isinstance(genome_data["genes"], dict):
+                            genes_data = genome_data["genes"]
+                            for chromosome_data in genes_data.values():
+                                if isinstance(chromosome_data, list):
+                                    for gene in chromosome_data:
+                                        if isinstance(gene, dict):
+                                            total_genes += 1
+                                            gene_type = gene.get("gene_type")
+                                            if gene_type == "?" or (isinstance(gene_type, str) and gene_type.upper() == "UNKNOWN"):
+                                                unknown_genes += 1
+                                            else:
+                                                known_genes += 1
+                                        elif isinstance(gene, str):
+                                            total_genes += 1
+                                            if gene == "?" or gene.upper() == "UNKNOWN":
+                                                unknown_genes += 1
+                                            else:
+                                                known_genes += 1
+                        # 2. Parsed text file structure
+                        if "Genes" in genome_data and isinstance(genome_data["Genes"], dict):
+                            genes_data = genome_data["Genes"]
+                            for gene_string in genes_data.values():
+                                if isinstance(gene_string, str):
+                                    blocks = gene_string.strip().split()
+                                    for block in blocks:
+                                        for gene_char in block:
+                                            if gene_char and gene_char.lower() != "x":
+                                                total_genes += 1
+                                                if gene_char == "?" or gene_char.lower() == "unknown":
+                                                    unknown_genes += 1
+                                                else:
+                                                    known_genes += 1
+
+                    pet["total_genes"] = total_genes
+                    pet["known_genes"] = known_genes
+                    pet["unknown_genes"] = unknown_genes
+                    pet["has_unknown_genes"] = unknown_genes > 0
+
                     pets.append(pet)
 
                 return pets

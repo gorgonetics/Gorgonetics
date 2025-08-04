@@ -402,7 +402,18 @@ async def upload_pet_genome(
 
         try:
             # Parse the genome
+            # Always parse the genome file and store the full gene data for correct counting
             genome = Genome.from_file(temp_file_path)
+            genome_json = genome.to_json()
+
+            # Defensive: ensure gene data is present and well-formed
+            import json
+            try:
+                parsed = json.loads(genome_json)
+                if "genes" not in parsed or not parsed["genes"]:
+                    raise ValueError("No genes found in parsed genome")
+            except Exception as e:
+                raise HTTPException(status_code=400, detail=f"Failed to parse genome genes: {e}")
 
             # Use the pet name from the genome file, or user override, or filename as fallback
             pet_name = (
@@ -417,7 +428,6 @@ async def upload_pet_genome(
                 )
             )
 
-            # Create species-specific attributes using config
             attributes_dict = AttributeConfig.get_default_values(genome.genome_type)
 
             # Create the pet in the database
@@ -425,7 +435,7 @@ async def upload_pet_genome(
                 name=pet_name,
                 species=genome.genome_type,
                 breeder=genome.breeder,
-                genome_data=genome.to_json(),
+                genome_data=genome_json,
                 content_hash=content_hash,
                 attributes=attributes_dict,
                 notes=notes,
