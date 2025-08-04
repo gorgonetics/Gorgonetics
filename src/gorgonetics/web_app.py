@@ -300,6 +300,20 @@ async def get_attribute_config(species: str) -> dict[str, Any]:
         raise HTTPException(status_code=500, detail="Failed to get attribute configuration") from e
 
 
+@app.get("/api/appearance-config/{species}")
+async def get_appearance_config(species: str) -> dict[str, Any]:
+    """Get appearance attribute configuration for a specific species."""
+    try:
+        return {
+            "species": species,
+            "appearance_attributes": AttributeConfig.get_appearance_display_info(species),
+            "appearance_attribute_names": AttributeConfig.get_appearance_attribute_names(species),
+        }
+    except Exception as e:
+        logger.error(f"Error getting appearance config for species {species}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get appearance configuration") from e
+
+
 @app.get("/api/export/{animal_type}")
 async def export_all_chromosomes(animal_type: str) -> dict[str, str | list[str]]:
     """Export all chromosomes for an animal type to JSON files."""

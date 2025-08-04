@@ -235,25 +235,95 @@
 
             return stats;
         } else {
-            return {
-                "body-color-hue": 0,
-                "body-color-saturation": 0,
-                "body-color-intensity": 0,
-                "wing-color-hue": 0,
-                "wing-color-saturation": 0,
-                "wing-color-intensity": 0,
-                "body-scale": 0,
-                "wing-scale": 0,
-                "head-scale": 0,
-                "tail-scale": 0,
-                "antenna-scale": 0,
-                "leg-deformity": 0,
-                "antenna-deformity": 0,
-                particles: 0,
-                "particle-location": 0,
-                glow: 0,
+            // Load species-specific appearance attributes from configuration
+            const stats = {
                 "appearance-neutral": 0,
             };
+
+            if (currentPet?.species) {
+                try {
+                    const response = await fetch(
+                        `/api/appearance-config/${currentPet.species}`,
+                    );
+                    if (response.ok) {
+                        const config = await response.json();
+                        config.appearance_attribute_names.forEach(
+                            (attrName) => {
+                                stats[attrName] = 0;
+                            },
+                        );
+                    } else {
+                        // Fallback to default BeeWasp appearance attributes
+                        [
+                            "body-color-hue",
+                            "body-color-saturation",
+                            "body-color-intensity",
+                            "wing-color-hue",
+                            "wing-color-saturation",
+                            "wing-color-intensity",
+                            "body-scale",
+                            "wing-scale",
+                            "head-scale",
+                            "tail-scale",
+                            "antenna-scale",
+                            "leg-deformity",
+                            "antenna-deformity",
+                            "particles",
+                            "particle-location",
+                            "glow",
+                        ].forEach((attr) => {
+                            stats[attr] = 0;
+                        });
+                    }
+                } catch (error) {
+                    console.error("Error loading appearance config:", error);
+                    // Fallback to default appearance attributes
+                    [
+                        "body-color-hue",
+                        "body-color-saturation",
+                        "body-color-intensity",
+                        "wing-color-hue",
+                        "wing-color-saturation",
+                        "wing-color-intensity",
+                        "body-scale",
+                        "wing-scale",
+                        "head-scale",
+                        "tail-scale",
+                        "antenna-scale",
+                        "leg-deformity",
+                        "antenna-deformity",
+                        "particles",
+                        "particle-location",
+                        "glow",
+                    ].forEach((attr) => {
+                        stats[attr] = 0;
+                    });
+                }
+            } else {
+                // Default BeeWasp appearance attributes if no species specified
+                [
+                    "body-color-hue",
+                    "body-color-saturation",
+                    "body-color-intensity",
+                    "wing-color-hue",
+                    "wing-color-saturation",
+                    "wing-color-intensity",
+                    "body-scale",
+                    "wing-scale",
+                    "head-scale",
+                    "tail-scale",
+                    "antenna-scale",
+                    "leg-deformity",
+                    "antenna-deformity",
+                    "particles",
+                    "particle-location",
+                    "glow",
+                ].forEach((attr) => {
+                    stats[attr] = 0;
+                });
+            }
+
+            return stats;
         }
     }
 

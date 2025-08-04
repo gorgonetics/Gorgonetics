@@ -73,6 +73,159 @@ class AttributeConfig:
         },
     }
 
+    # Species-specific appearance attributes
+    SPECIES_APPEARANCE_ATTRIBUTES = {
+        "beewasp": {
+            "body-color-hue": {
+                "name": "Body Color Hue",
+                "examples": "Color tone",
+                "color_indicator": "linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1)"
+            },
+            "body-color-saturation": {
+                "name": "Body Color Saturation",
+                "examples": "Color intensity",
+                "color_indicator": "linear-gradient(90deg, #f8f9fa, #ff6b6b)"
+            },
+            "body-color-intensity": {
+                "name": "Body Color Intensity",
+                "examples": "Brightness",
+                "color_indicator": "linear-gradient(90deg, #343a40, #f8f9fa)"
+            },
+            "wing-color-hue": {
+                "name": "Wing Color Hue",
+                "examples": "Wing tone",
+                "color_indicator": "linear-gradient(45deg, #ffd93d, #6bcf7f, #4d72aa)"
+            },
+            "wing-color-saturation": {
+                "name": "Wing Color Saturation",
+                "examples": "Wing intensity",
+                "color_indicator": "linear-gradient(90deg, #e9ecef, #ffd93d)"
+            },
+            "wing-color-intensity": {
+                "name": "Wing Color Intensity",
+                "examples": "Wing brightness",
+                "color_indicator": "linear-gradient(90deg, #495057, #fff3cd)"
+            },
+            "body-scale": {
+                "name": "Body Scale",
+                "examples": "Body size",
+                "color_indicator": "#8b5cf6"
+            },
+            "wing-scale": {
+                "name": "Wing Scale",
+                "examples": "Wing size",
+                "color_indicator": "#06b6d4"
+            },
+            "head-scale": {
+                "name": "Head Scale",
+                "examples": "Head size",
+                "color_indicator": "#f59e0b"
+            },
+            "tail-scale": {
+                "name": "Tail Scale",
+                "examples": "Tail size",
+                "color_indicator": "#84cc16"
+            },
+            "antenna-scale": {
+                "name": "Antenna Scale",
+                "examples": "Antenna size",
+                "color_indicator": "#ec4899"
+            },
+            "leg-deformity": {
+                "name": "Leg Deformity",
+                "examples": "Leg shape",
+                "color_indicator": "#ef4444"
+            },
+            "antenna-deformity": {
+                "name": "Antenna Deformity",
+                "examples": "Antenna shape",
+                "color_indicator": "#f97316"
+            },
+            "particles": {
+                "name": "Particles",
+                "examples": "Special effects",
+                "color_indicator": "radial-gradient(circle, #fbbf24, #f59e0b)"
+            },
+            "particle-location": {
+                "name": "Particle Location",
+                "examples": "Effect position",
+                "color_indicator": "conic-gradient(#8b5cf6, #ec4899, #06b6d4, #8b5cf6)"
+            },
+            "glow": {
+                "name": "Glow",
+                "examples": "Luminescence",
+                "color_indicator": "radial-gradient(circle, #fef3c7, #f59e0b)"
+            }
+        },
+        "horse": {
+            "body-color-hue": {
+                "name": "Coat Color Hue",
+                "examples": "Coat tone",
+                "color_indicator": "linear-gradient(45deg, #8b4513, #daa520, #cd853f)"
+            },
+            "body-color-saturation": {
+                "name": "Coat Color Saturation",
+                "examples": "Coat intensity",
+                "color_indicator": "linear-gradient(90deg, #f5f5dc, #8b4513)"
+            },
+            "body-color-intensity": {
+                "name": "Coat Color Intensity",
+                "examples": "Coat brightness",
+                "color_indicator": "linear-gradient(90deg, #2f4f4f, #f5f5dc)"
+            },
+            "mane-color-hue": {
+                "name": "Mane Color Hue",
+                "examples": "Mane tone",
+                "color_indicator": "linear-gradient(45deg, #654321, #daa520, #000000)"
+            },
+            "mane-color-saturation": {
+                "name": "Mane Color Saturation",
+                "examples": "Mane intensity",
+                "color_indicator": "linear-gradient(90deg, #f0f0f0, #654321)"
+            },
+            "mane-color-intensity": {
+                "name": "Mane Color Intensity",
+                "examples": "Mane brightness",
+                "color_indicator": "linear-gradient(90deg, #000000, #ffffff)"
+            },
+            "body-scale": {
+                "name": "Body Scale",
+                "examples": "Body size",
+                "color_indicator": "#8b5cf6"
+            },
+            "leg-scale": {
+                "name": "Leg Scale",
+                "examples": "Leg length",
+                "color_indicator": "#06b6d4"
+            },
+            "head-scale": {
+                "name": "Head Scale",
+                "examples": "Head size",
+                "color_indicator": "#f59e0b"
+            },
+            "tail-scale": {
+                "name": "Tail Scale",
+                "examples": "Tail size",
+                "color_indicator": "#84cc16"
+            },
+            "mane-scale": {
+                "name": "Mane Scale",
+                "examples": "Mane length",
+                "color_indicator": "#ec4899"
+            },
+            "markings": {
+                "name": "Markings",
+                "examples": "Coat patterns",
+                "color_indicator": "#ef4444"
+            },
+            "hooves": {
+                "name": "Hooves",
+                "examples": "Hoof appearance",
+                "color_indicator": "#6b7280"
+            }
+        }
+    }
+
     # Species name mappings (for flexible species recognition)
     SPECIES_MAPPINGS = {"beewasp": ["beewasp", "bee", "wasp"], "horse": ["horse"]}
 
@@ -167,10 +320,40 @@ class AttributeConfig:
         all_attrs = cls.get_all_attributes(species)
 
         # Add effects for each attribute
-        for attr_name, attr_info in all_attrs.items():
+        for _attr_name, attr_info in all_attrs.items():
             effects.extend([f"{attr_info['name']}+", f"{attr_info['name']}-"])
 
         return sorted(effects)
+
+    @classmethod
+    def get_appearance_attribute_names(cls, species: str) -> list[str]:
+        """Get list of appearance attribute names for a species."""
+        normalized_species = cls._normalize_species(species)
+        if normalized_species in cls.SPECIES_APPEARANCE_ATTRIBUTES:
+            return list(cls.SPECIES_APPEARANCE_ATTRIBUTES[normalized_species].keys())
+        return []
+
+    @classmethod
+    def get_appearance_attributes(cls, species: str) -> dict[str, dict[str, Any]]:
+        """Get appearance attributes configuration for a species."""
+        normalized_species = cls._normalize_species(species)
+        if normalized_species in cls.SPECIES_APPEARANCE_ATTRIBUTES:
+            return cls.SPECIES_APPEARANCE_ATTRIBUTES[normalized_species].copy()
+        return {}
+
+    @classmethod
+    def get_appearance_display_info(cls, species: str) -> list[dict[str, Any]]:
+        """Get appearance attribute display information for frontend use."""
+        appearance_attrs = cls.get_appearance_attributes(species)
+        return [
+            {
+                "key": name.replace("-", "_"),  # Convert to underscore for frontend consistency
+                "name": info["name"],
+                "examples": info["examples"],
+                "color_indicator": info.get("color_indicator", "#6b7280")
+            }
+            for name, info in appearance_attrs.items()
+        ]
 
     @classmethod
     def is_valid_attribute(cls, attribute_name: str, species: str = "") -> bool:
@@ -182,6 +365,12 @@ class AttributeConfig:
     def get_supported_species(cls) -> list[str]:
         """Get list of supported species names."""
         return list(cls.SPECIES_ATTRIBUTES.keys())
+
+    @classmethod
+    def is_valid_appearance_attribute(cls, attribute_name: str, species: str = "") -> bool:
+        """Check if an appearance attribute is valid for a given species."""
+        appearance_attrs = cls.get_appearance_attribute_names(species)
+        return attribute_name.lower() in [attr.lower() for attr in appearance_attrs]
 
     @classmethod
     def _normalize_species(cls, species: str) -> str:

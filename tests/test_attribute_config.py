@@ -290,3 +290,98 @@ class TestAttributeConfig:
         # Test attribute not valid for species
         temp_info = AttributeConfig.get_attribute_info("temperament", "BeeWasp")
         assert temp_info is None
+
+    def test_appearance_attributes(self) -> None:
+        """Test appearance attributes configuration."""
+        # Test BeeWasp appearance attributes
+        bee_appearance = AttributeConfig.get_appearance_attributes("BeeWasp")
+        assert "body-color-hue" in bee_appearance
+        assert "wing-color-hue" in bee_appearance
+        assert "antenna-scale" in bee_appearance
+        assert bee_appearance["body-color-hue"]["name"] == "Body Color Hue"
+
+        # Test Horse appearance attributes
+        horse_appearance = AttributeConfig.get_appearance_attributes("Horse")
+        assert "body-color-hue" in horse_appearance
+        assert "mane-color-hue" in horse_appearance
+        assert "leg-scale" in horse_appearance
+        assert horse_appearance["body-color-hue"]["name"] == "Coat Color Hue"
+
+        # Different from BeeWasp
+        assert "wing-color-hue" not in horse_appearance
+        assert "antenna-scale" not in horse_appearance
+
+        # Test unknown species
+        unknown_appearance = AttributeConfig.get_appearance_attributes("Dragon")
+        assert len(unknown_appearance) == 0
+
+    def test_appearance_attribute_names(self) -> None:
+        """Test getting appearance attribute name lists."""
+        # Test BeeWasp appearance attribute names
+        bee_names = AttributeConfig.get_appearance_attribute_names("BeeWasp")
+        expected_bee = {
+            "body-color-hue", "body-color-saturation", "body-color-intensity",
+            "wing-color-hue", "wing-color-saturation", "wing-color-intensity",
+            "body-scale", "wing-scale", "head-scale", "tail-scale", "antenna-scale",
+            "leg-deformity", "antenna-deformity", "particles", "particle-location", "glow"
+        }
+        assert set(bee_names) == expected_bee
+
+        # Test Horse appearance attribute names
+        horse_names = AttributeConfig.get_appearance_attribute_names("Horse")
+        expected_horse = {
+            "body-color-hue", "body-color-saturation", "body-color-intensity",
+            "mane-color-hue", "mane-color-saturation", "mane-color-intensity",
+            "body-scale", "leg-scale", "head-scale", "tail-scale", "mane-scale",
+            "markings", "hooves"
+        }
+        assert set(horse_names) == expected_horse
+
+        # Test unknown species
+        unknown_names = AttributeConfig.get_appearance_attribute_names("Unknown")
+        assert len(unknown_names) == 0
+
+    def test_appearance_display_info(self) -> None:
+        """Test appearance attribute display information."""
+        # Test BeeWasp appearance display info
+        bee_display = AttributeConfig.get_appearance_display_info("BeeWasp")
+
+        # Should have expected number of appearance attributes
+        assert len(bee_display) == 16
+
+        # Check structure of display info
+        for attr_info in bee_display:
+            assert "key" in attr_info
+            assert "name" in attr_info
+            assert "examples" in attr_info
+            assert "color_indicator" in attr_info
+
+        # Check specific attributes
+        body_hue = next((attr for attr in bee_display if attr["name"] == "Body Color Hue"), None)
+        assert body_hue is not None
+        assert body_hue["examples"] == "Color tone"
+        assert "gradient" in body_hue["color_indicator"]
+
+        # Test Horse appearance display info
+        horse_display = AttributeConfig.get_appearance_display_info("Horse")
+
+        # Should have different number of appearance attributes
+        assert len(horse_display) == 13
+
+        # Check Horse-specific attribute
+        mane_hue = next((attr for attr in horse_display if attr["name"] == "Mane Color Hue"), None)
+        assert mane_hue is not None
+        assert mane_hue["examples"] == "Mane tone"
+
+    def test_appearance_attribute_validation(self) -> None:
+        """Test appearance attribute validation."""
+        # Test valid appearance attributes
+        assert AttributeConfig.is_valid_appearance_attribute("body-color-hue", "BeeWasp")
+        assert AttributeConfig.is_valid_appearance_attribute("mane-color-hue", "Horse")
+
+        # Test invalid appearance attributes for species
+        assert not AttributeConfig.is_valid_appearance_attribute("mane-color-hue", "BeeWasp")
+        assert not AttributeConfig.is_valid_appearance_attribute("antenna-scale", "Horse")
+
+        # Test invalid appearance attributes
+        assert not AttributeConfig.is_valid_appearance_attribute("invalid-attr", "BeeWasp")

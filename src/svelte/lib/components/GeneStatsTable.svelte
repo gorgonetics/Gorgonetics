@@ -14,6 +14,8 @@
 
     let attributeList = [];
     let attributeConfig = null;
+    let appearanceList = [];
+    let appearanceConfig = null;
     const fallbackAttributeList = [
         { key: "Intelligence", name: "Intelligence", icon: "🧠" },
         { key: "Toughness", name: "Toughness", icon: "💪" },
@@ -27,6 +29,9 @@
     $: grandTotal = calculateGrandTotal();
     $: if (petSpecies) {
         loadAttributeConfig(petSpecies);
+    }
+    $: if (petSpecies && currentView === "appearance") {
+        loadAppearanceConfig(petSpecies);
     }
 
     async function loadAttributeConfig(species) {
@@ -55,6 +60,186 @@
         }
     }
 
+    async function loadAppearanceConfig(species) {
+        if (!species) {
+            // Default to BeeWasp if no species specified
+            species = "BeeWasp";
+        }
+
+        try {
+            const response = await fetch(`/api/appearance-config/${species}`);
+            if (response.ok) {
+                appearanceConfig = await response.json();
+                appearanceList = appearanceConfig.appearance_attributes || [];
+            } else {
+                console.warn(`Failed to load appearance config for ${species}`);
+                // Fallback to hardcoded BeeWasp appearance attributes
+                appearanceList = [
+                    {
+                        key: "body_color_hue",
+                        name: "Body Color Hue",
+                        examples: "Color tone",
+                    },
+                    {
+                        key: "body_color_saturation",
+                        name: "Body Color Saturation",
+                        examples: "Color intensity",
+                    },
+                    {
+                        key: "body_color_intensity",
+                        name: "Body Color Intensity",
+                        examples: "Brightness",
+                    },
+                    {
+                        key: "wing_color_hue",
+                        name: "Wing Color Hue",
+                        examples: "Wing tone",
+                    },
+                    {
+                        key: "wing_color_saturation",
+                        name: "Wing Color Saturation",
+                        examples: "Wing intensity",
+                    },
+                    {
+                        key: "wing_color_intensity",
+                        name: "Wing Color Intensity",
+                        examples: "Wing brightness",
+                    },
+                    {
+                        key: "body_scale",
+                        name: "Body Scale",
+                        examples: "Body size",
+                    },
+                    {
+                        key: "wing_scale",
+                        name: "Wing Scale",
+                        examples: "Wing size",
+                    },
+                    {
+                        key: "head_scale",
+                        name: "Head Scale",
+                        examples: "Head size",
+                    },
+                    {
+                        key: "tail_scale",
+                        name: "Tail Scale",
+                        examples: "Tail size",
+                    },
+                    {
+                        key: "antenna_scale",
+                        name: "Antenna Scale",
+                        examples: "Antenna size",
+                    },
+                    {
+                        key: "leg_deformity",
+                        name: "Leg Deformity",
+                        examples: "Leg shape",
+                    },
+                    {
+                        key: "antenna_deformity",
+                        name: "Antenna Deformity",
+                        examples: "Antenna shape",
+                    },
+                    {
+                        key: "particles",
+                        name: "Particles",
+                        examples: "Special effects",
+                    },
+                    {
+                        key: "particle_location",
+                        name: "Particle Location",
+                        examples: "Effect position",
+                    },
+                    { key: "glow", name: "Glow", examples: "Luminescence" },
+                ];
+            }
+        } catch (error) {
+            console.error(
+                `Error loading appearance config for ${species}:`,
+                error,
+            );
+            // Fallback to hardcoded attributes
+            appearanceList = [
+                {
+                    key: "body_color_hue",
+                    name: "Body Color Hue",
+                    examples: "Color tone",
+                },
+                {
+                    key: "body_color_saturation",
+                    name: "Body Color Saturation",
+                    examples: "Color intensity",
+                },
+                {
+                    key: "body_color_intensity",
+                    name: "Body Color Intensity",
+                    examples: "Brightness",
+                },
+                {
+                    key: "wing_color_hue",
+                    name: "Wing Color Hue",
+                    examples: "Wing tone",
+                },
+                {
+                    key: "wing_color_saturation",
+                    name: "Wing Color Saturation",
+                    examples: "Wing intensity",
+                },
+                {
+                    key: "wing_color_intensity",
+                    name: "Wing Color Intensity",
+                    examples: "Wing brightness",
+                },
+                {
+                    key: "body_scale",
+                    name: "Body Scale",
+                    examples: "Body size",
+                },
+                {
+                    key: "wing_scale",
+                    name: "Wing Scale",
+                    examples: "Wing size",
+                },
+                {
+                    key: "head_scale",
+                    name: "Head Scale",
+                    examples: "Head size",
+                },
+                {
+                    key: "tail_scale",
+                    name: "Tail Scale",
+                    examples: "Tail size",
+                },
+                {
+                    key: "antenna_scale",
+                    name: "Antenna Scale",
+                    examples: "Antenna size",
+                },
+                {
+                    key: "leg_deformity",
+                    name: "Leg Deformity",
+                    examples: "Leg shape",
+                },
+                {
+                    key: "antenna_deformity",
+                    name: "Antenna Deformity",
+                    examples: "Antenna shape",
+                },
+                {
+                    key: "particles",
+                    name: "Particles",
+                    examples: "Special effects",
+                },
+                {
+                    key: "particle_location",
+                    name: "Particle Location",
+                    examples: "Effect position",
+                },
+                { key: "glow", name: "Glow", examples: "Luminescence" },
+            ];
+        }
+    }
+
     function calculateGrandTotal() {
         if (!currentStats) return 0;
 
@@ -66,26 +251,10 @@
                 total += positiveCount + negativeCount;
             });
         } else {
-            const appearanceTypes = [
-                "body-color-hue",
-                "body-color-saturation",
-                "body-color-intensity",
-                "wing-color-hue",
-                "wing-color-saturation",
-                "wing-color-intensity",
-                "body-scale",
-                "wing-scale",
-                "head-scale",
-                "tail-scale",
-                "antenna-scale",
-                "leg-deformity",
-                "antenna-deformity",
-                "particles",
-                "particle-location",
-                "glow",
-            ];
-            appearanceTypes.forEach((type) => {
-                total += currentStats[type] || 0;
+            // Use dynamic appearance attributes
+            appearanceList.forEach((attr) => {
+                const attrKey = attr.key.replace(/_/g, "-"); // Convert underscores back to dashes for stats
+                total += currentStats[attrKey] || 0;
             });
         }
         return total;
@@ -186,17 +355,18 @@
                         <td><em>All attributes</em></td>
                     </tr>
                 {:else}
-                    {#each [{ key: "body-color-hue", name: "Body Color Hue", examples: "Color tone" }, { key: "body-color-saturation", name: "Body Color Saturation", examples: "Color intensity" }, { key: "body-color-intensity", name: "Body Color Intensity", examples: "Brightness" }, { key: "wing-color-hue", name: "Wing Color Hue", examples: "Wing tone" }, { key: "wing-color-saturation", name: "Wing Color Saturation", examples: "Wing intensity" }, { key: "wing-color-intensity", name: "Wing Color Intensity", examples: "Wing brightness" }, { key: "body-scale", name: "Body Scale", examples: "Body size" }, { key: "wing-scale", name: "Wing Scale", examples: "Wing size" }, { key: "head-scale", name: "Head Scale", examples: "Head size" }, { key: "tail-scale", name: "Tail Scale", examples: "Tail size" }, { key: "antenna-scale", name: "Antenna Scale", examples: "Antenna size" }, { key: "leg-deformity", name: "Leg Deformity", examples: "Leg shape" }, { key: "antenna-deformity", name: "Antenna Deformity", examples: "Antenna shape" }, { key: "particles", name: "Particles", examples: "Special effects" }, { key: "particle-location", name: "Particle Location", examples: "Effect position" }, { key: "glow", name: "Glow", examples: "Luminescence" }] as type}
-                        {@const count = currentStats?.[type.key] || 0}
+                    {#each appearanceList as type}
+                        {@const attrKey = type.key.replace(/_/g, "-")}
+                        {@const count = currentStats?.[attrKey] || 0}
                         <tr
                             class="appearance-row"
-                            class:selected={selectedLookup[type.key]}
-                            class:hidden-attribute={hiddenLookup[type.key]}
-                            data-attribute={type.key}
-                            on:click={(e) => handleAttributeClick(type.key, e)}
+                            class:selected={selectedLookup[attrKey]}
+                            class:hidden-attribute={hiddenLookup[attrKey]}
+                            data-attribute={attrKey}
+                            on:click={(e) => handleAttributeClick(attrKey, e)}
                         >
                             <td>
-                                <span class="color-indicator {type.key}"></span>
+                                <span class="color-indicator {attrKey}"></span>
                                 {type.name}
                             </td>
                             <td>{count}</td>
