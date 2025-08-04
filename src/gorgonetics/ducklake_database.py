@@ -7,14 +7,12 @@ catalog database backends (PostgreSQL, MySQL, SQLite, DuckDB).
 
 import json
 import logging
-import os
 from datetime import datetime
 from pathlib import Path
 from types import TracebackType
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
 
 import duckdb
-import polars as pl
 
 from .attribute_config import AttributeConfig
 
@@ -44,7 +42,7 @@ class DuckLakeGeneDatabase:
         self.catalog_path = catalog_path
         self.data_path = Path(data_path)
         self.ducklake_name = ducklake_name
-        self.conn: Optional[duckdb.DuckDBPyConnection] = None
+        self.conn: duckdb.DuckDBPyConnection | None = None
 
         # Ensure data directory exists
         self.data_path.mkdir(parents=True, exist_ok=True)
@@ -131,7 +129,7 @@ class DuckLakeGeneDatabase:
 
         logger.info("Created DuckLake tables")
 
-    def _serialize_datetime_fields(self, data: Dict[str, Any]) -> Dict[str, Any]:
+    def _serialize_datetime_fields(self, data: dict[str, Any]) -> dict[str, Any]:
         """Convert datetime objects to ISO format strings in a dictionary."""
         for key, value in data.items():
             if isinstance(value, datetime):
@@ -214,7 +212,7 @@ class DuckLakeGeneDatabase:
     def _load_animal_genes(self, json_file: Path, animal_type: str) -> None:
         """Load genes for a specific animal type from JSON file."""
         try:
-            with open(json_file, 'r') as f:
+            with open(json_file) as f:
                 data = json.load(f)
 
             for chromosome, genes in data.items():
@@ -225,7 +223,7 @@ class DuckLakeGeneDatabase:
             logger.error(f"Failed to load genes from {json_file}: {e}")
             raise
 
-    def _upsert_gene(self, animal_type: str, chromosome: str, gene: str, gene_data: Dict[str, Any]) -> None:
+    def _upsert_gene(self, animal_type: str, chromosome: str, gene: str, gene_data: dict[str, Any]) -> None:
         """Insert or update a gene record."""
         effect_dominant = gene_data.get("effect_dominant", "None")
         effect_recessive = gene_data.get("effect_recessive", "None")
@@ -244,12 +242,12 @@ class DuckLakeGeneDatabase:
             # Skip duplicates
             pass
 
-    def get_animal_types(self) -> List[str]:
+    def get_animal_types(self) -> list[str]:
         """Get list of all animal types."""
         result = self.conn.execute("SELECT DISTINCT animal_type FROM genes ORDER BY animal_type").fetchall()
         return [row[0] for row in result]
 
-    def get_chromosomes(self, animal_type: str) -> List[str]:
+    def get_chromosomes(self, animal_type: str) -> list[str]:
         """Get list of chromosomes for a specific animal type."""
         result = self.conn.execute("""
             SELECT DISTINCT chromosome FROM genes
@@ -258,7 +256,7 @@ class DuckLakeGeneDatabase:
         """, [animal_type]).fetchall()
         return [row[0] for row in result]
 
-    def get_genes_by_chromosome(self, animal_type: str, chromosome: str) -> List[Dict[str, Any]]:
+    def get_genes_by_chromosome(self, animal_type: str, chromosome: str) -> list[dict[str, Any]]:
         """Get all genes for a specific animal type and chromosome."""
         result = self.conn.execute("""
             SELECT animal_type, chromosome, gene, effect_dominant, effect_recessive,
@@ -283,7 +281,7 @@ class DuckLakeGeneDatabase:
             for row in result
         ]
 
-    def get_genes_for_animal(self, animal_type: str) -> List[Dict[str, Any]]:
+    def get_genes_for_animal(self, animal_type: str) -> list[dict[str, Any]]:
         """Get all genes for a specific animal type."""
         result = self.conn.execute("""
             SELECT animal_type, chromosome, gene, effect_dominant, effect_recessive,
@@ -308,7 +306,7 @@ class DuckLakeGeneDatabase:
             for row in result
         ]
 
-    def update_gene(self, animal_type: str, gene: str, updates: Dict[str, str]) -> bool:
+    def update_gene(self, animal_type: str, gene: str, updates: dict[str, str]) -> bool:
         """Update a gene record."""
         try:
             # Build dynamic UPDATE query
@@ -342,7 +340,7 @@ class DuckLakeGeneDatabase:
             logger.error(f"Failed to update gene {animal_type}:{gene}: {e}")
             return False
 
-    def get_gene(self, animal_type: str, gene: str) -> Optional[Dict[str, Any]]:
+    def get_gene(self, animal_type: str, gene: str) -> dict[str, Any] | None:
         """Get a specific gene record."""
         result = self.conn.execute("""
             SELECT animal_type, chromosome, gene, effect_dominant, effect_recessive,
@@ -375,7 +373,7 @@ class DuckLakeGeneDatabase:
         content_hash: str,
         attributes: dict[str, float] | None = None,
         notes: str | None = None,
-    ) -> Optional[int]:
+    ) -> int | None:
         """
         Add a new pet to the database.
 
@@ -454,7 +452,7 @@ class DuckLakeGeneDatabase:
             traceback.print_exc()
             return None
 
-    def get_pet(self, pet_id: int) -> Optional[Dict[str, Any]]:
+    def get_pet(self, pet_id: int) -> dict[str, Any] | None:
         """Get a pet by ID."""
         try:
             result = self.conn.execute("SELECT * FROM pets WHERE id = ?", [pet_id]).fetchone()
@@ -464,7 +462,7 @@ class DuckLakeGeneDatabase:
                 columns = [desc[0] for desc in self.conn.description]
 
                 # Build pet dictionary
-                pet = dict(zip(columns, result))
+                pet = dict(zip(columns, result, strict=False))
 
                 # Note: genome_data is already parsed by DuckDB's JSON column type
 
@@ -478,7 +476,7 @@ class DuckLakeGeneDatabase:
             logger.error(f"Failed to get pet {pet_id}: {e}")
             return None
 
-    def get_all_pets(self, species: Optional[str] = None) -> List[Dict[str, Any]]:
+    def get_all_pets(self, species: str | None = None) -> list[dict[str, Any]]:
         """Get all pets, optionally filtered by species."""
         try:
             if species:
@@ -495,7 +493,7 @@ class DuckLakeGeneDatabase:
 
                 pets = []
                 for result in results:
-                    pet = dict(zip(columns, result))
+                    pet = dict(zip(columns, result, strict=False))
 
                     # Note: genome_data is already parsed by DuckDB's JSON column type
 
@@ -511,7 +509,7 @@ class DuckLakeGeneDatabase:
             logger.error(f"Failed to get pets: {e}")
             return []
 
-    def update_pet(self, pet_id: int, updates: Dict[str, Any]) -> bool:
+    def update_pet(self, pet_id: int, updates: dict[str, Any]) -> bool:
         """Update a pet record."""
         try:
             # Build dynamic UPDATE query
@@ -567,14 +565,14 @@ class DuckLakeGeneDatabase:
             logger.error(f"Failed to delete pet {pet_id}: {e}")
             return False
 
-    def find_pet_by_hash(self, content_hash: str) -> Optional[Dict[str, Any]]:
+    def find_pet_by_hash(self, content_hash: str) -> dict[str, Any] | None:
         """Find a pet by its content hash."""
         try:
             result = self.conn.execute("SELECT * FROM pets WHERE content_hash = ?", [content_hash]).fetchone()
 
             if result:
                 columns = [desc[0] for desc in self.conn.description]
-                pet = dict(zip(columns, result))
+                pet = dict(zip(columns, result, strict=False))
 
                 # Note: genome_data is already parsed by DuckDB's JSON column type
 
@@ -588,7 +586,7 @@ class DuckLakeGeneDatabase:
             logger.error(f"Failed to find pet by hash {content_hash}: {e}")
             return None
 
-    def get_snapshots(self) -> List[Dict[str, Any]]:
+    def get_snapshots(self) -> list[dict[str, Any]]:
         """Get all DuckLake snapshots."""
         try:
             result = self.conn.execute(f"FROM ducklake_snapshots('{self.ducklake_name}')").fetchall()
@@ -608,7 +606,7 @@ class DuckLakeGeneDatabase:
             logger.error(f"Failed to get snapshots: {e}")
             return []
 
-    def get_table_changes(self, table_name: str, start_snapshot: int, end_snapshot: int) -> List[Dict[str, Any]]:
+    def get_table_changes(self, table_name: str, start_snapshot: int, end_snapshot: int) -> list[dict[str, Any]]:
         """Get changes for a table between snapshots."""
         try:
             result = self.conn.execute(f"""
@@ -617,7 +615,7 @@ class DuckLakeGeneDatabase:
 
             if result:
                 columns = [desc[0] for desc in self.conn.description]
-                return [dict(zip(columns, row)) for row in result]
+                return [dict(zip(columns, row, strict=False)) for row in result]
             return []
 
         except Exception as e:
@@ -647,9 +645,9 @@ class DuckLakeGeneDatabase:
 
     def __exit__(
         self,
-        exc_type: Optional[type],
-        exc_val: Optional[BaseException],
-        exc_tb: Optional[TracebackType],
+        exc_type: type | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
     ) -> None:
         """Context manager exit."""
         self.close()

@@ -26,8 +26,9 @@ from rich.progress import (
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
-from gorgonetics.database_config import create_database_instance
 from typing import Any
+
+from gorgonetics.database_config import create_database_instance
 
 # Setup rich console and logging
 console = Console()

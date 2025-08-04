@@ -25,7 +25,7 @@ def setup_test_environment():
     os.environ["GORGONETICS_DATA_PATH"] = os.path.join(temp_dir, "test_data")
     os.environ["GORGONETICS_DUCKLAKE_NAME"] = "test_gorgonetics_lake"
 
-    print(f"🧪 Test environment configured:")
+    print("🧪 Test environment configured:")
     print(f"   Database: {os.environ['GORGONETICS_DB_BACKEND']}")
     print(f"   Catalog: {os.environ['GORGONETICS_CATALOG_PATH']}")
     print(f"   Data: {os.environ['GORGONETICS_DATA_PATH']}")
@@ -46,7 +46,7 @@ def populate_test_database():
         if result.returncode == 0:
             print("✅ Test database populated successfully")
         else:
-            print(f"❌ Failed to populate test database:")
+            print("❌ Failed to populate test database:")
             print(f"   stdout: {result.stdout}")
             print(f"   stderr: {result.stderr}")
             return False

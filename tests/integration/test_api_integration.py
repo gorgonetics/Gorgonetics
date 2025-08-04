@@ -6,10 +6,7 @@ data format that the frontend depends on. This prevents regressions that would
 break the UI functionality.
 """
 
-import json
 import tempfile
-from pathlib import Path
-from typing import Any, Dict, List
 
 import pytest
 from fastapi.testclient import TestClient
@@ -215,7 +212,7 @@ class TestPetEndpoints:
     def _upload_pet_helper(self, client, test_database, sample_pet_file, name_suffix=""):
         """Helper method to upload a pet and return the pet_id."""
         # Create unique content by adding suffix to gene data to avoid hash conflicts
-        with open(sample_pet_file, 'r') as f:
+        with open(sample_pet_file) as f:
             content = f.read()
 
         # Modify content slightly to make it unique by changing the pet name and adding a unique gene

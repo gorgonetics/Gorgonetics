@@ -11,10 +11,8 @@ import logging
 import shutil
 import sys
 from pathlib import Path
-from typing import Optional
 
 import duckdb
-import polars as pl
 
 
 def setup_logging(verbose: bool = False) -> None:

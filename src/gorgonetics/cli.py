@@ -1,14 +1,15 @@
 """Command line interface for Gorgonetics."""
 
-import typer
 from pathlib import Path
+
+import typer
 from rich.console import Console
-from rich.table import Table
 from rich.progress import Progress, SpinnerColumn, TextColumn
+from rich.table import Table
 
 from gorgonetics import __version__
-from .database_config import get_database_config, DatabaseBackend
-from .database import GeneDatabase
+
+from .database_config import DatabaseBackend, get_database_config
 from .ducklake_database import DuckLakeGeneDatabase
 
 console = Console()
@@ -57,12 +58,12 @@ def migrate_to_ducklake(
 
         from migrate_to_ducklake import (
             backup_existing_database,
+            create_initial_snapshot,
             export_genes_to_parquet,
-            setup_ducklake_catalog,
             migrate_genes_to_ducklake,
             migrate_pets_to_ducklake,
-            create_initial_snapshot,
-            verify_migration
+            setup_ducklake_catalog,
+            verify_migration,
         )
 
         try:

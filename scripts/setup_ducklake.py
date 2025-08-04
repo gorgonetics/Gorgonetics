@@ -11,7 +11,6 @@ import json
 import logging
 import sys
 from pathlib import Path
-from typing import Optional
 
 import duckdb
 
@@ -124,7 +123,7 @@ def load_genetic_data(conn: duckdb.DuckDBPyConnection, assets_dir: Path) -> None
         logging.info(f"Loading genes for {animal_type} from {json_file}")
 
         try:
-            with open(json_file, 'r') as f:
+            with open(json_file) as f:
                 data = json.load(f)
 
             # Extract chromosome from filename (e.g., horse_genes_chr01.json -> chr01)
@@ -304,7 +303,7 @@ def main() -> int:
 
             # Show environment variables
             logging.info("\nEnvironment variables for your app:")
-            logging.info(f"GORGONETICS_DB_BACKEND=ducklake")
+            logging.info("GORGONETICS_DB_BACKEND=ducklake")
             logging.info(f"GORGONETICS_CATALOG_TYPE={args.catalog_type}")
             logging.info(f"GORGONETICS_CATALOG_PATH={args.catalog_path}")
             logging.info(f"GORGONETICS_DATA_PATH={args.data_path}")
