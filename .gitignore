@@ -176,3 +176,4 @@ tmp/
 
 # Ignore the parquet files from DuckLake
 /data/main
+/test_client_data/

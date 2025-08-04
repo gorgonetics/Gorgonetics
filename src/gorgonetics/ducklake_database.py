@@ -551,6 +551,12 @@ class DuckLakeGeneDatabase:
     def delete_pet(self, pet_id: int) -> bool:
         """Delete a pet from the database."""
         try:
+            # Check if pet exists before deletion
+            existing_pet = self.conn.execute("SELECT id FROM pets WHERE id = ?", [pet_id]).fetchone()
+            if not existing_pet:
+                return False
+
+            # Delete the pet
             self.conn.execute("DELETE FROM pets WHERE id = ?", [pet_id])
 
             # Commit to create snapshot

@@ -389,6 +389,14 @@ async def upload_pet_genome(
         except UnicodeDecodeError as e:
             raise HTTPException(status_code=400, detail="File must be a valid text file") from e
 
+        # Check for empty or invalid content
+        if not genome_content.strip():
+            raise HTTPException(status_code=400, detail="File cannot be empty")
+
+        # Basic validation for genome file format
+        if "[Overview]" not in genome_content and "Genome Type:" not in genome_content:
+            raise HTTPException(status_code=400, detail="Invalid genome file format")
+
         # Parse the genome using our models
         from .models import Genome
 
