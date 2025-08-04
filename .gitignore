@@ -173,3 +173,6 @@ yarn-error.log*
 *.backup
 temp/
 tmp/
+
+# Ignore the parquet files from DuckLake
+/data/main

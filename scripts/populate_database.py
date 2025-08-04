@@ -26,7 +26,8 @@ from rich.progress import (
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
-from gorgonetics.database import GeneDatabase
+from gorgonetics.database_config import create_database_instance
+from typing import Any
 
 # Setup rich console and logging
 console = Console()
@@ -39,7 +40,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def load_gene_file(file_path: Path, animal_type: str, chr_num: str, db: GeneDatabase, progress, file_task) -> int:
+def load_gene_file(file_path: Path, animal_type: str, chr_num: str, db: Any, progress, file_task) -> int:
     """Load genes from a single JSON file into the database."""
     genes_loaded = 0
 
@@ -61,24 +62,14 @@ def load_gene_file(file_path: Path, animal_type: str, chr_num: str, db: GeneData
                 effect_dominant = "None"
                 effect_recessive = gene_data.get("effect", "None")
 
-        # Insert gene into database
-        db.conn.execute(
-            """
-            INSERT INTO genes (
-                animal_type, chromosome, gene,
-                effect_dominant, effect_recessive, appearance, notes
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)
-            """,
-            [
-                animal_type,
-                chr_num,
-                gene_data["gene"],
-                effect_dominant,
-                effect_recessive,
-                gene_data.get("appearance", ""),
-                gene_data.get("notes", ""),
-            ],
-        )
+        # Insert gene into database using proper method with timestamps
+        gene_record = {
+            "effect_dominant": effect_dominant,
+            "effect_recessive": effect_recessive,
+            "appearance": gene_data.get("appearance", "|String for me to fill in|"),
+            "notes": gene_data.get("notes", "|String for me to fill in|"),
+        }
+        db._upsert_gene(animal_type, chr_num, gene_data["gene"], gene_record)
 
         genes_loaded += 1
         progress.advance(file_task)
@@ -118,11 +109,12 @@ def populate_database() -> None:
     try:
         # Initialize database
         console.print("📊 [yellow]Connecting to database...[/yellow]")
-        db = GeneDatabase()
+        db = create_database_instance()
 
         # Clear existing data
         console.print("🗑️  [red]Clearing existing gene data...[/red]")
         db.conn.execute("DELETE FROM genes")
+        db.conn.commit()
 
         # Count total files to process
         files_to_process = collect_gene_files()

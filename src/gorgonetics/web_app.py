@@ -20,7 +20,7 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
 from .attribute_config import AttributeConfig
-from .database import GeneDatabase
+from .database_config import create_database_instance
 
 
 @asynccontextmanager
@@ -50,7 +50,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI(title="Gorgonetics Gene Editor", version="1.0.0", lifespan=lifespan)
 
 # Initialize database
-db = GeneDatabase()
+db = create_database_instance()
 
 # Initialize templates
 templates = Jinja2Templates(directory="src/gorgonetics/templates")
@@ -133,12 +133,17 @@ async def get_pet_genome_for_visualization(pet_id: int) -> dict[str, Any]:
         if not pet_data:
             raise HTTPException(status_code=404, detail="Pet not found")
 
-        # Parse the genome JSON
+        # Parse the genome JSON - handle both string and dict cases
         import json
 
         from .models import Genome
 
-        genome_json = json.loads(pet_data["genome_data"])
+        # Handle both string (original DB) and dict (DuckLake DB) cases
+        if isinstance(pet_data["genome_data"], str):
+            genome_json = json.loads(pet_data["genome_data"])
+        else:
+            genome_json = pet_data["genome_data"]
+
         genome = Genome.from_dict(genome_json)
 
         # Convert genome to the format expected by the frontend
@@ -441,9 +446,9 @@ async def get_pets() -> list[dict[str, Any]]:
     """Get all pets."""
     try:
         pets = db.get_all_pets()
-        # Convert datetime objects to strings and handle None values
+        # Handle datetime objects if they exist (for compatibility with both database types)
         for pet in pets:
-            if pet.get("created_at"):
+            if pet.get("created_at") and hasattr(pet["created_at"], "isoformat"):
                 pet["created_at"] = pet["created_at"].isoformat()
             if pet.get("notes") is None:
                 pet["notes"] = ""
@@ -462,9 +467,9 @@ async def get_pet(pet_id: int) -> dict[str, Any]:
             raise HTTPException(status_code=404, detail="Pet not found")
 
         # Convert datetime objects to strings and handle None values
-        if pet.get("created_at"):
+        if pet.get("created_at") and hasattr(pet["created_at"], "isoformat"):
             pet["created_at"] = pet["created_at"].isoformat()
-        if pet.get("updated_at"):
+        if pet.get("updated_at") and hasattr(pet["updated_at"], "isoformat"):
             pet["updated_at"] = pet["updated_at"].isoformat()
         if pet.get("notes") is None:
             pet["notes"] = ""
