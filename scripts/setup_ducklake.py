@@ -18,11 +18,7 @@ import duckdb
 def setup_logging(verbose: bool = False) -> None:
     """Configure logging for the setup script."""
     level = logging.DEBUG if verbose else logging.INFO
-    logging.basicConfig(
-        level=level,
-        format="%(asctime)s - %(levelname)s - %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S"
-    )
+    logging.basicConfig(level=level, format="%(asctime)s - %(levelname)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
 
 
 def setup_ducklake_catalog(catalog_type: str, catalog_path: str, data_path: Path) -> duckdb.DuckDBPyConnection:
@@ -127,7 +123,7 @@ def load_genetic_data(conn: duckdb.DuckDBPyConnection, assets_dir: Path) -> None
                 data = json.load(f)
 
             # Extract chromosome from filename (e.g., horse_genes_chr01.json -> chr01)
-            chromosome = json_file.stem.split('_')[-1]  # Get last part after underscore
+            chromosome = json_file.stem.split("_")[-1]  # Get last part after underscore
 
             # Load genes from the JSON array structure
             if isinstance(data, list):
@@ -142,13 +138,23 @@ def load_genetic_data(conn: duckdb.DuckDBPyConnection, assets_dir: Path) -> None
                         if gene_name:  # Only insert if gene name exists
                             # Insert gene (skip duplicates)
                             try:
-                                conn.execute("""
+                                conn.execute(
+                                    """
                                     INSERT INTO genes (
                                         animal_type, chromosome, gene, effect_dominant,
                                         effect_recessive, appearance, notes, created_at, updated_at
                                     ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
-                                """, [animal_type, chromosome, gene_name, effect_dominant,
-                                      effect_recessive, appearance, notes])
+                                """,
+                                    [
+                                        animal_type,
+                                        chromosome,
+                                        gene_name,
+                                        effect_dominant,
+                                        effect_recessive,
+                                        appearance,
+                                        notes,
+                                    ],
+                                )
                             except Exception as e:
                                 # Skip duplicate genes
                                 logging.debug(f"Skipping duplicate gene {animal_type}:{gene_name} - {e}")
@@ -217,36 +223,22 @@ def main() -> int:
         "--assets-dir",
         type=Path,
         default=Path("assets"),
-        help="Directory containing genetic data JSON files (default: assets)"
+        help="Directory containing genetic data JSON files (default: assets)",
     )
     parser.add_argument(
         "--catalog-type",
         choices=["duckdb", "sqlite", "postgresql", "mysql"],
         default="sqlite",
-        help="Type of catalog database (default: sqlite)"
+        help="Type of catalog database (default: sqlite)",
     )
     parser.add_argument(
-        "--catalog-path",
-        type=str,
-        default="metadata.sqlite",
-        help="Path/connection string for catalog database"
+        "--catalog-path", type=str, default="metadata.sqlite", help="Path/connection string for catalog database"
     )
     parser.add_argument(
-        "--data-path",
-        type=Path,
-        default=Path("data"),
-        help="Directory for DuckLake data files (default: data)"
+        "--data-path", type=Path, default=Path("data"), help="Directory for DuckLake data files (default: data)"
     )
-    parser.add_argument(
-        "--force",
-        action="store_true",
-        help="Force setup even if catalog already exists"
-    )
-    parser.add_argument(
-        "--verbose",
-        action="store_true",
-        help="Enable verbose logging"
-    )
+    parser.add_argument("--force", action="store_true", help="Force setup even if catalog already exists")
+    parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
 
     args = parser.parse_args()
 
@@ -270,11 +262,7 @@ def main() -> int:
 
         # Setup DuckLake catalog
         logging.info("Setting up DuckLake...")
-        ducklake_conn = setup_ducklake_catalog(
-            args.catalog_type,
-            args.catalog_path,
-            args.data_path
-        )
+        ducklake_conn = setup_ducklake_catalog(args.catalog_type, args.catalog_path, args.data_path)
 
         # Create tables
         create_tables(ducklake_conn)
@@ -293,7 +281,9 @@ def main() -> int:
 
             # Show connection example
             if args.catalog_type == "sqlite":
-                attach_example = f"ATTACH 'ducklake:sqlite:{args.catalog_path}' AS gorgonetics_lake (DATA_PATH '{args.data_path}')"
+                attach_example = (
+                    f"ATTACH 'ducklake:sqlite:{args.catalog_path}' AS gorgonetics_lake (DATA_PATH '{args.data_path}')"
+                )
             elif args.catalog_type == "duckdb":
                 attach_example = f"ATTACH 'ducklake:{args.catalog_path}' AS gorgonetics_lake"
             else:
@@ -317,13 +307,14 @@ def main() -> int:
         logging.error(f"Setup failed: {e}")
         if args.verbose:
             import traceback
+
             traceback.print_exc()
         return 1
 
     finally:
         try:
             ducklake_conn.close()
-        except:
+        except Exception:
             pass
 
 

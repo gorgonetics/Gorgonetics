@@ -18,11 +18,7 @@ import duckdb
 def setup_logging(verbose: bool = False) -> None:
     """Configure logging for the migration script."""
     level = logging.DEBUG if verbose else logging.INFO
-    logging.basicConfig(
-        level=level,
-        format="%(asctime)s - %(levelname)s - %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S"
-    )
+    logging.basicConfig(level=level, format="%(asctime)s - %(levelname)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
 
 
 def backup_existing_database(db_path: Path, backup_dir: Path) -> Path:
@@ -59,13 +55,16 @@ def export_genes_to_parquet(source_db: Path, output_dir: Path) -> None:
 
             # Export genes for this animal type
             parquet_path = animal_dir / "genes.parquet"
-            conn.execute(f"""
+            conn.execute(
+                f"""
                 COPY (
                     SELECT * FROM genes
                     WHERE animal_type = ?
                     ORDER BY chromosome, gene
                 ) TO '{parquet_path}' (FORMAT PARQUET)
-            """, [animal_type])
+            """,
+                [animal_type],
+            )
 
             logging.debug(f"Exported {animal_type} genes to {parquet_path}")
 
@@ -229,42 +228,25 @@ def main() -> int:
         "--source-db",
         type=Path,
         default=Path("gorgonetics.db"),
-        help="Path to source DuckDB file (default: gorgonetics.db)"
+        help="Path to source DuckDB file (default: gorgonetics.db)",
     )
     parser.add_argument(
-        "--output-dir",
-        type=Path,
-        default=Path("data"),
-        help="Output directory for DuckLake data (default: data)"
+        "--output-dir", type=Path, default=Path("data"), help="Output directory for DuckLake data (default: data)"
     )
     parser.add_argument(
         "--catalog-type",
         choices=["duckdb", "sqlite", "postgresql", "mysql"],
         default="sqlite",
-        help="Type of catalog database (default: sqlite)"
+        help="Type of catalog database (default: sqlite)",
     )
     parser.add_argument(
-        "--catalog-path",
-        type=str,
-        default="metadata.sqlite",
-        help="Path/connection string for catalog database"
+        "--catalog-path", type=str, default="metadata.sqlite", help="Path/connection string for catalog database"
     )
     parser.add_argument(
-        "--backup-dir",
-        type=Path,
-        default=Path("backups"),
-        help="Directory for database backups (default: backups)"
+        "--backup-dir", type=Path, default=Path("backups"), help="Directory for database backups (default: backups)"
     )
-    parser.add_argument(
-        "--skip-backup",
-        action="store_true",
-        help="Skip creating backup of source database"
-    )
-    parser.add_argument(
-        "--verbose",
-        action="store_true",
-        help="Enable verbose logging"
-    )
+    parser.add_argument("--skip-backup", action="store_true", help="Skip creating backup of source database")
+    parser.add_argument("--verbose", action="store_true", help="Enable verbose logging")
 
     args = parser.parse_args()
 
@@ -287,11 +269,7 @@ def main() -> int:
         export_genes_to_parquet(args.source_db, args.output_dir)
 
         # Setup DuckLake catalog
-        ducklake_conn = setup_ducklake_catalog(
-            args.catalog_type,
-            args.catalog_path,
-            args.output_dir
-        )
+        ducklake_conn = setup_ducklake_catalog(args.catalog_type, args.catalog_path, args.output_dir)
 
         # Migrate data to DuckLake
         genes_dir = args.output_dir / "genes"
@@ -309,7 +287,9 @@ def main() -> int:
 
             # Show connection example
             if args.catalog_type == "sqlite":
-                attach_example = f"ATTACH 'ducklake:sqlite:{args.catalog_path}' AS gorgonetics_lake (DATA_PATH '{args.output_dir}')"
+                attach_example = (
+                    f"ATTACH 'ducklake:sqlite:{args.catalog_path}' AS gorgonetics_lake (DATA_PATH '{args.output_dir}')"
+                )
             elif args.catalog_type == "duckdb":
                 attach_example = f"ATTACH 'ducklake:{args.catalog_path}' AS gorgonetics_lake"
             else:
@@ -325,13 +305,14 @@ def main() -> int:
         logging.error(f"Migration failed: {e}")
         if args.verbose:
             import traceback
+
             traceback.print_exc()
         return 1
 
     finally:
         try:
             ducklake_conn.close()
-        except:
+        except Exception:
             pass
 
 

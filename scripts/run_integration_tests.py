@@ -39,9 +39,9 @@ def populate_test_database():
 
     try:
         # Run the populate script to load gene data
-        result = subprocess.run([
-            sys.executable, "scripts/populate_database.py"
-        ], capture_output=True, text=True, timeout=120)
+        result = subprocess.run(
+            [sys.executable, "scripts/populate_database.py"], capture_output=True, text=True, timeout=120
+        )
 
         if result.returncode == 0:
             print("✅ Test database populated successfully")
@@ -67,12 +67,15 @@ def run_integration_tests(test_args=None):
 
     # Base pytest command
     cmd = [
-        sys.executable, "-m", "pytest",
+        sys.executable,
+        "-m",
+        "pytest",
         "tests/integration/",
         "-v",
         "--tb=short",
         "--color=yes",
-        "-m", "not slow",  # Skip slow tests by default
+        "-m",
+        "not slow",  # Skip slow tests by default
     ]
 
     # Add any additional arguments
@@ -107,13 +110,7 @@ def run_specific_test_categories():
         print(f"\n{category_name}")
         print("=" * 50)
 
-        cmd = [
-            sys.executable, "-m", "pytest",
-            test_path,
-            "-v",
-            "--tb=line",
-            "--color=yes"
-        ]
+        cmd = [sys.executable, "-m", "pytest", test_path, "-v", "--tb=line", "--color=yes"]
 
         try:
             result = subprocess.run(cmd, timeout=300)
@@ -141,12 +138,14 @@ def run_performance_tests():
     print("=" * 50)
 
     cmd = [
-        sys.executable, "-m", "pytest",
+        sys.executable,
+        "-m",
+        "pytest",
         "tests/integration/test_api_integration.py::TestPerformance",
         "-v",
         "--tb=short",
         "--color=yes",
-        "--durations=0"  # Show all test durations
+        "--durations=0",  # Show all test durations
     ]
 
     try:
@@ -161,6 +160,7 @@ def cleanup_test_environment(temp_dir):
     """Clean up test environment."""
     try:
         import shutil
+
         shutil.rmtree(temp_dir, ignore_errors=True)
         print(f"🧹 Cleaned up test directory: {temp_dir}")
     except Exception as e:
@@ -178,19 +178,14 @@ def main():
 
     # Parse command line arguments
     import argparse
+
     parser = argparse.ArgumentParser(description="Run Gorgonetics integration tests")
-    parser.add_argument("--quick", action="store_true",
-                       help="Run quick tests only (skip performance tests)")
-    parser.add_argument("--categories", action="store_true",
-                       help="Run tests by category with detailed reporting")
-    parser.add_argument("--performance", action="store_true",
-                       help="Run performance tests only")
-    parser.add_argument("--coverage", action="store_true",
-                       help="Generate coverage report")
-    parser.add_argument("--verbose", "-v", action="store_true",
-                       help="Verbose output")
-    parser.add_argument("test_filter", nargs="*",
-                       help="Additional pytest arguments/filters")
+    parser.add_argument("--quick", action="store_true", help="Run quick tests only (skip performance tests)")
+    parser.add_argument("--categories", action="store_true", help="Run tests by category with detailed reporting")
+    parser.add_argument("--performance", action="store_true", help="Run performance tests only")
+    parser.add_argument("--coverage", action="store_true", help="Generate coverage report")
+    parser.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
+    parser.add_argument("test_filter", nargs="*", help="Additional pytest arguments/filters")
 
     args = parser.parse_args()
 

@@ -13,6 +13,7 @@ from pathlib import Path
 # Load environment variables from .env file
 try:
     from dotenv import load_dotenv
+
     load_dotenv()
 except ImportError:
     pass
@@ -20,12 +21,14 @@ except ImportError:
 
 class DatabaseBackend(Enum):
     """Supported database backends."""
+
     DUCKDB = "duckdb"
     DUCKLAKE = "ducklake"
 
 
 class CatalogType(Enum):
     """Supported catalog types for DuckLake."""
+
     DUCKDB = "duckdb"
     SQLITE = "sqlite"
     POSTGRESQL = "postgresql"
@@ -198,15 +201,17 @@ def create_database_instance():
 
     if config.backend == DatabaseBackend.DUCKDB:
         from .database import GeneDatabase
+
         return GeneDatabase(db_path=config.duckdb_path)
 
     elif config.backend == DatabaseBackend.DUCKLAKE:
         from .ducklake_database import DuckLakeGeneDatabase
+
         return DuckLakeGeneDatabase(
             catalog_type=config.catalog_type.value,
             catalog_path=config.catalog_path,
             data_path=config.data_path,
-            ducklake_name=config.ducklake_name
+            ducklake_name=config.ducklake_name,
         )
 
     else:

@@ -2,7 +2,6 @@
 Tests for the AttributeConfig centralized configuration system.
 """
 
-
 from gorgonetics.attribute_config import AttributeConfig
 
 
@@ -320,20 +319,41 @@ class TestAttributeConfig:
         # Test BeeWasp appearance attribute names
         bee_names = AttributeConfig.get_appearance_attribute_names("BeeWasp")
         expected_bee = {
-            "body-color-hue", "body-color-saturation", "body-color-intensity",
-            "wing-color-hue", "wing-color-saturation", "wing-color-intensity",
-            "body-scale", "wing-scale", "head-scale", "tail-scale", "antenna-scale",
-            "leg-deformity", "antenna-deformity", "particles", "particle-location", "glow"
+            "body-color-hue",
+            "body-color-saturation",
+            "body-color-intensity",
+            "wing-color-hue",
+            "wing-color-saturation",
+            "wing-color-intensity",
+            "body-scale",
+            "wing-scale",
+            "head-scale",
+            "tail-scale",
+            "antenna-scale",
+            "leg-deformity",
+            "antenna-deformity",
+            "particles",
+            "particle-location",
+            "glow",
         }
         assert set(bee_names) == expected_bee
 
         # Test Horse appearance attribute names
         horse_names = AttributeConfig.get_appearance_attribute_names("Horse")
         expected_horse = {
-            "body-color-hue", "body-color-saturation", "body-color-intensity",
-            "mane-color-hue", "mane-color-saturation", "mane-color-intensity",
-            "body-scale", "leg-scale", "head-scale", "tail-scale", "mane-scale",
-            "markings", "hooves"
+            "body-color-hue",
+            "body-color-saturation",
+            "body-color-intensity",
+            "mane-color-hue",
+            "mane-color-saturation",
+            "mane-color-intensity",
+            "body-scale",
+            "leg-scale",
+            "head-scale",
+            "tail-scale",
+            "mane-scale",
+            "markings",
+            "hooves",
         }
         assert set(horse_names) == expected_horse
 

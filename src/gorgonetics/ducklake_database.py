@@ -178,7 +178,7 @@ class DuckLakeGeneDatabase:
                 "genome_data JSON NOT NULL",
                 "notes TEXT",
                 "created_at TIMESTAMP",
-                "updated_at TIMESTAMP"
+                "updated_at TIMESTAMP",
             ]
 
             all_columns = base_columns + dynamic_columns
@@ -232,12 +232,15 @@ class DuckLakeGeneDatabase:
 
         # Use regular INSERT (DuckLake doesn't support INSERT OR REPLACE without primary keys)
         try:
-            self.conn.execute("""
+            self.conn.execute(
+                """
                 INSERT INTO genes (
                     animal_type, chromosome, gene, effect_dominant,
                     effect_recessive, appearance, notes, created_at, updated_at
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
-            """, [animal_type, chromosome, gene, effect_dominant, effect_recessive, appearance, notes])
+            """,
+                [animal_type, chromosome, gene, effect_dominant, effect_recessive, appearance, notes],
+            )
         except Exception:
             # Skip duplicates
             pass
@@ -249,22 +252,28 @@ class DuckLakeGeneDatabase:
 
     def get_chromosomes(self, animal_type: str) -> list[str]:
         """Get list of chromosomes for a specific animal type."""
-        result = self.conn.execute("""
+        result = self.conn.execute(
+            """
             SELECT DISTINCT chromosome FROM genes
             WHERE animal_type = ?
             ORDER BY chromosome
-        """, [animal_type]).fetchall()
+        """,
+            [animal_type],
+        ).fetchall()
         return [row[0] for row in result]
 
     def get_genes_by_chromosome(self, animal_type: str, chromosome: str) -> list[dict[str, Any]]:
         """Get all genes for a specific animal type and chromosome."""
-        result = self.conn.execute("""
+        result = self.conn.execute(
+            """
             SELECT animal_type, chromosome, gene, effect_dominant, effect_recessive,
                    appearance, notes, created_at, updated_at
             FROM genes
             WHERE animal_type = ? AND chromosome = ?
             ORDER BY gene
-        """, [animal_type, chromosome]).fetchall()
+        """,
+            [animal_type, chromosome],
+        ).fetchall()
 
         return [
             {
@@ -276,20 +285,23 @@ class DuckLakeGeneDatabase:
                 "appearance": row[5],
                 "notes": row[6],
                 "created_at": row[7].isoformat() if row[7] else None,
-                "updated_at": row[8].isoformat() if row[8] else None
+                "updated_at": row[8].isoformat() if row[8] else None,
             }
             for row in result
         ]
 
     def get_genes_for_animal(self, animal_type: str) -> list[dict[str, Any]]:
         """Get all genes for a specific animal type."""
-        result = self.conn.execute("""
+        result = self.conn.execute(
+            """
             SELECT animal_type, chromosome, gene, effect_dominant, effect_recessive,
                    appearance, notes, created_at, updated_at
             FROM genes
             WHERE animal_type = ?
             ORDER BY chromosome, gene
-        """, [animal_type]).fetchall()
+        """,
+            [animal_type],
+        ).fetchall()
 
         return [
             {
@@ -301,7 +313,7 @@ class DuckLakeGeneDatabase:
                 "appearance": row[5],
                 "notes": row[6],
                 "created_at": row[7].isoformat() if row[7] else None,
-                "updated_at": row[8].isoformat() if row[8] else None
+                "updated_at": row[8].isoformat() if row[8] else None,
             }
             for row in result
         ]
@@ -326,7 +338,7 @@ class DuckLakeGeneDatabase:
 
             query = f"""
                 UPDATE genes
-                SET {', '.join(set_clauses)}
+                SET {", ".join(set_clauses)}
                 WHERE animal_type = ? AND gene = ?
             """
 
@@ -342,12 +354,15 @@ class DuckLakeGeneDatabase:
 
     def get_gene(self, animal_type: str, gene: str) -> dict[str, Any] | None:
         """Get a specific gene record."""
-        result = self.conn.execute("""
+        result = self.conn.execute(
+            """
             SELECT animal_type, chromosome, gene, effect_dominant, effect_recessive,
                    appearance, notes, created_at, updated_at
             FROM genes
             WHERE animal_type = ? AND gene = ?
-        """, [animal_type, gene]).fetchall()
+        """,
+            [animal_type, gene],
+        ).fetchall()
 
         if result:
             row = result[0]
@@ -360,7 +375,7 @@ class DuckLakeGeneDatabase:
                 "appearance": row[5],
                 "notes": row[6],
                 "created_at": row[7].isoformat() if row[7] else None,
-                "updated_at": row[8].isoformat() if row[8] else None
+                "updated_at": row[8].isoformat() if row[8] else None,
             }
         return None
 
@@ -416,7 +431,7 @@ class DuckLakeGeneDatabase:
             values.extend([None, None])  # Will be set by NOW() in query
 
             placeholders = []
-            for i, col in enumerate(columns):
+            for _i, col in enumerate(columns):
                 if col in ["created_at", "updated_at"]:
                     placeholders.append("NOW()")
                 else:
@@ -435,8 +450,8 @@ class DuckLakeGeneDatabase:
             placeholders.insert(0, "?")
 
             query = f"""
-                INSERT INTO pets ({', '.join(columns)})
-                VALUES ({', '.join(placeholders)})
+                INSERT INTO pets ({", ".join(columns)})
+                VALUES ({", ".join(placeholders)})
             """
 
             self.conn.execute(query, values)
@@ -449,6 +464,7 @@ class DuckLakeGeneDatabase:
         except Exception as e:
             logger.error(f"Failed to add pet: {e}")
             import traceback
+
             traceback.print_exc()
             return None
 
@@ -532,7 +548,7 @@ class DuckLakeGeneDatabase:
 
             query = f"""
                 UPDATE pets
-                SET {', '.join(set_clauses)}
+                SET {", ".join(set_clauses)}
                 WHERE id = ?
             """
 
@@ -593,12 +609,9 @@ class DuckLakeGeneDatabase:
 
             snapshots = []
             for row in result:
-                snapshots.append({
-                    "snapshot_id": row[0],
-                    "snapshot_time": row[1],
-                    "schema_version": row[2],
-                    "changes": row[3]
-                })
+                snapshots.append(
+                    {"snapshot_id": row[0], "snapshot_time": row[1], "schema_version": row[2], "changes": row[3]}
+                )
 
             return snapshots
 

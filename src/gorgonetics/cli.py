@@ -50,7 +50,6 @@ def migrate_to_ducklake(
     ) as progress:
         # Import the migration script functionality
         import sys
-        from pathlib import Path
 
         # Add scripts directory to path
         scripts_dir = Path(__file__).parent.parent.parent / "scripts"
@@ -70,7 +69,7 @@ def migrate_to_ducklake(
             # Create backup
             if not skip_backup:
                 task = progress.add_task("Creating backup...", total=None)
-                backup_path = backup_existing_database(source_path, Path(backup_dir))
+                _backup_path = backup_existing_database(source_path, Path(backup_dir))
                 progress.update(task, description="✅ Backup created")
 
             # Export to Parquet
@@ -107,11 +106,15 @@ def migrate_to_ducklake(
 
                 # Show connection example
                 if catalog_type == "sqlite":
-                    attach_example = f"ATTACH 'ducklake:sqlite:{catalog_path}' AS gorgonetics_lake (DATA_PATH '{data_dir}')"
+                    attach_example = (
+                        f"ATTACH 'ducklake:sqlite:{catalog_path}' AS gorgonetics_lake (DATA_PATH '{data_dir}')"
+                    )
                 elif catalog_type == "duckdb":
                     attach_example = f"ATTACH 'ducklake:{catalog_path}' AS gorgonetics_lake"
                 else:
-                    attach_example = f"ATTACH 'ducklake:{catalog_type}:{catalog_path}' AS gorgonetics_lake (DATA_PATH '{data_dir}')"
+                    attach_example = (
+                        f"ATTACH 'ducklake:{catalog_type}:{catalog_path}' AS gorgonetics_lake (DATA_PATH '{data_dir}')"
+                    )
 
                 console.print(f"[blue]To connect:[/blue] {attach_example}")
             else:
@@ -120,7 +123,7 @@ def migrate_to_ducklake(
 
         except Exception as e:
             console.print(f"\n[red]Migration failed: {e}[/red]")
-            raise typer.Exit(1)
+            raise typer.Exit(1) from e
 
 
 @app.command()
@@ -169,7 +172,7 @@ def db_snapshots() -> None:
             catalog_type=config.catalog_type.value,
             catalog_path=config.catalog_path,
             data_path=config.data_path,
-            ducklake_name=config.ducklake_name
+            ducklake_name=config.ducklake_name,
         )
 
         snapshots = db.get_snapshots()
@@ -193,20 +196,18 @@ def db_snapshots() -> None:
                 str(snapshot["snapshot_id"]),
                 str(snapshot["snapshot_time"]),
                 str(snapshot["schema_version"]),
-                changes_str
+                changes_str,
             )
 
         console.print(table)
 
     except Exception as e:
         console.print(f"[red]Failed to get snapshots: {e}[/red]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
 
 
 @app.command()
-def db_cleanup(
-    dry_run: bool = typer.Option(True, help="Perform dry run without actual cleanup")
-) -> None:
+def db_cleanup(dry_run: bool = typer.Option(True, help="Perform dry run without actual cleanup")) -> None:
     """Clean up old DuckLake files (DuckLake backend only)."""
     config = get_database_config()
 
@@ -219,7 +220,7 @@ def db_cleanup(
             catalog_type=config.catalog_type.value,
             catalog_path=config.catalog_path,
             data_path=config.data_path,
-            ducklake_name=config.ducklake_name
+            ducklake_name=config.ducklake_name,
         )
 
         if dry_run:
@@ -236,7 +237,7 @@ def db_cleanup(
 
     except Exception as e:
         console.print(f"[red]Failed to cleanup: {e}[/red]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from e
 
 
 @app.callback()

@@ -79,151 +79,99 @@ class AttributeConfig:
             "body-color-hue": {
                 "name": "Body Color Hue",
                 "examples": "Color tone",
-                "color_indicator": "linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1)"
+                "color_indicator": "linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1)",
             },
             "body-color-saturation": {
                 "name": "Body Color Saturation",
                 "examples": "Color intensity",
-                "color_indicator": "linear-gradient(90deg, #f8f9fa, #ff6b6b)"
+                "color_indicator": "linear-gradient(90deg, #f8f9fa, #ff6b6b)",
             },
             "body-color-intensity": {
                 "name": "Body Color Intensity",
                 "examples": "Brightness",
-                "color_indicator": "linear-gradient(90deg, #343a40, #f8f9fa)"
+                "color_indicator": "linear-gradient(90deg, #343a40, #f8f9fa)",
             },
             "wing-color-hue": {
                 "name": "Wing Color Hue",
                 "examples": "Wing tone",
-                "color_indicator": "linear-gradient(45deg, #ffd93d, #6bcf7f, #4d72aa)"
+                "color_indicator": "linear-gradient(45deg, #ffd93d, #6bcf7f, #4d72aa)",
             },
             "wing-color-saturation": {
                 "name": "Wing Color Saturation",
                 "examples": "Wing intensity",
-                "color_indicator": "linear-gradient(90deg, #e9ecef, #ffd93d)"
+                "color_indicator": "linear-gradient(90deg, #e9ecef, #ffd93d)",
             },
             "wing-color-intensity": {
                 "name": "Wing Color Intensity",
                 "examples": "Wing brightness",
-                "color_indicator": "linear-gradient(90deg, #495057, #fff3cd)"
+                "color_indicator": "linear-gradient(90deg, #495057, #fff3cd)",
             },
-            "body-scale": {
-                "name": "Body Scale",
-                "examples": "Body size",
-                "color_indicator": "#8b5cf6"
-            },
-            "wing-scale": {
-                "name": "Wing Scale",
-                "examples": "Wing size",
-                "color_indicator": "#06b6d4"
-            },
-            "head-scale": {
-                "name": "Head Scale",
-                "examples": "Head size",
-                "color_indicator": "#f59e0b"
-            },
-            "tail-scale": {
-                "name": "Tail Scale",
-                "examples": "Tail size",
-                "color_indicator": "#84cc16"
-            },
-            "antenna-scale": {
-                "name": "Antenna Scale",
-                "examples": "Antenna size",
-                "color_indicator": "#ec4899"
-            },
-            "leg-deformity": {
-                "name": "Leg Deformity",
-                "examples": "Leg shape",
-                "color_indicator": "#ef4444"
-            },
+            "body-scale": {"name": "Body Scale", "examples": "Body size", "color_indicator": "#8b5cf6"},
+            "wing-scale": {"name": "Wing Scale", "examples": "Wing size", "color_indicator": "#06b6d4"},
+            "head-scale": {"name": "Head Scale", "examples": "Head size", "color_indicator": "#f59e0b"},
+            "tail-scale": {"name": "Tail Scale", "examples": "Tail size", "color_indicator": "#84cc16"},
+            "antenna-scale": {"name": "Antenna Scale", "examples": "Antenna size", "color_indicator": "#ec4899"},
+            "leg-deformity": {"name": "Leg Deformity", "examples": "Leg shape", "color_indicator": "#ef4444"},
             "antenna-deformity": {
                 "name": "Antenna Deformity",
                 "examples": "Antenna shape",
-                "color_indicator": "#f97316"
+                "color_indicator": "#f97316",
             },
             "particles": {
                 "name": "Particles",
                 "examples": "Special effects",
-                "color_indicator": "radial-gradient(circle, #fbbf24, #f59e0b)"
+                "color_indicator": "radial-gradient(circle, #fbbf24, #f59e0b)",
             },
             "particle-location": {
                 "name": "Particle Location",
                 "examples": "Effect position",
-                "color_indicator": "conic-gradient(#8b5cf6, #ec4899, #06b6d4, #8b5cf6)"
+                "color_indicator": "conic-gradient(#8b5cf6, #ec4899, #06b6d4, #8b5cf6)",
             },
             "glow": {
                 "name": "Glow",
                 "examples": "Luminescence",
-                "color_indicator": "radial-gradient(circle, #fef3c7, #f59e0b)"
-            }
+                "color_indicator": "radial-gradient(circle, #fef3c7, #f59e0b)",
+            },
         },
         "horse": {
             "body-color-hue": {
                 "name": "Coat Color Hue",
                 "examples": "Coat tone",
-                "color_indicator": "linear-gradient(45deg, #8b4513, #daa520, #cd853f)"
+                "color_indicator": "linear-gradient(45deg, #8b4513, #daa520, #cd853f)",
             },
             "body-color-saturation": {
                 "name": "Coat Color Saturation",
                 "examples": "Coat intensity",
-                "color_indicator": "linear-gradient(90deg, #f5f5dc, #8b4513)"
+                "color_indicator": "linear-gradient(90deg, #f5f5dc, #8b4513)",
             },
             "body-color-intensity": {
                 "name": "Coat Color Intensity",
                 "examples": "Coat brightness",
-                "color_indicator": "linear-gradient(90deg, #2f4f4f, #f5f5dc)"
+                "color_indicator": "linear-gradient(90deg, #2f4f4f, #f5f5dc)",
             },
             "mane-color-hue": {
                 "name": "Mane Color Hue",
                 "examples": "Mane tone",
-                "color_indicator": "linear-gradient(45deg, #654321, #daa520, #000000)"
+                "color_indicator": "linear-gradient(45deg, #654321, #daa520, #000000)",
             },
             "mane-color-saturation": {
                 "name": "Mane Color Saturation",
                 "examples": "Mane intensity",
-                "color_indicator": "linear-gradient(90deg, #f0f0f0, #654321)"
+                "color_indicator": "linear-gradient(90deg, #f0f0f0, #654321)",
             },
             "mane-color-intensity": {
                 "name": "Mane Color Intensity",
                 "examples": "Mane brightness",
-                "color_indicator": "linear-gradient(90deg, #000000, #ffffff)"
+                "color_indicator": "linear-gradient(90deg, #000000, #ffffff)",
             },
-            "body-scale": {
-                "name": "Body Scale",
-                "examples": "Body size",
-                "color_indicator": "#8b5cf6"
-            },
-            "leg-scale": {
-                "name": "Leg Scale",
-                "examples": "Leg length",
-                "color_indicator": "#06b6d4"
-            },
-            "head-scale": {
-                "name": "Head Scale",
-                "examples": "Head size",
-                "color_indicator": "#f59e0b"
-            },
-            "tail-scale": {
-                "name": "Tail Scale",
-                "examples": "Tail size",
-                "color_indicator": "#84cc16"
-            },
-            "mane-scale": {
-                "name": "Mane Scale",
-                "examples": "Mane length",
-                "color_indicator": "#ec4899"
-            },
-            "markings": {
-                "name": "Markings",
-                "examples": "Coat patterns",
-                "color_indicator": "#ef4444"
-            },
-            "hooves": {
-                "name": "Hooves",
-                "examples": "Hoof appearance",
-                "color_indicator": "#6b7280"
-            }
-        }
+            "body-scale": {"name": "Body Scale", "examples": "Body size", "color_indicator": "#8b5cf6"},
+            "leg-scale": {"name": "Leg Scale", "examples": "Leg length", "color_indicator": "#06b6d4"},
+            "head-scale": {"name": "Head Scale", "examples": "Head size", "color_indicator": "#f59e0b"},
+            "tail-scale": {"name": "Tail Scale", "examples": "Tail size", "color_indicator": "#84cc16"},
+            "mane-scale": {"name": "Mane Scale", "examples": "Mane length", "color_indicator": "#ec4899"},
+            "markings": {"name": "Markings", "examples": "Coat patterns", "color_indicator": "#ef4444"},
+            "hooves": {"name": "Hooves", "examples": "Hoof appearance", "color_indicator": "#6b7280"},
+        },
     }
 
     # Species name mappings (for flexible species recognition)
@@ -350,7 +298,7 @@ class AttributeConfig:
                 "key": name.replace("-", "_"),  # Convert to underscore for frontend consistency
                 "name": info["name"],
                 "examples": info["examples"],
-                "color_indicator": info.get("color_indicator", "#6b7280")
+                "color_indicator": info.get("color_indicator", "#6b7280"),
             }
             for name, info in appearance_attrs.items()
         ]

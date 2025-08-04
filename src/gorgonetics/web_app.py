@@ -269,12 +269,7 @@ async def get_effect_options_for_species(species: str) -> list[str]:
         normalized_species = species.lower()
 
         # Map common database names to config names
-        species_mapping = {
-            "beewasp": "beewasp",
-            "bee": "beewasp",
-            "wasp": "beewasp",
-            "horse": "horse"
-        }
+        species_mapping = {"beewasp": "beewasp", "bee": "beewasp", "wasp": "beewasp", "horse": "horse"}
 
         config_species = species_mapping.get(normalized_species, normalized_species)
         logger.info(f"Mapped '{species}' -> '{config_species}' for AttributeConfig")

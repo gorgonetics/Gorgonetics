@@ -40,7 +40,7 @@ def test_database():
             "effect_dominant": "None",
             "effect_recessive": "Intelligence+",
             "appearance": "Mane Color",
-            "notes": "Test gene 1"
+            "notes": "Test gene 1",
         },
         {
             "animal_type": "horse",
@@ -49,7 +49,7 @@ def test_database():
             "effect_dominant": "Toughness-",
             "effect_recessive": "None",
             "appearance": "Mane Color",
-            "notes": "Test gene 2"
+            "notes": "Test gene 2",
         },
         {
             "animal_type": "beewasp",
@@ -58,17 +58,12 @@ def test_database():
             "effect_dominant": "None",
             "effect_recessive": "Friendliness+",
             "appearance": "Body Color",
-            "notes": "Test bee gene"
-        }
+            "notes": "Test bee gene",
+        },
     ]
 
     for gene_data in sample_genes:
-        db._upsert_gene(
-            gene_data["animal_type"],
-            gene_data["chromosome"],
-            gene_data["gene"],
-            gene_data
-        )
+        db._upsert_gene(gene_data["animal_type"], gene_data["chromosome"], gene_data["gene"], gene_data)
 
     db.conn.commit()
 
@@ -94,7 +89,7 @@ Genome=Horse
 End of Genome
 """
 
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as f:
         f.write(pet_content)
         return f.name
 
@@ -206,9 +201,6 @@ class TestPetEndpoints:
         data = response.json()
         assert isinstance(data, list)
 
-
-
-
     def _upload_pet_helper(self, client, test_database, sample_pet_file, name_suffix=""):
         """Helper method to upload a pet and return the pet_id."""
         # Create unique content by adding suffix to gene data to avoid hash conflicts
@@ -221,9 +213,12 @@ class TestPetEndpoints:
             content = content.replace("Entity=Test Pet", f"Entity=Test Pet{name_suffix}")
             # Also modify gene data to ensure unique hash
             import hashlib
+
             unique_hash = hashlib.md5(name_suffix.encode()).hexdigest()[:2]
-            content = content.replace("01=RDRD RDRD RDRD RDRD RRDD RRDD RDRD RDRD",
-                                    f"01=RDRD RDRD RDRD RDRD RRDD RRDD RDRD RD{unique_hash.upper()}")
+            content = content.replace(
+                "01=RDRD RDRD RDRD RDRD RRDD RRDD RDRD RDRD",
+                f"01=RDRD RDRD RDRD RDRD RRDD RRDD RDRD RD{unique_hash.upper()}",
+            )
 
         files = {"file": ("test_pet.txt", content.encode(), "text/plain")}
         data = {"name": f"Integration Test Pet{name_suffix}"}
@@ -328,7 +323,7 @@ class TestPetEndpoints:
         client.get("/api/pets")  # Ensure database is ready
 
         # Upload same file twice with unique filenames to avoid early conflicts
-        with open(sample_pet_file, 'rb') as f:
+        with open(sample_pet_file, "rb") as f:
             files = {"file": ("first_upload.txt", f, "text/plain")}
             data = {"name": "First Upload"}
             response1 = client.post("/api/pets/upload", files=files, data=data)
@@ -337,7 +332,7 @@ class TestPetEndpoints:
         if response1.status_code != 200:
             pytest.skip(f"Pet upload not working: {response1.status_code}")
 
-        with open(sample_pet_file, 'rb') as f:
+        with open(sample_pet_file, "rb") as f:
             files = {"file": ("second_upload.txt", f, "text/plain")}
             data = {"name": "Second Upload"}
             response2 = client.post("/api/pets/upload", files=files, data=data)
@@ -508,16 +503,9 @@ class TestPerformance:
                 start_time = time.time()
                 response = client.get("/api/animal-types")
                 end_time = time.time()
-                results.append({
-                    "status_code": response.status_code,
-                    "duration": end_time - start_time
-                })
+                results.append({"status_code": response.status_code, "duration": end_time - start_time})
             except Exception as e:
-                results.append({
-                    "status_code": 500,
-                    "duration": 5.0,
-                    "error": str(e)
-                })
+                results.append({"status_code": 500, "duration": 5.0, "error": str(e)})
 
         # Create multiple threads
         threads = []
