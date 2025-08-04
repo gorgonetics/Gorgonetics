@@ -1,26 +1,28 @@
 <script>
+    import { run, stopPropagation } from "svelte/legacy";
+
     import { onMount } from "svelte";
 
-    // Props from parent
-    export let animalType = "";
-    export let chromosome = "";
+    /**
+     * @typedef {Object} Props
+     * @property {string} [animalType] - Props from parent
+     * @property {string} [chromosome]
+     */
+
+    /** @type {Props} */
+    let { animalType = "", chromosome = "" } = $props();
 
     // State
-    let genes = [];
-    let effectOptions = [];
-    let loadingGenes = false;
-    let successMessage = "";
-    let errorMessage = "";
-    let expandedNotes = {};
-    let openDropdown = null;
+    let genes = $state([]);
+    let effectOptions = $state([]);
+    let loadingGenes = $state(false);
+    let successMessage = $state("");
+    let errorMessage = $state("");
+    let expandedNotes = $state({});
+    let openDropdown = $state(null);
     let originalGenes = [];
-    let hasUnsavedChanges = false;
-    let savingChanges = false;
-
-    // Load effect options when animalType changes
-    $: if (animalType) {
-        loadEffectOptions();
-    }
+    let hasUnsavedChanges = $state(false);
+    let savingChanges = $state(false);
 
     async function loadEffectOptions() {
         if (!animalType) return;
@@ -153,9 +155,8 @@
         if (!original) return false;
 
         return (
-            (gene.effect_dominant || "") !== (original.effect_dominant || "") ||
-            (gene.effect_recessive || "") !==
-                (original.effect_recessive || "") ||
+            (gene.effectDominant || "") !== (original.effectDominant || "") ||
+            (gene.effectRecessive || "") !== (original.effectRecessive || "") ||
             (gene.appearance || "") !== (original.appearance || "") ||
             (gene.notes || "") !== (original.notes || "")
         );
@@ -212,10 +213,18 @@
         expandedNotes = { ...expandedNotes };
     }
 
+    // Load effect options when animalType changes
+    run(() => {
+        if (animalType) {
+            loadEffectOptions();
+        }
+    });
     // Reactive statements
-    $: if (animalType && chromosome) {
-        loadGenes();
-    }
+    run(() => {
+        if (animalType && chromosome) {
+            loadGenes();
+        }
+    });
 </script>
 
 <div class="pet-visualization">
@@ -233,7 +242,7 @@
             <button
                 class="view-btn"
                 class:active={hasUnsavedChanges}
-                on:click={saveAllChanges}
+                onclick={saveAllChanges}
                 disabled={!hasUnsavedChanges || savingChanges}
             >
                 {#if savingChanges}
@@ -246,7 +255,7 @@
             </button>
             <button
                 class="view-btn"
-                on:click={exportChromosome}
+                onclick={exportChromosome}
                 title="Export chromosome as JSON"
             >
                 📥 Export
@@ -290,7 +299,7 @@
                             <button
                                 class="notes-btn"
                                 class:active={expandedNotes[gene.gene]}
-                                on:click={() => toggleNotes(gene.gene)}
+                                onclick={() => toggleNotes(gene.gene)}
                                 title="Toggle notes"
                             >
                                 📝
@@ -305,16 +314,17 @@
                                 <div class="select-wrapper">
                                     <button
                                         class="select-trigger {getEffectClass(
-                                            gene.effect_dominant,
+                                            gene.effectDominant,
                                         )}"
-                                        on:click|stopPropagation={(e) =>
+                                        onclick={stopPropagation((e) =>
                                             toggleDropdown(
                                                 gene.gene,
                                                 "dominant",
                                                 e,
-                                            )}
+                                            ),
+                                        )}
                                     >
-                                        {gene.effect_dominant || "None"}
+                                        {gene.effectDominant || "None"}
                                         <span class="chevron">▼</span>
                                     </button>
 
@@ -322,12 +332,13 @@
                                         <div class="dropdown">
                                             <button
                                                 class="option none"
-                                                on:click|stopPropagation={() =>
+                                                onclick={stopPropagation(() =>
                                                     selectOption(
                                                         gene,
                                                         "effect_dominant",
                                                         "None",
-                                                    )}
+                                                    ),
+                                                )}
                                             >
                                                 None
                                             </button>
@@ -341,12 +352,14 @@
                                                         .sort() as option}
                                                         <button
                                                             class="option negative"
-                                                            on:click|stopPropagation={() =>
-                                                                selectOption(
-                                                                    gene,
-                                                                    "effect_dominant",
-                                                                    option,
-                                                                )}
+                                                            onclick={stopPropagation(
+                                                                () =>
+                                                                    selectOption(
+                                                                        gene,
+                                                                        "effectDominant",
+                                                                        option,
+                                                                    ),
+                                                            )}
                                                         >
                                                             {option}
                                                         </button>
@@ -361,12 +374,14 @@
                                                         .sort() as option}
                                                         <button
                                                             class="option positive"
-                                                            on:click|stopPropagation={() =>
-                                                                selectOption(
-                                                                    gene,
-                                                                    "effect_dominant",
-                                                                    option,
-                                                                )}
+                                                            onclick={stopPropagation(
+                                                                () =>
+                                                                    selectOption(
+                                                                        gene,
+                                                                        "effect_dominant",
+                                                                        option,
+                                                                    ),
+                                                            )}
                                                         >
                                                             {option}
                                                         </button>
@@ -384,16 +399,17 @@
                                 <div class="select-wrapper">
                                     <button
                                         class="select-trigger {getEffectClass(
-                                            gene.effect_recessive,
+                                            gene.effectRecessive,
                                         )}"
-                                        on:click|stopPropagation={(e) =>
+                                        onclick={stopPropagation((e) =>
                                             toggleDropdown(
                                                 gene.gene,
                                                 "recessive",
                                                 e,
-                                            )}
+                                            ),
+                                        )}
                                     >
-                                        {gene.effect_recessive || "None"}
+                                        {gene.effectRecessive || "None"}
                                         <span class="chevron">▼</span>
                                     </button>
 
@@ -401,12 +417,13 @@
                                         <div class="dropdown">
                                             <button
                                                 class="option none"
-                                                on:click|stopPropagation={() =>
+                                                onclick={stopPropagation(() =>
                                                     selectOption(
                                                         gene,
-                                                        "effect_recessive",
+                                                        "effectRecessive",
                                                         "None",
-                                                    )}
+                                                    ),
+                                                )}
                                             >
                                                 None
                                             </button>
@@ -420,12 +437,14 @@
                                                         .sort() as option}
                                                         <button
                                                             class="option negative"
-                                                            on:click|stopPropagation={() =>
-                                                                selectOption(
-                                                                    gene,
-                                                                    "effect_recessive",
-                                                                    option,
-                                                                )}
+                                                            onclick={stopPropagation(
+                                                                () =>
+                                                                    selectOption(
+                                                                        gene,
+                                                                        "effectRecessive",
+                                                                        option,
+                                                                    ),
+                                                            )}
                                                         >
                                                             {option}
                                                         </button>
@@ -440,12 +459,14 @@
                                                         .sort() as option}
                                                         <button
                                                             class="option positive"
-                                                            on:click|stopPropagation={() =>
-                                                                selectOption(
-                                                                    gene,
-                                                                    "effect_recessive",
-                                                                    option,
-                                                                )}
+                                                            onclick={stopPropagation(
+                                                                () =>
+                                                                    selectOption(
+                                                                        gene,
+                                                                        "effect_recessive",
+                                                                        option,
+                                                                    ),
+                                                            )}
                                                         >
                                                             {option}
                                                         </button>
@@ -463,7 +484,7 @@
                                 <input
                                     type="text"
                                     value={gene.appearance || ""}
-                                    on:input={(e) =>
+                                    oninput={(e) =>
                                         handleInputChange(
                                             gene,
                                             "appearance",
@@ -479,7 +500,7 @@
                             <div class="notes-section">
                                 <textarea
                                     value={gene.notes || ""}
-                                    on:input={(e) =>
+                                    oninput={(e) =>
                                         handleInputChange(
                                             gene,
                                             "notes",
@@ -499,7 +520,7 @@
 
 <!-- Click outside to close dropdown -->
 <svelte:window
-    on:click={(e) => {
+    onclick={(e) => {
         if (!e.target.closest(".select-wrapper")) {
             openDropdown = null;
         }

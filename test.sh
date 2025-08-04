@@ -77,7 +77,7 @@ setup_tests() {
     uv pip install pytest pytest-cov pytest-timeout pytest-mock
 
     print_status "Installing client test dependencies..."
-    npm install
+    pnpm install
 
     print_success "Test environment ready!"
 }
@@ -285,7 +285,7 @@ run_client_tests() {
     fi
 
     # Run the actual client tests
-    if npx vitest run tests/client/test-simple-client.js; then
+    if pnpm vitest run tests/client/test-simple-client.js; then
         print_success "Client tests passed!"
         test_result=0
     else
@@ -315,7 +315,7 @@ run_client_ui_tests() {
     fi
 
     print_status "Opening Vitest UI..."
-    npx vitest --ui tests/client/test-simple-client.js
+    pnpm vitest --ui tests/client/test-simple-client.js
 
     # Stop server if we started it
     if [ "$server_started_by_us" = true ]; then

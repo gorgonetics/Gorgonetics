@@ -4,10 +4,10 @@
 
     const dispatch = createEventDispatcher();
 
-    let fileInput;
-    let petName = "";
-    let dragOver = false;
-    let uploading = false;
+    let fileInput = $state();
+    let petName = $state("");
+    let dragOver = $state(false);
+    let uploading = $state(false);
 
     function handleFileSelect(event) {
         const file = event.target.files[0];
@@ -73,11 +73,11 @@
         class="drop-zone"
         class:drag-over={dragOver}
         class:uploading
-        on:drop={handleDrop}
-        on:dragover={handleDragOver}
-        on:dragleave={handleDragLeave}
-        on:click={openFileDialog}
-        on:keydown={handleKeydown}
+        ondrop={handleDrop}
+        ondragover={handleDragOver}
+        ondragleave={handleDragLeave}
+        onclick={openFileDialog}
+        onkeydown={handleKeydown}
         tabindex="0"
         role="button"
         aria-label="Upload genome file"
@@ -98,7 +98,7 @@
             <input
                 type="file"
                 bind:this={fileInput}
-                on:change={handleFileSelect}
+                onchange={handleFileSelect}
                 accept=".txt"
                 style="display: none;"
                 disabled={uploading}

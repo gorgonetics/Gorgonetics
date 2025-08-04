@@ -1,15 +1,26 @@
 <script>
     import { createEventDispatcher } from "svelte";
 
-    export let gene = null;
-    export let chromosome = "";
-    export let geneAnalysis = null;
-    export let currentView = "attribute";
-    export let isVisible = true;
+    /**
+     * @typedef {Object} Props
+     * @property {any} [gene]
+     * @property {string} [chromosome]
+     * @property {any} [geneAnalysis]
+     * @property {string} [currentView]
+     * @property {boolean} [isVisible]
+     */
+
+    /** @type {Props} */
+    let {
+        gene = null,
+        chromosome = "",
+        geneAnalysis = null,
+        currentView = "attribute",
+        isVisible = true
+    } = $props();
 
     const dispatch = createEventDispatcher();
 
-    $: cssClass = computeCssClass(gene, geneAnalysis, currentView, isVisible);
 
     function computeCssClass(gene, geneAnalysis, currentView, isVisible) {
         if (!gene || !geneAnalysis) return "gene-cell";
@@ -59,6 +70,7 @@
     function handleMouseLeave(event) {
         dispatch("tooltip-hide", { event });
     }
+    let cssClass = $derived(computeCssClass(gene, geneAnalysis, currentView, isVisible));
 </script>
 
 {#if gene}
@@ -68,8 +80,8 @@
         data-gene-id={gene.id}
         data-gene-type={gene.type}
         data-effect={geneAnalysis?.effect || ""}
-        on:mouseenter={handleMouseEnter}
-        on:mouseleave={handleMouseLeave}
+        onmouseenter={handleMouseEnter}
+        onmouseleave={handleMouseLeave}
         role="button"
         tabindex="0"
     >

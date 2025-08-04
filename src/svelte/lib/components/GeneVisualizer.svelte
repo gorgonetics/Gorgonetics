@@ -1,46 +1,48 @@
 <script>
+    import { run } from 'svelte/legacy';
+
     import { onDestroy, onMount } from "svelte";
     import GeneStatsTable from "./GeneStatsTable.svelte";
     import GeneTooltip from "./GeneTooltip.svelte";
     import GeneCell from "./GeneCell.svelte";
 
-    export let pet;
+    let { pet } = $props();
 
-    let containerElement;
+    let containerElement = $state();
 
-    let loading = false;
-    let error = null;
-    let currentPet = null;
-    let currentView = "attribute";
+    let loading = $state(false);
+    let error = $state(null);
+    let currentPet = $state(null);
+    let currentView = $state("attribute");
     let geneEffectsDB = null;
 
     // Stats-related reactive variables
-    let currentStats = null;
-    let totalGenes = 0;
-    let neutralGenes = 0;
-    let selectedAttributes = [];
-    let hiddenAttributes = [];
-    let selectedChromosomes = [];
-    let hiddenChromosomes = [];
+    let currentStats = $state(null);
+    let totalGenes = $state(0);
+    let neutralGenes = $state(0);
+    let selectedAttributes = $state([]);
+    let hiddenAttributes = $state([]);
+    let selectedChromosomes = $state([]);
+    let hiddenChromosomes = $state([]);
 
     // Filter states
-    let currentEffectFilter = [];
-    let hiddenEffectFilters = [];
-    let currentValueFilter = [];
-    let hiddenValueFilters = [];
+    let currentEffectFilter = $state([]);
+    let hiddenEffectFilters = $state([]);
+    let currentValueFilter = $state([]);
+    let hiddenValueFilters = $state([]);
 
     // Tooltip state
-    let tooltipVisible = false;
-    let tooltipX = 0;
-    let tooltipY = 0;
-    let tooltipGeneId = "";
-    let tooltipGeneType = "";
-    let tooltipEffect = "";
-    let tooltipPotentialEffects = [];
+    let tooltipVisible = $state(false);
+    let tooltipX = $state(0);
+    let tooltipY = $state(0);
+    let tooltipGeneId = $state("");
+    let tooltipGeneType = $state("");
+    let tooltipEffect = $state("");
+    let tooltipPotentialEffects = $state([]);
 
     // Parsed gene data
-    let headerStructure = null;
-    let chromosomeData = [];
+    let headerStructure = $state(null);
+    let chromosomeData = $state([]);
 
     onMount(async () => {
         if (pet) {
@@ -1357,10 +1359,10 @@
     }
 
     // Track the last processed pet ID to prevent loops
-    let lastProcessedPetId = null;
+    let lastProcessedPetId = $state(null);
 
     // Use explicit pet change detection instead of reactive statement
-    $: {
+    run(() => {
         if (pet && pet.id !== lastProcessedPetId && !loading) {
             console.log("🐾 Pet changed, loading:", pet.name, pet.id);
             lastProcessedPetId = pet.id;
@@ -1370,7 +1372,7 @@
             lastProcessedPetId = null;
             cleanup();
         }
-    }
+    });
 
     // Export function for parent component
     export function handleViewChange(view) {
@@ -1410,7 +1412,7 @@
                                         : ''}"
                                     role="button"
                                     tabindex="0"
-                                    on:click={(e) =>
+                                    onclick={(e) =>
                                         handleLegendFilterClick("positive", e)}
                                 >
                                     <GeneCell
@@ -1437,7 +1439,7 @@
                                         : ''}"
                                     role="button"
                                     tabindex="0"
-                                    on:click={(e) =>
+                                    onclick={(e) =>
                                         handleLegendFilterClick(
                                             "potential-positive",
                                             e,
@@ -1467,7 +1469,7 @@
                                         : ''}"
                                     role="button"
                                     tabindex="0"
-                                    on:click={(e) =>
+                                    onclick={(e) =>
                                         handleLegendFilterClick("neutral", e)}
                                 >
                                     <GeneCell
@@ -1494,7 +1496,7 @@
                                         : ''}"
                                     role="button"
                                     tabindex="0"
-                                    on:click={(e) =>
+                                    onclick={(e) =>
                                         handleLegendFilterClick(
                                             "potential-negative",
                                             e,
@@ -1524,7 +1526,7 @@
                                         : ''}"
                                     role="button"
                                     tabindex="0"
-                                    on:click={(e) =>
+                                    onclick={(e) =>
                                         handleLegendFilterClick("negative", e)}
                                 >
                                     <GeneCell
@@ -1554,7 +1556,7 @@
                                         : ''}"
                                     role="button"
                                     tabindex="0"
-                                    on:click={(e) =>
+                                    onclick={(e) =>
                                         handleLegendFilterClick("dominant", e)}
                                 >
                                     <GeneCell
@@ -1581,7 +1583,7 @@
                                         : ''}"
                                     role="button"
                                     tabindex="0"
-                                    on:click={(e) =>
+                                    onclick={(e) =>
                                         handleLegendFilterClick("recessive", e)}
                                 >
                                     <GeneCell
@@ -1608,7 +1610,7 @@
                                         : ''}"
                                     role="button"
                                     tabindex="0"
-                                    on:click={(e) =>
+                                    onclick={(e) =>
                                         handleLegendFilterClick("mixed", e)}
                                 >
                                     <GeneCell
@@ -1635,7 +1637,7 @@
                                         : ''}"
                                     role="button"
                                     tabindex="0"
-                                    on:click={(e) =>
+                                    onclick={(e) =>
                                         handleLegendFilterClick("unknown", e)}
                                 >
                                     <GeneCell
@@ -1677,7 +1679,7 @@
                                         : ''}"
                                     role="button"
                                     tabindex="0"
-                                    on:click={(e) =>
+                                    onclick={(e) =>
                                         handleLegendFilterClick(
                                             "body-color",
                                             e,
@@ -1716,7 +1718,7 @@
                                         : ''}"
                                     role="button"
                                     tabindex="0"
-                                    on:click={(e) =>
+                                    onclick={(e) =>
                                         handleLegendFilterClick(
                                             "wing-color",
                                             e,
@@ -1759,7 +1761,7 @@
                                         : ''}"
                                     role="button"
                                     tabindex="0"
-                                    on:click={(e) =>
+                                    onclick={(e) =>
                                         handleLegendFilterClick("scale", e)}
                                 >
                                     <GeneCell
@@ -1793,7 +1795,7 @@
                                         : ''}"
                                     role="button"
                                     tabindex="0"
-                                    on:click={(e) =>
+                                    onclick={(e) =>
                                         handleLegendFilterClick("deformity", e)}
                                 >
                                     <GeneCell
@@ -1827,7 +1829,7 @@
                                         : ''}"
                                     role="button"
                                     tabindex="0"
-                                    on:click={(e) =>
+                                    onclick={(e) =>
                                         handleLegendFilterClick("particles", e)}
                                 >
                                     <GeneCell
@@ -1852,7 +1854,7 @@
                                         : ''}"
                                     role="button"
                                     tabindex="0"
-                                    on:click={(e) =>
+                                    onclick={(e) =>
                                         handleLegendFilterClick("glow", e)}
                                 >
                                     <GeneCell
@@ -1879,7 +1881,7 @@
                                         : ''}"
                                     role="button"
                                     tabindex="0"
-                                    on:click={(e) =>
+                                    onclick={(e) =>
                                         handleLegendFilterClick("neutral", e)}
                                 >
                                     <GeneCell
@@ -1932,7 +1934,7 @@
                                                 ? 'hidden-chromosome'
                                                 : ''}"
                                             data-chromosome={chromosome}
-                                            on:click={(e) =>
+                                            onclick={(e) =>
                                                 toggleChromosomeFilter(
                                                     chromosome,
                                                     e.ctrlKey || e.metaKey,

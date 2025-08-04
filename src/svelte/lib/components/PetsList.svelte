@@ -5,10 +5,10 @@
         loading,
         appState,
     } from "../stores/appState.js";
-    import { Trash2, Eye, Edit } from "lucide-svelte";
+    import { Trash2, Eye, Edit } from "@lucide/svelte";
 
-    let editingPet = null;
-    let editName = "";
+    let editingPet = $state(null);
+    let editName = $state("");
 
     function selectPet(pet) {
         appState.selectPet(pet);
@@ -88,7 +88,7 @@
                 <div
                     class="pet-card"
                     class:selected={$selectedPet && $selectedPet.id === pet.id}
-                    on:click={() => selectPet(pet)}
+                    onclick={() => selectPet(pet)}
                     role="button"
                 >
                     <div class="pet-main">
@@ -97,10 +97,10 @@
                                 <input
                                     type="text"
                                     bind:value={editName}
-                                    on:keydown={(e) => handleKeydown(e, pet)}
-                                    on:blur={(e) => saveEdit(pet, e)}
+                                    onkeydown={(e) => handleKeydown(e, pet)}
+                                    onblur={(e) => saveEdit(pet, e)}
                                     class="edit-input"
-                                    on:click={(e) => e.stopPropagation()}
+                                    onclick={(e) => e.stopPropagation()}
                                     autofocus
                                 />
                             {:else}
@@ -110,7 +110,7 @@
                             <div class="pet-actions">
                                 <button
                                     class="action-btn view-btn"
-                                    on:click={(e) => {
+                                    onclick={(e) => {
                                         e.stopPropagation();
                                         selectPet(pet);
                                     }}
@@ -122,7 +122,7 @@
 
                                 <button
                                     class="action-btn edit-btn"
-                                    on:click={(e) => startEdit(pet, e)}
+                                    onclick={(e) => startEdit(pet, e)}
                                     title="Edit pet name"
                                     aria-label="Edit {pet.name}"
                                 >
@@ -131,7 +131,7 @@
 
                                 <button
                                     class="action-btn delete-btn"
-                                    on:click={(e) => deletePet(pet, e)}
+                                    onclick={(e) => deletePet(pet, e)}
                                     title="Delete pet"
                                     aria-label="Delete {pet.name}"
                                 >

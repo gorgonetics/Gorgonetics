@@ -1,14 +1,16 @@
 <script>
+    import { run } from 'svelte/legacy';
+
     import { onMount } from "svelte";
     import { apiClient } from "../services/apiClient.js";
     import { appState } from "../stores/appState.js";
 
-    let selectedAnimalType = "";
-    let selectedChromosome = "";
-    let animalTypes = [];
-    let chromosomes = [];
-    let loadingChromosomes = false;
-    let editorError = "";
+    let selectedAnimalType = $state("");
+    let selectedChromosome = $state("");
+    let animalTypes = $state([]);
+    let chromosomes = $state([]);
+    let loadingChromosomes = $state(false);
+    let editorError = $state("");
 
     onMount(async () => {
         try {
@@ -52,7 +54,9 @@
         }
     }
 
-    $: if (selectedAnimalType) loadChromosomes();
+    run(() => {
+        if (selectedAnimalType) loadChromosomes();
+    });
 </script>
 
 <div class="gene-editor-controls">
@@ -87,7 +91,7 @@
     <div class="form-group">
         <button
             class="load-btn"
-            on:click={openGeneEditor}
+            onclick={openGeneEditor}
             disabled={!selectedAnimalType ||
                 !selectedChromosome ||
                 loadingChromosomes}

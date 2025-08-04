@@ -1,11 +1,25 @@
 <script>
-    export let visible = false;
-    export let x = 0;
-    export let y = 0;
-    export let geneId = "";
-    export let geneType = "";
-    export let effect = "";
-    export let potentialEffects = [];
+    /**
+     * @typedef {Object} Props
+     * @property {boolean} [visible]
+     * @property {number} [x]
+     * @property {number} [y]
+     * @property {string} [geneId]
+     * @property {string} [geneType]
+     * @property {string} [effect]
+     * @property {any} [potentialEffects]
+     */
+
+    /** @type {Props} */
+    let {
+        visible = false,
+        x = 0,
+        y = 0,
+        geneId = "",
+        geneType = "",
+        effect = "",
+        potentialEffects = []
+    } = $props();
 
     function getTypeDescription(type) {
         switch (type) {

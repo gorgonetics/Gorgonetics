@@ -175,7 +175,8 @@ nbs/                   # Jupyter notebooks
 
 - **Backend**: [FastAPI](https://fastapi.tiangolo.com/) + [DuckDB](https://duckdb.org/) - High-performance web API with embedded analytics database
 - **Frontend**: Vanilla JavaScript ES6+ - Modular architecture with clean separation of concerns
-- **Package Manager**: [uv](https://docs.astral.sh/uv/) - Fast Python package installer and resolver
+- **Frontend Package Manager**: [pnpm](https://pnpm.io/) - Fast, disk-efficient Node.js package manager
+- **Python Package Manager**: [uv](https://docs.astral.sh/uv/) - Fast Python package installer and resolver
 - **Type Safety**: [mypy](https://mypy.readthedocs.io/) - Static type checker with strict mode
 - **Code Quality**: [ruff](https://docs.astral.sh/ruff/) - Fast Python linter and formatter
 - **Testing**: [pytest](https://docs.pytest.org/) - Comprehensive testing framework

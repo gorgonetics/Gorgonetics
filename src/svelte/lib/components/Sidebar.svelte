@@ -4,10 +4,16 @@
     import PetsList from "./PetsList.svelte";
     import GeneEditor from "./GeneEditor.svelte";
 
-    export let sidebarCollapsed = false;
-    export let toggleSidebar;
+    /**
+     * @typedef {Object} Props
+     * @property {boolean} [sidebarCollapsed]
+     * @property {any} toggleSidebar
+     */
 
-    let activeTab = "pets";
+    /** @type {Props} */
+    let { sidebarCollapsed = false, toggleSidebar } = $props();
+
+    let activeTab = $state("pets");
 
     function switchTab(tab) {
         activeTab = tab;
@@ -34,7 +40,7 @@
                     class="tab"
                     class:active={activeTab === "pets"}
                     aria-selected={activeTab === "pets"}
-                    on:click={() => switchTab("pets")}
+                    onclick={() => switchTab("pets")}
                 >
                     <span class="tab-icon">🐾</span>
                     {#if !sidebarCollapsed}
@@ -46,7 +52,7 @@
                     class="tab"
                     class:active={activeTab === "editor"}
                     aria-selected={activeTab === "editor"}
-                    on:click={() => switchTab("editor")}
+                    onclick={() => switchTab("editor")}
                 >
                     <span class="tab-icon">🧬</span>
                     {#if !sidebarCollapsed}
@@ -66,7 +72,7 @@
                     {$error}
                     <button
                         class="error-close"
-                        on:click={() => appState.clearError()}>×</button
+                        onclick={() => appState.clearError()}>×</button
                     >
                 </div>
             {/if}
@@ -92,7 +98,7 @@
     <div class="sidebar-footer">
         <button
             class="sidebar-toggle"
-            on:click={toggleSidebar}
+            onclick={toggleSidebar}
             title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
             <span class="toggle-icon" class:rotated={sidebarCollapsed}>‹</span>

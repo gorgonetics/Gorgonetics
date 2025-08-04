@@ -1,20 +1,36 @@
 <script>
+    import { run } from 'svelte/legacy';
+
     import { createEventDispatcher } from "svelte";
     import App from "../../App.svelte";
 
     const dispatch = createEventDispatcher();
 
-    export let currentStats = null;
-    export let currentView = "attribute";
-    export let selectedAttributes = [];
-    export let hiddenAttributes = [];
-    export let totalGenes = 0;
-    export let neutralGenes = 0;
-    export let petSpecies = null;
+    /**
+     * @typedef {Object} Props
+     * @property {any} [currentStats]
+     * @property {string} [currentView]
+     * @property {any} [selectedAttributes]
+     * @property {any} [hiddenAttributes]
+     * @property {number} [totalGenes]
+     * @property {number} [neutralGenes]
+     * @property {any} [petSpecies]
+     */
 
-    let attributeList = [];
+    /** @type {Props} */
+    let {
+        currentStats = null,
+        currentView = "attribute",
+        selectedAttributes = [],
+        hiddenAttributes = [],
+        totalGenes = 0,
+        neutralGenes = 0,
+        petSpecies = null
+    } = $props();
+
+    let attributeList = $state([]);
     let attributeConfig = null;
-    let appearanceList = [];
+    let appearanceList = $state([]);
     let appearanceConfig = null;
     const fallbackAttributeList = [
         { key: "Intelligence", name: "Intelligence", icon: "🧠" },
@@ -26,13 +42,6 @@
         { key: "Ferocity", name: "Ferocity", icon: "🔥" },
     ];
 
-    $: grandTotal = calculateGrandTotal();
-    $: if (petSpecies) {
-        loadAttributeConfig(petSpecies);
-    }
-    $: if (petSpecies && currentView === "appearance") {
-        loadAppearanceConfig(petSpecies);
-    }
 
     async function loadAttributeConfig(species) {
         if (!species) {
@@ -271,18 +280,29 @@
         });
     }
 
-    $: selectedCount = selectedAttributes.length;
 
+
+    let grandTotal = $derived(calculateGrandTotal());
+    run(() => {
+        if (petSpecies) {
+            loadAttributeConfig(petSpecies);
+        }
+    });
+    run(() => {
+        if (petSpecies && currentView === "appearance") {
+            loadAppearanceConfig(petSpecies);
+        }
+    });
+    let selectedCount = $derived(selectedAttributes.length);
     // Create reactive object lookups
-    $: selectedLookup = selectedAttributes.reduce((acc, attr) => {
+    let selectedLookup = $derived(selectedAttributes.reduce((acc, attr) => {
         acc[attr] = true;
         return acc;
-    }, {});
-
-    $: hiddenLookup = hiddenAttributes.reduce((acc, attr) => {
+    }, {}));
+    let hiddenLookup = $derived(hiddenAttributes.reduce((acc, attr) => {
         acc[attr] = true;
         return acc;
-    }, {});
+    }, {}));
 </script>
 
 <div class="stats-section">
@@ -331,7 +351,7 @@
                             class:selected={selectedLookup[attr.key]}
                             class:hidden-attribute={hiddenLookup[attr.key]}
                             data-attribute={attr.key}
-                            on:click={(e) => handleAttributeClick(attr.key, e)}
+                            onclick={(e) => handleAttributeClick(attr.key, e)}
                         >
                             <td>
                                 <span class="color-indicator positive"></span>
@@ -363,7 +383,7 @@
                             class:selected={selectedLookup[attrKey]}
                             class:hidden-attribute={hiddenLookup[attrKey]}
                             data-attribute={attrKey}
-                            on:click={(e) => handleAttributeClick(attrKey, e)}
+                            onclick={(e) => handleAttributeClick(attrKey, e)}
                         >
                             <td>
                                 <span class="color-indicator {attrKey}"></span>

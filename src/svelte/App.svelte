@@ -6,7 +6,7 @@
   import { apiClient } from './lib/services/apiClient.js';
   import { apiTester } from './lib/utils/apiTest.js';
 
-  let sidebarCollapsed = false;
+  let sidebarCollapsed = $state(false);
 
   onMount(async () => {
     // Initialize the app

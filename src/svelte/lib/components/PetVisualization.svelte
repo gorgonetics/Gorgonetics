@@ -2,11 +2,11 @@
     import { onMount } from "svelte";
     import GeneVisualizer from "./GeneVisualizer.svelte";
 
-    export let pet;
+    let { pet } = $props();
 
-    let geneVisualizerRef;
+    let geneVisualizerRef = $state();
     let stylesLoaded = false;
-    let currentView = "attribute";
+    let currentView = $state("attribute");
 
     onMount(async () => {
         // Load scoped styles for gene visualizer
@@ -86,14 +86,14 @@
             <button
                 class="view-btn"
                 class:active={currentView === "attribute"}
-                on:click={() => handleViewChange("attribute")}
+                onclick={() => handleViewChange("attribute")}
             >
                 Attributes
             </button>
             <button
                 class="view-btn"
                 class:active={currentView === "appearance"}
-                on:click={() => handleViewChange("appearance")}
+                onclick={() => handleViewChange("appearance")}
             >
                 Appearance
             </button>

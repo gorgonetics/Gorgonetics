@@ -17,8 +17,8 @@
         };
     }
 
-    $: welcomeMessage =
-        !$selectedPet && !$geneEditingView ? getWelcomeMessage() : null;
+    let welcomeMessage =
+        $derived(!$selectedPet && !$geneEditingView ? getWelcomeMessage() : null);
 </script>
 
 <div class="app-main">
@@ -27,7 +27,7 @@
         <div class="error-banner" role="alert">
             <span class="error-icon">⚠️</span>
             <span class="error-text">{$error}</span>
-            <button class="error-close" on:click={() => appState.clearError()}
+            <button class="error-close" onclick={() => appState.clearError()}
                 >×</button
             >
         </div>
@@ -70,8 +70,8 @@
         padding: 1.5rem;
     }
 
-    .app-main:has(.pet-visualization),
-    .app-main:has(.gene-editing-view) {
+    .app-main:has(:global(.pet-visualization)),
+    .app-main:has(:global(.gene-editing-view)) {
         padding: 0;
     }
 
@@ -276,8 +276,8 @@
             padding: 1rem;
         }
 
-        .app-main:has(.pet-visualization),
-        .app-main:has(.gene-editing-view) {
+        .app-main:has(:global(.pet-visualization)),
+        .app-main:has(:global(.gene-editing-view)) {
             padding: 0;
         }
 
