@@ -1,5 +1,6 @@
 <script>
     import { createEventDispatcher } from "svelte";
+    import App from "../../App.svelte";
 
     const dispatch = createEventDispatcher();
 
@@ -13,6 +14,15 @@
 
     let attributeList = [];
     let attributeConfig = null;
+    const fallbackAttributeList = [
+        { key: "Intelligence", name: "Intelligence", icon: "🧠" },
+        { key: "Toughness", name: "Toughness", icon: "💪" },
+        { key: "Friendliness", name: "Friendliness", icon: "😊" },
+        { key: "Ruggedness", name: "Ruggedness", icon: "🏔️" },
+        { key: "Enthusiasm", name: "Enthusiasm", icon: "✨" },
+        { key: "Virility", name: "Virility", icon: "💜" },
+        { key: "Ferocity", name: "Ferocity", icon: "🔥" },
+    ];
 
     $: grandTotal = calculateGrandTotal();
     $: if (petSpecies) {
@@ -33,15 +43,7 @@
             } else {
                 console.warn(`Failed to load attribute config for ${species}`);
                 // Fallback to hardcoded BeeWasp attributes
-                attributeList = [
-                    { key: "Intelligence", name: "Intelligence", icon: "🧠" },
-                    { key: "Toughness", name: "Toughness", icon: "💪" },
-                    { key: "Friendliness", name: "Friendliness", icon: "😊" },
-                    { key: "Ruggedness", name: "Ruggedness", icon: "🏔️" },
-                    { key: "Enthusiasm", name: "Enthusiasm", icon: "✨" },
-                    { key: "Virility", name: "Virility", icon: "💜" },
-                    { key: "Ferocity", name: "Ferocity", icon: "🔥" },
-                ];
+                attributeList = fallbackAttributeList;
             }
         } catch (error) {
             console.error(
@@ -49,15 +51,7 @@
                 error,
             );
             // Fallback to hardcoded attributes
-            attributeList = [
-                { key: "Intelligence", name: "Intelligence", icon: "🧠" },
-                { key: "Toughness", name: "Toughness", icon: "💪" },
-                { key: "Friendliness", name: "Friendliness", icon: "😊" },
-                { key: "Ruggedness", name: "Ruggedness", icon: "🏔️" },
-                { key: "Enthusiasm", name: "Enthusiasm", icon: "✨" },
-                { key: "Virility", name: "Virility", icon: "💜" },
-                { key: "Ferocity", name: "Ferocity", icon: "🔥" },
-            ];
+            attributeList = fallbackAttributeList;
         }
     }
 
