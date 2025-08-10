@@ -6,6 +6,7 @@ through a web interface with DuckDB backend.
 """
 
 import hashlib
+import json
 import logging
 import os
 import tempfile
@@ -16,11 +17,11 @@ from typing import Any
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
 from .attribute_config import AttributeConfig
 from .database_config import create_database_instance
+from .models import Genome
 
 
 @asynccontextmanager
@@ -47,13 +48,10 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Initialize FastAPI app with lifespan
-app = FastAPI(title="Gorgonetics Gene Editor", version="1.0.0", lifespan=lifespan)
+app = FastAPI(title="Gorgonetics Labs", version="1.0.0", lifespan=lifespan)
 
 # Initialize database
 db = create_database_instance()
-
-# Initialize templates
-templates = Jinja2Templates(directory="src/gorgonetics/templates")
 
 # Mount static files
 app.mount("/static", StaticFiles(directory="src/gorgonetics/static"), name="static")
@@ -84,12 +82,6 @@ class PetUpdate(BaseModel):
     name: str | None = None
     attributes: dict[str, float] | None = None
     notes: str | None = None
-
-
-@app.get("/", response_class=HTMLResponse)
-async def home(request: Request) -> HTMLResponse:
-    """Serve the main gene editor page."""
-    return templates.TemplateResponse("index.html", {"request": request})
 
 
 @app.get("/api/gene-effects/{species}")
@@ -134,9 +126,6 @@ async def get_pet_genome_for_visualization(pet_id: int) -> dict[str, Any]:
             raise HTTPException(status_code=404, detail="Pet not found")
 
         # Parse the genome JSON - handle both string and dict cases
-        import json
-
-        from .models import Genome
 
         # Handle both string (original DB) and dict (DuckLake DB) cases
         if isinstance(pet_data["genome_data"], str):
@@ -408,6 +397,7 @@ async def upload_pet_genome(
 
             # Defensive: ensure gene data is present and well-formed
             import json
+
             try:
                 parsed = json.loads(genome_json)
                 if "genes" not in parsed or not parsed["genes"]:

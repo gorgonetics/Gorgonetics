@@ -60,15 +60,9 @@ class DuckLakeGeneDatabase:
             self.conn.execute("LOAD ducklake")
 
             # Install catalog-specific extensions
-            if self.catalog_type == "sqlite":
-                self.conn.execute("INSTALL sqlite")
-                self.conn.execute("LOAD sqlite")
-            elif self.catalog_type == "postgresql":
-                self.conn.execute("INSTALL postgres")
-                self.conn.execute("LOAD postgres")
-            elif self.catalog_type == "mysql":
-                self.conn.execute("INSTALL mysql")
-                self.conn.execute("LOAD mysql")
+
+            self.conn.execute(f"INSTALL {self.catalog_type}")
+            self.conn.execute(f"LOAD {self.catalog_type}")
 
             logger.info(f"Connected to DuckDB with {self.catalog_type} catalog support")
 
@@ -79,21 +73,13 @@ class DuckLakeGeneDatabase:
     def _setup_ducklake(self) -> None:
         """Attach to DuckLake catalog and set up initial schema."""
         try:
-            # Build attach string based on catalog type
-            if self.catalog_type == "sqlite":
-                attach_string = f"ducklake:sqlite:{self.catalog_path}"
-            elif self.catalog_type == "postgresql":
-                attach_string = f"ducklake:postgres:{self.catalog_path}"
-            elif self.catalog_type == "mysql":
-                attach_string = f"ducklake:mysql:{self.catalog_path}"
-            else:  # duckdb
-                attach_string = f"ducklake:{self.catalog_path}"
-
-            # Attach to DuckLake
-            if self.catalog_type == "duckdb":
-                attach_sql = f"ATTACH '{attach_string}' AS {self.ducklake_name}"
-            else:
+            # Build attach string based on catalog type and attach to DuckLake
+            if self.catalog_type != "duckdb":
+                attach_string = f"ducklake:{self.catalog_type}:{self.catalog_path}"
                 attach_sql = f"ATTACH '{attach_string}' AS {self.ducklake_name} (DATA_PATH '{self.data_path}')"
+            else:
+                attach_string = f"ducklake:{self.catalog_path}"
+                attach_sql = f"ATTACH '{attach_string}' AS {self.ducklake_name}"
 
             self.conn.execute(attach_sql)
             self.conn.execute(f"USE {self.ducklake_name}")
@@ -117,8 +103,8 @@ class DuckLakeGeneDatabase:
                 gene VARCHAR NOT NULL,
                 effect_dominant VARCHAR DEFAULT 'None',
                 effect_recessive VARCHAR DEFAULT 'None',
-                appearance VARCHAR DEFAULT '|String for me to fill in|',
-                notes VARCHAR DEFAULT '|String for me to fill in|',
+                appearance VARCHAR DEFAULT 'None',
+                notes VARCHAR DEFAULT 'None',
                 created_at TIMESTAMP,
                 updated_at TIMESTAMP
             )
@@ -227,8 +213,8 @@ class DuckLakeGeneDatabase:
         """Insert or update a gene record."""
         effect_dominant = gene_data.get("effect_dominant", "None")
         effect_recessive = gene_data.get("effect_recessive", "None")
-        appearance = gene_data.get("appearance", "|String for me to fill in|")
-        notes = gene_data.get("notes", "|String for me to fill in|")
+        appearance = gene_data.get("appearance", "None")
+        notes = gene_data.get("notes", "None")
 
         # Use regular INSERT (DuckLake doesn't support INSERT OR REPLACE without primary keys)
         try:
@@ -519,6 +505,7 @@ class DuckLakeGeneDatabase:
                     # --- Gene counting logic ---
                     # Try to parse genome_data and count genes
                     import json
+
                     total_genes = 0
                     known_genes = 0
                     unknown_genes = 0
@@ -541,7 +528,9 @@ class DuckLakeGeneDatabase:
                                         if isinstance(gene, dict):
                                             total_genes += 1
                                             gene_type = gene.get("gene_type")
-                                            if gene_type == "?" or (isinstance(gene_type, str) and gene_type.upper() == "UNKNOWN"):
+                                            if gene_type == "?" or (
+                                                isinstance(gene_type, str) and gene_type.upper() == "UNKNOWN"
+                                            ):
                                                 unknown_genes += 1
                                             else:
                                                 known_genes += 1
