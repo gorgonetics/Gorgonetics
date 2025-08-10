@@ -69,8 +69,8 @@ def create_tables(conn: duckdb.DuckDBPyConnection) -> None:
             animal_type VARCHAR NOT NULL,
             chromosome VARCHAR NOT NULL,
             gene VARCHAR NOT NULL,
-            effect_dominant VARCHAR DEFAULT 'None',
-            effect_recessive VARCHAR DEFAULT 'None',
+            effectDominant VARCHAR DEFAULT 'None',
+            effectRecessive VARCHAR DEFAULT 'None',
             appearance VARCHAR DEFAULT '|String for me to fill in|',
             notes VARCHAR DEFAULT '|String for me to fill in|',
             created_at TIMESTAMP,
@@ -130,8 +130,8 @@ def load_genetic_data(conn: duckdb.DuckDBPyConnection, assets_dir: Path) -> None
                 for gene_data in data:
                     if isinstance(gene_data, dict):
                         gene_name = gene_data.get("gene", "")
-                        effect_dominant = gene_data.get("effectDominant", "None")
-                        effect_recessive = gene_data.get("effectRecessive", "None")
+                        effectDominant = gene_data.get("effectDominant", "None")
+                        effectRecessive = gene_data.get("effectRecessive", "None")
                         appearance = gene_data.get("appearance", "|String for me to fill in|")
                         notes = gene_data.get("notes", "|String for me to fill in|")
 
@@ -141,16 +141,16 @@ def load_genetic_data(conn: duckdb.DuckDBPyConnection, assets_dir: Path) -> None
                                 conn.execute(
                                     """
                                     INSERT INTO genes (
-                                        animal_type, chromosome, gene, effect_dominant,
-                                        effect_recessive, appearance, notes, created_at, updated_at
+                                        animal_type, chromosome, gene, effectDominant,
+                                        effectRecessive, appearance, notes, created_at, updated_at
                                     ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
                                 """,
                                     [
                                         animal_type,
                                         chromosome,
                                         gene_name,
-                                        effect_dominant,
-                                        effect_recessive,
+                                        effectDominant,
+                                        effectRecessive,
                                         appearance,
                                         notes,
                                     ],

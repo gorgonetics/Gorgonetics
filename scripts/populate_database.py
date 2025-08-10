@@ -50,23 +50,23 @@ def load_gene_file(file_path: Path, animal_type: str, chr_num: str, db: Any, pro
 
     for gene_data in genes_data:
         # Handle both old and new JSON structure
-        effect_dominant = gene_data.get("effectDominant") or gene_data.get("effect", "None")
-        effect_recessive = gene_data.get("effectRecessive", "None")
+        effectDominant = gene_data.get("effectDominant") or gene_data.get("effect", "None")
+        effectRecessive = gene_data.get("effectRecessive", "None")
 
         # If using old structure with single effect + trigger
         if "trigger" in gene_data and "effectDominant" not in gene_data:
             trigger = gene_data.get("trigger", "").lower()
             if trigger == "dominant":
-                effect_dominant = gene_data.get("effect", "None")
-                effect_recessive = "None"
+                effectDominant = gene_data.get("effect", "None")
+                effectRecessive = "None"
             elif trigger == "recessive":
-                effect_dominant = "None"
-                effect_recessive = gene_data.get("effect", "None")
+                effectDominant = "None"
+                effectRecessive = gene_data.get("effect", "None")
 
         # Insert gene into database using proper method with timestamps
         gene_record = {
-            "effect_dominant": effect_dominant,
-            "effect_recessive": effect_recessive,
+            "effectDominant": effectDominant,
+            "effectRecessive": effectRecessive,
             "appearance": gene_data.get("appearance", "|String for me to fill in|"),
             "notes": gene_data.get("notes", "|String for me to fill in|"),
         }

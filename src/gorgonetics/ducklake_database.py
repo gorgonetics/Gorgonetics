@@ -50,6 +50,22 @@ class DuckLakeGeneDatabase:
         self._connect()
         self._setup_ducklake()
 
+    def export_genes_to_json(self, animal_type: str, chromosome: str) -> list[dict[str, object]]:
+        """
+        Export all genes for a given animal_type and chromosome in the same format as the assets gene files.
+        """
+        genes = self.get_genes_by_chromosome(animal_type, chromosome)
+        asset_genes = [
+            {
+                key: value
+                for key, value in gene.items()
+                if key in ["gene", "effectDominant", "effectRecessive", "appearance", "notes"]
+            }
+            for gene in genes
+        ]
+
+        return asset_genes
+
     def _connect(self) -> None:
         """Establish connection to DuckDB and install required extensions."""
         try:
@@ -101,8 +117,8 @@ class DuckLakeGeneDatabase:
                 animal_type VARCHAR NOT NULL,
                 chromosome VARCHAR NOT NULL,
                 gene VARCHAR NOT NULL,
-                effect_dominant VARCHAR DEFAULT 'None',
-                effect_recessive VARCHAR DEFAULT 'None',
+                effectDominant VARCHAR DEFAULT 'None',
+                effectRecessive VARCHAR DEFAULT 'None',
                 appearance VARCHAR DEFAULT 'None',
                 notes VARCHAR DEFAULT 'None',
                 created_at TIMESTAMP,
@@ -211,8 +227,8 @@ class DuckLakeGeneDatabase:
 
     def _upsert_gene(self, animal_type: str, chromosome: str, gene: str, gene_data: dict[str, Any]) -> None:
         """Insert or update a gene record."""
-        effect_dominant = gene_data.get("effect_dominant", "None")
-        effect_recessive = gene_data.get("effect_recessive", "None")
+        effectDominant = gene_data.get("effectDominant", "None")
+        effectRecessive = gene_data.get("effectRecessive", "None")
         appearance = gene_data.get("appearance", "None")
         notes = gene_data.get("notes", "None")
 
@@ -221,11 +237,11 @@ class DuckLakeGeneDatabase:
             self.conn.execute(
                 """
                 INSERT INTO genes (
-                    animal_type, chromosome, gene, effect_dominant,
-                    effect_recessive, appearance, notes, created_at, updated_at
+                    animal_type, chromosome, gene, effectDominant,
+                    effectRecessive, appearance, notes, created_at, updated_at
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
             """,
-                [animal_type, chromosome, gene, effect_dominant, effect_recessive, appearance, notes],
+                [animal_type, chromosome, gene, effectDominant, effectRecessive, appearance, notes],
             )
         except Exception:
             # Skip duplicates
@@ -252,7 +268,7 @@ class DuckLakeGeneDatabase:
         """Get all genes for a specific animal type and chromosome."""
         result = self.conn.execute(
             """
-            SELECT animal_type, chromosome, gene, effect_dominant, effect_recessive,
+            SELECT animal_type, chromosome, gene, effectDominant, effectRecessive,
                    appearance, notes, created_at, updated_at
             FROM genes
             WHERE animal_type = ? AND chromosome = ?
@@ -266,8 +282,8 @@ class DuckLakeGeneDatabase:
                 "animal_type": row[0],
                 "chromosome": row[1],
                 "gene": row[2],
-                "effect_dominant": row[3] or "None",
-                "effect_recessive": row[4] or "None",
+                "effectDominant": row[3] or "None",
+                "effectRecessive": row[4] or "None",
                 "appearance": row[5],
                 "notes": row[6],
                 "created_at": row[7].isoformat() if row[7] else None,
@@ -280,7 +296,7 @@ class DuckLakeGeneDatabase:
         """Get all genes for a specific animal type."""
         result = self.conn.execute(
             """
-            SELECT animal_type, chromosome, gene, effect_dominant, effect_recessive,
+            SELECT animal_type, chromosome, gene, effectDominant, effectRecessive,
                    appearance, notes, created_at, updated_at
             FROM genes
             WHERE animal_type = ?
@@ -312,7 +328,7 @@ class DuckLakeGeneDatabase:
             values = []
 
             for field, value in updates.items():
-                if field in ["effect_dominant", "effect_recessive", "appearance", "notes"]:
+                if field in ["effectDominant", "effectRecessive", "appearance", "notes"]:
                     set_clauses.append(f"{field} = ?")
                     values.append(value)
 
@@ -342,7 +358,7 @@ class DuckLakeGeneDatabase:
         """Get a specific gene record."""
         result = self.conn.execute(
             """
-            SELECT animal_type, chromosome, gene, effect_dominant, effect_recessive,
+            SELECT animal_type, chromosome, gene, effectDominant, effectRecessive,
                    appearance, notes, created_at, updated_at
             FROM genes
             WHERE animal_type = ? AND gene = ?

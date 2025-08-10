@@ -62,8 +62,8 @@ class GeneUpdate(BaseModel):
 
     animal_type: str
     gene: str
-    effect_dominant: str | None = None
-    effect_recessive: str | None = None
+    effectDominant: str | None = None
+    effectRecessive: str | None = None
     appearance: str | None = None
     notes: str | None = None
 
@@ -82,6 +82,42 @@ class PetUpdate(BaseModel):
     name: str | None = None
     attributes: dict[str, float] | None = None
     notes: str | None = None
+
+
+# Bulk gene update model
+class BulkGeneUpdate(BaseModel):
+    """Model for bulk gene update requests."""
+
+    animal_type: str
+    chromosome: str
+    genes: list[dict[str, str | None]]
+
+
+# Bulk gene update endpoint
+@app.put("/api/genes")
+async def update_genes_bulk(bulk_update: BulkGeneUpdate) -> dict[str, str]:
+    """Bulk update genes for a chromosome."""
+    try:
+        updated = 0
+        for gene in bulk_update.genes:
+            updates = {}
+            if gene.get("effectDominant") is not None:
+                updates["effectDominant"] = gene["effectDominant"]
+            if gene.get("effectRecessive") is not None:
+                updates["effectRecessive"] = gene["effectRecessive"]
+            if gene.get("appearance") is not None:
+                updates["appearance"] = gene["appearance"]
+            if gene.get("notes") is not None:
+                updates["notes"] = gene["notes"]
+            if not updates:
+                continue
+            success = db.update_gene(animal_type=bulk_update.animal_type, gene=gene["gene"], updates=updates)
+            if success:
+                updated += 1
+        return {"status": "success", "message": f"{updated} genes updated"}
+    except Exception as e:
+        logger.error(f"Error bulk updating genes: {e}")
+        raise HTTPException(status_code=500, detail="Failed to update genes") from e
 
 
 @app.get("/api/gene-effects/{species}")
@@ -220,14 +256,17 @@ async def get_gene(animal_type: str, gene: str) -> dict[str, str | int | None]:
 async def update_gene(gene_update: GeneUpdate) -> dict[str, str]:
     """Update a gene's data."""
     try:
-        success = db.update_gene(
-            animal_type=gene_update.animal_type,
-            gene=gene_update.gene,
-            effect_dominant=gene_update.effect_dominant,
-            effect_recessive=gene_update.effect_recessive,
-            appearance=gene_update.appearance,
-            notes=gene_update.notes,
-        )
+        updates = {}
+        if gene_update.effectDominant is not None:
+            updates["effectDominant"] = gene_update.effectDominant
+        if gene_update.effectRecessive is not None:
+            updates["effectRecessive"] = gene_update.effectRecessive
+        if gene_update.appearance is not None:
+            updates["appearance"] = gene_update.appearance
+        if gene_update.notes is not None:
+            updates["notes"] = gene_update.notes
+
+        success = db.update_gene(animal_type=gene_update.animal_type, gene=gene_update.gene, updates=updates)
 
         if success:
             return {"status": "success", "message": "Gene updated successfully"}
@@ -329,7 +368,8 @@ async def export_chromosome_json(animal_type: str, chromosome: str) -> dict[str,
 async def download_chromosome_file(animal_type: str, chromosome: str) -> Response:
     """Download a chromosome JSON file."""
     try:
-        json_data = db.export_genes_to_json(animal_type, chromosome)
+        data = db.export_genes_to_json(animal_type, chromosome)
+        json_data = json.dumps(data, indent=2)
         filename = f"{animal_type}_genes_chr{chromosome}.json"
 
         return Response(

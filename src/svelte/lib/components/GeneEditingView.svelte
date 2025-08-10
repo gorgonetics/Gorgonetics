@@ -1,8 +1,6 @@
 <script>
     import { run, stopPropagation } from "svelte/legacy";
 
-    import { onMount } from "svelte";
-
     /**
      * @typedef {Object} Props
      * @property {string} [animalType] - Props from parent
@@ -82,14 +80,15 @@
         successMessage = "";
 
         try {
-            const response = await fetch(
-                `/api/genes/${animalType}/${chromosome}`,
-                {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(genes),
-                },
-            );
+            const response = await fetch("/api/genes", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    animal_type: animalType,
+                    chromosome: chromosome,
+                    genes: genes,
+                }),
+            });
 
             if (response.ok) {
                 originalGenes = JSON.parse(JSON.stringify(genes));
@@ -335,7 +334,7 @@
                                                 onclick={stopPropagation(() =>
                                                     selectOption(
                                                         gene,
-                                                        "effect_dominant",
+                                                        "effectDominant",
                                                         "None",
                                                     ),
                                                 )}
@@ -378,7 +377,7 @@
                                                                 () =>
                                                                     selectOption(
                                                                         gene,
-                                                                        "effect_dominant",
+                                                                        "effectDominant",
                                                                         option,
                                                                     ),
                                                             )}
@@ -463,7 +462,7 @@
                                                                 () =>
                                                                     selectOption(
                                                                         gene,
-                                                                        "effect_recessive",
+                                                                        "effectRecessive",
                                                                         option,
                                                                     ),
                                                             )}

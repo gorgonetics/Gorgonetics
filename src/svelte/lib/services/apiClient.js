@@ -72,8 +72,8 @@ class ApiClient {
       body: JSON.stringify({
         animal_type: updateData.animal_type,
         gene: updateData.gene || updateData.position?.toString(),
-        effect_dominant: updateData.effect_dominant,
-        effect_recessive: updateData.effect_recessive,
+        effectDominant: updateData.effectDominant,
+        effectRecessive: updateData.effectRecessive,
         appearance: updateData.appearance,
         notes: updateData.notes,
       }),
