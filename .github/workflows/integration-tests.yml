@@ -180,8 +180,8 @@ jobs:
 
         # Test gene insertion
         db._upsert_gene('test', '01', 'TEST1', {
-            'effect_dominant': 'None',
-            'effect_recessive': 'Test+',
+            'effectDominant': 'None',
+            'effectRecessive': 'Test+',
             'appearance': 'Test appearance',
             'notes': 'Test notes'
         })

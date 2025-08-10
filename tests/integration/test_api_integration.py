@@ -37,8 +37,8 @@ def test_database():
             "animal_type": "horse",
             "chromosome": "01",
             "gene": "01A1",
-            "effect_dominant": "None",
-            "effect_recessive": "Intelligence+",
+            "effectDominant": "None",
+            "effectRecessive": "Intelligence+",
             "appearance": "Mane Color",
             "notes": "Test gene 1",
         },
@@ -46,8 +46,8 @@ def test_database():
             "animal_type": "horse",
             "chromosome": "01",
             "gene": "01A2",
-            "effect_dominant": "Toughness-",
-            "effect_recessive": "None",
+            "effectDominant": "Toughness-",
+            "effectRecessive": "None",
             "appearance": "Mane Color",
             "notes": "Test gene 2",
         },
@@ -55,8 +55,8 @@ def test_database():
             "animal_type": "beewasp",
             "chromosome": "01",
             "gene": "01A1",
-            "effect_dominant": "None",
-            "effect_recessive": "Friendliness+",
+            "effectDominant": "None",
+            "effectRecessive": "Friendliness+",
             "appearance": "Body Color",
             "notes": "Test bee gene",
         },
@@ -134,7 +134,7 @@ class TestGeneEndpoints:
         # Check that camelCase field names are used (not snake_case)
         assert "effectDominant" in gene
         assert "effectRecessive" in gene
-        assert "effect_dominant" not in gene  # Should not have snake_case
+        assert "effectDominant" not in gene  # Should not have snake_case
 
     def test_get_gene_effects(self, client, test_database):
         """Test that gene effects endpoint returns expected format."""
