@@ -80,8 +80,8 @@ Returns all genes for a specific chromosome of an animal type.
     "animal_type": "beewasp",
     "chromosome": "chr01",
     "gene": "01A1",
-    "effect_dominant": "Intelligence+",
-    "effect_recessive": "Intelligence-",
+    "effectDominant": "Intelligence+",
+    "effectRecessive": "Intelligence-",
     "appearance": "Brighter antenna glow",
     "notes": "Observed in lab conditions",
     "created_at": "2025-01-01T00:00:00",
@@ -108,8 +108,8 @@ Updates gene data.
 {
   "animal_type": "beewasp",
   "gene": "01A1",
-  "effect_dominant": "Intelligence+",
-  "effect_recessive": "Intelligence-",
+  "effectDominant": "Intelligence+",
+  "effectRecessive": "Intelligence-",
   "appearance": "Updated appearance",
   "notes": "Updated notes"
 }
@@ -179,8 +179,8 @@ Exports all chromosome data for an animal type as JSON.
     "chr01": [
       {
         "gene": "01A1",
-        "effect_dominant": "Intelligence+",
-        "effect_recessive": "Intelligence-",
+        "effectDominant": "Intelligence+",
+        "effectRecessive": "Intelligence-",
         "appearance": "Brighter antenna glow",
         "notes": "Observed in lab conditions"
       }
@@ -404,8 +404,8 @@ curl -X PUT "http://127.0.0.1:8000/api/gene" \
   -d '{
     "animal_type": "beewasp",
     "gene": "01A1",
-    "effect_dominant": "Intelligence+",
-    "effect_recessive": "Intelligence-",
+    "effectDominant": "Intelligence+",
+    "effectRecessive": "Intelligence-",
     "appearance": "Updated appearance",
     "notes": "Updated notes"
   }'
@@ -445,8 +445,8 @@ const response = await fetch('/api/gene', {
   body: JSON.stringify({
     animal_type: 'beewasp',
     gene: '01A1',
-    effect_dominant: 'Intelligence+',
-    effect_recessive: 'Intelligence-',
+    effectDominant: 'Intelligence+',
+    effectRecessive: 'Intelligence-',
     appearance: 'Updated appearance',
     notes: 'Updated notes'
   })

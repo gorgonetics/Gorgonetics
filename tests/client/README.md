@@ -100,7 +100,7 @@ tests/client/
    ```javascript
    // ❌ Backend returns snake_case but frontend expects camelCase
    expect(gene.effectDominant).toBeDefined(); // Would fail
-   expect(gene.effect_dominant).toBeDefined(); // Backend format
+   expect(gene.effectDominant).toBeDefined(); // Backend format
    ```
 
 2. **Pet Upload Failures**

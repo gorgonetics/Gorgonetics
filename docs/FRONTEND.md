@@ -85,7 +85,7 @@ Fetches all genes for a specific chromosome.
 **Example**:
 ```javascript
 const genes = await apiClient.getGenes('beewasp', 'chr01');
-// Returns: [{ gene: '01A1', effect_dominant: 'Intelligence+', ... }]
+// Returns: [{ gene: '01A1', effectDominant: 'Intelligence+', ... }]
 ```
 
 ##### `async getEffectOptions()`
@@ -129,8 +129,8 @@ Updates a gene with new data.
 - `updateData` (Object): Gene update data
   - `animal_type` (string): Animal type
   - `gene` (string): Gene identifier
-  - `effect_dominant` (string): Dominant effect
-  - `effect_recessive` (string): Recessive effect
+  - `effectDominant` (string): Dominant effect
+  - `effectRecessive` (string): Recessive effect
   - `appearance` (string): Appearance description
   - `notes` (string): Additional notes
 
@@ -301,8 +301,8 @@ element.addEventListener('input', () => {
 
 // Compare current values with original data
 const hasChanges = (
-    dominantSelect.value !== gene.effect_dominant ||
-    recessiveSelect.value !== gene.effect_recessive ||
+    dominantSelect.value !== gene.effectDominant ||
+    recessiveSelect.value !== gene.effectRecessive ||
     appearanceTextarea.value !== (gene.appearance || '') ||
     notesTextarea.value !== (gene.notes || '')
 );
@@ -363,8 +363,8 @@ Exported files follow this structure:
     "genes": [
         {
             "gene": "01A1",
-            "effect_dominant": "Intelligence+",
-            "effect_recessive": "Intelligence-",
+            "effectDominant": "Intelligence+",
+            "effectRecessive": "Intelligence-",
             "appearance": "Brighter glow",
             "notes": "Common trait"
         }

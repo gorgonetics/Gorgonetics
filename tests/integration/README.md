@@ -95,7 +95,7 @@ tests/integration/
 ```
 FAILED test_get_gene_effects - KeyError: 'effectDominant'
 ```
-**Cause:** Database returning snake_case (`effect_dominant`) instead of camelCase (`effectDominant`)
+**Cause:** Database returning snake_case (`effectDominant`) instead of camelCase (`effectDominant`)
 **Fix:** Update database methods to return camelCase field names
 
 ### Pet Upload Failures  

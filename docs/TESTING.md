@@ -157,9 +157,9 @@ Overall: 5/5 categories passed
 ### Failed Test Analysis
 When tests fail, check these common issues:
 
-1. **Field Name Mismatch** (e.g., `effectDominant` vs `effect_dominant`)
+1. **Field Name Mismatch** (e.g., `effectDominant` vs `effectDominant`)
    ```
-   AssertionError: assert 'effect_dominant' in gene
+   AssertionError: assert 'effectDominant' in gene
    ```
    - Indicates database is returning snake_case instead of camelCase
    - Frontend expects camelCase field names

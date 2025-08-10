@@ -27,8 +27,8 @@ CREATE TABLE genes (
     animal_type VARCHAR NOT NULL,      -- Animal type identifier (e.g., 'beewasp', 'horse')
     chromosome VARCHAR NOT NULL,       -- Chromosome identifier (e.g., 'chr01', 'chr02')
     gene VARCHAR NOT NULL,             -- Gene identifier (e.g., '01A1', '02B3')
-    effect_dominant VARCHAR,           -- Dominant genetic effect
-    effect_recessive VARCHAR,          -- Recessive genetic effect
+    effectDominant VARCHAR,           -- Dominant genetic effect
+    effectRecessive VARCHAR,          -- Recessive genetic effect
     appearance VARCHAR,                -- Visual appearance description
     notes VARCHAR,                     -- Additional notes and observations
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,  -- Record creation time
@@ -44,8 +44,8 @@ CREATE TABLE genes (
 | `animal_type` | VARCHAR | Species identifier | 'beewasp', 'horse' |
 | `chromosome` | VARCHAR | Chromosome location | 'chr01', 'chr02', ..., 'chr48' |
 | `gene` | VARCHAR | Unique gene identifier | '01A1', '02B3', '15C2' |
-| `effect_dominant` | VARCHAR | Dominant allele effect | 'Intelligence+', 'Toughness-' |
-| `effect_recessive` | VARCHAR | Recessive allele effect | 'Intelligence-', 'No Effect' |
+| `effectDominant` | VARCHAR | Dominant allele effect | 'Intelligence+', 'Toughness-' |
+| `effectRecessive` | VARCHAR | Recessive allele effect | 'Intelligence-', 'No Effect' |
 | `appearance` | VARCHAR | Visual traits | 'Brighter glow', 'Darker coat' |
 | `notes` | VARCHAR | Research notes | 'Lab observation', 'Field study' |
 | `created_at` | TIMESTAMP | Creation timestamp | '2025-01-01 10:30:00' |
@@ -94,7 +94,7 @@ DuckDB automatically creates indexes for primary key constraints. Additional ind
 CREATE INDEX idx_genes_animal_chromosome ON genes(animal_type, chromosome);
 
 -- Index for effect searches  
-CREATE INDEX idx_genes_effects ON genes(effect_dominant, effect_recessive);
+CREATE INDEX idx_genes_effects ON genes(effectDominant, effectRecessive);
 
 -- Index for pet species queries
 CREATE INDEX idx_pets_species ON pets(species);
@@ -130,8 +130,8 @@ The `scripts/populate_database.py` script handles initial data loading:
     "genes": [
         {
             "gene": "01A1",
-            "effect_dominant": "Intelligence+",
-            "effect_recessive": "Intelligence-",
+            "effectDominant": "Intelligence+",
+            "effectRecessive": "Intelligence-",
             "appearance": "Brighter antenna glow",
             "notes": "Commonly observed trait"
         }
@@ -168,8 +168,8 @@ def _create_tables(self) -> None:
             animal_type VARCHAR NOT NULL,
             chromosome VARCHAR NOT NULL,
             gene VARCHAR NOT NULL,
-            effect_dominant VARCHAR DEFAULT 'None',
-            effect_recessive VARCHAR DEFAULT 'None',
+            effectDominant VARCHAR DEFAULT 'None',
+            effectRecessive VARCHAR DEFAULT 'None',
             appearance VARCHAR DEFAULT '|String for me to fill in|',
             notes VARCHAR DEFAULT '|String for me to fill in|',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -198,8 +198,8 @@ def update_gene(self, gene_update: dict) -> bool:
     """Update a gene with new data."""
     result = self.conn.execute("""
         UPDATE genes 
-        SET effect_dominant = $effect_dominant,
-            effect_recessive = $effect_recessive,
+        SET effectDominant = $effectDominant,
+            effectRecessive = $effectRecessive,
             appearance = $appearance,
             notes = $notes,
             updated_at = CURRENT_TIMESTAMP
@@ -227,7 +227,7 @@ def insert_pet(self, name: str, species: str, breeder: str, genome_data: dict) -
 def get_genes_by_chromosome(self, animal_type: str, chromosome: str) -> list[dict]:
     """Get all genes for a specific chromosome."""
     result = self.conn.execute("""
-        SELECT animal_type, chromosome, gene, effect_dominant, effect_recessive,
+        SELECT animal_type, chromosome, gene, effectDominant, effectRecessive,
                appearance, notes, created_at, updated_at
         FROM genes 
         WHERE animal_type = $animal_type AND chromosome = $chromosome
@@ -311,15 +311,15 @@ def migrate_cleverness_to_intelligence(self) -> None:
         # Update dominant effects
         self.conn.execute("""
             UPDATE genes 
-            SET effect_dominant = $new_effect, updated_at = CURRENT_TIMESTAMP
-            WHERE effect_dominant = $old_effect
+            SET effectDominant = $new_effect, updated_at = CURRENT_TIMESTAMP
+            WHERE effectDominant = $old_effect
         """, {"old_effect": old_effect, "new_effect": new_effect})
         
         # Update recessive effects
         self.conn.execute("""
             UPDATE genes 
-            SET effect_recessive = $new_effect, updated_at = CURRENT_TIMESTAMP
-            WHERE effect_recessive = $old_effect
+            SET effectRecessive = $new_effect, updated_at = CURRENT_TIMESTAMP
+            WHERE effectRecessive = $old_effect
         """, {"old_effect": old_effect, "new_effect": new_effect})
 ```
 
@@ -338,7 +338,7 @@ def migrate_cleverness_to_intelligence(self) -> None:
 # Efficient - Uses primary key
 def get_gene(self, animal_type: str, gene: str) -> dict | None:
     result = self.conn.execute("""
-        SELECT animal_type, chromosome, gene, effect_dominant, effect_recessive,
+        SELECT animal_type, chromosome, gene, effectDominant, effectRecessive,
                appearance, notes, created_at, updated_at
         FROM genes 
         WHERE animal_type = $animal_type AND gene = $gene
