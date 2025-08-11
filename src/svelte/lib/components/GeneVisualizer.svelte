@@ -1,6 +1,4 @@
 <script>
-    import { run } from "svelte/legacy";
-
     import { onDestroy, onMount } from "svelte";
     import GeneStatsTable from "./GeneStatsTable.svelte";
     import GeneTooltip from "./GeneTooltip.svelte";
@@ -1430,8 +1428,8 @@
     // Track the last processed pet ID to prevent loops
     let lastProcessedPetId = $state(null);
 
-    // Use explicit pet change detection instead of reactive statement
-    run(() => {
+    // Use $effect for pet change detection
+    $effect(() => {
         if (pet && pet.id !== lastProcessedPetId && !loading) {
             console.log("🐾 Pet changed, loading:", pet.name, pet.id);
             lastProcessedPetId = pet.id;
