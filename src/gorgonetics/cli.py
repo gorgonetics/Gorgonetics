@@ -1,14 +1,25 @@
 """Command line interface for Gorgonetics."""
 
+import json
 from pathlib import Path
+from typing import Any
 
 import typer
 from rich.console import Console
+from rich.progress import (
+    BarColumn,
+    MofNCompleteColumn,
+    Progress,
+    SpinnerColumn,
+    TaskProgressColumn,
+    TextColumn,
+    TimeElapsedColumn,
+)
 from rich.table import Table
 
 from gorgonetics import __version__
 
-from .database_config import get_database_config
+from .database_config import create_database_instance, get_database_config
 from .ducklake_database import DuckLakeGeneDatabase
 
 console = Console()
@@ -55,31 +66,157 @@ def web(
         raise typer.Exit(1) from e
 
 
+def _load_gene_file(file_path: Path, animal_type: str, chr_num: str, db: Any, progress, file_task) -> int:
+    """Load genes from a single JSON file into the database."""
+    genes_loaded = 0
+
+    with open(file_path, encoding="utf-8") as f:
+        genes_data = json.load(f)
+
+    for gene_data in genes_data:
+        # Handle both old and new JSON structure
+        effectDominant = gene_data.get("effectDominant") or gene_data.get("effect", "None")
+        effectRecessive = gene_data.get("effectRecessive", "None")
+
+        # If using old structure with single effect + trigger
+        if "trigger" in gene_data and "effectDominant" not in gene_data:
+            trigger = gene_data.get("trigger", "").lower()
+            if trigger == "dominant":
+                effectDominant = gene_data.get("effect", "None")
+                effectRecessive = "None"
+            elif trigger == "recessive":
+                effectDominant = "None"
+                effectRecessive = gene_data.get("effect", "None")
+
+        # Insert gene into database using proper method with timestamps
+        gene_record = {
+            "effectDominant": effectDominant,
+            "effectRecessive": effectRecessive,
+            "appearance": gene_data.get("appearance", "|String for me to fill in|"),
+            "notes": gene_data.get("notes", "|String for me to fill in|"),
+        }
+        db._upsert_gene(animal_type, chr_num, gene_data["gene"], gene_record)
+
+        genes_loaded += 1
+        progress.advance(file_task)
+
+    return genes_loaded
+
+
+def _get_animal_type_from_filename(filename: str) -> str:
+    """Determine animal type from filename."""
+    if "beewasp" in filename:
+        return "beewasp"
+    elif "horse" in filename:
+        return "horse"
+    else:
+        return ""
+
+
+def _collect_gene_files() -> list[Path]:
+    """Collect all gene files from assets directories."""
+    beewasp_dir = Path("assets/beewasp")
+    horse_dir = Path("assets/horse")
+
+    files_to_process: list[Path] = []
+    if beewasp_dir.exists():
+        files_to_process.extend(sorted(beewasp_dir.glob("beewasp_genes_chr*.json")))
+    if horse_dir.exists():
+        files_to_process.extend(sorted(horse_dir.glob("horse_genes_chr*.json")))
+
+    return files_to_process
+
+
 @app.command()
 def populate() -> None:
     """Populate database with gene data from asset files."""
     console.print("🧬 [green]Populating Gorgonetics Database[/green]")
+    console.print("[blue]Loading gene data from assets directory[/blue]")
+    console.print("🧬 [bold cyan]Gorgonetics Database Population[/bold cyan]")
+    console.print("=" * 50)
 
     try:
-        import sys
-        from pathlib import Path
+        # Initialize database
+        console.print("📊 [yellow]Connecting to database...[/yellow]")
+        db = create_database_instance()
 
-        # Add scripts directory to path
-        scripts_dir = Path(__file__).parent.parent.parent / "scripts"
-        sys.path.insert(0, str(scripts_dir))
+        # Clear existing data
+        console.print("🗑️  [red]Clearing existing gene data...[/red]")
+        db.conn.execute("DELETE FROM genes")
+        db.conn.commit()
 
-        try:
-            from populate_database import main as populate_main
-        except ImportError:
-            console.print("[red]Error: populate_database script not found[/red]")
-            raise typer.Exit(1) from None
+        # Collect files to process
+        files_to_process = _collect_gene_files()
 
-        console.print("[blue]Loading gene data from assets directory[/blue]")
-        populate_main()
+        if not files_to_process:
+            console.print("[yellow]⚠️  No gene files found in assets directories![/yellow]")
+            console.print("[dim]Expected files in:[/dim]")
+            console.print("  - assets/beewasp/beewasp_genes_chr*.json")
+            console.print("  - assets/horse/horse_genes_chr*.json")
+            return
+
+        total_genes = 0
+
+        # Process files with progress tracking
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            MofNCompleteColumn(),
+            TaskProgressColumn(),
+            TimeElapsedColumn(),
+            console=console,
+        ) as progress:
+            overall_task = progress.add_task("[cyan]Processing gene files...", total=len(files_to_process))
+
+            for file_path in files_to_process:
+                # Determine animal type and chromosome
+                animal_type = _get_animal_type_from_filename(file_path.name)
+                if not animal_type:
+                    continue
+
+                chr_num = file_path.stem.split("_chr")[1]
+
+                progress.update(overall_task, description=f"[cyan]Loading {animal_type} chr{chr_num}...")
+
+                try:
+                    with open(file_path, encoding="utf-8") as f:
+                        genes_data = json.load(f)
+
+                    # Add task for this file's genes
+                    file_task = progress.add_task("[green]  Processing genes...", total=len(genes_data))
+
+                    genes_loaded = _load_gene_file(file_path, animal_type, chr_num, db, progress, file_task)
+                    total_genes += genes_loaded
+
+                    progress.remove_task(file_task)
+
+                except Exception as e:
+                    console.print(f"[red]   ❌ Error loading {file_path}: {e}[/red]")
+
+                progress.advance(overall_task)
+
+        # Commit all changes to database
+        console.print("[blue]💾 Committing changes to database...[/blue]")
+        db.conn.commit()
+
+        # Summary
+        console.print("=" * 50)
+        console.print(f"🎉 [bold green]Successfully loaded {total_genes} genes into database![/bold green]")
+
+        # Show animal type summary
+        animal_types = db.get_animal_types()
+        for animal_type in animal_types:
+            gene_count = len(db.get_genes_for_animal(animal_type))
+            console.print(f"📋 [blue]{animal_type.title()}:[/blue] {gene_count} genes")
+
+        db.close()
+        console.print("\n✨ [bold]Database population completed![/bold]")
+        console.print("🚀 [dim]You can now start the web application with:[/dim] [bold]uv run gorgonetics web[/bold]")
         console.print("✅ [green]Database population completed![/green]")
 
     except Exception as e:
-        console.print(f"[red]Error populating database: {e}[/red]")
+        console.print(f"[red]❌ Error populating database: {e}[/red]")
         raise typer.Exit(1) from e
 
 
