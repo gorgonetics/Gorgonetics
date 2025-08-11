@@ -14,7 +14,9 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+# Python lib directories
+/lib/
+build/lib/
 lib64/
 parts/
 sdist/
@@ -171,3 +173,10 @@ yarn-error.log*
 *.backup
 temp/
 tmp/
+
+# Ignore the parquet files from DuckLake
+/data/main
+/test_client_data/
+
+# DB file
+metadata.sqlite

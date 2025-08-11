@@ -189,7 +189,7 @@ def update_gene_data(
 
     Example:
         >>> success = update_gene_data('beewasp', '01A1', {
-        ...     'effect_dominant': 'Intelligence+',
+        ...     'effectDominant': 'Intelligence+',
         ...     'notes': 'Updated in lab'
         ... })
         >>> print(success)
@@ -250,8 +250,8 @@ class TestGeneDatabase:
             "animal_type": "beewasp",
             "chromosome": "chr01",
             "gene": "01A1",
-            "effect_dominant": "Intelligence+",
-            "effect_recessive": "Intelligence-",
+            "effectDominant": "Intelligence+",
+            "effectRecessive": "Intelligence-",
             "appearance": "Test appearance",
             "notes": "Test notes"
         }
@@ -261,7 +261,7 @@ class TestGeneDatabase:
         # Verify insertion
         result = temp_db.get_gene("beewasp", "01A1")
         assert result is not None
-        assert result["effect_dominant"] == "Intelligence+"
+        assert result["effectDominant"] == "Intelligence+"
 
     def test_get_nonexistent_gene(self, temp_db):
         """Test retrieving non-existent gene returns None."""
@@ -337,7 +337,7 @@ describe('GeneManager', () => {
 
     test('should display genes correctly', async () => {
         const mockGenes = [
-            { gene: '01A1', effect_dominant: 'Intelligence+' }
+            { gene: '01A1', effectDominant: 'Intelligence+' }
         ];
         mockApiClient.getGenes.mockResolvedValue(mockGenes);
 

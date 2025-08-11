@@ -19,7 +19,7 @@ A web-based gene editing tool for Project Gorgon pet breeding. Provides an intui
 - **⚡ Real-time Updates**: Instant change detection and save state management
 - **🔒 Type Safety**: Full type annotations with mypy strict mode
 - **🎨 Modern UI**: Responsive design with collapsible gene cards and intuitive controls
-- **📈 Performance**: DuckDB embedded database for fast analytical queries
+- **📈 Performance**: DuckLake with SQLite catalog for fast analytical queries and data versioning
 
 ## Quick Start
 
@@ -47,7 +47,7 @@ uv run python scripts/populate_database.py
 ### Start Web Application
 
 ```bash
-uv run python scripts/run_web_app.py
+uv run gorgonetics web
 ```
 
 Visit `http://127.0.0.1:8000` to start editing genes!
@@ -61,7 +61,7 @@ Visit `http://127.0.0.1:8000` to start editing genes!
 - **[Complete Documentation](docs/README.md)** - Full project overview and setup guide
 - **[API Reference](docs/API.md)** - REST API endpoints and usage examples  
 - **[Database Guide](docs/DATABASE.md)** - Schema, operations, and optimization
-- **[Frontend Architecture](docs/FRONTEND.md)** - JavaScript modules and UI components
+- **[Frontend Architecture](docs/FRONTEND.md)** - Svelte components and application structure
 - **[Development Guide](docs/DEVELOPMENT.md)** - Setup, testing, and contribution guidelines
 
 ### Basic Workflow
@@ -88,19 +88,24 @@ Visit `http://127.0.0.1:8000` to start editing genes!
 
 ## Development
 
-The project follows modern Python development practices with comprehensive tooling:
-
 ### Quick Development Setup
 
 ```bash
-# Install dependencies
+# Install Python dependencies
 uv sync --dev
+
+# Install Node.js dependencies  
+pnpm install
 
 # Run all quality checks
 uv run ruff check && uv run mypy src/gorgonetics && uv run pytest
 
-# Start development server (database auto-initializes)
-uv run python scripts/run_web_app.py
+# Populate database with gene data (first time only)
+uv run gorgonetics populate
+
+# Start both development servers
+uv run gorgonetics web       # Terminal 1: Backend API (port 8000)
+pnpm run dev                 # Terminal 2: Frontend UI (port 5173)
 ```
 
 ### Available Tasks (VS Code)
@@ -113,16 +118,32 @@ uv run python scripts/run_web_app.py
 - **Type Check**: `uv run mypy src/gorgonetics`
 
 ### CLI Usage
+## Usage
 
-The project provides a CLI interface:
+### Command Line Interface
 
 ```bash
-# Basic CLI interface
+# CLI commands
 uv run gorgonetics --help
 
-# Web application server
-uv run python scripts/run_web_app.py
+# Database setup (first time only)
+uv run gorgonetics populate
+
+# Backend API server (port 8000)
+uv run gorgonetics web
+
+# Frontend development server (port 5173) 
+pnpm run dev
+
+# Database status
+uv run gorgonetics db-status
 ```
+
+### Development Workflow
+
+1. **Backend API**: `uv run gorgonetics web` → http://127.0.0.1:8000 (API endpoints only)
+2. **Frontend UI**: `pnpm run dev` → http://localhost:5173 (browse here for the app)
+3. The frontend automatically proxies API calls to the backend server
 
 ### Project Architecture
 
@@ -134,10 +155,6 @@ src/gorgonetics/           # Main Python package
 ├── genome_parser.py     # Genome data parsing
 ├── models.py           # Data models
 ├── web_app.py          # FastAPI web server
-├── static/             # Web assets
-│   ├── styles.css      # Application styles
-│   ├── favicon.png     # Site icon
-│   └── js/             # JavaScript modules
 │       ├── api-client.js      # API communication
 │       ├── app-controller.js   # Main app logic
 │       ├── export-manager.js   # Data export
@@ -146,10 +163,15 @@ src/gorgonetics/           # Main Python package
 │       └── ui-utils.js        # UI utilities
 └── templates/          # HTML templates
 
-scripts/                # Utility scripts
+scripts/                # Utility scripts  
 ├── generate_gene_templates.py  # Template generation
-├── populate_database.py        # Database setup
-└── run_web_app.py             # Development server
+├── populate_database.py        # Database setup (also: uv run gorgonetics populate)
+└── setup_ducklake.py          # DuckLake initialization
+
+src/svelte/             # Svelte frontend application
+├── lib/                # Svelte components and utilities
+├── public/             # Static assets (favicon, logos)
+└── App.svelte         # Main application component
 
 assets/                 # Gene template data
 ├── beewasp/           # Bee/Wasp genetic data
@@ -173,9 +195,10 @@ nbs/                   # Jupyter notebooks
 
 ## Technology Stack
 
-- **Backend**: [FastAPI](https://fastapi.tiangolo.com/) + [DuckDB](https://duckdb.org/) - High-performance web API with embedded analytics database
-- **Frontend**: Vanilla JavaScript ES6+ - Modular architecture with clean separation of concerns
-- **Package Manager**: [uv](https://docs.astral.sh/uv/) - Fast Python package installer and resolver
+- **Backend**: [FastAPI](https://fastapi.tiangolo.com/) + [DuckLake](https://docs.delta.io/latest/) - High-performance web API with versioned analytics database
+- **Frontend**: [Svelte 5](https://svelte.dev/) - Modern reactive web framework with excellent performance
+- **Frontend Build Tool**: [Vite](https://vitejs.dev/) - Fast development server and build tool
+- **Python Package Manager**: [uv](https://docs.astral.sh/uv/) - Fast Python package installer and resolver
 - **Type Safety**: [mypy](https://mypy.readthedocs.io/) - Static type checker with strict mode
 - **Code Quality**: [ruff](https://docs.astral.sh/ruff/) - Fast Python linter and formatter
 - **Testing**: [pytest](https://docs.pytest.org/) - Comprehensive testing framework

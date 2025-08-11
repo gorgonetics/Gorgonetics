@@ -171,8 +171,8 @@ CREATE TABLE genes (
     animal_type VARCHAR NOT NULL,      -- Animal type (beewasp, horse)
     chromosome VARCHAR NOT NULL,       -- Chromosome identifier
     gene VARCHAR NOT NULL,             -- Gene identifier (e.g., 01A1)
-    effect_dominant VARCHAR,           -- Dominant effect
-    effect_recessive VARCHAR,          -- Recessive effect
+    effectDominant VARCHAR,           -- Dominant effect
+    effectRecessive VARCHAR,          -- Recessive effect
     appearance VARCHAR,                -- Appearance description
     notes VARCHAR,                     -- Additional notes
     created_at TIMESTAMP,              -- Creation timestamp

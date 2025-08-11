@@ -2,7 +2,7 @@
 Pet and Genetic Data Models for Gorgonetics
 
 This module contains Pydantic models to represent pets, their genomes, and genetic attributes.
-Provides automatic validation, serialization, and API documentation.
+Uses the centralized attribute configuration system for dynamic attribute handling.
 """
 
 from __future__ import annotations
@@ -11,8 +11,9 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from .attribute_config import AttributeConfig
 from .genome_parser import generate_block_letters, parse_genome_file_genes, parse_genome_file_header
 
 
@@ -25,18 +26,6 @@ class GeneType(str, Enum):
     UNKNOWN = "?"  # Unknown gene type
 
 
-class Attribute(str, Enum):
-    """Pet attributes that can be affected by genes."""
-
-    INTELLIGENCE = "Intelligence"
-    TOUGHNESS = "Toughness"
-    FRIENDLINESS = "Friendliness"
-    RUGGEDNESS = "Ruggedness"
-    FEROCITY = "Ferocity"
-    ENTHUSIASM = "Enthusiasm"
-    VIRILITY = "Virility"
-
-
 class Gene(BaseModel):
     """Represents a single gene with its combination type and position."""
 
@@ -46,25 +35,105 @@ class Gene(BaseModel):
     gene_type: GeneType
 
 
-class AttributeValues(BaseModel):
-    """Represents the calculated attribute values for a pet."""
+class DynamicAttributeValues(BaseModel):
+    """Dynamically represents attribute values for any pet species."""
 
-    intelligence: float = 0.0
-    toughness: float = 0.0
-    friendliness: float = 0.0
-    ruggedness: float = 0.0
-    ferocity: float = 0.0
-    enthusiasm: float = 0.0
-    virility: float = 0.0
+    model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid")
 
-    def get_attribute_value(self, attribute: Attribute) -> float:
+    species: str = ""
+    attribute_values: dict[str, float] = Field(default_factory=dict)
+
+    def __init__(self, species: str = "", **data: Any) -> None:
+        """Initialize with species-specific attributes."""
+        # Extract attributes from data if provided
+        attributes = data.pop("attributes", data.pop("attribute_values", {}))
+
+        # Get default values for this species
+        defaults = AttributeConfig.get_default_values(species)
+
+        # Merge provided attributes with defaults
+        final_attributes = defaults.copy()
+        final_attributes.update(attributes)
+
+        super().__init__(species=species, attribute_values=final_attributes, **data)
+
+    @field_validator("attribute_values")
+    @classmethod
+    def validate_attributes(cls, v: dict[str, float], info: Any) -> dict[str, float]:
+        """Validate that all attributes are valid for the species."""
+        if not info.data:
+            return v
+
+        species = info.data.get("species", "")
+        if not species:
+            return v
+
+        errors = AttributeConfig.validate_attribute_dict(v, species)
+        if errors:
+            raise ValueError(f"Invalid attributes: {errors}")
+        return v
+
+    def get_attribute_value(self, attribute_name: str) -> float:
         """Get the value for a specific attribute."""
-        value = getattr(self, attribute.value.lower())
-        return float(value)
+        attr_key = attribute_name.lower()
+        return self.attribute_values.get(attr_key, 0.0)
 
-    def set_attribute_value(self, attribute: Attribute, value: float) -> None:
+    def set_attribute_value(self, attribute_name: str, value: float) -> None:
         """Set the value for a specific attribute."""
-        setattr(self, attribute.value.lower(), value)
+        attr_key = attribute_name.lower()
+
+        # Validate that this attribute is valid for the species
+        if not AttributeConfig.is_valid_attribute(attr_key, self.species):
+            raise ValueError(f"Invalid attribute '{attribute_name}' for species '{self.species}'")
+
+        self.attribute_values[attr_key] = float(value)
+
+    def get_all_attributes(self) -> dict[str, float]:
+        """Get all attributes as a dictionary."""
+        return self.attribute_values.copy()
+
+    def get_attribute_names(self) -> list[str]:
+        """Get list of all attribute names for this species."""
+        return AttributeConfig.get_all_attribute_names(self.species)
+
+    def has_attribute(self, attribute_name: str) -> bool:
+        """Check if this species has a specific attribute."""
+        return AttributeConfig.is_valid_attribute(attribute_name, self.species)
+
+    def get_core_attributes(self) -> dict[str, float]:
+        """Get only the core attributes."""
+        core_names = AttributeConfig.get_core_attribute_names()
+        return {name: self.attribute_values.get(name, 0.0) for name in core_names}
+
+    def get_species_specific_attributes(self) -> dict[str, float]:
+        """Get only the species-specific attributes."""
+        species_names = AttributeConfig.get_species_attribute_names(self.species)
+        return {name: self.attribute_values.get(name, 0.0) for name in species_names}
+
+    def __getattr__(self, name: str) -> float:
+        """Allow dot notation access to attributes."""
+        attr_key = name.lower()
+        if attr_key in self.attribute_values:
+            return self.attribute_values[attr_key]
+        raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        """Allow dot notation setting of attributes."""
+        # Handle special pydantic fields normally
+        if name.startswith("_") or name in ["species", "attribute_values"]:
+            super().__setattr__(name, value)
+            return
+
+        attr_key = name.lower()
+        if hasattr(self, "attribute_values") and AttributeConfig.is_valid_attribute(attr_key, self.species):
+            self.attribute_values[attr_key] = float(value)
+        else:
+            super().__setattr__(name, value)
+
+
+def create_attribute_values_for_species(species: str) -> dict[str, float]:
+    """Create appropriate attribute values for a given species."""
+    return AttributeConfig.get_default_values(species)
 
 
 class Genome(BaseModel):
@@ -181,9 +250,25 @@ class Pet(BaseModel):
 
     name: str
     genome: Genome
-    attributes: AttributeValues = Field(default_factory=AttributeValues)
+    attributes: dict[str, float] = Field(default_factory=dict)
     screenshot_path: Path | None = None
     notes: str = ""
+
+    def __init__(self, **data: Any) -> None:
+        """Initialize Pet with species-specific attributes."""
+        if "attributes" not in data and "genome" in data:
+            # Auto-create species-specific attributes if not provided
+            genome_data = data["genome"]
+            if isinstance(genome_data, dict):
+                species = genome_data.get("genome_type", "")
+            else:
+                species = getattr(genome_data, "genome_type", "")
+            data["attributes"] = AttributeConfig.get_default_values(species)
+        elif "attributes" in data and isinstance(data["attributes"], DynamicAttributeValues):
+            # Convert DynamicAttributeValues to flat dict
+            data["attributes"] = data["attributes"].get_all_attributes()
+
+        super().__init__(**data)
 
     @classmethod
     def from_genome_file(
@@ -194,7 +279,10 @@ class Pet(BaseModel):
 
         screenshot = Path(screenshot_path) if screenshot_path else None
 
-        pet = cls(name=name, genome=genome, screenshot_path=screenshot, notes=notes)
+        # Create species-specific attributes
+        species_attributes = AttributeConfig.get_default_values(genome.genome_type)
+
+        pet = cls(name=name, genome=genome, attributes=species_attributes, screenshot_path=screenshot, notes=notes)
 
         # Calculate initial attributes based on genome
         pet._calculate_attributes()
@@ -207,16 +295,8 @@ class Pet(BaseModel):
         # In the future, this will use the gene effects database
         # to calculate actual attribute values based on dominant/recessive effects
 
-        # For now, we'll set base values
-        self.attributes = AttributeValues(
-            intelligence=50.0,
-            toughness=50.0,
-            friendliness=50.0,
-            ruggedness=50.0,
-            ferocity=50.0,
-            enthusiasm=50.0,
-            virility=50.0,
-        )
+        # For now, we'll set base values based on species
+        self.attributes = AttributeConfig.get_default_values(self.genome.genome_type)
 
         # TODO: Implement actual genetic calculation using the gene database
         # This will require:
@@ -231,6 +311,30 @@ class Pet(BaseModel):
     def get_chromosome_genes(self, chromosome: str) -> list[Gene]:
         """Get all genes for a specific chromosome."""
         return self.genome.get_chromosome_genes(chromosome)
+
+    def get_species(self) -> str:
+        """Get the pet's species."""
+        return self.genome.genome_type
+
+    def get_attribute_value(self, attribute_name: str) -> float:
+        """Get the value for a specific attribute."""
+        return self.attributes.get(attribute_name.lower(), 0.0)
+
+    def set_attribute_value(self, attribute_name: str, value: float) -> None:
+        """Set the value for a specific attribute."""
+        attr_key = attribute_name.lower()
+        if AttributeConfig.is_valid_attribute(attr_key, self.get_species()):
+            self.attributes[attr_key] = float(value)
+        else:
+            raise ValueError(f"Invalid attribute '{attribute_name}' for species '{self.get_species()}'")
+
+    def get_attribute_display_info(self) -> list[dict[str, Any]]:
+        """Get attribute display information for frontend."""
+        return AttributeConfig.get_attribute_display_info(self.get_species())
+
+    def has_attribute(self, attribute_name: str) -> bool:
+        """Check if this pet has a specific attribute."""
+        return AttributeConfig.is_valid_attribute(attribute_name, self.get_species())
 
     def to_dict(self) -> dict[str, Any]:
         """Export pet data to dictionary format."""

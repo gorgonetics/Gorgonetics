@@ -6,20 +6,24 @@ through a web interface with DuckDB backend.
 """
 
 import hashlib
+import json
 import logging
 import os
 import tempfile
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from fastapi import FastAPI, File, HTTPException, Request, UploadFile
-from fastapi.responses import HTMLResponse, Response
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
+from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi.responses import Response
 from pydantic import BaseModel
 
-from .database import GeneDatabase
+from .attribute_config import AttributeConfig
+from .database_config import create_database_instance
+from .models import Genome
+
+if TYPE_CHECKING:
+    from .ducklake_database import DuckLakeGeneDatabase
 
 
 @asynccontextmanager
@@ -28,11 +32,13 @@ async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
     # Startup
     try:
         # Just verify database connection, don't load data
-        animal_types = db.get_animal_types()
+        test_db = create_database_instance()
+        animal_types = test_db.get_animal_types()
         if animal_types:
             logger.info(f"Database connected successfully. Found {len(animal_types)} animal types.")
         else:
             logger.warning("Database is empty. Run 'python populate_database.py' to load gene data.")
+        test_db.close()
     except Exception as e:
         logger.warning(f"Database connection issue: {e}. Make sure to run 'python populate_database.py' first.")
 
@@ -46,16 +52,14 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Initialize FastAPI app with lifespan
-app = FastAPI(title="Gorgonetics Gene Editor", version="1.0.0", lifespan=lifespan)
+app = FastAPI(title="Gorgonetics Labs", version="1.0.0", lifespan=lifespan)
 
-# Initialize database
-db = GeneDatabase()
+# Database dependency
+def get_database() -> "DuckLakeGeneDatabase":
+    """Get database instance for dependency injection."""
+    return create_database_instance()
 
-# Initialize templates
-templates = Jinja2Templates(directory="src/gorgonetics/templates")
 
-# Mount static files
-app.mount("/static", StaticFiles(directory="src/gorgonetics/static"), name="static")
 
 
 class GeneUpdate(BaseModel):
@@ -63,8 +67,8 @@ class GeneUpdate(BaseModel):
 
     animal_type: str
     gene: str
-    effect_dominant: str | None = None
-    effect_recessive: str | None = None
+    effectDominant: str | None = None
+    effectRecessive: str | None = None
     appearance: str | None = None
     notes: str | None = None
 
@@ -73,8 +77,7 @@ class PetCreate(BaseModel):
     """Model for creating a new pet."""
 
     name: str
-    intelligence: float = 50.0
-    toughness: float = 50.0
+    attributes: dict[str, float] | None = None
     notes: str | None = None
 
 
@@ -82,24 +85,55 @@ class PetUpdate(BaseModel):
     """Model for updating pet attributes."""
 
     name: str | None = None
-    intelligence: float | None = None
-    toughness: float | None = None
-    friendliness: float | None = None
-    ruggedness: float | None = None
-    ferocity: float | None = None
-    enthusiasm: float | None = None
-    virility: float | None = None
+    attributes: dict[str, float] | None = None
     notes: str | None = None
 
 
-@app.get("/", response_class=HTMLResponse)
-async def home(request: Request) -> HTMLResponse:
-    """Serve the main gene editor page."""
-    return templates.TemplateResponse("index.html", {"request": request})
+# Bulk gene update model
+class BulkGeneUpdate(BaseModel):
+    """Model for bulk gene update requests."""
+
+    animal_type: str
+    chromosome: str
+    genes: list[dict[str, str | None]]
+
+
+# Bulk gene update endpoint
+@app.put("/api/genes")
+async def update_genes_bulk(bulk_update: BulkGeneUpdate, db: "DuckLakeGeneDatabase" = Depends(get_database)) -> dict[str, str]:
+    """Bulk update genes for a chromosome."""
+    try:
+        updated = 0
+        for gene in bulk_update.genes:
+            updates = {}
+            if gene.get("effectDominant") is not None:
+                updates["effectDominant"] = gene["effectDominant"]
+            if gene.get("effectRecessive") is not None:
+                updates["effectRecessive"] = gene["effectRecessive"]
+            if gene.get("appearance") is not None:
+                updates["appearance"] = gene["appearance"]
+            if gene.get("notes") is not None:
+                updates["notes"] = gene["notes"]
+            if not updates:
+                continue
+            gene_name = gene.get("gene")
+            if not gene_name:
+                continue
+            # Filter out None values from updates
+            filtered_updates = {k: v for k, v in updates.items() if v is not None}
+            if not filtered_updates:
+                continue
+            success = db.update_gene(animal_type=bulk_update.animal_type, gene=gene_name, updates=filtered_updates)
+            if success:
+                updated += 1
+        return {"status": "success", "message": f"{updated} genes updated"}
+    except Exception as e:
+        logger.error(f"Error bulk updating genes: {e}")
+        raise HTTPException(status_code=500, detail="Failed to update genes") from e
 
 
 @app.get("/api/gene-effects/{species}")
-async def get_gene_effects(species: str) -> dict[str, Any]:
+async def get_gene_effects(species: str, db: "DuckLakeGeneDatabase" = Depends(get_database)) -> dict[str, Any]:
     """Get all gene effects for visualization component."""
     try:
         # Normalize species name
@@ -132,19 +166,21 @@ async def get_gene_effects(species: str) -> dict[str, Any]:
 
 
 @app.get("/api/pet-genome/{pet_id}")
-async def get_pet_genome_for_visualization(pet_id: int) -> dict[str, Any]:
+async def get_pet_genome_for_visualization(pet_id: int, db: "DuckLakeGeneDatabase" = Depends(get_database)) -> dict[str, Any]:
     """Get pet genome data formatted for visualization."""
     try:
         pet_data = db.get_pet(pet_id)
         if not pet_data:
             raise HTTPException(status_code=404, detail="Pet not found")
 
-        # Parse the genome JSON
-        import json
+        # Parse the genome JSON - handle both string and dict cases
 
-        from .models import Genome
+        # Handle both string (original DB) and dict (DuckLake DB) cases
+        if isinstance(pet_data["genome_data"], str):
+            genome_json = json.loads(pet_data["genome_data"])
+        else:
+            genome_json = pet_data["genome_data"]
 
-        genome_json = json.loads(pet_data["genome_data"])
         genome = Genome.from_dict(genome_json)
 
         # Convert genome to the format expected by the frontend
@@ -184,7 +220,7 @@ async def get_pet_genome_for_visualization(pet_id: int) -> dict[str, Any]:
 
 
 @app.get("/api/animal-types")
-async def get_animal_types() -> list[str]:
+async def get_animal_types(db: "DuckLakeGeneDatabase" = Depends(get_database)) -> list[str]:
     """Get list of available animal types."""
     try:
         return db.get_animal_types()
@@ -194,7 +230,7 @@ async def get_animal_types() -> list[str]:
 
 
 @app.get("/api/chromosomes/{animal_type}")
-async def get_chromosomes(animal_type: str) -> list[str]:
+async def get_chromosomes(animal_type: str, db: "DuckLakeGeneDatabase" = Depends(get_database)) -> list[str]:
     """Get list of chromosomes for an animal type."""
     try:
         return db.get_chromosomes(animal_type)
@@ -204,7 +240,7 @@ async def get_chromosomes(animal_type: str) -> list[str]:
 
 
 @app.get("/api/genes/{animal_type}/{chromosome}")
-async def get_genes(animal_type: str, chromosome: str) -> list[dict[str, str | int]]:
+async def get_genes(animal_type: str, chromosome: str, db: "DuckLakeGeneDatabase" = Depends(get_database)) -> list[dict[str, str]]:
     """Get all genes for a specific chromosome."""
     try:
         return db.get_genes_by_chromosome(animal_type, chromosome)
@@ -214,7 +250,7 @@ async def get_genes(animal_type: str, chromosome: str) -> list[dict[str, str | i
 
 
 @app.get("/api/gene/{animal_type}/{gene}")
-async def get_gene(animal_type: str, gene: str) -> dict[str, str | int | None]:
+async def get_gene(animal_type: str, gene: str, db: "DuckLakeGeneDatabase" = Depends(get_database)) -> dict[str, Any]:
     """Get a specific gene."""
     try:
         gene_data = db.get_gene(animal_type, gene)
@@ -229,17 +265,20 @@ async def get_gene(animal_type: str, gene: str) -> dict[str, str | int | None]:
 
 
 @app.put("/api/gene")
-async def update_gene(gene_update: GeneUpdate) -> dict[str, str]:
+async def update_gene(gene_update: GeneUpdate, db: "DuckLakeGeneDatabase" = Depends(get_database)) -> dict[str, str]:
     """Update a gene's data."""
     try:
-        success = db.update_gene(
-            animal_type=gene_update.animal_type,
-            gene=gene_update.gene,
-            effect_dominant=gene_update.effect_dominant,
-            effect_recessive=gene_update.effect_recessive,
-            appearance=gene_update.appearance,
-            notes=gene_update.notes,
-        )
+        updates = {}
+        if gene_update.effectDominant is not None:
+            updates["effectDominant"] = gene_update.effectDominant
+        if gene_update.effectRecessive is not None:
+            updates["effectRecessive"] = gene_update.effectRecessive
+        if gene_update.appearance is not None:
+            updates["appearance"] = gene_update.appearance
+        if gene_update.notes is not None:
+            updates["notes"] = gene_update.notes
+
+        success = db.update_gene(animal_type=gene_update.animal_type, gene=gene_update.gene, updates=updates)
 
         if success:
             return {"status": "success", "message": "Gene updated successfully"}
@@ -255,56 +294,94 @@ async def update_gene(gene_update: GeneUpdate) -> dict[str, str]:
 
 @app.get("/api/effect-options")
 async def get_effect_options() -> list[str]:
-    """Get list of possible effect values for dropdown."""
-    # You mentioned you'll provide these values later
-    # For now, I'll include some common ones based on the data I saw
-    effects = [
-        "None",
-        "Toughness+",
-        "Toughness-",
-        "Friendliness+",
-        "Friendliness-",
-        "Ruggedness+",
-        "Ruggedness-",
-        "Ferocity+",
-        "Ferocity-",
-        "Enthusiasm+",
-        "Enthusiasm-",
-        "Virility+",
-        "Virility-",
-        "Intelligence+",
-        "Intelligence-",
-    ]
-    return sorted(effects)
+    """Get all possible gene effect options."""
+    return AttributeConfig.get_effect_options()
+
+
+@app.get("/api/effect-options/{species}")
+async def get_effect_options_for_species(species: str) -> list[str]:
+    """Get gene effect options for a specific species."""
+    try:
+        logger.info(f"Getting effect options for species: '{species}'")
+
+        # Normalize species name to handle database vs config mismatches
+        # Database might have "BeeWasp" while config expects "beewasp"
+        normalized_species = species.lower()
+
+        # Map common database names to config names
+        species_mapping = {"beewasp": "beewasp", "bee": "beewasp", "wasp": "beewasp", "horse": "horse"}
+
+        config_species = species_mapping.get(normalized_species, normalized_species)
+        logger.info(f"Mapped '{species}' -> '{config_species}' for AttributeConfig")
+
+        effects = AttributeConfig.get_effect_options_for_species(config_species)
+        logger.info(f"Returning {len(effects)} effect options for {config_species}")
+        return effects
+    except Exception as e:
+        logger.error(f"Error getting effect options for species {species}: {e}")
+        # Return all options as fallback instead of failing
+        logger.info("Falling back to all effect options")
+        return AttributeConfig.get_effect_options()
+
+
+@app.get("/api/attribute-config/{species}")
+async def get_attribute_config(species: str) -> dict[str, Any]:
+    """Get attribute configuration for a specific species."""
+    try:
+        return {
+            "species": species,
+            "attributes": AttributeConfig.get_attribute_display_info(species),
+            "all_attribute_names": AttributeConfig.get_all_attribute_names(species),
+            "core_attributes": list(AttributeConfig.get_core_attributes().keys()),
+            "species_attributes": list(AttributeConfig.get_species_attributes(species).keys()),
+        }
+    except Exception as e:
+        logger.error(f"Error getting attribute config for species {species}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get attribute configuration") from e
+
+
+@app.get("/api/appearance-config/{species}")
+async def get_appearance_config(species: str) -> dict[str, Any]:
+    """Get appearance attribute configuration for a specific species."""
+    try:
+        return {
+            "species": species,
+            "appearance_attributes": AttributeConfig.get_appearance_display_info(species),
+            "appearance_attribute_names": AttributeConfig.get_appearance_attribute_names(species),
+        }
+    except Exception as e:
+        logger.error(f"Error getting appearance config for species {species}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to get appearance configuration") from e
 
 
 @app.get("/api/export/{animal_type}")
-async def export_all_chromosomes(animal_type: str) -> dict[str, str | list[str]]:
+async def export_all_chromosomes(animal_type: str, db: "DuckLakeGeneDatabase" = Depends(get_database)) -> dict[str, str | list[str]]:
     """Export all chromosomes for an animal type to JSON files."""
     try:
-        exported_files = db.export_all_animal_chromosomes(animal_type, "exports")
-        return {"status": "success", "files": exported_files}
+        # Get all chromosomes for this animal type
+        chromosomes = db.get_chromosomes(animal_type)
+        exported_files = []
+
+        for chromosome in chromosomes:
+            genes_data = db.export_genes_to_json(animal_type, chromosome)
+            if genes_data:
+                filename = f"{animal_type}_{chromosome}.json"
+                exported_files.append(filename)
+
+        return {"status": "success", "files": ", ".join(exported_files)}
     except Exception as e:
         logger.error(f"Error exporting chromosomes for {animal_type}: {e}")
         raise HTTPException(status_code=500, detail="Failed to export chromosomes") from e
 
 
-@app.get("/api/export/{animal_type}/{chromosome}")
-async def export_chromosome_json(animal_type: str, chromosome: str) -> dict[str, str]:
-    """Export a specific chromosome to JSON format."""
-    try:
-        json_data = db.export_genes_to_json(animal_type, chromosome)
-        return {"status": "success", "data": json_data}
-    except Exception as e:
-        logger.error(f"Error exporting {animal_type}/{chromosome}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to export chromosome") from e
 
 
 @app.get("/api/download/{animal_type}/{chromosome}")
-async def download_chromosome_file(animal_type: str, chromosome: str) -> Response:
+async def download_chromosome_file(animal_type: str, chromosome: str, db: "DuckLakeGeneDatabase" = Depends(get_database)) -> Response:
     """Download a chromosome JSON file."""
     try:
-        json_data = db.export_genes_to_json(animal_type, chromosome)
+        data = db.export_genes_to_json(animal_type, chromosome)
+        json_data = json.dumps(data, indent=2)
         filename = f"{animal_type}_genes_chr{chromosome}.json"
 
         return Response(
@@ -323,15 +400,9 @@ async def download_chromosome_file(animal_type: str, chromosome: str) -> Respons
 @app.post("/api/pets/upload")
 async def upload_pet_genome(
     file: UploadFile = File(...),
-    name: str = "",  # Optional override name
-    intelligence: float = 50.0,
-    toughness: float = 50.0,
-    friendliness: float = 50.0,
-    ruggedness: float = 50.0,
-    ferocity: float = 50.0,
-    enthusiasm: float = 50.0,
-    virility: float = 50.0,
-    notes: str | None = None,
+    name: str = Form(""),  # Optional override name
+    notes: str | None = Form(None),
+    db: "DuckLakeGeneDatabase" = Depends(get_database),
 ) -> dict[str, str | int]:
     """Upload a genome file and create a new pet."""
     try:
@@ -355,6 +426,14 @@ async def upload_pet_genome(
         except UnicodeDecodeError as e:
             raise HTTPException(status_code=400, detail="File must be a valid text file") from e
 
+        # Check for empty or invalid content
+        if not genome_content.strip():
+            raise HTTPException(status_code=400, detail="File cannot be empty")
+
+        # Basic validation for genome file format
+        if "[Overview]" not in genome_content and "Genome Type:" not in genome_content:
+            raise HTTPException(status_code=400, detail="Invalid genome file format")
+
         # Parse the genome using our models
         from .models import Genome
 
@@ -365,7 +444,19 @@ async def upload_pet_genome(
 
         try:
             # Parse the genome
+            # Always parse the genome file and store the full gene data for correct counting
             genome = Genome.from_file(temp_file_path)
+            genome_json = genome.to_json()
+
+            # Defensive: ensure gene data is present and well-formed
+            import json
+
+            try:
+                parsed = json.loads(genome_json)
+                if "genes" not in parsed or not parsed["genes"]:
+                    raise ValueError("No genes found in parsed genome")
+            except Exception as e:
+                raise HTTPException(status_code=400, detail=f"Failed to parse genome genes: {e}") from e
 
             # Use the pet name from the genome file, or user override, or filename as fallback
             pet_name = (
@@ -380,23 +471,21 @@ async def upload_pet_genome(
                 )
             )
 
+            attributes_dict = AttributeConfig.get_default_values(genome.genome_type)
+
             # Create the pet in the database
             pet_id = db.add_pet(
                 name=pet_name,
                 species=genome.genome_type,
                 breeder=genome.breeder,
-                genome_data=genome.to_json(),
+                genome_data=genome_json,
                 content_hash=content_hash,
-                intelligence=intelligence,
-                toughness=toughness,
-                friendliness=friendliness,
-                ruggedness=ruggedness,
-                ferocity=ferocity,
-                enthusiasm=enthusiasm,
-                virility=virility,
+                attributes=attributes_dict,
                 notes=notes,
             )
 
+            if pet_id is None:
+                return {"status": "error", "message": "Failed to create pet"}
             return {"status": "success", "message": "Pet created successfully", "pet_id": pet_id, "name": pet_name}
 
         finally:
@@ -411,13 +500,13 @@ async def upload_pet_genome(
 
 
 @app.get("/api/pets")
-async def get_pets() -> list[dict[str, Any]]:
+async def get_pets(db: "DuckLakeGeneDatabase" = Depends(get_database)) -> list[dict[str, Any]]:
     """Get all pets."""
     try:
         pets = db.get_all_pets()
-        # Convert datetime objects to strings and handle None values
+        # Handle datetime objects if they exist (for compatibility with both database types)
         for pet in pets:
-            if pet.get("created_at"):
+            if pet.get("created_at") and hasattr(pet["created_at"], "isoformat"):
                 pet["created_at"] = pet["created_at"].isoformat()
             if pet.get("notes") is None:
                 pet["notes"] = ""
@@ -428,7 +517,7 @@ async def get_pets() -> list[dict[str, Any]]:
 
 
 @app.get("/api/pets/{pet_id}")
-async def get_pet(pet_id: int) -> dict[str, Any]:
+async def get_pet(pet_id: int, db: "DuckLakeGeneDatabase" = Depends(get_database)) -> dict[str, Any]:
     """Get a specific pet by ID."""
     try:
         pet = db.get_pet(pet_id)
@@ -436,9 +525,9 @@ async def get_pet(pet_id: int) -> dict[str, Any]:
             raise HTTPException(status_code=404, detail="Pet not found")
 
         # Convert datetime objects to strings and handle None values
-        if pet.get("created_at"):
+        if pet.get("created_at") and hasattr(pet["created_at"], "isoformat"):
             pet["created_at"] = pet["created_at"].isoformat()
-        if pet.get("updated_at"):
+        if pet.get("updated_at") and hasattr(pet["updated_at"], "isoformat"):
             pet["updated_at"] = pet["updated_at"].isoformat()
         if pet.get("notes") is None:
             pet["notes"] = ""
@@ -452,21 +541,18 @@ async def get_pet(pet_id: int) -> dict[str, Any]:
 
 
 @app.put("/api/pets/{pet_id}")
-async def update_pet(pet_id: int, pet_update: PetUpdate) -> dict[str, str]:
+async def update_pet(pet_id: int, pet_update: PetUpdate, db: "DuckLakeGeneDatabase" = Depends(get_database)) -> dict[str, str]:
     """Update a pet's attributes."""
     try:
-        success = db.update_pet(
-            pet_id=pet_id,
-            name=pet_update.name,
-            intelligence=pet_update.intelligence,
-            toughness=pet_update.toughness,
-            friendliness=pet_update.friendliness,
-            ruggedness=pet_update.ruggedness,
-            ferocity=pet_update.ferocity,
-            enthusiasm=pet_update.enthusiasm,
-            virility=pet_update.virility,
-            notes=pet_update.notes,
-        )
+        updates = {}
+        if pet_update.name is not None:
+            updates["name"] = pet_update.name
+        if pet_update.notes is not None:
+            updates["notes"] = pet_update.notes
+        if pet_update.attributes is not None:
+            updates.update({k: str(v) for k, v in pet_update.attributes.items()})
+
+        success = db.update_pet(pet_id=pet_id, updates=updates)
 
         if success:
             return {"status": "success", "message": "Pet updated successfully"}
@@ -481,7 +567,7 @@ async def update_pet(pet_id: int, pet_update: PetUpdate) -> dict[str, str]:
 
 
 @app.delete("/api/pets/{pet_id}")
-async def delete_pet(pet_id: int) -> dict[str, str]:
+async def delete_pet(pet_id: int, db: "DuckLakeGeneDatabase" = Depends(get_database)) -> dict[str, str]:
     """Delete a pet."""
     try:
         success = db.delete_pet(pet_id)
@@ -499,21 +585,21 @@ async def delete_pet(pet_id: int) -> dict[str, str]:
 
 
 @app.get("/api/pets/species/{species}")
-async def get_pets_by_species(species: str) -> list[dict[str, str | int | float]]:
+async def get_pets_by_species(species: str, db: "DuckLakeGeneDatabase" = Depends(get_database)) -> list[dict[str, str | int | float]]:
     """Get all pets of a specific species."""
     try:
-        return db.get_pets_by_species(species)
+        pets = db.get_all_pets(species=species)
+        # Convert to the expected return type
+        result: list[dict[str, str | int | float]] = []
+        for pet in pets:
+            pet_dict: dict[str, str | int | float] = {}
+            for key, value in pet.items():
+                if isinstance(value, str | int | float):
+                    pet_dict[key] = value
+                elif value is not None:
+                    pet_dict[key] = str(value)
+            result.append(pet_dict)
+        return result
     except Exception as e:
         logger.error(f"Error getting pets for species {species}: {e}")
         raise HTTPException(status_code=500, detail="Failed to get pets") from e
-
-
-def run_server() -> None:
-    """Run the development server."""
-    import uvicorn
-
-    uvicorn.run(app, host="127.0.0.1", port=8000, reload=True)
-
-
-if __name__ == "__main__":
-    run_server()
