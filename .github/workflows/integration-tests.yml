@@ -61,7 +61,7 @@ jobs:
         uv run python scripts/run_integration_tests.py --performance
 
     - name: Upload coverage reports
-      uses: codecov/codecov-action@v3
+      uses: codecov/codecov-action@v5
       if: matrix.python-version == '3.13'
       with:
         file: ./htmlcov/coverage.xml
