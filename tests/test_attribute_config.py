@@ -301,10 +301,10 @@ class TestAttributeConfig:
 
         # Test Horse appearance attributes
         horse_appearance = AttributeConfig.get_appearance_attributes("Horse")
-        assert "body-color-hue" in horse_appearance
-        assert "mane-color-hue" in horse_appearance
-        assert "leg-scale" in horse_appearance
-        assert horse_appearance["body-color-hue"]["name"] == "Coat Color Hue"
+        assert "scale-kb" in horse_appearance
+        assert "horn" in horse_appearance
+        assert "selector-pt" in horse_appearance
+        assert horse_appearance["scale-kb"]["name"] == "Scale (Kb)"
 
         # Different from BeeWasp
         assert "wing-color-hue" not in horse_appearance
@@ -341,19 +341,15 @@ class TestAttributeConfig:
         # Test Horse appearance attribute names
         horse_names = AttributeConfig.get_appearance_attribute_names("Horse")
         expected_horse = {
-            "body-color-hue",
-            "body-color-saturation",
-            "body-color-intensity",
-            "mane-color-hue",
-            "mane-color-saturation",
-            "mane-color-intensity",
-            "body-scale",
-            "leg-scale",
-            "head-scale",
-            "tail-scale",
-            "mane-scale",
-            "markings",
-            "hooves",
+            "scale-kb",
+            "attributes-kb",
+            "selector-sb",
+            "selector-pt",
+            "selector-po",
+            "selector-kb",
+            "selector-bl",
+            "horn",
+            "horn-kb",
         }
         assert set(horse_names) == expected_horse
 
@@ -386,21 +382,21 @@ class TestAttributeConfig:
         horse_display = AttributeConfig.get_appearance_display_info("Horse")
 
         # Should have different number of appearance attributes
-        assert len(horse_display) == 13
+        assert len(horse_display) == 9
 
         # Check Horse-specific attribute
-        mane_hue = next((attr for attr in horse_display if attr["name"] == "Mane Color Hue"), None)
-        assert mane_hue is not None
-        assert mane_hue["examples"] == "Mane tone"
+        scale_kb = next((attr for attr in horse_display if attr["name"] == "Scale (Kb)"), None)
+        assert scale_kb is not None
+        assert scale_kb["examples"] == "Body scaling"
 
     def test_appearance_attribute_validation(self) -> None:
         """Test appearance attribute validation."""
         # Test valid appearance attributes
         assert AttributeConfig.is_valid_appearance_attribute("body-color-hue", "BeeWasp")
-        assert AttributeConfig.is_valid_appearance_attribute("mane-color-hue", "Horse")
+        assert AttributeConfig.is_valid_appearance_attribute("scale-kb", "Horse")
 
         # Test invalid appearance attributes for species
-        assert not AttributeConfig.is_valid_appearance_attribute("mane-color-hue", "BeeWasp")
+        assert not AttributeConfig.is_valid_appearance_attribute("scale-kb", "BeeWasp")
         assert not AttributeConfig.is_valid_appearance_attribute("antenna-scale", "Horse")
 
         # Test invalid appearance attributes

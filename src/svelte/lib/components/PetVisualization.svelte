@@ -1,65 +1,12 @@
 <script>
-    import { onMount } from "svelte";
     import GeneVisualizer from "./GeneVisualizer.svelte";
 
     let { pet } = $props();
 
     let geneVisualizerRef = $state();
-    let stylesLoaded = false;
     let currentView = $state("attribute");
 
-    onMount(async () => {
-        // Load scoped styles for gene visualizer
-        if (!stylesLoaded) {
-            await loadScopedStyles();
-            stylesLoaded = true;
-        }
-
-        // Ensure the gene visualizer script is loaded
-        if (!window.GeneVisualizer) {
-            await loadScript("/gene-visualizer.js");
-        }
-
-        // CSS loading only - visualization handled by GeneVisualizerSvelte
-    });
-
-    async function loadScopedStyles() {
-        try {
-            const response = await fetch("/gene-visualizer-styles.css");
-            const cssText = await response.text();
-
-            // Scope other styles to the gene visualizer
-            const scopedCss = cssText;
-
-            // Only add scoped styles if not already present
-            if (!document.querySelector("[data-gene-visualizer-scoped]")) {
-                const styleElement = document.createElement("style");
-                styleElement.textContent = scopedCss;
-                styleElement.setAttribute(
-                    "data-gene-visualizer-scoped",
-                    "true",
-                );
-                document.head.appendChild(styleElement);
-            }
-        } catch (error) {
-            console.warn("Failed to load gene visualizer styles:", error);
-        }
-    }
-
-    function loadScript(src) {
-        return new Promise((resolve, reject) => {
-            if (document.querySelector(`script[src="${src}"]`)) {
-                resolve();
-                return;
-            }
-
-            const script = document.createElement("script");
-            script.src = src;
-            script.onload = resolve;
-            script.onerror = reject;
-            document.head.appendChild(script);
-        });
-    }
+    // No longer need to load external styles - handled by Svelte components
 
     // Handle view control clicks
     function handleViewChange(view) {

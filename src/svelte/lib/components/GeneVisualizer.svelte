@@ -1,5 +1,5 @@
 <script>
-    import { run } from 'svelte/legacy';
+    import { run } from "svelte/legacy";
 
     import { onDestroy, onMount } from "svelte";
     import GeneStatsTable from "./GeneStatsTable.svelte";
@@ -20,6 +20,8 @@
     let currentStats = $state(null);
     let totalGenes = $state(0);
     let neutralGenes = $state(0);
+    let appearanceList = $state([]);
+    let appearanceConfig = null;
     let selectedAttributes = $state([]);
     let hiddenAttributes = $state([]);
     let selectedChromosomes = $state([]);
@@ -94,6 +96,7 @@
                 currentPet.name,
             );
             await loadGeneEffectsForSpecies(currentPet.species);
+            await loadAppearanceConfig(currentPet.species);
             await updateVisualization();
             console.log("✅ Visualization complete");
         } catch (err) {
@@ -117,6 +120,30 @@
         } catch (err) {
             console.error("Error loading gene effects:", err);
             geneEffectsDB = null;
+        }
+    }
+
+    async function loadAppearanceConfig(species) {
+        if (!species) {
+            appearanceList = [];
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/appearance-config/${species}`);
+            if (response.ok) {
+                appearanceConfig = await response.json();
+                appearanceList = appearanceConfig.appearance_attributes || [];
+            } else {
+                console.warn(`Failed to load appearance config for ${species}`);
+                appearanceList = [];
+            }
+        } catch (error) {
+            console.error(
+                `Error loading appearance config for ${species}:`,
+                error,
+            );
+            appearanceList = [];
         }
     }
 
@@ -175,6 +202,8 @@
                 positive: 0,
                 negative: 0,
                 neutral: 0,
+                "potential-positive": 0,
+                "potential-negative": 0,
             };
 
             // Load species-specific attributes from configuration
@@ -255,7 +284,7 @@
                             },
                         );
                     } else {
-                        // Fallback to default BeeWasp appearance attributes
+                        // Fallback appearance attributes
                         [
                             "body-color-hue",
                             "body-color-saturation",
@@ -279,7 +308,7 @@
                     }
                 } catch (error) {
                     console.error("Error loading appearance config:", error);
-                    // Fallback to default appearance attributes
+                    // Fallback appearance attributes
                     [
                         "body-color-hue",
                         "body-color-saturation",
@@ -302,7 +331,7 @@
                     });
                 }
             } else {
-                // Default BeeWasp appearance attributes if no species specified
+                // Fallback appearance attributes
                 [
                     "body-color-hue",
                     "body-color-saturation",
@@ -332,8 +361,23 @@
     function updateStats(stats, geneAnalysis) {
         if (currentView === "attribute") {
             stats[geneAnalysis.type]++;
+
             if (geneAnalysis.attribute && stats[geneAnalysis.attribute]) {
-                stats[geneAnalysis.attribute][geneAnalysis.type]++;
+                // Normalize type for attribute-specific counting
+                let normalizedType = geneAnalysis.type;
+                if (normalizedType === "potential-positive") {
+                    normalizedType = "positive";
+                } else if (normalizedType === "potential-negative") {
+                    normalizedType = "negative";
+                }
+
+                // Only increment if it's a positive/negative effect
+                if (
+                    normalizedType === "positive" ||
+                    normalizedType === "negative"
+                ) {
+                    stats[geneAnalysis.attribute][normalizedType]++;
+                }
             }
         } else {
             if (stats[geneAnalysis.type] !== undefined) {
@@ -480,38 +524,63 @@
             const appearance = getGeneAppearance(species, geneId);
             let appearanceCategory = "appearance-neutral";
 
-            if (appearance.includes("Body Color Hue")) {
-                appearanceCategory = "body-color-hue";
-            } else if (appearance.includes("Body Color Saturation")) {
-                appearanceCategory = "body-color-saturation";
-            } else if (appearance.includes("Body Color Intensity")) {
-                appearanceCategory = "body-color-intensity";
-            } else if (appearance.includes("Wing Color Hue")) {
-                appearanceCategory = "wing-color-hue";
-            } else if (appearance.includes("Wing Color Saturation")) {
-                appearanceCategory = "wing-color-saturation";
-            } else if (appearance.includes("Wing Color Intensity")) {
-                appearanceCategory = "wing-color-intensity";
-            } else if (appearance.includes("Body Scale")) {
-                appearanceCategory = "body-scale";
-            } else if (appearance.includes("Wing Scale")) {
-                appearanceCategory = "wing-scale";
-            } else if (appearance.includes("Head Scale")) {
-                appearanceCategory = "head-scale";
-            } else if (appearance.includes("Tail Scale")) {
-                appearanceCategory = "tail-scale";
-            } else if (appearance.includes("Antenna Scale")) {
-                appearanceCategory = "antenna-scale";
-            } else if (appearance.includes("Leg Deformity")) {
-                appearanceCategory = "leg-deformity";
-            } else if (appearance.includes("Antenna Deformity")) {
-                appearanceCategory = "antenna-deformity";
-            } else if (appearance.includes("Particles")) {
-                appearanceCategory = "particles";
-            } else if (appearance.includes("Particle Location")) {
-                appearanceCategory = "particle-location";
-            } else if (appearance.includes("Glow")) {
-                appearanceCategory = "glow";
+            // Species-specific appearance categorization
+            if (species.toLowerCase() === "horse") {
+                // Horse appearance categories
+                if (appearance === "Scale (Kb)") {
+                    appearanceCategory = "scale-kb";
+                } else if (appearance === "Attributes (Kb)") {
+                    appearanceCategory = "attributes-kb";
+                } else if (appearance === "Selector (Sb)") {
+                    appearanceCategory = "selector-sb";
+                } else if (appearance === "Selector (Pt)") {
+                    appearanceCategory = "selector-pt";
+                } else if (appearance === "Selector (Po)") {
+                    appearanceCategory = "selector-po";
+                } else if (appearance === "Selector (Kb)") {
+                    appearanceCategory = "selector-kb";
+                } else if (appearance === "Selector (Bl)") {
+                    appearanceCategory = "selector-bl";
+                } else if (appearance === "Horn") {
+                    appearanceCategory = "horn";
+                } else if (appearance === "Horn (Kb)") {
+                    appearanceCategory = "horn-kb";
+                }
+            } else {
+                // BeeWasp appearance categories
+                if (appearance.includes("Body Color Hue")) {
+                    appearanceCategory = "body-color-hue";
+                } else if (appearance.includes("Body Color Saturation")) {
+                    appearanceCategory = "body-color-saturation";
+                } else if (appearance.includes("Body Color Intensity")) {
+                    appearanceCategory = "body-color-intensity";
+                } else if (appearance.includes("Wing Color Hue")) {
+                    appearanceCategory = "wing-color-hue";
+                } else if (appearance.includes("Wing Color Saturation")) {
+                    appearanceCategory = "wing-color-saturation";
+                } else if (appearance.includes("Wing Color Intensity")) {
+                    appearanceCategory = "wing-color-intensity";
+                } else if (appearance.includes("Body Scale")) {
+                    appearanceCategory = "body-scale";
+                } else if (appearance.includes("Wing Scale")) {
+                    appearanceCategory = "wing-scale";
+                } else if (appearance.includes("Head Scale")) {
+                    appearanceCategory = "head-scale";
+                } else if (appearance.includes("Tail Scale")) {
+                    appearanceCategory = "tail-scale";
+                } else if (appearance.includes("Antenna Scale")) {
+                    appearanceCategory = "antenna-scale";
+                } else if (appearance.includes("Leg Deformity")) {
+                    appearanceCategory = "leg-deformity";
+                } else if (appearance.includes("Antenna Deformity")) {
+                    appearanceCategory = "antenna-deformity";
+                } else if (appearance.includes("Particles")) {
+                    appearanceCategory = "particles";
+                } else if (appearance.includes("Particle Location")) {
+                    appearanceCategory = "particle-location";
+                } else if (appearance.includes("Glow")) {
+                    appearanceCategory = "glow";
+                }
             }
 
             return {
@@ -787,7 +856,7 @@
             }
 
             let totalGenesCount = 0;
-            const allStats = initializeStats();
+            const allStats = await initializeStats();
 
             Object.values(parsedGenes).forEach((chromosomeData) => {
                 chromosomeData.allGenes.forEach((gene) => {
@@ -1654,220 +1723,43 @@
                             </div>
                         {:else}
                             <div class="legend-row">
-                                <span class="legend-label legend-label-effect"
+                                <span
+                                    class="legend-label legend-label-appearance"
                                     >Appearance:</span
                                 >
 
-                                <span
-                                    class="legend-item appearance-legend-item {selectedAttributes.some(
-                                        (attr) =>
-                                            [
-                                                'body-color-hue',
-                                                'body-color-saturation',
-                                                'body-color-intensity',
-                                            ].includes(attr),
-                                    )
-                                        ? 'selected'
-                                        : ''} {hiddenAttributes.some((attr) =>
-                                        [
-                                            'body-color-hue',
-                                            'body-color-saturation',
-                                            'body-color-intensity',
-                                        ].includes(attr),
-                                    )
-                                        ? 'hidden-effect'
-                                        : ''}"
-                                    role="button"
-                                    tabindex="0"
-                                    onclick={(e) =>
-                                        handleLegendFilterClick(
-                                            "body-color",
-                                            e,
-                                        )}
-                                >
-                                    <GeneCell
-                                        gene={{ id: "sample", type: "D" }}
-                                        geneAnalysis={{
-                                            type: "body-color-hue",
-                                            attribute: "body-color-hue",
-                                        }}
-                                        currentView="appearance"
-                                        isVisible={true}
-                                    />
-                                    <span>Body Color</span>
-                                </span>
-
-                                <span
-                                    class="legend-item appearance-legend-item {selectedAttributes.some(
-                                        (attr) =>
-                                            [
-                                                'wing-color-hue',
-                                                'wing-color-saturation',
-                                                'wing-color-intensity',
-                                            ].includes(attr),
-                                    )
-                                        ? 'selected'
-                                        : ''} {hiddenAttributes.some((attr) =>
-                                        [
-                                            'wing-color-hue',
-                                            'wing-color-saturation',
-                                            'wing-color-intensity',
-                                        ].includes(attr),
-                                    )
-                                        ? 'hidden-effect'
-                                        : ''}"
-                                    role="button"
-                                    tabindex="0"
-                                    onclick={(e) =>
-                                        handleLegendFilterClick(
-                                            "wing-color",
-                                            e,
-                                        )}
-                                >
-                                    <GeneCell
-                                        gene={{ id: "sample", type: "D" }}
-                                        geneAnalysis={{
-                                            type: "wing-color-hue",
-                                            attribute: "wing-color-hue",
-                                        }}
-                                        currentView="appearance"
-                                        isVisible={true}
-                                    />
-                                    <span>Wing Color</span>
-                                </span>
-
-                                <span
-                                    class="legend-item appearance-legend-item {selectedAttributes.some(
-                                        (attr) =>
-                                            [
-                                                'body-scale',
-                                                'wing-scale',
-                                                'head-scale',
-                                                'tail-scale',
-                                                'antenna-scale',
-                                            ].includes(attr),
-                                    )
-                                        ? 'selected'
-                                        : ''} {hiddenAttributes.some((attr) =>
-                                        [
-                                            'body-scale',
-                                            'wing-scale',
-                                            'head-scale',
-                                            'tail-scale',
-                                            'antenna-scale',
-                                        ].includes(attr),
-                                    )
-                                        ? 'hidden-effect'
-                                        : ''}"
-                                    role="button"
-                                    tabindex="0"
-                                    onclick={(e) =>
-                                        handleLegendFilterClick("scale", e)}
-                                >
-                                    <GeneCell
-                                        gene={{ id: "sample", type: "D" }}
-                                        geneAnalysis={{
-                                            type: "body-scale",
-                                            attribute: "body-scale",
-                                        }}
-                                        currentView="appearance"
-                                        isVisible={true}
-                                    />
-                                    <span>Body Scale</span>
-                                </span>
-
-                                <span
-                                    class="legend-item appearance-legend-item {selectedAttributes.some(
-                                        (attr) =>
-                                            [
-                                                'leg-deformity',
-                                                'antenna-deformity',
-                                            ].includes(attr),
-                                    )
-                                        ? 'selected'
-                                        : ''} {hiddenAttributes.some((attr) =>
-                                        [
-                                            'leg-deformity',
-                                            'antenna-deformity',
-                                        ].includes(attr),
-                                    )
-                                        ? 'hidden-effect'
-                                        : ''}"
-                                    role="button"
-                                    tabindex="0"
-                                    onclick={(e) =>
-                                        handleLegendFilterClick("deformity", e)}
-                                >
-                                    <GeneCell
-                                        gene={{ id: "sample", type: "D" }}
-                                        geneAnalysis={{
-                                            type: "leg-deformity",
-                                            attribute: "leg-deformity",
-                                        }}
-                                        currentView="appearance"
-                                        isVisible={true}
-                                    />
-                                    <span>Deformities</span>
-                                </span>
-
-                                <span
-                                    class="legend-item appearance-legend-item {selectedAttributes.some(
-                                        (attr) =>
-                                            [
-                                                'particles',
-                                                'particle-location',
-                                            ].includes(attr),
-                                    )
-                                        ? 'selected'
-                                        : ''} {hiddenAttributes.some((attr) =>
-                                        [
-                                            'particles',
-                                            'particle-location',
-                                        ].includes(attr),
-                                    )
-                                        ? 'hidden-effect'
-                                        : ''}"
-                                    role="button"
-                                    tabindex="0"
-                                    onclick={(e) =>
-                                        handleLegendFilterClick("particles", e)}
-                                >
-                                    <GeneCell
-                                        gene={{ id: "sample", type: "D" }}
-                                        geneAnalysis={{
-                                            type: "particles",
-                                            attribute: "particles",
-                                        }}
-                                        currentView="appearance"
-                                        isVisible={true}
-                                    />
-                                    <span>Particles</span>
-                                </span>
-
-                                <span
-                                    class="legend-item appearance-legend-item {selectedAttributes.includes(
-                                        'glow',
-                                    )
-                                        ? 'selected'
-                                        : ''} {hiddenAttributes.includes('glow')
-                                        ? 'hidden-effect'
-                                        : ''}"
-                                    role="button"
-                                    tabindex="0"
-                                    onclick={(e) =>
-                                        handleLegendFilterClick("glow", e)}
-                                >
-                                    <GeneCell
-                                        gene={{ id: "sample", type: "D" }}
-                                        geneAnalysis={{
-                                            type: "glow",
-                                            attribute: "glow",
-                                        }}
-                                        currentView="appearance"
-                                        isVisible={true}
-                                    />
-                                    <span>Glow</span>
-                                </span>
+                                {#each appearanceList as appearance}
+                                    {@const attrKey = appearance.key.replace(
+                                        /_/g,
+                                        "-",
+                                    )}
+                                    <span
+                                        class="legend-item appearance-legend-item {selectedAttributes.includes(
+                                            attrKey,
+                                        )
+                                            ? 'selected'
+                                            : ''} {hiddenAttributes.includes(
+                                            attrKey,
+                                        )
+                                            ? 'hidden-effect'
+                                            : ''}"
+                                        role="button"
+                                        tabindex="0"
+                                        onclick={(e) =>
+                                            handleLegendFilterClick(attrKey, e)}
+                                    >
+                                        <GeneCell
+                                            gene={{ id: "sample", type: "D" }}
+                                            geneAnalysis={{
+                                                type: attrKey,
+                                                attribute: attrKey,
+                                            }}
+                                            currentView="appearance"
+                                            isVisible={true}
+                                        />
+                                        <span>{appearance.name}</span>
+                                    </span>
+                                {/each}
 
                                 <span
                                     class="legend-item appearance-legend-item {selectedAttributes.includes(
@@ -1882,7 +1774,10 @@
                                     role="button"
                                     tabindex="0"
                                     onclick={(e) =>
-                                        handleLegendFilterClick("neutral", e)}
+                                        handleLegendFilterClick(
+                                            "appearance-neutral",
+                                            e,
+                                        )}
                                 >
                                     <GeneCell
                                         gene={{ id: "sample", type: "D" }}
@@ -1893,7 +1788,7 @@
                                         currentView="appearance"
                                         isVisible={true}
                                     />
-                                    <span>No Effect</span>
+                                    <span>Neutral</span>
                                 </span>
                             </div>
                         {/if}

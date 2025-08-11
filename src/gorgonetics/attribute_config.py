@@ -134,43 +134,51 @@ class AttributeConfig:
             },
         },
         "horse": {
-            "body-color-hue": {
-                "name": "Coat Color Hue",
-                "examples": "Coat tone",
-                "color_indicator": "linear-gradient(45deg, #8b4513, #daa520, #cd853f)",
+            "scale-kb": {
+                "name": "Scale (Kb)",
+                "examples": "Body scaling",
+                "color_indicator": "#8b5cf6",
             },
-            "body-color-saturation": {
-                "name": "Coat Color Saturation",
-                "examples": "Coat intensity",
-                "color_indicator": "linear-gradient(90deg, #f5f5dc, #8b4513)",
+            "attributes-kb": {
+                "name": "Attributes (Kb)",
+                "examples": "Physical attributes",
+                "color_indicator": "#06b6d4",
             },
-            "body-color-intensity": {
-                "name": "Coat Color Intensity",
-                "examples": "Coat brightness",
-                "color_indicator": "linear-gradient(90deg, #2f4f4f, #f5f5dc)",
+            "selector-sb": {
+                "name": "Selector (Sb)",
+                "examples": "Sable selector",
+                "color_indicator": "#8b4513",
             },
-            "mane-color-hue": {
-                "name": "Mane Color Hue",
-                "examples": "Mane tone",
-                "color_indicator": "linear-gradient(45deg, #654321, #daa520, #000000)",
+            "selector-pt": {
+                "name": "Selector (Pt)",
+                "examples": "Point selector",
+                "color_indicator": "#f59e0b",
             },
-            "mane-color-saturation": {
-                "name": "Mane Color Saturation",
-                "examples": "Mane intensity",
-                "color_indicator": "linear-gradient(90deg, #f0f0f0, #654321)",
+            "selector-po": {
+                "name": "Selector (Po)",
+                "examples": "Pony selector",
+                "color_indicator": "#84cc16",
             },
-            "mane-color-intensity": {
-                "name": "Mane Color Intensity",
-                "examples": "Mane brightness",
-                "color_indicator": "linear-gradient(90deg, #000000, #ffffff)",
+            "selector-kb": {
+                "name": "Selector (Kb)",
+                "examples": "Kabuki selector",
+                "color_indicator": "#ec4899",
             },
-            "body-scale": {"name": "Body Scale", "examples": "Body size", "color_indicator": "#8b5cf6"},
-            "leg-scale": {"name": "Leg Scale", "examples": "Leg length", "color_indicator": "#06b6d4"},
-            "head-scale": {"name": "Head Scale", "examples": "Head size", "color_indicator": "#f59e0b"},
-            "tail-scale": {"name": "Tail Scale", "examples": "Tail size", "color_indicator": "#84cc16"},
-            "mane-scale": {"name": "Mane Scale", "examples": "Mane length", "color_indicator": "#ec4899"},
-            "markings": {"name": "Markings", "examples": "Coat patterns", "color_indicator": "#ef4444"},
-            "hooves": {"name": "Hooves", "examples": "Hoof appearance", "color_indicator": "#6b7280"},
+            "selector-bl": {
+                "name": "Selector (Bl)",
+                "examples": "Blue selector",
+                "color_indicator": "#3b82f6",
+            },
+            "horn": {
+                "name": "Horn",
+                "examples": "Horn presence",
+                "color_indicator": "#ef4444",
+            },
+            "horn-kb": {
+                "name": "Horn (Kb)",
+                "examples": "Kabuki horn",
+                "color_indicator": "#f97316",
+            },
         },
     }
 

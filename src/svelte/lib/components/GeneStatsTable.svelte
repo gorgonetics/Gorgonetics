@@ -1,5 +1,5 @@
 <script>
-    import { run } from 'svelte/legacy';
+    import { run } from "svelte/legacy";
 
     import { createEventDispatcher } from "svelte";
     import App from "../../App.svelte";
@@ -25,7 +25,7 @@
         hiddenAttributes = [],
         totalGenes = 0,
         neutralGenes = 0,
-        petSpecies = null
+        petSpecies = null,
     } = $props();
 
     let attributeList = $state([]);
@@ -41,7 +41,6 @@
         { key: "Virility", name: "Virility", icon: "💜" },
         { key: "Ferocity", name: "Ferocity", icon: "🔥" },
     ];
-
 
     async function loadAttributeConfig(species) {
         if (!species) {
@@ -280,8 +279,6 @@
         });
     }
 
-
-
     let grandTotal = $derived(calculateGrandTotal());
     run(() => {
         if (petSpecies) {
@@ -295,14 +292,18 @@
     });
     let selectedCount = $derived(selectedAttributes.length);
     // Create reactive object lookups
-    let selectedLookup = $derived(selectedAttributes.reduce((acc, attr) => {
-        acc[attr] = true;
-        return acc;
-    }, {}));
-    let hiddenLookup = $derived(hiddenAttributes.reduce((acc, attr) => {
-        acc[attr] = true;
-        return acc;
-    }, {}));
+    let selectedLookup = $derived(
+        selectedAttributes.reduce((acc, attr) => {
+            acc[attr] = true;
+            return acc;
+        }, {}),
+    );
+    let hiddenLookup = $derived(
+        hiddenAttributes.reduce((acc, attr) => {
+            acc[attr] = true;
+            return acc;
+        }, {}),
+    );
 </script>
 
 <div class="stats-section">
@@ -345,6 +346,7 @@
                             currentStats?.[attr.key]?.positive || 0}
                         {@const negativeCount =
                             currentStats?.[attr.key]?.negative || 0}
+
                         {@const totalCount = positiveCount + negativeCount}
                         <tr
                             class="attribute-row"
@@ -378,6 +380,7 @@
                     {#each appearanceList as type}
                         {@const attrKey = type.key.replace(/_/g, "-")}
                         {@const count = currentStats?.[attrKey] || 0}
+
                         <tr
                             class="appearance-row"
                             class:selected={selectedLookup[attrKey]}
@@ -386,7 +389,11 @@
                             onclick={(e) => handleAttributeClick(attrKey, e)}
                         >
                             <td>
-                                <span class="color-indicator {attrKey}"></span>
+                                <span
+                                    class="color-indicator"
+                                    style="background: {type.color_indicator}"
+                                    title={type.name}
+                                ></span>
                                 {type.name}
                             </td>
                             <td>{count}</td>
@@ -652,6 +659,43 @@
     .color-indicator.glow {
         background: radial-gradient(circle, #fef3c7, #f59e0b);
         box-shadow: 0 0 4px rgba(245, 158, 11, 0.5);
+    }
+
+    /* Horse appearance effect colors */
+    .color-indicator.scale-kb {
+        background-color: #8b5cf6;
+    }
+
+    .color-indicator.attributes-kb {
+        background-color: #06b6d4;
+    }
+
+    .color-indicator.selector-sb {
+        background-color: #8b4513;
+    }
+
+    .color-indicator.selector-pt {
+        background-color: #f59e0b;
+    }
+
+    .color-indicator.selector-po {
+        background-color: #84cc16;
+    }
+
+    .color-indicator.selector-kb {
+        background-color: #ec4899;
+    }
+
+    .color-indicator.selector-bl {
+        background-color: #3b82f6;
+    }
+
+    .color-indicator.horn {
+        background-color: #ef4444;
+    }
+
+    .color-indicator.horn-kb {
+        background-color: #f97316;
     }
 
     .summary-info {

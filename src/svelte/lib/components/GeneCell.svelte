@@ -16,11 +16,10 @@
         chromosome = "",
         geneAnalysis = null,
         currentView = "attribute",
-        isVisible = true
+        isVisible = true,
     } = $props();
 
     const dispatch = createEventDispatcher();
-
 
     function computeCssClass(gene, geneAnalysis, currentView, isVisible) {
         if (!gene || !geneAnalysis) return "gene-cell";
@@ -70,7 +69,9 @@
     function handleMouseLeave(event) {
         dispatch("tooltip-hide", { event });
     }
-    let cssClass = $derived(computeCssClass(gene, geneAnalysis, currentView, isVisible));
+    let cssClass = $derived(
+        computeCssClass(gene, geneAnalysis, currentView, isVisible),
+    );
 </script>
 
 {#if gene}
@@ -111,6 +112,17 @@
         --gene-particle-location: #0097a7;
         --gene-glow: #8bc34a;
         --gene-appearance-neutral: #95a5a6;
+
+        /* Horse appearance colors */
+        --gene-scale-kb: #8b5cf6;
+        --gene-attributes-kb: #06b6d4;
+        --gene-selector-sb: #8b4513;
+        --gene-selector-pt: #f59e0b;
+        --gene-selector-po: #84cc16;
+        --gene-selector-kb: #ec4899;
+        --gene-selector-bl: #3b82f6;
+        --gene-horn: #ef4444;
+        --gene-horn-kb: #f97316;
     }
 
     :global(.gene-cell) {
@@ -314,6 +326,43 @@
         --gene-color: var(--gene-glow);
     }
 
+    /* Horse appearance gene colors */
+    :global(.gene-scale-kb) {
+        --gene-color: var(--gene-scale-kb);
+    }
+
+    :global(.gene-attributes-kb) {
+        --gene-color: var(--gene-attributes-kb);
+    }
+
+    :global(.gene-selector-sb) {
+        --gene-color: var(--gene-selector-sb);
+    }
+
+    :global(.gene-selector-pt) {
+        --gene-color: var(--gene-selector-pt);
+    }
+
+    :global(.gene-selector-po) {
+        --gene-color: var(--gene-selector-po);
+    }
+
+    :global(.gene-selector-kb) {
+        --gene-color: var(--gene-selector-kb);
+    }
+
+    :global(.gene-selector-bl) {
+        --gene-color: var(--gene-selector-bl);
+    }
+
+    :global(.gene-horn) {
+        --gene-color: var(--gene-horn);
+    }
+
+    :global(.gene-horn-kb) {
+        --gene-color: var(--gene-horn-kb);
+    }
+
     :global(.gene-appearance-neutral) {
         --gene-color: var(--gene-appearance-neutral);
     }
@@ -335,6 +384,15 @@
     :global(.gene-particles.gene-dominant),
     :global(.gene-particle-location.gene-dominant),
     :global(.gene-glow.gene-dominant),
+    :global(.gene-scale-kb.gene-dominant),
+    :global(.gene-attributes-kb.gene-dominant),
+    :global(.gene-selector-sb.gene-dominant),
+    :global(.gene-selector-pt.gene-dominant),
+    :global(.gene-selector-po.gene-dominant),
+    :global(.gene-selector-kb.gene-dominant),
+    :global(.gene-selector-bl.gene-dominant),
+    :global(.gene-horn.gene-dominant),
+    :global(.gene-horn-kb.gene-dominant),
     :global(.gene-appearance-neutral.gene-dominant) {
         background-color: var(--gene-color);
         border-color: var(--gene-color);
@@ -356,6 +414,15 @@
     :global(.gene-particles.gene-recessive),
     :global(.gene-particle-location.gene-recessive),
     :global(.gene-glow.gene-recessive),
+    :global(.gene-scale-kb.gene-recessive),
+    :global(.gene-attributes-kb.gene-recessive),
+    :global(.gene-selector-sb.gene-recessive),
+    :global(.gene-selector-pt.gene-recessive),
+    :global(.gene-selector-po.gene-recessive),
+    :global(.gene-selector-kb.gene-recessive),
+    :global(.gene-selector-bl.gene-recessive),
+    :global(.gene-horn.gene-recessive),
+    :global(.gene-horn-kb.gene-recessive),
     :global(.gene-appearance-neutral.gene-recessive) {
         border-color: var(--gene-color);
         border-width: 4px;
@@ -377,6 +444,15 @@
     :global(.gene-particles.gene-mixed),
     :global(.gene-particle-location.gene-mixed),
     :global(.gene-glow.gene-mixed),
+    :global(.gene-scale-kb.gene-mixed),
+    :global(.gene-attributes-kb.gene-mixed),
+    :global(.gene-selector-sb.gene-mixed),
+    :global(.gene-selector-pt.gene-mixed),
+    :global(.gene-selector-po.gene-mixed),
+    :global(.gene-selector-kb.gene-mixed),
+    :global(.gene-selector-bl.gene-mixed),
+    :global(.gene-horn.gene-mixed),
+    :global(.gene-horn-kb.gene-mixed),
     :global(.gene-appearance-neutral.gene-mixed) {
         background: linear-gradient(
             135deg,

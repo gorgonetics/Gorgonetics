@@ -59,7 +59,7 @@ class DuckLakeGeneDatabase:
             {
                 key: value
                 for key, value in gene.items()
-                if key in ["gene", "effect_dominant", "effect_recessive", "appearance", "notes"]
+                if key in ["gene", "effectDominant", "effectRecessive", "appearance", "notes"]
             }
             for gene in genes
         ]
@@ -118,8 +118,8 @@ class DuckLakeGeneDatabase:
                 animal_type VARCHAR NOT NULL,
                 chromosome VARCHAR NOT NULL,
                 gene VARCHAR NOT NULL,
-                effect_dominant VARCHAR DEFAULT 'None',
-                effect_recessive VARCHAR DEFAULT 'None',
+                effectDominant VARCHAR DEFAULT 'None',
+                effectRecessive VARCHAR DEFAULT 'None',
                 appearance VARCHAR DEFAULT 'None',
                 notes VARCHAR DEFAULT 'None',
                 created_at TIMESTAMP,
@@ -241,8 +241,8 @@ class DuckLakeGeneDatabase:
             self.conn.execute(
                 """
                 INSERT INTO genes (
-                    animal_type, chromosome, gene, effect_dominant,
-                    effect_recessive, appearance, notes, created_at, updated_at
+                    animal_type, chromosome, gene, effectDominant,
+                    effectRecessive, appearance, notes, created_at, updated_at
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
             """,
                 [animal_type, chromosome, gene, effectDominant, effectRecessive, appearance, notes],
@@ -275,7 +275,7 @@ class DuckLakeGeneDatabase:
         assert self.conn is not None
         result = self.conn.execute(
             """
-            SELECT animal_type, chromosome, gene, effect_dominant, effect_recessive,
+            SELECT animal_type, chromosome, gene, effectDominant, effectRecessive,
                    appearance, notes, created_at
             FROM genes
             WHERE animal_type = ? AND chromosome = ?
@@ -303,7 +303,7 @@ class DuckLakeGeneDatabase:
         assert self.conn is not None
         result = self.conn.execute(
             """
-            SELECT animal_type, chromosome, gene, effect_dominant, effect_recessive,
+            SELECT animal_type, chromosome, gene, effectDominant, effectRecessive,
                    appearance, notes, created_at
             FROM genes
             WHERE animal_type = ?
@@ -366,7 +366,7 @@ class DuckLakeGeneDatabase:
         assert self.conn is not None
         result = self.conn.execute(
             """
-            SELECT animal_type, chromosome, gene, effect_dominant, effect_recessive,
+            SELECT animal_type, chromosome, gene, effectDominant, effectRecessive,
                    appearance, notes, created_at
             FROM genes
             WHERE animal_type = ? AND gene = ?
