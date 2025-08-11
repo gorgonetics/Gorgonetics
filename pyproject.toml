@@ -37,7 +37,7 @@ dev = [
 ]
 
 [project.scripts]
-gorgonetics = "gorgonetics.cli:main"
+gorgonetics = "gorgonetics.cli:app"
 
 [tool.uv]
 dev-dependencies = [

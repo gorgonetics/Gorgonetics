@@ -15,16 +15,16 @@ While the Python integration tests verify that API endpoints work correctly, the
 
 ```bash
 # Run all client tests
-npm run test:client
+pnpm run test:client
 
 # Run with watch mode for development
-npm run test:client:watch
+pnpm run test:client:watch
 
 # Open interactive test UI
-npm run test:client:ui
+pnpm run test:client:ui
 
 # Run with coverage report
-npm run test:client:coverage
+pnpm run test:client:coverage
 
 # Alternative using shell script
 ./test.sh client
@@ -133,7 +133,7 @@ tests/client/
 
 ```bash
 # Start development - watches for changes
-npm run test:client:watch
+pnpm run test:client:watch
 
 # Run specific test category
 node scripts/run_client_tests.js --filter "Gene API"
@@ -146,10 +146,10 @@ node scripts/run_client_tests.js --filter "should get gene effects" --verbose
 
 ```bash
 # Run all tests (for CI)
-npm run test:client
+pnpm run test:client
 
 # Run with coverage (for reports)
-npm run test:client:coverage
+pnpm run test:client:coverage
 
 # Health check environment
 node scripts/run_client_tests.js health
@@ -159,7 +159,7 @@ node scripts/run_client_tests.js health
 
 ```bash
 # Open test UI for visual debugging
-npm run test:client:ui
+pnpm run test:client:ui
 
 # Run in browser environment
 node scripts/run_client_tests.js ui
@@ -357,7 +357,7 @@ Planned additions:
 node --version  # Should be 16+
 
 # Install dependencies
-npm install
+pnpm install
 
 # Check test files exist
 ls tests/client/

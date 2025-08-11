@@ -43,7 +43,7 @@ class DynamicAttributeValues(BaseModel):
     species: str = ""
     attribute_values: dict[str, float] = Field(default_factory=dict)
 
-    def __init__(self, species: str = "", **data):
+    def __init__(self, species: str = "", **data: Any) -> None:
         """Initialize with species-specific attributes."""
         # Extract attributes from data if provided
         attributes = data.pop("attributes", data.pop("attribute_values", {}))
@@ -59,7 +59,7 @@ class DynamicAttributeValues(BaseModel):
 
     @field_validator("attribute_values")
     @classmethod
-    def validate_attributes(cls, v, info):
+    def validate_attributes(cls, v: dict[str, float], info: Any) -> dict[str, float]:
         """Validate that all attributes are valid for the species."""
         if not info.data:
             return v
@@ -254,7 +254,7 @@ class Pet(BaseModel):
     screenshot_path: Path | None = None
     notes: str = ""
 
-    def __init__(self, **data):
+    def __init__(self, **data: Any) -> None:
         """Initialize Pet with species-specific attributes."""
         if "attributes" not in data and "genome" in data:
             # Auto-create species-specific attributes if not provided

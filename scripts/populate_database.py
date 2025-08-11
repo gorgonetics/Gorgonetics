@@ -166,6 +166,10 @@ def populate_database() -> None:
 
                 progress.advance(overall_task)
 
+        # Commit all changes to database
+        console.print("[blue]💾 Committing changes to database...[/blue]")
+        db.conn.commit()
+
         # Summary
         console.print("=" * 50)
         console.print(f"🎉 [bold green]Successfully loaded {total_genes} genes into database![/bold green]")

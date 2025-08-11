@@ -50,7 +50,7 @@ class DuckLakeGeneDatabase:
         self._connect()
         self._setup_ducklake()
 
-    def export_genes_to_json(self, animal_type: str, chromosome: str) -> list[dict[str, object]]:
+    def export_genes_to_json(self, animal_type: str, chromosome: str) -> list[dict[str, str]]:
         """
         Export all genes for a given animal_type and chromosome in the same format as the assets gene files.
         """
@@ -59,7 +59,7 @@ class DuckLakeGeneDatabase:
             {
                 key: value
                 for key, value in gene.items()
-                if key in ["gene", "effectDominant", "effectRecessive", "appearance", "notes"]
+                if key in ["gene", "effect_dominant", "effect_recessive", "appearance", "notes"]
             }
             for gene in genes
         ]
@@ -76,7 +76,6 @@ class DuckLakeGeneDatabase:
             self.conn.execute("LOAD ducklake")
 
             # Install catalog-specific extensions
-
             self.conn.execute(f"INSTALL {self.catalog_type}")
             self.conn.execute(f"LOAD {self.catalog_type}")
 
@@ -88,6 +87,7 @@ class DuckLakeGeneDatabase:
 
     def _setup_ducklake(self) -> None:
         """Attach to DuckLake catalog and set up initial schema."""
+        assert self.conn is not None, "Connection must be established before setup"
         try:
             # Build attach string based on catalog type and attach to DuckLake
             if self.catalog_type != "duckdb":
@@ -111,14 +111,15 @@ class DuckLakeGeneDatabase:
 
     def _create_tables(self) -> None:
         """Create the necessary database tables in DuckLake."""
+        assert self.conn is not None
         # Genes table (static reference data)
         self.conn.execute("""
             CREATE TABLE IF NOT EXISTS genes (
                 animal_type VARCHAR NOT NULL,
                 chromosome VARCHAR NOT NULL,
                 gene VARCHAR NOT NULL,
-                effectDominant VARCHAR DEFAULT 'None',
-                effectRecessive VARCHAR DEFAULT 'None',
+                effect_dominant VARCHAR DEFAULT 'None',
+                effect_recessive VARCHAR DEFAULT 'None',
                 appearance VARCHAR DEFAULT 'None',
                 notes VARCHAR DEFAULT 'None',
                 created_at TIMESTAMP,
@@ -139,7 +140,8 @@ class DuckLakeGeneDatabase:
         return data
 
     def _create_pets_table(self) -> None:
-        """Create pets table with dynamic columns based on attribute configuration."""
+        """Create the pets table with dynamic columns based on species attributes."""
+        assert self.conn is not None
         try:
             # Check if pets table already exists
             tables = self.conn.execute("""
@@ -208,6 +210,7 @@ class DuckLakeGeneDatabase:
             self._load_animal_genes(json_file, animal_type)
 
         # Commit changes to create a snapshot
+        assert self.conn is not None
         self.conn.commit()
         logger.info("Gene data loaded and snapshot created")
 
@@ -233,12 +236,13 @@ class DuckLakeGeneDatabase:
         notes = gene_data.get("notes", "None")
 
         # Use regular INSERT (DuckLake doesn't support INSERT OR REPLACE without primary keys)
+        assert self.conn is not None
         try:
             self.conn.execute(
                 """
                 INSERT INTO genes (
-                    animal_type, chromosome, gene, effectDominant,
-                    effectRecessive, appearance, notes, created_at, updated_at
+                    animal_type, chromosome, gene, effect_dominant,
+                    effect_recessive, appearance, notes, created_at, updated_at
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
             """,
                 [animal_type, chromosome, gene, effectDominant, effectRecessive, appearance, notes],
@@ -249,11 +253,13 @@ class DuckLakeGeneDatabase:
 
     def get_animal_types(self) -> list[str]:
         """Get list of all animal types."""
+        assert self.conn is not None
         result = self.conn.execute("SELECT DISTINCT animal_type FROM genes ORDER BY animal_type").fetchall()
         return [row[0] for row in result]
 
     def get_chromosomes(self, animal_type: str) -> list[str]:
-        """Get list of chromosomes for a specific animal type."""
+        """Get all chromosomes for a specific animal type."""
+        assert self.conn is not None
         result = self.conn.execute(
             """
             SELECT DISTINCT chromosome FROM genes
@@ -264,12 +270,13 @@ class DuckLakeGeneDatabase:
         ).fetchall()
         return [row[0] for row in result]
 
-    def get_genes_by_chromosome(self, animal_type: str, chromosome: str) -> list[dict[str, Any]]:
+    def get_genes_by_chromosome(self, animal_type: str, chromosome: str) -> list[dict[str, str]]:
         """Get all genes for a specific animal type and chromosome."""
+        assert self.conn is not None
         result = self.conn.execute(
             """
-            SELECT animal_type, chromosome, gene, effectDominant, effectRecessive,
-                   appearance, notes, created_at, updated_at
+            SELECT animal_type, chromosome, gene, effect_dominant, effect_recessive,
+                   appearance, notes, created_at
             FROM genes
             WHERE animal_type = ? AND chromosome = ?
             ORDER BY gene
@@ -284,20 +291,20 @@ class DuckLakeGeneDatabase:
                 "gene": row[2],
                 "effectDominant": row[3] or "None",
                 "effectRecessive": row[4] or "None",
-                "appearance": row[5],
-                "notes": row[6],
-                "created_at": row[7].isoformat() if row[7] else None,
-                "updated_at": row[8].isoformat() if row[8] else None,
+                "appearance": row[5] or "None",
+                "notes": row[6] or "None",
+                "created_at": row[7].isoformat() if row[7] else "",
             }
             for row in result
         ]
 
     def get_genes_for_animal(self, animal_type: str) -> list[dict[str, Any]]:
         """Get all genes for a specific animal type."""
+        assert self.conn is not None
         result = self.conn.execute(
             """
-            SELECT animal_type, chromosome, gene, effectDominant, effectRecessive,
-                   appearance, notes, created_at, updated_at
+            SELECT animal_type, chromosome, gene, effect_dominant, effect_recessive,
+                   appearance, notes, created_at
             FROM genes
             WHERE animal_type = ?
             ORDER BY chromosome, gene
@@ -315,20 +322,20 @@ class DuckLakeGeneDatabase:
                 "appearance": row[5],
                 "notes": row[6],
                 "created_at": row[7].isoformat() if row[7] else None,
-                "updated_at": row[8].isoformat() if row[8] else None,
             }
             for row in result
         ]
 
     def update_gene(self, animal_type: str, gene: str, updates: dict[str, str]) -> bool:
-        """Update a gene record."""
+        """Update a gene's attributes."""
+        assert self.conn is not None
         try:
-            # Build dynamic UPDATE query
+            # Build dynamic update query
             set_clauses = []
             values = []
 
             for field, value in updates.items():
-                if field in ["effectDominant", "effectRecessive", "appearance", "notes"]:
+                if field not in ["animal_type", "gene", "created_at"]:  # Don't allow updating these key fields
                     set_clauses.append(f"{field} = ?")
                     values.append(value)
 
@@ -356,10 +363,11 @@ class DuckLakeGeneDatabase:
 
     def get_gene(self, animal_type: str, gene: str) -> dict[str, Any] | None:
         """Get a specific gene record."""
+        assert self.conn is not None
         result = self.conn.execute(
             """
-            SELECT animal_type, chromosome, gene, effectDominant, effectRecessive,
-                   appearance, notes, created_at, updated_at
+            SELECT animal_type, chromosome, gene, effect_dominant, effect_recessive,
+                   appearance, notes, created_at
             FROM genes
             WHERE animal_type = ? AND gene = ?
         """,
@@ -377,7 +385,6 @@ class DuckLakeGeneDatabase:
                 "appearance": row[5],
                 "notes": row[6],
                 "created_at": row[7].isoformat() if row[7] else None,
-                "updated_at": row[8].isoformat() if row[8] else None,
             }
         return None
 
@@ -426,11 +433,11 @@ class DuckLakeGeneDatabase:
                 for attr_name in all_attributes.keys():
                     if attr_name in attributes:
                         columns.append(attr_name)
-                        values.append(attributes[attr_name])
+                        values.append(str(attributes[attr_name]))
 
             # Add timestamp columns
             columns.extend(["created_at", "updated_at"])
-            values.extend([None, None])  # Will be set by NOW() in query
+            values.extend(["NOW()", "NOW()"])  # Will be set by NOW() in query
 
             placeholders = []
             for _i, col in enumerate(columns):
@@ -442,13 +449,13 @@ class DuckLakeGeneDatabase:
             # Remove None values for timestamp columns
             values = [v for i, v in enumerate(values) if columns[i] not in ["created_at", "updated_at"]]
 
+            assert self.conn is not None
             # Get next ID first (DuckLake doesn't support RETURNING)
             max_id_result = self.conn.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM pets").fetchone()
             next_id = max_id_result[0] if max_id_result else 1
 
-            # Add id to columns and values
             columns.insert(0, "id")
-            values.insert(0, next_id)
+            values.insert(0, str(next_id))
             placeholders.insert(0, "?")
 
             query = f"""
@@ -472,12 +479,13 @@ class DuckLakeGeneDatabase:
 
     def get_pet(self, pet_id: int) -> dict[str, Any] | None:
         """Get a pet by ID."""
+        assert self.conn is not None
         try:
             result = self.conn.execute("SELECT * FROM pets WHERE id = ?", [pet_id]).fetchone()
 
             if result:
                 # Get column names
-                columns = [desc[0] for desc in self.conn.description]
+                columns = [desc[0] for desc in self.conn.description or []]
 
                 # Build pet dictionary
                 pet = dict(zip(columns, result, strict=False))
@@ -496,7 +504,9 @@ class DuckLakeGeneDatabase:
 
     def get_all_pets(self, species: str | None = None) -> list[dict[str, Any]]:
         """Get all pets, optionally filtered by species."""
+        assert self.conn is not None
         try:
+            # Build query based on whether species filter is provided
             if species:
                 query = "SELECT * FROM pets WHERE species = ? ORDER BY name"
                 params = [species]
@@ -507,7 +517,7 @@ class DuckLakeGeneDatabase:
             results = self.conn.execute(query, params).fetchall()
 
             if results:
-                columns = [desc[0] for desc in self.conn.description]
+                columns = [desc[0] for desc in self.conn.description or []]
 
                 pets = []
                 for result in results:
@@ -604,7 +614,7 @@ class DuckLakeGeneDatabase:
                 return False
 
             set_clauses.append("updated_at = NOW()")
-            values.append(pet_id)
+            values.append(str(pet_id))
 
             query = f"""
                 UPDATE pets
@@ -612,6 +622,7 @@ class DuckLakeGeneDatabase:
                 WHERE id = ?
             """
 
+            assert self.conn is not None
             self.conn.execute(query, values)
 
             # Commit to create snapshot
@@ -624,6 +635,7 @@ class DuckLakeGeneDatabase:
 
     def delete_pet(self, pet_id: int) -> bool:
         """Delete a pet from the database."""
+        assert self.conn is not None
         try:
             # Check if pet exists before deletion
             existing_pet = self.conn.execute("SELECT id FROM pets WHERE id = ?", [pet_id]).fetchone()
@@ -643,11 +655,12 @@ class DuckLakeGeneDatabase:
 
     def find_pet_by_hash(self, content_hash: str) -> dict[str, Any] | None:
         """Find a pet by its content hash."""
+        assert self.conn is not None
         try:
             result = self.conn.execute("SELECT * FROM pets WHERE content_hash = ?", [content_hash]).fetchone()
 
             if result:
-                columns = [desc[0] for desc in self.conn.description]
+                columns = [desc[0] for desc in self.conn.description or []]
                 pet = dict(zip(columns, result, strict=False))
 
                 # Note: genome_data is already parsed by DuckDB's JSON column type
@@ -664,6 +677,7 @@ class DuckLakeGeneDatabase:
 
     def get_snapshots(self) -> list[dict[str, Any]]:
         """Get all DuckLake snapshots."""
+        assert self.conn is not None
         try:
             result = self.conn.execute(f"FROM ducklake_snapshots('{self.ducklake_name}')").fetchall()
 
@@ -679,15 +693,16 @@ class DuckLakeGeneDatabase:
             logger.error(f"Failed to get snapshots: {e}")
             return []
 
-    def get_table_changes(self, table_name: str, start_snapshot: int, end_snapshot: int) -> list[dict[str, Any]]:
-        """Get changes for a table between snapshots."""
+    def get_table_changes(self, table: str, start_snapshot: int, end_snapshot: int) -> list[dict[str, str]]:
+        """Get changes to a table between snapshots."""
+        assert self.conn is not None
         try:
             result = self.conn.execute(f"""
-                FROM ducklake_table_changes('{self.ducklake_name}', 'main', '{table_name}', {start_snapshot}, {end_snapshot})
+                FROM ducklake_table_changes('{self.ducklake_name}', 'main', '{table}', {start_snapshot}, {end_snapshot})
             """).fetchall()
 
             if result:
-                columns = [desc[0] for desc in self.conn.description]
+                columns = [desc[0] for desc in self.conn.description or []]
                 return [dict(zip(columns, row, strict=False)) for row in result]
             return []
 
@@ -697,6 +712,7 @@ class DuckLakeGeneDatabase:
 
     def cleanup_old_files(self, dry_run: bool = True) -> bool:
         """Clean up old DuckLake files."""
+        assert self.conn is not None
         try:
             query = f"FROM ducklake_cleanup_old_files('{self.ducklake_name}', dry_run={dry_run})"
             self.conn.execute(query)
@@ -707,7 +723,7 @@ class DuckLakeGeneDatabase:
             return False
 
     def close(self) -> None:
-        """Close the database connection."""
+        """Close database connection."""
         if self.conn:
             self.conn.close()
             self.conn = None
