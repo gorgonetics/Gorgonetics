@@ -21,7 +21,7 @@ updates:
       include: "scope"
 
   # Enable version updates for npm dependencies
-  - package-ecosystem: "npm"
+  - package-ecosystem: "pnpm"
     directory: "/"
     schedule:
       interval: "weekly"
