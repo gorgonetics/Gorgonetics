@@ -2,197 +2,197 @@
   {
     "gene": "10A1",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Temperament+",
+    "appearance": "Attributes (Sb)",
+    "notes": ""
   },
   {
     "gene": "10A2",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Enthusiasm+",
+    "appearance": "Attributes (Sb)",
+    "notes": ""
   },
   {
     "gene": "10A3",
-    "effectDominant": "None",
+    "effectDominant": "Temperament+",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Attributes (Sb)",
+    "notes": ""
   },
   {
     "gene": "10A4",
-    "effectDominant": "None",
+    "effectDominant": "Virility+",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Attributes (Sb)",
+    "notes": ""
   },
   {
     "gene": "10B1",
-    "effectDominant": "None",
+    "effectDominant": "Toughness+",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Attributes (Sb)",
+    "notes": ""
   },
   {
     "gene": "10B2",
-    "effectDominant": "None",
+    "effectDominant": "Virility-",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Attributes (Sb)",
+    "notes": ""
   },
   {
     "gene": "10B3",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Ruggedness-",
+    "appearance": "Attributes (Sb)",
+    "notes": ""
   },
   {
     "gene": "10B4",
-    "effectDominant": "None",
+    "effectDominant": "Temperament+",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Attributes (Sb)",
+    "notes": ""
   },
   {
     "gene": "10C1",
-    "effectDominant": "None",
+    "effectDominant": "Enthusiasm-",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Attributes (Sb)",
+    "notes": ""
   },
   {
     "gene": "10C2",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Enthusiasm+",
+    "appearance": "Attributes (Sb)",
+    "notes": ""
   },
   {
     "gene": "10C3",
-    "effectDominant": "None",
+    "effectDominant": "Intelligence+",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Attributes (Sb)",
+    "notes": ""
   },
   {
     "gene": "10C4",
-    "effectDominant": "None",
+    "effectDominant": "Ruggedness+",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Attributes (Sb)",
+    "notes": ""
   },
   {
     "gene": "10D1",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Friendliness+",
+    "appearance": "Attributes (Sb)",
+    "notes": ""
   },
   {
     "gene": "10D2",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Intelligence-",
+    "appearance": "Attributes (Sb)",
+    "notes": ""
   },
   {
     "gene": "10D3",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Intelligence+",
+    "appearance": "Attributes (Sb)",
+    "notes": ""
   },
   {
     "gene": "10D4",
-    "effectDominant": "None",
+    "effectDominant": "Friendliness-",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Attributes (Sb)",
+    "notes": ""
   },
   {
     "gene": "10E1",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Ruggedness+",
+    "appearance": "Attributes (Sb)",
+    "notes": ""
   },
   {
     "gene": "10E2",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Toughness-",
+    "appearance": "Attributes (Sb)",
+    "notes": ""
   },
   {
     "gene": "10E3",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Temperament+",
+    "appearance": "Attributes (Sb)",
+    "notes": ""
   },
   {
     "gene": "10E4",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Friendliness+",
+    "appearance": "Attributes (Sb)",
+    "notes": ""
   },
   {
     "gene": "10F1",
-    "effectDominant": "None",
+    "effectDominant": "Toughness+",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Attributes (Sb)",
+    "notes": ""
   },
   {
     "gene": "10F2",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Virility+",
+    "appearance": "Attributes (Sb)",
+    "notes": ""
   },
   {
     "gene": "10F3",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Enthusiasm+",
+    "appearance": "Attributes (Sb)",
+    "notes": ""
   },
   {
     "gene": "10F4",
-    "effectDominant": "None",
+    "effectDominant": "Friendliness+",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Attributes (Sb)",
+    "notes": ""
   },
   {
     "gene": "10G1",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "None",
+    "notes": ""
   },
   {
     "gene": "10G2",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "None",
+    "notes": ""
   },
   {
     "gene": "10G3",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "None",
+    "notes": ""
   },
   {
     "gene": "10G4",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "None",
+    "notes": ""
   }
 ]
