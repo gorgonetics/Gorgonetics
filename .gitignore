@@ -180,3 +180,4 @@ tmp/
 
 # DB file
 metadata.sqlite
+backup_*

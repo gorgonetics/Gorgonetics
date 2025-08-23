@@ -41,6 +41,7 @@ def test_database():
         try:
             # Create database instance with test configuration
             from gorgonetics.database_config import create_database_instance
+
             db = create_database_instance()
 
             yield db
@@ -64,7 +65,7 @@ def test_database():
 @pytest.fixture
 def sample_pet_file():
     """Create a sample pet genome file for testing."""
-    sample_content = '''{
+    sample_content = """{
     "format": "gorgonetics",
     "formatVersion": "1.1",
     "name": "Test Pet",
@@ -75,9 +76,9 @@ def sample_pet_file():
         "01": "01A1 01A2",
         "02": "02B1 02B2"
     }
-}'''
+}"""
 
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
         f.write(sample_content)
         f.flush()
         yield f.name

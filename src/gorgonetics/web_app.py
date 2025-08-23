@@ -54,12 +54,11 @@ logger = logging.getLogger(__name__)
 # Initialize FastAPI app with lifespan
 app = FastAPI(title="Gorgonetics Labs", version="1.0.0", lifespan=lifespan)
 
+
 # Database dependency
 def get_database() -> "DuckLakeGeneDatabase":
     """Get database instance for dependency injection."""
     return create_database_instance()
-
-
 
 
 class GeneUpdate(BaseModel):
@@ -100,7 +99,9 @@ class BulkGeneUpdate(BaseModel):
 
 # Bulk gene update endpoint
 @app.put("/api/genes")
-async def update_genes_bulk(bulk_update: BulkGeneUpdate, db: "DuckLakeGeneDatabase" = Depends(get_database)) -> dict[str, str]:
+async def update_genes_bulk(
+    bulk_update: BulkGeneUpdate, db: "DuckLakeGeneDatabase" = Depends(get_database)
+) -> dict[str, str]:
     """Bulk update genes for a chromosome."""
     try:
         updated = 0
@@ -166,7 +167,9 @@ async def get_gene_effects(species: str, db: "DuckLakeGeneDatabase" = Depends(ge
 
 
 @app.get("/api/pet-genome/{pet_id}")
-async def get_pet_genome_for_visualization(pet_id: int, db: "DuckLakeGeneDatabase" = Depends(get_database)) -> dict[str, Any]:
+async def get_pet_genome_for_visualization(
+    pet_id: int, db: "DuckLakeGeneDatabase" = Depends(get_database)
+) -> dict[str, Any]:
     """Get pet genome data formatted for visualization."""
     try:
         pet_data = db.get_pet(pet_id)
@@ -240,7 +243,9 @@ async def get_chromosomes(animal_type: str, db: "DuckLakeGeneDatabase" = Depends
 
 
 @app.get("/api/genes/{animal_type}/{chromosome}")
-async def get_genes(animal_type: str, chromosome: str, db: "DuckLakeGeneDatabase" = Depends(get_database)) -> list[dict[str, str]]:
+async def get_genes(
+    animal_type: str, chromosome: str, db: "DuckLakeGeneDatabase" = Depends(get_database)
+) -> list[dict[str, str]]:
     """Get all genes for a specific chromosome."""
     try:
         return db.get_genes_by_chromosome(animal_type, chromosome)
@@ -355,7 +360,9 @@ async def get_appearance_config(species: str) -> dict[str, Any]:
 
 
 @app.get("/api/export/{animal_type}")
-async def export_all_chromosomes(animal_type: str, db: "DuckLakeGeneDatabase" = Depends(get_database)) -> dict[str, str | list[str]]:
+async def export_all_chromosomes(
+    animal_type: str, db: "DuckLakeGeneDatabase" = Depends(get_database)
+) -> dict[str, str | list[str]]:
     """Export all chromosomes for an animal type to JSON files."""
     try:
         # Get all chromosomes for this animal type
@@ -374,10 +381,10 @@ async def export_all_chromosomes(animal_type: str, db: "DuckLakeGeneDatabase" = 
         raise HTTPException(status_code=500, detail="Failed to export chromosomes") from e
 
 
-
-
 @app.get("/api/download/{animal_type}/{chromosome}")
-async def download_chromosome_file(animal_type: str, chromosome: str, db: "DuckLakeGeneDatabase" = Depends(get_database)) -> Response:
+async def download_chromosome_file(
+    animal_type: str, chromosome: str, db: "DuckLakeGeneDatabase" = Depends(get_database)
+) -> Response:
     """Download a chromosome JSON file."""
     try:
         data = db.export_genes_to_json(animal_type, chromosome)
@@ -541,7 +548,9 @@ async def get_pet(pet_id: int, db: "DuckLakeGeneDatabase" = Depends(get_database
 
 
 @app.put("/api/pets/{pet_id}")
-async def update_pet(pet_id: int, pet_update: PetUpdate, db: "DuckLakeGeneDatabase" = Depends(get_database)) -> dict[str, str]:
+async def update_pet(
+    pet_id: int, pet_update: PetUpdate, db: "DuckLakeGeneDatabase" = Depends(get_database)
+) -> dict[str, str]:
     """Update a pet's attributes."""
     try:
         updates = {}
@@ -585,7 +594,9 @@ async def delete_pet(pet_id: int, db: "DuckLakeGeneDatabase" = Depends(get_datab
 
 
 @app.get("/api/pets/species/{species}")
-async def get_pets_by_species(species: str, db: "DuckLakeGeneDatabase" = Depends(get_database)) -> list[dict[str, str | int | float]]:
+async def get_pets_by_species(
+    species: str, db: "DuckLakeGeneDatabase" = Depends(get_database)
+) -> list[dict[str, str | int | float]]:
     """Get all pets of a specific species."""
     try:
         pets = db.get_all_pets(species=species)

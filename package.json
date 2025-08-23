@@ -13,10 +13,16 @@
     "lint:strict": "eslint src/svelte/**/*.{js,svelte} *.js --max-warnings=0",
     "lint:ci": "eslint src/svelte/**/*.{js,svelte} *.js --max-warnings=0",
     "test": "vitest",
-    "test:client": "./test.sh client",
-    "test:client:ui": "./test.sh client-ui",
+    "test:client": "node scripts/run_client_tests.js run",
+    "test:client:watch": "node scripts/run_client_tests.js watch",
+    "test:client:ui": "node scripts/run_client_tests.js ui",
+    "test:client:coverage": "node scripts/run_client_tests.js coverage",
     "test:integration": "./test.sh quick",
-    "test:all": "./test.sh all"
+    "test:all": "./test.sh all",
+    "clean:client": "rm -rf node_modules/.cache/ .vite/",
+    "clean:test": "node scripts/clean_test_artifacts.js",
+    "test:client:clean": "pnpm test:client && pnpm clean:test",
+    "setup": "pnpm install"
   },
   "devDependencies": {
     "@eslint/js": "^9.0.0",

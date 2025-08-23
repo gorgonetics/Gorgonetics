@@ -500,7 +500,7 @@ class TestPerformance:
             "/api/chromosomes/horse",
             "/api/genes/horse/01",
             "/api/gene-effects/horse",
-            "/api/pets"
+            "/api/pets",
         ]
 
         results = []
@@ -512,11 +512,9 @@ class TestPerformance:
             response = client.get(endpoint)
             request_end = time.time()
 
-            results.append({
-                "endpoint": endpoint,
-                "status_code": response.status_code,
-                "duration": request_end - request_start
-            })
+            results.append(
+                {"endpoint": endpoint, "status_code": response.status_code, "duration": request_end - request_start}
+            )
         end_time = time.time()
 
         # Check results
