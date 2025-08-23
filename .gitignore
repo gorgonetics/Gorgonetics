@@ -181,3 +181,4 @@ tmp/
 # DB file
 metadata.sqlite
 backup_*
+.claude/*
