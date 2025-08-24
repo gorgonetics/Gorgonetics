@@ -43,6 +43,21 @@
     // Parsed gene data
     let headerStructure = $state(null);
     let chromosomeData = $state([]);
+    
+    // Cached attribute names for dynamic attribute detection
+    let allAttributeNames = $state([]);
+    
+    // Centralized fallback attributes (includes all core + common species-specific)
+    const FALLBACK_ATTRIBUTES = [
+        "Intelligence",
+        "Toughness", 
+        "Friendliness",
+        "Ruggedness",
+        "Enthusiasm",
+        "Virility",
+        "Ferocity",      // BeeWasp specific
+        "Temperament",   // Horse specific
+    ];
 
     onMount(async () => {
         if (pet) {
@@ -66,6 +81,7 @@
         hiddenChromosomes = [];
         headerStructure = null;
         chromosomeData = [];
+        allAttributeNames = [];
 
         error = null;
     }
@@ -212,6 +228,12 @@
                     );
                     if (response.ok) {
                         const config = await response.json();
+                        
+                        // Cache attribute names for dynamic detection
+                        allAttributeNames = config.all_attribute_names.map(name => 
+                            name.charAt(0).toUpperCase() + name.slice(1)
+                        );
+                        
                         config.all_attribute_names.forEach((attrName) => {
                             const attrKey =
                                 attrName.charAt(0).toUpperCase() +
@@ -220,44 +242,23 @@
                         });
                     } else {
                         // Fallback to default attributes
-                        [
-                            "Intelligence",
-                            "Toughness",
-                            "Friendliness",
-                            "Ruggedness",
-                            "Enthusiasm",
-                            "Virility",
-                            "Ferocity",
-                        ].forEach((attr) => {
+                        allAttributeNames = FALLBACK_ATTRIBUTES;
+                        FALLBACK_ATTRIBUTES.forEach((attr) => {
                             stats[attr] = { positive: 0, negative: 0 };
                         });
                     }
                 } catch (error) {
                     console.error("Error loading attribute config:", error);
                     // Fallback to default attributes
-                    [
-                        "Intelligence",
-                        "Toughness",
-                        "Friendliness",
-                        "Ruggedness",
-                        "Enthusiasm",
-                        "Virility",
-                        "Ferocity",
-                    ].forEach((attr) => {
+                    allAttributeNames = FALLBACK_ATTRIBUTES;
+                    FALLBACK_ATTRIBUTES.forEach((attr) => {
                         stats[attr] = { positive: 0, negative: 0 };
                     });
                 }
             } else {
                 // Default attributes if no species specified
-                [
-                    "Intelligence",
-                    "Toughness",
-                    "Friendliness",
-                    "Ruggedness",
-                    "Enthusiasm",
-                    "Virility",
-                    "Ferocity",
-                ].forEach((attr) => {
+                allAttributeNames = FALLBACK_ATTRIBUTES;
+                FALLBACK_ATTRIBUTES.forEach((attr) => {
                     stats[attr] = { positive: 0, negative: 0 };
                 });
             }
@@ -467,6 +468,31 @@
         return geneData.appearance;
     }
 
+    function extractAttributeFromEffect(effectStr) {
+        if (!effectStr || !allAttributeNames.length) return null;
+        
+        // Find which attribute name is mentioned in the effect string
+        for (const attributeName of allAttributeNames) {
+            if (effectStr.includes(attributeName)) {
+                return attributeName;
+            }
+        }
+        return null;
+    }
+    
+    function extractAttributesFromEffect(effectStr) {
+        if (!effectStr || !allAttributeNames.length) return [];
+        
+        // Find all attribute names mentioned in the effect string
+        const foundAttributes = [];
+        for (const attributeName of allAttributeNames) {
+            if (effectStr.includes(attributeName)) {
+                foundAttributes.push(attributeName);
+            }
+        }
+        return foundAttributes;
+    }
+
     function analyzeGeneEffect(species, geneId, geneType) {
         if (currentView === "attribute") {
             const effect = getGeneEffect(species, geneId, geneType);
@@ -489,15 +515,8 @@
             let attribute = null;
             const effectStr = effect || "";
 
-            // Attribute detection
-            if (effectStr.includes("Intelligence")) attribute = "Intelligence";
-            else if (effectStr.includes("Toughness")) attribute = "Toughness";
-            else if (effectStr.includes("Friendliness"))
-                attribute = "Friendliness";
-            else if (effectStr.includes("Ruggedness")) attribute = "Ruggedness";
-            else if (effectStr.includes("Ferocity")) attribute = "Ferocity";
-            else if (effectStr.includes("Enthusiasm")) attribute = "Enthusiasm";
-            else if (effectStr.includes("Virility")) attribute = "Virility";
+            // Dynamic attribute detection using centralized config
+            attribute = extractAttributeFromEffect(effectStr);
 
             // Potential effect detection
             const isPotential =
@@ -775,20 +794,8 @@
             dominantEffect !== "No dominant effect" &&
             dominantEffect !== "Unknown gene type"
         ) {
-            if (dominantEffect.includes("Intelligence"))
-                allPotentialAttributes.push("Intelligence");
-            if (dominantEffect.includes("Toughness"))
-                allPotentialAttributes.push("Toughness");
-            if (dominantEffect.includes("Friendliness"))
-                allPotentialAttributes.push("Friendliness");
-            if (dominantEffect.includes("Ruggedness"))
-                allPotentialAttributes.push("Ruggedness");
-            if (dominantEffect.includes("Ferocity"))
-                allPotentialAttributes.push("Ferocity");
-            if (dominantEffect.includes("Enthusiasm"))
-                allPotentialAttributes.push("Enthusiasm");
-            if (dominantEffect.includes("Virility"))
-                allPotentialAttributes.push("Virility");
+            const dominantAttributes = extractAttributesFromEffect(dominantEffect);
+            allPotentialAttributes.push(...dominantAttributes);
         }
 
         if (
@@ -797,20 +804,8 @@
             recessiveEffect !== "No recessive effect" &&
             recessiveEffect !== "Unknown gene type"
         ) {
-            if (recessiveEffect.includes("Intelligence"))
-                allPotentialAttributes.push("Intelligence");
-            if (recessiveEffect.includes("Toughness"))
-                allPotentialAttributes.push("Toughness");
-            if (recessiveEffect.includes("Friendliness"))
-                allPotentialAttributes.push("Friendliness");
-            if (recessiveEffect.includes("Ruggedness"))
-                allPotentialAttributes.push("Ruggedness");
-            if (recessiveEffect.includes("Ferocity"))
-                allPotentialAttributes.push("Ferocity");
-            if (recessiveEffect.includes("Enthusiasm"))
-                allPotentialAttributes.push("Enthusiasm");
-            if (recessiveEffect.includes("Virility"))
-                allPotentialAttributes.push("Virility");
+            const recessiveAttributes = extractAttributesFromEffect(recessiveEffect);
+            allPotentialAttributes.push(...recessiveAttributes);
         }
 
         return allPotentialAttributes.some((attr) =>
