@@ -1,8 +1,13 @@
 <script>
     import { run } from "svelte/legacy";
-
     import { createEventDispatcher } from "svelte";
     import App from "../../App.svelte";
+    import { 
+        loadAttributeConfig,
+        loadAppearanceConfig,
+        FALLBACK_ATTRIBUTE_LIST,
+        FALLBACK_APPEARANCE_LIST
+    } from "../utils/apiUtils.js";
 
     const dispatch = createEventDispatcher();
 
@@ -32,219 +37,36 @@
     let attributeConfig = null;
     let appearanceList = $state([]);
     let appearanceConfig = null;
-    const fallbackAttributeList = [
-        { key: "Intelligence", name: "Intelligence", icon: "🧠" },
-        { key: "Toughness", name: "Toughness", icon: "💪" },
-        { key: "Friendliness", name: "Friendliness", icon: "😊" },
-        { key: "Ruggedness", name: "Ruggedness", icon: "🏔️" },
-        { key: "Enthusiasm", name: "Enthusiasm", icon: "✨" },
-        { key: "Virility", name: "Virility", icon: "💜" },
-        { key: "Ferocity", name: "Ferocity", icon: "🔥" },
-    ];
 
-    async function loadAttributeConfig(species) {
+    async function loadAttributeConfigForTable(species) {
         if (!species) {
             // Default to BeeWasp if no species specified
             species = "BeeWasp";
         }
 
-        try {
-            const response = await fetch(`/api/attribute-config/${species}`);
-            if (response.ok) {
-                attributeConfig = await response.json();
-                attributeList = attributeConfig.attributes || [];
-            } else {
-                console.warn(`Failed to load attribute config for ${species}`);
-                // Fallback to hardcoded BeeWasp attributes
-                attributeList = fallbackAttributeList;
-            }
-        } catch (error) {
-            console.error(
-                `Error loading attribute config for ${species}:`,
-                error,
-            );
+        const config = await loadAttributeConfig(species);
+        if (config) {
+            attributeConfig = config;
+            attributeList = config.attributes || [];
+        } else {
             // Fallback to hardcoded attributes
-            attributeList = fallbackAttributeList;
+            attributeList = FALLBACK_ATTRIBUTE_LIST;
         }
     }
 
-    async function loadAppearanceConfig(species) {
+    async function loadAppearanceConfigForTable(species) {
         if (!species) {
             // Default to BeeWasp if no species specified
             species = "BeeWasp";
         }
 
-        try {
-            const response = await fetch(`/api/appearance-config/${species}`);
-            if (response.ok) {
-                appearanceConfig = await response.json();
-                appearanceList = appearanceConfig.appearance_attributes || [];
-            } else {
-                console.warn(`Failed to load appearance config for ${species}`);
-                // Fallback to hardcoded BeeWasp appearance attributes
-                appearanceList = [
-                    {
-                        key: "body_color_hue",
-                        name: "Body Color Hue",
-                        examples: "Color tone",
-                    },
-                    {
-                        key: "body_color_saturation",
-                        name: "Body Color Saturation",
-                        examples: "Color intensity",
-                    },
-                    {
-                        key: "body_color_intensity",
-                        name: "Body Color Intensity",
-                        examples: "Brightness",
-                    },
-                    {
-                        key: "wing_color_hue",
-                        name: "Wing Color Hue",
-                        examples: "Wing tone",
-                    },
-                    {
-                        key: "wing_color_saturation",
-                        name: "Wing Color Saturation",
-                        examples: "Wing intensity",
-                    },
-                    {
-                        key: "wing_color_intensity",
-                        name: "Wing Color Intensity",
-                        examples: "Wing brightness",
-                    },
-                    {
-                        key: "body_scale",
-                        name: "Body Scale",
-                        examples: "Body size",
-                    },
-                    {
-                        key: "wing_scale",
-                        name: "Wing Scale",
-                        examples: "Wing size",
-                    },
-                    {
-                        key: "head_scale",
-                        name: "Head Scale",
-                        examples: "Head size",
-                    },
-                    {
-                        key: "tail_scale",
-                        name: "Tail Scale",
-                        examples: "Tail size",
-                    },
-                    {
-                        key: "antenna_scale",
-                        name: "Antenna Scale",
-                        examples: "Antenna size",
-                    },
-                    {
-                        key: "leg_deformity",
-                        name: "Leg Deformity",
-                        examples: "Leg shape",
-                    },
-                    {
-                        key: "antenna_deformity",
-                        name: "Antenna Deformity",
-                        examples: "Antenna shape",
-                    },
-                    {
-                        key: "particles",
-                        name: "Particles",
-                        examples: "Special effects",
-                    },
-                    {
-                        key: "particle_location",
-                        name: "Particle Location",
-                        examples: "Effect position",
-                    },
-                    { key: "glow", name: "Glow", examples: "Luminescence" },
-                ];
-            }
-        } catch (error) {
-            console.error(
-                `Error loading appearance config for ${species}:`,
-                error,
-            );
-            // Fallback to hardcoded attributes
-            appearanceList = [
-                {
-                    key: "body_color_hue",
-                    name: "Body Color Hue",
-                    examples: "Color tone",
-                },
-                {
-                    key: "body_color_saturation",
-                    name: "Body Color Saturation",
-                    examples: "Color intensity",
-                },
-                {
-                    key: "body_color_intensity",
-                    name: "Body Color Intensity",
-                    examples: "Brightness",
-                },
-                {
-                    key: "wing_color_hue",
-                    name: "Wing Color Hue",
-                    examples: "Wing tone",
-                },
-                {
-                    key: "wing_color_saturation",
-                    name: "Wing Color Saturation",
-                    examples: "Wing intensity",
-                },
-                {
-                    key: "wing_color_intensity",
-                    name: "Wing Color Intensity",
-                    examples: "Wing brightness",
-                },
-                {
-                    key: "body_scale",
-                    name: "Body Scale",
-                    examples: "Body size",
-                },
-                {
-                    key: "wing_scale",
-                    name: "Wing Scale",
-                    examples: "Wing size",
-                },
-                {
-                    key: "head_scale",
-                    name: "Head Scale",
-                    examples: "Head size",
-                },
-                {
-                    key: "tail_scale",
-                    name: "Tail Scale",
-                    examples: "Tail size",
-                },
-                {
-                    key: "antenna_scale",
-                    name: "Antenna Scale",
-                    examples: "Antenna size",
-                },
-                {
-                    key: "leg_deformity",
-                    name: "Leg Deformity",
-                    examples: "Leg shape",
-                },
-                {
-                    key: "antenna_deformity",
-                    name: "Antenna Deformity",
-                    examples: "Antenna shape",
-                },
-                {
-                    key: "particles",
-                    name: "Particles",
-                    examples: "Special effects",
-                },
-                {
-                    key: "particle_location",
-                    name: "Particle Location",
-                    examples: "Effect position",
-                },
-                { key: "glow", name: "Glow", examples: "Luminescence" },
-            ];
+        const config = await loadAppearanceConfig(species);
+        if (config) {
+            appearanceConfig = config;
+            appearanceList = config.appearance_attributes || [];
+        } else {
+            // Fallback to hardcoded appearance attributes
+            appearanceList = FALLBACK_APPEARANCE_LIST;
         }
     }
 
@@ -282,12 +104,12 @@
     let grandTotal = $derived(calculateGrandTotal());
     run(() => {
         if (petSpecies) {
-            loadAttributeConfig(petSpecies);
+            loadAttributeConfigForTable(petSpecies);
         }
     });
     run(() => {
         if (petSpecies && currentView === "appearance") {
-            loadAppearanceConfig(petSpecies);
+            loadAppearanceConfigForTable(petSpecies);
         }
     });
     let selectedCount = $derived(selectedAttributes.length);

@@ -3,6 +3,13 @@
     import GeneStatsTable from "./GeneStatsTable.svelte";
     import GeneTooltip from "./GeneTooltip.svelte";
     import GeneCell from "./GeneCell.svelte";
+    import { 
+        normalizeSpecies,
+        loadAttributeConfig,
+        loadAppearanceConfig as fetchAppearanceConfig, 
+        loadGeneEffects,
+        FALLBACK_ATTRIBUTES
+    } from "../utils/apiUtils.js";
 
     let { pet } = $props();
 
@@ -46,18 +53,6 @@
     
     // Cached attribute names for dynamic attribute detection
     let allAttributeNames = $state([]);
-    
-    // Centralized fallback attributes (includes all core + common species-specific)
-    const FALLBACK_ATTRIBUTES = [
-        "Intelligence",
-        "Toughness", 
-        "Friendliness",
-        "Ruggedness",
-        "Enthusiasm",
-        "Virility",
-        "Ferocity",      // BeeWasp specific
-        "Temperament",   // Horse specific
-    ];
 
     onMount(async () => {
         if (pet) {
@@ -123,16 +118,10 @@
     }
 
     async function loadGeneEffectsForSpecies(species) {
-        try {
-            const response = await fetch(`/api/gene-effects/${species}`);
-            if (!response.ok) {
-                throw new Error("Failed to load gene effects");
-            }
-
-            const data = await response.json();
-            geneEffectsDB = { [species.toLowerCase()]: data.effects };
-        } catch (err) {
-            console.error("Error loading gene effects:", err);
+        const data = await loadGeneEffects(species);
+        if (data) {
+            geneEffectsDB = { [normalizeSpecies(species)]: data.effects };
+        } else {
             geneEffectsDB = null;
         }
     }
@@ -143,20 +132,11 @@
             return;
         }
 
-        try {
-            const response = await fetch(`/api/appearance-config/${species}`);
-            if (response.ok) {
-                appearanceConfig = await response.json();
-                appearanceList = appearanceConfig.appearance_attributes || [];
-            } else {
-                console.warn(`Failed to load appearance config for ${species}`);
-                appearanceList = [];
-            }
-        } catch (error) {
-            console.error(
-                `Error loading appearance config for ${species}:`,
-                error,
-            );
+        const config = await fetchAppearanceConfig(species);
+        if (config) {
+            appearanceConfig = config;
+            appearanceList = config.appearance_attributes || [];
+        } else {
             appearanceList = [];
         }
     }
@@ -222,33 +202,20 @@
 
             // Load species-specific attributes from configuration
             if (currentPet?.species) {
-                try {
-                    const response = await fetch(
-                        `/api/attribute-config/${currentPet.species}`,
+                const config = await loadAttributeConfig(currentPet.species);
+                if (config) {
+                    // Cache attribute names for dynamic detection
+                    allAttributeNames = config.all_attribute_names.map(name => 
+                        name.charAt(0).toUpperCase() + name.slice(1)
                     );
-                    if (response.ok) {
-                        const config = await response.json();
-                        
-                        // Cache attribute names for dynamic detection
-                        allAttributeNames = config.all_attribute_names.map(name => 
-                            name.charAt(0).toUpperCase() + name.slice(1)
-                        );
-                        
-                        config.all_attribute_names.forEach((attrName) => {
-                            const attrKey =
-                                attrName.charAt(0).toUpperCase() +
-                                attrName.slice(1);
-                            stats[attrKey] = { positive: 0, negative: 0 };
-                        });
-                    } else {
-                        // Fallback to default attributes
-                        allAttributeNames = FALLBACK_ATTRIBUTES;
-                        FALLBACK_ATTRIBUTES.forEach((attr) => {
-                            stats[attr] = { positive: 0, negative: 0 };
-                        });
-                    }
-                } catch (error) {
-                    console.error("Error loading attribute config:", error);
+                    
+                    config.all_attribute_names.forEach((attrName) => {
+                        const attrKey =
+                            attrName.charAt(0).toUpperCase() +
+                            attrName.slice(1);
+                        stats[attrKey] = { positive: 0, negative: 0 };
+                    });
+                } else {
                     // Fallback to default attributes
                     allAttributeNames = FALLBACK_ATTRIBUTES;
                     FALLBACK_ATTRIBUTES.forEach((attr) => {
@@ -390,18 +357,7 @@
             return "No gene data found";
         }
 
-        let speciesKey = species.toLowerCase();
-        if (speciesKey === "horse") {
-            speciesKey = "horse";
-        } else if (
-            speciesKey === "beewasp" ||
-            speciesKey === "bee" ||
-            speciesKey === "wasp"
-        ) {
-            speciesKey = "beewasp";
-        } else {
-            speciesKey = "horse";
-        }
+        let speciesKey = normalizeSpecies(species);
 
         const geneData =
             geneEffectsDB[speciesKey] && geneEffectsDB[speciesKey][geneId];
@@ -440,18 +396,7 @@
     function getGeneAppearance(species, geneId) {
         if (!geneEffectsDB) return "No appearance effect";
 
-        let speciesKey = species.toLowerCase();
-        if (speciesKey === "horse") {
-            speciesKey = "horse";
-        } else if (
-            speciesKey === "beewasp" ||
-            speciesKey === "bee" ||
-            speciesKey === "wasp"
-        ) {
-            speciesKey = "beewasp";
-        } else {
-            speciesKey = "horse";
-        }
+        let speciesKey = normalizeSpecies(species);
 
         const geneData =
             geneEffectsDB[speciesKey] && geneEffectsDB[speciesKey][geneId];
