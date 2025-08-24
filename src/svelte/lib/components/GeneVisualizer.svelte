@@ -133,16 +133,19 @@
         }
 
         console.log("🚀 Starting loadPetData for:", pet.name);
+        console.time("⏱️ Total Pet Load Time");
         try {
             loading = true;
             error = null;
 
+            console.time("🌐 Fetching pet genome");
             const response = await fetch(`/api/pet-genome/${pet.id}`);
             if (!response.ok) {
                 throw new Error("Failed to load pet genome");
             }
 
             currentPet = await response.json();
+            console.timeEnd("🌐 Fetching pet genome");
             console.log("✅ Pet data loaded:", currentPet.name);
             console.log(
                 "🔍 currentPet set to:",
@@ -151,18 +154,28 @@
             );
             
             // Load gene effects and appearance config in parallel for better performance
+            console.time("🔗 Loading gene effects & appearance config");
             await Promise.all([
                 loadGeneEffectsForSpecies(currentPet.species),
                 loadAppearanceConfig(currentPet.species)
             ]);
+            console.timeEnd("🔗 Loading gene effects & appearance config");
             
+            console.time("🎨 Update visualization");
             await updateVisualization();
+            console.timeEnd("🎨 Update visualization");
             console.log("✅ Visualization complete");
+            
+            // Check if delay happens after JS processing (DOM rendering)
+            setTimeout(() => {
+                console.log("🎯 DOM should be rendered by now");
+            }, 100);
         } catch (err) {
             error = `Failed to load pet: ${err.message}`;
             console.error("❌ Error loading pet data:", err);
         } finally {
             loading = false;
+            console.timeEnd("⏱️ Total Pet Load Time");
             console.log("🏁 loadPetData finished");
         }
     }
@@ -847,6 +860,7 @@
         }
 
         try {
+            console.time("🚀 Gene Visualization Processing");
             const pet = currentPet;
             const parsedGenes = parseGenes(pet.genes);
 
@@ -856,21 +870,74 @@
                 return;
             }
 
-            let totalGenesCount = 0;
             const allStats = await initializeStats();
-
+            
+            // OPTIMIZED SINGLE-PASS PROCESSING - Everything done in one loop!
+            console.time("📊 Single-pass gene analysis");
+            
+            const allBlocks = new Set();
+            const blockMaxGenes = new Map();
+            const geneAnalysisCache = new Map(); // Cache gene analysis results
+            let totalGenesCount = 0;
+            
+            // SINGLE PASS: Analyze genes, collect blocks, and update stats - all at once!
             Object.values(parsedGenes).forEach((chromosomeData) => {
+                // Count genes per block for this chromosome
+                const thisChromosomeBlockCount = new Map();
+                
                 chromosomeData.allGenes.forEach((gene) => {
-                    const geneAnalysis = analyzeGeneEffect(
-                        pet.species,
-                        gene.id,
-                        gene.type,
-                    );
+                    allBlocks.add(gene.block);
                     totalGenesCount++;
-                    updateStats(allStats, geneAnalysis);
+                    
+                    // Track genes per block for this chromosome
+                    const currentCount = thisChromosomeBlockCount.get(gene.block) || 0;
+                    thisChromosomeBlockCount.set(gene.block, currentCount + 1);
+                    
+                    // Pre-compute and cache gene analysis once
+                    const cacheKey = `${gene.id}_${gene.type}`;
+                    if (!geneAnalysisCache.has(cacheKey)) {
+                        const geneAnalysis = analyzeGeneEffect(pet.species, gene.id, gene.type);
+                        
+                        // Handle potential effects in the same pass
+                        let effectType = geneAnalysis.type;
+                        if (geneAnalysis.type === "neutral" && hasAnyPotentialEffect(pet.species, gene.id)) {
+                            const potentialType = analyzePotentialEffectType(pet.species, gene.id);
+                            if (potentialType) {
+                                effectType = potentialType;
+                            }
+                        }
+                        
+                        const processedAnalysis = {
+                            ...geneAnalysis,
+                            type: effectType,
+                        };
+                        
+                        geneAnalysisCache.set(cacheKey, processedAnalysis);
+                        updateStats(allStats, processedAnalysis);
+                    }
+                });
+                
+                // Update global max for each block based on this chromosome
+                thisChromosomeBlockCount.forEach((count, block) => {
+                    const currentMax = blockMaxGenes.get(block) || 0;
+                    blockMaxGenes.set(block, Math.max(currentMax, count));
                 });
             });
-
+            
+            console.timeEnd("📊 Single-pass gene analysis");
+            console.log(`📈 Processed ${totalGenesCount} genes, ${geneAnalysisCache.size} unique analyses, ${allBlocks.size} blocks`);
+            
+            // Calculate potential DOM elements to be rendered
+            const chromosomeCount = Object.keys(parsedGenes).length;
+            let totalDOMElements = 0;
+            blockMaxGenes.forEach(maxGenes => {
+                totalDOMElements += chromosomeCount * maxGenes;
+            });
+            console.warn(`⚠️ About to render ${totalDOMElements} DOM elements (${chromosomeCount} chromosomes × blocks × genes)`);
+            if (totalDOMElements > 5000) {
+                console.warn("🚨 This will likely cause DOM rendering delays!");
+            }
+            
             currentStats = allStats;
             totalGenes = totalGenesCount;
 
@@ -879,30 +946,6 @@
             } else {
                 neutralGenes = allStats["appearance-neutral"];
             }
-
-            // Prepare visualization data with pre-computed gene data
-            const allBlocks = new Set();
-            const blockMaxGenes = new Map();
-
-            Object.values(parsedGenes).forEach((chromosomeData) => {
-                chromosomeData.allGenes.forEach((gene) => {
-                    allBlocks.add(gene.block);
-                });
-            });
-
-            allBlocks.forEach((block) => {
-                let maxGenesInBlock = 0;
-                Object.values(parsedGenes).forEach((chromosomeData) => {
-                    const genesInThisBlock = chromosomeData.allGenes.filter(
-                        (g) => g.block === block,
-                    ).length;
-                    maxGenesInBlock = Math.max(
-                        maxGenesInBlock,
-                        genesInThisBlock,
-                    );
-                });
-                blockMaxGenes.set(block, Math.max(1, maxGenesInBlock));
-            });
 
             const sortedBlocks = Array.from(allBlocks).sort((a, b) => {
                 const numA = parseInt(a, 10);
@@ -923,54 +966,34 @@
                 blockMaxGenes,
             };
 
-            // Pre-compute all gene data with CSS classes - ALWAYS ensure processedBlocks exists
+            // Build chromosome data using cached analysis
+            console.time("🏗️ Building chromosome data");
             chromosomeData = sortedChromosomes.map(([chromosome, data]) => {
                 const processedBlocks = {};
 
+                // Pre-group genes by block for efficiency
+                const genesByBlock = new Map();
+                data.allGenes.forEach((gene) => {
+                    if (!genesByBlock.has(gene.block)) {
+                        genesByBlock.set(gene.block, []);
+                    }
+                    genesByBlock.get(gene.block).push(gene);
+                });
+
                 sortedBlocks.forEach((block) => {
-                    const genesInBlock = data.allGenes.filter(
-                        (g) => g.block === block,
-                    );
+                    const genesInBlock = genesByBlock.get(block) || [];
                     processedBlocks[block] = [];
 
                     for (let i = 0; i < blockMaxGenes.get(block); i++) {
                         const gene = genesInBlock[i];
                         if (gene) {
-                            const geneAnalysis = analyzeGeneEffect(
-                                pet.species,
-                                gene.id,
-                                gene.type,
-                            );
-
-                            // Handle potential effects for neutral genes
-                            let effectType = geneAnalysis.type;
-                            if (
-                                geneAnalysis.type === "neutral" &&
-                                hasAnyPotentialEffect(pet.species, gene.id)
-                            ) {
-                                const potentialType =
-                                    analyzePotentialEffectType(
-                                        pet.species,
-                                        gene.id,
-                                    );
-                                if (potentialType) {
-                                    effectType = potentialType;
-                                }
-                            }
-
-                            const processedGeneAnalysis = {
-                                ...geneAnalysis,
-                                type: effectType,
-                            };
+                            const cacheKey = `${gene.id}_${gene.type}`;
+                            const geneAnalysis = geneAnalysisCache.get(cacheKey);
 
                             processedBlocks[block][i] = {
                                 ...gene,
-                                geneAnalysis: processedGeneAnalysis,
-                                isVisible: isGeneVisible(
-                                    chromosome,
-                                    gene,
-                                    geneAnalysis,
-                                ),
+                                geneAnalysis,
+                                isVisible: isGeneVisible(chromosome, gene, geneAnalysis),
                             };
                         } else {
                             processedBlocks[block][i] = null;
@@ -984,6 +1007,12 @@
                     processedBlocks,
                 };
             });
+            console.timeEnd("🏗️ Building chromosome data");
+            
+            console.time("🔄 Assigning chromosome data to state");
+            // This assignment might trigger massive DOM updates
+            console.timeEnd("🔄 Assigning chromosome data to state");
+            console.timeEnd("🚀 Gene Visualization Processing");
         } catch (err) {
             console.error("Error in createGeneVisualization:", err);
             error = `Failed to create gene visualization: ${err.message}`;
