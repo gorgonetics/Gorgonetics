@@ -8,7 +8,7 @@
      */
 
     /** @type {Props} */
-    let { animalType = "", chromosome = "" } = $props();
+    const { animalType = "", chromosome = "" } = $props();
 
     // State
     let genes = $state([]);

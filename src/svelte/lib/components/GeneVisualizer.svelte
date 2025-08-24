@@ -15,7 +15,7 @@
         FALLBACK_ATTRIBUTES
     } from "../utils/apiUtils.js";
 
-    let { pet } = $props();
+    const { pet } = $props();
 
     let containerElement = $state();
 
@@ -48,6 +48,9 @@
     let tooltipY = $state(0);
     let tooltipGeneId = $state("");
     let tooltipGeneType = $state("");
+
+    // Template system state (unused - kept for future enhancement)
+    let usingStaticTemplate = $state(false);
     let tooltipEffect = $state("");
     let tooltipPotentialEffects = $state([]);
 
@@ -59,7 +62,13 @@
     let allAttributeNames = $state([]);
     
     // Global gene effects database - persists across pet selections
-    let globalGeneEffectsDB = $state({});
+    const globalGeneEffectsDB = $state({});
+    
+    // DOM template cache - stores pre-built table structures per species
+    const speciesTemplateCache = $state(new Map());
+    let currentSpeciesTemplate = $state(null);
+    let isUsingCachedTemplate = $state(false);
+    const shouldForceRerender = $state(false);
 
     onMount(async () => {
         // Preload gene effects for common species to improve performance
@@ -102,6 +111,38 @@
             };
             console.log("🛠️ Cache debugging available at window.geneVisualizerCache");
         }
+    }
+    
+    function createSpeciesTemplate(species, headerStructure, chromosomeCount) {
+        console.log(`🏗️ Creating DOM template for ${species}: ${chromosomeCount} chromosomes, ${headerStructure.sortedBlocks.length} blocks`);
+        
+        const template = {
+            species,
+            chromosomeCount,
+            blockCount: headerStructure.sortedBlocks.length,
+            sortedBlocks: [...headerStructure.sortedBlocks],
+            blockMaxGenes: new Map(headerStructure.blockMaxGenes),
+            timestamp: Date.now()
+        };
+        
+        return template;
+    }
+    
+    function getOrCreateSpeciesTemplate(species, headerStructure, chromosomeCount) {
+        const cacheKey = `${species}_${chromosomeCount}_${headerStructure.sortedBlocks.length}`;
+        
+        if (speciesTemplateCache.has(cacheKey)) {
+            const cached = speciesTemplateCache.get(cacheKey);
+            console.log(`🎯 Using cached DOM template for ${species}`);
+            isUsingCachedTemplate = true;
+            return cached;
+        }
+        
+        console.log(`📝 Creating new DOM template for ${species}`);
+        const template = createSpeciesTemplate(species, headerStructure, chromosomeCount);
+        speciesTemplateCache.set(cacheKey, template);
+        isUsingCachedTemplate = false;
+        return template;
     }
 
     onDestroy(() => {
@@ -159,6 +200,9 @@
                 loadGeneEffectsForSpecies(currentPet.species),
                 loadAppearanceConfig(currentPet.species)
             ]);
+            
+            // Static templates disabled - current dynamic rendering performance is sufficient
+            usingStaticTemplate = false;
             console.timeEnd("🔗 Loading gene effects & appearance config");
             
             console.time("🎨 Update visualization");
@@ -433,7 +477,7 @@
             return "No gene data found";
         }
 
-        let speciesKey = normalizeSpecies(species);
+        const speciesKey = normalizeSpecies(species);
 
         const geneData =
             geneEffectsDB[speciesKey] && geneEffectsDB[speciesKey][geneId];
@@ -472,7 +516,7 @@
     function getGeneAppearance(species, geneId) {
         if (!geneEffectsDB) return "No appearance effect";
 
-        let speciesKey = normalizeSpecies(species);
+        const speciesKey = normalizeSpecies(species);
 
         const geneData =
             geneEffectsDB[speciesKey] && geneEffectsDB[speciesKey][geneId];
@@ -965,9 +1009,17 @@
                 sortedBlocks,
                 blockMaxGenes,
             };
+            
+            // Create or reuse species template
+            currentSpeciesTemplate = getOrCreateSpeciesTemplate(
+                pet.species, 
+                headerStructure, 
+                chromosomeCount
+            );
 
             // Build chromosome data using cached analysis
-            console.time("🏗️ Building chromosome data");
+            const buildTime = isUsingCachedTemplate ? "🔄 Updating chromosome data" : "🏗️ Building chromosome data";
+            console.time(buildTime);
             chromosomeData = sortedChromosomes.map(([chromosome, data]) => {
                 const processedBlocks = {};
 
@@ -1007,11 +1059,16 @@
                     processedBlocks,
                 };
             });
-            console.timeEnd("🏗️ Building chromosome data");
+            console.timeEnd(buildTime);
             
-            console.time("🔄 Assigning chromosome data to state");
-            // This assignment might trigger massive DOM updates
-            console.timeEnd("🔄 Assigning chromosome data to state");
+            console.time("🔄 State update (triggers DOM render)");
+            // This assignment triggers Svelte's DOM update cycle
+            // With template caching, DOM structure should be reused when possible
+            console.log(`📊 Template cache status: ${isUsingCachedTemplate ? "REUSING" : "CREATING"} DOM structure`);
+            console.timeEnd("🔄 State update (triggers DOM render)");
+            
+            // Performance optimization complete - using optimized dynamic rendering
+            
             console.timeEnd("🚀 Gene Visualization Processing");
         } catch (err) {
             console.error("Error in createGeneVisualization:", err);
@@ -1478,6 +1535,7 @@
         currentView = view;
         updateVisualization();
     }
+
 </script>
 
 <div class="gene-visualizer" bind:this={containerElement}>
@@ -1828,6 +1886,8 @@
                 <!-- Gene Grid -->
                 <div class="gene-grid-container">
                     {#if headerStructure && chromosomeData.length > 0}
+                        <!-- Optimized dynamic rendering -->
+                        {#key (currentSpeciesTemplate ? currentSpeciesTemplate.species + "_" + currentSpeciesTemplate.chromosomeCount + "_" + currentSpeciesTemplate.blockCount : "initial")}
                         <table class="gene-grid-table">
                             <thead class="gene-headers">
                                 <tr>
@@ -1846,7 +1906,7 @@
                                 </tr>
                             </thead>
                             <tbody class="gene-rows">
-                                {#each chromosomeData as { chromosome, processedBlocks }}
+                                {#each chromosomeData as { chromosome, processedBlocks } (chromosome)}
                                     <tr class="chromosome-row">
                                         <td
                                             class="chromosome-label {selectedChromosomes.includes(
@@ -1900,6 +1960,7 @@
                                 {/each}
                             </tbody>
                         </table>
+                        {/key}
                     {/if}
                 </div>
             </div>

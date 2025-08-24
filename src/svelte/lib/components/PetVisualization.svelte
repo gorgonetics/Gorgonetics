@@ -1,7 +1,7 @@
 <script>
     import GeneVisualizer from "./GeneVisualizer.svelte";
 
-    let { pet } = $props();
+    const { pet } = $props();
 
     let geneVisualizerRef = $state();
     let currentView = $state("attribute");

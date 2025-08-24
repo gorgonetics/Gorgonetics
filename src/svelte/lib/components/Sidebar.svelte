@@ -11,7 +11,7 @@
      */
 
     /** @type {Props} */
-    let { sidebarCollapsed = false, toggleSidebar } = $props();
+    const { sidebarCollapsed = false, toggleSidebar } = $props();
 
     let activeTab = $state("pets");
 

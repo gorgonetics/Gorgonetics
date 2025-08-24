@@ -11,7 +11,7 @@
      */
 
     /** @type {Props} */
-    let {
+    const {
         gene = null,
         chromosome = "",
         geneAnalysis = null,
@@ -69,7 +69,7 @@
     function handleMouseLeave(event) {
         dispatch("tooltip-hide", { event });
     }
-    let cssClass = $derived(
+    const cssClass = $derived(
         computeCssClass(gene, geneAnalysis, currentView, isVisible),
     );
 </script>

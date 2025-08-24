@@ -146,19 +146,17 @@ async def get_gene_effects(species: str, db: "DuckLakeGeneDatabase" = Depends(ge
 
         all_effects = {}
 
-        # Get all chromosomes for this species
-        chromosomes = db.get_chromosomes(species_key)
+        # Get all genes for this species in a single query (much faster than N+1 queries)
+        all_genes = db.get_genes_for_animal(species_key)
 
-        for chromosome in chromosomes:
-            genes = db.get_genes_by_chromosome(species_key, chromosome)
-            for gene_data in genes:
-                gene_id = gene_data["gene"]
-                all_effects[gene_id] = {
-                    "effectDominant": gene_data.get("effectDominant"),
-                    "effectRecessive": gene_data.get("effectRecessive"),
-                    "appearance": gene_data.get("appearance", ""),
-                    "notes": gene_data.get("notes", ""),
-                }
+        for gene_data in all_genes:
+            gene_id = gene_data["gene"]
+            all_effects[gene_id] = {
+                "effectDominant": gene_data.get("effectDominant"),
+                "effectRecessive": gene_data.get("effectRecessive"),
+                "appearance": gene_data.get("appearance", ""),
+                "notes": gene_data.get("notes", ""),
+            }
 
         return {"effects": all_effects}
     except Exception as e:

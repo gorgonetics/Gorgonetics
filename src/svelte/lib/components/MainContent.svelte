@@ -17,7 +17,7 @@
         };
     }
 
-    let welcomeMessage =
+    const welcomeMessage =
         $derived(!$selectedPet && !$geneEditingView ? getWelcomeMessage() : null);
 </script>
 

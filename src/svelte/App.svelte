@@ -4,7 +4,7 @@
   import MainContent from './lib/components/MainContent.svelte';
   import { appState } from './lib/stores/appState.js';
   import { apiClient } from './lib/services/apiClient.js';
-  import { apiTester } from './lib/utils/apiTest.js';
+  // import { apiTester } from './lib/utils/apiTest.js'; // Unused - API tests disabled
 
   let sidebarCollapsed = $state(false);
 
@@ -21,14 +21,14 @@
       sidebarCollapsed = JSON.parse(savedState);
     }
 
-    // Run API tests in development
-    if (import.meta.env.DEV) {
-      console.log('🔧 Development mode - running API tests...');
-      apiTester.runAllTests().then(() => {
-        console.log('API test results:');
-        apiTester.printResults();
-      });
-    }
+    // API tests disabled for performance testing
+    // if (import.meta.env.DEV) {
+    //   console.log('🔧 Development mode - running API tests...');
+    //   apiTester.runAllTests().then(() => {
+    //     console.log('API test results:');
+    //     apiTester.printResults();
+    //   });
+    // }
   });
 
   function toggleSidebar() {

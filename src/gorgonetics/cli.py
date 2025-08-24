@@ -318,10 +318,9 @@ def db_cleanup(dry_run: bool = typer.Option(True, help="Perform dry run without 
 
 @app.command()
 def clean_test_artifacts(
-    dry_run: bool = typer.Option(False, help="Show what would be removed without actually removing it")
+    dry_run: bool = typer.Option(False, help="Show what would be removed without actually removing it"),
 ) -> None:
     """Clean up test artifacts and temporary files."""
-    import os
     import shutil
     from pathlib import Path
 
@@ -343,16 +342,17 @@ def clean_test_artifacts(
     ]
 
     console.print("* [blue]Cleaning up test artifacts...[/blue]")
-    
+
     if dry_run:
         console.print("* [yellow]DRY RUN: Showing what would be removed[/yellow]")
-    
+
     cleaned_count = 0
-    
+
     for artifact in artifacts:
         if "*" in artifact:
             # Handle glob patterns
             from glob import glob
+
             matches = glob(artifact, recursive=True)
             for match in matches:
                 path = Path(match)
@@ -386,7 +386,7 @@ def clean_test_artifacts(
                         cleaned_count += 1
                     except Exception as e:
                         console.print(f"  [red]Failed to remove {artifact}: {e}[/red]")
-    
+
     if dry_run:
         console.print("* [yellow]Dry run completed. Use --no-dry-run to actually remove files.[/yellow]")
     else:

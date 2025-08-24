@@ -23,7 +23,7 @@
      */
 
     /** @type {Props} */
-    let {
+    const {
         currentStats = null,
         currentView = "attribute",
         selectedAttributes = [],
@@ -101,7 +101,7 @@
         });
     }
 
-    let grandTotal = $derived(calculateGrandTotal());
+    const grandTotal = $derived(calculateGrandTotal());
     run(() => {
         if (petSpecies) {
             loadAttributeConfigForTable(petSpecies);
@@ -112,15 +112,15 @@
             loadAppearanceConfigForTable(petSpecies);
         }
     });
-    let selectedCount = $derived(selectedAttributes.length);
+    const selectedCount = $derived(selectedAttributes.length);
     // Create reactive object lookups
-    let selectedLookup = $derived(
+    const selectedLookup = $derived(
         selectedAttributes.reduce((acc, attr) => {
             acc[attr] = true;
             return acc;
         }, {}),
     );
-    let hiddenLookup = $derived(
+    const hiddenLookup = $derived(
         hiddenAttributes.reduce((acc, attr) => {
             acc[attr] = true;
             return acc;

@@ -243,3 +243,6 @@ export function getCacheStats() {
         }
     };
 }
+
+// Static template functions removed - functionality disabled for now
+// The template generation script and related code is preserved for future enhancement

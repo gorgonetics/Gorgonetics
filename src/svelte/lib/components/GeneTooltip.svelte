@@ -11,7 +11,7 @@
      */
 
     /** @type {Props} */
-    let {
+    const {
         visible = false,
         x = 0,
         y = 0,
