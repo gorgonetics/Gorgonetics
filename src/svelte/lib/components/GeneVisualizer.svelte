@@ -8,6 +8,10 @@
         loadAttributeConfig,
         loadAppearanceConfig as fetchAppearanceConfig, 
         loadGeneEffects,
+        getCachedGeneEffects,
+        hasGeneEffectsCache,
+        getCacheStats,
+        clearAllCaches,
         FALLBACK_ATTRIBUTES
     } from "../utils/apiUtils.js";
 
@@ -53,12 +57,52 @@
     
     // Cached attribute names for dynamic attribute detection
     let allAttributeNames = $state([]);
+    
+    // Global gene effects database - persists across pet selections
+    let globalGeneEffectsDB = $state({});
 
     onMount(async () => {
+        // Preload gene effects for common species to improve performance
+        await preloadGeneEffects();
+        
         if (pet) {
             await loadPetData();
         }
     });
+    
+    async function preloadGeneEffects() {
+        console.log("🚀 Preloading gene effects for common species...");
+        const commonSpecies = ["horse", "beewasp"];
+        
+        // Load in parallel for better performance
+        const loadPromises = commonSpecies.map(async species => {
+            try {
+                const normalizedSpecies = normalizeSpecies(species);
+                if (!globalGeneEffectsDB[normalizedSpecies]) {
+                    const data = await loadGeneEffects(species);
+                    if (data) {
+                        globalGeneEffectsDB[normalizedSpecies] = data.effects;
+                        console.log(`🎯 Preloaded ${Object.keys(data.effects).length} gene effects for ${normalizedSpecies}`);
+                    }
+                }
+            } catch (error) {
+                console.warn(`Failed to preload gene effects for ${species}:`, error);
+            }
+        });
+        
+        await Promise.all(loadPromises);
+        console.log("✅ Gene effects preloading complete");
+        
+        // Expose cache utilities to window for development debugging
+        if (typeof window !== 'undefined' && import.meta.env.DEV) {
+            window.geneVisualizerCache = {
+                stats: getCacheStats,
+                clear: clearAllCaches,
+                globalDB: () => globalGeneEffectsDB
+            };
+            console.log("🛠️ Cache debugging available at window.geneVisualizerCache");
+        }
+    }
 
     onDestroy(() => {
         cleanup();
@@ -77,6 +121,7 @@
         headerStructure = null;
         chromosomeData = [];
         allAttributeNames = [];
+        // NOTE: We keep globalGeneEffectsDB intact for performance
 
         error = null;
     }
@@ -104,8 +149,13 @@
                 currentPet.id,
                 currentPet.name,
             );
-            await loadGeneEffectsForSpecies(currentPet.species);
-            await loadAppearanceConfig(currentPet.species);
+            
+            // Load gene effects and appearance config in parallel for better performance
+            await Promise.all([
+                loadGeneEffectsForSpecies(currentPet.species),
+                loadAppearanceConfig(currentPet.species)
+            ]);
+            
             await updateVisualization();
             console.log("✅ Visualization complete");
         } catch (err) {
@@ -118,11 +168,24 @@
     }
 
     async function loadGeneEffectsForSpecies(species) {
+        const normalizedSpecies = normalizeSpecies(species);
+        
+        // Check if we already have this species in our global cache
+        if (globalGeneEffectsDB[normalizedSpecies]) {
+            console.log(`🎯 Using already loaded gene effects for ${normalizedSpecies}`);
+            geneEffectsDB = globalGeneEffectsDB;
+            return;
+        }
+        
+        // Load from API (with caching)
         const data = await loadGeneEffects(species);
         if (data) {
-            geneEffectsDB = { [normalizeSpecies(species)]: data.effects };
+            // Add to global cache and use it
+            globalGeneEffectsDB[normalizedSpecies] = data.effects;
+            geneEffectsDB = globalGeneEffectsDB;
+            console.log(`✅ Gene effects loaded and cached for ${normalizedSpecies} (${Object.keys(data.effects).length} genes)`);
         } else {
-            geneEffectsDB = null;
+            geneEffectsDB = globalGeneEffectsDB; // Use what we have, even if empty
         }
     }
 
