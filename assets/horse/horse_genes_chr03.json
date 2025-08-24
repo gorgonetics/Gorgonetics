@@ -3,336 +3,336 @@
     "gene": "03A1",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale",
+    "notes": ""
   },
   {
     "gene": "03A2",
-    "effectDominant": "None",
+    "effectDominant": "Ruggedness+",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale",
+    "notes": ""
   },
   {
     "gene": "03A3",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Temperament+",
+    "appearance": "Scale",
+    "notes": ""
   },
   {
     "gene": "03A4",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale",
+    "notes": ""
   },
   {
     "gene": "03B1",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale",
+    "notes": ""
   },
   {
     "gene": "03B2",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Enthusiasm-",
+    "appearance": "Scale",
+    "notes": ""
   },
   {
     "gene": "03B3",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Enthusiasm+",
+    "appearance": "Scale",
+    "notes": ""
   },
   {
     "gene": "03B4",
-    "effectDominant": "None",
+    "effectDominant": "Toughness-",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale",
+    "notes": ""
   },
   {
     "gene": "03C1",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Virility+",
+    "appearance": "Scale",
+    "notes": ""
   },
   {
     "gene": "03C2",
-    "effectDominant": "None",
+    "effectDominant": "Enthusiasm+",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale",
+    "notes": ""
   },
   {
     "gene": "03C3",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Ruggedness+",
+    "appearance": "Scale",
+    "notes": ""
   },
   {
     "gene": "03C4",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale",
+    "notes": ""
   },
   {
     "gene": "03D1",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Intelligence-",
+    "appearance": "Scale",
+    "notes": ""
   },
   {
     "gene": "03D2",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Friendliness+",
+    "appearance": "Scale",
+    "notes": ""
   },
   {
     "gene": "03D3",
-    "effectDominant": "None",
+    "effectDominant": "Ruggedness+",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale",
+    "notes": ""
   },
   {
     "gene": "03D4",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale",
+    "notes": ""
   },
   {
     "gene": "03E1",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Toughness-",
+    "appearance": "Scale",
+    "notes": ""
   },
   {
     "gene": "03E2",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale",
+    "notes": ""
   },
   {
     "gene": "03E3",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale",
+    "notes": ""
   },
   {
     "gene": "03E4",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Friendliness+",
+    "appearance": "Scale",
+    "notes": ""
   },
   {
     "gene": "03F1",
-    "effectDominant": "None",
+    "effectDominant": "Intelligence-",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale",
+    "notes": ""
   },
   {
     "gene": "03F2",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Temperament+",
+    "appearance": "Scale",
+    "notes": ""
   },
   {
     "gene": "03F3",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale",
+    "notes": ""
   },
   {
     "gene": "03F4",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale",
+    "notes": ""
   },
   {
     "gene": "03G1",
-    "effectDominant": "None",
+    "effectDominant": "Toughness+",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale",
+    "notes": ""
   },
   {
     "gene": "03G2",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Enthusiasm+",
+    "appearance": "Scale",
+    "notes": ""
   },
   {
     "gene": "03G3",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Intelligence-",
+    "appearance": "Scale",
+    "notes": ""
   },
   {
     "gene": "03G4",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale",
+    "notes": ""
   },
   {
     "gene": "03H1",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Ruggedness+",
+    "appearance": "Scale",
+    "notes": ""
   },
   {
     "gene": "03H2",
-    "effectDominant": "None",
+    "effectDominant": "Temperament-",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale",
+    "notes": ""
   },
   {
     "gene": "03H3",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale",
+    "notes": ""
   },
   {
     "gene": "03H4",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Virility+",
+    "appearance": "Scale",
+    "notes": ""
   },
   {
     "gene": "03I1",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Friendliness+",
+    "appearance": "Scale",
+    "notes": ""
   },
   {
     "gene": "03I2",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Temperament+",
+    "appearance": "Scale",
+    "notes": ""
   },
   {
     "gene": "03I3",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale",
+    "notes": ""
   },
   {
     "gene": "03I4",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale",
+    "notes": ""
   },
   {
     "gene": "03J1",
-    "effectDominant": "None",
+    "effectDominant": "Ruggedness-",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale",
+    "notes": ""
   },
   {
     "gene": "03J2",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Toughness+",
+    "appearance": "Scale",
+    "notes": ""
   },
   {
     "gene": "03J3",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale",
+    "notes": ""
   },
   {
     "gene": "03J4",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Enthusiasm+",
+    "appearance": "Scale",
+    "notes": ""
   },
   {
     "gene": "03K1",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Virility-",
+    "appearance": "Scale",
+    "notes": ""
   },
   {
     "gene": "03K2",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale",
+    "notes": ""
   },
   {
     "gene": "03K3",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Friendliness+",
+    "appearance": "Scale",
+    "notes": ""
   },
   {
     "gene": "03K4",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale",
+    "notes": ""
   },
   {
     "gene": "03L1",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Ruggedness+",
+    "appearance": "Scale",
+    "notes": ""
   },
   {
     "gene": "03L2",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Intelligence-",
+    "appearance": "Scale",
+    "notes": ""
   },
   {
     "gene": "03L3",
-    "effectDominant": "None",
+    "effectDominant": "Intelligence-",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale",
+    "notes": ""
   },
   {
     "gene": "03L4",
-    "effectDominant": "None",
+    "effectDominant": "Enthusiasm-",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale",
+    "notes": ""
   }
 ]
