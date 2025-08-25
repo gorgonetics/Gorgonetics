@@ -2,295 +2,295 @@
   {
     "gene": "27A1",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Enthusiasm+",
+    "appearance": "Coat (Sc)",
+    "notes": ""
   },
   {
     "gene": "27A2",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Temperament+",
+    "appearance": "Coat (Sc)",
+    "notes": ""
   },
   {
     "gene": "27A3",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Intelligence+",
+    "appearance": "Coat (Sc)",
+    "notes": ""
   },
   {
     "gene": "27A4",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Coat (Sc)",
+    "notes": ""
   },
   {
     "gene": "27B1",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Coat (Sc)",
+    "notes": ""
   },
   {
     "gene": "27B2",
-    "effectDominant": "None",
+    "effectDominant": "Virility-",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Coat (Sc)",
+    "notes": ""
   },
   {
     "gene": "27B3",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Ruggedness+",
+    "appearance": "Coat (Sc)",
+    "notes": ""
   },
   {
     "gene": "27B4",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Friendliness+",
+    "appearance": "Coat (Sc)",
+    "notes": ""
   },
   {
     "gene": "27C1",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Toughness+",
+    "appearance": "Coat (Sc)",
+    "notes": ""
   },
   {
     "gene": "27C2",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Toughness+",
+    "appearance": "Coat (Sc)",
+    "notes": ""
   },
   {
     "gene": "27C3",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Intelligence-",
+    "appearance": "Coat (Sc)",
+    "notes": ""
   },
   {
     "gene": "27C4",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Friendliness-",
+    "appearance": "Coat (Sc)",
+    "notes": ""
   },
   {
     "gene": "27D1",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Coat (Sc)",
+    "notes": ""
   },
   {
     "gene": "27D2",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Coat (Sc)",
+    "notes": ""
   },
   {
     "gene": "27D3",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Temperament+",
+    "appearance": "Coat (Sc)",
+    "notes": ""
   },
   {
     "gene": "27D4",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Virility+",
+    "appearance": "Coat (Sc)",
+    "notes": ""
   },
   {
     "gene": "27E1",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Coat (Sc)",
+    "notes": ""
   },
   {
     "gene": "27E2",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Enthusiasm-",
+    "appearance": "Coat (Sc)",
+    "notes": ""
   },
   {
     "gene": "27E3",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Coat (Sc)",
+    "notes": ""
   },
   {
     "gene": "27E4",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Coat (Sc)",
+    "notes": ""
   },
   {
     "gene": "27F1",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Virility+",
+    "appearance": "Coat (Sc)",
+    "notes": ""
   },
   {
     "gene": "27F2",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Coat (Sc)",
+    "notes": ""
   },
   {
     "gene": "27F3",
-    "effectDominant": "None",
+    "effectDominant": "Intelligence-",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Coat (Sc)",
+    "notes": ""
   },
   {
     "gene": "27F4",
-    "effectDominant": "None",
+    "effectDominant": "Friendliness+",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Coat (Sc)",
+    "notes": ""
   },
   {
     "gene": "27G1",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Coat (Sc)",
+    "notes": ""
   },
   {
     "gene": "27G2",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Ruggedness+",
+    "appearance": "Coat (Sc)",
+    "notes": ""
   },
   {
     "gene": "27G3",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Coat (Sc)",
+    "notes": ""
   },
   {
     "gene": "27G4",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Coat (Sc)",
+    "notes": ""
   },
   {
     "gene": "27H1",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Markings (Sc)",
+    "notes": ""
   },
   {
     "gene": "27H2",
-    "effectDominant": "None",
+    "effectDominant": "Intelligence+",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Markings (Sc)",
+    "notes": ""
   },
   {
     "gene": "27H3",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Markings (Sc)",
+    "notes": ""
   },
   {
     "gene": "27H4",
-    "effectDominant": "None",
+    "effectDominant": "Toughness+",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Markings (Sc)",
+    "notes": ""
   },
   {
     "gene": "27I1",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Markings (Sc)",
+    "notes": ""
   },
   {
     "gene": "27I2",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Virility-",
+    "appearance": "Markings (Sc)",
+    "notes": ""
   },
   {
     "gene": "27I3",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Enthusiasm-",
+    "appearance": "Markings (Sc)",
+    "notes": ""
   },
   {
     "gene": "27I4",
-    "effectDominant": "None",
+    "effectDominant": "Temperament-",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Markings (Sc)",
+    "notes": ""
   },
   {
     "gene": "27J1",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Markings (Sc)",
+    "notes": ""
   },
   {
     "gene": "27J2",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Markings (Sc)",
+    "notes": ""
   },
   {
     "gene": "27J3",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Intelligence+",
+    "appearance": "Markings (Sc)",
+    "notes": ""
   },
   {
     "gene": "27J4",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Markings (Sc)",
+    "notes": ""
   },
   {
     "gene": "27K1",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Intelligence-",
+    "appearance": "Markings (Sc)",
+    "notes": ""
   },
   {
     "gene": "27K2",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Markings (Sc)",
+    "notes": ""
   }
 ]
