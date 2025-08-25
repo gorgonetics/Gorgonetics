@@ -61,7 +61,7 @@ def web(
         raise typer.Exit(1) from e
 
 
-def _load_gene_file(file_path: Path, animal_type: str, chr_num: str, db: Any, progress, file_task) -> int:
+def _load_gene_file(file_path: Path, animal_type: str, chr_num: str, db: Any, progress: Any, file_task: Any) -> int:
     """Load genes from a single JSON file into the database."""
     genes_loaded = 0
 
@@ -137,8 +137,12 @@ def populate() -> None:
 
         # Clear existing data
         console.print("* [red]Clearing existing gene data...[/red]")
-        db.conn.execute("DELETE FROM genes")
-        db.conn.commit()
+        if db.conn is not None:
+            db.conn.execute("DELETE FROM genes")
+            db.conn.commit()
+        else:
+            console.print("* [red]Error: Database connection is None[/red]")
+            raise typer.Exit(1)
 
         # Collect files to process
         files_to_process = _collect_gene_files()
@@ -193,7 +197,11 @@ def populate() -> None:
 
         # Commit all changes to database
         console.print("[blue]* Committing changes to database...[/blue]")
-        db.conn.commit()
+        if db.conn is not None:
+            db.conn.commit()
+        else:
+            console.print("* [red]Error: Database connection is None[/red]")
+            raise typer.Exit(1)
 
         # Summary
         console.print("=" * 50)

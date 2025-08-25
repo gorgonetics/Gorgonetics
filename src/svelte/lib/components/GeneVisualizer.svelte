@@ -8,8 +8,6 @@
         loadAttributeConfig,
         loadAppearanceConfig as fetchAppearanceConfig, 
         loadGeneEffects,
-        getCachedGeneEffects,
-        hasGeneEffectsCache,
         getCacheStats,
         clearAllCaches,
         FALLBACK_ATTRIBUTES
@@ -30,7 +28,7 @@
     let totalGenes = $state(0);
     let neutralGenes = $state(0);
     let appearanceList = $state([]);
-    let appearanceConfig = null;
+    // let appearanceConfig = null; // Unused
     let selectedAttributes = $state([]);
     let hiddenAttributes = $state([]);
     let selectedChromosomes = $state([]);
@@ -49,8 +47,7 @@
     let tooltipGeneId = $state("");
     let tooltipGeneType = $state("");
 
-    // Template system state (unused - kept for future enhancement)
-    let usingStaticTemplate = $state(false);
+    // Template system state (disabled)
     let tooltipEffect = $state("");
     let tooltipPotentialEffects = $state([]);
 
@@ -68,7 +65,7 @@
     const speciesTemplateCache = $state(new Map());
     let currentSpeciesTemplate = $state(null);
     let isUsingCachedTemplate = $state(false);
-    const shouldForceRerender = $state(false);
+    // const shouldForceRerender = $state(false); // Unused
 
     onMount(async () => {
         // Preload gene effects for common species to improve performance
@@ -202,7 +199,6 @@
             ]);
             
             // Static templates disabled - current dynamic rendering performance is sufficient
-            usingStaticTemplate = false;
             console.timeEnd("🔗 Loading gene effects & appearance config");
             
             console.time("🎨 Update visualization");
@@ -254,7 +250,7 @@
 
         const config = await fetchAppearanceConfig(species);
         if (config) {
-            appearanceConfig = config;
+            // appearanceConfig = config; // Unused
             appearanceList = config.appearance_attributes || [];
         } else {
             appearanceList = [];

@@ -1,4 +1,4 @@
-import { writable, derived } from "svelte/store";
+import { writable } from "svelte/store";
 import { apiClient } from "../services/apiClient.js";
 
 // Core application state
@@ -103,7 +103,7 @@ export const appState = {
     error.set(message);
   },
 
-  setSuccess(message) {
+  setSuccess(_message) {
     // For now, just clear any existing error
     error.set(null);
   },
