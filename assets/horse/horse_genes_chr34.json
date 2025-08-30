@@ -2,197 +2,197 @@
   {
     "gene": "34A1",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Enthusiasm+",
+    "appearance": "Attributes (Bl)",
+    "notes": ""
   },
   {
     "gene": "34A2",
-    "effectDominant": "None",
+    "effectDominant": "Ruggedness+",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Attributes (Bl)",
+    "notes": ""
   },
   {
     "gene": "34A3",
-    "effectDominant": "None",
+    "effectDominant": "Friendliness+",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Attributes (Bl)",
+    "notes": ""
   },
   {
     "gene": "34A4",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Toughness+",
+    "appearance": "Attributes (Bl)",
+    "notes": ""
   },
   {
     "gene": "34B1",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Intelligence+",
+    "appearance": "Attributes (Bl)",
+    "notes": ""
   },
   {
     "gene": "34B2",
-    "effectDominant": "None",
+    "effectDominant": "Temperament-",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Attributes (Bl)",
+    "notes": ""
   },
   {
     "gene": "34B3",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Temperament+",
+    "appearance": "Attributes (Bl)",
+    "notes": ""
   },
   {
     "gene": "34B4",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Temperament+",
+    "appearance": "Attributes (Bl)",
+    "notes": ""
   },
   {
     "gene": "34C1",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Friendliness-",
+    "appearance": "Attributes (Bl)",
+    "notes": ""
   },
   {
     "gene": "34C2",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Friendliness-",
+    "appearance": "Attributes (Bl)",
+    "notes": ""
   },
   {
     "gene": "34C3",
-    "effectDominant": "None",
+    "effectDominant": "Enthusiasm+",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Attributes (Bl)",
+    "notes": ""
   },
   {
     "gene": "34C4",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Enthusiasm+",
+    "appearance": "Attributes (Bl)",
+    "notes": ""
   },
   {
     "gene": "34D1",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Toughness+",
+    "appearance": "Attributes (Bl)",
+    "notes": ""
   },
   {
     "gene": "34D2",
-    "effectDominant": "None",
+    "effectDominant": "Toughness+",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Attributes (Bl)",
+    "notes": ""
   },
   {
     "gene": "34D3",
-    "effectDominant": "None",
+    "effectDominant": "Virility+",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Attributes (Bl)",
+    "notes": ""
   },
   {
     "gene": "34D4",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Ruggedness+",
+    "appearance": "Attributes (Bl)",
+    "notes": ""
   },
   {
     "gene": "34E1",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Ruggedness+",
+    "appearance": "Attributes (Bl)",
+    "notes": ""
   },
   {
     "gene": "34E2",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Intelligence+",
+    "appearance": "Attributes (Bl)",
+    "notes": ""
   },
   {
     "gene": "34E3",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Intelligence+",
+    "appearance": "Attributes (Bl)",
+    "notes": ""
   },
   {
     "gene": "34E4",
-    "effectDominant": "None",
+    "effectDominant": "Intelligence+",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Attributes (Bl)",
+    "notes": ""
   },
   {
     "gene": "34F1",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Toughness+",
+    "appearance": "Attributes (Bl)",
+    "notes": ""
   },
   {
     "gene": "34F2",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Virility-",
+    "appearance": "Attributes (Bl)",
+    "notes": ""
   },
   {
     "gene": "34F3",
-    "effectDominant": "None",
+    "effectDominant": "Temperament+",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Attributes (Bl)",
+    "notes": ""
   },
   {
     "gene": "34F4",
-    "effectDominant": "None",
+    "effectDominant": "Virility+",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Attributes (Bl)",
+    "notes": ""
   },
   {
     "gene": "34G1",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "None (Bl)",
+    "notes": ""
   },
   {
     "gene": "34G2",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "None (Bl)",
+    "notes": ""
   },
   {
     "gene": "34G3",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "None (Bl)",
+    "notes": ""
   },
   {
     "gene": "34G4",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "None (Bl)",
+    "notes": ""
   }
 ]
