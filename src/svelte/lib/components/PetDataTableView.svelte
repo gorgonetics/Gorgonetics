@@ -1,6 +1,7 @@
 <script>
     import { Table } from "@flowbite-svelte-plugins/datatable";
     import { pets } from "../stores/appState.js";
+    import { FALLBACK_ATTRIBUTE_LIST } from "../utils/apiUtils.js";
 
     function formatDate(dateString) {
         if (!dateString) return "Unknown";
@@ -12,22 +13,32 @@
     }
 
     function assemblePetsData(petsArray) {
+        // Build dynamic headings from attribute list
+        const baseHeadings = ["Pet Name", "Species", "Breed"];
+        const attributeHeadings = FALLBACK_ATTRIBUTE_LIST.map(attr => attr.name);
+        const endHeadings = ["Created Date"];
+        const headings = [...baseHeadings, ...attributeHeadings, ...endHeadings];
+
         if (!petsArray || petsArray.length === 0) {
-            return {
-                headings: ["Pet Name", "Species", "Genes", "Created Date"],
-                data: []
-            };
+            return { headings, data: [] };
         }
 
-        return {
-            headings: ["Pet Name", "Species", "Genes", "Created Date"],
-            data: petsArray.map(pet => [
+        const data = petsArray.map(pet => {
+            const baseData = [
                 pet.name || "Unnamed",
-                pet.species || "Unknown",
-                `${pet.known_genes || 0} known ${pet.has_unknown_genes ? "⚠️" : "🧬"}`,
-                formatDate(pet.created_at)
-            ])
-        };
+                pet.species || "Unknown", 
+                pet.breed || "Mixed" // Filler value
+            ];
+            
+            // Add attribute values (defaulting to 50 for now)
+            const attributeData = FALLBACK_ATTRIBUTE_LIST.map(() => 50);
+            
+            const endData = [formatDate(pet.created_at)];
+            
+            return [...baseData, ...attributeData, ...endData];
+        });
+
+        return { headings, data };
     }
 
     const items = $derived(assemblePetsData($pets));

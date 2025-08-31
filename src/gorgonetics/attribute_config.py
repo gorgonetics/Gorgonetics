@@ -13,6 +13,12 @@ from typing import Any
 class AttributeConfig:
     """Centralized configuration for pet attributes."""
 
+    # Ordered list of core attributes (matches game order)
+    CORE_ATTRIBUTE_ORDER = [
+        "toughness", "ruggedness", "enthusiasm", 
+        "friendliness", "intelligence", "virility"
+    ]
+
     # Core attributes shared by all pet species
     CORE_ATTRIBUTES = {
         "intelligence": {
@@ -187,8 +193,8 @@ class AttributeConfig:
 
     @classmethod
     def get_core_attribute_names(cls) -> list[str]:
-        """Get list of core attribute names."""
-        return list(cls.CORE_ATTRIBUTES.keys())
+        """Get list of core attribute names in game order."""
+        return [attr for attr in cls.CORE_ATTRIBUTE_ORDER if attr in cls.CORE_ATTRIBUTES]
 
     @classmethod
     def get_core_attributes(cls) -> dict[str, dict[str, Any]]:

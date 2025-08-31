@@ -151,28 +151,28 @@ export async function loadGeneEffects(species) {
  * Centralized fallback attributes (includes all core + common species-specific)
  */
 export const FALLBACK_ATTRIBUTES = [
-    "Intelligence",
+    "Temperament",   // Horse specific
+    "Ferocity",      // BeeWasp specific
     "Toughness", 
-    "Friendliness",
     "Ruggedness",
     "Enthusiasm",
+    "Friendliness",
+    "Intelligence",
     "Virility",
-    "Ferocity",      // BeeWasp specific
-    "Temperament",   // Horse specific
 ];
 
 /**
  * Centralized fallback attribute list with metadata
  */
 export const FALLBACK_ATTRIBUTE_LIST = [
-    { key: "Intelligence", name: "Intelligence", icon: "🧠" },
+    { key: "Temperament", name: "Temperament", icon: "🐎" },
+    { key: "Ferocity", name: "Ferocity", icon: "🔥" },
     { key: "Toughness", name: "Toughness", icon: "💪" },
-    { key: "Friendliness", name: "Friendliness", icon: "😊" },
     { key: "Ruggedness", name: "Ruggedness", icon: "🏔️" },
     { key: "Enthusiasm", name: "Enthusiasm", icon: "✨" },
+    { key: "Friendliness", name: "Friendliness", icon: "😊" },
+    { key: "Intelligence", name: "Intelligence", icon: "🧠" },
     { key: "Virility", name: "Virility", icon: "💜" },
-    { key: "Ferocity", name: "Ferocity", icon: "🔥" },
-    { key: "Temperament", name: "Temperament", icon: "🐎" },
 ];
 
 /**
