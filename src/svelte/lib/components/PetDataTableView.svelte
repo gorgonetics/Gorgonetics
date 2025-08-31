@@ -1,7 +1,6 @@
 <script>
     import { Table } from "@flowbite-svelte-plugins/datatable";
-    import { pets, appState } from "../stores/appState.js";
-    import { X } from "@lucide/svelte";
+    import { pets } from "../stores/appState.js";
 
     function formatDate(dateString) {
         if (!dateString) return "Unknown";
@@ -32,28 +31,22 @@
     }
 
     const items = $derived(assemblePetsData($pets));
-
-    function closePetTableView() {
-        appState.hidePetTableView();
-    }
 </script>
 
-<div class="pet-datatable-view">
-    <div class="table-header">
-        <div class="header-content">
-            <h2 class="table-title">🐾 Pet Management Table</h2>
-            <p class="table-subtitle">Search, sort, and manage all your pets</p>
+<div class="pet-visualization">
+    <div class="visualization-header">
+        <h3 class="visualization-title">
+            🐾 Pet Manager
+        </h3>
+        <div class="visualization-stats">
+            <span class="stat-item">{$pets.length} pets total</span>
+            {#if $pets.some(pet => pet.has_unknown_genes)}
+                <span class="unknown-indicator">⚠️ Some pets have unknown genes</span>
+            {/if}
         </div>
-        <button 
-            class="close-btn"
-            onclick={closePetTableView}
-            title="Close table view"
-        >
-            <X size={20} />
-        </button>
     </div>
     
-    <div class="table-container">
+    <div class="gene-visualizer-container">
         {#if $pets && $pets.length > 0}
             <Table 
                 dataTableOptions={{
@@ -77,78 +70,6 @@
 </div>
 
 <style>
-    .pet-datatable-view {
-        flex: 1;
-        padding: 2rem;
-        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-        display: flex;
-        flex-direction: column;
-        min-height: 100vh;
-    }
-
-    .table-header {
-        display: flex;
-        align-items: flex-start;
-        justify-content: space-between;
-        margin-bottom: 2rem;
-        gap: 1.5rem;
-        padding: 1.5rem 2rem;
-        background: white;
-        border-radius: 12px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-    }
-
-    .header-content {
-        flex: 1;
-    }
-
-    .table-title {
-        font-size: 2.5rem;
-        font-weight: 800;
-        background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-        margin: 0 0 0.5rem 0;
-        line-height: 1.2;
-    }
-
-    .table-subtitle {
-        font-size: 1.125rem;
-        color: #6b7280;
-        margin: 0;
-        font-weight: 500;
-    }
-
-    .close-btn {
-        padding: 0.75rem;
-        background: #f3f4f6;
-        border: 1px solid #d1d5db;
-        border-radius: 8px;
-        color: #6b7280;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-
-    .close-btn:hover {
-        background: #e5e7eb;
-        color: #374151;
-        transform: translateY(-1px);
-    }
-
-    .table-container {
-        flex: 1;
-        background: white;
-        border-radius: 12px;
-        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
-        overflow: hidden;
-        min-height: 500px;
-        padding: 1.5rem;
-    }
-
     .empty-state {
         display: flex;
         flex-direction: column;
@@ -177,38 +98,57 @@
     }
 
     /* Basic table styling */
-    :global(.table-container table) {
+    :global(.gene-visualizer-container table) {
         width: 100%;
         border-collapse: collapse;
+        background: white;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     }
 
-    :global(.table-container thead th) {
+    :global(.gene-visualizer-container thead th) {
         background: #f9fafb;
         color: #374151;
         font-weight: 500;
         font-size: 0.875rem;
-        padding: 0.75rem 1rem;
+        padding: 0.5rem 0.75rem;
         border-bottom: 1px solid #e5e7eb;
         text-align: left;
     }
 
-    :global(.table-container thead th:hover) {
+    :global(.gene-visualizer-container thead th:hover) {
         background: #f3f4f6;
     }
 
-    :global(.table-container tbody td) {
-        padding: 1rem;
+    /* Remove extra padding from datatable plugin buttons */
+    :global(.gene-visualizer-container thead th button) {
+        padding: 0 !important;
+        margin: 0 !important;
+        background: none !important;
+        border: none !important;
+        font: inherit !important;
+        color: inherit !important;
+        text-align: inherit !important;
+        cursor: pointer !important;
+        outline: none !important;
+        width: 100% !important;
+        height: auto !important;
+    }
+
+    :global(.gene-visualizer-container tbody td) {
+        padding: 0.625rem 0.75rem;
         border-bottom: 1px solid #f3f4f6;
         font-size: 0.875rem;
         color: #111827;
     }
 
-    :global(.table-container tbody tr:hover) {
+    :global(.gene-visualizer-container tbody tr:hover) {
         background-color: #f8fafc;
     }
 
-    /* Search and controls */
-    :global(.table-container input) {
+    /* Search and controls styling */
+    :global(.gene-visualizer-container input) {
         border: 2px solid #e5e7eb;
         border-radius: 8px;
         padding: 0.75rem 1rem;
@@ -217,14 +157,14 @@
         transition: all 0.2s ease;
     }
 
-    :global(.table-container input:focus) {
+    :global(.gene-visualizer-container input:focus) {
         border-color: #3b82f6;
         background: white;
         box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
         outline: none;
     }
 
-    :global(.table-container select) {
+    :global(.gene-visualizer-container select) {
         background: white;
         border: 1px solid #d1d5db;
         border-radius: 6px;
@@ -233,7 +173,7 @@
         font-size: 0.875rem;
     }
 
-    :global(.table-container button) {
+    :global(.gene-visualizer-container button) {
         background: white;
         border: 1px solid #d1d5db;
         color: #374151;
@@ -245,35 +185,14 @@
         transition: all 0.2s ease;
     }
 
-    :global(.table-container button:hover) {
+    :global(.gene-visualizer-container button:hover) {
         background: #f3f4f6;
         border-color: #9ca3af;
     }
 
-    :global(.table-container button.active) {
+    :global(.gene-visualizer-container button.active) {
         background: #3b82f6;
         border-color: #3b82f6;
         color: white;
-    }
-
-    @media (max-width: 768px) {
-        .pet-datatable-view {
-            padding: 1rem;
-        }
-
-        .table-header {
-            padding: 1rem;
-            margin-bottom: 1rem;
-            flex-direction: column;
-            gap: 1rem;
-        }
-
-        .table-title {
-            font-size: 1.875rem;
-        }
-
-        .table-container {
-            padding: 1rem;
-        }
     }
 </style>

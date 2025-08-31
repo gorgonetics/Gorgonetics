@@ -5,6 +5,7 @@
         error,
         geneEditingView,
         petTableView,
+        activeTab,
         appState,
     } from "../stores/appState.js";
     import PetVisualization from "./PetVisualization.svelte";
@@ -20,7 +21,7 @@
     }
 
     const welcomeMessage =
-        $derived(!$selectedPet && !$geneEditingView && !$petTableView ? getWelcomeMessage() : null);
+        $derived(!$selectedPet && !$geneEditingView && !$petTableView && $activeTab !== "pets" ? getWelcomeMessage() : null);
 </script>
 
 <div class="app-main">
@@ -51,8 +52,8 @@
         <!-- Pet Visualization -->
     {:else if $selectedPet}
         <PetVisualization pet={$selectedPet} />
-        <!-- Pet Data Table View -->
-    {:else if $petTableView}
+        <!-- Pet Manager - Show table by default -->
+    {:else if $activeTab === "pets"}
         <PetDataTableView />
         <!-- Gene Editing View -->
     {:else if $geneEditingView}

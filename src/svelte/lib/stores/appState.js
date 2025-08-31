@@ -13,6 +13,9 @@ export const geneEditingView = writable(null);
 // Pet table view state
 export const petTableView = writable(false);
 
+// Current active tab state
+export const activeTab = writable("pets");
+
 // No derived stores needed for simplified pet management
 
 // Action creators for updating state
@@ -107,6 +110,18 @@ export const appState = {
 
   hidePetTableView() {
     petTableView.set(false);
+  },
+
+  // Tab management
+  switchTab(tab) {
+    activeTab.set(tab);
+    // Clear other views when switching tabs
+    if (tab === "pets") {
+      geneEditingView.set(null);
+    } else if (tab === "editor") {
+      selectedPet.set(null);
+      petTableView.set(false);
+    }
   },
 
   // Utility methods
