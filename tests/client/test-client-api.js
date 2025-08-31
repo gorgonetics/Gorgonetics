@@ -216,18 +216,17 @@ describe('Gorgonetics Client API Integration Tests', () => {
         });
 
         it('should upload pet file successfully', async () => {
-            // Create a mock pet file for testing
-            const mockPetContent = `Format Version: v1.0
-Breeder: TestBreeder
-Name: Test Client Pet
-Genome Type: Horse
+            // Create a mock pet file for testing with correct format
+            const mockPetContent = `[Overview]
+Format=v1.0
+Character=TestBreeder
+Entity=Test Client Pet
+Genome=Horse
 
-Chromosome 01:
-Block A: RD RD RD RD
-Block B: RR DD RR DD
-Block C: RD RD RD RD
-
-End of Genome`;
+[Genes]
+01=       RDRD RDRR RDRD RDRD RDRR RDRD RDDD RDRD DDRD RDDx 
+02=       RRRD RDDD RDRR RRRD RDRR 
+03=       RRRR DRRR RRDR RRRR RRDR DDDR DRDD DDDD DDDD DDDR`;
 
             const mockFile = new File([mockPetContent], 'test_client_pet.txt', {
                 type: 'text/plain'
@@ -302,15 +301,14 @@ End of Genome`;
         });
 
         it('should handle duplicate file uploads', async () => {
-            const mockPetContent = `Format Version: v1.0
-Breeder: TestBreeder
-Name: Duplicate Test Pet
-Genome Type: Horse
+            const mockPetContent = `[Overview]
+Format=v1.0
+Character=TestBreeder
+Entity=Duplicate Test Pet
+Genome=Horse
 
-Chromosome 01:
-Block A: RD RD RD RD
-
-End of Genome`;
+[Genes]
+01=       RDRD RDRR RDRD RDRD RDRR RDRD RDDD RDRD DDRD RDDx`;
 
             const mockFile1 = new File([mockPetContent], 'duplicate1.txt', {
                 type: 'text/plain'
@@ -345,15 +343,22 @@ End of Genome`;
             expect(typeof config).toBe('object');
             expect(config).not.toBe(null);
 
+            // Should have expected properties
+            expect(config).toHaveProperty('species');
+            expect(config).toHaveProperty('attributes');
+            expect(config.species).toBe('horse');
+            expect(Array.isArray(config.attributes)).toBe(true);
+
             // Should have some attributes defined
-            const attributes = Object.keys(config);
-            expect(attributes.length).toBeGreaterThan(0);
+            expect(config.attributes.length).toBeGreaterThan(0);
 
             // Each attribute should have proper structure
-            attributes.forEach(attrName => {
-                const attrConfig = config[attrName];
-                expect(typeof attrConfig).toBe('object');
-                expect(attrConfig).toHaveProperty('type');
+            config.attributes.forEach(attr => {
+                expect(typeof attr).toBe('object');
+                expect(attr).toHaveProperty('key');
+                expect(attr).toHaveProperty('name');
+                expect(typeof attr.key).toBe('string');
+                expect(typeof attr.name).toBe('string');
             });
         });
     });
@@ -513,15 +518,14 @@ End of Genome`;
             expect(Array.isArray(initialPets)).toBe(true);
 
             // 2. Upload new pet
-            const mockPetContent = `Format Version: v1.0
-Breeder: WorkflowTester
-Name: Workflow Test Pet
-Genome Type: Horse
+            const mockPetContent = `[Overview]
+Format=v1.0
+Character=WorkflowTester
+Entity=Workflow Test Pet
+Genome=Horse
 
-Chromosome 01:
-Block A: RD RD RD RD
-
-End of Genome`;
+[Genes]
+01=       RDRD RDRR RDRD RDRD RDRR RDRD RDDD RDRD DDRD RDDx`;
 
             const mockFile = new File([mockPetContent], 'workflow_test.txt', {
                 type: 'text/plain'

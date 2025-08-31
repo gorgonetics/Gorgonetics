@@ -13,7 +13,8 @@ class ApiClient {
    */
   async fetchWithErrorHandling(url, options = {}) {
     try {
-      const response = await fetch(url, options);
+      const fullUrl = url.startsWith('http') ? url : `${this.baseUrl}${url}`;
+      const response = await fetch(fullUrl, options);
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
@@ -153,11 +154,36 @@ class ApiClient {
   /**
    * Upload a pet file
    */
-  async uploadPet(formData) {
+  async uploadPet(file, name = "", notes = null) {
+    const formData = new FormData();
+    formData.append("file", file);
+    if (name) {
+      formData.append("name", name);
+    }
+    if (notes) {
+      formData.append("notes", notes);
+    }
+    
     const response = await this.fetchWithErrorHandling("/api/pets/upload", {
       method: "POST",
       body: formData,
     });
+    return response.json();
+  }
+
+  /**
+   * Get gene effects for a species
+   */
+  async getGeneEffects(animalType) {
+    const response = await this.fetchWithErrorHandling(`/api/gene-effects/${animalType}`);
+    return response.json();
+  }
+
+  /**
+   * Get attribute configuration for a species
+   */
+  async getAttributeConfig(animalType) {
+    const response = await this.fetchWithErrorHandling(`/api/attribute-config/${animalType}`);
     return response.json();
   }
 
@@ -172,3 +198,6 @@ class ApiClient {
 
 // Create and export a singleton instance
 export const apiClient = new ApiClient();
+
+// Also export the class for testing
+export { ApiClient };
