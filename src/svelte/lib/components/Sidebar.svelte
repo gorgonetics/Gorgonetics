@@ -82,6 +82,19 @@
                 <div class="tab-panel" role="tabpanel">
                     <PetUpload />
                     <PetsList />
+                    
+                    <!-- Table View Button -->
+                    <div class="table-view-section">
+                        <button
+                            class="table-view-btn"
+                            onclick={() => appState.showPetTableView()}
+                            title="View pets in data table format"
+                        >
+                            <span class="btn-icon">📊</span>
+                            <span class="btn-text">Open Table View</span>
+                        </button>
+                        <p class="table-view-hint">View all pets in a sortable, searchable table</p>
+                    </div>
                 </div>
             {/if}
 
@@ -523,5 +536,58 @@
         cursor: pointer;
         color: #dc2626;
         line-height: 1;
+    }
+
+    /* Table View Button Styles */
+    .table-view-section {
+        margin-top: 1.5rem;
+        padding-top: 1rem;
+        border-top: 1px solid #e5e7eb;
+    }
+
+    .table-view-btn {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.75rem 1rem;
+        background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+        border: none;
+        border-radius: 8px;
+        color: white;
+        font-size: 0.875rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
+    }
+
+    .table-view-btn:hover {
+        background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+        box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
+        transform: translateY(-1px);
+    }
+
+    .table-view-btn:active {
+        transform: translateY(0);
+        box-shadow: 0 2px 4px rgba(59, 130, 246, 0.2);
+    }
+
+    .btn-icon {
+        font-size: 1rem;
+        flex-shrink: 0;
+    }
+
+    .btn-text {
+        flex: 1;
+        text-align: left;
+    }
+
+    .table-view-hint {
+        font-size: 0.75rem;
+        color: #6b7280;
+        margin: 0.5rem 0 0 0;
+        text-align: center;
+        line-height: 1.3;
     }
 </style>

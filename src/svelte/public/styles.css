@@ -1,5 +1,9 @@
 /* Gorgonetics Svelte App - Minimal Styles */
 
+/* Import Flowbite DataTable Plugin CSS */
+@import "../../../node_modules/simple-datatables/dist/style.css";
+@import "../../../node_modules/@flowbite-svelte-plugins/datatable/dist/flowbite-svelte-datatable.css";
+
 /* CSS Custom Properties for Gene Colors (needed by gene visualizer) */
 :root {
     /* Core effect colors */

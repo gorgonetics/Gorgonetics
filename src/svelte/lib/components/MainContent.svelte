@@ -4,10 +4,12 @@
         loading,
         error,
         geneEditingView,
+        petTableView,
         appState,
     } from "../stores/appState.js";
     import PetVisualization from "./PetVisualization.svelte";
     import GeneEditingView from "./GeneEditingView.svelte";
+    import PetDataTableView from "./PetDataTableView.svelte";
 
     function getWelcomeMessage() {
         return {
@@ -18,7 +20,7 @@
     }
 
     const welcomeMessage =
-        $derived(!$selectedPet && !$geneEditingView ? getWelcomeMessage() : null);
+        $derived(!$selectedPet && !$geneEditingView && !$petTableView ? getWelcomeMessage() : null);
 </script>
 
 <div class="app-main">
@@ -49,6 +51,9 @@
         <!-- Pet Visualization -->
     {:else if $selectedPet}
         <PetVisualization pet={$selectedPet} />
+        <!-- Pet Data Table View -->
+    {:else if $petTableView}
+        <PetDataTableView />
         <!-- Gene Editing View -->
     {:else if $geneEditingView}
         <GeneEditingView
