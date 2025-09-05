@@ -3,294 +3,294 @@
     "gene": "40A1",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale (Le)",
+    "notes": ""
   },
   {
     "gene": "40A2",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Virility-",
+    "appearance": "Scale (Le)",
+    "notes": ""
   },
   {
     "gene": "40A3",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale (Le)",
+    "notes": ""
   },
   {
     "gene": "40A4",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Temperament-",
+    "appearance": "Scale (Le)",
+    "notes": ""
   },
   {
     "gene": "40B1",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale (Le)",
+    "notes": ""
   },
   {
     "gene": "40B2",
-    "effectDominant": "None",
+    "effectDominant": "Ruggedness-",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale (Le)",
+    "notes": ""
   },
   {
     "gene": "40B3",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale (Le)",
+    "notes": ""
   },
   {
     "gene": "40B4",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale (Le)",
+    "notes": ""
   },
   {
     "gene": "40C1",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Friendliness+",
+    "appearance": "Scale (Le)",
+    "notes": ""
   },
   {
     "gene": "40C2",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Virility+",
+    "appearance": "Scale (Le)",
+    "notes": ""
   },
   {
     "gene": "40C3",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale (Le)",
+    "notes": ""
   },
   {
     "gene": "40C4",
-    "effectDominant": "None",
+    "effectDominant": "Toughness-",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale (Le)",
+    "notes": ""
   },
   {
     "gene": "40D1",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale (Le)",
+    "notes": ""
   },
   {
     "gene": "40D2",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Intelligence-",
+    "appearance": "Scale (Le)",
+    "notes": ""
   },
   {
     "gene": "40D3",
-    "effectDominant": "None",
+    "effectDominant": "Enthusiasm-",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale (Le)",
+    "notes": ""
   },
   {
     "gene": "40D4",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale (Le)",
+    "notes": ""
   },
   {
     "gene": "40E1",
-    "effectDominant": "None",
+    "effectDominant": "Temperament+",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale (Le)",
+    "notes": ""
   },
   {
     "gene": "40E2",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale (Le)",
+    "notes": ""
   },
   {
     "gene": "40E3",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale (Le)",
+    "notes": ""
   },
   {
     "gene": "40E4",
-    "effectDominant": "None",
+    "effectDominant": "Friendliness-",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale (Le)",
+    "notes": ""
   },
   {
     "gene": "40F1",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale (Le)",
+    "notes": ""
   },
   {
     "gene": "40F2",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Intelligence+",
+    "appearance": "Scale (Le)",
+    "notes": ""
   },
   {
     "gene": "40F3",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale (Le)",
+    "notes": ""
   },
   {
     "gene": "40F4",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Toughness-",
+    "appearance": "Scale (Le)",
+    "notes": ""
   },
   {
     "gene": "40G1",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale (Le)",
+    "notes": ""
   },
   {
     "gene": "40G2",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Enthusiasm+",
+    "appearance": "Scale (Le)",
+    "notes": ""
   },
   {
     "gene": "40G3",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale (Le)",
+    "notes": ""
   },
   {
     "gene": "40G4",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale (Le)",
+    "notes": ""
   },
   {
     "gene": "40H1",
-    "effectDominant": "None",
+    "effectDominant": "Ruggedness+",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Horn (Le)",
+    "notes": ""
   },
   {
     "gene": "40H2",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Horn (Le)",
+    "notes": ""
   },
   {
     "gene": "40H3",
-    "effectDominant": "None",
+    "effectDominant": "Virility-",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Horn (Le)",
+    "notes": ""
   },
   {
     "gene": "40H4",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Temperament-",
+    "appearance": "Horn (Le)",
+    "notes": ""
   },
   {
     "gene": "40I1",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Horn (Le)",
+    "notes": ""
   },
   {
     "gene": "40I2",
-    "effectDominant": "None",
+    "effectDominant": "Friendliness+",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Horn (Le)",
+    "notes": ""
   },
   {
     "gene": "40I3",
-    "effectDominant": "None",
+    "effectDominant": "Intelligence+",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Horn (Le)",
+    "notes": ""
   },
   {
     "gene": "40I4",
-    "effectDominant": "None",
+    "effectDominant": "Enthusiasm+",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Horn (Le)",
+    "notes": ""
   },
   {
     "gene": "40J1",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Horn (Le)",
+    "notes": ""
   },
   {
     "gene": "40J2",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Horn (Le)",
+    "notes": ""
   },
   {
     "gene": "40J3",
-    "effectDominant": "None",
+    "effectDominant": "Temperament+",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Horn (Le)",
+    "notes": ""
   },
   {
     "gene": "40J4",
-    "effectDominant": "None",
+    "effectDominant": "Virility+",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Horn (Le)",
+    "notes": ""
   },
   {
     "gene": "40K1",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Horn (Le)",
+    "notes": ""
   },
   {
     "gene": "40K2",
-    "effectDominant": "None",
+    "effectDominant": "Intelligence+",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Horn (Le)",
+    "notes": ""
   }
 ]
