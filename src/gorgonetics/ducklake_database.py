@@ -177,6 +177,7 @@ class DuckLakeGeneDatabase:
                 "id INTEGER",
                 "name VARCHAR NOT NULL",
                 "species VARCHAR NOT NULL",
+                "gender VARCHAR NOT NULL DEFAULT 'Male'",
                 "breeder VARCHAR",
                 "content_hash VARCHAR NOT NULL",
                 "genome_data JSON NOT NULL",
@@ -395,7 +396,8 @@ class DuckLakeGeneDatabase:
         breeder: str | None,
         genome_data: str,
         content_hash: str,
-        attributes: dict[str, float] | None = None,
+        gender: str = "Male",
+        attributes: dict[str, int] | None = None,
         notes: str | None = None,
     ) -> int | None:
         """
@@ -407,6 +409,7 @@ class DuckLakeGeneDatabase:
             breeder: Breeder name
             genome_data: Serialized genome JSON
             content_hash: SHA-256 hash of original file content
+            gender: Pet's gender (Male or Female)
             attributes: Dynamic attributes dictionary
             notes: Optional notes
         """
@@ -415,8 +418,8 @@ class DuckLakeGeneDatabase:
             all_attributes = AttributeConfig.get_all_attributes(species)
 
             # Prepare base columns and values
-            columns = ["name", "species", "content_hash", "genome_data"]
-            values = [name, species, content_hash, genome_data]
+            columns = ["name", "species", "gender", "content_hash", "genome_data"]
+            values = [name, species, gender, content_hash, genome_data]
 
             # Add breeder if provided
             if breeder:

@@ -6,6 +6,7 @@
 
     let fileInput = $state();
     let petName = $state("");
+    let petGender = $state("Male");
     let dragOver = $state(false);
     let uploading = $state(false);
 
@@ -48,8 +49,9 @@
     async function uploadFile(file) {
         try {
             uploading = true;
-            await appState.uploadPet(file, petName);
+            await appState.uploadPet(file, petName, petGender);
             petName = ""; // Clear the name input after successful upload
+            petGender = "Male"; // Reset gender to default
             fileInput.value = ""; // Clear the file input
             dispatch("upload-success");
         } catch (err) {
@@ -113,6 +115,18 @@
             class="pet-name-input"
             disabled={uploading}
         />
+    </div>
+    <div class="form-group" style="margin-top: 8px;">
+        <label for="gender-select" class="gender-label">Gender</label>
+        <select
+            id="gender-select"
+            bind:value={petGender}
+            class="gender-select"
+            disabled={uploading}
+        >
+            <option value="Male">Male</option>
+            <option value="Female">Female</option>
+        </select>
     </div>
 </div>
 
@@ -204,6 +218,35 @@
     }
 
     .pet-name-input:focus {
+        outline: 2px solid #3b82f6;
+        outline-offset: 2px;
+        border-color: #3b82f6;
+    }
+
+    .gender-label {
+        font-size: 0.75rem !important;
+        font-weight: 500;
+        color: #6b7280;
+        margin-bottom: 0.25rem;
+    }
+
+    .gender-select {
+        padding: 0.5rem;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        font-size: 0.875rem;
+        background: white;
+        color: #374151;
+        cursor: pointer;
+    }
+
+    .gender-select:disabled {
+        background-color: #f9fafb;
+        color: #9ca3af;
+        cursor: not-allowed;
+    }
+
+    .gender-select:focus {
         outline: 2px solid #3b82f6;
         outline-offset: 2px;
         border-color: #3b82f6;

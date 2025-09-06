@@ -14,7 +14,7 @@
 
     function assemblePetsData(petsArray) {
         // Build dynamic headings from attribute list
-        const baseHeadings = ["Pet Name", "Species", "Breed"];
+        const baseHeadings = ["Pet Name", "Species", "Gender", "Breed"];
         const attributeHeadings = FALLBACK_ATTRIBUTE_LIST.map(attr => attr.name);
         const endHeadings = ["Created Date"];
         const headings = [...baseHeadings, ...attributeHeadings, ...endHeadings];
@@ -26,12 +26,16 @@
         const data = petsArray.map(pet => {
             const baseData = [
                 pet.name || "Unnamed",
-                pet.species || "Unknown", 
+                pet.species || "Unknown",
+                pet.gender || "Male",
                 pet.breed || "Mixed" // Filler value
             ];
             
-            // Add attribute values (defaulting to 50 for now)
-            const attributeData = FALLBACK_ATTRIBUTE_LIST.map(() => 50);
+            // Add actual attribute values from pet data
+            const attributeData = FALLBACK_ATTRIBUTE_LIST.map(attr => {
+                const attrKey = attr.key.toLowerCase();
+                return pet[attrKey] || pet.attributes?.[attrKey] || 50;
+            });
             
             const endData = [formatDate(pet.created_at)];
             

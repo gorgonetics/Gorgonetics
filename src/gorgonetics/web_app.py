@@ -76,7 +76,8 @@ class PetCreate(BaseModel):
     """Model for creating a new pet."""
 
     name: str
-    attributes: dict[str, float] | None = None
+    gender: str = "Male"
+    attributes: dict[str, int] | None = None
     notes: str | None = None
 
 
@@ -84,7 +85,8 @@ class PetUpdate(BaseModel):
     """Model for updating pet attributes."""
 
     name: str | None = None
-    attributes: dict[str, float] | None = None
+    gender: str | None = None
+    attributes: dict[str, int] | None = None
     notes: str | None = None
 
 
@@ -406,6 +408,7 @@ async def download_chromosome_file(
 async def upload_pet_genome(
     file: UploadFile = File(...),
     name: str = Form(""),  # Optional override name
+    gender: str = Form("Male"),  # Pet's gender
     notes: str | None = Form(None),
     db: "DuckLakeGeneDatabase" = Depends(get_database),
 ) -> dict[str, str | int]:
@@ -485,6 +488,7 @@ async def upload_pet_genome(
                 breeder=genome.breeder,
                 genome_data=genome_json,
                 content_hash=content_hash,
+                gender=gender,
                 attributes=attributes_dict,
                 notes=notes,
             )
@@ -554,6 +558,8 @@ async def update_pet(
         updates = {}
         if pet_update.name is not None:
             updates["name"] = pet_update.name
+        if pet_update.gender is not None:
+            updates["gender"] = pet_update.gender
         if pet_update.notes is not None:
             updates["notes"] = pet_update.notes
         if pet_update.attributes is not None:

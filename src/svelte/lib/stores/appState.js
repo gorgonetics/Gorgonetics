@@ -69,7 +69,7 @@ export const appState = {
     }
   },
 
-  async uploadPet(file, petName) {
+  async uploadPet(file, petName, petGender = "Male") {
     try {
       loading.set(true);
       error.set(null);
@@ -79,6 +79,7 @@ export const appState = {
       if (petName) {
         formData.append("name", petName);
       }
+      formData.append("gender", petGender);
 
       await apiClient.uploadPet(formData);
       await this.loadPets(); // Reload pets list

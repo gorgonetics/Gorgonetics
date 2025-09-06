@@ -9,12 +9,54 @@ from __future__ import annotations
 
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from .attribute_config import AttributeConfig
 from .genome_parser import generate_block_letters, parse_genome_file_genes, parse_genome_file_header
+
+# Attribute value type with validation
+AttributeValue = Annotated[int, Field(ge=0, le=100, description="Attribute value between 0 and 100")]
+
+
+class CoreAttributes(BaseModel):
+    """Core attributes shared by all pet species."""
+
+    intelligence: AttributeValue = 50
+    toughness: AttributeValue = 50
+    friendliness: AttributeValue = 50
+    ruggedness: AttributeValue = 50
+    enthusiasm: AttributeValue = 50
+    virility: AttributeValue = 50
+
+
+class BeeWaspAttributes(CoreAttributes):
+    """Attributes specific to BeeWasp species."""
+
+    ferocity: AttributeValue = 50
+
+
+class HorseAttributes(CoreAttributes):
+    """Attributes specific to Horse species."""
+
+    temperament: AttributeValue = 50
+
+
+# Union type for all possible attribute classes
+PetAttributes = BeeWaspAttributes | HorseAttributes | CoreAttributes
+
+
+def create_attributes_for_species(species: str, **kwargs: int) -> PetAttributes:
+    """Create appropriate attribute class for a given species."""
+    species_lower = species.lower()
+
+    if "beewasp" in species_lower or "bee" in species_lower:
+        return BeeWaspAttributes(**kwargs)
+    elif "horse" in species_lower:
+        return HorseAttributes(**kwargs)
+    else:
+        return CoreAttributes(**kwargs)
 
 
 class GeneType(str, Enum):
@@ -24,6 +66,13 @@ class GeneType(str, Enum):
     DOMINANT = "D"  # Both alleles dominant
     MIXED = "x"  # One dominant, one recessive
     UNKNOWN = "?"  # Unknown gene type
+
+
+class Gender(str, Enum):
+    """Represents a pet's gender."""
+
+    MALE = "Male"
+    FEMALE = "Female"
 
 
 class Gene(BaseModel):
@@ -131,9 +180,9 @@ class DynamicAttributeValues(BaseModel):
             super().__setattr__(name, value)
 
 
-def create_attribute_values_for_species(species: str) -> dict[str, float]:
+def create_attribute_values_for_species(species: str) -> PetAttributes:
     """Create appropriate attribute values for a given species."""
-    return AttributeConfig.get_default_values(species)
+    return create_attributes_for_species(species)
 
 
 class Genome(BaseModel):
@@ -250,7 +299,8 @@ class Pet(BaseModel):
 
     name: str
     genome: Genome
-    attributes: dict[str, float] = Field(default_factory=dict)
+    gender: Gender = Gender.MALE
+    attributes: PetAttributes
     screenshot_path: Path | None = None
     notes: str = ""
 
@@ -263,16 +313,35 @@ class Pet(BaseModel):
                 species = genome_data.get("genome_type", "")
             else:
                 species = getattr(genome_data, "genome_type", "")
-            data["attributes"] = AttributeConfig.get_default_values(species)
-        elif "attributes" in data and isinstance(data["attributes"], DynamicAttributeValues):
-            # Convert DynamicAttributeValues to flat dict
-            data["attributes"] = data["attributes"].get_all_attributes()
+
+            data["attributes"] = create_attributes_for_species(species)
+        elif "attributes" in data:
+            # Handle conversion from dict or custom attribute classes
+            attrs = data["attributes"]
+            if isinstance(attrs, dict):
+                # Convert dict to appropriate attribute class
+                genome_data = data.get("genome")
+                if isinstance(genome_data, dict):
+                    species = genome_data.get("genome_type", "")
+                else:
+                    species = getattr(genome_data, "genome_type", "") if genome_data else ""
+
+                data["attributes"] = create_attributes_for_species(species, **attrs)
+            elif isinstance(attrs, DynamicAttributeValues):
+                # Convert from legacy attribute classes
+                attrs_dict = attrs.get_all_attributes()
+                data["attributes"] = create_attributes_for_species(attrs.species, **attrs_dict)
 
         super().__init__(**data)
 
     @classmethod
     def from_genome_file(
-        cls, name: str, genome_file: str | Path, screenshot_path: str | Path | None = None, notes: str = ""
+        cls,
+        name: str,
+        genome_file: str | Path,
+        gender: Gender = Gender.MALE,
+        screenshot_path: str | Path | None = None,
+        notes: str = "",
     ) -> Pet:
         """Create a pet from a genome file."""
         genome = Genome.from_file(genome_file)
@@ -282,7 +351,14 @@ class Pet(BaseModel):
         # Create species-specific attributes
         species_attributes = AttributeConfig.get_default_values(genome.genome_type)
 
-        pet = cls(name=name, genome=genome, attributes=species_attributes, screenshot_path=screenshot, notes=notes)
+        pet = cls(
+            name=name,
+            genome=genome,
+            gender=gender,
+            attributes=species_attributes,
+            screenshot_path=screenshot,
+            notes=notes,
+        )
 
         # Calculate initial attributes based on genome
         pet._calculate_attributes()
@@ -316,15 +392,15 @@ class Pet(BaseModel):
         """Get the pet's species."""
         return self.genome.genome_type
 
-    def get_attribute_value(self, attribute_name: str) -> float:
+    def get_attribute_value(self, attribute_name: str) -> int:
         """Get the value for a specific attribute."""
-        return self.attributes.get(attribute_name.lower(), 0.0)
+        return getattr(self.attributes, attribute_name.lower(), 50)
 
-    def set_attribute_value(self, attribute_name: str, value: float) -> None:
+    def set_attribute_value(self, attribute_name: str, value: int) -> None:
         """Set the value for a specific attribute."""
         attr_key = attribute_name.lower()
-        if AttributeConfig.is_valid_attribute(attr_key, self.get_species()):
-            self.attributes[attr_key] = float(value)
+        if hasattr(self.attributes, attr_key):
+            setattr(self.attributes, attr_key, value)
         else:
             raise ValueError(f"Invalid attribute '{attribute_name}' for species '{self.get_species()}'")
 

@@ -15,7 +15,7 @@ class AttributeConfig:
 
     # Ordered list of core attributes (matches game order)
     CORE_ATTRIBUTE_ORDER = [
-        "toughness", "ruggedness", "enthusiasm", 
+        "toughness", "ruggedness", "enthusiasm",
         "friendliness", "intelligence", "virility"
     ]
 
@@ -238,10 +238,10 @@ class AttributeConfig:
         return all_attrs.get(attribute_name.lower())
 
     @classmethod
-    def get_default_values(cls, species: str) -> dict[str, float]:
+    def get_default_values(cls, species: str) -> dict[str, int]:
         """Get default values for all attributes of a species."""
         all_attrs = cls.get_all_attributes(species)
-        return {name: info["default"] for name, info in all_attrs.items()}
+        return {name: int(info["default"]) for name, info in all_attrs.items()}
 
     @classmethod
     def get_attribute_display_info(cls, species: str) -> list[dict[str, Any]]:
