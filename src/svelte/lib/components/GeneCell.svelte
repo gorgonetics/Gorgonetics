@@ -113,16 +113,18 @@
         --gene-glow: #8bc34a;
         --gene-appearance-neutral: #95a5a6;
 
-        /* Horse appearance colors */
-        --gene-scale-kb: #8b5cf6;
-        --gene-attributes-kb: #06b6d4;
-        --gene-selector-sb: #8b4513;
-        --gene-selector-pt: #f59e0b;
-        --gene-selector-po: #84cc16;
-        --gene-selector-kb: #ec4899;
-        --gene-selector-bl: #3b82f6;
-        --gene-horn: #ef4444;
-        --gene-horn-kb: #f97316;
+        /* Horse appearance colors - using config color indicators */
+        --gene-scale: #2980b9;
+        --gene-attributes: #e74c3c;
+        --gene-selector: #8e44ad;
+        --gene-horn: #1abc9c;
+        --gene-aura: #3498db;
+        --gene-coat: #2ecc71;
+        --gene-face-markings: #f39c12;
+        --gene-hair: #9b59b6;
+        --gene-leg-markings: #34495e;
+        --gene-magical: #e67e22;
+        --gene-markings: #16a085;
     }
 
     :global(.gene-cell) {
@@ -255,7 +257,7 @@
         opacity: 0.25 !important;
         filter: grayscale(1) blur(0.5px);
         pointer-events: none !important;
-        background: #f3f4f6 !important;
+        background: #f9fafb !important;
         border-color: #b0b4ba !important;
         color: #b0b4ba !important;
         transition: opacity 0.2s;
@@ -326,41 +328,49 @@
         --gene-color: var(--gene-glow);
     }
 
-    /* Horse appearance gene colors */
-    :global(.gene-scale-kb) {
-        --gene-color: var(--gene-scale-kb);
+    /* Horse appearance gene colors - grouped attributes */
+    :global(.gene-scale) {
+        --gene-color: var(--gene-scale);
     }
 
-    :global(.gene-attributes-kb) {
-        --gene-color: var(--gene-attributes-kb);
+    :global(.gene-attributes) {
+        --gene-color: var(--gene-attributes);
     }
 
-    :global(.gene-selector-sb) {
-        --gene-color: var(--gene-selector-sb);
-    }
-
-    :global(.gene-selector-pt) {
-        --gene-color: var(--gene-selector-pt);
-    }
-
-    :global(.gene-selector-po) {
-        --gene-color: var(--gene-selector-po);
-    }
-
-    :global(.gene-selector-kb) {
-        --gene-color: var(--gene-selector-kb);
-    }
-
-    :global(.gene-selector-bl) {
-        --gene-color: var(--gene-selector-bl);
+    :global(.gene-selector) {
+        --gene-color: var(--gene-selector);
     }
 
     :global(.gene-horn) {
         --gene-color: var(--gene-horn);
     }
 
-    :global(.gene-horn-kb) {
-        --gene-color: var(--gene-horn-kb);
+    :global(.gene-aura) {
+        --gene-color: var(--gene-aura);
+    }
+
+    :global(.gene-coat) {
+        --gene-color: var(--gene-coat);
+    }
+
+    :global(.gene-face-markings) {
+        --gene-color: var(--gene-face-markings);
+    }
+
+    :global(.gene-hair) {
+        --gene-color: var(--gene-hair);
+    }
+
+    :global(.gene-leg-markings) {
+        --gene-color: var(--gene-leg-markings);
+    }
+
+    :global(.gene-magical) {
+        --gene-color: var(--gene-magical);
+    }
+
+    :global(.gene-markings) {
+        --gene-color: var(--gene-markings);
     }
 
     :global(.gene-appearance-neutral) {
@@ -384,15 +394,17 @@
     :global(.gene-particles.gene-dominant),
     :global(.gene-particle-location.gene-dominant),
     :global(.gene-glow.gene-dominant),
-    :global(.gene-scale-kb.gene-dominant),
-    :global(.gene-attributes-kb.gene-dominant),
-    :global(.gene-selector-sb.gene-dominant),
-    :global(.gene-selector-pt.gene-dominant),
-    :global(.gene-selector-po.gene-dominant),
-    :global(.gene-selector-kb.gene-dominant),
-    :global(.gene-selector-bl.gene-dominant),
+    :global(.gene-scale.gene-dominant),
+    :global(.gene-attributes.gene-dominant),
+    :global(.gene-selector.gene-dominant),
     :global(.gene-horn.gene-dominant),
-    :global(.gene-horn-kb.gene-dominant),
+    :global(.gene-aura.gene-dominant),
+    :global(.gene-coat.gene-dominant),
+    :global(.gene-face-markings.gene-dominant),
+    :global(.gene-hair.gene-dominant),
+    :global(.gene-leg-markings.gene-dominant),
+    :global(.gene-magical.gene-dominant),
+    :global(.gene-markings.gene-dominant),
     :global(.gene-appearance-neutral.gene-dominant) {
         background-color: var(--gene-color);
         border-color: var(--gene-color);
@@ -414,15 +426,17 @@
     :global(.gene-particles.gene-recessive),
     :global(.gene-particle-location.gene-recessive),
     :global(.gene-glow.gene-recessive),
-    :global(.gene-scale-kb.gene-recessive),
-    :global(.gene-attributes-kb.gene-recessive),
-    :global(.gene-selector-sb.gene-recessive),
-    :global(.gene-selector-pt.gene-recessive),
-    :global(.gene-selector-po.gene-recessive),
-    :global(.gene-selector-kb.gene-recessive),
-    :global(.gene-selector-bl.gene-recessive),
+    :global(.gene-scale.gene-recessive),
+    :global(.gene-attributes.gene-recessive),
+    :global(.gene-selector.gene-recessive),
     :global(.gene-horn.gene-recessive),
-    :global(.gene-horn-kb.gene-recessive),
+    :global(.gene-aura.gene-recessive),
+    :global(.gene-coat.gene-recessive),
+    :global(.gene-face-markings.gene-recessive),
+    :global(.gene-hair.gene-recessive),
+    :global(.gene-leg-markings.gene-recessive),
+    :global(.gene-magical.gene-recessive),
+    :global(.gene-markings.gene-recessive),
     :global(.gene-appearance-neutral.gene-recessive) {
         border-color: var(--gene-color);
         border-width: 4px;
@@ -444,15 +458,17 @@
     :global(.gene-particles.gene-mixed),
     :global(.gene-particle-location.gene-mixed),
     :global(.gene-glow.gene-mixed),
-    :global(.gene-scale-kb.gene-mixed),
-    :global(.gene-attributes-kb.gene-mixed),
-    :global(.gene-selector-sb.gene-mixed),
-    :global(.gene-selector-pt.gene-mixed),
-    :global(.gene-selector-po.gene-mixed),
-    :global(.gene-selector-kb.gene-mixed),
-    :global(.gene-selector-bl.gene-mixed),
+    :global(.gene-scale.gene-mixed),
+    :global(.gene-attributes.gene-mixed),
+    :global(.gene-selector.gene-mixed),
     :global(.gene-horn.gene-mixed),
-    :global(.gene-horn-kb.gene-mixed),
+    :global(.gene-aura.gene-mixed),
+    :global(.gene-coat.gene-mixed),
+    :global(.gene-face-markings.gene-mixed),
+    :global(.gene-hair.gene-mixed),
+    :global(.gene-leg-markings.gene-mixed),
+    :global(.gene-magical.gene-mixed),
+    :global(.gene-markings.gene-mixed),
     :global(.gene-appearance-neutral.gene-mixed) {
         background: linear-gradient(
             135deg,
@@ -529,5 +545,50 @@
 
     :global(.gene-appearance-neutral.gene-recessive) {
         background-color: rgba(149, 165, 166, 0.15);
+    }
+
+    /* Individual rgba backgrounds for horse grouped appearance genes - using config colors */
+    :global(.gene-scale.gene-recessive) {
+        background-color: rgba(41, 128, 185, 0.15); /* #2980b9 */
+    }
+
+    :global(.gene-attributes.gene-recessive) {
+        background-color: rgba(231, 76, 60, 0.15); /* #e74c3c */
+    }
+
+    :global(.gene-selector.gene-recessive) {
+        background-color: rgba(142, 68, 173, 0.15); /* #8e44ad */
+    }
+
+    :global(.gene-horn.gene-recessive) {
+        background-color: rgba(26, 188, 156, 0.15); /* #1abc9c */
+    }
+
+    :global(.gene-aura.gene-recessive) {
+        background-color: rgba(52, 152, 219, 0.15); /* #3498db */
+    }
+
+    :global(.gene-coat.gene-recessive) {
+        background-color: rgba(46, 204, 113, 0.15); /* #2ecc71 */
+    }
+
+    :global(.gene-face-markings.gene-recessive) {
+        background-color: rgba(243, 156, 18, 0.15); /* #f39c12 */
+    }
+
+    :global(.gene-hair.gene-recessive) {
+        background-color: rgba(155, 89, 182, 0.15); /* #9b59b6 */
+    }
+
+    :global(.gene-leg-markings.gene-recessive) {
+        background-color: rgba(52, 73, 94, 0.15); /* #34495e */
+    }
+
+    :global(.gene-magical.gene-recessive) {
+        background-color: rgba(230, 126, 34, 0.15); /* #e67e22 */
+    }
+
+    :global(.gene-markings.gene-recessive) {
+        background-color: rgba(22, 160, 133, 0.15); /* #16a085 */
     }
 </style>

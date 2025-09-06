@@ -604,26 +604,31 @@
 
             // Species-specific appearance categorization
             if (species.toLowerCase() === "horse") {
-                // Horse appearance categories
-                if (appearance === "Scale (Kb)") {
-                    appearanceCategory = "scale-kb";
-                } else if (appearance === "Attributes (Kb)") {
-                    appearanceCategory = "attributes-kb";
-                } else if (appearance === "Selector (Sb)") {
-                    appearanceCategory = "selector-sb";
-                } else if (appearance === "Selector (Pt)") {
-                    appearanceCategory = "selector-pt";
-                } else if (appearance === "Selector (Po)") {
-                    appearanceCategory = "selector-po";
-                } else if (appearance === "Selector (Kb)") {
-                    appearanceCategory = "selector-kb";
-                } else if (appearance === "Selector (Bl)") {
-                    appearanceCategory = "selector-bl";
-                } else if (appearance === "Horn") {
+                // Horse appearance categories - group by base attribute name
+                if (appearance.startsWith("Scale")) {
+                    appearanceCategory = "scale";
+                } else if (appearance.startsWith("Attributes")) {
+                    appearanceCategory = "attributes";
+                } else if (appearance.startsWith("Selector")) {
+                    appearanceCategory = "selector";
+                } else if (appearance.startsWith("Horn")) {
                     appearanceCategory = "horn";
-                } else if (appearance === "Horn (Kb)") {
-                    appearanceCategory = "horn-kb";
+                } else if (appearance.startsWith("Aura")) {
+                    appearanceCategory = "aura";
+                } else if (appearance.startsWith("Coat")) {
+                    appearanceCategory = "coat";
+                } else if (appearance.startsWith("Face Markings") || appearance.startsWith("Face markings") || appearance.startsWith("Face-markings")) {
+                    appearanceCategory = "face-markings";
+                } else if (appearance.startsWith("Hair")) {
+                    appearanceCategory = "hair";
+                } else if (appearance.startsWith("Leg Markings") || appearance.startsWith("Leg markings") || appearance.startsWith("Leg-markings")) {
+                    appearanceCategory = "leg-markings";
+                } else if (appearance.startsWith("Magical")) {
+                    appearanceCategory = "magical";
+                } else if (appearance.startsWith("Markings")) {
+                    appearanceCategory = "markings";
                 }
+                // Note: "None" appearances should remain as "appearance-neutral" (unstyled)
             } else {
                 // BeeWasp appearance categories
                 if (appearance.includes("Body Color Hue")) {
@@ -1432,6 +1437,7 @@
     ) {
         let attributeGroups = [];
         switch (appearanceType) {
+            // BeeWasp appearance categories
             case "body-color":
                 attributeGroups = [
                     "body-color-hue",
@@ -1446,15 +1452,6 @@
                     "wing-color-intensity",
                 ];
                 break;
-            case "scale":
-                attributeGroups = [
-                    "body-scale",
-                    "wing-scale",
-                    "head-scale",
-                    "tail-scale",
-                    "antenna-scale",
-                ];
-                break;
             case "deformity":
                 attributeGroups = ["leg-deformity", "antenna-deformity"];
                 break;
@@ -1466,6 +1463,56 @@
                 break;
             case "neutral":
                 attributeGroups = ["appearance-neutral"];
+                break;
+            
+            // Horse appearance categories
+            case "scale":
+                attributeGroups = ["scale"];
+                break;
+            case "attributes":
+                attributeGroups = ["attributes"];
+                break;
+            case "selector":
+                attributeGroups = ["selector"];
+                break;
+            case "horn":
+                attributeGroups = ["horn"];
+                break;
+            case "aura":
+                attributeGroups = ["aura"];
+                break;
+            case "coat":
+                attributeGroups = ["coat"];
+                break;
+            case "face-markings":
+                attributeGroups = ["face-markings"];
+                break;
+            case "hair":
+                attributeGroups = ["hair"];
+                break;
+            case "leg-markings":
+                attributeGroups = ["leg-markings"];
+                break;
+            case "magical":
+                attributeGroups = ["magical"];
+                break;
+            case "markings":
+                attributeGroups = ["markings"];
+                break;
+            
+            // BeeWasp scale categories (keeping for compatibility)
+            case "body-scale":
+            case "wing-scale":
+            case "head-scale":
+            case "tail-scale":
+            case "antenna-scale":
+                attributeGroups = [
+                    "body-scale",
+                    "wing-scale",
+                    "head-scale",
+                    "tail-scale",
+                    "antenna-scale",
+                ];
                 break;
         }
 
@@ -1844,36 +1891,6 @@
                                         <span>{appearance.name}</span>
                                     </span>
                                 {/each}
-
-                                <span
-                                    class="legend-item appearance-legend-item {selectedAttributes.includes(
-                                        'appearance-neutral',
-                                    )
-                                        ? 'selected'
-                                        : ''} {hiddenAttributes.includes(
-                                        'appearance-neutral',
-                                    )
-                                        ? 'hidden-effect'
-                                        : ''}"
-                                    role="button"
-                                    tabindex="0"
-                                    onclick={(e) =>
-                                        handleLegendFilterClick(
-                                            "appearance-neutral",
-                                            e,
-                                        )}
-                                >
-                                    <GeneCell
-                                        gene={{ id: "sample", type: "D" }}
-                                        geneAnalysis={{
-                                            type: "appearance-neutral",
-                                            attribute: "appearance-neutral",
-                                        }}
-                                        currentView="appearance"
-                                        isVisible={true}
-                                    />
-                                    <span>Neutral</span>
-                                </span>
                             </div>
                         {/if}
                     </div>
@@ -2011,6 +2028,19 @@
         --gene-particle-location: #0097a7;
         --gene-glow: #8bc34a;
         --gene-appearance-neutral: #95a5a6;
+        
+        /* Horse appearance categories - using config color indicators */
+        --gene-scale: #2980b9;
+        --gene-attributes: #e74c3c;
+        --gene-selector: #8e44ad;
+        --gene-horn: #1abc9c;
+        --gene-aura: #3498db;
+        --gene-coat: #2ecc71;
+        --gene-face-markings: #f39c12;
+        --gene-hair: #9b59b6;
+        --gene-leg-markings: #34495e;
+        --gene-magical: #e67e22;
+        --gene-markings: #16a085;
     }
 
     .gene-visualizer {
@@ -2217,7 +2247,7 @@
     }
 
     .gene-rows {
-        background: white;
+        background: #f9fafb;
     }
 
     .chromosome-row {

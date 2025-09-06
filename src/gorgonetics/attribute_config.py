@@ -186,11 +186,6 @@ class AttributeConfig:
                 "examples": "Markings effects (all breeds)",
                 "color_indicator": "#16a085",
             },
-            "none": {
-                "name": "None",
-                "examples": "None effects (all breeds)",
-                "color_indicator": "#27ae60",
-            },
             "scale": {
                 "name": "Scale",
                 "examples": "Scale effects (all breeds)",
