@@ -69,6 +69,22 @@ export const appState = {
     }
   },
 
+  async updatePet(petId, updateData) {
+    try {
+      loading.set(true);
+      error.set(null);
+      await apiClient.updatePet(petId, updateData);
+      await this.loadPets(); // Reload pets list
+      console.log(`🐾 Updated pet: ${petId}`);
+    } catch (err) {
+      error.set(`Failed to update pet: ${err.message}`);
+      console.error("Error updating pet:", err);
+      throw err; // Re-throw so the editor can handle it
+    } finally {
+      loading.set(false);
+    }
+  },
+
   async uploadPet(file, petName, petGender = "Male") {
     try {
       loading.set(true);

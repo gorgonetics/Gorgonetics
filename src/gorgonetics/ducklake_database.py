@@ -178,6 +178,7 @@ class DuckLakeGeneDatabase:
                 "name VARCHAR NOT NULL",
                 "species VARCHAR NOT NULL",
                 "gender VARCHAR NOT NULL DEFAULT 'Male'",
+                "breed VARCHAR DEFAULT 'Mixed'",
                 "breeder VARCHAR",
                 "content_hash VARCHAR NOT NULL",
                 "genome_data JSON NOT NULL",

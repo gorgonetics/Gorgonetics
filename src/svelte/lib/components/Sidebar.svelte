@@ -1,7 +1,6 @@
 <script>
     import { error, activeTab, appState } from "../stores/appState.js";
     import PetUpload from "./PetUpload.svelte";
-    import PetsList from "./PetsList.svelte";
     import GeneEditor from "./GeneEditor.svelte";
 
     /**
@@ -79,7 +78,6 @@
             {#if $activeTab === "pets"}
                 <div class="tab-panel" role="tabpanel">
                     <PetUpload />
-                    <PetsList />
                 </div>
             {/if}
 

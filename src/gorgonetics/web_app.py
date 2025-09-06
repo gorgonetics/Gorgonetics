@@ -86,6 +86,7 @@ class PetUpdate(BaseModel):
 
     name: str | None = None
     gender: str | None = None
+    breed: str | None = None
     attributes: dict[str, int] | None = None
     notes: str | None = None
 
@@ -560,10 +561,13 @@ async def update_pet(
             updates["name"] = pet_update.name
         if pet_update.gender is not None:
             updates["gender"] = pet_update.gender
+        if pet_update.breed is not None:
+            updates["breed"] = pet_update.breed
         if pet_update.notes is not None:
             updates["notes"] = pet_update.notes
         if pet_update.attributes is not None:
-            updates.update({k: str(v) for k, v in pet_update.attributes.items()})
+            # Flatten attributes - they are stored as individual columns in the database
+            updates.update(pet_update.attributes)
 
         success = db.update_pet(pet_id=pet_id, updates=updates)
 

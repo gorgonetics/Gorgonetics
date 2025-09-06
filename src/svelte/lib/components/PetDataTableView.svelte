@@ -1,7 +1,13 @@
 <script>
     import { Table } from "@flowbite-svelte-plugins/datatable";
-    import { pets } from "../stores/appState.js";
+    import { pets, selectedPet, appState } from "../stores/appState.js";
     import { FALLBACK_ATTRIBUTE_LIST } from "../utils/apiUtils.js";
+    import { Trash2, Eye, Edit } from "@lucide/svelte";
+    import PetEditor from "./PetEditor.svelte";
+
+    let showEditor = $state(false);
+    let editingPet = $state(null);
+    
 
     function formatDate(dateString) {
         if (!dateString) return "Unknown";
@@ -12,11 +18,38 @@
         }
     }
 
+    async function selectPet(pet) {
+        await appState.selectPet(pet);
+    }
+
+    async function deletePet(pet, event) {
+        event?.stopPropagation();
+        if (confirm(`Are you sure you want to delete ${pet.name}?`)) {
+            await appState.deletePet(pet.id);
+        }
+    }
+
+    function editPet(pet) {
+        editingPet = pet;
+        showEditor = true;
+    }
+
+    function closeEditor() {
+        showEditor = false;
+        editingPet = null;
+    }
+
+    function handlePetSaved(petId) {
+        // Optionally select the updated pet or do other actions
+        console.log('Pet saved:', petId);
+    }
+
+
     function assemblePetsData(petsArray) {
         // Build dynamic headings from attribute list
         const baseHeadings = ["Pet Name", "Species", "Gender", "Breed"];
         const attributeHeadings = FALLBACK_ATTRIBUTE_LIST.map(attr => attr.name);
-        const endHeadings = ["Created Date"];
+        const endHeadings = ["Created Date", "Actions"];
         const headings = [...baseHeadings, ...attributeHeadings, ...endHeadings];
 
         if (!petsArray || petsArray.length === 0) {
@@ -26,18 +59,33 @@
         const data = petsArray.map(pet => {
             const baseData = [
                 pet.name || "Unnamed",
-                pet.species || "Unknown",
+                pet.species || "Unknown", 
                 pet.gender || "Male",
-                pet.breed || "Mixed" // Filler value
+                pet.breed || "Mixed"
             ];
             
             // Add actual attribute values from pet data
             const attributeData = FALLBACK_ATTRIBUTE_LIST.map(attr => {
                 const attrKey = attr.key.toLowerCase();
-                return pet[attrKey] || pet.attributes?.[attrKey] || 50;
+                // Access attributes directly from pet object (they're stored as direct properties)
+                const value = pet[attrKey] ?? 50;
+                return value;
             });
             
-            const endData = [formatDate(pet.created_at)];
+            const endData = [
+                formatDate(pet.created_at),
+                `<div class="table-actions">
+                    <button class="action-btn view-btn" data-action="view" data-pet-id="${pet.id}" title="View pet details">
+                        👁️
+                    </button>
+                    <button class="action-btn edit-btn" data-action="edit" data-pet-id="${pet.id}" title="Edit pet">
+                        ✏️
+                    </button>
+                    <button class="action-btn delete-btn" data-action="delete" data-pet-id="${pet.id}" title="Delete pet">
+                        🗑️
+                    </button>
+                </div>`
+            ];
             
             return [...baseData, ...attributeData, ...endData];
         });
@@ -46,6 +94,31 @@
     }
 
     const items = $derived(assemblePetsData($pets));
+
+    // Handle table button clicks
+    function handleTableClick(event) {
+        const button = event.target.closest('button[data-action]');
+        if (!button) return;
+
+        const action = button.dataset.action;
+        const petId = parseInt(button.dataset.petId);
+        const pet = $pets.find(p => p.id === petId);
+        
+        if (!pet) return;
+
+        switch (action) {
+            case 'view':
+                selectPet(pet);
+                break;
+            case 'edit':
+                editPet(pet);
+                break;
+            case 'delete':
+                deletePet(pet);
+                break;
+        }
+    }
+
 </script>
 
 <div class="pet-visualization">
@@ -61,7 +134,10 @@
         </div>
     </div>
     
-    <div class="gene-visualizer-container">
+    <div 
+        class="gene-visualizer-container"
+        onclick={handleTableClick}
+    >
         {#if $pets && $pets.length > 0}
             <Table 
                 dataTableOptions={{
@@ -83,6 +159,15 @@
         {/if}
     </div>
 </div>
+
+<!-- Pet Editor Modal -->
+{#if showEditor && editingPet}
+    <PetEditor 
+        pet={editingPet}
+        onClose={closeEditor}
+        onSave={handlePetSaved}
+    />
+{/if}
 
 <style>
     .empty-state {
@@ -209,5 +294,68 @@
         background: #3b82f6;
         border-color: #3b82f6;
         color: white;
+    }
+
+    /* Action buttons styles */
+    :global(.table-actions) {
+        display: flex;
+        gap: 0.25rem;
+        align-items: center;
+        justify-content: center;
+    }
+
+    :global(.action-btn) {
+        padding: 0.25rem 0.5rem;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.75rem;
+        transition: all 0.2s ease;
+        background-color: transparent;
+        min-width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    :global(.action-btn:hover) {
+        background-color: #f3f4f6;
+        transform: scale(1.1);
+    }
+
+    :global(.view-btn:hover) {
+        background-color: #eff6ff;
+    }
+
+    :global(.edit-btn:hover) {
+        background-color: #f0fdf4;
+    }
+
+    :global(.save-btn:hover) {
+        background-color: #f0f9ff;
+    }
+
+    :global(.cancel-btn:hover) {
+        background-color: #fef2f2;
+    }
+
+    :global(.delete-btn:hover) {
+        background-color: #fef2f2;
+    }
+
+    /* Edit input styles within table */
+    :global(.edit-input) {
+        font-size: 0.875rem;
+        border: 1px solid #3b82f6 !important;
+        border-radius: 4px !important;
+        padding: 2px 4px !important;
+        background: white !important;
+        outline: none !important;
+        width: 100% !important;
+    }
+
+    :global(.edit-input:focus) {
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2) !important;
     }
 </style>
