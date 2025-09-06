@@ -349,7 +349,8 @@ class Pet(BaseModel):
         screenshot = Path(screenshot_path) if screenshot_path else None
 
         # Create species-specific attributes
-        species_attributes = AttributeConfig.get_default_values(genome.genome_type)
+        defaults = AttributeConfig.get_default_values(genome.genome_type)
+        species_attributes = create_attributes_for_species(genome.genome_type, **defaults)
 
         pet = cls(
             name=name,
@@ -372,7 +373,8 @@ class Pet(BaseModel):
         # to calculate actual attribute values based on dominant/recessive effects
 
         # For now, we'll set base values based on species
-        self.attributes = AttributeConfig.get_default_values(self.genome.genome_type)
+        defaults = AttributeConfig.get_default_values(self.genome.genome_type)
+        self.attributes = create_attributes_for_species(self.genome.genome_type, **defaults)
 
         # TODO: Implement actual genetic calculation using the gene database
         # This will require:
