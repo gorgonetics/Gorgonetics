@@ -15,7 +15,7 @@
     // Breed options by species - easy to modify later
     const BREED_OPTIONS = {
         'BeeWasp': ['Bee', 'Wasp'],
-        'Horse': ['Standardbred', 'Kurbone'],
+        'Horse': ['Standardbred', 'Kurbone', 'Ilmarian', 'Plateau Pony', 'Satincoat', 'Statehelm', 'Blanketed', 'Leopard', 'Paint', 'Calico'],
         'default': ['Mixed']
     };
 

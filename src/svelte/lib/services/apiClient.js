@@ -154,12 +154,13 @@ class ApiClient {
   /**
    * Upload a pet file
    */
-  async uploadPet(file, name = "", notes = null) {
+  async uploadPet(file, name = "", gender = "Male", notes = null) {
     const formData = new FormData();
     formData.append("file", file);
     if (name) {
       formData.append("name", name);
     }
+    formData.append("gender", gender);
     if (notes) {
       formData.append("notes", notes);
     }

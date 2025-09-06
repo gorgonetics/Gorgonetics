@@ -90,14 +90,8 @@ export const appState = {
       loading.set(true);
       error.set(null);
 
-      const formData = new FormData();
-      formData.append("file", file);
-      if (petName) {
-        formData.append("name", petName);
-      }
-      formData.append("gender", petGender);
-
-      await apiClient.uploadPet(formData);
+      // Pass individual parameters to apiClient.uploadPet which creates its own FormData
+      await apiClient.uploadPet(file, petName, petGender, null); // gender and notes parameters
       await this.loadPets(); // Reload pets list
     } catch (err) {
       error.set(`Failed to upload pet: ${err.message}`);

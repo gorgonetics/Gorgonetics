@@ -20,6 +20,24 @@ from .genome_parser import generate_block_letters, parse_genome_file_genes, pars
 AttributeValue = Annotated[int, Field(ge=0, le=100, description="Attribute value between 0 and 100")]
 
 
+# Horse breed data with abbreviations
+HORSE_BREEDS = {
+    "Standardbred": "Sb",
+    "Kurbone": "Kb", 
+    "Ilmarian": "Il",
+    "Plateau Pony": "Po",
+    "Satincoat": "Sc",
+    "Statehelm": "St",
+    "Blanketed": "Bl",
+    "Leopard": "Le",
+    "Paint": "Pt",
+    "Calico": "Cl"
+}
+
+# Reverse mapping for abbreviation to full name lookup
+HORSE_BREED_ABBREVIATIONS = {v: k for k, v in HORSE_BREEDS.items()}
+
+
 class CoreAttributes(BaseModel):
     """Core attributes shared by all pet species."""
 
