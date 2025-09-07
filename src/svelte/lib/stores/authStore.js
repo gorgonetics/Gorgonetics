@@ -19,6 +19,9 @@ export const authStore = {
       const token = localStorage.getItem(TOKEN_KEY);
       
       if (token) {
+        // Set token in API client first
+        apiClient.setAuthToken(token);
+        
         // Validate token by getting current user
         const userData = await apiClient.getCurrentUser(token);
         user.set(userData);
@@ -46,6 +49,9 @@ export const authStore = {
       if (response.refresh_token) {
         localStorage.setItem(REFRESH_TOKEN_KEY, response.refresh_token);
       }
+      
+      // Set token in API client immediately
+      apiClient.setAuthToken(response.access_token);
       
       // Get user data
       const userData = await apiClient.getCurrentUser(response.access_token);
@@ -90,6 +96,7 @@ export const authStore = {
       console.warn('Logout API call failed:', error);
     } finally {
       this.clearTokens();
+      apiClient.setAuthToken(null);
       user.set(null);
       isAuthenticated.set(false);
       authError.set("");
@@ -100,6 +107,7 @@ export const authStore = {
   clearTokens() {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(REFRESH_TOKEN_KEY);
+    apiClient.setAuthToken(null);
   },
 
   // Get current access token

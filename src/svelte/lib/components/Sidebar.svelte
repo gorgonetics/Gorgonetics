@@ -1,5 +1,7 @@
 <script>
     import { error, activeTab, appState } from "../stores/appState.js";
+    import { isAuthenticated, user, authStore } from "../stores/authStore.js";
+    import { apiClient } from "../services/apiClient.js";
     import PetUpload from "./PetUpload.svelte";
     import GeneEditor from "./GeneEditor.svelte";
 
@@ -14,6 +16,11 @@
 
     function switchTab(tab) {
         appState.switchTab(tab);
+    }
+
+    async function handleLogout() {
+        await authStore.logout();
+        apiClient.setAuthToken(null);
     }
 </script>
 
@@ -87,6 +94,29 @@
                     <GeneEditor />
                 </div>
             {/if}
+        </div>
+    {/if}
+
+    <!-- User Info Section -->
+    {#if $isAuthenticated && !sidebarCollapsed}
+        <div class="user-section">
+            <div class="user-info">
+                <div class="user-avatar">
+                    <span class="user-icon">👤</span>
+                </div>
+                <div class="user-details">
+                    <div class="username">{$user?.username || 'User'}</div>
+                    {#if $user?.role === 'admin'}
+                        <div class="user-role admin">Admin</div>
+                    {:else}
+                        <div class="user-role">User</div>
+                    {/if}
+                </div>
+            </div>
+            <button class="logout-btn" onclick={handleLogout} title="Logout">
+                <span class="logout-icon">🚪</span>
+                <span class="logout-text">Logout</span>
+            </button>
         </div>
     {/if}
 
@@ -519,6 +549,101 @@
         cursor: pointer;
         color: #dc2626;
         line-height: 1;
+    }
+
+    /* User Section Styles */
+    .user-section {
+        padding: 16px 24px;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(255, 255, 255, 0.05);
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin-top: auto;
+        flex-shrink: 0;
+    }
+
+    .user-info {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .user-avatar {
+        width: 40px;
+        height: 40px;
+        background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+    }
+
+    .user-icon {
+        color: white;
+        font-size: 20px;
+    }
+
+    .user-details {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .username {
+        font-size: 14px;
+        font-weight: 600;
+        color: white;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .user-role {
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.7);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-weight: 500;
+    }
+
+    .user-role.admin {
+        color: #fbbf24;
+        font-weight: 600;
+    }
+
+    .logout-btn {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        background: rgba(239, 68, 68, 0.1);
+        border: 1px solid rgba(239, 68, 68, 0.2);
+        border-radius: 6px;
+        color: #fca5a5;
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-align: center;
+        width: 100%;
+        justify-content: center;
+    }
+
+    .logout-btn:hover {
+        background: rgba(239, 68, 68, 0.2);
+        border-color: rgba(239, 68, 68, 0.3);
+        color: #f87171;
+        transform: translateY(-1px);
+    }
+
+    .logout-icon {
+        font-size: 14px;
+    }
+
+    .logout-text {
+        white-space: nowrap;
     }
 
 </style>

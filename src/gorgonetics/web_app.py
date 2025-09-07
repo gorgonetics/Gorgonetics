@@ -524,9 +524,17 @@ async def upload_pet_genome(
 async def get_pets(
     current_user: User = Depends(get_current_active_user), db: "DuckLakeGeneDatabase" = Depends(get_database)
 ) -> list[dict[str, Any]]:
-    """Get all pets for the current user."""
+    """Get pets for the current user. Admins can see all pets."""
     try:
-        pets = db.get_all_pets(user_id=current_user.id)
+        logger.info(f"Getting pets for user: {current_user.username}, role: {current_user.role}, id: {current_user.id}")
+
+        # Admins can see all pets, regular users only see their own
+        user_id = None if current_user.role == "admin" else current_user.id
+        logger.info(f"Using user_id filter: {user_id}")
+
+        pets = db.get_all_pets(user_id=user_id)
+        logger.info(f"Found {len(pets)} pets")
+
         # Handle datetime objects if they exist (for compatibility with both database types)
         for pet in pets:
             if pet.get("created_at") and hasattr(pet["created_at"], "isoformat"):
@@ -535,7 +543,11 @@ async def get_pets(
                 pet["notes"] = ""
         return pets
     except Exception as e:
-        logger.error(f"Error getting pets: {e}")
+        logger.error(f"Error getting pets for user {current_user.username}: {e}")
+        logger.error(f"Exception type: {type(e)}")
+        import traceback
+
+        logger.error(f"Traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail="Failed to get pets") from e
 
 
@@ -616,11 +628,15 @@ async def delete_pet(pet_id: int, db: "DuckLakeGeneDatabase" = Depends(get_datab
 
 @app.get("/api/pets/species/{species}")
 async def get_pets_by_species(
-    species: str, db: "DuckLakeGeneDatabase" = Depends(get_database)
+    species: str,
+    current_user: User = Depends(get_current_active_user),
+    db: "DuckLakeGeneDatabase" = Depends(get_database),
 ) -> list[dict[str, str | int | float]]:
-    """Get all pets of a specific species."""
+    """Get pets of a specific species. Admins can see all pets, users see only their own."""
     try:
-        pets = db.get_all_pets(species=species)
+        # Admins can see all pets of a species, regular users only see their own
+        user_id = None if current_user.role == "admin" else current_user.id
+        pets = db.get_all_pets(species=species, user_id=user_id)
         # Convert to the expected return type
         result: list[dict[str, str | int | float]] = []
         for pet in pets:
@@ -635,6 +651,48 @@ async def get_pets_by_species(
     except Exception as e:
         logger.error(f"Error getting pets for species {species}: {e}")
         raise HTTPException(status_code=500, detail="Failed to get pets") from e
+
+
+# Test endpoint for debugging
+@app.get("/api/test-auth")
+async def test_auth(current_user: User = Depends(get_current_active_user)) -> dict[str, Any]:
+    """Test endpoint to debug authentication."""
+    return {
+        "user_id": current_user.id,
+        "username": current_user.username,
+        "role": current_user.role,
+        "is_active": current_user.is_active,
+        "message": "Authentication successful",
+    }
+
+
+@app.get("/api/test-db")
+async def test_db(db: "DuckLakeGeneDatabase" = Depends(get_database)) -> dict[str, Any]:
+    """Test endpoint to check database connection."""
+    try:
+        # Simple database test
+        result = db.conn.execute("SELECT COUNT(*) FROM users").fetchone()
+        return {"user_count": result[0], "message": "Database connection successful"}
+    except Exception as e:
+        return {"error": str(e), "message": "Database connection failed"}
+
+
+@app.get("/api/test-both")
+async def test_both(
+    current_user: User = Depends(get_current_active_user), db: "DuckLakeGeneDatabase" = Depends(get_database)
+) -> dict[str, Any]:
+    """Test endpoint with both auth and database dependencies."""
+    try:
+        result = db.conn.execute("SELECT COUNT(*) FROM users").fetchone()
+        return {
+            "user_id": current_user.id,
+            "username": current_user.username,
+            "role": current_user.role,
+            "user_count": result[0],
+            "message": "Both dependencies working",
+        }
+    except Exception as e:
+        return {"error": str(e), "message": "Failed"}
 
 
 # Authentication endpoints

@@ -21,9 +21,11 @@
   });
 
   // Load pets when user becomes authenticated
-  $: if ($isAuthenticated) {
-    appState.loadPets();
-  }
+  $effect(() => {
+    if ($isAuthenticated) {
+      appState.loadPets();
+    }
+  });
 
   function toggleSidebar() {
     sidebarCollapsed = !sidebarCollapsed;
