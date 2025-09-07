@@ -112,7 +112,34 @@ class DuckLakeGeneDatabase:
     def _create_tables(self) -> None:
         """Create the necessary database tables in DuckLake."""
         assert self.conn is not None
-        # Genes table (static reference data)
+        
+        # Users table for authentication
+        self.conn.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY,
+                username VARCHAR(50) UNIQUE NOT NULL,
+                email VARCHAR(255) UNIQUE NOT NULL,
+                password_hash VARCHAR(255) NOT NULL,
+                role VARCHAR(20) DEFAULT 'user',
+                is_active BOOLEAN DEFAULT true,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+        # User sessions table for token management
+        self.conn.execute("""
+            CREATE TABLE IF NOT EXISTS user_sessions (
+                id INTEGER PRIMARY KEY,
+                user_id INTEGER NOT NULL,
+                token_jti VARCHAR(255) UNIQUE NOT NULL,
+                expires_at TIMESTAMP NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+            )
+        """)
+        
+        # Genes table (static reference data) - now with audit fields
         self.conn.execute("""
             CREATE TABLE IF NOT EXISTS genes (
                 animal_type VARCHAR NOT NULL,
@@ -123,14 +150,17 @@ class DuckLakeGeneDatabase:
                 appearance VARCHAR DEFAULT 'None',
                 notes VARCHAR DEFAULT 'None',
                 created_at TIMESTAMP,
-                updated_at TIMESTAMP
+                updated_at TIMESTAMP,
+                last_modified_by INTEGER,
+                last_modified_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (last_modified_by) REFERENCES users (id)
             )
         """)
 
         # Create pets table with dynamic attribute columns
         self._create_pets_table()
 
-        logger.info("Created DuckLake tables")
+        logger.info("Created DuckLake tables with multiuser support")
 
     def _serialize_datetime_fields(self, data: dict[str, Any]) -> dict[str, Any]:
         """Convert datetime objects to ISO format strings in a dictionary."""
@@ -175,6 +205,7 @@ class DuckLakeGeneDatabase:
             # Build CREATE TABLE statement
             base_columns = [
                 "id INTEGER",
+                "user_id INTEGER NOT NULL",
                 "name VARCHAR NOT NULL",
                 "species VARCHAR NOT NULL",
                 "gender VARCHAR NOT NULL DEFAULT 'Male'",
@@ -183,8 +214,10 @@ class DuckLakeGeneDatabase:
                 "content_hash VARCHAR NOT NULL",
                 "genome_data JSON NOT NULL",
                 "notes TEXT",
+                "is_public BOOLEAN DEFAULT false",
                 "created_at TIMESTAMP",
                 "updated_at TIMESTAMP",
+                "FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE",
             ]
 
             all_columns = base_columns + dynamic_columns
@@ -397,6 +430,7 @@ class DuckLakeGeneDatabase:
         breeder: str | None,
         genome_data: str,
         content_hash: str,
+        user_id: int,
         gender: str = "Male",
         attributes: dict[str, int] | None = None,
         notes: str | None = None,
@@ -419,8 +453,8 @@ class DuckLakeGeneDatabase:
             all_attributes = AttributeConfig.get_all_attributes(species)
 
             # Prepare base columns and values
-            columns = ["name", "species", "gender", "content_hash", "genome_data"]
-            values = [name, species, gender, content_hash, genome_data]
+            columns = ["user_id", "name", "species", "gender", "content_hash", "genome_data"]
+            values = [user_id, name, species, gender, content_hash, genome_data]
 
             # Add breeder if provided
             if breeder:
@@ -506,17 +540,26 @@ class DuckLakeGeneDatabase:
             logger.error(f"Failed to get pet {pet_id}: {e}")
             return None
 
-    def get_all_pets(self, species: str | None = None) -> list[dict[str, Any]]:
-        """Get all pets, optionally filtered by species."""
+    def get_all_pets(self, species: str | None = None, user_id: int | None = None) -> list[dict[str, Any]]:
+        """Get all pets, optionally filtered by species and/or user."""
         assert self.conn is not None
         try:
-            # Build query based on whether species filter is provided
+            # Build query based on filters provided
+            conditions = []
+            params = []
+            
+            if user_id is not None:
+                conditions.append("user_id = ?")
+                params.append(user_id)
+                
             if species:
-                query = "SELECT * FROM pets WHERE species = ? ORDER BY name"
-                params = [species]
+                conditions.append("species = ?")
+                params.append(species)
+            
+            if conditions:
+                query = f"SELECT * FROM pets WHERE {' AND '.join(conditions)} ORDER BY name"
             else:
                 query = "SELECT * FROM pets ORDER BY name"
-                params = []
 
             results = self.conn.execute(query, params).fetchall()
 

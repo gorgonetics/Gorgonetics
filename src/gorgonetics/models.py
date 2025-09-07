@@ -316,11 +316,13 @@ class Pet(BaseModel):
     """Represents a complete pet with genome, attributes, and metadata."""
 
     name: str
+    user_id: int
     genome: Genome
     gender: Gender = Gender.MALE
     attributes: PetAttributes
     screenshot_path: Path | None = None
     notes: str = ""
+    is_public: bool = False
 
     def __init__(self, **data: Any) -> None:
         """Initialize Pet with species-specific attributes."""

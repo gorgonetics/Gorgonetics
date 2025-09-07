@@ -14,11 +14,13 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, Any
 
-from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile, status
 from fastapi.responses import Response
 from pydantic import BaseModel
 
 from .attribute_config import AttributeConfig
+from .auth import User, UserCreate, UserLogin, Token, create_token_pair, verify_password, get_password_hash
+from .auth.dependencies import get_current_user, get_current_active_user, require_admin, get_user_by_username, create_user_in_db
 from .database_config import create_database_instance
 from .models import Genome
 
@@ -103,7 +105,9 @@ class BulkGeneUpdate(BaseModel):
 # Bulk gene update endpoint
 @app.put("/api/genes")
 async def update_genes_bulk(
-    bulk_update: BulkGeneUpdate, db: "DuckLakeGeneDatabase" = Depends(get_database)
+    bulk_update: BulkGeneUpdate, 
+    current_admin: User = Depends(require_admin),
+    db: "DuckLakeGeneDatabase" = Depends(get_database)
 ) -> dict[str, str]:
     """Bulk update genes for a chromosome."""
     try:
@@ -411,6 +415,7 @@ async def upload_pet_genome(
     name: str = Form(""),  # Optional override name
     gender: str = Form("Male"),  # Pet's gender
     notes: str | None = Form(None),
+    current_user: User = Depends(get_current_active_user),
     db: "DuckLakeGeneDatabase" = Depends(get_database),
 ) -> dict[str, str | int]:
     """Upload a genome file and create a new pet."""
@@ -489,6 +494,7 @@ async def upload_pet_genome(
                 breeder=genome.breeder,
                 genome_data=genome_json,
                 content_hash=content_hash,
+                user_id=current_user.id,
                 gender=gender,
                 attributes=attributes_dict,
                 notes=notes,
@@ -510,10 +516,13 @@ async def upload_pet_genome(
 
 
 @app.get("/api/pets")
-async def get_pets(db: "DuckLakeGeneDatabase" = Depends(get_database)) -> list[dict[str, Any]]:
-    """Get all pets."""
+async def get_pets(
+    current_user: User = Depends(get_current_active_user),
+    db: "DuckLakeGeneDatabase" = Depends(get_database)
+) -> list[dict[str, Any]]:
+    """Get all pets for the current user."""
     try:
-        pets = db.get_all_pets()
+        pets = db.get_all_pets(user_id=current_user.id)
         # Handle datetime objects if they exist (for compatibility with both database types)
         for pet in pets:
             if pet.get("created_at") and hasattr(pet["created_at"], "isoformat"):
@@ -622,3 +631,101 @@ async def get_pets_by_species(
     except Exception as e:
         logger.error(f"Error getting pets for species {species}: {e}")
         raise HTTPException(status_code=500, detail="Failed to get pets") from e
+
+
+# Authentication endpoints
+
+@app.post("/api/auth/register", response_model=User)
+async def register(user_create: UserCreate) -> User:
+    """Register a new user."""
+    try:
+        # Check if username already exists
+        existing_user = get_user_by_username(user_create.username)
+        if existing_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Username already registered"
+            )
+        
+        # Check if email already exists
+        db = create_database_instance()
+        try:
+            existing_email = db.conn.execute(
+                "SELECT id FROM users WHERE email = ?", (user_create.email,)
+            ).fetchone()
+            if existing_email:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Email already registered"
+                )
+        finally:
+            db.close()
+        
+        # Create user with hashed password
+        password_hash = get_password_hash(user_create.password)
+        user = create_user_in_db(user_create, password_hash)
+        
+        logger.info(f"New user registered: {user.username}")
+        return user
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Registration error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to register user"
+        ) from e
+
+
+@app.post("/api/auth/login", response_model=Token)
+async def login(user_login: UserLogin) -> Token:
+    """Authenticate user and return access token."""
+    try:
+        # Get user from database
+        user = get_user_by_username(user_login.username)
+        if not user or not verify_password(user_login.password, user.password_hash):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect username or password",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        
+        if not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Inactive user"
+            )
+        
+        # Create token pair
+        token_data = {
+            "sub": user.username,
+            "user_id": user.id,
+            "role": user.role
+        }
+        tokens = create_token_pair(token_data)
+        
+        logger.info(f"User logged in: {user.username}")
+        return Token(**tokens)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Login error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Login failed"
+        ) from e
+
+
+@app.get("/api/auth/me", response_model=User)
+async def get_current_user_info(current_user: User = Depends(get_current_active_user)) -> User:
+    """Get current user information."""
+    return current_user
+
+
+@app.post("/api/auth/logout")
+async def logout(current_user: User = Depends(get_current_active_user)) -> dict[str, str]:
+    """Logout user (client should discard tokens)."""
+    logger.info(f"User logged out: {current_user.username}")
+    return {"message": "Successfully logged out"}
