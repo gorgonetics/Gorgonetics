@@ -14,10 +14,7 @@ class AttributeConfig:
     """Centralized configuration for pet attributes."""
 
     # Ordered list of core attributes (matches game order)
-    CORE_ATTRIBUTE_ORDER = [
-        "toughness", "ruggedness", "enthusiasm",
-        "friendliness", "intelligence", "virility"
-    ]
+    CORE_ATTRIBUTE_ORDER = ["toughness", "ruggedness", "enthusiasm", "friendliness", "intelligence", "virility"]
 
     # Core attributes shared by all pet species
     CORE_ATTRIBUTES = {
@@ -198,7 +195,6 @@ class AttributeConfig:
             },
         },
     }
-
 
     # Species name mappings (for flexible species recognition)
     SPECIES_MAPPINGS = {"beewasp": ["beewasp", "bee", "wasp"], "horse": ["horse"]}

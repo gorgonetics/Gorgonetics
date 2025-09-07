@@ -301,10 +301,10 @@ class TestAttributeConfig:
 
         # Test Horse appearance attributes
         horse_appearance = AttributeConfig.get_appearance_attributes("Horse")
-        assert "scale-kb" in horse_appearance
+        assert "scale" in horse_appearance
         assert "horn" in horse_appearance
-        assert "selector-pt" in horse_appearance
-        assert horse_appearance["scale-kb"]["name"] == "Scale (Kb)"
+        assert "selector" in horse_appearance
+        assert horse_appearance["scale"]["name"] == "Scale"
 
         # Different from BeeWasp
         assert "wing-color-hue" not in horse_appearance
@@ -341,15 +341,17 @@ class TestAttributeConfig:
         # Test Horse appearance attribute names
         horse_names = AttributeConfig.get_appearance_attribute_names("Horse")
         expected_horse = {
-            "scale-kb",
-            "attributes-kb",
-            "selector-sb",
-            "selector-pt",
-            "selector-po",
-            "selector-kb",
-            "selector-bl",
+            "attributes",
+            "aura",
+            "coat",
+            "face-markings",
+            "hair",
             "horn",
-            "horn-kb",
+            "leg-markings",
+            "magical",
+            "markings",
+            "scale",
+            "selector",
         }
         assert set(horse_names) == expected_horse
 
@@ -382,21 +384,21 @@ class TestAttributeConfig:
         horse_display = AttributeConfig.get_appearance_display_info("Horse")
 
         # Should have different number of appearance attributes
-        assert len(horse_display) == 9
+        assert len(horse_display) == 11
 
         # Check Horse-specific attribute
-        scale_kb = next((attr for attr in horse_display if attr["name"] == "Scale (Kb)"), None)
-        assert scale_kb is not None
-        assert scale_kb["examples"] == "Body scaling"
+        scale_attr = next((attr for attr in horse_display if attr["name"] == "Scale"), None)
+        assert scale_attr is not None
+        assert scale_attr["examples"] == "Scale effects (all breeds)"
 
     def test_appearance_attribute_validation(self) -> None:
         """Test appearance attribute validation."""
         # Test valid appearance attributes
         assert AttributeConfig.is_valid_appearance_attribute("body-color-hue", "BeeWasp")
-        assert AttributeConfig.is_valid_appearance_attribute("scale-kb", "Horse")
+        assert AttributeConfig.is_valid_appearance_attribute("scale", "Horse")
 
         # Test invalid appearance attributes for species
-        assert not AttributeConfig.is_valid_appearance_attribute("scale-kb", "BeeWasp")
+        assert not AttributeConfig.is_valid_appearance_attribute("scale", "BeeWasp")
         assert not AttributeConfig.is_valid_appearance_attribute("antenna-scale", "Horse")
 
         # Test invalid appearance attributes

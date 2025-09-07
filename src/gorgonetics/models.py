@@ -23,7 +23,7 @@ AttributeValue = Annotated[int, Field(ge=0, le=100, description="Attribute value
 # Horse breed data with abbreviations
 HORSE_BREEDS = {
     "Standardbred": "Sb",
-    "Kurbone": "Kb", 
+    "Kurbone": "Kb",
     "Ilmarian": "Il",
     "Plateau Pony": "Po",
     "Satincoat": "Sc",
@@ -31,7 +31,7 @@ HORSE_BREEDS = {
     "Blanketed": "Bl",
     "Leopard": "Le",
     "Paint": "Pt",
-    "Calico": "Cl"
+    "Calico": "Cl",
 }
 
 # Reverse mapping for abbreviation to full name lookup

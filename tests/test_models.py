@@ -7,9 +7,12 @@ from pathlib import Path
 import pytest
 
 from gorgonetics.models import (
+    BeeWaspAttributes,
+    CoreAttributes,
     Gene,
     GeneType,
     Genome,
+    HorseAttributes,
     Pet,
     create_attribute_values_for_species,
 )
@@ -45,77 +48,79 @@ class TestAttributeValues:
     def test_default_values(self) -> None:
         """Test default attribute values."""
         attrs = create_attribute_values_for_species("BeeWasp")
-        assert attrs["intelligence"] == 50.0
-        assert attrs["toughness"] == 50.0
+        assert attrs.intelligence == 50
+        assert attrs.toughness == 50
 
     def test_get_set_attribute(self) -> None:
         """Test accessing attributes directly."""
         attrs = create_attribute_values_for_species("BeeWasp")
 
         # Test setting directly
-        attrs["intelligence"] = 75.5
-        assert attrs["intelligence"] == 75.5
+        attrs.intelligence = 75
+        assert attrs.intelligence == 75
 
         # Test getting directly
-        assert attrs["intelligence"] == 75.5
+        assert attrs.intelligence == 75
 
     def test_beewasp_attributes(self) -> None:
         """Test BeeWasp-specific attributes."""
         attrs = create_attribute_values_for_species("BeeWasp")
 
         # Test core attributes (should have defaults)
-        assert attrs["intelligence"] == 50.0
-        assert attrs["toughness"] == 50.0
+        assert attrs.intelligence == 50
+        assert attrs.toughness == 50
 
         # Test BeeWasp-specific attribute
-        assert attrs["ferocity"] == 50.0
+        assert attrs.ferocity == 50
 
         # Test setting ferocity
-        attrs["ferocity"] = 85.0
-        assert attrs["ferocity"] == 85.0
+        attrs.ferocity = 85
+        assert attrs.ferocity == 85
 
-        # Test get_all_attributes includes ferocity
-        assert "ferocity" in attrs
-        assert attrs["ferocity"] == 85.0
+        # Test model_dump includes ferocity
+        attrs_dict = attrs.model_dump()
+        assert "ferocity" in attrs_dict
+        assert attrs_dict["ferocity"] == 85
 
     def test_horse_attributes(self) -> None:
         """Test Horse-specific attributes."""
         attrs = create_attribute_values_for_species("Horse")
 
         # Test core attributes (should have defaults)
-        assert attrs["intelligence"] == 50.0
-        assert attrs["toughness"] == 50.0
+        assert attrs.intelligence == 50
+        assert attrs.toughness == 50
 
         # Test Horse-specific attribute
-        assert attrs["temperament"] == 50.0
+        assert attrs.temperament == 50
 
         # Test setting temperament
-        attrs["temperament"] = 90.0
-        assert attrs["temperament"] == 90.0
+        attrs.temperament = 90
+        assert attrs.temperament == 90
 
-        # Test get_all_attributes includes temperament
-        assert "temperament" in attrs
-        assert attrs["temperament"] == 90.0
+        # Test model_dump includes temperament
+        attrs_dict = attrs.model_dump()
+        assert "temperament" in attrs_dict
+        assert attrs_dict["temperament"] == 90
 
     def test_create_attribute_values_for_species(self) -> None:
         """Test creating species-specific attribute values."""
         # Test BeeWasp species
         bee_attrs = create_attribute_values_for_species("BeeWasp")
-        assert isinstance(bee_attrs, dict)
-        assert "ferocity" in bee_attrs
-        assert bee_attrs["ferocity"] == 50.0
+        assert isinstance(bee_attrs, BeeWaspAttributes)
+        assert hasattr(bee_attrs, "ferocity")
+        assert bee_attrs.ferocity == 50
 
         # Test Horse species
         horse_attrs = create_attribute_values_for_species("Horse")
-        assert isinstance(horse_attrs, dict)
-        assert "temperament" in horse_attrs
-        assert horse_attrs["temperament"] == 50.0
+        assert isinstance(horse_attrs, HorseAttributes)
+        assert hasattr(horse_attrs, "temperament")
+        assert horse_attrs.temperament == 50
 
         # Test unknown species defaults to core
         unknown_attrs = create_attribute_values_for_species("Unknown")
-        assert isinstance(unknown_attrs, dict)
-        assert "ferocity" not in unknown_attrs
-        assert "temperament" not in unknown_attrs
+        assert isinstance(unknown_attrs, CoreAttributes)
+        assert not hasattr(unknown_attrs, "ferocity")
+        assert not hasattr(unknown_attrs, "temperament")
 
 
 class TestGenome:
@@ -245,11 +250,11 @@ class TestPet:
             assert len(pet.genome.get_all_genes()) > 0
 
             # Test default attributes are set with species-specific attributes
-            assert pet.attributes["intelligence"] == 50.0
-            assert pet.attributes["toughness"] == 50.0
+            assert pet.attributes.intelligence == 50
+            assert pet.attributes.toughness == 50
             # BeeWasp should have ferocity
             assert pet.has_attribute("ferocity")
-            assert pet.attributes["ferocity"] == 50.0
+            assert pet.attributes.ferocity == 50
         else:
             pytest.skip("Test genome file not available")
 
