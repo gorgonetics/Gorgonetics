@@ -42,6 +42,7 @@ def get_current_user(credentials: Annotated[HTTPAuthorizationCredentials, Depend
     # Get user from database
     db = create_database_instance()
     try:
+        assert db.conn is not None
         user_data = db.conn.execute(
             "SELECT id, username, role, is_active, created_at, updated_at FROM users WHERE username = ? AND is_active = true",
             (token_data.username,),
@@ -118,6 +119,7 @@ def get_user_by_username(username: str) -> UserInDB | None:
     """
     db = create_database_instance()
     try:
+        assert db.conn is not None
         user_data = db.conn.execute(
             "SELECT id, username, password_hash, role, is_active, created_at, updated_at FROM users WHERE username = ?",
             (username,),
@@ -165,7 +167,9 @@ def create_user_in_db(user_create: "UserCreate", password_hash: str) -> User:
         now = datetime.now()
 
         # Get next available user ID
+        assert db.conn is not None
         result = db.conn.execute("SELECT MAX(id) FROM users").fetchone()
+        assert result is not None
         next_id = (result[0] or 0) + 1
 
         db.conn.execute(

@@ -11,7 +11,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Annotated, Any
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, Field
 
 from .attribute_config import AttributeConfig
 from .genome_parser import generate_block_letters, parse_genome_file_genes, parse_genome_file_header
@@ -100,107 +100,6 @@ class Gene(BaseModel):
     block: str
     position: int
     gene_type: GeneType
-
-
-class DynamicAttributeValues(BaseModel):
-    """Dynamically represents attribute values for any pet species."""
-
-    model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid")
-
-    species: str = ""
-    attribute_values: dict[str, float] = Field(default_factory=dict)
-
-    def __init__(self, species: str = "", **data: Any) -> None:
-        """Initialize with species-specific attributes."""
-        # Extract attributes from data if provided
-        attributes = data.pop("attributes", data.pop("attribute_values", {}))
-
-        # Get default values for this species
-        defaults = AttributeConfig.get_default_values(species)
-
-        # Merge provided attributes with defaults
-        final_attributes = defaults.copy()
-        final_attributes.update(attributes)
-
-        super().__init__(species=species, attribute_values=final_attributes, **data)
-
-    @field_validator("attribute_values")
-    @classmethod
-    def validate_attributes(cls, v: dict[str, float], info: Any) -> dict[str, float]:
-        """Validate that all attributes are valid for the species."""
-        if not info.data:
-            return v
-
-        species = info.data.get("species", "")
-        if not species:
-            return v
-
-        errors = AttributeConfig.validate_attribute_dict(v, species)
-        if errors:
-            raise ValueError(f"Invalid attributes: {errors}")
-        return v
-
-    def get_attribute_value(self, attribute_name: str) -> float:
-        """Get the value for a specific attribute."""
-        attr_key = attribute_name.lower()
-        return self.attribute_values.get(attr_key, 0.0)
-
-    def set_attribute_value(self, attribute_name: str, value: float) -> None:
-        """Set the value for a specific attribute."""
-        attr_key = attribute_name.lower()
-
-        # Validate that this attribute is valid for the species
-        if not AttributeConfig.is_valid_attribute(attr_key, self.species):
-            raise ValueError(f"Invalid attribute '{attribute_name}' for species '{self.species}'")
-
-        self.attribute_values[attr_key] = float(value)
-
-    def get_all_attributes(self) -> dict[str, float]:
-        """Get all attributes as a dictionary."""
-        return self.attribute_values.copy()
-
-    def get_attribute_names(self) -> list[str]:
-        """Get list of all attribute names for this species."""
-        return AttributeConfig.get_all_attribute_names(self.species)
-
-    def has_attribute(self, attribute_name: str) -> bool:
-        """Check if this species has a specific attribute."""
-        return AttributeConfig.is_valid_attribute(attribute_name, self.species)
-
-    def get_core_attributes(self) -> dict[str, float]:
-        """Get only the core attributes."""
-        core_names = AttributeConfig.get_core_attribute_names()
-        return {name: self.attribute_values.get(name, 0.0) for name in core_names}
-
-    def get_species_specific_attributes(self) -> dict[str, float]:
-        """Get only the species-specific attributes."""
-        species_names = AttributeConfig.get_species_attribute_names(self.species)
-        return {name: self.attribute_values.get(name, 0.0) for name in species_names}
-
-    def __getattr__(self, name: str) -> float:
-        """Allow dot notation access to attributes."""
-        attr_key = name.lower()
-        if attr_key in self.attribute_values:
-            return self.attribute_values[attr_key]
-        raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
-
-    def __setattr__(self, name: str, value: Any) -> None:
-        """Allow dot notation setting of attributes."""
-        # Handle special pydantic fields normally
-        if name.startswith("_") or name in ["species", "attribute_values"]:
-            super().__setattr__(name, value)
-            return
-
-        attr_key = name.lower()
-        if hasattr(self, "attribute_values") and AttributeConfig.is_valid_attribute(attr_key, self.species):
-            self.attribute_values[attr_key] = float(value)
-        else:
-            super().__setattr__(name, value)
-
-
-def create_attribute_values_for_species(species: str) -> PetAttributes:
-    """Create appropriate attribute values for a given species."""
-    return create_attributes_for_species(species)
 
 
 class Genome(BaseModel):
@@ -347,10 +246,6 @@ class Pet(BaseModel):
                     species = getattr(genome_data, "genome_type", "") if genome_data else ""
 
                 data["attributes"] = create_attributes_for_species(species, **attrs)
-            elif isinstance(attrs, DynamicAttributeValues):
-                # Convert from legacy attribute classes
-                attrs_dict = attrs.get_all_attributes()
-                data["attributes"] = create_attributes_for_species(attrs.species, **attrs_dict)
 
         super().__init__(**data)
 

@@ -13,7 +13,7 @@ import tempfile
 from pathlib import Path
 
 
-def setup_test_environment():
+def setup_test_environment() -> str:
     """Set up test environment variables and configuration."""
     # Set test database configuration to use in-memory/temp databases
     os.environ["GORGONETICS_DB_BACKEND"] = "ducklake"
@@ -33,7 +33,7 @@ def setup_test_environment():
     return temp_dir
 
 
-def populate_test_database():
+def populate_test_database() -> bool:
     """Populate test database with sample gene data."""
     print("📊 Populating test database with gene data...")
 
@@ -61,7 +61,7 @@ def populate_test_database():
     return True
 
 
-def run_integration_tests(test_args=None):
+def run_integration_tests(test_args: list[str] | None = None) -> bool:
     """Run the integration tests with pytest."""
     print("🚀 Running integration tests...")
 
@@ -94,7 +94,7 @@ def run_integration_tests(test_args=None):
         return False
 
 
-def run_specific_test_categories():
+def run_specific_test_categories() -> dict[str, bool]:
     """Run specific categories of tests with detailed reporting."""
     test_categories = [
         ("🧬 Gene API Tests", "tests/integration/test_api_integration.py::TestGeneEndpoints"),
@@ -132,7 +132,7 @@ def run_specific_test_categories():
     return results
 
 
-def run_performance_tests():
+def run_performance_tests() -> bool:
     """Run performance-related tests."""
     print("\n⚡ Performance Tests")
     print("=" * 50)
@@ -156,7 +156,7 @@ def run_performance_tests():
         return False
 
 
-def cleanup_test_environment(temp_dir):
+def cleanup_test_environment(temp_dir: str) -> None:
     """Clean up test environment."""
     try:
         import shutil
@@ -167,7 +167,7 @@ def cleanup_test_environment(temp_dir):
         print(f"*  Could not clean up test directory: {e}")
 
 
-def main():
+def main() -> int:
     """Main test runner function."""
     print("* Gorgonetics Integration Test Runner")
     print("=" * 50)

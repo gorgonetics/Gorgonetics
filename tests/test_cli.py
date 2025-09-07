@@ -5,7 +5,7 @@ from typer.testing import CliRunner
 from gorgonetics.cli import app
 
 
-def test_version_option():
+def test_version_option() -> None:
     """Test that --version flag works."""
     runner = CliRunner()
     result = runner.invoke(app, ["--version"])
@@ -13,7 +13,7 @@ def test_version_option():
     assert "Gorgonetics version" in result.stdout
 
 
-def test_main_no_args():
+def test_main_no_args() -> None:
     """Test running the CLI with no arguments."""
     runner = CliRunner()
     result = runner.invoke(app, [])
@@ -21,7 +21,7 @@ def test_main_no_args():
     assert result.exit_code == 2
 
 
-def test_invalid_command():
+def test_invalid_command() -> None:
     """Test running the CLI with an invalid command."""
     runner = CliRunner()
     result = runner.invoke(app, ["nonexistent"])
@@ -29,7 +29,7 @@ def test_invalid_command():
     assert result.exit_code != 0
 
 
-def test_help_option():
+def test_help_option() -> None:
     """Test that --help flag works."""
     runner = CliRunner()
     result = runner.invoke(app, ["--help"])

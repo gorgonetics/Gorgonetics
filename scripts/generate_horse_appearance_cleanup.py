@@ -15,7 +15,7 @@ import json
 from pathlib import Path
 
 
-def main():
+def main() -> None:
     # Load all horse gene files
     gene_files_dir = Path("assets/horse")
     appearances = set()

@@ -7,15 +7,20 @@ break the UI functionality.
 """
 
 import tempfile
+from collections.abc import Generator
+from typing import TYPE_CHECKING, Any
 
 import pytest
 from fastapi.testclient import TestClient
 
 from gorgonetics.web_app import app, get_database
 
+if TYPE_CHECKING:
+    from gorgonetics.ducklake_database import DuckLakeGeneDatabase
+
 
 @pytest.fixture(scope="function")
-def client(populated_test_database):
+def client(populated_test_database: "DuckLakeGeneDatabase") -> Generator[TestClient]:
     """Create a test client for the FastAPI app with test database."""
     # Override the database dependency
     app.dependency_overrides[get_database] = lambda: populated_test_database
@@ -29,7 +34,7 @@ def client(populated_test_database):
 
 
 @pytest.fixture(scope="function")
-def populated_test_database(test_database):
+def populated_test_database(test_database: "DuckLakeGeneDatabase") -> "DuckLakeGeneDatabase":
     """Set up test database with sample data."""
     db = test_database
 
@@ -67,13 +72,14 @@ def populated_test_database(test_database):
     for gene_data in sample_genes:
         db._upsert_gene(gene_data["animal_type"], gene_data["chromosome"], gene_data["gene"], gene_data)
 
-    db.conn.commit()
+    if db.conn:
+        db.conn.commit()
 
     return db
 
 
 @pytest.fixture(scope="module")
-def sample_pet_file():
+def sample_pet_file() -> str:
     """Create a sample pet genome file for testing uploads."""
     pet_content = """[Overview]
 Format=v1.0
@@ -95,7 +101,7 @@ End of Genome
 class TestGeneEndpoints:
     """Test gene-related API endpoints."""
 
-    def test_get_animal_types(self, client, populated_test_database):
+    def test_get_animal_types(self, client: TestClient, populated_test_database: "DuckLakeGeneDatabase") -> None:
         """Test that animal types endpoint returns expected data."""
         response = client.get("/api/animal-types")
 
@@ -105,7 +111,7 @@ class TestGeneEndpoints:
         assert "horse" in data
         assert "beewasp" in data
 
-    def test_get_chromosomes(self, client, populated_test_database):
+    def test_get_chromosomes(self, client: TestClient, populated_test_database: "DuckLakeGeneDatabase") -> None:
         """Test that chromosomes endpoint returns expected data."""
         response = client.get("/api/chromosomes/horse")
 
@@ -114,7 +120,7 @@ class TestGeneEndpoints:
         assert isinstance(data, list)
         assert "01" in data
 
-    def test_get_genes_by_chromosome(self, client, populated_test_database):
+    def test_get_genes_by_chromosome(self, client: TestClient, populated_test_database: "DuckLakeGeneDatabase") -> None:
         """Test that genes by chromosome endpoint returns expected format."""
         response = client.get("/api/genes/horse/01")
 
@@ -135,7 +141,7 @@ class TestGeneEndpoints:
         assert "effect_dominant" not in gene  # Should not have snake_case
         assert "effect_recessive" not in gene  # Should not have snake_case
 
-    def test_get_gene_effects(self, client, populated_test_database):
+    def test_get_gene_effects(self, client: TestClient, populated_test_database: "DuckLakeGeneDatabase") -> None:
         """Test that gene effects endpoint returns expected format."""
         response = client.get("/api/gene-effects/horse")
 
@@ -159,7 +165,9 @@ class TestGeneEndpoints:
         # Check that actual effects are present
         assert gene_effect["effectRecessive"] == "Intelligence+"
 
-    def test_get_gene_effects_beewasp(self, client, populated_test_database):
+    def test_get_gene_effects_beewasp(
+        self, client: TestClient, populated_test_database: "DuckLakeGeneDatabase"
+    ) -> None:
         """Test gene effects for different species."""
         response = client.get("/api/gene-effects/BeeWasp")
 
@@ -169,7 +177,7 @@ class TestGeneEndpoints:
         assert "01A1" in effects
         assert effects["01A1"]["effectRecessive"] == "Friendliness+"
 
-    def test_get_effect_options(self, client, populated_test_database):
+    def test_get_effect_options(self, client: TestClient, populated_test_database: "DuckLakeGeneDatabase") -> None:
         """Test that effect options endpoint returns valid data."""
         response = client.get("/api/effect-options")
 
@@ -179,7 +187,9 @@ class TestGeneEndpoints:
         assert len(data) > 0
         assert "None" in data
 
-    def test_get_effect_options_for_species(self, client, populated_test_database):
+    def test_get_effect_options_for_species(
+        self, client: TestClient, populated_test_database: "DuckLakeGeneDatabase"
+    ) -> None:
         """Test species-specific effect options."""
         response = client.get("/api/effect-options/horse")
 
@@ -192,7 +202,7 @@ class TestGeneEndpoints:
 class TestPetEndpoints:
     """Test pet-related API endpoints."""
 
-    def test_get_pets_empty(self, client, populated_test_database):
+    def test_get_pets_empty(self, client: TestClient, populated_test_database: "DuckLakeGeneDatabase") -> None:
         """Test getting pets when database is empty."""
         response = client.get("/api/pets")
 
@@ -200,7 +210,9 @@ class TestPetEndpoints:
         data = response.json()
         assert isinstance(data, list)
 
-    def _upload_pet_helper(self, client, test_database, sample_pet_file, name_suffix=""):
+    def _upload_pet_helper(
+        self, client: TestClient, test_database: "DuckLakeGeneDatabase", sample_pet_file: str, name_suffix: str = ""
+    ) -> int:
         """Helper method to upload a pet and return the pet_id."""
         # Create unique content by adding suffix to gene data to avoid hash conflicts
         with open(sample_pet_file) as f:
@@ -233,12 +245,16 @@ class TestPetEndpoints:
 
         return result["pet_id"]
 
-    def test_upload_pet(self, client, populated_test_database, sample_pet_file):
+    def test_upload_pet(
+        self, client: TestClient, populated_test_database: "DuckLakeGeneDatabase", sample_pet_file: str
+    ) -> None:
         """Test pet upload functionality."""
         pet_id = self._upload_pet_helper(client, populated_test_database, sample_pet_file)
         assert pet_id is not None
 
-    def test_get_pets_with_data(self, client, populated_test_database, sample_pet_file):
+    def test_get_pets_with_data(
+        self, client: TestClient, populated_test_database: "DuckLakeGeneDatabase", sample_pet_file: str
+    ) -> None:
         """Test getting pets after uploading one."""
         # Get initial count of pets
         initial_response = client.get("/api/pets")
@@ -268,7 +284,9 @@ class TestPetEndpoints:
         assert uploaded_pet["id"] == pet_id
         assert uploaded_pet["species"] == "Horse"
 
-    def test_get_pet_by_id(self, client, populated_test_database, sample_pet_file):
+    def test_get_pet_by_id(
+        self, client: TestClient, populated_test_database: "DuckLakeGeneDatabase", sample_pet_file: str
+    ) -> None:
         """Test getting a specific pet by ID."""
         # Upload a pet first
         pet_id = self._upload_pet_helper(client, populated_test_database, sample_pet_file, "_byid")
@@ -282,7 +300,9 @@ class TestPetEndpoints:
         assert "created_at" in data
         assert "updated_at" in data
 
-    def test_get_pet_genome_visualization(self, client, populated_test_database, sample_pet_file):
+    def test_get_pet_genome_visualization(
+        self, client: TestClient, populated_test_database: "DuckLakeGeneDatabase", sample_pet_file: str
+    ) -> None:
         """Test pet genome data for visualization."""
         # Upload a pet first
         pet_id = self._upload_pet_helper(client, populated_test_database, sample_pet_file, "_viz")
@@ -301,7 +321,9 @@ class TestPetEndpoints:
         assert "01" in data["genes"]
         assert isinstance(data["genes"]["01"], str)
 
-    def test_delete_pet(self, client, populated_test_database, sample_pet_file):
+    def test_delete_pet(
+        self, client: TestClient, populated_test_database: "DuckLakeGeneDatabase", sample_pet_file: str
+    ) -> None:
         """Test pet deletion."""
         # Upload a pet first
         pet_id = self._upload_pet_helper(client, populated_test_database, sample_pet_file, "_delete")
@@ -316,7 +338,9 @@ class TestPetEndpoints:
         response = client.get(f"/api/pets/{pet_id}")
         assert response.status_code == 404
 
-    def test_pet_upload_duplicate_detection(self, client, populated_test_database, sample_pet_file):
+    def test_pet_upload_duplicate_detection(
+        self, client: TestClient, populated_test_database: "DuckLakeGeneDatabase", sample_pet_file: str
+    ) -> None:
         """Test that duplicate file uploads are detected."""
         # Clear any existing pets first
         client.get("/api/pets")  # Ensure database is ready
@@ -342,7 +366,7 @@ class TestPetEndpoints:
 class TestConfigEndpoints:
     """Test configuration-related endpoints."""
 
-    def test_get_attribute_config(self, client, populated_test_database):
+    def test_get_attribute_config(self, client: TestClient, populated_test_database: "DuckLakeGeneDatabase") -> None:
         """Test attribute configuration endpoint."""
         response = client.get("/api/attribute-config/horse")
 
@@ -368,7 +392,7 @@ class TestConfigEndpoints:
         assert "name" in first_attr
         assert "key" in first_attr
 
-    def test_get_appearance_config(self, client, populated_test_database):
+    def test_get_appearance_config(self, client: TestClient, populated_test_database: "DuckLakeGeneDatabase") -> None:
         """Test appearance configuration endpoint."""
         response = client.get("/api/appearance-config/horse")
 
@@ -383,7 +407,7 @@ class TestConfigEndpoints:
 class TestErrorHandling:
     """Test error handling and edge cases."""
 
-    def test_invalid_species(self, client, populated_test_database):
+    def test_invalid_species(self, client: TestClient, populated_test_database: "DuckLakeGeneDatabase") -> None:
         """Test handling of invalid species names."""
         response = client.get("/api/chromosomes/invalid_species")
         assert response.status_code == 200  # Should return empty list
@@ -391,7 +415,7 @@ class TestErrorHandling:
         assert isinstance(data, list)
         assert len(data) == 0
 
-    def test_invalid_chromosome(self, client, populated_test_database):
+    def test_invalid_chromosome(self, client: TestClient, populated_test_database: "DuckLakeGeneDatabase") -> None:
         """Test handling of invalid chromosome."""
         response = client.get("/api/genes/horse/99")
         assert response.status_code == 200  # Should return empty list
@@ -399,7 +423,7 @@ class TestErrorHandling:
         assert isinstance(data, list)
         assert len(data) == 0
 
-    def test_nonexistent_pet(self, client, populated_test_database):
+    def test_nonexistent_pet(self, client: TestClient, populated_test_database: "DuckLakeGeneDatabase") -> None:
         """Test handling of nonexistent pet IDs."""
         response = client.get("/api/pets/99999")
         assert response.status_code == 404
@@ -410,7 +434,7 @@ class TestErrorHandling:
         response = client.delete("/api/pets/99999")
         assert response.status_code == 404
 
-    def test_invalid_file_upload(self, client, populated_test_database):
+    def test_invalid_file_upload(self, client: TestClient, populated_test_database: "DuckLakeGeneDatabase") -> None:
         """Test handling of invalid file uploads."""
         # Test with truly invalid UTF-8 bytes
         files = {"file": ("test.bin", b"\xff\xfe\xfd", "application/octet-stream")}
@@ -418,7 +442,7 @@ class TestErrorHandling:
         assert response.status_code == 400
 
         # Test with empty file
-        files = {"file": ("empty.txt", "", "text/plain")}
+        files = {"file": ("empty.txt", b"", "text/plain")}
         response = client.post("/api/pets/upload", files=files)
         assert response.status_code == 400
 
@@ -426,7 +450,7 @@ class TestErrorHandling:
 class TestDataConsistency:
     """Test data consistency across different endpoints."""
 
-    def test_gene_data_consistency(self, client, populated_test_database):
+    def test_gene_data_consistency(self, client: TestClient, populated_test_database: "DuckLakeGeneDatabase") -> None:
         """Test that gene data is consistent across different endpoints."""
         # Get genes from chromosome endpoint
         response1 = client.get("/api/genes/horse/01")
@@ -451,7 +475,7 @@ class TestDataConsistency:
             assert gene["effectDominant"] == effect_data["effectDominant"]
             assert gene["effectRecessive"] == effect_data["effectRecessive"]
 
-    def test_species_consistency(self, client, populated_test_database):
+    def test_species_consistency(self, client: TestClient, populated_test_database: "DuckLakeGeneDatabase") -> None:
         """Test that species names are consistent across endpoints."""
         # Get animal types
         response = client.get("/api/animal-types")
@@ -474,7 +498,7 @@ class TestDataConsistency:
 class TestPerformance:
     """Test performance-related aspects."""
 
-    def test_large_dataset_handling(self, client, populated_test_database):
+    def test_large_dataset_handling(self, client: TestClient, populated_test_database: "DuckLakeGeneDatabase") -> None:
         """Test that endpoints handle reasonable dataset sizes efficiently."""
         import time
 
@@ -490,7 +514,9 @@ class TestPerformance:
         effects = data["effects"]
         assert len(effects) > 0  # Should have some data
 
-    def test_multiple_sequential_requests(self, client, populated_test_database):
+    def test_multiple_sequential_requests(
+        self, client: TestClient, populated_test_database: "DuckLakeGeneDatabase"
+    ) -> None:
         """Test that the API can handle multiple sequential requests efficiently."""
         import time
 
@@ -503,7 +529,7 @@ class TestPerformance:
             "/api/pets",
         ]
 
-        results = []
+        results: list[dict[str, Any]] = []
 
         # Make multiple requests sequentially
         start_time = time.time()
@@ -524,7 +550,10 @@ class TestPerformance:
 
         # Each individual request should be reasonably fast
         for result in results:
-            assert result["duration"] < 2.0, f"Request to {result['endpoint']} took {result['duration']:.2f}s"
+            duration = result["duration"]
+            assert isinstance(duration, int | float) and duration < 2.0, (
+                f"Request to {result['endpoint']} took {result['duration']:.2f}s"
+            )
 
         # Total time should be reasonable for sequential requests
         assert end_time - start_time < 8.0

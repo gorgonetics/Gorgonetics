@@ -592,7 +592,9 @@ async def update_pet(
             updates["notes"] = pet_update.notes
         if pet_update.attributes is not None:
             # Flatten attributes - they are stored as individual columns in the database
-            updates.update(pet_update.attributes)
+            # Convert integer values to strings for database storage
+            str_attributes = {k: str(v) for k, v in pet_update.attributes.items()}
+            updates.update(str_attributes)
 
         success = db.update_pet(pet_id=pet_id, updates=updates)
 
@@ -671,7 +673,9 @@ async def test_db(db: "DuckLakeGeneDatabase" = Depends(get_database)) -> dict[st
     """Test endpoint to check database connection."""
     try:
         # Simple database test
+        assert db.conn is not None
         result = db.conn.execute("SELECT COUNT(*) FROM users").fetchone()
+        assert result is not None
         return {"user_count": result[0], "message": "Database connection successful"}
     except Exception as e:
         return {"error": str(e), "message": "Database connection failed"}
@@ -683,7 +687,9 @@ async def test_both(
 ) -> dict[str, Any]:
     """Test endpoint with both auth and database dependencies."""
     try:
+        assert db.conn is not None
         result = db.conn.execute("SELECT COUNT(*) FROM users").fetchone()
+        assert result is not None
         return {
             "user_id": current_user.id,
             "username": current_user.username,

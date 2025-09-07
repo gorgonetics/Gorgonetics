@@ -542,7 +542,7 @@ class DuckLakeGeneDatabase:
         try:
             # Build query based on filters provided
             conditions = []
-            params = []
+            params: list[Any] = []
 
             if user_id is not None:
                 conditions.append("user_id = ?")

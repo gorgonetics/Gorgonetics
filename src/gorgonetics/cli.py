@@ -197,11 +197,8 @@ def populate() -> None:
 
         # Commit all changes to database
         console.print("[blue]* Committing changes to database...[/blue]")
-        if db.conn is not None:
-            db.conn.commit()
-        else:
-            console.print("* [red]Error: Database connection is None[/red]")
-            raise typer.Exit(1)
+        assert db.conn is not None
+        db.conn.commit()
 
         # Summary
         console.print("=" * 50)
@@ -438,7 +435,9 @@ def create_admin(
 
             now = datetime.now()
 
+            assert db.conn is not None
             result = db.conn.execute("SELECT MAX(id) FROM users").fetchone()
+            assert result is not None
             next_id = (result[0] or 0) + 1
 
             db.conn.execute(

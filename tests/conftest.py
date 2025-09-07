@@ -2,28 +2,33 @@
 
 import os
 import tempfile
+from collections.abc import Generator
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 from typer.testing import CliRunner
 
 from gorgonetics.cli import app
 
+if TYPE_CHECKING:
+    from gorgonetics.ducklake_database import DuckLakeGeneDatabase
+
 
 @pytest.fixture
-def runner():
+def runner() -> CliRunner:
     """Create a CLI runner for testing."""
     return CliRunner()
 
 
 @pytest.fixture
-def cli_app():
+def cli_app() -> object:
     """Return the CLI application for testing."""
     return app
 
 
 @pytest.fixture(scope="function")
-def test_database():
+def test_database() -> Generator["DuckLakeGeneDatabase"]:
     """Create an isolated test database for each test."""
     with tempfile.TemporaryDirectory() as temp_dir:
         # Create temporary database files
@@ -63,7 +68,7 @@ def test_database():
 
 
 @pytest.fixture
-def sample_pet_file():
+def sample_pet_file() -> Generator[str]:
     """Create a sample pet genome file for testing."""
     sample_content = """{
     "format": "gorgonetics",
