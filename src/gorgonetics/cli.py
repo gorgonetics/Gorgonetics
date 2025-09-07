@@ -422,7 +422,6 @@ def main(
 @app.command()
 def create_admin(
     username: str = typer.Option(..., help="Admin username"),
-    email: str = typer.Option(..., help="Admin email"),
     password: str = typer.Option(..., help="Admin password"),
 ) -> None:
     """Create an admin user for initial setup."""
@@ -431,7 +430,7 @@ def create_admin(
         from .auth.models import UserCreate
 
         # Create user data
-        user_data = UserCreate(username=username, email=email, password=password)
+        user_data = UserCreate(username=username, password=password)
         password_hash = get_password_hash(password)
 
         # Connect to database and create admin user
@@ -446,9 +445,9 @@ def create_admin(
             next_id = (result[0] or 0) + 1
 
             db.conn.execute(
-                """INSERT INTO users (id, username, email, password_hash, role, is_active, created_at, updated_at)
-                   VALUES (?, ?, ?, ?, 'admin', true, ?, ?)""",
-                (next_id, username, email, password_hash, now, now),
+                """INSERT INTO users (id, username, password_hash, role, is_active, created_at, updated_at)
+                   VALUES (?, ?, ?, 'admin', true, ?, ?)""",
+                (next_id, username, password_hash, now, now),
             )
 
             console.print(f"[green]* Successfully created admin user: {username}[/green]")

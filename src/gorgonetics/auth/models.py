@@ -6,19 +6,11 @@ from datetime import datetime
 from typing import Optional
 
 from pydantic import BaseModel, Field
-from pydantic_core import ValidationError
-
-try:
-    from pydantic import EmailStr
-except ImportError:
-    # Fallback for older pydantic versions or if email-validator not installed
-    EmailStr = str
 
 
 class UserBase(BaseModel):
     """Base user model with common fields."""
     username: str = Field(..., min_length=3, max_length=50)
-    email: EmailStr
 
 
 class UserCreate(UserBase):

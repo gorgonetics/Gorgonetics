@@ -647,19 +647,6 @@ async def register(user_create: UserCreate) -> User:
                 detail="Username already registered"
             )
         
-        # Check if email already exists
-        db = create_database_instance()
-        try:
-            existing_email = db.conn.execute(
-                "SELECT id FROM users WHERE email = ?", (user_create.email,)
-            ).fetchone()
-            if existing_email:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Email already registered"
-                )
-        finally:
-            db.close()
         
         # Create user with hashed password
         password_hash = get_password_hash(user_create.password)

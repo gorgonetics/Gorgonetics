@@ -43,7 +43,7 @@ def get_current_user(credentials: Annotated[HTTPAuthorizationCredentials, Depend
     db = create_database_instance()
     try:
         user_data = db.conn.execute(
-            "SELECT id, username, email, role, is_active, created_at, updated_at FROM users WHERE username = ? AND is_active = true",
+            "SELECT id, username, role, is_active, created_at, updated_at FROM users WHERE username = ? AND is_active = true",
             (token_data.username,),
         ).fetchone()
 
@@ -54,11 +54,10 @@ def get_current_user(credentials: Annotated[HTTPAuthorizationCredentials, Depend
         user = User(
             id=user_data[0],
             username=user_data[1],
-            email=user_data[2],
-            role=user_data[3],
-            is_active=user_data[4],
-            created_at=user_data[5],
-            updated_at=user_data[6],
+            role=user_data[2],
+            is_active=user_data[3],
+            created_at=user_data[4],
+            updated_at=user_data[5],
         )
 
         return user
@@ -120,7 +119,7 @@ def get_user_by_username(username: str) -> UserInDB | None:
     db = create_database_instance()
     try:
         user_data = db.conn.execute(
-            "SELECT id, username, email, password_hash, role, is_active, created_at, updated_at FROM users WHERE username = ?",
+            "SELECT id, username, password_hash, role, is_active, created_at, updated_at FROM users WHERE username = ?",
             (username,),
         ).fetchone()
 
@@ -130,12 +129,11 @@ def get_user_by_username(username: str) -> UserInDB | None:
         return UserInDB(
             id=user_data[0],
             username=user_data[1],
-            email=user_data[2],
-            password_hash=user_data[3],
-            role=user_data[4],
-            is_active=user_data[5],
-            created_at=user_data[6],
-            updated_at=user_data[7],
+            password_hash=user_data[2],
+            role=user_data[3],
+            is_active=user_data[4],
+            created_at=user_data[5],
+            updated_at=user_data[6],
         )
 
     except Exception:
@@ -171,14 +169,14 @@ def create_user_in_db(user_create: "UserCreate", password_hash: str) -> User:
         next_id = (result[0] or 0) + 1
 
         db.conn.execute(
-            """INSERT INTO users (id, username, email, password_hash, role, is_active, created_at, updated_at)
-               VALUES (?, ?, ?, ?, 'user', true, ?, ?)""",
-            (next_id, user_create.username, user_create.email, password_hash, now, now),
+            """INSERT INTO users (id, username, password_hash, role, is_active, created_at, updated_at)
+               VALUES (?, ?, ?, 'user', true, ?, ?)""",
+            (next_id, user_create.username, password_hash, now, now),
         )
 
         # Get the created user
         user_data = db.conn.execute(
-            "SELECT id, username, email, role, is_active, created_at, updated_at FROM users WHERE username = ?",
+            "SELECT id, username, role, is_active, created_at, updated_at FROM users WHERE username = ?",
             (user_create.username,),
         ).fetchone()
 
@@ -188,11 +186,10 @@ def create_user_in_db(user_create: "UserCreate", password_hash: str) -> User:
         return User(
             id=user_data[0],
             username=user_data[1],
-            email=user_data[2],
-            role=user_data[3],
-            is_active=user_data[4],
-            created_at=user_data[5],
-            updated_at=user_data[6],
+            role=user_data[2],
+            is_active=user_data[3],
+            created_at=user_data[4],
+            updated_at=user_data[5],
         )
 
     except Exception as e:
