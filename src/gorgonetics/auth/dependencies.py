@@ -8,7 +8,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from ..database_config import create_database_instance
-from .models import User, UserInDB
+from .models import User, UserCreate, UserInDB
 from .utils import verify_token
 
 # HTTP Bearer token scheme

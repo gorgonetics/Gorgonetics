@@ -1,5 +1,6 @@
 import { writable } from "svelte/store";
 import { apiClient } from "../services/apiClient.js";
+import { isAuthenticated } from "./authStore.js";
 
 // Core application state
 export const pets = writable([]);
@@ -25,6 +26,16 @@ export const appState = {
     try {
       loading.set(true);
       error.set(null);
+      
+      // Only load pets if authenticated
+      let authStatus = false;
+      isAuthenticated.subscribe(value => authStatus = value)();
+      
+      if (!authStatus) {
+        pets.set([]);
+        return;
+      }
+      
       const petData = await apiClient.getPets();
       pets.set(petData);
     } catch (err) {

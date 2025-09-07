@@ -12,31 +12,16 @@ separate entries for each breed variant.
 """
 
 import json
-import os
 from pathlib import Path
 
 
 def main():
-    # Horse breed abbreviation mapping
-    HORSE_BREED_ABBREVIATIONS = {
-        "Sb": "Standardbred",
-        "Kb": "Kurbone",
-        "Il": "Ilmarian",
-        "Po": "Plateau Pony",
-        "Sc": "Satincoat",
-        "St": "Statehelm",
-        "Bl": "Blanketed",
-        "Le": "Leopard",
-        "Pt": "Paint",
-        "Cl": "Calico",
-    }
-
     # Load all horse gene files
     gene_files_dir = Path("assets/horse")
     appearances = set()
 
     for file_path in gene_files_dir.glob("*_genes_*.json"):
-        with open(file_path, "r", encoding="utf-8") as f:
+        with open(file_path, encoding="utf-8") as f:
             file_data = json.load(f)
             for gene in file_data:
                 if "appearance" in gene and gene["appearance"] and gene["appearance"].strip() not in ["None", ""]:
@@ -91,12 +76,12 @@ def main():
         else:
             print(f'                "examples": "{info["display_name"]} effects",')
         print(f'                "color_indicator": "{color}",')
-        print(f"            }},")
+        print("            },")
     print("        },")
 
     print()
     print("# Variants found for each base attribute:")
-    for key, info in sorted(base_attributes.items()):
+    for _key, info in sorted(base_attributes.items()):
         if len(info["variants"]) > 1:
             print(f"# {info['display_name']}: {len(info['variants'])} variants - {', '.join(sorted(info['variants']))}")
         else:

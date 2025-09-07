@@ -19,8 +19,13 @@ from fastapi.responses import Response
 from pydantic import BaseModel
 
 from .attribute_config import AttributeConfig
-from .auth import User, UserCreate, UserLogin, Token, create_token_pair, verify_password, get_password_hash
-from .auth.dependencies import get_current_user, get_current_active_user, require_admin, get_user_by_username, create_user_in_db
+from .auth import Token, User, UserCreate, UserLogin, create_token_pair, get_password_hash, verify_password
+from .auth.dependencies import (
+    create_user_in_db,
+    get_current_active_user,
+    get_user_by_username,
+    require_admin,
+)
 from .database_config import create_database_instance
 from .models import Genome
 
@@ -105,9 +110,9 @@ class BulkGeneUpdate(BaseModel):
 # Bulk gene update endpoint
 @app.put("/api/genes")
 async def update_genes_bulk(
-    bulk_update: BulkGeneUpdate, 
-    current_admin: User = Depends(require_admin),
-    db: "DuckLakeGeneDatabase" = Depends(get_database)
+    bulk_update: BulkGeneUpdate,
+    _current_admin: User = Depends(require_admin),
+    db: "DuckLakeGeneDatabase" = Depends(get_database),
 ) -> dict[str, str]:
     """Bulk update genes for a chromosome."""
     try:
@@ -517,8 +522,7 @@ async def upload_pet_genome(
 
 @app.get("/api/pets")
 async def get_pets(
-    current_user: User = Depends(get_current_active_user),
-    db: "DuckLakeGeneDatabase" = Depends(get_database)
+    current_user: User = Depends(get_current_active_user), db: "DuckLakeGeneDatabase" = Depends(get_database)
 ) -> list[dict[str, Any]]:
     """Get all pets for the current user."""
     try:
@@ -635,6 +639,7 @@ async def get_pets_by_species(
 
 # Authentication endpoints
 
+
 @app.post("/api/auth/register", response_model=User)
 async def register(user_create: UserCreate) -> User:
     """Register a new user."""
@@ -642,27 +647,20 @@ async def register(user_create: UserCreate) -> User:
         # Check if username already exists
         existing_user = get_user_by_username(user_create.username)
         if existing_user:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Username already registered"
-            )
-        
-        
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Username already registered")
+
         # Create user with hashed password
         password_hash = get_password_hash(user_create.password)
         user = create_user_in_db(user_create, password_hash)
-        
+
         logger.info(f"New user registered: {user.username}")
         return user
-        
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Registration error: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to register user"
-        ) from e
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to register user") from e
 
 
 @app.post("/api/auth/login", response_model=Token)
@@ -677,32 +675,22 @@ async def login(user_login: UserLogin) -> Token:
                 detail="Incorrect username or password",
                 headers={"WWW-Authenticate": "Bearer"},
             )
-        
+
         if not user.is_active:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Inactive user"
-            )
-        
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Inactive user")
+
         # Create token pair
-        token_data = {
-            "sub": user.username,
-            "user_id": user.id,
-            "role": user.role
-        }
+        token_data = {"sub": user.username, "user_id": user.id, "role": user.role}
         tokens = create_token_pair(token_data)
-        
+
         logger.info(f"User logged in: {user.username}")
         return Token(**tokens)
-        
+
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Login error: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Login failed"
-        ) from e
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Login failed") from e
 
 
 @app.get("/api/auth/me", response_model=User)

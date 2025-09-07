@@ -6,17 +6,64 @@
 class ApiClient {
   constructor(baseUrl = "") {
     this.baseUrl = baseUrl;
+    this.currentToken = null;
   }
 
   /**
-   * Generic fetch wrapper with error handling
+   * Set authentication token for requests
+   */
+  setAuthToken(token) {
+    this.currentToken = token;
+  }
+
+  /**
+   * Get authentication headers
+   */
+  getAuthHeaders(token = null) {
+    const authToken = token || this.currentToken;
+    return authToken ? { 'Authorization': `Bearer ${authToken}` } : {};
+  }
+
+  /**
+   * Generic fetch wrapper with error handling and authentication
    */
   async fetchWithErrorHandling(url, options = {}) {
     try {
       const fullUrl = url.startsWith('http') ? url : `${this.baseUrl}${url}`;
-      const response = await fetch(fullUrl, options);
+      
+      // Add auth headers if available
+      const headers = {
+        'Content-Type': 'application/json',
+        ...this.getAuthHeaders(),
+        ...options.headers
+      };
+
+      const response = await fetch(fullUrl, {
+        ...options,
+        headers
+      });
+      
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        // Handle authentication errors
+        if (response.status === 401) {
+          throw new Error('Authentication required');
+        }
+        if (response.status === 403) {
+          throw new Error('Access forbidden');
+        }
+        
+        // Try to get error details from response
+        let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        try {
+          const errorData = await response.json();
+          if (errorData.detail) {
+            errorMessage = errorData.detail;
+          }
+        } catch {
+          // Ignore JSON parsing errors, use default message
+        }
+        
+        throw new Error(errorMessage);
       }
       return response;
     } catch (error) {
@@ -185,6 +232,51 @@ class ApiClient {
    */
   async getAttributeConfig(animalType) {
     const response = await this.fetchWithErrorHandling(`/api/attribute-config/${animalType}`);
+    return response.json();
+  }
+
+  // ===== Authentication Methods =====
+
+  /**
+   * User login
+   */
+  async login(username, password) {
+    const response = await this.fetchWithErrorHandling('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ username, password })
+    });
+    return response.json();
+  }
+
+  /**
+   * User registration
+   */
+  async register(username, password) {
+    const response = await this.fetchWithErrorHandling('/api/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ username, password })
+    });
+    return response.json();
+  }
+
+  /**
+   * Get current user info
+   */
+  async getCurrentUser(token = null) {
+    const response = await this.fetchWithErrorHandling('/api/auth/me', {
+      headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+    });
+    return response.json();
+  }
+
+  /**
+   * User logout
+   */
+  async logout(token = null) {
+    const response = await this.fetchWithErrorHandling('/api/auth/logout', {
+      method: 'POST',
+      headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+    });
     return response.json();
   }
 

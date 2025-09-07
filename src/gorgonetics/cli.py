@@ -427,10 +427,7 @@ def create_admin(
     """Create an admin user for initial setup."""
     try:
         from .auth import get_password_hash
-        from .auth.models import UserCreate
 
-        # Create user data
-        user_data = UserCreate(username=username, password=password)
         password_hash = get_password_hash(password)
 
         # Connect to database and create admin user

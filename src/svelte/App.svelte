@@ -2,9 +2,10 @@
   import { onMount } from 'svelte';
   import Sidebar from './lib/components/Sidebar.svelte';
   import MainContent from './lib/components/MainContent.svelte';
+  import AuthWrapper from './lib/components/AuthWrapper.svelte';
   import { appState } from './lib/stores/appState.js';
   import { apiClient } from './lib/services/apiClient.js';
-  // import { apiTester } from './lib/utils/apiTest.js'; // Unused - API tests disabled
+  import { isAuthenticated } from './lib/stores/authStore.js';
 
   let sidebarCollapsed = $state(false);
 
@@ -12,24 +13,17 @@
     // Initialize the app
     await apiClient.initialize();
 
-    // Load initial data
-    await appState.loadPets();
-
     // Restore sidebar state from localStorage
     const savedState = localStorage.getItem('sidebarCollapsed');
     if (savedState !== null) {
       sidebarCollapsed = JSON.parse(savedState);
     }
-
-    // API tests disabled for performance testing
-    // if (import.meta.env.DEV) {
-    //   console.log('🔧 Development mode - running API tests...');
-    //   apiTester.runAllTests().then(() => {
-    //     console.log('API test results:');
-    //     apiTester.printResults();
-    //   });
-    // }
   });
+
+  // Load pets when user becomes authenticated
+  $: if ($isAuthenticated) {
+    appState.loadPets();
+  }
 
   function toggleSidebar() {
     sidebarCollapsed = !sidebarCollapsed;
@@ -37,10 +31,12 @@
   }
 </script>
 
-<div class="app-layout" class:sidebar-collapsed={sidebarCollapsed}>
-  <Sidebar {sidebarCollapsed} {toggleSidebar} />
-  <MainContent />
-</div>
+<AuthWrapper>
+  <div class="app-layout" class:sidebar-collapsed={sidebarCollapsed}>
+    <Sidebar {sidebarCollapsed} {toggleSidebar} />
+    <MainContent />
+  </div>
+</AuthWrapper>
 
 <style>
   :global(body) {
