@@ -112,33 +112,32 @@ class DuckLakeGeneDatabase:
     def _create_tables(self) -> None:
         """Create the necessary database tables in DuckLake."""
         assert self.conn is not None
-        
+
         # Users table for authentication
         self.conn.execute("""
             CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY,
-                username VARCHAR(50) UNIQUE NOT NULL,
-                email VARCHAR(255) UNIQUE NOT NULL,
+                id INTEGER,
+                username VARCHAR(50) NOT NULL,
+                email VARCHAR(255) NOT NULL,
                 password_hash VARCHAR(255) NOT NULL,
-                role VARCHAR(20) DEFAULT 'user',
-                is_active BOOLEAN DEFAULT true,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                role VARCHAR(20),
+                is_active BOOLEAN,
+                created_at TIMESTAMP,
+                updated_at TIMESTAMP
             )
         """)
 
         # User sessions table for token management
         self.conn.execute("""
             CREATE TABLE IF NOT EXISTS user_sessions (
-                id INTEGER PRIMARY KEY,
+                id INTEGER,
                 user_id INTEGER NOT NULL,
-                token_jti VARCHAR(255) UNIQUE NOT NULL,
+                token_jti VARCHAR(255) NOT NULL,
                 expires_at TIMESTAMP NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+                created_at TIMESTAMP
             )
         """)
-        
+
         # Genes table (static reference data) - now with audit fields
         self.conn.execute("""
             CREATE TABLE IF NOT EXISTS genes (
@@ -152,8 +151,7 @@ class DuckLakeGeneDatabase:
                 created_at TIMESTAMP,
                 updated_at TIMESTAMP,
                 last_modified_by INTEGER,
-                last_modified_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (last_modified_by) REFERENCES users (id)
+                last_modified_at TIMESTAMP
             )
         """)
 
@@ -217,7 +215,6 @@ class DuckLakeGeneDatabase:
                 "is_public BOOLEAN DEFAULT false",
                 "created_at TIMESTAMP",
                 "updated_at TIMESTAMP",
-                "FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE",
             ]
 
             all_columns = base_columns + dynamic_columns
@@ -547,15 +544,15 @@ class DuckLakeGeneDatabase:
             # Build query based on filters provided
             conditions = []
             params = []
-            
+
             if user_id is not None:
                 conditions.append("user_id = ?")
                 params.append(user_id)
-                
+
             if species:
                 conditions.append("species = ?")
                 params.append(species)
-            
+
             if conditions:
                 query = f"SELECT * FROM pets WHERE {' AND '.join(conditions)} ORDER BY name"
             else:

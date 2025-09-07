@@ -428,32 +428,38 @@ def create_admin(
     """Create an admin user for initial setup."""
     try:
         from .auth import get_password_hash
-        from .auth.dependencies import create_user_in_db
         from .auth.models import UserCreate
-        
+
         # Create user data
         user_data = UserCreate(username=username, email=email, password=password)
         password_hash = get_password_hash(password)
-        
+
         # Connect to database and create admin user
         db = create_database_instance()
         try:
-            # Insert admin user directly
+            # Get next available user ID
+            from datetime import datetime
+
+            now = datetime.now()
+
+            result = db.conn.execute("SELECT MAX(id) FROM users").fetchone()
+            next_id = (result[0] or 0) + 1
+
             db.conn.execute(
-                """INSERT INTO users (username, email, password_hash, role, is_active, created_at, updated_at)
-                   VALUES (?, ?, ?, 'admin', true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)""",
-                (username, email, password_hash)
+                """INSERT INTO users (id, username, email, password_hash, role, is_active, created_at, updated_at)
+                   VALUES (?, ?, ?, ?, 'admin', true, ?, ?)""",
+                (next_id, username, email, password_hash, now, now),
             )
-            
+
             console.print(f"[green]* Successfully created admin user: {username}[/green]")
             console.print("[blue]* You can now log in to the web interface with these credentials[/blue]")
-            
+
         except Exception as e:
             console.print(f"[red]Failed to create admin user: {e}[/red]")
             raise typer.Exit(1) from e
         finally:
             db.close()
-            
+
     except Exception as e:
         console.print(f"[red]Error creating admin user: {e}[/red]")
         raise typer.Exit(1) from e
