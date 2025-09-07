@@ -101,7 +101,7 @@ jobs:
     - name: Test API endpoint availability
       run: |
         # Start the web app in background
-        uv run python scripts/run_web_app.py &
+        uv run gorgonetics web &
         WEB_PID=$!
 
         # Wait for server to start
@@ -166,7 +166,7 @@ jobs:
 
         # Test database creation and basic operations
         uv run python -c "
-        from src.gorgonetics.database_config import create_database_instance
+        from gorgonetics.database_config import create_database_instance
 
         print('Testing database backend: ${{ matrix.db-backend }}')
 

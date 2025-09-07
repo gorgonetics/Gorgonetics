@@ -38,9 +38,9 @@ def populate_test_database():
     print("📊 Populating test database with gene data...")
 
     try:
-        # Run the populate script to load gene data
+        # Run the populate command to load gene data
         result = subprocess.run(
-            [sys.executable, "scripts/populate_database.py"], capture_output=True, text=True, timeout=120
+            [sys.executable, "-m", "gorgonetics", "populate"], capture_output=True, text=True, timeout=120
         )
 
         if result.returncode == 0:
