@@ -219,7 +219,6 @@ class Pet(BaseModel):
     genome: Genome
     gender: Gender = Gender.MALE
     attributes: PetAttributes
-    screenshot_path: Path | None = None
     notes: str = ""
     is_public: bool = False
 
@@ -255,13 +254,10 @@ class Pet(BaseModel):
         name: str,
         genome_file: str | Path,
         gender: Gender = Gender.MALE,
-        screenshot_path: str | Path | None = None,
         notes: str = "",
     ) -> Pet:
         """Create a pet from a genome file."""
         genome = Genome.from_file(genome_file)
-
-        screenshot = Path(screenshot_path) if screenshot_path else None
 
         # Create species-specific attributes
         defaults = AttributeConfig.get_default_values(genome.genome_type)
@@ -272,7 +268,6 @@ class Pet(BaseModel):
             genome=genome,
             gender=gender,
             attributes=species_attributes,
-            screenshot_path=screenshot,
             notes=notes,
         )
 

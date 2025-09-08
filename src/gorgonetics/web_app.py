@@ -79,15 +79,6 @@ class GeneUpdate(BaseModel):
     notes: str | None = None
 
 
-class PetCreate(BaseModel):
-    """Model for creating a new pet."""
-
-    name: str
-    gender: str = "Male"
-    attributes: dict[str, int] | None = None
-    notes: str | None = None
-
-
 class PetUpdate(BaseModel):
     """Model for updating pet attributes."""
 
