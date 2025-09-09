@@ -6,15 +6,22 @@ Gorgonetics is a web-based gene editing tool for Project Gorgon pet breeding. It
 
 ## Table of Contents
 
-- [Project Structure](#project-structure)
+### Core Documentation
+- [Project Structure](#project-structure) 
 - [Architecture](#architecture)
 - [Installation](#installation)
 - [Usage](#usage)
-- [API Reference](#api-reference)
-- [Database Schema](#database-schema)
-- [Frontend Modules](#frontend-modules)
-- [Development](#development)
-- [Contributing](#contributing)
+
+### Technical References  
+- [API Reference](API.md) - Complete REST API documentation with authentication
+- [Database Schema](DATABASE.md) - DuckLake database architecture and operations
+- [Frontend Architecture](FRONTEND.md) - Svelte 5 component documentation
+- [Development Guide](DEVELOPMENT.md) - Setup, workflow, and contribution guidelines
+- [Testing Strategy](TESTING.md) - Comprehensive testing documentation
+
+### Advanced Topics
+- [Configuration-Driven Attributes](CONFIGURATION_DRIVEN_ATTRIBUTES.md) - Dynamic attribute system architecture
+- [DuckLake Multi-User Setup](DUCKLAKE_MULTIUSER.md) - Multi-user database configuration
 
 ## Project Structure
 
