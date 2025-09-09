@@ -280,14 +280,16 @@ rm -f test_*.db test_*.sqlite
 rm -rf test_data/
 
 # Repopulate test data
-make populate-db
+uv run gorgonetics populate
 ```
 
 ### Dependency Issues
 ```bash
 # Reinstall all dependencies
-make clean
-make setup
+./test.sh clean
+./test.sh setup
+# OR
+uv sync --dev && pnpm install
 ```
 
 ### Permission Issues

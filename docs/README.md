@@ -73,15 +73,18 @@ Gorgonetics/
 - **Pydantic**: Data validation and serialization
 
 ### Frontend Stack
-- **Vanilla JavaScript ES6+**: Modular, class-based architecture
-- **CSS3**: Responsive design with Flexbox/Grid
-- **HTML5**: Semantic markup
+- **Svelte 5**: Modern reactive framework with runes
+- **Vite**: Fast build tool and development server  
+- **Tailwind CSS**: Utility-first CSS framework
+- **Flowbite Svelte**: UI component library
 
 ### Development Tools
 - **uv**: Fast Python package manager
+- **pnpm**: Efficient Node.js package manager
 - **ruff**: Python linter and formatter
+- **ESLint**: JavaScript/Svelte linting
 - **mypy**: Static type checking
-- **pytest**: Testing framework
+- **pytest + Vitest**: Full-stack testing
 
 ## Installation
 

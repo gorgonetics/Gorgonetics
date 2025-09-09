@@ -35,16 +35,26 @@ cd Gorgonetics
 # Install dependencies
 uv sync --dev
 
-# Populate database with sample data (optional - auto-initializes)
-uv run python scripts/populate_database.py
+# Install Node.js dependencies
+pnpm install
 
-# Start the development server
-uv run python scripts/run_web_app.py
+# Populate database with sample data
+uv run gorgonetics populate
+
+# Start the backend API server (port 8000)
+uv run gorgonetics web
+
+# In another terminal, start the frontend dev server (port 5173)  
+pnpm run dev
 ```
 
 ### 2. Verify Installation
 
-Visit `http://127.0.0.1:8000` to confirm the application is running.
+Visit `http://localhost:5173` to access the full application with frontend and API integration.
+
+- **Frontend**: http://localhost:5173 (main application)
+- **API Documentation**: http://localhost:8000/docs (Swagger UI)
+- **Alternative API Docs**: http://localhost:8000/redoc (ReDoc)
 
 ## Development Workflow
 

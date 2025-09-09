@@ -120,7 +120,7 @@ assets/
 
 ### Population Script
 
-The `scripts/populate_database.py` script handles initial data loading:
+The `uv run gorgonetics populate` command handles initial data loading:
 
 ```python
 # Example JSON structure
@@ -143,7 +143,7 @@ The `scripts/populate_database.py` script handles initial data loading:
 
 ### GeneDatabase Class
 
-The `GeneDatabase` class in `src/gorgonetics/database.py` provides all database operations for both genes and pets:
+The `DuckLakeGeneDatabase` class in `src/gorgonetics/ducklake_database.py` provides all database operations with multi-user support:
 
 #### Connection Management
 

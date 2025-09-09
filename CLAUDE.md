@@ -64,30 +64,47 @@ pnpm run test:client:ui     # Run with interactive UI
 # Full test suite (integration + client)
 ./test.sh all
 
-# API endpoint testing only
+# API integration test categories
 ./test.sh api
+
+# Specific test categories
+./test.sh genes       # Gene endpoint tests
+./test.sh pets        # Pet endpoint tests
+./test.sh consistency # Data consistency tests
 ```
 
 ## Architecture Overview
 
 ### Backend Structure (`src/gorgonetics/`)
 - **`cli.py`**: Typer-based command-line interface with rich output
-- **`web_app.py`**: FastAPI application with REST endpoints
+- **`web_app.py`**: FastAPI application with REST endpoints and authentication
 - **`models.py`**: Pydantic data models for genes, pets, and genetics
 - **`ducklake_database.py`**: DuckLake-based analytics database with versioning
 - **`genome_parser.py`**: Parses Project Gorgon pet genome files
 - **`attribute_config.py`**: Dynamic attribute system for different species
+- **`database_config.py`**: Database configuration and connection management
+- **`auth/`**: Authentication and authorization module
+  - **`models.py`**: User and authentication data models
+  - **`utils.py`**: JWT token handling and password utilities
+  - **`dependencies.py`**: FastAPI authentication dependencies
 
 ### Frontend Structure (`src/svelte/`)
 - **`App.svelte`**: Main application component with reactive state
 - **`lib/components/`**: Reusable Svelte components for gene editing UI
-- **`lib/services/apiClient.js`**: API communication layer
-- **`lib/stores/appState.js`**: Centralized application state management
+  - **`AuthWrapper.svelte`**: Authentication state management wrapper
+  - **`LoginForm.svelte`** / **`RegisterForm.svelte`**: User authentication forms
+  - **`GeneEditor.svelte`**, **`PetEditor.svelte`**: Main editing interfaces
+- **`lib/services/apiClient.js`**: API communication layer with authentication
+- **`lib/stores/`**: Reactive state management
+  - **`appState.js`**: Application and pet data state
+  - **`authStore.js`**: Authentication state management
 
 ### Database Architecture
 - **Primary**: DuckLake with SQLite catalog for analytics and versioning
 - **Storage**: Stores pet genetics data with chromosome-level organization
-- **Features**: Multi-user support, data versioning, fast analytical queries
+- **Authentication**: JWT-based user authentication with role-based access control
+- **Multi-user**: Separate data isolation per user with admin oversight capabilities
+- **Features**: Data versioning, fast analytical queries, user management
 
 ## Code Quality Standards
 
@@ -115,6 +132,8 @@ pnpm run test:client:ui     # Run with interactive UI
 ### Frontend Tests
 - **Framework**: Vitest with jsdom
 - **Commands**: Use `pnpm run test:client:*` variants
+- **Integration**: `pnpm run test:integration` runs `./test.sh quick`
+- **Complete Suite**: `pnpm run test:all` runs `./test.sh all`
 - **UI Testing**: Interactive test UI available with `test:client:ui`
 
 ## Species and Data Structure
@@ -129,12 +148,34 @@ pnpm run test:client:ui     # Run with interactive UI
 - Dynamic attributes system allows species-specific genetic traits
 - Export/import functionality for sharing genetic configurations
 
+## Authentication System
+
+### User Management
+- **JWT Authentication**: Access and refresh token-based authentication
+- **User Roles**: `admin` and `user` roles with different permissions
+- **Admin Features**: Can manage all pets, create admin users via CLI
+- **User Features**: Can only access their own pets and data
+
+### CLI User Management
+```bash
+# Create admin user
+uv run gorgonetics create-admin --username admin --password yourpassword
+
+# Check database status
+uv run gorgonetics db-status
+```
+
+### API Authentication
+- All pet management endpoints require authentication
+- Admin-only endpoints for bulk operations and system management
+- Token-based session management with automatic refresh
+
 ## Key Development Patterns
 
 ### Adding New Features
 1. Define data models in `models.py` with proper type hints
 2. Add database operations to `ducklake_database.py`
-3. Create API endpoints in `web_app.py`
+3. Create API endpoints in `web_app.py` with appropriate authentication
 4. Build Svelte components for UI interaction
 5. Add comprehensive tests for both backend and frontend
 
