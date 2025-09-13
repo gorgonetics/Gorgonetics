@@ -1,0 +1,26 @@
+services:
+  gorgonetics:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - GORGONETICS_JWT_SECRET_KEY=${GORGONETICS_JWT_SECRET_KEY:-dev-secret-key-not-for-production}
+      - GORGONETICS_JWT_ACCESS_TOKEN_EXPIRE_MINUTES=${GORGONETICS_JWT_ACCESS_TOKEN_EXPIRE_MINUTES:-30}
+      - GORGONETICS_JWT_REFRESH_TOKEN_EXPIRE_DAYS=${GORGONETICS_JWT_REFRESH_TOKEN_EXPIRE_DAYS:-7}
+      - GORGONETICS_CATALOG_PATH=/app/data/metadata.sqlite
+      - GORGONETICS_DATA_PATH=/app/data
+      - GORGONETICS_DUCKLAKE_NAME=${GORGONETICS_DUCKLAKE_NAME:-gorgonetics_lake}
+      - GORGONETICS_CONCURRENT_ACCESS=${GORGONETICS_CONCURRENT_ACCESS:-true}
+      - GORGONETICS_SESSION_TIMEOUT=${GORGONETICS_SESSION_TIMEOUT:-30}
+    volumes:
+      # Mount data directory for persistence
+      - ./data:/app/data
+      # Mount database file if it exists
+      - ./metadata.sqlite:/app/data/metadata.sqlite
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s

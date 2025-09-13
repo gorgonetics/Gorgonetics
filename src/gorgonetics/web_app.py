@@ -15,7 +15,8 @@ from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, Any
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile, status
-from fastapi.responses import Response
+from fastapi.responses import FileResponse, Response
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from .attribute_config import AttributeConfig
@@ -60,6 +61,9 @@ logger = logging.getLogger(__name__)
 
 # Initialize FastAPI app with lifespan
 app = FastAPI(title="Gorgonetics Labs", version="1.0.0", lifespan=lifespan)
+
+# Mount static files
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
 # Database dependency
@@ -271,7 +275,11 @@ async def get_gene(animal_type: str, gene: str, db: "DuckLakeGeneDatabase" = Dep
 
 
 @app.put("/api/gene")
-async def update_gene(gene_update: GeneUpdate, db: "DuckLakeGeneDatabase" = Depends(get_database)) -> dict[str, str]:
+async def update_gene(
+    gene_update: GeneUpdate,
+    _current_admin: User = Depends(require_admin),
+    db: "DuckLakeGeneDatabase" = Depends(get_database),
+) -> dict[str, str]:
     """Update a gene's data."""
     try:
         updates = {}
@@ -568,10 +576,19 @@ async def get_pet(pet_id: int, db: "DuckLakeGeneDatabase" = Depends(get_database
 
 @app.put("/api/pets/{pet_id}")
 async def update_pet(
-    pet_id: int, pet_update: PetUpdate, db: "DuckLakeGeneDatabase" = Depends(get_database)
+    pet_id: int,
+    pet_update: PetUpdate,
+    current_user: User = Depends(get_current_active_user),
+    db: "DuckLakeGeneDatabase" = Depends(get_database),
 ) -> dict[str, str]:
     """Update a pet's attributes."""
     try:
+        # Check if pet exists and user owns it (admins can update any pet)
+        if current_user.role != "admin":
+            pet_data = db.get_pet(pet_id)
+            if not pet_data or pet_data.get("user_id") != current_user.id:
+                raise HTTPException(status_code=404, detail="Pet not found")
+
         updates = {}
         if pet_update.name is not None:
             updates["name"] = pet_update.name
@@ -602,9 +619,19 @@ async def update_pet(
 
 
 @app.delete("/api/pets/{pet_id}")
-async def delete_pet(pet_id: int, db: "DuckLakeGeneDatabase" = Depends(get_database)) -> dict[str, str]:
+async def delete_pet(
+    pet_id: int,
+    current_user: User = Depends(get_current_active_user),
+    db: "DuckLakeGeneDatabase" = Depends(get_database),
+) -> dict[str, str]:
     """Delete a pet."""
     try:
+        # Check if pet exists and user owns it (admins can delete any pet)
+        if current_user.role != "admin":
+            pet_data = db.get_pet(pet_id)
+            if not pet_data or pet_data.get("user_id") != current_user.id:
+                raise HTTPException(status_code=404, detail="Pet not found")
+
         success = db.delete_pet(pet_id)
 
         if success:
@@ -759,3 +786,46 @@ async def logout(current_user: User = Depends(get_current_active_user)) -> dict[
     """Logout user (client should discard tokens)."""
     logger.info(f"User logged out: {current_user.username}")
     return {"message": "Successfully logged out"}
+
+
+@app.get("/health")
+async def health_check() -> dict[str, str]:
+    """Health check endpoint for container orchestration."""
+    from datetime import datetime
+    return {
+        "status": "healthy",
+        "timestamp": datetime.now().isoformat(),
+        "service": "gorgonetics"
+    }
+
+
+# Catch-all route for SPA frontend
+@app.get("/{full_path:path}")
+async def serve_frontend(full_path: str) -> FileResponse:
+    """Serve the frontend application for all unmatched routes."""
+    # Handle requests for static assets (CSS, JS, images, etc.)
+    if (full_path.startswith("assets/") or
+        full_path.startswith("static/") or
+        full_path.endswith((".js", ".css", ".png", ".jpg", ".ico", ".svg", ".woff", ".woff2"))):
+
+        # Try different possible locations for the asset
+        possible_paths = [
+            f"static/svelte/{full_path}",  # Direct path under svelte
+            f"static/{full_path}",         # Direct path under static
+            f"static/svelte/assets/{full_path.replace('assets/', '')}" if full_path.startswith("assets/") else None
+        ]
+
+        for file_path in possible_paths:
+            if file_path and os.path.exists(file_path):
+                return FileResponse(file_path)
+
+        # If asset not found, return 404
+        raise HTTPException(status_code=404, detail="Asset not found")
+
+    # For all other routes, serve the main index.html (SPA routing)
+    index_path = "static/svelte/index.html"
+    if os.path.exists(index_path):
+        return FileResponse(index_path)
+
+    # Fallback if index.html doesn't exist
+    raise HTTPException(status_code=404, detail="Frontend not found")

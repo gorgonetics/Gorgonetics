@@ -1,0 +1,40 @@
+# Development files
+.git
+.gitignore
+.env*
+!.env.example
+
+# Dependencies
+node_modules
+.venv
+__pycache__
+.pytest_cache
+
+# Build artifacts
+dist
+.vite
+*.log
+
+# IDE files
+.vscode
+.continue
+.claude
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# Test files
+tests/
+.coverage
+htmlcov/
+
+# Temporary files
+*.tmp
+*.temp
+.DS_Store
+
+# Local data files (will be mounted as volumes)
+metadata.sqlite
+data/

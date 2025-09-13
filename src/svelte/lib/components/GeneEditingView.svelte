@@ -1,5 +1,6 @@
 <script>
     import { run, stopPropagation } from "svelte/legacy";
+    import { user } from "../stores/authStore.js";
 
     /**
      * @typedef {Object} Props
@@ -21,6 +22,9 @@
     let originalGenes = [];
     let hasUnsavedChanges = $state(false);
     let savingChanges = $state(false);
+
+    // Check if current user has admin privileges
+    const isAdmin = $derived($user?.role === 'admin');
 
     async function loadEffectOptions() {
         if (!animalType) return;
@@ -242,10 +246,12 @@
                 class="view-btn"
                 class:active={hasUnsavedChanges}
                 onclick={saveAllChanges}
-                disabled={!hasUnsavedChanges || savingChanges}
+                disabled={!hasUnsavedChanges || savingChanges || !isAdmin}
             >
                 {#if savingChanges}
                     Saving...
+                {:else if !isAdmin}
+                    Admin Only
                 {:else if hasUnsavedChanges}
                     Save Changes
                 {:else}
@@ -315,6 +321,7 @@
                                         class="select-trigger {getEffectClass(
                                             gene.effectDominant,
                                         )}"
+                                        disabled={!isAdmin}
                                         onclick={stopPropagation((e) =>
                                             toggleDropdown(
                                                 gene.gene,
@@ -400,6 +407,7 @@
                                         class="select-trigger {getEffectClass(
                                             gene.effectRecessive,
                                         )}"
+                                        disabled={!isAdmin}
                                         onclick={stopPropagation((e) =>
                                             toggleDropdown(
                                                 gene.gene,
@@ -483,6 +491,7 @@
                                 <input
                                     type="text"
                                     value={gene.appearance || ""}
+                                    disabled={!isAdmin}
                                     oninput={(e) =>
                                         handleInputChange(
                                             gene,
@@ -499,6 +508,7 @@
                             <div class="notes-section">
                                 <textarea
                                     value={gene.notes || ""}
+                                    disabled={!isAdmin}
                                     oninput={(e) =>
                                         handleInputChange(
                                             gene,
