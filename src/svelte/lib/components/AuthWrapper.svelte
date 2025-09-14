@@ -45,24 +45,9 @@
     <div class="loading-spinner"></div>
     <p>Loading...</p>
   </div>
-{:else if $isAuthenticated}
-  <!-- User is authenticated - show the main app content -->
-  <slot />
 {:else}
-  <!-- User is not authenticated - show login/register forms -->
-  <div class="auth-container">
-    {#if authMode === 'login'}
-      <LoginForm 
-        on:loginSuccess={handleAuthSuccess}
-        on:switchToRegister={switchToRegister}
-      />
-    {:else}
-      <RegisterForm 
-        on:registerSuccess={handleAuthSuccess}
-        on:switchToLogin={switchToLogin}
-      />
-    {/if}
-  </div>
+  <!-- Always show the main app content, authentication is now optional -->
+  <slot {authMode} {switchToLogin} {switchToRegister} {handleAuthSuccess} />
 {/if}
 
 <style>

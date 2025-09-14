@@ -24,6 +24,7 @@ from .auth import Token, User, UserCreate, UserLogin, create_token_pair, get_pas
 from .auth.dependencies import (
     create_user_in_db,
     get_current_active_user,
+    get_optional_current_user,
     get_user_by_username,
     require_admin,
 )
@@ -521,18 +522,26 @@ async def upload_pet_genome(
 
 @app.get("/api/pets")
 async def get_pets(
-    current_user: User = Depends(get_current_active_user), db: "DuckLakeGeneDatabase" = Depends(get_database)
+    current_user: User | None = Depends(get_optional_current_user), db: "DuckLakeGeneDatabase" = Depends(get_database)
 ) -> list[dict[str, Any]]:
-    """Get pets for the current user. Admins can see all pets."""
+    """Get pets for the current user. Anonymous users see demo pets. Admins can see all pets."""
     try:
-        logger.info(f"Getting pets for user: {current_user.username}, role: {current_user.role}, id: {current_user.id}")
+        if current_user is None:
+            # Anonymous user - show demo pets only
+            logger.info("Getting demo pets for anonymous user")
+            user_id = -1  # Demo pets have user_id = -1
+            user_display = "anonymous"
+        else:
+            # Authenticated user
+            logger.info(f"Getting pets for user: {current_user.username}, role: {current_user.role}, id: {current_user.id}")
+            # Admins can see all pets, regular users only see their own
+            user_id = None if current_user.role == "admin" else current_user.id
+            user_display = current_user.username
 
-        # Admins can see all pets, regular users only see their own
-        user_id = None if current_user.role == "admin" else current_user.id
         logger.info(f"Using user_id filter: {user_id}")
 
         pets = db.get_all_pets(user_id=user_id)
-        logger.info(f"Found {len(pets)} pets")
+        logger.info(f"Found {len(pets)} pets for {user_display}")
 
         # Handle datetime objects if they exist (for compatibility with both database types)
         for pet in pets:
@@ -540,9 +549,14 @@ async def get_pets(
                 pet["created_at"] = pet["created_at"].isoformat()
             if pet.get("notes") is None:
                 pet["notes"] = ""
+            # Mark demo pets as read-only
+            if pet.get("user_id") == -1:
+                pet["is_demo"] = True
+                pet["readonly"] = True
         return pets
     except Exception as e:
-        logger.error(f"Error getting pets for user {current_user.username}: {e}")
+        user_display = "anonymous" if current_user is None else current_user.username
+        logger.error(f"Error getting pets for user {user_display}: {e}")
         logger.error(f"Exception type: {type(e)}")
         import traceback
 
@@ -584,9 +598,16 @@ async def update_pet(
     """Update a pet's attributes."""
     try:
         # Check if pet exists and user owns it (admins can update any pet)
+        pet_data = db.get_pet(pet_id)
+        if not pet_data:
+            raise HTTPException(status_code=404, detail="Pet not found")
+
+        # Prevent updating demo pets
+        if pet_data.get("user_id") == -1:
+            raise HTTPException(status_code=403, detail="Demo pets cannot be modified")
+
         if current_user.role != "admin":
-            pet_data = db.get_pet(pet_id)
-            if not pet_data or pet_data.get("user_id") != current_user.id:
+            if pet_data.get("user_id") != current_user.id:
                 raise HTTPException(status_code=404, detail="Pet not found")
 
         updates = {}
@@ -627,9 +648,16 @@ async def delete_pet(
     """Delete a pet."""
     try:
         # Check if pet exists and user owns it (admins can delete any pet)
+        pet_data = db.get_pet(pet_id)
+        if not pet_data:
+            raise HTTPException(status_code=404, detail="Pet not found")
+
+        # Prevent deleting demo pets
+        if pet_data.get("user_id") == -1:
+            raise HTTPException(status_code=403, detail="Demo pets cannot be deleted")
+
         if current_user.role != "admin":
-            pet_data = db.get_pet(pet_id)
-            if not pet_data or pet_data.get("user_id") != current_user.id:
+            if pet_data.get("user_id") != current_user.id:
                 raise HTTPException(status_code=404, detail="Pet not found")
 
         success = db.delete_pet(pet_id)

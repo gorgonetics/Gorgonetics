@@ -87,6 +87,59 @@ def get_current_active_user(current_user: Annotated[User, Depends(get_current_us
     return current_user
 
 
+def get_optional_current_user(credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(HTTPBearer(auto_error=False))]) -> User | None:
+    """
+    Get current authenticated user from JWT token, returns None if not authenticated.
+
+    Args:
+        credentials: Optional Bearer token from Authorization header
+
+    Returns:
+        Current user data or None if not authenticated
+
+    """
+    if not credentials:
+        return None
+
+    try:
+        # Verify token
+        token_data = verify_token(credentials.credentials, "access")
+        if token_data is None or token_data.username is None:
+            return None
+
+        # Get user from database
+        db = create_database_instance()
+        try:
+            assert db.conn is not None
+            user_data = db.conn.execute(
+                "SELECT id, username, role, is_active, created_at, updated_at FROM users WHERE username = ? AND is_active = true",
+                (token_data.username,),
+            ).fetchone()
+
+            if user_data is None:
+                return None
+
+            # Convert to User model
+            user = User(
+                id=user_data[0],
+                username=user_data[1],
+                role=user_data[2],
+                is_active=user_data[3],
+                created_at=user_data[4],
+                updated_at=user_data[5],
+            )
+
+            return user
+
+        except Exception:
+            return None
+        finally:
+            db.close()
+
+    except Exception:
+        return None
+
+
 def require_admin(current_user: Annotated[User, Depends(get_current_active_user)]) -> User:
     """
     Require current user to have admin role.

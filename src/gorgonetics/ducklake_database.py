@@ -5,8 +5,10 @@ This module provides multi-user support using DuckLake format with various
 catalog database backends (PostgreSQL, MySQL, SQLite, DuckDB).
 """
 
+import hashlib
 import json
 import logging
+import tempfile
 from datetime import datetime
 from pathlib import Path
 from types import TracebackType
@@ -49,6 +51,12 @@ class DuckLakeGeneDatabase:
 
         self._connect()
         self._setup_ducklake()
+
+        # Load demo pets for anonymous users after initialization
+        try:
+            self.load_demo_pets()
+        except Exception as e:
+            logger.warning(f"Failed to load demo pets: {e}")
 
     def export_genes_to_json(self, animal_type: str, chromosome: str) -> list[dict[str, str]]:
         """
@@ -752,6 +760,80 @@ class DuckLakeGeneDatabase:
         except Exception as e:
             logger.error(f"Failed to get table changes: {e}")
             return []
+
+    def load_demo_pets(self) -> None:
+        """Load demo pets for anonymous users to explore."""
+        assert self.conn is not None
+
+        # Check if demo pets already exist
+        try:
+            existing = self.conn.execute("SELECT COUNT(*) FROM pets WHERE user_id = -1").fetchone()
+            if existing and existing[0] > 0:
+                logger.debug("Demo pets already loaded")
+                return
+        except Exception:
+            # Table might not exist yet, continue with loading
+            pass
+
+        demo_files = [
+            ("data/Genes_SampleFaeBee.txt", "Sample Fae Bee", "Female"),
+            ("data/Genes_SampleHorse.txt", "Sample Horse", "Male")
+        ]
+
+        for file_path, display_name, gender in demo_files:
+            if not Path(file_path).exists():
+                logger.warning(f"Demo file not found: {file_path}")
+                continue
+
+            try:
+                # Read and parse the genome file
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    genome_content = f.read()
+
+                # Import models locally to avoid circular imports
+                from .models import Genome
+
+                # Create temporary file for parsing
+                with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt') as temp_file:
+                    temp_file.write(genome_content)
+                    temp_file_path = temp_file.name
+
+                try:
+                    # Parse the genome
+                    genome = Genome.from_file(temp_file_path)
+                    genome_json = genome.to_json()
+
+                    # Generate content hash
+                    content_hash = hashlib.sha256(genome_content.encode()).hexdigest()
+
+                    # Get default attributes for species
+                    attributes_dict = AttributeConfig.get_default_values(genome.genome_type)
+
+                    # Add the demo pet with user_id = -1 (reserved for demo pets)
+                    demo_pet_id = self.add_pet(
+                        name=display_name,
+                        species=genome.genome_type,
+                        breeder=genome.breeder,
+                        genome_data=genome_json,
+                        content_hash=content_hash,
+                        user_id=-1,  # Special ID for demo pets
+                        gender=gender,
+                        attributes=attributes_dict,
+                        notes=f"Sample {genome.genome_type} for exploring Gorgonetics features"
+                    )
+
+                    if demo_pet_id:
+                        logger.info(f"Loaded demo pet: {display_name} (ID: {demo_pet_id})")
+                    else:
+                        logger.error(f"Failed to load demo pet: {display_name}")
+
+                finally:
+                    # Clean up temp file
+                    Path(temp_file_path).unlink(missing_ok=True)
+
+            except Exception as e:
+                logger.error(f"Failed to load demo pet from {file_path}: {e}")
+                continue
 
     def cleanup_old_files(self, dry_run: bool = True) -> bool:
         """Clean up old DuckLake files."""

@@ -28,11 +28,14 @@ COPY --from=python-builder /app/.venv /app/.venv
 ENV PATH="/app/.venv/bin:$PATH"
 
 # Copy built frontend assets
-COPY --from=frontend-builder /app/dist ./static/
+COPY --from=frontend-builder /app/dist/svelte ./static/svelte/
 
 # Copy Python source code
 COPY src/ ./src/
 COPY assets/ ./assets/
+
+# Copy sample data files for demo pets
+COPY data/Genes_SampleFaeBee.txt data/Genes_SampleHorse.txt ./data/
 
 # Create directories for data persistence
 RUN mkdir -p data && chown appuser:appuser data

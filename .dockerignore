@@ -38,3 +38,5 @@ htmlcov/
 # Local data files (will be mounted as volumes)
 metadata.sqlite
 data/
+# But include sample demo pet files
+!data/Genes_Sample*.txt

@@ -4,6 +4,8 @@
     import { apiClient } from "../services/apiClient.js";
     import PetUpload from "./PetUpload.svelte";
     import GeneEditor from "./GeneEditor.svelte";
+    import LoginForm from "./LoginForm.svelte";
+    import RegisterForm from "./RegisterForm.svelte";
 
     /**
      * @typedef {Object} Props
@@ -21,6 +23,36 @@
     async function handleLogout() {
         await authStore.logout();
         apiClient.setAuthToken(null);
+    }
+
+    // Auth modal functionality for anonymous users
+    let showAuthModalDialog = $state(false);
+    let authModalMode = $state('login');
+
+    function showAuthModal(mode) {
+        authModalMode = mode;
+        showAuthModalDialog = true;
+    }
+
+    function hideAuthModal() {
+        showAuthModalDialog = false;
+    }
+
+    function handleAuthSuccess() {
+        // Set the token in the API client for future requests
+        const token = authStore.getAccessToken();
+        apiClient.setAuthToken(token);
+        hideAuthModal();
+    }
+
+    function switchToRegister() {
+        authModalMode = 'register';
+        authStore.clearError();
+    }
+
+    function switchToLogin() {
+        authModalMode = 'login';
+        authStore.clearError();
     }
 </script>
 
@@ -84,7 +116,19 @@
             <!-- Pet Management Panel -->
             {#if $activeTab === "pets"}
                 <div class="tab-panel" role="tabpanel">
-                    <PetUpload />
+                    {#if $isAuthenticated}
+                        <PetUpload />
+                    {:else}
+                        <div class="auth-required-message">
+                            <div class="auth-required-icon">🔒</div>
+                            <h3>Sign In Required</h3>
+                            <p>To upload and manage your pets, please sign in to your account.</p>
+                            <button class="quick-signin-btn" onclick={() => showAuthModal('login')}>
+                                <span class="auth-icon">🔑</span>
+                                Sign In
+                            </button>
+                        </div>
+                    {/if}
                 </div>
             {/if}
 
@@ -98,26 +142,50 @@
     {/if}
 
     <!-- User Info Section -->
-    {#if $isAuthenticated && !sidebarCollapsed}
-        <div class="user-section">
-            <div class="user-info">
-                <div class="user-avatar">
-                    <span class="user-icon">👤</span>
+    {#if !sidebarCollapsed}
+        {#if $isAuthenticated}
+            <div class="user-section">
+                <div class="user-info">
+                    <div class="user-avatar">
+                        <span class="user-icon">👤</span>
+                    </div>
+                    <div class="user-details">
+                        <div class="username">{$user?.username || 'User'}</div>
+                        {#if $user?.role === 'admin'}
+                            <div class="user-role admin">Admin</div>
+                        {:else}
+                            <div class="user-role">User</div>
+                        {/if}
+                    </div>
                 </div>
-                <div class="user-details">
-                    <div class="username">{$user?.username || 'User'}</div>
-                    {#if $user?.role === 'admin'}
-                        <div class="user-role admin">Admin</div>
-                    {:else}
-                        <div class="user-role">User</div>
-                    {/if}
+                <button class="logout-btn" onclick={handleLogout} title="Logout">
+                    <span class="logout-icon">🚪</span>
+                    <span class="logout-text">Logout</span>
+                </button>
+            </div>
+        {:else}
+            <div class="auth-section">
+                <div class="guest-info">
+                    <div class="guest-avatar">
+                        <span class="guest-icon">👋</span>
+                    </div>
+                    <div class="guest-details">
+                        <div class="guest-title">Welcome!</div>
+                        <div class="guest-subtitle">Explore Gorgonetics</div>
+                    </div>
+                </div>
+                <div class="auth-buttons">
+                    <button class="login-btn" onclick={() => showAuthModal('login')} title="Sign In">
+                        <span class="auth-icon">🔑</span>
+                        <span class="auth-text">Sign In</span>
+                    </button>
+                    <button class="register-btn" onclick={() => showAuthModal('register')} title="Create Account">
+                        <span class="auth-icon">✨</span>
+                        <span class="auth-text">Sign Up</span>
+                    </button>
                 </div>
             </div>
-            <button class="logout-btn" onclick={handleLogout} title="Logout">
-                <span class="logout-icon">🚪</span>
-                <span class="logout-text">Logout</span>
-            </button>
-        </div>
+        {/if}
     {/if}
 
     <!-- Sidebar Toggle Button -->
@@ -131,6 +199,31 @@
         </button>
     </div>
 </div>
+
+<!-- Auth Modal for Anonymous Users -->
+{#if showAuthModalDialog}
+    <div class="auth-modal-overlay" onclick={hideAuthModal}>
+        <div class="auth-modal" onclick={(e) => e.stopPropagation()}>
+            <div class="auth-modal-header">
+                <h2>{authModalMode === 'login' ? 'Sign In' : 'Create Account'}</h2>
+                <button class="close-btn" onclick={hideAuthModal} title="Close">×</button>
+            </div>
+            <div class="auth-modal-content">
+                {#if authModalMode === 'login'}
+                    <LoginForm
+                        on:loginSuccess={handleAuthSuccess}
+                        on:switchToRegister={switchToRegister}
+                    />
+                {:else}
+                    <RegisterForm
+                        on:registerSuccess={handleAuthSuccess}
+                        on:switchToLogin={switchToLogin}
+                    />
+                {/if}
+            </div>
+        </div>
+    </div>
+{/if}
 
 <style>
     .sidebar {
@@ -491,6 +584,62 @@
         font-size: 0.6875rem;
     }
 
+    /* Auth Required Message Styles */
+    .auth-required-message {
+        text-align: center;
+        padding: 32px 20px;
+        background: linear-gradient(135deg, #fef3c7 0%, #fcd34d 100%);
+        border-radius: 12px;
+        border: 2px dashed #f59e0b;
+        margin: 16px 0;
+    }
+
+    .auth-required-icon {
+        font-size: 48px;
+        margin-bottom: 16px;
+        opacity: 0.8;
+    }
+
+    .auth-required-message h3 {
+        margin: 0 0 12px 0;
+        font-size: 18px;
+        font-weight: 600;
+        color: #92400e;
+    }
+
+    .auth-required-message p {
+        margin: 0 0 20px 0;
+        font-size: 14px;
+        color: #a16207;
+        line-height: 1.5;
+    }
+
+    .quick-signin-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 24px;
+        background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+        border: none;
+        border-radius: 8px;
+        color: white;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    }
+
+    .quick-signin-btn:hover {
+        background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
+    }
+
+    .quick-signin-btn .auth-icon {
+        font-size: 16px;
+    }
+
     .sidebar-footer {
         padding: 20px;
         border-top: 1px solid rgba(255, 255, 255, 0.1);
@@ -555,18 +704,22 @@
     .user-section {
         padding: 16px 24px;
         border-top: 1px solid rgba(255, 255, 255, 0.1);
-        background: rgba(255, 255, 255, 0.05);
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
         display: flex;
         flex-direction: column;
         gap: 12px;
         margin-top: auto;
         flex-shrink: 0;
+        position: relative;
+        overflow: hidden;
     }
 
     .user-info {
         display: flex;
         align-items: center;
         gap: 12px;
+        position: relative;
+        z-index: 1;
     }
 
     .user-avatar {
@@ -578,12 +731,14 @@
         align-items: center;
         justify-content: center;
         flex-shrink: 0;
-        box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+        border: 2px solid rgba(255, 255, 255, 0.1);
     }
 
     .user-icon {
-        color: white;
-        font-size: 20px;
+        color: white !important;
+        font-size: 18px;
+        filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
     }
 
     .user-details {
@@ -594,56 +749,291 @@
     .username {
         font-size: 14px;
         font-weight: 600;
-        color: white;
+        color: white !important;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+        margin-bottom: 2px;
     }
 
     .user-role {
-        font-size: 12px;
-        color: rgba(255, 255, 255, 0.7);
+        font-size: 11px;
+        color: rgba(255, 255, 255, 0.8) !important;
         text-transform: uppercase;
-        letter-spacing: 0.5px;
+        letter-spacing: 0.8px;
         font-weight: 500;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
     }
 
     .user-role.admin {
-        color: #fbbf24;
+        color: #fbbf24 !important;
         font-weight: 600;
+        text-shadow: 0 1px 2px rgba(251, 191, 36, 0.3);
     }
 
     .logout-btn {
         display: flex;
         align-items: center;
         gap: 8px;
-        padding: 8px 12px;
-        background: rgba(239, 68, 68, 0.1);
-        border: 1px solid rgba(239, 68, 68, 0.2);
-        border-radius: 6px;
-        color: #fca5a5;
-        font-size: 12px;
+        padding: 10px 16px;
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 8px;
+        color: rgba(255, 255, 255, 0.9);
+        font-size: 13px;
         font-weight: 500;
         cursor: pointer;
-        transition: all 0.2s ease;
+        transition: all 0.3s ease;
         text-align: center;
         width: 100%;
         justify-content: center;
+        backdrop-filter: blur(10px);
+        position: relative;
+        z-index: 1;
     }
 
     .logout-btn:hover {
-        background: rgba(239, 68, 68, 0.2);
+        background: rgba(239, 68, 68, 0.15);
         border-color: rgba(239, 68, 68, 0.3);
-        color: #f87171;
+        color: #fca5a5;
         transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
+    }
+
+    .logout-btn:active {
+        transform: translateY(0);
+        box-shadow: 0 2px 6px rgba(239, 68, 68, 0.2);
     }
 
     .logout-icon {
         font-size: 14px;
+        transition: transform 0.3s ease;
+    }
+
+    .logout-btn:hover .logout-icon {
+        transform: translateX(2px);
     }
 
     .logout-text {
         white-space: nowrap;
+        font-weight: 600;
+        letter-spacing: 0.3px;
+    }
+
+    /* Auth Section Styles for Anonymous Users */
+    .auth-section {
+        padding: 16px 24px;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        margin-top: auto;
+        flex-shrink: 0;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .guest-info {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        position: relative;
+        z-index: 1;
+    }
+
+    .guest-avatar {
+        width: 40px;
+        height: 40px;
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+        border: 2px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .guest-icon {
+        color: white !important;
+        font-size: 20px;
+        filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+    }
+
+    .guest-details {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .guest-title {
+        font-size: 14px;
+        font-weight: 600;
+        color: white !important;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+        margin-bottom: 2px;
+    }
+
+    .guest-subtitle {
+        font-size: 11px;
+        color: rgba(255, 255, 255, 0.8) !important;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        font-weight: 500;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    }
+
+    .auth-buttons {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .login-btn, .register-btn {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 16px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-align: center;
+        width: 100%;
+        justify-content: center;
+        backdrop-filter: blur(10px);
+        position: relative;
+        z-index: 1;
+    }
+
+    .login-btn {
+        background: rgba(59, 130, 246, 0.1);
+        border-color: rgba(59, 130, 246, 0.3);
+        color: #93c5fd;
+    }
+
+    .login-btn:hover {
+        background: rgba(59, 130, 246, 0.2);
+        border-color: rgba(59, 130, 246, 0.4);
+        color: #dbeafe;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+    }
+
+    .register-btn {
+        background: rgba(16, 185, 129, 0.1);
+        border-color: rgba(16, 185, 129, 0.3);
+        color: #6ee7b7;
+    }
+
+    .register-btn:hover {
+        background: rgba(16, 185, 129, 0.2);
+        border-color: rgba(16, 185, 129, 0.4);
+        color: #d1fae5;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+    }
+
+    .auth-icon {
+        font-size: 14px;
+        transition: transform 0.3s ease;
+    }
+
+    .login-btn:hover .auth-icon,
+    .register-btn:hover .auth-icon {
+        transform: scale(1.1);
+    }
+
+    .auth-text {
+        white-space: nowrap;
+        font-weight: 600;
+        letter-spacing: 0.3px;
+    }
+
+    /* Auth Modal Styles */
+    .auth-modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.8);
+        backdrop-filter: blur(8px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        animation: fadeIn 0.3s ease;
+    }
+
+    .auth-modal {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        max-width: 500px;
+        width: 90%;
+        max-height: 90vh;
+        overflow: hidden;
+        animation: slideIn 0.3s ease;
+    }
+
+    .auth-modal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 24px 32px 16px;
+        border-bottom: 1px solid #e5e7eb;
+        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    }
+
+    .auth-modal-header h2 {
+        margin: 0;
+        font-size: 24px;
+        font-weight: 700;
+        color: #1f2937;
+    }
+
+    .close-btn {
+        background: none;
+        border: none;
+        font-size: 24px;
+        color: #6b7280;
+        cursor: pointer;
+        padding: 4px;
+        border-radius: 6px;
+        transition: all 0.2s ease;
+        line-height: 1;
+    }
+
+    .close-btn:hover {
+        background: rgba(0, 0, 0, 0.1);
+        color: #374151;
+    }
+
+    .auth-modal-content {
+        padding: 32px;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    @keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateY(-20px) scale(0.95);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
     }
 
 </style>

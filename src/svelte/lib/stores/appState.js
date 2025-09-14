@@ -26,16 +26,9 @@ export const appState = {
     try {
       loading.set(true);
       error.set(null);
-      
-      // Only load pets if authenticated
-      let authStatus = false;
-      isAuthenticated.subscribe(value => authStatus = value)();
-      
-      if (!authStatus) {
-        pets.set([]);
-        return;
-      }
-      
+
+      // Load pets for both authenticated and anonymous users
+      // Anonymous users will see demo pets, authenticated users see their own pets
       const petData = await apiClient.getPets();
       pets.set(petData);
     } catch (err) {

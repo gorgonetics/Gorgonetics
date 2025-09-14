@@ -13,6 +13,9 @@
     // Initialize the app
     await apiClient.initialize();
 
+    // Load pets for both authenticated and anonymous users
+    await appState.loadPets();
+
     // Restore sidebar state from localStorage
     const savedState = localStorage.getItem('sidebarCollapsed');
     if (savedState !== null) {
@@ -20,11 +23,9 @@
     }
   });
 
-  // Load pets when user becomes authenticated
+  // Reload pets when authentication status changes
   $effect(() => {
-    if ($isAuthenticated) {
-      appState.loadPets();
-    }
+    appState.loadPets();
   });
 
   function toggleSidebar() {

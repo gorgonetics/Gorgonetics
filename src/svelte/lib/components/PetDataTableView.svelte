@@ -72,9 +72,19 @@
                 return value;
             });
             
-            const endData = [
-                formatDate(pet.created_at),
-                `<div class="table-actions">
+            // Generate action buttons based on pet type
+            let actionButtons = '';
+            if (pet.is_demo || pet.readonly) {
+                // Demo pets - only show view button and demo indicator
+                actionButtons = `<div class="table-actions">
+                    <span class="demo-badge" title="Sample pet for demonstration">📘 Sample</span>
+                    <button class="action-btn view-btn" data-action="view" data-pet-id="${pet.id}" title="View sample pet details">
+                        👁️
+                    </button>
+                </div>`;
+            } else {
+                // Regular pets - show all buttons
+                actionButtons = `<div class="table-actions">
                     <button class="action-btn view-btn" data-action="view" data-pet-id="${pet.id}" title="View pet details">
                         👁️
                     </button>
@@ -84,7 +94,12 @@
                     <button class="action-btn delete-btn" data-action="delete" data-pet-id="${pet.id}" title="Delete pet">
                         🗑️
                     </button>
-                </div>`
+                </div>`;
+            }
+
+            const endData = [
+                formatDate(pet.created_at),
+                actionButtons
             ];
             
             return [...baseData, ...attributeData, ...endData];
@@ -302,6 +317,26 @@
         gap: 0.25rem;
         align-items: center;
         justify-content: center;
+        flex-wrap: wrap;
+    }
+
+    /* Demo badge styles */
+    :global(.demo-badge) {
+        background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+        color: white;
+        font-size: 0.6rem;
+        font-weight: 600;
+        padding: 0.125rem 0.375rem;
+        border-radius: 12px;
+        letter-spacing: 0.025em;
+        text-transform: uppercase;
+        box-shadow: 0 1px 3px rgba(59, 130, 246, 0.3);
+        white-space: nowrap;
+        border: none;
+        cursor: default;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.125rem;
     }
 
     :global(.action-btn) {
