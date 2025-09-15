@@ -41,7 +41,6 @@
 
     function handlePetSaved(petId) {
         // Optionally select the updated pet or do other actions
-        console.log('Pet saved:', petId);
     }
 
 

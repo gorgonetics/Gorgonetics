@@ -14,6 +14,7 @@ from typing import Annotated, Any
 from pydantic import BaseModel, Field
 
 from .attribute_config import AttributeConfig
+from .constants import Gender
 from .genome_parser import generate_block_letters, parse_genome_file_genes, parse_genome_file_header
 
 # Attribute value type with validation
@@ -84,13 +85,6 @@ class GeneType(str, Enum):
     DOMINANT = "D"  # Both alleles dominant
     MIXED = "x"  # One dominant, one recessive
     UNKNOWN = "?"  # Unknown gene type
-
-
-class Gender(str, Enum):
-    """Represents a pet's gender."""
-
-    MALE = "Male"
-    FEMALE = "Female"
 
 
 class Gene(BaseModel):

@@ -280,13 +280,6 @@ class ApiClient {
     return response.json();
   }
 
-  /**
-   * Initialize the API client
-   */
-  async initialize() {
-    // Any initialization logic can go here
-    console.log("API Client initialized");
-  }
 }
 
 // Create and export a singleton instance

@@ -18,6 +18,7 @@ const TEST_CONFIG = {
 
 let apiClient;
 let testServer;
+let testUser = null;
 
 /**
  * Mock server management for isolated testing
@@ -87,7 +88,32 @@ describe('Gorgonetics Client API Integration Tests', () => {
     beforeEach(() => {
         // Reset any client state between tests
         apiClient = new ApiClient(TEST_CONFIG.baseUrl);
+        testUser = null;
     });
+
+    // Helper function to authenticate when needed
+    async function authenticateIfNeeded() {
+        if (!testUser) {
+            const testUsername = `testuser_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            const testPassword = 'testpassword123';
+
+            try {
+                // Register test user
+                await apiClient.register(testUsername, testPassword);
+
+                // Login test user
+                const loginResult = await apiClient.login(testUsername, testPassword);
+
+                // Set auth token
+                apiClient.setAuthToken(loginResult.access_token);
+
+                testUser = { username: testUsername, password: testPassword };
+            } catch (error) {
+                console.error('Failed to setup test user:', error);
+                throw error;
+            }
+        }
+    }
 
     describe('🧬 Gene API Client Tests', () => {
         it('should get animal types successfully', async () => {
@@ -232,6 +258,7 @@ Genome=Horse
                 type: 'text/plain'
             });
 
+            await authenticateIfNeeded();
             const result = await apiClient.uploadPet(mockFile, 'Test Client Pet');
 
             expect(result).toHaveProperty('status');
@@ -318,6 +345,7 @@ Genome=Horse
             });
 
             // First upload should succeed
+            await authenticateIfNeeded();
             const result1 = await apiClient.uploadPet(mockFile1, 'First Upload');
             expect(result1.status).toBe('success');
 
@@ -531,6 +559,7 @@ Genome=Horse
                 type: 'text/plain'
             });
 
+            await authenticateIfNeeded();
             const uploadResult = await apiClient.uploadPet(mockFile, 'Workflow Test Pet');
             expect(uploadResult.status).toBe('success');
 

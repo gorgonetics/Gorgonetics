@@ -68,11 +68,9 @@ export async function loadAttributeConfig(species) {
     
     // Check cache first
     if (configCache.has(cacheKey)) {
-        console.log(`🎯 Using cached attribute config for ${normalizedSpecies}`);
         return configCache.get(cacheKey);
     }
     
-    console.log(`📥 Loading attribute config for ${normalizedSpecies} from API`);
     const data = await fetchWithErrorHandling(
         `/api/attribute-config/${normalizedSpecies}`,
         `loading attribute config for ${species}`
@@ -81,7 +79,6 @@ export async function loadAttributeConfig(species) {
     // Cache the result
     if (data !== null) {
         configCache.set(cacheKey, data);
-        console.log(`💾 Cached attribute config for ${normalizedSpecies}`);
     }
     
     return data;
@@ -98,11 +95,9 @@ export async function loadAppearanceConfig(species) {
     
     // Check cache first
     if (configCache.has(cacheKey)) {
-        console.log(`🎯 Using cached appearance config for ${normalizedSpecies}`);
         return configCache.get(cacheKey);
     }
     
-    console.log(`📥 Loading appearance config for ${normalizedSpecies} from API`);
     const data = await fetchWithErrorHandling(
         `/api/appearance-config/${normalizedSpecies}`,
         `loading appearance config for ${species}`
@@ -111,7 +106,6 @@ export async function loadAppearanceConfig(species) {
     // Cache the result
     if (data !== null) {
         configCache.set(cacheKey, data);
-        console.log(`💾 Cached appearance config for ${normalizedSpecies}`);
     }
     
     return data;
@@ -128,11 +122,9 @@ export async function loadGeneEffects(species) {
     
     // Check cache first
     if (geneEffectsCache.has(cacheKey)) {
-        console.log(`🎯 Using cached gene effects for ${normalizedSpecies}`);
         return geneEffectsCache.get(cacheKey);
     }
     
-    console.log(`📥 Loading gene effects for ${normalizedSpecies} from API`);
     const data = await fetchWithErrorHandling(
         `/api/gene-effects/${normalizedSpecies}`,
         `loading gene effects for ${species}`
@@ -141,7 +133,6 @@ export async function loadGeneEffects(species) {
     // Cache the result (including null results to avoid repeated failed requests)
     if (data !== null) {
         geneEffectsCache.set(cacheKey, data);
-        console.log(`💾 Cached gene effects for ${normalizedSpecies} (${Object.keys(data.effects || {}).length} genes)`);
     }
     
     return data;
@@ -225,7 +216,6 @@ export function hasGeneEffectsCache(species) {
 export function clearAllCaches() {
     geneEffectsCache.clear();
     configCache.clear();
-    console.log("🗑️ All caches cleared");
 }
 
 /**

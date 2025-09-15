@@ -6,6 +6,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
+from ..constants import UserRole
+
 
 class UserBase(BaseModel):
     """Base user model with common fields."""
@@ -30,7 +32,7 @@ class User(UserBase):
     """User model for API responses (no password)."""
 
     id: int
-    role: str = "user"
+    role: str = UserRole.USER
     is_active: bool = True
     created_at: datetime
     updated_at: datetime

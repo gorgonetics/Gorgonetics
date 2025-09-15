@@ -7,6 +7,7 @@ from typing import Annotated
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
+from ..constants import UserRole
 from ..database_config import create_database_instance
 from .models import User, UserCreate, UserInDB
 from .utils import verify_token
@@ -83,11 +84,13 @@ def get_current_active_user(current_user: Annotated[User, Depends(get_current_us
         HTTPException: If user is inactive
     """
     if not current_user.is_active:
-        raise HTTPException(status_code=400, detail="Inactive user")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Inactive user")
     return current_user
 
 
-def get_optional_current_user(credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(HTTPBearer(auto_error=False))]) -> User | None:
+def get_optional_current_user(
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(HTTPBearer(auto_error=False))],
+) -> User | None:
     """
     Get current authenticated user from JWT token, returns None if not authenticated.
 
@@ -153,7 +156,7 @@ def require_admin(current_user: Annotated[User, Depends(get_current_active_user)
     Raises:
         HTTPException: If user is not admin
     """
-    if current_user.role != "admin":
+    if current_user.role != UserRole.ADMIN:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions. Admin role required."
         )
@@ -227,8 +230,8 @@ def create_user_in_db(user_create: "UserCreate", password_hash: str) -> User:
 
         db.conn.execute(
             """INSERT INTO users (id, username, password_hash, role, is_active, created_at, updated_at)
-               VALUES (?, ?, ?, 'user', true, ?, ?)""",
-            (next_id, user_create.username, password_hash, now, now),
+               VALUES (?, ?, ?, ?, true, ?, ?)""",
+            (next_id, user_create.username, password_hash, UserRole.USER, now, now),
         )
 
         # Get the created user

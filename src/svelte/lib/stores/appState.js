@@ -1,6 +1,5 @@
 import { writable } from "svelte/store";
 import { apiClient } from "../services/apiClient.js";
-import { isAuthenticated } from "./authStore.js";
 
 // Core application state
 export const pets = writable([]);
@@ -44,7 +43,6 @@ export const appState = {
       loading.set(true);
       error.set(null);
       selectedPet.set(pet);
-      console.log(`🐾 Selected pet: ${pet ? pet.name : "none"}`);
     } catch (err) {
       error.set(`Failed to select pet: ${err.message}`);
       console.error("Error selecting pet:", err);
@@ -79,7 +77,6 @@ export const appState = {
       error.set(null);
       await apiClient.updatePet(petId, updateData);
       await this.loadPets(); // Reload pets list
-      console.log(`🐾 Updated pet: ${petId}`);
     } catch (err) {
       error.set(`Failed to update pet: ${err.message}`);
       console.error("Error updating pet:", err);

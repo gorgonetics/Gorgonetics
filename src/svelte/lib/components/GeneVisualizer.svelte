@@ -77,7 +77,6 @@
     });
     
     async function preloadGeneEffects() {
-        console.log("🚀 Preloading gene effects for common species...");
         const commonSpecies = ["horse", "beewasp"];
         
         // Load in parallel for better performance
@@ -88,7 +87,6 @@
                     const data = await loadGeneEffects(species);
                     if (data) {
                         globalGeneEffectsDB[normalizedSpecies] = data.effects;
-                        console.log(`🎯 Preloaded ${Object.keys(data.effects).length} gene effects for ${normalizedSpecies}`);
                     }
                 }
             } catch (error) {
@@ -97,7 +95,6 @@
         });
         
         await Promise.all(loadPromises);
-        console.log("✅ Gene effects preloading complete");
         
         // Expose cache utilities to window for development debugging
         if (typeof window !== 'undefined' && import.meta.env.DEV) {
@@ -106,12 +103,10 @@
                 clear: clearAllCaches,
                 globalDB: () => globalGeneEffectsDB
             };
-            console.log("🛠️ Cache debugging available at window.geneVisualizerCache");
         }
     }
     
     function createSpeciesTemplate(species, headerStructure, chromosomeCount) {
-        console.log(`🏗️ Creating DOM template for ${species}: ${chromosomeCount} chromosomes, ${headerStructure.sortedBlocks.length} blocks`);
         
         const template = {
             species,
@@ -130,12 +125,10 @@
         
         if (speciesTemplateCache.has(cacheKey)) {
             const cached = speciesTemplateCache.get(cacheKey);
-            console.log(`🎯 Using cached DOM template for ${species}`);
             isUsingCachedTemplate = true;
             return cached;
         }
         
-        console.log(`📝 Creating new DOM template for ${species}`);
         const template = createSpeciesTemplate(species, headerStructure, chromosomeCount);
         speciesTemplateCache.set(cacheKey, template);
         isUsingCachedTemplate = false;
@@ -147,7 +140,6 @@
     });
 
     function cleanup() {
-        console.log("🧹 cleanup() called - currentPet was:", currentPet?.name);
         currentPet = null;
         currentStats = null;
         totalGenes = 0;
@@ -166,57 +158,38 @@
 
     async function loadPetData() {
         if (!pet || loading) {
-            console.log("🛑 Skipping loadPetData - no pet or already loading");
             return;
         }
 
-        console.log("🚀 Starting loadPetData for:", pet.name);
-        console.time("⏱️ Total Pet Load Time");
         try {
             loading = true;
             error = null;
 
-            console.time("🌐 Fetching pet genome");
             const response = await fetch(`/api/pet-genome/${pet.id}`);
             if (!response.ok) {
                 throw new Error("Failed to load pet genome");
             }
 
             currentPet = await response.json();
-            console.timeEnd("🌐 Fetching pet genome");
-            console.log("✅ Pet data loaded:", currentPet.name);
-            console.log(
-                "🔍 currentPet set to:",
-                currentPet.id,
-                currentPet.name,
-            );
             
             // Load gene effects and appearance config in parallel for better performance
-            console.time("🔗 Loading gene effects & appearance config");
             await Promise.all([
                 loadGeneEffectsForSpecies(currentPet.species),
                 loadAppearanceConfig(currentPet.species)
             ]);
             
             // Static templates disabled - current dynamic rendering performance is sufficient
-            console.timeEnd("🔗 Loading gene effects & appearance config");
             
-            console.time("🎨 Update visualization");
             await updateVisualization();
-            console.timeEnd("🎨 Update visualization");
-            console.log("✅ Visualization complete");
             
             // Check if delay happens after JS processing (DOM rendering)
             setTimeout(() => {
-                console.log("🎯 DOM should be rendered by now");
             }, 100);
         } catch (err) {
             error = `Failed to load pet: ${err.message}`;
             console.error("❌ Error loading pet data:", err);
         } finally {
             loading = false;
-            console.timeEnd("⏱️ Total Pet Load Time");
-            console.log("🏁 loadPetData finished");
         }
     }
 
@@ -225,7 +198,6 @@
         
         // Check if we already have this species in our global cache
         if (globalGeneEffectsDB[normalizedSpecies]) {
-            console.log(`🎯 Using already loaded gene effects for ${normalizedSpecies}`);
             geneEffectsDB = globalGeneEffectsDB;
             return;
         }
@@ -236,7 +208,6 @@
             // Add to global cache and use it
             globalGeneEffectsDB[normalizedSpecies] = data.effects;
             geneEffectsDB = globalGeneEffectsDB;
-            console.log(`✅ Gene effects loaded and cached for ${normalizedSpecies} (${Object.keys(data.effects).length} genes)`);
         } else {
             geneEffectsDB = globalGeneEffectsDB; // Use what we have, even if empty
         }
@@ -970,7 +941,6 @@
             });
             
             console.timeEnd("📊 Single-pass gene analysis");
-            console.log(`📈 Processed ${totalGenesCount} genes, ${geneAnalysisCache.size} unique analyses, ${allBlocks.size} blocks`);
             
             // Calculate potential DOM elements to be rendered
             const chromosomeCount = Object.keys(parsedGenes).length;
@@ -1065,7 +1035,6 @@
             console.time("🔄 State update (triggers DOM render)");
             // This assignment triggers Svelte's DOM update cycle
             // With template caching, DOM structure should be reused when possible
-            console.log(`📊 Template cache status: ${isUsingCachedTemplate ? "REUSING" : "CREATING"} DOM structure`);
             console.timeEnd("🔄 State update (triggers DOM render)");
             
             // Performance optimization complete - using optimized dynamic rendering
@@ -1563,11 +1532,9 @@
     // Use $effect for pet change detection
     $effect(() => {
         if (pet && pet.id !== lastProcessedPetId && !loading) {
-            console.log("🐾 Pet changed, loading:", pet.name, pet.id);
             lastProcessedPetId = pet.id;
             loadPetData();
         } else if (!pet && lastProcessedPetId !== null) {
-            console.log("🐾 No pet selected, cleaning up");
             lastProcessedPetId = null;
             cleanup();
         }

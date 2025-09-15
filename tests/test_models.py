@@ -232,7 +232,7 @@ class TestPet:
             genes={"01": genes},
         )
 
-        pet = Pet(name="Test Pet", genome=genome)
+        pet = Pet(name="Test Pet", user_id=1, genome=genome)
 
         assert pet.name == "Test Pet"
         assert pet.genome.genome_type == "TestSpecies"
@@ -271,7 +271,7 @@ class TestPet:
             genes={"01": genes},
         )
 
-        pet = Pet(name="Test Pet", genome=genome)
+        pet = Pet(name="Test Pet", user_id=1, genome=genome)
 
         # Test dict export
         pet_dict = pet.to_dict()

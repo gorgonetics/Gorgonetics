@@ -28,6 +28,7 @@ from .auth.dependencies import (
     get_user_by_username,
     require_admin,
 )
+from .constants import DEMO_USER_ID, Gender, UserRole
 from .database_config import create_database_instance
 from .models import Genome
 
@@ -138,7 +139,7 @@ async def update_genes_bulk(
         return {"status": "success", "message": f"{updated} genes updated"}
     except Exception as e:
         logger.error(f"Error bulk updating genes: {e}")
-        raise HTTPException(status_code=500, detail="Failed to update genes") from e
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to update genes") from e
 
 
 @app.get("/api/gene-effects/{species}")
@@ -169,7 +170,9 @@ async def get_gene_effects(species: str, db: "DuckLakeGeneDatabase" = Depends(ge
         return {"effects": all_effects}
     except Exception as e:
         logger.error(f"Error getting gene effects for {species}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to get gene effects") from e
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to get gene effects"
+        ) from e
 
 
 @app.get("/api/pet-genome/{pet_id}")
@@ -180,7 +183,7 @@ async def get_pet_genome_for_visualization(
     try:
         pet_data = db.get_pet(pet_id)
         if not pet_data:
-            raise HTTPException(status_code=404, detail="Pet not found")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pet not found")
 
         # Parse the genome JSON - handle both string and dict cases
 
@@ -225,7 +228,7 @@ async def get_pet_genome_for_visualization(
         raise
     except Exception as e:
         logger.error(f"Error getting pet genome for visualization {pet_id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to get pet genome") from e
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to get pet genome") from e
 
 
 @app.get("/api/animal-types")
@@ -235,7 +238,9 @@ async def get_animal_types(db: "DuckLakeGeneDatabase" = Depends(get_database)) -
         return db.get_animal_types()
     except Exception as e:
         logger.error(f"Error getting animal types: {e}")
-        raise HTTPException(status_code=500, detail="Failed to get animal types") from e
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to get animal types"
+        ) from e
 
 
 @app.get("/api/chromosomes/{animal_type}")
@@ -245,7 +250,9 @@ async def get_chromosomes(animal_type: str, db: "DuckLakeGeneDatabase" = Depends
         return db.get_chromosomes(animal_type)
     except Exception as e:
         logger.error(f"Error getting chromosomes for {animal_type}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to get chromosomes") from e
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to get chromosomes"
+        ) from e
 
 
 @app.get("/api/genes/{animal_type}/{chromosome}")
@@ -257,7 +264,7 @@ async def get_genes(
         return db.get_genes_by_chromosome(animal_type, chromosome)
     except Exception as e:
         logger.error(f"Error getting genes for {animal_type}/{chromosome}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to get genes") from e
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to get genes") from e
 
 
 @app.get("/api/gene/{animal_type}/{gene}")
@@ -266,13 +273,13 @@ async def get_gene(animal_type: str, gene: str, db: "DuckLakeGeneDatabase" = Dep
     try:
         gene_data = db.get_gene(animal_type, gene)
         if gene_data is None:
-            raise HTTPException(status_code=404, detail="Gene not found")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Gene not found")
         return gene_data
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error getting gene {animal_type}/{gene}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to get gene") from e
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to get gene") from e
 
 
 @app.put("/api/gene")
@@ -298,13 +305,13 @@ async def update_gene(
         if success:
             return {"status": "success", "message": "Gene updated successfully"}
         else:
-            raise HTTPException(status_code=400, detail="Failed to update gene")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Failed to update gene")
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error updating gene: {e}")
-        raise HTTPException(status_code=500, detail="Failed to update gene") from e
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to update gene") from e
 
 
 @app.get("/api/effect-options")
@@ -352,7 +359,9 @@ async def get_attribute_config(species: str) -> dict[str, Any]:
         }
     except Exception as e:
         logger.error(f"Error getting attribute config for species {species}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to get attribute configuration") from e
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to get attribute configuration"
+        ) from e
 
 
 @app.get("/api/appearance-config/{species}")
@@ -366,7 +375,9 @@ async def get_appearance_config(species: str) -> dict[str, Any]:
         }
     except Exception as e:
         logger.error(f"Error getting appearance config for species {species}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to get appearance configuration") from e
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to get appearance configuration"
+        ) from e
 
 
 @app.get("/api/export/{animal_type}")
@@ -388,7 +399,9 @@ async def export_all_chromosomes(
         return {"status": "success", "files": ", ".join(exported_files)}
     except Exception as e:
         logger.error(f"Error exporting chromosomes for {animal_type}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to export chromosomes") from e
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to export chromosomes"
+        ) from e
 
 
 @app.get("/api/download/{animal_type}/{chromosome}")
@@ -408,7 +421,7 @@ async def download_chromosome_file(
         )
     except Exception as e:
         logger.error(f"Error downloading {animal_type}/{chromosome}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to download file") from e
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to download file") from e
 
 
 # Pet Management Endpoints
@@ -418,7 +431,7 @@ async def download_chromosome_file(
 async def upload_pet_genome(
     file: UploadFile = File(...),
     name: str = Form(""),  # Optional override name
-    gender: str = Form("Male"),  # Pet's gender
+    gender: str = Form(Gender.MALE),  # Pet's gender
     notes: str | None = Form(None),
     current_user: User = Depends(get_current_active_user),
     db: "DuckLakeGeneDatabase" = Depends(get_database),
@@ -435,7 +448,7 @@ async def upload_pet_genome(
         existing_pet = db.find_pet_by_hash(content_hash)
         if existing_pet:
             raise HTTPException(
-                status_code=409,
+                status_code=status.HTTP_409_CONFLICT,
                 detail=f"This file has already been uploaded as '{existing_pet['name']}' on {existing_pet['created_at']}",
             )
 
@@ -443,15 +456,15 @@ async def upload_pet_genome(
         try:
             genome_content = content.decode("utf-8")
         except UnicodeDecodeError as e:
-            raise HTTPException(status_code=400, detail="File must be a valid text file") from e
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File must be a valid text file") from e
 
         # Check for empty or invalid content
         if not genome_content.strip():
-            raise HTTPException(status_code=400, detail="File cannot be empty")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File cannot be empty")
 
         # Basic validation for genome file format
         if "[Overview]" not in genome_content and "Genome Type:" not in genome_content:
-            raise HTTPException(status_code=400, detail="Invalid genome file format")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid genome file format")
 
         # Parse the genome using our models
         from .models import Genome
@@ -475,7 +488,9 @@ async def upload_pet_genome(
                 if "genes" not in parsed or not parsed["genes"]:
                     raise ValueError("No genes found in parsed genome")
             except Exception as e:
-                raise HTTPException(status_code=400, detail=f"Failed to parse genome genes: {e}") from e
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST, detail=f"Failed to parse genome genes: {e}"
+                ) from e
 
             # Use the pet name from the genome file, or user override, or filename as fallback
             pet_name = (
@@ -517,7 +532,7 @@ async def upload_pet_genome(
         raise
     except Exception as e:
         logger.error(f"Error uploading pet genome: {e}")
-        raise HTTPException(status_code=500, detail="Failed to create pet") from e
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to create pet") from e
 
 
 @app.get("/api/pets")
@@ -526,16 +541,19 @@ async def get_pets(
 ) -> list[dict[str, Any]]:
     """Get pets for the current user. Anonymous users see demo pets. Admins can see all pets."""
     try:
+        user_id: int | None
         if current_user is None:
             # Anonymous user - show demo pets only
             logger.info("Getting demo pets for anonymous user")
-            user_id = -1  # Demo pets have user_id = -1
+            user_id = DEMO_USER_ID  # Demo pets have user_id = DEMO_USER_ID
             user_display = "anonymous"
         else:
             # Authenticated user
-            logger.info(f"Getting pets for user: {current_user.username}, role: {current_user.role}, id: {current_user.id}")
+            logger.info(
+                f"Getting pets for user: {current_user.username}, role: {current_user.role}, id: {current_user.id}"
+            )
             # Admins can see all pets, regular users only see their own
-            user_id = None if current_user.role == "admin" else current_user.id
+            user_id = None if current_user.role == UserRole.ADMIN else current_user.id
             user_display = current_user.username
 
         logger.info(f"Using user_id filter: {user_id}")
@@ -550,7 +568,7 @@ async def get_pets(
             if pet.get("notes") is None:
                 pet["notes"] = ""
             # Mark demo pets as read-only
-            if pet.get("user_id") == -1:
+            if pet.get("user_id") == DEMO_USER_ID:
                 pet["is_demo"] = True
                 pet["readonly"] = True
         return pets
@@ -561,7 +579,7 @@ async def get_pets(
         import traceback
 
         logger.error(f"Traceback: {traceback.format_exc()}")
-        raise HTTPException(status_code=500, detail="Failed to get pets") from e
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to get pets") from e
 
 
 @app.get("/api/pets/{pet_id}")
@@ -570,7 +588,7 @@ async def get_pet(pet_id: int, db: "DuckLakeGeneDatabase" = Depends(get_database
     try:
         pet = db.get_pet(pet_id)
         if pet is None:
-            raise HTTPException(status_code=404, detail="Pet not found")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pet not found")
 
         # Convert datetime objects to strings and handle None values
         if pet.get("created_at") and hasattr(pet["created_at"], "isoformat"):
@@ -585,7 +603,7 @@ async def get_pet(pet_id: int, db: "DuckLakeGeneDatabase" = Depends(get_database
         raise
     except Exception as e:
         logger.error(f"Error getting pet {pet_id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to get pet") from e
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to get pet") from e
 
 
 @app.put("/api/pets/{pet_id}")
@@ -600,15 +618,15 @@ async def update_pet(
         # Check if pet exists and user owns it (admins can update any pet)
         pet_data = db.get_pet(pet_id)
         if not pet_data:
-            raise HTTPException(status_code=404, detail="Pet not found")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pet not found")
 
         # Prevent updating demo pets
-        if pet_data.get("user_id") == -1:
-            raise HTTPException(status_code=403, detail="Demo pets cannot be modified")
+        if pet_data.get("user_id") == DEMO_USER_ID:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Demo pets cannot be modified")
 
-        if current_user.role != "admin":
+        if current_user.role != UserRole.ADMIN:
             if pet_data.get("user_id") != current_user.id:
-                raise HTTPException(status_code=404, detail="Pet not found")
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pet not found")
 
         updates = {}
         if pet_update.name is not None:
@@ -630,13 +648,13 @@ async def update_pet(
         if success:
             return {"status": "success", "message": "Pet updated successfully"}
         else:
-            raise HTTPException(status_code=404, detail="Pet not found")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pet not found")
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error updating pet {pet_id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to update pet") from e
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to update pet") from e
 
 
 @app.delete("/api/pets/{pet_id}")
@@ -650,28 +668,28 @@ async def delete_pet(
         # Check if pet exists and user owns it (admins can delete any pet)
         pet_data = db.get_pet(pet_id)
         if not pet_data:
-            raise HTTPException(status_code=404, detail="Pet not found")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pet not found")
 
         # Prevent deleting demo pets
-        if pet_data.get("user_id") == -1:
-            raise HTTPException(status_code=403, detail="Demo pets cannot be deleted")
+        if pet_data.get("user_id") == DEMO_USER_ID:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Demo pets cannot be deleted")
 
-        if current_user.role != "admin":
+        if current_user.role != UserRole.ADMIN:
             if pet_data.get("user_id") != current_user.id:
-                raise HTTPException(status_code=404, detail="Pet not found")
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pet not found")
 
         success = db.delete_pet(pet_id)
 
         if success:
             return {"status": "success", "message": "Pet deleted successfully"}
         else:
-            raise HTTPException(status_code=404, detail="Pet not found")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pet not found")
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Error deleting pet {pet_id}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to delete pet") from e
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to delete pet") from e
 
 
 @app.get("/api/pets/species/{species}")
@@ -683,7 +701,7 @@ async def get_pets_by_species(
     """Get pets of a specific species. Admins can see all pets, users see only their own."""
     try:
         # Admins can see all pets of a species, regular users only see their own
-        user_id = None if current_user.role == "admin" else current_user.id
+        user_id = None if current_user.role == UserRole.ADMIN else current_user.id
         pets = db.get_all_pets(species=species, user_id=user_id)
         # Convert to the expected return type
         result: list[dict[str, str | int | float]] = []
@@ -698,7 +716,7 @@ async def get_pets_by_species(
         return result
     except Exception as e:
         logger.error(f"Error getting pets for species {species}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to get pets") from e
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to get pets") from e
 
 
 # Test endpoint for debugging
@@ -820,11 +838,8 @@ async def logout(current_user: User = Depends(get_current_active_user)) -> dict[
 async def health_check() -> dict[str, str]:
     """Health check endpoint for container orchestration."""
     from datetime import datetime
-    return {
-        "status": "healthy",
-        "timestamp": datetime.now().isoformat(),
-        "service": "gorgonetics"
-    }
+
+    return {"status": "healthy", "timestamp": datetime.now().isoformat(), "service": "gorgonetics"}
 
 
 # Catch-all route for SPA frontend
@@ -832,15 +847,16 @@ async def health_check() -> dict[str, str]:
 async def serve_frontend(full_path: str) -> FileResponse:
     """Serve the frontend application for all unmatched routes."""
     # Handle requests for static assets (CSS, JS, images, etc.)
-    if (full_path.startswith("assets/") or
-        full_path.startswith("static/") or
-        full_path.endswith((".js", ".css", ".png", ".jpg", ".ico", ".svg", ".woff", ".woff2"))):
-
+    if (
+        full_path.startswith("assets/")
+        or full_path.startswith("static/")
+        or full_path.endswith((".js", ".css", ".png", ".jpg", ".ico", ".svg", ".woff", ".woff2"))
+    ):
         # Try different possible locations for the asset
         possible_paths = [
             f"static/svelte/{full_path}",  # Direct path under svelte
-            f"static/{full_path}",         # Direct path under static
-            f"static/svelte/assets/{full_path.replace('assets/', '')}" if full_path.startswith("assets/") else None
+            f"static/{full_path}",  # Direct path under static
+            f"static/svelte/assets/{full_path.replace('assets/', '')}" if full_path.startswith("assets/") else None,
         ]
 
         for file_path in possible_paths:
@@ -848,7 +864,7 @@ async def serve_frontend(full_path: str) -> FileResponse:
                 return FileResponse(file_path)
 
         # If asset not found, return 404
-        raise HTTPException(status_code=404, detail="Asset not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Asset not found")
 
     # For all other routes, serve the main index.html (SPA routing)
     index_path = "static/svelte/index.html"
@@ -856,4 +872,4 @@ async def serve_frontend(full_path: str) -> FileResponse:
         return FileResponse(index_path)
 
     # Fallback if index.html doesn't exist
-    raise HTTPException(status_code=404, detail="Frontend not found")
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Frontend not found")

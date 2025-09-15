@@ -246,24 +246,24 @@ class TestPetEndpoints:
         return result["pet_id"]
 
     def test_upload_pet(
-        self, client: TestClient, populated_test_database: "DuckLakeGeneDatabase", sample_pet_file: str
+        self, authenticated_client: TestClient, populated_test_database: "DuckLakeGeneDatabase", sample_pet_file: str
     ) -> None:
         """Test pet upload functionality."""
-        pet_id = self._upload_pet_helper(client, populated_test_database, sample_pet_file)
+        pet_id = self._upload_pet_helper(authenticated_client, populated_test_database, sample_pet_file)
         assert pet_id is not None
 
     def test_get_pets_with_data(
-        self, client: TestClient, populated_test_database: "DuckLakeGeneDatabase", sample_pet_file: str
+        self, authenticated_client: TestClient, populated_test_database: "DuckLakeGeneDatabase", sample_pet_file: str
     ) -> None:
         """Test getting pets after uploading one."""
         # Get initial count of pets
-        initial_response = client.get("/api/pets")
+        initial_response = authenticated_client.get("/api/pets")
         initial_count = len(initial_response.json())
 
         # Upload a pet first
-        pet_id = self._upload_pet_helper(client, populated_test_database, sample_pet_file, "_withdata")
+        pet_id = self._upload_pet_helper(authenticated_client, populated_test_database, sample_pet_file, "_withdata")
 
-        response = client.get("/api/pets")
+        response = authenticated_client.get("/api/pets")
         assert response.status_code == 200
         data = response.json()
         assert len(data) == initial_count + 1
@@ -285,13 +285,13 @@ class TestPetEndpoints:
         assert uploaded_pet["species"] == "Horse"
 
     def test_get_pet_by_id(
-        self, client: TestClient, populated_test_database: "DuckLakeGeneDatabase", sample_pet_file: str
+        self, authenticated_client: TestClient, populated_test_database: "DuckLakeGeneDatabase", sample_pet_file: str
     ) -> None:
         """Test getting a specific pet by ID."""
         # Upload a pet first
-        pet_id = self._upload_pet_helper(client, populated_test_database, sample_pet_file, "_byid")
+        pet_id = self._upload_pet_helper(authenticated_client, populated_test_database, sample_pet_file, "_byid")
 
-        response = client.get(f"/api/pets/{pet_id}")
+        response = authenticated_client.get(f"/api/pets/{pet_id}")
         assert response.status_code == 200
         data = response.json()
 
@@ -301,13 +301,13 @@ class TestPetEndpoints:
         assert "updated_at" in data
 
     def test_get_pet_genome_visualization(
-        self, client: TestClient, populated_test_database: "DuckLakeGeneDatabase", sample_pet_file: str
+        self, authenticated_client: TestClient, populated_test_database: "DuckLakeGeneDatabase", sample_pet_file: str
     ) -> None:
         """Test pet genome data for visualization."""
         # Upload a pet first
-        pet_id = self._upload_pet_helper(client, populated_test_database, sample_pet_file, "_viz")
+        pet_id = self._upload_pet_helper(authenticated_client, populated_test_database, sample_pet_file, "_viz")
 
-        response = client.get(f"/api/pet-genome/{pet_id}")
+        response = authenticated_client.get(f"/api/pet-genome/{pet_id}")
         assert response.status_code == 200
         data = response.json()
 
@@ -322,34 +322,34 @@ class TestPetEndpoints:
         assert isinstance(data["genes"]["01"], str)
 
     def test_delete_pet(
-        self, client: TestClient, populated_test_database: "DuckLakeGeneDatabase", sample_pet_file: str
+        self, authenticated_client: TestClient, populated_test_database: "DuckLakeGeneDatabase", sample_pet_file: str
     ) -> None:
         """Test pet deletion."""
         # Upload a pet first
-        pet_id = self._upload_pet_helper(client, populated_test_database, sample_pet_file, "_delete")
+        pet_id = self._upload_pet_helper(authenticated_client, populated_test_database, sample_pet_file, "_delete")
 
         # Delete the pet
-        response = client.delete(f"/api/pets/{pet_id}")
+        response = authenticated_client.delete(f"/api/pets/{pet_id}")
         assert response.status_code == 200
         result = response.json()
         assert result["status"] == "success"
 
         # Verify pet is gone
-        response = client.get(f"/api/pets/{pet_id}")
+        response = authenticated_client.get(f"/api/pets/{pet_id}")
         assert response.status_code == 404
 
     def test_pet_upload_duplicate_detection(
-        self, client: TestClient, populated_test_database: "DuckLakeGeneDatabase", sample_pet_file: str
+        self, authenticated_client: TestClient, populated_test_database: "DuckLakeGeneDatabase", sample_pet_file: str
     ) -> None:
         """Test that duplicate file uploads are detected."""
         # Clear any existing pets first
-        client.get("/api/pets")  # Ensure database is ready
+        authenticated_client.get("/api/pets")  # Ensure database is ready
 
         # Upload same file twice with unique filenames to avoid early conflicts
         with open(sample_pet_file, "rb") as f:
             files = {"file": ("first_upload.txt", f, "text/plain")}
             data = {"name": "First Upload"}
-            response1 = client.post("/api/pets/upload", files=files, data=data)
+            response1 = authenticated_client.post("/api/pets/upload", files=files, data=data)
 
         # Should succeed
         if response1.status_code != 200:
@@ -358,7 +358,7 @@ class TestPetEndpoints:
         with open(sample_pet_file, "rb") as f:
             files = {"file": ("second_upload.txt", f, "text/plain")}
             data = {"name": "Second Upload"}
-            response2 = client.post("/api/pets/upload", files=files, data=data)
+            response2 = authenticated_client.post("/api/pets/upload", files=files, data=data)
 
         assert response2.status_code == 409  # Conflict - duplicate content
 
@@ -423,27 +423,27 @@ class TestErrorHandling:
         assert isinstance(data, list)
         assert len(data) == 0
 
-    def test_nonexistent_pet(self, client: TestClient, populated_test_database: "DuckLakeGeneDatabase") -> None:
+    def test_nonexistent_pet(self, authenticated_client: TestClient, populated_test_database: "DuckLakeGeneDatabase") -> None:
         """Test handling of nonexistent pet IDs."""
-        response = client.get("/api/pets/99999")
+        response = authenticated_client.get("/api/pets/99999")
         assert response.status_code == 404
 
-        response = client.get("/api/pet-genome/99999")
+        response = authenticated_client.get("/api/pet-genome/99999")
         assert response.status_code == 404
 
-        response = client.delete("/api/pets/99999")
+        response = authenticated_client.delete("/api/pets/99999")
         assert response.status_code == 404
 
-    def test_invalid_file_upload(self, client: TestClient, populated_test_database: "DuckLakeGeneDatabase") -> None:
+    def test_invalid_file_upload(self, authenticated_client: TestClient, populated_test_database: "DuckLakeGeneDatabase") -> None:
         """Test handling of invalid file uploads."""
         # Test with truly invalid UTF-8 bytes
         files = {"file": ("test.bin", b"\xff\xfe\xfd", "application/octet-stream")}
-        response = client.post("/api/pets/upload", files=files)
+        response = authenticated_client.post("/api/pets/upload", files=files)
         assert response.status_code == 400
 
         # Test with empty file
         files = {"file": ("empty.txt", b"", "text/plain")}
-        response = client.post("/api/pets/upload", files=files)
+        response = authenticated_client.post("/api/pets/upload", files=files)
         assert response.status_code == 400
 
 

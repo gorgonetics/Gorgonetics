@@ -4,15 +4,10 @@
   import MainContent from './lib/components/MainContent.svelte';
   import AuthWrapper from './lib/components/AuthWrapper.svelte';
   import { appState } from './lib/stores/appState.js';
-  import { apiClient } from './lib/services/apiClient.js';
-  import { isAuthenticated } from './lib/stores/authStore.js';
 
   let sidebarCollapsed = $state(false);
 
   onMount(async () => {
-    // Initialize the app
-    await apiClient.initialize();
-
     // Load pets for both authenticated and anonymous users
     await appState.loadPets();
 

@@ -17,6 +17,7 @@ from typing import Any
 import duckdb
 
 from .attribute_config import AttributeConfig
+from .constants import Gender
 
 logger = logging.getLogger(__name__)
 
@@ -435,7 +436,7 @@ class DuckLakeGeneDatabase:
         genome_data: str,
         content_hash: str,
         user_id: int,
-        gender: str = "Male",
+        gender: str = Gender.MALE,
         attributes: dict[str, int] | None = None,
         notes: str | None = None,
     ) -> int | None:
@@ -776,8 +777,8 @@ class DuckLakeGeneDatabase:
             pass
 
         demo_files = [
-            ("data/Genes_SampleFaeBee.txt", "Sample Fae Bee", "Female"),
-            ("data/Genes_SampleHorse.txt", "Sample Horse", "Male")
+            ("data/Genes_SampleFaeBee.txt", "Sample Fae Bee", Gender.FEMALE),
+            ("data/Genes_SampleHorse.txt", "Sample Horse", Gender.MALE),
         ]
 
         for file_path, display_name, gender in demo_files:
@@ -787,14 +788,14 @@ class DuckLakeGeneDatabase:
 
             try:
                 # Read and parse the genome file
-                with open(file_path, 'r', encoding='utf-8') as f:
+                with open(file_path, encoding="utf-8") as f:
                     genome_content = f.read()
 
                 # Import models locally to avoid circular imports
                 from .models import Genome
 
                 # Create temporary file for parsing
-                with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt') as temp_file:
+                with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".txt") as temp_file:
                     temp_file.write(genome_content)
                     temp_file_path = temp_file.name
 
@@ -819,7 +820,7 @@ class DuckLakeGeneDatabase:
                         user_id=-1,  # Special ID for demo pets
                         gender=gender,
                         attributes=attributes_dict,
-                        notes=f"Sample {genome.genome_type} for exploring Gorgonetics features"
+                        notes=f"Sample {genome.genome_type} for exploring Gorgonetics features",
                     )
 
                     if demo_pet_id:
