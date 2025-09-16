@@ -64,8 +64,10 @@ logger = logging.getLogger(__name__)
 # Initialize FastAPI app with lifespan
 app = FastAPI(title="Gorgonetics Labs", version="1.0.0", lifespan=lifespan)
 
-# Mount static files
-app.mount("/static", StaticFiles(directory="static"), name="static")
+# Mount static files if directory exists
+static_dir = "static"
+if os.path.exists(static_dir):
+    app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 
 # Database dependency

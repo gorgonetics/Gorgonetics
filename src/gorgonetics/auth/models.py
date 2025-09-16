@@ -4,7 +4,7 @@ Authentication models for user management.
 
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from ..constants import UserRole
 
@@ -31,14 +31,13 @@ class UserLogin(BaseModel):
 class User(UserBase):
     """User model for API responses (no password)."""
 
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     role: str = UserRole.USER
     is_active: bool = True
     created_at: datetime
     updated_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
 class UserInDB(User):

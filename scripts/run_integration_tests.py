@@ -38,9 +38,9 @@ def populate_test_database() -> bool:
     print("📊 Populating test database with gene data...")
 
     try:
-        # Run the populate command to load gene data
+        # Run the populate command to load gene data using uv
         result = subprocess.run(
-            [sys.executable, "-m", "gorgonetics", "populate"], capture_output=True, text=True, timeout=120
+            ["uv", "run", "gorgonetics", "populate"], capture_output=True, text=True, timeout=120
         )
 
         if result.returncode == 0:
