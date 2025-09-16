@@ -7,10 +7,10 @@ from typing import Annotated
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from ..constants import UserRole
-from ..database_config import create_database_instance
-from .models import User, UserCreate, UserInDB
-from .utils import verify_token
+from gorgonetics.auth.models import User, UserCreate, UserInDB
+from gorgonetics.auth.utils import verify_token
+from gorgonetics.constants import UserRole
+from gorgonetics.database_config import create_database_instance
 
 # HTTP Bearer token scheme
 security = HTTPBearer()

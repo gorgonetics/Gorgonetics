@@ -6,7 +6,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from ..constants import UserRole
+from gorgonetics.constants import UserRole
 
 
 class UserBase(BaseModel):

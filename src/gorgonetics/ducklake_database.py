@@ -16,8 +16,8 @@ from typing import Any
 
 import duckdb
 
-from .attribute_config import AttributeConfig
-from .constants import Gender
+from gorgonetics.attribute_config import AttributeConfig
+from gorgonetics.constants import Gender
 
 logger = logging.getLogger(__name__)
 

@@ -4,9 +4,14 @@ Authentication module for Gorgonetics.
 Provides JWT-based authentication and authorization for multiuser support.
 """
 
-from .dependencies import get_current_active_user, get_current_user, get_optional_current_user, require_admin
-from .models import Token, User, UserCreate, UserLogin
-from .utils import create_access_token, create_token_pair, get_password_hash, verify_password
+from gorgonetics.auth.dependencies import (
+    get_current_active_user,
+    get_current_user,
+    get_optional_current_user,
+    require_admin,
+)
+from gorgonetics.auth.models import Token, User, UserCreate, UserLogin
+from gorgonetics.auth.utils import create_access_token, create_token_pair, get_password_hash, verify_password
 
 __all__ = [
     "User",

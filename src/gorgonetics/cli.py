@@ -18,9 +18,8 @@ from rich.progress import (
 from rich.table import Table
 
 from gorgonetics import __version__
-
-from .database_config import create_database_instance, get_database_config
-from .ducklake_database import DuckLakeGeneDatabase
+from gorgonetics.database_config import create_database_instance, get_database_config
+from gorgonetics.ducklake_database import DuckLakeGeneDatabase
 
 console = Console()
 app = typer.Typer(

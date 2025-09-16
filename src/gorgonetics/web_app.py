@@ -19,21 +19,21 @@ from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from .attribute_config import AttributeConfig
-from .auth import Token, User, UserCreate, UserLogin, create_token_pair, get_password_hash, verify_password
-from .auth.dependencies import (
+from gorgonetics.attribute_config import AttributeConfig
+from gorgonetics.auth import Token, User, UserCreate, UserLogin, create_token_pair, get_password_hash, verify_password
+from gorgonetics.auth.dependencies import (
     create_user_in_db,
     get_current_active_user,
     get_optional_current_user,
     get_user_by_username,
     require_admin,
 )
-from .constants import DEMO_USER_ID, Gender, UserRole
-from .database_config import create_database_instance
-from .models import Genome
+from gorgonetics.constants import DEMO_USER_ID, Gender, UserRole
+from gorgonetics.database_config import create_database_instance
+from gorgonetics.models import Genome
 
 if TYPE_CHECKING:
-    from .ducklake_database import DuckLakeGeneDatabase
+    from gorgonetics.ducklake_database import DuckLakeGeneDatabase
 
 
 @asynccontextmanager

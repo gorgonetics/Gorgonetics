@@ -9,7 +9,7 @@ from typing import Any
 import bcrypt
 from jose import JWTError, jwt
 
-from .models import TokenData
+from gorgonetics.auth.models import TokenData
 
 # JWT settings
 SECRET_KEY = os.getenv("GORGONETICS_JWT_SECRET_KEY", "your-secret-key-change-this-in-production")

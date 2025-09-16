@@ -13,9 +13,9 @@ from typing import Annotated, Any
 
 from pydantic import BaseModel, Field
 
-from .attribute_config import AttributeConfig
-from .constants import Gender
-from .genome_parser import generate_block_letters, parse_genome_file_genes, parse_genome_file_header
+from gorgonetics.attribute_config import AttributeConfig
+from gorgonetics.constants import DEMO_USER_ID, Gender
+from gorgonetics.genome_parser import generate_block_letters, parse_genome_file_genes, parse_genome_file_header
 
 # Attribute value type with validation
 AttributeValue = Annotated[int, Field(ge=0, le=100, description="Attribute value between 0 and 100")]
@@ -249,6 +249,7 @@ class Pet(BaseModel):
         genome_file: str | Path,
         gender: Gender = Gender.MALE,
         notes: str = "",
+        user_id: int | None = None,
     ) -> Pet:
         """Create a pet from a genome file."""
         genome = Genome.from_file(genome_file)
@@ -259,6 +260,7 @@ class Pet(BaseModel):
 
         pet = cls(
             name=name,
+            user_id=user_id if user_id is not None else DEMO_USER_ID,
             genome=genome,
             gender=gender,
             attributes=species_attributes,
