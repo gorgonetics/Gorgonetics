@@ -283,9 +283,17 @@ class DuckLakeGeneDatabase:
                 INSERT INTO genes (
                     animal_type, chromosome, gene, effectDominant,
                     effectRecessive, appearance, notes, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+                ) VALUES ($animal_type, $chromosome, $gene, $effectDominant, $effectRecessive, $appearance, $notes, NOW(), NOW())
             """,
-                [animal_type, chromosome, gene, effectDominant, effectRecessive, appearance, notes],
+                {
+                    "animal_type": animal_type,
+                    "chromosome": chromosome,
+                    "gene": gene,
+                    "effectDominant": effectDominant,
+                    "effectRecessive": effectRecessive,
+                    "appearance": appearance,
+                    "notes": notes,
+                },
             )
         except Exception:
             # Skip duplicates
@@ -524,7 +532,7 @@ class DuckLakeGeneDatabase:
         """Get a pet by ID."""
         assert self.conn is not None
         try:
-            result = self.conn.execute("SELECT * FROM pets WHERE id = ?", [pet_id]).fetchone()
+            result = self.conn.execute("SELECT * FROM pets WHERE id = $pet_id", {"pet_id": pet_id}).fetchone()
 
             if result:
                 # Get column names
@@ -690,12 +698,12 @@ class DuckLakeGeneDatabase:
         assert self.conn is not None
         try:
             # Check if pet exists before deletion
-            existing_pet = self.conn.execute("SELECT id FROM pets WHERE id = ?", [pet_id]).fetchone()
+            existing_pet = self.conn.execute("SELECT id FROM pets WHERE id = $pet_id", {"pet_id": pet_id}).fetchone()
             if not existing_pet:
                 return False
 
             # Delete the pet
-            self.conn.execute("DELETE FROM pets WHERE id = ?", [pet_id])
+            self.conn.execute("DELETE FROM pets WHERE id = $pet_id", {"pet_id": pet_id})
 
             # Commit to create snapshot
             self.conn.commit()
@@ -709,7 +717,7 @@ class DuckLakeGeneDatabase:
         """Find a pet by its content hash."""
         assert self.conn is not None
         try:
-            result = self.conn.execute("SELECT * FROM pets WHERE content_hash = ?", [content_hash]).fetchone()
+            result = self.conn.execute("SELECT * FROM pets WHERE content_hash = $content_hash", {"content_hash": content_hash}).fetchone()
 
             if result:
                 columns = [desc[0] for desc in self.conn.description or []]

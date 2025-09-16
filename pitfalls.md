@@ -20,3 +20,23 @@
 - Test solutions immediately rather than explaining what should work
 - Focus on making things actually work rather than providing explanations
 - Don't suggest workarounds when systematic solutions are needed
+
+## SQL Code Quality
+- Avoid parameterized queries with unnamed placeholders like `(?, ?, ?, ?)` - they are hard to read and maintain
+- Always use named parameters or explicit field mapping for better clarity
+- **DuckDB named parameter syntax**: Use `$parameter_name` (not `:parameter_name` like SQLite)
+  - Correct: `SELECT * FROM users WHERE username = $username`
+  - Incorrect: `SELECT * FROM users WHERE username = :username` (SQLite syntax)
+- Replace `VALUES (?, ?, ?, ?)` with `VALUES ($field1, $field2, $field3, $field4)` for DuckDB
+
+## Testing
+- ALWAYS run the tests after changing functionality - failing tests indicate incomplete implementation
+- When adding authentication features, create corresponding test fixtures and test users
+- Use pytest fixtures for test users to ensure proper setup/teardown
+
+## Cross-Platform Development Issues
+- **Windows UTF-8 encoding problems**: Never use Unicode characters (✓, ❌, 🔥, etc.) in test scripts or console output
+  - Windows console uses CP-1252 encoding by default, which can't handle Unicode symbols
+  - macOS and Linux use UTF-8 by default, so Unicode works there but fails on Windows
+  - Always use ASCII characters in tests: `[OK]`, `[FAILED]`, `[SUCCESS]` instead of Unicode symbols
+  - This affects both test runners and any custom test scripts

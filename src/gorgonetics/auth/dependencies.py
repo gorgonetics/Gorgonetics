@@ -45,8 +45,8 @@ def get_current_user(credentials: Annotated[HTTPAuthorizationCredentials, Depend
     try:
         assert db.conn is not None
         user_data = db.conn.execute(
-            "SELECT id, username, role, is_active, created_at, updated_at FROM users WHERE username = ? AND is_active = true",
-            (token_data.username,),
+            "SELECT id, username, role, is_active, created_at, updated_at FROM users WHERE username = $username AND is_active = true",
+            {"username": token_data.username},
         ).fetchone()
 
         if user_data is None:
@@ -115,8 +115,8 @@ def get_optional_current_user(
         try:
             assert db.conn is not None
             user_data = db.conn.execute(
-                "SELECT id, username, role, is_active, created_at, updated_at FROM users WHERE username = ? AND is_active = true",
-                (token_data.username,),
+                "SELECT id, username, role, is_active, created_at, updated_at FROM users WHERE username = $username AND is_active = true",
+                {"username": token_data.username},
             ).fetchone()
 
             if user_data is None:
@@ -177,8 +177,8 @@ def get_user_by_username(username: str) -> UserInDB | None:
     try:
         assert db.conn is not None
         user_data = db.conn.execute(
-            "SELECT id, username, password_hash, role, is_active, created_at, updated_at FROM users WHERE username = ?",
-            (username,),
+            "SELECT id, username, password_hash, role, is_active, created_at, updated_at FROM users WHERE username = $username",
+            {"username": username},
         ).fetchone()
 
         if user_data is None:
@@ -230,14 +230,22 @@ def create_user_in_db(user_create: "UserCreate", password_hash: str) -> User:
 
         db.conn.execute(
             """INSERT INTO users (id, username, password_hash, role, is_active, created_at, updated_at)
-               VALUES (?, ?, ?, ?, true, ?, ?)""",
-            (next_id, user_create.username, password_hash, UserRole.USER, now, now),
+               VALUES ($id, $username, $password_hash, $role, $is_active, $created_at, $updated_at)""",
+            {
+                "id": next_id,
+                "username": user_create.username,
+                "password_hash": password_hash,
+                "role": UserRole.USER,
+                "is_active": True,
+                "created_at": now,
+                "updated_at": now,
+            },
         )
 
         # Get the created user
         user_data = db.conn.execute(
-            "SELECT id, username, role, is_active, created_at, updated_at FROM users WHERE username = ?",
-            (user_create.username,),
+            "SELECT id, username, role, is_active, created_at, updated_at FROM users WHERE username = $username",
+            {"username": user_create.username},
         ).fetchone()
 
         if user_data is None:

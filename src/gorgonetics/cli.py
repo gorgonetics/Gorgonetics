@@ -442,8 +442,16 @@ def create_admin(
 
             db.conn.execute(
                 """INSERT INTO users (id, username, password_hash, role, is_active, created_at, updated_at)
-                   VALUES (?, ?, ?, 'admin', true, ?, ?)""",
-                (next_id, username, password_hash, now, now),
+                   VALUES ($id, $username, $password_hash, $role, $is_active, $created_at, $updated_at)""",
+                {
+                    "id": next_id,
+                    "username": username,
+                    "password_hash": password_hash,
+                    "role": "admin",
+                    "is_active": True,
+                    "created_at": now,
+                    "updated_at": now,
+                },
             )
 
             console.print(f"[green]* Successfully created admin user: {username}[/green]")
