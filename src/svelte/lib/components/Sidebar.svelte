@@ -1,10 +1,10 @@
 <script>
-    import { error, activeTab, appState } from "../stores/appState.js";
-    import { isAuthenticated, user, authStore } from "../stores/authStore.js";
     import { apiClient } from "../services/apiClient.js";
-    import PetUpload from "./PetUpload.svelte";
+    import { activeTab, appState, error } from "../stores/appState.js";
+    import { authStore, isAuthenticated, user } from "../stores/authStore.js";
     import GeneEditor from "./GeneEditor.svelte";
     import LoginForm from "./LoginForm.svelte";
+    import PetUpload from "./PetUpload.svelte";
     import RegisterForm from "./RegisterForm.svelte";
 
     /**
@@ -27,7 +27,7 @@
 
     // Auth modal functionality for anonymous users
     let showAuthModalDialog = $state(false);
-    let authModalMode = $state('login');
+    let authModalMode = $state("login");
 
     function showAuthModal(mode) {
         authModalMode = mode;
@@ -46,12 +46,12 @@
     }
 
     function switchToRegister() {
-        authModalMode = 'register';
+        authModalMode = "register";
         authStore.clearError();
     }
 
     function switchToLogin() {
-        authModalMode = 'login';
+        authModalMode = "login";
         authStore.clearError();
     }
 </script>
@@ -65,7 +65,7 @@
             </div>
             <div class="title-box" class:hidden={sidebarCollapsed}>
                 <h1 class="gradient-text">Gorgonetics</h1>
-                <p>Project Gorgon Breeding Tool</p>
+                <p>Breeding Tool</p>
             </div>
         </div>
 
@@ -122,8 +122,14 @@
                         <div class="auth-required-message">
                             <div class="auth-required-icon">🔒</div>
                             <h3>Sign In Required</h3>
-                            <p>To upload and manage your pets, please sign in to your account.</p>
-                            <button class="quick-signin-btn" onclick={() => showAuthModal('login')}>
+                            <p>
+                                To upload and manage your pets, please sign in
+                                to your account.
+                            </p>
+                            <button
+                                class="quick-signin-btn"
+                                onclick={() => showAuthModal("login")}
+                            >
                                 <span class="auth-icon">🔑</span>
                                 Sign In
                             </button>
@@ -150,15 +156,19 @@
                         <span class="user-icon">👤</span>
                     </div>
                     <div class="user-details">
-                        <div class="username">{$user?.username || 'User'}</div>
-                        {#if $user?.role === 'admin'}
+                        <div class="username">{$user?.username || "User"}</div>
+                        {#if $user?.role === "admin"}
                             <div class="user-role admin">Admin</div>
                         {:else}
                             <div class="user-role">User</div>
                         {/if}
                     </div>
                 </div>
-                <button class="logout-btn" onclick={handleLogout} title="Logout">
+                <button
+                    class="logout-btn"
+                    onclick={handleLogout}
+                    title="Logout"
+                >
                     <span class="logout-icon">🚪</span>
                     <span class="logout-text">Logout</span>
                 </button>
@@ -175,11 +185,19 @@
                     </div>
                 </div>
                 <div class="auth-buttons">
-                    <button class="login-btn" onclick={() => showAuthModal('login')} title="Sign In">
+                    <button
+                        class="login-btn"
+                        onclick={() => showAuthModal("login")}
+                        title="Sign In"
+                    >
                         <span class="auth-icon">🔑</span>
                         <span class="auth-text">Sign In</span>
                     </button>
-                    <button class="register-btn" onclick={() => showAuthModal('register')} title="Create Account">
+                    <button
+                        class="register-btn"
+                        onclick={() => showAuthModal("register")}
+                        title="Create Account"
+                    >
                         <span class="auth-icon">✨</span>
                         <span class="auth-text">Sign Up</span>
                     </button>
@@ -205,11 +223,15 @@
     <div class="auth-modal-overlay" onclick={hideAuthModal}>
         <div class="auth-modal" onclick={(e) => e.stopPropagation()}>
             <div class="auth-modal-header">
-                <h2>{authModalMode === 'login' ? 'Sign In' : 'Create Account'}</h2>
-                <button class="close-btn" onclick={hideAuthModal} title="Close">×</button>
+                <h2>
+                    {authModalMode === "login" ? "Sign In" : "Create Account"}
+                </h2>
+                <button class="close-btn" onclick={hideAuthModal} title="Close"
+                    >×</button
+                >
             </div>
             <div class="auth-modal-content">
-                {#if authModalMode === 'login'}
+                {#if authModalMode === "login"}
                     <LoginForm
                         on:loginSuccess={handleAuthSuccess}
                         on:switchToRegister={switchToRegister}
@@ -278,8 +300,7 @@
     }
 
     .dna-emoji {
-        font-family:
-            "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji",
+        font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji",
             sans-serif;
         -webkit-text-fill-color: initial;
         color: white;
@@ -893,7 +914,8 @@
         gap: 8px;
     }
 
-    .login-btn, .register-btn {
+    .login-btn,
+    .register-btn {
         display: flex;
         align-items: center;
         gap: 8px;
@@ -1021,8 +1043,12 @@
     }
 
     @keyframes fadeIn {
-        from { opacity: 0; }
-        to { opacity: 1; }
+        from {
+            opacity: 0;
+        }
+        to {
+            opacity: 1;
+        }
     }
 
     @keyframes slideIn {
@@ -1035,5 +1061,4 @@
             transform: translateY(0) scale(1);
         }
     }
-
 </style>
