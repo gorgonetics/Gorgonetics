@@ -1,7 +1,7 @@
 # Development Pitfalls - Lessons Learned
 
 ## Communication Issues
-- Don't say "you are absolutely right" repeatedly - be direct and factual
+- Don't say "you are absolutely right", "you are correct", or any stuff like that - be direct and factual
 - Avoid empty flattery or excessive agreement
 - Don't write meaningless summaries when user wants working solutions
 
@@ -20,6 +20,7 @@
 - Test solutions immediately rather than explaining what should work
 - Focus on making things actually work rather than providing explanations
 - Don't suggest workarounds when systematic solutions are needed
+- Refactor code mercilessly. Any construct that gets used more than once should be refactored and reused
 
 ## SQL Code Quality
 - Avoid parameterized queries with unnamed placeholders like `(?, ?, ?, ?)` - they are hard to read and maintain
@@ -52,9 +53,16 @@
 - **Flowbite components don't support `class:` directives**: Use template literals instead
   - Wrong: `class:p-6={!collapsed}` (causes compile error)
   - Correct: `class="{collapsed ? 'p-2' : 'p-6'}"` or `class={collapsed ? 'p-2' : 'p-6'}`
+- **Don't reinvent the wheel** - instead of creating custom code for things, check if there are already made components that can do the job!
+- In case of doubt, check the docs in https://svelte.dev/docs/svelte/overview
+
+## Flowbite Development
+- Whenever possible, use Flowbite Svelte components for standard behaviour
+- **Do not attempt to use PostCSS, we already have @tailwind/vite installed**
+- If something doesn't work, check the documentation at https://flowbite-svelte.com/docs/pages/introduction
 
 ## Dependency Management
-- **NEVER solve problems by downgrading dependencies** - this happens because of relying on obsolete knowledge
+- **NEVER attempt solve problems by downgrading dependencies** - this happens because of relying on obsolete knowledge
 - Instead of downgrading, search the web for proper ways to solve issues with modern dependencies
 - Modern toolchains change frequently and require up-to-date configuration approaches
 
