@@ -40,3 +40,25 @@
   - macOS and Linux use UTF-8 by default, so Unicode works there but fails on Windows
   - Always use ASCII characters in tests: `[OK]`, `[FAILED]`, `[SUCCESS]` instead of Unicode symbols
   - This affects both test runners and any custom test scripts
+
+## Svelte Development
+- **Always use Svelte 5 syntax**: This project uses Svelte 5, never use Svelte 4 patterns
+  - Use `$props()` for props, not `export let prop`
+  - Use `$state()` for reactive state, not `let variable = $state(value)`
+  - Use `{#snippet name}...{/snippet}` for snippets, not slots
+  - Use `{@render snippet()}` to render snippets
+  - Component children should be passed as snippets in Svelte 5
+  - When creating reusable components, design them to accept snippets as children
+- **Flowbite components don't support `class:` directives**: Use template literals instead
+  - Wrong: `class:p-6={!collapsed}` (causes compile error)
+  - Correct: `class="{collapsed ? 'p-2' : 'p-6'}"` or `class={collapsed ? 'p-2' : 'p-6'}`
+
+## Dependency Management
+- **NEVER solve problems by downgrading dependencies** - this happens because of relying on obsolete knowledge
+- Instead of downgrading, search the web for proper ways to solve issues with modern dependencies
+- Modern toolchains change frequently and require up-to-date configuration approaches
+
+## Work Verification
+- **DO NOT CLAIM WORK IS DONE WITHOUT VERIFYING** - Always test and verify functionality before declaring completion
+- Check for compilation errors, runtime errors, and visual verification
+- Test actual functionality, not just that code compiles
