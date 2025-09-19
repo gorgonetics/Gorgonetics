@@ -25,12 +25,12 @@ class TestApiClient {
   }
 
   getAuthHeaders() {
-    return this.authToken ? { 'Authorization': `Bearer ${this.authToken}` } : {};
+    return this.authToken ? { Authorization: `Bearer ${this.authToken}` } : {};
   }
 
   async get(endpoint) {
     const response = await fetch(`${this.baseUrl}${endpoint}`, {
-      headers: this.getAuthHeaders()
+      headers: this.getAuthHeaders(),
     });
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -56,7 +56,10 @@ class TestApiClient {
       options.body = formData;
       options.headers = this.getAuthHeaders();
     } else {
-      options.headers = { "Content-Type": "application/json", ...this.getAuthHeaders() };
+      options.headers = {
+        "Content-Type": "application/json",
+        ...this.getAuthHeaders(),
+      };
       options.body = JSON.stringify(data);
     }
 
@@ -70,7 +73,7 @@ class TestApiClient {
   async delete(endpoint) {
     const response = await fetch(`${this.baseUrl}${endpoint}`, {
       method: "DELETE",
-      headers: this.getAuthHeaders()
+      headers: this.getAuthHeaders(),
     });
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -79,11 +82,11 @@ class TestApiClient {
   }
 
   async register(username, password) {
-    return this.post('/api/auth/register', { username, password });
+    return this.post("/api/auth/register", { username, password });
   }
 
   async login(username, password) {
-    return this.post('/api/auth/login', { username, password });
+    return this.post("/api/auth/login", { username, password });
   }
 }
 
@@ -184,19 +187,27 @@ describe("🧬 Gorgonetics Client API Tests", () => {
     beforeAll(async () => {
       // Create and authenticate test user
       const testUsername = `testuser_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      const testPassword = 'testpassword123';
+      const testPassword = "testpassword123";
 
       try {
         // Register test user
-        await apiClient.register(testUsername, testPassword);
+        console.log("Registering user:", testUsername);
+        const registerResult = await apiClient.register(
+          testUsername,
+          testPassword,
+        );
+        console.log("Register result:", registerResult);
 
         // Login test user
+        console.log("Logging in user:", testUsername);
         const loginResult = await apiClient.login(testUsername, testPassword);
+        console.log("Login result:", loginResult);
 
         // Set auth token
         apiClient.setAuthToken(loginResult.access_token);
+        console.log("Auth token set:", loginResult.access_token ? "yes" : "no");
       } catch (error) {
-        console.error('Failed to setup test user for pet tests:', error);
+        console.error("Failed to setup test user for pet tests:", error);
         throw error;
       }
     });
@@ -216,6 +227,8 @@ describe("🧬 Gorgonetics Client API Tests", () => {
         { name: "Client Test Pet" },
         { file: testFile },
       );
+
+      console.log("Upload result:", result);
 
       expect(result).toHaveProperty("status", "success");
       expect(result).toHaveProperty("pet_id");
@@ -311,7 +324,7 @@ describe("🧬 Gorgonetics Client API Tests", () => {
     beforeAll(async () => {
       // Create and authenticate test user for error tests
       const testUsername = `testuser_err_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      const testPassword = 'testpassword123';
+      const testPassword = "testpassword123";
 
       try {
         // Register test user
@@ -323,7 +336,7 @@ describe("🧬 Gorgonetics Client API Tests", () => {
         // Set auth token
         apiClient.setAuthToken(loginResult.access_token);
       } catch (error) {
-        console.error('Failed to setup test user for error tests:', error);
+        console.error("Failed to setup test user for error tests:", error);
         throw error;
       }
     });
