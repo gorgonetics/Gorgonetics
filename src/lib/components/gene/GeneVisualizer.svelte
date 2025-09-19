@@ -1147,9 +1147,36 @@
         }
 
         const rect = detail.event.target.getBoundingClientRect();
-        const containerRect = containerElement.getBoundingClientRect();
-        tooltipX = rect.right - containerRect.left + 5;
-        tooltipY = rect.top - containerRect.top - 5;
+
+        // Calculate smart positioning to avoid window edge cropping
+        const tooltipWidth = 250; // max-width from CSS
+        const tooltipHeight = 100; // estimated height
+        const offset = 5;
+
+        // Get viewport dimensions
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+
+        // Calculate initial position (viewport coordinates for fixed positioning)
+        let x = rect.right + offset;
+        let y = rect.top - offset;
+
+        // Adjust horizontal position if tooltip would go off right edge
+        if (x + tooltipWidth > viewportWidth) {
+            x = rect.left - tooltipWidth - offset;
+        }
+
+        // Adjust vertical position if tooltip would go off top edge
+        if (y < 0) {
+            y = rect.bottom + offset;
+        }
+        // Adjust vertical position if tooltip would go off bottom edge
+        else if (y + tooltipHeight > viewportHeight) {
+            y = rect.top - tooltipHeight - offset;
+        }
+
+        tooltipX = x;
+        tooltipY = y;
 
         tooltipGeneId = geneId;
         tooltipGeneType = geneType;
