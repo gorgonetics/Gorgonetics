@@ -1146,38 +1146,39 @@
             }
         }
 
-        const rect = detail.event.target.getBoundingClientRect();
+        const mouseEvent = detail.event;
 
-        // Calculate smart positioning to stay close to gene while avoiding edge cropping
+        // Calculate smart positioning to stay close to mouse cursor while avoiding edge cropping
         const tooltipWidth = 250; // max-width from CSS
         const tooltipHeight = 100; // estimated height
-        const offset = 8;
+        const offset = 12; // Small offset from cursor
 
         // Get viewport dimensions
         const viewportWidth = window.innerWidth;
         const viewportHeight = window.innerHeight;
 
-        // Default position: slightly to the right and above the gene
-        let x = rect.right + offset;
-        let y = rect.top - offset;
+        // Default position: slightly to the right and below the mouse cursor
+        let x = mouseEvent.clientX + offset;
+        let y = mouseEvent.clientY + offset;
 
-        // Check if tooltip would go off right edge - if so, shift it left just enough
+        // Check if tooltip would go off right edge - if so, position it to the left of cursor
         if (x + tooltipWidth > viewportWidth) {
-            x = viewportWidth - tooltipWidth - 10; // 10px margin from edge
-            // But don't move it too far left of the gene
-            x = Math.max(x, rect.left - tooltipWidth - offset);
+            x = mouseEvent.clientX - tooltipWidth - offset;
         }
 
-        // Check if tooltip would go off bottom edge - if so, shift it up just enough
+        // Check if tooltip would go off bottom edge - if so, position it above cursor
         if (y + tooltipHeight > viewportHeight) {
-            y = viewportHeight - tooltipHeight - 10; // 10px margin from edge
-            // But don't move it too far up from the gene
-            y = Math.max(y, rect.top - tooltipHeight - offset);
+            y = mouseEvent.clientY - tooltipHeight - offset;
         }
 
-        // Check if tooltip would go off top edge - if so, move it below the gene
-        if (y < 10) {
-            y = rect.bottom + offset;
+        // Check if tooltip would go off top edge - if so, position it below cursor
+        if (y < 0) {
+            y = mouseEvent.clientY + offset;
+        }
+
+        // Check if tooltip would go off left edge - if so, position it to the right of cursor
+        if (x < 0) {
+            x = mouseEvent.clientX + offset;
         }
 
         tooltipX = x;
