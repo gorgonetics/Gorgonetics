@@ -1,6 +1,7 @@
 <script>
     import { createEventDispatcher } from "svelte";
     import { appState } from "$lib/stores/pets.js";
+    import { Dropzone, Input, Label, Select } from "flowbite-svelte";
 
     const dispatch = createEventDispatcher();
 
@@ -10,19 +11,8 @@
     let dragOver = $state(false);
     let uploading = $state(false);
 
-    function handleFileSelect(event) {
-        const file = event.target.files[0];
-        if (file) {
-            uploadFile(file);
-        }
-    }
-
-    function handleDrop(event) {
-        event.preventDefault();
-        dragOver = false;
-
-        const files = event.dataTransfer.files;
-        if (files.length > 0) {
+    function handleFileSelect(files) {
+        if (files && files.length > 0) {
             const file = files[0];
             if (file.name.endsWith(".txt")) {
                 uploadFile(file);
@@ -30,20 +20,6 @@
                 appState.error.set("Please upload a .txt genome file");
             }
         }
-    }
-
-    function handleDragOver(event) {
-        event.preventDefault();
-        dragOver = true;
-    }
-
-    function handleDragLeave(event) {
-        event.preventDefault();
-        dragOver = false;
-    }
-
-    function openFileDialog() {
-        fileInput.click();
     }
 
     async function uploadFile(file) {
@@ -60,73 +36,60 @@
             uploading = false;
         }
     }
-
-    function handleKeydown(event) {
-        if (event.key === "Enter" || event.key === " ") {
-            event.preventDefault();
-            openFileDialog();
-        }
-    }
 </script>
 
 <div class="form-group">
-    <label>Add Pet to Collection</label>
-    <div
-        class="drop-zone"
-        class:drag-over={dragOver}
-        class:uploading
-        ondrop={handleDrop}
-        ondragover={handleDragOver}
-        ondragleave={handleDragLeave}
-        onclick={openFileDialog}
-        onkeydown={handleKeydown}
-        tabindex="0"
-        role="button"
-        aria-label="Upload genome file"
+    <Label class="mb-2">Add Pet to Collection</Label>
+    <Dropzone
+        id="dropzone"
+        onchange={handleFileSelect}
+        accept=".txt"
+        disabled={uploading}
     >
-        <div class="drop-zone-content">
+        <svg
+            aria-hidden="true"
+            class="w-10 h-10 mb-3 text-gray-400"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg"
+        >
+            <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+            ></path>
+        </svg>
+        <p class="mb-2 text-sm text-gray-500">
             {#if uploading}
-                <span class="drop-icon">⏳</span>
-                <span class="drop-text">
-                    <p>Uploading...</p>
-                </span>
+                <span class="font-semibold">Uploading...</span>
             {:else}
-                <span class="drop-icon">📁</span>
-                <span class="drop-text">
-                    <p>Drag & drop genome file here</p>
-                    <p class="drop-hint">or click to browse</p>
-                </span>
+                <span class="font-semibold">Click to upload</span> or drag and drop
             {/if}
-            <input
-                type="file"
-                bind:this={fileInput}
-                onchange={handleFileSelect}
-                accept=".txt"
-                style="display: none;"
-                disabled={uploading}
-            />
-        </div>
-    </div>
-    <div class="form-group" style="margin-top: 8px;">
-        <input
-            type="text"
+        </p>
+        <p class="text-xs text-gray-500">TXT genome files only</p>
+    </Dropzone>
+    <div class="form-group mt-4">
+        <Label for="pet-name" class="mb-2">Pet Name (optional)</Label>
+        <Input
+            id="pet-name"
             bind:value={petName}
-            placeholder="Pet name (optional)"
-            class="pet-name-input"
+            placeholder="Enter pet name"
             disabled={uploading}
         />
     </div>
-    <div class="form-group" style="margin-top: 8px;">
-        <label for="gender-select" class="gender-label">Gender</label>
-        <select
-            id="gender-select"
+    <div class="form-group mt-4">
+        <Label for="pet-gender" class="mb-2">Gender</Label>
+        <Select
+            id="pet-gender"
             bind:value={petGender}
-            class="gender-select"
             disabled={uploading}
-        >
-            <option value="Male">Male</option>
-            <option value="Female">Female</option>
-        </select>
+            items={[
+                { value: "Male", name: "Male" },
+                { value: "Female", name: "Female" },
+            ]}
+        />
     </div>
 </div>
 
@@ -134,121 +97,5 @@
     .form-group {
         display: flex;
         flex-direction: column;
-        gap: 0.5rem;
-    }
-
-    .form-group label {
-        font-size: 0.875rem;
-        font-weight: 500;
-        color: #374151;
-    }
-
-    .drop-zone {
-        border: 2px dashed #d1d5db;
-        border-radius: 8px;
-        padding: 1.5rem;
-        text-align: center;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        background-color: #fafafa;
-    }
-
-    .drop-zone:hover {
-        border-color: #3b82f6;
-        background-color: #f0f9ff;
-    }
-
-    .drop-zone:focus {
-        outline: 2px solid #3b82f6;
-        outline-offset: 2px;
-    }
-
-    .drop-zone.drag-over {
-        border-color: #3b82f6;
-        background-color: #eff6ff;
-        transform: scale(1.02);
-    }
-
-    .drop-zone.uploading {
-        border-color: #f59e0b;
-        background-color: #fef3c7;
-        cursor: not-allowed;
-    }
-
-    .drop-zone-content {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 0.5rem;
-    }
-
-    .drop-icon {
-        font-size: 2rem;
-        opacity: 0.7;
-    }
-
-    .drop-text {
-        display: flex;
-        flex-direction: column;
-        gap: 0.25rem;
-    }
-
-    .drop-text p {
-        margin: 0;
-        font-size: 0.875rem;
-        color: #374151;
-    }
-
-    .drop-hint {
-        color: #6b7280;
-        font-size: 0.75rem !important;
-    }
-
-    .pet-name-input {
-        padding: 0.5rem;
-        border: 1px solid #d1d5db;
-        border-radius: 6px;
-        font-size: 0.875rem;
-        background: white;
-    }
-
-    .pet-name-input:disabled {
-        background-color: #f9fafb;
-        color: #9ca3af;
-    }
-
-    .pet-name-input:focus {
-        outline: 2px solid #3b82f6;
-        outline-offset: 2px;
-        border-color: #3b82f6;
-    }
-
-    .gender-label {
-        font-size: 0.75rem !important;
-        font-weight: 500;
-        color: #6b7280;
-        margin-bottom: 0.25rem;
-    }
-
-    .gender-select {
-        padding: 0.5rem;
-        border: 1px solid #d1d5db;
-        border-radius: 6px;
-        font-size: 0.875rem;
-        background: white;
-        color: #374151;
-        cursor: pointer;
-    }
-
-    .gender-select:disabled {
-        background-color: #f9fafb;
-        color: #9ca3af;
-        cursor: not-allowed;
-    }
-
-    .gender-select:focus {
-        outline: 2px solid #3b82f6;
-        outline-offset: 2px;
-        border-color: #3b82f6;
     }
 </style>
