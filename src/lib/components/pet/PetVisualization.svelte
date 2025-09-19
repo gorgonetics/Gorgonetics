@@ -1,6 +1,9 @@
 <script>
     import GeneVisualizer from "$lib/components/gene/GeneVisualizer.svelte";
     import VisualizationHeader from "$lib/components/layout/VisualizationHeader.svelte";
+    import { Button } from "flowbite-svelte";
+    import { ArrowLeft } from "@lucide/svelte";
+    import { appState } from "$lib/stores/pets.js";
 
     const { pet } = $props();
 
@@ -16,6 +19,11 @@
             geneVisualizerRef.handleViewChange(view);
         }
     }
+
+    // Handle back navigation to pet table
+    function handleBackToPetTable() {
+        appState.showPetTableView();
+    }
 </script>
 
 <div class="pet-visualization">
@@ -28,6 +36,15 @@
         hasUnknownGenes={pet?.has_unknown_genes}
     >
         {#snippet children()}
+            <Button
+                color="alternative"
+                size="sm"
+                onclick={handleBackToPetTable}
+                class="back-button"
+            >
+                <ArrowLeft class="w-4 h-4 mr-2" />
+                Back to Pet Table
+            </Button>
             <div class="view-controls">
                 <button
                     class="view-btn"
@@ -59,6 +76,20 @@
         display: flex;
         flex-direction: column;
         overflow: hidden;
+    }
+
+    :global(.back-button) {
+        background: rgba(255, 255, 255, 0.1) !important;
+        border: 1px solid rgba(255, 255, 255, 0.2) !important;
+        color: rgba(255, 255, 255, 0.9) !important;
+        transition: all 0.2s ease !important;
+    }
+
+    :global(.back-button:hover) {
+        background: rgba(255, 255, 255, 0.2) !important;
+        border-color: rgba(255, 255, 255, 0.3) !important;
+        color: white !important;
+        transform: translateX(-2px);
     }
 
     .view-controls {

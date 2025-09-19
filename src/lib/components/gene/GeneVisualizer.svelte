@@ -1148,31 +1148,36 @@
 
         const rect = detail.event.target.getBoundingClientRect();
 
-        // Calculate smart positioning to avoid window edge cropping
+        // Calculate smart positioning to stay close to gene while avoiding edge cropping
         const tooltipWidth = 250; // max-width from CSS
         const tooltipHeight = 100; // estimated height
-        const offset = 5;
+        const offset = 8;
 
         // Get viewport dimensions
         const viewportWidth = window.innerWidth;
         const viewportHeight = window.innerHeight;
 
-        // Calculate initial position (viewport coordinates for fixed positioning)
+        // Default position: slightly to the right and above the gene
         let x = rect.right + offset;
         let y = rect.top - offset;
 
-        // Adjust horizontal position if tooltip would go off right edge
+        // Check if tooltip would go off right edge - if so, shift it left just enough
         if (x + tooltipWidth > viewportWidth) {
-            x = rect.left - tooltipWidth - offset;
+            x = viewportWidth - tooltipWidth - 10; // 10px margin from edge
+            // But don't move it too far left of the gene
+            x = Math.max(x, rect.left - tooltipWidth - offset);
         }
 
-        // Adjust vertical position if tooltip would go off top edge
-        if (y < 0) {
-            y = rect.bottom + offset;
+        // Check if tooltip would go off bottom edge - if so, shift it up just enough
+        if (y + tooltipHeight > viewportHeight) {
+            y = viewportHeight - tooltipHeight - 10; // 10px margin from edge
+            // But don't move it too far up from the gene
+            y = Math.max(y, rect.top - tooltipHeight - offset);
         }
-        // Adjust vertical position if tooltip would go off bottom edge
-        else if (y + tooltipHeight > viewportHeight) {
-            y = rect.top - tooltipHeight - offset;
+
+        // Check if tooltip would go off top edge - if so, move it below the gene
+        if (y < 10) {
+            y = rect.bottom + offset;
         }
 
         tooltipX = x;
