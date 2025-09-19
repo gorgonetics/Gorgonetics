@@ -1147,6 +1147,7 @@
         }
 
         const mouseEvent = detail.event;
+        const containerRect = containerElement.getBoundingClientRect();
 
         // Calculate smart positioning to stay close to mouse cursor while avoiding edge cropping
         const tooltipWidth = 250; // max-width from CSS
@@ -1157,28 +1158,32 @@
         const viewportWidth = window.innerWidth;
         const viewportHeight = window.innerHeight;
 
-        // Default position: slightly to the right and below the mouse cursor
-        let x = mouseEvent.clientX + offset;
-        let y = mouseEvent.clientY + offset;
+        // Convert mouse position to container-relative coordinates
+        let x = mouseEvent.clientX - containerRect.left + offset;
+        let y = mouseEvent.clientY - containerRect.top + offset;
+
+        // Convert absolute coordinates to container-relative for edge checks
+        const absoluteX = containerRect.left + x;
+        const absoluteY = containerRect.top + y;
 
         // Check if tooltip would go off right edge - if so, position it to the left of cursor
-        if (x + tooltipWidth > viewportWidth) {
-            x = mouseEvent.clientX - tooltipWidth - offset;
+        if (absoluteX + tooltipWidth > viewportWidth) {
+            x = mouseEvent.clientX - containerRect.left - tooltipWidth - offset;
         }
 
         // Check if tooltip would go off bottom edge - if so, position it above cursor
-        if (y + tooltipHeight > viewportHeight) {
-            y = mouseEvent.clientY - tooltipHeight - offset;
+        if (absoluteY + tooltipHeight > viewportHeight) {
+            y = mouseEvent.clientY - containerRect.top - tooltipHeight - offset;
         }
 
         // Check if tooltip would go off top edge - if so, position it below cursor
-        if (y < 0) {
-            y = mouseEvent.clientY + offset;
+        if (absoluteY < 0) {
+            y = mouseEvent.clientY - containerRect.top + offset;
         }
 
         // Check if tooltip would go off left edge - if so, position it to the right of cursor
-        if (x < 0) {
-            x = mouseEvent.clientX + offset;
+        if (absoluteX < 0) {
+            x = mouseEvent.clientX - containerRect.left + offset;
         }
 
         tooltipX = x;
