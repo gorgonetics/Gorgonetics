@@ -1,6 +1,7 @@
 <script>
     import { createEventDispatcher } from "svelte";
     import { appState } from "../stores/appState.js";
+    import { Input, Select, Label } from "flowbite-svelte";
 
     const dispatch = createEventDispatcher();
 
@@ -108,25 +109,24 @@
         </div>
     </div>
     <div class="form-group" style="margin-top: 8px;">
-        <input
+        <Input
             type="text"
             bind:value={petName}
             placeholder="Pet name (optional)"
-            class="pet-name-input"
             disabled={uploading}
+            class="mb-4"
         />
     </div>
     <div class="form-group" style="margin-top: 8px;">
-        <label for="gender-select" class="gender-label">Gender</label>
-        <select
-            id="gender-select"
+        <Label class="mb-2 text-sm font-medium text-gray-600">Gender</Label>
+        <Select
             bind:value={petGender}
-            class="gender-select"
             disabled={uploading}
-        >
-            <option value="Male">Male</option>
-            <option value="Female">Female</option>
-        </select>
+            items={[
+                { value: "Male", name: "Male" },
+                { value: "Female", name: "Female" },
+            ]}
+        />
     </div>
 </div>
 
@@ -202,53 +202,5 @@
     .drop-hint {
         color: #6b7280;
         font-size: 0.75rem !important;
-    }
-
-    .pet-name-input {
-        padding: 0.5rem;
-        border: 1px solid #d1d5db;
-        border-radius: 6px;
-        font-size: 0.875rem;
-        background: white;
-    }
-
-    .pet-name-input:disabled {
-        background-color: #f9fafb;
-        color: #9ca3af;
-    }
-
-    .pet-name-input:focus {
-        outline: 2px solid #3b82f6;
-        outline-offset: 2px;
-        border-color: #3b82f6;
-    }
-
-    .gender-label {
-        font-size: 0.75rem !important;
-        font-weight: 500;
-        color: #6b7280;
-        margin-bottom: 0.25rem;
-    }
-
-    .gender-select {
-        padding: 0.5rem;
-        border: 1px solid #d1d5db;
-        border-radius: 6px;
-        font-size: 0.875rem;
-        background: white;
-        color: #374151;
-        cursor: pointer;
-    }
-
-    .gender-select:disabled {
-        background-color: #f9fafb;
-        color: #9ca3af;
-        cursor: not-allowed;
-    }
-
-    .gender-select:focus {
-        outline: 2px solid #3b82f6;
-        outline-offset: 2px;
-        border-color: #3b82f6;
     }
 </style>

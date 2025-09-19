@@ -2,18 +2,13 @@
     import { apiClient } from "$lib/services/api.js";
     import { activeTab, appState, error } from "$lib/stores/pets.js";
     import { authStore, isAuthenticated, user } from "$lib/stores/auth.js";
+    import { Modal } from "flowbite-svelte";
     import GeneEditor from "$lib/components/gene/GeneEditor.svelte";
     import LoginForm from "$lib/components/forms/LoginForm.svelte";
     import PetUpload from "$lib/components/forms/PetUploadForm.svelte";
     import RegisterForm from "$lib/components/forms/RegisterForm.svelte";
 
-    /**
-     * @typedef {Object} Props
-     * @property {boolean} [sidebarCollapsed]
-     * @property {any} toggleSidebar
-     */
-
-    /** @type {Props} */
+    /** @type {{ sidebarCollapsed?: boolean, toggleSidebar: Function }} */
     const { sidebarCollapsed = false, toggleSidebar } = $props();
 
     function switchTab(tab) {
@@ -181,7 +176,7 @@
                     </div>
                     <div class="guest-details">
                         <div class="guest-title">Welcome!</div>
-                        <div class="guest-subtitle">Explore Gorgonetics</div>
+                        <div class="guest-subtitle">EXPLORE GORGONETICS</div>
                     </div>
                 </div>
                 <div class="auth-buttons">
@@ -206,46 +201,39 @@
         {/if}
     {/if}
 
-    <!-- Sidebar Toggle Button -->
+    <!-- Sidebar Footer with Toggle -->
     <div class="sidebar-footer">
         <button
             class="sidebar-toggle"
             onclick={toggleSidebar}
             title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
-            <span class="toggle-icon" class:rotated={sidebarCollapsed}>‹</span>
+            <span class="toggle-icon">‹</span>
         </button>
     </div>
 </div>
 
 <!-- Auth Modal for Anonymous Users -->
-{#if showAuthModalDialog}
-    <div class="auth-modal-overlay" onclick={hideAuthModal}>
-        <div class="auth-modal" onclick={(e) => e.stopPropagation()}>
-            <div class="auth-modal-header">
-                <h2>
-                    {authModalMode === "login" ? "Sign In" : "Create Account"}
-                </h2>
-                <button class="close-btn" onclick={hideAuthModal} title="Close"
-                    >×</button
-                >
-            </div>
-            <div class="auth-modal-content">
-                {#if authModalMode === "login"}
-                    <LoginForm
-                        on:loginSuccess={handleAuthSuccess}
-                        on:switchToRegister={switchToRegister}
-                    />
-                {:else}
-                    <RegisterForm
-                        on:registerSuccess={handleAuthSuccess}
-                        on:switchToLogin={switchToLogin}
-                    />
-                {/if}
-            </div>
-        </div>
+<Modal bind:open={showAuthModalDialog} size="md" autoclose outsideclose>
+    <div
+        slot="header"
+        class="flex items-center text-lg font-semibold text-gray-900 dark:text-white"
+    >
+        {authModalMode === "login" ? "Sign In" : "Create Account"}
     </div>
-{/if}
+
+    {#if authModalMode === "login"}
+        <LoginForm
+            on:loginSuccess={handleAuthSuccess}
+            on:switchToRegister={switchToRegister}
+        />
+    {:else}
+        <RegisterForm
+            on:registerSuccess={handleAuthSuccess}
+            on:switchToLogin={switchToLogin}
+        />
+    {/if}
+</Modal>
 
 <style>
     @reference "tailwindcss";
@@ -301,7 +289,8 @@
     }
 
     .dna-emoji {
-        font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji",
+        font-family:
+            "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji",
             sans-serif;
         -webkit-text-fill-color: initial;
         color: white;
@@ -391,7 +380,8 @@
         color: white;
     }
 
-    .tab[aria-selected="true"] {
+    .tab[aria-selected="true"],
+    .tab.active {
         background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
         border-color: #1d4ed8;
         color: white;
@@ -402,56 +392,6 @@
         background: rgba(0, 0, 0, 0.4);
         border-color: rgba(0, 0, 0, 0.6);
         color: rgba(255, 255, 255, 0.9);
-    }
-
-    .tab-icon {
-        font-size: 16px;
-        flex-shrink: 0;
-    }
-
-    .tab-text {
-        flex: 1;
-        transition: opacity 0.3s ease;
-        white-space: nowrap;
-    }
-
-    .sidebar.collapsed .tab-text {
-        display: none;
-    }
-
-    .sidebar.collapsed .tab-list {
-        align-items: center;
-        padding: 16px;
-    }
-
-    .sidebar.collapsed .tab {
-        width: 100%;
-        height: 44px;
-        padding: 12px 16px;
-        justify-content: center;
-        border-radius: 8px;
-        background: rgba(0, 0, 0, 0.6);
-        border: 2px solid rgba(0, 0, 0, 0.8);
-        color: white;
-    }
-
-    .sidebar.collapsed .tab:hover {
-        background: rgba(0, 0, 0, 0.8);
-        border-color: rgba(0, 0, 0, 0.9);
-        transform: scale(1.05);
-        color: white;
-    }
-
-    .sidebar.collapsed .tab[aria-selected="true"] {
-        background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-        border-color: #1d4ed8;
-        box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
-        color: white;
-    }
-
-    .sidebar.collapsed .tab-icon {
-        font-size: 16px;
-        filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
     }
 
     .sidebar-controls {
@@ -465,145 +405,11 @@
         min-height: 0;
     }
 
-    .sidebar.collapsed .sidebar-controls {
-        display: none;
-    }
-
     .tab-panel {
         display: flex;
         flex-direction: column;
         gap: 1rem;
         padding: 0;
-    }
-
-    .form-group {
-        display: flex;
-        flex-direction: column;
-        gap: 0.5rem;
-    }
-
-    .form-group label {
-        font-size: 0.875rem;
-        font-weight: 500;
-        color: #374151;
-    }
-
-    .form-group select {
-        padding: 0.5rem;
-        border: 1px solid #d1d5db;
-        border-radius: 6px;
-        font-size: 0.875rem;
-        background: white;
-    }
-
-    .form-group select:disabled {
-        background-color: #f9fafb;
-        color: #9ca3af;
-    }
-
-    .sidebar-buttons {
-        display: flex;
-        flex-direction: column;
-        gap: 0.5rem;
-    }
-
-    .load-btn,
-    .export-btn {
-        padding: 0.5rem 1rem;
-        border: none;
-        border-radius: 6px;
-        font-size: 0.875rem;
-        font-weight: 500;
-        cursor: pointer;
-        transition: all 0.2s ease;
-    }
-
-    .load-btn {
-        background-color: #3b82f6;
-        color: white;
-    }
-
-    .load-btn:hover:not(:disabled) {
-        background-color: #2563eb;
-    }
-
-    .export-btn {
-        background-color: #f3f4f6;
-        color: #374151;
-    }
-
-    .export-btn:hover:not(:disabled) {
-        background-color: #e5e7eb;
-    }
-
-    .load-btn:disabled,
-    .export-btn:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-    }
-
-    .effect-legend {
-        margin-top: 1.5rem;
-        padding: 1rem;
-        background-color: #f9fafb;
-        border-radius: 8px;
-        font-size: 0.75rem;
-    }
-
-    .effect-legend h4 {
-        margin: 0 0 0.75rem 0;
-        font-size: 0.875rem;
-        color: #374151;
-    }
-
-    .legend-badges {
-        display: flex;
-        flex-direction: column;
-        gap: 0.375rem;
-        margin-bottom: 0.75rem;
-    }
-
-    .legend-badge {
-        padding: 0.25rem 0.5rem;
-        border-radius: 4px;
-        font-size: 0.6875rem;
-        font-weight: 500;
-    }
-
-    .legend-badge.positive {
-        background-color: #dcfce7;
-        color: #166534;
-    }
-
-    .legend-badge.negative {
-        background-color: #fef2f2;
-        color: #991b1b;
-    }
-
-    .legend-badge.neutral {
-        background-color: #f3f4f6;
-        color: #374151;
-    }
-
-    .legend-details {
-        margin-bottom: 0.5rem;
-    }
-
-    .attribute-icons {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.375rem;
-        margin-top: 0.375rem;
-    }
-
-    .attribute-icons span {
-        font-size: 0.625rem;
-    }
-
-    .legend-note {
-        color: #6b7280;
-        margin: 0;
-        font-size: 0.6875rem;
     }
 
     /* Auth Required Message Styles */
@@ -662,49 +468,6 @@
         font-size: 16px;
     }
 
-    .sidebar-footer {
-        padding: 20px;
-        border-top: 1px solid rgba(255, 255, 255, 0.1);
-        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-        display: flex;
-        justify-content: center;
-        margin-top: auto;
-        flex-shrink: 0;
-        overflow: hidden;
-    }
-
-    .sidebar-toggle {
-        width: 36px;
-        height: 36px;
-        background: rgba(255, 255, 255, 0.1);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        border-radius: 8px;
-        color: rgba(255, 255, 255, 0.8);
-        font-size: 16px;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: all 0.3s ease;
-        backdrop-filter: blur(10px);
-        flex-shrink: 0;
-    }
-
-    .sidebar-toggle:hover {
-        background: rgba(255, 255, 255, 0.2);
-        color: white;
-        border-color: rgba(255, 255, 255, 0.3);
-    }
-
-    .toggle-icon {
-        transition: transform 0.3s ease;
-        font-weight: bold;
-    }
-
-    .sidebar.collapsed .toggle-icon {
-        transform: rotate(180deg);
-    }
-
     .error {
         position: relative;
         margin-bottom: 1rem;
@@ -753,14 +516,12 @@
         align-items: center;
         justify-content: center;
         flex-shrink: 0;
-        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
-        border: 2px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
     }
 
     .user-icon {
-        color: white !important;
-        font-size: 18px;
-        filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+        font-size: 20px;
+        color: white;
     }
 
     .user-details {
@@ -771,98 +532,73 @@
     .username {
         font-size: 14px;
         font-weight: 600;
-        color: white !important;
+        color: white;
+        line-height: 1.2;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-        margin-bottom: 2px;
     }
 
     .user-role {
         font-size: 11px;
-        color: rgba(255, 255, 255, 0.8) !important;
-        text-transform: uppercase;
-        letter-spacing: 0.8px;
+        color: rgba(255, 255, 255, 0.6);
         font-weight: 500;
-        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
     }
 
     .user-role.admin {
-        color: #fbbf24 !important;
+        color: #fbbf24;
         font-weight: 600;
-        text-shadow: 0 1px 2px rgba(251, 191, 36, 0.3);
     }
 
     .logout-btn {
         display: flex;
         align-items: center;
-        gap: 8px;
-        padding: 10px 16px;
-        background: rgba(255, 255, 255, 0.1);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        border-radius: 8px;
-        color: rgba(255, 255, 255, 0.9);
-        font-size: 13px;
+        gap: 6px;
+        padding: 8px 12px;
+        background: rgba(239, 68, 68, 0.1);
+        border: 1px solid rgba(239, 68, 68, 0.2);
+        border-radius: 6px;
+        color: #fca5a5;
+        font-size: 12px;
         font-weight: 500;
         cursor: pointer;
         transition: all 0.3s ease;
-        text-align: center;
-        width: 100%;
-        justify-content: center;
-        backdrop-filter: blur(10px);
-        position: relative;
-        z-index: 1;
+        align-self: flex-start;
     }
 
     .logout-btn:hover {
-        background: rgba(239, 68, 68, 0.15);
+        background: rgba(239, 68, 68, 0.2);
         border-color: rgba(239, 68, 68, 0.3);
-        color: #fca5a5;
-        transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
-    }
-
-    .logout-btn:active {
-        transform: translateY(0);
-        box-shadow: 0 2px 6px rgba(239, 68, 68, 0.2);
+        color: #f87171;
     }
 
     .logout-icon {
         font-size: 14px;
-        transition: transform 0.3s ease;
-    }
-
-    .logout-btn:hover .logout-icon {
-        transform: translateX(2px);
     }
 
     .logout-text {
         white-space: nowrap;
-        font-weight: 600;
-        letter-spacing: 0.3px;
     }
 
-    /* Auth Section Styles for Anonymous Users */
+    /* Auth Section (Guest) Styles */
     .auth-section {
         padding: 16px 24px;
         border-top: 1px solid rgba(255, 255, 255, 0.1);
         background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
         display: flex;
         flex-direction: column;
-        gap: 16px;
+        gap: 12px;
         margin-top: auto;
         flex-shrink: 0;
-        position: relative;
-        overflow: hidden;
     }
 
     .guest-info {
         display: flex;
         align-items: center;
         gap: 12px;
-        position: relative;
-        z-index: 1;
+        margin-bottom: 8px;
     }
 
     .guest-avatar {
@@ -898,6 +634,7 @@
         text-overflow: ellipsis;
         text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
         margin-bottom: 2px;
+        line-height: 1.2;
     }
 
     .guest-subtitle {
@@ -965,101 +702,52 @@
 
     .auth-icon {
         font-size: 14px;
-        transition: transform 0.3s ease;
-    }
-
-    .login-btn:hover .auth-icon,
-    .register-btn:hover .auth-icon {
-        transform: scale(1.1);
     }
 
     .auth-text {
         white-space: nowrap;
-        font-weight: 600;
-        letter-spacing: 0.3px;
     }
 
-    /* Auth Modal Styles */
-    .auth-modal-overlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0, 0, 0, 0.8);
-        backdrop-filter: blur(8px);
+    .sidebar-footer {
+        padding: 20px;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        display: flex;
+        justify-content: center;
+        margin-top: auto;
+        flex-shrink: 0;
+        overflow: hidden;
+    }
+
+    .sidebar-toggle {
+        width: 36px;
+        height: 36px;
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 8px;
+        color: rgba(255, 255, 255, 0.8);
+        font-size: 16px;
+        cursor: pointer;
         display: flex;
         align-items: center;
         justify-content: center;
-        z-index: 1000;
-        animation: fadeIn 0.3s ease;
+        transition: all 0.3s ease;
+        backdrop-filter: blur(10px);
+        flex-shrink: 0;
     }
 
-    .auth-modal {
-        background: white;
-        border-radius: 16px;
-        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
-        max-width: 500px;
-        width: 90%;
-        max-height: 90vh;
-        overflow: hidden;
-        animation: slideIn 0.3s ease;
+    .sidebar-toggle:hover {
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+        border-color: rgba(255, 255, 255, 0.3);
     }
 
-    .auth-modal-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 24px 32px 16px;
-        border-bottom: 1px solid #e5e7eb;
-        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    .toggle-icon {
+        transition: transform 0.3s ease;
+        font-weight: bold;
     }
 
-    .auth-modal-header h2 {
-        margin: 0;
-        font-size: 24px;
-        font-weight: 700;
-        color: #1f2937;
-    }
-
-    .close-btn {
-        background: none;
-        border: none;
-        font-size: 24px;
-        color: #6b7280;
-        cursor: pointer;
-        padding: 4px;
-        border-radius: 6px;
-        transition: all 0.2s ease;
-        line-height: 1;
-    }
-
-    .close-btn:hover {
-        background: rgba(0, 0, 0, 0.1);
-        color: #374151;
-    }
-
-    .auth-modal-content {
-        padding: 32px;
-    }
-
-    @keyframes fadeIn {
-        from {
-            opacity: 0;
-        }
-        to {
-            opacity: 1;
-        }
-    }
-
-    @keyframes slideIn {
-        from {
-            opacity: 0;
-            transform: translateY(-20px) scale(0.95);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-        }
+    .sidebar.collapsed .toggle-icon {
+        transform: rotate(180deg);
     }
 </style>
