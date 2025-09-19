@@ -169,6 +169,11 @@ yarn-error.log*
 .npm
 .eslintcache
 
+# SvelteKit / Vite
+.svelte-kit/
+.vite/
+build/
+
 # Project specific
 *.backup
 temp/

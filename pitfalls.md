@@ -61,6 +61,14 @@
 - **Do not attempt to use PostCSS, we already have @tailwind/vite installed**
 - If something doesn't work, check the documentation at https://flowbite-svelte.com/docs/pages/introduction
 
+## TailwindCSS v4 with SvelteKit (2025)
+- **ONLY use `@import 'tailwindcss';` in CSS files** - the old `@tailwind base;`, `@tailwind components;`, `@tailwind utilities;` directives are REMOVED in v4
+- **Vite config**: Must use `@tailwindcss/vite` plugin BEFORE sveltekit plugin: `plugins: [tailwindcss(), sveltekit()]`
+- **Import order matters**: TailwindCSS plugin must come first in vite.config.js
+- **Style blocks**: For component `<style>` blocks that need Tailwind, use `@reference "path/to/app.css"` at the top
+- **Component styles not working**: TailwindCSS v4 processes each `<style>` block in isolation - add `@reference "../../../app.css";` to make component styles work
+- **Never mix v3 and v4 syntax** - stick to v4's simplified approach
+
 ## Dependency Management
 - **NEVER attempt solve problems by downgrading dependencies** - this happens because of relying on obsolete knowledge
 - Instead of downgrading, search the web for proper ways to solve issues with modern dependencies
@@ -70,3 +78,9 @@
 - **DO NOT CLAIM WORK IS DONE WITHOUT VERIFYING** - Always test and verify functionality before declaring completion
 - Check for compilation errors, runtime errors, and visual verification
 - Test actual functionality, not just that code compiles
+
+## Git History Investigation
+- **If the user tells you something used to look different, check a prior git commit first** - Don't change things at random
+- Use `git show commit_hash:file_path` to see how files looked in previous commits
+- Compare the previous state to current state to identify exact differences
+- Restore the original styling/behavior based on the historical evidence, not guesswork
