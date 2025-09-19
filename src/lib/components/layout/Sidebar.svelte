@@ -70,7 +70,6 @@
                 <button
                     class="tab"
                     class:active={$activeTab === "pets"}
-                    aria-selected={$activeTab === "pets"}
                     onclick={() => switchTab("pets")}
                 >
                     <span class="tab-icon">🐾</span>
@@ -82,7 +81,6 @@
                 <button
                     class="tab"
                     class:active={$activeTab === "editor"}
-                    aria-selected={$activeTab === "editor"}
                     onclick={() => switchTab("editor")}
                 >
                     <span class="tab-icon">🧬</span>
@@ -236,7 +234,6 @@
 </Modal>
 
 <style>
-    @reference "tailwindcss";
     .sidebar {
         width: 280px;
         background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
@@ -380,18 +377,11 @@
         color: white;
     }
 
-    .tab[aria-selected="true"],
     .tab.active {
         background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
         border-color: #1d4ed8;
         color: white;
         box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
-    }
-
-    .tab[aria-selected="false"] {
-        background: rgba(0, 0, 0, 0.4);
-        border-color: rgba(0, 0, 0, 0.6);
-        color: rgba(255, 255, 255, 0.9);
     }
 
     .sidebar-controls {

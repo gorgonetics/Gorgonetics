@@ -8,7 +8,6 @@
 
     let showEditor = $state(false);
     let editingPet = $state(null);
-    
 
     function formatDate(dateString) {
         if (!dateString) return "Unknown";
@@ -44,36 +43,41 @@
         // Optionally select the updated pet or do other actions
     }
 
-
     function assemblePetsData(petsArray) {
         // Build dynamic headings from attribute list
         const baseHeadings = ["Pet Name", "Species", "Gender", "Breed"];
-        const attributeHeadings = FALLBACK_ATTRIBUTE_LIST.map(attr => attr.name);
+        const attributeHeadings = FALLBACK_ATTRIBUTE_LIST.map(
+            (attr) => attr.name,
+        );
         const endHeadings = ["Created Date", "Actions"];
-        const headings = [...baseHeadings, ...attributeHeadings, ...endHeadings];
+        const headings = [
+            ...baseHeadings,
+            ...attributeHeadings,
+            ...endHeadings,
+        ];
 
         if (!petsArray || petsArray.length === 0) {
             return { headings, data: [] };
         }
 
-        const data = petsArray.map(pet => {
+        const data = petsArray.map((pet) => {
             const baseData = [
                 pet.name || "Unnamed",
-                pet.species || "Unknown", 
+                pet.species || "Unknown",
                 pet.gender || "Male",
-                pet.breed || "Mixed"
+                pet.breed || "Mixed",
             ];
-            
+
             // Add actual attribute values from pet data
-            const attributeData = FALLBACK_ATTRIBUTE_LIST.map(attr => {
+            const attributeData = FALLBACK_ATTRIBUTE_LIST.map((attr) => {
                 const attrKey = attr.key.toLowerCase();
                 // Access attributes directly from pet object (they're stored as direct properties)
                 const value = pet[attrKey] ?? 50;
                 return value;
             });
-            
+
             // Generate action buttons based on pet type
-            let actionButtons = '';
+            let actionButtons = "";
             if (pet.is_demo || pet.readonly) {
                 // Demo pets - only show view button and demo indicator
                 actionButtons = `<div class="table-actions">
@@ -97,11 +101,8 @@
                 </div>`;
             }
 
-            const endData = [
-                formatDate(pet.created_at),
-                actionButtons
-            ];
-            
+            const endData = [formatDate(pet.created_at), actionButtons];
+
             return [...baseData, ...attributeData, ...endData];
         });
 
@@ -112,43 +113,39 @@
 
     // Handle table button clicks
     function handleTableClick(event) {
-        const button = event.target.closest('button[data-action]');
+        const button = event.target.closest("button[data-action]");
         if (!button) return;
 
         const action = button.dataset.action;
         const petId = parseInt(button.dataset.petId);
-        const pet = $pets.find(p => p.id === petId);
-        
+        const pet = $pets.find((p) => p.id === petId);
+
         if (!pet) return;
 
         switch (action) {
-            case 'view':
+            case "view":
                 selectPet(pet);
                 break;
-            case 'edit':
+            case "edit":
                 editPet(pet);
                 break;
-            case 'delete':
+            case "delete":
                 deletePet(pet);
                 break;
         }
     }
-
 </script>
 
 <div class="pet-visualization">
     <VisualizationHeader
         title="🐾 Pet Manager"
         stats={[{ text: `${$pets.length} pets total` }]}
-        hasUnknownGenes={$pets.some(pet => pet.has_unknown_genes)}
+        hasUnknownGenes={$pets.some((pet) => pet.has_unknown_genes)}
     />
-    
-    <div 
-        class="gene-visualizer-container"
-        onclick={handleTableClick}
-    >
+
+    <div class="gene-visualizer-container" onclick={handleTableClick}>
         {#if $pets && $pets.length > 0}
-            <Table 
+            <Table
                 dataTableOptions={{
                     data: items,
                     searchable: true,
@@ -156,23 +153,26 @@
                     paging: true,
                     perPage: 10,
                     perPageSelect: [5, 10, 25, ["All", -1]],
-                    fixedHeight: false
+                    fixedHeight: false,
                 }}
             />
         {:else}
             <div class="empty-state">
                 <div class="empty-icon">🐾</div>
                 <h3>No pets found</h3>
-                <p>Upload some pet data to get started with genetic analysis.</p>
+                <p>
+                    Upload some pet data to get started with genetic analysis.
+                </p>
             </div>
         {/if}
     </div>
 </div>
 
 <!-- Pet Editor Modal -->
-{#if showEditor && editingPet}
-    <PetEditor 
+{#if editingPet}
+    <PetEditor
         pet={editingPet}
+        bind:open={showEditor}
         onClose={closeEditor}
         onSave={handlePetSaved}
     />
