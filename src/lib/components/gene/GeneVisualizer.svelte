@@ -2054,7 +2054,7 @@
         display: flex;
         flex-direction: column;
         background: #ffffff;
-        min-height: 0;
+        overflow: hidden;
     }
 
     .loading-state,
@@ -2075,7 +2075,7 @@
     .visualizer-content {
         display: flex;
         flex: 1;
-        min-height: 0;
+        overflow: hidden;
     }
 
     .gene-section {
@@ -2084,7 +2084,7 @@
         border-right: 1px solid #e2e8f0;
         display: flex;
         flex-direction: column;
-        min-height: 0;
+        overflow: hidden;
     }
 
     .gene-legend {
@@ -2190,12 +2190,12 @@
     }
 
     .gene-grid-container {
-        min-height: 300px;
         flex: 1;
         overflow: auto;
         border: 1px solid #e2e8f0;
         border-radius: 6px;
         background: #f9fafb;
+        min-height: 0;
     }
 
     .gene-grid-table {

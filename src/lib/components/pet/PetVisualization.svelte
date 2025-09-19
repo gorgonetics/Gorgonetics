@@ -54,6 +54,13 @@
 </div>
 
 <style>
+    .pet-visualization {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
     .view-controls {
         display: flex;
         gap: 0.5rem;
@@ -89,7 +96,7 @@
         position: relative;
         contain: layout style;
         padding: 1.5rem;
-        overflow: auto;
+        overflow: hidden;
     }
 
     .empty-state,
