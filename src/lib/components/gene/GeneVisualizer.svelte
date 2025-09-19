@@ -1151,7 +1151,19 @@
 
         // Calculate smart positioning to stay close to mouse cursor while avoiding edge cropping
         const tooltipWidth = 250; // max-width from CSS
-        const tooltipHeight = 100; // estimated height
+        // Calculate actual height based on content
+        const baseHeight = 45; // base height for gene ID and type
+        const effectHeight = 20; // height per effect line
+        const potentialEffectHeight = 15; // height per potential effect
+        const tooltipHeight =
+            baseHeight +
+            (effectInfo &&
+            effectInfo !== "No gene data found" &&
+            effectInfo !== "No dominant effect" &&
+            effectInfo !== "No recessive effect"
+                ? effectHeight
+                : 0) +
+            potentialEffects.length * potentialEffectHeight;
         const offset = 12; // Small offset from cursor
 
         // Get viewport dimensions
