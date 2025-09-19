@@ -22,8 +22,8 @@
     <VisualizationHeader
         title="🧬 Gene Visualization: {pet?.name || 'Pet'}"
         stats={[
-            { text: `${pet?.species || 'Unknown'} species` },
-            { text: `${pet?.known_genes || 0} known genes` }
+            { text: `${pet?.species || "Unknown"} species` },
+            { text: `${pet?.known_genes || 0} known genes` },
         ]}
         hasUnknownGenes={pet?.has_unknown_genes}
     >
@@ -89,6 +89,7 @@
         position: relative;
         contain: layout style;
         padding: 1.5rem;
+        overflow: auto;
     }
 
     .empty-state,

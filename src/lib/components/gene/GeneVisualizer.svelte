@@ -3,14 +3,14 @@
     import GeneStatsTable from "./GeneStatsTable.svelte";
     import GeneTooltip from "./GeneTooltip.svelte";
     import GeneCell from "./GeneCell.svelte";
-    import { 
+    import {
         normalizeSpecies,
         loadAttributeConfig,
-        loadAppearanceConfig as fetchAppearanceConfig, 
+        loadAppearanceConfig as fetchAppearanceConfig,
         loadGeneEffects,
         getCacheStats,
         clearAllCaches,
-        FALLBACK_ATTRIBUTES
+        FALLBACK_ATTRIBUTES,
     } from "$lib/utils/apiUtils.js";
 
     const { pet } = $props();
@@ -54,13 +54,13 @@
     // Parsed gene data
     let headerStructure = $state(null);
     let chromosomeData = $state([]);
-    
+
     // Cached attribute names for dynamic attribute detection
     let allAttributeNames = $state([]);
-    
+
     // Global gene effects database - persists across pet selections
     const globalGeneEffectsDB = $state({});
-    
+
     // DOM template cache - stores pre-built table structures per species
     const speciesTemplateCache = $state(new Map());
     let currentSpeciesTemplate = $state(null);
@@ -70,17 +70,17 @@
     onMount(async () => {
         // Preload gene effects for common species to improve performance
         await preloadGeneEffects();
-        
+
         if (pet) {
             await loadPetData();
         }
     });
-    
+
     async function preloadGeneEffects() {
         const commonSpecies = ["horse", "beewasp"];
-        
+
         // Load in parallel for better performance
-        const loadPromises = commonSpecies.map(async species => {
+        const loadPromises = commonSpecies.map(async (species) => {
             try {
                 const normalizedSpecies = normalizeSpecies(species);
                 if (!globalGeneEffectsDB[normalizedSpecies]) {
@@ -90,46 +90,56 @@
                     }
                 }
             } catch (error) {
-                console.warn(`Failed to preload gene effects for ${species}:`, error);
+                console.warn(
+                    `Failed to preload gene effects for ${species}:`,
+                    error,
+                );
             }
         });
-        
+
         await Promise.all(loadPromises);
-        
+
         // Expose cache utilities to window for development debugging
-        if (typeof window !== 'undefined' && import.meta.env.DEV) {
+        if (typeof window !== "undefined" && import.meta.env.DEV) {
             window.geneVisualizerCache = {
                 stats: getCacheStats,
                 clear: clearAllCaches,
-                globalDB: () => globalGeneEffectsDB
+                globalDB: () => globalGeneEffectsDB,
             };
         }
     }
-    
+
     function createSpeciesTemplate(species, headerStructure, chromosomeCount) {
-        
         const template = {
             species,
             chromosomeCount,
             blockCount: headerStructure.sortedBlocks.length,
             sortedBlocks: [...headerStructure.sortedBlocks],
             blockMaxGenes: new Map(headerStructure.blockMaxGenes),
-            timestamp: Date.now()
+            timestamp: Date.now(),
         };
-        
+
         return template;
     }
-    
-    function getOrCreateSpeciesTemplate(species, headerStructure, chromosomeCount) {
+
+    function getOrCreateSpeciesTemplate(
+        species,
+        headerStructure,
+        chromosomeCount,
+    ) {
         const cacheKey = `${species}_${chromosomeCount}_${headerStructure.sortedBlocks.length}`;
-        
+
         if (speciesTemplateCache.has(cacheKey)) {
             const cached = speciesTemplateCache.get(cacheKey);
             isUsingCachedTemplate = true;
             return cached;
         }
-        
-        const template = createSpeciesTemplate(species, headerStructure, chromosomeCount);
+
+        const template = createSpeciesTemplate(
+            species,
+            headerStructure,
+            chromosomeCount,
+        );
         speciesTemplateCache.set(cacheKey, template);
         isUsingCachedTemplate = false;
         return template;
@@ -171,20 +181,19 @@
             }
 
             currentPet = await response.json();
-            
+
             // Load gene effects and appearance config in parallel for better performance
             await Promise.all([
                 loadGeneEffectsForSpecies(currentPet.species),
-                loadAppearanceConfig(currentPet.species)
+                loadAppearanceConfig(currentPet.species),
             ]);
-            
+
             // Static templates disabled - current dynamic rendering performance is sufficient
-            
+
             await updateVisualization();
-            
+
             // Check if delay happens after JS processing (DOM rendering)
-            setTimeout(() => {
-            }, 100);
+            setTimeout(() => {}, 100);
         } catch (err) {
             error = `Failed to load pet: ${err.message}`;
             console.error("❌ Error loading pet data:", err);
@@ -195,13 +204,13 @@
 
     async function loadGeneEffectsForSpecies(species) {
         const normalizedSpecies = normalizeSpecies(species);
-        
+
         // Check if we already have this species in our global cache
         if (globalGeneEffectsDB[normalizedSpecies]) {
             geneEffectsDB = globalGeneEffectsDB;
             return;
         }
-        
+
         // Load from API (with caching)
         const data = await loadGeneEffects(species);
         if (data) {
@@ -292,10 +301,10 @@
                 const config = await loadAttributeConfig(currentPet.species);
                 if (config) {
                     // Cache attribute names for dynamic detection
-                    allAttributeNames = config.all_attribute_names.map(name => 
-                        name.charAt(0).toUpperCase() + name.slice(1)
+                    allAttributeNames = config.all_attribute_names.map(
+                        (name) => name.charAt(0).toUpperCase() + name.slice(1),
                     );
-                    
+
                     config.all_attribute_names.forEach((attrName) => {
                         const attrKey =
                             attrName.charAt(0).toUpperCase() +
@@ -502,7 +511,7 @@
 
     function extractAttributeFromEffect(effectStr) {
         if (!effectStr || !allAttributeNames.length) return null;
-        
+
         // Find which attribute name is mentioned in the effect string
         for (const attributeName of allAttributeNames) {
             if (effectStr.includes(attributeName)) {
@@ -511,10 +520,10 @@
         }
         return null;
     }
-    
+
     function extractAttributesFromEffect(effectStr) {
         if (!effectStr || !allAttributeNames.length) return [];
-        
+
         // Find all attribute names mentioned in the effect string
         const foundAttributes = [];
         for (const attributeName of allAttributeNames) {
@@ -588,11 +597,19 @@
                     appearanceCategory = "aura";
                 } else if (appearance.startsWith("Coat")) {
                     appearanceCategory = "coat";
-                } else if (appearance.startsWith("Face Markings") || appearance.startsWith("Face markings") || appearance.startsWith("Face-markings")) {
+                } else if (
+                    appearance.startsWith("Face Markings") ||
+                    appearance.startsWith("Face markings") ||
+                    appearance.startsWith("Face-markings")
+                ) {
                     appearanceCategory = "face-markings";
                 } else if (appearance.startsWith("Hair")) {
                     appearanceCategory = "hair";
-                } else if (appearance.startsWith("Leg Markings") || appearance.startsWith("Leg markings") || appearance.startsWith("Leg-markings")) {
+                } else if (
+                    appearance.startsWith("Leg Markings") ||
+                    appearance.startsWith("Leg markings") ||
+                    appearance.startsWith("Leg-markings")
+                ) {
                     appearanceCategory = "leg-markings";
                 } else if (appearance.startsWith("Magical")) {
                     appearanceCategory = "magical";
@@ -831,7 +848,8 @@
             dominantEffect !== "No dominant effect" &&
             dominantEffect !== "Unknown gene type"
         ) {
-            const dominantAttributes = extractAttributesFromEffect(dominantEffect);
+            const dominantAttributes =
+                extractAttributesFromEffect(dominantEffect);
             allPotentialAttributes.push(...dominantAttributes);
         }
 
@@ -841,7 +859,8 @@
             recessiveEffect !== "No recessive effect" &&
             recessiveEffect !== "Unknown gene type"
         ) {
-            const recessiveAttributes = extractAttributesFromEffect(recessiveEffect);
+            const recessiveAttributes =
+                extractAttributesFromEffect(recessiveEffect);
             allPotentialAttributes.push(...recessiveAttributes);
         }
 
@@ -887,72 +906,85 @@
             }
 
             const allStats = await initializeStats();
-            
+
             // OPTIMIZED SINGLE-PASS PROCESSING - Everything done in one loop!
             console.time("📊 Single-pass gene analysis");
-            
+
             const allBlocks = new Set();
             const blockMaxGenes = new Map();
             const geneAnalysisCache = new Map(); // Cache gene analysis results
             let totalGenesCount = 0;
-            
+
             // SINGLE PASS: Analyze genes, collect blocks, and update stats - all at once!
             Object.values(parsedGenes).forEach((chromosomeData) => {
                 // Count genes per block for this chromosome
                 const thisChromosomeBlockCount = new Map();
-                
+
                 chromosomeData.allGenes.forEach((gene) => {
                     allBlocks.add(gene.block);
                     totalGenesCount++;
-                    
+
                     // Track genes per block for this chromosome
-                    const currentCount = thisChromosomeBlockCount.get(gene.block) || 0;
+                    const currentCount =
+                        thisChromosomeBlockCount.get(gene.block) || 0;
                     thisChromosomeBlockCount.set(gene.block, currentCount + 1);
-                    
+
                     // Pre-compute and cache gene analysis once
                     const cacheKey = `${gene.id}_${gene.type}`;
                     if (!geneAnalysisCache.has(cacheKey)) {
-                        const geneAnalysis = analyzeGeneEffect(pet.species, gene.id, gene.type);
-                        
+                        const geneAnalysis = analyzeGeneEffect(
+                            pet.species,
+                            gene.id,
+                            gene.type,
+                        );
+
                         // Handle potential effects in the same pass
                         let effectType = geneAnalysis.type;
-                        if (geneAnalysis.type === "neutral" && hasAnyPotentialEffect(pet.species, gene.id)) {
-                            const potentialType = analyzePotentialEffectType(pet.species, gene.id);
+                        if (
+                            geneAnalysis.type === "neutral" &&
+                            hasAnyPotentialEffect(pet.species, gene.id)
+                        ) {
+                            const potentialType = analyzePotentialEffectType(
+                                pet.species,
+                                gene.id,
+                            );
                             if (potentialType) {
                                 effectType = potentialType;
                             }
                         }
-                        
+
                         const processedAnalysis = {
                             ...geneAnalysis,
                             type: effectType,
                         };
-                        
+
                         geneAnalysisCache.set(cacheKey, processedAnalysis);
                         updateStats(allStats, processedAnalysis);
                     }
                 });
-                
+
                 // Update global max for each block based on this chromosome
                 thisChromosomeBlockCount.forEach((count, block) => {
                     const currentMax = blockMaxGenes.get(block) || 0;
                     blockMaxGenes.set(block, Math.max(currentMax, count));
                 });
             });
-            
+
             console.timeEnd("📊 Single-pass gene analysis");
-            
+
             // Calculate potential DOM elements to be rendered
             const chromosomeCount = Object.keys(parsedGenes).length;
             let totalDOMElements = 0;
-            blockMaxGenes.forEach(maxGenes => {
+            blockMaxGenes.forEach((maxGenes) => {
                 totalDOMElements += chromosomeCount * maxGenes;
             });
-            console.warn(`⚠️ About to render ${totalDOMElements} DOM elements (${chromosomeCount} chromosomes × blocks × genes)`);
+            console.warn(
+                `⚠️ About to render ${totalDOMElements} DOM elements (${chromosomeCount} chromosomes × blocks × genes)`,
+            );
             if (totalDOMElements > 5000) {
                 console.warn("🚨 This will likely cause DOM rendering delays!");
             }
-            
+
             currentStats = allStats;
             totalGenes = totalGenesCount;
 
@@ -980,16 +1012,18 @@
                 sortedBlocks,
                 blockMaxGenes,
             };
-            
+
             // Create or reuse species template
             currentSpeciesTemplate = getOrCreateSpeciesTemplate(
-                pet.species, 
-                headerStructure, 
-                chromosomeCount
+                pet.species,
+                headerStructure,
+                chromosomeCount,
             );
 
             // Build chromosome data using cached analysis
-            const buildTime = isUsingCachedTemplate ? "🔄 Updating chromosome data" : "🏗️ Building chromosome data";
+            const buildTime = isUsingCachedTemplate
+                ? "🔄 Updating chromosome data"
+                : "🏗️ Building chromosome data";
             console.time(buildTime);
             chromosomeData = sortedChromosomes.map(([chromosome, data]) => {
                 const processedBlocks = {};
@@ -1011,12 +1045,17 @@
                         const gene = genesInBlock[i];
                         if (gene) {
                             const cacheKey = `${gene.id}_${gene.type}`;
-                            const geneAnalysis = geneAnalysisCache.get(cacheKey);
+                            const geneAnalysis =
+                                geneAnalysisCache.get(cacheKey);
 
                             processedBlocks[block][i] = {
                                 ...gene,
                                 geneAnalysis,
-                                isVisible: isGeneVisible(chromosome, gene, geneAnalysis),
+                                isVisible: isGeneVisible(
+                                    chromosome,
+                                    gene,
+                                    geneAnalysis,
+                                ),
                             };
                         } else {
                             processedBlocks[block][i] = null;
@@ -1031,14 +1070,14 @@
                 };
             });
             console.timeEnd(buildTime);
-            
+
             console.time("🔄 State update (triggers DOM render)");
             // This assignment triggers Svelte's DOM update cycle
             // With template caching, DOM structure should be reused when possible
             console.timeEnd("🔄 State update (triggers DOM render)");
-            
+
             // Performance optimization complete - using optimized dynamic rendering
-            
+
             console.timeEnd("🚀 Gene Visualization Processing");
         } catch (err) {
             console.error("Error in createGeneVisualization:", err);
@@ -1433,7 +1472,7 @@
             case "neutral":
                 attributeGroups = ["appearance-neutral"];
                 break;
-            
+
             // Horse appearance categories
             case "scale":
                 attributeGroups = ["scale"];
@@ -1468,7 +1507,7 @@
             case "markings":
                 attributeGroups = ["markings"];
                 break;
-            
+
             // BeeWasp scale categories (keeping for compatibility)
             case "body-scale":
             case "wing-scale":
@@ -1545,7 +1584,6 @@
         currentView = view;
         updateVisualization();
     }
-
 </script>
 
 <div class="gene-visualizer" bind:this={containerElement}>
@@ -1867,79 +1905,80 @@
                 <div class="gene-grid-container">
                     {#if headerStructure && chromosomeData.length > 0}
                         <!-- Optimized dynamic rendering -->
-                        {#key (currentSpeciesTemplate ? currentSpeciesTemplate.species + "_" + currentSpeciesTemplate.chromosomeCount + "_" + currentSpeciesTemplate.blockCount : "initial")}
-                        <table class="gene-grid-table">
-                            <thead class="gene-headers">
-                                <tr>
-                                    <th class="chromosome-header">Chr</th>
-                                    {#each headerStructure.sortedBlocks as block}
-                                        {#each Array.from({ length: headerStructure.blockMaxGenes.get(block) }, (_, i) => i) as i}
-                                            <th
-                                                class="position-header {i === 0
-                                                    ? 'block-label block-start'
-                                                    : ''}"
-                                            >
-                                                {i === 0 ? block : ""}
-                                            </th>
-                                        {/each}
-                                    {/each}
-                                </tr>
-                            </thead>
-                            <tbody class="gene-rows">
-                                {#each chromosomeData as { chromosome, processedBlocks } (chromosome)}
-                                    <tr class="chromosome-row">
-                                        <td
-                                            class="chromosome-label {selectedChromosomes.includes(
-                                                chromosome,
-                                            )
-                                                ? 'selected'
-                                                : ''} {hiddenChromosomes.includes(
-                                                chromosome,
-                                            )
-                                                ? 'hidden-chromosome'
-                                                : ''}"
-                                            data-chromosome={chromosome}
-                                            onclick={(e) =>
-                                                toggleChromosomeFilter(
-                                                    chromosome,
-                                                    e.ctrlKey || e.metaKey,
-                                                    e.altKey,
-                                                )}
-                                        >
-                                            {chromosome}
-                                        </td>
+                        {#key currentSpeciesTemplate ? currentSpeciesTemplate.species + "_" + currentSpeciesTemplate.chromosomeCount + "_" + currentSpeciesTemplate.blockCount : "initial"}
+                            <table class="gene-grid-table">
+                                <thead class="gene-headers">
+                                    <tr>
+                                        <th class="chromosome-header">Chr</th>
                                         {#each headerStructure.sortedBlocks as block}
                                             {#each Array.from({ length: headerStructure.blockMaxGenes.get(block) }, (_, i) => i) as i}
-                                                {@const gene =
-                                                    processedBlocks?.[block]?.[
-                                                        i
-                                                    ] || null}
-                                                <td
-                                                    class="gene-cell-container {i ===
+                                                <th
+                                                    class="position-header {i ===
                                                     0
-                                                        ? 'block-start'
-                                                        : ''} {!gene
-                                                        ? 'empty'
+                                                        ? 'block-label block-start'
                                                         : ''}"
                                                 >
-                                                    {#if gene}
-                                                        <GeneCell
-                                                            {gene}
-                                                            {chromosome}
-                                                            geneAnalysis={gene.geneAnalysis}
-                                                            {currentView}
-                                                            isVisible={gene.isVisible}
-                                                            on:tooltip-show={handleTooltipShow}
-                                                            on:tooltip-hide={handleTooltipHide}
-                                                        />
-                                                    {/if}
-                                                </td>
+                                                    {i === 0 ? block : ""}
+                                                </th>
                                             {/each}
                                         {/each}
                                     </tr>
-                                {/each}
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody class="gene-rows">
+                                    {#each chromosomeData as { chromosome, processedBlocks } (chromosome)}
+                                        <tr class="chromosome-row">
+                                            <td
+                                                class="chromosome-label {selectedChromosomes.includes(
+                                                    chromosome,
+                                                )
+                                                    ? 'selected'
+                                                    : ''} {hiddenChromosomes.includes(
+                                                    chromosome,
+                                                )
+                                                    ? 'hidden-chromosome'
+                                                    : ''}"
+                                                data-chromosome={chromosome}
+                                                onclick={(e) =>
+                                                    toggleChromosomeFilter(
+                                                        chromosome,
+                                                        e.ctrlKey || e.metaKey,
+                                                        e.altKey,
+                                                    )}
+                                            >
+                                                {chromosome}
+                                            </td>
+                                            {#each headerStructure.sortedBlocks as block}
+                                                {#each Array.from({ length: headerStructure.blockMaxGenes.get(block) }, (_, i) => i) as i}
+                                                    {@const gene =
+                                                        processedBlocks?.[
+                                                            block
+                                                        ]?.[i] || null}
+                                                    <td
+                                                        class="gene-cell-container {i ===
+                                                        0
+                                                            ? 'block-start'
+                                                            : ''} {!gene
+                                                            ? 'empty'
+                                                            : ''}"
+                                                    >
+                                                        {#if gene}
+                                                            <GeneCell
+                                                                {gene}
+                                                                {chromosome}
+                                                                geneAnalysis={gene.geneAnalysis}
+                                                                {currentView}
+                                                                isVisible={gene.isVisible}
+                                                                on:tooltip-show={handleTooltipShow}
+                                                                on:tooltip-hide={handleTooltipHide}
+                                                            />
+                                                        {/if}
+                                                    </td>
+                                                {/each}
+                                            {/each}
+                                        </tr>
+                                    {/each}
+                                </tbody>
+                            </table>
                         {/key}
                     {/if}
                 </div>
@@ -1995,7 +2034,7 @@
         --gene-particle-location: #0097a7;
         --gene-glow: #8bc34a;
         --gene-appearance-neutral: #95a5a6;
-        
+
         /* Horse appearance categories - using config color indicators */
         --gene-scale: #2980b9;
         --gene-attributes: #e74c3c;
@@ -2015,7 +2054,7 @@
         display: flex;
         flex-direction: column;
         background: #ffffff;
-        overflow: hidden;
+        min-height: 0;
     }
 
     .loading-state,
@@ -2036,7 +2075,7 @@
     .visualizer-content {
         display: flex;
         flex: 1;
-        overflow: hidden;
+        min-height: 0;
     }
 
     .gene-section {
@@ -2045,7 +2084,7 @@
         border-right: 1px solid #e2e8f0;
         display: flex;
         flex-direction: column;
-        overflow: hidden;
+        min-height: 0;
     }
 
     .gene-legend {
