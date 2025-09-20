@@ -302,8 +302,12 @@ class DuckLakeGeneDatabase:
     def get_animal_types(self) -> list[str]:
         """Get list of all animal types."""
         assert self.conn is not None
-        result = self.conn.execute("SELECT DISTINCT animal_type FROM genes ORDER BY animal_type").fetchall()
-        return [row[0] for row in result]
+        try:
+            result = self.conn.execute("SELECT DISTINCT animal_type FROM genes ORDER BY animal_type").fetchall()
+            return [row[0] for row in result]
+        except (duckdb.CatalogException, duckdb.IOException):
+            # Table doesn't exist yet
+            return []
 
     def get_chromosomes(self, animal_type: str) -> list[str]:
         """Get all chromosomes for a specific animal type."""
@@ -349,16 +353,20 @@ class DuckLakeGeneDatabase:
     def get_genes_for_animal(self, animal_type: str) -> list[dict[str, Any]]:
         """Get all genes for a specific animal type."""
         assert self.conn is not None
-        result = self.conn.execute(
-            """
-            SELECT animal_type, chromosome, gene, effectDominant, effectRecessive,
-                   appearance, notes, created_at
-            FROM genes
-            WHERE animal_type = ?
-            ORDER BY chromosome, gene
-        """,
-            [animal_type],
-        ).fetchall()
+        try:
+            result = self.conn.execute(
+                """
+                SELECT animal_type, chromosome, gene, effectDominant, effectRecessive,
+                       appearance, notes, created_at
+                FROM genes
+                WHERE animal_type = ?
+                ORDER BY chromosome, gene
+            """,
+                [animal_type],
+            ).fetchall()
+        except (duckdb.CatalogException, duckdb.IOException):
+            # Table doesn't exist yet
+            return []
 
         return [
             {
@@ -502,8 +510,12 @@ class DuckLakeGeneDatabase:
 
             assert self.conn is not None
             # Get next ID first (DuckLake doesn't support RETURNING)
-            max_id_result = self.conn.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM pets").fetchone()
-            next_id = max_id_result[0] if max_id_result else 1
+            try:
+                max_id_result = self.conn.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM pets").fetchone()
+                next_id = max_id_result[0] if max_id_result else 1
+            except (duckdb.CatalogException, duckdb.IOException):
+                # Table doesn't exist yet, start with ID 1
+                next_id = 1
 
             columns.insert(0, "id")
             values.insert(0, str(next_id))
