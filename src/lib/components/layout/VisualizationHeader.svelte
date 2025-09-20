@@ -5,13 +5,25 @@
      * @property {Object[]} [stats] - Array of stat objects with text property
      * @property {boolean} [hasUnknownGenes] - Whether to show unknown genes indicator
      * @property {any} [children] - Slot content for controls
+     * @property {any} [leftControls] - Slot content for left side controls
      */
 
     /** @type {Props} */
-    const { title, stats = [], hasUnknownGenes = false, children } = $props();
+    const {
+        title,
+        stats = [],
+        hasUnknownGenes = false,
+        children,
+        leftControls,
+    } = $props();
 </script>
 
 <div class="visualization-header">
+    {#if leftControls}
+        <div class="visualization-left-controls">
+            {@render leftControls()}
+        </div>
+    {/if}
     <h3 class="visualization-title">
         {title}
     </h3>
@@ -76,6 +88,12 @@
     .visualization-controls {
         display: flex;
         gap: 4px;
+    }
+
+    .visualization-left-controls {
+        display: flex;
+        gap: 4px;
+        align-items: center;
     }
 
     @media (max-width: 768px) {

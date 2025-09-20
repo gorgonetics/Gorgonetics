@@ -35,16 +35,16 @@
         ]}
         hasUnknownGenes={pet?.has_unknown_genes}
     >
-        {#snippet children()}
-            <Button
-                color="alternative"
-                size="sm"
+        {#snippet leftControls()}
+            <button
+                class="back-icon-button"
                 onclick={handleBackToPetTable}
-                class="back-button"
+                title="Back to Pet Table"
             >
-                <ArrowLeft class="w-4 h-4 mr-2" />
-                Back to Pet Table
-            </Button>
+                <ArrowLeft class="w-4 h-4" />
+            </button>
+        {/snippet}
+        {#snippet children()}
             <div class="view-controls">
                 <button
                     class="view-btn"
@@ -78,17 +78,24 @@
         overflow: hidden;
     }
 
-    :global(.back-button) {
-        background: rgba(255, 255, 255, 0.1) !important;
-        border: 1px solid rgba(255, 255, 255, 0.2) !important;
-        color: rgba(255, 255, 255, 0.9) !important;
-        transition: all 0.2s ease !important;
+    .back-icon-button {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 6px;
+        color: rgba(255, 255, 255, 0.9);
+        cursor: pointer;
+        transition: all 0.2s ease;
     }
 
-    :global(.back-button:hover) {
-        background: rgba(255, 255, 255, 0.2) !important;
-        border-color: rgba(255, 255, 255, 0.3) !important;
-        color: white !important;
+    .back-icon-button:hover {
+        background: rgba(255, 255, 255, 0.2);
+        border-color: rgba(255, 255, 255, 0.3);
+        color: white;
         transform: translateX(-2px);
     }
 
