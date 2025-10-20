@@ -19,7 +19,7 @@
     "test:all": "./test.sh all"
   },
   "devDependencies": {
-    "@eslint/js": "^9.0.0",
+    "@eslint/js": "^9.38.0",
     "@sveltejs/vite-plugin-svelte": "^4.0.0",
     "@vitest/ui": "^1.0.0",
     "eslint": "^9.0.0",
