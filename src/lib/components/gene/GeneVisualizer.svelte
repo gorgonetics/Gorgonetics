@@ -2104,7 +2104,7 @@
         display: flex;
         flex-direction: column;
         background: #ffffff;
-        overflow: visible;
+        min-height: 0;
     }
 
     .loading-state,
@@ -2125,7 +2125,7 @@
     .visualizer-content {
         display: flex;
         flex: 1;
-        overflow: visible;
+        min-height: 0;
     }
 
     .gene-section {
@@ -2134,7 +2134,7 @@
         border-right: 1px solid #e2e8f0;
         display: flex;
         flex-direction: column;
-        overflow: visible;
+        min-height: 0;
     }
 
     .gene-legend {

@@ -134,7 +134,7 @@
         position: relative;
         contain: layout style;
         padding: 1.5rem;
-        overflow: hidden;
+        overflow: auto;
     }
 
     .empty-state,

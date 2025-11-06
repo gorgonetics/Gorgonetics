@@ -90,6 +90,7 @@
 	.app-main:has(:global(.pet-visualization)),
 	.app-main:has(:global(.gene-editing-view)) {
 		padding: 0;
+		overflow: visible;
 	}
 
 	.error-banner {

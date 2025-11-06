@@ -84,3 +84,18 @@
 - Use `git show commit_hash:file_path` to see how files looked in previous commits
 - Compare the previous state to current state to identify exact differences
 - Restore the original styling/behavior based on the historical evidence, not guesswork
+
+## Gene View Scrolling (CRITICAL - DO NOT BREAK AGAIN)
+- **The gene table scrolling with sticky headers is extremely fragile** - it has been broken multiple times
+- **WORKING CSS configuration** (from commit dd41bce):
+  - `.gene-visualizer`: Use `min-height: 0` NOT `overflow: hidden`
+  - `.visualizer-content` and `.gene-section`: Use `min-height: 0` NOT `overflow: hidden/visible`
+  - `.gene-grid-container`: Must have `overflow: auto` to be the scroll container
+  - `.gene-visualizer-container` (in PetVisualization): Must have `overflow: auto`
+- **Sticky headers work ONLY when**:
+  - The table headers have `position: sticky; top: 0; z-index: 1`
+  - The chromosome labels have `position: sticky; left: 0; z-index: 2`
+  - The scroll container (`.gene-grid-container`) has proper `overflow: auto`
+  - Parent containers use `min-height: 0` instead of `overflow: hidden`
+- **DO NOT randomly change overflow properties** - check git history first if scrolling breaks
+- **Test scrolling after ANY CSS changes** to gene visualization components

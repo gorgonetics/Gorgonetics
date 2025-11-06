@@ -12,8 +12,8 @@ FROM node:20-slim as frontend-builder
 WORKDIR /app
 COPY package.json pnpm-lock.yaml ./
 RUN npm install -g pnpm && pnpm install
-COPY src/svelte/ ./src/svelte/
-COPY vite.config.js vitest.config.js eslint.config.js ./
+COPY src/ ./src/
+COPY vite.config.js vitest.config.js eslint.config.js svelte.config.js ./
 RUN pnpm run build
 
 # Runtime stage
@@ -28,7 +28,7 @@ COPY --from=python-builder /app/.venv /app/.venv
 ENV PATH="/app/.venv/bin:$PATH"
 
 # Copy built frontend assets
-COPY --from=frontend-builder /app/dist/svelte ./static/svelte/
+COPY --from=frontend-builder /app/build ./static/svelte/
 
 # Copy Python source code
 COPY src/ ./src/
