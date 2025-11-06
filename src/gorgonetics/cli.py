@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+import duckdb
 import typer
 from rich.console import Console
 from rich.progress import (
@@ -137,8 +138,11 @@ def populate() -> None:
         # Clear existing data
         console.print("* [red]Clearing existing gene data...[/red]")
         if db.conn is not None:
-            db.conn.execute("DELETE FROM genes")
-            db.conn.commit()
+            try:
+                db.conn.execute("DELETE FROM genes")
+                db.conn.commit()
+            except (duckdb.CatalogException, duckdb.IOException) as e:
+                console.print(f"* [yellow]No existing data to clear (table may not exist yet): {e}[/yellow]")
         else:
             console.print("* [red]Error: Database connection is None[/red]")
             raise typer.Exit(1)
