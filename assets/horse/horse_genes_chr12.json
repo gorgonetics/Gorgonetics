@@ -260,14 +260,14 @@
   },
   {
     "gene": "12J2",
-    "effectDominant": "Toughness-",
+    "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Horn (Sb)",
     "notes": ""
   },
   {
     "gene": "12J3",
-    "effectDominant": "None",
+    "effectDominant": "Toughness-",
     "effectRecessive": "None",
     "appearance": "Horn (Sb)",
     "notes": ""

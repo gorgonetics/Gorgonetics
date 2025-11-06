@@ -1,6 +1,7 @@
 <script>
     import { run, stopPropagation } from "svelte/legacy";
     import { user } from "$lib/stores/auth.js";
+    import { apiClient } from "$lib/services/api.js";
     import VisualizationHeader from "$lib/components/layout/VisualizationHeader.svelte";
 
     /**
@@ -31,7 +32,7 @@
         if (!animalType) return;
 
         try {
-            const response = await fetch(`/api/effect-options/${animalType}`);
+            const response = await apiClient.fetchWithErrorHandling(`/api/effect-options/${animalType}`);
 
             if (response.ok) {
                 effectOptions = await response.json();
@@ -41,7 +42,7 @@
                     response.statusText,
                 );
                 // Fallback to all options if species-specific fails
-                const fallbackResponse = await fetch("/api/effect-options");
+                const fallbackResponse = await apiClient.fetchWithErrorHandling("/api/effect-options");
                 if (fallbackResponse.ok) {
                     effectOptions = await fallbackResponse.json();
                 }
@@ -59,7 +60,7 @@
         errorMessage = "";
 
         try {
-            const response = await fetch(
+            const response = await apiClient.fetchWithErrorHandling(
                 `/api/genes/${animalType}/${chromosome}`,
             );
             if (response.ok) {
@@ -85,9 +86,8 @@
         successMessage = "";
 
         try {
-            const response = await fetch("/api/genes", {
+            const response = await apiClient.fetchWithErrorHandling("/api/genes", {
                 method: "PUT",
-                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     animal_type: animalType,
                     chromosome: chromosome,
@@ -117,7 +117,7 @@
         if (!animalType || !chromosome) return;
 
         try {
-            const response = await fetch(
+            const response = await apiClient.fetchWithErrorHandling(
                 `/api/download/${animalType}/${chromosome}`,
             );
             if (response.ok) {
@@ -231,11 +231,10 @@
     });
 </script>
 
-<div class="pet-visualization">
+<div class="gene-editing-view">
     <VisualizationHeader
         title="🧬 Gene Editor: {animalType} - Chromosome {chromosome}"
         stats={[{ text: `${genes.length} genes` }]}
-        hasUnknownGenes={hasUnsavedChanges}
     >
         {#snippet children()}
             <div class="view-controls">
@@ -535,6 +534,13 @@
 />
 
 <style>
+    .gene-editing-view {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        overflow: hidden;
+    }
+
     .view-controls {
         display: flex;
         gap: 0.5rem;
@@ -573,7 +579,6 @@
         width: 100%;
         min-height: 0;
         position: relative;
-        contain: layout style;
         padding: 1.5rem;
     }
 
