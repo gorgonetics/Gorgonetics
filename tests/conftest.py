@@ -2,6 +2,9 @@
 
 import os
 import tempfile
+
+# Disable rate limiting before any app code is imported
+os.environ.setdefault("TESTING", "1")
 from collections.abc import Generator
 from pathlib import Path
 from typing import TYPE_CHECKING

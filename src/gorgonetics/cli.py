@@ -1,6 +1,7 @@
 """Command line interface for Gorgonetics."""
 
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -40,7 +41,7 @@ def version_callback(value: bool) -> None:
 @app.command()
 def web(
     host: str = typer.Option("127.0.0.1", help="Host to bind to"),
-    port: int = typer.Option(8000, help="Port to bind to"),
+    port: int = typer.Option(int(os.getenv("PORT", "8000")), help="Port to bind to (defaults to $PORT env var)"),
     reload: bool = typer.Option(True, help="Enable auto-reload in development"),
 ) -> None:
     """Start the web application server."""

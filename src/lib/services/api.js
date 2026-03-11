@@ -25,12 +25,43 @@ class ApiClient {
   }
 
   /**
-   * Generic fetch wrapper with error handling and authentication
+   * Attempt to refresh the access token using the stored refresh token.
+   * Returns true if a new token was obtained, false otherwise.
    */
-  async fetchWithErrorHandling(url, options = {}) {
+  async _tryRefreshToken() {
+    const refreshToken = localStorage.getItem('gorgonetics_refresh_token');
+    if (!refreshToken) return false;
+    try {
+      const response = await fetch(`${this.baseUrl}/api/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      });
+      if (!response.ok) {
+        this.setAuthToken(null);
+        localStorage.removeItem('gorgonetics_access_token');
+        localStorage.removeItem('gorgonetics_refresh_token');
+        return false;
+      }
+      const data = await response.json();
+      this.setAuthToken(data.access_token);
+      localStorage.setItem('gorgonetics_access_token', data.access_token);
+      if (data.refresh_token) {
+        localStorage.setItem('gorgonetics_refresh_token', data.refresh_token);
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Generic fetch wrapper with error handling, authentication, and automatic token refresh.
+   */
+  async fetchWithErrorHandling(url, options = {}, _isRetry = false) {
     try {
       const fullUrl = url.startsWith('http') ? url : `${this.baseUrl}${url}`;
-      
+
       // Add auth headers if available
       const headers = {
         'Content-Type': 'application/json',
@@ -38,20 +69,31 @@ class ApiClient {
         ...options.headers
       };
 
+      // FormData must not have Content-Type set (browser sets it with boundary)
+      if (options.body instanceof FormData) {
+        delete headers['Content-Type'];
+      }
+
       const response = await fetch(fullUrl, {
         ...options,
         headers
       });
-      
+
       if (!response.ok) {
-        // Handle authentication errors
-        if (response.status === 401) {
-          throw new Error('Authentication required');
+        // On 401, attempt a silent token refresh and retry once
+        if (response.status === 401 && !_isRetry) {
+          const refreshed = await this._tryRefreshToken();
+          if (refreshed) {
+            return this.fetchWithErrorHandling(url, options, true);
+          }
+          // Refresh failed — session expired
+          throw new Error('Session expired. Please log in again.');
         }
+
         if (response.status === 403) {
           throw new Error('Access forbidden');
         }
-        
+
         // Try to get error details from response
         let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
         try {
@@ -62,7 +104,7 @@ class ApiClient {
         } catch {
           // Ignore JSON parsing errors, use default message
         }
-        
+
         throw new Error(errorMessage);
       }
       return response;
@@ -214,6 +256,7 @@ class ApiClient {
     
     const response = await this.fetchWithErrorHandling("/api/pets/upload", {
       method: "POST",
+      // No Content-Type header — browser sets it automatically with the multipart boundary
       body: formData,
     });
     return response.json();

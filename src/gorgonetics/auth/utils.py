@@ -3,6 +3,7 @@ Authentication utilities for password hashing and JWT token management.
 """
 
 import os
+import sys
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -16,6 +17,21 @@ SECRET_KEY = os.getenv("GORGONETICS_JWT_SECRET_KEY", "your-secret-key-change-thi
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("GORGONETICS_JWT_ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
 REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("GORGONETICS_JWT_REFRESH_TOKEN_EXPIRE_DAYS", "7"))
+
+# Refuse to start in production mode with a weak secret
+_WEAK_SECRETS = {
+    "your-secret-key-change-this-in-production",
+    "dev-secret-key-not-for-production",
+    "dev-secret-key-not-for-production-change-this",
+    "",
+}
+if os.getenv("GORGONETICS_ENV", "development") == "production" and SECRET_KEY in _WEAK_SECRETS:
+    print(
+        "FATAL: GORGONETICS_JWT_SECRET_KEY must be set to a strong, unique secret in production. "
+        "Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\"",
+        file=sys.stderr,
+    )
+    sys.exit(1)
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:

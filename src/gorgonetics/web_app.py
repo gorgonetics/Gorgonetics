@@ -14,10 +14,15 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, Any
 
-from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile, status
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile, status
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from gorgonetics.attribute_config import AttributeConfig
 from gorgonetics.auth import Token, User, UserCreate, UserLogin, create_token_pair, get_password_hash, verify_password
@@ -36,21 +41,66 @@ if TYPE_CHECKING:
     from gorgonetics.ducklake_database import DuckLakeGeneDatabase
 
 
+def _auto_populate_genes(db: "DuckLakeGeneDatabase") -> None:
+    """Load gene data from assets directory into an empty database."""
+    import json as _json
+    from pathlib import Path
+
+    beewasp_dir = Path("assets/beewasp")
+    horse_dir = Path("assets/horse")
+    files: list[Path] = []
+    if beewasp_dir.exists():
+        files.extend(sorted(beewasp_dir.glob("beewasp_genes_chr*.json")))
+    if horse_dir.exists():
+        files.extend(sorted(horse_dir.glob("horse_genes_chr*.json")))
+
+    if not files:
+        logger.warning("GORGONETICS_LOAD_SAMPLE_DATA=true but no asset files found in assets/beewasp or assets/horse")
+        return
+
+    total = 0
+    for file_path in files:
+        animal_type = "beewasp" if "beewasp" in file_path.name else "horse"
+        chr_num = file_path.stem.split("_chr")[1]
+        with open(file_path, encoding="utf-8") as f:
+            genes_data = _json.load(f)
+        for gene_data in genes_data:
+            record = {
+                "effectDominant": gene_data.get("effectDominant") or gene_data.get("effect", "None"),
+                "effectRecessive": gene_data.get("effectRecessive", "None"),
+                "appearance": gene_data.get("appearance", ""),
+                "notes": gene_data.get("notes", ""),
+            }
+            db._upsert_gene(animal_type, chr_num, gene_data["gene"], record)
+            total += 1
+
+    if db.conn is not None:
+        db.conn.commit()
+    logger.info(f"Auto-populated {total} genes from assets.")
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
     """Application lifespan handler."""
     # Startup
     try:
-        # Just verify database connection, don't load data
-        test_db = create_database_instance()
-        animal_types = test_db.get_animal_types()
+        db = create_database_instance()
+        animal_types = db.get_animal_types()
         if animal_types:
-            logger.info(f"Database connected successfully. Found {len(animal_types)} animal types.")
+            logger.info(f"Database connected. Found {len(animal_types)} animal types.")
         else:
-            logger.warning("Database is empty. Run 'python populate_database.py' to load gene data.")
-        test_db.close()
+            load_sample = os.getenv("GORGONETICS_LOAD_SAMPLE_DATA", "false").lower() == "true"
+            if load_sample:
+                logger.info("Database is empty and GORGONETICS_LOAD_SAMPLE_DATA=true — loading gene data from assets...")
+                _auto_populate_genes(db)
+            else:
+                logger.warning(
+                    "Database is empty. Run 'uv run gorgonetics populate' to load gene data, "
+                    "or set GORGONETICS_LOAD_SAMPLE_DATA=true to auto-load on startup."
+                )
+        db.close()
     except Exception as e:
-        logger.warning(f"Database connection issue: {e}. Make sure to run 'python populate_database.py' first.")
+        logger.warning(f"Database connection issue on startup: {e}")
 
     yield
 
@@ -61,8 +111,39 @@ async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Rate limiter — disabled automatically when TESTING=1 (set by test fixtures)
+limiter = Limiter(key_func=get_remote_address, enabled=not bool(os.getenv("TESTING")))
+
 # Initialize FastAPI app with lifespan
 app = FastAPI(title="Gorgonetics Labs", version="1.0.0", lifespan=lifespan)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
+
+# CORS — configure allowed origins via GORGONETICS_CORS_ORIGINS env var (comma-separated)
+# Defaults to "*" for development. Set explicitly in production.
+_cors_origins = [o.strip() for o in os.getenv("GORGONETICS_CORS_ORIGINS", "*").split(",")]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_cors_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Inject security headers on every response."""
+
+    async def dispatch(self, request: Request, call_next: Any) -> Any:  # type: ignore[override]
+        response = await call_next(request)
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        return response
+
+
+app.add_middleware(_SecurityHeadersMiddleware)
 
 # Mount static files if directory exists
 static_dir = "static"
@@ -440,8 +521,14 @@ async def upload_pet_genome(
 ) -> dict[str, str | int]:
     """Upload a genome file and create a new pet."""
     try:
-        # Read the uploaded file content
-        content = await file.read()
+        # Enforce file size limit (default 5 MB)
+        max_bytes = int(os.getenv("GORGONETICS_MAX_UPLOAD_BYTES", str(5 * 1024 * 1024)))
+        content = await file.read(max_bytes + 1)
+        if len(content) > max_bytes:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=f"File too large. Maximum size is {max_bytes // (1024 * 1024)} MB.",
+            )
 
         # Compute SHA-256 hash of file content
         content_hash = hashlib.sha256(content).hexdigest()
@@ -721,57 +808,12 @@ async def get_pets_by_species(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to get pets") from e
 
 
-# Test endpoint for debugging
-@app.get("/api/test-auth")
-async def test_auth(current_user: User = Depends(get_current_active_user)) -> dict[str, Any]:
-    """Test endpoint to debug authentication."""
-    return {
-        "user_id": current_user.id,
-        "username": current_user.username,
-        "role": current_user.role,
-        "is_active": current_user.is_active,
-        "message": "Authentication successful",
-    }
-
-
-@app.get("/api/test-db")
-async def test_db(db: "DuckLakeGeneDatabase" = Depends(get_database)) -> dict[str, Any]:
-    """Test endpoint to check database connection."""
-    try:
-        # Simple database test
-        assert db.conn is not None
-        result = db.conn.execute("SELECT COUNT(*) FROM users").fetchone()
-        assert result is not None
-        return {"user_count": result[0], "message": "Database connection successful"}
-    except Exception as e:
-        return {"error": str(e), "message": "Database connection failed"}
-
-
-@app.get("/api/test-both")
-async def test_both(
-    current_user: User = Depends(get_current_active_user), db: "DuckLakeGeneDatabase" = Depends(get_database)
-) -> dict[str, Any]:
-    """Test endpoint with both auth and database dependencies."""
-    try:
-        assert db.conn is not None
-        result = db.conn.execute("SELECT COUNT(*) FROM users").fetchone()
-        assert result is not None
-        return {
-            "user_id": current_user.id,
-            "username": current_user.username,
-            "role": current_user.role,
-            "user_count": result[0],
-            "message": "Both dependencies working",
-        }
-    except Exception as e:
-        return {"error": str(e), "message": "Failed"}
-
-
 # Authentication endpoints
 
 
 @app.post("/api/auth/register", response_model=User)
-async def register(user_create: UserCreate) -> User:
+@limiter.limit("3/minute")
+async def register(request: Request, user_create: UserCreate) -> User:
     """Register a new user."""
     try:
         # Check if username already exists
@@ -794,7 +836,8 @@ async def register(user_create: UserCreate) -> User:
 
 
 @app.post("/api/auth/login", response_model=Token)
-async def login(user_login: UserLogin) -> Token:
+@limiter.limit("5/minute")
+async def login(request: Request, user_login: UserLogin) -> Token:
     """Authenticate user and return access token."""
     try:
         # Get user from database
@@ -834,6 +877,32 @@ async def logout(current_user: User = Depends(get_current_active_user)) -> dict[
     """Logout user (client should discard tokens)."""
     logger.info(f"User logged out: {current_user.username}")
     return {"message": "Successfully logged out"}
+
+
+class TokenRefreshRequest(BaseModel):
+    """Model for token refresh requests."""
+
+    refresh_token: str
+
+
+@app.post("/api/auth/refresh", response_model=Token)
+async def refresh_token(token_request: TokenRefreshRequest) -> Token:
+    """Exchange a valid refresh token for a new token pair."""
+    token_data = verify_token(token_request.refresh_token, "refresh")
+    if token_data is None or token_data.username is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired refresh token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    user = get_user_by_username(token_data.username)
+    if not user or not user.is_active:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found or inactive")
+
+    new_tokens = create_token_pair({"sub": user.username, "user_id": user.id, "role": user.role})
+    logger.info(f"Token refreshed for user: {user.username}")
+    return Token(**new_tokens)
 
 
 @app.get("/health")

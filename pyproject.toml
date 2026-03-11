@@ -19,6 +19,7 @@ dependencies = [
     "python-dotenv>=1.1.1",
     "python-jose[cryptography]>=3.3.0",
     "bcrypt>=4.0.0",
+    "slowapi>=0.0.6",
 ]
 authors = [{ name = "Your Name", email = "your.email@example.com" }]
 classifiers = [

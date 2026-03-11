@@ -47,6 +47,7 @@
     );
     // Initialize attributes from direct pet properties
     let editAttributes = $state({});
+    let saveError = $state("");
     // Populate edit attributes from pet's direct properties
     for (const attr of FALLBACK_ATTRIBUTE_LIST) {
         const attrKey = attr.key.toLowerCase();
@@ -116,10 +117,12 @@
             onClose?.();
         } catch (err) {
             console.error("Failed to update pet:", err);
+            saveError = err.message || "Failed to save changes. Please try again.";
         }
     }
 
     function handleCancel() {
+        saveError = "";
         open = false;
         onClose?.();
     }
@@ -130,6 +133,9 @@
 </script>
 
 <Modal bind:open size="lg" autoclose outsideclose title="Edit Pet">
+    {#if saveError}
+        <div class="save-error" role="alert">{saveError}</div>
+    {/if}
     <div class="pet-editor-content">
         <div class="form-section">
             <h3>Basic Information</h3>
@@ -270,6 +276,16 @@
         display: flex;
         flex-direction: column;
         gap: 0.25rem;
+    }
+
+    .save-error {
+        background-color: #fef2f2;
+        border: 1px solid #fecaca;
+        border-radius: 6px;
+        color: #dc2626;
+        font-size: 0.875rem;
+        margin-bottom: 1rem;
+        padding: 0.75rem 1rem;
     }
 
     /* Responsive adjustments */
