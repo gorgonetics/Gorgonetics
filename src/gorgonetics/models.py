@@ -7,7 +7,7 @@ Uses the centralized attribute configuration system for dynamic attribute handli
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -78,7 +78,7 @@ def create_attributes_for_species(species: str, **kwargs: int) -> PetAttributes:
         return CoreAttributes(**kwargs)
 
 
-class GeneType(str, Enum):
+class GeneType(StrEnum):
     """Represents the type of gene combination."""
 
     RECESSIVE = "R"  # Both alleles recessive

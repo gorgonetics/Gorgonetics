@@ -3,6 +3,7 @@
 
 from gorgonetics.database_config import create_database_instance
 
+
 def check_pets():
     """Check if sample pets are loaded."""
     db = create_database_instance()

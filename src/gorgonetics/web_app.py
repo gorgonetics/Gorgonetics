@@ -863,7 +863,7 @@ async def get_pets_by_species(
 
 @app.post("/api/auth/register", response_model=User)
 @limiter.limit("3/minute")
-async def register(request: Request, user_create: UserCreate) -> User:
+async def register(request: Request, user_create: UserCreate) -> User:  # noqa: ARG001 — request required by slowapi
     """Register a new user."""
     try:
         # Check if username already exists
@@ -887,7 +887,7 @@ async def register(request: Request, user_create: UserCreate) -> User:
 
 @app.post("/api/auth/login", response_model=Token)
 @limiter.limit("5/minute")
-async def login(request: Request, user_login: UserLogin) -> Token:
+async def login(request: Request, user_login: UserLogin) -> Token:  # noqa: ARG001 — request required by slowapi
     """Authenticate user and return access token."""
     try:
         # Get user from database
