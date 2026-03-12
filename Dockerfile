@@ -47,9 +47,9 @@ USER appuser
 # Expose port
 EXPOSE 8000
 
-# Health check
+# Health check (respects $PORT so it works on cloud platforms that override the port)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"
+  CMD ["sh", "-c", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:${PORT:-8000}/health')\""]
 
 # Start the application (PORT env var supported for cloud platforms like Railway, Fly.io, Render)
 CMD ["sh", "-c", "uvicorn gorgonetics.web_app:app --host 0.0.0.0 --port ${PORT:-8000}"]

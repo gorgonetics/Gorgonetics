@@ -25,7 +25,7 @@ from slowapi.util import get_remote_address
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from gorgonetics.attribute_config import AttributeConfig
-from gorgonetics.auth import Token, User, UserCreate, UserLogin, create_token_pair, get_password_hash, verify_password
+from gorgonetics.auth import Token, User, UserCreate, UserLogin, create_token_pair, get_password_hash, verify_password, verify_token
 from gorgonetics.auth.dependencies import (
     create_user_in_db,
     get_current_active_user,

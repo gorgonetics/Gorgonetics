@@ -1,0 +1,30 @@
+# Production docker-compose overlay.
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Before first start:
+#   1. Copy .env.example to .env and fill in production values.
+#   2. Generate a JWT secret:
+#        python -c "import secrets; print(secrets.token_hex(32))"
+#   3. After the container is running, create the admin user:
+#        docker exec -it gorgonetics-gorgonetics-1 gorgonetics create-admin \
+#          --username admin --password <strong-password>
+
+services:
+  gorgonetics:
+    restart: always
+    environment:
+      - GORGONETICS_ENV=production
+      - GORGONETICS_JWT_SECRET_KEY=${GORGONETICS_JWT_SECRET_KEY:?Set GORGONETICS_JWT_SECRET_KEY in .env}
+      - GORGONETICS_CORS_ORIGINS=${GORGONETICS_CORS_ORIGINS:-https://yourdomain.com}
+      - GORGONETICS_CATALOG_PATH=/app/data/metadata.sqlite
+      - GORGONETICS_DATA_PATH=/app/data
+      - GORGONETICS_LOAD_SAMPLE_DATA=true
+      - GORGONETICS_CONCURRENT_ACCESS=true
+    volumes:
+      - gorgonetics_data:/app/data
+
+volumes:
+  gorgonetics_data:
+    driver: local
