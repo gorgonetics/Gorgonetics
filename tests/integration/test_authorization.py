@@ -306,8 +306,8 @@ class TestPetListIsolation:
         pet_a_id = self._upload_pet(user_a, "IsolPetA_list")
         pet_b_id = self._upload_pet(user_b, "IsolPetB_list")
 
-        pets_a = user_a.get("/api/pets").json()
-        pets_b = user_b.get("/api/pets").json()
+        pets_a = user_a.get("/api/pets").json()["items"]
+        pets_b = user_b.get("/api/pets").json()["items"]
 
         pet_a_ids = [p["id"] for p in pets_a]
         pet_b_ids = [p["id"] for p in pets_b]
@@ -323,6 +323,6 @@ class TestPetListIsolation:
         _, admin_client, user_client = db_and_client
         pet_id = self._upload_pet(user_client, "IsolPetUser_admin_sees")
 
-        pets = admin_client.get("/api/pets").json()
+        pets = admin_client.get("/api/pets").json()["items"]
         pet_ids = [p["id"] for p in pets]
         assert pet_id in pet_ids

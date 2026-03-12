@@ -394,7 +394,10 @@ There is no built-in scheduler. For cloud deployments, set up a cron job on a se
 | `GORGONETICS_CORS_ORIGINS` | No | `*` | Comma-separated list of allowed origins. Lock this down in production |
 | `GORGONETICS_LOAD_SAMPLE_DATA` | No | `false` | Set to `true` to auto-populate gene data from `assets/` on first start |
 | `GORGONETICS_MAX_UPLOAD_BYTES` | No | `5242880` (5 MB) | Maximum genome file upload size |
+| `GORGONETICS_LOG_LEVEL` | No | `INFO` | Python log level (`DEBUG`, `INFO`, `WARNING`, `ERROR`) |
+| `GORGONETICS_CSP` | No | *(see below)* | Custom `Content-Security-Policy` header value |
 | `PORT` | No | `8000` | Port the server listens on (used by Railway, Fly.io, Render) |
+| `WEB_CONCURRENCY` | No | `1` | Number of Uvicorn worker processes. **Keep at 1** with SQLite catalog |
 
 The app will **refuse to start** if `GORGONETICS_ENV=production` and `GORGONETICS_JWT_SECRET_KEY` is left at its default development value.
 

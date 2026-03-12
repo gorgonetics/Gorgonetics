@@ -11,7 +11,13 @@ from gorgonetics.auth.dependencies import (
     require_admin,
 )
 from gorgonetics.auth.models import Token, User, UserCreate, UserLogin
-from gorgonetics.auth.utils import create_access_token, create_token_pair, get_password_hash, verify_password, verify_token
+from gorgonetics.auth.utils import (
+    create_access_token,
+    create_token_pair,
+    get_password_hash,
+    verify_password,
+    verify_token,
+)
 
 __all__ = [
     "User",

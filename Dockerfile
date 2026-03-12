@@ -51,5 +51,8 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
   CMD ["sh", "-c", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:${PORT:-8000}/health')\""]
 
-# Start the application (PORT env var supported for cloud platforms like Railway, Fly.io, Render)
-CMD ["sh", "-c", "uvicorn gorgonetics.web_app:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# Start the application
+# WEB_CONCURRENCY controls the number of Uvicorn workers (default 1).
+# IMPORTANT: DuckLake with SQLite catalog is NOT safe for concurrent writers,
+# so keep WEB_CONCURRENCY=1 unless you switch to a PostgreSQL catalog.
+CMD ["sh", "-c", "uvicorn gorgonetics.web_app:app --host 0.0.0.0 --port ${PORT:-8000} --workers ${WEB_CONCURRENCY:-1} --log-level ${GORGONETICS_LOG_LEVEL:-info}"]

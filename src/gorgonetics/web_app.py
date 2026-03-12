@@ -14,7 +14,7 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, Any
 
-from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile, status
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, Request, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -25,7 +25,16 @@ from slowapi.util import get_remote_address
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from gorgonetics.attribute_config import AttributeConfig
-from gorgonetics.auth import Token, User, UserCreate, UserLogin, create_token_pair, get_password_hash, verify_password, verify_token
+from gorgonetics.auth import (
+    Token,
+    User,
+    UserCreate,
+    UserLogin,
+    create_token_pair,
+    get_password_hash,
+    verify_password,
+    verify_token,
+)
 from gorgonetics.auth.dependencies import (
     create_user_in_db,
     get_current_active_user,
@@ -107,9 +116,29 @@ async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
     # Shutdown (nothing needed for now)
 
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Configure logging — JSON format when GORGONETICS_ENV=production for log aggregators
+def _configure_logging() -> logging.Logger:
+    log_level = os.getenv("GORGONETICS_LOG_LEVEL", "INFO").upper()
+    _logger = logging.getLogger("gorgonetics")
+    _logger.setLevel(getattr(logging, log_level, logging.INFO))
+
+    if not _logger.handlers:
+        handler = logging.StreamHandler()
+        if os.getenv("GORGONETICS_ENV") == "production":
+            formatter = logging.Formatter(
+                '{"time":"%(asctime)s","level":"%(levelname)s","logger":"%(name)s","message":"%(message)s"}',
+                datefmt="%Y-%m-%dT%H:%M:%S",
+            )
+        else:
+            formatter = logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s", datefmt="%H:%M:%S")
+        handler.setFormatter(formatter)
+        _logger.addHandler(handler)
+        _logger.propagate = False
+
+    return _logger
+
+
+logger = _configure_logging()
 
 # Rate limiter — disabled automatically when TESTING=1 (set by test fixtures)
 limiter = Limiter(key_func=get_remote_address, enabled=not bool(os.getenv("TESTING")))
@@ -140,6 +169,19 @@ class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+
+        # Content-Security-Policy — restrictive defaults, allow inline styles for Svelte
+        csp = os.getenv(
+            "GORGONETICS_CSP",
+            "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'",
+        )
+        response.headers["Content-Security-Policy"] = csp
+
+        # HSTS — only in production (behind TLS termination)
+        if os.getenv("GORGONETICS_ENV") == "production":
+            response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
+
         return response
 
 
@@ -624,31 +666,42 @@ async def upload_pet_genome(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to create pet") from e
 
 
+class PaginatedPetsResponse(BaseModel):
+    """Paginated response wrapper for pet lists."""
+
+    items: list[dict[str, Any]]
+    total: int
+    limit: int | None
+    offset: int
+
+
 @app.get("/api/pets")
 async def get_pets(
-    current_user: User | None = Depends(get_optional_current_user), db: "DuckLakeGeneDatabase" = Depends(get_database)
-) -> list[dict[str, Any]]:
-    """Get pets for the current user. Anonymous users see demo pets. Admins can see all pets."""
+    current_user: User | None = Depends(get_optional_current_user),
+    db: "DuckLakeGeneDatabase" = Depends(get_database),
+    limit: int | None = Query(None, ge=1, le=200, description="Max pets to return (omit for all)"),
+    offset: int = Query(0, ge=0, description="Number of pets to skip"),
+) -> PaginatedPetsResponse:
+    """Get pets for the current user with optional pagination.
+
+    Returns a ``PaginatedPetsResponse`` with ``items``, ``total``, ``limit``,
+    and ``offset`` so the frontend can render page controls.  When ``limit``
+    is omitted the full list is returned (backwards-compatible).
+    """
     try:
         user_id: int | None
         if current_user is None:
-            # Anonymous user - show demo pets only
             logger.info("Getting demo pets for anonymous user")
-            user_id = DEMO_USER_ID  # Demo pets have user_id = DEMO_USER_ID
+            user_id = DEMO_USER_ID
             user_display = "anonymous"
         else:
-            # Authenticated user
-            logger.info(
-                f"Getting pets for user: {current_user.username}, role: {current_user.role}, id: {current_user.id}"
-            )
-            # Admins can see all pets, regular users only see their own
+            logger.info(f"Getting pets for user {current_user.username} (role={current_user.role})")
             user_id = None if current_user.role == UserRole.ADMIN else current_user.id
             user_display = current_user.username
 
-        logger.info(f"Using user_id filter: {user_id}")
-
-        pets = db.get_all_pets(user_id=user_id)
-        logger.info(f"Found {len(pets)} pets for {user_display}")
+        total = db.count_pets(user_id=user_id)
+        pets = db.get_all_pets(user_id=user_id, limit=limit, offset=offset)
+        logger.info(f"Returning {len(pets)}/{total} pets for {user_display}")
 
         # Handle datetime objects if they exist (for compatibility with both database types)
         for pet in pets:
@@ -660,14 +713,11 @@ async def get_pets(
             if pet.get("user_id") == DEMO_USER_ID:
                 pet["is_demo"] = True
                 pet["readonly"] = True
-        return pets
+
+        return PaginatedPetsResponse(items=pets, total=total, limit=limit, offset=offset)
     except Exception as e:
         user_display = "anonymous" if current_user is None else current_user.username
         logger.error(f"Error getting pets for user {user_display}: {e}")
-        logger.error(f"Exception type: {type(e)}")
-        import traceback
-
-        logger.error(f"Traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to get pets") from e
 
 

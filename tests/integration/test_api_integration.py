@@ -208,7 +208,9 @@ class TestPetEndpoints:
 
         assert response.status_code == 200
         data = response.json()
-        assert isinstance(data, list)
+        assert "items" in data
+        assert isinstance(data["items"], list)
+        assert "total" in data
 
     def _upload_pet_helper(
         self, client: TestClient, test_database: "DuckLakeGeneDatabase", sample_pet_file: str, name_suffix: str = ""
@@ -258,7 +260,7 @@ class TestPetEndpoints:
         """Test getting pets after uploading one."""
         # Get initial count of pets
         initial_response = authenticated_client.get("/api/pets")
-        initial_count = len(initial_response.json())
+        initial_count = initial_response.json()["total"]
 
         # Upload a pet first
         pet_id = self._upload_pet_helper(authenticated_client, populated_test_database, sample_pet_file, "_withdata")
@@ -266,11 +268,11 @@ class TestPetEndpoints:
         response = authenticated_client.get("/api/pets")
         assert response.status_code == 200
         data = response.json()
-        assert len(data) == initial_count + 1
+        assert data["total"] == initial_count + 1
 
         # Find our uploaded pet
         uploaded_pet = None
-        for pet in data:
+        for pet in data["items"]:
             if pet["id"] == pet_id:
                 uploaded_pet = pet
                 break
@@ -557,6 +559,82 @@ class TestPerformance:
 
         # Total time should be reasonable for sequential requests
         assert end_time - start_time < 8.0
+
+
+class TestPagination:
+    """Test server-side pagination on the pets endpoint."""
+
+    def _upload_pets(
+        self,
+        client: TestClient,
+        db: "DuckLakeGeneDatabase",
+        sample_pet_file: str,
+        count: int,
+    ) -> list[int]:
+        """Upload *count* uniquely-named pets and return their IDs."""
+        ids = []
+        for i in range(count):
+            with open(sample_pet_file) as f:
+                content = f.read()
+            content = content.replace("Entity=Test Pet", f"Entity=Paginated Pet {i}")
+            content = content.replace(
+                "01=RDRD RDRD RDRD RDRD RRDD RRDD RDRD RDRD",
+                f"01=RDRD RDRD RDRD RDRD RRDD RRDD RD{i:02d} RDRD",
+            )
+            files = {"file": ("pet.txt", content.encode(), "text/plain")}
+            data = {"name": f"Paginated Pet {i}"}
+            resp = client.post("/api/pets/upload", files=files, data=data)
+            assert resp.status_code == 200, resp.json()
+            ids.append(resp.json()["pet_id"])
+        return ids
+
+    def test_pagination_limit_offset(
+        self,
+        authenticated_client: TestClient,
+        populated_test_database: "DuckLakeGeneDatabase",
+        sample_pet_file: str,
+    ) -> None:
+        """limit and offset return the correct slice of results."""
+        self._upload_pets(authenticated_client, populated_test_database, sample_pet_file, 5)
+
+        page1 = authenticated_client.get("/api/pets?limit=2&offset=0").json()
+        page2 = authenticated_client.get("/api/pets?limit=2&offset=2").json()
+
+        assert len(page1["items"]) == 2
+        assert len(page2["items"]) == 2
+        assert page1["total"] == page2["total"]
+        assert page1["total"] >= 5
+        # Pages must not overlap
+        ids1 = {p["id"] for p in page1["items"]}
+        ids2 = {p["id"] for p in page2["items"]}
+        assert ids1.isdisjoint(ids2)
+
+    def test_pagination_total_matches_full_list(
+        self,
+        authenticated_client: TestClient,
+        populated_test_database: "DuckLakeGeneDatabase",
+        sample_pet_file: str,
+    ) -> None:
+        """total field matches the count returned when no limit is set."""
+        self._upload_pets(authenticated_client, populated_test_database, sample_pet_file, 3)
+
+        full = authenticated_client.get("/api/pets").json()
+        paginated = authenticated_client.get("/api/pets?limit=1").json()
+
+        assert full["total"] == paginated["total"]
+        assert len(full["items"]) == full["total"]
+
+    def test_pagination_response_structure(
+        self,
+        authenticated_client: TestClient,
+        populated_test_database: "DuckLakeGeneDatabase",
+    ) -> None:
+        """Response always contains items, total, limit, offset."""
+        resp = authenticated_client.get("/api/pets").json()
+        assert "items" in resp
+        assert "total" in resp
+        assert "limit" in resp
+        assert "offset" in resp
 
 
 if __name__ == "__main__":

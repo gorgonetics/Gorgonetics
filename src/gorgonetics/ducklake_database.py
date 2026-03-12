@@ -565,8 +565,33 @@ class DuckLakeGeneDatabase:
             logger.error(f"Failed to get pet {pet_id}: {e}")
             return None
 
-    def get_all_pets(self, species: str | None = None, user_id: int | None = None) -> list[dict[str, Any]]:
-        """Get all pets, optionally filtered by species and/or user."""
+    def count_pets(self, species: str | None = None, user_id: int | None = None) -> int:
+        """Return the total number of pets matching the filters."""
+        assert self.conn is not None
+        try:
+            conditions: list[str] = []
+            params: list[Any] = []
+            if user_id is not None:
+                conditions.append("user_id = ?")
+                params.append(user_id)
+            if species:
+                conditions.append("species = ?")
+                params.append(species)
+            where = f" WHERE {' AND '.join(conditions)}" if conditions else ""
+            result = self.conn.execute(f"SELECT COUNT(*) FROM pets{where}", params).fetchone()
+            return result[0] if result else 0
+        except Exception as e:
+            logger.error(f"Failed to count pets: {e}")
+            return 0
+
+    def get_all_pets(
+        self,
+        species: str | None = None,
+        user_id: int | None = None,
+        limit: int | None = None,
+        offset: int = 0,
+    ) -> list[dict[str, Any]]:
+        """Get all pets, optionally filtered by species and/or user, with optional pagination."""
         assert self.conn is not None
         try:
             # Build query based on filters provided
@@ -585,6 +610,9 @@ class DuckLakeGeneDatabase:
                 query = f"SELECT * FROM pets WHERE {' AND '.join(conditions)} ORDER BY name"
             else:
                 query = "SELECT * FROM pets ORDER BY name"
+
+            if limit is not None:
+                query += f" LIMIT {int(limit)} OFFSET {int(offset)}"
 
             results = self.conn.execute(query, params).fetchall()
 
