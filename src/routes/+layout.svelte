@@ -4,7 +4,7 @@
     import Sidebar from "$lib/components/layout/Sidebar.svelte";
     import { onMount } from "svelte";
 
-    let { children } = $props();
+    const { children } = $props();
     let sidebarCollapsed = $state(false);
 
     onMount(() => {

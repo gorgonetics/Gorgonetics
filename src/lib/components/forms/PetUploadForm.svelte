@@ -5,10 +5,9 @@
 
     const dispatch = createEventDispatcher();
 
-    let fileInput = $state();
+    const fileInput = $state();
     let petName = $state("");
     let petGender = $state("Male");
-    let dragOver = $state(false);
     let uploading = $state(false);
 
     function handleFileSelect(files) {

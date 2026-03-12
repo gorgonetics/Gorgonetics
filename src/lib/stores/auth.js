@@ -28,7 +28,7 @@ export const authStore = {
         isAuthenticated.set(true);
         authError.set("");
       }
-    } catch (error) {
+    } catch {
       console.warn('Token validation failed, clearing stored tokens');
       this.clearTokens();
     } finally {
@@ -73,8 +73,8 @@ export const authStore = {
       isLoading.set(true);
       authError.set("");
       
-      const userData = await apiClient.register(username, password);
-      
+      await apiClient.register(username, password);
+
       // Auto-login after successful registration
       return await this.login(username, password);
     } catch (error) {

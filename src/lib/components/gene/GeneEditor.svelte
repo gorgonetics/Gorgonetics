@@ -68,7 +68,7 @@
             disabled={loadingChromosomes}
         >
             <option value="">Select animal type...</option>
-            {#each animalTypes as type}
+            {#each animalTypes as type (type)}
                 <option value={type}>{type}</option>
             {/each}
         </select>
@@ -82,7 +82,7 @@
             disabled={loadingChromosomes || !selectedAnimalType}
         >
             <option value="">Select chromosome...</option>
-            {#each chromosomes as chromosome}
+            {#each chromosomes as chromosome (chromosome)}
                 <option value={chromosome}>{chromosome}</option>
             {/each}
         </select>

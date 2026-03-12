@@ -28,7 +28,7 @@ _WEAK_SECRETS = {
 if os.getenv("GORGONETICS_ENV", "development") == "production" and SECRET_KEY in _WEAK_SECRETS:
     print(
         "FATAL: GORGONETICS_JWT_SECRET_KEY must be set to a strong, unique secret in production. "
-        "Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\"",
+        'Generate one with: python -c "import secrets; print(secrets.token_hex(32))"',
         file=sys.stderr,
     )
     sys.exit(1)

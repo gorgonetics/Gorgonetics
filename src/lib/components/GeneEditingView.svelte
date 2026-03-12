@@ -236,7 +236,6 @@
         title="🧬 Gene Editor: {animalType} - Chromosome {chromosome}"
         stats={[{ text: `${genes.length} genes` }]}
     >
-        {#snippet children()}
             <div class="view-controls">
                 <button
                     class="view-btn"
@@ -262,7 +261,6 @@
                     📥 Export
                 </button>
             </div>
-        {/snippet}
     </VisualizationHeader>
 
     <!-- Messages -->
@@ -312,6 +310,7 @@
                         <div class="gene-fields">
                             <!-- Dominant Effect -->
                             <div class="field">
+                                <!-- svelte-ignore a11y_label_has_associated_control -->
                                 <label>Dominant</label>
                                 <div class="select-wrapper">
                                     <button
@@ -352,7 +351,7 @@
                                                 >
                                                     {#each effectOptions
                                                         .filter( (opt) => opt.includes("-"), )
-                                                        .sort() as option}
+                                                        .sort() as option (option)}
                                                         <button
                                                             class="option negative"
                                                             onclick={stopPropagation(
@@ -374,7 +373,7 @@
                                                 >
                                                     {#each effectOptions
                                                         .filter( (opt) => opt.includes("+"), )
-                                                        .sort() as option}
+                                                        .sort() as option (option)}
                                                         <button
                                                             class="option positive"
                                                             onclick={stopPropagation(
@@ -398,6 +397,7 @@
 
                             <!-- Recessive Effect -->
                             <div class="field">
+                                <!-- svelte-ignore a11y_label_has_associated_control -->
                                 <label>Recessive</label>
                                 <div class="select-wrapper">
                                     <button
@@ -438,7 +438,7 @@
                                                 >
                                                     {#each effectOptions
                                                         .filter( (opt) => opt.includes("-"), )
-                                                        .sort() as option}
+                                                        .sort() as option (option)}
                                                         <button
                                                             class="option negative"
                                                             onclick={stopPropagation(
@@ -460,7 +460,7 @@
                                                 >
                                                     {#each effectOptions
                                                         .filter( (opt) => opt.includes("+"), )
-                                                        .sort() as option}
+                                                        .sort() as option (option)}
                                                         <button
                                                             class="option positive"
                                                             onclick={stopPropagation(
@@ -484,8 +484,9 @@
 
                             <!-- Appearance -->
                             <div class="field">
-                                <label>Appearance</label>
+                                <label for="appearance-{gene.gene}">Appearance</label>
                                 <input
+                                    id="appearance-{gene.gene}"
                                     type="text"
                                     value={gene.appearance || ""}
                                     disabled={!isAdmin}

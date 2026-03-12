@@ -757,7 +757,9 @@ class DuckLakeGeneDatabase:
         """Find a pet by its content hash."""
         assert self.conn is not None
         try:
-            result = self.conn.execute("SELECT * FROM pets WHERE content_hash = $content_hash", {"content_hash": content_hash}).fetchone()
+            result = self.conn.execute(
+                "SELECT * FROM pets WHERE content_hash = $content_hash", {"content_hash": content_hash}
+            ).fetchone()
 
             if result:
                 columns = [desc[0] for desc in self.conn.description or []]

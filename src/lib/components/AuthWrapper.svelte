@@ -1,9 +1,7 @@
 <script>
   import { onMount } from 'svelte';
-  import { authStore, isAuthenticated, isLoading, user } from '$lib/stores/auth.js';
+  import { authStore, isAuthenticated, isLoading } from '$lib/stores/auth.js';
   import { apiClient } from '$lib/services/api.js';
-  import LoginForm from '$lib/components/forms/LoginForm.svelte';
-  import RegisterForm from '$lib/components/forms/RegisterForm.svelte';
 
   let authMode = 'login'; // 'login' or 'register'
 
@@ -34,10 +32,6 @@
     apiClient.setAuthToken(token);
   }
 
-  async function handleLogout() {
-    await authStore.logout();
-    apiClient.setAuthToken(null);
-  }
 </script>
 
 {#if $isLoading}
@@ -78,14 +72,6 @@
   .loading-screen p {
     color: #6b7280;
     font-size: 1.1rem;
-  }
-
-  .auth-container {
-    min-height: 100vh;
-    background-color: #f8fafc;
-    display: flex;
-    align-items: center;
-    justify-content: center;
   }
 
 </style>

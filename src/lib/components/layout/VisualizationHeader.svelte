@@ -29,7 +29,7 @@
     </h3>
     {#if stats.length > 0 || hasUnknownGenes}
         <div class="visualization-stats">
-            {#each stats as stat}
+            {#each stats as stat (stat.text)}
                 <span class="stat-item">{stat.text}</span>
             {/each}
             {#if hasUnknownGenes}

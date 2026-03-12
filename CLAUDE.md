@@ -108,6 +108,21 @@ pnpm run test:client:ui     # Run with interactive UI
 
 ## Code Quality Standards
 
+### MANDATORY: Lint after every code change
+
+After modifying **any** Python or JavaScript/Svelte file, you MUST run the relevant linters and fix all errors before committing:
+
+```bash
+# After changing Python files:
+uv run ruff check .          # Fix all errors
+uv run ruff format --check . # Fix any formatting issues
+
+# After changing JS/Svelte files:
+pnpm run lint:ci             # Fix all errors
+```
+
+These are the same checks that CI runs. Code must pass them before being committed. Do not leave lint errors for a follow-up fix.
+
 ### Python (Follows Copilot Instructions)
 - **Line length**: 120 characters
 - **Type hints**: Required for all functions and methods (mypy strict mode)

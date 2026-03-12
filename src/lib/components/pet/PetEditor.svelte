@@ -1,5 +1,6 @@
 <script>
-    import { pets, appState } from "$lib/stores/pets.js";
+    import { untrack } from "svelte";
+    import { appState } from "$lib/stores/pets.js";
     import { FALLBACK_ATTRIBUTE_LIST } from "$lib/utils/apiUtils.js";
     import { Modal, Button, Input, Label, Select } from "flowbite-svelte";
 
@@ -12,6 +13,7 @@
      */
 
     /** @type {Props} */
+    // eslint-disable-next-line prefer-const -- open is $bindable and reassigned, requiring `let` for the whole destructuring
     let { pet, open = $bindable(), onClose, onSave } = $props();
 
     // Breed options by species - easy to modify later
@@ -36,23 +38,34 @@
         return BREED_OPTIONS[species] || BREED_OPTIONS.default;
     };
 
-    const breedOptions = getBreedOptions(pet.species);
+    const breedOptions = $derived(getBreedOptions(pet.species));
 
-    // Create editable copies of pet data
-    let editName = $state(pet.name || "");
-    let editGender = $state(pet.gender || "Male");
-    // Initialize breed with valid option for this species
-    let editBreed = $state(
-        breedOptions.includes(pet.breed) ? pet.breed : breedOptions[0],
-    );
-    // Initialize attributes from direct pet properties
-    let editAttributes = $state({});
-    let saveError = $state("");
-    // Populate edit attributes from pet's direct properties
-    for (const attr of FALLBACK_ATTRIBUTE_LIST) {
-        const attrKey = attr.key.toLowerCase();
-        editAttributes[attrKey] = pet[attrKey] ?? 50;
+    /**
+     * Initialize editable state from pet prop snapshot.
+     * These capture the initial values for the edit form.
+     * The component is recreated when a different pet is selected.
+     */
+    function initEditState(/** @type {any} */ p) {
+        const opts = getBreedOptions(p.species);
+        return {
+            name: p.name || "",
+            gender: p.gender || "Male",
+            breed: opts.includes(p.breed) ? p.breed : opts[0],
+            attributes: Object.fromEntries(
+                FALLBACK_ATTRIBUTE_LIST.map((attr) => [
+                    attr.key.toLowerCase(),
+                    p[attr.key.toLowerCase()] ?? 50,
+                ]),
+            ),
+        };
     }
+
+    const initial = untrack(() => initEditState(pet));
+    let editName = $state(initial.name);
+    let editGender = $state(initial.gender);
+    let editBreed = $state(initial.breed);
+    const editAttributes = $state(initial.attributes);
+    let saveError = $state("");
 
     // Get species-specific attributes
     const getAvailableAttributes = (species) => {
@@ -74,9 +87,11 @@
         }
     };
 
-    const availableAttributes = getAvailableAttributes(pet.species);
-    const filteredAttributeList = FALLBACK_ATTRIBUTE_LIST.filter((attr) =>
-        availableAttributes.includes(attr.key.toLowerCase()),
+    const availableAttributes = $derived(getAvailableAttributes(pet.species));
+    const filteredAttributeList = $derived(
+        FALLBACK_ATTRIBUTE_LIST.filter((attr) =>
+            availableAttributes.includes(attr.key.toLowerCase()),
+        ),
     );
 
     async function handleSave() {
@@ -200,7 +215,7 @@
         <div class="form-section">
             <h3>Attributes ({pet.species})</h3>
             <div class="attributes-grid">
-                {#each filteredAttributeList as attr}
+                {#each filteredAttributeList as attr (attr.key)}
                     <div class="attribute-group">
                         <Label for="attr-{attr.key}" class="mb-2"
                             >{attr.name}</Label

@@ -163,7 +163,7 @@
             </thead>
             <tbody id="tableBody">
                 {#if currentView === "attribute"}
-                    {#each attributeList as attr}
+                    {#each attributeList as attr (attr.key)}
                         {@const positiveCount =
                             currentStats?.[attr.key]?.positive || 0}
                         {@const negativeCount =
@@ -199,7 +199,7 @@
                         <td><em>All attributes</em></td>
                     </tr>
                 {:else}
-                    {#each appearanceList as type}
+                    {#each appearanceList as type (type.key)}
                         {@const attrKey = type.key.replace(/_/g, "-")}
                         {@const count = currentStats?.[attrKey] || 0}
 
@@ -407,117 +407,6 @@
     /* Default colors */
     .color-indicator.positive {
         background-color: #10b981;
-    }
-
-    .color-indicator.negative {
-        background-color: #ef4444;
-    }
-
-    .color-indicator.neutral {
-        background-color: #6b7280;
-    }
-
-    /* Appearance effect colors */
-    .color-indicator.body-color-hue {
-        background: linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1);
-    }
-
-    .color-indicator.body-color-saturation {
-        background: linear-gradient(90deg, #f8f9fa, #ff6b6b);
-    }
-
-    .color-indicator.body-color-intensity {
-        background: linear-gradient(90deg, #343a40, #f8f9fa);
-    }
-
-    .color-indicator.wing-color-hue {
-        background: linear-gradient(45deg, #ffd93d, #6bcf7f, #4d72aa);
-    }
-
-    .color-indicator.wing-color-saturation {
-        background: linear-gradient(90deg, #e9ecef, #ffd93d);
-    }
-
-    .color-indicator.wing-color-intensity {
-        background: linear-gradient(90deg, #495057, #fff3cd);
-    }
-
-    .color-indicator.body-scale {
-        background-color: #8b5cf6;
-    }
-
-    .color-indicator.wing-scale {
-        background-color: #06b6d4;
-    }
-
-    .color-indicator.head-scale {
-        background-color: #f59e0b;
-    }
-
-    .color-indicator.tail-scale {
-        background-color: #84cc16;
-    }
-
-    .color-indicator.antenna-scale {
-        background-color: #ec4899;
-    }
-
-    .color-indicator.leg-deformity {
-        background-color: #ef4444;
-    }
-
-    .color-indicator.antenna-deformity {
-        background-color: #f97316;
-    }
-
-    .color-indicator.particles {
-        background: radial-gradient(circle, #fbbf24, #f59e0b);
-    }
-
-    .color-indicator.particle-location {
-        background: conic-gradient(#8b5cf6, #ec4899, #06b6d4, #8b5cf6);
-    }
-
-    .color-indicator.glow {
-        background: radial-gradient(circle, #fef3c7, #f59e0b);
-        box-shadow: 0 0 4px rgba(245, 158, 11, 0.5);
-    }
-
-    /* Horse appearance effect colors */
-    .color-indicator.scale-kb {
-        background-color: #8b5cf6;
-    }
-
-    .color-indicator.attributes-kb {
-        background-color: #06b6d4;
-    }
-
-    .color-indicator.selector-sb {
-        background-color: #8b4513;
-    }
-
-    .color-indicator.selector-pt {
-        background-color: #f59e0b;
-    }
-
-    .color-indicator.selector-po {
-        background-color: #84cc16;
-    }
-
-    .color-indicator.selector-kb {
-        background-color: #ec4899;
-    }
-
-    .color-indicator.selector-bl {
-        background-color: #3b82f6;
-    }
-
-    .color-indicator.horn {
-        background-color: #ef4444;
-    }
-
-    .color-indicator.horn-kb {
-        background-color: #f97316;
     }
 
     .summary-info {

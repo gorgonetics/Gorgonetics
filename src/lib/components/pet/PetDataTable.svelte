@@ -1,8 +1,7 @@
 <script>
     import { Table } from "@flowbite-svelte-plugins/datatable";
-    import { pets, selectedPet, appState } from "$lib/stores/pets.js";
+    import { pets, appState } from "$lib/stores/pets.js";
     import { FALLBACK_ATTRIBUTE_LIST } from "$lib/utils/apiUtils.js";
-    import { Trash2, Eye, Edit } from "@lucide/svelte";
     import PetEditor from "$lib/components/pet/PetEditor.svelte";
     import VisualizationHeader from "$lib/components/layout/VisualizationHeader.svelte";
 
@@ -39,7 +38,7 @@
         editingPet = null;
     }
 
-    function handlePetSaved(petId) {
+    function handlePetSaved() {
         // Optionally select the updated pet or do other actions
     }
 
@@ -77,7 +76,7 @@
             });
 
             // Generate action buttons based on pet type
-            let actionButtons = "";
+            let actionButtons;
             if (pet.is_demo || pet.readonly) {
                 // Demo pets - only show view button and demo indicator
                 actionButtons = `<div class="table-actions">
@@ -153,7 +152,7 @@
         hasUnknownGenes={$pets.some((pet) => pet.has_unknown_genes)}
     />
 
-    <div class="gene-visualizer-container" onclick={handleTableClick}>
+    <div class="gene-visualizer-container" onclick={handleTableClick} onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleTableClick(e); }} role="button" tabindex="0">
         {#if $pets && $pets.length > 0}
             <Table
                 dataTableOptions={{

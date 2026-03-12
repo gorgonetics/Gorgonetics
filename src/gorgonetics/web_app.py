@@ -100,7 +100,9 @@ async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
         else:
             load_sample = os.getenv("GORGONETICS_LOAD_SAMPLE_DATA", "false").lower() == "true"
             if load_sample:
-                logger.info("Database is empty and GORGONETICS_LOAD_SAMPLE_DATA=true — loading gene data from assets...")
+                logger.info(
+                    "Database is empty and GORGONETICS_LOAD_SAMPLE_DATA=true — loading gene data from assets..."
+                )
                 _auto_populate_genes(db)
             else:
                 logger.warning(

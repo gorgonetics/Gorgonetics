@@ -173,7 +173,9 @@ class TestAuthRefresh:
             "INSERT INTO users (id, username, password_hash, role, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
             (next_id, "refreshuser", password_hash, UserRole.USER, True, now, now),
         )
-        login_resp = auth_client.post("/api/auth/login", json={"username": "refreshuser", "password": "refreshpassword"})
+        login_resp = auth_client.post(
+            "/api/auth/login", json={"username": "refreshuser", "password": "refreshpassword"}
+        )
         assert login_resp.status_code == 200
         yield login_resp.json()
         test_database.conn.execute("DELETE FROM users WHERE username = 'refreshuser'")

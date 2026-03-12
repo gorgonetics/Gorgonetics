@@ -1,5 +1,11 @@
 # Development Pitfalls - Lessons Learned
 
+## Linting — ALWAYS run before committing
+- **After ANY code change**, run `uv run ruff check .` and `uv run ruff format --check .` for Python, and `pnpm run lint:ci` for JS/Svelte
+- Fix all lint errors immediately — do NOT leave them for a follow-up commit
+- These are the same checks CI runs; if they fail locally they will fail in the PR
+- Sprint 2/3 CI failures were caused by pushing code without running ruff first — this wasted a CI cycle
+
 ## Communication Issues
 - Don't say "you are absolutely right", "you are correct", or any stuff like that - be direct and factual
 - Avoid empty flattery or excessive agreement

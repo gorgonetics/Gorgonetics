@@ -55,12 +55,13 @@
             {#if potentialEffects.length > 0}
                 <div class="potential-effects">
                     <strong>Potential Effects:</strong>
-                    {#each potentialEffects as potentialEffect}
+                    {#each potentialEffects as potentialEffect, i (i)}
                         <div
                             class="potential-effect"
                             class:positive={potentialEffect.includes("+")}
                             class:negative={potentialEffect.includes("-")}
                         >
+                            <!-- eslint-disable-next-line svelte/no-at-html-tags -->
                             {@html potentialEffect}
                         </div>
                     {/each}

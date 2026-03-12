@@ -145,9 +145,7 @@ class TestGeneWriteRBAC:
         if db.conn:
             db.conn.commit()
 
-    def test_admin_can_update_gene(
-        self, db_and_client: tuple["DuckLakeGeneDatabase", TestClient, TestClient]
-    ) -> None:
+    def test_admin_can_update_gene(self, db_and_client: tuple["DuckLakeGeneDatabase", TestClient, TestClient]) -> None:
         db, admin_client, _ = db_and_client
         self._seed_gene(db)
         response = admin_client.put(
@@ -317,9 +315,7 @@ class TestPetListIsolation:
         assert pet_b_id in pet_b_ids
         assert pet_a_id not in pet_b_ids
 
-    def test_admin_sees_all_pets(
-        self, db_and_client: tuple["DuckLakeGeneDatabase", TestClient, TestClient]
-    ) -> None:
+    def test_admin_sees_all_pets(self, db_and_client: tuple["DuckLakeGeneDatabase", TestClient, TestClient]) -> None:
         _, admin_client, user_client = db_and_client
         pet_id = self._upload_pet(user_client, "IsolPetUser_admin_sees")
 

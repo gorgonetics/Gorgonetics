@@ -28,5 +28,6 @@ def check_pets():
     finally:
         db.close()
 
+
 if __name__ == "__main__":
     check_pets()

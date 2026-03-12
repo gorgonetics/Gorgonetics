@@ -147,7 +147,7 @@ export const appState = {
     error.set(message);
   },
 
-  setSuccess(_message) {
+  setSuccess() {
     // For now, just clear any existing error
     error.set(null);
   },

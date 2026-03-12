@@ -102,10 +102,7 @@ def sample_pet_file() -> Generator[str]:
 @pytest.fixture
 def test_user_credentials():
     """Test user credentials for authentication tests."""
-    return {
-        "username": "testuser",
-        "password": "testpassword123"
-    }
+    return {"username": "testuser", "password": "testpassword123"}
 
 
 @pytest.fixture
@@ -131,7 +128,7 @@ def authenticated_client(test_database: "DuckLakeGeneDatabase", test_user_creden
     test_database.conn.execute(
         """INSERT INTO users (id, username, password_hash, role, is_active, created_at, updated_at)
            VALUES (?, ?, ?, ?, ?, ?, ?)""",
-        (next_id, test_user_credentials["username"], password_hash, UserRole.USER, True, now, now)
+        (next_id, test_user_credentials["username"], password_hash, UserRole.USER, True, now, now),
     )
 
     # Login to get auth token
@@ -144,6 +141,7 @@ def authenticated_client(test_database: "DuckLakeGeneDatabase", test_user_creden
 
     # Monkey patch the client to include auth headers by default
     original_request = client.request
+
     def authenticated_request(*args, **kwargs):
         if "headers" not in kwargs or kwargs["headers"] is None:
             kwargs["headers"] = {}

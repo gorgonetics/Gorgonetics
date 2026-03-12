@@ -1,7 +1,6 @@
 <script>
     import GeneVisualizer from "$lib/components/gene/GeneVisualizer.svelte";
     import VisualizationHeader from "$lib/components/layout/VisualizationHeader.svelte";
-    import { Button } from "flowbite-svelte";
     import { ArrowLeft } from "@lucide/svelte";
     import { appState } from "$lib/stores/pets.js";
 
@@ -44,24 +43,22 @@
                 <ArrowLeft class="w-4 h-4" />
             </button>
         {/snippet}
-        {#snippet children()}
-            <div class="view-controls">
-                <button
-                    class="view-btn"
-                    class:active={currentView === "attribute"}
-                    onclick={() => handleViewChange("attribute")}
-                >
-                    Attributes
-                </button>
-                <button
-                    class="view-btn"
-                    class:active={currentView === "appearance"}
-                    onclick={() => handleViewChange("appearance")}
-                >
-                    Appearance
-                </button>
-            </div>
-        {/snippet}
+        <div class="view-controls">
+            <button
+                class="view-btn"
+                class:active={currentView === "attribute"}
+                onclick={() => handleViewChange("attribute")}
+            >
+                Attributes
+            </button>
+            <button
+                class="view-btn"
+                class:active={currentView === "appearance"}
+                onclick={() => handleViewChange("appearance")}
+            >
+                Appearance
+            </button>
+        </div>
     </VisualizationHeader>
 
     <!-- Svelte gene visualizer -->
@@ -137,35 +134,4 @@
         overflow: auto;
     }
 
-    .empty-state,
-    .error-state {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        height: 200px;
-        color: #6b7280;
-        font-style: italic;
-    }
-
-    .error-state {
-        color: #f44336;
-    }
-
-    .gene-tooltip {
-        position: fixed;
-        background: #1f2937;
-        color: white;
-        padding: 8px 12px;
-        border-radius: 6px;
-        font-size: 12px;
-        line-height: 1.4;
-        max-width: 250px;
-        z-index: 1000;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-        pointer-events: none;
-    }
-
-    .gene-tooltip strong {
-        color: #60a5fa;
-    }
 </style>

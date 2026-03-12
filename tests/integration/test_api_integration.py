@@ -425,7 +425,9 @@ class TestErrorHandling:
         assert isinstance(data, list)
         assert len(data) == 0
 
-    def test_nonexistent_pet(self, authenticated_client: TestClient, populated_test_database: "DuckLakeGeneDatabase") -> None:
+    def test_nonexistent_pet(
+        self, authenticated_client: TestClient, populated_test_database: "DuckLakeGeneDatabase"
+    ) -> None:
         """Test handling of nonexistent pet IDs."""
         response = authenticated_client.get("/api/pets/99999")
         assert response.status_code == 404
@@ -436,7 +438,9 @@ class TestErrorHandling:
         response = authenticated_client.delete("/api/pets/99999")
         assert response.status_code == 404
 
-    def test_invalid_file_upload(self, authenticated_client: TestClient, populated_test_database: "DuckLakeGeneDatabase") -> None:
+    def test_invalid_file_upload(
+        self, authenticated_client: TestClient, populated_test_database: "DuckLakeGeneDatabase"
+    ) -> None:
         """Test handling of invalid file uploads."""
         # Test with truly invalid UTF-8 bytes
         files = {"file": ("test.bin", b"\xff\xfe\xfd", "application/octet-stream")}

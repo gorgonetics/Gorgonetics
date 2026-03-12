@@ -1,5 +1,6 @@
 <script>
     import { onDestroy, onMount } from "svelte";
+    import { SvelteSet, SvelteMap } from "svelte/reactivity";
     import GeneStatsTable from "./GeneStatsTable.svelte";
     import GeneTooltip from "./GeneTooltip.svelte";
     import GeneCell from "./GeneCell.svelte";
@@ -553,11 +554,10 @@
 
             // Robust potential/neutral/positive/negative detection
             let type = "neutral";
-            let attribute = null;
             const effectStr = effect || "";
 
             // Dynamic attribute detection using centralized config
-            attribute = extractAttributeFromEffect(effectStr);
+            const attribute = extractAttributeFromEffect(effectStr);
 
             // Potential effect detection
             const isPotential =
@@ -910,15 +910,15 @@
             // OPTIMIZED SINGLE-PASS PROCESSING - Everything done in one loop!
             console.time("📊 Single-pass gene analysis");
 
-            const allBlocks = new Set();
-            const blockMaxGenes = new Map();
-            const geneAnalysisCache = new Map(); // Cache gene analysis results
+            const allBlocks = new SvelteSet();
+            const blockMaxGenes = new SvelteMap();
+            const geneAnalysisCache = new SvelteMap(); // Cache gene analysis results
             let totalGenesCount = 0;
 
             // SINGLE PASS: Analyze genes, collect blocks, and update stats - all at once!
             Object.values(parsedGenes).forEach((chromosomeData) => {
                 // Count genes per block for this chromosome
-                const thisChromosomeBlockCount = new Map();
+                const thisChromosomeBlockCount = new SvelteMap();
 
                 chromosomeData.allGenes.forEach((gene) => {
                     allBlocks.add(gene.block);
@@ -1029,7 +1029,7 @@
                 const processedBlocks = {};
 
                 // Pre-group genes by block for efficiency
-                const genesByBlock = new Map();
+                const genesByBlock = new SvelteMap();
                 data.allGenes.forEach((gene) => {
                     if (!genesByBlock.has(gene.block)) {
                         genesByBlock.set(gene.block, []);
@@ -1669,6 +1669,7 @@
                                     tabindex="0"
                                     onclick={(e) =>
                                         handleLegendFilterClick("positive", e)}
+                                    onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleLegendFilterClick("positive", e); }}
                                 >
                                     <GeneCell
                                         gene={{ id: "sample", type: "D" }}
@@ -1699,6 +1700,7 @@
                                             "potential-positive",
                                             e,
                                         )}
+                                    onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleLegendFilterClick("potential-positive", e); }}
                                 >
                                     <GeneCell
                                         gene={{ id: "sample", type: "D" }}
@@ -1726,6 +1728,7 @@
                                     tabindex="0"
                                     onclick={(e) =>
                                         handleLegendFilterClick("neutral", e)}
+                                    onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleLegendFilterClick("neutral", e); }}
                                 >
                                     <GeneCell
                                         gene={{ id: "sample", type: "D" }}
@@ -1756,6 +1759,7 @@
                                             "potential-negative",
                                             e,
                                         )}
+                                    onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleLegendFilterClick("potential-negative", e); }}
                                 >
                                     <GeneCell
                                         gene={{ id: "sample", type: "D" }}
@@ -1783,6 +1787,7 @@
                                     tabindex="0"
                                     onclick={(e) =>
                                         handleLegendFilterClick("negative", e)}
+                                    onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleLegendFilterClick("negative", e); }}
                                 >
                                     <GeneCell
                                         gene={{ id: "sample", type: "D" }}
@@ -1813,6 +1818,7 @@
                                     tabindex="0"
                                     onclick={(e) =>
                                         handleLegendFilterClick("dominant", e)}
+                                    onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleLegendFilterClick("dominant", e); }}
                                 >
                                     <GeneCell
                                         gene={{ id: "sample", type: "D" }}
@@ -1840,6 +1846,7 @@
                                     tabindex="0"
                                     onclick={(e) =>
                                         handleLegendFilterClick("recessive", e)}
+                                    onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleLegendFilterClick("recessive", e); }}
                                 >
                                     <GeneCell
                                         gene={{ id: "sample", type: "R" }}
@@ -1867,6 +1874,7 @@
                                     tabindex="0"
                                     onclick={(e) =>
                                         handleLegendFilterClick("mixed", e)}
+                                    onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleLegendFilterClick("mixed", e); }}
                                 >
                                     <GeneCell
                                         gene={{ id: "sample", type: "x" }}
@@ -1894,6 +1902,7 @@
                                     tabindex="0"
                                     onclick={(e) =>
                                         handleLegendFilterClick("unknown", e)}
+                                    onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleLegendFilterClick("unknown", e); }}
                                 >
                                     <GeneCell
                                         gene={{ id: "sample", type: "?" }}
@@ -1914,7 +1923,7 @@
                                     >Appearance:</span
                                 >
 
-                                {#each appearanceList as appearance}
+                                {#each appearanceList as appearance (appearance.key)}
                                     {@const attrKey = appearance.key.replace(
                                         /_/g,
                                         "-",
@@ -1933,6 +1942,7 @@
                                         tabindex="0"
                                         onclick={(e) =>
                                             handleLegendFilterClick(attrKey, e)}
+                                        onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleLegendFilterClick(attrKey, e); }}
                                     >
                                         <GeneCell
                                             gene={{ id: "sample", type: "D" }}
@@ -1960,8 +1970,8 @@
                                 <thead class="gene-headers">
                                     <tr>
                                         <th class="chromosome-header">Chr</th>
-                                        {#each headerStructure.sortedBlocks as block}
-                                            {#each Array.from({ length: headerStructure.blockMaxGenes.get(block) }, (_, i) => i) as i}
+                                        {#each headerStructure.sortedBlocks as block (block)}
+                                            {#each Array.from({ length: headerStructure.blockMaxGenes.get(block) }, (_, i) => i) as i (i)}
                                                 <th
                                                     class="position-header {i ===
                                                     0
@@ -1997,8 +2007,8 @@
                                             >
                                                 {chromosome}
                                             </td>
-                                            {#each headerStructure.sortedBlocks as block}
-                                                {#each Array.from({ length: headerStructure.blockMaxGenes.get(block) }, (_, i) => i) as i}
+                                            {#each headerStructure.sortedBlocks as block (block)}
+                                                {#each Array.from({ length: headerStructure.blockMaxGenes.get(block) }, (_, i) => i) as i (i)}
                                                     {@const gene =
                                                         processedBlocks?.[
                                                             block
@@ -2179,19 +2189,6 @@
 
     .legend-item:hover {
         background-color: #f3f4f6;
-    }
-
-    .legend-color {
-        width: 14px;
-        height: 14px;
-        border-radius: 50%;
-        border: 3px solid;
-        flex-shrink: 0;
-        display: inline-block;
-    }
-
-    .legend-color.gene-recessive {
-        border-width: 4px;
     }
 
     /* Adjust legend item spacing for GeneCell components */
