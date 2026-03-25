@@ -113,7 +113,7 @@ Gorgonetics/
 - **uv** -- Python package manager
 - **pnpm** -- Node.js package manager
 - **ruff** -- Python linter and formatter
-- **mypy** -- Static type checking
+- **ty** -- Static type checking
 - **ESLint** -- JavaScript/Svelte linting
 - **pytest** -- Python tests
 - **Vitest** -- Frontend tests
@@ -276,7 +276,7 @@ The pets table includes dynamic columns generated from `attribute_config.py` for
 # Python
 uv run ruff check .              # Lint
 uv run ruff format --check .     # Format check
-uv run mypy src/gorgonetics      # Type check
+uv run ty check src/gorgonetics  # Type check
 
 # Frontend
 pnpm run lint                    # ESLint

@@ -17,7 +17,7 @@ A web-based genetic breeding tool for Project Gorgon pets. Provides an intuitive
 - **Authentication**: JWT-based user authentication with role-based access control (admin/user)
 - **Multi-user**: Per-user data isolation with admin oversight capabilities
 - **Data Versioning**: DuckLake with SQLite catalog for fast analytical queries and versioned data
-- **Type Safety**: Full type annotations with mypy strict mode
+- **Type Safety**: Full type annotations with ty type checker
 
 ## Quick Start
 
@@ -96,7 +96,7 @@ Comprehensive documentation is available in the `docs/` directory:
 # Quality checks
 uv run ruff check           # Linting
 uv run ruff format --check  # Formatting check
-uv run mypy src/gorgonetics # Type checking
+uv run ty check src/gorgonetics # Type checking
 
 # Python tests (96 tests)
 uv run pytest
@@ -133,7 +133,7 @@ uv run gorgonetics create-admin # Create an admin user
 | **Build Tool** | [Vite](https://vitejs.dev/) -- fast dev server and bundler |
 | **Python Packaging** | [uv](https://docs.astral.sh/uv/) -- fast package installer and resolver |
 | **Frontend Packaging** | [pnpm](https://pnpm.io/) -- fast, disk-efficient package manager |
-| **Type Safety** | [mypy](https://mypy.readthedocs.io/) -- static type checker (strict mode) |
+| **Type Safety** | [ty](https://github.com/astral-sh/ty) -- fast type checker by Astral |
 | **Linting** | [ruff](https://docs.astral.sh/ruff/) (Python) + [ESLint](https://eslint.org/) (JS/Svelte) |
 | **Testing** | [pytest](https://docs.pytest.org/) (backend) + [Vitest](https://vitest.dev/) (frontend) |
 | **CLI** | [Typer](https://typer.tiangolo.com/) + [Rich](https://rich.readthedocs.io/) |

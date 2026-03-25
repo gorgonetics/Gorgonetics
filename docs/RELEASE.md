@@ -61,7 +61,7 @@ uv run ruff check src/
 uv run ruff format --check src/
 
 # 3. Type check
-uv run mypy src/gorgonetics
+uv run ty check src/gorgonetics
 
 # 4. Build the frontend (catches build errors early)
 pnpm run build

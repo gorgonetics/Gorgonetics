@@ -84,7 +84,7 @@ jobs:
         run: uv run ruff format --check .
 
       - name: Run type checking
-        run: uv run mypy src/gorgonetics
+        run: uv run ty check src/gorgonetics
 
   frontend-quality:
     runs-on: ubuntu-latest
@@ -139,10 +139,10 @@ jobs:
           ls -la dist/
 
           echo "Testing wheel installation..."
-          pip install dist/*.whl
+          uv pip install dist/*.whl
 
           echo "Testing installed package..."
-          python -c "import gorgonetics; print('Wheel installation successful')"
+          uv run python -c "import gorgonetics; print('Wheel installation successful')"
 
       - name: Clean up build artifacts
         run: rm -rf dist/ build/

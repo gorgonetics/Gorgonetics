@@ -82,7 +82,7 @@ The Vite dev server proxies `/api` and `/static` requests to the backend automat
 | `svelte.config.js` | SvelteKit config with static adapter, path aliases |
 | `vite.config.js` | Vite config with Tailwind CSS plugin, dev server proxy |
 | `package.json` | Frontend dependencies and scripts |
-| `pyproject.toml` | Python project config, dependencies, ruff/mypy settings |
+| `pyproject.toml` | Python project config, dependencies, ruff/ty settings |
 | `eslint.config.js` | ESLint config for JS/Svelte |
 
 ### UI framework
@@ -117,7 +117,7 @@ pnpm run preview                          # Preview production build
 uv run ruff check .                       # Lint
 uv run ruff format --check .              # Check formatting
 uv run ruff format .                      # Auto-format
-uv run mypy src/gorgonetics               # Type checking
+uv run ty check src/gorgonetics               # Type checking
 
 # JavaScript / Svelte
 pnpm run lint                             # ESLint
@@ -162,7 +162,7 @@ pnpm run test:all                         # Same as ./test.sh all
 
 - **Line length**: 120 characters
 - **Formatter/linter**: ruff (configured in `pyproject.toml`)
-- **Type checker**: mypy in strict mode
+- **Type checker**: ty (Astral's fast type checker)
 - **Type hints**: Required on all function signatures
 - **Docstrings**: Required on all public functions, classes, and modules
 - **String quotes**: Double quotes preferred
@@ -347,7 +347,7 @@ The backend uses Python's `logging` module. Set `LOG_LEVEL=DEBUG` for verbose ou
    ```bash
    uv run ruff check .
    uv run ruff format --check .
-   uv run mypy src/gorgonetics
+   uv run ty check src/gorgonetics
    pnpm run lint:ci
    uv run pytest
    ```

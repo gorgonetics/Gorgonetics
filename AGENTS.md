@@ -62,7 +62,7 @@ pnpm run dev                      # Frontend dev server (port 5173)
 # Quality (MUST pass before committing)
 uv run ruff check .               # Python lint
 uv run ruff format --check .      # Python format check
-uv run mypy src/gorgonetics       # Type checking
+uv run ty check src/gorgonetics   # Type checking
 pnpm run lint:ci                  # ESLint (zero warnings)
 
 # Tests
@@ -80,7 +80,7 @@ uv run gorgonetics db-status
 
 ### Python
 - **Line length**: 120 characters
-- **Type hints**: Required on all functions (mypy strict)
+- **Type hints**: Required on all functions (ty type checker)
 - **Docstrings**: Required on public functions, classes, modules
 - **Strings**: Double quotes
 - **Parameters**: Never run bare `python`, always `uv run python`
@@ -99,7 +99,7 @@ uv run gorgonetics db-status
 After modifying **any** file, run the relevant linters and fix all errors before committing:
 ```bash
 # Python changes:
-uv run ruff check . && uv run ruff format --check . && uv run mypy src/gorgonetics
+uv run ruff check . && uv run ruff format --check . && uv run ty check src/gorgonetics
 
 # JS/Svelte changes:
 pnpm run lint:ci
