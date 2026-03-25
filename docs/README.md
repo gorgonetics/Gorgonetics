@@ -2,94 +2,131 @@
 
 ## Overview
 
-Gorgonetics is a web-based gene editing tool for Project Gorgon pet breeding. It provides an intuitive interface for viewing and editing genetic data for different animal types, with support for importing/exporting gene configurations and real-time change tracking.
+Gorgonetics is a web-based genetic breeding tool for Project Gorgon pets. It provides a Python/FastAPI backend with a SvelteKit frontend for managing pet genetics data, including gene editing, pet genome upload, and genome visualization.
 
 ## Table of Contents
 
+### Core Documentation
 - [Project Structure](#project-structure)
 - [Architecture](#architecture)
 - [Installation](#installation)
 - [Usage](#usage)
-- [API Reference](#api-reference)
+- [API Quick Reference](#api-quick-reference)
 - [Database Schema](#database-schema)
-- [Frontend Modules](#frontend-modules)
-- [Development](#development)
-- [Contributing](#contributing)
+
+### Technical References
+- [API Reference](API.md) -- Complete REST API documentation with authentication
+- [Database Schema](DATABASE.md) -- DuckLake database architecture and operations
+- [Frontend Architecture](FRONTEND.md) -- SvelteKit component documentation
+- [Development Guide](DEVELOPMENT.md) -- Setup, workflow, and contribution guidelines
+- [Testing Strategy](TESTING.md) -- Comprehensive testing documentation
+- [Release Procedure](RELEASE.md) -- Release workflow and deployment
+
+### Advanced Topics
+- [Configuration-Driven Attributes](CONFIGURATION_DRIVEN_ATTRIBUTES.md) -- Dynamic attribute system architecture
+- [DuckLake Multi-User Setup](DUCKLAKE_MULTIUSER.md) -- Multi-user database configuration
 
 ## Project Structure
 
 ```
 Gorgonetics/
-├── src/gorgonetics/           # Main Python package
-│   ├── __init__.py          # Package initialization
-│   ├── cli.py              # Command-line interface
-│   ├── database.py         # Database operations (DuckDB)
-│   ├── genome_parser.py    # Genome data parsing
-│   ├── models.py           # Data models
-│   ├── web_app.py          # FastAPI web application
-│   ├── static/             # Static web assets
-│   │   ├── styles.css      # Application styles
-│   │   ├── favicon.png     # Site icon
-│   │   └── js/             # JavaScript modules
-│   │       ├── api-client.js      # API communication
-│   │       ├── app-controller.js  # Main application coordinator
-│   │       ├── export-manager.js  # Export functionality
-│   │       ├── gene-manager.js    # Gene editing logic
-│   │       ├── gene-visualizer.js # Gene visualization
-│   │       └── ui-utils.js        # UI utilities
-│   └── templates/          # HTML templates
-│       └── index.html      # Main application interface
-├── scripts/                # Utility scripts
-│   ├── generate_gene_templates.py  # Template generation
-│   ├── populate_database.py        # Database setup
-│   └── run_web_app.py             # Development server
-├── assets/                 # Gene template files
-│   ├── beewasp/           # Bee/Wasp gene data (JSON)
-│   └── horse/             # Horse gene data (JSON)
-├── data/                  # Sample data files
-│   ├── Genes_BabyFaeBee178.txt    # Sample bee genome
-│   └── Genes_Roach.txt            # Sample roach genome
-├── docs/                  # Comprehensive documentation
-│   ├── API.md             # REST API reference
-│   ├── DATABASE.md        # Database guide
-│   ├── DEVELOPMENT.md     # Development setup
-│   ├── FRONTEND.md        # Frontend architecture
-│   └── README.md          # Complete documentation
-├── tests/                 # Test suite
-├── nbs/                   # Jupyter notebooks
-├── .github/               # GitHub workflows
-├── pyproject.toml         # Project configuration
-├── uv.lock                # Dependency lock file
-└── README.md              # Project overview
+├── src/
+│   ├── gorgonetics/                # Python backend package
+│   │   ├── __init__.py
+│   │   ├── __main__.py             # Entry point
+│   │   ├── cli.py                  # Typer CLI (populate, web, create-admin, db-status)
+│   │   ├── web_app.py              # FastAPI application with REST endpoints
+│   │   ├── models.py               # Pydantic data models
+│   │   ├── ducklake_database.py    # DuckLake database with versioning
+│   │   ├── database_config.py      # Database configuration and connections
+│   │   ├── genome_parser.py        # Project Gorgon genome file parser
+│   │   ├── attribute_config.py     # Dynamic species attribute system
+│   │   ├── constants.py            # Shared constants
+│   │   └── auth/                   # Authentication module
+│   │       ├── __init__.py
+│   │       ├── dependencies.py     # FastAPI auth dependencies
+│   │       ├── models.py           # User and token models
+│   │       └── utils.py            # JWT and password utilities
+│   ├── lib/                        # SvelteKit frontend library
+│   │   ├── components/
+│   │   │   ├── AuthWrapper.svelte
+│   │   │   ├── GeneEditingView.svelte
+│   │   │   ├── forms/              # LoginForm, RegisterForm, PetUploadForm
+│   │   │   ├── gene/               # GeneEditor, GeneCell, GeneVisualizer, etc.
+│   │   │   ├── layout/             # Sidebar, VisualizationHeader
+│   │   │   └── pet/                # PetEditor, PetDataTable, PetVisualization
+│   │   ├── services/
+│   │   │   └── api.js              # API communication layer
+│   │   ├── stores/
+│   │   │   ├── auth.js             # Authentication state
+│   │   │   └── pets.js             # Pet data state
+│   │   └── utils/
+│   │       └── apiUtils.js         # API helper utilities
+│   ├── routes/                     # SvelteKit file-based routing
+│   │   ├── +page.svelte            # Home page
+│   │   ├── +layout.svelte          # Root layout
+│   │   ├── auth/login/             # Login page
+│   │   ├── auth/register/          # Registration page
+│   │   ├── genes/                  # Gene management page
+│   │   └── pets/                   # Pet management page
+│   ├── static/                     # Static assets (favicon, logos, styles)
+│   ├── app.html                    # HTML shell
+│   └── app.css                     # Global styles
+├── assets/                         # Gene template data (JSON)
+│   ├── beewasp/                    # Beewasp chromosome files
+│   └── horse/                      # Horse chromosome files
+├── data/                           # Sample genome files
+├── tests/                          # Test suite (pytest + Vitest)
+├── docs/                           # Documentation
+├── nbs/                            # Jupyter notebooks
+├── .github/                        # GitHub Actions workflows
+├── svelte.config.js                # SvelteKit configuration
+├── vite.config.js                  # Vite build configuration
+├── tailwind.config.js              # Tailwind CSS configuration
+├── vitest.config.js                # Vitest test configuration
+├── eslint.config.js                # ESLint configuration
+├── pyproject.toml                  # Python project and tool configuration
+├── Dockerfile                      # Container build
+├── docker-compose.yml              # Development compose
+├── docker-compose.prod.yml         # Production compose
+├── test.sh                         # Integration test runner
+└── README.md                       # Project overview
 ```
 
 ## Architecture
 
 ### Backend Stack
-- **Python 3.13+**: Modern Python with latest type hints
-- **FastAPI**: High-performance web framework with automatic API docs
-- **DuckDB**: Embedded analytical database for gene data
-- **Uvicorn**: ASGI server for development
-- **Pydantic**: Data validation and serialization
+- **Python 3.13+** with modern type hints
+- **FastAPI** with automatic OpenAPI documentation
+- **DuckLake** (DuckDB + SQLite catalog) for analytics and data versioning
+- **Uvicorn** ASGI server
+- **Pydantic** for data validation
+- **JWT authentication** with role-based access control
 
 ### Frontend Stack
-- **Vanilla JavaScript ES6+**: Modular, class-based architecture
-- **CSS3**: Responsive design with Flexbox/Grid
-- **HTML5**: Semantic markup
+- **SvelteKit** with Svelte 5 runes
+- **Vite** build tool and dev server
+- **Tailwind CSS** utility-first styling
+- **Flowbite Svelte** UI component library
 
 ### Development Tools
-- **uv**: Fast Python package manager
-- **ruff**: Python linter and formatter
-- **mypy**: Static type checking
-- **pytest**: Testing framework
+- **uv** -- Python package manager
+- **pnpm** -- Node.js package manager
+- **ruff** -- Python linter and formatter
+- **ty** -- Static type checking
+- **ESLint** -- JavaScript/Svelte linting
+- **pytest** -- Python tests
+- **Vitest** -- Frontend tests
 
 ## Installation
 
 ### Prerequisites
 - Python 3.13 or higher
 - uv package manager
+- Node.js (with pnpm)
 
 ### Setup
+
 1. Clone the repository:
    ```bash
    git clone https://github.com/jlopezpena/Gorgonetics.git
@@ -99,220 +136,172 @@ Gorgonetics/
 2. Install dependencies:
    ```bash
    uv sync --dev
+   pnpm install
    ```
 
-3. Populate the database (optional - auto-initializes):
+3. Populate the database with gene template data:
    ```bash
-   uv run python scripts/populate_database.py
+   uv run gorgonetics populate
    ```
 
-4. Start the web application:
+4. Create an admin user (optional):
    ```bash
-   uv run python scripts/run_web_app.py
+   uv run gorgonetics create-admin --username admin --password yourpassword
    ```
 
-5. Open your browser to `http://127.0.0.1:8000`
+5. Start the backend API server (port 8000):
+   ```bash
+   uv run gorgonetics web
+   ```
+
+6. In a separate terminal, start the frontend dev server (port 5173):
+   ```bash
+   pnpm run dev
+   ```
+
+7. Open your browser to `http://localhost:5173`.
 
 ## Usage
 
 ### Basic Workflow
 
-1. **Select Animal Type**: Choose from available animal types (Beewasp, Horse)
-2. **Select Chromosome**: Pick a specific chromosome to edit
-3. **Load Genes**: Display genes for the selected chromosome
-4. **Edit Genes**: Modify dominant/recessive effects, appearance, and notes
-5. **Save Changes**: Click Save button to persist changes
-6. **Export Data**: Export modified genes to JSON files
+1. **Register or log in** through the authentication UI.
+2. **Upload a pet genome** file (.txt) exported from Project Gorgon.
+3. **Browse pets** in the data table view, filter by species.
+4. **Visualize genomes** with the interactive gene grid.
+5. **Edit genes** by selecting a species and chromosome, then modifying effects and notes.
+6. **Export data** as JSON for sharing or backup.
 
-### Gene Editing
+### CLI Commands
 
-- **Effects**: Select from predefined effect options (Intelligence+/-, Toughness+/-, etc.)
-- **Appearance**: Free-text description of visual effects
-- **Notes**: Additional comments or observations
-- **Change Tracking**: Save buttons enable only when changes are detected
+```bash
+uv run gorgonetics populate             # Load gene templates from assets/
+uv run gorgonetics web                  # Start the FastAPI backend
+uv run gorgonetics create-admin         # Create an admin user
+uv run gorgonetics db-status            # Check database status
+```
 
-### Export Options
+### Supported Species
+- **Beewasp** -- Multi-chromosome genetic data
+- **Horse** -- Multi-chromosome genetic data
+- Extensible via `attribute_config.py`
 
-- **Single Chromosome**: Export currently selected chromosome
-- **All Chromosomes**: Export all chromosomes for selected animal type
-- **File Format**: Compatible JSON format for re-importing
+## API Quick Reference
 
-## API Reference
+Full documentation: [API.md](API.md)
 
-### Animal Types
-- `GET /api/animal-types` - Get list of available animal types
+Interactive docs available at `http://localhost:8000/docs` (Swagger UI) when the backend is running.
 
-### Chromosomes
-- `GET /api/chromosomes/{animal_type}` - Get chromosomes for animal type
+### Public Endpoints (no auth required)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/animal-types` | List available species |
+| GET | `/api/chromosomes/{animal_type}` | List chromosomes for a species |
+| GET | `/api/genes/{animal_type}/{chromosome}` | Get genes for a chromosome |
+| GET | `/api/effect-options` | List available gene effects |
 
-### Genes
-- `GET /api/genes/{animal_type}/{chromosome}` - Get genes for chromosome
-- `PUT /api/gene` - Update gene data
-
-### Effects
-- `GET /api/effect-options` - Get available effect options
-
-### Export
-- `GET /api/export/{animal_type}` - Export all chromosomes
-- `GET /api/download/{animal_type}/{chromosome}` - Download chromosome file
-
-### Pets
-- `GET /api/pets` - Get all pets
-- `GET /api/pets/{pet_id}` - Get specific pet
-- `PUT /api/pets/{pet_id}` - Update pet
-- `DELETE /api/pets/{pet_id}` - Delete pet
-- `GET /api/pet-genome/{pet_id}` - Get pet genome for visualization
+### Authenticated Endpoints
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/auth/register` | Register a new user |
+| POST | `/api/auth/login` | Log in and receive JWT tokens |
+| GET | `/api/auth/me` | Get current user info |
+| PUT | `/api/gene` | Update a single gene |
+| PUT | `/api/genes` | Bulk update genes (admin only) |
+| GET | `/api/pets` | List pets for current user |
+| POST | `/api/pets/upload` | Upload a pet genome file |
+| GET | `/api/pets/{pet_id}` | Get a specific pet |
+| PUT | `/api/pets/{pet_id}` | Update a pet |
+| DELETE | `/api/pets/{pet_id}` | Delete a pet |
+| GET | `/api/pet-genome/{pet_id}` | Get pet genome for visualization |
+| GET | `/api/export/{animal_type}` | Export all chromosomes as JSON |
+| GET | `/api/download/{animal_type}/{chromosome}` | Download a chromosome file |
 
 ## Database Schema
 
-### Genes Table
-```sql
-CREATE TABLE genes (
-    animal_type VARCHAR NOT NULL,      -- Animal type (beewasp, horse)
-    chromosome VARCHAR NOT NULL,       -- Chromosome identifier
-    gene VARCHAR NOT NULL,             -- Gene identifier (e.g., 01A1)
-    effectDominant VARCHAR,           -- Dominant effect
-    effectRecessive VARCHAR,          -- Recessive effect
-    appearance VARCHAR,                -- Appearance description
-    notes VARCHAR,                     -- Additional notes
-    created_at TIMESTAMP,              -- Creation timestamp
-    updated_at TIMESTAMP,              -- Last update timestamp
-    PRIMARY KEY (animal_type, gene)
-);
-```
+Gorgonetics uses DuckLake (DuckDB with a SQLite catalog) for data storage and versioning. Full documentation: [DATABASE.md](DATABASE.md)
 
-## Frontend Modules
+### users
+| Column | Type | Description |
+|--------|------|-------------|
+| id | INTEGER | Primary key |
+| username | VARCHAR(50) | Unique username |
+| password_hash | VARCHAR(255) | Bcrypt password hash |
+| role | VARCHAR(20) | `admin` or `user` |
+| is_active | BOOLEAN | Account active flag |
+| created_at | TIMESTAMP | Creation time |
+| updated_at | TIMESTAMP | Last update time |
 
-### ApiClient (`api-client.js`)
-Handles all communication with the backend API.
+### genes
+| Column | Type | Description |
+|--------|------|-------------|
+| animal_type | VARCHAR | Species identifier (e.g., `beewasp`, `horse`) |
+| chromosome | VARCHAR | Chromosome identifier (e.g., `chr01`) |
+| gene | VARCHAR | Gene identifier (e.g., `01A1`) |
+| effectDominant | VARCHAR | Dominant allele effect |
+| effectRecessive | VARCHAR | Recessive allele effect |
+| appearance | VARCHAR | Visual appearance description |
+| notes | VARCHAR | Additional notes |
+| created_at | TIMESTAMP | Creation time |
+| updated_at | TIMESTAMP | Last update time |
+| last_modified_by | INTEGER | User ID of last editor |
 
-**Key Methods:**
-- `getAnimalTypes()` - Fetch available animal types
-- `getGenes(animalType, chromosome)` - Fetch genes for chromosome
-- `updateGene(updateData)` - Save gene changes
-- `exportChromosome(animalType, chromosome)` - Export chromosome
+Primary key: `(animal_type, gene)`
 
-### GeneManager (`gene-manager.js`)
-Manages gene display, editing, and saving operations.
+### pets
+| Column | Type | Description |
+|--------|------|-------------|
+| id | INTEGER | Primary key |
+| user_id | INTEGER | Owner user ID |
+| name | VARCHAR | Pet name |
+| species | VARCHAR | Species (e.g., `beewasp`, `horse`) |
+| gender | VARCHAR | Pet gender |
+| breed | VARCHAR | Breed (species-dependent) |
+| breeder | VARCHAR | Breeder/owner name |
+| content_hash | VARCHAR | Deduplication hash of genome file |
+| genome_data | JSON | Complete genome structure |
+| notes | TEXT | Additional notes |
+| is_public | BOOLEAN | Public visibility flag |
+| created_at | TIMESTAMP | Upload time |
+| updated_at | TIMESTAMP | Last update time |
+| *(dynamic)* | *(varies)* | Species-specific attribute columns |
 
-**Key Methods:**
-- `displayGenes(genes, animalType)` - Render gene cards
-- `createGeneCard(gene, animalType)` - Create individual gene card
-- `saveGene(geneId, animalType)` - Save gene changes
-- `checkForChanges(card)` - Track changes for save state
-
-### UIUtils (`ui-utils.js`)
-Provides common UI utilities and user feedback.
-
-**Key Methods:**
-- `showSuccess(message)` - Display success message
-- `showError(message)` - Display error message
-- `showLoading(message)` - Display loading state
-- `updateButtonStates(animalType, chromosome)` - Update UI state
-
-### ExportManager (`export-manager.js`)
-Handles data export functionality.
-
-**Key Methods:**
-- `exportChromosome()` - Export single chromosome
-- `exportAllChromosomes()` - Export all chromosomes
-
-### GeneVisualizer (`gene-visualizer.js`)
-Handles pet genome visualization and interactive gene display.
-
-**Key Methods:**
-- `loadPet(petId)` - Load pet genome data
-- `renderGenomeGrid()` - Render interactive gene grid
-- `updateFilters()` - Apply gene filtering
-- `showTooltip(cell, gene)` - Display gene information
-
-### AppController (`app-controller.js`)
-Main application coordinator that initializes and connects all modules.
-
-**Key Methods:**
-- `initialize()` - Set up application
-- `loadAnimalTypes()` - Load animal type options
-- `setupEventListeners()` - Wire up UI events
-- `switchTab(tabId)` - Handle tab switching between gene editing and pet management
+The pets table includes dynamic columns generated from `attribute_config.py` for species-specific traits.
 
 ## Development
 
-### Code Style
-- Follow PEP 8 for Python code (120 character line length)
-- Use type hints for all functions and methods
-- Use double quotes for strings
-- Write docstrings for all public functions and classes
-- Target Python 3.13+ for type hints and features
+### Code Quality
+
+```bash
+# Python
+uv run ruff check .              # Lint
+uv run ruff format --check .     # Format check
+uv run ty check src/gorgonetics  # Type check
+
+# Frontend
+pnpm run lint                    # ESLint
+pnpm run lint:ci                 # Strict lint (CI mode)
+```
 
 ### Testing
+
 ```bash
-# Run all tests
+# Python tests
 uv run pytest
 
-# Run with coverage
-uv run pytest --cov=gorgonetics
+# Frontend tests
+pnpm run test:client
 
-# Run specific test file
-uv run pytest tests/test_database.py
+# Integration tests
+./test.sh quick                  # Python integration tests
+./test.sh all                    # Full suite (integration + client)
+./test.sh genes                  # Gene endpoint tests
+./test.sh pets                   # Pet endpoint tests
+./test.sh consistency            # Data consistency tests
 ```
 
-### Linting and Formatting
-```bash
-# Check code style
-uv run ruff check
-
-# Format code
-uv run ruff format
-
-# Type checking
-uv run mypy src/gorgonetics
-```
-
-### Development Server
-```bash
-# Start development server
-uv run python scripts/run_web_app.py
-```
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature-name`
-3. Make your changes
-4. Run tests: `uv run pytest`
-5. Check code style: `uv run ruff check`
-6. Commit your changes: `git commit -am 'Add feature'`
-7. Push to the branch: `git push origin feature-name`
-8. Create a Pull Request
-
-### Development Workflow
-1. Always run `uv sync --dev` to install dependencies
-2. Use `ruff check` for linting
-3. Use `ruff format` for formatting
-4. Use `mypy src/gorgonetics` for type checking
-5. Use `pytest` for running tests
-6. All code passes strict type checking and linting before commits
-
-## Troubleshooting
-
-### Common Issues
-
-**Database Locked Error**
-- Stop any running Python processes: `taskkill /F /IM python.exe`
-- Restart the application
-
-**Export Not Working**
-- Check browser console for JavaScript errors
-- Verify API endpoints are responding
-
-**Gene Changes Not Saving**
-- Check network tab for failed API requests
-- Verify field names match API expectations
-
-**UI Not Loading**
-- Check if static files are being served correctly
-- Verify JavaScript modules are loading in correct order
+See [TESTING.md](TESTING.md) for full details.
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License. See the LICENSE file for details.

@@ -13,6 +13,9 @@ from typing import Any
 class AttributeConfig:
     """Centralized configuration for pet attributes."""
 
+    # Ordered list of core attributes (matches game order)
+    CORE_ATTRIBUTE_ORDER = ["toughness", "ruggedness", "enthusiasm", "friendliness", "intelligence", "virility"]
+
     # Core attributes shared by all pet species
     CORE_ATTRIBUTES = {
         "intelligence": {
@@ -134,50 +137,61 @@ class AttributeConfig:
             },
         },
         "horse": {
-            "scale-kb": {
-                "name": "Scale (Kb)",
-                "examples": "Body scaling",
-                "color_indicator": "#8b5cf6",
+            # Horse appearance attributes (grouped by base attribute from gene files)
+            "attributes": {
+                "name": "Attributes",
+                "examples": "Attributes effects (all breeds)",
+                "color_indicator": "#e74c3c",
             },
-            "attributes-kb": {
-                "name": "Attributes (Kb)",
-                "examples": "Physical attributes",
-                "color_indicator": "#06b6d4",
+            "aura": {
+                "name": "Aura",
+                "examples": "Aura effects",
+                "color_indicator": "#3498db",
             },
-            "selector-sb": {
-                "name": "Selector (Sb)",
-                "examples": "Sable selector",
-                "color_indicator": "#8b4513",
+            "coat": {
+                "name": "Coat",
+                "examples": "Coat effects (all breeds)",
+                "color_indicator": "#2ecc71",
             },
-            "selector-pt": {
-                "name": "Selector (Pt)",
-                "examples": "Point selector",
-                "color_indicator": "#f59e0b",
+            "face-markings": {
+                "name": "Face Markings",
+                "examples": "Face Markings effects",
+                "color_indicator": "#f39c12",
             },
-            "selector-po": {
-                "name": "Selector (Po)",
-                "examples": "Pony selector",
-                "color_indicator": "#84cc16",
-            },
-            "selector-kb": {
-                "name": "Selector (Kb)",
-                "examples": "Kabuki selector",
-                "color_indicator": "#ec4899",
-            },
-            "selector-bl": {
-                "name": "Selector (Bl)",
-                "examples": "Blue selector",
-                "color_indicator": "#3b82f6",
+            "hair": {
+                "name": "Hair",
+                "examples": "Hair effects",
+                "color_indicator": "#9b59b6",
             },
             "horn": {
                 "name": "Horn",
-                "examples": "Horn presence",
-                "color_indicator": "#ef4444",
+                "examples": "Horn effects (all breeds)",
+                "color_indicator": "#1abc9c",
             },
-            "horn-kb": {
-                "name": "Horn (Kb)",
-                "examples": "Kabuki horn",
-                "color_indicator": "#f97316",
+            "leg-markings": {
+                "name": "Leg Markings",
+                "examples": "Leg Markings effects",
+                "color_indicator": "#34495e",
+            },
+            "magical": {
+                "name": "Magical",
+                "examples": "Magical effects",
+                "color_indicator": "#e67e22",
+            },
+            "markings": {
+                "name": "Markings",
+                "examples": "Markings effects (all breeds)",
+                "color_indicator": "#16a085",
+            },
+            "scale": {
+                "name": "Scale",
+                "examples": "Scale effects (all breeds)",
+                "color_indicator": "#2980b9",
+            },
+            "selector": {
+                "name": "Selector",
+                "examples": "Selector effects (all breeds)",
+                "color_indicator": "#8e44ad",
             },
         },
     }
@@ -187,8 +201,8 @@ class AttributeConfig:
 
     @classmethod
     def get_core_attribute_names(cls) -> list[str]:
-        """Get list of core attribute names."""
-        return list(cls.CORE_ATTRIBUTES.keys())
+        """Get list of core attribute names in game order."""
+        return [attr for attr in cls.CORE_ATTRIBUTE_ORDER if attr in cls.CORE_ATTRIBUTES]
 
     @classmethod
     def get_core_attributes(cls) -> dict[str, dict[str, Any]]:
@@ -232,10 +246,10 @@ class AttributeConfig:
         return all_attrs.get(attribute_name.lower())
 
     @classmethod
-    def get_default_values(cls, species: str) -> dict[str, float]:
+    def get_default_values(cls, species: str) -> dict[str, int]:
         """Get default values for all attributes of a species."""
         all_attrs = cls.get_all_attributes(species)
-        return {name: info["default"] for name, info in all_attrs.items()}
+        return {name: int(info["default"]) for name, info in all_attrs.items()}
 
     @classmethod
     def get_attribute_display_info(cls, species: str) -> list[dict[str, Any]]:

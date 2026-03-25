@@ -1,198 +1,198 @@
 [
   {
     "gene": "18A1",
-    "effectDominant": "None",
+    "effectDominant": "Enthusiasm-",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Attributes (Il)",
+    "notes": ""
   },
   {
     "gene": "18A2",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Toughness-",
+    "appearance": "Attributes (Il)",
+    "notes": ""
   },
   {
     "gene": "18A3",
-    "effectDominant": "None",
+    "effectDominant": "Virility+",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Attributes (Il)",
+    "notes": ""
   },
   {
     "gene": "18A4",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Friendliness+",
+    "appearance": "Attributes (Il)",
+    "notes": ""
   },
   {
     "gene": "18B1",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Enthusiasm+",
+    "appearance": "Attributes (Il)",
+    "notes": ""
   },
   {
     "gene": "18B2",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Temperament-",
+    "appearance": "Attributes (Il)",
+    "notes": ""
   },
   {
     "gene": "18B3",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Ruggedness+",
+    "appearance": "Attributes (Il)",
+    "notes": ""
   },
   {
     "gene": "18B4",
-    "effectDominant": "None",
+    "effectDominant": "Toughness+",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Attributes (Il)",
+    "notes": ""
   },
   {
     "gene": "18C1",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Intelligence+",
+    "appearance": "Attributes (Il)",
+    "notes": ""
   },
   {
     "gene": "18C2",
-    "effectDominant": "None",
+    "effectDominant": "Enthusiasm+",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Attributes (Il)",
+    "notes": ""
   },
   {
     "gene": "18C3",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Virility+",
+    "appearance": "Attributes (Il)",
+    "notes": ""
   },
   {
     "gene": "18C4",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Ruggedness-",
+    "appearance": "Attributes (Il)",
+    "notes": ""
   },
   {
     "gene": "18D1",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Temperament+",
+    "appearance": "Attributes (Il)",
+    "notes": ""
   },
   {
     "gene": "18D2",
-    "effectDominant": "None",
+    "effectDominant": "Toughness+",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Attributes (Il)",
+    "notes": ""
   },
   {
     "gene": "18D3",
-    "effectDominant": "None",
+    "effectDominant": "Enthusiasm+",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Attributes (Il)",
+    "notes": ""
   },
   {
     "gene": "18D4",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Friendliness+",
+    "appearance": "Attributes (Il)",
+    "notes": ""
   },
   {
     "gene": "18E1",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Intelligence+",
+    "appearance": "Attributes (Il)",
+    "notes": ""
   },
   {
     "gene": "18E2",
-    "effectDominant": "None",
+    "effectDominant": "Temperament+",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Attributes (Il)",
+    "notes": ""
   },
   {
     "gene": "18E3",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Ruggedness-",
+    "appearance": "Attributes (Il)",
+    "notes": ""
   },
   {
     "gene": "18E4",
-    "effectDominant": "None",
+    "effectDominant": "Ruggedness+",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Attributes (Il)",
+    "notes": ""
   },
   {
     "gene": "18F1",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Enthusiasm-",
+    "appearance": "Attributes (Il)",
+    "notes": ""
   },
   {
     "gene": "18F2",
-    "effectDominant": "None",
+    "effectDominant": "Friendliness+",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Attributes (Il)",
+    "notes": ""
   },
   {
     "gene": "18F3",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Toughness+",
+    "appearance": "Attributes (Il)",
+    "notes": ""
   },
   {
     "gene": "18F4",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Temperament+",
+    "appearance": "Attributes (Il)",
+    "notes": ""
   },
   {
     "gene": "18G1",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "None",
+    "notes": ""
   },
   {
     "gene": "18G2",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "None",
+    "notes": ""
   },
   {
     "gene": "18G3",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "None",
+    "notes": ""
   },
   {
     "gene": "18G4",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "None",
+    "notes": ""
   }
 ]

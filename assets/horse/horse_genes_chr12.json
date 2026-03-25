@@ -2,295 +2,295 @@
   {
     "gene": "12A1",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Ruggedness+",
+    "appearance": "Scale (Sb)",
+    "notes": ""
   },
   {
     "gene": "12A2",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale (Sb)",
+    "notes": ""
   },
   {
     "gene": "12A3",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale (Sb)",
+    "notes": ""
   },
   {
     "gene": "12A4",
-    "effectDominant": "None",
+    "effectDominant": "Toughness+",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale (Sb)",
+    "notes": ""
   },
   {
     "gene": "12B1",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale (Sb)",
+    "notes": ""
   },
   {
     "gene": "12B2",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale (Sb)",
+    "notes": ""
   },
   {
     "gene": "12B3",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale (Sb)",
+    "notes": ""
   },
   {
     "gene": "12B4",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Intelligence+",
+    "appearance": "Scale (Sb)",
+    "notes": ""
   },
   {
     "gene": "12C1",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale (Sb)",
+    "notes": ""
   },
   {
     "gene": "12C2",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale (Sb)",
+    "notes": ""
   },
   {
     "gene": "12C3",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale (Sb)",
+    "notes": ""
   },
   {
     "gene": "12C4",
-    "effectDominant": "None",
+    "effectDominant": "Virility+",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale (Sb)",
+    "notes": ""
   },
   {
     "gene": "12D1",
-    "effectDominant": "None",
+    "effectDominant": "Intelligence+",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale (Sb)",
+    "notes": ""
   },
   {
     "gene": "12D2",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale (Sb)",
+    "notes": ""
   },
   {
     "gene": "12D3",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale (Sb)",
+    "notes": ""
   },
   {
     "gene": "12D4",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Ruggedness+",
+    "appearance": "Scale (Sb)",
+    "notes": ""
   },
   {
     "gene": "12E1",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale (Sb)",
+    "notes": ""
   },
   {
     "gene": "12E2",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale (Sb)",
+    "notes": ""
   },
   {
     "gene": "12E3",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Toughness+",
+    "appearance": "Scale (Sb)",
+    "notes": ""
   },
   {
     "gene": "12E4",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale (Sb)",
+    "notes": ""
   },
   {
     "gene": "12F1",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale (Sb)",
+    "notes": ""
   },
   {
     "gene": "12F2",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale (Sb)",
+    "notes": ""
   },
   {
     "gene": "12F3",
-    "effectDominant": "None",
+    "effectDominant": "Intelligence+",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale (Sb)",
+    "notes": ""
   },
   {
     "gene": "12F4",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale (Sb)",
+    "notes": ""
   },
   {
     "gene": "12G1",
-    "effectDominant": "None",
+    "effectDominant": "Virility+",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale (Sb)",
+    "notes": ""
   },
   {
     "gene": "12G2",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale (Sb)",
+    "notes": ""
   },
   {
     "gene": "12G3",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale (Sb)",
+    "notes": ""
   },
   {
     "gene": "12G4",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Scale (Sb)",
+    "notes": ""
   },
   {
     "gene": "12H1",
-    "effectDominant": "None",
+    "effectDominant": "Intelligence+",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Horn (Sb)",
+    "notes": ""
   },
   {
     "gene": "12H2",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Horn (Sb)",
+    "notes": ""
   },
   {
     "gene": "12H3",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Horn (Sb)",
+    "notes": ""
   },
   {
     "gene": "12H4",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Ruggedness-",
+    "appearance": "Horn (Sb)",
+    "notes": ""
   },
   {
     "gene": "12I1",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Horn (Sb)",
+    "notes": ""
   },
   {
     "gene": "12I2",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Horn (Sb)",
+    "notes": ""
   },
   {
     "gene": "12I3",
-    "effectDominant": "None",
+    "effectDominant": "Virility+",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Horn (Sb)",
+    "notes": ""
   },
   {
     "gene": "12I4",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Horn (Sb)",
+    "notes": ""
   },
   {
     "gene": "12J1",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Ruggedness+",
+    "appearance": "Horn (Sb)",
+    "notes": ""
   },
   {
     "gene": "12J2",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Horn (Sb)",
+    "notes": ""
   },
   {
     "gene": "12J3",
-    "effectDominant": "None",
+    "effectDominant": "Toughness-",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Horn (Sb)",
+    "notes": ""
   },
   {
     "gene": "12J4",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Horn (Sb)",
+    "notes": ""
   },
   {
     "gene": "12K1",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Horn (Sb)",
+    "notes": ""
   },
   {
     "gene": "12K2",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Toughness+",
+    "appearance": "Horn (Sb)",
+    "notes": ""
   }
 ]

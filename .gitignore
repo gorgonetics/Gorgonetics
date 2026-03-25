@@ -106,6 +106,7 @@ celerybeat.pid
 
 # Environments
 .env
+.env.docker
 .venv
 env/
 venv/
@@ -169,6 +170,11 @@ yarn-error.log*
 .npm
 .eslintcache
 
+# SvelteKit / Vite
+.svelte-kit/
+.vite/
+build/
+
 # Project specific
 *.backup
 temp/
@@ -180,3 +186,8 @@ tmp/
 
 # DB file
 metadata.sqlite
+backup_*
+test-results/
+client_test_server.log
+backups/
+.claude/*

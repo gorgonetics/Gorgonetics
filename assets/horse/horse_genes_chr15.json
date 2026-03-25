@@ -1,296 +1,296 @@
 [
   {
     "gene": "15A1",
-    "effectDominant": "None",
+    "effectDominant": "Intelligence-",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Coat (Kb)",
+    "notes": ""
   },
   {
     "gene": "15A2",
-    "effectDominant": "None",
+    "effectDominant": "Friendliness+",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Coat (Kb)",
+    "notes": ""
   },
   {
     "gene": "15A3",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Coat (Kb)",
+    "notes": ""
   },
   {
     "gene": "15A4",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Enthusiasm-",
+    "appearance": "Coat (Kb)",
+    "notes": ""
   },
   {
     "gene": "15B1",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Coat (Kb)",
+    "notes": ""
   },
   {
     "gene": "15B2",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Ruggedness-",
+    "appearance": "Coat (Kb)",
+    "notes": ""
   },
   {
     "gene": "15B3",
-    "effectDominant": "None",
+    "effectDominant": "Toughness+",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Coat (Kb)",
+    "notes": ""
   },
   {
     "gene": "15B4",
-    "effectDominant": "None",
+    "effectDominant": "Virility+",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Coat (Kb)",
+    "notes": ""
   },
   {
     "gene": "15C1",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Coat (Kb)",
+    "notes": ""
   },
   {
     "gene": "15C2",
-    "effectDominant": "None",
+    "effectDominant": "Friendliness+",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Coat (Kb)",
+    "notes": ""
   },
   {
     "gene": "15C3",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Coat (Kb)",
+    "notes": ""
   },
   {
     "gene": "15C4",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Coat (Kb)",
+    "notes": ""
   },
   {
     "gene": "15D1",
-    "effectDominant": "None",
+    "effectDominant": "Ruggedness+",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Coat (Kb)",
+    "notes": ""
   },
   {
     "gene": "15D2",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Toughness+",
+    "appearance": "Coat (Kb)",
+    "notes": ""
   },
   {
     "gene": "15D3",
-    "effectDominant": "None",
+    "effectDominant": "Intelligence+",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Coat (Kb)",
+    "notes": ""
   },
   {
     "gene": "15D4",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Intelligence-",
+    "appearance": "Coat (Kb)",
+    "notes": ""
   },
   {
     "gene": "15E1",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Friendliness+",
+    "appearance": "Coat (Kb)",
+    "notes": ""
   },
   {
     "gene": "15E2",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Coat (Kb)",
+    "notes": ""
   },
   {
     "gene": "15E3",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Enthusiasm+",
+    "appearance": "Coat (Kb)",
+    "notes": ""
   },
   {
     "gene": "15E4",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Coat (Kb)",
+    "notes": ""
   },
   {
     "gene": "15F1",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Ruggedness+",
+    "appearance": "Coat (Kb)",
+    "notes": ""
   },
   {
     "gene": "15F2",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Toughness+",
+    "appearance": "Coat (Kb)",
+    "notes": ""
   },
   {
     "gene": "15F3",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Coat (Kb)",
+    "notes": ""
   },
   {
     "gene": "15F4",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Coat (Kb)",
+    "notes": ""
   },
   {
     "gene": "15G1",
-    "effectDominant": "None",
+    "effectDominant": "Enthusiasm+",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Coat (Kb)",
+    "notes": ""
   },
   {
     "gene": "15G2",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Coat (Kb)",
+    "notes": ""
   },
   {
     "gene": "15G3",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Intelligence+",
+    "appearance": "Coat (Kb)",
+    "notes": ""
   },
   {
     "gene": "15G4",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Coat (Kb)",
+    "notes": ""
   },
   {
     "gene": "15H1",
-    "effectDominant": "None",
+    "effectDominant": "Friendliness-",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Markings (Kb)",
+    "notes": ""
   },
   {
     "gene": "15H2",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Markings (Kb)",
+    "notes": ""
   },
   {
     "gene": "15H3",
-    "effectDominant": "None",
+    "effectDominant": "Intelligence+",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Markings (Kb)",
+    "notes": ""
   },
   {
     "gene": "15H4",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Markings (Kb)",
+    "notes": ""
   },
   {
     "gene": "15I1",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Ruggedness-",
+    "appearance": "Markings (Kb)",
+    "notes": ""
   },
   {
     "gene": "15I2",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Markings (Kb)",
+    "notes": ""
   },
   {
     "gene": "15I3",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Markings (Kb)",
+    "notes": ""
   },
   {
     "gene": "15I4",
-    "effectDominant": "None",
+    "effectDominant": "Toughness-",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Markings (Kb)",
+    "notes": ""
   },
   {
     "gene": "15J1",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Markings (Kb)",
+    "notes": ""
   },
   {
     "gene": "15J2",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Markings (Kb)",
+    "notes": ""
   },
   {
     "gene": "15J3",
     "effectDominant": "None",
-    "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "effectRecessive": "Enthusiasm-",
+    "appearance": "Markings (Kb)",
+    "notes": ""
   },
   {
     "gene": "15J4",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Markings (Kb)",
+    "notes": ""
   },
   {
     "gene": "15K1",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Markings (Kb)",
+    "notes": ""
   },
   {
     "gene": "15K2",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "|String for me to fill in|",
-    "notes": "|String for me to fill in|"
+    "appearance": "Markings (Kb)",
+    "notes": ""
   }
 ]

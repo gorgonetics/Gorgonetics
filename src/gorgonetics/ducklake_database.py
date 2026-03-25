@@ -5,8 +5,10 @@ This module provides multi-user support using DuckLake format with various
 catalog database backends (PostgreSQL, MySQL, SQLite, DuckDB).
 """
 
+import hashlib
 import json
 import logging
+import tempfile
 from datetime import datetime
 from pathlib import Path
 from types import TracebackType
@@ -14,7 +16,8 @@ from typing import Any
 
 import duckdb
 
-from .attribute_config import AttributeConfig
+from gorgonetics.attribute_config import AttributeConfig
+from gorgonetics.constants import Gender
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +52,12 @@ class DuckLakeGeneDatabase:
 
         self._connect()
         self._setup_ducklake()
+
+        # Load demo pets for anonymous users after initialization
+        try:
+            self.load_demo_pets()
+        except Exception as e:
+            logger.warning(f"Failed to load demo pets: {e}")
 
     def export_genes_to_json(self, animal_type: str, chromosome: str) -> list[dict[str, str]]:
         """
@@ -112,7 +121,32 @@ class DuckLakeGeneDatabase:
     def _create_tables(self) -> None:
         """Create the necessary database tables in DuckLake."""
         assert self.conn is not None
-        # Genes table (static reference data)
+
+        # Users table for authentication
+        self.conn.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER,
+                username VARCHAR(50) NOT NULL,
+                password_hash VARCHAR(255) NOT NULL,
+                role VARCHAR(20),
+                is_active BOOLEAN,
+                created_at TIMESTAMP,
+                updated_at TIMESTAMP
+            )
+        """)
+
+        # User sessions table for token management
+        self.conn.execute("""
+            CREATE TABLE IF NOT EXISTS user_sessions (
+                id INTEGER,
+                user_id INTEGER NOT NULL,
+                token_jti VARCHAR(255) NOT NULL,
+                expires_at TIMESTAMP NOT NULL,
+                created_at TIMESTAMP
+            )
+        """)
+
+        # Genes table (static reference data) - now with audit fields
         self.conn.execute("""
             CREATE TABLE IF NOT EXISTS genes (
                 animal_type VARCHAR NOT NULL,
@@ -123,14 +157,16 @@ class DuckLakeGeneDatabase:
                 appearance VARCHAR DEFAULT 'None',
                 notes VARCHAR DEFAULT 'None',
                 created_at TIMESTAMP,
-                updated_at TIMESTAMP
+                updated_at TIMESTAMP,
+                last_modified_by INTEGER,
+                last_modified_at TIMESTAMP
             )
         """)
 
         # Create pets table with dynamic attribute columns
         self._create_pets_table()
 
-        logger.info("Created DuckLake tables")
+        logger.info("Created DuckLake tables with multiuser support")
 
     def _serialize_datetime_fields(self, data: dict[str, Any]) -> dict[str, Any]:
         """Convert datetime objects to ISO format strings in a dictionary."""
@@ -175,12 +211,16 @@ class DuckLakeGeneDatabase:
             # Build CREATE TABLE statement
             base_columns = [
                 "id INTEGER",
+                "user_id INTEGER NOT NULL",
                 "name VARCHAR NOT NULL",
                 "species VARCHAR NOT NULL",
+                "gender VARCHAR NOT NULL",
+                "breed VARCHAR",
                 "breeder VARCHAR",
                 "content_hash VARCHAR NOT NULL",
                 "genome_data JSON NOT NULL",
                 "notes TEXT",
+                "is_public BOOLEAN",
                 "created_at TIMESTAMP",
                 "updated_at TIMESTAMP",
             ]
@@ -243,9 +283,17 @@ class DuckLakeGeneDatabase:
                 INSERT INTO genes (
                     animal_type, chromosome, gene, effectDominant,
                     effectRecessive, appearance, notes, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+                ) VALUES ($animal_type, $chromosome, $gene, $effectDominant, $effectRecessive, $appearance, $notes, NOW(), NOW())
             """,
-                [animal_type, chromosome, gene, effectDominant, effectRecessive, appearance, notes],
+                {
+                    "animal_type": animal_type,
+                    "chromosome": chromosome,
+                    "gene": gene,
+                    "effectDominant": effectDominant,
+                    "effectRecessive": effectRecessive,
+                    "appearance": appearance,
+                    "notes": notes,
+                },
             )
         except Exception:
             # Skip duplicates
@@ -254,8 +302,12 @@ class DuckLakeGeneDatabase:
     def get_animal_types(self) -> list[str]:
         """Get list of all animal types."""
         assert self.conn is not None
-        result = self.conn.execute("SELECT DISTINCT animal_type FROM genes ORDER BY animal_type").fetchall()
-        return [row[0] for row in result]
+        try:
+            result = self.conn.execute("SELECT DISTINCT animal_type FROM genes ORDER BY animal_type").fetchall()
+            return [row[0] for row in result]
+        except (duckdb.CatalogException, duckdb.IOException):
+            # Table doesn't exist yet
+            return []
 
     def get_chromosomes(self, animal_type: str) -> list[str]:
         """Get all chromosomes for a specific animal type."""
@@ -301,16 +353,20 @@ class DuckLakeGeneDatabase:
     def get_genes_for_animal(self, animal_type: str) -> list[dict[str, Any]]:
         """Get all genes for a specific animal type."""
         assert self.conn is not None
-        result = self.conn.execute(
-            """
-            SELECT animal_type, chromosome, gene, effectDominant, effectRecessive,
-                   appearance, notes, created_at
-            FROM genes
-            WHERE animal_type = ?
-            ORDER BY chromosome, gene
-        """,
-            [animal_type],
-        ).fetchall()
+        try:
+            result = self.conn.execute(
+                """
+                SELECT animal_type, chromosome, gene, effectDominant, effectRecessive,
+                       appearance, notes, created_at
+                FROM genes
+                WHERE animal_type = ?
+                ORDER BY chromosome, gene
+            """,
+                [animal_type],
+            ).fetchall()
+        except (duckdb.CatalogException, duckdb.IOException):
+            # Table doesn't exist yet
+            return []
 
         return [
             {
@@ -395,7 +451,9 @@ class DuckLakeGeneDatabase:
         breeder: str | None,
         genome_data: str,
         content_hash: str,
-        attributes: dict[str, float] | None = None,
+        user_id: int,
+        gender: str = Gender.MALE,
+        attributes: dict[str, int] | None = None,
         notes: str | None = None,
     ) -> int | None:
         """
@@ -407,6 +465,7 @@ class DuckLakeGeneDatabase:
             breeder: Breeder name
             genome_data: Serialized genome JSON
             content_hash: SHA-256 hash of original file content
+            gender: Pet's gender (Male or Female)
             attributes: Dynamic attributes dictionary
             notes: Optional notes
         """
@@ -415,8 +474,8 @@ class DuckLakeGeneDatabase:
             all_attributes = AttributeConfig.get_all_attributes(species)
 
             # Prepare base columns and values
-            columns = ["name", "species", "content_hash", "genome_data"]
-            values = [name, species, content_hash, genome_data]
+            columns = ["user_id", "name", "species", "gender", "content_hash", "genome_data"]
+            values = [user_id, name, species, gender, content_hash, genome_data]
 
             # Add breeder if provided
             if breeder:
@@ -451,8 +510,12 @@ class DuckLakeGeneDatabase:
 
             assert self.conn is not None
             # Get next ID first (DuckLake doesn't support RETURNING)
-            max_id_result = self.conn.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM pets").fetchone()
-            next_id = max_id_result[0] if max_id_result else 1
+            try:
+                max_id_result = self.conn.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM pets").fetchone()
+                next_id = max_id_result[0] if max_id_result else 1
+            except (duckdb.CatalogException, duckdb.IOException):
+                # Table doesn't exist yet, start with ID 1
+                next_id = 1
 
             columns.insert(0, "id")
             values.insert(0, str(next_id))
@@ -481,7 +544,7 @@ class DuckLakeGeneDatabase:
         """Get a pet by ID."""
         assert self.conn is not None
         try:
-            result = self.conn.execute("SELECT * FROM pets WHERE id = ?", [pet_id]).fetchone()
+            result = self.conn.execute("SELECT * FROM pets WHERE id = $pet_id", {"pet_id": pet_id}).fetchone()
 
             if result:
                 # Get column names
@@ -502,17 +565,54 @@ class DuckLakeGeneDatabase:
             logger.error(f"Failed to get pet {pet_id}: {e}")
             return None
 
-    def get_all_pets(self, species: str | None = None) -> list[dict[str, Any]]:
-        """Get all pets, optionally filtered by species."""
+    def count_pets(self, species: str | None = None, user_id: int | None = None) -> int:
+        """Return the total number of pets matching the filters."""
         assert self.conn is not None
         try:
-            # Build query based on whether species filter is provided
+            conditions: list[str] = []
+            params: list[Any] = []
+            if user_id is not None:
+                conditions.append("user_id = ?")
+                params.append(user_id)
             if species:
-                query = "SELECT * FROM pets WHERE species = ? ORDER BY name"
-                params = [species]
+                conditions.append("species = ?")
+                params.append(species)
+            where = f" WHERE {' AND '.join(conditions)}" if conditions else ""
+            result = self.conn.execute(f"SELECT COUNT(*) FROM pets{where}", params).fetchone()
+            return result[0] if result else 0
+        except Exception as e:
+            logger.error(f"Failed to count pets: {e}")
+            return 0
+
+    def get_all_pets(
+        self,
+        species: str | None = None,
+        user_id: int | None = None,
+        limit: int | None = None,
+        offset: int = 0,
+    ) -> list[dict[str, Any]]:
+        """Get all pets, optionally filtered by species and/or user, with optional pagination."""
+        assert self.conn is not None
+        try:
+            # Build query based on filters provided
+            conditions = []
+            params: list[Any] = []
+
+            if user_id is not None:
+                conditions.append("user_id = ?")
+                params.append(user_id)
+
+            if species:
+                conditions.append("species = ?")
+                params.append(species)
+
+            if conditions:
+                query = f"SELECT * FROM pets WHERE {' AND '.join(conditions)} ORDER BY name"
             else:
                 query = "SELECT * FROM pets ORDER BY name"
-                params = []
+
+            if limit is not None:
+                query += f" LIMIT {int(limit)} OFFSET {int(offset)}"
 
             results = self.conn.execute(query, params).fetchall()
 
@@ -638,12 +738,12 @@ class DuckLakeGeneDatabase:
         assert self.conn is not None
         try:
             # Check if pet exists before deletion
-            existing_pet = self.conn.execute("SELECT id FROM pets WHERE id = ?", [pet_id]).fetchone()
+            existing_pet = self.conn.execute("SELECT id FROM pets WHERE id = $pet_id", {"pet_id": pet_id}).fetchone()
             if not existing_pet:
                 return False
 
             # Delete the pet
-            self.conn.execute("DELETE FROM pets WHERE id = ?", [pet_id])
+            self.conn.execute("DELETE FROM pets WHERE id = $pet_id", {"pet_id": pet_id})
 
             # Commit to create snapshot
             self.conn.commit()
@@ -657,7 +757,9 @@ class DuckLakeGeneDatabase:
         """Find a pet by its content hash."""
         assert self.conn is not None
         try:
-            result = self.conn.execute("SELECT * FROM pets WHERE content_hash = ?", [content_hash]).fetchone()
+            result = self.conn.execute(
+                "SELECT * FROM pets WHERE content_hash = $content_hash", {"content_hash": content_hash}
+            ).fetchone()
 
             if result:
                 columns = [desc[0] for desc in self.conn.description or []]
@@ -709,6 +811,80 @@ class DuckLakeGeneDatabase:
         except Exception as e:
             logger.error(f"Failed to get table changes: {e}")
             return []
+
+    def load_demo_pets(self) -> None:
+        """Load demo pets for anonymous users to explore."""
+        assert self.conn is not None
+
+        # Check if demo pets already exist
+        try:
+            existing = self.conn.execute("SELECT COUNT(*) FROM pets WHERE user_id = -1").fetchone()
+            if existing and existing[0] > 0:
+                logger.debug("Demo pets already loaded")
+                return
+        except Exception:
+            # Table might not exist yet, continue with loading
+            pass
+
+        demo_files = [
+            ("data/Genes_SampleFaeBee.txt", "Sample Fae Bee", Gender.FEMALE),
+            ("data/Genes_SampleHorse.txt", "Sample Horse", Gender.MALE),
+        ]
+
+        for file_path, display_name, gender in demo_files:
+            if not Path(file_path).exists():
+                logger.warning(f"Demo file not found: {file_path}")
+                continue
+
+            try:
+                # Read and parse the genome file
+                with open(file_path, encoding="utf-8") as f:
+                    genome_content = f.read()
+
+                # Import models locally to avoid circular imports
+                from .models import Genome
+
+                # Create temporary file for parsing
+                with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".txt") as temp_file:
+                    temp_file.write(genome_content)
+                    temp_file_path = temp_file.name
+
+                try:
+                    # Parse the genome
+                    genome = Genome.from_file(temp_file_path)
+                    genome_json = genome.to_json()
+
+                    # Generate content hash
+                    content_hash = hashlib.sha256(genome_content.encode()).hexdigest()
+
+                    # Get default attributes for species
+                    attributes_dict = AttributeConfig.get_default_values(genome.genome_type)
+
+                    # Add the demo pet with user_id = -1 (reserved for demo pets)
+                    demo_pet_id = self.add_pet(
+                        name=display_name,
+                        species=genome.genome_type,
+                        breeder=genome.breeder,
+                        genome_data=genome_json,
+                        content_hash=content_hash,
+                        user_id=-1,  # Special ID for demo pets
+                        gender=gender,
+                        attributes=attributes_dict,
+                        notes=f"Sample {genome.genome_type} for exploring Gorgonetics features",
+                    )
+
+                    if demo_pet_id:
+                        logger.info(f"Loaded demo pet: {display_name} (ID: {demo_pet_id})")
+                    else:
+                        logger.error(f"Failed to load demo pet: {display_name}")
+
+                finally:
+                    # Clean up temp file
+                    Path(temp_file_path).unlink(missing_ok=True)
+
+            except Exception as e:
+                logger.error(f"Failed to load demo pet from {file_path}: {e}")
+                continue
 
     def cleanup_old_files(self, dry_run: bool = True) -> bool:
         """Clean up old DuckLake files."""

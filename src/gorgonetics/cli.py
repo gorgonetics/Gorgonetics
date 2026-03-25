@@ -1,9 +1,11 @@
 """Command line interface for Gorgonetics."""
 
 import json
+import os
 from pathlib import Path
 from typing import Any
 
+import duckdb
 import typer
 from rich.console import Console
 from rich.progress import (
@@ -18,9 +20,8 @@ from rich.progress import (
 from rich.table import Table
 
 from gorgonetics import __version__
-
-from .database_config import create_database_instance, get_database_config
-from .ducklake_database import DuckLakeGeneDatabase
+from gorgonetics.database_config import create_database_instance, get_database_config
+from gorgonetics.ducklake_database import DuckLakeGeneDatabase
 
 console = Console()
 app = typer.Typer(
@@ -40,24 +41,19 @@ def version_callback(value: bool) -> None:
 @app.command()
 def web(
     host: str = typer.Option("127.0.0.1", help="Host to bind to"),
-    port: int = typer.Option(8000, help="Port to bind to"),
+    port: int = typer.Option(int(os.getenv("PORT", "8000")), help="Port to bind to (defaults to $PORT env var)"),
     reload: bool = typer.Option(True, help="Enable auto-reload in development"),
 ) -> None:
     """Start the web application server."""
-    console.print("🧬 [green]Starting Gorgonetics Web Application[/green]")
-    console.print(f"🌐 [blue]Open your browser to: http://{host}:{port}[/blue]")
+    console.print("* [green]Starting Gorgonetics Web Application[/green]")
+    console.print(f"* [blue]Open your browser to: http://{host}:{port}[/blue]")
 
     try:
         import uvicorn
-        uvicorn.run(
-            "gorgonetics.web_app:app",
-            host=host,
-            port=port,
-            reload=reload,
-            log_level="info"
-        )
+
+        uvicorn.run("gorgonetics.web_app:app", host=host, port=port, reload=reload, log_level="info")
     except KeyboardInterrupt:
-        console.print("\n👋 [yellow]Shutting down Gorgonetics Web Application[/yellow]")
+        console.print("\n* [yellow]Shutting down Gorgonetics Web Application[/yellow]")
     except ImportError:
         console.print("[red]Error: uvicorn not found. Install with: pip install uvicorn[/red]")
         raise typer.Exit(1) from None
@@ -66,7 +62,7 @@ def web(
         raise typer.Exit(1) from e
 
 
-def _load_gene_file(file_path: Path, animal_type: str, chr_num: str, db: Any, progress, file_task) -> int:
+def _load_gene_file(file_path: Path, animal_type: str, chr_num: str, db: Any, progress: Any, file_task: Any) -> int:
     """Load genes from a single JSON file into the database."""
     genes_loaded = 0
 
@@ -130,26 +126,33 @@ def _collect_gene_files() -> list[Path]:
 @app.command()
 def populate() -> None:
     """Populate database with gene data from asset files."""
-    console.print("🧬 [green]Populating Gorgonetics Database[/green]")
+    console.print("* [green]Populating Gorgonetics Database[/green]")
     console.print("[blue]Loading gene data from assets directory[/blue]")
-    console.print("🧬 [bold cyan]Gorgonetics Database Population[/bold cyan]")
+    console.print("* [bold cyan]Gorgonetics Database Population[/bold cyan]")
     console.print("=" * 50)
 
     try:
         # Initialize database
-        console.print("📊 [yellow]Connecting to database...[/yellow]")
+        console.print("* [yellow]Connecting to database...[/yellow]")
         db = create_database_instance()
 
         # Clear existing data
-        console.print("🗑️  [red]Clearing existing gene data...[/red]")
-        db.conn.execute("DELETE FROM genes")
-        db.conn.commit()
+        console.print("* [red]Clearing existing gene data...[/red]")
+        if db.conn is not None:
+            try:
+                db.conn.execute("DELETE FROM genes")
+                db.conn.commit()
+            except (duckdb.CatalogException, duckdb.IOException) as e:
+                console.print(f"* [yellow]No existing data to clear (table may not exist yet): {e}[/yellow]")
+        else:
+            console.print("* [red]Error: Database connection is None[/red]")
+            raise typer.Exit(1)
 
         # Collect files to process
         files_to_process = _collect_gene_files()
 
         if not files_to_process:
-            console.print("[yellow]⚠️  No gene files found in assets directories![/yellow]")
+            console.print("[yellow]* No gene files found in assets directories![/yellow]")
             console.print("[dim]Expected files in:[/dim]")
             console.print("  - assets/beewasp/beewasp_genes_chr*.json")
             console.print("  - assets/horse/horse_genes_chr*.json")
@@ -192,31 +195,32 @@ def populate() -> None:
                     progress.remove_task(file_task)
 
                 except Exception as e:
-                    console.print(f"[red]   ❌ Error loading {file_path}: {e}[/red]")
+                    console.print(f"[red]   * Error loading {file_path}: {e}[/red]")
 
                 progress.advance(overall_task)
 
         # Commit all changes to database
-        console.print("[blue]💾 Committing changes to database...[/blue]")
+        console.print("[blue]* Committing changes to database...[/blue]")
+        assert db.conn is not None
         db.conn.commit()
 
         # Summary
         console.print("=" * 50)
-        console.print(f"🎉 [bold green]Successfully loaded {total_genes} genes into database![/bold green]")
+        console.print(f"* [bold green]Successfully loaded {total_genes} genes into database![/bold green]")
 
         # Show animal type summary
         animal_types = db.get_animal_types()
         for animal_type in animal_types:
             gene_count = len(db.get_genes_for_animal(animal_type))
-            console.print(f"📋 [blue]{animal_type.title()}:[/blue] {gene_count} genes")
+            console.print(f"* [blue]{animal_type.title()}:[/blue] {gene_count} genes")
 
         db.close()
-        console.print("\n✨ [bold]Database population completed![/bold]")
-        console.print("🚀 [dim]You can now start the web application with:[/dim] [bold]uv run gorgonetics web[/bold]")
-        console.print("✅ [green]Database population completed![/green]")
+        console.print("\n* [bold]Database population completed![/bold]")
+        console.print("* [dim]You can now start the web application with:[/dim] [bold]uv run gorgonetics web[/bold]")
+        console.print("* [green]Database population completed![/green]")
 
     except Exception as e:
-        console.print(f"[red]❌ Error populating database: {e}[/red]")
+        console.print(f"[red]* Error populating database: {e}[/red]")
         raise typer.Exit(1) from e
 
 
@@ -244,7 +248,7 @@ def db_status() -> None:
     if errors:
         console.print("\n[red]Configuration Errors:[/red]")
         for error in errors:
-            console.print(f"  • {error}")
+            console.print(f"  * {error}")
 
 
 @app.command()
@@ -312,13 +316,93 @@ def db_cleanup(dry_run: bool = typer.Option(True, help="Perform dry run without 
         success = db.cleanup_old_files(dry_run=dry_run)
 
         if success:
-            console.print("[green]✅ Cleanup completed successfully[/green]")
+            console.print("[green]* Cleanup completed successfully[/green]")
         else:
-            console.print("[red]❌ Cleanup failed[/red]")
+            console.print("[red]* Cleanup failed[/red]")
 
     except Exception as e:
         console.print(f"[red]Failed to cleanup: {e}[/red]")
         raise typer.Exit(1) from e
+
+
+@app.command()
+def clean_test_artifacts(
+    dry_run: bool = typer.Option(False, help="Show what would be removed without actually removing it"),
+) -> None:
+    """Clean up test artifacts and temporary files."""
+    import shutil
+    from pathlib import Path
+
+    # Define test artifacts to clean up
+    artifacts = [
+        "test_client_metadata.sqlite",
+        "test_client_data/",
+        ".pytest_cache/",
+        "test-results/",
+        ".mypy_cache/",
+        ".ruff_cache/",
+        "htmlcov/",
+        ".coverage",
+        "*.db",  # Any loose database files
+        "test_*.db",
+        "test_*.sqlite",
+        "__pycache__/",
+        "**/__pycache__/",
+    ]
+
+    console.print("* [blue]Cleaning up test artifacts...[/blue]")
+
+    if dry_run:
+        console.print("* [yellow]DRY RUN: Showing what would be removed[/yellow]")
+
+    cleaned_count = 0
+
+    for artifact in artifacts:
+        if "*" in artifact:
+            # Handle glob patterns
+            from glob import glob
+
+            matches = glob(artifact, recursive=True)
+            for match in matches:
+                path = Path(match)
+                if path.exists():
+                    if dry_run:
+                        console.print(f"  Would remove: {match}")
+                    else:
+                        try:
+                            if path.is_file():
+                                path.unlink()
+                                console.print(f"  Removed file: {match}")
+                            elif path.is_dir():
+                                shutil.rmtree(path)
+                                console.print(f"  Removed directory: {match}")
+                            cleaned_count += 1
+                        except Exception as e:
+                            console.print(f"  [red]Failed to remove {match}: {e}[/red]")
+        else:
+            path = Path(artifact)
+            if path.exists():
+                if dry_run:
+                    console.print(f"  Would remove: {artifact}")
+                else:
+                    try:
+                        if path.is_file():
+                            path.unlink()
+                            console.print(f"  Removed file: {artifact}")
+                        elif path.is_dir():
+                            shutil.rmtree(path)
+                            console.print(f"  Removed directory: {artifact}")
+                        cleaned_count += 1
+                    except Exception as e:
+                        console.print(f"  [red]Failed to remove {artifact}: {e}[/red]")
+
+    if dry_run:
+        console.print("* [yellow]Dry run completed. Use --no-dry-run to actually remove files.[/yellow]")
+    else:
+        if cleaned_count > 0:
+            console.print(f"* [green]Cleanup completed! Removed {cleaned_count} artifacts.[/green]")
+        else:
+            console.print("* [green]No test artifacts found to clean up.[/green]")
 
 
 @app.callback()
@@ -334,6 +418,30 @@ def main(
 ) -> None:
     """Gorgon genetics breeding tool for Project Gorgon."""
     pass
+
+
+@app.command()
+def create_admin(
+    username: str = typer.Option(..., help="Admin username"),
+    password: str = typer.Option(..., help="Admin password"),
+) -> None:
+    """Create an admin user for initial setup."""
+    try:
+        from .auth import get_password_hash
+        from .auth.dependencies import create_user_in_db
+        from .auth.models import UserCreate
+        from .constants import UserRole
+
+        password_hash = get_password_hash(password)
+        user_create = UserCreate(username=username, password=password)
+        create_user_in_db(user_create, password_hash, role=UserRole.ADMIN)
+
+        console.print(f"[green]* Successfully created admin user: {username}[/green]")
+        console.print("[blue]* You can now log in to the web interface with these credentials[/blue]")
+
+    except Exception as e:
+        console.print(f"[red]Error creating admin user: {e}[/red]")
+        raise typer.Exit(1) from e
 
 
 if __name__ == "__main__":

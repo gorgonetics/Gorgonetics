@@ -193,10 +193,14 @@ def verify_setup(conn: duckdb.DuckDBPyConnection) -> bool:
 
     try:
         # Check genes count
-        genes_count = conn.execute("SELECT COUNT(*) FROM genes").fetchone()[0]
+        genes_result = conn.execute("SELECT COUNT(*) FROM genes").fetchone()
+        assert genes_result is not None
+        genes_count = genes_result[0]
 
         # Check pets count (should be 0 for fresh setup)
-        pets_count = conn.execute("SELECT COUNT(*) FROM pets").fetchone()[0]
+        pets_result = conn.execute("SELECT COUNT(*) FROM pets").fetchone()
+        assert pets_result is not None
+        pets_count = pets_result[0]
 
         # Check animal types
         animal_types = conn.execute("SELECT DISTINCT animal_type FROM genes ORDER BY animal_type").fetchall()

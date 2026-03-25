@@ -13,7 +13,7 @@ import tempfile
 from pathlib import Path
 
 
-def setup_test_environment():
+def setup_test_environment() -> str:
     """Set up test environment variables and configuration."""
     # Set test database configuration to use in-memory/temp databases
     os.environ["GORGONETICS_DB_BACKEND"] = "ducklake"
@@ -25,7 +25,7 @@ def setup_test_environment():
     os.environ["GORGONETICS_DATA_PATH"] = os.path.join(temp_dir, "test_data")
     os.environ["GORGONETICS_DUCKLAKE_NAME"] = "test_gorgonetics_lake"
 
-    print("🧪 Test environment configured:")
+    print("* Test environment configured:")
     print(f"   Database: {os.environ['GORGONETICS_DB_BACKEND']}")
     print(f"   Catalog: {os.environ['GORGONETICS_CATALOG_PATH']}")
     print(f"   Data: {os.environ['GORGONETICS_DATA_PATH']}")
@@ -33,35 +33,33 @@ def setup_test_environment():
     return temp_dir
 
 
-def populate_test_database():
+def populate_test_database() -> bool:
     """Populate test database with sample gene data."""
     print("📊 Populating test database with gene data...")
 
     try:
-        # Run the populate script to load gene data
-        result = subprocess.run(
-            [sys.executable, "scripts/populate_database.py"], capture_output=True, text=True, timeout=120
-        )
+        # Run the populate command to load gene data using uv
+        result = subprocess.run(["uv", "run", "gorgonetics", "populate"], capture_output=True, text=True, timeout=120)
 
         if result.returncode == 0:
-            print("✅ Test database populated successfully")
+            print("* Test database populated successfully")
         else:
-            print("❌ Failed to populate test database:")
+            print("* Failed to populate test database:")
             print(f"   stdout: {result.stdout}")
             print(f"   stderr: {result.stderr}")
             return False
 
     except subprocess.TimeoutExpired:
-        print("❌ Database population timed out")
+        print("* Database population timed out")
         return False
     except Exception as e:
-        print(f"❌ Error populating database: {e}")
+        print(f"* Error populating database: {e}")
         return False
 
     return True
 
 
-def run_integration_tests(test_args=None):
+def run_integration_tests(test_args: list[str] | None = None) -> bool:
     """Run the integration tests with pytest."""
     print("🚀 Running integration tests...")
 
@@ -87,19 +85,19 @@ def run_integration_tests(test_args=None):
         return result.returncode == 0
 
     except subprocess.TimeoutExpired:
-        print("❌ Integration tests timed out")
+        print("* Integration tests timed out")
         return False
     except Exception as e:
-        print(f"❌ Error running tests: {e}")
+        print(f"* Error running tests: {e}")
         return False
 
 
-def run_specific_test_categories():
+def run_specific_test_categories() -> dict[str, bool]:
     """Run specific categories of tests with detailed reporting."""
     test_categories = [
         ("🧬 Gene API Tests", "tests/integration/test_api_integration.py::TestGeneEndpoints"),
         ("🐾 Pet API Tests", "tests/integration/test_api_integration.py::TestPetEndpoints"),
-        ("⚙️  Config API Tests", "tests/integration/test_api_integration.py::TestConfigEndpoints"),
+        ("*  Config API Tests", "tests/integration/test_api_integration.py::TestConfigEndpoints"),
         ("🚨 Error Handling Tests", "tests/integration/test_api_integration.py::TestErrorHandling"),
         ("🔄 Data Consistency Tests", "tests/integration/test_api_integration.py::TestDataConsistency"),
     ]
@@ -118,12 +116,12 @@ def run_specific_test_categories():
             results[category_name] = success
 
             if success:
-                print(f"✅ {category_name} passed")
+                print(f"* {category_name} passed")
             else:
-                print(f"❌ {category_name} failed")
+                print(f"* {category_name} failed")
 
         except subprocess.TimeoutExpired:
-            print(f"⏱️  {category_name} timed out")
+            print(f"*  {category_name} timed out")
             results[category_name] = False
         except Exception as e:
             print(f"💥 {category_name} error: {e}")
@@ -132,7 +130,7 @@ def run_specific_test_categories():
     return results
 
 
-def run_performance_tests():
+def run_performance_tests() -> bool:
     """Run performance-related tests."""
     print("\n⚡ Performance Tests")
     print("=" * 50)
@@ -152,11 +150,11 @@ def run_performance_tests():
         result = subprocess.run(cmd, timeout=300)
         return result.returncode == 0
     except subprocess.TimeoutExpired:
-        print("⏱️  Performance tests timed out")
+        print("*  Performance tests timed out")
         return False
 
 
-def cleanup_test_environment(temp_dir):
+def cleanup_test_environment(temp_dir: str) -> None:
     """Clean up test environment."""
     try:
         import shutil
@@ -164,12 +162,12 @@ def cleanup_test_environment(temp_dir):
         shutil.rmtree(temp_dir, ignore_errors=True)
         print(f"🧹 Cleaned up test directory: {temp_dir}")
     except Exception as e:
-        print(f"⚠️  Could not clean up test directory: {e}")
+        print(f"*  Could not clean up test directory: {e}")
 
 
-def main():
+def main() -> int:
     """Main test runner function."""
-    print("🧬 Gorgonetics Integration Test Runner")
+    print("* Gorgonetics Integration Test Runner")
     print("=" * 50)
 
     # Change to project directory
@@ -195,7 +193,7 @@ def main():
     try:
         # Populate test database
         if not populate_test_database():
-            print("❌ Failed to set up test database")
+            print("* Failed to set up test database")
             return 1
 
         success = True
@@ -215,7 +213,7 @@ def main():
             total = len(results)
 
             for category, result in results.items():
-                status = "✅ PASS" if result else "❌ FAIL"
+                status = "* PASS" if result else "* FAIL"
                 print(f"{status} {category}")
 
             print(f"\nOverall: {passed}/{total} categories passed")
@@ -241,17 +239,17 @@ def main():
 
         if success:
             print("\n🎉 All integration tests passed!")
-            print("✅ API endpoints are working correctly")
-            print("✅ UI functionality should not be broken")
+            print("* API endpoints are working correctly")
+            print("* UI functionality should not be broken")
             return 0
         else:
             print("\n💥 Some integration tests failed!")
-            print("❌ API endpoints may be broken")
-            print("❌ UI functionality may be affected")
+            print("* API endpoints may be broken")
+            print("* UI functionality may be affected")
             return 1
 
     except KeyboardInterrupt:
-        print("\n⚠️  Tests interrupted by user")
+        print("\n*  Tests interrupted by user")
         return 1
 
     finally:

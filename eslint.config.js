@@ -88,25 +88,4 @@ export default [
     },
   },
 
-  // JavaScript files in Svelte project
-  {
-    files: ["src/svelte/**/*.js"],
-    languageOptions: {
-      ecmaVersion: 2022,
-      sourceType: "module",
-      globals: {
-        ...globals.browser,
-        ...globals.es2022,
-      },
-    },
-    rules: {
-      "no-unused-vars": "warn",
-      "no-undef": "error",
-      semi: ["error", "always"],
-      quotes: "off",
-      "no-console": "off",
-      "prefer-const": "warn",
-      "no-var": "error",
-    },
-  },
 ];

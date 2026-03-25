@@ -10,7 +10,135 @@ on:
     - cron: "0 6 * * *"
 
 jobs:
-  integration:
+  api-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: "latest"
+
+      - name: Install dependencies
+        run: uv sync --dev
+
+      - name: Populate test database
+        run: uv run gorgonetics populate
+
+      - name: Start web server and test API endpoints
+        run: |
+          # Start the web app in background
+          uv run gorgonetics web &
+          WEB_PID=$!
+
+          # Wait for server to start
+          sleep 10
+
+          # Test critical API endpoints
+          echo "Testing API endpoints..."
+
+          # Animal types
+          curl -f http://localhost:8000/api/animal-types || exit 1
+          echo "✅ Animal types endpoint working"
+
+          # Chromosomes
+          curl -f http://localhost:8000/api/chromosomes/horse || exit 1
+          echo "✅ Chromosomes endpoint working"
+
+          # Effect options
+          curl -f http://localhost:8000/api/effect-options || exit 1
+          echo "✅ Effect options endpoint working"
+
+          # Genes (this will be empty but should not error)
+          curl -f http://localhost:8000/api/genes/horse/01 || exit 1
+          echo "✅ Genes endpoint working"
+
+          # Attribute config
+          curl -f http://localhost:8000/api/attribute-config/horse || exit 1
+          echo "✅ Attribute config endpoint working"
+
+          # Appearance config  
+          curl -f http://localhost:8000/api/appearance-config/horse || exit 1
+          echo "✅ Appearance config endpoint working"
+
+          # Stop the web app
+          kill $WEB_PID
+
+          echo "🎉 All critical API endpoints are responding"
+
+  database-compatibility:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        db-backend: ["ducklake"]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: "latest"
+
+      - name: Install dependencies
+        run: uv sync --dev
+
+      - name: Test database backend - ${{ matrix.db-backend }}
+        run: |
+          # Set database configuration
+          export GORGONETICS_DB_BACKEND=${{ matrix.db-backend }}
+          export GORGONETICS_CATALOG_TYPE=sqlite
+          export GORGONETICS_CATALOG_PATH=test_metadata.sqlite
+          export GORGONETICS_DATA_PATH=test_data
+
+          # Test database creation and basic operations
+          uv run python -c "
+          from gorgonetics.database_config import create_database_instance
+
+          print('Testing database backend: ${{ matrix.db-backend }}')
+
+          # Create database instance
+          db = create_database_instance()
+          print('✅ Database instance created')
+
+          # Test basic operations
+          animal_types = db.get_animal_types()
+          print(f'✅ Animal types: {animal_types}')
+
+          # Test gene insertion
+          db._upsert_gene('test', '01', 'TEST1', {
+              'effectDominant': 'None',
+              'effectRecessive': 'Test+',
+              'appearance': 'Test appearance',
+              'notes': 'Test notes'
+          })
+          print('✅ Gene insertion works')
+
+          # Test gene retrieval
+          genes = db.get_genes_by_chromosome('test', '01')
+          assert len(genes) > 0
+          print(f'✅ Gene retrieval works: {len(genes)} genes')
+
+          print('✅ Database backend ${{ matrix.db-backend }} is working correctly')
+          "
+
+  performance-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
@@ -31,165 +159,20 @@ jobs:
       - name: Install dependencies
         run: uv sync --dev
 
-      - name: Test package installation
+      - name: Run performance tests
         run: |
-          uv run python -c "import gorgonetics; print(f'Package version: {gorgonetics.__version__}')"
+          # Set up test environment
+          export GORGONETICS_DB_BACKEND=ducklake
+          export GORGONETICS_CATALOG_TYPE=sqlite
+          export GORGONETICS_CATALOG_PATH=perf_test.sqlite
+          export GORGONETICS_DATA_PATH=perf_test_data
 
-      - name: Test CLI functionality
-        run: |
-          echo "Testing CLI version command..."
-          uv run gorgonetics --version
+          # Run integration tests with performance focus
+          uv run python scripts/run_integration_tests.py --performance
 
-          echo "Testing CLI help command..."
-          uv run gorgonetics --help
-
-      - name: Test database operations
-        run: |
-          echo "Testing database initialization..."
-          uv run python -c "
-          from gorgonetics.database import GeneDatabase
-          import os
-
-          # Test database creation
-          db = GeneDatabase('test_integration.db')
-          print('Database created successfully')
-
-          # Cleanup
-          os.remove('test_integration.db')
-          print('Database cleanup completed')
-          "
-
-      - name: Test genome parser
-        run: |
-          echo "Testing genome parser functionality..."
-          uv run python -c "
-          from gorgonetics.genome_parser import count_blocks_in_chromosome, generate_block_letters
-
-          # Test basic parsing functions
-          blocks = count_blocks_in_chromosome('AABBCCDD')
-          print(f'Block count test: {blocks}')
-
-          letters = generate_block_letters(4)
-          print(f'Block letters test: {letters}')
-          "
-
-      - name: Test web app import and basic functionality
-        run: |
-          echo "Testing web app import..."
-          uv run python -c "
-          from gorgonetics.web_app import app
-          print('Web app imported successfully')
-
-          # Test FastAPI app creation
-          from fastapi.testclient import TestClient
-          client = TestClient(app)
-          print('Test client created successfully')
-          "
-
-      - name: Test data models
-        run: |
-          echo "Testing data models..."
-          uv run python -c "
-          from gorgonetics.models import Gene, GeneType, Genome, Pet, AttributeValues
-
-          # Test basic model creation with correct fields
-          gene = Gene(
-              chromosome='01',
-              block='A',
-              position=1,
-              gene_type=GeneType.DOMINANT
-          )
-          print(f'Gene model test: {gene.chromosome}{gene.block}{gene.position}')
-
-          # Test GeneType enum values
-          print(f'GeneType values: {[gt.value for gt in GeneType]}')
-
-          # Test AttributeValues model
-          attrs = AttributeValues(intelligence=75.0, toughness=60.0)
-          print(f'AttributeValues test: intelligence={attrs.intelligence}')
-
-          # Test successful model creation with different gene types
-          gene_types = [GeneType.DOMINANT, GeneType.RECESSIVE, GeneType.MIXED, GeneType.UNKNOWN]
-          for gt in gene_types:
-              test_gene = Gene(
-                  chromosome='02',
-                  block='B',
-                  position=2,
-                  gene_type=gt
-              )
-              print(f'✓ Created gene: {test_gene.chromosome}{test_gene.block}{test_gene.position} = {test_gene.gene_type.value}')
-          "
-
-      - name: Test script functionality
-        run: |
-          echo "Testing script imports..."
-          uv run python -c "
-          import sys
-          from pathlib import Path
-
-          # Add scripts to path
-          scripts_path = Path('scripts')
-          sys.path.insert(0, str(scripts_path))
-
-          # Test script imports
-          import populate_database
-          import generate_gene_templates
-          import run_web_app
-
-          print('All scripts imported successfully')
-          "
-
-      - name: Test full application workflow
-        run: |
-          echo "Testing end-to-end workflow..."
-          uv run python -c "
-          import tempfile
-          import os
-          from pathlib import Path
-          from gorgonetics.database import GeneDatabase
-
-          # Create temporary database path without creating the file
-          db_path = tempfile.mktemp(suffix='.db')
-
-          try:
-              # Initialize database
-              db = GeneDatabase(db_path)
-              print('✓ Database initialized')
-
-              # Test database operations
-              tables = db.conn.execute('SHOW TABLES').fetchall()
-              print(f'✓ Database tables: {len(tables)} found')
-
-              # Test that we can query existing data
-              animal_types = db.get_animal_types()
-              print(f'✓ Animal types available: {len(animal_types)}')
-
-              # Test basic database queries
-              if animal_types:
-                  first_animal = animal_types[0]
-                  chromosomes = db.get_chromosomes(first_animal)
-                  print(f'✓ Chromosomes for {first_animal}: {len(chromosomes)}')
-
-                  if chromosomes:
-                      genes = db.get_genes_by_chromosome(first_animal, chromosomes[0])
-                      print(f'✓ Genes found: {len(genes)}')
-              else:
-                  print('✓ Database schema created (no data loaded yet)')
-
-              # Clean up
-              db.conn.close()
-
-          finally:
-              # Remove temporary database
-              if os.path.exists(db_path):
-                  os.remove(db_path)
-              print('✓ Cleanup completed')
-
-          print('🎉 End-to-end workflow test passed!')
-          "
-
-  build-check:
+  end-to-end-workflow:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout code
@@ -205,22 +188,106 @@ jobs:
         with:
           version: "latest"
 
-      - name: Install build dependencies
+      - name: Install dependencies
         run: uv sync --dev
 
-      - name: Test package build
+      - name: Test full application workflow
         run: |
-          echo "Testing package build..."
-          uv build
+          echo "Testing end-to-end workflow..."
+          uv run python -c "
+          import tempfile
+          import os
+          import shutil
+          from pathlib import Path
+          from gorgonetics.database_config import create_database_instance
 
-          echo "Checking build artifacts..."
-          ls -la dist/
+          # Create temporary directory for database
+          temp_dir = tempfile.mkdtemp()
+          os.environ['GORGONETICS_DB_BACKEND'] = 'ducklake'
+          os.environ['GORGONETICS_CATALOG_TYPE'] = 'sqlite'
+          os.environ['GORGONETICS_CATALOG_PATH'] = os.path.join(temp_dir, 'test.sqlite')
+          os.environ['GORGONETICS_DATA_PATH'] = os.path.join(temp_dir, 'data')
 
-          echo "Testing wheel installation..."
-          pip install dist/*.whl
+          try:
+              # Initialize database
+              db = create_database_instance()
+              print('✅ Database initialized')
 
-          echo "Testing installed package..."
-          python -c "import gorgonetics; print('Wheel installation successful')"
+              # Test database operations
+              print('✅ Database connection established')
 
-      - name: Clean up build artifacts
-        run: rm -rf dist/ build/
+              # Test that we can query existing data
+              animal_types = db.get_animal_types()
+              print(f'✅ Animal types available: {len(animal_types)}')
+
+              # Test basic database queries
+              if animal_types:
+                  first_animal = animal_types[0]
+                  chromosomes = db.get_chromosomes(first_animal)
+                  print(f'✅ Chromosomes for {first_animal}: {len(chromosomes)}')
+
+                  if chromosomes:
+                      genes = db.get_genes_by_chromosome(first_animal, chromosomes[0])
+                      print(f'✅ Genes found: {len(genes)}')
+              else:
+                  print('✅ Database schema created (no data loaded yet)')
+
+              # Clean up is handled by context manager
+              print('✅ Database operations completed')
+
+          finally:
+              # Remove temporary directory
+              if os.path.exists(temp_dir):
+                  shutil.rmtree(temp_dir)
+              print('✅ Cleanup completed')
+
+          print('🎉 End-to-end workflow test passed!')
+          "
+
+  integration-summary:
+    runs-on: ubuntu-latest
+    needs: [api-integration, database-compatibility, performance-tests, end-to-end-workflow]
+    if: always()
+
+    steps:
+      - name: Check integration test results
+        run: |
+          echo "## Integration Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "| Test Suite | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|------------|--------|" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ needs.api-integration.result }}" = "success" ]; then
+            echo "| API Integration | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| API Integration | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ "${{ needs.database-compatibility.result }}" = "success" ]; then
+            echo "| Database Compatibility | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Database Compatibility | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ "${{ needs.performance-tests.result }}" = "success" ]; then
+            echo "| Performance Tests | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Performance Tests | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ "${{ needs.end-to-end-workflow.result }}" = "success" ]; then
+            echo "| End-to-End Workflow | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| End-to-End Workflow | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Overall status
+          if [ "${{ needs.api-integration.result }}" = "success" ] &&
+             [ "${{ needs.database-compatibility.result }}" = "success" ] &&
+             [ "${{ needs.performance-tests.result }}" = "success" ] &&
+             [ "${{ needs.end-to-end-workflow.result }}" = "success" ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "🎉 **All integration tests passed!** The application is ready for production." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "⚠️ **Some integration tests failed!** Please check the logs and fix issues before deploying." >> $GITHUB_STEP_SUMMARY
+          fi

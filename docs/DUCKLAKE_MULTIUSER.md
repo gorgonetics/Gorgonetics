@@ -44,8 +44,8 @@ GORGONETICS_SESSION_TIMEOUT=30
 All Gorgonetics commands automatically use DuckLake:
 
 ```bash
-# Import genome data
-uv run gorgonetics import assets/dog.genome
+# Populate with gene template data
+uv run gorgonetics populate
 
 # Start web interface
 uv run gorgonetics web
@@ -64,7 +64,7 @@ gorgonetics/
 ├── data/                   # Parquet data directory
 │   ├── genes/             # Gene data tables
 │   ├── pets/              # Pet data tables
-│   └── _delta_log/        # DuckLake transaction log
+│   └── users/             # User data tables
 └── backups/               # Optional backups
 ```
 
@@ -72,19 +72,9 @@ gorgonetics/
 
 ### Concurrent Access
 
-Multiple users can access the same DuckLake database simultaneously:
+Multiple users access the same DuckLake database through a single web server instance. The application provides user isolation through JWT authentication and role-based access control (admin/user roles).
 
-```bash
-# User 1
-cd /shared/gorgonetics
-uv run gorgonetics web --port 8000
-
-# User 2 (different terminal/machine)
-cd /shared/gorgonetics
-uv run gorgonetics web --port 8001
-```
-
-Both instances will see the same data and changes are immediately visible to all users.
+> **Note**: DuckLake with SQLite catalog does not support concurrent writes from multiple server processes. Run a single `uv run gorgonetics web` instance and use the auth system for multi-user access.
 
 ### Snapshots and Time Travel
 

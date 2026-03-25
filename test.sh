@@ -243,10 +243,10 @@ start_client_test_server() {
 
     # Populate test database
     print_status "Populating test database..."
-    uv run python scripts/populate_database.py
+    uv run gorgonetics populate
 
     # Start server in background
-    uv run python scripts/run_web_app.py > client_test_server.log 2>&1 &
+    uv run gorgonetics web > client_test_server.log 2>&1 &
     CLIENT_SERVER_PID=$!
 
     print_status "Server started with PID: $CLIENT_SERVER_PID"
@@ -264,7 +264,7 @@ stop_client_test_server() {
     fi
 
     # Kill any remaining servers on port 8000
-    pkill -f "run_web_app\|uvicorn.*8000" 2>/dev/null || true
+    pkill -f "gorgonetics web\|uvicorn.*8000" 2>/dev/null || true
 
     # Clean up test files
     rm -f test_client_metadata.sqlite test_client_gorgonetics.db client_test_server.log

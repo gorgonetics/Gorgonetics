@@ -1,648 +1,367 @@
 # Development Guide
 
-## Getting Started
-
-This guide covers setting up the development environment, understanding the codebase, and contributing to Gorgonetics.
-
 ## Prerequisites
 
-### Required Software
-
-- **Python 3.13+**: Modern Python with latest type hints
-- **uv**: Fast Python package manager
-- **Git**: Version control
-- **VS Code** (recommended): IDE with Python extensions
-
-### Installing uv
-
-```bash
-# Windows (PowerShell)
-powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
-
-# macOS/Linux
-curl -LsSf https://astral.sh/uv/install.sh | sh
-```
+- **Python 3.13+**
+- **uv** -- Python package manager ([install](https://docs.astral.sh/uv/getting-started/installation/))
+- **Node.js 20+** with **pnpm** -- frontend tooling
+- **Git**
 
 ## Project Setup
 
-### 1. Clone and Setup
-
 ```bash
-# Clone the repository
+# Clone and enter the repository
 git clone https://github.com/jlopezpena/Gorgonetics.git
 cd Gorgonetics
 
-# Install dependencies
+# Install Python dependencies
 uv sync --dev
 
-# Populate database with sample data (optional - auto-initializes)
-uv run python scripts/populate_database.py
+# Install Node.js dependencies
+pnpm install
 
-# Start the development server
-uv run python scripts/run_web_app.py
+# Populate the database with sample gene data
+uv run gorgonetics populate
+
+# Start the backend API server (port 8000)
+uv run gorgonetics web
+
+# In a second terminal, start the frontend dev server (port 5173)
+pnpm run dev
 ```
 
-### 2. Verify Installation
+Verify everything works by visiting:
 
-Visit `http://127.0.0.1:8000` to confirm the application is running.
+- **Application**: http://localhost:5173
+- **API docs (Swagger)**: http://localhost:8000/docs
+- **API docs (ReDoc)**: http://localhost:8000/redoc
 
-## Development Workflow
+The Vite dev server proxies `/api` and `/static` requests to the backend automatically (configured in `vite.config.js`).
 
-### Daily Workflow
+## Project Structure
 
-1. **Pull latest changes**
-   ```bash
-   git pull origin main
-   uv sync --dev  # Update dependencies if needed
-   ```
+### Backend -- Python (`src/gorgonetics/`)
 
-2. **Make changes**
-   - Edit code using your preferred editor
-   - Follow the coding standards below
+| File | Purpose |
+|------|---------|
+| `cli.py` | Typer CLI: `web`, `populate`, `db-status`, `db-snapshots`, `db-cleanup`, `create-admin` |
+| `web_app.py` | FastAPI application with REST endpoints, auth middleware, rate limiting |
+| `models.py` | Pydantic models for genes, pets, genomes |
+| `ducklake_database.py` | `DuckLakeGeneDatabase` -- all database operations |
+| `database_config.py` | `DatabaseConfig` dataclass, `create_database_instance()` factory |
+| `genome_parser.py` | Parses Project Gorgon pet genome text files |
+| `attribute_config.py` | Dynamic attribute system (core + species-specific attributes) |
+| `constants.py` | Enums and constants (`Gender`, `UserRole`, `DEMO_USER_ID`) |
+| `auth/models.py` | Pydantic models: `User`, `UserCreate`, `UserLogin`, `Token` |
+| `auth/utils.py` | JWT creation/verification, password hashing (bcrypt) |
+| `auth/dependencies.py` | FastAPI dependencies: `get_current_active_user`, `require_admin` |
 
-3. **Test your changes**
-   ```bash
-   uv run pytest                    # Run tests
-   uv run ruff check               # Check linting
-   uv run ruff format              # Format code
-   uv run mypy src/gorgonetics       # Type checking
-   ```
+### Frontend -- SvelteKit + Svelte 5 (`src/`)
 
-4. **Commit and push**
-   ```bash
-   git add .
-   git commit -m "Descriptive commit message"
-   git push origin your-branch
-   ```
+| Path | Purpose |
+|------|---------|
+| `src/routes/+page.svelte` | Main application page |
+| `src/routes/+layout.svelte` | Root layout |
+| `src/routes/auth/login/` | Login page |
+| `src/routes/auth/register/` | Registration page |
+| `src/lib/components/` | Reusable components |
+| `src/lib/components/AuthWrapper.svelte` | Authentication state wrapper |
+| `src/lib/components/GeneEditingView.svelte` | Gene editing interface |
+| `src/lib/components/gene/` | Gene visualization: `GeneEditor`, `GeneCell`, `GeneTooltip`, `GeneVisualizer`, `GeneStatsTable` |
+| `src/lib/components/pet/` | Pet management: `PetEditor`, `PetVisualization`, `PetDataTable` |
+| `src/lib/components/forms/` | `LoginForm`, `RegisterForm`, `PetUploadForm` |
+| `src/lib/components/layout/` | `Sidebar`, `VisualizationHeader` |
+| `src/lib/services/api.js` | API client -- all backend HTTP calls |
+| `src/lib/stores/auth.js` | Authentication state (tokens, current user) |
+| `src/lib/stores/pets.js` | Pet data state |
 
-### VS Code Tasks
+### Key configuration files
 
-Use the pre-configured VS Code tasks:
+| File | Purpose |
+|------|---------|
+| `svelte.config.js` | SvelteKit config with static adapter, path aliases |
+| `vite.config.js` | Vite config with Tailwind CSS plugin, dev server proxy |
+| `package.json` | Frontend dependencies and scripts |
+| `pyproject.toml` | Python project config, dependencies, ruff/ty settings |
+| `eslint.config.js` | ESLint config for JS/Svelte |
 
-- **Ctrl+Shift+P** → "Tasks: Run Task"
-- Available tasks:
-  - Install Dependencies
-  - Run Tests
-  - Run Tests with Coverage
-  - Lint Code
-  - Format Code
-  - Type Check
-  - Check All
-  - Run Gorgonetics
+### UI framework
 
-## Code Standards
+The frontend uses **Tailwind CSS v4** with **Flowbite Svelte** components and **Lucide** icons. Use Flowbite components when a suitable one exists; fall back to plain Tailwind for custom layouts.
 
-### Python Style Guide
+## Common Commands
 
-Follow PEP 8 with these specific guidelines:
+### Backend
 
-```python
-# Line length: 120 characters (ruff default)
-def long_function_name(
-    variable_one: str, variable_two: str, variable_three: str
-) -> str:
-    """Always use docstrings for functions."""
-    return f"{variable_one} {variable_two} {variable_three}"
-
-# Type hints for all functions
-def process_gene_data(
-    animal_type: str, 
-    chromosome: str, 
-    gene_data: dict[str, Any]
-) -> bool:
-    """Process gene data and return success status."""
-    pass
-
-# Use double quotes for strings
-message = "This is the preferred string format"
-
-# Prefer pathlib over os.path
-from pathlib import Path
-config_path = Path("config") / "settings.json"
-
-# Use descriptive variable names
-effect_options = ["Intelligence+", "Intelligence-"]
-animal_types = ["beewasp", "horse"]
+```bash
+uv run gorgonetics web                    # Start API server (port 8000)
+uv run gorgonetics populate               # Populate gene database from assets/
+uv run gorgonetics db-status              # Show database config and status
+uv run gorgonetics db-snapshots           # List DuckLake version snapshots
+uv run gorgonetics db-cleanup             # Clean up old Parquet files (dry run)
+uv run gorgonetics create-admin           # Create an admin user
 ```
 
-### JavaScript Style Guide
+### Frontend
 
-```javascript
-// Use ES6+ features
-class GeneManager {
-    constructor(apiClient, uiUtils) {
-        this.apiClient = apiClient;
-        this.uiUtils = uiUtils;
-    }
-
-    // Use async/await over Promises
-    async loadGenes(animalType, chromosome) {
-        try {
-            const genes = await this.apiClient.getGenes(animalType, chromosome);
-            return genes;
-        } catch (error) {
-            console.error('Error loading genes:', error);
-            throw error;
-        }
-    }
-
-    // Use meaningful function names
-    checkForUnsavedChanges(geneCard) {
-        // Implementation
-    }
-}
-
-// Use const/let, never var
-const API_BASE_URL = '/api';
-let currentAnimalType = null;
-
-// Prefer template literals
-const message = `Loading genes for ${animalType} chromosome ${chromosome}`;
+```bash
+pnpm run dev                              # Start dev server (port 5173)
+pnpm run build                            # Production build to build/
+pnpm run preview                          # Preview production build
 ```
 
-### Documentation Standards
+### Code quality
 
-#### Python Docstrings
+```bash
+# Python
+uv run ruff check .                       # Lint
+uv run ruff format --check .              # Check formatting
+uv run ruff format .                      # Auto-format
+uv run ty check src/gorgonetics               # Type checking
 
-Use Google-style docstrings:
+# JavaScript / Svelte
+pnpm run lint                             # ESLint
+pnpm run lint:fix                         # ESLint with auto-fix
+pnpm run lint:ci                          # ESLint strict (zero warnings)
+```
+
+### Testing
+
+```bash
+# Python unit tests
+uv run pytest                             # All tests
+uv run pytest -x                          # Stop on first failure
+uv run pytest -v                          # Verbose output
+uv run pytest --cov=gorgonetics           # With coverage
+uv run pytest tests/test_models.py        # Specific file
+uv run pytest -m "not slow"               # Skip slow tests
+
+# Frontend client tests
+pnpm run test:client                      # Run client tests
+pnpm run test:client:ui                   # Interactive test UI
+pnpm run test:client:watch                # Watch mode
+pnpm run test:client:coverage             # With coverage
+
+# Integration tests (shell script)
+./test.sh quick                           # Python integration tests only
+./test.sh all                             # Full suite (integration + client)
+./test.sh api                             # API endpoint tests
+./test.sh genes                           # Gene endpoint tests
+./test.sh pets                            # Pet endpoint tests
+./test.sh consistency                     # Data consistency tests
+./test.sh client                          # JS client tests with auto server management
+
+# pnpm aliases
+pnpm run test:integration                 # Same as ./test.sh quick
+pnpm run test:all                         # Same as ./test.sh all
+```
+
+## Coding Standards
+
+### Python
+
+- **Line length**: 120 characters
+- **Formatter/linter**: ruff (configured in `pyproject.toml`)
+- **Type checker**: ty (Astral's fast type checker)
+- **Type hints**: Required on all function signatures
+- **Docstrings**: Required on all public functions, classes, and modules
+- **String quotes**: Double quotes preferred
+- **Target**: Python 3.13+ (use modern union syntax `X | None`, not `Optional[X]`)
 
 ```python
 def update_gene_data(
-    animal_type: str, 
-    gene_id: str, 
-    updates: dict[str, Any]
+    animal_type: str,
+    gene_id: str,
+    updates: dict[str, Any],
 ) -> bool:
     """
     Update gene data in the database.
 
     Args:
-        animal_type: The type of animal (e.g., 'beewasp', 'horse')
-        gene_id: Unique identifier for the gene (e.g., '01A1')
-        updates: Dictionary containing field updates
+        animal_type: Species identifier (e.g., 'beewasp', 'horse').
+        gene_id: Unique gene identifier (e.g., '01A1').
+        updates: Dictionary of field names to new values.
 
     Returns:
-        True if update was successful, False otherwise
+        True if the update succeeded, False otherwise.
 
     Raises:
-        DatabaseError: If database connection fails
-        ValueError: If gene_id is invalid
-
-    Example:
-        >>> success = update_gene_data('beewasp', '01A1', {
-        ...     'effectDominant': 'Intelligence+',
-        ...     'notes': 'Updated in lab'
-        ... })
-        >>> print(success)
-        True
+        ValueError: If gene_id is not found.
     """
-    pass
+    ...
 ```
 
-#### JavaScript Comments
+Use `pathlib.Path` over `os.path`. Prefer `from __future__ import annotations` when forward references are needed.
 
-```javascript
-/**
- * Creates a gene card element for editing gene properties
- * @param {Object} gene - Gene data object containing all properties
- * @param {string} animalType - Animal type identifier
- * @returns {HTMLElement} Configured gene card DOM element
- */
-createGeneCard(gene, animalType) {
-    // Create main card container
-    const card = document.createElement('div');
-    card.className = 'gene-card';
-    
-    // Add gene identifier header
-    const header = this.createGeneHeader(gene.gene);
-    card.appendChild(header);
-    
-    return card;
-}
+### Svelte / JavaScript
+
+- **Framework**: SvelteKit with Svelte 5 (runes syntax: `$state`, `$derived`, `$effect`)
+- **Linter**: ESLint with `eslint-plugin-svelte`
+- **Quotes**: Both single and double quotes are allowed (ESLint is configured to accept either)
+- **API calls**: Always go through `src/lib/services/api.js`
+- **State management**: Use Svelte stores in `src/lib/stores/` for shared state
+- **Components**: Follow existing Svelte 5 patterns -- props via `$props()` rune, state via `$state()`, derived values via `$derived()`
+- **Styling**: Tailwind CSS utility classes; Flowbite Svelte components for common UI patterns
+
+```svelte
+<script>
+  import { Button } from 'flowbite-svelte';
+  import { pets } from '$stores/pets.js';
+
+  let { species = 'beewasp' } = $props();
+  let filteredPets = $derived(
+    $pets.filter(p => p.species === species)
+  );
+</script>
+
+<div class="p-4">
+  {#each filteredPets as pet}
+    <p class="text-sm text-gray-700">{pet.name}</p>
+  {/each}
+  <Button on:click={() => console.log('clicked')}>Load more</Button>
+</div>
 ```
 
-## Testing
+### Mandatory: lint before committing
 
-### Python Testing with pytest
-
-#### Test Structure
-```
-tests/
-├── __init__.py
-├── conftest.py           # Shared fixtures
-├── test_database.py      # Database tests
-├── test_web_app.py       # API tests
-└── test_cli.py           # CLI tests
-```
-
-#### Writing Tests
-
-```python
-# tests/test_database.py
-import pytest
-from gorgonetics.database import GeneDatabase
-
-class TestGeneDatabase:
-    """Test suite for GeneDatabase class."""
-    
-    def test_insert_gene(self, temp_db):
-        """Test gene insertion functionality."""
-        gene_data = {
-            "animal_type": "beewasp",
-            "chromosome": "chr01",
-            "gene": "01A1",
-            "effectDominant": "Intelligence+",
-            "effectRecessive": "Intelligence-",
-            "appearance": "Test appearance",
-            "notes": "Test notes"
-        }
-        
-        temp_db.insert_gene(gene_data)
-        
-        # Verify insertion
-        result = temp_db.get_gene("beewasp", "01A1")
-        assert result is not None
-        assert result["effectDominant"] == "Intelligence+"
-
-    def test_get_nonexistent_gene(self, temp_db):
-        """Test retrieving non-existent gene returns None."""
-        result = temp_db.get_gene("nonexistent", "fake")
-        assert result is None
-
-# conftest.py
-@pytest.fixture
-def temp_db():
-    """Create temporary database for testing."""
-    import tempfile
-    import os
-    
-    # Create temporary database file
-    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.db')
-    temp_file.close()
-    
-    db = GeneDatabase(temp_file.name)
-    yield db
-    
-    # Cleanup
-    db.close()
-    os.unlink(temp_file.name)
-```
-
-#### Running Tests
+After modifying any Python or JS/Svelte file, run the relevant linters and fix all errors before committing. These are the same checks CI runs:
 
 ```bash
-# Run all tests
-uv run pytest
+# Python
+uv run ruff check .
+uv run ruff format --check .
 
-# Run with coverage
-uv run pytest --cov=gorgonetics --cov-report=html
-
-# Run specific test file
-uv run pytest tests/test_database.py
-
-# Run specific test
-uv run pytest tests/test_database.py::TestGeneDatabase::test_insert_gene
-
-# Verbose output
-uv run pytest -v
-
-# Stop on first failure
-uv run pytest -x
-
-# Run tests with markers
-uv run pytest -m "not slow"  # Skip slow tests
+# JS / Svelte
+pnpm run lint:ci
 ```
 
-### Frontend Testing
+## Testing Details
 
-For JavaScript testing, consider adding:
+### Python test files
 
-```javascript
-// Example test structure (if adding Jest)
-describe('GeneManager', () => {
-    let geneManager;
-    let mockApiClient;
-    let mockUiUtils;
-
-    beforeEach(() => {
-        mockApiClient = {
-            getGenes: jest.fn(),
-            updateGene: jest.fn()
-        };
-        mockUiUtils = {
-            showSuccess: jest.fn(),
-            showError: jest.fn()
-        };
-        geneManager = new GeneManager(mockApiClient, mockUiUtils);
-    });
-
-    test('should display genes correctly', async () => {
-        const mockGenes = [
-            { gene: '01A1', effectDominant: 'Intelligence+' }
-        ];
-        mockApiClient.getGenes.mockResolvedValue(mockGenes);
-
-        await geneManager.displayGenes(mockGenes, 'beewasp');
-
-        expect(document.querySelector('.gene-card')).toBeTruthy();
-    });
-});
 ```
+tests/
+  conftest.py                          # Shared fixtures (test_database, authenticated_client, etc.)
+  test_models.py                       # Pydantic model tests
+  test_cli.py                          # CLI command tests
+  test_main.py                         # Entry point tests
+  test_attribute_config.py             # Attribute system tests
+  integration/
+    test_api_integration.py            # Full API endpoint tests
+    test_auth.py                       # Authentication flow tests
+    test_authorization.py              # Role-based access control tests
+  client/
+    test-client-api.js                 # JS client API tests
+    test-minimal.js                    # Minimal smoke tests
+    test-simple-client.js              # Simple client integration tests
+```
+
+### Key test fixtures (from `conftest.py`)
+
+- `test_database` -- creates an isolated DuckLake database in a temp directory per test, with environment variables pointed at the temp paths. Cleans up after the test.
+- `authenticated_client` -- a `FastAPI.TestClient` with a pre-created user and valid JWT token baked into every request.
+- `sample_pet_file` -- a temporary JSON genome file for upload tests.
+- `runner` / `cli_app` -- Typer `CliRunner` and app instance for CLI tests.
+
+### Writing a new Python test
+
+```python
+# tests/test_example.py
+from gorgonetics.ducklake_database import DuckLakeGeneDatabase
+
+
+class TestGeneOperations:
+    def test_upsert_and_retrieve(self, test_database: DuckLakeGeneDatabase) -> None:
+        """Inserting a gene and retrieving it returns the same data."""
+        test_database._upsert_gene("beewasp", "chr01", "01A1", {
+            "effectDominant": "Intelligence+",
+            "effectRecessive": "None",
+            "appearance": "Test",
+            "notes": "Test note",
+        })
+        test_database.conn.commit()
+
+        result = test_database.get_gene("beewasp", "01A1")
+        assert result is not None
+        assert result["effectDominant"] == "Intelligence+"
+```
+
+### Writing a new API test
+
+```python
+# tests/integration/test_example_api.py
+from fastapi.testclient import TestClient
+
+
+class TestGeneEndpoints:
+    def test_get_animal_types(self, authenticated_client: TestClient) -> None:
+        """GET /api/animal-types returns a list."""
+        response = authenticated_client.get("/api/animal-types")
+        assert response.status_code == 200
+        assert isinstance(response.json(), list)
+```
+
+### Frontend tests
+
+Frontend tests use **Vitest** with **jsdom**. Run them with `pnpm run test:client`. The test runner script (`scripts/run_client_tests.js`) manages server startup/shutdown automatically for integration tests.
 
 ## Debugging
 
-### Python Debugging
-
-#### Logging
-```python
-import logging
-
-# Configure logging level
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
-
-def process_gene_data(gene_data):
-    logger.debug(f"Processing gene data: {gene_data}")
-    logger.info("Gene processing started")
-    
-    try:
-        # Process data
-        result = do_something(gene_data)
-        logger.info(f"Processing completed successfully: {result}")
-        return result
-    except Exception as e:
-        logger.error(f"Error processing gene data: {e}")
-        raise
-```
-
-#### VS Code Debugging
-
-Create `.vscode/launch.json`:
-
-```json
-{
-    "version": "0.2.0",
-    "configurations": [
-        {
-            "name": "Python: Web App",
-            "type": "python",
-            "request": "launch",
-            "program": "scripts/run_web_app.py",
-            "console": "integratedTerminal",
-            "cwd": "${workspaceFolder}"
-        },
-        {
-            "name": "Python: Populate DB",
-            "type": "python",
-            "request": "launch",
-            "program": "scripts/populate_database.py",
-            "console": "integratedTerminal",
-            "cwd": "${workspaceFolder}"
-        }
-    ]
-}
-```
-
-### Browser Debugging
-
-#### JavaScript Console
-```javascript
-// Use console methods for debugging
-console.log('Gene data:', geneData);
-console.error('API error:', error);
-console.table(genes);  // Nice table format for arrays
-console.group('Gene Processing');
-console.log('Step 1: Validation');
-console.log('Step 2: Processing');
-console.groupEnd();
-```
-
-#### Network Tab
-- Monitor API requests in browser DevTools
-- Check request/response data
-- Verify status codes and timing
-
-## Database Development
-
-### Migrations
-
-For schema changes, create migration functions:
-
-```python
-def migrate_database_v1_to_v2(db: GeneDatabase) -> None:
-    """Migrate database from version 1 to version 2."""
-    logger.info("Running migration v1 to v2")
-    
-    # Add new column
-    db.conn.execute("""
-        ALTER TABLE genes 
-        ADD COLUMN version_added VARCHAR DEFAULT 'v1'
-    """)
-    
-    # Update existing records
-    db.conn.execute("""
-        UPDATE genes 
-        SET version_added = 'v1' 
-        WHERE version_added IS NULL
-    """)
-    
-    logger.info("Migration v1 to v2 completed")
-```
-
-### Database Testing
-
-```python
-def test_database_migration(temp_db):
-    """Test database migration functionality."""
-    # Insert test data in old format
-    old_data = {"animal_type": "beewasp", "gene": "01A1"}
-    temp_db.insert_gene(old_data)
-    
-    # Run migration
-    migrate_database_v1_to_v2(temp_db)
-    
-    # Verify migration
-    result = temp_db.get_gene("beewasp", "01A1")
-    assert result["version_added"] == "v1"
-```
-
-## Performance Optimization
-
-### Python Performance
-
-```python
-# Use type hints for better performance
-from typing import List, Dict, Optional
-
-def process_genes(genes: List[Dict[str, str]]) -> List[Dict[str, str]]:
-    """Process genes with proper type hints."""
-    return [process_single_gene(gene) for gene in genes]
-
-# Cache expensive operations
-from functools import lru_cache
-
-@lru_cache(maxsize=128)
-def get_effect_options() -> List[str]:
-    """Get effect options with caching."""
-    return ["Intelligence+", "Intelligence-", "Toughness+", "Toughness-"]
-
-# Use generators for large datasets
-def process_large_gene_file(file_path: Path):
-    """Process large gene files efficiently."""
-    with open(file_path) as f:
-        for line in f:
-            yield json.loads(line)
-```
-
-### JavaScript Performance
-
-```javascript
-// Cache DOM queries
-class GeneManager {
-    constructor() {
-        this.geneContainer = document.getElementById('gene-container');
-        this.loadButton = document.getElementById('load-genes-btn');
-    }
-
-    // Use document fragments for batch DOM updates
-    displayGenes(genes) {
-        const fragment = document.createDocumentFragment();
-        
-        genes.forEach(gene => {
-            const card = this.createGeneCard(gene);
-            fragment.appendChild(card);
-        });
-        
-        this.geneContainer.appendChild(fragment);
-    }
-
-    // Debounce frequent operations
-    debounce(func, wait) {
-        let timeout;
-        return function executedFunction(...args) {
-            const later = () => {
-                clearTimeout(timeout);
-                func(...args);
-            };
-            clearTimeout(timeout);
-            timeout = setTimeout(later, wait);
-        };
-    }
-}
-```
-
-## Deployment
-
-### Local Development
+### Backend
 
 ```bash
-# Development server (recommended)
-uv run python scripts/run_web_app.py
+# Start with auto-reload (default)
+uv run gorgonetics web
 
-# Alternative: Direct uvicorn (from project root)
-uv run uvicorn gorgonetics.web_app:app --reload --host 127.0.0.1 --port 8000
+# Check database state
+uv run gorgonetics db-status
+
+# Run a single test with verbose output
+uv run pytest tests/test_models.py -v -s
 ```
 
-### Production Considerations
+The backend uses Python's `logging` module. Set `LOG_LEVEL=DEBUG` for verbose output.
 
-```python
-# web_app.py - Production configuration
-import os
+### Frontend
 
-# Use environment variables for configuration
-DEBUG = os.getenv("DEBUG", "false").lower() == "true"
-DATABASE_URL = os.getenv("DATABASE_URL", "gorgonetics.db")
-HOST = os.getenv("HOST", "127.0.0.1")
-PORT = int(os.getenv("PORT", "8000"))
+- **Browser DevTools**: Network tab to inspect API requests, Console for errors.
+- **Vite HMR**: Changes to `.svelte` and `.js` files hot-reload automatically.
+- **API proxy**: The Vite dev server proxies `/api` to `localhost:8000`, so check that the backend is running if API calls fail.
 
-# Configure CORS for production
-from fastapi.middleware.cors import CORSMiddleware
+### Common issues
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["https://yourdomain.com"],  # Specific domains only
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE"],
-    allow_headers=["*"],
-)
-```
-
-## Troubleshooting
-
-### Common Issues
-
-#### Database Locked
-```bash
-# Kill Python processes
-taskkill /F /IM python.exe
-
-# Or use uv to restart
-uv run python scripts/run_web_app.py
-```
-
-#### Import Errors
-```bash
-# Reinstall dependencies
-uv sync --dev
-
-# Check Python path
-uv run python -c "import sys; print(sys.path)"
-```
-
-#### Type Checking Errors
-```bash
-# Run mypy with verbose output
-uv run mypy src/gorgonetics --verbose
-
-# Check specific file
-uv run mypy src/gorgonetics/database.py
-```
+| Problem | Solution |
+|---------|----------|
+| `ModuleNotFoundError` | Run `uv sync --dev` to reinstall Python dependencies |
+| Frontend shows blank page | Ensure the backend is running on port 8000 |
+| `INSTALL ducklake` fails | DuckDB downloads extensions on first use -- check network access |
+| Lint errors block commit | Run `uv run ruff check . --fix` and `pnpm run lint:fix` |
+| Test database errors | The `test_database` fixture manages isolation; do not share state between tests |
+| Port already in use | Kill the existing process: `lsof -ti:8000 | xargs kill` |
 
 ## Contributing
 
-### Pull Request Process
-
-1. **Create feature branch**
+1. Create a feature branch from `main`.
+2. Make changes following the coding standards above.
+3. Run all quality checks:
    ```bash
-   git checkout -b feature/your-feature-name
-   ```
-
-2. **Make changes following standards**
-   - Write tests for new functionality
-   - Update documentation
-   - Follow code style guidelines
-
-4. **Test thoroughly**
-   ```bash
+   uv run ruff check .
+   uv run ruff format --check .
+   uv run ty check src/gorgonetics
+   pnpm run lint:ci
    uv run pytest
-   uv run ruff check
-   uv run mypy src/gorgonetics
    ```
-
-4. **Submit pull request**
-   - Clear description of changes
-   - Reference any related issues
-   - Include screenshots for UI changes
-
-### Code Review Checklist
-
-- [ ] Code follows style guidelines
-- [ ] Tests are included and passing
-- [ ] Documentation is updated
-- [ ] Type hints are included
-- [ ] Error handling is appropriate
-- [ ] Performance impact is considered
+4. Submit a pull request with a clear description and test coverage for new functionality.
 
 ## Resources
 
-### Documentation
-- [FastAPI Documentation](https://fastapi.tiangolo.com/)
-- [DuckDB Documentation](https://duckdb.org/docs/)
-- [pytest Documentation](https://docs.pytest.org/)
-- [uv Documentation](https://docs.astral.sh/uv/)
-
-### Tools
-- [VS Code Python Extension](https://marketplace.visualstudio.com/items?itemName=ms-python.python)
-- [Ruff Formatter](https://docs.astral.sh/ruff/)
-- [mypy Type Checker](http://mypy-lang.org/)
-
-This development guide should help you get started and maintain high code quality throughout the project lifecycle.
+- [FastAPI docs](https://fastapi.tiangolo.com/)
+- [SvelteKit docs](https://svelte.dev/docs/kit)
+- [Svelte 5 runes](https://svelte.dev/docs/svelte/what-are-runes)
+- [DuckDB docs](https://duckdb.org/docs/)
+- [DuckLake](https://ducklake.select/)
+- [Tailwind CSS v4](https://tailwindcss.com/docs)
+- [Flowbite Svelte](https://flowbite-svelte.com/)
+- [ruff](https://docs.astral.sh/ruff/)
+- [Vitest](https://vitest.dev/)
+- [uv](https://docs.astral.sh/uv/)
