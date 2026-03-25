@@ -2,118 +2,13 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project Overview
+**Read [AGENTS.md](AGENTS.md) first** — it contains the project architecture, commands, code standards, and development patterns shared across all AI tools.
 
-Gorgonetics is a web-based genetic breeding tool for Project Gorgon pets. It provides a Python CLI/FastAPI backend with a modern Svelte frontend for editing and analyzing pet genetics data.
+## Claude-Specific Instructions
 
-## Development Environment Setup
+### Mandatory: Lint Before Committing
 
-### Package Management
-- **Python**: Use `uv` for all Python operations (never use `python` directly, always use `uv run python`)
-- **Node.js**: Use `pnpm` for frontend dependencies and scripts
-- **Required**: Python 3.13+, uv package manager
-
-### Essential Setup Commands
-```bash
-# Initial setup
-uv sync --dev        # Install Python dependencies
-pnpm install         # Install Node.js dependencies
-
-# Database initialization
-uv run gorgonetics populate    # Populate with sample data
-```
-
-## Common Development Commands
-
-### Python Backend
-```bash
-# Start backend API server (port 8000)
-uv run gorgonetics web
-
-# Run all Python tests
-uv run pytest
-
-# Code quality checks
-uv run ruff check           # Linting
-uv run ruff format          # Code formatting
-uv run mypy src/gorgonetics # Type checking
-```
-
-### Svelte Frontend
-```bash
-# Start frontend dev server (port 5173)
-pnpm run dev
-
-# Build for production
-pnpm run build
-
-# Frontend linting
-pnpm run lint
-pnpm run lint:fix
-
-# Frontend testing
-pnpm run test:client        # Run client tests
-pnpm run test:client:ui     # Run with interactive UI
-```
-
-### Integrated Testing
-```bash
-# Quick Python integration tests
-./test.sh quick
-
-# Full test suite (integration + client)
-./test.sh all
-
-# API integration test categories
-./test.sh api
-
-# Specific test categories
-./test.sh genes       # Gene endpoint tests
-./test.sh pets        # Pet endpoint tests
-./test.sh consistency # Data consistency tests
-```
-
-## Architecture Overview
-
-### Backend Structure (`src/gorgonetics/`)
-- **`cli.py`**: Typer-based command-line interface with rich output
-- **`web_app.py`**: FastAPI application with REST endpoints and authentication
-- **`models.py`**: Pydantic data models for genes, pets, and genetics
-- **`ducklake_database.py`**: DuckLake-based analytics database with versioning
-- **`genome_parser.py`**: Parses Project Gorgon pet genome files
-- **`attribute_config.py`**: Dynamic attribute system for different species
-- **`database_config.py`**: Database configuration and connection management
-- **`auth/`**: Authentication and authorization module
-  - **`models.py`**: User and authentication data models
-  - **`utils.py`**: JWT token handling and password utilities
-  - **`dependencies.py`**: FastAPI authentication dependencies
-
-### Frontend Structure (SvelteKit)
-- **`src/routes/`**: SvelteKit file-based routing (`+page.svelte`, `+layout.svelte`)
-- **`src/lib/components/`**: Reusable Svelte 5 components
-  - **`forms/`**: `LoginForm.svelte`, `RegisterForm.svelte`, `PetUploadForm.svelte`
-  - **`gene/`**: `GeneCell.svelte`, `GeneEditor.svelte`, `GeneVisualizer.svelte`, `GeneStatsTable.svelte`, `GeneTooltip.svelte`
-  - **`pet/`**: `PetEditor.svelte`, `PetDataTable.svelte`, `PetVisualization.svelte`
-  - **`layout/`**: `Sidebar.svelte`, `VisualizationHeader.svelte`
-  - **`AuthWrapper.svelte`**, **`GeneEditingView.svelte`**
-- **`src/lib/services/api.js`**: API client singleton with auth token management
-- **`src/lib/stores/`**: Svelte writable stores
-  - **`pets.js`**: Pet data and application state
-  - **`auth.js`**: Authentication state and token management
-- **`src/lib/utils/apiUtils.js`**: Species normalization, cached config loaders
-
-### Database Architecture
-- **Primary**: DuckLake with SQLite catalog for analytics and versioning
-- **Storage**: Stores pet genetics data with chromosome-level organization
-- **Authentication**: JWT-based user authentication with role-based access control
-- **Multi-user**: Separate data isolation per user with admin oversight capabilities
-- **Features**: Data versioning, fast analytical queries, user management
-
-## Code Quality Standards
-
-### MANDATORY: Lint after every code change
-
-After modifying **any** Python or JavaScript/Svelte file, you MUST run the relevant linters and fix all errors before committing:
+After modifying **any** Python or JavaScript/Svelte file, you MUST run the relevant linters and fix all errors before committing. These are the same checks CI runs:
 
 ```bash
 # After changing Python files:
@@ -121,103 +16,21 @@ uv run ruff check .          # Fix all errors
 uv run ruff format --check . # Fix any formatting issues
 
 # After changing JS/Svelte files:
-pnpm run lint:ci             # Fix all errors
+pnpm run lint:ci             # Fix all errors (zero warnings)
 ```
 
-These are the same checks that CI runs. Code must pass them before being committed. Do not leave lint errors for a follow-up fix.
-
-### Python (Follows Copilot Instructions)
-- **Line length**: 120 characters
-- **Type hints**: Required for all functions and methods (mypy strict mode)
-- **Docstrings**: Required for all public functions, classes, and modules
-- **String quotes**: Prefer double quotes
-- **Target**: Python 3.13+ features and type hints
-
-### JavaScript/Svelte
-- **ESLint**: Configured to allow both single and double quotes
-- **Components**: Follow existing Svelte 5 patterns
-- **API calls**: Use centralized `api.js` service
-- **State**: Use stores for shared state management
-
-## Testing Strategy
-
-### Python Tests
-- **Framework**: pytest with fixtures
-- **Coverage**: pytest-cov for coverage reporting
-- **Integration**: Full API endpoint testing via `./test.sh`
-- **Markers**: `slow` and `integration` test markers available
-
-### Frontend Tests
-- **Framework**: Vitest with jsdom
-- **Commands**: Use `pnpm run test:client:*` variants
-- **Integration**: `pnpm run test:integration` runs `./test.sh quick`
-- **Complete Suite**: `pnpm run test:all` runs `./test.sh all`
-- **UI Testing**: Interactive test UI available with `test:client:ui`
-
-## Species and Data Structure
-
-### Supported Species
-- **Beewasp**: With chromosome data (chr01, chr02, etc.)
-- **Horse**: Multi-chromosome genetic data
-- **Extensible**: Framework supports adding new species via `attribute_config.py`
-
-### Gene Data Format
-- Genes organized by species → chromosome → individual gene positions
-- Dynamic attributes system allows species-specific genetic traits
-- Export/import functionality for sharing genetic configurations
-
-## Authentication System
-
-### User Management
-- **JWT Authentication**: Access and refresh token-based authentication
-- **User Roles**: `admin` and `user` roles with different permissions
-- **Admin Features**: Can manage all pets, create admin users via CLI
-- **User Features**: Can only access their own pets and data
-
-### CLI User Management
-```bash
-# Create admin user
-uv run gorgonetics create-admin --username admin --password yourpassword
-
-# Check database status
-uv run gorgonetics db-status
-```
-
-### API Authentication
-- All pet management endpoints require authentication
-- Admin-only endpoints for bulk operations and system management
-- Token-based session management with automatic refresh
-
-## Key Development Patterns
-
-### Adding New Features
-1. Define data models in `models.py` with proper type hints
-2. Add database operations to `ducklake_database.py`
-3. Create API endpoints in `web_app.py` with appropriate authentication
-4. Build Svelte components for UI interaction
-5. Add comprehensive tests for both backend and frontend
-
-### Database Operations
-- Always use the DuckLake database instance via `create_database_instance()`
-- Follow existing patterns for gene data queries and mutations
-- Leverage analytics capabilities for complex genetic analysis
-
-### API Development
-- Use FastAPI dependency injection patterns
-- Return appropriate HTTP status codes
-- Include comprehensive error handling
-- Follow existing endpoint naming conventions
-
-## Integration Notes
+Do not leave lint errors for a follow-up fix.
 
 ### Development Servers
 - Backend runs on port 8000 (API only)
 - Frontend dev server on port 5173 (proxies API calls to backend)
 - Access the web application at http://localhost:5173 during development
 
-### File Organization
-- Python code: `src/gorgonetics/`
-- Frontend code: `src/lib/` (components, stores, services) and `src/routes/` (pages)
-- Static assets: `src/static/` (favicon, logos) and `assets/` (gene template data)
-- Sample data: `data/` directory
-- Documentation: `docs/` with comprehensive guides
+### Integration Testing Shortcuts
+```bash
+./test.sh quick       # Fast integration tests
+./test.sh all         # Full suite (integration + client)
+./test.sh genes       # Gene endpoint tests
+./test.sh pets        # Pet endpoint tests
+./test.sh consistency # Data consistency tests
+```
