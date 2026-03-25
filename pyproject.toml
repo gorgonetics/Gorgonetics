@@ -20,7 +20,7 @@ dependencies = [
     "bcrypt>=4.0.0",
     "slowapi>=0.0.6",
 ]
-authors = [{ name = "Javier Lopez Pena", email = "javier@gorgonetics.dev" }]
+authors = [{ name = "Javier Lopez Pena", email = "jlopezpena@users.noreply.github.com" }]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
