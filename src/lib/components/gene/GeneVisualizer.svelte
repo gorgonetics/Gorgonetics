@@ -68,6 +68,8 @@
 
     // DOM template cache - stores pre-built table structures per species
     const speciesTemplateCache = $state(new Map());
+    let currentSpeciesTemplate = $state(null);
+    let isUsingCachedTemplate = $state(false);
 
     onMount(async () => {
         // Preload gene effects for common species to improve performance
