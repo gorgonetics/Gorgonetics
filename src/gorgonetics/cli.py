@@ -428,44 +428,16 @@ def create_admin(
     """Create an admin user for initial setup."""
     try:
         from .auth import get_password_hash
+        from .auth.dependencies import create_user_in_db
+        from .auth.models import UserCreate
+        from .constants import UserRole
 
         password_hash = get_password_hash(password)
+        user_create = UserCreate(username=username, password=password)
+        create_user_in_db(user_create, password_hash, role=UserRole.ADMIN)
 
-        # Connect to database and create admin user
-        db = create_database_instance()
-        try:
-            # Get next available user ID
-            from datetime import datetime
-
-            now = datetime.now()
-
-            assert db.conn is not None
-            result = db.conn.execute("SELECT MAX(id) FROM users").fetchone()
-            assert result is not None
-            next_id = (result[0] or 0) + 1
-
-            db.conn.execute(
-                """INSERT INTO users (id, username, password_hash, role, is_active, created_at, updated_at)
-                   VALUES ($id, $username, $password_hash, $role, $is_active, $created_at, $updated_at)""",
-                {
-                    "id": next_id,
-                    "username": username,
-                    "password_hash": password_hash,
-                    "role": "admin",
-                    "is_active": True,
-                    "created_at": now,
-                    "updated_at": now,
-                },
-            )
-
-            console.print(f"[green]* Successfully created admin user: {username}[/green]")
-            console.print("[blue]* You can now log in to the web interface with these credentials[/blue]")
-
-        except Exception as e:
-            console.print(f"[red]Failed to create admin user: {e}[/red]")
-            raise typer.Exit(1) from e
-        finally:
-            db.close()
+        console.print(f"[green]* Successfully created admin user: {username}[/green]")
+        console.print("[blue]* You can now log in to the web interface with these credentials[/blue]")
 
     except Exception as e:
         console.print(f"[red]Error creating admin user: {e}[/red]")

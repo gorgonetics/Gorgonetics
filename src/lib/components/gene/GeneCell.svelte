@@ -26,11 +26,7 @@
 
         let cssClass = "gene-cell ";
 
-        if (currentView === "appearance") {
-            cssClass += `gene-${geneAnalysis.type} `;
-        } else {
-            cssClass += `gene-${geneAnalysis.type} `;
-        }
+        cssClass += `gene-${geneAnalysis.type} `;
 
         if (gene.type === "?") {
             cssClass = "gene-cell gene-neutral gene-unknown";

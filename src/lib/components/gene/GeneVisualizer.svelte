@@ -12,7 +12,12 @@
         getCacheStats,
         clearAllCaches,
         FALLBACK_ATTRIBUTES,
+        FALLBACK_APPEARANCE_LIST,
     } from "$lib/utils/apiUtils.js";
+
+    const FALLBACK_APPEARANCE_KEYS = FALLBACK_APPEARANCE_LIST.map(
+        (a) => a.key.replace(/_/g, "-"),
+    );
 
     const { pet } = $props();
 
@@ -29,7 +34,6 @@
     let totalGenes = $state(0);
     let neutralGenes = $state(0);
     let appearanceList = $state([]);
-    // let appearanceConfig = null; // Unused
     let selectedAttributes = $state([]);
     let hiddenAttributes = $state([]);
     let selectedChromosomes = $state([]);
@@ -64,9 +68,6 @@
 
     // DOM template cache - stores pre-built table structures per species
     const speciesTemplateCache = $state(new Map());
-    let currentSpeciesTemplate = $state(null);
-    let isUsingCachedTemplate = $state(false);
-    // const shouldForceRerender = $state(false); // Unused
 
     onMount(async () => {
         // Preload gene effects for common species to improve performance
@@ -192,9 +193,6 @@
             // Static templates disabled - current dynamic rendering performance is sufficient
 
             await updateVisualization();
-
-            // Check if delay happens after JS processing (DOM rendering)
-            setTimeout(() => {}, 100);
         } catch (err) {
             error = `Failed to load pet: ${err.message}`;
             console.error("❌ Error loading pet data:", err);
@@ -329,93 +327,23 @@
 
             return stats;
         } else {
-            // Load species-specific appearance attributes from configuration
-            const stats = {
-                "appearance-neutral": 0,
-            };
+            const stats = { "appearance-neutral": 0 };
 
+            let attrNames = null;
             if (currentPet?.species) {
                 try {
-                    const response = await fetch(
-                        `/api/appearance-config/${currentPet.species}`,
-                    );
-                    if (response.ok) {
-                        const config = await response.json();
-                        config.appearance_attribute_names.forEach(
-                            (attrName) => {
-                                stats[attrName] = 0;
-                            },
-                        );
-                    } else {
-                        // Fallback appearance attributes
-                        [
-                            "body-color-hue",
-                            "body-color-saturation",
-                            "body-color-intensity",
-                            "wing-color-hue",
-                            "wing-color-saturation",
-                            "wing-color-intensity",
-                            "body-scale",
-                            "wing-scale",
-                            "head-scale",
-                            "tail-scale",
-                            "antenna-scale",
-                            "leg-deformity",
-                            "antenna-deformity",
-                            "particles",
-                            "particle-location",
-                            "glow",
-                        ].forEach((attr) => {
-                            stats[attr] = 0;
-                        });
+                    const config = await fetchAppearanceConfig(currentPet.species);
+                    if (config) {
+                        attrNames = config.appearance_attribute_names;
                     }
-                } catch (error) {
-                    console.error("Error loading appearance config:", error);
-                    // Fallback appearance attributes
-                    [
-                        "body-color-hue",
-                        "body-color-saturation",
-                        "body-color-intensity",
-                        "wing-color-hue",
-                        "wing-color-saturation",
-                        "wing-color-intensity",
-                        "body-scale",
-                        "wing-scale",
-                        "head-scale",
-                        "tail-scale",
-                        "antenna-scale",
-                        "leg-deformity",
-                        "antenna-deformity",
-                        "particles",
-                        "particle-location",
-                        "glow",
-                    ].forEach((attr) => {
-                        stats[attr] = 0;
-                    });
+                } catch (err) {
+                    console.error("Error loading appearance config:", err);
                 }
-            } else {
-                // Fallback appearance attributes
-                [
-                    "body-color-hue",
-                    "body-color-saturation",
-                    "body-color-intensity",
-                    "wing-color-hue",
-                    "wing-color-saturation",
-                    "wing-color-intensity",
-                    "body-scale",
-                    "wing-scale",
-                    "head-scale",
-                    "tail-scale",
-                    "antenna-scale",
-                    "leg-deformity",
-                    "antenna-deformity",
-                    "particles",
-                    "particle-location",
-                    "glow",
-                ].forEach((attr) => {
-                    stats[attr] = 0;
-                });
             }
+
+            (attrNames || FALLBACK_APPEARANCE_KEYS).forEach((attr) => {
+                stats[attr] = 0;
+            });
 
             return stats;
         }

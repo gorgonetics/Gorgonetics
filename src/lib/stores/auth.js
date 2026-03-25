@@ -7,9 +7,9 @@ export const isAuthenticated = writable(false);
 export const isLoading = writable(false);
 export const authError = writable("");
 
-// Token management
-const TOKEN_KEY = 'gorgonetics_access_token';
-const REFRESH_TOKEN_KEY = 'gorgonetics_refresh_token';
+// Token management — exported so api.js can reference the same keys
+export const TOKEN_KEY = 'gorgonetics_access_token';
+export const REFRESH_TOKEN_KEY = 'gorgonetics_refresh_token';
 
 export const authStore = {
   // Initialize authentication from stored tokens

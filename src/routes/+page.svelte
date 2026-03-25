@@ -9,18 +9,23 @@
 		activeTab,
 		appState,
 	} from '$lib/stores/pets.js';
+	import { isAuthenticated } from '$lib/stores/auth.js';
 	import PetVisualization from '$lib/components/pet/PetVisualization.svelte';
 	import GeneEditingView from '$lib/components/GeneEditingView.svelte';
 	import PetDataTable from '$lib/components/pet/PetDataTable.svelte';
 
 	onMount(async () => {
-		// Load pets for both authenticated and anonymous users
 		await appState.loadPets();
 	});
 
 	// Reload pets when authentication status changes
 	$effect(() => {
-		appState.loadPets();
+		// Read the store value to establish the reactive dependency
+		const _authenticated = $isAuthenticated;
+		// Skip the initial load (handled by onMount)
+		if (_authenticated !== undefined) {
+			appState.loadPets();
+		}
 	});
 
 	function getWelcomeMessage() {

@@ -45,30 +45,24 @@ def get_password_hash(password: str) -> str:
     return bcrypt.hashpw(password.encode("utf-8"), salt).decode("utf-8")
 
 
+def _create_token(
+    data: dict[str, Any], token_type: str, default_expiry: timedelta, expires_delta: timedelta | None = None
+) -> str:
+    """Create a JWT token with the given type and expiry."""
+    to_encode = data.copy()
+    expire = datetime.now(UTC) + (expires_delta or default_expiry)
+    to_encode.update({"exp": expire, "type": token_type})
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+
 def create_access_token(data: dict[str, Any], expires_delta: timedelta | None = None) -> str:
     """Create JWT access token."""
-    to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.now(UTC) + expires_delta
-    else:
-        expire = datetime.now(UTC) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-
-    to_encode.update({"exp": expire, "type": "access"})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
+    return _create_token(data, "access", timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES), expires_delta)
 
 
 def create_refresh_token(data: dict[str, Any], expires_delta: timedelta | None = None) -> str:
     """Create JWT refresh token."""
-    to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.now(UTC) + expires_delta
-    else:
-        expire = datetime.now(UTC) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
-
-    to_encode.update({"exp": expire, "type": "refresh"})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
+    return _create_token(data, "refresh", timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS), expires_delta)
 
 
 def verify_token(token: str, token_type: str = "access") -> TokenData | None:

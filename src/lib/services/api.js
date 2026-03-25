@@ -2,6 +2,7 @@
  * API Client for Gorgonetics Svelte application.
  * Handles all communication with the backend API.
  */
+import { TOKEN_KEY, REFRESH_TOKEN_KEY } from '$lib/stores/auth.js';
 
 class ApiClient {
   constructor(baseUrl = "") {
@@ -29,7 +30,7 @@ class ApiClient {
    * Returns true if a new token was obtained, false otherwise.
    */
   async _tryRefreshToken() {
-    const refreshToken = localStorage.getItem('gorgonetics_refresh_token');
+    const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
     if (!refreshToken) return false;
     try {
       const response = await fetch(`${this.baseUrl}/api/auth/refresh`, {
@@ -39,15 +40,15 @@ class ApiClient {
       });
       if (!response.ok) {
         this.setAuthToken(null);
-        localStorage.removeItem('gorgonetics_access_token');
-        localStorage.removeItem('gorgonetics_refresh_token');
+        localStorage.removeItem(TOKEN_KEY);
+        localStorage.removeItem(REFRESH_TOKEN_KEY);
         return false;
       }
       const data = await response.json();
       this.setAuthToken(data.access_token);
-      localStorage.setItem('gorgonetics_access_token', data.access_token);
+      localStorage.setItem(TOKEN_KEY, data.access_token);
       if (data.refresh_token) {
-        localStorage.setItem('gorgonetics_refresh_token', data.refresh_token);
+        localStorage.setItem(REFRESH_TOKEN_KEY, data.refresh_token);
       }
       return true;
     } catch {

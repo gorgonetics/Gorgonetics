@@ -16,58 +16,56 @@ from gorgonetics.database_config import create_database_instance
 security = HTTPBearer()
 
 
+def _user_from_row(row: tuple) -> User:
+    """Convert a (id, username, role, is_active, created_at, updated_at) row to a User."""
+    return User(id=row[0], username=row[1], role=row[2], is_active=row[3], created_at=row[4], updated_at=row[5])
+
+
+def _user_in_db_from_row(row: tuple) -> UserInDB:
+    """Convert a (id, username, password_hash, role, is_active, created_at, updated_at) row to a UserInDB."""
+    return UserInDB(
+        id=row[0],
+        username=row[1],
+        password_hash=row[2],
+        role=row[3],
+        is_active=row[4],
+        created_at=row[5],
+        updated_at=row[6],
+    )
+
+
+def _fetch_active_user(username: str) -> User | None:
+    """Look up an active user by username, returning None if not found."""
+    db = create_database_instance()
+    try:
+        assert db.conn is not None
+        row = db.conn.execute(
+            "SELECT id, username, role, is_active, created_at, updated_at FROM users WHERE username = $username AND is_active = true",
+            {"username": username},
+        ).fetchone()
+        return _user_from_row(row) if row else None
+    except Exception:
+        return None
+    finally:
+        db.close()
+
+
 def get_current_user(credentials: Annotated[HTTPAuthorizationCredentials, Depends(security)]) -> User:
-    """
-    Get current authenticated user from JWT token.
-
-    Args:
-        credentials: Bearer token from Authorization header
-
-    Returns:
-        Current user data
-
-    Raises:
-        HTTPException: If token is invalid or user not found
-    """
+    """Get current authenticated user from JWT token."""
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
 
-    # Verify token
     token_data = verify_token(credentials.credentials, "access")
     if token_data is None or token_data.username is None:
         raise credentials_exception
 
-    # Get user from database
-    db = create_database_instance()
-    try:
-        assert db.conn is not None
-        user_data = db.conn.execute(
-            "SELECT id, username, role, is_active, created_at, updated_at FROM users WHERE username = $username AND is_active = true",
-            {"username": token_data.username},
-        ).fetchone()
-
-        if user_data is None:
-            raise credentials_exception
-
-        # Convert to User model
-        user = User(
-            id=user_data[0],
-            username=user_data[1],
-            role=user_data[2],
-            is_active=user_data[3],
-            created_at=user_data[4],
-            updated_at=user_data[5],
-        )
-
-        return user
-
-    except Exception as e:
-        raise credentials_exception from e
-    finally:
-        db.close()
+    user = _fetch_active_user(token_data.username)
+    if user is None:
+        raise credentials_exception
+    return user
 
 
 def get_current_active_user(current_user: Annotated[User, Depends(get_current_user)]) -> User:
@@ -91,54 +89,15 @@ def get_current_active_user(current_user: Annotated[User, Depends(get_current_us
 def get_optional_current_user(
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(HTTPBearer(auto_error=False))],
 ) -> User | None:
-    """
-    Get current authenticated user from JWT token, returns None if not authenticated.
-
-    Args:
-        credentials: Optional Bearer token from Authorization header
-
-    Returns:
-        Current user data or None if not authenticated
-
-    """
+    """Get current authenticated user from JWT token, returns None if not authenticated."""
     if not credentials:
         return None
 
     try:
-        # Verify token
         token_data = verify_token(credentials.credentials, "access")
         if token_data is None or token_data.username is None:
             return None
-
-        # Get user from database
-        db = create_database_instance()
-        try:
-            assert db.conn is not None
-            user_data = db.conn.execute(
-                "SELECT id, username, role, is_active, created_at, updated_at FROM users WHERE username = $username AND is_active = true",
-                {"username": token_data.username},
-            ).fetchone()
-
-            if user_data is None:
-                return None
-
-            # Convert to User model
-            user = User(
-                id=user_data[0],
-                username=user_data[1],
-                role=user_data[2],
-                is_active=user_data[3],
-                created_at=user_data[4],
-                updated_at=user_data[5],
-            )
-
-            return user
-
-        except Exception:
-            return None
-        finally:
-            db.close()
-
+        return _fetch_active_user(token_data.username)
     except Exception:
         return None
 
@@ -164,65 +123,28 @@ def require_admin(current_user: Annotated[User, Depends(get_current_active_user)
 
 
 def get_user_by_username(username: str) -> UserInDB | None:
-    """
-    Get user by username from database.
-
-    Args:
-        username: Username to search for
-
-    Returns:
-        User data with password hash, or None if not found
-    """
+    """Get user by username from database (includes password hash)."""
     db = create_database_instance()
     try:
         assert db.conn is not None
-        user_data = db.conn.execute(
+        row = db.conn.execute(
             "SELECT id, username, password_hash, role, is_active, created_at, updated_at FROM users WHERE username = $username",
             {"username": username},
         ).fetchone()
-
-        if user_data is None:
-            return None
-
-        return UserInDB(
-            id=user_data[0],
-            username=user_data[1],
-            password_hash=user_data[2],
-            role=user_data[3],
-            is_active=user_data[4],
-            created_at=user_data[5],
-            updated_at=user_data[6],
-        )
-
+        return _user_in_db_from_row(row) if row else None
     except Exception:
         return None
     finally:
         db.close()
 
 
-def create_user_in_db(user_create: "UserCreate", password_hash: str) -> User:
-    """
-    Create a new user in the database.
-
-    Args:
-        user_create: User creation data
-        password_hash: Hashed password
-
-    Returns:
-        Created user data
-
-    Raises:
-        Exception: If user creation fails
-    """
+def create_user_in_db(user_create: "UserCreate", password_hash: str, role: UserRole = UserRole.USER) -> User:
+    """Create a new user in the database."""
+    from datetime import datetime
 
     db = create_database_instance()
     try:
-        # Generate new user ID
-        from datetime import datetime
-
         now = datetime.now()
-
-        # Get next available user ID
         assert db.conn is not None
         result = db.conn.execute("SELECT MAX(id) FROM users").fetchone()
         assert result is not None
@@ -235,30 +157,22 @@ def create_user_in_db(user_create: "UserCreate", password_hash: str) -> User:
                 "id": next_id,
                 "username": user_create.username,
                 "password_hash": password_hash,
-                "role": UserRole.USER,
+                "role": role,
                 "is_active": True,
                 "created_at": now,
                 "updated_at": now,
             },
         )
 
-        # Get the created user
-        user_data = db.conn.execute(
+        row = db.conn.execute(
             "SELECT id, username, role, is_active, created_at, updated_at FROM users WHERE username = $username",
             {"username": user_create.username},
         ).fetchone()
 
-        if user_data is None:
+        if row is None:
             raise Exception("Failed to create user")
 
-        return User(
-            id=user_data[0],
-            username=user_data[1],
-            role=user_data[2],
-            is_active=user_data[3],
-            created_at=user_data[4],
-            updated_at=user_data[5],
-        )
+        return _user_from_row(row)
 
     except Exception as e:
         raise Exception(f"Failed to create user: {e}") from e

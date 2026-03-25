@@ -1,8 +1,7 @@
 <script>
     import { run } from "svelte/legacy";
     import { createEventDispatcher } from "svelte";
-    // import App from "../../App.svelte"; // Unused
-    import { 
+    import {
         loadAttributeConfig,
         loadAppearanceConfig,
         FALLBACK_ATTRIBUTE_LIST,
@@ -34,9 +33,7 @@
     } = $props();
 
     let attributeList = $state([]);
-    // let attributeConfig = null; // Currently unused in favor of attributeList
     let appearanceList = $state([]);
-    // let appearanceConfig = null; // Currently unused in favor of appearanceList
 
     async function loadAttributeConfigForTable(species) {
         if (!species) {
@@ -46,7 +43,6 @@
 
         const config = await loadAttributeConfig(species);
         if (config) {
-            // attributeConfig = config; // Unused
             attributeList = config.attributes || [];
         } else {
             // Fallback to hardcoded attributes
@@ -62,7 +58,6 @@
 
         const config = await loadAppearanceConfig(species);
         if (config) {
-            // appearanceConfig = config; // Unused
             appearanceList = config.appearance_attributes || [];
         } else {
             // Fallback to hardcoded appearance attributes

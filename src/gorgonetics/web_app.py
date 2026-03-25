@@ -42,7 +42,7 @@ from gorgonetics.auth.dependencies import (
     get_user_by_username,
     require_admin,
 )
-from gorgonetics.constants import DEMO_USER_ID, Gender, UserRole
+from gorgonetics.constants import DEMO_USER_ID, GENOME_FILE_MARKERS, Gender, UserRole
 from gorgonetics.database_config import create_database_instance
 from gorgonetics.models import Genome
 
@@ -165,7 +165,7 @@ app.add_middleware(
 class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """Inject security headers on every response."""
 
-    async def dispatch(self, request: Request, call_next: Any) -> Any:  # type: ignore[override]
+    async def dispatch(self, request: Request, call_next: Any) -> Any:
         response = await call_next(request)
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["X-Content-Type-Options"] = "nosniff"
@@ -201,6 +201,20 @@ def get_database() -> "DuckLakeGeneDatabase":
     return create_database_instance()
 
 
+def _authorize_pet_mutation(
+    pet_id: int, current_user: User, db: "DuckLakeGeneDatabase", action: str = "modified"
+) -> dict:
+    """Check pet exists, isn't a demo pet, and is owned by the user (or user is admin). Returns pet data."""
+    pet_data = db.get_pet(pet_id)
+    if not pet_data:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pet not found")
+    if pet_data.get("user_id") == DEMO_USER_ID:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=f"Demo pets cannot be {action}")
+    if current_user.role != UserRole.ADMIN and pet_data.get("user_id") != current_user.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pet not found")
+    return pet_data
+
+
 class GeneUpdate(BaseModel):
     """Model for gene update requests."""
 
@@ -216,7 +230,7 @@ class PetUpdate(BaseModel):
     """Model for updating pet attributes."""
 
     name: str | None = None
-    gender: str | None = None
+    gender: Gender | None = None
     breed: str | None = None
     attributes: dict[str, int] | None = None
     notes: str | None = None
@@ -595,8 +609,7 @@ async def upload_pet_genome(
         if not genome_content.strip():
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File cannot be empty")
 
-        # Basic validation for genome file format
-        if "[Overview]" not in genome_content and "Genome Type:" not in genome_content:
+        if not any(marker in genome_content for marker in GENOME_FILE_MARKERS):
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid genome file format")
 
         # Parse the genome using our models
@@ -756,18 +769,7 @@ async def update_pet(
 ) -> dict[str, str]:
     """Update a pet's attributes."""
     try:
-        # Check if pet exists and user owns it (admins can update any pet)
-        pet_data = db.get_pet(pet_id)
-        if not pet_data:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pet not found")
-
-        # Prevent updating demo pets
-        if pet_data.get("user_id") == DEMO_USER_ID:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Demo pets cannot be modified")
-
-        if current_user.role != UserRole.ADMIN:
-            if pet_data.get("user_id") != current_user.id:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pet not found")
+        _authorize_pet_mutation(pet_id, current_user, db, action="modified")
 
         updates = {}
         if pet_update.name is not None:
@@ -806,18 +808,7 @@ async def delete_pet(
 ) -> dict[str, str]:
     """Delete a pet."""
     try:
-        # Check if pet exists and user owns it (admins can delete any pet)
-        pet_data = db.get_pet(pet_id)
-        if not pet_data:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pet not found")
-
-        # Prevent deleting demo pets
-        if pet_data.get("user_id") == DEMO_USER_ID:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Demo pets cannot be deleted")
-
-        if current_user.role != UserRole.ADMIN:
-            if pet_data.get("user_id") != current_user.id:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pet not found")
+        _authorize_pet_mutation(pet_id, current_user, db, action="deleted")
 
         success = db.delete_pet(pet_id)
 
