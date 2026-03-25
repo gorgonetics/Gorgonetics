@@ -2,666 +2,454 @@
 
 ## Overview
 
-The Gorgonetics frontend is built with **Svelte 5** using modern reactive patterns and component-based architecture. The application provides an intuitive interface for pet genome management and gene editing with real-time authentication and state management.
+The Gorgonetics frontend is a **SvelteKit** single-page application for managing and visualizing pet genome data from Project Gorgon. It uses Svelte 5, Tailwind CSS 4, and Flowbite Svelte for UI components. The app renders entirely on the client side (SSR is disabled) and is built to a static bundle served alongside the FastAPI backend.
+
+## Technology Stack
+
+- **SvelteKit 2** with **Svelte 5** -- file-based routing, `$lib` alias, static adapter
+- **Vite 7** -- dev server with API proxy to `localhost:8000`
+- **Tailwind CSS 4** -- via `@tailwindcss/vite` plugin
+- **Flowbite Svelte** -- UI primitives (Modal, Dropzone, Input, Select, Label, Button)
+- **@flowbite-svelte-plugins/datatable** -- sortable/searchable pet data table
+- **@lucide/svelte** -- icon library (used for navigation arrows, etc.)
+- **Vitest** with jsdom -- unit and component tests
+- **ESLint** with `eslint-plugin-svelte` -- linting
+
+## Project Structure
+
+```
+src/
+├── app.html                              # HTML shell (%sveltekit.head%, %sveltekit.body%)
+├── app.css                               # Global styles, CSS custom properties for gene colors
+├── routes/
+│   ├── +layout.js                        # Disables SSR, enables prerendering
+│   ├── +layout.svelte                    # Root layout: AuthWrapper + Sidebar + content slot
+│   ├── +page.js                          # Prerender flag
+│   ├── +page.svelte                      # Main page (pet viz, gene editing, pet table)
+│   ├── auth/
+│   │   ├── login/+page.svelte            # Standalone login page
+│   │   └── register/+page.svelte         # Standalone registration page
+│   ├── genes/+page.js                    # Prerender flag
+│   └── pets/+page.js                     # Prerender flag
+├── lib/
+│   ├── components/
+│   │   ├── AuthWrapper.svelte            # Auth initialization, loading gate
+│   │   ├── GeneEditingView.svelte        # Full gene editing grid for a chromosome
+│   │   ├── forms/
+│   │   │   ├── LoginForm.svelte          # Username/password login form
+│   │   │   ├── RegisterForm.svelte       # Registration form
+│   │   │   └── PetUploadForm.svelte      # Drag-and-drop genome file upload
+│   │   ├── gene/
+│   │   │   ├── GeneCell.svelte           # Single gene dot in the genome visualization
+│   │   │   ├── GeneEditor.svelte         # Sidebar species/chromosome selector
+│   │   │   ├── GeneStatsTable.svelte     # Attribute statistics panel with filter controls
+│   │   │   ├── GeneTooltip.svelte        # Hover tooltip for gene cells
+│   │   │   └── GeneVisualizer.svelte     # Chromosome-by-chromosome genome dot grid
+│   │   ├── layout/
+│   │   │   ├── Sidebar.svelte            # Primary navigation, tab switching, user/auth section
+│   │   │   └── VisualizationHeader.svelte # Sticky dark header bar for content views
+│   │   └── pet/
+│   │       ├── PetDataTable.svelte       # Searchable/sortable pet list (flowbite datatable)
+│   │       ├── PetEditor.svelte          # Modal form for editing pet attributes
+│   │       └── PetVisualization.svelte   # Per-pet genome visualization with view toggle
+│   ├── services/
+│   │   └── api.js                        # ApiClient singleton -- all backend communication
+│   ├── stores/
+│   │   ├── auth.js                       # Auth state (user, isAuthenticated, token management)
+│   │   └── pets.js                       # Pet data, loading, error, active tab, gene editing state
+│   └── utils/
+│       └── apiUtils.js                   # normalizeSpecies, cached config loaders, fallback constants
+└── static/
+    ├── favicon.png
+    ├── gorgonetics-logo.png
+    ├── gorgonetics-logo-128.png
+    └── styles.css
+```
 
 ## Architecture
 
-### Technology Stack
+### Rendering Model
 
-- **Svelte 5**: Modern reactive framework with runes and enhanced reactivity
-- **Vite**: Fast build tool and development server
-- **Flowbite Svelte**: UI components and design system
-- **Tailwind CSS**: Utility-first CSS framework
-- **Vitest**: Testing framework with jsdom
-- **ESLint**: Code linting and quality
+SvelteKit is configured as a fully client-side SPA:
 
-### Project Structure
+- `+layout.js` sets `export const ssr = false` and `export const prerender = true`.
+- The static adapter (`@sveltejs/adapter-static`) outputs to `build/` with `fallback: 'index.html'` so all routes resolve client-side.
+- During development, Vite proxies `/api` and `/static` requests to the FastAPI backend on port 8000.
 
-```
-src/svelte/
-├── App.svelte                    # Main application component
-├── app.html                      # HTML template
-├── app.css                       # Global styles
-├── main.js                       # Application entry point
-└── lib/
-    ├── components/               # Reusable Svelte components
-    │   ├── AuthWrapper.svelte    # Authentication state wrapper
-    │   ├── LoginForm.svelte      # User login form
-    │   ├── RegisterForm.svelte   # User registration form
-    │   ├── Sidebar.svelte        # Navigation sidebar
-    │   ├── MainContent.svelte    # Main content area
-    │   ├── GeneEditor.svelte     # Gene editing interface
-    │   ├── GeneEditingView.svelte # Gene editing view container
-    │   ├── GeneCell.svelte       # Individual gene cell component
-    │   ├── GeneTooltip.svelte    # Gene information tooltip
-    │   ├── GeneVisualizer.svelte # Genome visualization
-    │   ├── GeneStatsTable.svelte # Gene statistics table
-    │   ├── PetEditor.svelte      # Pet editing interface
-    │   ├── PetUpload.svelte      # Pet genome upload form
-    │   ├── PetVisualization.svelte # Pet genome display
-    │   └── PetDataTableView.svelte # Pet data table
-    ├── services/
-    │   └── apiClient.js          # API communication layer
-    └── stores/
-        ├── appState.js           # Application state management
-        └── authStore.js          # Authentication state management
-```
+### Path Aliases
 
-## Component Architecture
+Defined in `svelte.config.js` and available throughout the app:
 
-### App.svelte - Main Application
+| Alias          | Resolves to            |
+|----------------|------------------------|
+| `$lib`         | `src/lib`              |
+| `$components`  | `src/lib/components`   |
+| `$stores`      | `src/lib/stores`       |
+| `$services`    | `src/lib/services`     |
+| `$utils`       | `src/lib/utils`        |
 
-The root component that orchestrates the entire application:
+In practice, imports use the standard `$lib` prefix (e.g., `import { apiClient } from '$lib/services/api.js'`).
+
+### Application Shell
+
+The root layout (`+layout.svelte`) composes the app shell:
 
 ```svelte
 <script>
-  import { onMount } from 'svelte';
-  import Sidebar from './lib/components/Sidebar.svelte';
-  import MainContent from './lib/components/MainContent.svelte';
-  import AuthWrapper from './lib/components/AuthWrapper.svelte';
-  import { appState } from './lib/stores/appState.js';
-  import { apiClient } from './lib/services/apiClient.js';
-  import { isAuthenticated } from './lib/stores/authStore.js';
+    import "../app.css";
+    import AuthWrapper from "$lib/components/AuthWrapper.svelte";
+    import Sidebar from "$lib/components/layout/Sidebar.svelte";
 
-  let sidebarCollapsed = $state(false);
+    const { children } = $props();
+    let sidebarCollapsed = $state(false);
 
-  onMount(async () => {
-    await apiClient.initialize();
-    // Restore sidebar state from localStorage
-    const savedState = localStorage.getItem('sidebarCollapsed');
-    if (savedState !== null) {
-      sidebarCollapsed = JSON.parse(savedState);
+    function toggleSidebar() {
+        sidebarCollapsed = !sidebarCollapsed;
+        localStorage.setItem("sidebarCollapsed", JSON.stringify(sidebarCollapsed));
     }
-  });
-
-  // Load pets when user becomes authenticated
-  $effect(() => {
-    if ($isAuthenticated) {
-      appState.loadPets();
-    }
-  });
 </script>
+
+<AuthWrapper>
+    <div class="app-layout" class:sidebar-collapsed={sidebarCollapsed}>
+        <Sidebar {sidebarCollapsed} {toggleSidebar} />
+        <main class="flex-1 overflow-auto">
+            {@render children()}
+        </main>
+    </div>
+</AuthWrapper>
 ```
 
-### Authentication Components
+`AuthWrapper` initializes auth state on mount (validates stored JWT), shows a loading spinner while checking, then renders the app content via a `<slot>`. Authentication is optional -- anonymous users see demo data.
 
-#### AuthWrapper.svelte
-Manages authentication state and displays login/register forms or main application:
+### Main Page View Switching
+
+The main page (`+page.svelte`) reads store values to determine which view to display. There is no client-side router for these views; they are driven by store state:
+
+1. **Loading** -- spinner while pets load
+2. **Welcome** -- shown when no pet, no gene editing view, and not on the pets tab
+3. **PetVisualization** -- when `$selectedPet` is set (genome dot visualization)
+4. **PetDataTable** -- when `$activeTab === "pets"` (sortable table of all pets)
+5. **GeneEditingView** -- when `$geneEditingView` is set (chromosome gene editor)
+
+The Sidebar controls which view is active by calling `appState.switchTab()`, `appState.selectPet()`, and `appState.setGeneEditingView()`.
+
+## Component Reference
+
+### Layout Components
+
+**`Sidebar.svelte`** -- The main navigation panel. Receives `sidebarCollapsed` and `toggleSidebar` as props. Contains:
+- Logo and branding
+- Tab buttons for "Pet Manager" and "Gene Editor"
+- Contextual controls panel (pet upload form when on pets tab, gene species/chromosome selector when on editor tab)
+- User info section (authenticated) or sign-in/sign-up buttons (anonymous)
+- Auth modal (Flowbite `Modal`) for inline login/registration without navigating away
+- Collapsible via toggle button in the footer
+
+**`VisualizationHeader.svelte`** -- A sticky dark header bar used by `PetVisualization`, `PetDataTable`, and `GeneEditingView`. Accepts `title`, `stats`, and optional snippet slots for controls:
 
 ```svelte
-<script>
-  import { isAuthenticated } from '../stores/authStore.js';
-  import LoginForm from './LoginForm.svelte';
-  import RegisterForm from './RegisterForm.svelte';
-  
-  let showRegister = $state(false);
-</script>
-
-{#if $isAuthenticated}
-  <slot />
-{:else}
-  {#if showRegister}
-    <RegisterForm bind:showRegister />
-  {:else}
-    <LoginForm bind:showRegister />
-  {/if}
-{/if}
+<VisualizationHeader
+    title="Gene Visualization: {pet?.name}"
+    stats={[{ text: `${pet?.known_genes || 0} known genes` }]}
+>
+    {#snippet leftControls()}
+        <button onclick={handleBack}><ArrowLeft /></button>
+    {/snippet}
+    <div class="view-controls">
+        <button onclick={() => handleViewChange("attribute")}>Attributes</button>
+    </div>
+</VisualizationHeader>
 ```
 
-#### LoginForm.svelte & RegisterForm.svelte
-Handle user authentication with form validation and error handling:
+### Gene Components
 
-```svelte
-<script>
-  import { authStore } from '../stores/authStore.js';
-  
-  let username = $state('');
-  let password = $state('');
-  let loading = $state(false);
-  let error = $state('');
+**`GeneEditor.svelte`** (in `gene/`) -- Sidebar control that lets the user select an animal type and chromosome. On mount, it fetches available animal types from `/api/animal-types`. When an animal type is selected, it loads chromosomes from `/api/chromosomes/{type}`. Clicking "Edit Genes" calls `appState.setGeneEditingView()` to show the editing grid in the main content area.
 
-  async function handleSubmit() {
-    loading = true;
-    error = '';
-    
-    try {
-      await authStore.login(username, password);
-    } catch (err) {
-      error = err.message;
-    } finally {
-      loading = false;
-    }
-  }
-</script>
-```
+**`GeneEditingView.svelte`** -- The full chromosome editing interface. Receives `animalType` and `chromosome` as props. Loads genes from the API, displays them in a responsive 4-column card grid. Each card has dropdowns for dominant/recessive effects (color-coded positive/negative), an appearance text input, and expandable notes. Tracks unsaved changes and supports batch save (admin-only). Also supports JSON export of the chromosome.
 
-### Main Application Components
+**`GeneVisualizer.svelte`** -- Renders the genome as a dot grid organized by chromosome. Each gene is a colored circle (`GeneCell`) whose fill and border encode the gene's effect type (positive/negative/neutral) and zygosity (dominant/recessive/mixed). Supports two view modes: "attribute" (colors by stat effect) and "appearance" (colors by appearance category using CSS custom properties).
 
-#### Sidebar.svelte
-Navigation component with collapsible menu:
+**`GeneCell.svelte`** -- A single 19px circular dot. Computes its CSS class from the gene's analysis data to set color and style. Dispatches `tooltip-show`/`tooltip-hide` events on hover, consumed by `GeneTooltip`.
 
-```svelte
-<script>
-  export let sidebarCollapsed;
-  export let toggleSidebar;
-  
-  import { appState } from '../stores/appState.js';
-  import { authStore } from '../stores/authStore.js';
-</script>
+**`GeneTooltip.svelte`** -- Positioned tooltip that displays gene ID, type description, and effect text when hovering over a `GeneCell`.
 
-<aside class="sidebar" class:collapsed={sidebarCollapsed}>
-  <!-- Navigation items based on user permissions -->
-</aside>
-```
+**`GeneStatsTable.svelte`** -- Statistics panel showing attribute breakdowns (positive/negative/neutral counts). Loads attribute and appearance configs via `apiUtils.js` cached loaders. Supports attribute filtering to highlight specific genes in the visualizer.
 
-#### MainContent.svelte
-Main content area that switches between different views:
+### Pet Components
 
-```svelte
-<script>
-  import { appState } from '../stores/appState.js';
-  import GeneEditingView from './GeneEditingView.svelte';
-  import PetDataTableView from './PetDataTableView.svelte';
-  import PetEditor from './PetEditor.svelte';
-  
-  let currentView = $derived(appState.currentView);
-</script>
+**`PetDataTable.svelte`** -- Renders all pets in a searchable, sortable, paginated table using the `@flowbite-svelte-plugins/datatable` `Table` component. Columns include pet name, species, gender, breed, all attribute values, created date, and action buttons (view/edit/delete). Action buttons use `data-action` attributes and a delegated click handler.
 
-<main class="main-content">
-  {#if currentView === 'gene-editing'}
-    <GeneEditingView />
-  {:else if currentView === 'pet-table'}
-    <PetDataTableView />
-  {:else if currentView === 'pet-editor'}
-    <PetEditor />
-  {/if}
-</main>
-```
+**`PetVisualization.svelte`** -- Wraps `GeneVisualizer` for a selected pet. Provides a header with attribute/appearance view toggle and a back button to return to the pet table. Receives the `pet` object as a prop.
 
-### Gene Management Components
+**`PetEditor.svelte`** -- A Flowbite `Modal` form for editing pet attributes (name, gender, breed, genetic stats). Uses `$bindable()` for the `open` prop so the parent can control modal visibility.
 
-#### GeneEditor.svelte
-Main gene editing interface with chromosome selection and gene modification:
+### Form Components
 
-```svelte
-<script>
-  import { appState } from '../stores/appState.js';
-  import GeneCell from './GeneCell.svelte';
-  import GeneTooltip from './GeneTooltip.svelte';
-  
-  let selectedSpecies = $state('beewasp');
-  let selectedChromosome = $state('chr01');
-  let genes = $derived(appState.getGenes(selectedSpecies, selectedChromosome));
-</script>
+**`LoginForm.svelte`** -- Username/password form. Calls `authStore.login()` and dispatches `loginSuccess` on success.
 
-<div class="gene-editor">
-  <!-- Species and chromosome selectors -->
-  <div class="gene-grid">
-    {#each genes as gene (gene.gene)}
-      <GeneCell {gene} />
-    {/each}
-  </div>
-</div>
-```
+**`RegisterForm.svelte`** -- Registration form. Calls `authStore.register()` (which auto-logs-in on success) and dispatches `registerSuccess`.
 
-#### GeneCell.svelte
-Individual gene editing component with inline editing capabilities:
+**`PetUploadForm.svelte`** -- Flowbite `Dropzone` for `.txt` genome files, plus optional name and gender fields. Calls `appState.uploadPet()` on file selection.
 
-```svelte
-<script>
-  export let gene;
-  
-  import { appState } from '../stores/appState.js';
-  
-  let editing = $state(false);
-  let effectDominant = $state(gene.effectDominant);
-  let effectRecessive = $state(gene.effectRecessive);
-  
-  async function saveGene() {
-    await appState.updateGene({
-      ...gene,
-      effectDominant,
-      effectRecessive
-    });
-    editing = false;
-  }
-</script>
+### AuthWrapper
 
-<div class="gene-cell" class:editing>
-  {#if editing}
-    <input bind:value={effectDominant} />
-    <input bind:value={effectRecessive} />
-    <button onclick={saveGene}>Save</button>
-  {:else}
-    <span onclick={() => editing = true}>{gene.gene}</span>
-  {/if}
-</div>
-```
-
-### Pet Management Components
-
-#### PetUpload.svelte
-File upload component for genome files:
-
-```svelte
-<script>
-  import { appState } from '../stores/appState.js';
-  
-  let files = $state([]);
-  let uploading = $state(false);
-  let petName = $state('');
-  let gender = $state('Male');
-  let notes = $state('');
-  
-  async function uploadPet() {
-    uploading = true;
-    try {
-      await appState.uploadPet(files[0], { name: petName, gender, notes });
-      // Reset form
-      files = [];
-      petName = '';
-      notes = '';
-    } finally {
-      uploading = false;
-    }
-  }
-</script>
-
-<div class="pet-upload">
-  <input type="file" bind:files accept=".txt" />
-  <input bind:value={petName} placeholder="Pet name (optional)" />
-  <select bind:value={gender}>
-    <option value="Male">Male</option>
-    <option value="Female">Female</option>
-  </select>
-  <textarea bind:value={notes} placeholder="Notes"></textarea>
-  <button onclick={uploadPet} disabled={!files.length || uploading}>
-    {uploading ? 'Uploading...' : 'Upload Pet'}
-  </button>
-</div>
-```
-
-#### PetVisualization.svelte
-Pet genome visualization component:
-
-```svelte
-<script>
-  export let petId;
-  
-  import { appState } from '../stores/appState.js';
-  import GeneVisualizer from './GeneVisualizer.svelte';
-  
-  let petGenome = $derived(appState.getPetGenome(petId));
-</script>
-
-{#if petGenome}
-  <div class="pet-visualization">
-    <h2>{petGenome.name}</h2>
-    <p>Species: {petGenome.species}</p>
-    <p>Owner: {petGenome.owner}</p>
-    
-    <GeneVisualizer genes={petGenome.genes} />
-  </div>
-{/if}
-```
+**`AuthWrapper.svelte`** -- Initializes authentication on mount by calling `authStore.initialize()`. While loading, shows a full-screen spinner. Once loaded, renders child content unconditionally (auth is optional; anonymous users see demo pets).
 
 ## State Management
 
-### appState.js - Application State Store
+The app uses Svelte writable stores for shared state. There are two store modules.
 
-Manages application-wide state using Svelte stores:
+### `auth.js` -- Authentication State
 
-```javascript
-import { writable, derived } from 'svelte/store';
-import { apiClient } from '../services/apiClient.js';
+Exports:
+- `user` -- writable store holding the current user object (or `null`)
+- `isAuthenticated` -- writable boolean
+- `isLoading` -- writable boolean (true during login/register/initialize)
+- `authError` -- writable string for error messages
+- `TOKEN_KEY` / `REFRESH_TOKEN_KEY` -- localStorage key constants, shared with `api.js`
+- `authStore` -- action object with methods:
+  - `initialize()` -- reads token from localStorage, validates via `/api/auth/me`
+  - `login(username, password)` -- authenticates, stores tokens, sets user
+  - `register(username, password)` -- registers then auto-logs-in
+  - `logout()` -- calls logout API, clears tokens and state
+  - `clearTokens()`, `getAccessToken()`, `getRefreshToken()`, `clearError()`
 
-// Core state
-export const currentView = writable('gene-editing');
-export const selectedSpecies = writable('beewasp');
-export const selectedChromosome = writable('chr01');
-export const pets = writable([]);
-export const genes = writable({});
+### `pets.js` -- Application State
 
-// Derived state
-export const currentPets = derived(
-  [pets, selectedSpecies],
-  ([$pets, $selectedSpecies]) => 
-    $pets.filter(pet => pet.species === $selectedSpecies)
-);
+Exports:
+- `pets` -- writable array of pet objects
+- `selectedPet` -- writable (the pet currently being visualized, or `null`)
+- `loading` -- writable boolean
+- `error` -- writable string
+- `geneEditingView` -- writable (`{ animalType, chromosome }` or `null`)
+- `petTableView` -- writable boolean
+- `activeTab` -- writable string (`"pets"` or `"editor"`)
+- `appState` -- action object with methods:
+  - `loadPets()` -- fetches pets from API, handles pagination response
+  - `selectPet(pet)` -- sets the selected pet for visualization
+  - `deletePet(petId)` -- deletes and reloads
+  - `updatePet(petId, data)` -- updates and reloads
+  - `uploadPet(file, name, gender)` -- uploads genome file and reloads
+  - `setGeneEditingView(data)` / `clearGeneEditingView()`
+  - `showPetTableView()` / `hidePetTableView()`
+  - `switchTab(tab)` -- switches active tab, clears conflicting views
+  - `clearError()`, `setError(msg)`, `reset()`
 
-// Actions
-export const appState = {
-  async loadPets() {
-    try {
-      const petData = await apiClient.getPets();
-      pets.set(petData);
-    } catch (error) {
-      console.error('Failed to load pets:', error);
-    }
-  },
+View switching is mutual-exclusion: selecting a pet clears gene editing, switching to the editor tab clears the selected pet, etc.
 
-  async uploadPet(file, metadata) {
-    try {
-      const result = await apiClient.uploadPet(file, metadata);
-      await this.loadPets(); // Refresh pets list
-      return result;
-    } catch (error) {
-      throw new Error(`Upload failed: ${error.message}`);
-    }
-  },
+## API Layer
 
-  async updateGene(gene) {
-    try {
-      await apiClient.updateGene(gene);
-      // Update local gene data
-      genes.update(current => ({
-        ...current,
-        [gene.gene]: gene
-      }));
-    } catch (error) {
-      throw new Error(`Gene update failed: ${error.message}`);
-    }
-  }
-};
-```
+### `api.js` -- ApiClient Class
 
-### authStore.js - Authentication Store
-
-Manages user authentication state:
+A singleton `ApiClient` instance manages all backend communication:
 
 ```javascript
-import { writable } from 'svelte/store';
-import { apiClient } from '../services/apiClient.js';
+import { TOKEN_KEY, REFRESH_TOKEN_KEY } from '$lib/stores/auth.js';
 
-export const user = writable(null);
-export const isAuthenticated = writable(false);
-export const loading = writable(false);
-
-export const authStore = {
-  async login(username, password) {
-    loading.set(true);
-    try {
-      const response = await apiClient.login(username, password);
-      localStorage.setItem('access_token', response.access_token);
-      localStorage.setItem('refresh_token', response.refresh_token);
-      
-      const userData = await apiClient.getCurrentUser();
-      user.set(userData);
-      isAuthenticated.set(true);
-    } catch (error) {
-      throw error;
-    } finally {
-      loading.set(false);
-    }
-  },
-
-  async logout() {
-    try {
-      await apiClient.logout();
-    } finally {
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('refresh_token');
-      user.set(null);
-      isAuthenticated.set(false);
-    }
-  },
-
-  async initialize() {
-    const token = localStorage.getItem('access_token');
-    if (token) {
-      try {
-        const userData = await apiClient.getCurrentUser();
-        user.set(userData);
-        isAuthenticated.set(true);
-      } catch (error) {
-        // Token invalid, clear storage
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('refresh_token');
-      }
-    }
-  }
-};
-```
-
-## API Integration
-
-### apiClient.js - API Communication
-
-Centralized API client with authentication:
-
-```javascript
 class ApiClient {
-  constructor() {
-    this.baseUrl = '';
-    this.token = null;
-  }
+    constructor(baseUrl = "") { /* ... */ }
+    setAuthToken(token) { /* ... */ }
 
-  async initialize() {
-    this.token = localStorage.getItem('access_token');
-  }
-
-  getHeaders() {
-    const headers = {
-      'Content-Type': 'application/json'
-    };
-    
-    if (this.token) {
-      headers['Authorization'] = `Bearer ${this.token}`;
-    }
-    
-    return headers;
-  }
-
-  async request(endpoint, options = {}) {
-    const response = await fetch(`${this.baseUrl}${endpoint}`, {
-      ...options,
-      headers: {
-        ...this.getHeaders(),
-        ...options.headers
-      }
-    });
-
-    if (response.status === 401) {
-      // Token expired, redirect to login
-      localStorage.removeItem('access_token');
-      window.location.reload();
-      return;
+    async fetchWithErrorHandling(url, options = {}, _isRetry = false) {
+        // Adds Authorization header from currentToken
+        // Strips Content-Type for FormData (browser sets multipart boundary)
+        // On 401: attempts silent token refresh via /api/auth/refresh, retries once
+        // On refresh failure: throws "Session expired"
     }
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.detail || 'Request failed');
-    }
+    // Auth endpoints
+    async login(username, password) { /* POST /api/auth/login */ }
+    async register(username, password) { /* POST /api/auth/register */ }
+    async getCurrentUser(token) { /* GET /api/auth/me */ }
+    async logout(token) { /* POST /api/auth/logout */ }
 
-    return response.json();
-  }
+    // Gene endpoints
+    async getAnimalTypes() { /* GET /api/animal-types */ }
+    async getChromosomes(animalType) { /* GET /api/chromosomes/{type} */ }
+    async getGenes(animalType, chromosome) { /* GET /api/genes/{type}/{chr} */ }
+    async updateGene(updateData) { /* PUT /api/gene */ }
+    async getEffectOptions() { /* GET /api/effect-options */ }
+    async getGeneEffects(animalType) { /* GET /api/gene-effects/{type} */ }
+    async getAttributeConfig(animalType) { /* GET /api/attribute-config/{type} */ }
+    async exportChromosome(animalType, chr) { /* GET /api/download/{type}/{chr} */ }
+    async exportAllChromosomes(animalType) { /* GET /api/export/{type} */ }
 
-  // Authentication methods
-  async login(username, password) {
-    return this.request('/api/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ username, password })
-    });
-  }
-
-  async register(username, password) {
-    return this.request('/api/auth/register', {
-      method: 'POST',
-      body: JSON.stringify({ username, password })
-    });
-  }
-
-  async getCurrentUser() {
-    return this.request('/api/auth/me');
-  }
-
-  // Pet methods
-  async getPets() {
-    return this.request('/api/pets');
-  }
-
-  async uploadPet(file, metadata) {
-    const formData = new FormData();
-    formData.append('file', file);
-    if (metadata.name) formData.append('name', metadata.name);
-    if (metadata.gender) formData.append('gender', metadata.gender);
-    if (metadata.notes) formData.append('notes', metadata.notes);
-
-    return fetch(`${this.baseUrl}/api/pets/upload`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${this.token}`
-      },
-      body: formData
-    }).then(response => {
-      if (!response.ok) throw new Error('Upload failed');
-      return response.json();
-    });
-  }
-
-  // Gene methods
-  async updateGene(gene) {
-    return this.request('/api/gene', {
-      method: 'PUT',
-      body: JSON.stringify(gene)
-    });
-  }
+    // Pet endpoints
+    async getPets() { /* GET /api/pets */ }
+    async getPet(petId) { /* GET /api/pets/{id} */ }
+    async deletePet(petId) { /* DELETE /api/pets/{id} */ }
+    async updatePet(petId, data) { /* PUT /api/pets/{id} */ }
+    async uploadPet(file, name, gender, notes) { /* POST /api/pets/upload (FormData) */ }
+    async getPetGenome(petId) { /* GET /api/pet-genome/{id} */ }
 }
 
 export const apiClient = new ApiClient();
 ```
 
-## Build and Development
+Key behaviors:
+- Token is set imperatively via `setAuthToken()` by the auth store and AuthWrapper after login/initialization.
+- `TOKEN_KEY` and `REFRESH_TOKEN_KEY` are imported from `auth.js` so both modules use the same localStorage keys.
+- On 401, the client tries a single silent refresh using the stored refresh token before giving up.
+- FormData requests (pet upload) skip the `Content-Type` header so the browser can set the multipart boundary.
 
-### Development Server
+### `apiUtils.js` -- Cached Config Loaders
 
-```bash
-# Start development server (port 5173)
-pnpm run dev
+Provides utility functions used by visualization components:
 
-# Build for production
-pnpm run build
+- `normalizeSpecies(species)` -- maps variations ("bee", "wasp") to canonical names ("beewasp", "horse")
+- `loadAttributeConfig(species)` -- fetches and caches attribute config from the API
+- `loadAppearanceConfig(species)` -- fetches and caches appearance config
+- `loadGeneEffects(species)` -- fetches and caches gene effects data
+- `FALLBACK_ATTRIBUTES` / `FALLBACK_ATTRIBUTE_LIST` / `FALLBACK_APPEARANCE_LIST` -- hardcoded fallbacks used when API config is unavailable
 
-# Preview production build
-pnpm run preview
+All loaders use in-memory `Map` caches keyed by normalized species name.
+
+## Styling
+
+### Tailwind CSS 4
+
+Global styles are imported in `app.css` with `@import 'tailwindcss'`. The Tailwind Vite plugin handles processing. Utility classes are used alongside component-scoped `<style>` blocks.
+
+### CSS Custom Properties
+
+Gene colors are defined as CSS custom properties in both `app.css` and `GeneCell.svelte`:
+
+```css
+:root {
+    --color-positive: #4caf50;
+    --color-negative: #f44336;
+    --color-neutral: #95a5a6;
+    --gene-body-hue: #ff9800;
+    --gene-wing-hue: #2196f3;
+    /* ... more appearance-category colors */
+}
 ```
 
-### Linting and Formatting
+`GeneCell` uses `--gene-color` as an intermediary variable, set per-appearance-class (e.g., `.gene-body-color-hue { --gene-color: var(--gene-body-hue); }`), then applied uniformly for dominant/recessive/mixed patterns.
+
+### Gene Visualization Color Encoding
+
+Genes are rendered as small circles with visual encoding:
+
+| Zygosity   | Positive (green)      | Negative (red)         | Neutral (gray)        |
+|------------|-----------------------|------------------------|-----------------------|
+| Dominant   | Solid fill            | Solid fill             | Solid fill            |
+| Recessive  | Thick border, no fill | Thick border, no fill  | Thick border, no fill |
+| Mixed      | Diagonal half-fill    | Diagonal half-fill     | Diagonal half-fill    |
+| Unknown    | Dashed border, "?"    | --                     | --                    |
+
+In appearance view mode, colors switch to category-specific hues (body hue, wing scale, etc.) instead of the positive/negative/neutral palette.
+
+### Flowbite Components
+
+The app uses Flowbite Svelte for:
+- `Modal` -- auth dialogs in Sidebar, pet editor
+- `Dropzone` -- file upload in PetUploadForm
+- `Input`, `Label`, `Select`, `Button` -- form controls in PetUploadForm and PetEditor
+- `Table` (via `@flowbite-svelte-plugins/datatable`) -- the pet data table with search, sort, and pagination
+
+## Build and Development
+
+### Development
 
 ```bash
-# Lint code
-pnpm run lint
+pnpm run dev        # Start dev server on port 5173 (proxies /api to localhost:8000)
+```
 
-# Fix linting issues
-pnpm run lint:fix
+The backend must be running on port 8000 for API calls to work. Start it with `uv run gorgonetics web`.
 
-# Strict linting (CI)
-pnpm run lint:strict
+### Production Build
+
+```bash
+pnpm run build      # Static build output to build/
+pnpm run preview    # Preview the production build locally
+```
+
+The static adapter outputs to `build/` with `fallback: 'index.html'` for SPA routing.
+
+### Linting
+
+```bash
+pnpm run lint       # ESLint check
+pnpm run lint:fix   # ESLint with auto-fix
+pnpm run lint:ci    # Zero-warning mode (same as CI)
 ```
 
 ### Testing
 
 ```bash
-# Run client tests
-pnpm run test:client
-
-# Run with UI
-pnpm run test:client:ui
-
-# Run with coverage
-pnpm run test:client:coverage
-
-# Watch mode
-pnpm run test:client:watch
+pnpm run test:client           # Run Vitest tests
+pnpm run test:client:watch     # Watch mode
+pnpm run test:client:ui        # Interactive Vitest UI
+pnpm run test:client:coverage  # With coverage report
+pnpm run test:integration      # Backend integration tests (./test.sh quick)
+pnpm run test:all              # Full suite (./test.sh all)
 ```
 
-## Styling
+## Key Patterns
 
-### Tailwind CSS Classes
+### Props with `$props()`
 
-Common utility classes used throughout the application:
+All components use the Svelte 5 runes API for props:
 
-```css
-/* Layout */
-.sidebar { @apply w-64 bg-gray-800 text-white transition-all duration-300; }
-.sidebar.collapsed { @apply w-16; }
-.main-content { @apply flex-1 p-6 bg-gray-50; }
-
-/* Components */
-.gene-cell { @apply p-2 border rounded hover:bg-gray-100 cursor-pointer; }
-.gene-cell.editing { @apply bg-blue-50 border-blue-300; }
-
-/* Forms */
-.form-input { @apply px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500; }
-.btn-primary { @apply px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700; }
+```svelte
+<script>
+    const { pet, open = $bindable(), onClose } = $props();
+</script>
 ```
 
-### Flowbite Components
+### Reactive State with `$state()` and `$derived()`
 
-Key Flowbite Svelte components used:
+Local component state uses `$state()`. Computed values use `$derived()`:
 
-- `Button`, `Input`, `Select` - Form controls
-- `Modal`, `Tooltip` - Overlay components  
-- `Table`, `Pagination` - Data display
-- `Alert`, `Spinner` - Feedback components
-
-## Performance Optimizations
-
-### Svelte 5 Features
-
-- **Runes**: `$state()`, `$derived()`, `$effect()` for fine-grained reactivity
-- **Snippets**: Reusable template fragments
-- **Component Events**: Simplified event handling
-
-### Optimization Techniques
-
-- **Lazy Loading**: Components loaded on-demand
-- **Virtual Scrolling**: For large pet/gene lists
-- **Debounced Search**: Reduces API calls during typing
-- **Caching**: Local storage for user preferences
-
-## Testing Strategy
-
-### Component Tests
-
-```javascript
-// Example component test
-import { render, screen } from '@testing-library/svelte';
-import GeneCell from '../src/lib/components/GeneCell.svelte';
-
-test('renders gene cell with correct data', () => {
-  const gene = {
-    gene: '01A1',
-    effectDominant: 'Intelligence+',
-    effectRecessive: 'Intelligence-'
-  };
-  
-  render(GeneCell, { gene });
-  
-  expect(screen.getByText('01A1')).toBeInTheDocument();
-  expect(screen.getByText('Intelligence+')).toBeInTheDocument();
-});
+```svelte
+<script>
+    let genes = $state([]);
+    let hasUnsavedChanges = $state(false);
+    const isAdmin = $derived($user?.role === 'admin');
+</script>
 ```
 
-### Integration Tests
+### Side Effects with `$effect()`
 
-```javascript
-// API integration test
-test('can upload pet genome', async () => {
-  const file = new File(['genome data'], 'test.txt', { type: 'text/plain' });
-  
-  const result = await apiClient.uploadPet(file, {
-    name: 'Test Pet',
-    gender: 'Female'
-  });
-  
-  expect(result.status).toBe('success');
-  expect(result.name).toBe('Test Pet');
-});
+Used for reacting to store changes, such as reloading pets when auth status changes:
+
+```svelte
+<script>
+    $effect(() => {
+        const _authenticated = $isAuthenticated;
+        if (_authenticated !== undefined) {
+            appState.loadPets();
+        }
+    });
+</script>
 ```
 
-## Browser Support
+### Content Projection with `{@render}`
 
-- **Modern browsers**: Chrome 90+, Firefox 88+, Safari 14+, Edge 90+
-- **ES2022 features**: Top-level await, class fields, optional chaining
-- **Build target**: ES2022 with automatic polyfills for older browsers
+The root layout uses `{@render children()}` instead of `<slot>` for content projection. `VisualizationHeader` uses named snippets:
+
+```svelte
+<VisualizationHeader title="...">
+    {#snippet leftControls()}
+        <button>Back</button>
+    {/snippet}
+    <div>Default slot content</div>
+</VisualizationHeader>
+```
+
+### Store Subscriptions in Templates
+
+Svelte's `$` prefix auto-subscribes to stores in templates and reactive contexts:
+
+```svelte
+{#if $isAuthenticated}
+    <PetUpload />
+{:else}
+    <p>Sign in to upload pets.</p>
+{/if}
+```
+
+### Event Dispatching
+
+Some components (LoginForm, RegisterForm, PetUploadForm) still use `createEventDispatcher()` for parent communication, while others use callback props.

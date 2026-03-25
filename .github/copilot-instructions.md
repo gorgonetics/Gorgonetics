@@ -15,7 +15,7 @@ Gorgonetics is a simple Python CLI application built with modern Python tooling 
 ## Tech Stack
 
 - **Package Manager**: uv
-- **Type Checker**: ty with strict settings
+- **Type Checker**: mypy with strict settings
 - **Linter/Formatter**: ruff
 - **Testing**: pytest
 - **CLI Framework**: typer with rich for beautiful output

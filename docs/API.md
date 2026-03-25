@@ -605,6 +605,75 @@ Returns genome data for visualization.
 
 ---
 
+### Configuration
+
+#### Get Attribute Config
+
+```http
+GET /api/attribute-config/{species}
+```
+
+Returns the attribute configuration for a species (e.g., attribute names, defaults).
+
+**Parameters:**
+- `species` (path) - Species name (e.g., `beewasp`, `horse`)
+
+**Status Codes:**
+- `200 OK` - Success
+
+---
+
+#### Get Appearance Config
+
+```http
+GET /api/appearance-config/{species}
+```
+
+Returns the appearance attribute configuration for a species.
+
+**Parameters:**
+- `species` (path) - Species name
+
+**Status Codes:**
+- `200 OK` - Success
+
+---
+
+#### Get Species-Specific Effect Options
+
+```http
+GET /api/effect-options/{species}
+```
+
+Returns effect options filtered for a specific species.
+
+**Parameters:**
+- `species` (path) - Species name
+
+**Status Codes:**
+- `200 OK` - Success
+
+---
+
+### Health
+
+#### Health Check
+
+```http
+GET /health
+```
+
+Returns application health status.
+
+**Response:**
+```json
+{
+  "status": "healthy"
+}
+```
+
+---
+
 ## Error Responses
 
 All error responses follow this format:

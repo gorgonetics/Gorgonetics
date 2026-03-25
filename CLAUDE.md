@@ -88,16 +88,19 @@ pnpm run test:client:ui     # Run with interactive UI
   - **`utils.py`**: JWT token handling and password utilities
   - **`dependencies.py`**: FastAPI authentication dependencies
 
-### Frontend Structure (`src/svelte/`)
-- **`App.svelte`**: Main application component with reactive state
-- **`lib/components/`**: Reusable Svelte components for gene editing UI
-  - **`AuthWrapper.svelte`**: Authentication state management wrapper
-  - **`LoginForm.svelte`** / **`RegisterForm.svelte`**: User authentication forms
-  - **`GeneEditor.svelte`**, **`PetEditor.svelte`**: Main editing interfaces
-- **`lib/services/apiClient.js`**: API communication layer with authentication
-- **`lib/stores/`**: Reactive state management
-  - **`appState.js`**: Application and pet data state
-  - **`authStore.js`**: Authentication state management
+### Frontend Structure (SvelteKit)
+- **`src/routes/`**: SvelteKit file-based routing (`+page.svelte`, `+layout.svelte`)
+- **`src/lib/components/`**: Reusable Svelte 5 components
+  - **`forms/`**: `LoginForm.svelte`, `RegisterForm.svelte`, `PetUploadForm.svelte`
+  - **`gene/`**: `GeneCell.svelte`, `GeneEditor.svelte`, `GeneVisualizer.svelte`, `GeneStatsTable.svelte`, `GeneTooltip.svelte`
+  - **`pet/`**: `PetEditor.svelte`, `PetDataTable.svelte`, `PetVisualization.svelte`
+  - **`layout/`**: `Sidebar.svelte`, `VisualizationHeader.svelte`
+  - **`AuthWrapper.svelte`**, **`GeneEditingView.svelte`**
+- **`src/lib/services/api.js`**: API client singleton with auth token management
+- **`src/lib/stores/`**: Svelte writable stores
+  - **`pets.js`**: Pet data and application state
+  - **`auth.js`**: Authentication state and token management
+- **`src/lib/utils/apiUtils.js`**: Species normalization, cached config loaders
 
 ### Database Architecture
 - **Primary**: DuckLake with SQLite catalog for analytics and versioning
@@ -214,7 +217,7 @@ uv run gorgonetics db-status
 
 ### File Organization
 - Python code: `src/gorgonetics/`
-- Frontend code: `src/svelte/`
-- Static assets: `assets/` (gene template data)
+- Frontend code: `src/lib/` (components, stores, services) and `src/routes/` (pages)
+- Static assets: `src/static/` (favicon, logos) and `assets/` (gene template data)
 - Sample data: `data/` directory
 - Documentation: `docs/` with comprehensive guides
