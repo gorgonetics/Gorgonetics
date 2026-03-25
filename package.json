@@ -27,7 +27,6 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@sveltejs/adapter-auto": "^7.0.1",
     "@sveltejs/adapter-static": "^3.0.10",
     "@sveltejs/kit": "^2.54.0",
     "@sveltejs/vite-plugin-svelte": "^6.2.4",
@@ -55,6 +54,6 @@
     "breeding",
     "game-tool"
   ],
-  "author": "Your Name",
+  "author": "Javier Lopez Pena",
   "license": "MIT"
 }

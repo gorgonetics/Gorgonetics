@@ -213,9 +213,10 @@ describe("🧬 Gorgonetics Client API Tests", () => {
     });
 
     it("should get empty pets list initially", async () => {
-      const pets = await apiClient.get("/api/pets");
+      const response = await apiClient.get("/api/pets");
 
-      expect(Array.isArray(pets)).toBe(true);
+      expect(response).toHaveProperty("items");
+      expect(Array.isArray(response.items)).toBe(true);
       // Note: May not be empty if previous tests ran
     });
 

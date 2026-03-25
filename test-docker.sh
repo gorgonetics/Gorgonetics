@@ -27,10 +27,10 @@ docker build -t gorgonetics:latest . || {
 
 echo "✅ Docker image built successfully"
 
-# Test with docker-compose
-echo "Testing with docker-compose..."
-docker-compose up -d || {
-    echo "❌ docker-compose up failed"
+# Test with docker compose
+echo "Testing with docker compose..."
+docker compose up -d || {
+    echo "❌ docker compose up failed"
     exit 1
 }
 
@@ -43,13 +43,13 @@ if curl -f http://localhost:8000/health &> /dev/null; then
     echo "✅ Health check passed"
 else
     echo "❌ Health check failed"
-    docker-compose logs
-    docker-compose down
+    docker compose logs
+    docker compose down
     exit 1
 fi
 
 # Cleanup
 echo "Cleaning up..."
-docker-compose down
+docker compose down
 
 echo "✅ All tests passed! Container setup is working correctly."

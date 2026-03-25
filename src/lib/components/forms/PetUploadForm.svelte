@@ -1,11 +1,10 @@
 <script>
     import { createEventDispatcher } from "svelte";
-    import { appState } from "$lib/stores/pets.js";
+    import { appState, error } from "$lib/stores/pets.js";
     import { Dropzone, Input, Label, Select } from "flowbite-svelte";
 
     const dispatch = createEventDispatcher();
 
-    const fileInput = $state();
     let petName = $state("");
     let petGender = $state("Male");
     let uploading = $state(false);
@@ -16,7 +15,7 @@
             if (file.name.endsWith(".txt")) {
                 uploadFile(file);
             } else {
-                appState.error.set("Please upload a .txt genome file");
+                error.set("Please upload a .txt genome file");
             }
         }
     }
@@ -27,7 +26,6 @@
             await appState.uploadPet(file, petName, petGender);
             petName = ""; // Clear the name input after successful upload
             petGender = "Male"; // Reset gender to default
-            fileInput.value = ""; // Clear the file input
             dispatch("upload-success");
         } catch (err) {
             console.error("Upload failed:", err);

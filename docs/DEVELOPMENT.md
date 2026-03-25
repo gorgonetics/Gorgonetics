@@ -200,7 +200,7 @@ Use `pathlib.Path` over `os.path`. Prefer `from __future__ import annotations` w
 - **Quotes**: Both single and double quotes are allowed (ESLint is configured to accept either)
 - **API calls**: Always go through `src/lib/services/api.js`
 - **State management**: Use Svelte stores in `src/lib/stores/` for shared state
-- **Components**: Follow existing patterns -- props via `export let`, events via `dispatch`
+- **Components**: Follow existing Svelte 5 patterns -- props via `$props()` rune, state via `$state()`, derived values via `$derived()`
 - **Styling**: Tailwind CSS utility classes; Flowbite Svelte components for common UI patterns
 
 ```svelte
@@ -295,8 +295,8 @@ from fastapi.testclient import TestClient
 
 class TestGeneEndpoints:
     def test_get_animal_types(self, authenticated_client: TestClient) -> None:
-        """GET /api/genes/animal-types returns a list."""
-        response = authenticated_client.get("/api/genes/animal-types")
+        """GET /api/animal-types returns a list."""
+        response = authenticated_client.get("/api/animal-types")
         assert response.status_code == 200
         assert isinstance(response.json(), list)
 ```

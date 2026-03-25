@@ -6,7 +6,7 @@
  * This prevents UI breakages caused by API format changes.
  */
 
-import { ApiClient } from "../../src/lib/services/apiClient.js";
+import { ApiClient } from "../../src/lib/services/api.js";
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
 
 // Global test configuration

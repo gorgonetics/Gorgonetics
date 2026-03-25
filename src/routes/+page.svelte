@@ -19,13 +19,14 @@
 	});
 
 	// Reload pets when authentication status changes
+	let prevAuth = $state(/** @type {boolean|null} */ (null));
+
 	$effect(() => {
-		// Read the store value to establish the reactive dependency
-		const _authenticated = $isAuthenticated;
-		// Skip the initial load (handled by onMount)
-		if (_authenticated !== undefined) {
+		const authenticated = $isAuthenticated;
+		if (prevAuth !== null && prevAuth !== authenticated) {
 			appState.loadPets();
 		}
+		prevAuth = authenticated;
 	});
 
 	function getWelcomeMessage() {

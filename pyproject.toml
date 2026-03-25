@@ -15,13 +15,12 @@ dependencies = [
     "jinja2>=3.1.0",
     "python-multipart>=0.0.6",
     "pydantic>=2.0.0",
-    "pytz>=2025.2",
     "python-dotenv>=1.1.1",
     "python-jose[cryptography]>=3.3.0",
     "bcrypt>=4.0.0",
     "slowapi>=0.0.6",
 ]
-authors = [{ name = "Your Name", email = "your.email@example.com" }]
+authors = [{ name = "Javier Lopez Pena", email = "javier@gorgonetics.dev" }]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",

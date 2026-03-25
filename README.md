@@ -128,7 +128,7 @@ uv run gorgonetics create-admin # Create an admin user
 |-------|-----------|
 | **Backend** | [FastAPI](https://fastapi.tiangolo.com/) -- high-performance async web API |
 | **Database** | [DuckLake](https://ducklake.select/) with SQLite catalog -- versioned analytics storage |
-| **Frontend** | [SvelteKit](https://svelte.dev/) + [Svelte 5](https://svelte.dev/) -- file-based routing and SSR-ready framework |
+| **Frontend** | [SvelteKit](https://svelte.dev/) + [Svelte 5](https://svelte.dev/) -- file-based routing, client-rendered SPA framework |
 | **UI Components** | [Flowbite Svelte](https://flowbite-svelte.com/) + [Tailwind CSS](https://tailwindcss.com/) |
 | **Build Tool** | [Vite](https://vitejs.dev/) -- fast dev server and bundler |
 | **Python Packaging** | [uv](https://docs.astral.sh/uv/) -- fast package installer and resolver |

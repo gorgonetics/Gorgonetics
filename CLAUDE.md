@@ -136,7 +136,7 @@ These are the same checks that CI runs. Code must pass them before being committ
 ### JavaScript/Svelte
 - **ESLint**: Configured to allow both single and double quotes
 - **Components**: Follow existing Svelte 5 patterns
-- **API calls**: Use centralized `apiClient.js` service
+- **API calls**: Use centralized `api.js` service
 - **State**: Use stores for shared state management
 
 ## Testing Strategy

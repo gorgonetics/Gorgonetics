@@ -10,7 +10,7 @@ import json
 import logging
 import os
 import tempfile
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Generator
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING, Any
 
@@ -196,9 +196,13 @@ if os.path.exists(static_dir):
 
 
 # Database dependency
-def get_database() -> "DuckLakeGeneDatabase":
+def get_database() -> Generator["DuckLakeGeneDatabase"]:
     """Get database instance for dependency injection."""
-    return create_database_instance()
+    db = create_database_instance()
+    try:
+        yield db
+    finally:
+        db.close()
 
 
 def _authorize_pet_mutation(
@@ -769,7 +773,7 @@ async def update_pet(
 ) -> dict[str, str]:
     """Update a pet's attributes."""
     try:
-        _authorize_pet_mutation(pet_id, current_user, db, action="modified")
+        pet_data = _authorize_pet_mutation(pet_id, current_user, db, action="modified")
 
         updates = {}
         if pet_update.name is not None:
@@ -781,6 +785,14 @@ async def update_pet(
         if pet_update.notes is not None:
             updates["notes"] = pet_update.notes
         if pet_update.attributes is not None:
+            # Validate attribute keys against the species allowlist to prevent SQL injection
+            allowed_keys = set(AttributeConfig.get_all_attribute_names(pet_data["species"]))
+            invalid_keys = set(pet_update.attributes.keys()) - allowed_keys
+            if invalid_keys:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Invalid attribute keys: {', '.join(sorted(invalid_keys))}",
+                )
             # Flatten attributes - they are stored as individual columns in the database
             # Convert integer values to strings for database storage
             str_attributes = {k: str(v) for k, v in pet_update.attributes.items()}
@@ -951,9 +963,9 @@ async def refresh_token(token_request: TokenRefreshRequest) -> Token:
 @app.get("/health")
 async def health_check() -> dict[str, str]:
     """Health check endpoint for container orchestration."""
-    from datetime import datetime
+    from datetime import UTC, datetime
 
-    return {"status": "healthy", "timestamp": datetime.now().isoformat(), "service": "gorgonetics"}
+    return {"status": "healthy", "timestamp": datetime.now(UTC).isoformat(), "service": "gorgonetics"}
 
 
 # Catch-all route for SPA frontend

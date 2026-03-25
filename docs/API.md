@@ -94,7 +94,39 @@ Returns all genes for a specific chromosome of an animal type.
 - `200 OK` - Success
 - `404 Not Found` - Animal type or chromosome not found
 
+---
 
+#### Get Single Gene
+```http
+GET /api/gene/{animal_type}/{gene}
+```
+
+Returns a single gene record.
+
+**Parameters:**
+- `animal_type` (path): Animal type identifier (e.g., "beewasp", "horse")
+- `gene` (path): Gene identifier (e.g., "01A1")
+
+**Response:**
+```json
+{
+  "animal_type": "beewasp",
+  "chromosome": "chr01",
+  "gene": "01A1",
+  "effectDominant": "Intelligence+",
+  "effectRecessive": "Intelligence-",
+  "appearance": "Brighter antenna glow",
+  "notes": "Observed in lab conditions",
+  "created_at": "2025-01-01T00:00:00"
+}
+```
+
+**Status Codes:**
+- `200 OK` - Success
+- `404 Not Found` - Gene not found
+- `500 Internal Server Error` - Database error
+
+---
 
 #### Update Gene
 ```http
@@ -370,6 +402,35 @@ Logout current user (client should discard tokens).
 
 ---
 
+#### Refresh Token
+```http
+POST /api/auth/refresh
+```
+
+Exchange a valid refresh token for a new access/refresh token pair.
+
+**Request Body:**
+```json
+{
+  "refresh_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9..."
+}
+```
+
+**Response:**
+```json
+{
+  "access_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
+  "refresh_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
+  "token_type": "bearer"
+}
+```
+
+**Status Codes:**
+- `200 OK` - New token pair returned
+- `401 Unauthorized` - Invalid or expired refresh token, or user inactive
+
+---
+
 ### Pets
 
 #### Get All Pets
@@ -381,20 +442,29 @@ Returns pets for the current user. Admins can see all pets.
 
 **Headers:** `Authorization: Bearer <token>`
 
+**Query Parameters:**
+- `limit` (integer, optional): Max pets to return (1--200). Omit for all.
+- `offset` (integer, optional): Number of pets to skip (default: 0).
+
 **Response:**
 ```json
-[
-  {
-    "id": 1,
-    "name": "BabyFaeBee178",
-    "species": "beewasp", 
-    "breeder": "PlayerName",
-    "user_id": 1,
-    "gender": "Male",
-    "created_at": "2025-01-01T00:00:00",
-    "notes": "My favorite pet"
-  }
-]
+{
+  "items": [
+    {
+      "id": 1,
+      "name": "BabyFaeBee178",
+      "species": "beewasp",
+      "breeder": "PlayerName",
+      "user_id": 1,
+      "gender": "Male",
+      "created_at": "2025-01-01T00:00:00",
+      "notes": "My favorite pet"
+    }
+  ],
+  "total": 42,
+  "limit": 20,
+  "offset": 0
+}
 ```
 
 **Status Codes:**
@@ -655,6 +725,43 @@ Returns effect options filtered for a specific species.
 
 ---
 
+#### Get Gene Effects for Visualization
+
+```http
+GET /api/gene-effects/{species}
+```
+
+Returns all gene effects for a species, keyed by gene ID. Used by the visualization component to render gene effect data without N+1 queries.
+
+**Parameters:**
+- `species` (path): Species name (e.g., "beewasp", "horse")
+
+**Response:**
+```json
+{
+  "effects": {
+    "01A1": {
+      "effectDominant": "Intelligence+",
+      "effectRecessive": "Intelligence-",
+      "appearance": "Brighter antenna glow",
+      "notes": "Observed in lab conditions"
+    },
+    "01A2": {
+      "effectDominant": "Toughness+",
+      "effectRecessive": "None",
+      "appearance": "",
+      "notes": ""
+    }
+  }
+}
+```
+
+**Status Codes:**
+- `200 OK` - Success
+- `500 Internal Server Error` - Database error
+
+---
+
 ### Health
 
 #### Health Check
@@ -860,7 +967,7 @@ const response = await fetch('/api/pets', {
     'Authorization': `Bearer ${token}`
   }
 });
-const pets = await response.json();
+const { items: pets, total } = await response.json();
 
 // Get genome for first pet
 if (pets.length > 0) {

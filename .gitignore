@@ -187,4 +187,7 @@ tmp/
 # DB file
 metadata.sqlite
 backup_*
+test-results/
+client_test_server.log
+backups/
 .claude/*
