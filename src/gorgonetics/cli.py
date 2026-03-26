@@ -464,9 +464,9 @@ def list_users() -> None:
         table.add_column("Created", style="dim")
 
         for u in users:
-            active = "[green]Yes[/green]" if u["is_active"] else "[red]No[/red]"
-            created = str(u["created_at"])[:19] if u["created_at"] else ""
-            table.add_row(str(u["id"]), u["username"], u["role"], active, created)
+            active = "[green]Yes[/green]" if u.is_active else "[red]No[/red]"
+            created = str(u.created_at)[:19] if u.created_at else ""
+            table.add_row(str(u.id), u.username, u.role, active, created)
 
         console.print(table)
     finally:
