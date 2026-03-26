@@ -154,6 +154,7 @@
 
     <div class="gene-visualizer-container" onclick={handleTableClick} onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleTableClick(e); }} role="button" tabindex="0">
         {#if $pets && $pets.length > 0}
+            {#key $pets}
             <Table
                 dataTableOptions={{
                     data: items,
@@ -165,6 +166,7 @@
                     fixedHeight: false,
                 }}
             />
+            {/key}
         {:else}
             <div class="empty-state">
                 <div class="empty-icon">🐾</div>

@@ -9,7 +9,8 @@
     let petGender = $state("Male");
     let uploading = $state(false);
 
-    function handleFileSelect(files) {
+    function handleFileChange(event) {
+        const files = event?.target?.files;
         if (files && files.length > 0) {
             const file = files[0];
             if (file.name.endsWith(".txt")) {
@@ -39,7 +40,7 @@
     <Label class="mb-2">Add Pet to Collection</Label>
     <Dropzone
         id="dropzone"
-        onchange={handleFileSelect}
+        onChange={handleFileChange}
         accept=".txt"
         disabled={uploading}
     >
