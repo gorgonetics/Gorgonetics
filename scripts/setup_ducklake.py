@@ -143,17 +143,18 @@ def load_genetic_data(conn: duckdb.DuckDBPyConnection, assets_dir: Path) -> None
                                     INSERT INTO genes (
                                         animal_type, chromosome, gene, effectDominant,
                                         effectRecessive, appearance, notes, created_at, updated_at
-                                    ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+                                    ) VALUES ($animal_type, $chromosome, $gene, $effectDominant,
+                                              $effectRecessive, $appearance, $notes, NOW(), NOW())
                                 """,
-                                    [
-                                        animal_type,
-                                        chromosome,
-                                        gene_name,
-                                        effectDominant,
-                                        effectRecessive,
-                                        appearance,
-                                        notes,
-                                    ],
+                                    {
+                                        "animal_type": animal_type,
+                                        "chromosome": chromosome,
+                                        "gene": gene_name,
+                                        "effectDominant": effectDominant,
+                                        "effectRecessive": effectRecessive,
+                                        "appearance": appearance,
+                                        "notes": notes,
+                                    },
                                 )
                             except Exception as e:
                                 # Skip duplicate genes

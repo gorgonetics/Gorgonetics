@@ -127,8 +127,16 @@ def authenticated_client(test_database: "DuckLakeGeneDatabase", test_user_creden
     # Insert test user
     test_database.conn.execute(
         """INSERT INTO users (id, username, password_hash, role, is_active, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?)""",
-        (next_id, test_user_credentials["username"], password_hash, UserRole.USER, True, now, now),
+           VALUES ($id, $username, $password_hash, $role, $is_active, $created_at, $updated_at)""",
+        {
+            "id": next_id,
+            "username": test_user_credentials["username"],
+            "password_hash": password_hash,
+            "role": UserRole.USER,
+            "is_active": True,
+            "created_at": now,
+            "updated_at": now,
+        },
     )
 
     # Login to get auth token
@@ -154,4 +162,60 @@ def authenticated_client(test_database: "DuckLakeGeneDatabase", test_user_creden
     yield client
 
     # Cleanup - remove test user
-    test_database.conn.execute("DELETE FROM users WHERE username = ?", (test_user_credentials["username"],))
+    test_database.conn.execute(
+        "DELETE FROM users WHERE username = $username", {"username": test_user_credentials["username"]}
+    )
+
+
+@pytest.fixture
+def admin_client(test_database: "DuckLakeGeneDatabase") -> Generator[TestClient]:
+    """Create an authenticated test client with an admin user."""
+    from datetime import datetime
+
+    from gorgonetics.auth.utils import get_password_hash
+    from gorgonetics.constants import UserRole
+    from gorgonetics.web_app import app
+
+    client = TestClient(app)
+
+    password_hash = get_password_hash("adminpassword123")
+    now = datetime.now()
+
+    existing_users = test_database.conn.execute("SELECT id FROM users ORDER BY id DESC LIMIT 1").fetchone()
+    next_id = (existing_users[0] + 1) if existing_users else 1
+
+    test_database.conn.execute(
+        """INSERT INTO users (id, username, password_hash, role, is_active, created_at, updated_at)
+           VALUES ($id, $username, $password_hash, $role, $is_active, $created_at, $updated_at)""",
+        {
+            "id": next_id,
+            "username": "testadmin",
+            "password_hash": password_hash,
+            "role": UserRole.ADMIN,
+            "is_active": True,
+            "created_at": now,
+            "updated_at": now,
+        },
+    )
+
+    login_response = client.post("/api/auth/login", json={"username": "testadmin", "password": "adminpassword123"})
+    assert login_response.status_code == 200
+    token_data = login_response.json()
+
+    auth_headers = {"Authorization": f"Bearer {token_data['access_token']}"}
+
+    original_request = client.request
+
+    def authenticated_request(*args, **kwargs):
+        if "headers" not in kwargs or kwargs["headers"] is None:
+            kwargs["headers"] = {}
+        kwargs["headers"].update(auth_headers)
+        return original_request(*args, **kwargs)
+
+    client.request = authenticated_request
+    client.auth_headers = auth_headers
+    client.admin_user_id = next_id
+
+    yield client
+
+    test_database.conn.execute("DELETE FROM users WHERE username = 'testadmin'")

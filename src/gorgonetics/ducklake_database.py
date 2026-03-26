@@ -904,6 +904,64 @@ class DuckLakeGeneDatabase:
             logger.error(f"Failed to cleanup old files: {e}")
             return False
 
+    # ── User management ──────────────────────────────────────────────
+
+    def get_all_users(self) -> list[dict[str, Any]]:
+        """Return all users (without password hashes)."""
+        assert self.conn is not None
+        rows = self.conn.execute(
+            "SELECT id, username, role, is_active, created_at, updated_at FROM users ORDER BY id"
+        ).fetchall()
+        return [
+            {"id": r[0], "username": r[1], "role": r[2], "is_active": r[3], "created_at": r[4], "updated_at": r[5]}
+            for r in rows
+        ]
+
+    def get_user_by_id(self, user_id: int) -> dict[str, Any] | None:
+        """Return a single user by ID (without password hash)."""
+        assert self.conn is not None
+        row = self.conn.execute(
+            "SELECT id, username, role, is_active, created_at, updated_at FROM users WHERE id = $id",
+            {"id": user_id},
+        ).fetchone()
+        if not row:
+            return None
+        return {
+            "id": row[0],
+            "username": row[1],
+            "role": row[2],
+            "is_active": row[3],
+            "created_at": row[4],
+            "updated_at": row[5],
+        }
+
+    def update_user(self, user_id: int, **fields: Any) -> dict[str, Any] | None:
+        """Update user fields (role, is_active). Returns updated user or None."""
+        assert self.conn is not None
+        allowed = {"role", "is_active"}
+        updates = {k: v for k, v in fields.items() if k in allowed and v is not None}
+        if not updates:
+            return self.get_user_by_id(user_id)
+
+        from datetime import datetime
+
+        updates["updated_at"] = datetime.now()
+        set_clauses = [f"{k} = ${k}" for k in updates]
+        updates["id"] = user_id
+        self.conn.execute(f"UPDATE users SET {', '.join(set_clauses)} WHERE id = $id", updates)
+        return self.get_user_by_id(user_id)
+
+    def delete_user(self, user_id: int) -> bool:
+        """Delete a user and all their associated data (pets, sessions)."""
+        assert self.conn is not None
+        user = self.get_user_by_id(user_id)
+        if not user:
+            return False
+        self.conn.execute("DELETE FROM user_sessions WHERE user_id = $id", {"id": user_id})
+        self.conn.execute("DELETE FROM pets WHERE user_id = $id", {"id": user_id})
+        self.conn.execute("DELETE FROM users WHERE id = $id", {"id": user_id})
+        return True
+
     def close(self) -> None:
         """Close database connection."""
         if self.conn:

@@ -24,11 +24,27 @@ def auth_client(test_database: "DuckLakeGeneDatabase") -> Generator[TestClient]:
 
 
 class TestAuthRegister:
-    """Test POST /api/auth/register."""
+    """Test POST /api/auth/register (admin-only, invite-only)."""
 
-    def test_register_valid_user(self, auth_client: TestClient, test_database: "DuckLakeGeneDatabase") -> None:
-        """Registering with valid credentials returns user data."""
+    def test_register_requires_auth(self, auth_client: TestClient) -> None:
+        """Unauthenticated registration returns 401/403."""
         response = auth_client.post(
+            "/api/auth/register",
+            json={"username": "newuser", "password": "password123"},
+        )
+        assert response.status_code in (401, 403)
+
+    def test_register_requires_admin(self, authenticated_client: TestClient) -> None:
+        """Regular user cannot register new users (403)."""
+        response = authenticated_client.post(
+            "/api/auth/register",
+            json={"username": "newuser", "password": "password123"},
+        )
+        assert response.status_code == 403
+
+    def test_register_admin_creates_user(self, admin_client: TestClient, test_database: "DuckLakeGeneDatabase") -> None:
+        """Admin can register new users."""
+        response = admin_client.post(
             "/api/auth/register",
             json={"username": "newuser", "password": "password123"},
         )
@@ -42,28 +58,28 @@ class TestAuthRegister:
         # Clean up
         test_database.conn.execute("DELETE FROM users WHERE username = 'newuser'")
 
-    def test_register_duplicate_username(self, auth_client: TestClient, test_database: "DuckLakeGeneDatabase") -> None:
+    def test_register_duplicate_username(self, admin_client: TestClient, test_database: "DuckLakeGeneDatabase") -> None:
         """Registering a username that already exists returns 400."""
-        auth_client.post("/api/auth/register", json={"username": "dupuser", "password": "password123"})
-        response = auth_client.post("/api/auth/register", json={"username": "dupuser", "password": "password456"})
+        admin_client.post("/api/auth/register", json={"username": "dupuser", "password": "password123"})
+        response = admin_client.post("/api/auth/register", json={"username": "dupuser", "password": "password456"})
         assert response.status_code == 400
         assert "already registered" in response.json()["detail"]
         # Clean up
         test_database.conn.execute("DELETE FROM users WHERE username = 'dupuser'")
 
-    def test_register_short_password(self, auth_client: TestClient) -> None:
+    def test_register_short_password(self, admin_client: TestClient) -> None:
         """Passwords shorter than 8 characters are rejected (Pydantic validation)."""
-        response = auth_client.post("/api/auth/register", json={"username": "shortpwuser", "password": "abc"})
+        response = admin_client.post("/api/auth/register", json={"username": "shortpwuser", "password": "abc"})
         assert response.status_code == 422
 
-    def test_register_short_username(self, auth_client: TestClient) -> None:
+    def test_register_short_username(self, admin_client: TestClient) -> None:
         """Usernames shorter than 3 characters are rejected (Pydantic validation)."""
-        response = auth_client.post("/api/auth/register", json={"username": "ab", "password": "validpassword"})
+        response = admin_client.post("/api/auth/register", json={"username": "ab", "password": "validpassword"})
         assert response.status_code == 422
 
-    def test_register_missing_fields(self, auth_client: TestClient) -> None:
+    def test_register_missing_fields(self, admin_client: TestClient) -> None:
         """Omitting required fields returns 422."""
-        response = auth_client.post("/api/auth/register", json={"username": "nopassword"})
+        response = admin_client.post("/api/auth/register", json={"username": "nopassword"})
         assert response.status_code == 422
 
 
@@ -83,8 +99,16 @@ class TestAuthLogin:
         result = test_database.conn.execute("SELECT MAX(id) FROM users").fetchone()
         next_id = (result[0] or 0) + 1
         test_database.conn.execute(
-            "INSERT INTO users (id, username, password_hash, role, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (next_id, "loginuser", password_hash, UserRole.USER, True, now, now),
+            "INSERT INTO users (id, username, password_hash, role, is_active, created_at, updated_at) VALUES ($id, $username, $password_hash, $role, $is_active, $created_at, $updated_at)",
+            {
+                "id": next_id,
+                "username": "loginuser",
+                "password_hash": password_hash,
+                "role": UserRole.USER,
+                "is_active": True,
+                "created_at": now,
+                "updated_at": now,
+            },
         )
         yield
         test_database.conn.execute("DELETE FROM users WHERE username = 'loginuser'")
@@ -203,3 +227,100 @@ class TestAuthRefresh:
         """Missing refresh_token field returns 422."""
         response = auth_client.post("/api/auth/refresh", json={})
         assert response.status_code == 422
+
+
+class TestAdminUserManagement:
+    """Test admin user management endpoints (/api/admin/users)."""
+
+    def test_list_users(self, admin_client: TestClient) -> None:
+        """Admin can list all users."""
+        response = admin_client.get("/api/admin/users")
+        assert response.status_code == 200
+        users = response.json()
+        assert isinstance(users, list)
+        assert len(users) >= 1  # at least the admin
+        assert any(u["username"] == "testadmin" for u in users)
+
+    def test_list_users_requires_admin(self, authenticated_client: TestClient) -> None:
+        """Regular user cannot list users."""
+        response = authenticated_client.get("/api/admin/users")
+        assert response.status_code == 403
+
+    def test_list_users_unauthenticated(self, auth_client: TestClient) -> None:
+        """Unauthenticated user cannot list users."""
+        response = auth_client.get("/api/admin/users")
+        assert response.status_code in (401, 403)
+
+    def test_get_user(self, admin_client: TestClient) -> None:
+        """Admin can get a single user by ID."""
+        # Get the admin's own info first
+        users = admin_client.get("/api/admin/users").json()
+        user_id = users[0]["id"]
+        response = admin_client.get(f"/api/admin/users/{user_id}")
+        assert response.status_code == 200
+        assert response.json()["id"] == user_id
+
+    def test_get_user_not_found(self, admin_client: TestClient) -> None:
+        """Getting a non-existent user returns 404."""
+        response = admin_client.get("/api/admin/users/99999")
+        assert response.status_code == 404
+
+    def test_update_user_role(self, admin_client: TestClient, test_database: "DuckLakeGeneDatabase") -> None:
+        """Admin can change a user's role."""
+        # Create a regular user to update
+        admin_client.post("/api/auth/register", json={"username": "roletest", "password": "password123"})
+        users = admin_client.get("/api/admin/users").json()
+        target = next(u for u in users if u["username"] == "roletest")
+
+        response = admin_client.patch(f"/api/admin/users/{target['id']}", json={"role": "admin"})
+        assert response.status_code == 200
+        assert response.json()["role"] == "admin"
+
+        # Clean up
+        test_database.conn.execute("DELETE FROM users WHERE username = 'roletest'")
+
+    def test_update_user_deactivate(self, admin_client: TestClient, test_database: "DuckLakeGeneDatabase") -> None:
+        """Admin can deactivate a user."""
+        admin_client.post("/api/auth/register", json={"username": "deactivatetest", "password": "password123"})
+        users = admin_client.get("/api/admin/users").json()
+        target = next(u for u in users if u["username"] == "deactivatetest")
+
+        response = admin_client.patch(f"/api/admin/users/{target['id']}", json={"is_active": False})
+        assert response.status_code == 200
+        assert response.json()["is_active"] is False
+
+        # Clean up
+        test_database.conn.execute("DELETE FROM users WHERE username = 'deactivatetest'")
+
+    def test_cannot_modify_self(self, admin_client: TestClient) -> None:
+        """Admin cannot modify their own account via admin endpoints."""
+        admin_user_id = admin_client.admin_user_id
+        response = admin_client.patch(f"/api/admin/users/{admin_user_id}", json={"role": "user"})
+        assert response.status_code == 400
+        assert "own account" in response.json()["detail"].lower()
+
+    def test_cannot_delete_self(self, admin_client: TestClient) -> None:
+        """Admin cannot delete their own account."""
+        admin_user_id = admin_client.admin_user_id
+        response = admin_client.delete(f"/api/admin/users/{admin_user_id}")
+        assert response.status_code == 400
+        assert "own account" in response.json()["detail"].lower()
+
+    def test_delete_user(self, admin_client: TestClient, test_database: "DuckLakeGeneDatabase") -> None:
+        """Admin can delete a user."""
+        admin_client.post("/api/auth/register", json={"username": "deletetest", "password": "password123"})
+        users = admin_client.get("/api/admin/users").json()
+        target = next(u for u in users if u["username"] == "deletetest")
+
+        response = admin_client.delete(f"/api/admin/users/{target['id']}")
+        assert response.status_code == 200
+        assert "deleted" in response.json()["message"].lower()
+
+        # Verify user is gone
+        response = admin_client.get(f"/api/admin/users/{target['id']}")
+        assert response.status_code == 404
+
+    def test_delete_user_not_found(self, admin_client: TestClient) -> None:
+        """Deleting a non-existent user returns 404."""
+        response = admin_client.delete("/api/admin/users/99999")
+        assert response.status_code == 404

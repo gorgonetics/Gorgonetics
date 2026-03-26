@@ -444,5 +444,82 @@ def create_admin(
         raise typer.Exit(1) from e
 
 
+@app.command()
+def list_users() -> None:
+    """List all registered users."""
+    from .database_config import create_database_instance
+
+    db = create_database_instance()
+    try:
+        users = db.get_all_users()
+        if not users:
+            console.print("[yellow]No users found.[/yellow]")
+            return
+
+        table = Table(title="Users")
+        table.add_column("ID", style="cyan")
+        table.add_column("Username", style="green")
+        table.add_column("Role", style="magenta")
+        table.add_column("Active", style="yellow")
+        table.add_column("Created", style="dim")
+
+        for u in users:
+            active = "[green]Yes[/green]" if u["is_active"] else "[red]No[/red]"
+            created = str(u["created_at"])[:19] if u["created_at"] else ""
+            table.add_row(str(u["id"]), u["username"], u["role"], active, created)
+
+        console.print(table)
+    finally:
+        db.close()
+
+
+@app.command()
+def delete_user(
+    username: str = typer.Option(..., help="Username to delete"),
+) -> None:
+    """Delete a user and all their associated data."""
+    from .auth.dependencies import get_user_by_username
+    from .database_config import create_database_instance
+
+    user = get_user_by_username(username)
+    if not user:
+        console.print(f"[red]User '{username}' not found.[/red]")
+        raise typer.Exit(1)
+
+    db = create_database_instance()
+    try:
+        db.delete_user(user.id)
+        console.print(f"[green]* Deleted user '{username}' and all their data.[/green]")
+    finally:
+        db.close()
+
+
+@app.command()
+def set_role(
+    username: str = typer.Option(..., help="Username to update"),
+    role: str = typer.Option(..., help="New role (admin or user)"),
+) -> None:
+    """Change a user's role."""
+    from .auth.dependencies import get_user_by_username
+    from .constants import UserRole
+    from .database_config import create_database_instance
+
+    if role not in (UserRole.ADMIN, UserRole.USER):
+        console.print(f"[red]Invalid role '{role}'. Must be 'admin' or 'user'.[/red]")
+        raise typer.Exit(1)
+
+    user = get_user_by_username(username)
+    if not user:
+        console.print(f"[red]User '{username}' not found.[/red]")
+        raise typer.Exit(1)
+
+    db = create_database_instance()
+    try:
+        db.update_user(user.id, role=role)
+        console.print(f"[green]* User '{username}' role changed to '{role}'.[/green]")
+    finally:
+        db.close()
+
+
 if __name__ == "__main__":
     app()

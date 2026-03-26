@@ -10,7 +10,7 @@ from gorgonetics.auth.dependencies import (
     get_optional_current_user,
     require_admin,
 )
-from gorgonetics.auth.models import Token, User, UserCreate, UserLogin
+from gorgonetics.auth.models import Token, User, UserCreate, UserLogin, UserUpdate
 from gorgonetics.auth.utils import (
     create_access_token,
     create_token_pair,
@@ -23,6 +23,7 @@ __all__ = [
     "User",
     "UserCreate",
     "UserLogin",
+    "UserUpdate",
     "Token",
     "create_access_token",
     "create_token_pair",

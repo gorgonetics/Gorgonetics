@@ -60,8 +60,16 @@ def _insert_user(db: "DuckLakeGeneDatabase", username: str, password: str, role:
     result = db.conn.execute("SELECT MAX(id) FROM users").fetchone()
     next_id = (result[0] or 0) + 1
     db.conn.execute(
-        "INSERT INTO users (id, username, password_hash, role, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-        (next_id, username, password_hash, role, True, now, now),
+        "INSERT INTO users (id, username, password_hash, role, is_active, created_at, updated_at) VALUES ($id, $username, $password_hash, $role, $is_active, $created_at, $updated_at)",
+        {
+            "id": next_id,
+            "username": username,
+            "password_hash": password_hash,
+            "role": role,
+            "is_active": True,
+            "created_at": now,
+            "updated_at": now,
+        },
     )
     return next_id
 

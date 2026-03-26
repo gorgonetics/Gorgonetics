@@ -55,6 +55,13 @@ class Token(BaseModel):
     expires_in: int  # seconds
 
 
+class UserUpdate(BaseModel):
+    """Model for admin user updates (partial)."""
+
+    role: UserRole | None = None
+    is_active: bool | None = None
+
+
 class TokenData(BaseModel):
     """Token payload data."""
 

@@ -30,6 +30,7 @@ from gorgonetics.auth import (
     User,
     UserCreate,
     UserLogin,
+    UserUpdate,
     create_token_pair,
     get_password_hash,
     verify_password,
@@ -868,8 +869,12 @@ async def get_pets_by_species(
 
 @app.post("/api/auth/register", response_model=User)
 @limiter.limit("3/minute")
-async def register(request: Request, user_create: UserCreate) -> User:  # noqa: ARG001 — request required by slowapi
-    """Register a new user."""
+async def register(
+    request: Request,  # noqa: ARG001 — required by slowapi
+    user_create: UserCreate,
+    _admin: User = Depends(require_admin),
+) -> User:
+    """Register a new user (admin-only, invite-only)."""
     try:
         # Check if username already exists
         existing_user = get_user_by_username(user_create.username)
@@ -958,6 +963,71 @@ async def refresh_token(token_request: TokenRefreshRequest) -> Token:
     new_tokens = create_token_pair({"sub": user.username, "user_id": user.id, "role": user.role})
     logger.info(f"Token refreshed for user: {user.username}")
     return Token(**new_tokens)
+
+
+# Admin user management endpoints
+
+
+@app.get("/api/admin/users", response_model=list[User])
+async def list_users(
+    _admin: User = Depends(require_admin),
+    db: "DuckLakeGeneDatabase" = Depends(get_database),
+) -> list[User]:
+    """List all users (admin-only)."""
+    rows = db.get_all_users()
+    return [User(**row) for row in rows]
+
+
+@app.get("/api/admin/users/{user_id}", response_model=User)
+async def get_user(
+    user_id: int,
+    _admin: User = Depends(require_admin),
+    db: "DuckLakeGeneDatabase" = Depends(get_database),
+) -> User:
+    """Get a single user by ID (admin-only)."""
+    row = db.get_user_by_id(user_id)
+    if not row:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    return User(**row)
+
+
+@app.patch("/api/admin/users/{user_id}", response_model=User)
+async def update_user(
+    user_id: int,
+    user_update: UserUpdate,
+    admin: User = Depends(require_admin),
+    db: "DuckLakeGeneDatabase" = Depends(get_database),
+) -> User:
+    """Update a user's role or active status (admin-only)."""
+    if user_id == admin.id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot modify your own account")
+    existing = db.get_user_by_id(user_id)
+    if not existing:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    updated = db.update_user(user_id, **user_update.model_dump(exclude_none=True))
+    if not updated:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to update user")
+    logger.info(
+        f"Admin {admin.username} updated user {existing['username']}: {user_update.model_dump(exclude_none=True)}"
+    )
+    return User(**updated)
+
+
+@app.delete("/api/admin/users/{user_id}")
+async def delete_user(
+    user_id: int,
+    admin: User = Depends(require_admin),
+    db: "DuckLakeGeneDatabase" = Depends(get_database),
+) -> dict[str, str]:
+    """Delete a user and all their data (admin-only)."""
+    if user_id == admin.id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot delete your own account")
+    existing = db.get_user_by_id(user_id)
+    if not existing:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    db.delete_user(user_id)
+    logger.info(f"Admin {admin.username} deleted user {existing['username']} (id={user_id})")
+    return {"message": f"User {existing['username']} deleted"}
 
 
 @app.get("/health")
