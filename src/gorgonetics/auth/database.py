@@ -78,30 +78,32 @@ class AuthDatabase:
         """Create a new user. Returns the created User."""
         now = datetime.now().isoformat()
         cursor = self.conn.execute(
-            "INSERT INTO users (username, password_hash, role, is_active, created_at, updated_at) VALUES (?, ?, ?, 1, ?, ?)",
-            (username, password_hash, role, now, now),
+            "INSERT INTO users (username, password_hash, role, is_active, created_at, updated_at) VALUES (:username, :password_hash, :role, 1, :created_at, :updated_at)",
+            {"username": username, "password_hash": password_hash, "role": role, "created_at": now, "updated_at": now},
         )
         self.conn.commit()
-        row = self.conn.execute("SELECT * FROM users WHERE id = ?", (cursor.lastrowid,)).fetchone()
+        row = self.conn.execute("SELECT * FROM users WHERE id = :id", {"id": cursor.lastrowid}).fetchone()
         return self._row_to_user(row)
 
     def get_user_by_username(self, username: str) -> UserInDB | None:
         """Get user by username including password_hash (for auth verification)."""
-        row = self.conn.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
+        row = self.conn.execute("SELECT * FROM users WHERE username = :username", {"username": username}).fetchone()
         if not row:
             return None
         return self._row_to_user_in_db(row)
 
     def get_active_user_by_username(self, username: str) -> User | None:
         """Get an active user by username (no password_hash)."""
-        row = self.conn.execute("SELECT * FROM users WHERE username = ? AND is_active = 1", (username,)).fetchone()
+        row = self.conn.execute(
+            "SELECT * FROM users WHERE username = :username AND is_active = 1", {"username": username}
+        ).fetchone()
         if not row:
             return None
         return self._row_to_user(row)
 
     def get_user_by_id(self, user_id: int) -> User | None:
         """Get user by ID (no password_hash)."""
-        row = self.conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+        row = self.conn.execute("SELECT * FROM users WHERE id = :id", {"id": user_id}).fetchone()
         if not row:
             return None
         return self._row_to_user(row)
@@ -119,19 +121,19 @@ class AuthDatabase:
             return self.get_user_by_id(user_id)
 
         updates["updated_at"] = datetime.now().isoformat()
-        set_clauses = ", ".join(f"{k} = ?" for k in updates)
-        values = list(updates.values()) + [user_id]
-        self.conn.execute(f"UPDATE users SET {set_clauses} WHERE id = ?", values)
+        set_clauses = ", ".join(f"{k} = :{k}" for k in updates)
+        updates["id"] = user_id
+        self.conn.execute(f"UPDATE users SET {set_clauses} WHERE id = :id", updates)
         self.conn.commit()
         return self.get_user_by_id(user_id)
 
     def delete_user(self, user_id: int) -> bool:
         """Delete a user and their sessions. Returns True if user existed."""
-        row = self.conn.execute("SELECT id FROM users WHERE id = ?", (user_id,)).fetchone()
+        row = self.conn.execute("SELECT id FROM users WHERE id = :id", {"id": user_id}).fetchone()
         if not row:
             return False
         # CASCADE handles user_sessions deletion
-        self.conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
+        self.conn.execute("DELETE FROM users WHERE id = :id", {"id": user_id})
         self.conn.commit()
         return True
 

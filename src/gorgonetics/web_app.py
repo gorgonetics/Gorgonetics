@@ -1034,7 +1034,9 @@ async def delete_user(
     if not existing:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     db.delete_pets_for_user(user_id)
-    auth_db.delete_user(user_id)
+    deleted = auth_db.delete_user(user_id)
+    if not deleted:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to delete user")
     logger.info(f"Admin {admin.username} deleted user {existing.username} (id={user_id})")
     return {"message": f"User {existing.username} deleted"}
 

@@ -84,6 +84,10 @@ class DuckLakeGeneDatabase:
             # Constrain DuckDB memory on small VMs (default: no limit)
             memory_limit = os.environ.get("DUCKDB_MEMORY_LIMIT")
             if memory_limit:
+                import re
+
+                if not re.fullmatch(r"\d+\s*(KB|MB|GB|TB)", memory_limit, re.IGNORECASE):
+                    raise ValueError(f"Invalid DUCKDB_MEMORY_LIMIT: '{memory_limit}' (expected e.g. '256MB', '1GB')")
                 self.conn.execute(f"SET memory_limit = '{memory_limit}'")
 
             # Install and load DuckLake extension
