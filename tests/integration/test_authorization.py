@@ -10,7 +10,6 @@ Covers:
 
 import tempfile
 from collections.abc import Generator
-from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -18,9 +17,11 @@ from fastapi.testclient import TestClient
 
 from gorgonetics.auth.utils import get_password_hash
 from gorgonetics.constants import UserRole
+from gorgonetics.database_config import create_auth_database_instance
 from gorgonetics.web_app import app, get_database
 
 if TYPE_CHECKING:
+    from gorgonetics.auth.database import AuthDatabase
     from gorgonetics.ducklake_database import DuckLakeGeneDatabase
 
 # ---------------------------------------------------------------------------
@@ -53,32 +54,20 @@ def _make_genome_file(name: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _insert_user(db: "DuckLakeGeneDatabase", username: str, password: str, role: str = UserRole.USER) -> int:
-    """Insert a user into the test DB and return its id."""
+def _insert_user(username: str, password: str, role: str = UserRole.USER) -> int:
+    """Insert a user into the auth DB and return its id."""
     password_hash = get_password_hash(password)
-    now = datetime.now()
-    result = db.conn.execute("SELECT MAX(id) FROM users").fetchone()
-    next_id = (result[0] or 0) + 1
-    db.conn.execute(
-        "INSERT INTO users (id, username, password_hash, role, is_active, created_at, updated_at) VALUES ($id, $username, $password_hash, $role, $is_active, $created_at, $updated_at)",
-        {
-            "id": next_id,
-            "username": username,
-            "password_hash": password_hash,
-            "role": role,
-            "is_active": True,
-            "created_at": now,
-            "updated_at": now,
-        },
-    )
-    return next_id
+    auth_db = create_auth_database_instance()
+    try:
+        user = auth_db.create_user(username, password_hash, role=role)
+        return user["id"]
+    finally:
+        auth_db.close()
 
 
-def _make_client_for_user(
-    db: "DuckLakeGeneDatabase", username: str, password: str, role: str = UserRole.USER
-) -> TestClient:
+def _make_client_for_user(username: str, password: str, role: str = UserRole.USER) -> TestClient:
     """Create and return an authenticated TestClient for the given user."""
-    _insert_user(db, username, password, role)
+    _insert_user(username, password, role)
 
     client = TestClient(app)
     login_resp = client.post("/api/auth/login", json={"username": username, "password": password})
@@ -101,6 +90,7 @@ def _make_client_for_user(
 @pytest.fixture(scope="function")
 def db_and_client(
     test_database: "DuckLakeGeneDatabase",
+    test_auth_db: "AuthDatabase",
 ) -> Generator[tuple["DuckLakeGeneDatabase", TestClient, TestClient]]:
     """
     Yields (db, admin_client, user_client).
@@ -108,31 +98,30 @@ def db_and_client(
     """
     app.dependency_overrides[get_database] = lambda: test_database
 
-    admin_client = _make_client_for_user(test_database, "auth_admin", "adminpass123", UserRole.ADMIN)
-    user_client = _make_client_for_user(test_database, "auth_user", "userpass123", UserRole.USER)
+    admin_client = _make_client_for_user("auth_admin", "adminpass123", UserRole.ADMIN)
+    user_client = _make_client_for_user("auth_user", "userpass123", UserRole.USER)
 
     yield test_database, admin_client, user_client
 
     app.dependency_overrides.clear()
-    test_database.conn.execute("DELETE FROM users WHERE username IN ('auth_admin', 'auth_user')")
 
 
 @pytest.fixture(scope="function")
 def two_user_clients(
     test_database: "DuckLakeGeneDatabase",
+    test_auth_db: "AuthDatabase",
 ) -> Generator[tuple["DuckLakeGeneDatabase", TestClient, TestClient]]:
     """
     Yields (db, user_a_client, user_b_client) for isolation tests.
     """
     app.dependency_overrides[get_database] = lambda: test_database
 
-    user_a = _make_client_for_user(test_database, "user_a", "usera_pass123")
-    user_b = _make_client_for_user(test_database, "user_b", "userb_pass123")
+    user_a = _make_client_for_user("user_a", "usera_pass123")
+    user_b = _make_client_for_user("user_b", "userb_pass123")
 
     yield test_database, user_a, user_b
 
     app.dependency_overrides.clear()
-    test_database.conn.execute("DELETE FROM users WHERE username IN ('user_a', 'user_b')")
 
 
 # ---------------------------------------------------------------------------

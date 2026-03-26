@@ -20,6 +20,7 @@ services:
       - GORGONETICS_CORS_ORIGINS=${GORGONETICS_CORS_ORIGINS:-https://yourdomain.com}
       - GORGONETICS_CATALOG_PATH=/app/data/metadata.sqlite
       - GORGONETICS_DATA_PATH=/app/data
+      - GORGONETICS_AUTH_DB_PATH=/app/data/users.sqlite
       - GORGONETICS_LOAD_SAMPLE_DATA=false
       - GORGONETICS_CONCURRENT_ACCESS=true
       - DUCKDB_MEMORY_LIMIT=${DUCKDB_MEMORY_LIMIT:-}

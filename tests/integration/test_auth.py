@@ -1,7 +1,7 @@
 """
 Integration tests for authentication endpoints.
 
-Covers registration, login, /me, logout, and token refresh flows.
+Covers registration, login, /me, logout, token refresh, and admin user management.
 """
 
 from collections.abc import Generator
@@ -13,6 +13,7 @@ from fastapi.testclient import TestClient
 from gorgonetics.web_app import app
 
 if TYPE_CHECKING:
+    from gorgonetics.auth.database import AuthDatabase
     from gorgonetics.ducklake_database import DuckLakeGeneDatabase
 
 
@@ -42,7 +43,7 @@ class TestAuthRegister:
         )
         assert response.status_code == 403
 
-    def test_register_admin_creates_user(self, admin_client: TestClient, test_database: "DuckLakeGeneDatabase") -> None:
+    def test_register_admin_creates_user(self, admin_client: TestClient, test_auth_db: "AuthDatabase") -> None:
         """Admin can register new users."""
         response = admin_client.post(
             "/api/auth/register",
@@ -55,17 +56,13 @@ class TestAuthRegister:
         assert data["is_active"] is True
         assert "password" not in data
         assert "password_hash" not in data
-        # Clean up
-        test_database.conn.execute("DELETE FROM users WHERE username = 'newuser'")
 
-    def test_register_duplicate_username(self, admin_client: TestClient, test_database: "DuckLakeGeneDatabase") -> None:
+    def test_register_duplicate_username(self, admin_client: TestClient) -> None:
         """Registering a username that already exists returns 400."""
         admin_client.post("/api/auth/register", json={"username": "dupuser", "password": "password123"})
         response = admin_client.post("/api/auth/register", json={"username": "dupuser", "password": "password456"})
         assert response.status_code == 400
         assert "already registered" in response.json()["detail"]
-        # Clean up
-        test_database.conn.execute("DELETE FROM users WHERE username = 'dupuser'")
 
     def test_register_short_password(self, admin_client: TestClient) -> None:
         """Passwords shorter than 8 characters are rejected (Pydantic validation)."""
@@ -87,31 +84,13 @@ class TestAuthLogin:
     """Test POST /api/auth/login."""
 
     @pytest.fixture(autouse=True)
-    def _create_login_user(self, test_database: "DuckLakeGeneDatabase") -> Generator[None]:
+    def _create_login_user(self, test_auth_db: "AuthDatabase") -> Generator[None]:
         """Insert a test user for login tests."""
-        from datetime import datetime
-
         from gorgonetics.auth.utils import get_password_hash
-        from gorgonetics.constants import UserRole
 
         password_hash = get_password_hash("loginpassword")
-        now = datetime.now()
-        result = test_database.conn.execute("SELECT MAX(id) FROM users").fetchone()
-        next_id = (result[0] or 0) + 1
-        test_database.conn.execute(
-            "INSERT INTO users (id, username, password_hash, role, is_active, created_at, updated_at) VALUES ($id, $username, $password_hash, $role, $is_active, $created_at, $updated_at)",
-            {
-                "id": next_id,
-                "username": "loginuser",
-                "password_hash": password_hash,
-                "role": UserRole.USER,
-                "is_active": True,
-                "created_at": now,
-                "updated_at": now,
-            },
-        )
+        test_auth_db.create_user("loginuser", password_hash, role="user")
         yield
-        test_database.conn.execute("DELETE FROM users WHERE username = 'loginuser'")
 
     def test_login_valid_credentials(self, auth_client: TestClient) -> None:
         """Login with correct credentials returns access and refresh tokens."""
@@ -182,27 +161,17 @@ class TestAuthRefresh:
     """Test POST /api/auth/refresh."""
 
     @pytest.fixture()
-    def token_pair(self, auth_client: TestClient, test_database: "DuckLakeGeneDatabase") -> Generator[dict]:
+    def token_pair(self, auth_client: TestClient, test_auth_db: "AuthDatabase") -> Generator[dict]:
         """Create a user and return a valid token pair."""
-        from datetime import datetime
-
         from gorgonetics.auth.utils import get_password_hash
-        from gorgonetics.constants import UserRole
 
         password_hash = get_password_hash("refreshpassword")
-        now = datetime.now()
-        result = test_database.conn.execute("SELECT MAX(id) FROM users").fetchone()
-        next_id = (result[0] or 0) + 1
-        test_database.conn.execute(
-            "INSERT INTO users (id, username, password_hash, role, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (next_id, "refreshuser", password_hash, UserRole.USER, True, now, now),
-        )
+        test_auth_db.create_user("refreshuser", password_hash, role="user")
         login_resp = auth_client.post(
             "/api/auth/login", json={"username": "refreshuser", "password": "refreshpassword"}
         )
         assert login_resp.status_code == 200
         yield login_resp.json()
-        test_database.conn.execute("DELETE FROM users WHERE username = 'refreshuser'")
 
     def test_refresh_valid_token(self, auth_client: TestClient, token_pair: dict) -> None:
         """Valid refresh token returns a new token pair."""
@@ -238,7 +207,7 @@ class TestAdminUserManagement:
         assert response.status_code == 200
         users = response.json()
         assert isinstance(users, list)
-        assert len(users) >= 1  # at least the admin
+        assert len(users) >= 1
         assert any(u["username"] == "testadmin" for u in users)
 
     def test_list_users_requires_admin(self, authenticated_client: TestClient) -> None:
@@ -253,7 +222,6 @@ class TestAdminUserManagement:
 
     def test_get_user(self, admin_client: TestClient) -> None:
         """Admin can get a single user by ID."""
-        # Get the admin's own info first
         users = admin_client.get("/api/admin/users").json()
         user_id = users[0]["id"]
         response = admin_client.get(f"/api/admin/users/{user_id}")
@@ -265,9 +233,8 @@ class TestAdminUserManagement:
         response = admin_client.get("/api/admin/users/99999")
         assert response.status_code == 404
 
-    def test_update_user_role(self, admin_client: TestClient, test_database: "DuckLakeGeneDatabase") -> None:
+    def test_update_user_role(self, admin_client: TestClient) -> None:
         """Admin can change a user's role."""
-        # Create a regular user to update
         admin_client.post("/api/auth/register", json={"username": "roletest", "password": "password123"})
         users = admin_client.get("/api/admin/users").json()
         target = next(u for u in users if u["username"] == "roletest")
@@ -276,10 +243,7 @@ class TestAdminUserManagement:
         assert response.status_code == 200
         assert response.json()["role"] == "admin"
 
-        # Clean up
-        test_database.conn.execute("DELETE FROM users WHERE username = 'roletest'")
-
-    def test_update_user_deactivate(self, admin_client: TestClient, test_database: "DuckLakeGeneDatabase") -> None:
+    def test_update_user_deactivate(self, admin_client: TestClient) -> None:
         """Admin can deactivate a user."""
         admin_client.post("/api/auth/register", json={"username": "deactivatetest", "password": "password123"})
         users = admin_client.get("/api/admin/users").json()
@@ -288,9 +252,6 @@ class TestAdminUserManagement:
         response = admin_client.patch(f"/api/admin/users/{target['id']}", json={"is_active": False})
         assert response.status_code == 200
         assert response.json()["is_active"] is False
-
-        # Clean up
-        test_database.conn.execute("DELETE FROM users WHERE username = 'deactivatetest'")
 
     def test_cannot_modify_self(self, admin_client: TestClient) -> None:
         """Admin cannot modify their own account via admin endpoints."""
@@ -306,7 +267,7 @@ class TestAdminUserManagement:
         assert response.status_code == 400
         assert "own account" in response.json()["detail"].lower()
 
-    def test_delete_user(self, admin_client: TestClient, test_database: "DuckLakeGeneDatabase") -> None:
+    def test_delete_user(self, admin_client: TestClient) -> None:
         """Admin can delete a user."""
         admin_client.post("/api/auth/register", json={"username": "deletetest", "password": "password123"})
         users = admin_client.get("/api/admin/users").json()

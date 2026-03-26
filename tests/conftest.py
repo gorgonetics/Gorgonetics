@@ -16,6 +16,7 @@ from typer.testing import CliRunner
 from gorgonetics.cli import app
 
 if TYPE_CHECKING:
+    from gorgonetics.auth.database import AuthDatabase
     from gorgonetics.ducklake_database import DuckLakeGeneDatabase
 
 
@@ -39,13 +40,16 @@ def test_database() -> Generator["DuckLakeGeneDatabase"]:
         catalog_path = Path(temp_dir) / "test_metadata.sqlite"
         data_path = Path(temp_dir) / "test_data"
         data_path.mkdir()
+        auth_db_path = Path(temp_dir) / "test_users.sqlite"
 
         # Set environment variables to use test database
         original_catalog = os.environ.get("GORGONETICS_CATALOG_PATH")
         original_data = os.environ.get("GORGONETICS_DATA_PATH")
+        original_auth_db = os.environ.get("GORGONETICS_AUTH_DB_PATH")
 
         os.environ["GORGONETICS_CATALOG_PATH"] = str(catalog_path)
         os.environ["GORGONETICS_DATA_PATH"] = str(data_path)
+        os.environ["GORGONETICS_AUTH_DB_PATH"] = str(auth_db_path)
 
         try:
             # Create database instance with test configuration
@@ -60,15 +64,25 @@ def test_database() -> Generator["DuckLakeGeneDatabase"]:
 
         finally:
             # Restore original environment variables
-            if original_catalog is not None:
-                os.environ["GORGONETICS_CATALOG_PATH"] = original_catalog
-            elif "GORGONETICS_CATALOG_PATH" in os.environ:
-                del os.environ["GORGONETICS_CATALOG_PATH"]
+            for key, original in [
+                ("GORGONETICS_CATALOG_PATH", original_catalog),
+                ("GORGONETICS_DATA_PATH", original_data),
+                ("GORGONETICS_AUTH_DB_PATH", original_auth_db),
+            ]:
+                if original is not None:
+                    os.environ[key] = original
+                elif key in os.environ:
+                    del os.environ[key]
 
-            if original_data is not None:
-                os.environ["GORGONETICS_DATA_PATH"] = original_data
-            elif "GORGONETICS_DATA_PATH" in os.environ:
-                del os.environ["GORGONETICS_DATA_PATH"]
+
+@pytest.fixture
+def test_auth_db(test_database: "DuckLakeGeneDatabase") -> Generator["AuthDatabase"]:
+    """Create an auth database instance using the test env vars set by test_database."""
+    from gorgonetics.database_config import create_auth_database_instance
+
+    auth_db = create_auth_database_instance()
+    yield auth_db
+    auth_db.close()
 
 
 @pytest.fixture
@@ -106,38 +120,18 @@ def test_user_credentials():
 
 
 @pytest.fixture
-def authenticated_client(test_database: "DuckLakeGeneDatabase", test_user_credentials: dict) -> Generator[TestClient]:
+def authenticated_client(
+    test_database: "DuckLakeGeneDatabase", test_auth_db: "AuthDatabase", test_user_credentials: dict
+) -> Generator[TestClient]:
     """Create an authenticated test client with a test user."""
-    from datetime import datetime
-
     from gorgonetics.auth.utils import get_password_hash
-    from gorgonetics.constants import UserRole
     from gorgonetics.web_app import app
 
     client = TestClient(app)
 
-    # Create test user in database
+    # Create test user in auth database
     password_hash = get_password_hash(test_user_credentials["password"])
-    now = datetime.now()
-
-    # Get next user ID
-    existing_users = test_database.conn.execute("SELECT id FROM users ORDER BY id DESC LIMIT 1").fetchone()
-    next_id = (existing_users[0] + 1) if existing_users else 1
-
-    # Insert test user
-    test_database.conn.execute(
-        """INSERT INTO users (id, username, password_hash, role, is_active, created_at, updated_at)
-           VALUES ($id, $username, $password_hash, $role, $is_active, $created_at, $updated_at)""",
-        {
-            "id": next_id,
-            "username": test_user_credentials["username"],
-            "password_hash": password_hash,
-            "role": UserRole.USER,
-            "is_active": True,
-            "created_at": now,
-            "updated_at": now,
-        },
-    )
+    test_auth_db.create_user(test_user_credentials["username"], password_hash, role="user")
 
     # Login to get auth token
     login_response = client.post("/api/auth/login", json=test_user_credentials)
@@ -161,42 +155,17 @@ def authenticated_client(test_database: "DuckLakeGeneDatabase", test_user_creden
 
     yield client
 
-    # Cleanup - remove test user
-    test_database.conn.execute(
-        "DELETE FROM users WHERE username = $username", {"username": test_user_credentials["username"]}
-    )
-
 
 @pytest.fixture
-def admin_client(test_database: "DuckLakeGeneDatabase") -> Generator[TestClient]:
+def admin_client(test_database: "DuckLakeGeneDatabase", test_auth_db: "AuthDatabase") -> Generator[TestClient]:
     """Create an authenticated test client with an admin user."""
-    from datetime import datetime
-
     from gorgonetics.auth.utils import get_password_hash
-    from gorgonetics.constants import UserRole
     from gorgonetics.web_app import app
 
     client = TestClient(app)
 
     password_hash = get_password_hash("adminpassword123")
-    now = datetime.now()
-
-    existing_users = test_database.conn.execute("SELECT id FROM users ORDER BY id DESC LIMIT 1").fetchone()
-    next_id = (existing_users[0] + 1) if existing_users else 1
-
-    test_database.conn.execute(
-        """INSERT INTO users (id, username, password_hash, role, is_active, created_at, updated_at)
-           VALUES ($id, $username, $password_hash, $role, $is_active, $created_at, $updated_at)""",
-        {
-            "id": next_id,
-            "username": "testadmin",
-            "password_hash": password_hash,
-            "role": UserRole.ADMIN,
-            "is_active": True,
-            "created_at": now,
-            "updated_at": now,
-        },
-    )
+    user = test_auth_db.create_user("testadmin", password_hash, role="admin")
 
     login_response = client.post("/api/auth/login", json={"username": "testadmin", "password": "adminpassword123"})
     assert login_response.status_code == 200
@@ -214,8 +183,6 @@ def admin_client(test_database: "DuckLakeGeneDatabase") -> Generator[TestClient]
 
     client.request = authenticated_request
     client.auth_headers = auth_headers
-    client.admin_user_id = next_id
+    client.admin_user_id = user["id"]
 
     yield client
-
-    test_database.conn.execute("DELETE FROM users WHERE username = 'testadmin'")

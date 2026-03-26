@@ -44,10 +44,11 @@ from gorgonetics.auth.dependencies import (
     require_admin,
 )
 from gorgonetics.constants import DEMO_USER_ID, GENOME_FILE_MARKERS, Gender, UserRole
-from gorgonetics.database_config import create_database_instance
+from gorgonetics.database_config import create_auth_database_instance, create_database_instance
 from gorgonetics.models import Genome
 
 if TYPE_CHECKING:
+    from gorgonetics.auth.database import AuthDatabase
     from gorgonetics.ducklake_database import DuckLakeGeneDatabase
 
 
@@ -198,8 +199,17 @@ if os.path.exists(static_dir):
 
 # Database dependency
 def get_database() -> Generator["DuckLakeGeneDatabase"]:
-    """Get database instance for dependency injection."""
+    """Get DuckLake database instance for dependency injection."""
     db = create_database_instance()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+def get_auth_database() -> Generator["AuthDatabase"]:
+    """Get auth SQLite database instance for dependency injection."""
+    db = create_auth_database_instance()
     try:
         yield db
     finally:
@@ -971,10 +981,10 @@ async def refresh_token(token_request: TokenRefreshRequest) -> Token:
 @app.get("/api/admin/users", response_model=list[User])
 async def list_users(
     _admin: User = Depends(require_admin),
-    db: "DuckLakeGeneDatabase" = Depends(get_database),
+    auth_db: "AuthDatabase" = Depends(get_auth_database),
 ) -> list[User]:
     """List all users (admin-only)."""
-    rows = db.get_all_users()
+    rows = auth_db.get_all_users()
     return [User(**row) for row in rows]
 
 
@@ -982,10 +992,10 @@ async def list_users(
 async def get_user(
     user_id: int,
     _admin: User = Depends(require_admin),
-    db: "DuckLakeGeneDatabase" = Depends(get_database),
+    auth_db: "AuthDatabase" = Depends(get_auth_database),
 ) -> User:
     """Get a single user by ID (admin-only)."""
-    row = db.get_user_by_id(user_id)
+    row = auth_db.get_user_by_id(user_id)
     if not row:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     return User(**row)
@@ -996,15 +1006,15 @@ async def update_user(
     user_id: int,
     user_update: UserUpdate,
     admin: User = Depends(require_admin),
-    db: "DuckLakeGeneDatabase" = Depends(get_database),
+    auth_db: "AuthDatabase" = Depends(get_auth_database),
 ) -> User:
     """Update a user's role or active status (admin-only)."""
     if user_id == admin.id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot modify your own account")
-    existing = db.get_user_by_id(user_id)
+    existing = auth_db.get_user_by_id(user_id)
     if not existing:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-    updated = db.update_user(user_id, **user_update.model_dump(exclude_none=True))
+    updated = auth_db.update_user(user_id, **user_update.model_dump(exclude_none=True))
     if not updated:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to update user")
     logger.info(
@@ -1017,15 +1027,17 @@ async def update_user(
 async def delete_user(
     user_id: int,
     admin: User = Depends(require_admin),
+    auth_db: "AuthDatabase" = Depends(get_auth_database),
     db: "DuckLakeGeneDatabase" = Depends(get_database),
 ) -> dict[str, str]:
     """Delete a user and all their data (admin-only)."""
     if user_id == admin.id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot delete your own account")
-    existing = db.get_user_by_id(user_id)
+    existing = auth_db.get_user_by_id(user_id)
     if not existing:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-    db.delete_user(user_id)
+    db.delete_pets_for_user(user_id)
+    auth_db.delete_user(user_id)
     logger.info(f"Admin {admin.username} deleted user {existing['username']} (id={user_id})")
     return {"message": f"User {existing['username']} deleted"}
 

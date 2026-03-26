@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from .auth.database import AuthDatabase
     from .ducklake_database import DuckLakeGeneDatabase
 
 # Load environment variables from .env file
@@ -124,3 +125,11 @@ def create_database_instance() -> "DuckLakeGeneDatabase":
         data_path=config.data_path,
         ducklake_name=config.ducklake_name,
     )
+
+
+def create_auth_database_instance() -> "AuthDatabase":
+    """Create SQLite auth database instance."""
+    from .auth.database import AuthDatabase
+
+    db_path = os.getenv("GORGONETICS_AUTH_DB_PATH", "users.sqlite")
+    return AuthDatabase(db_path=db_path)
