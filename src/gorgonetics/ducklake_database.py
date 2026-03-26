@@ -8,6 +8,7 @@ catalog database backends (PostgreSQL, MySQL, SQLite, DuckDB).
 import hashlib
 import json
 import logging
+import os
 import tempfile
 from datetime import datetime
 from pathlib import Path
@@ -79,6 +80,11 @@ class DuckLakeGeneDatabase:
         """Establish connection to DuckDB and install required extensions."""
         try:
             self.conn = duckdb.connect()
+
+            # Constrain DuckDB memory on small VMs (default: no limit)
+            memory_limit = os.environ.get("DUCKDB_MEMORY_LIMIT")
+            if memory_limit:
+                self.conn.execute(f"SET memory_limit = '{memory_limit}'")
 
             # Install and load DuckLake extension
             self.conn.execute("INSTALL ducklake")
