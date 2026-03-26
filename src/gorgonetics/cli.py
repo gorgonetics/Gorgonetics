@@ -490,11 +490,11 @@ def delete_user(
         # Delete pets from DuckLake, then user from auth DB
         db = create_database_instance()
         try:
-            db.delete_pets_for_user(user["id"])
+            db.delete_pets_for_user(user.id)
         finally:
             db.close()
 
-        auth_db.delete_user(user["id"])
+        auth_db.delete_user(user.id)
         console.print(f"[green]* Deleted user '{username}' and all their data.[/green]")
     finally:
         auth_db.close()
@@ -520,7 +520,7 @@ def set_role(
             console.print(f"[red]User '{username}' not found.[/red]")
             raise typer.Exit(1)
 
-        auth_db.update_user(user["id"], role=role)
+        auth_db.update_user(user.id, role=role)
         console.print(f"[green]* User '{username}' role changed to '{role}'.[/green]")
     finally:
         auth_db.close()

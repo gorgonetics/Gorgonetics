@@ -183,6 +183,6 @@ def admin_client(test_database: "DuckLakeGeneDatabase", test_auth_db: "AuthDatab
 
     client.request = authenticated_request
     client.auth_headers = auth_headers
-    client.admin_user_id = user["id"]
+    client.admin_user_id = user.id
 
     yield client

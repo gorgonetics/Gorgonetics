@@ -60,7 +60,7 @@ def _insert_user(username: str, password: str, role: str = UserRole.USER) -> int
     auth_db = create_auth_database_instance()
     try:
         user = auth_db.create_user(username, password_hash, role=role)
-        return user["id"]
+        return user.id
     finally:
         auth_db.close()
 

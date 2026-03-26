@@ -984,8 +984,7 @@ async def list_users(
     auth_db: "AuthDatabase" = Depends(get_auth_database),
 ) -> list[User]:
     """List all users (admin-only)."""
-    rows = auth_db.get_all_users()
-    return [User(**row) for row in rows]
+    return auth_db.get_all_users()
 
 
 @app.get("/api/admin/users/{user_id}", response_model=User)
@@ -995,10 +994,10 @@ async def get_user(
     auth_db: "AuthDatabase" = Depends(get_auth_database),
 ) -> User:
     """Get a single user by ID (admin-only)."""
-    row = auth_db.get_user_by_id(user_id)
-    if not row:
+    user = auth_db.get_user_by_id(user_id)
+    if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-    return User(**row)
+    return user
 
 
 @app.patch("/api/admin/users/{user_id}", response_model=User)
@@ -1017,10 +1016,8 @@ async def update_user(
     updated = auth_db.update_user(user_id, **user_update.model_dump(exclude_none=True))
     if not updated:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to update user")
-    logger.info(
-        f"Admin {admin.username} updated user {existing['username']}: {user_update.model_dump(exclude_none=True)}"
-    )
-    return User(**updated)
+    logger.info(f"Admin {admin.username} updated user {existing.username}: {user_update.model_dump(exclude_none=True)}")
+    return updated
 
 
 @app.delete("/api/admin/users/{user_id}")
@@ -1038,8 +1035,8 @@ async def delete_user(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     db.delete_pets_for_user(user_id)
     auth_db.delete_user(user_id)
-    logger.info(f"Admin {admin.username} deleted user {existing['username']} (id={user_id})")
-    return {"message": f"User {existing['username']} deleted"}
+    logger.info(f"Admin {admin.username} deleted user {existing.username} (id={user_id})")
+    return {"message": f"User {existing.username} deleted"}
 
 
 @app.get("/health")

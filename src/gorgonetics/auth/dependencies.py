@@ -18,8 +18,7 @@ def _fetch_active_user(username: str) -> User | None:
     """Look up an active user by username, returning None if not found."""
     auth_db = create_auth_database_instance()
     try:
-        row = auth_db.get_active_user_by_username(username)
-        return User(**row) if row else None
+        return auth_db.get_active_user_by_username(username)
     except Exception:
         return None
     finally:
@@ -80,8 +79,7 @@ def get_user_by_username(username: str) -> UserInDB | None:
     """Get user by username from database (includes password hash)."""
     auth_db = create_auth_database_instance()
     try:
-        row = auth_db.get_user_by_username(username)
-        return UserInDB(**row) if row else None
+        return auth_db.get_user_by_username(username)
     except Exception:
         return None
     finally:
@@ -92,8 +90,7 @@ def create_user_in_db(user_create: "UserCreate", password_hash: str, role: UserR
     """Create a new user in the database."""
     auth_db = create_auth_database_instance()
     try:
-        row = auth_db.create_user(user_create.username, password_hash, role=role)
-        return User(**row)
+        return auth_db.create_user(user_create.username, password_hash, role=role)
     except Exception as e:
         raise Exception(f"Failed to create user: {e}") from e
     finally:

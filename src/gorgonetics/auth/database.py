@@ -5,6 +5,8 @@ import sqlite3
 from datetime import datetime
 from typing import Any
 
+from gorgonetics.auth.models import User, UserInDB
+
 logger = logging.getLogger(__name__)
 
 
@@ -48,32 +50,32 @@ class AuthDatabase:
         self.conn.commit()
 
     @staticmethod
-    def _row_to_user(row: sqlite3.Row) -> dict[str, Any]:
-        """Convert a Row to a user dict with proper types."""
-        return {
-            "id": row["id"],
-            "username": row["username"],
-            "role": row["role"],
-            "is_active": bool(row["is_active"]),
-            "created_at": row["created_at"],
-            "updated_at": row["updated_at"],
-        }
+    def _row_to_user(row: sqlite3.Row) -> User:
+        """Convert a Row to a User model."""
+        return User(
+            id=row["id"],
+            username=row["username"],
+            role=row["role"],
+            is_active=bool(row["is_active"]),
+            created_at=row["created_at"],
+            updated_at=row["updated_at"],
+        )
 
     @staticmethod
-    def _row_to_user_in_db(row: sqlite3.Row) -> dict[str, Any]:
-        """Convert a Row to a user dict including password_hash."""
-        return {
-            "id": row["id"],
-            "username": row["username"],
-            "password_hash": row["password_hash"],
-            "role": row["role"],
-            "is_active": bool(row["is_active"]),
-            "created_at": row["created_at"],
-            "updated_at": row["updated_at"],
-        }
+    def _row_to_user_in_db(row: sqlite3.Row) -> UserInDB:
+        """Convert a Row to a UserInDB model (includes password_hash)."""
+        return UserInDB(
+            id=row["id"],
+            username=row["username"],
+            password_hash=row["password_hash"],
+            role=row["role"],
+            is_active=bool(row["is_active"]),
+            created_at=row["created_at"],
+            updated_at=row["updated_at"],
+        )
 
-    def create_user(self, username: str, password_hash: str, role: str = "user") -> dict[str, Any]:
-        """Create a new user. Returns the created user dict."""
+    def create_user(self, username: str, password_hash: str, role: str = "user") -> User:
+        """Create a new user. Returns the created User."""
         now = datetime.now().isoformat()
         cursor = self.conn.execute(
             "INSERT INTO users (username, password_hash, role, is_active, created_at, updated_at) VALUES (?, ?, ?, 1, ?, ?)",
@@ -83,34 +85,34 @@ class AuthDatabase:
         row = self.conn.execute("SELECT * FROM users WHERE id = ?", (cursor.lastrowid,)).fetchone()
         return self._row_to_user(row)
 
-    def get_user_by_username(self, username: str) -> dict[str, Any] | None:
+    def get_user_by_username(self, username: str) -> UserInDB | None:
         """Get user by username including password_hash (for auth verification)."""
         row = self.conn.execute("SELECT * FROM users WHERE username = ?", (username,)).fetchone()
         if not row:
             return None
         return self._row_to_user_in_db(row)
 
-    def get_active_user_by_username(self, username: str) -> dict[str, Any] | None:
+    def get_active_user_by_username(self, username: str) -> User | None:
         """Get an active user by username (no password_hash)."""
         row = self.conn.execute("SELECT * FROM users WHERE username = ? AND is_active = 1", (username,)).fetchone()
         if not row:
             return None
         return self._row_to_user(row)
 
-    def get_user_by_id(self, user_id: int) -> dict[str, Any] | None:
+    def get_user_by_id(self, user_id: int) -> User | None:
         """Get user by ID (no password_hash)."""
         row = self.conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
         if not row:
             return None
         return self._row_to_user(row)
 
-    def get_all_users(self) -> list[dict[str, Any]]:
+    def get_all_users(self) -> list[User]:
         """Return all users (no password_hashes)."""
         rows = self.conn.execute("SELECT * FROM users ORDER BY id").fetchall()
         return [self._row_to_user(row) for row in rows]
 
-    def update_user(self, user_id: int, **fields: Any) -> dict[str, Any] | None:
-        """Update user fields (role, is_active). Returns updated user or None."""
+    def update_user(self, user_id: int, **fields: Any) -> User | None:
+        """Update user fields (role, is_active). Returns updated User or None."""
         allowed = {"role", "is_active"}
         updates = {k: v for k, v in fields.items() if k in allowed and v is not None}
         if not updates:
