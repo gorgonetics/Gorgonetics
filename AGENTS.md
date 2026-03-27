@@ -14,13 +14,14 @@ Gorgonetics is a web-based genetic breeding tool for Project Gorgon pets. Python
 - **`web_app.py`**: FastAPI REST API with JWT auth
 - **`models.py`**: Pydantic data models (Gene, Genome, Pet)
 - **`ducklake_database.py`**: DuckLake database with SQLite catalog + Parquet storage
-- **`database_config.py`**: Connection factory (`create_database_instance()`)
+- **`database_config.py`**: Connection factories (`create_database_instance()`, `create_auth_database_instance()`)
 - **`genome_parser.py`**: Parses Project Gorgon pet genome text files
 - **`attribute_config.py`**: Species-specific attribute definitions (beewasp, horse)
 - **`constants.py`**: Shared enums (UserRole, Gender) and constants
 - **`auth/`**: JWT authentication module
+  - `database.py`: SQLite-backed auth store (`users.sqlite`) for users and sessions
   - `dependencies.py`: FastAPI auth dependencies (`get_current_active_user`, etc.)
-  - `models.py`: User, Token, TokenData models
+  - `models.py`: User, UserUpdate, Token, TokenData models
   - `utils.py`: Password hashing, token creation/verification
 
 ### Frontend (SvelteKit)
@@ -37,9 +38,9 @@ Gorgonetics is a web-based genetic breeding tool for Project Gorgon pets. Python
 - **`src/lib/utils/apiUtils.js`**: Species normalization, cached API config loaders
 
 ### Database
-- DuckLake with SQLite catalog (`metadata.sqlite`) + Parquet data files
-- Tables: `users`, `genes`, `pets` (pets have per-user isolation)
-- JWT auth with `admin` and `user` roles
+- **Auth**: SQLite (`users.sqlite`) — users and sessions (ACID transactional)
+- **Data**: DuckLake with SQLite catalog (`metadata.sqlite`) + Parquet files — genes and pets
+- JWT auth with `admin` and `user` roles; registration is invite-only (admin creates accounts)
 
 ## Development Setup
 
@@ -71,8 +72,11 @@ pnpm run test:client              # Frontend tests (vitest)
 ./test.sh quick                   # Integration tests
 ./test.sh all                     # Full suite
 
-# Admin
+# Admin / user management
 uv run gorgonetics create-admin --username X --password Y
+uv run gorgonetics list-users
+uv run gorgonetics set-role --username X --role admin
+uv run gorgonetics delete-user --username X
 uv run gorgonetics db-status
 ```
 

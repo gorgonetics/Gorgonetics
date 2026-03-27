@@ -29,7 +29,10 @@ Gorgonetics automatically creates and manages the DuckLake database for you. No 
 Create a `.env` file or set environment variables:
 
 ```bash
-# DuckLake settings
+# Auth database (separate SQLite for users/sessions)
+GORGONETICS_AUTH_DB_PATH=users.sqlite
+
+# DuckLake settings (gene/pet data)
 GORGONETICS_CATALOG_PATH=metadata.sqlite
 GORGONETICS_DATA_PATH=data
 GORGONETICS_DUCKLAKE_NAME=gorgonetics_lake
@@ -37,6 +40,9 @@ GORGONETICS_DUCKLAKE_NAME=gorgonetics_lake
 # Multi-user settings
 GORGONETICS_CONCURRENT_ACCESS=true
 GORGONETICS_SESSION_TIMEOUT=30
+
+# DuckDB memory limit (set on constrained VMs, e.g. 256MB)
+# DUCKDB_MEMORY_LIMIT=256MB
 ```
 
 ### 3. Start Using Gorgonetics
@@ -60,13 +66,15 @@ Your Gorgonetics project will have:
 
 ```
 gorgonetics/
-├── metadata.sqlite          # SQLite catalog database
-├── data/                   # Parquet data directory
-│   ├── genes/             # Gene data tables
-│   ├── pets/              # Pet data tables
-│   └── users/             # User data tables
-└── backups/               # Optional backups
+├── users.sqlite             # Auth database (users, sessions) — SQLite
+├── metadata.sqlite          # DuckLake catalog (schema, snapshots)
+├── data/                    # Parquet data directory
+│   ├── <hash>.parquet       # Gene data
+│   └── <hash>.parquet       # Pet data
+└── backups/                 # Optional backups
 ```
+
+> **Note**: User and session data is stored separately in `users.sqlite` (a plain SQLite database with ACID transactions), not in DuckLake. This avoids Parquet snapshot bloat from frequent auth operations.
 
 ## Multi-User Features
 

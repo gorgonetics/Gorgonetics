@@ -296,12 +296,13 @@ Downloads chromosome data as a JSON file.
 
 ### Authentication Endpoints
 
-#### Register User
+#### Register User (Admin-only)
 ```http
 POST /api/auth/register
+Authorization: Bearer <admin-access-token>
 ```
 
-Register a new user account.
+Create a new user account. Requires admin authentication (invite-only registration).
 
 **Request Body:**
 ```json
@@ -326,6 +327,8 @@ Register a new user account.
 **Status Codes:**
 - `200 OK` - User created successfully
 - `400 Bad Request` - Username already exists
+- `401 Unauthorized` - Not authenticated
+- `403 Forbidden` - Not an admin
 - `500 Internal Server Error` - Registration failed
 
 ---
@@ -828,9 +831,14 @@ All pet management and gene editing endpoints require authentication.
 
 ### Admin Endpoints
 
-Some endpoints require admin role:
+The following endpoints require admin role:
+- User registration (`POST /api/auth/register`) — invite-only
 - Bulk gene updates (`PUT /api/genes`)
-- User management operations
+- Single gene updates (`PUT /api/gene`)
+- List users (`GET /api/admin/users`)
+- Get user (`GET /api/admin/users/{user_id}`)
+- Update user role/status (`PATCH /api/admin/users/{user_id}`)
+- Delete user (`DELETE /api/admin/users/{user_id}`)
 
 ### Authentication Headers
 
