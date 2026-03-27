@@ -44,15 +44,16 @@ The Vite dev server proxies `/api` and `/static` requests to the backend automat
 
 | File | Purpose |
 |------|---------|
-| `cli.py` | Typer CLI: `web`, `populate`, `db-status`, `db-snapshots`, `db-cleanup`, `create-admin` |
+| `cli.py` | Typer CLI: `web`, `populate`, `db-status`, `db-snapshots`, `db-cleanup`, `create-admin`, `list-users`, `set-role`, `delete-user` |
 | `web_app.py` | FastAPI application with REST endpoints, auth middleware, rate limiting |
 | `models.py` | Pydantic models for genes, pets, genomes |
 | `ducklake_database.py` | `DuckLakeGeneDatabase` -- all database operations |
-| `database_config.py` | `DatabaseConfig` dataclass, `create_database_instance()` factory |
+| `database_config.py` | `DatabaseConfig` dataclass, `create_database_instance()` and `create_auth_database_instance()` factories |
 | `genome_parser.py` | Parses Project Gorgon pet genome text files |
 | `attribute_config.py` | Dynamic attribute system (core + species-specific attributes) |
 | `constants.py` | Enums and constants (`Gender`, `UserRole`, `DEMO_USER_ID`) |
-| `auth/models.py` | Pydantic models: `User`, `UserCreate`, `UserLogin`, `Token` |
+| `auth/database.py` | `AuthDatabase` -- SQLite-backed user/session store (`users.sqlite`) |
+| `auth/models.py` | Pydantic models: `User`, `UserCreate`, `UserUpdate`, `UserLogin`, `Token` |
 | `auth/utils.py` | JWT creation/verification, password hashing (bcrypt) |
 | `auth/dependencies.py` | FastAPI dependencies: `get_current_active_user`, `require_admin` |
 
@@ -100,6 +101,9 @@ uv run gorgonetics db-status              # Show database config and status
 uv run gorgonetics db-snapshots           # List DuckLake version snapshots
 uv run gorgonetics db-cleanup             # Clean up old Parquet files (dry run)
 uv run gorgonetics create-admin           # Create an admin user
+uv run gorgonetics list-users             # List all registered users
+uv run gorgonetics set-role               # Change a user's role
+uv run gorgonetics delete-user            # Delete a user and their data
 ```
 
 ### Frontend
@@ -259,7 +263,9 @@ tests/
 ### Key test fixtures (from `conftest.py`)
 
 - `test_database` -- creates an isolated DuckLake database in a temp directory per test, with environment variables pointed at the temp paths. Cleans up after the test.
-- `authenticated_client` -- a `FastAPI.TestClient` with a pre-created user and valid JWT token baked into every request.
+- `test_auth_db` -- creates an isolated SQLite auth database in the same temp directory as `test_database`.
+- `authenticated_client` -- a `FastAPI.TestClient` with a pre-created regular user and valid JWT token baked into every request.
+- `admin_client` -- a `FastAPI.TestClient` with a pre-created admin user and valid JWT token.
 - `sample_pet_file` -- a temporary JSON genome file for upload tests.
 - `runner` / `cli_app` -- Typer `CliRunner` and app instance for CLI tests.
 

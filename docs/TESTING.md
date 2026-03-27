@@ -52,8 +52,9 @@ pnpm run test:all
 ## Database Isolation
 
 Tests use temporary databases to prevent production data contamination:
-- Test database created in `conftest.py` 
-- Environment variables override production paths
+- DuckLake test database created via `test_database` fixture in `conftest.py`
+- SQLite auth database created via `test_auth_db` fixture in `conftest.py`
+- Environment variables (`GORGONETICS_CATALOG_PATH`, `GORGONETICS_DATA_PATH`, `GORGONETICS_AUTH_DB_PATH`) override production paths
 - Automatic cleanup after each test
 
 ## Scripts

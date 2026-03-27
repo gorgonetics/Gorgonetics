@@ -187,7 +187,7 @@ The Sidebar controls which view is active by calling `appState.switchTab()`, `ap
 
 **`LoginForm.svelte`** -- Username/password form. Calls `authStore.login()` and dispatches `loginSuccess` on success.
 
-**`RegisterForm.svelte`** -- Registration form. Calls `authStore.register()` (which auto-logs-in on success) and dispatches `registerSuccess`.
+**`RegisterForm.svelte`** -- Registration form. Note: registration is admin-only (invite-only). This form is used by admins to create new user accounts. Calls `authStore.register()` and dispatches `registerSuccess`.
 
 **`PetUploadForm.svelte`** -- Flowbite `Dropzone` for `.txt` genome files, plus optional name and gender fields. Calls `appState.uploadPet()` on file selection.
 

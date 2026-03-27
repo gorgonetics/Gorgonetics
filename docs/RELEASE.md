@@ -32,6 +32,7 @@ container
 ├── /app/assets/        Read-only gene template JSON files
 ├── /app/static/svelte/ Pre-built frontend (served by FastAPI)
 └── /app/data/          ← MUST be a persistent volume
+    ├── users.sqlite     Auth database (users, sessions)
     ├── metadata.sqlite  DuckLake catalog (schema, snapshot log, file manifest)
     └── *.parquet        Immutable data files written by DuckLake
 ```
@@ -140,10 +141,11 @@ The `/app/data` directory contains two distinct but inseparable parts:
 
 | Path | What it is | Consequence of losing it |
 |---|---|---|
+| `/app/data/users.sqlite` | Auth database — user accounts, sessions, password hashes | All users must be re-created |
 | `/app/data/metadata.sqlite` | DuckLake catalog — maps snapshots to Parquet files, tracks schema versions | Cannot read any data (Parquet files are orphaned) |
-| `/app/data/*.parquet` | Data files for all tables (genes, pets, users) | Data loss |
+| `/app/data/*.parquet` | Data files for genes and pets | Gene edits and pet data lost |
 
-**Both must be persisted together.** A backup of one without the other is not usable.
+**All three must be persisted together.** A backup of one without the others is not usable.
 
 ### How to persist: persistent volume
 
@@ -205,6 +207,7 @@ docker run -d \
   -v gorgonetics_data:/app/data \
   -e GORGONETICS_ENV=production \
   -e GORGONETICS_JWT_SECRET_KEY=<strong-random-secret> \
+  -e GORGONETICS_AUTH_DB_PATH=/app/data/users.sqlite \
   -e GORGONETICS_CATALOG_PATH=/app/data/metadata.sqlite \
   -e GORGONETICS_DATA_PATH=/app/data \
   -e GORGONETICS_LOAD_SAMPLE_DATA=true \
@@ -224,6 +227,7 @@ docker run -d \
 
 [env]
   GORGONETICS_ENV = "production"
+  GORGONETICS_AUTH_DB_PATH = "/app/data/users.sqlite"
   GORGONETICS_CATALOG_PATH = "/app/data/metadata.sqlite"
   GORGONETICS_DATA_PATH = "/app/data"
   GORGONETICS_LOAD_SAMPLE_DATA = "true"
@@ -388,8 +392,10 @@ There is no built-in scheduler. For cloud deployments, set up a cron job on a se
 | `GORGONETICS_JWT_SECRET_KEY` | Yes (prod) | weak dev key | HS256 signing key. Generate: `python -c "import secrets; print(secrets.token_hex(32))"` |
 | `GORGONETICS_JWT_ACCESS_TOKEN_EXPIRE_MINUTES` | No | `30` | Access token lifetime |
 | `GORGONETICS_JWT_REFRESH_TOKEN_EXPIRE_DAYS` | No | `7` | Refresh token lifetime |
-| `GORGONETICS_CATALOG_PATH` | Yes | `metadata.sqlite` | Absolute path to SQLite catalog file inside the container |
-| `GORGONETICS_DATA_PATH` | Yes | `data` | Absolute path to Parquet data directory inside the container |
+| `GORGONETICS_AUTH_DB_PATH` | Yes | `users.sqlite` | Path to the SQLite auth database (users, sessions) |
+| `GORGONETICS_CATALOG_PATH` | Yes | `metadata.sqlite` | Path to the DuckLake SQLite catalog file |
+| `GORGONETICS_DATA_PATH` | Yes | `data` | Path to the Parquet data directory |
+| `DUCKDB_MEMORY_LIMIT` | No | *(none)* | DuckDB memory cap (e.g. `256MB`). Set on constrained VMs to prevent OOM |
 | `GORGONETICS_DUCKLAKE_NAME` | No | `gorgonetics_lake` | DuckLake attachment name |
 | `GORGONETICS_CORS_ORIGINS` | No | `*` | Comma-separated list of allowed origins. Lock this down in production |
 | `GORGONETICS_LOAD_SAMPLE_DATA` | No | `false` | Set to `true` to auto-populate gene data from `assets/` on first start |

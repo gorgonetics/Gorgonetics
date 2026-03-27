@@ -62,13 +62,18 @@ Visit `http://localhost:5173` to start editing genes. The frontend automatically
 # Create an admin user
 uv run gorgonetics create-admin --username admin --password yourpassword
 
+# Manage users (admin creates accounts — no public self-registration)
+uv run gorgonetics list-users
+uv run gorgonetics set-role --username someone --role admin
+uv run gorgonetics delete-user --username someone
+
 # Check database status
 uv run gorgonetics db-status
 ```
 
 ## Basic Workflow
 
-1. **Register / Log in**: Create an account or sign in via the auth pages
+1. **Log in**: Sign in with credentials provided by an admin (registration is invite-only)
 2. **Select Animal Type**: Choose from available species (Beewasp, Horse)
 3. **Select Chromosome**: Pick a chromosome to edit (chr01, chr02, etc.)
 4. **Edit Properties**: Modify effects, appearance, and notes
@@ -98,7 +103,7 @@ uv run ruff check           # Linting
 uv run ruff format --check  # Formatting check
 uv run ty check src/gorgonetics # Type checking
 
-# Python tests (96 tests)
+# Python tests (109 tests)
 uv run pytest
 
 # Frontend linting
@@ -115,11 +120,14 @@ pnpm run test:client
 ### CLI Reference
 
 ```bash
-uv run gorgonetics --help       # Show all commands
-uv run gorgonetics populate     # Populate DB with sample data
-uv run gorgonetics web          # Start backend API server
-uv run gorgonetics db-status    # Show database status
-uv run gorgonetics create-admin # Create an admin user
+uv run gorgonetics --help        # Show all commands
+uv run gorgonetics populate      # Populate DB with sample data
+uv run gorgonetics web           # Start backend API server
+uv run gorgonetics db-status     # Show database status
+uv run gorgonetics create-admin  # Create an admin user
+uv run gorgonetics list-users    # List all users
+uv run gorgonetics set-role      # Change a user's role
+uv run gorgonetics delete-user   # Delete a user
 ```
 
 ## Technology Stack
@@ -127,7 +135,8 @@ uv run gorgonetics create-admin # Create an admin user
 | Layer | Technology |
 |-------|-----------|
 | **Backend** | [FastAPI](https://fastapi.tiangolo.com/) -- high-performance async web API |
-| **Database** | [DuckLake](https://ducklake.select/) with SQLite catalog -- versioned analytics storage |
+| **Auth Database** | SQLite (`users.sqlite`) -- transactional user/session store |
+| **Data Database** | [DuckLake](https://ducklake.select/) with SQLite catalog -- versioned analytics storage |
 | **Frontend** | [SvelteKit](https://svelte.dev/) + [Svelte 5](https://svelte.dev/) -- file-based routing, client-rendered SPA framework |
 | **UI Components** | [Flowbite Svelte](https://flowbite-svelte.com/) + [Tailwind CSS](https://tailwindcss.com/) |
 | **Build Tool** | [Vite](https://vitejs.dev/) -- fast dev server and bundler |
