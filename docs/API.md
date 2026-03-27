@@ -434,6 +434,89 @@ Exchange a valid refresh token for a new access/refresh token pair.
 
 ---
 
+### Admin User Management
+
+All admin endpoints require admin role (`Authorization: Bearer <admin-token>`).
+
+#### List Users
+```http
+GET /api/admin/users
+```
+
+Returns all registered users.
+
+**Response:**
+```json
+[
+  {
+    "id": 1,
+    "username": "admin",
+    "role": "admin",
+    "is_active": true,
+    "created_at": "2025-01-01T00:00:00",
+    "updated_at": "2025-01-01T00:00:00"
+  }
+]
+```
+
+**Status Codes:**
+- `200 OK` - Success
+- `403 Forbidden` - Not an admin
+
+---
+
+#### Get User
+```http
+GET /api/admin/users/{user_id}
+```
+
+Returns a single user by ID.
+
+**Status Codes:**
+- `200 OK` - Success
+- `403 Forbidden` - Not an admin
+- `404 Not Found` - User not found
+
+---
+
+#### Update User
+```http
+PATCH /api/admin/users/{user_id}
+```
+
+Update a user's role or active status. Cannot modify your own account.
+
+**Request Body** (all fields optional):
+```json
+{
+  "role": "admin",
+  "is_active": false
+}
+```
+
+**Status Codes:**
+- `200 OK` - User updated
+- `400 Bad Request` - Cannot modify your own account
+- `403 Forbidden` - Not an admin
+- `404 Not Found` - User not found
+
+---
+
+#### Delete User
+```http
+DELETE /api/admin/users/{user_id}
+```
+
+Delete a user and all their associated data (pets, sessions). Cannot delete your own account.
+
+**Status Codes:**
+- `200 OK` - User deleted
+- `400 Bad Request` - Cannot delete your own account
+- `403 Forbidden` - Not an admin
+- `404 Not Found` - User not found
+
+---
+
 ### Pets
 
 #### Get All Pets
@@ -807,15 +890,18 @@ All error responses follow this format:
 
 ## Rate Limiting
 
-Currently no rate limiting is implemented. For production use, consider implementing rate limiting based on your requirements.
+Rate limiting is implemented via slowapi:
+- `POST /api/auth/register` — 3 requests/minute
+- `POST /api/auth/login` — 5 requests/minute
 
 ## Authentication
 
-The API uses JWT (JSON Web Token) based authentication with Bearer tokens.
+The API uses JWT (JSON Web Token) based authentication with Bearer tokens. Registration is invite-only — an admin must create new user accounts.
 
 ### Authentication Flow
 
-1. **Register** or **Login** to receive access and refresh tokens
+1. **Admin creates account** for the user via `POST /api/auth/register` (or CLI)
+2. **User logs in** to receive access and refresh tokens
 2. **Include Bearer token** in Authorization header for protected endpoints
 3. **Refresh tokens** when access token expires
 
@@ -823,11 +909,17 @@ The API uses JWT (JSON Web Token) based authentication with Bearer tokens.
 
 Most endpoints require authentication. Public endpoints:
 - `/api/animal-types`
-- `/api/chromosomes/{animal_type}`  
+- `/api/chromosomes/{animal_type}`
 - `/api/genes/{animal_type}/{chromosome}`
+- `/api/gene/{animal_type}/{gene}`
 - `/api/effect-options`
+- `/api/effect-options/{species}`
+- `/api/attribute-config/{species}`
+- `/api/appearance-config/{species}`
+- `/api/pets` (unauthenticated users see demo pets only)
+- `/health`
 
-All pet management and gene editing endpoints require authentication.
+All pet mutation, gene editing, and admin endpoints require authentication.
 
 ### Admin Endpoints
 

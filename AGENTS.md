@@ -67,7 +67,7 @@ uv run ty check src/gorgonetics   # Type checking
 pnpm run lint:ci                  # ESLint (zero warnings)
 
 # Tests
-uv run pytest                     # Python tests (96 tests)
+uv run pytest                     # Python tests (109 tests)
 pnpm run test:client              # Frontend tests (vitest)
 ./test.sh quick                   # Integration tests
 ./test.sh all                     # Full suite

@@ -7,7 +7,7 @@ The Gorgonetics frontend is a **SvelteKit** single-page application for managing
 ## Technology Stack
 
 - **SvelteKit 2** with **Svelte 5** -- file-based routing, `$lib` alias, static adapter
-- **Vite 7** -- dev server with API proxy to `localhost:8000`
+- **Vite 8** -- dev server with API proxy to `localhost:8000`
 - **Tailwind CSS 4** -- via `@tailwindcss/vite` plugin
 - **Flowbite Svelte** -- UI primitives (Modal, Dropzone, Input, Select, Label, Button)
 - **@flowbite-svelte-plugins/datatable** -- sortable/searchable pet data table
