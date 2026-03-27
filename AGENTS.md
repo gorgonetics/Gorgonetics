@@ -99,6 +99,18 @@ uv run gorgonetics db-status
 - **CSS**: Tailwind CSS v4 via `@import 'tailwindcss'` in app.css; Flowbite Svelte for components
 - **No raw fetch**: All API calls must go through the ApiClient to ensure auth headers are attached
 
+### Documentation
+When adding or changing functionality (new endpoints, CLI commands, env vars, database schema, etc.), update **all** affected documentation in the same commit or PR. Key docs to check:
+- `AGENTS.md` — architecture, CLI commands, code standards
+- `README.md` — user-facing workflow, CLI reference, tech stack
+- `docs/API.md` — endpoint docs, public/admin endpoint lists, auth flow
+- `docs/DATABASE.md` — schema, env vars, CLI commands, query patterns
+- `docs/DEVELOPMENT.md` — backend file table, commands, test fixtures
+- `docs/RELEASE.md` — architecture diagram, env var reference, deploy commands
+- `.env.example` / `docker-compose*.yml` — new env vars
+
+Do not leave documentation updates for a follow-up PR.
+
 ### Quality Gates (enforced by CI)
 After modifying **any** file, run the relevant linters and fix all errors before committing:
 ```bash
