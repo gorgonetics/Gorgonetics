@@ -1,0 +1,198 @@
+[
+  {
+    "gene": "14A1",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Attributes (Kb)",
+    "notes": ""
+  },
+  {
+    "gene": "14A2",
+    "effectDominant": "None",
+    "effectRecessive": "Temperament+",
+    "appearance": "Attributes (Kb)",
+    "notes": ""
+  },
+  {
+    "gene": "14A3",
+    "effectDominant": "Enthusiasm+",
+    "effectRecessive": "None",
+    "appearance": "Attributes (Kb)",
+    "notes": ""
+  },
+  {
+    "gene": "14A4",
+    "effectDominant": "None",
+    "effectRecessive": "Friendliness-",
+    "appearance": "Attributes (Kb)",
+    "notes": ""
+  },
+  {
+    "gene": "14B1",
+    "effectDominant": "None",
+    "effectRecessive": "Virility+",
+    "appearance": "Attributes (Kb)",
+    "notes": ""
+  },
+  {
+    "gene": "14B2",
+    "effectDominant": "None",
+    "effectRecessive": "Toughness-",
+    "appearance": "Attributes (Kb)",
+    "notes": ""
+  },
+  {
+    "gene": "14B3",
+    "effectDominant": "Friendliness+",
+    "effectRecessive": "None",
+    "appearance": "Attributes (Kb)",
+    "notes": ""
+  },
+  {
+    "gene": "14B4",
+    "effectDominant": "Temperament+",
+    "effectRecessive": "None",
+    "appearance": "Attributes (Kb)",
+    "notes": ""
+  },
+  {
+    "gene": "14C1",
+    "effectDominant": "None",
+    "effectRecessive": "Toughness+",
+    "appearance": "Attributes (Kb)",
+    "notes": ""
+  },
+  {
+    "gene": "14C2",
+    "effectDominant": "None",
+    "effectRecessive": "Virility-",
+    "appearance": "Attributes (Kb)",
+    "notes": ""
+  },
+  {
+    "gene": "14C3",
+    "effectDominant": "Intelligence-",
+    "effectRecessive": "None",
+    "appearance": "Attributes (Kb)",
+    "notes": ""
+  },
+  {
+    "gene": "14C4",
+    "effectDominant": "None",
+    "effectRecessive": "Ruggedness+",
+    "appearance": "Attributes (Kb)",
+    "notes": ""
+  },
+  {
+    "gene": "14D1",
+    "effectDominant": "None",
+    "effectRecessive": "Enthusiasm+",
+    "appearance": "Attributes (Kb)",
+    "notes": ""
+  },
+  {
+    "gene": "14D2",
+    "effectDominant": "Enthusiasm+",
+    "effectRecessive": "None",
+    "appearance": "Attributes (Kb)",
+    "notes": ""
+  },
+  {
+    "gene": "14D3",
+    "effectDominant": "None",
+    "effectRecessive": "Friendliness+",
+    "appearance": "Attributes (Kb)",
+    "notes": ""
+  },
+  {
+    "gene": "14D4",
+    "effectDominant": "None",
+    "effectRecessive": "Virility+",
+    "appearance": "Attributes (Kb)",
+    "notes": ""
+  },
+  {
+    "gene": "14E1",
+    "effectDominant": "None",
+    "effectRecessive": "Intelligence+",
+    "appearance": "Attributes (Kb)",
+    "notes": ""
+  },
+  {
+    "gene": "14E2",
+    "effectDominant": "Virility-",
+    "effectRecessive": "None",
+    "appearance": "Attributes (Kb)",
+    "notes": ""
+  },
+  {
+    "gene": "14E3",
+    "effectDominant": "None",
+    "effectRecessive": "Friendliness+",
+    "appearance": "Attributes (Kb)",
+    "notes": ""
+  },
+  {
+    "gene": "14E4",
+    "effectDominant": "Toughness+",
+    "effectRecessive": "None",
+    "appearance": "Attributes (Kb)",
+    "notes": ""
+  },
+  {
+    "gene": "14F1",
+    "effectDominant": "None",
+    "effectRecessive": "Virility-",
+    "appearance": "Attributes (Kb)",
+    "notes": ""
+  },
+  {
+    "gene": "14F2",
+    "effectDominant": "Temperament+",
+    "effectRecessive": "None",
+    "appearance": "Attributes (Kb)",
+    "notes": ""
+  },
+  {
+    "gene": "14F3",
+    "effectDominant": "Intelligence+",
+    "effectRecessive": "None",
+    "appearance": "Attributes (Kb)",
+    "notes": ""
+  },
+  {
+    "gene": "14F4",
+    "effectDominant": "Enthusiasm+",
+    "effectRecessive": "None",
+    "appearance": "Attributes (Kb)",
+    "notes": ""
+  },
+  {
+    "gene": "14G1",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "None",
+    "notes": ""
+  },
+  {
+    "gene": "14G2",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "None",
+    "notes": ""
+  },
+  {
+    "gene": "14G3",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "None",
+    "notes": ""
+  },
+  {
+    "gene": "14G4",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "None",
+    "notes": ""
+  }
+]

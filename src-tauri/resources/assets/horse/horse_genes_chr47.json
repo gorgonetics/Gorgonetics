@@ -1,0 +1,296 @@
+[
+  {
+    "gene": "47A1",
+    "effectDominant": "Temperament+",
+    "effectRecessive": "None",
+    "appearance": "Coat (Cl)",
+    "notes": ""
+  },
+  {
+    "gene": "47A2",
+    "effectDominant": "None",
+    "effectRecessive": "Ruggedness+",
+    "appearance": "Coat (Cl)",
+    "notes": ""
+  },
+  {
+    "gene": "47A3",
+    "effectDominant": "None",
+    "effectRecessive": "Friendliness+",
+    "appearance": "Coat (Cl)",
+    "notes": ""
+  },
+  {
+    "gene": "47A4",
+    "effectDominant": "Virility+",
+    "effectRecessive": "None",
+    "appearance": "Coat (Cl)",
+    "notes": ""
+  },
+  {
+    "gene": "47B1",
+    "effectDominant": "None",
+    "effectRecessive": "Toughness+",
+    "appearance": "Coat (Cl)",
+    "notes": ""
+  },
+  {
+    "gene": "47B2",
+    "effectDominant": "None",
+    "effectRecessive": "Enthusiasm+",
+    "appearance": "Coat (Cl)",
+    "notes": ""
+  },
+  {
+    "gene": "47B3",
+    "effectDominant": "Virility+",
+    "effectRecessive": "None",
+    "appearance": "Coat (Cl)",
+    "notes": ""
+  },
+  {
+    "gene": "47B4",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Coat (Cl)",
+    "notes": ""
+  },
+  {
+    "gene": "47C1",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Coat (Cl)",
+    "notes": ""
+  },
+  {
+    "gene": "47C2",
+    "effectDominant": "None",
+    "effectRecessive": "Intelligence+",
+    "appearance": "Coat (Cl)",
+    "notes": ""
+  },
+  {
+    "gene": "47C3",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Coat (Cl)",
+    "notes": ""
+  },
+  {
+    "gene": "47C4",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Coat (Cl)",
+    "notes": ""
+  },
+  {
+    "gene": "47D1",
+    "effectDominant": "Temperament+",
+    "effectRecessive": "None",
+    "appearance": "Coat (Cl)",
+    "notes": ""
+  },
+  {
+    "gene": "47D2",
+    "effectDominant": "None",
+    "effectRecessive": "Friendliness+",
+    "appearance": "Coat (Cl)",
+    "notes": ""
+  },
+  {
+    "gene": "47D3",
+    "effectDominant": "None",
+    "effectRecessive": "Enthusiasm+",
+    "appearance": "Coat (Cl)",
+    "notes": ""
+  },
+  {
+    "gene": "47D4",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Coat (Cl)",
+    "notes": ""
+  },
+  {
+    "gene": "47E1",
+    "effectDominant": "Intelligence+",
+    "effectRecessive": "None",
+    "appearance": "Coat (Cl)",
+    "notes": ""
+  },
+  {
+    "gene": "47E2",
+    "effectDominant": "None",
+    "effectRecessive": "Ruggedness+",
+    "appearance": "Coat (Cl)",
+    "notes": ""
+  },
+  {
+    "gene": "47E3",
+    "effectDominant": "None",
+    "effectRecessive": "Toughness+",
+    "appearance": "Coat (Cl)",
+    "notes": ""
+  },
+  {
+    "gene": "47E4",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Coat (Cl)",
+    "notes": ""
+  },
+  {
+    "gene": "47F1",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Coat (Cl)",
+    "notes": ""
+  },
+  {
+    "gene": "47F2",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Coat (Cl)",
+    "notes": ""
+  },
+  {
+    "gene": "47F3",
+    "effectDominant": "Friendliness+",
+    "effectRecessive": "None",
+    "appearance": "Coat (Cl)",
+    "notes": ""
+  },
+  {
+    "gene": "47F4",
+    "effectDominant": "Enthusiasm+",
+    "effectRecessive": "None",
+    "appearance": "Coat (Cl)",
+    "notes": ""
+  },
+  {
+    "gene": "47G1",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Coat (Cl)",
+    "notes": ""
+  },
+  {
+    "gene": "47G2",
+    "effectDominant": "Temperament+",
+    "effectRecessive": "None",
+    "appearance": "Coat (Cl)",
+    "notes": ""
+  },
+  {
+    "gene": "47G3",
+    "effectDominant": "None",
+    "effectRecessive": "Virility+",
+    "appearance": "Coat (Cl)",
+    "notes": ""
+  },
+  {
+    "gene": "47G4",
+    "effectDominant": "None",
+    "effectRecessive": "Ruggedness+",
+    "appearance": "Coat (Cl)",
+    "notes": ""
+  },
+  {
+    "gene": "47H1",
+    "effectDominant": "None",
+    "effectRecessive": "Intelligence+",
+    "appearance": "Markings (Cl)",
+    "notes": ""
+  },
+  {
+    "gene": "47H2",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Markings (Cl)",
+    "notes": ""
+  },
+  {
+    "gene": "47H3",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Markings (Cl)",
+    "notes": ""
+  },
+  {
+    "gene": "47H4",
+    "effectDominant": "None",
+    "effectRecessive": "Enthusiasm+",
+    "appearance": "Markings (Cl)",
+    "notes": ""
+  },
+  {
+    "gene": "47I1",
+    "effectDominant": "Friendliness+",
+    "effectRecessive": "None",
+    "appearance": "Markings (Cl)",
+    "notes": ""
+  },
+  {
+    "gene": "47I2",
+    "effectDominant": "None",
+    "effectRecessive": "Toughness+",
+    "appearance": "Markings (Cl)",
+    "notes": ""
+  },
+  {
+    "gene": "47I3",
+    "effectDominant": "None",
+    "effectRecessive": "Virility+",
+    "appearance": "Markings (Cl)",
+    "notes": ""
+  },
+  {
+    "gene": "47I4",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Markings (Cl)",
+    "notes": ""
+  },
+  {
+    "gene": "47J1",
+    "effectDominant": "None",
+    "effectRecessive": "Ruggedness+",
+    "appearance": "Markings (Cl)",
+    "notes": ""
+  },
+  {
+    "gene": "47J2",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Markings (Cl)",
+    "notes": ""
+  },
+  {
+    "gene": "47J3",
+    "effectDominant": "None",
+    "effectRecessive": "Temperament+",
+    "appearance": "Markings (Cl)",
+    "notes": ""
+  },
+  {
+    "gene": "47J4",
+    "effectDominant": "Intelligence+",
+    "effectRecessive": "None",
+    "appearance": "Markings (Cl)",
+    "notes": ""
+  },
+  {
+    "gene": "47K1",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Markings (Cl)",
+    "notes": ""
+  },
+  {
+    "gene": "47K2",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Markings (Cl)",
+    "notes": ""
+  }
+]

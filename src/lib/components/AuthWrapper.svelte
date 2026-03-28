@@ -1,47 +1,26 @@
 <script>
   import { onMount } from 'svelte';
-  import { authStore, isAuthenticated, isLoading } from '$lib/stores/auth.js';
-  import { apiClient } from '$lib/services/api.js';
+  import { initDatabase } from '$lib/services/database.js';
+  import { populateGenesIfNeeded, loadDemoPetsIfNeeded } from '$lib/services/demoService.js';
 
-  let authMode = 'login'; // 'login' or 'register'
+  let ready = $state(false);
 
   onMount(async () => {
-    // Initialize authentication on app startup
-    await authStore.initialize();
-    
-    // Set the token in the API client if user is authenticated
-    if ($isAuthenticated) {
-      const token = authStore.getAccessToken();
-      apiClient.setAuthToken(token);
-    }
+    // Initialize database and load data on first launch
+    await initDatabase();
+    await populateGenesIfNeeded();
+    await loadDemoPetsIfNeeded();
+    ready = true;
   });
-
-  function switchToRegister() {
-    authMode = 'register';
-    authStore.clearError();
-  }
-
-  function switchToLogin() {
-    authMode = 'login';
-    authStore.clearError();
-  }
-
-  function handleAuthSuccess() {
-    // Set the token in the API client for future requests
-    const token = authStore.getAccessToken();
-    apiClient.setAuthToken(token);
-  }
-
 </script>
 
-{#if $isLoading}
+{#if !ready}
   <div class="loading-screen">
     <div class="loading-spinner"></div>
     <p>Loading...</p>
   </div>
 {:else}
-  <!-- Always show the main app content, authentication is now optional -->
-  <slot {authMode} {switchToLogin} {switchToRegister} {handleAuthSuccess} />
+  <slot />
 {/if}
 
 <style>
@@ -73,5 +52,4 @@
     color: #6b7280;
     font-size: 1.1rem;
   }
-
 </style>

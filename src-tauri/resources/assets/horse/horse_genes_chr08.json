@@ -1,0 +1,142 @@
+[
+  {
+    "gene": "08A1",
+    "effectDominant": "None",
+    "effectRecessive": "Enthusiasm+",
+    "appearance": "Horn",
+    "notes": ""
+  },
+  {
+    "gene": "08A2",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Horn",
+    "notes": ""
+  },
+  {
+    "gene": "08A3",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Horn",
+    "notes": ""
+  },
+  {
+    "gene": "08A4",
+    "effectDominant": "None",
+    "effectRecessive": "Friendliness-",
+    "appearance": "Horn",
+    "notes": ""
+  },
+  {
+    "gene": "08B1",
+    "effectDominant": "Virility-",
+    "effectRecessive": "None",
+    "appearance": "Horn",
+    "notes": ""
+  },
+  {
+    "gene": "08B2",
+    "effectDominant": "None",
+    "effectRecessive": "Temperament-",
+    "appearance": "Horn",
+    "notes": ""
+  },
+  {
+    "gene": "08B3",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Horn",
+    "notes": ""
+  },
+  {
+    "gene": "08B4",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Horn",
+    "notes": ""
+  },
+  {
+    "gene": "08C1",
+    "effectDominant": "None",
+    "effectRecessive": "Virility+",
+    "appearance": "Horn",
+    "notes": ""
+  },
+  {
+    "gene": "08C2",
+    "effectDominant": "Enthusiasm+",
+    "effectRecessive": "None",
+    "appearance": "Horn",
+    "notes": ""
+  },
+  {
+    "gene": "08C3",
+    "effectDominant": "Intelligence+",
+    "effectRecessive": "None",
+    "appearance": "Horn",
+    "notes": ""
+  },
+  {
+    "gene": "08C4",
+    "effectDominant": "None",
+    "effectRecessive": "Ruggedness-",
+    "appearance": "Horn",
+    "notes": ""
+  },
+  {
+    "gene": "08D1",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Horn",
+    "notes": ""
+  },
+  {
+    "gene": "08D2",
+    "effectDominant": "None",
+    "effectRecessive": "Intelligence-",
+    "appearance": "Horn",
+    "notes": ""
+  },
+  {
+    "gene": "08D3",
+    "effectDominant": "None",
+    "effectRecessive": "Ruggedness+",
+    "appearance": "Horn",
+    "notes": ""
+  },
+  {
+    "gene": "08D4",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Horn",
+    "notes": ""
+  },
+  {
+    "gene": "08E1",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Horn",
+    "notes": ""
+  },
+  {
+    "gene": "08E2",
+    "effectDominant": "None",
+    "effectRecessive": "Friendliness-",
+    "appearance": "Horn",
+    "notes": ""
+  },
+  {
+    "gene": "08E3",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Horn",
+    "notes": ""
+  },
+  {
+    "gene": "08E4",
+    "effectDominant": "None",
+    "effectRecessive": "Enthusiasm+",
+    "appearance": "Horn",
+    "notes": ""
+  }
+]

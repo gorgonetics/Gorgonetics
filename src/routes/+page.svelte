@@ -9,24 +9,12 @@
 		activeTab,
 		appState,
 	} from '$lib/stores/pets.js';
-	import { isAuthenticated } from '$lib/stores/auth.js';
 	import PetVisualization from '$lib/components/pet/PetVisualization.svelte';
 	import GeneEditingView from '$lib/components/GeneEditingView.svelte';
 	import PetDataTable from '$lib/components/pet/PetDataTable.svelte';
 
 	onMount(async () => {
 		await appState.loadPets();
-	});
-
-	// Reload pets when authentication status changes
-	let prevAuth = $state(/** @type {boolean|null} */ (null));
-
-	$effect(() => {
-		const authenticated = $isAuthenticated;
-		if (prevAuth !== null && prevAuth !== authenticated) {
-			appState.loadPets();
-		}
-		prevAuth = authenticated;
 	});
 
 	function getWelcomeMessage() {
@@ -85,7 +73,7 @@
 	.app-main {
 		flex: 1;
 		background-color: #f8fafc;
-		overflow: hidden;
+		overflow: auto;
 		display: flex;
 		flex-direction: column;
 		height: 100%;
@@ -96,7 +84,7 @@
 	.app-main:has(:global(.pet-visualization)),
 	.app-main:has(:global(.gene-editing-view)) {
 		padding: 0;
-		overflow: visible;
+		overflow: auto;
 	}
 
 	.error-banner {

@@ -1,0 +1,198 @@
+[
+  {
+    "gene": "22A1",
+    "effectDominant": "None",
+    "effectRecessive": "Toughness+",
+    "appearance": "Attributes (Po)",
+    "notes": ""
+  },
+  {
+    "gene": "22A2",
+    "effectDominant": "Toughness+",
+    "effectRecessive": "None",
+    "appearance": "Attributes (Po)",
+    "notes": ""
+  },
+  {
+    "gene": "22A3",
+    "effectDominant": "Ruggedness+",
+    "effectRecessive": "None",
+    "appearance": "Attributes (Po)",
+    "notes": ""
+  },
+  {
+    "gene": "22A4",
+    "effectDominant": "None",
+    "effectRecessive": "Temperament+",
+    "appearance": "Attributes (Po)",
+    "notes": ""
+  },
+  {
+    "gene": "22B1",
+    "effectDominant": "None",
+    "effectRecessive": "Enthusiasm+",
+    "appearance": "Attributes (Po)",
+    "notes": ""
+  },
+  {
+    "gene": "22B2",
+    "effectDominant": "Friendliness+",
+    "effectRecessive": "None",
+    "appearance": "Attributes (Po)",
+    "notes": ""
+  },
+  {
+    "gene": "22B3",
+    "effectDominant": "None",
+    "effectRecessive": "Virility+",
+    "appearance": "Attributes (Po)",
+    "notes": ""
+  },
+  {
+    "gene": "22B4",
+    "effectDominant": "None",
+    "effectRecessive": "Toughness-",
+    "appearance": "Attributes (Po)",
+    "notes": ""
+  },
+  {
+    "gene": "22C1",
+    "effectDominant": "Intelligence+",
+    "effectRecessive": "None",
+    "appearance": "Attributes (Po)",
+    "notes": ""
+  },
+  {
+    "gene": "22C2",
+    "effectDominant": "None",
+    "effectRecessive": "Ruggedness+",
+    "appearance": "Attributes (Po)",
+    "notes": ""
+  },
+  {
+    "gene": "22C3",
+    "effectDominant": "None",
+    "effectRecessive": "Enthusiasm+",
+    "appearance": "Attributes (Po)",
+    "notes": ""
+  },
+  {
+    "gene": "22C4",
+    "effectDominant": "None",
+    "effectRecessive": "Virility+",
+    "appearance": "Attributes (Po)",
+    "notes": ""
+  },
+  {
+    "gene": "22D1",
+    "effectDominant": "Temperament+",
+    "effectRecessive": "None",
+    "appearance": "Attributes (Po)",
+    "notes": ""
+  },
+  {
+    "gene": "22D2",
+    "effectDominant": "None",
+    "effectRecessive": "Toughness+",
+    "appearance": "Attributes (Po)",
+    "notes": ""
+  },
+  {
+    "gene": "22D3",
+    "effectDominant": "None",
+    "effectRecessive": "Intelligence-",
+    "appearance": "Attributes (Po)",
+    "notes": ""
+  },
+  {
+    "gene": "22D4",
+    "effectDominant": "Friendliness+",
+    "effectRecessive": "None",
+    "appearance": "Attributes (Po)",
+    "notes": ""
+  },
+  {
+    "gene": "22E1",
+    "effectDominant": "None",
+    "effectRecessive": "Enthusiasm+",
+    "appearance": "Attributes (Po)",
+    "notes": ""
+  },
+  {
+    "gene": "22E2",
+    "effectDominant": "None",
+    "effectRecessive": "Virility+",
+    "appearance": "Attributes (Po)",
+    "notes": ""
+  },
+  {
+    "gene": "22E3",
+    "effectDominant": "Toughness+",
+    "effectRecessive": "None",
+    "appearance": "Attributes (Po)",
+    "notes": ""
+  },
+  {
+    "gene": "22E4",
+    "effectDominant": "Intelligence+",
+    "effectRecessive": "None",
+    "appearance": "Attributes (Po)",
+    "notes": ""
+  },
+  {
+    "gene": "22F1",
+    "effectDominant": "None",
+    "effectRecessive": "Friendliness+",
+    "appearance": "Attributes (Po)",
+    "notes": ""
+  },
+  {
+    "gene": "22F2",
+    "effectDominant": "None",
+    "effectRecessive": "Enthusiasm+",
+    "appearance": "Attributes (Po)",
+    "notes": ""
+  },
+  {
+    "gene": "22F3",
+    "effectDominant": "Temperament-",
+    "effectRecessive": "None",
+    "appearance": "Attributes (Po)",
+    "notes": ""
+  },
+  {
+    "gene": "22F4",
+    "effectDominant": "None",
+    "effectRecessive": "Ruggedness+",
+    "appearance": "Attributes (Po)",
+    "notes": ""
+  },
+  {
+    "gene": "22G1",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "None (Po)",
+    "notes": ""
+  },
+  {
+    "gene": "22G2",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "None (Po)",
+    "notes": ""
+  },
+  {
+    "gene": "22G3",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "None (Po)",
+    "notes": ""
+  },
+  {
+    "gene": "22G4",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "None (Po)",
+    "notes": ""
+  }
+]

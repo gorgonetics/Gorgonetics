@@ -1,0 +1,296 @@
+[
+  {
+    "gene": "35A1",
+    "effectDominant": "Intelligence-",
+    "effectRecessive": "None",
+    "appearance": "Coat (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "35A2",
+    "effectDominant": "Ruggedness+",
+    "effectRecessive": "None",
+    "appearance": "Coat (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "35A3",
+    "effectDominant": "None",
+    "effectRecessive": "Enthusiasm+",
+    "appearance": "Coat (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "35A4",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Coat (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "35B1",
+    "effectDominant": "Friendliness-",
+    "effectRecessive": "None",
+    "appearance": "Coat (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "35B2",
+    "effectDominant": "None",
+    "effectRecessive": "Intelligence+",
+    "appearance": "Coat (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "35B3",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Coat (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "35B4",
+    "effectDominant": "None",
+    "effectRecessive": "Temperament+",
+    "appearance": "Coat (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "35C1",
+    "effectDominant": "Friendliness-",
+    "effectRecessive": "None",
+    "appearance": "Coat (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "35C2",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Coat (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "35C3",
+    "effectDominant": "Ruggedness+",
+    "effectRecessive": "None",
+    "appearance": "Coat (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "35C4",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Coat (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "35D1",
+    "effectDominant": "None",
+    "effectRecessive": "Virility+",
+    "appearance": "Coat (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "35D2",
+    "effectDominant": "Toughness+",
+    "effectRecessive": "None",
+    "appearance": "Coat (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "35D3",
+    "effectDominant": "None",
+    "effectRecessive": "Virility-",
+    "appearance": "Coat (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "35D4",
+    "effectDominant": "Enthusiasm+",
+    "effectRecessive": "None",
+    "appearance": "Coat (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "35E1",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Coat (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "35E2",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Coat (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "35E3",
+    "effectDominant": "None",
+    "effectRecessive": "Friendliness+",
+    "appearance": "Coat (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "35E4",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Coat (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "35F1",
+    "effectDominant": "Temperament+",
+    "effectRecessive": "None",
+    "appearance": "Coat (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "35F2",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Coat (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "35F3",
+    "effectDominant": "None",
+    "effectRecessive": "Enthusiasm+",
+    "appearance": "Coat (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "35F4",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Coat (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "35G1",
+    "effectDominant": "None",
+    "effectRecessive": "Intelligence+",
+    "appearance": "Coat (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "35G2",
+    "effectDominant": "None",
+    "effectRecessive": "Ruggedness-",
+    "appearance": "Coat (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "35G3",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Coat (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "35G4",
+    "effectDominant": "Virility+",
+    "effectRecessive": "None",
+    "appearance": "Coat (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "35H1",
+    "effectDominant": "Intelligence-",
+    "effectRecessive": "None",
+    "appearance": "Markings (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "35H2",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Markings (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "35H3",
+    "effectDominant": "None",
+    "effectRecessive": "Toughness+",
+    "appearance": "Markings (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "35H4",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Markings (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "35I1",
+    "effectDominant": "None",
+    "effectRecessive": "Friendliness+",
+    "appearance": "Markings (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "35I2",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Markings (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "35I3",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Markings (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "35I4",
+    "effectDominant": "Friendliness+",
+    "effectRecessive": "None",
+    "appearance": "Markings (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "35J1",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Markings (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "35J2",
+    "effectDominant": "None",
+    "effectRecessive": "Virility-",
+    "appearance": "Markings (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "35J3",
+    "effectDominant": "None",
+    "effectRecessive": "Ruggedness+",
+    "appearance": "Markings (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "35J4",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Markings (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "35K1",
+    "effectDominant": "Enthusiasm+",
+    "effectRecessive": "None",
+    "appearance": "Markings (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "35K2",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Markings (Bl)",
+    "notes": ""
+  }
+]

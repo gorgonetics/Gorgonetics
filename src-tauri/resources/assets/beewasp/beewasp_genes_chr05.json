@@ -1,0 +1,72 @@
+[
+  {
+    "gene": "05A1",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Glow",
+    "notes": ""
+  },
+  {
+    "gene": "05A2",
+    "effectDominant": "None",
+    "effectRecessive": "Friendliness+",
+    "appearance": "Glow",
+    "notes": ""
+  },
+  {
+    "gene": "05A3",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Glow",
+    "notes": ""
+  },
+  {
+    "gene": "05A4",
+    "effectDominant": "Enthusiasm-",
+    "effectRecessive": "None",
+    "appearance": "Glow",
+    "notes": ""
+  },
+  {
+    "gene": "05B1",
+    "effectDominant": "None",
+    "effectRecessive": "Intelligence+",
+    "appearance": "Glow",
+    "notes": ""
+  },
+  {
+    "gene": "05B2",
+    "effectDominant": "None",
+    "effectRecessive": "Intelligence+",
+    "appearance": "Glow",
+    "notes": ""
+  },
+  {
+    "gene": "05B3",
+    "effectDominant": "Friendliness-",
+    "effectRecessive": "None",
+    "appearance": "Glow",
+    "notes": ""
+  },
+  {
+    "gene": "05B4",
+    "effectDominant": "None",
+    "effectRecessive": "Ferocity+",
+    "appearance": "Glow",
+    "notes": ""
+  },
+  {
+    "gene": "05C1",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Glow",
+    "notes": ""
+  },
+  {
+    "gene": "05C2",
+    "effectDominant": "Toughness-",
+    "effectRecessive": "None",
+    "appearance": "Glow",
+    "notes": ""
+  }
+]

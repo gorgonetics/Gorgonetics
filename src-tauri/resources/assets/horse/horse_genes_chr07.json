@@ -1,0 +1,282 @@
+[
+  {
+    "gene": "07A1",
+    "effectDominant": "None",
+    "effectRecessive": "Intelligence+",
+    "appearance": "Magical",
+    "notes": ""
+  },
+  {
+    "gene": "07A2",
+    "effectDominant": "None",
+    "effectRecessive": "Intelligence+",
+    "appearance": "Magical",
+    "notes": ""
+  },
+  {
+    "gene": "07A3",
+    "effectDominant": "None",
+    "effectRecessive": "Intelligence+",
+    "appearance": "Magical",
+    "notes": ""
+  },
+  {
+    "gene": "07A4",
+    "effectDominant": "None",
+    "effectRecessive": "Intelligence+",
+    "appearance": "Magical",
+    "notes": ""
+  },
+  {
+    "gene": "07B1",
+    "effectDominant": "None",
+    "effectRecessive": "Intelligence+",
+    "appearance": "Magical",
+    "notes": ""
+  },
+  {
+    "gene": "07B2",
+    "effectDominant": "None",
+    "effectRecessive": "Intelligence+",
+    "appearance": "Magical",
+    "notes": ""
+  },
+  {
+    "gene": "07B3",
+    "effectDominant": "None",
+    "effectRecessive": "Intelligence+",
+    "appearance": "Magical",
+    "notes": ""
+  },
+  {
+    "gene": "07B4",
+    "effectDominant": "None",
+    "effectRecessive": "Intelligence+",
+    "appearance": "Magical",
+    "notes": ""
+  },
+  {
+    "gene": "07C1",
+    "effectDominant": "None",
+    "effectRecessive": "Intelligence+",
+    "appearance": "Magical",
+    "notes": ""
+  },
+  {
+    "gene": "07C2",
+    "effectDominant": "None",
+    "effectRecessive": "Intelligence+",
+    "appearance": "Magical",
+    "notes": ""
+  },
+  {
+    "gene": "07C3",
+    "effectDominant": "None",
+    "effectRecessive": "Intelligence+",
+    "appearance": "Magical",
+    "notes": ""
+  },
+  {
+    "gene": "07C4",
+    "effectDominant": "None",
+    "effectRecessive": "Intelligence+",
+    "appearance": "Magical",
+    "notes": ""
+  },
+  {
+    "gene": "07D1",
+    "effectDominant": "None",
+    "effectRecessive": "Intelligence+",
+    "appearance": "Magical",
+    "notes": ""
+  },
+  {
+    "gene": "07D2",
+    "effectDominant": "None",
+    "effectRecessive": "Intelligence+",
+    "appearance": "Magical",
+    "notes": ""
+  },
+  {
+    "gene": "07D3",
+    "effectDominant": "None",
+    "effectRecessive": "Intelligence+",
+    "appearance": "Magical",
+    "notes": ""
+  },
+  {
+    "gene": "07D4",
+    "effectDominant": "None",
+    "effectRecessive": "Intelligence+",
+    "appearance": "Magical",
+    "notes": ""
+  },
+  {
+    "gene": "07E1",
+    "effectDominant": "None",
+    "effectRecessive": "Intelligence+",
+    "appearance": "Magical",
+    "notes": ""
+  },
+  {
+    "gene": "07E2",
+    "effectDominant": "None",
+    "effectRecessive": "Intelligence+",
+    "appearance": "Magical",
+    "notes": ""
+  },
+  {
+    "gene": "07E3",
+    "effectDominant": "None",
+    "effectRecessive": "Intelligence+",
+    "appearance": "Magical",
+    "notes": ""
+  },
+  {
+    "gene": "07E4",
+    "effectDominant": "None",
+    "effectRecessive": "Intelligence+",
+    "appearance": "Magical",
+    "notes": ""
+  },
+  {
+    "gene": "07F1",
+    "effectDominant": "Enthusiasm-",
+    "effectRecessive": "None",
+    "appearance": "Aura",
+    "notes": ""
+  },
+  {
+    "gene": "07F2",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Aura",
+    "notes": ""
+  },
+  {
+    "gene": "07F3",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Aura",
+    "notes": ""
+  },
+  {
+    "gene": "07F4",
+    "effectDominant": "None",
+    "effectRecessive": "Intelligence+",
+    "appearance": "Aura",
+    "notes": ""
+  },
+  {
+    "gene": "07G1",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Aura",
+    "notes": ""
+  },
+  {
+    "gene": "07G2",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Aura",
+    "notes": ""
+  },
+  {
+    "gene": "07G3",
+    "effectDominant": "Ruggedness+",
+    "effectRecessive": "None",
+    "appearance": "Aura",
+    "notes": ""
+  },
+  {
+    "gene": "07G4",
+    "effectDominant": "None",
+    "effectRecessive": "Temperament+",
+    "appearance": "Aura",
+    "notes": ""
+  },
+  {
+    "gene": "07H1",
+    "effectDominant": "Virility+",
+    "effectRecessive": "None",
+    "appearance": "Aura",
+    "notes": ""
+  },
+  {
+    "gene": "07H2",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Aura",
+    "notes": ""
+  },
+  {
+    "gene": "07H3",
+    "effectDominant": "None",
+    "effectRecessive": "Enthusiasm+",
+    "appearance": "Aura",
+    "notes": ""
+  },
+  {
+    "gene": "07H4",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Aura",
+    "notes": ""
+  },
+  {
+    "gene": "07I1",
+    "effectDominant": "None",
+    "effectRecessive": "Friendliness-",
+    "appearance": "Aura",
+    "notes": ""
+  },
+  {
+    "gene": "07I2",
+    "effectDominant": "Temperament-",
+    "effectRecessive": "None",
+    "appearance": "Aura",
+    "notes": ""
+  },
+  {
+    "gene": "07I3",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Aura",
+    "notes": ""
+  },
+  {
+    "gene": "07I4",
+    "effectDominant": "None",
+    "effectRecessive": "Intelligence+",
+    "appearance": "Aura",
+    "notes": ""
+  },
+  {
+    "gene": "07J1",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Aura",
+    "notes": ""
+  },
+  {
+    "gene": "07J2",
+    "effectDominant": "None",
+    "effectRecessive": "Intelligence+",
+    "appearance": "Aura",
+    "notes": ""
+  },
+  {
+    "gene": "07J3",
+    "effectDominant": "Enthusiasm+",
+    "effectRecessive": "None",
+    "appearance": "Aura",
+    "notes": ""
+  },
+  {
+    "gene": "07J4",
+    "effectDominant": "None",
+    "effectRecessive": "Ruggedness+",
+    "appearance": "Aura",
+    "notes": ""
+  }
+]

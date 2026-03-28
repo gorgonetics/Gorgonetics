@@ -37,9 +37,9 @@ export default [
   // Base JavaScript configuration
   js.configs.recommended,
 
-  // JavaScript files
+  // JavaScript and TypeScript files
   {
-    files: ["**/*.js"],
+    files: ["**/*.js", "**/*.ts"],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: "module",

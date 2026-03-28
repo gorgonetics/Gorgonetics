@@ -1,0 +1,170 @@
+[
+  {
+    "gene": "05A1",
+    "effectDominant": "None",
+    "effectRecessive": "Toughness+",
+    "appearance": "Face Markings",
+    "notes": ""
+  },
+  {
+    "gene": "05A2",
+    "effectDominant": "Ruggedness+",
+    "effectRecessive": "None",
+    "appearance": "Face Markings",
+    "notes": ""
+  },
+  {
+    "gene": "05A3",
+    "effectDominant": "Virility+",
+    "effectRecessive": "None",
+    "appearance": "Face Markings",
+    "notes": ""
+  },
+  {
+    "gene": "05A4",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Face Markings",
+    "notes": ""
+  },
+  {
+    "gene": "05B1",
+    "effectDominant": "None",
+    "effectRecessive": "Temperament+",
+    "appearance": "Face Markings",
+    "notes": ""
+  },
+  {
+    "gene": "05B2",
+    "effectDominant": "Enthusiasm+",
+    "effectRecessive": "None",
+    "appearance": "Face Markings",
+    "notes": ""
+  },
+  {
+    "gene": "05B3",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Face Markings",
+    "notes": ""
+  },
+  {
+    "gene": "05B4",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Face Markings",
+    "notes": ""
+  },
+  {
+    "gene": "05C1",
+    "effectDominant": "Toughness+",
+    "effectRecessive": "None",
+    "appearance": "Face Markings",
+    "notes": ""
+  },
+  {
+    "gene": "05C2",
+    "effectDominant": "None",
+    "effectRecessive": "Enthusiasm+",
+    "appearance": "Face Markings",
+    "notes": ""
+  },
+  {
+    "gene": "05C3",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Face Markings",
+    "notes": ""
+  },
+  {
+    "gene": "05C4",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Face Markings",
+    "notes": ""
+  },
+  {
+    "gene": "05D1",
+    "effectDominant": "None",
+    "effectRecessive": "Friendliness+",
+    "appearance": "Face Markings",
+    "notes": ""
+  },
+  {
+    "gene": "05D2",
+    "effectDominant": "Ruggedness+",
+    "effectRecessive": "None",
+    "appearance": "Face Markings",
+    "notes": ""
+  },
+  {
+    "gene": "05D3",
+    "effectDominant": "None",
+    "effectRecessive": "Toughness-",
+    "appearance": "Face Markings",
+    "notes": ""
+  },
+  {
+    "gene": "05D4",
+    "effectDominant": "Virility-",
+    "effectRecessive": "None",
+    "appearance": "Face Markings",
+    "notes": ""
+  },
+  {
+    "gene": "05E1",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Face Markings",
+    "notes": ""
+  },
+  {
+    "gene": "05E2",
+    "effectDominant": "None",
+    "effectRecessive": "Enthusiasm+",
+    "appearance": "Face Markings",
+    "notes": ""
+  },
+  {
+    "gene": "05E3",
+    "effectDominant": "None",
+    "effectRecessive": "Intelligence+",
+    "appearance": "Face Markings",
+    "notes": ""
+  },
+  {
+    "gene": "05E4",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Face Markings",
+    "notes": ""
+  },
+  {
+    "gene": "05F1",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Face Markings",
+    "notes": ""
+  },
+  {
+    "gene": "05F2",
+    "effectDominant": "None",
+    "effectRecessive": "Temperament+",
+    "appearance": "Face Markings",
+    "notes": ""
+  },
+  {
+    "gene": "05F3",
+    "effectDominant": "None",
+    "effectRecessive": "Virility+",
+    "appearance": "Face Markings",
+    "notes": ""
+  },
+  {
+    "gene": "05F4",
+    "effectDominant": "Temperament-",
+    "effectRecessive": "None",
+    "appearance": "Face Markings",
+    "notes": ""
+  }
+]

@@ -1,0 +1,296 @@
+[
+  {
+    "gene": "11A1",
+    "effectDominant": "None",
+    "effectRecessive": "Toughness-",
+    "appearance": "Coat (Sb)",
+    "notes": ""
+  },
+  {
+    "gene": "11A2",
+    "effectDominant": "None",
+    "effectRecessive": "Intelligence+",
+    "appearance": "Coat (Sb)",
+    "notes": ""
+  },
+  {
+    "gene": "11A3",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Coat (Sb)",
+    "notes": ""
+  },
+  {
+    "gene": "11A4",
+    "effectDominant": "Ruggedness+",
+    "effectRecessive": "None",
+    "appearance": "Coat (Sb)",
+    "notes": ""
+  },
+  {
+    "gene": "11B1",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Coat (Sb)",
+    "notes": ""
+  },
+  {
+    "gene": "11B2",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Coat (Sb)",
+    "notes": ""
+  },
+  {
+    "gene": "11B3",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Coat (Sb)",
+    "notes": ""
+  },
+  {
+    "gene": "11B4",
+    "effectDominant": "Virility+",
+    "effectRecessive": "None",
+    "appearance": "Coat (Sb)",
+    "notes": ""
+  },
+  {
+    "gene": "11C1",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Coat (Sb)",
+    "notes": ""
+  },
+  {
+    "gene": "11C2",
+    "effectDominant": "None",
+    "effectRecessive": "Intelligence+",
+    "appearance": "Coat (Sb)",
+    "notes": ""
+  },
+  {
+    "gene": "11C3",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Coat (Sb)",
+    "notes": ""
+  },
+  {
+    "gene": "11C4",
+    "effectDominant": "Toughness-",
+    "effectRecessive": "None",
+    "appearance": "Coat (Sb)",
+    "notes": ""
+  },
+  {
+    "gene": "11D1",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Coat (Sb)",
+    "notes": ""
+  },
+  {
+    "gene": "11D2",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Coat (Sb)",
+    "notes": ""
+  },
+  {
+    "gene": "11D3",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Coat (Sb)",
+    "notes": ""
+  },
+  {
+    "gene": "11D4",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Coat (Sb)",
+    "notes": ""
+  },
+  {
+    "gene": "11E1",
+    "effectDominant": "Toughness+",
+    "effectRecessive": "None",
+    "appearance": "Coat (Sb)",
+    "notes": ""
+  },
+  {
+    "gene": "11E2",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Coat (Sb)",
+    "notes": ""
+  },
+  {
+    "gene": "11E3",
+    "effectDominant": "Enthusiasm+",
+    "effectRecessive": "None",
+    "appearance": "Coat (Sb)",
+    "notes": ""
+  },
+  {
+    "gene": "11E4",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Coat (Sb)",
+    "notes": ""
+  },
+  {
+    "gene": "11F1",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Coat (Sb)",
+    "notes": ""
+  },
+  {
+    "gene": "11F2",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Coat (Sb)",
+    "notes": ""
+  },
+  {
+    "gene": "11F3",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Coat (Sb)",
+    "notes": ""
+  },
+  {
+    "gene": "11F4",
+    "effectDominant": "None",
+    "effectRecessive": "Intelligence+",
+    "appearance": "Coat (Sb)",
+    "notes": ""
+  },
+  {
+    "gene": "11G1",
+    "effectDominant": "Toughness+",
+    "effectRecessive": "None",
+    "appearance": "Coat (Sb)",
+    "notes": ""
+  },
+  {
+    "gene": "11G2",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Coat (Sb)",
+    "notes": ""
+  },
+  {
+    "gene": "11G3",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Coat (Sb)",
+    "notes": ""
+  },
+  {
+    "gene": "11G4",
+    "effectDominant": "None",
+    "effectRecessive": "Ruggedness+",
+    "appearance": "Coat (Sb)",
+    "notes": ""
+  },
+  {
+    "gene": "11H1",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Markings (Sb)",
+    "notes": ""
+  },
+  {
+    "gene": "11H2",
+    "effectDominant": "None",
+    "effectRecessive": "Virility+",
+    "appearance": "Markings (Sb)",
+    "notes": ""
+  },
+  {
+    "gene": "11H3",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Markings (Sb)",
+    "notes": ""
+  },
+  {
+    "gene": "11H4",
+    "effectDominant": "Virility-",
+    "effectRecessive": "None",
+    "appearance": "Markings (Sb)",
+    "notes": ""
+  },
+  {
+    "gene": "11I1",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Markings (Sb)",
+    "notes": ""
+  },
+  {
+    "gene": "11I2",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Markings (Sb)",
+    "notes": ""
+  },
+  {
+    "gene": "11I3",
+    "effectDominant": "None",
+    "effectRecessive": "Intelligence+",
+    "appearance": "Markings (Sb)",
+    "notes": ""
+  },
+  {
+    "gene": "11I4",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Markings (Sb)",
+    "notes": ""
+  },
+  {
+    "gene": "11J1",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Markings (Sb)",
+    "notes": ""
+  },
+  {
+    "gene": "11J2",
+    "effectDominant": "Friendliness+",
+    "effectRecessive": "None",
+    "appearance": "Markings (Sb)",
+    "notes": ""
+  },
+  {
+    "gene": "11J3",
+    "effectDominant": "None",
+    "effectRecessive": "Toughness-",
+    "appearance": "Markings (Sb)",
+    "notes": ""
+  },
+  {
+    "gene": "11J4",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Markings (Sb)",
+    "notes": ""
+  },
+  {
+    "gene": "11K1",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Markings (Sb)",
+    "notes": ""
+  },
+  {
+    "gene": "11K2",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Markings (Sb)",
+    "notes": ""
+  }
+]

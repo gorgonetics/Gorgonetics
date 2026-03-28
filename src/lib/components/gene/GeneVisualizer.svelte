@@ -4,6 +4,7 @@
     import GeneStatsTable from "./GeneStatsTable.svelte";
     import GeneTooltip from "./GeneTooltip.svelte";
     import GeneCell from "./GeneCell.svelte";
+    import { getPetGenome } from "$lib/services/petService.js";
     import {
         normalizeSpecies,
         loadAttributeConfig,
@@ -179,12 +180,12 @@
             loading = true;
             error = null;
 
-            const response = await fetch(`/api/pet-genome/${pet.id}`);
-            if (!response.ok) {
+            const genomeData = await getPetGenome(pet.id);
+            if (!genomeData) {
                 throw new Error("Failed to load pet genome");
             }
 
-            currentPet = await response.json();
+            currentPet = genomeData;
 
             // Load gene effects and appearance config in parallel for better performance
             await Promise.all([

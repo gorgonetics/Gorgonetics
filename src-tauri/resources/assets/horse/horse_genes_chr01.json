@@ -1,0 +1,170 @@
+[
+  {
+    "gene": "01A1",
+    "effectDominant": "Virility-",
+    "effectRecessive": "Temperament+",
+    "appearance": "Attributes",
+    "notes": ""
+  },
+  {
+    "gene": "01A2",
+    "effectDominant": "Friendliness-",
+    "effectRecessive": "Toughness+",
+    "appearance": "Attributes",
+    "notes": ""
+  },
+  {
+    "gene": "01A3",
+    "effectDominant": "Intelligence-",
+    "effectRecessive": "Ruggedness+",
+    "appearance": "Attributes",
+    "notes": ""
+  },
+  {
+    "gene": "01A4",
+    "effectDominant": "Enthusiasm-",
+    "effectRecessive": "Enthusiasm+",
+    "appearance": "Attributes",
+    "notes": ""
+  },
+  {
+    "gene": "01B1",
+    "effectDominant": "Ruggedness-",
+    "effectRecessive": "Friendliness+",
+    "appearance": "Attributes",
+    "notes": ""
+  },
+  {
+    "gene": "01B2",
+    "effectDominant": "Toughness-",
+    "effectRecessive": "Virility+",
+    "appearance": "Attributes",
+    "notes": ""
+  },
+  {
+    "gene": "01B3",
+    "effectDominant": "Temperament-",
+    "effectRecessive": "Intelligence+",
+    "appearance": "Attributes",
+    "notes": ""
+  },
+  {
+    "gene": "01B4",
+    "effectDominant": "Virility-",
+    "effectRecessive": "Temperament+",
+    "appearance": "Attributes",
+    "notes": ""
+  },
+  {
+    "gene": "01C1",
+    "effectDominant": "Friendliness-",
+    "effectRecessive": "Toughness+",
+    "appearance": "Attributes",
+    "notes": ""
+  },
+  {
+    "gene": "01C2",
+    "effectDominant": "Intelligence-",
+    "effectRecessive": "Ruggedness+",
+    "appearance": "Attributes",
+    "notes": ""
+  },
+  {
+    "gene": "01C3",
+    "effectDominant": "Enthusiasm-",
+    "effectRecessive": "Enthusiasm+",
+    "appearance": "Attributes",
+    "notes": ""
+  },
+  {
+    "gene": "01C4",
+    "effectDominant": "Ruggedness-",
+    "effectRecessive": "Friendliness+",
+    "appearance": "Attributes",
+    "notes": ""
+  },
+  {
+    "gene": "01D1",
+    "effectDominant": "Toughness-",
+    "effectRecessive": "Virility+",
+    "appearance": "Attributes",
+    "notes": ""
+  },
+  {
+    "gene": "01D2",
+    "effectDominant": "Temperament-",
+    "effectRecessive": "Intelligence+",
+    "appearance": "Attributes",
+    "notes": ""
+  },
+  {
+    "gene": "01D3",
+    "effectDominant": "Virility-",
+    "effectRecessive": "Temperament+",
+    "appearance": "Attributes",
+    "notes": ""
+  },
+  {
+    "gene": "01D4",
+    "effectDominant": "Friendliness-",
+    "effectRecessive": "Toughness+",
+    "appearance": "Attributes",
+    "notes": ""
+  },
+  {
+    "gene": "01E1",
+    "effectDominant": "Intelligence-",
+    "effectRecessive": "Ruggedness+",
+    "appearance": "Attributes",
+    "notes": ""
+  },
+  {
+    "gene": "01E2",
+    "effectDominant": "Enthusiasm-",
+    "effectRecessive": "Enthusiasm+",
+    "appearance": "Attributes",
+    "notes": ""
+  },
+  {
+    "gene": "01E3",
+    "effectDominant": "Ruggedness-",
+    "effectRecessive": "Friendliness+",
+    "appearance": "Attributes",
+    "notes": ""
+  },
+  {
+    "gene": "01E4",
+    "effectDominant": "Toughness-",
+    "effectRecessive": "Virility+",
+    "appearance": "Attributes",
+    "notes": ""
+  },
+  {
+    "gene": "01F1",
+    "effectDominant": "Temperament-",
+    "effectRecessive": "Intelligence+",
+    "appearance": "Attributes",
+    "notes": ""
+  },
+  {
+    "gene": "01F2",
+    "effectDominant": "Virility-",
+    "effectRecessive": "Temperament+",
+    "appearance": "Attributes",
+    "notes": ""
+  },
+  {
+    "gene": "01F3",
+    "effectDominant": "Friendliness-",
+    "effectRecessive": "Toughness+",
+    "appearance": "Attributes",
+    "notes": ""
+  },
+  {
+    "gene": "01F4",
+    "effectDominant": "Intelligence-",
+    "effectRecessive": "Ruggedness+",
+    "appearance": "Attributes",
+    "notes": ""
+  }
+]

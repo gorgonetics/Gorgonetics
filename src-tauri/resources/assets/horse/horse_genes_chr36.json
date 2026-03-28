@@ -1,0 +1,296 @@
+[
+  {
+    "gene": "36A1",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Scale (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "36A2",
+    "effectDominant": "None",
+    "effectRecessive": "Friendliness-",
+    "appearance": "Scale (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "36A3",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Scale (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "36A4",
+    "effectDominant": "Temperament-",
+    "effectRecessive": "None",
+    "appearance": "Scale (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "36B1",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Scale (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "36B2",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Scale (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "36B3",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Scale (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "36B4",
+    "effectDominant": "None",
+    "effectRecessive": "Intelligence+",
+    "appearance": "Scale (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "36C1",
+    "effectDominant": "Ruggedness+",
+    "effectRecessive": "None",
+    "appearance": "Scale (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "36C2",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Scale (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "36C3",
+    "effectDominant": "None",
+    "effectRecessive": "Virility-",
+    "appearance": "Scale (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "36C4",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Scale (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "36D1",
+    "effectDominant": "None",
+    "effectRecessive": "Ruggedness-",
+    "appearance": "Scale (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "36D2",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Scale (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "36D3",
+    "effectDominant": "None",
+    "effectRecessive": "Virility+",
+    "appearance": "Scale (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "36D4",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Scale (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "36E1",
+    "effectDominant": "None",
+    "effectRecessive": "Enthusiasm-",
+    "appearance": "Scale (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "36E2",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Scale (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "36E3",
+    "effectDominant": "Intelligence+",
+    "effectRecessive": "None",
+    "appearance": "Scale (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "36E4",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Scale (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "36F1",
+    "effectDominant": "None",
+    "effectRecessive": "Temperament-",
+    "appearance": "Scale (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "36F2",
+    "effectDominant": "None",
+    "effectRecessive": "Toughness+",
+    "appearance": "Scale (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "36F3",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Scale (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "36F4",
+    "effectDominant": "Intelligence-",
+    "effectRecessive": "None",
+    "appearance": "Scale (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "36G1",
+    "effectDominant": "Intelligence-",
+    "effectRecessive": "None",
+    "appearance": "Scale (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "36G2",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Scale (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "36G3",
+    "effectDominant": "None",
+    "effectRecessive": "Friendliness+",
+    "appearance": "Scale (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "36G4",
+    "effectDominant": "None",
+    "effectRecessive": "Ruggedness+",
+    "appearance": "Scale (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "36H1",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Horn (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "36H2",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Horn (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "36H3",
+    "effectDominant": "Virility+",
+    "effectRecessive": "None",
+    "appearance": "Horn (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "36H4",
+    "effectDominant": "None",
+    "effectRecessive": "Toughness-",
+    "appearance": "Horn (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "36I1",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Horn (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "36I2",
+    "effectDominant": "Toughness-",
+    "effectRecessive": "None",
+    "appearance": "Horn (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "36I3",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Horn (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "36I4",
+    "effectDominant": "Enthusiasm-",
+    "effectRecessive": "None",
+    "appearance": "Horn (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "36J1",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Horn (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "36J2",
+    "effectDominant": "None",
+    "effectRecessive": "Ruggedness+",
+    "appearance": "Horn (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "36J3",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Horn (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "36J4",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Horn (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "36K1",
+    "effectDominant": "None",
+    "effectRecessive": "Friendliness+",
+    "appearance": "Horn (Bl)",
+    "notes": ""
+  },
+  {
+    "gene": "36K2",
+    "effectDominant": "None",
+    "effectRecessive": "Temperament+",
+    "appearance": "Horn (Bl)",
+    "notes": ""
+  }
+]

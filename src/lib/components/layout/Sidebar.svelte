@@ -1,53 +1,13 @@
 <script>
-    import { apiClient } from "$lib/services/api.js";
     import { activeTab, appState, error } from "$lib/stores/pets.js";
-    import { authStore, isAuthenticated, user } from "$lib/stores/auth.js";
-    import { Modal } from "flowbite-svelte";
     import GeneEditor from "$lib/components/gene/GeneEditor.svelte";
-    import LoginForm from "$lib/components/forms/LoginForm.svelte";
     import PetUpload from "$lib/components/forms/PetUploadForm.svelte";
-    import RegisterForm from "$lib/components/forms/RegisterForm.svelte";
 
     /** @type {{ sidebarCollapsed?: boolean, toggleSidebar: Function }} */
     const { sidebarCollapsed = false, toggleSidebar } = $props();
 
     function switchTab(tab) {
         appState.switchTab(tab);
-    }
-
-    async function handleLogout() {
-        await authStore.logout();
-        apiClient.setAuthToken(null);
-    }
-
-    // Auth modal functionality for anonymous users
-    let showAuthModalDialog = $state(false);
-    let authModalMode = $state("login");
-
-    function showAuthModal(mode) {
-        authModalMode = mode;
-        showAuthModalDialog = true;
-    }
-
-    function hideAuthModal() {
-        showAuthModalDialog = false;
-    }
-
-    function handleAuthSuccess() {
-        // Set the token in the API client for future requests
-        const token = authStore.getAccessToken();
-        apiClient.setAuthToken(token);
-        hideAuthModal();
-    }
-
-    function switchToRegister() {
-        authModalMode = "register";
-        authStore.clearError();
-    }
-
-    function switchToLogin() {
-        authModalMode = "login";
-        authStore.clearError();
     }
 </script>
 
@@ -109,25 +69,7 @@
             <!-- Pet Management Panel -->
             {#if $activeTab === "pets"}
                 <div class="tab-panel" role="tabpanel">
-                    {#if $isAuthenticated}
-                        <PetUpload />
-                    {:else}
-                        <div class="auth-required-message">
-                            <div class="auth-required-icon">🔒</div>
-                            <h3>Sign In Required</h3>
-                            <p>
-                                To upload and manage your pets, please sign in
-                                to your account.
-                            </p>
-                            <button
-                                class="quick-signin-btn"
-                                onclick={() => showAuthModal("login")}
-                            >
-                                <span class="auth-icon">🔑</span>
-                                Sign In
-                            </button>
-                        </div>
-                    {/if}
+                    <PetUpload />
                 </div>
             {/if}
 
@@ -140,63 +82,19 @@
         </div>
     {/if}
 
-    <!-- User Info Section -->
+    <!-- App Info Section -->
     {#if !sidebarCollapsed}
-        {#if $isAuthenticated}
-            <div class="user-section">
-                <div class="user-info">
-                    <div class="user-avatar">
-                        <span class="user-icon">👤</span>
-                    </div>
-                    <div class="user-details">
-                        <div class="username">{$user?.username || "User"}</div>
-                        {#if $user?.role === "admin"}
-                            <div class="user-role admin">Admin</div>
-                        {:else}
-                            <div class="user-role">User</div>
-                        {/if}
-                    </div>
+        <div class="user-section">
+            <div class="user-info">
+                <div class="user-avatar">
+                    <span class="user-icon">🔬</span>
                 </div>
-                <button
-                    class="logout-btn"
-                    onclick={handleLogout}
-                    title="Logout"
-                >
-                    <span class="logout-icon">🚪</span>
-                    <span class="logout-text">Logout</span>
-                </button>
-            </div>
-        {:else}
-            <div class="auth-section">
-                <div class="guest-info">
-                    <div class="guest-avatar">
-                        <span class="guest-icon">👋</span>
-                    </div>
-                    <div class="guest-details">
-                        <div class="guest-title">Welcome!</div>
-                        <div class="guest-subtitle">EXPLORE GORGONETICS</div>
-                    </div>
-                </div>
-                <div class="auth-buttons">
-                    <button
-                        class="login-btn"
-                        onclick={() => showAuthModal("login")}
-                        title="Sign In"
-                    >
-                        <span class="auth-icon">🔑</span>
-                        <span class="auth-text">Sign In</span>
-                    </button>
-                    <button
-                        class="register-btn"
-                        onclick={() => showAuthModal("register")}
-                        title="Create Account"
-                    >
-                        <span class="auth-icon">✨</span>
-                        <span class="auth-text">Sign Up</span>
-                    </button>
+                <div class="user-details">
+                    <div class="username">Gorgonetics</div>
+                    <div class="user-role">Desktop App</div>
                 </div>
             </div>
-        {/if}
+        </div>
     {/if}
 
     <!-- Sidebar Footer with Toggle -->
@@ -210,28 +108,6 @@
         </button>
     </div>
 </div>
-
-<!-- Auth Modal for Anonymous Users -->
-<Modal bind:open={showAuthModalDialog} size="md" autoclose outsideclose>
-    <div
-        slot="header"
-        class="flex items-center text-lg font-semibold text-gray-900 dark:text-white"
-    >
-        {authModalMode === "login" ? "Sign In" : "Create Account"}
-    </div>
-
-    {#if authModalMode === "login"}
-        <LoginForm
-            on:loginSuccess={handleAuthSuccess}
-            on:switchToRegister={switchToRegister}
-        />
-    {:else}
-        <RegisterForm
-            on:registerSuccess={handleAuthSuccess}
-            on:switchToLogin={switchToLogin}
-        />
-    {/if}
-</Modal>
 
 <style>
     .sidebar {
@@ -402,62 +278,6 @@
         padding: 0;
     }
 
-    /* Auth Required Message Styles */
-    .auth-required-message {
-        text-align: center;
-        padding: 32px 20px;
-        background: linear-gradient(135deg, #fef3c7 0%, #fcd34d 100%);
-        border-radius: 12px;
-        border: 2px dashed #f59e0b;
-        margin: 16px 0;
-    }
-
-    .auth-required-icon {
-        font-size: 48px;
-        margin-bottom: 16px;
-        opacity: 0.8;
-    }
-
-    .auth-required-message h3 {
-        margin: 0 0 12px 0;
-        font-size: 18px;
-        font-weight: 600;
-        color: #92400e;
-    }
-
-    .auth-required-message p {
-        margin: 0 0 20px 0;
-        font-size: 14px;
-        color: #a16207;
-        line-height: 1.5;
-    }
-
-    .quick-signin-btn {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        padding: 12px 24px;
-        background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-        border: none;
-        border-radius: 8px;
-        color: white;
-        font-size: 14px;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
-    }
-
-    .quick-signin-btn:hover {
-        background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
-        transform: translateY(-2px);
-        box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
-    }
-
-    .quick-signin-btn .auth-icon {
-        font-size: 16px;
-    }
-
     .error {
         position: relative;
         margin-bottom: 1rem;
@@ -540,162 +360,6 @@
     .user-role.admin {
         color: #fbbf24;
         font-weight: 600;
-    }
-
-    .logout-btn {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        padding: 8px 12px;
-        background: rgba(239, 68, 68, 0.1);
-        border: 1px solid rgba(239, 68, 68, 0.2);
-        border-radius: 6px;
-        color: #fca5a5;
-        font-size: 12px;
-        font-weight: 500;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        align-self: flex-start;
-    }
-
-    .logout-btn:hover {
-        background: rgba(239, 68, 68, 0.2);
-        border-color: rgba(239, 68, 68, 0.3);
-        color: #f87171;
-    }
-
-    .logout-icon {
-        font-size: 14px;
-    }
-
-    .logout-text {
-        white-space: nowrap;
-    }
-
-    /* Auth Section (Guest) Styles */
-    .auth-section {
-        padding: 16px 24px;
-        border-top: 1px solid rgba(255, 255, 255, 0.1);
-        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-        margin-top: auto;
-        flex-shrink: 0;
-    }
-
-    .guest-info {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        margin-bottom: 8px;
-    }
-
-    .guest-avatar {
-        width: 40px;
-        height: 40px;
-        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
-        border: 2px solid rgba(255, 255, 255, 0.1);
-    }
-
-    .guest-icon {
-        color: white !important;
-        font-size: 20px;
-        filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
-    }
-
-    .guest-details {
-        flex: 1;
-        min-width: 0;
-    }
-
-    .guest-title {
-        font-size: 14px;
-        font-weight: 600;
-        color: white !important;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-        margin-bottom: 2px;
-        line-height: 1.2;
-    }
-
-    .guest-subtitle {
-        font-size: 11px;
-        color: rgba(255, 255, 255, 0.8) !important;
-        text-transform: uppercase;
-        letter-spacing: 0.8px;
-        font-weight: 500;
-        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-    }
-
-    .auth-buttons {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-    }
-
-    .login-btn,
-    .register-btn {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 10px 16px;
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        border-radius: 8px;
-        font-size: 13px;
-        font-weight: 500;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        text-align: center;
-        width: 100%;
-        justify-content: center;
-        backdrop-filter: blur(10px);
-        position: relative;
-        z-index: 1;
-    }
-
-    .login-btn {
-        background: rgba(59, 130, 246, 0.1);
-        border-color: rgba(59, 130, 246, 0.3);
-        color: #93c5fd;
-    }
-
-    .login-btn:hover {
-        background: rgba(59, 130, 246, 0.2);
-        border-color: rgba(59, 130, 246, 0.4);
-        color: #dbeafe;
-        transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
-    }
-
-    .register-btn {
-        background: rgba(16, 185, 129, 0.1);
-        border-color: rgba(16, 185, 129, 0.3);
-        color: #6ee7b7;
-    }
-
-    .register-btn:hover {
-        background: rgba(16, 185, 129, 0.2);
-        border-color: rgba(16, 185, 129, 0.4);
-        color: #d1fae5;
-        transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
-    }
-
-    .auth-icon {
-        font-size: 14px;
-    }
-
-    .auth-text {
-        white-space: nowrap;
     }
 
     .sidebar-footer {

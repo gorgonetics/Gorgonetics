@@ -1,0 +1,296 @@
+[
+  {
+    "gene": "19A1",
+    "effectDominant": "Friendliness+",
+    "effectRecessive": "None",
+    "appearance": "Coat (Il)",
+    "notes": ""
+  },
+  {
+    "gene": "19A2",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Coat (Il)",
+    "notes": ""
+  },
+  {
+    "gene": "19A3",
+    "effectDominant": "Temperament+",
+    "effectRecessive": "None",
+    "appearance": "Coat (Il)",
+    "notes": ""
+  },
+  {
+    "gene": "19A4",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Coat (Il)",
+    "notes": ""
+  },
+  {
+    "gene": "19B1",
+    "effectDominant": "Virility+",
+    "effectRecessive": "None",
+    "appearance": "Coat (Il)",
+    "notes": ""
+  },
+  {
+    "gene": "19B2",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Coat (Il)",
+    "notes": ""
+  },
+  {
+    "gene": "19B3",
+    "effectDominant": "None",
+    "effectRecessive": "Ruggedness+",
+    "appearance": "Coat (Il)",
+    "notes": ""
+  },
+  {
+    "gene": "19B4",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Coat (Il)",
+    "notes": ""
+  },
+  {
+    "gene": "19C1",
+    "effectDominant": "None",
+    "effectRecessive": "Ruggedness+",
+    "appearance": "Coat (Il)",
+    "notes": ""
+  },
+  {
+    "gene": "19C2",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Coat (Il)",
+    "notes": ""
+  },
+  {
+    "gene": "19C3",
+    "effectDominant": "Friendliness+",
+    "effectRecessive": "None",
+    "appearance": "Coat (Il)",
+    "notes": ""
+  },
+  {
+    "gene": "19C4",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Coat (Il)",
+    "notes": ""
+  },
+  {
+    "gene": "19D1",
+    "effectDominant": "None",
+    "effectRecessive": "Virility+",
+    "appearance": "Coat (Il)",
+    "notes": ""
+  },
+  {
+    "gene": "19D2",
+    "effectDominant": "Temperament+",
+    "effectRecessive": "None",
+    "appearance": "Coat (Il)",
+    "notes": ""
+  },
+  {
+    "gene": "19D3",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Coat (Il)",
+    "notes": ""
+  },
+  {
+    "gene": "19D4",
+    "effectDominant": "None",
+    "effectRecessive": "Toughness+",
+    "appearance": "Coat (Il)",
+    "notes": ""
+  },
+  {
+    "gene": "19E1",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Coat (Il)",
+    "notes": ""
+  },
+  {
+    "gene": "19E2",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Coat (Il)",
+    "notes": ""
+  },
+  {
+    "gene": "19E3",
+    "effectDominant": "Enthusiasm+",
+    "effectRecessive": "None",
+    "appearance": "Coat (Il)",
+    "notes": ""
+  },
+  {
+    "gene": "19E4",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Coat (Il)",
+    "notes": ""
+  },
+  {
+    "gene": "19F1",
+    "effectDominant": "None",
+    "effectRecessive": "Virility+",
+    "appearance": "Coat (Il)",
+    "notes": ""
+  },
+  {
+    "gene": "19F2",
+    "effectDominant": "None",
+    "effectRecessive": "Intelligence+",
+    "appearance": "Coat (Il)",
+    "notes": ""
+  },
+  {
+    "gene": "19F3",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Coat (Il)",
+    "notes": ""
+  },
+  {
+    "gene": "19F4",
+    "effectDominant": "None",
+    "effectRecessive": "Friendliness-",
+    "appearance": "Coat (Il)",
+    "notes": ""
+  },
+  {
+    "gene": "19G1",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Coat (Il)",
+    "notes": ""
+  },
+  {
+    "gene": "19G2",
+    "effectDominant": "None",
+    "effectRecessive": "Temperament+",
+    "appearance": "Coat (Il)",
+    "notes": ""
+  },
+  {
+    "gene": "19G3",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Coat (Il)",
+    "notes": ""
+  },
+  {
+    "gene": "19G4",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Coat (Il)",
+    "notes": ""
+  },
+  {
+    "gene": "19H1",
+    "effectDominant": "None",
+    "effectRecessive": "Enthusiasm+",
+    "appearance": "Markings (Il)",
+    "notes": ""
+  },
+  {
+    "gene": "19H2",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Markings (Il)",
+    "notes": ""
+  },
+  {
+    "gene": "19H3",
+    "effectDominant": "None",
+    "effectRecessive": "Intelligence+",
+    "appearance": "Markings (Il)",
+    "notes": ""
+  },
+  {
+    "gene": "19H4",
+    "effectDominant": "Toughness+",
+    "effectRecessive": "None",
+    "appearance": "Markings (Il)",
+    "notes": ""
+  },
+  {
+    "gene": "19I1",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Markings (Il)",
+    "notes": ""
+  },
+  {
+    "gene": "19I2",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Markings (Il)",
+    "notes": ""
+  },
+  {
+    "gene": "19I3",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Markings (Il)",
+    "notes": ""
+  },
+  {
+    "gene": "19I4",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Markings (Il)",
+    "notes": ""
+  },
+  {
+    "gene": "19J1",
+    "effectDominant": "None",
+    "effectRecessive": "Friendliness+",
+    "appearance": "Markings (Il)",
+    "notes": ""
+  },
+  {
+    "gene": "19J2",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Markings (Il)",
+    "notes": ""
+  },
+  {
+    "gene": "19J3",
+    "effectDominant": "Temperament-",
+    "effectRecessive": "None",
+    "appearance": "Markings (Il)",
+    "notes": ""
+  },
+  {
+    "gene": "19J4",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Markings (Il)",
+    "notes": ""
+  },
+  {
+    "gene": "19K1",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Markings (Il)",
+    "notes": ""
+  },
+  {
+    "gene": "19K2",
+    "effectDominant": "None",
+    "effectRecessive": "None",
+    "appearance": "Markings (Il)",
+    "notes": ""
+  }
+]
