@@ -20,7 +20,9 @@
     <p>Loading...</p>
   </div>
 {:else}
-  {@render children()}
+  <div class="app-root">
+    {@render children()}
+  </div>
 {/if}
 
 <style>
@@ -51,5 +53,9 @@
   .loading-screen p {
     color: #6b7280;
     font-size: 1.1rem;
+  }
+
+  .app-root {
+    height: 100%;
   }
 </style>

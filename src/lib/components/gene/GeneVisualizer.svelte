@@ -1,7 +1,6 @@
 <script>
     import { onDestroy, onMount } from "svelte";
     import { SvelteSet, SvelteMap } from "svelte/reactivity";
-    import GeneStatsTable from "./GeneStatsTable.svelte";
     import GeneTooltip from "./GeneTooltip.svelte";
     import GeneCell from "./GeneCell.svelte";
     import { getPetGenome } from "$lib/services/petService.js";
@@ -20,7 +19,7 @@
         (a) => a.key.replace(/_/g, "-"),
     );
 
-    const { pet } = $props();
+    const { pet, onStatsUpdated } = $props();
 
     let containerElement = $state();
 
@@ -45,9 +44,6 @@
     let hiddenEffectFilters = $state([]);
     let currentValueFilter = $state([]);
     let hiddenValueFilters = $state([]);
-
-    // Stats drawer state
-    let statsOpen = $state(false);
 
     // Tooltip state
     let tooltipVisible = $state(false);
@@ -928,6 +924,8 @@
                 neutralGenes = allStats["appearance-neutral"];
             }
 
+            onStatsUpdated?.();
+
             const sortedBlocks = Array.from(allBlocks).sort((a, b) => {
                 const numA = parseInt(a, 10);
                 const numB = parseInt(b, 10);
@@ -1183,7 +1181,7 @@
         return { selected: selectedArr, hidden: hiddenArr };
     }
 
-    function handleAttributeFilter(event) {
+    export function handleAttributeFilter(event) {
         const { attribute, ctrlKey, altKey } = event.detail;
 
         let result;
@@ -1559,12 +1557,16 @@
         updateVisualization();
     }
 
-    export function toggleStats() {
-        statsOpen = !statsOpen;
-    }
-
-    export function setStatsOpen(open) {
-        statsOpen = open;
+    export function getStatsData() {
+        return {
+            currentStats,
+            currentView,
+            selectedAttributes,
+            hiddenAttributes,
+            totalGenes,
+            neutralGenes,
+            petSpecies: currentPet?.species,
+        };
     }
 </script>
 
@@ -1975,22 +1977,6 @@
                     {/if}
                 </div>
             </div>
-
-            <!-- Stats bottom drawer -->
-            {#if statsOpen}
-                <div class="stats-drawer">
-                    <GeneStatsTable
-                        {currentStats}
-                        {currentView}
-                        {selectedAttributes}
-                        {hiddenAttributes}
-                        {totalGenes}
-                        {neutralGenes}
-                        petSpecies={currentPet?.species}
-                        on:attributeFilter={handleAttributeFilter}
-                    />
-                </div>
-            {/if}
         </div>
     {/if}
 
@@ -2068,38 +2054,30 @@
         color: #f44336;
     }
 
+    .gene-visualizer {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+    }
+
     .visualizer-content {
         display: flex;
         flex-direction: column;
         flex: 1;
         min-height: 0;
-        overflow: hidden;
     }
 
     .gene-section {
-        flex: 1;
         padding: 10px;
         display: flex;
         flex-direction: column;
+        flex: 1;
         min-height: 0;
-        min-width: 0;
     }
 
-    .stats-drawer {
-        border-top: 1px solid #e2e8f0;
-        max-height: 40vh;
-        overflow-y: auto;
-        flex-shrink: 0;
-        animation: slideUp 0.2s ease-out;
-    }
-
-    @keyframes slideUp {
-        from { max-height: 0; opacity: 0; }
-        to { max-height: 40vh; opacity: 1; }
-    }
 
     .gene-legend {
-        margin-bottom: 20px;
+        margin-bottom: 10px;
         flex-shrink: 0;
     }
 
@@ -2189,11 +2167,11 @@
 
     .gene-grid-container {
         flex: 1;
+        min-height: 0;
         overflow: auto;
         border: 1px solid #e2e8f0;
         border-radius: 6px;
         background: #f9fafb;
-        min-height: 0;
     }
 
     .gene-grid-table {

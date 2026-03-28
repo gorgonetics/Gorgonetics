@@ -34,8 +34,9 @@
 
     .detail-pane {
         flex: 1;
-        overflow: auto;
+        overflow: hidden;
         background: #ffffff;
         min-width: 0;
+        position: relative;
     }
 </style>

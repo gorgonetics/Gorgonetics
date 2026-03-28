@@ -48,8 +48,8 @@
 	.detail-content {
 		display: flex;
 		flex-direction: column;
-		height: 100%;
-		min-height: 0;
+		position: absolute;
+		inset: 0;
 	}
 
 	.error-banner {

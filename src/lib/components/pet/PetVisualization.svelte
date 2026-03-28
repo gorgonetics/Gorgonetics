@@ -1,25 +1,73 @@
 <script>
+    import { onDestroy } from 'svelte';
     import GeneVisualizer from "$lib/components/gene/GeneVisualizer.svelte";
+    import GeneStatsTable from "$lib/components/gene/GeneStatsTable.svelte";
 
     const { pet } = $props();
 
     let geneVisualizerRef = $state();
     let currentView = $state("attribute");
     let statsOpen = $state(false);
+    let drawerWidth = $state(320);
+    let stats = $state(null);
+
+    // Cleanup refs for resize listeners
+    let cleanupResize = null;
 
     function handleViewChange(view) {
         currentView = view;
         if (geneVisualizerRef) {
             geneVisualizerRef.handleViewChange(view);
         }
+        refreshStats();
     }
 
     function toggleStats() {
         statsOpen = !statsOpen;
+        if (statsOpen) refreshStats();
+    }
+
+    function refreshStats() {
         if (geneVisualizerRef) {
-            geneVisualizerRef.setStatsOpen(statsOpen);
+            stats = geneVisualizerRef.getStatsData();
         }
     }
+
+    function handleAttributeFilter(event) {
+        if (geneVisualizerRef?.handleAttributeFilter) {
+            geneVisualizerRef.handleAttributeFilter(event);
+            refreshStats();
+        }
+    }
+
+    // Called by GeneVisualizer when stats data changes
+    function handleStatsUpdated() {
+        if (statsOpen) refreshStats();
+    }
+
+    function startResize(e) {
+        e.preventDefault();
+        const startX = e.clientX;
+        const startWidth = drawerWidth;
+
+        function onMove(e) {
+            drawerWidth = Math.max(240, Math.min(600, startWidth + (startX - e.clientX)));
+        }
+
+        function onUp() {
+            window.removeEventListener('mousemove', onMove);
+            window.removeEventListener('mouseup', onUp);
+            cleanupResize = null;
+        }
+
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp);
+        cleanupResize = onUp;
+    }
+
+    onDestroy(() => {
+        if (cleanupResize) cleanupResize();
+    });
 </script>
 
 <div class="pet-visualization">
@@ -65,8 +113,35 @@
         </div>
     </div>
 
-    <div class="visualizer-container">
-        <GeneVisualizer {pet} bind:this={geneVisualizerRef} />
+    <div class="content-area">
+        <div class="visualizer-container">
+            <GeneVisualizer {pet} bind:this={geneVisualizerRef} onStatsUpdated={handleStatsUpdated} />
+        </div>
+
+        {#if statsOpen}
+            <div class="stats-drawer" style="width: {drawerWidth}px;">
+                <!-- svelte-ignore a11y_no_static_element_interactions -->
+                <div class="resize-handle" onmousedown={startResize}></div>
+                <div class="stats-drawer-header">
+                    <span class="stats-drawer-title">
+                        {currentView === "attribute" ? "Attribute Effects" : "Appearance Effects"}
+                    </span>
+                    <button class="stats-close" onclick={toggleStats}>×</button>
+                </div>
+                <div class="stats-drawer-body">
+                    <GeneStatsTable
+                        currentStats={stats?.currentStats}
+                        currentView={stats?.currentView ?? currentView}
+                        selectedAttributes={stats?.selectedAttributes ?? []}
+                        hiddenAttributes={stats?.hiddenAttributes ?? []}
+                        totalGenes={stats?.totalGenes ?? 0}
+                        neutralGenes={stats?.neutralGenes ?? 0}
+                        petSpecies={stats?.petSpecies ?? pet?.species}
+                        on:attributeFilter={handleAttributeFilter}
+                    />
+                </div>
+            </div>
+        {/if}
     </div>
 </div>
 
@@ -82,7 +157,7 @@
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 16px 20px;
+        padding: 12px 20px;
         border-bottom: 1px solid #e5e7eb;
         background: #ffffff;
         flex-shrink: 0;
@@ -145,10 +220,75 @@
         box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
     }
 
+    .content-area {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        overflow: hidden;
+    }
+
     .visualizer-container {
         flex: 1;
         min-height: 0;
-        overflow: auto;
-        padding: 16px;
+        overflow: hidden;
+    }
+
+    .stats-drawer {
+        flex-shrink: 0;
+        border-left: 1px solid #e5e7eb;
+        background: #f9fafb;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        position: relative;
+    }
+
+    .resize-handle {
+        position: absolute;
+        left: -3px;
+        top: 0;
+        bottom: 0;
+        width: 6px;
+        cursor: col-resize;
+        z-index: 10;
+    }
+
+    .resize-handle:hover {
+        background: rgba(59, 130, 246, 0.3);
+    }
+
+    .stats-drawer-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 12px;
+        background: #f3f4f6;
+        border-bottom: 1px solid #e5e7eb;
+        flex-shrink: 0;
+    }
+
+    .stats-drawer-title {
+        font-size: 12px;
+        font-weight: 600;
+        color: #374151;
+    }
+
+    .stats-close {
+        background: none;
+        border: none;
+        font-size: 18px;
+        color: #6b7280;
+        cursor: pointer;
+        padding: 0 4px;
+        line-height: 1;
+    }
+
+    .stats-close:hover {
+        color: #111827;
+    }
+
+    .stats-drawer-body {
+        flex: 1;
+        overflow-y: auto;
     }
 </style>
