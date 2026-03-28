@@ -17,7 +17,7 @@
     function toggleStats() {
         statsOpen = !statsOpen;
         if (geneVisualizerRef) {
-            geneVisualizerRef.toggleStats();
+            geneVisualizerRef.setStatsOpen(statsOpen);
         }
     }
 </script>

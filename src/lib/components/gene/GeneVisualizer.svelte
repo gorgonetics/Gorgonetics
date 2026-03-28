@@ -1562,6 +1562,10 @@
     export function toggleStats() {
         statsOpen = !statsOpen;
     }
+
+    export function setStatsOpen(open) {
+        statsOpen = open;
+    }
 </script>
 
 <div class="gene-visualizer" bind:this={containerElement}>
