@@ -1,48 +1,37 @@
 <script>
     import GeneVisualizer from "$lib/components/gene/GeneVisualizer.svelte";
-    import VisualizationHeader from "$lib/components/layout/VisualizationHeader.svelte";
-    import { ArrowLeft } from "@lucide/svelte";
-    import { appState } from "$lib/stores/pets.js";
 
     const { pet } = $props();
 
     let geneVisualizerRef = $state();
     let currentView = $state("attribute");
 
-    // No longer need to load external styles - handled by Svelte components
-
-    // Handle view control clicks
     function handleViewChange(view) {
         currentView = view;
         if (geneVisualizerRef) {
             geneVisualizerRef.handleViewChange(view);
         }
     }
-
-    // Handle back navigation to pet table
-    function handleBackToPetTable() {
-        appState.showPetTableView();
-    }
 </script>
 
 <div class="pet-visualization">
-    <VisualizationHeader
-        title="🧬 Gene Visualization: {pet?.name || 'Pet'}"
-        stats={[
-            { text: `${pet?.species || "Unknown"} species` },
-            { text: `${pet?.known_genes || 0} known genes` },
-        ]}
-        hasUnknownGenes={pet?.has_unknown_genes}
-    >
-        {#snippet leftControls()}
-            <button
-                class="back-icon-button"
-                onclick={handleBackToPetTable}
-                title="Back to Pet Table"
-            >
-                <ArrowLeft class="w-4 h-4" />
-            </button>
-        {/snippet}
+    <div class="detail-header">
+        <div class="detail-header-info">
+            <h2 class="detail-title">{pet?.name || 'Pet'}</h2>
+            <div class="detail-meta">
+                <span>{pet?.species || 'Unknown'}</span>
+                <span class="meta-dot">·</span>
+                <span>{pet?.gender || 'Unknown'}</span>
+                {#if pet?.known_genes}
+                    <span class="meta-dot">·</span>
+                    <span class="gene-count">{pet.known_genes} known genes</span>
+                {/if}
+                {#if pet?.has_unknown_genes}
+                    <span class="meta-dot">·</span>
+                    <span class="unknown-badge">⚠ Unknown genes</span>
+                {/if}
+            </div>
+        </div>
         <div class="view-controls">
             <button
                 class="view-btn"
@@ -59,10 +48,9 @@
                 Appearance
             </button>
         </div>
-    </VisualizationHeader>
+    </div>
 
-    <!-- Svelte gene visualizer -->
-    <div class="gene-visualizer-container">
+    <div class="visualizer-container">
         <GeneVisualizer {pet} bind:this={geneVisualizerRef} />
     </div>
 </div>
@@ -72,66 +60,80 @@
         height: 100%;
         display: flex;
         flex-direction: column;
-        overflow: auto;
+        overflow: hidden;
     }
 
-    .back-icon-button {
+    .detail-header {
         display: flex;
         align-items: center;
-        justify-content: center;
-        width: 32px;
-        height: 32px;
-        background: rgba(255, 255, 255, 0.1);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        border-radius: 6px;
-        color: rgba(255, 255, 255, 0.9);
-        cursor: pointer;
-        transition: all 0.2s ease;
+        justify-content: space-between;
+        padding: 16px 20px;
+        border-bottom: 1px solid #e5e7eb;
+        background: #ffffff;
+        flex-shrink: 0;
     }
 
-    .back-icon-button:hover {
-        background: rgba(255, 255, 255, 0.2);
-        border-color: rgba(255, 255, 255, 0.3);
-        color: white;
-        transform: translateX(-2px);
+    .detail-title {
+        font-size: 18px;
+        font-weight: 700;
+        color: #111827;
+        margin: 0;
+    }
+
+    .detail-meta {
+        font-size: 12px;
+        color: #6b7280;
+        margin-top: 2px;
+    }
+
+    .meta-dot {
+        margin: 0 4px;
+        color: #d1d5db;
+    }
+
+    .gene-count {
+        color: #3b82f6;
+    }
+
+    .unknown-badge {
+        color: #f59e0b;
+        font-weight: 600;
     }
 
     .view-controls {
         display: flex;
-        gap: 0.5rem;
+        gap: 4px;
+        background: #f3f4f6;
+        border-radius: 6px;
+        padding: 3px;
     }
 
     .view-btn {
-        padding: 8px 16px;
-        background: rgba(255, 255, 255, 0.1);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        border-radius: 6px;
-        color: rgba(255, 255, 255, 0.8);
-        font-size: 0.8rem;
-        font-weight: 500;
+        padding: 5px 14px;
+        border: none;
+        border-radius: 4px;
+        background: transparent;
+        color: #6b7280;
+        font-size: 12px;
+        font-weight: 600;
         cursor: pointer;
-        transition: all 0.2s ease;
+        transition: all 0.15s ease;
     }
 
     .view-btn:hover {
-        background: rgba(255, 255, 255, 0.2);
-        color: white;
+        color: #374151;
     }
 
     .view-btn.active {
-        background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-        border-color: #1d4ed8;
-        color: white;
+        background: #ffffff;
+        color: #111827;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
     }
 
-    .gene-visualizer-container {
+    .visualizer-container {
         flex: 1;
-        width: 100%;
         min-height: 0;
-        position: relative;
-        contain: layout style;
-        padding: 1.5rem;
         overflow: auto;
+        padding: 16px;
     }
-
 </style>

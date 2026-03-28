@@ -2,7 +2,6 @@
     import { run, stopPropagation } from "svelte/legacy";
     import { user } from "$lib/stores/auth.js";
     import { apiClient } from "$lib/services/api.js";
-    import VisualizationHeader from "$lib/components/layout/VisualizationHeader.svelte";
 
     /**
      * @typedef {Object} Props
@@ -232,36 +231,34 @@
 </script>
 
 <div class="gene-editing-view">
-    <VisualizationHeader
-        title="🧬 Gene Editor: {animalType} - Chromosome {chromosome}"
-        stats={[{ text: `${genes.length} genes` }]}
-    >
-            <div class="view-controls">
-                <button
-                    class="view-btn"
-                    class:active={hasUnsavedChanges}
-                    onclick={saveAllChanges}
-                    disabled={!hasUnsavedChanges || savingChanges || !isAdmin}
-                >
-                    {#if savingChanges}
-                        Saving...
-                    {:else if !isAdmin}
-                        Admin Only
-                    {:else if hasUnsavedChanges}
-                        Save Changes
-                    {:else}
-                        All Saved
-                    {/if}
-                </button>
-                <button
-                    class="view-btn"
-                    onclick={exportChromosome}
-                    title="Export chromosome as JSON"
-                >
-                    📥 Export
-                </button>
-            </div>
-    </VisualizationHeader>
+    <div class="gene-editing-header">
+        <div class="gene-editing-header-info">
+            <h2 class="gene-editing-title">Gene Editor: {animalType} - {chromosome}</h2>
+            <span class="gene-editing-count">{genes.length} genes</span>
+        </div>
+        <div class="gene-editing-actions">
+            <button
+                class="action-btn save-btn"
+                onclick={saveAllChanges}
+                disabled={!hasUnsavedChanges || savingChanges || !isAdmin}
+            >
+                {#if savingChanges}
+                    Saving...
+                {:else if hasUnsavedChanges}
+                    Save Changes
+                {:else}
+                    All Saved
+                {/if}
+            </button>
+            <button
+                class="action-btn export-btn"
+                onclick={exportChromosome}
+                title="Export chromosome as JSON"
+            >
+                Export
+            </button>
+        </div>
+    </div>
 
     <!-- Messages -->
     {#if errorMessage}
@@ -542,9 +539,58 @@
         overflow: hidden;
     }
 
-    .view-controls {
+    .gene-editing-header {
         display: flex;
-        gap: 0.5rem;
+        align-items: center;
+        justify-content: space-between;
+        padding: 16px 20px;
+        border-bottom: 1px solid #e5e7eb;
+        background: #ffffff;
+        flex-shrink: 0;
+    }
+
+    .gene-editing-title {
+        font-size: 18px;
+        font-weight: 700;
+        color: #111827;
+        margin: 0;
+    }
+
+    .gene-editing-count {
+        font-size: 12px;
+        color: #6b7280;
+    }
+
+    .gene-editing-actions {
+        display: flex;
+        gap: 8px;
+    }
+
+    .gene-editing-actions .action-btn {
+        padding: 6px 14px;
+        border: 1px solid #e5e7eb;
+        border-radius: 6px;
+        background: #ffffff;
+        color: #374151;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+
+    .gene-editing-actions .save-btn:not(:disabled) {
+        background: #3b82f6;
+        border-color: #3b82f6;
+        color: white;
+    }
+
+    .gene-editing-actions .action-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .gene-editing-actions .action-btn:not(:disabled):hover {
+        border-color: #9ca3af;
     }
 
     .view-btn {
