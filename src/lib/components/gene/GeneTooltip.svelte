@@ -73,7 +73,7 @@
 
 <style>
     .gene-tooltip {
-        position: absolute;
+        position: fixed;
         background: #1f2937;
         color: white;
         padding: 8px 12px;

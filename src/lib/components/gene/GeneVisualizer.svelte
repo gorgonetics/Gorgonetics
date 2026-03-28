@@ -46,6 +46,9 @@
     let currentValueFilter = $state([]);
     let hiddenValueFilters = $state([]);
 
+    // Stats drawer state
+    let statsOpen = $state(false);
+
     // Tooltip state
     let tooltipVisible = $state(false);
     let tooltipX = $state(0);
@@ -1101,32 +1104,22 @@
         const viewportWidth = window.innerWidth;
         const viewportHeight = window.innerHeight;
 
-        // Convert mouse position to container-relative coordinates
-        let x = mouseEvent.clientX - containerRect.left + offset;
-        let y = mouseEvent.clientY - containerRect.top + offset;
+        // Use viewport (fixed) coordinates — avoids all scroll offset issues
+        let x = mouseEvent.clientX + offset;
+        let y = mouseEvent.clientY + offset;
 
-        // Convert absolute coordinates to container-relative for edge checks
-        const absoluteX = containerRect.left + x;
-        const absoluteY = containerRect.top + y;
-
-        // Check if tooltip would go off right edge - if so, position it to the left of cursor
-        if (absoluteX + tooltipWidth > viewportWidth) {
-            x = mouseEvent.clientX - containerRect.left - tooltipWidth - offset;
+        // Keep tooltip within viewport
+        if (x + tooltipWidth > viewportWidth) {
+            x = mouseEvent.clientX - tooltipWidth - offset;
         }
-
-        // Check if tooltip would go off bottom edge - if so, position it above cursor
-        if (absoluteY + tooltipHeight > viewportHeight) {
-            y = mouseEvent.clientY - containerRect.top - tooltipHeight - offset;
+        if (y + tooltipHeight > viewportHeight) {
+            y = mouseEvent.clientY - tooltipHeight - offset;
         }
-
-        // Check if tooltip would go off top edge - if so, position it below cursor
-        if (absoluteY < 0) {
-            y = mouseEvent.clientY - containerRect.top + offset;
+        if (y < 0) {
+            y = mouseEvent.clientY + offset;
         }
-
-        // Check if tooltip would go off left edge - if so, position it to the right of cursor
-        if (absoluteX < 0) {
-            x = mouseEvent.clientX - containerRect.left + offset;
+        if (x < 0) {
+            x = mouseEvent.clientX + offset;
         }
 
         tooltipX = x;
@@ -1560,10 +1553,14 @@
         }
     });
 
-    // Export function for parent component
+    // Export functions for parent component
     export function handleViewChange(view) {
         currentView = view;
         updateVisualization();
+    }
+
+    export function toggleStats() {
+        statsOpen = !statsOpen;
     }
 </script>
 
@@ -1975,17 +1972,21 @@
                 </div>
             </div>
 
-            <!-- Stats section using existing component -->
-            <GeneStatsTable
-                {currentStats}
-                {currentView}
-                {selectedAttributes}
-                {hiddenAttributes}
-                {totalGenes}
-                {neutralGenes}
-                petSpecies={currentPet?.species}
-                on:attributeFilter={handleAttributeFilter}
-            />
+            <!-- Stats bottom drawer -->
+            {#if statsOpen}
+                <div class="stats-drawer">
+                    <GeneStatsTable
+                        {currentStats}
+                        {currentView}
+                        {selectedAttributes}
+                        {hiddenAttributes}
+                        {totalGenes}
+                        {neutralGenes}
+                        petSpecies={currentPet?.species}
+                        on:attributeFilter={handleAttributeFilter}
+                    />
+                </div>
+            {/if}
         </div>
     {/if}
 
@@ -2065,17 +2066,32 @@
 
     .visualizer-content {
         display: flex;
+        flex-direction: column;
         flex: 1;
         min-height: 0;
+        overflow: hidden;
     }
 
     .gene-section {
         flex: 1;
         padding: 10px;
-        border-right: 1px solid #e2e8f0;
         display: flex;
         flex-direction: column;
         min-height: 0;
+        min-width: 0;
+    }
+
+    .stats-drawer {
+        border-top: 1px solid #e2e8f0;
+        max-height: 40vh;
+        overflow-y: auto;
+        flex-shrink: 0;
+        animation: slideUp 0.2s ease-out;
+    }
+
+    @keyframes slideUp {
+        from { max-height: 0; opacity: 0; }
+        to { max-height: 40vh; opacity: 1; }
     }
 
     .gene-legend {
@@ -2185,7 +2201,7 @@
     .gene-headers {
         position: sticky;
         top: 0;
-        z-index: 1;
+        z-index: 10;
         background: #f1f5f9;
     }
 
@@ -2203,7 +2219,7 @@
     .chromosome-header {
         position: sticky;
         left: 0;
-        z-index: 2;
+        z-index: 11;
         background: #f1f5f9;
         font-weight: bold;
         width: 32px;
@@ -2212,9 +2228,9 @@
     }
 
     .position-header {
-        width: 23px;
-        min-width: 23px;
-        max-width: 23px;
+        width: 19px;
+        min-width: 19px;
+        max-width: 19px;
         font-weight: normal;
     }
 
@@ -2223,11 +2239,11 @@
     }
 
     .position-header.block-start {
-        padding-left: 12px;
+        padding-left: 8px;
     }
 
     .position-header.block-start:first-of-type {
-        padding-left: 8px;
+        padding-left: 4px;
     }
 
     .gene-rows {
@@ -2284,7 +2300,7 @@
         text-align: center;
         vertical-align: middle;
         position: relative;
-        width: 23px;
+        width: 19px;
     }
 
     .gene-cell-container.empty {
@@ -2299,9 +2315,4 @@
         padding-left: 2px;
     }
 
-    @media (max-width: 1200px) {
-        .visualizer-content {
-            flex-direction: column;
-        }
-    }
 </style>

@@ -3,10 +3,10 @@
   import { initDatabase } from '$lib/services/database.js';
   import { populateGenesIfNeeded, loadDemoPetsIfNeeded } from '$lib/services/demoService.js';
 
+  const { children } = $props();
   let ready = $state(false);
 
   onMount(async () => {
-    // Initialize database and load data on first launch
     await initDatabase();
     await populateGenesIfNeeded();
     await loadDemoPetsIfNeeded();
@@ -20,7 +20,7 @@
     <p>Loading...</p>
   </div>
 {:else}
-  <slot />
+  {@render children()}
 {/if}
 
 <style>

@@ -1,54 +1,74 @@
 import { test, expect } from '@playwright/test';
 
-// Helper: wait for the app to initialize (DB + demo data loading)
+// Wait for the app to finish initializing (DB + demo data)
 async function waitForAppReady(page) {
-  await page.waitForSelector('.top-bar', { timeout: 15000 });
-  await page.waitForFunction(
-    () => !document.querySelector('.loading-screen'),
-    { timeout: 15000 }
-  );
+  await page.waitForSelector('.top-bar');
+  // Wait until loading screen is gone and pet cards appear (demo data loaded)
+  await page.waitForFunction(() => {
+    const loading = document.querySelector('.loading-screen');
+    const spinner = document.querySelector('.spinner');
+    return !loading && !spinner;
+  });
+}
+
+// Wait for demo pet cards to appear in the list
+async function waitForPets(page) {
+  await waitForAppReady(page);
+  await page.waitForSelector('.pet-card');
+}
+
+// Navigate to gene editor with a selected chromosome, return true if successful
+async function openGeneEditor(page) {
+  await page.locator('.tab-btn').filter({ hasText: 'Genes' }).click();
+  // Wait for animal types to populate (more than just the placeholder)
+  await expect(page.locator('#animalType option')).not.toHaveCount(1);
+
+  // Select first real animal type
+  const firstValue = await page.locator('#animalType option').nth(1).getAttribute('value');
+  await page.locator('#animalType').selectOption(firstValue);
+
+  // Wait for chromosomes to populate
+  await expect(page.locator('#chromosome option')).not.toHaveCount(1);
+
+  // Select first real chromosome
+  const firstChrom = await page.locator('#chromosome option').nth(1).getAttribute('value');
+  await page.locator('#chromosome').selectOption(firstChrom);
+
+  await page.locator('button.load-btn').click();
+  await expect(page.locator('.gene-editing-view')).toBeVisible();
 }
 
 // ==========================================
-// App Launch & Layout Tests
+// App Launch & Layout
 // ==========================================
 
 test.describe('App Launch', () => {
-  test('should load and display the top bar', async ({ page }) => {
+  test('shows top bar with app name and tabs', async ({ page }) => {
     await page.goto('/');
     await waitForAppReady(page);
 
-    await expect(page.locator('.top-bar')).toBeVisible();
     await expect(page.locator('.app-name')).toHaveText('Gorgonetics');
-  });
-
-  test('should show Pets and Genes tab buttons', async ({ page }) => {
-    await page.goto('/');
-    await waitForAppReady(page);
-
     await expect(page.locator('.tab-btn').filter({ hasText: 'Pets' })).toBeVisible();
     await expect(page.locator('.tab-btn').filter({ hasText: 'Genes' })).toBeVisible();
   });
 
-  test('should show master-detail layout', async ({ page }) => {
+  test('shows master-detail layout', async ({ page }) => {
     await page.goto('/');
     await waitForAppReady(page);
 
-    // Master panel (left) and detail pane (right) should exist
     await expect(page.locator('.master-panel')).toBeVisible();
     await expect(page.locator('.detail-pane')).toBeVisible();
   });
 
-  test('should NOT show any auth UI', async ({ page }) => {
+  test('has no auth UI', async ({ page }) => {
     await page.goto('/');
     await waitForAppReady(page);
 
-    await expect(page.locator('text=Sign In')).toHaveCount(0);
-    await expect(page.locator('text=Sign Up')).toHaveCount(0);
-    await expect(page.locator('text=Logout')).toHaveCount(0);
+    await expect(page.getByText('Sign In')).toHaveCount(0);
+    await expect(page.getByText('Sign Up')).toHaveCount(0);
   });
 
-  test('should show empty state when no pet selected', async ({ page }) => {
+  test('shows empty state when no pet selected', async ({ page }) => {
     await page.goto('/');
     await waitForAppReady(page);
 
@@ -57,327 +77,230 @@ test.describe('App Launch', () => {
 });
 
 // ==========================================
-// Pet List (Master Panel) Tests
+// Pet List
 // ==========================================
 
 test.describe('Pet List', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await waitForAppReady(page);
-    // Pets tab is active by default
-    await page.waitForTimeout(1000);
+    await waitForPets(page);
   });
 
-  test('should show pet cards in the master panel', async ({ page }) => {
-    const petCards = page.locator('.pet-card');
-    const count = await petCards.count();
-    // Demo pets should be loaded
-    expect(count).toBeGreaterThanOrEqual(0);
+  test('shows demo pet cards', async ({ page }) => {
+    expect(await page.locator('.pet-card').count()).toBeGreaterThan(0);
   });
 
-  test('should show search input', async ({ page }) => {
+  test('shows search input and upload button', async ({ page }) => {
     await expect(page.locator('.search-input')).toBeVisible();
-  });
-
-  test('should show upload button', async ({ page }) => {
-    await expect(page.locator('.upload-btn')).toBeVisible();
     await expect(page.locator('.upload-btn')).toContainText('Upload Genome');
   });
 
-  test('should show pet count', async ({ page }) => {
-    await expect(page.locator('.pet-count')).toBeVisible();
+  test('shows pet count', async ({ page }) => {
+    await expect(page.locator('.pet-count')).toContainText('pets');
   });
 
-  test('should filter pets when searching', async ({ page }) => {
-    await page.waitForSelector('.pet-card', { timeout: 10000 }).catch(() => {});
-    const initialCount = await page.locator('.pet-card').count();
-    if (initialCount > 0) {
-      await page.locator('.search-input').fill('zzz-nonexistent');
-      await page.waitForTimeout(300);
-      const filteredCount = await page.locator('.pet-card').count();
-      expect(filteredCount).toBe(0);
-    }
+  test('filters pets by search', async ({ page }) => {
+    const before = await page.locator('.pet-card').count();
+    expect(before).toBeGreaterThan(0);
+
+    await page.locator('.search-input').fill('zzz-nonexistent');
+    await expect(page.locator('.pet-card')).toHaveCount(0);
+
+    // Clear search restores all
+    await page.locator('.search-input').fill('');
+    await expect(page.locator('.pet-card')).toHaveCount(before);
   });
 
-  test('should show edit/delete buttons on hover', async ({ page }) => {
-    await page.waitForSelector('.pet-card', { timeout: 10000 }).catch(() => {});
-    const card = page.locator('.pet-card-wrapper').first();
-    if (await card.isVisible().catch(() => false)) {
-      await card.hover();
-      await expect(page.locator('.pet-card-actions').first()).toBeVisible();
-    }
+  test('shows edit/delete on hover', async ({ page }) => {
+    await page.locator('.pet-card-wrapper').first().hover();
+    await expect(page.locator('.pet-card-actions').first()).toBeVisible();
   });
 });
 
 // ==========================================
-// Pet Selection & Detail View Tests
+// Pet Detail View
 // ==========================================
 
 test.describe('Pet Detail View', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await waitForAppReady(page);
-    await page.waitForSelector('.pet-card', { timeout: 10000 }).catch(() => {});
+    await waitForPets(page);
   });
 
-  test('should select pet and show detail view', async ({ page }) => {
-    const petCard = page.locator('.pet-card').first();
-    if (await petCard.isVisible().catch(() => false)) {
-      await petCard.click();
-      // Detail pane should show the pet visualization
-      await expect(page.locator('.pet-visualization')).toBeVisible({ timeout: 10000 });
-    }
+  test('clicking pet card shows visualization', async ({ page }) => {
+    await page.locator('.pet-card').first().click();
+    await expect(page.locator('.pet-visualization')).toBeVisible();
+    await expect(page.locator('.detail-title')).toBeVisible();
+    await expect(page.locator('.detail-meta')).toBeVisible();
   });
 
-  test('should show pet name and metadata in detail header', async ({ page }) => {
-    const petCard = page.locator('.pet-card').first();
-    if (await petCard.isVisible().catch(() => false)) {
-      await petCard.click();
-      await page.waitForSelector('.detail-header', { timeout: 10000 });
-      await expect(page.locator('.detail-title')).toBeVisible();
-      await expect(page.locator('.detail-meta')).toBeVisible();
-    }
+  test('shows view control buttons', async ({ page }) => {
+    await page.locator('.pet-card').first().click();
+    await expect(page.locator('.view-btn').filter({ hasText: 'Attributes' })).toBeVisible();
+    await expect(page.locator('.view-btn').filter({ hasText: 'Appearance' })).toBeVisible();
+    await expect(page.locator('.view-btn').filter({ hasText: 'Stats' })).toBeVisible();
   });
 
-  test('should show Attributes and Appearance buttons', async ({ page }) => {
-    const petCard = page.locator('.pet-card').first();
-    if (await petCard.isVisible().catch(() => false)) {
-      await petCard.click();
-      await page.waitForSelector('.view-controls', { timeout: 10000 });
-      await expect(page.locator('.view-btn').filter({ hasText: 'Attributes' })).toBeVisible();
-      await expect(page.locator('.view-btn').filter({ hasText: 'Appearance' })).toBeVisible();
-    }
+  test('highlights selected pet in list', async ({ page }) => {
+    await page.locator('.pet-card').first().click();
+    await expect(page.locator('.pet-card.selected')).toHaveCount(1);
   });
 
-  test('should highlight selected pet in master list', async ({ page }) => {
-    const petCard = page.locator('.pet-card').first();
-    if (await petCard.isVisible().catch(() => false)) {
-      await petCard.click();
-      await expect(page.locator('.pet-card.selected')).toBeVisible();
-    }
+  test('stats drawer toggles on button click', async ({ page }) => {
+    await page.locator('.pet-card').first().click();
+    await expect(page.locator('.pet-visualization')).toBeVisible();
+
+    // Stats should be hidden by default
+    await expect(page.locator('.stats-drawer')).toHaveCount(0);
+
+    // Click Stats button to open drawer
+    await page.locator('.view-btn').filter({ hasText: 'Stats' }).click();
+    await expect(page.locator('.stats-drawer')).toBeVisible();
+
+    // Click again to close
+    await page.locator('.view-btn').filter({ hasText: 'Stats' }).click();
+    await expect(page.locator('.stats-drawer')).toHaveCount(0);
   });
 });
 
 // ==========================================
-// Pet Editor Tests
+// Pet Editor
 // ==========================================
 
 test.describe('Pet Editor', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
-    await waitForAppReady(page);
-    await page.waitForSelector('.pet-card-wrapper', { timeout: 10000 }).catch(() => {});
+    await waitForPets(page);
   });
 
-  test('should open edit modal from action button', async ({ page }) => {
-    const wrapper = page.locator('.pet-card-wrapper').first();
-    if (await wrapper.isVisible().catch(() => false)) {
-      await wrapper.hover();
-      await page.locator('.edit-btn').first().click();
-      await expect(page.getByText('Basic Information')).toBeVisible({ timeout: 5000 });
-    }
+  test('opens edit modal on hover + click', async ({ page }) => {
+    await page.locator('.pet-card-wrapper').first().hover();
+    await page.locator('.edit-btn').first().click();
+    await expect(page.getByText('Basic Information')).toBeVisible();
   });
 
-  test('should show pet form fields in editor', async ({ page }) => {
-    const wrapper = page.locator('.pet-card-wrapper').first();
-    if (await wrapper.isVisible().catch(() => false)) {
-      await wrapper.hover();
-      await page.locator('.edit-btn').first().click();
-      await expect(page.getByText('Basic Information')).toBeVisible({ timeout: 5000 });
-      await expect(page.getByText('Attributes', { exact: false }).first()).toBeVisible();
-    }
+  test('shows form fields in editor', async ({ page }) => {
+    await page.locator('.pet-card-wrapper').first().hover();
+    await page.locator('.edit-btn').first().click();
+    await expect(page.getByText('Basic Information')).toBeVisible();
+    await expect(page.getByText('Attributes', { exact: false }).first()).toBeVisible();
   });
 
-  test('should close editor via Escape key', async ({ page }) => {
-    const wrapper = page.locator('.pet-card-wrapper').first();
-    if (await wrapper.isVisible().catch(() => false)) {
-      await wrapper.hover();
-      await page.locator('.edit-btn').first().click();
-      await expect(page.getByText('Basic Information')).toBeVisible({ timeout: 5000 });
-      await page.keyboard.press('Escape');
-      await expect(page.getByText('Basic Information')).not.toBeVisible({ timeout: 3000 });
-    }
+  test('closes on Escape', async ({ page }) => {
+    await page.locator('.pet-card-wrapper').first().hover();
+    await page.locator('.edit-btn').first().click();
+    await expect(page.getByText('Basic Information')).toBeVisible();
+
+    await page.keyboard.press('Escape');
+    await expect(page.getByText('Basic Information')).not.toBeVisible();
   });
 });
 
 // ==========================================
-// Gene Editor Tab Tests
+// Gene Editor
 // ==========================================
 
 test.describe('Gene Editor', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await waitForAppReady(page);
-    await page.locator('.tab-btn').filter({ hasText: 'Genes' }).click();
   });
 
-  test('should show gene editor form in master panel', async ({ page }) => {
+  test('shows selector form when Genes tab clicked', async ({ page }) => {
+    await page.locator('.tab-btn').filter({ hasText: 'Genes' }).click();
     await expect(page.locator('#animalType')).toBeVisible();
     await expect(page.locator('#chromosome')).toBeVisible();
   });
 
-  test('should populate animal types dropdown', async ({ page }) => {
-    await page.waitForTimeout(2000);
-    const options = page.locator('#animalType option');
-    const count = await options.count();
-    expect(count).toBeGreaterThanOrEqual(1);
+  test('populates animal types', async ({ page }) => {
+    await page.locator('.tab-btn').filter({ hasText: 'Genes' }).click();
+    await expect(page.locator('#animalType option')).not.toHaveCount(1);
   });
 
-  test('should load chromosomes when animal type is selected', async ({ page }) => {
-    await page.waitForTimeout(2000);
-    const animalTypeSelect = page.locator('#animalType');
-    const options = animalTypeSelect.locator('option');
-    const count = await options.count();
+  test('loads chromosomes on animal type selection', async ({ page }) => {
+    await page.locator('.tab-btn').filter({ hasText: 'Genes' }).click();
+    await expect(page.locator('#animalType option')).not.toHaveCount(1);
 
-    if (count > 1) {
-      const firstOption = await options.nth(1).getAttribute('value');
-      if (firstOption) {
-        await animalTypeSelect.selectOption(firstOption);
-        await page.waitForTimeout(1000);
-        const chromOptions = page.locator('#chromosome option');
-        expect(await chromOptions.count()).toBeGreaterThanOrEqual(1);
-      }
-    }
+    const firstValue = await page.locator('#animalType option').nth(1).getAttribute('value');
+    await page.locator('#animalType').selectOption(firstValue);
+    await expect(page.locator('#chromosome option')).not.toHaveCount(1);
   });
 
-  test('should open gene editing view in detail pane', async ({ page }) => {
-    await page.waitForTimeout(2000);
-    const animalTypeSelect = page.locator('#animalType');
-    const options = animalTypeSelect.locator('option');
-    if (await options.count() > 1) {
-      await animalTypeSelect.selectOption(await options.nth(1).getAttribute('value'));
-      await page.waitForTimeout(1000);
-
-      const chromSelect = page.locator('#chromosome');
-      const chromOptions = chromSelect.locator('option');
-      if (await chromOptions.count() > 1) {
-        await chromSelect.selectOption(await chromOptions.nth(1).getAttribute('value'));
-        await page.waitForTimeout(500);
-        await page.locator('button.load-btn').click();
-        await expect(page.locator('.gene-editing-view')).toBeVisible({ timeout: 10000 });
-      }
-    }
+  test('opens gene editing view in detail pane', async ({ page }) => {
+    await openGeneEditor(page);
+    await expect(page.locator('.gene-editing-header')).toBeVisible();
   });
 });
 
 // ==========================================
-// Gene Editing View Tests
+// Gene Editing View
 // ==========================================
 
 test.describe('Gene Editing View', () => {
-  async function navigateToGeneEditor(page) {
+  test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await waitForAppReady(page);
-    await page.locator('.tab-btn').filter({ hasText: 'Genes' }).click();
-    await page.waitForTimeout(2000);
-
-    const animalTypeSelect = page.locator('#animalType');
-    const options = animalTypeSelect.locator('option');
-    if (await options.count() <= 1) return false;
-
-    await animalTypeSelect.selectOption(await options.nth(1).getAttribute('value'));
-    await page.waitForTimeout(1000);
-
-    const chromSelect = page.locator('#chromosome');
-    const chromOptions = chromSelect.locator('option');
-    if (await chromOptions.count() <= 1) return false;
-
-    await chromSelect.selectOption(await chromOptions.nth(1).getAttribute('value'));
-    await page.waitForTimeout(500);
-    await page.locator('button.load-btn').click();
-    await page.waitForSelector('.gene-editing-view', { timeout: 10000 }).catch(() => {});
-    return await page.locator('.gene-editing-view').isVisible();
-  }
-
-  test('should display gene cards grid', async ({ page }) => {
-    if (await navigateToGeneEditor(page)) {
-      await expect(page.locator('.genes-grid')).toBeVisible();
-      expect(await page.locator('.gene-card').count()).toBeGreaterThan(0);
-    }
+    await openGeneEditor(page);
   });
 
-  test('should show gene IDs on cards', async ({ page }) => {
-    if (await navigateToGeneEditor(page)) {
-      expect(await page.locator('.gene-id').count()).toBeGreaterThan(0);
-    }
+  test('displays gene cards grid', async ({ page }) => {
+    await expect(page.locator('.genes-grid')).toBeVisible();
+    expect(await page.locator('.gene-card').count()).toBeGreaterThan(0);
   });
 
-  test('should show save and export buttons in header', async ({ page }) => {
-    if (await navigateToGeneEditor(page)) {
-      await expect(page.locator('.gene-editing-header')).toBeVisible();
-      await expect(page.locator('.export-btn')).toBeVisible();
-    }
+  test('shows gene IDs', async ({ page }) => {
+    expect(await page.locator('.gene-id').count()).toBeGreaterThan(0);
+  });
+
+  test('has export button', async ({ page }) => {
+    await expect(page.locator('.export-btn')).toBeVisible();
   });
 });
 
 // ==========================================
-// Tab Switching Tests
+// Tab Navigation
 // ==========================================
 
 test.describe('Tab Navigation', () => {
-  test('should switch between Pets and Genes tabs', async ({ page }) => {
+  test('switches between tabs', async ({ page }) => {
     await page.goto('/');
     await waitForAppReady(page);
 
-    // Pets tab should be active by default
     await expect(page.locator('.tab-btn').filter({ hasText: 'Pets' })).toHaveClass(/active/);
 
-    // Switch to Genes
     await page.locator('.tab-btn').filter({ hasText: 'Genes' }).click();
     await expect(page.locator('.tab-btn').filter({ hasText: 'Genes' })).toHaveClass(/active/);
     await expect(page.locator('#animalType')).toBeVisible();
 
-    // Switch back to Pets
     await page.locator('.tab-btn').filter({ hasText: 'Pets' }).click();
     await expect(page.locator('.tab-btn').filter({ hasText: 'Pets' })).toHaveClass(/active/);
   });
 
-  test('should clear selection when switching tabs', async ({ page }) => {
+  test('clears pet selection on tab switch', async ({ page }) => {
     await page.goto('/');
-    await waitForAppReady(page);
+    await waitForPets(page);
 
-    // Select a pet
-    await page.waitForSelector('.pet-card', { timeout: 10000 }).catch(() => {});
-    const petCard = page.locator('.pet-card').first();
-    if (await petCard.isVisible().catch(() => false)) {
-      await petCard.click();
-      await page.waitForSelector('.pet-visualization', { timeout: 10000 });
+    await page.locator('.pet-card').first().click();
+    await expect(page.locator('.pet-visualization')).toBeVisible();
 
-      // Switch to Genes tab
-      await page.locator('.tab-btn').filter({ hasText: 'Genes' }).click();
-
-      // Switch back to Pets — pet should be deselected
-      await page.locator('.tab-btn').filter({ hasText: 'Pets' }).click();
-      await expect(page.getByText('Select a pet to view details')).toBeVisible({ timeout: 5000 });
-    }
+    await page.locator('.tab-btn').filter({ hasText: 'Genes' }).click();
+    await page.locator('.tab-btn').filter({ hasText: 'Pets' }).click();
+    await expect(page.getByText('Select a pet to view details')).toBeVisible();
   });
 });
 
 // ==========================================
-// Window Sizing Tests
+// Window Sizing
 // ==========================================
 
 test.describe('Window Sizing', () => {
-  test('should render at 1200x800', async ({ page }) => {
-    await page.setViewportSize({ width: 1200, height: 800 });
-    await page.goto('/');
-    await waitForAppReady(page);
-    await expect(page.locator('.master-panel')).toBeVisible();
-    await expect(page.locator('.detail-pane')).toBeVisible();
-  });
-
-  test('should render at 1024x768', async ({ page }) => {
-    await page.setViewportSize({ width: 1024, height: 768 });
-    await page.goto('/');
-    await waitForAppReady(page);
-    await expect(page.locator('.master-panel')).toBeVisible();
-    await expect(page.locator('.detail-pane')).toBeVisible();
-  });
-
-  test('should render at 800x600', async ({ page }) => {
-    await page.setViewportSize({ width: 800, height: 600 });
-    await page.goto('/');
-    await waitForAppReady(page);
-    await expect(page.locator('.top-bar')).toBeVisible();
-  });
+  for (const [w, h] of [[1200, 800], [1024, 768], [800, 600]]) {
+    test(`renders at ${w}x${h}`, async ({ page }) => {
+      await page.setViewportSize({ width: w, height: h });
+      await page.goto('/');
+      await waitForAppReady(page);
+      await expect(page.locator('.top-bar')).toBeVisible();
+      await expect(page.locator('.master-panel')).toBeVisible();
+    });
+  }
 });

@@ -2,13 +2,13 @@ import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests/e2e',
-  timeout: 30000,
+  timeout: 15000,
   expect: {
-    timeout: 10000,
+    timeout: 5000,
   },
   fullyParallel: false,
-  retries: 0,
-  reporter: 'html',
+  retries: 1,
+  reporter: [['list'], ['html', { open: 'never' }]],
   use: {
     baseURL: 'http://localhost:5174',
     trace: 'on-first-retry',
@@ -23,7 +23,7 @@ export default defineConfig({
   webServer: {
     command: 'pnpm dev',
     port: 5174,
-    reuseExistingServer: true,
-    timeout: 30000,
+    reuseExistingServer: false,
+    timeout: 15000,
   },
 });

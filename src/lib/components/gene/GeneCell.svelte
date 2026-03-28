@@ -124,11 +124,11 @@
     }
 
     :global(.gene-cell) {
-        width: 19px;
-        height: 19px;
+        width: 15px;
+        height: 15px;
         margin: 0px;
         border-radius: 50%;
-        border: 3px solid;
+        border: 2px solid;
         cursor: pointer;
         transition: all 0.2s ease;
         position: relative;

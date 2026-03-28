@@ -247,11 +247,10 @@
 
 <style>
     .stats-section {
-        width: 300px;
+        width: 100%;
         background: #f9fafb;
         padding: 10px;
         overflow-y: auto;
-        border-left: 1px solid #e2e8f0;
     }
 
     .stats-table-container {

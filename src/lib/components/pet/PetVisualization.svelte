@@ -5,11 +5,19 @@
 
     let geneVisualizerRef = $state();
     let currentView = $state("attribute");
+    let statsOpen = $state(false);
 
     function handleViewChange(view) {
         currentView = view;
         if (geneVisualizerRef) {
             geneVisualizerRef.handleViewChange(view);
+        }
+    }
+
+    function toggleStats() {
+        statsOpen = !statsOpen;
+        if (geneVisualizerRef) {
+            geneVisualizerRef.toggleStats();
         }
     }
 </script>
@@ -46,6 +54,13 @@
                 onclick={() => handleViewChange("appearance")}
             >
                 Appearance
+            </button>
+            <button
+                class="view-btn stats-btn"
+                class:active={statsOpen}
+                onclick={toggleStats}
+            >
+                Stats
             </button>
         </div>
     </div>
