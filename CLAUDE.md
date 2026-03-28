@@ -8,29 +8,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Mandatory: Lint Before Committing
 
-After modifying **any** Python or JavaScript/Svelte file, you MUST run the relevant linters and fix all errors before committing. These are the same checks CI runs:
+After modifying **any** JavaScript, TypeScript, or Svelte file, you MUST run the linter and fix all errors before committing:
 
 ```bash
-# After changing Python files:
-uv run ruff check .          # Fix all errors
-uv run ruff format --check . # Fix any formatting issues
-
-# After changing JS/Svelte files:
 pnpm run lint:ci             # Fix all errors (zero warnings)
 ```
 
-Do not leave lint errors for a follow-up fix.
+### Development
+- Native app: `pnpm tauri:dev` (launches Tauri + Vite on port 5174)
+- Frontend only: `pnpm dev` (Vite on port 5174)
+- Access the app at http://localhost:5174 during frontend-only dev
 
-### Development Servers
-- Backend runs on port 8000 (API only)
-- Frontend dev server on port 5173 (proxies API calls to backend)
-- Access the web application at http://localhost:5173 during development
-
-### Integration Testing Shortcuts
+### Testing
 ```bash
-./test.sh quick       # Fast integration tests
-./test.sh all         # Full suite (integration + client)
-./test.sh genes       # Gene endpoint tests
-./test.sh pets        # Pet endpoint tests
-./test.sh consistency # Data consistency tests
+pnpm test:e2e                # Playwright E2E tests (30 tests)
+pnpm test:e2e:headed         # With visible browser
+```
+
+### Rust Compilation Check
+```bash
+cd src-tauri && cargo check   # Verify Rust compiles
 ```
