@@ -650,8 +650,8 @@
     .genes-grid {
         display: grid;
         grid-template-columns: repeat(4, 1fr);
-        gap: 1rem;
-        padding-bottom: 2rem;
+        gap: 0.75rem;
+        padding-bottom: 1.5rem;
     }
 
     /* Gene Card */
@@ -901,16 +901,28 @@
     }
 
     /* Responsive */
+    @media (min-width: 1800px) {
+        .genes-grid {
+            grid-template-columns: repeat(6, 1fr);
+        }
+    }
+
+    @media (min-width: 1400px) and (max-width: 1799px) {
+        .genes-grid {
+            grid-template-columns: repeat(5, 1fr);
+        }
+    }
+
     @media (max-width: 1200px) {
         .genes-grid {
-            grid-template-columns: repeat(2, 1fr);
+            grid-template-columns: repeat(3, 1fr);
         }
     }
 
     @media (max-width: 768px) {
         .genes-grid {
             grid-template-columns: 1fr;
-            gap: 0.75rem;
+            gap: 0.5rem;
         }
 
         .gene-card {

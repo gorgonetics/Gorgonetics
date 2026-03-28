@@ -51,8 +51,9 @@
         z-index: 100;
         display: flex;
         align-items: center;
-        gap: 2rem;
-        padding: 0.75rem 1.5rem;
+        flex-wrap: wrap;
+        gap: 1rem;
+        padding: 0.625rem 1rem;
         background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
         border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -61,7 +62,7 @@
     }
 
     .visualization-title {
-        font-size: 1.25rem;
+        font-size: 1.1rem;
         font-weight: 700;
         color: white;
         margin: 0;

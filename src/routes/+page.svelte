@@ -78,7 +78,7 @@
 		flex-direction: column;
 		height: 100%;
 		min-height: 0;
-		padding: 1.5rem;
+		padding: 1rem;
 	}
 
 	.app-main:has(:global(.pet-visualization)),
@@ -167,9 +167,9 @@
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		padding: 4rem 2rem;
+		padding: 3rem 2rem;
 		text-align: center;
-		min-height: 400px;
+		flex: 1;
 	}
 
 	.welcome-icon {

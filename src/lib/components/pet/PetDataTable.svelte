@@ -194,7 +194,8 @@
         min-height: 0;
         position: relative;
         contain: layout style;
-        padding: 1.5rem;
+        padding: 1rem;
+        overflow-x: auto;
     }
 
     .empty-state {
@@ -202,7 +203,8 @@
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        height: 400px;
+        flex: 1;
+        min-height: 200px;
         color: #6b7280;
         text-align: center;
     }

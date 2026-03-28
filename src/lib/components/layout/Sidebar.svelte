@@ -111,21 +111,21 @@
 
 <style>
     .sidebar {
-        width: 280px;
+        width: 240px;
         background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
         box-shadow: 2px 0 8px rgba(0, 0, 0, 0.12);
         display: flex;
         flex-direction: column;
         transition: width 0.3s ease;
         position: relative;
-        height: 100vh;
+        height: 100%;
         overflow: hidden;
         flex-shrink: 0;
         contain: layout style;
     }
 
     .sidebar.collapsed {
-        width: 80px;
+        width: 64px;
     }
 
     .sidebar-header {
@@ -139,8 +139,8 @@
     .logo-section {
         display: flex;
         align-items: center;
-        gap: 16px;
-        padding: 24px;
+        gap: 12px;
+        padding: 16px;
         border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         flex-shrink: 0;
         position: relative;
@@ -153,8 +153,8 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        width: 60px;
-        height: 60px;
+        width: 44px;
+        height: 44px;
         background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
         border-radius: 12px;
         box-shadow: 0 4px 14px 0 rgba(59, 130, 246, 0.3);
@@ -168,7 +168,7 @@
         -webkit-text-fill-color: initial;
         color: white;
         background: none;
-        font-size: 32px;
+        font-size: 24px;
         animation: glow 3s ease-in-out infinite alternate;
     }
 
@@ -198,7 +198,7 @@
     }
 
     .gradient-text {
-        font-size: 24px;
+        font-size: 20px;
         margin: 0;
         font-weight: 700;
         line-height: 1.2;
@@ -227,14 +227,14 @@
         display: flex;
         flex-direction: column;
         gap: 4px;
-        padding: 16px;
+        padding: 12px;
     }
 
     .tab {
         display: flex;
         align-items: center;
-        gap: 12px;
-        padding: 12px 16px;
+        gap: 10px;
+        padding: 10px 12px;
         background: rgba(255, 255, 255, 0.1);
         border: 1px solid rgba(255, 255, 255, 0.2);
         border-radius: 8px;
@@ -262,10 +262,10 @@
 
     .sidebar-controls {
         flex: 1;
-        padding: 24px;
+        padding: 16px;
         display: flex;
         flex-direction: column;
-        gap: 20px;
+        gap: 16px;
         transition: all 0.3s ease;
         overflow-y: auto;
         min-height: 0;
@@ -297,7 +297,7 @@
 
     /* User Section Styles */
     .user-section {
-        padding: 16px 24px;
+        padding: 12px 16px;
         border-top: 1px solid rgba(255, 255, 255, 0.1);
         background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
         display: flex;
@@ -318,8 +318,8 @@
     }
 
     .user-avatar {
-        width: 40px;
-        height: 40px;
+        width: 32px;
+        height: 32px;
         background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
         border-radius: 50%;
         display: flex;
@@ -363,7 +363,7 @@
     }
 
     .sidebar-footer {
-        padding: 20px;
+        padding: 12px;
         border-top: 1px solid rgba(255, 255, 255, 0.1);
         background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
         display: flex;
