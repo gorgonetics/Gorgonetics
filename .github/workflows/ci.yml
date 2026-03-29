@@ -62,7 +62,7 @@ jobs:
         run: |
           mkdir -p src/static/assets src/static/data
           cp -r assets/* src/static/assets/
-          cp -r data/* src/static/data/
+          cp -r src-tauri/resources/data/* src/static/data/
 
       - name: Run E2E tests
         run: pnpm test:e2e
