@@ -53,7 +53,7 @@ pnpm tauri:build      # Build production app (.app/.dmg on macOS)
 | `pnpm dev` | Frontend dev server only (port 5174) |
 | `pnpm build` | Build frontend (static site) |
 | `pnpm tauri:build` | Build production native app |
-| `pnpm run lint:ci` | ESLint (zero warnings) |
+| `pnpm run lint:ci` | Biome lint check |
 | `pnpm test:e2e` | Playwright E2E tests |
 | `pnpm test:e2e:headed` | E2E tests with visible browser |
 

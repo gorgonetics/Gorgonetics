@@ -1,9 +1,9 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { initDatabase, closeDatabase } from '$lib/services/database.js';
-import * as petService from '$lib/services/petService.js';
-import * as geneService from '$lib/services/geneService.js';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { closeDatabase, initDatabase } from '$lib/services/database.js';
+import * as geneService from '$lib/services/geneService.js';
+import * as petService from '$lib/services/petService.js';
 
 const SAMPLE_BEEWASP = readFileSync(resolve('data/Genes_SampleFaeBee.txt'), 'utf-8');
 const SAMPLE_HORSE = readFileSync(resolve('data/Genes_SampleHorse.txt'), 'utf-8');

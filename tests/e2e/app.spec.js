@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
 // Wait for the app to finish initializing (DB + demo data)
 async function waitForAppReady(page) {
@@ -294,7 +294,11 @@ test.describe('Tab Navigation', () => {
 // ==========================================
 
 test.describe('Window Sizing', () => {
-  for (const [w, h] of [[1200, 800], [1024, 768], [800, 600]]) {
+  for (const [w, h] of [
+    [1200, 800],
+    [1024, 768],
+    [800, 600],
+  ]) {
     test(`renders at ${w}x${h}`, async ({ page }) => {
       await page.setViewportSize({ width: w, height: h });
       await page.goto('/');

@@ -1,12 +1,12 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  parseGenomeFileHeader,
-  parseGenomeFileGenes,
-  generateBlockLetters,
   countBlocksInChromosome,
+  generateBlockLetters,
+  isValidGenomeFile,
   parseChromosomeGenes,
   parseGenome,
-  isValidGenomeFile,
+  parseGenomeFileGenes,
+  parseGenomeFileHeader,
 } from '$lib/services/genomeParser.js';
 
 const SAMPLE_GENOME = `[Overview]

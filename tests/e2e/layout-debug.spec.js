@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
 test('debug: capture pet visualization layout', async ({ page }) => {
   await page.setViewportSize({ width: 1200, height: 800 });
@@ -26,43 +26,83 @@ test('debug: capture pet visualization layout', async ({ page }) => {
     const detailPane = document.querySelector('.detail-pane') || document.querySelector('main');
     if (detailPane) {
       const r = detailPane.getBoundingClientRect();
-      results.detailPane = { top: r.top, bottom: r.bottom, height: r.height, overflow: getComputedStyle(detailPane).overflow };
+      results.detailPane = {
+        top: r.top,
+        bottom: r.bottom,
+        height: r.height,
+        overflow: getComputedStyle(detailPane).overflow,
+      };
     }
 
     const petViz = document.querySelector('.pet-visualization');
     if (petViz) {
       const r = petViz.getBoundingClientRect();
-      results.petVisualization = { top: r.top, bottom: r.bottom, height: r.height, overflow: getComputedStyle(petViz).overflow, scrollHeight: petViz.scrollHeight };
+      results.petVisualization = {
+        top: r.top,
+        bottom: r.bottom,
+        height: r.height,
+        overflow: getComputedStyle(petViz).overflow,
+        scrollHeight: petViz.scrollHeight,
+      };
     }
 
     const detailContent = document.querySelector('.detail-content');
     if (detailContent) {
       const r = detailContent.getBoundingClientRect();
-      results.detailContent = { top: r.top, bottom: r.bottom, height: r.height, overflow: getComputedStyle(detailContent).overflow, position: getComputedStyle(detailContent).position };
+      results.detailContent = {
+        top: r.top,
+        bottom: r.bottom,
+        height: r.height,
+        overflow: getComputedStyle(detailContent).overflow,
+        position: getComputedStyle(detailContent).position,
+      };
     }
 
     const vizContainer = document.querySelector('.visualizer-container');
     if (vizContainer) {
       const r = vizContainer.getBoundingClientRect();
-      results.visualizerContainer = { top: r.top, bottom: r.bottom, height: r.height, overflow: getComputedStyle(vizContainer).overflow, scrollHeight: vizContainer.scrollHeight };
+      results.visualizerContainer = {
+        top: r.top,
+        bottom: r.bottom,
+        height: r.height,
+        overflow: getComputedStyle(vizContainer).overflow,
+        scrollHeight: vizContainer.scrollHeight,
+      };
     }
 
     const geneViz = document.querySelector('.gene-visualizer');
     if (geneViz) {
       const r = geneViz.getBoundingClientRect();
-      results.geneVisualizer = { top: r.top, bottom: r.bottom, height: r.height, overflow: getComputedStyle(geneViz).overflow, scrollHeight: geneViz.scrollHeight };
+      results.geneVisualizer = {
+        top: r.top,
+        bottom: r.bottom,
+        height: r.height,
+        overflow: getComputedStyle(geneViz).overflow,
+        scrollHeight: geneViz.scrollHeight,
+      };
     }
 
     const geneSection = document.querySelector('.gene-section');
     if (geneSection) {
       const r = geneSection.getBoundingClientRect();
-      results.geneSection = { top: r.top, bottom: r.bottom, height: r.height, overflow: getComputedStyle(geneSection).overflow };
+      results.geneSection = {
+        top: r.top,
+        bottom: r.bottom,
+        height: r.height,
+        overflow: getComputedStyle(geneSection).overflow,
+      };
     }
 
     const gridContainer = document.querySelector('.gene-grid-container');
     if (gridContainer) {
       const r = gridContainer.getBoundingClientRect();
-      results.geneGridContainer = { top: r.top, bottom: r.bottom, height: r.height, overflow: getComputedStyle(gridContainer).overflow, scrollHeight: gridContainer.scrollHeight };
+      results.geneGridContainer = {
+        top: r.top,
+        bottom: r.bottom,
+        height: r.height,
+        overflow: getComputedStyle(gridContainer).overflow,
+        scrollHeight: gridContainer.scrollHeight,
+      };
     }
 
     const legend = document.querySelector('.gene-legend');

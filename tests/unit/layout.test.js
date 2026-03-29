@@ -8,9 +8,10 @@
  *
  * We parse the actual Svelte component files and verify CSS rules.
  */
-import { describe, it, expect } from 'vitest';
+
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
+import { describe, expect, it } from 'vitest';
 
 function readComponent(path) {
   return readFileSync(resolve(path), 'utf-8');
@@ -32,8 +33,8 @@ function hasProperty(css, selector, property, value) {
   // Find the rule block for the selector
   const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const regex = new RegExp(`${escapedSelector}\\s*\\{([^}]+)\\}`, 'g');
-  let match;
-  while ((match = regex.exec(css)) !== null) {
+  let match = regex.exec(css);
+  while (match !== null) {
     const block = match[1];
     if (value) {
       const propRegex = new RegExp(`${property}\\s*:\\s*${value}`);
@@ -41,6 +42,7 @@ function hasProperty(css, selector, property, value) {
     } else {
       if (block.includes(property)) return true;
     }
+    match = regex.exec(css);
   }
   return false;
 }
@@ -176,15 +178,16 @@ describe('Layout: no competing scroll containers', () => {
       const css = extractStyles(content);
       // Find all overflow: auto declarations
       const regex = /([.#]\w[\w-]*)\s*\{[^}]*overflow\s*:\s*auto[^}]*\}/g;
-      let match;
-      while ((match = regex.exec(css)) !== null) {
+      let match = regex.exec(css);
+      while (match !== null) {
         overflowAutoLocations.push({ file, selector: match[1] });
+        match = regex.exec(css);
       }
     }
 
     // Only gene-grid-container and stats-drawer should have overflow auto
     const unexpected = overflowAutoLocations.filter(
-      (l) => !l.selector.includes('gene-grid-container') && !l.selector.includes('stats-drawer')
+      (l) => !l.selector.includes('gene-grid-container') && !l.selector.includes('stats-drawer'),
     );
 
     expect(unexpected).toEqual([]);

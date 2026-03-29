@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { initDatabase, getDb, closeDatabase } from '$lib/services/database.js';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { closeDatabase, getDb, initDatabase } from '$lib/services/database.js';
 
 // The in-memory database is used automatically outside Tauri
 
@@ -19,7 +19,7 @@ describe('Database', () => {
     const result = await db.execute(
       `INSERT INTO genes (animal_type, chromosome, gene, effectDominant, effectRecessive, appearance, notes, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      ['test', 'chr01', '01A1', 'Toughness+', 'None', 'Body Color Hue', '', '2024-01-01', '2024-01-01']
+      ['test', 'chr01', '01A1', 'Toughness+', 'None', 'Body Color Hue', '', '2024-01-01', '2024-01-01'],
     );
     expect(result.rowsAffected).toBe(1);
   });
@@ -29,7 +29,7 @@ describe('Database', () => {
     const result = await db.execute(
       `INSERT INTO pets (name, species, gender, content_hash, genome_data, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      ['TestPet', 'BeeWasp', 'Female', 'abc123', '{}', '2024-01-01', '2024-01-01']
+      ['TestPet', 'BeeWasp', 'Female', 'abc123', '{}', '2024-01-01', '2024-01-01'],
     );
     expect(result.rowsAffected).toBe(1);
     expect(result.lastInsertId).toBeGreaterThan(0);
@@ -40,7 +40,7 @@ describe('Database', () => {
     await db.execute(
       `INSERT INTO genes (animal_type, chromosome, gene, effectDominant, effectRecessive, appearance, notes, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      ['beewasp', 'chr01', '01A1', 'Toughness+', 'None', 'Body Color Hue', '', '2024-01-01', '2024-01-01']
+      ['beewasp', 'chr01', '01A1', 'Toughness+', 'None', 'Body Color Hue', '', '2024-01-01', '2024-01-01'],
     );
 
     const rows = await db.select('SELECT * FROM genes WHERE animal_type = ?', ['beewasp']);
@@ -53,11 +53,11 @@ describe('Database', () => {
     const db = getDb();
     await db.execute(
       `INSERT INTO genes (animal_type, chromosome, gene, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`,
-      ['beewasp', 'chr01', '01A1', '2024-01-01', '2024-01-01']
+      ['beewasp', 'chr01', '01A1', '2024-01-01', '2024-01-01'],
     );
     await db.execute(
       `INSERT INTO genes (animal_type, chromosome, gene, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`,
-      ['horse', 'chr01', '01A1', '2024-01-01', '2024-01-01']
+      ['horse', 'chr01', '01A1', '2024-01-01', '2024-01-01'],
     );
 
     const rows = await db.select('SELECT DISTINCT animal_type FROM genes ORDER BY animal_type');
@@ -70,11 +70,11 @@ describe('Database', () => {
     const db = getDb();
     await db.execute(
       `INSERT INTO pets (name, species, gender, content_hash, genome_data, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      ['Pet1', 'BeeWasp', 'Male', 'hash1', '{}', '2024-01-01', '2024-01-01']
+      ['Pet1', 'BeeWasp', 'Male', 'hash1', '{}', '2024-01-01', '2024-01-01'],
     );
     await db.execute(
       `INSERT INTO pets (name, species, gender, content_hash, genome_data, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      ['Pet2', 'Horse', 'Female', 'hash2', '{}', '2024-01-01', '2024-01-01']
+      ['Pet2', 'Horse', 'Female', 'hash2', '{}', '2024-01-01', '2024-01-01'],
     );
 
     const rows = await db.select('SELECT COUNT(*) as cnt FROM pets');
@@ -85,13 +85,15 @@ describe('Database', () => {
     const db = getDb();
     await db.execute(
       `INSERT INTO genes (animal_type, chromosome, gene, effectDominant, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
-      ['beewasp', 'chr01', '01A1', 'None', '2024-01-01', '2024-01-01']
+      ['beewasp', 'chr01', '01A1', 'None', '2024-01-01', '2024-01-01'],
     );
 
-    await db.execute(
-      'UPDATE genes SET effectDominant = ?, updated_at = ? WHERE animal_type = ? AND gene = ?',
-      ['Toughness+', '2024-01-02', 'beewasp', '01A1']
-    );
+    await db.execute('UPDATE genes SET effectDominant = ?, updated_at = ? WHERE animal_type = ? AND gene = ?', [
+      'Toughness+',
+      '2024-01-02',
+      'beewasp',
+      '01A1',
+    ]);
 
     const rows = await db.select('SELECT effectDominant FROM genes WHERE gene = ?', ['01A1']);
     expect(rows[0].effectDominant).toBe('Toughness+');
@@ -101,7 +103,7 @@ describe('Database', () => {
     const db = getDb();
     await db.execute(
       `INSERT INTO pets (name, species, gender, content_hash, genome_data, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      ['ToDelete', 'BeeWasp', 'Male', 'delhash', '{}', '2024-01-01', '2024-01-01']
+      ['ToDelete', 'BeeWasp', 'Male', 'delhash', '{}', '2024-01-01', '2024-01-01'],
     );
 
     const before = await db.select('SELECT COUNT(*) as cnt FROM pets');

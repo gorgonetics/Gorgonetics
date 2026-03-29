@@ -1,18 +1,18 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  normalizeSpecies,
-  getCoreAttributeNames,
   getAllAttributeNames,
-  getDefaultValues,
+  getAppearanceAttributeNames,
+  getAppearanceConfig,
   getAttributeConfig,
+  getCoreAttributeNames,
+  getDatabaseColumns,
+  getDefaultValues,
   getEffectOptions,
   getEffectOptionsForSpecies,
-  getAppearanceConfig,
-  getAppearanceAttributeNames,
-  isValidAttribute,
-  isValidAppearanceAttribute,
   getSupportedSpecies,
-  getDatabaseColumns,
+  isValidAppearanceAttribute,
+  isValidAttribute,
+  normalizeSpecies,
   validateAttributeDict,
 } from '$lib/services/configService.js';
 

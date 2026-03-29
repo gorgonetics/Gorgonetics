@@ -17,7 +17,7 @@ jobs:
           - platform: macos-13
             target: x86_64-apple-darwin
             label: macOS-x64
-          - platform: ubuntu-22.04
+          - platform: ubuntu-24.04
             target: x86_64-unknown-linux-gnu
             label: Linux-x64
           - platform: windows-latest
@@ -49,7 +49,7 @@ jobs:
           cache: "pnpm"
 
       - name: Install Linux dependencies
-        if: matrix.platform == 'ubuntu-22.04'
+        if: matrix.platform == 'ubuntu-24.04'
         run: |
           sudo apt-get update
           sudo apt-get install -y \
