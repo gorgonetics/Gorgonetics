@@ -77,7 +77,7 @@ tests/e2e/          Playwright E2E tests
 
 - **Desktop Shell**: Tauri v2 (Rust)
 - **Frontend**: SvelteKit + Svelte 5 (runes)
-- **Styling**: Tailwind CSS v4, Flowbite Svelte
+- **Styling**: Tailwind CSS v4
 - **Database**: SQLite via tauri-plugin-sql
 - **Icons**: Lucide Svelte
 - **Testing**: Playwright

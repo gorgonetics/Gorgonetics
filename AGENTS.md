@@ -91,7 +91,7 @@ pnpm build                        # Frontend only (static site)
 - **Services**: All data access goes through `src/lib/services/` modules
 - **State**: Svelte writable stores in `src/lib/stores/`
 - **Imports**: Use `$lib/` alias (e.g., `import { getDb } from '$lib/services/database.js'`)
-- **CSS**: Tailwind CSS v4; Flowbite Svelte for modals/inputs
+- **CSS**: Tailwind CSS v4; custom components (no UI framework dependency)
 - **No raw fetch**: All data access through service layer, not HTTP calls
 
 ### Rust (src-tauri/)
