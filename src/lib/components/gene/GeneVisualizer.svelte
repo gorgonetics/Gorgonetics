@@ -47,10 +47,13 @@ let hiddenValueFilters = $state([]);
 let currentBreedFilter = $state('');
 
 function chromosomeHasBreed(chromosome, breedAbbrev) {
-  if (!geneEffectsDB?.effects) return true;
+  if (!geneEffectsDB || !currentPet) return true;
+  const speciesKey = normalizeSpecies(currentPet.species);
+  const speciesEffects = geneEffectsDB[speciesKey];
+  if (!speciesEffects) return true;
   // A chromosome matches if it has generic genes (no breed) or genes for this breed
-  for (const [geneId, data] of Object.entries(geneEffectsDB.effects)) {
-    if (geneId.startsWith(chromosome.replace('chr', ''))) {
+  for (const [geneId, data] of Object.entries(speciesEffects)) {
+    if (geneId.startsWith(chromosome)) {
       if (!data.breed || data.breed === '' || data.breed === breedAbbrev) {
         return true;
       }
