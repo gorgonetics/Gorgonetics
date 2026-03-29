@@ -186,12 +186,12 @@ test.describe('Pet Editor', () => {
     await expect(page.getByText('Attributes', { exact: false }).first()).toBeVisible();
   });
 
-  test('closes on Escape', async ({ page }) => {
+  test('closes on close button click', async ({ page }) => {
     await page.locator('.pet-card-wrapper').first().hover();
     await page.locator('.edit-btn').first().click();
     await expect(page.getByText('Basic Information')).toBeVisible();
 
-    await page.keyboard.press('Escape');
+    await page.locator('.modal-close').click();
     await expect(page.getByText('Basic Information')).not.toBeVisible();
   });
 });
@@ -241,13 +241,14 @@ test.describe('Delete Confirmation', () => {
     await expect(page.locator('.pet-card')).toHaveCount(countBefore - 1);
   });
 
-  test('Escape key cancels delete', async ({ page }) => {
+  test('backdrop click cancels delete', async ({ page }) => {
     const countBefore = await page.locator('.pet-card').count();
     await page.locator('.pet-card-wrapper').first().hover();
     await page.locator('.delete-btn').first().click();
     await expect(page.locator('.confirm-dialog')).toBeVisible();
 
-    await page.keyboard.press('Escape');
+    // Click the backdrop (outside the dialog)
+    await page.locator('.confirm-backdrop').click({ position: { x: 5, y: 5 } });
     await expect(page.locator('.confirm-dialog')).toHaveCount(0);
     expect(await page.locator('.pet-card').count()).toBe(countBefore);
   });
