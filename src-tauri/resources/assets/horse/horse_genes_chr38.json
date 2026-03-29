@@ -3,196 +3,224 @@
     "gene": "38A1",
     "effectDominant": "None",
     "effectRecessive": "Toughness+",
-    "appearance": "Attributes (Le)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "38A2",
     "effectDominant": "None",
     "effectRecessive": "Enthusiasm+",
-    "appearance": "Attributes (Le)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "38A3",
     "effectDominant": "Friendliness+",
     "effectRecessive": "None",
-    "appearance": "Attributes (Le)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "38A4",
     "effectDominant": "None",
     "effectRecessive": "Intelligence+",
-    "appearance": "Attributes (Le)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "38B1",
     "effectDominant": "Temperament+",
     "effectRecessive": "None",
-    "appearance": "Attributes (Le)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "38B2",
     "effectDominant": "Intelligence-",
     "effectRecessive": "None",
-    "appearance": "Attributes (Le)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "38B3",
     "effectDominant": "None",
     "effectRecessive": "Enthusiasm-",
-    "appearance": "Attributes (Le)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "38B4",
     "effectDominant": "Ruggedness+",
     "effectRecessive": "None",
-    "appearance": "Attributes (Le)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "38C1",
     "effectDominant": "None",
     "effectRecessive": "Virility+",
-    "appearance": "Attributes (Le)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "38C2",
     "effectDominant": "None",
     "effectRecessive": "Virility+",
-    "appearance": "Attributes (Le)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "38C3",
     "effectDominant": "None",
     "effectRecessive": "Temperament+",
-    "appearance": "Attributes (Le)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "38C4",
     "effectDominant": "None",
     "effectRecessive": "Friendliness-",
-    "appearance": "Attributes (Le)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "38D1",
     "effectDominant": "Enthusiasm+",
     "effectRecessive": "None",
-    "appearance": "Attributes (Le)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "38D2",
     "effectDominant": "None",
     "effectRecessive": "Toughness+",
-    "appearance": "Attributes (Le)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "38D3",
     "effectDominant": "None",
     "effectRecessive": "Ruggedness+",
-    "appearance": "Attributes (Le)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "38D4",
     "effectDominant": "Temperament+",
     "effectRecessive": "None",
-    "appearance": "Attributes (Le)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "38E1",
     "effectDominant": "Friendliness+",
     "effectRecessive": "None",
-    "appearance": "Attributes (Le)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "38E2",
     "effectDominant": "None",
     "effectRecessive": "Intelligence-",
-    "appearance": "Attributes (Le)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "38E3",
     "effectDominant": "None",
     "effectRecessive": "Temperament-",
-    "appearance": "Attributes (Le)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "38E4",
     "effectDominant": "Virility+",
     "effectRecessive": "None",
-    "appearance": "Attributes (Le)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "38F1",
     "effectDominant": "Ruggedness+",
     "effectRecessive": "None",
-    "appearance": "Attributes (Le)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "38F2",
     "effectDominant": "Intelligence-",
     "effectRecessive": "None",
-    "appearance": "Attributes (Le)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "38F3",
     "effectDominant": "None",
     "effectRecessive": "Friendliness+",
-    "appearance": "Attributes (Le)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "38F4",
     "effectDominant": "None",
     "effectRecessive": "Toughness+",
-    "appearance": "Attributes (Le)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "38G1",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "None (Le)",
-    "notes": ""
+    "appearance": "None",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "38G2",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "None (Le)",
-    "notes": ""
+    "appearance": "None",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "38G3",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "None (Le)",
-    "notes": ""
+    "appearance": "None",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "38G4",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "None (Le)",
-    "notes": ""
+    "appearance": "None",
+    "notes": "",
+    "breed": "Le"
   }
 ]

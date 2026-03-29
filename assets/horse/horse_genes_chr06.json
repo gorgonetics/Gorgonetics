@@ -4,279 +4,319 @@
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Leg Markings",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "06A2",
     "effectDominant": "Virility+",
     "effectRecessive": "None",
     "appearance": "Leg Markings",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "06A3",
     "effectDominant": "None",
     "effectRecessive": "Ruggedness+",
     "appearance": "Leg Markings",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "06A4",
     "effectDominant": "None",
     "effectRecessive": "Friendliness+",
     "appearance": "Leg Markings",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "06B1",
     "effectDominant": "Intelligence+",
     "effectRecessive": "None",
     "appearance": "Leg Markings",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "06B2",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Leg Markings",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "06B3",
     "effectDominant": "Enthusiasm-",
     "effectRecessive": "None",
     "appearance": "Leg Markings",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "06B4",
     "effectDominant": "None",
     "effectRecessive": "Virility+",
     "appearance": "Leg Markings",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "06C1",
     "effectDominant": "None",
     "effectRecessive": "Virility+",
     "appearance": "Leg Markings",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "06C2",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Leg Markings",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "06C3",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Leg Markings",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "06C4",
     "effectDominant": "None",
     "effectRecessive": "Friendliness-",
     "appearance": "Leg Markings",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "06D1",
     "effectDominant": "None",
     "effectRecessive": "Toughness+",
     "appearance": "Leg Markings",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "06D2",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Leg Markings",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "06D3",
     "effectDominant": "Toughness+",
     "effectRecessive": "None",
     "appearance": "Leg Markings",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "06D4",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Leg Markings",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "06E1",
     "effectDominant": "Virility-",
     "effectRecessive": "None",
     "appearance": "Leg Markings",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "06E2",
     "effectDominant": "None",
     "effectRecessive": "Ruggedness+",
     "appearance": "Leg Markings",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "06E3",
     "effectDominant": "Intelligence-",
     "effectRecessive": "None",
     "appearance": "Leg Markings",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "06E4",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Leg Markings",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "06F1",
     "effectDominant": "None",
     "effectRecessive": "Friendliness+",
     "appearance": "Leg Markings",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "06F2",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Leg Markings",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "06F3",
     "effectDominant": "None",
     "effectRecessive": "Toughness+",
     "appearance": "Leg Markings",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "06F4",
     "effectDominant": "Ruggedness-",
     "effectRecessive": "None",
     "appearance": "Leg Markings",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "06G1",
     "effectDominant": "Ruggedness-",
     "effectRecessive": "None",
     "appearance": "Leg Markings",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "06G2",
     "effectDominant": "None",
     "effectRecessive": "Temperament-",
     "appearance": "Leg Markings",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "06G3",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Leg Markings",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "06G4",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Leg Markings",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "06H1",
     "effectDominant": "None",
     "effectRecessive": "Intelligence-",
     "appearance": "Leg Markings",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "06H2",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Leg Markings",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "06H3",
     "effectDominant": "None",
     "effectRecessive": "Virility+",
     "appearance": "Leg Markings",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "06H4",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Leg Markings",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "06I1",
     "effectDominant": "None",
     "effectRecessive": "Ruggedness+",
     "appearance": "Leg Markings",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "06I2",
     "effectDominant": "Toughness-",
     "effectRecessive": "None",
     "appearance": "Leg Markings",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "06I3",
     "effectDominant": "Temperament+",
     "effectRecessive": "None",
     "appearance": "Leg Markings",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "06I4",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Leg Markings",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "06J1",
     "effectDominant": "None",
     "effectRecessive": "Toughness+",
     "appearance": "Leg Markings",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "06J2",
     "effectDominant": "None",
     "effectRecessive": "Enthusiasm-",
     "appearance": "Leg Markings",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "06J3",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Leg Markings",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "06J4",
     "effectDominant": "Virility+",
     "effectRecessive": "None",
     "appearance": "Leg Markings",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   }
 ]

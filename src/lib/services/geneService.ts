@@ -40,7 +40,7 @@ export async function getGenesByChromosome(animalType: string, chromosome: strin
   const db = getDb();
   return db.select(
     `SELECT animal_type, chromosome, gene, effectDominant, effectRecessive,
-            appearance, notes, created_at
+            appearance, breed, notes, created_at
      FROM genes
      WHERE animal_type = ? AND chromosome = ?
      ORDER BY gene`,
@@ -55,7 +55,7 @@ export async function getGene(animalType: string, gene: string): Promise<Record<
   const db = getDb();
   const rows = await db.select<Record<string, string>[]>(
     `SELECT animal_type, chromosome, gene, effectDominant, effectRecessive,
-            appearance, notes, created_at
+            appearance, breed, notes, created_at
      FROM genes WHERE animal_type = ? AND gene = ?`,
     [animalType, gene],
   );
@@ -69,7 +69,7 @@ export async function getGenesForAnimal(animalType: string): Promise<Record<stri
   const db = getDb();
   return db.select(
     `SELECT animal_type, chromosome, gene, effectDominant, effectRecessive,
-            appearance, notes, created_at
+            appearance, breed, notes, created_at
      FROM genes WHERE animal_type = ? ORDER BY chromosome, gene`,
     [animalType],
   );
@@ -129,14 +129,14 @@ export async function upsertGene(
   animalType: string,
   chromosome: string,
   gene: string,
-  data: { effectDominant?: string; effectRecessive?: string; appearance?: string; notes?: string },
+  data: { effectDominant?: string; effectRecessive?: string; appearance?: string; breed?: string; notes?: string },
 ): Promise<void> {
   const db = getDb();
   const ts = now();
   await db.execute(
     `INSERT OR REPLACE INTO genes
-     (animal_type, chromosome, gene, effectDominant, effectRecessive, appearance, notes, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     (animal_type, chromosome, gene, effectDominant, effectRecessive, appearance, breed, notes, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       animalType,
       chromosome,
@@ -144,6 +144,7 @@ export async function upsertGene(
       data.effectDominant ?? 'None',
       data.effectRecessive ?? 'None',
       data.appearance ?? 'None',
+      data.breed ?? '',
       data.notes ?? '',
       ts,
       ts,
@@ -155,20 +156,24 @@ export async function upsertGene(
  * Get all gene effects for visualization (aggregated by gene ID).
  */
 export async function getGeneEffects(species: string): Promise<{
-  effects: Record<string, { effectDominant: string; effectRecessive: string; appearance: string; notes: string }>;
+  effects: Record<
+    string,
+    { effectDominant: string; effectRecessive: string; appearance: string; breed: string; notes: string }
+  >;
 }> {
   const normalized = normalizeSpecies(species);
   const allGenes = await getGenesForAnimal(normalized);
 
   const effects: Record<
     string,
-    { effectDominant: string; effectRecessive: string; appearance: string; notes: string }
+    { effectDominant: string; effectRecessive: string; appearance: string; breed: string; notes: string }
   > = {};
   for (const gene of allGenes) {
     effects[gene.gene] = {
       effectDominant: gene.effectDominant ?? 'None',
       effectRecessive: gene.effectRecessive ?? 'None',
       appearance: gene.appearance ?? '',
+      breed: gene.breed ?? '',
       notes: gene.notes ?? '',
     };
   }
@@ -186,6 +191,7 @@ export async function exportGenesToJson(animalType: string, chromosome: string):
     effectDominant: g.effectDominant ?? 'None',
     effectRecessive: g.effectRecessive ?? 'None',
     appearance: g.appearance ?? 'None',
+    breed: g.breed ?? '',
     notes: g.notes ?? '',
   }));
 }

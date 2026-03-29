@@ -4,167 +4,191 @@
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Antenna Deformity",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "08A2",
     "effectDominant": "Toughness-",
     "effectRecessive": "None",
     "appearance": "Antenna Deformity",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "08A3",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Antenna Deformity",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "08A4",
     "effectDominant": "None",
     "effectRecessive": "Intelligence+",
     "appearance": "Antenna Deformity",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "08B1",
     "effectDominant": "None",
     "effectRecessive": "Virility+",
     "appearance": "Antenna Deformity",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "08B2",
     "effectDominant": "None",
     "effectRecessive": "Ferocity+",
     "appearance": "Antenna Deformity",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "08B3",
     "effectDominant": "Virility-",
     "effectRecessive": "None",
     "appearance": "Antenna Deformity",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "08B4",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Antenna Deformity",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "08C1",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Antenna Deformity",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "08C2",
     "effectDominant": "None",
     "effectRecessive": "Enthusiasm+",
     "appearance": "Antenna Deformity",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "08C3",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Antenna Deformity",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "08C4",
     "effectDominant": "Friendliness-",
     "effectRecessive": "None",
     "appearance": "Antenna Deformity",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "08D1",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Leg Deformity",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "08D2",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Leg Deformity",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "08D3",
     "effectDominant": "None",
     "effectRecessive": "Virility+",
     "appearance": "Leg Deformity",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "08D4",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Leg Deformity",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "08E1",
     "effectDominant": "Intelligence-",
     "effectRecessive": "None",
     "appearance": "Leg Deformity",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "08E2",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Leg Deformity",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "08E3",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Leg Deformity",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "08E4",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Leg Deformity",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "08F1",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Leg Deformity",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "08F2",
     "effectDominant": "None",
     "effectRecessive": "Ruggedness+",
     "appearance": "Leg Deformity",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "08F3",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Leg Deformity",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "08F4",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Leg Deformity",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   }
 ]

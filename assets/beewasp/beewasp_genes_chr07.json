@@ -4,279 +4,319 @@
     "effectDominant": "Intelligence-",
     "effectRecessive": "None",
     "appearance": "Head Scale",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "07A2",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Head Scale",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "07A3",
     "effectDominant": "None",
     "effectRecessive": "Ruggedness+",
     "appearance": "Head Scale",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "07A4",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Head Scale",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "07B1",
     "effectDominant": "None",
     "effectRecessive": "Enthusiasm+",
     "appearance": "Head Scale",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "07B2",
     "effectDominant": "None",
     "effectRecessive": "Toughness+",
     "appearance": "Head Scale",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "07B3",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Head Scale",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "07B4",
     "effectDominant": "Enthusiasm-",
     "effectRecessive": "None",
     "appearance": "Head Scale",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "07C1",
     "effectDominant": "Ruggedness-",
     "effectRecessive": "None",
     "appearance": "Head Scale",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "07C2",
     "effectDominant": "None",
     "effectRecessive": "Friendliness+",
     "appearance": "Head Scale",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "07C3",
     "effectDominant": "None",
     "effectRecessive": "Virility+",
     "appearance": "Antenna Scale",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "07C4",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Antenna Scale",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "07D1",
     "effectDominant": "Toughness-",
     "effectRecessive": "None",
     "appearance": "Antenna Scale",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "07D2",
     "effectDominant": "None",
     "effectRecessive": "Ferocity+",
     "appearance": "Antenna Scale",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "07D3",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Antenna Scale",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "07D4",
     "effectDominant": "Intelligence-",
     "effectRecessive": "None",
     "appearance": "Antenna Scale",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "07E1",
     "effectDominant": "Friendliness-",
     "effectRecessive": "None",
     "appearance": "Antenna Scale",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "07E2",
     "effectDominant": "Ruggedness-",
     "effectRecessive": "None",
     "appearance": "Antenna Scale",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "07E3",
     "effectDominant": "Enthusiasm-",
     "effectRecessive": "None",
     "appearance": "Antenna Scale",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "07E4",
     "effectDominant": "None",
     "effectRecessive": "Friendliness+",
     "appearance": "Antenna Scale",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "07F1",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Wing Scale",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "07F2",
     "effectDominant": "None",
     "effectRecessive": "Enthusiasm+",
     "appearance": "Wing Scale",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "07F3",
     "effectDominant": "None",
     "effectRecessive": "Friendliness+",
     "appearance": "Wing Scale",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "07F4",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Wing Scale",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "07G1",
     "effectDominant": "Ruggedness-",
     "effectRecessive": "None",
     "appearance": "Wing Scale",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "07G2",
     "effectDominant": "Intelligence-",
     "effectRecessive": "None",
     "appearance": "Wing Scale",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "07G3",
     "effectDominant": "None",
     "effectRecessive": "Virility+",
     "appearance": "Wing Scale",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "07G4",
     "effectDominant": "Friendliness-",
     "effectRecessive": "None",
     "appearance": "Wing Scale",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "07H1",
     "effectDominant": "None",
     "effectRecessive": "Toughness+",
     "appearance": "Wing Scale",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "07H2",
     "effectDominant": "Enthusiasm-",
     "effectRecessive": "None",
     "appearance": "Wing Scale",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "07H3",
     "effectDominant": "Virility-",
     "effectRecessive": "None",
     "appearance": "Tail Scale",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "07H4",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Tail Scale",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "07I1",
     "effectDominant": "None",
     "effectRecessive": "Ferocity+",
     "appearance": "Tail Scale",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "07I2",
     "effectDominant": "None",
     "effectRecessive": "Enthusiasm+",
     "appearance": "Tail Scale",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "07I3",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Tail Scale",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "07I4",
     "effectDominant": "Toughness-",
     "effectRecessive": "None",
     "appearance": "Tail Scale",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "07J1",
     "effectDominant": "None",
     "effectRecessive": "Ruggedness+",
     "appearance": "Tail Scale",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "07J2",
     "effectDominant": "None",
     "effectRecessive": "Friendliness+",
     "appearance": "Tail Scale",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "07J3",
     "effectDominant": "None",
     "effectRecessive": "Ruggedness+",
     "appearance": "Tail Scale",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "07J4",
     "effectDominant": "None",
     "effectRecessive": "Toughness+",
     "appearance": "Tail Scale",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   }
 ]

@@ -3,196 +3,224 @@
     "gene": "10A1",
     "effectDominant": "None",
     "effectRecessive": "Temperament+",
-    "appearance": "Attributes (Sb)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Sb"
   },
   {
     "gene": "10A2",
     "effectDominant": "None",
     "effectRecessive": "Enthusiasm+",
-    "appearance": "Attributes (Sb)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Sb"
   },
   {
     "gene": "10A3",
     "effectDominant": "Temperament+",
     "effectRecessive": "None",
-    "appearance": "Attributes (Sb)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Sb"
   },
   {
     "gene": "10A4",
     "effectDominant": "Virility+",
     "effectRecessive": "None",
-    "appearance": "Attributes (Sb)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Sb"
   },
   {
     "gene": "10B1",
     "effectDominant": "Toughness+",
     "effectRecessive": "None",
-    "appearance": "Attributes (Sb)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Sb"
   },
   {
     "gene": "10B2",
     "effectDominant": "Virility-",
     "effectRecessive": "None",
-    "appearance": "Attributes (Sb)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Sb"
   },
   {
     "gene": "10B3",
     "effectDominant": "None",
     "effectRecessive": "Ruggedness-",
-    "appearance": "Attributes (Sb)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Sb"
   },
   {
     "gene": "10B4",
     "effectDominant": "Temperament+",
     "effectRecessive": "None",
-    "appearance": "Attributes (Sb)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Sb"
   },
   {
     "gene": "10C1",
     "effectDominant": "Enthusiasm-",
     "effectRecessive": "None",
-    "appearance": "Attributes (Sb)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Sb"
   },
   {
     "gene": "10C2",
     "effectDominant": "None",
     "effectRecessive": "Enthusiasm+",
-    "appearance": "Attributes (Sb)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Sb"
   },
   {
     "gene": "10C3",
     "effectDominant": "Intelligence+",
     "effectRecessive": "None",
-    "appearance": "Attributes (Sb)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Sb"
   },
   {
     "gene": "10C4",
     "effectDominant": "Ruggedness+",
     "effectRecessive": "None",
-    "appearance": "Attributes (Sb)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Sb"
   },
   {
     "gene": "10D1",
     "effectDominant": "None",
     "effectRecessive": "Friendliness+",
-    "appearance": "Attributes (Sb)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Sb"
   },
   {
     "gene": "10D2",
     "effectDominant": "None",
     "effectRecessive": "Intelligence-",
-    "appearance": "Attributes (Sb)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Sb"
   },
   {
     "gene": "10D3",
     "effectDominant": "None",
     "effectRecessive": "Intelligence+",
-    "appearance": "Attributes (Sb)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Sb"
   },
   {
     "gene": "10D4",
     "effectDominant": "Friendliness-",
     "effectRecessive": "None",
-    "appearance": "Attributes (Sb)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Sb"
   },
   {
     "gene": "10E1",
     "effectDominant": "None",
     "effectRecessive": "Ruggedness+",
-    "appearance": "Attributes (Sb)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Sb"
   },
   {
     "gene": "10E2",
     "effectDominant": "None",
     "effectRecessive": "Toughness-",
-    "appearance": "Attributes (Sb)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Sb"
   },
   {
     "gene": "10E3",
     "effectDominant": "None",
     "effectRecessive": "Temperament+",
-    "appearance": "Attributes (Sb)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Sb"
   },
   {
     "gene": "10E4",
     "effectDominant": "None",
     "effectRecessive": "Friendliness+",
-    "appearance": "Attributes (Sb)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Sb"
   },
   {
     "gene": "10F1",
     "effectDominant": "Toughness+",
     "effectRecessive": "None",
-    "appearance": "Attributes (Sb)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Sb"
   },
   {
     "gene": "10F2",
     "effectDominant": "None",
     "effectRecessive": "Virility+",
-    "appearance": "Attributes (Sb)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Sb"
   },
   {
     "gene": "10F3",
     "effectDominant": "None",
     "effectRecessive": "Enthusiasm+",
-    "appearance": "Attributes (Sb)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Sb"
   },
   {
     "gene": "10F4",
     "effectDominant": "Friendliness+",
     "effectRecessive": "None",
-    "appearance": "Attributes (Sb)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Sb"
   },
   {
     "gene": "10G1",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "None",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "10G2",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "None",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "10G3",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "None",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "10G4",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "None",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   }
 ]

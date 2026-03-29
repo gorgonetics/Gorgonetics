@@ -3,294 +3,336 @@
     "gene": "23A1",
     "effectDominant": "None",
     "effectRecessive": "Virility-",
-    "appearance": "Coat (Po)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Po"
   },
   {
     "gene": "23A2",
     "effectDominant": "Intelligence+",
     "effectRecessive": "None",
-    "appearance": "Coat (Po)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Po"
   },
   {
     "gene": "23A3",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Coat (Po)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Po"
   },
   {
     "gene": "23A4",
     "effectDominant": "Toughness+",
     "effectRecessive": "None",
-    "appearance": "Coat (Po)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Po"
   },
   {
     "gene": "23B1",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Coat (Po)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Po"
   },
   {
     "gene": "23B2",
     "effectDominant": "None",
     "effectRecessive": "Enthusiasm+",
-    "appearance": "Coat (Po)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Po"
   },
   {
     "gene": "23B3",
     "effectDominant": "None",
     "effectRecessive": "Enthusiasm+",
-    "appearance": "Coat (Po)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Po"
   },
   {
     "gene": "23B4",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Coat (Po)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Po"
   },
   {
     "gene": "23C1",
     "effectDominant": "None",
     "effectRecessive": "Virility+",
-    "appearance": "Coat (Po)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Po"
   },
   {
     "gene": "23C2",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Coat (Po)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Po"
   },
   {
     "gene": "23C3",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Coat (Po)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Po"
   },
   {
     "gene": "23C4",
     "effectDominant": "None",
     "effectRecessive": "Ruggedness+",
-    "appearance": "Coat (Po)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Po"
   },
   {
     "gene": "23D1",
     "effectDominant": "None",
     "effectRecessive": "Intelligence-",
-    "appearance": "Coat (Po)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Po"
   },
   {
     "gene": "23D2",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Coat (Po)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Po"
   },
   {
     "gene": "23D3",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Coat (Po)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Po"
   },
   {
     "gene": "23D4",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Coat (Po)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Po"
   },
   {
     "gene": "23E1",
     "effectDominant": "None",
     "effectRecessive": "Toughness+",
-    "appearance": "Coat (Po)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Po"
   },
   {
     "gene": "23E2",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Coat (Po)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Po"
   },
   {
     "gene": "23E3",
     "effectDominant": "Intelligence+",
     "effectRecessive": "None",
-    "appearance": "Coat (Po)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Po"
   },
   {
     "gene": "23E4",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Coat (Po)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Po"
   },
   {
     "gene": "23F1",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Coat (Po)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Po"
   },
   {
     "gene": "23F2",
     "effectDominant": "Friendliness+",
     "effectRecessive": "None",
-    "appearance": "Coat (Po)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Po"
   },
   {
     "gene": "23F3",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Coat (Po)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Po"
   },
   {
     "gene": "23F4",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Coat (Po)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Po"
   },
   {
     "gene": "23G1",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Coat (Po)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Po"
   },
   {
     "gene": "23G2",
     "effectDominant": "None",
     "effectRecessive": "Ruggedness-",
-    "appearance": "Coat (Po)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Po"
   },
   {
     "gene": "23G3",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Coat (Po)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Po"
   },
   {
     "gene": "23G4",
     "effectDominant": "None",
     "effectRecessive": "Intelligence-",
-    "appearance": "Coat (Po)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Po"
   },
   {
     "gene": "23H1",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Markings (Po)",
-    "notes": ""
+    "appearance": "Markings",
+    "notes": "",
+    "breed": "Po"
   },
   {
     "gene": "23H2",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Markings (Po)",
-    "notes": ""
+    "appearance": "Markings",
+    "notes": "",
+    "breed": "Po"
   },
   {
     "gene": "23H3",
     "effectDominant": "Enthusiasm+",
     "effectRecessive": "None",
-    "appearance": "Markings (Po)",
-    "notes": ""
+    "appearance": "Markings",
+    "notes": "",
+    "breed": "Po"
   },
   {
     "gene": "23H4",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Markings (Po)",
-    "notes": ""
+    "appearance": "Markings",
+    "notes": "",
+    "breed": "Po"
   },
   {
     "gene": "23I1",
     "effectDominant": "Virility+",
     "effectRecessive": "None",
-    "appearance": "Markings (Po)",
-    "notes": ""
+    "appearance": "Markings",
+    "notes": "",
+    "breed": "Po"
   },
   {
     "gene": "23I2",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Markings (Po)",
-    "notes": ""
+    "appearance": "Markings",
+    "notes": "",
+    "breed": "Po"
   },
   {
     "gene": "23I3",
     "effectDominant": "Friendliness-",
     "effectRecessive": "None",
-    "appearance": "Markings (Po)",
-    "notes": ""
+    "appearance": "Markings",
+    "notes": "",
+    "breed": "Po"
   },
   {
     "gene": "23I4",
     "effectDominant": "None",
     "effectRecessive": "Toughness+",
-    "appearance": "Markings (Po)",
-    "notes": ""
+    "appearance": "Markings",
+    "notes": "",
+    "breed": "Po"
   },
   {
     "gene": "23J1",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Markings (Po)",
-    "notes": ""
+    "appearance": "Markings",
+    "notes": "",
+    "breed": "Po"
   },
   {
     "gene": "23J2",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Markings (Po)",
-    "notes": ""
+    "appearance": "Markings",
+    "notes": "",
+    "breed": "Po"
   },
   {
     "gene": "23J3",
     "effectDominant": "Intelligence+",
     "effectRecessive": "None",
-    "appearance": "Markings (Po)",
-    "notes": ""
+    "appearance": "Markings",
+    "notes": "",
+    "breed": "Po"
   },
   {
     "gene": "23J4",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Markings (Po)",
-    "notes": ""
+    "appearance": "Markings",
+    "notes": "",
+    "breed": "Po"
   },
   {
     "gene": "23K1",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Markings (Po)",
-    "notes": ""
+    "appearance": "Markings",
+    "notes": "",
+    "breed": "Po"
   },
   {
     "gene": "23K2",
     "effectDominant": "None",
     "effectRecessive": "Enthusiasm+",
-    "appearance": "Markings (Po)",
-    "notes": ""
+    "appearance": "Markings",
+    "notes": "",
+    "breed": "Po"
   }
 ]

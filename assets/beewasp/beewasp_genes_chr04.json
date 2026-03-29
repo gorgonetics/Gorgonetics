@@ -4,139 +4,159 @@
     "effectDominant": "Virility-",
     "effectRecessive": "None",
     "appearance": "Wing Color Saturation",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "04A2",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Wing Color Saturation",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "04A3",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Wing Color Saturation",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "04A4",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Wing Color Saturation",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "04B1",
     "effectDominant": "None",
     "effectRecessive": "Toughness+",
     "appearance": "Wing Color Saturation",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "04B2",
     "effectDominant": "Friendliness-",
     "effectRecessive": "None",
     "appearance": "Wing Color Saturation",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "04B3",
     "effectDominant": "Ferocity-",
     "effectRecessive": "None",
     "appearance": "Wing Color Saturation",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "04B4",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Wing Color Saturation",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "04C1",
     "effectDominant": "Intelligence-",
     "effectRecessive": "None",
     "appearance": "Wing Color Saturation",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "04C2",
     "effectDominant": "None",
     "effectRecessive": "Virility+",
     "appearance": "Wing Color Saturation",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "04C3",
     "effectDominant": "Ruggedness-",
     "effectRecessive": "None",
     "appearance": "Wing Color Intensity",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "04C4",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Wing Color Intensity",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "04D1",
     "effectDominant": "Ruggedness-",
     "effectRecessive": "None",
     "appearance": "Wing Color Intensity",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "04D2",
     "effectDominant": "Enthusiasm-",
     "effectRecessive": "None",
     "appearance": "Wing Color Intensity",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "04D3",
     "effectDominant": "None",
     "effectRecessive": "Enthusiasm+",
     "appearance": "Wing Color Intensity",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "04D4",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Wing Color Intensity",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "04E1",
     "effectDominant": "None",
     "effectRecessive": "Intelligence+",
     "appearance": "Wing Color Intensity",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "04E2",
     "effectDominant": "None",
     "effectRecessive": "Intelligence+",
     "appearance": "Wing Color Intensity",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "04E3",
     "effectDominant": "Ferocity-",
     "effectRecessive": "None",
     "appearance": "Wing Color Intensity",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "04E4",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Wing Color Intensity",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   }
 ]

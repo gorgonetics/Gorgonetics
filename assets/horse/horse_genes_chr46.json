@@ -3,196 +3,224 @@
     "gene": "46A1",
     "effectDominant": "None",
     "effectRecessive": "Temperament+",
-    "appearance": "Attributes (Cl)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Cl"
   },
   {
     "gene": "46A2",
     "effectDominant": "None",
     "effectRecessive": "Friendliness+",
-    "appearance": "Attributes (Cl)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Cl"
   },
   {
     "gene": "46A3",
     "effectDominant": "None",
     "effectRecessive": "Enthusiasm+",
-    "appearance": "Attributes (Cl)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Cl"
   },
   {
     "gene": "46A4",
     "effectDominant": "None",
     "effectRecessive": "Temperament+",
-    "appearance": "Attributes (Cl)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Cl"
   },
   {
     "gene": "46B1",
     "effectDominant": "None",
     "effectRecessive": "Toughness+",
-    "appearance": "Attributes (Cl)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Cl"
   },
   {
     "gene": "46B2",
     "effectDominant": "None",
     "effectRecessive": "Intelligence+",
-    "appearance": "Attributes (Cl)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Cl"
   },
   {
     "gene": "46B3",
     "effectDominant": "None",
     "effectRecessive": "Friendliness+",
-    "appearance": "Attributes (Cl)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Cl"
   },
   {
     "gene": "46B4",
     "effectDominant": "None",
     "effectRecessive": "Temperament+",
-    "appearance": "Attributes (Cl)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Cl"
   },
   {
     "gene": "46C1",
     "effectDominant": "None",
     "effectRecessive": "Ruggedness+",
-    "appearance": "Attributes (Cl)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Cl"
   },
   {
     "gene": "46C2",
     "effectDominant": "None",
     "effectRecessive": "Intelligence+",
-    "appearance": "Attributes (Cl)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Cl"
   },
   {
     "gene": "46C3",
     "effectDominant": "None",
     "effectRecessive": "Enthusiasm+",
-    "appearance": "Attributes (Cl)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Cl"
   },
   {
     "gene": "46C4",
     "effectDominant": "None",
     "effectRecessive": "Temperament+",
-    "appearance": "Attributes (Cl)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Cl"
   },
   {
     "gene": "46D1",
     "effectDominant": "None",
     "effectRecessive": "Toughness+",
-    "appearance": "Attributes (Cl)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Cl"
   },
   {
     "gene": "46D2",
     "effectDominant": "None",
     "effectRecessive": "Virility+",
-    "appearance": "Attributes (Cl)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Cl"
   },
   {
     "gene": "46D3",
     "effectDominant": "None",
     "effectRecessive": "Intelligence+",
-    "appearance": "Attributes (Cl)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Cl"
   },
   {
     "gene": "46D4",
     "effectDominant": "None",
     "effectRecessive": "Temperament+",
-    "appearance": "Attributes (Cl)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Cl"
   },
   {
     "gene": "46E1",
     "effectDominant": "None",
     "effectRecessive": "Ruggedness+",
-    "appearance": "Attributes (Cl)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Cl"
   },
   {
     "gene": "46E2",
     "effectDominant": "None",
     "effectRecessive": "Friendliness+",
-    "appearance": "Attributes (Cl)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Cl"
   },
   {
     "gene": "46E3",
     "effectDominant": "None",
     "effectRecessive": "Enthusiasm+",
-    "appearance": "Attributes (Cl)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Cl"
   },
   {
     "gene": "46E4",
     "effectDominant": "None",
     "effectRecessive": "Toughness+",
-    "appearance": "Attributes (Cl)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Cl"
   },
   {
     "gene": "46F1",
     "effectDominant": "None",
     "effectRecessive": "Temperament+",
-    "appearance": "Attributes (Cl)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Cl"
   },
   {
     "gene": "46F2",
     "effectDominant": "None",
     "effectRecessive": "Intelligence+",
-    "appearance": "Attributes (Cl)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Cl"
   },
   {
     "gene": "46F3",
     "effectDominant": "None",
     "effectRecessive": "Ruggedness+",
-    "appearance": "Attributes (Cl)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Cl"
   },
   {
     "gene": "46F4",
     "effectDominant": "None",
     "effectRecessive": "Temperament+",
-    "appearance": "Attributes (Cl)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Cl"
   },
   {
     "gene": "46G1",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "None (Cl)",
-    "notes": ""
+    "appearance": "None",
+    "notes": "",
+    "breed": "Cl"
   },
   {
     "gene": "46G2",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "None (Cl)",
-    "notes": ""
+    "appearance": "None",
+    "notes": "",
+    "breed": "Cl"
   },
   {
     "gene": "46G3",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "None (Cl)",
-    "notes": ""
+    "appearance": "None",
+    "notes": "",
+    "breed": "Cl"
   },
   {
     "gene": "46G4",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "None (Cl)",
-    "notes": ""
+    "appearance": "None",
+    "notes": "",
+    "breed": "Cl"
   }
 ]

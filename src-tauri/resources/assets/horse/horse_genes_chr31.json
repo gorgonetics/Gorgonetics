@@ -3,294 +3,336 @@
     "gene": "31A1",
     "effectDominant": "Temperament+",
     "effectRecessive": "None",
-    "appearance": "Coat (St)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "St"
   },
   {
     "gene": "31A2",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Coat (St)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "St"
   },
   {
     "gene": "31A3",
     "effectDominant": "None",
     "effectRecessive": "Friendliness-",
-    "appearance": "Coat (St)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "St"
   },
   {
     "gene": "31A4",
     "effectDominant": "Ruggedness+",
     "effectRecessive": "None",
-    "appearance": "Coat (St)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "St"
   },
   {
     "gene": "31B1",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Coat (St)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "St"
   },
   {
     "gene": "31B2",
     "effectDominant": "Virility+",
     "effectRecessive": "None",
-    "appearance": "Coat (St)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "St"
   },
   {
     "gene": "31B3",
     "effectDominant": "None",
     "effectRecessive": "Toughness-",
-    "appearance": "Coat (St)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "St"
   },
   {
     "gene": "31B4",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Coat (St)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "St"
   },
   {
     "gene": "31C1",
     "effectDominant": "None",
     "effectRecessive": "Enthusiasm+",
-    "appearance": "Coat (St)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "St"
   },
   {
     "gene": "31C2",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Coat (St)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "St"
   },
   {
     "gene": "31C3",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Coat (St)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "St"
   },
   {
     "gene": "31C4",
     "effectDominant": "None",
     "effectRecessive": "Friendliness+",
-    "appearance": "Coat (St)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "St"
   },
   {
     "gene": "31D1",
     "effectDominant": "Toughness+",
     "effectRecessive": "None",
-    "appearance": "Coat (St)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "St"
   },
   {
     "gene": "31D2",
     "effectDominant": "None",
     "effectRecessive": "Intelligence-",
-    "appearance": "Coat (St)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "St"
   },
   {
     "gene": "31D3",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Coat (St)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "St"
   },
   {
     "gene": "31D4",
     "effectDominant": "Temperament-",
     "effectRecessive": "None",
-    "appearance": "Coat (St)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "St"
   },
   {
     "gene": "31E1",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Coat (St)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "St"
   },
   {
     "gene": "31E2",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Coat (St)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "St"
   },
   {
     "gene": "31E3",
     "effectDominant": "Ruggedness+",
     "effectRecessive": "None",
-    "appearance": "Coat (St)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "St"
   },
   {
     "gene": "31E4",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Coat (St)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "St"
   },
   {
     "gene": "31F1",
     "effectDominant": "None",
     "effectRecessive": "Enthusiasm-",
-    "appearance": "Coat (St)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "St"
   },
   {
     "gene": "31F2",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Coat (St)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "St"
   },
   {
     "gene": "31F3",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Coat (St)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "St"
   },
   {
     "gene": "31F4",
     "effectDominant": "None",
     "effectRecessive": "Toughness-",
-    "appearance": "Coat (St)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "St"
   },
   {
     "gene": "31G1",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Coat (St)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "St"
   },
   {
     "gene": "31G2",
     "effectDominant": "None",
     "effectRecessive": "Temperament+",
-    "appearance": "Coat (St)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "St"
   },
   {
     "gene": "31G3",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Coat (St)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "St"
   },
   {
     "gene": "31G4",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Coat (St)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "St"
   },
   {
     "gene": "31H1",
     "effectDominant": "None",
     "effectRecessive": "Enthusiasm-",
-    "appearance": "Markings (St)",
-    "notes": ""
+    "appearance": "Markings",
+    "notes": "",
+    "breed": "St"
   },
   {
     "gene": "31H2",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Markings (St)",
-    "notes": ""
+    "appearance": "Markings",
+    "notes": "",
+    "breed": "St"
   },
   {
     "gene": "31H3",
     "effectDominant": "Virility+",
     "effectRecessive": "None",
-    "appearance": "Markings (St)",
-    "notes": ""
+    "appearance": "Markings",
+    "notes": "",
+    "breed": "St"
   },
   {
     "gene": "31H4",
     "effectDominant": "None",
     "effectRecessive": "Friendliness+",
-    "appearance": "Markings (St)",
-    "notes": ""
+    "appearance": "Markings",
+    "notes": "",
+    "breed": "St"
   },
   {
     "gene": "31I1",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Markings (St)",
-    "notes": ""
+    "appearance": "Markings",
+    "notes": "",
+    "breed": "St"
   },
   {
     "gene": "31I2",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Markings (St)",
-    "notes": ""
+    "appearance": "Markings",
+    "notes": "",
+    "breed": "St"
   },
   {
     "gene": "31I3",
     "effectDominant": "None",
     "effectRecessive": "Temperament-",
-    "appearance": "Markings (St)",
-    "notes": ""
+    "appearance": "Markings",
+    "notes": "",
+    "breed": "St"
   },
   {
     "gene": "31I4",
     "effectDominant": "None",
     "effectRecessive": "Intelligence+",
-    "appearance": "Markings (St)",
-    "notes": ""
+    "appearance": "Markings",
+    "notes": "",
+    "breed": "St"
   },
   {
     "gene": "31J1",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Markings (St)",
-    "notes": ""
+    "appearance": "Markings",
+    "notes": "",
+    "breed": "St"
   },
   {
     "gene": "31J2",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Markings (St)",
-    "notes": ""
+    "appearance": "Markings",
+    "notes": "",
+    "breed": "St"
   },
   {
     "gene": "31J3",
     "effectDominant": "Toughness+",
     "effectRecessive": "None",
-    "appearance": "Markings (St)",
-    "notes": ""
+    "appearance": "Markings",
+    "notes": "",
+    "breed": "St"
   },
   {
     "gene": "31J4",
     "effectDominant": "Toughness-",
     "effectRecessive": "None",
-    "appearance": "Markings (St)",
-    "notes": ""
+    "appearance": "Markings",
+    "notes": "",
+    "breed": "St"
   },
   {
     "gene": "31K1",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Markings (St)",
-    "notes": ""
+    "appearance": "Markings",
+    "notes": "",
+    "breed": "St"
   },
   {
     "gene": "31K2",
     "effectDominant": "Enthusiasm+",
     "effectRecessive": "None",
-    "appearance": "Markings (St)",
-    "notes": ""
+    "appearance": "Markings",
+    "notes": "",
+    "breed": "St"
   }
 ]

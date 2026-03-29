@@ -43,6 +43,22 @@ let hiddenEffectFilters = $state([]);
 let currentValueFilter = $state([]);
 let hiddenValueFilters = $state([]);
 
+// Breed filter state (horse only)
+let currentBreedFilter = $state('');
+
+function chromosomeHasBreed(chromosome, breedAbbrev) {
+  if (!geneEffectsDB?.effects) return true;
+  // A chromosome matches if it has generic genes (no breed) or genes for this breed
+  for (const [geneId, data] of Object.entries(geneEffectsDB.effects)) {
+    if (geneId.startsWith(chromosome.replace('chr', ''))) {
+      if (!data.breed || data.breed === '' || data.breed === breedAbbrev) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 // Tooltip state
 let tooltipVisible = $state(false);
 let tooltipX = $state(0);
@@ -1318,6 +1334,11 @@ export function handleViewChange(view) {
   updateVisualization();
 }
 
+export function setBreedFilter(breed) {
+  currentBreedFilter = breed;
+  updateVisualization();
+}
+
 export function getStatsData() {
   return {
     currentStats,
@@ -1681,6 +1702,8 @@ export function getStatsData() {
                                 </thead>
                                 <tbody class="gene-rows">
                                     {#each chromosomeData as { chromosome, processedBlocks } (chromosome)}
+                                        {@const hasMatchingGenes = !currentBreedFilter || chromosomeHasBreed(chromosome, currentBreedFilter)}
+                                        {#if hasMatchingGenes}
                                         <tr class="chromosome-row">
                                             <td
                                                 class="chromosome-label {selectedChromosomes.includes(
@@ -1731,6 +1754,7 @@ export function getStatsData() {
                                                 {/each}
                                             {/each}
                                         </tr>
+                                        {/if}
                                     {/each}
                                 </tbody>
                             </table>

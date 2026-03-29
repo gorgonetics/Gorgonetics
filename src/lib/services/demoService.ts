@@ -26,6 +26,7 @@ export async function populateGenesIfNeeded(): Promise<void> {
           effectDominant?: string;
           effectRecessive?: string;
           appearance?: string;
+          breed?: string;
           notes?: string;
         }[];
 
@@ -38,6 +39,7 @@ export async function populateGenesIfNeeded(): Promise<void> {
             effectDominant: gene.effectDominant,
             effectRecessive: gene.effectRecessive,
             appearance: gene.appearance,
+            breed: gene.breed,
             notes: gene.notes,
           });
         }

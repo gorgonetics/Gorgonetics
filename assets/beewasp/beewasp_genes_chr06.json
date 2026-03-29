@@ -4,69 +4,79 @@
     "effectDominant": "Toughness-",
     "effectRecessive": "None",
     "appearance": "Body Scale",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "06A2",
     "effectDominant": "Virility-",
     "effectRecessive": "None",
     "appearance": "Body Scale",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "06A3",
     "effectDominant": "Ferocity-",
     "effectRecessive": "None",
     "appearance": "Body Scale",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "06A4",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Body Scale",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "06B1",
     "effectDominant": "None",
     "effectRecessive": "Ruggedness+",
     "appearance": "Body Scale",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "06B2",
     "effectDominant": "Friendliness-",
     "effectRecessive": "None",
     "appearance": "Body Scale",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "06B3",
     "effectDominant": "None",
     "effectRecessive": "Ferocity+",
     "appearance": "Body Scale",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "06B4",
     "effectDominant": "Toughness-",
     "effectRecessive": "None",
     "appearance": "Body Scale",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "06C1",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Body Scale",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "06C2",
     "effectDominant": "Ruggedness-",
     "effectRecessive": "None",
     "appearance": "Body Scale",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   }
 ]

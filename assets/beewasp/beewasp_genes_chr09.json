@@ -4,139 +4,159 @@
     "effectDominant": "None",
     "effectRecessive": "Toughness+",
     "appearance": "Particle Location",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "09A2",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Particle Location",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "09A3",
     "effectDominant": "None",
     "effectRecessive": "Virility+",
     "appearance": "Particle Location",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "09A4",
     "effectDominant": "Toughness-",
     "effectRecessive": "None",
     "appearance": "Particle Location",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "09B1",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Particle Location",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "09B2",
     "effectDominant": "Ferocity-",
     "effectRecessive": "None",
     "appearance": "Particle Location",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "09B3",
     "effectDominant": "None",
     "effectRecessive": "Ferocity+",
     "appearance": "Particle Location",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "09B4",
     "effectDominant": "None",
     "effectRecessive": "Enthusiasm+",
     "appearance": "Particle Location",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "09C1",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Particle Location",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "09C2",
     "effectDominant": "Friendliness-",
     "effectRecessive": "None",
     "appearance": "Particle Location",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "09C3",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Particles",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "09C4",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Particles",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "09D1",
     "effectDominant": "None",
     "effectRecessive": "Friendliness+",
     "appearance": "Particles",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "09D2",
     "effectDominant": "Ruggedness-",
     "effectRecessive": "None",
     "appearance": "Particles",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "09D3",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Particles",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "09D4",
     "effectDominant": "None",
     "effectRecessive": "Enthusiasm+",
     "appearance": "Particles",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "09E1",
     "effectDominant": "Intelligence-",
     "effectRecessive": "None",
     "appearance": "Particles",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "09E2",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Particles",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "09E3",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Particles",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "09E4",
     "effectDominant": "Virility-",
     "effectRecessive": "None",
     "appearance": "Particles",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   }
 ]

@@ -3,196 +3,224 @@
     "gene": "42A1",
     "effectDominant": "Friendliness+",
     "effectRecessive": "None",
-    "appearance": "Attributes (Pt)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Pt"
   },
   {
     "gene": "42A2",
     "effectDominant": "Friendliness+",
     "effectRecessive": "None",
-    "appearance": "Attributes (Pt)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Pt"
   },
   {
     "gene": "42A3",
     "effectDominant": "None",
     "effectRecessive": "Friendliness+",
-    "appearance": "Attributes (Pt)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Pt"
   },
   {
     "gene": "42A4",
     "effectDominant": "None",
     "effectRecessive": "Friendliness+",
-    "appearance": "Attributes (Pt)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Pt"
   },
   {
     "gene": "42B1",
     "effectDominant": "Temperament+",
     "effectRecessive": "None",
-    "appearance": "Attributes (Pt)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Pt"
   },
   {
     "gene": "42B2",
     "effectDominant": "Temperament+",
     "effectRecessive": "None",
-    "appearance": "Attributes (Pt)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Pt"
   },
   {
     "gene": "42B3",
     "effectDominant": "None",
     "effectRecessive": "Temperament+",
-    "appearance": "Attributes (Pt)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Pt"
   },
   {
     "gene": "42B4",
     "effectDominant": "None",
     "effectRecessive": "Temperament+",
-    "appearance": "Attributes (Pt)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Pt"
   },
   {
     "gene": "42C1",
     "effectDominant": "Enthusiasm+",
     "effectRecessive": "None",
-    "appearance": "Attributes (Pt)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Pt"
   },
   {
     "gene": "42C2",
     "effectDominant": "Enthusiasm+",
     "effectRecessive": "None",
-    "appearance": "Attributes (Pt)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Pt"
   },
   {
     "gene": "42C3",
     "effectDominant": "None",
     "effectRecessive": "Enthusiasm+",
-    "appearance": "Attributes (Pt)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Pt"
   },
   {
     "gene": "42C4",
     "effectDominant": "None",
     "effectRecessive": "Toughness+",
-    "appearance": "Attributes (Pt)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Pt"
   },
   {
     "gene": "42D1",
     "effectDominant": "None",
     "effectRecessive": "Toughness+",
-    "appearance": "Attributes (Pt)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Pt"
   },
   {
     "gene": "42D2",
     "effectDominant": "Toughness+",
     "effectRecessive": "None",
-    "appearance": "Attributes (Pt)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Pt"
   },
   {
     "gene": "42D3",
     "effectDominant": "None",
     "effectRecessive": "Intelligence+",
-    "appearance": "Attributes (Pt)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Pt"
   },
   {
     "gene": "42D4",
     "effectDominant": "None",
     "effectRecessive": "Intelligence+",
-    "appearance": "Attributes (Pt)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Pt"
   },
   {
     "gene": "42E1",
     "effectDominant": "Intelligence+",
     "effectRecessive": "None",
-    "appearance": "Attributes (Pt)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Pt"
   },
   {
     "gene": "42E2",
     "effectDominant": "Ruggedness+",
     "effectRecessive": "None",
-    "appearance": "Attributes (Pt)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Pt"
   },
   {
     "gene": "42E3",
     "effectDominant": "None",
     "effectRecessive": "Intelligence+",
-    "appearance": "Attributes (Pt)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Pt"
   },
   {
     "gene": "42E4",
     "effectDominant": "None",
     "effectRecessive": "Intelligence+",
-    "appearance": "Attributes (Pt)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Pt"
   },
   {
     "gene": "42F1",
     "effectDominant": "None",
     "effectRecessive": "Virility+",
-    "appearance": "Attributes (Pt)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Pt"
   },
   {
     "gene": "42F2",
     "effectDominant": "Virility+",
     "effectRecessive": "None",
-    "appearance": "Attributes (Pt)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Pt"
   },
   {
     "gene": "42F3",
     "effectDominant": "Virility+",
     "effectRecessive": "None",
-    "appearance": "Attributes (Pt)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Pt"
   },
   {
     "gene": "42F4",
     "effectDominant": "None",
     "effectRecessive": "Virility+",
-    "appearance": "Attributes (Pt)",
-    "notes": ""
+    "appearance": "Attributes",
+    "notes": "",
+    "breed": "Pt"
   },
   {
     "gene": "42G1",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "None (Pt)",
-    "notes": ""
+    "appearance": "None",
+    "notes": "",
+    "breed": "Pt"
   },
   {
     "gene": "42G2",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "None (Pt)",
-    "notes": ""
+    "appearance": "None",
+    "notes": "",
+    "breed": "Pt"
   },
   {
     "gene": "42G3",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "None (Pt)",
-    "notes": ""
+    "appearance": "None",
+    "notes": "",
+    "breed": "Pt"
   },
   {
     "gene": "42G4",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "None (Pt)",
-    "notes": ""
+    "appearance": "None",
+    "notes": "",
+    "breed": "Pt"
   }
 ]

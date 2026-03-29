@@ -3,294 +3,336 @@
     "gene": "27A1",
     "effectDominant": "None",
     "effectRecessive": "Enthusiasm+",
-    "appearance": "Coat (Sc)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Sc"
   },
   {
     "gene": "27A2",
     "effectDominant": "None",
     "effectRecessive": "Temperament+",
-    "appearance": "Coat (Sc)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Sc"
   },
   {
     "gene": "27A3",
     "effectDominant": "None",
     "effectRecessive": "Intelligence+",
-    "appearance": "Coat (Sc)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Sc"
   },
   {
     "gene": "27A4",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Coat (Sc)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Sc"
   },
   {
     "gene": "27B1",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Coat (Sc)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Sc"
   },
   {
     "gene": "27B2",
     "effectDominant": "Virility-",
     "effectRecessive": "None",
-    "appearance": "Coat (Sc)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Sc"
   },
   {
     "gene": "27B3",
     "effectDominant": "None",
     "effectRecessive": "Ruggedness+",
-    "appearance": "Coat (Sc)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Sc"
   },
   {
     "gene": "27B4",
     "effectDominant": "None",
     "effectRecessive": "Friendliness+",
-    "appearance": "Coat (Sc)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Sc"
   },
   {
     "gene": "27C1",
     "effectDominant": "None",
     "effectRecessive": "Toughness+",
-    "appearance": "Coat (Sc)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Sc"
   },
   {
     "gene": "27C2",
     "effectDominant": "None",
     "effectRecessive": "Toughness+",
-    "appearance": "Coat (Sc)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Sc"
   },
   {
     "gene": "27C3",
     "effectDominant": "None",
     "effectRecessive": "Intelligence-",
-    "appearance": "Coat (Sc)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Sc"
   },
   {
     "gene": "27C4",
     "effectDominant": "None",
     "effectRecessive": "Friendliness-",
-    "appearance": "Coat (Sc)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Sc"
   },
   {
     "gene": "27D1",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Coat (Sc)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Sc"
   },
   {
     "gene": "27D2",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Coat (Sc)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Sc"
   },
   {
     "gene": "27D3",
     "effectDominant": "None",
     "effectRecessive": "Temperament+",
-    "appearance": "Coat (Sc)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Sc"
   },
   {
     "gene": "27D4",
     "effectDominant": "None",
     "effectRecessive": "Virility+",
-    "appearance": "Coat (Sc)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Sc"
   },
   {
     "gene": "27E1",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Coat (Sc)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Sc"
   },
   {
     "gene": "27E2",
     "effectDominant": "None",
     "effectRecessive": "Enthusiasm-",
-    "appearance": "Coat (Sc)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Sc"
   },
   {
     "gene": "27E3",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Coat (Sc)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Sc"
   },
   {
     "gene": "27E4",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Coat (Sc)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Sc"
   },
   {
     "gene": "27F1",
     "effectDominant": "None",
     "effectRecessive": "Virility+",
-    "appearance": "Coat (Sc)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Sc"
   },
   {
     "gene": "27F2",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Coat (Sc)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Sc"
   },
   {
     "gene": "27F3",
     "effectDominant": "Intelligence-",
     "effectRecessive": "None",
-    "appearance": "Coat (Sc)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Sc"
   },
   {
     "gene": "27F4",
     "effectDominant": "Friendliness+",
     "effectRecessive": "None",
-    "appearance": "Coat (Sc)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Sc"
   },
   {
     "gene": "27G1",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Coat (Sc)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Sc"
   },
   {
     "gene": "27G2",
     "effectDominant": "None",
     "effectRecessive": "Ruggedness+",
-    "appearance": "Coat (Sc)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Sc"
   },
   {
     "gene": "27G3",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Coat (Sc)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Sc"
   },
   {
     "gene": "27G4",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Coat (Sc)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Sc"
   },
   {
     "gene": "27H1",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Markings (Sc)",
-    "notes": ""
+    "appearance": "Markings",
+    "notes": "",
+    "breed": "Sc"
   },
   {
     "gene": "27H2",
     "effectDominant": "Intelligence+",
     "effectRecessive": "None",
-    "appearance": "Markings (Sc)",
-    "notes": ""
+    "appearance": "Markings",
+    "notes": "",
+    "breed": "Sc"
   },
   {
     "gene": "27H3",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Markings (Sc)",
-    "notes": ""
+    "appearance": "Markings",
+    "notes": "",
+    "breed": "Sc"
   },
   {
     "gene": "27H4",
     "effectDominant": "Toughness+",
     "effectRecessive": "None",
-    "appearance": "Markings (Sc)",
-    "notes": ""
+    "appearance": "Markings",
+    "notes": "",
+    "breed": "Sc"
   },
   {
     "gene": "27I1",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Markings (Sc)",
-    "notes": ""
+    "appearance": "Markings",
+    "notes": "",
+    "breed": "Sc"
   },
   {
     "gene": "27I2",
     "effectDominant": "None",
     "effectRecessive": "Virility-",
-    "appearance": "Markings (Sc)",
-    "notes": ""
+    "appearance": "Markings",
+    "notes": "",
+    "breed": "Sc"
   },
   {
     "gene": "27I3",
     "effectDominant": "None",
     "effectRecessive": "Enthusiasm-",
-    "appearance": "Markings (Sc)",
-    "notes": ""
+    "appearance": "Markings",
+    "notes": "",
+    "breed": "Sc"
   },
   {
     "gene": "27I4",
     "effectDominant": "Temperament-",
     "effectRecessive": "None",
-    "appearance": "Markings (Sc)",
-    "notes": ""
+    "appearance": "Markings",
+    "notes": "",
+    "breed": "Sc"
   },
   {
     "gene": "27J1",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Markings (Sc)",
-    "notes": ""
+    "appearance": "Markings",
+    "notes": "",
+    "breed": "Sc"
   },
   {
     "gene": "27J2",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Markings (Sc)",
-    "notes": ""
+    "appearance": "Markings",
+    "notes": "",
+    "breed": "Sc"
   },
   {
     "gene": "27J3",
     "effectDominant": "None",
     "effectRecessive": "Intelligence+",
-    "appearance": "Markings (Sc)",
-    "notes": ""
+    "appearance": "Markings",
+    "notes": "",
+    "breed": "Sc"
   },
   {
     "gene": "27J4",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Markings (Sc)",
-    "notes": ""
+    "appearance": "Markings",
+    "notes": "",
+    "breed": "Sc"
   },
   {
     "gene": "27K1",
     "effectDominant": "None",
     "effectRecessive": "Intelligence-",
-    "appearance": "Markings (Sc)",
-    "notes": ""
+    "appearance": "Markings",
+    "notes": "",
+    "breed": "Sc"
   },
   {
     "gene": "27K2",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Markings (Sc)",
-    "notes": ""
+    "appearance": "Markings",
+    "notes": "",
+    "breed": "Sc"
   }
 ]

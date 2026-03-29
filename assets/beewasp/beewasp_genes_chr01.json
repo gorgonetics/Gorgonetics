@@ -4,279 +4,319 @@
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Body Color Hue",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "01A2",
     "effectDominant": "None",
     "effectRecessive": "Toughness+",
     "appearance": "Body Color Hue",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "01A3",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Body Color Hue",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "01A4",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Body Color Hue",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "01B1",
     "effectDominant": "Friendliness-",
     "effectRecessive": "None",
     "appearance": "Body Color Hue",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "01B2",
     "effectDominant": "Ruggedness-",
     "effectRecessive": "None",
     "appearance": "Body Color Hue",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "01B3",
     "effectDominant": "None",
     "effectRecessive": "Ferocity+",
     "appearance": "Body Color Hue",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "01B4",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Body Color Hue",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "01C1",
     "effectDominant": "Enthusiasm-",
     "effectRecessive": "None",
     "appearance": "Body Color Hue",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "01C2",
     "effectDominant": "Virility-",
     "effectRecessive": "None",
     "appearance": "Body Color Hue",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "01C3",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Body Color Hue",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "01C4",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Body Color Hue",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "01D1",
     "effectDominant": "None",
     "effectRecessive": "Toughness+",
     "appearance": "Body Color Hue",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "01D2",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Body Color Hue",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "01D3",
     "effectDominant": "None",
     "effectRecessive": "Friendliness+",
     "appearance": "Body Color Hue",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "01D4",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Body Color Hue",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "01E1",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Body Color Hue",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "01E2",
     "effectDominant": "None",
     "effectRecessive": "Intelligence+",
     "appearance": "Body Color Hue",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "01E3",
     "effectDominant": "Enthusiasm-",
     "effectRecessive": "None",
     "appearance": "Body Color Hue",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "01E4",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Body Color Hue",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "01F1",
     "effectDominant": "None",
     "effectRecessive": "Intelligence+",
     "appearance": "Body Color Hue",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "01F2",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Body Color Hue",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "01F3",
     "effectDominant": "None",
     "effectRecessive": "Virility+",
     "appearance": "Body Color Hue",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "01F4",
     "effectDominant": "None",
     "effectRecessive": "Ruggedness+",
     "appearance": "Body Color Hue",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "01G1",
     "effectDominant": "None",
     "effectRecessive": "Enthusiasm+",
     "appearance": "Body Color Hue",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "01G2",
     "effectDominant": "Toughness-",
     "effectRecessive": "None",
     "appearance": "Body Color Hue",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "01G3",
     "effectDominant": "Virility-",
     "effectRecessive": "None",
     "appearance": "Body Color Hue",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "01G4",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Body Color Hue",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "01H1",
     "effectDominant": "Friendliness-",
     "effectRecessive": "None",
     "appearance": "Body Color Hue",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "01H2",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Body Color Hue",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "01H3",
     "effectDominant": "None",
     "effectRecessive": "Ferocity+",
     "appearance": "Body Color Hue",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "01H4",
     "effectDominant": "None",
     "effectRecessive": "Ruggedness+",
     "appearance": "Body Color Hue",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "01I1",
     "effectDominant": "None",
     "effectRecessive": "Ferocity+",
     "appearance": "Body Color Hue",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "01I2",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Body Color Hue",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "01I3",
     "effectDominant": "None",
     "effectRecessive": "Ferocity+",
     "appearance": "Body Color Hue",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "01I4",
     "effectDominant": "None",
     "effectRecessive": "Ruggedness+",
     "appearance": "Body Color Hue",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "01J1",
     "effectDominant": "Virility-",
     "effectRecessive": "None",
     "appearance": "Body Color Hue",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "01J2",
     "effectDominant": "Intelligence-",
     "effectRecessive": "None",
     "appearance": "Body Color Hue",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "01J3",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Body Color Hue",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "01J4",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Body Color Hue",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   }
 ]

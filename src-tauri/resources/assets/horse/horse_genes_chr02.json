@@ -4,307 +4,351 @@
     "effectDominant": "Temperament+",
     "effectRecessive": "None",
     "appearance": "Coat",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "02A2",
     "effectDominant": "None",
     "effectRecessive": "Temperament-",
     "appearance": "Coat",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "02A3",
     "effectDominant": "None",
     "effectRecessive": "Friendliness+",
     "appearance": "Coat",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "02A4",
     "effectDominant": "None",
     "effectRecessive": "Toughness+",
     "appearance": "Coat",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "02B1",
     "effectDominant": "Toughness-",
     "effectRecessive": "None",
     "appearance": "Coat",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "02B2",
     "effectDominant": "None",
     "effectRecessive": "Intelligence+",
     "appearance": "Coat",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "02B3",
     "effectDominant": "None",
     "effectRecessive": "Ruggedness-",
     "appearance": "Coat",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "02B4",
     "effectDominant": "Enthusiasm-",
     "effectRecessive": "None",
     "appearance": "Coat",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "02C1",
     "effectDominant": "None",
     "effectRecessive": "Enthusiasm-",
     "appearance": "Coat",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "02C2",
     "effectDominant": "None",
     "effectRecessive": "Friendliness+",
     "appearance": "Coat",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "02C3",
     "effectDominant": "Temperament+",
     "effectRecessive": "None",
     "appearance": "Coat",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "02C4",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Coat",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "02D1",
     "effectDominant": "None",
     "effectRecessive": "Temperament+",
     "appearance": "Coat",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "02D2",
     "effectDominant": "None",
     "effectRecessive": "Virility-",
     "appearance": "Coat",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "02D3",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Coat",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "02D4",
     "effectDominant": "None",
     "effectRecessive": "Enthusiasm+",
     "appearance": "Coat",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "02E1",
     "effectDominant": "None",
     "effectRecessive": "Friendliness+",
     "appearance": "Coat",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "02E2",
     "effectDominant": "Intelligence+",
     "effectRecessive": "None",
     "appearance": "Coat",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "02E3",
     "effectDominant": "None",
     "effectRecessive": "Ruggedness-",
     "appearance": "Coat",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "02E4",
     "effectDominant": "Virility+",
     "effectRecessive": "None",
     "appearance": "Coat",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "02F1",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Coat",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "02F2",
     "effectDominant": "None",
     "effectRecessive": "Enthusiasm+",
     "appearance": "Coat",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "02F3",
     "effectDominant": "Ruggedness-",
     "effectRecessive": "None",
     "appearance": "Coat",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "02F4",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Coat",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "02G1",
     "effectDominant": "None",
     "effectRecessive": "Friendliness+",
     "appearance": "Hair",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "02G2",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Hair",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "02G3",
     "effectDominant": "Enthusiasm+",
     "effectRecessive": "None",
     "appearance": "Hair",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "02G4",
     "effectDominant": "None",
     "effectRecessive": "Toughness-",
     "appearance": "Hair",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "02H1",
     "effectDominant": "Virility-",
     "effectRecessive": "None",
     "appearance": "Hair",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "02H2",
     "effectDominant": "None",
     "effectRecessive": "Friendliness+",
     "appearance": "Hair",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "02H3",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Hair",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "02H4",
     "effectDominant": "Toughness+",
     "effectRecessive": "None",
     "appearance": "Hair",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "02I1",
     "effectDominant": "None",
     "effectRecessive": "Intelligence-",
     "appearance": "Hair",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "02I2",
     "effectDominant": "None",
     "effectRecessive": "Ruggedness+",
     "appearance": "Hair",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "02I3",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Hair",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "02I4",
     "effectDominant": "Enthusiasm-",
     "effectRecessive": "None",
     "appearance": "Hair",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "02J1",
     "effectDominant": "None",
     "effectRecessive": "Virility+",
     "appearance": "Hair",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "02J2",
     "effectDominant": "None",
     "effectRecessive": "Toughness+",
     "appearance": "Hair",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "02J3",
     "effectDominant": "Intelligence-",
     "effectRecessive": "None",
     "appearance": "Hair",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "02J4",
     "effectDominant": "None",
     "effectRecessive": "Friendliness+",
     "appearance": "Hair",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "02K1",
     "effectDominant": "Temperament+",
     "effectRecessive": "None",
     "appearance": "Hair",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "02K2",
     "effectDominant": "None",
     "effectRecessive": "None",
     "appearance": "Hair",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "02K3",
     "effectDominant": "None",
     "effectRecessive": "Ruggedness-",
     "appearance": "Hair",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   },
   {
     "gene": "02K4",
     "effectDominant": "None",
     "effectRecessive": "Enthusiasm+",
     "appearance": "Hair",
-    "notes": ""
+    "notes": "",
+    "breed": ""
   }
 ]

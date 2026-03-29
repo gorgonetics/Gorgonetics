@@ -3,6 +3,8 @@ import { onDestroy } from 'svelte';
 import GeneStatsTable from '$lib/components/gene/GeneStatsTable.svelte';
 import GeneVisualizer from '$lib/components/gene/GeneVisualizer.svelte';
 
+import { HORSE_BREED_ABBREVIATIONS } from '$lib/types/index.js';
+
 const { pet } = $props();
 
 let geneVisualizerRef = $state();
@@ -10,6 +12,16 @@ let currentView = $state('attribute');
 let statsOpen = $state(false);
 let drawerWidth = $state(320);
 let stats = $state(null);
+let breedFilter = $state('');
+
+const isHorse = $derived(pet?.species?.toLowerCase() === 'horse');
+
+function setBreedFilter(abbrev) {
+  breedFilter = breedFilter === abbrev ? '' : abbrev;
+  if (geneVisualizerRef) {
+    geneVisualizerRef.setBreedFilter(breedFilter);
+  }
+}
 
 // Cleanup refs for resize listeners
 let cleanupResize = null;
@@ -92,28 +104,39 @@ onDestroy(() => {
                 {/if}
             </div>
         </div>
-        <div class="view-controls">
-            <button
-                class="view-btn"
-                class:active={currentView === "attribute"}
-                onclick={() => handleViewChange("attribute")}
-            >
-                Attributes
-            </button>
-            <button
-                class="view-btn"
-                class:active={currentView === "appearance"}
-                onclick={() => handleViewChange("appearance")}
-            >
-                Appearance
-            </button>
-            <button
-                class="view-btn stats-btn"
-                class:active={statsOpen}
-                onclick={toggleStats}
-            >
-                Stats
-            </button>
+        <div class="header-controls">
+            {#if isHorse}
+                <div class="breed-filter">
+                    <span class="breed-label">Breed:</span>
+                    <button class="breed-btn" class:active={breedFilter === ''} onclick={() => setBreedFilter('')}>All</button>
+                    {#each Object.entries(HORSE_BREED_ABBREVIATIONS) as [abbrev, name]}
+                        <button class="breed-btn" class:active={breedFilter === abbrev} onclick={() => setBreedFilter(abbrev)} title={name}>{abbrev}</button>
+                    {/each}
+                </div>
+            {/if}
+            <div class="view-controls">
+                <button
+                    class="view-btn"
+                    class:active={currentView === "attribute"}
+                    onclick={() => handleViewChange("attribute")}
+                >
+                    Attributes
+                </button>
+                <button
+                    class="view-btn"
+                    class:active={currentView === "appearance"}
+                    onclick={() => handleViewChange("appearance")}
+                >
+                    Appearance
+                </button>
+                <button
+                    class="view-btn stats-btn"
+                    class:active={statsOpen}
+                    onclick={toggleStats}
+                >
+                    Stats
+                </button>
+            </div>
         </div>
     </div>
 
@@ -192,6 +215,48 @@ onDestroy(() => {
     .unknown-badge {
         color: #f59e0b;
         font-weight: 600;
+    }
+
+    .header-controls {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .breed-filter {
+        display: flex;
+        align-items: center;
+        gap: 3px;
+    }
+
+    .breed-label {
+        font-size: 11px;
+        font-weight: 600;
+        color: #6b7280;
+        margin-right: 4px;
+    }
+
+    .breed-btn {
+        padding: 3px 8px;
+        border: 1px solid #e5e7eb;
+        border-radius: 4px;
+        background: #ffffff;
+        color: #6b7280;
+        font-size: 11px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+
+    .breed-btn:hover {
+        border-color: #d1d5db;
+        color: #374151;
+    }
+
+    .breed-btn.active {
+        background: #3b82f6;
+        border-color: #3b82f6;
+        color: #ffffff;
     }
 
     .view-controls {

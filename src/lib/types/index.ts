@@ -40,6 +40,7 @@ export interface GeneRecord {
   effectDominant: string;
   effectRecessive: string;
   appearance: string;
+  breed: string;
   notes: string;
 }
 

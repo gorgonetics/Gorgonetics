@@ -252,6 +252,7 @@ export async function initDatabase(): Promise<void> {
       effectDominant TEXT DEFAULT 'None',
       effectRecessive TEXT DEFAULT 'None',
       appearance TEXT DEFAULT 'None',
+      breed TEXT DEFAULT '',
       notes TEXT DEFAULT '',
       created_at TEXT,
       updated_at TEXT,

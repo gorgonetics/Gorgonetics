@@ -3,294 +3,336 @@
     "gene": "39A1",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Coat (Le)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "39A2",
     "effectDominant": "Enthusiasm+",
     "effectRecessive": "None",
-    "appearance": "Coat (Le)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "39A3",
     "effectDominant": "Ruggedness+",
     "effectRecessive": "None",
-    "appearance": "Coat (Le)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "39A4",
     "effectDominant": "Intelligence+",
     "effectRecessive": "None",
-    "appearance": "Coat (Le)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "39B1",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Coat (Le)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "39B2",
     "effectDominant": "Temperament+",
     "effectRecessive": "None",
-    "appearance": "Coat (Le)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "39B3",
     "effectDominant": "None",
     "effectRecessive": "Enthusiasm-",
-    "appearance": "Coat (Le)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "39B4",
     "effectDominant": "None",
     "effectRecessive": "Virility+",
-    "appearance": "Coat (Le)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "39C1",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Coat (Le)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "39C2",
     "effectDominant": "Friendliness+",
     "effectRecessive": "None",
-    "appearance": "Coat (Le)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "39C3",
     "effectDominant": "None",
     "effectRecessive": "Toughness+",
-    "appearance": "Coat (Le)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "39C4",
     "effectDominant": "Ruggedness-",
     "effectRecessive": "None",
-    "appearance": "Coat (Le)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "39D1",
     "effectDominant": "None",
     "effectRecessive": "Friendliness-",
-    "appearance": "Coat (Le)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "39D2",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Coat (Le)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "39D3",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Coat (Le)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "39D4",
     "effectDominant": "Temperament-",
     "effectRecessive": "None",
-    "appearance": "Coat (Le)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "39E1",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Coat (Le)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "39E2",
     "effectDominant": "None",
     "effectRecessive": "Virility+",
-    "appearance": "Coat (Le)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "39E3",
     "effectDominant": "None",
     "effectRecessive": "Enthusiasm-",
-    "appearance": "Coat (Le)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "39E4",
     "effectDominant": "Ruggedness-",
     "effectRecessive": "None",
-    "appearance": "Coat (Le)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "39F1",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Coat (Le)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "39F2",
     "effectDominant": "Toughness+",
     "effectRecessive": "None",
-    "appearance": "Coat (Le)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "39F3",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Coat (Le)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "39F4",
     "effectDominant": "Friendliness+",
     "effectRecessive": "None",
-    "appearance": "Coat (Le)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "39G1",
     "effectDominant": "None",
     "effectRecessive": "Toughness-",
-    "appearance": "Coat (Le)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "39G2",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Coat (Le)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "39G3",
     "effectDominant": "None",
     "effectRecessive": "Intelligence+",
-    "appearance": "Coat (Le)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "39G4",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Coat (Le)",
-    "notes": ""
+    "appearance": "Coat",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "39H1",
     "effectDominant": "Enthusiasm+",
     "effectRecessive": "None",
-    "appearance": "Markings (Le)",
-    "notes": ""
+    "appearance": "Markings",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "39H2",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Markings (Le)",
-    "notes": ""
+    "appearance": "Markings",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "39H3",
     "effectDominant": "Virility+",
     "effectRecessive": "None",
-    "appearance": "Markings (Le)",
-    "notes": ""
+    "appearance": "Markings",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "39H4",
     "effectDominant": "None",
     "effectRecessive": "Friendliness-",
-    "appearance": "Markings (Le)",
-    "notes": ""
+    "appearance": "Markings",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "39I1",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Markings (Le)",
-    "notes": ""
+    "appearance": "Markings",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "39I2",
     "effectDominant": "Ruggedness+",
     "effectRecessive": "None",
-    "appearance": "Markings (Le)",
-    "notes": ""
+    "appearance": "Markings",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "39I3",
     "effectDominant": "Ruggedness-",
     "effectRecessive": "None",
-    "appearance": "Markings (Le)",
-    "notes": ""
+    "appearance": "Markings",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "39I4",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Markings (Le)",
-    "notes": ""
+    "appearance": "Markings",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "39J1",
     "effectDominant": "None",
     "effectRecessive": "Intelligence+",
-    "appearance": "Markings (Le)",
-    "notes": ""
+    "appearance": "Markings",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "39J2",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Markings (Le)",
-    "notes": ""
+    "appearance": "Markings",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "39J3",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Markings (Le)",
-    "notes": ""
+    "appearance": "Markings",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "39J4",
     "effectDominant": "None",
     "effectRecessive": "Toughness+",
-    "appearance": "Markings (Le)",
-    "notes": ""
+    "appearance": "Markings",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "39K1",
     "effectDominant": "None",
     "effectRecessive": "None",
-    "appearance": "Markings (Le)",
-    "notes": ""
+    "appearance": "Markings",
+    "notes": "",
+    "breed": "Le"
   },
   {
     "gene": "39K2",
     "effectDominant": "Intelligence-",
     "effectRecessive": "None",
-    "appearance": "Markings (Le)",
-    "notes": ""
+    "appearance": "Markings",
+    "notes": "",
+    "breed": "Le"
   }
 ]
