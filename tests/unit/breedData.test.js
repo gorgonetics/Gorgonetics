@@ -18,12 +18,12 @@ function loadAllHorseGenes() {
 }
 
 const allGenes = loadAllHorseGenes();
-const breedAbbreviations = Object.values(HORSE_BREEDS);
+const breedNames = Object.keys(HORSE_BREEDS);
 
 describe('Horse breed data consistency', () => {
   it('all 10 breeds are present in the data', () => {
     const breedsFound = new Set(allGenes.map((g) => g.breed).filter(Boolean));
-    for (const abbrev of breedAbbreviations) {
+    for (const abbrev of breedNames) {
       expect(breedsFound.has(abbrev), `breed ${abbrev} not found in data`).toBe(true);
     }
   });
@@ -39,10 +39,10 @@ describe('Horse breed data consistency', () => {
 
   it('all breeds have the same number of breed-specific genes', () => {
     const counts = {};
-    for (const abbrev of breedAbbreviations) {
+    for (const abbrev of breedNames) {
       counts[abbrev] = allGenes.filter((g) => g.breed === abbrev).length;
     }
-    const expected = counts[breedAbbreviations[0]];
+    const expected = counts[breedNames[0]];
     for (const [breed, count] of Object.entries(counts)) {
       expect(count, `breed ${breed} has ${count} genes, expected ${expected}`).toBe(expected);
     }
@@ -50,11 +50,11 @@ describe('Horse breed data consistency', () => {
 
   it('all breeds have the same number of breed-specific chromosomes', () => {
     const counts = {};
-    for (const abbrev of breedAbbreviations) {
+    for (const abbrev of breedNames) {
       const chroms = new Set(allGenes.filter((g) => g.breed === abbrev).map((g) => g.gene.slice(0, 2)));
       counts[abbrev] = chroms.size;
     }
-    const expected = counts[breedAbbreviations[0]];
+    const expected = counts[breedNames[0]];
     for (const [breed, count] of Object.entries(counts)) {
       expect(count, `breed ${breed} has ${count} chromosomes, expected ${expected}`).toBe(expected);
     }
@@ -69,7 +69,7 @@ describe('Horse breed data consistency', () => {
   it('breed field is always a known abbreviation or empty', () => {
     for (const gene of allGenes) {
       if (gene.breed) {
-        expect(breedAbbreviations, `unknown breed ${gene.breed} on gene ${gene.gene}`).toContain(gene.breed);
+        expect(breedNames, `unknown breed ${gene.breed} on gene ${gene.gene}`).toContain(gene.breed);
       }
     }
   });

@@ -5,7 +5,7 @@
     "effectRecessive": "None",
     "appearance": "Attributes",
     "notes": "",
-    "breed": "Kb"
+    "breed": "Kurbone"
   },
   {
     "gene": "14A2",
@@ -13,7 +13,7 @@
     "effectRecessive": "Temperament+",
     "appearance": "Attributes",
     "notes": "",
-    "breed": "Kb"
+    "breed": "Kurbone"
   },
   {
     "gene": "14A3",
@@ -21,7 +21,7 @@
     "effectRecessive": "None",
     "appearance": "Attributes",
     "notes": "",
-    "breed": "Kb"
+    "breed": "Kurbone"
   },
   {
     "gene": "14A4",
@@ -29,7 +29,7 @@
     "effectRecessive": "Friendliness-",
     "appearance": "Attributes",
     "notes": "",
-    "breed": "Kb"
+    "breed": "Kurbone"
   },
   {
     "gene": "14B1",
@@ -37,7 +37,7 @@
     "effectRecessive": "Virility+",
     "appearance": "Attributes",
     "notes": "",
-    "breed": "Kb"
+    "breed": "Kurbone"
   },
   {
     "gene": "14B2",
@@ -45,7 +45,7 @@
     "effectRecessive": "Toughness-",
     "appearance": "Attributes",
     "notes": "",
-    "breed": "Kb"
+    "breed": "Kurbone"
   },
   {
     "gene": "14B3",
@@ -53,7 +53,7 @@
     "effectRecessive": "None",
     "appearance": "Attributes",
     "notes": "",
-    "breed": "Kb"
+    "breed": "Kurbone"
   },
   {
     "gene": "14B4",
@@ -61,7 +61,7 @@
     "effectRecessive": "None",
     "appearance": "Attributes",
     "notes": "",
-    "breed": "Kb"
+    "breed": "Kurbone"
   },
   {
     "gene": "14C1",
@@ -69,7 +69,7 @@
     "effectRecessive": "Toughness+",
     "appearance": "Attributes",
     "notes": "",
-    "breed": "Kb"
+    "breed": "Kurbone"
   },
   {
     "gene": "14C2",
@@ -77,7 +77,7 @@
     "effectRecessive": "Virility-",
     "appearance": "Attributes",
     "notes": "",
-    "breed": "Kb"
+    "breed": "Kurbone"
   },
   {
     "gene": "14C3",
@@ -85,7 +85,7 @@
     "effectRecessive": "None",
     "appearance": "Attributes",
     "notes": "",
-    "breed": "Kb"
+    "breed": "Kurbone"
   },
   {
     "gene": "14C4",
@@ -93,7 +93,7 @@
     "effectRecessive": "Ruggedness+",
     "appearance": "Attributes",
     "notes": "",
-    "breed": "Kb"
+    "breed": "Kurbone"
   },
   {
     "gene": "14D1",
@@ -101,7 +101,7 @@
     "effectRecessive": "Enthusiasm+",
     "appearance": "Attributes",
     "notes": "",
-    "breed": "Kb"
+    "breed": "Kurbone"
   },
   {
     "gene": "14D2",
@@ -109,7 +109,7 @@
     "effectRecessive": "None",
     "appearance": "Attributes",
     "notes": "",
-    "breed": "Kb"
+    "breed": "Kurbone"
   },
   {
     "gene": "14D3",
@@ -117,7 +117,7 @@
     "effectRecessive": "Friendliness+",
     "appearance": "Attributes",
     "notes": "",
-    "breed": "Kb"
+    "breed": "Kurbone"
   },
   {
     "gene": "14D4",
@@ -125,7 +125,7 @@
     "effectRecessive": "Virility+",
     "appearance": "Attributes",
     "notes": "",
-    "breed": "Kb"
+    "breed": "Kurbone"
   },
   {
     "gene": "14E1",
@@ -133,7 +133,7 @@
     "effectRecessive": "Intelligence+",
     "appearance": "Attributes",
     "notes": "",
-    "breed": "Kb"
+    "breed": "Kurbone"
   },
   {
     "gene": "14E2",
@@ -141,7 +141,7 @@
     "effectRecessive": "None",
     "appearance": "Attributes",
     "notes": "",
-    "breed": "Kb"
+    "breed": "Kurbone"
   },
   {
     "gene": "14E3",
@@ -149,7 +149,7 @@
     "effectRecessive": "Friendliness+",
     "appearance": "Attributes",
     "notes": "",
-    "breed": "Kb"
+    "breed": "Kurbone"
   },
   {
     "gene": "14E4",
@@ -157,7 +157,7 @@
     "effectRecessive": "None",
     "appearance": "Attributes",
     "notes": "",
-    "breed": "Kb"
+    "breed": "Kurbone"
   },
   {
     "gene": "14F1",
@@ -165,7 +165,7 @@
     "effectRecessive": "Virility-",
     "appearance": "Attributes",
     "notes": "",
-    "breed": "Kb"
+    "breed": "Kurbone"
   },
   {
     "gene": "14F2",
@@ -173,7 +173,7 @@
     "effectRecessive": "None",
     "appearance": "Attributes",
     "notes": "",
-    "breed": "Kb"
+    "breed": "Kurbone"
   },
   {
     "gene": "14F3",
@@ -181,7 +181,7 @@
     "effectRecessive": "None",
     "appearance": "Attributes",
     "notes": "",
-    "breed": "Kb"
+    "breed": "Kurbone"
   },
   {
     "gene": "14F4",
@@ -189,7 +189,7 @@
     "effectRecessive": "None",
     "appearance": "Attributes",
     "notes": "",
-    "breed": "Kb"
+    "breed": "Kurbone"
   },
   {
     "gene": "14G1",
@@ -197,7 +197,7 @@
     "effectRecessive": "None",
     "appearance": "None",
     "notes": "",
-    "breed": "Kb"
+    "breed": "Kurbone"
   },
   {
     "gene": "14G2",
@@ -205,7 +205,7 @@
     "effectRecessive": "None",
     "appearance": "None",
     "notes": "",
-    "breed": "Kb"
+    "breed": "Kurbone"
   },
   {
     "gene": "14G3",
@@ -213,7 +213,7 @@
     "effectRecessive": "None",
     "appearance": "None",
     "notes": "",
-    "breed": "Kb"
+    "breed": "Kurbone"
   },
   {
     "gene": "14G4",
@@ -221,6 +221,6 @@
     "effectRecessive": "None",
     "appearance": "None",
     "notes": "",
-    "breed": "Kb"
+    "breed": "Kurbone"
   }
 ]

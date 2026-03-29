@@ -46,7 +46,7 @@ let hiddenValueFilters = $state([]);
 // Breed filter state (horse only)
 let currentBreedFilter = $state('');
 
-function chromosomeHasBreed(chromosome, breedAbbrev) {
+function chromosomeHasBreed(chromosome, breedName) {
   if (!geneEffectsDB || !currentPet) return true;
   const speciesKey = normalizeSpecies(currentPet.species);
   const speciesEffects = geneEffectsDB[speciesKey];
@@ -54,7 +54,7 @@ function chromosomeHasBreed(chromosome, breedAbbrev) {
   // A chromosome matches if it has generic genes (no breed) or genes for this breed
   for (const [geneId, data] of Object.entries(speciesEffects)) {
     if (geneId.startsWith(chromosome)) {
-      if (!data.breed || data.breed === '' || data.breed === breedAbbrev) {
+      if (!data.breed || data.breed === '' || data.breed === breedName) {
         return true;
       }
     }
@@ -446,9 +446,36 @@ function extractAttributesFromEffect(effectStr) {
   return foundAttributes;
 }
 
+function getGeneBreed(species, geneId) {
+  if (!geneEffectsDB) return '';
+  const speciesKey = normalizeSpecies(species);
+  const geneData = geneEffectsDB[speciesKey]?.[geneId];
+  return geneData?.breed || '';
+}
+
+function isGeneRelevantToBreed(species, geneId) {
+  // Non-horse species: all genes are relevant
+  if (normalizeSpecies(species) !== 'horse') return true;
+  // If pet has no breed set or it's "Mixed", all genes are relevant
+  const petBreed = currentPet?.breed;
+  if (!petBreed || petBreed === 'Mixed') return true;
+  // Gene is relevant if it's generic (no breed) or matches pet's breed
+  const geneBreed = getGeneBreed(species, geneId);
+  return !geneBreed || geneBreed === petBreed;
+}
+
 function analyzeGeneEffect(species, geneId, geneType) {
   if (currentView === 'attribute') {
     const effect = getGeneEffect(species, geneId, geneType);
+
+    // Check if gene belongs to a different breed — mark as inactive
+    if (!isGeneRelevantToBreed(species, geneId)) {
+      return {
+        type: 'inactive-breed',
+        attribute: null,
+        effect: effect,
+      };
+    }
 
     if (
       effect === 'No gene data found' ||
@@ -488,6 +515,14 @@ function analyzeGeneEffect(species, geneId, geneType) {
     };
   } else {
     // Appearance mode
+    if (!isGeneRelevantToBreed(species, geneId)) {
+      return {
+        type: 'inactive-breed',
+        attribute: null,
+        effect: 'Different breed',
+      };
+    }
+
     const appearance = getGeneAppearance(species, geneId);
     let appearanceCategory = 'appearance-neutral';
 

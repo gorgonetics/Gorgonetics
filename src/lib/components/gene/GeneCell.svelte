@@ -241,6 +241,23 @@ const cssClass = $derived(computeCssClass(gene, geneAnalysis, currentView, isVis
         border-color: #9b59b6;
     }
 
+    /* Inactive breed — gene belongs to a different breed, muted but distinct from neutral */
+    :global(.gene-inactive-breed) {
+        background-color: #e8e8ec !important;
+        border-color: #d0d0d6 !important;
+        opacity: 0.5;
+    }
+
+    :global(.gene-inactive-breed.gene-recessive) {
+        background-color: rgba(208, 208, 214, 0.15) !important;
+        border-color: #d0d0d6 !important;
+    }
+
+    :global(.gene-inactive-breed.gene-mixed) {
+        background: linear-gradient(135deg, transparent 50%, #d0d0d6 50%) !important;
+        border-color: #d0d0d6 !important;
+    }
+
     :global(.gene-filtered-out) {
         opacity: 0.25 !important;
         filter: grayscale(1) blur(0.5px);

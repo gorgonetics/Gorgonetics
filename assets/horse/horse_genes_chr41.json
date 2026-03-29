@@ -5,7 +5,7 @@
     "effectRecessive": "None",
     "appearance": "Selector",
     "notes": "",
-    "breed": "Pt"
+    "breed": "Paint"
   },
   {
     "gene": "41A2",
@@ -13,7 +13,7 @@
     "effectRecessive": "None",
     "appearance": "Selector",
     "notes": "",
-    "breed": "Pt"
+    "breed": "Paint"
   },
   {
     "gene": "41A3",
@@ -21,7 +21,7 @@
     "effectRecessive": "None",
     "appearance": "Selector",
     "notes": "",
-    "breed": "Pt"
+    "breed": "Paint"
   },
   {
     "gene": "41A4",
@@ -29,7 +29,7 @@
     "effectRecessive": "None",
     "appearance": "Selector",
     "notes": "",
-    "breed": "Pt"
+    "breed": "Paint"
   },
   {
     "gene": "41B1",
@@ -37,7 +37,7 @@
     "effectRecessive": "None",
     "appearance": "Selector",
     "notes": "",
-    "breed": "Pt"
+    "breed": "Paint"
   },
   {
     "gene": "41B2",
@@ -45,7 +45,7 @@
     "effectRecessive": "None",
     "appearance": "Selector",
     "notes": "",
-    "breed": "Pt"
+    "breed": "Paint"
   },
   {
     "gene": "41B3",
@@ -53,7 +53,7 @@
     "effectRecessive": "None",
     "appearance": "Selector",
     "notes": "",
-    "breed": "Pt"
+    "breed": "Paint"
   },
   {
     "gene": "41B4",
@@ -61,7 +61,7 @@
     "effectRecessive": "None",
     "appearance": "Selector",
     "notes": "",
-    "breed": "Pt"
+    "breed": "Paint"
   },
   {
     "gene": "41C1",
@@ -69,7 +69,7 @@
     "effectRecessive": "None",
     "appearance": "Selector",
     "notes": "",
-    "breed": "Pt"
+    "breed": "Paint"
   },
   {
     "gene": "41C2",
@@ -77,7 +77,7 @@
     "effectRecessive": "None",
     "appearance": "Selector",
     "notes": "",
-    "breed": "Pt"
+    "breed": "Paint"
   },
   {
     "gene": "41C3",
@@ -85,7 +85,7 @@
     "effectRecessive": "None",
     "appearance": "Selector",
     "notes": "",
-    "breed": "Pt"
+    "breed": "Paint"
   },
   {
     "gene": "41C4",
@@ -93,7 +93,7 @@
     "effectRecessive": "None",
     "appearance": "Selector",
     "notes": "",
-    "breed": "Pt"
+    "breed": "Paint"
   },
   {
     "gene": "41D1",
@@ -101,7 +101,7 @@
     "effectRecessive": "None",
     "appearance": "Selector",
     "notes": "",
-    "breed": "Pt"
+    "breed": "Paint"
   },
   {
     "gene": "41D2",
@@ -109,7 +109,7 @@
     "effectRecessive": "None",
     "appearance": "Selector",
     "notes": "",
-    "breed": "Pt"
+    "breed": "Paint"
   },
   {
     "gene": "41D3",
@@ -117,7 +117,7 @@
     "effectRecessive": "None",
     "appearance": "Selector",
     "notes": "",
-    "breed": "Pt"
+    "breed": "Paint"
   },
   {
     "gene": "41D4",
@@ -125,7 +125,7 @@
     "effectRecessive": "None",
     "appearance": "Selector",
     "notes": "",
-    "breed": "Pt"
+    "breed": "Paint"
   },
   {
     "gene": "41E1",
@@ -133,7 +133,7 @@
     "effectRecessive": "None",
     "appearance": "Selector",
     "notes": "",
-    "breed": "Pt"
+    "breed": "Paint"
   },
   {
     "gene": "41E2",
@@ -141,7 +141,7 @@
     "effectRecessive": "None",
     "appearance": "Selector",
     "notes": "",
-    "breed": "Pt"
+    "breed": "Paint"
   },
   {
     "gene": "41E3",
@@ -149,7 +149,7 @@
     "effectRecessive": "None",
     "appearance": "Selector",
     "notes": "",
-    "breed": "Pt"
+    "breed": "Paint"
   },
   {
     "gene": "41E4",
@@ -157,6 +157,6 @@
     "effectRecessive": "None",
     "appearance": "Selector",
     "notes": "",
-    "breed": "Pt"
+    "breed": "Paint"
   }
 ]

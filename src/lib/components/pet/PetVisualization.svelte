@@ -3,7 +3,7 @@ import { onDestroy } from 'svelte';
 import GeneStatsTable from '$lib/components/gene/GeneStatsTable.svelte';
 import GeneVisualizer from '$lib/components/gene/GeneVisualizer.svelte';
 
-import { HORSE_BREED_ABBREVIATIONS } from '$lib/types/index.js';
+import { HORSE_BREEDS } from '$lib/types/index.js';
 
 const { pet } = $props();
 
@@ -16,8 +16,8 @@ let breedFilter = $state('');
 
 const isHorse = $derived(pet?.species?.toLowerCase() === 'horse');
 
-function setBreedFilter(abbrev) {
-  breedFilter = breedFilter === abbrev ? '' : abbrev;
+function setBreedFilter(fullName) {
+  breedFilter = breedFilter === fullName ? '' : fullName;
   if (geneVisualizerRef) {
     geneVisualizerRef.setBreedFilter(breedFilter);
   }
@@ -109,8 +109,8 @@ onDestroy(() => {
                 <div class="breed-filter">
                     <span class="breed-label">Breed:</span>
                     <button class="breed-btn" class:active={breedFilter === ''} onclick={() => setBreedFilter('')}>All</button>
-                    {#each Object.entries(HORSE_BREED_ABBREVIATIONS) as [abbrev, name]}
-                        <button class="breed-btn" class:active={breedFilter === abbrev} onclick={() => setBreedFilter(abbrev)} title={name}>{abbrev}</button>
+                    {#each Object.entries(HORSE_BREEDS) as [name, abbrev]}
+                        <button class="breed-btn" class:active={breedFilter === name} onclick={() => setBreedFilter(name)} title={name}>{abbrev}</button>
                     {/each}
                 </div>
             {/if}

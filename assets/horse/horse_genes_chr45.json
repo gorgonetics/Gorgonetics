@@ -5,7 +5,7 @@
     "effectRecessive": "None",
     "appearance": "Selector",
     "notes": "",
-    "breed": "Cl"
+    "breed": "Calico"
   },
   {
     "gene": "45A2",
@@ -13,7 +13,7 @@
     "effectRecessive": "None",
     "appearance": "Selector",
     "notes": "",
-    "breed": "Cl"
+    "breed": "Calico"
   },
   {
     "gene": "45A3",
@@ -21,7 +21,7 @@
     "effectRecessive": "None",
     "appearance": "Selector",
     "notes": "",
-    "breed": "Cl"
+    "breed": "Calico"
   },
   {
     "gene": "45A4",
@@ -29,7 +29,7 @@
     "effectRecessive": "None",
     "appearance": "Selector",
     "notes": "",
-    "breed": "Cl"
+    "breed": "Calico"
   },
   {
     "gene": "45B1",
@@ -37,7 +37,7 @@
     "effectRecessive": "None",
     "appearance": "Selector",
     "notes": "",
-    "breed": "Cl"
+    "breed": "Calico"
   },
   {
     "gene": "45B2",
@@ -45,7 +45,7 @@
     "effectRecessive": "None",
     "appearance": "Selector",
     "notes": "",
-    "breed": "Cl"
+    "breed": "Calico"
   },
   {
     "gene": "45B3",
@@ -53,7 +53,7 @@
     "effectRecessive": "None",
     "appearance": "Selector",
     "notes": "",
-    "breed": "Cl"
+    "breed": "Calico"
   },
   {
     "gene": "45B4",
@@ -61,7 +61,7 @@
     "effectRecessive": "None",
     "appearance": "Selector",
     "notes": "",
-    "breed": "Cl"
+    "breed": "Calico"
   },
   {
     "gene": "45C1",
@@ -69,7 +69,7 @@
     "effectRecessive": "None",
     "appearance": "Selector",
     "notes": "",
-    "breed": "Cl"
+    "breed": "Calico"
   },
   {
     "gene": "45C2",
@@ -77,7 +77,7 @@
     "effectRecessive": "None",
     "appearance": "Selector",
     "notes": "",
-    "breed": "Cl"
+    "breed": "Calico"
   },
   {
     "gene": "45C3",
@@ -85,7 +85,7 @@
     "effectRecessive": "None",
     "appearance": "Selector",
     "notes": "",
-    "breed": "Cl"
+    "breed": "Calico"
   },
   {
     "gene": "45C4",
@@ -93,7 +93,7 @@
     "effectRecessive": "None",
     "appearance": "Selector",
     "notes": "",
-    "breed": "Cl"
+    "breed": "Calico"
   },
   {
     "gene": "45D1",
@@ -101,7 +101,7 @@
     "effectRecessive": "None",
     "appearance": "Selector",
     "notes": "",
-    "breed": "Cl"
+    "breed": "Calico"
   },
   {
     "gene": "45D2",
@@ -109,7 +109,7 @@
     "effectRecessive": "None",
     "appearance": "Selector",
     "notes": "",
-    "breed": "Cl"
+    "breed": "Calico"
   },
   {
     "gene": "45D3",
@@ -117,7 +117,7 @@
     "effectRecessive": "None",
     "appearance": "Selector",
     "notes": "",
-    "breed": "Cl"
+    "breed": "Calico"
   },
   {
     "gene": "45D4",
@@ -125,7 +125,7 @@
     "effectRecessive": "None",
     "appearance": "Selector",
     "notes": "",
-    "breed": "Cl"
+    "breed": "Calico"
   },
   {
     "gene": "45E1",
@@ -133,7 +133,7 @@
     "effectRecessive": "None",
     "appearance": "Selector",
     "notes": "",
-    "breed": "Cl"
+    "breed": "Calico"
   },
   {
     "gene": "45E2",
@@ -141,7 +141,7 @@
     "effectRecessive": "None",
     "appearance": "Selector",
     "notes": "",
-    "breed": "Cl"
+    "breed": "Calico"
   },
   {
     "gene": "45E3",
@@ -149,7 +149,7 @@
     "effectRecessive": "None",
     "appearance": "Selector",
     "notes": "",
-    "breed": "Cl"
+    "breed": "Calico"
   },
   {
     "gene": "45E4",
@@ -157,6 +157,6 @@
     "effectRecessive": "None",
     "appearance": "Selector",
     "notes": "",
-    "breed": "Cl"
+    "breed": "Calico"
   }
 ]
