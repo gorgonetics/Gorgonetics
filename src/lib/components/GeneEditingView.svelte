@@ -1,267 +1,250 @@
 <script>
-    import { run, stopPropagation } from "svelte/legacy";
-    import { user } from "$lib/stores/auth.js";
-    import { apiClient } from "$lib/services/api.js";
-    import VisualizationHeader from "$lib/components/layout/VisualizationHeader.svelte";
+import { run, stopPropagation } from 'svelte/legacy';
+import { apiClient } from '$lib/services/api.js';
+import { user } from '$lib/stores/auth.js';
 
-    /**
-     * @typedef {Object} Props
-     * @property {string} [animalType] - Props from parent
-     * @property {string} [chromosome]
-     */
+/**
+ * @typedef {Object} Props
+ * @property {string} [animalType] - Props from parent
+ * @property {string} [chromosome]
+ */
 
-    /** @type {Props} */
-    const { animalType = "", chromosome = "" } = $props();
+/** @type {Props} */
+const { animalType = '', chromosome = '' } = $props();
 
-    // State
-    let genes = $state([]);
-    let effectOptions = $state([]);
-    let loadingGenes = $state(false);
-    let successMessage = $state("");
-    let errorMessage = $state("");
-    let expandedNotes = $state({});
-    let openDropdown = $state(null);
-    let originalGenes = [];
-    let hasUnsavedChanges = $state(false);
-    let savingChanges = $state(false);
+// State
+let genes = $state([]);
+let effectOptions = $state([]);
+let loadingGenes = $state(false);
+let successMessage = $state('');
+let errorMessage = $state('');
+let expandedNotes = $state({});
+let openDropdown = $state(null);
+let originalGenes = [];
+let hasUnsavedChanges = $state(false);
+let savingChanges = $state(false);
 
-    // Check if current user has admin privileges
-    const isAdmin = $derived($user?.role === 'admin');
+// Check if current user has admin privileges
+const isAdmin = $derived($user?.role === 'admin');
 
-    async function loadEffectOptions() {
-        if (!animalType) return;
+async function loadEffectOptions() {
+  if (!animalType) return;
 
-        try {
-            const response = await apiClient.fetchWithErrorHandling(`/api/effect-options/${animalType}`);
+  try {
+    const response = await apiClient.fetchWithErrorHandling(`/api/effect-options/${animalType}`);
 
-            if (response.ok) {
-                effectOptions = await response.json();
-            } else {
-                console.error(
-                    "Failed to load effect options:",
-                    response.statusText,
-                );
-                // Fallback to all options if species-specific fails
-                const fallbackResponse = await apiClient.fetchWithErrorHandling("/api/effect-options");
-                if (fallbackResponse.ok) {
-                    effectOptions = await fallbackResponse.json();
-                }
-            }
-        } catch (error) {
-            console.error("Failed to load effect options:", error);
-        }
+    if (response.ok) {
+      effectOptions = await response.json();
+    } else {
+      console.error('Failed to load effect options:', response.statusText);
+      // Fallback to all options if species-specific fails
+      const fallbackResponse = await apiClient.fetchWithErrorHandling('/api/effect-options');
+      if (fallbackResponse.ok) {
+        effectOptions = await fallbackResponse.json();
+      }
     }
+  } catch (error) {
+    console.error('Failed to load effect options:', error);
+  }
+}
 
-    // Load genes for the selected chromosome
-    async function loadGenes() {
-        if (!animalType || !chromosome) return;
+// Load genes for the selected chromosome
+async function loadGenes() {
+  if (!animalType || !chromosome) return;
 
-        loadingGenes = true;
-        errorMessage = "";
+  loadingGenes = true;
+  errorMessage = '';
 
-        try {
-            const response = await apiClient.fetchWithErrorHandling(
-                `/api/genes/${animalType}/${chromosome}`,
-            );
-            if (response.ok) {
-                genes = await response.json();
-                originalGenes = JSON.parse(JSON.stringify(genes));
-                hasUnsavedChanges = false;
-            } else {
-                errorMessage = "Failed to load genes";
-            }
-        } catch (error) {
-            errorMessage = `Error loading genes: ${error.message}`;
-        } finally {
-            loadingGenes = false;
-        }
+  try {
+    const response = await apiClient.fetchWithErrorHandling(`/api/genes/${animalType}/${chromosome}`);
+    if (response.ok) {
+      genes = await response.json();
+      originalGenes = JSON.parse(JSON.stringify(genes));
+      hasUnsavedChanges = false;
+    } else {
+      errorMessage = 'Failed to load genes';
     }
+  } catch (error) {
+    errorMessage = `Error loading genes: ${error.message}`;
+  } finally {
+    loadingGenes = false;
+  }
+}
 
-    // Save all changes
-    async function saveAllChanges() {
-        if (!hasUnsavedChanges) return;
+// Save all changes
+async function saveAllChanges() {
+  if (!hasUnsavedChanges) return;
 
-        savingChanges = true;
-        errorMessage = "";
-        successMessage = "";
+  savingChanges = true;
+  errorMessage = '';
+  successMessage = '';
 
-        try {
-            const response = await apiClient.fetchWithErrorHandling("/api/genes", {
-                method: "PUT",
-                body: JSON.stringify({
-                    animal_type: animalType,
-                    chromosome: chromosome,
-                    genes: genes,
-                }),
-            });
-
-            if (response.ok) {
-                originalGenes = JSON.parse(JSON.stringify(genes));
-                hasUnsavedChanges = false;
-                successMessage = "All changes saved successfully!";
-                setTimeout(() => {
-                    successMessage = "";
-                }, 3000);
-            } else {
-                errorMessage = "Failed to save changes";
-            }
-        } catch (error) {
-            errorMessage = `Error saving changes: ${error.message}`;
-        } finally {
-            savingChanges = false;
-        }
-    }
-
-    // Export chromosome to JSON file
-    async function exportChromosome() {
-        if (!animalType || !chromosome) return;
-
-        try {
-            const response = await apiClient.fetchWithErrorHandling(
-                `/api/download/${animalType}/${chromosome}`,
-            );
-            if (response.ok) {
-                const blob = await response.blob();
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement("a");
-                a.href = url;
-                a.download = `${animalType}_genes_chr${chromosome}.json`;
-                document.body.appendChild(a);
-                a.click();
-                window.URL.revokeObjectURL(url);
-                document.body.removeChild(a);
-            } else {
-                errorMessage = "Failed to export chromosome";
-            }
-        } catch (error) {
-            errorMessage = `Error exporting chromosome: ${error.message}`;
-        }
-    }
-
-    // Handle input changes
-    function handleInputChange(gene, field, value) {
-        const geneIndex = genes.findIndex((g) => g.gene === gene.gene);
-        if (geneIndex !== -1) {
-            genes[geneIndex] = { ...genes[geneIndex], [field]: value };
-            genes = [...genes];
-            checkForUnsavedChanges();
-        }
-    }
-
-    // Check for unsaved changes
-    function checkForUnsavedChanges() {
-        hasUnsavedChanges = genes.some((gene) => isGeneChanged(gene));
-    }
-
-    // Check if a specific gene has changes
-    function isGeneChanged(gene) {
-        const original = originalGenes.find((g) => g.gene === gene.gene);
-        if (!original) return false;
-
-        return (
-            (gene.effectDominant || "") !== (original.effectDominant || "") ||
-            (gene.effectRecessive || "") !== (original.effectRecessive || "") ||
-            (gene.appearance || "") !== (original.appearance || "") ||
-            (gene.notes || "") !== (original.notes || "")
-        );
-    }
-
-    // Get effect class for styling
-    function getEffectClass(effect) {
-        if (!effect || effect === "None") return "none";
-        return effect.includes("+")
-            ? "positive"
-            : effect.includes("-")
-              ? "negative"
-              : "none";
-    }
-
-    // Toggle dropdown
-    function toggleDropdown(geneId, field, event) {
-        const dropdownId = `${geneId}-${field}`;
-        openDropdown = openDropdown === dropdownId ? null : dropdownId;
-
-        if (openDropdown) {
-            // Check if dropdown should flip upward
-            setTimeout(() => {
-                const trigger = event.target;
-                const dropdown = trigger.nextElementSibling;
-                if (dropdown && dropdown.classList.contains("dropdown")) {
-                    const rect = trigger.getBoundingClientRect();
-                    const dropdownHeight = dropdown.offsetHeight;
-                    const viewportHeight = window.innerHeight;
-
-                    if (
-                        rect.bottom + dropdownHeight > viewportHeight &&
-                        rect.top > dropdownHeight
-                    ) {
-                        dropdown.style.top = "auto";
-                        dropdown.style.bottom = "100%";
-                        dropdown.style.marginTop = "0";
-                        dropdown.style.marginBottom = "0.25rem";
-                    }
-                }
-            }, 0);
-        }
-    }
-
-    // Select option from dropdown
-    function selectOption(gene, field, value) {
-        handleInputChange(gene, field, value === "None" ? "" : value);
-        openDropdown = null;
-    }
-
-    // Toggle notes expansion
-    function toggleNotes(geneId) {
-        expandedNotes[geneId] = !expandedNotes[geneId];
-        expandedNotes = { ...expandedNotes };
-    }
-
-    // Load effect options when animalType changes
-    run(() => {
-        if (animalType) {
-            loadEffectOptions();
-        }
+  try {
+    const response = await apiClient.fetchWithErrorHandling('/api/genes', {
+      method: 'PUT',
+      body: JSON.stringify({
+        animal_type: animalType,
+        chromosome: chromosome,
+        genes: genes,
+      }),
     });
-    // Reactive statements
-    run(() => {
-        if (animalType && chromosome) {
-            loadGenes();
+
+    if (response.ok) {
+      originalGenes = JSON.parse(JSON.stringify(genes));
+      hasUnsavedChanges = false;
+      successMessage = 'All changes saved successfully!';
+      setTimeout(() => {
+        successMessage = '';
+      }, 3000);
+    } else {
+      errorMessage = 'Failed to save changes';
+    }
+  } catch (error) {
+    errorMessage = `Error saving changes: ${error.message}`;
+  } finally {
+    savingChanges = false;
+  }
+}
+
+// Export chromosome to JSON file
+async function exportChromosome() {
+  if (!animalType || !chromosome) return;
+
+  try {
+    const response = await apiClient.fetchWithErrorHandling(`/api/download/${animalType}/${chromosome}`);
+    if (response.ok) {
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${animalType}_genes_chr${chromosome}.json`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } else {
+      errorMessage = 'Failed to export chromosome';
+    }
+  } catch (error) {
+    errorMessage = `Error exporting chromosome: ${error.message}`;
+  }
+}
+
+// Handle input changes
+function handleInputChange(gene, field, value) {
+  const geneIndex = genes.findIndex((g) => g.gene === gene.gene);
+  if (geneIndex !== -1) {
+    genes[geneIndex] = { ...genes[geneIndex], [field]: value };
+    genes = [...genes];
+    checkForUnsavedChanges();
+  }
+}
+
+// Check for unsaved changes
+function checkForUnsavedChanges() {
+  hasUnsavedChanges = genes.some((gene) => isGeneChanged(gene));
+}
+
+// Check if a specific gene has changes
+function isGeneChanged(gene) {
+  const original = originalGenes.find((g) => g.gene === gene.gene);
+  if (!original) return false;
+
+  return (
+    (gene.effectDominant || '') !== (original.effectDominant || '') ||
+    (gene.effectRecessive || '') !== (original.effectRecessive || '') ||
+    (gene.appearance || '') !== (original.appearance || '') ||
+    (gene.notes || '') !== (original.notes || '')
+  );
+}
+
+// Get effect class for styling
+function getEffectClass(effect) {
+  if (!effect || effect === 'None') return 'none';
+  return effect.includes('+') ? 'positive' : effect.includes('-') ? 'negative' : 'none';
+}
+
+// Toggle dropdown
+function toggleDropdown(geneId, field, event) {
+  const dropdownId = `${geneId}-${field}`;
+  openDropdown = openDropdown === dropdownId ? null : dropdownId;
+
+  if (openDropdown) {
+    // Check if dropdown should flip upward
+    setTimeout(() => {
+      const trigger = event.target;
+      const dropdown = trigger.nextElementSibling;
+      if (dropdown && dropdown.classList.contains('dropdown')) {
+        const rect = trigger.getBoundingClientRect();
+        const dropdownHeight = dropdown.offsetHeight;
+        const viewportHeight = window.innerHeight;
+
+        if (rect.bottom + dropdownHeight > viewportHeight && rect.top > dropdownHeight) {
+          dropdown.style.top = 'auto';
+          dropdown.style.bottom = '100%';
+          dropdown.style.marginTop = '0';
+          dropdown.style.marginBottom = '0.25rem';
         }
-    });
+      }
+    }, 0);
+  }
+}
+
+// Select option from dropdown
+function selectOption(gene, field, value) {
+  handleInputChange(gene, field, value === 'None' ? '' : value);
+  openDropdown = null;
+}
+
+// Toggle notes expansion
+function toggleNotes(geneId) {
+  expandedNotes[geneId] = !expandedNotes[geneId];
+  expandedNotes = { ...expandedNotes };
+}
+
+// Load effect options when animalType changes
+run(() => {
+  if (animalType) {
+    loadEffectOptions();
+  }
+});
+// Reactive statements
+run(() => {
+  if (animalType && chromosome) {
+    loadGenes();
+  }
+});
 </script>
 
 <div class="gene-editing-view">
-    <VisualizationHeader
-        title="🧬 Gene Editor: {animalType} - Chromosome {chromosome}"
-        stats={[{ text: `${genes.length} genes` }]}
-    >
-            <div class="view-controls">
-                <button
-                    class="view-btn"
-                    class:active={hasUnsavedChanges}
-                    onclick={saveAllChanges}
-                    disabled={!hasUnsavedChanges || savingChanges || !isAdmin}
-                >
-                    {#if savingChanges}
-                        Saving...
-                    {:else if !isAdmin}
-                        Admin Only
-                    {:else if hasUnsavedChanges}
-                        Save Changes
-                    {:else}
-                        All Saved
-                    {/if}
-                </button>
-                <button
-                    class="view-btn"
-                    onclick={exportChromosome}
-                    title="Export chromosome as JSON"
-                >
-                    📥 Export
-                </button>
-            </div>
-    </VisualizationHeader>
+    <div class="gene-editing-header">
+        <div class="gene-editing-header-info">
+            <h2 class="gene-editing-title">Gene Editor: {animalType} - {chromosome}</h2>
+            <span class="gene-editing-count">{genes.length} genes</span>
+        </div>
+        <div class="gene-editing-actions">
+            <button
+                class="action-btn save-btn"
+                onclick={saveAllChanges}
+                disabled={!hasUnsavedChanges || savingChanges || !isAdmin}
+            >
+                {#if savingChanges}
+                    Saving...
+                {:else if hasUnsavedChanges}
+                    Save Changes
+                {:else}
+                    All Saved
+                {/if}
+            </button>
+            <button
+                class="action-btn export-btn"
+                onclick={exportChromosome}
+                title="Export chromosome as JSON"
+            >
+                Export
+            </button>
+        </div>
+    </div>
 
     <!-- Messages -->
     {#if errorMessage}
@@ -542,9 +525,58 @@
         overflow: hidden;
     }
 
-    .view-controls {
+    .gene-editing-header {
         display: flex;
-        gap: 0.5rem;
+        align-items: center;
+        justify-content: space-between;
+        padding: 16px 20px;
+        border-bottom: 1px solid #e5e7eb;
+        background: #ffffff;
+        flex-shrink: 0;
+    }
+
+    .gene-editing-title {
+        font-size: 18px;
+        font-weight: 700;
+        color: #111827;
+        margin: 0;
+    }
+
+    .gene-editing-count {
+        font-size: 12px;
+        color: #6b7280;
+    }
+
+    .gene-editing-actions {
+        display: flex;
+        gap: 8px;
+    }
+
+    .gene-editing-actions .action-btn {
+        padding: 6px 14px;
+        border: 1px solid #e5e7eb;
+        border-radius: 6px;
+        background: #ffffff;
+        color: #374151;
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+
+    .gene-editing-actions .save-btn:not(:disabled) {
+        background: #3b82f6;
+        border-color: #3b82f6;
+        color: white;
+    }
+
+    .gene-editing-actions .action-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .gene-editing-actions .action-btn:not(:disabled):hover {
+        border-color: #9ca3af;
     }
 
     .view-btn {
@@ -650,8 +682,8 @@
     .genes-grid {
         display: grid;
         grid-template-columns: repeat(4, 1fr);
-        gap: 1rem;
-        padding-bottom: 2rem;
+        gap: 0.75rem;
+        padding-bottom: 1.5rem;
     }
 
     /* Gene Card */
@@ -901,16 +933,28 @@
     }
 
     /* Responsive */
+    @media (min-width: 1800px) {
+        .genes-grid {
+            grid-template-columns: repeat(6, 1fr);
+        }
+    }
+
+    @media (min-width: 1400px) and (max-width: 1799px) {
+        .genes-grid {
+            grid-template-columns: repeat(5, 1fr);
+        }
+    }
+
     @media (max-width: 1200px) {
         .genes-grid {
-            grid-template-columns: repeat(2, 1fr);
+            grid-template-columns: repeat(3, 1fr);
         }
     }
 
     @media (max-width: 768px) {
         .genes-grid {
             grid-template-columns: 1fr;
-            gap: 0.75rem;
+            gap: 0.5rem;
         }
 
         .gene-card {

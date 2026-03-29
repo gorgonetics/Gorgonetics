@@ -1,62 +1,61 @@
 <script>
-    import { run } from 'svelte/legacy';
+import { onMount } from 'svelte';
+import { run } from 'svelte/legacy';
+import { apiClient } from '$lib/services/api.js';
+import { appState } from '$lib/stores/pets.js';
 
-    import { onMount } from "svelte";
-    import { apiClient } from "$lib/services/api.js";
-    import { appState } from "$lib/stores/pets.js";
+let selectedAnimalType = $state('');
+let selectedChromosome = $state('');
+let animalTypes = $state([]);
+let chromosomes = $state([]);
+let loadingChromosomes = $state(false);
+let editorError = $state('');
 
-    let selectedAnimalType = $state("");
-    let selectedChromosome = $state("");
-    let animalTypes = $state([]);
-    let chromosomes = $state([]);
-    let loadingChromosomes = $state(false);
-    let editorError = $state("");
+onMount(async () => {
+  try {
+    animalTypes = await apiClient.getAnimalTypes();
+  } catch (err) {
+    console.error('Failed to load animal types:', err);
+    editorError = 'Failed to load animal types';
+  }
+});
 
-    onMount(async () => {
-        try {
-            animalTypes = await apiClient.getAnimalTypes();
-        } catch (err) {
-            console.error("Failed to load animal types:", err);
-            editorError = "Failed to load animal types";
-        }
+async function loadChromosomes() {
+  if (!selectedAnimalType) return;
+
+  try {
+    loadingChromosomes = true;
+    editorError = '';
+    chromosomes = await apiClient.getChromosomes(selectedAnimalType);
+    selectedChromosome = '';
+    // Clear any existing gene editing view
+    appState.clearGeneEditingView();
+  } catch (err) {
+    console.error('Failed to load chromosomes:', err);
+    editorError = 'Failed to load chromosomes';
+  } finally {
+    loadingChromosomes = false;
+  }
+}
+
+async function openGeneEditor() {
+  if (!selectedAnimalType || !selectedChromosome) return;
+
+  try {
+    // Set the gene editing view in the main content
+    appState.setGeneEditingView({
+      animalType: selectedAnimalType,
+      chromosome: selectedChromosome,
     });
+  } catch (err) {
+    console.error('Failed to open gene editor:', err);
+    editorError = 'Failed to open gene editor';
+  }
+}
 
-    async function loadChromosomes() {
-        if (!selectedAnimalType) return;
-
-        try {
-            loadingChromosomes = true;
-            editorError = "";
-            chromosomes = await apiClient.getChromosomes(selectedAnimalType);
-            selectedChromosome = "";
-            // Clear any existing gene editing view
-            appState.clearGeneEditingView();
-        } catch (err) {
-            console.error("Failed to load chromosomes:", err);
-            editorError = "Failed to load chromosomes";
-        } finally {
-            loadingChromosomes = false;
-        }
-    }
-
-    async function openGeneEditor() {
-        if (!selectedAnimalType || !selectedChromosome) return;
-
-        try {
-            // Set the gene editing view in the main content
-            appState.setGeneEditingView({
-                animalType: selectedAnimalType,
-                chromosome: selectedChromosome,
-            });
-        } catch (err) {
-            console.error("Failed to open gene editor:", err);
-            editorError = "Failed to open gene editor";
-        }
-    }
-
-    run(() => {
-        if (selectedAnimalType) loadChromosomes();
-    });
+run(() => {
+  if (selectedAnimalType) loadChromosomes();
+});
 </script>
 
 <div class="gene-editor-controls">

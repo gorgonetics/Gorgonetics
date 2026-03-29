@@ -1,22 +1,17 @@
-import { writable } from "svelte/store";
-import { apiClient } from "$lib/services/api.js";
+import { writable } from 'svelte/store';
+import { apiClient } from '$lib/services/api.js';
 
 // Core application state
 export const pets = writable([]);
 export const selectedPet = writable(null);
 export const loading = writable(false);
-export const error = writable("");
+export const error = writable('');
 
 // Gene editing state
 export const geneEditingView = writable(null);
 
-// Pet table view state
-export const petTableView = writable(false);
-
 // Current active tab state
-export const activeTab = writable("pets");
-
-// No derived stores needed for simplified pet management
+export const activeTab = writable('pets');
 
 // Action creators for updating state
 export const appState = {
@@ -34,7 +29,7 @@ export const appState = {
       pets.set(petData);
     } catch (err) {
       error.set(`Failed to load pets: ${err.message}`);
-      console.error("Error loading pets:", err);
+      console.error('Error loading pets:', err);
     } finally {
       loading.set(false);
     }
@@ -47,7 +42,7 @@ export const appState = {
       selectedPet.set(pet);
     } catch (err) {
       error.set(`Failed to select pet: ${err.message}`);
-      console.error("Error selecting pet:", err);
+      console.error('Error selecting pet:', err);
     } finally {
       loading.set(false);
     }
@@ -67,7 +62,7 @@ export const appState = {
       }
     } catch (err) {
       error.set(`Failed to delete pet: ${err.message}`);
-      console.error("Error deleting pet:", err);
+      console.error('Error deleting pet:', err);
     } finally {
       loading.set(false);
     }
@@ -81,14 +76,14 @@ export const appState = {
       await this.loadPets(); // Reload pets list
     } catch (err) {
       error.set(`Failed to update pet: ${err.message}`);
-      console.error("Error updating pet:", err);
+      console.error('Error updating pet:', err);
       throw err; // Re-throw so the editor can handle it
     } finally {
       loading.set(false);
     }
   },
 
-  async uploadPet(file, petName, petGender = "Male") {
+  async uploadPet(file, petName, petGender = 'Male') {
     try {
       loading.set(true);
       error.set(null);
@@ -98,7 +93,7 @@ export const appState = {
       await this.loadPets(); // Reload pets list
     } catch (err) {
       error.set(`Failed to upload pet: ${err.message}`);
-      console.error("Error uploading pet:", err);
+      console.error('Error uploading pet:', err);
     } finally {
       loading.set(false);
     }
@@ -107,34 +102,20 @@ export const appState = {
   // Gene editing methods
   setGeneEditingView(editingData) {
     geneEditingView.set(editingData);
-    selectedPet.set(null); // Clear pet selection when editing genes
-    petTableView.set(false); // Clear table view when editing genes
+    selectedPet.set(null);
   },
 
   clearGeneEditingView() {
     geneEditingView.set(null);
   },
 
-  // Pet table view methods
-  showPetTableView() {
-    petTableView.set(true);
-    selectedPet.set(null); // Clear pet selection when showing table
-    geneEditingView.set(null); // Clear gene editing when showing table
-  },
-
-  hidePetTableView() {
-    petTableView.set(false);
-  },
-
   // Tab management
   switchTab(tab) {
     activeTab.set(tab);
-    // Clear other views when switching tabs
-    if (tab === "pets") {
+    if (tab === 'pets') {
       geneEditingView.set(null);
-    } else if (tab === "editor") {
+    } else if (tab === 'editor') {
       selectedPet.set(null);
-      petTableView.set(false);
     }
   },
 
@@ -155,7 +136,6 @@ export const appState = {
   reset() {
     selectedPet.set(null);
     geneEditingView.set(null);
-    petTableView.set(false);
     error.set(null);
     loading.set(false);
   },

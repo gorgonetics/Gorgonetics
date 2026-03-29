@@ -1,0 +1,326 @@
+/**
+ * Pet data service for Gorgonetics.
+ * Ported from: ducklake_database.py pet methods + web_app.py pet endpoints
+ */
+
+import type { Gene, Genome, Pet } from '$lib/types/index.js';
+import { GENOME_FILE_MARKERS } from '$lib/types/index.js';
+import { getDefaultValues } from './configService.js';
+import { getDb } from './database.js';
+import { isValidGenomeFile, parseGenome } from './genomeParser.js';
+
+function now(): string {
+  return new Date().toISOString();
+}
+
+/**
+ * Compute SHA-256 hash of a string.
+ */
+async function sha256(content: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(content);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * Count genes in a genome, categorizing as known vs unknown.
+ */
+function countGenes(genomeData: unknown): { total: number; known: number; unknown: number } {
+  let total = 0;
+  let known = 0;
+  let unknown = 0;
+
+  if (typeof genomeData === 'string') {
+    try {
+      genomeData = JSON.parse(genomeData);
+    } catch {
+      return { total: 0, known: 0, unknown: 0 };
+    }
+  }
+
+  if (typeof genomeData !== 'object' || genomeData === null) {
+    return { total: 0, known: 0, unknown: 0 };
+  }
+
+  const data = genomeData as Record<string, unknown>;
+
+  // Standard Genome model structure with Gene objects
+  if (data.genes && typeof data.genes === 'object') {
+    const genesMap = data.genes as Record<string, unknown[]>;
+    for (const chromosomeGenes of Object.values(genesMap)) {
+      if (!Array.isArray(chromosomeGenes)) continue;
+      for (const gene of chromosomeGenes) {
+        if (typeof gene === 'object' && gene !== null) {
+          const geneObj = gene as Record<string, unknown>;
+          total++;
+          const geneType = geneObj.gene_type;
+          if (geneType === '?' || (typeof geneType === 'string' && geneType.toUpperCase() === 'UNKNOWN')) {
+            unknown++;
+          } else {
+            known++;
+          }
+        }
+      }
+    }
+  }
+
+  return { total, known, unknown };
+}
+
+/**
+ * Enrich a raw pet row from the database with computed fields.
+ */
+function enrichPet(pet: Record<string, unknown>): Pet {
+  const geneCounts = countGenes(pet.genome_data);
+  return {
+    ...pet,
+    total_genes: geneCounts.total,
+    known_genes: geneCounts.known,
+    unknown_genes: geneCounts.unknown,
+    has_unknown_genes: geneCounts.unknown > 0,
+    readonly: false,
+    is_demo: false,
+  } as Pet;
+}
+
+/**
+ * Get all pets.
+ */
+export async function getAllPets(options?: {
+  species?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<{ items: Pet[]; total: number }> {
+  const db = getDb();
+  const conditions: string[] = [];
+  const params: unknown[] = [];
+
+  if (options?.species) {
+    conditions.push('species = ?');
+    params.push(options.species);
+  }
+
+  const where = conditions.length > 0 ? ` WHERE ${conditions.join(' AND ')}` : '';
+
+  // Get total count
+  const countRows = await db.select<{ cnt: number }[]>(`SELECT COUNT(*) as cnt FROM pets${where}`, params);
+  const total = countRows[0].cnt;
+
+  // Get paginated results
+  let query = `SELECT * FROM pets${where} ORDER BY name`;
+  const selectParams = [...params];
+  if (options?.limit !== undefined) {
+    query += ` LIMIT ? OFFSET ?`;
+    selectParams.push(options.limit, options.offset ?? 0);
+  }
+
+  const rows = await db.select<Record<string, unknown>[]>(query, selectParams);
+  const items = rows.map(enrichPet);
+
+  return { items, total };
+}
+
+/**
+ * Get a single pet by ID.
+ */
+export async function getPet(petId: number): Promise<Pet | null> {
+  const db = getDb();
+  const rows = await db.select<Record<string, unknown>[]>('SELECT * FROM pets WHERE id = ?', [petId]);
+  return rows.length > 0 ? enrichPet(rows[0]) : null;
+}
+
+/**
+ * Upload and create a new pet from genome file content.
+ */
+export async function uploadPet(
+  content: string,
+  name: string,
+  gender: string,
+  notes?: string,
+): Promise<{ status: string; message: string; pet_id?: number; name?: string }> {
+  // Validate content
+  if (!content.trim()) {
+    return { status: 'error', message: 'File cannot be empty' };
+  }
+
+  if (!GENOME_FILE_MARKERS.some((marker) => content.includes(marker))) {
+    return { status: 'error', message: 'Invalid genome file format' };
+  }
+
+  if (!isValidGenomeFile(content)) {
+    return { status: 'error', message: 'Invalid genome file format' };
+  }
+
+  // Compute hash for duplicate detection
+  const contentHash = await sha256(content);
+
+  // Check for duplicate
+  const existing = await findPetByHash(contentHash);
+  if (existing) {
+    return {
+      status: 'error',
+      message: `This file has already been uploaded as '${existing.name}' on ${existing.created_at}`,
+    };
+  }
+
+  // Parse the genome
+  const genome = parseGenome(content);
+  const genomeJson = JSON.stringify(genome, null, 2);
+
+  // Determine pet name
+  const petName = genome.name.trim() || name.trim() || 'Unknown Pet';
+
+  // Get default attributes for species
+  const defaults = getDefaultValues(genome.genome_type);
+
+  const db = getDb();
+  const ts = now();
+
+  const result = await db.execute(
+    `INSERT INTO pets
+     (name, species, gender, breeder, content_hash, genome_data, notes,
+      created_at, updated_at,
+      intelligence, toughness, friendliness, ruggedness, enthusiasm, virility, ferocity, temperament)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?,
+             ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      petName,
+      genome.genome_type,
+      gender,
+      genome.breeder,
+      contentHash,
+      genomeJson,
+      notes ?? '',
+      ts,
+      ts,
+      defaults.intelligence ?? 50,
+      defaults.toughness ?? 50,
+      defaults.friendliness ?? 50,
+      defaults.ruggedness ?? 50,
+      defaults.enthusiasm ?? 50,
+      defaults.virility ?? 50,
+      defaults.ferocity ?? 50,
+      defaults.temperament ?? 50,
+    ],
+  );
+
+  return {
+    status: 'success',
+    message: 'Pet created successfully',
+    pet_id: result.lastInsertId,
+    name: petName,
+  };
+}
+
+/**
+ * Update a pet record.
+ */
+export async function updatePet(petId: number, updates: Record<string, unknown>): Promise<boolean> {
+  const db = getDb();
+  const setClauses: string[] = [];
+  const values: unknown[] = [];
+
+  for (const [field, value] of Object.entries(updates)) {
+    if (field === 'id') continue;
+    if (field === 'genome_data') {
+      setClauses.push(`${field} = ?`);
+      values.push(typeof value === 'string' ? value : JSON.stringify(value));
+    } else {
+      setClauses.push(`${field} = ?`);
+      values.push(value);
+    }
+  }
+
+  if (setClauses.length === 0) return false;
+
+  setClauses.push('updated_at = ?');
+  values.push(now());
+  values.push(petId);
+
+  await db.execute(`UPDATE pets SET ${setClauses.join(', ')} WHERE id = ?`, values);
+  return true;
+}
+
+/**
+ * Delete a pet.
+ */
+export async function deletePet(petId: number): Promise<boolean> {
+  const db = getDb();
+  const result = await db.execute('DELETE FROM pets WHERE id = ?', [petId]);
+  return result.rowsAffected > 0;
+}
+
+/**
+ * Find a pet by content hash.
+ */
+export async function findPetByHash(contentHash: string): Promise<Pet | null> {
+  const db = getDb();
+  const rows = await db.select<Record<string, unknown>[]>('SELECT * FROM pets WHERE content_hash = ?', [contentHash]);
+  return rows.length > 0 ? enrichPet(rows[0]) : null;
+}
+
+/**
+ * Get pet genome data formatted for visualization.
+ */
+export async function getPetGenome(
+  petId: number,
+): Promise<{ name: string; owner: string; species: string; format: string; genes: Record<string, string> } | null> {
+  const pet = await getPet(petId);
+  if (!pet) return null;
+
+  // Parse the genome JSON
+  let genomeJson: unknown;
+  if (typeof pet.genome_data === 'string') {
+    genomeJson = JSON.parse(pet.genome_data);
+  } else {
+    genomeJson = pet.genome_data;
+  }
+
+  const genome = genomeJson as Genome;
+
+  // Convert genome to the format expected by the frontend
+  // (chromosome -> gene string like "RDRD RDRR ?D?? x?xR")
+  const geneStrings: Record<string, string> = {};
+  for (const [chromosome, genes] of Object.entries(genome.genes)) {
+    let geneString = '';
+    let currentBlock = '';
+    let currentBlockGenes = '';
+
+    for (const gene of genes as Gene[]) {
+      if (gene.block !== currentBlock) {
+        if (currentBlockGenes) {
+          geneString += currentBlockGenes + ' ';
+        }
+        currentBlock = gene.block;
+        currentBlockGenes = '';
+      }
+      currentBlockGenes += gene.gene_type;
+    }
+
+    // Add the last block
+    if (currentBlockGenes) {
+      geneString += currentBlockGenes;
+    }
+
+    geneStrings[chromosome] = geneString.trim();
+  }
+
+  return {
+    name: pet.name,
+    owner: genome.breeder,
+    species: genome.genome_type,
+    format: genome.format_version,
+    genes: geneStrings,
+  };
+}
+
+/**
+ * Check if pets table has any data.
+ */
+export async function hasPets(): Promise<boolean> {
+  const db = getDb();
+  const rows = await db.select<{ cnt: number }[]>('SELECT COUNT(*) as cnt FROM pets');
+  return rows[0].cnt > 0;
+}

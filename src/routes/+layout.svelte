@@ -1,46 +1,42 @@
 <script>
-    import "../app.css";
-    import AuthWrapper from "$lib/components/AuthWrapper.svelte";
-    import Sidebar from "$lib/components/layout/Sidebar.svelte";
-    import { onMount } from "svelte";
+import '../app.css';
+import AuthWrapper from '$lib/components/AuthWrapper.svelte';
+import MasterPanel from '$lib/components/layout/MasterPanel.svelte';
+import TopBar from '$lib/components/layout/TopBar.svelte';
 
-    const { children } = $props();
-    let sidebarCollapsed = $state(false);
-
-    onMount(() => {
-        // Restore sidebar state from localStorage
-        const savedState = localStorage.getItem("sidebarCollapsed");
-        if (savedState !== null) {
-            sidebarCollapsed = JSON.parse(savedState);
-        }
-    });
-
-    function toggleSidebar() {
-        sidebarCollapsed = !sidebarCollapsed;
-        localStorage.setItem(
-            "sidebarCollapsed",
-            JSON.stringify(sidebarCollapsed),
-        );
-    }
+const { children } = $props();
 </script>
 
 <AuthWrapper>
-    <div class="app-layout" class:sidebar-collapsed={sidebarCollapsed}>
-        <Sidebar {sidebarCollapsed} {toggleSidebar} />
-        <main class="flex-1 overflow-auto">
-            {@render children()}
-        </main>
+    <div class="app-shell">
+        <TopBar />
+        <div class="app-body">
+            <MasterPanel />
+            <main class="detail-pane">
+                {@render children()}
+            </main>
+        </div>
     </div>
 </AuthWrapper>
 
 <style>
-    .app-layout {
+    .app-shell {
         display: flex;
-        height: 100vh;
-        overflow: hidden;
+        flex-direction: column;
+        height: 100%;
     }
 
-    .app-layout.sidebar-collapsed {
-        /* Styles for collapsed sidebar state */
+    .app-body {
+        display: flex;
+        flex: 1;
+        min-height: 0;
+    }
+
+    .detail-pane {
+        flex: 1;
+        overflow: hidden;
+        background: #ffffff;
+        min-width: 0;
+        position: relative;
     }
 </style>

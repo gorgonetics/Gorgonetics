@@ -3,20 +3,16 @@ import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-	plugins: [tailwindcss(), sveltekit()],
-	server: {
-		port: 5173,
-		host: true,
-		cors: true,
-		proxy: {
-			'/api': {
-				target: 'http://localhost:8000',
-				changeOrigin: true,
-			},
-			'/static': {
-				target: 'http://localhost:8000',
-				changeOrigin: true,
-			},
-		},
-	},
+  plugins: [tailwindcss(), sveltekit()],
+  server: {
+    port: 5174,
+    host: true,
+    strictPort: true,
+    fs: {
+      // Allow serving gene template and demo genome files for non-Tauri testing
+      allow: ['..'],
+    },
+  },
+  // Tauri expects a fixed port; fail if it's already in use
+  clearScreen: false,
 });

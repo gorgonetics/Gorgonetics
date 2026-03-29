@@ -180,14 +180,28 @@ build/
 temp/
 tmp/
 
-# Ignore the parquet files from DuckLake
+# Tauri
+src-tauri/target/
+src-tauri/gen/
+
+# SQLite database (generated at runtime)
+*.db
+*.db-journal
+
+# Legacy (can be removed later)
 /data/main
 /test_client_data/
-
-# DB file
 metadata.sqlite
 backup_*
 test-results/
 client_test_server.log
 backups/
 .claude/*
+
+# Playwright
+playwright-report/
+test-results/
+
+# Static copies for browser-mode testing
+src/static/assets/
+src/static/data/

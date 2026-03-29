@@ -5,151 +5,147 @@ Tool-specific files (CLAUDE.md, .github/copilot-instructions.md) extend these.
 
 ## Project Overview
 
-Gorgonetics is a web-based genetic breeding tool for Project Gorgon pets. Python CLI/FastAPI backend + SvelteKit frontend for editing and analyzing pet genetics data.
+Gorgonetics is a native desktop app for genetic breeding analysis in Project Gorgon. Built with Tauri v2 (Rust shell) + SvelteKit/Svelte 5 frontend + TypeScript service layer with SQLite database.
 
 ## Architecture
 
-### Backend (`src/gorgonetics/`)
-- **`cli.py`**: Typer CLI with rich output
-- **`web_app.py`**: FastAPI REST API with JWT auth
-- **`models.py`**: Pydantic data models (Gene, Genome, Pet)
-- **`ducklake_database.py`**: DuckLake database with SQLite catalog + Parquet storage
-- **`database_config.py`**: Connection factory (`create_database_instance()`)
-- **`genome_parser.py`**: Parses Project Gorgon pet genome text files
-- **`attribute_config.py`**: Species-specific attribute definitions (beewasp, horse)
-- **`constants.py`**: Shared enums (UserRole, Gender) and constants
-- **`auth/`**: JWT authentication module
-  - `dependencies.py`: FastAPI auth dependencies (`get_current_active_user`, etc.)
-  - `models.py`: User, Token, TokenData models
-  - `utils.py`: Password hashing, token creation/verification
+### Frontend (`src/lib/`, `src/routes/`)
+- **`src/routes/+layout.svelte`**: App shell — TopBar + MasterPanel + DetailPane
+- **`src/routes/+page.svelte`**: Detail pane content (pet visualization or gene editor)
+- **`src/lib/components/layout/TopBar.svelte`**: App header with tab switcher (Pets/Genes)
+- **`src/lib/components/layout/MasterPanel.svelte`**: Left panel — PetList or GeneEditor
+- **`src/lib/components/pet/PetList.svelte`**: Searchable pet card list with upload
+- **`src/lib/components/pet/PetCard.svelte`**: Compact pet card (name, species, gene count)
+- **`src/lib/components/pet/PetVisualization.svelte`**: Pet detail view with gene visualizer
+- **`src/lib/components/pet/PetEditor.svelte`**: Modal for editing pet attributes
+- **`src/lib/components/gene/GeneEditor.svelte`**: Animal type + chromosome selector
+- **`src/lib/components/GeneEditingView.svelte`**: Gene effect editor grid
+- **`src/lib/components/gene/GeneVisualizer.svelte`**: Interactive gene grid visualization
+- **`src/lib/components/gene/GeneCell.svelte`**: Individual gene cell
+- **`src/lib/components/gene/GeneStatsTable.svelte`**: Attribute stats table
+- **`src/lib/components/gene/GeneTooltip.svelte`**: Gene hover tooltip
+- **`src/lib/components/AuthWrapper.svelte`**: App initializer (DB + demo data)
 
-### Frontend (SvelteKit)
-- **`src/routes/`**: File-based routing (`+page.svelte`, `+layout.svelte`)
-- **`src/lib/components/`**: Svelte 5 components organized by domain
-  - `forms/`: LoginForm, RegisterForm, PetUploadForm
-  - `gene/`: GeneCell, GeneEditor, GeneVisualizer, GeneStatsTable, GeneTooltip
-  - `pet/`: PetEditor, PetDataTable, PetVisualization
-  - `layout/`: Sidebar, VisualizationHeader
-- **`src/lib/services/api.js`**: ApiClient singleton (auth headers, token refresh)
-- **`src/lib/stores/`**: Svelte writable stores
-  - `pets.js`: Pet data, loading state, active tab
-  - `auth.js`: User, isAuthenticated, token management
-- **`src/lib/utils/apiUtils.js`**: Species normalization, cached API config loaders
+### TypeScript Service Layer (`src/lib/services/`)
+- **`database.ts`**: SQLite via tauri-plugin-sql (in-memory fallback for tests)
+- **`geneService.ts`**: Gene CRUD operations
+- **`petService.ts`**: Pet CRUD + genome visualization
+- **`configService.ts`**: Species attribute/appearance configuration
+- **`genomeParser.ts`**: Genome text file parser
+- **`fileService.ts`**: Native file dialogs (Tauri) with browser fallback
+- **`demoService.ts`**: First-launch gene template + demo pet loading
+- **`api.ts`**: ApiClient adapter (same interface, calls services directly)
+
+### Stores (`src/lib/stores/`)
+- **`pets.js`**: Pet list, selection, gene editing state, tab state
+- **`auth.ts`**: Stub (always authenticated in desktop app)
+
+### Types (`src/lib/types/`)
+- **`index.ts`**: Gene, Genome, Pet, GeneRecord, AttributeInfo interfaces
+
+### Tauri Backend (`src-tauri/`)
+- **`src/lib.rs`**: Plugin registration (sql, dialog, fs)
+- **`tauri.conf.json`**: Window config, resource bundling
+- **`capabilities/default.json`**: Permission declarations
+- **`resources/`**: Bundled gene templates + demo genomes
 
 ### Database
-- DuckLake with SQLite catalog (`metadata.sqlite`) + Parquet data files
-- Tables: `users`, `genes`, `pets` (pets have per-user isolation)
-- JWT auth with `admin` and `user` roles
+- SQLite via tauri-plugin-sql (single file, `gorgonetics.db`)
+- Tables: `genes` (gene effects), `pets` (pet data + genome JSON)
+- No auth tables (single-user desktop app)
 
 ## Development Setup
 
 ### Prerequisites
-- Python 3.13+, [uv](https://docs.astral.sh/uv/)
+- [Rust](https://rustup.rs/) (stable)
 - Node.js 20+, [pnpm](https://pnpm.io/)
 
 ### Commands
 
 ```bash
 # Setup
-uv sync --dev                     # Python dependencies
 pnpm install                      # JS dependencies
-uv run gorgonetics populate       # Load gene templates into DB
 
 # Run
-uv run gorgonetics web            # Backend API (port 8000)
-pnpm run dev                      # Frontend dev server (port 5173)
+pnpm tauri:dev                    # Launch native app (Vite + Tauri)
+pnpm dev                          # Frontend dev server only (port 5174)
 
 # Quality (MUST pass before committing)
-uv run ruff check .               # Python lint
-uv run ruff format --check .      # Python format check
-uv run ty check src/gorgonetics   # Type checking
 pnpm run lint:ci                  # ESLint (zero warnings)
+cargo check                       # Rust compilation (run from src-tauri/)
 
 # Tests
-uv run pytest                     # Python tests (96 tests)
-pnpm run test:client              # Frontend tests (vitest)
-./test.sh quick                   # Integration tests
-./test.sh all                     # Full suite
+pnpm test:e2e                     # Playwright E2E tests (30 tests)
+pnpm test:e2e:headed              # E2E tests with visible browser
+pnpm test:e2e:ui                  # Playwright UI mode
 
-# Admin
-uv run gorgonetics create-admin --username X --password Y
-uv run gorgonetics db-status
+# Build
+pnpm tauri:build                  # Production app bundle (.app/.dmg)
+pnpm build                        # Frontend only (static site)
 ```
 
 ## Code Standards
 
-### Python
-- **Line length**: 120 characters
-- **Type hints**: Required on all functions (ty type checker)
-- **Docstrings**: Required on public functions, classes, modules
-- **Strings**: Double quotes
-- **Parameters**: Never run bare `python`, always `uv run python`
-- **SQL**: Use named parameters (`$param`), never positional (`?`)
-- **Imports**: Use `from gorgonetics.constants import ...` for shared enums/constants
-
-### JavaScript / Svelte
+### TypeScript / JavaScript
 - **Framework**: Svelte 5 with runes (`$props()`, `$state()`, `$derived()`, `$effect()`)
-- **API calls**: Always use `apiClient` from `$lib/services/api.js` (handles auth + refresh)
-- **State**: Use writable stores from `$lib/stores/` for shared state
-- **Imports**: Use `$lib/` alias (e.g., `import { apiClient } from '$lib/services/api.js'`)
-- **CSS**: Tailwind CSS v4 via `@import 'tailwindcss'` in app.css; Flowbite Svelte for components
-- **No raw fetch**: All API calls must go through the ApiClient to ensure auth headers are attached
+- **Services**: All data access goes through `src/lib/services/` modules
+- **State**: Svelte writable stores in `src/lib/stores/`
+- **Imports**: Use `$lib/` alias (e.g., `import { getDb } from '$lib/services/database.js'`)
+- **CSS**: Tailwind CSS v4; custom components (no UI framework dependency)
+- **No raw fetch**: All data access through service layer, not HTTP calls
+
+### Rust (src-tauri/)
+- Minimal — only plugin registration and Tauri boilerplate
+- No custom Tauri commands (all logic in TypeScript)
 
 ### Quality Gates (enforced by CI)
-After modifying **any** file, run the relevant linters and fix all errors before committing:
 ```bash
-# Python changes:
-uv run ruff check . && uv run ruff format --check . && uv run ty check src/gorgonetics
-
-# JS/Svelte changes:
-pnpm run lint:ci
+pnpm run lint:ci                  # ESLint zero warnings
+cargo check                       # Rust compilation
+pnpm test:e2e                     # Playwright E2E tests
 ```
 
 ## Testing Strategy
 
-- **pytest**: Unit + integration tests in `tests/`
-- **Vitest**: Frontend tests in `tests/client/`
-- **Integration**: `./test.sh` spins up the API server and runs endpoint tests
-- Write tests for both success and error paths
-- Use pytest fixtures from `tests/conftest.py` (test_database, authenticated_client, etc.)
+- **Playwright E2E**: `tests/e2e/app.spec.js` — 30 tests covering all UI flows
+- Tests run against Vite dev server with in-memory database fallback
+- Gene templates loaded from `src/static/assets/` (copies of `assets/`)
+- Demo pets loaded from `src/static/data/` (copies of `data/`)
 
 ## Key Patterns
 
 ### Adding a Feature
-1. Define models in `models.py`
-2. Add DB operations to `ducklake_database.py`
-3. Create API endpoints in `web_app.py` with auth dependencies
+1. Define types in `src/lib/types/index.ts`
+2. Add service functions in `src/lib/services/`
+3. Update stores if needed in `src/lib/stores/`
 4. Build Svelte components in `src/lib/components/`
-5. Add tests for backend and frontend
+5. Add E2E tests in `tests/e2e/`
 
 ### Database Access
-- Use `Depends(get_database)` in FastAPI endpoints (auto-closes connection)
-- Auth dependencies manage their own connections via `create_database_instance()`
-- Validate user-supplied column names against allowlists before using in SQL
+- Use `getDb()` from `database.ts` for all SQL queries
+- `initDatabase()` called once in AuthWrapper on app startup
+- In-memory fallback auto-detected when not running in Tauri
 
-### Security
-- All pet mutation endpoints use `_authorize_pet_mutation()` for ownership checks
-- Attribute update keys are validated against `AttributeConfig` allowlist
-- Never interpolate user input into SQL column names or identifiers
-- Never fabricate personal information (names, emails, etc.) about the user
+### Master-Detail Layout
+- MasterPanel (left, 260px): PetList or GeneEditor based on active tab
+- DetailPane (right, flex): PetVisualization or GeneEditingView based on selection
+- State drives navigation: `selectedPet`, `geneEditingView`, `activeTab` stores
 
 ## File Organization
 
 ```
-src/gorgonetics/        # Python backend
-src/lib/                # Svelte components, stores, services
-src/routes/             # SvelteKit pages
-src/static/             # Favicon, logos
-assets/                 # Gene template JSON files (beewasp, horse)
+src/lib/                # Svelte components, stores, services, types
+src/routes/             # SvelteKit pages (+layout, +page)
+src/static/             # Static assets (logos, icons)
+src-tauri/              # Tauri Rust backend + config + bundled resources
+assets/                 # Gene template JSON source files
 data/                   # Sample genome text files
-tests/                  # Python + JS tests
-scripts/                # Build/test/DB utility scripts
-docs/                   # Project documentation
+tests/e2e/              # Playwright E2E tests
 ```
 
 ## Species & Data
 
-- **Beewasp**: Chromosomes chr01-chr02, attributes: Ferocity, Toughness, etc.
-- **Horse**: Chromosomes chr01-chr48, attributes: Temperament, Toughness, etc.
-- Extensible via `attribute_config.py` for new species
-- Gene data: species -> chromosome -> gene positions with dominant/recessive effects
+- **Beewasp**: 10 chromosomes, attributes: Ferocity + 6 core
+- **Horse**: 48 chromosomes, attributes: Temperament + 6 core
+- Core attributes: Toughness, Ruggedness, Enthusiasm, Friendliness, Intelligence, Virility
+- Extensible via `configService.ts` for new species

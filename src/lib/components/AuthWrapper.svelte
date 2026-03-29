@@ -1,47 +1,28 @@
 <script>
-  import { onMount } from 'svelte';
-  import { authStore, isAuthenticated, isLoading } from '$lib/stores/auth.js';
-  import { apiClient } from '$lib/services/api.js';
+import { onMount } from 'svelte';
+import { initDatabase } from '$lib/services/database.js';
+import { loadDemoPetsIfNeeded, populateGenesIfNeeded } from '$lib/services/demoService.js';
 
-  let authMode = 'login'; // 'login' or 'register'
+const { children } = $props();
+let ready = $state(false);
 
-  onMount(async () => {
-    // Initialize authentication on app startup
-    await authStore.initialize();
-    
-    // Set the token in the API client if user is authenticated
-    if ($isAuthenticated) {
-      const token = authStore.getAccessToken();
-      apiClient.setAuthToken(token);
-    }
-  });
-
-  function switchToRegister() {
-    authMode = 'register';
-    authStore.clearError();
-  }
-
-  function switchToLogin() {
-    authMode = 'login';
-    authStore.clearError();
-  }
-
-  function handleAuthSuccess() {
-    // Set the token in the API client for future requests
-    const token = authStore.getAccessToken();
-    apiClient.setAuthToken(token);
-  }
-
+onMount(async () => {
+  await initDatabase();
+  await populateGenesIfNeeded();
+  await loadDemoPetsIfNeeded();
+  ready = true;
+});
 </script>
 
-{#if $isLoading}
+{#if !ready}
   <div class="loading-screen">
     <div class="loading-spinner"></div>
     <p>Loading...</p>
   </div>
 {:else}
-  <!-- Always show the main app content, authentication is now optional -->
-  <slot {authMode} {switchToLogin} {switchToRegister} {handleAuthSuccess} />
+  <div class="app-root">
+    {@render children()}
+  </div>
 {/if}
 
 <style>
@@ -74,4 +55,7 @@
     font-size: 1.1rem;
   }
 
+  .app-root {
+    height: 100%;
+  }
 </style>
