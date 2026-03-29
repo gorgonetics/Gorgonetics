@@ -1,10 +1,12 @@
-import { readFileSync, readdirSync } from 'fs';
+import { readdirSync, readFileSync } from 'fs';
 import { resolve } from 'path';
 import { describe, expect, it } from 'vitest';
 import { HORSE_BREEDS } from '$lib/types/index.js';
 
 const horseDir = resolve('assets/horse');
-const files = readdirSync(horseDir).filter((f) => f.endsWith('.json')).sort();
+const files = readdirSync(horseDir)
+  .filter((f) => f.endsWith('.json'))
+  .sort();
 
 function loadAllHorseGenes() {
   const allGenes = [];
@@ -31,10 +33,7 @@ describe('Horse breed data consistency', () => {
       const genes = JSON.parse(readFileSync(resolve(horseDir, file), 'utf-8'));
       const breeds = [...new Set(genes.map((g) => g.breed))];
       // Should be either [''] (all generic) or ['Xx'] (all one breed)
-      expect(
-        breeds.length,
-        `${file}: has mixed breeds ${JSON.stringify(breeds)}`,
-      ).toBe(1);
+      expect(breeds.length, `${file}: has mixed breeds ${JSON.stringify(breeds)}`).toBe(1);
     }
   });
 
