@@ -5,7 +5,7 @@
 
 import { listBundledResources, loadBundledResource } from './fileService.js';
 import { hasGenes, upsertGene } from './geneService.js';
-import { hasPets, uploadPet } from './petService.js';
+import { hasPets, updatePet, uploadPet } from './petService.js';
 
 /**
  * Populate the genes table from bundled JSON template files if empty.
@@ -60,15 +60,18 @@ export async function loadDemoPetsIfNeeded(): Promise<void> {
   console.log('Loading demo pets...');
 
   const demoFiles = [
-    { path: 'resources/data/Genes_SampleFaeBee.txt', name: 'Sample Fae Bee', gender: 'Female' },
-    { path: 'resources/data/Genes_SampleHorse.txt', name: 'Sample Horse', gender: 'Male' },
+    { path: 'resources/data/Genes_SampleFaeBee.txt', name: 'Sample Fae Bee', gender: 'Female', breed: '' },
+    { path: 'resources/data/Genes_SampleHorse.txt', name: 'Sample Horse', gender: 'Male', breed: 'Standardbred' },
   ];
 
-  for (const { path, name, gender } of demoFiles) {
+  for (const { path, name, gender, breed } of demoFiles) {
     try {
       const content = await loadBundledResource(path);
       const result = await uploadPet(content, name, gender, `Sample pet for exploring Gorgonetics features`);
       if (result.status === 'success') {
+        if (breed) {
+          await updatePet(result.pet_id, { breed });
+        }
         console.log(`Loaded demo pet: ${name} (ID: ${result.pet_id})`);
       } else {
         console.warn(`Failed to load demo pet ${name}: ${result.message}`);
