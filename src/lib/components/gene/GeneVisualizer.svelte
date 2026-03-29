@@ -1982,11 +1982,11 @@ export function getStatsData() {
     }
 
     .position-header.block-start {
-        padding-left: 8px;
+        padding-left: 10px;
     }
 
     .position-header.block-start:first-of-type {
-        padding-left: 4px;
+        padding-left: 2px;
     }
 
     .gene-rows {
@@ -2051,7 +2051,7 @@ export function getStatsData() {
     }
 
     .gene-cell-container.block-start {
-        padding-left: 4px;
+        padding-left: 8px;
     }
 
     .gene-cell-container.block-start:first-of-type {
