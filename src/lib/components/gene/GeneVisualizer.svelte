@@ -1971,9 +1971,9 @@ export function getStatsData() {
     }
 
     .position-header {
-        width: 17px;
-        min-width: 17px;
-        max-width: 17px;
+        width: 16px;
+        min-width: 16px;
+        max-width: 16px;
         font-weight: normal;
     }
 
@@ -2039,11 +2039,11 @@ export function getStatsData() {
     }
 
     .gene-cell-container {
-        padding: 0;
+        padding: 1px;
         text-align: center;
         vertical-align: middle;
         position: relative;
-        width: 17px;
+        width: 16px;
     }
 
     .gene-cell-container.empty {
