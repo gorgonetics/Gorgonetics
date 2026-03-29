@@ -197,6 +197,63 @@ test.describe('Pet Editor', () => {
 });
 
 // ==========================================
+// Delete Confirmation
+// ==========================================
+
+test.describe('Delete Confirmation', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await waitForPets(page);
+  });
+
+  test('shows confirmation dialog on delete click', async ({ page }) => {
+    await page.locator('.pet-card-wrapper').first().hover();
+    await page.locator('.delete-btn').first().click();
+    await expect(page.locator('.confirm-dialog')).toBeVisible();
+    await expect(page.getByText('This action cannot be undone')).toBeVisible();
+  });
+
+  test('cancel keeps the pet', async ({ page }) => {
+    const countBefore = await page.locator('.pet-card').count();
+    await page.locator('.pet-card-wrapper').first().hover();
+    await page.locator('.delete-btn').first().click();
+    await expect(page.locator('.confirm-dialog')).toBeVisible();
+
+    // Click Cancel
+    await page.locator('.btn-secondary').filter({ hasText: 'Cancel' }).click();
+    await expect(page.locator('.confirm-dialog')).toHaveCount(0);
+
+    // Pet count unchanged
+    expect(await page.locator('.pet-card').count()).toBe(countBefore);
+  });
+
+  test('confirm deletes the pet', async ({ page }) => {
+    const countBefore = await page.locator('.pet-card').count();
+    await page.locator('.pet-card-wrapper').first().hover();
+    await page.locator('.delete-btn').first().click();
+    await expect(page.locator('.confirm-dialog')).toBeVisible();
+
+    // Click Delete
+    await page.locator('.btn-danger').filter({ hasText: 'Delete' }).click();
+    await expect(page.locator('.confirm-dialog')).toHaveCount(0);
+
+    // Pet count decreased
+    await expect(page.locator('.pet-card')).toHaveCount(countBefore - 1);
+  });
+
+  test('Escape key cancels delete', async ({ page }) => {
+    const countBefore = await page.locator('.pet-card').count();
+    await page.locator('.pet-card-wrapper').first().hover();
+    await page.locator('.delete-btn').first().click();
+    await expect(page.locator('.confirm-dialog')).toBeVisible();
+
+    await page.keyboard.press('Escape');
+    await expect(page.locator('.confirm-dialog')).toHaveCount(0);
+    expect(await page.locator('.pet-card').count()).toBe(countBefore);
+  });
+});
+
+// ==========================================
 // Gene Editor
 // ==========================================
 
