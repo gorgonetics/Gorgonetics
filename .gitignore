@@ -205,3 +205,5 @@ test-results/
 # Static copies for browser-mode testing
 src/static/assets/
 src/static/data/
+users.sqlite*
+tests/playwright/screenshots/
