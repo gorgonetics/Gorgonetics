@@ -85,7 +85,7 @@ class ApiClient {
     // Pet genome: GET /api/pet-genome/{id}
     match = url.match(/\/api\/pet-genome\/(\d+)/);
     if (match) {
-      const data = await petService.getPetGenome(parseInt(match[1]));
+      const data = await petService.getPetGenome(parseInt(match[1], 10));
       return this._jsonResponse(data);
     }
 

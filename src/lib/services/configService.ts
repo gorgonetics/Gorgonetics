@@ -382,7 +382,7 @@ export function validateAttributeDict(attributes: Record<string, unknown>, speci
       errors[attrName] = `Invalid attribute '${attrName}' for species '${species}'`;
       continue;
     }
-    if (typeof value !== 'number' || isNaN(value)) {
+    if (typeof value !== 'number' || Number.isNaN(value)) {
       errors[attrName] = `Attribute '${attrName}' must be a numeric value`;
     }
   }

@@ -115,7 +115,7 @@ function handleTableClick(event) {
   if (!button) return;
 
   const action = button.dataset.action;
-  const petId = parseInt(button.dataset.petId);
+  const petId = parseInt(button.dataset.petId, 10);
   const pet = $pets.find((p) => p.id === petId);
 
   if (!pet) return;
