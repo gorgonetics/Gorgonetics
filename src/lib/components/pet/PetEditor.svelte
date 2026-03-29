@@ -1,22 +1,10 @@
 <script>
-import { Button, Input, Label, Modal, Select } from 'flowbite-svelte';
 import { untrack } from 'svelte';
 import { appState } from '$lib/stores/pets.js';
 import { FALLBACK_ATTRIBUTE_LIST } from '$lib/utils/apiUtils.js';
 
-/**
- * @typedef {Object} Props
- * @property {any} pet - The pet to edit
- * @property {boolean} open - Whether the modal is open
- * @property {Function} onClose - Callback when editor is closed
- * @property {Function} onSave - Callback when pet is saved
- */
-
-/** @type {Props} */
-// eslint-disable-next-line prefer-const -- open is $bindable and reassigned, requiring `let` for the whole destructuring
 let { pet, open = $bindable(), onClose, onSave } = $props();
 
-// Breed options by species - easy to modify later
 const BREED_OPTIONS = {
   BeeWasp: ['Bee', 'Wasp'],
   Horse: [
@@ -34,18 +22,10 @@ const BREED_OPTIONS = {
   default: ['Mixed'],
 };
 
-const getBreedOptions = (species) => {
-  return BREED_OPTIONS[species] || BREED_OPTIONS.default;
-};
-
+const getBreedOptions = (species) => BREED_OPTIONS[species] || BREED_OPTIONS.default;
 const breedOptions = $derived(getBreedOptions(pet.species));
 
-/**
- * Initialize editable state from pet prop snapshot.
- * These capture the initial values for the edit form.
- * The component is recreated when a different pet is selected.
- */
-function initEditState(/** @type {any} */ p) {
+function initEditState(p) {
   const opts = getBreedOptions(p.species);
   return {
     name: p.name || '',
@@ -64,17 +44,11 @@ let editBreed = $state(initial.breed);
 const editAttributes = $state(initial.attributes);
 let saveError = $state('');
 
-// Get species-specific attributes
 const getAvailableAttributes = (species) => {
-  const coreAttributes = ['intelligence', 'toughness', 'friendliness', 'ruggedness', 'enthusiasm', 'virility'];
-
-  if (species === 'BeeWasp') {
-    return [...coreAttributes, 'ferocity'];
-  } else if (species === 'Horse') {
-    return [...coreAttributes, 'temperament'];
-  } else {
-    return coreAttributes;
-  }
+  const core = ['intelligence', 'toughness', 'friendliness', 'ruggedness', 'enthusiasm', 'virility'];
+  if (species === 'BeeWasp') return [...core, 'ferocity'];
+  if (species === 'Horse') return [...core, 'temperament'];
+  return core;
 };
 
 const availableAttributes = $derived(getAvailableAttributes(pet.species));
@@ -85,42 +59,25 @@ const filteredAttributeList = $derived(
 async function handleSave() {
   try {
     const updateData = {};
+    if (editName.trim() !== pet.name) updateData.name = editName.trim();
+    if (editGender !== pet.gender) updateData.gender = editGender;
+    if (editBreed.trim() !== (pet.breed || 'Mixed')) updateData.breed = editBreed.trim();
 
-    // Check what changed
-    if (editName.trim() !== pet.name) {
-      updateData.name = editName.trim();
-    }
-    if (editGender !== pet.gender) {
-      updateData.gender = editGender;
-    }
-    if (editBreed.trim() !== (pet.breed || 'Mixed')) {
-      updateData.breed = editBreed.trim();
-    }
-
-    // Check if any attributes changed
     const attributeChanges = {};
     for (const [key, value] of Object.entries(editAttributes)) {
-      // Compare against direct pet properties (not nested attributes)
-      if (pet[key] !== value) {
-        attributeChanges[key] = value;
-      }
+      if (pet[key] !== value) attributeChanges[key] = value;
     }
-    if (Object.keys(attributeChanges).length > 0) {
-      updateData.attributes = attributeChanges;
-    }
+    if (Object.keys(attributeChanges).length > 0) updateData.attributes = attributeChanges;
 
-    // Only update if there are changes
     if (Object.keys(updateData).length > 0) {
       await appState.updatePet(pet.id, updateData);
       await appState.loadPets();
       onSave?.(pet.id);
     }
-
     open = false;
     onClose?.();
   } catch (err) {
-    console.error('Failed to update pet:', err);
-    saveError = err.message || 'Failed to save changes. Please try again.';
+    saveError = err.message || 'Failed to save changes.';
   }
 }
 
@@ -130,173 +87,306 @@ function handleCancel() {
   onClose?.();
 }
 
+function handleBackdropClick(e) {
+  if (e.target === e.currentTarget) handleCancel();
+}
+
+function handleKeydown(e) {
+  if (e.key === 'Escape') handleCancel();
+}
+
 function updateAttribute(attrKey, value) {
-  editAttributes[attrKey] = parseInt(value, 10) || 0;
+  editAttributes[attrKey] = Number.parseInt(value, 10) || 0;
 }
 </script>
 
-<Modal bind:open size="lg" autoclose outsideclose title="Edit Pet">
-    {#if saveError}
-        <div class="save-error" role="alert">{saveError}</div>
-    {/if}
-    <div class="pet-editor-content">
-        <div class="form-section">
-            <h3>Basic Information</h3>
-            <!-- Pet Name - Full Width -->
-            <div class="form-group single-column">
-                <Label for="petName" class="mb-2">Pet Name</Label>
-                <Input
-                    id="petName"
-                    bind:value={editName}
-                    placeholder="Enter pet name"
-                />
-            </div>
-
-            <!-- Other Basic Info - Two Columns -->
-            <div class="basic-info-grid">
-                <div class="form-group">
-                    <Label for="petSpecies" class="mb-2">Species</Label>
-                    <Input
-                        id="petSpecies"
-                        value={pet.species || "Unknown"}
-                        disabled
-                        title="Species cannot be edited (loaded from genome)"
-                    />
-                </div>
-
-                <div class="form-group">
-                    <Label for="petBreeder" class="mb-2">Breeder</Label>
-                    <Input
-                        id="petBreeder"
-                        value={pet.breeder || "Unknown"}
-                        disabled
-                        title="Breeder cannot be edited (loaded from genome)"
-                    />
-                </div>
-
-                <div class="form-group">
-                    <Label for="petGender" class="mb-2">Gender</Label>
-                    <Select
-                        id="petGender"
-                        bind:value={editGender}
-                        items={[
-                            { value: "Male", name: "Male" },
-                            { value: "Female", name: "Female" },
-                        ]}
-                    />
-                </div>
-
-                <div class="form-group">
-                    <Label for="petBreed" class="mb-2">Breed</Label>
-                    <Select
-                        id="petBreed"
-                        bind:value={editBreed}
-                        items={breedOptions.map((breed) => ({
-                            value: breed,
-                            name: breed,
-                        }))}
-                    />
-                </div>
-            </div>
-        </div>
-
-        <div class="form-section">
-            <h3>Attributes ({pet.species})</h3>
-            <div class="attributes-grid">
-                {#each filteredAttributeList as attr (attr.key)}
-                    <div class="attribute-group">
-                        <Label for="attr-{attr.key}" class="mb-2"
-                            >{attr.name}</Label
-                        >
-                        <Input
-                            type="number"
-                            id="attr-{attr.key}"
-                            min="0"
-                            max="100"
-                            value={editAttributes[attr.key.toLowerCase()] ?? 50}
-                            oninput={(e) =>
-                                updateAttribute(
-                                    attr.key.toLowerCase(),
-                                    e.target.value,
-                                )}
-                        />
-                    </div>
-                {/each}
-            </div>
-        </div>
+{#if open}
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div class="modal-backdrop" onclick={handleBackdropClick} onkeydown={handleKeydown}>
+  <div class="modal-panel" role="dialog" aria-label="Edit Pet">
+    <div class="modal-header">
+      <h2>Edit Pet</h2>
+      <button class="modal-close" onclick={handleCancel}>×</button>
     </div>
-    <svelte:fragment slot="footer">
-        <Button color="alternative" onclick={handleCancel}>Cancel</Button>
-        <Button onclick={handleSave}>Save Changes</Button>
-    </svelte:fragment>
-</Modal>
+
+    <div class="modal-body">
+      {#if saveError}
+        <div class="save-error" role="alert">{saveError}</div>
+      {/if}
+
+      <section class="form-section">
+        <h3>Basic Information</h3>
+        <div class="field">
+          <label for="petName">Pet Name</label>
+          <input id="petName" type="text" bind:value={editName} placeholder="Enter pet name" />
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="petSpecies">Species</label>
+            <input id="petSpecies" type="text" value={pet.species || 'Unknown'} disabled />
+          </div>
+          <div class="field">
+            <label for="petBreeder">Breeder</label>
+            <input id="petBreeder" type="text" value={pet.breeder || 'Unknown'} disabled />
+          </div>
+          <div class="field">
+            <label for="petGender">Gender</label>
+            <select id="petGender" bind:value={editGender}>
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="petBreed">Breed</label>
+            <select id="petBreed" bind:value={editBreed}>
+              {#each breedOptions as breed}
+                <option value={breed}>{breed}</option>
+              {/each}
+            </select>
+          </div>
+        </div>
+      </section>
+
+      <section class="form-section">
+        <h3>Attributes ({pet.species})</h3>
+        <div class="attributes-grid">
+          {#each filteredAttributeList as attr (attr.key)}
+            <div class="attr-field">
+              <label for="attr-{attr.key}">
+                <span class="attr-icon">{attr.icon}</span>
+                {attr.name}
+              </label>
+              <input
+                type="number"
+                id="attr-{attr.key}"
+                min="0"
+                max="100"
+                value={editAttributes[attr.key.toLowerCase()] ?? 50}
+                oninput={(e) => updateAttribute(attr.key.toLowerCase(), e.target.value)}
+              />
+            </div>
+          {/each}
+        </div>
+      </section>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick={handleCancel}>Cancel</button>
+      <button class="btn btn-primary" onclick={handleSave}>Save Changes</button>
+    </div>
+  </div>
+</div>
+{/if}
 
 <style>
-    .pet-editor-content {
-        display: flex;
-        flex-direction: column;
-        gap: 1rem;
-        max-height: 75vh;
-        overflow-y: auto;
-    }
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+  }
 
-    .form-section {
-        display: flex;
-        flex-direction: column;
-        gap: 0.5rem;
-    }
+  .modal-panel {
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+    width: 560px;
+    max-width: 90vw;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
 
-    .form-section h3 {
-        margin: 0;
-        font-size: 1.125rem;
-        font-weight: 600;
-        color: #111827;
-        border-bottom: 2px solid #e5e7eb;
-        padding-bottom: 0.5rem;
-    }
+  .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid #e5e7eb;
+  }
 
-    .basic-info-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-        gap: 0.75rem;
-    }
+  .modal-header h2 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+    color: #111827;
+  }
 
-    .form-group {
-        display: flex;
-        flex-direction: column;
-        gap: 0.25rem;
-    }
+  .modal-close {
+    background: none;
+    border: none;
+    font-size: 20px;
+    color: #9ca3af;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    line-height: 1;
+  }
 
-    .single-column {
-        grid-column: 1 / -1;
-    }
+  .modal-close:hover {
+    background: #f3f4f6;
+    color: #374151;
+  }
 
-    .attributes-grid {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 0.5rem;
-    }
+  .modal-body {
+    padding: 20px;
+    overflow-y: auto;
+    flex: 1;
+  }
 
-    .attribute-group {
-        display: flex;
-        flex-direction: column;
-        gap: 0.25rem;
-    }
+  .modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 14px 20px;
+    border-top: 1px solid #e5e7eb;
+    background: #f9fafb;
+  }
 
-    .save-error {
-        background-color: #fef2f2;
-        border: 1px solid #fecaca;
-        border-radius: 6px;
-        color: #dc2626;
-        font-size: 0.875rem;
-        margin-bottom: 1rem;
-        padding: 0.75rem 1rem;
-    }
+  .form-section {
+    margin-bottom: 20px;
+  }
 
-    /* Responsive adjustments */
-    @media (max-width: 640px) {
-        .basic-info-grid {
-            grid-template-columns: 1fr;
-        }
-    }
+  .form-section:last-child {
+    margin-bottom: 0;
+  }
+
+  .form-section h3 {
+    margin: 0 0 12px 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .field {
+    margin-bottom: 12px;
+  }
+
+  .field label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    color: #374151;
+    margin-bottom: 4px;
+  }
+
+  .field input,
+  .field select {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    font-size: 13px;
+    color: #111827;
+    background: #ffffff;
+    outline: none;
+    transition: border-color 0.15s;
+    box-sizing: border-box;
+  }
+
+  .field input:focus,
+  .field select:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+  }
+
+  .field input:disabled {
+    background: #f9fafb;
+    color: #9ca3af;
+  }
+
+  .field-row {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+
+  .attributes-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  .attr-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .attr-field label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #374151;
+  }
+
+  .attr-icon {
+    font-size: 14px;
+  }
+
+  .attr-field input {
+    width: 100%;
+    padding: 6px 10px;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    font-size: 13px;
+    color: #111827;
+    background: #ffffff;
+    outline: none;
+    box-sizing: border-box;
+  }
+
+  .attr-field input:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+  }
+
+  .btn {
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    border: 1px solid transparent;
+  }
+
+  .btn-secondary {
+    background: #ffffff;
+    color: #374151;
+    border-color: #e5e7eb;
+  }
+
+  .btn-secondary:hover {
+    background: #f9fafb;
+    border-color: #d1d5db;
+  }
+
+  .btn-primary {
+    background: #3b82f6;
+    color: #ffffff;
+    border-color: #3b82f6;
+  }
+
+  .btn-primary:hover {
+    background: #2563eb;
+  }
+
+  .save-error {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 6px;
+    color: #dc2626;
+    font-size: 13px;
+    padding: 10px 14px;
+    margin-bottom: 16px;
+  }
 </style>
