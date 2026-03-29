@@ -4,9 +4,9 @@
  * instead of making HTTP requests. This preserves component compatibility.
  */
 
-import * as petService from './petService.js';
-import * as geneService from './geneService.js';
 import * as configService from './configService.js';
+import * as geneService from './geneService.js';
+import * as petService from './petService.js';
 
 class ApiClient {
   constructor() {
@@ -15,7 +15,9 @@ class ApiClient {
 
   // Auth methods — no-ops in native app
   setAuthToken() {}
-  getAuthHeaders() { return {}; }
+  getAuthHeaders() {
+    return {};
+  }
 
   /**
    * Route-based dispatcher for components that call fetchWithErrorHandling directly.
@@ -54,9 +56,7 @@ class ApiClient {
     // Bulk gene update: PUT /api/genes
     if (url === '/api/genes' && method === 'PUT') {
       const body = JSON.parse(options.body);
-      const count = await geneService.updateGenesBulk(
-        body.animal_type, body.chromosome, body.genes
-      );
+      const count = await geneService.updateGenesBulk(body.animal_type, body.chromosome, body.genes);
       return this._jsonResponse({ updated: count });
     }
 
@@ -177,7 +177,7 @@ class ApiClient {
    * Upload a pet from file content.
    * In the native app, this receives content as a string (not a File blob).
    */
-  async uploadPet(fileContent, name = "", gender = "Male", notes = null) {
+  async uploadPet(fileContent, name = '', gender = 'Male', notes = null) {
     return petService.uploadPet(fileContent, name, gender, notes ?? undefined);
   }
 

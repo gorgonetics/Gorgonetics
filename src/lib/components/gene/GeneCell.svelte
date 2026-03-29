@@ -1,73 +1,65 @@
 <script>
-    import { createEventDispatcher } from "svelte";
+import { createEventDispatcher } from 'svelte';
 
-    /**
-     * @typedef {Object} Props
-     * @property {any} [gene]
-     * @property {string} [chromosome]
-     * @property {any} [geneAnalysis]
-     * @property {string} [currentView]
-     * @property {boolean} [isVisible]
-     */
+/**
+ * @typedef {Object} Props
+ * @property {any} [gene]
+ * @property {string} [chromosome]
+ * @property {any} [geneAnalysis]
+ * @property {string} [currentView]
+ * @property {boolean} [isVisible]
+ */
 
-    /** @type {Props} */
-    const {
-        gene = null,
-        chromosome = "",
-        geneAnalysis = null,
-        currentView = "attribute",
-        isVisible = true,
-    } = $props();
+/** @type {Props} */
+const { gene = null, chromosome = '', geneAnalysis = null, currentView = 'attribute', isVisible = true } = $props();
 
-    const dispatch = createEventDispatcher();
+const dispatch = createEventDispatcher();
 
-    function computeCssClass(gene, geneAnalysis, currentView, isVisible) {
-        if (!gene || !geneAnalysis) return "gene-cell";
+function computeCssClass(gene, geneAnalysis, currentView, isVisible) {
+  if (!gene || !geneAnalysis) return 'gene-cell';
 
-        let cssClass = "gene-cell ";
+  let cssClass = 'gene-cell ';
 
-        cssClass += `gene-${geneAnalysis.type} `;
+  cssClass += `gene-${geneAnalysis.type} `;
 
-        if (gene.type === "?") {
-            cssClass = "gene-cell gene-neutral gene-unknown";
-        } else if (gene.type === "D") {
-            cssClass += "gene-dominant";
-        } else if (gene.type === "R") {
-            cssClass += "gene-recessive";
-        } else if (gene.type === "x") {
-            cssClass += "gene-mixed";
-        } else {
-            cssClass += "gene-recessive";
-        }
+  if (gene.type === '?') {
+    cssClass = 'gene-cell gene-neutral gene-unknown';
+  } else if (gene.type === 'D') {
+    cssClass += 'gene-dominant';
+  } else if (gene.type === 'R') {
+    cssClass += 'gene-recessive';
+  } else if (gene.type === 'x') {
+    cssClass += 'gene-mixed';
+  } else {
+    cssClass += 'gene-recessive';
+  }
 
-        if (currentView === "appearance" && geneAnalysis.attribute) {
-            cssClass += ` gene-${geneAnalysis.attribute}`;
-        }
+  if (currentView === 'appearance' && geneAnalysis.attribute) {
+    cssClass += ` gene-${geneAnalysis.attribute}`;
+  }
 
-        if (!isVisible) {
-            cssClass += " gene-filtered-out";
-        }
+  if (!isVisible) {
+    cssClass += ' gene-filtered-out';
+  }
 
-        return cssClass;
-    }
+  return cssClass;
+}
 
-    function handleMouseEnter(event) {
-        if (!gene) return;
-        dispatch("tooltip-show", {
-            event,
-            geneId: gene.id,
-            geneType: gene.type,
-            chromosome,
-            effect: geneAnalysis?.effect || "",
-        });
-    }
+function handleMouseEnter(event) {
+  if (!gene) return;
+  dispatch('tooltip-show', {
+    event,
+    geneId: gene.id,
+    geneType: gene.type,
+    chromosome,
+    effect: geneAnalysis?.effect || '',
+  });
+}
 
-    function handleMouseLeave(event) {
-        dispatch("tooltip-hide", { event });
-    }
-    const cssClass = $derived(
-        computeCssClass(gene, geneAnalysis, currentView, isVisible),
-    );
+function handleMouseLeave(event) {
+  dispatch('tooltip-hide', { event });
+}
+const cssClass = $derived(computeCssClass(gene, geneAnalysis, currentView, isVisible));
 </script>
 
 {#if gene}

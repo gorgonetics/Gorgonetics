@@ -1,54 +1,51 @@
 <script>
-    import { pets, selectedPet, appState, error } from "$lib/stores/pets.js";
-    import PetCard from "./PetCard.svelte";
-    import PetEditor from "./PetEditor.svelte";
-    import { pickGenomeFile, readFileContent } from "$lib/services/fileService.js";
+import { pickGenomeFile, readFileContent } from '$lib/services/fileService.js';
+import { appState, error, pets, selectedPet } from '$lib/stores/pets.js';
+import PetCard from './PetCard.svelte';
+import PetEditor from './PetEditor.svelte';
 
-    let searchQuery = $state("");
-    let uploading = $state(false);
-    let showEditor = $state(false);
-    let editingPet = $state(null);
+let searchQuery = $state('');
+let uploading = $state(false);
+let showEditor = $state(false);
+let editingPet = $state(null);
 
-    const filteredPets = $derived(
-        $pets.filter((pet) => {
-            if (!searchQuery) return true;
-            const q = searchQuery.toLowerCase();
-            return (
-                (pet.name || '').toLowerCase().includes(q) ||
-                (pet.species || '').toLowerCase().includes(q)
-            );
-        })
-    );
+const filteredPets = $derived(
+  $pets.filter((pet) => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    return (pet.name || '').toLowerCase().includes(q) || (pet.species || '').toLowerCase().includes(q);
+  }),
+);
 
-    function selectPet(pet) {
-        appState.selectPet(pet);
-    }
+function selectPet(pet) {
+  appState.selectPet(pet);
+}
 
-    async function handleUpload() {
-        try {
-            const filePath = await pickGenomeFile();
-            if (!filePath) return;
+async function handleUpload() {
+  try {
+    const filePath = await pickGenomeFile();
+    if (!filePath) return;
 
-            uploading = true;
-            const content = await readFileContent(filePath);
-            await appState.uploadPet(content, "", "Male");
-        } catch (err) {
-            error.set(`Upload failed: ${err.message}`);
-        } finally {
-            uploading = false;
-        }
-    }
+    uploading = true;
+    const content = await readFileContent(filePath);
+    await appState.uploadPet(content, '', 'Male');
+  } catch (err) {
+    error.set(`Upload failed: ${err.message}`);
+  } finally {
+    uploading = false;
+  }
+}
 
-    function closeEditor() {
-        showEditor = false;
-        editingPet = null;
-    }
+function closeEditor() {
+  showEditor = false;
+  editingPet = null;
+}
 
-    async function handleDelete(pet) {
-        if (confirm(`Delete "${pet.name}"?`)) {
-            await appState.deletePet(pet.id);
-        }
-    }
+async function handleDelete(pet) {
+  if (confirm(`Delete "${pet.name}"?`)) {
+    await appState.deletePet(pet.id);
+  }
+}
 </script>
 
 <div class="pet-list">

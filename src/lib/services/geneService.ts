@@ -3,8 +3,8 @@
  * Ported from: ducklake_database.py gene methods + web_app.py gene endpoints
  */
 
-import { getDb } from './database.js';
 import { normalizeSpecies } from './configService.js';
+import { getDb } from './database.js';
 
 function now(): string {
   return new Date().toISOString();
@@ -16,7 +16,7 @@ function now(): string {
 export async function getAnimalTypes(): Promise<string[]> {
   const db = getDb();
   const rows = await db.select<{ animal_type: string }[]>(
-    'SELECT DISTINCT animal_type FROM genes ORDER BY animal_type'
+    'SELECT DISTINCT animal_type FROM genes ORDER BY animal_type',
   );
   return rows.map((r) => r.animal_type);
 }
@@ -28,7 +28,7 @@ export async function getChromosomes(animalType: string): Promise<string[]> {
   const db = getDb();
   const rows = await db.select<{ chromosome: string }[]>(
     'SELECT DISTINCT chromosome FROM genes WHERE animal_type = ? ORDER BY chromosome',
-    [animalType]
+    [animalType],
   );
   return rows.map((r) => r.chromosome);
 }
@@ -36,10 +36,7 @@ export async function getChromosomes(animalType: string): Promise<string[]> {
 /**
  * Get all genes for a specific animal type and chromosome.
  */
-export async function getGenesByChromosome(
-  animalType: string,
-  chromosome: string,
-): Promise<Record<string, string>[]> {
+export async function getGenesByChromosome(animalType: string, chromosome: string): Promise<Record<string, string>[]> {
   const db = getDb();
   return db.select(
     `SELECT animal_type, chromosome, gene, effectDominant, effectRecessive,
@@ -47,23 +44,20 @@ export async function getGenesByChromosome(
      FROM genes
      WHERE animal_type = ? AND chromosome = ?
      ORDER BY gene`,
-    [animalType, chromosome]
+    [animalType, chromosome],
   );
 }
 
 /**
  * Get a specific gene record.
  */
-export async function getGene(
-  animalType: string,
-  gene: string,
-): Promise<Record<string, string> | null> {
+export async function getGene(animalType: string, gene: string): Promise<Record<string, string> | null> {
   const db = getDb();
   const rows = await db.select<Record<string, string>[]>(
     `SELECT animal_type, chromosome, gene, effectDominant, effectRecessive,
             appearance, notes, created_at
      FROM genes WHERE animal_type = ? AND gene = ?`,
-    [animalType, gene]
+    [animalType, gene],
   );
   return rows.length > 0 ? rows[0] : null;
 }
@@ -71,26 +65,20 @@ export async function getGene(
 /**
  * Get all genes for a specific animal type (for gene effects aggregation).
  */
-export async function getGenesForAnimal(
-  animalType: string,
-): Promise<Record<string, string>[]> {
+export async function getGenesForAnimal(animalType: string): Promise<Record<string, string>[]> {
   const db = getDb();
   return db.select(
     `SELECT animal_type, chromosome, gene, effectDominant, effectRecessive,
             appearance, notes, created_at
      FROM genes WHERE animal_type = ? ORDER BY chromosome, gene`,
-    [animalType]
+    [animalType],
   );
 }
 
 /**
  * Update a gene's attributes.
  */
-export async function updateGene(
-  animalType: string,
-  gene: string,
-  updates: Record<string, string>,
-): Promise<boolean> {
+export async function updateGene(animalType: string, gene: string, updates: Record<string, string>): Promise<boolean> {
   const db = getDb();
   const setClauses: string[] = [];
   const values: unknown[] = [];
@@ -108,10 +96,7 @@ export async function updateGene(
   values.push(now());
   values.push(animalType, gene);
 
-  await db.execute(
-    `UPDATE genes SET ${setClauses.join(', ')} WHERE animal_type = ? AND gene = ?`,
-    values
-  );
+  await db.execute(`UPDATE genes SET ${setClauses.join(', ')} WHERE animal_type = ? AND gene = ?`, values);
   return true;
 }
 
@@ -162,20 +147,23 @@ export async function upsertGene(
       data.notes ?? '',
       ts,
       ts,
-    ]
+    ],
   );
 }
 
 /**
  * Get all gene effects for visualization (aggregated by gene ID).
  */
-export async function getGeneEffects(
-  species: string,
-): Promise<{ effects: Record<string, { effectDominant: string; effectRecessive: string; appearance: string; notes: string }> }> {
+export async function getGeneEffects(species: string): Promise<{
+  effects: Record<string, { effectDominant: string; effectRecessive: string; appearance: string; notes: string }>;
+}> {
   const normalized = normalizeSpecies(species);
   const allGenes = await getGenesForAnimal(normalized);
 
-  const effects: Record<string, { effectDominant: string; effectRecessive: string; appearance: string; notes: string }> = {};
+  const effects: Record<
+    string,
+    { effectDominant: string; effectRecessive: string; appearance: string; notes: string }
+  > = {};
   for (const gene of allGenes) {
     effects[gene.gene] = {
       effectDominant: gene.effectDominant ?? 'None',
@@ -191,10 +179,7 @@ export async function getGeneEffects(
 /**
  * Export genes for a chromosome in the same format as asset JSON files.
  */
-export async function exportGenesToJson(
-  animalType: string,
-  chromosome: string,
-): Promise<Record<string, string>[]> {
+export async function exportGenesToJson(animalType: string, chromosome: string): Promise<Record<string, string>[]> {
   const genes = await getGenesByChromosome(animalType, chromosome);
   return genes.map((g) => ({
     gene: g.gene,
@@ -208,9 +193,7 @@ export async function exportGenesToJson(
 /**
  * Export all chromosomes for an animal type.
  */
-export async function exportAllChromosomes(
-  animalType: string,
-): Promise<Record<string, Record<string, string>[]>> {
+export async function exportAllChromosomes(animalType: string): Promise<Record<string, Record<string, string>[]>> {
   const chromosomes = await getChromosomes(animalType);
   const result: Record<string, Record<string, string>[]> = {};
   for (const chr of chromosomes) {

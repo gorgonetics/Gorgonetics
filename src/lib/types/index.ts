@@ -105,20 +105,20 @@ export interface Pet {
 // --- Horse breed data ---
 
 export const HORSE_BREEDS: Record<string, string> = {
-  'Standardbred': 'Sb',
-  'Kurbone': 'Kb',
-  'Ilmarian': 'Il',
+  Standardbred: 'Sb',
+  Kurbone: 'Kb',
+  Ilmarian: 'Il',
   'Plateau Pony': 'Po',
-  'Satincoat': 'Sc',
-  'Statehelm': 'St',
-  'Blanketed': 'Bl',
-  'Leopard': 'Le',
-  'Paint': 'Pt',
-  'Calico': 'Cl',
+  Satincoat: 'Sc',
+  Statehelm: 'St',
+  Blanketed: 'Bl',
+  Leopard: 'Le',
+  Paint: 'Pt',
+  Calico: 'Cl',
 };
 
 export const HORSE_BREED_ABBREVIATIONS: Record<string, string> = Object.fromEntries(
-  Object.entries(HORSE_BREEDS).map(([k, v]) => [v, k])
+  Object.entries(HORSE_BREEDS).map(([k, v]) => [v, k]),
 );
 
 // --- Config display types ---

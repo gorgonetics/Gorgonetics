@@ -46,10 +46,7 @@ export async function readFileContent(path: string): Promise<string> {
 /**
  * Open a native save dialog and write content to the selected path.
  */
-export async function saveExportFile(
-  defaultFilename: string,
-  content: string,
-): Promise<boolean> {
+export async function saveExportFile(defaultFilename: string, content: string): Promise<boolean> {
   if (isTauri()) {
     const { save } = await import('@tauri-apps/plugin-dialog');
     const { writeTextFile } = await import('@tauri-apps/plugin-fs');
@@ -103,22 +100,16 @@ export async function listBundledResources(dirPath: string): Promise<string[]> {
     const { resolveResource } = await import('@tauri-apps/api/path');
     const fullPath = await resolveResource(dirPath);
     const entries = await readDir(fullPath);
-    return entries
-      .filter((e) => e.isFile && e.name.endsWith('.json'))
-      .map((e) => `${dirPath}/${e.name}`);
+    return entries.filter((e) => e.isFile && e.name.endsWith('.json')).map((e) => `${dirPath}/${e.name}`);
   }
 
   // Browser fallback — use a manifest of known files
   // This is a static list matching the bundled assets
   const webDir = dirPath.replace(/^resources\//, '');
   if (webDir.includes('beewasp')) {
-    return Array.from({ length: 10 }, (_, i) =>
-      `${dirPath}/beewasp_genes_chr${String(i + 1).padStart(2, '0')}.json`
-    );
+    return Array.from({ length: 10 }, (_, i) => `${dirPath}/beewasp_genes_chr${String(i + 1).padStart(2, '0')}.json`);
   } else if (webDir.includes('horse')) {
-    return Array.from({ length: 48 }, (_, i) =>
-      `${dirPath}/horse_genes_chr${String(i + 1).padStart(2, '0')}.json`
-    );
+    return Array.from({ length: 48 }, (_, i) => `${dirPath}/horse_genes_chr${String(i + 1).padStart(2, '0')}.json`);
   }
   return [];
 }

@@ -1,10 +1,10 @@
 <script>
-    import { activeTab, appState } from "$lib/stores/pets.js";
-    import logoImg from '$lib/assets/logo.png';
+import logoImg from '$lib/assets/logo.png';
+import { activeTab, appState } from '$lib/stores/pets.js';
 
-    function switchTab(tab) {
-        appState.switchTab(tab);
-    }
+function switchTab(tab) {
+  appState.switchTab(tab);
+}
 </script>
 
 <header class="top-bar">

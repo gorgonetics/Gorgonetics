@@ -1,21 +1,15 @@
 <script>
-    /**
-     * @typedef {Object} Props
-     * @property {string} title - Header title text
-     * @property {Object[]} [stats] - Array of stat objects with text property
-     * @property {boolean} [hasUnknownGenes] - Whether to show unknown genes indicator
-     * @property {any} [children] - Slot content for controls
-     * @property {any} [leftControls] - Slot content for left side controls
-     */
+/**
+ * @typedef {Object} Props
+ * @property {string} title - Header title text
+ * @property {Object[]} [stats] - Array of stat objects with text property
+ * @property {boolean} [hasUnknownGenes] - Whether to show unknown genes indicator
+ * @property {any} [children] - Slot content for controls
+ * @property {any} [leftControls] - Slot content for left side controls
+ */
 
-    /** @type {Props} */
-    const {
-        title,
-        stats = [],
-        hasUnknownGenes = false,
-        children,
-        leftControls,
-    } = $props();
+/** @type {Props} */
+const { title, stats = [], hasUnknownGenes = false, children, leftControls } = $props();
 </script>
 
 <div class="visualization-header">

@@ -1,39 +1,39 @@
 <script>
-    import { createEventDispatcher } from "svelte";
-    import { appState, error } from "$lib/stores/pets.js";
-    import { pickGenomeFile, readFileContent } from "$lib/services/fileService.js";
-    import { Input, Label, Select, Button } from "flowbite-svelte";
+import { Button, Input, Label, Select } from 'flowbite-svelte';
+import { createEventDispatcher } from 'svelte';
+import { pickGenomeFile, readFileContent } from '$lib/services/fileService.js';
+import { appState, error } from '$lib/stores/pets.js';
 
-    const dispatch = createEventDispatcher();
+const dispatch = createEventDispatcher();
 
-    let petName = $state("");
-    let petGender = $state("Male");
-    let uploading = $state(false);
-    let selectedFileName = $state("");
+let petName = $state('');
+let petGender = $state('Male');
+let uploading = $state(false);
+let selectedFileName = $state('');
 
-    async function handlePickFile() {
-        try {
-            const filePath = await pickGenomeFile();
-            if (!filePath) return;
+async function handlePickFile() {
+  try {
+    const filePath = await pickGenomeFile();
+    if (!filePath) return;
 
-            // Show the selected filename
-            const parts = filePath.split(/[/\\]/);
-            selectedFileName = parts[parts.length - 1];
+    // Show the selected filename
+    const parts = filePath.split(/[/\\]/);
+    selectedFileName = parts[parts.length - 1];
 
-            uploading = true;
-            const content = await readFileContent(filePath);
-            await appState.uploadPet(content, petName, petGender);
-            petName = "";
-            petGender = "Male";
-            selectedFileName = "";
-            dispatch("upload-success");
-        } catch (err) {
-            console.error("Upload failed:", err);
-            error.set(`Upload failed: ${err.message}`);
-        } finally {
-            uploading = false;
-        }
-    }
+    uploading = true;
+    const content = await readFileContent(filePath);
+    await appState.uploadPet(content, petName, petGender);
+    petName = '';
+    petGender = 'Male';
+    selectedFileName = '';
+    dispatch('upload-success');
+  } catch (err) {
+    console.error('Upload failed:', err);
+    error.set(`Upload failed: ${err.message}`);
+  } finally {
+    uploading = false;
+  }
+}
 </script>
 
 <div class="form-group">

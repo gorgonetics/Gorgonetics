@@ -3,11 +3,11 @@
  * Ported from: ducklake_database.py pet methods + web_app.py pet endpoints
  */
 
-import { getDb } from './database.js';
-import { getDefaultValues } from './configService.js';
-import { parseGenome, isValidGenomeFile } from './genomeParser.js';
+import type { Gene, Genome, Pet } from '$lib/types/index.js';
 import { GENOME_FILE_MARKERS } from '$lib/types/index.js';
-import type { Pet, Genome, Gene } from '$lib/types/index.js';
+import { getDefaultValues } from './configService.js';
+import { getDb } from './database.js';
+import { isValidGenomeFile, parseGenome } from './genomeParser.js';
 
 function now(): string {
   return new Date().toISOString();
@@ -105,10 +105,7 @@ export async function getAllPets(options?: {
   const where = conditions.length > 0 ? ` WHERE ${conditions.join(' AND ')}` : '';
 
   // Get total count
-  const countRows = await db.select<{ cnt: number }[]>(
-    `SELECT COUNT(*) as cnt FROM pets${where}`,
-    params
-  );
+  const countRows = await db.select<{ cnt: number }[]>(`SELECT COUNT(*) as cnt FROM pets${where}`, params);
   const total = countRows[0].cnt;
 
   // Get paginated results
@@ -130,10 +127,7 @@ export async function getAllPets(options?: {
  */
 export async function getPet(petId: number): Promise<Pet | null> {
   const db = getDb();
-  const rows = await db.select<Record<string, unknown>[]>(
-    'SELECT * FROM pets WHERE id = ?',
-    [petId]
-  );
+  const rows = await db.select<Record<string, unknown>[]>('SELECT * FROM pets WHERE id = ?', [petId]);
   return rows.length > 0 ? enrichPet(rows[0]) : null;
 }
 
@@ -176,8 +170,7 @@ export async function uploadPet(
   const genomeJson = JSON.stringify(genome, null, 2);
 
   // Determine pet name
-  const petName =
-    genome.name.trim() || name.trim() || 'Unknown Pet';
+  const petName = genome.name.trim() || name.trim() || 'Unknown Pet';
 
   // Get default attributes for species
   const defaults = getDefaultValues(genome.genome_type);
@@ -210,7 +203,7 @@ export async function uploadPet(
       defaults.virility ?? 50,
       defaults.ferocity ?? 50,
       defaults.temperament ?? 50,
-    ]
+    ],
   );
 
   return {
@@ -224,10 +217,7 @@ export async function uploadPet(
 /**
  * Update a pet record.
  */
-export async function updatePet(
-  petId: number,
-  updates: Record<string, unknown>,
-): Promise<boolean> {
+export async function updatePet(petId: number, updates: Record<string, unknown>): Promise<boolean> {
   const db = getDb();
   const setClauses: string[] = [];
   const values: unknown[] = [];
@@ -249,10 +239,7 @@ export async function updatePet(
   values.push(now());
   values.push(petId);
 
-  await db.execute(
-    `UPDATE pets SET ${setClauses.join(', ')} WHERE id = ?`,
-    values
-  );
+  await db.execute(`UPDATE pets SET ${setClauses.join(', ')} WHERE id = ?`, values);
   return true;
 }
 
@@ -270,10 +257,7 @@ export async function deletePet(petId: number): Promise<boolean> {
  */
 export async function findPetByHash(contentHash: string): Promise<Pet | null> {
   const db = getDb();
-  const rows = await db.select<Record<string, unknown>[]>(
-    'SELECT * FROM pets WHERE content_hash = ?',
-    [contentHash]
-  );
+  const rows = await db.select<Record<string, unknown>[]>('SELECT * FROM pets WHERE content_hash = ?', [contentHash]);
   return rows.length > 0 ? enrichPet(rows[0]) : null;
 }
 

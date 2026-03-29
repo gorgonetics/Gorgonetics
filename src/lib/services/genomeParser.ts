@@ -3,8 +3,7 @@
  * Ported from Python: genome_parser.py + models.py Genome class
  */
 
-import type { Gene, Genome } from '$lib/types/index.js';
-import { GeneType } from '$lib/types/index.js';
+import type { Gene, GeneType, Genome } from '$lib/types/index.js';
 
 const VALID_GENE_CHARS = new Set(['R', 'D', 'x', '?']);
 
@@ -106,9 +105,7 @@ export function generateBlockLetters(numBlocks: number): string[] {
  * Count the number of gene blocks in a chromosome.
  */
 export function countBlocksInChromosome(geneData: string): number {
-  return geneData
-    .split(/\s+/)
-    .filter((block) => block.length >= 2).length;
+  return geneData.split(/\s+/).filter((block) => block.length >= 2).length;
 }
 
 /**

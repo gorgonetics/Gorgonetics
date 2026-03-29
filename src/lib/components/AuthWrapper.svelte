@@ -1,17 +1,17 @@
 <script>
-  import { onMount } from 'svelte';
-  import { initDatabase } from '$lib/services/database.js';
-  import { populateGenesIfNeeded, loadDemoPetsIfNeeded } from '$lib/services/demoService.js';
+import { onMount } from 'svelte';
+import { initDatabase } from '$lib/services/database.js';
+import { loadDemoPetsIfNeeded, populateGenesIfNeeded } from '$lib/services/demoService.js';
 
-  const { children } = $props();
-  let ready = $state(false);
+const { children } = $props();
+let ready = $state(false);
 
-  onMount(async () => {
-    await initDatabase();
-    await populateGenesIfNeeded();
-    await loadDemoPetsIfNeeded();
-    ready = true;
-  });
+onMount(async () => {
+  await initDatabase();
+  await populateGenesIfNeeded();
+  await loadDemoPetsIfNeeded();
+  ready = true;
+});
 </script>
 
 {#if !ready}

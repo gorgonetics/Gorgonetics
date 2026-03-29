@@ -28,7 +28,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Run ESLint
+      - name: Run Biome lint
         run: pnpm run lint:ci
 
       - name: Build frontend

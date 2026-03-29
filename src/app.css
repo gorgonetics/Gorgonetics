@@ -1,73 +1,74 @@
-@import 'tailwindcss';
+@import "tailwindcss";
 
 /* CSS Custom Properties for Gene Colors (needed by gene visualizer) */
 :root {
-    /* Core effect colors */
-    --color-positive: #4caf50;
-    --color-negative: #f44336;
-    --color-neutral: #95a5a6;
+  /* Core effect colors */
+  --color-positive: #4caf50;
+  --color-negative: #f44336;
+  --color-neutral: #95a5a6;
 
-    /* Appearance gene colors */
-    --gene-body-hue: #ff9800;
-    --gene-body-saturation: #ff6f00;
-    --gene-body-intensity: #ffcc02;
-    --gene-wing-hue: #2196f3;
-    --gene-wing-saturation: #1976d2;
-    --gene-wing-intensity: #0d47a1;
-    --gene-body-scale: #9c27b0;
-    --gene-wing-scale: #7b1fa2;
-    --gene-head-scale: #8e24aa;
-    --gene-tail-scale: #ab47bc;
-    --gene-antenna-scale: #ba68c8;
-    --gene-leg-deformity: #e91e63;
-    --gene-antenna-deformity: #c2185b;
-    --gene-particles: #00bcd4;
-    --gene-particle-location: #0097a7;
-    --gene-glow: #8bc34a;
-    --gene-appearance-neutral: #95a5a6;
+  /* Appearance gene colors */
+  --gene-body-hue: #ff9800;
+  --gene-body-saturation: #ff6f00;
+  --gene-body-intensity: #ffcc02;
+  --gene-wing-hue: #2196f3;
+  --gene-wing-saturation: #1976d2;
+  --gene-wing-intensity: #0d47a1;
+  --gene-body-scale: #9c27b0;
+  --gene-wing-scale: #7b1fa2;
+  --gene-head-scale: #8e24aa;
+  --gene-tail-scale: #ab47bc;
+  --gene-antenna-scale: #ba68c8;
+  --gene-leg-deformity: #e91e63;
+  --gene-antenna-deformity: #c2185b;
+  --gene-particles: #00bcd4;
+  --gene-particle-location: #0097a7;
+  --gene-glow: #8bc34a;
+  --gene-appearance-neutral: #95a5a6;
 
-    /* Common effect colors */
-    --effect-positive-bg: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
-    --effect-positive-border: #16a34a;
-    --effect-positive-text: #15803d;
-    --effect-negative-bg: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);
-    --effect-negative-border: #dc2626;
-    --effect-negative-text: #dc2626;
-    --effect-neutral-border: #64748b;
-    --effect-neutral-bg: #f8fafc;
+  /* Common effect colors */
+  --effect-positive-bg: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+  --effect-positive-border: #16a34a;
+  --effect-positive-text: #15803d;
+  --effect-negative-bg: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);
+  --effect-negative-border: #dc2626;
+  --effect-negative-text: #dc2626;
+  --effect-neutral-border: #64748b;
+  --effect-neutral-bg: #f8fafc;
 }
 
 /* html/body height and overflow set via inline styles in app.html
    to ensure they survive Tailwind CSS reset */
 :global(body) {
-	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-		'Ubuntu', 'Cantarell', 'Open Sans', 'Helvetica Neue', sans-serif;
-	background-color: #ffffff;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Open Sans",
+    "Helvetica Neue", sans-serif;
+  background-color: #ffffff;
 }
 
 :global(.loading) {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	padding: 2rem;
-	color: #6b7280;
-	font-style: italic;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  color: #6b7280;
+  font-style: italic;
 }
 
 :global(.error) {
-	color: #dc2626;
-	background-color: #fef2f2;
-	border: 1px solid #fecaca;
-	border-radius: 6px;
-	padding: 0.75rem;
-	margin: 0.5rem 0;
+  color: #dc2626;
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  padding: 0.75rem;
+  margin: 0.5rem 0;
 }
 
 :global(.success) {
-	color: #059669;
-	background-color: #f0fdf4;
-	border: 1px solid #bbf7d0;
-	border-radius: 6px;
-	padding: 0.75rem;
-	margin: 0.5rem 0;
+  color: #059669;
+  background-color: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 6px;
+  padding: 0.75rem;
+  margin: 0.5rem 0;
 }

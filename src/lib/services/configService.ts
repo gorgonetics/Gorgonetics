@@ -5,18 +5,11 @@
  * All functions are synchronous — this is pure static configuration data.
  */
 
-import type { AttributeInfo, AppearanceInfo } from '$lib/types/index.js';
+import type { AppearanceInfo, AttributeInfo } from '$lib/types/index.js';
 
 // --- Core attribute order (matches game order) ---
 
-const CORE_ATTRIBUTE_ORDER = [
-  'toughness',
-  'ruggedness',
-  'enthusiasm',
-  'friendliness',
-  'intelligence',
-  'virility',
-];
+const CORE_ATTRIBUTE_ORDER = ['toughness', 'ruggedness', 'enthusiasm', 'friendliness', 'intelligence', 'virility'];
 
 // --- Core attributes shared by all species ---
 
@@ -61,7 +54,10 @@ const CORE_ATTRIBUTES: Record<string, { name: string; icon: string; default: num
 
 // --- Species-specific additional attributes ---
 
-const SPECIES_ATTRIBUTES: Record<string, Record<string, { name: string; icon: string; default: number; description: string }>> = {
+const SPECIES_ATTRIBUTES: Record<
+  string,
+  Record<string, { name: string; icon: string; default: number; description: string }>
+> = {
   beewasp: {
     ferocity: {
       name: 'Ferocity',
@@ -82,7 +78,10 @@ const SPECIES_ATTRIBUTES: Record<string, Record<string, { name: string; icon: st
 
 // --- Species appearance attributes ---
 
-const SPECIES_APPEARANCE_ATTRIBUTES: Record<string, Record<string, { name: string; examples: string; color_indicator: string }>> = {
+const SPECIES_APPEARANCE_ATTRIBUTES: Record<
+  string,
+  Record<string, { name: string; examples: string; color_indicator: string }>
+> = {
   beewasp: {
     'body-color-hue': {
       name: 'Body Color Hue',
@@ -297,9 +296,7 @@ export function getEffectOptionsForSpecies(species: string): string[] {
  */
 export function getAppearanceAttributeNames(species: string): string[] {
   const normalized = normalizeSpecies(species);
-  return normalized in SPECIES_APPEARANCE_ATTRIBUTES
-    ? Object.keys(SPECIES_APPEARANCE_ATTRIBUTES[normalized])
-    : [];
+  return normalized in SPECIES_APPEARANCE_ATTRIBUTES ? Object.keys(SPECIES_APPEARANCE_ATTRIBUTES[normalized]) : [];
 }
 
 /**
@@ -307,9 +304,7 @@ export function getAppearanceAttributeNames(species: string): string[] {
  */
 export function getAppearanceAttributes(species: string) {
   const normalized = normalizeSpecies(species);
-  return normalized in SPECIES_APPEARANCE_ATTRIBUTES
-    ? { ...SPECIES_APPEARANCE_ATTRIBUTES[normalized] }
-    : {};
+  return normalized in SPECIES_APPEARANCE_ATTRIBUTES ? { ...SPECIES_APPEARANCE_ATTRIBUTES[normalized] } : {};
 }
 
 /**
@@ -341,14 +336,18 @@ export function getAppearanceConfig(species: string): {
  * Check if an attribute is valid for a species.
  */
 export function isValidAttribute(attributeName: string, species: string): boolean {
-  return getAllAttributeNames(species).map((a) => a.toLowerCase()).includes(attributeName.toLowerCase());
+  return getAllAttributeNames(species)
+    .map((a) => a.toLowerCase())
+    .includes(attributeName.toLowerCase());
 }
 
 /**
  * Check if an appearance attribute is valid for a species.
  */
 export function isValidAppearanceAttribute(attributeName: string, species: string): boolean {
-  return getAppearanceAttributeNames(species).map((a) => a.toLowerCase()).includes(attributeName.toLowerCase());
+  return getAppearanceAttributeNames(species)
+    .map((a) => a.toLowerCase())
+    .includes(attributeName.toLowerCase());
 }
 
 /**
@@ -374,10 +373,7 @@ export function getDatabaseColumns(): Set<string> {
 /**
  * Validate an attribute dictionary and return any errors.
  */
-export function validateAttributeDict(
-  attributes: Record<string, unknown>,
-  species: string,
-): Record<string, string> {
+export function validateAttributeDict(attributes: Record<string, unknown>, species: string): Record<string, string> {
   const errors: Record<string, string> = {};
   const validAttrs = getAllAttributeNames(species).map((a) => a.toLowerCase());
 

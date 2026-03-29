@@ -11,7 +11,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 After modifying **any** JavaScript, TypeScript, or Svelte file, you MUST run the linter and fix all errors before committing:
 
 ```bash
-pnpm run lint:ci             # Fix all errors (zero warnings)
+pnpm run lint:ci             # Biome check (zero errors)
+pnpm run lint:fix            # Auto-fix formatting and lint issues
 ```
 
 ### Development

@@ -1,85 +1,74 @@
 <script>
-    import { Table } from "@flowbite-svelte-plugins/datatable";
-    import { pets, appState } from "$lib/stores/pets.js";
-    import { FALLBACK_ATTRIBUTE_LIST } from "$lib/utils/apiUtils.js";
-    import PetEditor from "$lib/components/pet/PetEditor.svelte";
-    import VisualizationHeader from "$lib/components/layout/VisualizationHeader.svelte";
+import { Table } from '@flowbite-svelte-plugins/datatable';
+import VisualizationHeader from '$lib/components/layout/VisualizationHeader.svelte';
+import PetEditor from '$lib/components/pet/PetEditor.svelte';
+import { appState, pets } from '$lib/stores/pets.js';
+import { FALLBACK_ATTRIBUTE_LIST } from '$lib/utils/apiUtils.js';
 
-    let showEditor = $state(false);
-    let editingPet = $state(null);
+let showEditor = $state(false);
+let editingPet = $state(null);
 
-    function formatDate(dateString) {
-        if (!dateString) return "Unknown";
-        try {
-            return new Date(dateString).toLocaleDateString();
-        } catch {
-            return "Invalid date";
-        }
-    }
+function formatDate(dateString) {
+  if (!dateString) return 'Unknown';
+  try {
+    return new Date(dateString).toLocaleDateString();
+  } catch {
+    return 'Invalid date';
+  }
+}
 
-    async function selectPet(pet) {
-        await appState.selectPet(pet);
-    }
+async function selectPet(pet) {
+  await appState.selectPet(pet);
+}
 
-    async function deletePet(pet, event) {
-        event?.stopPropagation();
-        if (confirm(`Are you sure you want to delete ${pet.name}?`)) {
-            await appState.deletePet(pet.id);
-        }
-    }
+async function deletePet(pet, event) {
+  event?.stopPropagation();
+  if (confirm(`Are you sure you want to delete ${pet.name}?`)) {
+    await appState.deletePet(pet.id);
+  }
+}
 
-    function editPet(pet) {
-        editingPet = pet;
-        showEditor = true;
-    }
+function editPet(pet) {
+  editingPet = pet;
+  showEditor = true;
+}
 
-    function closeEditor() {
-        showEditor = false;
-        editingPet = null;
-    }
+function closeEditor() {
+  showEditor = false;
+  editingPet = null;
+}
 
-    function handlePetSaved() {
-        // Optionally select the updated pet or do other actions
-    }
+function handlePetSaved() {
+  // Optionally select the updated pet or do other actions
+}
 
-    function assemblePetsData(petsArray) {
-        // Build dynamic headings from attribute list
-        const baseHeadings = ["Pet Name", "Species", "Gender", "Breed"];
-        const attributeHeadings = FALLBACK_ATTRIBUTE_LIST.map(
-            (attr) => attr.name,
-        );
-        const endHeadings = ["Created Date", "Actions"];
-        const headings = [
-            ...baseHeadings,
-            ...attributeHeadings,
-            ...endHeadings,
-        ];
+function assemblePetsData(petsArray) {
+  // Build dynamic headings from attribute list
+  const baseHeadings = ['Pet Name', 'Species', 'Gender', 'Breed'];
+  const attributeHeadings = FALLBACK_ATTRIBUTE_LIST.map((attr) => attr.name);
+  const endHeadings = ['Created Date', 'Actions'];
+  const headings = [...baseHeadings, ...attributeHeadings, ...endHeadings];
 
-        if (!petsArray || petsArray.length === 0) {
-            return { headings, data: [] };
-        }
+  if (!petsArray || petsArray.length === 0) {
+    return { headings, data: [] };
+  }
 
-        const data = petsArray.map((pet) => {
-            const baseData = [
-                pet.name || "Unnamed",
-                pet.species || "Unknown",
-                pet.gender || "Male",
-                pet.breed || "Mixed",
-            ];
+  const data = petsArray.map((pet) => {
+    const baseData = [pet.name || 'Unnamed', pet.species || 'Unknown', pet.gender || 'Male', pet.breed || 'Mixed'];
 
-            // Add actual attribute values from pet data
-            const attributeData = FALLBACK_ATTRIBUTE_LIST.map((attr) => {
-                const attrKey = attr.key.toLowerCase();
-                // Access attributes directly from pet object (they're stored as direct properties)
-                const value = pet[attrKey] ?? 50;
-                return value;
-            });
+    // Add actual attribute values from pet data
+    const attributeData = FALLBACK_ATTRIBUTE_LIST.map((attr) => {
+      const attrKey = attr.key.toLowerCase();
+      // Access attributes directly from pet object (they're stored as direct properties)
+      const value = pet[attrKey] ?? 50;
+      return value;
+    });
 
-            // Generate action buttons based on pet type
-            let actionButtons;
-            if (pet.is_demo || pet.readonly) {
-                // Demo pets - only show view button and demo indicator
-                actionButtons = `<div class="table-actions">
+    // Generate action buttons based on pet type
+    let actionButtons;
+    if (pet.is_demo || pet.readonly) {
+      // Demo pets - only show view button and demo indicator
+      actionButtons = `<div class="table-actions">
                     <span class="demo-badge" title="Sample pet for demonstration">📘 Sample</span>
                     <button class="flowbite-btn flowbite-btn-sm flowbite-btn-light" data-action="view" data-pet-id="${pet.id}" title="View sample pet details">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -88,9 +77,9 @@
                         </svg>
                     </button>
                 </div>`;
-            } else {
-                // Regular pets - show all buttons
-                actionButtons = `<div class="table-actions">
+    } else {
+      // Regular pets - show all buttons
+      actionButtons = `<div class="table-actions">
                     <button class="flowbite-btn flowbite-btn-sm flowbite-btn-light" data-action="view" data-pet-id="${pet.id}" title="View pet details">
                         <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
@@ -108,41 +97,41 @@
                         </svg>
                     </button>
                 </div>`;
-            }
-
-            const endData = [formatDate(pet.created_at), actionButtons];
-
-            return [...baseData, ...attributeData, ...endData];
-        });
-
-        return { headings, data };
     }
 
-    const items = $derived(assemblePetsData($pets));
+    const endData = [formatDate(pet.created_at), actionButtons];
 
-    // Handle table button clicks
-    function handleTableClick(event) {
-        const button = event.target.closest("button[data-action]");
-        if (!button) return;
+    return [...baseData, ...attributeData, ...endData];
+  });
 
-        const action = button.dataset.action;
-        const petId = parseInt(button.dataset.petId);
-        const pet = $pets.find((p) => p.id === petId);
+  return { headings, data };
+}
 
-        if (!pet) return;
+const items = $derived(assemblePetsData($pets));
 
-        switch (action) {
-            case "view":
-                selectPet(pet);
-                break;
-            case "edit":
-                editPet(pet);
-                break;
-            case "delete":
-                deletePet(pet);
-                break;
-        }
-    }
+// Handle table button clicks
+function handleTableClick(event) {
+  const button = event.target.closest('button[data-action]');
+  if (!button) return;
+
+  const action = button.dataset.action;
+  const petId = parseInt(button.dataset.petId);
+  const pet = $pets.find((p) => p.id === petId);
+
+  if (!pet) return;
+
+  switch (action) {
+    case 'view':
+      selectPet(pet);
+      break;
+    case 'edit':
+      editPet(pet);
+      break;
+    case 'delete':
+      deletePet(pet);
+      break;
+  }
+}
 </script>
 
 <div class="pet-visualization">

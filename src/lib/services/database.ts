@@ -63,7 +63,7 @@ class InMemoryDatabase implements DatabaseAdapter {
       // LIMIT/OFFSET
       const limitMatch = q.match(/limit\s+(\?)\s+offset\s+(\?)/);
       if (limitMatch) {
-        const whereParamCount = (q.match(/where/i) ? (q.split('?').length - 1) - 2 : 0);
+        const whereParamCount = q.match(/where/i) ? q.split('?').length - 1 - 2 : 0;
         const limit = Number(bindValues[whereParamCount]);
         const offset = Number(bindValues[whereParamCount + 1]);
         filtered = filtered.slice(offset, offset + limit);
@@ -126,7 +126,7 @@ class InMemoryDatabase implements DatabaseAdapter {
         // INSERT OR REPLACE — remove existing by primary key
         if (qLower.includes('or replace')) {
           const existingIdx = this.tables[table].findIndex(
-            (r) => r.animal_type === row.animal_type && r.gene === row.gene
+            (r) => r.animal_type === row.animal_type && r.gene === row.gene,
           );
           if (existingIdx >= 0) {
             this.tables[table][existingIdx] = row;
@@ -238,7 +238,7 @@ export async function initDatabase(): Promise<void> {
 
   if (isTauri()) {
     const { default: Database } = await import('@tauri-apps/plugin-sql');
-    db = await Database.load('sqlite:gorgonetics.db') as unknown as DatabaseAdapter;
+    db = (await Database.load('sqlite:gorgonetics.db')) as unknown as DatabaseAdapter;
   } else {
     console.warn('Not running in Tauri — using in-memory database (test mode)');
     db = new InMemoryDatabase();

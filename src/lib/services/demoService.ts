@@ -3,9 +3,9 @@
  * Loads bundled gene templates and sample genomes on first launch.
  */
 
+import { listBundledResources, loadBundledResource } from './fileService.js';
 import { hasGenes, upsertGene } from './geneService.js';
 import { hasPets, uploadPet } from './petService.js';
-import { loadBundledResource, listBundledResources } from './fileService.js';
 
 /**
  * Populate the genes table from bundled JSON template files if empty.

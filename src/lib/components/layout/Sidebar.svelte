@@ -1,14 +1,14 @@
 <script>
-    import { activeTab, appState, error } from "$lib/stores/pets.js";
-    import GeneEditor from "$lib/components/gene/GeneEditor.svelte";
-    import PetUpload from "$lib/components/forms/PetUploadForm.svelte";
+import PetUpload from '$lib/components/forms/PetUploadForm.svelte';
+import GeneEditor from '$lib/components/gene/GeneEditor.svelte';
+import { activeTab, appState, error } from '$lib/stores/pets.js';
 
-    /** @type {{ sidebarCollapsed?: boolean, toggleSidebar: Function }} */
-    const { sidebarCollapsed = false, toggleSidebar } = $props();
+/** @type {{ sidebarCollapsed?: boolean, toggleSidebar: Function }} */
+const { sidebarCollapsed = false, toggleSidebar } = $props();
 
-    function switchTab(tab) {
-        appState.switchTab(tab);
-    }
+function switchTab(tab) {
+  appState.switchTab(tab);
+}
 </script>
 
 <div class="sidebar" class:collapsed={sidebarCollapsed}>

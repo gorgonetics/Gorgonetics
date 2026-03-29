@@ -1,7 +1,7 @@
 <script>
-    import { activeTab } from "$lib/stores/pets.js";
-    import PetList from "$lib/components/pet/PetList.svelte";
-    import GeneEditor from "$lib/components/gene/GeneEditor.svelte";
+import GeneEditor from '$lib/components/gene/GeneEditor.svelte';
+import PetList from '$lib/components/pet/PetList.svelte';
+import { activeTab } from '$lib/stores/pets.js';
 </script>
 
 <aside class="master-panel">

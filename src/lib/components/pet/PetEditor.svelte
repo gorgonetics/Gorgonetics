@@ -1,150 +1,138 @@
 <script>
-    import { untrack } from "svelte";
-    import { appState } from "$lib/stores/pets.js";
-    import { FALLBACK_ATTRIBUTE_LIST } from "$lib/utils/apiUtils.js";
-    import { Modal, Button, Input, Label, Select } from "flowbite-svelte";
+import { Button, Input, Label, Modal, Select } from 'flowbite-svelte';
+import { untrack } from 'svelte';
+import { appState } from '$lib/stores/pets.js';
+import { FALLBACK_ATTRIBUTE_LIST } from '$lib/utils/apiUtils.js';
 
-    /**
-     * @typedef {Object} Props
-     * @property {any} pet - The pet to edit
-     * @property {boolean} open - Whether the modal is open
-     * @property {Function} onClose - Callback when editor is closed
-     * @property {Function} onSave - Callback when pet is saved
-     */
+/**
+ * @typedef {Object} Props
+ * @property {any} pet - The pet to edit
+ * @property {boolean} open - Whether the modal is open
+ * @property {Function} onClose - Callback when editor is closed
+ * @property {Function} onSave - Callback when pet is saved
+ */
 
-    /** @type {Props} */
-    // eslint-disable-next-line prefer-const -- open is $bindable and reassigned, requiring `let` for the whole destructuring
-    let { pet, open = $bindable(), onClose, onSave } = $props();
+/** @type {Props} */
+// eslint-disable-next-line prefer-const -- open is $bindable and reassigned, requiring `let` for the whole destructuring
+let { pet, open = $bindable(), onClose, onSave } = $props();
 
-    // Breed options by species - easy to modify later
-    const BREED_OPTIONS = {
-        BeeWasp: ["Bee", "Wasp"],
-        Horse: [
-            "Standardbred",
-            "Kurbone",
-            "Ilmarian",
-            "Plateau Pony",
-            "Satincoat",
-            "Statehelm",
-            "Blanketed",
-            "Leopard",
-            "Paint",
-            "Calico",
-        ],
-        default: ["Mixed"],
-    };
+// Breed options by species - easy to modify later
+const BREED_OPTIONS = {
+  BeeWasp: ['Bee', 'Wasp'],
+  Horse: [
+    'Standardbred',
+    'Kurbone',
+    'Ilmarian',
+    'Plateau Pony',
+    'Satincoat',
+    'Statehelm',
+    'Blanketed',
+    'Leopard',
+    'Paint',
+    'Calico',
+  ],
+  default: ['Mixed'],
+};
 
-    const getBreedOptions = (species) => {
-        return BREED_OPTIONS[species] || BREED_OPTIONS.default;
-    };
+const getBreedOptions = (species) => {
+  return BREED_OPTIONS[species] || BREED_OPTIONS.default;
+};
 
-    const breedOptions = $derived(getBreedOptions(pet.species));
+const breedOptions = $derived(getBreedOptions(pet.species));
 
-    /**
-     * Initialize editable state from pet prop snapshot.
-     * These capture the initial values for the edit form.
-     * The component is recreated when a different pet is selected.
-     */
-    function initEditState(/** @type {any} */ p) {
-        const opts = getBreedOptions(p.species);
-        return {
-            name: p.name || "",
-            gender: p.gender || "Male",
-            breed: opts.includes(p.breed) ? p.breed : opts[0],
-            attributes: Object.fromEntries(
-                FALLBACK_ATTRIBUTE_LIST.map((attr) => [
-                    attr.key.toLowerCase(),
-                    p[attr.key.toLowerCase()] ?? 50,
-                ]),
-            ),
-        };
+/**
+ * Initialize editable state from pet prop snapshot.
+ * These capture the initial values for the edit form.
+ * The component is recreated when a different pet is selected.
+ */
+function initEditState(/** @type {any} */ p) {
+  const opts = getBreedOptions(p.species);
+  return {
+    name: p.name || '',
+    gender: p.gender || 'Male',
+    breed: opts.includes(p.breed) ? p.breed : opts[0],
+    attributes: Object.fromEntries(
+      FALLBACK_ATTRIBUTE_LIST.map((attr) => [attr.key.toLowerCase(), p[attr.key.toLowerCase()] ?? 50]),
+    ),
+  };
+}
+
+const initial = untrack(() => initEditState(pet));
+let editName = $state(initial.name);
+let editGender = $state(initial.gender);
+let editBreed = $state(initial.breed);
+const editAttributes = $state(initial.attributes);
+let saveError = $state('');
+
+// Get species-specific attributes
+const getAvailableAttributes = (species) => {
+  const coreAttributes = ['intelligence', 'toughness', 'friendliness', 'ruggedness', 'enthusiasm', 'virility'];
+
+  if (species === 'BeeWasp') {
+    return [...coreAttributes, 'ferocity'];
+  } else if (species === 'Horse') {
+    return [...coreAttributes, 'temperament'];
+  } else {
+    return coreAttributes;
+  }
+};
+
+const availableAttributes = $derived(getAvailableAttributes(pet.species));
+const filteredAttributeList = $derived(
+  FALLBACK_ATTRIBUTE_LIST.filter((attr) => availableAttributes.includes(attr.key.toLowerCase())),
+);
+
+async function handleSave() {
+  try {
+    const updateData = {};
+
+    // Check what changed
+    if (editName.trim() !== pet.name) {
+      updateData.name = editName.trim();
+    }
+    if (editGender !== pet.gender) {
+      updateData.gender = editGender;
+    }
+    if (editBreed.trim() !== (pet.breed || 'Mixed')) {
+      updateData.breed = editBreed.trim();
     }
 
-    const initial = untrack(() => initEditState(pet));
-    let editName = $state(initial.name);
-    let editGender = $state(initial.gender);
-    let editBreed = $state(initial.breed);
-    const editAttributes = $state(initial.attributes);
-    let saveError = $state("");
-
-    // Get species-specific attributes
-    const getAvailableAttributes = (species) => {
-        const coreAttributes = [
-            "intelligence",
-            "toughness",
-            "friendliness",
-            "ruggedness",
-            "enthusiasm",
-            "virility",
-        ];
-
-        if (species === "BeeWasp") {
-            return [...coreAttributes, "ferocity"];
-        } else if (species === "Horse") {
-            return [...coreAttributes, "temperament"];
-        } else {
-            return coreAttributes;
-        }
-    };
-
-    const availableAttributes = $derived(getAvailableAttributes(pet.species));
-    const filteredAttributeList = $derived(
-        FALLBACK_ATTRIBUTE_LIST.filter((attr) =>
-            availableAttributes.includes(attr.key.toLowerCase()),
-        ),
-    );
-
-    async function handleSave() {
-        try {
-            const updateData = {};
-
-            // Check what changed
-            if (editName.trim() !== pet.name) {
-                updateData.name = editName.trim();
-            }
-            if (editGender !== pet.gender) {
-                updateData.gender = editGender;
-            }
-            if (editBreed.trim() !== (pet.breed || "Mixed")) {
-                updateData.breed = editBreed.trim();
-            }
-
-            // Check if any attributes changed
-            const attributeChanges = {};
-            for (const [key, value] of Object.entries(editAttributes)) {
-                // Compare against direct pet properties (not nested attributes)
-                if (pet[key] !== value) {
-                    attributeChanges[key] = value;
-                }
-            }
-            if (Object.keys(attributeChanges).length > 0) {
-                updateData.attributes = attributeChanges;
-            }
-
-            // Only update if there are changes
-            if (Object.keys(updateData).length > 0) {
-                await appState.updatePet(pet.id, updateData);
-                await appState.loadPets();
-                onSave?.(pet.id);
-            }
-
-            open = false;
-            onClose?.();
-        } catch (err) {
-            console.error("Failed to update pet:", err);
-            saveError = err.message || "Failed to save changes. Please try again.";
-        }
+    // Check if any attributes changed
+    const attributeChanges = {};
+    for (const [key, value] of Object.entries(editAttributes)) {
+      // Compare against direct pet properties (not nested attributes)
+      if (pet[key] !== value) {
+        attributeChanges[key] = value;
+      }
+    }
+    if (Object.keys(attributeChanges).length > 0) {
+      updateData.attributes = attributeChanges;
     }
 
-    function handleCancel() {
-        saveError = "";
-        open = false;
-        onClose?.();
+    // Only update if there are changes
+    if (Object.keys(updateData).length > 0) {
+      await appState.updatePet(pet.id, updateData);
+      await appState.loadPets();
+      onSave?.(pet.id);
     }
 
-    function updateAttribute(attrKey, value) {
-        editAttributes[attrKey] = parseInt(value, 10) || 0;
-    }
+    open = false;
+    onClose?.();
+  } catch (err) {
+    console.error('Failed to update pet:', err);
+    saveError = err.message || 'Failed to save changes. Please try again.';
+  }
+}
+
+function handleCancel() {
+  saveError = '';
+  open = false;
+  onClose?.();
+}
+
+function updateAttribute(attrKey, value) {
+  editAttributes[attrKey] = parseInt(value, 10) || 0;
+}
 </script>
 
 <Modal bind:open size="lg" autoclose outsideclose title="Edit Pet">

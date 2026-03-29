@@ -1,40 +1,32 @@
 <script>
-    /**
-     * @typedef {Object} Props
-     * @property {boolean} [visible]
-     * @property {number} [x]
-     * @property {number} [y]
-     * @property {string} [geneId]
-     * @property {string} [geneType]
-     * @property {string} [effect]
-     * @property {any} [potentialEffects]
-     */
+/**
+ * @typedef {Object} Props
+ * @property {boolean} [visible]
+ * @property {number} [x]
+ * @property {number} [y]
+ * @property {string} [geneId]
+ * @property {string} [geneType]
+ * @property {string} [effect]
+ * @property {any} [potentialEffects]
+ */
 
-    /** @type {Props} */
-    const {
-        visible = false,
-        x = 0,
-        y = 0,
-        geneId = "",
-        geneType = "",
-        effect = "",
-        potentialEffects = [],
-    } = $props();
+/** @type {Props} */
+const { visible = false, x = 0, y = 0, geneId = '', geneType = '', effect = '', potentialEffects = [] } = $props();
 
-    function getTypeDescription(type) {
-        switch (type) {
-            case "R":
-                return "Recessive";
-            case "D":
-                return "Dominant";
-            case "x":
-                return "Mixed (treated as dominant)";
-            case "?":
-                return "Unknown";
-            default:
-                return "Unknown";
-        }
-    }
+function getTypeDescription(type) {
+  switch (type) {
+    case 'R':
+      return 'Recessive';
+    case 'D':
+      return 'Dominant';
+    case 'x':
+      return 'Mixed (treated as dominant)';
+    case '?':
+      return 'Unknown';
+    default:
+      return 'Unknown';
+  }
+}
 </script>
 
 {#if visible}

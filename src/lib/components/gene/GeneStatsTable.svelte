@@ -1,126 +1,126 @@
 <script>
-    import { run } from "svelte/legacy";
-    import { createEventDispatcher } from "svelte";
-    import {
-        loadAttributeConfig,
-        loadAppearanceConfig,
-        FALLBACK_ATTRIBUTE_LIST,
-        FALLBACK_APPEARANCE_LIST
-    } from "$lib/utils/apiUtils.js";
+import { createEventDispatcher } from 'svelte';
+import { run } from 'svelte/legacy';
+import {
+  FALLBACK_APPEARANCE_LIST,
+  FALLBACK_ATTRIBUTE_LIST,
+  loadAppearanceConfig,
+  loadAttributeConfig,
+} from '$lib/utils/apiUtils.js';
 
-    const dispatch = createEventDispatcher();
+const dispatch = createEventDispatcher();
 
-    /**
-     * @typedef {Object} Props
-     * @property {any} [currentStats]
-     * @property {string} [currentView]
-     * @property {any} [selectedAttributes]
-     * @property {any} [hiddenAttributes]
-     * @property {number} [totalGenes]
-     * @property {number} [neutralGenes]
-     * @property {any} [petSpecies]
-     */
+/**
+ * @typedef {Object} Props
+ * @property {any} [currentStats]
+ * @property {string} [currentView]
+ * @property {any} [selectedAttributes]
+ * @property {any} [hiddenAttributes]
+ * @property {number} [totalGenes]
+ * @property {number} [neutralGenes]
+ * @property {any} [petSpecies]
+ */
 
-    /** @type {Props} */
-    const {
-        currentStats = null,
-        currentView = "attribute",
-        selectedAttributes = [],
-        hiddenAttributes = [],
-        totalGenes = 0,
-        neutralGenes = 0,
-        petSpecies = null,
-    } = $props();
+/** @type {Props} */
+const {
+  currentStats = null,
+  currentView = 'attribute',
+  selectedAttributes = [],
+  hiddenAttributes = [],
+  totalGenes = 0,
+  neutralGenes = 0,
+  petSpecies = null,
+} = $props();
 
-    let attributeList = $state([]);
-    let appearanceList = $state([]);
+let attributeList = $state([]);
+let appearanceList = $state([]);
 
-    async function loadAttributeConfigForTable(species) {
-        if (!species) {
-            // Default to BeeWasp if no species specified
-            species = "BeeWasp";
-        }
+async function loadAttributeConfigForTable(species) {
+  if (!species) {
+    // Default to BeeWasp if no species specified
+    species = 'BeeWasp';
+  }
 
-        const config = await loadAttributeConfig(species);
-        if (config) {
-            attributeList = config.attributes || [];
-        } else {
-            // Fallback to hardcoded attributes
-            attributeList = FALLBACK_ATTRIBUTE_LIST;
-        }
-    }
+  const config = await loadAttributeConfig(species);
+  if (config) {
+    attributeList = config.attributes || [];
+  } else {
+    // Fallback to hardcoded attributes
+    attributeList = FALLBACK_ATTRIBUTE_LIST;
+  }
+}
 
-    async function loadAppearanceConfigForTable(species) {
-        if (!species) {
-            // Default to BeeWasp if no species specified
-            species = "BeeWasp";
-        }
+async function loadAppearanceConfigForTable(species) {
+  if (!species) {
+    // Default to BeeWasp if no species specified
+    species = 'BeeWasp';
+  }
 
-        const config = await loadAppearanceConfig(species);
-        if (config) {
-            appearanceList = config.appearance_attributes || [];
-        } else {
-            // Fallback to hardcoded appearance attributes
-            appearanceList = FALLBACK_APPEARANCE_LIST;
-        }
-    }
+  const config = await loadAppearanceConfig(species);
+  if (config) {
+    appearanceList = config.appearance_attributes || [];
+  } else {
+    // Fallback to hardcoded appearance attributes
+    appearanceList = FALLBACK_APPEARANCE_LIST;
+  }
+}
 
-    function calculateGrandTotal() {
-        if (!currentStats) return 0;
+function calculateGrandTotal() {
+  if (!currentStats) return 0;
 
-        let total = 0;
-        if (currentView === "attribute") {
-            attributeList.forEach((attr) => {
-                const positiveCount = currentStats[attr.key]?.positive || 0;
-                const negativeCount = currentStats[attr.key]?.negative || 0;
-                total += positiveCount + negativeCount;
-            });
-        } else {
-            // Use dynamic appearance attributes
-            appearanceList.forEach((attr) => {
-                const attrKey = attr.key.replace(/_/g, "-"); // Convert underscores back to dashes for stats
-                total += currentStats[attrKey] || 0;
-            });
-        }
-        return total;
-    }
-
-    function handleAttributeClick(attributeKey, event) {
-        const isCtrlClick = event.ctrlKey || event.metaKey;
-        const isAltClick = event.altKey;
-
-        dispatch("attributeFilter", {
-            attribute: attributeKey,
-            ctrlKey: isCtrlClick,
-            altKey: isAltClick,
-        });
-    }
-
-    const grandTotal = $derived(calculateGrandTotal());
-    run(() => {
-        if (petSpecies) {
-            loadAttributeConfigForTable(petSpecies);
-        }
+  let total = 0;
+  if (currentView === 'attribute') {
+    attributeList.forEach((attr) => {
+      const positiveCount = currentStats[attr.key]?.positive || 0;
+      const negativeCount = currentStats[attr.key]?.negative || 0;
+      total += positiveCount + negativeCount;
     });
-    run(() => {
-        if (petSpecies && currentView === "appearance") {
-            loadAppearanceConfigForTable(petSpecies);
-        }
+  } else {
+    // Use dynamic appearance attributes
+    appearanceList.forEach((attr) => {
+      const attrKey = attr.key.replace(/_/g, '-'); // Convert underscores back to dashes for stats
+      total += currentStats[attrKey] || 0;
     });
-    const selectedCount = $derived(selectedAttributes.length);
-    // Create reactive object lookups
-    const selectedLookup = $derived(
-        selectedAttributes.reduce((acc, attr) => {
-            acc[attr] = true;
-            return acc;
-        }, {}),
-    );
-    const hiddenLookup = $derived(
-        hiddenAttributes.reduce((acc, attr) => {
-            acc[attr] = true;
-            return acc;
-        }, {}),
-    );
+  }
+  return total;
+}
+
+function handleAttributeClick(attributeKey, event) {
+  const isCtrlClick = event.ctrlKey || event.metaKey;
+  const isAltClick = event.altKey;
+
+  dispatch('attributeFilter', {
+    attribute: attributeKey,
+    ctrlKey: isCtrlClick,
+    altKey: isAltClick,
+  });
+}
+
+const grandTotal = $derived(calculateGrandTotal());
+run(() => {
+  if (petSpecies) {
+    loadAttributeConfigForTable(petSpecies);
+  }
+});
+run(() => {
+  if (petSpecies && currentView === 'appearance') {
+    loadAppearanceConfigForTable(petSpecies);
+  }
+});
+const selectedCount = $derived(selectedAttributes.length);
+// Create reactive object lookups
+const selectedLookup = $derived(
+  selectedAttributes.reduce((acc, attr) => {
+    acc[attr] = true;
+    return acc;
+  }, {}),
+);
+const hiddenLookup = $derived(
+  hiddenAttributes.reduce((acc, attr) => {
+    acc[attr] = true;
+    return acc;
+  }, {}),
+);
 </script>
 
 <div class="stats-section">

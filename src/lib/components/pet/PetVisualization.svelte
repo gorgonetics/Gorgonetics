@@ -1,73 +1,73 @@
 <script>
-    import { onDestroy } from 'svelte';
-    import GeneVisualizer from "$lib/components/gene/GeneVisualizer.svelte";
-    import GeneStatsTable from "$lib/components/gene/GeneStatsTable.svelte";
+import { onDestroy } from 'svelte';
+import GeneStatsTable from '$lib/components/gene/GeneStatsTable.svelte';
+import GeneVisualizer from '$lib/components/gene/GeneVisualizer.svelte';
 
-    const { pet } = $props();
+const { pet } = $props();
 
-    let geneVisualizerRef = $state();
-    let currentView = $state("attribute");
-    let statsOpen = $state(false);
-    let drawerWidth = $state(320);
-    let stats = $state(null);
+let geneVisualizerRef = $state();
+let currentView = $state('attribute');
+let statsOpen = $state(false);
+let drawerWidth = $state(320);
+let stats = $state(null);
 
-    // Cleanup refs for resize listeners
-    let cleanupResize = null;
+// Cleanup refs for resize listeners
+let cleanupResize = null;
 
-    function handleViewChange(view) {
-        currentView = view;
-        if (geneVisualizerRef) {
-            geneVisualizerRef.handleViewChange(view);
-        }
-        refreshStats();
-    }
+function handleViewChange(view) {
+  currentView = view;
+  if (geneVisualizerRef) {
+    geneVisualizerRef.handleViewChange(view);
+  }
+  refreshStats();
+}
 
-    function toggleStats() {
-        statsOpen = !statsOpen;
-        if (statsOpen) refreshStats();
-    }
+function toggleStats() {
+  statsOpen = !statsOpen;
+  if (statsOpen) refreshStats();
+}
 
-    function refreshStats() {
-        if (geneVisualizerRef) {
-            stats = geneVisualizerRef.getStatsData();
-        }
-    }
+function refreshStats() {
+  if (geneVisualizerRef) {
+    stats = geneVisualizerRef.getStatsData();
+  }
+}
 
-    function handleAttributeFilter(event) {
-        if (geneVisualizerRef?.handleAttributeFilter) {
-            geneVisualizerRef.handleAttributeFilter(event);
-            refreshStats();
-        }
-    }
+function handleAttributeFilter(event) {
+  if (geneVisualizerRef?.handleAttributeFilter) {
+    geneVisualizerRef.handleAttributeFilter(event);
+    refreshStats();
+  }
+}
 
-    // Called by GeneVisualizer when stats data changes
-    function handleStatsUpdated() {
-        if (statsOpen) refreshStats();
-    }
+// Called by GeneVisualizer when stats data changes
+function handleStatsUpdated() {
+  if (statsOpen) refreshStats();
+}
 
-    function startResize(e) {
-        e.preventDefault();
-        const startX = e.clientX;
-        const startWidth = drawerWidth;
+function startResize(e) {
+  e.preventDefault();
+  const startX = e.clientX;
+  const startWidth = drawerWidth;
 
-        function onMove(e) {
-            drawerWidth = Math.max(240, Math.min(600, startWidth + (startX - e.clientX)));
-        }
+  function onMove(e) {
+    drawerWidth = Math.max(240, Math.min(600, startWidth + (startX - e.clientX)));
+  }
 
-        function onUp() {
-            window.removeEventListener('mousemove', onMove);
-            window.removeEventListener('mouseup', onUp);
-            cleanupResize = null;
-        }
+  function onUp() {
+    window.removeEventListener('mousemove', onMove);
+    window.removeEventListener('mouseup', onUp);
+    cleanupResize = null;
+  }
 
-        window.addEventListener('mousemove', onMove);
-        window.addEventListener('mouseup', onUp);
-        cleanupResize = onUp;
-    }
+  window.addEventListener('mousemove', onMove);
+  window.addEventListener('mouseup', onUp);
+  cleanupResize = onUp;
+}
 
-    onDestroy(() => {
-        if (cleanupResize) cleanupResize();
-    });
+onDestroy(() => {
+  if (cleanupResize) cleanupResize();
+});
 </script>
 
 <div class="pet-visualization">

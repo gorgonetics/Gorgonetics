@@ -1,18 +1,12 @@
 <script>
-	import { onMount } from 'svelte';
-	import {
-		selectedPet,
-		loading,
-		error,
-		geneEditingView,
-		appState,
-	} from '$lib/stores/pets.js';
-	import PetVisualization from '$lib/components/pet/PetVisualization.svelte';
-	import GeneEditingView from '$lib/components/GeneEditingView.svelte';
+import { onMount } from 'svelte';
+import GeneEditingView from '$lib/components/GeneEditingView.svelte';
+import PetVisualization from '$lib/components/pet/PetVisualization.svelte';
+import { appState, error, geneEditingView, loading, selectedPet } from '$lib/stores/pets.js';
 
-	onMount(async () => {
-		await appState.loadPets();
-	});
+onMount(async () => {
+  await appState.loadPets();
+});
 </script>
 
 <div class="detail-content">

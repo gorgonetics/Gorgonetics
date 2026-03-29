@@ -1,10 +1,10 @@
 <script>
-    import "../app.css";
-    import AuthWrapper from "$lib/components/AuthWrapper.svelte";
-    import TopBar from "$lib/components/layout/TopBar.svelte";
-    import MasterPanel from "$lib/components/layout/MasterPanel.svelte";
+import '../app.css';
+import AuthWrapper from '$lib/components/AuthWrapper.svelte';
+import MasterPanel from '$lib/components/layout/MasterPanel.svelte';
+import TopBar from '$lib/components/layout/TopBar.svelte';
 
-    const { children } = $props();
+const { children } = $props();
 </script>
 
 <AuthWrapper>
