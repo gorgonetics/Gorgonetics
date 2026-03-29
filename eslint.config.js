@@ -45,6 +45,7 @@ export default [
     rules: {
       "no-unused-vars": "off", // TS handles this better
       "no-undef": "off", // TS handles this
+      "no-redeclare": "off", // TS allows const+type with same name
       semi: ["error", "always"],
       "no-console": "off",
       "prefer-const": "warn",
