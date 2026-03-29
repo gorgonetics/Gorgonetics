@@ -197,7 +197,7 @@
     "effectRecessive": "None",
     "appearance": "None",
     "notes": "",
-    "breed": ""
+    "breed": "Kb"
   },
   {
     "gene": "14G2",
@@ -205,7 +205,7 @@
     "effectRecessive": "None",
     "appearance": "None",
     "notes": "",
-    "breed": ""
+    "breed": "Kb"
   },
   {
     "gene": "14G3",
@@ -213,7 +213,7 @@
     "effectRecessive": "None",
     "appearance": "None",
     "notes": "",
-    "breed": ""
+    "breed": "Kb"
   },
   {
     "gene": "14G4",
@@ -221,6 +221,6 @@
     "effectRecessive": "None",
     "appearance": "None",
     "notes": "",
-    "breed": ""
+    "breed": "Kb"
   }
 ]

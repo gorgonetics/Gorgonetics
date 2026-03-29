@@ -197,7 +197,7 @@
     "effectRecessive": "None",
     "appearance": "None",
     "notes": "",
-    "breed": ""
+    "breed": "Sb"
   },
   {
     "gene": "10G2",
@@ -205,7 +205,7 @@
     "effectRecessive": "None",
     "appearance": "None",
     "notes": "",
-    "breed": ""
+    "breed": "Sb"
   },
   {
     "gene": "10G3",
@@ -213,7 +213,7 @@
     "effectRecessive": "None",
     "appearance": "None",
     "notes": "",
-    "breed": ""
+    "breed": "Sb"
   },
   {
     "gene": "10G4",
@@ -221,6 +221,6 @@
     "effectRecessive": "None",
     "appearance": "None",
     "notes": "",
-    "breed": ""
+    "breed": "Sb"
   }
 ]
