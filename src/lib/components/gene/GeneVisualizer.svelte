@@ -1015,6 +1015,13 @@ function handleTooltipShow(event) {
     }
   }
 
+  // Add breed relevance note if gene belongs to a different breed
+  const geneBreed = getGeneBreed(currentPet?.species || '', geneId);
+  const isRelevant = isGeneRelevantToBreed(currentPet?.species || '', geneId);
+  if (!isRelevant && geneBreed) {
+    potentialEffects.push(`<span style="color: #9ca3af">⚬ ${geneBreed} breed only — no effect on this pet</span>`);
+  }
+
   const mouseEvent = detail.event;
 
   // Calculate smart positioning to stay close to mouse cursor while avoiding edge cropping
