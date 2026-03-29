@@ -457,7 +457,8 @@ function isGeneRelevantToBreed(species, geneId) {
   // Non-horse species: all genes are relevant
   if (normalizeSpecies(species) !== 'horse') return true;
   // If pet has no breed set or it's "Mixed", all genes are relevant
-  const petBreed = currentPet?.breed;
+  // Use the pet prop (has breed) rather than currentPet (genome data only)
+  const petBreed = pet?.breed;
   if (!petBreed || petBreed === 'Mixed') return true;
   // Gene is relevant if it's generic (no breed) or matches pet's breed
   const geneBreed = getGeneBreed(species, geneId);
