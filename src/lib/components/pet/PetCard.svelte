@@ -20,6 +20,10 @@ function getSpeciesEmoji(species) {
             <div class="pet-card-name">{pet.name || 'Unnamed'}</div>
             <div class="pet-card-meta">
                 {pet.species || 'Unknown'}
+                {#if pet.breed && pet.breed !== 'Mixed'}
+                    <span class="meta-dot">·</span>
+                    {pet.breed}
+                {/if}
                 <span class="meta-dot">·</span>
                 {pet.gender || 'Unknown'}
                 {#if pet.known_genes}

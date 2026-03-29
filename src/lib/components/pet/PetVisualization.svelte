@@ -76,6 +76,10 @@ onDestroy(() => {
             <h2 class="detail-title">{pet?.name || 'Pet'}</h2>
             <div class="detail-meta">
                 <span>{pet?.species || 'Unknown'}</span>
+                {#if pet?.breed && pet.breed !== 'Mixed'}
+                    <span class="meta-dot">·</span>
+                    <span>{pet.breed}</span>
+                {/if}
                 <span class="meta-dot">·</span>
                 <span>{pet?.gender || 'Unknown'}</span>
                 {#if pet?.known_genes}
