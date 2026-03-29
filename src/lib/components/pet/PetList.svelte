@@ -39,12 +39,6 @@
         }
     }
 
-    function handleContextMenu(pet, event) {
-        event.preventDefault();
-        editingPet = pet;
-        showEditor = true;
-    }
-
     function closeEditor() {
         showEditor = false;
         editingPet = null;

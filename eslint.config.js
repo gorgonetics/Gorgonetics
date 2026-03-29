@@ -1,8 +1,8 @@
 /**
  * ESLint configuration for Gorgonetics (ESLint v9+)
- * See: https://eslint.org/docs/latest/use/configure/configuration-files-new
  */
 import js from "@eslint/js";
+import tseslint from "typescript-eslint";
 import sveltePlugin from "eslint-plugin-svelte";
 import globals from "globals";
 
@@ -13,33 +13,48 @@ export default [
       "node_modules/",
       "dist/",
       "build/",
+      ".svelte-kit/",
       "coverage/",
       "*.log",
       ".npm",
       ".eslintcache",
-      "__pycache__/",
       "*.py",
-      ".vscode/",
-      ".idea/",
-      ".DS_Store",
-      "Thumbs.db",
-      "*.tmp",
-      "*.temp",
       ".venv/",
-      ".mypy_cache/",
-      ".pytest_cache/",
-      ".ruff_cache/",
-      ".ropeproject/",
       "uv.lock",
+      "src-tauri/target/",
+      "test-results/",
+      "playwright-report/",
     ],
   },
 
-  // Base JavaScript configuration
+  // Base JS config
   js.configs.recommended,
 
-  // JavaScript and TypeScript files
+  // TypeScript files
   {
-    files: ["**/*.js", "**/*.ts"],
+    files: ["**/*.ts"],
+    languageOptions: {
+      parser: tseslint.parser,
+      ecmaVersion: 2022,
+      sourceType: "module",
+      globals: {
+        ...globals.browser,
+        ...globals.es2022,
+      },
+    },
+    rules: {
+      "no-unused-vars": "off", // TS handles this better
+      "no-undef": "off", // TS handles this
+      semi: ["error", "always"],
+      "no-console": "off",
+      "prefer-const": "warn",
+      "no-var": "error",
+    },
+  },
+
+  // JavaScript files
+  {
+    files: ["**/*.js"],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: "module",
@@ -52,14 +67,13 @@ export default [
       "no-unused-vars": "warn",
       "no-undef": "error",
       semi: ["error", "always"],
-      quotes: "off", // Allow both single and double quotes
       "no-console": "off",
       "prefer-const": "warn",
       "no-var": "error",
     },
   },
 
-  // Svelte files configuration
+  // Svelte files
   ...sveltePlugin.configs["flat/recommended"],
   {
     files: ["**/*.svelte"],
@@ -72,20 +86,16 @@ export default [
       },
     },
     rules: {
-      // Override or add Svelte-specific rules
       "svelte/no-unused-svelte-ignore": "warn",
       "svelte/no-at-html-tags": "warn",
       "svelte/no-target-blank": "error",
-      "svelte/valid-compile": "warn", // Changed from error to warn for development
+      "svelte/valid-compile": "warn",
       "svelte/no-reactive-functions": "warn",
       "svelte/no-reactive-literals": "warn",
-
-      // JavaScript rules that work well with Svelte
       "no-unused-vars": "warn",
       "no-console": "off",
       "prefer-const": "warn",
       "no-var": "error",
     },
   },
-
 ];

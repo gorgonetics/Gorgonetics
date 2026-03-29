@@ -7,7 +7,6 @@
 import * as petService from './petService.js';
 import * as geneService from './geneService.js';
 import * as configService from './configService.js';
-import { TOKEN_KEY, REFRESH_TOKEN_KEY } from '$lib/stores/auth.js';
 
 class ApiClient {
   constructor() {
@@ -15,7 +14,7 @@ class ApiClient {
   }
 
   // Auth methods — no-ops in native app
-  setAuthToken(_token) {}
+  setAuthToken() {}
   getAuthHeaders() { return {}; }
 
   /**

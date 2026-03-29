@@ -357,11 +357,6 @@
         text-transform: uppercase;
     }
 
-    .user-role.admin {
-        color: #fbbf24;
-        font-weight: 600;
-    }
-
     .sidebar-footer {
         padding: 12px;
         border-top: 1px solid rgba(255, 255, 255, 0.1);

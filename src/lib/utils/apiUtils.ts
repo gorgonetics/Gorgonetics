@@ -174,7 +174,7 @@ export function getCacheStats() {
  * Generic fetch wrapper — kept for backward compatibility but warns on use.
  * Components should use service imports directly.
  */
-export async function fetchWithErrorHandling(url, errorContext = "API call") {
+export async function fetchWithErrorHandling(url) {
     console.warn(`fetchWithErrorHandling called for ${url} — this should use services directly`);
     const { apiClient } = await import('$lib/services/api.js');
     const response = await apiClient.fetchWithErrorHandling(url);

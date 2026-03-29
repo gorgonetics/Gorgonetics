@@ -1079,7 +1079,6 @@
         }
 
         const mouseEvent = detail.event;
-        const containerRect = containerElement.getBoundingClientRect();
 
         // Calculate smart positioning to stay close to mouse cursor while avoiding edge cropping
         const tooltipWidth = 250; // max-width from CSS
