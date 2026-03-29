@@ -1829,7 +1829,7 @@ export function getStatsData() {
     }
 
     .gene-section {
-        padding: 10px;
+        padding: 6px 8px;
         display: flex;
         flex-direction: column;
         flex: 1;
@@ -1838,7 +1838,7 @@ export function getStatsData() {
 
 
     .gene-legend {
-        margin-bottom: 10px;
+        margin-bottom: 6px;
         flex-shrink: 0;
     }
 
@@ -1867,12 +1867,12 @@ export function getStatsData() {
     .legend-item {
         display: flex;
         align-items: center;
-        gap: 0.4em;
-        font-size: 11px;
+        gap: 0.3em;
+        font-size: 10px;
         color: #6b7280;
         white-space: nowrap;
         cursor: pointer;
-        padding: 4px 8px;
+        padding: 2px 6px;
         border-radius: 4px;
         transition: background-color 0.2s ease;
     }
@@ -1951,8 +1951,8 @@ export function getStatsData() {
     .gene-headers th {
         background: #f1f5f9;
         border-bottom: 1px solid #e2e8f0;
-        padding: 4px 8px;
-        font-size: 10px;
+        padding: 2px 4px;
+        font-size: 9px;
         font-weight: normal;
         color: #374151;
         text-align: center;
@@ -1965,15 +1965,15 @@ export function getStatsData() {
         z-index: 11;
         background: #f1f5f9;
         font-weight: bold;
-        width: 32px;
-        min-width: 32px;
-        max-width: 32px;
+        width: 28px;
+        min-width: 28px;
+        max-width: 28px;
     }
 
     .position-header {
-        width: 19px;
-        min-width: 19px;
-        max-width: 19px;
+        width: 17px;
+        min-width: 17px;
+        max-width: 17px;
         font-weight: normal;
     }
 
@@ -1994,7 +1994,7 @@ export function getStatsData() {
     }
 
     .chromosome-row {
-        border-bottom: 1px solid #e2e8f0;
+        border-bottom: 1px solid #f1f5f9;
     }
 
     .chromosome-row:hover {
@@ -2007,17 +2007,17 @@ export function getStatsData() {
         z-index: 1;
         background: #f9fafb;
         border-right: 1px solid #e2e8f0;
-        padding: 8px 2px;
-        font-size: 11px;
+        padding: 3px 2px;
+        font-size: 10px;
         font-weight: 600;
         color: #374151;
         text-align: center;
         cursor: pointer;
         transition: background-color 0.2s ease;
         user-select: none;
-        width: 32px;
-        min-width: 32px;
-        max-width: 32px;
+        width: 28px;
+        min-width: 28px;
+        max-width: 28px;
     }
 
     .chromosome-label:hover {
@@ -2039,11 +2039,11 @@ export function getStatsData() {
     }
 
     .gene-cell-container {
-        padding: 1px;
+        padding: 0;
         text-align: center;
         vertical-align: middle;
         position: relative;
-        width: 19px;
+        width: 17px;
     }
 
     .gene-cell-container.empty {
@@ -2051,11 +2051,11 @@ export function getStatsData() {
     }
 
     .gene-cell-container.block-start {
-        padding-left: 6px;
+        padding-left: 4px;
     }
 
     .gene-cell-container.block-start:first-of-type {
-        padding-left: 2px;
+        padding-left: 1px;
     }
 
 </style>

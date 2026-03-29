@@ -116,8 +116,8 @@ const cssClass = $derived(computeCssClass(gene, geneAnalysis, currentView, isVis
     }
 
     :global(.gene-cell) {
-        width: 15px;
-        height: 15px;
+        width: 13px;
+        height: 13px;
         margin: 0px;
         border-radius: 50%;
         border: 2px solid;
