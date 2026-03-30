@@ -214,6 +214,23 @@ export async function uploadPet(
   };
 }
 
+/** Columns that callers are allowed to update via updatePet(). */
+const UPDATABLE_COLUMNS = new Set([
+  'name',
+  'gender',
+  'breed',
+  'notes',
+  'genome_data',
+  'intelligence',
+  'toughness',
+  'friendliness',
+  'ruggedness',
+  'enthusiasm',
+  'virility',
+  'ferocity',
+  'temperament',
+]);
+
 /**
  * Update a pet record.
  */
@@ -222,8 +239,18 @@ export async function updatePet(petId: number, updates: Record<string, unknown>)
   const setClauses: string[] = [];
   const values: unknown[] = [];
 
+  // Flatten nested `attributes` object into top-level fields
+  const flat: Record<string, unknown> = {};
   for (const [field, value] of Object.entries(updates)) {
-    if (field === 'id') continue;
+    if (field === 'attributes' && typeof value === 'object' && value !== null) {
+      Object.assign(flat, value);
+    } else {
+      flat[field] = value;
+    }
+  }
+
+  for (const [field, value] of Object.entries(flat)) {
+    if (!UPDATABLE_COLUMNS.has(field)) continue;
     if (field === 'genome_data') {
       setClauses.push(`${field} = ?`);
       values.push(typeof value === 'string' ? value : JSON.stringify(value));

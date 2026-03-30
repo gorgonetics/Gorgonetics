@@ -1,42 +1,5 @@
 import { expect, test } from '@playwright/test';
-
-// Wait for the app to finish initializing (DB + demo data)
-async function waitForAppReady(page) {
-  await page.waitForSelector('.top-bar');
-  // Wait until loading screen is gone and pet cards appear (demo data loaded)
-  await page.waitForFunction(() => {
-    const loading = document.querySelector('.loading-screen');
-    const spinner = document.querySelector('.spinner');
-    return !loading && !spinner;
-  });
-}
-
-// Wait for demo pet cards to appear in the list
-async function waitForPets(page) {
-  await waitForAppReady(page);
-  await page.waitForSelector('.pet-card');
-}
-
-// Navigate to gene editor with a selected chromosome, return true if successful
-async function openGeneEditor(page) {
-  await page.locator('.tab-btn').filter({ hasText: 'Genes' }).click();
-  // Wait for animal types to populate (more than just the placeholder)
-  await expect(page.locator('#animalType option')).not.toHaveCount(1);
-
-  // Select first real animal type
-  const firstValue = await page.locator('#animalType option').nth(1).getAttribute('value');
-  await page.locator('#animalType').selectOption(firstValue);
-
-  // Wait for chromosomes to populate
-  await expect(page.locator('#chromosome option')).not.toHaveCount(1);
-
-  // Select first real chromosome
-  const firstChrom = await page.locator('#chromosome option').nth(1).getAttribute('value');
-  await page.locator('#chromosome').selectOption(firstChrom);
-
-  await page.locator('button.load-btn').click();
-  await expect(page.locator('.gene-editing-view')).toBeVisible();
-}
+import { openGeneEditor, waitForAppReady, waitForPets } from './helpers.js';
 
 // ==========================================
 // App Launch & Layout
