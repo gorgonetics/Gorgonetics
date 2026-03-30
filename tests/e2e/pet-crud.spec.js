@@ -1,27 +1,5 @@
 import { expect, test } from '@playwright/test';
-
-// Wait for the app to finish initializing (DB + demo data)
-async function waitForAppReady(page) {
-  await page.waitForSelector('.top-bar');
-  await page.waitForFunction(() => {
-    const loading = document.querySelector('.loading-screen');
-    const spinner = document.querySelector('.spinner');
-    return !loading && !spinner;
-  });
-}
-
-// Wait for demo pet cards to appear in the list
-async function waitForPets(page) {
-  await waitForAppReady(page);
-  await page.waitForSelector('.pet-card');
-}
-
-// Open the edit modal for the first pet
-async function openEditor(page) {
-  await page.locator('.pet-card-wrapper').first().hover();
-  await page.locator('.edit-btn').first().click();
-  await expect(page.locator('.modal-panel')).toBeVisible();
-}
+import { openEditor, waitForPets } from './helpers.js';
 
 // ==========================================
 // Pet Editor – Saving Changes
@@ -341,16 +319,15 @@ test.describe('Pet Delete – Count Integrity', () => {
   });
 
   test('deleting a pet updates the pet count', async ({ page }) => {
-    const countText = await page.locator('.pet-count').textContent();
-    const countBefore = Number.parseInt(countText.match(/\d+/)[0], 10);
+    const petCards = page.locator('.pet-card');
+    const countBefore = await petCards.count();
 
     await page.locator('.pet-card-wrapper').first().hover();
     await page.locator('.delete-btn').first().click();
     await page.locator('.btn-danger').filter({ hasText: 'Delete' }).click();
     await expect(page.locator('.confirm-dialog')).toHaveCount(0);
 
-    const newCountText = await page.locator('.pet-count').textContent();
-    const countAfter = Number.parseInt(newCountText.match(/\d+/)[0], 10);
-    expect(countAfter).toBe(countBefore - 1);
+    // Use Playwright's auto-retrying assertion to avoid races with async UI updates
+    await expect(petCards).toHaveCount(countBefore - 1);
   });
 });
