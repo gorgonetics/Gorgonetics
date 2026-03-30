@@ -679,18 +679,9 @@ function isGeneVisible(chromosome, gene, geneAnalysis) {
     return false;
   }
 
-  // Attribute filter
-  if (currentView === 'attribute') {
-    if (
-      selectedAttributes.length > 0 &&
-      !genePotentiallyAffectsSelectedAttributes(currentPet.species, gene.id, selectedAttributes)
-    ) {
-      return false;
-    }
-  } else {
-    if (selectedAttributes.length > 0 && !selectedAttributes.includes(geneAnalysis.attribute)) {
-      return false;
-    }
+  // Attribute filter — only show genes whose active effect matches the selected attribute
+  if (selectedAttributes.length > 0 && !selectedAttributes.includes(geneAnalysis.attribute)) {
+    return false;
   }
 
   // Hidden attributes
