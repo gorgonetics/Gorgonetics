@@ -679,9 +679,18 @@ function isGeneVisible(chromosome, gene, geneAnalysis) {
     return false;
   }
 
-  // Attribute filter — only show genes whose active effect matches the selected attribute
-  if (selectedAttributes.length > 0 && !selectedAttributes.includes(geneAnalysis.attribute)) {
-    return false;
+  // Attribute filter
+  if (currentView === 'attribute') {
+    if (
+      selectedAttributes.length > 0 &&
+      !genePotentiallyAffectsSelectedAttributes(currentPet.species, gene.id, selectedAttributes)
+    ) {
+      return false;
+    }
+  } else {
+    if (selectedAttributes.length > 0 && !selectedAttributes.includes(geneAnalysis.attribute)) {
+      return false;
+    }
   }
 
   // Hidden attributes
@@ -736,6 +745,30 @@ function isGeneVisible(chromosome, gene, geneAnalysis) {
   }
 
   return true;
+}
+
+function getContextualAnalysis(species, geneId, geneAnalysis) {
+  if (selectedAttributes.length !== 1 || currentView !== 'attribute') {
+    return geneAnalysis;
+  }
+  const attr = selectedAttributes[0];
+  if (geneAnalysis.attribute === attr) {
+    return geneAnalysis;
+  }
+  // Gene's active effect is on a different attribute — check if it potentially
+  // affects the selected attribute via the other allele
+  const dominantEffect = getGeneEffect(species, geneId, 'D');
+  const recessiveEffect = getGeneEffect(species, geneId, 'R');
+  for (const eff of [dominantEffect, recessiveEffect]) {
+    if (!eff || eff === 'No gene data found' || eff === 'No dominant effect' || eff === 'No recessive effect') continue;
+    if (eff.includes(attr)) {
+      const hasPlus = eff.includes('+');
+      const hasMinus = eff.includes('-');
+      if (hasPlus) return { ...geneAnalysis, type: 'potential-positive', attribute: attr };
+      if (hasMinus) return { ...geneAnalysis, type: 'potential-negative', attribute: attr };
+    }
+  }
+  return geneAnalysis;
 }
 
 function genePotentiallyAffectsSelectedAttributes(species, geneId, selectedAttributes) {
@@ -931,10 +964,11 @@ async function createGeneVisualization() {
           if (gene) {
             const cacheKey = `${gene.id}_${gene.type}`;
             const geneAnalysis = geneAnalysisCache.get(cacheKey);
+            const displayAnalysis = getContextualAnalysis(pet.species, gene.id, geneAnalysis);
 
             processedBlocks[block][i] = {
               ...gene,
-              geneAnalysis,
+              geneAnalysis: displayAnalysis,
               isVisible: isGeneVisible(chromosome, gene, geneAnalysis),
             };
           } else {
