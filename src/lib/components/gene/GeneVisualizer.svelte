@@ -748,7 +748,7 @@ function isGeneVisible(chromosome, gene, geneAnalysis) {
 }
 
 function getContextualAnalysis(species, geneId, geneAnalysis) {
-  if (selectedAttributes.length !== 1 || currentView !== 'attribute') {
+  if (selectedAttributes.length !== 1 || currentView !== 'attribute' || geneAnalysis.type === 'inactive-breed') {
     return geneAnalysis;
   }
   const attr = selectedAttributes[0];
