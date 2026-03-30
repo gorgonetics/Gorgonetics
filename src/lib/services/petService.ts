@@ -222,7 +222,17 @@ export async function updatePet(petId: number, updates: Record<string, unknown>)
   const setClauses: string[] = [];
   const values: unknown[] = [];
 
+  // Flatten nested `attributes` object into top-level fields
+  const flat: Record<string, unknown> = {};
   for (const [field, value] of Object.entries(updates)) {
+    if (field === 'attributes' && typeof value === 'object' && value !== null) {
+      Object.assign(flat, value);
+    } else {
+      flat[field] = value;
+    }
+  }
+
+  for (const [field, value] of Object.entries(flat)) {
     if (field === 'id') continue;
     if (field === 'genome_data') {
       setClauses.push(`${field} = ?`);
