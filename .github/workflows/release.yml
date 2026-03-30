@@ -5,17 +5,6 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
-    inputs:
-      platform:
-        description: 'Platform to build (or all)'
-        required: true
-        default: 'all'
-        type: choice
-        options:
-          - all
-          - macos
-          - linux
-          - windows
 
 jobs:
   build:
@@ -33,12 +22,6 @@ jobs:
             target: x86_64-pc-windows-msvc
             label: Windows-x64
 
-    if: >-
-      github.event_name == 'push' ||
-      inputs.platform == 'all' ||
-      (inputs.platform == 'macos' && matrix.platform == 'macos-latest') ||
-      (inputs.platform == 'linux' && matrix.platform == 'ubuntu-24.04') ||
-      (inputs.platform == 'windows' && matrix.platform == 'windows-latest')
     runs-on: ${{ matrix.platform }}
     permissions:
       contents: write
