@@ -81,8 +81,32 @@ pnpm test:e2e:ui                  # Playwright UI mode
 
 # Build
 pnpm tauri:build                  # Production app bundle (.app/.dmg)
+pnpm tauri:build:windows          # Cross-compile Windows installer from macOS/Linux
 pnpm build                        # Frontend only (static site)
 ```
+
+### Cross-Compiling for Windows
+
+Build Windows `.exe` installers from macOS or Linux without a Windows machine or CI.
+
+**Prerequisites** (one-time setup):
+```bash
+brew install nsis llvm            # macOS (use apt on Linux)
+rustup target add x86_64-pc-windows-msvc
+cargo install --locked cargo-xwin
+```
+
+**Build**:
+```bash
+pnpm tauri:build:windows
+```
+
+Output: `src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/Gorgonetics_*_x64-setup.exe`
+
+**Notes**:
+- First build downloads the Windows SDK (~1 GB, cached for subsequent builds)
+- Produces NSIS installer only (MSI requires a Windows host)
+- Code signing is skipped — use `bundler > windows > sign_command` in `tauri.conf.json` to configure external signing
 
 ## Code Standards
 
