@@ -26,7 +26,9 @@ pnpm test:e2e                # Playwright E2E tests (30 tests)
 pnpm test:e2e:headed         # With visible browser
 ```
 
-### Rust Compilation Check
+### Build
 ```bash
-cd src-tauri && cargo check   # Verify Rust compiles
+cd src-tauri && cargo check        # Verify Rust compiles
+pnpm tauri:build                   # macOS production bundle (.app/.dmg)
+pnpm tauri:build:windows           # Cross-compile Windows NSIS installer from macOS
 ```
