@@ -71,7 +71,7 @@ pnpm tauri:dev                    # Launch native app (Vite + Tauri)
 pnpm dev                          # Frontend dev server only (port 5174)
 
 # Quality (MUST pass before committing)
-pnpm run lint:ci                  # ESLint (zero warnings)
+pnpm run lint:ci                  # Biome (zero errors)
 cargo check                       # Rust compilation (run from src-tauri/)
 
 # Tests
@@ -124,7 +124,7 @@ Output: `src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/Gorgonetics
 
 ### Quality Gates (enforced by CI)
 ```bash
-pnpm run lint:ci                  # ESLint zero warnings
+pnpm run lint:ci                  # Biome zero errors
 cargo check                       # Rust compilation
 pnpm test:e2e                     # Playwright E2E tests
 ```
