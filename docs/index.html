@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gorgonetics — Pet Breeding Genetics for Project Gorgon</title>
+  <meta name="description" content="A free desktop app for analyzing and editing pet genetics in Project Gorgon. Available for macOS, Windows, and Linux.">
+  <style>
+    :root {
+      --bg: #0f172a;
+      --bg-card: #1e293b;
+      --text: #e2e8f0;
+      --text-muted: #94a3b8;
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --green: #22c55e;
+      --border: #334155;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { color: var(--accent-hover); text-decoration: underline; }
+
+    .container {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* Header */
+    header {
+      padding: 24px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    header .container {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    header img { width: 48px; height: 48px; border-radius: 12px; }
+
+    header h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+    }
+
+    header nav {
+      margin-left: auto;
+      display: flex;
+      gap: 24px;
+    }
+
+    header nav a {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+
+    header nav a:hover { color: var(--text); text-decoration: none; }
+
+    /* Hero */
+    .hero {
+      text-align: center;
+      padding: 80px 0 48px;
+    }
+
+    .hero img {
+      width: 96px;
+      height: 96px;
+      border-radius: 20px;
+      margin-bottom: 24px;
+    }
+
+    .hero h2 {
+      font-size: 2.5rem;
+      font-weight: 800;
+      margin-bottom: 16px;
+      line-height: 1.2;
+    }
+
+    .hero p {
+      font-size: 1.15rem;
+      color: var(--text-muted);
+      max-width: 600px;
+      margin: 0 auto 32px;
+    }
+
+    .hero-buttons {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      transition: background 0.2s;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .btn-primary:hover {
+      background: var(--accent-hover);
+      text-decoration: none;
+    }
+
+    .btn-secondary {
+      background: var(--bg-card);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover {
+      background: var(--border);
+      text-decoration: none;
+    }
+
+    /* Screenshots */
+    .screenshots {
+      padding: 64px 0;
+    }
+
+    .screenshots h3 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      text-align: center;
+      margin-bottom: 32px;
+    }
+
+    .screenshot-grid {
+      display: grid;
+      gap: 24px;
+    }
+
+    .screenshot-item {
+      background: var(--bg-card);
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+
+    .screenshot-item img {
+      width: 100%;
+      display: block;
+    }
+
+    .screenshot-item .caption {
+      padding: 16px;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      text-align: center;
+    }
+
+    /* Features */
+    .features {
+      padding: 64px 0;
+    }
+
+    .features h3 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      text-align: center;
+      margin-bottom: 32px;
+    }
+
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 20px;
+    }
+
+    .feature-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+    }
+
+    .feature-card h4 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .feature-card p {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+    }
+
+    /* Downloads */
+    .downloads {
+      padding: 64px 0;
+    }
+
+    .downloads h3 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      text-align: center;
+      margin-bottom: 8px;
+    }
+
+    .downloads .subtitle {
+      text-align: center;
+      color: var(--text-muted);
+      margin-bottom: 32px;
+    }
+
+    .download-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+    }
+
+    .download-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+    }
+
+    .download-card h4 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+
+    .download-card .dl-links {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .download-card .dl-links a {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.9rem;
+    }
+
+    .download-card .install-note {
+      margin-top: 12px;
+      padding: 12px;
+      background: var(--bg);
+      border-radius: 8px;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .download-card .install-note code {
+      background: var(--border);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.85em;
+    }
+
+    /* Install */
+    .install {
+      padding: 64px 0;
+    }
+
+    .install h3 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      text-align: center;
+      margin-bottom: 32px;
+    }
+
+    .install-steps {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 32px;
+      max-width: 640px;
+      margin: 0 auto;
+    }
+
+    .install-steps h4 {
+      font-size: 1.05rem;
+      font-weight: 600;
+      margin-bottom: 8px;
+      margin-top: 24px;
+    }
+
+    .install-steps h4:first-child { margin-top: 0; }
+
+    .install-steps p, .install-steps li {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+    }
+
+    .install-steps ol, .install-steps ul {
+      padding-left: 20px;
+      margin-top: 8px;
+    }
+
+    .install-steps li { margin-bottom: 6px; }
+
+    .note-box {
+      margin-top: 24px;
+      padding: 16px;
+      background: #1a1a2e;
+      border-left: 3px solid var(--accent);
+      border-radius: 0 8px 8px 0;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    /* Footer */
+    footer {
+      padding: 32px 0;
+      border-top: 1px solid var(--border);
+      text-align: center;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    footer a { color: var(--text-muted); }
+    footer a:hover { color: var(--text); }
+
+    @media (max-width: 600px) {
+      .hero h2 { font-size: 1.8rem; }
+      .hero-buttons { flex-direction: column; align-items: center; }
+      header nav { gap: 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="container">
+    <img src="images/logo.png" alt="Gorgonetics logo">
+    <h1>Gorgonetics</h1>
+    <nav>
+      <a href="#features">Features</a>
+      <a href="#downloads">Downloads</a>
+      <a href="#install">Install</a>
+      <a href="https://github.com/gorgonetics/Gorgonetics">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <section class="hero">
+    <div class="container">
+      <img src="images/logo.png" alt="Gorgonetics">
+      <h2>Pet Breeding Genetics<br>for Project Gorgon</h2>
+      <p>A free desktop app to upload, visualize, and edit pet genome data. Understand your pets' genetics and breed smarter.</p>
+      <div class="hero-buttons">
+        <a href="#downloads" class="btn btn-primary">Download</a>
+        <a href="https://github.com/gorgonetics/Gorgonetics" class="btn btn-secondary">View Source</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="screenshots">
+    <div class="container">
+      <h3>See It in Action</h3>
+      <div class="screenshot-grid">
+        <div class="screenshot-item">
+          <img src="images/screenshot-gene-grid.png" alt="Gene visualization grid showing a BeeWasp pet's genome with color-coded attribute and appearance effects">
+          <div class="caption">Interactive gene visualization grid &mdash; see all chromosomes, effects, and attribute stats at a glance</div>
+        </div>
+        <div class="screenshot-item">
+          <img src="images/screenshot-gene-editor.png" alt="Gene editor showing dominant and recessive effects per chromosome">
+          <div class="caption">Gene editor &mdash; edit dominant and recessive effects for each chromosome</div>
+        </div>
+        <div class="screenshot-item">
+          <img src="images/screenshot-pet-manager.png" alt="Pet manager table showing uploaded pets with species, breed, and attribute scores">
+          <div class="caption">Pet manager &mdash; upload genome files, track attributes, and manage your collection</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="features" id="features">
+    <div class="container">
+      <h3>Features</h3>
+      <div class="feature-grid">
+        <div class="feature-card">
+          <h4>Genome Upload</h4>
+          <p>Import pet genome <code>.txt</code> files directly from Project Gorgon. Drag-and-drop or use native file dialogs.</p>
+        </div>
+        <div class="feature-card">
+          <h4>Gene Visualization</h4>
+          <p>Interactive color-coded grid showing every chromosome and gene effect. Switch between attribute and appearance views.</p>
+        </div>
+        <div class="feature-card">
+          <h4>Gene Editor</h4>
+          <p>Edit dominant and recessive gene effects per chromosome. Define custom gene templates for any species.</p>
+        </div>
+        <div class="feature-card">
+          <h4>Attribute Stats</h4>
+          <p>See summarized attribute scores (Toughness, Ferocity, Intelligence, etc.) with counts and breakdowns.</p>
+        </div>
+        <div class="feature-card">
+          <h4>Multi-Species</h4>
+          <p>Supports BeeWasp (10 chromosomes) and Horse (48 chromosomes) with species-specific attribute configs.</p>
+        </div>
+        <div class="feature-card">
+          <h4>Local &amp; Private</h4>
+          <p>All data stored locally in SQLite. No accounts, no cloud, no tracking. Your pet data stays on your machine.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="downloads" id="downloads">
+    <div class="container">
+      <h3>Download</h3>
+      <p class="subtitle">Latest release: <strong>v0.1.0</strong></p>
+      <div class="download-grid">
+        <div class="download-card">
+          <h4>macOS</h4>
+          <div class="dl-links">
+            <a href="https://github.com/gorgonetics/Gorgonetics/releases/download/v0.1.0/Gorgonetics_0.1.0_aarch64.dmg">Gorgonetics_0.1.0_aarch64.dmg</a>
+            <a href="https://github.com/gorgonetics/Gorgonetics/releases/download/v0.1.0/Gorgonetics_aarch64.app.tar.gz">Gorgonetics_aarch64.app.tar.gz</a>
+          </div>
+          <div class="install-note">
+            Apple Silicon (M1/M2/M3). Open the <code>.dmg</code> and drag to Applications. On first launch, right-click &rarr; Open to bypass Gatekeeper.
+          </div>
+        </div>
+        <div class="download-card">
+          <h4>Windows</h4>
+          <div class="dl-links">
+            <a href="https://github.com/gorgonetics/Gorgonetics/releases/download/v0.1.0/Gorgonetics_0.1.0_x64-setup.exe">Gorgonetics_0.1.0_x64-setup.exe</a>
+            <a href="https://github.com/gorgonetics/Gorgonetics/releases/download/v0.1.0/Gorgonetics_0.1.0_x64_en-US.msi">Gorgonetics_0.1.0_x64_en-US.msi</a>
+          </div>
+          <div class="install-note">
+            64-bit Windows 10+. Run the installer &mdash; it will install to Program Files and create a Start Menu shortcut. Windows may show a SmartScreen warning for unsigned apps; click "More info" &rarr; "Run anyway".
+          </div>
+        </div>
+        <div class="download-card">
+          <h4>Linux</h4>
+          <div class="dl-links">
+            <a href="https://github.com/gorgonetics/Gorgonetics/releases/download/v0.1.0/Gorgonetics_0.1.0_amd64.AppImage">Gorgonetics_0.1.0_amd64.AppImage</a>
+            <a href="https://github.com/gorgonetics/Gorgonetics/releases/download/v0.1.0/Gorgonetics_0.1.0_amd64.deb">Gorgonetics_0.1.0_amd64.deb</a>
+            <a href="https://github.com/gorgonetics/Gorgonetics/releases/download/v0.1.0/Gorgonetics-0.1.0-1.x86_64.rpm">Gorgonetics-0.1.0-1.x86_64.rpm</a>
+          </div>
+          <div class="install-note">
+            x86_64 Linux. AppImage: <code>chmod +x</code> and run. Deb: <code>sudo dpkg -i *.deb</code>. RPM: <code>sudo rpm -i *.rpm</code>.
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="install" id="install">
+    <div class="container">
+      <h3>Installation Guide</h3>
+      <div class="install-steps">
+        <h4>macOS</h4>
+        <ol>
+          <li>Download the <code>.dmg</code> file above</li>
+          <li>Open the <code>.dmg</code> and drag <strong>Gorgonetics</strong> into your Applications folder</li>
+          <li>On first launch, macOS will block the app because it's unsigned. Right-click the app &rarr; <strong>Open</strong>, then click <strong>Open</strong> in the dialog</li>
+          <li>Alternatively, go to System Settings &rarr; Privacy &amp; Security and click "Open Anyway"</li>
+        </ol>
+
+        <h4>Windows</h4>
+        <ol>
+          <li>Download the <code>.exe</code> installer above</li>
+          <li>Run the installer &mdash; it will guide you through the setup</li>
+          <li>If Windows SmartScreen shows a warning, click <strong>"More info"</strong> then <strong>"Run anyway"</strong></li>
+          <li>Launch from the Start Menu or desktop shortcut</li>
+        </ol>
+
+        <h4>Linux</h4>
+        <ol>
+          <li><strong>AppImage</strong> (any distro): Download, run <code>chmod +x Gorgonetics_*.AppImage</code>, then execute it</li>
+          <li><strong>Debian/Ubuntu</strong>: <code>sudo dpkg -i Gorgonetics_*_amd64.deb</code></li>
+          <li><strong>Fedora/RHEL</strong>: <code>sudo rpm -i Gorgonetics-*.x86_64.rpm</code></li>
+        </ol>
+
+        <div class="note-box">
+          <strong>Note:</strong> Gorgonetics stores all data locally in a SQLite database. No account or internet connection is required. On first launch, the app loads demo gene templates and sample pets so you can explore immediately.
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="container">
+    <p>
+      Gorgonetics is open source under the MIT license.
+      <a href="https://github.com/gorgonetics/Gorgonetics">GitHub</a> &middot;
+      <a href="https://github.com/gorgonetics/Gorgonetics/releases">All Releases</a>
+    </p>
+    <p style="margin-top: 8px;">
+      Not affiliated with <a href="https://projectgorgon.com">Project Gorgon</a> or Elder Game, LLC.
+    </p>
+  </div>
+</footer>
+
+</body>
+</html>
