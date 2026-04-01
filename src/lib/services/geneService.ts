@@ -1,6 +1,5 @@
 /**
  * Gene data service for Gorgonetics.
- * Ported from: ducklake_database.py gene methods + web_app.py gene endpoints
  */
 
 import { normalizeSpecies } from './configService.js';

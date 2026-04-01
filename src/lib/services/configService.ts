@@ -1,6 +1,5 @@
 /**
  * Centralized attribute configuration for Gorgonetics.
- * Ported from Python: attribute_config.py
  *
  * All functions are synchronous — this is pure static configuration data.
  */
@@ -232,7 +231,6 @@ export function getDefaultValues(species: string): Record<string, number> {
 
 /**
  * Get attribute display info for frontend use.
- * Returns the same shape as the old Python /api/attribute-config/{species} endpoint.
  */
 export function getAttributeConfig(species: string): {
   species: string;
@@ -309,7 +307,6 @@ export function getAppearanceAttributes(species: string) {
 
 /**
  * Get appearance display info for frontend use.
- * Returns the same shape as the old Python /api/appearance-config/{species} endpoint.
  */
 export function getAppearanceConfig(species: string): {
   species: string;

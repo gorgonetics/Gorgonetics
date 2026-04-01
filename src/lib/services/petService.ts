@@ -1,6 +1,5 @@
 /**
  * Pet data service for Gorgonetics.
- * Ported from: ducklake_database.py pet methods + web_app.py pet endpoints
  */
 
 import type { Gene, Genome, Pet } from '$lib/types/index.js';

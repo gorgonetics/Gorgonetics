@@ -1,6 +1,5 @@
 /**
  * Core type definitions for Gorgonetics.
- * Ported from Python: constants.py, models.py
  */
 
 // --- Enums ---
