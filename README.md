@@ -1,21 +1,31 @@
 # Gorgonetics
 
-[![CI](https://github.com/jlopezpena/Gorgonetics/workflows/CI/badge.svg)](https://github.com/jlopezpena/Gorgonetics/actions/workflows/ci.yml)
+[![CI](https://github.com/gorgonetics/Gorgonetics/workflows/CI/badge.svg)](https://github.com/gorgonetics/Gorgonetics/actions/workflows/ci.yml)
 
-A native desktop app for genetic breeding analysis in [Project Gorgon](https://projectgorgon.com). View, edit, and analyze pet genome data with an interactive gene visualization grid.
+A native desktop app for genetic breeding analysis in [Project Gorgon](https://projectgorgon.com). Upload, visualize, and edit pet genome data with an interactive gene visualization grid.
 
 Built with **Tauri v2** (Rust) + **Svelte 5** (SvelteKit) + **TypeScript** + **SQLite**.
+
+**[Website & Downloads](https://gorgonetics.github.io/Gorgonetics/)**
 
 ## Features
 
 - Upload and manage pet genome files (.txt format from Project Gorgon)
 - Interactive gene visualization grid with attribute/appearance views
+- Attribute stats summary with counts and breakdowns
 - Edit gene effects (dominant/recessive) per chromosome
 - Species-specific attribute configuration (BeeWasp, Horse)
 - Export gene data as JSON
 - Native file dialogs, SQLite database, single-binary distribution
+- All data stored locally — no accounts, no cloud, no tracking
 
-## Quick Start
+## Download
+
+Pre-built installers for macOS, Windows, and Linux are available on the [releases page](https://github.com/gorgonetics/Gorgonetics/releases).
+
+See the [website](https://gorgonetics.github.io/Gorgonetics/) for detailed installation instructions.
+
+## Development
 
 ### Prerequisites
 
@@ -43,8 +53,6 @@ This starts the Vite dev server and opens the Tauri window.
 pnpm tauri:build      # Build production app (.app/.dmg on macOS)
 ```
 
-## Development
-
 ### Commands
 
 | Command | Description |
@@ -53,7 +61,9 @@ pnpm tauri:build      # Build production app (.app/.dmg on macOS)
 | `pnpm dev` | Frontend dev server only (port 5174) |
 | `pnpm build` | Build frontend (static site) |
 | `pnpm tauri:build` | Build production native app |
+| `pnpm tauri:build:windows` | Cross-compile Windows installer from macOS |
 | `pnpm run lint:ci` | Biome lint check |
+| `pnpm run lint:fix` | Auto-fix formatting and lint issues |
 | `pnpm test:e2e` | Playwright E2E tests |
 | `pnpm test:e2e:headed` | E2E tests with visible browser |
 
@@ -81,7 +91,7 @@ tests/e2e/          Playwright E2E tests
 - **Database**: SQLite via tauri-plugin-sql
 - **Icons**: Lucide Svelte
 - **Testing**: Playwright
-- **Linting**: ESLint
+- **Linting**: Biome
 
 ## Species & Data
 
