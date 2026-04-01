@@ -363,7 +363,7 @@
       <h2>Pet Breeding Genetics<br>for Project Gorgon</h2>
       <p>A free desktop app to upload, visualize, and edit pet genome data. Understand your pets' genetics and breed smarter.</p>
       <div class="hero-buttons">
-        <a href="https://github.com/gorgonetics/Gorgonetics/releases" class="btn btn-primary">Releases</a>
+        <a href="#downloads" class="btn btn-primary">Download</a>
         <a href="https://github.com/gorgonetics/Gorgonetics" class="btn btn-secondary">View Source</a>
       </div>
     </div>
@@ -424,19 +424,54 @@
   <section class="downloads" id="downloads">
     <div class="container">
       <h3>Download</h3>
-      <p class="subtitle">New binaries coming soon &mdash; check back shortly.</p>
-      <div class="note-box" style="max-width: 600px; margin: 0 auto;">
-        Pre-built installers for macOS, Windows, and Linux will be available on the
-        <a href="https://github.com/gorgonetics/Gorgonetics/releases">GitHub Releases page</a>.
+      <p class="subtitle">Latest release: <strong>v0.1.1</strong></p>
+      <div class="download-grid">
+        <div class="download-card">
+          <h4>macOS</h4>
+          <div class="dl-links">
+            <a href="https://github.com/gorgonetics/Gorgonetics/releases/download/v0.1.1/Gorgonetics_0.1.0_aarch64.dmg">Gorgonetics_0.1.0_aarch64.dmg</a>
+            <a href="https://github.com/gorgonetics/Gorgonetics/releases/download/v0.1.1/Gorgonetics_aarch64.app.tar.gz">Gorgonetics_aarch64.app.tar.gz</a>
+          </div>
+          <div class="install-note">
+            Apple Silicon (M1/M2/M3). Open the <code>.dmg</code> and drag to Applications. On first launch, right-click &rarr; Open to bypass Gatekeeper.
+          </div>
+        </div>
+        <div class="download-card">
+          <h4>Windows</h4>
+          <div class="dl-links">
+            <a href="https://github.com/gorgonetics/Gorgonetics/releases/download/v0.1.1/Gorgonetics_0.1.0_x64-setup.exe">Gorgonetics_0.1.0_x64-setup.exe</a>
+          </div>
+          <div class="install-note">
+            64-bit Windows 10+. Run the installer &mdash; it will install to Program Files and create a Start Menu shortcut. Windows may show a SmartScreen warning for unsigned apps; click "More info" &rarr; "Run anyway".
+          </div>
+        </div>
+        <div class="download-card">
+          <h4>Linux</h4>
+          <p style="color: var(--text-muted); font-size: 0.9rem;">Linux builds coming soon. Check the <a href="https://github.com/gorgonetics/Gorgonetics/releases">releases page</a> for updates.</p>
+        </div>
       </div>
     </div>
   </section>
 
   <section class="install" id="install">
     <div class="container">
-      <h3>Getting Started</h3>
+      <h3>Installation Guide</h3>
       <div class="install-steps">
-        <p>Gorgonetics is available for <strong>macOS</strong>, <strong>Windows</strong>, and <strong>Linux</strong>. Download the installer for your platform from the <a href="https://github.com/gorgonetics/Gorgonetics/releases">releases page</a> when available.</p>
+        <h4>macOS</h4>
+        <ol>
+          <li>Download the <code>.dmg</code> file above</li>
+          <li>Open the <code>.dmg</code> and drag <strong>Gorgonetics</strong> into your Applications folder</li>
+          <li>On first launch, macOS will block the app because it's unsigned. Right-click the app &rarr; <strong>Open</strong>, then click <strong>Open</strong> in the dialog</li>
+          <li>Alternatively, go to System Settings &rarr; Privacy &amp; Security and click "Open Anyway"</li>
+        </ol>
+
+        <h4>Windows</h4>
+        <ol>
+          <li>Download the <code>.exe</code> installer above</li>
+          <li>Run the installer &mdash; it will guide you through the setup</li>
+          <li>If Windows SmartScreen shows a warning, click <strong>"More info"</strong> then <strong>"Run anyway"</strong></li>
+          <li>Launch from the Start Menu or desktop shortcut</li>
+        </ol>
 
         <div class="note-box">
           <strong>Note:</strong> Gorgonetics stores all data locally in a SQLite database. No account or internet connection is required. On first launch, the app loads demo gene templates and sample pets so you can explore immediately.
