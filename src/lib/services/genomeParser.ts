@@ -1,6 +1,5 @@
 /**
  * Genome file parser for Gorgonetics.
- * Ported from Python: genome_parser.py + models.py Genome class
  */
 
 import type { Gene, GeneType, Genome } from '$lib/types/index.js';
