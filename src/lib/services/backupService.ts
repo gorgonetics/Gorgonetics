@@ -150,21 +150,11 @@ export async function importDatabase(
   let petsImported = 0;
   let petsSkipped = 0;
 
-  if (mode === 'replace') {
-    await db.execute('DELETE FROM pets');
-    await db.execute('DELETE FROM genes');
-  }
-
   // Pre-compute SQL strings (invariant across iterations)
   const genePlaceholders = GENE_COLUMNS.map(() => '?').join(', ');
   const geneSQL = `INSERT OR REPLACE INTO genes (${GENE_COLUMNS.join(', ')}) VALUES (${genePlaceholders})`;
   const petPlaceholders = PET_COLUMNS.map(() => '?').join(', ');
   const petSQL = `INSERT INTO pets (${PET_COLUMNS.join(', ')}) VALUES (${petPlaceholders})`;
-
-  for (const gene of backup.data.genes) {
-    const values = GENE_COLUMNS.map((col) => gene[col] ?? null);
-    await db.execute(geneSQL, values);
-  }
 
   // Pre-fetch existing content hashes for merge dedup (avoids N+1 queries)
   let existingHashes: Set<string> | null = null;
@@ -173,23 +163,42 @@ export async function importDatabase(
     existingHashes = new Set(rows.map((r) => r.content_hash));
   }
 
-  for (const pet of backup.data.pets) {
-    if (existingHashes?.has(pet.content_hash)) {
-      petsSkipped++;
-      continue;
+  // Wrap all writes in a transaction for atomicity and performance
+  await db.execute('BEGIN');
+  try {
+    if (mode === 'replace') {
+      await db.execute('DELETE FROM pets');
+      await db.execute('DELETE FROM genes');
     }
 
-    let genomeData = pet.genome_data;
-    if (typeof genomeData === 'object' && genomeData !== null) {
-      genomeData = JSON.stringify(genomeData);
+    for (const gene of backup.data.genes) {
+      const values = GENE_COLUMNS.map((col) => gene[col] ?? null);
+      await db.execute(geneSQL, values);
     }
 
-    const values = PET_COLUMNS.map((col) => {
-      if (col === 'genome_data') return genomeData;
-      return pet[col] ?? null;
-    });
-    await db.execute(petSQL, values);
-    petsImported++;
+    for (const pet of backup.data.pets) {
+      if (existingHashes?.has(pet.content_hash)) {
+        petsSkipped++;
+        continue;
+      }
+
+      let genomeData = pet.genome_data;
+      if (typeof genomeData === 'object' && genomeData !== null) {
+        genomeData = JSON.stringify(genomeData);
+      }
+
+      const values = PET_COLUMNS.map((col) => {
+        if (col === 'genome_data') return genomeData;
+        return pet[col] ?? null;
+      });
+      await db.execute(petSQL, values);
+      petsImported++;
+    }
+
+    await db.execute('COMMIT');
+  } catch (error) {
+    await db.execute('ROLLBACK');
+    throw error;
   }
 
   return { genes: backup.data.genes.length, pets: petsImported, skipped: petsSkipped };
