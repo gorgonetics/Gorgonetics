@@ -25,6 +25,7 @@ class InMemoryDatabase implements DatabaseAdapter {
   private tables: Record<string, Record<string, unknown>[]> = {};
   private autoIncrements: Record<string, number> = {};
   private userVersion = 0;
+  private snapshot: { tables: string; autoIncrements: string; userVersion: number } | null = null;
 
   async select<T>(query: string, bindValues: unknown[] = []): Promise<T> {
     // Normalize multi-line SQL to single line for regex matching
@@ -91,6 +92,29 @@ class InMemoryDatabase implements DatabaseAdapter {
     const pragmaMatch = qLower.match(/pragma\s+user_version\s*=\s*(\d+)/);
     if (pragmaMatch) {
       this.userVersion = Number.parseInt(pragmaMatch[1], 10);
+      return { rowsAffected: 0, lastInsertId: 0 };
+    }
+
+    // Transaction control
+    if (qLower === 'begin' || qLower === 'begin transaction') {
+      this.snapshot = {
+        tables: JSON.stringify(this.tables),
+        autoIncrements: JSON.stringify(this.autoIncrements),
+        userVersion: this.userVersion,
+      };
+      return { rowsAffected: 0, lastInsertId: 0 };
+    }
+    if (qLower === 'commit') {
+      this.snapshot = null;
+      return { rowsAffected: 0, lastInsertId: 0 };
+    }
+    if (qLower === 'rollback') {
+      if (this.snapshot) {
+        this.tables = JSON.parse(this.snapshot.tables);
+        this.autoIncrements = JSON.parse(this.snapshot.autoIncrements);
+        this.userVersion = this.snapshot.userVersion;
+        this.snapshot = null;
+      }
       return { rowsAffected: 0, lastInsertId: 0 };
     }
 
