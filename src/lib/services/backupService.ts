@@ -151,9 +151,9 @@ export async function importDatabase(
   let petsSkipped = 0;
 
   // Pre-compute SQL strings (invariant across iterations)
-  const genePlaceholders = GENE_COLUMNS.map(() => '?').join(', ');
+  const genePlaceholders = GENE_COLUMNS.map((col) => `$${col}`).join(', ');
   const geneSQL = `INSERT OR REPLACE INTO genes (${GENE_COLUMNS.join(', ')}) VALUES (${genePlaceholders})`;
-  const petPlaceholders = PET_COLUMNS.map(() => '?').join(', ');
+  const petPlaceholders = PET_COLUMNS.map((col) => `$${col}`).join(', ');
   const petSQL = `INSERT INTO pets (${PET_COLUMNS.join(', ')}) VALUES (${petPlaceholders})`;
 
   // Pre-fetch existing content hashes for merge dedup (avoids N+1 queries)
@@ -172,8 +172,9 @@ export async function importDatabase(
     }
 
     for (const gene of backup.data.genes) {
-      const values = GENE_COLUMNS.map((col) => gene[col] ?? null);
-      await db.execute(geneSQL, values);
+      const params: Record<string, unknown> = {};
+      for (const col of GENE_COLUMNS) params[col] = gene[col] ?? null;
+      await db.execute(geneSQL, params);
     }
 
     for (const pet of backup.data.pets) {
@@ -187,11 +188,11 @@ export async function importDatabase(
         genomeData = JSON.stringify(genomeData);
       }
 
-      const values = PET_COLUMNS.map((col) => {
-        if (col === 'genome_data') return genomeData;
-        return pet[col] ?? null;
-      });
-      await db.execute(petSQL, values);
+      const params: Record<string, unknown> = {};
+      for (const col of PET_COLUMNS) {
+        params[col] = col === 'genome_data' ? genomeData : (pet[col] ?? null);
+      }
+      await db.execute(petSQL, params);
       petsImported++;
     }
 

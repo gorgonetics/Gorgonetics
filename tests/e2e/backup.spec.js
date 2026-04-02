@@ -45,7 +45,7 @@ async function deleteFirstPet(page) {
     const { getDb } = await import('/src/lib/services/database.ts');
     const db = getDb();
     const pets = await db.select('SELECT * FROM pets LIMIT 1');
-    await db.execute('DELETE FROM pets WHERE id = ?', [pets[0].id]);
+    await db.execute('DELETE FROM pets WHERE id = $id', { id: pets[0].id });
     return pets[0].name;
   });
 }
