@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quickstart Guide — Gorgonetics</title>
+  <meta name="description" content="Learn how to use Gorgonetics to upload, visualize, and edit pet genome data from Project Gorgon.">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <style>
+    :root {
+      --bg: #0f172a;
+      --bg-card: #1e293b;
+      --text: #e2e8f0;
+      --text-muted: #94a3b8;
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --green: #22c55e;
+      --border: #334155;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { color: var(--accent-hover); text-decoration: underline; }
+
+    code {
+      background: var(--border);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.85em;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* Header */
+    header {
+      padding: 24px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    header .container {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    header img { width: 48px; height: 48px; border-radius: 12px; }
+
+    header h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+    }
+
+    header nav {
+      margin-left: auto;
+      display: flex;
+      gap: 24px;
+    }
+
+    header nav a {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+
+    header nav a:hover { color: var(--text); text-decoration: none; }
+
+    /* Page title */
+    .page-title {
+      text-align: center;
+      padding: 48px 0 16px;
+    }
+
+    .page-title h2 {
+      font-size: 2rem;
+      font-weight: 800;
+      margin-bottom: 12px;
+    }
+
+    .page-title p {
+      color: var(--text-muted);
+      font-size: 1.05rem;
+      max-width: 560px;
+      margin: 0 auto;
+    }
+
+    /* Steps */
+    .steps {
+      padding: 32px 0 64px;
+    }
+
+    .step {
+      margin-bottom: 48px;
+    }
+
+    .step-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+
+    .step-number {
+      width: 36px;
+      height: 36px;
+      background: var(--accent);
+      color: #fff;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 1rem;
+      flex-shrink: 0;
+    }
+
+    .step h3 {
+      font-size: 1.25rem;
+      font-weight: 700;
+    }
+
+    .step p {
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+    }
+
+    .step ul {
+      padding-left: 20px;
+      margin-bottom: 16px;
+    }
+
+    .step li {
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+
+    .step li strong {
+      color: var(--text);
+    }
+
+    .step-image {
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      overflow: hidden;
+      margin-top: 16px;
+    }
+
+    .step-image img {
+      width: 100%;
+      display: block;
+    }
+
+    .step-image .caption {
+      padding: 12px 16px;
+      background: var(--bg-card);
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    /* Two-image row */
+    .image-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-top: 16px;
+    }
+
+    @media (max-width: 640px) {
+      .image-row { grid-template-columns: 1fr; }
+    }
+
+    /* Legend */
+    .legend-section {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 28px;
+      margin-top: 16px;
+    }
+
+    .legend-section h4 {
+      font-size: 1.05rem;
+      font-weight: 600;
+      margin-bottom: 16px;
+    }
+
+    .legend-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+    }
+
+    .legend-dot {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .legend-dot.positive { background: #4caf50; }
+    .legend-dot.negative { background: #f44336; }
+    .legend-dot.potential-positive { background: #3b82f6; }
+    .legend-dot.potential-negative { background: #9333ea; }
+    .legend-dot.neutral { background: #95a5a6; }
+    .legend-dot.unknown {
+      background: transparent;
+      border: 2px dashed #95a5a6;
+    }
+    .legend-dot.dominant { background: #6b7280; }
+    .legend-dot.recessive {
+      background: transparent;
+      border: 3px solid #6b7280;
+    }
+    .legend-dot.mixed {
+      background: linear-gradient(135deg, transparent 40%, #6b7280 60%);
+      border: 2px solid #6b7280;
+    }
+
+    /* Tip box */
+    .tip-box {
+      margin-top: 16px;
+      padding: 16px;
+      background: #1a1a2e;
+      border-left: 3px solid var(--accent);
+      border-radius: 0 8px 8px 0;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+    }
+
+    .tip-box strong {
+      color: var(--text);
+    }
+
+    .step-image img {
+      cursor: zoom-in;
+    }
+
+    /* Lightbox */
+    .lightbox {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 10000;
+      background: rgba(0, 0, 0, 0.85);
+      cursor: zoom-out;
+      justify-content: center;
+      align-items: center;
+      padding: 24px;
+    }
+
+    .lightbox.open {
+      display: flex;
+    }
+
+    .lightbox img {
+      max-width: 95vw;
+      max-height: 92vh;
+      border-radius: 8px;
+      box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
+      object-fit: contain;
+    }
+
+    .lightbox-hint {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      opacity: 0.7;
+      pointer-events: none;
+    }
+
+    /* Back to top */
+    .back-link {
+      text-align: center;
+      padding: 32px 0;
+    }
+
+    /* Footer */
+    footer {
+      padding: 32px 0;
+      border-top: 1px solid var(--border);
+      text-align: center;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    footer a { color: var(--text-muted); }
+    footer a:hover { color: var(--text); }
+
+    @media (max-width: 600px) {
+      .page-title h2 { font-size: 1.5rem; }
+      .legend-grid { grid-template-columns: 1fr; }
+      header nav { gap: 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="container">
+    <img src="images/logo.png" alt="Gorgonetics logo">
+    <h1>Gorgonetics</h1>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="index.html#features">Features</a>
+      <a href="index.html#downloads">Download</a>
+      <a href="https://github.com/gorgonetics/Gorgonetics">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <section class="page-title">
+    <div class="container">
+      <h2>Quickstart Guide</h2>
+      <p>Get up and running with Gorgonetics in a few minutes. No genome file required &mdash; the app comes with demo data to explore.</p>
+    </div>
+  </section>
+
+  <section class="steps">
+    <div class="container">
+
+      <!-- Step 1 -->
+      <div class="step">
+        <div class="step-header">
+          <div class="step-number">1</div>
+          <h3>Launch the App</h3>
+        </div>
+        <p>When you open Gorgonetics for the first time, it loads demo pets and gene templates automatically. You'll see two sample pets in the left sidebar &mdash; a BeeWasp and a Horse &mdash; ready to explore. No import needed.</p>
+        <div class="step-image">
+          <img src="images/quickstart/01-first-launch.png" alt="Gorgonetics on first launch showing demo pets in the sidebar">
+          <div class="caption">First launch &mdash; demo pets are pre-loaded and ready to explore</div>
+        </div>
+      </div>
+
+      <!-- Step 2 -->
+      <div class="step">
+        <div class="step-header">
+          <div class="step-number">2</div>
+          <h3>Browse Your Pets</h3>
+        </div>
+        <p>The app opens on the <strong>Pets</strong> tab. The left sidebar lists all your pets with their species, gender, and gene count. Click any pet card to select it and view its genome in the main panel.</p>
+        <div class="step-image">
+          <img src="images/quickstart/02-pet-list-highlight.png" alt="Pet list sidebar highlighted">
+          <div class="caption">The pet list sidebar &mdash; search, select, and manage your pets here</div>
+        </div>
+        <p style="margin-top: 16px;">Hover over a pet card to reveal the <strong>edit</strong> (pencil) and <strong>delete</strong> (&times;) buttons. Edit lets you change the pet's name, gender, breed, and attributes.</p>
+        <div class="step-image">
+          <img src="images/quickstart/09-pet-card-hover.png" alt="Pet card with edit and delete buttons visible on hover">
+          <div class="caption">Hover a pet card to reveal edit and delete controls</div>
+        </div>
+      </div>
+
+      <!-- Step 3 -->
+      <div class="step">
+        <div class="step-header">
+          <div class="step-number">3</div>
+          <h3>Upload a Genome</h3>
+        </div>
+        <p>Click the <strong>"+ Upload Genome"</strong> button at the bottom of the pet list. Select a <code>.txt</code> genome file exported from Project Gorgon. The pet appears in your list immediately.</p>
+        <div class="step-image">
+          <img src="images/quickstart/03-upload-highlight.png" alt="Upload Genome button highlighted at the bottom of the sidebar">
+          <div class="caption">The Upload Genome button &mdash; import genome <code>.txt</code> files from the game</div>
+        </div>
+        <div class="tip-box">
+          <strong>Tip:</strong> In Project Gorgon, use the <code>/exportgenome</code> command while your pet is active to save its genome file.
+        </div>
+      </div>
+
+      <!-- Step 4 -->
+      <div class="step">
+        <div class="step-header">
+          <div class="step-number">4</div>
+          <h3>Read the Gene Grid</h3>
+        </div>
+        <p>Click a pet to see its gene visualization grid. Each dot represents a single gene, organized by chromosome (rows) and position (columns). The colors and patterns encode what each gene does.</p>
+        <div class="step-image">
+          <img src="images/quickstart/04-gene-grid.png" alt="BeeWasp gene visualization grid with color-coded dots">
+          <div class="caption">The gene grid for a BeeWasp &mdash; 10 chromosomes of color-coded gene dots</div>
+        </div>
+
+        <div class="legend-section" style="margin-top: 24px;">
+          <h4>Gene Dot Legend</h4>
+          <div class="legend-grid">
+            <div class="legend-item">
+              <div class="legend-dot positive"></div>
+              <span>Positive effect</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-dot potential-positive"></div>
+              <span>Potential positive</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-dot negative"></div>
+              <span>Negative effect</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-dot potential-negative"></div>
+              <span>Potential negative</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-dot neutral"></div>
+              <span>Neutral / no effect</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-dot unknown"></div>
+              <span>Unknown effect</span>
+            </div>
+          </div>
+          <h4 style="margin-top: 20px;">Gene Type</h4>
+          <div class="legend-grid">
+            <div class="legend-item">
+              <div class="legend-dot dominant"></div>
+              <span>Dominant (solid fill)</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-dot recessive"></div>
+              <span>Recessive (ring only)</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-dot mixed"></div>
+              <span>Mixed (diagonal)</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-dot unknown"></div>
+              <span>Unknown (dashed)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 5 -->
+      <div class="step">
+        <div class="step-header">
+          <div class="step-number">5</div>
+          <h3>Inspect Individual Genes</h3>
+        </div>
+        <p><strong>Hover over any gene dot</strong> to see a tooltip with detailed information: the gene's ID, whether it's Dominant (D) or Recessive (R), and its current effect. This is the quickest way to understand what a specific gene is doing.</p>
+        <div class="step-image">
+          <img src="images/quickstart/06-gene-tooltip.png" alt="Gene grid with tooltip popup showing gene ID, type, and current effect on hover">
+          <div class="caption">Hover any dot to see its tooltip &mdash; gene ID, type (Dominant/Recessive), and current effect</div>
+        </div>
+        <div class="tip-box">
+          <strong>Tip:</strong> Dominant genes express their effect when present. Recessive genes only express when no dominant gene overrides them. Mixed genes carry both a dominant and recessive component.
+        </div>
+      </div>
+
+      <!-- Step 6 -->
+      <div class="step">
+        <div class="step-header">
+          <div class="step-number">6</div>
+          <h3>Switch Views &amp; Check Stats</h3>
+        </div>
+        <p>Use the buttons in the top-right corner to switch between views:</p>
+        <ul>
+          <li><strong>Attributes</strong> &mdash; colors genes by gameplay attributes (Toughness, Intelligence, etc.)</li>
+          <li><strong>Appearance</strong> &mdash; colors genes by visual traits (body color, wing scale, etc.)</li>
+          <li><strong>Stats</strong> &mdash; opens the stats panel showing a summary of attribute counts and positive/negative breakdowns</li>
+        </ul>
+        <div class="step-image">
+          <img src="images/quickstart/05-view-toggle-highlight.png" alt="View toggle buttons highlighted: Attributes, Appearance, Stats">
+          <div class="caption">The view toggle &mdash; switch between Attributes, Appearance, and Stats</div>
+        </div>
+        <div class="image-row">
+          <div class="step-image">
+            <img src="images/quickstart/08-appearance-view.png" alt="Appearance view showing colorful gene dots grouped by visual traits">
+            <div class="caption">Appearance view &mdash; genes colored by visual traits</div>
+          </div>
+          <div class="step-image">
+            <img src="images/quickstart/07-stats-panel.png" alt="Stats panel showing attribute effect counts and breakdowns">
+            <div class="caption">Stats panel &mdash; attribute counts at a glance</div>
+          </div>
+        </div>
+
+        <p style="margin-top: 24px;">The stats table is interactive &mdash; <strong>click any attribute row</strong> to filter the gene grid down to just that attribute's genes. Everything else dims out so you can see exactly where those genes sit across the chromosomes.</p>
+        <ul>
+          <li><strong>Click</strong> an attribute to select it and filter the grid</li>
+          <li><strong>Ctrl+click</strong> to select multiple attributes at once</li>
+          <li><strong>Alt+click</strong> to hide a specific attribute instead</li>
+          <li>Click the selected attribute again to clear the filter</li>
+        </ul>
+        <div class="step-image">
+          <img src="images/quickstart/15-attribute-filtered.png" alt="Gene grid filtered to show only Intelligence genes, with other genes dimmed and Intelligence row highlighted in the stats panel">
+          <div class="caption">Intelligence selected &mdash; only Intelligence genes remain visible, everything else is dimmed</div>
+        </div>
+      </div>
+
+      <!-- Step 7 -->
+      <div class="step">
+        <div class="step-header">
+          <div class="step-number">7</div>
+          <h3>Horse Breed Filtering</h3>
+        </div>
+        <p>When viewing a Horse pet, breed filter buttons appear above the gene grid (All, St, Kb, Il, etc.). Click a breed to highlight only that breed's relevant genes &mdash; everything else is dimmed so you can focus on what matters for breeding.</p>
+        <div class="image-row">
+          <div class="step-image">
+            <img src="images/quickstart/10-horse-breed-filters.png" alt="Horse gene grid with breed filter buttons highlighted">
+            <div class="caption">Breed filter buttons &mdash; click to focus on a specific breed</div>
+          </div>
+          <div class="step-image">
+            <img src="images/quickstart/11-breed-filtered.png" alt="Horse gene grid filtered to Standardbred with other breed genes dimmed">
+            <div class="caption">Standardbred selected &mdash; non-matching genes are dimmed</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 8 -->
+      <div class="step">
+        <div class="step-header">
+          <div class="step-number">8</div>
+          <h3>Edit Gene Effects</h3>
+        </div>
+        <p>Switch to the <strong>Genes</strong> tab using the button in the top bar. The sidebar shows dropdowns to select an animal type and chromosome.</p>
+        <div class="step-image">
+          <img src="images/quickstart/12-genes-tab.png" alt="Genes tab with animal type and chromosome dropdowns highlighted in the sidebar">
+          <div class="caption">The Genes tab &mdash; select animal type and chromosome, then click Edit Genes</div>
+        </div>
+        <p style="margin-top: 16px;">After clicking <strong>"Edit Genes"</strong>, a table appears with every gene in that chromosome. Use the dropdowns to set the dominant and recessive effects, then click <strong>"Save All Changes"</strong>.</p>
+        <div class="step-image">
+          <img src="images/quickstart/13-gene-editing.png" alt="Gene editing table showing dominant and recessive effect dropdowns for each gene">
+          <div class="caption">The gene editor &mdash; set effects for each gene position</div>
+        </div>
+        <div class="tip-box">
+          <strong>Tip:</strong> Gene effect changes are saved to your local database and immediately reflected in the pet visualization grid.
+        </div>
+      </div>
+
+      <div class="back-link">
+        <a href="index.html#downloads" style="font-size: 1.05rem; font-weight: 600;">Download Gorgonetics &rarr;</a>
+      </div>
+
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="container">
+    <p>
+      Gorgonetics is open source under the MIT license.
+      <a href="https://github.com/gorgonetics/Gorgonetics">GitHub</a> &middot;
+      <a href="https://github.com/gorgonetics/Gorgonetics/releases">All Releases</a>
+    </p>
+    <p style="margin-top: 8px;">
+      Not affiliated with <a href="https://projectgorgon.com">Project Gorgon</a> or Elder Game, LLC.
+    </p>
+  </div>
+</footer>
+
+<div class="lightbox" id="lightbox">
+  <img id="lightbox-img" src="" alt="">
+  <div class="lightbox-hint">Click anywhere or press Esc to close</div>
+</div>
+
+<script>
+  const lightbox = document.getElementById('lightbox');
+  const lightboxImg = document.getElementById('lightbox-img');
+
+  document.querySelectorAll('.step-image img').forEach(img => {
+    img.addEventListener('click', () => {
+      lightboxImg.src = img.src;
+      lightboxImg.alt = img.alt;
+      lightbox.classList.add('open');
+    });
+  });
+
+  lightbox.addEventListener('click', () => {
+    lightbox.classList.remove('open');
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') lightbox.classList.remove('open');
+  });
+</script>
+
+</body>
+</html>
