@@ -4,13 +4,7 @@
  * Falls back to browser APIs when running outside Tauri (tests).
  */
 
-function isTauri(): boolean {
-  try {
-    return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
-  } catch {
-    return false;
-  }
-}
+import { isTauri } from '$lib/utils/environment.js';
 
 async function pickFile(title: string, filterName: string, extensions: string[]): Promise<string | null> {
   if (isTauri()) {
