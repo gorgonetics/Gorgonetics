@@ -2,12 +2,14 @@
 import { onMount } from 'svelte';
 import { initDatabase } from '$lib/services/database.js';
 import { loadDemoPetsIfNeeded, populateGenesIfNeeded } from '$lib/services/demoService.js';
+import { runMigrations } from '$lib/services/migrationService.js';
 
 const { children } = $props();
 let ready = $state(false);
 
 onMount(async () => {
   await initDatabase();
+  await runMigrations();
   await populateGenesIfNeeded();
   await loadDemoPetsIfNeeded();
   ready = true;

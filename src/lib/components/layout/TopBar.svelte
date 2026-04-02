@@ -1,6 +1,7 @@
 <script>
 import logoImg from '$lib/assets/logo.png';
 import { activeTab, appState } from '$lib/stores/pets.js';
+import DataMenu from './DataMenu.svelte';
 
 function switchTab(tab) {
   appState.switchTab(tab);
@@ -12,6 +13,7 @@ function switchTab(tab) {
         <img src={logoImg} alt="Gorgonetics" class="app-logo" />
         <span class="app-name">Gorgonetics</span>
     </div>
+    <div class="top-bar-right">
     <div class="top-bar-tabs">
         <button
             class="tab-btn"
@@ -27,6 +29,8 @@ function switchTab(tab) {
         >
             🧬 Genes
         </button>
+    </div>
+    <DataMenu />
     </div>
 </header>
 
@@ -59,6 +63,12 @@ function switchTab(tab) {
         font-weight: 700;
         color: #111827;
         letter-spacing: -0.025em;
+    }
+
+    .top-bar-right {
+        display: flex;
+        align-items: center;
+        gap: 12px;
     }
 
     .top-bar-tabs {

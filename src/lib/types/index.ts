@@ -137,6 +137,27 @@ export interface AppearanceInfo {
   color_indicator: string;
 }
 
+// --- Backup export/import types ---
+
+export interface GorgonExportMetadata {
+  format: 'gorgonetics-backup';
+  format_version: number;
+  schema_version: number;
+  app_version: string;
+  exported_at: string;
+  record_counts: { genes: number; pets: number };
+}
+
+export interface GorgonExport {
+  metadata: GorgonExportMetadata;
+  data: {
+    genes: Record<string, unknown>[];
+    pets: Record<string, unknown>[];
+  };
+}
+
+export type ImportMode = 'replace' | 'merge';
+
 // --- Visualization types ---
 
 export interface VisualizationGene {
