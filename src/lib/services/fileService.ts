@@ -12,41 +12,25 @@ function isTauri(): boolean {
   }
 }
 
-/**
- * Open a native file dialog to pick a genome file (.txt).
- * Returns the selected file path, or null if cancelled.
- * In non-Tauri context, uses a hidden file input.
- */
-export async function pickGenomeFile(): Promise<string | null> {
+async function pickFile(title: string, filterName: string, extensions: string[]): Promise<string | null> {
   if (isTauri()) {
     const { open } = await import('@tauri-apps/plugin-dialog');
     const result = await open({
       multiple: false,
-      filters: [{ name: 'Genome Files', extensions: ['txt'] }],
-      title: 'Select Genome File',
+      filters: [{ name: filterName, extensions }],
+      title,
     });
     return typeof result === 'string' ? result : null;
   }
-
-  // Browser fallback — return file content via prompt
   return null;
 }
 
-/**
- * Open a native file dialog to pick a JSON file for import.
- * Returns the selected file path, or null if cancelled.
- */
-export async function pickJsonFile(): Promise<string | null> {
-  if (isTauri()) {
-    const { open } = await import('@tauri-apps/plugin-dialog');
-    const result = await open({
-      multiple: false,
-      filters: [{ name: 'JSON Files', extensions: ['json'] }],
-      title: 'Import Gorgonetics Backup',
-    });
-    return typeof result === 'string' ? result : null;
-  }
-  return null;
+export function pickGenomeFile(): Promise<string | null> {
+  return pickFile('Select Genome File', 'Genome Files', ['txt']);
+}
+
+export function pickJsonFile(): Promise<string | null> {
+  return pickFile('Import Gorgonetics Backup', 'JSON Files', ['json']);
 }
 
 /**

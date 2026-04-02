@@ -4,6 +4,8 @@
  * Supports two import modes: 'replace' (clear + restore) and 'merge' (skip duplicates).
  */
 
+declare const __APP_VERSION__: string;
+
 import type { GorgonExport, ImportMode } from '$lib/types/index.js';
 import { getDb } from './database.js';
 import { saveExportFile } from './fileService.js';
@@ -11,7 +13,7 @@ import { CURRENT_SCHEMA_VERSION, getSchemaVersion } from './migrationService.js'
 
 const EXPORT_FORMAT = 'gorgonetics-backup' as const;
 const EXPORT_FORMAT_VERSION = 1;
-const APP_VERSION = '0.1.1';
+const APP_VERSION = __APP_VERSION__;
 
 const GENE_COLUMNS = [
   'animal_type',
@@ -144,7 +146,6 @@ export async function importDatabase(
   const backup = parseBackup(jsonContent);
   const db = getDb();
 
-  let genesImported = 0;
   let petsImported = 0;
   let petsSkipped = 0;
 
@@ -153,41 +154,42 @@ export async function importDatabase(
     await db.execute('DELETE FROM genes');
   }
 
-  // Import genes (upsert via INSERT OR REPLACE — works for both modes)
+  // Pre-compute SQL strings (invariant across iterations)
+  const genePlaceholders = GENE_COLUMNS.map(() => '?').join(', ');
+  const geneSQL = `INSERT OR REPLACE INTO genes (${GENE_COLUMNS.join(', ')}) VALUES (${genePlaceholders})`;
+  const petPlaceholders = PET_COLUMNS.map(() => '?').join(', ');
+  const petSQL = `INSERT INTO pets (${PET_COLUMNS.join(', ')}) VALUES (${petPlaceholders})`;
+
   for (const gene of backup.data.genes) {
-    const placeholders = GENE_COLUMNS.map(() => '?').join(', ');
     const values = GENE_COLUMNS.map((col) => gene[col] ?? null);
-    await db.execute(`INSERT OR REPLACE INTO genes (${GENE_COLUMNS.join(', ')}) VALUES (${placeholders})`, values);
-    genesImported++;
+    await db.execute(geneSQL, values);
   }
 
-  // Import pets
+  // Pre-fetch existing content hashes for merge dedup (avoids N+1 queries)
+  let existingHashes: Set<unknown> | null = null;
+  if (mode === 'merge') {
+    const rows = await db.select<{ content_hash: string }[]>('SELECT content_hash FROM pets');
+    existingHashes = new Set(rows.map((r) => r.content_hash));
+  }
+
   for (const pet of backup.data.pets) {
-    // Re-stringify genome_data if it was parsed to an object during export
+    if (existingHashes?.has(pet.content_hash)) {
+      petsSkipped++;
+      continue;
+    }
+
     let genomeData = pet.genome_data;
     if (typeof genomeData === 'object' && genomeData !== null) {
       genomeData = JSON.stringify(genomeData);
     }
 
-    if (mode === 'merge') {
-      // Check if a pet with this content_hash already exists
-      const existing = await db.select<{ cnt: number }[]>('SELECT COUNT(*) as cnt FROM pets WHERE content_hash = ?', [
-        pet.content_hash,
-      ]);
-      if (existing[0]?.cnt > 0) {
-        petsSkipped++;
-        continue;
-      }
-    }
-
-    const placeholders = PET_COLUMNS.map(() => '?').join(', ');
     const values = PET_COLUMNS.map((col) => {
       if (col === 'genome_data') return genomeData;
       return pet[col] ?? null;
     });
-    await db.execute(`INSERT INTO pets (${PET_COLUMNS.join(', ')}) VALUES (${placeholders})`, values);
+    await db.execute(petSQL, values);
     petsImported++;
   }
 
-  return { genes: genesImported, pets: petsImported, skipped: petsSkipped };
+  return { genes: backup.data.genes.length, pets: petsImported, skipped: petsSkipped };
 }

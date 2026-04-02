@@ -3,9 +3,13 @@ import { exportDatabase, importDatabase } from '$lib/services/backupService.js';
 import { pickJsonFile, readFileContent } from '$lib/services/fileService.js';
 import { appState } from '$lib/stores/pets.js';
 
+/** @type {boolean} */
 let menuOpen = $state(false);
-let confirmDialog = $state(null); // null | 'replace' | 'merge'
-let status = $state(null); // null | { type: 'success' | 'error', message: string }
+/** @type {'replace' | 'merge' | null} */
+let confirmDialog = $state(null);
+/** @type {{ type: 'success' | 'error', message: string } | null} */
+let status = $state(null);
+let statusTimer = 0;
 
 function toggleMenu() {
   menuOpen = !menuOpen;
@@ -69,7 +73,8 @@ async function confirmImport() {
 }
 
 function clearStatusAfterDelay() {
-  setTimeout(() => {
+  clearTimeout(statusTimer);
+  statusTimer = setTimeout(() => {
     status = null;
   }, 5000);
 }
