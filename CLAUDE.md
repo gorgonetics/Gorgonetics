@@ -15,6 +15,10 @@ pnpm run lint:ci             # Biome check (zero errors)
 pnpm run lint:fix            # Auto-fix formatting and lint issues
 ```
 
+### Never Fabricate External Facts
+
+This project relates to the game **Project Gorgon**. Do NOT invent, guess, or assume game mechanics, commands, terminology, URLs, or any other external facts. If you don't know something about the game (or any external system), either leave it out or explicitly flag it as unverified. Misleading users with made-up information is worse than leaving a gap.
+
 ### Development
 - Native app: `pnpm tauri:dev` (launches Tauri + Vite on port 5174)
 - Frontend only: `pnpm dev` (Vite on port 5174)
