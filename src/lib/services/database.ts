@@ -4,6 +4,8 @@
  * Falls back to an in-memory store when running outside Tauri (e.g., Playwright tests).
  */
 
+import { isTauri } from '$lib/utils/environment.js';
+
 let db: DatabaseAdapter | null = null;
 
 interface QueryResult {
@@ -230,16 +232,6 @@ class InMemoryDatabase implements DatabaseAdapter {
       }
     }
     return true;
-  }
-}
-
-// --- Detect Tauri context ---
-
-function isTauri(): boolean {
-  try {
-    return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
-  } catch {
-    return false;
   }
 }
 
