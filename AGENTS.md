@@ -149,7 +149,7 @@ pnpm test:e2e                     # Playwright E2E tests
 - Use `getDb()` from `database.ts` for all SQL queries
 - `initDatabase()` called once in AuthWrapper on app startup
 - In-memory fallback auto-detected when not running in Tauri
-- Prefer named parameters (`$name`) over positional `?` placeholders in SQL queries for clarity
+- Currently uses positional `?` placeholders; planned migration to named `$name` parameters (#67)
 
 ### Master-Detail Layout
 - MasterPanel (left, 260px): PetList or GeneEditor based on active tab

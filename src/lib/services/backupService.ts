@@ -126,8 +126,8 @@ function parseBackup(jsonContent: string): GorgonExport {
     );
   }
 
-  if (!backup.data?.genes || !backup.data?.pets) {
-    throw new Error('Backup file is missing data sections.');
+  if (!Array.isArray(backup.data?.genes) || !Array.isArray(backup.data?.pets)) {
+    throw new Error('Backup file is missing or has invalid data sections.');
   }
 
   return backup;

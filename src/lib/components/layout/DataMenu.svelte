@@ -80,7 +80,9 @@ function clearStatusAfterDelay() {
 }
 
 function handleClickOutside(event) {
-  if (menuOpen && !event.target.closest('.data-menu')) {
+  const target = event.target;
+  if (!(target instanceof Element)) return;
+  if (menuOpen && !target.closest('.data-menu')) {
     closeMenu();
   }
 }
