@@ -22,10 +22,16 @@ interface DatabaseAdapter {
 class InMemoryDatabase implements DatabaseAdapter {
   private tables: Record<string, Record<string, unknown>[]> = {};
   private autoIncrements: Record<string, number> = {};
+  private userVersion = 0;
 
   async select<T>(query: string, bindValues: unknown[] = []): Promise<T> {
     // Normalize multi-line SQL to single line for regex matching
     const q = query.replace(/\s+/g, ' ').trim().toLowerCase();
+
+    // PRAGMA user_version (read)
+    if (q.includes('pragma user_version')) {
+      return [{ user_version: this.userVersion }] as T;
+    }
 
     // COUNT queries
     const countMatch = q.match(/select\s+count\(\*\)\s+as\s+(\w+)\s+from\s+(\w+)/i);
@@ -78,6 +84,13 @@ class InMemoryDatabase implements DatabaseAdapter {
   async execute(query: string, bindValues: unknown[] = []): Promise<QueryResult> {
     const q = query.replace(/\s+/g, ' ').trim();
     const qLower = q.toLowerCase();
+
+    // PRAGMA user_version = N (write)
+    const pragmaMatch = qLower.match(/pragma\s+user_version\s*=\s*(\d+)/);
+    if (pragmaMatch) {
+      this.userVersion = Number.parseInt(pragmaMatch[1], 10);
+      return { rowsAffected: 0, lastInsertId: 0 };
+    }
 
     // CREATE TABLE
     if (qLower.startsWith('create table')) {
