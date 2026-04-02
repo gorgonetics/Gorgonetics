@@ -379,7 +379,7 @@ function getGeneEffect(species, geneId, geneType) {
 
   const speciesKey = normalizeSpecies(species);
 
-  const geneData = geneEffectsDB[speciesKey] && geneEffectsDB[speciesKey][geneId];
+  const geneData = geneEffectsDB[speciesKey]?.[geneId];
 
   if (!geneData) {
     return 'No gene data found';
@@ -407,11 +407,10 @@ function getGeneAppearance(species, geneId) {
 
   const speciesKey = normalizeSpecies(species);
 
-  const geneData = geneEffectsDB[speciesKey] && geneEffectsDB[speciesKey][geneId];
+  const geneData = geneEffectsDB[speciesKey]?.[geneId];
 
   if (
-    !geneData ||
-    !geneData.appearance ||
+    !geneData?.appearance ||
     geneData.appearance === 'None' ||
     geneData.appearance.includes('String for me to fill')
   ) {
@@ -818,7 +817,7 @@ async function updateVisualization() {
 }
 
 async function createGeneVisualization() {
-  if (!currentPet || !currentPet.genes) {
+  if (!currentPet?.genes) {
     // Reset to empty state with proper structure
     headerStructure = null;
     chromosomeData = [];

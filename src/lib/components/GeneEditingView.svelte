@@ -174,7 +174,7 @@ function toggleDropdown(geneId, field, event) {
     setTimeout(() => {
       const trigger = event.target;
       const dropdown = trigger.nextElementSibling;
-      if (dropdown && dropdown.classList.contains('dropdown')) {
+      if (dropdown?.classList.contains('dropdown')) {
         const rect = trigger.getBoundingClientRect();
         const dropdownHeight = dropdown.offsetHeight;
         const viewportHeight = window.innerHeight;
