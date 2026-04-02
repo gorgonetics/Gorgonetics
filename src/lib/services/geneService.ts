@@ -26,8 +26,8 @@ export async function getAnimalTypes(): Promise<string[]> {
 export async function getChromosomes(animalType: string): Promise<string[]> {
   const db = getDb();
   const rows = await db.select<{ chromosome: string }[]>(
-    'SELECT DISTINCT chromosome FROM genes WHERE animal_type = ? ORDER BY chromosome',
-    [animalType],
+    'SELECT DISTINCT chromosome FROM genes WHERE animal_type = $animalType ORDER BY chromosome',
+    { animalType },
   );
   return rows.map((r) => r.chromosome);
 }
@@ -41,9 +41,9 @@ export async function getGenesByChromosome(animalType: string, chromosome: strin
     `SELECT animal_type, chromosome, gene, effectDominant, effectRecessive,
             appearance, breed, notes, created_at
      FROM genes
-     WHERE animal_type = ? AND chromosome = ?
+     WHERE animal_type = $animalType AND chromosome = $chromosome
      ORDER BY gene`,
-    [animalType, chromosome],
+    { animalType, chromosome },
   );
 }
 
@@ -55,8 +55,8 @@ export async function getGene(animalType: string, gene: string): Promise<Record<
   const rows = await db.select<Record<string, string>[]>(
     `SELECT animal_type, chromosome, gene, effectDominant, effectRecessive,
             appearance, breed, notes, created_at
-     FROM genes WHERE animal_type = ? AND gene = ?`,
-    [animalType, gene],
+     FROM genes WHERE animal_type = $animalType AND gene = $gene`,
+    { animalType, gene },
   );
   return rows.length > 0 ? rows[0] : null;
 }
@@ -69,8 +69,8 @@ export async function getGenesForAnimal(animalType: string): Promise<Record<stri
   return db.select(
     `SELECT animal_type, chromosome, gene, effectDominant, effectRecessive,
             appearance, breed, notes, created_at
-     FROM genes WHERE animal_type = ? ORDER BY chromosome, gene`,
-    [animalType],
+     FROM genes WHERE animal_type = $animalType ORDER BY chromosome, gene`,
+    { animalType },
   );
 }
 
@@ -80,22 +80,26 @@ export async function getGenesForAnimal(animalType: string): Promise<Record<stri
 export async function updateGene(animalType: string, gene: string, updates: Record<string, string>): Promise<boolean> {
   const db = getDb();
   const setClauses: string[] = [];
-  const values: unknown[] = [];
+  const params: Record<string, unknown> = {};
 
   for (const [field, value] of Object.entries(updates)) {
     if (!['animal_type', 'gene', 'created_at'].includes(field)) {
-      setClauses.push(`${field} = ?`);
-      values.push(value);
+      setClauses.push(`${field} = $${field}`);
+      params[field] = value;
     }
   }
 
   if (setClauses.length === 0) return false;
 
-  setClauses.push('updated_at = ?');
-  values.push(now());
-  values.push(animalType, gene);
+  setClauses.push('updated_at = $updated_at');
+  params.updated_at = now();
+  params.w_animal_type = animalType;
+  params.w_gene = gene;
 
-  await db.execute(`UPDATE genes SET ${setClauses.join(', ')} WHERE animal_type = ? AND gene = ?`, values);
+  await db.execute(
+    `UPDATE genes SET ${setClauses.join(', ')} WHERE animal_type = $w_animal_type AND gene = $w_gene`,
+    params,
+  );
   return true;
 }
 
@@ -135,19 +139,19 @@ export async function upsertGene(
   await db.execute(
     `INSERT OR REPLACE INTO genes
      (animal_type, chromosome, gene, effectDominant, effectRecessive, appearance, breed, notes, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      animalType,
+     VALUES ($animal_type, $chromosome, $gene, $effectDominant, $effectRecessive, $appearance, $breed, $notes, $created_at, $updated_at)`,
+    {
+      animal_type: animalType,
       chromosome,
       gene,
-      data.effectDominant ?? 'None',
-      data.effectRecessive ?? 'None',
-      data.appearance ?? 'None',
-      data.breed ?? '',
-      data.notes ?? '',
-      ts,
-      ts,
-    ],
+      effectDominant: data.effectDominant ?? 'None',
+      effectRecessive: data.effectRecessive ?? 'None',
+      appearance: data.appearance ?? 'None',
+      breed: data.breed ?? '',
+      notes: data.notes ?? '',
+      created_at: ts,
+      updated_at: ts,
+    },
   );
 }
 

@@ -94,25 +94,26 @@ export async function getAllPets(options?: {
 }): Promise<{ items: Pet[]; total: number }> {
   const db = getDb();
   const conditions: string[] = [];
-  const params: unknown[] = [];
 
+  const bindParams: Record<string, unknown> = {};
   if (options?.species) {
-    conditions.push('species = ?');
-    params.push(options.species);
+    conditions.push('species = $species');
+    bindParams.species = options.species;
   }
 
   const where = conditions.length > 0 ? ` WHERE ${conditions.join(' AND ')}` : '';
 
   // Get total count
-  const countRows = await db.select<{ cnt: number }[]>(`SELECT COUNT(*) as cnt FROM pets${where}`, params);
+  const countRows = await db.select<{ cnt: number }[]>(`SELECT COUNT(*) as cnt FROM pets${where}`, bindParams);
   const total = countRows[0].cnt;
 
   // Get paginated results
   let query = `SELECT * FROM pets${where} ORDER BY name`;
-  const selectParams = [...params];
+  const selectParams = { ...bindParams };
   if (options?.limit !== undefined) {
-    query += ` LIMIT ? OFFSET ?`;
-    selectParams.push(options.limit, options.offset ?? 0);
+    query += ' LIMIT $limit OFFSET $offset';
+    selectParams.limit = options.limit;
+    selectParams.offset = options.offset ?? 0;
   }
 
   const rows = await db.select<Record<string, unknown>[]>(query, selectParams);
@@ -126,7 +127,7 @@ export async function getAllPets(options?: {
  */
 export async function getPet(petId: number): Promise<Pet | null> {
   const db = getDb();
-  const rows = await db.select<Record<string, unknown>[]>('SELECT * FROM pets WHERE id = ?', [petId]);
+  const rows = await db.select<Record<string, unknown>[]>('SELECT * FROM pets WHERE id = $id', { id: petId });
   return rows.length > 0 ? enrichPet(rows[0]) : null;
 }
 
@@ -182,27 +183,28 @@ export async function uploadPet(
      (name, species, gender, breeder, content_hash, genome_data, notes,
       created_at, updated_at,
       intelligence, toughness, friendliness, ruggedness, enthusiasm, virility, ferocity, temperament)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?,
-             ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      petName,
-      genome.genome_type,
+     VALUES ($name, $species, $gender, $breeder, $content_hash, $genome_data, $notes,
+             $created_at, $updated_at,
+             $intelligence, $toughness, $friendliness, $ruggedness, $enthusiasm, $virility, $ferocity, $temperament)`,
+    {
+      name: petName,
+      species: genome.genome_type,
       gender,
-      genome.breeder,
-      contentHash,
-      genomeJson,
-      notes ?? '',
-      ts,
-      ts,
-      defaults.intelligence ?? 50,
-      defaults.toughness ?? 50,
-      defaults.friendliness ?? 50,
-      defaults.ruggedness ?? 50,
-      defaults.enthusiasm ?? 50,
-      defaults.virility ?? 50,
-      defaults.ferocity ?? 50,
-      defaults.temperament ?? 50,
-    ],
+      breeder: genome.breeder,
+      content_hash: contentHash,
+      genome_data: genomeJson,
+      notes: notes ?? '',
+      created_at: ts,
+      updated_at: ts,
+      intelligence: defaults.intelligence ?? 50,
+      toughness: defaults.toughness ?? 50,
+      friendliness: defaults.friendliness ?? 50,
+      ruggedness: defaults.ruggedness ?? 50,
+      enthusiasm: defaults.enthusiasm ?? 50,
+      virility: defaults.virility ?? 50,
+      ferocity: defaults.ferocity ?? 50,
+      temperament: defaults.temperament ?? 50,
+    },
   );
 
   return {
@@ -236,7 +238,7 @@ const UPDATABLE_COLUMNS = new Set([
 export async function updatePet(petId: number, updates: Record<string, unknown>): Promise<boolean> {
   const db = getDb();
   const setClauses: string[] = [];
-  const values: unknown[] = [];
+  const params: Record<string, unknown> = {};
 
   // Flatten nested `attributes` object into top-level fields
   const flat: Record<string, unknown> = {};
@@ -250,22 +252,17 @@ export async function updatePet(petId: number, updates: Record<string, unknown>)
 
   for (const [field, value] of Object.entries(flat)) {
     if (!UPDATABLE_COLUMNS.has(field)) continue;
-    if (field === 'genome_data') {
-      setClauses.push(`${field} = ?`);
-      values.push(typeof value === 'string' ? value : JSON.stringify(value));
-    } else {
-      setClauses.push(`${field} = ?`);
-      values.push(value);
-    }
+    setClauses.push(`${field} = $${field}`);
+    params[field] = field === 'genome_data' && typeof value !== 'string' ? JSON.stringify(value) : value;
   }
 
   if (setClauses.length === 0) return false;
 
-  setClauses.push('updated_at = ?');
-  values.push(now());
-  values.push(petId);
+  setClauses.push('updated_at = $updated_at');
+  params.updated_at = now();
+  params.w_id = petId;
 
-  await db.execute(`UPDATE pets SET ${setClauses.join(', ')} WHERE id = ?`, values);
+  await db.execute(`UPDATE pets SET ${setClauses.join(', ')} WHERE id = $w_id`, params);
   return true;
 }
 
@@ -274,7 +271,7 @@ export async function updatePet(petId: number, updates: Record<string, unknown>)
  */
 export async function deletePet(petId: number): Promise<boolean> {
   const db = getDb();
-  const result = await db.execute('DELETE FROM pets WHERE id = ?', [petId]);
+  const result = await db.execute('DELETE FROM pets WHERE id = $id', { id: petId });
   return result.rowsAffected > 0;
 }
 
@@ -283,7 +280,9 @@ export async function deletePet(petId: number): Promise<boolean> {
  */
 export async function findPetByHash(contentHash: string): Promise<Pet | null> {
   const db = getDb();
-  const rows = await db.select<Record<string, unknown>[]>('SELECT * FROM pets WHERE content_hash = ?', [contentHash]);
+  const rows = await db.select<Record<string, unknown>[]>('SELECT * FROM pets WHERE content_hash = $hash', {
+    hash: contentHash,
+  });
   return rows.length > 0 ? enrichPet(rows[0]) : null;
 }
 

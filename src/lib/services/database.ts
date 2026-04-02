@@ -13,9 +13,11 @@ interface QueryResult {
   lastInsertId: number;
 }
 
+type BindValues = unknown[] | Record<string, unknown>;
+
 interface DatabaseAdapter {
-  select<T>(query: string, bindValues?: unknown[]): Promise<T>;
-  execute(query: string, bindValues?: unknown[]): Promise<QueryResult>;
+  select<T>(query: string, bindValues?: BindValues): Promise<T>;
+  execute(query: string, bindValues?: BindValues): Promise<QueryResult>;
   close(): Promise<void>;
 }
 
@@ -27,9 +29,21 @@ class InMemoryDatabase implements DatabaseAdapter {
   private userVersion = 0;
   private snapshot: { tables: string; autoIncrements: string; userVersion: number } | null = null;
 
-  async select<T>(query: string, bindValues: unknown[] = []): Promise<T> {
+  /** Convert $name parameters to positional ? so internal logic stays unchanged. */
+  private resolveParams(query: string, bindValues: BindValues = []): { query: string; values: unknown[] } {
+    if (Array.isArray(bindValues)) return { query, values: bindValues };
+    const values: unknown[] = [];
+    const resolved = query.replace(/\$(\w+)/g, (_, name) => {
+      values.push((bindValues as Record<string, unknown>)[name]);
+      return '?';
+    });
+    return { query: resolved, values };
+  }
+
+  async select<T>(query: string, bindValues: BindValues = []): Promise<T> {
+    const { query: q0, values } = this.resolveParams(query, bindValues);
     // Normalize multi-line SQL to single line for regex matching
-    const q = query.replace(/\s+/g, ' ').trim().toLowerCase();
+    const q = q0.replace(/\s+/g, ' ').trim().toLowerCase();
 
     // PRAGMA user_version (read)
     if (q.includes('pragma user_version')) {
@@ -41,7 +55,7 @@ class InMemoryDatabase implements DatabaseAdapter {
     if (countMatch) {
       const [, alias, table] = countMatch;
       const rows = this.getTable(table);
-      const filtered = this.applyWhere(rows, q, bindValues);
+      const filtered = this.applyWhere(rows, q, values);
       return [{ [alias]: filtered.length }] as T;
     }
 
@@ -50,7 +64,7 @@ class InMemoryDatabase implements DatabaseAdapter {
     if (distinctMatch) {
       const [, col, table] = distinctMatch;
       const rows = this.getTable(table);
-      const filtered = this.applyWhere(rows, q, bindValues);
+      const filtered = this.applyWhere(rows, q, values);
       const unique = [...new Set(filtered.map((r) => r[col]))].sort();
       return unique.map((v) => ({ [col]: v })) as T;
     }
@@ -60,7 +74,7 @@ class InMemoryDatabase implements DatabaseAdapter {
     if (selectMatch) {
       const table = selectMatch[1];
       const rows = this.getTable(table);
-      let filtered = this.applyWhere(rows, q, bindValues);
+      let filtered = this.applyWhere(rows, q, values);
 
       // ORDER BY
       const orderMatch = q.match(/order\s+by\s+(\w+)/);
@@ -73,8 +87,8 @@ class InMemoryDatabase implements DatabaseAdapter {
       const limitMatch = q.match(/limit\s+(\?)\s+offset\s+(\?)/);
       if (limitMatch) {
         const whereParamCount = q.match(/where/i) ? q.split('?').length - 1 - 2 : 0;
-        const limit = Number(bindValues[whereParamCount]);
-        const offset = Number(bindValues[whereParamCount + 1]);
+        const limit = Number(values[whereParamCount]);
+        const offset = Number(values[whereParamCount + 1]);
         filtered = filtered.slice(offset, offset + limit);
       }
 
@@ -84,8 +98,9 @@ class InMemoryDatabase implements DatabaseAdapter {
     return [] as T;
   }
 
-  async execute(query: string, bindValues: unknown[] = []): Promise<QueryResult> {
-    const q = query.replace(/\s+/g, ' ').trim();
+  async execute(query: string, bindValues: BindValues = []): Promise<QueryResult> {
+    const { query: q0, values: bindArr } = this.resolveParams(query, bindValues);
+    const q = q0.replace(/\s+/g, ' ').trim();
     const qLower = q.toLowerCase();
 
     // PRAGMA user_version = N (write)
@@ -145,7 +160,7 @@ class InMemoryDatabase implements DatabaseAdapter {
         const row: Record<string, unknown> = {};
         let paramIdx = 0;
         for (const col of cols) {
-          row[col] = bindValues[paramIdx++];
+          row[col] = bindArr[paramIdx++];
         }
 
         // Handle AUTOINCREMENT for 'id' column
@@ -194,7 +209,7 @@ class InMemoryDatabase implements DatabaseAdapter {
 
         // Parse WHERE conditions
         const whereSection = q.match(/where\s+(.+)$/i);
-        const whereParams = bindValues.slice(setParamCount);
+        const whereParams = bindArr.slice(setParamCount);
 
         let affected = 0;
         for (const row of rows) {
@@ -203,7 +218,7 @@ class InMemoryDatabase implements DatabaseAdapter {
             for (const clause of setClauses) {
               const [col] = clause.split('=').map((s) => s.trim());
               if (clause.includes('?')) {
-                row[col] = bindValues[paramIdx++];
+                row[col] = bindArr[paramIdx++];
               }
             }
             affected++;
@@ -220,7 +235,7 @@ class InMemoryDatabase implements DatabaseAdapter {
         const table = tableMatch[1].toLowerCase();
         const rows = this.getTable(table);
         const before = rows.length;
-        this.tables[table] = rows.filter((r) => !this.matchesWhere(r, qLower.split('where')[1] ?? '', bindValues));
+        this.tables[table] = rows.filter((r) => !this.matchesWhere(r, qLower.split('where')[1] ?? '', bindArr));
         return { rowsAffected: before - this.tables[table].length, lastInsertId: 0 };
       }
     }
