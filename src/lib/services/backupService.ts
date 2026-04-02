@@ -75,13 +75,14 @@ export async function exportDatabase(): Promise<boolean> {
     return copy;
   });
 
+  const now = new Date();
   const backup: GorgonExport = {
     metadata: {
       format: EXPORT_FORMAT,
       format_version: EXPORT_FORMAT_VERSION,
       schema_version: schemaVersion || CURRENT_SCHEMA_VERSION,
       app_version: APP_VERSION,
-      exported_at: new Date().toISOString(),
+      exported_at: now.toISOString(),
       record_counts: {
         genes: genes.length,
         pets: pets.length,
@@ -93,7 +94,7 @@ export async function exportDatabase(): Promise<boolean> {
     },
   };
 
-  const dateStr = new Date().toISOString().split('T')[0];
+  const dateStr = now.toISOString().split('T')[0];
   const filename = `gorgonetics-backup-${dateStr}.json`;
   return saveExportFile(filename, JSON.stringify(backup, null, 2));
 }
@@ -166,7 +167,7 @@ export async function importDatabase(
   }
 
   // Pre-fetch existing content hashes for merge dedup (avoids N+1 queries)
-  let existingHashes: Set<unknown> | null = null;
+  let existingHashes: Set<string> | null = null;
   if (mode === 'merge') {
     const rows = await db.select<{ content_hash: string }[]>('SELECT content_hash FROM pets');
     existingHashes = new Set(rows.map((r) => r.content_hash));

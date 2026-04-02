@@ -1,4 +1,5 @@
 <script>
+import { onDestroy } from 'svelte';
 import { exportDatabase, importDatabase } from '$lib/services/backupService.js';
 import { pickJsonFile, readFileContent } from '$lib/services/fileService.js';
 import { appState } from '$lib/stores/pets.js';
@@ -33,14 +34,9 @@ async function handleExport() {
   clearStatusAfterDelay();
 }
 
-function handleImportReplace() {
+function handleImport(mode) {
   closeMenu();
-  confirmDialog = 'replace';
-}
-
-function handleImportMerge() {
-  closeMenu();
-  confirmDialog = 'merge';
+  confirmDialog = mode;
 }
 
 function cancelConfirm() {
@@ -64,7 +60,7 @@ async function confirmImport() {
     }
     status = { type: 'success', message };
 
-    // Reload the pet list
+    // Store cache is stale after direct DB import
     await appState.loadPets();
   } catch (err) {
     status = { type: 'error', message: `Import failed: ${err.message}` };
@@ -78,6 +74,8 @@ function clearStatusAfterDelay() {
     status = null;
   }, 5000);
 }
+
+onDestroy(() => clearTimeout(statusTimer));
 
 function handleClickOutside(event) {
   const target = event.target;
@@ -109,7 +107,7 @@ function handleClickOutside(event) {
         </svg>
         Export Data
       </button>
-      <button class="dropdown-item" onclick={handleImportReplace}>
+      <button class="dropdown-item" onclick={() => handleImport('replace')}>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
           <polyline points="17 8 12 3 7 8"/>
@@ -117,7 +115,7 @@ function handleClickOutside(event) {
         </svg>
         Import (Replace)
       </button>
-      <button class="dropdown-item" onclick={handleImportMerge}>
+      <button class="dropdown-item" onclick={() => handleImport('merge')}>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="18" cy="18" r="3"/>
           <circle cx="6" cy="6" r="3"/>

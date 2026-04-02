@@ -54,7 +54,7 @@ export async function saveExportFile(defaultFilename: string, content: string): 
     const path = await save({
       defaultPath: defaultFilename,
       filters: [{ name: 'JSON Files', extensions: ['json'] }],
-      title: 'Export Genes',
+      title: 'Export Gorgonetics Backup',
     });
     if (!path) return false;
     await writeTextFile(path, content);

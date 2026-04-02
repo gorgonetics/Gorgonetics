@@ -13,11 +13,6 @@ interface Migration {
 }
 
 /**
- * Current schema version. Bump this when adding new migrations.
- */
-export const CURRENT_SCHEMA_VERSION = 1;
-
-/**
  * Ordered list of migrations.
  * v1 is the baseline (genes + pets tables created by initDatabase).
  */
@@ -30,6 +25,9 @@ const MIGRATIONS: Migration[] = [
     },
   },
 ];
+
+/** Derived from the last migration — no manual bookkeeping needed. */
+export const CURRENT_SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1].version;
 
 /**
  * Read the current schema version from the database.
