@@ -128,7 +128,7 @@ function handleClickOutside(event) {
 </div>
 
 {#if confirmDialog}
-  <div class="overlay" onclick={cancelConfirm}>
+  <div class="modal-backdrop" onclick={cancelConfirm}>
     <div class="confirm-dialog" onclick={(e) => e.stopPropagation()}>
       {#if confirmDialog === 'replace'}
         <h3>Replace all data?</h3>
@@ -138,8 +138,8 @@ function handleClickOutside(event) {
         <p>New pets will be added. Pets that already exist (same genome) will be skipped. Gene definitions will be updated from the backup.</p>
       {/if}
       <div class="confirm-actions">
-        <button class="btn-cancel" onclick={cancelConfirm}>Cancel</button>
-        <button class="btn-confirm" class:btn-danger={confirmDialog === 'replace'} onclick={confirmImport}>
+        <button class="btn btn-secondary" onclick={cancelConfirm}>Cancel</button>
+        <button class="btn" class:btn-danger={confirmDialog === 'replace'} class:btn-primary={confirmDialog !== 'replace'} onclick={confirmImport}>
           {confirmDialog === 'replace' ? 'Replace All Data' : 'Merge Data'}
         </button>
       </div>
@@ -212,16 +212,6 @@ function handleClickOutside(event) {
     background: #f3f4f6;
   }
 
-  .overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.4);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 200;
-  }
-
   .confirm-dialog {
     background: #ffffff;
     border-radius: 12px;
@@ -249,44 +239,6 @@ function handleClickOutside(event) {
     display: flex;
     gap: 8px;
     justify-content: flex-end;
-  }
-
-  .btn-cancel {
-    padding: 8px 16px;
-    border: 1px solid #e5e7eb;
-    border-radius: 6px;
-    background: #ffffff;
-    color: #374151;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-  }
-
-  .btn-cancel:hover {
-    background: #f3f4f6;
-  }
-
-  .btn-confirm {
-    padding: 8px 16px;
-    border: none;
-    border-radius: 6px;
-    background: #3b82f6;
-    color: #ffffff;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-  }
-
-  .btn-confirm:hover {
-    background: #2563eb;
-  }
-
-  .btn-danger {
-    background: #ef4444;
-  }
-
-  .btn-danger:hover {
-    background: #dc2626;
   }
 
   .toast {

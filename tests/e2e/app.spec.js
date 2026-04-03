@@ -211,7 +211,7 @@ test.describe('Delete Confirmation', () => {
     await expect(page.locator('.confirm-dialog')).toBeVisible();
 
     // Click the backdrop (outside the dialog)
-    await page.locator('.confirm-backdrop').click({ position: { x: 5, y: 5 } });
+    await page.locator('.modal-backdrop').click({ position: { x: 5, y: 5 } });
     await expect(page.locator('.confirm-dialog')).toHaveCount(0);
     expect(await page.locator('.pet-card').count()).toBe(countBefore);
   });

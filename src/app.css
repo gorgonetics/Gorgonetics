@@ -45,36 +45,101 @@
 
 /* html/body height and overflow set via inline styles in app.html
    to ensure they survive Tailwind CSS reset */
-:global(body) {
+body {
   font-family:
     -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Open Sans",
     "Helvetica Neue", sans-serif;
   background-color: #ffffff;
 }
 
-:global(.loading) {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 2rem;
-  color: #6b7280;
-  font-style: italic;
-}
+/* --- Shared button styles --- */
+@layer components {
+  .btn {
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    border: 1px solid transparent;
+  }
 
-:global(.error) {
-  color: #dc2626;
-  background-color: #fef2f2;
-  border: 1px solid #fecaca;
-  border-radius: 6px;
-  padding: 0.75rem;
-  margin: 0.5rem 0;
-}
+  .btn-secondary {
+    background: #ffffff;
+    color: #374151;
+    border-color: #e5e7eb;
+  }
 
-:global(.success) {
-  color: #059669;
-  background-color: #f0fdf4;
-  border: 1px solid #bbf7d0;
-  border-radius: 6px;
-  padding: 0.75rem;
-  margin: 0.5rem 0;
+  .btn-secondary:hover {
+    background: #f9fafb;
+    border-color: #d1d5db;
+  }
+
+  .btn-primary {
+    background: #3b82f6;
+    color: #ffffff;
+    border-color: #3b82f6;
+  }
+
+  .btn-primary:hover {
+    background: #2563eb;
+  }
+
+  .btn-danger {
+    background: #ef4444;
+    color: #ffffff;
+  }
+
+  .btn-danger:hover {
+    background: #dc2626;
+  }
+
+  /* --- Shared modal backdrop --- */
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1100;
+  }
+
+  /* --- Shared metadata styles --- */
+  .meta-dot {
+    margin: 0 4px;
+    color: #d1d5db;
+  }
+
+  .gene-count {
+    color: #3b82f6;
+  }
+
+  /* --- Shared status styles --- */
+  .loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    color: #6b7280;
+    font-style: italic;
+  }
+
+  .error {
+    color: #dc2626;
+    background-color: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 6px;
+    padding: 0.75rem;
+    margin: 0.5rem 0;
+  }
+
+  .success {
+    color: #059669;
+    background-color: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 6px;
+    padding: 0.75rem;
+    margin: 0.5rem 0;
+  }
 }
