@@ -161,8 +161,8 @@ const hiddenLookup = $derived(
                     <tr>
                         <th>Attribute</th>
                         <th class="num" title="Pet's attribute value">Value</th>
-                        <th class="num pos" title="Genes with a positive effect">Pos</th>
-                        <th class="num neg" title="Genes with a negative effect">Neg</th>
+                        <th class="num pos" title="Genes with a positive effect">+</th>
+                        <th class="num neg" title="Genes with a negative effect">−</th>
                         <th class="num" title="Dominant genes (solid fill)">●</th>
                         <th class="num" title="Recessive genes (ring only)">○</th>
                         <th class="num" title="Mixed genes (half fill)">◐</th>
