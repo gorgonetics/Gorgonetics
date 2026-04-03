@@ -1427,7 +1427,6 @@ export function getStatsData() {
     totalGenes,
     neutralGenes,
     petSpecies: currentPet?.species,
-    pet: currentPet,
   };
 }
 </script>

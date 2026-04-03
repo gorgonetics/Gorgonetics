@@ -198,7 +198,7 @@ onDestroy(() => {
                         totalGenes={stats?.totalGenes ?? 0}
                         neutralGenes={stats?.neutralGenes ?? 0}
                         petSpecies={stats?.petSpecies ?? pet?.species}
-                        pet={stats?.pet ?? pet}
+                        pet={pet}
                         on:attributeFilter={handleAttributeFilter}
                     />
                 </div>
