@@ -298,6 +298,10 @@ async function initializeStats() {
       'potential-positive': 0,
       'potential-negative': 0,
       'inactive-breed': 0,
+      // Global gene-type counters (unique genes, not per-attribute)
+      _dominant: 0,
+      _recessive: 0,
+      _mixed: 0,
     };
 
     // Load species-specific attributes, falling back to defaults
@@ -347,6 +351,11 @@ function updateStats(stats, geneAnalysis, geneType) {
   if (currentView === 'attribute') {
     stats[geneAnalysis.type]++;
 
+    // Global gene-type counters (one per unique gene)
+    if (geneType === 'D') stats._dominant++;
+    else if (geneType === 'R') stats._recessive++;
+    else if (geneType === 'x') stats._mixed++;
+
     if (geneAnalysis.attribute && stats[geneAnalysis.attribute]) {
       const attrStats = stats[geneAnalysis.attribute];
 
@@ -355,13 +364,9 @@ function updateStats(stats, geneAnalysis, geneType) {
       else if (geneType === 'R') attrStats.recessive++;
       else if (geneType === 'x') attrStats.mixed++;
 
-      // Normalize type for attribute-specific counting
-      let normalizedType = geneAnalysis.type;
-      if (normalizedType === 'potential-positive') normalizedType = 'positive';
-      else if (normalizedType === 'potential-negative') normalizedType = 'negative';
-
-      if (normalizedType === 'positive' || normalizedType === 'negative') {
-        attrStats[normalizedType]++;
+      // Only count confirmed positive/negative effects (not potential)
+      if (geneAnalysis.type === 'positive' || geneAnalysis.type === 'negative') {
+        attrStats[geneAnalysis.type]++;
       }
     }
   } else {
