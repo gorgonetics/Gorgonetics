@@ -81,7 +81,7 @@ const cssClass = $derived(computeCssClass(gene, geneAnalysis, currentView, isVis
 {/if}
 
 <style>
-    /* Gene colors defined in src/lib/theme/gene-colors.ts, injected as CSS vars in +layout.svelte */
+    /* Gene colors defined as --gene-* CSS vars in :root in src/app.css */
 
     :global(.gene-cell) {
         width: 14px;

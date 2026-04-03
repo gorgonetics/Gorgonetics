@@ -1,9 +1,9 @@
 /**
- * Single source of truth for gene appearance colors.
- * Used by both the gene grid (via CSS custom properties) and the stats table (via configService).
+ * Canonical TypeScript definitions for gene colors, mirrored in src/app.css.
+ * Used by the stats table (via configService) and tooltip logic (via EFFECT_COLORS).
+ * The gene grid reads CSS custom properties defined in :root in src/app.css.
  *
- * To change a color: update it here AND in src/app.css (CSS vars must match).
- * The TS module is the source of truth; app.css provides the CSS custom properties.
+ * To change a color: update it here AND in src/app.css to keep both in sync.
  */
 
 export const EFFECT_COLORS = {
@@ -76,10 +76,3 @@ export function getBeewaspAppearanceColor(category: string): string {
 export function getHorseAppearanceColor(category: string): string {
   return HORSE_APPEARANCE_COLORS[category] ?? '#6b7280';
 }
-
-/** All appearance colors keyed for CSS variable injection (--gene-{key}). */
-export const ALL_GENE_COLORS: Record<string, string> = {
-  ...BEEWASP_APPEARANCE_COLORS,
-  ...HORSE_APPEARANCE_COLORS,
-  ...EFFECT_COLORS,
-};
