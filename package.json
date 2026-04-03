@@ -39,12 +39,10 @@
   },
   "dependencies": {
     "@lucide/svelte": "^1.7.0",
-    "@tailwindcss/vite": "^4.2.2",
     "@tauri-apps/api": "^2.10.1",
     "@tauri-apps/plugin-dialog": "^2.6.0",
     "@tauri-apps/plugin-fs": "^2.4.5",
-    "@tauri-apps/plugin-sql": "^2.3.2",
-    "tailwindcss": "^4.2.2"
+    "@tauri-apps/plugin-sql": "^2.3.2"
   },
   "keywords": [
     "project-gorgon",
