@@ -289,37 +289,36 @@ function generateBlockLetter(index) {
 
 async function initializeStats() {
   if (currentView === 'attribute') {
+    const emptyAttr = () => ({ positive: 0, negative: 0, dominant: 0, recessive: 0, mixed: 0 });
     const stats = {
       positive: 0,
       negative: 0,
       neutral: 0,
       'potential-positive': 0,
       'potential-negative': 0,
+      'inactive-breed': 0,
     };
 
     // Load species-specific attributes from configuration
     if (currentPet?.species) {
       const config = await loadAttributeConfig(currentPet.species);
       if (config) {
-        // Cache attribute names for dynamic detection
         allAttributeNames = config.all_attribute_names.map((name) => name.charAt(0).toUpperCase() + name.slice(1));
 
         config.all_attribute_names.forEach((attrName) => {
           const attrKey = attrName.charAt(0).toUpperCase() + attrName.slice(1);
-          stats[attrKey] = { positive: 0, negative: 0 };
+          stats[attrKey] = emptyAttr();
         });
       } else {
-        // Fallback to default attributes
         allAttributeNames = FALLBACK_ATTRIBUTES;
         FALLBACK_ATTRIBUTES.forEach((attr) => {
-          stats[attr] = { positive: 0, negative: 0 };
+          stats[attr] = emptyAttr();
         });
       }
     } else {
-      // Default attributes if no species specified
       allAttributeNames = FALLBACK_ATTRIBUTES;
       FALLBACK_ATTRIBUTES.forEach((attr) => {
-        stats[attr] = { positive: 0, negative: 0 };
+        stats[attr] = emptyAttr();
       });
     }
 
@@ -347,22 +346,31 @@ async function initializeStats() {
   }
 }
 
-function updateStats(stats, geneAnalysis) {
+function updateStats(stats, geneAnalysis, geneType) {
+  // Skip inactive-breed genes from all stats
+  if (geneAnalysis.type === 'inactive-breed') {
+    stats['inactive-breed']++;
+    return;
+  }
+
   if (currentView === 'attribute') {
     stats[geneAnalysis.type]++;
 
     if (geneAnalysis.attribute && stats[geneAnalysis.attribute]) {
+      const attrStats = stats[geneAnalysis.attribute];
+
+      // Track gene type (D/R/x)
+      if (geneType === 'D') attrStats.dominant++;
+      else if (geneType === 'R') attrStats.recessive++;
+      else if (geneType === 'x') attrStats.mixed++;
+
       // Normalize type for attribute-specific counting
       let normalizedType = geneAnalysis.type;
-      if (normalizedType === 'potential-positive') {
-        normalizedType = 'positive';
-      } else if (normalizedType === 'potential-negative') {
-        normalizedType = 'negative';
-      }
+      if (normalizedType === 'potential-positive') normalizedType = 'positive';
+      else if (normalizedType === 'potential-negative') normalizedType = 'negative';
 
-      // Only increment if it's a positive/negative effect
       if (normalizedType === 'positive' || normalizedType === 'negative') {
-        stats[geneAnalysis.attribute][normalizedType]++;
+        attrStats[normalizedType]++;
       }
     }
   } else {
@@ -882,7 +890,7 @@ async function createGeneVisualization() {
           };
 
           geneAnalysisCache.set(cacheKey, processedAnalysis);
-          updateStats(allStats, processedAnalysis);
+          updateStats(allStats, processedAnalysis, gene.type);
         }
       });
 
@@ -909,7 +917,8 @@ async function createGeneVisualization() {
     }
 
     currentStats = allStats;
-    totalGenes = totalGenesCount;
+    const inactiveCount = allStats['inactive-breed'] || 0;
+    totalGenes = totalGenesCount - inactiveCount;
 
     if (currentView === 'attribute') {
       neutralGenes = allStats.neutral;
@@ -1418,6 +1427,7 @@ export function getStatsData() {
     totalGenes,
     neutralGenes,
     petSpecies: currentPet?.species,
+    pet: currentPet,
   };
 }
 </script>

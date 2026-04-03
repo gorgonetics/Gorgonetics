@@ -19,6 +19,7 @@ const dispatch = createEventDispatcher();
  * @property {number} [totalGenes]
  * @property {number} [neutralGenes]
  * @property {any} [petSpecies]
+ * @property {any} [pet]
  */
 
 /** @type {Props} */
@@ -30,6 +31,7 @@ const {
   totalGenes = 0,
   neutralGenes = 0,
   petSpecies = null,
+  pet = null,
 } = $props();
 
 let attributeList = $state([]);
@@ -65,23 +67,31 @@ async function loadAppearanceConfigForTable(species) {
   }
 }
 
-function calculateGrandTotal() {
-  if (!currentStats) return 0;
+function calculateTotals() {
+  const totals = { value: 0, positive: 0, negative: 0, dominant: 0, recessive: 0, mixed: 0 };
+  if (!currentStats || currentView !== 'attribute') return totals;
 
+  attributeList.forEach((attr) => {
+    const s = currentStats[attr.key];
+    if (!s) return;
+    const attrKey = attr.key.toLowerCase();
+    totals.value += pet?.[attrKey] ?? 0;
+    totals.positive += s.positive || 0;
+    totals.negative += s.negative || 0;
+    totals.dominant += s.dominant || 0;
+    totals.recessive += s.recessive || 0;
+    totals.mixed += s.mixed || 0;
+  });
+  return totals;
+}
+
+function calculateAppearanceGrandTotal() {
+  if (!currentStats) return 0;
   let total = 0;
-  if (currentView === 'attribute') {
-    attributeList.forEach((attr) => {
-      const positiveCount = currentStats[attr.key]?.positive || 0;
-      const negativeCount = currentStats[attr.key]?.negative || 0;
-      total += positiveCount + negativeCount;
-    });
-  } else {
-    // Use dynamic appearance attributes
-    appearanceList.forEach((attr) => {
-      const attrKey = attr.key.replace(/_/g, '-'); // Convert underscores back to dashes for stats
-      total += currentStats[attrKey] || 0;
-    });
-  }
+  appearanceList.forEach((attr) => {
+    const attrKey = attr.key.replace(/_/g, '-');
+    total += currentStats[attrKey] || 0;
+  });
   return total;
 }
 
@@ -96,7 +106,8 @@ function handleAttributeClick(attributeKey, event) {
   });
 }
 
-const grandTotal = $derived(calculateGrandTotal());
+const totals = $derived(calculateTotals());
+const appearanceGrandTotal = $derived(calculateAppearanceGrandTotal());
 run(() => {
   if (petSpecies) {
     loadAttributeConfigForTable(petSpecies);
@@ -146,25 +157,30 @@ const hiddenLookup = $derived(
 
         <table class="stats-table">
             <thead id="tableHeaders">
-                <tr>
-                    <th
-                        >{currentView === "attribute"
-                            ? "Attribute"
-                            : "Effect Type"}</th
-                    >
-                    <th>Count</th>
-                    <th>Details</th>
-                </tr>
+                {#if currentView === "attribute"}
+                    <tr>
+                        <th>Attribute</th>
+                        <th class="num">Value</th>
+                        <th class="num pos">+</th>
+                        <th class="num neg">&minus;</th>
+                        <th class="num" title="Dominant">D</th>
+                        <th class="num" title="Recessive">R</th>
+                        <th class="num" title="Mixed">x</th>
+                    </tr>
+                {:else}
+                    <tr>
+                        <th>Effect Type</th>
+                        <th>Count</th>
+                        <th>Details</th>
+                    </tr>
+                {/if}
             </thead>
             <tbody id="tableBody">
                 {#if currentView === "attribute"}
                     {#each attributeList as attr (attr.key)}
-                        {@const positiveCount =
-                            currentStats?.[attr.key]?.positive || 0}
-                        {@const negativeCount =
-                            currentStats?.[attr.key]?.negative || 0}
-
-                        {@const totalCount = positiveCount + negativeCount}
+                        {@const s = currentStats?.[attr.key] ?? {}}
+                        {@const attrKey = attr.key.toLowerCase()}
+                        {@const value = pet?.[attrKey] ?? 0}
                         <tr
                             class="attribute-row"
                             class:selected={selectedLookup[attr.key]}
@@ -177,21 +193,22 @@ const hiddenLookup = $derived(
                                 {attr.icon}
                                 {attr.name}
                             </td>
-                            <td>{totalCount}</td>
-                            <td>
-                                {#if totalCount > 0}
-                                    {#if positiveCount > 0}+{positiveCount}{/if}{#if negativeCount > 0}
-                                        -{negativeCount}{/if}
-                                {:else}
-                                    <em>None</em>
-                                {/if}
-                            </td>
+                            <td class="num">{value}</td>
+                            <td class="num pos">{s.positive || 0}</td>
+                            <td class="num neg">{s.negative || 0}</td>
+                            <td class="num">{s.dominant || 0}</td>
+                            <td class="num">{s.recessive || 0}</td>
+                            <td class="num">{s.mixed || 0}</td>
                         </tr>
                     {/each}
                     <tr class="totals-row">
-                        <td><strong>Total Effects</strong></td>
-                        <td><strong>{grandTotal}</strong></td>
-                        <td><em>All attributes</em></td>
+                        <td><strong>Total</strong></td>
+                        <td class="num"><strong>{totals.value}</strong></td>
+                        <td class="num pos"><strong>{totals.positive}</strong></td>
+                        <td class="num neg"><strong>{totals.negative}</strong></td>
+                        <td class="num"><strong>{totals.dominant}</strong></td>
+                        <td class="num"><strong>{totals.recessive}</strong></td>
+                        <td class="num"><strong>{totals.mixed}</strong></td>
                     </tr>
                 {:else}
                     {#each appearanceList as type (type.key)}
@@ -225,7 +242,7 @@ const hiddenLookup = $derived(
                     {/each}
                     <tr class="totals-row">
                         <td><strong>Total Effects</strong></td>
-                        <td><strong>{grandTotal}</strong></td>
+                        <td><strong>{appearanceGrandTotal}</strong></td>
                         <td><em>All appearance effects</em></td>
                     </tr>
                 {/if}
@@ -233,14 +250,8 @@ const hiddenLookup = $derived(
         </table>
 
         <div class="summary-info">
-            <span
-                >Total Genes: <span id="totalGenesDisplay">{totalGenes}</span
-                ></span
-            >
-            <span
-                >No Effects: <span id="neutralGenesDisplay">{neutralGenes}</span
-                ></span
-            >
+            <span>Active Genes: <span id="totalGenesDisplay">{totalGenes}</span></span>
+            <span>No Effects: <span id="neutralGenesDisplay">{neutralGenes}</span></span>
         </div>
     </div>
 </div>
@@ -314,12 +325,28 @@ const hiddenLookup = $derived(
 
     .stats-table th,
     .stats-table td {
-        padding: 8px 12px;
+        padding: 8px 8px;
         text-align: left;
         border-bottom: 1px solid #e2e8f0;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+    }
+
+    .stats-table th.num,
+    .stats-table td.num {
+        text-align: center;
+        padding: 8px 4px;
+    }
+
+    .stats-table th.pos,
+    .stats-table td.pos {
+        color: #16a34a;
+    }
+
+    .stats-table th.neg,
+    .stats-table td.neg {
+        color: #dc2626;
     }
 
     .stats-table th {
