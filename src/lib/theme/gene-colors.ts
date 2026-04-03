@@ -2,8 +2,8 @@
  * Single source of truth for gene appearance colors.
  * Used by both the gene grid (via CSS custom properties) and the stats table (via configService).
  *
- * To change a color: update it here — both views update automatically.
- * CSS variables are injected in app.html as --gene-{key}.
+ * To change a color: update it here AND in src/app.css (CSS vars must match).
+ * The TS module is the source of truth; app.css provides the CSS custom properties.
  */
 
 export const EFFECT_COLORS = {
