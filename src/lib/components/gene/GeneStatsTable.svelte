@@ -189,7 +189,6 @@ const hiddenLookup = $derived(
                             onclick={(e) => handleAttributeClick(attr.key, e)}
                         >
                             <td>
-                                <span class="color-indicator positive"></span>
                                 {attr.icon}
                                 {attr.name}
                             </td>
