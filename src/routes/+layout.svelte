@@ -3,9 +3,18 @@ import '../app.css';
 import AuthWrapper from '$lib/components/AuthWrapper.svelte';
 import MasterPanel from '$lib/components/layout/MasterPanel.svelte';
 import TopBar from '$lib/components/layout/TopBar.svelte';
+import { ALL_GENE_COLORS } from '$lib/theme/gene-colors.js';
 
 const { children } = $props();
+
+const cssVars = Object.entries(ALL_GENE_COLORS)
+  .map(([key, value]) => `--gene-${key}: ${value}`)
+  .join('; ');
 </script>
+
+<svelte:head>
+  <style>{`:root { ${cssVars} }`}</style>
+</svelte:head>
 
 <AuthWrapper>
     <div class="app-shell">
