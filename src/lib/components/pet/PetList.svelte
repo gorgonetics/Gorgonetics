@@ -125,7 +125,7 @@ function cancelDelete() {
 
 {#if deletingPet}
 <!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="confirm-backdrop" onclick={cancelDelete} onkeydown={(e) => { if (e.key === 'Escape') cancelDelete(); }}>
+<div class="modal-backdrop" onclick={cancelDelete} onkeydown={(e) => { if (e.key === 'Escape') cancelDelete(); }}>
     <div class="confirm-dialog" role="alertdialog" aria-label="Confirm delete">
         <p class="confirm-message">Delete <strong>{deletingPet.name}</strong>?</p>
         <p class="confirm-subtext">This action cannot be undone.</p>
@@ -138,16 +138,6 @@ function cancelDelete() {
 {/if}
 
 <style>
-    .confirm-backdrop {
-        position: fixed;
-        inset: 0;
-        background: rgba(0, 0, 0, 0.3);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 1100;
-    }
-
     .confirm-dialog {
         background: #ffffff;
         border-radius: 12px;
@@ -176,33 +166,6 @@ function cancelDelete() {
         justify-content: center;
     }
 
-    .btn {
-        padding: 8px 20px;
-        border-radius: 6px;
-        font-size: 13px;
-        font-weight: 600;
-        cursor: pointer;
-        border: 1px solid transparent;
-    }
-
-    .btn-secondary {
-        background: #ffffff;
-        color: #374151;
-        border-color: #e5e7eb;
-    }
-
-    .btn-secondary:hover {
-        background: #f9fafb;
-    }
-
-    .btn-danger {
-        background: #ef4444;
-        color: #ffffff;
-    }
-
-    .btn-danger:hover {
-        background: #dc2626;
-    }
     .pet-list {
         display: flex;
         flex-direction: column;

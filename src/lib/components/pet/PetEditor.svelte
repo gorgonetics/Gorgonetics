@@ -179,16 +179,6 @@ function updateAttribute(attrKey, value) {
 {/if}
 
 <style>
-  .modal-backdrop {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.3);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
-  }
-
   .modal-panel {
     background: #ffffff;
     border-radius: 12px;
@@ -347,37 +337,6 @@ function updateAttribute(attrKey, value) {
   .attr-field input:focus {
     border-color: #3b82f6;
     box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
-  }
-
-  .btn {
-    padding: 8px 16px;
-    border-radius: 6px;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.15s;
-    border: 1px solid transparent;
-  }
-
-  .btn-secondary {
-    background: #ffffff;
-    color: #374151;
-    border-color: #e5e7eb;
-  }
-
-  .btn-secondary:hover {
-    background: #f9fafb;
-    border-color: #d1d5db;
-  }
-
-  .btn-primary {
-    background: #3b82f6;
-    color: #ffffff;
-    border-color: #3b82f6;
-  }
-
-  .btn-primary:hover {
-    background: #2563eb;
   }
 
   .save-error {

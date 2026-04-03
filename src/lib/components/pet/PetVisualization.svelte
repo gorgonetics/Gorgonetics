@@ -238,15 +238,6 @@ onDestroy(() => {
         margin-top: 2px;
     }
 
-    .meta-dot {
-        margin: 0 4px;
-        color: #d1d5db;
-    }
-
-    .gene-count {
-        color: #3b82f6;
-    }
-
     .unknown-badge {
         color: #f59e0b;
         font-weight: 600;

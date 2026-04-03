@@ -97,15 +97,6 @@ function getSpeciesEmoji(species) {
         text-overflow: ellipsis;
     }
 
-    .meta-dot {
-        margin: 0 3px;
-        color: #d1d5db;
-    }
-
-    .gene-count {
-        color: #3b82f6;
-    }
-
     .selected-indicator {
         color: #3b82f6;
         font-size: 12px;
