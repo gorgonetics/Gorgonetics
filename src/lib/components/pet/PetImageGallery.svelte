@@ -22,12 +22,14 @@ async function handleUpload() {
 
   uploading = true;
   let count = 0;
+  let lastError = null;
   for (const path of paths) {
     try {
       await uploadImage(pet.id, path);
       count++;
     } catch (err) {
       console.error('Failed to upload image:', err);
+      lastError = err;
     }
   }
   uploading = false;
@@ -35,9 +37,13 @@ async function handleUpload() {
 
   if (count > 0) {
     statusMessage = `Uploaded ${count} image${count > 1 ? 's' : ''}`;
+  } else if (lastError) {
+    statusMessage = `Upload failed: ${lastError.message}`;
+  }
+  if (statusMessage) {
     setTimeout(() => {
       statusMessage = null;
-    }, 3000);
+    }, 5000);
   }
 }
 

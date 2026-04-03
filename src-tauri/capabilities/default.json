@@ -45,8 +45,9 @@
         { "path": "$APPDATA/**/*" }
       ]
     },
+    "fs:allow-read-file",
     {
-      "identifier": "fs:allow-copy-file",
+      "identifier": "fs:allow-write-file",
       "allow": [
         { "path": "$APPDATA/**/*" }
       ]

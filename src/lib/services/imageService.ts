@@ -65,13 +65,13 @@ export async function uploadImage(petId: number, sourcePath: string): Promise<Pe
   }
 
   if (isTauri()) {
-    const { stat, mkdir, copyFile } = await import('@tauri-apps/plugin-fs');
+    const { readFile, writeFile, mkdir } = await import('@tauri-apps/plugin-fs');
     const { appDataDir, join } = await import('@tauri-apps/api/path');
 
-    // Check file size
-    const fileStat = await stat(sourcePath);
-    if (fileStat.size > MAX_FILE_SIZE) {
-      throw new Error(`Image too large (${Math.round(fileStat.size / 1024 / 1024)}MB). Maximum is 20MB.`);
+    // Read the source file (dialog-selected paths have temporary read access)
+    const fileData = await readFile(sourcePath);
+    if (fileData.byteLength > MAX_FILE_SIZE) {
+      throw new Error(`Image too large (${Math.round(fileData.byteLength / 1024 / 1024)}MB). Maximum is 20MB.`);
     }
 
     // Create target directory
@@ -79,11 +79,11 @@ export async function uploadImage(petId: number, sourcePath: string): Promise<Pe
     const imageDir = await join(baseDir, 'images', String(petId));
     await mkdir(imageDir, { recursive: true });
 
-    // Generate UUID filename and copy
+    // Generate UUID filename and write
     const uuid = crypto.randomUUID();
     const filename = `${uuid}.${ext}`;
     const targetPath = await join(imageDir, filename);
-    await copyFile(sourcePath, targetPath);
+    await writeFile(targetPath, fileData);
 
     // Insert DB record
     const db = getDb();
