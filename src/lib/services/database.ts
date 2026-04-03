@@ -21,6 +21,41 @@ interface DatabaseAdapter {
   close(): Promise<void>;
 }
 
+/** Convert $name parameters to positional ? and build an array of values. */
+function resolveNamedParams(query: string, bindValues: BindValues = []): { query: string; values: unknown[] } {
+  if (Array.isArray(bindValues)) return { query, values: bindValues };
+  const values: unknown[] = [];
+  const resolved = query.replace(/\$(\w+)/g, (_, name) => {
+    values.push((bindValues as Record<string, unknown>)[name]);
+    return '?';
+  });
+  return { query: resolved, values };
+}
+
+// --- Tauri adapter that resolves named parameters before passing to the plugin ---
+
+class TauriDatabaseAdapter implements DatabaseAdapter {
+  private inner: DatabaseAdapter;
+
+  constructor(inner: DatabaseAdapter) {
+    this.inner = inner;
+  }
+
+  async select<T>(query: string, bindValues: BindValues = []): Promise<T> {
+    const { query: q, values } = resolveNamedParams(query, bindValues);
+    return this.inner.select<T>(q, values);
+  }
+
+  async execute(query: string, bindValues: BindValues = []): Promise<QueryResult> {
+    const { query: q, values } = resolveNamedParams(query, bindValues);
+    return this.inner.execute(q, values);
+  }
+
+  async close(): Promise<void> {
+    return this.inner.close();
+  }
+}
+
 // --- In-memory adapter for non-Tauri contexts (tests, plain browser) ---
 
 class InMemoryDatabase implements DatabaseAdapter {
@@ -29,19 +64,8 @@ class InMemoryDatabase implements DatabaseAdapter {
   private userVersion = 0;
   private snapshot: { tables: string; autoIncrements: string; userVersion: number } | null = null;
 
-  /** Convert $name parameters to positional ? so internal logic stays unchanged. */
-  private resolveParams(query: string, bindValues: BindValues = []): { query: string; values: unknown[] } {
-    if (Array.isArray(bindValues)) return { query, values: bindValues };
-    const values: unknown[] = [];
-    const resolved = query.replace(/\$(\w+)/g, (_, name) => {
-      values.push((bindValues as Record<string, unknown>)[name]);
-      return '?';
-    });
-    return { query: resolved, values };
-  }
-
   async select<T>(query: string, bindValues: BindValues = []): Promise<T> {
-    const { query: q0, values } = this.resolveParams(query, bindValues);
+    const { query: q0, values } = resolveNamedParams(query, bindValues);
     // Normalize multi-line SQL to single line for regex matching
     const q = q0.replace(/\s+/g, ' ').trim().toLowerCase();
 
@@ -99,7 +123,7 @@ class InMemoryDatabase implements DatabaseAdapter {
   }
 
   async execute(query: string, bindValues: BindValues = []): Promise<QueryResult> {
-    const { query: q0, values: bindArr } = this.resolveParams(query, bindValues);
+    const { query: q0, values: bindArr } = resolveNamedParams(query, bindValues);
     const q = q0.replace(/\s+/g, ' ').trim();
     const qLower = q.toLowerCase();
 
@@ -282,7 +306,8 @@ export async function initDatabase(): Promise<void> {
 
   if (isTauri()) {
     const { default: Database } = await import('@tauri-apps/plugin-sql');
-    db = (await Database.load('sqlite:gorgonetics.db')) as unknown as DatabaseAdapter;
+    const raw = (await Database.load('sqlite:gorgonetics.db')) as unknown as DatabaseAdapter;
+    db = new TauriDatabaseAdapter(raw);
   } else {
     console.warn('Not running in Tauri — using in-memory database (test mode)');
     db = new InMemoryDatabase();

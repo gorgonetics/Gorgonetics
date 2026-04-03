@@ -1,6 +1,6 @@
 <script>
 import { onDestroy, onMount } from 'svelte';
-import { SvelteMap, SvelteSet } from 'svelte/reactivity';
+
 import { getPetGenome } from '$lib/services/petService.js';
 import {
   clearAllCaches,
@@ -289,43 +289,32 @@ function generateBlockLetter(index) {
 
 async function initializeStats() {
   if (currentView === 'attribute') {
+    const emptyAttr = () => ({ positive: 0, negative: 0, dominant: 0, recessive: 0, mixed: 0 });
     const stats = {
       positive: 0,
       negative: 0,
       neutral: 0,
       'potential-positive': 0,
       'potential-negative': 0,
+      'inactive-breed': 0,
     };
 
-    // Load species-specific attributes from configuration
+    // Load species-specific attributes, falling back to defaults
+    let attrNames = FALLBACK_ATTRIBUTES;
     if (currentPet?.species) {
       const config = await loadAttributeConfig(currentPet.species);
       if (config) {
-        // Cache attribute names for dynamic detection
-        allAttributeNames = config.all_attribute_names.map((name) => name.charAt(0).toUpperCase() + name.slice(1));
-
-        config.all_attribute_names.forEach((attrName) => {
-          const attrKey = attrName.charAt(0).toUpperCase() + attrName.slice(1);
-          stats[attrKey] = { positive: 0, negative: 0 };
-        });
-      } else {
-        // Fallback to default attributes
-        allAttributeNames = FALLBACK_ATTRIBUTES;
-        FALLBACK_ATTRIBUTES.forEach((attr) => {
-          stats[attr] = { positive: 0, negative: 0 };
-        });
+        attrNames = config.all_attribute_names.map((name) => name.charAt(0).toUpperCase() + name.slice(1));
       }
-    } else {
-      // Default attributes if no species specified
-      allAttributeNames = FALLBACK_ATTRIBUTES;
-      FALLBACK_ATTRIBUTES.forEach((attr) => {
-        stats[attr] = { positive: 0, negative: 0 };
-      });
+    }
+    allAttributeNames = attrNames;
+    for (const attr of attrNames) {
+      stats[attr] = emptyAttr();
     }
 
     return stats;
   } else {
-    const stats = { 'appearance-neutral': 0 };
+    const stats = { 'appearance-neutral': 0, 'inactive-breed': 0 };
 
     let attrNames = null;
     if (currentPet?.species) {
@@ -347,22 +336,31 @@ async function initializeStats() {
   }
 }
 
-function updateStats(stats, geneAnalysis) {
+function updateStats(stats, geneAnalysis, geneType) {
+  // Skip inactive-breed genes from all stats
+  if (geneAnalysis.type === 'inactive-breed') {
+    stats['inactive-breed']++;
+    return;
+  }
+
   if (currentView === 'attribute') {
     stats[geneAnalysis.type]++;
 
     if (geneAnalysis.attribute && stats[geneAnalysis.attribute]) {
+      const attrStats = stats[geneAnalysis.attribute];
+
+      // Track gene type (D/R/x)
+      if (geneType === 'D') attrStats.dominant++;
+      else if (geneType === 'R') attrStats.recessive++;
+      else if (geneType === 'x') attrStats.mixed++;
+
       // Normalize type for attribute-specific counting
       let normalizedType = geneAnalysis.type;
-      if (normalizedType === 'potential-positive') {
-        normalizedType = 'positive';
-      } else if (normalizedType === 'potential-negative') {
-        normalizedType = 'negative';
-      }
+      if (normalizedType === 'potential-positive') normalizedType = 'positive';
+      else if (normalizedType === 'potential-negative') normalizedType = 'negative';
 
-      // Only increment if it's a positive/negative effect
       if (normalizedType === 'positive' || normalizedType === 'negative') {
-        stats[geneAnalysis.attribute][normalizedType]++;
+        attrStats[normalizedType]++;
       }
     }
   } else {
@@ -844,15 +842,15 @@ async function createGeneVisualization() {
     // OPTIMIZED SINGLE-PASS PROCESSING - Everything done in one loop!
     console.time('📊 Single-pass gene analysis');
 
-    const allBlocks = new SvelteSet();
-    const blockMaxGenes = new SvelteMap();
-    const geneAnalysisCache = new SvelteMap(); // Cache gene analysis results
+    const allBlocks = new Set();
+    const blockMaxGenes = new Map();
+    const geneAnalysisCache = new Map();
     let totalGenesCount = 0;
 
     // SINGLE PASS: Analyze genes, collect blocks, and update stats - all at once!
     Object.values(parsedGenes).forEach((chromosomeData) => {
       // Count genes per block for this chromosome
-      const thisChromosomeBlockCount = new SvelteMap();
+      const thisChromosomeBlockCount = new Map();
 
       chromosomeData.allGenes.forEach((gene) => {
         allBlocks.add(gene.block);
@@ -882,7 +880,7 @@ async function createGeneVisualization() {
           };
 
           geneAnalysisCache.set(cacheKey, processedAnalysis);
-          updateStats(allStats, processedAnalysis);
+          updateStats(allStats, processedAnalysis, gene.type);
         }
       });
 
@@ -909,7 +907,8 @@ async function createGeneVisualization() {
     }
 
     currentStats = allStats;
-    totalGenes = totalGenesCount;
+    const inactiveCount = allStats['inactive-breed'] || 0;
+    totalGenes = totalGenesCount - inactiveCount;
 
     if (currentView === 'attribute') {
       neutralGenes = allStats.neutral;
@@ -946,7 +945,7 @@ async function createGeneVisualization() {
       const processedBlocks = {};
 
       // Pre-group genes by block for efficiency
-      const genesByBlock = new SvelteMap();
+      const genesByBlock = new Map();
       data.allGenes.forEach((gene) => {
         if (!genesByBlock.has(gene.block)) {
           genesByBlock.set(gene.block, []);
