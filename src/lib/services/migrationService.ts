@@ -24,6 +24,20 @@ const MIGRATIONS: Migration[] = [
       // No-op: tables are created by initDatabase()
     },
   },
+  {
+    version: 2,
+    description: 'Add settings table for user preferences',
+    up: async () => {
+      const db = getDb();
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS settings (
+          key TEXT PRIMARY KEY,
+          value TEXT NOT NULL,
+          updated_at TEXT
+        )
+      `);
+    },
+  },
 ];
 
 /** Derived from the last migration — no manual bookkeeping needed. */

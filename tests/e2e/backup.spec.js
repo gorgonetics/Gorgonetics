@@ -95,7 +95,7 @@ test.describe('Database Backup – Export & Import', () => {
 
     expect(backup.petCount).toBe(2);
     expect(backup.geneCount).toBeGreaterThan(0);
-    expect(backup.schemaVersion).toBe(1);
+    expect(backup.schemaVersion).toBe(2);
   });
 
   test('export and import (replace) round-trips correctly', async ({ page }) => {
