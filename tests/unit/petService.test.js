@@ -1,5 +1,5 @@
-import { readFileSync } from 'fs';
-import { resolve } from 'path';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { closeDatabase, initDatabase } from '$lib/services/database.js';
 import * as geneService from '$lib/services/geneService.js';

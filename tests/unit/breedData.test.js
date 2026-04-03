@@ -1,5 +1,5 @@
-import { readdirSync, readFileSync } from 'fs';
-import { resolve } from 'path';
+import { readdirSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { HORSE_BREEDS } from '$lib/types/index.js';
 
