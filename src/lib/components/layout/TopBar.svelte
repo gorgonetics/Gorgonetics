@@ -2,6 +2,7 @@
 import logoImg from '$lib/assets/logo.png';
 import { activeTab, appState } from '$lib/stores/pets.js';
 import DataMenu from './DataMenu.svelte';
+import SettingsModal from './SettingsModal.svelte';
 
 function switchTab(tab) {
   appState.switchTab(tab);
@@ -31,6 +32,7 @@ function switchTab(tab) {
         </button>
     </div>
     <DataMenu />
+    <SettingsModal />
     </div>
 </header>
 

@@ -2,7 +2,7 @@
 import { onDestroy } from 'svelte';
 import GeneStatsTable from '$lib/components/gene/GeneStatsTable.svelte';
 import GeneVisualizer from '$lib/components/gene/GeneVisualizer.svelte';
-
+import { settings } from '$lib/stores/settings.js';
 import { HORSE_BREEDS } from '$lib/types/index.js';
 
 const { pet } = $props();
@@ -13,8 +13,38 @@ let statsOpen = $state(false);
 let drawerWidth = $state(320);
 let stats = $state(null);
 let breedFilter = $state('');
+let autoBreed = $state(false);
 
 const isHorse = $derived(pet?.species?.toLowerCase() === 'horse');
+const petHasKnownBreed = $derived(isHorse && pet?.breed && HORSE_BREEDS[pet.breed]);
+
+// Initialize autoBreed from setting when a new pet is loaded
+$effect(() => {
+  const _petId = pet?.id; // track pet changes
+  autoBreed = !!$settings['horse.autoSelectBreedFilter'];
+});
+
+// Apply the breed filter whenever autoBreed or pet changes
+$effect(() => {
+  if (autoBreed && petHasKnownBreed) {
+    breedFilter = pet.breed;
+  }
+  if (geneVisualizerRef) {
+    geneVisualizerRef.setBreedFilter(breedFilter);
+  }
+});
+
+function toggleAutoBreed() {
+  autoBreed = !autoBreed;
+  if (autoBreed && petHasKnownBreed) {
+    breedFilter = pet.breed;
+  } else {
+    breedFilter = '';
+  }
+  if (geneVisualizerRef) {
+    geneVisualizerRef.setBreedFilter(breedFilter);
+  }
+}
 
 function setBreedFilter(fullName) {
   breedFilter = breedFilter === fullName ? '' : fullName;
@@ -108,9 +138,13 @@ onDestroy(() => {
             {#if isHorse}
                 <div class="breed-filter">
                     <span class="breed-label">Breed:</span>
-                    <button class="breed-btn" class:active={breedFilter === ''} onclick={() => setBreedFilter('')}>All</button>
+                    {#if petHasKnownBreed}
+                        <button class="breed-btn auto-btn" class:active={autoBreed} onclick={toggleAutoBreed} title="Auto-select pet's breed">Auto</button>
+                        <span class="breed-divider"></span>
+                    {/if}
+                    <button class="breed-btn" class:active={!autoBreed && breedFilter === ''} disabled={autoBreed} onclick={() => setBreedFilter('')}>All</button>
                     {#each Object.entries(HORSE_BREEDS) as [name, abbrev]}
-                        <button class="breed-btn" class:active={breedFilter === name} onclick={() => setBreedFilter(name)} title={name}>{abbrev}</button>
+                        <button class="breed-btn" class:active={!autoBreed && breedFilter === name} disabled={autoBreed} onclick={() => setBreedFilter(name)} title={name}>{abbrev}</button>
                     {/each}
                 </div>
             {/if}
@@ -257,6 +291,25 @@ onDestroy(() => {
         background: #3b82f6;
         border-color: #3b82f6;
         color: #ffffff;
+    }
+
+    .breed-btn:disabled {
+        opacity: 0.4;
+        cursor: default;
+        pointer-events: none;
+    }
+
+    .auto-btn.active {
+        background: #22c55e;
+        border-color: #22c55e;
+        color: #ffffff;
+    }
+
+    .breed-divider {
+        width: 1px;
+        height: 16px;
+        background: #d1d5db;
+        margin: 0 2px;
     }
 
     .view-controls {
