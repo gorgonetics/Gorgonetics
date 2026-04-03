@@ -200,7 +200,7 @@ const hiddenLookup = $derived(
                             <td class="num">{s.mixed ?? 0}</td>
                         </tr>
                     {/each}
-                    <tr class="totals-row">
+                    <tr class="totals-row" title="Confirmed effects only — potential effects are not counted">
                         <td><strong>Total</strong></td>
                         <td class="num"><strong>{totals.value}</strong></td>
                         <td class="num pos"><strong>{totals.positive}</strong></td>
