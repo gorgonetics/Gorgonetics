@@ -2,6 +2,7 @@
 import { onDestroy, onMount } from 'svelte';
 
 import { getPetGenome } from '$lib/services/petService.js';
+import { EFFECT_COLORS } from '$lib/theme/gene-colors.js';
 import {
   clearAllCaches,
   FALLBACK_APPEARANCE_LIST,
@@ -1020,7 +1021,7 @@ function handleTooltipShow(event) {
     ) {
       const isPositive = dominantEffect.includes('+');
       const isNegative = dominantEffect.includes('-');
-      const color = isPositive ? '#4CAF50' : isNegative ? '#f44336' : '#666';
+      const color = isPositive ? EFFECT_COLORS.positive : isNegative ? EFFECT_COLORS.negative : '#666';
       potentialEffects.push(`If Dominant: <span style="color: ${color}">${dominantEffect}</span>`);
     }
 
@@ -1033,7 +1034,7 @@ function handleTooltipShow(event) {
     ) {
       const isPositive = recessiveEffect.includes('+');
       const isNegative = recessiveEffect.includes('-');
-      const color = isPositive ? '#4CAF50' : isNegative ? '#f44336' : '#666';
+      const color = isPositive ? EFFECT_COLORS.positive : isNegative ? EFFECT_COLORS.negative : '#666';
       potentialEffects.push(`If Recessive: <span style="color: ${color}">${recessiveEffect}</span>`);
     }
   }
@@ -1869,7 +1870,7 @@ export function getStatsData() {
     }
 
     .error-state {
-        color: #f44336;
+        color: var(--gene-negative);
     }
 
     .gene-visualizer {

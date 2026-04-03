@@ -10,6 +10,8 @@ export const EFFECT_COLORS = {
   positive: '#4caf50',
   negative: '#f44336',
   neutral: '#95a5a6',
+  'potential-positive': '#3498db',
+  'potential-negative': '#9b59b6',
 } as const;
 
 /**
