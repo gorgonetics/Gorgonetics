@@ -18,6 +18,7 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
+    "screenshots": "node scripts/capture-quickstart-screenshots.mjs",
     "clean": "rm -rf node_modules/.cache/ .vite/ test-results/ playwright-report/",
     "setup": "pnpm install"
   },
