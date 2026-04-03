@@ -81,59 +81,24 @@ const SPECIES_APPEARANCE_ATTRIBUTES: Record<
   string,
   Record<string, { name: string; examples: string; color_indicator: string }>
 > = {
+  // Colors match the CSS custom properties in GeneCell.svelte (--gene-*)
   beewasp: {
-    'body-color-hue': {
-      name: 'Body Color Hue',
-      examples: 'Color tone',
-      color_indicator: 'linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1)',
-    },
-    'body-color-saturation': {
-      name: 'Body Color Saturation',
-      examples: 'Color intensity',
-      color_indicator: 'linear-gradient(90deg, #f8f9fa, #ff6b6b)',
-    },
-    'body-color-intensity': {
-      name: 'Body Color Intensity',
-      examples: 'Brightness',
-      color_indicator: 'linear-gradient(90deg, #343a40, #f8f9fa)',
-    },
-    'wing-color-hue': {
-      name: 'Wing Color Hue',
-      examples: 'Wing tone',
-      color_indicator: 'linear-gradient(45deg, #ffd93d, #6bcf7f, #4d72aa)',
-    },
-    'wing-color-saturation': {
-      name: 'Wing Color Saturation',
-      examples: 'Wing intensity',
-      color_indicator: 'linear-gradient(90deg, #e9ecef, #ffd93d)',
-    },
-    'wing-color-intensity': {
-      name: 'Wing Color Intensity',
-      examples: 'Wing brightness',
-      color_indicator: 'linear-gradient(90deg, #495057, #fff3cd)',
-    },
-    'body-scale': { name: 'Body Scale', examples: 'Body size', color_indicator: '#8b5cf6' },
-    'wing-scale': { name: 'Wing Scale', examples: 'Wing size', color_indicator: '#06b6d4' },
-    'head-scale': { name: 'Head Scale', examples: 'Head size', color_indicator: '#f59e0b' },
-    'tail-scale': { name: 'Tail Scale', examples: 'Tail size', color_indicator: '#84cc16' },
-    'antenna-scale': { name: 'Antenna Scale', examples: 'Antenna size', color_indicator: '#ec4899' },
-    'leg-deformity': { name: 'Leg Deformity', examples: 'Leg shape', color_indicator: '#ef4444' },
-    'antenna-deformity': { name: 'Antenna Deformity', examples: 'Antenna shape', color_indicator: '#f97316' },
-    particles: {
-      name: 'Particles',
-      examples: 'Special effects',
-      color_indicator: 'radial-gradient(circle, #fbbf24, #f59e0b)',
-    },
-    'particle-location': {
-      name: 'Particle Location',
-      examples: 'Effect position',
-      color_indicator: 'conic-gradient(#8b5cf6, #ec4899, #06b6d4, #8b5cf6)',
-    },
-    glow: {
-      name: 'Glow',
-      examples: 'Luminescence',
-      color_indicator: 'radial-gradient(circle, #fef3c7, #f59e0b)',
-    },
+    'body-color-hue': { name: 'Body Color Hue', examples: 'Color tone', color_indicator: '#ff9800' },
+    'body-color-saturation': { name: 'Body Color Saturation', examples: 'Color intensity', color_indicator: '#ff6f00' },
+    'body-color-intensity': { name: 'Body Color Intensity', examples: 'Brightness', color_indicator: '#ffcc02' },
+    'wing-color-hue': { name: 'Wing Color Hue', examples: 'Wing tone', color_indicator: '#2196f3' },
+    'wing-color-saturation': { name: 'Wing Color Saturation', examples: 'Wing intensity', color_indicator: '#1976d2' },
+    'wing-color-intensity': { name: 'Wing Color Intensity', examples: 'Wing brightness', color_indicator: '#0d47a1' },
+    'body-scale': { name: 'Body Scale', examples: 'Body size', color_indicator: '#9c27b0' },
+    'wing-scale': { name: 'Wing Scale', examples: 'Wing size', color_indicator: '#7b1fa2' },
+    'head-scale': { name: 'Head Scale', examples: 'Head size', color_indicator: '#8e24aa' },
+    'tail-scale': { name: 'Tail Scale', examples: 'Tail size', color_indicator: '#ab47bc' },
+    'antenna-scale': { name: 'Antenna Scale', examples: 'Antenna size', color_indicator: '#ba68c8' },
+    'leg-deformity': { name: 'Leg Deformity', examples: 'Leg shape', color_indicator: '#e91e63' },
+    'antenna-deformity': { name: 'Antenna Deformity', examples: 'Antenna shape', color_indicator: '#c2185b' },
+    particles: { name: 'Particles', examples: 'Special effects', color_indicator: '#00bcd4' },
+    'particle-location': { name: 'Particle Location', examples: 'Effect position', color_indicator: '#0097a7' },
+    glow: { name: 'Glow', examples: 'Luminescence', color_indicator: '#8bc34a' },
   },
   horse: {
     attributes: { name: 'Attributes', examples: 'Attributes effects (all breeds)', color_indicator: '#e74c3c' },
