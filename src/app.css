@@ -114,31 +114,32 @@ body {
   .gene-count {
     color: #3b82f6;
   }
-} /* end @layer components */
 
-.loading {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 2rem;
-  color: #6b7280;
-  font-style: italic;
-}
+  /* --- Shared status styles --- */
+  .loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    color: #6b7280;
+    font-style: italic;
+  }
 
-.error {
-  color: #dc2626;
-  background-color: #fef2f2;
-  border: 1px solid #fecaca;
-  border-radius: 6px;
-  padding: 0.75rem;
-  margin: 0.5rem 0;
-}
+  .error {
+    color: #dc2626;
+    background-color: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 6px;
+    padding: 0.75rem;
+    margin: 0.5rem 0;
+  }
 
-.success {
-  color: #059669;
-  background-color: #f0fdf4;
-  border: 1px solid #bbf7d0;
-  border-radius: 6px;
-  padding: 0.75rem;
-  margin: 0.5rem 0;
+  .success {
+    color: #059669;
+    background-color: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 6px;
+    padding: 0.75rem;
+    margin: 0.5rem 0;
+  }
 }

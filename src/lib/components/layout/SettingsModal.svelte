@@ -25,7 +25,7 @@ async function toggleSetting(key) {
 </button>
 
 {#if open}
-  <div class="overlay" onclick={close}>
+  <div class="modal-backdrop" onclick={close}>
     <div class="modal" onclick={(e) => e.stopPropagation()}>
       <div class="modal-header">
         <h3>Settings</h3>
@@ -80,16 +80,6 @@ async function toggleSetting(key) {
   .settings-toggle:hover {
     background: #f3f4f6;
     color: #374151;
-  }
-
-  .overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.4);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 200;
   }
 
   .modal {
