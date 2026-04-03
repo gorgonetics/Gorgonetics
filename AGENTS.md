@@ -124,10 +124,11 @@ Output: `src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/Gorgonetics
 
 ### Quality Gates (enforced by CI)
 ```bash
-pnpm run lint:ci                  # Biome zero errors
+pnpm run lint:ci                  # Biome — must produce zero diagnostics (errors, warnings, and infos)
 cargo check                       # Rust compilation
 pnpm test:e2e                     # Playwright E2E tests
 ```
+- Lint must be fully clean: zero errors, zero warnings, zero infos. Use `node:` protocol for Node.js builtins, optional chaining where suggested, and keep imports sorted.
 
 ## Testing Strategy
 
