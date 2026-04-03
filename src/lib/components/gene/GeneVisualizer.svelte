@@ -314,7 +314,7 @@ async function initializeStats() {
 
     return stats;
   } else {
-    const stats = { 'appearance-neutral': 0 };
+    const stats = { 'appearance-neutral': 0, 'inactive-breed': 0 };
 
     let attrNames = null;
     if (currentPet?.species) {
