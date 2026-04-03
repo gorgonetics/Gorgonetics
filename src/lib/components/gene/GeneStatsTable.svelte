@@ -76,11 +76,11 @@ function calculateTotals() {
     if (!s) return;
     const attrKey = attr.key.toLowerCase();
     totals.value += pet?.[attrKey] ?? 0;
-    totals.positive += s.positive || 0;
-    totals.negative += s.negative || 0;
-    totals.dominant += s.dominant || 0;
-    totals.recessive += s.recessive || 0;
-    totals.mixed += s.mixed || 0;
+    totals.positive += s.positive ?? 0;
+    totals.negative += s.negative ?? 0;
+    totals.dominant += s.dominant ?? 0;
+    totals.recessive += s.recessive ?? 0;
+    totals.mixed += s.mixed ?? 0;
   });
   return totals;
 }
@@ -193,11 +193,11 @@ const hiddenLookup = $derived(
                                 {attr.name}
                             </td>
                             <td class="num">{value}</td>
-                            <td class="num pos">{s.positive || 0}</td>
-                            <td class="num neg">{s.negative || 0}</td>
-                            <td class="num">{s.dominant || 0}</td>
-                            <td class="num">{s.recessive || 0}</td>
-                            <td class="num">{s.mixed || 0}</td>
+                            <td class="num pos">{s.positive ?? 0}</td>
+                            <td class="num neg">{s.negative ?? 0}</td>
+                            <td class="num">{s.dominant ?? 0}</td>
+                            <td class="num">{s.recessive ?? 0}</td>
+                            <td class="num">{s.mixed ?? 0}</td>
                         </tr>
                     {/each}
                     <tr class="totals-row">
@@ -324,7 +324,7 @@ const hiddenLookup = $derived(
 
     .stats-table th,
     .stats-table td {
-        padding: 8px 8px;
+        padding: 8px;
         text-align: left;
         border-bottom: 1px solid #e2e8f0;
         white-space: nowrap;
@@ -422,11 +422,6 @@ const hiddenLookup = $derived(
         margin-right: 8px;
         vertical-align: middle;
         border: 1px solid rgba(0, 0, 0, 0.1);
-    }
-
-    /* Default colors */
-    .color-indicator.positive {
-        background-color: #10b981;
     }
 
     .summary-info {

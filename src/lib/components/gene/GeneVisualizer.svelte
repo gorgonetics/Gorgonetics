@@ -1,6 +1,6 @@
 <script>
 import { onDestroy, onMount } from 'svelte';
-import { SvelteMap, SvelteSet } from 'svelte/reactivity';
+
 import { getPetGenome } from '$lib/services/petService.js';
 import {
   clearAllCaches,
@@ -299,27 +299,17 @@ async function initializeStats() {
       'inactive-breed': 0,
     };
 
-    // Load species-specific attributes from configuration
+    // Load species-specific attributes, falling back to defaults
+    let attrNames = FALLBACK_ATTRIBUTES;
     if (currentPet?.species) {
       const config = await loadAttributeConfig(currentPet.species);
       if (config) {
-        allAttributeNames = config.all_attribute_names.map((name) => name.charAt(0).toUpperCase() + name.slice(1));
-
-        config.all_attribute_names.forEach((attrName) => {
-          const attrKey = attrName.charAt(0).toUpperCase() + attrName.slice(1);
-          stats[attrKey] = emptyAttr();
-        });
-      } else {
-        allAttributeNames = FALLBACK_ATTRIBUTES;
-        FALLBACK_ATTRIBUTES.forEach((attr) => {
-          stats[attr] = emptyAttr();
-        });
+        attrNames = config.all_attribute_names.map((name) => name.charAt(0).toUpperCase() + name.slice(1));
       }
-    } else {
-      allAttributeNames = FALLBACK_ATTRIBUTES;
-      FALLBACK_ATTRIBUTES.forEach((attr) => {
-        stats[attr] = emptyAttr();
-      });
+    }
+    allAttributeNames = attrNames;
+    for (const attr of attrNames) {
+      stats[attr] = emptyAttr();
     }
 
     return stats;
@@ -852,15 +842,15 @@ async function createGeneVisualization() {
     // OPTIMIZED SINGLE-PASS PROCESSING - Everything done in one loop!
     console.time('📊 Single-pass gene analysis');
 
-    const allBlocks = new SvelteSet();
-    const blockMaxGenes = new SvelteMap();
-    const geneAnalysisCache = new SvelteMap(); // Cache gene analysis results
+    const allBlocks = new Set();
+    const blockMaxGenes = new Map();
+    const geneAnalysisCache = new Map();
     let totalGenesCount = 0;
 
     // SINGLE PASS: Analyze genes, collect blocks, and update stats - all at once!
     Object.values(parsedGenes).forEach((chromosomeData) => {
       // Count genes per block for this chromosome
-      const thisChromosomeBlockCount = new SvelteMap();
+      const thisChromosomeBlockCount = new Map();
 
       chromosomeData.allGenes.forEach((gene) => {
         allBlocks.add(gene.block);
@@ -955,7 +945,7 @@ async function createGeneVisualization() {
       const processedBlocks = {};
 
       // Pre-group genes by block for efficiency
-      const genesByBlock = new SvelteMap();
+      const genesByBlock = new Map();
       data.allGenes.forEach((gene) => {
         if (!genesByBlock.has(gene.block)) {
           genesByBlock.set(gene.block, []);
