@@ -1,13 +1,16 @@
 @import "tailwindcss";
 
-/* CSS Custom Properties for Gene Colors (needed by gene visualizer) */
+/* Gene colors — canonical source: src/lib/theme/gene-colors.ts */
+/* These must stay in sync. The TS module is the source of truth. */
 :root {
-  /* Core effect colors */
-  --color-positive: #4caf50;
-  --color-negative: #f44336;
-  --color-neutral: #95a5a6;
+  /* Effect colors */
+  --gene-positive: #4caf50;
+  --gene-negative: #f44336;
+  --gene-neutral: #95a5a6;
+  --gene-potential-positive: #3498db;
+  --gene-potential-negative: #9b59b6;
 
-  /* Appearance gene colors */
+  /* BeeWasp appearance colors */
   --gene-body-hue: #ff9800;
   --gene-body-saturation: #ff6f00;
   --gene-body-intensity: #ffcc02;
@@ -26,15 +29,18 @@
   --gene-glow: #8bc34a;
   --gene-appearance-neutral: #95a5a6;
 
-  /* Common effect colors */
-  --effect-positive-bg: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
-  --effect-positive-border: #16a34a;
-  --effect-positive-text: #15803d;
-  --effect-negative-bg: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);
-  --effect-negative-border: #dc2626;
-  --effect-negative-text: #dc2626;
-  --effect-neutral-border: #64748b;
-  --effect-neutral-bg: #f8fafc;
+  /* Horse appearance colors */
+  --gene-scale: #2980b9;
+  --gene-attributes: #e74c3c;
+  --gene-selector: #8e44ad;
+  --gene-horn: #1abc9c;
+  --gene-aura: #3498db;
+  --gene-coat: #2ecc71;
+  --gene-face-markings: #f39c12;
+  --gene-hair: #9b59b6;
+  --gene-leg-markings: #34495e;
+  --gene-magical: #e67e22;
+  --gene-markings: #16a085;
 }
 
 /* html/body height and overflow set via inline styles in app.html

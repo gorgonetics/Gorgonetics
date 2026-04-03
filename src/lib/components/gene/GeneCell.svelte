@@ -81,39 +81,7 @@ const cssClass = $derived(computeCssClass(gene, geneAnalysis, currentView, isVis
 {/if}
 
 <style>
-    /* CSS Custom Properties for Gene Colors */
-    :global(:root) {
-        --gene-body-hue: #ff9800;
-        --gene-body-saturation: #ff6f00;
-        --gene-body-intensity: #ffcc02;
-        --gene-wing-hue: #2196f3;
-        --gene-wing-saturation: #1976d2;
-        --gene-wing-intensity: #0d47a1;
-        --gene-body-scale: #9c27b0;
-        --gene-wing-scale: #7b1fa2;
-        --gene-head-scale: #8e24aa;
-        --gene-tail-scale: #ab47bc;
-        --gene-antenna-scale: #ba68c8;
-        --gene-leg-deformity: #e91e63;
-        --gene-antenna-deformity: #c2185b;
-        --gene-particles: #00bcd4;
-        --gene-particle-location: #0097a7;
-        --gene-glow: #8bc34a;
-        --gene-appearance-neutral: #95a5a6;
-
-        /* Horse appearance colors - using config color indicators */
-        --gene-scale: #2980b9;
-        --gene-attributes: #e74c3c;
-        --gene-selector: #8e44ad;
-        --gene-horn: #1abc9c;
-        --gene-aura: #3498db;
-        --gene-coat: #2ecc71;
-        --gene-face-markings: #f39c12;
-        --gene-hair: #9b59b6;
-        --gene-leg-markings: #34495e;
-        --gene-magical: #e67e22;
-        --gene-markings: #16a085;
-    }
+    /* Gene colors defined as --gene-* CSS vars in :root in src/app.css */
 
     :global(.gene-cell) {
         width: 14px;
@@ -136,58 +104,58 @@ const cssClass = $derived(computeCssClass(gene, geneAnalysis, currentView, isVis
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
     }
 
-    /* Gene effect colors */
+    /* Gene effect colors — values from --gene-* CSS vars (src/lib/theme/gene-colors.ts) */
     :global(.gene-positive.gene-dominant) {
-        background-color: #4caf50;
-        border-color: #4caf50;
+        background-color: var(--gene-positive);
+        border-color: var(--gene-positive);
     }
 
     :global(.gene-negative.gene-dominant) {
-        background-color: #f44336;
-        border-color: #f44336;
+        background-color: var(--gene-negative);
+        border-color: var(--gene-negative);
     }
 
     :global(.gene-neutral.gene-dominant) {
-        background-color: #95a5a6;
-        border-color: #95a5a6;
+        background-color: var(--gene-neutral);
+        border-color: var(--gene-neutral);
     }
 
     :global(.gene-positive.gene-recessive) {
-        background-color: rgba(76, 175, 80, 0.15);
-        border-color: #4caf50;
+        background-color: color-mix(in srgb, var(--gene-positive) 15%, transparent);
+        border-color: var(--gene-positive);
         border-width: 4px;
     }
 
     :global(.gene-negative.gene-recessive) {
-        background-color: rgba(244, 67, 54, 0.15);
-        border-color: #f44336;
+        background-color: color-mix(in srgb, var(--gene-negative) 15%, transparent);
+        border-color: var(--gene-negative);
         border-width: 4px;
     }
 
     :global(.gene-neutral.gene-recessive) {
-        background-color: rgba(149, 165, 166, 0.15);
-        border-color: #95a5a6;
+        background-color: color-mix(in srgb, var(--gene-neutral) 15%, transparent);
+        border-color: var(--gene-neutral);
         border-width: 4px;
     }
 
     :global(.gene-positive.gene-mixed) {
-        background: linear-gradient(135deg, transparent 50%, #4caf50 50%);
-        border-color: #4caf50;
+        background: linear-gradient(135deg, transparent 50%, var(--gene-positive) 50%);
+        border-color: var(--gene-positive);
     }
 
     :global(.gene-negative.gene-mixed) {
-        background: linear-gradient(135deg, transparent 50%, #f44336 50%);
-        border-color: #f44336;
+        background: linear-gradient(135deg, transparent 50%, var(--gene-negative) 50%);
+        border-color: var(--gene-negative);
     }
 
     :global(.gene-neutral.gene-mixed) {
-        background: linear-gradient(135deg, transparent 50%, #95a5a6 50%);
-        border-color: #95a5a6;
+        background: linear-gradient(135deg, transparent 50%, var(--gene-neutral) 50%);
+        border-color: var(--gene-neutral);
     }
 
     :global(.gene-neutral.gene-unknown) {
         background: #f3f4f6;
-        border: 2.5px dashed rgba(149, 165, 166, 0.5);
+        border: 2.5px dashed color-mix(in srgb, var(--gene-neutral) 50%, transparent);
         color: #b0b4ba;
         opacity: 0.7;
         display: flex;
@@ -210,35 +178,35 @@ const cssClass = $derived(computeCssClass(gene, geneAnalysis, currentView, isVis
 
     /* Potential effect colors */
     :global(.gene-potential-positive.gene-dominant) {
-        background-color: #3498db;
-        border-color: #3498db;
+        background-color: var(--gene-potential-positive);
+        border-color: var(--gene-potential-positive);
     }
 
     :global(.gene-potential-positive.gene-recessive) {
-        background-color: rgba(52, 152, 219, 0.15);
-        border-color: #3498db;
+        background-color: color-mix(in srgb, var(--gene-potential-positive) 15%, transparent);
+        border-color: var(--gene-potential-positive);
         border-width: 4px;
     }
 
     :global(.gene-potential-positive.gene-mixed) {
-        background: linear-gradient(135deg, transparent 50%, #3498db 50%);
-        border-color: #3498db;
+        background: linear-gradient(135deg, transparent 50%, var(--gene-potential-positive) 50%);
+        border-color: var(--gene-potential-positive);
     }
 
     :global(.gene-potential-negative.gene-dominant) {
-        background-color: #9b59b6;
-        border-color: #9b59b6;
+        background-color: var(--gene-potential-negative);
+        border-color: var(--gene-potential-negative);
     }
 
     :global(.gene-potential-negative.gene-recessive) {
-        background-color: rgba(155, 89, 182, 0.15);
-        border-color: #9b59b6;
+        background-color: color-mix(in srgb, var(--gene-potential-negative) 15%, transparent);
+        border-color: var(--gene-potential-negative);
         border-width: 4px;
     }
 
     :global(.gene-potential-negative.gene-mixed) {
-        background: linear-gradient(135deg, transparent 50%, #9b59b6 50%);
-        border-color: #9b59b6;
+        background: linear-gradient(135deg, transparent 50%, var(--gene-potential-negative) 50%);
+        border-color: var(--gene-potential-negative);
     }
 
     /* Inactive breed — gene belongs to a different breed, muted but distinct from neutral */

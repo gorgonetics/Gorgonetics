@@ -4,6 +4,7 @@
  * All functions are synchronous — this is pure static configuration data.
  */
 
+import { getBeewaspAppearanceColor, getHorseAppearanceColor } from '$lib/theme/gene-colors.js';
 import type { AppearanceInfo, AttributeInfo } from '$lib/types/index.js';
 
 // --- Core attribute order (matches game order) ---
@@ -85,68 +86,112 @@ const SPECIES_APPEARANCE_ATTRIBUTES: Record<
     'body-color-hue': {
       name: 'Body Color Hue',
       examples: 'Color tone',
-      color_indicator: 'linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1)',
+      color_indicator: getBeewaspAppearanceColor('body-color-hue'),
     },
     'body-color-saturation': {
       name: 'Body Color Saturation',
       examples: 'Color intensity',
-      color_indicator: 'linear-gradient(90deg, #f8f9fa, #ff6b6b)',
+      color_indicator: getBeewaspAppearanceColor('body-color-saturation'),
     },
     'body-color-intensity': {
       name: 'Body Color Intensity',
       examples: 'Brightness',
-      color_indicator: 'linear-gradient(90deg, #343a40, #f8f9fa)',
+      color_indicator: getBeewaspAppearanceColor('body-color-intensity'),
     },
     'wing-color-hue': {
       name: 'Wing Color Hue',
       examples: 'Wing tone',
-      color_indicator: 'linear-gradient(45deg, #ffd93d, #6bcf7f, #4d72aa)',
+      color_indicator: getBeewaspAppearanceColor('wing-color-hue'),
     },
     'wing-color-saturation': {
       name: 'Wing Color Saturation',
       examples: 'Wing intensity',
-      color_indicator: 'linear-gradient(90deg, #e9ecef, #ffd93d)',
+      color_indicator: getBeewaspAppearanceColor('wing-color-saturation'),
     },
     'wing-color-intensity': {
       name: 'Wing Color Intensity',
       examples: 'Wing brightness',
-      color_indicator: 'linear-gradient(90deg, #495057, #fff3cd)',
+      color_indicator: getBeewaspAppearanceColor('wing-color-intensity'),
     },
-    'body-scale': { name: 'Body Scale', examples: 'Body size', color_indicator: '#8b5cf6' },
-    'wing-scale': { name: 'Wing Scale', examples: 'Wing size', color_indicator: '#06b6d4' },
-    'head-scale': { name: 'Head Scale', examples: 'Head size', color_indicator: '#f59e0b' },
-    'tail-scale': { name: 'Tail Scale', examples: 'Tail size', color_indicator: '#84cc16' },
-    'antenna-scale': { name: 'Antenna Scale', examples: 'Antenna size', color_indicator: '#ec4899' },
-    'leg-deformity': { name: 'Leg Deformity', examples: 'Leg shape', color_indicator: '#ef4444' },
-    'antenna-deformity': { name: 'Antenna Deformity', examples: 'Antenna shape', color_indicator: '#f97316' },
+    'body-scale': {
+      name: 'Body Scale',
+      examples: 'Body size',
+      color_indicator: getBeewaspAppearanceColor('body-scale'),
+    },
+    'wing-scale': {
+      name: 'Wing Scale',
+      examples: 'Wing size',
+      color_indicator: getBeewaspAppearanceColor('wing-scale'),
+    },
+    'head-scale': {
+      name: 'Head Scale',
+      examples: 'Head size',
+      color_indicator: getBeewaspAppearanceColor('head-scale'),
+    },
+    'tail-scale': {
+      name: 'Tail Scale',
+      examples: 'Tail size',
+      color_indicator: getBeewaspAppearanceColor('tail-scale'),
+    },
+    'antenna-scale': {
+      name: 'Antenna Scale',
+      examples: 'Antenna size',
+      color_indicator: getBeewaspAppearanceColor('antenna-scale'),
+    },
+    'leg-deformity': {
+      name: 'Leg Deformity',
+      examples: 'Leg shape',
+      color_indicator: getBeewaspAppearanceColor('leg-deformity'),
+    },
+    'antenna-deformity': {
+      name: 'Antenna Deformity',
+      examples: 'Antenna shape',
+      color_indicator: getBeewaspAppearanceColor('antenna-deformity'),
+    },
     particles: {
       name: 'Particles',
       examples: 'Special effects',
-      color_indicator: 'radial-gradient(circle, #fbbf24, #f59e0b)',
+      color_indicator: getBeewaspAppearanceColor('particles'),
     },
     'particle-location': {
       name: 'Particle Location',
       examples: 'Effect position',
-      color_indicator: 'conic-gradient(#8b5cf6, #ec4899, #06b6d4, #8b5cf6)',
+      color_indicator: getBeewaspAppearanceColor('particle-location'),
     },
-    glow: {
-      name: 'Glow',
-      examples: 'Luminescence',
-      color_indicator: 'radial-gradient(circle, #fef3c7, #f59e0b)',
-    },
+    glow: { name: 'Glow', examples: 'Luminescence', color_indicator: getBeewaspAppearanceColor('glow') },
   },
   horse: {
-    attributes: { name: 'Attributes', examples: 'Attributes effects (all breeds)', color_indicator: '#e74c3c' },
-    aura: { name: 'Aura', examples: 'Aura effects', color_indicator: '#3498db' },
-    coat: { name: 'Coat', examples: 'Coat effects (all breeds)', color_indicator: '#2ecc71' },
-    'face-markings': { name: 'Face Markings', examples: 'Face Markings effects', color_indicator: '#f39c12' },
-    hair: { name: 'Hair', examples: 'Hair effects', color_indicator: '#9b59b6' },
-    horn: { name: 'Horn', examples: 'Horn effects (all breeds)', color_indicator: '#1abc9c' },
-    'leg-markings': { name: 'Leg Markings', examples: 'Leg Markings effects', color_indicator: '#34495e' },
-    magical: { name: 'Magical', examples: 'Magical effects', color_indicator: '#e67e22' },
-    markings: { name: 'Markings', examples: 'Markings effects (all breeds)', color_indicator: '#16a085' },
-    scale: { name: 'Scale', examples: 'Scale effects (all breeds)', color_indicator: '#2980b9' },
-    selector: { name: 'Selector', examples: 'Selector effects (all breeds)', color_indicator: '#8e44ad' },
+    attributes: {
+      name: 'Attributes',
+      examples: 'Attributes effects (all breeds)',
+      color_indicator: getHorseAppearanceColor('attributes'),
+    },
+    aura: { name: 'Aura', examples: 'Aura effects', color_indicator: getHorseAppearanceColor('aura') },
+    coat: { name: 'Coat', examples: 'Coat effects (all breeds)', color_indicator: getHorseAppearanceColor('coat') },
+    'face-markings': {
+      name: 'Face Markings',
+      examples: 'Face Markings effects',
+      color_indicator: getHorseAppearanceColor('face-markings'),
+    },
+    hair: { name: 'Hair', examples: 'Hair effects', color_indicator: getHorseAppearanceColor('hair') },
+    horn: { name: 'Horn', examples: 'Horn effects (all breeds)', color_indicator: getHorseAppearanceColor('horn') },
+    'leg-markings': {
+      name: 'Leg Markings',
+      examples: 'Leg Markings effects',
+      color_indicator: getHorseAppearanceColor('leg-markings'),
+    },
+    magical: { name: 'Magical', examples: 'Magical effects', color_indicator: getHorseAppearanceColor('magical') },
+    markings: {
+      name: 'Markings',
+      examples: 'Markings effects (all breeds)',
+      color_indicator: getHorseAppearanceColor('markings'),
+    },
+    scale: { name: 'Scale', examples: 'Scale effects (all breeds)', color_indicator: getHorseAppearanceColor('scale') },
+    selector: {
+      name: 'Selector',
+      examples: 'Selector effects (all breeds)',
+      color_indicator: getHorseAppearanceColor('selector'),
+    },
   },
 };
 

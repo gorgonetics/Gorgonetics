@@ -2,6 +2,7 @@
 import { onDestroy, onMount } from 'svelte';
 
 import { getPetGenome } from '$lib/services/petService.js';
+import { EFFECT_COLORS } from '$lib/theme/gene-colors.js';
 import {
   clearAllCaches,
   FALLBACK_APPEARANCE_LIST,
@@ -1020,7 +1021,7 @@ function handleTooltipShow(event) {
     ) {
       const isPositive = dominantEffect.includes('+');
       const isNegative = dominantEffect.includes('-');
-      const color = isPositive ? '#4CAF50' : isNegative ? '#f44336' : '#666';
+      const color = isPositive ? EFFECT_COLORS.positive : isNegative ? EFFECT_COLORS.negative : '#666';
       potentialEffects.push(`If Dominant: <span style="color: ${color}">${dominantEffect}</span>`);
     }
 
@@ -1033,7 +1034,7 @@ function handleTooltipShow(event) {
     ) {
       const isPositive = recessiveEffect.includes('+');
       const isNegative = recessiveEffect.includes('-');
-      const color = isPositive ? '#4CAF50' : isNegative ? '#f44336' : '#666';
+      const color = isPositive ? EFFECT_COLORS.positive : isNegative ? EFFECT_COLORS.negative : '#666';
       potentialEffects.push(`If Recessive: <span style="color: ${color}">${recessiveEffect}</span>`);
     }
   }
@@ -1847,43 +1848,7 @@ export function getStatsData() {
 </div>
 
 <style>
-    /* CSS Custom Properties for Gene Colors */
-    :global(:root) {
-        --color-positive: #4caf50;
-        --color-negative: #f44336;
-        --color-neutral: #95a5a6;
-
-        --gene-body-hue: #ff9800;
-        --gene-body-saturation: #ff6f00;
-        --gene-body-intensity: #ffcc02;
-        --gene-wing-hue: #2196f3;
-        --gene-wing-saturation: #1976d2;
-        --gene-wing-intensity: #0d47a1;
-        --gene-body-scale: #9c27b0;
-        --gene-wing-scale: #7b1fa2;
-        --gene-head-scale: #8e24aa;
-        --gene-tail-scale: #ab47bc;
-        --gene-antenna-scale: #ba68c8;
-        --gene-leg-deformity: #e91e63;
-        --gene-antenna-deformity: #c2185b;
-        --gene-particles: #00bcd4;
-        --gene-particle-location: #0097a7;
-        --gene-glow: #8bc34a;
-        --gene-appearance-neutral: #95a5a6;
-
-        /* Horse appearance categories - using config color indicators */
-        --gene-scale: #2980b9;
-        --gene-attributes: #e74c3c;
-        --gene-selector: #8e44ad;
-        --gene-horn: #1abc9c;
-        --gene-aura: #3498db;
-        --gene-coat: #2ecc71;
-        --gene-face-markings: #f39c12;
-        --gene-hair: #9b59b6;
-        --gene-leg-markings: #34495e;
-        --gene-magical: #e67e22;
-        --gene-markings: #16a085;
-    }
+    /* Gene colors defined as --gene-* CSS vars in :root in src/app.css */
 
     .gene-visualizer {
         height: 100%;
@@ -1905,7 +1870,7 @@ export function getStatsData() {
     }
 
     .error-state {
-        color: #f44336;
+        color: var(--gene-negative);
     }
 
     .gene-visualizer {
