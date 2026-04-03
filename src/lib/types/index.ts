@@ -158,6 +158,19 @@ export interface GorgonExport {
 
 export type ImportMode = 'replace' | 'merge';
 
+// --- Pet image types ---
+
+export interface PetImage {
+  id: number;
+  pet_id: number;
+  filename: string;
+  original_name: string;
+  caption: string;
+  tags: string[];
+  created_at: string;
+  url?: string;
+}
+
 // --- Visualization types ---
 
 export interface VisualizationGene {

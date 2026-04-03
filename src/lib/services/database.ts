@@ -313,6 +313,8 @@ export async function initDatabase(): Promise<void> {
     db = new InMemoryDatabase();
   }
 
+  await db.execute('PRAGMA foreign_keys = ON');
+
   await db.execute(`
     CREATE TABLE IF NOT EXISTS genes (
       animal_type TEXT NOT NULL,

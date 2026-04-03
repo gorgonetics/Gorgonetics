@@ -38,6 +38,24 @@
         { "path": "$RESOURCE/**/*" }
       ]
     },
-    "core:path:default"
+    "core:path:default",
+    {
+      "identifier": "fs:allow-mkdir",
+      "allow": [
+        { "path": "$APPDATA/**/*" }
+      ]
+    },
+    {
+      "identifier": "fs:allow-copy-file",
+      "allow": [
+        { "path": "$APPDATA/**/*" }
+      ]
+    },
+    {
+      "identifier": "fs:allow-remove",
+      "allow": [
+        { "path": "$APPDATA/**/*" }
+      ]
+    }
   ]
 }

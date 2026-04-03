@@ -4,12 +4,14 @@ import GeneStatsTable from '$lib/components/gene/GeneStatsTable.svelte';
 import GeneVisualizer from '$lib/components/gene/GeneVisualizer.svelte';
 import { settings } from '$lib/stores/settings.js';
 import { HORSE_BREEDS } from '$lib/types/index.js';
+import PetImageGallery from './PetImageGallery.svelte';
 
 const { pet } = $props();
 
 let geneVisualizerRef = $state();
 let currentView = $state('attribute');
 let statsOpen = $state(false);
+let galleryOpen = $state(false);
 let drawerWidth = $state(320);
 let stats = $state(null);
 let breedFilter = $state('');
@@ -170,11 +172,23 @@ onDestroy(() => {
                 >
                     Stats
                 </button>
+                <button
+                    class="view-btn"
+                    class:active={galleryOpen}
+                    onclick={() => { galleryOpen = !galleryOpen; }}
+                >
+                    Gallery
+                </button>
             </div>
         </div>
     </div>
 
     <div class="content-area">
+      {#if galleryOpen}
+        <div class="gallery-container">
+            <PetImageGallery {pet} />
+        </div>
+      {:else}
         <div class="visualizer-container">
             <GeneVisualizer {pet} bind:this={geneVisualizerRef} onStatsUpdated={handleStatsUpdated} />
         </div>
@@ -204,6 +218,7 @@ onDestroy(() => {
                 </div>
             </div>
         {/if}
+      {/if}
     </div>
 </div>
 
@@ -342,6 +357,12 @@ onDestroy(() => {
     }
 
     .visualizer-container {
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    .gallery-container {
         flex: 1;
         min-height: 0;
         overflow: hidden;
