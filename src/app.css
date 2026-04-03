@@ -1,4 +1,41 @@
-@import "tailwindcss";
+/* Minimal CSS reset */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  height: 100vh;
+  margin: 0;
+  overflow: hidden;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Open Sans",
+    "Helvetica Neue", sans-serif;
+  background-color: #ffffff;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+img,
+svg {
+  display: block;
+  max-width: 100%;
+}
+
+input,
+button,
+select,
+textarea {
+  font: inherit;
+}
 
 /* Gene colors — canonical source: src/lib/theme/gene-colors.ts */
 /* These must stay in sync. The TS module is the source of truth. */
@@ -43,103 +80,92 @@
   --gene-markings: #16a085;
 }
 
-/* html/body height and overflow set via inline styles in app.html
-   to ensure they survive Tailwind CSS reset */
-body {
-  font-family:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Open Sans",
-    "Helvetica Neue", sans-serif;
-  background-color: #ffffff;
+/* --- Shared button styles --- */
+.btn {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  border: 1px solid transparent;
 }
 
-/* --- Shared button styles --- */
-@layer components {
-  .btn {
-    padding: 8px 16px;
-    border-radius: 6px;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.15s;
-    border: 1px solid transparent;
-  }
+.btn-secondary {
+  background: #ffffff;
+  color: #374151;
+  border-color: #e5e7eb;
+}
 
-  .btn-secondary {
-    background: #ffffff;
-    color: #374151;
-    border-color: #e5e7eb;
-  }
+.btn-secondary:hover {
+  background: #f9fafb;
+  border-color: #d1d5db;
+}
 
-  .btn-secondary:hover {
-    background: #f9fafb;
-    border-color: #d1d5db;
-  }
+.btn-primary {
+  background: #3b82f6;
+  color: #ffffff;
+  border-color: #3b82f6;
+}
 
-  .btn-primary {
-    background: #3b82f6;
-    color: #ffffff;
-    border-color: #3b82f6;
-  }
+.btn-primary:hover {
+  background: #2563eb;
+}
 
-  .btn-primary:hover {
-    background: #2563eb;
-  }
+.btn-danger {
+  background: #ef4444;
+  color: #ffffff;
+}
 
-  .btn-danger {
-    background: #ef4444;
-    color: #ffffff;
-  }
+.btn-danger:hover {
+  background: #dc2626;
+}
 
-  .btn-danger:hover {
-    background: #dc2626;
-  }
+/* --- Shared modal backdrop --- */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1100;
+}
 
-  /* --- Shared modal backdrop --- */
-  .modal-backdrop {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.35);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1100;
-  }
+/* --- Shared metadata styles --- */
+.meta-dot {
+  margin: 0 4px;
+  color: #d1d5db;
+}
 
-  /* --- Shared metadata styles --- */
-  .meta-dot {
-    margin: 0 4px;
-    color: #d1d5db;
-  }
+.gene-count {
+  color: #3b82f6;
+}
 
-  .gene-count {
-    color: #3b82f6;
-  }
+/* --- Shared status styles --- */
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  color: #6b7280;
+  font-style: italic;
+}
 
-  /* --- Shared status styles --- */
-  .loading {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 2rem;
-    color: #6b7280;
-    font-style: italic;
-  }
+.error {
+  color: #dc2626;
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  padding: 0.75rem;
+  margin: 0.5rem 0;
+}
 
-  .error {
-    color: #dc2626;
-    background-color: #fef2f2;
-    border: 1px solid #fecaca;
-    border-radius: 6px;
-    padding: 0.75rem;
-    margin: 0.5rem 0;
-  }
-
-  .success {
-    color: #059669;
-    background-color: #f0fdf4;
-    border: 1px solid #bbf7d0;
-    border-radius: 6px;
-    padding: 0.75rem;
-    margin: 0.5rem 0;
-  }
+.success {
+  color: #059669;
+  background-color: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 6px;
+  padding: 0.75rem;
+  margin: 0.5rem 0;
 }
