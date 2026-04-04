@@ -270,6 +270,10 @@ export async function updatePet(petId: number, updates: Record<string, unknown>)
  * Delete a pet.
  */
 export async function deletePet(petId: number): Promise<boolean> {
+  // Clean up image files before deleting the pet row
+  const { deleteAllImagesForPet } = await import('./imageService.js');
+  await deleteAllImagesForPet(petId);
+
   const db = getDb();
   const result = await db.execute('DELETE FROM pets WHERE id = $id', { id: petId });
   return result.rowsAffected > 0;

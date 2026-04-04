@@ -38,6 +38,25 @@ const MIGRATIONS: Migration[] = [
       `);
     },
   },
+  {
+    version: 3,
+    description: 'Add pet_images table for pet screenshots',
+    up: async () => {
+      const db = getDb();
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS pet_images (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          pet_id INTEGER NOT NULL,
+          filename TEXT NOT NULL,
+          original_name TEXT NOT NULL,
+          caption TEXT DEFAULT '',
+          tags TEXT DEFAULT '[]',
+          created_at TEXT NOT NULL,
+          FOREIGN KEY (pet_id) REFERENCES pets(id) ON DELETE CASCADE
+        )
+      `);
+    },
+  },
 ];
 
 /** Derived from the last migration — no manual bookkeeping needed. */
