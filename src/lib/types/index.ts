@@ -139,15 +139,23 @@ export interface AppearanceInfo {
 
 // --- Backup export/import types ---
 
+export interface BackupContents {
+  genes: boolean;
+  pets: boolean;
+  images: boolean;
+}
+
 export interface GorgonExportMetadata {
   format: 'gorgonetics-backup';
   format_version: number;
   schema_version: number;
   app_version: string;
   exported_at: string;
-  record_counts: { genes: number; pets: number };
+  contents?: BackupContents;
+  record_counts: { genes: number; pets: number; images?: number };
 }
 
+/** v1 legacy format (single JSON file) */
 export interface GorgonExport {
   metadata: GorgonExportMetadata;
   data: {
@@ -157,6 +165,19 @@ export interface GorgonExport {
 }
 
 export type ImportMode = 'replace' | 'merge';
+
+export interface ExportOptions {
+  includeGenes: boolean;
+  includePets: boolean;
+  includeImages: boolean;
+}
+
+export interface ImportOptions {
+  mode: ImportMode;
+  includeGenes: boolean;
+  includePets: boolean;
+  includeImages: boolean;
+}
 
 // --- Pet image types ---
 

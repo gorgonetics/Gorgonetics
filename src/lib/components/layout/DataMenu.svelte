@@ -1,14 +1,15 @@
 <script>
 import { onDestroy } from 'svelte';
-import { exportDatabase, importDatabase } from '$lib/services/backupService.js';
-import { pickJsonFile, readFileContent } from '$lib/services/fileService.js';
-import { appState } from '$lib/stores/pets.js';
+import { inspectBackup } from '$lib/services/backupService.js';
+import { pickBackupFile, readBinaryFile } from '$lib/services/fileService.js';
+import ExportDialog from './ExportDialog.svelte';
+import ImportDialog from './ImportDialog.svelte';
 
-/** @type {boolean} */
 let menuOpen = $state(false);
-/** @type {'replace' | 'merge' | null} */
-let confirmDialog = $state(null);
-/** @type {{ type: 'success' | 'error', message: string } | null} */
+let showExport = $state(false);
+let showImport = $state(false);
+let importMetadata = $state(null);
+let importFileData = $state(null);
 let status = $state(null);
 let statusTimer = 0;
 
@@ -21,50 +22,30 @@ function closeMenu() {
   menuOpen = false;
 }
 
-async function handleExport() {
+function openExport() {
+  closeMenu();
+  showExport = true;
+}
+
+async function openImport() {
   closeMenu();
   try {
-    const saved = await exportDatabase();
-    if (saved) {
-      status = { type: 'success', message: 'Backup exported successfully.' };
-    }
-  } catch (err) {
-    status = { type: 'error', message: `Export failed: ${err.message}` };
-  }
-  clearStatusAfterDelay();
-}
-
-function handleImport(mode) {
-  closeMenu();
-  confirmDialog = mode;
-}
-
-function cancelConfirm() {
-  confirmDialog = null;
-}
-
-async function confirmImport() {
-  const mode = confirmDialog;
-  confirmDialog = null;
-
-  try {
-    const path = await pickJsonFile();
+    const path = await pickBackupFile();
     if (!path) return;
 
-    const content = await readFileContent(path);
-    const result = await importDatabase(content, mode);
-
-    let message = `Imported ${result.pets} pets and ${result.genes} gene records.`;
-    if (result.skipped > 0) {
-      message += ` Skipped ${result.skipped} duplicate pets.`;
-    }
-    status = { type: 'success', message };
-
-    // Store cache is stale after direct DB import
-    await appState.loadPets();
+    const data = await readBinaryFile(path);
+    const metadata = await inspectBackup(data);
+    importFileData = data;
+    importMetadata = metadata;
+    showImport = true;
   } catch (err) {
-    status = { type: 'error', message: `Import failed: ${err.message}` };
+    status = { type: 'error', message: `Failed to read backup: ${err.message}` };
+    clearStatusAfterDelay();
   }
+}
+
+function handleResult(result) {
+  status = result;
   clearStatusAfterDelay();
 }
 
@@ -99,52 +80,37 @@ function handleClickOutside(event) {
 
   {#if menuOpen}
     <div class="dropdown">
-      <button class="dropdown-item" onclick={handleExport}>
+      <button class="dropdown-item" onclick={openExport}>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
           <polyline points="7 10 12 15 17 10"/>
           <line x1="12" y1="15" x2="12" y2="3"/>
         </svg>
-        Export Data
+        Export Backup
       </button>
-      <button class="dropdown-item" onclick={() => handleImport('replace')}>
+      <button class="dropdown-item" onclick={openImport}>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
           <polyline points="17 8 12 3 7 8"/>
           <line x1="12" y1="3" x2="12" y2="15"/>
         </svg>
-        Import (Replace)
-      </button>
-      <button class="dropdown-item" onclick={() => handleImport('merge')}>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="18" cy="18" r="3"/>
-          <circle cx="6" cy="6" r="3"/>
-          <path d="M6 21V9a9 9 0 0 0 9 9"/>
-        </svg>
-        Import (Merge)
+        Import Backup
       </button>
     </div>
   {/if}
 </div>
 
-{#if confirmDialog}
-  <div class="modal-backdrop" onclick={cancelConfirm}>
-    <div class="confirm-dialog" onclick={(e) => e.stopPropagation()}>
-      {#if confirmDialog === 'replace'}
-        <h3>Replace all data?</h3>
-        <p>This will <strong>delete all existing pets and gene data</strong> and replace it with the backup. This cannot be undone.</p>
-      {:else}
-        <h3>Merge backup data?</h3>
-        <p>New pets will be added. Pets that already exist (same genome) will be skipped. Gene definitions will be updated from the backup.</p>
-      {/if}
-      <div class="confirm-actions">
-        <button class="btn btn-secondary" onclick={cancelConfirm}>Cancel</button>
-        <button class="btn" class:btn-danger={confirmDialog === 'replace'} class:btn-primary={confirmDialog !== 'replace'} onclick={confirmImport}>
-          {confirmDialog === 'replace' ? 'Replace All Data' : 'Merge Data'}
-        </button>
-      </div>
-    </div>
-  </div>
+{#if showExport}
+  <ExportDialog onClose={() => { showExport = false; }} onResult={handleResult} />
+{/if}
+
+{#if showImport && importMetadata}
+  <ImportDialog
+    metadata={importMetadata}
+    fileData={importFileData}
+    onClose={() => { showImport = false; importMetadata = null; importFileData = null; }}
+    onResult={handleResult}
+  />
 {/if}
 
 {#if status}
@@ -210,35 +176,6 @@ function handleClickOutside(event) {
 
   .dropdown-item:hover {
     background: #f3f4f6;
-  }
-
-  .confirm-dialog {
-    background: #ffffff;
-    border-radius: 12px;
-    padding: 24px;
-    max-width: 420px;
-    width: 90%;
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
-  }
-
-  .confirm-dialog h3 {
-    font-size: 16px;
-    font-weight: 700;
-    color: #111827;
-    margin-bottom: 8px;
-  }
-
-  .confirm-dialog p {
-    font-size: 14px;
-    color: #6b7280;
-    line-height: 1.5;
-    margin-bottom: 20px;
-  }
-
-  .confirm-actions {
-    display: flex;
-    gap: 8px;
-    justify-content: flex-end;
   }
 
   .toast {

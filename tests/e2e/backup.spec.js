@@ -65,12 +65,13 @@ async function getPetState(page) {
   });
 }
 
-/** Import a backup JSON string with the given mode. */
+/** Import a backup JSON string (v1 format) with the given mode. */
 async function importBackup(page, json, mode) {
   return page.evaluate(
     async ({ json, mode }) => {
       const { importDatabase } = await import('/src/lib/services/backupService.ts');
-      return importDatabase(json, mode);
+      const data = new TextEncoder().encode(json);
+      return importDatabase(data, { mode, includeGenes: true, includePets: true, includeImages: false });
     },
     { json, mode },
   );
@@ -108,7 +109,7 @@ test.describe('Database Backup – Export & Import', () => {
 
     const result = await importBackup(page, exportedJson, 'replace');
     expect(result.pets).toBe(2);
-    expect(result.skipped).toBe(0);
+    expect(result.petsSkipped).toBe(0);
 
     const afterImport = await getPetState(page);
     expect(afterImport.petCount).toBe(2);
@@ -124,7 +125,7 @@ test.describe('Database Backup – Export & Import', () => {
 
     const result = await importBackup(page, exportedJson, 'merge');
     expect(result.pets).toBe(1);
-    expect(result.skipped).toBe(1);
+    expect(result.petsSkipped).toBe(1);
 
     const afterMerge = await getPetState(page);
     expect(afterMerge.petCount).toBe(2);
@@ -136,38 +137,40 @@ test.describe('Database Backup – Export & Import', () => {
 
     const result = await importBackup(page, exportedJson, 'merge');
     expect(result.pets).toBe(0);
-    expect(result.skipped).toBe(2);
+    expect(result.petsSkipped).toBe(2);
 
     expect((await getPetState(page)).petCount).toBe(2);
   });
 
   test('import rejects invalid backup files', async ({ page }) => {
+    const opts = { mode: 'replace', includeGenes: true, includePets: true, includeImages: false };
+
     // Not JSON
-    const err1 = await page.evaluate(async () => {
+    const err1 = await page.evaluate(async (opts) => {
       const { importDatabase } = await import('/src/lib/services/backupService.ts');
       try {
-        await importDatabase('not json', 'replace');
+        await importDatabase(new TextEncoder().encode('not json'), opts);
         return null;
       } catch (e) {
         return e.message;
       }
-    });
+    }, opts);
     expect(err1).toContain('Invalid JSON');
 
     // Wrong format
-    const err2 = await page.evaluate(async () => {
+    const err2 = await page.evaluate(async (opts) => {
       const { importDatabase } = await import('/src/lib/services/backupService.ts');
       try {
-        await importDatabase(JSON.stringify({ metadata: { format: 'wrong' } }), 'replace');
+        await importDatabase(new TextEncoder().encode(JSON.stringify({ metadata: { format: 'wrong' } })), opts);
         return null;
       } catch (e) {
         return e.message;
       }
-    });
+    }, opts);
     expect(err2).toContain('Not a Gorgonetics backup');
 
     // Newer version
-    const err3 = await page.evaluate(async () => {
+    const err3 = await page.evaluate(async (opts) => {
       const { importDatabase } = await import('/src/lib/services/backupService.ts');
       const backup = {
         metadata: {
@@ -181,12 +184,12 @@ test.describe('Database Backup – Export & Import', () => {
         data: { genes: [], pets: [] },
       };
       try {
-        await importDatabase(JSON.stringify(backup), 'replace');
+        await importDatabase(new TextEncoder().encode(JSON.stringify(backup)), opts);
         return null;
       } catch (e) {
         return e.message;
       }
-    });
+    }, opts);
     expect(err3).toContain('newer version');
   });
 
@@ -195,32 +198,145 @@ test.describe('Database Backup – Export & Import', () => {
     await expect(menuBtn).toBeVisible();
 
     await menuBtn.click();
-    await expect(page.getByText('Export Data')).toBeVisible();
-    await expect(page.getByText('Import (Replace)')).toBeVisible();
-    await expect(page.getByText('Import (Merge)')).toBeVisible();
+    await expect(page.getByText('Export Backup')).toBeVisible();
+    await expect(page.getByText('Import Backup')).toBeVisible();
 
     await page.locator('.top-bar-left').click();
-    await expect(page.getByText('Export Data')).not.toBeVisible();
+    await expect(page.getByText('Export Backup')).not.toBeVisible();
   });
 
-  test('Import (Replace) shows confirmation dialog', async ({ page }) => {
+  test('Export Backup opens export dialog', async ({ page }) => {
     await page.getByTitle('Data management').click();
-    await page.getByText('Import (Replace)').click();
+    await page.getByText('Export Backup').click();
 
-    await expect(page.getByText('Replace all data?')).toBeVisible();
-    await expect(page.getByText('delete all existing pets')).toBeVisible();
+    await expect(page.getByText('Gene definitions')).toBeVisible();
+    await expect(page.getByText('Pet data')).toBeVisible();
+    await expect(page.getByText('Pet images')).toBeVisible();
 
     await page.getByText('Cancel').click();
-    await expect(page.getByText('Replace all data?')).not.toBeVisible();
+    await expect(page.getByText('Gene definitions')).not.toBeVisible();
   });
 
-  test('Import (Merge) shows confirmation dialog', async ({ page }) => {
-    await page.getByTitle('Data management').click();
-    await page.getByText('Import (Merge)').click();
+  test('v2 zip export and import round-trip', async ({ page }) => {
+    // Export as v2 zip
+    const zipBase64 = await page.evaluate(async () => {
+      const { exportDatabase } = await import('/src/lib/services/backupService.ts');
+      const { default: JSZip } = await import('/src/lib/services/jszip-reexport.ts');
 
-    await expect(page.getByText('Merge backup data?')).toBeVisible();
+      // We can't use saveExportBinaryFile in tests, so manually build the zip
+      const { getDb } = await import('/src/lib/services/database.ts');
+      const db = getDb();
+      const genes = await db.select('SELECT * FROM genes ORDER BY animal_type, chromosome, gene');
+      const pets = await db.select('SELECT * FROM pets ORDER BY name');
+      const petsExport = pets.map((p) => {
+        const c = { ...p };
+        delete c.id;
+        return c;
+      });
 
-    await page.getByText('Cancel').click();
-    await expect(page.getByText('Merge backup data?')).not.toBeVisible();
+      const zip = new JSZip();
+      zip.file(
+        'metadata.json',
+        JSON.stringify({
+          format: 'gorgonetics-backup',
+          format_version: 2,
+          schema_version: 3,
+          app_version: '0.1.1',
+          exported_at: new Date().toISOString(),
+          contents: { genes: true, pets: true, images: false },
+          record_counts: { genes: genes.length, pets: pets.length, images: 0 },
+        }),
+      );
+      zip.file('genes.json', JSON.stringify(genes));
+      zip.file('pets.json', JSON.stringify(petsExport));
+
+      const data = await zip.generateAsync({ type: 'base64' });
+      return data;
+    });
+
+    // Delete a pet
+    await page.evaluate(async () => {
+      const { getDb } = await import('/src/lib/services/database.ts');
+      const db = getDb();
+      const pets = await db.select('SELECT id FROM pets LIMIT 1');
+      await db.execute('DELETE FROM pets WHERE id = $id', { id: pets[0].id });
+    });
+
+    // Import the zip (replace mode)
+    const result = await page.evaluate(async (zipBase64) => {
+      const { importDatabase } = await import('/src/lib/services/backupService.ts');
+      const binary = Uint8Array.from(atob(zipBase64), (c) => c.charCodeAt(0));
+      return importDatabase(binary, { mode: 'replace', includeGenes: true, includePets: true, includeImages: false });
+    }, zipBase64);
+
+    expect(result.pets).toBe(2);
+    expect(result.genes).toBeGreaterThan(0);
+  });
+
+  test('v2 zip selective import (genes only)', async ({ page }) => {
+    const zipBase64 = await page.evaluate(async () => {
+      const { default: JSZip } = await import('/src/lib/services/jszip-reexport.ts');
+      const { getDb } = await import('/src/lib/services/database.ts');
+      const db = getDb();
+      const genes = await db.select('SELECT * FROM genes');
+
+      const zip = new JSZip();
+      zip.file(
+        'metadata.json',
+        JSON.stringify({
+          format: 'gorgonetics-backup',
+          format_version: 2,
+          schema_version: 3,
+          app_version: '0.1.1',
+          exported_at: new Date().toISOString(),
+          contents: { genes: true, pets: false, images: false },
+          record_counts: { genes: genes.length, pets: 0, images: 0 },
+        }),
+      );
+      zip.file('genes.json', JSON.stringify(genes));
+
+      const data = await zip.generateAsync({ type: 'base64' });
+      return data;
+    });
+
+    const result = await page.evaluate(async (zipBase64) => {
+      const { importDatabase } = await import('/src/lib/services/backupService.ts');
+      const binary = Uint8Array.from(atob(zipBase64), (c) => c.charCodeAt(0));
+      return importDatabase(binary, { mode: 'replace', includeGenes: true, includePets: false, includeImages: false });
+    }, zipBase64);
+
+    expect(result.genes).toBeGreaterThan(0);
+    expect(result.pets).toBe(0);
+
+    // Pets should still exist (not deleted since includePets was false)
+    const petCount = await page.evaluate(async () => {
+      const { getDb } = await import('/src/lib/services/database.ts');
+      const db = getDb();
+      const r = await db.select('SELECT COUNT(*) as cnt FROM pets');
+      return r[0].cnt;
+    });
+    expect(petCount).toBe(2);
+  });
+
+  test('inspectBackup returns metadata for v1 JSON', async ({ page }) => {
+    const metadata = await page.evaluate(async () => {
+      const { inspectBackup } = await import('/src/lib/services/backupService.ts');
+      const json = JSON.stringify({
+        metadata: {
+          format: 'gorgonetics-backup',
+          format_version: 1,
+          schema_version: 2,
+          app_version: '0.1.0',
+          exported_at: '2026-01-01T00:00:00Z',
+          record_counts: { genes: 100, pets: 5 },
+        },
+        data: { genes: [], pets: [] },
+      });
+      return inspectBackup(new TextEncoder().encode(json));
+    });
+
+    expect(metadata.format_version).toBe(1);
+    expect(metadata.contents.images).toBe(false);
+    expect(metadata.record_counts.genes).toBe(100);
   });
 });

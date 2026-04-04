@@ -27,6 +27,42 @@ export function pickJsonFile(): Promise<string | null> {
   return pickFile('Import Gorgonetics Backup', 'JSON Files', ['json']);
 }
 
+export function pickBackupFile(): Promise<string | null> {
+  return pickFile('Import Gorgonetics Backup', 'Backup Files', ['zip', 'json']);
+}
+
+export async function readBinaryFile(path: string): Promise<Uint8Array> {
+  if (isTauri()) {
+    const { readFile } = await import('@tauri-apps/plugin-fs');
+    return readFile(path);
+  }
+  throw new Error('Binary file reading not available outside Tauri');
+}
+
+export async function saveExportBinaryFile(defaultFilename: string, data: Uint8Array): Promise<boolean> {
+  if (isTauri()) {
+    const { save } = await import('@tauri-apps/plugin-dialog');
+    const { writeFile } = await import('@tauri-apps/plugin-fs');
+    const path = await save({
+      defaultPath: defaultFilename,
+      filters: [{ name: 'Zip Archives', extensions: ['zip'] }],
+      title: 'Export Gorgonetics Backup',
+    });
+    if (!path) return false;
+    await writeFile(path, data);
+    return true;
+  }
+
+  const blob = new Blob([data], { type: 'application/zip' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = defaultFilename;
+  a.click();
+  URL.revokeObjectURL(url);
+  return true;
+}
+
 /**
  * Read the text content of a file at the given path.
  */

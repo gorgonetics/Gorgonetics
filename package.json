@@ -42,7 +42,8 @@
     "@tauri-apps/api": "^2.10.1",
     "@tauri-apps/plugin-dialog": "^2.6.0",
     "@tauri-apps/plugin-fs": "^2.4.5",
-    "@tauri-apps/plugin-sql": "^2.3.2"
+    "@tauri-apps/plugin-sql": "^2.3.2",
+    "jszip": "^3.10.1"
   },
   "keywords": [
     "project-gorgon",
