@@ -139,6 +139,20 @@ pnpm test:e2e                     # Playwright E2E tests
 
 ## Key Patterns
 
+### Releasing
+```bash
+pnpm release patch   # or: minor, major
+```
+This runs `scripts/release.sh` which:
+1. Bumps version in package.json, tauri.conf.json, Cargo.toml
+2. Regenerates docs screenshots via `pnpm screenshots`
+3. Runs lint and E2E tests
+4. Commits, tags (`vX.Y.Z`), and pushes
+5. The tag triggers the Release workflow (builds macOS/Windows/Linux binaries)
+6. The Pages workflow deploys docs on release publish
+
+After binaries are built, edit the draft release on GitHub to publish it.
+
 ### Adding a Feature
 1. Define types in `src/lib/types/index.ts`
 2. Add service functions in `src/lib/services/`
