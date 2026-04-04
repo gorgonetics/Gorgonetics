@@ -179,6 +179,21 @@ export interface ImportOptions {
   includeImages: boolean;
 }
 
+export interface ExportResult {
+  saved: boolean;
+  genes: number;
+  pets: number;
+  images: number;
+}
+
+export interface ImportResult {
+  genes: number;
+  pets: number;
+  petsSkipped: number;
+  images: number;
+  imagesSkipped: number;
+}
+
 // --- Pet image types ---
 
 export interface PetImage {

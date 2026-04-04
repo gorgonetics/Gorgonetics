@@ -7,7 +7,13 @@
 declare const __APP_VERSION__: string;
 
 import JSZip from 'jszip';
-import type { ExportOptions, GorgonExport, GorgonExportMetadata, ImportOptions } from '$lib/types/index.js';
+import type {
+  ExportOptions,
+  ExportResult,
+  GorgonExportMetadata,
+  ImportOptions,
+  ImportResult,
+} from '$lib/types/index.js';
 import { isTauri } from '$lib/utils/environment.js';
 import { getDb } from './database.js';
 import { saveExportBinaryFile } from './fileService.js';
@@ -52,13 +58,6 @@ const PET_COLUMNS = [
 ];
 
 // --- Export ---
-
-export interface ExportResult {
-  saved: boolean;
-  genes: number;
-  pets: number;
-  images: number;
-}
 
 export async function exportDatabase(options: ExportOptions): Promise<ExportResult> {
   const db = getDb();
@@ -154,145 +153,35 @@ export async function exportDatabase(options: ExportOptions): Promise<ExportResu
 
 // --- Import ---
 
-export interface ImportResult {
-  genes: number;
-  pets: number;
-  petsSkipped: number;
-  images: number;
-  imagesSkipped: number;
-}
-
-function isZipFile(data: Uint8Array): boolean {
-  return data.length >= 2 && data[0] === 0x50 && data[1] === 0x4b;
-}
-
-/** Parse and validate v1 legacy JSON backup. */
-function parseBackupV1(jsonContent: string): GorgonExport {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(jsonContent);
-  } catch {
-    throw new Error('Invalid JSON file.');
-  }
-
-  const backup = parsed as GorgonExport;
-  if (!backup?.metadata?.format || backup.metadata.format !== EXPORT_FORMAT) {
-    throw new Error('Not a Gorgonetics backup file.');
-  }
-  if (backup.metadata.format_version > EXPORT_FORMAT_VERSION) {
+export async function inspectBackup(fileData: Uint8Array): Promise<GorgonExportMetadata> {
+  const zip = await JSZip.loadAsync(fileData);
+  const metaFile = zip.file('metadata.json');
+  if (!metaFile) throw new Error('Backup archive is missing metadata.json.');
+  const metaJson = await metaFile.async('string');
+  const metadata = JSON.parse(metaJson) as GorgonExportMetadata;
+  if (metadata.format !== EXPORT_FORMAT) throw new Error('Not a Gorgonetics backup file.');
+  if (metadata.format_version > EXPORT_FORMAT_VERSION) {
     throw new Error(
-      `This backup was created with a newer version of Gorgonetics (format v${backup.metadata.format_version}). Please update the app.`,
+      `This backup was created with a newer version of Gorgonetics (format v${metadata.format_version}). Please update the app.`,
     );
   }
-  if (!Array.isArray(backup.data?.genes) || !Array.isArray(backup.data?.pets)) {
-    throw new Error('Backup file is missing or has invalid data sections.');
-  }
-  return backup;
-}
-
-/** Detect format and get metadata from a backup file. */
-export async function inspectBackup(fileData: Uint8Array): Promise<GorgonExportMetadata> {
-  if (isZipFile(fileData)) {
-    const zip = await JSZip.loadAsync(fileData);
-    const metaFile = zip.file('metadata.json');
-    if (!metaFile) throw new Error('Backup archive is missing metadata.json.');
-    const metaJson = await metaFile.async('string');
-    const metadata = JSON.parse(metaJson) as GorgonExportMetadata;
-    if (metadata.format !== EXPORT_FORMAT) throw new Error('Not a Gorgonetics backup file.');
-    if (metadata.format_version > EXPORT_FORMAT_VERSION) {
-      throw new Error(
-        `This backup was created with a newer version of Gorgonetics (format v${metadata.format_version}). Please update the app.`,
-      );
-    }
-    return metadata;
-  }
-
-  // v1 JSON
-  const text = new TextDecoder().decode(fileData);
-  const backup = parseBackupV1(text);
-  return {
-    ...backup.metadata,
-    contents: { genes: true, pets: true, images: false },
-  };
+  return metadata;
 }
 
 export async function importDatabase(fileData: Uint8Array, options: ImportOptions): Promise<ImportResult> {
-  if (isZipFile(fileData)) {
-    return importV2(fileData, options);
-  }
-  // v1 JSON fallback
-  const text = new TextDecoder().decode(fileData);
-  return importV1(text, options);
+  return importFromZip(fileData, options);
 }
 
-async function importV1(jsonContent: string, options: ImportOptions): Promise<ImportResult> {
-  const backup = parseBackupV1(jsonContent);
+/** Shared gene/pet import logic used by both v1 and v2 paths. */
+async function importGenesAndPets(
+  genes: Record<string, unknown>[] | null,
+  pets: Record<string, unknown>[] | null,
+  options: ImportOptions,
+): Promise<{ genes: number; pets: number; petsSkipped: number }> {
   const db = getDb();
-
-  let petsImported = 0;
-  let petsSkipped = 0;
-  let genesImported = 0;
-
-  const genePlaceholders = GENE_COLUMNS.map((col) => `$${col}`).join(', ');
-  const geneSQL = `INSERT OR REPLACE INTO genes (${GENE_COLUMNS.join(', ')}) VALUES (${genePlaceholders})`;
-  const petPlaceholders = PET_COLUMNS.map((col) => `$${col}`).join(', ');
-  const petSQL = `INSERT INTO pets (${PET_COLUMNS.join(', ')}) VALUES (${petPlaceholders})`;
-
-  let existingHashes: Set<string> | null = null;
-  if (options.mode === 'merge') {
-    const rows = await db.select<{ content_hash: string }[]>('SELECT content_hash FROM pets');
-    existingHashes = new Set(rows.map((r) => r.content_hash));
-  }
-
-  await db.execute('BEGIN');
-  try {
-    if (options.mode === 'replace') {
-      if (options.includeGenes) await db.execute('DELETE FROM genes');
-      if (options.includePets) await db.execute('DELETE FROM pets');
-    }
-
-    if (options.includeGenes) {
-      for (const gene of backup.data.genes) {
-        const params: Record<string, unknown> = {};
-        for (const col of GENE_COLUMNS) params[col] = gene[col] ?? null;
-        await db.execute(geneSQL, params);
-      }
-      genesImported = backup.data.genes.length;
-    }
-
-    if (options.includePets) {
-      for (const pet of backup.data.pets) {
-        if (existingHashes?.has(pet.content_hash as string)) {
-          petsSkipped++;
-          continue;
-        }
-        let genomeData = pet.genome_data;
-        if (typeof genomeData === 'object' && genomeData !== null) genomeData = JSON.stringify(genomeData);
-        const params: Record<string, unknown> = {};
-        for (const col of PET_COLUMNS) params[col] = col === 'genome_data' ? genomeData : (pet[col] ?? null);
-        await db.execute(petSQL, params);
-        petsImported++;
-      }
-    }
-
-    await db.execute('COMMIT');
-  } catch (error) {
-    await db.execute('ROLLBACK');
-    throw error;
-  }
-
-  return { genes: genesImported, pets: petsImported, petsSkipped, images: 0, imagesSkipped: 0 };
-}
-
-async function importV2(fileData: Uint8Array, options: ImportOptions): Promise<ImportResult> {
-  const zip = await JSZip.loadAsync(fileData);
-  const db = getDb();
-
   let genesImported = 0;
   let petsImported = 0;
   let petsSkipped = 0;
-  let imagesImported = 0;
-  let imagesSkipped = 0;
 
   const genePlaceholders = GENE_COLUMNS.map((col) => `$${col}`).join(', ');
   const geneSQL = `INSERT OR REPLACE INTO genes (${GENE_COLUMNS.join(', ')}) VALUES (${genePlaceholders})`;
@@ -315,37 +204,27 @@ async function importV2(fileData: Uint8Array, options: ImportOptions): Promise<I
       }
     }
 
-    // Import genes
-    if (options.includeGenes) {
-      const genesFile = zip.file('genes.json');
-      if (genesFile) {
-        const genes = JSON.parse(await genesFile.async('string')) as Record<string, unknown>[];
-        for (const gene of genes) {
-          const params: Record<string, unknown> = {};
-          for (const col of GENE_COLUMNS) params[col] = gene[col] ?? null;
-          await db.execute(geneSQL, params);
-        }
-        genesImported = genes.length;
+    if (options.includeGenes && genes) {
+      for (const gene of genes) {
+        const params: Record<string, unknown> = {};
+        for (const col of GENE_COLUMNS) params[col] = gene[col] ?? null;
+        await db.execute(geneSQL, params);
       }
+      genesImported = genes.length;
     }
 
-    // Import pets
-    if (options.includePets) {
-      const petsFile = zip.file('pets.json');
-      if (petsFile) {
-        const pets = JSON.parse(await petsFile.async('string')) as Record<string, unknown>[];
-        for (const pet of pets) {
-          if (existingHashes?.has(pet.content_hash as string)) {
-            petsSkipped++;
-            continue;
-          }
-          let genomeData = pet.genome_data;
-          if (typeof genomeData === 'object' && genomeData !== null) genomeData = JSON.stringify(genomeData);
-          const params: Record<string, unknown> = {};
-          for (const col of PET_COLUMNS) params[col] = col === 'genome_data' ? genomeData : (pet[col] ?? null);
-          await db.execute(petSQL, params);
-          petsImported++;
+    if (options.includePets && pets) {
+      for (const pet of pets) {
+        if (existingHashes?.has(pet.content_hash as string)) {
+          petsSkipped++;
+          continue;
         }
+        let genomeData = pet.genome_data;
+        if (typeof genomeData === 'object' && genomeData !== null) genomeData = JSON.stringify(genomeData);
+        const params: Record<string, unknown> = {};
+        for (const col of PET_COLUMNS) params[col] = col === 'genome_data' ? genomeData : (pet[col] ?? null);
+        await db.execute(petSQL, params);
+        petsImported++;
       }
     }
 
@@ -355,15 +234,39 @@ async function importV2(fileData: Uint8Array, options: ImportOptions): Promise<I
     throw error;
   }
 
+  return { genes: genesImported, pets: petsImported, petsSkipped };
+}
+
+async function importFromZip(fileData: Uint8Array, options: ImportOptions): Promise<ImportResult> {
+  const zip = await JSZip.loadAsync(fileData);
+
+  // Extract data from zip
+  let genes: Record<string, unknown>[] | null = null;
+  let pets: Record<string, unknown>[] | null = null;
+
+  if (options.includeGenes) {
+    const genesFile = zip.file('genes.json');
+    if (genesFile) genes = JSON.parse(await genesFile.async('string'));
+  }
+
+  if (options.includePets) {
+    const petsFile = zip.file('pets.json');
+    if (petsFile) pets = JSON.parse(await petsFile.async('string'));
+  }
+
+  const result = await importGenesAndPets(genes, pets, options);
+  let imagesImported = 0;
+  let imagesSkipped = 0;
+
   // Import images (after transaction so pet IDs are available)
   if (options.includeImages) {
     const petImagesFile = zip.file('images/pet_images.json');
     if (petImagesFile && isTauri()) {
       const { writeFile, mkdir, BaseDirectory } = await import('@tauri-apps/plugin-fs');
+      const db = getDb();
 
       const imageRecords = JSON.parse(await petImagesFile.async('string')) as Record<string, unknown>[];
 
-      // Build content_hash -> pet_id mapping from current DB
       const allPets = await db.select<{ id: number; content_hash: string }[]>('SELECT id, content_hash FROM pets');
       const hashToId = new Map(allPets.map((p) => [p.content_hash, p.id]));
 
@@ -419,5 +322,5 @@ async function importV2(fileData: Uint8Array, options: ImportOptions): Promise<I
     }
   }
 
-  return { genes: genesImported, pets: petsImported, petsSkipped, images: imagesImported, imagesSkipped };
+  return { ...result, images: imagesImported, imagesSkipped };
 }
