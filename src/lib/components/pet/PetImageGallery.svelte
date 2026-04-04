@@ -217,11 +217,11 @@ $effect(() => {
     color: #6b7280;
   }
 
-  .empty-hint {
-    font-size: 13px !important;
-    font-weight: 400 !important;
-    color: #9ca3af !important;
-    margin-top: 4px !important;
+  .gallery-empty p.empty-hint {
+    font-size: 13px;
+    font-weight: 400;
+    color: #9ca3af;
+    margin-top: 4px;
   }
 
   .thumbnail-grid {

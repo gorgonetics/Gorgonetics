@@ -9,6 +9,12 @@ import { isTauri } from '$lib/utils/environment.js';
 import { getDb } from './database.js';
 
 const ALLOWED_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp'];
+const MIME_TYPES: Record<string, string> = {
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  webp: 'image/webp',
+};
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
 
 function now(): string {
@@ -121,8 +127,9 @@ export async function getImagesForPet(petId: number): Promise<PetImage[]> {
   const images = rows.map(parseImage);
 
   if (isTauri()) {
-    for (const img of images) {
-      img.url = await getImageUrl(img.pet_id, img.filename);
+    const urls = await Promise.all(images.map((img) => getImageUrl(img.pet_id, img.filename)));
+    for (let i = 0; i < images.length; i++) {
+      images[i].url = urls[i];
     }
   }
 
@@ -139,7 +146,7 @@ async function getImageUrl(petId: number, filename: string): Promise<string> {
   const relativePath = `images/${petId}/${filename}`;
   const data = await readFile(relativePath, { baseDir: BaseDirectory.AppData });
   const ext = getExtension(filename);
-  const mime = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+  const mime = MIME_TYPES[ext] ?? 'image/jpeg';
   const blob = new Blob([data], { type: mime });
   return URL.createObjectURL(blob);
 }
