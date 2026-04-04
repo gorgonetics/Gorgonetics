@@ -9,12 +9,6 @@ import { isTauri } from '$lib/utils/environment.js';
 import { getDb } from './database.js';
 
 const ALLOWED_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp'];
-const MIME_TYPES: Record<string, string> = {
-  png: 'image/png',
-  jpg: 'image/jpeg',
-  jpeg: 'image/jpeg',
-  webp: 'image/webp',
-};
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
 
 function now(): string {
@@ -138,17 +132,16 @@ export async function getImagesForPet(petId: number): Promise<PetImage[]> {
 
 /**
  * Resolve a displayable URL for an image file.
- * Reads the file bytes and creates a blob URL the webview can render.
+ * Uses Tauri's asset protocol to serve files directly from disk
+ * without reading them into memory.
  */
 async function getImageUrl(petId: number, filename: string): Promise<string> {
   if (!isTauri()) return '';
-  const { readFile, BaseDirectory } = await import('@tauri-apps/plugin-fs');
-  const relativePath = `images/${petId}/${filename}`;
-  const data = await readFile(relativePath, { baseDir: BaseDirectory.AppData });
-  const ext = getExtension(filename);
-  const mime = MIME_TYPES[ext] ?? 'image/jpeg';
-  const blob = new Blob([data], { type: mime });
-  return URL.createObjectURL(blob);
+  const { appDataDir, join } = await import('@tauri-apps/api/path');
+  const { convertFileSrc } = await import('@tauri-apps/api/core');
+  const baseDir = await appDataDir();
+  const fullPath = await join(baseDir, 'images', String(petId), filename);
+  return convertFileSrc(fullPath);
 }
 
 /**
