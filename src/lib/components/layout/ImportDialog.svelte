@@ -44,7 +44,7 @@ async function handleImport() {
 </script>
 
 <div class="modal-backdrop" onclick={onClose}>
-  <div class="import-dialog" onclick={(e) => e.stopPropagation()}>
+  <div class="dialog import-dialog" onclick={(e) => e.stopPropagation()}>
     <div class="dialog-header">
       <h3>Import Backup</h3>
       <button class="close-btn" onclick={onClose}>×</button>
@@ -141,52 +141,15 @@ async function handleImport() {
 
 <style>
   .import-dialog {
-    background: #ffffff;
-    border-radius: 12px;
     max-width: 480px;
-    width: 90%;
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
-    overflow: hidden;
     max-height: 85vh;
     display: flex;
     flex-direction: column;
   }
 
-  .dialog-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 16px 20px;
-    border-bottom: 1px solid #e5e7eb;
-    flex-shrink: 0;
-  }
-
-  .dialog-header h3 {
-    font-size: 16px;
-    font-weight: 700;
-    color: #111827;
-  }
-
-  .close-btn {
-    width: 28px;
-    height: 28px;
-    border: none;
-    border-radius: 6px;
-    background: transparent;
-    color: #6b7280;
-    font-size: 18px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .close-btn:hover { background: #f3f4f6; }
-
-  .dialog-body {
-    padding: 16px 20px;
-    overflow-y: auto;
-  }
+  .import-dialog .dialog-header { flex-shrink: 0; }
+  .import-dialog .dialog-body { overflow-y: auto; }
+  .import-dialog .dialog-footer { flex-shrink: 0; }
 
   .format-badge {
     display: inline-block;
@@ -229,38 +192,6 @@ async function handleImport() {
     letter-spacing: 0.05em;
     margin-bottom: 8px;
     margin-top: 16px;
-  }
-
-  .checkbox-row {
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-    padding: 8px 0;
-    cursor: pointer;
-  }
-
-  .checkbox-row input[type="checkbox"] {
-    margin-top: 2px;
-    width: 16px;
-    height: 16px;
-    flex-shrink: 0;
-  }
-
-  .checkbox-info {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-
-  .checkbox-label {
-    font-size: 14px;
-    font-weight: 500;
-    color: #111827;
-  }
-
-  .checkbox-desc {
-    font-size: 12px;
-    color: #9ca3af;
   }
 
   .mode-selector {
@@ -315,15 +246,5 @@ async function handleImport() {
     border-radius: 6px;
     font-size: 12px;
     color: #dc2626;
-  }
-
-  .dialog-footer {
-    display: flex;
-    justify-content: flex-end;
-    gap: 8px;
-    padding: 14px 20px;
-    border-top: 1px solid #e5e7eb;
-    background: #f9fafb;
-    flex-shrink: 0;
   }
 </style>

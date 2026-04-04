@@ -26,8 +26,8 @@ async function toggleSetting(key) {
 
 {#if open}
   <div class="modal-backdrop" onclick={close}>
-    <div class="modal" onclick={(e) => e.stopPropagation()}>
-      <div class="modal-header">
+    <div class="dialog settings-dialog" onclick={(e) => e.stopPropagation()}>
+      <div class="dialog-header">
         <h3>Settings</h3>
         <button class="close-btn" onclick={close}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -37,7 +37,7 @@ async function toggleSetting(key) {
         </button>
       </div>
 
-      <div class="modal-body">
+      <div class="dialog-body">
         <div class="settings-section">
           <h4>Horse Visualization</h4>
 
@@ -82,49 +82,8 @@ async function toggleSetting(key) {
     color: #374151;
   }
 
-  .modal {
-    background: #ffffff;
-    border-radius: 12px;
+  .settings-dialog {
     max-width: 480px;
-    width: 90%;
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
-    overflow: hidden;
-  }
-
-  .modal-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 16px 20px;
-    border-bottom: 1px solid #e5e7eb;
-  }
-
-  .modal-header h3 {
-    font-size: 16px;
-    font-weight: 700;
-    color: #111827;
-  }
-
-  .close-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 28px;
-    border: none;
-    border-radius: 6px;
-    background: transparent;
-    color: #6b7280;
-    cursor: pointer;
-  }
-
-  .close-btn:hover {
-    background: #f3f4f6;
-    color: #374151;
-  }
-
-  .modal-body {
-    padding: 16px 20px 20px;
   }
 
   .settings-section h4 {
