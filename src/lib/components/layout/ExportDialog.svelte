@@ -1,6 +1,6 @@
 <script>
 import { exportDatabase } from '$lib/services/backupService.js';
-import { getImageCount } from '$lib/services/imageService.js';
+import { getTotalImageCount } from '$lib/services/imageService.js';
 
 const { onClose, onResult } = $props();
 
@@ -11,21 +11,10 @@ let imageCount = $state(0);
 let exporting = $state(false);
 
 $effect(() => {
-  getImageCount(0).then(() => {});
-  // Load total image count across all pets
-  loadImageCount();
+  getTotalImageCount().then((count) => {
+    imageCount = count;
+  });
 });
-
-async function loadImageCount() {
-  try {
-    const { getDb } = await import('$lib/services/database.js');
-    const db = getDb();
-    const rows = await db.select('SELECT COUNT(*) as cnt FROM pet_images');
-    imageCount = rows[0]?.cnt ?? 0;
-  } catch {
-    imageCount = 0;
-  }
-}
 
 async function handleExport() {
   exporting = true;

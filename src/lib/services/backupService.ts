@@ -72,7 +72,7 @@ export async function exportDatabase(options: ExportOptions): Promise<ExportResu
     const genes = await db.select<Record<string, unknown>[]>(
       'SELECT * FROM genes ORDER BY animal_type, chromosome, gene',
     );
-    zip.file('genes.json', JSON.stringify(genes, null, 2));
+    zip.file('genes.json', JSON.stringify(genes));
     geneCount = genes.length;
   }
 
@@ -92,7 +92,7 @@ export async function exportDatabase(options: ExportOptions): Promise<ExportResu
       return copy;
     });
     if (options.includePets) {
-      zip.file('pets.json', JSON.stringify(petsExport, null, 2));
+      zip.file('pets.json', JSON.stringify(petsExport));
       petCount = petsExport.length;
     }
   }
@@ -111,7 +111,7 @@ export async function exportDatabase(options: ExportOptions): Promise<ExportResu
       tags: row.tags ?? '[]',
       created_at: row.created_at,
     }));
-    zip.file('images/pet_images.json', JSON.stringify(imageMetadata, null, 2));
+    zip.file('images/pet_images.json', JSON.stringify(imageMetadata));
 
     // Copy actual image files into the zip
     if (isTauri()) {
@@ -199,6 +199,11 @@ export async function inspectBackup(fileData: Uint8Array): Promise<GorgonExportM
     const metaJson = await metaFile.async('string');
     const metadata = JSON.parse(metaJson) as GorgonExportMetadata;
     if (metadata.format !== EXPORT_FORMAT) throw new Error('Not a Gorgonetics backup file.');
+    if (metadata.format_version > EXPORT_FORMAT_VERSION) {
+      throw new Error(
+        `This backup was created with a newer version of Gorgonetics (format v${metadata.format_version}). Please update the app.`,
+      );
+    }
     return metadata;
   }
 
@@ -289,7 +294,6 @@ async function importV2(fileData: Uint8Array, options: ImportOptions): Promise<I
   let imagesImported = 0;
   let imagesSkipped = 0;
 
-  // Build SQL strings
   const genePlaceholders = GENE_COLUMNS.map((col) => `$${col}`).join(', ');
   const geneSQL = `INSERT OR REPLACE INTO genes (${GENE_COLUMNS.join(', ')}) VALUES (${genePlaceholders})`;
   const petPlaceholders = PET_COLUMNS.map((col) => `$${col}`).join(', ');
@@ -363,6 +367,13 @@ async function importV2(fileData: Uint8Array, options: ImportOptions): Promise<I
       const allPets = await db.select<{ id: number; content_hash: string }[]>('SELECT id, content_hash FROM pets');
       const hashToId = new Map(allPets.map((p) => [p.content_hash, p.id]));
 
+      // Pre-fetch existing images for merge dedup
+      let existingImageKeys: Set<string> | null = null;
+      if (options.mode === 'merge') {
+        const rows = await db.select<{ pet_id: number; filename: string }[]>('SELECT pet_id, filename FROM pet_images');
+        existingImageKeys = new Set(rows.map((r) => `${r.pet_id}:${r.filename}`));
+      }
+
       for (const record of imageRecords) {
         const contentHash = record.content_hash as string;
         const petId = hashToId.get(contentHash);
@@ -379,16 +390,9 @@ async function importV2(fileData: Uint8Array, options: ImportOptions): Promise<I
           continue;
         }
 
-        // Check if image already exists in DB
-        if (options.mode === 'merge') {
-          const existing = await db.select<{ cnt: number }[]>(
-            'SELECT COUNT(*) as cnt FROM pet_images WHERE pet_id = $pet_id AND filename = $filename',
-            { pet_id: petId, filename },
-          );
-          if (existing[0]?.cnt > 0) {
-            imagesSkipped++;
-            continue;
-          }
+        if (existingImageKeys?.has(`${petId}:${filename}`)) {
+          imagesSkipped++;
+          continue;
         }
 
         // Write file to disk
