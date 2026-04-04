@@ -65,8 +65,7 @@ export async function uploadImage(petId: number, sourcePath: string): Promise<Pe
   }
 
   if (isTauri()) {
-    const { readFile, writeFile, mkdir } = await import('@tauri-apps/plugin-fs');
-    const { appDataDir, join } = await import('@tauri-apps/api/path');
+    const { readFile, writeFile, mkdir, BaseDirectory } = await import('@tauri-apps/plugin-fs');
 
     // Read the source file (dialog-selected paths have temporary read access)
     const fileData = await readFile(sourcePath);
@@ -74,16 +73,15 @@ export async function uploadImage(petId: number, sourcePath: string): Promise<Pe
       throw new Error(`Image too large (${Math.round(fileData.byteLength / 1024 / 1024)}MB). Maximum is 20MB.`);
     }
 
-    // Create target directory
-    const baseDir = await appDataDir();
-    const imageDir = await join(baseDir, 'images', String(petId));
-    await mkdir(imageDir, { recursive: true });
+    // Create target directory using relative path + baseDir
+    const relativeDir = `images/${petId}`;
+    await mkdir(relativeDir, { baseDir: BaseDirectory.AppData, recursive: true });
 
-    // Generate UUID filename and write
+    // Generate UUID filename and write using relative path + baseDir
     const uuid = crypto.randomUUID();
     const filename = `${uuid}.${ext}`;
-    const targetPath = await join(imageDir, filename);
-    await writeFile(targetPath, fileData);
+    const relativePath = `${relativeDir}/${filename}`;
+    await writeFile(relativePath, fileData, { baseDir: BaseDirectory.AppData });
 
     // Insert DB record
     const db = getDb();
@@ -137,11 +135,9 @@ export async function getImagesForPet(petId: number): Promise<PetImage[]> {
  */
 async function getImageUrl(petId: number, filename: string): Promise<string> {
   if (!isTauri()) return '';
-  const { readFile } = await import('@tauri-apps/plugin-fs');
-  const { appDataDir, join } = await import('@tauri-apps/api/path');
-  const baseDir = await appDataDir();
-  const fullPath = await join(baseDir, 'images', String(petId), filename);
-  const data = await readFile(fullPath);
+  const { readFile, BaseDirectory } = await import('@tauri-apps/plugin-fs');
+  const relativePath = `images/${petId}/${filename}`;
+  const data = await readFile(relativePath, { baseDir: BaseDirectory.AppData });
   const ext = getExtension(filename);
   const mime = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
   const blob = new Blob([data], { type: mime });
@@ -154,11 +150,8 @@ async function getImageUrl(petId: number, filename: string): Promise<string> {
 export async function deleteImage(imageId: number, petId: number, filename: string): Promise<void> {
   if (isTauri()) {
     try {
-      const { remove } = await import('@tauri-apps/plugin-fs');
-      const { appDataDir, join } = await import('@tauri-apps/api/path');
-      const baseDir = await appDataDir();
-      const filePath = await join(baseDir, 'images', String(petId), filename);
-      await remove(filePath);
+      const { remove, BaseDirectory } = await import('@tauri-apps/plugin-fs');
+      await remove(`images/${petId}/${filename}`, { baseDir: BaseDirectory.AppData });
     } catch {
       // File may already be gone — still remove the DB record
     }
@@ -175,11 +168,8 @@ export async function deleteImage(imageId: number, petId: number, filename: stri
 export async function deleteAllImagesForPet(petId: number): Promise<void> {
   if (isTauri()) {
     try {
-      const { remove } = await import('@tauri-apps/plugin-fs');
-      const { appDataDir, join } = await import('@tauri-apps/api/path');
-      const baseDir = await appDataDir();
-      const petDir = await join(baseDir, 'images', String(petId));
-      await remove(petDir, { recursive: true });
+      const { remove, BaseDirectory } = await import('@tauri-apps/plugin-fs');
+      await remove(`images/${petId}`, { baseDir: BaseDirectory.AppData, recursive: true });
     } catch {
       // Directory may not exist
     }
