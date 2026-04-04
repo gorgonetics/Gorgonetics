@@ -212,3 +212,9 @@ export async function getImageCount(petId: number): Promise<number> {
   });
   return rows[0]?.cnt ?? 0;
 }
+
+export async function getTotalImageCount(): Promise<number> {
+  const db = getDb();
+  const rows = await db.select<{ cnt: number }[]>('SELECT COUNT(*) as cnt FROM pet_images');
+  return rows[0]?.cnt ?? 0;
+}

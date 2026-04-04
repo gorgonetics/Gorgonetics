@@ -23,8 +23,40 @@ export function pickGenomeFile(): Promise<string | null> {
   return pickFile('Select Genome File', 'Genome Files', ['txt']);
 }
 
-export function pickJsonFile(): Promise<string | null> {
-  return pickFile('Import Gorgonetics Backup', 'JSON Files', ['json']);
+export function pickBackupFile(): Promise<string | null> {
+  return pickFile('Import Gorgonetics Backup', 'Backup Files', ['zip', 'json']);
+}
+
+export async function readBinaryFile(path: string): Promise<Uint8Array> {
+  if (isTauri()) {
+    const { readFile } = await import('@tauri-apps/plugin-fs');
+    return readFile(path);
+  }
+  throw new Error('Binary file reading not available outside Tauri');
+}
+
+export async function saveExportBinaryFile(defaultFilename: string, data: Uint8Array): Promise<boolean> {
+  if (isTauri()) {
+    const { save } = await import('@tauri-apps/plugin-dialog');
+    const { writeFile } = await import('@tauri-apps/plugin-fs');
+    const path = await save({
+      defaultPath: defaultFilename,
+      filters: [{ name: 'Zip Archives', extensions: ['zip'] }],
+      title: 'Export Gorgonetics Backup',
+    });
+    if (!path) return false;
+    await writeFile(path, data);
+    return true;
+  }
+
+  const blob = new Blob([data], { type: 'application/zip' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = defaultFilename;
+  a.click();
+  URL.revokeObjectURL(url);
+  return true;
 }
 
 /**
@@ -36,34 +68,6 @@ export async function readFileContent(path: string): Promise<string> {
     return readTextFile(path);
   }
   throw new Error('File reading not available outside Tauri');
-}
-
-/**
- * Open a native save dialog and write content to the selected path.
- */
-export async function saveExportFile(defaultFilename: string, content: string): Promise<boolean> {
-  if (isTauri()) {
-    const { save } = await import('@tauri-apps/plugin-dialog');
-    const { writeTextFile } = await import('@tauri-apps/plugin-fs');
-    const path = await save({
-      defaultPath: defaultFilename,
-      filters: [{ name: 'JSON Files', extensions: ['json'] }],
-      title: 'Export Gorgonetics Backup',
-    });
-    if (!path) return false;
-    await writeTextFile(path, content);
-    return true;
-  }
-
-  // Browser fallback — download via blob
-  const blob = new Blob([content], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = defaultFilename;
-  a.click();
-  URL.revokeObjectURL(url);
-  return true;
 }
 
 /**

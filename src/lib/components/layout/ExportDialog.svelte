@@ -1,0 +1,106 @@
+<script>
+import { exportDatabase } from '$lib/services/backupService.js';
+import { getTotalImageCount } from '$lib/services/imageService.js';
+
+const { onClose, onResult } = $props();
+
+let includeGenes = $state(true);
+let includePets = $state(true);
+let includeImages = $state(true);
+let imageCount = $state(0);
+let exporting = $state(false);
+
+$effect(() => {
+  getTotalImageCount().then((count) => {
+    imageCount = count;
+  });
+});
+
+async function handleExport() {
+  exporting = true;
+  try {
+    const result = await exportDatabase({ includeGenes, includePets, includeImages });
+    if (result.saved) {
+      onResult({
+        type: 'success',
+        message: `Exported ${result.genes} genes, ${result.pets} pets, ${result.images} images.`,
+      });
+    }
+  } catch (err) {
+    onResult({ type: 'error', message: `Export failed: ${err.message}` });
+  }
+  exporting = false;
+  onClose();
+}
+</script>
+
+<div class="modal-backdrop" onclick={onClose}>
+  <div class="dialog export-dialog" onclick={(e) => e.stopPropagation()}>
+    <div class="dialog-header">
+      <h3>Export Backup</h3>
+      <button class="close-btn" onclick={onClose}>×</button>
+    </div>
+
+    <div class="dialog-body">
+      <p class="dialog-desc">Choose what to include in the backup:</p>
+
+      <label class="checkbox-row">
+        <input type="checkbox" bind:checked={includeGenes} />
+        <div class="checkbox-info">
+          <span class="checkbox-label">Gene definitions</span>
+          <span class="checkbox-desc">Effect data for all chromosomes</span>
+        </div>
+      </label>
+
+      <label class="checkbox-row">
+        <input type="checkbox" bind:checked={includePets} />
+        <div class="checkbox-info">
+          <span class="checkbox-label">Pet data</span>
+          <span class="checkbox-desc">Genome, attributes, and metadata</span>
+        </div>
+      </label>
+
+      <label class="checkbox-row">
+        <input type="checkbox" bind:checked={includeImages} disabled={imageCount === 0} />
+        <div class="checkbox-info">
+          <span class="checkbox-label">Pet images</span>
+          <span class="checkbox-desc">
+            {imageCount === 0 ? 'No images uploaded yet' : `${imageCount} image${imageCount > 1 ? 's' : ''}`}
+          </span>
+        </div>
+      </label>
+    </div>
+
+    <div class="dialog-footer">
+      <button class="btn btn-secondary" onclick={onClose}>Cancel</button>
+      <button
+        class="btn btn-primary"
+        onclick={handleExport}
+        disabled={exporting || (!includeGenes && !includePets && !includeImages)}
+      >
+        {exporting ? 'Exporting...' : 'Export'}
+      </button>
+    </div>
+  </div>
+</div>
+
+<style>
+  .export-dialog {
+    max-width: 440px;
+  }
+
+  .dialog-desc {
+    font-size: 14px;
+    color: #6b7280;
+    margin-bottom: 16px;
+  }
+
+  .checkbox-row {
+    padding: 10px 0;
+    border-bottom: 1px solid #f3f4f6;
+  }
+
+  .checkbox-row:last-of-type {
+    border-bottom: none;
+  }
+</style>
