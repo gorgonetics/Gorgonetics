@@ -55,8 +55,7 @@
     {
       "identifier": "fs:allow-read-file",
       "allow": [
-        { "path": "$APPDATA/**/*" },
-        { "path": "**/*" }
+        { "path": "$APPDATA/**/*" }
       ]
     },
     {
