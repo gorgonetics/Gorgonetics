@@ -4,6 +4,7 @@ import { appState } from '$lib/stores/pets.js';
 
 const { metadata, fileData, onClose, onResult } = $props();
 
+/** @type {'replace' | 'merge'} */
 let mode = $state('replace');
 let includeGenes = $state(true);
 let includePets = $state(true);

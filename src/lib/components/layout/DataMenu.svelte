@@ -8,8 +8,11 @@ import ImportDialog from './ImportDialog.svelte';
 let menuOpen = $state(false);
 let showExport = $state(false);
 let showImport = $state(false);
+/** @type {import('$lib/types/index.js').GorgonExportMetadata | null} */
 let importMetadata = $state(null);
+/** @type {Uint8Array | null} */
 let importFileData = $state(null);
+/** @type {{ type: 'success' | 'error', message: string } | null} */
 let status = $state(null);
 let statusTimer = 0;
 
