@@ -77,12 +77,16 @@ echo "Version bumped to $NEW_VERSION in package.json, tauri.conf.json, Cargo.tom
 
 # --- Update screenshots ---
 echo "Updating screenshots (starting dev server)..."
+# Kill any existing dev server on the port
+kill $(lsof -ti:5174) 2>/dev/null || true
+sleep 1
+
 pnpm dev &
 DEV_PID=$!
 sleep 4
 
 if curl -s http://localhost:5174 > /dev/null 2>&1; then
-  pnpm screenshots
+  pnpm screenshots || echo "Warning: screenshot capture failed, continuing"
   echo "Screenshots updated"
 else
   echo "Warning: dev server not responding, skipping screenshots"
@@ -102,9 +106,9 @@ pnpm test:e2e
 echo "Building changelog..."
 LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
 if [[ -n "$LAST_TAG" ]]; then
-  CHANGELOG=$(git log "$LAST_TAG"..HEAD --pretty=format:"- %s" --no-merges | grep -v "Co-Authored-By")
+  CHANGELOG=$(git log "$LAST_TAG"..HEAD --pretty=format:"- %s" --no-merges | grep -v "Co-Authored-By" || true)
 else
-  CHANGELOG=$(git log --pretty=format:"- %s" --no-merges | grep -v "Co-Authored-By")
+  CHANGELOG=$(git log --pretty=format:"- %s" --no-merges | grep -v "Co-Authored-By" || true)
 fi
 
 RELEASE_NOTES="## What's Changed
