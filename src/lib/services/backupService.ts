@@ -112,17 +112,23 @@ export async function exportDatabase(options: ExportOptions): Promise<ExportResu
     }));
     zip.file('images/pet_images.json', JSON.stringify(imageMetadata));
 
-    // Copy actual image files into the zip
+    // Read image files in parallel batches and add to zip
     if (isTauri()) {
       const { readFile, BaseDirectory } = await import('@tauri-apps/plugin-fs');
-      for (const row of imageRows) {
-        const relativePath = `images/${row.pet_id}/${row.filename}`;
-        try {
-          const data = await readFile(relativePath, { baseDir: BaseDirectory.AppData });
-          zip.file(`images/${row.content_hash}/${row.filename}`, data);
-          imageCount++;
-        } catch {
-          // Skip missing files
+      const BATCH = 10;
+      for (let i = 0; i < imageRows.length; i += BATCH) {
+        const batch = imageRows.slice(i, i + BATCH);
+        const results = await Promise.allSettled(
+          batch.map(async (row) => {
+            const data = await readFile(`images/${row.pet_id}/${row.filename}`, { baseDir: BaseDirectory.AppData });
+            return { row, data };
+          }),
+        );
+        for (const r of results) {
+          if (r.status === 'fulfilled') {
+            zip.file(`images/${r.value.row.content_hash}/${r.value.row.filename}`, r.value.data);
+            imageCount++;
+          }
         }
       }
     }
@@ -277,6 +283,15 @@ async function importFromZip(fileData: Uint8Array, options: ImportOptions): Prom
         existingImageKeys = new Set(rows.map((r) => `${r.pet_id}:${r.filename}`));
       }
 
+      // Filter to importable records and pre-create directories
+      const toImport: {
+        record: Record<string, unknown>;
+        petId: number;
+        filename: string;
+        zipEntry: JSZip.JSZipObject;
+      }[] = [];
+      const dirsCreated = new Set<number>();
+
       for (const record of imageRecords) {
         const contentHash = record.content_hash as string;
         const petId = hashToId.get(contentHash);
@@ -286,8 +301,7 @@ async function importFromZip(fileData: Uint8Array, options: ImportOptions): Prom
         }
 
         const filename = record.filename as string;
-        const zipPath = `images/${contentHash}/${filename}`;
-        const zipEntry = zip.file(zipPath);
+        const zipEntry = zip.file(`images/${contentHash}/${filename}`);
         if (!zipEntry) {
           imagesSkipped++;
           continue;
@@ -298,26 +312,44 @@ async function importFromZip(fileData: Uint8Array, options: ImportOptions): Prom
           continue;
         }
 
-        // Write file to disk
-        const relativeDir = `images/${petId}`;
-        await mkdir(relativeDir, { baseDir: BaseDirectory.AppData, recursive: true });
-        const fileData = await zipEntry.async('uint8array');
-        await writeFile(`${relativeDir}/${filename}`, fileData, { baseDir: BaseDirectory.AppData });
+        toImport.push({ record, petId, filename, zipEntry });
+        dirsCreated.add(petId);
+      }
 
-        // Insert DB record
-        await db.execute(
-          `INSERT INTO pet_images (pet_id, filename, original_name, caption, tags, created_at)
-           VALUES ($pet_id, $filename, $original_name, $caption, $tags, $created_at)`,
-          {
-            pet_id: petId,
-            filename,
-            original_name: record.original_name ?? filename,
-            caption: record.caption ?? '',
-            tags: typeof record.tags === 'string' ? record.tags : JSON.stringify(record.tags ?? []),
-            created_at: record.created_at ?? new Date().toISOString(),
-          },
+      // Create all needed directories in parallel
+      await Promise.all(
+        [...dirsCreated].map((petId) => mkdir(`images/${petId}`, { baseDir: BaseDirectory.AppData, recursive: true })),
+      );
+
+      // Write files in parallel batches, then insert DB records sequentially
+      const BATCH = 10;
+      for (let i = 0; i < toImport.length; i += BATCH) {
+        const batch = toImport.slice(i, i + BATCH);
+
+        // Parallel: extract from zip + write to disk
+        await Promise.all(
+          batch.map(async ({ petId, filename, zipEntry }) => {
+            const data = await zipEntry.async('uint8array');
+            await writeFile(`images/${petId}/${filename}`, data, { baseDir: BaseDirectory.AppData });
+          }),
         );
-        imagesImported++;
+
+        // Sequential: DB inserts (lightweight, keeps data consistent)
+        for (const { record, petId, filename } of batch) {
+          await db.execute(
+            `INSERT INTO pet_images (pet_id, filename, original_name, caption, tags, created_at)
+             VALUES ($pet_id, $filename, $original_name, $caption, $tags, $created_at)`,
+            {
+              pet_id: petId,
+              filename,
+              original_name: record.original_name ?? filename,
+              caption: record.caption ?? '',
+              tags: typeof record.tags === 'string' ? record.tags : JSON.stringify(record.tags ?? []),
+              created_at: record.created_at ?? new Date().toISOString(),
+            },
+          );
+          imagesImported++;
+        }
       }
     }
   }
