@@ -144,12 +144,13 @@ pnpm test:e2e                     # Playwright E2E tests
 pnpm release patch   # or: minor, major
 ```
 This runs `scripts/release.sh` which:
-1. Bumps version in package.json, tauri.conf.json, Cargo.toml
+1. Bumps version in package.json, tauri.conf.json, Cargo.toml, Cargo.lock, docs/index.html
 2. Regenerates docs screenshots via `pnpm screenshots`
 3. Runs lint and E2E tests
-4. Commits, tags (`vX.Y.Z`), and pushes
-5. The tag triggers the Release workflow (builds macOS/Windows/Linux binaries)
-6. The Pages workflow deploys docs on release publish
+4. Builds changelog from commits since last tag
+5. Commits, creates annotated tag with changelog, pushes
+6. The tag triggers the Release workflow (builds macOS/Windows/Linux binaries)
+7. The Pages workflow deploys docs on release publish
 
 After binaries are built, edit the draft release on GitHub to publish it.
 

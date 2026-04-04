@@ -2,17 +2,18 @@
 set -euo pipefail
 
 # Gorgonetics release script
-# Usage: ./scripts/release.sh <major|minor|patch>
+# Usage: bash scripts/release.sh <major|minor|patch>
 #
 # Steps:
-#   1. Bumps version in package.json, tauri.conf.json, Cargo.toml
-#   2. Regenerates screenshots (requires dev server on port 5174)
-#   3. Runs lint and tests
-#   4. Commits, tags, and pushes to trigger the release workflow
+#   1. Bumps version in package.json, tauri.conf.json, Cargo.toml, Cargo.lock, docs/index.html
+#   2. Regenerates screenshots (starts dev server, runs pnpm screenshots)
+#   3. Runs lint and E2E tests
+#   4. Builds changelog from commits since last tag
+#   5. Commits, creates annotated tag, pushes to trigger release workflow
 
 BUMP_TYPE="${1:-}"
 if [[ ! "$BUMP_TYPE" =~ ^(major|minor|patch)$ ]]; then
-  echo "Usage: ./scripts/release.sh <major|minor|patch>"
+  echo "Usage: bash scripts/release.sh <major|minor|patch>"
   exit 1
 fi
 
@@ -45,7 +46,7 @@ esac
 NEW_VERSION="$MAJOR.$MINOR.$PATCH"
 echo "New version: $NEW_VERSION"
 
-# --- Bump version in all files ---
+# --- Bump version in all files (using node for cross-platform compat) ---
 echo "Bumping version..."
 
 # package.json
@@ -64,32 +65,59 @@ conf.version = '$NEW_VERSION';
 fs.writeFileSync('src-tauri/tauri.conf.json', JSON.stringify(conf, null, 2) + '\n');
 "
 
-# Cargo.toml (only the first version = line)
-sed -i '' "0,/^version = /s/^version = \".*\"/version = \"$NEW_VERSION\"/" src-tauri/Cargo.toml
+# Cargo.toml
+node -e "
+const fs = require('fs');
+const path = 'src-tauri/Cargo.toml';
+const content = fs.readFileSync(path, 'utf-8');
+const updated = content.replace(/^version = \".*\"/m, 'version = \"$NEW_VERSION\"');
+fs.writeFileSync(path, updated);
+"
 
 # Update Cargo.lock
 (cd src-tauri && cargo check --quiet 2>/dev/null || true)
 
-# docs/index.html download links and version display
-sed -i '' "s/$CURRENT/$NEW_VERSION/g" docs/index.html
+# docs/index.html — escape dots in version for safe regex replacement
+node -e "
+const fs = require('fs');
+const path = 'docs/index.html';
+const content = fs.readFileSync(path, 'utf-8');
+const updated = content.replaceAll('$CURRENT', '$NEW_VERSION');
+fs.writeFileSync(path, updated);
+"
 
 echo "Version bumped to $NEW_VERSION in package.json, tauri.conf.json, Cargo.toml, docs/index.html"
 
 # --- Update screenshots ---
 echo "Updating screenshots (starting dev server)..."
+
 # Kill any existing dev server on the port
-kill $(lsof -ti:5174) 2>/dev/null || true
-sleep 1
+if command -v lsof >/dev/null 2>&1; then
+  EXISTING_PID=$(lsof -ti:5174 2>/dev/null || true)
+  if [[ -n "$EXISTING_PID" ]]; then
+    kill "$EXISTING_PID" 2>/dev/null || true
+    sleep 1
+  fi
+fi
 
 pnpm dev &
 DEV_PID=$!
-sleep 4
 
-if curl -s http://localhost:5174 > /dev/null 2>&1; then
+# Wait for dev server with retry loop
+DEV_READY=false
+for i in $(seq 1 20); do
+  if curl -s http://localhost:5174 > /dev/null 2>&1; then
+    DEV_READY=true
+    break
+  fi
+  sleep 1
+done
+
+if $DEV_READY; then
   pnpm screenshots || echo "Warning: screenshot capture failed, continuing"
   echo "Screenshots updated"
 else
-  echo "Warning: dev server not responding, skipping screenshots"
+  echo "Warning: dev server not responding after 20s, skipping screenshots"
 fi
 
 kill $DEV_PID 2>/dev/null || true
