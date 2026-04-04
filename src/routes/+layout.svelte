@@ -1,6 +1,5 @@
 <script>
 import '../app.css';
-import '$lib/services/imageDebug.js';
 import AuthWrapper from '$lib/components/AuthWrapper.svelte';
 import MasterPanel from '$lib/components/layout/MasterPanel.svelte';
 import TopBar from '$lib/components/layout/TopBar.svelte';
