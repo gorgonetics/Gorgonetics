@@ -19,6 +19,11 @@ const VIEWPORT = { width: 1280, height: 800 };
 
 // --- Helpers ---
 
+/** Wait for a selector to be visible (replaces arbitrary sleep). */
+async function waitFor(page, selector) {
+  await page.locator(selector).first().waitFor({ state: 'visible', timeout: 10000 });
+}
+
 async function addOverlay(page) {
   await page.evaluate(() => {
     const el = document.createElement('div');
@@ -90,7 +95,7 @@ await removeOverlay(page);
 // 03 — Pet card hover (edit/delete visible)
 const firstCard = page.locator('.pet-card-wrapper').first();
 await firstCard.hover();
-await page.waitForTimeout(300);
+await page.waitForTimeout(200);
 await addOverlay(page);
 await page.evaluate(() => {
   const card = document.querySelector('.pet-card-wrapper');
@@ -125,7 +130,7 @@ await removeOverlay(page);
 
 // 05 — BeeWasp gene grid (click bee pet)
 await page.locator('button', { hasText: 'Sample Fae Bee' }).first().click();
-await page.waitForTimeout(600);
+await waitFor(page, ".gene-visualizer, .gallery");
 await shot(page, '05-gene-grid.png');
 
 // 06 — Gene tooltip on hover
@@ -135,7 +140,7 @@ for (let i = 0; i < cellCount; i++) {
   const box = await positiveCells.nth(i).boundingBox();
   if (box && box.x > 350 && box.x < 800 && box.y > 200 && box.y < 400) {
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-    await page.waitForTimeout(600);
+    await waitFor(page, ".gene-visualizer, .gallery");
     break;
   }
 }
@@ -171,7 +176,7 @@ await removeOverlay(page);
 
 // Move mouse away to dismiss tooltip
 await page.mouse.move(0, 0);
-await page.waitForTimeout(300);
+await page.waitForTimeout(200);
 
 // 07 — View toggle buttons highlighted
 await addOverlay(page);
@@ -195,15 +200,15 @@ await removeOverlay(page);
 
 // 08 — Appearance view
 await page.locator('button', { hasText: 'Appearance' }).click();
-await page.waitForTimeout(500);
+await waitFor(page, ".gene-visualizer, .gallery, .gene-editing-view, select");
 // Also open stats to show the appearance stats
 await page.locator('button', { hasText: 'Stats' }).click();
-await page.waitForTimeout(300);
+await page.waitForTimeout(200);
 await shot(page, '08-appearance-view.png');
 
 // 09 — Stats panel highlighted (switch back to Attributes first)
 await page.locator('button', { hasText: 'Attributes' }).click();
-await page.waitForTimeout(300);
+await page.waitForTimeout(200);
 await addOverlay(page);
 await page.evaluate(() => {
   const tables = document.querySelectorAll('table');
@@ -228,7 +233,7 @@ await removeOverlay(page);
 
 // 10 — Attribute filtered (click Intelligence)
 await page.locator('tr.attribute-row', { hasText: 'Intelligence' }).click();
-await page.waitForTimeout(500);
+await waitFor(page, ".gene-visualizer, .gallery, .gene-editing-view, select");
 await addOverlay(page);
 await page.evaluate(() => {
   // Lift stats and grid above overlay
@@ -268,11 +273,11 @@ await removeOverlay(page);
 
 // Deselect Intelligence filter
 await page.locator('tr.attribute-row', { hasText: 'Intelligence' }).click();
-await page.waitForTimeout(300);
+await page.waitForTimeout(200);
 
 // 11 — Horse auto-breed filter (select horse pet)
 await page.locator('button', { hasText: 'Sample Horse' }).click();
-await page.waitForTimeout(800);
+await waitFor(page, ".gene-visualizer");
 await addOverlay(page);
 await highlight(page, '.breed-filter', { padding: '4px' });
 await shot(page, '11-auto-breed-active.png');
@@ -281,7 +286,7 @@ await removeOverlay(page);
 
 // 12 — Genes tab with sidebar highlighted
 await page.locator('.tab-btn', { hasText: 'Genes' }).click();
-await page.waitForTimeout(500);
+await waitFor(page, "#animalType");
 await addOverlay(page);
 await highlight(page, '[role="complementary"]');
 await shot(page, '12-genes-tab.png');
@@ -290,18 +295,18 @@ await removeOverlay(page);
 
 // 13 — Gene editing view
 await page.locator('select').first().selectOption('beewasp');
-await page.waitForTimeout(500);
+await page.waitForTimeout(200);
 await page.locator('select').nth(1).selectOption({ index: 1 });
-await page.waitForTimeout(300);
+await page.waitForTimeout(200);
 await page.locator('button', { hasText: 'Edit Genes' }).click();
-await page.waitForTimeout(800);
+await waitFor(page, '.gene-editing-view');
 await shot(page, '13-gene-editing.png');
 
 // 14 — Data menu dropdown
 await page.locator('.tab-btn', { hasText: 'Pets' }).click();
-await page.waitForTimeout(300);
+await page.waitForTimeout(200);
 await page.getByTitle('Data management').click();
-await page.waitForTimeout(300);
+await page.waitForTimeout(200);
 await addOverlay(page);
 await page.evaluate(() => {
   const dropdown = document.querySelector('.dropdown');
@@ -328,47 +333,69 @@ await page.evaluate(() => {
 await removeOverlay(page);
 // Close dropdown
 await page.locator('.top-bar-left').click();
-await page.waitForTimeout(300);
+await page.waitForTimeout(200);
 
-// 15 — Settings modal
+// 15 — Gallery empty state
+await page.locator('.tab-btn', { hasText: 'Pets' }).click();
+await page.waitForTimeout(200);
+await page.locator('button', { hasText: 'Sample Fae Bee' }).first().click();
+await waitFor(page, ".gene-visualizer, .gallery");
+await page.locator('.view-btn', { hasText: 'Gallery' }).click();
+await waitFor(page, ".gene-visualizer, .gallery, .gene-editing-view, select");
+await shot(page, '15-gallery.png');
+
+// 16 — Export dialog
+await page.locator('.view-btn', { hasText: 'Gallery' }).click(); // toggle off
+await page.waitForTimeout(200);
+await page.getByTitle('Data management').click();
+await page.waitForTimeout(200);
+await page.getByText('Export Backup').click();
+await page.waitForTimeout(200);
+await shot(page, '16-export-dialog.png');
+
+// Close export dialog
+await page.getByText('Cancel').click();
+await page.waitForTimeout(200);
+
+// 17 — Settings modal
 await page.getByTitle('Settings').click();
-await page.waitForTimeout(400);
-await shot(page, '15-settings-modal.png');
+await page.waitForTimeout(200);
+await shot(page, '17-settings-modal.png');
 
-// Close settings modal by clicking the overlay edge
-await page.locator('.overlay').click({ position: { x: 10, y: 10 } });
-await page.waitForTimeout(300);
+// Close settings modal
+await page.locator('.modal-backdrop').first().click({ position: { x: 10, y: 10 } });
+await page.waitForTimeout(200);
 
 // ===== Homepage screenshots (docs/images/) =====
 const HOME_OUT = 'docs/images';
 
 // screenshot-gene-grid — BeeWasp gene grid with stats open
 await page.locator('button', { hasText: 'Sample Fae Bee' }).first().click();
-await page.waitForTimeout(600);
+await waitFor(page, ".gene-visualizer, .gallery");
 await page.locator('button', { hasText: 'Stats' }).click();
-await page.waitForTimeout(300);
+await page.waitForTimeout(200);
 await page.screenshot({ path: `${HOME_OUT}/screenshot-gene-grid.png`, type: 'png' });
 console.log(`  ✓ screenshot-gene-grid.png (homepage)`);
 
 // screenshot-stats — Stats panel (Attributes view, stats open)
 await page.locator('button', { hasText: 'Attributes' }).click();
-await page.waitForTimeout(300);
+await page.waitForTimeout(200);
 await page.screenshot({ path: `${HOME_OUT}/screenshot-stats.png`, type: 'png' });
 console.log(`  ✓ screenshot-stats.png (homepage)`);
 
 // Close stats
 await page.locator('button', { hasText: 'Stats' }).click();
-await page.waitForTimeout(300);
+await page.waitForTimeout(200);
 
 // screenshot-gene-editor — Gene editing table
 await page.locator('.tab-btn', { hasText: 'Genes' }).click();
-await page.waitForTimeout(300);
+await waitFor(page, '#animalType');
 await page.locator('select').first().selectOption('beewasp');
-await page.waitForTimeout(500);
+await page.waitForTimeout(200);
 await page.locator('select').nth(1).selectOption({ index: 1 });
-await page.waitForTimeout(300);
+await page.waitForTimeout(200);
 await page.locator('button', { hasText: 'Edit Genes' }).click();
-await page.waitForTimeout(800);
+await waitFor(page, '.gene-editing-view');
 await page.screenshot({ path: `${HOME_OUT}/screenshot-gene-editor.png`, type: 'png' });
 console.log(`  ✓ screenshot-gene-editor.png (homepage)`);
 
