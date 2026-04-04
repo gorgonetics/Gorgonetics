@@ -20,7 +20,11 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self' 'unsafe-inline' asset: https://asset.localhost; img-src 'self' asset: https://asset.localhost blob: data:; connect-src ipc: http://ipc.localhost"
+      "csp": "default-src 'self' 'unsafe-inline' ipc: http://ipc.localhost; img-src 'self' asset: http://asset.localhost blob: data:; connect-src ipc: http://ipc.localhost",
+      "assetProtocol": {
+        "enable": true,
+        "scope": ["$APPDATA/images/**"]
+      }
     }
   },
   "bundle": {

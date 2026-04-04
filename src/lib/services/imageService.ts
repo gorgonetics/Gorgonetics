@@ -132,8 +132,7 @@ export async function getImagesForPet(petId: number): Promise<PetImage[]> {
 
 /**
  * Resolve a displayable URL for an image file.
- * Uses Tauri's asset protocol to serve files directly from disk
- * without reading them into memory.
+ * Uses Tauri's asset protocol — no file reading or blob URLs needed.
  */
 async function getImageUrl(petId: number, filename: string): Promise<string> {
   if (!isTauri()) return '';
