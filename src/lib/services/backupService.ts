@@ -1,7 +1,6 @@
 /**
  * Backup service for Gorgonetics.
  * v2 format: zip archive with selective content (genes, pets, images).
- * v1 format: single JSON file (backward compatible import).
  */
 
 declare const __APP_VERSION__: string;
@@ -22,6 +21,10 @@ import { CURRENT_SCHEMA_VERSION, getSchemaVersion } from './migrationService.js'
 const EXPORT_FORMAT = 'gorgonetics-backup' as const;
 const EXPORT_FORMAT_VERSION = 2;
 const APP_VERSION = __APP_VERSION__;
+
+function isSafeFilename(name: string): boolean {
+  return !!name && !name.includes('/') && !name.includes('\\') && !name.includes('..') && name === name.trim();
+}
 
 const GENE_COLUMNS = [
   'animal_type',
@@ -101,18 +104,8 @@ export async function exportDatabase(options: ExportOptions): Promise<ExportResu
       'SELECT pi.*, p.content_hash FROM pet_images pi JOIN pets p ON pi.pet_id = p.id ORDER BY pi.pet_id, pi.created_at',
     );
 
-    // Export image metadata with content_hash instead of pet_id
-    const imageMetadata = imageRows.map((row) => ({
-      content_hash: row.content_hash,
-      filename: row.filename,
-      original_name: row.original_name,
-      caption: row.caption ?? '',
-      tags: row.tags ?? '[]',
-      created_at: row.created_at,
-    }));
-    zip.file('images/pet_images.json', JSON.stringify(imageMetadata));
-
-    // Read image files in parallel batches and add to zip
+    // Read image files in parallel batches and track which succeeded
+    const exportedImages: Record<string, unknown>[] = [];
     if (isTauri()) {
       const { readFile, BaseDirectory } = await import('@tauri-apps/plugin-fs');
       const BATCH = 10;
@@ -126,12 +119,22 @@ export async function exportDatabase(options: ExportOptions): Promise<ExportResu
         );
         for (const r of results) {
           if (r.status === 'fulfilled') {
-            zip.file(`images/${r.value.row.content_hash}/${r.value.row.filename}`, r.value.data);
+            const { row, data } = r.value;
+            zip.file(`images/${row.content_hash}/${row.filename}`, data);
+            exportedImages.push({
+              content_hash: row.content_hash,
+              filename: row.filename,
+              original_name: row.original_name,
+              caption: row.caption ?? '',
+              tags: row.tags ?? '[]',
+              created_at: row.created_at,
+            });
             imageCount++;
           }
         }
       }
     }
+    zip.file('images/pet_images.json', JSON.stringify(exportedImages));
   }
 
   const now = new Date();
@@ -171,10 +174,15 @@ export async function inspectBackup(fileData: Uint8Array): Promise<GorgonExportM
       `This backup was created with a newer version of Gorgonetics (format v${metadata.format_version}). Please update the app.`,
     );
   }
+  if (metadata.schema_version > CURRENT_SCHEMA_VERSION) {
+    throw new Error(`This backup uses a newer database schema (v${metadata.schema_version}). Please update the app.`);
+  }
   return metadata;
 }
 
 export async function importDatabase(fileData: Uint8Array, options: ImportOptions): Promise<ImportResult> {
+  // Validate before importing
+  await inspectBackup(fileData);
   return importFromZip(fileData, options);
 }
 
@@ -204,10 +212,8 @@ async function importGenesAndPets(
   try {
     if (options.mode === 'replace') {
       if (options.includeGenes) await db.execute('DELETE FROM genes');
-      if (options.includePets) {
-        await db.execute('DELETE FROM pet_images');
-        await db.execute('DELETE FROM pets');
-      }
+      if (options.includeImages) await db.execute('DELETE FROM pet_images');
+      if (options.includePets) await db.execute('DELETE FROM pets');
     }
 
     if (options.includeGenes && genes) {
@@ -301,6 +307,11 @@ async function importFromZip(fileData: Uint8Array, options: ImportOptions): Prom
         }
 
         const filename = record.filename as string;
+        if (!isSafeFilename(filename)) {
+          imagesSkipped++;
+          continue;
+        }
+
         const zipEntry = zip.file(`images/${contentHash}/${filename}`);
         if (!zipEntry) {
           imagesSkipped++;
