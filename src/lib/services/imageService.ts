@@ -132,15 +132,20 @@ export async function getImagesForPet(petId: number): Promise<PetImage[]> {
 }
 
 /**
- * Resolve a Tauri asset URL for an image file.
+ * Resolve a displayable URL for an image file.
+ * Reads the file bytes and creates a blob URL the webview can render.
  */
 async function getImageUrl(petId: number, filename: string): Promise<string> {
   if (!isTauri()) return '';
+  const { readFile } = await import('@tauri-apps/plugin-fs');
   const { appDataDir, join } = await import('@tauri-apps/api/path');
-  const { convertFileSrc } = await import('@tauri-apps/api/core');
   const baseDir = await appDataDir();
   const fullPath = await join(baseDir, 'images', String(petId), filename);
-  return convertFileSrc(fullPath);
+  const data = await readFile(fullPath);
+  const ext = getExtension(filename);
+  const mime = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+  const blob = new Blob([data], { type: mime });
+  return URL.createObjectURL(blob);
 }
 
 /**
