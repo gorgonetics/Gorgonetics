@@ -152,6 +152,13 @@ pnpm test:e2e                     # Playwright E2E tests
 - In-memory fallback auto-detected when not running in Tauri
 - Use named `$name` parameters (with `Record<string, unknown>` bind values) instead of positional `?` placeholders
 
+### Serving Local Files to the Webview
+To display local files (images, videos) in HTML tags via `convertFileSrc()`, BOTH of these are required in `tauri.conf.json`:
+1. **CSP**: `img-src` must include `asset: http://asset.localhost`
+2. **`app.security.assetProtocol`**: must have `enable: true` and a `scope` array
+
+Missing either one causes silent failure (broken images, no error). Never use blob URLs as a workaround.
+
 ### Master-Detail Layout
 - MasterPanel (left, 260px): PetList or GeneEditor based on active tab
 - DetailPane (right, flex): PetVisualization or GeneEditingView based on selection
