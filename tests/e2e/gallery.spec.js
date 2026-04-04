@@ -8,22 +8,15 @@ test.describe('Pet Image Gallery', () => {
   });
 
   test('Gallery button appears in view controls', async ({ page }) => {
-    // Select a pet first
     await page.locator('button', { hasText: 'Sample Fae Bee' }).first().click();
-    await page.waitForTimeout(500);
-
-    const galleryBtn = page.locator('.view-btn', { hasText: 'Gallery' });
-    await expect(galleryBtn).toBeVisible();
+    await expect(page.locator('.view-btn', { hasText: 'Gallery' })).toBeVisible();
   });
 
   test('Clicking Gallery shows the gallery view', async ({ page }) => {
     await page.locator('button', { hasText: 'Sample Fae Bee' }).first().click();
-    await page.waitForTimeout(500);
-
+    await expect(page.locator('.view-btn', { hasText: 'Gallery' })).toBeVisible();
     await page.locator('.view-btn', { hasText: 'Gallery' }).click();
-    await page.waitForTimeout(300);
 
-    // Should show gallery with empty state (no images in test mode)
     await expect(page.locator('.gallery')).toBeVisible();
     await expect(page.getByText('No images yet')).toBeVisible();
     await expect(page.getByText('Upload Images')).toBeVisible();
@@ -31,62 +24,47 @@ test.describe('Pet Image Gallery', () => {
 
   test('Toggling Gallery hides the gene visualizer', async ({ page }) => {
     await page.locator('button', { hasText: 'Sample Fae Bee' }).first().click();
-    await page.waitForTimeout(500);
-
-    // Gene visualizer should be visible initially
     await expect(page.locator('.gene-visualizer')).toBeVisible();
 
-    // Click Gallery
     await page.locator('.view-btn', { hasText: 'Gallery' }).click();
-    await page.waitForTimeout(300);
-
-    // Gene visualizer should be hidden, gallery visible
-    await expect(page.locator('.gene-visualizer')).not.toBeVisible();
     await expect(page.locator('.gallery')).toBeVisible();
+    await expect(page.locator('.gene-visualizer')).not.toBeVisible();
 
-    // Click Gallery again to toggle off
     await page.locator('.view-btn', { hasText: 'Gallery' }).click();
-    await page.waitForTimeout(300);
-
-    // Back to gene visualizer
     await expect(page.locator('.gene-visualizer')).toBeVisible();
     await expect(page.locator('.gallery')).not.toBeVisible();
   });
 
   test('Gallery shows image count', async ({ page }) => {
     await page.locator('button', { hasText: 'Sample Fae Bee' }).first().click();
-    await page.waitForTimeout(500);
-
+    await expect(page.locator('.view-btn', { hasText: 'Gallery' })).toBeVisible();
     await page.locator('.view-btn', { hasText: 'Gallery' }).click();
-    await page.waitForTimeout(300);
 
     await expect(page.locator('.gallery-count')).toHaveText('0 images');
   });
 
   test('Upload button exists but requires Tauri for actual upload', async ({ page }) => {
     await page.locator('button', { hasText: 'Sample Fae Bee' }).first().click();
-    await page.waitForTimeout(500);
+    await expect(page.locator('.view-btn', { hasText: 'Gallery' })).toBeVisible();
 
     await page.locator('.view-btn', { hasText: 'Gallery' }).click();
-    await page.waitForTimeout(300);
-
-    const uploadBtn = page.getByText('Upload Images');
-    await expect(uploadBtn).toBeVisible();
-    await expect(uploadBtn).toBeEnabled();
+    await expect(page.getByText('Upload Images')).toBeVisible();
+    await expect(page.getByText('Upload Images')).toBeEnabled();
   });
 
   test('image DB records can be inserted and queried', async ({ page }) => {
-    // Directly insert an image record via the database (bypasses filesystem)
     const result = await page.evaluate(async () => {
       const { getDb } = await import('/src/lib/services/database.ts');
       const db = getDb();
 
-      // Insert a fake image record
+      const pets = await db.select('SELECT id FROM pets LIMIT 1');
+      const petId = pets[0].id;
+
       const res = await db.execute(
         `INSERT INTO pet_images (pet_id, filename, original_name, caption, tags, created_at)
          VALUES ($pet_id, $filename, $original_name, $caption, $tags, $created_at)`,
         {
-          pet_id: 1,
+          pet_id: petId,
           filename: 'test-uuid.png',
           original_name: 'screenshot.png',
           caption: 'Test caption',
@@ -95,8 +73,7 @@ test.describe('Pet Image Gallery', () => {
         },
       );
 
-      // Query it back
-      const rows = await db.select('SELECT * FROM pet_images WHERE pet_id = $pet_id', { pet_id: 1 });
+      const rows = await db.select('SELECT * FROM pet_images WHERE pet_id = $pet_id', { pet_id: petId });
 
       return { insertId: res.lastInsertId, count: rows.length, row: rows[0] };
     });

@@ -96,6 +96,13 @@ $effect(() => {
   const _id = pet?.id;
   loadImages();
 });
+
+// Focus lightbox when opened so keyboard navigation works
+$effect(() => {
+  if (lightboxIndex >= 0) {
+    document.querySelector('.lightbox')?.focus();
+  }
+});
 </script>
 
 <div class="gallery">
@@ -134,7 +141,7 @@ $effect(() => {
 
 {#if lightboxImage}
   <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="lightbox" onclick={closeLightbox} onkeydown={handleLightboxKey}>
+  <div class="lightbox" role="dialog" aria-label="Image viewer" tabindex="-1" onclick={closeLightbox} onkeydown={handleLightboxKey}>
     <div class="lightbox-content" onclick={(e) => e.stopPropagation()}>
       <img src={lightboxImage.url} alt={lightboxImage.original_name} />
       <div class="lightbox-info">
@@ -157,7 +164,7 @@ $effect(() => {
 
 {#if deleteTarget}
   <div class="modal-backdrop" onclick={cancelDelete}>
-    <div class="confirm-dialog" onclick={(e) => e.stopPropagation()}>
+    <div class="confirm-dialog" role="alertdialog" aria-label="Confirm delete" onclick={(e) => e.stopPropagation()}>
       <h3>Delete image?</h3>
       <p>Delete <strong>{deleteTarget.original_name}</strong>? This cannot be undone.</p>
       <div class="confirm-actions">
