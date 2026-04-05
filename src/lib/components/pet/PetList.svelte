@@ -109,15 +109,33 @@ async function handleDrop(e, dropIndex) {
 
   // Resolve by pet ID so indices are correct regardless of filtering
   const fromPet = filteredPets[draggedIndex];
+  if (!fromPet) {
+    draggedIndex = null;
+    return;
+  }
+
   const previous = [...$pets];
   const reordered = [...$pets];
   const fromIdx = reordered.findIndex((p) => p.id === fromPet.id);
+  if (fromIdx < 0) {
+    draggedIndex = null;
+    return;
+  }
+
   const [moved] = reordered.splice(fromIdx, 1);
   if (dropIndex >= filteredPets.length) {
     reordered.push(moved);
   } else {
     const toPet = filteredPets[dropIndex];
+    if (!toPet) {
+      draggedIndex = null;
+      return;
+    }
     const toIdx = reordered.findIndex((p) => p.id === toPet.id);
+    if (toIdx < 0) {
+      draggedIndex = null;
+      return;
+    }
     reordered.splice(toIdx, 0, moved);
   }
   pets.set(reordered);

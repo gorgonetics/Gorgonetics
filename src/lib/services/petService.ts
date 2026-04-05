@@ -183,14 +183,18 @@ export async function uploadPet(
   const db = getDb();
   const ts = now();
 
+  // New pets append after existing ones
+  const orderRows = await db.select<{ sort_order: number }[]>('SELECT sort_order FROM pets');
+  const nextOrder = orderRows.length > 0 ? Math.max(...orderRows.map((r) => r.sort_order ?? 0)) + 1 : 0;
+
   const result = await db.execute(
     `INSERT INTO pets
      (name, species, gender, breed, breeder, content_hash, genome_data, notes,
       created_at, updated_at,
-      intelligence, toughness, friendliness, ruggedness, enthusiasm, virility, ferocity, temperament)
+      intelligence, toughness, friendliness, ruggedness, enthusiasm, virility, ferocity, temperament, sort_order)
      VALUES ($name, $species, $gender, $breed, $breeder, $content_hash, $genome_data, $notes,
              $created_at, $updated_at,
-             $intelligence, $toughness, $friendliness, $ruggedness, $enthusiasm, $virility, $ferocity, $temperament)`,
+             $intelligence, $toughness, $friendliness, $ruggedness, $enthusiasm, $virility, $ferocity, $temperament, $sort_order)`,
     {
       name: petName,
       species: genome.genome_type,
@@ -210,6 +214,7 @@ export async function uploadPet(
       virility: attrValues.virility ?? 50,
       ferocity: attrValues.ferocity ?? 50,
       temperament: attrValues.temperament ?? 50,
+      sort_order: nextOrder,
     },
   );
 

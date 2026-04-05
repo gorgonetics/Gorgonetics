@@ -208,8 +208,9 @@ async function importGenesAndPets(
   if (options.mode === 'merge') {
     const rows = await db.select<{ content_hash: string }[]>('SELECT content_hash FROM pets');
     existingHashes = new Set(rows.map((r) => r.content_hash));
-    const maxRows = await db.select<{ max_order: number | null }[]>('SELECT MAX(sort_order) as max_order FROM pets');
-    sortOrderOffset = (maxRows[0]?.max_order ?? -1) + 1;
+    const sortOrderRows = await db.select<{ sort_order: number }[]>('SELECT sort_order FROM pets');
+    const maxSortOrder = sortOrderRows.reduce((max, row) => Math.max(max, row.sort_order ?? 0), -1);
+    sortOrderOffset = maxSortOrder + 1;
   }
 
   await db.execute('BEGIN');
