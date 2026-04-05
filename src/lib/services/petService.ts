@@ -109,7 +109,7 @@ export async function getAllPets(options?: {
   const total = countRows[0].cnt;
 
   // Get paginated results
-  let query = `SELECT * FROM pets${where} ORDER BY name`;
+  let query = `SELECT * FROM pets${where} ORDER BY sort_order, name`;
   const selectParams = { ...bindParams };
   if (options?.limit !== undefined) {
     query += ' LIMIT $limit OFFSET $offset';
@@ -183,14 +183,18 @@ export async function uploadPet(
   const db = getDb();
   const ts = now();
 
+  // New pets append after existing ones
+  const orderRows = await db.select<{ sort_order: number }[]>('SELECT sort_order FROM pets');
+  const nextOrder = orderRows.length > 0 ? Math.max(...orderRows.map((r) => r.sort_order ?? 0)) + 1 : 0;
+
   const result = await db.execute(
     `INSERT INTO pets
      (name, species, gender, breed, breeder, content_hash, genome_data, notes,
       created_at, updated_at,
-      intelligence, toughness, friendliness, ruggedness, enthusiasm, virility, ferocity, temperament)
+      intelligence, toughness, friendliness, ruggedness, enthusiasm, virility, ferocity, temperament, sort_order)
      VALUES ($name, $species, $gender, $breed, $breeder, $content_hash, $genome_data, $notes,
              $created_at, $updated_at,
-             $intelligence, $toughness, $friendliness, $ruggedness, $enthusiasm, $virility, $ferocity, $temperament)`,
+             $intelligence, $toughness, $friendliness, $ruggedness, $enthusiasm, $virility, $ferocity, $temperament, $sort_order)`,
     {
       name: petName,
       species: genome.genome_type,
@@ -210,6 +214,7 @@ export async function uploadPet(
       virility: attrValues.virility ?? 50,
       ferocity: attrValues.ferocity ?? 50,
       temperament: attrValues.temperament ?? 50,
+      sort_order: nextOrder,
     },
   );
 
@@ -228,6 +233,7 @@ const UPDATABLE_COLUMNS = new Set([
   'breed',
   'notes',
   'genome_data',
+  'sort_order',
   'intelligence',
   'toughness',
   'friendliness',
@@ -358,4 +364,24 @@ export async function hasPets(): Promise<boolean> {
   const db = getDb();
   const rows = await db.select<{ cnt: number }[]>('SELECT COUNT(*) as cnt FROM pets');
   return rows[0].cnt > 0;
+}
+
+/**
+ * Update sort_order for a list of pets based on their position in the array.
+ */
+export async function reorderPets(orderedIds: number[]): Promise<void> {
+  const db = getDb();
+  await db.execute('BEGIN');
+  try {
+    for (let i = 0; i < orderedIds.length; i++) {
+      await db.execute('UPDATE pets SET sort_order = $order WHERE id = $id', {
+        order: i,
+        id: orderedIds[i],
+      });
+    }
+    await db.execute('COMMIT');
+  } catch (e) {
+    await db.execute('ROLLBACK');
+    throw e;
+  }
 }

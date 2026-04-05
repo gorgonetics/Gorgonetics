@@ -99,11 +99,11 @@ test.describe('Database Backup – v2 Zip', () => {
   });
 
   test('database has correct schema version', async ({ page }) => {
-    const version = await page.evaluate(async () => {
-      const { getSchemaVersion } = await import('/src/lib/services/migrationService.ts');
-      return getSchemaVersion();
+    const { version, expected } = await page.evaluate(async () => {
+      const { getSchemaVersion, CURRENT_SCHEMA_VERSION } = await import('/src/lib/services/migrationService.ts');
+      return { version: await getSchemaVersion(), expected: CURRENT_SCHEMA_VERSION };
     });
-    expect(version).toBe(3);
+    expect(version).toBe(expected);
   });
 
   test('export and import (replace) round-trips correctly', async ({ page }) => {

@@ -57,6 +57,14 @@ const MIGRATIONS: Migration[] = [
       `);
     },
   },
+  {
+    version: 4,
+    description: 'Add sort_order column to pets for drag-and-drop reordering',
+    up: async () => {
+      const db = getDb();
+      await db.execute('ALTER TABLE pets ADD COLUMN sort_order INTEGER DEFAULT 0');
+    },
+  },
 ];
 
 /** Derived from the last migration — no manual bookkeeping needed. */

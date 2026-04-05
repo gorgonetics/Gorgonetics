@@ -81,6 +81,77 @@ async function confirmDelete() {
 function cancelDelete() {
   deletingPet = null;
 }
+
+// --- Drag-and-drop reordering ---
+let draggedIndex = $state(null);
+let dragOverIndex = $state(null);
+const isDraggable = $derived(!searchQuery);
+
+function handleDragStart(e, index) {
+  draggedIndex = index;
+  e.dataTransfer.effectAllowed = 'move';
+}
+
+function handleDragOver(e, index) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  dragOverIndex = index;
+}
+
+function handleDragLeave() {
+  dragOverIndex = null;
+}
+
+async function handleDrop(e, dropIndex) {
+  e.preventDefault();
+  dragOverIndex = null;
+  if (draggedIndex === null || draggedIndex === dropIndex) return;
+
+  // Resolve by pet ID so indices are correct regardless of filtering
+  const fromPet = filteredPets[draggedIndex];
+  if (!fromPet) {
+    draggedIndex = null;
+    return;
+  }
+
+  const previous = [...$pets];
+  const reordered = [...$pets];
+  const fromIdx = reordered.findIndex((p) => p.id === fromPet.id);
+  if (fromIdx < 0) {
+    draggedIndex = null;
+    return;
+  }
+
+  const [moved] = reordered.splice(fromIdx, 1);
+  if (dropIndex >= filteredPets.length) {
+    reordered.push(moved);
+  } else {
+    const toPet = filteredPets[dropIndex];
+    if (!toPet) {
+      draggedIndex = null;
+      return;
+    }
+    const toIdx = reordered.findIndex((p) => p.id === toPet.id);
+    if (toIdx < 0) {
+      draggedIndex = null;
+      return;
+    }
+    reordered.splice(toIdx, 0, moved);
+  }
+  pets.set(reordered);
+  draggedIndex = null;
+
+  try {
+    await appState.reorderPets(reordered.map((p) => p.id));
+  } catch {
+    pets.set(previous);
+  }
+}
+
+function handleDragEnd() {
+  draggedIndex = null;
+  dragOverIndex = null;
+}
 </script>
 
 <div class="pet-list">
@@ -95,8 +166,19 @@ function cancelDelete() {
 
     <div class="pet-list-items">
         {#if filteredPets.length > 0}
-            {#each filteredPets as pet (pet.id)}
-                <div class="pet-card-wrapper">
+            {#each filteredPets as pet, index (pet.id)}
+                <!-- svelte-ignore a11y_no_static_element_interactions -->
+                <div
+                    class="pet-card-wrapper"
+                    class:drag-over={dragOverIndex === index && draggedIndex !== index}
+                    class:dragging={draggedIndex === index}
+                    draggable={isDraggable}
+                    ondragstart={(e) => handleDragStart(e, index)}
+                    ondragover={(e) => handleDragOver(e, index)}
+                    ondragleave={handleDragLeave}
+                    ondrop={(e) => handleDrop(e, index)}
+                    ondragend={handleDragEnd}
+                >
                     <PetCard
                         {pet}
                         selected={$selectedPet?.id === pet.id}
@@ -120,6 +202,16 @@ function cancelDelete() {
                     </div>
                 </div>
             {/each}
+            {#if isDraggable && draggedIndex !== null}
+                <!-- svelte-ignore a11y_no_static_element_interactions -->
+                <div
+                    class="drop-zone-end"
+                    class:drag-over={dragOverIndex === filteredPets.length}
+                    ondragover={(e) => handleDragOver(e, filteredPets.length)}
+                    ondragleave={handleDragLeave}
+                    ondrop={(e) => handleDrop(e, filteredPets.length)}
+                ></div>
+            {/if}
         {:else if searchQuery}
             <div class="empty-state">No pets match "{searchQuery}"</div>
         {:else}
@@ -239,6 +331,27 @@ function cancelDelete() {
 
     .pet-card-wrapper {
         position: relative;
+    }
+
+    .pet-card-wrapper[draggable='true'] {
+        cursor: grab;
+    }
+
+    .pet-card-wrapper.dragging {
+        opacity: 0.4;
+    }
+
+    .pet-card-wrapper.drag-over {
+        border-top: 2px solid #3b82f6;
+    }
+
+    .drop-zone-end {
+        min-height: 32px;
+        flex: 1;
+    }
+
+    .drop-zone-end.drag-over {
+        border-top: 2px solid #3b82f6;
     }
 
     .pet-card-actions {

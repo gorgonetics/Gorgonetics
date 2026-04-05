@@ -181,6 +181,10 @@ class ApiClient {
     return petService.uploadPet(fileContent, name, gender, notes ?? undefined);
   }
 
+  async reorderPets(orderedIds) {
+    return petService.reorderPets(orderedIds);
+  }
+
   // --- Auth methods (no-ops in native app) ---
 
   async login() {

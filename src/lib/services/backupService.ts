@@ -58,6 +58,7 @@ const PET_COLUMNS = [
   'virility',
   'ferocity',
   'temperament',
+  'sort_order',
 ];
 
 // --- Export ---
@@ -203,9 +204,13 @@ async function importGenesAndPets(
   const petSQL = `INSERT INTO pets (${PET_COLUMNS.join(', ')}) VALUES (${petPlaceholders})`;
 
   let existingHashes: Set<string> | null = null;
+  let sortOrderOffset = 0;
   if (options.mode === 'merge') {
     const rows = await db.select<{ content_hash: string }[]>('SELECT content_hash FROM pets');
     existingHashes = new Set(rows.map((r) => r.content_hash));
+    const sortOrderRows = await db.select<{ sort_order: number }[]>('SELECT sort_order FROM pets');
+    const maxSortOrder = sortOrderRows.reduce((max, row) => Math.max(max, row.sort_order ?? 0), -1);
+    sortOrderOffset = maxSortOrder + 1;
   }
 
   await db.execute('BEGIN');
@@ -234,7 +239,11 @@ async function importGenesAndPets(
         let genomeData = pet.genome_data;
         if (typeof genomeData === 'object' && genomeData !== null) genomeData = JSON.stringify(genomeData);
         const params: Record<string, unknown> = {};
-        for (const col of PET_COLUMNS) params[col] = col === 'genome_data' ? genomeData : (pet[col] ?? null);
+        for (const col of PET_COLUMNS) {
+          if (col === 'genome_data') params[col] = genomeData;
+          else if (col === 'sort_order') params[col] = ((pet[col] as number) ?? 0) + sortOrderOffset;
+          else params[col] = pet[col] ?? null;
+        }
         await db.execute(petSQL, params);
         petsImported++;
       }
