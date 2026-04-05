@@ -99,6 +99,10 @@ export const appState = {
     }
   },
 
+  async uploadPetQuiet(file, petName, petGender = 'Male') {
+    return apiClient.uploadPet(file, petName, petGender, null);
+  },
+
   // Gene editing methods
   setGeneEditingView(editingData) {
     geneEditingView.set(editingData);

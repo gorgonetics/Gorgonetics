@@ -1,11 +1,12 @@
 <script>
-import { pickGenomeFile, readFileContent } from '$lib/services/fileService.js';
+import { pickGenomeFiles, readFileContent } from '$lib/services/fileService.js';
 import { appState, error, pets, selectedPet } from '$lib/stores/pets.js';
 import PetCard from './PetCard.svelte';
 import PetEditor from './PetEditor.svelte';
 
 let searchQuery = $state('');
 let uploading = $state(false);
+let uploadProgress = $state(null);
 let showEditor = $state(false);
 let editingPet = $state(null);
 let deletingPet = $state(null);
@@ -24,16 +25,40 @@ function selectPet(pet) {
 
 async function handleUpload() {
   try {
-    const filePath = await pickGenomeFile();
-    if (!filePath) return;
+    const filePaths = await pickGenomeFiles();
+    if (filePaths.length === 0) return;
 
     uploading = true;
-    const content = await readFileContent(filePath);
-    await appState.uploadPet(content, '', 'Male');
+    error.set(null);
+    const total = filePaths.length;
+    const failures = [];
+
+    // Sequential upload — consider parallel with concurrency limit if this becomes a bottleneck
+    for (let i = 0; i < filePaths.length; i++) {
+      uploadProgress = { current: i + 1, total };
+      const fileName = filePaths[i].split(/[\\/]/).pop() || filePaths[i];
+      try {
+        const content = await readFileContent(filePaths[i]);
+        const result = await appState.uploadPetQuiet(content, '', 'Male');
+        if (result.status === 'error') {
+          failures.push(`${fileName}: ${result.message}`);
+        }
+      } catch (err) {
+        failures.push(`${fileName}: ${err.message}`);
+      }
+    }
+
+    await appState.loadPets();
+
+    if (failures.length > 0) {
+      const succeeded = total - failures.length;
+      error.set(`${succeeded}/${total} uploaded. ${failures.length} failed: ${failures.join('; ')}`);
+    }
   } catch (err) {
     error.set(`Upload failed: ${err.message}`);
   } finally {
     uploading = false;
+    uploadProgress = null;
   }
 }
 
@@ -108,7 +133,11 @@ function cancelDelete() {
             onclick={handleUpload}
             disabled={uploading}
         >
-            {uploading ? 'Uploading...' : '+ Upload Genome'}
+            {#if uploadProgress}
+                Uploading... ({uploadProgress.current}/{uploadProgress.total})
+            {:else}
+                + Upload Genome
+            {/if}
         </button>
         <span class="pet-count">{$pets.length} pets</span>
     </div>

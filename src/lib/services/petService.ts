@@ -7,6 +7,7 @@ import { GENOME_FILE_MARKERS } from '$lib/types/index.js';
 import { getDefaultValues } from './configService.js';
 import { getDb } from './database.js';
 import { isValidGenomeFile, parseGenome } from './genomeParser.js';
+import { parseStructuredPetName } from './nameParser.js';
 
 function now(): string {
   return new Date().toISOString();
@@ -172,38 +173,43 @@ export async function uploadPet(
   // Determine pet name
   const petName = genome.name.trim() || name.trim() || 'Unknown Pet';
 
-  // Get default attributes for species
+  const parsed = parseStructuredPetName(petName, genome.genome_type);
   const defaults = getDefaultValues(genome.genome_type);
+
+  const petGender = parsed?.gender ?? gender;
+  const petBreed = parsed?.breed ?? '';
+  const attrValues = parsed?.attributes ?? defaults;
 
   const db = getDb();
   const ts = now();
 
   const result = await db.execute(
     `INSERT INTO pets
-     (name, species, gender, breeder, content_hash, genome_data, notes,
+     (name, species, gender, breed, breeder, content_hash, genome_data, notes,
       created_at, updated_at,
       intelligence, toughness, friendliness, ruggedness, enthusiasm, virility, ferocity, temperament)
-     VALUES ($name, $species, $gender, $breeder, $content_hash, $genome_data, $notes,
+     VALUES ($name, $species, $gender, $breed, $breeder, $content_hash, $genome_data, $notes,
              $created_at, $updated_at,
              $intelligence, $toughness, $friendliness, $ruggedness, $enthusiasm, $virility, $ferocity, $temperament)`,
     {
       name: petName,
       species: genome.genome_type,
-      gender,
+      gender: petGender,
+      breed: petBreed,
       breeder: genome.breeder,
       content_hash: contentHash,
       genome_data: genomeJson,
       notes: notes ?? '',
       created_at: ts,
       updated_at: ts,
-      intelligence: defaults.intelligence ?? 50,
-      toughness: defaults.toughness ?? 50,
-      friendliness: defaults.friendliness ?? 50,
-      ruggedness: defaults.ruggedness ?? 50,
-      enthusiasm: defaults.enthusiasm ?? 50,
-      virility: defaults.virility ?? 50,
-      ferocity: defaults.ferocity ?? 50,
-      temperament: defaults.temperament ?? 50,
+      intelligence: attrValues.intelligence ?? 50,
+      toughness: attrValues.toughness ?? 50,
+      friendliness: attrValues.friendliness ?? 50,
+      ruggedness: attrValues.ruggedness ?? 50,
+      enthusiasm: attrValues.enthusiasm ?? 50,
+      virility: attrValues.virility ?? 50,
+      ferocity: attrValues.ferocity ?? 50,
+      temperament: attrValues.temperament ?? 50,
     },
   );
 
