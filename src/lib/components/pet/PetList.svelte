@@ -81,6 +81,45 @@ async function confirmDelete() {
 function cancelDelete() {
   deletingPet = null;
 }
+
+// --- Drag-and-drop reordering ---
+let draggedIndex = $state(null);
+let dragOverIndex = $state(null);
+const isDraggable = $derived(!searchQuery);
+
+function handleDragStart(e, index) {
+  draggedIndex = index;
+  e.dataTransfer.effectAllowed = 'move';
+}
+
+function handleDragOver(e, index) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  dragOverIndex = index;
+}
+
+function handleDragLeave() {
+  dragOverIndex = null;
+}
+
+async function handleDrop(e, dropIndex) {
+  e.preventDefault();
+  dragOverIndex = null;
+  if (draggedIndex === null || draggedIndex === dropIndex) return;
+
+  const reordered = [...$pets];
+  const [moved] = reordered.splice(draggedIndex, 1);
+  reordered.splice(dropIndex, 0, moved);
+  pets.set(reordered);
+  draggedIndex = null;
+
+  await appState.reorderPets(reordered.map((p) => p.id));
+}
+
+function handleDragEnd() {
+  draggedIndex = null;
+  dragOverIndex = null;
+}
 </script>
 
 <div class="pet-list">
@@ -95,8 +134,19 @@ function cancelDelete() {
 
     <div class="pet-list-items">
         {#if filteredPets.length > 0}
-            {#each filteredPets as pet (pet.id)}
-                <div class="pet-card-wrapper">
+            {#each filteredPets as pet, index (pet.id)}
+                <!-- svelte-ignore a11y_no_static_element_interactions -->
+                <div
+                    class="pet-card-wrapper"
+                    class:drag-over={dragOverIndex === index && draggedIndex !== index}
+                    class:dragging={draggedIndex === index}
+                    draggable={isDraggable}
+                    ondragstart={(e) => handleDragStart(e, index)}
+                    ondragover={(e) => handleDragOver(e, index)}
+                    ondragleave={handleDragLeave}
+                    ondrop={(e) => handleDrop(e, index)}
+                    ondragend={handleDragEnd}
+                >
                     <PetCard
                         {pet}
                         selected={$selectedPet?.id === pet.id}
@@ -239,6 +289,19 @@ function cancelDelete() {
 
     .pet-card-wrapper {
         position: relative;
+        transition: transform 0.15s;
+    }
+
+    .pet-card-wrapper[draggable='true'] {
+        cursor: grab;
+    }
+
+    .pet-card-wrapper.dragging {
+        opacity: 0.4;
+    }
+
+    .pet-card-wrapper.drag-over {
+        border-top: 2px solid #3b82f6;
     }
 
     .pet-card-actions {

@@ -103,6 +103,14 @@ export const appState = {
     return apiClient.uploadPet(file, petName, petGender, null);
   },
 
+  async reorderPets(orderedIds) {
+    try {
+      await apiClient.reorderPets(orderedIds);
+    } catch (err) {
+      error.set(`Failed to save order: ${err.message}`);
+    }
+  },
+
   // Gene editing methods
   setGeneEditingView(editingData) {
     geneEditingView.set(editingData);

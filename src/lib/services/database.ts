@@ -351,7 +351,8 @@ export async function initDatabase(): Promise<void> {
       enthusiasm INTEGER DEFAULT 50,
       virility INTEGER DEFAULT 50,
       ferocity INTEGER DEFAULT 50,
-      temperament INTEGER DEFAULT 50
+      temperament INTEGER DEFAULT 50,
+      sort_order INTEGER DEFAULT 0
     )
   `);
 }

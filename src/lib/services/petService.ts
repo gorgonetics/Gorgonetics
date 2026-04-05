@@ -109,7 +109,7 @@ export async function getAllPets(options?: {
   const total = countRows[0].cnt;
 
   // Get paginated results
-  let query = `SELECT * FROM pets${where} ORDER BY name`;
+  let query = `SELECT * FROM pets${where} ORDER BY sort_order, name`;
   const selectParams = { ...bindParams };
   if (options?.limit !== undefined) {
     query += ' LIMIT $limit OFFSET $offset';
@@ -228,6 +228,7 @@ const UPDATABLE_COLUMNS = new Set([
   'breed',
   'notes',
   'genome_data',
+  'sort_order',
   'intelligence',
   'toughness',
   'friendliness',
@@ -358,4 +359,17 @@ export async function hasPets(): Promise<boolean> {
   const db = getDb();
   const rows = await db.select<{ cnt: number }[]>('SELECT COUNT(*) as cnt FROM pets');
   return rows[0].cnt > 0;
+}
+
+/**
+ * Update sort_order for a list of pets based on their position in the array.
+ */
+export async function reorderPets(orderedIds: number[]): Promise<void> {
+  const db = getDb();
+  for (let i = 0; i < orderedIds.length; i++) {
+    await db.execute('UPDATE pets SET sort_order = $order WHERE id = $id', {
+      order: i,
+      id: orderedIds[i],
+    });
+  }
 }

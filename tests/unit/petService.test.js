@@ -182,6 +182,25 @@ describe('Pet Service', () => {
     });
   });
 
+  describe('reorderPets', () => {
+    it('persists custom sort order', async () => {
+      const a = await petService.uploadPet(SAMPLE_BEEWASP, 'A', 'Female');
+      const b = await petService.uploadPet(SAMPLE_HORSE, 'B', 'Male');
+
+      // Default order is by name: A (beewasp), B (horse)
+      const before = await petService.getAllPets();
+      const namesBefore = before.items.map((p) => p.species);
+      expect(namesBefore).toEqual(['BeeWasp', 'Horse']);
+
+      // Reverse the order
+      await petService.reorderPets([b.pet_id, a.pet_id]);
+
+      const after = await petService.getAllPets();
+      const namesAfter = after.items.map((p) => p.species);
+      expect(namesAfter).toEqual(['Horse', 'BeeWasp']);
+    });
+  });
+
   describe('deletePet', () => {
     it('deletes a pet', async () => {
       const upload = await petService.uploadPet(SAMPLE_BEEWASP, 'Bee', 'Female');
