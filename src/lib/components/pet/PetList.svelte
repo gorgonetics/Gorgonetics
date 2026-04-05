@@ -36,15 +36,14 @@ async function handleUpload() {
     // Sequential upload — consider parallel with concurrency limit if this becomes a bottleneck
     for (let i = 0; i < filePaths.length; i++) {
       uploadProgress = { current: i + 1, total };
+      const fileName = filePaths[i].split(/[\\/]/).pop() || filePaths[i];
       try {
         const content = await readFileContent(filePaths[i]);
         const result = await appState.uploadPetQuiet(content, '', 'Male');
         if (result.status === 'error') {
-          const fileName = filePaths[i].split(/[\\/]/).pop() || filePaths[i];
           failures.push(`${fileName}: ${result.message}`);
         }
       } catch (err) {
-        const fileName = filePaths[i].split(/[\\/]/).pop() || filePaths[i];
         failures.push(`${fileName}: ${err.message}`);
       }
     }
@@ -54,8 +53,6 @@ async function handleUpload() {
     if (failures.length > 0) {
       const succeeded = total - failures.length;
       error.set(`${succeeded}/${total} uploaded. ${failures.length} failed:\n${failures.join('\n')}`);
-    } else if (total > 1) {
-      error.set(`All ${total} genome files uploaded successfully.`);
     }
   } catch (err) {
     error.set(`Upload failed: ${err.message}`);

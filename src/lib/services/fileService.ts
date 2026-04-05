@@ -6,40 +6,27 @@
 
 import { isTauri } from '$lib/utils/environment.js';
 
-async function pickFiles(title: string, filterName: string, extensions: string[]): Promise<string[]> {
-  if (isTauri()) {
-    const { open } = await import('@tauri-apps/plugin-dialog');
-    const result = await open({
-      multiple: true,
-      filters: [{ name: filterName, extensions }],
-      title,
-    });
-    if (Array.isArray(result)) return result;
-    if (typeof result === 'string') return [result];
-    return [];
-  }
+async function openFileDialog(
+  title: string,
+  filterName: string,
+  extensions: string[],
+  multiple: boolean,
+): Promise<string[]> {
+  if (!isTauri()) return [];
+  const { open } = await import('@tauri-apps/plugin-dialog');
+  const result = await open({ multiple, filters: [{ name: filterName, extensions }], title });
+  if (Array.isArray(result)) return result;
+  if (typeof result === 'string') return [result];
   return [];
 }
 
-async function pickSingleFile(title: string, filterName: string, extensions: string[]): Promise<string | null> {
-  if (isTauri()) {
-    const { open } = await import('@tauri-apps/plugin-dialog');
-    const result = await open({
-      multiple: false,
-      filters: [{ name: filterName, extensions }],
-      title,
-    });
-    return typeof result === 'string' ? result : null;
-  }
-  return null;
-}
-
 export function pickGenomeFiles(): Promise<string[]> {
-  return pickFiles('Select Genome Files', 'Genome Files', ['txt']);
+  return openFileDialog('Select Genome Files', 'Genome Files', ['txt'], true);
 }
 
-export function pickBackupFile(): Promise<string | null> {
-  return pickSingleFile('Import Gorgonetics Backup', 'Backup Files', ['zip', 'json']);
+export async function pickBackupFile(): Promise<string | null> {
+  const files = await openFileDialog('Import Gorgonetics Backup', 'Backup Files', ['zip', 'json'], false);
+  return files[0] ?? null;
 }
 
 export async function readBinaryFile(path: string): Promise<Uint8Array> {
