@@ -74,6 +74,30 @@ describe('Pet Service', () => {
       expect(pet.toughness).toBe(50);
       expect(pet.temperament).toBe(50);
     });
+
+    it('handles multiple sequential uploads', async () => {
+      const result1 = await petService.uploadPet(SAMPLE_BEEWASP, 'Bee One', 'Female');
+      expect(result1.status).toBe('success');
+
+      const result2 = await petService.uploadPet(SAMPLE_HORSE, 'Horse One', 'Male');
+      expect(result2.status).toBe('success');
+
+      const { items, total } = await petService.getAllPets();
+      expect(total).toBe(2);
+      expect(items.map((p) => p.name).sort()).toEqual(['Sample Fae Bee', 'Sample Horse']);
+    });
+
+    it('returns error for duplicates during sequential upload', async () => {
+      const result1 = await petService.uploadPet(SAMPLE_BEEWASP, 'First', 'Female');
+      expect(result1.status).toBe('success');
+
+      const result2 = await petService.uploadPet(SAMPLE_BEEWASP, 'Second', 'Female');
+      expect(result2.status).toBe('error');
+      expect(result2.message).toContain('already been uploaded');
+
+      const { total } = await petService.getAllPets();
+      expect(total).toBe(1);
+    });
   });
 
   describe('getAllPets', () => {
