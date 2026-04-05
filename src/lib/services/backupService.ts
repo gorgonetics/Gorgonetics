@@ -58,6 +58,7 @@ const PET_COLUMNS = [
   'virility',
   'ferocity',
   'temperament',
+  'sort_order',
 ];
 
 // --- Export ---

@@ -108,6 +108,7 @@ export const appState = {
       await apiClient.reorderPets(orderedIds);
     } catch (err) {
       error.set(`Failed to save order: ${err.message}`);
+      throw err;
     }
   },
 

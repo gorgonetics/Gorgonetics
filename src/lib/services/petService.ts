@@ -366,10 +366,17 @@ export async function hasPets(): Promise<boolean> {
  */
 export async function reorderPets(orderedIds: number[]): Promise<void> {
   const db = getDb();
-  for (let i = 0; i < orderedIds.length; i++) {
-    await db.execute('UPDATE pets SET sort_order = $order WHERE id = $id', {
-      order: i,
-      id: orderedIds[i],
-    });
+  await db.execute('BEGIN');
+  try {
+    for (let i = 0; i < orderedIds.length; i++) {
+      await db.execute('UPDATE pets SET sort_order = $order WHERE id = $id', {
+        order: i,
+        id: orderedIds[i],
+      });
+    }
+    await db.execute('COMMIT');
+  } catch (e) {
+    await db.execute('ROLLBACK');
+    throw e;
   }
 }

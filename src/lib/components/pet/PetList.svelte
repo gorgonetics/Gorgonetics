@@ -107,13 +107,23 @@ async function handleDrop(e, dropIndex) {
   dragOverIndex = null;
   if (draggedIndex === null || draggedIndex === dropIndex) return;
 
+  // Resolve by pet ID so indices are correct regardless of filtering
+  const fromPet = filteredPets[draggedIndex];
+  const toPet = filteredPets[dropIndex];
+  const previous = [...$pets];
   const reordered = [...$pets];
-  const [moved] = reordered.splice(draggedIndex, 1);
-  reordered.splice(dropIndex, 0, moved);
+  const fromIdx = reordered.findIndex((p) => p.id === fromPet.id);
+  const toIdx = reordered.findIndex((p) => p.id === toPet.id);
+  const [moved] = reordered.splice(fromIdx, 1);
+  reordered.splice(toIdx, 0, moved);
   pets.set(reordered);
   draggedIndex = null;
 
-  await appState.reorderPets(reordered.map((p) => p.id));
+  try {
+    await appState.reorderPets(reordered.map((p) => p.id));
+  } catch {
+    pets.set(previous);
+  }
 }
 
 function handleDragEnd() {
@@ -289,7 +299,6 @@ function handleDragEnd() {
 
     .pet-card-wrapper {
         position: relative;
-        transition: transform 0.15s;
     }
 
     .pet-card-wrapper[draggable='true'] {
