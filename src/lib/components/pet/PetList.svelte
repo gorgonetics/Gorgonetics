@@ -1,5 +1,5 @@
 <script>
-import { pickGenomeFile, readFileContent } from '$lib/services/fileService.js';
+import { pickGenomeFiles, readFileContent } from '$lib/services/fileService.js';
 import { appState, error, pets, selectedPet } from '$lib/stores/pets.js';
 import PetCard from './PetCard.svelte';
 import PetEditor from './PetEditor.svelte';
@@ -24,8 +24,9 @@ function selectPet(pet) {
 
 async function handleUpload() {
   try {
-    const filePath = await pickGenomeFile();
-    if (!filePath) return;
+    const filePaths = await pickGenomeFiles();
+    if (filePaths.length === 0) return;
+    const filePath = filePaths[0];
 
     uploading = true;
     const content = await readFileContent(filePath);
