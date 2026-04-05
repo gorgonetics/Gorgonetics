@@ -123,6 +123,14 @@ describe('parseStructuredPetName', () => {
       expect(parseStructuredPetName('Kb F abc 70 65 80 90 100 55', 'Horse')).toBeNull();
     });
 
+    it('returns null for negative attribute values', () => {
+      expect(parseStructuredPetName('Kb F -5 70 65 80 90 100 55', 'Horse')).toBeNull();
+    });
+
+    it('returns null for attribute values above 100', () => {
+      expect(parseStructuredPetName('Kb F 60 70 65 80 90 101 55', 'Horse')).toBeNull();
+    });
+
     it('returns null for regular pet names', () => {
       expect(parseStructuredPetName('Sample Horse', 'Horse')).toBeNull();
       expect(parseStructuredPetName('Roach', 'Horse')).toBeNull();

@@ -43,8 +43,9 @@ export function parseStructuredPetName(name: string, species: string): Structure
   const attributes: Record<string, number> = {};
   for (let i = 0; i < HORSE_ATTRIBUTE_ORDER.length; i++) {
     const token = tokens[2 + i];
-    if (!/^-?\d+$/.test(token)) return null;
+    if (!/^\d+$/.test(token)) return null;
     const value = Number.parseInt(token, 10);
+    if (value > 100) return null;
     attributes[HORSE_ATTRIBUTE_ORDER[i]] = value;
   }
 

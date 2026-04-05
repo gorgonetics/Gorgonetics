@@ -52,7 +52,7 @@ async function handleUpload() {
 
     if (failures.length > 0) {
       const succeeded = total - failures.length;
-      error.set(`${succeeded}/${total} uploaded. ${failures.length} failed:\n${failures.join('\n')}`);
+      error.set(`${succeeded}/${total} uploaded. ${failures.length} failed: ${failures.join('; ')}`);
     }
   } catch (err) {
     error.set(`Upload failed: ${err.message}`);
