@@ -109,13 +109,17 @@ async function handleDrop(e, dropIndex) {
 
   // Resolve by pet ID so indices are correct regardless of filtering
   const fromPet = filteredPets[draggedIndex];
-  const toPet = filteredPets[dropIndex];
   const previous = [...$pets];
   const reordered = [...$pets];
   const fromIdx = reordered.findIndex((p) => p.id === fromPet.id);
-  const toIdx = reordered.findIndex((p) => p.id === toPet.id);
   const [moved] = reordered.splice(fromIdx, 1);
-  reordered.splice(toIdx, 0, moved);
+  if (dropIndex >= filteredPets.length) {
+    reordered.push(moved);
+  } else {
+    const toPet = filteredPets[dropIndex];
+    const toIdx = reordered.findIndex((p) => p.id === toPet.id);
+    reordered.splice(toIdx, 0, moved);
+  }
   pets.set(reordered);
   draggedIndex = null;
 
@@ -180,6 +184,16 @@ function handleDragEnd() {
                     </div>
                 </div>
             {/each}
+            {#if isDraggable && draggedIndex !== null}
+                <!-- svelte-ignore a11y_no_static_element_interactions -->
+                <div
+                    class="drop-zone-end"
+                    class:drag-over={dragOverIndex === filteredPets.length}
+                    ondragover={(e) => handleDragOver(e, filteredPets.length)}
+                    ondragleave={handleDragLeave}
+                    ondrop={(e) => handleDrop(e, filteredPets.length)}
+                ></div>
+            {/if}
         {:else if searchQuery}
             <div class="empty-state">No pets match "{searchQuery}"</div>
         {:else}
@@ -310,6 +324,15 @@ function handleDragEnd() {
     }
 
     .pet-card-wrapper.drag-over {
+        border-top: 2px solid #3b82f6;
+    }
+
+    .drop-zone-end {
+        min-height: 32px;
+        flex: 1;
+    }
+
+    .drop-zone-end.drag-over {
         border-top: 2px solid #3b82f6;
     }
 
