@@ -6,6 +6,7 @@ import PetEditor from './PetEditor.svelte';
 
 let searchQuery = $state('');
 let uploading = $state(false);
+let uploadProgress = $state(null);
 let showEditor = $state(false);
 let editingPet = $state(null);
 let deletingPet = $state(null);
@@ -26,15 +27,39 @@ async function handleUpload() {
   try {
     const filePaths = await pickGenomeFiles();
     if (filePaths.length === 0) return;
-    const filePath = filePaths[0];
 
     uploading = true;
-    const content = await readFileContent(filePath);
-    await appState.uploadPet(content, '', 'Male');
+    error.set(null);
+    const total = filePaths.length;
+    const failures = [];
+
+    // Sequential upload — consider parallel with concurrency limit if this becomes a bottleneck
+    for (let i = 0; i < filePaths.length; i++) {
+      uploadProgress = { current: i + 1, total };
+      try {
+        const content = await readFileContent(filePaths[i]);
+        const result = await appState.uploadPetQuiet(content, '', 'Male');
+        if (result.status === 'error') {
+          const fileName = filePaths[i].split('/').pop() || filePaths[i];
+          failures.push(`${fileName}: ${result.message}`);
+        }
+      } catch (err) {
+        const fileName = filePaths[i].split('/').pop() || filePaths[i];
+        failures.push(`${fileName}: ${err.message}`);
+      }
+    }
+
+    await appState.loadPets();
+
+    if (failures.length > 0) {
+      const succeeded = total - failures.length;
+      error.set(`${succeeded}/${total} uploaded. ${failures.length} failed:\n${failures.join('\n')}`);
+    }
   } catch (err) {
     error.set(`Upload failed: ${err.message}`);
   } finally {
     uploading = false;
+    uploadProgress = null;
   }
 }
 
@@ -109,7 +134,11 @@ function cancelDelete() {
             onclick={handleUpload}
             disabled={uploading}
         >
-            {uploading ? 'Uploading...' : '+ Upload Genome'}
+            {#if uploadProgress}
+                Uploading... ({uploadProgress.current}/{uploadProgress.total})
+            {:else}
+                + Upload Genome
+            {/if}
         </button>
         <span class="pet-count">{$pets.length} pets</span>
     </div>
