@@ -43,6 +43,37 @@ describe('Pet Service', () => {
       expect(result.status).toBe('error');
       expect(result.message).toContain('already been uploaded');
     });
+
+    it('infers breed, gender, and attributes from structured Horse name', async () => {
+      // Create a Horse genome file with a structured Entity name
+      const structuredHorse = SAMPLE_HORSE.replace('Entity=Sample Horse', 'Entity=Kb F 60 70 65 80 90 100 55');
+      const result = await petService.uploadPet(structuredHorse, '', 'Male');
+      expect(result.status).toBe('success');
+
+      const pet = await petService.getPet(result.pet_id);
+      expect(pet.breed).toBe('Kurbone');
+      expect(pet.gender).toBe('Female'); // Overrides the 'Male' parameter
+      expect(pet.temperament).toBe(60);
+      expect(pet.toughness).toBe(70);
+      expect(pet.ruggedness).toBe(65);
+      expect(pet.enthusiasm).toBe(80);
+      expect(pet.friendliness).toBe(90);
+      expect(pet.intelligence).toBe(100);
+      expect(pet.virility).toBe(55);
+      // Name stays as the raw Entity string
+      expect(pet.name).toBe('Kb F 60 70 65 80 90 100 55');
+    });
+
+    it('uses defaults when Horse name is not structured', async () => {
+      const result = await petService.uploadPet(SAMPLE_HORSE, '', 'Male');
+      expect(result.status).toBe('success');
+
+      const pet = await petService.getPet(result.pet_id);
+      expect(pet.breed).toBe('');
+      expect(pet.gender).toBe('Male');
+      expect(pet.toughness).toBe(50);
+      expect(pet.temperament).toBe(50);
+    });
   });
 
   describe('getAllPets', () => {
