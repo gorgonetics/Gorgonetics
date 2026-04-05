@@ -173,16 +173,12 @@ export async function uploadPet(
   // Determine pet name
   const petName = genome.name.trim() || name.trim() || 'Unknown Pet';
 
-  // Try to infer breed, gender, and attributes from structured name
   const parsed = parseStructuredPetName(petName, genome.genome_type);
-
-  // Get default attributes for species
   const defaults = getDefaultValues(genome.genome_type);
 
-  // Apply parsed values or fall back to defaults
   const petGender = parsed?.gender ?? gender;
   const petBreed = parsed?.breed ?? '';
-  const attrValues = parsed ? { ...defaults, ...parsed.attributes } : defaults;
+  const attrValues = parsed?.attributes ?? defaults;
 
   const db = getDb();
   const ts = now();
