@@ -204,6 +204,7 @@ $effect(() => {
 {#if lightboxImage}
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div class="lightbox" role="dialog" aria-label="Image viewer" tabindex="-1" onclick={closeLightbox} onkeydown={handleLightboxKey}>
+    <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
     <div class="lightbox-content" onclick={(e) => e.stopPropagation()}>
       <img src={lightboxImage.url} alt={lightboxImage.original_name} />
       <div class="lightbox-info">
@@ -225,8 +226,10 @@ $effect(() => {
 {/if}
 
 {#if deleteTarget}
-  <div class="modal-backdrop" onclick={cancelDelete}>
-    <div class="confirm-dialog" role="alertdialog" aria-label="Confirm delete" onclick={(e) => e.stopPropagation()}>
+  <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
+  <div class="modal-backdrop" onclick={cancelDelete} onkeydown={(e) => { if (e.key === 'Escape') cancelDelete(); }} role="presentation">
+    <!-- svelte-ignore a11y_click_events_have_key_events a11y_interactive_supports_focus -->
+    <div class="confirm-dialog" role="alertdialog" aria-label="Confirm delete" tabindex="-1" onclick={(e) => e.stopPropagation()}>
       <h3>Delete image?</h3>
       <p>Delete <strong>{deleteTarget.original_name}</strong>? This cannot be undone.</p>
       <div class="confirm-actions">

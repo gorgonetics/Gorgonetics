@@ -125,7 +125,7 @@ let globalGeneEffectsDB = {};
 
 // DOM template cache - stores pre-built table structures per species
 const speciesTemplateCache = new Map();
-let currentSpeciesTemplate = null;
+let currentSpeciesTemplate = $state(null);
 let isUsingCachedTemplate = false;
 
 onMount(async () => {

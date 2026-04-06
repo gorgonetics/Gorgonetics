@@ -26,9 +26,9 @@ async function toggleSetting(key) {
 
 {#if open}
   <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="modal-backdrop" onclick={close} onkeydown={(e) => { if (e.key === 'Escape') close(); }}>
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="dialog settings-dialog" role="dialog" aria-label="Settings" onclick={(e) => e.stopPropagation()}>
+  <div class="modal-backdrop" onclick={close} onkeydown={(e) => { if (e.key === 'Escape') close(); }} role="presentation">
+    <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
+    <div class="dialog settings-dialog" role="dialog" aria-label="Settings" tabindex="-1" onclick={(e) => e.stopPropagation()}>
       <div class="dialog-header">
         <h3>Settings</h3>
         <button class="close-btn" onclick={close} aria-label="Close settings">
