@@ -351,8 +351,7 @@ export async function initDatabase(): Promise<void> {
       enthusiasm INTEGER DEFAULT 50,
       virility INTEGER DEFAULT 50,
       ferocity INTEGER DEFAULT 50,
-      temperament INTEGER DEFAULT 50,
-      sort_order INTEGER DEFAULT 0
+      temperament INTEGER DEFAULT 50
     )
   `);
 }
@@ -363,6 +362,30 @@ export async function initDatabase(): Promise<void> {
 export function getDb(): DatabaseAdapter {
   if (!db) throw new Error('Database not initialized. Call initDatabase() first.');
   return db;
+}
+
+const REORDERABLE_TABLES = new Set(['pets', 'pet_images']);
+
+/**
+ * Update sort_order for rows in a table based on their position in the array.
+ * Wrapped in a transaction for atomicity.
+ */
+export async function reorderRows(table: 'pets' | 'pet_images', orderedIds: number[]): Promise<void> {
+  if (!REORDERABLE_TABLES.has(table)) throw new Error(`Table '${table}' is not reorderable`);
+  const d = getDb();
+  await d.execute('BEGIN');
+  try {
+    for (let i = 0; i < orderedIds.length; i++) {
+      await d.execute(`UPDATE ${table} SET sort_order = $order WHERE id = $id`, {
+        order: i,
+        id: orderedIds[i],
+      });
+    }
+    await d.execute('COMMIT');
+  } catch (e) {
+    await d.execute('ROLLBACK');
+    throw e;
+  }
 }
 
 /**

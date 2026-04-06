@@ -1,10 +1,17 @@
 <script>
-import { deleteImage, getImagesForPet, pickImageFiles, uploadImage } from '$lib/services/imageService.js';
+import {
+  deleteImage,
+  getImagesForPet,
+  pickImageFiles,
+  reorderImages,
+  uploadImage,
+} from '$lib/services/imageService.js';
 
 const { pet } = $props();
 
 let images = $state([]);
 let uploading = $state(false);
+let uploadProgress = $state(null);
 let lightboxIndex = $state(-1);
 let deleteTarget = $state(null);
 let statusMessage = $state(null);
@@ -18,27 +25,32 @@ async function loadImages() {
 
 async function handleUpload() {
   const paths = await pickImageFiles();
-  if (!paths || paths.length === 0) return;
+  if (paths.length === 0) return;
 
   uploading = true;
-  let count = 0;
-  let lastError = null;
-  for (const path of paths) {
+  const total = paths.length;
+  const failures = [];
+
+  // Sequential upload — consider parallel with concurrency limit if this becomes a bottleneck
+  for (let i = 0; i < paths.length; i++) {
+    uploadProgress = { current: i + 1, total };
+    const fileName = paths[i].split(/[\\/]/).pop() || paths[i];
     try {
-      await uploadImage(pet.id, path);
-      count++;
+      await uploadImage(pet.id, paths[i]);
     } catch (err) {
-      console.error('Failed to upload image:', err);
-      lastError = err;
+      failures.push(`${fileName}: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
+
   uploading = false;
+  uploadProgress = null;
   await loadImages();
 
-  if (count > 0) {
-    statusMessage = `Uploaded ${count} image${count > 1 ? 's' : ''}`;
-  } else if (lastError) {
-    statusMessage = `Upload failed: ${lastError.message}`;
+  if (failures.length > 0) {
+    const succeeded = total - failures.length;
+    statusMessage = `${succeeded}/${total} uploaded. ${failures.length} failed: ${failures.join('; ')}`;
+  } else if (total > 0) {
+    statusMessage = `Uploaded ${total} image${total > 1 ? 's' : ''}`;
   }
   if (statusMessage) {
     setTimeout(() => {
@@ -92,6 +104,56 @@ async function executeDelete() {
   deleteTarget = null;
 }
 
+// --- Drag-and-drop reordering ---
+let draggedIndex = $state(null);
+let dragOverIndex = $state(null);
+
+function handleDragStart(e, index) {
+  draggedIndex = index;
+  e.dataTransfer.effectAllowed = 'move';
+}
+
+function handleDragOver(e, index) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  dragOverIndex = index;
+}
+
+function handleDragLeave() {
+  dragOverIndex = null;
+}
+
+async function handleDrop(e, dropIndex) {
+  e.preventDefault();
+  dragOverIndex = null;
+  if (draggedIndex === null || draggedIndex === dropIndex) return;
+
+  const fromImg = images[draggedIndex];
+  if (!fromImg) {
+    draggedIndex = null;
+    return;
+  }
+
+  const previous = [...images];
+  const reordered = [...images];
+  const [moved] = reordered.splice(draggedIndex, 1);
+  reordered.splice(dropIndex, 0, moved);
+
+  images = reordered;
+  draggedIndex = null;
+
+  try {
+    await reorderImages(reordered.map((img) => img.id));
+  } catch {
+    images = previous;
+  }
+}
+
+function handleDragEnd() {
+  draggedIndex = null;
+  dragOverIndex = null;
+}
+
 $effect(() => {
   const _id = pet?.id;
   loadImages();
@@ -109,7 +171,11 @@ $effect(() => {
   <div class="gallery-header">
     <span class="gallery-count">{images.length} image{images.length !== 1 ? 's' : ''}</span>
     <button class="btn btn-primary" onclick={handleUpload} disabled={uploading}>
-      {uploading ? 'Uploading...' : '+ Upload Images'}
+      {#if uploadProgress}
+        Uploading... ({uploadProgress.current}/{uploadProgress.total})
+      {:else}
+        + Upload Images
+      {/if}
     </button>
   </div>
 
@@ -121,8 +187,19 @@ $effect(() => {
     </div>
   {:else}
     <div class="thumbnail-grid">
-      {#each images as img, i}
-        <div class="thumbnail-card">
+      {#each images as img, i (img.id)}
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <div
+          class="thumbnail-card"
+          class:dragging={draggedIndex === i}
+          class:drag-over={dragOverIndex === i && draggedIndex !== i}
+          draggable="true"
+          ondragstart={(e) => handleDragStart(e, i)}
+          ondragover={(e) => handleDragOver(e, i)}
+          ondragleave={handleDragLeave}
+          ondrop={(e) => handleDrop(e, i)}
+          ondragend={handleDragEnd}
+        >
           <button class="thumbnail-btn" onclick={() => openLightbox(i)}>
             <img src={img.url} alt={img.original_name} loading="lazy" />
           </button>
@@ -243,6 +320,16 @@ $effect(() => {
     border: 1px solid #e5e7eb;
     border-radius: 8px;
     overflow: hidden;
+    cursor: grab;
+  }
+
+  .thumbnail-card.dragging {
+    opacity: 0.4;
+  }
+
+  .thumbnail-card.drag-over {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
   }
 
   .thumbnail-btn {

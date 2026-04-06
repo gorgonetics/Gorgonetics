@@ -5,7 +5,7 @@
 import type { Gene, Genome, Pet } from '$lib/types/index.js';
 import { GENOME_FILE_MARKERS } from '$lib/types/index.js';
 import { getDefaultValues } from './configService.js';
-import { getDb } from './database.js';
+import { getDb, reorderRows } from './database.js';
 import { isValidGenomeFile, parseGenome } from './genomeParser.js';
 import { parseStructuredPetName } from './nameParser.js';
 
@@ -183,7 +183,8 @@ export async function uploadPet(
   const db = getDb();
   const ts = now();
 
-  // New pets append after existing ones
+  // TODO: This queries all sort_orders per upload, making bulk upload O(N*existing).
+  // Same issue as imageService — fix by querying once before the loop.
   const orderRows = await db.select<{ sort_order: number }[]>('SELECT sort_order FROM pets');
   const nextOrder = orderRows.length > 0 ? Math.max(...orderRows.map((r) => r.sort_order ?? 0)) + 1 : 0;
 
@@ -369,19 +370,6 @@ export async function hasPets(): Promise<boolean> {
 /**
  * Update sort_order for a list of pets based on their position in the array.
  */
-export async function reorderPets(orderedIds: number[]): Promise<void> {
-  const db = getDb();
-  await db.execute('BEGIN');
-  try {
-    for (let i = 0; i < orderedIds.length; i++) {
-      await db.execute('UPDATE pets SET sort_order = $order WHERE id = $id', {
-        order: i,
-        id: orderedIds[i],
-      });
-    }
-    await db.execute('COMMIT');
-  } catch (e) {
-    await db.execute('ROLLBACK');
-    throw e;
-  }
+export function reorderPets(orderedIds: number[]): Promise<void> {
+  return reorderRows('pets', orderedIds);
 }

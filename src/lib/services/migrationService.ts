@@ -65,6 +65,15 @@ const MIGRATIONS: Migration[] = [
       await db.execute('ALTER TABLE pets ADD COLUMN sort_order INTEGER DEFAULT 0');
     },
   },
+  {
+    version: 5,
+    description: 'Add sort_order column and pet_id index to pet_images',
+    up: async () => {
+      const db = getDb();
+      await db.execute('ALTER TABLE pet_images ADD COLUMN sort_order INTEGER DEFAULT 0');
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_pet_images_pet_id ON pet_images(pet_id)');
+    },
+  },
 ];
 
 /** Derived from the last migration — no manual bookkeeping needed. */

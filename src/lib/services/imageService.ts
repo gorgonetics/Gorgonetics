@@ -6,7 +6,8 @@
 
 import type { PetImage } from '$lib/types/index.js';
 import { isTauri } from '$lib/utils/environment.js';
-import { getDb } from './database.js';
+import { getDb, reorderRows } from './database.js';
+import { openFileDialog } from './fileService.js';
 
 const ALLOWED_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp'];
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
@@ -43,16 +44,8 @@ function parseImage(row: Record<string, unknown>): PetImage {
 /**
  * Open a native file dialog to pick image files.
  */
-export async function pickImageFiles(): Promise<string[] | null> {
-  if (!isTauri()) return null;
-  const { open } = await import('@tauri-apps/plugin-dialog');
-  const result = await open({
-    multiple: true,
-    filters: [{ name: 'Images', extensions: ALLOWED_EXTENSIONS }],
-    title: 'Select Pet Images',
-  });
-  if (!result) return null;
-  return Array.isArray(result) ? result : [result];
+export function pickImageFiles(): Promise<string[]> {
+  return openFileDialog('Select Pet Images', 'Images', ALLOWED_EXTENSIONS, true);
 }
 
 /**
@@ -83,14 +76,30 @@ export async function uploadImage(petId: number, sourcePath: string): Promise<Pe
     const relativePath = `${relativeDir}/${filename}`;
     await writeFile(relativePath, fileData, { baseDir: BaseDirectory.AppData });
 
-    // Insert DB record
+    // Insert DB record — new images append after existing ones
     const db = getDb();
     const originalName = getBasename(sourcePath);
     const ts = now();
+    // TODO: This queries all sort_orders per image, making bulk upload O(N*existing).
+    // Fix by accepting an optional startOrder param or adding a batch uploadImages() that
+    // queries once and increments locally. Not worth optimizing until galleries are large.
+    const orderRows = await db.select<{ sort_order: number }[]>(
+      'SELECT sort_order FROM pet_images WHERE pet_id = $pet_id',
+      { pet_id: petId },
+    );
+    const nextOrder = orderRows.length > 0 ? Math.max(...orderRows.map((r) => r.sort_order ?? 0)) + 1 : 0;
     const result = await db.execute(
-      `INSERT INTO pet_images (pet_id, filename, original_name, caption, tags, created_at)
-       VALUES ($pet_id, $filename, $original_name, $caption, $tags, $created_at)`,
-      { pet_id: petId, filename, original_name: originalName, caption: '', tags: '[]', created_at: ts },
+      `INSERT INTO pet_images (pet_id, filename, original_name, caption, tags, created_at, sort_order)
+       VALUES ($pet_id, $filename, $original_name, $caption, $tags, $created_at, $sort_order)`,
+      {
+        pet_id: petId,
+        filename,
+        original_name: originalName,
+        caption: '',
+        tags: '[]',
+        created_at: ts,
+        sort_order: nextOrder,
+      },
     );
 
     return {
@@ -114,7 +123,7 @@ export async function uploadImage(petId: number, sourcePath: string): Promise<Pe
 export async function getImagesForPet(petId: number): Promise<PetImage[]> {
   const db = getDb();
   const rows = await db.select<Record<string, unknown>[]>(
-    'SELECT * FROM pet_images WHERE pet_id = $pet_id ORDER BY created_at DESC',
+    'SELECT * FROM pet_images WHERE pet_id = $pet_id ORDER BY sort_order, created_at DESC',
     { pet_id: petId },
   );
 
@@ -217,4 +226,11 @@ export async function getTotalImageCount(): Promise<number> {
   const db = getDb();
   const rows = await db.select<{ cnt: number }[]>('SELECT COUNT(*) as cnt FROM pet_images');
   return rows[0]?.cnt ?? 0;
+}
+
+/**
+ * Update sort_order for a list of images based on their position in the array.
+ */
+export function reorderImages(orderedIds: number[]): Promise<void> {
+  return reorderRows('pet_images', orderedIds);
 }

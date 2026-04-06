@@ -1,8 +1,10 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { closeDatabase, initDatabase } from '$lib/services/database.js';
+import { closeDatabase, getDb, initDatabase } from '$lib/services/database.js';
 import * as geneService from '$lib/services/geneService.js';
+import * as imageService from '$lib/services/imageService.js';
+import { runMigrations } from '$lib/services/migrationService.js';
 import * as petService from '$lib/services/petService.js';
 
 const SAMPLE_BEEWASP = readFileSync(resolve('data/Genes_SampleFaeBee.txt'), 'utf-8');
@@ -12,6 +14,7 @@ describe('Pet Service', () => {
   beforeEach(async () => {
     await closeDatabase();
     await initDatabase();
+    await runMigrations();
   });
 
   describe('uploadPet', () => {
@@ -219,6 +222,7 @@ describe('Gene Service', () => {
   beforeEach(async () => {
     await closeDatabase();
     await initDatabase();
+    await runMigrations();
   });
 
   describe('upsertGene and query', () => {
@@ -281,6 +285,80 @@ describe('Gene Service', () => {
       expect(exported).toHaveLength(1);
       expect(exported[0]).toHaveProperty('gene', '01A1');
       expect(exported[0]).toHaveProperty('effectDominant', 'Toughness+');
+    });
+  });
+});
+
+describe('Image Service', () => {
+  beforeEach(async () => {
+    await closeDatabase();
+    await initDatabase();
+    await runMigrations();
+  });
+
+  async function insertTestImage(petId, filename, sortOrder = 0) {
+    const db = getDb();
+    const result = await db.execute(
+      `INSERT INTO pet_images (pet_id, filename, original_name, caption, tags, created_at, sort_order)
+       VALUES ($pet_id, $filename, $original_name, '', '[]', $created_at, $sort_order)`,
+      {
+        pet_id: petId,
+        filename,
+        original_name: filename,
+        created_at: new Date().toISOString(),
+        sort_order: sortOrder,
+      },
+    );
+    return result.lastInsertId;
+  }
+
+  async function createTestPet() {
+    const result = await petService.uploadPet(SAMPLE_BEEWASP, 'Test', 'Female');
+    return result.pet_id;
+  }
+
+  describe('reorderImages', () => {
+    it('persists custom sort order', async () => {
+      const petId = await createTestPet();
+      const imgA = await insertTestImage(petId, 'a.png', 0);
+      const imgB = await insertTestImage(petId, 'b.png', 1);
+      const imgC = await insertTestImage(petId, 'c.png', 2);
+
+      // Default order: A, B, C
+      const before = await imageService.getImagesForPet(petId);
+      expect(before.map((i) => i.id)).toEqual([imgA, imgB, imgC]);
+
+      // Reverse: C, B, A
+      await imageService.reorderImages([imgC, imgB, imgA]);
+
+      const after = await imageService.getImagesForPet(petId);
+      expect(after.map((i) => i.id)).toEqual([imgC, imgB, imgA]);
+    });
+
+    it('reorders two images correctly', async () => {
+      const petId = await createTestPet();
+      const imgA = await insertTestImage(petId, 'a.png', 0);
+      const imgB = await insertTestImage(petId, 'b.png', 1);
+
+      await imageService.reorderImages([imgB, imgA]);
+
+      const after = await imageService.getImagesForPet(petId);
+      expect(after.map((i) => i.id)).toEqual([imgB, imgA]);
+    });
+  });
+
+  describe('getImagesForPet', () => {
+    it('returns images in reordered sequence', async () => {
+      const petId = await createTestPet();
+      const imgA = await insertTestImage(petId, 'first.png', 0);
+      const imgB = await insertTestImage(petId, 'second.png', 1);
+      const imgC = await insertTestImage(petId, 'third.png', 2);
+
+      // Reorder to C, A, B
+      await imageService.reorderImages([imgC, imgA, imgB]);
+
+      const images = await imageService.getImagesForPet(petId);
+      expect(images.map((i) => i.id)).toEqual([imgC, imgA, imgB]);
     });
   });
 });
