@@ -23,6 +23,14 @@ let successTimer = null;
 let expandedNotes = $state({});
 let openDropdown = $state(null);
 let originalGenes = [];
+
+const negativeOptions = $derived(effectOptions.filter((opt) => opt.includes('-')).sort());
+const positiveOptions = $derived(effectOptions.filter((opt) => opt.includes('+')).sort());
+
+const EFFECT_TYPES = [
+  { label: 'Dominant', field: 'effectDominant', key: 'dominant' },
+  { label: 'Recessive', field: 'effectRecessive', key: 'recessive' },
+];
 let hasUnsavedChanges = $state(false);
 let savingChanges = $state(false);
 
@@ -260,85 +268,36 @@ run(() => {
 
                         <!-- Gene Fields -->
                         <div class="gene-fields">
-                            <!-- Dominant Effect -->
+                            {#each EFFECT_TYPES as { label, field, key }}
                             <div class="field">
                                 <!-- svelte-ignore a11y_label_has_associated_control -->
-                                <label>Dominant</label>
+                                <label>{label}</label>
                                 <div class="select-wrapper">
                                     <button
-                                        class="select-trigger {getEffectClass(
-                                            gene.effectDominant,
-                                        )}"
-
-                                        onclick={stopPropagation((e) =>
-                                            toggleDropdown(
-                                                gene.gene,
-                                                "dominant",
-                                                e,
-                                            ),
-                                        )}
+                                        class="select-trigger {getEffectClass(gene[field])}"
+                                        onclick={stopPropagation((e) => toggleDropdown(gene.gene, key, e))}
                                     >
-                                        {gene.effectDominant || "None"}
+                                        {gene[field] || "None"}
                                         <span class="chevron">▼</span>
                                     </button>
 
-                                    {#if openDropdown === `${gene.gene}-dominant`}
+                                    {#if openDropdown === `${gene.gene}-${key}`}
                                         <div class="dropdown">
                                             <button
                                                 class="option none"
-                                                onclick={stopPropagation(() =>
-                                                    selectOption(
-                                                        gene,
-                                                        "effectDominant",
-                                                        "None",
-                                                    ),
-                                                )}
+                                                onclick={stopPropagation(() => selectOption(gene, field, "None"))}
                                             >
                                                 None
                                             </button>
-
                                             <div class="effects-grid">
-                                                <div
-                                                    class="effects-column negative"
-                                                >
-                                                    {#each effectOptions
-                                                        .filter( (opt) => opt.includes("-"), )
-                                                        .sort() as option (option)}
-                                                        <button
-                                                            class="option negative"
-                                                            onclick={stopPropagation(
-                                                                () =>
-                                                                    selectOption(
-                                                                        gene,
-                                                                        "effectDominant",
-                                                                        option,
-                                                                    ),
-                                                            )}
-                                                        >
-                                                            {option}
-                                                        </button>
+                                                <div class="effects-column negative">
+                                                    {#each negativeOptions as option (option)}
+                                                        <button class="option negative" onclick={stopPropagation(() => selectOption(gene, field, option))}>{option}</button>
                                                     {/each}
                                                 </div>
-
-                                                <div
-                                                    class="effects-column positive"
-                                                >
-                                                    {#each effectOptions
-                                                        .filter( (opt) => opt.includes("+"), )
-                                                        .sort() as option (option)}
-                                                        <button
-                                                            class="option positive"
-                                                            onclick={stopPropagation(
-                                                                () =>
-                                                                    selectOption(
-                                                                        gene,
-                                                                        "effectDominant",
-                                                                        option,
-                                                                    ),
-                                                            )}
-                                                        >
-                                                            {option}
-                                                        </button>
+                                                <div class="effects-column positive">
+                                                    {#each positiveOptions as option (option)}
+                                                        <button class="option positive" onclick={stopPropagation(() => selectOption(gene, field, option))}>{option}</button>
                                                     {/each}
                                                 </div>
                                             </div>
@@ -346,93 +305,7 @@ run(() => {
                                     {/if}
                                 </div>
                             </div>
-
-                            <!-- Recessive Effect -->
-                            <div class="field">
-                                <!-- svelte-ignore a11y_label_has_associated_control -->
-                                <label>Recessive</label>
-                                <div class="select-wrapper">
-                                    <button
-                                        class="select-trigger {getEffectClass(
-                                            gene.effectRecessive,
-                                        )}"
-
-                                        onclick={stopPropagation((e) =>
-                                            toggleDropdown(
-                                                gene.gene,
-                                                "recessive",
-                                                e,
-                                            ),
-                                        )}
-                                    >
-                                        {gene.effectRecessive || "None"}
-                                        <span class="chevron">▼</span>
-                                    </button>
-
-                                    {#if openDropdown === `${gene.gene}-recessive`}
-                                        <div class="dropdown">
-                                            <button
-                                                class="option none"
-                                                onclick={stopPropagation(() =>
-                                                    selectOption(
-                                                        gene,
-                                                        "effectRecessive",
-                                                        "None",
-                                                    ),
-                                                )}
-                                            >
-                                                None
-                                            </button>
-
-                                            <div class="effects-grid">
-                                                <div
-                                                    class="effects-column negative"
-                                                >
-                                                    {#each effectOptions
-                                                        .filter( (opt) => opt.includes("-"), )
-                                                        .sort() as option (option)}
-                                                        <button
-                                                            class="option negative"
-                                                            onclick={stopPropagation(
-                                                                () =>
-                                                                    selectOption(
-                                                                        gene,
-                                                                        "effectRecessive",
-                                                                        option,
-                                                                    ),
-                                                            )}
-                                                        >
-                                                            {option}
-                                                        </button>
-                                                    {/each}
-                                                </div>
-
-                                                <div
-                                                    class="effects-column positive"
-                                                >
-                                                    {#each effectOptions
-                                                        .filter( (opt) => opt.includes("+"), )
-                                                        .sort() as option (option)}
-                                                        <button
-                                                            class="option positive"
-                                                            onclick={stopPropagation(
-                                                                () =>
-                                                                    selectOption(
-                                                                        gene,
-                                                                        "effectRecessive",
-                                                                        option,
-                                                                    ),
-                                                            )}
-                                                        >
-                                                            {option}
-                                                        </button>
-                                                    {/each}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    {/if}
-                                </div>
-                            </div>
+                            {/each}
 
                             <!-- Appearance -->
                             <div class="field">
