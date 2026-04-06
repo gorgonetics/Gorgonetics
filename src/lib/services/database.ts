@@ -100,12 +100,12 @@ class InMemoryDatabase implements DatabaseAdapter {
       const rows = this.getTable(table);
       let filtered = this.applyWhere(rows, q, values);
 
-      // ORDER BY — supports multi-column, ASC/DESC, numeric vs string comparison
+      // Replicate SQLite sort semantics so tests get deterministic ordering for pagination and display
       const orderByMatch = q.match(/order\s+by\s+(.+?)(?:\s+limit\b|\s*$)/i);
       if (orderByMatch) {
         const columns = orderByMatch[1].split(',').map((part) => {
           const tokens = part.trim().split(/\s+/);
-          const col = tokens[0];
+          const col = tokens[0].replace(/^\w+\./, ''); // strip table prefix (e.g., pi.created_at -> created_at)
           const desc = tokens.length > 1 && tokens[1].toLowerCase() === 'desc';
           return { col, desc };
         });
