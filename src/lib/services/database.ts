@@ -100,29 +100,11 @@ class InMemoryDatabase implements DatabaseAdapter {
       const rows = this.getTable(table);
       let filtered = this.applyWhere(rows, q, values);
 
-      // Replicate SQLite sort semantics so tests get deterministic ordering for pagination and display
-      const orderByMatch = q.match(/order\s+by\s+(.+?)(?:\s+limit\b|\s*$)/i);
-      if (orderByMatch) {
-        const columns = orderByMatch[1].split(',').map((part) => {
-          const tokens = part.trim().split(/\s+/);
-          const col = tokens[0].replace(/^\w+\./, ''); // strip table prefix (e.g., pi.created_at -> created_at)
-          const desc = tokens.length > 1 && tokens[1].toLowerCase() === 'desc';
-          return { col, desc };
-        });
-        filtered.sort((a, b) => {
-          for (const { col, desc } of columns) {
-            const av = a[col];
-            const bv = b[col];
-            let cmp: number;
-            if (typeof av === 'number' && typeof bv === 'number') {
-              cmp = av - bv;
-            } else {
-              cmp = String(av ?? '').localeCompare(String(bv ?? ''));
-            }
-            if (cmp !== 0) return desc ? -cmp : cmp;
-          }
-          return 0;
-        });
+      // ORDER BY
+      const orderMatch = q.match(/order\s+by\s+(\w+)/);
+      if (orderMatch) {
+        const col = orderMatch[1];
+        filtered.sort((a, b) => String(a[col] ?? '').localeCompare(String(b[col] ?? '')));
       }
 
       // LIMIT/OFFSET
