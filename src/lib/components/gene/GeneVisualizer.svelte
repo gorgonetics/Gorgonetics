@@ -459,12 +459,7 @@ function analyzeGeneEffect(species, geneId, geneType) {
       };
     }
 
-    if (
-      effect === 'No gene data found' ||
-      effect === 'No dominant effect' ||
-      effect === 'No recessive effect' ||
-      effect === 'Unknown gene type'
-    ) {
+    if (isNoEffect(effect)) {
       return {
         type: 'neutral',
         attribute: null,
@@ -593,22 +588,8 @@ function hasAnyPotentialEffect(species, geneId) {
     const dominantEffect = getGeneEffect(species, geneId, 'D');
     const recessiveEffect = getGeneEffect(species, geneId, 'R');
 
-    const dominantHasEffect =
-      dominantEffect &&
-      dominantEffect !== 'No gene data found' &&
-      dominantEffect !== 'No dominant effect' &&
-      dominantEffect !== 'Unknown gene type' &&
-      dominantEffect !== 'None' &&
-      dominantEffect !== 'null' &&
-      dominantEffect.trim() !== '';
-    const recessiveHasEffect =
-      recessiveEffect &&
-      recessiveEffect !== 'No gene data found' &&
-      recessiveEffect !== 'No recessive effect' &&
-      recessiveEffect !== 'Unknown gene type' &&
-      recessiveEffect !== 'None' &&
-      recessiveEffect !== 'null' &&
-      recessiveEffect.trim() !== '';
+    const dominantHasEffect = !isNoEffect(dominantEffect) && dominantEffect.trim() !== '';
+    const recessiveHasEffect = !isNoEffect(recessiveEffect) && recessiveEffect.trim() !== '';
 
     return dominantHasEffect || recessiveHasEffect;
   } else {
@@ -624,22 +605,12 @@ function analyzePotentialEffectType(species, geneId) {
   let hasPositive = false;
   let hasNegative = false;
 
-  if (
-    dominantEffect &&
-    dominantEffect !== 'No gene data found' &&
-    dominantEffect !== 'No dominant effect' &&
-    dominantEffect !== 'Unknown gene type'
-  ) {
+  if (!isNoEffect(dominantEffect)) {
     if (dominantEffect.includes('+')) hasPositive = true;
     if (dominantEffect.includes('-')) hasNegative = true;
   }
 
-  if (
-    recessiveEffect &&
-    recessiveEffect !== 'No gene data found' &&
-    recessiveEffect !== 'No recessive effect' &&
-    recessiveEffect !== 'Unknown gene type'
-  ) {
+  if (!isNoEffect(recessiveEffect)) {
     if (recessiveEffect.includes('+')) hasPositive = true;
     if (recessiveEffect.includes('-')) hasNegative = true;
   }
@@ -741,7 +712,7 @@ function getContextualAnalysis(species, geneId, geneAnalysis) {
   const dominantEffect = getGeneEffect(species, geneId, 'D');
   const recessiveEffect = getGeneEffect(species, geneId, 'R');
   for (const eff of [dominantEffect, recessiveEffect]) {
-    if (!eff || eff === 'No gene data found' || eff === 'No dominant effect' || eff === 'No recessive effect') continue;
+    if (isNoEffect(eff)) continue;
     if (eff.includes(attr)) {
       const hasPlus = eff.includes('+');
       const hasMinus = eff.includes('-');
@@ -762,24 +733,11 @@ function genePotentiallyAffectsSelectedAttributes(species, geneId, selectedAttri
 
   const allPotentialAttributes = [];
 
-  if (
-    dominantEffect &&
-    dominantEffect !== 'No gene data found' &&
-    dominantEffect !== 'No dominant effect' &&
-    dominantEffect !== 'Unknown gene type'
-  ) {
-    const dominantAttributes = extractAttributesFromEffect(dominantEffect);
-    allPotentialAttributes.push(...dominantAttributes);
+  if (!isNoEffect(dominantEffect)) {
+    allPotentialAttributes.push(...extractAttributesFromEffect(dominantEffect));
   }
-
-  if (
-    recessiveEffect &&
-    recessiveEffect !== 'No gene data found' &&
-    recessiveEffect !== 'No recessive effect' &&
-    recessiveEffect !== 'Unknown gene type'
-  ) {
-    const recessiveAttributes = extractAttributesFromEffect(recessiveEffect);
-    allPotentialAttributes.push(...recessiveAttributes);
+  if (!isNoEffect(recessiveEffect)) {
+    allPotentialAttributes.push(...extractAttributesFromEffect(recessiveEffect));
   }
 
   return allPotentialAttributes.some((attr) => selectedAttributes.includes(attr));
@@ -999,26 +957,14 @@ function handleTooltipShow(event) {
     const dominantEffect = getGeneEffect(sk, geneId, 'D');
     const recessiveEffect = getGeneEffect(sk, geneId, 'R');
 
-    if (
-      geneType !== 'D' &&
-      dominantEffect &&
-      dominantEffect !== 'No dominant effect' &&
-      dominantEffect !== 'No gene data found' &&
-      dominantEffect !== 'Unknown gene type'
-    ) {
+    if (geneType !== 'D' && !isNoEffect(dominantEffect)) {
       const isPositive = dominantEffect.includes('+');
       const isNegative = dominantEffect.includes('-');
       const color = isPositive ? EFFECT_COLORS.positive : isNegative ? EFFECT_COLORS.negative : '#666';
       potentialEffects.push(`If Dominant: <span style="color: ${color}">${dominantEffect}</span>`);
     }
 
-    if (
-      geneType !== 'R' &&
-      recessiveEffect &&
-      recessiveEffect !== 'No recessive effect' &&
-      recessiveEffect !== 'No gene data found' &&
-      recessiveEffect !== 'Unknown gene type'
-    ) {
+    if (geneType !== 'R' && !isNoEffect(recessiveEffect)) {
       const isPositive = recessiveEffect.includes('+');
       const isNegative = recessiveEffect.includes('-');
       const color = isPositive ? EFFECT_COLORS.positive : isNegative ? EFFECT_COLORS.negative : '#666';
@@ -1043,14 +989,7 @@ function handleTooltipShow(event) {
   const effectHeight = 20; // height per effect line
   const potentialEffectHeight = 15; // height per potential effect
   const tooltipHeight =
-    baseHeight +
-    (effectInfo &&
-    effectInfo !== 'No gene data found' &&
-    effectInfo !== 'No dominant effect' &&
-    effectInfo !== 'No recessive effect'
-      ? effectHeight
-      : 0) +
-    potentialEffects.length * potentialEffectHeight;
+    baseHeight + (!isNoEffect(effectInfo) ? effectHeight : 0) + potentialEffects.length * potentialEffectHeight;
   const offset = 12; // Small offset from cursor
 
   // Get viewport dimensions
