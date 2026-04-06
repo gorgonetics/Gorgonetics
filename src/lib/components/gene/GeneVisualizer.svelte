@@ -16,6 +16,16 @@ import GeneTooltip from './GeneTooltip.svelte';
 
 const FALLBACK_APPEARANCE_KEYS = FALLBACK_APPEARANCE_LIST.map((a) => a.key.replace(/_/g, '-'));
 
+const NO_DATA = 'No gene data found';
+const NO_DOMINANT = 'No dominant effect';
+const NO_RECESSIVE = 'No recessive effect';
+const UNKNOWN_TYPE = 'Unknown gene type';
+const NO_EFFECT_SENTINELS = new Set([NO_DATA, NO_DOMINANT, NO_RECESSIVE, UNKNOWN_TYPE, 'None', 'null']);
+
+function isNoEffect(effect) {
+  return !effect || NO_EFFECT_SENTINELS.has(effect);
+}
+
 const { pet, onStatsUpdated } = $props();
 
 let containerElement = $state();
@@ -365,43 +375,25 @@ function updateStats(stats, geneAnalysis, geneType) {
   }
 }
 
-function getGeneEffect(species, geneId, geneType) {
-  if (!geneEffectsDB) {
-    return 'No gene data found';
-  }
-
-  const speciesKey = normalizeSpecies(species);
-
+function getGeneEffect(speciesKey, geneId, geneType) {
+  if (!geneEffectsDB) return NO_DATA;
   const geneData = geneEffectsDB[speciesKey]?.[geneId];
-
-  if (!geneData) {
-    return 'No gene data found';
-  }
+  if (!geneData) return NO_DATA;
 
   if (geneType === 'D' || geneType === 'x') {
     const effect = geneData.effectDominant;
-    if (!effect || effect === 'None' || effect === null || effect === 'null') {
-      return 'No dominant effect';
-    }
-    return effect;
-  } else if (geneType === 'R') {
-    const effect = geneData.effectRecessive;
-    if (!effect || effect === 'None' || effect === null || effect === 'null') {
-      return 'No recessive effect';
-    }
-    return effect;
-  } else {
-    return 'Unknown gene type';
+    return isNoEffect(effect) ? NO_DOMINANT : effect;
   }
+  if (geneType === 'R') {
+    const effect = geneData.effectRecessive;
+    return isNoEffect(effect) ? NO_RECESSIVE : effect;
+  }
+  return UNKNOWN_TYPE;
 }
 
-function getGeneAppearance(species, geneId) {
+function getGeneAppearance(speciesKey, geneId) {
   if (!geneEffectsDB) return 'No appearance effect';
-
-  const speciesKey = normalizeSpecies(species);
-
   const geneData = geneEffectsDB[speciesKey]?.[geneId];
-
   if (
     !geneData?.appearance ||
     geneData.appearance === 'None' ||
@@ -409,7 +401,6 @@ function getGeneAppearance(species, geneId) {
   ) {
     return 'No appearance effect';
   }
-
   return geneData.appearance;
 }
 
@@ -438,22 +429,20 @@ function extractAttributesFromEffect(effectStr) {
   return foundAttributes;
 }
 
-function getGeneBreed(species, geneId) {
+function getGeneBreed(speciesKey, geneId) {
   if (!geneEffectsDB) return '';
-  const speciesKey = normalizeSpecies(species);
   const geneData = geneEffectsDB[speciesKey]?.[geneId];
   return geneData?.breed || '';
 }
 
-function isGeneRelevantToBreed(species, geneId) {
-  // Non-horse species: all genes are relevant
-  if (normalizeSpecies(species) !== 'horse') return true;
+function isGeneRelevantToBreed(speciesKey, geneId) {
+  if (speciesKey !== 'horse') return true;
   // If pet has no breed set or it's "Mixed", all genes are relevant
   // Use the pet prop (has breed) rather than currentPet (genome data only)
   const petBreed = pet?.breed;
   if (!petBreed || petBreed === 'Mixed') return true;
   // Gene is relevant if it's generic (no breed) or matches pet's breed
-  const geneBreed = getGeneBreed(species, geneId);
+  const geneBreed = getGeneBreed(speciesKey, geneId);
   return !geneBreed || geneBreed === petBreed;
 }
 
@@ -824,6 +813,7 @@ async function createGeneVisualization() {
   try {
     if (import.meta.env.DEV) console.time('🚀 Gene Visualization Processing');
     const pet = currentPet;
+    const speciesKey = normalizeSpecies(pet.species);
     const parsedGenes = parseGenes(pet.genes);
 
     if (!parsedGenes || Object.keys(parsedGenes).length === 0) {
@@ -858,12 +848,12 @@ async function createGeneVisualization() {
         // Pre-compute and cache gene analysis once
         const cacheKey = `${gene.id}_${gene.type}`;
         if (!geneAnalysisCache.has(cacheKey)) {
-          const geneAnalysis = analyzeGeneEffect(pet.species, gene.id, gene.type);
+          const geneAnalysis = analyzeGeneEffect(speciesKey, gene.id, gene.type);
 
           // Handle potential effects in the same pass
           let effectType = geneAnalysis.type;
-          if (geneAnalysis.type === 'neutral' && hasAnyPotentialEffect(pet.species, gene.id)) {
-            const potentialType = analyzePotentialEffectType(pet.species, gene.id);
+          if (geneAnalysis.type === 'neutral' && hasAnyPotentialEffect(speciesKey, gene.id)) {
+            const potentialType = analyzePotentialEffectType(speciesKey, gene.id);
             if (potentialType) {
               effectType = potentialType;
             }
@@ -1005,8 +995,9 @@ function handleTooltipShow(event) {
 
   const potentialEffects = [];
   if (currentPet) {
-    const dominantEffect = getGeneEffect(currentPet.species, geneId, 'D');
-    const recessiveEffect = getGeneEffect(currentPet.species, geneId, 'R');
+    const sk = normalizeSpecies(currentPet.species);
+    const dominantEffect = getGeneEffect(sk, geneId, 'D');
+    const recessiveEffect = getGeneEffect(sk, geneId, 'R');
 
     if (
       geneType !== 'D' &&
@@ -1036,8 +1027,9 @@ function handleTooltipShow(event) {
   }
 
   // Add breed relevance note if gene belongs to a different breed
-  const geneBreed = getGeneBreed(currentPet?.species || '', geneId);
-  const isRelevant = isGeneRelevantToBreed(currentPet?.species || '', geneId);
+  const sk = normalizeSpecies(currentPet?.species || '');
+  const geneBreed = getGeneBreed(sk, geneId);
+  const isRelevant = isGeneRelevantToBreed(sk, geneId);
   if (!isRelevant && geneBreed) {
     potentialEffects.push(`<span style="color: #9ca3af">⚬ ${geneBreed} breed only — no effect on this pet</span>`);
   }

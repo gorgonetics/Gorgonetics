@@ -1,6 +1,7 @@
 <script>
 import { pickGenomeFiles, readFileContent } from '$lib/services/fileService.js';
 import { appState, error, pets, selectedPet } from '$lib/stores/pets.js';
+import { createDragState } from '$lib/utils/dragReorder.svelte.js';
 import { getBasename } from '$lib/utils/path.js';
 import PetCard from './PetCard.svelte';
 import PetEditor from './PetEditor.svelte';
@@ -83,35 +84,18 @@ function cancelDelete() {
   deletingPet = null;
 }
 
-// --- Drag-and-drop reordering ---
-let draggedIndex = $state(null);
-let dragOverIndex = $state(null);
+const drag = createDragState();
 const isDraggable = $derived(!searchQuery);
-
-function handleDragStart(e, index) {
-  draggedIndex = index;
-  e.dataTransfer.effectAllowed = 'move';
-}
-
-function handleDragOver(e, index) {
-  e.preventDefault();
-  e.dataTransfer.dropEffect = 'move';
-  dragOverIndex = index;
-}
-
-function handleDragLeave() {
-  dragOverIndex = null;
-}
 
 async function handleDrop(e, dropIndex) {
   e.preventDefault();
-  dragOverIndex = null;
-  if (draggedIndex === null || draggedIndex === dropIndex) return;
+  drag.dragOverIndex = null;
+  if (drag.draggedIndex === null || drag.draggedIndex === dropIndex) return;
 
   // Resolve by pet ID so indices are correct regardless of filtering
-  const fromPet = filteredPets[draggedIndex];
+  const fromPet = filteredPets[drag.draggedIndex];
   if (!fromPet) {
-    draggedIndex = null;
+    drag.draggedIndex = null;
     return;
   }
 
@@ -119,7 +103,7 @@ async function handleDrop(e, dropIndex) {
   const reordered = [...$pets];
   const fromIdx = reordered.findIndex((p) => p.id === fromPet.id);
   if (fromIdx < 0) {
-    draggedIndex = null;
+    drag.draggedIndex = null;
     return;
   }
 
@@ -129,29 +113,24 @@ async function handleDrop(e, dropIndex) {
   } else {
     const toPet = filteredPets[dropIndex];
     if (!toPet) {
-      draggedIndex = null;
+      drag.draggedIndex = null;
       return;
     }
     const toIdx = reordered.findIndex((p) => p.id === toPet.id);
     if (toIdx < 0) {
-      draggedIndex = null;
+      drag.draggedIndex = null;
       return;
     }
     reordered.splice(toIdx, 0, moved);
   }
   pets.set(reordered);
-  draggedIndex = null;
+  drag.draggedIndex = null;
 
   try {
     await appState.reorderPets(reordered.map((p) => p.id));
   } catch {
     pets.set(previous);
   }
-}
-
-function handleDragEnd() {
-  draggedIndex = null;
-  dragOverIndex = null;
 }
 </script>
 
@@ -171,14 +150,14 @@ function handleDragEnd() {
                 <!-- svelte-ignore a11y_no_static_element_interactions -->
                 <div
                     class="pet-card-wrapper"
-                    class:drag-over={dragOverIndex === index && draggedIndex !== index}
-                    class:dragging={draggedIndex === index}
+                    class:drag-over={drag.dragOverIndex === index && drag.draggedIndex !== index}
+                    class:dragging={drag.draggedIndex === index}
                     draggable={isDraggable}
-                    ondragstart={(e) => handleDragStart(e, index)}
-                    ondragover={(e) => handleDragOver(e, index)}
-                    ondragleave={handleDragLeave}
+                    ondragstart={(e) => drag.handleDragStart(e, index)}
+                    ondragover={(e) => drag.handleDragOver(e, index)}
+                    ondragleave={drag.handleDragLeave}
                     ondrop={(e) => handleDrop(e, index)}
-                    ondragend={handleDragEnd}
+                    ondragend={drag.handleDragEnd}
                 >
                     <PetCard
                         {pet}
@@ -203,13 +182,13 @@ function handleDragEnd() {
                     </div>
                 </div>
             {/each}
-            {#if isDraggable && draggedIndex !== null}
+            {#if isDraggable && drag.draggedIndex !== null}
                 <!-- svelte-ignore a11y_no_static_element_interactions -->
                 <div
                     class="drop-zone-end"
-                    class:drag-over={dragOverIndex === filteredPets.length}
-                    ondragover={(e) => handleDragOver(e, filteredPets.length)}
-                    ondragleave={handleDragLeave}
+                    class:drag-over={drag.dragOverIndex === filteredPets.length}
+                    ondragover={(e) => drag.handleDragOver(e, filteredPets.length)}
+                    ondragleave={drag.handleDragLeave}
                     ondrop={(e) => handleDrop(e, filteredPets.length)}
                 ></div>
             {/if}
