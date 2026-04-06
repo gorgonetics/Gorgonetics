@@ -1,6 +1,7 @@
 <script>
 import { pickGenomeFiles, readFileContent } from '$lib/services/fileService.js';
 import { appState, error, pets, selectedPet } from '$lib/stores/pets.js';
+import { getBasename } from '$lib/utils/path.js';
 import PetCard from './PetCard.svelte';
 import PetEditor from './PetEditor.svelte';
 
@@ -36,7 +37,7 @@ async function handleUpload() {
     // Sequential upload — consider parallel with concurrency limit if this becomes a bottleneck
     for (let i = 0; i < filePaths.length; i++) {
       uploadProgress = { current: i + 1, total };
-      const fileName = filePaths[i].split(/[\\/]/).pop() || filePaths[i];
+      const fileName = getBasename(filePaths[i]);
       try {
         const content = await readFileContent(filePaths[i]);
         const result = await appState.uploadPetQuiet(content, '', 'Male');

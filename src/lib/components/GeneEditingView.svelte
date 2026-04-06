@@ -18,6 +18,7 @@ let effectOptions = $state([]);
 let loadingGenes = $state(false);
 let successMessage = $state('');
 let errorMessage = $state('');
+let successTimer = null;
 let expandedNotes = $state({});
 let openDropdown = $state(null);
 let originalGenes = [];
@@ -93,7 +94,8 @@ async function saveAllChanges() {
       originalGenes = JSON.parse(JSON.stringify(genes));
       hasUnsavedChanges = false;
       successMessage = 'All changes saved successfully!';
-      setTimeout(() => {
+      clearTimeout(successTimer);
+      successTimer = setTimeout(() => {
         successMessage = '';
       }, 3000);
     } else {

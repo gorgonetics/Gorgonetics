@@ -141,11 +141,6 @@ export const appState = {
     error.set(message);
   },
 
-  setSuccess() {
-    // For now, just clear any existing error
-    error.set(null);
-  },
-
   reset() {
     selectedPet.set(null);
     geneEditingView.set(null);

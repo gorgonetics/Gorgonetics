@@ -6,22 +6,13 @@
 
 import type { PetImage } from '$lib/types/index.js';
 import { isTauri } from '$lib/utils/environment.js';
+import { getBasename, getExtension } from '$lib/utils/path.js';
 import { now } from '$lib/utils/timestamp.js';
 import { getDb, reorderRows } from './database.js';
 import { openFileDialog } from './fileService.js';
 
 const ALLOWED_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp'];
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
-
-function getExtension(path: string): string {
-  const dot = path.lastIndexOf('.');
-  return dot >= 0 ? path.slice(dot + 1).toLowerCase() : '';
-}
-
-function getBasename(path: string): string {
-  const sep = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'));
-  return sep >= 0 ? path.slice(sep + 1) : path;
-}
 
 function parseImage(row: Record<string, unknown>): PetImage {
   let tags: string[] = [];
