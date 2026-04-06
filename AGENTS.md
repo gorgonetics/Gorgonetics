@@ -44,7 +44,6 @@ Gorgonetics is a native desktop app for genetic breeding analysis in Project Gor
 - **`backupService.ts`**: Database export/import (zip archive)
 - **`settingsService.ts`**: User preferences (key-value store)
 - **`demoService.ts`**: First-launch gene template + demo pet loading
-- **`api.ts`**: ApiClient adapter (same interface, calls services directly)
 
 ### Stores (`src/lib/stores/`)
 - **`pets.js`**: Pet list, selection, gene editing state, tab state

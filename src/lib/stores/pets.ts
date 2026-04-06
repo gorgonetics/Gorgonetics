@@ -1,5 +1,5 @@
 import { type Writable, writable } from 'svelte/store';
-import { apiClient } from '$lib/services/api.js';
+import * as petService from '$lib/services/petService.js';
 import type { Pet } from '$lib/types/index.js';
 
 export type Tab = 'pets' | 'editor';
@@ -23,8 +23,8 @@ export const appState = {
     try {
       loading.set(true);
       error.set(null);
-      const response = await apiClient.getPets();
-      pets.set(response.items as Pet[]);
+      const { items } = await petService.getAllPets();
+      pets.set(items as Pet[]);
     } catch (err: unknown) {
       error.set(`Failed to load pets: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
@@ -40,7 +40,7 @@ export const appState = {
     try {
       loading.set(true);
       error.set(null);
-      await apiClient.deletePet(petId);
+      await petService.deletePet(petId);
       await this.loadPets();
 
       const currentPet = getCurrentValue(selectedPet);
@@ -58,7 +58,7 @@ export const appState = {
     try {
       loading.set(true);
       error.set(null);
-      await apiClient.updatePet(petId, updateData);
+      await petService.updatePet(petId, updateData);
       await this.loadPets();
     } catch (err: unknown) {
       error.set(`Failed to update pet: ${err instanceof Error ? err.message : String(err)}`);
@@ -72,7 +72,7 @@ export const appState = {
     try {
       loading.set(true);
       error.set(null);
-      await apiClient.uploadPet(file, petName, petGender, null);
+      await petService.uploadPet(file, petName, petGender);
       await this.loadPets();
     } catch (err: unknown) {
       error.set(`Failed to upload pet: ${err instanceof Error ? err.message : String(err)}`);
@@ -82,12 +82,12 @@ export const appState = {
   },
 
   async uploadPetQuiet(file: string, petName: string, petGender = 'Male') {
-    return apiClient.uploadPet(file, petName, petGender, null);
+    return petService.uploadPet(file, petName, petGender);
   },
 
   async reorderPets(orderedIds: number[]) {
     try {
-      await apiClient.reorderPets(orderedIds);
+      await petService.reorderPets(orderedIds);
     } catch (err: unknown) {
       error.set(`Failed to save order: ${err instanceof Error ? err.message : String(err)}`);
       throw err;
