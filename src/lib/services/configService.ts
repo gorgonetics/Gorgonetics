@@ -440,8 +440,13 @@ export function getAllAttributeDisplayInfo(): AttributeInfo[] {
   const seen = new Set<string>();
   const result: AttributeInfo[] = [];
 
-  // Species-specific attributes first (matches FALLBACK_ATTRIBUTE_LIST order)
-  for (const speciesAttrs of Object.values(SPECIES_ATTRIBUTES)) {
+  // Species-specific attributes first — explicit order so UI stays stable
+  const speciesOrder = ['horse', 'beewasp'];
+  const orderedSpecies = [
+    ...speciesOrder.filter((s) => s in SPECIES_ATTRIBUTES),
+    ...Object.keys(SPECIES_ATTRIBUTES).filter((s) => !speciesOrder.includes(s)),
+  ];
+  for (const speciesAttrs of orderedSpecies.map((s) => SPECIES_ATTRIBUTES[s])) {
     for (const [name, info] of Object.entries(speciesAttrs)) {
       const key = name.charAt(0).toUpperCase() + name.slice(1);
       if (!seen.has(key)) {

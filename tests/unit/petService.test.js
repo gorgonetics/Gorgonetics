@@ -223,6 +223,7 @@ describe('Gene Service', () => {
     await closeDatabase();
     await initDatabase();
     await runMigrations();
+    geneService.clearGeneEffectsCache();
   });
 
   describe('upsertGene and query', () => {
@@ -285,6 +286,54 @@ describe('Gene Service', () => {
       expect(exported).toHaveLength(1);
       expect(exported[0]).toHaveProperty('gene', '01A1');
       expect(exported[0]).toHaveProperty('effectDominant', 'Toughness+');
+    });
+  });
+
+  describe('getGeneEffectsCached', () => {
+    it('returns cached result on second call', async () => {
+      await geneService.upsertGene('beewasp', 'chr01', '01A1', {
+        effectDominant: 'Toughness+',
+        effectRecessive: 'None',
+      });
+
+      const first = await geneService.getGeneEffectsCached('beewasp');
+      const second = await geneService.getGeneEffectsCached('beewasp');
+      expect(first).toBe(second);
+      expect(first.effects['01A1'].effectDominant).toBe('Toughness+');
+    });
+
+    it('clearGeneEffectsCache invalidates cache', async () => {
+      await geneService.upsertGene('beewasp', 'chr01', '01A1', {
+        effectDominant: 'Toughness+',
+      });
+
+      const before = await geneService.getGeneEffectsCached('beewasp');
+      expect(before.effects['01A1'].effectDominant).toBe('Toughness+');
+
+      await geneService.updateGene('beewasp', '01A1', { effectDominant: 'Ferocity+' });
+      geneService.clearGeneEffectsCache('beewasp');
+
+      const after = await geneService.getGeneEffectsCached('beewasp');
+      expect(after.effects['01A1'].effectDominant).toBe('Ferocity+');
+      expect(after).not.toBe(before);
+    });
+
+    it('updateGenesBulk invalidates cache automatically', async () => {
+      await geneService.upsertGene('beewasp', 'chr01', '01A1', {
+        effectDominant: 'Toughness+',
+        effectRecessive: 'None',
+        appearance: 'Body Color Hue',
+      });
+
+      const before = await geneService.getGeneEffectsCached('beewasp');
+      expect(before.effects['01A1'].effectDominant).toBe('Toughness+');
+
+      await geneService.updateGenesBulk('beewasp', 'chr01', [
+        { gene: '01A1', effectDominant: 'Ferocity+', effectRecessive: 'None', appearance: 'Body Color Hue', notes: '' },
+      ]);
+
+      const after = await geneService.getGeneEffectsCached('beewasp');
+      expect(after.effects['01A1'].effectDominant).toBe('Ferocity+');
     });
   });
 });
