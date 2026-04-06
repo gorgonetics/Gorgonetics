@@ -6,7 +6,7 @@
 
 import type { PetImage } from '$lib/types/index.js';
 import { isTauri } from '$lib/utils/environment.js';
-import { getDb } from './database.js';
+import { getDb, reorderRows } from './database.js';
 import { openFileDialog } from './fileService.js';
 
 const ALLOWED_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp'];
@@ -80,11 +80,11 @@ export async function uploadImage(petId: number, sourcePath: string): Promise<Pe
     const db = getDb();
     const originalName = getBasename(sourcePath);
     const ts = now();
-    const orderRows = await db.select<{ sort_order: number }[]>(
-      'SELECT sort_order FROM pet_images WHERE pet_id = $pet_id',
+    const countRows = await db.select<{ cnt: number }[]>(
+      'SELECT COUNT(*) as cnt FROM pet_images WHERE pet_id = $pet_id',
       { pet_id: petId },
     );
-    const nextOrder = orderRows.length > 0 ? Math.max(...orderRows.map((r) => r.sort_order ?? 0)) + 1 : 0;
+    const nextOrder = countRows[0]?.cnt ?? 0;
     const result = await db.execute(
       `INSERT INTO pet_images (pet_id, filename, original_name, caption, tags, created_at, sort_order)
        VALUES ($pet_id, $filename, $original_name, $caption, $tags, $created_at, $sort_order)`,
@@ -228,19 +228,6 @@ export async function getTotalImageCount(): Promise<number> {
 /**
  * Update sort_order for a list of images based on their position in the array.
  */
-export async function reorderImages(orderedIds: number[]): Promise<void> {
-  const db = getDb();
-  await db.execute('BEGIN');
-  try {
-    for (let i = 0; i < orderedIds.length; i++) {
-      await db.execute('UPDATE pet_images SET sort_order = $order WHERE id = $id', {
-        order: i,
-        id: orderedIds[i],
-      });
-    }
-    await db.execute('COMMIT');
-  } catch (e) {
-    await db.execute('ROLLBACK');
-    throw e;
-  }
+export function reorderImages(orderedIds: number[]): Promise<void> {
+  return reorderRows('pet_images', orderedIds);
 }

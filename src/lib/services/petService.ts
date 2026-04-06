@@ -5,7 +5,7 @@
 import type { Gene, Genome, Pet } from '$lib/types/index.js';
 import { GENOME_FILE_MARKERS } from '$lib/types/index.js';
 import { getDefaultValues } from './configService.js';
-import { getDb } from './database.js';
+import { getDb, reorderRows } from './database.js';
 import { isValidGenomeFile, parseGenome } from './genomeParser.js';
 import { parseStructuredPetName } from './nameParser.js';
 
@@ -369,19 +369,6 @@ export async function hasPets(): Promise<boolean> {
 /**
  * Update sort_order for a list of pets based on their position in the array.
  */
-export async function reorderPets(orderedIds: number[]): Promise<void> {
-  const db = getDb();
-  await db.execute('BEGIN');
-  try {
-    for (let i = 0; i < orderedIds.length; i++) {
-      await db.execute('UPDATE pets SET sort_order = $order WHERE id = $id', {
-        order: i,
-        id: orderedIds[i],
-      });
-    }
-    await db.execute('COMMIT');
-  } catch (e) {
-    await db.execute('ROLLBACK');
-    throw e;
-  }
+export function reorderPets(orderedIds: number[]): Promise<void> {
+  return reorderRows('pets', orderedIds);
 }

@@ -331,13 +331,11 @@ describe('Image Service', () => {
       expect(after.map((i) => i.id)).toEqual([imgC, imgB, imgA]);
     });
 
-    it('reorder is atomic (rolls back on error)', async () => {
+    it('reorders two images correctly', async () => {
       const petId = await createTestPet();
       const imgA = await insertTestImage(petId, 'a.png', 0);
       const imgB = await insertTestImage(petId, 'b.png', 1);
 
-      // Try to reorder with a non-existent ID — should not leave partial state
-      // (the non-existent UPDATE succeeds silently in SQLite, but this tests the transaction path)
       await imageService.reorderImages([imgB, imgA]);
 
       const after = await imageService.getImagesForPet(petId);

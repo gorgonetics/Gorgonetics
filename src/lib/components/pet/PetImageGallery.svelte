@@ -137,12 +137,7 @@ async function handleDrop(e, dropIndex) {
   const previous = [...images];
   const reordered = [...images];
   const [moved] = reordered.splice(draggedIndex, 1);
-
-  if (dropIndex >= images.length) {
-    reordered.push(moved);
-  } else {
-    reordered.splice(dropIndex, 0, moved);
-  }
+  reordered.splice(dropIndex, 0, moved);
 
   images = reordered;
   draggedIndex = null;

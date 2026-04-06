@@ -380,6 +380,27 @@ export function getDb(): DatabaseAdapter {
 }
 
 /**
+ * Update sort_order for rows in a table based on their position in the array.
+ * Wrapped in a transaction for atomicity.
+ */
+export async function reorderRows(table: string, orderedIds: number[]): Promise<void> {
+  const d = getDb();
+  await d.execute('BEGIN');
+  try {
+    for (let i = 0; i < orderedIds.length; i++) {
+      await d.execute(`UPDATE ${table} SET sort_order = $order WHERE id = $id`, {
+        order: i,
+        id: orderedIds[i],
+      });
+    }
+    await d.execute('COMMIT');
+  } catch (e) {
+    await d.execute('ROLLBACK');
+    throw e;
+  }
+}
+
+/**
  * Close the database connection.
  */
 export async function closeDatabase(): Promise<void> {
