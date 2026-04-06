@@ -183,7 +183,8 @@ export async function uploadPet(
   const db = getDb();
   const ts = now();
 
-  // New pets append after existing ones
+  // TODO: This queries all sort_orders per upload, making bulk upload O(N*existing).
+  // Same issue as imageService — fix by querying once before the loop.
   const orderRows = await db.select<{ sort_order: number }[]>('SELECT sort_order FROM pets');
   const nextOrder = orderRows.length > 0 ? Math.max(...orderRows.map((r) => r.sort_order ?? 0)) + 1 : 0;
 

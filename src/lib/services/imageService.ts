@@ -80,6 +80,9 @@ export async function uploadImage(petId: number, sourcePath: string): Promise<Pe
     const db = getDb();
     const originalName = getBasename(sourcePath);
     const ts = now();
+    // TODO: This queries all sort_orders per image, making bulk upload O(N*existing).
+    // Fix by accepting an optional startOrder param or adding a batch uploadImages() that
+    // queries once and increments locally. Not worth optimizing until galleries are large.
     const orderRows = await db.select<{ sort_order: number }[]>(
       'SELECT sort_order FROM pet_images WHERE pet_id = $pet_id',
       { pet_id: petId },
