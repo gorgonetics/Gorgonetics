@@ -355,6 +355,20 @@ export async function initDatabase(): Promise<void> {
       sort_order INTEGER DEFAULT 0
     )
   `);
+
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS pet_images (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      pet_id INTEGER NOT NULL,
+      filename TEXT NOT NULL,
+      original_name TEXT NOT NULL,
+      caption TEXT DEFAULT '',
+      tags TEXT DEFAULT '[]',
+      created_at TEXT NOT NULL,
+      sort_order INTEGER DEFAULT 0,
+      FOREIGN KEY (pet_id) REFERENCES pets(id) ON DELETE CASCADE
+    )
+  `);
 }
 
 /**
