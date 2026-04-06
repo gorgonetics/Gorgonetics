@@ -65,6 +65,14 @@ const MIGRATIONS: Migration[] = [
       await db.execute('ALTER TABLE pets ADD COLUMN sort_order INTEGER DEFAULT 0');
     },
   },
+  {
+    version: 5,
+    description: 'Add sort_order column to pet_images for gallery reordering',
+    up: async () => {
+      const db = getDb();
+      await db.execute('ALTER TABLE pet_images ADD COLUMN sort_order INTEGER DEFAULT 0');
+    },
+  },
 ];
 
 /** Derived from the last migration — no manual bookkeeping needed. */

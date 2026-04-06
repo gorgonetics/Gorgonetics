@@ -6,7 +6,7 @@
 
 import { isTauri } from '$lib/utils/environment.js';
 
-async function openFileDialog(
+export async function openFileDialog(
   title: string,
   filterName: string,
   extensions: string[],

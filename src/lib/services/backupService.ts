@@ -129,6 +129,7 @@ export async function exportDatabase(options: ExportOptions): Promise<ExportResu
               caption: row.caption ?? '',
               tags: row.tags ?? '[]',
               created_at: row.created_at,
+              sort_order: row.sort_order ?? 0,
             });
             imageCount++;
           }
@@ -357,8 +358,8 @@ async function importFromZip(fileData: Uint8Array, options: ImportOptions): Prom
         // Sequential: DB inserts (lightweight, keeps data consistent)
         for (const { record, petId, filename } of batch) {
           await db.execute(
-            `INSERT INTO pet_images (pet_id, filename, original_name, caption, tags, created_at)
-             VALUES ($pet_id, $filename, $original_name, $caption, $tags, $created_at)`,
+            `INSERT INTO pet_images (pet_id, filename, original_name, caption, tags, created_at, sort_order)
+             VALUES ($pet_id, $filename, $original_name, $caption, $tags, $created_at, $sort_order)`,
             {
               pet_id: petId,
               filename,
@@ -366,6 +367,7 @@ async function importFromZip(fileData: Uint8Array, options: ImportOptions): Prom
               caption: record.caption ?? '',
               tags: typeof record.tags === 'string' ? record.tags : JSON.stringify(record.tags ?? []),
               created_at: record.created_at ?? new Date().toISOString(),
+              sort_order: record.sort_order ?? 0,
             },
           );
           imagesImported++;
