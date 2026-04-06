@@ -1,7 +1,8 @@
 <script>
 import { onDestroy } from 'svelte';
 import { run, stopPropagation } from 'svelte/legacy';
-import { apiClient } from '$lib/services/api.js';
+import * as configService from '$lib/services/configService.js';
+import * as geneService from '$lib/services/geneService.js';
 
 /**
  * @typedef {Object} Props
@@ -29,22 +30,10 @@ onDestroy(() => clearTimeout(successTimer));
 
 async function loadEffectOptions() {
   if (!animalType) return;
-
   try {
-    const response = await apiClient.fetchWithErrorHandling(`/api/effect-options/${animalType}`);
-
-    if (response.ok) {
-      effectOptions = await response.json();
-    } else {
-      console.error('Failed to load effect options:', response.statusText);
-      // Fallback to all options if species-specific fails
-      const fallbackResponse = await apiClient.fetchWithErrorHandling('/api/effect-options');
-      if (fallbackResponse.ok) {
-        effectOptions = await fallbackResponse.json();
-      }
-    }
-  } catch (error) {
-    console.error('Failed to load effect options:', error);
+    effectOptions = configService.getEffectOptionsForSpecies(animalType);
+  } catch {
+    effectOptions = configService.getEffectOptions();
   }
 }
 
@@ -56,16 +45,11 @@ async function loadGenes() {
   errorMessage = '';
 
   try {
-    const response = await apiClient.fetchWithErrorHandling(`/api/genes/${animalType}/${chromosome}`);
-    if (response.ok) {
-      genes = await response.json();
-      originalGenes = JSON.parse(JSON.stringify(genes));
-      hasUnsavedChanges = false;
-    } else {
-      errorMessage = 'Failed to load genes';
-    }
-  } catch (error) {
-    errorMessage = `Error loading genes: ${error.message}`;
+    genes = await geneService.getGenesByChromosome(animalType, chromosome);
+    originalGenes = JSON.parse(JSON.stringify(genes));
+    hasUnsavedChanges = false;
+  } catch (err) {
+    errorMessage = `Error loading genes: ${err instanceof Error ? err.message : String(err)}`;
   } finally {
     loadingGenes = false;
   }
@@ -80,28 +64,16 @@ async function saveAllChanges() {
   successMessage = '';
 
   try {
-    const response = await apiClient.fetchWithErrorHandling('/api/genes', {
-      method: 'PUT',
-      body: JSON.stringify({
-        animal_type: animalType,
-        chromosome: chromosome,
-        genes: genes,
-      }),
-    });
-
-    if (response.ok) {
-      originalGenes = JSON.parse(JSON.stringify(genes));
-      hasUnsavedChanges = false;
-      successMessage = 'All changes saved successfully!';
-      clearTimeout(successTimer);
-      successTimer = setTimeout(() => {
-        successMessage = '';
-      }, 3000);
-    } else {
-      errorMessage = 'Failed to save changes';
-    }
-  } catch (error) {
-    errorMessage = `Error saving changes: ${error.message}`;
+    await geneService.updateGenesBulk(animalType, chromosome, genes);
+    originalGenes = JSON.parse(JSON.stringify(genes));
+    hasUnsavedChanges = false;
+    successMessage = 'All changes saved successfully!';
+    clearTimeout(successTimer);
+    successTimer = setTimeout(() => {
+      successMessage = '';
+    }, 3000);
+  } catch (err) {
+    errorMessage = `Error saving changes: ${err instanceof Error ? err.message : String(err)}`;
   } finally {
     savingChanges = false;
   }
@@ -112,20 +84,16 @@ async function exportChromosome() {
   if (!animalType || !chromosome) return;
 
   try {
-    const response = await apiClient.fetchWithErrorHandling(`/api/download/${animalType}/${chromosome}`);
-    if (response.ok) {
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${animalType}_genes_chr${chromosome}.json`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    } else {
-      errorMessage = 'Failed to export chromosome';
-    }
+    const data = await geneService.exportGenesToJson(animalType, chromosome);
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${animalType}_genes_chr${chromosome}.json`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
   } catch (error) {
     errorMessage = `Error exporting chromosome: ${error.message}`;
   }

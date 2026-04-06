@@ -4,11 +4,9 @@ import { onDestroy, onMount } from 'svelte';
 import { getPetGenome } from '$lib/services/petService.js';
 import { EFFECT_COLORS } from '$lib/theme/gene-colors.js';
 import {
-  clearAllCaches,
   FALLBACK_APPEARANCE_LIST,
   FALLBACK_ATTRIBUTES,
   loadAppearanceConfig as fetchAppearanceConfig,
-  getCacheStats,
   loadAttributeConfig,
   loadGeneEffects,
   normalizeSpecies,
@@ -117,15 +115,6 @@ async function preloadGeneEffects() {
   });
 
   await Promise.all(loadPromises);
-
-  // Expose cache utilities to window for development debugging
-  if (typeof window !== 'undefined' && import.meta.env.DEV) {
-    window.geneVisualizerCache = {
-      stats: getCacheStats,
-      clear: clearAllCaches,
-      globalDB: () => globalGeneEffectsDB,
-    };
-  }
 }
 
 function createSpeciesTemplate(species, headerStructure, chromosomeCount) {
