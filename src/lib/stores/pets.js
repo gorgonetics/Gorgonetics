@@ -21,8 +21,6 @@ export const appState = {
       loading.set(true);
       error.set(null);
 
-      // Load pets for both authenticated and anonymous users
-      // Anonymous users will see demo pets, authenticated users see their own pets
       const response = await apiClient.getPets();
       // Backend returns { items, total, limit, offset }; the store holds just the array
       const petData = response.items ?? response;

@@ -2,7 +2,6 @@
 import { onDestroy } from 'svelte';
 import { run, stopPropagation } from 'svelte/legacy';
 import { apiClient } from '$lib/services/api.js';
-import { user } from '$lib/stores/auth.js';
 
 /**
  * @typedef {Object} Props
@@ -27,8 +26,6 @@ let hasUnsavedChanges = $state(false);
 let savingChanges = $state(false);
 
 onDestroy(() => clearTimeout(successTimer));
-
-const isAdmin = $derived($user?.role === 'admin');
 
 async function loadEffectOptions() {
   if (!animalType) return;
@@ -230,7 +227,7 @@ run(() => {
             <button
                 class="action-btn save-btn"
                 onclick={saveAllChanges}
-                disabled={!hasUnsavedChanges || savingChanges || !isAdmin}
+                disabled={!hasUnsavedChanges || savingChanges}
             >
                 {#if savingChanges}
                     Saving...
@@ -304,7 +301,7 @@ run(() => {
                                         class="select-trigger {getEffectClass(
                                             gene.effectDominant,
                                         )}"
-                                        disabled={!isAdmin}
+
                                         onclick={stopPropagation((e) =>
                                             toggleDropdown(
                                                 gene.gene,
@@ -391,7 +388,7 @@ run(() => {
                                         class="select-trigger {getEffectClass(
                                             gene.effectRecessive,
                                         )}"
-                                        disabled={!isAdmin}
+
                                         onclick={stopPropagation((e) =>
                                             toggleDropdown(
                                                 gene.gene,
@@ -476,7 +473,7 @@ run(() => {
                                     id="appearance-{gene.gene}"
                                     type="text"
                                     value={gene.appearance || ""}
-                                    disabled={!isAdmin}
+
                                     oninput={(e) =>
                                         handleInputChange(
                                             gene,
@@ -493,7 +490,7 @@ run(() => {
                             <div class="notes-section">
                                 <textarea
                                     value={gene.notes || ""}
-                                    disabled={!isAdmin}
+
                                     oninput={(e) =>
                                         handleInputChange(
                                             gene,
