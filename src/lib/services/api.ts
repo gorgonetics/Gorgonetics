@@ -9,11 +9,6 @@ import * as geneService from './geneService.js';
 import * as petService from './petService.js';
 
 class ApiClient {
-  constructor() {
-    this.currentToken = null;
-  }
-
-  // Auth methods — no-ops in native app
   setAuthToken() {}
   getAuthHeaders() {
     return {};

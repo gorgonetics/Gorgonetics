@@ -75,7 +75,8 @@ pnpm run lint:ci                  # Biome (zero errors)
 cargo check                       # Rust compilation (run from src-tauri/)
 
 # Tests
-pnpm test:e2e                     # Playwright E2E tests (30 tests)
+pnpm test                         # Vitest unit tests
+pnpm test:e2e                     # Playwright E2E tests
 pnpm test:e2e:headed              # E2E tests with visible browser
 pnpm test:e2e:ui                  # Playwright UI mode
 
@@ -132,7 +133,8 @@ pnpm test:e2e                     # Playwright E2E tests
 
 ## Testing Strategy
 
-- **Playwright E2E**: `tests/e2e/app.spec.js` — 30 tests covering all UI flows
+- **Vitest unit tests**: `tests/unit/` — service layer tests with in-memory database
+- **Playwright E2E**: `tests/e2e/` — UI flow tests across multiple spec files
 - Tests run against Vite dev server with in-memory database fallback
 - Gene templates loaded from `src/static/assets/` (copies of `assets/`)
 - Demo pets loaded from `src/static/data/` (copies of `data/`)

@@ -4,14 +4,11 @@
 
 import type { Gene, Genome, Pet } from '$lib/types/index.js';
 import { GENOME_FILE_MARKERS } from '$lib/types/index.js';
+import { now } from '$lib/utils/timestamp.js';
 import { getDefaultValues } from './configService.js';
 import { getDb, reorderRows } from './database.js';
 import { isValidGenomeFile, parseGenome } from './genomeParser.js';
 import { parseStructuredPetName } from './nameParser.js';
-
-function now(): string {
-  return new Date().toISOString();
-}
 
 /**
  * Compute SHA-256 hash of a string.
