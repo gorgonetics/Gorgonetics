@@ -38,7 +38,7 @@ async function handleUpload() {
     try {
       await uploadImage(pet.id, paths[i]);
     } catch (err) {
-      failures.push(`${fileName}: ${err.message}`);
+      failures.push(`${fileName}: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 

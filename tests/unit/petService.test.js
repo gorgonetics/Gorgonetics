@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { closeDatabase, getDb, initDatabase } from '$lib/services/database.js';
 import * as geneService from '$lib/services/geneService.js';
 import * as imageService from '$lib/services/imageService.js';
+import { runMigrations } from '$lib/services/migrationService.js';
 import * as petService from '$lib/services/petService.js';
 
 const SAMPLE_BEEWASP = readFileSync(resolve('data/Genes_SampleFaeBee.txt'), 'utf-8');
@@ -13,6 +14,7 @@ describe('Pet Service', () => {
   beforeEach(async () => {
     await closeDatabase();
     await initDatabase();
+    await runMigrations();
   });
 
   describe('uploadPet', () => {
@@ -220,6 +222,7 @@ describe('Gene Service', () => {
   beforeEach(async () => {
     await closeDatabase();
     await initDatabase();
+    await runMigrations();
   });
 
   describe('upsertGene and query', () => {
@@ -290,6 +293,7 @@ describe('Image Service', () => {
   beforeEach(async () => {
     await closeDatabase();
     await initDatabase();
+    await runMigrations();
   });
 
   async function insertTestImage(petId, filename, sortOrder = 0) {

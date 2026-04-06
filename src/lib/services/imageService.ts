@@ -80,11 +80,11 @@ export async function uploadImage(petId: number, sourcePath: string): Promise<Pe
     const db = getDb();
     const originalName = getBasename(sourcePath);
     const ts = now();
-    const countRows = await db.select<{ cnt: number }[]>(
-      'SELECT COUNT(*) as cnt FROM pet_images WHERE pet_id = $pet_id',
+    const orderRows = await db.select<{ sort_order: number }[]>(
+      'SELECT sort_order FROM pet_images WHERE pet_id = $pet_id',
       { pet_id: petId },
     );
-    const nextOrder = countRows[0]?.cnt ?? 0;
+    const nextOrder = orderRows.length > 0 ? Math.max(...orderRows.map((r) => r.sort_order ?? 0)) + 1 : 0;
     const result = await db.execute(
       `INSERT INTO pet_images (pet_id, filename, original_name, caption, tags, created_at, sort_order)
        VALUES ($pet_id, $filename, $original_name, $caption, $tags, $created_at, $sort_order)`,

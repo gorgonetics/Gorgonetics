@@ -351,22 +351,7 @@ export async function initDatabase(): Promise<void> {
       enthusiasm INTEGER DEFAULT 50,
       virility INTEGER DEFAULT 50,
       ferocity INTEGER DEFAULT 50,
-      temperament INTEGER DEFAULT 50,
-      sort_order INTEGER DEFAULT 0
-    )
-  `);
-
-  await db.execute(`
-    CREATE TABLE IF NOT EXISTS pet_images (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      pet_id INTEGER NOT NULL,
-      filename TEXT NOT NULL,
-      original_name TEXT NOT NULL,
-      caption TEXT DEFAULT '',
-      tags TEXT DEFAULT '[]',
-      created_at TEXT NOT NULL,
-      sort_order INTEGER DEFAULT 0,
-      FOREIGN KEY (pet_id) REFERENCES pets(id) ON DELETE CASCADE
+      temperament INTEGER DEFAULT 50
     )
   `);
 }
@@ -379,11 +364,14 @@ export function getDb(): DatabaseAdapter {
   return db;
 }
 
+const REORDERABLE_TABLES = new Set(['pets', 'pet_images']);
+
 /**
  * Update sort_order for rows in a table based on their position in the array.
  * Wrapped in a transaction for atomicity.
  */
-export async function reorderRows(table: string, orderedIds: number[]): Promise<void> {
+export async function reorderRows(table: 'pets' | 'pet_images', orderedIds: number[]): Promise<void> {
+  if (!REORDERABLE_TABLES.has(table)) throw new Error(`Table '${table}' is not reorderable`);
   const d = getDb();
   await d.execute('BEGIN');
   try {
