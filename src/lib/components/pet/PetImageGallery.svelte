@@ -1,4 +1,5 @@
 <script>
+import { onDestroy } from 'svelte';
 import {
   deleteImage,
   getImagesForPet,
@@ -156,6 +157,8 @@ function handleDragEnd() {
   draggedIndex = null;
   dragOverIndex = null;
 }
+
+onDestroy(() => clearTimeout(statusTimer));
 
 $effect(() => {
   const _id = pet?.id;

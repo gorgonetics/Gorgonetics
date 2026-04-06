@@ -1,4 +1,5 @@
 <script>
+import { onDestroy } from 'svelte';
 import { run, stopPropagation } from 'svelte/legacy';
 import { apiClient } from '$lib/services/api.js';
 import { user } from '$lib/stores/auth.js';
@@ -25,7 +26,8 @@ let originalGenes = [];
 let hasUnsavedChanges = $state(false);
 let savingChanges = $state(false);
 
-// Check if current user has admin privileges
+onDestroy(() => clearTimeout(successTimer));
+
 const isAdmin = $derived($user?.role === 'admin');
 
 async function loadEffectOptions() {
