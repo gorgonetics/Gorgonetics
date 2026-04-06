@@ -57,6 +57,10 @@ __pycache__/
 metadata.sqlite
 *.egg-info/
 
+# AI plugin artifacts
+docs/superpowers/
+.superpowers/
+
 # Misc
 *.backup
 temp/
