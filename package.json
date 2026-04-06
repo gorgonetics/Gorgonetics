@@ -42,7 +42,7 @@
     "@lucide/svelte": "^1.7.0",
     "@tauri-apps/api": "^2.10.1",
     "@tauri-apps/plugin-dialog": "^2.7.0",
-    "@tauri-apps/plugin-fs": "^2.4.5",
+    "@tauri-apps/plugin-fs": "^2.5.0",
     "@tauri-apps/plugin-sql": "^2.4.0",
     "jszip": "^3.10.1"
   },
