@@ -833,7 +833,7 @@ async function createGeneVisualization() {
   }
 
   try {
-    console.time('🚀 Gene Visualization Processing');
+    if (import.meta.env.DEV) console.time('🚀 Gene Visualization Processing');
     const pet = currentPet;
     const parsedGenes = parseGenes(pet.genes);
 
@@ -846,7 +846,7 @@ async function createGeneVisualization() {
     const allStats = await initializeStats();
 
     // OPTIMIZED SINGLE-PASS PROCESSING - Everything done in one loop!
-    console.time('📊 Single-pass gene analysis');
+    if (import.meta.env.DEV) console.time('📊 Single-pass gene analysis');
 
     const allBlocks = new Set();
     const blockMaxGenes = new Map();
@@ -897,7 +897,7 @@ async function createGeneVisualization() {
       });
     });
 
-    console.timeEnd('📊 Single-pass gene analysis');
+    if (import.meta.env.DEV) console.timeEnd('📊 Single-pass gene analysis');
 
     // Calculate potential DOM elements to be rendered
     const chromosomeCount = Object.keys(parsedGenes).length;
@@ -905,11 +905,13 @@ async function createGeneVisualization() {
     blockMaxGenes.forEach((maxGenes) => {
       totalDOMElements += chromosomeCount * maxGenes;
     });
-    console.warn(
-      `⚠️ About to render ${totalDOMElements} DOM elements (${chromosomeCount} chromosomes × blocks × genes)`,
-    );
-    if (totalDOMElements > 5000) {
-      console.warn('🚨 This will likely cause DOM rendering delays!');
+    if (import.meta.env.DEV) {
+      console.warn(
+        `⚠️ About to render ${totalDOMElements} DOM elements (${chromosomeCount} chromosomes × blocks × genes)`,
+      );
+      if (totalDOMElements > 5000) {
+        console.warn('🚨 This will likely cause DOM rendering delays!');
+      }
     }
 
     currentStats = allStats;
@@ -946,7 +948,7 @@ async function createGeneVisualization() {
 
     // Build chromosome data using cached analysis
     const buildTime = isUsingCachedTemplate ? '🔄 Updating chromosome data' : '🏗️ Building chromosome data';
-    console.time(buildTime);
+    if (import.meta.env.DEV) console.time(buildTime);
     chromosomeData = sortedChromosomes.map(([chromosome, data]) => {
       const processedBlocks = {};
 
@@ -987,16 +989,16 @@ async function createGeneVisualization() {
         processedBlocks,
       };
     });
-    console.timeEnd(buildTime);
+    if (import.meta.env.DEV) console.timeEnd(buildTime);
 
-    console.time('🔄 State update (triggers DOM render)');
+    if (import.meta.env.DEV) console.time('🔄 State update (triggers DOM render)');
     // This assignment triggers Svelte's DOM update cycle
     // With template caching, DOM structure should be reused when possible
-    console.timeEnd('🔄 State update (triggers DOM render)');
+    if (import.meta.env.DEV) console.timeEnd('🔄 State update (triggers DOM render)');
 
     // Performance optimization complete - using optimized dynamic rendering
 
-    console.timeEnd('🚀 Gene Visualization Processing');
+    if (import.meta.env.DEV) console.timeEnd('🚀 Gene Visualization Processing');
   } catch (err) {
     console.error('Error in createGeneVisualization:', err);
     error = `Failed to create gene visualization: ${err.message}`;

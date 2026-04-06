@@ -2,12 +2,9 @@
  * Gene data service for Gorgonetics.
  */
 
+import { now } from '$lib/utils/timestamp.js';
 import { normalizeSpecies } from './configService.js';
 import { getDb } from './database.js';
-
-function now(): string {
-  return new Date().toISOString();
-}
 
 /**
  * Get list of all animal types.

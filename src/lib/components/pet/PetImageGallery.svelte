@@ -1,4 +1,5 @@
 <script>
+import { onDestroy } from 'svelte';
 import {
   deleteImage,
   getImagesForPet,
@@ -6,6 +7,7 @@ import {
   reorderImages,
   uploadImage,
 } from '$lib/services/imageService.js';
+import { getBasename } from '$lib/utils/path.js';
 
 const { pet } = $props();
 
@@ -15,6 +17,7 @@ let uploadProgress = $state(null);
 let lightboxIndex = $state(-1);
 let deleteTarget = $state(null);
 let statusMessage = $state(null);
+let statusTimer = null;
 
 const lightboxImage = $derived(lightboxIndex >= 0 ? images[lightboxIndex] : null);
 
@@ -34,7 +37,7 @@ async function handleUpload() {
   // Sequential upload — consider parallel with concurrency limit if this becomes a bottleneck
   for (let i = 0; i < paths.length; i++) {
     uploadProgress = { current: i + 1, total };
-    const fileName = paths[i].split(/[\\/]/).pop() || paths[i];
+    const fileName = getBasename(paths[i]);
     try {
       await uploadImage(pet.id, paths[i]);
     } catch (err) {
@@ -53,7 +56,8 @@ async function handleUpload() {
     statusMessage = `Uploaded ${total} image${total > 1 ? 's' : ''}`;
   }
   if (statusMessage) {
-    setTimeout(() => {
+    clearTimeout(statusTimer);
+    statusTimer = setTimeout(() => {
       statusMessage = null;
     }, 5000);
   }
@@ -153,6 +157,8 @@ function handleDragEnd() {
   draggedIndex = null;
   dragOverIndex = null;
 }
+
+onDestroy(() => clearTimeout(statusTimer));
 
 $effect(() => {
   const _id = pet?.id;

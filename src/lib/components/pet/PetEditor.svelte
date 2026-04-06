@@ -1,24 +1,15 @@
 <script>
 import { untrack } from 'svelte';
+import { getAllAttributeNames } from '$lib/services/configService.js';
 import { appState } from '$lib/stores/pets.js';
+import { HORSE_BREEDS } from '$lib/types/index.js';
 import { FALLBACK_ATTRIBUTE_LIST } from '$lib/utils/apiUtils.js';
 
 let { pet, open = $bindable(), onClose, onSave } = $props();
 
 const BREED_OPTIONS = {
   BeeWasp: ['Bee', 'Wasp'],
-  Horse: [
-    'Standardbred',
-    'Kurbone',
-    'Ilmarian',
-    'Plateau Pony',
-    'Satincoat',
-    'Statehelm',
-    'Blanketed',
-    'Leopard',
-    'Paint',
-    'Calico',
-  ],
+  Horse: Object.keys(HORSE_BREEDS),
   default: ['Mixed'],
 };
 
@@ -44,14 +35,7 @@ let editBreed = $state(initial.breed);
 const editAttributes = $state(initial.attributes);
 let saveError = $state('');
 
-const getAvailableAttributes = (species) => {
-  const core = ['intelligence', 'toughness', 'friendliness', 'ruggedness', 'enthusiasm', 'virility'];
-  if (species === 'BeeWasp') return [...core, 'ferocity'];
-  if (species === 'Horse') return [...core, 'temperament'];
-  return core;
-};
-
-const availableAttributes = $derived(getAvailableAttributes(pet.species));
+const availableAttributes = $derived(getAllAttributeNames(pet.species));
 const filteredAttributeList = $derived(
   FALLBACK_ATTRIBUTE_LIST.filter((attr) => availableAttributes.includes(attr.key.toLowerCase())),
 );

@@ -24,20 +24,31 @@ Gorgonetics is a native desktop app for genetic breeding analysis in Project Gor
 - **`src/lib/components/gene/GeneCell.svelte`**: Individual gene cell
 - **`src/lib/components/gene/GeneStatsTable.svelte`**: Attribute stats table
 - **`src/lib/components/gene/GeneTooltip.svelte`**: Gene hover tooltip
+- **`src/lib/components/pet/PetImageGallery.svelte`**: Pet image gallery with drag-and-drop reordering
+- **`src/lib/components/layout/DataMenu.svelte`**: Export/import menu
+- **`src/lib/components/layout/ExportDialog.svelte`**: Export dialog
+- **`src/lib/components/layout/ImportDialog.svelte`**: Import dialog
+- **`src/lib/components/layout/SettingsModal.svelte`**: Settings UI
 - **`src/lib/components/AuthWrapper.svelte`**: App initializer (DB + demo data)
 
 ### TypeScript Service Layer (`src/lib/services/`)
 - **`database.ts`**: SQLite via tauri-plugin-sql (in-memory fallback for tests)
+- **`migrationService.ts`**: Schema versioning via PRAGMA user_version
 - **`geneService.ts`**: Gene CRUD operations
 - **`petService.ts`**: Pet CRUD + genome visualization
+- **`imageService.ts`**: Pet image upload, gallery, reordering
 - **`configService.ts`**: Species attribute/appearance configuration
 - **`genomeParser.ts`**: Genome text file parser
+- **`nameParser.ts`**: Structured pet name parsing (breed/gender/attributes)
 - **`fileService.ts`**: Native file dialogs (Tauri) with browser fallback
+- **`backupService.ts`**: Database export/import (zip archive)
+- **`settingsService.ts`**: User preferences (key-value store)
 - **`demoService.ts`**: First-launch gene template + demo pet loading
 - **`api.ts`**: ApiClient adapter (same interface, calls services directly)
 
 ### Stores (`src/lib/stores/`)
 - **`pets.js`**: Pet list, selection, gene editing state, tab state
+- **`settings.ts`**: User settings store
 - **`auth.ts`**: Stub (always authenticated in desktop app)
 
 ### Types (`src/lib/types/`)
@@ -51,7 +62,8 @@ Gorgonetics is a native desktop app for genetic breeding analysis in Project Gor
 
 ### Database
 - SQLite via tauri-plugin-sql (single file, `gorgonetics.db`)
-- Tables: `genes` (gene effects), `pets` (pet data + genome JSON)
+- Tables: `genes` (gene effects), `pets` (pet data + genome JSON), `pet_images` (gallery metadata), `settings` (key-value preferences)
+- Schema versioning via PRAGMA user_version + migration engine
 - No auth tables (single-user desktop app)
 
 ## Development Setup
@@ -75,7 +87,8 @@ pnpm run lint:ci                  # Biome (zero errors)
 cargo check                       # Rust compilation (run from src-tauri/)
 
 # Tests
-pnpm test:e2e                     # Playwright E2E tests (30 tests)
+pnpm test                         # Vitest unit tests
+pnpm test:e2e                     # Playwright E2E tests
 pnpm test:e2e:headed              # E2E tests with visible browser
 pnpm test:e2e:ui                  # Playwright UI mode
 
@@ -132,7 +145,8 @@ pnpm test:e2e                     # Playwright E2E tests
 
 ## Testing Strategy
 
-- **Playwright E2E**: `tests/e2e/app.spec.js` — 30 tests covering all UI flows
+- **Vitest unit tests**: `tests/unit/` — service layer tests with in-memory database
+- **Playwright E2E**: `tests/e2e/` — UI flow tests across multiple spec files
 - Tests run against Vite dev server with in-memory database fallback
 - Gene templates loaded from `src/static/assets/` (copies of `assets/`)
 - Demo pets loaded from `src/static/data/` (copies of `data/`)

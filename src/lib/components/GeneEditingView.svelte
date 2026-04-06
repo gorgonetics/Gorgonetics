@@ -1,4 +1,5 @@
 <script>
+import { onDestroy } from 'svelte';
 import { run, stopPropagation } from 'svelte/legacy';
 import { apiClient } from '$lib/services/api.js';
 import { user } from '$lib/stores/auth.js';
@@ -18,13 +19,15 @@ let effectOptions = $state([]);
 let loadingGenes = $state(false);
 let successMessage = $state('');
 let errorMessage = $state('');
+let successTimer = null;
 let expandedNotes = $state({});
 let openDropdown = $state(null);
 let originalGenes = [];
 let hasUnsavedChanges = $state(false);
 let savingChanges = $state(false);
 
-// Check if current user has admin privileges
+onDestroy(() => clearTimeout(successTimer));
+
 const isAdmin = $derived($user?.role === 'admin');
 
 async function loadEffectOptions() {
@@ -93,7 +96,8 @@ async function saveAllChanges() {
       originalGenes = JSON.parse(JSON.stringify(genes));
       hasUnsavedChanges = false;
       successMessage = 'All changes saved successfully!';
-      setTimeout(() => {
+      clearTimeout(successTimer);
+      successTimer = setTimeout(() => {
         successMessage = '';
       }, 3000);
     } else {

@@ -9,16 +9,6 @@ import * as geneService from './geneService.js';
 import * as petService from './petService.js';
 
 class ApiClient {
-  constructor() {
-    this.currentToken = null;
-  }
-
-  // Auth methods — no-ops in native app
-  setAuthToken() {}
-  getAuthHeaders() {
-    return {};
-  }
-
   /**
    * Route-based dispatcher for components that call fetchWithErrorHandling directly.
    * Parses the URL pattern and delegates to the correct service.
@@ -93,7 +83,6 @@ class ApiClient {
     throw new Error(`Route not found: ${url}`);
   }
 
-  /** Helper: wrap data in a Response-like object with .json() */
   _jsonResponse(data) {
     return {
       ok: true,
@@ -103,60 +92,16 @@ class ApiClient {
     };
   }
 
-  // --- Gene methods ---
-
   async getAnimalTypes() {
     return geneService.getAnimalTypes();
-  }
-
-  async getEffectOptions() {
-    return configService.getEffectOptions();
   }
 
   async getChromosomes(animalType) {
     return geneService.getChromosomes(animalType);
   }
 
-  async getGenes(animalType, chromosome) {
-    return geneService.getGenesByChromosome(animalType, chromosome);
-  }
-
-  async updateGene(updateData) {
-    await geneService.updateGene(updateData.animal_type, updateData.gene, {
-      effectDominant: updateData.effectDominant,
-      effectRecessive: updateData.effectRecessive,
-      appearance: updateData.appearance,
-      notes: updateData.notes,
-    });
-    return { success: true };
-  }
-
-  async exportChromosome(animalType, chromosome) {
-    const data = await geneService.exportGenesToJson(animalType, chromosome);
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    return new Response(blob);
-  }
-
-  async exportAllChromosomes(animalType) {
-    return geneService.exportAllChromosomes(animalType);
-  }
-
-  async getGeneEffects(animalType) {
-    return geneService.getGeneEffects(animalType);
-  }
-
-  async getAttributeConfig(animalType) {
-    return configService.getAttributeConfig(animalType);
-  }
-
-  // --- Pet methods ---
-
   async getPets() {
     return petService.getAllPets();
-  }
-
-  async getPet(petId) {
-    return petService.getPet(petId);
   }
 
   async deletePet(petId) {
@@ -169,14 +114,6 @@ class ApiClient {
     return { success: true };
   }
 
-  async getPetGenome(petId) {
-    return petService.getPetGenome(petId);
-  }
-
-  /**
-   * Upload a pet from file content.
-   * In the native app, this receives content as a string (not a File blob).
-   */
   async uploadPet(fileContent, name = '', gender = 'Male', notes = null) {
     return petService.uploadPet(fileContent, name, gender, notes ?? undefined);
   }
@@ -184,28 +121,7 @@ class ApiClient {
   async reorderPets(orderedIds) {
     return petService.reorderPets(orderedIds);
   }
-
-  // --- Auth methods (no-ops in native app) ---
-
-  async login() {
-    return { access_token: 'local', refresh_token: 'local' };
-  }
-
-  async register() {
-    return {};
-  }
-
-  async getCurrentUser() {
-    return { id: 1, username: 'local', role: 'admin', is_active: true };
-  }
-
-  async logout() {
-    return { message: 'ok' };
-  }
 }
 
-// Create and export a singleton instance
 export const apiClient = new ApiClient();
-
-// Also export the class for testing
 export { ApiClient };

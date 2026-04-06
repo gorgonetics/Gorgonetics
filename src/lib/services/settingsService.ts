@@ -4,15 +4,12 @@
  * Each setting has a typed default; missing keys fall back to defaults.
  */
 
+import { now } from '$lib/utils/timestamp.js';
 import { getDb } from './database.js';
 
 const SETTING_DEFAULTS: Record<string, unknown> = {
   'horse.autoSelectBreedFilter': true,
 };
-
-function now(): string {
-  return new Date().toISOString();
-}
 
 export function getDefaultSettings(): Record<string, unknown> {
   return { ...SETTING_DEFAULTS };
