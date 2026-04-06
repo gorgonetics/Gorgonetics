@@ -3,6 +3,7 @@ import { onDestroy, onMount } from 'svelte';
 import {
   getAllAppearanceDisplayInfo,
   getAllAttributeDisplayInfo,
+  getAppearanceAttributes,
   getAppearanceConfig,
   getAttributeConfig,
   normalizeSpecies,
@@ -25,6 +26,35 @@ const NO_EFFECT_SENTINELS = new Set([NO_DATA, NO_DOMINANT, NO_RECESSIVE, UNKNOWN
 
 function isNoEffect(effect) {
   return !effect || NO_EFFECT_SENTINELS.has(effect);
+}
+
+// Build appearance category lookup maps from configService data (avoids long if/else chains)
+function buildAppearanceLookup(species) {
+  const attrs = getAppearanceAttributes(species);
+  const byName = new Map();
+  for (const [key, info] of Object.entries(attrs)) {
+    byName.set(info.name.toLowerCase(), key);
+  }
+  return byName;
+}
+
+const HORSE_APPEARANCE = buildAppearanceLookup('horse');
+const BEEWASP_APPEARANCE = buildAppearanceLookup('beewasp');
+
+function categorizeAppearance(species, appearance) {
+  if (!appearance || appearance === 'None') return 'appearance-neutral';
+  const lower = appearance.toLowerCase();
+
+  if (species === 'horse') {
+    for (const [name, key] of HORSE_APPEARANCE) {
+      if (lower.startsWith(name)) return key;
+    }
+  } else {
+    for (const [name, key] of BEEWASP_APPEARANCE) {
+      if (lower.includes(name)) return key;
+    }
+  }
+  return 'appearance-neutral';
 }
 
 const { pet, onStatsUpdated } = $props();
@@ -477,79 +507,7 @@ function analyzeGeneEffect(species, geneId, geneType) {
     }
 
     const appearance = getGeneAppearance(species, geneId);
-    let appearanceCategory = 'appearance-neutral';
-
-    // Species-specific appearance categorization
-    if (species.toLowerCase() === 'horse') {
-      // Horse appearance categories - group by base attribute name
-      if (appearance.startsWith('Scale')) {
-        appearanceCategory = 'scale';
-      } else if (appearance.startsWith('Attributes')) {
-        appearanceCategory = 'attributes';
-      } else if (appearance.startsWith('Selector')) {
-        appearanceCategory = 'selector';
-      } else if (appearance.startsWith('Horn')) {
-        appearanceCategory = 'horn';
-      } else if (appearance.startsWith('Aura')) {
-        appearanceCategory = 'aura';
-      } else if (appearance.startsWith('Coat')) {
-        appearanceCategory = 'coat';
-      } else if (
-        appearance.startsWith('Face Markings') ||
-        appearance.startsWith('Face markings') ||
-        appearance.startsWith('Face-markings')
-      ) {
-        appearanceCategory = 'face-markings';
-      } else if (appearance.startsWith('Hair')) {
-        appearanceCategory = 'hair';
-      } else if (
-        appearance.startsWith('Leg Markings') ||
-        appearance.startsWith('Leg markings') ||
-        appearance.startsWith('Leg-markings')
-      ) {
-        appearanceCategory = 'leg-markings';
-      } else if (appearance.startsWith('Magical')) {
-        appearanceCategory = 'magical';
-      } else if (appearance.startsWith('Markings')) {
-        appearanceCategory = 'markings';
-      }
-      // Note: "None" appearances should remain as "appearance-neutral" (unstyled)
-    } else {
-      // BeeWasp appearance categories
-      if (appearance.includes('Body Color Hue')) {
-        appearanceCategory = 'body-color-hue';
-      } else if (appearance.includes('Body Color Saturation')) {
-        appearanceCategory = 'body-color-saturation';
-      } else if (appearance.includes('Body Color Intensity')) {
-        appearanceCategory = 'body-color-intensity';
-      } else if (appearance.includes('Wing Color Hue')) {
-        appearanceCategory = 'wing-color-hue';
-      } else if (appearance.includes('Wing Color Saturation')) {
-        appearanceCategory = 'wing-color-saturation';
-      } else if (appearance.includes('Wing Color Intensity')) {
-        appearanceCategory = 'wing-color-intensity';
-      } else if (appearance.includes('Body Scale')) {
-        appearanceCategory = 'body-scale';
-      } else if (appearance.includes('Wing Scale')) {
-        appearanceCategory = 'wing-scale';
-      } else if (appearance.includes('Head Scale')) {
-        appearanceCategory = 'head-scale';
-      } else if (appearance.includes('Tail Scale')) {
-        appearanceCategory = 'tail-scale';
-      } else if (appearance.includes('Antenna Scale')) {
-        appearanceCategory = 'antenna-scale';
-      } else if (appearance.includes('Leg Deformity')) {
-        appearanceCategory = 'leg-deformity';
-      } else if (appearance.includes('Antenna Deformity')) {
-        appearanceCategory = 'antenna-deformity';
-      } else if (appearance.includes('Particles')) {
-        appearanceCategory = 'particles';
-      } else if (appearance.includes('Particle Location')) {
-        appearanceCategory = 'particle-location';
-      } else if (appearance.includes('Glow')) {
-        appearanceCategory = 'glow';
-      }
-    }
+    const appearanceCategory = categorizeAppearance(species, appearance);
 
     return {
       type: appearanceCategory,
