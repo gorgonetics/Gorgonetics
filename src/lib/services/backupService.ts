@@ -14,6 +14,7 @@ import type {
   ImportResult,
 } from '$lib/types/index.js';
 import { isTauri } from '$lib/utils/environment.js';
+import { now } from '$lib/utils/timestamp.js';
 import { getDb } from './database.js';
 import { saveExportBinaryFile } from './fileService.js';
 import { CURRENT_SCHEMA_VERSION, getSchemaVersion } from './migrationService.js';
@@ -139,13 +140,13 @@ export async function exportDatabase(options: ExportOptions): Promise<ExportResu
     zip.file('images/pet_images.json', JSON.stringify(exportedImages));
   }
 
-  const now = new Date();
+  const ts = now();
   const metadata: GorgonExportMetadata = {
     format: EXPORT_FORMAT,
     format_version: EXPORT_FORMAT_VERSION,
     schema_version: schemaVersion || CURRENT_SCHEMA_VERSION,
     app_version: APP_VERSION,
-    exported_at: now.toISOString(),
+    exported_at: ts,
     contents: {
       genes: options.includeGenes,
       pets: options.includePets,
@@ -156,7 +157,7 @@ export async function exportDatabase(options: ExportOptions): Promise<ExportResu
   zip.file('metadata.json', JSON.stringify(metadata, null, 2));
 
   const zipData = await zip.generateAsync({ type: 'uint8array' });
-  const dateStr = now.toISOString().split('T')[0];
+  const dateStr = ts.split('T')[0];
   const saved = await saveExportBinaryFile(`gorgonetics-backup-${dateStr}.zip`, zipData);
 
   return { saved, genes: geneCount, pets: petCount, images: imageCount };
@@ -366,7 +367,7 @@ async function importFromZip(fileData: Uint8Array, options: ImportOptions): Prom
               original_name: record.original_name ?? filename,
               caption: record.caption ?? '',
               tags: typeof record.tags === 'string' ? record.tags : JSON.stringify(record.tags ?? []),
-              created_at: record.created_at ?? new Date().toISOString(),
+              created_at: record.created_at ?? now(),
               sort_order: record.sort_order ?? 0,
             },
           );
