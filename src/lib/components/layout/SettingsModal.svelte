@@ -25,11 +25,13 @@ async function toggleSetting(key) {
 </button>
 
 {#if open}
-  <div class="modal-backdrop" onclick={close}>
-    <div class="dialog settings-dialog" onclick={(e) => e.stopPropagation()}>
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div class="modal-backdrop" onclick={close} onkeydown={(e) => { if (e.key === 'Escape') close(); }} role="presentation">
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="dialog settings-dialog" role="dialog" aria-label="Settings" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => { if (e.key === 'Escape') close(); }}>
       <div class="dialog-header">
         <h3>Settings</h3>
-        <button class="close-btn" onclick={close}>
+        <button class="close-btn" onclick={close} aria-label="Close settings">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <line x1="18" y1="6" x2="6" y2="18"/>
             <line x1="6" y1="6" x2="18" y2="18"/>
@@ -51,6 +53,7 @@ async function toggleSetting(key) {
               class:toggle-on={$settings['horse.autoSelectBreedFilter']}
               onclick={() => toggleSetting('horse.autoSelectBreedFilter')}
               role="switch"
+              aria-label="Auto-select breed filter"
               aria-checked={$settings['horse.autoSelectBreedFilter']}
             >
               <span class="toggle-thumb"></span>

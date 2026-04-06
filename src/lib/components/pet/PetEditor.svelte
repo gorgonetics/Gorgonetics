@@ -1,9 +1,10 @@
 <script>
 import { untrack } from 'svelte';
-import { getAllAttributeNames } from '$lib/services/configService.js';
+import { getAllAttributeDisplayInfo, getAllAttributeNames } from '$lib/services/configService.js';
 import { appState } from '$lib/stores/pets.js';
 import { HORSE_BREEDS } from '$lib/types/index.js';
-import { FALLBACK_ATTRIBUTE_LIST } from '$lib/utils/apiUtils.js';
+
+const ALL_ATTRIBUTES = getAllAttributeDisplayInfo();
 
 let { pet, open = $bindable(), onClose, onSave } = $props();
 
@@ -23,7 +24,7 @@ function initEditState(p) {
     gender: p.gender || 'Male',
     breed: opts.includes(p.breed) ? p.breed : opts[0],
     attributes: Object.fromEntries(
-      FALLBACK_ATTRIBUTE_LIST.map((attr) => [attr.key.toLowerCase(), p[attr.key.toLowerCase()] ?? 50]),
+      ALL_ATTRIBUTES.map((attr) => [attr.key.toLowerCase(), p[attr.key.toLowerCase()] ?? 50]),
     ),
   };
 }
@@ -37,7 +38,7 @@ let saveError = $state('');
 
 const availableAttributes = $derived(getAllAttributeNames(pet.species));
 const filteredAttributeList = $derived(
-  FALLBACK_ATTRIBUTE_LIST.filter((attr) => availableAttributes.includes(attr.key.toLowerCase())),
+  ALL_ATTRIBUTES.filter((attr) => availableAttributes.includes(attr.key.toLowerCase())),
 );
 
 async function handleSave() {

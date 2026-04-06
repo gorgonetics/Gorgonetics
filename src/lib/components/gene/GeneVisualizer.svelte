@@ -1,22 +1,61 @@
 <script>
 import { onDestroy, onMount } from 'svelte';
-
+import {
+  getAllAppearanceDisplayInfo,
+  getAllAttributeDisplayInfo,
+  getAppearanceAttributes,
+  getAppearanceConfig,
+  getAttributeConfig,
+  normalizeSpecies,
+} from '$lib/services/configService.js';
+import { getGeneEffectsCached } from '$lib/services/geneService.js';
+import { blockLetter } from '$lib/services/genomeParser.js';
 import { getPetGenome } from '$lib/services/petService.js';
 import { EFFECT_COLORS } from '$lib/theme/gene-colors.js';
-import {
-  clearAllCaches,
-  FALLBACK_APPEARANCE_LIST,
-  FALLBACK_ATTRIBUTES,
-  loadAppearanceConfig as fetchAppearanceConfig,
-  getCacheStats,
-  loadAttributeConfig,
-  loadGeneEffects,
-  normalizeSpecies,
-} from '$lib/utils/apiUtils.js';
 import GeneCell from './GeneCell.svelte';
 import GeneTooltip from './GeneTooltip.svelte';
 
-const FALLBACK_APPEARANCE_KEYS = FALLBACK_APPEARANCE_LIST.map((a) => a.key.replace(/_/g, '-'));
+const ALL_ATTRIBUTES = getAllAttributeDisplayInfo();
+const FALLBACK_APPEARANCE_KEYS = getAllAppearanceDisplayInfo('beewasp').map((a) => a.key.replace(/_/g, '-'));
+
+const NO_DATA = 'No gene data found';
+const NO_DOMINANT = 'No dominant effect';
+const NO_RECESSIVE = 'No recessive effect';
+const UNKNOWN_TYPE = 'Unknown gene type';
+const NO_EFFECT_SENTINELS = new Set([NO_DATA, NO_DOMINANT, NO_RECESSIVE, UNKNOWN_TYPE, 'None', 'null']);
+
+function isNoEffect(effect) {
+  return !effect || NO_EFFECT_SENTINELS.has(effect);
+}
+
+// Build appearance category lookup maps from configService data (avoids long if/else chains)
+function buildAppearanceLookup(species) {
+  const attrs = getAppearanceAttributes(species);
+  const byName = new Map();
+  for (const [key, info] of Object.entries(attrs)) {
+    byName.set(info.name.toLowerCase(), key);
+  }
+  return byName;
+}
+
+const HORSE_APPEARANCE = buildAppearanceLookup('horse');
+const BEEWASP_APPEARANCE = buildAppearanceLookup('beewasp');
+
+function categorizeAppearance(species, appearance) {
+  if (!appearance || appearance === 'None') return 'appearance-neutral';
+  const lower = appearance.toLowerCase();
+
+  if (species === 'horse') {
+    for (const [name, key] of HORSE_APPEARANCE) {
+      if (lower.startsWith(name)) return key;
+    }
+  } else {
+    for (const [name, key] of BEEWASP_APPEARANCE) {
+      if (lower.includes(name)) return key;
+    }
+  }
+  return 'appearance-neutral';
+}
 
 const { pet, onStatsUpdated } = $props();
 
@@ -82,12 +121,12 @@ let chromosomeData = $state([]);
 let allAttributeNames = $state([]);
 
 // Global gene effects database - persists across pet selections
-const globalGeneEffectsDB = $state({});
+let globalGeneEffectsDB = {};
 
 // DOM template cache - stores pre-built table structures per species
-const speciesTemplateCache = $state(new Map());
+const speciesTemplateCache = new Map();
 let currentSpeciesTemplate = $state(null);
-let isUsingCachedTemplate = $state(false);
+let isUsingCachedTemplate = false;
 
 onMount(async () => {
   // Preload gene effects for common species to improve performance
@@ -106,7 +145,7 @@ async function preloadGeneEffects() {
     try {
       const normalizedSpecies = normalizeSpecies(species);
       if (!globalGeneEffectsDB[normalizedSpecies]) {
-        const data = await loadGeneEffects(species);
+        const data = await getGeneEffectsCached(species);
         if (data) {
           globalGeneEffectsDB[normalizedSpecies] = data.effects;
         }
@@ -117,15 +156,6 @@ async function preloadGeneEffects() {
   });
 
   await Promise.all(loadPromises);
-
-  // Expose cache utilities to window for development debugging
-  if (typeof window !== 'undefined' && import.meta.env.DEV) {
-    window.geneVisualizerCache = {
-      stats: getCacheStats,
-      clear: clearAllCaches,
-      globalDB: () => globalGeneEffectsDB,
-    };
-  }
 }
 
 function createSpeciesTemplate(species, headerStructure, chromosomeCount) {
@@ -194,7 +224,8 @@ async function loadPetData() {
     currentPet = genomeData;
 
     // Load gene effects and appearance config in parallel for better performance
-    await Promise.all([loadGeneEffectsForSpecies(currentPet.species), loadAppearanceConfig(currentPet.species)]);
+    await loadGeneEffectsForSpecies(currentPet.species);
+    loadAppearanceConfigForSpecies(currentPet.species);
 
     // Static templates disabled - current dynamic rendering performance is sufficient
 
@@ -209,37 +240,26 @@ async function loadPetData() {
 
 async function loadGeneEffectsForSpecies(species) {
   const normalizedSpecies = normalizeSpecies(species);
-
-  // Check if we already have this species in our global cache
   if (globalGeneEffectsDB[normalizedSpecies]) {
     geneEffectsDB = globalGeneEffectsDB;
     return;
   }
-
-  // Load from API (with caching)
-  const data = await loadGeneEffects(species);
+  const data = await getGeneEffectsCached(species);
   if (data) {
-    // Add to global cache and use it
     globalGeneEffectsDB[normalizedSpecies] = data.effects;
     geneEffectsDB = globalGeneEffectsDB;
   } else {
-    geneEffectsDB = globalGeneEffectsDB; // Use what we have, even if empty
+    geneEffectsDB = globalGeneEffectsDB;
   }
 }
 
-async function loadAppearanceConfig(species) {
+function loadAppearanceConfigForSpecies(species) {
   if (!species) {
     appearanceList = [];
     return;
   }
-
-  const config = await fetchAppearanceConfig(species);
-  if (config) {
-    // appearanceConfig = config; // Unused
-    appearanceList = config.appearance_attributes || [];
-  } else {
-    appearanceList = [];
-  }
+  const config = getAppearanceConfig(normalizeSpecies(species));
+  appearanceList = config.appearance_attributes || [];
 }
 
 function parseGenes(genesData) {
@@ -251,14 +271,14 @@ function parseGenes(genesData) {
     const blocks = [];
 
     blockStrings.forEach((blockString, blockIndex) => {
-      const blockLetter = generateBlockLetter(blockIndex);
+      const bl = blockLetter(blockIndex);
       const blockGenes = [];
 
       for (let i = 0; i < blockString.length; i++) {
         const gene = {
-          id: `${chromosome}${blockLetter}${i + 1}`,
+          id: `${chromosome}${bl}${i + 1}`,
           type: blockString[i],
-          block: blockLetter,
+          block: bl,
           position: i + 1,
           globalPosition: allGenes.length + 1,
         };
@@ -267,7 +287,7 @@ function parseGenes(genesData) {
       }
 
       blocks.push({
-        letter: blockLetter,
+        letter: bl,
         genes: blockGenes,
       });
     });
@@ -276,16 +296,6 @@ function parseGenes(genesData) {
   });
 
   return parsed;
-}
-
-function generateBlockLetter(index) {
-  if (index < 26) {
-    return String.fromCharCode(65 + index);
-  } else {
-    const firstLetter = Math.floor(index / 26) - 1;
-    const secondLetter = index % 26;
-    return String.fromCharCode(65 + firstLetter) + String.fromCharCode(65 + secondLetter);
-  }
 }
 
 async function initializeStats() {
@@ -304,10 +314,9 @@ async function initializeStats() {
       _mixed: 0,
     };
 
-    // Load species-specific attributes, falling back to defaults
-    let attrNames = FALLBACK_ATTRIBUTES;
+    let attrNames = ALL_ATTRIBUTES.map((a) => a.key);
     if (currentPet?.species) {
-      const config = await loadAttributeConfig(currentPet.species);
+      const config = getAttributeConfig(normalizeSpecies(currentPet.species));
       if (config) {
         attrNames = config.all_attribute_names.map((name) => name.charAt(0).toUpperCase() + name.slice(1));
       }
@@ -321,19 +330,15 @@ async function initializeStats() {
   } else {
     const stats = { 'appearance-neutral': 0, 'inactive-breed': 0 };
 
-    let attrNames = null;
+    let attrNames = FALLBACK_APPEARANCE_KEYS;
     if (currentPet?.species) {
-      try {
-        const config = await fetchAppearanceConfig(currentPet.species);
-        if (config) {
-          attrNames = config.appearance_attribute_names;
-        }
-      } catch (err) {
-        console.error('Error loading appearance config:', err);
+      const config = getAppearanceConfig(normalizeSpecies(currentPet.species));
+      if (config) {
+        attrNames = config.appearance_attribute_names;
       }
     }
 
-    (attrNames || FALLBACK_APPEARANCE_KEYS).forEach((attr) => {
+    attrNames.forEach((attr) => {
       stats[attr] = 0;
     });
 
@@ -376,43 +381,25 @@ function updateStats(stats, geneAnalysis, geneType) {
   }
 }
 
-function getGeneEffect(species, geneId, geneType) {
-  if (!geneEffectsDB) {
-    return 'No gene data found';
-  }
-
-  const speciesKey = normalizeSpecies(species);
-
+function getGeneEffect(speciesKey, geneId, geneType) {
+  if (!geneEffectsDB) return NO_DATA;
   const geneData = geneEffectsDB[speciesKey]?.[geneId];
-
-  if (!geneData) {
-    return 'No gene data found';
-  }
+  if (!geneData) return NO_DATA;
 
   if (geneType === 'D' || geneType === 'x') {
     const effect = geneData.effectDominant;
-    if (!effect || effect === 'None' || effect === null || effect === 'null') {
-      return 'No dominant effect';
-    }
-    return effect;
-  } else if (geneType === 'R') {
-    const effect = geneData.effectRecessive;
-    if (!effect || effect === 'None' || effect === null || effect === 'null') {
-      return 'No recessive effect';
-    }
-    return effect;
-  } else {
-    return 'Unknown gene type';
+    return isNoEffect(effect) ? NO_DOMINANT : effect;
   }
+  if (geneType === 'R') {
+    const effect = geneData.effectRecessive;
+    return isNoEffect(effect) ? NO_RECESSIVE : effect;
+  }
+  return UNKNOWN_TYPE;
 }
 
-function getGeneAppearance(species, geneId) {
+function getGeneAppearance(speciesKey, geneId) {
   if (!geneEffectsDB) return 'No appearance effect';
-
-  const speciesKey = normalizeSpecies(species);
-
   const geneData = geneEffectsDB[speciesKey]?.[geneId];
-
   if (
     !geneData?.appearance ||
     geneData.appearance === 'None' ||
@@ -420,7 +407,6 @@ function getGeneAppearance(species, geneId) {
   ) {
     return 'No appearance effect';
   }
-
   return geneData.appearance;
 }
 
@@ -449,22 +435,20 @@ function extractAttributesFromEffect(effectStr) {
   return foundAttributes;
 }
 
-function getGeneBreed(species, geneId) {
+function getGeneBreed(speciesKey, geneId) {
   if (!geneEffectsDB) return '';
-  const speciesKey = normalizeSpecies(species);
   const geneData = geneEffectsDB[speciesKey]?.[geneId];
   return geneData?.breed || '';
 }
 
-function isGeneRelevantToBreed(species, geneId) {
-  // Non-horse species: all genes are relevant
-  if (normalizeSpecies(species) !== 'horse') return true;
+function isGeneRelevantToBreed(speciesKey, geneId) {
+  if (speciesKey !== 'horse') return true;
   // If pet has no breed set or it's "Mixed", all genes are relevant
   // Use the pet prop (has breed) rather than currentPet (genome data only)
   const petBreed = pet?.breed;
   if (!petBreed || petBreed === 'Mixed') return true;
   // Gene is relevant if it's generic (no breed) or matches pet's breed
-  const geneBreed = getGeneBreed(species, geneId);
+  const geneBreed = getGeneBreed(speciesKey, geneId);
   return !geneBreed || geneBreed === petBreed;
 }
 
@@ -481,12 +465,7 @@ function analyzeGeneEffect(species, geneId, geneType) {
       };
     }
 
-    if (
-      effect === 'No gene data found' ||
-      effect === 'No dominant effect' ||
-      effect === 'No recessive effect' ||
-      effect === 'Unknown gene type'
-    ) {
+    if (isNoEffect(effect)) {
       return {
         type: 'neutral',
         attribute: null,
@@ -528,79 +507,7 @@ function analyzeGeneEffect(species, geneId, geneType) {
     }
 
     const appearance = getGeneAppearance(species, geneId);
-    let appearanceCategory = 'appearance-neutral';
-
-    // Species-specific appearance categorization
-    if (species.toLowerCase() === 'horse') {
-      // Horse appearance categories - group by base attribute name
-      if (appearance.startsWith('Scale')) {
-        appearanceCategory = 'scale';
-      } else if (appearance.startsWith('Attributes')) {
-        appearanceCategory = 'attributes';
-      } else if (appearance.startsWith('Selector')) {
-        appearanceCategory = 'selector';
-      } else if (appearance.startsWith('Horn')) {
-        appearanceCategory = 'horn';
-      } else if (appearance.startsWith('Aura')) {
-        appearanceCategory = 'aura';
-      } else if (appearance.startsWith('Coat')) {
-        appearanceCategory = 'coat';
-      } else if (
-        appearance.startsWith('Face Markings') ||
-        appearance.startsWith('Face markings') ||
-        appearance.startsWith('Face-markings')
-      ) {
-        appearanceCategory = 'face-markings';
-      } else if (appearance.startsWith('Hair')) {
-        appearanceCategory = 'hair';
-      } else if (
-        appearance.startsWith('Leg Markings') ||
-        appearance.startsWith('Leg markings') ||
-        appearance.startsWith('Leg-markings')
-      ) {
-        appearanceCategory = 'leg-markings';
-      } else if (appearance.startsWith('Magical')) {
-        appearanceCategory = 'magical';
-      } else if (appearance.startsWith('Markings')) {
-        appearanceCategory = 'markings';
-      }
-      // Note: "None" appearances should remain as "appearance-neutral" (unstyled)
-    } else {
-      // BeeWasp appearance categories
-      if (appearance.includes('Body Color Hue')) {
-        appearanceCategory = 'body-color-hue';
-      } else if (appearance.includes('Body Color Saturation')) {
-        appearanceCategory = 'body-color-saturation';
-      } else if (appearance.includes('Body Color Intensity')) {
-        appearanceCategory = 'body-color-intensity';
-      } else if (appearance.includes('Wing Color Hue')) {
-        appearanceCategory = 'wing-color-hue';
-      } else if (appearance.includes('Wing Color Saturation')) {
-        appearanceCategory = 'wing-color-saturation';
-      } else if (appearance.includes('Wing Color Intensity')) {
-        appearanceCategory = 'wing-color-intensity';
-      } else if (appearance.includes('Body Scale')) {
-        appearanceCategory = 'body-scale';
-      } else if (appearance.includes('Wing Scale')) {
-        appearanceCategory = 'wing-scale';
-      } else if (appearance.includes('Head Scale')) {
-        appearanceCategory = 'head-scale';
-      } else if (appearance.includes('Tail Scale')) {
-        appearanceCategory = 'tail-scale';
-      } else if (appearance.includes('Antenna Scale')) {
-        appearanceCategory = 'antenna-scale';
-      } else if (appearance.includes('Leg Deformity')) {
-        appearanceCategory = 'leg-deformity';
-      } else if (appearance.includes('Antenna Deformity')) {
-        appearanceCategory = 'antenna-deformity';
-      } else if (appearance.includes('Particles')) {
-        appearanceCategory = 'particles';
-      } else if (appearance.includes('Particle Location')) {
-        appearanceCategory = 'particle-location';
-      } else if (appearance.includes('Glow')) {
-        appearanceCategory = 'glow';
-      }
-    }
+    const appearanceCategory = categorizeAppearance(species, appearance);
 
     return {
       type: appearanceCategory,
@@ -615,22 +522,8 @@ function hasAnyPotentialEffect(species, geneId) {
     const dominantEffect = getGeneEffect(species, geneId, 'D');
     const recessiveEffect = getGeneEffect(species, geneId, 'R');
 
-    const dominantHasEffect =
-      dominantEffect &&
-      dominantEffect !== 'No gene data found' &&
-      dominantEffect !== 'No dominant effect' &&
-      dominantEffect !== 'Unknown gene type' &&
-      dominantEffect !== 'None' &&
-      dominantEffect !== 'null' &&
-      dominantEffect.trim() !== '';
-    const recessiveHasEffect =
-      recessiveEffect &&
-      recessiveEffect !== 'No gene data found' &&
-      recessiveEffect !== 'No recessive effect' &&
-      recessiveEffect !== 'Unknown gene type' &&
-      recessiveEffect !== 'None' &&
-      recessiveEffect !== 'null' &&
-      recessiveEffect.trim() !== '';
+    const dominantHasEffect = !isNoEffect(dominantEffect) && dominantEffect.trim() !== '';
+    const recessiveHasEffect = !isNoEffect(recessiveEffect) && recessiveEffect.trim() !== '';
 
     return dominantHasEffect || recessiveHasEffect;
   } else {
@@ -646,22 +539,12 @@ function analyzePotentialEffectType(species, geneId) {
   let hasPositive = false;
   let hasNegative = false;
 
-  if (
-    dominantEffect &&
-    dominantEffect !== 'No gene data found' &&
-    dominantEffect !== 'No dominant effect' &&
-    dominantEffect !== 'Unknown gene type'
-  ) {
+  if (!isNoEffect(dominantEffect)) {
     if (dominantEffect.includes('+')) hasPositive = true;
     if (dominantEffect.includes('-')) hasNegative = true;
   }
 
-  if (
-    recessiveEffect &&
-    recessiveEffect !== 'No gene data found' &&
-    recessiveEffect !== 'No recessive effect' &&
-    recessiveEffect !== 'Unknown gene type'
-  ) {
+  if (!isNoEffect(recessiveEffect)) {
     if (recessiveEffect.includes('+')) hasPositive = true;
     if (recessiveEffect.includes('-')) hasNegative = true;
   }
@@ -672,6 +555,7 @@ function analyzePotentialEffectType(species, geneId) {
 }
 
 function isGeneVisible(chromosome, gene, geneAnalysis) {
+  const sk = normalizeSpecies(currentPet?.species || '');
   // Chromosome filter
   if (selectedChromosomes.length > 0 && !selectedChromosomes.includes(chromosome)) {
     return false;
@@ -684,10 +568,7 @@ function isGeneVisible(chromosome, gene, geneAnalysis) {
 
   // Attribute filter
   if (currentView === 'attribute') {
-    if (
-      selectedAttributes.length > 0 &&
-      !genePotentiallyAffectsSelectedAttributes(currentPet.species, gene.id, selectedAttributes)
-    ) {
+    if (selectedAttributes.length > 0 && !genePotentiallyAffectsSelectedAttributes(sk, gene.id, selectedAttributes)) {
       return false;
     }
   } else {
@@ -706,8 +587,8 @@ function isGeneVisible(chromosome, gene, geneAnalysis) {
     let effectType = geneAnalysis.type;
 
     // Handle potential effects for neutral genes
-    if (geneAnalysis.type === 'neutral' && hasAnyPotentialEffect(currentPet.species, gene.id)) {
-      const potentialType = analyzePotentialEffectType(currentPet.species, gene.id);
+    if (geneAnalysis.type === 'neutral' && hasAnyPotentialEffect(sk, gene.id)) {
+      const potentialType = analyzePotentialEffectType(sk, gene.id);
       if (potentialType) {
         effectType = potentialType;
       }
@@ -721,9 +602,8 @@ function isGeneVisible(chromosome, gene, geneAnalysis) {
   if (hiddenEffectFilters.length > 0) {
     let effectType = geneAnalysis.type;
 
-    // Handle potential effects for neutral genes
-    if (geneAnalysis.type === 'neutral' && hasAnyPotentialEffect(currentPet.species, gene.id)) {
-      const potentialType = analyzePotentialEffectType(currentPet.species, gene.id);
+    if (geneAnalysis.type === 'neutral' && hasAnyPotentialEffect(sk, gene.id)) {
+      const potentialType = analyzePotentialEffectType(sk, gene.id);
       if (potentialType) {
         effectType = potentialType;
       }
@@ -763,7 +643,7 @@ function getContextualAnalysis(species, geneId, geneAnalysis) {
   const dominantEffect = getGeneEffect(species, geneId, 'D');
   const recessiveEffect = getGeneEffect(species, geneId, 'R');
   for (const eff of [dominantEffect, recessiveEffect]) {
-    if (!eff || eff === 'No gene data found' || eff === 'No dominant effect' || eff === 'No recessive effect') continue;
+    if (isNoEffect(eff)) continue;
     if (eff.includes(attr)) {
       const hasPlus = eff.includes('+');
       const hasMinus = eff.includes('-');
@@ -784,24 +664,11 @@ function genePotentiallyAffectsSelectedAttributes(species, geneId, selectedAttri
 
   const allPotentialAttributes = [];
 
-  if (
-    dominantEffect &&
-    dominantEffect !== 'No gene data found' &&
-    dominantEffect !== 'No dominant effect' &&
-    dominantEffect !== 'Unknown gene type'
-  ) {
-    const dominantAttributes = extractAttributesFromEffect(dominantEffect);
-    allPotentialAttributes.push(...dominantAttributes);
+  if (!isNoEffect(dominantEffect)) {
+    allPotentialAttributes.push(...extractAttributesFromEffect(dominantEffect));
   }
-
-  if (
-    recessiveEffect &&
-    recessiveEffect !== 'No gene data found' &&
-    recessiveEffect !== 'No recessive effect' &&
-    recessiveEffect !== 'Unknown gene type'
-  ) {
-    const recessiveAttributes = extractAttributesFromEffect(recessiveEffect);
-    allPotentialAttributes.push(...recessiveAttributes);
+  if (!isNoEffect(recessiveEffect)) {
+    allPotentialAttributes.push(...extractAttributesFromEffect(recessiveEffect));
   }
 
   return allPotentialAttributes.some((attr) => selectedAttributes.includes(attr));
@@ -835,6 +702,7 @@ async function createGeneVisualization() {
   try {
     if (import.meta.env.DEV) console.time('🚀 Gene Visualization Processing');
     const pet = currentPet;
+    const speciesKey = normalizeSpecies(pet.species);
     const parsedGenes = parseGenes(pet.genes);
 
     if (!parsedGenes || Object.keys(parsedGenes).length === 0) {
@@ -869,12 +737,12 @@ async function createGeneVisualization() {
         // Pre-compute and cache gene analysis once
         const cacheKey = `${gene.id}_${gene.type}`;
         if (!geneAnalysisCache.has(cacheKey)) {
-          const geneAnalysis = analyzeGeneEffect(pet.species, gene.id, gene.type);
+          const geneAnalysis = analyzeGeneEffect(speciesKey, gene.id, gene.type);
 
           // Handle potential effects in the same pass
           let effectType = geneAnalysis.type;
-          if (geneAnalysis.type === 'neutral' && hasAnyPotentialEffect(pet.species, gene.id)) {
-            const potentialType = analyzePotentialEffectType(pet.species, gene.id);
+          if (geneAnalysis.type === 'neutral' && hasAnyPotentialEffect(speciesKey, gene.id)) {
+            const potentialType = analyzePotentialEffectType(speciesKey, gene.id);
             if (potentialType) {
               effectType = potentialType;
             }
@@ -1016,29 +884,18 @@ function handleTooltipShow(event) {
 
   const potentialEffects = [];
   if (currentPet) {
-    const dominantEffect = getGeneEffect(currentPet.species, geneId, 'D');
-    const recessiveEffect = getGeneEffect(currentPet.species, geneId, 'R');
+    const sk = normalizeSpecies(currentPet.species);
+    const dominantEffect = getGeneEffect(sk, geneId, 'D');
+    const recessiveEffect = getGeneEffect(sk, geneId, 'R');
 
-    if (
-      geneType !== 'D' &&
-      dominantEffect &&
-      dominantEffect !== 'No dominant effect' &&
-      dominantEffect !== 'No gene data found' &&
-      dominantEffect !== 'Unknown gene type'
-    ) {
+    if (geneType !== 'D' && !isNoEffect(dominantEffect)) {
       const isPositive = dominantEffect.includes('+');
       const isNegative = dominantEffect.includes('-');
       const color = isPositive ? EFFECT_COLORS.positive : isNegative ? EFFECT_COLORS.negative : '#666';
       potentialEffects.push(`If Dominant: <span style="color: ${color}">${dominantEffect}</span>`);
     }
 
-    if (
-      geneType !== 'R' &&
-      recessiveEffect &&
-      recessiveEffect !== 'No recessive effect' &&
-      recessiveEffect !== 'No gene data found' &&
-      recessiveEffect !== 'Unknown gene type'
-    ) {
+    if (geneType !== 'R' && !isNoEffect(recessiveEffect)) {
       const isPositive = recessiveEffect.includes('+');
       const isNegative = recessiveEffect.includes('-');
       const color = isPositive ? EFFECT_COLORS.positive : isNegative ? EFFECT_COLORS.negative : '#666';
@@ -1047,8 +904,9 @@ function handleTooltipShow(event) {
   }
 
   // Add breed relevance note if gene belongs to a different breed
-  const geneBreed = getGeneBreed(currentPet?.species || '', geneId);
-  const isRelevant = isGeneRelevantToBreed(currentPet?.species || '', geneId);
+  const sk = normalizeSpecies(currentPet?.species || '');
+  const geneBreed = getGeneBreed(sk, geneId);
+  const isRelevant = isGeneRelevantToBreed(sk, geneId);
   if (!isRelevant && geneBreed) {
     potentialEffects.push(`<span style="color: #9ca3af">⚬ ${geneBreed} breed only — no effect on this pet</span>`);
   }
@@ -1062,14 +920,7 @@ function handleTooltipShow(event) {
   const effectHeight = 20; // height per effect line
   const potentialEffectHeight = 15; // height per potential effect
   const tooltipHeight =
-    baseHeight +
-    (effectInfo &&
-    effectInfo !== 'No gene data found' &&
-    effectInfo !== 'No dominant effect' &&
-    effectInfo !== 'No recessive effect'
-      ? effectHeight
-      : 0) +
-    potentialEffects.length * potentialEffectHeight;
+    baseHeight + (!isNoEffect(effectInfo) ? effectHeight : 0) + potentialEffects.length * potentialEffectHeight;
   const offset = 12; // Small offset from cursor
 
   // Get viewport dimensions

@@ -7,6 +7,7 @@ import {
   reorderImages,
   uploadImage,
 } from '$lib/services/imageService.js';
+import { createDragState } from '$lib/utils/dragReorder.svelte.js';
 import { getBasename } from '$lib/utils/path.js';
 
 const { pet } = $props();
@@ -108,54 +109,32 @@ async function executeDelete() {
   deleteTarget = null;
 }
 
-// --- Drag-and-drop reordering ---
-let draggedIndex = $state(null);
-let dragOverIndex = $state(null);
-
-function handleDragStart(e, index) {
-  draggedIndex = index;
-  e.dataTransfer.effectAllowed = 'move';
-}
-
-function handleDragOver(e, index) {
-  e.preventDefault();
-  e.dataTransfer.dropEffect = 'move';
-  dragOverIndex = index;
-}
-
-function handleDragLeave() {
-  dragOverIndex = null;
-}
+const drag = createDragState();
 
 async function handleDrop(e, dropIndex) {
   e.preventDefault();
-  dragOverIndex = null;
-  if (draggedIndex === null || draggedIndex === dropIndex) return;
+  drag.dragOverIndex = null;
+  if (drag.draggedIndex === null || drag.draggedIndex === dropIndex) return;
 
-  const fromImg = images[draggedIndex];
+  const fromImg = images[drag.draggedIndex];
   if (!fromImg) {
-    draggedIndex = null;
+    drag.draggedIndex = null;
     return;
   }
 
   const previous = [...images];
   const reordered = [...images];
-  const [moved] = reordered.splice(draggedIndex, 1);
+  const [moved] = reordered.splice(drag.draggedIndex, 1);
   reordered.splice(dropIndex, 0, moved);
 
   images = reordered;
-  draggedIndex = null;
+  drag.draggedIndex = null;
 
   try {
     await reorderImages(reordered.map((img) => img.id));
   } catch {
     images = previous;
   }
-}
-
-function handleDragEnd() {
-  draggedIndex = null;
-  dragOverIndex = null;
 }
 
 onDestroy(() => clearTimeout(statusTimer));
@@ -197,14 +176,14 @@ $effect(() => {
         <!-- svelte-ignore a11y_no_static_element_interactions -->
         <div
           class="thumbnail-card"
-          class:dragging={draggedIndex === i}
-          class:drag-over={dragOverIndex === i && draggedIndex !== i}
+          class:dragging={drag.draggedIndex === i}
+          class:drag-over={drag.dragOverIndex === i && drag.draggedIndex !== i}
           draggable="true"
-          ondragstart={(e) => handleDragStart(e, i)}
-          ondragover={(e) => handleDragOver(e, i)}
-          ondragleave={handleDragLeave}
+          ondragstart={(e) => drag.handleDragStart(e, i)}
+          ondragover={(e) => drag.handleDragOver(e, i)}
+          ondragleave={drag.handleDragLeave}
           ondrop={(e) => handleDrop(e, i)}
-          ondragend={handleDragEnd}
+          ondragend={drag.handleDragEnd}
         >
           <button class="thumbnail-btn" onclick={() => openLightbox(i)}>
             <img src={img.url} alt={img.original_name} loading="lazy" />
@@ -225,6 +204,7 @@ $effect(() => {
 {#if lightboxImage}
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div class="lightbox" role="dialog" aria-label="Image viewer" tabindex="-1" onclick={closeLightbox} onkeydown={handleLightboxKey}>
+    <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
     <div class="lightbox-content" onclick={(e) => e.stopPropagation()}>
       <img src={lightboxImage.url} alt={lightboxImage.original_name} />
       <div class="lightbox-info">
@@ -246,8 +226,10 @@ $effect(() => {
 {/if}
 
 {#if deleteTarget}
-  <div class="modal-backdrop" onclick={cancelDelete}>
-    <div class="confirm-dialog" role="alertdialog" aria-label="Confirm delete" onclick={(e) => e.stopPropagation()}>
+  <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
+  <div class="modal-backdrop" onclick={cancelDelete} onkeydown={(e) => { if (e.key === 'Escape') cancelDelete(); }} role="presentation">
+    <!-- svelte-ignore a11y_click_events_have_key_events a11y_interactive_supports_focus -->
+    <div class="confirm-dialog" role="alertdialog" aria-label="Confirm delete" tabindex="-1" onclick={(e) => e.stopPropagation()}>
       <h3>Delete image?</h3>
       <p>Delete <strong>{deleteTarget.original_name}</strong>? This cannot be undone.</p>
       <div class="confirm-actions">

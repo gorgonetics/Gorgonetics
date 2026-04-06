@@ -431,3 +431,48 @@ export function validateAttributeDict(attributes: Record<string, unknown>, speci
 
   return errors;
 }
+
+/**
+ * Get all attribute display info across all species (species-specific first, then core).
+ * Used by the pet editor and gene stats table for UI rendering.
+ */
+export function getAllAttributeDisplayInfo(): AttributeInfo[] {
+  const seen = new Set<string>();
+  const result: AttributeInfo[] = [];
+
+  // Species-specific attributes first — explicit order so UI stays stable
+  const speciesOrder = ['horse', 'beewasp'];
+  const orderedSpecies = [
+    ...speciesOrder.filter((s) => s in SPECIES_ATTRIBUTES),
+    ...Object.keys(SPECIES_ATTRIBUTES).filter((s) => !speciesOrder.includes(s)),
+  ];
+  for (const speciesAttrs of orderedSpecies.map((s) => SPECIES_ATTRIBUTES[s])) {
+    for (const [name, info] of Object.entries(speciesAttrs)) {
+      const key = name.charAt(0).toUpperCase() + name.slice(1);
+      if (!seen.has(key)) {
+        seen.add(key);
+        result.push({ key, name: info.name, icon: info.icon, description: info.description ?? '' });
+      }
+    }
+  }
+
+  // Core attributes
+  for (const attr of CORE_ATTRIBUTE_ORDER) {
+    const info = CORE_ATTRIBUTES[attr];
+    if (!info) continue;
+    const key = attr.charAt(0).toUpperCase() + attr.slice(1);
+    if (!seen.has(key)) {
+      seen.add(key);
+      result.push({ key, name: info.name, icon: info.icon, description: info.description ?? '' });
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Get all appearance display info for a species.
+ */
+export function getAllAppearanceDisplayInfo(species: string): AppearanceInfo[] {
+  return getAppearanceConfig(species).appearance_attributes;
+}

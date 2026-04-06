@@ -34,8 +34,10 @@ async function handleExport() {
 }
 </script>
 
-<div class="modal-backdrop" onclick={onClose}>
-  <div class="dialog export-dialog" onclick={(e) => e.stopPropagation()}>
+<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
+<div class="modal-backdrop" onclick={onClose} onkeydown={(e) => { if (e.key === 'Escape') onClose(); }} role="presentation">
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div class="dialog export-dialog" role="dialog" aria-label="Export Backup" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => { if (e.key === 'Escape') onClose(); }}>
     <div class="dialog-header">
       <h3>Export Backup</h3>
       <button class="close-btn" onclick={onClose}>×</button>
