@@ -119,6 +119,7 @@ export async function updateGenesBulk(
     });
     if (ok) count++;
   }
+  clearGeneEffectsCache(animalType);
   return count;
 }
 
@@ -192,6 +193,17 @@ export async function getGeneEffectsCached(species: string) {
   const promise = getGeneEffects(normalized);
   geneEffectsCache.set(normalized, promise);
   return promise;
+}
+
+/**
+ * Invalidate cached gene effects for a species (call after editing genes).
+ */
+export function clearGeneEffectsCache(species?: string) {
+  if (species) {
+    geneEffectsCache.delete(normalizeSpecies(species));
+  } else {
+    geneEffectsCache.clear();
+  }
 }
 
 /**

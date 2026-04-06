@@ -1,13 +1,7 @@
 <script>
 import { createEventDispatcher } from 'svelte';
 import { run } from 'svelte/legacy';
-import {
-  getAllAppearanceDisplayInfo,
-  getAllAttributeDisplayInfo,
-  getAppearanceConfig,
-  getAttributeConfig,
-  normalizeSpecies,
-} from '$lib/services/configService.js';
+import { getAppearanceConfig, getAttributeConfig, normalizeSpecies } from '$lib/services/configService.js';
 
 const dispatch = createEventDispatcher();
 
@@ -40,20 +34,12 @@ let appearanceList = $state([]);
 
 function loadAttributeConfigForTable(species) {
   const normalized = normalizeSpecies(species || 'BeeWasp');
-  if (normalized) {
-    attributeList = getAttributeConfig(normalized).attributes;
-  } else {
-    attributeList = getAllAttributeDisplayInfo();
-  }
+  attributeList = getAttributeConfig(normalized).attributes;
 }
 
 function loadAppearanceConfigForTable(species) {
   const normalized = normalizeSpecies(species || 'BeeWasp');
-  if (normalized) {
-    appearanceList = getAppearanceConfig(normalized).appearance_attributes;
-  } else {
-    appearanceList = getAllAppearanceDisplayInfo('beewasp');
-  }
+  appearanceList = getAppearanceConfig(normalized).appearance_attributes;
 }
 
 function calculateTotals() {

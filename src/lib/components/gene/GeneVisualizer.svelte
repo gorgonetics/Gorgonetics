@@ -597,6 +597,7 @@ function analyzePotentialEffectType(species, geneId) {
 }
 
 function isGeneVisible(chromosome, gene, geneAnalysis) {
+  const sk = normalizeSpecies(currentPet?.species || '');
   // Chromosome filter
   if (selectedChromosomes.length > 0 && !selectedChromosomes.includes(chromosome)) {
     return false;
@@ -609,10 +610,7 @@ function isGeneVisible(chromosome, gene, geneAnalysis) {
 
   // Attribute filter
   if (currentView === 'attribute') {
-    if (
-      selectedAttributes.length > 0 &&
-      !genePotentiallyAffectsSelectedAttributes(currentPet.species, gene.id, selectedAttributes)
-    ) {
+    if (selectedAttributes.length > 0 && !genePotentiallyAffectsSelectedAttributes(sk, gene.id, selectedAttributes)) {
       return false;
     }
   } else {
@@ -631,8 +629,8 @@ function isGeneVisible(chromosome, gene, geneAnalysis) {
     let effectType = geneAnalysis.type;
 
     // Handle potential effects for neutral genes
-    if (geneAnalysis.type === 'neutral' && hasAnyPotentialEffect(currentPet.species, gene.id)) {
-      const potentialType = analyzePotentialEffectType(currentPet.species, gene.id);
+    if (geneAnalysis.type === 'neutral' && hasAnyPotentialEffect(sk, gene.id)) {
+      const potentialType = analyzePotentialEffectType(sk, gene.id);
       if (potentialType) {
         effectType = potentialType;
       }
@@ -646,9 +644,8 @@ function isGeneVisible(chromosome, gene, geneAnalysis) {
   if (hiddenEffectFilters.length > 0) {
     let effectType = geneAnalysis.type;
 
-    // Handle potential effects for neutral genes
-    if (geneAnalysis.type === 'neutral' && hasAnyPotentialEffect(currentPet.species, gene.id)) {
-      const potentialType = analyzePotentialEffectType(currentPet.species, gene.id);
+    if (geneAnalysis.type === 'neutral' && hasAnyPotentialEffect(sk, gene.id)) {
+      const potentialType = analyzePotentialEffectType(sk, gene.id);
       if (potentialType) {
         effectType = potentialType;
       }

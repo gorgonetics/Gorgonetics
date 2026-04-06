@@ -469,11 +469,5 @@ export function getAllAttributeDisplayInfo(): AttributeInfo[] {
  * Get all appearance display info for a species.
  */
 export function getAllAppearanceDisplayInfo(species: string): AppearanceInfo[] {
-  const attrs = getAppearanceAttributes(species);
-  return Object.entries(attrs).map(([name, info]) => ({
-    key: name.replace(/-/g, '_'),
-    name: info.name,
-    examples: info.examples,
-    color_indicator: info.color_indicator ?? '#6b7280',
-  }));
+  return getAppearanceConfig(species).appearance_attributes;
 }
