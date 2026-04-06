@@ -36,13 +36,9 @@ let savingChanges = $state(false);
 
 onDestroy(() => clearTimeout(successTimer));
 
-async function loadEffectOptions() {
+function loadEffectOptions() {
   if (!animalType) return;
-  try {
-    effectOptions = configService.getEffectOptionsForSpecies(animalType);
-  } catch {
-    effectOptions = configService.getEffectOptions();
-  }
+  effectOptions = configService.getEffectOptionsForSpecies(animalType);
 }
 
 // Load genes for the selected chromosome
@@ -102,8 +98,8 @@ async function exportChromosome() {
     a.click();
     window.URL.revokeObjectURL(url);
     document.body.removeChild(a);
-  } catch (error) {
-    errorMessage = `Error exporting chromosome: ${error.message}`;
+  } catch (err) {
+    errorMessage = `Error exporting chromosome: ${err instanceof Error ? err.message : String(err)}`;
   }
 }
 

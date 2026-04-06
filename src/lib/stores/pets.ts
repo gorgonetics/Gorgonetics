@@ -24,8 +24,7 @@ export const appState = {
       loading.set(true);
       error.set(null);
       const response = await apiClient.getPets();
-      const petData = response.items ?? response;
-      pets.set(petData as Pet[]);
+      pets.set(response.items as Pet[]);
     } catch (err: unknown) {
       error.set(`Failed to load pets: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
@@ -34,10 +33,7 @@ export const appState = {
   },
 
   selectPet(pet: Pet) {
-    loading.set(true);
-    error.set(null);
     selectedPet.set(pet);
-    loading.set(false);
   },
 
   async deletePet(petId: number) {
