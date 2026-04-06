@@ -77,27 +77,20 @@ export function parseGenomeFileGenes(content: string): Record<string, string> {
 }
 
 /**
+ * Convert a block index to a letter (0=A, 1=B, ..., 25=Z, 26=AA, 27=AB, ...).
+ */
+export function blockLetter(index: number): string {
+  if (index < 26) return String.fromCharCode(65 + index);
+  const first = Math.floor((index - 26) / 26);
+  const second = (index - 26) % 26;
+  return String.fromCharCode(65 + first) + String.fromCharCode(65 + second);
+}
+
+/**
  * Generate block letters (A, B, C, ..., Z, AA, AB, ...).
  */
 export function generateBlockLetters(numBlocks: number): string[] {
-  const letters: string[] = [];
-
-  // First 26 blocks use single letters A-Z
-  for (let i = 0; i < Math.min(numBlocks, 26); i++) {
-    letters.push(String.fromCharCode(65 + i));
-  }
-
-  // If more than 26 blocks, use double letters AA, AB, AC, etc.
-  const remaining = numBlocks - 26;
-  if (remaining > 0) {
-    for (let i = 0; i < remaining; i++) {
-      const first = String.fromCharCode(65 + Math.floor(i / 26));
-      const second = String.fromCharCode(65 + (i % 26));
-      letters.push(first + second);
-    }
-  }
-
-  return letters;
+  return Array.from({ length: numBlocks }, (_, i) => blockLetter(i));
 }
 
 /**

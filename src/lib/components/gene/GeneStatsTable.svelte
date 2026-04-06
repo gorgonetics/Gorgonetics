@@ -2,11 +2,12 @@
 import { createEventDispatcher } from 'svelte';
 import { run } from 'svelte/legacy';
 import {
-  FALLBACK_APPEARANCE_LIST,
-  FALLBACK_ATTRIBUTE_LIST,
-  loadAppearanceConfig,
-  loadAttributeConfig,
-} from '$lib/utils/apiUtils.js';
+  getAllAppearanceDisplayInfo,
+  getAllAttributeDisplayInfo,
+  getAppearanceConfig,
+  getAttributeConfig,
+  normalizeSpecies,
+} from '$lib/services/configService.js';
 
 const dispatch = createEventDispatcher();
 
@@ -37,33 +38,21 @@ const {
 let attributeList = $state([]);
 let appearanceList = $state([]);
 
-async function loadAttributeConfigForTable(species) {
-  if (!species) {
-    // Default to BeeWasp if no species specified
-    species = 'BeeWasp';
-  }
-
-  const config = await loadAttributeConfig(species);
-  if (config) {
-    attributeList = config.attributes || [];
+function loadAttributeConfigForTable(species) {
+  const normalized = normalizeSpecies(species || 'BeeWasp');
+  if (normalized) {
+    attributeList = getAttributeConfig(normalized).attributes;
   } else {
-    // Fallback to hardcoded attributes
-    attributeList = FALLBACK_ATTRIBUTE_LIST;
+    attributeList = getAllAttributeDisplayInfo();
   }
 }
 
-async function loadAppearanceConfigForTable(species) {
-  if (!species) {
-    // Default to BeeWasp if no species specified
-    species = 'BeeWasp';
-  }
-
-  const config = await loadAppearanceConfig(species);
-  if (config) {
-    appearanceList = config.appearance_attributes || [];
+function loadAppearanceConfigForTable(species) {
+  const normalized = normalizeSpecies(species || 'BeeWasp');
+  if (normalized) {
+    appearanceList = getAppearanceConfig(normalized).appearance_attributes;
   } else {
-    // Fallback to hardcoded appearance attributes
-    appearanceList = FALLBACK_APPEARANCE_LIST;
+    appearanceList = getAllAppearanceDisplayInfo('beewasp');
   }
 }
 

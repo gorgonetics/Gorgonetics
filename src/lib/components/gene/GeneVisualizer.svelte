@@ -1,20 +1,21 @@
 <script>
 import { onDestroy, onMount } from 'svelte';
-
+import {
+  getAllAppearanceDisplayInfo,
+  getAllAttributeDisplayInfo,
+  getAppearanceConfig,
+  getAttributeConfig,
+  normalizeSpecies,
+} from '$lib/services/configService.js';
+import { getGeneEffectsCached } from '$lib/services/geneService.js';
+import { blockLetter } from '$lib/services/genomeParser.js';
 import { getPetGenome } from '$lib/services/petService.js';
 import { EFFECT_COLORS } from '$lib/theme/gene-colors.js';
-import {
-  FALLBACK_APPEARANCE_LIST,
-  FALLBACK_ATTRIBUTES,
-  loadAppearanceConfig as fetchAppearanceConfig,
-  loadAttributeConfig,
-  loadGeneEffects,
-  normalizeSpecies,
-} from '$lib/utils/apiUtils.js';
 import GeneCell from './GeneCell.svelte';
 import GeneTooltip from './GeneTooltip.svelte';
 
-const FALLBACK_APPEARANCE_KEYS = FALLBACK_APPEARANCE_LIST.map((a) => a.key.replace(/_/g, '-'));
+const ALL_ATTRIBUTES = getAllAttributeDisplayInfo();
+const FALLBACK_APPEARANCE_KEYS = getAllAppearanceDisplayInfo('beewasp').map((a) => a.key.replace(/_/g, '-'));
 
 const NO_DATA = 'No gene data found';
 const NO_DOMINANT = 'No dominant effect';
@@ -90,12 +91,12 @@ let chromosomeData = $state([]);
 let allAttributeNames = $state([]);
 
 // Global gene effects database - persists across pet selections
-const globalGeneEffectsDB = $state({});
+let globalGeneEffectsDB = {};
 
 // DOM template cache - stores pre-built table structures per species
-const speciesTemplateCache = $state(new Map());
-let currentSpeciesTemplate = $state(null);
-let isUsingCachedTemplate = $state(false);
+const speciesTemplateCache = new Map();
+let currentSpeciesTemplate = null;
+let isUsingCachedTemplate = false;
 
 onMount(async () => {
   // Preload gene effects for common species to improve performance
@@ -114,7 +115,7 @@ async function preloadGeneEffects() {
     try {
       const normalizedSpecies = normalizeSpecies(species);
       if (!globalGeneEffectsDB[normalizedSpecies]) {
-        const data = await loadGeneEffects(species);
+        const data = await getGeneEffectsCached(species);
         if (data) {
           globalGeneEffectsDB[normalizedSpecies] = data.effects;
         }
@@ -193,7 +194,8 @@ async function loadPetData() {
     currentPet = genomeData;
 
     // Load gene effects and appearance config in parallel for better performance
-    await Promise.all([loadGeneEffectsForSpecies(currentPet.species), loadAppearanceConfig(currentPet.species)]);
+    await loadGeneEffectsForSpecies(currentPet.species);
+    loadAppearanceConfigForSpecies(currentPet.species);
 
     // Static templates disabled - current dynamic rendering performance is sufficient
 
@@ -208,37 +210,26 @@ async function loadPetData() {
 
 async function loadGeneEffectsForSpecies(species) {
   const normalizedSpecies = normalizeSpecies(species);
-
-  // Check if we already have this species in our global cache
   if (globalGeneEffectsDB[normalizedSpecies]) {
     geneEffectsDB = globalGeneEffectsDB;
     return;
   }
-
-  // Load from API (with caching)
-  const data = await loadGeneEffects(species);
+  const data = await getGeneEffectsCached(species);
   if (data) {
-    // Add to global cache and use it
     globalGeneEffectsDB[normalizedSpecies] = data.effects;
     geneEffectsDB = globalGeneEffectsDB;
   } else {
-    geneEffectsDB = globalGeneEffectsDB; // Use what we have, even if empty
+    geneEffectsDB = globalGeneEffectsDB;
   }
 }
 
-async function loadAppearanceConfig(species) {
+function loadAppearanceConfigForSpecies(species) {
   if (!species) {
     appearanceList = [];
     return;
   }
-
-  const config = await fetchAppearanceConfig(species);
-  if (config) {
-    // appearanceConfig = config; // Unused
-    appearanceList = config.appearance_attributes || [];
-  } else {
-    appearanceList = [];
-  }
+  const config = getAppearanceConfig(normalizeSpecies(species));
+  appearanceList = config.appearance_attributes || [];
 }
 
 function parseGenes(genesData) {
@@ -250,14 +241,14 @@ function parseGenes(genesData) {
     const blocks = [];
 
     blockStrings.forEach((blockString, blockIndex) => {
-      const blockLetter = generateBlockLetter(blockIndex);
+      const bl = blockLetter(blockIndex);
       const blockGenes = [];
 
       for (let i = 0; i < blockString.length; i++) {
         const gene = {
-          id: `${chromosome}${blockLetter}${i + 1}`,
+          id: `${chromosome}${bl}${i + 1}`,
           type: blockString[i],
-          block: blockLetter,
+          block: bl,
           position: i + 1,
           globalPosition: allGenes.length + 1,
         };
@@ -266,7 +257,7 @@ function parseGenes(genesData) {
       }
 
       blocks.push({
-        letter: blockLetter,
+        letter: bl,
         genes: blockGenes,
       });
     });
@@ -275,16 +266,6 @@ function parseGenes(genesData) {
   });
 
   return parsed;
-}
-
-function generateBlockLetter(index) {
-  if (index < 26) {
-    return String.fromCharCode(65 + index);
-  } else {
-    const firstLetter = Math.floor(index / 26) - 1;
-    const secondLetter = index % 26;
-    return String.fromCharCode(65 + firstLetter) + String.fromCharCode(65 + secondLetter);
-  }
 }
 
 async function initializeStats() {
@@ -303,10 +284,9 @@ async function initializeStats() {
       _mixed: 0,
     };
 
-    // Load species-specific attributes, falling back to defaults
-    let attrNames = FALLBACK_ATTRIBUTES;
+    let attrNames = ALL_ATTRIBUTES.map((a) => a.key);
     if (currentPet?.species) {
-      const config = await loadAttributeConfig(currentPet.species);
+      const config = getAttributeConfig(normalizeSpecies(currentPet.species));
       if (config) {
         attrNames = config.all_attribute_names.map((name) => name.charAt(0).toUpperCase() + name.slice(1));
       }
@@ -320,19 +300,15 @@ async function initializeStats() {
   } else {
     const stats = { 'appearance-neutral': 0, 'inactive-breed': 0 };
 
-    let attrNames = null;
+    let attrNames = FALLBACK_APPEARANCE_KEYS;
     if (currentPet?.species) {
-      try {
-        const config = await fetchAppearanceConfig(currentPet.species);
-        if (config) {
-          attrNames = config.appearance_attribute_names;
-        }
-      } catch (err) {
-        console.error('Error loading appearance config:', err);
+      const config = getAppearanceConfig(normalizeSpecies(currentPet.species));
+      if (config) {
+        attrNames = config.appearance_attribute_names;
       }
     }
 
-    (attrNames || FALLBACK_APPEARANCE_KEYS).forEach((attr) => {
+    attrNames.forEach((attr) => {
       stats[attr] = 0;
     });
 
