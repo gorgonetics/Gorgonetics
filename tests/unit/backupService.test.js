@@ -263,8 +263,7 @@ describe('Backup Service', () => {
       expect(result.pets).toBe(1);
     });
 
-    it('rolls back on error during import', async () => {
-      // Seed a pet first
+    it('replace re-import keeps count stable', async () => {
       const zipData = await buildZip({ pets: [samplePet] });
       await importDatabase(zipData, {
         mode: 'replace',
@@ -273,12 +272,11 @@ describe('Backup Service', () => {
         includeImages: false,
       });
 
-      // Try importing a pet with a duplicate content_hash in replace mode
-      // (replace clears first, so this should succeed — verify the transaction works)
       const db = getDb();
       const before = await db.select('SELECT COUNT(*) as count FROM pets');
       expect(before[0].count).toBe(1);
 
+      // Re-importing in replace mode should clear and re-insert, ending at same count
       await importDatabase(zipData, {
         mode: 'replace',
         includeGenes: false,

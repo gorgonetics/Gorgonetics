@@ -16,6 +16,8 @@ describe('Pets Store', () => {
     await initDatabase();
     await runMigrations();
     appState.reset();
+    pets.set([]);
+    activeTab.set('pets');
   });
 
   describe('initial state', () => {
@@ -191,6 +193,35 @@ describe('Pets Store', () => {
       vi.spyOn(petService, 'reorderPets').mockRejectedValueOnce(new Error('reorder failed'));
       await expect(appState.reorderPets([1, 2])).rejects.toThrow('reorder failed');
       expect(get(error)).toContain('reorder failed');
+    });
+  });
+
+  describe('uploadPet', () => {
+    it('uploads a pet and reloads the list', async () => {
+      await appState.uploadPet(SAMPLE_BEEWASP, 'UploadTest', 'Female');
+      const loaded = get(pets);
+      expect(loaded.length).toBeGreaterThan(0);
+    });
+
+    it('sets loading to false after upload', async () => {
+      await appState.uploadPet(SAMPLE_BEEWASP, 'UploadTest', 'Female');
+      expect(get(loading)).toBe(false);
+    });
+
+    it('sets error on failure', async () => {
+      vi.spyOn(petService, 'uploadPet').mockRejectedValueOnce(new Error('upload failed'));
+      await appState.uploadPet('bad', 'Bad', 'Male');
+      expect(get(error)).toContain('upload failed');
+      expect(get(loading)).toBe(false);
+    });
+  });
+
+  describe('uploadPetQuiet', () => {
+    it('delegates to petService without setting loading state', async () => {
+      const result = await appState.uploadPetQuiet(SAMPLE_BEEWASP, 'QuietTest', 'Male');
+      expect(result.status).toBe('success');
+      // loading should not have been toggled (quiet mode)
+      expect(get(loading)).toBe(false);
     });
   });
 });
