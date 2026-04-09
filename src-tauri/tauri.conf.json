@@ -30,8 +30,17 @@
       }
     }
   },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDE0OUI2NDFERjEwRTAwQTYKUldTbUFBN3hIV1NiRklhUkN5ekVjRDU5T1lOY1pNYnJIS1JDbDFjL3BYSzdsc3grdlJPTEpMdGEK",
+      "endpoints": [
+        "https://github.com/gorgonetics/Gorgonetics/releases/latest/download/latest.json"
+      ]
+    }
+  },
   "bundle": {
     "active": true,
+    "createUpdaterArtifacts": true,
     "targets": "all",
     "macOS": {
       "signingIdentity": "-"
