@@ -1,4 +1,6 @@
 <script>
+/* global __APP_VERSION__ */
+
 import { settings, settingsActions } from '$lib/stores/settings.js';
 import { isTauri } from '$lib/utils/environment.js';
 
@@ -124,7 +126,7 @@ async function installUpdate() {
         <div class="settings-section">
           <h4>Updates</h4>
 
-          <div class="setting-row">
+          <div class="setting-row" style="cursor: default;">
             <div class="setting-info">
               <span class="setting-name">Current version</span>
               <span class="setting-desc">{APP_VERSION}</span>
