@@ -10,10 +10,14 @@ let updateVersion = $state('');
 let updateNotes = $state('');
 let downloadProgress = $state(0);
 let errorMessage = $state('');
-/** @type {any} */
-let pendingUpdate = $state(null);
+let pendingUpdate = null;
 
 const APP_VERSION = __APP_VERSION__;
+const inTauri = isTauri();
+
+function toErrorMessage(err) {
+  return err instanceof Error ? err.message : String(err);
+}
 
 function toggle() {
   open = !open;
@@ -29,7 +33,7 @@ async function toggleSetting(key) {
 }
 
 async function checkForUpdates() {
-  if (!isTauri()) return;
+  if (!inTauri || updateStatus === 'checking') return;
   updateStatus = 'checking';
   errorMessage = '';
   try {
@@ -44,13 +48,13 @@ async function checkForUpdates() {
       updateStatus = 'upToDate';
     }
   } catch (err) {
-    errorMessage = err instanceof Error ? err.message : String(err);
+    errorMessage = toErrorMessage(err);
     updateStatus = 'error';
   }
 }
 
 async function installUpdate() {
-  if (!pendingUpdate) return;
+  if (!pendingUpdate || updateStatus === 'downloading') return;
   updateStatus = 'downloading';
   downloadProgress = 0;
   try {
@@ -67,7 +71,7 @@ async function installUpdate() {
     const { relaunch } = await import('@tauri-apps/plugin-process');
     await relaunch();
   } catch (err) {
-    errorMessage = err instanceof Error ? err.message : String(err);
+    errorMessage = toErrorMessage(err);
     updateStatus = 'error';
   }
 }
@@ -127,7 +131,7 @@ async function installUpdate() {
             </div>
           </div>
 
-          {#if !isTauri()}
+          {#if !inTauri}
             <div class="setting-row">
               <span class="update-message muted">Update checking is only available in the desktop app.</span>
             </div>
