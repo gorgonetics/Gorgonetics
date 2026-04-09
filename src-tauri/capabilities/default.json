@@ -39,6 +39,8 @@
       ]
     },
     "core:path:default",
+    "updater:default",
+    "process:allow-restart",
     {
       "identifier": "fs:scope",
       "allow": [
