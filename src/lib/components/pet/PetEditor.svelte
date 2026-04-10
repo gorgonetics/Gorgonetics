@@ -1,8 +1,9 @@
 <script>
 import { untrack } from 'svelte';
 import { getAllAttributeDisplayInfo, getAllAttributeNames } from '$lib/services/configService.js';
-import { appState } from '$lib/stores/pets.js';
+import { allTags as allTagsStore, appState } from '$lib/stores/pets.js';
 import { HORSE_BREEDS } from '$lib/types/index.js';
+import TagInput from './TagInput.svelte';
 
 const ALL_ATTRIBUTES = getAllAttributeDisplayInfo();
 
@@ -34,7 +35,10 @@ let editName = $state(initial.name);
 let editGender = $state(initial.gender);
 let editBreed = $state(initial.breed);
 const editAttributes = $state(initial.attributes);
+let editTags = $state([...(pet.tags ?? [])]);
 let saveError = $state('');
+
+const allTags = $derived($allTagsStore);
 
 const availableAttributes = $derived(getAllAttributeNames(pet.species));
 const filteredAttributeList = $derived(
@@ -53,6 +57,10 @@ async function handleSave() {
       if (pet[key] !== value) attributeChanges[key] = value;
     }
     if (Object.keys(attributeChanges).length > 0) updateData.attributes = attributeChanges;
+
+    if (JSON.stringify(editTags) !== JSON.stringify(pet.tags ?? [])) {
+      updateData.tags = editTags;
+    }
 
     if (Object.keys(updateData).length > 0) {
       await appState.updatePet(pet.id, updateData);
@@ -130,6 +138,11 @@ function updateAttribute(attrKey, value) {
             </select>
           </div>
         </div>
+      </section>
+
+      <section class="form-section">
+        <h3>Tags</h3>
+        <TagInput tags={editTags} {allTags} onchange={(t) => { editTags = t; }} />
       </section>
 
       <section class="form-section">

@@ -31,6 +31,13 @@ function getSpeciesEmoji(species) {
                     <span class="gene-count">{pet.known_genes} genes</span>
                 {/if}
             </div>
+            {#if pet.tags?.length > 0}
+                <div class="pet-card-tags">
+                    {#each pet.tags as tag}
+                        <span class="tag-badge">{tag}</span>
+                    {/each}
+                </div>
+            {/if}
         </div>
     </div>
     {#if selected}
@@ -95,6 +102,23 @@ function getSpeciesEmoji(species) {
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+    }
+
+    .pet-card-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 3px;
+        margin-top: 3px;
+    }
+
+    .tag-badge {
+        display: inline-block;
+        padding: 1px 6px;
+        background: #eff6ff;
+        color: #3b82f6;
+        border-radius: 8px;
+        font-size: 10px;
+        font-weight: 500;
     }
 
     .selected-indicator {
