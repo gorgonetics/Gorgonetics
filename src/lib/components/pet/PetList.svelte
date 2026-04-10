@@ -1,6 +1,6 @@
 <script>
 import { pickGenomeFiles, readFileContent } from '$lib/services/fileService.js';
-import { appState, error, pets, selectedPet } from '$lib/stores/pets.js';
+import { allTags as allTagsStore, appState, error, pets, selectedPet } from '$lib/stores/pets.js';
 import { createDragState } from '$lib/utils/dragReorder.svelte.js';
 import { getBasename } from '$lib/utils/path.js';
 import PetCard from './PetCard.svelte';
@@ -14,12 +14,12 @@ let showEditor = $state(false);
 let editingPet = $state(null);
 let deletingPet = $state(null);
 
-const availableTags = $derived([...new Set($pets.flatMap((p) => p.tags ?? []))].sort());
+const availableTags = $derived($allTagsStore);
 
-const filteredPets = $derived(
-  $pets.filter((pet) => {
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
+const filteredPets = $derived.by(() => {
+  const q = searchQuery ? searchQuery.toLowerCase() : '';
+  return $pets.filter((pet) => {
+    if (q) {
       if (!(pet.name || '').toLowerCase().includes(q) && !(pet.species || '').toLowerCase().includes(q)) {
         return false;
       }
@@ -29,8 +29,8 @@ const filteredPets = $derived(
       if (!selectedTags.every((t) => petTags.includes(t))) return false;
     }
     return true;
-  }),
-);
+  });
+});
 
 function toggleTagFilter(tag) {
   if (selectedTags.includes(tag)) {

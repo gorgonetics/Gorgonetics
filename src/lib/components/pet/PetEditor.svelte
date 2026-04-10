@@ -1,7 +1,7 @@
 <script>
 import { untrack } from 'svelte';
 import { getAllAttributeDisplayInfo, getAllAttributeNames } from '$lib/services/configService.js';
-import { appState, pets } from '$lib/stores/pets.js';
+import { allTags as allTagsStore, appState } from '$lib/stores/pets.js';
 import { HORSE_BREEDS } from '$lib/types/index.js';
 import TagInput from './TagInput.svelte';
 
@@ -38,7 +38,7 @@ const editAttributes = $state(initial.attributes);
 let editTags = $state([...(pet.tags ?? [])]);
 let saveError = $state('');
 
-const allTags = $derived([...new Set($pets.flatMap((p) => p.tags ?? []))].sort());
+const allTags = $derived($allTagsStore);
 
 const availableAttributes = $derived(getAllAttributeNames(pet.species));
 const filteredAttributeList = $derived(

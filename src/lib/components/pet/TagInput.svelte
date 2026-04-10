@@ -53,10 +53,12 @@ function handleFocus() {
 }
 
 function handleBlur() {
-  // Delay to allow suggestion click
-  setTimeout(() => {
-    showSuggestions = false;
-  }, 150);
+  showSuggestions = false;
+}
+
+function handleSuggestionMousedown(e, suggestion) {
+  e.preventDefault();
+  addTag(suggestion);
 }
 </script>
 
@@ -82,7 +84,7 @@ function handleBlur() {
   {#if showSuggestions && suggestions.length > 0}
     <div class="tag-suggestions">
       {#each suggestions.slice(0, 8) as suggestion}
-        <button class="tag-suggestion" onmousedown={() => addTag(suggestion)}>
+        <button class="tag-suggestion" onmousedown={(e) => handleSuggestionMousedown(e, suggestion)}>
           {suggestion}
         </button>
       {/each}

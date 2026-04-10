@@ -1,4 +1,4 @@
-import { type Writable, writable } from 'svelte/store';
+import { derived, type Writable, writable } from 'svelte/store';
 import * as petService from '$lib/services/petService.js';
 import type { Pet } from '$lib/types/index.js';
 
@@ -10,6 +10,9 @@ export const loading = writable(false);
 export const error: Writable<string | null> = writable(null);
 export const geneEditingView: Writable<unknown> = writable(null);
 export const activeTab: Writable<Tab> = writable('pets');
+
+/** All unique tags across all pets, sorted. Shared by PetEditor and PetList. */
+export const allTags = derived(pets, ($pets) => [...new Set($pets.flatMap((p) => p.tags ?? []))].sort());
 
 function getCurrentValue<T>(store: Writable<T>): T | undefined {
   let value: T | undefined;
