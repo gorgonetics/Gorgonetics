@@ -67,16 +67,31 @@ function countGenes(genomeData: unknown): { total: number; known: number; unknow
 }
 
 function parseTags(raw: unknown): string[] {
-  if (Array.isArray(raw)) return raw;
-  if (typeof raw === 'string') {
+  let arr: unknown[];
+  if (Array.isArray(raw)) {
+    arr = raw;
+  } else if (typeof raw === 'string') {
     try {
       const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed : [];
+      arr = Array.isArray(parsed) ? parsed : [];
     } catch {
       return [];
     }
+  } else {
+    return [];
   }
-  return [];
+  // Normalize: keep only strings, trim, lowercase, dedupe
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const item of arr) {
+    if (typeof item !== 'string') continue;
+    const normalized = item.trim().toLowerCase();
+    if (normalized && !seen.has(normalized)) {
+      seen.add(normalized);
+      result.push(normalized);
+    }
+  }
+  return result;
 }
 
 /** Enrich a raw pet row from the database with computed fields. */

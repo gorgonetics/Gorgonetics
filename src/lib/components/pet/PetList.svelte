@@ -16,6 +16,16 @@ let deletingPet = $state(null);
 
 const availableTags = $derived($allTagsStore);
 
+// Remove stale selected tags that no longer exist on any pet
+$effect(() => {
+  if (selectedTags.length > 0 && availableTags.length >= 0) {
+    const valid = selectedTags.filter((t) => availableTags.includes(t));
+    if (valid.length !== selectedTags.length) {
+      selectedTags = valid;
+    }
+  }
+});
+
 const filteredPets = $derived.by(() => {
   const q = searchQuery ? searchQuery.toLowerCase() : '';
   return $pets.filter((pet) => {
