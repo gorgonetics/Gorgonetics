@@ -69,10 +69,24 @@ function countGenes(genomeData: unknown): { total: number; known: number; unknow
 /**
  * Enrich a raw pet row from the database with computed fields.
  */
+function parseTags(raw: unknown): string[] {
+  if (Array.isArray(raw)) return raw;
+  if (typeof raw === 'string') {
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
 function enrichPet(pet: Record<string, unknown>): Pet {
   const geneCounts = countGenes(pet.genome_data);
   return {
     ...pet,
+    tags: parseTags(pet.tags),
     total_genes: geneCounts.total,
     known_genes: geneCounts.known,
     unknown_genes: geneCounts.unknown,
@@ -230,6 +244,7 @@ const UPDATABLE_COLUMNS = new Set([
   'gender',
   'breed',
   'notes',
+  'tags',
   'genome_data',
   'sort_order',
   'intelligence',
@@ -263,7 +278,13 @@ export async function updatePet(petId: number, updates: Record<string, unknown>)
   for (const [field, value] of Object.entries(flat)) {
     if (!UPDATABLE_COLUMNS.has(field)) continue;
     setClauses.push(`${field} = $${field}`);
-    params[field] = field === 'genome_data' && typeof value !== 'string' ? JSON.stringify(value) : value;
+    if (field === 'tags' && Array.isArray(value)) {
+      params[field] = JSON.stringify(value);
+    } else if (field === 'genome_data' && typeof value !== 'string') {
+      params[field] = JSON.stringify(value);
+    } else {
+      params[field] = value;
+    }
   }
 
   if (setClauses.length === 0) return false;

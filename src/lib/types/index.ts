@@ -82,6 +82,7 @@ export interface Pet {
   content_hash: string;
   genome_data: string;
   notes: string;
+  tags: string[];
   created_at: string;
   updated_at: string;
   // Dynamic attribute columns

@@ -60,6 +60,7 @@ const PET_COLUMNS = [
   'ferocity',
   'temperament',
   'sort_order',
+  'tags',
 ];
 
 // --- Export ---
@@ -243,6 +244,8 @@ async function importGenesAndPets(
         const params: Record<string, unknown> = {};
         for (const col of PET_COLUMNS) {
           if (col === 'genome_data') params[col] = genomeData;
+          else if (col === 'tags')
+            params[col] = typeof pet[col] === 'string' ? pet[col] : JSON.stringify(pet[col] ?? []);
           else if (col === 'sort_order') params[col] = ((pet[col] as number) ?? 0) + sortOrderOffset;
           else params[col] = pet[col] ?? null;
         }

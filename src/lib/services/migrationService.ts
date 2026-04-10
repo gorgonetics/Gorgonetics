@@ -74,6 +74,14 @@ const MIGRATIONS: Migration[] = [
       await db.execute('CREATE INDEX IF NOT EXISTS idx_pet_images_pet_id ON pet_images(pet_id)');
     },
   },
+  {
+    version: 6,
+    description: 'Add tags column to pets for user-defined labels',
+    up: async () => {
+      const db = getDb();
+      await db.execute("ALTER TABLE pets ADD COLUMN tags TEXT DEFAULT '[]'");
+    },
+  },
 ];
 
 /** Derived from the last migration — no manual bookkeeping needed. */

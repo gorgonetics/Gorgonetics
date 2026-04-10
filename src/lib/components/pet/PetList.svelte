@@ -7,19 +7,38 @@ import PetCard from './PetCard.svelte';
 import PetEditor from './PetEditor.svelte';
 
 let searchQuery = $state('');
+let selectedTags = $state([]);
 let uploading = $state(false);
 let uploadProgress = $state(null);
 let showEditor = $state(false);
 let editingPet = $state(null);
 let deletingPet = $state(null);
 
+const availableTags = $derived([...new Set($pets.flatMap((p) => p.tags ?? []))].sort());
+
 const filteredPets = $derived(
   $pets.filter((pet) => {
-    if (!searchQuery) return true;
-    const q = searchQuery.toLowerCase();
-    return (pet.name || '').toLowerCase().includes(q) || (pet.species || '').toLowerCase().includes(q);
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      if (!(pet.name || '').toLowerCase().includes(q) && !(pet.species || '').toLowerCase().includes(q)) {
+        return false;
+      }
+    }
+    if (selectedTags.length > 0) {
+      const petTags = pet.tags ?? [];
+      if (!selectedTags.every((t) => petTags.includes(t))) return false;
+    }
+    return true;
   }),
 );
+
+function toggleTagFilter(tag) {
+  if (selectedTags.includes(tag)) {
+    selectedTags = selectedTags.filter((t) => t !== tag);
+  } else {
+    selectedTags = [...selectedTags, tag];
+  }
+}
 
 function selectPet(pet) {
   appState.selectPet(pet);
@@ -85,7 +104,7 @@ function cancelDelete() {
 }
 
 const drag = createDragState();
-const isDraggable = $derived(!searchQuery);
+const isDraggable = $derived(!searchQuery && selectedTags.length === 0);
 
 async function handleDrop(e, dropIndex) {
   e.preventDefault();
@@ -142,6 +161,17 @@ async function handleDrop(e, dropIndex) {
             placeholder="Search pets..."
             bind:value={searchQuery}
         />
+        {#if availableTags.length > 0}
+            <div class="tag-filter">
+                {#each availableTags as tag}
+                    <button
+                        class="tag-filter-btn"
+                        class:active={selectedTags.includes(tag)}
+                        onclick={() => toggleTagFilter(tag)}
+                    >{tag}</button>
+                {/each}
+            </div>
+        {/if}
     </div>
 
     <div class="pet-list-items">
@@ -192,8 +222,8 @@ async function handleDrop(e, dropIndex) {
                     ondrop={(e) => handleDrop(e, filteredPets.length)}
                 ></div>
             {/if}
-        {:else if searchQuery}
-            <div class="empty-state">No pets match "{searchQuery}"</div>
+        {:else if searchQuery || selectedTags.length > 0}
+            <div class="empty-state">No pets match the current filters</div>
         {:else}
             <div class="empty-state">No pets yet. Upload a genome file to get started.</div>
         {/if}
@@ -298,6 +328,36 @@ async function handleDrop(e, dropIndex) {
 
     .search-input::placeholder {
         color: #9ca3af;
+    }
+
+    .tag-filter {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        margin-top: 8px;
+    }
+
+    .tag-filter-btn {
+        padding: 2px 10px;
+        border: 1px solid #e5e7eb;
+        border-radius: 10px;
+        background: #ffffff;
+        color: #6b7280;
+        font-size: 11px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.15s ease;
+    }
+
+    .tag-filter-btn:hover {
+        border-color: #93c5fd;
+        color: #3b82f6;
+    }
+
+    .tag-filter-btn.active {
+        background: #3b82f6;
+        border-color: #3b82f6;
+        color: #ffffff;
     }
 
     .pet-list-items {
