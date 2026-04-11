@@ -190,7 +190,7 @@ class InMemoryDatabase implements DatabaseAdapter {
 
     // INSERT
     if (qLower.startsWith('insert')) {
-      const tableMatch = q.match(/insert\s+(?:or\s+replace\s+)?into\s+(\w+)\s*\(([^)]+)\)/i);
+      const tableMatch = q.match(/insert\s+(?:or\s+(?:replace|ignore)\s+)?into\s+(\w+)\s*\(([^)]+)\)/i);
       if (tableMatch) {
         const table = tableMatch[1].toLowerCase();
         const cols = tableMatch[2].split(',').map((c) => c.trim());
@@ -227,6 +227,18 @@ class InMemoryDatabase implements DatabaseAdapter {
           if (existingIdx >= 0) {
             this.tables[table][existingIdx] = row;
             return { rowsAffected: 1, lastInsertId: Number(row.id) };
+          }
+        }
+
+        // INSERT OR IGNORE — skip if duplicate exists (check pet_id+tag or other unique combos)
+        if (qLower.includes('or ignore')) {
+          const isDuplicate = this.tables[table].some(
+            (r) =>
+              (row.pet_id !== undefined && r.pet_id === row.pet_id && r.tag === row.tag) ||
+              (row.id !== undefined && r.id === row.id),
+          );
+          if (isDuplicate) {
+            return { rowsAffected: 0, lastInsertId: 0 };
           }
         }
 
