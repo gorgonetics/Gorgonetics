@@ -8,6 +8,7 @@ import {
   uploadImage,
 } from '$lib/services/imageService.js';
 import { createDragState } from '$lib/utils/dragReorder.svelte.js';
+import { focusTrap } from '$lib/utils/focusTrap.js';
 import { getBasename } from '$lib/utils/path.js';
 
 const { pet } = $props();
@@ -143,13 +144,6 @@ $effect(() => {
   const _id = pet?.id;
   loadImages();
 });
-
-// Focus lightbox when opened so keyboard navigation works
-$effect(() => {
-  if (lightboxIndex >= 0) {
-    document.querySelector('.lightbox')?.focus();
-  }
-});
 </script>
 
 <div class="gallery">
@@ -203,7 +197,7 @@ $effect(() => {
 
 {#if lightboxImage}
   <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="lightbox" role="dialog" aria-label="Image viewer" tabindex="-1" onclick={closeLightbox} onkeydown={handleLightboxKey}>
+  <div class="lightbox" role="dialog" aria-label="Image viewer" aria-modal="true" tabindex="-1" use:focusTrap onclick={closeLightbox} onkeydown={handleLightboxKey}>
     <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
     <div class="lightbox-content" onclick={(e) => e.stopPropagation()}>
       <img src={lightboxImage.url} alt={lightboxImage.original_name} />
@@ -229,7 +223,7 @@ $effect(() => {
   <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
   <div class="modal-backdrop" onclick={cancelDelete} onkeydown={(e) => { if (e.key === 'Escape') cancelDelete(); }} role="presentation">
     <!-- svelte-ignore a11y_click_events_have_key_events a11y_interactive_supports_focus -->
-    <div class="confirm-dialog" role="alertdialog" aria-label="Confirm delete" tabindex="-1" onclick={(e) => e.stopPropagation()}>
+    <div class="confirm-dialog" role="alertdialog" aria-label="Confirm delete" aria-modal="true" tabindex="-1" use:focusTrap onclick={(e) => e.stopPropagation()}>
       <h3>Delete image?</h3>
       <p>Delete <strong>{deleteTarget.original_name}</strong>? This cannot be undone.</p>
       <div class="confirm-actions">
@@ -379,7 +373,9 @@ $effect(() => {
     transition: opacity 0.15s;
   }
 
-  .thumbnail-card:hover .thumbnail-delete {
+  .thumbnail-card:hover .thumbnail-delete,
+  .thumbnail-card:focus-within .thumbnail-delete,
+  .thumbnail-delete:focus {
     opacity: 1;
   }
 

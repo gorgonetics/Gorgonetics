@@ -12,6 +12,7 @@ import { getGeneEffectsCached } from '$lib/services/geneService.js';
 import { blockLetter } from '$lib/services/genomeParser.js';
 import { getPetGenome } from '$lib/services/petService.js';
 import { EFFECT_COLORS } from '$lib/theme/gene-colors.js';
+import { handleGridNavigation } from '$lib/utils/keyboard.js';
 import GeneCell from './GeneCell.svelte';
 import GeneTooltip from './GeneTooltip.svelte';
 
@@ -959,6 +960,19 @@ function handleTooltipHide() {
   tooltipVisible = false;
 }
 
+function handleGridKeydown(e) {
+  if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
+
+  const container = e.currentTarget;
+  const cells = Array.from(container.querySelectorAll('.gene-cell[tabindex="0"]'));
+  const current = cells.indexOf(document.activeElement);
+  if (current < 0) return;
+
+  const row = document.activeElement.closest('tr');
+  const cols = row ? row.querySelectorAll('.gene-cell[tabindex="0"]').length : 1;
+  handleGridNavigation(cells, current, e, cols);
+}
+
 function toggleFilterState(selectedArr, hiddenArr, key, action) {
   const isSelected = selectedArr.includes(key);
   const isHidden = hiddenArr.includes(key);
@@ -1606,7 +1620,8 @@ export function getStatsData() {
                 </div>
 
                 <!-- Gene Grid -->
-                <div class="gene-grid-container">
+                <!-- svelte-ignore a11y_no_static_element_interactions -->
+                <div class="gene-grid-container" onkeydown={handleGridKeydown}>
                     {#if headerStructure && chromosomeData.length > 0}
                         <!-- Optimized dynamic rendering -->
                         {#key currentSpeciesTemplate ? currentSpeciesTemplate.species + "_" + currentSpeciesTemplate.chromosomeCount + "_" + currentSpeciesTemplate.blockCount : "initial"}

@@ -9,6 +9,7 @@ import { getDb } from './database.js';
 
 const SETTING_DEFAULTS: Record<string, unknown> = {
   'horse.autoSelectBreedFilter': true,
+  'display.fontScale': 100,
 };
 
 export function getDefaultSettings(): Record<string, unknown> {

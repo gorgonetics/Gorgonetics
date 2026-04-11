@@ -2,6 +2,7 @@
 import { pickGenomeFiles, readFileContent } from '$lib/services/fileService.js';
 import { allTags as allTagsStore, appState, error, pets, selectedPet } from '$lib/stores/pets.js';
 import { createDragState } from '$lib/utils/dragReorder.svelte.js';
+import { focusTrap } from '$lib/utils/focusTrap.js';
 import { getBasename } from '$lib/utils/path.js';
 import PetCard from './PetCard.svelte';
 import PetEditor from './PetEditor.svelte';
@@ -113,6 +114,31 @@ function cancelDelete() {
   deletingPet = null;
 }
 
+function handlePetCardKeydown(e, index) {
+  const len = filteredPets.length;
+  if (len === 0) return;
+
+  let nextIndex = -1;
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    nextIndex = Math.min(index + 1, len - 1);
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    nextIndex = Math.max(index - 1, 0);
+  } else if (e.key === 'Home') {
+    e.preventDefault();
+    nextIndex = 0;
+  } else if (e.key === 'End') {
+    e.preventDefault();
+    nextIndex = len - 1;
+  }
+
+  if (nextIndex >= 0 && nextIndex !== index) {
+    const cards = document.querySelectorAll('.pet-list-items .pet-card');
+    cards[nextIndex]?.focus();
+  }
+}
+
 const drag = createDragState();
 const isDraggable = $derived(!searchQuery && selectedTags.length === 0);
 
@@ -184,12 +210,14 @@ async function handleDrop(e, dropIndex) {
         {/if}
     </div>
 
-    <div class="pet-list-items">
+    <div class="pet-list-items" role="listbox" aria-label="Pet list">
         {#if filteredPets.length > 0}
             {#each filteredPets as pet, index (pet.id)}
                 <!-- svelte-ignore a11y_no_static_element_interactions -->
                 <div
                     class="pet-card-wrapper"
+                    role="option"
+                    aria-selected={$selectedPet?.id === pet.id}
                     class:drag-over={drag.dragOverIndex === index && drag.draggedIndex !== index}
                     class:dragging={drag.draggedIndex === index}
                     draggable={isDraggable}
@@ -203,6 +231,7 @@ async function handleDrop(e, dropIndex) {
                         {pet}
                         selected={$selectedPet?.id === pet.id}
                         onclick={selectPet}
+                        onkeydown={(e) => handlePetCardKeydown(e, index)}
                     />
                     <div class="pet-card-actions">
                         <button
@@ -267,7 +296,7 @@ async function handleDrop(e, dropIndex) {
 {#if deletingPet}
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="modal-backdrop" onclick={cancelDelete} onkeydown={(e) => { if (e.key === 'Escape') cancelDelete(); }}>
-    <div class="confirm-dialog" role="alertdialog" aria-label="Confirm delete">
+    <div class="confirm-dialog" role="alertdialog" aria-label="Confirm delete" aria-modal="true" use:focusTrap>
         <p class="confirm-message">Delete <strong>{deletingPet.name}</strong>?</p>
         <p class="confirm-subtext">This action cannot be undone.</p>
         <div class="confirm-actions">
@@ -413,7 +442,8 @@ async function handleDrop(e, dropIndex) {
         gap: 2px;
     }
 
-    .pet-card-wrapper:hover .pet-card-actions {
+    .pet-card-wrapper:hover .pet-card-actions,
+    .pet-card-wrapper:focus-within .pet-card-actions {
         display: flex;
     }
 

@@ -1,5 +1,5 @@
 <script>
-import { onDestroy } from 'svelte';
+import { onDestroy, tick } from 'svelte';
 import { inspectBackup } from '$lib/services/backupService.js';
 import { pickBackupFile, readBinaryFile } from '$lib/services/fileService.js';
 import ExportDialog from './ExportDialog.svelte';
@@ -16,13 +16,57 @@ let importFileData = $state(null);
 let status = $state(null);
 let statusTimer = 0;
 
+let focusedIndex = $state(-1);
+let menuItems = $state([]);
+
 function toggleMenu() {
   menuOpen = !menuOpen;
   status = null;
+  if (menuOpen) {
+    focusedIndex = 0;
+    tick().then(() => menuItems[0]?.focus());
+  }
 }
 
 function closeMenu() {
   menuOpen = false;
+  focusedIndex = -1;
+}
+
+function handleToggleKeydown(e) {
+  if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') {
+    if (!menuOpen) {
+      e.preventDefault();
+      menuOpen = true;
+      status = null;
+      focusedIndex = 0;
+      tick().then(() => menuItems[0]?.focus());
+    }
+  }
+}
+
+function handleMenuKeydown(e) {
+  if (e.key === 'Escape') {
+    e.preventDefault();
+    closeMenu();
+    document.querySelector('.menu-toggle')?.focus();
+  } else if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    focusedIndex = (focusedIndex + 1) % menuItems.length;
+    menuItems[focusedIndex]?.focus();
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    focusedIndex = (focusedIndex - 1 + menuItems.length) % menuItems.length;
+    menuItems[focusedIndex]?.focus();
+  } else if (e.key === 'Home') {
+    e.preventDefault();
+    focusedIndex = 0;
+    menuItems[0]?.focus();
+  } else if (e.key === 'End') {
+    e.preventDefault();
+    focusedIndex = menuItems.length - 1;
+    menuItems[focusedIndex]?.focus();
+  }
 }
 
 function openExport() {
@@ -73,7 +117,14 @@ function handleClickOutside(event) {
 <svelte:window onclick={handleClickOutside} />
 
 <div class="data-menu">
-  <button class="menu-toggle" onclick={toggleMenu} title="Data management">
+  <button
+    class="menu-toggle"
+    onclick={toggleMenu}
+    onkeydown={handleToggleKeydown}
+    title="Data management"
+    aria-haspopup="menu"
+    aria-expanded={menuOpen}
+  >
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <ellipse cx="12" cy="5" rx="9" ry="3"/>
       <path d="M3 5V19A9 3 0 0 0 21 19V5"/>
@@ -82,8 +133,15 @@ function handleClickOutside(event) {
   </button>
 
   {#if menuOpen}
-    <div class="dropdown">
-      <button class="dropdown-item" onclick={openExport}>
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="dropdown" role="menu" onkeydown={handleMenuKeydown}>
+      <button
+        class="dropdown-item"
+        role="menuitem"
+        tabindex={focusedIndex === 0 ? 0 : -1}
+        onclick={openExport}
+        bind:this={menuItems[0]}
+      >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
           <polyline points="7 10 12 15 17 10"/>
@@ -91,7 +149,13 @@ function handleClickOutside(event) {
         </svg>
         Export Backup
       </button>
-      <button class="dropdown-item" onclick={openImport}>
+      <button
+        class="dropdown-item"
+        role="menuitem"
+        tabindex={focusedIndex === 1 ? 0 : -1}
+        onclick={openImport}
+        bind:this={menuItems[1]}
+      >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
           <polyline points="17 8 12 3 7 8"/>

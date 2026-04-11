@@ -3,6 +3,7 @@ import { untrack } from 'svelte';
 import { getAllAttributeDisplayInfo, getAllAttributeNames } from '$lib/services/configService.js';
 import { allTags as allTagsStore, appState } from '$lib/stores/pets.js';
 import { HORSE_BREEDS } from '$lib/types/index.js';
+import { focusTrap } from '$lib/utils/focusTrap.js';
 import TagInput from './TagInput.svelte';
 
 const ALL_ATTRIBUTES = getAllAttributeDisplayInfo();
@@ -96,7 +97,7 @@ function updateAttribute(attrKey, value) {
 {#if open}
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="modal-backdrop" onclick={handleBackdropClick} onkeydown={handleKeydown}>
-  <div class="modal-panel" role="dialog" aria-label="Edit Pet">
+  <div class="modal-panel" role="dialog" aria-label="Edit Pet" aria-modal="true" use:focusTrap>
     <div class="modal-header">
       <h2>Edit Pet</h2>
       <button class="modal-close" onclick={handleCancel}>×</button>
