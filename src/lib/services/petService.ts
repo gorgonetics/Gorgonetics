@@ -66,40 +66,12 @@ function countGenes(genomeData: unknown): { total: number; known: number; unknow
   return { total, known, unknown };
 }
 
-function parseTags(raw: unknown): string[] {
-  let arr: unknown[];
-  if (Array.isArray(raw)) {
-    arr = raw;
-  } else if (typeof raw === 'string') {
-    try {
-      const parsed = JSON.parse(raw);
-      arr = Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  } else {
-    return [];
-  }
-  // Normalize: keep only strings, trim, lowercase, dedupe
-  const seen = new Set<string>();
-  const result: string[] = [];
-  for (const item of arr) {
-    if (typeof item !== 'string') continue;
-    const normalized = item.trim().toLowerCase();
-    if (normalized && !seen.has(normalized)) {
-      seen.add(normalized);
-      result.push(normalized);
-    }
-  }
-  return result;
-}
-
 /** Enrich a raw pet row from the database with computed fields. */
-function enrichPet(pet: Record<string, unknown>): Pet {
+function enrichPet(pet: Record<string, unknown>, tags: string[] = []): Pet {
   const geneCounts = countGenes(pet.genome_data);
   return {
     ...pet,
-    tags: parseTags(pet.tags),
+    tags,
     total_genes: geneCounts.total,
     known_genes: geneCounts.known,
     unknown_genes: geneCounts.unknown,
@@ -107,6 +79,27 @@ function enrichPet(pet: Record<string, unknown>): Pet {
     readonly: false,
     is_demo: false,
   } as Pet;
+}
+
+async function loadTagsMap(petIds: number[]): Promise<Map<number, string[]>> {
+  if (petIds.length === 0) return new Map();
+  const db = getDb();
+  const rows = await db.select<{ pet_id: number; tag: string }[]>('SELECT pet_id, tag FROM pet_tags ORDER BY tag');
+  const map = new Map<number, string[]>();
+  for (const row of rows) {
+    const arr = map.get(row.pet_id);
+    if (arr) arr.push(row.tag);
+    else map.set(row.pet_id, [row.tag]);
+  }
+  return map;
+}
+
+async function loadTagsForPet(petId: number): Promise<string[]> {
+  const db = getDb();
+  const rows = await db.select<{ tag: string }[]>('SELECT tag FROM pet_tags WHERE pet_id = $pet_id ORDER BY tag', {
+    pet_id: petId,
+  });
+  return rows.map((r) => r.tag);
 }
 
 /**
@@ -142,7 +135,8 @@ export async function getAllPets(options?: {
   }
 
   const rows = await db.select<Record<string, unknown>[]>(query, selectParams);
-  const items = rows.map(enrichPet);
+  const tagsMap = await loadTagsMap(rows.map((r) => r.id as number));
+  const items = rows.map((r) => enrichPet(r, tagsMap.get(r.id as number) ?? []));
 
   return { items, total };
 }
@@ -153,7 +147,9 @@ export async function getAllPets(options?: {
 export async function getPet(petId: number): Promise<Pet | null> {
   const db = getDb();
   const rows = await db.select<Record<string, unknown>[]>('SELECT * FROM pets WHERE id = $id', { id: petId });
-  return rows.length > 0 ? enrichPet(rows[0]) : null;
+  if (rows.length === 0) return null;
+  const tags = await loadTagsForPet(petId);
+  return enrichPet(rows[0], tags);
 }
 
 /**
@@ -257,7 +253,6 @@ const UPDATABLE_COLUMNS = new Set([
   'gender',
   'breed',
   'notes',
-  'tags',
   'genome_data',
   'sort_order',
   'intelligence',
@@ -278,9 +273,13 @@ export async function updatePet(petId: number, updates: Record<string, unknown>)
   const setClauses: string[] = [];
   const params: Record<string, unknown> = {};
 
+  // Extract tags for junction table handling
+  const newTags = updates.tags as string[] | undefined;
+
   // Flatten nested `attributes` object into top-level fields
   const flat: Record<string, unknown> = {};
   for (const [field, value] of Object.entries(updates)) {
+    if (field === 'tags') continue;
     if (field === 'attributes' && typeof value === 'object' && value !== null) {
       Object.assign(flat, value);
     } else {
@@ -291,18 +290,39 @@ export async function updatePet(petId: number, updates: Record<string, unknown>)
   for (const [field, value] of Object.entries(flat)) {
     if (!UPDATABLE_COLUMNS.has(field)) continue;
     setClauses.push(`${field} = $${field}`);
-    params[field] =
-      (field === 'tags' || field === 'genome_data') && typeof value !== 'string' ? JSON.stringify(value) : value;
+    params[field] = field === 'genome_data' && typeof value !== 'string' ? JSON.stringify(value) : value;
   }
 
-  if (setClauses.length === 0) return false;
+  let changed = false;
 
-  setClauses.push('updated_at = $updated_at');
-  params.updated_at = now();
-  params.w_id = petId;
+  if (setClauses.length > 0) {
+    setClauses.push('updated_at = $updated_at');
+    params.updated_at = now();
+    params.w_id = petId;
+    await db.execute(`UPDATE pets SET ${setClauses.join(', ')} WHERE id = $w_id`, params);
+    changed = true;
+  }
 
-  await db.execute(`UPDATE pets SET ${setClauses.join(', ')} WHERE id = $w_id`, params);
-  return true;
+  if (newTags !== undefined) {
+    await setTagsForPet(petId, newTags);
+    changed = true;
+  }
+
+  return changed;
+}
+
+async function setTagsForPet(petId: number, tags: string[]): Promise<void> {
+  const db = getDb();
+  await db.execute('DELETE FROM pet_tags WHERE pet_id = $pet_id', { pet_id: petId });
+  for (const tag of tags) {
+    const normalized = tag.trim().toLowerCase();
+    if (normalized) {
+      await db.execute('INSERT OR IGNORE INTO pet_tags (pet_id, tag) VALUES ($pet_id, $tag)', {
+        pet_id: petId,
+        tag: normalized,
+      });
+    }
+  }
 }
 
 /**
@@ -326,7 +346,9 @@ export async function findPetByHash(contentHash: string): Promise<Pet | null> {
   const rows = await db.select<Record<string, unknown>[]>('SELECT * FROM pets WHERE content_hash = $hash', {
     hash: contentHash,
   });
-  return rows.length > 0 ? enrichPet(rows[0]) : null;
+  if (rows.length === 0) return null;
+  const tags = await loadTagsForPet(rows[0].id as number);
+  return enrichPet(rows[0], tags);
 }
 
 /**

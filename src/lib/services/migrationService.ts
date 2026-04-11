@@ -82,6 +82,46 @@ const MIGRATIONS: Migration[] = [
       await db.execute("ALTER TABLE pets ADD COLUMN tags TEXT DEFAULT '[]'");
     },
   },
+  {
+    version: 7,
+    description: 'Migrate pet tags from JSON column to junction table',
+    up: async () => {
+      const db = getDb();
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS pet_tags (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          pet_id INTEGER NOT NULL,
+          tag TEXT NOT NULL,
+          UNIQUE(pet_id, tag),
+          FOREIGN KEY (pet_id) REFERENCES pets(id) ON DELETE CASCADE
+        )
+      `);
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_pet_tags_tag ON pet_tags(tag)');
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_pet_tags_pet_id ON pet_tags(pet_id)');
+
+      // Migrate existing JSON tags into junction table
+      const rows = await db.select<{ id: number; tags: string }[]>(
+        "SELECT id, tags FROM pets WHERE tags IS NOT NULL AND tags != '[]'",
+      );
+      for (const row of rows) {
+        try {
+          const tags = JSON.parse(row.tags);
+          if (Array.isArray(tags)) {
+            for (const tag of tags) {
+              if (typeof tag === 'string' && tag.trim()) {
+                await db.execute('INSERT OR IGNORE INTO pet_tags (pet_id, tag) VALUES ($pet_id, $tag)', {
+                  pet_id: row.id,
+                  tag: tag.trim().toLowerCase(),
+                });
+              }
+            }
+          }
+        } catch {
+          // Skip rows with invalid JSON
+        }
+      }
+    },
+  },
 ];
 
 /** Derived from the last migration — no manual bookkeeping needed. */

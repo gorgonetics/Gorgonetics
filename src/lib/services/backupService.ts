@@ -60,7 +60,6 @@ const PET_COLUMNS = [
   'ferocity',
   'temperament',
   'sort_order',
-  'tags',
 ];
 
 // --- Export ---
@@ -99,6 +98,12 @@ export async function exportDatabase(options: ExportOptions): Promise<ExportResu
     if (options.includePets) {
       zip.file('pets.json', JSON.stringify(petsExport));
       petCount = petsExport.length;
+
+      // Export pet tags from junction table, keyed by content_hash for portability
+      const tagRows = await db.select<{ content_hash: string; tag: string }[]>(
+        'SELECT p.content_hash, pt.tag FROM pet_tags pt JOIN pets p ON pt.pet_id = p.id ORDER BY p.content_hash, pt.tag',
+      );
+      zip.file('pet_tags.json', JSON.stringify(tagRows));
     }
   }
 
@@ -244,8 +249,6 @@ async function importGenesAndPets(
         const params: Record<string, unknown> = {};
         for (const col of PET_COLUMNS) {
           if (col === 'genome_data') params[col] = genomeData;
-          else if (col === 'tags')
-            params[col] = typeof pet[col] === 'string' ? pet[col] : JSON.stringify(pet[col] ?? []);
           else if (col === 'sort_order') params[col] = ((pet[col] as number) ?? 0) + sortOrderOffset;
           else params[col] = pet[col] ?? null;
         }
@@ -281,6 +284,57 @@ async function importFromZip(fileData: Uint8Array, options: ImportOptions): Prom
   }
 
   const result = await importGenesAndPets(genes, pets, options);
+
+  // Import pet tags into junction table
+  if (options.includePets) {
+    const db = getDb();
+    const allPets = await db.select<{ id: number; content_hash: string }[]>('SELECT id, content_hash FROM pets');
+    const hashToId = new Map(allPets.map((p) => [p.content_hash, p.id]));
+
+    if (options.mode === 'replace') {
+      await db.execute('DELETE FROM pet_tags');
+    }
+
+    const petTagsFile = zip.file('pet_tags.json');
+    if (petTagsFile) {
+      // New format: pet_tags.json with { content_hash, tag } rows
+      const tagRows = JSON.parse(await petTagsFile.async('string')) as { content_hash: string; tag: string }[];
+      for (const row of tagRows) {
+        const petId = hashToId.get(row.content_hash);
+        if (petId) {
+          await db.execute('INSERT OR IGNORE INTO pet_tags (pet_id, tag) VALUES ($pet_id, $tag)', {
+            pet_id: petId,
+            tag: row.tag,
+          });
+        }
+      }
+    } else if (pets) {
+      // Backward compat: v6 backups with tags as JSON array on each pet
+      for (const pet of pets) {
+        const petId = hashToId.get(pet.content_hash as string);
+        if (!petId) continue;
+        let tags: unknown[] = [];
+        if (Array.isArray(pet.tags)) tags = pet.tags;
+        else if (typeof pet.tags === 'string') {
+          try {
+            const parsed = JSON.parse(pet.tags);
+            if (Array.isArray(parsed)) tags = parsed;
+          } catch {
+            /* skip */
+          }
+        }
+        for (const tag of tags) {
+          if (typeof tag === 'string' && tag.trim()) {
+            await db.execute('INSERT OR IGNORE INTO pet_tags (pet_id, tag) VALUES ($pet_id, $tag)', {
+              pet_id: petId,
+              tag: tag.trim().toLowerCase(),
+            });
+          }
+        }
+      }
+    }
+  }
+
   let imagesImported = 0;
   let imagesSkipped = 0;
 

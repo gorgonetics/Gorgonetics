@@ -9,7 +9,7 @@ import * as petService from '$lib/services/petService.js';
 
 const SAMPLE_BEEWASP = readFileSync(resolve('data/Genes_SampleFaeBee.txt'), 'utf-8');
 
-async function buildZip({ pets = [] } = {}) {
+async function buildZip({ pets = [], petTags = null } = {}) {
   const zip = new JSZip();
   zip.file(
     'metadata.json',
@@ -24,6 +24,9 @@ async function buildZip({ pets = [] } = {}) {
     }),
   );
   zip.file('pets.json', JSON.stringify(pets));
+  if (petTags) {
+    zip.file('pet_tags.json', JSON.stringify(petTags));
+  }
   return zip.generateAsync({ type: 'uint8array' });
 }
 
@@ -47,10 +50,9 @@ const basePet = {
   ferocity: 50,
   temperament: 50,
   sort_order: 0,
-  tags: '[]',
 };
 
-describe('Pet Tags', () => {
+describe('Pet Tags (junction table)', () => {
   beforeEach(async () => {
     await closeDatabase();
     await initDatabase();
@@ -58,12 +60,12 @@ describe('Pet Tags', () => {
   });
 
   describe('migration', () => {
-    it('schema version is 6', () => {
-      expect(CURRENT_SCHEMA_VERSION).toBe(6);
+    it('schema version is 7', () => {
+      expect(CURRENT_SCHEMA_VERSION).toBe(7);
     });
   });
 
-  describe('enrichPet — tag parsing', () => {
+  describe('tag operations via petService', () => {
     it('new pet has empty tags', async () => {
       await petService.uploadPet(SAMPLE_BEEWASP, 'Bee1', 'Female');
       const { items } = await petService.getAllPets();
@@ -79,11 +81,9 @@ describe('Pet Tags', () => {
       const updated = await petService.getPet(pet.id);
       expect(updated.tags).toEqual(['breeder', 'favorite']);
     });
-  });
 
-  describe('updatePet — tag persistence', () => {
     it('persists tags via updatePet', async () => {
-      await petService.uploadPet(SAMPLE_BEEWASP, 'Bee4', 'Male');
+      await petService.uploadPet(SAMPLE_BEEWASP, 'Bee3', 'Male');
       const { items } = await petService.getAllPets();
       const pet = items[0];
 
@@ -93,18 +93,18 @@ describe('Pet Tags', () => {
     });
 
     it('overwrites tags with a new set', async () => {
-      await petService.uploadPet(SAMPLE_BEEWASP, 'Bee5', 'Female');
+      await petService.uploadPet(SAMPLE_BEEWASP, 'Bee4', 'Female');
       const { items } = await petService.getAllPets();
       const pet = items[0];
 
       await petService.updatePet(pet.id, { tags: ['old-tag'] });
       await petService.updatePet(pet.id, { tags: ['new-tag', 'another'] });
       const updated = await petService.getPet(pet.id);
-      expect(updated.tags).toEqual(['new-tag', 'another']);
+      expect(updated.tags).toEqual(['another', 'new-tag']);
     });
 
     it('clears tags with empty array', async () => {
-      await petService.uploadPet(SAMPLE_BEEWASP, 'Bee6', 'Male');
+      await petService.uploadPet(SAMPLE_BEEWASP, 'Bee5', 'Male');
       const { items } = await petService.getAllPets();
       const pet = items[0];
 
@@ -113,12 +113,25 @@ describe('Pet Tags', () => {
       const updated = await petService.getPet(pet.id);
       expect(updated.tags).toEqual([]);
     });
+
+    it('normalizes tags to lowercase and trims', async () => {
+      await petService.uploadPet(SAMPLE_BEEWASP, 'Bee6', 'Female');
+      const { items } = await petService.getAllPets();
+      const pet = items[0];
+
+      await petService.updatePet(pet.id, { tags: ['  Breeder  ', 'FAVORITE'] });
+      const updated = await petService.getPet(pet.id);
+      expect(updated.tags).toEqual(['breeder', 'favorite']);
+    });
   });
 
   describe('backup round-trip', () => {
-    it('preserves tags through import', async () => {
-      const pet = { ...basePet, tags: '["breeder","favorite"]' };
-      const zipData = await buildZip({ pets: [pet] });
+    it('preserves tags through import (new pet_tags.json format)', async () => {
+      const petTags = [
+        { content_hash: 'hash_tags_test', tag: 'breeder' },
+        { content_hash: 'hash_tags_test', tag: 'favorite' },
+      ];
+      const zipData = await buildZip({ pets: [basePet], petTags });
       await importDatabase(zipData, {
         mode: 'replace',
         includeGenes: false,
@@ -130,8 +143,8 @@ describe('Pet Tags', () => {
       expect(items[0].tags).toEqual(['breeder', 'favorite']);
     });
 
-    it('handles tags as parsed array on import', async () => {
-      const pet = { ...basePet, tags: ['alpha', 'beta'], content_hash: 'hash_parsed' };
+    it('backward compat: imports tags from v6 JSON field on pets', async () => {
+      const pet = { ...basePet, tags: '["alpha","beta"]', content_hash: 'hash_v6' };
       const zipData = await buildZip({ pets: [pet] });
       await importDatabase(zipData, {
         mode: 'replace',
@@ -142,6 +155,20 @@ describe('Pet Tags', () => {
 
       const { items } = await petService.getAllPets();
       expect(items[0].tags).toEqual(['alpha', 'beta']);
+    });
+
+    it('backward compat: handles tags as parsed array on import', async () => {
+      const pet = { ...basePet, tags: ['gamma', 'delta'], content_hash: 'hash_parsed' };
+      const zipData = await buildZip({ pets: [pet] });
+      await importDatabase(zipData, {
+        mode: 'replace',
+        includeGenes: false,
+        includePets: true,
+        includeImages: false,
+      });
+
+      const { items } = await petService.getAllPets();
+      expect(items[0].tags).toEqual(['delta', 'gamma']);
     });
   });
 });

@@ -60,7 +60,6 @@ const samplePet = {
   ferocity: 50,
   temperament: 50,
   sort_order: 0,
-  tags: '[]',
 };
 
 describe('Backup Service', () => {
