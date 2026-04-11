@@ -299,13 +299,18 @@ async function importFromZip(fileData: Uint8Array, options: ImportOptions): Prom
     const petTagsFile = zip.file('pet_tags.json');
     if (petTagsFile) {
       // New format: pet_tags.json with { content_hash, tag } rows
-      const tagRows = JSON.parse(await petTagsFile.async('string')) as { content_hash: string; tag: string }[];
+      const tagRows = JSON.parse(await petTagsFile.async('string')) as unknown[];
       for (const row of tagRows) {
-        const petId = hashToId.get(row.content_hash);
+        if (!row || typeof row !== 'object') continue;
+        const record = row as Record<string, unknown>;
+        if (typeof record.content_hash !== 'string' || typeof record.tag !== 'string') continue;
+        const normalized = record.tag.trim().toLowerCase();
+        if (!normalized) continue;
+        const petId = hashToId.get(record.content_hash);
         if (petId) {
           await db.execute('INSERT OR IGNORE INTO pet_tags (pet_id, tag) VALUES ($pet_id, $tag)', {
             pet_id: petId,
-            tag: row.tag.trim().toLowerCase(),
+            tag: normalized,
           });
         }
       }

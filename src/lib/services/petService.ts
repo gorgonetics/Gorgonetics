@@ -81,9 +81,14 @@ function enrichPet(pet: Record<string, unknown>, tags: string[]): Pet {
   } as Pet;
 }
 
-async function loadTagsMap(): Promise<Map<number, string[]>> {
+async function loadTagsForPets(petIds: number[]): Promise<Map<number, string[]>> {
+  if (petIds.length === 0) return new Map();
   const db = getDb();
-  const rows = await db.select<{ pet_id: number; tag: string }[]>('SELECT pet_id, tag FROM pet_tags ORDER BY tag');
+  const placeholders = petIds.map(() => '?').join(', ');
+  const rows = await db.select<{ pet_id: number; tag: string }[]>(
+    `SELECT pet_id, tag FROM pet_tags WHERE pet_id IN (${placeholders}) ORDER BY tag`,
+    petIds,
+  );
   const map = new Map<number, string[]>();
   for (const row of rows) {
     const arr = map.get(row.pet_id);
@@ -134,7 +139,7 @@ export async function getAllPets(options?: {
   }
 
   const rows = await db.select<Record<string, unknown>[]>(query, selectParams);
-  const tagsMap = await loadTagsMap();
+  const tagsMap = await loadTagsForPets(rows.map((r) => r.id as number));
   const items = rows.map((r) => enrichPet(r, tagsMap.get(r.id as number) ?? []));
 
   return { items, total };
@@ -304,6 +309,12 @@ export async function updatePet(petId: number, updates: Record<string, unknown>)
 
   if (newTags !== undefined) {
     await setTagsForPet(petId, newTags);
+    if (setClauses.length === 0) {
+      await db.execute('UPDATE pets SET updated_at = $updated_at WHERE id = $w_id', {
+        updated_at: now(),
+        w_id: petId,
+      });
+    }
     changed = true;
   }
 
@@ -312,15 +323,22 @@ export async function updatePet(petId: number, updates: Record<string, unknown>)
 
 async function setTagsForPet(petId: number, tags: string[]): Promise<void> {
   const db = getDb();
-  await db.execute('DELETE FROM pet_tags WHERE pet_id = $pet_id', { pet_id: petId });
-  for (const tag of tags) {
-    const normalized = tag.trim().toLowerCase();
-    if (normalized) {
-      await db.execute('INSERT OR IGNORE INTO pet_tags (pet_id, tag) VALUES ($pet_id, $tag)', {
-        pet_id: petId,
-        tag: normalized,
-      });
+  await db.execute('BEGIN');
+  try {
+    await db.execute('DELETE FROM pet_tags WHERE pet_id = $pet_id', { pet_id: petId });
+    for (const tag of tags) {
+      const normalized = tag.trim().toLowerCase();
+      if (normalized) {
+        await db.execute('INSERT OR IGNORE INTO pet_tags (pet_id, tag) VALUES ($pet_id, $tag)', {
+          pet_id: petId,
+          tag: normalized,
+        });
+      }
     }
+    await db.execute('COMMIT');
+  } catch (error) {
+    await db.execute('ROLLBACK');
+    throw error;
   }
 }
 
