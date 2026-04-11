@@ -67,7 +67,7 @@ function countGenes(genomeData: unknown): { total: number; known: number; unknow
 }
 
 /** Enrich a raw pet row from the database with computed fields. */
-function enrichPet(pet: Record<string, unknown>, tags: string[] = []): Pet {
+function enrichPet(pet: Record<string, unknown>, tags: string[]): Pet {
   const geneCounts = countGenes(pet.genome_data);
   return {
     ...pet,
@@ -81,8 +81,7 @@ function enrichPet(pet: Record<string, unknown>, tags: string[] = []): Pet {
   } as Pet;
 }
 
-async function loadTagsMap(petIds: number[]): Promise<Map<number, string[]>> {
-  if (petIds.length === 0) return new Map();
+async function loadTagsMap(): Promise<Map<number, string[]>> {
   const db = getDb();
   const rows = await db.select<{ pet_id: number; tag: string }[]>('SELECT pet_id, tag FROM pet_tags ORDER BY tag');
   const map = new Map<number, string[]>();
@@ -135,7 +134,7 @@ export async function getAllPets(options?: {
   }
 
   const rows = await db.select<Record<string, unknown>[]>(query, selectParams);
-  const tagsMap = await loadTagsMap(rows.map((r) => r.id as number));
+  const tagsMap = await loadTagsMap();
   const items = rows.map((r) => enrichPet(r, tagsMap.get(r.id as number) ?? []));
 
   return { items, total };

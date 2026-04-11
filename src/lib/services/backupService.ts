@@ -285,12 +285,13 @@ async function importFromZip(fileData: Uint8Array, options: ImportOptions): Prom
 
   const result = await importGenesAndPets(genes, pets, options);
 
+  // Build pet hash-to-id map (shared by tag and image import)
+  const db = getDb();
+  const allPets = await db.select<{ id: number; content_hash: string }[]>('SELECT id, content_hash FROM pets');
+  const hashToId = new Map(allPets.map((p) => [p.content_hash, p.id]));
+
   // Import pet tags into junction table
   if (options.includePets) {
-    const db = getDb();
-    const allPets = await db.select<{ id: number; content_hash: string }[]>('SELECT id, content_hash FROM pets');
-    const hashToId = new Map(allPets.map((p) => [p.content_hash, p.id]));
-
     if (options.mode === 'replace') {
       await db.execute('DELETE FROM pet_tags');
     }
@@ -304,7 +305,7 @@ async function importFromZip(fileData: Uint8Array, options: ImportOptions): Prom
         if (petId) {
           await db.execute('INSERT OR IGNORE INTO pet_tags (pet_id, tag) VALUES ($pet_id, $tag)', {
             pet_id: petId,
-            tag: row.tag,
+            tag: row.tag.trim().toLowerCase(),
           });
         }
       }
@@ -343,12 +344,8 @@ async function importFromZip(fileData: Uint8Array, options: ImportOptions): Prom
     const petImagesFile = zip.file('images/pet_images.json');
     if (petImagesFile && isTauri()) {
       const { writeFile, mkdir, BaseDirectory } = await import('@tauri-apps/plugin-fs');
-      const db = getDb();
 
       const imageRecords = JSON.parse(await petImagesFile.async('string')) as Record<string, unknown>[];
-
-      const allPets = await db.select<{ id: number; content_hash: string }[]>('SELECT id, content_hash FROM pets');
-      const hashToId = new Map(allPets.map((p) => [p.content_hash, p.id]));
 
       // Pre-fetch existing images for merge dedup
       let existingImageKeys: Set<string> | null = null;
