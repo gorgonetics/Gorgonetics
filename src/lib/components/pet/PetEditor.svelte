@@ -36,7 +36,7 @@ let editName = $state(initial.name);
 let editGender = $state(initial.gender);
 let editBreed = $state(initial.breed);
 const editAttributes = $state(initial.attributes);
-let editTags = $state([...(pet.tags ?? [])]);
+let editTags = $state(untrack(() => [...(pet.tags ?? [])]));
 let saveError = $state('');
 
 const allTags = $derived($allTagsStore);

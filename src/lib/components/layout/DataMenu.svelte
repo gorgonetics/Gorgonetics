@@ -135,8 +135,7 @@ function handleClickOutside(event) {
   </button>
 
   {#if menuOpen}
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="dropdown" role="menu" onkeydown={handleMenuKeydown}>
+    <div class="dropdown" role="menu" tabindex="-1" onkeydown={handleMenuKeydown}>
       <button
         class="dropdown-item"
         role="menuitem"
