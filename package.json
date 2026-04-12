@@ -24,7 +24,7 @@
     "setup": "pnpm install"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.4.10",
+    "@biomejs/biome": "2.4.11",
     "@playwright/test": "^1.59.1",
     "@sveltejs/adapter-static": "^3.0.10",
     "@sveltejs/kit": "^2.56.1",
