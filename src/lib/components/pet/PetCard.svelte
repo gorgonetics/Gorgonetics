@@ -53,8 +53,8 @@ function getSpeciesEmoji(species) {
         justify-content: space-between;
         width: 100%;
         padding: 10px 12px;
-        background: #ffffff;
-        border: 1px solid #e5e7eb;
+        background: var(--bg-primary);
+        border: 1px solid var(--border-primary);
         border-radius: 8px;
         cursor: pointer;
         transition: all 0.15s ease;
@@ -62,14 +62,14 @@ function getSpeciesEmoji(species) {
     }
 
     .pet-card:hover {
-        background: #f9fafb;
-        border-color: #d1d5db;
+        background: var(--bg-secondary);
+        border-color: var(--border-secondary);
     }
 
     .pet-card.selected {
-        background: #eff6ff;
-        border-color: #3b82f6;
-        border-left: 3px solid #3b82f6;
+        background: var(--bg-selected);
+        border-color: var(--accent);
+        border-left: 3px solid var(--accent);
     }
 
     .pet-card-main {
@@ -91,7 +91,7 @@ function getSpeciesEmoji(species) {
     .pet-card-name {
         font-size: 13px;
         font-weight: 600;
-        color: #111827;
+        color: var(--text-primary);
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -99,7 +99,7 @@ function getSpeciesEmoji(species) {
 
     .pet-card-meta {
         font-size: 11px;
-        color: #6b7280;
+        color: var(--text-tertiary);
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -115,15 +115,15 @@ function getSpeciesEmoji(species) {
     .tag-badge {
         display: inline-block;
         padding: 1px 6px;
-        background: #eff6ff;
-        color: #3b82f6;
+        background: var(--bg-selected);
+        color: var(--accent-text);
         border-radius: 8px;
         font-size: 10px;
         font-weight: 500;
     }
 
     .selected-indicator {
-        color: #3b82f6;
+        color: var(--accent-text);
         font-size: 12px;
         flex-shrink: 0;
     }

@@ -19,7 +19,8 @@ body {
   font-family:
     -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Open Sans",
     "Helvetica Neue", sans-serif;
-  background-color: #ffffff;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
@@ -35,6 +36,124 @@ button,
 select,
 textarea {
   font: inherit;
+}
+
+/* --- Theme tokens --- */
+:root {
+  /* Surfaces */
+  --bg-primary: #ffffff;
+  --bg-secondary: #f9fafb;
+  --bg-tertiary: #f3f4f6;
+  --bg-hover: #f3f4f6;
+  --bg-selected: #eff6ff;
+  --bg-overlay: rgba(0, 0, 0, 0.35);
+
+  /* Text */
+  --text-primary: #111827;
+  --text-secondary: #374151;
+  --text-tertiary: #6b7280;
+  --text-muted: #9ca3af;
+  --text-inverse: #ffffff;
+
+  /* Borders */
+  --border-primary: #e5e7eb;
+  --border-secondary: #d1d5db;
+  --border-focus: #3b82f6;
+
+  /* Accent */
+  --accent: #3b82f6;
+  --accent-hover: #2563eb;
+  --accent-soft: rgba(59, 130, 246, 0.1);
+  --accent-text: #3b82f6;
+
+  /* Status — error */
+  --error: #ef4444;
+  --error-hover: #dc2626;
+  --error-text: #dc2626;
+  --error-bg: #fef2f2;
+  --error-border: #fecaca;
+
+  /* Status — success */
+  --success-text: #059669;
+  --success-bg: #f0fdf4;
+  --success-border: #bbf7d0;
+
+  /* Status — warning */
+  --warning-text: #92400e;
+  --warning-bg: #fef3c7;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.15);
+  --shadow-xl: 0 20px 60px rgba(0, 0, 0, 0.15);
+
+  /* Toggle */
+  --toggle-off: #d1d5db;
+  --toggle-on: #3b82f6;
+  --toggle-thumb: #ffffff;
+}
+
+/* --- Dark theme --- */
+[data-theme="dark"] {
+  /* Surfaces */
+  --bg-primary: #111827;
+  --bg-secondary: #1f2937;
+  --bg-tertiary: #374151;
+  --bg-hover: #374151;
+  --bg-selected: #1e3a5f;
+  --bg-overlay: rgba(0, 0, 0, 0.6);
+
+  /* Text */
+  --text-primary: #f9fafb;
+  --text-secondary: #e5e7eb;
+  --text-tertiary: #9ca3af;
+  --text-muted: #6b7280;
+  --text-inverse: #111827;
+
+  /* Borders */
+  --border-primary: #374151;
+  --border-secondary: #4b5563;
+  --border-focus: #60a5fa;
+
+  /* Accent */
+  --accent: #3b82f6;
+  --accent-hover: #60a5fa;
+  --accent-soft: rgba(59, 130, 246, 0.2);
+  --accent-text: #60a5fa;
+
+  /* Status — error */
+  --error: #ef4444;
+  --error-hover: #f87171;
+  --error-text: #f87171;
+  --error-bg: rgba(239, 68, 68, 0.1);
+  --error-border: rgba(239, 68, 68, 0.3);
+
+  /* Status — success */
+  --success-text: #34d399;
+  --success-bg: rgba(52, 211, 153, 0.1);
+  --success-border: rgba(52, 211, 153, 0.3);
+
+  /* Status — warning */
+  --warning-text: #fbbf24;
+  --warning-bg: rgba(251, 191, 36, 0.1);
+
+  /* Shadows */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.5);
+  --shadow-xl: 0 20px 60px rgba(0, 0, 0, 0.6);
+
+  /* Toggle */
+  --toggle-off: #4b5563;
+  --toggle-on: #3b82f6;
+  --toggle-thumb: #ffffff;
+
+  /* Gene neutral colors lightened for dark backgrounds.
+     These override the :root values — keep aligned with gene-colors.ts
+     if that module ever reads CSS vars instead of hardcoded values. */
+  --gene-neutral: #b0b8c4;
+  --gene-appearance-neutral: #b0b8c4;
 }
 
 /* Gene colors — canonical source: src/lib/theme/gene-colors.ts */
@@ -92,40 +211,40 @@ textarea {
 }
 
 .btn-secondary {
-  background: #ffffff;
-  color: #374151;
-  border-color: #e5e7eb;
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  border-color: var(--border-primary);
 }
 
 .btn-secondary:hover {
-  background: #f9fafb;
-  border-color: #d1d5db;
+  background: var(--bg-secondary);
+  border-color: var(--border-secondary);
 }
 
 .btn-primary {
-  background: #3b82f6;
-  color: #ffffff;
-  border-color: #3b82f6;
+  background: var(--accent);
+  color: var(--text-inverse);
+  border-color: var(--accent);
 }
 
 .btn-primary:hover {
-  background: #2563eb;
+  background: var(--accent-hover);
 }
 
 .btn-danger {
-  background: #ef4444;
-  color: #ffffff;
+  background: var(--error);
+  color: var(--text-inverse);
 }
 
 .btn-danger:hover {
-  background: #dc2626;
+  background: var(--error-hover);
 }
 
 /* --- Shared modal backdrop --- */
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.35);
+  background: var(--bg-overlay);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -134,10 +253,10 @@ textarea {
 
 /* --- Shared dialog styles --- */
 .dialog {
-  background: #ffffff;
+  background: var(--bg-primary);
   border-radius: 12px;
   width: 90%;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-lg);
   overflow: hidden;
 }
 
@@ -146,13 +265,13 @@ textarea {
   align-items: center;
   justify-content: space-between;
   padding: 16px 20px;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--border-primary);
 }
 
 .dialog-header h3 {
   font-size: 16px;
   font-weight: 700;
-  color: #111827;
+  color: var(--text-primary);
 }
 
 .dialog-body {
@@ -164,8 +283,8 @@ textarea {
   justify-content: flex-end;
   gap: 8px;
   padding: 14px 20px;
-  border-top: 1px solid #e5e7eb;
-  background: #f9fafb;
+  border-top: 1px solid var(--border-primary);
+  background: var(--bg-secondary);
 }
 
 .close-btn {
@@ -174,7 +293,7 @@ textarea {
   border: none;
   border-radius: 6px;
   background: transparent;
-  color: #6b7280;
+  color: var(--text-tertiary);
   font-size: 18px;
   cursor: pointer;
   display: flex;
@@ -183,12 +302,12 @@ textarea {
 }
 
 .close-btn:hover {
-  background: #f3f4f6;
+  background: var(--bg-hover);
 }
 
 /* --- Global focus-visible styles --- */
 :focus-visible {
-  outline: 2px solid #3b82f6;
+  outline: 2px solid var(--border-focus);
   outline-offset: 2px;
 }
 
@@ -208,8 +327,8 @@ textarea:focus:not(:focus-visible) {
   top: -40px;
   left: 0;
   padding: 8px 16px;
-  background: #3b82f6;
-  color: #ffffff;
+  background: var(--accent);
+  color: var(--text-inverse);
   font-size: 14px;
   font-weight: 600;
   z-index: 10000;
@@ -244,22 +363,22 @@ textarea:focus:not(:focus-visible) {
 .checkbox-label {
   font-size: 14px;
   font-weight: 500;
-  color: #111827;
+  color: var(--text-primary);
 }
 
 .checkbox-desc {
   font-size: 12px;
-  color: #9ca3af;
+  color: var(--text-muted);
 }
 
 /* --- Shared metadata styles --- */
 .meta-dot {
   margin: 0 4px;
-  color: #d1d5db;
+  color: var(--border-secondary);
 }
 
 .gene-count {
-  color: #3b82f6;
+  color: var(--accent-text);
 }
 
 /* --- Shared status styles --- */
@@ -268,23 +387,23 @@ textarea:focus:not(:focus-visible) {
   align-items: center;
   justify-content: center;
   padding: 2rem;
-  color: #6b7280;
+  color: var(--text-tertiary);
   font-style: italic;
 }
 
 .error {
-  color: #dc2626;
-  background-color: #fef2f2;
-  border: 1px solid #fecaca;
+  color: var(--error-text);
+  background-color: var(--error-bg);
+  border: 1px solid var(--error-border);
   border-radius: 6px;
   padding: 0.75rem;
   margin: 0.5rem 0;
 }
 
 .success {
-  color: #059669;
-  background-color: #f0fdf4;
-  border: 1px solid #bbf7d0;
+  color: var(--success-text);
+  background-color: var(--success-bg);
+  border: 1px solid var(--success-border);
   border-radius: 6px;
   padding: 0.75rem;
   margin: 0.5rem 0;

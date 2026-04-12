@@ -181,9 +181,9 @@ const cssClass = $derived(computeCssClass(gene, geneAnalysis, currentView, isVis
     }
 
     :global(.gene-neutral.gene-unknown) {
-        background: #f3f4f6;
+        background: var(--bg-tertiary);
         border: 2.5px dashed color-mix(in srgb, var(--gene-neutral) 50%, transparent);
-        color: #b0b4ba;
+        color: var(--text-muted);
         opacity: 0.7;
         display: flex;
         align-items: center;
@@ -191,7 +191,7 @@ const cssClass = $derived(computeCssClass(gene, geneAnalysis, currentView, isVis
     }
 
     .gene-unknown-symbol {
-        color: #b0b4ba;
+        color: var(--text-muted);
         font-size: 1em;
         font-weight: 600;
         opacity: 1;

@@ -235,26 +235,26 @@ onDestroy(() => {
         align-items: center;
         justify-content: space-between;
         padding: 12px 20px;
-        border-bottom: 1px solid #e5e7eb;
-        background: #ffffff;
+        border-bottom: 1px solid var(--border-primary);
+        background: var(--bg-primary);
         flex-shrink: 0;
     }
 
     .detail-title {
         font-size: 18px;
         font-weight: 700;
-        color: #111827;
+        color: var(--text-primary);
         margin: 0;
     }
 
     .detail-meta {
         font-size: 12px;
-        color: #6b7280;
+        color: var(--text-tertiary);
         margin-top: 2px;
     }
 
     .unknown-badge {
-        color: #f59e0b;
+        color: var(--warning-text);
         font-weight: 600;
     }
 
@@ -273,16 +273,16 @@ onDestroy(() => {
     .breed-label {
         font-size: 11px;
         font-weight: 600;
-        color: #6b7280;
+        color: var(--text-tertiary);
         margin-right: 4px;
     }
 
     .breed-btn {
         padding: 3px 8px;
-        border: 1px solid #e5e7eb;
+        border: 1px solid var(--border-primary);
         border-radius: 4px;
-        background: #ffffff;
-        color: #6b7280;
+        background: var(--bg-primary);
+        color: var(--text-tertiary);
         font-size: 11px;
         font-weight: 500;
         cursor: pointer;
@@ -290,14 +290,14 @@ onDestroy(() => {
     }
 
     .breed-btn:hover {
-        border-color: #d1d5db;
-        color: #374151;
+        border-color: var(--border-secondary);
+        color: var(--text-secondary);
     }
 
     .breed-btn.active {
-        background: #3b82f6;
-        border-color: #3b82f6;
-        color: #ffffff;
+        background: var(--accent);
+        border-color: var(--accent);
+        color: var(--bg-primary);
     }
 
     .breed-btn:disabled {
@@ -309,20 +309,20 @@ onDestroy(() => {
     .auto-btn.active {
         background: #22c55e;
         border-color: #22c55e;
-        color: #ffffff;
+        color: var(--bg-primary);
     }
 
     .breed-divider {
         width: 1px;
         height: 16px;
-        background: #d1d5db;
+        background: var(--border-secondary);
         margin: 0 2px;
     }
 
     .view-controls {
         display: flex;
         gap: 4px;
-        background: #f3f4f6;
+        background: var(--bg-tertiary);
         border-radius: 6px;
         padding: 3px;
     }
@@ -332,7 +332,7 @@ onDestroy(() => {
         border: none;
         border-radius: 4px;
         background: transparent;
-        color: #6b7280;
+        color: var(--text-tertiary);
         font-size: 12px;
         font-weight: 600;
         cursor: pointer;
@@ -340,12 +340,12 @@ onDestroy(() => {
     }
 
     .view-btn:hover {
-        color: #374151;
+        color: var(--text-secondary);
     }
 
     .view-btn.active {
-        background: #ffffff;
-        color: #111827;
+        background: var(--bg-primary);
+        color: var(--text-primary);
         box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
     }
 
@@ -370,8 +370,8 @@ onDestroy(() => {
 
     .stats-drawer {
         flex-shrink: 0;
-        border-left: 1px solid #e5e7eb;
-        background: #f9fafb;
+        border-left: 1px solid var(--border-primary);
+        background: var(--bg-secondary);
         display: flex;
         flex-direction: column;
         overflow: hidden;
@@ -397,29 +397,29 @@ onDestroy(() => {
         align-items: center;
         justify-content: space-between;
         padding: 10px 12px;
-        background: #f3f4f6;
-        border-bottom: 1px solid #e5e7eb;
+        background: var(--bg-tertiary);
+        border-bottom: 1px solid var(--border-primary);
         flex-shrink: 0;
     }
 
     .stats-drawer-title {
         font-size: 12px;
         font-weight: 600;
-        color: #374151;
+        color: var(--text-secondary);
     }
 
     .stats-close {
         background: none;
         border: none;
         font-size: 18px;
-        color: #6b7280;
+        color: var(--text-tertiary);
         cursor: pointer;
         padding: 0 4px;
         line-height: 1;
     }
 
     .stats-close:hover {
-        color: #111827;
+        color: var(--text-primary);
     }
 
     .stats-drawer-body {

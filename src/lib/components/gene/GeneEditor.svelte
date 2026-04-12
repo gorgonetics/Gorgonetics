@@ -123,32 +123,32 @@ run(() => {
     .form-group label {
         font-size: 0.875rem;
         font-weight: 500;
-        color: #374151;
+        color: var(--text-secondary);
     }
 
     .form-group select {
         padding: 0.5rem;
-        border: 1px solid #d1d5db;
+        border: 1px solid var(--border-secondary);
         border-radius: 6px;
         font-size: 0.875rem;
-        background: white;
+        background: var(--bg-primary);
     }
 
     .form-group select:focus {
         outline: none;
-        border-color: #3b82f6;
-        box-shadow: 0 0 0 1px #3b82f6;
+        border-color: var(--accent);
+        box-shadow: 0 0 0 1px var(--accent);
     }
 
     .form-group select:disabled {
-        background-color: #f9fafb;
-        color: #9ca3af;
+        background-color: var(--bg-secondary);
+        color: var(--text-muted);
     }
 
     .load-btn {
         padding: 0.5rem 1rem;
-        background-color: #3b82f6;
-        color: white;
+        background-color: var(--accent);
+        color: var(--text-inverse);
         border: none;
         border-radius: 6px;
         font-size: 0.875rem;
@@ -158,7 +158,7 @@ run(() => {
     }
 
     .load-btn:hover:not(:disabled) {
-        background-color: #2563eb;
+        background-color: var(--accent-hover);
     }
 
     .load-btn:disabled {
@@ -169,9 +169,9 @@ run(() => {
     .error-message {
         padding: 0.5rem;
         border-radius: 6px;
-        background-color: #fef2f2;
-        color: #dc2626;
-        border: 1px solid #fecaca;
+        background-color: var(--error-bg);
+        color: var(--error-text);
+        border: 1px solid var(--error-border);
         display: flex;
         align-items: center;
         gap: 0.5rem;

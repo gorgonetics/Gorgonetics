@@ -233,7 +233,7 @@ const hiddenLookup = $derived(
 <style>
     .stats-section {
         width: 100%;
-        background: #f9fafb;
+        background: var(--bg-secondary);
         padding: 10px;
         overflow-y: auto;
     }
@@ -254,7 +254,7 @@ const hiddenLookup = $derived(
         margin: 0;
         font-size: 14px;
         font-weight: 600;
-        color: #374151;
+        color: var(--text-secondary);
     }
 
     .selection-counters {
@@ -266,13 +266,13 @@ const hiddenLookup = $derived(
         position: absolute;
         top: 0;
         right: 0;
-        background: #dbeafe;
-        color: #1d4ed8;
+        background: var(--bg-selected);
+        color: var(--accent-hover);
         padding: 4px 8px;
         border-radius: 12px;
         font-size: 11px;
         font-weight: 500;
-        border: 1px solid #93c5fd;
+        border: 1px solid var(--accent);
         white-space: nowrap;
     }
 
@@ -282,7 +282,7 @@ const hiddenLookup = $derived(
 
     .table-instructions {
         font-size: 11px;
-        color: #6b7280;
+        color: var(--text-tertiary);
         margin-bottom: 8px;
         font-style: italic;
     }
@@ -291,17 +291,17 @@ const hiddenLookup = $derived(
         width: 100%;
         border-collapse: collapse;
         font-size: 12px;
-        background: white;
+        background: var(--bg-primary);
         border-radius: 6px;
         overflow: hidden;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        box-shadow: var(--shadow-sm);
     }
 
     .stats-table th,
     .stats-table td {
         padding: 8px;
         text-align: left;
-        border-bottom: 1px solid #e2e8f0;
+        border-bottom: 1px solid var(--border-primary);
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -324,9 +324,9 @@ const hiddenLookup = $derived(
     }
 
     .stats-table th {
-        background: #f3f4f6;
+        background: var(--bg-tertiary);
         font-weight: 600;
-        color: #374151;
+        color: var(--text-secondary);
     }
 
     .stats-table tbody tr {
@@ -335,52 +335,52 @@ const hiddenLookup = $derived(
     }
 
     .stats-table tbody tr:hover {
-        background-color: #f9fafb;
+        background-color: var(--bg-secondary);
     }
 
     .stats-table tbody tr.selected {
-        background-color: #dbeafe !important;
+        background-color: var(--bg-selected) !important;
         box-shadow:
-            inset 4px 0 0 0 #3b82f6,
-            inset 0 0 0 1px rgba(59, 130, 246, 0.2);
+            inset 4px 0 0 0 var(--accent),
+            inset 0 0 0 1px var(--accent-soft);
     }
 
     .stats-table tbody tr.selected td {
-        color: #1d4ed8;
+        color: var(--accent-hover);
         font-weight: 500;
     }
 
     .stats-table tbody tr.selected:hover {
-        background-color: #bfdbfe !important;
+        background-color: var(--accent-soft) !important;
     }
 
     .attribute-row.hidden-attribute,
     .appearance-row.hidden-attribute {
-        background-color: #fef2f2 !important;
+        background-color: var(--error-bg) !important;
         box-shadow:
-            inset 4px 0 0 0 #ef4444,
+            inset 4px 0 0 0 var(--error),
             inset 0 0 0 1px rgba(239, 68, 68, 0.2);
     }
 
     .attribute-row.hidden-attribute td,
     .appearance-row.hidden-attribute td {
-        color: #dc2626;
+        color: var(--error-text);
         font-weight: 500;
         text-decoration: line-through;
     }
 
     .attribute-row.hidden-attribute:hover,
     .appearance-row.hidden-attribute:hover {
-        background-color: #fecaca !important;
+        background-color: var(--error-border) !important;
     }
 
     .totals-row {
-        border-top: 2px solid #e5e7eb;
-        background-color: #f8fafc !important;
+        border-top: 2px solid var(--border-primary);
+        background-color: var(--bg-secondary) !important;
     }
 
     .totals-row:hover {
-        background-color: #f8fafc !important;
+        background-color: var(--bg-secondary) !important;
         cursor: default !important;
     }
 
@@ -404,6 +404,6 @@ const hiddenLookup = $derived(
         display: flex;
         gap: 16px;
         font-size: 11px;
-        color: #6b7280;
+        color: var(--text-tertiary);
     }
 </style>

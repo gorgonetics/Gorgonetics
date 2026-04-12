@@ -102,9 +102,9 @@ function handleSuggestionMousedown(e, suggestion) {
     flex-wrap: wrap;
     gap: 4px;
     padding: 6px 8px;
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--border-primary);
     border-radius: 6px;
-    background: #ffffff;
+    background: var(--bg-primary);
     min-height: 34px;
     align-items: center;
     cursor: text;
@@ -112,8 +112,8 @@ function handleSuggestionMousedown(e, suggestion) {
   }
 
   .tag-input-container:focus-within {
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-soft);
   }
 
   .tag-pill {
@@ -121,8 +121,8 @@ function handleSuggestionMousedown(e, suggestion) {
     align-items: center;
     gap: 3px;
     padding: 2px 8px;
-    background: #eff6ff;
-    color: #3b82f6;
+    background: var(--bg-selected);
+    color: var(--accent-text);
     border-radius: 10px;
     font-size: 11px;
     font-weight: 500;
@@ -135,7 +135,7 @@ function handleSuggestionMousedown(e, suggestion) {
     padding: 0;
     margin: 0;
     cursor: pointer;
-    color: #93c5fd;
+    color: var(--accent);
     font-size: 13px;
     line-height: 1;
     display: flex;
@@ -143,7 +143,7 @@ function handleSuggestionMousedown(e, suggestion) {
   }
 
   .tag-remove:hover {
-    color: #ef4444;
+    color: var(--error);
   }
 
   .tag-text-input {
@@ -152,13 +152,13 @@ function handleSuggestionMousedown(e, suggestion) {
     border: none;
     outline: none;
     font-size: 13px;
-    color: #111827;
+    color: var(--text-primary);
     background: transparent;
     padding: 2px 0;
   }
 
   .tag-text-input::placeholder {
-    color: #9ca3af;
+    color: var(--text-muted);
   }
 
   .tag-suggestions {
@@ -167,10 +167,10 @@ function handleSuggestionMousedown(e, suggestion) {
     left: 0;
     right: 0;
     margin-top: 4px;
-    background: #ffffff;
-    border: 1px solid #e5e7eb;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-primary);
     border-radius: 6px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    box-shadow: var(--shadow-md);
     z-index: 10;
     max-height: 160px;
     overflow-y: auto;
@@ -183,12 +183,12 @@ function handleSuggestionMousedown(e, suggestion) {
     border: none;
     background: none;
     font-size: 13px;
-    color: #374151;
+    color: var(--text-secondary);
     text-align: left;
     cursor: pointer;
   }
 
   .tag-suggestion:hover {
-    background: #f3f4f6;
+    background: var(--bg-hover);
   }
 </style>

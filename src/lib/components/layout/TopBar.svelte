@@ -43,8 +43,8 @@ function switchTab(tab) {
         justify-content: space-between;
         height: 48px;
         padding: 0 16px;
-        background: #ffffff;
-        border-bottom: 1px solid #e5e7eb;
+        background: var(--bg-primary);
+        border-bottom: 1px solid var(--border-primary);
         flex-shrink: 0;
     }
 
@@ -63,7 +63,7 @@ function switchTab(tab) {
     .app-name {
         font-size: 16px;
         font-weight: 700;
-        color: #111827;
+        color: var(--text-primary);
         letter-spacing: -0.025em;
     }
 
@@ -76,7 +76,7 @@ function switchTab(tab) {
     .top-bar-tabs {
         display: flex;
         gap: 4px;
-        background: #f3f4f6;
+        background: var(--bg-tertiary);
         border-radius: 8px;
         padding: 3px;
     }
@@ -86,7 +86,7 @@ function switchTab(tab) {
         border: none;
         border-radius: 6px;
         background: transparent;
-        color: #6b7280;
+        color: var(--text-tertiary);
         font-size: 13px;
         font-weight: 600;
         cursor: pointer;
@@ -94,13 +94,13 @@ function switchTab(tab) {
     }
 
     .tab-btn:hover {
-        color: #374151;
-        background: #e5e7eb;
+        color: var(--text-secondary);
+        background: var(--border-primary);
     }
 
     .tab-btn.active {
-        background: #ffffff;
-        color: #111827;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        box-shadow: var(--shadow-sm);
     }
 </style>

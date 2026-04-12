@@ -201,14 +201,14 @@ function handleClickOutside(event) {
     border: none;
     border-radius: 6px;
     background: transparent;
-    color: #6b7280;
+    color: var(--text-tertiary);
     cursor: pointer;
     transition: all 0.15s ease;
   }
 
   .menu-toggle:hover {
-    background: #f3f4f6;
-    color: #374151;
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
   }
 
   .dropdown {
@@ -216,10 +216,10 @@ function handleClickOutside(event) {
     top: 100%;
     right: 0;
     margin-top: 6px;
-    background: #ffffff;
-    border: 1px solid #e5e7eb;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-primary);
     border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    box-shadow: var(--shadow-md);
     min-width: 180px;
     padding: 4px;
     z-index: 100;
@@ -234,7 +234,7 @@ function handleClickOutside(event) {
     border: none;
     border-radius: 6px;
     background: transparent;
-    color: #374151;
+    color: var(--text-secondary);
     font-size: 13px;
     font-weight: 500;
     cursor: pointer;
@@ -243,7 +243,7 @@ function handleClickOutside(event) {
   }
 
   .dropdown-item:hover {
-    background: #f3f4f6;
+    background: var(--bg-tertiary);
   }
 
   .toast {
@@ -255,20 +255,20 @@ function handleClickOutside(event) {
     font-size: 13px;
     font-weight: 500;
     z-index: 300;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    box-shadow: var(--shadow-md);
     animation: slideIn 0.2s ease;
   }
 
   .toast-success {
-    background: #f0fdf4;
-    color: #166534;
-    border: 1px solid #bbf7d0;
+    background: var(--success-bg);
+    color: var(--success-text);
+    border: 1px solid var(--success-border);
   }
 
   .toast-error {
-    background: #fef2f2;
-    color: #991b1b;
-    border: 1px solid #fecaca;
+    background: var(--error-bg);
+    color: var(--error-text);
+    border: 1px solid var(--error-border);
   }
 
   @keyframes slideIn {

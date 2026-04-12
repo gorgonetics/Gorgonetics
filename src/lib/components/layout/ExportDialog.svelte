@@ -94,13 +94,13 @@ async function handleExport() {
 
   .dialog-desc {
     font-size: 14px;
-    color: #6b7280;
+    color: var(--text-tertiary);
     margin-bottom: 16px;
   }
 
   .checkbox-row {
     padding: 10px 0;
-    border-bottom: 1px solid #f3f4f6;
+    border-bottom: 1px solid var(--bg-tertiary);
   }
 
   .checkbox-row:last-of-type {
