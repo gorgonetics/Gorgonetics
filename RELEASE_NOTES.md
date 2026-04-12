@@ -1,10 +1,10 @@
 # v0.3.0
 
-A major quality-of-life release focused on accessibility, personalization, and data organization.
+A major quality-of-life release focused on accessibility, personalisation, and data organisation.
 
 ## Dark Mode
 
-The app now supports Light, Dark, and System themes. Every component has been migrated to a semantic CSS token system, so the dark theme feels native rather than bolted on. Gene visualization colors are tuned for contrast on dark backgrounds. Choose your preference in Settings or let it follow your OS.
+The app now supports Light, Dark, and System themes. Every component has been migrated to a semantic CSS token system, so the dark theme feels native rather than bolted on. Gene visualisation colours are tuned for contrast on dark backgrounds. Choose your preference in Settings or let it follow your OS.
 
 ## Keyboard Navigation
 
@@ -23,7 +23,7 @@ Adjust the app's text size with **Cmd/Ctrl + Plus/Minus** (75%--150% range). Cmd
 
 ## Pet Tags
 
-Organize your pets with custom tags:
+Organise your pets with custom tags:
 
 - Add tags in the pet editor with autocomplete from previously used tags
 - Filter the pet list by one or more tags using the new filter buttons
