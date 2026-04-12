@@ -362,9 +362,91 @@ await page.getByTitle('Settings').click();
 await page.waitForTimeout(200);
 await shot(page, '17-settings-modal.png');
 
+// 18 — Settings with dark mode toggle (switch to dark)
+await page.locator('.theme-btn', { hasText: 'Dark' }).click();
+await page.waitForTimeout(300);
+await shot(page, '18-settings-dark-mode.png');
+
 // Close settings modal
-await page.locator('.modal-backdrop').first().click({ position: { x: 10, y: 10 } });
+await page.keyboard.press('Escape');
 await page.waitForTimeout(200);
+
+// 19 — App in dark mode (pet list)
+await shot(page, '19-dark-mode-overview.png');
+
+// 20 — Dark mode gene grid
+await page.locator('button', { hasText: 'Sample Fae Bee' }).first().click();
+await waitFor(page, '.gene-visualizer, .gallery');
+await shot(page, '20-dark-mode-gene-grid.png');
+
+// 21 — Pet tags: switch back to light mode, add tags, then screenshot
+await page.locator('.settings-toggle').click();
+await page.waitForTimeout(200);
+await page.locator('.theme-btn', { hasText: 'Light' }).click();
+await page.waitForTimeout(200);
+await page.keyboard.press('Escape');
+await page.waitForTimeout(200);
+
+// Add tags to the first pet via the editor
+await page.locator('.pet-card-wrapper').first().hover();
+await page.waitForTimeout(200);
+await page.locator('.edit-btn').first().click();
+await waitFor(page, '.modal-panel');
+
+// Type tags into the tag input
+const tagInput = page.locator('.tag-text-input');
+await tagInput.fill('breeder');
+await tagInput.press('Enter');
+await page.waitForTimeout(100);
+await tagInput.fill('keeper');
+await tagInput.press('Enter');
+await page.waitForTimeout(100);
+
+// Scroll tags section into view and screenshot
+await page.evaluate(() => {
+  const tagsSection = [...document.querySelectorAll('h3')].find(h => h.textContent.includes('Tags'));
+  if (tagsSection) tagsSection.scrollIntoView({ block: 'center' });
+});
+await addOverlay(page);
+await page.evaluate(() => {
+  const panel = document.querySelector('.modal-panel');
+  if (panel) {
+    panel.style.position = 'relative';
+    panel.style.zIndex = '9999';
+  }
+});
+await shot(page, '21-pet-tags-editor.png');
+await page.evaluate(() => {
+  const panel = document.querySelector('.modal-panel');
+  if (panel) { panel.style.position = ''; panel.style.zIndex = ''; }
+});
+await removeOverlay(page);
+
+// Save the tags
+await page.getByText('Save Changes').click();
+await page.waitForTimeout(300);
+
+// Add a different tag to the second pet
+await page.locator('.pet-card-wrapper').nth(1).hover();
+await page.waitForTimeout(200);
+await page.locator('.edit-btn').nth(1).click();
+await waitFor(page, '.modal-panel');
+const tagInput2 = page.locator('.tag-text-input');
+await tagInput2.fill('for sale');
+await tagInput2.press('Enter');
+await page.waitForTimeout(100);
+await tagInput2.fill('breeder');
+await tagInput2.press('Enter');
+await page.waitForTimeout(100);
+await page.getByText('Save Changes').click();
+await page.waitForTimeout(300);
+
+// 22 — Tag filter buttons in pet list
+await addOverlay(page);
+await highlight(page, '.tag-filter');
+await shot(page, '22-pet-tag-filters.png');
+await clearHighlight(page);
+await removeOverlay(page);
 
 // ===== Homepage screenshots (docs/images/) =====
 const HOME_OUT = 'docs/images';
