@@ -5,6 +5,7 @@ import { settings, settingsActions } from '$lib/stores/settings.js';
 import { isTauri } from '$lib/utils/environment.js';
 import { focusTrap } from '$lib/utils/focusTrap.js';
 import { getFontScale as _getFontScale, clampScale, MAX_SCALE, MIN_SCALE } from '$lib/utils/fontScale.js';
+import { applyTheme, getThemePreference } from '$lib/utils/theme.js';
 
 let open = $state(false);
 
@@ -37,6 +38,15 @@ async function setFontScale(scale) {
 
 function adjustFontScale(delta) {
   setFontScale(getFontScale() + delta);
+}
+
+function getTheme() {
+  return getThemePreference($settings);
+}
+
+function setTheme(value) {
+  applyTheme(value);
+  settingsActions.update('display.theme', value);
 }
 
 function toggle() {
@@ -170,6 +180,33 @@ async function installUpdate() {
               >Reset</button>
             </div>
           </div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <span class="setting-name">Theme</span>
+              <span class="setting-desc">Choose light, dark, or match your system</span>
+            </div>
+            <div class="theme-selector">
+              <button
+                class="theme-btn"
+                class:active={getTheme() === 'light'}
+                onclick={() => setTheme('light')}
+                aria-label="Light theme"
+              >☀️ Light</button>
+              <button
+                class="theme-btn"
+                class:active={getTheme() === 'dark'}
+                onclick={() => setTheme('dark')}
+                aria-label="Dark theme"
+              >🌙 Dark</button>
+              <button
+                class="theme-btn"
+                class:active={getTheme() === 'system'}
+                onclick={() => setTheme('system')}
+                aria-label="System theme"
+              >💻 System</button>
+            </div>
+          </div>
         </div>
 
         <div class="settings-section">
@@ -248,14 +285,14 @@ async function installUpdate() {
     border: none;
     border-radius: 6px;
     background: transparent;
-    color: #6b7280;
+    color: var(--text-tertiary);
     cursor: pointer;
     transition: all 0.15s ease;
   }
 
   .settings-toggle:hover {
-    background: #f3f4f6;
-    color: #374151;
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
   }
 
   .settings-dialog {
@@ -265,7 +302,7 @@ async function installUpdate() {
   .settings-section h4 {
     font-size: 12px;
     font-weight: 600;
-    color: #6b7280;
+    color: var(--text-tertiary);
     text-transform: uppercase;
     letter-spacing: 0.05em;
     margin-bottom: 12px;
@@ -289,12 +326,12 @@ async function installUpdate() {
   .setting-name {
     font-size: 14px;
     font-weight: 500;
-    color: #111827;
+    color: var(--text-primary);
   }
 
   .setting-desc {
     font-size: 12px;
-    color: #6b7280;
+    color: var(--text-tertiary);
     line-height: 1.4;
   }
 
@@ -304,7 +341,7 @@ async function installUpdate() {
     height: 24px;
     border: none;
     border-radius: 12px;
-    background: #d1d5db;
+    background: var(--toggle-off);
     cursor: pointer;
     transition: background 0.2s;
     flex-shrink: 0;
@@ -312,7 +349,7 @@ async function installUpdate() {
   }
 
   .toggle-on {
-    background: #3b82f6;
+    background: var(--toggle-on);
   }
 
   .toggle-thumb {
@@ -322,7 +359,7 @@ async function installUpdate() {
     width: 20px;
     height: 20px;
     border-radius: 50%;
-    background: #ffffff;
+    background: var(--toggle-thumb);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
     transition: transform 0.2s;
   }
@@ -334,7 +371,7 @@ async function installUpdate() {
   .settings-section + .settings-section {
     margin-top: 20px;
     padding-top: 16px;
-    border-top: 1px solid #e5e7eb;
+    border-top: 1px solid var(--border-primary);
   }
 
   .scale-controls {
@@ -347,10 +384,10 @@ async function installUpdate() {
   .scale-btn {
     width: 28px;
     height: 28px;
-    border: 1px solid #d1d5db;
+    border: 1px solid var(--border-secondary);
     border-radius: 6px;
-    background: #ffffff;
-    color: #374151;
+    background: var(--bg-primary);
+    color: var(--text-secondary);
     font-size: 16px;
     font-weight: 600;
     cursor: pointer;
@@ -361,8 +398,8 @@ async function installUpdate() {
   }
 
   .scale-btn:hover:not(:disabled) {
-    background: #f9fafb;
-    border-color: #9ca3af;
+    background: var(--bg-secondary);
+    border-color: var(--text-muted);
   }
 
   .scale-btn:disabled {
@@ -373,17 +410,17 @@ async function installUpdate() {
   .scale-value {
     font-size: 13px;
     font-weight: 600;
-    color: #111827;
+    color: var(--text-primary);
     min-width: 40px;
     text-align: center;
   }
 
   .scale-reset-btn {
     padding: 4px 10px;
-    border: 1px solid #d1d5db;
+    border: 1px solid var(--border-secondary);
     border-radius: 6px;
-    background: #ffffff;
-    color: #6b7280;
+    background: var(--bg-primary);
+    color: var(--text-tertiary);
     font-size: 12px;
     font-weight: 500;
     cursor: pointer;
@@ -391,8 +428,8 @@ async function installUpdate() {
   }
 
   .scale-reset-btn:hover:not(:disabled) {
-    background: #f9fafb;
-    border-color: #9ca3af;
+    background: var(--bg-secondary);
+    border-color: var(--text-muted);
   }
 
   .scale-reset-btn:disabled {
@@ -400,12 +437,45 @@ async function installUpdate() {
     cursor: not-allowed;
   }
 
+  .theme-selector {
+    display: flex;
+    gap: 4px;
+    background: var(--bg-tertiary);
+    border-radius: 8px;
+    padding: 3px;
+    flex-shrink: 0;
+  }
+
+  .theme-btn {
+    padding: 5px 12px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-tertiary);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+  }
+
+  .theme-btn:hover {
+    color: var(--text-secondary);
+    background: var(--bg-hover);
+  }
+
+  .theme-btn.active {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    box-shadow: var(--shadow-sm);
+  }
+
   .check-update-btn {
     padding: 6px 14px;
-    border: 1px solid #d1d5db;
+    border: 1px solid var(--border-secondary);
     border-radius: 6px;
-    background: #ffffff;
-    color: #374151;
+    background: var(--bg-primary);
+    color: var(--text-secondary);
     font-size: 13px;
     font-weight: 500;
     cursor: pointer;
@@ -414,16 +484,16 @@ async function installUpdate() {
   }
 
   .check-update-btn:hover {
-    background: #f9fafb;
-    border-color: #9ca3af;
+    background: var(--bg-secondary);
+    border-color: var(--text-muted);
   }
 
   .install-btn {
     padding: 6px 14px;
     border: none;
     border-radius: 6px;
-    background: #3b82f6;
-    color: #ffffff;
+    background: var(--accent);
+    color: var(--bg-primary);
     font-size: 13px;
     font-weight: 500;
     cursor: pointer;
@@ -432,29 +502,29 @@ async function installUpdate() {
   }
 
   .install-btn:hover {
-    background: #2563eb;
+    background: var(--accent-hover);
   }
 
   .update-message {
     font-size: 13px;
-    color: #6b7280;
+    color: var(--text-tertiary);
   }
 
   .update-message.muted {
-    color: #9ca3af;
+    color: var(--text-muted);
     font-style: italic;
   }
 
   .update-message.success {
-    color: #059669;
+    color: var(--success-text);
   }
 
   .update-message.error {
-    color: #dc2626;
+    color: var(--error-text);
   }
 
   .update-available {
-    background: #eff6ff;
+    background: var(--bg-selected);
     border-radius: 8px;
     padding: 12px;
     margin: -4px 0;
@@ -463,7 +533,7 @@ async function installUpdate() {
   .progress-bar {
     width: 100%;
     height: 6px;
-    background: #e5e7eb;
+    background: var(--border-primary);
     border-radius: 3px;
     overflow: hidden;
     margin-top: 6px;
@@ -471,7 +541,7 @@ async function installUpdate() {
 
   .progress-fill {
     height: 100%;
-    background: #3b82f6;
+    background: var(--accent);
     border-radius: 3px;
     transition: width 0.2s ease;
   }

@@ -17,8 +17,8 @@ import { activeTab } from '$lib/stores/pets.js';
 <style>
     .master-panel {
         width: 260px;
-        border-right: 1px solid #e5e7eb;
-        background: #f9fafb;
+        border-right: 1px solid var(--border-primary);
+        background: var(--bg-secondary);
         display: flex;
         flex-direction: column;
         flex-shrink: 0;

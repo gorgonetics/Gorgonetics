@@ -1728,7 +1728,7 @@ export function getStatsData() {
         height: 100%;
         display: flex;
         flex-direction: column;
-        background: #ffffff;
+        background: var(--bg-primary);
         min-height: 0;
     }
 
@@ -1739,7 +1739,7 @@ export function getStatsData() {
         align-items: center;
         justify-content: center;
         height: 300px;
-        color: #666;
+        color: var(--text-tertiary);
         font-size: 16px;
     }
 
@@ -1801,7 +1801,7 @@ export function getStatsData() {
         align-items: center;
         gap: 0.3em;
         font-size: 10px;
-        color: #6b7280;
+        color: var(--text-tertiary);
         white-space: nowrap;
         cursor: pointer;
         padding: 2px 6px;
@@ -1810,7 +1810,7 @@ export function getStatsData() {
     }
 
     .legend-item:hover {
-        background-color: #f3f4f6;
+        background-color: var(--bg-hover);
     }
 
     /* Adjust legend item spacing for GeneCell components */
@@ -1832,10 +1832,10 @@ export function getStatsData() {
     .effect-legend-item.selected,
     .value-legend-item.selected,
     .appearance-legend-item.selected {
-        background: rgba(59, 130, 246, 0.08) !important;
+        background: var(--accent-soft) !important;
         border-radius: 6px;
-        box-shadow: 0 2px 8px rgba(59, 130, 246, 0.08);
-        outline: 2px solid #3b82f6;
+        box-shadow: 0 2px 8px var(--accent-soft);
+        outline: 2px solid var(--accent);
         outline-offset: 2px;
     }
 
@@ -1843,14 +1843,14 @@ export function getStatsData() {
     .value-legend-item.hidden-effect,
     .appearance-legend-item.hidden-effect {
         opacity: 0.7;
-        color: #b91c1c !important;
+        color: var(--error-text) !important;
         text-decoration: line-through;
         filter: grayscale(0.7);
         pointer-events: auto;
-        background: rgba(239, 68, 68, 0.1);
+        background: var(--error-bg);
         border-radius: 6px;
-        box-shadow: 0 2px 8px rgba(239, 68, 68, 0.1);
-        outline: 2px solid #ef4444;
+        box-shadow: 0 2px 8px var(--error-bg);
+        outline: 2px solid var(--error);
         outline-offset: 2px;
         transition:
             opacity 0.2s,
@@ -1862,9 +1862,9 @@ export function getStatsData() {
         flex: 1;
         min-height: 0;
         overflow: auto;
-        border: 1px solid #e2e8f0;
+        border: 1px solid var(--border-primary);
         border-radius: 6px;
-        background: #f9fafb;
+        background: var(--bg-secondary);
     }
 
     .gene-grid-table {
@@ -1877,16 +1877,16 @@ export function getStatsData() {
         position: sticky;
         top: 0;
         z-index: 10;
-        background: #f1f5f9;
+        background: var(--bg-secondary);
     }
 
     .gene-headers th {
-        background: #f1f5f9;
-        border-bottom: 1px solid #e2e8f0;
+        background: var(--bg-secondary);
+        border-bottom: 1px solid var(--border-primary);
         padding: 2px 4px;
         font-size: 9px;
         font-weight: normal;
-        color: #374151;
+        color: var(--text-secondary);
         text-align: center;
         white-space: nowrap;
     }
@@ -1895,7 +1895,7 @@ export function getStatsData() {
         position: sticky;
         left: 0;
         z-index: 11;
-        background: #f1f5f9;
+        background: var(--bg-secondary);
         font-weight: bold;
         width: 28px;
         min-width: 28px;
@@ -1922,27 +1922,27 @@ export function getStatsData() {
     }
 
     .gene-rows {
-        background: #f9fafb;
+        background: var(--bg-secondary);
     }
 
     .chromosome-row {
-        border-bottom: 1px solid #f1f5f9;
+        border-bottom: 1px solid var(--bg-tertiary);
     }
 
     .chromosome-row:hover {
-        background: #f8fafc;
+        background: var(--bg-secondary);
     }
 
     .chromosome-label {
         position: sticky;
         left: 0;
         z-index: 1;
-        background: #f9fafb;
-        border-right: 1px solid #e2e8f0;
+        background: var(--bg-secondary);
+        border-right: 1px solid var(--border-primary);
         padding: 3px 2px;
         font-size: 10px;
         font-weight: 600;
-        color: #374151;
+        color: var(--text-secondary);
         text-align: center;
         cursor: pointer;
         transition: background-color 0.2s ease;
@@ -1953,7 +1953,7 @@ export function getStatsData() {
     }
 
     .chromosome-label:hover {
-        background: #f3f4f6;
+        background: var(--bg-hover);
     }
 
     .chromosome-label.selected {
@@ -1979,7 +1979,7 @@ export function getStatsData() {
     }
 
     .gene-cell-container.empty {
-        background: #fafafa;
+        background: var(--bg-secondary);
     }
 
     .gene-cell-container.block-start {

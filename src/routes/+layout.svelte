@@ -1,14 +1,25 @@
 <script>
 import '../app.css';
+import { onDestroy } from 'svelte';
 import AuthWrapper from '$lib/components/AuthWrapper.svelte';
 import MasterPanel from '$lib/components/layout/MasterPanel.svelte';
 import TopBar from '$lib/components/layout/TopBar.svelte';
 import { settings, settingsActions } from '$lib/stores/settings.js';
 import { applyFontScale, clampScale, getFontScale, STEP } from '$lib/utils/fontScale.js';
+import { applyTheme, getThemePreference } from '$lib/utils/theme.js';
 
 const { children } = $props();
 
 const fontScale = $derived(getFontScale($settings));
+const themePreference = $derived(getThemePreference($settings));
+
+// Listen for system theme changes when preference is 'system'
+const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+function onSystemThemeChange() {
+  applyTheme(themePreference);
+}
+mediaQuery.addEventListener('change', onSystemThemeChange);
+onDestroy(() => mediaQuery.removeEventListener('change', onSystemThemeChange));
 
 function setScale(scale) {
   const clamped = clampScale(scale);
@@ -36,6 +47,11 @@ function handleGlobalKeydown(e) {
 // Apply persisted font scale on load and when it changes
 $effect(() => {
   applyFontScale(fontScale);
+});
+
+// Apply theme on load and when preference changes
+$effect(() => {
+  applyTheme(themePreference);
 });
 </script>
 
@@ -70,7 +86,7 @@ $effect(() => {
     .detail-pane {
         flex: 1;
         overflow: hidden;
-        background: #ffffff;
+        background: var(--bg-primary);
         min-width: 0;
         position: relative;
     }

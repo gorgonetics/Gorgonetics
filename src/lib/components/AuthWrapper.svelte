@@ -36,14 +36,14 @@ onMount(async () => {
     align-items: center;
     justify-content: center;
     height: 100vh;
-    background-color: #f8fafc;
+    background-color: var(--bg-secondary);
   }
 
   .loading-spinner {
     width: 40px;
     height: 40px;
-    border: 4px solid #e5e7eb;
-    border-top: 4px solid #3b82f6;
+    border: 4px solid var(--border-primary);
+    border-top: 4px solid var(--accent);
     border-radius: 50%;
     animation: spin 1s linear infinite;
     margin-bottom: 1rem;
@@ -55,7 +55,7 @@ onMount(async () => {
   }
 
   .loading-screen p {
-    color: #6b7280;
+    color: var(--text-tertiary);
     font-size: 1.1rem;
   }
 

@@ -307,9 +307,9 @@ async function handleDrop(e, dropIndex) {
 
 <style>
     .confirm-dialog {
-        background: #ffffff;
+        background: var(--bg-primary);
         border-radius: 12px;
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+        box-shadow: var(--shadow-xl);
         padding: 24px;
         width: 340px;
         max-width: 90vw;
@@ -318,13 +318,13 @@ async function handleDrop(e, dropIndex) {
 
     .confirm-message {
         font-size: 15px;
-        color: #111827;
+        color: var(--text-primary);
         margin: 0 0 4px 0;
     }
 
     .confirm-subtext {
         font-size: 12px;
-        color: #9ca3af;
+        color: var(--text-muted);
         margin: 0 0 20px 0;
     }
 
@@ -342,29 +342,29 @@ async function handleDrop(e, dropIndex) {
 
     .pet-list-header {
         padding: 12px;
-        border-bottom: 1px solid #e5e7eb;
+        border-bottom: 1px solid var(--border-primary);
         flex-shrink: 0;
     }
 
     .search-input {
         width: 100%;
         padding: 8px 12px;
-        border: 1px solid #e5e7eb;
+        border: 1px solid var(--border-primary);
         border-radius: 6px;
         font-size: 13px;
-        background: #f9fafb;
-        color: #111827;
+        background: var(--bg-secondary);
+        color: var(--text-primary);
         outline: none;
         transition: border-color 0.15s;
     }
 
     .search-input:focus {
-        border-color: #3b82f6;
-        background: #ffffff;
+        border-color: var(--accent);
+        background: var(--bg-primary);
     }
 
     .search-input::placeholder {
-        color: #9ca3af;
+        color: var(--text-muted);
     }
 
     .tag-filter {
@@ -376,10 +376,10 @@ async function handleDrop(e, dropIndex) {
 
     .tag-filter-btn {
         padding: 2px 10px;
-        border: 1px solid #e5e7eb;
+        border: 1px solid var(--border-primary);
         border-radius: 10px;
-        background: #ffffff;
-        color: #6b7280;
+        background: var(--bg-primary);
+        color: var(--text-tertiary);
         font-size: 11px;
         font-weight: 500;
         cursor: pointer;
@@ -387,14 +387,14 @@ async function handleDrop(e, dropIndex) {
     }
 
     .tag-filter-btn:hover {
-        border-color: #93c5fd;
-        color: #3b82f6;
+        border-color: var(--accent);
+        color: var(--accent-text);
     }
 
     .tag-filter-btn.active {
-        background: #3b82f6;
-        border-color: #3b82f6;
-        color: #ffffff;
+        background: var(--accent);
+        border-color: var(--accent);
+        color: var(--bg-primary);
     }
 
     .pet-list-items {
@@ -419,7 +419,7 @@ async function handleDrop(e, dropIndex) {
     }
 
     .pet-card-wrapper.drag-over {
-        border-top: 2px solid #3b82f6;
+        border-top: 2px solid var(--accent);
     }
 
     .drop-zone-end {
@@ -428,7 +428,7 @@ async function handleDrop(e, dropIndex) {
     }
 
     .drop-zone-end.drag-over {
-        border-top: 2px solid #3b82f6;
+        border-top: 2px solid var(--accent);
     }
 
     .pet-card-actions {
@@ -456,30 +456,30 @@ async function handleDrop(e, dropIndex) {
         display: flex;
         align-items: center;
         justify-content: center;
-        color: #6b7280;
+        color: var(--text-tertiary);
         transition: all 0.15s;
     }
 
     .edit-btn:hover {
-        background: #eff6ff;
-        color: #3b82f6;
+        background: var(--bg-selected);
+        color: var(--accent-text);
     }
 
     .delete-btn:hover {
-        background: #fef2f2;
-        color: #ef4444;
+        background: var(--error-bg);
+        color: var(--error);
     }
 
     .empty-state {
         padding: 24px 12px;
         text-align: center;
-        color: #9ca3af;
+        color: var(--text-muted);
         font-size: 13px;
     }
 
     .pet-list-footer {
         padding: 12px;
-        border-top: 1px solid #e5e7eb;
+        border-top: 1px solid var(--border-primary);
         display: flex;
         align-items: center;
         gap: 12px;
@@ -489,7 +489,7 @@ async function handleDrop(e, dropIndex) {
     .upload-btn {
         flex: 1;
         padding: 8px 12px;
-        background: #3b82f6;
+        background: var(--accent);
         color: white;
         border: none;
         border-radius: 6px;
@@ -500,17 +500,17 @@ async function handleDrop(e, dropIndex) {
     }
 
     .upload-btn:hover {
-        background: #2563eb;
+        background: var(--accent-hover);
     }
 
     .upload-btn:disabled {
-        background: #9ca3af;
+        background: var(--text-muted);
         cursor: not-allowed;
     }
 
     .pet-count {
         font-size: 11px;
-        color: #9ca3af;
+        color: var(--text-muted);
         white-space: nowrap;
     }
 </style>

@@ -161,14 +161,14 @@ async function handleImport() {
     border-radius: 12px;
     font-size: 11px;
     font-weight: 600;
-    background: #dbeafe;
-    color: #1d4ed8;
+    background: var(--accent-soft);
+    color: var(--accent-hover);
     margin-bottom: 12px;
   }
 
   .format-badge.legacy {
-    background: #fef3c7;
-    color: #92400e;
+    background: var(--warning-bg);
+    color: var(--warning-text);
   }
 
   .backup-info {
@@ -180,18 +180,18 @@ async function handleImport() {
     display: flex;
     justify-content: space-between;
     padding: 4px 0;
-    color: #6b7280;
+    color: var(--text-tertiary);
   }
 
   .info-row span:last-child {
     font-weight: 500;
-    color: #374151;
+    color: var(--text-secondary);
   }
 
   .section-label {
     font-size: 12px;
     font-weight: 600;
-    color: #6b7280;
+    color: var(--text-tertiary);
     text-transform: uppercase;
     letter-spacing: 0.05em;
     margin-bottom: 8px;
@@ -209,15 +209,15 @@ async function handleImport() {
     align-items: flex-start;
     gap: 12px;
     padding: 10px 12px;
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--border-primary);
     border-radius: 8px;
     cursor: pointer;
     transition: border-color 0.15s;
   }
 
   .mode-option.active {
-    border-color: #3b82f6;
-    background: #f0f7ff;
+    border-color: var(--accent);
+    background: var(--accent-soft);
   }
 
   .mode-option input[type="radio"] {
@@ -234,21 +234,21 @@ async function handleImport() {
   .mode-label {
     font-size: 14px;
     font-weight: 600;
-    color: #111827;
+    color: var(--text-primary);
   }
 
   .mode-desc {
     font-size: 12px;
-    color: #6b7280;
+    color: var(--text-tertiary);
   }
 
   .warning {
     margin-top: 12px;
     padding: 10px 12px;
-    background: #fef2f2;
-    border: 1px solid #fecaca;
+    background: var(--error-bg);
+    border: 1px solid var(--error-border);
     border-radius: 6px;
     font-size: 12px;
-    color: #dc2626;
+    color: var(--error-text);
   }
 </style>

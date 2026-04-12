@@ -257,7 +257,7 @@ $effect(() => {
 
   .gallery-count {
     font-size: 13px;
-    color: #6b7280;
+    color: var(--text-tertiary);
     font-weight: 500;
   }
 
@@ -267,7 +267,7 @@ $effect(() => {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    color: #9ca3af;
+    color: var(--text-muted);
   }
 
   .empty-icon {
@@ -280,13 +280,13 @@ $effect(() => {
     margin: 0;
     font-size: 15px;
     font-weight: 600;
-    color: #6b7280;
+    color: var(--text-tertiary);
   }
 
   .gallery-empty p.empty-hint {
     font-size: 13px;
     font-weight: 400;
-    color: #9ca3af;
+    color: var(--text-muted);
     margin-top: 4px;
   }
 
@@ -298,8 +298,8 @@ $effect(() => {
 
   .thumbnail-card {
     position: relative;
-    background: #f9fafb;
-    border: 1px solid #e5e7eb;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-primary);
     border-radius: 8px;
     overflow: hidden;
     cursor: grab;
@@ -310,7 +310,7 @@ $effect(() => {
   }
 
   .thumbnail-card.drag-over {
-    border-color: #3b82f6;
+    border-color: var(--accent);
     box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
   }
 
@@ -339,7 +339,7 @@ $effect(() => {
 
   .thumbnail-name {
     font-size: 11px;
-    color: #374151;
+    color: var(--text-secondary);
     font-weight: 500;
     white-space: nowrap;
     overflow: hidden;
@@ -348,7 +348,7 @@ $effect(() => {
 
   .thumbnail-caption {
     font-size: 10px;
-    color: #9ca3af;
+    color: var(--text-muted);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -477,24 +477,24 @@ $effect(() => {
 
   /* Confirm dialog */
   .confirm-dialog {
-    background: #ffffff;
+    background: var(--bg-primary);
     border-radius: 12px;
     padding: 24px;
     max-width: 380px;
     width: 90%;
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+    box-shadow: var(--shadow-lg);
   }
 
   .confirm-dialog h3 {
     font-size: 16px;
     font-weight: 700;
-    color: #111827;
+    color: var(--text-primary);
     margin-bottom: 8px;
   }
 
   .confirm-dialog p {
     font-size: 14px;
-    color: #6b7280;
+    color: var(--text-tertiary);
     line-height: 1.5;
     margin-bottom: 20px;
   }
@@ -513,10 +513,10 @@ $effect(() => {
     border-radius: 8px;
     font-size: 13px;
     font-weight: 500;
-    background: #f0fdf4;
-    color: #166534;
-    border: 1px solid #bbf7d0;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    background: var(--success-bg);
+    color: var(--success-text);
+    border: 1px solid var(--success-border);
+    box-shadow: var(--shadow-md);
     z-index: 300;
   }
 </style>

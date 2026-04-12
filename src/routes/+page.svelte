@@ -51,9 +51,9 @@ onMount(async () => {
 		align-items: center;
 		justify-content: space-between;
 		padding: 8px 16px;
-		background: #fef2f2;
-		border-bottom: 1px solid #fecaca;
-		color: #dc2626;
+		background: var(--error-bg);
+		border-bottom: 1px solid var(--error-border);
+		color: var(--error-text);
 		font-size: 13px;
 		flex-shrink: 0;
 	}
@@ -63,7 +63,7 @@ onMount(async () => {
 		border: none;
 		font-size: 16px;
 		cursor: pointer;
-		color: #dc2626;
+		color: var(--error-text);
 		padding: 0 4px;
 	}
 
@@ -74,7 +74,7 @@ onMount(async () => {
 		align-items: center;
 		justify-content: center;
 		gap: 8px;
-		color: #9ca3af;
+		color: var(--text-muted);
 	}
 
 	.empty-icon {
@@ -85,21 +85,21 @@ onMount(async () => {
 	.state-title {
 		font-size: 16px;
 		font-weight: 600;
-		color: #6b7280;
+		color: var(--text-tertiary);
 		margin: 0;
 	}
 
 	.state-text {
 		font-size: 13px;
-		color: #9ca3af;
+		color: var(--text-muted);
 		margin: 0;
 	}
 
 	.spinner {
 		width: 32px;
 		height: 32px;
-		border: 3px solid #e5e7eb;
-		border-top: 3px solid #3b82f6;
+		border: 3px solid var(--border-primary);
+		border-top: 3px solid var(--accent);
 		border-radius: 50%;
 		animation: spin 0.8s linear infinite;
 	}

@@ -368,21 +368,21 @@ run(() => {
         align-items: center;
         justify-content: space-between;
         padding: 16px 20px;
-        border-bottom: 1px solid #e5e7eb;
-        background: #ffffff;
+        border-bottom: 1px solid var(--border-primary);
+        background: var(--bg-primary);
         flex-shrink: 0;
     }
 
     .gene-editing-title {
         font-size: 18px;
         font-weight: 700;
-        color: #111827;
+        color: var(--text-primary);
         margin: 0;
     }
 
     .gene-editing-count {
         font-size: 12px;
-        color: #6b7280;
+        color: var(--text-tertiary);
     }
 
     .gene-editing-actions {
@@ -392,10 +392,10 @@ run(() => {
 
     .gene-editing-actions .action-btn {
         padding: 6px 14px;
-        border: 1px solid #e5e7eb;
+        border: 1px solid var(--border-primary);
         border-radius: 6px;
-        background: #ffffff;
-        color: #374151;
+        background: var(--bg-primary);
+        color: var(--text-secondary);
         font-size: 13px;
         font-weight: 500;
         cursor: pointer;
@@ -403,9 +403,9 @@ run(() => {
     }
 
     .gene-editing-actions .save-btn:not(:disabled) {
-        background: #3b82f6;
-        border-color: #3b82f6;
-        color: white;
+        background: var(--accent);
+        border-color: var(--accent);
+        color: var(--bg-primary);
     }
 
     .gene-editing-actions .action-btn:disabled {
@@ -414,7 +414,7 @@ run(() => {
     }
 
     .gene-editing-actions .action-btn:not(:disabled):hover {
-        border-color: #9ca3af;
+        border-color: var(--text-muted);
     }
 
     .view-btn {
@@ -431,13 +431,13 @@ run(() => {
 
     .view-btn:hover:not(:disabled) {
         background: rgba(255, 255, 255, 0.2);
-        color: white;
+        color: var(--bg-primary);
     }
 
     .view-btn.active {
-        background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-        border-color: #1d4ed8;
-        color: white;
+        background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%);
+        border-color: var(--accent-hover);
+        color: var(--bg-primary);
     }
 
     .view-btn:disabled {
@@ -463,15 +463,15 @@ run(() => {
     }
 
     .message.error {
-        background: #fef2f2;
-        color: #dc2626;
-        border-bottom: 1px solid #fecaca;
+        background: var(--error-bg);
+        color: var(--error-text);
+        border-bottom: 1px solid var(--error-border);
     }
 
     .message.success {
-        background: #f0fdf4;
-        color: #16a34a;
-        border-bottom: 1px solid #bbf7d0;
+        background: var(--success-bg);
+        color: var(--success-text);
+        border-bottom: 1px solid var(--success-border);
     }
 
     .message-icon {
@@ -486,7 +486,7 @@ run(() => {
         justify-content: center;
         min-height: 200px;
         gap: 1rem;
-        color: #6b7280;
+        color: var(--text-tertiary);
     }
 
     /* Spinner */
@@ -526,8 +526,8 @@ run(() => {
 
     /* Gene Card */
     .gene-card {
-        background: white;
-        border: 2px solid #e5e7eb;
+        background: var(--bg-primary);
+        border: 2px solid var(--border-primary);
         border-radius: 8px;
         padding: 1rem;
         transition: all 0.2s ease;
@@ -536,13 +536,13 @@ run(() => {
     }
 
     .gene-card:hover {
-        border-color: #d1d5db;
+        border-color: var(--border-secondary);
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     }
 
     .gene-card.changed {
-        border-color: #f59e0b;
-        background: #fffbeb;
+        border-color: var(--warning-text);
+        background: var(--warning-bg);
     }
 
     .gene-card.changed::before {
@@ -550,7 +550,7 @@ run(() => {
         position: absolute;
         top: 1rem;
         right: 1rem;
-        color: #f59e0b;
+        color: var(--warning-text);
         font-size: 1.2rem;
     }
 
@@ -561,13 +561,13 @@ run(() => {
         justify-content: space-between;
         margin-bottom: 0.75rem;
         padding-bottom: 0.5rem;
-        border-bottom: 1px solid #e5e7eb;
+        border-bottom: 1px solid var(--border-primary);
     }
 
     .gene-id {
         font-size: 1rem;
         font-weight: 700;
-        color: #111827;
+        color: var(--text-primary);
     }
 
     .notes-btn {
@@ -583,7 +583,7 @@ run(() => {
     .notes-btn:hover,
     .notes-btn.active {
         opacity: 1;
-        background: #f3f4f6;
+        background: var(--bg-tertiary);
     }
 
     /* Gene Fields */
@@ -602,14 +602,14 @@ run(() => {
     .field label {
         font-size: 0.75rem;
         font-weight: 600;
-        color: #374151;
+        color: var(--text-secondary);
         text-transform: uppercase;
         letter-spacing: 0.025em;
     }
 
     .field input {
         padding: 0.5rem;
-        border: 2px solid #e5e7eb;
+        border: 2px solid var(--border-primary);
         border-radius: 6px;
         font-size: 0.75rem;
         transition: all 0.2s ease;
@@ -617,7 +617,7 @@ run(() => {
 
     .field input:focus {
         outline: none;
-        border-color: #3b82f6;
+        border-color: var(--accent);
         box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
     }
 
@@ -632,9 +632,9 @@ run(() => {
         justify-content: space-between;
         width: 100%;
         padding: 0.5rem;
-        border: 2px solid #e5e7eb;
+        border: 2px solid var(--border-primary);
         border-radius: 6px;
-        background: white;
+        background: var(--bg-primary);
         font-size: 0.75rem;
         font-weight: 500;
         text-align: left;
@@ -643,23 +643,23 @@ run(() => {
     }
 
     .select-trigger:hover {
-        border-color: #d1d5db;
+        border-color: var(--border-secondary);
     }
 
     .select-trigger.positive {
-        background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
-        border-color: #22c55e;
-        color: #059669;
+        background: linear-gradient(135deg, var(--success-bg) 0%, var(--success-bg) 100%);
+        border-color: var(--success-text);
+        color: var(--success-text);
     }
 
     .select-trigger.negative {
-        background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);
-        border-color: #ef4444;
-        color: #dc2626;
+        background: linear-gradient(135deg, var(--error-bg) 0%, var(--error-border) 100%);
+        border-color: var(--error);
+        color: var(--error-text);
     }
 
     .select-trigger.none {
-        color: #6b7280;
+        color: var(--text-tertiary);
     }
 
     .chevron {
@@ -676,8 +676,8 @@ run(() => {
         right: 0;
         z-index: 1000;
         margin-top: 0.25rem;
-        background: white;
-        border: 2px solid #e5e7eb;
+        background: var(--bg-primary);
+        border: 2px solid var(--border-primary);
         border-radius: 8px;
         box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
         max-height: 300px;
@@ -697,35 +697,35 @@ run(() => {
     }
 
     .option:hover {
-        background: #f3f4f6;
+        background: var(--bg-tertiary);
     }
 
     .option.none {
-        color: #6b7280;
-        border-bottom: 1px solid #e5e7eb;
+        color: var(--text-tertiary);
+        border-bottom: 1px solid var(--border-primary);
     }
 
     .option.positive {
-        color: #059669;
+        color: var(--success-text);
     }
 
     .option.positive:hover {
-        background: #ecfdf5;
+        background: var(--success-bg);
     }
 
     .option.negative {
-        color: #dc2626;
+        color: var(--error-text);
     }
 
     .option.negative:hover {
-        background: #fef2f2;
+        background: var(--error-bg);
     }
 
     /* Effects Grid */
     .effects-grid {
         display: grid;
         grid-template-columns: 1fr 1fr;
-        border-top: 1px solid #e5e7eb;
+        border-top: 1px solid var(--border-primary);
     }
 
     .effects-column {
@@ -734,12 +734,12 @@ run(() => {
     }
 
     .effects-column:first-child {
-        border-right: 1px solid #e5e7eb;
+        border-right: 1px solid var(--border-primary);
     }
 
     .effects-column .option {
         border-radius: 0;
-        border-bottom: 1px solid #f3f4f6;
+        border-bottom: 1px solid var(--bg-tertiary);
     }
 
     .effects-column .option:last-child {
@@ -750,13 +750,13 @@ run(() => {
     .notes-section {
         margin-top: 0.75rem;
         padding-top: 0.75rem;
-        border-top: 1px solid #e5e7eb;
+        border-top: 1px solid var(--border-primary);
     }
 
     .notes-section textarea {
         width: 100%;
         padding: 0.5rem;
-        border: 2px solid #e5e7eb;
+        border: 2px solid var(--border-primary);
         border-radius: 6px;
         font-size: 0.75rem;
         resize: vertical;
@@ -766,7 +766,7 @@ run(() => {
 
     .notes-section textarea:focus {
         outline: none;
-        border-color: #3b82f6;
+        border-color: var(--accent);
         box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
     }
 

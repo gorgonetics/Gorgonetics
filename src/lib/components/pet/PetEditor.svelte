@@ -179,9 +179,9 @@ function updateAttribute(attrKey, value) {
 
 <style>
   .modal-panel {
-    background: #ffffff;
+    background: var(--bg-primary);
     border-radius: 12px;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+    box-shadow: var(--shadow-xl);
     width: 560px;
     max-width: 90vw;
     max-height: 85vh;
@@ -195,21 +195,21 @@ function updateAttribute(attrKey, value) {
     align-items: center;
     justify-content: space-between;
     padding: 16px 20px;
-    border-bottom: 1px solid #e5e7eb;
+    border-bottom: 1px solid var(--border-primary);
   }
 
   .modal-header h2 {
     margin: 0;
     font-size: 16px;
     font-weight: 700;
-    color: #111827;
+    color: var(--text-primary);
   }
 
   .modal-close {
     background: none;
     border: none;
     font-size: 20px;
-    color: #9ca3af;
+    color: var(--text-muted);
     cursor: pointer;
     padding: 4px 8px;
     border-radius: 4px;
@@ -217,8 +217,8 @@ function updateAttribute(attrKey, value) {
   }
 
   .modal-close:hover {
-    background: #f3f4f6;
-    color: #374151;
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
   }
 
   .modal-body {
@@ -232,8 +232,8 @@ function updateAttribute(attrKey, value) {
     justify-content: flex-end;
     gap: 8px;
     padding: 14px 20px;
-    border-top: 1px solid #e5e7eb;
-    background: #f9fafb;
+    border-top: 1px solid var(--border-primary);
+    background: var(--bg-secondary);
   }
 
   .form-section {
@@ -248,7 +248,7 @@ function updateAttribute(attrKey, value) {
     margin: 0 0 12px 0;
     font-size: 13px;
     font-weight: 600;
-    color: #6b7280;
+    color: var(--text-tertiary);
     text-transform: uppercase;
     letter-spacing: 0.05em;
   }
@@ -261,7 +261,7 @@ function updateAttribute(attrKey, value) {
     display: block;
     font-size: 13px;
     font-weight: 500;
-    color: #374151;
+    color: var(--text-secondary);
     margin-bottom: 4px;
   }
 
@@ -269,11 +269,11 @@ function updateAttribute(attrKey, value) {
   .field select {
     width: 100%;
     padding: 8px 10px;
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--border-primary);
     border-radius: 6px;
     font-size: 13px;
-    color: #111827;
-    background: #ffffff;
+    color: var(--text-primary);
+    background: var(--bg-primary);
     outline: none;
     transition: border-color 0.15s;
     box-sizing: border-box;
@@ -281,13 +281,13 @@ function updateAttribute(attrKey, value) {
 
   .field input:focus,
   .field select:focus {
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-soft);
   }
 
   .field input:disabled {
-    background: #f9fafb;
-    color: #9ca3af;
+    background: var(--bg-secondary);
+    color: var(--text-muted);
   }
 
   .field-row {
@@ -314,7 +314,7 @@ function updateAttribute(attrKey, value) {
     gap: 6px;
     font-size: 13px;
     font-weight: 500;
-    color: #374151;
+    color: var(--text-secondary);
   }
 
   .attr-icon {
@@ -324,25 +324,25 @@ function updateAttribute(attrKey, value) {
   .attr-field input {
     width: 100%;
     padding: 6px 10px;
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--border-primary);
     border-radius: 6px;
     font-size: 13px;
-    color: #111827;
-    background: #ffffff;
+    color: var(--text-primary);
+    background: var(--bg-primary);
     outline: none;
     box-sizing: border-box;
   }
 
   .attr-field input:focus {
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-soft);
   }
 
   .save-error {
-    background: #fef2f2;
-    border: 1px solid #fecaca;
+    background: var(--error-bg);
+    border: 1px solid var(--error-border);
     border-radius: 6px;
-    color: #dc2626;
+    color: var(--error-text);
     font-size: 13px;
     padding: 10px 14px;
     margin-bottom: 16px;
