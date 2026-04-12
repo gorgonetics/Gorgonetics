@@ -8,6 +8,7 @@ export type ThemePreference = 'light' | 'dark' | 'system';
 /** Resolve a preference to the actual theme to apply. */
 export function resolveTheme(preference: ThemePreference): 'light' | 'dark' {
   if (preference === 'system') {
+    if (typeof window === 'undefined') return 'light';
     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   }
   return preference;
@@ -15,6 +16,7 @@ export function resolveTheme(preference: ThemePreference): 'light' | 'dark' {
 
 /** Apply the resolved theme to the document root. */
 export function applyTheme(preference: ThemePreference): void {
+  if (typeof document === 'undefined') return;
   const resolved = resolveTheme(preference);
   document.documentElement.setAttribute('data-theme', resolved);
 }

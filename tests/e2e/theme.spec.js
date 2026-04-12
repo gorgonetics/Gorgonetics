@@ -6,7 +6,8 @@ import { waitForAppReady } from './helpers.js';
 // ==========================================
 
 test.describe('Theme Support', () => {
-  test('defaults to system theme (light in test env)', async ({ page }) => {
+  test('defaults to system theme (light when emulated)', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'light' });
     await page.goto('/');
     await waitForAppReady(page);
 
@@ -139,15 +140,11 @@ test.describe('Theme Support', () => {
     await waitForAppReady(page);
 
     // Ensure we're on system preference
-    let theme = await page.evaluate(() => document.documentElement.getAttribute('data-theme'));
+    const theme = await page.evaluate(() => document.documentElement.getAttribute('data-theme'));
     expect(theme).toBe('light');
 
     // Switch system to dark
     await page.emulateMedia({ colorScheme: 'dark' });
-    // Give the media query listener time to fire
-    await page.waitForTimeout(100);
-
-    theme = await page.evaluate(() => document.documentElement.getAttribute('data-theme'));
-    expect(theme).toBe('dark');
+    await page.waitForFunction(() => document.documentElement.getAttribute('data-theme') === 'dark');
   });
 });

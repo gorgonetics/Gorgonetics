@@ -1,6 +1,6 @@
 <script>
 import '../app.css';
-import { onDestroy } from 'svelte';
+import { onDestroy, onMount } from 'svelte';
 import AuthWrapper from '$lib/components/AuthWrapper.svelte';
 import MasterPanel from '$lib/components/layout/MasterPanel.svelte';
 import TopBar from '$lib/components/layout/TopBar.svelte';
@@ -13,12 +13,15 @@ const { children } = $props();
 const fontScale = $derived(getFontScale($settings));
 const themePreference = $derived(getThemePreference($settings));
 
-const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+let mediaQuery;
 function onSystemThemeChange() {
   applyTheme(themePreference);
 }
-mediaQuery.addEventListener('change', onSystemThemeChange);
-onDestroy(() => mediaQuery.removeEventListener('change', onSystemThemeChange));
+onMount(() => {
+  mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+  mediaQuery.addEventListener('change', onSystemThemeChange);
+});
+onDestroy(() => mediaQuery?.removeEventListener('change', onSystemThemeChange));
 
 function setScale(scale) {
   const clamped = clampScale(scale);

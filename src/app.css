@@ -149,7 +149,9 @@ textarea {
   --toggle-on: #3b82f6;
   --toggle-thumb: #ffffff;
 
-  /* Gene color adjustments for dark backgrounds */
+  /* Gene neutral colors lightened for dark backgrounds.
+     These override the :root values — keep aligned with gene-colors.ts
+     if that module ever reads CSS vars instead of hardcoded values. */
   --gene-neutral: #b0b8c4;
   --gene-appearance-neutral: #b0b8c4;
 }
