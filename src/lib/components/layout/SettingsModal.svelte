@@ -5,7 +5,7 @@ import { settings, settingsActions } from '$lib/stores/settings.js';
 import { isTauri } from '$lib/utils/environment.js';
 import { focusTrap } from '$lib/utils/focusTrap.js';
 import { getFontScale as _getFontScale, clampScale, MAX_SCALE, MIN_SCALE } from '$lib/utils/fontScale.js';
-import { applyTheme, getThemePreference } from '$lib/utils/theme.js';
+import { getThemePreference } from '$lib/utils/theme.js';
 
 let open = $state(false);
 
@@ -25,27 +25,18 @@ function toErrorMessage(err) {
 }
 
 const modKey = /mac/i.test(navigator?.userAgent ?? '') ? '⌘' : 'Ctrl';
+const currentScale = $derived(_getFontScale($settings));
+const currentTheme = $derived(getThemePreference($settings));
 
-function getFontScale() {
-  return _getFontScale($settings);
-}
-
-async function setFontScale(scale) {
-  const clamped = clampScale(scale);
-  document.documentElement.style.fontSize = `${clamped}%`;
-  await settingsActions.update('display.fontScale', clamped);
+function setFontScale(scale) {
+  settingsActions.update('display.fontScale', clampScale(scale));
 }
 
 function adjustFontScale(delta) {
-  setFontScale(getFontScale() + delta);
-}
-
-function getTheme() {
-  return getThemePreference($settings);
+  setFontScale(currentScale + delta);
 }
 
 function setTheme(value) {
-  applyTheme(value);
   settingsActions.update('display.theme', value);
 }
 
@@ -163,20 +154,20 @@ async function installUpdate() {
               <button
                 class="scale-btn"
                 onclick={() => adjustFontScale(-10)}
-                disabled={getFontScale() <= MIN_SCALE}
+                disabled={currentScale <= MIN_SCALE}
                 aria-label="Decrease font size"
               >−</button>
-              <span class="scale-value">{getFontScale()}%</span>
+              <span class="scale-value">{currentScale}%</span>
               <button
                 class="scale-btn"
                 onclick={() => adjustFontScale(10)}
-                disabled={getFontScale() >= MAX_SCALE}
+                disabled={currentScale >= MAX_SCALE}
                 aria-label="Increase font size"
               >+</button>
               <button
                 class="scale-reset-btn"
                 onclick={() => setFontScale(100)}
-                disabled={getFontScale() === 100}
+                disabled={currentScale === 100}
               >Reset</button>
             </div>
           </div>
@@ -189,19 +180,19 @@ async function installUpdate() {
             <div class="theme-selector">
               <button
                 class="theme-btn"
-                class:active={getTheme() === 'light'}
+                class:active={currentTheme === 'light'}
                 onclick={() => setTheme('light')}
                 aria-label="Light theme"
               >☀️ Light</button>
               <button
                 class="theme-btn"
-                class:active={getTheme() === 'dark'}
+                class:active={currentTheme === 'dark'}
                 onclick={() => setTheme('dark')}
                 aria-label="Dark theme"
               >🌙 Dark</button>
               <button
                 class="theme-btn"
-                class:active={getTheme() === 'system'}
+                class:active={currentTheme === 'system'}
                 onclick={() => setTheme('system')}
                 aria-label="System theme"
               >💻 System</button>

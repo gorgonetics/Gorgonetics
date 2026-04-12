@@ -13,7 +13,6 @@ const { children } = $props();
 const fontScale = $derived(getFontScale($settings));
 const themePreference = $derived(getThemePreference($settings));
 
-// Listen for system theme changes when preference is 'system'
 const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
 function onSystemThemeChange() {
   applyTheme(themePreference);
@@ -44,12 +43,10 @@ function handleGlobalKeydown(e) {
   }
 }
 
-// Apply persisted font scale on load and when it changes
 $effect(() => {
   applyFontScale(fontScale);
 });
 
-// Apply theme on load and when preference changes
 $effect(() => {
   applyTheme(themePreference);
 });
