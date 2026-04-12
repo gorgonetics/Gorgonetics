@@ -1,5 +1,5 @@
 <script>
-const { pet, selected = false, onclick } = $props();
+const { pet, selected = false, onclick, onkeydown } = $props();
 
 function getSpeciesEmoji(species) {
   const s = (species || '').toLowerCase();
@@ -13,6 +13,7 @@ function getSpeciesEmoji(species) {
     class="pet-card"
     class:selected
     onclick={() => onclick?.(pet)}
+    {onkeydown}
 >
     <div class="pet-card-main">
         <div class="pet-card-icon">{getSpeciesEmoji(pet.species)}</div>

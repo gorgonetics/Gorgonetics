@@ -3,6 +3,8 @@
 
 import { settings, settingsActions } from '$lib/stores/settings.js';
 import { isTauri } from '$lib/utils/environment.js';
+import { focusTrap } from '$lib/utils/focusTrap.js';
+import { getFontScale as _getFontScale, clampScale, MAX_SCALE, MIN_SCALE } from '$lib/utils/fontScale.js';
 
 let open = $state(false);
 
@@ -19,6 +21,22 @@ const inTauri = isTauri();
 
 function toErrorMessage(err) {
   return err instanceof Error ? err.message : String(err);
+}
+
+const modKey = /mac/i.test(navigator?.userAgent ?? '') ? '⌘' : 'Ctrl';
+
+function getFontScale() {
+  return _getFontScale($settings);
+}
+
+async function setFontScale(scale) {
+  const clamped = clampScale(scale);
+  document.documentElement.style.fontSize = `${clamped}%`;
+  await settingsActions.update('display.fontScale', clamped);
+}
+
+function adjustFontScale(delta) {
+  setFontScale(getFontScale() + delta);
 }
 
 function toggle() {
@@ -90,7 +108,7 @@ async function installUpdate() {
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div class="modal-backdrop" onclick={close} onkeydown={(e) => { if (e.key === 'Escape') close(); }} role="presentation">
     <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="dialog settings-dialog" role="dialog" aria-label="Settings" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => { if (e.key === 'Escape') close(); }}>
+    <div class="dialog settings-dialog" role="dialog" aria-label="Settings" aria-modal="true" tabindex="-1" use:focusTrap onclick={(e) => e.stopPropagation()} onkeydown={(e) => { if (e.key === 'Escape') close(); }}>
       <div class="dialog-header">
         <h3>Settings</h3>
         <button class="close-btn" onclick={close} aria-label="Close settings">
@@ -121,6 +139,37 @@ async function installUpdate() {
               <span class="toggle-thumb"></span>
             </button>
           </label>
+        </div>
+
+        <div class="settings-section">
+          <h4>Display</h4>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <span class="setting-name">Font scale</span>
+              <span class="setting-desc">Adjust with {modKey}+/- or use these controls</span>
+            </div>
+            <div class="scale-controls">
+              <button
+                class="scale-btn"
+                onclick={() => adjustFontScale(-10)}
+                disabled={getFontScale() <= MIN_SCALE}
+                aria-label="Decrease font size"
+              >−</button>
+              <span class="scale-value">{getFontScale()}%</span>
+              <button
+                class="scale-btn"
+                onclick={() => adjustFontScale(10)}
+                disabled={getFontScale() >= MAX_SCALE}
+                aria-label="Increase font size"
+              >+</button>
+              <button
+                class="scale-reset-btn"
+                onclick={() => setFontScale(100)}
+                disabled={getFontScale() === 100}
+              >Reset</button>
+            </div>
+          </div>
         </div>
 
         <div class="settings-section">
@@ -286,6 +335,69 @@ async function installUpdate() {
     margin-top: 20px;
     padding-top: 16px;
     border-top: 1px solid #e5e7eb;
+  }
+
+  .scale-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  .scale-btn {
+    width: 28px;
+    height: 28px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background: #ffffff;
+    color: #374151;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+  }
+
+  .scale-btn:hover:not(:disabled) {
+    background: #f9fafb;
+    border-color: #9ca3af;
+  }
+
+  .scale-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .scale-value {
+    font-size: 13px;
+    font-weight: 600;
+    color: #111827;
+    min-width: 40px;
+    text-align: center;
+  }
+
+  .scale-reset-btn {
+    padding: 4px 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background: #ffffff;
+    color: #6b7280;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .scale-reset-btn:hover:not(:disabled) {
+    background: #f9fafb;
+    border-color: #9ca3af;
+  }
+
+  .scale-reset-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
   }
 
   .check-update-btn {

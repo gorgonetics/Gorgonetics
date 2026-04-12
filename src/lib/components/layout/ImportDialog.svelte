@@ -1,6 +1,7 @@
 <script>
 import { importDatabase } from '$lib/services/backupService.js';
 import { appState } from '$lib/stores/pets.js';
+import { focusTrap } from '$lib/utils/focusTrap.js';
 
 const { metadata, fileData, onClose, onResult } = $props();
 
@@ -47,7 +48,7 @@ async function handleImport() {
 <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 <div class="modal-backdrop" onclick={onClose} onkeydown={(e) => { if (e.key === 'Escape') onClose(); }} role="presentation">
   <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="dialog import-dialog" role="dialog" aria-label="Import Backup" tabindex="-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => { if (e.key === 'Escape') onClose(); }}>
+  <div class="dialog import-dialog" role="dialog" aria-label="Import Backup" aria-modal="true" tabindex="-1" use:focusTrap onclick={(e) => e.stopPropagation()} onkeydown={(e) => { if (e.key === 'Escape') onClose(); }}>
     <div class="dialog-header">
       <h3>Import Backup</h3>
       <button class="close-btn" onclick={onClose}>×</button>

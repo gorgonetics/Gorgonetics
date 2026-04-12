@@ -15,7 +15,7 @@ function switchTab(tab) {
         <span class="app-name">Gorgonetics</span>
     </div>
     <div class="top-bar-right">
-    <div class="top-bar-tabs">
+    <nav aria-label="Main navigation" class="top-bar-tabs">
         <button
             class="tab-btn"
             class:active={$activeTab === "pets"}
@@ -30,7 +30,7 @@ function switchTab(tab) {
         >
             🧬 Genes
         </button>
-    </div>
+    </nav>
     <DataMenu />
     <SettingsModal />
     </div>

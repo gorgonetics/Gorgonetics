@@ -59,6 +59,30 @@ function handleMouseEnter(event) {
 function handleMouseLeave(event) {
   dispatch('tooltip-hide', { event });
 }
+
+function handleKeydown(event) {
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault();
+    if (!gene) return;
+    // Use element bounding rect for tooltip positioning since KeyboardEvent has no clientX/Y
+    const rect = event.currentTarget.getBoundingClientRect();
+    const syntheticEvent = { clientX: rect.left + rect.width / 2, clientY: rect.top };
+    dispatch('tooltip-show', {
+      event: syntheticEvent,
+      geneId: gene.id,
+      geneType: gene.type,
+      chromosome,
+      effect: geneAnalysis?.effect || '',
+    });
+  } else if (event.key === 'Escape') {
+    dispatch('tooltip-hide', { event });
+  }
+}
+
+function handleBlur(event) {
+  dispatch('tooltip-hide', { event });
+}
+
 const cssClass = $derived(computeCssClass(gene, geneAnalysis, currentView, isVisible));
 </script>
 
@@ -71,8 +95,11 @@ const cssClass = $derived(computeCssClass(gene, geneAnalysis, currentView, isVis
         data-effect={geneAnalysis?.effect || ""}
         onmouseenter={handleMouseEnter}
         onmouseleave={handleMouseLeave}
+        onkeydown={handleKeydown}
+        onblur={handleBlur}
         role="button"
         tabindex="0"
+        aria-label="Gene {gene.id}{geneAnalysis?.effect ? ': ' + geneAnalysis.effect : ''}"
     >
         {#if gene.type === "?"}
             <span class="gene-unknown-symbol" title="Unknown gene">?</span>
