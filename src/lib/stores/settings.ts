@@ -15,7 +15,8 @@ export const settingsActions = {
   },
 
   async update(key: string, value: unknown) {
-    await setSetting(key, value);
+    // Update store optimistically so consumers see the new value immediately
     settings.update((s) => ({ ...s, [key]: value }));
+    await setSetting(key, value);
   },
 };

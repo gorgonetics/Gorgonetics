@@ -17,7 +17,9 @@ let status = $state(null);
 let statusTimer = 0;
 
 let focusedIndex = $state(-1);
-let menuItems = $state([]);
+let exportBtn = $state(null);
+let importBtn = $state(null);
+const menuItems = $derived([exportBtn, importBtn].filter(Boolean));
 
 function toggleMenu() {
   menuOpen = !menuOpen;
@@ -140,7 +142,7 @@ function handleClickOutside(event) {
         role="menuitem"
         tabindex={focusedIndex === 0 ? 0 : -1}
         onclick={openExport}
-        bind:this={menuItems[0]}
+        bind:this={exportBtn}
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
@@ -154,7 +156,7 @@ function handleClickOutside(event) {
         role="menuitem"
         tabindex={focusedIndex === 1 ? 0 : -1}
         onclick={openImport}
-        bind:this={menuItems[1]}
+        bind:this={importBtn}
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>

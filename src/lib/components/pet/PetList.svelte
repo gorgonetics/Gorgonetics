@@ -210,14 +210,12 @@ async function handleDrop(e, dropIndex) {
         {/if}
     </div>
 
-    <div class="pet-list-items" role="listbox" aria-label="Pet list">
+    <div class="pet-list-items" aria-label="Pet list">
         {#if filteredPets.length > 0}
             {#each filteredPets as pet, index (pet.id)}
                 <!-- svelte-ignore a11y_no_static_element_interactions -->
                 <div
                     class="pet-card-wrapper"
-                    role="option"
-                    aria-selected={$selectedPet?.id === pet.id}
                     class:drag-over={drag.dragOverIndex === index && drag.draggedIndex !== index}
                     class:dragging={drag.draggedIndex === index}
                     draggable={isDraggable}

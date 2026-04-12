@@ -964,12 +964,13 @@ function handleGridKeydown(e) {
   if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
 
   const container = e.currentTarget;
-  const cells = Array.from(container.querySelectorAll('.gene-cell[tabindex="0"]'));
-  const current = cells.indexOf(document.activeElement);
+  const cells = Array.from(container.querySelectorAll('.gene-cell[role="button"]'));
+  const activeCell = document.activeElement?.closest('.gene-cell');
+  const current = cells.indexOf(activeCell);
   if (current < 0) return;
 
-  const row = document.activeElement.closest('tr');
-  const cols = row ? row.querySelectorAll('.gene-cell[tabindex="0"]').length : 1;
+  const row = activeCell?.closest('tr');
+  const cols = row ? row.querySelectorAll('.gene-cell[role="button"]').length : 1;
   handleGridNavigation(cells, current, e, cols);
 }
 

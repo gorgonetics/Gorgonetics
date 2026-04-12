@@ -12,8 +12,14 @@ const FOCUSABLE = [
   '[tabindex]:not([tabindex="-1"])',
 ].join(', ');
 
+function isVisible(el: HTMLElement): boolean {
+  if (el.hasAttribute('hidden')) return false;
+  const style = window.getComputedStyle(el);
+  return style.display !== 'none' && style.visibility !== 'hidden' && el.getClientRects().length > 0;
+}
+
 function getFocusableElements(container: HTMLElement): HTMLElement[] {
-  return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE)).filter((el) => el.offsetParent !== null);
+  return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(isVisible);
 }
 
 /**

@@ -63,7 +63,17 @@ function handleMouseLeave(event) {
 function handleKeydown(event) {
   if (event.key === 'Enter' || event.key === ' ') {
     event.preventDefault();
-    handleMouseEnter(event);
+    if (!gene) return;
+    // Use element bounding rect for tooltip positioning since KeyboardEvent has no clientX/Y
+    const rect = event.currentTarget.getBoundingClientRect();
+    const syntheticEvent = { clientX: rect.left + rect.width / 2, clientY: rect.top };
+    dispatch('tooltip-show', {
+      event: syntheticEvent,
+      geneId: gene.id,
+      geneType: gene.type,
+      chromosome,
+      effect: geneAnalysis?.effect || '',
+    });
   } else if (event.key === 'Escape') {
     dispatch('tooltip-hide', { event });
   }

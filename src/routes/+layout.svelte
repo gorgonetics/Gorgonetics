@@ -10,10 +10,11 @@ const { children } = $props();
 
 const fontScale = $derived(getFontScale($settings));
 
-async function setScale(scale) {
+function setScale(scale) {
   const clamped = clampScale(scale);
   applyFontScale(clamped);
-  await settingsActions.update('display.fontScale', clamped);
+  // Update store optimistically so rapid key presses read the latest value
+  settingsActions.update('display.fontScale', clamped);
 }
 
 function handleGlobalKeydown(e) {
