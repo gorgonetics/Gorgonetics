@@ -25,7 +25,7 @@ export const comparisonActions = {
   /** Set a specific slot (0 = left, 1 = right). */
   setPet(index: 0 | 1, pet: Pet | null) {
     update((current) => {
-      const next: [Pet | null, Pet | null] = [...current];
+      const next: [Pet | null, Pet | null] = [current[0], current[1]];
       next[index] = pet;
       return next;
     });
@@ -45,10 +45,7 @@ export const comparisonActions = {
   removePet(petId: number) {
     update((current) => {
       if (current[0]?.id !== petId && current[1]?.id !== petId) return current;
-      const next: [Pet | null, Pet | null] = [...current];
-      if (next[0]?.id === petId) next[0] = null;
-      if (next[1]?.id === petId) next[1] = null;
-      return next;
+      return [current[0]?.id === petId ? null : current[0], current[1]?.id === petId ? null : current[1]];
     });
   },
 

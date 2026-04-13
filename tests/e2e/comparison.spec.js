@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { waitForAppReady, waitForPets } from './helpers.js';
+import { waitForPets } from './helpers.js';
 
 test.describe('Pet Comparison', () => {
   test.beforeEach(async ({ page }) => {

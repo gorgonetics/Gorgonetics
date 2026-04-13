@@ -46,11 +46,22 @@ const petsHaveKnownBreed = $derived(
 );
 const petsShareBreed = $derived(petsHaveKnownBreed && petA.breed === petB.breed);
 
+let manualBreedOverride = $state(false);
+
 $effect(() => {
-  // Re-initialize autoBreed from setting when pets change
+  // Re-initialize autoBreed from setting when pets change, reset manual override
   const _a = petA?.id;
   const _b = petB?.id;
+  manualBreedOverride = false;
   autoBreed = !!$settings['horse.autoSelectBreedFilter'];
+});
+
+// Sync with setting changes only when user hasn't manually toggled
+$effect(() => {
+  const settingValue = !!$settings['horse.autoSelectBreedFilter'];
+  if (!manualBreedOverride) {
+    autoBreed = settingValue;
+  }
 });
 
 $effect(() => {
@@ -435,6 +446,7 @@ function handleCellLeave() {
             {attributeDisplayInfo}
             onBreedChange={(name) => { breedFilter = breedFilter === name ? '' : name; }}
             onAutoBreedToggle={() => {
+                manualBreedOverride = true;
                 autoBreed = !autoBreed;
                 if (autoBreed && petsShareBreed) {
                     breedFilter = petA.breed;

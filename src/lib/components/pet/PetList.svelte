@@ -260,6 +260,7 @@ async function handleDrop(e, dropIndex) {
                             checked={isSelectedForComparison(pet.id)}
                             disabled={isCompareDisabled(pet)}
                             onchange={() => toggleComparisonPet(pet)}
+                            aria-label="Select {pet.name || 'Unnamed'} for comparison"
                         />
                     {/if}
                     <PetCard
