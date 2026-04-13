@@ -60,6 +60,7 @@ metadata.sqlite
 # AI plugin artifacts
 docs/superpowers/
 .superpowers/
+.omc/
 
 # Misc
 *.backup
