@@ -6,6 +6,7 @@
 
 import { getBeewaspAppearanceColor, getHorseAppearanceColor } from '$lib/theme/gene-colors.js';
 import type { AppearanceInfo, AttributeInfo } from '$lib/types/index.js';
+import { capitalize } from '$lib/utils/string.js';
 
 // --- Core attribute order (matches game order) ---
 
@@ -287,7 +288,7 @@ export function getAttributeConfig(species: string): {
   const normalized = normalizeSpecies(species);
   const allAttrs = getAllAttributes(species);
   const attributes = Object.entries(allAttrs).map(([name, info]) => ({
-    key: name.charAt(0).toUpperCase() + name.slice(1),
+    key: capitalize(name),
     name: info.name,
     icon: info.icon,
     description: info.description ?? '',
@@ -448,7 +449,7 @@ export function getAllAttributeDisplayInfo(): AttributeInfo[] {
   ];
   for (const speciesAttrs of orderedSpecies.map((s) => SPECIES_ATTRIBUTES[s])) {
     for (const [name, info] of Object.entries(speciesAttrs)) {
-      const key = name.charAt(0).toUpperCase() + name.slice(1);
+      const key = capitalize(name);
       if (!seen.has(key)) {
         seen.add(key);
         result.push({ key, name: info.name, icon: info.icon, description: info.description ?? '' });
@@ -460,7 +461,7 @@ export function getAllAttributeDisplayInfo(): AttributeInfo[] {
   for (const attr of CORE_ATTRIBUTE_ORDER) {
     const info = CORE_ATTRIBUTES[attr];
     if (!info) continue;
-    const key = attr.charAt(0).toUpperCase() + attr.slice(1);
+    const key = capitalize(attr);
     if (!seen.has(key)) {
       seen.add(key);
       result.push({ key, name: info.name, icon: info.icon, description: info.description ?? '' });

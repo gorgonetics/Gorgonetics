@@ -1,4 +1,5 @@
 <script>
+import ComparisonPetPicker from '$lib/components/comparison/ComparisonPetPicker.svelte';
 import GeneEditor from '$lib/components/gene/GeneEditor.svelte';
 import PetList from '$lib/components/pet/PetList.svelte';
 import { activeTab } from '$lib/stores/pets.js';
@@ -11,6 +12,8 @@ import { activeTab } from '$lib/stores/pets.js';
         <div class="gene-editor-wrapper">
             <GeneEditor />
         </div>
+    {:else if $activeTab === "compare"}
+        <ComparisonPetPicker />
     {/if}
 </aside>
 

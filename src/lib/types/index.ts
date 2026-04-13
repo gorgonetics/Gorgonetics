@@ -227,3 +227,65 @@ export interface PetGenomeVisualization {
   species: string;
   chromosomes: Record<string, VisualizationGene[]>;
 }
+
+// --- Comparison types ---
+
+export interface AttributeComparisonResult {
+  key: string;
+  name: string;
+  icon: string;
+  petAValue: number;
+  petBValue: number;
+  diff: number;
+  winner: 'a' | 'b' | 'tie';
+}
+
+export interface GeneStatsEntry {
+  positive: number;
+  negative: number;
+  dominant: number;
+  recessive: number;
+  mixed: number;
+}
+
+export interface GeneStatsComparisonResult {
+  key: string;
+  name: string;
+  icon: string;
+  petA: GeneStatsEntry;
+  petB: GeneStatsEntry;
+}
+
+export interface GeneDiffEntry {
+  geneId: string;
+  block: string;
+  position: number;
+  petAType: GeneType | null;
+  petBType: GeneType | null;
+  isDifferent: boolean;
+  petAEffect?: string;
+  petBEffect?: string;
+}
+
+export interface ChromosomeDiff {
+  chromosome: string;
+  totalGenes: number;
+  identicalGenes: number;
+  differentGenes: number;
+  genes: GeneDiffEntry[];
+}
+
+export interface ComparisonResult {
+  petA: Pet;
+  petB: Pet;
+  species: string;
+  attributes: AttributeComparisonResult[];
+  geneStats: GeneStatsComparisonResult[];
+  genomeDiff: ChromosomeDiff[];
+  summary: {
+    totalGenes: number;
+    identicalGenes: number;
+    differentGenes: number;
+    similarityPercent: number;
+  };
+}

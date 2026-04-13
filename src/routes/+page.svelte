@@ -1,8 +1,9 @@
 <script>
 import { onMount } from 'svelte';
+import ComparisonView from '$lib/components/comparison/ComparisonView.svelte';
 import GeneEditingView from '$lib/components/GeneEditingView.svelte';
 import PetVisualization from '$lib/components/pet/PetVisualization.svelte';
-import { appState, error, geneEditingView, loading, selectedPet } from '$lib/stores/pets.js';
+import { activeTab, appState, error, geneEditingView, loading, selectedPet } from '$lib/stores/pets.js';
 
 onMount(async () => {
   await appState.loadPets();
@@ -17,7 +18,9 @@ onMount(async () => {
 		</div>
 	{/if}
 
-	{#if $loading}
+	{#if $activeTab === 'compare'}
+		<ComparisonView />
+	{:else if $loading}
 		<div class="center-state">
 			<div class="spinner"></div>
 			<p class="state-text">Loading...</p>

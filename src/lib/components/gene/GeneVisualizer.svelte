@@ -13,6 +13,7 @@ import { blockLetter } from '$lib/services/genomeParser.js';
 import { getPetGenome } from '$lib/services/petService.js';
 import { EFFECT_COLORS } from '$lib/theme/gene-colors.js';
 import { handleGridNavigation } from '$lib/utils/keyboard.js';
+import { capitalize } from '$lib/utils/string.js';
 import GeneCell from './GeneCell.svelte';
 import GeneTooltip from './GeneTooltip.svelte';
 
@@ -228,8 +229,6 @@ async function loadPetData() {
     await loadGeneEffectsForSpecies(currentPet.species);
     loadAppearanceConfigForSpecies(currentPet.species);
 
-    // Static templates disabled - current dynamic rendering performance is sufficient
-
     await updateVisualization();
   } catch (err) {
     error = `Failed to load pet: ${err.message}`;
@@ -319,7 +318,7 @@ async function initializeStats() {
     if (currentPet?.species) {
       const config = getAttributeConfig(normalizeSpecies(currentPet.species));
       if (config) {
-        attrNames = config.all_attribute_names.map((name) => name.charAt(0).toUpperCase() + name.slice(1));
+        attrNames = config.all_attribute_names.map((name) => capitalize(name));
       }
     }
     allAttributeNames = attrNames;
@@ -859,13 +858,6 @@ async function createGeneVisualization() {
       };
     });
     if (import.meta.env.DEV) console.timeEnd(buildTime);
-
-    if (import.meta.env.DEV) console.time('🔄 State update (triggers DOM render)');
-    // This assignment triggers Svelte's DOM update cycle
-    // With template caching, DOM structure should be reused when possible
-    if (import.meta.env.DEV) console.timeEnd('🔄 State update (triggers DOM render)');
-
-    // Performance optimization complete - using optimized dynamic rendering
 
     if (import.meta.env.DEV) console.timeEnd('🚀 Gene Visualization Processing');
   } catch (err) {

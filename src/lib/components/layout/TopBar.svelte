@@ -30,6 +30,13 @@ function switchTab(tab) {
         >
             🧬 Genes
         </button>
+        <button
+            class="tab-btn"
+            class:active={$activeTab === "compare"}
+            onclick={() => switchTab("compare")}
+        >
+            ⚖️ Compare
+        </button>
     </nav>
     <DataMenu />
     <SettingsModal />
