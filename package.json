@@ -55,5 +55,8 @@
     "game-tool"
   ],
   "author": "Javier Lopez Pena",
-  "license": "MIT"
+  "license": "MIT",
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild"]
+  }
 }
