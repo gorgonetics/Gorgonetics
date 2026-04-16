@@ -204,6 +204,30 @@ data/                   # Sample genome text files
 tests/e2e/              # Playwright E2E tests
 ```
 
+## Context Hub (chub)
+
+This project uses [chub](https://chub.nrl.ai) for shared AI context — pinned docs, annotations, and lessons learned.
+
+### Mandatory: Keep chub annotations up to date
+
+When working in this codebase, proactively maintain chub annotations:
+
+- **After discovering a bug or gotcha** with a dependency: `chub annotate <doc-id> --kind issue`
+- **After finding a workaround**: `chub annotate <doc-id> --kind fix`
+- **After validating a useful pattern**: `chub annotate <doc-id> --kind practice`
+
+Before starting work, check existing annotations for relevant context:
+```bash
+chub context --task "your task description"
+```
+
+When adding new dependencies, pin their docs:
+```bash
+chub detect --pin
+```
+
+Do not wait to be asked — treat annotation maintenance the same as running lint before committing.
+
 ## Species & Data
 
 - **Beewasp**: 10 chromosomes, attributes: Ferocity + 6 core

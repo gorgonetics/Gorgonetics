@@ -1,0 +1,8 @@
+id: vitest/vitest
+notes: []
+issues: []
+fixes: []
+practices:
+- author: jlopezpena
+  date: 2026-04-16
+  note: Project uses vitest for unit tests alongside Playwright for E2E. Run `pnpm test` for unit tests, `pnpm test:e2e` for E2E. Biome handles linting (`pnpm lint:ci`), not ESLint.

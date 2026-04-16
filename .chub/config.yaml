@@ -1,0 +1,17 @@
+# Chub project configuration
+# This file is shared with the team via git.
+
+# Agent rules for generating CLAUDE.md, .cursorrules, etc.
+agent_rules:
+  global:
+    - "Follow AGENTS.md for architecture and code standards"
+    - "Use Svelte 5 runes ($props, $state, $derived, $effect) — not legacy reactive syntax"
+    - "All data access through src/lib/services/ — never raw SQL in components"
+    - "Plain CSS + Svelte scoped styles — no Tailwind, no CSS frameworks"
+    - "Biome for linting (not ESLint) — must be fully clean before committing"
+    - "Pin pnpm to major version in CI — never use version: latest"
+    - "Every new feature must include E2E tests"
+  modules: {}
+  include_pins: true
+  include_context: true
+  include_annotation_policy: true

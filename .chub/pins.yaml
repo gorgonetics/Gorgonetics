@@ -1,0 +1,13 @@
+pins:
+- id: svelte/svelte
+  lang: javascript
+- id: playwright/playwright
+  lang: javascript
+- id: jest/jest
+  lang: javascript
+- id: vite/vite
+  lang: javascript
+- id: typescript/jsdom
+  lang: javascript
+- id: vitest/vitest
+  lang: javascript

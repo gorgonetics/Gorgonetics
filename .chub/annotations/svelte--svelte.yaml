@@ -1,0 +1,8 @@
+id: svelte/svelte
+notes: []
+issues: []
+fixes: []
+practices:
+- author: jlopezpena
+  date: 2026-04-16
+  note: This project uses Svelte 5 with SvelteKit and static adapter for a Tauri desktop app. No Tailwind — use plain CSS + Svelte scoped styles. Biome is the linter (not ESLint).
