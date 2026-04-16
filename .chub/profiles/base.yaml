@@ -1,4 +1,13 @@
 name: Base
-description: "Shared rules for all roles"
-rules: []
-context: []
+description: "Shared rules for all roles working on Gorgonetics"
+rules:
+  - "Read AGENTS.md before making changes"
+  - "Run pnpm lint:ci and pnpm test:e2e before committing"
+  - "Use $lib/ import alias for all internal imports"
+  - "Database access only through service layer (src/lib/services/)"
+  - "Check chub annotations before working with pinned dependencies"
+context:
+  - architecture.md
+  - data-model.md
+  - ci-cd.md
+  - gotchas.md
