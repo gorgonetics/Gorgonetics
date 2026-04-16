@@ -1,0 +1,25 @@
+# Chub project configuration
+# This file is shared with the team via git.
+# It overrides personal settings in ~/.chub/config.yaml.
+
+# sources:
+#   - name: official
+#     url: https://cdn.aichub.org/v1
+#   - name: company
+#     url: https://docs.internal.company.com/chub
+
+# Agent rules for generating CLAUDE.md, .cursorrules, etc.
+# agent_rules:
+#   global:
+#     - "Follow the project coding conventions"
+#   modules: {}
+#   include_pins: true          # list pinned docs so agents know what to fetch
+#   include_context: true       # list project context docs so agents know what to fetch
+#   include_annotation_policy: true  # add standing instructions for agents to write annotations
+#   targets:
+#     - claude.md
+
+# annotation_server:
+#   url: https://annotations.internal.company.com
+#   auto_push: false  # set true to mirror team writes to org tier
+#   cache_ttl_secs: 3600

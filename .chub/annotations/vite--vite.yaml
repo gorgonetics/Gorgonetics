@@ -1,0 +1,12 @@
+id: vite/vite
+notes: []
+issues:
+- author: jlopezpena
+  date: 2026-04-16
+  note: 'pnpm v11 removed `onlyBuiltDependencies` in favor of `allowBuilds` in pnpm-workspace.yaml. Never use `version: latest` for pnpm in CI — pin to major version (currently 10). See issue #133 for v11 migration plan. ERR_PNPM_IGNORED_BUILDS means esbuild build scripts are blocked.'
+  severity: high
+fixes:
+- author: jlopezpena
+  date: 2026-04-16
+  note: 'When dependabot PRs fail CI, never close them — dependabot won''t recreate. Instead: (1) diagnose root cause from CI logs, (2) create separate fix PR, (3) merge fix, (4) comment `@dependabot rebase`. Also: always grep CI logs for exact tool versions before debugging — `version: latest` can silently resolve to a new major.'
+practices: []

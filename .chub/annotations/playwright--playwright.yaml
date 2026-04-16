@@ -1,0 +1,8 @@
+id: playwright/playwright
+notes: []
+issues: []
+fixes: []
+practices:
+- author: jlopezpena
+  date: 2026-04-16
+  note: 'E2E tests require copying test assets first: `mkdir -p src/static/assets src/static/data && cp -r assets/* src/static/assets/ && cp -r data/* src/static/data/`. Run with `pnpm test:e2e`. Every new feature must include tests.'
