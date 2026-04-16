@@ -17,7 +17,7 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@v5
         with:
-          version: latest
+          version: 10
 
       - name: Set up Node.js
         uses: actions/setup-node@v6
@@ -44,7 +44,7 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@v5
         with:
-          version: latest
+          version: 10
 
       - name: Set up Node.js
         uses: actions/setup-node@v6
@@ -93,7 +93,7 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@v5
         with:
-          version: latest
+          version: 10
 
       - name: Set up Node.js
         uses: actions/setup-node@v6
