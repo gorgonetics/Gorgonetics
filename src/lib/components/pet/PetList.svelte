@@ -1,11 +1,39 @@
 <script>
+import { normalizeSpecies } from '$lib/services/configService.js';
 import { pickGenomeFiles, readFileContent } from '$lib/services/fileService.js';
+import { compareSelectMode, comparisonActions, comparisonPets, comparisonReady } from '$lib/stores/comparison.js';
 import { allTags as allTagsStore, appState, error, pets, selectedPet } from '$lib/stores/pets.js';
 import { createDragState } from '$lib/utils/dragReorder.svelte.js';
 import { focusTrap } from '$lib/utils/focusTrap.js';
 import { getBasename } from '$lib/utils/path.js';
 import PetCard from './PetCard.svelte';
 import PetEditor from './PetEditor.svelte';
+
+function isSelectedForComparison(petId) {
+  return $comparisonPets[0]?.id === petId || $comparisonPets[1]?.id === petId;
+}
+
+function toggleComparisonPet(pet) {
+  if (isSelectedForComparison(pet.id)) {
+    comparisonActions.removePet(pet.id);
+  } else {
+    comparisonActions.addPet(pet);
+  }
+}
+
+function isCompareDisabled(pet) {
+  if (isSelectedForComparison(pet.id)) return false;
+  if ($comparisonReady) return true;
+  // Disable different species when first pet is selected
+  const first = $comparisonPets[0];
+  if (first && normalizeSpecies(first.species) !== normalizeSpecies(pet.species)) return true;
+  return false;
+}
+
+function startCompare() {
+  comparisonActions.toggleSelectMode();
+  appState.switchTab('compare');
+}
 
 let searchQuery = $state('');
 let selectedTags = $state([]);
@@ -225,10 +253,20 @@ async function handleDrop(e, dropIndex) {
                     ondrop={(e) => handleDrop(e, index)}
                     ondragend={drag.handleDragEnd}
                 >
+                    {#if $compareSelectMode}
+                        <input
+                            type="checkbox"
+                            class="compare-checkbox"
+                            checked={isSelectedForComparison(pet.id)}
+                            disabled={isCompareDisabled(pet)}
+                            onchange={() => toggleComparisonPet(pet)}
+                            aria-label="Select {pet.name || 'Unnamed'} for comparison"
+                        />
+                    {/if}
                     <PetCard
                         {pet}
                         selected={$selectedPet?.id === pet.id}
-                        onclick={selectPet}
+                        onclick={$compareSelectMode ? () => toggleComparisonPet(pet) : selectPet}
                         onkeydown={(e) => handlePetCardKeydown(e, index)}
                     />
                     <div class="pet-card-actions">
@@ -267,17 +305,36 @@ async function handleDrop(e, dropIndex) {
     </div>
 
     <div class="pet-list-footer">
-        <button
-            class="upload-btn"
-            onclick={handleUpload}
-            disabled={uploading}
-        >
-            {#if uploadProgress}
-                Uploading... ({uploadProgress.current}/{uploadProgress.total})
-            {:else}
-                + Upload Genome
-            {/if}
-        </button>
+        {#if $compareSelectMode}
+            <button class="cancel-compare-btn" onclick={() => comparisonActions.toggleSelectMode()}>
+                Cancel
+            </button>
+            <button
+                class="compare-now-btn"
+                disabled={!$comparisonReady}
+                onclick={startCompare}
+            >
+                Compare ({[$comparisonPets[0], $comparisonPets[1]].filter(Boolean).length}/2) →
+            </button>
+        {:else}
+            <button
+                class="upload-btn"
+                onclick={handleUpload}
+                disabled={uploading}
+            >
+                {#if uploadProgress}
+                    Uploading... ({uploadProgress.current}/{uploadProgress.total})
+                {:else}
+                    + Upload Genome
+                {/if}
+            </button>
+            <button
+                class="compare-mode-btn"
+                onclick={() => comparisonActions.toggleSelectMode()}
+                disabled={$pets.length < 2}
+                title="Compare two pets"
+            >⚖️</button>
+        {/if}
         <span class="pet-count">{$pets.length} pets</span>
     </div>
 </div>
@@ -408,6 +465,9 @@ async function handleDrop(e, dropIndex) {
 
     .pet-card-wrapper {
         position: relative;
+        display: flex;
+        align-items: center;
+        gap: 6px;
     }
 
     .pet-card-wrapper[draggable='true'] {
@@ -512,5 +572,77 @@ async function handleDrop(e, dropIndex) {
         font-size: 11px;
         color: var(--text-muted);
         white-space: nowrap;
+    }
+
+    .compare-checkbox {
+        width: 16px;
+        height: 16px;
+        cursor: pointer;
+        accent-color: var(--accent);
+        flex-shrink: 0;
+    }
+
+    .compare-checkbox:disabled {
+        opacity: 0.3;
+        cursor: not-allowed;
+    }
+
+    .compare-mode-btn {
+        padding: 8px 10px;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-primary);
+        border-radius: 6px;
+        font-size: 13px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        flex-shrink: 0;
+    }
+
+    .compare-mode-btn:hover:not(:disabled) {
+        background: var(--bg-selected);
+        border-color: var(--accent);
+    }
+
+    .compare-mode-btn:disabled {
+        opacity: 0.3;
+        cursor: not-allowed;
+    }
+
+    .cancel-compare-btn {
+        padding: 8px 12px;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-primary);
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        color: var(--text-secondary);
+        transition: all 0.15s ease;
+    }
+
+    .cancel-compare-btn:hover {
+        background: var(--bg-tertiary);
+    }
+
+    .compare-now-btn {
+        flex: 1;
+        padding: 8px 12px;
+        background: var(--accent);
+        color: white;
+        border: none;
+        border-radius: 6px;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.15s;
+    }
+
+    .compare-now-btn:hover:not(:disabled) {
+        background: var(--accent-hover);
+    }
+
+    .compare-now-btn:disabled {
+        background: var(--text-muted);
+        cursor: not-allowed;
     }
 </style>

@@ -1,0 +1,180 @@
+/**
+ * Comparison engine for head-to-head pet comparison.
+ */
+
+import { getAllAttributeNames, getAttributeConfig, normalizeSpecies } from '$lib/services/configService.js';
+import { getGeneEffectsCached } from '$lib/services/geneService.js';
+import { getPetGenome } from '$lib/services/petService.js';
+import type {
+  AttributeComparisonResult,
+  ChromosomeDiff,
+  GeneDiffEntry,
+  GeneStatsComparisonResult,
+  Pet,
+} from '$lib/types/index.js';
+import { computeGeneStats, parseGenomeGenes } from '$lib/utils/geneAnalysis.js';
+import { capitalize } from '$lib/utils/string.js';
+
+async function loadGenomePair(petA: Pet, petB: Pet) {
+  const species = normalizeSpecies(petA.species);
+  const [genomeA, genomeB, effectsData] = await Promise.all([
+    getPetGenome(petA.id),
+    getPetGenome(petB.id),
+    getGeneEffectsCached(species),
+  ]);
+  if (!genomeA || !genomeB) {
+    throw new Error('Failed to load genome data for comparison');
+  }
+  return { species, genomeA, genomeB, effectsData };
+}
+
+/**
+ * Compare attributes between two same-species pets.
+ */
+export function compareAttributes(petA: Pet, petB: Pet): AttributeComparisonResult[] {
+  const species = normalizeSpecies(petA.species);
+  const config = getAttributeConfig(species);
+  const attrNames = getAllAttributeNames(species);
+
+  return attrNames.map((attrName) => {
+    const info = config.attributes.find((a) => a.key.toLowerCase() === attrName.toLowerCase());
+    const key = capitalize(attrName);
+    const valA = ((petA as Record<string, unknown>)[attrName] as number) ?? 0;
+    const valB = ((petB as Record<string, unknown>)[attrName] as number) ?? 0;
+    const diff = valA - valB;
+
+    let winner: 'a' | 'b' | 'tie' = 'tie';
+    if (diff > 0) winner = 'a';
+    else if (diff < 0) winner = 'b';
+
+    return {
+      key,
+      name: info?.name ?? key,
+      icon: info?.icon ?? '',
+      petAValue: valA,
+      petBValue: valB,
+      diff,
+      winner,
+    };
+  });
+}
+
+/**
+ * Compare gene stats between two same-species pets.
+ * Loads genome data and gene effects, then computes per-attribute stats for both.
+ */
+export async function compareGeneStats(petA: Pet, petB: Pet): Promise<GeneStatsComparisonResult[]> {
+  const { species, genomeA, genomeB, effectsData } = await loadGenomePair(petA, petB);
+
+  const effectsDB = effectsData ? { [species]: effectsData.effects } : {};
+
+  const statsA = computeGeneStats(genomeA.genes, species, effectsDB, petA.breed);
+  const statsB = computeGeneStats(genomeB.genes, species, effectsDB, petB.breed);
+
+  const config = getAttributeConfig(species);
+  const attrNames = getAllAttributeNames(species);
+
+  const emptyEntry = () => ({ positive: 0, negative: 0, dominant: 0, recessive: 0, mixed: 0 });
+
+  return attrNames.map((attrName) => {
+    const key = capitalize(attrName);
+    const info = config.attributes.find((a) => a.key.toLowerCase() === attrName.toLowerCase());
+
+    return {
+      key,
+      name: info?.name ?? key,
+      icon: info?.icon ?? '',
+      petA: statsA.stats[key] ?? emptyEntry(),
+      petB: statsB.stats[key] ?? emptyEntry(),
+    };
+  });
+}
+
+/**
+ * Compute a chromosome-by-chromosome genome diff between two pets.
+ */
+export async function diffGenomes(
+  petA: Pet,
+  petB: Pet,
+): Promise<{
+  diffs: ChromosomeDiff[];
+  summary: { totalGenes: number; identicalGenes: number; differentGenes: number; similarityPercent: number };
+}> {
+  const { species, genomeA, genomeB, effectsData } = await loadGenomePair(petA, petB);
+
+  const effectsDB = effectsData?.effects ?? {};
+  const parsedA = parseGenomeGenes(genomeA.genes);
+  const parsedB = parseGenomeGenes(genomeB.genes);
+
+  // Union of all chromosomes, sorted
+  const allChromosomes = [...new Set([...Object.keys(parsedA), ...Object.keys(parsedB)])].sort(
+    (a, b) => Number.parseInt(a, 10) - Number.parseInt(b, 10),
+  );
+
+  const diffs: ChromosomeDiff[] = [];
+  let totalGenes = 0;
+  let identicalGenes = 0;
+  let differentGenes = 0;
+
+  for (const chr of allChromosomes) {
+    const genesA = parsedA[chr] ?? [];
+    const genesB = parsedB[chr] ?? [];
+    const maxLen = Math.max(genesA.length, genesB.length);
+
+    const genes: GeneDiffEntry[] = [];
+
+    for (let i = 0; i < maxLen; i++) {
+      const gA = genesA[i] ?? null;
+      const gB = genesB[i] ?? null;
+
+      const typeA = gA?.type ?? null;
+      const typeB = gB?.type ?? null;
+      const isDifferent = typeA !== typeB;
+      const geneId = gA?.id ?? gB?.id ?? `${chr}?${i + 1}`;
+
+      // Look up effects for differing genes
+      let petAEffect: string | undefined;
+      let petBEffect: string | undefined;
+      if (isDifferent) {
+        if (typeA && typeA !== '?' && effectsDB[geneId]) {
+          const data = effectsDB[geneId];
+          petAEffect = typeA === 'R' ? data.effectRecessive : data.effectDominant;
+        }
+        if (typeB && typeB !== '?' && effectsDB[geneId]) {
+          const data = effectsDB[geneId];
+          petBEffect = typeB === 'R' ? data.effectRecessive : data.effectDominant;
+        }
+      }
+
+      genes.push({
+        geneId,
+        block: gA?.block ?? gB?.block ?? '?',
+        position: gA?.position ?? gB?.position ?? i + 1,
+        petAType: typeA as GeneDiffEntry['petAType'],
+        petBType: typeB as GeneDiffEntry['petBType'],
+        isDifferent,
+        petAEffect,
+        petBEffect,
+      });
+
+      totalGenes++;
+      if (isDifferent) differentGenes++;
+      else identicalGenes++;
+    }
+
+    diffs.push({
+      chromosome: chr,
+      totalGenes: genes.length,
+      identicalGenes: genes.filter((g) => !g.isDifferent).length,
+      differentGenes: genes.filter((g) => g.isDifferent).length,
+      genes,
+    });
+  }
+
+  const similarityPercent = totalGenes > 0 ? Math.round((identicalGenes / totalGenes) * 100) : 0;
+
+  return {
+    diffs,
+    summary: { totalGenes, identicalGenes, differentGenes, similarityPercent },
+  };
+}

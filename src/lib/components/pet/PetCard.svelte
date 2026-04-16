@@ -1,12 +1,7 @@
 <script>
-const { pet, selected = false, onclick, onkeydown } = $props();
+import { getSpeciesEmoji } from '$lib/utils/species.js';
 
-function getSpeciesEmoji(species) {
-  const s = (species || '').toLowerCase();
-  if (s.includes('bee') || s.includes('wasp')) return '🐝';
-  if (s.includes('horse')) return '🐴';
-  return '🐾';
-}
+const { pet, selected = false, onclick, onkeydown } = $props();
 </script>
 
 <button
