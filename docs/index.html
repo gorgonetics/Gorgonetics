@@ -426,13 +426,13 @@
   <section class="downloads" id="downloads">
     <div class="container">
       <h3>Download</h3>
-      <p class="subtitle">Latest release: <strong>v0.2.0</strong></p>
+      <p class="subtitle">Latest release: <strong id="release-version">loading&hellip;</strong></p>
       <div class="download-grid">
         <div class="download-card">
           <h4>macOS</h4>
           <div class="dl-links">
-            <a href="https://github.com/gorgonetics/Gorgonetics/releases/download/v0.2.0/Gorgonetics_0.2.0_aarch64.dmg">Gorgonetics_0.2.0_aarch64.dmg</a>
-            <a href="https://github.com/gorgonetics/Gorgonetics/releases/download/v0.2.0/Gorgonetics_0.2.0_aarch64.app.tar.gz">Gorgonetics_0.2.0_aarch64.app.tar.gz</a>
+            <a data-asset="Gorgonetics_{v}_aarch64.dmg"></a>
+            <a data-asset="Gorgonetics_{v}_aarch64.app.tar.gz"></a>
           </div>
           <div class="install-note">
             Apple Silicon (M1/M2/M3). Open the <code>.dmg</code> and drag to Applications. On first launch, right-click &rarr; Open to bypass Gatekeeper.
@@ -441,7 +441,7 @@
         <div class="download-card">
           <h4>Windows</h4>
           <div class="dl-links">
-            <a href="https://github.com/gorgonetics/Gorgonetics/releases/download/v0.2.0/Gorgonetics_0.2.0_x64-setup.exe">Gorgonetics_0.2.0_x64-setup.exe</a>
+            <a data-asset="Gorgonetics_{v}_x64-setup.exe"></a>
           </div>
           <div class="install-note">
             64-bit Windows 10+. Run the installer &mdash; it will install to Program Files and create a Start Menu shortcut. Windows may show a SmartScreen warning for unsigned apps; click "More info" &rarr; "Run anyway".
@@ -450,15 +450,18 @@
         <div class="download-card">
           <h4>Linux</h4>
           <div class="dl-links">
-            <a href="https://github.com/gorgonetics/Gorgonetics/releases/download/v0.2.0/Gorgonetics_0.2.0_amd64.deb">Gorgonetics_0.2.0_amd64.deb</a>
-            <a href="https://github.com/gorgonetics/Gorgonetics/releases/download/v0.2.0/Gorgonetics_0.2.0_amd64.AppImage">Gorgonetics_0.2.0_amd64.AppImage</a>
-            <a href="https://github.com/gorgonetics/Gorgonetics/releases/download/v0.2.0/Gorgonetics-0.2.0-1.x86_64.rpm">Gorgonetics-0.2.0-1.x86_64.rpm</a>
+            <a data-asset="Gorgonetics_{v}_amd64.deb"></a>
+            <a data-asset="Gorgonetics_{v}_amd64.AppImage"></a>
+            <a data-asset="Gorgonetics-{v}-1.x86_64.rpm"></a>
           </div>
           <div class="install-note">
             64-bit Linux (x86_64). Use the <code>.deb</code> for Debian/Ubuntu, <code>.rpm</code> for Fedora/RHEL, or the <code>.AppImage</code> for any distro.
           </div>
         </div>
       </div>
+      <p class="subtitle" id="download-fallback" hidden>
+        Couldn't load the latest release automatically. <a href="https://github.com/gorgonetics/Gorgonetics/releases/latest">Browse releases on GitHub</a>.
+      </p>
     </div>
   </section>
 
@@ -504,5 +507,30 @@
   </div>
 </footer>
 
+<script>
+(async function populateDownloads() {
+  const versionEl = document.getElementById('release-version');
+  const fallbackEl = document.getElementById('download-fallback');
+  const assetLinks = document.querySelectorAll('a[data-asset]');
+  try {
+    const res = await fetch('https://api.github.com/repos/gorgonetics/Gorgonetics/releases/latest');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    const tag = data.tag_name;
+    const version = tag.replace(/^v/, '');
+    versionEl.textContent = tag;
+    const baseUrl = 'https://github.com/gorgonetics/Gorgonetics/releases/download/' + tag + '/';
+    for (const link of assetLinks) {
+      const filename = link.dataset.asset.replace(/\{v\}/g, version);
+      link.href = baseUrl + filename;
+      link.textContent = filename;
+    }
+  } catch (err) {
+    versionEl.textContent = 'unavailable';
+    for (const link of assetLinks) link.remove();
+    fallbackEl.hidden = false;
+  }
+})();
+</script>
 </body>
 </html>
