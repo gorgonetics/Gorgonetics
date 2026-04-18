@@ -127,6 +127,7 @@ $effect(() => {
     hiddenChromosomes,
     showDiffsOnly,
     isHorse,
+    currentView,
     chrBreedRelevance,
   });
 });

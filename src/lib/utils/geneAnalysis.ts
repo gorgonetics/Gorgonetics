@@ -5,7 +5,7 @@
  * reused by both the visualizer and the comparison service.
  */
 
-import { getAllAttributeNames, getAttributeConfig, normalizeSpecies } from '$lib/services/configService.js';
+import { getAllAttributeNames, normalizeSpecies } from '$lib/services/configService.js';
 import { blockLetter } from '$lib/services/genomeParser.js';
 import type { GeneStatsEntry } from '$lib/types/index.js';
 import { capitalize } from '$lib/utils/string.js';
@@ -76,8 +76,8 @@ export interface ParsedChromosome {
  */
 export function parseGenomeGenes(genes: Record<string, string>): Record<string, ParsedGene[]> {
   const result: Record<string, ParsedGene[]> = {};
-  for (const [chromosome, blocks] of Object.entries(parseGenesByBlock(genes))) {
-    result[chromosome] = blocks.allGenes;
+  for (const [chromosome, chrData] of Object.entries(parseGenesByBlock(genes))) {
+    result[chromosome] = chrData.allGenes;
   }
   return result;
 }
@@ -134,7 +134,6 @@ export function computeGeneStats(
   petBreed?: string,
 ): { stats: Record<string, GeneStatsEntry>; totalGenes: number; neutralGenes: number } {
   const speciesKey = normalizeSpecies(species);
-  const _config = getAttributeConfig(speciesKey);
   const attrNames = getAllAttributeNames(speciesKey).map((name) => capitalize(name));
   const speciesEffects = geneEffectsDB[speciesKey] ?? {};
 

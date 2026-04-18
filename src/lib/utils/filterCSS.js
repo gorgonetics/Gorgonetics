@@ -31,6 +31,7 @@ function pushInclusionRules(rules, baseSelector, attr, selected, hidden, declara
  * @param {string[]} filters.hiddenChromosomes
  * @param {boolean} filters.showDiffsOnly
  * @param {boolean} filters.isHorse
+ * @param {'attribute'|'appearance'} filters.currentView
  * @param {Record<string, { generic: boolean; breeds: Set<string> }>} filters.chrBreedRelevance
  * @returns {string}
  */
@@ -45,13 +46,17 @@ export function buildFilterCSS(filters) {
     hiddenChromosomes: hc,
     showDiffsOnly: sd,
     isHorse: horse,
+    currentView = 'attribute',
     chrBreedRelevance,
   } = filters;
 
   const rules = [];
 
-  pushInclusionRules(rules, '.gene-cell', 'data-attr', sa, ha, FILTERED);
-  pushInclusionRules(rules, '.gene-cell', 'data-appearance', sap, hap, FILTERED);
+  if (currentView === 'attribute') {
+    pushInclusionRules(rules, '.gene-cell', 'data-attr', sa, ha, FILTERED);
+  } else if (currentView === 'appearance') {
+    pushInclusionRules(rules, '.gene-cell', 'data-appearance', sap, hap, FILTERED);
+  }
 
   // Breed filter
   if (horse && bf) {
