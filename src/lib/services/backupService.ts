@@ -60,6 +60,9 @@ const PET_COLUMNS = [
   'ferocity',
   'temperament',
   'sort_order',
+  'starred',
+  'stabled',
+  'is_pet_quality',
 ];
 
 // --- Export ---

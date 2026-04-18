@@ -1,4 +1,5 @@
 <script>
+import { House, PawPrint, Star } from '@lucide/svelte';
 import { untrack } from 'svelte';
 import { getAllAttributeDisplayInfo, getAllAttributeNames } from '$lib/services/configService.js';
 import { allTags as allTagsStore, appState } from '$lib/stores/pets.js';
@@ -37,6 +38,9 @@ let editGender = $state(initial.gender);
 let editBreed = $state(initial.breed);
 const editAttributes = $state(initial.attributes);
 let editTags = $state(untrack(() => [...(pet.tags ?? [])]));
+let editStarred = $state(!!pet.starred);
+let editStabled = $state(!!pet.stabled);
+let editIsPetQuality = $state(!!pet.is_pet_quality);
 let saveError = $state('');
 
 const allTags = $derived($allTagsStore);
@@ -62,6 +66,10 @@ async function handleSave() {
     if (JSON.stringify(editTags) !== JSON.stringify(pet.tags ?? [])) {
       updateData.tags = editTags;
     }
+
+    if (editStarred !== !!pet.starred) updateData.starred = editStarred;
+    if (editStabled !== !!pet.stabled) updateData.stabled = editStabled;
+    if (editIsPetQuality !== !!pet.is_pet_quality) updateData.is_pet_quality = editIsPetQuality;
 
     if (Object.keys(updateData).length > 0) {
       await appState.updatePet(pet.id, updateData);
@@ -144,6 +152,45 @@ function updateAttribute(attrKey, value) {
       <section class="form-section">
         <h3>Tags</h3>
         <TagInput tags={editTags} {allTags} onchange={(t) => { editTags = t; }} />
+      </section>
+
+      <section class="form-section">
+        <h3>Markers</h3>
+        <div class="markers">
+          <button
+            type="button"
+            class="marker star"
+            class:active={editStarred}
+            aria-pressed={editStarred}
+            onclick={() => { editStarred = !editStarred; }}
+          >
+            <Star size={16} fill={editStarred ? 'currentColor' : 'none'} />
+            <span>Starred</span>
+            <span class="marker-hint">favourites</span>
+          </button>
+          <button
+            type="button"
+            class="marker stable"
+            class:active={editStabled}
+            aria-pressed={editStabled}
+            onclick={() => { editStabled = !editStabled; }}
+          >
+            <House size={16} fill={editStabled ? 'currentColor' : 'none'} />
+            <span>Stabled</span>
+            <span class="marker-hint">available in your stables</span>
+          </button>
+          <button
+            type="button"
+            class="marker pet-quality"
+            class:active={editIsPetQuality}
+            aria-pressed={editIsPetQuality}
+            onclick={() => { editIsPetQuality = !editIsPetQuality; }}
+          >
+            <PawPrint size={16} fill={editIsPetQuality ? 'currentColor' : 'none'} />
+            <span>Pet quality</span>
+            <span class="marker-hint">not used for breeding</span>
+          </button>
+        </div>
       </section>
 
       <section class="form-section">
@@ -336,6 +383,53 @@ function updateAttribute(attrKey, value) {
   .attr-field input:focus {
     border-color: var(--accent);
     box-shadow: 0 0 0 2px var(--accent-soft);
+  }
+
+  .markers {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .marker {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border: 1px solid var(--border-primary);
+    background: var(--bg-primary);
+    color: var(--text-muted);
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+    text-align: left;
+  }
+
+  .marker:hover {
+    border-color: var(--border-secondary);
+    color: var(--text-primary);
+  }
+
+  .marker.star.active {
+    color: #f59e0b;
+    border-color: #f59e0b;
+  }
+
+  .marker.stable.active {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+
+  .marker.pet-quality.active {
+    color: var(--text-primary);
+    border-color: var(--text-primary);
+  }
+
+  .marker-hint {
+    color: var(--text-muted);
+    font-size: 12px;
+    margin-left: auto;
   }
 
   .save-error {

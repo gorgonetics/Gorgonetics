@@ -94,6 +94,10 @@ export interface Pet {
   virility: number;
   ferocity: number;
   temperament: number;
+  // User-toggled flags
+  starred: boolean;
+  stabled: boolean;
+  is_pet_quality: boolean;
   // Computed fields (added by service layer)
   readonly?: boolean;
   is_demo?: boolean;

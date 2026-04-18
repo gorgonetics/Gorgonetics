@@ -122,6 +122,18 @@ const MIGRATIONS: Migration[] = [
       }
     },
   },
+  {
+    version: 8,
+    description: 'Add starred, stabled, is_pet_quality flags to pets',
+    up: async () => {
+      const db = getDb();
+      await db.execute('ALTER TABLE pets ADD COLUMN starred INTEGER NOT NULL DEFAULT 0');
+      await db.execute('ALTER TABLE pets ADD COLUMN stabled INTEGER NOT NULL DEFAULT 1');
+      await db.execute('ALTER TABLE pets ADD COLUMN is_pet_quality INTEGER NOT NULL DEFAULT 0');
+      // Existing rows default to stabled=1 via column DEFAULT — the default view
+      // would otherwise be empty for users upgrading with a populated database.
+    },
+  },
 ];
 
 /** Derived from the last migration — no manual bookkeeping needed. */
