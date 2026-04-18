@@ -60,6 +60,9 @@ const PET_COLUMNS = [
   'ferocity',
   'temperament',
   'sort_order',
+  'starred',
+  'stabled',
+  'is_pet_quality',
 ];
 
 // --- Export ---
@@ -250,6 +253,8 @@ async function importGenesAndPets(
         for (const col of PET_COLUMNS) {
           if (col === 'genome_data') params[col] = genomeData;
           else if (col === 'sort_order') params[col] = ((pet[col] as number) ?? 0) + sortOrderOffset;
+          else if (col === 'stabled') params[col] = pet[col] ?? 1;
+          else if (col === 'starred' || col === 'is_pet_quality') params[col] = pet[col] ?? 0;
           else params[col] = pet[col] ?? null;
         }
         await db.execute(petSQL, params);

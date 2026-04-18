@@ -37,6 +37,8 @@ function startCompare() {
 
 let searchQuery = $state('');
 let selectedTags = $state([]);
+let starredOnly = $state(false);
+let stabledOnly = $state(true);
 let uploading = $state(false);
 let uploadProgress = $state(null);
 let showEditor = $state(false);
@@ -67,6 +69,8 @@ const filteredPets = $derived.by(() => {
       const petTags = pet.tags ?? [];
       if (!selectedTags.every((t) => petTags.includes(t))) return false;
     }
+    if (starredOnly && !pet.starred) return false;
+    if (stabledOnly && !pet.stabled) return false;
     return true;
   });
 });
@@ -81,6 +85,11 @@ function toggleTagFilter(tag) {
 
 function selectPet(pet) {
   appState.selectPet(pet);
+}
+
+// appState.updatePet already reloads the pets store — no explicit loadPets needed.
+async function toggleMarker(petId, key, value) {
+  await appState.updatePet(petId, { [key]: value });
 }
 
 async function handleUpload() {
@@ -225,6 +234,20 @@ async function handleDrop(e, dropIndex) {
             placeholder="Search pets..."
             bind:value={searchQuery}
         />
+        <div class="marker-filter">
+            <button
+                class="marker-filter-btn"
+                class:active={starredOnly}
+                onclick={() => { starredOnly = !starredOnly; }}
+                title="Show only starred pets"
+            >⭐ Starred</button>
+            <button
+                class="marker-filter-btn"
+                class:active={stabledOnly}
+                onclick={() => { stabledOnly = !stabledOnly; }}
+                title="Show only pets in your stables"
+            >🏠 Stabled</button>
+        </div>
         {#if availableTags.length > 0}
             <div class="tag-filter">
                 {#each availableTags as tag}
@@ -268,6 +291,7 @@ async function handleDrop(e, dropIndex) {
                         selected={$selectedPet?.id === pet.id}
                         onclick={$compareSelectMode ? () => toggleComparisonPet(pet) : selectPet}
                         onkeydown={(e) => handlePetCardKeydown(e, index)}
+                        onToggleMarker={toggleMarker}
                     />
                     <div class="pet-card-actions">
                         <button
@@ -297,7 +321,7 @@ async function handleDrop(e, dropIndex) {
                     ondrop={(e) => handleDrop(e, filteredPets.length)}
                 ></div>
             {/if}
-        {:else if searchQuery || selectedTags.length > 0}
+        {:else if $pets.length > 0 && (searchQuery || selectedTags.length > 0 || starredOnly || stabledOnly)}
             <div class="empty-state">No pets match the current filters</div>
         {:else}
             <div class="empty-state">No pets yet. Upload a genome file to get started.</div>
@@ -422,6 +446,34 @@ async function handleDrop(e, dropIndex) {
 
     .search-input::placeholder {
         color: var(--text-muted);
+    }
+
+    .marker-filter {
+        display: flex;
+        gap: 4px;
+        margin-top: 8px;
+    }
+
+    .marker-filter-btn {
+        padding: 2px 10px;
+        border: 1px solid var(--border-primary);
+        border-radius: 10px;
+        background: var(--bg-primary);
+        color: var(--text-tertiary);
+        font-size: 11px;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+
+    .marker-filter-btn:hover {
+        border-color: var(--accent);
+        color: var(--accent-text);
+    }
+
+    .marker-filter-btn.active {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: var(--bg-primary);
     }
 
     .tag-filter {
