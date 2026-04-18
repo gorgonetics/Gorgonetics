@@ -9,10 +9,23 @@ const HIDDEN = '{ display: none !important; }';
 const INACTIVE = '{ background-color: #e8e8ec !important; border-color: #d0d0d6 !important; opacity: 0.5 !important; }';
 const DIMMED = '{ opacity: 0.2 !important; }';
 
+function pushInclusionRules(rules, baseSelector, attr, selected, hidden, declaration) {
+  if (selected.length > 0) {
+    let not = '';
+    for (const v of selected) not += `:not([${attr}="${v}"])`;
+    rules.push(`${G} ${baseSelector}[${attr}]${not} ${declaration}`);
+  }
+  for (const v of hidden) {
+    rules.push(`${G} ${baseSelector}[${attr}="${v}"] ${declaration}`);
+  }
+}
+
 /**
  * @param {object} filters
  * @param {string[]} filters.selectedAttributes
  * @param {string[]} filters.hiddenAttributes
+ * @param {string[]} filters.selectedAppearances
+ * @param {string[]} filters.hiddenAppearances
  * @param {string} filters.breedFilter
  * @param {string[]} filters.selectedChromosomes
  * @param {string[]} filters.hiddenChromosomes
@@ -25,6 +38,8 @@ export function buildFilterCSS(filters) {
   const {
     selectedAttributes: sa,
     hiddenAttributes: ha,
+    selectedAppearances: sap = [],
+    hiddenAppearances: hap = [],
     breedFilter: bf,
     selectedChromosomes: sc,
     hiddenChromosomes: hc,
@@ -35,15 +50,8 @@ export function buildFilterCSS(filters) {
 
   const rules = [];
 
-  // Attribute filter
-  if (sa.length > 0) {
-    let not = '';
-    for (const a of sa) not += `:not([data-attr="${a}"])`;
-    rules.push(`${G} .gene-cell[data-attr]${not} ${FILTERED}`);
-  }
-  for (const a of ha) {
-    rules.push(`${G} .gene-cell[data-attr="${a}"] ${FILTERED}`);
-  }
+  pushInclusionRules(rules, '.gene-cell', 'data-attr', sa, ha, FILTERED);
+  pushInclusionRules(rules, '.gene-cell', 'data-appearance', sap, hap, FILTERED);
 
   // Breed filter
   if (horse && bf) {

@@ -12,7 +12,7 @@ import { capitalize } from '$lib/utils/string.js';
 
 // --- Effect classification helpers ---
 
-const NO_EFFECT_SENTINELS = new Set([
+export const NO_EFFECT_SENTINELS = new Set([
   'No gene data found',
   'No dominant effect',
   'No recessive effect',
@@ -21,36 +21,37 @@ const NO_EFFECT_SENTINELS = new Set([
   'null',
 ]);
 
-function isNoEffect(effect: string | null | undefined): boolean {
+export function isNoEffect(effect: string | null | undefined): boolean {
   return !effect || NO_EFFECT_SENTINELS.has(effect);
 }
 
-function getGeneEffect(
-  geneEffectsDB: Record<string, Record<string, { effectDominant: string; effectRecessive: string; breed: string }>>,
-  speciesKey: string,
-  geneId: string,
-  geneType: string,
-): string {
-  const geneData = geneEffectsDB[speciesKey]?.[geneId];
-  if (!geneData) return 'No gene data found';
+/** Shape of a single gene's effect record within an `effectsDB` map. */
+export interface GeneEffectData {
+  effectDominant: string;
+  effectRecessive: string;
+  breed: string;
+  appearance?: string;
+  notes?: string;
+}
 
+/**
+ * Resolve the displayable effect string for a gene given its data record and type.
+ * Pass the already-indexed `effectsDB[geneId]` — this helper doesn't know about species.
+ */
+export function effectFor(geneData: GeneEffectData | undefined, geneType: string): string {
+  if (!geneData) return 'No gene data found';
   if (geneType === 'D' || geneType === 'x') {
-    const effect = geneData.effectDominant;
-    return isNoEffect(effect) ? 'No dominant effect' : effect;
+    return isNoEffect(geneData.effectDominant) ? 'No dominant effect' : geneData.effectDominant;
   }
   if (geneType === 'R') {
-    const effect = geneData.effectRecessive;
-    return isNoEffect(effect) ? 'No recessive effect' : effect;
+    return isNoEffect(geneData.effectRecessive) ? 'No recessive effect' : geneData.effectRecessive;
   }
   return 'Unknown gene type';
 }
 
-function getGeneBreed(
-  geneEffectsDB: Record<string, Record<string, { breed: string }>>,
-  speciesKey: string,
-  geneId: string,
-): string {
-  return geneEffectsDB[speciesKey]?.[geneId]?.breed || '';
+/** Resolve the breed string for a gene data record (empty string if none). */
+export function breedFor(geneData: { breed?: string } | undefined): string {
+  return geneData?.breed || '';
 }
 
 /** Parsed gene from a genome string. */
@@ -59,35 +60,60 @@ export interface ParsedGene {
   type: string;
   block: string;
   position: number;
+  globalPosition: number;
+}
+
+/** Parsed chromosome grouped by block for grid rendering. */
+export interface ParsedChromosome {
+  blocks: Array<{ letter: string; genes: ParsedGene[] }>;
+  allGenes: ParsedGene[];
 }
 
 /**
- * Parse a genome's gene strings into structured gene objects.
+ * Parse a genome's gene strings into a flat list per chromosome.
  * Input: `genes` from `getPetGenome()` — `Record<string, string>` where
  * each value is like `"RDRD RDRR ?D?? x?xR"`.
  */
 export function parseGenomeGenes(genes: Record<string, string>): Record<string, ParsedGene[]> {
   const result: Record<string, ParsedGene[]> = {};
+  for (const [chromosome, blocks] of Object.entries(parseGenesByBlock(genes))) {
+    result[chromosome] = blocks.allGenes;
+  }
+  return result;
+}
+
+/**
+ * Parse a genome's gene strings grouped by block, for grid/visualizer rendering.
+ * Returns both the block grouping and a flat `allGenes` list per chromosome.
+ */
+export function parseGenesByBlock(genes: Record<string, string>): Record<string, ParsedChromosome> {
+  const result: Record<string, ParsedChromosome> = {};
 
   for (const [chromosome, geneString] of Object.entries(genes)) {
     const blockStrings = geneString.split(' ');
     const allGenes: ParsedGene[] = [];
+    const blocks: Array<{ letter: string; genes: ParsedGene[] }> = [];
 
-    for (let blockIndex = 0; blockIndex < blockStrings.length; blockIndex++) {
-      const bl = blockLetter(blockIndex);
-      const blockString = blockStrings[blockIndex];
+    for (let bi = 0; bi < blockStrings.length; bi++) {
+      const bl = blockLetter(bi);
+      const blockGenes: ParsedGene[] = [];
 
-      for (let i = 0; i < blockString.length; i++) {
-        allGenes.push({
+      for (let i = 0; i < blockStrings[bi].length; i++) {
+        const gene: ParsedGene = {
           id: `${chromosome}${bl}${i + 1}`,
-          type: blockString[i],
+          type: blockStrings[bi][i],
           block: bl,
           position: i + 1,
-        });
+          globalPosition: allGenes.length + 1,
+        };
+        blockGenes.push(gene);
+        allGenes.push(gene);
       }
+
+      blocks.push({ letter: bl, genes: blockGenes });
     }
 
-    result[chromosome] = allGenes;
+    result[chromosome] = { blocks, allGenes };
   }
 
   return result;
@@ -99,7 +125,7 @@ export function parseGenomeGenes(genes: Record<string, string>): Record<string, 
  * Returns a map of attribute key → { positive, negative, dominant, recessive, mixed }.
  * Also returns totalGenes and neutralGenes counts.
  */
-type GeneEffectsDB = Record<string, Record<string, { effectDominant: string; effectRecessive: string; breed: string }>>;
+type GeneEffectsDB = Record<string, Record<string, GeneEffectData>>;
 
 export function computeGeneStats(
   genes: Record<string, string>,
@@ -108,8 +134,9 @@ export function computeGeneStats(
   petBreed?: string,
 ): { stats: Record<string, GeneStatsEntry>; totalGenes: number; neutralGenes: number } {
   const speciesKey = normalizeSpecies(species);
-  const config = getAttributeConfig(speciesKey);
+  const _config = getAttributeConfig(speciesKey);
   const attrNames = getAllAttributeNames(speciesKey).map((name) => capitalize(name));
+  const speciesEffects = geneEffectsDB[speciesKey] ?? {};
 
   const emptyEntry = (): GeneStatsEntry => ({ positive: 0, negative: 0, dominant: 0, recessive: 0, mixed: 0 });
   const stats: Record<string, GeneStatsEntry> = {};
@@ -120,21 +147,20 @@ export function computeGeneStats(
   let totalGenes = 0;
   let neutralGenes = 0;
 
-  const parsedGenome = parseGenomeGenes(genes);
-  const effectsDB = geneEffectsDB;
-
-  for (const [_chromosome, geneList] of Object.entries(parsedGenome)) {
+  for (const [_chromosome, geneList] of Object.entries(parseGenomeGenes(genes))) {
     for (const gene of geneList) {
       if (gene.type === '?') continue;
       totalGenes++;
 
+      const geneData = speciesEffects[gene.id];
+
       // Skip genes from other breeds (horse only)
       if (speciesKey === 'horse' && petBreed && petBreed !== 'Mixed') {
-        const breed = getGeneBreed(effectsDB, speciesKey, gene.id);
+        const breed = breedFor(geneData);
         if (breed && breed !== petBreed) continue;
       }
 
-      const effect = getGeneEffect(effectsDB, speciesKey, gene.id, gene.type);
+      const effect = effectFor(geneData, gene.type);
       if (isNoEffect(effect)) {
         neutralGenes++;
         continue;

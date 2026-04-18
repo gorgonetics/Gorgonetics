@@ -9,9 +9,9 @@ import {
   normalizeSpecies,
 } from '$lib/services/configService.js';
 import { getGeneEffectsCached } from '$lib/services/geneService.js';
-import { blockLetter } from '$lib/services/genomeParser.js';
 import { getPetGenome } from '$lib/services/petService.js';
 import { EFFECT_COLORS } from '$lib/theme/gene-colors.js';
+import { breedFor, effectFor, isNoEffect, parseGenesByBlock } from '$lib/utils/geneAnalysis.js';
 import { handleGridNavigation } from '$lib/utils/keyboard.js';
 import { capitalize } from '$lib/utils/string.js';
 import GeneCell from './GeneCell.svelte';
@@ -19,16 +19,6 @@ import GeneTooltip from './GeneTooltip.svelte';
 
 const ALL_ATTRIBUTES = getAllAttributeDisplayInfo();
 const FALLBACK_APPEARANCE_KEYS = getAllAppearanceDisplayInfo('beewasp').map((a) => a.key.replace(/_/g, '-'));
-
-const NO_DATA = 'No gene data found';
-const NO_DOMINANT = 'No dominant effect';
-const NO_RECESSIVE = 'No recessive effect';
-const UNKNOWN_TYPE = 'Unknown gene type';
-const NO_EFFECT_SENTINELS = new Set([NO_DATA, NO_DOMINANT, NO_RECESSIVE, UNKNOWN_TYPE, 'None', 'null']);
-
-function isNoEffect(effect) {
-  return !effect || NO_EFFECT_SENTINELS.has(effect);
-}
 
 // Build appearance category lookup maps from configService data (avoids long if/else chains)
 function buildAppearanceLookup(species) {
@@ -262,41 +252,7 @@ function loadAppearanceConfigForSpecies(species) {
   appearanceList = config.appearance_attributes || [];
 }
 
-function parseGenes(genesData) {
-  const parsed = {};
-
-  Object.entries(genesData).forEach(([chromosome, geneString]) => {
-    const blockStrings = geneString.split(' ');
-    const allGenes = [];
-    const blocks = [];
-
-    blockStrings.forEach((blockString, blockIndex) => {
-      const bl = blockLetter(blockIndex);
-      const blockGenes = [];
-
-      for (let i = 0; i < blockString.length; i++) {
-        const gene = {
-          id: `${chromosome}${bl}${i + 1}`,
-          type: blockString[i],
-          block: bl,
-          position: i + 1,
-          globalPosition: allGenes.length + 1,
-        };
-        blockGenes.push(gene);
-        allGenes.push(gene);
-      }
-
-      blocks.push({
-        letter: bl,
-        genes: blockGenes,
-      });
-    });
-
-    parsed[chromosome] = { blocks, allGenes };
-  });
-
-  return parsed;
-}
+const parseGenes = parseGenesByBlock;
 
 async function initializeStats() {
   if (currentView === 'attribute') {
@@ -382,19 +338,7 @@ function updateStats(stats, geneAnalysis, geneType) {
 }
 
 function getGeneEffect(speciesKey, geneId, geneType) {
-  if (!geneEffectsDB) return NO_DATA;
-  const geneData = geneEffectsDB[speciesKey]?.[geneId];
-  if (!geneData) return NO_DATA;
-
-  if (geneType === 'D' || geneType === 'x') {
-    const effect = geneData.effectDominant;
-    return isNoEffect(effect) ? NO_DOMINANT : effect;
-  }
-  if (geneType === 'R') {
-    const effect = geneData.effectRecessive;
-    return isNoEffect(effect) ? NO_RECESSIVE : effect;
-  }
-  return UNKNOWN_TYPE;
+  return effectFor(geneEffectsDB?.[speciesKey]?.[geneId], geneType);
 }
 
 function getGeneAppearance(speciesKey, geneId) {
@@ -436,9 +380,7 @@ function extractAttributesFromEffect(effectStr) {
 }
 
 function getGeneBreed(speciesKey, geneId) {
-  if (!geneEffectsDB) return '';
-  const geneData = geneEffectsDB[speciesKey]?.[geneId];
-  return geneData?.breed || '';
+  return breedFor(geneEffectsDB?.[speciesKey]?.[geneId]);
 }
 
 function isGeneRelevantToBreed(speciesKey, geneId) {

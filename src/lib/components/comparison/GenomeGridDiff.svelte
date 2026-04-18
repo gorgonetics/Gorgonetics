@@ -2,13 +2,18 @@
 import { onDestroy, onMount } from 'svelte';
 import GenomeDiffControls from '$lib/components/comparison/GenomeDiffControls.svelte';
 import GeneTooltip from '$lib/components/gene/GeneTooltip.svelte';
-import { getAttributeConfig, normalizeSpecies } from '$lib/services/configService.js';
+import {
+  getAppearanceAttributes,
+  getAppearanceConfig,
+  getAttributeConfig,
+  normalizeSpecies,
+} from '$lib/services/configService.js';
 import { getGeneEffectsCached } from '$lib/services/geneService.js';
-import { blockLetter } from '$lib/services/genomeParser.js';
 import { getPetGenome } from '$lib/services/petService.js';
 import { settings } from '$lib/stores/settings.js';
 import { HORSE_BREEDS } from '$lib/types/index.js';
 import { buildFilterCSS } from '$lib/utils/filterCSS.js';
+import { breedFor, effectFor, isNoEffect, parseGenesByBlock } from '$lib/utils/geneAnalysis.js';
 import { capitalize } from '$lib/utils/string.js';
 
 const { petA, petB } = $props();
@@ -17,6 +22,7 @@ let loading = $state(false);
 let error = $state(null);
 let summary = $state(null);
 let showDiffsOnly = $state(false);
+let currentView = $state('attribute');
 
 let effectsDB = {};
 let speciesKey = $state('');
@@ -28,6 +34,8 @@ let blockIndices = $state({});
 
 let allAttributeNames = [];
 let attributeDisplayInfo = $state([]);
+let appearanceDisplayInfo = $state([]);
+let appearanceLookup = new Map();
 
 let chromosomeRows = $state([]);
 let chrBreedRelevance = {};
@@ -39,6 +47,8 @@ let selectedChromosomes = $state([]);
 let hiddenChromosomes = $state([]);
 let selectedAttributes = $state([]);
 let hiddenAttributes = $state([]);
+let selectedAppearances = $state([]);
+let hiddenAppearances = $state([]);
 
 // Auto-breed: use the shared setting and detect from pets' breeds
 const petsHaveKnownBreed = $derived(
@@ -110,6 +120,8 @@ $effect(() => {
   filterStyleEl.textContent = buildFilterCSS({
     selectedAttributes,
     hiddenAttributes,
+    selectedAppearances,
+    hiddenAppearances,
     breedFilter,
     selectedChromosomes,
     hiddenChromosomes,
@@ -128,6 +140,8 @@ async function loadData() {
     hiddenChromosomes = [];
     selectedAttributes = [];
     hiddenAttributes = [];
+    selectedAppearances = [];
+    hiddenAppearances = [];
 
     speciesKey = normalizeSpecies(petA.species);
     const [genomeA, genomeB, efData] = await Promise.all([
@@ -143,8 +157,15 @@ async function loadData() {
     allAttributeNames = config.all_attribute_names.map((n) => capitalize(n));
     attributeDisplayInfo = config.attributes;
 
-    const parsedA = parseGenes(genomeA.genes);
-    const parsedB = parseGenes(genomeB.genes);
+    const apConfig = getAppearanceConfig(speciesKey);
+    appearanceDisplayInfo = apConfig.appearance_attributes.map((a) => ({
+      ...a,
+      key: a.key.replace(/_/g, '-'),
+    }));
+    appearanceLookup = buildAppearanceLookup(speciesKey);
+
+    const parsedA = parseGenesByBlock(genomeA.genes);
+    const parsedB = parseGenesByBlock(genomeB.genes);
 
     const allBlks = new Set();
     const maxGenes = new Map();
@@ -242,82 +263,62 @@ async function loadData() {
   }
 }
 
-/** Build a cell object with pre-computed static CSS class string */
+/** Build a cell object with pre-computed static CSS class strings for both views. */
 function makeCell(gene) {
   const analysis = analyzeGene(gene.id, gene.type);
-  let cls = 'gene-cell gene-' + analysis.effectType + ' ';
-  if (gene.type === '?') cls = 'gene-cell gene-neutral gene-unknown';
-  else if (gene.type === 'D') cls += 'gene-dominant';
-  else if (gene.type === 'R') cls += 'gene-recessive';
-  else if (gene.type === 'x') cls += 'gene-mixed';
-  else cls += 'gene-recessive';
+  const appearance = categorizeAppearance(gene.id);
+
+  let zygosity;
+  if (gene.type === 'D') zygosity = 'gene-dominant';
+  else if (gene.type === 'R') zygosity = 'gene-recessive';
+  else if (gene.type === 'x') zygosity = 'gene-mixed';
+  else zygosity = 'gene-recessive';
+
+  const attributeCls =
+    gene.type === '?' ? 'gene-cell gene-neutral gene-unknown' : `gene-cell gene-${analysis.effectType} ${zygosity}`;
+  const appearanceCls =
+    gene.type === '?'
+      ? 'gene-cell gene-neutral gene-unknown'
+      : `gene-cell gene-${appearance || 'appearance-neutral'} ${zygosity}`;
 
   return {
     id: gene.id,
     type: gene.type,
-    cssClass: cls,
+    attributeCls,
+    appearanceCls,
     attribute: analysis.attribute || '',
+    appearance,
     breed: analysis.breed || '',
     effect: analysis.effect || '',
   };
 }
 
-// --- Gene parsing ---
-
-function parseGenes(genesData) {
-  const parsed = {};
-  for (const [chromosome, geneString] of Object.entries(genesData)) {
-    const blockStrings = geneString.split(' ');
-    const blocks = [];
-    for (let bi = 0; bi < blockStrings.length; bi++) {
-      const bl = blockLetter(bi);
-      const blockGenes = [];
-      for (let i = 0; i < blockStrings[bi].length; i++) {
-        blockGenes.push({ id: `${chromosome}${bl}${i + 1}`, type: blockStrings[bi][i], block: bl, position: i + 1 });
-      }
-      blocks.push({ letter: bl, genes: blockGenes });
-    }
-    parsed[chromosome] = { blocks };
+function buildAppearanceLookup(species) {
+  const attrs = getAppearanceAttributes(species);
+  const byName = new Map();
+  for (const [key, info] of Object.entries(attrs)) {
+    byName.set(info.name.toLowerCase(), key);
   }
-  return parsed;
+  return byName;
+}
+
+function categorizeAppearance(geneId) {
+  const raw = effectsDB[geneId]?.appearance;
+  if (!raw || raw === 'None' || raw.includes('String for me to fill')) return '';
+  const lower = raw.toLowerCase();
+  const matcher = speciesKey === 'horse' ? (name) => lower.startsWith(name) : (name) => lower.includes(name);
+  for (const [name, key] of appearanceLookup) {
+    if (matcher(name)) return key;
+  }
+  return '';
 }
 
 // --- Gene analysis (once per gene) ---
 
-const NO_EFFECT_SENTINELS = new Set([
-  'No gene data found',
-  'No dominant effect',
-  'No recessive effect',
-  'Unknown gene type',
-  'None',
-  'null',
-]);
-
-function isNoEffect(effect) {
-  return !effect || NO_EFFECT_SENTINELS.has(effect);
-}
-
-function getGeneEffect(geneId, geneType) {
-  const data = effectsDB[geneId];
-  if (!data) return 'No gene data found';
-  if (geneType === 'D' || geneType === 'x') {
-    const e = data.effectDominant;
-    return isNoEffect(e) ? 'No dominant effect' : e;
-  }
-  if (geneType === 'R') {
-    const e = data.effectRecessive;
-    return isNoEffect(e) ? 'No recessive effect' : e;
-  }
-  return 'Unknown gene type';
-}
-
-function getGeneBreed(geneId) {
-  return effectsDB[geneId]?.breed || '';
-}
-
 function analyzeGene(geneId, geneType) {
-  const effect = getGeneEffect(geneId, geneType);
-  const breed = getGeneBreed(geneId);
+  const geneData = effectsDB[geneId];
+  const effect = effectFor(geneData, geneType);
+  const breed = breedFor(geneData);
 
   if (isNoEffect(effect)) return { effectType: 'neutral', attribute: null, effect, breed };
 
@@ -345,38 +346,49 @@ function analyzeGene(geneId, geneType) {
 
 // --- Filter UI actions ---
 
-function toggleChromosomeFilter(chr, ctrlKey, altKey) {
+function triStateToggle(key, selected, hidden, ctrlKey, altKey) {
   if (altKey) {
-    hiddenChromosomes = hiddenChromosomes.includes(chr)
-      ? hiddenChromosomes.filter((c) => c !== chr)
-      : [...hiddenChromosomes.filter((c) => c !== chr), chr];
-    selectedChromosomes = selectedChromosomes.filter((c) => c !== chr);
-  } else if (ctrlKey) {
-    selectedChromosomes = selectedChromosomes.includes(chr)
-      ? selectedChromosomes.filter((c) => c !== chr)
-      : [...selectedChromosomes, chr];
-    hiddenChromosomes = hiddenChromosomes.filter((c) => c !== chr);
-  } else {
-    selectedChromosomes = selectedChromosomes.length === 1 && selectedChromosomes[0] === chr ? [] : [chr];
-    hiddenChromosomes = hiddenChromosomes.filter((c) => c !== chr);
+    const nextHidden = hidden.includes(key)
+      ? hidden.filter((k) => k !== key)
+      : [...hidden.filter((k) => k !== key), key];
+    return { selected: selected.filter((k) => k !== key), hidden: nextHidden };
   }
+  if (ctrlKey) {
+    const nextSelected = selected.includes(key) ? selected.filter((k) => k !== key) : [...selected, key];
+    return { selected: nextSelected, hidden: hidden.filter((k) => k !== key) };
+  }
+  const nextSelected = selected.length === 1 && selected[0] === key ? [] : [key];
+  return { selected: nextSelected, hidden: hidden.filter((k) => k !== key) };
+}
+
+function toggleChromosomeFilter(chr, ctrlKey, altKey) {
+  ({ selected: selectedChromosomes, hidden: hiddenChromosomes } = triStateToggle(
+    chr,
+    selectedChromosomes,
+    hiddenChromosomes,
+    ctrlKey,
+    altKey,
+  ));
 }
 
 function toggleAttributeFilter(attrKey, ctrlKey, altKey) {
-  if (altKey) {
-    hiddenAttributes = hiddenAttributes.includes(attrKey)
-      ? hiddenAttributes.filter((a) => a !== attrKey)
-      : [...hiddenAttributes.filter((a) => a !== attrKey), attrKey];
-    selectedAttributes = selectedAttributes.filter((a) => a !== attrKey);
-  } else if (ctrlKey) {
-    selectedAttributes = selectedAttributes.includes(attrKey)
-      ? selectedAttributes.filter((a) => a !== attrKey)
-      : [...selectedAttributes, attrKey];
-    hiddenAttributes = hiddenAttributes.filter((a) => a !== attrKey);
-  } else {
-    selectedAttributes = selectedAttributes.length === 1 && selectedAttributes[0] === attrKey ? [] : [attrKey];
-    hiddenAttributes = hiddenAttributes.filter((a) => a !== attrKey);
-  }
+  ({ selected: selectedAttributes, hidden: hiddenAttributes } = triStateToggle(
+    attrKey,
+    selectedAttributes,
+    hiddenAttributes,
+    ctrlKey,
+    altKey,
+  ));
+}
+
+function toggleAppearanceFilter(key, ctrlKey, altKey) {
+  ({ selected: selectedAppearances, hidden: hiddenAppearances } = triStateToggle(
+    key,
+    selectedAppearances,
+    hiddenAppearances,
+    ctrlKey,
+    altKey,
+  ));
 }
 
 // --- Tooltip ---
@@ -384,8 +396,9 @@ function toggleAttributeFilter(attrKey, ctrlKey, altKey) {
 function handleCellEnter(event, cell) {
   if (!cell) return;
   const potentialEffects = [];
-  const dominantEffect = getGeneEffect(cell.id, 'D');
-  const recessiveEffect = getGeneEffect(cell.id, 'R');
+  const cellData = effectsDB[cell.id];
+  const dominantEffect = effectFor(cellData, 'D');
+  const recessiveEffect = effectFor(cellData, 'R');
 
   if (cell.type !== 'D' && !isNoEffect(dominantEffect)) {
     const color = dominantEffect.includes('+') ? '#34d399' : dominantEffect.includes('-') ? '#f87171' : '#666';
@@ -396,7 +409,7 @@ function handleCellEnter(event, cell) {
     potentialEffects.push(`If Recessive: <span style="color: ${color}">${recessiveEffect}</span>`);
   }
 
-  const breed = getGeneBreed(cell.id);
+  const breed = breedFor(cellData);
   if (breed && speciesKey === 'horse') {
     if (breedFilter && breed !== breedFilter) {
       potentialEffects.push(
@@ -444,6 +457,11 @@ function handleCellLeave() {
             {selectedAttributes}
             {hiddenAttributes}
             {attributeDisplayInfo}
+            {selectedAppearances}
+            {hiddenAppearances}
+            {appearanceDisplayInfo}
+            {currentView}
+            onViewChange={(v) => { currentView = v; }}
             onBreedChange={(name) => { breedFilter = breedFilter === name ? '' : name; }}
             onAutoBreedToggle={() => {
                 manualBreedOverride = true;
@@ -455,8 +473,10 @@ function handleCellLeave() {
                 }
             }}
             onAttributeToggle={toggleAttributeFilter}
+            onAppearanceToggle={toggleAppearanceFilter}
             onDiffsOnlyChange={(val) => { showDiffsOnly = val; }}
             onResetAttributes={() => { selectedAttributes = []; hiddenAttributes = []; }}
+            onResetAppearances={() => { selectedAppearances = []; hiddenAppearances = []; }}
         />
 
         <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -488,7 +508,7 @@ function handleCellLeave() {
                                         data-isdiff={isDiff} data-hascell={!!cell}>
                                         {#if cell}
                                             <!-- svelte-ignore a11y_no_static_element_interactions -->
-                                            <div class={cell.cssClass} data-attr={cell.attribute} data-breed={cell.breed}
+                                            <div class={currentView === 'appearance' ? cell.appearanceCls : cell.attributeCls} data-attr={cell.attribute} data-appearance={cell.appearance} data-breed={cell.breed}
                                                 onmouseenter={(e) => handleCellEnter(e, cell)} onmouseleave={handleCellLeave}
                                             >{#if cell.type === '?'}<span class="gene-unknown-symbol">?</span>{/if}</div>
                                         {/if}
@@ -506,7 +526,7 @@ function handleCellLeave() {
                                         data-isdiff={isDiff} data-hascell={!!cell}>
                                         {#if cell}
                                             <!-- svelte-ignore a11y_no_static_element_interactions -->
-                                            <div class={cell.cssClass} data-attr={cell.attribute} data-breed={cell.breed}
+                                            <div class={currentView === 'appearance' ? cell.appearanceCls : cell.attributeCls} data-attr={cell.attribute} data-appearance={cell.appearance} data-breed={cell.breed}
                                                 onmouseenter={(e) => handleCellEnter(e, cell)} onmouseleave={handleCellLeave}
                                             >{#if cell.type === '?'}<span class="gene-unknown-symbol">?</span>{/if}</div>
                                         {/if}
