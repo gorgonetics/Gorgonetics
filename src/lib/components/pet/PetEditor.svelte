@@ -73,7 +73,6 @@ async function handleSave() {
 
     if (Object.keys(updateData).length > 0) {
       await appState.updatePet(pet.id, updateData);
-      await appState.loadPets();
       onSave?.(pet.id);
     }
     open = false;

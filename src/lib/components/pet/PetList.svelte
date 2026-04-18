@@ -321,7 +321,7 @@ async function handleDrop(e, dropIndex) {
                     ondrop={(e) => handleDrop(e, filteredPets.length)}
                 ></div>
             {/if}
-        {:else if searchQuery || selectedTags.length > 0 || starredOnly || stabledOnly}
+        {:else if $pets.length > 0 && (searchQuery || selectedTags.length > 0 || starredOnly || stabledOnly)}
             <div class="empty-state">No pets match the current filters</div>
         {:else}
             <div class="empty-state">No pets yet. Upload a genome file to get started.</div>

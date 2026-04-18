@@ -10,6 +10,10 @@ function toggleMarker(e, key, value) {
 }
 
 function handleKey(e) {
+  // Ignore keys that bubbled up from inner marker buttons — they handle
+  // Space/Enter themselves; otherwise hitting those on a marker would also
+  // fire the card's own "select pet" action.
+  if (e.currentTarget !== e.target) return;
   if (e.key === 'Enter' || e.key === ' ') {
     e.preventDefault();
     onclick?.(pet);
