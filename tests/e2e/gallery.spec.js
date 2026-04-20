@@ -8,12 +8,12 @@ test.describe('Pet Image Gallery', () => {
   });
 
   test('Gallery button appears in view controls', async ({ page }) => {
-    await page.locator('button', { hasText: 'Sample Fae Bee' }).first().click();
+    await page.locator('.pet-card', { hasText: 'Sample Fae Bee' }).first().click();
     await expect(page.locator('.view-btn', { hasText: 'Gallery' })).toBeVisible();
   });
 
   test('Clicking Gallery shows the gallery view', async ({ page }) => {
-    await page.locator('button', { hasText: 'Sample Fae Bee' }).first().click();
+    await page.locator('.pet-card', { hasText: 'Sample Fae Bee' }).first().click();
     await expect(page.locator('.view-btn', { hasText: 'Gallery' })).toBeVisible();
     await page.locator('.view-btn', { hasText: 'Gallery' }).click();
 
@@ -23,7 +23,7 @@ test.describe('Pet Image Gallery', () => {
   });
 
   test('Toggling Gallery hides the gene visualizer', async ({ page }) => {
-    await page.locator('button', { hasText: 'Sample Fae Bee' }).first().click();
+    await page.locator('.pet-card', { hasText: 'Sample Fae Bee' }).first().click();
     await expect(page.locator('.gene-visualizer')).toBeVisible();
 
     await page.locator('.view-btn', { hasText: 'Gallery' }).click();
@@ -36,7 +36,7 @@ test.describe('Pet Image Gallery', () => {
   });
 
   test('Gallery shows image count', async ({ page }) => {
-    await page.locator('button', { hasText: 'Sample Fae Bee' }).first().click();
+    await page.locator('.pet-card', { hasText: 'Sample Fae Bee' }).first().click();
     await expect(page.locator('.view-btn', { hasText: 'Gallery' })).toBeVisible();
     await page.locator('.view-btn', { hasText: 'Gallery' }).click();
 
@@ -44,7 +44,7 @@ test.describe('Pet Image Gallery', () => {
   });
 
   test('Upload button exists but requires Tauri for actual upload', async ({ page }) => {
-    await page.locator('button', { hasText: 'Sample Fae Bee' }).first().click();
+    await page.locator('.pet-card', { hasText: 'Sample Fae Bee' }).first().click();
     await expect(page.locator('.view-btn', { hasText: 'Gallery' })).toBeVisible();
 
     await page.locator('.view-btn', { hasText: 'Gallery' }).click();
