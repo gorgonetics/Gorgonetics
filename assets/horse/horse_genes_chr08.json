@@ -42,7 +42,7 @@
   {
     "gene": "08B2",
     "effectDominant": "None",
-    "effectRecessive": "Temperament-",
+    "effectRecessive": "None",
     "appearance": "Horn",
     "notes": "",
     "breed": ""
@@ -50,7 +50,7 @@
   {
     "gene": "08B3",
     "effectDominant": "None",
-    "effectRecessive": "None",
+    "effectRecessive": "Temperament-",
     "appearance": "Horn",
     "notes": "",
     "breed": ""
