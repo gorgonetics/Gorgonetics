@@ -129,7 +129,7 @@ await clearHighlight(page);
 await removeOverlay(page);
 
 // 05 — BeeWasp gene grid (click bee pet)
-await page.locator('button', { hasText: 'Sample Fae Bee' }).first().click();
+await page.locator('.pet-card', { hasText: 'Sample Fae Bee' }).first().click();
 await waitFor(page, ".gene-visualizer, .gallery");
 await shot(page, '05-gene-grid.png');
 
@@ -276,7 +276,7 @@ await page.locator('tr.attribute-row', { hasText: 'Intelligence' }).click();
 await page.waitForTimeout(200);
 
 // 11 — Horse auto-breed filter (select horse pet)
-await page.locator('button', { hasText: 'Sample Horse' }).click();
+await page.locator('.pet-card', { hasText: 'Sample Horse' }).click();
 await waitFor(page, ".gene-visualizer");
 await addOverlay(page);
 await highlight(page, '.breed-filter', { padding: '4px' });
@@ -338,7 +338,7 @@ await page.waitForTimeout(200);
 // 15 — Gallery empty state
 await page.locator('.tab-btn', { hasText: 'Pets' }).click();
 await page.waitForTimeout(200);
-await page.locator('button', { hasText: 'Sample Fae Bee' }).first().click();
+await page.locator('.pet-card', { hasText: 'Sample Fae Bee' }).first().click();
 await waitFor(page, ".gene-visualizer, .gallery");
 await page.locator('.view-btn', { hasText: 'Gallery' }).click();
 await waitFor(page, ".gene-visualizer, .gallery, .gene-editing-view, select");
@@ -375,7 +375,7 @@ await page.waitForTimeout(200);
 await shot(page, '19-dark-mode-overview.png');
 
 // 20 — Dark mode gene grid
-await page.locator('button', { hasText: 'Sample Fae Bee' }).first().click();
+await page.locator('.pet-card', { hasText: 'Sample Fae Bee' }).first().click();
 await waitFor(page, '.gene-visualizer, .gallery');
 await shot(page, '20-dark-mode-gene-grid.png');
 
@@ -452,7 +452,7 @@ await removeOverlay(page);
 const HOME_OUT = 'docs/images';
 
 // screenshot-gene-grid — BeeWasp gene grid with stats open
-await page.locator('button', { hasText: 'Sample Fae Bee' }).first().click();
+await page.locator('.pet-card', { hasText: 'Sample Fae Bee' }).first().click();
 await waitFor(page, ".gene-visualizer, .gallery");
 await page.locator('button', { hasText: 'Stats' }).click();
 await page.waitForTimeout(200);

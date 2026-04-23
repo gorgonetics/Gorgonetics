@@ -72,6 +72,9 @@ function enrichPet(pet: Record<string, unknown>, tags: string[]): Pet {
   return {
     ...pet,
     tags,
+    starred: Boolean(pet.starred),
+    stabled: Boolean(pet.stabled),
+    is_pet_quality: Boolean(pet.is_pet_quality),
     total_genes: geneCounts.total,
     known_genes: geneCounts.known,
     unknown_genes: geneCounts.unknown,
@@ -216,10 +219,12 @@ export async function uploadPet(
     `INSERT INTO pets
      (name, species, gender, breed, breeder, content_hash, genome_data, notes,
       created_at, updated_at,
-      intelligence, toughness, friendliness, ruggedness, enthusiasm, virility, ferocity, temperament, sort_order)
+      intelligence, toughness, friendliness, ruggedness, enthusiasm, virility, ferocity, temperament, sort_order,
+      starred, stabled, is_pet_quality)
      VALUES ($name, $species, $gender, $breed, $breeder, $content_hash, $genome_data, $notes,
              $created_at, $updated_at,
-             $intelligence, $toughness, $friendliness, $ruggedness, $enthusiasm, $virility, $ferocity, $temperament, $sort_order)`,
+             $intelligence, $toughness, $friendliness, $ruggedness, $enthusiasm, $virility, $ferocity, $temperament, $sort_order,
+             $starred, $stabled, $is_pet_quality)`,
     {
       name: petName,
       species: genome.genome_type,
@@ -240,6 +245,9 @@ export async function uploadPet(
       ferocity: attrValues.ferocity ?? 50,
       temperament: attrValues.temperament ?? 50,
       sort_order: nextOrder,
+      starred: 0,
+      stabled: 1,
+      is_pet_quality: 0,
     },
   );
 
@@ -267,7 +275,12 @@ const UPDATABLE_COLUMNS = new Set([
   'virility',
   'ferocity',
   'temperament',
+  'starred',
+  'stabled',
+  'is_pet_quality',
 ]);
+
+const BOOLEAN_COLUMNS = new Set(['starred', 'stabled', 'is_pet_quality']);
 
 /**
  * Update a pet record.
@@ -294,7 +307,13 @@ export async function updatePet(petId: number, updates: Record<string, unknown>)
   for (const [field, value] of Object.entries(flat)) {
     if (!UPDATABLE_COLUMNS.has(field)) continue;
     setClauses.push(`${field} = $${field}`);
-    params[field] = field === 'genome_data' && typeof value !== 'string' ? JSON.stringify(value) : value;
+    if (field === 'genome_data' && typeof value !== 'string') {
+      params[field] = JSON.stringify(value);
+    } else if (BOOLEAN_COLUMNS.has(field)) {
+      params[field] = value ? 1 : 0;
+    } else {
+      params[field] = value;
+    }
   }
 
   let changed = false;

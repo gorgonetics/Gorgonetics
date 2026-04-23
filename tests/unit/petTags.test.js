@@ -60,8 +60,8 @@ describe('Pet Tags (junction table)', () => {
   });
 
   describe('migration', () => {
-    it('schema version is 7', () => {
-      expect(CURRENT_SCHEMA_VERSION).toBe(7);
+    it('schema version is at least 7 (tags junction table)', () => {
+      expect(CURRENT_SCHEMA_VERSION).toBeGreaterThanOrEqual(7);
     });
   });
 
