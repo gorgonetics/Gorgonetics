@@ -34,14 +34,19 @@ export const sidebar = $state({
 
 /** Set width without persisting. Use during drag for cheap updates. */
 export function setSidebarWidth(w: number): void {
-  sidebar.width = clampWidth(w);
+  const next = clampWidth(w);
+  if (sidebar.width === next) return;
+  sidebar.width = next;
 }
+
+let lastPersistedWidth: number | null = null;
 
 /** Persist the current width — call once at the end of a drag (or when committing via keyboard). */
 export function commitSidebarWidth(): void {
-  if (typeof localStorage !== 'undefined') {
-    localStorage.setItem(WIDTH_KEY, String(sidebar.width));
-  }
+  if (typeof localStorage === 'undefined') return;
+  if (lastPersistedWidth === sidebar.width) return;
+  localStorage.setItem(WIDTH_KEY, String(sidebar.width));
+  lastPersistedWidth = sidebar.width;
 }
 
 export function toggleSidebar(): void {

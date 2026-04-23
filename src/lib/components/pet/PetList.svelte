@@ -87,8 +87,9 @@ function selectPet(pet) {
   appState.selectPet(pet);
 }
 
-// appState.updatePet already reloads the pets store — no explicit loadPets needed.
 async function toggleMarker(petId, key, value) {
+  const pet = $pets.find((p) => p.id === petId);
+  if (pet && pet[key] === value) return;
   await appState.updatePet(petId, { [key]: value });
 }
 

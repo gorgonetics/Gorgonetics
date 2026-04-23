@@ -16,14 +16,25 @@ let dragging = $state(false);
 
 $effect(() => {
   if (!dragging) return;
-  const onMove = (ev) => setSidebarWidth(ev.clientX);
+  let pendingX = null;
+  let frame = 0;
+  const onMove = (ev) => {
+    pendingX = ev.clientX;
+    if (frame) return;
+    frame = requestAnimationFrame(() => {
+      frame = 0;
+      if (pendingX !== null) setSidebarWidth(pendingX);
+    });
+  };
   const onUp = () => {
     dragging = false;
+    if (frame) cancelAnimationFrame(frame);
     commitSidebarWidth();
   };
   window.addEventListener('mousemove', onMove);
   window.addEventListener('mouseup', onUp);
   return () => {
+    if (frame) cancelAnimationFrame(frame);
     window.removeEventListener('mousemove', onMove);
     window.removeEventListener('mouseup', onUp);
   };
