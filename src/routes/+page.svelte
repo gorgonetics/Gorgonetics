@@ -3,6 +3,7 @@ import { onMount } from 'svelte';
 import ComparisonView from '$lib/components/comparison/ComparisonView.svelte';
 import GeneEditingView from '$lib/components/GeneEditingView.svelte';
 import PetVisualization from '$lib/components/pet/PetVisualization.svelte';
+import StableTable from '$lib/components/stable/StableTable.svelte';
 import { activeTab, appState, error, geneEditingView, loading, selectedPet } from '$lib/stores/pets.js';
 
 onMount(async () => {
@@ -18,7 +19,9 @@ onMount(async () => {
 		</div>
 	{/if}
 
-	{#if $activeTab === 'compare'}
+	{#if $activeTab === 'stable'}
+		<StableTable />
+	{:else if $activeTab === 'compare'}
 		<ComparisonView />
 	{:else if $loading}
 		<div class="center-state">

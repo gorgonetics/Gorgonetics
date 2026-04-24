@@ -2,13 +2,16 @@
  * Pet data service for Gorgonetics.
  */
 
-import type { Gene, Genome, Pet } from '$lib/types/index.js';
+import type { Genome, Pet } from '$lib/types/index.js';
 import { GENOME_FILE_MARKERS } from '$lib/types/index.js';
+import { computeGeneStats } from '$lib/utils/geneAnalysis.js';
 import { now } from '$lib/utils/timestamp.js';
-import { getDefaultValues } from './configService.js';
+import { getDefaultValues, normalizeSpecies } from './configService.js';
 import { getDb, reorderRows } from './database.js';
-import { isValidGenomeFile, parseGenome } from './genomeParser.js';
+import { getGeneEffectsCached } from './geneService.js';
+import { genomeToGeneStrings, isValidGenomeFile, parseGenome } from './genomeParser.js';
 import { parseStructuredPetName } from './nameParser.js';
+import { getSetting, setSetting } from './settingsService.js';
 
 /**
  * Compute SHA-256 hash of a string.
@@ -66,6 +69,27 @@ function countGenes(genomeData: unknown): { total: number; known: number; unknow
   return { total, known, unknown };
 }
 
+/**
+ * Count the genes in a genome that confer a confirmed positive attribute
+ * effect, using the same logic as `GeneStatsTable`'s totals row. The genes
+ * table must be populated (ensured by `populateGenesIfNeeded` at startup).
+ */
+export async function computePositiveGenesForGenome(
+  genomeData: string | Genome,
+  breed: string | undefined,
+): Promise<number> {
+  const genome = typeof genomeData === 'string' ? (JSON.parse(genomeData) as Genome) : genomeData;
+  const species = normalizeSpecies(genome.genome_type);
+  if (!species) return 0;
+  const geneStrings = genomeToGeneStrings(genome);
+  const effectsData = await getGeneEffectsCached(species);
+  const effectsDB = effectsData ? { [species]: effectsData.effects } : {};
+  const { stats } = computeGeneStats(geneStrings, species, effectsDB, breed);
+  let total = 0;
+  for (const entry of Object.values(stats)) total += entry.positive;
+  return total;
+}
+
 /** Enrich a raw pet row from the database with computed fields. */
 function enrichPet(pet: Record<string, unknown>, tags: string[]): Pet {
   const geneCounts = countGenes(pet.genome_data);
@@ -75,6 +99,7 @@ function enrichPet(pet: Record<string, unknown>, tags: string[]): Pet {
     starred: Boolean(pet.starred),
     stabled: Boolean(pet.stabled),
     is_pet_quality: Boolean(pet.is_pet_quality),
+    positive_genes: Number(pet.positive_genes ?? 0),
     total_genes: geneCounts.total,
     known_genes: geneCounts.known,
     unknown_genes: geneCounts.unknown,
@@ -207,6 +232,8 @@ export async function uploadPet(
   const petBreed = parsed?.breed ?? '';
   const attrValues = parsed?.attributes ?? defaults;
 
+  const positiveGenes = await computePositiveGenesForGenome(genome, petBreed);
+
   const db = getDb();
   const ts = now();
 
@@ -220,11 +247,11 @@ export async function uploadPet(
      (name, species, gender, breed, breeder, content_hash, genome_data, notes,
       created_at, updated_at,
       intelligence, toughness, friendliness, ruggedness, enthusiasm, virility, ferocity, temperament, sort_order,
-      starred, stabled, is_pet_quality)
+      starred, stabled, is_pet_quality, positive_genes)
      VALUES ($name, $species, $gender, $breed, $breeder, $content_hash, $genome_data, $notes,
              $created_at, $updated_at,
              $intelligence, $toughness, $friendliness, $ruggedness, $enthusiasm, $virility, $ferocity, $temperament, $sort_order,
-             $starred, $stabled, $is_pet_quality)`,
+             $starred, $stabled, $is_pet_quality, $positive_genes)`,
     {
       name: petName,
       species: genome.genome_type,
@@ -248,6 +275,7 @@ export async function uploadPet(
       starred: 0,
       stabled: 1,
       is_pet_quality: 0,
+      positive_genes: positiveGenes,
     },
   );
 
@@ -313,6 +341,19 @@ export async function updatePet(petId: number, updates: Record<string, unknown>)
       params[field] = value ? 1 : 0;
     } else {
       params[field] = value;
+    }
+  }
+
+  // If the genome or breed changed, the stored positive_genes count is stale.
+  // Recompute once using the incoming values, falling back to what's in the DB.
+  if (flat.genome_data !== undefined || flat.breed !== undefined) {
+    const current = await getPet(petId);
+    if (current) {
+      const nextGenomeData = (params.genome_data as string | undefined) ?? current.genome_data;
+      const nextBreed = (flat.breed as string | undefined) ?? current.breed ?? '';
+      const positiveGenes = await computePositiveGenesForGenome(nextGenomeData, nextBreed);
+      setClauses.push('positive_genes = $positive_genes');
+      params.positive_genes = positiveGenes;
     }
   }
 
@@ -406,39 +447,12 @@ export async function getPetGenome(
 
   const genome = genomeJson as Genome;
 
-  // Convert genome to the format expected by the frontend
-  // (chromosome -> gene string like "RDRD RDRR ?D?? x?xR")
-  const geneStrings: Record<string, string> = {};
-  for (const [chromosome, genes] of Object.entries(genome.genes)) {
-    let geneString = '';
-    let currentBlock = '';
-    let currentBlockGenes = '';
-
-    for (const gene of genes as Gene[]) {
-      if (gene.block !== currentBlock) {
-        if (currentBlockGenes) {
-          geneString += currentBlockGenes + ' ';
-        }
-        currentBlock = gene.block;
-        currentBlockGenes = '';
-      }
-      currentBlockGenes += gene.gene_type;
-    }
-
-    // Add the last block
-    if (currentBlockGenes) {
-      geneString += currentBlockGenes;
-    }
-
-    geneStrings[chromosome] = geneString.trim();
-  }
-
   return {
     name: pet.name,
     owner: genome.breeder,
     species: genome.genome_type,
     format: genome.format_version,
-    genes: geneStrings,
+    genes: genomeToGeneStrings(genome),
   };
 }
 
@@ -456,4 +470,51 @@ export async function hasPets(): Promise<boolean> {
  */
 export function reorderPets(orderedIds: number[]): Promise<void> {
   return reorderRows('pets', orderedIds);
+}
+
+const POSITIVE_GENES_BACKFILL_KEY = 'pets.positive_genes_backfilled';
+
+/**
+ * One-shot backfill that populates positive_genes for every pet using the
+ * same logic applied at upload time. Idempotent via a settings-table flag;
+ * safe to call on every app startup. Required because the v9 migration only
+ * adds the column with a DEFAULT 0 — the actual count depends on the JS-side
+ * gene-effects database and cannot be computed in SQL.
+ */
+export async function backfillPositiveGenesIfNeeded(): Promise<void> {
+  const done = await getSetting<boolean>(POSITIVE_GENES_BACKFILL_KEY);
+  if (done) return;
+
+  const db = getDb();
+  const rows = await db.select<{ id: number; genome_data: string; breed: string | null }[]>(
+    'SELECT id, genome_data, breed FROM pets',
+  );
+
+  const updates = await Promise.all(
+    rows.map(async (row) => {
+      try {
+        const positive = await computePositiveGenesForGenome(row.genome_data, row.breed ?? '');
+        return { id: row.id, positive };
+      } catch (e) {
+        console.warn(`Backfill failed for pet ${row.id}:`, e);
+        return null;
+      }
+    }),
+  );
+
+  await db.execute('BEGIN');
+  try {
+    for (const update of updates) {
+      if (!update) continue;
+      await db.execute('UPDATE pets SET positive_genes = $pg WHERE id = $id', {
+        pg: update.positive,
+        id: update.id,
+      });
+    }
+    await db.execute('COMMIT');
+  } catch (e) {
+    await db.execute('ROLLBACK');
+    throw e;
+  }
+  await setSetting(POSITIVE_GENES_BACKFILL_KEY, true);
 }

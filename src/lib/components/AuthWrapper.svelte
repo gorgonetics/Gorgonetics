@@ -3,6 +3,7 @@ import { onMount } from 'svelte';
 import { initDatabase } from '$lib/services/database.js';
 import { loadDemoPetsIfNeeded, populateGenesIfNeeded } from '$lib/services/demoService.js';
 import { runMigrations } from '$lib/services/migrationService.js';
+import { backfillPositiveGenesIfNeeded } from '$lib/services/petService.js';
 import { settingsActions } from '$lib/stores/settings.js';
 
 const { children } = $props();
@@ -13,6 +14,8 @@ onMount(async () => {
   await runMigrations();
   await populateGenesIfNeeded();
   await loadDemoPetsIfNeeded();
+  // Gene-effects DB is populated; safe to backfill positive_genes for existing pets.
+  await backfillPositiveGenesIfNeeded();
   await settingsActions.load();
   ready = true;
 });

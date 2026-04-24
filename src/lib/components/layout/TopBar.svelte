@@ -32,6 +32,13 @@ function switchTab(tab) {
         </button>
         <button
             class="tab-btn"
+            class:active={$activeTab === "stable"}
+            onclick={() => switchTab("stable")}
+        >
+            📋 Stable
+        </button>
+        <button
+            class="tab-btn"
             class:active={$activeTab === "compare"}
             onclick={() => switchTab("compare")}
         >

@@ -94,6 +94,8 @@ export interface Pet {
   virility: number;
   ferocity: number;
   temperament: number;
+  // Persisted gene-analysis fields (computed at upload time)
+  positive_genes: number;
   // User-toggled flags
   starred: boolean;
   stabled: boolean;

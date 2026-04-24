@@ -2,7 +2,7 @@ import { derived, type Writable, writable } from 'svelte/store';
 import * as petService from '$lib/services/petService.js';
 import type { Pet } from '$lib/types/index.js';
 
-export type Tab = 'pets' | 'editor' | 'compare';
+export type Tab = 'pets' | 'editor' | 'compare' | 'stable';
 
 export const pets: Writable<Pet[]> = writable([]);
 export const selectedPet: Writable<Pet | null> = writable(null);
@@ -112,7 +112,7 @@ export const appState = {
       geneEditingView.set(null);
     } else if (tab === 'editor') {
       selectedPet.set(null);
-    } else if (tab === 'compare') {
+    } else if (tab === 'compare' || tab === 'stable') {
       selectedPet.set(null);
       geneEditingView.set(null);
     }
