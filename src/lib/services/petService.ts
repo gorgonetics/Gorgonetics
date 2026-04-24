@@ -358,14 +358,21 @@ export async function updatePet(petId: number, updates: Record<string, unknown>)
     }
   }
 
-  // If the genome or breed changed, the stored positive_genes count is stale.
-  // Recompute once using the incoming values, falling back to what's in the DB.
+  // If the genome or breed changed, the stored positive_genes count is
+  // stale. Parse the next genome once and reuse for the downstream
+  // positive_genes recompute and pet_genes rewrite.
+  let nextGenome: Genome | null = null;
   if (flat.genome_data !== undefined || flat.breed !== undefined) {
     const current = await getPet(petId);
     if (current) {
       const nextGenomeData = (params.genome_data as string | undefined) ?? current.genome_data;
       const nextBreed = (flat.breed as string | undefined) ?? current.breed ?? '';
-      const positiveGenes = await computePositiveGenesForGenome(nextGenomeData, nextBreed);
+      try {
+        nextGenome = JSON.parse(nextGenomeData) as Genome;
+      } catch {
+        nextGenome = null;
+      }
+      const positiveGenes = await computePositiveGenesForGenome(nextGenome ?? nextGenomeData, nextBreed);
       setClauses.push('positive_genes = $positive_genes');
       params.positive_genes = positiveGenes;
     }
@@ -381,16 +388,8 @@ export async function updatePet(petId: number, updates: Record<string, unknown>)
     changed = true;
   }
 
-  // Replace pet_genes rows when the genome itself changed. Breed/attribute
-  // edits don't alter gene positions, so they don't require a rewrite.
-  if (flat.genome_data !== undefined) {
-    const nextGenomeData = params.genome_data as string;
-    try {
-      const genome = JSON.parse(nextGenomeData) as Genome;
-      await writePetGenes(petId, genome);
-    } catch (e) {
-      console.warn(`pet_genes rewrite failed for pet ${petId}:`, e);
-    }
+  if (flat.genome_data !== undefined && nextGenome) {
+    await writePetGenes(petId, nextGenome);
   }
 
   if (newTags !== undefined) {
@@ -437,9 +436,8 @@ export async function deletePet(petId: number): Promise<boolean> {
   await deleteAllImagesForPet(petId);
 
   const db = getDb();
-  // Real SQLite cascades pet_genes via FK. The in-memory test adapter
-  // doesn't honour FKs, so we delete explicitly — defensive in prod too,
-  // cheap either way.
+  // The in-memory test adapter doesn't honour the FK cascade — explicit
+  // DELETE keeps test behaviour aligned with real SQLite.
   await db.execute('DELETE FROM pet_genes WHERE pet_id = $id', { id: petId });
   const result = await db.execute('DELETE FROM pets WHERE id = $id', { id: petId });
   return result.rowsAffected > 0;
@@ -493,22 +491,28 @@ export async function getPetGenome(
  */
 async function writePetGenes(petId: number, genome: Genome): Promise<void> {
   const db = getDb();
+  const entries: Array<{ geneId: string; geneType: string }> = [];
+  for (const chrGenes of Object.values(genome.genes)) {
+    for (const g of chrGenes) {
+      entries.push({ geneId: `${g.chromosome}${g.block}${g.position}`, geneType: g.gene_type });
+    }
+  }
+
   await db.execute('BEGIN');
   try {
     await db.execute('DELETE FROM pet_genes WHERE pet_id = $pid', { pid: petId });
-    for (const chrGenes of Object.values(genome.genes)) {
-      for (const g of chrGenes) {
-        const geneId = `${g.chromosome}${g.block}${g.position}`;
-        // Plain INSERT — the DELETE above clears prior rows, so PK
-        // collisions can't happen. Avoids INSERT OR REPLACE which the
-        // in-memory test adapter only handles for the genes table's
-        // (animal_type, gene) composite key.
-        await db.execute('INSERT INTO pet_genes (pet_id, gene_id, gene_type) VALUES ($pid, $gid, $gt)', {
-          pid: petId,
-          gid: geneId,
-          gt: g.gene_type,
-        });
-      }
+    if (entries.length > 0) {
+      // Multi-row INSERT collapses one IPC call per pet instead of one
+      // per gene. With ~500 positions per pet this is the difference
+      // between milliseconds and seconds for a 200-pet backfill.
+      const placeholders = entries.map((_, i) => `($p${i}, $g${i}, $t${i})`).join(', ');
+      const params: Record<string, unknown> = {};
+      entries.forEach((e, i) => {
+        params[`p${i}`] = petId;
+        params[`g${i}`] = e.geneId;
+        params[`t${i}`] = e.geneType;
+      });
+      await db.execute(`INSERT INTO pet_genes (pet_id, gene_id, gene_type) VALUES ${placeholders}`, params);
     }
     await db.execute('COMMIT');
   } catch (e) {
