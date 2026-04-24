@@ -4,6 +4,7 @@ import { initDatabase } from '$lib/services/database.js';
 import { loadDemoPetsIfNeeded, populateGenesIfNeeded } from '$lib/services/demoService.js';
 import { runMigrations } from '$lib/services/migrationService.js';
 import { backfillPositiveGenesIfNeeded } from '$lib/services/petService.js';
+import { appState } from '$lib/stores/pets.js';
 import { settingsActions } from '$lib/stores/settings.js';
 
 const { children } = $props();
@@ -14,10 +15,23 @@ onMount(async () => {
   await runMigrations();
   await populateGenesIfNeeded();
   await loadDemoPetsIfNeeded();
-  // Gene-effects DB is populated; safe to backfill positive_genes for existing pets.
-  await backfillPositiveGenesIfNeeded();
   await settingsActions.load();
   ready = true;
+
+  // The gene-effects DB is populated, so backfill can compute positive_genes
+  // for existing pets — but we deliberately don't await it. On large stables
+  // it's CPU-bound enough to block the UI for minutes; running it off the
+  // critical path lets the app open immediately and the stable table fills
+  // in as pets are re-read from the DB.
+  backfillPositiveGenesIfNeeded()
+    .then(() => {
+      // Refresh the pets store so updated positive_genes values surface
+      // without a manual reload.
+      void appState.loadPets();
+    })
+    .catch((err) => {
+      console.warn('positive_genes backfill aborted:', err);
+    });
 });
 </script>
 

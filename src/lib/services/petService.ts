@@ -483,12 +483,18 @@ export function reorderPets(orderedIds: number[]): Promise<void> {
 
 const POSITIVE_GENES_BACKFILL_KEY = 'pets.positive_genes_backfilled';
 
+/** Yield to the event loop so the UI can paint between batches. */
+function yieldToUI(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
 /**
  * One-shot backfill that populates positive_genes for every pet using the
- * same logic applied at upload time. Idempotent via a settings-table flag;
- * safe to call on every app startup. Required because the v9 migration only
- * adds the column with a DEFAULT 0 — the actual count depends on the JS-side
- * gene-effects database and cannot be computed in SQL.
+ * same logic applied at upload time. Idempotent via a settings-table flag.
+ * Processes pets in small batches with a yield between each so the main
+ * thread stays responsive — callers should not await this on the critical
+ * startup path. Required because the v9 migration only adds the column with
+ * a DEFAULT 0; the real count depends on the JS-side gene-effects DB.
  */
 export async function backfillPositiveGenesIfNeeded(): Promise<void> {
   const done = await getSetting<boolean>(POSITIVE_GENES_BACKFILL_KEY);
@@ -499,22 +505,39 @@ export async function backfillPositiveGenesIfNeeded(): Promise<void> {
     'SELECT id, genome_data, breed FROM pets',
   );
 
-  const updates = await Promise.all(
-    rows.map(async (row) => {
-      try {
-        const positive = await computePositiveGenesForGenome(row.genome_data, row.breed ?? '');
-        return { id: row.id, positive };
-      } catch (e) {
-        console.warn(`Backfill failed for pet ${row.id}:`, e);
-        return null;
-      }
-    }),
-  );
+  if (rows.length === 0) {
+    await setSetting(POSITIVE_GENES_BACKFILL_KEY, true);
+    return;
+  }
+
+  console.info(`positive_genes backfill: starting for ${rows.length} pets`);
+
+  const BATCH = 8;
+  const updates: { id: number; positive: number }[] = [];
+  for (let i = 0; i < rows.length; i += BATCH) {
+    const slice = rows.slice(i, i + BATCH);
+    const batch = await Promise.all(
+      slice.map(async (row) => {
+        try {
+          const positive = await computePositiveGenesForGenome(row.genome_data, row.breed ?? '');
+          return { id: row.id, positive };
+        } catch (e) {
+          console.warn(`positive_genes backfill: failed for pet ${row.id}`, e);
+          return null;
+        }
+      }),
+    );
+    for (const u of batch) {
+      if (u) updates.push(u);
+    }
+    const processed = Math.min(i + BATCH, rows.length);
+    console.info(`positive_genes backfill: ${processed}/${rows.length} computed`);
+    await yieldToUI();
+  }
 
   await db.execute('BEGIN');
   try {
     for (const update of updates) {
-      if (!update) continue;
       await db.execute('UPDATE pets SET positive_genes = $pg WHERE id = $id', {
         pg: update.positive,
         id: update.id,
@@ -526,4 +549,5 @@ export async function backfillPositiveGenesIfNeeded(): Promise<void> {
     throw e;
   }
   await setSetting(POSITIVE_GENES_BACKFILL_KEY, true);
+  console.info('positive_genes backfill: done');
 }
