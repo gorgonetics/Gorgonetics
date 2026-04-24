@@ -2,6 +2,7 @@
 import { onMount } from 'svelte';
 import { initDatabase } from '$lib/services/database.js';
 import { loadDemoPetsIfNeeded, populateGenesIfNeeded } from '$lib/services/demoService.js';
+import { backfillParsedGeneEffectsIfNeeded } from '$lib/services/geneService.js';
 import { runMigrations } from '$lib/services/migrationService.js';
 import { backfillPositiveGenesIfNeeded } from '$lib/services/petService.js';
 import { appState } from '$lib/stores/pets.js';
@@ -32,6 +33,13 @@ onMount(async () => {
     .catch((err) => {
       console.warn('positive_genes backfill aborted:', err);
     });
+
+  // Backfill parsed dominant/recessive attribute+sign columns on the genes
+  // table. Same off-critical-path pattern — read paths will start using
+  // these columns once they're populated.
+  backfillParsedGeneEffectsIfNeeded().catch((err) => {
+    console.warn('parsed-effects backfill aborted:', err);
+  });
 });
 </script>
 
