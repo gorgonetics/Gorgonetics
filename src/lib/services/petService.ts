@@ -78,16 +78,25 @@ export async function computePositiveGenesForGenome(
   genomeData: string | Genome,
   breed: string | undefined,
 ): Promise<number> {
-  const genome = typeof genomeData === 'string' ? (JSON.parse(genomeData) as Genome) : genomeData;
-  const species = normalizeSpecies(genome.genome_type);
-  if (!species) return 0;
-  const geneStrings = genomeToGeneStrings(genome);
-  const effectsData = await getGeneEffectsCached(species);
-  const effectsDB = effectsData ? { [species]: effectsData.effects } : {};
-  const { stats } = computeGeneStats(geneStrings, species, effectsDB, breed);
-  let total = 0;
-  for (const entry of Object.values(stats)) total += entry.positive;
-  return total;
+  // Malformed JSON or unexpected shapes must not crash the caller — upload
+  // and update paths can't afford to abort on bad data. Return 0 and let the
+  // caller persist a safe placeholder.
+  try {
+    const parsed: unknown = typeof genomeData === 'string' ? JSON.parse(genomeData) : genomeData;
+    if (!parsed || typeof parsed !== 'object') return 0;
+    const genome = parsed as Genome;
+    const species = normalizeSpecies(genome.genome_type);
+    if (!species) return 0;
+    const geneStrings = genomeToGeneStrings(genome);
+    const effectsData = await getGeneEffectsCached(species);
+    const effectsDB = effectsData ? { [species]: effectsData.effects } : {};
+    const { stats } = computeGeneStats(geneStrings, species, effectsDB, breed);
+    let total = 0;
+    for (const entry of Object.values(stats)) total += entry.positive;
+    return total;
+  } catch {
+    return 0;
+  }
 }
 
 /** Enrich a raw pet row from the database with computed fields. */

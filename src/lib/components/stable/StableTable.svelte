@@ -188,13 +188,12 @@ function sortIndicator(colId) {
 <div class="stable-view" data-testid="stable-view">
     <header class="stable-header">
         <h2 class="stable-title">Stable</h2>
-        <div class="species-tabs" role="tablist" aria-label="Species">
+        <div class="species-tabs" role="group" aria-label="Species">
             {#each SPECIES as species}
                 <button
                     class="species-tab-btn"
                     class:active={stableView.species === species}
-                    role="tab"
-                    aria-selected={stableView.species === species}
+                    aria-pressed={stableView.species === species}
                     data-species={species}
                     onclick={() => { stableView.species = species; }}
                 >
