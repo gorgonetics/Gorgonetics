@@ -199,51 +199,63 @@ class InMemoryDatabase implements DatabaseAdapter {
           this.autoIncrements[table] = 0;
         }
 
-        const row: Record<string, unknown> = {};
+        // Multi-row INSERT INTO t (...) VALUES (...), (...), ... consumes
+        // cols.length params per row — keep pulling rows off bindArr until
+        // it's drained. Preserves single-row callers (one iteration).
+        let rowsAffected = 0;
+        let lastInsertId = 0;
         let paramIdx = 0;
-        for (const col of cols) {
-          row[col] = bindArr[paramIdx++];
-        }
+        const step = cols.length || 1;
+        const rowCount = Math.max(1, Math.floor(bindArr.length / step));
 
-        // Handle AUTOINCREMENT for 'id' column
-        if (!row.id && cols.includes('id') === false) {
-          this.autoIncrements[table]++;
-          row.id = this.autoIncrements[table];
-        } else if (row.id) {
-          const idNum = Number(row.id);
-          if (idNum > this.autoIncrements[table]) {
-            this.autoIncrements[table] = idNum;
+        for (let ri = 0; ri < rowCount; ri++) {
+          const row: Record<string, unknown> = {};
+          for (const col of cols) {
+            row[col] = bindArr[paramIdx++];
           }
-        } else {
-          this.autoIncrements[table]++;
-          row.id = this.autoIncrements[table];
-        }
 
-        // INSERT OR REPLACE — remove existing by primary key
-        if (qLower.includes('or replace')) {
-          const existingIdx = this.tables[table].findIndex(
-            (r) => r.animal_type === row.animal_type && r.gene === row.gene,
-          );
-          if (existingIdx >= 0) {
-            this.tables[table][existingIdx] = row;
-            return { rowsAffected: 1, lastInsertId: Number(row.id) };
+          // AUTOINCREMENT for 'id' column
+          if (!row.id && !cols.includes('id')) {
+            this.autoIncrements[table]++;
+            row.id = this.autoIncrements[table];
+          } else if (row.id) {
+            const idNum = Number(row.id);
+            if (idNum > this.autoIncrements[table]) {
+              this.autoIncrements[table] = idNum;
+            }
+          } else {
+            this.autoIncrements[table]++;
+            row.id = this.autoIncrements[table];
           }
-        }
 
-        // INSERT OR IGNORE — skip if duplicate exists (check pet_id+tag or other unique combos)
-        if (qLower.includes('or ignore')) {
-          const isDuplicate = this.tables[table].some(
-            (r) =>
-              (row.pet_id !== undefined && r.pet_id === row.pet_id && r.tag === row.tag) ||
-              (row.id !== undefined && r.id === row.id),
-          );
-          if (isDuplicate) {
-            return { rowsAffected: 0, lastInsertId: 0 };
+          // INSERT OR REPLACE — replace existing by (animal_type, gene) PK
+          if (qLower.includes('or replace')) {
+            const existingIdx = this.tables[table].findIndex(
+              (r) => r.animal_type === row.animal_type && r.gene === row.gene,
+            );
+            if (existingIdx >= 0) {
+              this.tables[table][existingIdx] = row;
+              rowsAffected++;
+              lastInsertId = Number(row.id);
+              continue;
+            }
           }
-        }
 
-        this.tables[table].push(row);
-        return { rowsAffected: 1, lastInsertId: Number(row.id) };
+          // INSERT OR IGNORE — skip if a duplicate exists on pet_tags(pet_id, tag) or by id
+          if (qLower.includes('or ignore')) {
+            const isDuplicate = this.tables[table].some(
+              (r) =>
+                (row.pet_id !== undefined && r.pet_id === row.pet_id && r.tag === row.tag) ||
+                (row.id !== undefined && r.id === row.id),
+            );
+            if (isDuplicate) continue;
+          }
+
+          this.tables[table].push(row);
+          rowsAffected++;
+          lastInsertId = Number(row.id);
+        }
+        return { rowsAffected, lastInsertId };
       }
     }
 
@@ -392,6 +404,24 @@ export async function initDatabase(): Promise<void> {
 export function getDb(): DatabaseAdapter {
   if (!db) throw new Error('Database not initialized. Call initDatabase() first.');
   return db;
+}
+
+/**
+ * Run `fn` inside a SQL transaction on the current DB. Commits on
+ * success, rolls back and re-throws on failure. Callers that already
+ * hold a transaction should not nest this (SQLite doesn't nest).
+ */
+export async function withTransaction<T>(fn: () => Promise<T>): Promise<T> {
+  const db = getDb();
+  await db.execute('BEGIN');
+  try {
+    const result = await fn();
+    await db.execute('COMMIT');
+    return result;
+  } catch (e) {
+    await db.execute('ROLLBACK');
+    throw e;
+  }
 }
 
 const REORDERABLE_TABLES = new Set(['pets', 'pet_images']);

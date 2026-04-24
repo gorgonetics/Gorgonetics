@@ -8,7 +8,7 @@ import { yieldToUI } from '$lib/utils/async.js';
 import { computeGeneStats } from '$lib/utils/geneAnalysis.js';
 import { now } from '$lib/utils/timestamp.js';
 import { getDefaultValues, normalizeSpecies } from './configService.js';
-import { getDb, reorderRows } from './database.js';
+import { getDb, reorderRows, withTransaction } from './database.js';
 import { getGeneEffectsCached } from './geneService.js';
 import { genomeToGeneStrings, isValidGenomeFile, parseGenome } from './genomeParser.js';
 import { parseStructuredPetName } from './nameParser.js';
@@ -252,42 +252,52 @@ export async function uploadPet(
   const orderRows = await db.select<{ sort_order: number }[]>('SELECT sort_order FROM pets');
   const nextOrder = orderRows.length > 0 ? Math.max(...orderRows.map((r) => r.sort_order ?? 0)) + 1 : 0;
 
-  const result = await db.execute(
-    `INSERT INTO pets
-     (name, species, gender, breed, breeder, content_hash, genome_data, notes,
-      created_at, updated_at,
-      intelligence, toughness, friendliness, ruggedness, enthusiasm, virility, ferocity, temperament, sort_order,
-      starred, stabled, is_pet_quality, positive_genes)
-     VALUES ($name, $species, $gender, $breed, $breeder, $content_hash, $genome_data, $notes,
-             $created_at, $updated_at,
-             $intelligence, $toughness, $friendliness, $ruggedness, $enthusiasm, $virility, $ferocity, $temperament, $sort_order,
-             $starred, $stabled, $is_pet_quality, $positive_genes)`,
-    {
-      name: petName,
-      species: genome.genome_type,
-      gender: petGender,
-      breed: petBreed,
-      breeder: genome.breeder,
-      content_hash: contentHash,
-      genome_data: genomeJson,
-      notes: notes ?? '',
-      created_at: ts,
-      updated_at: ts,
-      intelligence: attrValues.intelligence ?? 50,
-      toughness: attrValues.toughness ?? 50,
-      friendliness: attrValues.friendliness ?? 50,
-      ruggedness: attrValues.ruggedness ?? 50,
-      enthusiasm: attrValues.enthusiasm ?? 50,
-      virility: attrValues.virility ?? 50,
-      ferocity: attrValues.ferocity ?? 50,
-      temperament: attrValues.temperament ?? 50,
-      sort_order: nextOrder,
-      starred: 0,
-      stabled: 1,
-      is_pet_quality: 0,
-      positive_genes: positiveGenes,
-    },
-  );
+  // The pets INSERT and the pet_genes projection must be atomic: a half-
+  // written pet (row in `pets` but no rows in `pet_genes`) would reject
+  // retries because `content_hash` is UNIQUE, and leave downstream SQL
+  // stats wrong once M3 starts reading from `pet_genes`.
+  const result = await withTransaction(async () => {
+    const res = await db.execute(
+      `INSERT INTO pets
+       (name, species, gender, breed, breeder, content_hash, genome_data, notes,
+        created_at, updated_at,
+        intelligence, toughness, friendliness, ruggedness, enthusiasm, virility, ferocity, temperament, sort_order,
+        starred, stabled, is_pet_quality, positive_genes)
+       VALUES ($name, $species, $gender, $breed, $breeder, $content_hash, $genome_data, $notes,
+               $created_at, $updated_at,
+               $intelligence, $toughness, $friendliness, $ruggedness, $enthusiasm, $virility, $ferocity, $temperament, $sort_order,
+               $starred, $stabled, $is_pet_quality, $positive_genes)`,
+      {
+        name: petName,
+        species: genome.genome_type,
+        gender: petGender,
+        breed: petBreed,
+        breeder: genome.breeder,
+        content_hash: contentHash,
+        genome_data: genomeJson,
+        notes: notes ?? '',
+        created_at: ts,
+        updated_at: ts,
+        intelligence: attrValues.intelligence ?? 50,
+        toughness: attrValues.toughness ?? 50,
+        friendliness: attrValues.friendliness ?? 50,
+        ruggedness: attrValues.ruggedness ?? 50,
+        enthusiasm: attrValues.enthusiasm ?? 50,
+        virility: attrValues.virility ?? 50,
+        ferocity: attrValues.ferocity ?? 50,
+        temperament: attrValues.temperament ?? 50,
+        sort_order: nextOrder,
+        starred: 0,
+        stabled: 1,
+        is_pet_quality: 0,
+        positive_genes: positiveGenes,
+      },
+    );
+    if (res.lastInsertId) {
+      await writePetGenes(res.lastInsertId, genome);
+    }
+    return res;
+  });
 
   return {
     status: 'success',
@@ -354,14 +364,21 @@ export async function updatePet(petId: number, updates: Record<string, unknown>)
     }
   }
 
-  // If the genome or breed changed, the stored positive_genes count is stale.
-  // Recompute once using the incoming values, falling back to what's in the DB.
+  // If the genome or breed changed, the stored positive_genes count is
+  // stale. Parse the next genome once and reuse for the downstream
+  // positive_genes recompute and pet_genes rewrite.
+  let nextGenome: Genome | null = null;
   if (flat.genome_data !== undefined || flat.breed !== undefined) {
     const current = await getPet(petId);
     if (current) {
       const nextGenomeData = (params.genome_data as string | undefined) ?? current.genome_data;
       const nextBreed = (flat.breed as string | undefined) ?? current.breed ?? '';
-      const positiveGenes = await computePositiveGenesForGenome(nextGenomeData, nextBreed);
+      try {
+        nextGenome = JSON.parse(nextGenomeData) as Genome;
+      } catch {
+        nextGenome = null;
+      }
+      const positiveGenes = await computePositiveGenesForGenome(nextGenome ?? nextGenomeData, nextBreed);
       setClauses.push('positive_genes = $positive_genes');
       params.positive_genes = positiveGenes;
     }
@@ -369,11 +386,24 @@ export async function updatePet(petId: number, updates: Record<string, unknown>)
 
   let changed = false;
 
-  if (setClauses.length > 0) {
-    setClauses.push('updated_at = $updated_at');
-    params.updated_at = now();
-    params.w_id = petId;
-    await db.execute(`UPDATE pets SET ${setClauses.join(', ')} WHERE id = $w_id`, params);
+  const wantsPetsUpdate = setClauses.length > 0;
+  const wantsPetGenesRewrite = flat.genome_data !== undefined && nextGenome !== null;
+
+  if (wantsPetsUpdate || wantsPetGenesRewrite) {
+    // Atomic: if the pet_genes rewrite fails the pets UPDATE rolls back
+    // too, so readers never see `genome_data` out of sync with the
+    // projection in `pet_genes`.
+    await withTransaction(async () => {
+      if (wantsPetsUpdate) {
+        setClauses.push('updated_at = $updated_at');
+        params.updated_at = now();
+        params.w_id = petId;
+        await db.execute(`UPDATE pets SET ${setClauses.join(', ')} WHERE id = $w_id`, params);
+      }
+      if (wantsPetGenesRewrite && nextGenome) {
+        await writePetGenes(petId, nextGenome);
+      }
+    });
     changed = true;
   }
 
@@ -421,6 +451,9 @@ export async function deletePet(petId: number): Promise<boolean> {
   await deleteAllImagesForPet(petId);
 
   const db = getDb();
+  // The in-memory test adapter doesn't honour the FK cascade — explicit
+  // DELETE keeps test behaviour aligned with real SQLite.
+  await db.execute('DELETE FROM pet_genes WHERE pet_id = $id', { id: petId });
   const result = await db.execute('DELETE FROM pets WHERE id = $id', { id: petId });
   return result.rowsAffected > 0;
 }
@@ -467,6 +500,43 @@ export async function getPetGenome(
 }
 
 /**
+ * Replace a pet's rows in `pet_genes` with one row per position from the
+ * given parsed genome. Wrapped in a transaction so readers never see a
+ * half-populated genome for the pet.
+ */
+async function writePetGenes(petId: number, genome: Genome): Promise<void> {
+  const db = getDb();
+  const entries: Array<{ geneId: string; geneType: string }> = [];
+  for (const chrGenes of Object.values(genome.genes)) {
+    for (const g of chrGenes) {
+      entries.push({ geneId: `${g.chromosome}${g.block}${g.position}`, geneType: g.gene_type });
+    }
+  }
+
+  await db.execute('BEGIN');
+  try {
+    await db.execute('DELETE FROM pet_genes WHERE pet_id = $pid', { pid: petId });
+    if (entries.length > 0) {
+      // Multi-row INSERT collapses one IPC call per pet instead of one
+      // per gene. With ~500 positions per pet this is the difference
+      // between milliseconds and seconds for a 200-pet backfill.
+      const placeholders = entries.map((_, i) => `($p${i}, $g${i}, $t${i})`).join(', ');
+      const params: Record<string, unknown> = {};
+      entries.forEach((e, i) => {
+        params[`p${i}`] = petId;
+        params[`g${i}`] = e.geneId;
+        params[`t${i}`] = e.geneType;
+      });
+      await db.execute(`INSERT INTO pet_genes (pet_id, gene_id, gene_type) VALUES ${placeholders}`, params);
+    }
+    await db.execute('COMMIT');
+  } catch (e) {
+    await db.execute('ROLLBACK');
+    throw e;
+  }
+}
+
+/**
  * Check if pets table has any data.
  */
 export async function hasPets(): Promise<boolean> {
@@ -483,6 +553,51 @@ export function reorderPets(orderedIds: number[]): Promise<void> {
 }
 
 const POSITIVE_GENES_BACKFILL_KEY = 'pets.positive_genes_backfilled';
+
+/**
+ * Populate `pet_genes` for any pet whose genome hasn't been projected into
+ * rows yet. Runs at startup off the critical path. Data-driven — a pet
+ * appears in the work set when no `pet_genes` row references it, so a
+ * backup-restore that rewrites pets without touching pet_genes self-heals.
+ *
+ * Returns `true` if any rows were written so the caller can decide
+ * whether to refresh downstream stores.
+ */
+export async function backfillPetGenesIfNeeded(): Promise<boolean> {
+  const db = getDb();
+  // Two simple queries + a Set diff, instead of a NOT EXISTS subquery —
+  // the in-memory test adapter's WHERE parser only understands plain
+  // `col = ?`, so a JOIN/subquery predicate is silently ignored there.
+  const allPets = await db.select<{ id: number; genome_data: string }[]>('SELECT id, genome_data FROM pets');
+  if (allPets.length === 0) return false;
+  const existing = await db.select<{ pet_id: number }[]>('SELECT pet_id FROM pet_genes');
+  const populated = new Set(existing.map((r) => r.pet_id));
+  const pending = allPets.filter((p) => !populated.has(p.id));
+  if (pending.length === 0) return false;
+
+  console.info(`pet_genes backfill: ${pending.length} pets need populating`);
+
+  const BATCH = 8;
+  let wrote = false;
+  for (let i = 0; i < pending.length; i += BATCH) {
+    const slice = pending.slice(i, i + BATCH);
+    for (const row of slice) {
+      try {
+        const genome = JSON.parse(row.genome_data) as Genome;
+        await withTransaction(() => writePetGenes(row.id, genome));
+        wrote = true;
+      } catch (e) {
+        console.warn(`pet_genes backfill: failed for pet ${row.id}`, e);
+      }
+    }
+    const processed = Math.min(i + BATCH, pending.length);
+    console.info(`pet_genes backfill: ${processed}/${pending.length}`);
+    await yieldToUI();
+  }
+
+  console.info('pet_genes backfill: done');
+  return wrote;
+}
 
 /**
  * One-shot backfill that populates positive_genes for every pet using the
