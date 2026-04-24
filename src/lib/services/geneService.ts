@@ -7,38 +7,56 @@ import { parsedEffectColumns } from '$lib/utils/geneAnalysis.js';
 import { now } from '$lib/utils/timestamp.js';
 import { normalizeSpecies } from './configService.js';
 import { getDb } from './database.js';
-import { getSetting, setSetting } from './settingsService.js';
-
-const PARSED_EFFECTS_BACKFILL_KEY = 'genes.parsed_effects_backfilled';
 
 /**
- * One-shot backfill that populates dominant_attribute / dominant_sign /
- * recessive_attribute / recessive_sign on every row of the genes table.
- * Idempotent via a settings flag. Non-blocking: callers should kick this
- * off after the app is interactive, same pattern as positive_genes
- * backfill. New rows (upsertGene / updateGene / updateGenesBulk) populate
- * the parsed columns directly, so this is only needed for users upgrading
- * from before migration v10.
+ * Populate dominant_attribute / dominant_sign / recessive_attribute /
+ * recessive_sign on gene rows whose effect strings would parse to a real
+ * attribute+sign but whose parsed columns are still NULL. Data-driven
+ * guard (probe query) instead of a settings flag — backup restore or
+ * manual gene-table rewrites stay self-healing, and the steady state
+ * skips work after one SELECT.
+ *
+ * Non-blocking: callers should run this off the critical startup path.
+ *
+ * Each UPDATE is conditional on the effect strings still matching what
+ * the backfill read, so a GeneEditor save mid-flight can't be clobbered
+ * by a stale parse.
  */
 export async function backfillParsedGeneEffectsIfNeeded(): Promise<void> {
-  const done = await getSetting<boolean>(PARSED_EFFECTS_BACKFILL_KEY);
-  if (done) return;
-
   const db = getDb();
   const rows = await db.select<
-    { animal_type: string; gene: string; effectDominant: string | null; effectRecessive: string | null }[]
-  >('SELECT animal_type, gene, effectDominant, effectRecessive FROM genes');
+    {
+      animal_type: string;
+      gene: string;
+      effectDominant: string | null;
+      effectRecessive: string | null;
+      dominant_attribute: string | null;
+      recessive_attribute: string | null;
+    }[]
+  >(
+    `SELECT animal_type, gene, effectDominant, effectRecessive,
+            dominant_attribute, recessive_attribute
+     FROM genes`,
+  );
 
-  if (rows.length === 0) {
-    await setSetting(PARSED_EFFECTS_BACKFILL_KEY, true);
-    return;
-  }
+  const needsWork = rows.filter((row) => {
+    const dom = parsedEffectColumns(row.effectDominant);
+    const rec = parsedEffectColumns(row.effectRecessive);
+    // `== null` catches both SQL NULL (real SQLite) and `undefined` (the
+    // in-memory test adapter when a column was never written).
+    return (
+      (dom.attribute !== null && row.dominant_attribute == null) ||
+      (rec.attribute !== null && row.recessive_attribute == null)
+    );
+  });
 
-  console.info(`parsed-effects backfill: starting for ${rows.length} gene rows`);
+  if (needsWork.length === 0) return;
+
+  console.info(`parsed-effects backfill: ${needsWork.length} rows need updating`);
 
   const BATCH = 64;
-  for (let i = 0; i < rows.length; i += BATCH) {
-    const slice = rows.slice(i, i + BATCH);
+  for (let i = 0; i < needsWork.length; i += BATCH) {
+    const slice = needsWork.slice(i, i + BATCH);
     await db.execute('BEGIN');
     try {
       for (const row of slice) {
@@ -48,7 +66,9 @@ export async function backfillParsedGeneEffectsIfNeeded(): Promise<void> {
           `UPDATE genes
            SET dominant_attribute = $da, dominant_sign = $ds,
                recessive_attribute = $ra, recessive_sign = $rs
-           WHERE animal_type = $at AND gene = $g`,
+           WHERE animal_type = $at AND gene = $g
+             AND COALESCE(effectDominant, '') = $sed
+             AND COALESCE(effectRecessive, '') = $ser`,
           {
             da: dom.attribute,
             ds: dom.sign,
@@ -56,6 +76,8 @@ export async function backfillParsedGeneEffectsIfNeeded(): Promise<void> {
             rs: rec.sign,
             at: row.animal_type,
             g: row.gene,
+            sed: row.effectDominant ?? '',
+            ser: row.effectRecessive ?? '',
           },
         );
       }
@@ -64,12 +86,11 @@ export async function backfillParsedGeneEffectsIfNeeded(): Promise<void> {
       await db.execute('ROLLBACK');
       throw e;
     }
-    const processed = Math.min(i + BATCH, rows.length);
-    console.info(`parsed-effects backfill: ${processed}/${rows.length}`);
+    const processed = Math.min(i + BATCH, needsWork.length);
+    console.info(`parsed-effects backfill: ${processed}/${needsWork.length}`);
     await yieldToUI();
   }
 
-  await setSetting(PARSED_EFFECTS_BACKFILL_KEY, true);
   console.info('parsed-effects backfill: done');
 }
 

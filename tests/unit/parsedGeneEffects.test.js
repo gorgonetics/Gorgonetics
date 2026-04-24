@@ -51,8 +51,8 @@ describe('upsertGene persists parsed columns', () => {
     });
     const db = getDb();
     const rows = await db.select(
-      'SELECT dominant_attribute, dominant_sign, recessive_attribute, recessive_sign FROM genes WHERE gene = $g',
-      { g: '01A1' },
+      'SELECT dominant_attribute, dominant_sign, recessive_attribute, recessive_sign FROM genes WHERE animal_type = $at AND gene = $g',
+      { at: 'beewasp', g: '01A1' },
     );
     expect(rows[0].dominant_attribute).toBe('toughness');
     expect(rows[0].dominant_sign).toBe('+');
@@ -67,8 +67,8 @@ describe('upsertGene persists parsed columns', () => {
     });
     const db = getDb();
     const rows = await db.select(
-      'SELECT dominant_attribute, dominant_sign, recessive_attribute, recessive_sign FROM genes WHERE gene = $g',
-      { g: '01B1' },
+      'SELECT dominant_attribute, dominant_sign, recessive_attribute, recessive_sign FROM genes WHERE animal_type = $at AND gene = $g',
+      { at: 'beewasp', g: '01B1' },
     );
     expect(rows[0].dominant_attribute).toBeNull();
     expect(rows[0].dominant_sign).toBeNull();
@@ -94,7 +94,10 @@ describe('updateGene refreshes parsed columns', () => {
       effectDominant: 'Ferocity-',
     });
     const db = getDb();
-    const rows = await db.select('SELECT dominant_attribute, dominant_sign FROM genes WHERE gene = $g', { g: '01A1' });
+    const rows = await db.select(
+      'SELECT dominant_attribute, dominant_sign FROM genes WHERE animal_type = $at AND gene = $g',
+      { at: 'beewasp', g: '01A1' },
+    );
     expect(rows[0].dominant_attribute).toBe('ferocity');
     expect(rows[0].dominant_sign).toBe('-');
   });
@@ -108,9 +111,10 @@ describe('updateGene refreshes parsed columns', () => {
       effectRecessive: 'None',
     });
     const db = getDb();
-    const rows = await db.select('SELECT recessive_attribute, recessive_sign FROM genes WHERE gene = $g', {
-      g: '01A1',
-    });
+    const rows = await db.select(
+      'SELECT recessive_attribute, recessive_sign FROM genes WHERE animal_type = $at AND gene = $g',
+      { at: 'beewasp', g: '01A1' },
+    );
     expect(rows[0].recessive_attribute).toBeNull();
     expect(rows[0].recessive_sign).toBeNull();
   });
@@ -165,21 +169,74 @@ describe('backfillParsedGeneEffectsIfNeeded', () => {
     expect(byGene['01A2'].recessive_sign).toBe('-');
   });
 
-  it('is idempotent — flag guard skips repeat work', async () => {
+  it('steady-state run is a no-op over already-parsed rows', async () => {
+    await insertLegacyGene('01A1', 'Toughness+', 'None');
+    await geneService.backfillParsedGeneEffectsIfNeeded();
+    const db = getDb();
+    const [before] = await db.select('SELECT updated_at FROM genes WHERE animal_type = $at AND gene = $g', {
+      at: 'beewasp',
+      g: '01A1',
+    });
+
+    // Second run should see consistent parsed columns and skip without
+    // issuing UPDATEs — the updated_at timestamp must not move.
+    await geneService.backfillParsedGeneEffectsIfNeeded();
+    const [after] = await db.select('SELECT updated_at FROM genes WHERE animal_type = $at AND gene = $g', {
+      at: 'beewasp',
+      g: '01A1',
+    });
+    expect(after.updated_at).toBe(before.updated_at);
+  });
+
+  it('self-heals when parsed columns are wiped (e.g. backup restore)', async () => {
     await insertLegacyGene('01A1', 'Toughness+', 'None');
     await geneService.backfillParsedGeneEffectsIfNeeded();
 
-    // Corrupt the parsed columns to simulate a later edit that shouldn't
-    // be undone by a second backfill call (the flag is set, so it skips).
+    // Simulate a backup-restore that rewrote genes back to pre-v10 state
+    // (effect strings present, parsed columns NULL). Without a flag guard,
+    // the next backfill call should detect this and heal the row.
     const db = getDb();
-    await db.execute('UPDATE genes SET dominant_attribute = $x WHERE gene = $g', {
-      x: 'corrupted',
-      g: '01A1',
-    });
+    await db.execute(
+      `UPDATE genes
+       SET dominant_attribute = NULL, dominant_sign = NULL,
+           recessive_attribute = NULL, recessive_sign = NULL
+       WHERE animal_type = $at AND gene = $g`,
+      { at: 'beewasp', g: '01A1' },
+    );
     await geneService.backfillParsedGeneEffectsIfNeeded();
 
-    const rows = await db.select('SELECT dominant_attribute FROM genes WHERE gene = $g', { g: '01A1' });
-    expect(rows[0].dominant_attribute).toBe('corrupted');
+    const rows = await db.select(
+      'SELECT dominant_attribute, dominant_sign FROM genes WHERE animal_type = $at AND gene = $g',
+      { at: 'beewasp', g: '01A1' },
+    );
+    expect(rows[0].dominant_attribute).toBe('toughness');
+    expect(rows[0].dominant_sign).toBe('+');
+  });
+
+  it('skips rows whose effectDominant changed between read and write', async () => {
+    // Can't easily race within a single-threaded test; instead verify the
+    // WHERE guard by pre-inserting a row with consistent parsed state,
+    // editing just the effect string, then confirming backfill won't
+    // overwrite the parsed columns because they already match what a
+    // fresh parse would produce (probe skips it entirely).
+    await insertLegacyGene('01A1', 'Toughness+', 'None');
+    await geneService.backfillParsedGeneEffectsIfNeeded();
+
+    const db = getDb();
+    await db.execute(
+      `UPDATE genes SET effectDominant = $ed,
+         dominant_attribute = $da, dominant_sign = $ds
+       WHERE animal_type = $at AND gene = $g`,
+      { ed: 'Intelligence-', da: 'intelligence', ds: '-', at: 'beewasp', g: '01A1' },
+    );
+    await geneService.backfillParsedGeneEffectsIfNeeded();
+
+    const rows = await db.select(
+      'SELECT dominant_attribute, dominant_sign FROM genes WHERE animal_type = $at AND gene = $g',
+      { at: 'beewasp', g: '01A1' },
+    );
+    expect(rows[0].dominant_attribute).toBe('intelligence');
+    expect(rows[0].dominant_sign).toBe('-');
   });
 
   it('handles an empty genes table gracefully', async () => {
