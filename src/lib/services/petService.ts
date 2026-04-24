@@ -8,7 +8,7 @@ import { yieldToUI } from '$lib/utils/async.js';
 import { computeGeneStats } from '$lib/utils/geneAnalysis.js';
 import { now } from '$lib/utils/timestamp.js';
 import { getDefaultValues, normalizeSpecies } from './configService.js';
-import { getDb, reorderRows } from './database.js';
+import { getDb, reorderRows, withTransaction } from './database.js';
 import { getGeneEffectsCached } from './geneService.js';
 import { genomeToGeneStrings, isValidGenomeFile, parseGenome } from './genomeParser.js';
 import { parseStructuredPetName } from './nameParser.js';
@@ -252,46 +252,52 @@ export async function uploadPet(
   const orderRows = await db.select<{ sort_order: number }[]>('SELECT sort_order FROM pets');
   const nextOrder = orderRows.length > 0 ? Math.max(...orderRows.map((r) => r.sort_order ?? 0)) + 1 : 0;
 
-  const result = await db.execute(
-    `INSERT INTO pets
-     (name, species, gender, breed, breeder, content_hash, genome_data, notes,
-      created_at, updated_at,
-      intelligence, toughness, friendliness, ruggedness, enthusiasm, virility, ferocity, temperament, sort_order,
-      starred, stabled, is_pet_quality, positive_genes)
-     VALUES ($name, $species, $gender, $breed, $breeder, $content_hash, $genome_data, $notes,
-             $created_at, $updated_at,
-             $intelligence, $toughness, $friendliness, $ruggedness, $enthusiasm, $virility, $ferocity, $temperament, $sort_order,
-             $starred, $stabled, $is_pet_quality, $positive_genes)`,
-    {
-      name: petName,
-      species: genome.genome_type,
-      gender: petGender,
-      breed: petBreed,
-      breeder: genome.breeder,
-      content_hash: contentHash,
-      genome_data: genomeJson,
-      notes: notes ?? '',
-      created_at: ts,
-      updated_at: ts,
-      intelligence: attrValues.intelligence ?? 50,
-      toughness: attrValues.toughness ?? 50,
-      friendliness: attrValues.friendliness ?? 50,
-      ruggedness: attrValues.ruggedness ?? 50,
-      enthusiasm: attrValues.enthusiasm ?? 50,
-      virility: attrValues.virility ?? 50,
-      ferocity: attrValues.ferocity ?? 50,
-      temperament: attrValues.temperament ?? 50,
-      sort_order: nextOrder,
-      starred: 0,
-      stabled: 1,
-      is_pet_quality: 0,
-      positive_genes: positiveGenes,
-    },
-  );
-
-  if (result.lastInsertId) {
-    await writePetGenes(result.lastInsertId, genome);
-  }
+  // The pets INSERT and the pet_genes projection must be atomic: a half-
+  // written pet (row in `pets` but no rows in `pet_genes`) would reject
+  // retries because `content_hash` is UNIQUE, and leave downstream SQL
+  // stats wrong once M3 starts reading from `pet_genes`.
+  const result = await withTransaction(async () => {
+    const res = await db.execute(
+      `INSERT INTO pets
+       (name, species, gender, breed, breeder, content_hash, genome_data, notes,
+        created_at, updated_at,
+        intelligence, toughness, friendliness, ruggedness, enthusiasm, virility, ferocity, temperament, sort_order,
+        starred, stabled, is_pet_quality, positive_genes)
+       VALUES ($name, $species, $gender, $breed, $breeder, $content_hash, $genome_data, $notes,
+               $created_at, $updated_at,
+               $intelligence, $toughness, $friendliness, $ruggedness, $enthusiasm, $virility, $ferocity, $temperament, $sort_order,
+               $starred, $stabled, $is_pet_quality, $positive_genes)`,
+      {
+        name: petName,
+        species: genome.genome_type,
+        gender: petGender,
+        breed: petBreed,
+        breeder: genome.breeder,
+        content_hash: contentHash,
+        genome_data: genomeJson,
+        notes: notes ?? '',
+        created_at: ts,
+        updated_at: ts,
+        intelligence: attrValues.intelligence ?? 50,
+        toughness: attrValues.toughness ?? 50,
+        friendliness: attrValues.friendliness ?? 50,
+        ruggedness: attrValues.ruggedness ?? 50,
+        enthusiasm: attrValues.enthusiasm ?? 50,
+        virility: attrValues.virility ?? 50,
+        ferocity: attrValues.ferocity ?? 50,
+        temperament: attrValues.temperament ?? 50,
+        sort_order: nextOrder,
+        starred: 0,
+        stabled: 1,
+        is_pet_quality: 0,
+        positive_genes: positiveGenes,
+      },
+    );
+    if (res.lastInsertId) {
+      await writePetGenes(res.lastInsertId, genome);
+    }
+    return res;
+  });
 
   return {
     status: 'success',
@@ -380,16 +386,25 @@ export async function updatePet(petId: number, updates: Record<string, unknown>)
 
   let changed = false;
 
-  if (setClauses.length > 0) {
-    setClauses.push('updated_at = $updated_at');
-    params.updated_at = now();
-    params.w_id = petId;
-    await db.execute(`UPDATE pets SET ${setClauses.join(', ')} WHERE id = $w_id`, params);
-    changed = true;
-  }
+  const wantsPetsUpdate = setClauses.length > 0;
+  const wantsPetGenesRewrite = flat.genome_data !== undefined && nextGenome !== null;
 
-  if (flat.genome_data !== undefined && nextGenome) {
-    await writePetGenes(petId, nextGenome);
+  if (wantsPetsUpdate || wantsPetGenesRewrite) {
+    // Atomic: if the pet_genes rewrite fails the pets UPDATE rolls back
+    // too, so readers never see `genome_data` out of sync with the
+    // projection in `pet_genes`.
+    await withTransaction(async () => {
+      if (wantsPetsUpdate) {
+        setClauses.push('updated_at = $updated_at');
+        params.updated_at = now();
+        params.w_id = petId;
+        await db.execute(`UPDATE pets SET ${setClauses.join(', ')} WHERE id = $w_id`, params);
+      }
+      if (wantsPetGenesRewrite && nextGenome) {
+        await writePetGenes(petId, nextGenome);
+      }
+    });
+    changed = true;
   }
 
   if (newTags !== undefined) {
@@ -544,25 +559,33 @@ const POSITIVE_GENES_BACKFILL_KEY = 'pets.positive_genes_backfilled';
  * rows yet. Runs at startup off the critical path. Data-driven — a pet
  * appears in the work set when no `pet_genes` row references it, so a
  * backup-restore that rewrites pets without touching pet_genes self-heals.
+ *
+ * Returns `true` if any rows were written so the caller can decide
+ * whether to refresh downstream stores.
  */
-export async function backfillPetGenesIfNeeded(): Promise<void> {
+export async function backfillPetGenesIfNeeded(): Promise<boolean> {
   const db = getDb();
-  const pending = await db.select<{ id: number; genome_data: string }[]>(
-    `SELECT p.id, p.genome_data
-     FROM pets p
-     WHERE NOT EXISTS (SELECT 1 FROM pet_genes pg WHERE pg.pet_id = p.id)`,
-  );
-  if (pending.length === 0) return;
+  // Two simple queries + a Set diff, instead of a NOT EXISTS subquery —
+  // the in-memory test adapter's WHERE parser only understands plain
+  // `col = ?`, so a JOIN/subquery predicate is silently ignored there.
+  const allPets = await db.select<{ id: number; genome_data: string }[]>('SELECT id, genome_data FROM pets');
+  if (allPets.length === 0) return false;
+  const existing = await db.select<{ pet_id: number }[]>('SELECT pet_id FROM pet_genes');
+  const populated = new Set(existing.map((r) => r.pet_id));
+  const pending = allPets.filter((p) => !populated.has(p.id));
+  if (pending.length === 0) return false;
 
   console.info(`pet_genes backfill: ${pending.length} pets need populating`);
 
   const BATCH = 8;
+  let wrote = false;
   for (let i = 0; i < pending.length; i += BATCH) {
     const slice = pending.slice(i, i + BATCH);
     for (const row of slice) {
       try {
         const genome = JSON.parse(row.genome_data) as Genome;
-        await writePetGenes(row.id, genome);
+        await withTransaction(() => writePetGenes(row.id, genome));
+        wrote = true;
       } catch (e) {
         console.warn(`pet_genes backfill: failed for pet ${row.id}`, e);
       }
@@ -573,6 +596,7 @@ export async function backfillPetGenesIfNeeded(): Promise<void> {
   }
 
   console.info('pet_genes backfill: done');
+  return wrote;
 }
 
 /**

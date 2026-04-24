@@ -406,6 +406,24 @@ export function getDb(): DatabaseAdapter {
   return db;
 }
 
+/**
+ * Run `fn` inside a SQL transaction on the current DB. Commits on
+ * success, rolls back and re-throws on failure. Callers that already
+ * hold a transaction should not nest this (SQLite doesn't nest).
+ */
+export async function withTransaction<T>(fn: () => Promise<T>): Promise<T> {
+  const db = getDb();
+  await db.execute('BEGIN');
+  try {
+    const result = await fn();
+    await db.execute('COMMIT');
+    return result;
+  } catch (e) {
+    await db.execute('ROLLBACK');
+    throw e;
+  }
+}
+
 const REORDERABLE_TABLES = new Set(['pets', 'pet_images']);
 
 /**

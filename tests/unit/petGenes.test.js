@@ -97,7 +97,7 @@ describe('updatePet rewrites pet_genes when the genome changes', () => {
   });
 });
 
-describe('deletePet cascades to pet_genes via FK', () => {
+describe('deletePet removes a pet and its pet_genes rows', () => {
   beforeEach(async () => {
     await closeDatabase();
     await initDatabase();

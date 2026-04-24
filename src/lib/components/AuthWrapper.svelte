@@ -39,8 +39,11 @@ onMount(async () => {
   });
 
   backfillPetGenesIfNeeded()
-    .then(() => {
-      void appState.loadPets();
+    .then((wrote) => {
+      // pet_genes isn't read by UI code yet (that's M3), so only reload
+      // if the backfill actually wrote rows — avoids a redundant reload
+      // that would race with the positive_genes backfill's own reload.
+      if (wrote) void appState.loadPets();
     })
     .catch((err) => {
       console.warn('pet_genes backfill aborted:', err);
