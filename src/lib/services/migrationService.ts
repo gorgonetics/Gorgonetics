@@ -148,16 +148,13 @@ const MIGRATIONS: Migration[] = [
     up: async () => {
       const db = getDb();
       // Pre-parsed attribute + sign per effect direction. NULL means the
-      // effect is absent or doesn't target a real attribute (appearance,
-      // potential, no-effect sentinels).
+      // effect doesn't target a real attribute (appearance, potential,
+      // no-effect sentinels).
       await db.execute('ALTER TABLE genes ADD COLUMN dominant_attribute TEXT');
       await db.execute('ALTER TABLE genes ADD COLUMN dominant_sign TEXT');
       await db.execute('ALTER TABLE genes ADD COLUMN recessive_attribute TEXT');
       await db.execute('ALTER TABLE genes ADD COLUMN recessive_sign TEXT');
 
-      // One row per (pet, gene position) — the pet's genome projected into
-      // queryable rows. Populated in a later migration step; M1 only creates
-      // the table so subsequent PRs can write into it without another ALTER.
       await db.execute(`
         CREATE TABLE IF NOT EXISTS pet_genes (
           pet_id    INTEGER NOT NULL,

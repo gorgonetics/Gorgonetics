@@ -51,6 +51,19 @@ export function parseEffect(effect: string | null | undefined): ParsedEffect | n
   return { attribute: match[1].toLowerCase(), sign: match[2] as '+' | '-' };
 }
 
+/**
+ * Parse an effect into the `(attribute, sign)` pair used as bind params
+ * for the genes table's parsed columns — either resolved values or both
+ * nulls when the effect isn't attribute-targeting.
+ */
+export function parsedEffectColumns(effect: string | null | undefined): {
+  attribute: string | null;
+  sign: '+' | '-' | null;
+} {
+  const parsed = parseEffect(effect);
+  return { attribute: parsed?.attribute ?? null, sign: parsed?.sign ?? null };
+}
+
 /** Shape of a single gene's effect record within an `effectsDB` map. */
 export interface GeneEffectData {
   effectDominant: string;

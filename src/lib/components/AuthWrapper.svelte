@@ -34,9 +34,6 @@ onMount(async () => {
       console.warn('positive_genes backfill aborted:', err);
     });
 
-  // Backfill parsed dominant/recessive attribute+sign columns on the genes
-  // table. Same off-critical-path pattern — read paths will start using
-  // these columns once they're populated.
   backfillParsedGeneEffectsIfNeeded().catch((err) => {
     console.warn('parsed-effects backfill aborted:', err);
   });

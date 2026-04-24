@@ -2,17 +2,14 @@
  * Gene data service for Gorgonetics.
  */
 
-import { parseEffect } from '$lib/utils/geneAnalysis.js';
+import { yieldToUI } from '$lib/utils/async.js';
+import { parsedEffectColumns } from '$lib/utils/geneAnalysis.js';
 import { now } from '$lib/utils/timestamp.js';
 import { normalizeSpecies } from './configService.js';
 import { getDb } from './database.js';
 import { getSetting, setSetting } from './settingsService.js';
 
 const PARSED_EFFECTS_BACKFILL_KEY = 'genes.parsed_effects_backfilled';
-
-function yieldToUI(): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, 0));
-}
 
 /**
  * One-shot backfill that populates dominant_attribute / dominant_sign /
@@ -45,18 +42,18 @@ export async function backfillParsedGeneEffectsIfNeeded(): Promise<void> {
     await db.execute('BEGIN');
     try {
       for (const row of slice) {
-        const dom = parseEffect(row.effectDominant);
-        const rec = parseEffect(row.effectRecessive);
+        const dom = parsedEffectColumns(row.effectDominant);
+        const rec = parsedEffectColumns(row.effectRecessive);
         await db.execute(
           `UPDATE genes
            SET dominant_attribute = $da, dominant_sign = $ds,
                recessive_attribute = $ra, recessive_sign = $rs
            WHERE animal_type = $at AND gene = $g`,
           {
-            da: dom?.attribute ?? null,
-            ds: dom?.sign ?? null,
-            ra: rec?.attribute ?? null,
-            rs: rec?.sign ?? null,
+            da: dom.attribute,
+            ds: dom.sign,
+            ra: rec.attribute,
+            rs: rec.sign,
             at: row.animal_type,
             g: row.gene,
           },
@@ -159,18 +156,16 @@ export async function updateGene(animalType: string, gene: string, updates: Reco
   }
 
   if ('effectDominant' in updates) {
-    const parsed = parseEffect(updates.effectDominant);
-    setClauses.push('dominant_attribute = $dominant_attribute');
-    setClauses.push('dominant_sign = $dominant_sign');
-    params.dominant_attribute = parsed?.attribute ?? null;
-    params.dominant_sign = parsed?.sign ?? null;
+    const { attribute, sign } = parsedEffectColumns(updates.effectDominant);
+    setClauses.push('dominant_attribute = $dominant_attribute', 'dominant_sign = $dominant_sign');
+    params.dominant_attribute = attribute;
+    params.dominant_sign = sign;
   }
   if ('effectRecessive' in updates) {
-    const parsed = parseEffect(updates.effectRecessive);
-    setClauses.push('recessive_attribute = $recessive_attribute');
-    setClauses.push('recessive_sign = $recessive_sign');
-    params.recessive_attribute = parsed?.attribute ?? null;
-    params.recessive_sign = parsed?.sign ?? null;
+    const { attribute, sign } = parsedEffectColumns(updates.effectRecessive);
+    setClauses.push('recessive_attribute = $recessive_attribute', 'recessive_sign = $recessive_sign');
+    params.recessive_attribute = attribute;
+    params.recessive_sign = sign;
   }
 
   if (setClauses.length === 0) return false;
@@ -223,8 +218,8 @@ export async function upsertGene(
   const ts = now();
   const effectDominant = data.effectDominant ?? 'None';
   const effectRecessive = data.effectRecessive ?? 'None';
-  const dom = parseEffect(effectDominant);
-  const rec = parseEffect(effectRecessive);
+  const dom = parsedEffectColumns(effectDominant);
+  const rec = parsedEffectColumns(effectRecessive);
   await db.execute(
     `INSERT OR REPLACE INTO genes
      (animal_type, chromosome, gene, effectDominant, effectRecessive, appearance, breed, notes, created_at, updated_at,
@@ -242,10 +237,10 @@ export async function upsertGene(
       notes: data.notes ?? '',
       created_at: ts,
       updated_at: ts,
-      dominant_attribute: dom?.attribute ?? null,
-      dominant_sign: dom?.sign ?? null,
-      recessive_attribute: rec?.attribute ?? null,
-      recessive_sign: rec?.sign ?? null,
+      dominant_attribute: dom.attribute,
+      dominant_sign: dom.sign,
+      recessive_attribute: rec.attribute,
+      recessive_sign: rec.sign,
     },
   );
 }
