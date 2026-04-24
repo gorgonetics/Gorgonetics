@@ -4,7 +4,7 @@ import { initDatabase } from '$lib/services/database.js';
 import { loadDemoPetsIfNeeded, populateGenesIfNeeded } from '$lib/services/demoService.js';
 import { backfillParsedGeneEffectsIfNeeded } from '$lib/services/geneService.js';
 import { runMigrations } from '$lib/services/migrationService.js';
-import { backfillPositiveGenesIfNeeded } from '$lib/services/petService.js';
+import { backfillPetGenesIfNeeded, backfillPositiveGenesIfNeeded } from '$lib/services/petService.js';
 import { appState } from '$lib/stores/pets.js';
 import { settingsActions } from '$lib/stores/settings.js';
 
@@ -37,6 +37,14 @@ onMount(async () => {
   backfillParsedGeneEffectsIfNeeded().catch((err) => {
     console.warn('parsed-effects backfill aborted:', err);
   });
+
+  backfillPetGenesIfNeeded()
+    .then(() => {
+      void appState.loadPets();
+    })
+    .catch((err) => {
+      console.warn('pet_genes backfill aborted:', err);
+    });
 });
 </script>
 

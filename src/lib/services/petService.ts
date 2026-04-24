@@ -289,6 +289,10 @@ export async function uploadPet(
     },
   );
 
+  if (result.lastInsertId) {
+    await writePetGenes(result.lastInsertId, genome);
+  }
+
   return {
     status: 'success',
     message: 'Pet created successfully',
@@ -377,6 +381,18 @@ export async function updatePet(petId: number, updates: Record<string, unknown>)
     changed = true;
   }
 
+  // Replace pet_genes rows when the genome itself changed. Breed/attribute
+  // edits don't alter gene positions, so they don't require a rewrite.
+  if (flat.genome_data !== undefined) {
+    const nextGenomeData = params.genome_data as string;
+    try {
+      const genome = JSON.parse(nextGenomeData) as Genome;
+      await writePetGenes(petId, genome);
+    } catch (e) {
+      console.warn(`pet_genes rewrite failed for pet ${petId}:`, e);
+    }
+  }
+
   if (newTags !== undefined) {
     await setTagsForPet(petId, newTags);
     if (setClauses.length === 0) {
@@ -421,6 +437,10 @@ export async function deletePet(petId: number): Promise<boolean> {
   await deleteAllImagesForPet(petId);
 
   const db = getDb();
+  // Real SQLite cascades pet_genes via FK. The in-memory test adapter
+  // doesn't honour FKs, so we delete explicitly — defensive in prod too,
+  // cheap either way.
+  await db.execute('DELETE FROM pet_genes WHERE pet_id = $id', { id: petId });
   const result = await db.execute('DELETE FROM pets WHERE id = $id', { id: petId });
   return result.rowsAffected > 0;
 }
@@ -467,6 +487,37 @@ export async function getPetGenome(
 }
 
 /**
+ * Replace a pet's rows in `pet_genes` with one row per position from the
+ * given parsed genome. Wrapped in a transaction so readers never see a
+ * half-populated genome for the pet.
+ */
+async function writePetGenes(petId: number, genome: Genome): Promise<void> {
+  const db = getDb();
+  await db.execute('BEGIN');
+  try {
+    await db.execute('DELETE FROM pet_genes WHERE pet_id = $pid', { pid: petId });
+    for (const chrGenes of Object.values(genome.genes)) {
+      for (const g of chrGenes) {
+        const geneId = `${g.chromosome}${g.block}${g.position}`;
+        // Plain INSERT — the DELETE above clears prior rows, so PK
+        // collisions can't happen. Avoids INSERT OR REPLACE which the
+        // in-memory test adapter only handles for the genes table's
+        // (animal_type, gene) composite key.
+        await db.execute('INSERT INTO pet_genes (pet_id, gene_id, gene_type) VALUES ($pid, $gid, $gt)', {
+          pid: petId,
+          gid: geneId,
+          gt: g.gene_type,
+        });
+      }
+    }
+    await db.execute('COMMIT');
+  } catch (e) {
+    await db.execute('ROLLBACK');
+    throw e;
+  }
+}
+
+/**
  * Check if pets table has any data.
  */
 export async function hasPets(): Promise<boolean> {
@@ -483,6 +534,42 @@ export function reorderPets(orderedIds: number[]): Promise<void> {
 }
 
 const POSITIVE_GENES_BACKFILL_KEY = 'pets.positive_genes_backfilled';
+
+/**
+ * Populate `pet_genes` for any pet whose genome hasn't been projected into
+ * rows yet. Runs at startup off the critical path. Data-driven — a pet
+ * appears in the work set when no `pet_genes` row references it, so a
+ * backup-restore that rewrites pets without touching pet_genes self-heals.
+ */
+export async function backfillPetGenesIfNeeded(): Promise<void> {
+  const db = getDb();
+  const pending = await db.select<{ id: number; genome_data: string }[]>(
+    `SELECT p.id, p.genome_data
+     FROM pets p
+     WHERE NOT EXISTS (SELECT 1 FROM pet_genes pg WHERE pg.pet_id = p.id)`,
+  );
+  if (pending.length === 0) return;
+
+  console.info(`pet_genes backfill: ${pending.length} pets need populating`);
+
+  const BATCH = 8;
+  for (let i = 0; i < pending.length; i += BATCH) {
+    const slice = pending.slice(i, i + BATCH);
+    for (const row of slice) {
+      try {
+        const genome = JSON.parse(row.genome_data) as Genome;
+        await writePetGenes(row.id, genome);
+      } catch (e) {
+        console.warn(`pet_genes backfill: failed for pet ${row.id}`, e);
+      }
+    }
+    const processed = Math.min(i + BATCH, pending.length);
+    console.info(`pet_genes backfill: ${processed}/${pending.length}`);
+    await yieldToUI();
+  }
+
+  console.info('pet_genes backfill: done');
+}
 
 /**
  * One-shot backfill that populates positive_genes for every pet using the
