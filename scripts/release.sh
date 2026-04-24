@@ -5,11 +5,15 @@ set -euo pipefail
 # Usage: bash scripts/release.sh <major|minor|patch>
 #
 # Steps:
-#   1. Bumps version in package.json, tauri.conf.json, Cargo.toml, Cargo.lock, docs/index.html
+#   1. Bumps version in package.json, tauri.conf.json, Cargo.toml, Cargo.lock
 #   2. Regenerates screenshots (starts dev server, runs pnpm screenshots)
 #   3. Runs lint and E2E tests
 #   4. Builds changelog from commits since last tag
 #   5. Commits, creates annotated tag, pushes to trigger release workflow
+#
+# Note: docs/index.html used to carry the version in its download links,
+# but those links are now populated at runtime from the GitHub releases
+# API, so there's nothing to bump there anymore.
 
 BUMP_TYPE="${1:-}"
 if [[ ! "$BUMP_TYPE" =~ ^(major|minor|patch)$ ]]; then
@@ -77,16 +81,7 @@ fs.writeFileSync(path, updated);
 # Update Cargo.lock
 (cd src-tauri && cargo check --quiet 2>/dev/null || true)
 
-# docs/index.html — escape dots in version for safe regex replacement
-node -e "
-const fs = require('fs');
-const path = 'docs/index.html';
-const content = fs.readFileSync(path, 'utf-8');
-const updated = content.replaceAll('$CURRENT', '$NEW_VERSION');
-fs.writeFileSync(path, updated);
-"
-
-echo "Version bumped to $NEW_VERSION in package.json, tauri.conf.json, Cargo.toml, docs/index.html"
+echo "Version bumped to $NEW_VERSION in package.json, tauri.conf.json, Cargo.toml, Cargo.lock"
 
 # --- Update screenshots ---
 echo "Updating screenshots (starting dev server)..."
