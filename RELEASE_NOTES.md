@@ -1,34 +1,43 @@
-# v0.4.0
+# v0.5.0
 
-A release focused on pet-to-pet comparison: pick any two same-species pets and see exactly where they differ.
+A release aimed at making large pet collections tractable: mark and filter pets individually, resize the sidebar to taste, and get a dedicated table view that lines every stabled pet up side by side.
 
-## Pet Comparison
+## Pet Markers
 
-A new **Compare** tab lets you put two pets of the same species head-to-head across three views:
+Three new per-pet flags live as inline icon toggles on every pet card:
 
-- **Attributes** — side-by-side attribute totals with the winner highlighted per row
-- **Gene Stats** — positive/negative gene counts per attribute for both pets
-- **Genome Diff** — the full gene grid for both pets aligned by position, with differences highlighted
+- **Starred (⭐)** — favourites. Hollow star off, filled amber on.
+- **Stabled (🏠)** — currently in your stables. New uploads default to stabled; the pet list defaults to **Stabled only** so users upgrading a populated database don't see an empty view.
+- **Pet quality (🐾)** — not usable for breeding. Shows as a badge on the card; reserved for future breeding sims to automatically exclude.
 
-Pick pets from the sidebar picker or enter **compare mode** from the pet list and tick two checkboxes. The Genome Diff view has a **Differences only** filter that collapses the grid to just the rows where the pets disagree — useful for spotting which chromosomes drive the gap between a breeding pair. Click a chromosome label to focus, Ctrl-click to multi-select, Alt-click to hide.
+Markers are togglable from the card directly or from the pet editor (which now uses the same icon language instead of checkboxes). The pet list gets two new filter pills — **Starred** and **Stabled** — that match the existing tag-filter style.
 
-## Appearance View in Comparison
+## Collapsible, Resizable Sidebar
 
-The Genome Diff grid has its own **Attributes / Appearance** toggle that mirrors the single-pet viewer:
+The master panel can now flex to the work at hand:
 
-- **Attributes** colours genes by effect direction (positive/negative/neutral/potential)
-- **Appearance** colours each gene by the trait category it controls — body hue, wing scale, coat, aura, markings, etc.
+- A collapse chevron hides the sidebar to a thin rail; click to expand again.
+- A drag handle on the right edge resizes it between 200 and 560 px.
+- Keyboard: arrow keys on the handle resize in 8/32 px steps.
+- Width and collapsed state persist to localStorage (per-device; not part of backups or settings sync).
 
-Each view has its own filter bar, shown only when that view is active, so filters from an inactive view can't silently affect the grid.
+## Stable Table
 
-## Breed Filter Fix
+A new **Stable** tab renders every stabled pet of the selected species as a compact table. Columns cover every attribute plus a running **Total** and a new **+Genes** score — the count of confirmed positive-effect genes, computed once at upload and persisted on the pet row.
 
-Manual breed filter buttons were stuck disabled when neither pet had a breed recognised in the known-breeds list (e.g., "Mixed" horses). The Auto toggle hides in that case, which left nothing clickable. Manual breed buttons are now only locked out when auto-breed is actually in effect.
+Filters along the top of the table:
+
+- Name search
+- Gender (All / Male / Female) — useful for breeding-pair selection
+- Breed (per-species — Horse breeds or Bee/Wasp)
+- Starred, Pet-quality, and Tag pills
+
+Each row has view / edit / compare actions; a **Compare now** button appears in the header once two pets are selected and switches straight to the Compare tab. The entire view state (selected species, sort column and direction, every filter) persists across tab switches for the session.
 
 ## Under the Hood
 
-- Shared gene analysis helpers — `effectFor`, `breedFor`, `isNoEffect`, `parseGenesByBlock` — extracted into `geneAnalysis.ts` and consumed by both the single-pet viewer and the comparison grid, eliminating duplicated parsing logic (closes #129)
-- Downloads section on the project page is now populated from the GitHub releases API at runtime, so download links automatically track the latest release
-- Dynamic-stylesheet filter implementation extended to the appearance-category filter, keeping the grid fast even with many genes
-- CI pinned to pnpm v10 with esbuild build scripts approved; switched pnpm/action-setup to a version that honours the pinned major
-- Dependency refresh: Svelte, SvelteKit, Biome, Lucide, jsdom, and GitHub Actions runners
+- New `positive_genes` column on pets (migration v9) with a one-shot JS-side backfill at startup guarded by a settings flag. Upload and update paths compute the count via the shared `computeGeneStats` helper, keeping it in sync with the Stats panel total.
+- Extracted `genomeToGeneStrings` into `genomeParser.ts`; `getPetGenome` and the new stable-table upload path both reuse it, killing a duplicated loop.
+- `computePositiveGenesForGenome` is defensive — malformed `genome_data` returns 0 rather than throwing, so uploads and startup backfill stay resilient.
+- Sidebar resize batches mousemove through rAF and short-circuits no-op width writes; marker toggles also skip redundant persists when the value is unchanged.
+- Dependency refresh: Biome 2.4.12, Vite 8.0.9.

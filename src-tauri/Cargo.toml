@@ -1,6 +1,6 @@
 [package]
 name = "gorgonetics"
-version = "0.4.0"
+version = "0.5.0"
 description = "Gorgonetics - Pet Genetics Breeding Tool"
 authors = ["Javier Lopez Pena"]
 license = "MIT"

@@ -448,6 +448,25 @@ await shot(page, '22-pet-tag-filters.png');
 await clearHighlight(page);
 await removeOverlay(page);
 
+// 23 — Stable table (default view, beewasp species)
+await page.locator('.tab-btn', { hasText: 'Stable' }).click();
+await waitFor(page, '.stable-table');
+await shot(page, '23-stable-table.png');
+
+// 24 — Stable filters applied (gender=Female + starred pill highlighted)
+await page.locator('[data-testid="stable-gender"]').selectOption('Female');
+await page.waitForTimeout(200);
+await addOverlay(page);
+await highlight(page, '.filter-bar');
+await shot(page, '24-stable-filters.png');
+await clearHighlight(page);
+await removeOverlay(page);
+
+// Reset filters and return to Pets tab so downstream homepage captures work.
+await page.locator('[data-testid="stable-gender"]').selectOption('all');
+await page.locator('.tab-btn', { hasText: 'Pets' }).click();
+await page.waitForTimeout(200);
+
 // ===== Homepage screenshots (docs/images/) =====
 const HOME_OUT = 'docs/images';
 
