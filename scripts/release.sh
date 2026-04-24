@@ -2,18 +2,28 @@
 set -euo pipefail
 
 # Gorgonetics release script
-# Usage: bash scripts/release.sh <major|minor|patch>
+# Usage: bash scripts/release.sh <major|minor|patch> [notes-file]
 #
 # Steps:
-#   1. Bumps version in package.json, tauri.conf.json, Cargo.toml, Cargo.lock, docs/index.html
+#   1. Bumps version in package.json, tauri.conf.json, Cargo.toml, Cargo.lock
 #   2. Regenerates screenshots (starts dev server, runs pnpm screenshots)
 #   3. Runs lint and E2E tests
-#   4. Builds changelog from commits since last tag
+#   4. Reads release notes from notes-file (defaults to RELEASE_NOTES.md),
+#      falling back to a git-log changelog if neither is present
 #   5. Commits, creates annotated tag, pushes to trigger release workflow
+#
+# Write RELEASE_NOTES.md (human narrative) before running this script — the
+# script uses its contents verbatim for the tag body and appends a Full
+# Changelog compare link.
+#
+# Note: docs/index.html used to carry the version in its download links,
+# but those links are now populated at runtime from the GitHub releases
+# API, so there's nothing to bump there anymore.
 
 BUMP_TYPE="${1:-}"
+NOTES_FILE="${2:-RELEASE_NOTES.md}"
 if [[ ! "$BUMP_TYPE" =~ ^(major|minor|patch)$ ]]; then
-  echo "Usage: bash scripts/release.sh <major|minor|patch>"
+  echo "Usage: bash scripts/release.sh <major|minor|patch> [notes-file]"
   exit 1
 fi
 
@@ -77,16 +87,7 @@ fs.writeFileSync(path, updated);
 # Update Cargo.lock
 (cd src-tauri && cargo check --quiet 2>/dev/null || true)
 
-# docs/index.html — escape dots in version for safe regex replacement
-node -e "
-const fs = require('fs');
-const path = 'docs/index.html';
-const content = fs.readFileSync(path, 'utf-8');
-const updated = content.replaceAll('$CURRENT', '$NEW_VERSION');
-fs.writeFileSync(path, updated);
-"
-
-echo "Version bumped to $NEW_VERSION in package.json, tauri.conf.json, Cargo.toml, docs/index.html"
+echo "Version bumped to $NEW_VERSION in package.json, tauri.conf.json, Cargo.toml, Cargo.lock"
 
 # --- Update screenshots ---
 echo "Updating screenshots (starting dev server)..."
@@ -130,20 +131,28 @@ pnpm run lint:ci
 echo "Running tests..."
 pnpm test:e2e
 
-# --- Build changelog since last tag ---
-echo "Building changelog..."
+# --- Assemble release notes ---
 LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
-if [[ -n "$LAST_TAG" ]]; then
-  CHANGELOG=$(git log "$LAST_TAG"..HEAD --pretty=format:"- %s" --no-merges | grep -v "Co-Authored-By" || true)
+COMPARE_LINK="**Full Changelog**: https://github.com/gorgonetics/Gorgonetics/compare/${LAST_TAG:-initial}...v$NEW_VERSION"
+
+if [[ -f "$NOTES_FILE" ]]; then
+  echo "Using release notes from $NOTES_FILE"
+  BODY=$(cat "$NOTES_FILE")
 else
-  CHANGELOG=$(git log --pretty=format:"- %s" --no-merges | grep -v "Co-Authored-By" || true)
+  echo "No notes file at $NOTES_FILE — generating changelog from git log"
+  if [[ -n "$LAST_TAG" ]]; then
+    CHANGELOG=$(git log "$LAST_TAG"..HEAD --pretty=format:"- %s" --no-merges | grep -v "Co-Authored-By" || true)
+  else
+    CHANGELOG=$(git log --pretty=format:"- %s" --no-merges | grep -v "Co-Authored-By" || true)
+  fi
+  BODY="## What's Changed
+
+$CHANGELOG"
 fi
 
-RELEASE_NOTES="## What's Changed
+RELEASE_NOTES="$BODY
 
-$CHANGELOG
-
-**Full Changelog**: https://github.com/gorgonetics/Gorgonetics/compare/${LAST_TAG:-initial}...v$NEW_VERSION"
+$COMPARE_LINK"
 
 echo "$RELEASE_NOTES"
 echo ""
