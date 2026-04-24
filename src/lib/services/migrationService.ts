@@ -142,6 +142,32 @@ const MIGRATIONS: Migration[] = [
       await db.execute('ALTER TABLE pets ADD COLUMN positive_genes INTEGER NOT NULL DEFAULT 0');
     },
   },
+  {
+    version: 10,
+    description: 'Add parsed-effect columns to genes + pet_genes table for fast SQL-side stats',
+    up: async () => {
+      const db = getDb();
+      // Pre-parsed attribute + sign per effect direction. NULL means the
+      // effect doesn't target a real attribute (appearance, potential,
+      // no-effect sentinels).
+      await db.execute('ALTER TABLE genes ADD COLUMN dominant_attribute TEXT');
+      await db.execute('ALTER TABLE genes ADD COLUMN dominant_sign TEXT');
+      await db.execute('ALTER TABLE genes ADD COLUMN recessive_attribute TEXT');
+      await db.execute('ALTER TABLE genes ADD COLUMN recessive_sign TEXT');
+
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS pet_genes (
+          pet_id    INTEGER NOT NULL,
+          gene_id   TEXT    NOT NULL,
+          gene_type TEXT    NOT NULL,
+          PRIMARY KEY (pet_id, gene_id),
+          FOREIGN KEY (pet_id) REFERENCES pets(id) ON DELETE CASCADE
+        )
+      `);
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_pet_genes_pet ON pet_genes(pet_id)');
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_pet_genes_lookup ON pet_genes(gene_id, gene_type)');
+    },
+  },
 ];
 
 /** Derived from the last migration — no manual bookkeeping needed. */

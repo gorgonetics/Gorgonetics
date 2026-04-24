@@ -4,6 +4,7 @@
 
 import type { Genome, Pet } from '$lib/types/index.js';
 import { GENOME_FILE_MARKERS } from '$lib/types/index.js';
+import { yieldToUI } from '$lib/utils/async.js';
 import { computeGeneStats } from '$lib/utils/geneAnalysis.js';
 import { now } from '$lib/utils/timestamp.js';
 import { getDefaultValues, normalizeSpecies } from './configService.js';
@@ -482,11 +483,6 @@ export function reorderPets(orderedIds: number[]): Promise<void> {
 }
 
 const POSITIVE_GENES_BACKFILL_KEY = 'pets.positive_genes_backfilled';
-
-/** Yield to the event loop so the UI can paint between batches. */
-function yieldToUI(): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, 0));
-}
 
 /**
  * One-shot backfill that populates positive_genes for every pet using the

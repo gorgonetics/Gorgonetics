@@ -2,9 +2,97 @@
  * Gene data service for Gorgonetics.
  */
 
+import { yieldToUI } from '$lib/utils/async.js';
+import { parsedEffectColumns } from '$lib/utils/geneAnalysis.js';
 import { now } from '$lib/utils/timestamp.js';
 import { normalizeSpecies } from './configService.js';
 import { getDb } from './database.js';
+
+/**
+ * Populate dominant_attribute / dominant_sign / recessive_attribute /
+ * recessive_sign on gene rows whose effect strings would parse to a real
+ * attribute+sign but whose parsed columns are still NULL. Data-driven
+ * guard (probe query) instead of a settings flag — backup restore or
+ * manual gene-table rewrites stay self-healing, and the steady state
+ * skips work after one SELECT.
+ *
+ * Non-blocking: callers should run this off the critical startup path.
+ *
+ * Each UPDATE is conditional on the effect strings still matching what
+ * the backfill read, so a GeneEditor save mid-flight can't be clobbered
+ * by a stale parse.
+ */
+export async function backfillParsedGeneEffectsIfNeeded(): Promise<void> {
+  const db = getDb();
+  const rows = await db.select<
+    {
+      animal_type: string;
+      gene: string;
+      effectDominant: string | null;
+      effectRecessive: string | null;
+      dominant_attribute: string | null;
+      recessive_attribute: string | null;
+    }[]
+  >(
+    `SELECT animal_type, gene, effectDominant, effectRecessive,
+            dominant_attribute, recessive_attribute
+     FROM genes`,
+  );
+
+  const needsWork = rows.filter((row) => {
+    const dom = parsedEffectColumns(row.effectDominant);
+    const rec = parsedEffectColumns(row.effectRecessive);
+    // `== null` catches both SQL NULL (real SQLite) and `undefined` (the
+    // in-memory test adapter when a column was never written).
+    return (
+      (dom.attribute !== null && row.dominant_attribute == null) ||
+      (rec.attribute !== null && row.recessive_attribute == null)
+    );
+  });
+
+  if (needsWork.length === 0) return;
+
+  console.info(`parsed-effects backfill: ${needsWork.length} rows need updating`);
+
+  const BATCH = 64;
+  for (let i = 0; i < needsWork.length; i += BATCH) {
+    const slice = needsWork.slice(i, i + BATCH);
+    await db.execute('BEGIN');
+    try {
+      for (const row of slice) {
+        const dom = parsedEffectColumns(row.effectDominant);
+        const rec = parsedEffectColumns(row.effectRecessive);
+        await db.execute(
+          `UPDATE genes
+           SET dominant_attribute = $da, dominant_sign = $ds,
+               recessive_attribute = $ra, recessive_sign = $rs
+           WHERE animal_type = $at AND gene = $g
+             AND COALESCE(effectDominant, '') = $sed
+             AND COALESCE(effectRecessive, '') = $ser`,
+          {
+            da: dom.attribute,
+            ds: dom.sign,
+            ra: rec.attribute,
+            rs: rec.sign,
+            at: row.animal_type,
+            g: row.gene,
+            sed: row.effectDominant ?? '',
+            ser: row.effectRecessive ?? '',
+          },
+        );
+      }
+      await db.execute('COMMIT');
+    } catch (e) {
+      await db.execute('ROLLBACK');
+      throw e;
+    }
+    const processed = Math.min(i + BATCH, needsWork.length);
+    console.info(`parsed-effects backfill: ${processed}/${needsWork.length}`);
+    await yieldToUI();
+  }
+
+  console.info('parsed-effects backfill: done');
+}
 
 /**
  * Get list of all animal types.
@@ -72,7 +160,9 @@ export async function getGenesForAnimal(animalType: string): Promise<Record<stri
 }
 
 /**
- * Update a gene's attributes.
+ * Update a gene's attributes. When `effectDominant` or `effectRecessive`
+ * is in the update, the corresponding pre-parsed columns are refreshed so
+ * downstream SQL queries don't have to re-parse the effect string.
  */
 export async function updateGene(animalType: string, gene: string, updates: Record<string, string>): Promise<boolean> {
   const db = getDb();
@@ -84,6 +174,19 @@ export async function updateGene(animalType: string, gene: string, updates: Reco
       setClauses.push(`${field} = $${field}`);
       params[field] = value;
     }
+  }
+
+  if ('effectDominant' in updates) {
+    const { attribute, sign } = parsedEffectColumns(updates.effectDominant);
+    setClauses.push('dominant_attribute = $dominant_attribute', 'dominant_sign = $dominant_sign');
+    params.dominant_attribute = attribute;
+    params.dominant_sign = sign;
+  }
+  if ('effectRecessive' in updates) {
+    const { attribute, sign } = parsedEffectColumns(updates.effectRecessive);
+    setClauses.push('recessive_attribute = $recessive_attribute', 'recessive_sign = $recessive_sign');
+    params.recessive_attribute = attribute;
+    params.recessive_sign = sign;
   }
 
   if (setClauses.length === 0) return false;
@@ -134,21 +237,31 @@ export async function upsertGene(
 ): Promise<void> {
   const db = getDb();
   const ts = now();
+  const effectDominant = data.effectDominant ?? 'None';
+  const effectRecessive = data.effectRecessive ?? 'None';
+  const dom = parsedEffectColumns(effectDominant);
+  const rec = parsedEffectColumns(effectRecessive);
   await db.execute(
     `INSERT OR REPLACE INTO genes
-     (animal_type, chromosome, gene, effectDominant, effectRecessive, appearance, breed, notes, created_at, updated_at)
-     VALUES ($animal_type, $chromosome, $gene, $effectDominant, $effectRecessive, $appearance, $breed, $notes, $created_at, $updated_at)`,
+     (animal_type, chromosome, gene, effectDominant, effectRecessive, appearance, breed, notes, created_at, updated_at,
+      dominant_attribute, dominant_sign, recessive_attribute, recessive_sign)
+     VALUES ($animal_type, $chromosome, $gene, $effectDominant, $effectRecessive, $appearance, $breed, $notes, $created_at, $updated_at,
+             $dominant_attribute, $dominant_sign, $recessive_attribute, $recessive_sign)`,
     {
       animal_type: animalType,
       chromosome,
       gene,
-      effectDominant: data.effectDominant ?? 'None',
-      effectRecessive: data.effectRecessive ?? 'None',
+      effectDominant,
+      effectRecessive,
       appearance: data.appearance ?? 'None',
       breed: data.breed ?? '',
       notes: data.notes ?? '',
       created_at: ts,
       updated_at: ts,
+      dominant_attribute: dom.attribute,
+      dominant_sign: dom.sign,
+      recessive_attribute: rec.attribute,
+      recessive_sign: rec.sign,
     },
   );
 }

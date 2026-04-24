@@ -2,6 +2,7 @@
 import { onMount } from 'svelte';
 import { initDatabase } from '$lib/services/database.js';
 import { loadDemoPetsIfNeeded, populateGenesIfNeeded } from '$lib/services/demoService.js';
+import { backfillParsedGeneEffectsIfNeeded } from '$lib/services/geneService.js';
 import { runMigrations } from '$lib/services/migrationService.js';
 import { backfillPositiveGenesIfNeeded } from '$lib/services/petService.js';
 import { appState } from '$lib/stores/pets.js';
@@ -32,6 +33,10 @@ onMount(async () => {
     .catch((err) => {
       console.warn('positive_genes backfill aborted:', err);
     });
+
+  backfillParsedGeneEffectsIfNeeded().catch((err) => {
+    console.warn('parsed-effects backfill aborted:', err);
+  });
 });
 </script>
 
