@@ -134,6 +134,14 @@ const MIGRATIONS: Migration[] = [
       // would otherwise be empty for users upgrading with a populated database.
     },
   },
+  {
+    version: 9,
+    description: 'Add positive_genes column to pets (backfilled in JS after migrations run)',
+    up: async () => {
+      const db = getDb();
+      await db.execute('ALTER TABLE pets ADD COLUMN positive_genes INTEGER NOT NULL DEFAULT 0');
+    },
+  },
 ];
 
 /** Derived from the last migration — no manual bookkeeping needed. */

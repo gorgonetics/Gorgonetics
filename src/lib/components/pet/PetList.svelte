@@ -423,7 +423,9 @@ async function handleDrop(e, dropIndex) {
     }
 
     .pet-list-header {
-        padding: 12px;
+        /* Extra right padding carves out space for the MasterPanel collapse button
+           absolutely positioned at top: 6px; right: 6px (24px wide). */
+        padding: 12px 34px 12px 12px;
         border-bottom: 1px solid var(--border-primary);
         flex-shrink: 0;
     }
