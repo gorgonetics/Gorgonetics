@@ -26,49 +26,37 @@ async function sha256(content: string): Promise<string> {
   return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-/**
- * Count genes in a genome, categorizing as known vs unknown.
- */
-function countGenes(genomeData: unknown): { total: number; known: number; unknown: number } {
+type GeneCountSummary = { total: number; known: number; unknown: number };
+
+const EMPTY_GENE_COUNTS: GeneCountSummary = { total: 0, known: 0, unknown: 0 };
+
+/** Count total / known / unknown genes from a parsed Genome. */
+function countGenesFromGenome(genome: Genome): GeneCountSummary {
   let total = 0;
   let known = 0;
   let unknown = 0;
-
-  if (typeof genomeData === 'string') {
-    try {
-      genomeData = JSON.parse(genomeData);
-    } catch {
-      return { total: 0, known: 0, unknown: 0 };
+  for (const chrGenes of Object.values(genome.genes ?? {})) {
+    if (!Array.isArray(chrGenes)) continue;
+    for (const g of chrGenes) {
+      if (!g || typeof g !== 'object') continue;
+      total++;
+      const t = g.gene_type;
+      if (t === '?' || (typeof t === 'string' && t.toUpperCase() === 'UNKNOWN')) unknown++;
+      else known++;
     }
   }
-
-  if (typeof genomeData !== 'object' || genomeData === null) {
-    return { total: 0, known: 0, unknown: 0 };
-  }
-
-  const data = genomeData as Record<string, unknown>;
-
-  // Standard Genome model structure with Gene objects
-  if (data.genes && typeof data.genes === 'object') {
-    const genesMap = data.genes as Record<string, unknown[]>;
-    for (const chromosomeGenes of Object.values(genesMap)) {
-      if (!Array.isArray(chromosomeGenes)) continue;
-      for (const gene of chromosomeGenes) {
-        if (typeof gene === 'object' && gene !== null) {
-          const geneObj = gene as Record<string, unknown>;
-          total++;
-          const geneType = geneObj.gene_type;
-          if (geneType === '?' || (typeof geneType === 'string' && geneType.toUpperCase() === 'UNKNOWN')) {
-            unknown++;
-          } else {
-            known++;
-          }
-        }
-      }
-    }
-  }
-
   return { total, known, unknown };
+}
+
+/** Count genes in a genome (string or parsed). Returns zeros on malformed input. */
+function countGenes(genomeData: unknown): GeneCountSummary {
+  try {
+    const parsed: unknown = typeof genomeData === 'string' ? JSON.parse(genomeData) : genomeData;
+    if (!parsed || typeof parsed !== 'object') return EMPTY_GENE_COUNTS;
+    return countGenesFromGenome(parsed as Genome);
+  } catch {
+    return EMPTY_GENE_COUNTS;
+  }
 }
 
 /** Build an empty stats entry — exported so the comparison view can fall back on it. */
@@ -167,7 +155,7 @@ export async function getPetGeneStats(
 
 /** Enrich a raw pet row from the database with computed fields. */
 function enrichPet(pet: Record<string, unknown>, tags: string[]): Pet {
-  const geneCounts = countGenes(pet.genome_data);
+  const unknownGenes = Number(pet.unknown_genes ?? 0);
   return {
     ...pet,
     tags,
@@ -175,10 +163,10 @@ function enrichPet(pet: Record<string, unknown>, tags: string[]): Pet {
     stabled: Boolean(pet.stabled),
     is_pet_quality: Boolean(pet.is_pet_quality),
     positive_genes: Number(pet.positive_genes ?? 0),
-    total_genes: geneCounts.total,
-    known_genes: geneCounts.known,
-    unknown_genes: geneCounts.unknown,
-    has_unknown_genes: geneCounts.unknown > 0,
+    total_genes: Number(pet.total_genes ?? 0),
+    known_genes: Number(pet.known_genes ?? 0),
+    unknown_genes: unknownGenes,
+    has_unknown_genes: unknownGenes > 0,
     readonly: false,
     is_demo: false,
   } as Pet;
@@ -308,6 +296,7 @@ export async function uploadPet(
   const attrValues = parsed?.attributes ?? defaults;
 
   const positiveGenes = await computePositiveGenesForGenome(genome, petBreed);
+  const geneCounts = countGenesFromGenome(genome);
 
   const db = getDb();
   const ts = now();
@@ -327,11 +316,11 @@ export async function uploadPet(
        (name, species, gender, breed, breeder, content_hash, genome_data, notes,
         created_at, updated_at,
         intelligence, toughness, friendliness, ruggedness, enthusiasm, virility, ferocity, temperament, sort_order,
-        starred, stabled, is_pet_quality, positive_genes)
+        starred, stabled, is_pet_quality, positive_genes, total_genes, known_genes, unknown_genes)
        VALUES ($name, $species, $gender, $breed, $breeder, $content_hash, $genome_data, $notes,
                $created_at, $updated_at,
                $intelligence, $toughness, $friendliness, $ruggedness, $enthusiasm, $virility, $ferocity, $temperament, $sort_order,
-               $starred, $stabled, $is_pet_quality, $positive_genes)`,
+               $starred, $stabled, $is_pet_quality, $positive_genes, $total_genes, $known_genes, $unknown_genes)`,
       {
         name: petName,
         species: genome.genome_type,
@@ -356,6 +345,9 @@ export async function uploadPet(
         stabled: 1,
         is_pet_quality: 0,
         positive_genes: positiveGenes,
+        total_genes: geneCounts.total,
+        known_genes: geneCounts.known,
+        unknown_genes: geneCounts.unknown,
       },
     );
     if (res.lastInsertId) {
@@ -446,6 +438,14 @@ export async function updatePet(petId: number, updates: Record<string, unknown>)
       const positiveGenes = await computePositiveGenesForGenome(nextGenome ?? nextGenomeData, nextBreed);
       setClauses.push('positive_genes = $positive_genes');
       params.positive_genes = positiveGenes;
+
+      if (flat.genome_data !== undefined) {
+        const counts = nextGenome ? countGenesFromGenome(nextGenome) : EMPTY_GENE_COUNTS;
+        setClauses.push('total_genes = $total_genes', 'known_genes = $known_genes', 'unknown_genes = $unknown_genes');
+        params.total_genes = counts.total;
+        params.known_genes = counts.known;
+        params.unknown_genes = counts.unknown;
+      }
     }
   }
 
@@ -726,4 +726,70 @@ export async function backfillPositiveGenesIfNeeded(): Promise<void> {
   }
   await setSetting(POSITIVE_GENES_BACKFILL_KEY, true);
   console.info('positive_genes backfill: done');
+}
+
+const GENE_COUNTS_BACKFILL_KEY = 'pets.gene_counts_backfilled';
+
+/**
+ * One-shot backfill that populates total_genes/known_genes/unknown_genes
+ * for existing pets — the v11 migration only adds the columns with
+ * DEFAULT 0. Idempotent via a settings flag. Non-blocking, batched, with
+ * yields between batches so the UI stays responsive.
+ */
+export async function backfillGeneCountsIfNeeded(): Promise<boolean> {
+  const done = await getSetting<boolean>(GENE_COUNTS_BACKFILL_KEY);
+  if (done) return false;
+
+  const db = getDb();
+  const rows = await db.select<
+    { id: number; genome_data: string; total_genes: number; known_genes: number; unknown_genes: number }[]
+  >('SELECT id, genome_data, total_genes, known_genes, unknown_genes FROM pets');
+
+  if (rows.length === 0) {
+    await setSetting(GENE_COUNTS_BACKFILL_KEY, true);
+    return false;
+  }
+
+  console.info(`gene_counts backfill: starting for ${rows.length} pets`);
+
+  const updates: { id: number; counts: GeneCountSummary }[] = [];
+  const BATCH = 16;
+  for (let i = 0; i < rows.length; i += BATCH) {
+    for (const row of rows.slice(i, i + BATCH)) {
+      const counts = countGenes(row.genome_data);
+      const cur = { total: row.total_genes ?? 0, known: row.known_genes ?? 0, unknown: row.unknown_genes ?? 0 };
+      if (counts.total === cur.total && counts.known === cur.known && counts.unknown === cur.unknown) continue;
+      updates.push({ id: row.id, counts });
+    }
+    const processed = Math.min(i + BATCH, rows.length);
+    console.info(`gene_counts backfill: ${processed}/${rows.length} scanned, ${updates.length} need update`);
+    await yieldToUI();
+  }
+
+  if (updates.length === 0) {
+    await setSetting(GENE_COUNTS_BACKFILL_KEY, true);
+    console.info('gene_counts backfill: nothing to write');
+    return false;
+  }
+
+  for (let i = 0; i < updates.length; i += BATCH) {
+    const slice = updates.slice(i, i + BATCH);
+    await withTransaction(async () => {
+      for (const u of slice) {
+        await db.execute('UPDATE pets SET total_genes = $t, known_genes = $k, unknown_genes = $u WHERE id = $id', {
+          t: u.counts.total,
+          k: u.counts.known,
+          u: u.counts.unknown,
+          id: u.id,
+        });
+      }
+    });
+    const processed = Math.min(i + BATCH, updates.length);
+    console.info(`gene_counts backfill: ${processed}/${updates.length} written`);
+    if (processed < updates.length) await yieldToUI();
+  }
+
+  await setSetting(GENE_COUNTS_BACKFILL_KEY, true);
+  console.info('gene_counts backfill: done');
+  return true;
 }
