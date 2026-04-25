@@ -249,10 +249,14 @@ function enrichPet(pet: Record<string, unknown>, tags: string[]): Pet {
 async function loadTagsForPets(petIds: number[]): Promise<Map<number, string[]>> {
   if (petIds.length === 0) return new Map();
   const db = getDb();
-  const placeholders = petIds.map(() => '?').join(', ');
+  const placeholders = petIds.map((_, i) => `$id${i}`).join(', ');
+  const params: Record<string, unknown> = {};
+  petIds.forEach((id, i) => {
+    params[`id${i}`] = id;
+  });
   const rows = await db.select<{ pet_id: number; tag: string }[]>(
     `SELECT pet_id, tag FROM pet_tags WHERE pet_id IN (${placeholders}) ORDER BY tag`,
-    petIds,
+    params,
   );
   const map = new Map<number, string[]>();
   for (const row of rows) {
