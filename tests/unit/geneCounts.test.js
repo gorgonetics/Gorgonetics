@@ -83,7 +83,10 @@ describe('backfillGeneCountsIfNeeded', () => {
     const db = getDb();
 
     // Simulate a pre-v11 row by zeroing the columns and clearing the flag.
-    await db.execute('UPDATE pets SET total_genes = 0, known_genes = 0, unknown_genes = 0 WHERE id = $id', {
+    await db.execute('UPDATE pets SET total_genes = $t, known_genes = $k, unknown_genes = $u WHERE id = $id', {
+      t: 0,
+      k: 0,
+      u: 0,
       id: upload.pet_id,
     });
     await db.execute('DELETE FROM settings WHERE key = $k', { k: 'pets.gene_counts_backfilled' });
@@ -97,11 +100,27 @@ describe('backfillGeneCountsIfNeeded', () => {
     expect(pet.unknown_genes).toBe(1);
   });
 
-  it('is idempotent — second call short-circuits via the flag', async () => {
+  it('returns false when every pet already has matching counts', async () => {
+    // uploadPet writes the counts at insert time, so the backfill has
+    // nothing to do — wrote=false avoids a spurious appState reload.
     await petService.uploadPet(MINIMAL_BEEWASP_GENOME, 'Minimal', 'Female');
-    const first = await petService.backfillGeneCountsIfNeeded();
-    const second = await petService.backfillGeneCountsIfNeeded();
-    expect(first).toBe(true);
-    expect(second).toBe(false);
+    expect(await petService.backfillGeneCountsIfNeeded()).toBe(false);
+  });
+
+  it('second call short-circuits via the flag', async () => {
+    const upload = await petService.uploadPet(MINIMAL_BEEWASP_GENOME, 'Minimal', 'Female');
+    const db = getDb();
+
+    // Zero the columns so the first call has real work to do.
+    await db.execute('UPDATE pets SET total_genes = $t, known_genes = $k, unknown_genes = $u WHERE id = $id', {
+      t: 0,
+      k: 0,
+      u: 0,
+      id: upload.pet_id,
+    });
+    await db.execute('DELETE FROM settings WHERE key = $k', { k: 'pets.gene_counts_backfilled' });
+
+    expect(await petService.backfillGeneCountsIfNeeded()).toBe(true);
+    expect(await petService.backfillGeneCountsIfNeeded()).toBe(false);
   });
 });

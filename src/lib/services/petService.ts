@@ -741,7 +741,9 @@ export async function backfillGeneCountsIfNeeded(): Promise<boolean> {
   if (done) return false;
 
   const db = getDb();
-  const rows = await db.select<{ id: number; genome_data: string }[]>('SELECT id, genome_data FROM pets');
+  const rows = await db.select<
+    { id: number; genome_data: string; total_genes: number; known_genes: number; unknown_genes: number }[]
+  >('SELECT id, genome_data, total_genes, known_genes, unknown_genes FROM pets');
 
   if (rows.length === 0) {
     await setSetting(GENE_COUNTS_BACKFILL_KEY, true);
@@ -750,31 +752,44 @@ export async function backfillGeneCountsIfNeeded(): Promise<boolean> {
 
   console.info(`gene_counts backfill: starting for ${rows.length} pets`);
 
-  const BATCH = 16;
   const updates: { id: number; counts: GeneCountSummary }[] = [];
+  const BATCH = 16;
   for (let i = 0; i < rows.length; i += BATCH) {
-    const slice = rows.slice(i, i + BATCH);
-    for (const row of slice) {
-      updates.push({ id: row.id, counts: countGenes(row.genome_data) });
+    for (const row of rows.slice(i, i + BATCH)) {
+      const counts = countGenes(row.genome_data);
+      const cur = { total: row.total_genes ?? 0, known: row.known_genes ?? 0, unknown: row.unknown_genes ?? 0 };
+      if (counts.total === cur.total && counts.known === cur.known && counts.unknown === cur.unknown) continue;
+      updates.push({ id: row.id, counts });
     }
     const processed = Math.min(i + BATCH, rows.length);
-    console.info(`gene_counts backfill: ${processed}/${rows.length} computed`);
+    console.info(`gene_counts backfill: ${processed}/${rows.length} scanned, ${updates.length} need update`);
     await yieldToUI();
   }
 
-  let wrote = false;
-  await withTransaction(async () => {
-    for (const u of updates) {
-      await db.execute('UPDATE pets SET total_genes = $t, known_genes = $k, unknown_genes = $u WHERE id = $id', {
-        t: u.counts.total,
-        k: u.counts.known,
-        u: u.counts.unknown,
-        id: u.id,
-      });
-      wrote = true;
-    }
-  });
+  if (updates.length === 0) {
+    await setSetting(GENE_COUNTS_BACKFILL_KEY, true);
+    console.info('gene_counts backfill: nothing to write');
+    return false;
+  }
+
+  for (let i = 0; i < updates.length; i += BATCH) {
+    const slice = updates.slice(i, i + BATCH);
+    await withTransaction(async () => {
+      for (const u of slice) {
+        await db.execute('UPDATE pets SET total_genes = $t, known_genes = $k, unknown_genes = $u WHERE id = $id', {
+          t: u.counts.total,
+          k: u.counts.known,
+          u: u.counts.unknown,
+          id: u.id,
+        });
+      }
+    });
+    const processed = Math.min(i + BATCH, updates.length);
+    console.info(`gene_counts backfill: ${processed}/${updates.length} written`);
+    if (processed < updates.length) await yieldToUI();
+  }
+
   await setSetting(GENE_COUNTS_BACKFILL_KEY, true);
   console.info('gene_counts backfill: done');
-  return wrote;
+  return true;
 }
