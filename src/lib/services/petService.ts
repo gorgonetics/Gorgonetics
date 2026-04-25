@@ -5,7 +5,7 @@
 import type { GeneStatsEntry, Genome, Pet } from '$lib/types/index.js';
 import { GENOME_FILE_MARKERS } from '$lib/types/index.js';
 import { yieldToUI } from '$lib/utils/async.js';
-import { toGeneId } from '$lib/utils/geneAnalysis.js';
+import { fromGeneId, type ParsedChromosome, type ParsedGene, toGeneId } from '$lib/utils/geneAnalysis.js';
 import { capitalize } from '$lib/utils/string.js';
 import { now } from '$lib/utils/timestamp.js';
 import { getAttributeConfig, getDefaultValues, normalizeSpecies } from './configService.js';
@@ -98,6 +98,80 @@ export async function computePositiveGenesForGenome(
   } catch {
     return 0;
   }
+}
+
+/**
+ * Load a pet's grid from `pet_genes`, returning the same structure
+ * `parseGenesByBlock` produces from genome JSON. The visualizer uses
+ * this as its canonical source of grid data — no `genome_data` parse.
+ *
+ * Block ordering matches `blockLetter`: shorter strings before longer,
+ * lex within length (A, B, ..., Z, AA, AB, ...). Chromosomes sort by
+ * numeric value, positions ascend within a block. `globalPosition` is
+ * assigned in iteration order to match `parseGenesByBlock` exactly.
+ */
+export async function loadPetGridFromDb(petId: number): Promise<Record<string, ParsedChromosome>> {
+  const db = getDb();
+  const rows = await db.select<{ gene_id: string; gene_type: string }[]>(
+    'SELECT gene_id, gene_type FROM pet_genes WHERE pet_id = $pid',
+    { pid: petId },
+  );
+
+  type RawGene = { id: string; type: string; position: number };
+  const byChromosome = new Map<string, Map<string, RawGene[]>>();
+
+  for (const row of rows) {
+    const parsed = fromGeneId(row.gene_id);
+    if (!parsed) continue;
+    let chrMap = byChromosome.get(parsed.chromosome);
+    if (!chrMap) {
+      chrMap = new Map();
+      byChromosome.set(parsed.chromosome, chrMap);
+    }
+    let blockGenes = chrMap.get(parsed.block);
+    if (!blockGenes) {
+      blockGenes = [];
+      chrMap.set(parsed.block, blockGenes);
+    }
+    blockGenes.push({ id: row.gene_id, type: row.gene_type, position: parsed.position });
+  }
+
+  const sortedChromosomes = [...byChromosome.keys()].sort((a, b) => Number(a) - Number(b));
+  const result: Record<string, ParsedChromosome> = {};
+
+  for (const chromosome of sortedChromosomes) {
+    const chrMap = byChromosome.get(chromosome);
+    if (!chrMap) continue;
+    const sortedBlockLetters = [...chrMap.keys()].sort((a, b) =>
+      a.length !== b.length ? a.length - b.length : a.localeCompare(b),
+    );
+
+    const allGenes: ParsedGene[] = [];
+    const blocks: Array<{ letter: string; genes: ParsedGene[] }> = [];
+
+    for (const letter of sortedBlockLetters) {
+      const blockRaw = chrMap.get(letter);
+      if (!blockRaw) continue;
+      blockRaw.sort((a, b) => a.position - b.position);
+      const blockGenes: ParsedGene[] = [];
+      for (const g of blockRaw) {
+        const gene: ParsedGene = {
+          id: g.id,
+          type: g.type,
+          block: letter,
+          position: g.position,
+          globalPosition: allGenes.length + 1,
+        };
+        blockGenes.push(gene);
+        allGenes.push(gene);
+      }
+      blocks.push({ letter, genes: blockGenes });
+    }
+
+    result[chromosome] = { blocks, allGenes };
+  }
+
+  return result;
 }
 
 /**
