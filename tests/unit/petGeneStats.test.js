@@ -5,9 +5,9 @@ import { runMigrations } from '$lib/services/migrationService.js';
 import * as petService from '$lib/services/petService.js';
 
 /**
- * Three-gene beewasp genome at 01A1 / 01A2 / 01A3, all dominant. Stats
- * tests seed effects on these positions and assert the SQL aggregate
- * picks them up via pre-parsed columns rather than re-parsing JSON.
+ * Three-gene beewasp genome at 01A1 / 01A2 / 01A3, all dominant. Tests
+ * seed effects on these positions and assert getPetGeneStats picks them
+ * up from the pre-parsed columns on the genes table.
  */
 const MINIMAL_BEEWASP_GENOME = `[Overview]
 Format=1.0

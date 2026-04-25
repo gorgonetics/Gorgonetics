@@ -1,8 +1,6 @@
 /**
- * Shared gene analysis utility.
- *
- * Extracts the stats computation logic from GeneVisualizer so it can be
- * reused by both the visualizer and the comparison service.
+ * Effect-string and genome-string parsing helpers shared across the
+ * gene services and the visualizer.
  */
 
 import { blockLetter } from '$lib/services/genomeParser.js';
