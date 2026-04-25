@@ -9,9 +9,9 @@ import {
   normalizeSpecies,
 } from '$lib/services/configService.js';
 import { getGeneEffectsCached } from '$lib/services/geneService.js';
-import { getPetGenome } from '$lib/services/petService.js';
+import { loadPetGridFromDb } from '$lib/services/petService.js';
 import { EFFECT_COLORS } from '$lib/theme/gene-colors.js';
-import { breedFor, effectFor, isNoEffect, parseGenesByBlock } from '$lib/utils/geneAnalysis.js';
+import { breedFor, effectFor, isNoEffect } from '$lib/utils/geneAnalysis.js';
 import { handleGridNavigation } from '$lib/utils/keyboard.js';
 import { capitalize } from '$lib/utils/string.js';
 import GeneCell from './GeneCell.svelte';
@@ -208,12 +208,8 @@ async function loadPetData() {
     loading = true;
     error = null;
 
-    const genomeData = await getPetGenome(pet.id);
-    if (!genomeData) {
-      throw new Error('Failed to load pet genome');
-    }
-
-    currentPet = genomeData;
+    const grid = await loadPetGridFromDb(pet.id);
+    currentPet = { id: pet.id, name: pet.name, species: pet.species, breed: pet.breed, grid };
 
     // Load gene effects and appearance config in parallel for better performance
     await loadGeneEffectsForSpecies(currentPet.species);
@@ -251,8 +247,6 @@ function loadAppearanceConfigForSpecies(species) {
   const config = getAppearanceConfig(normalizeSpecies(species));
   appearanceList = config.appearance_attributes || [];
 }
-
-const parseGenes = parseGenesByBlock;
 
 async function initializeStats() {
   if (currentView === 'attribute') {
@@ -630,7 +624,7 @@ async function updateVisualization() {
 }
 
 async function createGeneVisualization() {
-  if (!currentPet?.genes) {
+  if (!currentPet?.grid) {
     // Reset to empty state with proper structure
     headerStructure = null;
     chromosomeData = [];
@@ -645,7 +639,7 @@ async function createGeneVisualization() {
     if (import.meta.env.DEV) console.time('🚀 Gene Visualization Processing');
     const pet = currentPet;
     const speciesKey = normalizeSpecies(pet.species);
-    const parsedGenes = parseGenes(pet.genes);
+    const parsedGenes = pet.grid;
 
     if (!parsedGenes || Object.keys(parsedGenes).length === 0) {
       headerStructure = null;
