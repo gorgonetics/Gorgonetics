@@ -168,6 +168,16 @@ const MIGRATIONS: Migration[] = [
       await db.execute('CREATE INDEX IF NOT EXISTS idx_pet_genes_lookup ON pet_genes(gene_id, gene_type)');
     },
   },
+  {
+    version: 11,
+    description: 'Add total_genes/known_genes/unknown_genes columns to pets (backfilled in JS)',
+    up: async () => {
+      const db = getDb();
+      await db.execute('ALTER TABLE pets ADD COLUMN total_genes INTEGER NOT NULL DEFAULT 0');
+      await db.execute('ALTER TABLE pets ADD COLUMN known_genes INTEGER NOT NULL DEFAULT 0');
+      await db.execute('ALTER TABLE pets ADD COLUMN unknown_genes INTEGER NOT NULL DEFAULT 0');
+    },
+  },
 ];
 
 /** Derived from the last migration — no manual bookkeeping needed. */

@@ -4,7 +4,11 @@ import { initDatabase } from '$lib/services/database.js';
 import { loadDemoPetsIfNeeded, populateGenesIfNeeded } from '$lib/services/demoService.js';
 import { backfillParsedGeneEffectsIfNeeded } from '$lib/services/geneService.js';
 import { runMigrations } from '$lib/services/migrationService.js';
-import { backfillPetGenesIfNeeded, backfillPositiveGenesIfNeeded } from '$lib/services/petService.js';
+import {
+  backfillGeneCountsIfNeeded,
+  backfillPetGenesIfNeeded,
+  backfillPositiveGenesIfNeeded,
+} from '$lib/services/petService.js';
 import { appState } from '$lib/stores/pets.js';
 import { settingsActions } from '$lib/stores/settings.js';
 
@@ -40,13 +44,18 @@ onMount(async () => {
 
   backfillPetGenesIfNeeded()
     .then((wrote) => {
-      // pet_genes isn't read by UI code yet (that's M3), so only reload
-      // if the backfill actually wrote rows — avoids a redundant reload
-      // that would race with the positive_genes backfill's own reload.
       if (wrote) void appState.loadPets();
     })
     .catch((err) => {
       console.warn('pet_genes backfill aborted:', err);
+    });
+
+  backfillGeneCountsIfNeeded()
+    .then((wrote) => {
+      if (wrote) void appState.loadPets();
+    })
+    .catch((err) => {
+      console.warn('gene_counts backfill aborted:', err);
     });
 });
 </script>
