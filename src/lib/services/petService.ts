@@ -2,14 +2,14 @@
  * Pet data service for Gorgonetics.
  */
 
-import type { Genome, Pet } from '$lib/types/index.js';
+import type { GeneStatsEntry, Genome, Pet } from '$lib/types/index.js';
 import { GENOME_FILE_MARKERS } from '$lib/types/index.js';
 import { yieldToUI } from '$lib/utils/async.js';
-import { computeGeneStats } from '$lib/utils/geneAnalysis.js';
+import { capitalize } from '$lib/utils/string.js';
 import { now } from '$lib/utils/timestamp.js';
-import { getDefaultValues, normalizeSpecies } from './configService.js';
+import { getAllAttributeNames, getDefaultValues, normalizeSpecies } from './configService.js';
 import { getDb, reorderRows, withTransaction } from './database.js';
-import { getGeneEffectsCached } from './geneService.js';
+import { getParsedGenesCached } from './geneService.js';
 import { genomeToGeneStrings, isValidGenomeFile, parseGenome } from './genomeParser.js';
 import { parseStructuredPetName } from './nameParser.js';
 import { getSetting, setSetting } from './settingsService.js';
@@ -72,32 +72,105 @@ function countGenes(genomeData: unknown): { total: number; known: number; unknow
 
 /**
  * Count the genes in a genome that confer a confirmed positive attribute
- * effect, using the same logic as `GeneStatsTable`'s totals row. The genes
- * table must be populated (ensured by `populateGenesIfNeeded` at startup).
+ * effect. Reads pre-parsed attribute/sign columns on the genes table.
+ *
+ * Defensive: malformed JSON or unexpected shapes return 0 instead of
+ * throwing — upload/update can't afford to abort on a single bad row.
  */
 export async function computePositiveGenesForGenome(
   genomeData: string | Genome,
   breed: string | undefined,
 ): Promise<number> {
-  // Malformed JSON or unexpected shapes must not crash the caller — upload
-  // and update paths can't afford to abort on bad data. Return 0 and let the
-  // caller persist a safe placeholder.
   try {
     const parsed: unknown = typeof genomeData === 'string' ? JSON.parse(genomeData) : genomeData;
     if (!parsed || typeof parsed !== 'object') return 0;
     const genome = parsed as Genome;
     const species = normalizeSpecies(genome.genome_type);
     if (!species) return 0;
-    const geneStrings = genomeToGeneStrings(genome);
-    const effectsData = await getGeneEffectsCached(species);
-    const effectsDB = effectsData ? { [species]: effectsData.effects } : {};
-    const { stats } = computeGeneStats(geneStrings, species, effectsDB, breed);
-    let total = 0;
-    for (const entry of Object.values(stats)) total += entry.positive;
-    return total;
+    const parsedGenes = await getParsedGenesCached(species);
+    let count = 0;
+    for (const chrGenes of Object.values(genome.genes ?? {})) {
+      if (!Array.isArray(chrGenes)) continue;
+      for (const g of chrGenes) {
+        if (!g || typeof g !== 'object') continue;
+        const type = g.gene_type;
+        if (!type || type === '?') continue;
+        const geneId = `${g.chromosome}${g.block}${g.position}`;
+        const gd = parsedGenes[geneId];
+        if (!gd) continue;
+        if (species === 'horse' && breed && breed !== 'Mixed' && gd.breed && gd.breed !== breed) continue;
+        const sign = type === 'R' ? gd.recessiveSign : gd.dominantSign;
+        if (sign === '+') count++;
+      }
+    }
+    return count;
   } catch {
     return 0;
   }
+}
+
+/**
+ * Compute per-attribute gene stats for one pet by aggregating pet_genes
+ * rows against the cached parsed-effect columns from the genes table.
+ *
+ * Horse breed filter: a breed-mismatched gene increments `totalGenes` but
+ * contributes to neither `stats` nor `neutralGenes` — it's silently
+ * dropped (this matches what the visualizer and stats table expect).
+ */
+export async function getPetGeneStats(
+  petId: number,
+  species: string,
+  breed?: string,
+): Promise<{ stats: Record<string, GeneStatsEntry>; totalGenes: number; neutralGenes: number }> {
+  const speciesKey = normalizeSpecies(species);
+  const db = getDb();
+  const rows = await db.select<{ gene_id: string; gene_type: string }[]>(
+    'SELECT gene_id, gene_type FROM pet_genes WHERE pet_id = $pid',
+    { pid: petId },
+  );
+  const parsedGenes = await getParsedGenesCached(speciesKey);
+  const attrNames = getAllAttributeNames(speciesKey).map((n) => capitalize(n));
+  const stats: Record<string, GeneStatsEntry> = {};
+  for (const a of attrNames) {
+    stats[a] = { positive: 0, negative: 0, dominant: 0, recessive: 0, mixed: 0 };
+  }
+
+  let totalGenes = 0;
+  let neutralGenes = 0;
+
+  for (const row of rows) {
+    if (row.gene_type === '?') continue;
+    totalGenes++;
+
+    const gd = parsedGenes[row.gene_id];
+
+    if (speciesKey === 'horse' && breed && breed !== 'Mixed' && gd?.breed && gd.breed !== breed) {
+      continue;
+    }
+
+    const isRecessive = row.gene_type === 'R';
+    const attribute = isRecessive ? gd?.recessiveAttribute : gd?.dominantAttribute;
+    const sign = isRecessive ? gd?.recessiveSign : gd?.dominantSign;
+
+    if (!attribute || !sign) {
+      neutralGenes++;
+      continue;
+    }
+
+    const entry = stats[capitalize(attribute)];
+    if (!entry) {
+      neutralGenes++;
+      continue;
+    }
+
+    if (sign === '+') entry.positive++;
+    if (sign === '-') entry.negative++;
+    if (row.gene_type === 'D') entry.dominant++;
+    else if (row.gene_type === 'R') entry.recessive++;
+    else if (row.gene_type === 'x') entry.mixed++;
+  }
+
+  return { stats, totalGenes, neutralGenes };
 }
 
 /** Enrich a raw pet row from the database with computed fields. */

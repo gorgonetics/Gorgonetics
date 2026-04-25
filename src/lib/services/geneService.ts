@@ -309,13 +309,74 @@ export async function getGeneEffectsCached(species: string) {
 }
 
 /**
- * Invalidate cached gene effects for a species (call after editing genes).
+ * Pre-parsed gene record used by stats aggregation. Populated from the
+ * genes table's dominant_/recessive_attribute and _sign columns — the
+ * effect string never has to be re-parsed at stats time.
+ */
+export interface ParsedGeneRecord {
+  dominantAttribute: string | null;
+  dominantSign: '+' | '-' | null;
+  recessiveAttribute: string | null;
+  recessiveSign: '+' | '-' | null;
+  breed: string;
+}
+
+const parsedGenesCache = new Map<string, Promise<Record<string, ParsedGeneRecord>>>();
+
+/**
+ * Cached `gene_id → ParsedGeneRecord` map for a species. Reads pre-parsed
+ * attribute/sign columns straight off the genes table — stats aggregation
+ * never has to re-parse effect strings.
+ */
+export async function getParsedGenesCached(species: string): Promise<Record<string, ParsedGeneRecord>> {
+  const normalized = normalizeSpecies(species);
+  const existing = parsedGenesCache.get(normalized);
+  if (existing) return existing;
+  const promise = (async () => {
+    const db = getDb();
+    const rows = await db.select<
+      {
+        gene: string;
+        dominant_attribute: string | null;
+        dominant_sign: string | null;
+        recessive_attribute: string | null;
+        recessive_sign: string | null;
+        breed: string | null;
+      }[]
+    >(
+      `SELECT gene, dominant_attribute, dominant_sign, recessive_attribute, recessive_sign, breed
+       FROM genes WHERE animal_type = $animalType`,
+      { animalType: normalized },
+    );
+    const map: Record<string, ParsedGeneRecord> = {};
+    for (const r of rows) {
+      map[r.gene] = {
+        dominantAttribute: r.dominant_attribute ?? null,
+        dominantSign: (r.dominant_sign as '+' | '-' | null) ?? null,
+        recessiveAttribute: r.recessive_attribute ?? null,
+        recessiveSign: (r.recessive_sign as '+' | '-' | null) ?? null,
+        breed: r.breed ?? '',
+      };
+    }
+    return map;
+  })();
+  parsedGenesCache.set(normalized, promise);
+  return promise;
+}
+
+/**
+ * Invalidate cached gene effects (and parsed-genes lookup) for a species.
+ * Call after editing genes — the parsed columns travel with the effect
+ * strings, so both caches must drop together.
  */
 export function clearGeneEffectsCache(species?: string) {
   if (species) {
-    geneEffectsCache.delete(normalizeSpecies(species));
+    const normalized = normalizeSpecies(species);
+    geneEffectsCache.delete(normalized);
+    parsedGenesCache.delete(normalized);
   } else {
     geneEffectsCache.clear();
+    parsedGenesCache.clear();
   }
 }
 

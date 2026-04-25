@@ -5,10 +5,7 @@
  * reused by both the visualizer and the comparison service.
  */
 
-import { getAllAttributeNames, normalizeSpecies } from '$lib/services/configService.js';
 import { blockLetter } from '$lib/services/genomeParser.js';
-import type { GeneStatsEntry } from '$lib/types/index.js';
-import { capitalize } from '$lib/utils/string.js';
 
 // --- Effect classification helpers ---
 
@@ -156,91 +153,4 @@ export function parseGenesByBlock(genes: Record<string, string>): Record<string,
   }
 
   return result;
-}
-
-/**
- * Compute per-attribute gene stats for a pet's genome.
- *
- * Returns a map of attribute key → { positive, negative, dominant, recessive, mixed }.
- * Also returns totalGenes and neutralGenes counts.
- */
-type GeneEffectsDB = Record<string, Record<string, GeneEffectData>>;
-
-export function computeGeneStats(
-  genes: Record<string, string>,
-  species: string,
-  geneEffectsDB: GeneEffectsDB,
-  petBreed?: string,
-): { stats: Record<string, GeneStatsEntry>; totalGenes: number; neutralGenes: number } {
-  const speciesKey = normalizeSpecies(species);
-  const attrNames = getAllAttributeNames(speciesKey).map((name) => capitalize(name));
-  const speciesEffects = geneEffectsDB[speciesKey] ?? {};
-
-  const emptyEntry = (): GeneStatsEntry => ({ positive: 0, negative: 0, dominant: 0, recessive: 0, mixed: 0 });
-  const stats: Record<string, GeneStatsEntry> = {};
-  for (const attr of attrNames) {
-    stats[attr] = emptyEntry();
-  }
-
-  let totalGenes = 0;
-  let neutralGenes = 0;
-
-  for (const [_chromosome, geneList] of Object.entries(parseGenomeGenes(genes))) {
-    for (const gene of geneList) {
-      if (gene.type === '?') continue;
-      totalGenes++;
-
-      const geneData = speciesEffects[gene.id];
-
-      // Skip genes from other breeds (horse only)
-      if (speciesKey === 'horse' && petBreed && petBreed !== 'Mixed') {
-        const breed = breedFor(geneData);
-        if (breed && breed !== petBreed) continue;
-      }
-
-      const effect = effectFor(geneData, gene.type);
-      if (isNoEffect(effect)) {
-        neutralGenes++;
-        continue;
-      }
-
-      const effectStr = effect || '';
-      const isPotential = effectStr.includes('?') || effectStr.toLowerCase().includes('potential');
-      if (isPotential) {
-        neutralGenes++;
-        continue;
-      }
-
-      const hasPlus = effectStr.includes('+');
-      const hasMinus = effectStr.includes('-');
-
-      if (!hasPlus && !hasMinus) {
-        neutralGenes++;
-        continue;
-      }
-
-      // Find which attribute this effect targets
-      let matchedAttr: string | null = null;
-      for (const attrName of attrNames) {
-        if (effectStr.includes(attrName)) {
-          matchedAttr = attrName;
-          break;
-        }
-      }
-
-      if (!matchedAttr || !stats[matchedAttr]) {
-        neutralGenes++;
-        continue;
-      }
-
-      const entry = stats[matchedAttr];
-      if (hasPlus) entry.positive++;
-      if (hasMinus) entry.negative++;
-      if (gene.type === 'D') entry.dominant++;
-      else if (gene.type === 'R') entry.recessive++;
-      else if (gene.type === 'x') entry.mixed++;
-    }
-  }
-
-  return { stats, totalGenes, neutralGenes };
 }
