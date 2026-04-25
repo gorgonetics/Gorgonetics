@@ -5,13 +5,13 @@
 import type { GeneStatsEntry, Genome, Pet } from '$lib/types/index.js';
 import { GENOME_FILE_MARKERS } from '$lib/types/index.js';
 import { yieldToUI } from '$lib/utils/async.js';
-import { toGeneId } from '$lib/utils/geneAnalysis.js';
+import { fromGeneId, type ParsedChromosome, type ParsedGene, toGeneId } from '$lib/utils/geneAnalysis.js';
 import { capitalize } from '$lib/utils/string.js';
 import { now } from '$lib/utils/timestamp.js';
 import { getAttributeConfig, getDefaultValues, normalizeSpecies } from './configService.js';
 import { getDb, reorderRows, withTransaction } from './database.js';
 import { getParsedGenesCached, isHorseBreedFiltered } from './geneService.js';
-import { genomeToGeneStrings, isValidGenomeFile, parseGenome } from './genomeParser.js';
+import { compareBlockLetters, genomeToGeneStrings, isValidGenomeFile, parseGenome } from './genomeParser.js';
 import { parseStructuredPetName } from './nameParser.js';
 import { getSetting, setSetting } from './settingsService.js';
 
@@ -100,6 +100,109 @@ export async function computePositiveGenesForGenome(
   }
 }
 
+async function selectPetGenesRows(petId: number): Promise<{ gene_id: string; gene_type: string }[]> {
+  return getDb().select<{ gene_id: string; gene_type: string }[]>(
+    'SELECT gene_id, gene_type FROM pet_genes WHERE pet_id = $pid',
+    { pid: petId },
+  );
+}
+
+/**
+ * Populate `pet_genes` for a single pet from its `genome_data`. Used as
+ * a fallback for pets uploaded before the projection existed and not
+ * yet reached by the startup backfill — without this, the visualizer
+ * would render empty for those pets.
+ */
+async function ensurePetGenesPopulated(petId: number): Promise<boolean> {
+  const db = getDb();
+  const rows = await db.select<{ genome_data: string }[]>('SELECT genome_data FROM pets WHERE id = $id', { id: petId });
+  if (rows.length === 0) return false;
+  let genome: Genome;
+  try {
+    genome = JSON.parse(rows[0].genome_data) as Genome;
+  } catch {
+    return false;
+  }
+  await withTransaction(() => writePetGenes(petId, genome));
+  return true;
+}
+
+/**
+ * Load a pet's grid from `pet_genes`, returning the same structure
+ * `parseGenesByBlock` produces from genome JSON. The visualizer uses
+ * this as its canonical source of grid data — no `genome_data` parse
+ * on the read path.
+ *
+ * Block ordering matches `blockLetter`: shorter strings before longer,
+ * lex within length (A, B, ..., Z, AA, AB, ...). Chromosomes sort by
+ * numeric value, positions ascend within a block. `globalPosition` is
+ * assigned in iteration order to match `parseGenesByBlock` exactly.
+ *
+ * If `pet_genes` is empty for a pet that does exist (un-backfilled
+ * legacy row), this populates it inline and retries — so the visualizer
+ * never sees a phantom empty grid for an otherwise-valid pet.
+ */
+export async function loadPetGridFromDb(petId: number): Promise<Record<string, ParsedChromosome>> {
+  let rows = await selectPetGenesRows(petId);
+  if (rows.length === 0 && (await ensurePetGenesPopulated(petId))) {
+    rows = await selectPetGenesRows(petId);
+  }
+
+  type RawGene = { id: string; type: string; position: number };
+  const byChromosome = new Map<string, Map<string, RawGene[]>>();
+
+  for (const row of rows) {
+    const parsed = fromGeneId(row.gene_id);
+    if (!parsed) continue;
+    let chrMap = byChromosome.get(parsed.chromosome);
+    if (!chrMap) {
+      chrMap = new Map();
+      byChromosome.set(parsed.chromosome, chrMap);
+    }
+    let blockGenes = chrMap.get(parsed.block);
+    if (!blockGenes) {
+      blockGenes = [];
+      chrMap.set(parsed.block, blockGenes);
+    }
+    blockGenes.push({ id: row.gene_id, type: row.gene_type, position: parsed.position });
+  }
+
+  const sortedChromosomes = [...byChromosome.keys()].sort((a, b) => Number(a) - Number(b));
+  const result: Record<string, ParsedChromosome> = {};
+
+  for (const chromosome of sortedChromosomes) {
+    const chrMap = byChromosome.get(chromosome);
+    if (!chrMap) continue;
+    const sortedBlockLetters = [...chrMap.keys()].sort(compareBlockLetters);
+
+    const allGenes: ParsedGene[] = [];
+    const blocks: Array<{ letter: string; genes: ParsedGene[] }> = [];
+
+    for (const letter of sortedBlockLetters) {
+      const blockRaw = chrMap.get(letter);
+      if (!blockRaw) continue;
+      blockRaw.sort((a, b) => a.position - b.position);
+      const blockGenes: ParsedGene[] = [];
+      for (const g of blockRaw) {
+        const gene: ParsedGene = {
+          id: g.id,
+          type: g.type,
+          block: letter,
+          position: g.position,
+          globalPosition: allGenes.length + 1,
+        };
+        blockGenes.push(gene);
+        allGenes.push(gene);
+      }
+      blocks.push({ letter, genes: blockGenes });
+    }
+
+    result[chromosome] = { blocks, allGenes };
+  }
+
+  return result;
+}
+
 /**
  * Per-attribute gene stats for one pet, aggregated from pet_genes against
  * the cached parsed-effect columns. Breed-mismatched horse genes count
@@ -175,10 +278,14 @@ function enrichPet(pet: Record<string, unknown>, tags: string[]): Pet {
 async function loadTagsForPets(petIds: number[]): Promise<Map<number, string[]>> {
   if (petIds.length === 0) return new Map();
   const db = getDb();
-  const placeholders = petIds.map(() => '?').join(', ');
+  const placeholders = petIds.map((_, i) => `$id${i}`).join(', ');
+  const params: Record<string, unknown> = {};
+  petIds.forEach((id, i) => {
+    params[`id${i}`] = id;
+  });
   const rows = await db.select<{ pet_id: number; tag: string }[]>(
     `SELECT pet_id, tag FROM pet_tags WHERE pet_id IN (${placeholders}) ORDER BY tag`,
-    petIds,
+    params,
   );
   const map = new Map<number, string[]>();
   for (const row of rows) {
@@ -306,10 +413,9 @@ export async function uploadPet(
   const orderRows = await db.select<{ sort_order: number }[]>('SELECT sort_order FROM pets');
   const nextOrder = orderRows.length > 0 ? Math.max(...orderRows.map((r) => r.sort_order ?? 0)) + 1 : 0;
 
-  // The pets INSERT and the pet_genes projection must be atomic: a half-
-  // written pet (row in `pets` but no rows in `pet_genes`) would reject
-  // retries because `content_hash` is UNIQUE, and leave downstream SQL
-  // stats wrong once M3 starts reading from `pet_genes`.
+  // Atomic with the pet_genes projection: a half-written pet (row in
+  // `pets` but no rows in `pet_genes`) would block retries via the
+  // UNIQUE content_hash and skew gene-stats reads.
   const result = await withTransaction(async () => {
     const res = await db.execute(
       `INSERT INTO pets
@@ -565,9 +671,9 @@ export async function getPetGenome(
 }
 
 /**
- * Replace a pet's rows in `pet_genes` with one row per position from the
- * given parsed genome. Wrapped in a transaction so readers never see a
- * half-populated genome for the pet.
+ * Replace a pet's rows in `pet_genes` with one row per genome position.
+ * The caller owns the transaction (every call site wraps this in
+ * `withTransaction`), so readers never see a half-populated genome.
  */
 async function writePetGenes(petId: number, genome: Genome): Promise<void> {
   const db = getDb();
@@ -578,26 +684,23 @@ async function writePetGenes(petId: number, genome: Genome): Promise<void> {
     }
   }
 
-  await db.execute('BEGIN');
-  try {
-    await db.execute('DELETE FROM pet_genes WHERE pet_id = $pid', { pid: petId });
-    if (entries.length > 0) {
-      // Multi-row INSERT collapses one IPC call per pet instead of one
-      // per gene. With ~500 positions per pet this is the difference
-      // between milliseconds and seconds for a 200-pet backfill.
-      const placeholders = entries.map((_, i) => `($p${i}, $g${i}, $t${i})`).join(', ');
-      const params: Record<string, unknown> = {};
-      entries.forEach((e, i) => {
-        params[`p${i}`] = petId;
-        params[`g${i}`] = e.geneId;
-        params[`t${i}`] = e.geneType;
-      });
-      await db.execute(`INSERT INTO pet_genes (pet_id, gene_id, gene_type) VALUES ${placeholders}`, params);
-    }
-    await db.execute('COMMIT');
-  } catch (e) {
-    await db.execute('ROLLBACK');
-    throw e;
+  await db.execute('DELETE FROM pet_genes WHERE pet_id = $pid', { pid: petId });
+  if (entries.length === 0) return;
+
+  // Multi-row INSERT collapses ~500 IPC calls per pet to a few. Chunked
+  // at 300 rows × 3 params = 900 to stay under SQLite's default
+  // SQLITE_MAX_VARIABLE_NUMBER=999 on older builds.
+  const CHUNK = 300;
+  for (let i = 0; i < entries.length; i += CHUNK) {
+    const chunk = entries.slice(i, i + CHUNK);
+    const placeholders = chunk.map((_, j) => `($p${j}, $g${j}, $t${j})`).join(', ');
+    const params: Record<string, unknown> = {};
+    chunk.forEach((e, j) => {
+      params[`p${j}`] = petId;
+      params[`g${j}`] = e.geneId;
+      params[`t${j}`] = e.geneType;
+    });
+    await db.execute(`INSERT INTO pet_genes (pet_id, gene_id, gene_type) VALUES ${placeholders}`, params);
   }
 }
 

@@ -93,6 +93,15 @@ export function toGeneId(g: { chromosome: string; block: string; position: numbe
   return `${g.chromosome}${g.block}${g.position}`;
 }
 
+const GENE_ID_RE = /^(\d{2})([A-Z]+)(\d+)$/;
+
+/** Inverse of `toGeneId`. Returns null on malformed input. */
+export function fromGeneId(id: string): { chromosome: string; block: string; position: number } | null {
+  const m = id.match(GENE_ID_RE);
+  if (!m) return null;
+  return { chromosome: m[1], block: m[2], position: Number.parseInt(m[3], 10) };
+}
+
 /** Parsed gene from a genome string. */
 export interface ParsedGene {
   id: string;

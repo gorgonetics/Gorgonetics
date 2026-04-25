@@ -93,6 +93,11 @@ export function generateBlockLetters(numBlocks: number): string[] {
   return Array.from({ length: numBlocks }, (_, i) => blockLetter(i));
 }
 
+/** Order block letters as `blockLetter` produces them: shorter before longer, lex within length. */
+export function compareBlockLetters(a: string, b: string): number {
+  return a.length !== b.length ? a.length - b.length : a.localeCompare(b);
+}
+
 /**
  * Count the number of gene blocks in a chromosome.
  */
