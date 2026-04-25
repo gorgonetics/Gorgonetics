@@ -1467,6 +1467,7 @@ dependencies = [
  "log",
  "serde",
  "serde_json",
+ "sqlx",
  "tauri",
  "tauri-build",
  "tauri-plugin-dialog",
@@ -1475,6 +1476,7 @@ dependencies = [
  "tauri-plugin-process",
  "tauri-plugin-sql",
  "tauri-plugin-updater",
+ "tokio",
 ]
 
 [[package]]

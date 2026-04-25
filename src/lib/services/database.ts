@@ -4,6 +4,7 @@
  * Falls back to an in-memory store when running outside Tauri (e.g., Playwright tests).
  */
 
+import { invoke } from '@tauri-apps/api/core';
 import { isTauri } from '$lib/utils/environment.js';
 
 let db: DatabaseAdapter | null = null;
@@ -15,9 +16,17 @@ interface QueryResult {
 
 type BindValues = unknown[] | Record<string, unknown>;
 
+/** Single statement in a transaction request. Named `$placeholder` params resolved like `execute`. */
+export interface TxStatement {
+  sql: string;
+  params?: BindValues;
+}
+
 interface DatabaseAdapter {
   select<T>(query: string, bindValues?: BindValues): Promise<T>;
   execute(query: string, bindValues?: BindValues): Promise<QueryResult>;
+  /** Run multiple statements atomically on a pinned connection. */
+  transaction(statements: TxStatement[]): Promise<QueryResult[]>;
   close(): Promise<void>;
 }
 
@@ -37,11 +46,18 @@ function resolveNamedParams(query: string, bindValues: BindValues = []): { query
 const NOOP_RESULT: QueryResult = { rowsAffected: 0, lastInsertId: 0 };
 const TX_KEYWORDS = new Set(['begin', 'begin transaction', 'commit', 'rollback']);
 
+interface RustTxResult {
+  rows_affected: number;
+  last_insert_id: number;
+}
+
 class TauriDatabaseAdapter implements DatabaseAdapter {
   private inner: DatabaseAdapter;
+  private dbUrl: string;
 
-  constructor(inner: DatabaseAdapter) {
+  constructor(inner: DatabaseAdapter, dbUrl: string) {
     this.inner = inner;
+    this.dbUrl = dbUrl;
   }
 
   async select<T>(query: string, bindValues: BindValues = []): Promise<T> {
@@ -50,17 +66,26 @@ class TauriDatabaseAdapter implements DatabaseAdapter {
   }
 
   async execute(query: string, bindValues: BindValues = []): Promise<QueryResult> {
-    // tauri-plugin-sql wraps a sqlx Pool that grabs a fresh connection
-    // for every `pool.execute` call — a JS-side BEGIN/COMMIT pattern
-    // doesn't form a real transaction (the BEGIN's connection returns
-    // to the pool, the next statement may land on a different one).
-    // Worse, the stale BEGIN can leak transaction state onto a pooled
-    // connection and stall later statements waiting on it for seconds.
-    // Silently dropping these on the Tauri path avoids that hazard;
-    // the in-memory adapter still honours them for tests.
+    // tauri-plugin-sql's pool grabs a fresh connection per call, so JS-
+    // side BEGIN/COMMIT doesn't form a real transaction and can leak
+    // transaction state onto pooled connections, stalling later
+    // statements. Silently no-op them here; multi-statement atomicity
+    // goes through `transaction()` instead.
     if (TX_KEYWORDS.has(query.trim().toLowerCase())) return NOOP_RESULT;
     const { query: q, values } = resolveNamedParams(query, bindValues);
     return this.inner.execute(q, values);
+  }
+
+  async transaction(statements: TxStatement[]): Promise<QueryResult[]> {
+    const payload = statements.map((s) => {
+      const { query, values } = resolveNamedParams(s.sql, s.params ?? []);
+      return { sql: query, params: values };
+    });
+    const results = await invoke<RustTxResult[]>('db_execute_transaction', {
+      db: this.dbUrl,
+      statements: payload,
+    });
+    return results.map((r) => ({ rowsAffected: r.rows_affected, lastInsertId: r.last_insert_id }));
   }
 
   async close(): Promise<void> {
@@ -321,6 +346,27 @@ class InMemoryDatabase implements DatabaseAdapter {
     return { rowsAffected: 0, lastInsertId: 0 };
   }
 
+  async transaction(statements: TxStatement[]): Promise<QueryResult[]> {
+    // Snapshot, run all statements via execute, restore on failure.
+    const snapshot = {
+      tables: JSON.stringify(this.tables),
+      autoIncrements: JSON.stringify(this.autoIncrements),
+      userVersion: this.userVersion,
+    };
+    try {
+      const results: QueryResult[] = [];
+      for (const stmt of statements) {
+        results.push(await this.execute(stmt.sql, stmt.params ?? []));
+      }
+      return results;
+    } catch (e) {
+      this.tables = JSON.parse(snapshot.tables);
+      this.autoIncrements = JSON.parse(snapshot.autoIncrements);
+      this.userVersion = snapshot.userVersion;
+      throw e;
+    }
+  }
+
   async close(): Promise<void> {
     this.tables = {};
   }
@@ -360,8 +406,9 @@ export async function initDatabase(): Promise<void> {
 
   if (isTauri()) {
     const { default: Database } = await import('@tauri-apps/plugin-sql');
-    const raw = (await Database.load('sqlite:gorgonetics.db')) as unknown as DatabaseAdapter;
-    db = new TauriDatabaseAdapter(raw);
+    const dbUrl = 'sqlite:gorgonetics.db';
+    const raw = (await Database.load(dbUrl)) as unknown as DatabaseAdapter;
+    db = new TauriDatabaseAdapter(raw, dbUrl);
   } else {
     console.warn('Not running in Tauri — using in-memory database (test mode)');
     db = new InMemoryDatabase();
@@ -419,11 +466,10 @@ export function getDb(): DatabaseAdapter {
 }
 
 /**
- * Wraps `fn` in BEGIN/COMMIT/ROLLBACK statements. Honoured only by the
- * in-memory test adapter — the Tauri path silently drops these because
- * tauri-plugin-sql's pool doesn't pin connections, so they never form a
- * real transaction. Production gets per-statement atomicity only; multi-
- * statement atomicity here is a test-environment guarantee, not prod.
+ * Legacy multi-statement wrapper. Kept for callers that don't actually
+ * need cross-statement atomicity — the Tauri path no-ops the BEGIN/
+ * COMMIT, so this is per-statement atomicity only. For real atomicity
+ * across statements, use `db.transaction([...])` directly.
  */
 export async function withTransaction<T>(fn: () => Promise<T>): Promise<T> {
   const db = getDb();
@@ -440,26 +486,14 @@ export async function withTransaction<T>(fn: () => Promise<T>): Promise<T> {
 
 const REORDERABLE_TABLES = new Set(['pets', 'pet_images']);
 
-/**
- * Update sort_order for rows in a table based on their position in the array.
- * Wrapped in a transaction for atomicity.
- */
+/** Update sort_order for rows in a table based on their position in the array. */
 export async function reorderRows(table: 'pets' | 'pet_images', orderedIds: number[]): Promise<void> {
   if (!REORDERABLE_TABLES.has(table)) throw new Error(`Table '${table}' is not reorderable`);
-  const d = getDb();
-  await d.execute('BEGIN');
-  try {
-    for (let i = 0; i < orderedIds.length; i++) {
-      await d.execute(`UPDATE ${table} SET sort_order = $order WHERE id = $id`, {
-        order: i,
-        id: orderedIds[i],
-      });
-    }
-    await d.execute('COMMIT');
-  } catch (e) {
-    await d.execute('ROLLBACK');
-    throw e;
-  }
+  const statements: TxStatement[] = orderedIds.map((id, i) => ({
+    sql: `UPDATE ${table} SET sort_order = $order WHERE id = $id`,
+    params: { order: i, id },
+  }));
+  await getDb().transaction(statements);
 }
 
 /**

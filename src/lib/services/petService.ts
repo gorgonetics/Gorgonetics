@@ -9,7 +9,7 @@ import { fromGeneId, type ParsedChromosome, type ParsedGene, toGeneId } from '$l
 import { capitalize } from '$lib/utils/string.js';
 import { now } from '$lib/utils/timestamp.js';
 import { getAttributeConfig, getDefaultValues, normalizeSpecies } from './configService.js';
-import { getDb, reorderRows, withTransaction } from './database.js';
+import { getDb, reorderRows, type TxStatement, withTransaction } from './database.js';
 import { getParsedGenesCached, isHorseBreedFiltered } from './geneService.js';
 import { compareBlockLetters, genomeToGeneStrings, isValidGenomeFile, parseGenome } from './genomeParser.js';
 import { parseStructuredPetName } from './nameParser.js';
@@ -672,11 +672,10 @@ export async function getPetGenome(
 
 /**
  * Replace a pet's rows in `pet_genes` with one row per genome position.
- * The caller owns the transaction (every call site wraps this in
- * `withTransaction`), so readers never see a half-populated genome.
+ * Atomic via `db.transaction` — readers never see a half-populated
+ * genome even if a chunk fails midway.
  */
 async function writePetGenes(petId: number, genome: Genome): Promise<void> {
-  const db = getDb();
   const entries: Array<{ geneId: string; geneType: string }> = [];
   for (const chrGenes of Object.values(genome.genes)) {
     for (const g of chrGenes) {
@@ -684,8 +683,7 @@ async function writePetGenes(petId: number, genome: Genome): Promise<void> {
     }
   }
 
-  await db.execute('DELETE FROM pet_genes WHERE pet_id = $pid', { pid: petId });
-  if (entries.length === 0) return;
+  const statements: TxStatement[] = [{ sql: 'DELETE FROM pet_genes WHERE pet_id = $pid', params: { pid: petId } }];
 
   // Multi-row INSERT collapses ~500 IPC calls per pet to a few. Chunked
   // at 300 rows × 3 params = 900 to stay under SQLite's default
@@ -700,8 +698,13 @@ async function writePetGenes(petId: number, genome: Genome): Promise<void> {
       params[`g${j}`] = e.geneId;
       params[`t${j}`] = e.geneType;
     });
-    await db.execute(`INSERT INTO pet_genes (pet_id, gene_id, gene_type) VALUES ${placeholders}`, params);
+    statements.push({
+      sql: `INSERT INTO pet_genes (pet_id, gene_id, gene_type) VALUES ${placeholders}`,
+      params,
+    });
   }
+
+  await getDb().transaction(statements);
 }
 
 /**
