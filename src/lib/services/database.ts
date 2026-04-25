@@ -34,6 +34,9 @@ function resolveNamedParams(query: string, bindValues: BindValues = []): { query
 
 // --- Tauri adapter that resolves named parameters before passing to the plugin ---
 
+const NOOP_RESULT: QueryResult = { rowsAffected: 0, lastInsertId: 0 };
+const TX_KEYWORDS = new Set(['begin', 'begin transaction', 'commit', 'rollback']);
+
 class TauriDatabaseAdapter implements DatabaseAdapter {
   private inner: DatabaseAdapter;
 
@@ -47,6 +50,15 @@ class TauriDatabaseAdapter implements DatabaseAdapter {
   }
 
   async execute(query: string, bindValues: BindValues = []): Promise<QueryResult> {
+    // tauri-plugin-sql wraps a sqlx Pool that grabs a fresh connection
+    // for every `pool.execute` call — a JS-side BEGIN/COMMIT pattern
+    // doesn't form a real transaction (the BEGIN's connection returns
+    // to the pool, the next statement may land on a different one).
+    // Worse, the stale BEGIN can leak transaction state onto a pooled
+    // connection and stall later statements waiting on it for seconds.
+    // Silently dropping these on the Tauri path avoids that hazard;
+    // the in-memory adapter still honours them for tests.
+    if (TX_KEYWORDS.has(query.trim().toLowerCase())) return NOOP_RESULT;
     const { query: q, values } = resolveNamedParams(query, bindValues);
     return this.inner.execute(q, values);
   }
@@ -407,9 +419,11 @@ export function getDb(): DatabaseAdapter {
 }
 
 /**
- * Run `fn` inside a SQL transaction on the current DB. Commits on
- * success, rolls back and re-throws on failure. Callers that already
- * hold a transaction should not nest this (SQLite doesn't nest).
+ * Wraps `fn` in BEGIN/COMMIT/ROLLBACK statements. Honoured only by the
+ * in-memory test adapter — the Tauri path silently drops these because
+ * tauri-plugin-sql's pool doesn't pin connections, so they never form a
+ * real transaction. Production gets per-statement atomicity only; multi-
+ * statement atomicity here is a test-environment guarantee, not prod.
  */
 export async function withTransaction<T>(fn: () => Promise<T>): Promise<T> {
   const db = getDb();
