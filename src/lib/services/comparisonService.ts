@@ -4,7 +4,7 @@
 
 import { getAllAttributeNames, getAttributeConfig, normalizeSpecies } from '$lib/services/configService.js';
 import { getGeneEffectsCached } from '$lib/services/geneService.js';
-import { getPetGenome } from '$lib/services/petService.js';
+import { emptyStatsEntry, getPetGeneStats, getPetGenome } from '$lib/services/petService.js';
 import type {
   AttributeComparisonResult,
   ChromosomeDiff,
@@ -12,7 +12,7 @@ import type {
   GeneStatsComparisonResult,
   Pet,
 } from '$lib/types/index.js';
-import { computeGeneStats, parseGenomeGenes } from '$lib/utils/geneAnalysis.js';
+import { parseGenomeGenes } from '$lib/utils/geneAnalysis.js';
 import { capitalize } from '$lib/utils/string.js';
 
 async function loadGenomePair(petA: Pet, petB: Pet) {
@@ -59,22 +59,16 @@ export function compareAttributes(petA: Pet, petB: Pet): AttributeComparisonResu
   });
 }
 
-/**
- * Compare gene stats between two same-species pets.
- * Loads genome data and gene effects, then computes per-attribute stats for both.
- */
+/** Compare per-attribute gene stats between two same-species pets. */
 export async function compareGeneStats(petA: Pet, petB: Pet): Promise<GeneStatsComparisonResult[]> {
-  const { species, genomeA, genomeB, effectsData } = await loadGenomePair(petA, petB);
-
-  const effectsDB = effectsData ? { [species]: effectsData.effects } : {};
-
-  const statsA = computeGeneStats(genomeA.genes, species, effectsDB, petA.breed);
-  const statsB = computeGeneStats(genomeB.genes, species, effectsDB, petB.breed);
+  const species = normalizeSpecies(petA.species);
+  const [statsA, statsB] = await Promise.all([
+    getPetGeneStats(petA.id, species, petA.breed),
+    getPetGeneStats(petB.id, species, petB.breed),
+  ]);
 
   const config = getAttributeConfig(species);
   const attrNames = getAllAttributeNames(species);
-
-  const emptyEntry = () => ({ positive: 0, negative: 0, dominant: 0, recessive: 0, mixed: 0 });
 
   return attrNames.map((attrName) => {
     const key = capitalize(attrName);
@@ -84,8 +78,8 @@ export async function compareGeneStats(petA: Pet, petB: Pet): Promise<GeneStatsC
       key,
       name: info?.name ?? key,
       icon: info?.icon ?? '',
-      petA: statsA.stats[key] ?? emptyEntry(),
-      petB: statsB.stats[key] ?? emptyEntry(),
+      petA: statsA.stats[key] ?? emptyStatsEntry(),
+      petB: statsB.stats[key] ?? emptyStatsEntry(),
     };
   });
 }

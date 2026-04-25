@@ -308,14 +308,76 @@ export async function getGeneEffectsCached(species: string) {
   return promise;
 }
 
+/** Pre-parsed gene effect record sourced from the genes table. */
+export interface ParsedGeneRecord {
+  dominantAttribute: string | null;
+  dominantSign: '+' | '-' | null;
+  recessiveAttribute: string | null;
+  recessiveSign: '+' | '-' | null;
+  breed: string;
+}
+
+const parsedGenesCache = new Map<string, Promise<Record<string, ParsedGeneRecord>>>();
+
 /**
- * Invalidate cached gene effects for a species (call after editing genes).
+ * True when a gene should be excluded from a horse pet's stats because
+ * the gene is breed-locked to a different breed than the pet. Mixed-
+ * breed pets and unbreed-tagged genes pass through.
  */
+export function isHorseBreedFiltered(
+  species: string,
+  petBreed: string | undefined,
+  geneBreed: string | null | undefined,
+): boolean {
+  return species === 'horse' && !!petBreed && petBreed !== 'Mixed' && !!geneBreed && geneBreed !== petBreed;
+}
+
+/** Cached `gene_id → ParsedGeneRecord` map for a species. */
+export async function getParsedGenesCached(species: string): Promise<Record<string, ParsedGeneRecord>> {
+  const normalized = normalizeSpecies(species);
+  const existing = parsedGenesCache.get(normalized);
+  if (existing) return existing;
+  const promise = (async () => {
+    const db = getDb();
+    const rows = await db.select<
+      {
+        gene: string;
+        dominant_attribute: string | null;
+        dominant_sign: string | null;
+        recessive_attribute: string | null;
+        recessive_sign: string | null;
+        breed: string | null;
+      }[]
+    >(
+      `SELECT gene, dominant_attribute, dominant_sign, recessive_attribute, recessive_sign, breed
+       FROM genes WHERE animal_type = $animalType`,
+      { animalType: normalized },
+    );
+    const map: Record<string, ParsedGeneRecord> = {};
+    for (const r of rows) {
+      map[r.gene] = {
+        dominantAttribute: r.dominant_attribute ?? null,
+        dominantSign: (r.dominant_sign as '+' | '-' | null) ?? null,
+        recessiveAttribute: r.recessive_attribute ?? null,
+        recessiveSign: (r.recessive_sign as '+' | '-' | null) ?? null,
+        breed: r.breed ?? '',
+      };
+    }
+    return map;
+  })();
+  parsedGenesCache.set(normalized, promise);
+  return promise;
+}
+
+/** Invalidate cached gene effects (raw and parsed) for a species, or all if omitted. */
 export function clearGeneEffectsCache(species?: string) {
   if (species) {
-    geneEffectsCache.delete(normalizeSpecies(species));
+    const normalized = normalizeSpecies(species);
+    geneEffectsCache.delete(normalized);
+    parsedGenesCache.delete(normalized);
   } else {
     geneEffectsCache.clear();
+    parsedGenesCache.clear();
   }
 }
 
