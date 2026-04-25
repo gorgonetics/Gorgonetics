@@ -25,8 +25,10 @@ onMount(async () => {
 
   // Run startup backfills sequentially, off the critical path. They each
   // briefly hold SQLite's writer lock; running them in parallel just makes
-  // them fight for it (issue #149). parsed-effects must come first because
-  // positive_genes reads the parsed columns it populates.
+  // them fight for it. parsed-effects must come first because positive_genes
+  // reads the parsed columns it populates. Reload pets after each backfill
+  // that affects pet-row columns so the UI surfaces updates without waiting
+  // for the slow ones (pet_genes can take minutes on big stables).
   void (async () => {
     try {
       await backfillParsedGeneEffectsIfNeeded();
@@ -36,6 +38,7 @@ onMount(async () => {
 
     try {
       await backfillPositiveGenesIfNeeded();
+      void appState.loadPets();
     } catch (err) {
       console.warn('positive_genes backfill aborted:', err);
     }
@@ -48,13 +51,10 @@ onMount(async () => {
 
     try {
       await backfillGeneCountsIfNeeded();
+      void appState.loadPets();
     } catch (err) {
       console.warn('gene_counts backfill aborted:', err);
     }
-
-    // One trailing reload picks up anything any of the backfills wrote;
-    // a no-op SELECT on a fresh-install run is cheap.
-    void appState.loadPets();
   })();
 });
 </script>
