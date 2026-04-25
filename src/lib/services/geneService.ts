@@ -308,11 +308,7 @@ export async function getGeneEffectsCached(species: string) {
   return promise;
 }
 
-/**
- * Pre-parsed gene record used by stats aggregation. Populated from the
- * genes table's dominant_/recessive_attribute and _sign columns — the
- * effect string never has to be re-parsed at stats time.
- */
+/** Pre-parsed gene effect record sourced from the genes table. */
 export interface ParsedGeneRecord {
   dominantAttribute: string | null;
   dominantSign: '+' | '-' | null;
@@ -324,10 +320,19 @@ export interface ParsedGeneRecord {
 const parsedGenesCache = new Map<string, Promise<Record<string, ParsedGeneRecord>>>();
 
 /**
- * Cached `gene_id → ParsedGeneRecord` map for a species. Reads pre-parsed
- * attribute/sign columns straight off the genes table — stats aggregation
- * never has to re-parse effect strings.
+ * True when a gene should be excluded from a horse pet's stats because
+ * the gene is breed-locked to a different breed than the pet. Mixed-
+ * breed pets and unbreed-tagged genes pass through.
  */
+export function isHorseBreedFiltered(
+  species: string,
+  petBreed: string | undefined,
+  geneBreed: string | null | undefined,
+): boolean {
+  return species === 'horse' && !!petBreed && petBreed !== 'Mixed' && !!geneBreed && geneBreed !== petBreed;
+}
+
+/** Cached `gene_id → ParsedGeneRecord` map for a species. */
 export async function getParsedGenesCached(species: string): Promise<Record<string, ParsedGeneRecord>> {
   const normalized = normalizeSpecies(species);
   const existing = parsedGenesCache.get(normalized);
@@ -364,11 +369,7 @@ export async function getParsedGenesCached(species: string): Promise<Record<stri
   return promise;
 }
 
-/**
- * Invalidate cached gene effects (and parsed-genes lookup) for a species.
- * Call after editing genes — the parsed columns travel with the effect
- * strings, so both caches must drop together.
- */
+/** Invalidate cached gene effects (raw and parsed) for a species, or all if omitted. */
 export function clearGeneEffectsCache(species?: string) {
   if (species) {
     const normalized = normalizeSpecies(species);

@@ -90,6 +90,11 @@ export function breedFor(geneData: { breed?: string } | undefined): string {
   return geneData?.breed || '';
 }
 
+/** Build the canonical `chromosome+block+position` gene id. */
+export function toGeneId(g: { chromosome: string; block: string; position: number }): string {
+  return `${g.chromosome}${g.block}${g.position}`;
+}
+
 /** Parsed gene from a genome string. */
 export interface ParsedGene {
   id: string;

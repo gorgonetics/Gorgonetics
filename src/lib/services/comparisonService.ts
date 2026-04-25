@@ -4,7 +4,7 @@
 
 import { getAllAttributeNames, getAttributeConfig, normalizeSpecies } from '$lib/services/configService.js';
 import { getGeneEffectsCached } from '$lib/services/geneService.js';
-import { getPetGeneStats, getPetGenome } from '$lib/services/petService.js';
+import { emptyStatsEntry, getPetGeneStats, getPetGenome } from '$lib/services/petService.js';
 import type {
   AttributeComparisonResult,
   ChromosomeDiff,
@@ -27,8 +27,6 @@ async function loadGenomePair(petA: Pet, petB: Pet) {
   }
   return { species, genomeA, genomeB, effectsData };
 }
-
-const emptyStatsEntry = () => ({ positive: 0, negative: 0, dominant: 0, recessive: 0, mixed: 0 });
 
 /**
  * Compare attributes between two same-species pets.
@@ -61,11 +59,7 @@ export function compareAttributes(petA: Pet, petB: Pet): AttributeComparisonResu
   });
 }
 
-/**
- * Compare gene stats between two same-species pets. Reads pre-aggregated
- * stats from `pet_genes` joined against parsed-effect columns on `genes`,
- * so this no longer parses genome JSON for the per-attribute breakdown.
- */
+/** Compare per-attribute gene stats between two same-species pets. */
 export async function compareGeneStats(petA: Pet, petB: Pet): Promise<GeneStatsComparisonResult[]> {
   const species = normalizeSpecies(petA.species);
   const [statsA, statsB] = await Promise.all([

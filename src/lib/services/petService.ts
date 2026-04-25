@@ -5,11 +5,12 @@
 import type { GeneStatsEntry, Genome, Pet } from '$lib/types/index.js';
 import { GENOME_FILE_MARKERS } from '$lib/types/index.js';
 import { yieldToUI } from '$lib/utils/async.js';
+import { toGeneId } from '$lib/utils/geneAnalysis.js';
 import { capitalize } from '$lib/utils/string.js';
 import { now } from '$lib/utils/timestamp.js';
-import { getAllAttributeNames, getDefaultValues, normalizeSpecies } from './configService.js';
+import { getAttributeConfig, getDefaultValues, normalizeSpecies } from './configService.js';
 import { getDb, reorderRows, withTransaction } from './database.js';
-import { getParsedGenesCached } from './geneService.js';
+import { getParsedGenesCached, isHorseBreedFiltered } from './geneService.js';
 import { genomeToGeneStrings, isValidGenomeFile, parseGenome } from './genomeParser.js';
 import { parseStructuredPetName } from './nameParser.js';
 import { getSetting, setSetting } from './settingsService.js';
@@ -70,12 +71,15 @@ function countGenes(genomeData: unknown): { total: number; known: number; unknow
   return { total, known, unknown };
 }
 
+/** Build an empty stats entry — exported so the comparison view can fall back on it. */
+export function emptyStatsEntry(): GeneStatsEntry {
+  return { positive: 0, negative: 0, dominant: 0, recessive: 0, mixed: 0 };
+}
+
 /**
  * Count the genes in a genome that confer a confirmed positive attribute
- * effect. Reads pre-parsed attribute/sign columns on the genes table.
- *
- * Defensive: malformed JSON or unexpected shapes return 0 instead of
- * throwing — upload/update can't afford to abort on a single bad row.
+ * effect. Returns 0 on malformed input — upload/update can't abort on a
+ * single bad row.
  */
 export async function computePositiveGenesForGenome(
   genomeData: string | Genome,
@@ -95,10 +99,9 @@ export async function computePositiveGenesForGenome(
         if (!g || typeof g !== 'object') continue;
         const type = g.gene_type;
         if (!type || type === '?') continue;
-        const geneId = `${g.chromosome}${g.block}${g.position}`;
-        const gd = parsedGenes[geneId];
+        const gd = parsedGenes[toGeneId(g)];
         if (!gd) continue;
-        if (species === 'horse' && breed && breed !== 'Mixed' && gd.breed && gd.breed !== breed) continue;
+        if (isHorseBreedFiltered(species, breed, gd.breed)) continue;
         const sign = type === 'R' ? gd.recessiveSign : gd.dominantSign;
         if (sign === '+') count++;
       }
@@ -110,12 +113,9 @@ export async function computePositiveGenesForGenome(
 }
 
 /**
- * Compute per-attribute gene stats for one pet by aggregating pet_genes
- * rows against the cached parsed-effect columns from the genes table.
- *
- * Horse breed filter: a breed-mismatched gene increments `totalGenes` but
- * contributes to neither `stats` nor `neutralGenes` — it's silently
- * dropped (this matches what the visualizer and stats table expect).
+ * Per-attribute gene stats for one pet, aggregated from pet_genes against
+ * the cached parsed-effect columns. Breed-mismatched horse genes count
+ * toward `totalGenes` but contribute to neither `stats` nor `neutralGenes`.
  */
 export async function getPetGeneStats(
   petId: number,
@@ -129,10 +129,9 @@ export async function getPetGeneStats(
     { pid: petId },
   );
   const parsedGenes = await getParsedGenesCached(speciesKey);
-  const attrNames = getAllAttributeNames(speciesKey).map((n) => capitalize(n));
   const stats: Record<string, GeneStatsEntry> = {};
-  for (const a of attrNames) {
-    stats[a] = { positive: 0, negative: 0, dominant: 0, recessive: 0, mixed: 0 };
+  for (const attr of getAttributeConfig(speciesKey).attributes) {
+    stats[attr.key] = emptyStatsEntry();
   }
 
   let totalGenes = 0;
@@ -144,27 +143,20 @@ export async function getPetGeneStats(
 
     const gd = parsedGenes[row.gene_id];
 
-    if (speciesKey === 'horse' && breed && breed !== 'Mixed' && gd?.breed && gd.breed !== breed) {
-      continue;
-    }
+    if (isHorseBreedFiltered(speciesKey, breed, gd?.breed)) continue;
 
     const isRecessive = row.gene_type === 'R';
     const attribute = isRecessive ? gd?.recessiveAttribute : gd?.dominantAttribute;
     const sign = isRecessive ? gd?.recessiveSign : gd?.dominantSign;
 
-    if (!attribute || !sign) {
-      neutralGenes++;
-      continue;
-    }
-
-    const entry = stats[capitalize(attribute)];
-    if (!entry) {
+    const entry = attribute ? stats[capitalize(attribute)] : undefined;
+    if (!entry || !sign) {
       neutralGenes++;
       continue;
     }
 
     if (sign === '+') entry.positive++;
-    if (sign === '-') entry.negative++;
+    else entry.negative++;
     if (row.gene_type === 'D') entry.dominant++;
     else if (row.gene_type === 'R') entry.recessive++;
     else if (row.gene_type === 'x') entry.mixed++;
@@ -582,7 +574,7 @@ async function writePetGenes(petId: number, genome: Genome): Promise<void> {
   const entries: Array<{ geneId: string; geneType: string }> = [];
   for (const chrGenes of Object.values(genome.genes)) {
     for (const g of chrGenes) {
-      entries.push({ geneId: `${g.chromosome}${g.block}${g.position}`, geneType: g.gene_type });
+      entries.push({ geneId: toGeneId(g), geneType: g.gene_type });
     }
   }
 
