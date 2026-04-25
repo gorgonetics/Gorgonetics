@@ -317,6 +317,8 @@ export interface ParsedGeneRecord {
   breed: string;
 }
 
+const narrowSign = (s: unknown): '+' | '-' | null => (s === '+' || s === '-' ? s : null);
+
 const parsedGenesCache = new Map<string, Promise<Record<string, ParsedGeneRecord>>>();
 
 /**
@@ -357,9 +359,9 @@ export async function getParsedGenesCached(species: string): Promise<Record<stri
     for (const r of rows) {
       map[r.gene] = {
         dominantAttribute: r.dominant_attribute ?? null,
-        dominantSign: (r.dominant_sign as '+' | '-' | null) ?? null,
+        dominantSign: narrowSign(r.dominant_sign),
         recessiveAttribute: r.recessive_attribute ?? null,
-        recessiveSign: (r.recessive_sign as '+' | '-' | null) ?? null,
+        recessiveSign: narrowSign(r.recessive_sign),
         breed: r.breed ?? '',
       };
     }
