@@ -29,39 +29,54 @@ async fn db_execute_transaction(
     statements: Vec<TxStatement>,
     instances: State<'_, DbInstances>,
 ) -> Result<Vec<TxResult>, String> {
-    let instances = instances.0.read().await;
-    let pool = instances
-        .get(&db)
-        .ok_or_else(|| format!("db '{db}' not found"))?;
-
-    match pool {
-        DbPool::Sqlite(pool) => {
-            let mut tx = pool.begin().await.map_err(|e| e.to_string())?;
-            let mut results = Vec::with_capacity(statements.len());
-            for stmt in statements {
-                let mut q = sqlx::query(&stmt.sql);
-                for v in stmt.params {
-                    if v.is_null() {
-                        q = q.bind(None::<JsonValue>);
-                    } else if v.is_string() {
-                        q = q.bind(v.as_str().unwrap().to_owned());
-                    } else if let Some(n) = v.as_number() {
-                        q = q.bind(n.as_f64().unwrap_or_default());
-                    } else {
-                        q = q.bind(v);
-                    }
-                }
-                let r = (&mut *tx).execute(q).await.map_err(|e| e.to_string())?;
-                results.push(TxResult {
-                    rows_affected: r.rows_affected(),
-                    last_insert_id: r.last_insert_rowid(),
-                });
-            }
-            tx.commit().await.map_err(|e| e.to_string())?;
-            Ok(results)
+    // Clone the Pool<Sqlite> (cheap — it's Arc-wrapped) and drop the
+    // read-guard before doing real work, so a long transaction doesn't
+    // block writers on DbInstances (db close/reload, etc).
+    let pool = {
+        let instances = instances.0.read().await;
+        match instances.get(&db) {
+            Some(DbPool::Sqlite(pool)) => pool.clone(),
+            Some(_) => return Err("db_execute_transaction only supports sqlite pools".into()),
+            None => return Err(format!("db '{db}' not found")),
         }
-        _ => Err("db_execute_transaction only supports sqlite pools".into()),
+    };
+
+    let mut tx = pool.begin().await.map_err(|e| e.to_string())?;
+    let mut results = Vec::with_capacity(statements.len());
+    for stmt in statements {
+        let mut q = sqlx::query(&stmt.sql);
+        for v in stmt.params {
+            if v.is_null() {
+                q = q.bind(None::<JsonValue>);
+            } else if v.is_string() {
+                q = q.bind(v.as_str().unwrap().to_owned());
+            } else if let Some(n) = v.as_number() {
+                // Bind integers as i64 so WHERE clauses match correctly.
+                // f64-binding all numbers (which is what tauri-plugin-sql
+                // itself does in `execute`) silently degrades int IDs.
+                if let Some(i) = n.as_i64() {
+                    q = q.bind(i);
+                } else if let Some(u) = n.as_u64() {
+                    let i = i64::try_from(u)
+                        .map_err(|_| format!("numeric parameter out of range for SQLite INTEGER: {u}"))?;
+                    q = q.bind(i);
+                } else if let Some(f) = n.as_f64() {
+                    q = q.bind(f);
+                } else {
+                    return Err(format!("numeric parameter cannot be represented in SQLite: {n}"));
+                }
+            } else {
+                q = q.bind(v);
+            }
+        }
+        let r = (&mut *tx).execute(q).await.map_err(|e| e.to_string())?;
+        results.push(TxResult {
+            rows_affected: r.rows_affected(),
+            last_insert_id: r.last_insert_rowid(),
+        });
     }
+    tx.commit().await.map_err(|e| e.to_string())?;
+    Ok(results)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

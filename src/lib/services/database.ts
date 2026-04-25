@@ -77,6 +77,7 @@ class TauriDatabaseAdapter implements DatabaseAdapter {
   }
 
   async transaction(statements: TxStatement[]): Promise<QueryResult[]> {
+    if (statements.length === 0) return [];
     const payload = statements.map((s) => {
       const { query, values } = resolveNamedParams(s.sql, s.params ?? []);
       return { sql: query, params: values };
@@ -489,6 +490,7 @@ const REORDERABLE_TABLES = new Set(['pets', 'pet_images']);
 /** Update sort_order for rows in a table based on their position in the array. */
 export async function reorderRows(table: 'pets' | 'pet_images', orderedIds: number[]): Promise<void> {
   if (!REORDERABLE_TABLES.has(table)) throw new Error(`Table '${table}' is not reorderable`);
+  if (orderedIds.length === 0) return;
   const statements: TxStatement[] = orderedIds.map((id, i) => ({
     sql: `UPDATE ${table} SET sort_order = $order WHERE id = $id`,
     params: { order: i, id },
