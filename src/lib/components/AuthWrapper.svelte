@@ -23,40 +23,39 @@ onMount(async () => {
   await settingsActions.load();
   ready = true;
 
-  // The gene-effects DB is populated, so backfill can compute positive_genes
-  // for existing pets — but we deliberately don't await it. On large stables
-  // it's CPU-bound enough to block the UI for minutes; running it off the
-  // critical path lets the app open immediately and the stable table fills
-  // in as pets are re-read from the DB.
-  backfillPositiveGenesIfNeeded()
-    .then(() => {
-      // Refresh the pets store so updated positive_genes values surface
-      // without a manual reload.
-      void appState.loadPets();
-    })
-    .catch((err) => {
+  // Run startup backfills sequentially, off the critical path. They each
+  // briefly hold SQLite's writer lock; running them in parallel just makes
+  // them fight for it (issue #149). parsed-effects must come first because
+  // positive_genes reads the parsed columns it populates.
+  void (async () => {
+    try {
+      await backfillParsedGeneEffectsIfNeeded();
+    } catch (err) {
+      console.warn('parsed-effects backfill aborted:', err);
+    }
+
+    try {
+      await backfillPositiveGenesIfNeeded();
+    } catch (err) {
       console.warn('positive_genes backfill aborted:', err);
-    });
+    }
 
-  backfillParsedGeneEffectsIfNeeded().catch((err) => {
-    console.warn('parsed-effects backfill aborted:', err);
-  });
-
-  backfillPetGenesIfNeeded()
-    .then((wrote) => {
-      if (wrote) void appState.loadPets();
-    })
-    .catch((err) => {
+    try {
+      await backfillPetGenesIfNeeded();
+    } catch (err) {
       console.warn('pet_genes backfill aborted:', err);
-    });
+    }
 
-  backfillGeneCountsIfNeeded()
-    .then((wrote) => {
-      if (wrote) void appState.loadPets();
-    })
-    .catch((err) => {
+    try {
+      await backfillGeneCountsIfNeeded();
+    } catch (err) {
       console.warn('gene_counts backfill aborted:', err);
-    });
+    }
+
+    // One trailing reload picks up anything any of the backfills wrote;
+    // a no-op SELECT on a fresh-install run is cheap.
+    void appState.loadPets();
+  })();
 });
 </script>
 
