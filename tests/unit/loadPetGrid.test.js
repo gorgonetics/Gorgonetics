@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { closeDatabase, initDatabase } from '$lib/services/database.js';
-import { genomeToGeneStrings, parseGenome } from '$lib/services/genomeParser.js';
+import { compareBlockLetters, genomeToGeneStrings, parseGenome } from '$lib/services/genomeParser.js';
 import { runMigrations } from '$lib/services/migrationService.js';
 import * as petService from '$lib/services/petService.js';
 import { fromGeneId, parseGenesByBlock, toGeneId } from '$lib/utils/geneAnalysis.js';
@@ -86,18 +86,50 @@ describe('loadPetGridFromDb', () => {
     }
   });
 
-  it('returns an empty record for a pet with no pet_genes rows', async () => {
+  it('returns an empty record when the pet does not exist at all', async () => {
+    // No pets row → fallback can't find genome_data → still {}.
     const grid = await petService.loadPetGridFromDb(9999);
     expect(grid).toEqual({});
   });
 
-  it('orders blocks A, B, ..., Z, AA, AB by length-then-lex', async () => {
-    // Synthetic check: two single-letter blocks should come before any
-    // (hypothetical) two-letter block. The MULTI_BLOCK_BEEWASP has
-    // chromosome 1 with blocks A and B; verify ordering is deterministic.
+  it('falls back to genome_data when pet_genes is empty for a real pet', async () => {
+    // Simulates an un-backfilled legacy pet: row exists in `pets`,
+    // genome_data is intact, but pet_genes hasn't been populated yet.
+    const upload = await petService.uploadPet(MULTI_BLOCK_BEEWASP, 'Legacy', 'Female');
+    const db = (await import('$lib/services/database.js')).getDb();
+    await db.execute('DELETE FROM pet_genes WHERE pet_id = $id', { id: upload.pet_id });
+
+    const grid = await petService.loadPetGridFromDb(upload.pet_id);
+    const reference = parseGenesByBlock(genomeToGeneStrings(parseGenome(MULTI_BLOCK_BEEWASP)));
+    expect(Object.keys(grid)).toEqual(Object.keys(reference));
+    for (const chr of Object.keys(reference)) {
+      expect(grid[chr].allGenes).toEqual(reference[chr].allGenes);
+    }
+
+    // Fallback also writes pet_genes back, so the next call sees rows.
+    const writtenRows = await db.select('SELECT COUNT(*) as n FROM pet_genes WHERE pet_id = $id', {
+      id: upload.pet_id,
+    });
+    expect(writtenRows[0].n).toBeGreaterThan(0);
+  });
+
+  it('lays out single-letter blocks for a typical small genome', async () => {
+    // The realistic case: chromosome 01 of MULTI_BLOCK_BEEWASP has
+    // blocks A, B, C — verify the loader produces them in order.
     const upload = await petService.uploadPet(MULTI_BLOCK_BEEWASP, 'Multi', 'Female');
     const grid = await petService.loadPetGridFromDb(upload.pet_id);
-    const chr1Blocks = grid['01'].blocks.map((b) => b.letter);
-    expect(chr1Blocks).toEqual(['A', 'B', 'C']);
+    expect(grid['01'].blocks.map((b) => b.letter)).toEqual(['A', 'B', 'C']);
+  });
+});
+
+describe('compareBlockLetters orders A..Z, AA, AB consistently with blockLetter', () => {
+  it('puts single-letter blocks before multi-letter blocks', () => {
+    const sorted = ['AA', 'B', 'A', 'BA', 'AB', 'Z'].slice().sort(compareBlockLetters);
+    expect(sorted).toEqual(['A', 'B', 'Z', 'AA', 'AB', 'BA']);
+  });
+
+  it('returns 0 for equal letters', () => {
+    expect(compareBlockLetters('A', 'A')).toBe(0);
+    expect(compareBlockLetters('AA', 'AA')).toBe(0);
   });
 });

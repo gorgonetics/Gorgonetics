@@ -100,22 +100,53 @@ export async function computePositiveGenesForGenome(
   }
 }
 
+async function selectPetGenesRows(petId: number): Promise<{ gene_id: string; gene_type: string }[]> {
+  return getDb().select<{ gene_id: string; gene_type: string }[]>(
+    'SELECT gene_id, gene_type FROM pet_genes WHERE pet_id = $pid',
+    { pid: petId },
+  );
+}
+
+/**
+ * Populate `pet_genes` for a single pet from its `genome_data`. Used as
+ * a fallback for pets uploaded before the projection existed and not
+ * yet reached by the startup backfill — without this, the visualizer
+ * would render empty for those pets.
+ */
+async function ensurePetGenesPopulated(petId: number): Promise<boolean> {
+  const db = getDb();
+  const rows = await db.select<{ genome_data: string }[]>('SELECT genome_data FROM pets WHERE id = $id', { id: petId });
+  if (rows.length === 0) return false;
+  let genome: Genome;
+  try {
+    genome = JSON.parse(rows[0].genome_data) as Genome;
+  } catch {
+    return false;
+  }
+  await withTransaction(() => writePetGenes(petId, genome));
+  return true;
+}
+
 /**
  * Load a pet's grid from `pet_genes`, returning the same structure
  * `parseGenesByBlock` produces from genome JSON. The visualizer uses
- * this as its canonical source of grid data — no `genome_data` parse.
+ * this as its canonical source of grid data — no `genome_data` parse
+ * on the read path.
  *
  * Block ordering matches `blockLetter`: shorter strings before longer,
  * lex within length (A, B, ..., Z, AA, AB, ...). Chromosomes sort by
  * numeric value, positions ascend within a block. `globalPosition` is
  * assigned in iteration order to match `parseGenesByBlock` exactly.
+ *
+ * If `pet_genes` is empty for a pet that does exist (un-backfilled
+ * legacy row), this populates it inline and retries — so the visualizer
+ * never sees a phantom empty grid for an otherwise-valid pet.
  */
 export async function loadPetGridFromDb(petId: number): Promise<Record<string, ParsedChromosome>> {
-  const db = getDb();
-  const rows = await db.select<{ gene_id: string; gene_type: string }[]>(
-    'SELECT gene_id, gene_type FROM pet_genes WHERE pet_id = $pid',
-    { pid: petId },
-  );
+  let rows = await selectPetGenesRows(petId);
+  if (rows.length === 0 && (await ensurePetGenesPopulated(petId))) {
+    rows = await selectPetGenesRows(petId);
+  }
 
   type RawGene = { id: string; type: string; position: number };
   const byChromosome = new Map<string, Map<string, RawGene[]>>();
