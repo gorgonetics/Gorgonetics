@@ -35,8 +35,10 @@ async fn db_execute_transaction(
     let pool = {
         let instances = instances.0.read().await;
         match instances.get(&db) {
+            // The plugin's `DbPool` only has the `Sqlite` variant under
+            // our feature set; if mysql/postgres are ever enabled here,
+            // exhaustiveness checking will flag the new arms.
             Some(DbPool::Sqlite(pool)) => pool.clone(),
-            Some(_) => return Err("db_execute_transaction only supports sqlite pools".into()),
             None => return Err(format!("db '{db}' not found")),
         }
     };
