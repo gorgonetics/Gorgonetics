@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 /**
  * Build-time generator that turns `src/lib/theme/gene-colors-data.json`
- * into `src/lib/theme/gene-colors.generated.css`. Runs as a `predev` /
- * `prebuild` hook so the CSS file is always in sync with the JSON.
+ * into `src/lib/theme/gene-colors.generated.css`. Wired as the first step
+ * of `pnpm dev` and `pnpm build` (chained with `&&`) so the CSS file is
+ * always in sync with the JSON. Also exposed as `pnpm gen:gene-colors-css`
+ * for manual runs.
  *
  * The generated file is committed (so cold checkouts can build without
  * running this first) but is treated as derived — edit `gene-colors-data.json`
@@ -30,7 +32,7 @@ function emitSection(title, vars) {
 const css = `/*
  * AUTO-GENERATED — do not edit.
  * Source: src/lib/theme/gene-colors-data.json
- * Regenerate: pnpm gen:gene-colors-css (also runs as predev / prebuild)
+ * Regenerate: pnpm gen:gene-colors-css (also runs from pnpm dev / pnpm build)
  */
 :root {
 ${emitSection('Effect colors', data.effects)}

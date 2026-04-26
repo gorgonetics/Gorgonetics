@@ -9,7 +9,12 @@
 
 import data from './gene-colors-data.json';
 
-export const EFFECT_COLORS = data.effects as Record<string, string>;
+// Keep the narrow key union TypeScript infers from the JSON for EFFECT_COLORS
+// — consumers access it by literal key (e.g. EFFECT_COLORS.positive), so
+// widening to Record<string, string> would lose compile-time validation.
+export const EFFECT_COLORS = data.effects;
+// Appearance maps are accessed via dynamic string keys inside the lookup
+// helpers below, so they're typed as the wider Record shape on purpose.
 export const BEEWASP_APPEARANCE_COLORS: Record<string, string> = data.beewaspAppearance;
 export const HORSE_APPEARANCE_COLORS: Record<string, string> = data.horseAppearance;
 
