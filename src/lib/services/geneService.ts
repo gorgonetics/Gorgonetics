@@ -2,11 +2,11 @@
  * Gene data service for Gorgonetics.
  */
 
-import { yieldToUI } from '$lib/utils/async.js';
 import { parsedEffectColumns } from '$lib/utils/geneAnalysis.js';
 import { now } from '$lib/utils/timestamp.js';
+import { runBatchBackfill } from './backfill.js';
 import { normalizeSpecies } from './configService.js';
-import { getDb } from './database.js';
+import { getDb, withTransaction } from './database.js';
 
 /**
  * Populate dominant_attribute / dominant_sign / recessive_attribute /
@@ -23,75 +23,69 @@ import { getDb } from './database.js';
  * by a stale parse.
  */
 export async function backfillParsedGeneEffectsIfNeeded(): Promise<void> {
+  type Row = {
+    animal_type: string;
+    gene: string;
+    effectDominant: string | null;
+    effectRecessive: string | null;
+    dominant_attribute: string | null;
+    recessive_attribute: string | null;
+  };
+  type Update = {
+    da: string | null;
+    ds: '+' | '-' | null;
+    ra: string | null;
+    rs: '+' | '-' | null;
+    at: string;
+    g: string;
+    sed: string;
+    ser: string;
+  };
   const db = getDb();
-  const rows = await db.select<
-    {
-      animal_type: string;
-      gene: string;
-      effectDominant: string | null;
-      effectRecessive: string | null;
-      dominant_attribute: string | null;
-      recessive_attribute: string | null;
-    }[]
-  >(
-    `SELECT animal_type, gene, effectDominant, effectRecessive,
-            dominant_attribute, recessive_attribute
-     FROM genes`,
-  );
-
-  const needsWork = rows.filter((row) => {
-    const dom = parsedEffectColumns(row.effectDominant);
-    const rec = parsedEffectColumns(row.effectRecessive);
-    // `== null` catches both SQL NULL (real SQLite) and `undefined` (the
-    // in-memory test adapter when a column was never written).
-    return (
-      (dom.attribute !== null && row.dominant_attribute == null) ||
-      (rec.attribute !== null && row.recessive_attribute == null)
-    );
+  await runBatchBackfill<Row, Update>({
+    label: 'parsed-effects backfill',
+    batchSize: 64,
+    loadWorkSet: () =>
+      db.select<Row[]>(
+        `SELECT animal_type, gene, effectDominant, effectRecessive,
+                dominant_attribute, recessive_attribute
+         FROM genes`,
+      ),
+    computeUpdate: (row) => {
+      const dom = parsedEffectColumns(row.effectDominant);
+      const rec = parsedEffectColumns(row.effectRecessive);
+      // `== null` catches both SQL NULL (real SQLite) and `undefined` (the
+      // in-memory test adapter when a column was never written).
+      const needsWork =
+        (dom.attribute !== null && row.dominant_attribute == null) ||
+        (rec.attribute !== null && row.recessive_attribute == null);
+      if (!needsWork) return null;
+      return {
+        da: dom.attribute,
+        ds: dom.sign,
+        ra: rec.attribute,
+        rs: rec.sign,
+        at: row.animal_type,
+        g: row.gene,
+        sed: row.effectDominant ?? '',
+        ser: row.effectRecessive ?? '',
+      };
+    },
+    applyBatch: (updates) =>
+      withTransaction(async () => {
+        for (const u of updates) {
+          await db.execute(
+            `UPDATE genes
+             SET dominant_attribute = $da, dominant_sign = $ds,
+                 recessive_attribute = $ra, recessive_sign = $rs
+             WHERE animal_type = $at AND gene = $g
+               AND COALESCE(effectDominant, '') = $sed
+               AND COALESCE(effectRecessive, '') = $ser`,
+            u,
+          );
+        }
+      }),
   });
-
-  if (needsWork.length === 0) return;
-
-  console.info(`parsed-effects backfill: ${needsWork.length} rows need updating`);
-
-  const BATCH = 64;
-  for (let i = 0; i < needsWork.length; i += BATCH) {
-    const slice = needsWork.slice(i, i + BATCH);
-    await db.execute('BEGIN');
-    try {
-      for (const row of slice) {
-        const dom = parsedEffectColumns(row.effectDominant);
-        const rec = parsedEffectColumns(row.effectRecessive);
-        await db.execute(
-          `UPDATE genes
-           SET dominant_attribute = $da, dominant_sign = $ds,
-               recessive_attribute = $ra, recessive_sign = $rs
-           WHERE animal_type = $at AND gene = $g
-             AND COALESCE(effectDominant, '') = $sed
-             AND COALESCE(effectRecessive, '') = $ser`,
-          {
-            da: dom.attribute,
-            ds: dom.sign,
-            ra: rec.attribute,
-            rs: rec.sign,
-            at: row.animal_type,
-            g: row.gene,
-            sed: row.effectDominant ?? '',
-            ser: row.effectRecessive ?? '',
-          },
-        );
-      }
-      await db.execute('COMMIT');
-    } catch (e) {
-      await db.execute('ROLLBACK');
-      throw e;
-    }
-    const processed = Math.min(i + BATCH, needsWork.length);
-    console.info(`parsed-effects backfill: ${processed}/${needsWork.length}`);
-    await yieldToUI();
-  }
-
-  console.info('parsed-effects backfill: done');
 }
 
 /**
