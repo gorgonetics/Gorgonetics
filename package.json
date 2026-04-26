@@ -1,6 +1,6 @@
 {
   "name": "gorgonetics",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "description": "Gorgon genetics breeding tool for Project Gorgon",
   "type": "module",
   "private": true,
@@ -58,6 +58,8 @@
   "author": "Javier Lopez Pena",
   "license": "MIT",
   "pnpm": {
-    "onlyBuiltDependencies": ["esbuild"]
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
   }
 }
