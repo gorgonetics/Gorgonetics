@@ -15,7 +15,7 @@ import type {
 } from '$lib/types/index.js';
 import { isTauri } from '$lib/utils/environment.js';
 import { now } from '$lib/utils/timestamp.js';
-import { getDb } from './database.js';
+import { getDb, type TxStatement } from './database.js';
 import { saveExportBinaryFile } from './fileService.js';
 import { CURRENT_SCHEMA_VERSION, getSchemaVersion } from './migrationService.js';
 
@@ -217,6 +217,48 @@ export async function importDatabase(source: Uint8Array | LoadedBackup, options:
   return importFromZip(loaded.zip, options);
 }
 
+// SQLite's default SQLITE_MAX_VARIABLE_NUMBER is 999. Cap each multi-row
+// INSERT under that, with a small safety margin so future column additions
+// don't silently drift over the limit.
+const MAX_SQL_VARS = 900;
+
+type InsertConflictMode = 'fail' | 'replace' | 'ignore';
+
+const INSERT_VERB: Record<InsertConflictMode, string> = {
+  fail: 'INSERT INTO',
+  replace: 'INSERT OR REPLACE INTO',
+  ignore: 'INSERT OR IGNORE INTO',
+};
+
+/**
+ * Build a list of multi-row INSERT statements for `rows`, chunked so that
+ * each statement stays under SQLite's parameter limit. The caller submits
+ * the resulting list via `db.transaction([...])` for real cross-statement
+ * atomicity (the legacy BEGIN/COMMIT pair is a no-op on the Tauri adapter).
+ */
+function buildBatchInserts(
+  table: string,
+  columns: readonly string[],
+  rows: ReadonlyArray<Record<string, unknown>>,
+  conflict: InsertConflictMode = 'fail',
+): TxStatement[] {
+  if (rows.length === 0) return [];
+  const verb = INSERT_VERB[conflict];
+  const colList = columns.join(', ');
+  const chunkSize = Math.max(1, Math.floor(MAX_SQL_VARS / Math.max(1, columns.length)));
+  const out: TxStatement[] = [];
+  for (let i = 0; i < rows.length; i += chunkSize) {
+    const chunk = rows.slice(i, i + chunkSize);
+    const placeholders = chunk.map((_, j) => `(${columns.map((c) => `$${c}_${j}`).join(', ')})`).join(', ');
+    const params: Record<string, unknown> = {};
+    chunk.forEach((row, j) => {
+      for (const col of columns) params[`${col}_${j}`] = row[col] ?? null;
+    });
+    out.push({ sql: `${verb} ${table} (${colList}) VALUES ${placeholders}`, params });
+  }
+  return out;
+}
+
 /** Shared gene/pet import logic used by both v1 and v2 paths. */
 async function importGenesAndPets(
   genes: Record<string, unknown>[] | null,
@@ -228,11 +270,6 @@ async function importGenesAndPets(
   let petsImported = 0;
   let petsSkipped = 0;
 
-  const genePlaceholders = GENE_COLUMNS.map((col) => `$${col}`).join(', ');
-  const geneSQL = `INSERT OR REPLACE INTO genes (${GENE_COLUMNS.join(', ')}) VALUES (${genePlaceholders})`;
-  const petPlaceholders = PET_COLUMNS.map((col) => `$${col}`).join(', ');
-  const petSQL = `INSERT INTO pets (${PET_COLUMNS.join(', ')}) VALUES (${petPlaceholders})`;
-
   let existingHashes: Set<string> | null = null;
   let sortOrderOffset = 0;
   if (options.mode === 'merge') {
@@ -243,49 +280,51 @@ async function importGenesAndPets(
     sortOrderOffset = maxSortOrder + 1;
   }
 
-  await db.execute('BEGIN');
-  try {
-    if (options.mode === 'replace') {
-      if (options.includeGenes) await db.execute('DELETE FROM genes');
-      if (options.includeImages) await db.execute('DELETE FROM pet_images');
-      if (options.includePets) await db.execute('DELETE FROM pets');
-    }
+  // Build the entire write set ahead of time so it can run inside a single
+  // db.transaction() — that's what gives real cross-statement atomicity on
+  // the Tauri adapter (BEGIN/COMMIT through db.execute() are no-ops there).
+  const statements: TxStatement[] = [];
 
-    if (options.includeGenes && genes) {
-      for (const gene of genes) {
-        const params: Record<string, unknown> = {};
-        for (const col of GENE_COLUMNS) params[col] = gene[col] ?? null;
-        await db.execute(geneSQL, params);
-      }
-      genesImported = genes.length;
-    }
-
-    if (options.includePets && pets) {
-      for (const pet of pets) {
-        if (existingHashes?.has(pet.content_hash as string)) {
-          petsSkipped++;
-          continue;
-        }
-        let genomeData = pet.genome_data;
-        if (typeof genomeData === 'object' && genomeData !== null) genomeData = JSON.stringify(genomeData);
-        const params: Record<string, unknown> = {};
-        for (const col of PET_COLUMNS) {
-          if (col === 'genome_data') params[col] = genomeData;
-          else if (col === 'sort_order') params[col] = ((pet[col] as number) ?? 0) + sortOrderOffset;
-          else if (col === 'stabled') params[col] = pet[col] ?? 1;
-          else if (col === 'starred' || col === 'is_pet_quality') params[col] = pet[col] ?? 0;
-          else params[col] = pet[col] ?? null;
-        }
-        await db.execute(petSQL, params);
-        petsImported++;
-      }
-    }
-
-    await db.execute('COMMIT');
-  } catch (error) {
-    await db.execute('ROLLBACK');
-    throw error;
+  if (options.mode === 'replace') {
+    if (options.includeGenes) statements.push({ sql: 'DELETE FROM genes' });
+    if (options.includeImages) statements.push({ sql: 'DELETE FROM pet_images' });
+    if (options.includePets) statements.push({ sql: 'DELETE FROM pets' });
   }
+
+  if (options.includeGenes && genes && genes.length > 0) {
+    const geneRows = genes.map((g) => {
+      const row: Record<string, unknown> = {};
+      for (const col of GENE_COLUMNS) row[col] = g[col] ?? null;
+      return row;
+    });
+    statements.push(...buildBatchInserts('genes', GENE_COLUMNS, geneRows, 'replace'));
+    genesImported = genes.length;
+  }
+
+  if (options.includePets && pets) {
+    const petRows: Record<string, unknown>[] = [];
+    for (const pet of pets) {
+      if (existingHashes?.has(pet.content_hash as string)) {
+        petsSkipped++;
+        continue;
+      }
+      let genomeData = pet.genome_data;
+      if (typeof genomeData === 'object' && genomeData !== null) genomeData = JSON.stringify(genomeData);
+      const row: Record<string, unknown> = {};
+      for (const col of PET_COLUMNS) {
+        if (col === 'genome_data') row[col] = genomeData;
+        else if (col === 'sort_order') row[col] = ((pet[col] as number) ?? 0) + sortOrderOffset;
+        else if (col === 'stabled') row[col] = pet[col] ?? 1;
+        else if (col === 'starred' || col === 'is_pet_quality') row[col] = pet[col] ?? 0;
+        else row[col] = pet[col] ?? null;
+      }
+      petRows.push(row);
+    }
+    statements.push(...buildBatchInserts('pets', PET_COLUMNS, petRows));
+    petsImported = petRows.length;
+  }
+
+  if (statements.length > 0) await db.transaction(statements);
 
   return { genes: genesImported, pets: petsImported, petsSkipped };
 }
@@ -312,12 +351,16 @@ async function importFromZip(zip: JSZip, options: ImportOptions): Promise<Import
   const allPets = await db.select<{ id: number; content_hash: string }[]>('SELECT id, content_hash FROM pets');
   const hashToId = new Map(allPets.map((p) => [p.content_hash, p.id]));
 
-  // Import pet tags into junction table
+  // Import pet tags into junction table — same atomicity story: build the
+  // statement list and submit via db.transaction() so a partial failure
+  // doesn't leave half the tags written.
   if (options.includePets) {
+    const tagStatements: TxStatement[] = [];
     if (options.mode === 'replace') {
-      await db.execute('DELETE FROM pet_tags');
+      tagStatements.push({ sql: 'DELETE FROM pet_tags' });
     }
 
+    const tagInserts: Record<string, unknown>[] = [];
     const petTagsFile = zip.file('pet_tags.json');
     if (petTagsFile) {
       // New format: pet_tags.json with { content_hash, tag } rows
@@ -329,12 +372,7 @@ async function importFromZip(zip: JSZip, options: ImportOptions): Promise<Import
         const normalized = record.tag.trim().toLowerCase();
         if (!normalized) continue;
         const petId = hashToId.get(record.content_hash);
-        if (petId) {
-          await db.execute('INSERT OR IGNORE INTO pet_tags (pet_id, tag) VALUES ($pet_id, $tag)', {
-            pet_id: petId,
-            tag: normalized,
-          });
-        }
+        if (petId) tagInserts.push({ pet_id: petId, tag: normalized });
       }
     } else if (pets) {
       // Backward compat: v6 backups with tags as JSON array on each pet
@@ -353,14 +391,15 @@ async function importFromZip(zip: JSZip, options: ImportOptions): Promise<Import
         }
         for (const tag of tags) {
           if (typeof tag === 'string' && tag.trim()) {
-            await db.execute('INSERT OR IGNORE INTO pet_tags (pet_id, tag) VALUES ($pet_id, $tag)', {
-              pet_id: petId,
-              tag: tag.trim().toLowerCase(),
-            });
+            tagInserts.push({ pet_id: petId, tag: tag.trim().toLowerCase() });
           }
         }
       }
     }
+    if (tagInserts.length > 0) {
+      tagStatements.push(...buildBatchInserts('pet_tags', ['pet_id', 'tag'], tagInserts, 'ignore'));
+    }
+    if (tagStatements.length > 0) await db.transaction(tagStatements);
   }
 
   let imagesImported = 0;
