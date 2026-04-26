@@ -174,12 +174,12 @@ export async function exportDatabase(options: ExportOptions): Promise<ExportResu
 
 // --- Import ---
 
-export async function inspectBackup(fileData: Uint8Array): Promise<GorgonExportMetadata> {
-  const zip = await JSZip.loadAsync(fileData);
-  const metaFile = zip.file('metadata.json');
-  if (!metaFile) throw new Error('Backup archive is missing metadata.json.');
-  const metaJson = await metaFile.async('string');
-  const metadata = JSON.parse(metaJson) as GorgonExportMetadata;
+export interface LoadedBackup {
+  zip: JSZip;
+  metadata: GorgonExportMetadata;
+}
+
+function validateMetadata(metadata: GorgonExportMetadata): void {
   if (metadata.format !== EXPORT_FORMAT) throw new Error('Not a Gorgonetics backup file.');
   if (metadata.format_version > EXPORT_FORMAT_VERSION) {
     throw new Error(
@@ -189,13 +189,32 @@ export async function inspectBackup(fileData: Uint8Array): Promise<GorgonExportM
   if (metadata.schema_version > CURRENT_SCHEMA_VERSION) {
     throw new Error(`This backup uses a newer database schema (v${metadata.schema_version}). Please update the app.`);
   }
-  return metadata;
 }
 
-export async function importDatabase(fileData: Uint8Array, options: ImportOptions): Promise<ImportResult> {
-  // Validate before importing
-  await inspectBackup(fileData);
-  return importFromZip(fileData, options);
+export async function loadBackup(fileData: Uint8Array): Promise<LoadedBackup> {
+  const zip = await JSZip.loadAsync(fileData);
+  const metaFile = zip.file('metadata.json');
+  if (!metaFile) throw new Error('Backup archive is missing metadata.json.');
+  const metaJson = await metaFile.async('string');
+  const metadata = JSON.parse(metaJson) as GorgonExportMetadata;
+  validateMetadata(metadata);
+  return { zip, metadata };
+}
+
+export async function inspectBackup(fileData: Uint8Array): Promise<GorgonExportMetadata> {
+  return (await loadBackup(fileData)).metadata;
+}
+
+function isLoadedBackup(source: Uint8Array | LoadedBackup): source is LoadedBackup {
+  return typeof source === 'object' && source !== null && 'zip' in source && 'metadata' in source;
+}
+
+export async function importDatabase(source: Uint8Array | LoadedBackup, options: ImportOptions): Promise<ImportResult> {
+  const loaded = isLoadedBackup(source) ? source : await loadBackup(source);
+  // Re-validate even for pre-loaded backups: the LoadedBackup shape is plain
+  // data and a caller could construct one without going through loadBackup.
+  validateMetadata(loaded.metadata);
+  return importFromZip(loaded.zip, options);
 }
 
 /** Shared gene/pet import logic used by both v1 and v2 paths. */
@@ -271,9 +290,7 @@ async function importGenesAndPets(
   return { genes: genesImported, pets: petsImported, petsSkipped };
 }
 
-async function importFromZip(fileData: Uint8Array, options: ImportOptions): Promise<ImportResult> {
-  const zip = await JSZip.loadAsync(fileData);
-
+async function importFromZip(zip: JSZip, options: ImportOptions): Promise<ImportResult> {
   // Extract data from zip
   let genes: Record<string, unknown>[] | null = null;
   let pets: Record<string, unknown>[] | null = null;

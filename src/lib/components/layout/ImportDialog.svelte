@@ -3,7 +3,8 @@ import { importDatabase } from '$lib/services/backupService.js';
 import { appState } from '$lib/stores/pets.js';
 import { focusTrap } from '$lib/utils/focusTrap.js';
 
-const { metadata, fileData, onClose, onResult } = $props();
+const { backup, onClose, onResult } = $props();
+const metadata = $derived(backup?.metadata ?? null);
 
 /** @type {'replace' | 'merge'} */
 let mode = $state('replace');
@@ -20,7 +21,7 @@ const isV1 = $derived((metadata?.format_version ?? 1) < 2);
 async function handleImport() {
   importing = true;
   try {
-    const result = await importDatabase(fileData, {
+    const result = await importDatabase(backup, {
       mode,
       includeGenes: includeGenes && hasGenes,
       includePets: includePets && hasPets,
