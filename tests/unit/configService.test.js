@@ -4,6 +4,7 @@ import {
   getAppearanceAttributeNames,
   getAppearanceConfig,
   getAttributeConfig,
+  getAttributeMatcher,
   getCoreAttributeNames,
   getDatabaseColumns,
   getDefaultValues,
@@ -213,5 +214,46 @@ describe('validateAttributeDict', () => {
   it('returns error for non-numeric value', () => {
     const errors = validateAttributeDict({ toughness: 'abc' }, 'beewasp');
     expect(errors.toughness).toBeDefined();
+  });
+});
+
+describe('getAttributeMatcher', () => {
+  it('returns the cached instance on repeat lookups', () => {
+    const a = getAttributeMatcher('beewasp');
+    const b = getAttributeMatcher('beewasp');
+    expect(a).toBe(b);
+  });
+
+  it('keeps separate matchers per species', () => {
+    const bee = getAttributeMatcher('beewasp');
+    const horse = getAttributeMatcher('horse');
+    expect(bee).not.toBe(horse);
+    expect(bee.names).toContain('Ferocity');
+    expect(bee.names).not.toContain('Temperament');
+    expect(horse.names).toContain('Temperament');
+    expect(horse.names).not.toContain('Ferocity');
+  });
+
+  it('finds the attribute named in a single-attribute effect', () => {
+    const { regex } = getAttributeMatcher('beewasp');
+    regex.lastIndex = 0;
+    expect(regex.exec('Intelligence+')?.[0]).toBe('Intelligence');
+    regex.lastIndex = 0;
+    expect(regex.exec('Toughness-')?.[0]).toBe('Toughness');
+  });
+
+  it('returns all attributes named in a multi-attribute effect', () => {
+    const { regex } = getAttributeMatcher('beewasp');
+    regex.lastIndex = 0;
+    const matches = 'Intelligence+ Toughness-'.match(regex);
+    expect(matches).toEqual(['Intelligence', 'Toughness']);
+  });
+
+  it('returns null match for an empty / no-effect string', () => {
+    const { regex } = getAttributeMatcher('beewasp');
+    regex.lastIndex = 0;
+    expect(regex.exec('')).toBeNull();
+    regex.lastIndex = 0;
+    expect(regex.exec('None')).toBeNull();
   });
 });

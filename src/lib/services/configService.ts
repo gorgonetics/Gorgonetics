@@ -304,6 +304,41 @@ export function getAttributeConfig(species: string): {
 }
 
 /**
+ * Per-species matcher for finding attribute names inside gene effect strings.
+ * `names` is the canonical-cased attribute list (kept for array-order semantics
+ * in single-attribute lookups); `regex` is a single alternation built once and
+ * reused for every effect-string scan.
+ */
+export interface AttributeMatcher {
+  names: readonly string[];
+  regex: RegExp;
+}
+
+const attributeMatcherCache = new Map<string, AttributeMatcher>();
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Build (or fetch the cached) attribute matcher for a species. Computed once
+ * per species per JS realm — the underlying attribute list is static.
+ */
+export function getAttributeMatcher(species: string): AttributeMatcher {
+  const normalized = normalizeSpecies(species);
+  const cached = attributeMatcherCache.get(normalized);
+  if (cached) return cached;
+  const names = getAllAttributeNames(species).map(capitalize);
+  // Sort longest-first so a hypothetical "Intelligence" beats "Int" in regex
+  // alternation order — JS regex picks the first matching alternative.
+  const sortedForRegex = [...names].sort((a, b) => b.length - a.length).map(escapeRegExp);
+  const regex = new RegExp(sortedForRegex.join('|'), 'g');
+  const matcher: AttributeMatcher = { names, regex };
+  attributeMatcherCache.set(normalized, matcher);
+  return matcher;
+}
+
+/**
  * Get all possible gene effect options.
  */
 export function getEffectOptions(): string[] {
