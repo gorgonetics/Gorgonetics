@@ -352,9 +352,9 @@ describe('Backup Service', () => {
       expect(result.pets).toBe(0);
     });
 
-    it('imports more rows than the batch chunk size in a single round-trip', async () => {
-      // Genes are batched at 80/chunk and pets at 40/chunk. Cross both
-      // boundaries to confirm chunking stitches results together correctly.
+    it('imports more rows than the batch chunk size across chunk boundaries', async () => {
+      // Cross both gene (~90/chunk) and pet (~40/chunk) chunk boundaries to
+      // confirm chunking stitches results together correctly.
       const manyGenes = Array.from({ length: 150 }, (_, i) => ({
         ...sampleGene,
         gene: `01A${String(i).padStart(3, '0')}`,
