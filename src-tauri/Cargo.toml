@@ -29,6 +29,11 @@ tauri-plugin-log = "2"
 tauri-plugin-sql = { version = "2", features = ["sqlite"] }
 tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
+# Used by the db_execute_transaction command to access sqlx's transaction
+# API directly — tauri-plugin-sql exposes only per-statement execute(),
+# so multi-statement atomicity needs a custom command (see issue #153).
+sqlx = { version = "0.8", default-features = false, features = ["sqlite", "runtime-tokio"] }
+tokio = { version = "1", features = ["sync"] }
 
 [target."cfg(not(any(target_os = \"android\", target_os = \"ios\")))".dependencies]
 tauri-plugin-updater = "2"
