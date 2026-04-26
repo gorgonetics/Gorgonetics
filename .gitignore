@@ -61,6 +61,10 @@ metadata.sqlite
 docs/superpowers/
 .superpowers/
 .omc/
+.claude/
+
+# Ad-hoc debug screenshots in repo root (Playwright captures live under tests/)
+/*.png
 
 # Misc
 *.backup
