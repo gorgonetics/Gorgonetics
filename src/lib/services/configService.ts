@@ -203,27 +203,81 @@ const SPECIES_MAPPINGS: Record<string, string[]> = {
   horse: ['horse'],
 };
 
+// --- Precomputed lookup tables ---
+// All attribute / species data is static for the lifetime of the JS realm,
+// so we build the lookup structures once here and freeze them. Public
+// getters below just return references — no per-call allocation or
+// Object.keys() walks on the hot path.
+
+const VARIANT_TO_SPECIES: ReadonlyMap<string, string> = (() => {
+  const m = new Map<string, string>();
+  for (const [canonical, variants] of Object.entries(SPECIES_MAPPINGS)) {
+    for (const variant of variants) m.set(variant, canonical);
+  }
+  return m;
+})();
+
+const VARIANT_ENTRIES: readonly (readonly [string, string])[] = Object.freeze(
+  [...VARIANT_TO_SPECIES.entries()].sort((a, b) => b[0].length - a[0].length).map((e) => Object.freeze(e)),
+);
+
+const CORE_ATTRIBUTE_NAMES_FROZEN: readonly string[] = Object.freeze(
+  CORE_ATTRIBUTE_ORDER.filter((attr) => attr in CORE_ATTRIBUTES),
+);
+
+const SPECIES_ATTRIBUTE_NAMES: Readonly<Record<string, readonly string[]>> = (() => {
+  const result: Record<string, readonly string[]> = {};
+  for (const [species, attrs] of Object.entries(SPECIES_ATTRIBUTES)) {
+    result[species] = Object.freeze(Object.keys(attrs));
+  }
+  return Object.freeze(result);
+})();
+
+const ALL_ATTRIBUTE_NAMES_BY_SPECIES: Readonly<Record<string, readonly string[]>> = (() => {
+  const result: Record<string, readonly string[]> = {};
+  for (const species of Object.keys(SPECIES_ATTRIBUTES)) {
+    result[species] = Object.freeze([...CORE_ATTRIBUTE_NAMES_FROZEN, ...SPECIES_ATTRIBUTE_NAMES[species]]);
+  }
+  return Object.freeze(result);
+})();
+
+const APPEARANCE_ATTRIBUTE_NAMES_BY_SPECIES: Readonly<Record<string, readonly string[]>> = (() => {
+  const result: Record<string, readonly string[]> = {};
+  for (const [species, attrs] of Object.entries(SPECIES_APPEARANCE_ATTRIBUTES)) {
+    result[species] = Object.freeze(Object.keys(attrs));
+  }
+  return Object.freeze(result);
+})();
+
+const EMPTY_FROZEN_ARRAY: readonly string[] = Object.freeze([]);
+
 // --- Public API ---
 
 /**
  * Normalize a species name to its canonical form.
+ *
+ * Tries an exact lookup against the precomputed variant index first, then
+ * falls back to a substring match (so values like "FaeBee" still resolve
+ * to "beewasp"). Variants are tested longest-first so a more specific
+ * canonical name wins over a broader alias.
  */
 export function normalizeSpecies(species: string): string {
   if (!species) return '';
   const lower = species.toLowerCase();
-  for (const [normalized, variants] of Object.entries(SPECIES_MAPPINGS)) {
-    for (const variant of variants) {
-      if (lower.includes(variant)) return normalized;
-    }
+  const direct = VARIANT_TO_SPECIES.get(lower);
+  if (direct) return direct;
+  for (const [variant, canonical] of VARIANT_ENTRIES) {
+    if (lower.includes(variant)) return canonical;
   }
   return '';
 }
 
 /**
- * Get ordered list of core attribute names.
+ * Get ordered list of core attribute names. Returns a shared frozen array —
+ * do not mutate. The list is the same for every species and every call.
  */
 export function getCoreAttributeNames(): string[] {
-  return CORE_ATTRIBUTE_ORDER.filter((attr) => attr in CORE_ATTRIBUTES);
+  return CORE_ATTRIBUTE_NAMES_FROZEN as string[];
 }
 
 /**
@@ -234,11 +288,12 @@ export function getCoreAttributes() {
 }
 
 /**
- * Get species-specific attribute names.
+ * Get species-specific attribute names. Returns a shared frozen array — do
+ * not mutate.
  */
 export function getSpeciesAttributeNames(species: string): string[] {
   const normalized = normalizeSpecies(species);
-  return normalized in SPECIES_ATTRIBUTES ? Object.keys(SPECIES_ATTRIBUTES[normalized]) : [];
+  return (SPECIES_ATTRIBUTE_NAMES[normalized] ?? EMPTY_FROZEN_ARRAY) as string[];
 }
 
 /**
@@ -250,10 +305,12 @@ export function getSpeciesAttributes(species: string) {
 }
 
 /**
- * Get all attribute names for a species (core + species-specific).
+ * Get all attribute names for a species (core + species-specific). Returns
+ * a shared frozen array — do not mutate.
  */
 export function getAllAttributeNames(species: string): string[] {
-  return [...getCoreAttributeNames(), ...getSpeciesAttributeNames(species)];
+  const normalized = normalizeSpecies(species);
+  return (ALL_ATTRIBUTE_NAMES_BY_SPECIES[normalized] ?? CORE_ATTRIBUTE_NAMES_FROZEN) as string[];
 }
 
 /**
@@ -391,11 +448,12 @@ export function getEffectOptionsForSpecies(species: string): string[] {
 }
 
 /**
- * Get appearance attribute names for a species.
+ * Get appearance attribute names for a species. Returns a shared frozen
+ * array — do not mutate.
  */
 export function getAppearanceAttributeNames(species: string): string[] {
   const normalized = normalizeSpecies(species);
-  return normalized in SPECIES_APPEARANCE_ATTRIBUTES ? Object.keys(SPECIES_APPEARANCE_ATTRIBUTES[normalized]) : [];
+  return (APPEARANCE_ATTRIBUTE_NAMES_BY_SPECIES[normalized] ?? EMPTY_FROZEN_ARRAY) as string[];
 }
 
 /**

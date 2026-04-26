@@ -40,6 +40,30 @@ describe('normalizeSpecies', () => {
   });
 });
 
+describe('precomputed name lookups', () => {
+  it('getCoreAttributeNames returns the same frozen reference on every call', () => {
+    const a = getCoreAttributeNames();
+    const b = getCoreAttributeNames();
+    expect(a).toBe(b);
+    expect(Object.isFrozen(a)).toBe(true);
+  });
+
+  it('getAllAttributeNames(species) returns the same frozen reference per species', () => {
+    expect(getAllAttributeNames('beewasp')).toBe(getAllAttributeNames('beewasp'));
+    expect(getAllAttributeNames('horse')).toBe(getAllAttributeNames('horse'));
+    expect(getAllAttributeNames('beewasp')).not.toBe(getAllAttributeNames('horse'));
+  });
+
+  it('getAppearanceAttributeNames returns frozen arrays', () => {
+    const names = getAppearanceAttributeNames('beewasp');
+    expect(Object.isFrozen(names)).toBe(true);
+  });
+
+  it('getAllAttributeNames falls back to core list for unknown species', () => {
+    expect(getAllAttributeNames('dragon')).toEqual(getCoreAttributeNames());
+  });
+});
+
 describe('getCoreAttributeNames', () => {
   it('returns 6 core attributes in game order', () => {
     const names = getCoreAttributeNames();
