@@ -6,6 +6,7 @@ import {
   getAppearanceAttributes,
   getAppearanceConfig,
   getAttributeConfig,
+  getAttributeMatcher,
   normalizeSpecies,
 } from '$lib/services/configService.js';
 import { getGeneEffectsCached } from '$lib/services/geneService.js';
@@ -109,9 +110,6 @@ let tooltipPotentialEffects = $state([]);
 let headerStructure = $state(null);
 let chromosomeData = $state([]);
 
-// Cached attribute names for dynamic attribute detection
-let allAttributeNames = $state([]);
-
 // Global gene effects database - persists across pet selections
 let globalGeneEffectsDB = {};
 
@@ -193,7 +191,6 @@ function cleanup() {
   hiddenChromosomes = [];
   headerStructure = null;
   chromosomeData = [];
-  allAttributeNames = [];
   // NOTE: We keep globalGeneEffectsDB intact for performance
 
   error = null;
@@ -271,7 +268,6 @@ async function initializeStats() {
         attrNames = config.all_attribute_names.map((name) => capitalize(name));
       }
     }
-    allAttributeNames = attrNames;
     for (const attr of attrNames) {
       stats[attr] = emptyAttr();
     }
@@ -348,29 +344,12 @@ function getGeneAppearance(speciesKey, geneId) {
   return geneData.appearance;
 }
 
-function extractAttributeFromEffect(effectStr) {
-  if (!effectStr || !allAttributeNames.length) return null;
-
-  // Find which attribute name is mentioned in the effect string
-  for (const attributeName of allAttributeNames) {
-    if (effectStr.includes(attributeName)) {
-      return attributeName;
-    }
-  }
-  return null;
+function extractAttributeFromEffect(species, effectStr) {
+  return getAttributeMatcher(species).findFirst(effectStr);
 }
 
-function extractAttributesFromEffect(effectStr) {
-  if (!effectStr || !allAttributeNames.length) return [];
-
-  // Find all attribute names mentioned in the effect string
-  const foundAttributes = [];
-  for (const attributeName of allAttributeNames) {
-    if (effectStr.includes(attributeName)) {
-      foundAttributes.push(attributeName);
-    }
-  }
-  return foundAttributes;
+function extractAttributesFromEffect(species, effectStr) {
+  return getAttributeMatcher(species).findAll(effectStr);
 }
 
 function getGeneBreed(speciesKey, geneId) {
@@ -414,7 +393,7 @@ function analyzeGeneEffect(species, geneId, geneType) {
     const effectStr = effect || '';
 
     // Dynamic attribute detection using centralized config
-    const attribute = extractAttributeFromEffect(effectStr);
+    const attribute = extractAttributeFromEffect(species, effectStr);
 
     // Potential effect detection
     const isPotential = effectStr.includes('?') || effectStr.toLowerCase().includes('potential');
@@ -601,10 +580,10 @@ function genePotentiallyAffectsSelectedAttributes(species, geneId, selectedAttri
   const allPotentialAttributes = [];
 
   if (!isNoEffect(dominantEffect)) {
-    allPotentialAttributes.push(...extractAttributesFromEffect(dominantEffect));
+    allPotentialAttributes.push(...extractAttributesFromEffect(species, dominantEffect));
   }
   if (!isNoEffect(recessiveEffect)) {
-    allPotentialAttributes.push(...extractAttributesFromEffect(recessiveEffect));
+    allPotentialAttributes.push(...extractAttributesFromEffect(species, recessiveEffect));
   }
 
   return allPotentialAttributes.some((attr) => selectedAttributes.includes(attr));

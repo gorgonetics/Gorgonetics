@@ -304,6 +304,61 @@ export function getAttributeConfig(species: string): {
 }
 
 /**
+ * Per-species matcher for finding canonical attribute names inside gene
+ * effect strings. The underlying regex is built once and reused for every
+ * scan. The matcher is intentionally exposed as methods rather than the
+ * raw regex so consumers cannot trip over `/g`-flag `lastIndex` state.
+ */
+export interface AttributeMatcher {
+  readonly names: readonly string[];
+  /** First attribute name appearing in the effect string, or null. */
+  findFirst(effectStr: string): string | null;
+  /** Every attribute name appearing in the effect string, in string order. */
+  findAll(effectStr: string): string[];
+}
+
+const attributeMatcherCache = new Map<string, AttributeMatcher>();
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Build (or fetch the cached) attribute matcher for a species. Computed once
+ * per species per JS realm — the underlying attribute list is static.
+ */
+export function getAttributeMatcher(species: string): AttributeMatcher {
+  const normalized = normalizeSpecies(species);
+  const cached = attributeMatcherCache.get(normalized);
+  if (cached) return cached;
+  const names = Object.freeze(getAllAttributeNames(species).map(capitalize));
+  // Sort longest-first so a hypothetical "Intelligence" beats "Int" in regex
+  // alternation order — JS regex picks the first matching alternative.
+  const pattern = [...names]
+    .sort((a, b) => b.length - a.length)
+    .map(escapeRegExp)
+    .join('|');
+  // Two compiled regexes: a non-global one for findFirst (avoids lastIndex
+  // state), and a global one used only via String.prototype.match (which
+  // does not mutate the regex's state) for findAll.
+  const firstRe = pattern ? new RegExp(pattern) : null;
+  const allRe = pattern ? new RegExp(pattern, 'g') : null;
+  const matcher: AttributeMatcher = Object.freeze({
+    names,
+    findFirst(effectStr: string): string | null {
+      if (!effectStr || !firstRe) return null;
+      return firstRe.exec(effectStr)?.[0] ?? null;
+    },
+    findAll(effectStr: string): string[] {
+      if (!effectStr || !allRe) return [];
+      return effectStr.match(allRe) ?? [];
+    },
+  });
+  attributeMatcherCache.set(normalized, matcher);
+  return matcher;
+}
+
+/**
  * Get all possible gene effect options.
  */
 export function getEffectOptions(): string[] {
