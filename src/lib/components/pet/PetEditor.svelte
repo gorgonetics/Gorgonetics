@@ -63,7 +63,9 @@ async function handleSave() {
     }
     if (Object.keys(attributeChanges).length > 0) updateData.attributes = attributeChanges;
 
-    if (JSON.stringify(editTags) !== JSON.stringify(pet.tags ?? [])) {
+    const currentTags = pet.tags ?? [];
+    const tagsChanged = editTags.length !== currentTags.length || editTags.some((t, i) => t !== currentTags[i]);
+    if (tagsChanged) {
       updateData.tags = editTags;
     }
 

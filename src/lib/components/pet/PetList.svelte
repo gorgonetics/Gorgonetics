@@ -36,6 +36,10 @@ function startCompare() {
 }
 
 let searchQuery = $state('');
+// Mirror of searchQuery, updated after a small idle window so the
+// $derived.by below doesn't replay the whole filter on every keystroke.
+let debouncedSearchQuery = $state('');
+const SEARCH_DEBOUNCE_MS = 150;
 let selectedTags = $state([]);
 let starredOnly = $state(false);
 let stabledOnly = $state(true);
@@ -57,8 +61,16 @@ $effect(() => {
   }
 });
 
+$effect(() => {
+  const q = searchQuery;
+  const timer = setTimeout(() => {
+    debouncedSearchQuery = q;
+  }, SEARCH_DEBOUNCE_MS);
+  return () => clearTimeout(timer);
+});
+
 const filteredPets = $derived.by(() => {
-  const q = searchQuery ? searchQuery.toLowerCase() : '';
+  const q = debouncedSearchQuery ? debouncedSearchQuery.toLowerCase() : '';
   return $pets.filter((pet) => {
     if (q) {
       if (!(pet.name || '').toLowerCase().includes(q) && !(pet.species || '').toLowerCase().includes(q)) {

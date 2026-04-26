@@ -162,7 +162,9 @@ function createSpeciesTemplate(species, headerStructure, chromosomeCount) {
 }
 
 function getOrCreateSpeciesTemplate(species, headerStructure, chromosomeCount) {
-  const cacheKey = `${species}_${chromosomeCount}_${headerStructure.sortedBlocks.length}`;
+  // sortedBlocks.length is fully derived from species + chromosomeCount, so
+  // it adds nothing to cache identity. Drop it from the key.
+  const cacheKey = `${species}_${chromosomeCount}`;
 
   if (speciesTemplateCache.has(cacheKey)) {
     const cached = speciesTemplateCache.get(cacheKey);
