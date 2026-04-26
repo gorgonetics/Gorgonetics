@@ -1,70 +1,19 @@
 /**
- * Canonical TypeScript definitions for gene colors, mirrored in src/app.css.
- * Used by the stats table (via configService) and tooltip logic (via EFFECT_COLORS).
- * The gene grid reads CSS custom properties defined in :root in src/app.css.
- *
- * To change a color: update it here AND in src/app.css to keep both in sync.
+ * Canonical TypeScript exports for gene colors. The actual values live in
+ * `gene-colors-data.json` (single source of truth) and are mirrored into
+ * CSS custom properties at build time by `scripts/gen-gene-colors-css.mjs`,
+ * which writes `gene-colors.generated.css`. The runtime app reads the same
+ * JSON via these named exports — there is no second hand-maintained list
+ * of colors anywhere.
  */
 
-export const EFFECT_COLORS = {
-  positive: '#4caf50',
-  negative: '#f44336',
-  neutral: '#95a5a6',
-  'potential-positive': '#3498db',
-  'potential-negative': '#9b59b6',
-} as const;
+import data from './gene-colors-data.json';
 
-/**
- * BeeWasp appearance colors.
- * Keys use the short CSS var names (--gene-{key}).
- * The configService maps these to the full appearance category names.
- */
-export const BEEWASP_APPEARANCE_COLORS: Record<string, string> = {
-  'body-hue': '#ff9800',
-  'body-saturation': '#ff6f00',
-  'body-intensity': '#ffcc02',
-  'wing-hue': '#2196f3',
-  'wing-saturation': '#1976d2',
-  'wing-intensity': '#0d47a1',
-  'body-scale': '#9c27b0',
-  'wing-scale': '#7b1fa2',
-  'head-scale': '#8e24aa',
-  'tail-scale': '#ab47bc',
-  'antenna-scale': '#ba68c8',
-  'leg-deformity': '#e91e63',
-  'antenna-deformity': '#c2185b',
-  particles: '#00bcd4',
-  'particle-location': '#0097a7',
-  glow: '#8bc34a',
-  'appearance-neutral': '#95a5a6',
-};
+export const EFFECT_COLORS = data.effects as Record<string, string>;
+export const BEEWASP_APPEARANCE_COLORS: Record<string, string> = data.beewaspAppearance;
+export const HORSE_APPEARANCE_COLORS: Record<string, string> = data.horseAppearance;
 
-export const HORSE_APPEARANCE_COLORS: Record<string, string> = {
-  scale: '#2980b9',
-  attributes: '#e74c3c',
-  selector: '#8e44ad',
-  horn: '#1abc9c',
-  aura: '#3498db',
-  coat: '#2ecc71',
-  'face-markings': '#f39c12',
-  hair: '#9b59b6',
-  'leg-markings': '#34495e',
-  magical: '#e67e22',
-  markings: '#16a085',
-};
-
-/**
- * Mapping from appearance config category names to CSS var keys.
- * Only needed where the names differ (BeeWasp color categories).
- */
-const BEEWASP_CATEGORY_TO_CSS: Record<string, string> = {
-  'body-color-hue': 'body-hue',
-  'body-color-saturation': 'body-saturation',
-  'body-color-intensity': 'body-intensity',
-  'wing-color-hue': 'wing-hue',
-  'wing-color-saturation': 'wing-saturation',
-  'wing-color-intensity': 'wing-intensity',
-};
+const BEEWASP_CATEGORY_TO_CSS: Record<string, string> = data.beewaspCategoryAlias;
 
 /** Look up the color for a BeeWasp appearance category. */
 export function getBeewaspAppearanceColor(category: string): string {
