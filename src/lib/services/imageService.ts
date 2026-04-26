@@ -149,16 +149,8 @@ function invalidateImageUrlsForPet(petId: number): void {
   }
 }
 
-/**
- * Resolve a displayable URL for an image file.
- * Uses Tauri's asset protocol — no file reading or blob URLs needed.
- */
-async function getImageUrl(petId: number, filename: string): Promise<string> {
-  if (!isTauri()) return '';
-  const key = imageUrlCacheKey(petId, filename);
-  const cached = imageUrlCache.get(key);
-  if (cached !== undefined) return cached;
-
+/** Default resolver: hits Tauri APIs to compute the asset-protocol URL. */
+async function tauriImageUrlResolver(petId: number, filename: string): Promise<string> {
   if (!cachedAppDataDir) {
     cachedAppDataDir = import('@tauri-apps/api/path').then(({ appDataDir }) => appDataDir());
   }
@@ -168,7 +160,26 @@ async function getImageUrl(petId: number, filename: string): Promise<string> {
     cachedAppDataDir,
   ]);
   const fullPath = await join(baseDir, 'images', String(petId), filename);
-  const url = convertFileSrc(fullPath);
+  return convertFileSrc(fullPath);
+}
+
+// Indirect through an object so tests can swap in a stub resolver without
+// having to mock the dynamic imports above.
+export const _imageUrlInternals: {
+  resolver: (petId: number, filename: string) => Promise<string>;
+  cache: Map<string, string>;
+} = { resolver: tauriImageUrlResolver, cache: imageUrlCache };
+
+/**
+ * Resolve a displayable URL for an image file.
+ * Uses Tauri's asset protocol — no file reading or blob URLs needed.
+ */
+async function getImageUrl(petId: number, filename: string): Promise<string> {
+  if (!isTauri()) return '';
+  const key = imageUrlCacheKey(petId, filename);
+  const cached = imageUrlCache.get(key);
+  if (cached !== undefined) return cached;
+  const url = await _imageUrlInternals.resolver(petId, filename);
   imageUrlCache.set(key, url);
   return url;
 }
