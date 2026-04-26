@@ -131,6 +131,21 @@ class InMemoryDatabase implements DatabaseAdapter {
       return unique.map((v) => ({ [col]: v })) as T;
     }
 
+    // SELECT IFNULL(MAX(col), default) + addend AS alias FROM table [WHERE ...]
+    const maxAggMatch = q.match(/select\s+ifnull\(max\((\w+)\),\s*(-?\d+)\)\s*\+\s*(\d+)\s+as\s+(\w+)\s+from\s+(\w+)/i);
+    if (maxAggMatch) {
+      const [, col, def, addend, alias, table] = maxAggMatch;
+      const rows = this.getTable(table);
+      const filtered = this.applyWhere(rows, q, values);
+      const max = filtered.reduce<number | null>((m, r) => {
+        const v = r[col];
+        if (typeof v !== 'number') return m;
+        return m === null || v > m ? v : m;
+      }, null);
+      const base = max === null ? Number(def) : max;
+      return [{ [alias]: base + Number(addend) }] as T;
+    }
+
     // SELECT * FROM table
     const selectMatch = q.match(/select\s+.+?\s+from\s+(\w+)/);
     if (selectMatch) {
