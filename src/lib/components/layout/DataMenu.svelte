@@ -1,6 +1,6 @@
 <script>
 import { onDestroy, tick } from 'svelte';
-import { inspectBackup } from '$lib/services/backupService.js';
+import { loadBackup } from '$lib/services/backupService.js';
 import { pickBackupFile, readBinaryFile } from '$lib/services/fileService.js';
 import ExportDialog from './ExportDialog.svelte';
 import ImportDialog from './ImportDialog.svelte';
@@ -8,10 +8,8 @@ import ImportDialog from './ImportDialog.svelte';
 let menuOpen = $state(false);
 let showExport = $state(false);
 let showImport = $state(false);
-/** @type {import('$lib/types/index.js').GorgonExportMetadata | null} */
-let importMetadata = $state(null);
-/** @type {Uint8Array | null} */
-let importFileData = $state(null);
+/** @type {import('$lib/services/backupService.js').LoadedBackup | null} */
+let loadedBackup = $state(null);
 /** @type {{ type: 'success' | 'error', message: string } | null} */
 let status = $state(null);
 let statusTimer = 0;
@@ -83,9 +81,7 @@ async function openImport() {
     if (!path) return;
 
     const data = await readBinaryFile(path);
-    const metadata = await inspectBackup(data);
-    importFileData = data;
-    importMetadata = metadata;
+    loadedBackup = await loadBackup(data);
     showImport = true;
   } catch (err) {
     status = { type: 'error', message: `Failed to read backup: ${err.message}` };
@@ -172,11 +168,10 @@ function handleClickOutside(event) {
   <ExportDialog onClose={() => { showExport = false; }} onResult={handleResult} />
 {/if}
 
-{#if showImport && importMetadata}
+{#if showImport && loadedBackup}
   <ImportDialog
-    metadata={importMetadata}
-    fileData={importFileData}
-    onClose={() => { showImport = false; importMetadata = null; importFileData = null; }}
+    backup={loadedBackup}
+    onClose={() => { showImport = false; loadedBackup = null; }}
     onResult={handleResult}
   />
 {/if}

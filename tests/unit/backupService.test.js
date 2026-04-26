@@ -1,6 +1,6 @@
 import JSZip from 'jszip';
-import { beforeEach, describe, expect, it } from 'vitest';
-import { importDatabase, inspectBackup } from '$lib/services/backupService.js';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { importDatabase, inspectBackup, loadBackup } from '$lib/services/backupService.js';
 import { closeDatabase, getDb, initDatabase } from '$lib/services/database.js';
 import { CURRENT_SCHEMA_VERSION, runMigrations } from '$lib/services/migrationService.js';
 
@@ -107,6 +107,47 @@ describe('Backup Service', () => {
     it('rejects invalid zip data', async () => {
       const garbage = new Uint8Array([1, 2, 3, 4]);
       await expect(inspectBackup(garbage)).rejects.toThrow();
+    });
+  });
+
+  // --- loadBackup ---
+
+  describe('loadBackup', () => {
+    it('returns both the parsed zip and metadata', async () => {
+      const zipData = await buildZip({ genes: [sampleGene] });
+      const loaded = await loadBackup(zipData);
+      expect(loaded.metadata.format).toBe('gorgonetics-backup');
+      expect(loaded.zip.file('genes.json')).toBeTruthy();
+    });
+
+    it('parses the zip only once when reused via importDatabase', async () => {
+      const zipData = await buildZip({ genes: [sampleGene] });
+      const loadAsyncSpy = vi.spyOn(JSZip, 'loadAsync');
+      const callsBefore = loadAsyncSpy.mock.calls.length;
+
+      const loaded = await loadBackup(zipData);
+      const result = await importDatabase(loaded, {
+        mode: 'replace',
+        includeGenes: true,
+        includePets: false,
+        includeImages: false,
+      });
+      const callsAfter = loadAsyncSpy.mock.calls.length;
+
+      expect(result.genes).toBe(1);
+      expect(callsAfter - callsBefore).toBe(1);
+      loadAsyncSpy.mockRestore();
+    });
+
+    it('importDatabase still parses raw bytes when no pre-loaded backup is given', async () => {
+      const zipData = await buildZip({ genes: [sampleGene] });
+      const result = await importDatabase(zipData, {
+        mode: 'replace',
+        includeGenes: true,
+        includePets: false,
+        includeImages: false,
+      });
+      expect(result.genes).toBe(1);
     });
   });
 
