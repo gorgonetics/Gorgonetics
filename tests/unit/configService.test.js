@@ -234,26 +234,35 @@ describe('getAttributeMatcher', () => {
     expect(horse.names).not.toContain('Ferocity');
   });
 
-  it('finds the attribute named in a single-attribute effect', () => {
-    const { regex } = getAttributeMatcher('beewasp');
-    regex.lastIndex = 0;
-    expect(regex.exec('Intelligence+')?.[0]).toBe('Intelligence');
-    regex.lastIndex = 0;
-    expect(regex.exec('Toughness-')?.[0]).toBe('Toughness');
+  it('findFirst returns the attribute named in a single-attribute effect', () => {
+    const m = getAttributeMatcher('beewasp');
+    expect(m.findFirst('Intelligence+')).toBe('Intelligence');
+    expect(m.findFirst('Toughness-')).toBe('Toughness');
   });
 
-  it('returns all attributes named in a multi-attribute effect', () => {
-    const { regex } = getAttributeMatcher('beewasp');
-    regex.lastIndex = 0;
-    const matches = 'Intelligence+ Toughness-'.match(regex);
-    expect(matches).toEqual(['Intelligence', 'Toughness']);
+  it('findAll returns every attribute named in a multi-attribute effect', () => {
+    const m = getAttributeMatcher('beewasp');
+    expect(m.findAll('Intelligence+ Toughness-')).toEqual(['Intelligence', 'Toughness']);
   });
 
-  it('returns null match for an empty / no-effect string', () => {
-    const { regex } = getAttributeMatcher('beewasp');
-    regex.lastIndex = 0;
-    expect(regex.exec('')).toBeNull();
-    regex.lastIndex = 0;
-    expect(regex.exec('None')).toBeNull();
+  it('findFirst is repeatable — no /g lastIndex leak between calls', () => {
+    const m = getAttributeMatcher('beewasp');
+    expect(m.findFirst('Intelligence+ Toughness-')).toBe('Intelligence');
+    expect(m.findFirst('Intelligence+ Toughness-')).toBe('Intelligence');
+    expect(m.findFirst('Toughness-')).toBe('Toughness');
+  });
+
+  it('returns null / empty for an empty or no-effect string', () => {
+    const m = getAttributeMatcher('beewasp');
+    expect(m.findFirst('')).toBeNull();
+    expect(m.findFirst('None')).toBeNull();
+    expect(m.findAll('')).toEqual([]);
+    expect(m.findAll('None')).toEqual([]);
+  });
+
+  it('cached matcher and names array are frozen', () => {
+    const m = getAttributeMatcher('beewasp');
+    expect(Object.isFrozen(m)).toBe(true);
+    expect(Object.isFrozen(m.names)).toBe(true);
   });
 });

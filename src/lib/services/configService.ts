@@ -304,14 +304,17 @@ export function getAttributeConfig(species: string): {
 }
 
 /**
- * Per-species matcher for finding attribute names inside gene effect strings.
- * `names` is the canonical-cased attribute list (kept for array-order semantics
- * in single-attribute lookups); `regex` is a single alternation built once and
- * reused for every effect-string scan.
+ * Per-species matcher for finding canonical attribute names inside gene
+ * effect strings. The underlying regex is built once and reused for every
+ * scan. The matcher is intentionally exposed as methods rather than the
+ * raw regex so consumers cannot trip over `/g`-flag `lastIndex` state.
  */
 export interface AttributeMatcher {
-  names: readonly string[];
-  regex: RegExp;
+  readonly names: readonly string[];
+  /** First attribute name appearing in the effect string, or null. */
+  findFirst(effectStr: string): string | null;
+  /** Every attribute name appearing in the effect string, in string order. */
+  findAll(effectStr: string): string[];
 }
 
 const attributeMatcherCache = new Map<string, AttributeMatcher>();
@@ -328,12 +331,29 @@ export function getAttributeMatcher(species: string): AttributeMatcher {
   const normalized = normalizeSpecies(species);
   const cached = attributeMatcherCache.get(normalized);
   if (cached) return cached;
-  const names = getAllAttributeNames(species).map(capitalize);
+  const names = Object.freeze(getAllAttributeNames(species).map(capitalize));
   // Sort longest-first so a hypothetical "Intelligence" beats "Int" in regex
   // alternation order — JS regex picks the first matching alternative.
-  const sortedForRegex = [...names].sort((a, b) => b.length - a.length).map(escapeRegExp);
-  const regex = new RegExp(sortedForRegex.join('|'), 'g');
-  const matcher: AttributeMatcher = { names, regex };
+  const pattern = [...names]
+    .sort((a, b) => b.length - a.length)
+    .map(escapeRegExp)
+    .join('|');
+  // Two compiled regexes: a non-global one for findFirst (avoids lastIndex
+  // state), and a global one used only via String.prototype.match (which
+  // does not mutate the regex's state) for findAll.
+  const firstRe = pattern ? new RegExp(pattern) : null;
+  const allRe = pattern ? new RegExp(pattern, 'g') : null;
+  const matcher: AttributeMatcher = Object.freeze({
+    names,
+    findFirst(effectStr: string): string | null {
+      if (!effectStr || !firstRe) return null;
+      return firstRe.exec(effectStr)?.[0] ?? null;
+    },
+    findAll(effectStr: string): string[] {
+      if (!effectStr || !allRe) return [];
+      return effectStr.match(allRe) ?? [];
+    },
+  });
   attributeMatcherCache.set(normalized, matcher);
   return matcher;
 }

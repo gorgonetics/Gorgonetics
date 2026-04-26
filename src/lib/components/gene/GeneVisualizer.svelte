@@ -345,17 +345,11 @@ function getGeneAppearance(speciesKey, geneId) {
 }
 
 function extractAttributeFromEffect(species, effectStr) {
-  if (!effectStr) return null;
-  const { regex } = getAttributeMatcher(species);
-  regex.lastIndex = 0;
-  return regex.exec(effectStr)?.[0] ?? null;
+  return getAttributeMatcher(species).findFirst(effectStr);
 }
 
 function extractAttributesFromEffect(species, effectStr) {
-  if (!effectStr) return [];
-  const { regex } = getAttributeMatcher(species);
-  regex.lastIndex = 0;
-  return effectStr.match(regex) ?? [];
+  return getAttributeMatcher(species).findAll(effectStr);
 }
 
 function getGeneBreed(speciesKey, geneId) {
