@@ -4,10 +4,10 @@
 
 import type { GeneStatsEntry, Genome, Pet } from '$lib/types/index.js';
 import { GENOME_FILE_MARKERS } from '$lib/types/index.js';
-import { yieldToUI } from '$lib/utils/async.js';
 import { fromGeneId, type ParsedChromosome, type ParsedGene, toGeneId } from '$lib/utils/geneAnalysis.js';
 import { capitalize } from '$lib/utils/string.js';
 import { now } from '$lib/utils/timestamp.js';
+import { runBatchBackfill } from './backfill.js';
 import { getAttributeConfig, getDefaultValues, normalizeSpecies } from './configService.js';
 import { getDb, reorderRows, type TxStatement, withTransaction } from './database.js';
 import { getParsedGenesCached, isHorseBreedFiltered } from './geneService.js';
@@ -727,111 +727,94 @@ const POSITIVE_GENES_BACKFILL_KEY = 'pets.positive_genes_backfilled';
 
 /**
  * Populate `pet_genes` for any pet whose genome hasn't been projected into
- * rows yet. Runs at startup off the critical path. Data-driven — a pet
- * appears in the work set when no `pet_genes` row references it, so a
+ * rows yet. Runs at startup off the critical path. Probe-style guard — a
+ * pet appears in the work set when no `pet_genes` row references it, so a
  * backup-restore that rewrites pets without touching pet_genes self-heals.
  *
  * Returns `true` if any rows were written so the caller can decide
  * whether to refresh downstream stores.
  */
 export async function backfillPetGenesIfNeeded(): Promise<boolean> {
+  type Pending = { id: number; genome_data: string };
+  type Update = { id: number; genome: Genome };
   const db = getDb();
-  // Two simple queries + a Set diff, instead of a NOT EXISTS subquery —
-  // the in-memory test adapter's WHERE parser only understands plain
-  // `col = ?`, so a JOIN/subquery predicate is silently ignored there.
-  const allPets = await db.select<{ id: number; genome_data: string }[]>('SELECT id, genome_data FROM pets');
-  if (allPets.length === 0) return false;
-  const existing = await db.select<{ pet_id: number }[]>('SELECT pet_id FROM pet_genes');
-  const populated = new Set(existing.map((r) => r.pet_id));
-  const pending = allPets.filter((p) => !populated.has(p.id));
-  if (pending.length === 0) return false;
-
-  console.info(`pet_genes backfill: ${pending.length} pets need populating`);
-
-  const BATCH = 8;
-  let wrote = false;
-  for (let i = 0; i < pending.length; i += BATCH) {
-    const slice = pending.slice(i, i + BATCH);
-    for (const row of slice) {
+  return runBatchBackfill<Pending, Update>({
+    label: 'pet_genes backfill',
+    batchSize: 8,
+    loadWorkSet: async () => {
+      // Two simple queries + a Set diff, instead of a NOT EXISTS subquery —
+      // the in-memory test adapter's WHERE parser only understands plain
+      // `col = ?`, so a JOIN/subquery predicate is silently ignored there.
+      const allPets = await db.select<Pending[]>('SELECT id, genome_data FROM pets');
+      if (allPets.length === 0) return [];
+      const existing = await db.select<{ pet_id: number }[]>('SELECT pet_id FROM pet_genes');
+      const populated = new Set(existing.map((r) => r.pet_id));
+      return allPets.filter((p) => !populated.has(p.id));
+    },
+    computeUpdate: (row) => {
       try {
-        const genome = JSON.parse(row.genome_data) as Genome;
-        await withTransaction(() => writePetGenes(row.id, genome));
-        wrote = true;
+        return { id: row.id, genome: JSON.parse(row.genome_data) as Genome };
       } catch (e) {
         console.warn(`pet_genes backfill: failed for pet ${row.id}`, e);
+        return null;
       }
-    }
-    const processed = Math.min(i + BATCH, pending.length);
-    console.info(`pet_genes backfill: ${processed}/${pending.length}`);
-    await yieldToUI();
-  }
-
-  console.info('pet_genes backfill: done');
-  return wrote;
+    },
+    applyBatch: async (updates) => {
+      // Per-row transaction with per-row catch — one bad pet must not abort
+      // the rest of the batch. Return the success count so the helper's
+      // applied tally reflects only actually-written rows.
+      let succeeded = 0;
+      for (const u of updates) {
+        try {
+          await withTransaction(() => writePetGenes(u.id, u.genome));
+          succeeded++;
+        } catch (e) {
+          console.warn(`pet_genes backfill: failed for pet ${u.id}`, e);
+        }
+      }
+      return succeeded;
+    },
+  });
 }
 
 /**
  * One-shot backfill that populates positive_genes for every pet using the
- * same logic applied at upload time. Idempotent via a settings-table flag.
- * Processes pets in small batches with a yield between each so the main
- * thread stays responsive — callers should not await this on the critical
- * startup path. Required because the v9 migration only adds the column with
- * a DEFAULT 0; the real count depends on the JS-side gene-effects DB.
+ * same logic applied at upload time. Flag-style guard — the work set is
+ * *every* pet, too expensive to re-scan on every startup. Required because
+ * the v9 migration only adds the column with a DEFAULT 0; the real count
+ * depends on the JS-side gene-effects DB.
  */
 export async function backfillPositiveGenesIfNeeded(): Promise<void> {
-  const done = await getSetting<boolean>(POSITIVE_GENES_BACKFILL_KEY);
-  if (done) return;
-
+  type Row = { id: number; genome_data: string; breed: string | null };
+  type Update = { id: number; positive: number };
   const db = getDb();
-  const rows = await db.select<{ id: number; genome_data: string; breed: string | null }[]>(
-    'SELECT id, genome_data, breed FROM pets',
-  );
-
-  if (rows.length === 0) {
-    await setSetting(POSITIVE_GENES_BACKFILL_KEY, true);
-    return;
-  }
-
-  console.info(`positive_genes backfill: starting for ${rows.length} pets`);
-
-  const BATCH = 8;
-  const updates: { id: number; positive: number }[] = [];
-  for (let i = 0; i < rows.length; i += BATCH) {
-    const slice = rows.slice(i, i + BATCH);
-    const batch = await Promise.all(
-      slice.map(async (row) => {
-        try {
-          const positive = await computePositiveGenesForGenome(row.genome_data, row.breed ?? '');
-          return { id: row.id, positive };
-        } catch (e) {
-          console.warn(`positive_genes backfill: failed for pet ${row.id}`, e);
-          return null;
+  await runBatchBackfill<Row, Update>({
+    label: 'positive_genes backfill',
+    batchSize: 8,
+    guard: async () => (await getSetting<boolean>(POSITIVE_GENES_BACKFILL_KEY)) ?? false,
+    loadWorkSet: () => db.select<Row[]>('SELECT id, genome_data, breed FROM pets'),
+    computeUpdate: async (row) => {
+      try {
+        const positive = await computePositiveGenesForGenome(row.genome_data, row.breed ?? '');
+        return { id: row.id, positive };
+      } catch (e) {
+        console.warn(`positive_genes backfill: failed for pet ${row.id}`, e);
+        return null;
+      }
+    },
+    applyBatch: async (updates) => {
+      await withTransaction(async () => {
+        for (const u of updates) {
+          await db.execute('UPDATE pets SET positive_genes = $pg WHERE id = $id', {
+            pg: u.positive,
+            id: u.id,
+          });
         }
-      }),
-    );
-    for (const u of batch) {
-      if (u) updates.push(u);
-    }
-    const processed = Math.min(i + BATCH, rows.length);
-    console.info(`positive_genes backfill: ${processed}/${rows.length} computed`);
-    await yieldToUI();
-  }
-
-  await db.execute('BEGIN');
-  try {
-    for (const update of updates) {
-      await db.execute('UPDATE pets SET positive_genes = $pg WHERE id = $id', {
-        pg: update.positive,
-        id: update.id,
       });
-    }
-    await db.execute('COMMIT');
-  } catch (e) {
-    await db.execute('ROLLBACK');
-    throw e;
-  }
-  await setSetting(POSITIVE_GENES_BACKFILL_KEY, true);
-  console.info('positive_genes backfill: done');
+      return updates.length;
+    },
+    markDone: () => setSetting(POSITIVE_GENES_BACKFILL_KEY, true),
+  });
 }
 
 const GENE_COUNTS_BACKFILL_KEY = 'pets.gene_counts_backfilled';
@@ -839,63 +822,38 @@ const GENE_COUNTS_BACKFILL_KEY = 'pets.gene_counts_backfilled';
 /**
  * One-shot backfill that populates total_genes/known_genes/unknown_genes
  * for existing pets — the v11 migration only adds the columns with
- * DEFAULT 0. Idempotent via a settings flag. Non-blocking, batched, with
- * yields between batches so the UI stays responsive.
+ * DEFAULT 0. Flag-style guard — the work set is *every* pet, too expensive
+ * to re-scan on every startup. Returns `true` if any rows were written so
+ * the caller can refresh downstream stores.
  */
 export async function backfillGeneCountsIfNeeded(): Promise<boolean> {
-  const done = await getSetting<boolean>(GENE_COUNTS_BACKFILL_KEY);
-  if (done) return false;
-
+  type Row = { id: number; genome_data: string; total_genes: number; known_genes: number; unknown_genes: number };
+  type Update = { id: number; counts: GeneCountSummary };
   const db = getDb();
-  const rows = await db.select<
-    { id: number; genome_data: string; total_genes: number; known_genes: number; unknown_genes: number }[]
-  >('SELECT id, genome_data, total_genes, known_genes, unknown_genes FROM pets');
-
-  if (rows.length === 0) {
-    await setSetting(GENE_COUNTS_BACKFILL_KEY, true);
-    return false;
-  }
-
-  console.info(`gene_counts backfill: starting for ${rows.length} pets`);
-
-  const updates: { id: number; counts: GeneCountSummary }[] = [];
-  const BATCH = 16;
-  for (let i = 0; i < rows.length; i += BATCH) {
-    for (const row of rows.slice(i, i + BATCH)) {
+  return runBatchBackfill<Row, Update>({
+    label: 'gene_counts backfill',
+    batchSize: 16,
+    guard: async () => (await getSetting<boolean>(GENE_COUNTS_BACKFILL_KEY)) ?? false,
+    loadWorkSet: () => db.select<Row[]>('SELECT id, genome_data, total_genes, known_genes, unknown_genes FROM pets'),
+    computeUpdate: (row) => {
       const counts = countGenes(row.genome_data);
       const cur = { total: row.total_genes ?? 0, known: row.known_genes ?? 0, unknown: row.unknown_genes ?? 0 };
-      if (counts.total === cur.total && counts.known === cur.known && counts.unknown === cur.unknown) continue;
-      updates.push({ id: row.id, counts });
-    }
-    const processed = Math.min(i + BATCH, rows.length);
-    console.info(`gene_counts backfill: ${processed}/${rows.length} scanned, ${updates.length} need update`);
-    await yieldToUI();
-  }
-
-  if (updates.length === 0) {
-    await setSetting(GENE_COUNTS_BACKFILL_KEY, true);
-    console.info('gene_counts backfill: nothing to write');
-    return false;
-  }
-
-  for (let i = 0; i < updates.length; i += BATCH) {
-    const slice = updates.slice(i, i + BATCH);
-    await withTransaction(async () => {
-      for (const u of slice) {
-        await db.execute('UPDATE pets SET total_genes = $t, known_genes = $k, unknown_genes = $u WHERE id = $id', {
-          t: u.counts.total,
-          k: u.counts.known,
-          u: u.counts.unknown,
-          id: u.id,
-        });
-      }
-    });
-    const processed = Math.min(i + BATCH, updates.length);
-    console.info(`gene_counts backfill: ${processed}/${updates.length} written`);
-    if (processed < updates.length) await yieldToUI();
-  }
-
-  await setSetting(GENE_COUNTS_BACKFILL_KEY, true);
-  console.info('gene_counts backfill: done');
-  return true;
+      if (counts.total === cur.total && counts.known === cur.known && counts.unknown === cur.unknown) return null;
+      return { id: row.id, counts };
+    },
+    applyBatch: async (updates) => {
+      await withTransaction(async () => {
+        for (const u of updates) {
+          await db.execute('UPDATE pets SET total_genes = $t, known_genes = $k, unknown_genes = $u WHERE id = $id', {
+            t: u.counts.total,
+            k: u.counts.known,
+            u: u.counts.unknown,
+            id: u.id,
+          });
+        }
+      });
+      return updates.length;
+    },
+    markDone: () => setSetting(GENE_COUNTS_BACKFILL_KEY, true),
+  });
 }
