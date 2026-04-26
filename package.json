@@ -5,8 +5,9 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "vite dev",
-    "build": "vite build",
+    "gen:gene-colors-css": "node scripts/gen-gene-colors-css.mjs",
+    "dev": "pnpm gen:gene-colors-css && vite dev",
+    "build": "pnpm gen:gene-colors-css && vite build",
     "preview": "vite preview",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
