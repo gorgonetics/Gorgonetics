@@ -123,17 +123,54 @@ export async function getImagesForPet(petId: number): Promise<PetImage[]> {
   return images;
 }
 
+// Asset-protocol URLs for `appDataDir/images/<petId>/<filename>` are stable
+// for the lifetime of the app session, but resolving each one costs two
+// Tauri IPC calls (appDataDir + join) plus a synchronous transform. Galleries
+// re-derive these on every render, so we memoise.
+//
+// Cache entries are keyed by `petId/filename`. The cache is cleared on
+// image deletion (deleteImage / deleteAllImagesForPet) so a re-uploaded
+// image with the same name doesn't serve a stale URL.
+const imageUrlCache = new Map<string, string>();
+let cachedAppDataDir: Promise<string> | null = null;
+
+function imageUrlCacheKey(petId: number, filename: string): string {
+  return `${petId}/${filename}`;
+}
+
+function invalidateImageUrl(petId: number, filename: string): void {
+  imageUrlCache.delete(imageUrlCacheKey(petId, filename));
+}
+
+function invalidateImageUrlsForPet(petId: number): void {
+  const prefix = `${petId}/`;
+  for (const key of imageUrlCache.keys()) {
+    if (key.startsWith(prefix)) imageUrlCache.delete(key);
+  }
+}
+
 /**
  * Resolve a displayable URL for an image file.
  * Uses Tauri's asset protocol — no file reading or blob URLs needed.
  */
 async function getImageUrl(petId: number, filename: string): Promise<string> {
   if (!isTauri()) return '';
-  const { appDataDir, join } = await import('@tauri-apps/api/path');
-  const { convertFileSrc } = await import('@tauri-apps/api/core');
-  const baseDir = await appDataDir();
+  const key = imageUrlCacheKey(petId, filename);
+  const cached = imageUrlCache.get(key);
+  if (cached !== undefined) return cached;
+
+  if (!cachedAppDataDir) {
+    cachedAppDataDir = import('@tauri-apps/api/path').then(({ appDataDir }) => appDataDir());
+  }
+  const [{ join }, { convertFileSrc }, baseDir] = await Promise.all([
+    import('@tauri-apps/api/path'),
+    import('@tauri-apps/api/core'),
+    cachedAppDataDir,
+  ]);
   const fullPath = await join(baseDir, 'images', String(petId), filename);
-  return convertFileSrc(fullPath);
+  const url = convertFileSrc(fullPath);
+  imageUrlCache.set(key, url);
+  return url;
 }
 
 /**
@@ -149,6 +186,7 @@ export async function deleteImage(imageId: number, petId: number, filename: stri
     }
   }
 
+  invalidateImageUrl(petId, filename);
   const db = getDb();
   await db.execute('DELETE FROM pet_images WHERE id = $id', { id: imageId });
 }
@@ -167,6 +205,7 @@ export async function deleteAllImagesForPet(petId: number): Promise<void> {
     }
   }
 
+  invalidateImageUrlsForPet(petId);
   const db = getDb();
   await db.execute('DELETE FROM pet_images WHERE pet_id = $pet_id', { pet_id: petId });
 }
