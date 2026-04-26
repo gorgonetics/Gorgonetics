@@ -21,7 +21,9 @@ const BREEDS_BY_SPECIES = {
 let editingPet = $state(null);
 let editorOpen = $state(false);
 
-const comparisonIds = $derived(new Set([$comparisonPets[0]?.id, $comparisonPets[1]?.id].filter((id) => id != null)));
+function isInComparison(id) {
+  return $comparisonPets[0]?.id === id || $comparisonPets[1]?.id === id;
+}
 
 function viewPet(pet) {
   appState.selectPet(pet);
@@ -39,7 +41,7 @@ function closeEditor() {
 }
 
 function toggleCompare(pet) {
-  if (comparisonIds.has(pet.id)) comparisonActions.removePet(pet.id);
+  if (isInComparison(pet.id)) comparisonActions.removePet(pet.id);
   else comparisonActions.addPet(pet);
 }
 
@@ -320,10 +322,10 @@ function sortIndicator(colId) {
                                             >✎</button>
                                             <button
                                                 class="row-action-btn"
-                                                class:active={comparisonIds.has(pet.id)}
-                                                title={comparisonIds.has(pet.id) ? 'Remove from comparison' : 'Add to comparison'}
+                                                class:active={isInComparison(pet.id)}
+                                                title={isInComparison(pet.id) ? 'Remove from comparison' : 'Add to comparison'}
                                                 aria-label="Toggle comparison selection for {pet.name}"
-                                                aria-pressed={comparisonIds.has(pet.id)}
+                                                aria-pressed={isInComparison(pet.id)}
                                                 data-action="compare"
                                                 onclick={() => toggleCompare(pet)}
                                             >⚖️</button>
