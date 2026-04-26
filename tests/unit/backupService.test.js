@@ -351,5 +351,34 @@ describe('Backup Service', () => {
       expect(result.genes).toBe(0);
       expect(result.pets).toBe(0);
     });
+
+    it('imports more rows than the batch chunk size in a single round-trip', async () => {
+      // Genes are batched at 80/chunk and pets at 40/chunk. Cross both
+      // boundaries to confirm chunking stitches results together correctly.
+      const manyGenes = Array.from({ length: 150 }, (_, i) => ({
+        ...sampleGene,
+        gene: `01A${String(i).padStart(3, '0')}`,
+      }));
+      const manyPets = Array.from({ length: 95 }, (_, i) => ({
+        ...samplePet,
+        name: `Bee${i}`,
+        content_hash: `hash_${i}`,
+      }));
+      const zipData = await buildZip({ genes: manyGenes, pets: manyPets });
+      const result = await importDatabase(zipData, {
+        mode: 'replace',
+        includeGenes: true,
+        includePets: true,
+        includeImages: false,
+      });
+      expect(result.genes).toBe(150);
+      expect(result.pets).toBe(95);
+
+      const db = getDb();
+      const geneRows = await db.select('SELECT gene FROM genes');
+      const petRows = await db.select('SELECT name FROM pets');
+      expect(geneRows).toHaveLength(150);
+      expect(petRows).toHaveLength(95);
+    });
   });
 });

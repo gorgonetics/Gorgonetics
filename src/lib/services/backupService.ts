@@ -217,6 +217,42 @@ export async function importDatabase(source: Uint8Array | LoadedBackup, options:
   return importFromZip(loaded.zip, options);
 }
 
+// SQLite default SQLITE_MAX_VARIABLE_NUMBER is 999. Chunk sizes below keep
+// (chunk_size × column_count) safely under that bound.
+const GENE_INSERT_CHUNK = 80; // 80 × 10 cols = 800 params
+const PET_INSERT_CHUNK = 40; // 40 × 22 cols = 880 params
+
+type InsertConflictMode = 'fail' | 'replace' | 'ignore';
+
+const INSERT_VERB: Record<InsertConflictMode, string> = {
+  fail: 'INSERT INTO',
+  replace: 'INSERT OR REPLACE INTO',
+  ignore: 'INSERT OR IGNORE INTO',
+};
+
+/** Insert a chunk of rows in one statement. Caller is responsible for the transaction. */
+async function batchInsert(
+  table: string,
+  columns: readonly string[],
+  rows: ReadonlyArray<Record<string, unknown>>,
+  chunkSize: number,
+  conflict: InsertConflictMode = 'fail',
+): Promise<void> {
+  if (rows.length === 0) return;
+  const db = getDb();
+  const verb = INSERT_VERB[conflict];
+  const colList = columns.join(', ');
+  for (let i = 0; i < rows.length; i += chunkSize) {
+    const chunk = rows.slice(i, i + chunkSize);
+    const placeholders = chunk.map((_, j) => `(${columns.map((c) => `$${c}_${j}`).join(', ')})`).join(', ');
+    const params: Record<string, unknown> = {};
+    chunk.forEach((row, j) => {
+      for (const col of columns) params[`${col}_${j}`] = row[col] ?? null;
+    });
+    await db.execute(`${verb} ${table} (${colList}) VALUES ${placeholders}`, params);
+  }
+}
+
 /** Shared gene/pet import logic used by both v1 and v2 paths. */
 async function importGenesAndPets(
   genes: Record<string, unknown>[] | null,
@@ -227,11 +263,6 @@ async function importGenesAndPets(
   let genesImported = 0;
   let petsImported = 0;
   let petsSkipped = 0;
-
-  const genePlaceholders = GENE_COLUMNS.map((col) => `$${col}`).join(', ');
-  const geneSQL = `INSERT OR REPLACE INTO genes (${GENE_COLUMNS.join(', ')}) VALUES (${genePlaceholders})`;
-  const petPlaceholders = PET_COLUMNS.map((col) => `$${col}`).join(', ');
-  const petSQL = `INSERT INTO pets (${PET_COLUMNS.join(', ')}) VALUES (${petPlaceholders})`;
 
   let existingHashes: Set<string> | null = null;
   let sortOrderOffset = 0;
@@ -251,16 +282,18 @@ async function importGenesAndPets(
       if (options.includePets) await db.execute('DELETE FROM pets');
     }
 
-    if (options.includeGenes && genes) {
-      for (const gene of genes) {
-        const params: Record<string, unknown> = {};
-        for (const col of GENE_COLUMNS) params[col] = gene[col] ?? null;
-        await db.execute(geneSQL, params);
-      }
+    if (options.includeGenes && genes && genes.length > 0) {
+      const geneRows = genes.map((g) => {
+        const row: Record<string, unknown> = {};
+        for (const col of GENE_COLUMNS) row[col] = g[col] ?? null;
+        return row;
+      });
+      await batchInsert('genes', GENE_COLUMNS, geneRows, GENE_INSERT_CHUNK, 'replace');
       genesImported = genes.length;
     }
 
     if (options.includePets && pets) {
+      const petRows: Record<string, unknown>[] = [];
       for (const pet of pets) {
         if (existingHashes?.has(pet.content_hash as string)) {
           petsSkipped++;
@@ -268,17 +301,18 @@ async function importGenesAndPets(
         }
         let genomeData = pet.genome_data;
         if (typeof genomeData === 'object' && genomeData !== null) genomeData = JSON.stringify(genomeData);
-        const params: Record<string, unknown> = {};
+        const row: Record<string, unknown> = {};
         for (const col of PET_COLUMNS) {
-          if (col === 'genome_data') params[col] = genomeData;
-          else if (col === 'sort_order') params[col] = ((pet[col] as number) ?? 0) + sortOrderOffset;
-          else if (col === 'stabled') params[col] = pet[col] ?? 1;
-          else if (col === 'starred' || col === 'is_pet_quality') params[col] = pet[col] ?? 0;
-          else params[col] = pet[col] ?? null;
+          if (col === 'genome_data') row[col] = genomeData;
+          else if (col === 'sort_order') row[col] = ((pet[col] as number) ?? 0) + sortOrderOffset;
+          else if (col === 'stabled') row[col] = pet[col] ?? 1;
+          else if (col === 'starred' || col === 'is_pet_quality') row[col] = pet[col] ?? 0;
+          else row[col] = pet[col] ?? null;
         }
-        await db.execute(petSQL, params);
-        petsImported++;
+        petRows.push(row);
       }
+      await batchInsert('pets', PET_COLUMNS, petRows, PET_INSERT_CHUNK);
+      petsImported = petRows.length;
     }
 
     await db.execute('COMMIT');
@@ -318,6 +352,7 @@ async function importFromZip(zip: JSZip, options: ImportOptions): Promise<Import
       await db.execute('DELETE FROM pet_tags');
     }
 
+    const tagInserts: Record<string, unknown>[] = [];
     const petTagsFile = zip.file('pet_tags.json');
     if (petTagsFile) {
       // New format: pet_tags.json with { content_hash, tag } rows
@@ -329,12 +364,7 @@ async function importFromZip(zip: JSZip, options: ImportOptions): Promise<Import
         const normalized = record.tag.trim().toLowerCase();
         if (!normalized) continue;
         const petId = hashToId.get(record.content_hash);
-        if (petId) {
-          await db.execute('INSERT OR IGNORE INTO pet_tags (pet_id, tag) VALUES ($pet_id, $tag)', {
-            pet_id: petId,
-            tag: normalized,
-          });
-        }
+        if (petId) tagInserts.push({ pet_id: petId, tag: normalized });
       }
     } else if (pets) {
       // Backward compat: v6 backups with tags as JSON array on each pet
@@ -353,13 +383,14 @@ async function importFromZip(zip: JSZip, options: ImportOptions): Promise<Import
         }
         for (const tag of tags) {
           if (typeof tag === 'string' && tag.trim()) {
-            await db.execute('INSERT OR IGNORE INTO pet_tags (pet_id, tag) VALUES ($pet_id, $tag)', {
-              pet_id: petId,
-              tag: tag.trim().toLowerCase(),
-            });
+            tagInserts.push({ pet_id: petId, tag: tag.trim().toLowerCase() });
           }
         }
       }
+    }
+    if (tagInserts.length > 0) {
+      // 2 cols × 400 rows = 800 params, well under SQLITE_MAX_VARIABLE_NUMBER
+      await batchInsert('pet_tags', ['pet_id', 'tag'], tagInserts, 400, 'ignore');
     }
   }
 
