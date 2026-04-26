@@ -61,6 +61,7 @@ metadata.sqlite
 docs/superpowers/
 .superpowers/
 .omc/
+.claude/
 
 # Misc
 *.backup
