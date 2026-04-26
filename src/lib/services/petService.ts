@@ -408,10 +408,9 @@ export async function uploadPet(
   const db = getDb();
   const ts = now();
 
-  // TODO: This queries all sort_orders per upload, making bulk upload O(N*existing).
-  // Same issue as imageService — fix by querying once before the loop.
-  const orderRows = await db.select<{ sort_order: number }[]>('SELECT sort_order FROM pets');
-  const nextOrder = orderRows.length > 0 ? Math.max(...orderRows.map((r) => r.sort_order ?? 0)) + 1 : 0;
+  const [{ next: nextOrder }] = await db.select<{ next: number }[]>(
+    'SELECT IFNULL(MAX(sort_order), -1) + 1 AS next FROM pets',
+  );
 
   // Atomic with the pet_genes projection: a half-written pet (row in
   // `pets` but no rows in `pet_genes`) would block retries via the

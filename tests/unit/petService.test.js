@@ -90,6 +90,14 @@ describe('Pet Service', () => {
       expect(items.map((p) => p.name).sort()).toEqual(['Sample Fae Bee', 'Sample Horse']);
     });
 
+    it('assigns monotonically increasing sort_order across uploads', async () => {
+      await petService.uploadPet(SAMPLE_BEEWASP, 'Bee', 'Female');
+      await petService.uploadPet(SAMPLE_HORSE, 'Horse', 'Male');
+      const db = getDb();
+      const rows = await db.select('SELECT sort_order FROM pets ORDER BY id');
+      expect(rows.map((r) => r.sort_order)).toEqual([0, 1]);
+    });
+
     it('returns error for duplicates during sequential upload', async () => {
       const result1 = await petService.uploadPet(SAMPLE_BEEWASP, 'First', 'Female');
       expect(result1.status).toBe('success');
