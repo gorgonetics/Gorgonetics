@@ -123,20 +123,32 @@ describe('Backup Service', () => {
     it('parses the zip only once when reused via importDatabase', async () => {
       const zipData = await buildZip({ genes: [sampleGene] });
       const loadAsyncSpy = vi.spyOn(JSZip, 'loadAsync');
-      const callsBefore = loadAsyncSpy.mock.calls.length;
+      try {
+        const callsBefore = loadAsyncSpy.mock.calls.length;
 
+        const loaded = await loadBackup(zipData);
+        const result = await importDatabase(loaded, {
+          mode: 'replace',
+          includeGenes: true,
+          includePets: false,
+          includeImages: false,
+        });
+        const callsAfter = loadAsyncSpy.mock.calls.length;
+
+        expect(result.genes).toBe(1);
+        expect(callsAfter - callsBefore).toBe(1);
+      } finally {
+        loadAsyncSpy.mockRestore();
+      }
+    });
+
+    it('importDatabase re-validates metadata even on a pre-loaded backup', async () => {
+      const zipData = await buildZip({ genes: [sampleGene] });
       const loaded = await loadBackup(zipData);
-      const result = await importDatabase(loaded, {
-        mode: 'replace',
-        includeGenes: true,
-        includePets: false,
-        includeImages: false,
-      });
-      const callsAfter = loadAsyncSpy.mock.calls.length;
-
-      expect(result.genes).toBe(1);
-      expect(callsAfter - callsBefore).toBe(1);
-      loadAsyncSpy.mockRestore();
+      const tampered = { zip: loaded.zip, metadata: { ...loaded.metadata, format: 'other-app' } };
+      await expect(
+        importDatabase(tampered, { mode: 'replace', includeGenes: true, includePets: false, includeImages: false }),
+      ).rejects.toThrow('Not a Gorgonetics backup');
     });
 
     it('importDatabase still parses raw bytes when no pre-loaded backup is given', async () => {

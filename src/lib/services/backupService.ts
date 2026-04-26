@@ -179,12 +179,7 @@ export interface LoadedBackup {
   metadata: GorgonExportMetadata;
 }
 
-export async function loadBackup(fileData: Uint8Array): Promise<LoadedBackup> {
-  const zip = await JSZip.loadAsync(fileData);
-  const metaFile = zip.file('metadata.json');
-  if (!metaFile) throw new Error('Backup archive is missing metadata.json.');
-  const metaJson = await metaFile.async('string');
-  const metadata = JSON.parse(metaJson) as GorgonExportMetadata;
+function validateMetadata(metadata: GorgonExportMetadata): void {
   if (metadata.format !== EXPORT_FORMAT) throw new Error('Not a Gorgonetics backup file.');
   if (metadata.format_version > EXPORT_FORMAT_VERSION) {
     throw new Error(
@@ -194,6 +189,15 @@ export async function loadBackup(fileData: Uint8Array): Promise<LoadedBackup> {
   if (metadata.schema_version > CURRENT_SCHEMA_VERSION) {
     throw new Error(`This backup uses a newer database schema (v${metadata.schema_version}). Please update the app.`);
   }
+}
+
+export async function loadBackup(fileData: Uint8Array): Promise<LoadedBackup> {
+  const zip = await JSZip.loadAsync(fileData);
+  const metaFile = zip.file('metadata.json');
+  if (!metaFile) throw new Error('Backup archive is missing metadata.json.');
+  const metaJson = await metaFile.async('string');
+  const metadata = JSON.parse(metaJson) as GorgonExportMetadata;
+  validateMetadata(metadata);
   return { zip, metadata };
 }
 
@@ -207,6 +211,9 @@ function isLoadedBackup(source: Uint8Array | LoadedBackup): source is LoadedBack
 
 export async function importDatabase(source: Uint8Array | LoadedBackup, options: ImportOptions): Promise<ImportResult> {
   const loaded = isLoadedBackup(source) ? source : await loadBackup(source);
+  // Re-validate even for pre-loaded backups: the LoadedBackup shape is plain
+  // data and a caller could construct one without going through loadBackup.
+  validateMetadata(loaded.metadata);
   return importFromZip(loaded.zip, options);
 }
 
