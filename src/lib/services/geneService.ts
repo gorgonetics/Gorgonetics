@@ -71,8 +71,8 @@ export async function backfillParsedGeneEffectsIfNeeded(): Promise<void> {
         ser: row.effectRecessive ?? '',
       };
     },
-    applyBatch: (updates) =>
-      withTransaction(async () => {
+    applyBatch: async (updates) => {
+      await withTransaction(async () => {
         for (const u of updates) {
           await db.execute(
             `UPDATE genes
@@ -84,7 +84,9 @@ export async function backfillParsedGeneEffectsIfNeeded(): Promise<void> {
             u,
           );
         }
-      }),
+      });
+      return updates.length;
+    },
   });
 }
 

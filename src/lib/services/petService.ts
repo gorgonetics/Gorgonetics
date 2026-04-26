@@ -761,14 +761,18 @@ export async function backfillPetGenesIfNeeded(): Promise<boolean> {
     },
     applyBatch: async (updates) => {
       // Per-row transaction with per-row catch — one bad pet must not abort
-      // the rest of the batch.
+      // the rest of the batch. Return the success count so the helper's
+      // applied tally reflects only actually-written rows.
+      let succeeded = 0;
       for (const u of updates) {
         try {
           await withTransaction(() => writePetGenes(u.id, u.genome));
+          succeeded++;
         } catch (e) {
           console.warn(`pet_genes backfill: failed for pet ${u.id}`, e);
         }
       }
+      return succeeded;
     },
   });
 }
@@ -798,15 +802,17 @@ export async function backfillPositiveGenesIfNeeded(): Promise<void> {
         return null;
       }
     },
-    applyBatch: (updates) =>
-      withTransaction(async () => {
+    applyBatch: async (updates) => {
+      await withTransaction(async () => {
         for (const u of updates) {
           await db.execute('UPDATE pets SET positive_genes = $pg WHERE id = $id', {
             pg: u.positive,
             id: u.id,
           });
         }
-      }),
+      });
+      return updates.length;
+    },
     markDone: () => setSetting(POSITIVE_GENES_BACKFILL_KEY, true),
   });
 }
@@ -835,8 +841,8 @@ export async function backfillGeneCountsIfNeeded(): Promise<boolean> {
       if (counts.total === cur.total && counts.known === cur.known && counts.unknown === cur.unknown) return null;
       return { id: row.id, counts };
     },
-    applyBatch: (updates) =>
-      withTransaction(async () => {
+    applyBatch: async (updates) => {
+      await withTransaction(async () => {
         for (const u of updates) {
           await db.execute('UPDATE pets SET total_genes = $t, known_genes = $k, unknown_genes = $u WHERE id = $id', {
             t: u.counts.total,
@@ -845,7 +851,9 @@ export async function backfillGeneCountsIfNeeded(): Promise<boolean> {
             id: u.id,
           });
         }
-      }),
+      });
+      return updates.length;
+    },
     markDone: () => setSetting(GENE_COUNTS_BACKFILL_KEY, true),
   });
 }

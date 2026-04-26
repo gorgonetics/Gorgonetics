@@ -19,11 +19,12 @@ export interface BackfillSpec<Row, Update> {
   /** Compute the per-row update, or null to skip this row. */
   computeUpdate: (row: Row) => Promise<Update | null> | Update | null;
   /**
-   * Apply one batch of updates. The implementation owns its own atomicity —
-   * typically wrapped in `withTransaction` for batch-level transactions or
-   * looped per row for tolerant per-row writes.
+   * Apply one batch of updates and return the count actually applied. For
+   * all-or-nothing implementations (typically `withTransaction` over the
+   * whole batch) this is `updates.length`; tolerant per-row writers should
+   * return the count of writes that succeeded.
    */
-  applyBatch: (updates: Update[]) => Promise<void>;
+  applyBatch: (updates: Update[]) => Promise<number>;
   /** Optional hook to record completion (e.g., set a settings flag). */
   markDone?: () => Promise<void>;
 }
@@ -55,8 +56,7 @@ export async function runBatchBackfill<Row, Update>(spec: BackfillSpec<Row, Upda
     const computed = await Promise.all(slice.map((r) => Promise.resolve(spec.computeUpdate(r))));
     const updates = computed.filter((u): u is Update => u != null);
     if (updates.length > 0) {
-      await spec.applyBatch(updates);
-      applied += updates.length;
+      applied += await spec.applyBatch(updates);
     }
     const processed = Math.min(i + batchSize, rows.length);
     console.info(`${spec.label}: ${processed}/${rows.length} (${applied} applied)`);
