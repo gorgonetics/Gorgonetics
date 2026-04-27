@@ -487,10 +487,16 @@ export async function uploadPet(
   });
 
   // Recorded outside the upload tx — failure here mustn't roll back the
-  // pet, and the table is only an auto-scanner skip-list. INSERT OR
-  // IGNORE keeps it idempotent if the user manually re-imports a deleted
-  // pet, then later runs an auto-scan.
-  await recordImportedFile(contentHash, sourcePath);
+  // pet, and the table is only an auto-scanner skip-list. The try/catch
+  // is load-bearing: an `await` here would propagate the ledger error to
+  // the caller as a failed upload, even though the pet was already
+  // committed. Worst case for a swallowed error is the next auto-scan
+  // re-imports the file once and dedups via pets.content_hash.
+  try {
+    await recordImportedFile(contentHash, sourcePath);
+  } catch (err) {
+    console.warn('imported_files: failed to record after successful upload', err);
+  }
 
   return {
     status: 'success',

@@ -50,13 +50,15 @@ export function getDefaultGameFolder(platform: Platform = detectPlatform()): str
 
 /** True if the path is one of our placeholder strings (not real config). */
 export function isPlaceholderPath(path: string): boolean {
-  return !path.trim() || path.startsWith('<TODO:');
+  const trimmed = path.trim();
+  return !trimmed || trimmed.startsWith('<TODO:');
 }
 
 /** Read user-configured folder, or platform default if unset. */
 export async function getConfiguredGameFolder(): Promise<string> {
   const stored = (await getSetting<string>(GAME_FOLDER_SETTING_KEY)) ?? '';
-  return stored.trim() ? stored : getDefaultGameFolder();
+  const trimmed = stored.trim();
+  return trimmed || getDefaultGameFolder();
 }
 
 export function setConfiguredGameFolder(path: string): Promise<void> {
@@ -129,9 +131,8 @@ export async function autoScanGameFolder(options?: {
       const content = await readTextFile(fullPath);
       const hash = await sha256(content);
       if (await hasImportedFile(hash)) {
-        // Record the source path even on skip, so a folder move is
-        // visible in the ledger if the user inspects it later.
-        await recordImportedFile(hash, fullPath);
+        // Already in the ledger — first-seen source_path is intentionally
+        // immutable, so don't rewrite it on skip.
         result.skipped++;
         continue;
       }
@@ -139,9 +140,9 @@ export async function autoScanGameFolder(options?: {
       if (upload.status === 'success') {
         result.imported++;
       } else {
-        // Fall-through duplicate: pets.content_hash matched but
-        // imported_files was missing the row (e.g. pre-feature legacy).
-        // Record now so future scans skip it.
+        // pets.content_hash matched but imported_files was missing the
+        // row (e.g. pre-feature legacy that the backfill hasn't reached
+        // yet). Record now so future scans skip it.
         await recordImportedFile(hash, fullPath);
         result.failures.push({ file: fileName, reason: upload.message });
       }
