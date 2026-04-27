@@ -6,6 +6,7 @@ import { backfillParsedGeneEffectsIfNeeded } from '$lib/services/geneService.js'
 import { runMigrations } from '$lib/services/migrationService.js';
 import {
   backfillGeneCountsIfNeeded,
+  backfillImportedFilesIfNeeded,
   backfillPetGenesIfNeeded,
   backfillPositiveGenesIfNeeded,
 } from '$lib/services/petService.js';
@@ -54,6 +55,12 @@ onMount(async () => {
       void appState.loadPets();
     } catch (err) {
       console.warn('gene_counts backfill aborted:', err);
+    }
+
+    try {
+      await backfillImportedFilesIfNeeded();
+    } catch (err) {
+      console.warn('imported_files backfill aborted:', err);
     }
   })();
 });

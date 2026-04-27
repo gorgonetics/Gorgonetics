@@ -1,6 +1,7 @@
 <script>
 /* global __APP_VERSION__ */
 
+import { detectPlatform, getDefaultGameFolder, isPlaceholderPath } from '$lib/services/gameImport.js';
 import { settings, settingsActions } from '$lib/stores/settings.js';
 import { isTauri } from '$lib/utils/environment.js';
 import { focusTrap } from '$lib/utils/focusTrap.js';
@@ -27,6 +28,14 @@ function toErrorMessage(err) {
 const modKey = /mac/i.test(navigator?.userAgent ?? '') ? '⌘' : 'Ctrl';
 const currentScale = $derived(_getFontScale($settings));
 const currentTheme = $derived(getThemePreference($settings));
+const platformLabel = detectPlatform();
+const gameFolderPlaceholder = getDefaultGameFolder(platformLabel);
+const gameFolderValue = $derived($settings['import.gameFolderPath'] ?? '');
+const gameFolderIsDefault = $derived(isPlaceholderPath(String(gameFolderValue || '')));
+
+function setGameFolderPath(value) {
+  settingsActions.update('import.gameFolderPath', value);
+}
 
 function setFontScale(scale) {
   settingsActions.update('display.fontScale', clampScale(scale));
@@ -197,6 +206,38 @@ async function installUpdate() {
                 aria-label="System theme"
               >💻 System</button>
             </div>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <h4>Auto-import</h4>
+
+          <div class="setting-row" style="cursor: default;">
+            <div class="setting-info">
+              <span class="setting-name">Game folder</span>
+              <span class="setting-desc">Folder where Project Gorgon writes pet gene reports. The auto-import button on the pet list scans this folder and imports any new files.</span>
+            </div>
+          </div>
+
+          <div class="setting-row" style="cursor: default;">
+            <input
+              class="folder-input"
+              type="text"
+              placeholder={gameFolderPlaceholder}
+              value={gameFolderIsDefault ? '' : gameFolderValue}
+              oninput={(e) => setGameFolderPath(e.currentTarget.value)}
+              aria-label="Game folder path"
+            />
+          </div>
+
+          <div class="setting-row" style="cursor: default;">
+            <span class="update-message muted">
+              {#if gameFolderIsDefault}
+                Detected platform: {platformLabel}. The path is not configured — the placeholder above is a TODO. Paste the real folder once known.
+              {:else}
+                Detected platform: {platformLabel}.
+              {/if}
+            </span>
           </div>
         </div>
 
@@ -519,6 +560,22 @@ async function installUpdate() {
     border-radius: 8px;
     padding: 12px;
     margin: -4px 0;
+  }
+
+  .folder-input {
+    width: 100%;
+    padding: 6px 10px;
+    border: 1px solid var(--border-secondary);
+    border-radius: 6px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 12px;
+    font-family: var(--font-mono, monospace);
+    outline: none;
+  }
+
+  .folder-input:focus {
+    border-color: var(--accent);
   }
 
   .progress-bar {
