@@ -5,16 +5,9 @@ import { closeDatabase, initDatabase } from '$lib/services/database.js';
 import * as gameImport from '$lib/services/gameImport.js';
 import { runMigrations } from '$lib/services/migrationService.js';
 import * as petService from '$lib/services/petService.js';
+import { sha256Hex } from '$lib/utils/hash.js';
 
 const SAMPLE_BEEWASP = readFileSync(resolve('data/Genes_SampleFaeBee.txt'), 'utf-8');
-
-async function sha256(content) {
-  const data = new TextEncoder().encode(content);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  return Array.from(new Uint8Array(hashBuffer))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
-}
 
 describe('gameImport service', () => {
   beforeEach(async () => {
@@ -57,9 +50,6 @@ describe('gameImport service', () => {
       expect(gameImport.isPlaceholderPath('')).toBe(true);
       expect(gameImport.isPlaceholderPath('   ')).toBe(true);
     });
-    it('treats <TODO: ...> as placeholder', () => {
-      expect(gameImport.isPlaceholderPath('<TODO: fill me in>')).toBe(true);
-    });
     it('treats real paths as not-placeholder', () => {
       expect(gameImport.isPlaceholderPath('/Users/me/game')).toBe(false);
       expect(gameImport.isPlaceholderPath('C:/Games/Project Gorgon')).toBe(false);
@@ -83,7 +73,7 @@ describe('gameImport service', () => {
 
   describe('imported_files ledger', () => {
     it('records hash on successful upload', async () => {
-      const hash = await sha256(SAMPLE_BEEWASP);
+      const hash = await sha256Hex(SAMPLE_BEEWASP);
       expect(await petService.hasImportedFile(hash)).toBe(false);
 
       const result = await petService.uploadPet(SAMPLE_BEEWASP, 'Test', 'Female');
@@ -92,7 +82,7 @@ describe('gameImport service', () => {
     });
 
     it('keeps the hash recorded after pet deletion', async () => {
-      const hash = await sha256(SAMPLE_BEEWASP);
+      const hash = await sha256Hex(SAMPLE_BEEWASP);
       const upload = await petService.uploadPet(SAMPLE_BEEWASP, 'Test', 'Female');
       expect(upload.status).toBe('success');
 
@@ -109,7 +99,7 @@ describe('gameImport service', () => {
     it('backfillImportedFilesIfNeeded populates ledger from existing pets', async () => {
       // Upload a pet, then wipe the ledger to simulate a pre-feature
       // database, and verify the backfill reseeds it.
-      const hash = await sha256(SAMPLE_BEEWASP);
+      const hash = await sha256Hex(SAMPLE_BEEWASP);
       const upload = await petService.uploadPet(SAMPLE_BEEWASP, 'Test', 'Female');
       expect(upload.status).toBe('success');
 

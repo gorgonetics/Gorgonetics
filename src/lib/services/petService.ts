@@ -5,6 +5,7 @@
 import type { GeneStatsEntry, Genome, Pet } from '$lib/types/index.js';
 import { GENOME_FILE_MARKERS } from '$lib/types/index.js';
 import { fromGeneId, type ParsedChromosome, type ParsedGene, toGeneId } from '$lib/utils/geneAnalysis.js';
+import { sha256Hex } from '$lib/utils/hash.js';
 import { capitalize } from '$lib/utils/string.js';
 import { now } from '$lib/utils/timestamp.js';
 import { runBatchBackfill } from './backfill.js';
@@ -14,17 +15,6 @@ import { getParsedGenesCached, isHorseBreedFiltered } from './geneService.js';
 import { compareBlockLetters, genomeToGeneStrings, isValidGenomeFile, parseGenome } from './genomeParser.js';
 import { parseStructuredPetName } from './nameParser.js';
 import { getSetting, setSetting } from './settingsService.js';
-
-/**
- * Compute SHA-256 hash of a string.
- */
-async function sha256(content: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(content);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
-}
 
 type GeneCountSummary = { total: number; known: number; unknown: number };
 
@@ -371,11 +361,11 @@ export async function recordImportedFile(contentHash: string, sourcePath?: strin
  * have been deleted).
  */
 export async function hasImportedFile(contentHash: string): Promise<boolean> {
-  const rows = await getDb().select<{ cnt: number }[]>(
-    'SELECT COUNT(*) as cnt FROM imported_files WHERE content_hash = $hash',
+  const rows = await getDb().select<{ one: number }[]>(
+    'SELECT 1 AS one FROM imported_files WHERE content_hash = $hash LIMIT 1',
     { hash: contentHash },
   );
-  return rows[0].cnt > 0;
+  return rows.length > 0;
 }
 
 /**
@@ -402,7 +392,7 @@ export async function uploadPet(
   }
 
   // Compute hash for duplicate detection
-  const contentHash = await sha256(content);
+  const contentHash = await sha256Hex(content);
 
   // Check for duplicate
   const existing = await findPetByHash(contentHash);
@@ -871,7 +861,7 @@ export async function backfillImportedFilesIfNeeded(): Promise<void> {
     batchSize: 64,
     guard: async () => (await getSetting<boolean>(IMPORTED_FILES_BACKFILL_KEY)) ?? false,
     loadWorkSet: () => db.select<Row[]>('SELECT content_hash FROM pets WHERE content_hash IS NOT NULL'),
-    computeUpdate: (row) => (row.content_hash ? { hash: row.content_hash } : null),
+    computeUpdate: (row) => ({ hash: row.content_hash }),
     applyBatch: async (updates) => {
       const ts = now();
       await withTransaction(async () => {

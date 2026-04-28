@@ -17,31 +17,43 @@ import { settings, settingsActions } from '$lib/stores/settings.js';
 const { children } = $props();
 let ready = $state(false);
 let liveScanRunning = false;
+let pendingRescan = false;
 
 async function runLiveScan() {
-  if (liveScanRunning) return;
+  // Drop into a queued state instead of starting a parallel scan —
+  // a file written during a long scan would otherwise be missed
+  // until the next unrelated event.
+  if (liveScanRunning) {
+    pendingRescan = true;
+    return;
+  }
   liveScanRunning = true;
   try {
-    const result = await autoScanGameFolder();
-    if (result.imported > 0) {
-      void appState.loadPets();
-    }
+    do {
+      pendingRescan = false;
+      const result = await autoScanGameFolder();
+      if (result.imported > 0) {
+        void appState.loadPets();
+      }
+    } while (pendingRescan);
   } catch (err) {
     console.warn('live game-folder scan failed:', err);
   } finally {
     liveScanRunning = false;
+    pendingRescan = false;
   }
 }
 
-// Re-arm the folder watcher whenever the configured path changes.
-// Reading $settings makes this effect track the store; we gate on
-// `ready` so the watcher only starts after settings have been loaded
-// from disk (otherwise the first read sees defaults and would arm
-// twice in quick succession).
+// Track only the configured path. Reading $settings directly inside
+// the effect would re-fire on any settings write (theme, font scale,
+// etc.) because the store spreads a new object on every update;
+// $derived memoizes on the computed value so unrelated keys don't
+// thrash the watcher.
+const gameFolderPath = $derived($settings['import.gameFolderPath'] ?? '');
+
 $effect(() => {
   if (!ready) return;
-  // Touch the store so the effect re-fires on path changes.
-  void $settings['import.gameFolderPath'];
+  void gameFolderPath;
 
   let cancelled = false;
   let activeStop = null;

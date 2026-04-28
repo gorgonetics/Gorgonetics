@@ -9,6 +9,7 @@
  */
 
 import { isTauri } from '$lib/utils/environment.js';
+import { sha256Hex } from '$lib/utils/hash.js';
 import { hasImportedFile, recordImportedFile, uploadPet } from './petService.js';
 import { getSetting, setSetting } from './settingsService.js';
 
@@ -44,55 +45,39 @@ export function detectPlatform(): Platform {
   return 'unknown';
 }
 
-/** Per-platform default, or '' if unknown. May be a `<TODO:` placeholder. */
+/** Per-platform default, or '' if the host platform is unknown. */
 export function getDefaultGameFolder(platform: Platform = detectPlatform()): string {
   return DEFAULT_GAME_FOLDERS[platform] ?? '';
 }
 
-/** True if the path is one of our placeholder strings (not real config). */
+/** True if the path is unset (only check that survives now that all platforms have real defaults). */
 export function isPlaceholderPath(path: string): boolean {
-  const trimmed = path.trim();
-  return !trimmed || trimmed.startsWith('<TODO:');
+  return !path.trim();
 }
 
 /** Read user-configured folder, or platform default if unset. */
 export async function getConfiguredGameFolder(): Promise<string> {
   const stored = (await getSetting<string>(GAME_FOLDER_SETTING_KEY)) ?? '';
-  const trimmed = stored.trim();
-  return trimmed || getDefaultGameFolder();
+  return stored.trim() || getDefaultGameFolder();
 }
 
 export function setConfiguredGameFolder(path: string): Promise<void> {
   return setSetting(GAME_FOLDER_SETTING_KEY, path);
 }
 
-/**
- * Expand a `~/` or `$HOME/` prefix to the real home directory. The Tauri
- * fs plugin doesn't substitute these — capability scope variables resolve
- * server-side, but the path passed into readDir/readTextFile is taken
- * literally — so the expansion has to happen here before the call.
- */
-async function expandHomePath(path: string): Promise<string> {
-  if (!path.startsWith('~/') && !path.startsWith('$HOME/') && path !== '~' && path !== '$HOME') {
-    return path;
-  }
-  const { homeDir } = await import('@tauri-apps/api/path');
-  const home = (await homeDir()).replace(/\/$/, '');
-  if (path === '~' || path === '$HOME') return home;
-  if (path.startsWith('~/')) return `${home}${path.slice(1)}`;
-  return `${home}${path.slice('$HOME'.length)}`;
-}
+const HOME_PREFIX = /^(~|\$HOME)(?=$|\/)/;
 
 /**
- * SHA-256 of a string — matches the hash that `uploadPet` uses internally
- * so the dedup check is against the same key space.
+ * Expand a leading `~` or `$HOME` to the real home directory. Tauri's
+ * fs plugin only resolves these as capability scope variables — the
+ * path passed to readDir/readTextFile is taken literally — so the
+ * expansion has to happen here before the call.
  */
-async function sha256(content: string): Promise<string> {
-  const data = new TextEncoder().encode(content);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  return Array.from(new Uint8Array(hashBuffer))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
+async function expandHomePath(path: string): Promise<string> {
+  if (!HOME_PREFIX.test(path)) return path;
+  const { homeDir } = await import('@tauri-apps/api/path');
+  const home = (await homeDir()).replace(/\/$/, '');
+  return path.replace(HOME_PREFIX, home);
 }
 
 export interface AutoScanResult {
@@ -122,14 +107,21 @@ export async function autoScanGameFolder(options?: {
   if (isPlaceholderPath(configured)) return emptyResult('not_configured');
 
   const folder = await expandHomePath(configured);
-  const { readDir, readTextFile, exists } = await import('@tauri-apps/plugin-fs');
+  const fs = await import('@tauri-apps/plugin-fs');
+  const { readTextFile } = fs;
 
-  if (!(await exists(folder))) {
-    return emptyResult('folder_missing', `Game folder not found: ${folder}`);
+  let entries: Awaited<ReturnType<typeof fs.readDir>>;
+  try {
+    entries = await fs.readDir(folder);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return emptyResult('folder_missing', `Game folder not readable: ${folder} (${message})`);
   }
-
-  const entries = await readDir(folder);
-  const txtFiles = entries.filter((e) => e.isFile && e.name.toLowerCase().endsWith('.txt')).map((e) => e.name);
+  // Path joining via plain concat is acceptable — Tauri's fs plugin
+  // normalizes both `/` and `\` on Windows.
+  const txtFiles = entries
+    .filter((e) => e.isFile && e.name.toLowerCase().endsWith('.txt'))
+    .map((e) => ({ name: e.name, fullPath: `${folder}/${e.name}` }));
 
   const result: AutoScanResult = {
     status: 'ok',
@@ -139,37 +131,48 @@ export async function autoScanGameFolder(options?: {
     failures: [],
   };
 
-  for (let i = 0; i < txtFiles.length; i++) {
-    const fileName = txtFiles[i];
-    options?.onProgress?.(i + 1, txtFiles.length);
-    result.scanned++;
-    // Path joining via plain concat is acceptable here — Tauri's fs
-    // plugin normalizes both `/` and `\` separators on all platforms.
-    const fullPath = `${folder}/${fileName}`;
-    try {
-      const content = await readTextFile(fullPath);
-      const hash = await sha256(content);
-      if (await hasImportedFile(hash)) {
+  // Read+hash in parallel chunks — the slow step on cold scans is disk
+  // I/O, and SHA-256 of a small text file is negligible. SQL writes
+  // (uploadPet, recordImportedFile) stay strictly serial because
+  // uploadPet computes MAX(sort_order)+1 inside its transaction.
+  const READ_CHUNK = 8;
+  for (let i = 0; i < txtFiles.length; i += READ_CHUNK) {
+    const chunk = txtFiles.slice(i, i + READ_CHUNK);
+    const hashed = await Promise.all(
+      chunk.map(async ({ name, fullPath }) => {
+        try {
+          const content = await readTextFile(fullPath);
+          const hash = await sha256Hex(content);
+          return { name, fullPath, content, hash } as const;
+        } catch (err) {
+          return { name, fullPath, error: err instanceof Error ? err.message : String(err) } as const;
+        }
+      }),
+    );
+
+    for (const item of hashed) {
+      result.scanned++;
+      options?.onProgress?.(result.scanned, txtFiles.length);
+      if ('error' in item) {
+        result.failures.push({ file: item.name, reason: item.error });
+        continue;
+      }
+      if (await hasImportedFile(item.hash)) {
         // Already in the ledger — first-seen source_path is intentionally
         // immutable, so don't rewrite it on skip.
         result.skipped++;
         continue;
       }
-      const upload = await uploadPet(content, '', 'Male', undefined, fullPath);
+      const upload = await uploadPet(item.content, '', '', undefined, item.fullPath);
       if (upload.status === 'success') {
         result.imported++;
       } else {
         // pets.content_hash matched but imported_files was missing the
-        // row (e.g. pre-feature legacy that the backfill hasn't reached
-        // yet). Record now so future scans skip it.
-        await recordImportedFile(hash, fullPath);
-        result.failures.push({ file: fileName, reason: upload.message });
+        // row (e.g. pre-feature legacy not yet reached by backfill).
+        // Record now so future scans skip it.
+        await recordImportedFile(item.hash, item.fullPath);
+        result.failures.push({ file: item.name, reason: upload.message });
       }
-    } catch (err) {
-      result.failures.push({
-        file: fileName,
-        reason: err instanceof Error ? err.message : String(err),
-      });
     }
   }
 
@@ -197,23 +200,29 @@ export async function watchGameFolder(
   if (isPlaceholderPath(configured)) return null;
 
   const folder = await expandHomePath(configured);
-  const { exists, watch } = await import('@tauri-apps/plugin-fs');
-  if (!(await exists(folder))) return null;
+  const { watch } = await import('@tauri-apps/plugin-fs');
 
   const debounceMs = options?.debounceMs ?? 500;
   let timer: ReturnType<typeof setTimeout> | null = null;
 
-  const unwatch = await watch(
-    folder,
-    () => {
-      if (timer) clearTimeout(timer);
-      timer = setTimeout(() => {
-        timer = null;
-        onChange();
-      }, debounceMs);
-    },
-    { recursive: false },
-  );
+  let unwatch: Awaited<ReturnType<typeof watch>>;
+  try {
+    unwatch = await watch(
+      folder,
+      () => {
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(() => {
+          timer = null;
+          onChange();
+        }, debounceMs);
+      },
+      { recursive: false },
+    );
+  } catch {
+    // Folder doesn't exist or isn't watchable — caller treats null as
+    // "nothing to watch right now". A later path change re-arms.
+    return null;
+  }
 
   return async () => {
     if (timer) {

@@ -1,7 +1,7 @@
 <script>
 /* global __APP_VERSION__ */
 
-import { detectPlatform, getDefaultGameFolder, isPlaceholderPath } from '$lib/services/gameImport.js';
+import { detectPlatform, getDefaultGameFolder } from '$lib/services/gameImport.js';
 import { settings, settingsActions } from '$lib/stores/settings.js';
 import { isTauri } from '$lib/utils/environment.js';
 import { focusTrap } from '$lib/utils/focusTrap.js';
@@ -31,7 +31,6 @@ const currentTheme = $derived(getThemePreference($settings));
 const platformLabel = detectPlatform();
 const gameFolderPlaceholder = getDefaultGameFolder(platformLabel);
 const gameFolderValue = $derived($settings['import.gameFolderPath'] ?? '');
-const gameFolderIsDefault = $derived(isPlaceholderPath(String(gameFolderValue || '')));
 
 function setGameFolderPath(value) {
   settingsActions.update('import.gameFolderPath', value);
@@ -224,7 +223,7 @@ async function installUpdate() {
               class="folder-input"
               type="text"
               placeholder={gameFolderPlaceholder}
-              value={gameFolderIsDefault ? '' : gameFolderValue}
+              value={gameFolderValue}
               oninput={(e) => setGameFolderPath(e.currentTarget.value)}
               aria-label="Game folder path"
             />
@@ -232,11 +231,7 @@ async function installUpdate() {
 
           <div class="setting-row" style="cursor: default;">
             <span class="update-message muted">
-              {#if gameFolderIsDefault}
-                Detected platform: {platformLabel}. The path is not configured — the placeholder above is a TODO. Paste the real folder once known.
-              {:else}
-                Detected platform: {platformLabel}.
-              {/if}
+              Detected platform: {platformLabel}. Leave blank to use the default shown above.
             </span>
           </div>
         </div>
