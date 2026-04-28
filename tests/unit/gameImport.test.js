@@ -43,8 +43,8 @@ describe('gameImport service', () => {
       );
     });
 
-    it('still uses a placeholder for Linux until confirmed', () => {
-      expect(gameImport.getDefaultGameFolder('linux')).toContain('TODO');
+    it('returns the verified Linux path under $HOME/.config/unity3d', () => {
+      expect(gameImport.getDefaultGameFolder('linux')).toBe('$HOME/.config/unity3d/Elder Game/Project Gorgon/Reports');
     });
 
     it('returns empty string for unknown platform', () => {

@@ -17,18 +17,17 @@ export type Platform = 'windows' | 'mac' | 'linux' | 'unknown';
 const GAME_FOLDER_SETTING_KEY = 'import.gameFolderPath';
 
 /**
- * Per-platform default for the game's gene-report folder. Mac and
- * Windows are the user-confirmed canonical paths; Linux is still a
- * placeholder pending confirmation.
- *
- * Forward slashes only — Tauri's fs plugin normalizes them on Windows.
- * The auto-scanner treats any `<TODO:` value as "not configured" and
- * lets the user override the default in Settings → Auto-import.
+ * Per-platform default for the game's gene-report folder, all
+ * user-confirmed. Forward slashes only — Tauri's fs plugin normalizes
+ * them on Windows. The auto-scanner still falls back through
+ * `isPlaceholderPath` so the unknown-platform branch (empty string)
+ * surfaces a "not configured" result instead of attempting a scan.
+ * Users can override any default in Settings → Auto-import.
  */
 const DEFAULT_GAME_FOLDERS: Record<Platform, string> = {
   windows: '$HOME/AppData/LocalLow/Elder Game/Project Gorgon/Reports',
   mac: '$HOME/Library/Application Support/unity.Elder Game.Project Gorgon/Reports',
-  linux: '<TODO: Linux path to Project Gorgon gene reports folder>',
+  linux: '$HOME/.config/unity3d/Elder Game/Project Gorgon/Reports',
   unknown: '',
 };
 
