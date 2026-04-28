@@ -17,15 +17,17 @@ export type Platform = 'windows' | 'mac' | 'linux' | 'unknown';
 const GAME_FOLDER_SETTING_KEY = 'import.gameFolderPath';
 
 /**
- * Placeholder paths for the game's gene-report folder. These are not
- * authoritative — the actual paths must be filled in by the user once
- * verified on a machine that has Project Gorgon installed.
+ * Per-platform default for the game's gene-report folder. Mac and
+ * Windows are the user-confirmed canonical paths; Linux is still a
+ * placeholder pending confirmation.
  *
- * The auto-scanner treats any value matching `<TODO:` as "not configured".
+ * Forward slashes only — Tauri's fs plugin normalizes them on Windows.
+ * The auto-scanner treats any `<TODO:` value as "not configured" and
+ * lets the user override the default in Settings → Auto-import.
  */
-const GAME_FOLDER_PLACEHOLDERS: Record<Platform, string> = {
-  windows: '<TODO: Windows path to Project Gorgon gene reports folder>',
-  mac: '<TODO: macOS path to Project Gorgon gene reports folder>',
+const DEFAULT_GAME_FOLDERS: Record<Platform, string> = {
+  windows: '$HOME/AppData/LocalLow/Elder Game/Project Gorgon/Reports',
+  mac: '$HOME/Library/Application Support/unity.Elder Game.Project Gorgon/Reports',
   linux: '<TODO: Linux path to Project Gorgon gene reports folder>',
   unknown: '',
 };
@@ -43,9 +45,9 @@ export function detectPlatform(): Platform {
   return 'unknown';
 }
 
-/** Per-platform placeholder, or '' if unknown. */
+/** Per-platform default, or '' if unknown. May be a `<TODO:` placeholder. */
 export function getDefaultGameFolder(platform: Platform = detectPlatform()): string {
-  return GAME_FOLDER_PLACEHOLDERS[platform] ?? '';
+  return DEFAULT_GAME_FOLDERS[platform] ?? '';
 }
 
 /** True if the path is one of our placeholder strings (not real config). */
@@ -63,6 +65,23 @@ export async function getConfiguredGameFolder(): Promise<string> {
 
 export function setConfiguredGameFolder(path: string): Promise<void> {
   return setSetting(GAME_FOLDER_SETTING_KEY, path);
+}
+
+/**
+ * Expand a `~/` or `$HOME/` prefix to the real home directory. The Tauri
+ * fs plugin doesn't substitute these — capability scope variables resolve
+ * server-side, but the path passed into readDir/readTextFile is taken
+ * literally — so the expansion has to happen here before the call.
+ */
+async function expandHomePath(path: string): Promise<string> {
+  if (!path.startsWith('~/') && !path.startsWith('$HOME/') && path !== '~' && path !== '$HOME') {
+    return path;
+  }
+  const { homeDir } = await import('@tauri-apps/api/path');
+  const home = (await homeDir()).replace(/\/$/, '');
+  if (path === '~' || path === '$HOME') return home;
+  if (path.startsWith('~/')) return `${home}${path.slice(1)}`;
+  return `${home}${path.slice('$HOME'.length)}`;
 }
 
 /**
@@ -100,9 +119,10 @@ export async function autoScanGameFolder(options?: {
 }): Promise<AutoScanResult> {
   if (!isTauri()) return emptyResult('error', 'Auto-import is only available in the desktop app');
 
-  const folder = await getConfiguredGameFolder();
-  if (isPlaceholderPath(folder)) return emptyResult('not_configured');
+  const configured = await getConfiguredGameFolder();
+  if (isPlaceholderPath(configured)) return emptyResult('not_configured');
 
+  const folder = await expandHomePath(configured);
   const { readDir, readTextFile, exists } = await import('@tauri-apps/plugin-fs');
 
   if (!(await exists(folder))) {

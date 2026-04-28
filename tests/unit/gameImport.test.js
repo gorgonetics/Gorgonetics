@@ -31,9 +31,19 @@ describe('gameImport service', () => {
   });
 
   describe('getDefaultGameFolder', () => {
-    it('returns a placeholder string for each platform', () => {
-      expect(gameImport.getDefaultGameFolder('windows')).toContain('TODO');
-      expect(gameImport.getDefaultGameFolder('mac')).toContain('TODO');
+    it('returns the verified Mac path under $HOME', () => {
+      expect(gameImport.getDefaultGameFolder('mac')).toBe(
+        '$HOME/Library/Application Support/unity.Elder Game.Project Gorgon/Reports',
+      );
+    });
+
+    it('returns the verified Windows path under $HOME/AppData/LocalLow', () => {
+      expect(gameImport.getDefaultGameFolder('windows')).toBe(
+        '$HOME/AppData/LocalLow/Elder Game/Project Gorgon/Reports',
+      );
+    });
+
+    it('still uses a placeholder for Linux until confirmed', () => {
       expect(gameImport.getDefaultGameFolder('linux')).toContain('TODO');
     });
 
