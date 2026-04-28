@@ -75,6 +75,34 @@ describe('gameImport service', () => {
     });
   });
 
+  describe('toRelativeHome', () => {
+    it('strips a leading ~/ prefix', () => {
+      expect(gameImport.toRelativeHome('~/Library/foo')).toBe('Library/foo');
+    });
+
+    it('strips a leading $HOME/ prefix (back-compat for already-saved settings)', () => {
+      expect(gameImport.toRelativeHome('$HOME/Library/foo')).toBe('Library/foo');
+    });
+
+    it('returns just bare ~ as the empty string (home root)', () => {
+      expect(gameImport.toRelativeHome('~')).toBe('');
+      expect(gameImport.toRelativeHome('$HOME')).toBe('');
+    });
+
+    it('passes through paths with no home prefix unchanged', () => {
+      // The fs scope will reject these, but it's not toRelativeHome's
+      // job to validate — just to normalize the prefix.
+      expect(gameImport.toRelativeHome('Library/foo')).toBe('Library/foo');
+      expect(gameImport.toRelativeHome('/Users/me/foo')).toBe('/Users/me/foo');
+      expect(gameImport.toRelativeHome('C:/Games/foo')).toBe('C:/Games/foo');
+    });
+
+    it('does not strip ~ or $HOME mid-string', () => {
+      expect(gameImport.toRelativeHome('foo/~/bar')).toBe('foo/~/bar');
+      expect(gameImport.toRelativeHome('foo/$HOME/bar')).toBe('foo/$HOME/bar');
+    });
+  });
+
   describe('isPlaceholderPath', () => {
     it('treats empty/whitespace as placeholder', () => {
       expect(gameImport.isPlaceholderPath('')).toBe(true);

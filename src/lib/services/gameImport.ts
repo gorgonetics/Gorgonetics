@@ -77,8 +77,11 @@ const HOME_PREFIX = /^(~|\$HOME)(?:\/|$)/;
  * Tauri's fs plugin together with `{ baseDir: BaseDirectory.Home }`.
  * Capability scope is keyed off `$HOME/...` patterns; resolving the
  * absolute path on the JS side would defeat that scoping.
+ *
+ * Exported for unit testing — callers should not need to call this
+ * directly; the auto-scan / watch helpers do it themselves.
  */
-function toRelativeHome(path: string): string {
+export function toRelativeHome(path: string): string {
   return path.replace(HOME_PREFIX, '');
 }
 
