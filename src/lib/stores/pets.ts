@@ -1,4 +1,5 @@
 import { derived, type Writable, writable } from 'svelte/store';
+import type { UploadPetOptions } from '$lib/services/petService.js';
 import * as petService from '$lib/services/petService.js';
 import type { Pet } from '$lib/types/index.js';
 
@@ -71,11 +72,11 @@ export const appState = {
     }
   },
 
-  async uploadPet(file: string, petName: string, petGender = 'Male') {
+  async uploadPet(content: string, options: UploadPetOptions = {}) {
     try {
       loading.set(true);
       error.set(null);
-      await petService.uploadPet(file, petName, petGender);
+      await petService.uploadPet(content, options);
       await this.loadPets();
     } catch (err: unknown) {
       error.set(`Failed to upload pet: ${err instanceof Error ? err.message : String(err)}`);
@@ -84,8 +85,8 @@ export const appState = {
     }
   },
 
-  async uploadPetQuiet(file: string, petName: string, petGender = 'Male') {
-    return petService.uploadPet(file, petName, petGender);
+  async uploadPetQuiet(content: string, options: UploadPetOptions = {}) {
+    return petService.uploadPet(content, options);
   },
 
   async reorderPets(orderedIds: number[]) {

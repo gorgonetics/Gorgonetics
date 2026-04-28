@@ -124,7 +124,7 @@ async function handleUpload() {
       const fileName = getBasename(filePaths[i]);
       try {
         const content = await readFileContent(filePaths[i]);
-        const result = await appState.uploadPetQuiet(content, '', 'Male');
+        const result = await appState.uploadPetQuiet(content);
         if (result.status === 'error') {
           failures.push(`${fileName}: ${result.message}`);
         }

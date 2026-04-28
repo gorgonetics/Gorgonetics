@@ -108,14 +108,14 @@ describe('gameImport service', () => {
       const hash = await sha256Hex(SAMPLE_BEEWASP);
       expect(await petService.hasImportedFile(hash)).toBe(false);
 
-      const result = await petService.uploadPet(SAMPLE_BEEWASP, 'Test', 'Female');
+      const result = await petService.uploadPet(SAMPLE_BEEWASP, { name: 'Test', gender: 'Female' });
       expect(result.status).toBe('success');
       expect(await petService.hasImportedFile(hash)).toBe(true);
     });
 
     it('keeps the hash recorded after pet deletion', async () => {
       const hash = await sha256Hex(SAMPLE_BEEWASP);
-      const upload = await petService.uploadPet(SAMPLE_BEEWASP, 'Test', 'Female');
+      const upload = await petService.uploadPet(SAMPLE_BEEWASP, { name: 'Test', gender: 'Female' });
       expect(upload.status).toBe('success');
 
       await petService.deletePet(upload.pet_id);
@@ -132,7 +132,7 @@ describe('gameImport service', () => {
       // Upload a pet, then wipe the ledger to simulate a pre-feature
       // database, and verify the backfill reseeds it.
       const hash = await sha256Hex(SAMPLE_BEEWASP);
-      const upload = await petService.uploadPet(SAMPLE_BEEWASP, 'Test', 'Female');
+      const upload = await petService.uploadPet(SAMPLE_BEEWASP, { name: 'Test', gender: 'Female' });
       expect(upload.status).toBe('success');
 
       const { getDb } = await import('$lib/services/database.js');

@@ -67,7 +67,11 @@ export async function loadDemoPetsIfNeeded(): Promise<void> {
   for (const { path, name, gender, breed } of demoFiles) {
     try {
       const content = await loadBundledResource(path);
-      const result = await uploadPet(content, name, gender, `Sample pet for exploring Gorgonetics features`);
+      const result = await uploadPet(content, {
+        name,
+        gender,
+        notes: 'Sample pet for exploring Gorgonetics features',
+      });
       if (result.status === 'success') {
         if (breed) {
           await updatePet(result.pet_id, { breed });

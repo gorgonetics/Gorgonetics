@@ -19,30 +19,30 @@ describe('Pet Service', () => {
 
   describe('uploadPet', () => {
     it('uploads a beewasp genome', async () => {
-      const result = await petService.uploadPet(SAMPLE_BEEWASP, 'Test Bee', 'Female');
+      const result = await petService.uploadPet(SAMPLE_BEEWASP, { name: 'Test Bee', gender: 'Female' });
       expect(result.status).toBe('success');
       expect(result.pet_id).toBeGreaterThan(0);
     });
 
     it('uploads a horse genome', async () => {
-      const result = await petService.uploadPet(SAMPLE_HORSE, 'Test Horse', 'Male');
+      const result = await petService.uploadPet(SAMPLE_HORSE, { name: 'Test Horse', gender: 'Male' });
       expect(result.status).toBe('success');
       expect(result.pet_id).toBeGreaterThan(0);
     });
 
     it('rejects empty content', async () => {
-      const result = await petService.uploadPet('', 'Empty', 'Male');
+      const result = await petService.uploadPet('', { name: 'Empty', gender: 'Male' });
       expect(result.status).toBe('error');
     });
 
     it('rejects invalid format', async () => {
-      const result = await petService.uploadPet('not a genome file', 'Bad', 'Male');
+      const result = await petService.uploadPet('not a genome file', { name: 'Bad', gender: 'Male' });
       expect(result.status).toBe('error');
     });
 
     it('detects duplicate uploads', async () => {
-      await petService.uploadPet(SAMPLE_BEEWASP, 'First', 'Female');
-      const result = await petService.uploadPet(SAMPLE_BEEWASP, 'Second', 'Female');
+      await petService.uploadPet(SAMPLE_BEEWASP, { name: 'First', gender: 'Female' });
+      const result = await petService.uploadPet(SAMPLE_BEEWASP, { name: 'Second', gender: 'Female' });
       expect(result.status).toBe('error');
       expect(result.message).toContain('already been uploaded');
     });
@@ -50,7 +50,7 @@ describe('Pet Service', () => {
     it('infers breed, gender, and attributes from structured Horse name', async () => {
       // Create a Horse genome file with a structured Entity name
       const structuredHorse = SAMPLE_HORSE.replace('Entity=Sample Horse', 'Entity=Kb F 60 70 65 80 90 100 55');
-      const result = await petService.uploadPet(structuredHorse, '', 'Male');
+      const result = await petService.uploadPet(structuredHorse, { name: '', gender: 'Male' });
       expect(result.status).toBe('success');
 
       const pet = await petService.getPet(result.pet_id);
@@ -68,7 +68,7 @@ describe('Pet Service', () => {
     });
 
     it('uses defaults when Horse name is not structured', async () => {
-      const result = await petService.uploadPet(SAMPLE_HORSE, '', 'Male');
+      const result = await petService.uploadPet(SAMPLE_HORSE, { name: '', gender: 'Male' });
       expect(result.status).toBe('success');
 
       const pet = await petService.getPet(result.pet_id);
@@ -79,10 +79,10 @@ describe('Pet Service', () => {
     });
 
     it('handles multiple sequential uploads', async () => {
-      const result1 = await petService.uploadPet(SAMPLE_BEEWASP, 'Bee One', 'Female');
+      const result1 = await petService.uploadPet(SAMPLE_BEEWASP, { name: 'Bee One', gender: 'Female' });
       expect(result1.status).toBe('success');
 
-      const result2 = await petService.uploadPet(SAMPLE_HORSE, 'Horse One', 'Male');
+      const result2 = await petService.uploadPet(SAMPLE_HORSE, { name: 'Horse One', gender: 'Male' });
       expect(result2.status).toBe('success');
 
       const { items, total } = await petService.getAllPets();
@@ -91,18 +91,18 @@ describe('Pet Service', () => {
     });
 
     it('assigns monotonically increasing sort_order across uploads', async () => {
-      await petService.uploadPet(SAMPLE_BEEWASP, 'Bee', 'Female');
-      await petService.uploadPet(SAMPLE_HORSE, 'Horse', 'Male');
+      await petService.uploadPet(SAMPLE_BEEWASP, { name: 'Bee', gender: 'Female' });
+      await petService.uploadPet(SAMPLE_HORSE, { name: 'Horse', gender: 'Male' });
       const db = getDb();
       const rows = await db.select('SELECT sort_order FROM pets ORDER BY id');
       expect(rows.map((r) => r.sort_order)).toEqual([0, 1]);
     });
 
     it('returns error for duplicates during sequential upload', async () => {
-      const result1 = await petService.uploadPet(SAMPLE_BEEWASP, 'First', 'Female');
+      const result1 = await petService.uploadPet(SAMPLE_BEEWASP, { name: 'First', gender: 'Female' });
       expect(result1.status).toBe('success');
 
-      const result2 = await petService.uploadPet(SAMPLE_BEEWASP, 'Second', 'Female');
+      const result2 = await petService.uploadPet(SAMPLE_BEEWASP, { name: 'Second', gender: 'Female' });
       expect(result2.status).toBe('error');
       expect(result2.message).toContain('already been uploaded');
 
@@ -113,22 +113,22 @@ describe('Pet Service', () => {
 
   describe('getAllPets', () => {
     it('returns uploaded pets', async () => {
-      await petService.uploadPet(SAMPLE_BEEWASP, 'Bee', 'Female');
-      await petService.uploadPet(SAMPLE_HORSE, 'Horse', 'Male');
+      await petService.uploadPet(SAMPLE_BEEWASP, { name: 'Bee', gender: 'Female' });
+      await petService.uploadPet(SAMPLE_HORSE, { name: 'Horse', gender: 'Male' });
       const { items, total } = await petService.getAllPets();
       expect(total).toBe(2);
       expect(items).toHaveLength(2);
     });
 
     it('enriches pets with gene counts', async () => {
-      await petService.uploadPet(SAMPLE_BEEWASP, 'Bee', 'Female');
+      await petService.uploadPet(SAMPLE_BEEWASP, { name: 'Bee', gender: 'Female' });
       const { items } = await petService.getAllPets();
       expect(items[0].total_genes).toBeGreaterThan(0);
       expect(items[0].known_genes).toBeGreaterThan(0);
     });
 
     it('enriches horse pets with gene counts', async () => {
-      await petService.uploadPet(SAMPLE_HORSE, 'Horse', 'Male');
+      await petService.uploadPet(SAMPLE_HORSE, { name: 'Horse', gender: 'Male' });
       const { items } = await petService.getAllPets();
       expect(items[0].total_genes).toBeGreaterThan(0);
       expect(items[0].species).toBe('Horse');
@@ -137,7 +137,7 @@ describe('Pet Service', () => {
 
   describe('getPetGenome', () => {
     it('returns beewasp genome for visualization', async () => {
-      const upload = await petService.uploadPet(SAMPLE_BEEWASP, 'Bee', 'Female');
+      const upload = await petService.uploadPet(SAMPLE_BEEWASP, { name: 'Bee', gender: 'Female' });
       const genome = await petService.getPetGenome(upload.pet_id);
       expect(genome).not.toBeNull();
       expect(genome.species).toBe('BeeWasp');
@@ -146,7 +146,7 @@ describe('Pet Service', () => {
     });
 
     it('returns horse genome for visualization', async () => {
-      const upload = await petService.uploadPet(SAMPLE_HORSE, 'Horse', 'Male');
+      const upload = await petService.uploadPet(SAMPLE_HORSE, { name: 'Horse', gender: 'Male' });
       const genome = await petService.getPetGenome(upload.pet_id);
       expect(genome).not.toBeNull();
       expect(genome.species).toBe('Horse');
@@ -161,7 +161,7 @@ describe('Pet Service', () => {
     });
 
     it('horse genome has gene strings in correct format', async () => {
-      const upload = await petService.uploadPet(SAMPLE_HORSE, 'Horse', 'Male');
+      const upload = await petService.uploadPet(SAMPLE_HORSE, { name: 'Horse', gender: 'Male' });
       const genome = await petService.getPetGenome(upload.pet_id);
       // Each chromosome value should be a string of gene characters separated by spaces
       for (const [chr, geneString] of Object.entries(genome.genes)) {
@@ -178,14 +178,14 @@ describe('Pet Service', () => {
 
   describe('updatePet', () => {
     it('updates pet name', async () => {
-      const upload = await petService.uploadPet(SAMPLE_BEEWASP, 'Old Name', 'Female');
+      const upload = await petService.uploadPet(SAMPLE_BEEWASP, { name: 'Old Name', gender: 'Female' });
       await petService.updatePet(upload.pet_id, { name: 'New Name' });
       const pet = await petService.getPet(upload.pet_id);
       expect(pet.name).toBe('New Name');
     });
 
     it('updates pet attributes', async () => {
-      const upload = await petService.uploadPet(SAMPLE_BEEWASP, 'Bee', 'Female');
+      const upload = await petService.uploadPet(SAMPLE_BEEWASP, { name: 'Bee', gender: 'Female' });
       await petService.updatePet(upload.pet_id, { toughness: 75, ferocity: 90 });
       const pet = await petService.getPet(upload.pet_id);
       expect(pet.toughness).toBe(75);
@@ -195,8 +195,8 @@ describe('Pet Service', () => {
 
   describe('reorderPets', () => {
     it('persists custom sort order', async () => {
-      const a = await petService.uploadPet(SAMPLE_BEEWASP, 'A', 'Female');
-      const b = await petService.uploadPet(SAMPLE_HORSE, 'B', 'Male');
+      const a = await petService.uploadPet(SAMPLE_BEEWASP, { name: 'A', gender: 'Female' });
+      const b = await petService.uploadPet(SAMPLE_HORSE, { name: 'B', gender: 'Male' });
 
       // Default order is by insertion (sort_order 0, 1)
       const before = await petService.getAllPets();
@@ -212,7 +212,7 @@ describe('Pet Service', () => {
 
   describe('deletePet', () => {
     it('deletes a pet', async () => {
-      const upload = await petService.uploadPet(SAMPLE_BEEWASP, 'Bee', 'Female');
+      const upload = await petService.uploadPet(SAMPLE_BEEWASP, { name: 'Bee', gender: 'Female' });
       const deleted = await petService.deletePet(upload.pet_id);
       expect(deleted).toBe(true);
       const pet = await petService.getPet(upload.pet_id);
@@ -370,7 +370,7 @@ describe('Image Service', () => {
   }
 
   async function createTestPet() {
-    const result = await petService.uploadPet(SAMPLE_BEEWASP, 'Test', 'Female');
+    const result = await petService.uploadPet(SAMPLE_BEEWASP, { name: 'Test', gender: 'Female' });
     return result.pet_id;
   }
 

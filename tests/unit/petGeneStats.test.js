@@ -45,7 +45,7 @@ describe('getPetGeneStats reads pre-parsed columns', () => {
 
   it('aggregates per-attribute counts from pet_genes joined with parsed effects', async () => {
     await seedMixedEffects();
-    const result = await petService.uploadPet(MINIMAL_BEEWASP_GENOME, 'Minimal', 'Female');
+    const result = await petService.uploadPet(MINIMAL_BEEWASP_GENOME, { name: 'Minimal', gender: 'Female' });
     const { stats, totalGenes, neutralGenes } = await petService.getPetGeneStats(result.pet_id, 'BeeWasp');
 
     expect(totalGenes).toBe(3);
@@ -67,7 +67,7 @@ describe('getPetGeneStats reads pre-parsed columns', () => {
     });
     geneService.clearGeneEffectsCache('beewasp');
 
-    const result = await petService.uploadPet(MINIMAL_BEEWASP_GENOME, 'Minimal', 'Female');
+    const result = await petService.uploadPet(MINIMAL_BEEWASP_GENOME, { name: 'Minimal', gender: 'Female' });
     const { stats, totalGenes, neutralGenes } = await petService.getPetGeneStats(result.pet_id, 'BeeWasp');
 
     expect(totalGenes).toBe(3);

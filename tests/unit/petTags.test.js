@@ -67,13 +67,13 @@ describe('Pet Tags (junction table)', () => {
 
   describe('tag operations via petService', () => {
     it('new pet has empty tags', async () => {
-      await petService.uploadPet(SAMPLE_BEEWASP, 'Bee1', 'Female');
+      await petService.uploadPet(SAMPLE_BEEWASP, { name: 'Bee1', gender: 'Female' });
       const { items } = await petService.getAllPets();
       expect(items[0].tags).toEqual([]);
     });
 
     it('round-trips tags through updatePet and getPet', async () => {
-      await petService.uploadPet(SAMPLE_BEEWASP, 'Bee2', 'Female');
+      await petService.uploadPet(SAMPLE_BEEWASP, { name: 'Bee2', gender: 'Female' });
       const { items } = await petService.getAllPets();
       const pet = items[0];
 
@@ -83,7 +83,7 @@ describe('Pet Tags (junction table)', () => {
     });
 
     it('persists tags via updatePet', async () => {
-      await petService.uploadPet(SAMPLE_BEEWASP, 'Bee3', 'Male');
+      await petService.uploadPet(SAMPLE_BEEWASP, { name: 'Bee3', gender: 'Male' });
       const { items } = await petService.getAllPets();
       const pet = items[0];
 
@@ -93,7 +93,7 @@ describe('Pet Tags (junction table)', () => {
     });
 
     it('overwrites tags with a new set', async () => {
-      await petService.uploadPet(SAMPLE_BEEWASP, 'Bee4', 'Female');
+      await petService.uploadPet(SAMPLE_BEEWASP, { name: 'Bee4', gender: 'Female' });
       const { items } = await petService.getAllPets();
       const pet = items[0];
 
@@ -104,7 +104,7 @@ describe('Pet Tags (junction table)', () => {
     });
 
     it('clears tags with empty array', async () => {
-      await petService.uploadPet(SAMPLE_BEEWASP, 'Bee5', 'Male');
+      await petService.uploadPet(SAMPLE_BEEWASP, { name: 'Bee5', gender: 'Male' });
       const { items } = await petService.getAllPets();
       const pet = items[0];
 
@@ -115,7 +115,7 @@ describe('Pet Tags (junction table)', () => {
     });
 
     it('normalizes tags to lowercase and trims', async () => {
-      await petService.uploadPet(SAMPLE_BEEWASP, 'Bee6', 'Female');
+      await petService.uploadPet(SAMPLE_BEEWASP, { name: 'Bee6', gender: 'Female' });
       const { items } = await petService.getAllPets();
       const pet = items[0];
 

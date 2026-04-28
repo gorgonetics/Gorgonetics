@@ -114,7 +114,7 @@ describe('Pets Store', () => {
 
   describe('loadPets', () => {
     it('loads pets from the database', async () => {
-      await petService.uploadPet(SAMPLE_BEEWASP, 'TestBee', 'Female');
+      await petService.uploadPet(SAMPLE_BEEWASP, { name: 'TestBee', gender: 'Female' });
 
       await appState.loadPets();
       const loaded = get(pets);
@@ -137,7 +137,7 @@ describe('Pets Store', () => {
 
   describe('deletePet', () => {
     it('deletes a pet and clears selection if it was selected', async () => {
-      await petService.uploadPet(SAMPLE_BEEWASP, 'DeleteMe', 'Male');
+      await petService.uploadPet(SAMPLE_BEEWASP, { name: 'DeleteMe', gender: 'Male' });
       await appState.loadPets();
 
       const pet = get(pets)[0];
@@ -149,8 +149,8 @@ describe('Pets Store', () => {
     });
 
     it('keeps selection if a different pet is deleted', async () => {
-      await petService.uploadPet(SAMPLE_BEEWASP, 'Keep', 'Female');
-      await petService.uploadPet(SAMPLE_HORSE, 'Remove', 'Male');
+      await petService.uploadPet(SAMPLE_BEEWASP, { name: 'Keep', gender: 'Female' });
+      await petService.uploadPet(SAMPLE_HORSE, { name: 'Remove', gender: 'Male' });
       await appState.loadPets();
 
       const allPets = get(pets);
@@ -171,7 +171,7 @@ describe('Pets Store', () => {
 
   describe('updatePet', () => {
     it('updates a pet and reloads the list', async () => {
-      await petService.uploadPet(SAMPLE_BEEWASP, 'Original', 'Female');
+      await petService.uploadPet(SAMPLE_BEEWASP, { name: 'Original', gender: 'Female' });
       await appState.loadPets();
 
       const pet = get(pets)[0];
@@ -198,19 +198,19 @@ describe('Pets Store', () => {
 
   describe('uploadPet', () => {
     it('uploads a pet and reloads the list', async () => {
-      await appState.uploadPet(SAMPLE_BEEWASP, 'UploadTest', 'Female');
+      await appState.uploadPet(SAMPLE_BEEWASP, { name: 'UploadTest', gender: 'Female' });
       const loaded = get(pets);
       expect(loaded.length).toBeGreaterThan(0);
     });
 
     it('sets loading to false after upload', async () => {
-      await appState.uploadPet(SAMPLE_BEEWASP, 'UploadTest', 'Female');
+      await appState.uploadPet(SAMPLE_BEEWASP, { name: 'UploadTest', gender: 'Female' });
       expect(get(loading)).toBe(false);
     });
 
     it('sets error on failure', async () => {
       vi.spyOn(petService, 'uploadPet').mockRejectedValueOnce(new Error('upload failed'));
-      await appState.uploadPet('bad', 'Bad', 'Male');
+      await appState.uploadPet('bad', { name: 'Bad', gender: 'Male' });
       expect(get(error)).toContain('upload failed');
       expect(get(loading)).toBe(false);
     });
