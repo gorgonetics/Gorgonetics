@@ -214,11 +214,20 @@ describe('Pets Store', () => {
       expect(get(error)).toContain('upload failed');
       expect(get(loading)).toBe(false);
     });
+
+    it('surfaces validation failures returned in the result envelope', async () => {
+      // petService reports invalid-format as { status: 'error', message }
+      // rather than throwing. The store must still set the error and
+      // return the envelope so the caller can branch.
+      const result = await appState.uploadPet('not a genome file', { name: 'Bad' });
+      expect(result.status).toBe('error');
+      expect(get(error)).toContain('Invalid genome file format');
+    });
   });
 
   describe('uploadPetQuiet', () => {
     it('delegates to petService without setting loading state', async () => {
-      const result = await appState.uploadPetQuiet(SAMPLE_BEEWASP, 'QuietTest', 'Male');
+      const result = await appState.uploadPetQuiet(SAMPLE_BEEWASP, { name: 'QuietTest' });
       expect(result.status).toBe('success');
       // loading should not have been toggled (quiet mode)
       expect(get(loading)).toBe(false);

@@ -76,10 +76,19 @@ export const appState = {
     try {
       loading.set(true);
       error.set(null);
-      await petService.uploadPet(content, options);
+      const result = await petService.uploadPet(content, options);
+      // petService surfaces validation/duplicate failures via the
+      // result envelope (no throw), so silently reloading would hide
+      // those from the user.
+      if (result.status === 'error') {
+        error.set(`Failed to upload pet: ${result.message}`);
+        return result;
+      }
       await this.loadPets();
+      return result;
     } catch (err: unknown) {
       error.set(`Failed to upload pet: ${err instanceof Error ? err.message : String(err)}`);
+      return { status: 'error' as const, message: err instanceof Error ? err.message : String(err) };
     } finally {
       loading.set(false);
     }
