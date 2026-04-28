@@ -41,6 +41,18 @@
         { "path": "$HOME/**" }
       ]
     },
+    {
+      "identifier": "fs:allow-watch",
+      "allow": [
+        { "path": "$HOME/**" }
+      ]
+    },
+    {
+      "identifier": "fs:allow-unwatch",
+      "allow": [
+        { "path": "$HOME/**" }
+      ]
+    },
     "core:path:default",
     "updater:default",
     "process:allow-restart",

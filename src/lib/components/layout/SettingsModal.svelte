@@ -215,7 +215,7 @@ async function installUpdate() {
           <div class="setting-row" style="cursor: default;">
             <div class="setting-info">
               <span class="setting-name">Game folder</span>
-              <span class="setting-desc">Folder where Project Gorgon writes pet gene reports. The auto-import button on the pet list scans this folder and imports any new files.</span>
+              <span class="setting-desc">Folder where Project Gorgon writes pet gene reports. New files appear automatically as the game writes them; the 🔄 button on the pet list runs a manual scan on demand.</span>
             </div>
           </div>
 

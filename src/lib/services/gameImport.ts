@@ -175,3 +175,51 @@ export async function autoScanGameFolder(options?: {
 
   return result;
 }
+
+/**
+ * Watch the configured game folder for changes and invoke `onChange`
+ * when a `.txt` event fires (debounced). Returns a stop function, or
+ * `null` if there's nothing to watch (non-Tauri host, unconfigured
+ * placeholder, missing folder). The caller is expected to call the
+ * returned stop function when the watcher should be torn down.
+ *
+ * Debounce protects against editors that "save = write twice" — Unity
+ * builds aren't editors, but we still want a quiet window so we don't
+ * scan a half-written file.
+ */
+export async function watchGameFolder(
+  onChange: () => void,
+  options?: { debounceMs?: number },
+): Promise<(() => Promise<void>) | null> {
+  if (!isTauri()) return null;
+
+  const configured = await getConfiguredGameFolder();
+  if (isPlaceholderPath(configured)) return null;
+
+  const folder = await expandHomePath(configured);
+  const { exists, watch } = await import('@tauri-apps/plugin-fs');
+  if (!(await exists(folder))) return null;
+
+  const debounceMs = options?.debounceMs ?? 500;
+  let timer: ReturnType<typeof setTimeout> | null = null;
+
+  const unwatch = await watch(
+    folder,
+    () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        timer = null;
+        onChange();
+      }, debounceMs);
+    },
+    { recursive: false },
+  );
+
+  return async () => {
+    if (timer) {
+      clearTimeout(timer);
+      timer = null;
+    }
+    await unwatch();
+  };
+}

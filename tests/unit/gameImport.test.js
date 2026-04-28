@@ -74,6 +74,13 @@ describe('gameImport service', () => {
     });
   });
 
+  describe('watchGameFolder', () => {
+    it('returns null outside Tauri', async () => {
+      const stop = await gameImport.watchGameFolder(() => {});
+      expect(stop).toBeNull();
+    });
+  });
+
   describe('imported_files ledger', () => {
     it('records hash on successful upload', async () => {
       const hash = await sha256(SAMPLE_BEEWASP);

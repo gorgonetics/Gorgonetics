@@ -2,6 +2,7 @@
 import { onMount } from 'svelte';
 import { initDatabase } from '$lib/services/database.js';
 import { loadDemoPetsIfNeeded, populateGenesIfNeeded } from '$lib/services/demoService.js';
+import { autoScanGameFolder, watchGameFolder } from '$lib/services/gameImport.js';
 import { backfillParsedGeneEffectsIfNeeded } from '$lib/services/geneService.js';
 import { runMigrations } from '$lib/services/migrationService.js';
 import {
@@ -11,10 +12,61 @@ import {
   backfillPositiveGenesIfNeeded,
 } from '$lib/services/petService.js';
 import { appState } from '$lib/stores/pets.js';
-import { settingsActions } from '$lib/stores/settings.js';
+import { settings, settingsActions } from '$lib/stores/settings.js';
 
 const { children } = $props();
 let ready = $state(false);
+let liveScanRunning = false;
+
+async function runLiveScan() {
+  if (liveScanRunning) return;
+  liveScanRunning = true;
+  try {
+    const result = await autoScanGameFolder();
+    if (result.imported > 0) {
+      void appState.loadPets();
+    }
+  } catch (err) {
+    console.warn('live game-folder scan failed:', err);
+  } finally {
+    liveScanRunning = false;
+  }
+}
+
+// Re-arm the folder watcher whenever the configured path changes.
+// Reading $settings makes this effect track the store; we gate on
+// `ready` so the watcher only starts after settings have been loaded
+// from disk (otherwise the first read sees defaults and would arm
+// twice in quick succession).
+$effect(() => {
+  if (!ready) return;
+  // Touch the store so the effect re-fires on path changes.
+  void $settings['import.gameFolderPath'];
+
+  let cancelled = false;
+  let activeStop = null;
+
+  void (async () => {
+    try {
+      const stop = await watchGameFolder(runLiveScan);
+      if (cancelled) {
+        if (stop) await stop();
+        return;
+      }
+      activeStop = stop;
+    } catch (err) {
+      console.warn('failed to start game-folder watcher:', err);
+    }
+  })();
+
+  return () => {
+    cancelled = true;
+    if (activeStop) {
+      void activeStop();
+      activeStop = null;
+    }
+  };
+});
 
 onMount(async () => {
   await initDatabase();
