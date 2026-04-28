@@ -16,7 +16,9 @@
       "allow": [
         { "path": "$APPDATA/**/*" },
         { "path": "$RESOURCE/**/*" },
-        { "path": "$HOME/**" }
+        { "path": "$HOME/Library/Application Support/unity.Elder Game.Project Gorgon/**" },
+        { "path": "$HOME/AppData/LocalLow/Elder Game/Project Gorgon/**" },
+        { "path": "$HOME/.config/unity3d/Elder Game/Project Gorgon/**" }
       ]
     },
     {
@@ -30,7 +32,9 @@
       "allow": [
         { "path": "$APPDATA/**/*" },
         { "path": "$RESOURCE/**/*" },
-        { "path": "$HOME/**" }
+        { "path": "$HOME/Library/Application Support/unity.Elder Game.Project Gorgon/**" },
+        { "path": "$HOME/AppData/LocalLow/Elder Game/Project Gorgon/**" },
+        { "path": "$HOME/.config/unity3d/Elder Game/Project Gorgon/**" }
       ]
     },
     {
@@ -38,19 +42,25 @@
       "allow": [
         { "path": "$APPDATA/**/*" },
         { "path": "$RESOURCE/**/*" },
-        { "path": "$HOME/**" }
+        { "path": "$HOME/Library/Application Support/unity.Elder Game.Project Gorgon/**" },
+        { "path": "$HOME/AppData/LocalLow/Elder Game/Project Gorgon/**" },
+        { "path": "$HOME/.config/unity3d/Elder Game/Project Gorgon/**" }
       ]
     },
     {
       "identifier": "fs:allow-watch",
       "allow": [
-        { "path": "$HOME/**" }
+        { "path": "$HOME/Library/Application Support/unity.Elder Game.Project Gorgon/**" },
+        { "path": "$HOME/AppData/LocalLow/Elder Game/Project Gorgon/**" },
+        { "path": "$HOME/.config/unity3d/Elder Game/Project Gorgon/**" }
       ]
     },
     {
       "identifier": "fs:allow-unwatch",
       "allow": [
-        { "path": "$HOME/**" }
+        { "path": "$HOME/Library/Application Support/unity.Elder Game.Project Gorgon/**" },
+        { "path": "$HOME/AppData/LocalLow/Elder Game/Project Gorgon/**" },
+        { "path": "$HOME/.config/unity3d/Elder Game/Project Gorgon/**" }
       ]
     },
     "core:path:default",
@@ -61,8 +71,9 @@
       "allow": [
         { "path": "$APPDATA" },
         { "path": "$APPDATA/**/*" },
-        { "path": "$HOME" },
-        { "path": "$HOME/**" }
+        { "path": "$HOME/Library/Application Support/unity.Elder Game.Project Gorgon/**" },
+        { "path": "$HOME/AppData/LocalLow/Elder Game/Project Gorgon/**" },
+        { "path": "$HOME/.config/unity3d/Elder Game/Project Gorgon/**" }
       ]
     },
     {

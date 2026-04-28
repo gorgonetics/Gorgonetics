@@ -56,20 +56,18 @@ describe('gameImport service', () => {
   });
 
   describe('getDefaultGameFolder', () => {
-    it('returns the verified Mac path under $HOME', () => {
+    it('returns the verified Mac path with a ~/ prefix', () => {
       expect(gameImport.getDefaultGameFolder('mac')).toBe(
-        '$HOME/Library/Application Support/unity.Elder Game.Project Gorgon/Reports',
+        '~/Library/Application Support/unity.Elder Game.Project Gorgon/Reports',
       );
     });
 
-    it('returns the verified Windows path under $HOME/AppData/LocalLow', () => {
-      expect(gameImport.getDefaultGameFolder('windows')).toBe(
-        '$HOME/AppData/LocalLow/Elder Game/Project Gorgon/Reports',
-      );
+    it('returns the verified Windows path with a ~/ prefix', () => {
+      expect(gameImport.getDefaultGameFolder('windows')).toBe('~/AppData/LocalLow/Elder Game/Project Gorgon/Reports');
     });
 
-    it('returns the verified Linux path under $HOME/.config/unity3d', () => {
-      expect(gameImport.getDefaultGameFolder('linux')).toBe('$HOME/.config/unity3d/Elder Game/Project Gorgon/Reports');
+    it('returns the verified Linux path with a ~/ prefix', () => {
+      expect(gameImport.getDefaultGameFolder('linux')).toBe('~/.config/unity3d/Elder Game/Project Gorgon/Reports');
     });
 
     it('returns empty string for unknown platform', () => {

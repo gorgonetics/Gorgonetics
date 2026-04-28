@@ -19,16 +19,17 @@ const GAME_FOLDER_SETTING_KEY = 'import.gameFolderPath';
 
 /**
  * Per-platform default for the game's gene-report folder, all
- * user-confirmed. Forward slashes only — Tauri's fs plugin normalizes
- * them on Windows. The auto-scanner still falls back through
- * `isPlaceholderPath` so the unknown-platform branch (empty string)
- * surfaces a "not configured" result instead of attempting a scan.
- * Users can override any default in Settings → Auto-import.
+ * user-confirmed. Stored with a `~/` prefix for display; internally
+ * resolved relative to the user's home via `BaseDirectory.Home` so
+ * the Tauri fs scope can stay narrow. Forward slashes only — Tauri's
+ * fs plugin normalizes them on Windows. The unknown-platform branch
+ * (empty string) routes through `isPlaceholderPath` so the auto-scanner
+ * surfaces a "not configured" result instead of guessing.
  */
 const DEFAULT_GAME_FOLDERS: Record<Platform, string> = {
-  windows: '$HOME/AppData/LocalLow/Elder Game/Project Gorgon/Reports',
-  mac: '$HOME/Library/Application Support/unity.Elder Game.Project Gorgon/Reports',
-  linux: '$HOME/.config/unity3d/Elder Game/Project Gorgon/Reports',
+  windows: '~/AppData/LocalLow/Elder Game/Project Gorgon/Reports',
+  mac: '~/Library/Application Support/unity.Elder Game.Project Gorgon/Reports',
+  linux: '~/.config/unity3d/Elder Game/Project Gorgon/Reports',
   unknown: '',
 };
 
@@ -69,19 +70,16 @@ export function setConfiguredGameFolder(path: string): Promise<void> {
   return setSetting(GAME_FOLDER_SETTING_KEY, path);
 }
 
-const HOME_PREFIX = /^(~|\$HOME)(?=$|\/)/;
+const HOME_PREFIX = /^(~|\$HOME)(?:\/|$)/;
 
 /**
- * Expand a leading `~` or `$HOME` to the real home directory. Tauri's
- * fs plugin only resolves these as capability scope variables — the
- * path passed to readDir/readTextFile is taken literally — so the
- * expansion has to happen here before the call.
+ * Strip a leading `~/` or `$HOME/` so the remainder can be passed to
+ * Tauri's fs plugin together with `{ baseDir: BaseDirectory.Home }`.
+ * Capability scope is keyed off `$HOME/...` patterns; resolving the
+ * absolute path on the JS side would defeat that scoping.
  */
-async function expandHomePath(path: string): Promise<string> {
-  if (!HOME_PREFIX.test(path)) return path;
-  const { homeDir } = await import('@tauri-apps/api/path');
-  const home = (await homeDir()).replace(/\/$/, '');
-  return path.replace(HOME_PREFIX, home);
+function toRelativeHome(path: string): string {
+  return path.replace(HOME_PREFIX, '');
 }
 
 export interface AutoScanResult {
@@ -110,22 +108,23 @@ export async function autoScanGameFolder(options?: {
   const configured = await getConfiguredGameFolder();
   if (isPlaceholderPath(configured)) return emptyResult('not_configured');
 
-  const folder = await expandHomePath(configured);
+  const folder = toRelativeHome(configured);
   const fs = await import('@tauri-apps/plugin-fs');
-  const { readTextFile } = fs;
+  const { BaseDirectory } = await import('@tauri-apps/api/path');
+  const baseOpts = { baseDir: BaseDirectory.Home };
 
   let entries: Awaited<ReturnType<typeof fs.readDir>>;
   try {
-    entries = await fs.readDir(folder);
+    entries = await fs.readDir(folder, baseOpts);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    return emptyResult('folder_missing', `Game folder not readable: ${folder} (${message})`);
+    return emptyResult('folder_missing', `Game folder not readable: ${configured} (${message})`);
   }
   // Path joining via plain concat is acceptable — Tauri's fs plugin
   // normalizes both `/` and `\` on Windows.
   const txtFiles = entries
     .filter((e) => e.isFile && e.name.toLowerCase().endsWith('.txt'))
-    .map((e) => ({ name: e.name, fullPath: `${folder}/${e.name}` }));
+    .map((e) => ({ name: e.name, relPath: `${folder}/${e.name}`, displayPath: `${configured}/${e.name}` }));
 
   const result: AutoScanResult = {
     status: 'ok',
@@ -143,13 +142,13 @@ export async function autoScanGameFolder(options?: {
   for (let i = 0; i < txtFiles.length; i += READ_CHUNK) {
     const chunk = txtFiles.slice(i, i + READ_CHUNK);
     const hashed = await Promise.all(
-      chunk.map(async ({ name, fullPath }) => {
+      chunk.map(async ({ name, relPath, displayPath }) => {
         try {
-          const content = await readTextFile(fullPath);
+          const content = await fs.readTextFile(relPath, baseOpts);
           const hash = await sha256Hex(content);
-          return { name, fullPath, content, hash } as const;
+          return { name, displayPath, content, hash } as const;
         } catch (err) {
-          return { name, fullPath, error: err instanceof Error ? err.message : String(err) } as const;
+          return { name, displayPath, error: err instanceof Error ? err.message : String(err) } as const;
         }
       }),
     );
@@ -171,14 +170,14 @@ export async function autoScanGameFolder(options?: {
       // pulls gender from the genome when the name is *structured*
       // (e.g., "Kb F 60 70 …"), so unnamed/unstructured pets need a
       // fallback. Match the manual upload path's 'Male' default.
-      const upload = await uploadPet(item.content, '', 'Male', undefined, item.fullPath);
+      const upload = await uploadPet(item.content, '', 'Male', undefined, item.displayPath);
       if (upload.status === 'success') {
         result.imported++;
       } else {
         // pets.content_hash matched but imported_files was missing the
         // row (e.g. pre-feature legacy not yet reached by backfill).
         // Record now so future scans skip it.
-        await recordImportedFile(item.hash, item.fullPath);
+        await recordImportedFile(item.hash, item.displayPath);
         result.failures.push({ file: item.name, reason: upload.message });
       }
     }
@@ -207,25 +206,19 @@ export async function watchGameFolder(
   const configured = await getConfiguredGameFolder();
   if (isPlaceholderPath(configured)) return null;
 
-  const folder = await expandHomePath(configured);
+  const folder = toRelativeHome(configured);
   const { watch } = await import('@tauri-apps/plugin-fs');
+  const { BaseDirectory } = await import('@tauri-apps/api/path');
 
-  const debounceMs = options?.debounceMs ?? 500;
-  let timer: ReturnType<typeof setTimeout> | null = null;
-
+  // Tauri's debounced `watch` (vs `watchImmediate`) coalesces bursts
+  // for us via `delayMs` — no manual setTimeout debounce needed.
   let unwatch: Awaited<ReturnType<typeof watch>>;
   try {
-    unwatch = await watch(
-      folder,
-      () => {
-        if (timer) clearTimeout(timer);
-        timer = setTimeout(() => {
-          timer = null;
-          onChange();
-        }, debounceMs);
-      },
-      { recursive: false },
-    );
+    unwatch = await watch(folder, () => onChange(), {
+      recursive: false,
+      baseDir: BaseDirectory.Home,
+      delayMs: options?.debounceMs ?? 500,
+    });
   } catch {
     // Folder doesn't exist or isn't watchable — caller treats null as
     // "nothing to watch right now". A later path change re-arms.
@@ -233,10 +226,6 @@ export async function watchGameFolder(
   }
 
   return async () => {
-    if (timer) {
-      clearTimeout(timer);
-      timer = null;
-    }
     await unwatch();
   };
 }
