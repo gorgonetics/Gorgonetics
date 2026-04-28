@@ -35,12 +35,16 @@ const DEFAULT_GAME_FOLDERS: Record<Platform, string> = {
 /**
  * Detect host platform from the webview's userAgent. Tauri runs in the
  * system webview, so the UA reflects the host OS.
+ *
+ * Mac is checked before Windows because the substring "win" appears
+ * inside "darwin" — a naive `ua.includes('win')` misclassifies Mac
+ * tooling/embedder UAs as Windows.
  */
 export function detectPlatform(): Platform {
   if (typeof navigator === 'undefined') return 'unknown';
   const ua = navigator.userAgent.toLowerCase();
-  if (ua.includes('win')) return 'windows';
-  if (ua.includes('mac')) return 'mac';
+  if (ua.includes('mac') || ua.includes('darwin')) return 'mac';
+  if (ua.includes('windows nt') || ua.includes('win32') || ua.includes('win64')) return 'windows';
   if (ua.includes('linux') || ua.includes('x11')) return 'linux';
   return 'unknown';
 }
@@ -163,7 +167,11 @@ export async function autoScanGameFolder(options?: {
         result.skipped++;
         continue;
       }
-      const upload = await uploadPet(item.content, '', '', undefined, item.fullPath);
+      // Gender '' would override the column default; uploadPet only
+      // pulls gender from the genome when the name is *structured*
+      // (e.g., "Kb F 60 70 …"), so unnamed/unstructured pets need a
+      // fallback. Match the manual upload path's 'Male' default.
+      const upload = await uploadPet(item.content, '', 'Male', undefined, item.fullPath);
       if (upload.status === 'success') {
         result.imported++;
       } else {

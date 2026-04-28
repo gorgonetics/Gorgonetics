@@ -415,6 +415,7 @@ async function handleDrop(e, dropIndex) {
                 onclick={handleAutoScan}
                 disabled={uploading || autoScanning}
                 title="Auto-import new genome files from the game folder"
+                aria-label="Auto-import new genome files from the game folder"
             >
                 {#if autoScanProgress}
                     🔄 ({autoScanProgress.current}/{autoScanProgress.total})

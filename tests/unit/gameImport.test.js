@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { closeDatabase, initDatabase } from '$lib/services/database.js';
 import * as gameImport from '$lib/services/gameImport.js';
 import { runMigrations } from '$lib/services/migrationService.js';
@@ -17,9 +17,41 @@ describe('gameImport service', () => {
   });
 
   describe('detectPlatform', () => {
-    it('returns one of the supported platform tags', () => {
-      const platform = gameImport.detectPlatform();
-      expect(['windows', 'mac', 'linux', 'unknown']).toContain(platform);
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    function stubUA(ua) {
+      vi.stubGlobal('navigator', { userAgent: ua });
+    }
+
+    it('classifies macOS WebKit UA as mac', () => {
+      stubUA('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15');
+      expect(gameImport.detectPlatform()).toBe('mac');
+    });
+
+    it('classifies a UA containing "darwin" as mac (not windows)', () => {
+      // Guard: 'darwin'.includes('win') is true, so a naive Windows
+      // check would misclassify Darwin-flavored UAs.
+      stubUA('SomeEmbedder/1.0 (Darwin 23.0)');
+      expect(gameImport.detectPlatform()).toBe('mac');
+    });
+
+    it('classifies Windows 10/11 WebView2 UA as windows', () => {
+      stubUA(
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      );
+      expect(gameImport.detectPlatform()).toBe('windows');
+    });
+
+    it('classifies Linux WebKitGTK UA as linux', () => {
+      stubUA('Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/605.1.15');
+      expect(gameImport.detectPlatform()).toBe('linux');
+    });
+
+    it('returns unknown for an unrecognized UA', () => {
+      stubUA('CompletelyUnknown/1.0');
+      expect(gameImport.detectPlatform()).toBe('unknown');
     });
   });
 
