@@ -54,7 +54,7 @@ test.describe('Pet List', () => {
   });
 
   test('shows search input and upload button', async ({ page }) => {
-    await expect(page.locator('.search-input')).toBeVisible();
+    await expect(page.locator('.pet-list .text-input')).toBeVisible();
     await expect(page.locator('.upload-btn')).toContainText('Upload Genome');
   });
 
@@ -66,11 +66,11 @@ test.describe('Pet List', () => {
     const before = await page.locator('.pet-card').count();
     expect(before).toBeGreaterThan(0);
 
-    await page.locator('.search-input').fill('zzz-nonexistent');
+    await page.locator('.pet-list .text-input').fill('zzz-nonexistent');
     await expect(page.locator('.pet-card')).toHaveCount(0);
 
     // Clear search restores all
-    await page.locator('.search-input').fill('');
+    await page.locator('.pet-list .text-input').fill('');
     await expect(page.locator('.pet-card')).toHaveCount(before);
   });
 
