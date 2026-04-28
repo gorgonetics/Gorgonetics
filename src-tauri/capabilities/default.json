@@ -15,7 +15,8 @@
       "identifier": "fs:allow-read-text-file",
       "allow": [
         { "path": "$APPDATA/**/*" },
-        { "path": "$RESOURCE/**/*" }
+        { "path": "$RESOURCE/**/*" },
+        { "path": "$HOME/**" }
       ]
     },
     {
@@ -28,14 +29,28 @@
       "identifier": "fs:allow-exists",
       "allow": [
         { "path": "$APPDATA/**/*" },
-        { "path": "$RESOURCE/**/*" }
+        { "path": "$RESOURCE/**/*" },
+        { "path": "$HOME/**" }
       ]
     },
     {
       "identifier": "fs:allow-read-dir",
       "allow": [
         { "path": "$APPDATA/**/*" },
-        { "path": "$RESOURCE/**/*" }
+        { "path": "$RESOURCE/**/*" },
+        { "path": "$HOME/**" }
+      ]
+    },
+    {
+      "identifier": "fs:allow-watch",
+      "allow": [
+        { "path": "$HOME/**" }
+      ]
+    },
+    {
+      "identifier": "fs:allow-unwatch",
+      "allow": [
+        { "path": "$HOME/**" }
       ]
     },
     "core:path:default",
@@ -45,7 +60,9 @@
       "identifier": "fs:scope",
       "allow": [
         { "path": "$APPDATA" },
-        { "path": "$APPDATA/**/*" }
+        { "path": "$APPDATA/**/*" },
+        { "path": "$HOME" },
+        { "path": "$HOME/**" }
       ]
     },
     {

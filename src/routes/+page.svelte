@@ -14,8 +14,8 @@ onMount(async () => {
 <div class="detail-content">
 	{#if $error}
 		<div class="error-banner" role="alert">
-			<span>⚠️ {$error}</span>
-			<button class="error-close" onclick={() => appState.clearError()}>×</button>
+			<div class="error-message">⚠️ {$error}</div>
+			<button class="error-close" onclick={() => appState.clearError()} aria-label="Dismiss error">×</button>
 		</div>
 	{/if}
 
@@ -54,17 +54,27 @@ onMount(async () => {
 
 	.error-banner {
 		display: flex;
-		align-items: center;
-		justify-content: space-between;
+		align-items: flex-start;
+		gap: 8px;
 		padding: 8px 16px;
 		background: var(--error-bg);
 		border-bottom: 1px solid var(--error-border);
 		color: var(--error-text);
 		font-size: 13px;
 		flex-shrink: 0;
+		max-height: 35vh;
+	}
+
+	.error-message {
+		flex: 1;
+		overflow-y: auto;
+		max-height: calc(35vh - 16px);
+		white-space: pre-wrap;
+		word-break: break-word;
 	}
 
 	.error-close {
+		flex-shrink: 0;
 		background: none;
 		border: none;
 		font-size: 16px;

@@ -178,6 +178,23 @@ const MIGRATIONS: Migration[] = [
       await db.execute('ALTER TABLE pets ADD COLUMN unknown_genes INTEGER NOT NULL DEFAULT 0');
     },
   },
+  {
+    version: 12,
+    description: 'Add imported_files table to skip already-seen files on auto-scan',
+    up: async () => {
+      const db = getDb();
+      // Tracks every genome file ever ingested by content_hash. Survives
+      // pet deletion so the auto-scanner doesn't re-import a file the
+      // user already chose to discard.
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS imported_files (
+          content_hash TEXT PRIMARY KEY,
+          source_path TEXT,
+          imported_at TEXT NOT NULL
+        )
+      `);
+    },
+  },
 ];
 
 /** Derived from the last migration — no manual bookkeeping needed. */

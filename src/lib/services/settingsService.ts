@@ -11,6 +11,7 @@ const SETTING_DEFAULTS: Record<string, unknown> = {
   'horse.autoSelectBreedFilter': true,
   'display.fontScale': 100,
   'display.theme': 'system',
+  'import.gameFolderPath': '',
 };
 
 export function getDefaultSettings(): Record<string, unknown> {

@@ -5,6 +5,7 @@
 import type { GeneStatsEntry, Genome, Pet } from '$lib/types/index.js';
 import { GENOME_FILE_MARKERS } from '$lib/types/index.js';
 import { fromGeneId, type ParsedChromosome, type ParsedGene, toGeneId } from '$lib/utils/geneAnalysis.js';
+import { sha256Hex } from '$lib/utils/hash.js';
 import { capitalize } from '$lib/utils/string.js';
 import { now } from '$lib/utils/timestamp.js';
 import { runBatchBackfill } from './backfill.js';
@@ -14,17 +15,6 @@ import { getParsedGenesCached, isHorseBreedFiltered } from './geneService.js';
 import { compareBlockLetters, genomeToGeneStrings, isValidGenomeFile, parseGenome } from './genomeParser.js';
 import { parseStructuredPetName } from './nameParser.js';
 import { getSetting, setSetting } from './settingsService.js';
-
-/**
- * Compute SHA-256 hash of a string.
- */
-async function sha256(content: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(content);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
-}
 
 type GeneCountSummary = { total: number; known: number; unknown: number };
 
@@ -355,6 +345,30 @@ export async function getPet(petId: number): Promise<Pet | null> {
 }
 
 /**
+ * Record a content hash in imported_files so the auto-scanner won't
+ * re-import the same file later (even if the pet is deleted). No-op
+ * if the hash is already present.
+ */
+export async function recordImportedFile(contentHash: string, sourcePath?: string): Promise<void> {
+  await getDb().execute(
+    'INSERT OR IGNORE INTO imported_files (content_hash, source_path, imported_at) VALUES ($hash, $path, $ts)',
+    { hash: contentHash, path: sourcePath ?? null, ts: now() },
+  );
+}
+
+/**
+ * True if this content_hash was imported before (the pet may since
+ * have been deleted).
+ */
+export async function hasImportedFile(contentHash: string): Promise<boolean> {
+  const rows = await getDb().select<{ one: number }[]>(
+    'SELECT 1 AS one FROM imported_files WHERE content_hash = $hash LIMIT 1',
+    { hash: contentHash },
+  );
+  return rows.length > 0;
+}
+
+/**
  * Upload and create a new pet from genome file content.
  */
 export async function uploadPet(
@@ -362,6 +376,7 @@ export async function uploadPet(
   name: string,
   gender: string,
   notes?: string,
+  sourcePath?: string,
 ): Promise<{ status: string; message: string; pet_id?: number; name?: string }> {
   // Validate content
   if (!content.trim()) {
@@ -377,7 +392,7 @@ export async function uploadPet(
   }
 
   // Compute hash for duplicate detection
-  const contentHash = await sha256(content);
+  const contentHash = await sha256Hex(content);
 
   // Check for duplicate
   const existing = await findPetByHash(contentHash);
@@ -460,6 +475,18 @@ export async function uploadPet(
     }
     return res;
   });
+
+  // Recorded outside the upload tx — failure here mustn't roll back the
+  // pet, and the table is only an auto-scanner skip-list. The try/catch
+  // is load-bearing: an `await` here would propagate the ledger error to
+  // the caller as a failed upload, even though the pet was already
+  // committed. Worst case for a swallowed error is the next auto-scan
+  // re-imports the file once and dedups via pets.content_hash.
+  try {
+    await recordImportedFile(contentHash, sourcePath);
+  } catch (err) {
+    console.warn('imported_files: failed to record after successful upload', err);
+  }
 
   return {
     status: 'success',
@@ -813,6 +840,41 @@ export async function backfillPositiveGenesIfNeeded(): Promise<void> {
       return updates.length;
     },
     markDone: () => setSetting(POSITIVE_GENES_BACKFILL_KEY, true),
+  });
+}
+
+const IMPORTED_FILES_BACKFILL_KEY = 'pets.imported_files_backfilled';
+
+/**
+ * One-shot backfill: every existing pet's content_hash gets a row in
+ * `imported_files` so the auto-scanner skips files that were already
+ * imported manually before this feature existed. Without it, the very
+ * first auto-scan after upgrade would treat all current pets as new
+ * candidates and only spare them via the upload-time duplicate check.
+ */
+export async function backfillImportedFilesIfNeeded(): Promise<void> {
+  const db = getDb();
+  type Row = { content_hash: string };
+  type Update = { hash: string };
+  await runBatchBackfill<Row, Update>({
+    label: 'imported_files backfill',
+    batchSize: 64,
+    guard: async () => (await getSetting<boolean>(IMPORTED_FILES_BACKFILL_KEY)) ?? false,
+    loadWorkSet: () => db.select<Row[]>('SELECT content_hash FROM pets WHERE content_hash IS NOT NULL'),
+    computeUpdate: (row) => ({ hash: row.content_hash }),
+    applyBatch: async (updates) => {
+      const ts = now();
+      await withTransaction(async () => {
+        for (const u of updates) {
+          await db.execute(
+            'INSERT OR IGNORE INTO imported_files (content_hash, source_path, imported_at) VALUES ($hash, $path, $ts)',
+            { hash: u.hash, path: null, ts },
+          );
+        }
+      });
+      return updates.length;
+    },
+    markDone: () => setSetting(IMPORTED_FILES_BACKFILL_KEY, true),
   });
 }
 

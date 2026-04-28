@@ -1,6 +1,7 @@
 <script>
 /* global __APP_VERSION__ */
 
+import { detectPlatform, getDefaultGameFolder } from '$lib/services/gameImport.js';
 import { settings, settingsActions } from '$lib/stores/settings.js';
 import { isTauri } from '$lib/utils/environment.js';
 import { focusTrap } from '$lib/utils/focusTrap.js';
@@ -27,6 +28,13 @@ function toErrorMessage(err) {
 const modKey = /mac/i.test(navigator?.userAgent ?? '') ? '⌘' : 'Ctrl';
 const currentScale = $derived(_getFontScale($settings));
 const currentTheme = $derived(getThemePreference($settings));
+const platformLabel = detectPlatform();
+const gameFolderPlaceholder = getDefaultGameFolder(platformLabel);
+const gameFolderValue = $derived($settings['import.gameFolderPath'] ?? '');
+
+function setGameFolderPath(value) {
+  settingsActions.update('import.gameFolderPath', value);
+}
 
 function setFontScale(scale) {
   settingsActions.update('display.fontScale', clampScale(scale));
@@ -197,6 +205,34 @@ async function installUpdate() {
                 aria-label="System theme"
               >💻 System</button>
             </div>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <h4>Auto-import</h4>
+
+          <div class="setting-row" style="cursor: default;">
+            <div class="setting-info">
+              <span class="setting-name">Game folder</span>
+              <span class="setting-desc">Folder where Project Gorgon writes pet gene reports. New files appear automatically as the game writes them; the 🔄 button on the pet list runs a manual scan on demand.</span>
+            </div>
+          </div>
+
+          <div class="setting-row" style="cursor: default;">
+            <input
+              class="folder-input"
+              type="text"
+              placeholder={gameFolderPlaceholder}
+              value={gameFolderValue}
+              oninput={(e) => setGameFolderPath(e.currentTarget.value)}
+              aria-label="Game folder path"
+            />
+          </div>
+
+          <div class="setting-row" style="cursor: default;">
+            <span class="update-message muted">
+              Detected platform: {platformLabel}. Leave blank to use the default shown above.
+            </span>
           </div>
         </div>
 
@@ -519,6 +555,22 @@ async function installUpdate() {
     border-radius: 8px;
     padding: 12px;
     margin: -4px 0;
+  }
+
+  .folder-input {
+    width: 100%;
+    padding: 6px 10px;
+    border: 1px solid var(--border-secondary);
+    border-radius: 6px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 12px;
+    font-family: var(--font-mono, monospace);
+    outline: none;
+  }
+
+  .folder-input:focus {
+    border-color: var(--accent);
   }
 
   .progress-bar {

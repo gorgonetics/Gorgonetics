@@ -1,6 +1,7 @@
 <script>
 import { normalizeSpecies } from '$lib/services/configService.js';
 import { pickGenomeFiles, readFileContent } from '$lib/services/fileService.js';
+import { autoScanGameFolder } from '$lib/services/gameImport.js';
 import { compareSelectMode, comparisonActions, comparisonPets, comparisonReady } from '$lib/stores/comparison.js';
 import { allTags as allTagsStore, appState, error, pets, selectedPet } from '$lib/stores/pets.js';
 import { createDragState } from '$lib/utils/dragReorder.svelte.js';
@@ -45,6 +46,8 @@ let starredOnly = $state(false);
 let stabledOnly = $state(true);
 let uploading = $state(false);
 let uploadProgress = $state(null);
+let autoScanning = $state(false);
+let autoScanProgress = $state(null);
 let showEditor = $state(false);
 let editingPet = $state(null);
 let deletingPet = $state(null);
@@ -134,13 +137,55 @@ async function handleUpload() {
 
     if (failures.length > 0) {
       const succeeded = total - failures.length;
-      error.set(`${succeeded}/${total} uploaded. ${failures.length} failed: ${failures.join('; ')}`);
+      error.set(`${succeeded}/${total} uploaded. ${failures.length} failed:\n${failures.join('\n')}`);
     }
   } catch (err) {
     error.set(`Upload failed: ${err.message}`);
   } finally {
     uploading = false;
     uploadProgress = null;
+  }
+}
+
+async function handleAutoScan() {
+  try {
+    autoScanning = true;
+    error.set(null);
+    const result = await autoScanGameFolder({
+      onProgress: (current, total) => {
+        autoScanProgress = { current, total };
+      },
+    });
+
+    if (result.status === 'not_configured') {
+      error.set('Auto-import folder is not configured. Set the path in Settings → Auto-import.');
+      return;
+    }
+    if (result.status === 'folder_missing') {
+      error.set(result.message ?? 'Configured game folder was not found.');
+      return;
+    }
+    if (result.status === 'error') {
+      error.set(result.message ?? 'Auto-import failed.');
+      return;
+    }
+
+    if (result.imported > 0) {
+      await appState.loadPets();
+    }
+
+    const summary = `Auto-import: ${result.imported} new, ${result.skipped} already imported (of ${result.scanned} files).`;
+    if (result.failures.length > 0) {
+      const lines = result.failures.map((f) => `${f.file}: ${f.reason}`);
+      error.set(`${summary}\n${result.failures.length} failed:\n${lines.join('\n')}`);
+    } else if (result.imported > 0) {
+      error.set(summary);
+    }
+  } catch (err) {
+    error.set(`Auto-import failed: ${err instanceof Error ? err.message : String(err)}`);
+  } finally {
+    autoScanning = false;
+    autoScanProgress = null;
   }
 }
 
@@ -357,12 +402,25 @@ async function handleDrop(e, dropIndex) {
             <button
                 class="upload-btn"
                 onclick={handleUpload}
-                disabled={uploading}
+                disabled={uploading || autoScanning}
             >
                 {#if uploadProgress}
                     Uploading... ({uploadProgress.current}/{uploadProgress.total})
                 {:else}
                     + Upload Genome
+                {/if}
+            </button>
+            <button
+                class="auto-scan-btn"
+                onclick={handleAutoScan}
+                disabled={uploading || autoScanning}
+                title="Auto-import new genome files from the game folder"
+                aria-label="Auto-import new genome files from the game folder"
+            >
+                {#if autoScanProgress}
+                    🔄 ({autoScanProgress.current}/{autoScanProgress.total})
+                {:else}
+                    🔄
                 {/if}
             </button>
             <button
@@ -651,6 +709,27 @@ async function handleDrop(e, dropIndex) {
 
     .compare-checkbox:disabled {
         opacity: 0.3;
+        cursor: not-allowed;
+    }
+
+    .auto-scan-btn {
+        padding: 8px 10px;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-primary);
+        border-radius: 6px;
+        font-size: 13px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        flex-shrink: 0;
+    }
+
+    .auto-scan-btn:hover:not(:disabled) {
+        background: var(--bg-selected);
+        border-color: var(--accent);
+    }
+
+    .auto-scan-btn:disabled {
+        opacity: 0.5;
         cursor: not-allowed;
     }
 

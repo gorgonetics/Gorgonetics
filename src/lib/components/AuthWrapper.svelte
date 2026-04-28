@@ -2,18 +2,83 @@
 import { onMount } from 'svelte';
 import { initDatabase } from '$lib/services/database.js';
 import { loadDemoPetsIfNeeded, populateGenesIfNeeded } from '$lib/services/demoService.js';
+import { autoScanGameFolder, watchGameFolder } from '$lib/services/gameImport.js';
 import { backfillParsedGeneEffectsIfNeeded } from '$lib/services/geneService.js';
 import { runMigrations } from '$lib/services/migrationService.js';
 import {
   backfillGeneCountsIfNeeded,
+  backfillImportedFilesIfNeeded,
   backfillPetGenesIfNeeded,
   backfillPositiveGenesIfNeeded,
 } from '$lib/services/petService.js';
 import { appState } from '$lib/stores/pets.js';
-import { settingsActions } from '$lib/stores/settings.js';
+import { settings, settingsActions } from '$lib/stores/settings.js';
 
 const { children } = $props();
 let ready = $state(false);
+let liveScanRunning = false;
+let pendingRescan = false;
+
+async function runLiveScan() {
+  // Drop into a queued state instead of starting a parallel scan —
+  // a file written during a long scan would otherwise be missed
+  // until the next unrelated event.
+  if (liveScanRunning) {
+    pendingRescan = true;
+    return;
+  }
+  liveScanRunning = true;
+  try {
+    do {
+      pendingRescan = false;
+      const result = await autoScanGameFolder();
+      if (result.imported > 0) {
+        void appState.loadPets();
+      }
+    } while (pendingRescan);
+  } catch (err) {
+    console.warn('live game-folder scan failed:', err);
+  } finally {
+    liveScanRunning = false;
+    pendingRescan = false;
+  }
+}
+
+// Track only the configured path. Reading $settings directly inside
+// the effect would re-fire on any settings write (theme, font scale,
+// etc.) because the store spreads a new object on every update;
+// $derived memoizes on the computed value so unrelated keys don't
+// thrash the watcher.
+const gameFolderPath = $derived($settings['import.gameFolderPath'] ?? '');
+
+$effect(() => {
+  if (!ready) return;
+  void gameFolderPath;
+
+  let cancelled = false;
+  let activeStop = null;
+
+  void (async () => {
+    try {
+      const stop = await watchGameFolder(runLiveScan);
+      if (cancelled) {
+        if (stop) await stop();
+        return;
+      }
+      activeStop = stop;
+    } catch (err) {
+      console.warn('failed to start game-folder watcher:', err);
+    }
+  })();
+
+  return () => {
+    cancelled = true;
+    if (activeStop) {
+      void activeStop();
+      activeStop = null;
+    }
+  };
+});
 
 onMount(async () => {
   await initDatabase();
@@ -54,6 +119,12 @@ onMount(async () => {
       void appState.loadPets();
     } catch (err) {
       console.warn('gene_counts backfill aborted:', err);
+    }
+
+    try {
+      await backfillImportedFilesIfNeeded();
+    } catch (err) {
+      console.warn('imported_files backfill aborted:', err);
     }
   })();
 });
