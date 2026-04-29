@@ -30,7 +30,7 @@ describe('pet_genes is populated on upload', () => {
   });
 
   it('inserts one pet_genes row per genome position', async () => {
-    const result = await petService.uploadPet(MINIMAL_BEEWASP_GENOME, 'Minimal', 'Female');
+    const result = await petService.uploadPet(MINIMAL_BEEWASP_GENOME, { name: 'Minimal', gender: 'Female' });
     const db = getDb();
     const rows = await db.select('SELECT gene_id, gene_type FROM pet_genes WHERE pet_id = $pid ORDER BY gene_id', {
       pid: result.pet_id,
@@ -42,7 +42,7 @@ describe('pet_genes is populated on upload', () => {
   });
 
   it('handles a realistic sample genome', async () => {
-    const result = await petService.uploadPet(SAMPLE_BEEWASP, 'Bee', 'Female');
+    const result = await petService.uploadPet(SAMPLE_BEEWASP, { name: 'Bee', gender: 'Female' });
     const db = getDb();
     const [count] = await db.select('SELECT COUNT(*) as n FROM pet_genes WHERE pet_id = $pid', {
       pid: result.pet_id,
@@ -59,7 +59,7 @@ describe('updatePet rewrites pet_genes when the genome changes', () => {
   });
 
   it('replaces rows when genome_data is updated', async () => {
-    const result = await petService.uploadPet(MINIMAL_BEEWASP_GENOME, 'Minimal', 'Female');
+    const result = await petService.uploadPet(MINIMAL_BEEWASP_GENOME, { name: 'Minimal', gender: 'Female' });
 
     // Rewrite the genome to have only one gene instead of three.
     const emptyGenomeJson = JSON.stringify({
@@ -82,7 +82,7 @@ describe('updatePet rewrites pet_genes when the genome changes', () => {
   });
 
   it('does not touch pet_genes when only non-genome fields change', async () => {
-    const result = await petService.uploadPet(MINIMAL_BEEWASP_GENOME, 'Minimal', 'Female');
+    const result = await petService.uploadPet(MINIMAL_BEEWASP_GENOME, { name: 'Minimal', gender: 'Female' });
     const db = getDb();
     const [before] = await db.select('SELECT COUNT(*) as n FROM pet_genes WHERE pet_id = $pid', {
       pid: result.pet_id,
@@ -105,7 +105,7 @@ describe('deletePet removes a pet and its pet_genes rows', () => {
   });
 
   it('drops the pet and its pet_genes rows together', async () => {
-    const result = await petService.uploadPet(MINIMAL_BEEWASP_GENOME, 'Minimal', 'Female');
+    const result = await petService.uploadPet(MINIMAL_BEEWASP_GENOME, { name: 'Minimal', gender: 'Female' });
     await petService.deletePet(result.pet_id);
     const db = getDb();
     const [count] = await db.select('SELECT COUNT(*) as n FROM pet_genes WHERE pet_id = $pid', {
@@ -186,7 +186,7 @@ describe('backfillPetGenesIfNeeded', () => {
   });
 
   it('steady-state run is a no-op when every pet already has rows', async () => {
-    const result = await petService.uploadPet(MINIMAL_BEEWASP_GENOME, 'Minimal', 'Female');
+    const result = await petService.uploadPet(MINIMAL_BEEWASP_GENOME, { name: 'Minimal', gender: 'Female' });
     // Second call should find nothing to do and exit without re-inserting.
     await petService.backfillPetGenesIfNeeded();
     const db = getDb();

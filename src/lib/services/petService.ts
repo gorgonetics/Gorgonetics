@@ -368,16 +368,32 @@ export async function hasImportedFile(contentHash: string): Promise<boolean> {
   return rows.length > 0;
 }
 
+export interface UploadPetOptions {
+  /** Fallback when the genome file's Entity name is empty. */
+  name?: string;
+  /** Fallback when the structured-name parser doesn't extract a gender. */
+  gender?: string;
+  /** Free-text note saved on the pet row. */
+  notes?: string;
+  /** Origin path stored in the imported_files ledger so the auto-scanner can attribute imports later. */
+  sourcePath?: string;
+}
+
+export interface UploadPetResult {
+  status: 'success' | 'error';
+  message: string;
+  pet_id?: number;
+  name?: string;
+}
+
 /**
  * Upload and create a new pet from genome file content.
  */
-export async function uploadPet(
-  content: string,
-  name: string,
-  gender: string,
-  notes?: string,
-  sourcePath?: string,
-): Promise<{ status: string; message: string; pet_id?: number; name?: string }> {
+export async function uploadPet(content: string, options: UploadPetOptions = {}): Promise<UploadPetResult> {
+  // Default gender to 'Male' so an unstructured genome still gets a
+  // sensible value — same convention as the manual upload UI.
+  const { name = '', gender = 'Male', notes = '', sourcePath } = options;
+
   // Validate content
   if (!content.trim()) {
     return { status: 'error', message: 'File cannot be empty' };

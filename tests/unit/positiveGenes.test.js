@@ -59,21 +59,21 @@ describe('positive_genes computation', () => {
   });
 
   it('stores 0 on upload when no gene effects are known', async () => {
-    const result = await petService.uploadPet(SAMPLE_BEEWASP, 'Bee', 'Female');
+    const result = await petService.uploadPet(SAMPLE_BEEWASP, { name: 'Bee', gender: 'Female' });
     const pet = await petService.getPet(result.pet_id);
     expect(pet.positive_genes).toBe(0);
   });
 
   it('counts seeded positive-effect genes exactly at upload time', async () => {
     await seedTwoPositiveEffects();
-    const result = await petService.uploadPet(MINIMAL_BEEWASP_GENOME, 'Minimal', 'Female');
+    const result = await petService.uploadPet(MINIMAL_BEEWASP_GENOME, { name: 'Minimal', gender: 'Female' });
     const pet = await petService.getPet(result.pet_id);
     expect(pet.positive_genes).toBe(2);
   });
 
   it('updatePet recomputes positive_genes when genome_data changes', async () => {
     await seedTwoPositiveEffects();
-    const result = await petService.uploadPet(MINIMAL_BEEWASP_GENOME, 'Minimal', 'Female');
+    const result = await petService.uploadPet(MINIMAL_BEEWASP_GENOME, { name: 'Minimal', gender: 'Female' });
     const before = await petService.getPet(result.pet_id);
     expect(before.positive_genes).toBe(2);
 
@@ -95,7 +95,7 @@ describe('backfillPositiveGenesIfNeeded', () => {
 
   it('populates positive_genes for pets inserted before effects were seeded', async () => {
     // Upload first with no effects → stored as 0.
-    const upload = await petService.uploadPet(MINIMAL_BEEWASP_GENOME, 'Minimal', 'Female');
+    const upload = await petService.uploadPet(MINIMAL_BEEWASP_GENOME, { name: 'Minimal', gender: 'Female' });
     const before = await petService.getPet(upload.pet_id);
     expect(before.positive_genes).toBe(0);
 
@@ -112,7 +112,7 @@ describe('backfillPositiveGenesIfNeeded', () => {
 
   it('is idempotent — repeated calls do not change the stored count', async () => {
     await seedTwoPositiveEffects();
-    const upload = await petService.uploadPet(MINIMAL_BEEWASP_GENOME, 'Minimal', 'Female');
+    const upload = await petService.uploadPet(MINIMAL_BEEWASP_GENOME, { name: 'Minimal', gender: 'Female' });
     const first = await petService.getPet(upload.pet_id);
     expect(first.positive_genes).toBe(2);
 
@@ -125,7 +125,7 @@ describe('backfillPositiveGenesIfNeeded', () => {
 
   it('skips recomputation once the flag is set', async () => {
     // First upload + backfill with no effects: count is 0, flag gets set.
-    const upload = await petService.uploadPet(MINIMAL_BEEWASP_GENOME, 'Minimal', 'Female');
+    const upload = await petService.uploadPet(MINIMAL_BEEWASP_GENOME, { name: 'Minimal', gender: 'Female' });
     await petService.backfillPositiveGenesIfNeeded();
     const before = await petService.getPet(upload.pet_id);
     expect(before.positive_genes).toBe(0);

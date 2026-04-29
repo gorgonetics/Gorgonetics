@@ -25,7 +25,7 @@ describe('uploadPet persists gene-count columns', () => {
   });
 
   it('writes total/known/unknown counts at upload time', async () => {
-    const result = await petService.uploadPet(MINIMAL_BEEWASP_GENOME, 'Minimal', 'Female');
+    const result = await petService.uploadPet(MINIMAL_BEEWASP_GENOME, { name: 'Minimal', gender: 'Female' });
     const pet = await petService.getPet(result.pet_id);
     expect(pet.total_genes).toBe(3);
     expect(pet.known_genes).toBe(2);
@@ -34,7 +34,7 @@ describe('uploadPet persists gene-count columns', () => {
   });
 
   it('handles a realistic sample genome', async () => {
-    const result = await petService.uploadPet(SAMPLE_BEEWASP, 'Bee', 'Female');
+    const result = await petService.uploadPet(SAMPLE_BEEWASP, { name: 'Bee', gender: 'Female' });
     const pet = await petService.getPet(result.pet_id);
     expect(pet.total_genes).toBeGreaterThan(0);
     expect(pet.known_genes + pet.unknown_genes).toBe(pet.total_genes);
@@ -49,7 +49,7 @@ describe('updatePet refreshes gene-count columns when genome_data changes', () =
   });
 
   it('rewrites counts when genome_data is replaced', async () => {
-    const result = await petService.uploadPet(MINIMAL_BEEWASP_GENOME, 'Minimal', 'Female');
+    const result = await petService.uploadPet(MINIMAL_BEEWASP_GENOME, { name: 'Minimal', gender: 'Female' });
     const before = await petService.getPet(result.pet_id);
     expect(before.total_genes).toBe(3);
 
@@ -79,7 +79,7 @@ describe('backfillGeneCountsIfNeeded', () => {
   });
 
   it('populates counts for pets inserted before the column existed', async () => {
-    const upload = await petService.uploadPet(MINIMAL_BEEWASP_GENOME, 'Minimal', 'Female');
+    const upload = await petService.uploadPet(MINIMAL_BEEWASP_GENOME, { name: 'Minimal', gender: 'Female' });
     const db = getDb();
 
     // Simulate a pre-v11 row by zeroing the columns and clearing the flag.
@@ -103,12 +103,12 @@ describe('backfillGeneCountsIfNeeded', () => {
   it('returns false when every pet already has matching counts', async () => {
     // uploadPet writes the counts at insert time, so the backfill has
     // nothing to do — wrote=false avoids a spurious appState reload.
-    await petService.uploadPet(MINIMAL_BEEWASP_GENOME, 'Minimal', 'Female');
+    await petService.uploadPet(MINIMAL_BEEWASP_GENOME, { name: 'Minimal', gender: 'Female' });
     expect(await petService.backfillGeneCountsIfNeeded()).toBe(false);
   });
 
   it('second call short-circuits via the flag', async () => {
-    const upload = await petService.uploadPet(MINIMAL_BEEWASP_GENOME, 'Minimal', 'Female');
+    const upload = await petService.uploadPet(MINIMAL_BEEWASP_GENOME, { name: 'Minimal', gender: 'Female' });
     const db = getDb();
 
     // Zero the columns so the first call has real work to do.

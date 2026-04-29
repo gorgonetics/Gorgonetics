@@ -1,4 +1,5 @@
 import { derived, type Writable, writable } from 'svelte/store';
+import type { UploadPetOptions } from '$lib/services/petService.js';
 import * as petService from '$lib/services/petService.js';
 import type { Pet } from '$lib/types/index.js';
 
@@ -71,21 +72,30 @@ export const appState = {
     }
   },
 
-  async uploadPet(file: string, petName: string, petGender = 'Male') {
+  async uploadPet(content: string, options: UploadPetOptions = {}) {
     try {
       loading.set(true);
       error.set(null);
-      await petService.uploadPet(file, petName, petGender);
+      const result = await petService.uploadPet(content, options);
+      // petService surfaces validation/duplicate failures via the
+      // result envelope (no throw), so silently reloading would hide
+      // those from the user.
+      if (result.status === 'error') {
+        error.set(`Failed to upload pet: ${result.message}`);
+        return result;
+      }
       await this.loadPets();
+      return result;
     } catch (err: unknown) {
       error.set(`Failed to upload pet: ${err instanceof Error ? err.message : String(err)}`);
+      return { status: 'error' as const, message: err instanceof Error ? err.message : String(err) };
     } finally {
       loading.set(false);
     }
   },
 
-  async uploadPetQuiet(file: string, petName: string, petGender = 'Male') {
-    return petService.uploadPet(file, petName, petGender);
+  async uploadPetQuiet(content: string, options: UploadPetOptions = {}) {
+    return petService.uploadPet(content, options);
   },
 
   async reorderPets(orderedIds: number[]) {

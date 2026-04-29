@@ -53,7 +53,7 @@ describe('loadPetGridFromDb', () => {
   it('reproduces the structure parseGenesByBlock builds from genome JSON', async () => {
     // Upload a pet, then assert the SQL-loaded grid matches what
     // parseGenesByBlock returns for the same source genome.
-    const upload = await petService.uploadPet(MULTI_BLOCK_BEEWASP, 'Multi', 'Female');
+    const upload = await petService.uploadPet(MULTI_BLOCK_BEEWASP, { name: 'Multi', gender: 'Female' });
     const grid = await petService.loadPetGridFromDb(upload.pet_id);
 
     const reference = parseGenesByBlock(genomeToGeneStrings(parseGenome(MULTI_BLOCK_BEEWASP)));
@@ -76,7 +76,7 @@ describe('loadPetGridFromDb', () => {
   });
 
   it('handles a realistic sample genome with the same parity', async () => {
-    const upload = await petService.uploadPet(SAMPLE_BEEWASP, 'Bee', 'Female');
+    const upload = await petService.uploadPet(SAMPLE_BEEWASP, { name: 'Bee', gender: 'Female' });
     const grid = await petService.loadPetGridFromDb(upload.pet_id);
     const reference = parseGenesByBlock(genomeToGeneStrings(parseGenome(SAMPLE_BEEWASP)));
 
@@ -95,7 +95,7 @@ describe('loadPetGridFromDb', () => {
   it('falls back to genome_data when pet_genes is empty for a real pet', async () => {
     // Simulates an un-backfilled legacy pet: row exists in `pets`,
     // genome_data is intact, but pet_genes hasn't been populated yet.
-    const upload = await petService.uploadPet(MULTI_BLOCK_BEEWASP, 'Legacy', 'Female');
+    const upload = await petService.uploadPet(MULTI_BLOCK_BEEWASP, { name: 'Legacy', gender: 'Female' });
     const db = (await import('$lib/services/database.js')).getDb();
     await db.execute('DELETE FROM pet_genes WHERE pet_id = $id', { id: upload.pet_id });
 
@@ -116,7 +116,7 @@ describe('loadPetGridFromDb', () => {
   it('lays out single-letter blocks for a typical small genome', async () => {
     // The realistic case: chromosome 01 of MULTI_BLOCK_BEEWASP has
     // blocks A, B, C — verify the loader produces them in order.
-    const upload = await petService.uploadPet(MULTI_BLOCK_BEEWASP, 'Multi', 'Female');
+    const upload = await petService.uploadPet(MULTI_BLOCK_BEEWASP, { name: 'Multi', gender: 'Female' });
     const grid = await petService.loadPetGridFromDb(upload.pet_id);
     expect(grid['01'].blocks.map((b) => b.letter)).toEqual(['A', 'B', 'C']);
   });
