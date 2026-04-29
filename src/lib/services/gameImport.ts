@@ -169,11 +169,7 @@ export async function autoScanGameFolder(options?: {
         result.skipped++;
         continue;
       }
-      // Gender '' would override the column default; uploadPet only
-      // pulls gender from the genome when the name is *structured*
-      // (e.g., "Kb F 60 70 …"), so unnamed/unstructured pets need a
-      // fallback. Match the manual upload path's 'Male' default.
-      const upload = await uploadPet(item.content, '', 'Male', undefined, item.displayPath);
+      const upload = await uploadPet(item.content, { sourcePath: item.displayPath });
       if (upload.status === 'success') {
         result.imported++;
       } else {

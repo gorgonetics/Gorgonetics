@@ -124,7 +124,7 @@ async function handleUpload() {
       const fileName = getBasename(filePaths[i]);
       try {
         const content = await readFileContent(filePaths[i]);
-        const result = await appState.uploadPetQuiet(content, '', 'Male');
+        const result = await appState.uploadPetQuiet(content);
         if (result.status === 'error') {
           failures.push(`${fileName}: ${result.message}`);
         }
@@ -287,7 +287,7 @@ async function handleDrop(e, dropIndex) {
 <div class="pet-list">
     <div class="pet-list-header">
         <input
-            class="search-input"
+            class="text-input text-input--lg"
             type="text"
             placeholder="Search pets..."
             bind:value={searchQuery}
@@ -498,27 +498,6 @@ async function handleDrop(e, dropIndex) {
         padding: 12px 34px 12px 12px;
         border-bottom: 1px solid var(--border-primary);
         flex-shrink: 0;
-    }
-
-    .search-input {
-        width: 100%;
-        padding: 8px 12px;
-        border: 1px solid var(--border-primary);
-        border-radius: 6px;
-        font-size: 13px;
-        background: var(--bg-secondary);
-        color: var(--text-primary);
-        outline: none;
-        transition: border-color 0.15s;
-    }
-
-    .search-input:focus {
-        border-color: var(--accent);
-        background: var(--bg-primary);
-    }
-
-    .search-input::placeholder {
-        color: var(--text-muted);
     }
 
     .marker-filter {
