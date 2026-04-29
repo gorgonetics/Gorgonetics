@@ -220,7 +220,7 @@ async function installUpdate() {
 
           <div class="setting-row" style="cursor: default;">
             <input
-              class="folder-input"
+              class="text-input text-input--mono"
               type="text"
               placeholder={gameFolderPlaceholder}
               value={gameFolderValue}
@@ -555,22 +555,6 @@ async function installUpdate() {
     border-radius: 8px;
     padding: 12px;
     margin: -4px 0;
-  }
-
-  .folder-input {
-    width: 100%;
-    padding: 6px 10px;
-    border: 1px solid var(--border-secondary);
-    border-radius: 6px;
-    background: var(--bg-primary);
-    color: var(--text-primary);
-    font-size: 12px;
-    font-family: var(--font-mono, monospace);
-    outline: none;
-  }
-
-  .folder-input:focus {
-    border-color: var(--accent);
   }
 
   .progress-bar {

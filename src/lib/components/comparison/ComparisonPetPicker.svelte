@@ -74,7 +74,7 @@ function handlePetClick(pet) {
     <div class="picker-search">
         <input
             type="text"
-            class="search-input"
+            class="text-input"
             placeholder="Search pets..."
             bind:value={searchQuery}
         />
@@ -238,23 +238,6 @@ function handlePetClick(pet) {
 
     .picker-search {
         padding: 0 12px;
-    }
-
-    .search-input {
-        width: 100%;
-        padding: 6px 10px;
-        border: 1px solid var(--border-primary);
-        border-radius: 6px;
-        font-size: 12px;
-        background: var(--bg-primary);
-        color: var(--text-primary);
-        outline: none;
-        box-sizing: border-box;
-    }
-
-    .search-input:focus {
-        border-color: var(--accent);
-        box-shadow: 0 0 0 2px var(--accent-soft);
     }
 
     .species-filter-hint {

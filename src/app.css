@@ -301,6 +301,53 @@ textarea:focus:not(:focus-visible) {
   top: 0;
 }
 
+/* Shared text-input baseline. Use `text-input--lg` for the larger
+   variant (PetList search) and `text-input--mono` for monospace
+   (path/code-style fields). Keep custom selectors in components for
+   layout-specific tweaks (margins, etc.) but reach for these
+   modifiers for size/font/focus. */
+.text-input {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--border-primary);
+  border-radius: 6px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 12px;
+  box-sizing: border-box;
+  /* Outline intentionally not zeroed: the global
+     `input:focus:not(:focus-visible)` rule suppresses it for mouse
+     focus, while keyboard focus keeps the visible outline from
+     `:focus-visible` for accessibility. */
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s,
+    background 0.15s;
+}
+
+.text-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+.text-input::placeholder {
+  color: var(--text-muted);
+}
+
+.text-input--lg {
+  padding: 8px 12px;
+  font-size: 13px;
+  background: var(--bg-secondary);
+}
+
+.text-input--lg:focus {
+  background: var(--bg-primary);
+}
+
+.text-input--mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
 .checkbox-row {
   display: flex;
   align-items: flex-start;
