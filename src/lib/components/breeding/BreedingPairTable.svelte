@@ -67,9 +67,11 @@ function fmt(n) {
         <thead>
             <tr>
                 {#each columns as col (col.id)}
+                    {@const isActive = breedingView.sortCol === col.id}
                     <th
                         class:numeric={col.numeric}
-                        class:active={breedingView.sortCol === col.id}
+                        class:active={isActive}
+                        aria-sort={isActive ? (breedingView.sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     >
                         <button
                             type="button"
@@ -101,7 +103,9 @@ function fmt(n) {
 
 <style>
     .table-wrapper {
-        overflow-x: auto;
+        flex: 1;
+        min-height: 0;
+        overflow: auto;
         border: 1px solid var(--border-primary);
         border-radius: 6px;
         background: var(--bg-primary);

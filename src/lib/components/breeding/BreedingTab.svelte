@@ -11,6 +11,7 @@ const species = getSupportedSpecies();
 
 let pairs = $state([]);
 let loading = $state(false);
+let errored = $state(false);
 let pairsSequence = 0;
 
 const eligible = $derived($pets.filter((p) => p.stabled && normalizeSpecies(p.species) === breedingView.species));
@@ -37,6 +38,7 @@ $effect(() => {
 
   const seq = ++pairsSequence;
   loading = true;
+  errored = false;
 
   rankBreedingPairs({
     species: targetSpecies,
@@ -52,8 +54,23 @@ $effect(() => {
       if (seq !== pairsSequence) return;
       console.error('rankBreedingPairs failed', err);
       pairs = [];
+      errored = true;
       loading = false;
     });
+});
+
+const VALID_FIXED_COLS = new Set(['male', 'female', 'evMixed', 'evUnknown', 'evPositiveTotal']);
+
+$effect(() => {
+  // When the active species changes, an attribute-specific sort column
+  // may no longer apply (e.g. Ferocity disappears on the horse). Reset
+  // to the headline column so the table doesn't silently fall back with
+  // a stale direction (worst case: best pairs sink to the bottom).
+  const validIds = new Set([...VALID_FIXED_COLS, ...attrNames]);
+  if (!validIds.has(breedingView.sortCol)) {
+    breedingView.sortCol = 'evPositiveTotal';
+    breedingView.sortDir = 'desc';
+  }
 });
 
 const isHorse = $derived(breedingView.species === 'horse');
@@ -70,15 +87,14 @@ const horseBreedOptions = Object.keys(HORSE_BREEDS);
 
     <div class="controls">
         <div class="control-row">
-            <label class="control-label" for="breeding-species">Species</label>
-            <div class="species-toggle" role="radiogroup" id="breeding-species" aria-label="Breeding species">
+            <span class="control-label" id="breeding-species-label">Species</span>
+            <div class="species-toggle" aria-labelledby="breeding-species-label">
                 {#each species as s (s)}
                     <button
                         type="button"
                         class="species-btn"
                         class:active={breedingView.species === s}
-                        role="radio"
-                        aria-checked={breedingView.species === s}
+                        aria-pressed={breedingView.species === s}
                         onclick={() => (breedingView.species = s)}
                     >
                         {s}
@@ -106,7 +122,15 @@ const horseBreedOptions = Object.keys(HORSE_BREEDS);
     </div>
 
     <section class="results">
-        {#if loading && pairs.length === 0}
+        {#if errored}
+            <div class="status-pane error" role="alert" data-testid="breeding-error">
+                <p><strong>Couldn't rank breeding pairs.</strong></p>
+                <p class="muted">
+                    Something went wrong while computing scores. Check the browser
+                    console for details, then change a control to retry.
+                </p>
+            </div>
+        {:else if loading && pairs.length === 0}
             <div class="status-pane" data-testid="breeding-loading">
                 <div class="spinner"></div>
                 <p>Computing pair scores…</p>
@@ -238,8 +262,13 @@ const horseBreedOptions = Object.keys(HORSE_BREEDS);
         color: var(--text-muted);
     }
 
-    .status-pane.empty p {
+    .status-pane.empty p,
+    .status-pane.error p {
         margin: 0;
+    }
+
+    .status-pane.error {
+        color: var(--error-text, var(--text-secondary));
     }
 
     .spinner {

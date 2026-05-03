@@ -33,32 +33,45 @@ test.describe('Breeding Assistant — ranking UI (PR 4)', () => {
 
   test('renders the species toggle and ranks pairs for the active species', async ({ page }) => {
     await openBreedingTab(page);
-    await expect(page.locator('.species-btn')).toHaveCount(2);
+    // Asserted by name rather than count so adding a new species in
+    // configService doesn't break this test.
+    await expect(page.locator('.species-btn').filter({ hasText: /beewasp/i })).toHaveCount(1);
+    await expect(page.locator('.species-btn').filter({ hasText: /horse/i })).toHaveCount(1);
 
     const found = await pickSpeciesWithPairs(page);
-    if (!found) {
-      // Demo data lacks both genders for any species — verify the empty
-      // state at least surfaces the diagnostic counts so this never silently
-      // passes if the demo seeding changes.
-      await expect(page.locator('[data-testid="breeding-empty"]')).toBeVisible();
-      return;
-    }
-
+    expect(found).toBe(true);
     const rows = page.locator('[data-testid="breeding-pair-table"] tbody tr');
     await expect(rows.first()).toBeVisible();
   });
 
-  test('clicking a column header sorts the table', async ({ page }) => {
+  test('clicking a column header flips both the indicator and aria-sort', async ({ page }) => {
     await openBreedingTab(page);
     const found = await pickSpeciesWithPairs(page);
-    test.skip(!found, 'demo data has no eligible breeding pairs');
+    expect(found).toBe(true);
 
-    const totalHeader = page.locator('th button.sort-btn').filter({ hasText: 'Total +' });
-    await totalHeader.click();
-    // Asc indicator first click
-    await expect(page.locator('th.active button')).toContainText('▲');
-    await totalHeader.click();
-    await expect(page.locator('th.active button')).toContainText('▼');
+    const totalHeader = page.locator('th').filter({ hasText: 'Total +' });
+    await totalHeader.locator('button.sort-btn').click();
+    await expect(totalHeader).toHaveAttribute('aria-sort', 'ascending');
+    await expect(totalHeader.locator('button')).toContainText('▲');
+
+    await totalHeader.locator('button.sort-btn').click();
+    await expect(totalHeader).toHaveAttribute('aria-sort', 'descending');
+    await expect(totalHeader.locator('button')).toContainText('▼');
+
+    // If demo data ever grows to ≥2 pairs in one species, also verify
+    // the rows actually re-order. With a single pair this collapses to
+    // a no-op — the indicator/aria-sort assertions above still cover
+    // the user-visible behaviour, and the unit-level sort math is
+    // exercised by the breedingService tests.
+    const rows = page.locator('[data-testid="breeding-pair-table"] tbody tr');
+    const rowCount = await rows.count();
+    if (rowCount >= 2) {
+      const descTopName = await rows.first().locator('td').first().textContent();
+      await totalHeader.locator('button.sort-btn').click(); // back to ascending
+      await expect(totalHeader).toHaveAttribute('aria-sort', 'ascending');
+      const ascTopName = await rows.first().locator('td').first().textContent();
+      expect(ascTopName).not.toEqual(descTopName);
+    }
   });
 
   test('horse offspring-breed selector appears when species is horse', async ({ page }) => {
@@ -78,16 +91,16 @@ test.describe('Breeding Assistant — ranking UI (PR 4)', () => {
   test('clicking a parent name navigates to the Pets tab with that pet selected', async ({ page }) => {
     await openBreedingTab(page);
     const found = await pickSpeciesWithPairs(page);
-    test.skip(!found, 'demo data has no eligible breeding pairs');
+    expect(found).toBe(true);
 
     const firstParent = page.locator('[data-testid="breeding-pair-table"] .parent-link').first();
     const name = (await firstParent.textContent())?.trim();
     await firstParent.click();
 
     await expect(page.locator('.tab-btn').filter({ hasText: 'Pets' })).toHaveClass(/active/);
-    // Detail pane should show the selected pet's name somewhere — leaning
-    // on visibility of the pet header rather than locking to a specific
-    // class, since PetVisualization's structure is owned by another team.
-    await expect(page.getByText(name, { exact: false }).first()).toBeVisible();
+    // Scope the name check to the detail pane — `getByText` against the
+    // whole page would also match the pet card in the master list and
+    // pass even if no pet were actually selected.
+    await expect(page.locator('.detail-content').getByText(name, { exact: false }).first()).toBeVisible();
   });
 });
