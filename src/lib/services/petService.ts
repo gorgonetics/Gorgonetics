@@ -10,7 +10,7 @@ import { capitalize } from '$lib/utils/string.js';
 import { now } from '$lib/utils/timestamp.js';
 import { runBatchBackfill } from './backfill.js';
 import { getAttributeConfig, getDefaultValues, normalizeSpecies } from './configService.js';
-import { getDb, reorderRows, type TxStatement, withTransaction } from './database.js';
+import { buildInClauseParams, getDb, reorderRows, type TxStatement, withTransaction } from './database.js';
 import { getParsedGenesCached, isHorseBreedFiltered } from './geneService.js';
 import { compareBlockLetters, isValidGenomeFile, parseGenome } from './genomeParser.js';
 import { parseStructuredPetName } from './nameParser.js';
@@ -279,13 +279,8 @@ function enrichPet(pet: Record<string, unknown>, tags: string[]): Pet {
 
 async function loadTagsForPets(petIds: number[]): Promise<Map<number, string[]>> {
   if (petIds.length === 0) return new Map();
-  const db = getDb();
-  const placeholders = petIds.map((_, i) => `$id${i}`).join(', ');
-  const params: Record<string, unknown> = {};
-  petIds.forEach((id, i) => {
-    params[`id${i}`] = id;
-  });
-  const rows = await db.select<{ pet_id: number; tag: string }[]>(
+  const { placeholders, params } = buildInClauseParams(petIds, 'id');
+  const rows = await getDb().select<{ pet_id: number; tag: string }[]>(
     `SELECT pet_id, tag FROM pet_tags WHERE pet_id IN (${placeholders}) ORDER BY tag`,
     params,
   );

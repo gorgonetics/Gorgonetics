@@ -10,7 +10,7 @@
  * scoring — those stay in their consuming services.
  */
 
-import { getDb } from '$lib/services/database.js';
+import { buildInClauseParams, getDb } from '$lib/services/database.js';
 import { compareBlockLetters } from '$lib/services/genomeParser.js';
 import { ensurePetGenesPopulated } from '$lib/services/petService.js';
 import { GeneType } from '$lib/types/index.js';
@@ -50,13 +50,8 @@ function coerceGeneType(raw: string): GeneType {
 async function selectPetLociRaw(petIds: readonly number[]): Promise<Map<number, PetLoci>> {
   const map = new Map<number, PetLoci>();
   if (petIds.length === 0) return map;
-  const db = getDb();
-  const placeholders = petIds.map((_, i) => `$id${i}`).join(', ');
-  const params: Record<string, unknown> = {};
-  petIds.forEach((id, i) => {
-    params[`id${i}`] = id;
-  });
-  const rows = await db.select<{ pet_id: number; gene_id: string; gene_type: string }[]>(
+  const { placeholders, params } = buildInClauseParams(petIds, 'id');
+  const rows = await getDb().select<{ pet_id: number; gene_id: string; gene_type: string }[]>(
     `SELECT pet_id, gene_id, gene_type FROM pet_genes WHERE pet_id IN (${placeholders})`,
     params,
   );
