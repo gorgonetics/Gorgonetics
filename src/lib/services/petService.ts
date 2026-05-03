@@ -101,9 +101,12 @@ async function selectPetGenesRows(petId: number): Promise<{ gene_id: string; gen
  * Populate `pet_genes` for a single pet from its `genome_data`. Used as
  * a fallback for pets uploaded before the projection existed and not
  * yet reached by the startup backfill — without this, the visualizer
- * would render empty for those pets.
+ * (and any other `pet_genes` reader) would render empty for those pets.
+ *
+ * Returns `true` if rows were written; `false` if the pet doesn't
+ * exist or its `genome_data` is malformed.
  */
-async function ensurePetGenesPopulated(petId: number): Promise<boolean> {
+export async function ensurePetGenesPopulated(petId: number): Promise<boolean> {
   const db = getDb();
   const rows = await db.select<{ genome_data: string }[]>('SELECT genome_data FROM pets WHERE id = $id', { id: petId });
   if (rows.length === 0) return false;

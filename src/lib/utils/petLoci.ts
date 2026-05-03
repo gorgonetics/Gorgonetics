@@ -12,6 +12,7 @@
 
 import { getDb } from '$lib/services/database.js';
 import { compareBlockLetters } from '$lib/services/genomeParser.js';
+import { ensurePetGenesPopulated } from '$lib/services/petService.js';
 import { GeneType } from '$lib/types/index.js';
 import { fromGeneId } from '$lib/utils/geneAnalysis.js';
 
@@ -46,19 +47,7 @@ function coerceGeneType(raw: string): GeneType {
   return VALID_GENE_TYPES.has(raw) ? (raw as GeneType) : GeneType.UNKNOWN;
 }
 
-/**
- * Bulk-read `pet_genes` for the union of input pet ids in a single
- * round-trip. Returns a per-pet map keyed by id; pets with no projected
- * rows are **omitted entirely** from the result — callers cannot
- * distinguish a missing pet from one that exists but has zero rows by
- * looking at the map alone, so check `map.has(id)` rather than treating
- * `map.get(id)` as authoritative.
- *
- * One query for N pets is the difference between O(1) and O(N) IPC
- * calls in the in-memory adapter and a single B-tree scan vs N in
- * production SQLite.
- */
-export async function loadAllPetLoci(petIds: readonly number[]): Promise<Map<number, PetLoci>> {
+async function selectPetLociRaw(petIds: readonly number[]): Promise<Map<number, PetLoci>> {
   const map = new Map<number, PetLoci>();
   if (petIds.length === 0) return map;
   const db = getDb();
@@ -79,6 +68,41 @@ export async function loadAllPetLoci(petIds: readonly number[]): Promise<Map<num
     }
     loci.set(row.gene_id, coerceGeneType(row.gene_type));
   }
+  return map;
+}
+
+/**
+ * Bulk-read `pet_genes` for the union of input pet ids in a single
+ * round-trip. Returns a per-pet map keyed by id; pets with no projected
+ * rows are **omitted entirely** from the result — callers cannot
+ * distinguish a missing pet from one that exists but has zero rows by
+ * looking at the map alone, so check `map.has(id)` rather than treating
+ * `map.get(id)` as authoritative.
+ *
+ * One query for N pets is the difference between O(1) and O(N) IPC
+ * calls in the in-memory adapter and a single B-tree scan vs N in
+ * production SQLite.
+ *
+ * Inline populate-and-retry: if any input pet has no projected rows
+ * but does have `genome_data` in `pets` (e.g. a legacy pet uploaded
+ * before the projection existed and not yet reached by the startup
+ * backfill), the fallback writes its `pet_genes` rows on the spot and
+ * re-reads. Mirrors `loadPetGridFromDb`'s behaviour so a freshly-
+ * upgraded app doesn't show empty diffs/scores on first launch.
+ */
+export async function loadAllPetLoci(petIds: readonly number[]): Promise<Map<number, PetLoci>> {
+  const map = await selectPetLociRaw(petIds);
+  if (map.size === petIds.length) return map;
+
+  const missing = petIds.filter((id) => !map.has(id));
+  const populated: number[] = [];
+  for (const id of missing) {
+    if (await ensurePetGenesPopulated(id)) populated.push(id);
+  }
+  if (populated.length === 0) return map;
+
+  const refreshed = await selectPetLociRaw(populated);
+  for (const [id, loci] of refreshed) map.set(id, loci);
   return map;
 }
 

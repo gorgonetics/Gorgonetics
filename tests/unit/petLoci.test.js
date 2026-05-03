@@ -76,6 +76,31 @@ describe('loadAllPetLoci', () => {
     const map = await loadAllPetLoci([id]);
     expect(map.get(id).get('01Z9')).toBe('?');
   });
+
+  it('re-projects pet_genes from genome_data when a legacy pet has no projected rows', async () => {
+    // Simulates an un-backfilled pet: row exists in `pets`, genome_data
+    // is intact, but pet_genes is empty. Without the fallback the pet
+    // would be silently absent from the result and downstream comparison
+    // / breeding would treat it as missing.
+    const id = await uploadPet('A', 'DRx');
+    await getDb().execute('DELETE FROM pet_genes WHERE pet_id = $id', { id });
+
+    const map = await loadAllPetLoci([id]);
+    expect(map.has(id)).toBe(true);
+    expect(map.get(id).size).toBe(3);
+    expect(map.get(id).get('01A1')).toBe('D');
+
+    // Side effect: the projection is now persisted, subsequent reads
+    // skip the fallback path.
+    const rows = await getDb().select('SELECT COUNT(*) as n FROM pet_genes WHERE pet_id = $id', { id });
+    expect(rows[0].n).toBeGreaterThan(0);
+  });
+
+  it('still omits pet ids that have no `pets` row at all', async () => {
+    // Fallback can't manufacture data — a truly absent id stays absent.
+    const map = await loadAllPetLoci([999_999]);
+    expect(map.has(999_999)).toBe(false);
+  });
 });
 
 describe('walkPairLoci', () => {
