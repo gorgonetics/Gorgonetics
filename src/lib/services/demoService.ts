@@ -53,6 +53,10 @@ export async function populateGenesIfNeeded(): Promise<void> {
 
 /**
  * Load demo pets from bundled sample genome files if the pets table is empty.
+ *
+ * Two horses (one of each gender) plus one beewasp give the Breeding
+ * Assistant tab at least one same-species M × F pair to rank from the
+ * first launch.
  */
 export async function loadDemoPetsIfNeeded(): Promise<void> {
   if (await hasPets()) return;
@@ -62,6 +66,7 @@ export async function loadDemoPetsIfNeeded(): Promise<void> {
   const demoFiles = [
     { path: 'resources/data/Genes_SampleFaeBee.txt', name: 'Sample Fae Bee', gender: 'Female', breed: '' },
     { path: 'resources/data/Genes_SampleHorse.txt', name: 'Sample Horse', gender: 'Male', breed: 'Standardbred' },
+    { path: 'resources/data/Genes_Roach.txt', name: 'Roach', gender: 'Female', breed: 'Standardbred' },
   ];
 
   for (const { path, name, gender, breed } of demoFiles) {
