@@ -642,19 +642,17 @@ export async function updatePet(petId: number, updates: Record<string, unknown>)
 }
 
 async function setTagsForPet(petId: number, tags: string[]): Promise<void> {
-  const db = getDb();
-  await withTransaction(async () => {
-    await db.execute('DELETE FROM pet_tags WHERE pet_id = $pet_id', { pet_id: petId });
-    for (const tag of tags) {
-      const normalized = tag.trim().toLowerCase();
-      if (normalized) {
-        await db.execute('INSERT OR IGNORE INTO pet_tags (pet_id, tag) VALUES ($pet_id, $tag)', {
-          pet_id: petId,
-          tag: normalized,
-        });
-      }
+  const statements: TxStatement[] = [{ sql: 'DELETE FROM pet_tags WHERE pet_id = $pet_id', params: { pet_id: petId } }];
+  for (const tag of tags) {
+    const normalized = tag.trim().toLowerCase();
+    if (normalized) {
+      statements.push({
+        sql: 'INSERT OR IGNORE INTO pet_tags (pet_id, tag) VALUES ($pet_id, $tag)',
+        params: { pet_id: petId, tag: normalized },
+      });
     }
-  });
+  }
+  await getDb().transaction(statements);
 }
 
 /**
