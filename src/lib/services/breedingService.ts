@@ -8,16 +8,16 @@
  * single aggregate probability that helper returns.
  *
  * Reads from the pre-projected `pet_genes` table — no genome JSON parse
- * on the hot path — and from the cached parsed-effect columns on the
- * `genes` table.
+ * on the hot path — via the shared `petLoci` utility, and from the
+ * cached parsed-effect columns on the `genes` table.
  */
 
-import type { AlleleDistribution, BreedingPairResult, GeneType, Pet } from '$lib/types/index.js';
-import { Gender, GeneType as GT } from '$lib/types/index.js';
+import type { AlleleDistribution, BreedingPairResult, Pet } from '$lib/types/index.js';
+import { Gender } from '$lib/types/index.js';
 import { offspringDistribution } from '$lib/utils/breedingGenetics.js';
+import { loadAllPetLoci, type PetLoci, walkPairLoci } from '$lib/utils/petLoci.js';
 import { capitalize } from '$lib/utils/string.js';
 import { getAllAttributeNames, normalizeSpecies } from './configService.js';
-import { getDb } from './database.js';
 import { getParsedGenesCached, isHorseBreedFiltered, type ParsedGeneRecord } from './geneService.js';
 
 export interface RankBreedingPairsOptions {
@@ -35,37 +35,6 @@ export interface RankBreedingPairsOptions {
    * every M × F pair; same-gender or empty inputs return [].
    */
   pets: Pet[];
-}
-
-type PetLoci = Map<string, GeneType>;
-
-/**
- * Single bulk read of `pet_genes` for the union of input pet ids. One
- * round-trip instead of N — at the worst-case 30 pets this is the
- * difference between 30 selects and 1.
- */
-async function loadAllPetLoci(petIds: number[]): Promise<Map<number, PetLoci>> {
-  const map = new Map<number, PetLoci>();
-  if (petIds.length === 0) return map;
-  const db = getDb();
-  const placeholders = petIds.map((_, i) => `$id${i}`).join(', ');
-  const params: Record<string, unknown> = {};
-  petIds.forEach((id, i) => {
-    params[`id${i}`] = id;
-  });
-  const rows = await db.select<{ pet_id: number; gene_id: string; gene_type: string }[]>(
-    `SELECT pet_id, gene_id, gene_type FROM pet_genes WHERE pet_id IN (${placeholders})`,
-    params,
-  );
-  for (const row of rows) {
-    let loci = map.get(row.pet_id);
-    if (!loci) {
-      loci = new Map();
-      map.set(row.pet_id, loci);
-    }
-    loci.set(row.gene_id, row.gene_type as GeneType);
-  }
-  return map;
 }
 
 /**
@@ -116,31 +85,15 @@ function scorePair(
   let evPositiveTotal = 0;
   let totalLoci = 0;
 
-  // Walk the male's loci first; the female's set-difference is handled
-  // in a second pass below. In well-formed same-species inputs both maps
-  // hold identical key sets (genome files always emit one row per
-  // position, even for unknown alleles) — the second pass is defensive
-  // for partially-imported genomes.
-  for (const [geneId, t1] of mLoci) {
+  walkPairLoci(mLoci, fLoci, (geneId, t1, t2) => {
     const gd = parsedGenes[geneId];
-    if (isHorseBreedFiltered(species, offspringBreed, gd?.breed)) continue;
-    const t2 = fLoci.get(geneId) ?? GT.UNKNOWN;
+    if (isHorseBreedFiltered(species, offspringBreed, gd?.breed)) return;
     const dist = offspringDistribution(t1, t2);
     evMixed += dist.x;
     evUnknown += dist.unknown;
     totalLoci++;
     if (gd) evPositiveTotal += accumulatePositive(dist, gd, evPositiveByAttribute);
-  }
-  for (const [geneId, t2] of fLoci) {
-    if (mLoci.has(geneId)) continue;
-    const gd = parsedGenes[geneId];
-    if (isHorseBreedFiltered(species, offspringBreed, gd?.breed)) continue;
-    const dist = offspringDistribution(GT.UNKNOWN, t2);
-    evMixed += dist.x;
-    evUnknown += dist.unknown;
-    totalLoci++;
-    // One parent unknown → distribution is full-unknown, P(positive) = 0.
-  }
+  });
 
   return { male, female, evMixed, evPositiveByAttribute, evPositiveTotal, evUnknown, totalLoci };
 }
