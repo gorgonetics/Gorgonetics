@@ -643,8 +643,7 @@ export async function updatePet(petId: number, updates: Record<string, unknown>)
 
 async function setTagsForPet(petId: number, tags: string[]): Promise<void> {
   const db = getDb();
-  await db.execute('BEGIN');
-  try {
+  await withTransaction(async () => {
     await db.execute('DELETE FROM pet_tags WHERE pet_id = $pet_id', { pet_id: petId });
     for (const tag of tags) {
       const normalized = tag.trim().toLowerCase();
@@ -655,11 +654,7 @@ async function setTagsForPet(petId: number, tags: string[]): Promise<void> {
         });
       }
     }
-    await db.execute('COMMIT');
-  } catch (error) {
-    await db.execute('ROLLBACK');
-    throw error;
-  }
+  });
 }
 
 /**
