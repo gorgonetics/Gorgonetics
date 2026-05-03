@@ -1,9 +1,11 @@
 /**
  * Breeding Assistant scoring engine.
  *
- * Composes the per-locus genetics primitives (`offspringDistribution`,
- * `positiveExpressionProbability`) across every (Male × Female) pair in
- * the input set, returning per-pair EVs the UI can sort and present.
+ * Composes the per-locus `offspringDistribution` primitive across every
+ * (Male × Female) pair in the input set. The per-attribute positive
+ * accumulation is done inline rather than via `positiveExpressionProbability`
+ * because the UI needs the contribution split *per attribute*, not the
+ * single aggregate probability that helper returns.
  *
  * Reads from the pre-projected `pet_genes` table — no genome JSON parse
  * on the hot path — and from the cached parsed-effect columns on the

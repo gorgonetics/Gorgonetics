@@ -19,17 +19,30 @@ import { Gender } from '$lib/types/index.js';
 const NUM_MALES = 15;
 const NUM_FEMALES = 15;
 const NUM_CHROMOSOMES = 30;
-const ALLELES_PER_CHROMOSOME = 50; // 30 × 50 = 1500 loci per pet
+const BLOCKS_PER_CHROMOSOME = 5;
+const POSITIONS_PER_BLOCK = 10;
+const ALLELES_PER_CHROMOSOME = BLOCKS_PER_CHROMOSOME * POSITIONS_PER_BLOCK; // 50
+const LOCI_PER_PET = NUM_CHROMOSOMES * ALLELES_PER_CHROMOSOME; // 1500
 const SCORING_BUDGET_MS = 500;
 
 const ALLELE_CYCLE = ['D', 'R', 'x', 'D', 'R', 'D', 'x', 'R'];
 
+/**
+ * Build one chromosome's allele string with whitespace between blocks
+ * — `parseChromosomeGenes` splits on `\s+` to derive block letters, so
+ * the per-block lengths here drive the gene IDs the parser emits, and
+ * those IDs must line up with what `seedHorseGeneTable` inserts.
+ */
 function buildAlleles(seed) {
-  let s = '';
-  for (let i = 0; i < ALLELES_PER_CHROMOSOME; i++) {
-    s += ALLELE_CYCLE[(seed + i) % ALLELE_CYCLE.length];
+  const blocks = [];
+  for (let b = 0; b < BLOCKS_PER_CHROMOSOME; b++) {
+    let block = '';
+    for (let i = 0; i < POSITIONS_PER_BLOCK; i++) {
+      block += ALLELE_CYCLE[(seed + b * POSITIONS_PER_BLOCK + i) % ALLELE_CYCLE.length];
+    }
+    blocks.push(block);
   }
-  return s;
+  return blocks.join(' ');
 }
 
 function buildHorseGenome(name, seed) {
@@ -99,9 +112,11 @@ describe('rankBreedingPairs — performance regression', () => {
     expect(results.some((r) => r.evPositiveTotal > 0)).toBe(true);
     expect(results.some((r) => r.totalLoci > 0)).toBe(true);
 
-    console.log(
-      `[perf] rankBreedingPairs ${NUM_MALES}×${NUM_FEMALES} pets, ${NUM_CHROMOSOMES * ALLELES_PER_CHROMOSOME} loci/pet → ${elapsed.toFixed(1)}ms`,
-    );
+    if (process.env.PERF_LOG) {
+      console.log(
+        `[perf] rankBreedingPairs ${NUM_MALES}×${NUM_FEMALES} pets, ${LOCI_PER_PET} loci/pet → ${elapsed.toFixed(1)}ms`,
+      );
+    }
     expect(elapsed).toBeLessThan(SCORING_BUDGET_MS);
   }, 30_000);
 });

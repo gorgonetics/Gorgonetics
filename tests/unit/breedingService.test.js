@@ -174,8 +174,12 @@ Genome=Horse
 
     const m = await petService.uploadPet(horseGenome('M', 'DD'), { name: 'M', gender: Gender.MALE });
     const f = await petService.uploadPet(horseGenome('F', 'DD'), { name: 'F', gender: Gender.FEMALE });
+    expect(m.status).toBe('success');
+    expect(f.status).toBe('success');
     const male = await petService.getPet(m.pet_id);
     const female = await petService.getPet(f.pet_id);
+    expect(male).not.toBeNull();
+    expect(female).not.toBeNull();
 
     const [withFilter] = await rankBreedingPairs({
       species: 'Horse',
