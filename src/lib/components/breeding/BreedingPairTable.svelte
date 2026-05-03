@@ -25,7 +25,10 @@ const columns = $derived([
 ]);
 
 const sortedResults = $derived.by(() => {
-  const col = columns.find((c) => c.id === breedingView.sortCol) ?? columns[4];
+  // Fallback to the headline column by name (not by index) so re-ordering
+  // the column list later won't silently change the default sort.
+  const col =
+    columns.find((c) => c.id === breedingView.sortCol) ?? columns.find((c) => c.id === 'evPositiveTotal') ?? columns[0];
   const dir = breedingView.sortDir === 'asc' ? 1 : -1;
   return [...results].sort((a, b) => {
     const av = col.accessor(a);
@@ -55,7 +58,7 @@ function openPet(pet) {
 }
 
 function fmt(n) {
-  return n === 0 ? '0' : n.toFixed(1);
+  return n.toFixed(1);
 }
 </script>
 

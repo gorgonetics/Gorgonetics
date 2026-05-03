@@ -13,13 +13,12 @@ let pairs = $state([]);
 let loading = $state(false);
 let pairsSequence = 0;
 
+const eligible = $derived($pets.filter((p) => p.stabled && normalizeSpecies(p.species) === breedingView.species));
+
 const eligibleForCurrent = $derived.by(() => {
-  const target = breedingView.species;
   let male = 0;
   let female = 0;
-  for (const p of $pets) {
-    if (!p.stabled) continue;
-    if (normalizeSpecies(p.species) !== target) continue;
+  for (const p of eligible) {
     if (p.gender === Gender.MALE) male++;
     else if (p.gender === Gender.FEMALE) female++;
   }
@@ -29,13 +28,12 @@ const eligibleForCurrent = $derived.by(() => {
 const attrNames = $derived(getAllAttributeNames(breedingView.species).map(capitalize));
 
 $effect(() => {
-  // Re-rank whenever the species, offspring breed, or pet list changes.
-  // Reads inside this effect are tracked by Svelte's reactivity; the
-  // sequence counter discards stale results when inputs change faster
-  // than the service responds.
+  // Re-rank whenever the species, offspring breed, or eligible-pets
+  // list changes. The sequence counter discards stale results when
+  // inputs change faster than the service responds.
   const targetSpecies = breedingView.species;
   const offspringBreed = breedingView.offspringBreed;
-  const eligible = $pets.filter((p) => p.stabled && normalizeSpecies(p.species) === targetSpecies);
+  const eligiblePets = eligible;
 
   const seq = ++pairsSequence;
   loading = true;
@@ -43,7 +41,7 @@ $effect(() => {
   rankBreedingPairs({
     species: targetSpecies,
     offspringBreed,
-    pets: eligible,
+    pets: eligiblePets,
   })
     .then((result) => {
       if (seq !== pairsSequence) return;
@@ -57,10 +55,6 @@ $effect(() => {
       loading = false;
     });
 });
-
-function setSpecies(s) {
-  breedingView.species = s;
-}
 
 const isHorse = $derived(breedingView.species === 'horse');
 const horseBreedOptions = Object.keys(HORSE_BREEDS);
@@ -85,7 +79,7 @@ const horseBreedOptions = Object.keys(HORSE_BREEDS);
                         class:active={breedingView.species === s}
                         role="radio"
                         aria-checked={breedingView.species === s}
-                        onclick={() => setSpecies(s)}
+                        onclick={() => (breedingView.species = s)}
                     >
                         {s}
                     </button>

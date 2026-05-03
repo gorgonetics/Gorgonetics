@@ -12,13 +12,15 @@ async function pickSpeciesWithPairs(page) {
   // service returns at least one result.
   const speciesButtons = page.locator('.species-btn');
   const count = await speciesButtons.count();
+  const table = page.locator('[data-testid="breeding-pair-table"]');
   for (let i = 0; i < count; i++) {
     await speciesButtons.nth(i).click();
-    const table = page.locator('[data-testid="breeding-pair-table"]');
-    if (await table.isVisible().catch(() => false)) return true;
-    // Wait briefly for the empty state vs loading state to settle.
-    await page.waitForTimeout(200);
-    if (await table.isVisible().catch(() => false)) return true;
+    try {
+      await table.waitFor({ state: 'visible', timeout: 1000 });
+      return true;
+    } catch {
+      // Empty state for this species — try the next one.
+    }
   }
   return false;
 }
