@@ -23,9 +23,11 @@ test.describe('Breeding Assistant — tab scaffold (PR 3)', () => {
     await page.locator('.tab-btn').filter({ hasText: 'Breed' }).click();
     const list = page.locator('.species-list');
     await expect(list).toBeVisible();
-    // Both supported species (beewasp + horse) get a row, regardless of
-    // whether the demo data has stabled pets of each.
-    await expect(list.locator('li')).toHaveCount(2);
+    // Each currently supported species gets its own row. Asserted by name
+    // rather than exact count so adding a new species in configService
+    // doesn't break this test.
+    await expect(list.locator('li').filter({ hasText: 'beewasp' })).toHaveCount(1);
+    await expect(list.locator('li').filter({ hasText: 'horse' })).toHaveCount(1);
   });
 
   test('switching away from Breed tab and back preserves placeholder', async ({ page }) => {

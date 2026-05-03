@@ -14,11 +14,14 @@
 import { getSupportedSpecies } from '$lib/services/configService.js';
 
 /**
- * Sort columns the breeding pair table will support in PR 4. The `| string`
- * tail is load-bearing — per-attribute columns (Toughness, Intelligence, …)
- * are surfaced dynamically per species, so the union can't be closed.
+ * Sort columns the breeding pair table will support in PR 4. The
+ * `(string & {})` tail is load-bearing — per-attribute columns
+ * (Toughness, Intelligence, …) are surfaced dynamically per species,
+ * so the union can't be closed. The branded-string trick stops TS from
+ * collapsing the literals into a bare `string` so autocomplete still
+ * surfaces the well-known column names.
  */
-export type BreedingSortColumn = 'evMixed' | 'evPositiveTotal' | 'evUnknown' | string;
+export type BreedingSortColumn = 'evMixed' | 'evPositiveTotal' | 'evUnknown' | (string & {});
 
 export const breedingView = $state({
   /** Canonical species the player is breeding within (defaults to first supported). */
