@@ -4,7 +4,7 @@
 
 import { getAllAttributeNames, getAttributeConfig, normalizeSpecies } from '$lib/services/configService.js';
 import { getGeneEffectsCached } from '$lib/services/geneService.js';
-import { emptyStatsEntry, getPetGeneStats, getPetGenome } from '$lib/services/petService.js';
+import { emptyStatsEntry, getPetGeneStats } from '$lib/services/petService.js';
 import type {
   AttributeComparisonResult,
   ChromosomeDiff,
@@ -12,21 +12,8 @@ import type {
   GeneStatsComparisonResult,
   Pet,
 } from '$lib/types/index.js';
-import { parseGenomeGenes } from '$lib/utils/geneAnalysis.js';
+import { groupLociByChromosome, loadAllPetLoci } from '$lib/utils/petLoci.js';
 import { capitalize } from '$lib/utils/string.js';
-
-async function loadGenomePair(petA: Pet, petB: Pet) {
-  const species = normalizeSpecies(petA.species);
-  const [genomeA, genomeB, effectsData] = await Promise.all([
-    getPetGenome(petA.id),
-    getPetGenome(petB.id),
-    getGeneEffectsCached(species),
-  ]);
-  if (!genomeA || !genomeB) {
-    throw new Error('Failed to load genome data for comparison');
-  }
-  return { species, genomeA, genomeB, effectsData };
-}
 
 /**
  * Compare attributes between two same-species pets.
@@ -86,6 +73,12 @@ export async function compareGeneStats(petA: Pet, petB: Pet): Promise<GeneStatsC
 
 /**
  * Compute a chromosome-by-chromosome genome diff between two pets.
+ *
+ * Reads from the pre-projected `pet_genes` table via the shared
+ * `petLoci` utility — no genome JSON parse on the hot path. Both pets
+ * must have at least one projected row; a pet missing from the
+ * projection is treated as a load failure (same surface as the legacy
+ * implementation, which threw when `getPetGenome` returned null).
  */
 export async function diffGenomes(
   petA: Pet,
@@ -94,14 +87,25 @@ export async function diffGenomes(
   diffs: ChromosomeDiff[];
   summary: { totalGenes: number; identicalGenes: number; differentGenes: number; similarityPercent: number };
 }> {
-  const { species, genomeA, genomeB, effectsData } = await loadGenomePair(petA, petB);
+  const species = normalizeSpecies(petA.species);
+  const [petLociMap, effectsData] = await Promise.all([
+    loadAllPetLoci([petA.id, petB.id]),
+    getGeneEffectsCached(species),
+  ]);
 
+  const lociA = petLociMap.get(petA.id);
+  const lociB = petLociMap.get(petB.id);
+  if (!lociA || !lociB) {
+    throw new Error('Failed to load genome data for comparison');
+  }
+
+  const groupedA = groupLociByChromosome(lociA);
+  const groupedB = groupLociByChromosome(lociB);
   const effectsDB = effectsData?.effects ?? {};
-  const parsedA = parseGenomeGenes(genomeA.genes);
-  const parsedB = parseGenomeGenes(genomeB.genes);
 
-  // Union of all chromosomes, sorted
-  const allChromosomes = [...new Set([...Object.keys(parsedA), ...Object.keys(parsedB)])].sort(
+  // Union of all chromosomes, sorted numerically — same order
+  // parseGenomeGenes-driven diff used.
+  const allChromosomes = [...new Set([...groupedA.keys(), ...groupedB.keys()])].sort(
     (a, b) => Number.parseInt(a, 10) - Number.parseInt(b, 10),
   );
 
@@ -111,8 +115,8 @@ export async function diffGenomes(
   let differentGenes = 0;
 
   for (const chr of allChromosomes) {
-    const genesA = parsedA[chr] ?? [];
-    const genesB = parsedB[chr] ?? [];
+    const genesA = groupedA.get(chr) ?? [];
+    const genesB = groupedB.get(chr) ?? [];
     const maxLen = Math.max(genesA.length, genesB.length);
 
     const genes: GeneDiffEntry[] = [];
@@ -126,7 +130,6 @@ export async function diffGenomes(
       const isDifferent = typeA !== typeB;
       const geneId = gA?.id ?? gB?.id ?? `${chr}?${i + 1}`;
 
-      // Look up effects for differing genes
       let petAEffect: string | undefined;
       let petBEffect: string | undefined;
       if (isDifferent) {
