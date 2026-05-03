@@ -38,9 +38,9 @@ let editGender = $state(initial.gender);
 let editBreed = $state(initial.breed);
 const editAttributes = $state(initial.attributes);
 let editTags = $state(untrack(() => [...(pet.tags ?? [])]));
-let editStarred = $state(!!pet.starred);
-let editStabled = $state(!!pet.stabled);
-let editIsPetQuality = $state(!!pet.is_pet_quality);
+let editStarred = $state(untrack(() => !!pet.starred));
+let editStabled = $state(untrack(() => !!pet.stabled));
+let editIsPetQuality = $state(untrack(() => !!pet.is_pet_quality));
 let saveError = $state('');
 
 const allTags = $derived($allTagsStore);

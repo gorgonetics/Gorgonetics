@@ -22,6 +22,8 @@ function getCurrentValue<T>(store: Writable<T>): T | undefined {
   return value;
 }
 
+const errMsg = (err: unknown) => (err instanceof Error ? err.message : String(err));
+
 const clearSelectionAndGeneView = () => {
   selectedPet.set(null);
   geneEditingView.set(null);
@@ -47,7 +49,7 @@ export const appState = {
       const { items } = await petService.getAllPets();
       pets.set(items as Pet[]);
     } catch (err: unknown) {
-      error.set(`Failed to load pets: ${err instanceof Error ? err.message : String(err)}`);
+      error.set(`Failed to load pets: ${errMsg(err)}`);
     } finally {
       loading.set(false);
     }
@@ -69,7 +71,7 @@ export const appState = {
         selectedPet.set(null);
       }
     } catch (err: unknown) {
-      error.set(`Failed to delete pet: ${err instanceof Error ? err.message : String(err)}`);
+      error.set(`Failed to delete pet: ${errMsg(err)}`);
     } finally {
       loading.set(false);
     }
@@ -82,7 +84,7 @@ export const appState = {
       await petService.updatePet(petId, updateData);
       await this.loadPets();
     } catch (err: unknown) {
-      error.set(`Failed to update pet: ${err instanceof Error ? err.message : String(err)}`);
+      error.set(`Failed to update pet: ${errMsg(err)}`);
       throw err;
     } finally {
       loading.set(false);
@@ -104,8 +106,8 @@ export const appState = {
       await this.loadPets();
       return result;
     } catch (err: unknown) {
-      error.set(`Failed to upload pet: ${err instanceof Error ? err.message : String(err)}`);
-      return { status: 'error' as const, message: err instanceof Error ? err.message : String(err) };
+      error.set(`Failed to upload pet: ${errMsg(err)}`);
+      return { status: 'error' as const, message: errMsg(err) };
     } finally {
       loading.set(false);
     }
@@ -119,7 +121,7 @@ export const appState = {
     try {
       await petService.reorderPets(orderedIds);
     } catch (err: unknown) {
-      error.set(`Failed to save order: ${err instanceof Error ? err.message : String(err)}`);
+      error.set(`Failed to save order: ${errMsg(err)}`);
       throw err;
     }
   },

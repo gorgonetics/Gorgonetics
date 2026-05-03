@@ -28,7 +28,7 @@ let effectsDB = {};
 let speciesKey = $state('');
 const isHorse = $derived(speciesKey === 'horse');
 
-let sortedBlocks = [];
+let sortedBlocks = $state([]);
 let blockMaxGenes = new Map();
 let blockIndices = $state({});
 
