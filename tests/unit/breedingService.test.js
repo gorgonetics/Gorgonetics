@@ -4,6 +4,7 @@ import { closeDatabase, initDatabase } from '$lib/services/database.js';
 import * as geneService from '$lib/services/geneService.js';
 import { runMigrations } from '$lib/services/migrationService.js';
 import * as petService from '$lib/services/petService.js';
+import { Gender } from '$lib/types/index.js';
 
 /**
  * Three-locus beewasp genome: positions 01A1, 01A2, 01A3 — alleles
@@ -43,7 +44,7 @@ describe('rankBreedingPairs — pair construction', () => {
   it('returns no pairs when only one gender is present', async () => {
     await geneService.upsertGene('beewasp', '01', '01A1', { effectDominant: 'Toughness+', effectRecessive: 'None' });
     geneService.clearGeneEffectsCache('beewasp');
-    const m = await uploadParent('M1', 'Male', 'D??');
+    const m = await uploadParent('M1', Gender.MALE, 'D??');
     const result = await rankBreedingPairs({ species: 'BeeWasp', pets: [m] });
     expect(result).toEqual([]);
   });
@@ -51,10 +52,10 @@ describe('rankBreedingPairs — pair construction', () => {
   it('returns the cartesian product of males × females', async () => {
     await geneService.upsertGene('beewasp', '01', '01A1', { effectDominant: 'Toughness+', effectRecessive: 'None' });
     geneService.clearGeneEffectsCache('beewasp');
-    const m1 = await uploadParent('M1', 'Male', 'D??');
-    const m2 = await uploadParent('M2', 'Male', 'R??');
-    const f1 = await uploadParent('F1', 'Female', 'D??');
-    const f2 = await uploadParent('F2', 'Female', 'x??');
+    const m1 = await uploadParent('M1', Gender.MALE, 'D??');
+    const m2 = await uploadParent('M2', Gender.MALE, 'R??');
+    const f1 = await uploadParent('F1', Gender.FEMALE, 'D??');
+    const f2 = await uploadParent('F2', Gender.FEMALE, 'x??');
     const result = await rankBreedingPairs({ species: 'BeeWasp', pets: [m1, m2, f1, f2] });
     expect(result).toHaveLength(4);
     // Order: each male × every female, in input order.
@@ -84,8 +85,8 @@ describe('rankBreedingPairs — EV math', () => {
     // Parents:
     //   Male:   D x R   → at 01A1 D, 01A2 x, 01A3 R
     //   Female: x R x
-    const male = await uploadParent('M', 'Male', 'DxR');
-    const female = await uploadParent('F', 'Female', 'xRx');
+    const male = await uploadParent('M', Gender.MALE, 'DxR');
+    const female = await uploadParent('F', Gender.FEMALE, 'xRx');
 
     const [pair] = await rankBreedingPairs({ species: 'BeeWasp', pets: [male, female] });
 
@@ -108,8 +109,8 @@ describe('rankBreedingPairs — EV math', () => {
     await geneService.upsertGene('beewasp', '01', '01A1', { effectDominant: 'Toughness+', effectRecessive: 'None' });
     geneService.clearGeneEffectsCache('beewasp');
 
-    const male = await uploadParent('M', 'Male', 'xxx');
-    const female = await uploadParent('F', 'Female', 'xxx');
+    const male = await uploadParent('M', Gender.MALE, 'xxx');
+    const female = await uploadParent('F', Gender.FEMALE, 'xxx');
 
     const [pair] = await rankBreedingPairs({ species: 'BeeWasp', pets: [male, female] });
 
@@ -129,8 +130,8 @@ describe('rankBreedingPairs — EV math', () => {
     geneService.clearGeneEffectsCache('beewasp');
 
     // Male unknown at every locus; female fully observed dominant.
-    const male = await uploadParent('M', 'Male', '???');
-    const female = await uploadParent('F', 'Female', 'DDD');
+    const male = await uploadParent('M', Gender.MALE, '???');
+    const female = await uploadParent('F', Gender.FEMALE, 'DDD');
 
     const [pair] = await rankBreedingPairs({ species: 'BeeWasp', pets: [male, female] });
 
@@ -171,8 +172,8 @@ Genome=Horse
 1=${alleles}
 `;
 
-    const m = await petService.uploadPet(horseGenome('M', 'DD'), { name: 'M', gender: 'Male' });
-    const f = await petService.uploadPet(horseGenome('F', 'DD'), { name: 'F', gender: 'Female' });
+    const m = await petService.uploadPet(horseGenome('M', 'DD'), { name: 'M', gender: Gender.MALE });
+    const f = await petService.uploadPet(horseGenome('F', 'DD'), { name: 'F', gender: Gender.FEMALE });
     const male = await petService.getPet(m.pet_id);
     const female = await petService.getPet(f.pet_id);
 

@@ -11,7 +11,7 @@
  */
 
 import type { AlleleDistribution, BreedingPairResult, GeneType, Pet } from '$lib/types/index.js';
-import { GeneType as GT } from '$lib/types/index.js';
+import { Gender, GeneType as GT } from '$lib/types/index.js';
 import { offspringDistribution } from '$lib/utils/breedingGenetics.js';
 import { capitalize } from '$lib/utils/string.js';
 import { getAllAttributeNames, normalizeSpecies } from './configService.js';
@@ -137,8 +137,7 @@ function scorePair(
     evMixed += dist.x;
     evUnknown += dist.unknown;
     totalLoci++;
-    // Distribution is full-unknown when one parent is `?`, so the
-    // positive-expression probability is 0 — no attribute contribution.
+    // One parent unknown → distribution is full-unknown, P(positive) = 0.
   }
 
   return { male, female, evMixed, evPositiveByAttribute, evPositiveTotal, evUnknown, totalLoci };
@@ -151,8 +150,8 @@ function scorePair(
  * the player picks.
  */
 export async function rankBreedingPairs(opts: RankBreedingPairsOptions): Promise<BreedingPairResult[]> {
-  const males = opts.pets.filter((p) => p.gender === 'Male');
-  const females = opts.pets.filter((p) => p.gender === 'Female');
+  const males = opts.pets.filter((p) => p.gender === Gender.MALE);
+  const females = opts.pets.filter((p) => p.gender === Gender.FEMALE);
   if (males.length === 0 || females.length === 0) return [];
 
   const species = normalizeSpecies(opts.species);

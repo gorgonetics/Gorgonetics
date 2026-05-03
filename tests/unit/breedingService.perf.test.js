@@ -4,6 +4,7 @@ import { closeDatabase, initDatabase } from '$lib/services/database.js';
 import * as geneService from '$lib/services/geneService.js';
 import { runMigrations } from '$lib/services/migrationService.js';
 import * as petService from '$lib/services/petService.js';
+import { Gender } from '$lib/types/index.js';
 
 /**
  * Worst-case Gorgonetics scale: 15 stabled males × 15 stabled females ×
@@ -81,11 +82,11 @@ describe('rankBreedingPairs — performance regression', () => {
 
     const males = [];
     for (let i = 0; i < NUM_MALES; i++) {
-      males.push(await uploadHorse(`M${i}`, 'Male', i * 7 + 1));
+      males.push(await uploadHorse(`M${i}`, Gender.MALE, i * 7 + 1));
     }
     const females = [];
     for (let i = 0; i < NUM_FEMALES; i++) {
-      females.push(await uploadHorse(`F${i}`, 'Female', i * 11 + 3));
+      females.push(await uploadHorse(`F${i}`, Gender.FEMALE, i * 11 + 3));
     }
 
     const start = performance.now();
