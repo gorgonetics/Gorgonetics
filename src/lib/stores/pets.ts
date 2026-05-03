@@ -3,7 +3,7 @@ import type { UploadPetOptions } from '$lib/services/petService.js';
 import * as petService from '$lib/services/petService.js';
 import type { Pet } from '$lib/types/index.js';
 
-export type Tab = 'pets' | 'editor' | 'compare' | 'stable';
+export type Tab = 'pets' | 'editor' | 'compare' | 'stable' | 'breeding';
 
 export const pets: Writable<Pet[]> = writable([]);
 export const selectedPet: Writable<Pet | null> = writable(null);
@@ -122,7 +122,7 @@ export const appState = {
       geneEditingView.set(null);
     } else if (tab === 'editor') {
       selectedPet.set(null);
-    } else if (tab === 'compare' || tab === 'stable') {
+    } else if (tab === 'compare' || tab === 'stable' || tab === 'breeding') {
       selectedPet.set(null);
       geneEditingView.set(null);
     }
