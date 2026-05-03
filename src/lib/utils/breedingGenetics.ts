@@ -29,16 +29,18 @@ export interface GeneSignSummary {
 
 /**
  * Combination table for the six known-allele parent pairs (canonical
- * order D > x > R). Each entry is read-only; callers receive a fresh
- * object so accumulation/mutation downstream is safe.
+ * order D > x > R). Each entry is deep-frozen so a caller reaching
+ * through the table directly cannot corrupt shared state; callers of
+ * `offspringDistribution` always receive a fresh object via spread, so
+ * downstream accumulation/mutation stays safe regardless.
  */
-const COMBINATIONS: Readonly<Record<string, AlleleDistribution>> = Object.freeze({
-  'D|D': { D: 1, x: 0, R: 0, unknown: 0 },
-  'D|x': { D: 0.5, x: 0.5, R: 0, unknown: 0 },
-  'D|R': { D: 0, x: 1, R: 0, unknown: 0 },
-  'x|x': { D: 0.25, x: 0.5, R: 0.25, unknown: 0 },
-  'x|R': { D: 0, x: 0.5, R: 0.5, unknown: 0 },
-  'R|R': { D: 0, x: 0, R: 1, unknown: 0 },
+const COMBINATIONS: Readonly<Record<string, Readonly<AlleleDistribution>>> = Object.freeze({
+  'D|D': Object.freeze({ D: 1, x: 0, R: 0, unknown: 0 }),
+  'D|x': Object.freeze({ D: 0.5, x: 0.5, R: 0, unknown: 0 }),
+  'D|R': Object.freeze({ D: 0, x: 1, R: 0, unknown: 0 }),
+  'x|x': Object.freeze({ D: 0.25, x: 0.5, R: 0.25, unknown: 0 }),
+  'x|R': Object.freeze({ D: 0, x: 0.5, R: 0.5, unknown: 0 }),
+  'R|R': Object.freeze({ D: 0, x: 0, R: 1, unknown: 0 }),
 });
 
 const RANK: Record<string, number> = {
