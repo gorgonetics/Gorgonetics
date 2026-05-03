@@ -11,16 +11,18 @@
  */
 
 import { getDb } from '$lib/services/database.js';
-import type { GeneType } from '$lib/types/index.js';
-import { GeneType as GT } from '$lib/types/index.js';
+import { GeneType } from '$lib/types/index.js';
 
 /** `gene_id → gene_type` for one pet, sourced from `pet_genes`. */
 export type PetLoci = Map<string, GeneType>;
 
 /**
  * Bulk-read `pet_genes` for the union of input pet ids in a single
- * round-trip. Returns a per-pet map keyed by id; pets with no rows are
- * absent from the result rather than mapped to an empty `PetLoci`.
+ * round-trip. Returns a per-pet map keyed by id; pets with no projected
+ * rows are **omitted entirely** from the result — callers cannot
+ * distinguish a missing pet from one that exists but has zero rows by
+ * looking at the map alone, so check `map.has(id)` rather than treating
+ * `map.get(id)` as authoritative.
  *
  * One query for N pets is the difference between O(1) and O(N) IPC
  * calls in the in-memory adapter and a single B-tree scan vs N in
@@ -59,9 +61,12 @@ export async function loadAllPetLoci(petIds: readonly number[]): Promise<Map<num
  * alleles, so both maps usually hold identical key sets.
  *
  * Iteration order: every `geneId` from `a` first (in its insertion
- * order), then loci that exist only in `b`. Callers that need a
- * canonical order (e.g. for diff display) should sort `a`/`b` before
- * passing them in or buffer the callback output.
+ * order), then loci that exist only in `b`. The second loop's
+ * `a.has(geneId)` skip is what prevents double-emission for keys
+ * present in both maps — without it, shared loci would fire `fn`
+ * twice. Callers that need a canonical order (e.g. for diff display)
+ * should sort `a`/`b` before passing them in or buffer the callback
+ * output.
  */
 export function walkPairLoci(
   a: PetLoci,
@@ -69,10 +74,10 @@ export function walkPairLoci(
   fn: (geneId: string, typeA: GeneType, typeB: GeneType) => void,
 ): void {
   for (const [geneId, typeA] of a) {
-    fn(geneId, typeA, b.get(geneId) ?? GT.UNKNOWN);
+    fn(geneId, typeA, b.get(geneId) ?? GeneType.UNKNOWN);
   }
   for (const [geneId, typeB] of b) {
     if (a.has(geneId)) continue;
-    fn(geneId, GT.UNKNOWN, typeB);
+    fn(geneId, GeneType.UNKNOWN, typeB);
   }
 }

@@ -5,6 +5,9 @@ import * as petService from '$lib/services/petService.js';
 import { Gender } from '$lib/types/index.js';
 import { loadAllPetLoci, walkPairLoci } from '$lib/utils/petLoci.js';
 
+// `1=${alleles}` is a single chromosome (id 01) carrying one block A
+// with as many positions as `alleles` characters. Three-character input
+// `'DRx'` lands at gene_ids 01A1=D, 01A2=R, 01A3=x.
 const MINIMAL_GENOME = (name, alleles) => `[Overview]
 Format=1.0
 Character=Tester
