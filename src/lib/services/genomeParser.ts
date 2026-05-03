@@ -186,36 +186,6 @@ export function getAllGenes(genome: Genome): Gene[] {
 }
 
 /**
- * Convert a parsed Genome into the chromosome → gene-string format used by
- * the visualization and analysis layers (e.g. "RDRD RDRR ?D?? x?xR").
- */
-export function genomeToGeneStrings(genome: Genome): Record<string, string> {
-  const geneStrings: Record<string, string> = {};
-  for (const [chromosome, genes] of Object.entries(genome.genes)) {
-    let geneString = '';
-    let currentBlock = '';
-    let currentBlockGenes = '';
-
-    for (const gene of genes as Gene[]) {
-      if (gene.block !== currentBlock) {
-        if (currentBlockGenes) {
-          geneString += `${currentBlockGenes} `;
-        }
-        currentBlock = gene.block;
-        currentBlockGenes = '';
-      }
-      currentBlockGenes += gene.gene_type;
-    }
-    if (currentBlockGenes) {
-      geneString += currentBlockGenes;
-    }
-
-    geneStrings[chromosome] = geneString.trim();
-  }
-  return geneStrings;
-}
-
-/**
  * Convert a genome to JSON string.
  */
 export function genomeToJson(genome: Genome): string {

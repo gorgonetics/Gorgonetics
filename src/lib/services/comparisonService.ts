@@ -77,8 +77,7 @@ export async function compareGeneStats(petA: Pet, petB: Pet): Promise<GeneStatsC
  * Reads from the pre-projected `pet_genes` table via the shared
  * `petLoci` utility — no genome JSON parse on the hot path. Both pets
  * must have at least one projected row; a pet missing from the
- * projection is treated as a load failure (same surface as the legacy
- * implementation, which threw when `getPetGenome` returned null).
+ * projection is treated as a load failure.
  */
 export async function diffGenomes(
   petA: Pet,
@@ -103,8 +102,7 @@ export async function diffGenomes(
   const groupedB = groupLociByChromosome(lociB);
   const effectsDB = effectsData?.effects ?? {};
 
-  // Union of all chromosomes, sorted numerically — same order
-  // parseGenomeGenes-driven diff used.
+  // Union of all chromosomes, sorted numerically.
   const allChromosomes = [...new Set([...groupedA.keys(), ...groupedB.keys()])].sort(
     (a, b) => Number.parseInt(a, 10) - Number.parseInt(b, 10),
   );

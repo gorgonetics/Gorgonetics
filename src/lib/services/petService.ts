@@ -12,7 +12,7 @@ import { runBatchBackfill } from './backfill.js';
 import { getAttributeConfig, getDefaultValues, normalizeSpecies } from './configService.js';
 import { getDb, reorderRows, type TxStatement, withTransaction } from './database.js';
 import { getParsedGenesCached, isHorseBreedFiltered } from './geneService.js';
-import { compareBlockLetters, genomeToGeneStrings, isValidGenomeFile, parseGenome } from './genomeParser.js';
+import { compareBlockLetters, isValidGenomeFile, parseGenome } from './genomeParser.js';
 import { parseStructuredPetName } from './nameParser.js';
 import { getSetting, setSetting } from './settingsService.js';
 
@@ -116,20 +116,29 @@ export async function ensurePetGenesPopulated(petId: number): Promise<boolean> {
   } catch {
     return false;
   }
-  await withTransaction(() => writePetGenes(petId, genome));
+  // The writePetGenes path iterates `genome.genes`; a malformed JSON
+  // missing that field (or with non-array values) would throw mid-tx.
+  // Catch so the documented `false`-on-malformed contract holds — a
+  // single corrupt pet shouldn't poison loadAllPetLoci for every other
+  // pet in the same call.
+  try {
+    await withTransaction(() => writePetGenes(petId, genome));
+  } catch (e) {
+    console.warn(`ensurePetGenesPopulated: write failed for pet ${petId}`, e);
+    return false;
+  }
   return true;
 }
 
 /**
- * Load a pet's grid from `pet_genes`, returning the same structure
- * `parseGenesByBlock` produces from genome JSON. The visualizer uses
- * this as its canonical source of grid data — no `genome_data` parse
- * on the read path.
+ * Load a pet's grid from `pet_genes` as a per-chromosome, per-block
+ * structure. Used by the visualizer and the comparison view's grid
+ * diff — no `genome_data` parse on the read path.
  *
  * Block ordering matches `blockLetter`: shorter strings before longer,
  * lex within length (A, B, ..., Z, AA, AB, ...). Chromosomes sort by
  * numeric value, positions ascend within a block. `globalPosition` is
- * assigned in iteration order to match `parseGenesByBlock` exactly.
+ * assigned in iteration order across blocks of a chromosome.
  *
  * If `pet_genes` is empty for a pet that does exist (un-backfilled
  * legacy row), this populates it inline and retries — so the visualizer
@@ -685,34 +694,6 @@ export async function findPetByHash(contentHash: string): Promise<Pet | null> {
   if (rows.length === 0) return null;
   const tags = await loadTagsForPet(rows[0].id as number);
   return enrichPet(rows[0], tags);
-}
-
-/**
- * Get pet genome data formatted for visualization.
- */
-export async function getPetGenome(
-  petId: number,
-): Promise<{ name: string; owner: string; species: string; format: string; genes: Record<string, string> } | null> {
-  const pet = await getPet(petId);
-  if (!pet) return null;
-
-  // Parse the genome JSON
-  let genomeJson: unknown;
-  if (typeof pet.genome_data === 'string') {
-    genomeJson = JSON.parse(pet.genome_data);
-  } else {
-    genomeJson = pet.genome_data;
-  }
-
-  const genome = genomeJson as Genome;
-
-  return {
-    name: pet.name,
-    owner: genome.breeder,
-    species: genome.genome_type,
-    format: genome.format_version,
-    genes: genomeToGeneStrings(genome),
-  };
 }
 
 /**

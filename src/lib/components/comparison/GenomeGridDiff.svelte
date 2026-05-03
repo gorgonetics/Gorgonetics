@@ -9,11 +9,11 @@ import {
   normalizeSpecies,
 } from '$lib/services/configService.js';
 import { getGeneEffectsCached } from '$lib/services/geneService.js';
-import { getPetGenome } from '$lib/services/petService.js';
+import { loadPetGridFromDb } from '$lib/services/petService.js';
 import { settings } from '$lib/stores/settings.js';
 import { HORSE_BREEDS } from '$lib/types/index.js';
 import { buildFilterCSS } from '$lib/utils/filterCSS.js';
-import { breedFor, effectFor, isNoEffect, parseGenesByBlock } from '$lib/utils/geneAnalysis.js';
+import { breedFor, effectFor, isNoEffect } from '$lib/utils/geneAnalysis.js';
 import { capitalize } from '$lib/utils/string.js';
 
 const { petA, petB } = $props();
@@ -145,13 +145,15 @@ async function loadData() {
     hiddenAppearances = [];
 
     speciesKey = normalizeSpecies(petA.species);
-    const [genomeA, genomeB, efData] = await Promise.all([
-      getPetGenome(petA.id),
-      getPetGenome(petB.id),
+    const [parsedA, parsedB, efData] = await Promise.all([
+      loadPetGridFromDb(petA.id),
+      loadPetGridFromDb(petB.id),
       getGeneEffectsCached(speciesKey),
     ]);
 
-    if (!genomeA || !genomeB) throw new Error('Failed to load genome data');
+    if (Object.keys(parsedA).length === 0 || Object.keys(parsedB).length === 0) {
+      throw new Error('Failed to load genome data');
+    }
     effectsDB = efData?.effects ?? {};
 
     const config = getAttributeConfig(speciesKey);
@@ -164,9 +166,6 @@ async function loadData() {
       key: a.key.replace(/_/g, '-'),
     }));
     appearanceLookup = buildAppearanceLookup(speciesKey);
-
-    const parsedA = parseGenesByBlock(genomeA.genes);
-    const parsedB = parseGenesByBlock(genomeB.genes);
 
     const allBlks = new Set();
     const maxGenes = new Map();
