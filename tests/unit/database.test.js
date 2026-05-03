@@ -280,11 +280,16 @@ describe('buildInClauseParams', () => {
     expect(params).toEqual({});
   });
 
-  it('preserves the value type via the generic parameter', () => {
-    // Strings stay strings, numbers stay numbers — `Record<string, T>` lets
-    // callers reuse the params object without an `unknown` cast.
-    const { params } = buildInClauseParams(['ab', 'cd'], 'name');
-    expect(params.name0).toBe('ab');
-    expect(typeof params.name1).toBe('string');
+  it('throws when the prefix would produce invalid SQL', () => {
+    // resolveNamedParams only rewrites `\$(\w+)`, so a prefix like
+    // `pet-id` would silently emit `?-id0` once converted. Validate
+    // upfront with a clear message instead of letting the bad SQL
+    // reach the driver.
+    expect(() => buildInClauseParams([1], 'pet-id')).toThrow(/prefix must match/);
+    expect(() => buildInClauseParams([1], '1abc')).toThrow(/prefix must match/);
+    expect(() => buildInClauseParams([1], '')).toThrow(/prefix must match/);
+    // Underscores and word characters after the first position are fine.
+    expect(() => buildInClauseParams([1], 'pet_id')).not.toThrow();
+    expect(() => buildInClauseParams([1], '_x')).not.toThrow();
   });
 });

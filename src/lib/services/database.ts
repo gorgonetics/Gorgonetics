@@ -30,6 +30,8 @@ interface DatabaseAdapter {
   close(): Promise<void>;
 }
 
+const PARAM_PREFIX_RE = /^[A-Za-z_]\w*$/;
+
 /**
  * Build a named-placeholder `IN (…)` clause and the matching params
  * object for use with `db.select` / `db.execute`. Pairs N values with
@@ -42,6 +44,11 @@ interface DatabaseAdapter {
  * short-circuit before issuing the query, since an empty `IN (…)` is a
  * SQL syntax error.
  *
+ * The prefix must match `[A-Za-z_]\w*` because `resolveNamedParams`
+ * only rewrites `\$(\w+)` placeholders. A prefix like `pet-id` would
+ * silently produce invalid SQL (`?-id0`); throwing here surfaces the
+ * mistake at the call site instead.
+ *
  * Lives here, alongside `resolveNamedParams`, because every call has to
  * obey the project's "named placeholders only" rule and centralising
  * the construction prevents drift across services.
@@ -50,6 +57,9 @@ export function buildInClauseParams<T>(
   values: readonly T[],
   prefix: string,
 ): { placeholders: string; params: Record<string, T> } {
+  if (!PARAM_PREFIX_RE.test(prefix)) {
+    throw new Error(`buildInClauseParams: prefix must match [A-Za-z_]\\w* (got ${JSON.stringify(prefix)})`);
+  }
   const placeholders = values.map((_, i) => `$${prefix}${i}`).join(', ');
   const params: Record<string, T> = {};
   values.forEach((v, i) => {
