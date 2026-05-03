@@ -16,6 +16,19 @@ import { GeneType } from '$lib/types/index.js';
 /** `gene_id → gene_type` for one pet, sourced from `pet_genes`. */
 export type PetLoci = Map<string, GeneType>;
 
+const VALID_GENE_TYPES = new Set<string>(Object.values(GeneType));
+
+/**
+ * Coerce a raw `pet_genes.gene_type` value to a well-formed `GeneType`.
+ * The schema only ever holds `D`/`R`/`x`/`?`, but a bad row from a
+ * legacy backup or a future schema mistake shouldn't poison downstream
+ * logic — anything unrecognised becomes `UNKNOWN`, which the breeding
+ * and comparison services already handle naturally.
+ */
+function coerceGeneType(raw: string): GeneType {
+  return VALID_GENE_TYPES.has(raw) ? (raw as GeneType) : GeneType.UNKNOWN;
+}
+
 /**
  * Bulk-read `pet_genes` for the union of input pet ids in a single
  * round-trip. Returns a per-pet map keyed by id; pets with no projected
@@ -47,7 +60,7 @@ export async function loadAllPetLoci(petIds: readonly number[]): Promise<Map<num
       loci = new Map();
       map.set(row.pet_id, loci);
     }
-    loci.set(row.gene_id, row.gene_type as GeneType);
+    loci.set(row.gene_id, coerceGeneType(row.gene_type));
   }
   return map;
 }

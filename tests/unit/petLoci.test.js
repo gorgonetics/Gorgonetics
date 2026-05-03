@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { closeDatabase, initDatabase } from '$lib/services/database.js';
+import { closeDatabase, getDb, initDatabase } from '$lib/services/database.js';
 import { runMigrations } from '$lib/services/migrationService.js';
 import * as petService from '$lib/services/petService.js';
 import { Gender } from '$lib/types/index.js';
@@ -62,6 +62,19 @@ describe('loadAllPetLoci', () => {
     const map = await loadAllPetLoci([id1, 999_999]);
     expect(map.has(id1)).toBe(true);
     expect(map.has(999_999)).toBe(false);
+  });
+
+  it('coerces unrecognised gene_type values to UNKNOWN rather than propagating them', async () => {
+    // Direct INSERT bypasses writePetGenes so we can simulate a corrupt
+    // row from a legacy backup or an out-of-band write.
+    const id = await uploadPet('A', 'DDD');
+    await getDb().execute('INSERT INTO pet_genes (pet_id, gene_id, gene_type) VALUES ($pid, $gid, $gt)', {
+      pid: id,
+      gid: '01Z9',
+      gt: 'BOGUS',
+    });
+    const map = await loadAllPetLoci([id]);
+    expect(map.get(id).get('01Z9')).toBe('?');
   });
 });
 
