@@ -109,10 +109,11 @@ test.describe('Database Backup – v2 Zip', () => {
   test('export and import (replace) round-trips correctly', async ({ page }) => {
     const zipBase64 = await createBackupZip(page);
     const before = await getPetState(page);
-    expect(before.petCount).toBe(2);
+    const initialCount = before.petCount;
+    expect(initialCount).toBeGreaterThan(1);
 
     await deleteFirstPet(page);
-    expect((await getPetState(page)).petCount).toBe(1);
+    expect((await getPetState(page)).petCount).toBe(initialCount - 1);
 
     const result = await importBackupZip(page, zipBase64, {
       mode: 'replace',
@@ -120,16 +121,18 @@ test.describe('Database Backup – v2 Zip', () => {
       includePets: true,
       includeImages: false,
     });
-    expect(result.pets).toBe(2);
+    expect(result.pets).toBe(initialCount);
     expect(result.petsSkipped).toBe(0);
 
     const after = await getPetState(page);
-    expect(after.petCount).toBe(2);
+    expect(after.petCount).toBe(initialCount);
     expect(after.petNames).toEqual(before.petNames);
   });
 
   test('export and import (merge) restores deleted pet', async ({ page }) => {
     const zipBase64 = await createBackupZip(page);
+    const initialCount = (await getPetState(page)).petCount;
+    expect(initialCount).toBeGreaterThan(1);
     await deleteFirstPet(page);
 
     const result = await importBackupZip(page, zipBase64, {
@@ -139,12 +142,13 @@ test.describe('Database Backup – v2 Zip', () => {
       includeImages: false,
     });
     expect(result.pets).toBe(1);
-    expect(result.petsSkipped).toBe(1);
-    expect((await getPetState(page)).petCount).toBe(2);
+    expect(result.petsSkipped).toBe(initialCount - 1);
+    expect((await getPetState(page)).petCount).toBe(initialCount);
   });
 
   test('merge on full database skips all existing pets', async ({ page }) => {
     const zipBase64 = await createBackupZip(page);
+    const initialCount = (await getPetState(page)).petCount;
     const result = await importBackupZip(page, zipBase64, {
       mode: 'merge',
       includeGenes: true,
@@ -152,10 +156,11 @@ test.describe('Database Backup – v2 Zip', () => {
       includeImages: false,
     });
     expect(result.pets).toBe(0);
-    expect(result.petsSkipped).toBe(2);
+    expect(result.petsSkipped).toBe(initialCount);
   });
 
   test('selective import (genes only) preserves pets', async ({ page }) => {
+    const initialCount = (await getPetState(page)).petCount;
     const zipBase64 = await createBackupZip(page, { includeGenes: true, includePets: false });
 
     const result = await importBackupZip(page, zipBase64, {
@@ -166,7 +171,7 @@ test.describe('Database Backup – v2 Zip', () => {
     });
     expect(result.genes).toBeGreaterThan(0);
     expect(result.pets).toBe(0);
-    expect((await getPetState(page)).petCount).toBe(2);
+    expect((await getPetState(page)).petCount).toBe(initialCount);
   });
 
   test('import rejects invalid zip files', async ({ page }) => {
