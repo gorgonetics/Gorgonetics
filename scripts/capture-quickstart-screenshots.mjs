@@ -462,8 +462,18 @@ await shot(page, '24-stable-filters.png');
 await clearHighlight(page);
 await removeOverlay(page);
 
-// Reset filters and return to Pets tab so downstream homepage captures work.
+// Reset filters
 await page.locator('[data-testid="stable-gender"]').selectOption('all');
+await page.waitForTimeout(200);
+
+// 25 — Breeding tab (switch to horse so the demo M×F pair populates the table)
+await page.locator('.tab-btn', { hasText: 'Breed' }).click();
+await waitFor(page, '[data-testid="breeding-tab"]');
+await page.locator('.species-btn', { hasText: 'horse' }).click();
+await waitFor(page, '[data-testid="breeding-pair-table"]');
+await shot(page, '25-breeding-tab.png');
+
+// Return to Pets tab so downstream homepage captures work.
 await page.locator('.tab-btn', { hasText: 'Pets' }).click();
 await page.waitForTimeout(200);
 
