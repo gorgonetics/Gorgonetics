@@ -3,7 +3,7 @@ import { closeDatabase, getDb, initDatabase } from '$lib/services/database.js';
 import { runMigrations } from '$lib/services/migrationService.js';
 import * as petService from '$lib/services/petService.js';
 import { Gender } from '$lib/types/index.js';
-import { loadAllPetLoci, walkPairLoci } from '$lib/utils/petLoci.js';
+import { groupLociByChromosome, loadAllPetLoci, walkPairLoci } from '$lib/utils/petLoci.js';
 
 // `1=${alleles}` is a single chromosome (id 01) carrying one block A
 // with as many positions as `alleles` characters. Three-character input
@@ -141,5 +141,57 @@ describe('walkPairLoci', () => {
       count++;
     });
     expect(count).toBe(1);
+  });
+});
+
+describe('groupLociByChromosome', () => {
+  it('groups loci by chromosome with positional sort within each block', () => {
+    const loci = new Map([
+      ['02B2', 'D'],
+      ['01A2', 'R'],
+      ['01A1', 'D'],
+      ['02B1', 'x'],
+    ]);
+    const grouped = groupLociByChromosome(loci);
+
+    expect([...grouped.keys()].sort()).toEqual(['01', '02']);
+    expect(grouped.get('01').map((g) => g.id)).toEqual(['01A1', '01A2']);
+    expect(grouped.get('02').map((g) => g.id)).toEqual(['02B1', '02B2']);
+  });
+
+  it('orders blocks shorter-first then lex within length (A < Z < AA)', () => {
+    // Insert in non-canonical order; the helper must sort to A, B, ..., Z, AA, AB, ...
+    const loci = new Map([
+      ['01AA1', 'D'],
+      ['01B1', 'R'],
+      ['01A1', 'x'],
+      ['01Z1', 'D'],
+      ['01AB1', 'R'],
+    ]);
+    const grouped = groupLociByChromosome(loci);
+    expect(grouped.get('01').map((g) => g.block)).toEqual(['A', 'B', 'Z', 'AA', 'AB']);
+  });
+
+  it('returns each locus with id, type, block, and position metadata', () => {
+    const loci = new Map([['01A3', 'x']]);
+    const grouped = groupLociByChromosome(loci);
+    const [g] = grouped.get('01');
+    expect(g).toEqual({ id: '01A3', type: 'x', block: 'A', position: 3 });
+  });
+
+  it('drops gene IDs that do not match the canonical pattern', () => {
+    const loci = new Map([
+      ['01A1', 'D'],
+      ['nonsense', 'R'],
+      ['', 'x'],
+    ]);
+    const grouped = groupLociByChromosome(loci);
+    expect(grouped.size).toBe(1);
+    expect(grouped.get('01').map((g) => g.id)).toEqual(['01A1']);
+  });
+
+  it('returns an empty map for an empty PetLoci', () => {
+    const grouped = groupLociByChromosome(new Map());
+    expect(grouped.size).toBe(0);
   });
 });

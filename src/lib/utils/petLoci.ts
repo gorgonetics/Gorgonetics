@@ -11,10 +11,27 @@
  */
 
 import { getDb } from '$lib/services/database.js';
+import { compareBlockLetters } from '$lib/services/genomeParser.js';
 import { GeneType } from '$lib/types/index.js';
+import { fromGeneId } from '$lib/utils/geneAnalysis.js';
 
 /** `gene_id → gene_type` for one pet, sourced from `pet_genes`. */
 export type PetLoci = Map<string, GeneType>;
+
+/**
+ * One gene's positional metadata, recovered from a `pet_genes` row by
+ * parsing its gene_id. Used by consumers that need to walk loci in
+ * positional order rather than as a flat key→value map.
+ */
+export interface ChromosomeLocus {
+  /** Canonical gene_id, e.g. `01A1`. */
+  id: string;
+  type: GeneType;
+  /** Block letter, e.g. `A`, `B`, …, `Z`, `AA`, `AB`, …. */
+  block: string;
+  /** 1-based position within its block. */
+  position: number;
+}
 
 const VALID_GENE_TYPES = new Set<string>(Object.values(GeneType));
 
@@ -93,4 +110,38 @@ export function walkPairLoci(
     if (a.has(geneId)) continue;
     fn(geneId, GeneType.UNKNOWN, typeB);
   }
+}
+
+/**
+ * Reshape a flat `PetLoci` into a per-chromosome positional list.
+ *
+ * Within each chromosome, blocks are ordered by `compareBlockLetters`
+ * (shorter strings first, lexicographic within length: A, B, …, Z,
+ * AA, AB, …) and positions ascend within a block — the same order
+ * `parseGenomeGenes` produces from a genome string. Use this when a
+ * consumer needs an index-aligned walk (e.g. side-by-side genome diff)
+ * rather than the key-based union walk `walkPairLoci` provides.
+ *
+ * Genes whose IDs don't match the canonical gene_id pattern are
+ * silently dropped — same defensive shape `fromGeneId` would skip.
+ */
+export function groupLociByChromosome(loci: PetLoci): Map<string, ChromosomeLocus[]> {
+  const grouped = new Map<string, ChromosomeLocus[]>();
+  for (const [id, type] of loci) {
+    const parsed = fromGeneId(id);
+    if (!parsed) continue;
+    let arr = grouped.get(parsed.chromosome);
+    if (!arr) {
+      arr = [];
+      grouped.set(parsed.chromosome, arr);
+    }
+    arr.push({ id, type, block: parsed.block, position: parsed.position });
+  }
+  for (const arr of grouped.values()) {
+    arr.sort((a, b) => {
+      const blockCmp = compareBlockLetters(a.block, b.block);
+      return blockCmp !== 0 ? blockCmp : a.position - b.position;
+    });
+  }
+  return grouped;
 }
