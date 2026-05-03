@@ -234,6 +234,37 @@ export interface PetGenomeVisualization {
   chromosomes: Record<string, VisualizationGene[]>;
 }
 
+// --- Breeding types ---
+
+/**
+ * Probability distribution over the four possible offspring gene types
+ * at a single locus. `D + x + R + unknown == 1` for any non-degenerate
+ * distribution. `unknown` carries the mass when at least one parent's
+ * allele is `?` — see `offspringDistribution` in `utils/breedingGenetics`.
+ */
+export interface AlleleDistribution {
+  D: number;
+  x: number;
+  R: number;
+  unknown: number;
+}
+
+/**
+ * Per-pair scoring output for the Breeding Assistant. `evMixed` covers
+ * every locus the parents share (attribute + appearance + selector) and
+ * is the predictability metric; `evPositiveByAttribute` is attribute-only
+ * and broken down per attribute so the breeder can sort to target one.
+ */
+export interface BreedingPairResult {
+  male: Pet;
+  female: Pet;
+  evMixed: number;
+  evPositiveByAttribute: Record<string, number>;
+  evPositiveTotal: number;
+  evUnknown: number;
+  totalLoci: number;
+}
+
 // --- Comparison types ---
 
 export interface AttributeComparisonResult {
