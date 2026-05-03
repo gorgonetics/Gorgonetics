@@ -30,6 +30,34 @@ interface DatabaseAdapter {
   close(): Promise<void>;
 }
 
+/**
+ * Build a named-placeholder `IN (…)` clause and the matching params
+ * object for use with `db.select` / `db.execute`. Pairs N values with
+ * `$prefix0..N-1`:
+ *
+ *     const { placeholders, params } = buildInClauseParams(petIds, 'id');
+ *     db.select(`SELECT * FROM pets WHERE id IN (${placeholders})`, params);
+ *
+ * Empty input yields `{ placeholders: '', params: {} }` — callers must
+ * short-circuit before issuing the query, since an empty `IN (…)` is a
+ * SQL syntax error.
+ *
+ * Lives here, alongside `resolveNamedParams`, because every call has to
+ * obey the project's "named placeholders only" rule and centralising
+ * the construction prevents drift across services.
+ */
+export function buildInClauseParams<T>(
+  values: readonly T[],
+  prefix: string,
+): { placeholders: string; params: Record<string, T> } {
+  const placeholders = values.map((_, i) => `$${prefix}${i}`).join(', ');
+  const params: Record<string, T> = {};
+  values.forEach((v, i) => {
+    params[`${prefix}${i}`] = v;
+  });
+  return { placeholders, params };
+}
+
 /** Convert $name parameters to positional ? and build an array of values. */
 function resolveNamedParams(query: string, bindValues: BindValues = []): { query: string; values: unknown[] } {
   if (Array.isArray(bindValues)) return { query, values: bindValues };

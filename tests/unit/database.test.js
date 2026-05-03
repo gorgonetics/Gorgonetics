@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { closeDatabase, getDb, initDatabase } from '$lib/services/database.js';
+import { buildInClauseParams, closeDatabase, getDb, initDatabase } from '$lib/services/database.js';
 
 // The in-memory database is used automatically outside Tauri
 
@@ -252,5 +252,39 @@ describe('Database', () => {
 
     const after = await db.select('SELECT COUNT(*) as cnt FROM pets');
     expect(after[0].cnt).toBe(0);
+  });
+});
+
+describe('buildInClauseParams', () => {
+  it('builds a comma-separated placeholder list and matching params', () => {
+    const { placeholders, params } = buildInClauseParams([10, 20, 30], 'id');
+    expect(placeholders).toBe('$id0, $id1, $id2');
+    expect(params).toEqual({ id0: 10, id1: 20, id2: 30 });
+  });
+
+  it('honours the prefix so callers can mix multiple IN clauses in one query', () => {
+    const a = buildInClauseParams([1, 2], 'pet');
+    const b = buildInClauseParams(['x', 'y'], 'tag');
+    expect(a.placeholders).toBe('$pet0, $pet1');
+    expect(b.placeholders).toBe('$tag0, $tag1');
+    // Param keys don't collide.
+    const merged = { ...a.params, ...b.params };
+    expect(Object.keys(merged).sort()).toEqual(['pet0', 'pet1', 'tag0', 'tag1']);
+  });
+
+  it('returns empty placeholders + empty params for an empty input', () => {
+    // An empty `IN ()` clause is a SQL syntax error; callers must short-circuit
+    // before issuing the query. The helper just produces the harmless shape.
+    const { placeholders, params } = buildInClauseParams([], 'id');
+    expect(placeholders).toBe('');
+    expect(params).toEqual({});
+  });
+
+  it('preserves the value type via the generic parameter', () => {
+    // Strings stay strings, numbers stay numbers — `Record<string, T>` lets
+    // callers reuse the params object without an `unknown` cast.
+    const { params } = buildInClauseParams(['ab', 'cd'], 'name');
+    expect(params.name0).toBe('ab');
+    expect(typeof params.name1).toBe('string');
   });
 });
