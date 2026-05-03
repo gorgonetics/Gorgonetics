@@ -141,10 +141,11 @@ export function walkPairLoci(
  *
  * Within each chromosome, blocks are ordered by `compareBlockLetters`
  * (shorter strings first, lexicographic within length: A, B, …, Z,
- * AA, AB, …) and positions ascend within a block — the same order
- * `parseGenomeGenes` produces from a genome string. Use this when a
- * consumer needs an index-aligned walk (e.g. side-by-side genome diff)
- * rather than the key-based union walk `walkPairLoci` provides.
+ * AA, AB, …) and positions ascend within a block — the same canonical
+ * iteration order `loadPetGridFromDb` produces from `pet_genes`. Use
+ * this when a consumer needs an index-aligned walk (e.g. side-by-side
+ * genome diff) rather than the key-based union walk `walkPairLoci`
+ * provides.
  *
  * Genes whose IDs don't match the canonical gene_id pattern are
  * silently dropped — same defensive shape `fromGeneId` would skip.

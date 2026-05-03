@@ -116,7 +116,17 @@ export async function ensurePetGenesPopulated(petId: number): Promise<boolean> {
   } catch {
     return false;
   }
-  await withTransaction(() => writePetGenes(petId, genome));
+  // The writePetGenes path iterates `genome.genes`; a malformed JSON
+  // missing that field (or with non-array values) would throw mid-tx.
+  // Catch so the documented `false`-on-malformed contract holds — a
+  // single corrupt pet shouldn't poison loadAllPetLoci for every other
+  // pet in the same call.
+  try {
+    await withTransaction(() => writePetGenes(petId, genome));
+  } catch (e) {
+    console.warn(`ensurePetGenesPopulated: write failed for pet ${petId}`, e);
+    return false;
+  }
   return true;
 }
 

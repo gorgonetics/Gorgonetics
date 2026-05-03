@@ -102,8 +102,7 @@ export async function diffGenomes(
   const groupedB = groupLociByChromosome(lociB);
   const effectsDB = effectsData?.effects ?? {};
 
-  // Union of all chromosomes, sorted numerically — same order
-  // parseGenomeGenes-driven diff used.
+  // Union of all chromosomes, sorted numerically.
   const allChromosomes = [...new Set([...groupedA.keys(), ...groupedB.keys()])].sort(
     (a, b) => Number.parseInt(a, 10) - Number.parseInt(b, 10),
   );
