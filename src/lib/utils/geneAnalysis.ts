@@ -3,8 +3,6 @@
  * gene services and the visualizer.
  */
 
-import { blockLetter } from '$lib/services/genomeParser.js';
-
 // --- Effect classification helpers ---
 
 export const NO_EFFECT_SENTINELS = new Set([
@@ -115,54 +113,4 @@ export interface ParsedGene {
 export interface ParsedChromosome {
   blocks: Array<{ letter: string; genes: ParsedGene[] }>;
   allGenes: ParsedGene[];
-}
-
-/**
- * Parse a genome's gene strings into a flat list per chromosome.
- * Input: `genes` from `getPetGenome()` — `Record<string, string>` where
- * each value is like `"RDRD RDRR ?D?? x?xR"`.
- */
-export function parseGenomeGenes(genes: Record<string, string>): Record<string, ParsedGene[]> {
-  const result: Record<string, ParsedGene[]> = {};
-  for (const [chromosome, chrData] of Object.entries(parseGenesByBlock(genes))) {
-    result[chromosome] = chrData.allGenes;
-  }
-  return result;
-}
-
-/**
- * Parse a genome's gene strings grouped by block, for grid/visualizer rendering.
- * Returns both the block grouping and a flat `allGenes` list per chromosome.
- */
-export function parseGenesByBlock(genes: Record<string, string>): Record<string, ParsedChromosome> {
-  const result: Record<string, ParsedChromosome> = {};
-
-  for (const [chromosome, geneString] of Object.entries(genes)) {
-    const blockStrings = geneString.split(' ');
-    const allGenes: ParsedGene[] = [];
-    const blocks: Array<{ letter: string; genes: ParsedGene[] }> = [];
-
-    for (let bi = 0; bi < blockStrings.length; bi++) {
-      const bl = blockLetter(bi);
-      const blockGenes: ParsedGene[] = [];
-
-      for (let i = 0; i < blockStrings[bi].length; i++) {
-        const gene: ParsedGene = {
-          id: `${chromosome}${bl}${i + 1}`,
-          type: blockStrings[bi][i],
-          block: bl,
-          position: i + 1,
-          globalPosition: allGenes.length + 1,
-        };
-        blockGenes.push(gene);
-        allGenes.push(gene);
-      }
-
-      blocks.push({ letter: bl, genes: blockGenes });
-    }
-
-    result[chromosome] = { blocks, allGenes };
-  }
-
-  return result;
 }

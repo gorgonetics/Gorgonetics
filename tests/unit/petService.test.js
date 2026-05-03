@@ -135,47 +135,6 @@ describe('Pet Service', () => {
     });
   });
 
-  describe('getPetGenome', () => {
-    it('returns beewasp genome for visualization', async () => {
-      const upload = await petService.uploadPet(SAMPLE_BEEWASP, { name: 'Bee', gender: 'Female' });
-      const genome = await petService.getPetGenome(upload.pet_id);
-      expect(genome).not.toBeNull();
-      expect(genome.species).toBe('BeeWasp');
-      expect(genome.genes).toBeDefined();
-      expect(Object.keys(genome.genes).length).toBeGreaterThan(0);
-    });
-
-    it('returns horse genome for visualization', async () => {
-      const upload = await petService.uploadPet(SAMPLE_HORSE, { name: 'Horse', gender: 'Male' });
-      const genome = await petService.getPetGenome(upload.pet_id);
-      expect(genome).not.toBeNull();
-      expect(genome.species).toBe('Horse');
-      expect(genome.genes).toBeDefined();
-      // Horse has many chromosomes
-      expect(Object.keys(genome.genes).length).toBeGreaterThan(10);
-    });
-
-    it('returns null for nonexistent pet', async () => {
-      const genome = await petService.getPetGenome(9999);
-      expect(genome).toBeNull();
-    });
-
-    it('horse genome has gene strings in correct format', async () => {
-      const upload = await petService.uploadPet(SAMPLE_HORSE, { name: 'Horse', gender: 'Male' });
-      const genome = await petService.getPetGenome(upload.pet_id);
-      // Each chromosome value should be a string of gene characters separated by spaces
-      for (const [chr, geneString] of Object.entries(genome.genes)) {
-        expect(typeof geneString).toBe('string');
-        expect(geneString.length).toBeGreaterThan(0);
-        // Each character should be R, D, x, or ?
-        const chars = geneString.replace(/\s/g, '');
-        for (const c of chars) {
-          expect(['R', 'D', 'x', '?']).toContain(c);
-        }
-      }
-    });
-  });
-
   describe('updatePet', () => {
     it('updates pet name', async () => {
       const upload = await petService.uploadPet(SAMPLE_BEEWASP, { name: 'Old Name', gender: 'Female' });

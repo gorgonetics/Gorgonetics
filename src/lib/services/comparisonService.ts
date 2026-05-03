@@ -77,8 +77,7 @@ export async function compareGeneStats(petA: Pet, petB: Pet): Promise<GeneStatsC
  * Reads from the pre-projected `pet_genes` table via the shared
  * `petLoci` utility — no genome JSON parse on the hot path. Both pets
  * must have at least one projected row; a pet missing from the
- * projection is treated as a load failure (same surface as the legacy
- * implementation, which threw when `getPetGenome` returned null).
+ * projection is treated as a load failure.
  */
 export async function diffGenomes(
   petA: Pet,
