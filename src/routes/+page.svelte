@@ -1,5 +1,6 @@
 <script>
 import { onMount } from 'svelte';
+import BreedingTab from '$lib/components/breeding/BreedingTab.svelte';
 import ComparisonView from '$lib/components/comparison/ComparisonView.svelte';
 import GeneEditingView from '$lib/components/GeneEditingView.svelte';
 import PetVisualization from '$lib/components/pet/PetVisualization.svelte';
@@ -23,6 +24,8 @@ onMount(async () => {
 		<StableTable />
 	{:else if $activeTab === 'compare'}
 		<ComparisonView />
+	{:else if $activeTab === 'breeding'}
+		<BreedingTab />
 	{:else if $loading}
 		<div class="center-state">
 			<div class="spinner"></div>
