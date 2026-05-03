@@ -13,7 +13,11 @@
 
 import { getSupportedSpecies } from '$lib/services/configService.js';
 
-/** Sort columns the breeding pair table will support in PR 4. */
+/**
+ * Sort columns the breeding pair table will support in PR 4. The `| string`
+ * tail is load-bearing — per-attribute columns (Toughness, Intelligence, …)
+ * are surfaced dynamically per species, so the union can't be closed.
+ */
 export type BreedingSortColumn = 'evMixed' | 'evPositiveTotal' | 'evUnknown' | string;
 
 export const breedingView = $state({

@@ -22,6 +22,23 @@ function getCurrentValue<T>(store: Writable<T>): T | undefined {
   return value;
 }
 
+const clearSelectionAndGeneView = () => {
+  selectedPet.set(null);
+  geneEditingView.set(null);
+};
+
+/**
+ * Per-tab state-reset hook for `switchTab`. Keyed by the full `Tab`
+ * union so the compiler catches a missed branch when a new tab is added.
+ */
+const TAB_STATE_RESETS: Record<Tab, () => void> = {
+  pets: () => geneEditingView.set(null),
+  editor: () => selectedPet.set(null),
+  compare: clearSelectionAndGeneView,
+  stable: clearSelectionAndGeneView,
+  breeding: clearSelectionAndGeneView,
+};
+
 export const appState = {
   async loadPets() {
     try {
@@ -118,14 +135,7 @@ export const appState = {
 
   switchTab(tab: Tab) {
     activeTab.set(tab);
-    if (tab === 'pets') {
-      geneEditingView.set(null);
-    } else if (tab === 'editor') {
-      selectedPet.set(null);
-    } else if (tab === 'compare' || tab === 'stable' || tab === 'breeding') {
-      selectedPet.set(null);
-      geneEditingView.set(null);
-    }
+    TAB_STATE_RESETS[tab]();
   },
 
   clearError() {
