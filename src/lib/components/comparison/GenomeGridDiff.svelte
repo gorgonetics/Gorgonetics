@@ -240,8 +240,15 @@ async function loadData() {
           cellsB[block][i] = gB ? makeCell(gB) : null;
           const isDiff = (gA?.type || null) !== (gB?.type || null);
           diffs[block][i] = isDiff;
-          chrTotal++;
-          if (isDiff) chrDiffs++;
+          // Only count actual gene positions, not padded grid cells: sortedBlocks
+          // unions every block letter across all chromosomes (so chr 01 still
+          // iterates block L, which only chr 03 has) and maxLen is the largest
+          // chromosome's per-block size — counting those empty slots inflates
+          // totals (e.g. horse 1576 → 2304).
+          if (gA || gB) {
+            chrTotal++;
+            if (isDiff) chrDiffs++;
+          }
         }
       }
 
