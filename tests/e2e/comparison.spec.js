@@ -86,4 +86,21 @@ test.describe('Pet Comparison', () => {
     // Compare button should show 1/2
     await expect(page.locator('.compare-now-btn')).toContainText('1/2');
   });
+
+  test('Genome Diff summary uses species gene total, not padded grid size', async ({ page }) => {
+    // Regression: the diff loop padded every chromosome to the largest
+    // chromosome's grid shape (sortedBlocks × maxGenes). For horses that
+    // padded shape was 48×48=2304 cells, which got reported as the gene
+    // total even though a horse genome only has 1576 positions.
+    await page.locator('.tab-btn').filter({ hasText: 'Compare' }).click();
+    await page.locator('.picker-pet-card').filter({ hasText: 'Sample Horse' }).click();
+    await page.locator('.picker-pet-card').filter({ hasText: 'Roach' }).click();
+
+    await page.locator('.view-tab').filter({ hasText: 'Genome Diff' }).click();
+
+    const summary = page.locator('.summary-detail');
+    await expect(summary).toBeVisible();
+    await expect(summary).toContainText('/1576 genes match');
+    await expect(summary).not.toContainText('/2304');
+  });
 });

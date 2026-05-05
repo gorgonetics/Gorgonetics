@@ -205,8 +205,11 @@ async function loadData() {
       return a.localeCompare(b);
     });
 
-    let totalGenes = 0;
-    let identicalGenes = 0;
+    // Total is a per-species constant — the gene catalog (loaded once and
+    // cached by `getGeneEffectsCached`) has one entry per genome position.
+    // Don't try to derive it from the display grid: `sortedBlocks` × `maxGenes`
+    // is a padded layout shape, not a gene count.
+    const totalGenes = Object.keys(effectsDB).length;
     let differentGenes = 0;
 
     chromosomeRows = chrKeys.map((chr) => {
@@ -222,7 +225,6 @@ async function loadData() {
       const cellsB = {};
       const diffs = {};
       let chrDiffs = 0;
-      let chrTotal = 0;
 
       for (const block of sortedBlocks) {
         const genesA = genesByBlockA.get(block) || [];
@@ -240,18 +242,15 @@ async function loadData() {
           cellsB[block][i] = gB ? makeCell(gB) : null;
           const isDiff = (gA?.type || null) !== (gB?.type || null);
           diffs[block][i] = isDiff;
-          chrTotal++;
           if (isDiff) chrDiffs++;
         }
       }
 
-      totalGenes += chrTotal;
       differentGenes += chrDiffs;
-      identicalGenes += chrTotal - chrDiffs;
-
-      return { chr, cellsA, cellsB, diffs, chrTotal, chrDiffs, hasDiffs: chrDiffs > 0 };
+      return { chr, cellsA, cellsB, diffs, hasDiffs: chrDiffs > 0 };
     });
 
+    const identicalGenes = totalGenes - differentGenes;
     const pct = totalGenes > 0 ? Math.round((identicalGenes / totalGenes) * 100) : 0;
     summary = { totalGenes, identicalGenes, differentGenes, similarityPercent: pct };
   } catch (err) {
