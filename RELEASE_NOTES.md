@@ -1,49 +1,47 @@
-# v0.6.0
+# v0.6.1
 
-The headline feature is the **Breeding Assistant** — a new tab that ranks every stabled male × female pair by expected offspring quality. Plus an **auto-import** path that scans (and watches) your Project Gorgon game folder for new genome files, and a chunky perf refactor under the Compare tab.
+A small patch release to ship hand-verified horse gene effect corrections and stabilise the gene editor export format so future fixes round-trip cleanly against the bundled asset files.
 
-## New: Breeding Assistant
+## Horse gene effect corrections
 
-A fifth top-bar tab — **💞 Breed** — opens the assistant. Pick a species, optionally restrict to an offspring breed (horses), and the table ranks every stabled M × F pair by expected offspring quality, computed from the parents' Mendelian gene contributions.
+Eight genes across six chromosomes had their dominant/recessive effects wrong in the bundled templates. Each correction was reviewed manually against in-game data:
 
-Columns:
+- **chr15** `15D1` — Ruggedness+ moved from dominant to recessive
+- **chr16** `16J4` — dominant set to Toughness+
+- **chr20** `20F2`/`20F3` — Intelligence+ moved from F2 dominant to F3 dominant
+- **chr22** `22E2` — Virility+ moved from recessive to dominant
+- **chr24** `24B3` — cleared a stray dominant Toughness+
+- **chr42** `42E3`/`42E4` — recessive Intelligence+ corrected to Ruggedness+
 
-- **Mixed** / **Unknown** / **Total +** — expected counts of mixed-allele, unknown-effect, and confirmed-positive offspring genes.
-- **Per-attribute totals** — expected positive-gene count broken down by attribute (Toughness, Intelligence, Ferocity for beewasps, Temperament for horses, etc.).
-- Every column header sorts; click again to reverse direction. Default is **Total +** descending.
-- Click a parent name to jump straight to that pet's gene grid.
+If you previously imported the demo gene set, the app will pick up these corrections on next launch. (#214)
 
-Documented in the [quickstart guide](https://gorgonetics.github.io/Gorgonetics/quickstart.html#step-9). (#191, #192, #193, #194, #195)
+## Gene editor export round-trip
 
-## New: Auto-import from your game folder
+The chromosome export had two papercuts that produced massive cosmetic diffs whenever an exported file was used to update the bundled assets:
 
-Open **Settings → Auto-import** and point Gorgonetics at your Project Gorgon game folder. Then:
+- The exported filename had a duplicated `chr` prefix (e.g. `horse_genes_chrchr15.json`).
+- The field order put `notes` before `breed`, while asset files used the reverse — and a cleared effect was written as `""` instead of `"None"`.
 
-- The **🔄** button next to *+ Upload Genome* in the pet list scans the folder and imports every genome file you don't already have. Running totals update as it works.
-- Once configured, the app also **watches the folder in the background** and auto-imports new files while it's running — no need to drag-and-drop after each in-game gene scan.
+Both are fixed: the editor now exports byte-identical JSON to the asset files when no edits are made. All 58 horse + beewasp asset files were also reordered to the canonical export shape (purely cosmetic — no gene effects changed by this rewrite). New tests lock in the export contract by round-tripping three real asset files through the gene editor pipeline. (#215)
 
-Files already in the database are de-duplicated by content hash, so re-running the scan is a safe no-op. (#183)
+## New asset invariant tests
 
-## Faster Compare tab
+Two species-specific data invariants are now enforced in CI:
 
-The genome diff used to re-parse `genome_data` JSON on every render. The diff and the grid now both read from the existing `pet_genes` projection, with a one-shot legacy-pet fallback for un-backfilled rows. Result: opening the Genome Diff view on two large pets is now a flat database read instead of a re-parse storm. (#198, #199)
+- **Beewasp**: dominant alleles always carry a negative or `"None"` effect; recessive alleles always positive or `"None"`. (#215)
+- **Horse**: chromosome 1 genes always carry a negative dominant *and* a positive recessive effect; genes on chr02..chr48 carry an effect on at most one allele. (#215)
 
-## Cleaner internals
+A future asset edit that violates either rule will fail the test suite without needing chromosome-by-chromosome manual review.
 
-- **`buildInClauseParams` helper** centralises variable-arity `IN (...)` clauses with named placeholders, replacing hand-rolled `IN ($1, $2, ...)` strings across the database layer. (#200)
-- **`setTagsForPet` is now atomic** — the previous implementation wrapped manual `BEGIN/COMMIT` calls that the Tauri adapter no-ops, so a failure mid-loop could leave `pet_tags` half-updated. Migrated to `db.transaction([...])` for true cross-statement atomicity and a single IPC round-trip. (#201)
-- **`uploadPet` accepts an options object** instead of a positional argument grab-bag, making the call site readable. (#188)
-- **Import path narrows the filesystem scope** to `BaseDirectory.Home`, so the Tauri capability isn't broader than it needs to be. (#189)
-- **Text-input styles consolidated** into a single set of utility classes — `.text-input`, `.text-input--mono` — so future tweaks land in one place. (#187)
-- **Auto-scan game folder for pet uploads** — the foundation for the auto-import feature above. (#183)
-- **Svelte 5 compiler warnings cleared** across `MasterPanel`, `PetEditor`, and `GenomeGridDiff`; biome schema URL bumped to match the pinned CLI; six copies of error-message formatting collapsed into a single helper. (#201)
+## Other fixes
+
+- Genome diff totals no longer count padded grid cells, and the per-species total is now sourced from the gene catalog rather than a hardcoded constant. (#212, #213)
+- `pnpm-workspace.yaml` whitelists `esbuild` builds so fresh `pnpm install` runs no longer get blocked on the build-script approval prompt. (#203)
 
 ## Dependency bumps
 
-- `@biomejs/biome` 2.4.12 → 2.4.13 (#179)
-- `svelte` 5.55.4 → 5.55.5 (#178)
-- `@lucide/svelte` 1.8.0 → 1.14.0 (#180)
-- `jsdom` 29.0.2 → 29.1.0 (#181)
-- `tokio` 1.50.0 → 1.52.1 (#182)
-- `vite` 8.0.9 → 8.0.10 (#177)
-- `actions/deploy-pages` 4 → 5 (#190)
+- `tauri` 2.10.3 → 2.11.0 (#206)
+- `tauri-plugin-fs` 2.5.0 → 2.5.1 (#210)
+- `tauri-plugin-dialog` 2.7.0 → 2.7.1 (#211)
+- `@tauri-apps/api` 2.10.1 → 2.11.0 (#208)
+- `@tauri-apps/cli` 2.10.1 → 2.11.0 (#204)
