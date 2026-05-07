@@ -7,7 +7,7 @@ import { getDb } from './database.js';
 import { listBundledResources, loadBundledResource } from './fileService.js';
 import { clearGeneEffectsCache, upsertGene } from './geneService.js';
 import { hasPets, updatePet, uploadPet } from './petService.js';
-import { getSetting, setSetting } from './settingsService.js';
+import { getSetting, resetSetting, setSetting } from './settingsService.js';
 
 const TEMPLATE_SPECIES = ['beewasp', 'horse'] as const;
 const TEMPLATE_BUNDLE_HASH_KEY = 'genes.templateBundleHash';
@@ -110,6 +110,14 @@ export async function refreshGeneTemplatesIfChanged(): Promise<void> {
     speciesTouched.add(species);
   }
   for (const sp of speciesTouched) clearGeneEffectsCache(sp);
+
+  // pets.positive_genes is computed from gene effects and persisted on
+  // the pets table. The backfill that populates it is guard-gated by a
+  // one-shot flag, so without clearing the flag a refresh that changes
+  // effects would leave every pet's "Total +" count stale forever. The
+  // backfill task is already queued in AuthWrapper's startup tail —
+  // clearing the flag here lets it re-fire on the same launch.
+  await resetSetting('pets.positive_genes_backfilled');
 
   await setSetting(TEMPLATE_BUNDLE_HASH_KEY, currentHash);
 }

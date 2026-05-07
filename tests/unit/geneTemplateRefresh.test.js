@@ -85,6 +85,22 @@ describe('refreshGeneTemplatesIfChanged', () => {
     expect(await getSetting('genes.templateBundleHash')).toBe(realHash);
   });
 
+  it('clears the positive_genes backfill flag so stale per-pet counts get recomputed', async () => {
+    await refreshGeneTemplatesIfChanged();
+    // Simulate the backfill having run successfully on first install.
+    await setSetting('pets.positive_genes_backfilled', true);
+    // Force the next refresh to do work.
+    await setSetting('genes.templateBundleHash', 'stale');
+
+    await refreshGeneTemplatesIfChanged();
+
+    // Flag must be falsy so backfillPositiveGenesIfNeeded re-fires on the
+    // same launch — otherwise pets.positive_genes stays at the value computed
+    // under the old effects.
+    const flag = await getSetting('pets.positive_genes_backfilled');
+    expect(flag === false || flag === undefined).toBe(true);
+  });
+
   it('inserts brand-new template genes during a refresh', async () => {
     await refreshGeneTemplatesIfChanged();
 
