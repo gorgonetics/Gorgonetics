@@ -69,6 +69,15 @@ export async function refreshGeneTemplatesIfChanged(): Promise<void> {
     return;
   }
 
+  // Defend against an empty bundle (resource dir missing, glob mismatch,
+  // partial install). Persisting the empty-bundle hash here would lock
+  // future launches into the no-op branch forever; better to leave the
+  // sentinel unchanged and retry next launch.
+  if (raw.length === 0) {
+    console.warn('Bundled gene templates are missing — skipping refresh.');
+    return;
+  }
+
   // Hash the raw bundle and gate on it before parsing JSON — steady-state
   // launches do nothing more than read the files and run one digest.
   const currentHash = await bundleHash(raw);
@@ -95,8 +104,17 @@ export async function refreshGeneTemplatesIfChanged(): Promise<void> {
     notesBySpecies.set(species, new Map(rows.map((r) => [r.gene, r.notes ?? ''])));
   }
 
-  for (const { species, chromosome, content } of raw) {
-    const genes = JSON.parse(content) as TemplateGene[];
+  for (const { species, chromosome, filePath, content } of raw) {
+    let genes: TemplateGene[];
+    try {
+      genes = JSON.parse(content) as TemplateGene[];
+    } catch (e) {
+      // Don't bump the hash sentinel — leave it stale so the next launch
+      // retries once the bad asset is fixed. Already-applied upserts stay
+      // (idempotent), caches stay cleared (will repopulate on next read).
+      console.warn(`Aborting gene template refresh: failed to parse ${filePath}:`, e);
+      return;
+    }
     const existingNotes = notesBySpecies.get(species) ?? new Map<string, string>();
     for (const gene of genes) {
       await upsertGene(species, chromosome, gene.gene, {

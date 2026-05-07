@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { closeDatabase, getDb, initDatabase } from '$lib/services/database.js';
 import { refreshGeneTemplatesIfChanged } from '$lib/services/demoService.js';
+import * as fileService from '$lib/services/fileService.js';
 import * as geneService from '$lib/services/geneService.js';
 import { runMigrations } from '$lib/services/migrationService.js';
 import { getSetting, setSetting } from '$lib/services/settingsService.js';
@@ -99,6 +100,45 @@ describe('refreshGeneTemplatesIfChanged', () => {
     // under the old effects.
     const flag = await getSetting('pets.positive_genes_backfilled');
     expect(flag === false || flag === undefined).toBe(true);
+  });
+
+  it('does not persist a hash or touch flags when the bundle is empty', async () => {
+    // Simulate a missing/empty asset directory.
+    vi.spyOn(fileService, 'listBundledResources').mockResolvedValue([]);
+    // Pre-set the backfill flag so we can detect it being clobbered.
+    await setSetting('pets.positive_genes_backfilled', true);
+
+    await refreshGeneTemplatesIfChanged();
+
+    expect(await getSetting('genes.templateBundleHash')).toBeUndefined();
+    expect(await getSetting('pets.positive_genes_backfilled')).toBe(true);
+    expect(await geneService.hasGenes()).toBe(false);
+  });
+
+  it('aborts the refresh without bumping the hash when a template file is malformed', async () => {
+    // First seed cleanly so we have a known hash.
+    await refreshGeneTemplatesIfChanged();
+    const goodHash = await getSetting('genes.templateBundleHash');
+    expect(typeof goodHash).toBe('string');
+
+    // Force the next refresh to do work.
+    await setSetting('genes.templateBundleHash', 'stale');
+
+    // Make a single asset file invalid JSON; everything else stays real.
+    vi.spyOn(globalThis, 'fetch').mockImplementation((url) => {
+      const webPath = String(url);
+      if (webPath.endsWith('horse_genes_chr15.json')) {
+        return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('{ this is not json') });
+      }
+      const diskPath = resolve('.' + webPath.replace(/^\/?/, '/'));
+      return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve(readFileSync(diskPath, 'utf-8')) });
+    });
+
+    await expect(refreshGeneTemplatesIfChanged()).resolves.toBeUndefined();
+
+    // Hash sentinel must stay 'stale' so a later launch retries once the
+    // bad asset is fixed; bumping it here would silently mask the issue.
+    expect(await getSetting('genes.templateBundleHash')).toBe('stale');
   });
 
   it('inserts brand-new template genes during a refresh', async () => {
