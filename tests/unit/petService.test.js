@@ -254,6 +254,58 @@ describe('Gene Service', () => {
       expect(exported[0]).toHaveProperty('gene', '01A1');
       expect(exported[0]).toHaveProperty('effectDominant', 'Toughness+');
     });
+
+    it('produces fields in the canonical asset order', async () => {
+      await geneService.upsertGene('beewasp', 'chr01', '01A1', {
+        effectDominant: 'Toughness+',
+        effectRecessive: 'None',
+        appearance: 'Body Color Hue',
+        breed: '',
+        notes: '',
+      });
+      const [exported] = await geneService.exportGenesToJson('beewasp', 'chr01');
+      expect(Object.keys(exported)).toEqual([
+        'gene',
+        'effectDominant',
+        'effectRecessive',
+        'appearance',
+        'breed',
+        'notes',
+      ]);
+    });
+
+    it('normalizes empty effects to "None" so round-trips with asset files', async () => {
+      await geneService.upsertGene('beewasp', 'chr01', '01A1', {
+        effectDominant: '',
+        effectRecessive: '',
+        appearance: 'Body Color Hue',
+      });
+      const [exported] = await geneService.exportGenesToJson('beewasp', 'chr01');
+      expect(exported.effectDominant).toBe('None');
+      expect(exported.effectRecessive).toBe('None');
+    });
+
+    it.each([
+      'assets/beewasp/beewasp_genes_chr01.json',
+      'assets/horse/horse_genes_chr15.json',
+      'assets/horse/horse_genes_chr22.json',
+    ])('round-trips %s without diff', async (assetPath) => {
+      const animalType = assetPath.includes('beewasp') ? 'beewasp' : 'horse';
+      const chromosome = assetPath.match(/(chr\d+)/)[1];
+      const original = JSON.parse(readFileSync(resolve(assetPath), 'utf-8'));
+
+      for (const g of original) {
+        await geneService.upsertGene(animalType, chromosome, g.gene, {
+          effectDominant: g.effectDominant,
+          effectRecessive: g.effectRecessive,
+          appearance: g.appearance,
+          breed: g.breed,
+          notes: g.notes,
+        });
+      }
+      const exported = await geneService.exportGenesToJson(animalType, chromosome);
+      expect(JSON.stringify(exported, null, 2)).toBe(JSON.stringify(original, null, 2));
+    });
   });
 
   describe('getGeneEffectsCached', () => {

@@ -381,13 +381,18 @@ export function clearGeneEffectsCache(species?: string) {
 
 /**
  * Export genes for a chromosome in the same format as asset JSON files.
+ *
+ * The gene editor stores a cleared effect as `''` (see `selectOption` in
+ * `GeneEditingView.svelte`); asset files use `'None'` for the same state.
+ * Normalize here so the export round-trips against the bundled assets.
  */
 export async function exportGenesToJson(animalType: string, chromosome: string): Promise<Record<string, string>[]> {
   const genes = await getGenesByChromosome(animalType, chromosome);
+  const effect = (v: string | null | undefined) => (v == null || v === '' ? 'None' : v);
   return genes.map((g) => ({
     gene: g.gene,
-    effectDominant: g.effectDominant ?? 'None',
-    effectRecessive: g.effectRecessive ?? 'None',
+    effectDominant: effect(g.effectDominant),
+    effectRecessive: effect(g.effectRecessive),
     appearance: g.appearance ?? 'None',
     breed: g.breed ?? '',
     notes: g.notes ?? '',

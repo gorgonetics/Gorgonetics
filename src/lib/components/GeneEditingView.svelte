@@ -93,7 +93,7 @@ async function exportChromosome() {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${animalType}_genes_chr${chromosome}.json`;
+    a.download = `${animalType}_genes_${chromosome}.json`;
     document.body.appendChild(a);
     a.click();
     window.URL.revokeObjectURL(url);
