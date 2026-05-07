@@ -1,7 +1,7 @@
 <script>
 import { onMount } from 'svelte';
 import { initDatabase } from '$lib/services/database.js';
-import { loadDemoPetsIfNeeded, populateGenesIfNeeded } from '$lib/services/demoService.js';
+import { loadDemoPetsIfNeeded, refreshGeneTemplatesIfChanged } from '$lib/services/demoService.js';
 import { autoScanGameFolder, watchGameFolder } from '$lib/services/gameImport.js';
 import { backfillParsedGeneEffectsIfNeeded } from '$lib/services/geneService.js';
 import { runMigrations } from '$lib/services/migrationService.js';
@@ -83,7 +83,7 @@ $effect(() => {
 onMount(async () => {
   await initDatabase();
   await runMigrations();
-  await populateGenesIfNeeded();
+  await refreshGeneTemplatesIfChanged();
   await loadDemoPetsIfNeeded();
   await settingsActions.load();
   ready = true;
