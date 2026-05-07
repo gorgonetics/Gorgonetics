@@ -88,9 +88,15 @@ describe('refreshGeneTemplatesIfChanged', () => {
   it('inserts brand-new template genes during a refresh', async () => {
     await refreshGeneTemplatesIfChanged();
 
-    // Simulate a previous-version DB that's missing a gene the new bundle ships.
+    // Simulate a previous-version DB that's missing a gene the new bundle
+    // ships. Use named placeholders — the in-memory mock's `matchesWhere`
+    // ignores conditions without a `?`, so an inline-literal DELETE here
+    // would wipe the whole table and mask a regression.
     const db = getDb();
-    await db.execute(`DELETE FROM genes WHERE animal_type = 'horse' AND gene = '48J4'`);
+    await db.execute('DELETE FROM genes WHERE animal_type = $animal_type AND gene = $gene', {
+      animal_type: 'horse',
+      gene: '48J4',
+    });
     expect(await geneService.getGene('horse', '48J4')).toBeNull();
     await setSetting('genes.templateBundleHash', 'stale');
 

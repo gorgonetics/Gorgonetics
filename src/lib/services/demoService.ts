@@ -21,31 +21,29 @@ type TemplateGene = {
   notes?: string;
 };
 
-type LoadedChromosome = {
+type RawChromosome = {
   species: string;
   chromosome: string;
   filePath: string;
   content: string;
-  genes: TemplateGene[];
 };
 
-async function loadAllTemplates(): Promise<LoadedChromosome[]> {
-  const result: LoadedChromosome[] = [];
+async function loadRawTemplates(): Promise<RawChromosome[]> {
+  const result: RawChromosome[] = [];
   for (const species of [...TEMPLATE_SPECIES].sort()) {
     const files = (await listBundledResources(`resources/assets/${species}`)).slice().sort();
     for (const filePath of files) {
       const content = await loadBundledResource(filePath);
-      const genes = JSON.parse(content) as TemplateGene[];
       const match = filePath.match(/chr(\d+)/);
       const chromosome = match ? `chr${match[1]}` : '';
-      result.push({ species, chromosome, filePath, content, genes });
+      result.push({ species, chromosome, filePath, content });
     }
   }
   return result;
 }
 
-async function bundleHash(loaded: LoadedChromosome[]): Promise<string> {
-  const parts = loaded.map((c) => `${c.filePath}\n${c.content}`).join('\n---\n');
+async function bundleHash(raw: RawChromosome[]): Promise<string> {
+  const parts = raw.map((c) => `${c.filePath}\n${c.content}`).join('\n---\n');
   const buf = new TextEncoder().encode(parts);
   const digest = await crypto.subtle.digest('SHA-256', buf);
   return Array.from(new Uint8Array(digest))
@@ -63,15 +61,17 @@ async function bundleHash(loaded: LoadedChromosome[]): Promise<string> {
  * user-authored gene notes survive the refresh.
  */
 export async function refreshGeneTemplatesIfChanged(): Promise<void> {
-  let loaded: LoadedChromosome[];
+  let raw: RawChromosome[];
   try {
-    loaded = await loadAllTemplates();
+    raw = await loadRawTemplates();
   } catch (e) {
     console.warn('Failed to read bundled gene templates:', e);
     return;
   }
 
-  const currentHash = await bundleHash(loaded);
+  // Hash the raw bundle and gate on it before parsing JSON — steady-state
+  // launches do nothing more than read the files and run one digest.
+  const currentHash = await bundleHash(raw);
   const storedHash = await getSetting<string | undefined>(TEMPLATE_BUNDLE_HASH_KEY);
   if (storedHash === currentHash) return;
 
@@ -87,7 +87,7 @@ export async function refreshGeneTemplatesIfChanged(): Promise<void> {
   // upsertGene — INSERT OR REPLACE deletes the prior row, so without this
   // any user-authored notes would be lost on refresh.
   const notesBySpecies = new Map<string, Map<string, string>>();
-  for (const species of new Set(loaded.map((c) => c.species))) {
+  for (const species of new Set(raw.map((c) => c.species))) {
     const rows = await db.select<{ gene: string; notes: string }[]>(
       'SELECT gene, notes FROM genes WHERE animal_type = $animal_type',
       { animal_type: species },
@@ -95,7 +95,8 @@ export async function refreshGeneTemplatesIfChanged(): Promise<void> {
     notesBySpecies.set(species, new Map(rows.map((r) => [r.gene, r.notes ?? ''])));
   }
 
-  for (const { species, chromosome, genes } of loaded) {
+  for (const { species, chromosome, content } of raw) {
+    const genes = JSON.parse(content) as TemplateGene[];
     const existingNotes = notesBySpecies.get(species) ?? new Map<string, string>();
     for (const gene of genes) {
       await upsertGene(species, chromosome, gene.gene, {
