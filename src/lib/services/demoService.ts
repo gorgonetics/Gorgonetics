@@ -90,13 +90,26 @@ export async function refreshGeneTemplatesIfChanged(): Promise<void> {
       : 'Seeding gene catalog from bundled templates...',
   );
 
+  // Parse every template file before touching the DB. A failure here
+  // aborts the refresh without any partial upserts, so a malformed asset
+  // can never leave the catalog half-updated. The hash sentinel stays
+  // unchanged so a fixed bundle in a later release retries cleanly.
+  const parsed: { species: string; chromosome: string; genes: TemplateGene[] }[] = [];
+  for (const { species, chromosome, filePath, content } of raw) {
+    try {
+      parsed.push({ species, chromosome, genes: JSON.parse(content) as TemplateGene[] });
+    } catch (e) {
+      console.warn(`Aborting gene template refresh: failed to parse ${filePath}:`, e);
+      return;
+    }
+  }
+
   const db = getDb();
-  const speciesTouched = new Set<string>();
   // Pre-fetch existing notes per species so we can pass them through to
   // upsertGene — INSERT OR REPLACE deletes the prior row, so without this
   // any user-authored notes would be lost on refresh.
   const notesBySpecies = new Map<string, Map<string, string>>();
-  for (const species of new Set(raw.map((c) => c.species))) {
+  for (const species of new Set(parsed.map((c) => c.species))) {
     const rows = await db.select<{ gene: string; notes: string }[]>(
       'SELECT gene, notes FROM genes WHERE animal_type = $animal_type',
       { animal_type: species },
@@ -104,17 +117,8 @@ export async function refreshGeneTemplatesIfChanged(): Promise<void> {
     notesBySpecies.set(species, new Map(rows.map((r) => [r.gene, r.notes ?? ''])));
   }
 
-  for (const { species, chromosome, filePath, content } of raw) {
-    let genes: TemplateGene[];
-    try {
-      genes = JSON.parse(content) as TemplateGene[];
-    } catch (e) {
-      // Don't bump the hash sentinel — leave it stale so the next launch
-      // retries once the bad asset is fixed. Already-applied upserts stay
-      // (idempotent), caches stay cleared (will repopulate on next read).
-      console.warn(`Aborting gene template refresh: failed to parse ${filePath}:`, e);
-      return;
-    }
+  const speciesTouched = new Set<string>();
+  for (const { species, chromosome, genes } of parsed) {
     const existingNotes = notesBySpecies.get(species) ?? new Map<string, string>();
     for (const gene of genes) {
       await upsertGene(species, chromosome, gene.gene, {

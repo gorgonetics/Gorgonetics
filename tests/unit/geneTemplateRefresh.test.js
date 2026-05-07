@@ -134,11 +134,25 @@ describe('refreshGeneTemplatesIfChanged', () => {
       return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve(readFileSync(diskPath, 'utf-8')) });
     });
 
+    // Tamper with a chr01 gene so we can detect whether ANY partial upsert
+    // happened before parse hit the bad chr15 file. chr01 sorts before
+    // chr15, so without the parse-upfront guard it would have been
+    // overwritten by the time the parse failure aborted the loop.
+    const db = getDb();
+    await db.execute(`UPDATE genes SET effectDominant = $effect WHERE animal_type = $animal_type AND gene = $gene`, {
+      effect: 'TamperBeforeRefresh',
+      animal_type: 'horse',
+      gene: '01A1',
+    });
+
     await expect(refreshGeneTemplatesIfChanged()).resolves.toBeUndefined();
 
     // Hash sentinel must stay 'stale' so a later launch retries once the
     // bad asset is fixed; bumping it here would silently mask the issue.
     expect(await getSetting('genes.templateBundleHash')).toBe('stale');
+    // And the chr01 tamper must survive — proving no partial DB writes
+    // happened before the parse failure.
+    expect((await geneService.getGene('horse', '01A1')).effectDominant).toBe('TamperBeforeRefresh');
   });
 
   it('inserts brand-new template genes during a refresh', async () => {
