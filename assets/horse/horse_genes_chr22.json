@@ -137,8 +137,8 @@
   },
   {
     "gene": "22E2",
-    "effectDominant": "None",
-    "effectRecessive": "Virility+",
+    "effectDominant": "Virility+",
+    "effectRecessive": "",
     "appearance": "Attributes",
     "notes": "",
     "breed": "Plateau Pony"

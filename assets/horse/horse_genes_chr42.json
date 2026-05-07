@@ -146,7 +146,7 @@
   {
     "gene": "42E3",
     "effectDominant": "None",
-    "effectRecessive": "Intelligence+",
+    "effectRecessive": "Ruggedness+",
     "appearance": "Attributes",
     "notes": "",
     "breed": "Paint"
@@ -154,7 +154,7 @@
   {
     "gene": "42E4",
     "effectDominant": "None",
-    "effectRecessive": "Intelligence+",
+    "effectRecessive": "Ruggedness+",
     "appearance": "Attributes",
     "notes": "",
     "breed": "Paint"
