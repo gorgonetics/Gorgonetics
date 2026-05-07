@@ -169,7 +169,7 @@
   },
   {
     "gene": "20F2",
-    "effectDominant": "Intelligence+",
+    "effectDominant": "",
     "effectRecessive": "None",
     "appearance": "Scale",
     "notes": "",
@@ -177,7 +177,7 @@
   },
   {
     "gene": "20F3",
-    "effectDominant": "None",
+    "effectDominant": "Intelligence+",
     "effectRecessive": "None",
     "appearance": "Scale",
     "notes": "",

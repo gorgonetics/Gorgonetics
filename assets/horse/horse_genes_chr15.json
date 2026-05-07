@@ -97,8 +97,8 @@
   },
   {
     "gene": "15D1",
-    "effectDominant": "Ruggedness+",
-    "effectRecessive": "None",
+    "effectDominant": "",
+    "effectRecessive": "Ruggedness+",
     "appearance": "Coat",
     "notes": "",
     "breed": "Kurbone"
