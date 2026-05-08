@@ -39,6 +39,14 @@ if [[ -n "$(git status --porcelain)" ]]; then
   exit 1
 fi
 
+# Anchor at the repo root so every relative path (package.json,
+# src-tauri/Cargo.toml, RELEASE_NOTES.md, …) resolves correctly even if
+# the script was invoked from a subdirectory. v0.6.2 shipped with an
+# empty tag annotation because `git tag -m "...$(cat RELEASE_NOTES.md)..."`
+# ran with cwd in src-tauri/; cat's stderr surfaced but the surrounding
+# command substitution still resolved to "" and the tag pushed cleanly.
+cd "$(git rev-parse --show-toplevel)"
+
 git pull --ff-only
 
 # --- Read current version ---
@@ -136,7 +144,11 @@ LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
 COMPARE_LINK="**Full Changelog**: https://github.com/gorgonetics/Gorgonetics/compare/${LAST_TAG:-initial}...v$NEW_VERSION"
 
 if [[ -f "$NOTES_FILE" ]]; then
-  echo "Using release notes from $NOTES_FILE"
+  echo "Using release notes from $NOTES_FILE ($(wc -c <"$NOTES_FILE") bytes)"
+  if ! grep -q '[^[:space:]]' "$NOTES_FILE"; then
+    echo "Error: $NOTES_FILE has no non-whitespace content — refusing to tag with no annotation"
+    exit 1
+  fi
   BODY=$(cat "$NOTES_FILE")
 else
   echo "No notes file at $NOTES_FILE — generating changelog from git log"
