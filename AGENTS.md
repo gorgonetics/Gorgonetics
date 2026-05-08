@@ -57,7 +57,7 @@ Gorgonetics is a native desktop app for genetic breeding analysis in Project Gor
 - **`src/lib.rs`**: Plugin registration (sql, dialog, fs)
 - **`tauri.conf.json`**: Window config, resource bundling
 - **`capabilities/default.json`**: Permission declarations
-- **`resources/`**: Bundled gene templates + demo genomes
+- **`resources/`**: Gene templates + demo genomes for Tauri to bundle. Gitignored — auto-mirrored from the canonical `assets/` and `data/` at the repo root by `pnpm sync:bundled-assets` (runs as part of `pnpm dev`/`pnpm build`).
 
 ### Database
 - SQLite via tauri-plugin-sql (single file, `gorgonetics.db`)
@@ -147,8 +147,7 @@ pnpm test:e2e                     # Playwright E2E tests
 - **Vitest unit tests**: `tests/unit/` — service layer tests with in-memory database
 - **Playwright E2E**: `tests/e2e/` — UI flow tests across multiple spec files
 - Tests run against Vite dev server with in-memory database fallback
-- Gene templates loaded from `src/static/assets/` (copies of `assets/`)
-- Demo pets loaded from `src/static/data/` (copies of `data/`)
+- Gene templates served from `src/static/assets/` and demo pets from `src/static/data/` — both auto-mirrored from the canonical `assets/` and `data/` by `pnpm sync:bundled-assets` (runs via `pnpm dev`, which Playwright invokes as its `webServer.command`)
 
 ## Key Patterns
 
@@ -199,8 +198,8 @@ src/lib/                # Svelte components, stores, services, types
 src/routes/             # SvelteKit pages (+layout, +page)
 src/static/             # Static assets (logos, icons)
 src-tauri/              # Tauri Rust backend + config + bundled resources
-assets/                 # Gene template JSON source files
-data/                   # Sample genome text files
+assets/                 # Canonical gene template JSON source files (mirrored to src-tauri/resources/assets and src/static/assets at build)
+data/                   # Canonical sample genome text files (mirrored to src-tauri/resources/data and src/static/data at build)
 tests/e2e/              # Playwright E2E tests
 ```
 
