@@ -99,6 +99,10 @@ tests/e2e/          Playwright E2E tests
 - **Horse**: 48 chromosomes, attributes: Temperament + 6 core
 - Core attributes: Toughness, Ruggedness, Enthusiasm, Friendliness, Intelligence, Virility
 
+### Gene data for community tools
+
+Each tagged release attaches a `gorgonetics-genes-vX.Y.Z.zip` artifact containing the canonical `assets/horse/` and `assets/beewasp/` JSONs plus a top-level `MANIFEST.json` (version, build date, per-species file count). The latest zip is permalinked from the [download page](https://gorgonetics.github.io/Gorgonetics/#downloads), so community-built Project Gorgon tools can stay in sync without cloning the repo. The asset format (`gene`, `effectDominant`, `effectRecessive`, `appearance`, `breed`, `notes`) round-trips through the gene editor and is stable.
+
 ## License
 
 MIT
