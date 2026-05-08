@@ -32,12 +32,6 @@ jobs:
       - name: Install Playwright
         run: pnpm exec playwright install chromium
 
-      - name: Copy test assets to static dir
-        run: |
-          mkdir -p src/static/assets src/static/data
-          cp -r assets/* src/static/assets/
-          cp -r data/* src/static/data/
-
       - name: Run E2E tests
         run: pnpm test:e2e
 
