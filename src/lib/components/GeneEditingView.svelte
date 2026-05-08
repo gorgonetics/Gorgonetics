@@ -2,6 +2,7 @@
 import { onDestroy } from 'svelte';
 import { run, stopPropagation } from 'svelte/legacy';
 import * as configService from '$lib/services/configService.js';
+import { saveExportTextFile } from '$lib/services/fileService.js';
 import * as geneService from '$lib/services/geneService.js';
 
 /**
@@ -33,6 +34,7 @@ const EFFECT_TYPES = [
 ];
 let hasUnsavedChanges = $state(false);
 let savingChanges = $state(false);
+let exporting = $state(false);
 
 onDestroy(() => clearTimeout(successTimer));
 
@@ -85,21 +87,33 @@ async function saveAllChanges() {
 
 // Export chromosome to JSON file
 async function exportChromosome() {
-  if (!animalType || !chromosome) return;
+  if (!animalType || !chromosome || exporting) return;
+
+  exporting = true;
+  errorMessage = '';
+  successMessage = '';
+
+  const filename = `${animalType}_genes_${chromosome}.json`;
 
   try {
     const data = await geneService.exportGenesToJson(animalType, chromosome);
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${animalType}_genes_${chromosome}.json`;
-    document.body.appendChild(a);
-    a.click();
-    window.URL.revokeObjectURL(url);
-    document.body.removeChild(a);
+    const contents = JSON.stringify(data, null, 2);
+    const savedPath = await saveExportTextFile(filename, contents, 'JSON', ['json'], {
+      title: 'Export chromosome',
+      mimeType: 'application/json',
+    });
+    if (savedPath === null) return;
+
+    const displayName = savedPath.split(/[\\/]/).pop() ?? filename;
+    successMessage = `Exported ${displayName}`;
+    clearTimeout(successTimer);
+    successTimer = setTimeout(() => {
+      successMessage = '';
+    }, 3000);
   } catch (err) {
     errorMessage = `Error exporting chromosome: ${err instanceof Error ? err.message : String(err)}`;
+  } finally {
+    exporting = false;
   }
 }
 
@@ -212,9 +226,10 @@ run(() => {
             <button
                 class="action-btn export-btn"
                 onclick={exportChromosome}
+                disabled={exporting}
                 title="Export chromosome as JSON"
             >
-                Export
+                {exporting ? 'Exporting...' : 'Export'}
             </button>
         </div>
     </div>

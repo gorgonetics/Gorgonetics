@@ -62,6 +62,43 @@ export async function saveExportBinaryFile(defaultFilename: string, data: Uint8A
 }
 
 /**
+ * Save a text file via the OS save dialog (Tauri) or the browser's
+ * `<a download>` mechanism (dev/test). Returns the chosen path on
+ * success, or null if the user cancelled the Tauri dialog. In browser
+ * mode, returns the default filename since the actual save location is
+ * the browser's downloads folder and isn't observable from JS.
+ */
+export async function saveExportTextFile(
+  defaultFilename: string,
+  contents: string,
+  filterName: string,
+  extensions: string[],
+  options: { title?: string; mimeType?: string } = {},
+): Promise<string | null> {
+  if (isTauri()) {
+    const { save } = await import('@tauri-apps/plugin-dialog');
+    const { writeTextFile } = await import('@tauri-apps/plugin-fs');
+    const path = await save({
+      defaultPath: defaultFilename,
+      filters: [{ name: filterName, extensions }],
+      title: options.title,
+    });
+    if (!path) return null;
+    await writeTextFile(path, contents);
+    return path;
+  }
+
+  const blob = new Blob([contents], { type: options.mimeType ?? 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = defaultFilename;
+  a.click();
+  URL.revokeObjectURL(url);
+  return defaultFilename;
+}
+
+/**
  * Read the text content of a file at the given path.
  */
 export async function readFileContent(path: string): Promise<string> {
