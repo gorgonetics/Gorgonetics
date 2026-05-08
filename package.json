@@ -1,6 +1,6 @@
 {
   "name": "gorgonetics",
-  "version": "0.6.2",
+  "version": "0.6.3",
   "description": "Gorgon genetics breeding tool for Project Gorgon",
   "type": "module",
   "private": true,
