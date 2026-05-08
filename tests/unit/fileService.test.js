@@ -7,6 +7,7 @@ import {
   pickGenomeFiles,
   readBinaryFile,
   saveExportBinaryFile,
+  saveExportTextFile,
 } from '$lib/services/fileService.js';
 
 // All tests run outside Tauri (isTauri() returns false), testing browser fallback paths.
@@ -69,6 +70,34 @@ describe('File Service (browser fallbacks)', () => {
       createElementSpy.mockReturnValue(mockAnchor);
       await saveExportBinaryFile('my-backup.zip', new Uint8Array([1]));
       expect(mockAnchor.download).toBe('my-backup.zip');
+    });
+  });
+
+  describe('saveExportTextFile', () => {
+    let createElementSpy;
+    let revokeObjectURLSpy;
+    let createObjectURLSpy;
+    let mockAnchor;
+
+    beforeEach(() => {
+      mockAnchor = { href: '', download: '', click: vi.fn() };
+      createElementSpy = vi.spyOn(document, 'createElement').mockReturnValue(mockAnchor);
+      createObjectURLSpy = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:test');
+      revokeObjectURLSpy = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('creates a download link in browser mode and returns the default filename', async () => {
+      const result = await saveExportTextFile('horse_genes_chr01.json', '{"a":1}', 'JSON', ['json']);
+      expect(result).toBe('horse_genes_chr01.json');
+      expect(createElementSpy).toHaveBeenCalledWith('a');
+      expect(createObjectURLSpy).toHaveBeenCalled();
+      expect(revokeObjectURLSpy).toHaveBeenCalledWith('blob:test');
+      expect(mockAnchor.download).toBe('horse_genes_chr01.json');
+      expect(mockAnchor.click).toHaveBeenCalled();
     });
   });
 
