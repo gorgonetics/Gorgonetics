@@ -101,7 +101,13 @@ tests/e2e/          Playwright E2E tests
 
 ### Gene data for community tools
 
-Each tagged release attaches a `gorgonetics-genes-vX.Y.Z.zip` artifact containing the canonical `assets/horse/` and `assets/beewasp/` JSONs plus a top-level `MANIFEST.json` (version, build date, per-species file count). The latest zip is permalinked from the [download page](https://gorgonetics.github.io/Gorgonetics/#downloads), so community-built Project Gorgon tools can stay in sync without cloning the repo. The asset format (`gene`, `effectDominant`, `effectRecessive`, `appearance`, `breed`, `notes`) round-trips through the gene editor and is stable.
+Each tagged release attaches a `gorgonetics-genes.zip` artifact containing the canonical `assets/horse/` and `assets/beewasp/` JSONs plus a top-level `MANIFEST.json` (version, build date, per-species file count). The asset filename is intentionally version-free so this URL always resolves to the latest release:
+
+```
+https://github.com/gorgonetics/Gorgonetics/releases/latest/download/gorgonetics-genes.zip
+```
+
+Safe to use directly from `curl` / `wget` in build scripts. Detect updates by comparing the `version` field in the bundled `MANIFEST.json`. The asset format (`gene`, `effectDominant`, `effectRecessive`, `appearance`, `breed`, `notes`) round-trips through the gene editor and is stable.
 
 ## License
 
