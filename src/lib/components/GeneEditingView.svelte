@@ -98,7 +98,10 @@ async function exportChromosome() {
   try {
     const data = await geneService.exportGenesToJson(animalType, chromosome);
     const contents = JSON.stringify(data, null, 2);
-    const savedPath = await saveExportTextFile(filename, contents, 'JSON', ['json'], 'Export chromosome');
+    const savedPath = await saveExportTextFile(filename, contents, 'JSON', ['json'], {
+      title: 'Export chromosome',
+      mimeType: 'application/json',
+    });
     if (savedPath === null) return;
 
     const displayName = savedPath.split(/[\\/]/).pop() ?? filename;

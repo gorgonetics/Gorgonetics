@@ -73,7 +73,7 @@ export async function saveExportTextFile(
   contents: string,
   filterName: string,
   extensions: string[],
-  title?: string,
+  options: { title?: string; mimeType?: string } = {},
 ): Promise<string | null> {
   if (isTauri()) {
     const { save } = await import('@tauri-apps/plugin-dialog');
@@ -81,14 +81,14 @@ export async function saveExportTextFile(
     const path = await save({
       defaultPath: defaultFilename,
       filters: [{ name: filterName, extensions }],
-      title,
+      title: options.title,
     });
     if (!path) return null;
     await writeTextFile(path, contents);
     return path;
   }
 
-  const blob = new Blob([contents], { type: 'application/json' });
+  const blob = new Blob([contents], { type: options.mimeType ?? 'text/plain;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
