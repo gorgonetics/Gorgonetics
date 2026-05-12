@@ -333,6 +333,10 @@ export interface ComparisonResult {
  * One document in the public `/pets` Firestore collection. Mirrors the
  * upload schema enforced by firestore.rules. See
  * docs/design/public-pet-sharing-v1.md §3 for field-by-field rationale.
+ *
+ * `uploadedAt` is a JS `Date` here — the service layer (`listPets` /
+ * `getSharedPet`, PR 2) is responsible for converting the wire-level
+ * Firestore `Timestamp` via `toDate()` before handing documents to the UI.
  */
 export interface SharedPet {
   contentHash: string;

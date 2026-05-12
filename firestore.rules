@@ -7,7 +7,18 @@ service cloud.firestore {
 
       // Create-only in v1. Every field is validated against the upload schema
       // documented in docs/design/public-pet-sharing-v1.md §4.
-      allow create: if request.resource.data.keys().hasOnly([
+      //
+      // Known gap (acknowledged in design §4): Firestore CEL has no list
+      // comprehension, so we cannot enforce that every `tags` element is a
+      // string — only that `tags` is a list of bounded size. Worst case is a
+      // mistyped tag entry, cleanable via console takedown.
+      allow create: if request.resource.data.keys().hasAll([
+                        'name', 'character', 'species', 'gender',
+                        'breed', 'breeder', 'notes', 'tags',
+                        'schemaVersion', 'appVersion', 'genomeData',
+                        'uploadedAt', 'uploaderUid'
+                      ])
+                 && request.resource.data.keys().hasOnly([
                         'name', 'character', 'species', 'gender',
                         'breed', 'breeder', 'notes', 'tags',
                         'schemaVersion', 'appVersion', 'genomeData',
@@ -34,7 +45,8 @@ service cloud.firestore {
                  && request.resource.data.genomeData is string
                  && request.resource.data.genomeData.size() > 0
                  && request.resource.data.genomeData.size() <= 65536
-                 && contentHash.matches('[a-f0-9]{16,128}')
+                 && contentHash.matches('^[a-f0-9]{64}$')
+                 && request.resource.data.uploadedAt is timestamp
                  && request.resource.data.uploadedAt == request.time
                  && request.resource.data.uploaderUid == null;
 
