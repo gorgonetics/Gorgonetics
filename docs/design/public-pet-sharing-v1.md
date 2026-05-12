@@ -12,7 +12,7 @@
 - Centralised place to share pets, replacing the manual export/import for cross-user sharing.
 - Direct from the app — no proxy, no separate backend service to maintain.
 - Truly free to operate at hobby-community scale with no credit card required.
-- Permalinks: a shared pet's URL is stable across re-uploads.
+- Permalinks: a shared pet's URL is stable across shares of the same genome content (uploads are create-only; re-sharing the same genome resolves to the existing document by `content_hash`).
 
 **Constraints**
 - No images in v1 — genomes and tags only. Image sharing is deferred until storage costs become tractable (see §11).
@@ -220,7 +220,7 @@ Initial layout: simple paginated table, newest first, columns `Name | Character 
 - Catalogue list: lazily loaded when the Community tab is first opened. Page size 50, paginated via Firestore cursor.
 - Pet import: only when user explicitly clicks Import on a row. Single doc fetch, hash-verify, insert into local DB.
 
-This keeps egress comfortably under the 1 GiB/month Firestore egress cap and avoids the "every install pulls everything on launch" pattern that would burn through limits.
+This keeps egress comfortably under the 10 GiB/month Firestore egress cap (see §8) and avoids the "every install pulls everything on launch" pattern that would burn through limits.
 
 ## 8. Capacity analysis (against verified Spark limits, 2026-05-09)
 
@@ -238,7 +238,7 @@ Doc size with envelope (~300 B for fields above): **~800 B BeeWasp / ~2.8 KB Hor
 | Spark limit | Per-pet cost | Realistic ceiling |
 |---|---|---|
 | 1 MiB per doc | ~3 KB | ~370× headroom on the largest pet |
-| 1 GiB total storage | ~3 KB worst-case | ~380,000 horse pets / ~1,300,000 beewasp pets |
+| 1 GiB total storage | ~3 KB worst-case | ~380,000 Horse pets / ~1,300,000 BeeWasp pets |
 | 50k reads/day | 1 read per pet listed | Browsing 50 pets at a time = 1000 distinct browser-sessions/day |
 | 20k writes/day | 1 write per upload | 20,000 uploads/day |
 | 10 GiB/month egress | ~3 KB per fetch | ~3,500,000 pet fetches/month |
