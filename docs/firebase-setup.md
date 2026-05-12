@@ -1,0 +1,75 @@
+# Firebase setup — public pet sharing
+
+This file documents the **out-of-repo** steps required to bring the public
+pet sharing catalogue online. The in-repo scaffolding (rules, types, SDK
+init) lives alongside this file; everything below has to be done **once**
+by a maintainer with access to a Google account.
+
+See `docs/design/public-pet-sharing-v1.md` for the design rationale.
+
+## One-time project creation
+
+1. Visit <https://console.firebase.google.com> and create a new project
+   named **`gorgonetics-share`**. Stay on the default **Spark** plan
+   (no card required).
+2. In the project, open **Build → Firestore Database → Create database**.
+   - Mode: **Production** (rules deny by default).
+   - Location: any region close to the user base — e.g. `eur3` for
+     multi-region Europe.
+3. In **Build → Authentication**, leave all providers disabled for v1.
+   (v2 will enable Anonymous Auth.)
+4. In **Project settings → Your apps**, register a new **Web app**
+   (no hosting needed). Copy the printed config object.
+
+## Wire the public config into the repo
+
+Replace the placeholder block in `src/lib/firebase.ts` with the real
+values from step 4 above:
+
+```ts
+const firebaseConfig = {
+  apiKey: '…',
+  authDomain: 'gorgonetics-share.firebaseapp.com',
+  projectId: 'gorgonetics-share',
+};
+```
+
+These values are **public** — they identify the project, they do not
+authorise writes. Security comes from `firestore.rules`, not from hiding
+this config. Commit it.
+
+## Install the Firebase CLI and deploy rules
+
+```bash
+npm install -g firebase-tools     # one-time
+firebase login
+firebase use gorgonetics-share
+firebase deploy --only firestore:rules
+firebase deploy --only firestore:indexes   # empty in v1
+```
+
+Both files are checked in at the repo root:
+
+- `firebase.json` — points the CLI at `firestore.rules` + indexes.
+- `.firebaserc` — pins the `default` project alias to `gorgonetics-share`.
+- `firestore.rules` — the entire backend (see design §4).
+- `firestore.indexes.json` — empty for v1; populated when filtering lands.
+
+## Local development against the emulator
+
+```bash
+firebase emulators:start --only firestore
+```
+
+The emulator binds to `localhost:8080` (Firestore) + `localhost:4000`
+(emulator UI) per `firebase.json`. PR 2 will add `pnpm test:firestore`
+to spin this up for integration tests.
+
+## Takedowns (v1)
+
+There is no in-app delete in v1. To remove an offending pet:
+
+1. Open the Firebase console → Firestore → `pets/{contentHash}`.
+2. Delete the document.
+
+v2 will add anonymous-auth-scoped self-delete and a "My uploads" view.

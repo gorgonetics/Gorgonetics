@@ -1,0 +1,46 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{db}/documents {
+    match /pets/{contentHash} {
+      // Public catalogue — anyone can read.
+      allow read: if true;
+
+      // Create-only in v1. Every field is validated against the upload schema
+      // documented in docs/design/public-pet-sharing-v1.md §4.
+      allow create: if request.resource.data.keys().hasOnly([
+                        'name', 'character', 'species', 'gender',
+                        'breed', 'breeder', 'notes', 'tags',
+                        'schemaVersion', 'appVersion', 'genomeData',
+                        'uploadedAt', 'uploaderUid'
+                      ])
+                 && request.resource.data.name is string
+                 && request.resource.data.name.size() > 0
+                 && request.resource.data.name.size() <= 100
+                 && request.resource.data.character is string
+                 && request.resource.data.character.size() <= 100
+                 && request.resource.data.species in ['Horse', 'BeeWasp']
+                 && request.resource.data.gender in ['Male', 'Female']
+                 && request.resource.data.breed is string
+                 && request.resource.data.breed.size() <= 100
+                 && request.resource.data.breeder is string
+                 && request.resource.data.breeder.size() <= 100
+                 && request.resource.data.notes is string
+                 && request.resource.data.notes.size() <= 4096
+                 && request.resource.data.tags is list
+                 && request.resource.data.tags.size() <= 30
+                 && request.resource.data.schemaVersion is int
+                 && request.resource.data.appVersion is string
+                 && request.resource.data.appVersion.size() <= 32
+                 && request.resource.data.genomeData is string
+                 && request.resource.data.genomeData.size() > 0
+                 && request.resource.data.genomeData.size() <= 65536
+                 && contentHash.matches('[a-f0-9]{16,128}')
+                 && request.resource.data.uploadedAt == request.time
+                 && request.resource.data.uploaderUid == null;
+
+      // Mutations and deletions — handled out-of-band via Firebase console
+      // for v1 takedowns. v2 will add uploader-scoped delete.
+      allow update, delete: if false;
+    }
+  }
+}

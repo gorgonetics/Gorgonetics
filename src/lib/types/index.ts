@@ -326,3 +326,33 @@ export interface ComparisonResult {
     similarityPercent: number;
   };
 }
+
+// --- Public pet sharing (Community) types ---
+
+/**
+ * One document in the public `/pets` Firestore collection. Mirrors the
+ * upload schema enforced by firestore.rules. See
+ * docs/design/public-pet-sharing-v1.md §3 for field-by-field rationale.
+ */
+export interface SharedPet {
+  contentHash: string;
+  name: string;
+  character: string;
+  species: string;
+  gender: Gender;
+  breed: string;
+  breeder: string;
+  notes: string;
+  tags: string[];
+  schemaVersion: number;
+  appVersion: string;
+  genomeData: string;
+  uploadedAt: Date;
+  uploaderUid: string | null;
+}
+
+/** Cursor-based pagination options for `listPets`. */
+export interface ListPetsOpts {
+  limit?: number;
+  after?: SharedPet;
+}
