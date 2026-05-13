@@ -58,6 +58,7 @@
   ],
   "author": "Javier Lopez Pena",
   "license": "MIT",
+  "packageManager": "pnpm@11.0.9",
   "pnpm": {
     "onlyBuiltDependencies": [
       "esbuild"
