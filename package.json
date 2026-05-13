@@ -35,7 +35,7 @@
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/svelte": "^5.3.1",
     "@vitest/ui": "^4.1.1",
-    "jsdom": "^29.1.0",
+    "jsdom": "^29.1.1",
     "svelte": "^5.55.5",
     "vite": "^8.0.10",
     "vitest": "^4.1.1"
@@ -59,6 +59,7 @@
   ],
   "author": "Javier Lopez Pena",
   "license": "MIT",
+  "packageManager": "pnpm@11.0.9",
   "pnpm": {
     "onlyBuiltDependencies": [
       "esbuild"
