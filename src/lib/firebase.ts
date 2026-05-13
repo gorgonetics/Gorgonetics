@@ -11,7 +11,7 @@
  * See docs/firebase-setup.md for the full procedure.
  */
 
-import { initializeApp } from 'firebase/app';
+import { getApp, getApps, initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 
 const firebaseConfig = {
@@ -20,5 +20,8 @@ const firebaseConfig = {
   projectId: 'gorgonetics-share',
 };
 
-export const app = initializeApp(firebaseConfig);
+// Guard against Vite HMR / test re-imports double-initialising the default app
+// (which would throw `FirebaseError: Firebase: Firebase App named '[DEFAULT]'
+// already exists`). Reusing the existing instance is the documented pattern.
+export const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 export const firestore = getFirestore(app);

@@ -334,9 +334,16 @@ export interface ComparisonResult {
  * upload schema enforced by firestore.rules. See
  * docs/design/public-pet-sharing-v1.md §3 for field-by-field rationale.
  *
- * `uploadedAt` is a JS `Date` here — the service layer (`listPets` /
- * `getSharedPet`, PR 2) is responsible for converting the wire-level
- * Firestore `Timestamp` via `toDate()` before handing documents to the UI.
+ * `contentHash` is **not** stored as a field on the document — it is the
+ * Firestore document ID. The service layer (`listPets` / `getSharedPet`,
+ * PR 2) populates this property from `docSnapshot.id` after fetching, so
+ * UI callers can treat `SharedPet` as a flat record. Storing it as a
+ * field too would duplicate the doc ID for no gain and is intentionally
+ * excluded from the upload schema in `firestore.rules`.
+ *
+ * `uploadedAt` is a JS `Date` here — the service layer is responsible
+ * for converting the wire-level Firestore `Timestamp` via `toDate()`
+ * before handing documents to the UI.
  */
 export interface SharedPet {
   contentHash: string;
