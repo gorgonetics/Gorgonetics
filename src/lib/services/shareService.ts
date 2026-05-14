@@ -82,9 +82,15 @@ export async function uploadPet(pet: Pet, db: Firestore = defaultFirestore): Pro
     // Duck-typed on `.code` because instanceof FirestoreError is fragile
     // across module-graph re-instantiations (mocks, bundling).
     if (isPermissionDenied(err)) {
-      const recheck = await getDoc(ref);
-      if (recheck.exists()) {
-        return { status: 'already-shared', contentHash: pet.content_hash };
+      try {
+        const recheck = await getDoc(ref);
+        if (recheck.exists()) {
+          return { status: 'already-shared', contentHash: pet.content_hash };
+        }
+      } catch {
+        // Recheck itself failed (network/emulator hiccup, rules also
+        // denying reads, etc.). Fall through and surface the original
+        // setDoc error — that's the one the caller can act on.
       }
     }
     throw err;

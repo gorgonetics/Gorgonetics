@@ -129,23 +129,36 @@ describe('shareService end-to-end via emulator', () => {
 
   it('lists in newest-first order and paginates via the after cursor', async () => {
     // serverTimestamp() resolves to a single request.time per commit, so
-    // back-to-back writes can collide on the millisecond and break the
-    // newest-first assertion. The 10ms gap is load-bearing.
+    // back-to-back writes can collide on the millisecond. 100ms is a
+    // generous gap against slow CI runners without being painful locally.
     const petA = await freshPet('X');
     const petB = await freshPet('Y');
     const petC = await freshPet('Z');
 
     await uploadPet(petA, db);
-    await new Promise((r) => setTimeout(r, 10));
+    await new Promise((r) => setTimeout(r, 100));
     await uploadPet(petB, db);
-    await new Promise((r) => setTimeout(r, 10));
+    await new Promise((r) => setTimeout(r, 100));
     await uploadPet(petC, db);
 
     const firstPage = await listPets({ limit: 2 }, db);
-    expect(firstPage.map((p) => p.contentHash)).toEqual([petC.content_hash, petB.content_hash]);
-
     const secondPage = await listPets({ limit: 2, after: firstPage[1] }, db);
-    expect(secondPage.map((p) => p.contentHash)).toEqual([petA.content_hash]);
+
+    // Timing-independent invariants: pagination yields every pet exactly
+    // once with no overlap between pages.
+    const firstHashes = firstPage.map((p) => p.contentHash);
+    const secondHashes = secondPage.map((p) => p.contentHash);
+    expect(firstPage).toHaveLength(2);
+    expect(secondPage).toHaveLength(1);
+    expect([...firstHashes, ...secondHashes].sort()).toEqual(
+      [petA.content_hash, petB.content_hash, petC.content_hash].sort(),
+    );
+    expect(firstHashes.some((h) => secondHashes.includes(h))).toBe(false);
+
+    // Timing-dependent invariant: newest first. Guarded by the 100ms gaps
+    // above; if this ever flakes on CI the gaps need to grow, not the
+    // assertion to weaken.
+    expect(firstHashes).toEqual([petC.content_hash, petB.content_hash]);
   });
 
   it('getSharedPet returns null for an unknown hash', async () => {
