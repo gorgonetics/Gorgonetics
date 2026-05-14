@@ -38,14 +38,17 @@ These values are **public** — they identify the project, they do not
 authorise writes. Security comes from `firestore.rules`, not from hiding
 this config. Commit it.
 
-## Install the Firebase CLI and deploy rules
+## Deploy rules
+
+`firebase-tools` is checked in as a `devDependency`, so any pnpm-managed
+workspace already has it available. Use `pnpm exec firebase` (or install
+it globally with `npm i -g firebase-tools` if you prefer).
 
 ```bash
-npm install -g firebase-tools     # one-time
-firebase login
-firebase use gorgonetics-share
-firebase deploy --only firestore:rules
-firebase deploy --only firestore:indexes   # empty in v1
+pnpm exec firebase login
+pnpm exec firebase use gorgonetics-share
+pnpm exec firebase deploy --only firestore:rules
+pnpm exec firebase deploy --only firestore:indexes   # empty in v1
 ```
 
 Both files are checked in at the repo root:
@@ -55,15 +58,33 @@ Both files are checked in at the repo root:
 - `firestore.rules` — the entire backend (see design §4).
 - `firestore.indexes.json` — empty for v1; populated when filtering lands.
 
-## Local development against the emulator
+## Integration tests against the Firestore Emulator
+
+`pnpm test:firestore` runs the integration suite in
+`tests/integration/shareService.emulator.test.js`. Under the hood it
+wraps `vitest` in `firebase emulators:exec --only firestore`, so the
+emulator is spun up before tests and torn down after.
+
+**Prerequisite:** the Firestore Emulator is a JVM application. Install
+any Java 17+ runtime (e.g. `brew install --cask temurin`). If `java`
+isn't on `PATH`, point at it explicitly:
 
 ```bash
-firebase emulators:start --only firestore
+JAVA_HOME="$(/usr/libexec/java_home -v 17)" PATH="$JAVA_HOME/bin:$PATH" pnpm test:firestore
 ```
 
-The emulator binds to `localhost:8080` (Firestore) + `localhost:4000`
-(emulator UI) per `firebase.json`. PR 2 will add `pnpm test:firestore`
-to spin this up for integration tests.
+CI installs Temurin 21 via `actions/setup-java`, so the
+`firestore-emulator` job in `.github/workflows/integration.yml` works out
+of the box. To run the emulator interactively for ad-hoc debugging:
+
+```bash
+pnpm exec firebase emulators:start --only firestore --project demo-gorgonetics
+```
+
+It binds to `localhost:8080` (Firestore) + `localhost:4000` (emulator
+UI) per `firebase.json`. The `demo-` project ID prefix tells the SDK to
+skip Google-side config validation, so the local emulator works even
+when `src/lib/firebase.ts` still has its placeholder `apiKey`.
 
 ## Takedowns (v1)
 
