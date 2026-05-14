@@ -13,7 +13,7 @@
  * fail to connect — see docs/firebase-setup.md.
  */
 
-import { deleteApp, initializeApp } from 'firebase/app';
+import { deleteApp, getApp, initializeApp } from 'firebase/app';
 import {
   collection,
   connectFirestoreEmulator,
@@ -27,8 +27,10 @@ import {
 } from 'firebase/firestore';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { getSharedPet, listPets, uploadPet } from '$lib/services/shareService.js';
+import { Gender } from '$lib/types/index.js';
 import { sha256Hex } from '$lib/utils/hash.js';
 
+const COLLECTION = 'pets';
 const EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST?.split(':')[0] ?? 'localhost';
 const EMULATOR_PORT = Number(process.env.FIRESTORE_EMULATOR_HOST?.split(':')[1] ?? 8080);
 const PROJECT_ID = `demo-gorgonetics-${Date.now()}`;
@@ -43,14 +45,18 @@ beforeAll(() => {
 });
 
 afterAll(async () => {
+  // The default Firebase app gets initialised as a side-effect of importing
+  // shareService → $lib/firebase. The integration tests never use it, but
+  // leaving it open holds a gRPC channel until process exit — a real leak
+  // for any long-running test harness. The test-scoped app is its own
+  // cleanup below.
+  await deleteApp(getApp()).catch(() => {});
   await deleteApp(app);
 });
 
 afterEach(async () => {
-  // Clear the `pets` collection between tests. setDoc-as-admin via the
-  // emulator is allowed because we delete using the SDK (which goes through
-  // the same rules) — but `delete` is rejected by rules. Workaround: hit
-  // the emulator's clearData REST endpoint instead. Cheaper than
+  // Clear the `pets` collection between tests. Rules deny SDK deletes, so
+  // we hit the emulator's clearData REST endpoint instead — cheaper than
   // re-initializing.
   await fetch(
     `http://${EMULATOR_HOST}:${EMULATOR_PORT}/emulator/v1/projects/${PROJECT_ID}/databases/(default)/documents`,
@@ -63,9 +69,9 @@ function makePet(genomeData, overrides = {}) {
     id: 1,
     name: 'Buzz',
     species: 'BeeWasp',
-    gender: 'Female',
+    gender: Gender.FEMALE,
     breed: '',
-    breeder: '',
+    breeder: 'PlayerOne',
     content_hash: '',
     genome_data: genomeData,
     notes: '',
@@ -91,7 +97,7 @@ function makePet(genomeData, overrides = {}) {
 async function freshPet(seed = 'pet') {
   const genomeData = `[Overview]\nCharacter=Player${seed}\nEntity=Buzz${seed}\n[Genes]\n`;
   const content_hash = await sha256Hex(genomeData);
-  return makePet(genomeData, { content_hash });
+  return makePet(genomeData, { content_hash, breeder: `Player${seed}` });
 }
 
 describe('shareService end-to-end via emulator', () => {
@@ -118,12 +124,13 @@ describe('shareService end-to-end via emulator', () => {
     const pet = await freshPet('B');
     expect((await uploadPet(pet, db)).status).toBe('created');
     expect((await uploadPet(pet, db)).status).toBe('already-shared');
-
-    const all = await listPets({}, db);
-    expect(all).toHaveLength(1);
+    expect(await listPets({}, db)).toHaveLength(1);
   });
 
   it('lists in newest-first order and paginates via the after cursor', async () => {
+    // serverTimestamp() resolves to a single request.time per commit, so
+    // back-to-back writes can collide on the millisecond and break the
+    // newest-first assertion. The 10ms gap is load-bearing.
     const petA = await freshPet('X');
     const petB = await freshPet('Y');
     const petC = await freshPet('Z');
@@ -135,13 +142,10 @@ describe('shareService end-to-end via emulator', () => {
     await uploadPet(petC, db);
 
     const firstPage = await listPets({ limit: 2 }, db);
-    expect(firstPage).toHaveLength(2);
-    expect(firstPage[0].contentHash).toBe(petC.content_hash);
-    expect(firstPage[1].contentHash).toBe(petB.content_hash);
+    expect(firstPage.map((p) => p.contentHash)).toEqual([petC.content_hash, petB.content_hash]);
 
     const secondPage = await listPets({ limit: 2, after: firstPage[1] }, db);
-    expect(secondPage).toHaveLength(1);
-    expect(secondPage[0].contentHash).toBe(petA.content_hash);
+    expect(secondPage.map((p) => p.contentHash)).toEqual([petA.content_hash]);
   });
 
   it('getSharedPet returns null for an unknown hash', async () => {
@@ -160,27 +164,25 @@ describe('firestore.rules enforces the upload schema', () => {
       name: 'Buzz',
       character: 'PlayerOne',
       species: 'BeeWasp',
-      gender: 'Female',
+      gender: Gender.FEMALE,
       breed: '',
-      breeder: '',
+      breeder: 'PlayerOne',
       notes: '',
       tags: ['fast'],
       schemaVersion: 1,
       appVersion: '0.6.3',
       genomeData: '[Overview]\nEntity=Buzz\n[Genes]\n',
       // Rules require `uploadedAt == request.time`, so the only way to
-      // satisfy that is to let the server pick the value via the sentinel.
+      // satisfy that is the server-side sentinel.
       uploadedAt: serverTimestamp(),
       uploaderUid: null,
     };
   }
 
-  function validDocId() {
-    // Any 64-char lowercase hex value passes the rule regex; the rules
-    // can't verify hash agreement (the SHA-256 → genomeData binding is
-    // enforced client-side via verifySharedPet).
-    return 'a'.repeat(64);
-  }
+  // Any 64-char lowercase hex value passes the rule regex; the rules
+  // can't verify hash agreement (the SHA-256 ↔ genomeData binding is
+  // enforced client-side via verifySharedPet).
+  const VALID_DOC_ID = 'a'.repeat(64);
 
   async function expectRejected(promise) {
     let threw = false;
@@ -194,98 +196,54 @@ describe('firestore.rules enforces the upload schema', () => {
   }
 
   it('rejects payload with an extra unknown field', async () => {
-    const payload = { ...validBasePayload(), nope: 'extra' };
-    await expectRejected(setDoc(doc(db, 'pets', validDocId()), payload));
+    await expectRejected(setDoc(doc(db, COLLECTION, VALID_DOC_ID), { ...validBasePayload(), nope: 'x' }));
   });
 
   it('rejects payload missing a required field', async () => {
     const payload = validBasePayload();
     delete payload.name;
-    await expectRejected(setDoc(doc(db, 'pets', validDocId()), payload));
+    await expectRejected(setDoc(doc(db, COLLECTION, VALID_DOC_ID), payload));
   });
 
-  it('rejects species outside the allowed enum', async () => {
-    await expectRejected(setDoc(doc(db, 'pets', validDocId()), { ...validBasePayload(), species: 'Dragon' }));
+  it.each([
+    ['species enum violation', { species: 'Dragon' }],
+    ['gender enum violation', { gender: 'Other' }],
+    ['oversized name (>100 chars)', { name: 'x'.repeat(101) }],
+    ['oversized genomeData (>64 KiB)', { genomeData: 'x'.repeat(65537) }],
+    ['tags > 30 entries', { tags: Array.from({ length: 31 }, (_, i) => `t${i}`) }],
+    ['non-string entry in tags', { tags: ['ok', 42] }],
+    ['over-long tag entry (>64 chars)', { tags: ['x'.repeat(65)] }],
+    ['uploaderUid != null', { uploaderUid: 'someone' }],
+  ])('rejects %s', async (_label, override) => {
+    await expectRejected(setDoc(doc(db, COLLECTION, VALID_DOC_ID), { ...validBasePayload(), ...override }));
   });
 
-  it('rejects gender outside the allowed enum', async () => {
-    await expectRejected(setDoc(doc(db, 'pets', validDocId()), { ...validBasePayload(), gender: 'Other' }));
-  });
-
-  it('rejects oversized name (>100 chars)', async () => {
-    await expectRejected(setDoc(doc(db, 'pets', validDocId()), { ...validBasePayload(), name: 'x'.repeat(101) }));
-  });
-
-  it('rejects oversized genomeData (>64 KiB)', async () => {
-    await expectRejected(
-      setDoc(doc(db, 'pets', validDocId()), {
-        ...validBasePayload(),
-        genomeData: 'x'.repeat(65537),
-      }),
-    );
-  });
-
-  it('rejects tags list with >30 entries', async () => {
-    await expectRejected(
-      setDoc(doc(db, 'pets', validDocId()), {
-        ...validBasePayload(),
-        tags: Array.from({ length: 31 }, (_, i) => `t${i}`),
-      }),
-    );
-  });
-
-  it('rejects a non-string entry inside tags', async () => {
-    await expectRejected(setDoc(doc(db, 'pets', validDocId()), { ...validBasePayload(), tags: ['ok', 42] }));
-  });
-
-  it('rejects an over-long tag entry (>64 chars)', async () => {
-    await expectRejected(setDoc(doc(db, 'pets', validDocId()), { ...validBasePayload(), tags: ['x'.repeat(65)] }));
-  });
-
-  it('rejects uploaderUid != null in v1', async () => {
-    await expectRejected(setDoc(doc(db, 'pets', validDocId()), { ...validBasePayload(), uploaderUid: 'someone' }));
-  });
-
-  it('rejects doc ID that does not match the SHA-256 hex regex', async () => {
-    await expectRejected(setDoc(doc(db, 'pets', 'short-id'), validBasePayload()));
-    await expectRejected(setDoc(doc(db, 'pets', 'A'.repeat(64)), validBasePayload())); // uppercase
+  it.each([
+    ['short id', 'short-id'],
+    ['uppercase hex', 'A'.repeat(64)],
+  ])('rejects doc ID that does not match SHA-256 hex regex: %s', async (_label, badId) => {
+    await expectRejected(setDoc(doc(db, COLLECTION, badId), validBasePayload()));
   });
 
   it('accepts a fully valid payload', async () => {
     // Positive control — proves the negative tests above are failing for the
     // right reason and not a generic emulator/setup issue.
-    await setDoc(doc(db, 'pets', validDocId()), validBasePayload());
-    const snap = await getDocs(query(collection(db, 'pets')));
+    await setDoc(doc(db, COLLECTION, VALID_DOC_ID), validBasePayload());
+    const snap = await getDocs(query(collection(db, COLLECTION)));
     expect(snap.size).toBe(1);
   });
-});
 
-describe('firestore.rules forbids updates and deletes', () => {
-  it('rejects update of an existing doc', async () => {
-    const pet = await freshPet('U');
-    await uploadPet(pet, db);
+  describe('forbids mutations after create', () => {
+    it('rejects update of an existing doc', async () => {
+      const pet = await freshPet('U');
+      await uploadPet(pet, db);
+      await expectRejected(setDoc(doc(db, COLLECTION, pet.content_hash), { name: 'rewritten' }, { merge: true }));
+    });
 
-    let threw = false;
-    try {
-      await setDoc(doc(db, 'pets', pet.content_hash), { name: 'rewritten' }, { merge: true });
-    } catch (e) {
-      threw = true;
-      expect(String(e)).toMatch(/permission/i);
-    }
-    expect(threw).toBe(true);
-  });
-
-  it('rejects deletion', async () => {
-    const pet = await freshPet('D');
-    await uploadPet(pet, db);
-
-    let threw = false;
-    try {
-      await deleteDoc(doc(db, 'pets', pet.content_hash));
-    } catch (e) {
-      threw = true;
-      expect(String(e)).toMatch(/permission/i);
-    }
-    expect(threw).toBe(true);
+    it('rejects deletion', async () => {
+      const pet = await freshPet('D');
+      await uploadPet(pet, db);
+      await expectRejected(deleteDoc(doc(db, COLLECTION, pet.content_hash)));
+    });
   });
 });

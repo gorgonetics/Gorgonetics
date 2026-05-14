@@ -22,7 +22,6 @@ import {
   type DocumentSnapshot,
   doc,
   type Firestore,
-  FirestoreError,
   getDoc,
   getDocs,
   orderBy,
@@ -36,7 +35,7 @@ import {
 
 import { firestore as defaultFirestore } from '$lib/firebase.js';
 import { CURRENT_SCHEMA_VERSION } from '$lib/services/migrationService.js';
-import type { Gender, ListPetsOpts, Pet, SharedPet } from '$lib/types/index.js';
+import { Gender, type ListPetsOpts, type Pet, type SharedPet } from '$lib/types/index.js';
 import { sha256Hex } from '$lib/utils/hash.js';
 
 declare const __APP_VERSION__: string;
@@ -56,12 +55,14 @@ export interface UploadResult {
 
 /**
  * Upload a local pet to the public catalogue. Idempotent on `content_hash`:
- * if the doc already exists, returns `{ status: 'already-shared' }` without
- * mutating it (rules deny update/delete by design).
+ * if the doc already exists, rules deny the create (update/delete are also
+ * denied by design) and we surface that as `{ status: 'already-shared' }`
+ * after a single recheck — strictly cheaper than a precondition getDoc on
+ * the common new-upload path.
  *
  * The caller is responsible for ensuring `pet.content_hash` matches the
- * SHA-256 of `pet.genome_data` — the petService keeps these in sync at
- * insert time, and the import flow rejects mismatched documents.
+ * SHA-256 of `pet.genome_data` — petService keeps these in sync at insert
+ * time, and the import flow rejects mismatched documents.
  */
 export async function uploadPet(pet: Pet, db: Firestore = defaultFirestore): Promise<UploadResult> {
   if (!pet.content_hash) {
@@ -70,24 +71,17 @@ export async function uploadPet(pet: Pet, db: Firestore = defaultFirestore): Pro
 
   const ref = doc(db, COLLECTION, pet.content_hash);
 
-  // Optimistic existence check first: the rules deny update, so a duplicate
-  // write would surface as a generic permission-denied that's easy to
-  // misdiagnose. A single getDoc is cheap (1 read against the 50k/day Spark
-  // quota) and lets us return a clean status to the UI.
-  const existing = await getDoc(ref);
-  if (existing.exists()) {
-    return { status: 'already-shared', contentHash: pet.content_hash };
-  }
-
-  const payload = buildUploadPayload(pet);
-
   try {
-    await setDoc(ref, payload);
+    await setDoc(ref, buildUploadPayload(pet));
+    return { status: 'created', contentHash: pet.content_hash };
   } catch (err) {
-    // Race: another client uploaded the same content between our read and
-    // write. Rules will reject the second create with permission-denied;
-    // treat it as 'already-shared' to match the deterministic case above.
-    if (err instanceof FirestoreError && err.code === 'permission-denied') {
+    // The only rules-allowed reason for permission-denied on this path is
+    // that the doc already exists (create is denied because it isn't a
+    // create; update/delete are denied unconditionally). A recheck
+    // disambiguates that from a genuinely misconfigured rules deploy.
+    // Duck-typed on `.code` because instanceof FirestoreError is fragile
+    // across module-graph re-instantiations (mocks, bundling).
+    if (isPermissionDenied(err)) {
       const recheck = await getDoc(ref);
       if (recheck.exists()) {
         return { status: 'already-shared', contentHash: pet.content_hash };
@@ -95,20 +89,14 @@ export async function uploadPet(pet: Pet, db: Firestore = defaultFirestore): Pro
     }
     throw err;
   }
-
-  return { status: 'created', contentHash: pet.content_hash };
 }
 
 /** Page through the catalogue, newest first. */
 export async function listPets(opts: ListPetsOpts = {}, db: Firestore = defaultFirestore): Promise<SharedPet[]> {
   const pageSize = opts.limit ?? DEFAULT_PAGE_SIZE;
-
-  const constraints = [orderBy('uploadedAt', 'desc'), queryLimit(pageSize)];
-  if (opts.after) {
-    // `startAfter` on an ordered field accepts the field value directly.
-    // We previously converted Timestamp → Date on read, so reverse it here.
-    constraints.splice(1, 0, startAfter(Timestamp.fromDate(opts.after.uploadedAt)));
-  }
+  const constraints = opts.after
+    ? [orderBy('uploadedAt', 'desc'), startAfter(Timestamp.fromDate(opts.after.uploadedAt)), queryLimit(pageSize)]
+    : [orderBy('uploadedAt', 'desc'), queryLimit(pageSize)];
 
   const snap = await getDocs(query(collection(db, COLLECTION), ...constraints));
   return snap.docs.map(toSharedPet);
@@ -130,72 +118,19 @@ export async function getSharedPet(contentHash: string, db: Firestore = defaultF
 export async function verifySharedPet(pet: SharedPet): Promise<void> {
   const expected = await sha256Hex(pet.genomeData);
   if (expected !== pet.contentHash) {
-    throw new Error(
-      `verifySharedPet: hash mismatch — contentHash=${pet.contentHash}, ` + `sha256(genomeData)=${expected}`,
-    );
+    throw new Error(`verifySharedPet: hash mismatch — contentHash=${pet.contentHash}, sha256(genomeData)=${expected}`);
   }
-}
-
-// --- internals ---
-
-interface UploadPayload {
-  name: string;
-  character: string;
-  species: string;
-  gender: Gender;
-  breed: string;
-  breeder: string;
-  notes: string;
-  tags: string[];
-  schemaVersion: number;
-  appVersion: string;
-  genomeData: string;
-  uploadedAt: ReturnType<typeof serverTimestamp>;
-  uploaderUid: string | null;
-}
-
-function buildUploadPayload(pet: Pet): UploadPayload {
-  return {
-    name: pet.name,
-    character: extractCharacter(pet.genome_data),
-    species: pet.species,
-    gender: pet.gender,
-    breed: pet.breed,
-    breeder: pet.breeder,
-    notes: pet.notes ?? '',
-    tags: sanitizeTags(pet.tags),
-    schemaVersion: CURRENT_SCHEMA_VERSION,
-    appVersion: APP_VERSION,
-    genomeData: pet.genome_data,
-    uploadedAt: serverTimestamp(),
-    uploaderUid: null,
-  };
-}
-
-/**
- * Parse the `Character=` line out of the genome's `[Overview]` block.
- * Returns an empty string if the line isn't present — the rules accept
- * empty strings, and the existing genome format doesn't guarantee a
- * Character line on every export.
- */
-function extractCharacter(genomeText: string): string {
-  for (const rawLine of genomeText.split(/\r?\n/)) {
-    const line = rawLine.trim();
-    if (line.startsWith('Character=')) {
-      return line.slice('Character='.length).trim();
-    }
-    if (line.startsWith('[Genes]')) break;
-  }
-  return '';
 }
 
 /**
  * Drop non-string entries and over-long entries, dedupe, and cap at 30 —
  * mirrors the per-element constraint enforced by `isValidTagList` in
  * firestore.rules. Applied symmetrically on upload (defence) and on read
- * (display safety for any pre-rule documents).
+ * (display safety for any pre-rule documents). Exported because PR 3's
+ * "preview before upload" dialog will want to show the same normalised
+ * list the user is about to publish.
  */
-function sanitizeTags(tags: unknown): string[] {
+export function sanitizeTags(tags: unknown): string[] {
   if (!Array.isArray(tags)) return [];
   const seen = new Set<string>();
   const out: string[] = [];
@@ -210,28 +145,55 @@ function sanitizeTags(tags: unknown): string[] {
   return out;
 }
 
-function toSharedPet(snap: DocumentSnapshot<DocumentData>): SharedPet {
-  const data = snap.data() ?? {};
-  const uploadedAt = data.uploadedAt instanceof Timestamp ? data.uploadedAt.toDate() : new Date(0);
+// --- internals ---
 
+function isPermissionDenied(err: unknown): boolean {
+  return typeof err === 'object' && err !== null && (err as { code?: unknown }).code === 'permission-denied';
+}
+
+function buildUploadPayload(pet: Pet) {
+  // Pet.breeder holds the genome's [Overview] Character= value (set by
+  // petService.uploadPet at insert time), so we don't re-parse here.
   return {
-    contentHash: snap.id,
-    name: typeof data.name === 'string' ? data.name : '',
-    character: typeof data.character === 'string' ? data.character : '',
-    species: typeof data.species === 'string' ? data.species : '',
-    gender: (data.gender === 'Male' || data.gender === 'Female' ? data.gender : 'Male') as Gender,
-    breed: typeof data.breed === 'string' ? data.breed : '',
-    breeder: typeof data.breeder === 'string' ? data.breeder : '',
-    notes: typeof data.notes === 'string' ? data.notes : '',
-    tags: sanitizeTags(data.tags),
-    schemaVersion: typeof data.schemaVersion === 'number' ? data.schemaVersion : 0,
-    appVersion: typeof data.appVersion === 'string' ? data.appVersion : '',
-    genomeData: typeof data.genomeData === 'string' ? data.genomeData : '',
-    uploadedAt,
-    uploaderUid: typeof data.uploaderUid === 'string' ? data.uploaderUid : null,
+    name: pet.name,
+    character: pet.breeder,
+    species: pet.species,
+    gender: pet.gender,
+    breed: pet.breed,
+    breeder: pet.breeder,
+    notes: pet.notes ?? '',
+    tags: sanitizeTags(pet.tags),
+    schemaVersion: CURRENT_SCHEMA_VERSION,
+    appVersion: APP_VERSION,
+    genomeData: pet.genome_data,
+    uploadedAt: serverTimestamp(),
+    uploaderUid: null as string | null,
   };
 }
 
-// Exported for tests only — the unit suite asserts the exact upload payload
-// shape against firestore.rules without round-tripping through the SDK.
-export const __test__ = { buildUploadPayload, extractCharacter, sanitizeTags, toSharedPet };
+const str = (v: unknown, fallback = ''): string => (typeof v === 'string' ? v : fallback);
+const num = (v: unknown, fallback = 0): number => (typeof v === 'number' ? v : fallback);
+const strOrNull = (v: unknown): string | null => (typeof v === 'string' ? v : null);
+
+function toSharedPet(snap: DocumentSnapshot<DocumentData>): SharedPet {
+  const data = snap.data() ?? {};
+  const uploadedAt = data.uploadedAt instanceof Timestamp ? data.uploadedAt.toDate() : new Date(0);
+  const gender = data.gender === Gender.MALE || data.gender === Gender.FEMALE ? data.gender : Gender.MALE;
+
+  return {
+    contentHash: snap.id,
+    name: str(data.name),
+    character: str(data.character),
+    species: str(data.species),
+    gender,
+    breed: str(data.breed),
+    breeder: str(data.breeder),
+    notes: str(data.notes),
+    tags: sanitizeTags(data.tags),
+    schemaVersion: num(data.schemaVersion),
+    appVersion: str(data.appVersion),
+    genomeData: str(data.genomeData),
+    uploadedAt,
+    uploaderUid: strOrNull(data.uploaderUid),
+  };
+}
