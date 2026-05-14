@@ -326,3 +326,51 @@ export interface ComparisonResult {
     similarityPercent: number;
   };
 }
+
+// --- Public pet sharing (Community) types ---
+
+/**
+ * One document in the public `/pets` Firestore collection. Mirrors the
+ * upload schema enforced by firestore.rules. See
+ * docs/design/public-pet-sharing-v1.md §3 for field-by-field rationale.
+ *
+ * `contentHash` is **not** stored as a field on the document — it is the
+ * Firestore document ID. The service layer (`listPets` / `getSharedPet`,
+ * PR 2) populates this property from `docSnapshot.id` after fetching, so
+ * UI callers can treat `SharedPet` as a flat record. Storing it as a
+ * field too would duplicate the doc ID for no gain and is intentionally
+ * excluded from the upload schema in `firestore.rules`.
+ *
+ * `uploadedAt` is a JS `Date` here — the service layer is responsible
+ * for converting the wire-level Firestore `Timestamp` via `toDate()`
+ * before handing documents to the UI.
+ *
+ * `tags` is typed `string[]` for the convenience of UI callers, but the
+ * service layer must coerce/filter on read: `firestore.rules` enforces
+ * per-element string-ness up to a 30-tag cap (see `isValidTagList`), and
+ * any document predating that rule version, or any field tampered with
+ * via the console, may contain non-string entries that must be dropped
+ * before returning the record to the UI.
+ */
+export interface SharedPet {
+  contentHash: string;
+  name: string;
+  character: string;
+  species: string;
+  gender: Gender;
+  breed: string;
+  breeder: string;
+  notes: string;
+  tags: string[];
+  schemaVersion: number;
+  appVersion: string;
+  genomeData: string;
+  uploadedAt: Date;
+  uploaderUid: string | null;
+}
+
+/** Cursor-based pagination options for `listPets`. */
+export interface ListPetsOpts {
+  limit?: number;
+  after?: SharedPet;
+}

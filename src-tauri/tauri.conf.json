@@ -21,7 +21,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self' 'unsafe-inline' ipc: http://ipc.localhost; img-src 'self' asset: http://asset.localhost blob: data:; connect-src ipc: http://ipc.localhost",
+      "csp": "default-src 'self' 'unsafe-inline' ipc: http://ipc.localhost; img-src 'self' asset: http://asset.localhost blob: data:; connect-src ipc: http://ipc.localhost https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com",
       "assetProtocol": {
         "enable": true,
         "scope": [
