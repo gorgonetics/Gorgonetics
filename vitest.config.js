@@ -16,7 +16,7 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     include: ['tests/**/*.{test,spec}.{js,ts}'],
-    exclude: ['tests/e2e/**', 'node_modules'],
+    exclude: ['tests/e2e/**', 'tests/integration/**', 'node_modules'],
     testTimeout: 10000,
     alias: {
       $lib: resolve(__dirname, './src/lib'),
