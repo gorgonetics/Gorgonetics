@@ -344,6 +344,13 @@ export interface ComparisonResult {
  * `uploadedAt` is a JS `Date` here — the service layer is responsible
  * for converting the wire-level Firestore `Timestamp` via `toDate()`
  * before handing documents to the UI.
+ *
+ * `tags` is typed `string[]` for the convenience of UI callers, but the
+ * service layer must coerce/filter on read: `firestore.rules` enforces
+ * per-element string-ness up to a 30-tag cap (see `isValidTagList`), and
+ * any document predating that rule version, or any field tampered with
+ * via the console, may contain non-string entries that must be dropped
+ * before returning the record to the UI.
  */
 export interface SharedPet {
   contentHash: string;

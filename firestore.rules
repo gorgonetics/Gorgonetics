@@ -1,17 +1,52 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{db}/documents {
+
+    // Validate that every element of `tags` (up to the 30-element cap) is a
+    // string no longer than 64 chars. Firestore CEL has no list comprehension
+    // so per-element checks must be unrolled by index; the cap is small enough
+    // for this to be tolerable.
+    function isValidTagList(tags) {
+      return tags is list
+        && tags.size() <= 30
+        && (tags.size() < 1  || (tags[0]  is string && tags[0].size()  <= 64))
+        && (tags.size() < 2  || (tags[1]  is string && tags[1].size()  <= 64))
+        && (tags.size() < 3  || (tags[2]  is string && tags[2].size()  <= 64))
+        && (tags.size() < 4  || (tags[3]  is string && tags[3].size()  <= 64))
+        && (tags.size() < 5  || (tags[4]  is string && tags[4].size()  <= 64))
+        && (tags.size() < 6  || (tags[5]  is string && tags[5].size()  <= 64))
+        && (tags.size() < 7  || (tags[6]  is string && tags[6].size()  <= 64))
+        && (tags.size() < 8  || (tags[7]  is string && tags[7].size()  <= 64))
+        && (tags.size() < 9  || (tags[8]  is string && tags[8].size()  <= 64))
+        && (tags.size() < 10 || (tags[9]  is string && tags[9].size()  <= 64))
+        && (tags.size() < 11 || (tags[10] is string && tags[10].size() <= 64))
+        && (tags.size() < 12 || (tags[11] is string && tags[11].size() <= 64))
+        && (tags.size() < 13 || (tags[12] is string && tags[12].size() <= 64))
+        && (tags.size() < 14 || (tags[13] is string && tags[13].size() <= 64))
+        && (tags.size() < 15 || (tags[14] is string && tags[14].size() <= 64))
+        && (tags.size() < 16 || (tags[15] is string && tags[15].size() <= 64))
+        && (tags.size() < 17 || (tags[16] is string && tags[16].size() <= 64))
+        && (tags.size() < 18 || (tags[17] is string && tags[17].size() <= 64))
+        && (tags.size() < 19 || (tags[18] is string && tags[18].size() <= 64))
+        && (tags.size() < 20 || (tags[19] is string && tags[19].size() <= 64))
+        && (tags.size() < 21 || (tags[20] is string && tags[20].size() <= 64))
+        && (tags.size() < 22 || (tags[21] is string && tags[21].size() <= 64))
+        && (tags.size() < 23 || (tags[22] is string && tags[22].size() <= 64))
+        && (tags.size() < 24 || (tags[23] is string && tags[23].size() <= 64))
+        && (tags.size() < 25 || (tags[24] is string && tags[24].size() <= 64))
+        && (tags.size() < 26 || (tags[25] is string && tags[25].size() <= 64))
+        && (tags.size() < 27 || (tags[26] is string && tags[26].size() <= 64))
+        && (tags.size() < 28 || (tags[27] is string && tags[27].size() <= 64))
+        && (tags.size() < 29 || (tags[28] is string && tags[28].size() <= 64))
+        && (tags.size() < 30 || (tags[29] is string && tags[29].size() <= 64));
+    }
+
     match /pets/{contentHash} {
       // Public catalogue — anyone can read.
       allow read: if true;
 
       // Create-only in v1. Every field is validated against the upload schema
       // documented in docs/design/public-pet-sharing-v1.md §4.
-      //
-      // Known gap (acknowledged in design §4): Firestore CEL has no list
-      // comprehension, so we cannot enforce that every `tags` element is a
-      // string — only that `tags` is a list of bounded size. Worst case is a
-      // mistyped tag entry, cleanable via console takedown.
       allow create: if request.resource.data.keys().hasAll([
                         'name', 'character', 'species', 'gender',
                         'breed', 'breeder', 'notes', 'tags',
@@ -37,8 +72,7 @@ service cloud.firestore {
                  && request.resource.data.breeder.size() <= 100
                  && request.resource.data.notes is string
                  && request.resource.data.notes.size() <= 4096
-                 && request.resource.data.tags is list
-                 && request.resource.data.tags.size() <= 30
+                 && isValidTagList(request.resource.data.tags)
                  && request.resource.data.schemaVersion is int
                  && request.resource.data.appVersion is string
                  && request.resource.data.appVersion.size() <= 32
