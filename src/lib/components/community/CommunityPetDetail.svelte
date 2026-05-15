@@ -1,25 +1,58 @@
 <script>
+import { getSharedPet } from '$lib/services/shareService.js';
 import { clearSelection, communityView, importSelected, selectedSharedPet } from '$lib/stores/community.svelte.js';
 import { formatShortDate } from '$lib/utils/timestamp.js';
 
 const pet = $derived(selectedSharedPet());
 const isImporting = $derived(communityView.importingHash === pet?.contentHash);
+
+// The list view holds metadata-only SharedPets (no `genomeData`); the
+// detail pane fetches the genome on demand. Tracked locally so the store
+// doesn't need a parallel "full pet" cache layer.
+let fullPet = $state(null);
+let genomeLoading = $state(false);
+let genomeError = $state(null);
 let importStatus = $state(null);
 
-// The detail component instance is reused as the user switches between
-// rows — drop a stale "Imported …" / "Already in your stable" banner from
-// the previous selection so it doesn't follow the user around.
 $effect(() => {
-  // Read the hash to register the dependency; the effect's only job is to
-  // clear the status whenever the selection changes.
-  pet?.contentHash;
+  const hash = pet?.contentHash;
+  // Reset transient state whenever the selection changes — stale
+  // "Imported …" banners would otherwise follow the user across rows.
   importStatus = null;
+  genomeError = null;
+  if (!hash) {
+    fullPet = null;
+    genomeLoading = false;
+    return;
+  }
+  if (fullPet?.contentHash === hash) return;
+
+  fullPet = null;
+  genomeLoading = true;
+  getSharedPet(hash)
+    .then((p) => {
+      // The user might have moved on while the fetch was in flight; only
+      // accept the result if it still matches the current selection.
+      if (pet?.contentHash !== hash) return;
+      if (!p?.genomeData) {
+        genomeError = 'Genome data is missing for this pet — it may have been taken down.';
+        return;
+      }
+      fullPet = p;
+    })
+    .catch((err) => {
+      if (pet?.contentHash !== hash) return;
+      genomeError = err instanceof Error ? err.message : String(err);
+    })
+    .finally(() => {
+      if (pet?.contentHash === hash) genomeLoading = false;
+    });
 });
 
 async function handleImport() {
+  if (!fullPet) return;
   importStatus = null;
-  const result = await importSelected();
-  importStatus = result;
+  importStatus = await importSelected(fullPet);
 }
 </script>
 
@@ -76,7 +109,15 @@ async function handleImport() {
 
       <div class="genome-block">
         <span class="block-label">Genome preview</span>
-        <pre class="genome">{pet.genomeData}</pre>
+        {#if genomeLoading}
+          <p class="muted" data-testid="community-genome-loading">Loading genome…</p>
+        {:else if genomeError}
+          <p class="banner banner-error" role="alert" data-testid="community-genome-error">
+            {genomeError}
+          </p>
+        {:else if fullPet?.genomeData}
+          <pre class="genome">{fullPet.genomeData}</pre>
+        {/if}
       </div>
 
       {#if importStatus}
@@ -95,7 +136,8 @@ async function handleImport() {
         class="btn btn-primary import-btn"
         data-testid="community-import"
         onclick={handleImport}
-        disabled={isImporting}
+        disabled={isImporting || !fullPet}
+        title={fullPet ? 'Import to my stable' : 'Waiting for genome to load…'}
       >
         {isImporting ? 'Importing…' : 'Import to my stable'}
       </button>

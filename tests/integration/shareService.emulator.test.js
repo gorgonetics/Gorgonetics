@@ -3,9 +3,12 @@
  *
  * Validates two things the unit suite cannot:
  *  1. The end-to-end round-trip (upload → list → fetch) works against a
- *     real Firestore implementation, not a mock.
+ *     real Firestore implementation, not a mock — including the
+ *     metadata/genome split (listPets returns metadata only; getSharedPet
+ *     combines both reads).
  *  2. `firestore.rules` actually enforces each of the predicates documented
- *     in the design (one negative test per rule clause).
+ *     in the design across BOTH collections (`/pets/{hash}` and
+ *     `/genomes/{hash}`).
  *
  * Run with `pnpm test:firestore`, which wraps this file in
  * `firebase emulators:exec --only firestore` so the emulator is up before
@@ -30,7 +33,8 @@ import { getSharedPet, listPets, uploadPet } from '$lib/services/shareService.js
 import { Gender } from '$lib/types/index.js';
 import { sha256Hex } from '$lib/utils/hash.js';
 
-const COLLECTION = 'pets';
+const META_COLLECTION = 'pets';
+const GENOME_COLLECTION = 'genomes';
 const EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST?.split(':')[0] ?? 'localhost';
 const EMULATOR_PORT = Number(process.env.FIRESTORE_EMULATOR_HOST?.split(':')[1] ?? 8080);
 const PROJECT_ID = `demo-gorgonetics-${Date.now()}`;
@@ -55,9 +59,8 @@ afterAll(async () => {
 });
 
 afterEach(async () => {
-  // Clear the `pets` collection between tests. Rules deny SDK deletes, so
-  // we hit the emulator's clearData REST endpoint instead — cheaper than
-  // re-initializing.
+  // Clear both collections between tests. Rules deny SDK deletes, so we
+  // hit the emulator's clearData REST endpoint — cheaper than re-init.
   await fetch(
     `http://${EMULATOR_HOST}:${EMULATOR_PORT}/emulator/v1/projects/${PROJECT_ID}/databases/(default)/documents`,
     { method: 'DELETE' },
@@ -101,23 +104,24 @@ async function freshPet(seed = 'pet') {
 }
 
 describe('shareService end-to-end via emulator', () => {
-  it('uploads, lists, and fetches a pet', async () => {
+  it('uploads, lists (metadata only), then fetches the full pet with genome', async () => {
     const pet = await freshPet('A');
 
     const result = await uploadPet(pet, db);
     expect(result.status).toBe('created');
     expect(result.contentHash).toBe(pet.content_hash);
 
-    const fetched = await getSharedPet(pet.content_hash, db);
-    expect(fetched).not.toBeNull();
-    expect(fetched.contentHash).toBe(pet.content_hash);
-    expect(fetched.name).toBe('Buzz');
-    expect(fetched.character).toBe('PlayerA');
-    expect(fetched.uploadedAt).toBeInstanceOf(Date);
-
     const listed = await listPets({}, db);
     expect(listed).toHaveLength(1);
     expect(listed[0].contentHash).toBe(pet.content_hash);
+    expect(listed[0].name).toBe('Buzz');
+    expect(listed[0].character).toBe('PlayerA');
+    // The whole point of the split: list rows do NOT carry the genome.
+    expect(listed[0].genomeData).toBeUndefined();
+
+    const fetched = await getSharedPet(pet.content_hash, db);
+    expect(fetched?.genomeData).toBe(pet.genome_data);
+    expect(fetched?.uploadedAt).toBeInstanceOf(Date);
   });
 
   it('second upload of the same content returns already-shared', async () => {
@@ -166,7 +170,7 @@ describe('shareService end-to-end via emulator', () => {
   });
 });
 
-describe('firestore.rules enforces the upload schema', () => {
+describe('firestore.rules — /pets metadata schema', () => {
   // Each test deliberately builds a payload that violates one rule clause
   // and expects setDoc to be rejected. We bypass the service layer here
   // because the service is built to produce valid payloads — these tests
@@ -184,7 +188,6 @@ describe('firestore.rules enforces the upload schema', () => {
       tags: ['fast'],
       schemaVersion: 1,
       appVersion: '0.6.3',
-      genomeData: '[Overview]\nEntity=Buzz\n[Genes]\n',
       // Rules require `uploadedAt == request.time`, so the only way to
       // satisfy that is the server-side sentinel.
       uploadedAt: serverTimestamp(),
@@ -209,54 +212,127 @@ describe('firestore.rules enforces the upload schema', () => {
   }
 
   it('rejects payload with an extra unknown field', async () => {
-    await expectRejected(setDoc(doc(db, COLLECTION, VALID_DOC_ID), { ...validBasePayload(), nope: 'x' }));
+    await expectRejected(setDoc(doc(db, META_COLLECTION, VALID_DOC_ID), { ...validBasePayload(), nope: 'x' }));
+  });
+
+  it('rejects a payload that still carries genomeData (legacy schema attempt)', async () => {
+    await expectRejected(
+      setDoc(doc(db, META_COLLECTION, VALID_DOC_ID), {
+        ...validBasePayload(),
+        genomeData: '[Overview]\nEntity=Buzz\n[Genes]\n',
+      }),
+    );
   });
 
   it('rejects payload missing a required field', async () => {
     const payload = validBasePayload();
     delete payload.name;
-    await expectRejected(setDoc(doc(db, COLLECTION, VALID_DOC_ID), payload));
+    await expectRejected(setDoc(doc(db, META_COLLECTION, VALID_DOC_ID), payload));
   });
 
   it.each([
     ['species enum violation', { species: 'Dragon' }],
     ['gender enum violation', { gender: 'Other' }],
     ['oversized name (>100 chars)', { name: 'x'.repeat(101) }],
-    ['oversized genomeData (>64 KiB)', { genomeData: 'x'.repeat(65537) }],
     ['tags > 30 entries', { tags: Array.from({ length: 31 }, (_, i) => `t${i}`) }],
     ['non-string entry in tags', { tags: ['ok', 42] }],
     ['over-long tag entry (>64 chars)', { tags: ['x'.repeat(65)] }],
     ['uploaderUid != null', { uploaderUid: 'someone' }],
   ])('rejects %s', async (_label, override) => {
-    await expectRejected(setDoc(doc(db, COLLECTION, VALID_DOC_ID), { ...validBasePayload(), ...override }));
+    await expectRejected(setDoc(doc(db, META_COLLECTION, VALID_DOC_ID), { ...validBasePayload(), ...override }));
   });
 
   it.each([
     ['short id', 'short-id'],
     ['uppercase hex', 'A'.repeat(64)],
-  ])('rejects doc ID that does not match SHA-256 hex regex: %s', async (_label, badId) => {
-    await expectRejected(setDoc(doc(db, COLLECTION, badId), validBasePayload()));
+  ])('rejects /pets doc ID that does not match SHA-256 hex regex: %s', async (_label, badId) => {
+    await expectRejected(setDoc(doc(db, META_COLLECTION, badId), validBasePayload()));
   });
 
-  it('accepts a fully valid payload', async () => {
+  it('accepts a fully valid metadata payload', async () => {
     // Positive control — proves the negative tests above are failing for the
     // right reason and not a generic emulator/setup issue.
-    await setDoc(doc(db, COLLECTION, VALID_DOC_ID), validBasePayload());
-    const snap = await getDocs(query(collection(db, COLLECTION)));
+    await setDoc(doc(db, META_COLLECTION, VALID_DOC_ID), validBasePayload());
+    const snap = await getDocs(query(collection(db, META_COLLECTION)));
+    expect(snap.size).toBe(1);
+  });
+});
+
+describe('firestore.rules — /genomes blob schema', () => {
+  const VALID_DOC_ID = 'a'.repeat(64);
+
+  async function expectRejected(promise) {
+    let threw = false;
+    try {
+      await promise;
+    } catch (e) {
+      threw = true;
+      expect(String(e)).toMatch(/permission|invalid/i);
+    }
+    expect(threw).toBe(true);
+  }
+
+  it('accepts a valid genome blob', async () => {
+    await setDoc(doc(db, GENOME_COLLECTION, VALID_DOC_ID), { genomeData: '[Overview]\nEntity=Buzz\n[Genes]\n' });
+    const snap = await getDocs(query(collection(db, GENOME_COLLECTION)));
     expect(snap.size).toBe(1);
   });
 
-  describe('forbids mutations after create', () => {
-    it('rejects update of an existing doc', async () => {
-      const pet = await freshPet('U');
-      await uploadPet(pet, db);
-      await expectRejected(setDoc(doc(db, COLLECTION, pet.content_hash), { name: 'rewritten' }, { merge: true }));
-    });
+  it('rejects empty genome data', async () => {
+    await expectRejected(setDoc(doc(db, GENOME_COLLECTION, VALID_DOC_ID), { genomeData: '' }));
+  });
 
-    it('rejects deletion', async () => {
-      const pet = await freshPet('D');
-      await uploadPet(pet, db);
-      await expectRejected(deleteDoc(doc(db, COLLECTION, pet.content_hash)));
-    });
+  it('rejects oversized genome data (>64 KiB)', async () => {
+    await expectRejected(setDoc(doc(db, GENOME_COLLECTION, VALID_DOC_ID), { genomeData: 'x'.repeat(65537) }));
+  });
+
+  it('rejects extra keys beyond genomeData', async () => {
+    await expectRejected(setDoc(doc(db, GENOME_COLLECTION, VALID_DOC_ID), { genomeData: 'ok', extra: 1 }));
+  });
+
+  it.each([
+    ['short id', 'short-id'],
+    ['uppercase hex', 'A'.repeat(64)],
+  ])('rejects /genomes doc ID that does not match SHA-256 hex regex: %s', async (_label, badId) => {
+    await expectRejected(setDoc(doc(db, GENOME_COLLECTION, badId), { genomeData: 'ok' }));
+  });
+});
+
+describe('firestore.rules — forbids mutations after create', () => {
+  async function expectRejected(promise) {
+    let threw = false;
+    try {
+      await promise;
+    } catch (e) {
+      threw = true;
+      expect(String(e)).toMatch(/permission|invalid/i);
+    }
+    expect(threw).toBe(true);
+  }
+
+  it('rejects update of an existing /pets doc', async () => {
+    const pet = await freshPet('U');
+    await uploadPet(pet, db);
+    await expectRejected(setDoc(doc(db, META_COLLECTION, pet.content_hash), { name: 'rewritten' }, { merge: true }));
+  });
+
+  it('rejects deletion from /pets', async () => {
+    const pet = await freshPet('D');
+    await uploadPet(pet, db);
+    await expectRejected(deleteDoc(doc(db, META_COLLECTION, pet.content_hash)));
+  });
+
+  it('rejects update of an existing /genomes doc', async () => {
+    const pet = await freshPet('UG');
+    await uploadPet(pet, db);
+    await expectRejected(
+      setDoc(doc(db, GENOME_COLLECTION, pet.content_hash), { genomeData: 'tampered' }, { merge: true }),
+    );
+  });
+
+  it('rejects deletion from /genomes', async () => {
+    const pet = await freshPet('DG');
+    await uploadPet(pet, db);
+    await expectRejected(deleteDoc(doc(db, GENOME_COLLECTION, pet.content_hash)));
   });
 });

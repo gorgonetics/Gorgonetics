@@ -95,16 +95,16 @@ export function clearSelection(): void {
 }
 
 /**
- * Import the currently-selected community pet into the local stable.
- * The caller (CommunityPetDetail) handles surfacing the toast.
+ * Import a community pet into the local stable. Caller must pass a *full*
+ * SharedPet (with `genomeData` populated) — `listPets` returns metadata
+ * only, so the detail component is responsible for lazy-loading the
+ * genome via `getSharedPet` before invoking this. The caller
+ * (CommunityPetDetail) handles surfacing the toast.
  */
-export async function importSelected(): Promise<ImportOutcome> {
-  const pet = selectedSharedPet();
-  if (!pet) return { status: 'error', message: 'No pet selected' };
-
-  communityView.importingHash = pet.contentHash;
+export async function importSelected(fullPet: SharedPet): Promise<ImportOutcome> {
+  communityView.importingHash = fullPet.contentHash;
   try {
-    return await importCommunityPet(pet);
+    return await importCommunityPet(fullPet);
   } catch (err) {
     return { status: 'error', message: errMsg(err) };
   } finally {

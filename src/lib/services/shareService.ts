@@ -1,5 +1,12 @@
 /**
- * Client surface for the public pet sharing catalogue (Firestore `/pets`).
+ * Client surface for the public pet sharing catalogue.
+ *
+ * The catalogue is split across two Firestore collections:
+ *   /pets/{contentHash}     — metadata only (name, tags, attribution, …)
+ *   /genomes/{contentHash}  — the raw genome text, keyed by the same hash
+ * so the list view can page metadata without dragging 64 KiB-cap genome
+ * blobs across the wire. `listPets` only touches `/pets`; `getSharedPet`
+ * reads both halves in parallel and returns the combined record.
  *
  * The service intentionally takes an optional `db` parameter on every entry
  * point so tests (including the Firestore Emulator integration tests in
@@ -31,6 +38,7 @@ import {
   setDoc,
   startAfter,
   Timestamp,
+  writeBatch,
 } from 'firebase/firestore';
 
 import { firestore as defaultFirestore } from '$lib/firebase.js';
@@ -42,7 +50,8 @@ import { sha256Hex } from '$lib/utils/hash.js';
 declare const __APP_VERSION__: string;
 const APP_VERSION = __APP_VERSION__;
 
-const COLLECTION = 'pets';
+const META_COLLECTION = 'pets';
+const GENOME_COLLECTION = 'genomes';
 const DEFAULT_PAGE_SIZE = 50;
 const TAG_CAP = 30;
 const TAG_MAX_LEN = 64;
@@ -61,6 +70,10 @@ export interface UploadResult {
  * after a single recheck — strictly cheaper than a precondition getDoc on
  * the common new-upload path.
  *
+ * Writes the metadata and the genome blob atomically via `writeBatch`, so
+ * a partial write (e.g. metadata committed but genome rejected) cannot
+ * leave the catalogue in an inconsistent state.
+ *
  * The caller is responsible for ensuring `pet.content_hash` matches the
  * SHA-256 of `pet.genome_data` — petService keeps these in sync at insert
  * time, and the import flow rejects mismatched documents.
@@ -70,49 +83,71 @@ export async function uploadPet(pet: Pet, db: Firestore = defaultFirestore): Pro
     throw new Error('uploadPet: pet.content_hash is required');
   }
 
-  const ref = doc(db, COLLECTION, pet.content_hash);
+  const metaRef = doc(db, META_COLLECTION, pet.content_hash);
+  const genomeRef = doc(db, GENOME_COLLECTION, pet.content_hash);
 
   try {
-    await setDoc(ref, buildUploadPayload(pet));
+    const batch = writeBatch(db);
+    batch.set(metaRef, buildMetadataPayload(pet));
+    batch.set(genomeRef, { genomeData: pet.genome_data });
+    await batch.commit();
     return { status: 'created', contentHash: pet.content_hash };
   } catch (err) {
     // The only rules-allowed reason for permission-denied on this path is
-    // that the doc already exists (create is denied because it isn't a
-    // create; update/delete are denied unconditionally). A recheck
-    // disambiguates that from a genuinely misconfigured rules deploy.
-    // Duck-typed on `.code` because instanceof FirestoreError is fragile
-    // across module-graph re-instantiations (mocks, bundling).
+    // that one (or both) of the docs already exists (create is denied
+    // because it isn't a create; update/delete are denied unconditionally).
+    // A recheck disambiguates that from a genuinely misconfigured rules
+    // deploy. Duck-typed on `.code` because instanceof FirestoreError is
+    // fragile across module-graph re-instantiations (mocks, bundling).
     if (isPermissionDenied(err)) {
       try {
-        const recheck = await getDoc(ref);
+        const recheck = await getDoc(metaRef);
         if (recheck.exists()) {
           return { status: 'already-shared', contentHash: pet.content_hash };
         }
       } catch {
         // Recheck itself failed (network/emulator hiccup, rules also
         // denying reads, etc.). Fall through and surface the original
-        // setDoc error — that's the one the caller can act on.
+        // batch error — that's the one the caller can act on.
       }
     }
     throw err;
   }
 }
 
-/** Page through the catalogue, newest first. */
+/**
+ * Page through the catalogue, newest first. Returns metadata-only
+ * `SharedPet`s — the `genomeData` field is `undefined` on every entry to
+ * keep payloads small. Call `getSharedPet(hash)` to fetch the genome
+ * blob for a single row when the user actually wants to import/preview.
+ */
 export async function listPets(opts: ListPetsOpts = {}, db: Firestore = defaultFirestore): Promise<SharedPet[]> {
   const pageSize = opts.limit ?? DEFAULT_PAGE_SIZE;
   const constraints = opts.after
     ? [orderBy('uploadedAt', 'desc'), startAfter(Timestamp.fromDate(opts.after.uploadedAt)), queryLimit(pageSize)]
     : [orderBy('uploadedAt', 'desc'), queryLimit(pageSize)];
 
-  const snap = await getDocs(query(collection(db, COLLECTION), ...constraints));
-  return snap.docs.map(toSharedPet);
+  const snap = await getDocs(query(collection(db, META_COLLECTION), ...constraints));
+  return snap.docs.map(toMetadataSharedPet);
 }
 
-/** Fetch one shared pet by content hash. `null` if no such document. */
+/**
+ * Fetch one shared pet by content hash, **including its genome**. Returns
+ * `null` if the metadata document is missing; missing/inconsistent genome
+ * is surfaced as `genomeData: undefined` so the caller can decide whether
+ * to retry or treat as broken. The two reads run in parallel.
+ */
 export async function getSharedPet(contentHash: string, db: Firestore = defaultFirestore): Promise<SharedPet | null> {
-  const snap = await getDoc(doc(db, COLLECTION, contentHash));
-  return snap.exists() ? toSharedPet(snap) : null;
+  const [metaSnap, genomeSnap] = await Promise.all([
+    getDoc(doc(db, META_COLLECTION, contentHash)),
+    getDoc(doc(db, GENOME_COLLECTION, contentHash)),
+  ]);
+  if (!metaSnap.exists()) return null;
+
+  const pet = toMetadataSharedPet(metaSnap);
+  const genomeData = genomeSnap.exists() ? (genomeSnap.data().genomeData as unknown) : undefined;
+  pet.genomeData = typeof genomeData === 'string' ? genomeData : undefined;
+  return pet;
 }
 
 /**
@@ -123,6 +158,9 @@ export async function getSharedPet(contentHash: string, db: Firestore = defaultF
  * malicious uploader putting a misleading hash on arbitrary genome text.
  */
 export async function verifySharedPet(pet: SharedPet): Promise<void> {
+  if (!pet.genomeData) {
+    throw new Error('verifySharedPet: genomeData is missing — call getSharedPet to load the genome before verifying');
+  }
   const expected = await sha256Hex(pet.genomeData);
   if (expected !== pet.contentHash) {
     throw new Error(`verifySharedPet: hash mismatch — contentHash=${pet.contentHash}, sha256(genomeData)=${expected}`);
@@ -135,14 +173,18 @@ export type ImportResult =
   | { status: 'error'; message: string };
 
 /**
- * Import a fetched community pet into the local stable. Verifies the hash
- * first (defence in depth — Firestore rules can't enforce SHA-256
- * agreement), checks for an existing pet with the same content_hash (so
- * re-import is idempotent), then delegates the actual SQLite write to
- * `petService.uploadPet` and applies the community tag.
+ * Import a fetched community pet into the local stable. Requires
+ * `shared.genomeData` to be populated (caller should fetch via
+ * `getSharedPet`, not just `listPets`). Verifies the hash first → checks
+ * for an existing local row with the same content_hash (re-import is
+ * idempotent) → delegates to petService.uploadPet → applies the
+ * community tag.
  */
 export async function importCommunityPet(shared: SharedPet, opts: { tag?: string } = {}): Promise<ImportResult> {
   await verifySharedPet(shared);
+  // verifySharedPet narrows shared.genomeData to a string but TS doesn't
+  // see across the throw — assert here.
+  const genomeData = shared.genomeData as string;
 
   const existing = await findPetByHash(shared.contentHash);
   if (existing) {
@@ -153,7 +195,7 @@ export async function importCommunityPet(shared: SharedPet, opts: { tag?: string
     };
   }
 
-  const upload = await uploadPetLocally(shared.genomeData, {
+  const upload = await uploadPetLocally(genomeData, {
     name: shared.name,
     gender: shared.gender,
     notes: shared.notes,
@@ -207,7 +249,7 @@ function isPermissionDenied(err: unknown): boolean {
   return typeof err === 'object' && err !== null && (err as { code?: unknown }).code === 'permission-denied';
 }
 
-function buildUploadPayload(pet: Pet) {
+function buildMetadataPayload(pet: Pet) {
   // Pet.breeder holds the genome's [Overview] Character= value (set by
   // petService.uploadPet at insert time), so we don't re-parse here.
   return {
@@ -221,7 +263,6 @@ function buildUploadPayload(pet: Pet) {
     tags: sanitizeTags(pet.tags),
     schemaVersion: CURRENT_SCHEMA_VERSION,
     appVersion: APP_VERSION,
-    genomeData: pet.genome_data,
     uploadedAt: serverTimestamp(),
     uploaderUid: null as string | null,
   };
@@ -231,7 +272,7 @@ const str = (v: unknown, fallback = ''): string => (typeof v === 'string' ? v : 
 const num = (v: unknown, fallback = 0): number => (typeof v === 'number' ? v : fallback);
 const strOrNull = (v: unknown): string | null => (typeof v === 'string' ? v : null);
 
-function toSharedPet(snap: DocumentSnapshot<DocumentData>): SharedPet {
+function toMetadataSharedPet(snap: DocumentSnapshot<DocumentData>): SharedPet {
   const data = snap.data() ?? {};
   const uploadedAt = data.uploadedAt instanceof Timestamp ? data.uploadedAt.toDate() : new Date(0);
   const gender = data.gender === Gender.MALE || data.gender === Gender.FEMALE ? data.gender : Gender.MALE;
@@ -248,7 +289,7 @@ function toSharedPet(snap: DocumentSnapshot<DocumentData>): SharedPet {
     tags: sanitizeTags(data.tags),
     schemaVersion: num(data.schemaVersion),
     appVersion: str(data.appVersion),
-    genomeData: str(data.genomeData),
+    // genomeData is intentionally absent on metadata-only reads.
     uploadedAt,
     uploaderUid: strOrNull(data.uploaderUid),
   };

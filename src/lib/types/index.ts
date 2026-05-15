@@ -351,6 +351,13 @@ export interface ComparisonResult {
  * any document predating that rule version, or any field tampered with
  * via the console, may contain non-string entries that must be dropped
  * before returning the record to the UI.
+ *
+ * `genomeData` is **optional** because the catalogue is split into two
+ * Firestore collections: `/pets/{hash}` (metadata only) and
+ * `/genomes/{hash}` (the genome blob). `listPets` returns metadata-only
+ * `SharedPet`s with `genomeData === undefined`; `getSharedPet` fetches
+ * both halves and returns the combined record. The import / verify paths
+ * require `genomeData` and throw if it's missing.
  */
 export interface SharedPet {
   contentHash: string;
@@ -364,7 +371,7 @@ export interface SharedPet {
   tags: string[];
   schemaVersion: number;
   appVersion: string;
-  genomeData: string;
+  genomeData?: string;
   uploadedAt: Date;
   uploaderUid: string | null;
 }

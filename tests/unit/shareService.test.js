@@ -14,6 +14,24 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
+/**
+ * `writeBatch(db)` returns a builder with `.set()` and `.commit()`. We
+ * surface the recorded `set` calls so individual tests can assert on the
+ * payloads handed to each collection.
+ */
+const batchCalls = [];
+function createBatch() {
+  const calls = [];
+  batchCalls.push(calls);
+  const commit = vi.fn().mockResolvedValue(undefined);
+  return {
+    set: (ref, payload) => calls.push({ ref, payload }),
+    commit,
+    __calls: calls,
+    __commit: commit,
+  };
+}
+
 vi.mock('firebase/firestore', async () => {
   const actual = await vi.importActual('firebase/firestore');
   return {
@@ -21,8 +39,9 @@ vi.mock('firebase/firestore', async () => {
     getDoc: vi.fn(),
     getDocs: vi.fn(),
     setDoc: vi.fn(),
+    writeBatch: vi.fn(() => createBatch()),
     serverTimestamp: vi.fn(() => '__SENTINEL_SERVER_TIMESTAMP__'),
-    doc: vi.fn((db, col, id) => ({ __db: db, path: `${col}/${id}`, id })),
+    doc: vi.fn((db, col, id) => ({ __db: db, path: `${col}/${id}`, id, col })),
     collection: vi.fn((db, col) => ({ __db: db, path: col })),
     query: vi.fn((coll, ...constraints) => ({ __coll: coll, constraints })),
     orderBy: vi.fn((field, dir) => ({ __op: 'orderBy', field, dir })),
@@ -41,7 +60,7 @@ vi.mock('$lib/services/petService.js', () => ({
   uploadPet: vi.fn(),
 }));
 
-import { getDoc, getDocs, orderBy, setDoc, startAfter, Timestamp } from 'firebase/firestore';
+import { getDoc, getDocs, orderBy, startAfter, Timestamp, writeBatch } from 'firebase/firestore';
 import { findPetByHash, setTagsForPet, uploadPet as uploadPetLocally } from '$lib/services/petService.js';
 import {
   getSharedPet,
@@ -53,6 +72,14 @@ import {
 } from '$lib/services/shareService.js';
 import { Gender } from '$lib/types/index.js';
 import { sha256Hex } from '$lib/utils/hash.js';
+
+afterEach(() => {
+  batchCalls.length = 0;
+});
+
+function lastBatch() {
+  return batchCalls.at(-1);
+}
 
 function makePet(overrides = {}) {
   return {
@@ -85,22 +112,26 @@ function makePet(overrides = {}) {
 }
 
 describe('shareService.uploadPet', () => {
-  it('writes a payload matching the rules schema exactly', async () => {
-    setDoc.mockResolvedValueOnce(undefined);
+  it('writes metadata + genome in a single batch with no contentHash field in metadata', async () => {
     const result = await uploadPet(makePet());
 
     expect(result.status).toBe('created');
-    expect(setDoc).toHaveBeenCalledTimes(1);
+    expect(writeBatch).toHaveBeenCalledTimes(1);
+    const batch = lastBatch();
+    expect(batch).toHaveLength(2);
 
-    const [, payload] = setDoc.mock.calls[0];
-    expect(Object.keys(payload).sort()).toEqual(
+    const meta = batch.find((c) => c.ref.col === 'pets');
+    const genome = batch.find((c) => c.ref.col === 'genomes');
+    expect(meta).toBeDefined();
+    expect(genome).toBeDefined();
+
+    expect(Object.keys(meta.payload).sort()).toEqual(
       [
         'appVersion',
         'breed',
         'breeder',
         'character',
         'gender',
-        'genomeData',
         'name',
         'notes',
         'schemaVersion',
@@ -110,15 +141,20 @@ describe('shareService.uploadPet', () => {
         'uploaderUid',
       ].sort(),
     );
-    expect(payload).not.toHaveProperty('contentHash');
-    expect(payload).not.toHaveProperty('content_hash');
-    expect(payload.uploaderUid).toBeNull();
-    expect(payload.uploadedAt).toBe('__SENTINEL_SERVER_TIMESTAMP__');
-    expect(payload.character).toBe('PlayerOne');
+    expect(meta.payload).not.toHaveProperty('contentHash');
+    expect(meta.payload).not.toHaveProperty('content_hash');
+    expect(meta.payload).not.toHaveProperty('genomeData');
+    expect(meta.payload.uploaderUid).toBeNull();
+    expect(meta.payload.uploadedAt).toBe('__SENTINEL_SERVER_TIMESTAMP__');
+
+    expect(Object.keys(genome.payload)).toEqual(['genomeData']);
+    expect(genome.payload.genomeData).toContain('[Overview]');
   });
 
-  it('returns already-shared when the rules reject create and the doc exists', async () => {
-    setDoc.mockRejectedValueOnce(Object.assign(new Error('PERMISSION_DENIED'), { code: 'permission-denied' }));
+  it('returns already-shared when the rules reject create and the metadata doc exists', async () => {
+    const batch = createBatch();
+    writeBatch.mockReturnValueOnce(batch);
+    batch.commit.mockRejectedValueOnce(Object.assign(new Error('PERMISSION_DENIED'), { code: 'permission-denied' }));
     getDoc.mockResolvedValueOnce({ exists: () => true });
 
     const result = await uploadPet(makePet());
@@ -126,24 +162,50 @@ describe('shareService.uploadPet', () => {
     expect(result.contentHash).toBe('a'.repeat(64));
   });
 
-  it('re-throws permission-denied if the doc does not actually exist', async () => {
-    setDoc.mockRejectedValueOnce(Object.assign(new Error('PERMISSION_DENIED'), { code: 'permission-denied' }));
+  it('re-throws permission-denied if the metadata doc does not actually exist', async () => {
+    const batch = createBatch();
+    writeBatch.mockReturnValueOnce(batch);
+    batch.commit.mockRejectedValueOnce(Object.assign(new Error('PERMISSION_DENIED'), { code: 'permission-denied' }));
     getDoc.mockResolvedValueOnce({ exists: () => false });
     await expect(uploadPet(makePet())).rejects.toThrow(/PERMISSION_DENIED/);
   });
 
   it('rejects when content_hash is missing', async () => {
     await expect(uploadPet(makePet({ content_hash: '' }))).rejects.toThrow(/content_hash/);
+    expect(writeBatch).not.toHaveBeenCalled();
   });
 });
 
 describe('shareService.listPets', () => {
-  it('asks for newest-first with the default page size', async () => {
-    getDocs.mockResolvedValueOnce({ docs: [] });
-    await listPets();
+  it('asks for newest-first with the default page size, returns metadata-only pets', async () => {
+    getDocs.mockResolvedValueOnce({
+      docs: [
+        {
+          id: 'a'.repeat(64),
+          data: () => ({
+            name: 'Buzz',
+            character: 'PlayerOne',
+            species: 'BeeWasp',
+            gender: Gender.FEMALE,
+            breed: '',
+            breeder: 'PlayerOne',
+            notes: '',
+            tags: ['fast'],
+            schemaVersion: 1,
+            appVersion: '0.6.3',
+            uploadedAt: Timestamp.fromDate(new Date('2026-05-10T12:00:00Z')),
+            uploaderUid: null,
+          }),
+        },
+      ],
+    });
+    const out = await listPets();
     expect(orderBy).toHaveBeenCalledWith('uploadedAt', 'desc');
     const lastQuery = getDocs.mock.calls.at(-1)?.[0];
     expect(lastQuery.constraints.some((c) => c.__op === 'limit' && c.n === 50)).toBe(true);
+    expect(out).toHaveLength(1);
+    expect(out[0].genomeData).toBeUndefined();
+    expect(out[0].name).toBe('Buzz');
   });
 
   it('passes the cursor through startAfter as a Timestamp', async () => {
@@ -162,40 +224,71 @@ describe('shareService.listPets', () => {
 });
 
 describe('shareService.getSharedPet', () => {
-  it('returns null for missing docs', async () => {
-    getDoc.mockResolvedValueOnce({ exists: () => false });
+  it('returns null when the metadata doc is missing', async () => {
+    getDoc
+      .mockResolvedValueOnce({ exists: () => false })
+      .mockResolvedValueOnce({ exists: () => true, data: () => ({ genomeData: 'orphan' }) });
     expect(await getSharedPet('a'.repeat(64))).toBeNull();
   });
 
-  it('maps a doc snapshot to SharedPet (with Timestamp → Date and tag sanitisation)', async () => {
-    getDoc.mockResolvedValueOnce({
-      exists: () => true,
-      id: 'a'.repeat(64),
-      data: () => ({
-        name: 'Buzz',
-        character: 'PlayerOne',
-        species: 'BeeWasp',
-        gender: Gender.FEMALE,
-        breed: '',
-        breeder: 'PlayerOne',
-        notes: '',
-        tags: ['ok', 42, null, 'fine', { x: 1 }],
-        schemaVersion: 5,
-        appVersion: '0.6.3',
-        genomeData: 'GENOME',
-        uploadedAt: Timestamp.fromDate(new Date('2026-05-10T12:00:00Z')),
-        uploaderUid: null,
-      }),
-    });
-    const result = await getSharedPet('a'.repeat(64));
-    expect(result).toMatchObject({
+  it('combines /pets and /genomes reads into a single SharedPet with genomeData', async () => {
+    getDoc
+      .mockResolvedValueOnce({
+        exists: () => true,
+        id: 'a'.repeat(64),
+        data: () => ({
+          name: 'Buzz',
+          character: 'PlayerOne',
+          species: 'BeeWasp',
+          gender: Gender.FEMALE,
+          breed: '',
+          breeder: 'PlayerOne',
+          notes: '',
+          tags: ['ok', 42, null, 'fine'],
+          schemaVersion: 5,
+          appVersion: '0.6.3',
+          uploadedAt: Timestamp.fromDate(new Date('2026-05-10T12:00:00Z')),
+          uploaderUid: null,
+        }),
+      })
+      .mockResolvedValueOnce({
+        exists: () => true,
+        data: () => ({ genomeData: 'GENOME-BODY' }),
+      });
+    const pet = await getSharedPet('a'.repeat(64));
+    expect(pet).toMatchObject({
       contentHash: 'a'.repeat(64),
       name: 'Buzz',
       tags: ['ok', 'fine'],
-      uploaderUid: null,
+      genomeData: 'GENOME-BODY',
     });
-    expect(result.uploadedAt).toBeInstanceOf(Date);
-    expect(result.uploadedAt.toISOString()).toBe('2026-05-10T12:00:00.000Z');
+    expect(pet.uploadedAt).toBeInstanceOf(Date);
+    expect(pet.uploadedAt.toISOString()).toBe('2026-05-10T12:00:00.000Z');
+  });
+
+  it('returns the pet with genomeData=undefined when the genome doc is missing', async () => {
+    getDoc
+      .mockResolvedValueOnce({
+        exists: () => true,
+        id: 'a'.repeat(64),
+        data: () => ({
+          name: 'Buzz',
+          character: 'PlayerOne',
+          species: 'BeeWasp',
+          gender: Gender.FEMALE,
+          breed: '',
+          breeder: 'PlayerOne',
+          notes: '',
+          tags: [],
+          schemaVersion: 1,
+          appVersion: '0.6.3',
+          uploadedAt: Timestamp.fromDate(new Date('2026-05-10T12:00:00Z')),
+          uploaderUid: null,
+        }),
+      })
+      .mockResolvedValueOnce({ exists: () => false });
+    const pet = await getSharedPet('a'.repeat(64));
+    expect(pet?.genomeData).toBeUndefined();
   });
 });
 
@@ -211,6 +304,26 @@ describe('shareService.sanitizeTags', () => {
     expect(sanitizeTags(undefined)).toEqual([]);
     expect(sanitizeTags(null)).toEqual([]);
     expect(sanitizeTags('a,b')).toEqual([]);
+  });
+});
+
+describe('shareService.verifySharedPet', () => {
+  it('passes when sha256(genomeData) matches contentHash', async () => {
+    const genomeData = '[Overview]\nEntity=Bee\n[Genes]\n';
+    const pet = { contentHash: await sha256Hex(genomeData), genomeData };
+    await expect(verifySharedPet(pet)).resolves.toBeUndefined();
+  });
+
+  it('throws when the hash does not match the data', async () => {
+    const pet = {
+      contentHash: 'f'.repeat(64),
+      genomeData: '[Overview]\nEntity=Tampered\n[Genes]\n',
+    };
+    await expect(verifySharedPet(pet)).rejects.toThrow(/hash mismatch/);
+  });
+
+  it('throws when genomeData is missing entirely', async () => {
+    await expect(verifySharedPet({ contentHash: 'a'.repeat(64) })).rejects.toThrow(/missing/);
   });
 });
 
@@ -281,6 +394,13 @@ describe('shareService.importCommunityPet', () => {
     expect(findPetByHash).not.toHaveBeenCalled();
   });
 
+  it('rejects when genomeData is missing (caller forgot to fetch full pet)', async () => {
+    const shared = await makeShared('M');
+    shared.genomeData = undefined;
+    await expect(importCommunityPet(shared)).rejects.toThrow(/missing/);
+    expect(findPetByHash).not.toHaveBeenCalled();
+  });
+
   it('surfaces error from the local upload without setting tags', async () => {
     const shared = await makeShared('V');
     findPetByHash.mockResolvedValueOnce(null);
@@ -291,21 +411,5 @@ describe('shareService.importCommunityPet', () => {
     expect(result.status).toBe('error');
     expect(result.message).toMatch(/Invalid genome file format/);
     expect(setTagsForPet).not.toHaveBeenCalled();
-  });
-});
-
-describe('shareService.verifySharedPet', () => {
-  it('passes when sha256(genomeData) matches contentHash', async () => {
-    const genomeData = '[Overview]\nEntity=Bee\n[Genes]\n';
-    const pet = { contentHash: await sha256Hex(genomeData), genomeData };
-    await expect(verifySharedPet(pet)).resolves.toBeUndefined();
-  });
-
-  it('throws when the hash does not match the data', async () => {
-    const pet = {
-      contentHash: 'f'.repeat(64),
-      genomeData: '[Overview]\nEntity=Tampered\n[Genes]\n',
-    };
-    await expect(verifySharedPet(pet)).rejects.toThrow(/hash mismatch/);
   });
 });
