@@ -43,7 +43,7 @@ import {
 
 import { firestore as defaultFirestore } from '$lib/firebase.js';
 import { CURRENT_SCHEMA_VERSION } from '$lib/services/migrationService.js';
-import { findPetByHash, setTagsForPet, uploadPet as uploadPetLocally } from '$lib/services/petService.js';
+import { findPetByHash, updatePet, uploadPet as uploadPetLocally } from '$lib/services/petService.js';
 import { Gender, type ListPetsOpts, type Pet, type SharedPet, type SharedPetsPage } from '$lib/types/index.js';
 import { sha256Hex } from '$lib/utils/hash.js';
 
@@ -198,10 +198,22 @@ export type ImportResult =
 /**
  * Import a fetched community pet into the local stable. Requires
  * `shared.genomeData` to be populated (caller should fetch via
- * `getSharedPet`, not just `listPets`). Verifies the hash first → checks
- * for an existing local row with the same content_hash (re-import is
- * idempotent) → delegates to petService.uploadPet → applies the
- * community tag.
+ * `getSharedPet`, not just `listPets`).
+ *
+ * Flow: verify hash → delegate the insert/dedup decision to
+ * `petService.uploadPet` (it owns the content_hash UNIQUE constraint and
+ * the legacy-row-backfill branch from migration v13) → apply the
+ * community tag to whichever row resulted.
+ *
+ * Three success-shaped outcomes from petService:
+ *  - `kind: 'created'`   → fresh pet, status `'imported'`.
+ *  - `kind: 'backfilled'` → user already had a legacy row with the same
+ *    content_hash but empty `genome_text`; petService filled it. We
+ *    return `'already-imported'` (the pet was indeed already there) but
+ *    apply the community tag, so the row is now shareable AND marked as
+ *    a community import.
+ *  - `status: 'error'` with the duplicate message → a different importer
+ *    raced us; recheck and map to `'already-imported'`.
  */
 export async function importCommunityPet(shared: SharedPet, opts: { tag?: string } = {}): Promise<ImportResult> {
   await verifySharedPet(shared);
@@ -209,60 +221,62 @@ export async function importCommunityPet(shared: SharedPet, opts: { tag?: string
   // see across the throw — assert here.
   const genomeData = shared.genomeData as string;
 
-  const existing = await findPetByHash(shared.contentHash);
-  if (existing) {
-    return {
-      status: 'already-imported',
-      message: `"${existing.name}" is already in your stable.`,
-      pet_id: existing.id,
-    };
-  }
-
   const upload = await uploadPetLocally(genomeData, {
     name: shared.name,
     gender: shared.gender,
     notes: shared.notes,
     sourcePath: `community:${shared.contentHash}`,
   });
-  if (upload.status !== 'success' || !upload.pet_id) {
-    // Race against the earlier findPetByHash: another importer may have
-    // committed the same content_hash between that check and the local
-    // upload. petService surfaces the UNIQUE constraint violation as a
-    // generic 'error' with an "already been uploaded" message. Recheck
-    // and map to the idempotent already-imported result so retries are
-    // stable.
-    const racer = await findPetByHash(shared.contentHash);
-    if (racer) {
+
+  if (upload.status === 'success' && upload.pet_id) {
+    const localTag = opts.tag ?? COMMUNITY_TAG;
+    // sanitizeTags handles dedupe, length cap, and the 30-tag count cap —
+    // running it over the combined list (localTag + uploader tags) makes
+    // the local tag obey the same constraints and avoids a separate
+    // dedupe step.
+    const tags = sanitizeTags([localTag, ...shared.tags]);
+    try {
+      // Route through updatePet (the public tags-mutating entry point)
+      // rather than the lower-level setTagsForPet. Tags-only updates are
+      // handled by updatePet at petService.ts:657 — it skips the empty
+      // SET clause and just refreshes updated_at + writes the junction
+      // rows.
+      await updatePet(upload.pet_id, { tags });
+    } catch (err) {
+      // Tag application is best-effort: the pet is already committed to
+      // the local DB, so failing the whole import would force the user to
+      // retry and confuse them with an "already-imported" branch on
+      // retry. Log and continue.
+      console.warn('importCommunityPet: failed to apply tags after successful upload', err);
+    }
+
+    if (upload.kind === 'backfilled') {
       return {
         status: 'already-imported',
-        message: `"${racer.name}" is already in your stable.`,
-        pet_id: racer.id,
+        message: `Linked existing "${upload.name ?? shared.name}" to the community version and tagged it.`,
+        pet_id: upload.pet_id,
       };
     }
-    return { status: 'error', message: upload.message };
+    return {
+      status: 'imported',
+      message: `Imported "${shared.name}" to your stable.`,
+      pet_id: upload.pet_id,
+      tags,
+    };
   }
 
-  const localTag = opts.tag ?? COMMUNITY_TAG;
-  // sanitizeTags handles dedupe, length cap, and the 30-tag count cap —
-  // running it over the combined list (localTag + uploader tags) makes the
-  // local tag obey the same constraints and avoids a separate dedupe step.
-  const tags = sanitizeTags([localTag, ...shared.tags]);
-  try {
-    await setTagsForPet(upload.pet_id, tags);
-  } catch (err) {
-    // Tag application is best-effort: the pet is already committed to the
-    // local DB, so failing the whole import would force the user to retry
-    // and confuse them with an "already-imported" branch on retry. Log
-    // and continue.
-    console.warn('importCommunityPet: failed to apply tags after successful upload', err);
+  // Failure path: typically the petService duplicate check rejected a
+  // truly identical pet (already-shared, non-legacy). Recheck so the
+  // result is the idempotent `already-imported` rather than a flat error.
+  const racer = await findPetByHash(shared.contentHash);
+  if (racer) {
+    return {
+      status: 'already-imported',
+      message: `"${racer.name}" is already in your stable.`,
+      pet_id: racer.id,
+    };
   }
-
-  return {
-    status: 'imported',
-    message: `Imported "${shared.name}" to your stable.`,
-    pet_id: upload.pet_id,
-    tags,
-  };
+  return { status: 'error', message: upload.message };
 }
 
 /**

@@ -56,12 +56,12 @@ vi.mock('$lib/firebase.js', () => ({
 
 vi.mock('$lib/services/petService.js', () => ({
   findPetByHash: vi.fn(),
-  setTagsForPet: vi.fn(),
+  updatePet: vi.fn(),
   uploadPet: vi.fn(),
 }));
 
 import { getDoc, getDocs, orderBy, startAfter, Timestamp, writeBatch } from 'firebase/firestore';
-import { findPetByHash, setTagsForPet, uploadPet as uploadPetLocally } from '$lib/services/petService.js';
+import { findPetByHash, updatePet, uploadPet as uploadPetLocally } from '$lib/services/petService.js';
 import {
   getSharedPet,
   importCommunityPet,
@@ -366,11 +366,10 @@ describe('shareService.importCommunityPet', () => {
     };
   }
 
-  it('verifies hash, uploads to local DB, applies the community tag', async () => {
+  it('verifies hash, uploads to local DB, applies the community tag (fresh insert)', async () => {
     const shared = await makeShared('X');
-    findPetByHash.mockResolvedValueOnce(null);
-    uploadPetLocally.mockResolvedValueOnce({ status: 'success', message: '', pet_id: 42 });
-    setTagsForPet.mockResolvedValueOnce(undefined);
+    uploadPetLocally.mockResolvedValueOnce({ status: 'success', kind: 'created', message: '', pet_id: 42, name: shared.name });
+    updatePet.mockResolvedValueOnce(true);
 
     const result = await importCommunityPet(shared);
 
@@ -378,37 +377,68 @@ describe('shareService.importCommunityPet', () => {
     expect(result.pet_id).toBe(42);
     expect(result.tags).toEqual(['community', 'fast', 'fierce']);
     expect(uploadPetLocally).toHaveBeenCalledWith(shared.genomeData, expect.objectContaining({ name: shared.name }));
-    expect(setTagsForPet).toHaveBeenCalledWith(42, ['community', 'fast', 'fierce']);
+    expect(updatePet).toHaveBeenCalledWith(42, { tags: ['community', 'fast', 'fierce'] });
+    // Outer findPetByHash short-circuit is gone — petService owns dedup now.
+    expect(findPetByHash).not.toHaveBeenCalled();
   });
 
   it('honours a custom tag label override', async () => {
     const shared = await makeShared('Y');
-    findPetByHash.mockResolvedValueOnce(null);
-    uploadPetLocally.mockResolvedValueOnce({ status: 'success', message: '', pet_id: 7 });
-    setTagsForPet.mockResolvedValueOnce(undefined);
+    uploadPetLocally.mockResolvedValueOnce({ status: 'success', kind: 'created', message: '', pet_id: 7, name: shared.name });
+    updatePet.mockResolvedValueOnce(true);
 
     const result = await importCommunityPet(shared, { tag: 'imported' });
 
     expect(result.tags?.[0]).toBe('imported');
-    expect(setTagsForPet).toHaveBeenLastCalledWith(7, ['imported', 'fast', 'fierce']);
+    expect(updatePet).toHaveBeenLastCalledWith(7, { tags: ['imported', 'fast', 'fierce'] });
   });
 
-  it('returns already-imported when the local DB already has the same hash', async () => {
+  it('treats a legacy backfill as already-imported and still applies the community tag', async () => {
+    // petService.uploadPet returns kind:'backfilled' when the user had a
+    // local pet with the same content_hash but empty genome_text — see
+    // migration v13. The community import should still tag it.
+    const shared = await makeShared('BF');
+    uploadPetLocally.mockResolvedValueOnce({
+      status: 'success',
+      kind: 'backfilled',
+      message: 'Filled missing raw genome data',
+      pet_id: 5,
+      name: 'LegacyName',
+    });
+    updatePet.mockResolvedValueOnce(true);
+
+    const result = await importCommunityPet(shared);
+
+    expect(result.status).toBe('already-imported');
+    expect(result.pet_id).toBe(5);
+    expect(result.message).toMatch(/LegacyName/);
+    expect(result.message).toMatch(/tagged/i);
+    // Tag IS applied even on the backfill path.
+    expect(updatePet).toHaveBeenCalledWith(5, { tags: ['community', 'fast', 'fierce'] });
+  });
+
+  it('returns already-imported on duplicate-error from petService (race-recovery)', async () => {
     const shared = await makeShared('Z');
+    uploadPetLocally.mockResolvedValueOnce({
+      status: 'error',
+      message: "This file has already been uploaded as 'OldName' on …",
+    });
     findPetByHash.mockResolvedValueOnce({ id: 99, name: 'OldName', content_hash: shared.contentHash });
 
     const result = await importCommunityPet(shared);
 
     expect(result.status).toBe('already-imported');
     expect(result.pet_id).toBe(99);
-    expect(uploadPetLocally).not.toHaveBeenCalled();
-    expect(setTagsForPet).not.toHaveBeenCalled();
+    // The outer findPetByHash is gone; the inner one runs only in the
+    // race-recovery branch after a failed upload.
+    expect(findPetByHash).toHaveBeenCalledTimes(1);
   });
 
   it('rejects when the genome does not hash to contentHash', async () => {
     const shared = await makeShared('W');
     shared.contentHash = 'f'.repeat(64);
     await expect(importCommunityPet(shared)).rejects.toThrow(/hash mismatch/);
+    expect(uploadPetLocally).not.toHaveBeenCalled();
     expect(findPetByHash).not.toHaveBeenCalled();
   });
 
@@ -416,18 +446,18 @@ describe('shareService.importCommunityPet', () => {
     const shared = await makeShared('M');
     shared.genomeData = undefined;
     await expect(importCommunityPet(shared)).rejects.toThrow(/missing/);
-    expect(findPetByHash).not.toHaveBeenCalled();
+    expect(uploadPetLocally).not.toHaveBeenCalled();
   });
 
   it('surfaces error from the local upload without setting tags', async () => {
     const shared = await makeShared('V');
-    findPetByHash.mockResolvedValueOnce(null);
     uploadPetLocally.mockResolvedValueOnce({ status: 'error', message: 'Invalid genome file format' });
+    findPetByHash.mockResolvedValueOnce(null);
 
     const result = await importCommunityPet(shared);
 
     expect(result.status).toBe('error');
     expect(result.message).toMatch(/Invalid genome file format/);
-    expect(setTagsForPet).not.toHaveBeenCalled();
+    expect(updatePet).not.toHaveBeenCalled();
   });
 });
