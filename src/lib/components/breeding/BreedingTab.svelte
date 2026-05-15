@@ -271,16 +271,4 @@ const horseBreedOptions = Object.keys(HORSE_BREEDS);
         color: var(--error-text, var(--text-secondary));
     }
 
-    .spinner {
-        width: 24px;
-        height: 24px;
-        border: 3px solid var(--border-primary);
-        border-top: 3px solid var(--accent);
-        border-radius: 50%;
-        animation: spin 0.8s linear infinite;
-    }
-
-    @keyframes spin {
-        to { transform: rotate(360deg); }
-    }
 </style>

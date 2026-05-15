@@ -505,26 +505,20 @@ run(() => {
         color: var(--text-tertiary);
     }
 
-    /* Spinner */
+    /* Local override on top of the global .spinner (24px). The
+       gene-editor uses currentColor so the spinner picks up text colour
+       inside coloured save/cancel buttons, plus a smaller inline size. */
     .spinner {
         width: 16px;
         height: 16px;
         border: 2px solid transparent;
-        border-top: 2px solid currentColor;
-        border-radius: 50%;
-        animation: spin 1s linear infinite;
+        border-top-color: currentColor;
     }
 
     .spinner.large {
         width: 32px;
         height: 32px;
         border-width: 3px;
-    }
-
-    @keyframes spin {
-        to {
-            transform: rotate(360deg);
-        }
     }
 
     /* Content scrolling */

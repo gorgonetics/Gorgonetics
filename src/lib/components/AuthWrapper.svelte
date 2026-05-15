@@ -161,10 +161,6 @@ onMount(async () => {
     margin-bottom: 1rem;
   }
 
-  @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-  }
 
   .loading-screen p {
     color: var(--text-tertiary);

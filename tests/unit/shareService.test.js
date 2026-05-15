@@ -368,7 +368,13 @@ describe('shareService.importCommunityPet', () => {
 
   it('verifies hash, uploads to local DB, applies the community tag (fresh insert)', async () => {
     const shared = await makeShared('X');
-    uploadPetLocally.mockResolvedValueOnce({ status: 'success', kind: 'created', message: '', pet_id: 42, name: shared.name });
+    uploadPetLocally.mockResolvedValueOnce({
+      status: 'success',
+      kind: 'created',
+      message: '',
+      pet_id: 42,
+      name: shared.name,
+    });
     updatePet.mockResolvedValueOnce(true);
 
     const result = await importCommunityPet(shared);
@@ -384,7 +390,13 @@ describe('shareService.importCommunityPet', () => {
 
   it('honours a custom tag label override', async () => {
     const shared = await makeShared('Y');
-    uploadPetLocally.mockResolvedValueOnce({ status: 'success', kind: 'created', message: '', pet_id: 7, name: shared.name });
+    uploadPetLocally.mockResolvedValueOnce({
+      status: 'success',
+      kind: 'created',
+      message: '',
+      pet_id: 7,
+      name: shared.name,
+    });
     updatePet.mockResolvedValueOnce(true);
 
     const result = await importCommunityPet(shared, { tag: 'imported' });

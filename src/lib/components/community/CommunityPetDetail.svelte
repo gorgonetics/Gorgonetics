@@ -1,4 +1,5 @@
 <script>
+import StatusBanner from '$lib/components/shared/StatusBanner.svelte';
 import { getSharedPet } from '$lib/services/shareService.js';
 import { clearSelection, communityView, importSelected, selectedSharedPet } from '$lib/stores/community.svelte.js';
 import { errorMessage } from '$lib/utils/error.js';
@@ -129,22 +130,14 @@ async function handleImport() {
         {#if genomeLoading}
           <p class="muted" data-testid="community-genome-loading">Loading genome…</p>
         {:else if genomeError}
-          <p class="banner banner-error" role="alert" data-testid="community-genome-error">
-            {genomeError}
-          </p>
+          <StatusBanner type="error" message={genomeError} />
         {:else if fullPet?.genomeData}
           <pre class="genome">{fullPet.genomeData}</pre>
         {/if}
       </div>
 
       {#if importStatus}
-        <div
-          class="banner banner-{importStatus.status}"
-          role="status"
-          data-testid="community-import-status"
-        >
-          {importStatus.message}
-        </div>
+        <StatusBanner type={importStatus.status} message={importStatus.message} />
       {/if}
     </div>
 
