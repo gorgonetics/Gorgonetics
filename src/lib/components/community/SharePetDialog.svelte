@@ -1,0 +1,238 @@
+<script>
+import { assertFirebaseConfigured, isPlaceholderConfig } from '$lib/firebase.js';
+import { sanitizeTags, uploadPet } from '$lib/services/shareService.js';
+import { focusTrap } from '$lib/utils/focusTrap.js';
+
+const { pet, onClose, onResult } = $props();
+
+let includeNotes = $state(false);
+let sharing = $state(false);
+let errorMessage = $state('');
+
+const previewTags = $derived(sanitizeTags(pet?.tags ?? []));
+const hasNotes = $derived(typeof pet?.notes === 'string' && pet.notes.trim().length > 0);
+
+async function handleShare() {
+  if (isPlaceholderConfig) return;
+  sharing = true;
+  errorMessage = '';
+  try {
+    assertFirebaseConfigured();
+    const petToShare = includeNotes ? pet : { ...pet, notes: '' };
+    const result = await uploadPet(petToShare);
+    if (result.status === 'already-shared') {
+      onResult({
+        type: 'info',
+        message: `"${pet.name}" was already in the community catalogue — nothing to do.`,
+      });
+    } else {
+      onResult({ type: 'success', message: `Shared "${pet.name}" to the community.` });
+    }
+    onClose();
+  } catch (err) {
+    errorMessage = err?.message ?? String(err);
+  } finally {
+    sharing = false;
+  }
+}
+</script>
+
+<!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
+<div
+  class="modal-backdrop"
+  onclick={onClose}
+  onkeydown={(e) => {
+    if (e.key === 'Escape') onClose();
+  }}
+  role="presentation"
+  data-testid="share-pet-backdrop"
+>
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div
+    class="dialog share-pet-dialog"
+    role="dialog"
+    aria-label="Share Pet to Community"
+    aria-modal="true"
+    tabindex="-1"
+    use:focusTrap
+    onclick={(e) => e.stopPropagation()}
+    onkeydown={(e) => {
+      if (e.key === 'Escape') onClose();
+    }}
+  >
+    <div class="dialog-header">
+      <h3>Share "{pet?.name ?? 'Pet'}" to the community</h3>
+      <button class="close-btn" onclick={onClose}>×</button>
+    </div>
+
+    <div class="dialog-body">
+      {#if isPlaceholderConfig}
+        <div class="banner banner-warn" data-testid="share-not-configured">
+          The community catalogue isn't configured for this build of Gorgonetics yet, so
+          uploads are disabled. See <code>docs/firebase-setup.md</code> for how to wire up a
+          Firebase project, or wait for a release with sharing enabled.
+        </div>
+      {/if}
+
+      <p class="dialog-desc">
+        This pet's genome and the fields below will be uploaded to the public catalogue.
+        Other players will be able to import it into their local stable.
+        Uploads cannot be edited or deleted from within the app.
+      </p>
+
+      <dl class="preview-grid" data-testid="share-preview">
+        <dt>Name</dt>
+        <dd>{pet?.name ?? ''}</dd>
+
+        <dt>Character</dt>
+        <dd class="muted">{pet?.breeder || '(unknown)'}</dd>
+
+        <dt>Species</dt>
+        <dd>{pet?.species ?? ''}</dd>
+
+        <dt>Gender</dt>
+        <dd>{pet?.gender ?? ''}</dd>
+
+        {#if pet?.breed}
+          <dt>Breed</dt>
+          <dd>{pet.breed}</dd>
+        {/if}
+
+        <dt>Tags</dt>
+        <dd>
+          {#if previewTags.length === 0}
+            <span class="muted">none</span>
+          {:else}
+            {#each previewTags as t (t)}
+              <span class="tag-chip">{t}</span>
+            {/each}
+          {/if}
+        </dd>
+      </dl>
+
+      <label class="checkbox-row" class:disabled={!hasNotes}>
+        <input type="checkbox" bind:checked={includeNotes} disabled={!hasNotes} />
+        <div class="checkbox-info">
+          <span class="checkbox-label">Include local notes</span>
+          <span class="checkbox-desc">
+            {#if !hasNotes}
+              No notes on this pet to share.
+            {:else if includeNotes}
+              The notes field below will be uploaded as-is.
+            {:else}
+              Notes stay local. Tick this box only if you've reviewed them and want them
+              public.
+            {/if}
+          </span>
+        </div>
+      </label>
+
+      {#if hasNotes && includeNotes}
+        <pre class="notes-preview" data-testid="share-notes-preview">{pet.notes}</pre>
+      {/if}
+
+      {#if errorMessage}
+        <div class="banner banner-error" role="alert" data-testid="share-error">
+          {errorMessage}
+        </div>
+      {/if}
+    </div>
+
+    <div class="dialog-footer">
+      <button class="btn btn-secondary" onclick={onClose} disabled={sharing}>Cancel</button>
+      <button
+        class="btn btn-primary"
+        data-testid="share-confirm"
+        onclick={handleShare}
+        disabled={sharing || isPlaceholderConfig}
+      >
+        {sharing ? 'Sharing…' : 'Share to community'}
+      </button>
+    </div>
+  </div>
+</div>
+
+<style>
+  .share-pet-dialog {
+    max-width: 480px;
+  }
+
+  .dialog-desc {
+    font-size: 14px;
+    color: var(--text-tertiary);
+    margin: 0 0 12px;
+  }
+
+  .preview-grid {
+    display: grid;
+    grid-template-columns: 100px 1fr;
+    gap: 6px 12px;
+    margin: 0 0 16px;
+    font-size: 14px;
+  }
+
+  .preview-grid dt {
+    color: var(--text-tertiary);
+    font-weight: 500;
+  }
+
+  .preview-grid dd {
+    margin: 0;
+    color: var(--text-primary);
+    word-break: break-word;
+  }
+
+  .muted {
+    color: var(--text-tertiary);
+    font-style: italic;
+  }
+
+  .tag-chip {
+    display: inline-block;
+    padding: 2px 8px;
+    margin: 0 4px 4px 0;
+    border-radius: 4px;
+    background: var(--surface-2, #2a2a2a);
+    font-size: 12px;
+  }
+
+  .checkbox-row.disabled {
+    opacity: 0.55;
+  }
+
+  .notes-preview {
+    margin: 0 0 12px;
+    padding: 8px 10px;
+    max-height: 160px;
+    overflow: auto;
+    background: var(--surface-2, #1f1f1f);
+    border-radius: 4px;
+    font-size: 12px;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .banner {
+    padding: 10px 12px;
+    border-radius: 4px;
+    font-size: 13px;
+    margin: 0 0 12px;
+  }
+
+  .banner-warn {
+    background: rgba(220, 170, 0, 0.12);
+    border: 1px solid rgba(220, 170, 0, 0.4);
+    color: var(--text-primary);
+  }
+
+  .banner-error {
+    background: rgba(220, 80, 80, 0.12);
+    border: 1px solid rgba(220, 80, 80, 0.4);
+    color: var(--text-primary);
+  }
+
+  .banner code {
+    font-family: var(--mono, monospace);
+    font-size: 12px;
+  }
+</style>
