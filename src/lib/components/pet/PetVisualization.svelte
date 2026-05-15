@@ -1,5 +1,6 @@
 <script>
 import { onDestroy } from 'svelte';
+import SharePetDialog from '$lib/components/community/SharePetDialog.svelte';
 import GeneStatsTable from '$lib/components/gene/GeneStatsTable.svelte';
 import GeneVisualizer from '$lib/components/gene/GeneVisualizer.svelte';
 import { settings } from '$lib/stores/settings.js';
@@ -16,6 +17,18 @@ let drawerWidth = $state(320);
 let stats = $state(null);
 let breedFilter = $state('');
 let autoBreed = $state(false);
+let showShare = $state(false);
+/** @type {{ type: 'success' | 'info' | 'error', message: string } | null} */
+let shareStatus = $state(null);
+let shareStatusTimer = 0;
+
+function handleShareResult(result) {
+  shareStatus = result;
+  clearTimeout(shareStatusTimer);
+  shareStatusTimer = setTimeout(() => {
+    shareStatus = null;
+  }, 5000);
+}
 
 const isHorse = $derived(pet?.species?.toLowerCase() === 'horse');
 const petHasKnownBreed = $derived(isHorse && pet?.breed && HORSE_BREEDS[pet.breed]);
@@ -111,6 +124,7 @@ function startResize(e) {
 
 onDestroy(() => {
   if (cleanupResize) cleanupResize();
+  clearTimeout(shareStatusTimer);
 });
 </script>
 
@@ -179,9 +193,31 @@ onDestroy(() => {
                 >
                     Gallery
                 </button>
+                <button
+                    class="view-btn share-btn"
+                    data-testid="share-pet-btn"
+                    title="Share this pet to the public community catalogue"
+                    onclick={() => { showShare = true; }}
+                >
+                    Share
+                </button>
             </div>
         </div>
     </div>
+
+    {#if showShare}
+        <SharePetDialog
+            {pet}
+            onClose={() => { showShare = false; }}
+            onResult={handleShareResult}
+        />
+    {/if}
+
+    {#if shareStatus}
+        <div class="share-status share-status-{shareStatus.type}" role="status" data-testid="share-status">
+            {shareStatus.message}
+        </div>
+    {/if}
 
     <div class="content-area">
       {#if galleryOpen}
@@ -347,6 +383,30 @@ onDestroy(() => {
         background: var(--bg-primary);
         color: var(--text-primary);
         box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+    }
+
+    .share-status {
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        max-width: 420px;
+        padding: 10px 14px;
+        border-radius: 6px;
+        font-size: 13px;
+        color: var(--text-primary);
+        background: var(--bg-secondary);
+        border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+        z-index: 1000;
+    }
+    .share-status-success {
+        border-color: rgba(80, 200, 120, 0.5);
+    }
+    .share-status-info {
+        border-color: rgba(100, 160, 220, 0.5);
+    }
+    .share-status-error {
+        border-color: rgba(220, 80, 80, 0.5);
     }
 
     .content-area {
