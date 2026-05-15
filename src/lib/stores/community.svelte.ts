@@ -19,8 +19,6 @@ import { appState } from '$lib/stores/pets.js';
 import type { SharedPet } from '$lib/types/index.js';
 import { errorMessage } from '$lib/utils/error.js';
 
-export type ImportOutcome = ImportResult;
-
 const PAGE_SIZE = 50;
 /**
  * How long a `loadInitial` result counts as fresh. Tab toggles within
@@ -47,7 +45,7 @@ export const communityView = $state({
    * timestamps — encoding the cursor through
    * `Timestamp.fromDate(uploadedAt)` would truncate to milliseconds and
    * break ordering at page boundaries when two uploads share a
-   * millisecond. See #248.
+   * millisecond.
    */
   cursor: null as unknown,
   selectedHash: null as string | null,
@@ -61,8 +59,12 @@ export const communityView = $state({
 });
 
 /**
- * Discover the currently-selected pet from the loaded page. Returns null
- * when nothing is selected or the selection was paginated out.
+ * Discover the currently-selected pet from the loaded page. Returns
+ * `null` when nothing is selected. The `find` fallback also returns
+ * `null` if the selection were ever to fall out of the loaded list,
+ * but every code path that mutates `pets` either preserves a
+ * still-present selection or synchronously clears `selectedHash`, so
+ * the dangling-selection state is currently unreachable.
  *
  * A regular function rather than a `$derived` because `$derived` cannot
  * appear at module scope outside a component context in Svelte 5. Consumers
@@ -78,10 +80,9 @@ export function selectedSharedPet(): SharedPet | null {
  * fresh (see `STALE_AFTER_MS`) — pass `{ force: true }` to bypass the
  * cache (used by the "Try again" button in the error state).
  *
- * Unlike pre-#243, this does NOT clear `selectedHash`. The selection is
- * independent of the data lifecycle: if the user navigates away from
- * the tab and returns, the pet they were inspecting stays selected
- * (provided it's still in the loaded page).
+ * Selection is intentionally preserved across reloads — if the user
+ * navigates away from the tab and returns, the pet they were
+ * inspecting stays selected (provided it's still in the loaded page).
  */
 export async function loadInitial(opts: { force?: boolean } = {}): Promise<void> {
   if (isPlaceholderConfig) {
@@ -159,7 +160,7 @@ export function clearSelection(): void {
  * we serialize imports per-store to avoid `appState.loadPets()` races
  * and duplicate toasts.
  */
-export async function importSelected(fullPet: SharedPet): Promise<ImportOutcome> {
+export async function importSelected(fullPet: SharedPet): Promise<ImportResult> {
   if (communityView.importingHash !== null) {
     return { status: 'error', message: 'Another import is already in progress — wait for it to finish.' };
   }

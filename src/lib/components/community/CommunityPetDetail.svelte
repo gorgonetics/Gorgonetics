@@ -64,11 +64,13 @@ async function handleImport() {
   if (!fullPet) return;
   // Capture the hash at click time — if the user selects another row
   // while the import is in flight, we don't want the result to land on
-  // the new selection's detail pane.
-  const importingHash = fullPet.contentHash;
+  // the new selection's detail pane. Named distinctly from the store's
+  // `communityView.importingHash` (the in-flight slot used for
+  // serialisation) so the two roles stay readable side by side.
+  const startedHash = fullPet.contentHash;
   importStatus = null;
   const result = await importSelected(fullPet);
-  if (pet?.contentHash === importingHash) {
+  if (pet?.contentHash === startedHash) {
     importStatus = result;
   }
 }

@@ -7,13 +7,6 @@
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-afterEach(() => {
-  // The per-mock `mockResolvedValueOnce` calls are consumed in order, but
-  // the call-history is not — without resetting it, "not.toHaveBeenCalled"
-  // assertions leak across tests in this file.
-  vi.clearAllMocks();
-});
-
 /**
  * `writeBatch(db)` returns a builder with `.set()` and `.commit()`. We
  * surface the recorded `set` calls so individual tests can assert on the
@@ -74,6 +67,10 @@ import { Gender } from '$lib/types/index.js';
 import { sha256Hex } from '$lib/utils/hash.js';
 
 afterEach(() => {
+  // `mockResolvedValueOnce` consumes its own queue, but the call-history
+  // is not auto-cleared — without resetting it, "not.toHaveBeenCalled"
+  // assertions leak across tests in this file.
+  vi.clearAllMocks();
   batchCalls.length = 0;
 });
 

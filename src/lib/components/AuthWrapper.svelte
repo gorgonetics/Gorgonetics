@@ -32,7 +32,7 @@ async function runLiveScan() {
     do {
       pendingRescan = false;
       const result = await autoScanGameFolder();
-      if (result.imported > 0) {
+      if (result.imported > 0 || result.backfilled > 0) {
         void appState.loadPets();
       }
     } while (pendingRescan);

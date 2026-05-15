@@ -431,7 +431,10 @@ export async function uploadPet(content: string, options: UploadPetOptions = {})
   // returning a flat "duplicate" error.
   const existing = await findPetByHash(contentHash);
   if (existing) {
-    if (existing.genome_text === '' || existing.genome_text === null || existing.genome_text === undefined) {
+    // Column is NOT NULL DEFAULT '', so only the empty-string case is
+    // actually reachable from SQLite — the null/undefined guards from
+    // the original landing are dead code.
+    if (!existing.genome_text) {
       const db = getDb();
       await db.execute('UPDATE pets SET genome_text = $text WHERE id = $id', {
         text: content,

@@ -1,5 +1,5 @@
 <script>
-import { onDestroy } from 'svelte';
+import { onDestroy, onMount } from 'svelte';
 
 /**
  * Inline or toast-mode status banner. Colour palette comes from the
@@ -17,14 +17,20 @@ import { onDestroy } from 'svelte';
  *  - `onDismiss`    — invoked when the auto-dismiss timer elapses (or
  *                     can be wired to a manual close button by callers
  *                     that don't use the timer).
+ *
+ * The dismiss timer is set in `onMount` rather than `$effect` so that
+ * inline arrow `onDismiss` callbacks (which change identity on every
+ * parent re-render) don't keep resetting the countdown. Parents that
+ * want to surface a new banner after one was dismissed simply
+ * unmount/remount via an `{#if shareStatus}` guard — the natural toast
+ * lifecycle.
  */
 const { type, message, toast = false, autoDismissMs, onDismiss } = $props();
 
 let timer = 0;
 
-$effect(() => {
+onMount(() => {
   if (autoDismissMs && onDismiss) {
-    clearTimeout(timer);
     timer = setTimeout(onDismiss, autoDismissMs);
   }
 });

@@ -1,13 +1,15 @@
 <script>
+import StatusBanner from '$lib/components/shared/StatusBanner.svelte';
 import { isPlaceholderConfig } from '$lib/firebase.js';
 import { sanitizeTags, uploadPet } from '$lib/services/shareService.js';
+import { errorMessage } from '$lib/utils/error.js';
 import { focusTrap } from '$lib/utils/focusTrap.js';
 
 const { pet, onClose, onResult } = $props();
 
 let includeNotes = $state(false);
 let sharing = $state(false);
-let errorMessage = $state('');
+let shareError = $state('');
 
 const previewTags = $derived(sanitizeTags(pet?.tags ?? []));
 const hasNotes = $derived(typeof pet?.notes === 'string' && pet.notes.trim().length > 0);
@@ -22,7 +24,7 @@ async function handleShare() {
   // should never fire. The early return guards programmatic re-entry.
   if (isPlaceholderConfig || !hasRawGenome) return;
   sharing = true;
-  errorMessage = '';
+  shareError = '';
   try {
     const petToShare = includeNotes ? pet : { ...pet, notes: '' };
     const result = await uploadPet(petToShare);
@@ -36,7 +38,7 @@ async function handleShare() {
     }
     onClose();
   } catch (err) {
-    errorMessage = err?.message ?? String(err);
+    shareError = errorMessage(err);
   } finally {
     sharing = false;
   }
@@ -143,9 +145,9 @@ async function handleShare() {
         <pre class="notes-preview" data-testid="share-notes-preview">{pet.notes}</pre>
       {/if}
 
-      {#if errorMessage}
-        <div class="banner banner-error" role="alert" data-testid="share-error">
-          {errorMessage}
+      {#if shareError}
+        <div data-testid="share-error">
+          <StatusBanner type="error" message={shareError} />
         </div>
       {/if}
     </div>
