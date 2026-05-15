@@ -215,27 +215,4 @@ async function handleShare() {
     word-break: break-word;
   }
 
-  .banner {
-    padding: 10px 12px;
-    border-radius: 4px;
-    font-size: 13px;
-    margin: 0 0 12px;
-  }
-
-  .banner-warn {
-    background: rgba(220, 170, 0, 0.12);
-    border: 1px solid rgba(220, 170, 0, 0.4);
-    color: var(--text-primary);
-  }
-
-  .banner-error {
-    background: rgba(220, 80, 80, 0.12);
-    border: 1px solid rgba(220, 80, 80, 0.4);
-    color: var(--text-primary);
-  }
-
-  .banner code {
-    font-family: var(--mono, monospace);
-    font-size: 12px;
-  }
 </style>

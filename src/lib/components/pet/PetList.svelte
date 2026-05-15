@@ -5,6 +5,7 @@ import { autoScanGameFolder } from '$lib/services/gameImport.js';
 import { compareSelectMode, comparisonActions, comparisonPets, comparisonReady } from '$lib/stores/comparison.js';
 import { allTags as allTagsStore, appState, error, pets, selectedPet } from '$lib/stores/pets.js';
 import { createDragState } from '$lib/utils/dragReorder.svelte.js';
+import { errorMessage } from '$lib/utils/error.js';
 import { focusTrap } from '$lib/utils/focusTrap.js';
 import { getBasename } from '$lib/utils/path.js';
 import PetCard from './PetCard.svelte';
@@ -170,19 +171,20 @@ async function handleAutoScan() {
       return;
     }
 
-    if (result.imported > 0) {
+    if (result.imported > 0 || result.backfilled > 0) {
       await appState.loadPets();
     }
 
-    const summary = `Auto-import: ${result.imported} new, ${result.skipped} already imported (of ${result.scanned} files).`;
+    const backfillNote = result.backfilled > 0 ? `, ${result.backfilled} unlocked for sharing` : '';
+    const summary = `Auto-import: ${result.imported} new, ${result.skipped} already imported${backfillNote} (of ${result.scanned} files).`;
     if (result.failures.length > 0) {
       const lines = result.failures.map((f) => `${f.file}: ${f.reason}`);
       error.set(`${summary}\n${result.failures.length} failed:\n${lines.join('\n')}`);
-    } else if (result.imported > 0) {
+    } else if (result.imported > 0 || result.backfilled > 0) {
       error.set(summary);
     }
   } catch (err) {
-    error.set(`Auto-import failed: ${err instanceof Error ? err.message : String(err)}`);
+    error.set(`Auto-import failed: ${errorMessage(err)}`);
   } finally {
     autoScanning = false;
     autoScanProgress = null;

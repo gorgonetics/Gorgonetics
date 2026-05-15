@@ -391,6 +391,13 @@ export interface UploadPetResult {
   message: string;
   pet_id?: number;
   name?: string;
+  /**
+   * Discriminates fresh inserts from legacy `genome_text` backfills (a
+   * v13 row that already had the matching content_hash but no raw text).
+   * Callers that track import counts should bucket `backfilled` separately
+   * from `created` — see gameImport's AutoScanResult.
+   */
+  kind?: 'created' | 'backfilled';
 }
 
 /**
@@ -432,6 +439,7 @@ export async function uploadPet(content: string, options: UploadPetOptions = {})
       });
       return {
         status: 'success',
+        kind: 'backfilled',
         message: `Filled the missing raw genome data for '${existing.name}'. It can now be shared to the community.`,
         pet_id: existing.id,
         name: existing.name,
@@ -531,6 +539,7 @@ export async function uploadPet(content: string, options: UploadPetOptions = {})
 
   return {
     status: 'success',
+    kind: 'created',
     message: 'Pet created successfully',
     pet_id: result.lastInsertId,
     name: petName,

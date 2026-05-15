@@ -14,6 +14,7 @@ import { isPlaceholderConfig } from '$lib/firebase.js';
 import { type ImportResult, importCommunityPet, listPets } from '$lib/services/shareService.js';
 import { appState } from '$lib/stores/pets.js';
 import type { SharedPet } from '$lib/types/index.js';
+import { errorMessage } from '$lib/utils/error.js';
 
 export type ImportOutcome = ImportResult;
 
@@ -45,10 +46,6 @@ export const communityView = $state({
   importingHash: null as string | null,
 });
 
-function errMsg(err: unknown): string {
-  return err instanceof Error ? err.message : String(err);
-}
-
 /**
  * Discover the currently-selected pet from the loaded page. Returns null
  * when nothing is selected or the selection was paginated out.
@@ -79,7 +76,7 @@ export async function loadInitial(): Promise<void> {
     communityView.cursor = cursor;
     communityView.hasMore = pets.length === PAGE_SIZE;
   } catch (err) {
-    communityView.error = `Failed to load catalogue: ${errMsg(err)}`;
+    communityView.error = `Failed to load catalogue: ${errorMessage(err)}`;
     communityView.pets = [];
     communityView.cursor = null;
     communityView.hasMore = false;
@@ -100,7 +97,7 @@ export async function loadMore(): Promise<void> {
     communityView.cursor = cursor;
     communityView.hasMore = pets.length === PAGE_SIZE;
   } catch (err) {
-    communityView.error = `Failed to load more: ${errMsg(err)}`;
+    communityView.error = `Failed to load more: ${errorMessage(err)}`;
   } finally {
     communityView.loadingMore = false;
   }
@@ -145,7 +142,7 @@ export async function importSelected(fullPet: SharedPet): Promise<ImportOutcome>
     }
     return result;
   } catch (err) {
-    return { status: 'error', message: errMsg(err) };
+    return { status: 'error', message: errorMessage(err) };
   } finally {
     communityView.importingHash = null;
   }

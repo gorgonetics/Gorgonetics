@@ -2,6 +2,7 @@
 import { importDatabase } from '$lib/services/backupService.js';
 import { appState } from '$lib/stores/pets.js';
 import { focusTrap } from '$lib/utils/focusTrap.js';
+import { formatShortDate } from '$lib/utils/timestamp.js';
 
 const { backup, onClose, onResult } = $props();
 const metadata = $derived(backup?.metadata ?? null);
@@ -69,7 +70,7 @@ async function handleImport() {
         </div>
         <div class="info-row">
           <span>Created:</span>
-          <span>{metadata?.exported_at ? new Date(metadata.exported_at).toLocaleDateString() : 'unknown'}</span>
+          <span>{metadata?.exported_at ? formatShortDate(new Date(metadata.exported_at)) : 'unknown'}</span>
         </div>
       </div>
 

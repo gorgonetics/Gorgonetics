@@ -4,6 +4,7 @@ import { run, stopPropagation } from 'svelte/legacy';
 import * as configService from '$lib/services/configService.js';
 import { saveExportTextFile } from '$lib/services/fileService.js';
 import * as geneService from '$lib/services/geneService.js';
+import { errorMessage as toErrorMessage } from '$lib/utils/error.js';
 
 /**
  * @typedef {Object} Props
@@ -55,7 +56,7 @@ async function loadGenes() {
     originalGenes = JSON.parse(JSON.stringify(genes));
     hasUnsavedChanges = false;
   } catch (err) {
-    errorMessage = `Error loading genes: ${err instanceof Error ? err.message : String(err)}`;
+    errorMessage = `Error loading genes: ${toErrorMessage(err)}`;
   } finally {
     loadingGenes = false;
   }
@@ -79,7 +80,7 @@ async function saveAllChanges() {
       successMessage = '';
     }, 3000);
   } catch (err) {
-    errorMessage = `Error saving changes: ${err instanceof Error ? err.message : String(err)}`;
+    errorMessage = `Error saving changes: ${toErrorMessage(err)}`;
   } finally {
     savingChanges = false;
   }
@@ -111,7 +112,7 @@ async function exportChromosome() {
       successMessage = '';
     }, 3000);
   } catch (err) {
-    errorMessage = `Error exporting chromosome: ${err instanceof Error ? err.message : String(err)}`;
+    errorMessage = `Error exporting chromosome: ${toErrorMessage(err)}`;
   } finally {
     exporting = false;
   }

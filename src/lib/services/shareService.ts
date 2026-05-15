@@ -55,6 +55,8 @@ const GENOME_COLLECTION = 'genomes';
 const DEFAULT_PAGE_SIZE = 50;
 const TAG_CAP = 30;
 const TAG_MAX_LEN = 64;
+/** Default local tag applied to pets imported from the community catalogue. */
+const COMMUNITY_TAG = 'community';
 
 export type UploadStatus = 'created' | 'already-shared';
 
@@ -240,7 +242,7 @@ export async function importCommunityPet(shared: SharedPet, opts: { tag?: string
     return { status: 'error', message: upload.message };
   }
 
-  const localTag = opts.tag ?? 'community';
+  const localTag = opts.tag ?? COMMUNITY_TAG;
   // sanitizeTags handles dedupe, length cap, and the 30-tag count cap —
   // running it over the combined list (localTag + uploader tags) makes the
   // local tag obey the same constraints and avoids a separate dedupe step.

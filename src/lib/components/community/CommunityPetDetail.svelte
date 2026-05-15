@@ -1,6 +1,7 @@
 <script>
 import { getSharedPet } from '$lib/services/shareService.js';
 import { clearSelection, communityView, importSelected, selectedSharedPet } from '$lib/stores/community.svelte.js';
+import { errorMessage } from '$lib/utils/error.js';
 import { formatShortDate } from '$lib/utils/timestamp.js';
 
 const pet = $derived(selectedSharedPet());
@@ -51,7 +52,7 @@ $effect(() => {
     })
     .catch((err) => {
       if (loadedHash !== hash) return;
-      genomeError = err instanceof Error ? err.message : String(err);
+      genomeError = errorMessage(err);
     })
     .finally(() => {
       if (loadedHash === hash) genomeLoading = false;
@@ -243,22 +244,6 @@ async function handleImport() {
     word-break: break-word;
     max-height: 220px;
     overflow: auto;
-  }
-  .banner {
-    margin-top: 12px;
-    padding: 10px 12px;
-    border-radius: 4px;
-    font-size: 13px;
-    border: 1px solid var(--border-primary);
-  }
-  .banner-imported {
-    border-color: rgba(80, 200, 120, 0.5);
-  }
-  .banner-already-imported {
-    border-color: rgba(100, 160, 220, 0.5);
-  }
-  .banner-error {
-    border-color: rgba(220, 80, 80, 0.5);
   }
   .detail-footer {
     padding: 12px 16px;

@@ -14,13 +14,11 @@ onMount(() => {
 
 <div class="community-tab" data-testid="community-tab">
   <header class="community-header">
-    <div class="community-titles">
-      <h2>Community catalogue</h2>
-      <p class="subtitle">
-        Browse pets shared by other players. Click a row to preview, then import to add it
-        to your stable.
-      </p>
-    </div>
+    <h2>Community catalogue</h2>
+    <p class="subtitle">
+      Browse pets shared by other players. Click a row to preview, then import to add it
+      to your stable.
+    </p>
   </header>
 
   <div class="community-body">
@@ -56,7 +54,7 @@ onMount(() => {
     flex-shrink: 0;
   }
 
-  .community-titles h2 {
+  .community-header h2 {
     margin: 0;
     font-size: 18px;
     font-weight: 700;

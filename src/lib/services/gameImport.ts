@@ -9,6 +9,7 @@
  */
 
 import { isTauri } from '$lib/utils/environment.js';
+import { errorMessage } from '$lib/utils/error.js';
 import { sha256Hex } from '$lib/utils/hash.js';
 import { hasImportedFile, recordImportedFile, uploadPet } from './petService.js';
 import { getSetting, setSetting } from './settingsService.js';
@@ -91,11 +92,18 @@ export interface AutoScanResult {
   scanned: number;
   skipped: number;
   imported: number;
+  /**
+   * Files that matched an existing pet's content_hash but whose
+   * genome_text column was empty (legacy pets pre-v13). The scan
+   * backfills the raw text but counts the row as already-present
+   * rather than fresh, so `imported` stays accurate.
+   */
+  backfilled: number;
   failures: Array<{ file: string; reason: string }>;
 }
 
 function emptyResult(status: AutoScanResult['status'], message?: string): AutoScanResult {
-  return { status, message, scanned: 0, skipped: 0, imported: 0, failures: [] };
+  return { status, message, scanned: 0, skipped: 0, imported: 0, backfilled: 0, failures: [] };
 }
 
 /**
@@ -120,7 +128,7 @@ export async function autoScanGameFolder(options?: {
   try {
     entries = await fs.readDir(folder, baseOpts);
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = errorMessage(err);
     return emptyResult('folder_missing', `Game folder not readable: ${configured} (${message})`);
   }
   // Path joining via plain concat is acceptable — Tauri's fs plugin
@@ -134,6 +142,7 @@ export async function autoScanGameFolder(options?: {
     scanned: 0,
     skipped: 0,
     imported: 0,
+    backfilled: 0,
     failures: [],
   };
 
@@ -151,7 +160,7 @@ export async function autoScanGameFolder(options?: {
           const hash = await sha256Hex(content);
           return { name, displayPath, content, hash } as const;
         } catch (err) {
-          return { name, displayPath, error: err instanceof Error ? err.message : String(err) } as const;
+          return { name, displayPath, error: errorMessage(err) } as const;
         }
       }),
     );
@@ -171,7 +180,11 @@ export async function autoScanGameFolder(options?: {
       }
       const upload = await uploadPet(item.content, { sourcePath: item.displayPath });
       if (upload.status === 'success') {
-        result.imported++;
+        if (upload.kind === 'backfilled') {
+          result.backfilled++;
+        } else {
+          result.imported++;
+        }
       } else {
         // pets.content_hash matched but imported_files was missing the
         // row (e.g. pre-feature legacy not yet reached by backfill).
