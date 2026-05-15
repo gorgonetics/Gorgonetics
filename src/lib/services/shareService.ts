@@ -75,8 +75,9 @@ export interface UploadResult {
  * leave the catalogue in an inconsistent state.
  *
  * The caller is responsible for ensuring `pet.content_hash` matches the
- * SHA-256 of `pet.genome_data` — petService keeps these in sync at insert
- * time, and the import flow rejects mismatched documents.
+ * SHA-256 of `pet.genome_text` (the raw file text used as the wire
+ * payload). petService keeps these in sync at insert time, and the
+ * import flow re-hashes via `verifySharedPet` to reject mismatched docs.
  */
 export async function uploadPet(pet: Pet, db: Firestore = defaultFirestore): Promise<UploadResult> {
   if (!pet.content_hash) {

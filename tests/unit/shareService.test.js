@@ -82,10 +82,11 @@ function lastBatch() {
 }
 
 function makePet(overrides = {}) {
-  // Production-shape: content_hash is the SHA-256 of the RAW text (held in
-  // genome_text), and genome_data carries the JSON-stringified parsed
-  // Genome (lossy w.r.t. whitespace). The community share path reads
-  // genome_text, not genome_data.
+  // Production-shape, except `content_hash` is a fixed placeholder rather
+  // than the actual SHA-256 of `rawText` — the mocked Firestore SDK
+  // never round-trips through the hash check, so a placeholder is fine
+  // here. Tests that need a genuine hash/raw-text agreement live in the
+  // emulator suite and use `freshPet` which computes the real digest.
   const rawText = '[Overview]\nCharacter=PlayerOne\nEntity=Buzz\n[Genes]\n';
   return {
     id: 1,

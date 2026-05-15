@@ -29,9 +29,10 @@ export const communityView = $state({
    * Opaque pagination cursor (Firestore `QueryDocumentSnapshot`) for the
    * NEXT page. Tracked separately from `pets` because the SharedPet
    * shape doesn't (and shouldn't) carry server-side nanosecond
-   * timestamps — encoding the cursor through `Date.fromDate(uploadedAt)`
-   * would truncate to milliseconds and break ordering at page
-   * boundaries when two uploads share a millisecond. See #248.
+   * timestamps — encoding the cursor through
+   * `Timestamp.fromDate(uploadedAt)` would truncate to milliseconds and
+   * break ordering at page boundaries when two uploads share a
+   * millisecond. See #248.
    */
   cursor: null as unknown,
   selectedHash: null as string | null,

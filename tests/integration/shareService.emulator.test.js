@@ -163,17 +163,36 @@ describe('shareService end-to-end via emulator', () => {
     expect(pets).toHaveLength(1);
   });
 
-  it('paginates deterministically via the opaque cursor, even with same-millisecond uploads', async () => {
-    // No setTimeout gaps — the snapshot-based cursor carries the
-    // server's full ordering tuple (nanosecond uploadedAt + doc path)
-    // and resolves same-millisecond ties via the doc-ID tiebreaker.
+  it('paginates deterministically via the opaque cursor, even with same-request.time uploads', async () => {
+    // Putting all three pets in ONE writeBatch forces every metadata doc
+    // to share the same `request.time` (Firestore commits a batch
+    // atomically with a single server timestamp). Sequential awaited
+    // uploads might land in different milliseconds and miss the
+    // tiebreaker case the snapshot cursor is meant to handle. The
+    // shared timestamp is exactly the regression we want under test.
     const petA = await freshPet('X');
     const petB = await freshPet('Y');
     const petC = await freshPet('Z');
 
-    await uploadPet(petA, db);
-    await uploadPet(petB, db);
-    await uploadPet(petC, db);
+    const batch = writeBatch(db);
+    for (const pet of [petA, petB, petC]) {
+      batch.set(doc(db, META_COLLECTION, pet.content_hash), {
+        name: pet.name,
+        character: pet.breeder,
+        species: pet.species,
+        gender: pet.gender,
+        breed: pet.breed,
+        breeder: pet.breeder,
+        notes: pet.notes,
+        tags: pet.tags,
+        schemaVersion: 1,
+        appVersion: '0.6.3',
+        uploadedAt: serverTimestamp(),
+        uploaderUid: null,
+      });
+      batch.set(doc(db, GENOME_COLLECTION, pet.content_hash), { genomeData: pet.genome_text });
+    }
+    await batch.commit();
 
     const first = await listPets({ limit: 2 }, db);
     const second = await listPets({ limit: 2, after: first.cursor }, db);
