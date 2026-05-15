@@ -417,9 +417,26 @@ export async function uploadPet(content: string, options: UploadPetOptions = {})
   // Compute hash for duplicate detection
   const contentHash = await sha256Hex(content);
 
-  // Check for duplicate
+  // Check for duplicate. The genome_text column was added in migration v13;
+  // a re-import of a legacy pet (which has the right content_hash but an
+  // empty genome_text) is also the only way a user can fix their pet for
+  // sharing, so we backfill from the file they just re-picked instead of
+  // returning a flat "duplicate" error.
   const existing = await findPetByHash(contentHash);
   if (existing) {
+    if (existing.genome_text === '' || existing.genome_text === null || existing.genome_text === undefined) {
+      const db = getDb();
+      await db.execute('UPDATE pets SET genome_text = $text WHERE id = $id', {
+        text: content,
+        id: existing.id,
+      });
+      return {
+        status: 'success',
+        message: `Filled the missing raw genome data for '${existing.name}'. It can now be shared to the community.`,
+        pet_id: existing.id,
+        name: existing.name,
+      };
+    }
     return {
       status: 'error',
       message: `This file has already been uploaded as '${existing.name}' on ${existing.created_at}`,
@@ -456,11 +473,11 @@ export async function uploadPet(content: string, options: UploadPetOptions = {})
   const result = await withTransaction(async () => {
     const res = await db.execute(
       `INSERT INTO pets
-       (name, species, gender, breed, breeder, content_hash, genome_data, notes,
+       (name, species, gender, breed, breeder, content_hash, genome_data, genome_text, notes,
         created_at, updated_at,
         intelligence, toughness, friendliness, ruggedness, enthusiasm, virility, ferocity, temperament, sort_order,
         starred, stabled, is_pet_quality, positive_genes, total_genes, known_genes, unknown_genes)
-       VALUES ($name, $species, $gender, $breed, $breeder, $content_hash, $genome_data, $notes,
+       VALUES ($name, $species, $gender, $breed, $breeder, $content_hash, $genome_data, $genome_text, $notes,
                $created_at, $updated_at,
                $intelligence, $toughness, $friendliness, $ruggedness, $enthusiasm, $virility, $ferocity, $temperament, $sort_order,
                $starred, $stabled, $is_pet_quality, $positive_genes, $total_genes, $known_genes, $unknown_genes)`,
@@ -472,6 +489,7 @@ export async function uploadPet(content: string, options: UploadPetOptions = {})
         breeder: genome.breeder,
         content_hash: contentHash,
         genome_data: genomeJson,
+        genome_text: content,
         notes: notes ?? '',
         created_at: ts,
         updated_at: ts,

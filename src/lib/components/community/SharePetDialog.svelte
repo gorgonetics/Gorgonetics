@@ -11,12 +11,16 @@ let errorMessage = $state('');
 
 const previewTags = $derived(sanitizeTags(pet?.tags ?? []));
 const hasNotes = $derived(typeof pet?.notes === 'string' && pet.notes.trim().length > 0);
+// Legacy pets imported before migration v13 don't have the raw genome
+// text on file, so we can't recompute the hash-matching upload payload
+// for them. They can be shared after the user re-imports the file.
+const hasRawGenome = $derived(typeof pet?.genome_text === 'string' && pet.genome_text.length > 0);
 
 async function handleShare() {
   // Belt-and-suspenders: the Share button is disabled when the placeholder
-  // config is still in place, so this should never fire. The early return
-  // guards programmatic re-entry.
-  if (isPlaceholderConfig) return;
+  // config is still in place or the pet lacks raw genome text, so this
+  // should never fire. The early return guards programmatic re-entry.
+  if (isPlaceholderConfig || !hasRawGenome) return;
   sharing = true;
   errorMessage = '';
   try {
@@ -73,6 +77,12 @@ async function handleShare() {
           The community catalogue isn't configured for this build of Gorgonetics yet, so
           uploads are disabled. See <code>docs/firebase-setup.md</code> for how to wire up a
           Firebase project, or wait for a release with sharing enabled.
+        </div>
+      {:else if !hasRawGenome}
+        <div class="banner banner-warn" data-testid="share-no-raw-genome">
+          This pet was imported with an older app version that didn't keep the original
+          genome file on disk. To share it, re-import the same <code>Genes_*.txt</code> file
+          (the import path will dedupe and add the raw text needed for sharing).
         </div>
       {/if}
 
@@ -146,7 +156,7 @@ async function handleShare() {
         class="btn btn-primary"
         data-testid="share-confirm"
         onclick={handleShare}
-        disabled={sharing || isPlaceholderConfig}
+        disabled={sharing || isPlaceholderConfig || !hasRawGenome}
       >
         {sharing ? 'Sharing…' : 'Share to community'}
       </button>

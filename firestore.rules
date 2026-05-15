@@ -47,6 +47,12 @@ service cloud.firestore {
     // page metadata without dragging 64 KiB-cap genome strings over the
     // wire. Document ID is the SHA-256 hex of the genome — the same ID is
     // used in both collections to bind a metadata row to its genome.
+    //
+    // `existsAfter()` ties the two collections together: a /pets create is
+    // only accepted if /genomes/{hash} ALSO exists after the same
+    // transaction. The client `writeBatch` writes both atomically, so the
+    // pair lands together. This blocks single-collection writes that
+    // would otherwise create orphan metadata rows pointing at no genome.
     match /pets/{contentHash} {
       allow read: if true;
 
@@ -82,7 +88,8 @@ service cloud.firestore {
                  && contentHash.matches('^[a-f0-9]{64}$')
                  && request.resource.data.uploadedAt is timestamp
                  && request.resource.data.uploadedAt == request.time
-                 && request.resource.data.uploaderUid == null;
+                 && request.resource.data.uploaderUid == null
+                 && existsAfter(/databases/$(db)/documents/genomes/$(contentHash));
 
       allow update, delete: if false;
     }
@@ -90,6 +97,11 @@ service cloud.firestore {
     // Genome blob, keyed by the same SHA-256 hex. Single field; the doc ID
     // acts as the integrity check (the client also re-hashes on import via
     // `verifySharedPet` — Firestore CEL can't run SHA-256).
+    //
+    // Mirror `existsAfter()` requirement on /pets so a genome blob can
+    // never land in the catalogue without its metadata twin. Prevents an
+    // attacker from pre-creating /genomes/{hash} with arbitrary content
+    // to block a legitimate batched share for that hash.
     match /genomes/{contentHash} {
       allow read: if true;
 
@@ -97,7 +109,8 @@ service cloud.firestore {
                  && request.resource.data.genomeData is string
                  && request.resource.data.genomeData.size() > 0
                  && request.resource.data.genomeData.size() <= 65536
-                 && contentHash.matches('^[a-f0-9]{64}$');
+                 && contentHash.matches('^[a-f0-9]{64}$')
+                 && existsAfter(/databases/$(db)/documents/pets/$(contentHash));
 
       allow update, delete: if false;
     }

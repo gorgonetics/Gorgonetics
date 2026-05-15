@@ -48,6 +48,9 @@ const PET_COLUMNS = [
   'breeder',
   'content_hash',
   'genome_data',
+  // Raw genome file text (migration v13) — restoring without this would
+  // leave the imported pet stuck in legacy state and unable to share.
+  'genome_text',
   'notes',
   'created_at',
   'updated_at',

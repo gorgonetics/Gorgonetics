@@ -195,6 +195,21 @@ const MIGRATIONS: Migration[] = [
       `);
     },
   },
+  {
+    version: 13,
+    description: 'Add genome_text column to pets — raw genome file text needed for community sharing',
+    up: async () => {
+      // The pre-existing genome_data column stores the JSON-stringified
+      // parsed Genome (lossy w.r.t. the original whitespace/line-endings),
+      // so its SHA-256 does not equal pets.content_hash. The community
+      // share path needs to upload the original raw text whose hash IS
+      // content_hash. Going forward, petService.uploadPet writes the raw
+      // text here; legacy rows have genome_text='' and their Share button
+      // is disabled until the user re-imports the file.
+      const db = getDb();
+      await db.execute("ALTER TABLE pets ADD COLUMN genome_text TEXT NOT NULL DEFAULT ''");
+    },
+  },
 ];
 
 /** Derived from the last migration — no manual bookkeeping needed. */

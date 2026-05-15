@@ -47,6 +47,25 @@ describe('Pet Service', () => {
       expect(result.message).toContain('already been uploaded');
     });
 
+    it('backfills genome_text on re-import of a legacy pet (empty genome_text)', async () => {
+      // Seed a legacy pet: same content_hash, but no raw genome on file —
+      // simulates a row that predates migration v13.
+      const first = await petService.uploadPet(SAMPLE_BEEWASP, { name: 'Legacy', gender: 'Female' });
+      expect(first.status).toBe('success');
+      const db = getDb();
+      await db.execute('UPDATE pets SET genome_text = $text WHERE id = $id', { text: '', id: first.pet_id });
+
+      // Re-importing the same file should fill genome_text in place and
+      // surface a success message rather than the duplicate-rejection.
+      const result = await petService.uploadPet(SAMPLE_BEEWASP, { name: 'AnyName', gender: 'Female' });
+      expect(result.status).toBe('success');
+      expect(result.pet_id).toBe(first.pet_id);
+      expect(result.message).toMatch(/missing raw genome data/i);
+
+      const rows = await db.select('SELECT genome_text FROM pets WHERE id = $id', { id: first.pet_id });
+      expect(rows[0].genome_text).toBe(SAMPLE_BEEWASP);
+    });
+
     it('infers breed, gender, and attributes from structured Horse name', async () => {
       // Create a Horse genome file with a structured Entity name
       const structuredHorse = SAMPLE_HORSE.replace('Entity=Sample Horse', 'Entity=Kb F 60 70 65 80 90 100 55');
