@@ -1,5 +1,5 @@
 <script>
-import { assertFirebaseConfigured, isPlaceholderConfig } from '$lib/firebase.js';
+import { isPlaceholderConfig } from '$lib/firebase.js';
 import { sanitizeTags, uploadPet } from '$lib/services/shareService.js';
 import { focusTrap } from '$lib/utils/focusTrap.js';
 
@@ -13,11 +13,13 @@ const previewTags = $derived(sanitizeTags(pet?.tags ?? []));
 const hasNotes = $derived(typeof pet?.notes === 'string' && pet.notes.trim().length > 0);
 
 async function handleShare() {
+  // Belt-and-suspenders: the Share button is disabled when the placeholder
+  // config is still in place, so this should never fire. The early return
+  // guards programmatic re-entry.
   if (isPlaceholderConfig) return;
   sharing = true;
   errorMessage = '';
   try {
-    assertFirebaseConfigured();
     const petToShare = includeNotes ? pet : { ...pet, notes: '' };
     const result = await uploadPet(petToShare);
     if (result.status === 'already-shared') {
@@ -104,7 +106,7 @@ async function handleShare() {
             <span class="muted">none</span>
           {:else}
             {#each previewTags as t (t)}
-              <span class="tag-chip">{t}</span>
+              <span class="tag-badge">{t}</span>
             {/each}
           {/if}
         </dd>
@@ -185,15 +187,6 @@ async function handleShare() {
   .muted {
     color: var(--text-tertiary);
     font-style: italic;
-  }
-
-  .tag-chip {
-    display: inline-block;
-    padding: 2px 8px;
-    margin: 0 4px 4px 0;
-    border-radius: 4px;
-    background: var(--surface-2, #2a2a2a);
-    font-size: 12px;
   }
 
   .checkbox-row.disabled {

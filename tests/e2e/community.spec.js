@@ -1,18 +1,15 @@
 import { expect, test } from '@playwright/test';
 import { waitForPets } from './helpers.js';
 
-// PR 3 lands the write-path UI. The browser-side e2e exercises the dialog
-// flow itself — open, preview, cancel, backdrop, Escape, and the disabled
-// state when Firebase is unconfigured (which is always true in this build,
-// because `src/lib/firebase.ts` ships a placeholder apiKey by design).
-// The actual upload round-trip is covered by tests/integration/shareService.emulator.test.js.
+// Exercises the dialog flow: open, preview, cancel, backdrop, Escape, and the
+// disabled state when Firebase is unconfigured (which is always true in this
+// build — `src/lib/firebase.ts` ships a placeholder apiKey by design). The
+// upload round-trip is covered by tests/integration/shareService.emulator.test.js.
 
 test.describe('Share Pet Dialog', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await waitForPets(page);
-    // Selecting a pet renders PetVisualization in the detail pane, which is
-    // where the Share button lives.
     await page.locator('.pet-card').first().click();
     await expect(page.locator('.pet-visualization')).toBeVisible();
   });

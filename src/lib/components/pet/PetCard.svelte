@@ -162,16 +162,6 @@ function handleKey(e) {
         margin-top: 3px;
     }
 
-    .tag-badge {
-        display: inline-block;
-        padding: 1px 6px;
-        background: var(--bg-selected);
-        color: var(--accent-text);
-        border-radius: 8px;
-        font-size: 10px;
-        font-weight: 500;
-    }
-
     .selected-indicator {
         color: var(--accent-text);
         font-size: 12px;
