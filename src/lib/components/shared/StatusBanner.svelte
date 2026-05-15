@@ -42,12 +42,20 @@ onDestroy(() => clearTimeout(timer));
 </div>
 
 <style>
-  .banner-toast {
+  /* Floating toast: solid background under the variant's coloured
+     border so the toast stays readable over arbitrary page content.
+     The `.banner.banner-toast` selector beats the single-class
+     `.banner-success` / `.banner-info` / … rules in `app.css`, so the
+     solid bg wins regardless of stylesheet load order. Inline banners
+     keep their translucent variant tint — they sit on a known pane
+     background where the tint reads correctly. */
+  :global(.banner.banner-toast) {
     position: fixed;
     bottom: 24px;
     right: 24px;
     max-width: 420px;
     margin: 0;
+    background: var(--bg-secondary);
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
     z-index: 1000;
   }

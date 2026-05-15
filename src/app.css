@@ -247,10 +247,16 @@ textarea {
   background: rgba(220, 80, 80, 0.12);
   border-color: rgba(220, 80, 80, 0.4);
 }
+/* `success` + `imported` are visually identical (green); same for
+   `info` + `already-imported` (blue). Two variant names exist because
+   share-style dialogs use the generic `success`/`info` vocabulary while
+   the community import path is more specific about what happened. */
+.banner-success,
 .banner-imported {
   background: rgba(80, 200, 120, 0.12);
   border-color: rgba(80, 200, 120, 0.4);
 }
+.banner-info,
 .banner-already-imported {
   background: rgba(100, 160, 220, 0.12);
   border-color: rgba(100, 160, 220, 0.4);
