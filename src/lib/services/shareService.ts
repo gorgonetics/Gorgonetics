@@ -35,6 +35,7 @@ import {
 
 import { firestore as defaultFirestore } from '$lib/firebase.js';
 import { CURRENT_SCHEMA_VERSION } from '$lib/services/migrationService.js';
+import { findPetByHash, setTagsForPet, uploadPet as uploadPetLocally } from '$lib/services/petService.js';
 import { Gender, type ListPetsOpts, type Pet, type SharedPet } from '$lib/types/index.js';
 import { sha256Hex } from '$lib/utils/hash.js';
 
@@ -126,6 +127,52 @@ export async function verifySharedPet(pet: SharedPet): Promise<void> {
   if (expected !== pet.contentHash) {
     throw new Error(`verifySharedPet: hash mismatch — contentHash=${pet.contentHash}, sha256(genomeData)=${expected}`);
   }
+}
+
+export type ImportResult =
+  | { status: 'imported'; message: string; pet_id: number; tags: string[] }
+  | { status: 'already-imported'; message: string; pet_id: number }
+  | { status: 'error'; message: string };
+
+/**
+ * Import a fetched community pet into the local stable. Verifies the hash
+ * first (defence in depth — Firestore rules can't enforce SHA-256
+ * agreement), checks for an existing pet with the same content_hash (so
+ * re-import is idempotent), then delegates the actual SQLite write to
+ * `petService.uploadPet` and applies the community tag.
+ */
+export async function importCommunityPet(shared: SharedPet, opts: { tag?: string } = {}): Promise<ImportResult> {
+  await verifySharedPet(shared);
+
+  const existing = await findPetByHash(shared.contentHash);
+  if (existing) {
+    return {
+      status: 'already-imported',
+      message: `"${existing.name}" is already in your stable.`,
+      pet_id: existing.id,
+    };
+  }
+
+  const upload = await uploadPetLocally(shared.genomeData, {
+    name: shared.name,
+    gender: shared.gender,
+    notes: shared.notes,
+    sourcePath: `community:${shared.contentHash}`,
+  });
+  if (upload.status !== 'success' || !upload.pet_id) {
+    return { status: 'error', message: upload.message };
+  }
+
+  const localTag = opts.tag ?? 'community';
+  const tags = Array.from(new Set([localTag, ...sanitizeTags(shared.tags)]));
+  await setTagsForPet(upload.pet_id, tags);
+
+  return {
+    status: 'imported',
+    message: `Imported "${shared.name}" to your stable.`,
+    pet_id: upload.pet_id,
+    tags,
+  };
 }
 
 /**

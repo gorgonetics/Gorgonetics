@@ -5,7 +5,14 @@
  * tests/integration/shareService.emulator.test.js.
  */
 
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+afterEach(() => {
+  // The per-mock `mockResolvedValueOnce` calls are consumed in order, but
+  // the call-history is not — without resetting it, "not.toHaveBeenCalled"
+  // assertions leak across tests in this file.
+  vi.clearAllMocks();
+});
 
 vi.mock('firebase/firestore', async () => {
   const actual = await vi.importActual('firebase/firestore');
@@ -28,8 +35,22 @@ vi.mock('$lib/firebase.js', () => ({
   firestore: { __mock: 'firestore' },
 }));
 
+vi.mock('$lib/services/petService.js', () => ({
+  findPetByHash: vi.fn(),
+  setTagsForPet: vi.fn(),
+  uploadPet: vi.fn(),
+}));
+
 import { getDoc, getDocs, orderBy, setDoc, startAfter, Timestamp } from 'firebase/firestore';
-import { getSharedPet, listPets, sanitizeTags, uploadPet, verifySharedPet } from '$lib/services/shareService.js';
+import { findPetByHash, setTagsForPet, uploadPet as uploadPetLocally } from '$lib/services/petService.js';
+import {
+  getSharedPet,
+  importCommunityPet,
+  listPets,
+  sanitizeTags,
+  uploadPet,
+  verifySharedPet,
+} from '$lib/services/shareService.js';
 import { Gender } from '$lib/types/index.js';
 import { sha256Hex } from '$lib/utils/hash.js';
 
@@ -190,6 +211,86 @@ describe('shareService.sanitizeTags', () => {
     expect(sanitizeTags(undefined)).toEqual([]);
     expect(sanitizeTags(null)).toEqual([]);
     expect(sanitizeTags('a,b')).toEqual([]);
+  });
+});
+
+describe('shareService.importCommunityPet', () => {
+  async function makeShared(seed = 'A') {
+    const genomeData = `[Overview]\nCharacter=Player${seed}\nEntity=Buzz${seed}\n[Genes]\n`;
+    return {
+      contentHash: await sha256Hex(genomeData),
+      name: `Buzz${seed}`,
+      character: `Player${seed}`,
+      species: 'BeeWasp',
+      gender: Gender.FEMALE,
+      breed: '',
+      breeder: `Player${seed}`,
+      notes: '',
+      tags: ['fast', 'fierce'],
+      schemaVersion: 1,
+      appVersion: '0.6.3',
+      genomeData,
+      uploadedAt: new Date('2026-05-10T12:00:00Z'),
+      uploaderUid: null,
+    };
+  }
+
+  it('verifies hash, uploads to local DB, applies the community tag', async () => {
+    const shared = await makeShared('X');
+    findPetByHash.mockResolvedValueOnce(null);
+    uploadPetLocally.mockResolvedValueOnce({ status: 'success', message: '', pet_id: 42 });
+    setTagsForPet.mockResolvedValueOnce(undefined);
+
+    const result = await importCommunityPet(shared);
+
+    expect(result.status).toBe('imported');
+    expect(result.pet_id).toBe(42);
+    expect(result.tags).toEqual(['community', 'fast', 'fierce']);
+    expect(uploadPetLocally).toHaveBeenCalledWith(shared.genomeData, expect.objectContaining({ name: shared.name }));
+    expect(setTagsForPet).toHaveBeenCalledWith(42, ['community', 'fast', 'fierce']);
+  });
+
+  it('honours a custom tag label override', async () => {
+    const shared = await makeShared('Y');
+    findPetByHash.mockResolvedValueOnce(null);
+    uploadPetLocally.mockResolvedValueOnce({ status: 'success', message: '', pet_id: 7 });
+    setTagsForPet.mockResolvedValueOnce(undefined);
+
+    const result = await importCommunityPet(shared, { tag: 'imported' });
+
+    expect(result.tags?.[0]).toBe('imported');
+    expect(setTagsForPet).toHaveBeenLastCalledWith(7, ['imported', 'fast', 'fierce']);
+  });
+
+  it('returns already-imported when the local DB already has the same hash', async () => {
+    const shared = await makeShared('Z');
+    findPetByHash.mockResolvedValueOnce({ id: 99, name: 'OldName', content_hash: shared.contentHash });
+
+    const result = await importCommunityPet(shared);
+
+    expect(result.status).toBe('already-imported');
+    expect(result.pet_id).toBe(99);
+    expect(uploadPetLocally).not.toHaveBeenCalled();
+    expect(setTagsForPet).not.toHaveBeenCalled();
+  });
+
+  it('rejects when the genome does not hash to contentHash', async () => {
+    const shared = await makeShared('W');
+    shared.contentHash = 'f'.repeat(64);
+    await expect(importCommunityPet(shared)).rejects.toThrow(/hash mismatch/);
+    expect(findPetByHash).not.toHaveBeenCalled();
+  });
+
+  it('surfaces error from the local upload without setting tags', async () => {
+    const shared = await makeShared('V');
+    findPetByHash.mockResolvedValueOnce(null);
+    uploadPetLocally.mockResolvedValueOnce({ status: 'error', message: 'Invalid genome file format' });
+
+    const result = await importCommunityPet(shared);
+
+    expect(result.status).toBe('error');
+    expect(result.message).toMatch(/Invalid genome file format/);
+    expect(setTagsForPet).not.toHaveBeenCalled();
   });
 });
 

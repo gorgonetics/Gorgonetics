@@ -641,7 +641,7 @@ export async function updatePet(petId: number, updates: Record<string, unknown>)
   return changed;
 }
 
-async function setTagsForPet(petId: number, tags: string[]): Promise<void> {
+export async function setTagsForPet(petId: number, tags: string[]): Promise<void> {
   const statements: TxStatement[] = [{ sql: 'DELETE FROM pet_tags WHERE pet_id = $pet_id', params: { pet_id: petId } }];
   for (const tag of tags) {
     const normalized = tag.trim().toLowerCase();

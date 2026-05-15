@@ -3,7 +3,7 @@ import type { UploadPetOptions } from '$lib/services/petService.js';
 import * as petService from '$lib/services/petService.js';
 import type { Pet } from '$lib/types/index.js';
 
-export type Tab = 'pets' | 'editor' | 'compare' | 'stable' | 'breeding';
+export type Tab = 'pets' | 'editor' | 'compare' | 'stable' | 'breeding' | 'community';
 
 export const pets: Writable<Pet[]> = writable([]);
 export const selectedPet: Writable<Pet | null> = writable(null);
@@ -39,6 +39,7 @@ const TAB_STATE_RESETS: Record<Tab, () => void> = {
   compare: clearSelectionAndGeneView,
   stable: clearSelectionAndGeneView,
   breeding: clearSelectionAndGeneView,
+  community: clearSelectionAndGeneView,
 };
 
 export const appState = {
