@@ -1,9 +1,20 @@
 <script>
 import { clearSelection, communityView, importSelected, selectedSharedPet } from '$lib/stores/community.svelte.js';
+import { formatShortDate } from '$lib/utils/timestamp.js';
 
 const pet = $derived(selectedSharedPet());
 const isImporting = $derived(communityView.importingHash === pet?.contentHash);
 let importStatus = $state(null);
+
+// The detail component instance is reused as the user switches between
+// rows — drop a stale "Imported …" / "Already in your stable" banner from
+// the previous selection so it doesn't follow the user around.
+$effect(() => {
+  // Read the hash to register the dependency; the effect's only job is to
+  // clear the status whenever the selection changes.
+  pet?.contentHash;
+  importStatus = null;
+});
 
 async function handleImport() {
   importStatus = null;
@@ -39,7 +50,7 @@ async function handleImport() {
         <dd>{pet.breeder || '—'}</dd>
 
         <dt>Uploaded</dt>
-        <dd>{pet.uploadedAt.toLocaleString()}</dd>
+        <dd>{formatShortDate(pet.uploadedAt)}</dd>
 
         <dt>Schema</dt>
         <dd>v{pet.schemaVersion} · app {pet.appVersion}</dd>

@@ -1,14 +1,10 @@
 <script>
 import { selectPet } from '$lib/stores/community.svelte.js';
+import { formatShortDate } from '$lib/utils/timestamp.js';
 
 const { pet, selected = false } = $props();
 
-const uploadedLabel = $derived(formatUploaded(pet.uploadedAt));
-
-function formatUploaded(d) {
-  if (!(d instanceof Date) || Number.isNaN(d.getTime())) return '';
-  return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
-}
+const uploadedLabel = $derived(formatShortDate(pet.uploadedAt));
 
 function handleClick() {
   selectPet(pet.contentHash);

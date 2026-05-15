@@ -164,7 +164,10 @@ export async function importCommunityPet(shared: SharedPet, opts: { tag?: string
   }
 
   const localTag = opts.tag ?? 'community';
-  const tags = Array.from(new Set([localTag, ...sanitizeTags(shared.tags)]));
+  // sanitizeTags handles dedupe, length cap, and the 30-tag count cap —
+  // running it over the combined list (localTag + uploader tags) makes the
+  // local tag obey the same constraints and avoids a separate dedupe step.
+  const tags = sanitizeTags([localTag, ...shared.tags]);
   await setTagsForPet(upload.pet_id, tags);
 
   return {

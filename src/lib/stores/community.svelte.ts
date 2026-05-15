@@ -10,13 +10,10 @@
  */
 
 import { isPlaceholderConfig } from '$lib/firebase.js';
-import { importCommunityPet, listPets } from '$lib/services/shareService.js';
+import { type ImportResult, importCommunityPet, listPets } from '$lib/services/shareService.js';
 import type { SharedPet } from '$lib/types/index.js';
 
-export type ImportOutcome =
-  | { status: 'imported'; message: string; tags: string[] }
-  | { status: 'already-imported'; message: string }
-  | { status: 'error'; message: string };
+export type ImportOutcome = ImportResult;
 
 const PAGE_SIZE = 50;
 
@@ -37,6 +34,10 @@ function errMsg(err: unknown): string {
 /**
  * Discover the currently-selected pet from the loaded page. Returns null
  * when nothing is selected or the selection was paginated out.
+ *
+ * A regular function rather than a `$derived` because `$derived` cannot
+ * appear at module scope outside a component context in Svelte 5. Consumers
+ * call it inside their own `$derived` to wire reactivity.
  */
 export function selectedSharedPet(): SharedPet | null {
   if (!communityView.selectedHash) return null;
@@ -103,14 +104,7 @@ export async function importSelected(): Promise<ImportOutcome> {
 
   communityView.importingHash = pet.contentHash;
   try {
-    const result = await importCommunityPet(pet);
-    if (result.status === 'imported') {
-      return { status: 'imported', message: result.message, tags: result.tags };
-    }
-    if (result.status === 'already-imported') {
-      return { status: 'already-imported', message: result.message };
-    }
-    return { status: 'error', message: result.message };
+    return await importCommunityPet(pet);
   } catch (err) {
     return { status: 'error', message: errMsg(err) };
   } finally {
