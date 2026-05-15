@@ -12,7 +12,7 @@ import CommunityPetRow from './CommunityPetRow.svelte';
   {:else if communityView.error && communityView.pets.length === 0}
     <div class="state-row state-error" role="alert" data-testid="community-error">
       <p>{communityView.error}</p>
-      <button class="btn btn-secondary" onclick={loadInitial}>Try again</button>
+      <button class="btn btn-secondary" onclick={() => loadInitial({ force: true })}>Try again</button>
     </div>
   {:else if communityView.pets.length === 0}
     <div class="state-row" data-testid="community-empty">

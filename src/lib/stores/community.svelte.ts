@@ -1,10 +1,13 @@
 /**
  * Reactive state for the Community catalogue browser. Holds the current
  * page of fetched pets, the pagination cursor, the selection, and the
- * load/import status flags. Note that `loadInitial` currently resets the
- * page and clears the selection on every call (the tab remounts on every
- * navigation back), so cursor + selection do NOT in fact survive a tab
- * toggle — caching across toggles is tracked in #243.
+ * load/import status flags.
+ *
+ * Caching across tab toggles: `loadInitial` short-circuits when the data
+ * is younger than `STALE_AFTER_MS` and at least one row is already
+ * loaded — so switching tabs (which remounts CommunityTab) reuses the
+ * existing page instead of burning Spark read quota. The "Try again"
+ * button forces a fresh fetch via `loadInitial({ force: true })`.
  *
  * Fetching and importing themselves live in shareService / petService —
  * this store is the UI glue layer only.
@@ -19,6 +22,17 @@ import { errorMessage } from '$lib/utils/error.js';
 export type ImportOutcome = ImportResult;
 
 const PAGE_SIZE = 50;
+/**
+ * How long a `loadInitial` result counts as fresh. Tab toggles within
+ * this window reuse the cached page instead of refetching. Five minutes
+ * matches the rough cadence of a hobby-catalogue and keeps the store
+ * cheap against the Spark 50k-reads/day quota: a user toggling tabs
+ * once a minute for an hour burns one full page-fetch (50 reads),
+ * not 60.
+ */
+const STALE_AFTER_MS = 5 * 60 * 1000;
+
+let lastLoadedAt = 0;
 
 export const communityView = $state({
   pets: [] as SharedPet[],
@@ -59,27 +73,50 @@ export function selectedSharedPet(): SharedPet | null {
   return communityView.pets.find((p) => p.contentHash === communityView.selectedHash) ?? null;
 }
 
-/** Reset to a fresh first page. */
-export async function loadInitial(): Promise<void> {
+/**
+ * Load the first page. By default short-circuits when the cached page is
+ * fresh (see `STALE_AFTER_MS`) — pass `{ force: true }` to bypass the
+ * cache (used by the "Try again" button in the error state).
+ *
+ * Unlike pre-#243, this does NOT clear `selectedHash`. The selection is
+ * independent of the data lifecycle: if the user navigates away from
+ * the tab and returns, the pet they were inspecting stays selected
+ * (provided it's still in the loaded page).
+ */
+export async function loadInitial(opts: { force?: boolean } = {}): Promise<void> {
   if (isPlaceholderConfig) {
     communityView.error = 'Public sharing is not configured in this build — see docs/firebase-setup.md.';
     communityView.pets = [];
     communityView.hasMore = false;
     return;
   }
+  if (!opts.force && communityView.pets.length > 0 && Date.now() - lastLoadedAt < STALE_AFTER_MS) {
+    return;
+  }
   communityView.loading = true;
   communityView.error = null;
-  communityView.selectedHash = null;
   try {
     const { pets, cursor } = await listPets({ limit: PAGE_SIZE });
     communityView.pets = pets;
     communityView.cursor = cursor;
     communityView.hasMore = pets.length === PAGE_SIZE;
+    lastLoadedAt = Date.now();
+    // If the previously-selected pet was paginated out of the new first
+    // page (e.g., a forced refresh after several uploads pushed it
+    // below the cursor), clear the dangling selectedHash so the detail
+    // pane returns to the empty state.
+    if (communityView.selectedHash && !pets.some((p) => p.contentHash === communityView.selectedHash)) {
+      communityView.selectedHash = null;
+    }
   } catch (err) {
     communityView.error = `Failed to load catalogue: ${errorMessage(err)}`;
-    communityView.pets = [];
-    communityView.cursor = null;
-    communityView.hasMore = false;
+    // On error we keep the existing `pets` array so a transient failure
+    // doesn't blow away whatever the user was already looking at. The
+    // "Try again" button retries with `{ force: true }`.
+    if (communityView.pets.length === 0) {
+      communityView.cursor = null;
+      communityView.hasMore = false;
+    }
   } finally {
     communityView.loading = false;
   }
