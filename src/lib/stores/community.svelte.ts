@@ -25,6 +25,15 @@ export const communityView = $state({
   loadingMore: false,
   error: null as string | null,
   hasMore: true,
+  /**
+   * Opaque pagination cursor (Firestore `QueryDocumentSnapshot`) for the
+   * NEXT page. Tracked separately from `pets` because the SharedPet
+   * shape doesn't (and shouldn't) carry server-side nanosecond
+   * timestamps — encoding the cursor through `Date.fromDate(uploadedAt)`
+   * would truncate to milliseconds and break ordering at page
+   * boundaries when two uploads share a millisecond. See #248.
+   */
+  cursor: null as unknown,
   selectedHash: null as string | null,
   /**
    * Hash of the currently-importing pet, or null when no import is in
@@ -64,12 +73,14 @@ export async function loadInitial(): Promise<void> {
   communityView.error = null;
   communityView.selectedHash = null;
   try {
-    const page = await listPets({ limit: PAGE_SIZE });
-    communityView.pets = page;
-    communityView.hasMore = page.length === PAGE_SIZE;
+    const { pets, cursor } = await listPets({ limit: PAGE_SIZE });
+    communityView.pets = pets;
+    communityView.cursor = cursor;
+    communityView.hasMore = pets.length === PAGE_SIZE;
   } catch (err) {
     communityView.error = `Failed to load catalogue: ${errMsg(err)}`;
     communityView.pets = [];
+    communityView.cursor = null;
     communityView.hasMore = false;
   } finally {
     communityView.loading = false;
@@ -79,14 +90,14 @@ export async function loadInitial(): Promise<void> {
 /** Append the next page after the last loaded pet. */
 export async function loadMore(): Promise<void> {
   if (communityView.loadingMore || !communityView.hasMore) return;
-  const last = communityView.pets.at(-1);
-  if (!last) return;
+  if (!communityView.cursor) return;
   communityView.loadingMore = true;
   communityView.error = null;
   try {
-    const page = await listPets({ limit: PAGE_SIZE, after: last });
-    communityView.pets = [...communityView.pets, ...page];
-    communityView.hasMore = page.length === PAGE_SIZE;
+    const { pets, cursor } = await listPets({ limit: PAGE_SIZE, after: communityView.cursor });
+    communityView.pets = [...communityView.pets, ...pets];
+    communityView.cursor = cursor;
+    communityView.hasMore = pets.length === PAGE_SIZE;
   } catch (err) {
     communityView.error = `Failed to load more: ${errMsg(err)}`;
   } finally {

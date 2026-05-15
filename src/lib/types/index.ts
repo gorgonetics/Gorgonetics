@@ -81,6 +81,14 @@ export interface Pet {
   breeder: string;
   content_hash: string;
   genome_data: string;
+  /**
+   * Raw `[Overview]` / `[Genes]` text of the genome file, byte-identical to
+   * what was uploaded. Used by the community share path: `content_hash` is
+   * the SHA-256 of this string, and `genome_data` is the parsed JSON
+   * representation (which is lossy w.r.t. whitespace, so its hash would
+   * not match `content_hash`). Empty for rows that predate migration v13.
+   */
+  genome_text: string;
   notes: string;
   tags: string[];
   created_at: string;
@@ -376,8 +384,22 @@ export interface SharedPet {
   uploaderUid: string | null;
 }
 
+/**
+ * One page of community-catalogue rows plus an opaque cursor for the
+ * next call. The cursor is the Firestore `QueryDocumentSnapshot` for the
+ * last row — opaque to UI callers because passing it back to `listPets`
+ * is the only valid operation. Using a snapshot avoids the
+ * Date-millisecond precision loss + missing doc-ID tiebreaker that a
+ * `Timestamp.fromDate(date)` cursor would suffer.
+ */
+export interface SharedPetsPage {
+  pets: SharedPet[];
+  cursor: unknown | null;
+}
+
 /** Cursor-based pagination options for `listPets`. */
 export interface ListPetsOpts {
   limit?: number;
-  after?: SharedPet;
+  /** Opaque cursor from the previous page's `SharedPetsPage.cursor`. */
+  after?: unknown;
 }

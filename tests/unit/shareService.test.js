@@ -82,6 +82,11 @@ function lastBatch() {
 }
 
 function makePet(overrides = {}) {
+  // Production-shape: content_hash is the SHA-256 of the RAW text (held in
+  // genome_text), and genome_data carries the JSON-stringified parsed
+  // Genome (lossy w.r.t. whitespace). The community share path reads
+  // genome_text, not genome_data.
+  const rawText = '[Overview]\nCharacter=PlayerOne\nEntity=Buzz\n[Genes]\n';
   return {
     id: 1,
     name: 'Buzz',
@@ -90,7 +95,8 @@ function makePet(overrides = {}) {
     breed: '',
     breeder: 'PlayerOne',
     content_hash: 'a'.repeat(64),
-    genome_data: '[Overview]\nCharacter=PlayerOne\nEntity=Buzz\n[Genes]\n',
+    genome_data: JSON.stringify({ name: 'Buzz', breeder: 'PlayerOne', genes: {} }),
+    genome_text: rawText,
     notes: '',
     tags: ['fast', 'fierce'],
     created_at: '2026-05-01T00:00:00Z',
@@ -112,7 +118,7 @@ function makePet(overrides = {}) {
 }
 
 describe('shareService.uploadPet', () => {
-  it('writes metadata + genome in a single batch with no contentHash field in metadata', async () => {
+  it('writes metadata + raw genome text in a single batch with no contentHash field in metadata', async () => {
     const result = await uploadPet(makePet());
 
     expect(result.status).toBe('created');
@@ -147,8 +153,15 @@ describe('shareService.uploadPet', () => {
     expect(meta.payload.uploaderUid).toBeNull();
     expect(meta.payload.uploadedAt).toBe('__SENTINEL_SERVER_TIMESTAMP__');
 
+    // Genome doc gets the raw genome_text, NOT the JSON-stringified
+    // genome_data. content_hash is sha256(raw text).
     expect(Object.keys(genome.payload)).toEqual(['genomeData']);
-    expect(genome.payload.genomeData).toContain('[Overview]');
+    expect(genome.payload.genomeData).toBe('[Overview]\nCharacter=PlayerOne\nEntity=Buzz\n[Genes]\n');
+  });
+
+  it('rejects legacy pets that lack raw genome_text (pre-migration v13)', async () => {
+    await expect(uploadPet(makePet({ genome_text: '' }))).rejects.toThrow(/genome_text is required/);
+    expect(writeBatch).not.toHaveBeenCalled();
   });
 
   it('returns already-shared when the rules reject create and the metadata doc exists', async () => {
@@ -177,49 +190,53 @@ describe('shareService.uploadPet', () => {
 });
 
 describe('shareService.listPets', () => {
-  it('asks for newest-first with the default page size, returns metadata-only pets', async () => {
-    getDocs.mockResolvedValueOnce({
-      docs: [
-        {
-          id: 'a'.repeat(64),
-          data: () => ({
-            name: 'Buzz',
-            character: 'PlayerOne',
-            species: 'BeeWasp',
-            gender: Gender.FEMALE,
-            breed: '',
-            breeder: 'PlayerOne',
-            notes: '',
-            tags: ['fast'],
-            schemaVersion: 1,
-            appVersion: '0.6.3',
-            uploadedAt: Timestamp.fromDate(new Date('2026-05-10T12:00:00Z')),
-            uploaderUid: null,
-          }),
-        },
-      ],
-    });
-    const out = await listPets();
+  it('asks for newest-first with the default page size, returns metadata-only pets + cursor', async () => {
+    const lastSnap = {
+      id: 'a'.repeat(64),
+      __isSnapshot: true,
+      data: () => ({
+        name: 'Buzz',
+        character: 'PlayerOne',
+        species: 'BeeWasp',
+        gender: Gender.FEMALE,
+        breed: '',
+        breeder: 'PlayerOne',
+        notes: '',
+        tags: ['fast'],
+        schemaVersion: 1,
+        appVersion: '0.6.3',
+        uploadedAt: Timestamp.fromDate(new Date('2026-05-10T12:00:00Z')),
+        uploaderUid: null,
+      }),
+    };
+    getDocs.mockResolvedValueOnce({ docs: [lastSnap] });
+
+    const { pets, cursor } = await listPets();
+
     expect(orderBy).toHaveBeenCalledWith('uploadedAt', 'desc');
     const lastQuery = getDocs.mock.calls.at(-1)?.[0];
     expect(lastQuery.constraints.some((c) => c.__op === 'limit' && c.n === 50)).toBe(true);
-    expect(out).toHaveLength(1);
-    expect(out[0].genomeData).toBeUndefined();
-    expect(out[0].name).toBe('Buzz');
+    expect(pets).toHaveLength(1);
+    expect(pets[0].genomeData).toBeUndefined();
+    expect(pets[0].name).toBe('Buzz');
+    // Cursor is the underlying snapshot — opaque to callers.
+    expect(cursor).toBe(lastSnap);
   });
 
-  it('passes the cursor through startAfter as a Timestamp', async () => {
+  it('returns a null cursor when the page is empty', async () => {
     getDocs.mockResolvedValueOnce({ docs: [] });
-    const cursor = {
-      contentHash: 'b'.repeat(64),
-      uploadedAt: new Date('2026-05-10T12:00:00Z'),
-    };
-    await listPets({ after: cursor });
+    const { pets, cursor } = await listPets();
+    expect(pets).toEqual([]);
+    expect(cursor).toBeNull();
+  });
+
+  it('passes the opaque cursor through startAfter unchanged', async () => {
+    getDocs.mockResolvedValueOnce({ docs: [] });
+    const opaqueCursor = { __isSnapshot: true, id: 'whatever' };
+    await listPets({ after: opaqueCursor });
 
     expect(startAfter).toHaveBeenCalledTimes(1);
-    const arg = startAfter.mock.calls[0][0];
-    expect(arg).toBeInstanceOf(Timestamp);
-    expect(arg.toDate().toISOString()).toBe('2026-05-10T12:00:00.000Z');
+    expect(startAfter.mock.calls[0][0]).toBe(opaqueCursor);
   });
 });
 

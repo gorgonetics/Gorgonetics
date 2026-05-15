@@ -44,7 +44,7 @@ import {
 import { firestore as defaultFirestore } from '$lib/firebase.js';
 import { CURRENT_SCHEMA_VERSION } from '$lib/services/migrationService.js';
 import { findPetByHash, setTagsForPet, uploadPet as uploadPetLocally } from '$lib/services/petService.js';
-import { Gender, type ListPetsOpts, type Pet, type SharedPet } from '$lib/types/index.js';
+import { Gender, type ListPetsOpts, type Pet, type SharedPet, type SharedPetsPage } from '$lib/types/index.js';
 import { sha256Hex } from '$lib/utils/hash.js';
 
 declare const __APP_VERSION__: string;
@@ -82,6 +82,16 @@ export async function uploadPet(pet: Pet, db: Firestore = defaultFirestore): Pro
   if (!pet.content_hash) {
     throw new Error('uploadPet: pet.content_hash is required');
   }
+  // `pet.genome_text` is the raw genome file text whose SHA-256 is the
+  // doc ID. `pet.genome_data` is the parsed-and-JSON-stringified form,
+  // whose hash would NOT match — using it on the wire would break the
+  // hash-verify check on the importer side. See migration v13.
+  if (!pet.genome_text) {
+    throw new Error(
+      'uploadPet: pet.genome_text is required. Pets imported before migration v13 ' +
+        'do not have the raw genome text on file and must be re-imported before sharing.',
+    );
+  }
 
   const metaRef = doc(db, META_COLLECTION, pet.content_hash);
   const genomeRef = doc(db, GENOME_COLLECTION, pet.content_hash);
@@ -89,7 +99,7 @@ export async function uploadPet(pet: Pet, db: Firestore = defaultFirestore): Pro
   try {
     const batch = writeBatch(db);
     batch.set(metaRef, buildMetadataPayload(pet));
-    batch.set(genomeRef, { genomeData: pet.genome_data });
+    batch.set(genomeRef, { genomeData: pet.genome_text });
     await batch.commit();
     return { status: 'created', contentHash: pet.content_hash };
   } catch (err) {
@@ -120,15 +130,25 @@ export async function uploadPet(pet: Pet, db: Firestore = defaultFirestore): Pro
  * `SharedPet`s — the `genomeData` field is `undefined` on every entry to
  * keep payloads small. Call `getSharedPet(hash)` to fetch the genome
  * blob for a single row when the user actually wants to import/preview.
+ *
+ * Pagination uses Firestore `QueryDocumentSnapshot` as the cursor. The
+ * snapshot carries the full server-side ordering tuple (nanosecond
+ * `uploadedAt` + document path as tiebreaker), which a manually-encoded
+ * `Timestamp.fromDate(date)` cursor cannot — JS `Date` truncates to
+ * milliseconds, and same-millisecond uploads have undefined order
+ * without the doc-path tiebreaker.
  */
-export async function listPets(opts: ListPetsOpts = {}, db: Firestore = defaultFirestore): Promise<SharedPet[]> {
+export async function listPets(opts: ListPetsOpts = {}, db: Firestore = defaultFirestore): Promise<SharedPetsPage> {
   const pageSize = opts.limit ?? DEFAULT_PAGE_SIZE;
   const constraints = opts.after
-    ? [orderBy('uploadedAt', 'desc'), startAfter(Timestamp.fromDate(opts.after.uploadedAt)), queryLimit(pageSize)]
+    ? [orderBy('uploadedAt', 'desc'), startAfter(opts.after), queryLimit(pageSize)]
     : [orderBy('uploadedAt', 'desc'), queryLimit(pageSize)];
 
   const snap = await getDocs(query(collection(db, META_COLLECTION), ...constraints));
-  return snap.docs.map(toMetadataSharedPet);
+  return {
+    pets: snap.docs.map(toMetadataSharedPet),
+    cursor: snap.docs.length > 0 ? snap.docs[snap.docs.length - 1] : null,
+  };
 }
 
 /**

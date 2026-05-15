@@ -456,11 +456,11 @@ export async function uploadPet(content: string, options: UploadPetOptions = {})
   const result = await withTransaction(async () => {
     const res = await db.execute(
       `INSERT INTO pets
-       (name, species, gender, breed, breeder, content_hash, genome_data, notes,
+       (name, species, gender, breed, breeder, content_hash, genome_data, genome_text, notes,
         created_at, updated_at,
         intelligence, toughness, friendliness, ruggedness, enthusiasm, virility, ferocity, temperament, sort_order,
         starred, stabled, is_pet_quality, positive_genes, total_genes, known_genes, unknown_genes)
-       VALUES ($name, $species, $gender, $breed, $breeder, $content_hash, $genome_data, $notes,
+       VALUES ($name, $species, $gender, $breed, $breeder, $content_hash, $genome_data, $genome_text, $notes,
                $created_at, $updated_at,
                $intelligence, $toughness, $friendliness, $ruggedness, $enthusiasm, $virility, $ferocity, $temperament, $sort_order,
                $starred, $stabled, $is_pet_quality, $positive_genes, $total_genes, $known_genes, $unknown_genes)`,
@@ -472,6 +472,7 @@ export async function uploadPet(content: string, options: UploadPetOptions = {})
         breeder: genome.breeder,
         content_hash: contentHash,
         genome_data: genomeJson,
+        genome_text: content,
         notes: notes ?? '',
         created_at: ts,
         updated_at: ts,
