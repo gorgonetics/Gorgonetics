@@ -38,6 +38,17 @@ import CommunityPetRow from './CommunityPetRow.svelte';
       </table>
     </div>
 
+    {#if communityView.error}
+      <div
+        class="state-row state-error inline-error"
+        role="alert"
+        data-testid="community-loadmore-error"
+      >
+        <p>{communityView.error}</p>
+        <button class="btn btn-secondary" onclick={loadMore}>Try again</button>
+      </div>
+    {/if}
+
     <div class="table-footer">
       {#if communityView.hasMore}
         <button
@@ -109,6 +120,15 @@ import CommunityPetRow from './CommunityPetRow.svelte';
 
   .state-error p {
     color: var(--text-primary);
+  }
+
+  .inline-error {
+    padding: 12px 16px;
+    border-top: 1px solid var(--border-primary);
+    border-bottom: none;
+    flex-direction: row;
+    justify-content: space-between;
+    text-align: left;
   }
 
   .spinner {

@@ -25,6 +25,7 @@ function handleKey(e) {
   data-content-hash={pet.contentHash}
   tabindex="0"
   role="button"
+  aria-pressed={selected}
   onclick={handleClick}
   onkeydown={handleKey}
 >

@@ -14,6 +14,13 @@ let genomeLoading = $state(false);
 let genomeError = $state(null);
 let importStatus = $state(null);
 
+// Non-reactive guard against duplicate fetches. We can't read `fullPet`
+// inside the effect (assigning to it during the effect body would
+// retrigger the effect before the in-flight `getSharedPet` resolves,
+// firing a second fetch for the same hash), so we track the in-flight
+// hash separately as a plain variable.
+let loadedHash = '';
+
 $effect(() => {
   const hash = pet?.contentHash;
   // Reset transient state whenever the selection changes — stale
@@ -23,17 +30,19 @@ $effect(() => {
   if (!hash) {
     fullPet = null;
     genomeLoading = false;
+    loadedHash = '';
     return;
   }
-  if (fullPet?.contentHash === hash) return;
+  if (loadedHash === hash) return;
 
+  loadedHash = hash;
   fullPet = null;
   genomeLoading = true;
   getSharedPet(hash)
     .then((p) => {
       // The user might have moved on while the fetch was in flight; only
       // accept the result if it still matches the current selection.
-      if (pet?.contentHash !== hash) return;
+      if (loadedHash !== hash) return;
       if (!p?.genomeData) {
         genomeError = 'Genome data is missing for this pet — it may have been taken down.';
         return;
@@ -41,18 +50,25 @@ $effect(() => {
       fullPet = p;
     })
     .catch((err) => {
-      if (pet?.contentHash !== hash) return;
+      if (loadedHash !== hash) return;
       genomeError = err instanceof Error ? err.message : String(err);
     })
     .finally(() => {
-      if (pet?.contentHash === hash) genomeLoading = false;
+      if (loadedHash === hash) genomeLoading = false;
     });
 });
 
 async function handleImport() {
   if (!fullPet) return;
+  // Capture the hash at click time — if the user selects another row
+  // while the import is in flight, we don't want the result to land on
+  // the new selection's detail pane.
+  const importingHash = fullPet.contentHash;
   importStatus = null;
-  importStatus = await importSelected(fullPet);
+  const result = await importSelected(fullPet);
+  if (pet?.contentHash === importingHash) {
+    importStatus = result;
+  }
 }
 </script>
 

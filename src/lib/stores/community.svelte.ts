@@ -1,9 +1,10 @@
 /**
  * Reactive state for the Community catalogue browser. Holds the current
  * page of fetched pets, the pagination cursor, the selection, and the
- * load/import status flags. Lives at module scope so cursor + scroll
- * position survive a tab switch back into the Community view within the
- * same session.
+ * load/import status flags. Note that `loadInitial` currently resets the
+ * page and clears the selection on every call (the tab remounts on every
+ * navigation back), so cursor + selection do NOT in fact survive a tab
+ * toggle — caching across toggles is tracked in #243.
  *
  * Fetching and importing themselves live in shareService / petService —
  * this store is the UI glue layer only.
@@ -11,6 +12,7 @@
 
 import { isPlaceholderConfig } from '$lib/firebase.js';
 import { type ImportResult, importCommunityPet, listPets } from '$lib/services/shareService.js';
+import { appState } from '$lib/stores/pets.js';
 import type { SharedPet } from '$lib/types/index.js';
 
 export type ImportOutcome = ImportResult;
@@ -24,6 +26,12 @@ export const communityView = $state({
   error: null as string | null,
   hasMore: true,
   selectedHash: null as string | null,
+  /**
+   * Hash of the currently-importing pet, or null when no import is in
+   * flight. Single-slot rather than per-hash because we serialize imports
+   * — kicking off a second one while the first is pending would risk
+   * `appState.loadPets()` races and double-toasts.
+   */
   importingHash: null as string | null,
 });
 
@@ -100,11 +108,30 @@ export function clearSelection(): void {
  * only, so the detail component is responsible for lazy-loading the
  * genome via `getSharedPet` before invoking this. The caller
  * (CommunityPetDetail) handles surfacing the toast.
+ *
+ * Rejects with an `error` result if another import is already in flight:
+ * we serialize imports per-store to avoid `appState.loadPets()` races
+ * and duplicate toasts.
  */
 export async function importSelected(fullPet: SharedPet): Promise<ImportOutcome> {
+  if (communityView.importingHash !== null) {
+    return { status: 'error', message: 'Another import is already in progress — wait for it to finish.' };
+  }
   communityView.importingHash = fullPet.contentHash;
   try {
-    return await importCommunityPet(fullPet);
+    const result = await importCommunityPet(fullPet);
+    // Refresh the local pets store on success so the freshly-imported pet
+    // shows up in the Pets / Stable views without a manual reload. We
+    // deliberately don't await this — the toast can land before the
+    // background refetch completes.
+    if (result.status === 'imported') {
+      appState.loadPets().catch(() => {
+        // The pet is committed locally; a refresh failure is a UI sync
+        // issue, not an import failure. The Pets tab's own onMount will
+        // pick it up on next navigation.
+      });
+    }
+    return result;
   } catch (err) {
     return { status: 'error', message: errMsg(err) };
   } finally {

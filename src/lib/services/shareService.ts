@@ -202,6 +202,20 @@ export async function importCommunityPet(shared: SharedPet, opts: { tag?: string
     sourcePath: `community:${shared.contentHash}`,
   });
   if (upload.status !== 'success' || !upload.pet_id) {
+    // Race against the earlier findPetByHash: another importer may have
+    // committed the same content_hash between that check and the local
+    // upload. petService surfaces the UNIQUE constraint violation as a
+    // generic 'error' with an "already been uploaded" message. Recheck
+    // and map to the idempotent already-imported result so retries are
+    // stable.
+    const racer = await findPetByHash(shared.contentHash);
+    if (racer) {
+      return {
+        status: 'already-imported',
+        message: `"${racer.name}" is already in your stable.`,
+        pet_id: racer.id,
+      };
+    }
     return { status: 'error', message: upload.message };
   }
 
@@ -210,7 +224,15 @@ export async function importCommunityPet(shared: SharedPet, opts: { tag?: string
   // running it over the combined list (localTag + uploader tags) makes the
   // local tag obey the same constraints and avoids a separate dedupe step.
   const tags = sanitizeTags([localTag, ...shared.tags]);
-  await setTagsForPet(upload.pet_id, tags);
+  try {
+    await setTagsForPet(upload.pet_id, tags);
+  } catch (err) {
+    // Tag application is best-effort: the pet is already committed to the
+    // local DB, so failing the whole import would force the user to retry
+    // and confuse them with an "already-imported" branch on retry. Log
+    // and continue.
+    console.warn('importCommunityPet: failed to apply tags after successful upload', err);
+  }
 
   return {
     status: 'imported',
