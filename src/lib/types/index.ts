@@ -335,6 +335,27 @@ export interface ComparisonResult {
   };
 }
 
+// --- Shared UI status types ---
+
+/**
+ * Status variants surfaced via the shared `<StatusBanner>` component.
+ * Used by share/import dialogs to communicate the outcome of an
+ * asynchronous action. `imported` / `already-imported` are
+ * community-specific aliases for green/blue used when the message
+ * mentions a pet's transition into the local stable.
+ */
+export type StatusType = 'success' | 'info' | 'warn' | 'error' | 'imported' | 'already-imported';
+
+/**
+ * Standard shape for the `onResult` callback used by modal dialogs
+ * (ExportDialog, ImportDialog, SharePetDialog, etc.). Surfaces the
+ * outcome to the parent component as a toast / banner.
+ */
+export interface DialogResult {
+  type: StatusType;
+  message: string;
+}
+
 // --- Public pet sharing (Community) types ---
 
 /**

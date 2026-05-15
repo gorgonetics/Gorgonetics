@@ -1,22 +1,27 @@
 <script>
+import StatusBanner from '$lib/components/shared/StatusBanner.svelte';
+import StatusPane from '$lib/components/shared/StatusPane.svelte';
 import { communityView, loadInitial, loadMore } from '$lib/stores/community.svelte.js';
 import CommunityPetRow from './CommunityPetRow.svelte';
 </script>
 
 <div class="community-table" data-testid="community-table">
   {#if communityView.loading && communityView.pets.length === 0}
-    <div class="state-row" data-testid="community-loading">
-      <div class="spinner"></div>
-      <p>Loading catalogue…</p>
+    <div data-testid="community-loading">
+      <StatusPane variant="loading" body="Loading catalogue…" />
     </div>
   {:else if communityView.error && communityView.pets.length === 0}
-    <div class="state-row state-error" role="alert" data-testid="community-error">
-      <p>{communityView.error}</p>
-      <button class="btn btn-secondary" onclick={loadInitial}>Try again</button>
+    <div data-testid="community-error">
+      <StatusPane
+        variant="error"
+        body={communityView.error}
+        actionLabel="Try again"
+        onAction={() => loadInitial({ force: true })}
+      />
     </div>
   {:else if communityView.pets.length === 0}
-    <div class="state-row" data-testid="community-empty">
-      <p>The catalogue is empty — be the first to share a pet.</p>
+    <div data-testid="community-empty">
+      <StatusPane variant="empty" body="The catalogue is empty — be the first to share a pet." />
     </div>
   {:else}
     <div class="table-scroll">
@@ -39,13 +44,8 @@ import CommunityPetRow from './CommunityPetRow.svelte';
     </div>
 
     {#if communityView.error}
-      <div
-        class="state-row state-error inline-error"
-        role="alert"
-        data-testid="community-loadmore-error"
-      >
-        <p>{communityView.error}</p>
-        <button class="btn btn-secondary" onclick={loadMore}>Try again</button>
+      <div data-testid="community-loadmore-error">
+        <StatusBanner type="error" message={communityView.error} />
       </div>
     {/if}
 
@@ -106,44 +106,6 @@ import CommunityPetRow from './CommunityPetRow.svelte';
   .col-uploaded {
     text-align: right;
     white-space: nowrap;
-  }
-
-  .state-row {
-    padding: 32px 20px;
-    text-align: center;
-    color: var(--text-tertiary);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 12px;
-  }
-
-  .state-error p {
-    color: var(--text-primary);
-  }
-
-  .inline-error {
-    padding: 12px 16px;
-    border-top: 1px solid var(--border-primary);
-    border-bottom: none;
-    flex-direction: row;
-    justify-content: space-between;
-    text-align: left;
-  }
-
-  .spinner {
-    width: 24px;
-    height: 24px;
-    border: 2px solid var(--border-primary);
-    border-top-color: var(--accent-text);
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-  }
-
-  @keyframes spin {
-    to {
-      transform: rotate(360deg);
-    }
   }
 
   .table-footer {
