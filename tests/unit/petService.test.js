@@ -82,6 +82,25 @@ describe('Pet Service', () => {
       expect(await petService.hasImportedFile(ledger[0].content_hash)).toBe(true);
     });
 
+    it('findPetGenomeTextByHash returns null / empty / populated states distinctly', async () => {
+      // Slim variant of findPetByHash used by the auto-scan ledger-skip
+      // path. Three states must be distinguishable:
+      //   - no pet with that hash    → null  (auto-scan skips)
+      //   - pet exists, genome_text=''  → ''   (auto-scan falls through to backfill)
+      //   - pet exists, genome_text set → text (auto-scan skips)
+      const db = getDb();
+      expect(await petService.findPetGenomeTextByHash('no_such_hash')).toBeNull();
+
+      const upload = await petService.uploadPet(SAMPLE_BEEWASP, { name: 'Pet', gender: 'Female' });
+      const populated = await petService.findPetGenomeTextByHash((await petService.getPet(upload.pet_id)).content_hash);
+      expect(typeof populated).toBe('string');
+      expect(populated.length).toBeGreaterThan(0);
+
+      await db.execute('UPDATE pets SET genome_text = $t WHERE id = $id', { t: '', id: upload.pet_id });
+      const empty = await petService.findPetGenomeTextByHash((await petService.getPet(upload.pet_id)).content_hash);
+      expect(empty).toBe('');
+    });
+
     it('infers breed, gender, and attributes from structured Horse name', async () => {
       // Create a Horse genome file with a structured Entity name
       const structuredHorse = SAMPLE_HORSE.replace('Entity=Sample Horse', 'Entity=Kb F 60 70 65 80 90 100 55');

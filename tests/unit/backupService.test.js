@@ -300,13 +300,15 @@ describe('Backup Service', () => {
       expect(result.pets).toBe(0);
     });
 
-    it('clears the imported_files ledger on replace restore', async () => {
-      // imported_files has no FK to pets — without an explicit clear,
-      // a replace-restore from an older backup that omits some
-      // previously-deleted pets would leave their hashes in the ledger,
-      // and the auto-scanner would silently skip those files on future
-      // passes (no UI feedback). The replace branch must wipe the
-      // ledger alongside pets.
+    it('wipes the stale ledger and re-seeds it with restored pet hashes on replace', async () => {
+      // imported_files has no FK to pets, so a replace-restore would
+      // otherwise leave the OLD ledger intact: stale hashes (from pets
+      // the user previously deleted) get resurrected, and brand-new
+      // restored pets have NO ledger entry — so the next auto-scan
+      // treats their genome files as unseen, hits petService's
+      // duplicate path, and reports duplicate failures. The replace
+      // flow now does both: clear the stale entries and INSERT OR
+      // IGNORE one entry per restored pet's content_hash.
       const db = getDb();
       await db.execute('INSERT INTO imported_files (content_hash, source_path, imported_at) VALUES ($h, $p, $t)', {
         h: 'stale_hash',
@@ -320,14 +322,17 @@ describe('Backup Service', () => {
       const zipData = await buildZip({ pets: [samplePet] });
       await importDatabase(zipData, importOpts('replace'));
 
-      const ledgerAfter = await db.select('SELECT content_hash FROM imported_files');
-      expect(ledgerAfter).toHaveLength(0);
+      const ledgerAfter = await db.select('SELECT content_hash, source_path FROM imported_files');
+      expect(ledgerAfter).toHaveLength(1);
+      expect(ledgerAfter[0].content_hash).toBe('hash_abc');
+      expect(ledgerAfter[0].source_path).toBe('backup-restore');
     });
 
-    it('preserves the imported_files ledger on merge restore', async () => {
-      // Merge mode must NOT wipe the ledger — the user's existing
-      // auto-scan skip-list is part of their local state, not a
-      // backup-resettable cache.
+    it('preserves existing ledger AND adds restored pet hashes on merge', async () => {
+      // Merge mode must NOT wipe the existing ledger — the user's
+      // auto-scan skip-list is local state, not a backup-resettable
+      // cache. Restored pets still get their own ledger entries via
+      // INSERT OR IGNORE so the next auto-scan doesn't reprocess them.
       const db = getDb();
       await db.execute('INSERT INTO imported_files (content_hash, source_path, imported_at) VALUES ($h, $p, $t)', {
         h: 'mine_hash',
@@ -338,9 +343,9 @@ describe('Backup Service', () => {
       const zipData = await buildZip({ pets: [samplePet] });
       await importDatabase(zipData, importOpts('merge'));
 
-      const ledger = await db.select('SELECT content_hash FROM imported_files');
-      expect(ledger).toHaveLength(1);
-      expect(ledger[0].content_hash).toBe('mine_hash');
+      const ledger = await db.select('SELECT content_hash FROM imported_files ORDER BY content_hash');
+      expect(ledger).toHaveLength(2);
+      expect(ledger.map((r) => r.content_hash).sort()).toEqual(['hash_abc', 'mine_hash']);
     });
 
     it('coerces missing genome_text to "" for pre-v13 backups', async () => {

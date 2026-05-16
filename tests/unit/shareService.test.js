@@ -434,7 +434,10 @@ describe('shareService.importCommunityPet', () => {
     const result = await importCommunityPet(shared, { tag: 'imported' });
 
     expect(result.tags?.[0]).toBe('imported');
-    expect(updatePet).toHaveBeenLastCalledWith(7, { tags: ['imported', 'fast', 'fierce'] });
+    // `toHaveBeenCalledWith` rather than `toHaveBeenLastCalledWith`:
+    // a fresh import also calls `updatePet` to apply shared metadata
+    // (name/breed/gender), so the last call isn't the tag write.
+    expect(updatePet).toHaveBeenCalledWith(7, { tags: ['imported', 'fast', 'fierce'] });
   });
 
   it('treats a legacy backfill as already-imported and still applies the community tag', async () => {
@@ -567,6 +570,93 @@ describe('shareService.importCommunityPet', () => {
     expect(result.status).toBe('imported');
     expect(result.tags).toEqual([]);
     expect(result.message).toMatch(/local tag couldn't be saved/i);
+  });
+
+  it('applies shared metadata (name / breed / gender) after a fresh import', async () => {
+    // The local insert path re-parses the raw genome and uses the
+    // genome's Entity-derived name + parsed breed — NOT the
+    // catalogue-displayed metadata. Without an explicit override, a
+    // community pet whose uploader renamed it (or edited breed) would
+    // import under the original parsed values, leaving user B looking
+    // at a different name than the catalogue preview they clicked.
+    const shared = await makeShared('META');
+    shared.name = 'CustomName';
+    shared.breed = 'Kurbone';
+    shared.gender = Gender.MALE;
+    uploadPetLocally.mockResolvedValueOnce({
+      status: 'success',
+      kind: 'created',
+      message: '',
+      pet_id: 55,
+      name: shared.name,
+    });
+    updatePet.mockResolvedValue(true);
+
+    const result = await importCommunityPet(shared);
+
+    expect(result.status).toBe('imported');
+    expect(updatePet).toHaveBeenCalledWith(55, {
+      name: 'CustomName',
+      breed: 'Kurbone',
+      gender: Gender.MALE,
+    });
+  });
+
+  it('does NOT override metadata on a backfilled import (preserves user edits)', async () => {
+    // The backfilled row pre-existed; the user may have edited
+    // name/breed/gender locally, and those edits are authoritative.
+    // Only fresh imports inherit the shared metadata.
+    const shared = await makeShared('NOOVR');
+    shared.name = 'PublishedName';
+    shared.breed = 'SomeBreed';
+    uploadPetLocally.mockResolvedValueOnce({
+      status: 'success',
+      kind: 'backfilled',
+      message: '',
+      pet_id: 56,
+      name: 'PublishedName',
+    });
+    getPet.mockResolvedValueOnce({ id: 56, tags: [] });
+    updatePet.mockResolvedValue(true);
+
+    await importCommunityPet(shared);
+
+    // Only the tag write should have happened — no name/breed/gender
+    // overwrite on the backfill path.
+    expect(updatePet).not.toHaveBeenCalledWith(56, expect.objectContaining({ name: expect.any(String) }));
+    expect(updatePet).not.toHaveBeenCalledWith(56, expect.objectContaining({ breed: expect.any(String) }));
+  });
+
+  it('preserves all pre-existing user tags on backfill even past the 30-tag wire cap', async () => {
+    // sanitizeTags caps merged lists at 30 for the wire format. Using
+    // it for the local-row merge would drop user-applied tags when
+    // existing.length + 1 exceeds 30 — e.g., a pet with 30 user tags
+    // would lose one when the community tag is prepended. The local
+    // merge must use the count-cap-free helper instead.
+    const shared = await makeShared('CAP');
+    shared.tags = []; // simplify: only the community tag is prepended
+    const existing30 = Array.from({ length: 30 }, (_, i) => `user-tag-${i}`);
+    uploadPetLocally.mockResolvedValueOnce({
+      status: 'success',
+      kind: 'backfilled',
+      message: '',
+      pet_id: 71,
+      name: 'BigTagPet',
+    });
+    getPet.mockResolvedValueOnce({ id: 71, tags: existing30 });
+    updatePet.mockResolvedValue(true);
+
+    await importCommunityPet(shared);
+
+    const tagCall = updatePet.mock.calls.find(([id, payload]) => id === 71 && Array.isArray(payload?.tags));
+    expect(tagCall).toBeDefined();
+    const writtenTags = tagCall[1].tags;
+    expect(writtenTags).toHaveLength(31);
+    // Community tag first, then every user tag — none dropped.
+    expect(writtenTags[0]).toBe('community');
+    for (const t of existing30) {
+      expect(writtenTags).toContain(t);
+    }
   });
 
   it('race-recovery surfaces tag-write failure in the message', async () => {

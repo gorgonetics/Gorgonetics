@@ -161,7 +161,9 @@ async function handleImport() {
           ? isAnyImportInFlight && !isImportingThis
             ? 'Another import is already running'
             : 'Import to my stable'
-          : 'Waiting for genome to load…'}
+          : genomeError
+            ? "Can't import — the genome failed to load"
+            : 'Waiting for genome to load…'}
       >
         {isImportingThis ? 'Importing…' : 'Import to my stable'}
       </button>

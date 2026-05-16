@@ -11,7 +11,7 @@
 import { isTauri } from '$lib/utils/environment.js';
 import { errorMessage } from '$lib/utils/error.js';
 import { sha256Hex } from '$lib/utils/hash.js';
-import { findPetByHash, hasImportedFile, recordImportedFile, uploadPet } from './petService.js';
+import { findPetGenomeTextByHash, hasImportedFile, recordImportedFile, uploadPet } from './petService.js';
 import { getSetting, setSetting } from './settingsService.js';
 
 export type Platform = 'windows' | 'mac' | 'linux' | 'unknown';
@@ -179,14 +179,16 @@ export async function autoScanGameFolder(options?: {
         // community sharing is to re-run the file through `uploadPet`
         // so its `kind: 'backfilled'` branch fills the raw text.
         // Skipping unconditionally on a ledger hit would leave those
-        // rows permanently unshareable. Probe `findPetByHash` only on
-        // the skip path (so the common already-imported case keeps the
-        // single-query cost) and let the upload through when we
-        // detect the legacy state.
-        const existing = await findPetByHash(item.hash);
-        if (!existing || existing.genome_text) {
-          // first-seen source_path is intentionally immutable, so
-          // don't rewrite it on skip.
+        // rows permanently unshareable. Probe `findPetGenomeTextByHash`
+        // on the skip path — a slim single-column query rather than
+        // the full `findPetByHash` which would do a `SELECT *` plus
+        // a tag-junction join per ledger hit, turning every auto-scan
+        // of an already-imported folder into N+1×{SELECT *, JOIN}.
+        const existingGenomeText = await findPetGenomeTextByHash(item.hash);
+        if (existingGenomeText === null || existingGenomeText.length > 0) {
+          // No matching pet, or it already has genome_text — first-seen
+          // source_path is intentionally immutable, so don't rewrite
+          // it on skip.
           result.skipped++;
           continue;
         }

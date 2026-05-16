@@ -724,6 +724,24 @@ export async function findPetByHash(contentHash: string): Promise<Pet | null> {
 }
 
 /**
+ * Slim variant of `findPetByHash` that only returns the `genome_text`
+ * state of the matching row (or `null` if no pet has that hash). Used
+ * by the auto-scan ledger-skip path to detect legacy v13 pets without
+ * paying for `SELECT *` and the tag-junction join that `findPetByHash`
+ * performs — that path runs once per already-imported file in a
+ * scanned folder, so the cost difference is N×two-extra-queries vs
+ * N×one-tiny-query.
+ */
+export async function findPetGenomeTextByHash(contentHash: string): Promise<string | null> {
+  const db = getDb();
+  const rows = await db.select<{ genome_text: string }[]>(
+    'SELECT genome_text FROM pets WHERE content_hash = $hash LIMIT 1',
+    { hash: contentHash },
+  );
+  return rows.length > 0 ? (rows[0].genome_text ?? '') : null;
+}
+
+/**
  * Replace a pet's rows in `pet_genes` with one row per genome position.
  * Atomic via `db.transaction` — readers never see a half-populated
  * genome even if a chunk fails midway.

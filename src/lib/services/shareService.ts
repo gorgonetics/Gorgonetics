@@ -272,6 +272,19 @@ export async function importCommunityPet(shared: SharedPet, opts: { tag?: string
     // returns the row we just updated or `null` if it's been deleted.
     const existing = upload.kind === 'backfilled' ? ((await getPet(upload.pet_id))?.tags ?? []) : [];
     const tagsApplied = await applyImportTags(upload.pet_id, existing, localTag, shared.tags);
+
+    // Apply the shared metadata that wouldn't survive a fresh re-parse
+    // of the raw genome. `petService.uploadPet` uses the genome's
+    // Entity-derived name and parsed breed by default, so a community
+    // pet whose uploader had renamed it (or edited the breed) would
+    // otherwise come in under the original parsed values — different
+    // from what the user saw in the catalogue preview. Only apply on
+    // `kind: 'created'` (a fresh insert); for `kind: 'backfilled'` the
+    // local row pre-existed and the user's own edits are authoritative.
+    if (upload.kind === 'created') {
+      await applyImportMetadata(upload.pet_id, shared);
+    }
+
     if (upload.kind === 'backfilled') {
       return {
         status: 'already-imported',
@@ -287,7 +300,7 @@ export async function importCommunityPet(shared: SharedPet, opts: { tag?: string
         ? `Imported "${shared.name}" to your stable.`
         : `Imported "${shared.name}" but the local tag couldn't be saved — apply it manually if you want it surfaced.`,
       pet_id: upload.pet_id,
-      tags: tagsApplied ? sanitizeTags([localTag, ...shared.tags]) : [],
+      tags: tagsApplied ? mergeLocalTags([localTag, ...existing, ...shared.tags]) : [],
     };
   }
 
@@ -327,10 +340,12 @@ async function applyImportTags(
   communityTag: string,
   sharedTags: string[],
 ): Promise<boolean> {
-  // sanitizeTags handles dedupe, length cap, and the 30-tag count cap —
-  // running it over the combined list normalises the local tag the same
-  // way uploader tags get normalised and avoids a separate dedupe step.
-  const merged = sanitizeTags([communityTag, ...existingTags, ...sharedTags]);
+  // Use the local-only merge (no count cap) — the 30-tag wire cap from
+  // `sanitizeTags` is for publishing to Firestore, not for local
+  // storage. Applying it here would drop a user's pre-existing tags
+  // when the merge crosses the cap; e.g., a pet with 30 user-applied
+  // tags would lose one when the community tag is prepended.
+  const merged = mergeLocalTags([communityTag, ...existingTags, ...sharedTags]);
   try {
     // Propagate `updatePet`'s actual boolean: `false` means the UPDATE
     // affected zero rows (typically the pet was deleted between the
@@ -340,6 +355,51 @@ async function applyImportTags(
   } catch (err) {
     console.warn('importCommunityPet: failed to apply tags to pet', petId, err);
     return false;
+  }
+}
+
+/**
+ * Dedupe + per-tag length cap — local-only variant of `sanitizeTags`
+ * that drops the 30-tag wire count cap. Used for the import flow's
+ * local-tag merge so a pet with many pre-existing user tags doesn't
+ * lose any when the community tag is prepended.
+ */
+function mergeLocalTags(tags: unknown): string[] {
+  if (!Array.isArray(tags)) return [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const t of tags) {
+    if (typeof t !== 'string') continue;
+    if (t.length === 0 || t.length > TAG_MAX_LEN) continue;
+    if (seen.has(t)) continue;
+    seen.add(t);
+    out.push(t);
+  }
+  return out;
+}
+
+/**
+ * Apply the shared metadata that won't survive a re-parse of the raw
+ * genome on the local insert path: name, breed, and gender. The
+ * uploader's catalogue preview shows these values, so the importer
+ * should land on the same view rather than the parsed-from-Entity
+ * defaults. Best-effort — failures are logged but don't fail the
+ * whole import (the pet is committed by this point and overrides can
+ * still be applied manually).
+ */
+async function applyImportMetadata(petId: number, shared: SharedPet): Promise<void> {
+  const updates: Record<string, unknown> = {};
+  if (shared.name) updates.name = shared.name;
+  if (shared.gender) updates.gender = shared.gender;
+  // `breed` may be the empty string for unstructured genomes — only
+  // apply when the uploader explicitly set one, so we don't clobber a
+  // locally-parsed breed with empty.
+  if (shared.breed) updates.breed = shared.breed;
+  if (Object.keys(updates).length === 0) return;
+  try {
+    await updatePet(petId, updates);
+  } catch (err) {
+    console.warn('importCommunityPet: failed to apply shared metadata to pet', petId, err);
   }
 }
 

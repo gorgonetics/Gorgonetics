@@ -317,6 +317,7 @@ async function importGenesAndPets(
 
   if (options.includePets && pets) {
     const petRows: Record<string, unknown>[] = [];
+    const restoredHashes: string[] = [];
     for (const pet of pets) {
       if (existingHashes?.has(pet.content_hash as string)) {
         petsSkipped++;
@@ -339,9 +340,29 @@ async function importGenesAndPets(
         else row[col] = pet[col] ?? null;
       }
       petRows.push(row);
+      if (typeof pet.content_hash === 'string') restoredHashes.push(pet.content_hash);
     }
     statements.push(...buildBatchInserts('pets', PET_COLUMNS, petRows));
     petsImported = petRows.length;
+
+    // Repopulate the `imported_files` ledger for each restored pet.
+    // The one-shot `backfillImportedFilesIfNeeded` is guarded by a
+    // `pets.imported_files_backfilled` setting and won't re-run after
+    // a restore, so without this every restored genome file would look
+    // unseen to the next auto-scan, hit petService's duplicate path,
+    // and surface as a duplicate failure to the user. INSERT OR IGNORE
+    // keeps merge mode safe (any pre-existing ledger entry is
+    // preserved as-is — first-seen source_path is intentionally
+    // immutable). The synthetic source_path 'backup-restore' flags
+    // these rows for any future diagnostics that want to distinguish
+    // restored-from-backup from genuine first-imports.
+    const restoredAt = now();
+    for (const hash of restoredHashes) {
+      statements.push({
+        sql: 'INSERT OR IGNORE INTO imported_files (content_hash, source_path, imported_at) VALUES ($hash, $path, $ts)',
+        params: { hash, path: 'backup-restore', ts: restoredAt },
+      });
+    }
   }
 
   if (statements.length > 0) await db.transaction(statements);
