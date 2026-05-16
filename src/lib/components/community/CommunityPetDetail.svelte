@@ -6,7 +6,15 @@ import { errorMessage } from '$lib/utils/error.js';
 import { formatShortDate } from '$lib/utils/timestamp.js';
 
 const pet = $derived(selectedSharedPet());
-const isImporting = $derived(communityView.importingHash === pet?.contentHash);
+// `isImportingThis` controls the button label ("Importing…"), while
+// `isAnyImportInFlight` gates `disabled`. The store serialises imports
+// globally (single-slot `importingHash`), so the user can't usefully
+// kick off a second one while the first is pending — flipping to a
+// new pet during an in-flight import would otherwise leave its
+// Import button enabled but guaranteed to return "already in
+// progress" the moment it's clicked.
+const isImportingThis = $derived(communityView.importingHash === pet?.contentHash);
+const isAnyImportInFlight = $derived(communityView.importingHash !== null);
 
 // The list view holds metadata-only SharedPets (no `genomeData`); the
 // detail pane fetches the genome on demand. Tracked locally so the store
@@ -148,10 +156,14 @@ async function handleImport() {
         class="btn btn-primary import-btn"
         data-testid="community-import"
         onclick={handleImport}
-        disabled={isImporting || !fullPet}
-        title={fullPet ? 'Import to my stable' : 'Waiting for genome to load…'}
+        disabled={isAnyImportInFlight || !fullPet}
+        title={fullPet
+          ? isAnyImportInFlight && !isImportingThis
+            ? 'Another import is already running'
+            : 'Import to my stable'
+          : 'Waiting for genome to load…'}
       >
-        {isImporting ? 'Importing…' : 'Import to my stable'}
+        {isImportingThis ? 'Importing…' : 'Import to my stable'}
       </button>
     </footer>
   </section>

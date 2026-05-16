@@ -35,7 +35,6 @@ import {
   query,
   limit as queryLimit,
   serverTimestamp,
-  setDoc,
   startAfter,
   Timestamp,
   writeBatch,
@@ -95,6 +94,19 @@ export async function uploadPet(pet: Pet, db: Firestore = defaultFirestore): Pro
         'do not have the raw genome text on file and must be re-imported before sharing.',
     );
   }
+  // Re-hash before publishing. `petService.uploadPet` keeps content_hash
+  // in sync with genome_text on the insert path, but local rows can also
+  // come from backup restore / direct DB writes / older corrupt state
+  // where the two have drifted. Publishing a row whose stored
+  // content_hash doesn't match sha256(genome_text) would put a catalogue
+  // entry on the wire that every importer's `verifySharedPet` rejects —
+  // leaving a permanently-broken row. Reject it client-side instead.
+  const expectedHash = await sha256Hex(pet.genome_text);
+  if (expectedHash !== pet.content_hash) {
+    throw new Error(
+      `uploadPet: local row is corrupt — sha256(genome_text)=${expectedHash} but pet.content_hash=${pet.content_hash}. Re-import the genome file before sharing.`,
+    );
+  }
 
   const metaRef = doc(db, META_COLLECTION, pet.content_hash);
   const genomeRef = doc(db, GENOME_COLLECTION, pet.content_hash);
@@ -114,14 +126,29 @@ export async function uploadPet(pet: Pet, db: Firestore = defaultFirestore): Pro
     // fragile across module-graph re-instantiations (mocks, bundling).
     if (isPermissionDenied(err)) {
       try {
-        const recheck = await getDoc(metaRef);
-        if (recheck.exists()) {
+        // Verify BOTH halves — a stale `/pets/{hash}` without its
+        // `/genomes/{hash}` twin (or vice versa) is a partial-publish
+        // state, not an idempotent already-shared. Returning
+        // already-shared in that case would mask a catalogue row that
+        // lists but cannot be imported, with no way for the client to
+        // repair (rules deny update/delete).
+        const [metaSnap, genomeSnap] = await Promise.all([getDoc(metaRef), getDoc(genomeRef)]);
+        if (metaSnap.exists() && genomeSnap.exists()) {
           return { status: 'already-shared', contentHash: pet.content_hash };
         }
-      } catch {
-        // Recheck itself failed (network/emulator hiccup, rules also
-        // denying reads, etc.). Fall through and surface the original
-        // batch error — that's the one the caller can act on.
+        if (metaSnap.exists() !== genomeSnap.exists()) {
+          throw new Error(
+            `uploadPet: catalogue is half-published for hash ${pet.content_hash} (meta=${metaSnap.exists()}, genome=${genomeSnap.exists()}). Contact an admin to repair.`,
+          );
+        }
+      } catch (recheckErr) {
+        // Re-throw the half-publish error we just raised so it reaches
+        // the caller; for any other recheck failure (network hiccup,
+        // rules also denying reads, etc.), fall through and surface the
+        // original batch error — that's the one the caller can act on.
+        if (recheckErr instanceof Error && recheckErr.message.startsWith('uploadPet: catalogue is half-published')) {
+          throw recheckErr;
+        }
       }
     }
     throw err;
@@ -272,10 +299,12 @@ export async function importCommunityPet(shared: SharedPet, opts: { tag?: string
   // pet pre-existed locally.
   const racer = await findPetByHash(shared.contentHash);
   if (racer) {
-    await applyImportTags(racer.id, racer.tags ?? [], localTag, shared.tags);
+    const applied = await applyImportTags(racer.id, racer.tags ?? [], localTag, shared.tags);
     return {
       status: 'already-imported',
-      message: `"${racer.name}" is already in your stable.`,
+      message: applied
+        ? `"${racer.name}" is already in your stable.`
+        : `"${racer.name}" is already in your stable. The local tag couldn't be saved — apply it manually if you want it surfaced.`,
       pet_id: racer.id,
     };
   }
@@ -303,8 +332,11 @@ async function applyImportTags(
   // way uploader tags get normalised and avoids a separate dedupe step.
   const merged = sanitizeTags([communityTag, ...existingTags, ...sharedTags]);
   try {
-    await updatePet(petId, { tags: merged });
-    return true;
+    // Propagate `updatePet`'s actual boolean: `false` means the UPDATE
+    // affected zero rows (typically the pet was deleted between the
+    // earlier read and now), and the caller needs to know so the
+    // user-facing message doesn't claim the tag landed when it didn't.
+    return await updatePet(petId, { tags: merged });
   } catch (err) {
     console.warn('importCommunityPet: failed to apply tags to pet', petId, err);
     return false;

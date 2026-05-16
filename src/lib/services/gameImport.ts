@@ -11,7 +11,7 @@
 import { isTauri } from '$lib/utils/environment.js';
 import { errorMessage } from '$lib/utils/error.js';
 import { sha256Hex } from '$lib/utils/hash.js';
-import { hasImportedFile, recordImportedFile, uploadPet } from './petService.js';
+import { findPetByHash, hasImportedFile, recordImportedFile, uploadPet } from './petService.js';
 import { getSetting, setSetting } from './settingsService.js';
 
 export type Platform = 'windows' | 'mac' | 'linux' | 'unknown';
@@ -173,10 +173,24 @@ export async function autoScanGameFolder(options?: {
         continue;
       }
       if (await hasImportedFile(item.hash)) {
-        // Already in the ledger — first-seen source_path is intentionally
-        // immutable, so don't rewrite it on skip.
-        result.skipped++;
-        continue;
+        // Already in the ledger — but a legacy v13 pet sits in BOTH
+        // `imported_files` (from `backfillImportedFilesIfNeeded`) AND
+        // `pets.genome_text = ''`, and the only way to unlock it for
+        // community sharing is to re-run the file through `uploadPet`
+        // so its `kind: 'backfilled'` branch fills the raw text.
+        // Skipping unconditionally on a ledger hit would leave those
+        // rows permanently unshareable. Probe `findPetByHash` only on
+        // the skip path (so the common already-imported case keeps the
+        // single-query cost) and let the upload through when we
+        // detect the legacy state.
+        const existing = await findPetByHash(item.hash);
+        if (!existing || existing.genome_text) {
+          // first-seen source_path is intentionally immutable, so
+          // don't rewrite it on skip.
+          result.skipped++;
+          continue;
+        }
+        // Fall through to uploadPet — it will take the backfill path.
       }
       const upload = await uploadPet(item.content, { sourcePath: item.displayPath });
       if (upload.status === 'success') {

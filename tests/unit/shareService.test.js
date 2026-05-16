@@ -68,12 +68,19 @@ import { Gender } from '$lib/types/index.js';
 import { sha256Hex } from '$lib/utils/hash.js';
 
 afterEach(() => {
-  // Use `resetAllMocks` (not `clearAllMocks`) so queued
-  // `mockResolvedValueOnce` / `mockRejectedValueOnce` values from a test
-  // that didn't end up consuming them don't leak into the next test.
-  // The full reset also restores `vi.fn()` to its empty default, which
-  // is what every test in this file expects as a baseline.
-  vi.resetAllMocks();
+  // Clear call-history for every spy. Then individually reset the
+  // petService mocks — those carry `mockResolvedValueOnce` /
+  // `mockRejectedValueOnce` queues that can leak into the next test if
+  // not drained (the regression that prompted swapping to resetAllMocks
+  // earlier). Resetting GLOBALLY would also wipe the Firestore mock
+  // factory's implementations (query/orderBy/limit/writeBatch) that
+  // shareService internally relies on, leaving later tests with
+  // undefined query objects.
+  vi.clearAllMocks();
+  findPetByHash.mockReset();
+  getPet.mockReset();
+  updatePet.mockReset();
+  uploadPetLocally.mockReset();
   batchCalls.length = 0;
 });
 
@@ -81,13 +88,14 @@ function lastBatch() {
   return batchCalls.at(-1);
 }
 
+// `uploadPet` re-hashes `genome_text` and rejects rows whose stored
+// `content_hash` doesn't match — so makePet must produce a coherent
+// fixture rather than a placeholder. Precomputed at module load via
+// top-level await so test bodies stay synchronous.
+const RAW_TEXT = '[Overview]\nCharacter=PlayerOne\nEntity=Buzz\n[Genes]\n';
+const RAW_TEXT_HASH = await sha256Hex(RAW_TEXT);
+
 function makePet(overrides = {}) {
-  // Production-shape, except `content_hash` is a fixed placeholder rather
-  // than the actual SHA-256 of `rawText` — the mocked Firestore SDK
-  // never round-trips through the hash check, so a placeholder is fine
-  // here. Tests that need a genuine hash/raw-text agreement live in the
-  // emulator suite and use `freshPet` which computes the real digest.
-  const rawText = '[Overview]\nCharacter=PlayerOne\nEntity=Buzz\n[Genes]\n';
   return {
     id: 1,
     name: 'Buzz',
@@ -95,9 +103,9 @@ function makePet(overrides = {}) {
     gender: Gender.FEMALE,
     breed: '',
     breeder: 'PlayerOne',
-    content_hash: 'a'.repeat(64),
+    content_hash: RAW_TEXT_HASH,
     genome_data: JSON.stringify({ name: 'Buzz', breeder: 'PlayerOne', genes: {} }),
-    genome_text: rawText,
+    genome_text: RAW_TEXT,
     notes: '',
     tags: ['fast', 'fierce'],
     created_at: '2026-05-01T00:00:00Z',
@@ -165,23 +173,47 @@ describe('shareService.uploadPet', () => {
     expect(writeBatch).not.toHaveBeenCalled();
   });
 
-  it('returns already-shared when the rules reject create and the metadata doc exists', async () => {
+  it('returns already-shared when both metadata and genome docs exist after a denied create', async () => {
     const batch = createBatch();
     writeBatch.mockReturnValueOnce(batch);
     batch.commit.mockRejectedValueOnce(Object.assign(new Error('PERMISSION_DENIED'), { code: 'permission-denied' }));
+    // Recheck reads BOTH halves in parallel — must mock both.
+    getDoc.mockResolvedValueOnce({ exists: () => true });
     getDoc.mockResolvedValueOnce({ exists: () => true });
 
     const result = await uploadPet(makePet());
     expect(result.status).toBe('already-shared');
-    expect(result.contentHash).toBe('a'.repeat(64));
+    expect(result.contentHash).toBe(RAW_TEXT_HASH);
   });
 
-  it('re-throws permission-denied if the metadata doc does not actually exist', async () => {
+  it('re-throws the permission-denied when neither half exists (rules misconfig, not a duplicate)', async () => {
     const batch = createBatch();
     writeBatch.mockReturnValueOnce(batch);
     batch.commit.mockRejectedValueOnce(Object.assign(new Error('PERMISSION_DENIED'), { code: 'permission-denied' }));
     getDoc.mockResolvedValueOnce({ exists: () => false });
+    getDoc.mockResolvedValueOnce({ exists: () => false });
     await expect(uploadPet(makePet())).rejects.toThrow(/PERMISSION_DENIED/);
+  });
+
+  it('rejects half-published state when /pets exists but /genomes does not', async () => {
+    // Catching this here keeps a catalogue row from appearing in
+    // listPets that no importer can ever load (the genome doc is
+    // missing). Surfacing as an error gives the user actionable
+    // signal and lets ops repair before more entries pile up.
+    const batch = createBatch();
+    writeBatch.mockReturnValueOnce(batch);
+    batch.commit.mockRejectedValueOnce(Object.assign(new Error('PERMISSION_DENIED'), { code: 'permission-denied' }));
+    getDoc.mockResolvedValueOnce({ exists: () => true }); // meta
+    getDoc.mockResolvedValueOnce({ exists: () => false }); // genome missing
+    await expect(uploadPet(makePet())).rejects.toThrow(/half-published/);
+  });
+
+  it('rejects local rows whose stored content_hash does not match sha256(genome_text)', async () => {
+    // Defends against stale/restored/corrupt rows publishing a row
+    // that would fail every importer's `verifySharedPet`.
+    const broken = makePet({ content_hash: 'f'.repeat(64) });
+    await expect(uploadPet(broken)).rejects.toThrow(/local row is corrupt/);
+    expect(writeBatch).not.toHaveBeenCalled();
   });
 
   it('rejects when content_hash is missing', async () => {
@@ -193,7 +225,7 @@ describe('shareService.uploadPet', () => {
 describe('shareService.listPets', () => {
   it('asks for newest-first with the default page size, returns metadata-only pets + cursor', async () => {
     const lastSnap = {
-      id: 'a'.repeat(64),
+      id: RAW_TEXT_HASH,
       __isSnapshot: true,
       data: () => ({
         name: 'Buzz',
@@ -246,14 +278,14 @@ describe('shareService.getSharedPet', () => {
     getDoc
       .mockResolvedValueOnce({ exists: () => false })
       .mockResolvedValueOnce({ exists: () => true, data: () => ({ genomeData: 'orphan' }) });
-    expect(await getSharedPet('a'.repeat(64))).toBeNull();
+    expect(await getSharedPet(RAW_TEXT_HASH)).toBeNull();
   });
 
   it('combines /pets and /genomes reads into a single SharedPet with genomeData', async () => {
     getDoc
       .mockResolvedValueOnce({
         exists: () => true,
-        id: 'a'.repeat(64),
+        id: RAW_TEXT_HASH,
         data: () => ({
           name: 'Buzz',
           character: 'PlayerOne',
@@ -273,9 +305,9 @@ describe('shareService.getSharedPet', () => {
         exists: () => true,
         data: () => ({ genomeData: 'GENOME-BODY' }),
       });
-    const pet = await getSharedPet('a'.repeat(64));
+    const pet = await getSharedPet(RAW_TEXT_HASH);
     expect(pet).toMatchObject({
-      contentHash: 'a'.repeat(64),
+      contentHash: RAW_TEXT_HASH,
       name: 'Buzz',
       tags: ['ok', 'fine'],
       genomeData: 'GENOME-BODY',
@@ -288,7 +320,7 @@ describe('shareService.getSharedPet', () => {
     getDoc
       .mockResolvedValueOnce({
         exists: () => true,
-        id: 'a'.repeat(64),
+        id: RAW_TEXT_HASH,
         data: () => ({
           name: 'Buzz',
           character: 'PlayerOne',
@@ -305,7 +337,7 @@ describe('shareService.getSharedPet', () => {
         }),
       })
       .mockResolvedValueOnce({ exists: () => false });
-    const pet = await getSharedPet('a'.repeat(64));
+    const pet = await getSharedPet(RAW_TEXT_HASH);
     expect(pet?.genomeData).toBeUndefined();
   });
 });
@@ -341,7 +373,7 @@ describe('shareService.verifySharedPet', () => {
   });
 
   it('throws when genomeData is missing entirely', async () => {
-    await expect(verifySharedPet({ contentHash: 'a'.repeat(64) })).rejects.toThrow(/missing/);
+    await expect(verifySharedPet({ contentHash: RAW_TEXT_HASH })).rejects.toThrow(/missing/);
   });
 });
 
@@ -491,9 +523,9 @@ describe('shareService.importCommunityPet', () => {
     // If the user nukes the legacy row in the window between
     // `uploadPetLocally` resolving with `kind: 'backfilled'` and the
     // tag-merge `getPet` call, the row is gone. `getPet` returns null,
-    // existing tags fall back to [], and `updatePet` is invoked on a
-    // pet_id that no longer exists — it should not crash and the
-    // user-visible result must indicate the tag write didn't land.
+    // existing tags fall back to [], and `updatePet` reports the UPDATE
+    // affected zero rows. The result must reflect the partial-failure
+    // so the user knows the local tag didn't land.
     const shared = await makeShared('TOC');
     uploadPetLocally.mockResolvedValueOnce({
       status: 'success',
@@ -510,6 +542,56 @@ describe('shareService.importCommunityPet', () => {
     expect(result.status).toBe('already-imported');
     expect(getPet).toHaveBeenCalledWith(99);
     expect(result.pet_id).toBe(99);
+    // `updatePet` returning `false` (zero rows affected) must surface
+    // as the partial-fail message, not as a misleading "tagged" success.
+    expect(result.message).toMatch(/local tag couldn't be saved/i);
+  });
+
+  it("propagates updatePet's boolean — false resolution reflects in the result message", async () => {
+    // Regression for an earlier revision that unconditionally returned
+    // `true` from applyImportTags on resolution. If `updatePet` resolves
+    // `false` (row not found, no rows affected), the caller must NOT
+    // claim the tag landed.
+    const shared = await makeShared('PB');
+    uploadPetLocally.mockResolvedValueOnce({
+      status: 'success',
+      kind: 'created',
+      message: '',
+      pet_id: 31,
+      name: shared.name,
+    });
+    updatePet.mockResolvedValueOnce(false);
+
+    const result = await importCommunityPet(shared);
+
+    expect(result.status).toBe('imported');
+    expect(result.tags).toEqual([]);
+    expect(result.message).toMatch(/local tag couldn't be saved/i);
+  });
+
+  it('race-recovery surfaces tag-write failure in the message', async () => {
+    // When the upload failed as duplicate and `findPetByHash` recovered
+    // a pre-existing row, the community tag is best-effort. A failed
+    // tag write must surface in the message rather than silently
+    // claiming "already in your stable" with no caveat.
+    const shared = await makeShared('RT');
+    uploadPetLocally.mockResolvedValueOnce({
+      status: 'error',
+      message: "This file has already been uploaded as 'OldName' on …",
+    });
+    findPetByHash.mockResolvedValueOnce({
+      id: 88,
+      name: 'OldName',
+      content_hash: shared.contentHash,
+      tags: ['favourite'],
+    });
+    updatePet.mockRejectedValueOnce(new Error('disk full'));
+
+    const result = await importCommunityPet(shared);
+
+    expect(result.status).toBe('already-imported');
+    expect(result.pet_id).toBe(88);
+    expect(result.message).toMatch(/local tag couldn't be saved/i);
   });
 
   it('surfaces a partial-success message when the tag write fails', async () => {

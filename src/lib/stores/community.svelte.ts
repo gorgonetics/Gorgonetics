@@ -3,11 +3,12 @@
  * page of fetched pets, the pagination cursor, the selection, and the
  * load/import status flags.
  *
- * Caching across tab toggles: `loadInitial` short-circuits when the data
- * is younger than `STALE_AFTER_MS` and at least one row is already
- * loaded — so switching tabs (which remounts CommunityTab) reuses the
- * existing page instead of burning Spark read quota. The "Try again"
- * button forces a fresh fetch via `loadInitial({ force: true })`.
+ * Caching across tab toggles: `loadInitial` short-circuits whenever the
+ * cache is younger than `STALE_AFTER_MS` — including the empty-catalogue
+ * case, so an empty result doesn't refetch on every tab toggle. The
+ * "Try again" button forces a fresh fetch via
+ * `loadInitial({ force: true })`, which also bypasses the in-flight
+ * dedupe so a stuck/slow load can be superseded.
  *
  * Fetching and importing themselves live in shareService / petService —
  * this store is the UI glue layer only.

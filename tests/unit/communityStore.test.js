@@ -30,6 +30,7 @@ import {
   communityView,
   importSelected,
   loadInitial,
+  loadMore,
   selectedSharedPet,
   selectPet,
 } from '$lib/stores/community.svelte.js';
@@ -225,6 +226,90 @@ describe('community.svelte.ts — importSelected', () => {
     const result = await importSelected(makeSharedPet('b', { genomeData: 'raw' }));
     expect(result.status).toBe('error');
     expect(communityView.importingHash).toBeNull();
+  });
+});
+
+describe('community.svelte.ts — loadMore', () => {
+  // PAGE_SIZE is a module-private constant in the store. The exact value
+  // is asserted indirectly: a returned page of exactly PAGE_SIZE rows
+  // leaves `hasMore = true`, and a short page sets `hasMore = false`.
+  // Keep this in sync if PAGE_SIZE changes; the regression risk is the
+  // hasMore boundary, not the literal number.
+  const PAGE_SIZE = 50;
+  const fullPage = (prefix) => Array.from({ length: PAGE_SIZE }, (_, i) => makeSharedPet(`${prefix}-${i}`));
+
+  async function seedFirstPage() {
+    listPets.mockResolvedValueOnce({ pets: fullPage('p1'), cursor: { __snap: 'p1-cursor' } });
+    await loadInitial();
+    expect(communityView.pets).toHaveLength(PAGE_SIZE);
+    expect(communityView.hasMore).toBe(true);
+  }
+
+  it('appends the next page to the existing pets and advances the cursor', async () => {
+    await seedFirstPage();
+    const secondPage = fullPage('p2');
+    listPets.mockResolvedValueOnce({ pets: secondPage, cursor: { __snap: 'p2-cursor' } });
+
+    await loadMore();
+    expect(communityView.pets).toHaveLength(PAGE_SIZE * 2);
+    expect(communityView.pets[PAGE_SIZE].contentHash).toBe('p2-0');
+    expect(communityView.cursor).toEqual({ __snap: 'p2-cursor' });
+    expect(communityView.hasMore).toBe(true);
+    expect(listPets).toHaveBeenLastCalledWith({ limit: PAGE_SIZE, after: { __snap: 'p1-cursor' } });
+  });
+
+  it('sets hasMore = false on a short final page', async () => {
+    await seedFirstPage();
+    listPets.mockResolvedValueOnce({ pets: [makeSharedPet('tail')], cursor: { __snap: 'p2-cursor' } });
+
+    await loadMore();
+    expect(communityView.pets).toHaveLength(PAGE_SIZE + 1);
+    expect(communityView.hasMore).toBe(false);
+  });
+
+  it('noops when hasMore is false', async () => {
+    communityView.hasMore = false;
+    communityView.cursor = { __snap: 'any' };
+    await loadMore();
+    expect(listPets).not.toHaveBeenCalled();
+  });
+
+  it('noops when the cursor is null (initial state)', async () => {
+    communityView.hasMore = true;
+    communityView.cursor = null;
+    await loadMore();
+    expect(listPets).not.toHaveBeenCalled();
+  });
+
+  it('preserves existing pets on error and surfaces the message', async () => {
+    await seedFirstPage();
+    listPets.mockRejectedValueOnce(new Error('Network blip'));
+
+    await loadMore();
+    // Existing rows MUST remain — pagination error should never blow
+    // away what the user is already looking at.
+    expect(communityView.pets).toHaveLength(PAGE_SIZE);
+    expect(communityView.error).toMatch(/Failed to load more/);
+  });
+
+  it('skips a re-entrant call while loadingMore is true (single-flight)', async () => {
+    await seedFirstPage();
+    // Reset the call count so the assertion below targets only the
+    // loadMore calls in this test, not the seed's listPets.
+    listPets.mockClear();
+    let resolveSlow;
+    listPets.mockImplementationOnce(
+      () =>
+        new Promise((res) => {
+          resolveSlow = res;
+        }),
+    );
+    const inFlight = loadMore();
+    // Second invocation while the first is mid-flight must noop.
+    await loadMore();
+    expect(listPets).toHaveBeenCalledTimes(1);
+    resolveSlow({ pets: [], cursor: null });
+    await inFlight;
   });
 });
 
