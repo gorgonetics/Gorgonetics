@@ -151,17 +151,24 @@ export async function loadInitial(opts: { force?: boolean } = {}): Promise<void>
 export async function loadMore(): Promise<void> {
   if (communityView.loadingMore || !communityView.hasMore) return;
   if (!communityView.cursor) return;
+  // Snapshot the current generation: if a forced `loadInitial` runs
+  // in parallel and resets the page (incrementing `loadGeneration`),
+  // this pagination request's result is appending against a stale
+  // cursor and would corrupt the page boundary — drop it on return.
+  const myGeneration = loadGeneration;
   communityView.loadingMore = true;
   communityView.error = null;
   try {
     const { pets, cursor } = await listPets({ limit: PAGE_SIZE, after: communityView.cursor });
+    if (myGeneration !== loadGeneration) return;
     communityView.pets = [...communityView.pets, ...pets];
     communityView.cursor = cursor;
     communityView.hasMore = pets.length === PAGE_SIZE;
   } catch (err) {
+    if (myGeneration !== loadGeneration) return;
     communityView.error = `Failed to load more: ${errorMessage(err)}`;
   } finally {
-    communityView.loadingMore = false;
+    if (myGeneration === loadGeneration) communityView.loadingMore = false;
   }
 }
 

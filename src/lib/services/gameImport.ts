@@ -173,26 +173,37 @@ export async function autoScanGameFolder(options?: {
         continue;
       }
       if (await hasImportedFile(item.hash)) {
-        // Already in the ledger — but a legacy v13 pet sits in BOTH
-        // `imported_files` (from `backfillImportedFilesIfNeeded`) AND
-        // `pets.genome_text = ''`, and the only way to unlock it for
-        // community sharing is to re-run the file through `uploadPet`
-        // so its `kind: 'backfilled'` branch fills the raw text.
-        // Skipping unconditionally on a ledger hit would leave those
-        // rows permanently unshareable. Probe `findPetGenomeTextByHash`
-        // on the skip path — a slim single-column query rather than
-        // the full `findPetByHash` which would do a `SELECT *` plus
-        // a tag-junction join per ledger hit, turning every auto-scan
-        // of an already-imported folder into N+1×{SELECT *, JOIN}.
+        // Already in the ledger — but TWO classes of unhealthy rows
+        // need to fall through to `uploadPet`'s backfill/repair path:
+        //   1. legacy v13 pets: in the ledger (from
+        //      `backfillImportedFilesIfNeeded`) AND `genome_text = ''`.
+        //   2. corrupt rows: `genome_text` non-empty but doesn't
+        //      match the canonical file content (e.g. backup-restore
+        //      drift; uploadPet now explicitly repairs these).
+        //
+        // The cheap discriminator is direct byte-equality with
+        // `item.content`: a ledger hit means `sha256(item.content) ===
+        // content_hash`, so for a healthy row `genome_text` is exactly
+        // `item.content`. Any difference (empty OR mismatched) signals
+        // a row that needs the upload-side repair. The slim
+        // `findPetGenomeTextByHash` keeps the cost to a single-column
+        // SELECT per ledger hit; no separate sha256 here because the
+        // comparison is on already-computed text.
         const existingGenomeText = await findPetGenomeTextByHash(item.hash);
-        if (existingGenomeText === null || existingGenomeText.length > 0) {
-          // No matching pet, or it already has genome_text — first-seen
-          // source_path is intentionally immutable, so don't rewrite
-          // it on skip.
+        if (existingGenomeText === null) {
+          // No matching pet (ledger entry exists for a pet that was
+          // since deleted). The skip preserves the immutable first-seen
+          // source_path the ledger captures.
           result.skipped++;
           continue;
         }
-        // Fall through to uploadPet — it will take the backfill path.
+        if (existingGenomeText === item.content) {
+          // Healthy row — skip as before.
+          result.skipped++;
+          continue;
+        }
+        // Empty OR corrupt — fall through to uploadPet so its
+        // `kind: 'backfilled'` branch can repair the row in place.
       }
       const upload = await uploadPet(item.content, { sourcePath: item.displayPath });
       if (upload.status === 'success') {

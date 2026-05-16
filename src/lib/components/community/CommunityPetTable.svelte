@@ -60,7 +60,10 @@ import CommunityPetRow from './CommunityPetRow.svelte';
           {communityView.loadingMore ? 'Loading…' : 'Load more'}
         </button>
       {:else}
-        <span class="end-marker">End of catalogue · {communityView.pets.length} pets</span>
+        <span class="end-marker">
+          End of catalogue · {communityView.pets.length}
+          {communityView.pets.length === 1 ? 'pet' : 'pets'}
+        </span>
       {/if}
     </div>
   {/if}

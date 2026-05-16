@@ -292,6 +292,42 @@ describe('community.svelte.ts — loadMore', () => {
     expect(communityView.error).toMatch(/Failed to load more/);
   });
 
+  it('discards a stale loadMore result when a forced refresh supersedes it', async () => {
+    // Pagination races against `loadInitial({ force: true })`: if the
+    // user hits "Try again" while a page is in flight, the older
+    // listPets result is being appended against a cursor that no
+    // longer matches the refreshed first page — naïvely appending
+    // would corrupt the page boundary with duplicates or gaps.
+    // Generation-token gating must drop the stale append.
+    await seedFirstPage();
+    listPets.mockClear();
+
+    // Start a pagination that won't resolve until we release it.
+    let resolveStaleMore;
+    listPets.mockImplementationOnce(
+      () =>
+        new Promise((res) => {
+          resolveStaleMore = res;
+        }),
+    );
+    const stalePagination = loadMore();
+
+    // Simulate a forced refresh during the pagination — bumps
+    // `loadGeneration`, replaces the page.
+    listPets.mockResolvedValueOnce({ pets: [makeSharedPet('fresh-a')], cursor: { __snap: 'fresh-cursor' } });
+    await loadInitial({ force: true });
+    expect(communityView.pets).toHaveLength(1);
+    expect(communityView.pets[0].contentHash).toBe('fresh-a');
+
+    // Release the stale pagination — must NOT append onto the
+    // refreshed page.
+    resolveStaleMore({ pets: [makeSharedPet('stale-x')], cursor: { __snap: 'stale-cursor' } });
+    await stalePagination;
+    expect(communityView.pets).toHaveLength(1);
+    expect(communityView.pets[0].contentHash).toBe('fresh-a');
+    expect(communityView.cursor).toEqual({ __snap: 'fresh-cursor' });
+  });
+
   it('skips a re-entrant call while loadingMore is true (single-flight)', async () => {
     await seedFirstPage();
     // Reset the call count so the assertion below targets only the
