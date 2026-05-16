@@ -167,11 +167,13 @@ export async function importSelected(fullPet: SharedPet): Promise<ImportResult> 
   communityView.importingHash = fullPet.contentHash;
   try {
     const result = await importCommunityPet(fullPet);
-    // Refresh the local pets store on success so the freshly-imported pet
-    // shows up in the Pets / Stable views without a manual reload. We
+    // Refresh the local pets store on any state-changing result so the
+    // Pets / Stable views see the new row (or, for the backfill /
+    // race-recheck branches, the freshly-applied community tag and
+    // genome_text on the existing row) without a manual reload. We
     // deliberately don't await this — the toast can land before the
     // background refetch completes.
-    if (result.status === 'imported') {
+    if (result.status === 'imported' || result.status === 'already-imported') {
       appState.loadPets().catch(() => {
         // The pet is committed locally; a refresh failure is a UI sync
         // issue, not an import failure. The Pets tab's own onMount will

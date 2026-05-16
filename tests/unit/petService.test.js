@@ -54,16 +54,32 @@ describe('Pet Service', () => {
       expect(first.status).toBe('success');
       const db = getDb();
       await db.execute('UPDATE pets SET genome_text = $text WHERE id = $id', { text: '', id: first.pet_id });
+      // Also clear the ledger entry so we can verify the backfill path
+      // records the re-import (otherwise the original insert's ledger
+      // write would mask the assertion).
+      await db.execute('DELETE FROM imported_files');
 
       // Re-importing the same file should fill genome_text in place and
       // surface a success message rather than the duplicate-rejection.
-      const result = await petService.uploadPet(SAMPLE_BEEWASP, { name: 'AnyName', gender: 'Female' });
+      const result = await petService.uploadPet(SAMPLE_BEEWASP, {
+        name: 'AnyName',
+        gender: 'Female',
+        sourcePath: '/scan/Genes_Replay.txt',
+      });
       expect(result.status).toBe('success');
       expect(result.pet_id).toBe(first.pet_id);
       expect(result.message).toMatch(/missing raw genome data/i);
 
       const rows = await db.select('SELECT genome_text FROM pets WHERE id = $id', { id: first.pet_id });
       expect(rows[0].genome_text).toBe(SAMPLE_BEEWASP);
+
+      // The backfill path must record the file in imported_files too —
+      // otherwise the auto-scanner picks the same file up next pass and
+      // reports it as a duplicate failure.
+      const ledger = await db.select('SELECT content_hash, source_path FROM imported_files');
+      expect(ledger).toHaveLength(1);
+      expect(ledger[0].source_path).toBe('/scan/Genes_Replay.txt');
+      expect(await petService.hasImportedFile(ledger[0].content_hash)).toBe(true);
     });
 
     it('infers breed, gender, and attributes from structured Horse name', async () => {

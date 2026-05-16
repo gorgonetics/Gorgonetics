@@ -319,6 +319,12 @@ async function importGenesAndPets(
         else if (col === 'sort_order') row[col] = ((pet[col] as number) ?? 0) + sortOrderOffset;
         else if (col === 'stabled') row[col] = pet[col] ?? 1;
         else if (col === 'starred' || col === 'is_pet_quality') row[col] = pet[col] ?? 0;
+        // Pre-v13 backups don't carry genome_text. The column is
+        // NOT NULL DEFAULT '', and explicit-NULL inserts bypass the
+        // default, so coerce a missing/null value to '' here. The pet
+        // ends up in the same legacy-row state as a v12 import — the
+        // user can backfill it later by re-picking the original file.
+        else if (col === 'genome_text') row[col] = pet[col] ?? '';
         else row[col] = pet[col] ?? null;
       }
       petRows.push(row);

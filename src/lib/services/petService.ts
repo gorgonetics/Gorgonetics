@@ -440,6 +440,15 @@ export async function uploadPet(content: string, options: UploadPetOptions = {})
         text: content,
         id: existing.id,
       });
+      // Record the ledger entry so the auto-scanner skips this file on
+      // future passes — without it the next scan would re-pick the same
+      // file, hit the now-NOT-EMPTY genome_text branch below, and report
+      // a duplicate failure.
+      try {
+        await recordImportedFile(contentHash, sourcePath);
+      } catch (err) {
+        console.warn('imported_files: failed to record after backfill', err);
+      }
       return {
         status: 'success',
         kind: 'backfilled',

@@ -5,9 +5,11 @@ import CommunityPetDetail from './CommunityPetDetail.svelte';
 import CommunityPetTable from './CommunityPetTable.svelte';
 
 onMount(() => {
-  // Pull-on-demand only (design §7): the catalogue loads when this tab is
-  // first opened. Re-mounting on tab return re-fetches — acceptable
-  // because the Spark read quota is generous for the realistic scale.
+  // Pull-on-demand (design §7): the catalogue loads when this tab is
+  // first opened. The store short-circuits cached pages younger than
+  // its `STALE_AFTER_MS` window, so toggling away from the tab and
+  // back within a few minutes reuses the existing page instead of
+  // burning Spark read quota.
   loadInitial();
 });
 </script>

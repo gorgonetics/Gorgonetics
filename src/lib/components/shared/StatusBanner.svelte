@@ -1,5 +1,5 @@
 <script>
-import { onDestroy, onMount } from 'svelte';
+import { onDestroy, untrack } from 'svelte';
 
 /**
  * Inline or toast-mode status banner. Colour palette comes from the
@@ -18,21 +18,30 @@ import { onDestroy, onMount } from 'svelte';
  *                     can be wired to a manual close button by callers
  *                     that don't use the timer).
  *
- * The dismiss timer is set in `onMount` rather than `$effect` so that
- * inline arrow `onDismiss` callbacks (which change identity on every
- * parent re-render) don't keep resetting the countdown. Parents that
- * want to surface a new banner after one was dismissed simply
- * unmount/remount via an `{#if shareStatus}` guard — the natural toast
- * lifecycle.
+ * The dismiss timer restarts whenever the visible content
+ * (`message` / `type` / `autoDismissMs`) changes, so callers that
+ * update an already-mounted banner in place (e.g. PetVisualization's
+ * `shareStatus` toast on a second share) get a fresh countdown each
+ * time. `onDismiss` is read via `untrack` so inline arrow callbacks
+ * (which change identity on every parent re-render) don't keep
+ * resetting the countdown on their own.
  */
 const { type, message, toast = false, autoDismissMs, onDismiss } = $props();
 
 let timer = 0;
 
-onMount(() => {
-  if (autoDismissMs && onDismiss) {
-    timer = setTimeout(onDismiss, autoDismissMs);
-  }
+$effect(() => {
+  // Depend explicitly on the user-visible content so an in-place
+  // message swap re-arms the timer; ignore onDismiss identity churn.
+  void message;
+  void type;
+  void autoDismissMs;
+  clearTimeout(timer);
+  untrack(() => {
+    if (autoDismissMs && onDismiss) {
+      timer = setTimeout(onDismiss, autoDismissMs);
+    }
+  });
 });
 
 onDestroy(() => clearTimeout(timer));

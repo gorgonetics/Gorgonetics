@@ -228,48 +228,44 @@ export async function importCommunityPet(shared: SharedPet, opts: { tag?: string
     sourcePath: `community:${shared.contentHash}`,
   });
 
-  if (upload.status === 'success' && upload.pet_id) {
-    const localTag = opts.tag ?? COMMUNITY_TAG;
-    // sanitizeTags handles dedupe, length cap, and the 30-tag count cap —
-    // running it over the combined list (localTag + uploader tags) makes
-    // the local tag obey the same constraints and avoids a separate
-    // dedupe step.
-    const tags = sanitizeTags([localTag, ...shared.tags]);
-    try {
-      // Route through updatePet (the public tags-mutating entry point)
-      // rather than the lower-level setTagsForPet. Tags-only updates are
-      // handled by updatePet at petService.ts:657 — it skips the empty
-      // SET clause and just refreshes updated_at + writes the junction
-      // rows.
-      await updatePet(upload.pet_id, { tags });
-    } catch (err) {
-      // Tag application is best-effort: the pet is already committed to
-      // the local DB, so failing the whole import would force the user to
-      // retry and confuse them with an "already-imported" branch on
-      // retry. Log and continue.
-      console.warn('importCommunityPet: failed to apply tags after successful upload', err);
-    }
+  const localTag = opts.tag ?? COMMUNITY_TAG;
 
+  if (upload.status === 'success' && upload.pet_id) {
+    // Merge the community tag (+ uploader tags) with whatever already
+    // lived on the local row — for `kind: 'backfilled'` the row is a
+    // pre-existing legacy pet that may carry user-applied tags we must
+    // preserve. For `kind: 'created'` the merge is a no-op (the pet was
+    // just inserted with no tags).
+    const existing = upload.kind === 'backfilled' ? (await findPetByHash(shared.contentHash))?.tags ?? [] : [];
+    const tagsApplied = await applyImportTags(upload.pet_id, existing, localTag, shared.tags);
     if (upload.kind === 'backfilled') {
       return {
         status: 'already-imported',
-        message: `Linked existing "${upload.name ?? shared.name}" to the community version and tagged it.`,
+        message: tagsApplied
+          ? `Linked existing "${upload.name ?? shared.name}" to the community version and tagged it.`
+          : `Linked existing "${upload.name ?? shared.name}" to the community version. The local tag couldn't be saved — apply it manually if you want it surfaced.`,
         pet_id: upload.pet_id,
       };
     }
     return {
       status: 'imported',
-      message: `Imported "${shared.name}" to your stable.`,
+      message: tagsApplied
+        ? `Imported "${shared.name}" to your stable.`
+        : `Imported "${shared.name}" but the local tag couldn't be saved — apply it manually if you want it surfaced.`,
       pet_id: upload.pet_id,
-      tags,
+      tags: tagsApplied ? sanitizeTags([localTag, ...shared.tags]) : [],
     };
   }
 
   // Failure path: typically the petService duplicate check rejected a
   // truly identical pet (already-shared, non-legacy). Recheck so the
-  // result is the idempotent `already-imported` rather than a flat error.
+  // result is the idempotent `already-imported` rather than a flat error
+  // — and apply the community tag to the existing row so the contract
+  // ("community imports are tagged automatically") holds even when the
+  // pet pre-existed locally.
   const racer = await findPetByHash(shared.contentHash);
   if (racer) {
+    await applyImportTags(racer.id, racer.tags ?? [], localTag, shared.tags);
     return {
       status: 'already-imported',
       message: `"${racer.name}" is already in your stable.`,
@@ -277,6 +273,35 @@ export async function importCommunityPet(shared: SharedPet, opts: { tag?: string
     };
   }
   return { status: 'error', message: upload.message };
+}
+
+/**
+ * Merge the community tag (and the uploader's tags) with whatever the
+ * local row already had, then write the union back via the public
+ * `updatePet` entry point. Returns `true` when the write committed,
+ * `false` when it failed — the caller decides whether a tag-write
+ * failure should be surfaced in the user-facing message. The import
+ * itself stays committed either way; forcing the user to retry the
+ * whole flow over a tag write would just push them into the
+ * already-imported branch on the next attempt.
+ */
+async function applyImportTags(
+  petId: number,
+  existingTags: string[],
+  communityTag: string,
+  sharedTags: string[],
+): Promise<boolean> {
+  // sanitizeTags handles dedupe, length cap, and the 30-tag count cap —
+  // running it over the combined list normalises the local tag the same
+  // way uploader tags get normalised and avoids a separate dedupe step.
+  const merged = sanitizeTags([communityTag, ...existingTags, ...sharedTags]);
+  try {
+    await updatePet(petId, { tags: merged });
+    return true;
+  } catch (err) {
+    console.warn('importCommunityPet: failed to apply tags to pet', petId, err);
+    return false;
+  }
 }
 
 /**

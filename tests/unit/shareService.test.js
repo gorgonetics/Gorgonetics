@@ -432,7 +432,13 @@ describe('shareService.importCommunityPet', () => {
       status: 'error',
       message: "This file has already been uploaded as 'OldName' on …",
     });
-    findPetByHash.mockResolvedValueOnce({ id: 99, name: 'OldName', content_hash: shared.contentHash });
+    findPetByHash.mockResolvedValueOnce({
+      id: 99,
+      name: 'OldName',
+      content_hash: shared.contentHash,
+      tags: ['favourite'],
+    });
+    updatePet.mockResolvedValueOnce(true);
 
     const result = await importCommunityPet(shared);
 
@@ -441,6 +447,59 @@ describe('shareService.importCommunityPet', () => {
     // The outer findPetByHash is gone; the inner one runs only in the
     // race-recovery branch after a failed upload.
     expect(findPetByHash).toHaveBeenCalledTimes(1);
+    // The community tag must be applied to the pre-existing row so the
+    // import contract holds, AND the user's pre-existing tags must be
+    // preserved (no clobber).
+    expect(updatePet).toHaveBeenCalledWith(99, { tags: ['community', 'favourite', 'fast', 'fierce'] });
+  });
+
+  it('preserves user tags on a backfill (merges, does not clobber)', async () => {
+    // Backfill path: the local row pre-existed (e.g. user had a legacy
+    // import) and already carries some user-applied tags. The community
+    // import must merge with — not replace — those tags.
+    const shared = await makeShared('BFM');
+    uploadPetLocally.mockResolvedValueOnce({
+      status: 'success',
+      kind: 'backfilled',
+      message: 'Filled missing raw genome data',
+      pet_id: 11,
+      name: 'LegacyName',
+    });
+    findPetByHash.mockResolvedValueOnce({
+      id: 11,
+      name: 'LegacyName',
+      content_hash: shared.contentHash,
+      tags: ['favourite', 'wip'],
+    });
+    updatePet.mockResolvedValueOnce(true);
+
+    const result = await importCommunityPet(shared);
+
+    expect(result.status).toBe('already-imported');
+    expect(updatePet).toHaveBeenCalledWith(11, { tags: ['community', 'favourite', 'wip', 'fast', 'fierce'] });
+  });
+
+  it('surfaces a partial-success message when the tag write fails', async () => {
+    // Tag application is best-effort — the pet is already committed,
+    // so failing the whole import would just confuse the user. But the
+    // result must not claim the community tag was applied when it
+    // wasn't: empty tags array + a message that flags the partial.
+    const shared = await makeShared('TF');
+    uploadPetLocally.mockResolvedValueOnce({
+      status: 'success',
+      kind: 'created',
+      message: '',
+      pet_id: 21,
+      name: shared.name,
+    });
+    updatePet.mockRejectedValueOnce(new Error('disk full'));
+
+    const result = await importCommunityPet(shared);
+
+    expect(result.status).toBe('imported');
+    expect(result.pet_id).toBe(21);
+    expect(result.tags).toEqual([]);
+    expect(result.message).toMatch(/local tag couldn't be saved/i);
   });
 
   it('rejects when the genome does not hash to contentHash', async () => {

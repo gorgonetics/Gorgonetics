@@ -18,14 +18,20 @@ function handleKey(e) {
 }
 </script>
 
+<!--
+  Selection on a real `<tr>` so assistive tech keeps the underlying
+  table-row semantics (a previous revision spelled `role="button"` and
+  silently dropped the row's role, hiding cells from screen readers).
+  `aria-selected` carries the visual selection state; the row remains
+  tabbable and Enter/Space-activatable for keyboard users.
+-->
 <tr
   class="row"
   class:selected
   data-testid="community-row"
   data-content-hash={pet.contentHash}
   tabindex="0"
-  role="button"
-  aria-pressed={selected}
+  aria-selected={selected}
   onclick={handleClick}
   onkeydown={handleKey}
 >

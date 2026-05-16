@@ -299,6 +299,21 @@ describe('Backup Service', () => {
       const result = await importDatabase(zipData, opts);
       expect(result.pets).toBe(0);
     });
+
+    it('coerces missing genome_text to "" for pre-v13 backups', async () => {
+      // v12-and-earlier exports didn't carry genome_text. The column is
+      // NOT NULL DEFAULT '', and explicit-NULL inserts bypass the default,
+      // so the import must substitute '' to satisfy the constraint —
+      // restoring an older backup otherwise fails on the first row.
+      const legacyPet = { ...samplePet };
+      delete legacyPet.genome_text;
+      const zipData = await buildZip({ pets: [legacyPet] });
+      const result = await importDatabase(zipData, importOpts('replace'));
+      expect(result.pets).toBe(1);
+
+      const rows = await getDb().select('SELECT genome_text FROM pets WHERE content_hash = $h', { h: 'hash_abc' });
+      expect(rows[0].genome_text).toBe('');
+    });
   });
 
   // --- importDatabase: combined ---
