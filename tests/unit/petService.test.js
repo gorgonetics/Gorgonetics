@@ -82,6 +82,31 @@ describe('Pet Service', () => {
       expect(await petService.hasImportedFile(ledger[0].content_hash)).toBe(true);
     });
 
+    it('repairs a corrupt non-empty genome_text on re-import (hash drift, not just empty)', async () => {
+      // Stronger contract than just "empty genome_text → backfill":
+      // a row whose genome_text doesn't hash to its content_hash is
+      // ALSO unshareable (shareService.uploadPet rejects with
+      // "local row is corrupt"). Re-importing the same file must
+      // repair it, otherwise the user is stuck on the duplicate-error
+      // branch with no path forward.
+      const upload = await petService.uploadPet(SAMPLE_BEEWASP, { name: 'Bee', gender: 'Female' });
+      expect(upload.status).toBe('success');
+      const db = getDb();
+      // Corrupt the row: keep the content_hash, scramble the genome_text.
+      await db.execute('UPDATE pets SET genome_text = $t WHERE id = $id', {
+        t: '[Overview]\nEntity=Different\n[Genes]\n',
+        id: upload.pet_id,
+      });
+
+      const result = await petService.uploadPet(SAMPLE_BEEWASP, { name: 'AnyName', gender: 'Female' });
+      expect(result.status).toBe('success');
+      expect(result.pet_id).toBe(upload.pet_id);
+      expect(result.message).toMatch(/repaired the corrupt/i);
+
+      const rows = await db.select('SELECT genome_text FROM pets WHERE id = $id', { id: upload.pet_id });
+      expect(rows[0].genome_text).toBe(SAMPLE_BEEWASP);
+    });
+
     it('findPetGenomeTextByHash returns null / empty / populated states distinctly', async () => {
       // Slim variant of findPetByHash used by the auto-scan ledger-skip
       // path. Three states must be distinguishable:
@@ -203,6 +228,16 @@ describe('Pet Service', () => {
       const pet = await petService.getPet(upload.pet_id);
       expect(pet.toughness).toBe(75);
       expect(pet.ferocity).toBe(90);
+    });
+
+    it('returns false when the pet does not exist (rowsAffected = 0)', async () => {
+      // Contract guard: callers (notably shareService.applyImportTags)
+      // rely on `updatePet` returning `false` to signal a vanished row.
+      // An earlier revision returned `true` unconditionally after
+      // `setTagsForPet`, so TOCTOU paths surfaced misleading
+      // "tagged" success.
+      expect(await petService.updatePet(999_999, { name: 'Ghost' })).toBe(false);
+      expect(await petService.updatePet(999_999, { tags: ['orphan'] })).toBe(false);
     });
   });
 

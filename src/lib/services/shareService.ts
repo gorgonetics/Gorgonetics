@@ -134,6 +134,25 @@ export async function uploadPet(pet: Pet, db: Firestore = defaultFirestore): Pro
         // repair (rules deny update/delete).
         const [metaSnap, genomeSnap] = await Promise.all([getDoc(metaRef), getDoc(genomeRef)]);
         if (metaSnap.exists() && genomeSnap.exists()) {
+          // Both docs exist — but Firestore rules only validate the doc
+          // ID shape, not that `genomeData` hashes to the ID. A corrupt
+          // (or maliciously-squatted) `/genomes/{hash}` doc would let
+          // listPets surface a row that fails every importer's
+          // `verifySharedPet`. Re-hash here so a legitimate uploader
+          // sees the corruption rather than thinking they've already
+          // published their pet.
+          const genomeData = (genomeSnap.data() as { genomeData?: unknown } | undefined)?.genomeData;
+          if (typeof genomeData !== 'string') {
+            throw new Error(
+              `uploadPet: catalogue entry ${pet.content_hash} is missing a genomeData field — contact an admin to repair.`,
+            );
+          }
+          const onWireHash = await sha256Hex(genomeData);
+          if (onWireHash !== pet.content_hash) {
+            throw new Error(
+              `uploadPet: catalogue entry ${pet.content_hash} is corrupt — sha256(genomeData on wire) = ${onWireHash}. Rules deny overwriting, so contact an admin to repair.`,
+            );
+          }
           return { status: 'already-shared', contentHash: pet.content_hash };
         }
         if (metaSnap.exists() !== genomeSnap.exists()) {
@@ -142,11 +161,12 @@ export async function uploadPet(pet: Pet, db: Firestore = defaultFirestore): Pro
           );
         }
       } catch (recheckErr) {
-        // Re-throw the half-publish error we just raised so it reaches
-        // the caller; for any other recheck failure (network hiccup,
-        // rules also denying reads, etc.), fall through and surface the
-        // original batch error — that's the one the caller can act on.
-        if (recheckErr instanceof Error && recheckErr.message.startsWith('uploadPet: catalogue is half-published')) {
+        // Re-throw any of the recheck-time integrity errors we raised
+        // above (half-publish / missing field / hash mismatch). For
+        // anything else (network hiccup, rules also denying reads,
+        // etc.), fall through and surface the original batch error —
+        // that's the one the caller can act on.
+        if (recheckErr instanceof Error && recheckErr.message.startsWith('uploadPet: catalogue ')) {
           throw recheckErr;
         }
       }

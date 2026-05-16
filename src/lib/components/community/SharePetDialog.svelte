@@ -82,9 +82,11 @@ async function handleShare() {
         </div>
       {:else if !hasRawGenome}
         <div class="banner banner-warn" data-testid="share-no-raw-genome">
-          This pet was imported with an older app version that didn't keep the original
-          genome file on disk. To share it, re-import the same <code>Genes_*.txt</code> file
-          (the import path will dedupe and add the raw text needed for sharing).
+          This pet was imported with an older app version that didn't store the raw
+          genome text needed for sharing. Re-import the same
+          <code>Genes_*.txt</code> file from your game folder — the import path will
+          recognise the existing pet and backfill the missing text without creating a
+          duplicate.
         </div>
       {/if}
 

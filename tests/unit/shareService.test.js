@@ -173,17 +173,48 @@ describe('shareService.uploadPet', () => {
     expect(writeBatch).not.toHaveBeenCalled();
   });
 
-  it('returns already-shared when both metadata and genome docs exist after a denied create', async () => {
+  it('returns already-shared when both metadata and genome docs exist and the on-wire genome hashes correctly', async () => {
     const batch = createBatch();
     writeBatch.mockReturnValueOnce(batch);
     batch.commit.mockRejectedValueOnce(Object.assign(new Error('PERMISSION_DENIED'), { code: 'permission-denied' }));
-    // Recheck reads BOTH halves in parallel — must mock both.
-    getDoc.mockResolvedValueOnce({ exists: () => true });
-    getDoc.mockResolvedValueOnce({ exists: () => true });
+    // Recheck reads BOTH halves in parallel — must mock both, AND the
+    // genome doc must carry `genomeData` that hashes to the
+    // content_hash so the new integrity-recheck path passes.
+    getDoc.mockResolvedValueOnce({ exists: () => true, data: () => ({}) }); // meta
+    getDoc.mockResolvedValueOnce({ exists: () => true, data: () => ({ genomeData: RAW_TEXT }) });
 
     const result = await uploadPet(makePet());
     expect(result.status).toBe('already-shared');
     expect(result.contentHash).toBe(RAW_TEXT_HASH);
+  });
+
+  it('rejects on duplicate recheck when the catalogue genome doc is missing its genomeData field', async () => {
+    // A doc that exists but doesn't carry a `genomeData` string is
+    // structurally invalid (rules require it on create, but admin /
+    // schema-migrating writes can bypass that). Surface explicitly
+    // rather than masking as already-shared.
+    const batch = createBatch();
+    writeBatch.mockReturnValueOnce(batch);
+    batch.commit.mockRejectedValueOnce(Object.assign(new Error('PERMISSION_DENIED'), { code: 'permission-denied' }));
+    getDoc.mockResolvedValueOnce({ exists: () => true, data: () => ({}) });
+    getDoc.mockResolvedValueOnce({ exists: () => true, data: () => ({}) }); // no genomeData
+    await expect(uploadPet(makePet())).rejects.toThrow(/missing a genomeData field/);
+  });
+
+  it('rejects on duplicate recheck when the on-wire genome does not hash to the content_hash', async () => {
+    // Detects a corrupt / squatted catalogue entry: the genome blob
+    // on the wire doesn't match the doc ID hash, so every importer's
+    // `verifySharedPet` would reject the row. Block the legitimate
+    // uploader from getting a misleading already-shared response.
+    const batch = createBatch();
+    writeBatch.mockReturnValueOnce(batch);
+    batch.commit.mockRejectedValueOnce(Object.assign(new Error('PERMISSION_DENIED'), { code: 'permission-denied' }));
+    getDoc.mockResolvedValueOnce({ exists: () => true, data: () => ({}) });
+    getDoc.mockResolvedValueOnce({
+      exists: () => true,
+      data: () => ({ genomeData: 'TAMPERED — not the raw text whose sha256 matches content_hash' }),
+    });
+    await expect(uploadPet(makePet())).rejects.toThrow(/corrupt/);
   });
 
   it('re-throws the permission-denied when neither half exists (rules misconfig, not a duplicate)', async () => {
