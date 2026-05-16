@@ -300,6 +300,47 @@ describe('Backup Service', () => {
       expect(result.pets).toBe(0);
     });
 
+    it('clears the imported_files ledger on replace restore', async () => {
+      // imported_files has no FK to pets — without an explicit clear,
+      // a replace-restore from an older backup that omits some
+      // previously-deleted pets would leave their hashes in the ledger,
+      // and the auto-scanner would silently skip those files on future
+      // passes (no UI feedback). The replace branch must wipe the
+      // ledger alongside pets.
+      const db = getDb();
+      await db.execute(
+        'INSERT INTO imported_files (content_hash, source_path, imported_at) VALUES ($h, $p, $t)',
+        { h: 'stale_hash', p: '/old/path.txt', t: '2026-01-01T00:00:00Z' },
+      );
+      const ledgerBefore = await db.select('SELECT content_hash FROM imported_files');
+      expect(ledgerBefore).toHaveLength(1);
+      expect(ledgerBefore[0].content_hash).toBe('stale_hash');
+
+      const zipData = await buildZip({ pets: [samplePet] });
+      await importDatabase(zipData, importOpts('replace'));
+
+      const ledgerAfter = await db.select('SELECT content_hash FROM imported_files');
+      expect(ledgerAfter).toHaveLength(0);
+    });
+
+    it('preserves the imported_files ledger on merge restore', async () => {
+      // Merge mode must NOT wipe the ledger — the user's existing
+      // auto-scan skip-list is part of their local state, not a
+      // backup-resettable cache.
+      const db = getDb();
+      await db.execute(
+        'INSERT INTO imported_files (content_hash, source_path, imported_at) VALUES ($h, $p, $t)',
+        { h: 'mine_hash', p: '/local/path.txt', t: '2026-01-01T00:00:00Z' },
+      );
+
+      const zipData = await buildZip({ pets: [samplePet] });
+      await importDatabase(zipData, importOpts('merge'));
+
+      const ledger = await db.select('SELECT content_hash FROM imported_files');
+      expect(ledger).toHaveLength(1);
+      expect(ledger[0].content_hash).toBe('mine_hash');
+    });
+
     it('coerces missing genome_text to "" for pre-v13 backups', async () => {
       // v12-and-earlier exports didn't carry genome_text. The column is
       // NOT NULL DEFAULT '', and explicit-NULL inserts bypass the default,

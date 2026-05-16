@@ -291,7 +291,18 @@ async function importGenesAndPets(
   if (options.mode === 'replace') {
     if (options.includeGenes) statements.push({ sql: 'DELETE FROM genes' });
     if (options.includeImages) statements.push({ sql: 'DELETE FROM pet_images' });
-    if (options.includePets) statements.push({ sql: 'DELETE FROM pets' });
+    if (options.includePets) {
+      statements.push({ sql: 'DELETE FROM pets' });
+      // `imported_files` is keyed by content_hash and has no FK to
+      // `pets` (migration v12 — it's a stand-alone auto-scan skip-list),
+      // so cascading deletes don't touch it. Clearing it alongside
+      // pets avoids resurrecting a stale ledger: a replace-restore from
+      // an older backup that omits some previously-deleted pets would
+      // otherwise leave their hashes in the ledger, and the next
+      // auto-scan would silently skip those files without surfacing
+      // why — the user loses the ability to re-import them.
+      statements.push({ sql: 'DELETE FROM imported_files' });
+    }
   }
 
   if (options.includeGenes && genes && genes.length > 0) {

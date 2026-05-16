@@ -31,6 +31,16 @@ const PAGE_SIZE = 50;
 const STALE_AFTER_MS = 5 * 60 * 1000;
 
 let lastLoadedAt = 0;
+/**
+ * Monotonic generation counter for in-flight `loadInitial` calls. The
+ * non-force path also has a fast-skip on `communityView.loading`, but a
+ * force-refresh (the "Try again" button, or any external opt-in) must
+ * be able to interrupt a slow in-flight load — and when it does, the
+ * older `await listPets` must not be allowed to overwrite the fresher
+ * result on resolution. Each call snapshots `loadGeneration` at start
+ * and discards its own result on return if the counter has moved.
+ */
+let loadGeneration = 0;
 
 export const communityView = $state({
   pets: [] as SharedPet[],
@@ -91,13 +101,25 @@ export async function loadInitial(opts: { force?: boolean } = {}): Promise<void>
     communityView.hasMore = false;
     return;
   }
-  if (!opts.force && communityView.pets.length > 0 && Date.now() - lastLoadedAt < STALE_AFTER_MS) {
-    return;
+  if (!opts.force) {
+    // Skip when a load is already in flight — two concurrent fetches
+    // would otherwise both pass the cache check and race to write
+    // `communityView.pets` (last-writer-wins, which can leave the
+    // store on the older snapshot).
+    if (communityView.loading) return;
+    // `lastLoadedAt > 0` keeps the first-ever call from short-circuiting
+    // against the Unix-epoch delta. An empty catalogue is still
+    // considered cached — without this the store would refetch on every
+    // tab toggle once the catalogue happened to be empty, burning Spark
+    // read quota.
+    if (lastLoadedAt > 0 && Date.now() - lastLoadedAt < STALE_AFTER_MS) return;
   }
+  const myGeneration = ++loadGeneration;
   communityView.loading = true;
   communityView.error = null;
   try {
     const { pets, cursor } = await listPets({ limit: PAGE_SIZE });
+    if (myGeneration !== loadGeneration) return;
     communityView.pets = pets;
     communityView.cursor = cursor;
     communityView.hasMore = pets.length === PAGE_SIZE;
@@ -110,6 +132,7 @@ export async function loadInitial(opts: { force?: boolean } = {}): Promise<void>
       communityView.selectedHash = null;
     }
   } catch (err) {
+    if (myGeneration !== loadGeneration) return;
     communityView.error = `Failed to load catalogue: ${errorMessage(err)}`;
     // On error we keep the existing `pets` array so a transient failure
     // doesn't blow away whatever the user was already looking at. The
@@ -119,7 +142,7 @@ export async function loadInitial(opts: { force?: boolean } = {}): Promise<void>
       communityView.hasMore = false;
     }
   } finally {
-    communityView.loading = false;
+    if (myGeneration === loadGeneration) communityView.loading = false;
   }
 }
 
@@ -139,6 +162,18 @@ export async function loadMore(): Promise<void> {
   } finally {
     communityView.loadingMore = false;
   }
+}
+
+/**
+ * Test-only escape hatch — resets the module-level `lastLoadedAt`
+ * cache stamp and the in-flight generation counter so unit suites
+ * can run from a pristine state. Not exported via the public
+ * `$lib/stores/community` barrel; only the test file imports it
+ * directly. Real callers should not use this.
+ */
+export function _resetCommunityStoreState(): void {
+  lastLoadedAt = 0;
+  loadGeneration = 0;
 }
 
 export function selectPet(hash: string): void {

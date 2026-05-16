@@ -49,12 +49,13 @@ vi.mock('$lib/firebase.js', () => ({
 
 vi.mock('$lib/services/petService.js', () => ({
   findPetByHash: vi.fn(),
+  getPet: vi.fn(),
   updatePet: vi.fn(),
   uploadPet: vi.fn(),
 }));
 
 import { getDoc, getDocs, orderBy, startAfter, Timestamp, writeBatch } from 'firebase/firestore';
-import { findPetByHash, updatePet, uploadPet as uploadPetLocally } from '$lib/services/petService.js';
+import { findPetByHash, getPet, updatePet, uploadPet as uploadPetLocally } from '$lib/services/petService.js';
 import {
   getSharedPet,
   importCommunityPet,
@@ -67,10 +68,12 @@ import { Gender } from '$lib/types/index.js';
 import { sha256Hex } from '$lib/utils/hash.js';
 
 afterEach(() => {
-  // `mockResolvedValueOnce` consumes its own queue, but the call-history
-  // is not auto-cleared — without resetting it, "not.toHaveBeenCalled"
-  // assertions leak across tests in this file.
-  vi.clearAllMocks();
+  // Use `resetAllMocks` (not `clearAllMocks`) so queued
+  // `mockResolvedValueOnce` / `mockRejectedValueOnce` values from a test
+  // that didn't end up consuming them don't leak into the next test.
+  // The full reset also restores `vi.fn()` to its empty default, which
+  // is what every test in this file expects as a baseline.
+  vi.resetAllMocks();
   batchCalls.length = 0;
 });
 
@@ -465,7 +468,10 @@ describe('shareService.importCommunityPet', () => {
       pet_id: 11,
       name: 'LegacyName',
     });
-    findPetByHash.mockResolvedValueOnce({
+    // Backfill path looks up tags via `getPet(pet_id)` so a parallel
+    // delete-then-reinsert under the same content_hash can't return a
+    // sibling row's tags. `findPetByHash` is NOT called on this branch.
+    getPet.mockResolvedValueOnce({
       id: 11,
       name: 'LegacyName',
       content_hash: shared.contentHash,
@@ -476,7 +482,34 @@ describe('shareService.importCommunityPet', () => {
     const result = await importCommunityPet(shared);
 
     expect(result.status).toBe('already-imported');
+    expect(getPet).toHaveBeenCalledWith(11);
+    expect(findPetByHash).not.toHaveBeenCalled();
     expect(updatePet).toHaveBeenCalledWith(11, { tags: ['community', 'favourite', 'wip', 'fast', 'fierce'] });
+  });
+
+  it('handles a backfill where the pet was deleted between upload and tag-merge (TOCTOU)', async () => {
+    // If the user nukes the legacy row in the window between
+    // `uploadPetLocally` resolving with `kind: 'backfilled'` and the
+    // tag-merge `getPet` call, the row is gone. `getPet` returns null,
+    // existing tags fall back to [], and `updatePet` is invoked on a
+    // pet_id that no longer exists — it should not crash and the
+    // user-visible result must indicate the tag write didn't land.
+    const shared = await makeShared('TOC');
+    uploadPetLocally.mockResolvedValueOnce({
+      status: 'success',
+      kind: 'backfilled',
+      message: 'Filled missing raw genome data',
+      pet_id: 99,
+      name: 'GhostName',
+    });
+    getPet.mockResolvedValueOnce(null);
+    updatePet.mockResolvedValueOnce(false);
+
+    const result = await importCommunityPet(shared);
+
+    expect(result.status).toBe('already-imported');
+    expect(getPet).toHaveBeenCalledWith(99);
+    expect(result.pet_id).toBe(99);
   });
 
   it('surfaces a partial-success message when the tag write fails', async () => {

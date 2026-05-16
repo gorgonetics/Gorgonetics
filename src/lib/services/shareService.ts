@@ -43,7 +43,7 @@ import {
 
 import { firestore as defaultFirestore } from '$lib/firebase.js';
 import { CURRENT_SCHEMA_VERSION } from '$lib/services/migrationService.js';
-import { findPetByHash, updatePet, uploadPet as uploadPetLocally } from '$lib/services/petService.js';
+import { findPetByHash, getPet, updatePet, uploadPet as uploadPetLocally } from '$lib/services/petService.js';
 import { Gender, type ListPetsOpts, type Pet, type SharedPet, type SharedPetsPage } from '$lib/types/index.js';
 import { sha256Hex } from '$lib/utils/hash.js';
 
@@ -236,7 +236,14 @@ export async function importCommunityPet(shared: SharedPet, opts: { tag?: string
     // pre-existing legacy pet that may carry user-applied tags we must
     // preserve. For `kind: 'created'` the merge is a no-op (the pet was
     // just inserted with no tags).
-    const existing = upload.kind === 'backfilled' ? (await findPetByHash(shared.contentHash))?.tags ?? [] : [];
+    //
+    // Look up the row by `pet_id` (the operation target) rather than by
+    // `content_hash`: if the user deleted the legacy row in the window
+    // between `uploadPetLocally` and this read, `findPetByHash` could
+    // still resolve to a same-hash row owned by a parallel re-import,
+    // and we'd merge against the wrong tag set. `getPet(pet_id)` either
+    // returns the row we just updated or `null` if it's been deleted.
+    const existing = upload.kind === 'backfilled' ? (await getPet(upload.pet_id))?.tags ?? [] : [];
     const tagsApplied = await applyImportTags(upload.pet_id, existing, localTag, shared.tags);
     if (upload.kind === 'backfilled') {
       return {

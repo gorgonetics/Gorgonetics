@@ -33,6 +33,12 @@ let timer = 0;
 $effect(() => {
   // Depend explicitly on the user-visible content so an in-place
   // message swap re-arms the timer; ignore onDismiss identity churn.
+  // Destructured Svelte 5 props are NOT live — `onDismiss` is captured
+  // at mount, so a later prop-only rerender of the callback won't
+  // change which function fires. That's the correct trade-off for a
+  // dismiss-on-timeout toast: the parent typically passes a closure
+  // that just clears its own state, and re-arming on identity churn
+  // would leave the toast stuck.
   void message;
   void type;
   void autoDismissMs;

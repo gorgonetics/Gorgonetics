@@ -41,17 +41,27 @@ const TAB_STATE_RESETS: Record<Tab, () => void> = {
   community: clearSelectionAndGeneView,
 };
 
+// Monotonic generation counter for in-flight `loadPets` calls. Concurrent
+// callers (auto-scan + community import + manual upload finishing in any
+// order) all race to `pets.set(items)` — without this guard the older
+// `getAllPets()` result can resolve last and overwrite a fresher list,
+// leaving the Pets/Stable tab on a stale snapshot until the next refresh.
+let loadGeneration = 0;
+
 export const appState = {
   async loadPets() {
+    const myGeneration = ++loadGeneration;
     try {
       loading.set(true);
       error.set(null);
       const { items } = await petService.getAllPets();
+      if (myGeneration !== loadGeneration) return;
       pets.set(items as Pet[]);
     } catch (err: unknown) {
+      if (myGeneration !== loadGeneration) return;
       error.set(`Failed to load pets: ${errorMessage(err)}`);
     } finally {
-      loading.set(false);
+      if (myGeneration === loadGeneration) loading.set(false);
     }
   },
 
