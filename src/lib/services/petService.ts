@@ -392,10 +392,16 @@ export interface UploadPetResult {
   pet_id?: number;
   name?: string;
   /**
-   * Discriminates fresh inserts from legacy `genome_text` backfills (a
-   * v13 row that already had the matching content_hash but no raw text).
-   * Callers that track import counts should bucket `backfilled` separately
-   * from `created` — see gameImport's AutoScanResult.
+   * Discriminates fresh inserts from in-place writes to `genome_text`
+   * on an existing row. `'backfilled'` covers two cases:
+   *   1. legacy v13 rows that already had the matching `content_hash`
+   *      but an empty `genome_text` column (filled from the re-imported
+   *      file);
+   *   2. corrupt rows whose stored `genome_text` doesn't hash to
+   *      `content_hash` (replaced by the canonical text from the
+   *      re-imported file — see the hash-drift branch in `uploadPet`).
+   * Callers that track import counts should bucket `backfilled`
+   * separately from `created` — see gameImport's AutoScanResult.
    */
   kind?: 'created' | 'backfilled';
 }

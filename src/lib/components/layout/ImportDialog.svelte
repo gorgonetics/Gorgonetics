@@ -70,7 +70,13 @@ async function handleImport() {
         </div>
         <div class="info-row">
           <span>Created:</span>
-          <span>{metadata?.exported_at ? formatShortDate(new Date(metadata.exported_at)) : 'unknown'}</span>
+          <!--
+            `formatShortDate` returns '' for invalid dates, so checking
+            `exported_at` truthiness alone leaves a truthy-but-malformed
+            value rendering blank. Use the formatted output with a
+            fallback to catch both missing AND invalid dates.
+          -->
+          <span>{(metadata?.exported_at && formatShortDate(new Date(metadata.exported_at))) || 'unknown'}</span>
         </div>
       </div>
 

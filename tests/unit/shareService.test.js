@@ -690,6 +690,35 @@ describe('shareService.importCommunityPet', () => {
     }
   });
 
+  it('normalises tags case + whitespace before merging (matches DB-side normalisation)', async () => {
+    // `petService.setTagsForPet` does `trim().toLowerCase()` before
+    // INSERT. The import flow's local merge must mirror that
+    // normalisation BEFORE the dedupe check — otherwise
+    // `result.tags` returns both 'Fast' and 'fast' while the DB
+    // collapses them, and the caller sees a tag list that disagrees
+    // with what was actually stored.
+    const shared = await makeShared('NORM');
+    shared.tags = ['Fast', '  FIERCE  ', 'fast']; // mixed case + whitespace + duplicate-after-normalise
+    uploadPetLocally.mockResolvedValueOnce({
+      status: 'success',
+      kind: 'created',
+      message: '',
+      pet_id: 81,
+      name: shared.name,
+    });
+    updatePet.mockResolvedValue(true);
+
+    const result = await importCommunityPet(shared);
+
+    expect(result.status).toBe('imported');
+    // Result.tags must reflect what setTagsForPet will store: lowercased,
+    // trimmed, deduped. 'Fast' / 'fast' collapse to one 'fast'.
+    expect(result.tags).toEqual(['community', 'fast', 'fierce']);
+    // The local merge call to updatePet receives the same normalised
+    // form, so a re-read of pet_tags would agree byte-for-byte.
+    expect(updatePet).toHaveBeenCalledWith(81, { tags: ['community', 'fast', 'fierce'] });
+  });
+
   it('race-recovery surfaces tag-write failure in the message', async () => {
     // When the upload failed as duplicate and `findPetByHash` recovered
     // a pre-existing row, the community tag is best-effort. A failed

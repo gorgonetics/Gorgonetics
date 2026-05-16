@@ -43,11 +43,21 @@ describe('StatusBanner', () => {
     expect(onDismiss).not.toHaveBeenCalled();
   });
 
-  it('restarts the timer when the message changes in place', () => {
-    // Regression guard for the `onMount`-only timer (commit 5ce4514 →
-    // 1d30ec9): PetVisualization updates `shareStatus` on a second
-    // share without remounting the toast. The new banner inherited
-    // the old countdown and could disappear immediately.
+  it('restarts the timer when the message changes (contract-level smoke test)', () => {
+    // Regression guard for the user-visible contract: a banner whose
+    // displayed content swaps gets a fresh countdown, NOT the residual
+    // time from the previous countdown (the bug from commit 5ce4514).
+    //
+    // Caveat: `@testing-library/svelte` v5 `rerender` currently
+    // remounts the component, which trivially re-arms the timer via
+    // `onMount`/`onDestroy` regardless of the `$effect` logic. So
+    // this test verifies the contract but does NOT distinguish a
+    // proper `$effect`-tracked impl from an `onMount`-only impl that
+    // would regress to the original bug under in-place rerenders.
+    // A faithful harness would need a wrapper component with `$state`
+    // that mutates the prop without remounting; the additional
+    // plumbing isn't worth it for what the production parents (single
+    // `PetVisualization` toast) actually do today.
     const onDismiss = vi.fn();
     const { rerender } = render(StatusBanner, {
       type: 'success',
@@ -56,23 +66,20 @@ describe('StatusBanner', () => {
       onDismiss,
     });
     vi.advanceTimersByTime(3000);
-    // Caller swaps the message in place — should re-arm the full 5s timer.
     rerender({ type: 'success', message: 'Second', autoDismissMs: 5000, onDismiss });
     vi.advanceTimersByTime(3000);
-    // 3s after the swap (6s overall) — old timer would have fired at 5s.
     expect(onDismiss).not.toHaveBeenCalled();
     vi.advanceTimersByTime(2000);
-    // 5s after the swap — new timer fires now.
     expect(onDismiss).toHaveBeenCalledTimes(1);
   });
 
   // The "does not restart on onDismiss-identity churn" invariant
-  // (the original regression we were defending against) can't be
-  // verified through `@testing-library/svelte` v5 rerender, which
-  // currently appears to remount the component on every call —
-  // erasing the timer-state we'd be probing. The defensive `untrack`
-  // around `onDismiss` in the component remains the load-bearing
-  // mitigation for inline arrow callbacks in PetVisualization.
+  // (the original regression we were defending against) and the
+  // in-place message-swap regression both depend on the test harness
+  // updating props WITHOUT remounting — which @testing-library/svelte
+  // v5 doesn't currently do. The `untrack` around `onDismiss` plus
+  // the explicit deps on `message`/`type`/`autoDismissMs` remain the
+  // load-bearing mitigations in production.
 
   it('clears the timer on unmount (no leak)', () => {
     const onDismiss = vi.fn();

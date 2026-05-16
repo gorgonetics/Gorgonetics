@@ -168,7 +168,14 @@ export async function loadMore(): Promise<void> {
     if (myGeneration !== loadGeneration) return;
     communityView.error = `Failed to load more: ${errorMessage(err)}`;
   } finally {
-    if (myGeneration === loadGeneration) communityView.loadingMore = false;
+    // `loadingMore` is the UI lock that gates the "Load more" button.
+    // Clear it on EVERY return path — including the
+    // stale-supersession case where the page-state writes are
+    // skipped — otherwise a forced refresh during pagination leaves
+    // the button permanently disabled. Single-flight is enforced
+    // at the top of this function, so no other concurrent loadMore
+    // could be relying on the flag.
+    communityView.loadingMore = false;
   }
 }
 

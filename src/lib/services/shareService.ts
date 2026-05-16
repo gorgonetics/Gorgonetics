@@ -383,6 +383,12 @@ async function applyImportTags(
  * that drops the 30-tag wire count cap. Used for the import flow's
  * local-tag merge so a pet with many pre-existing user tags doesn't
  * lose any when the community tag is prepended.
+ *
+ * Normalises each entry the same way `petService.setTagsForPet` does
+ * (`trim().toLowerCase()`) BEFORE the dedupe check. That keeps the
+ * returned list in agreement with what the DB will actually store:
+ * a caller can't end up with `result.tags` containing both `'Fast'`
+ * and `'fast'` while the row in `pet_tags` collapses them to one.
  */
 function mergeLocalTags(tags: unknown): string[] {
   if (!Array.isArray(tags)) return [];
@@ -390,10 +396,11 @@ function mergeLocalTags(tags: unknown): string[] {
   const out: string[] = [];
   for (const t of tags) {
     if (typeof t !== 'string') continue;
-    if (t.length === 0 || t.length > TAG_MAX_LEN) continue;
-    if (seen.has(t)) continue;
-    seen.add(t);
-    out.push(t);
+    const normalized = t.trim().toLowerCase();
+    if (normalized.length === 0 || normalized.length > TAG_MAX_LEN) continue;
+    if (seen.has(normalized)) continue;
+    seen.add(normalized);
+    out.push(normalized);
   }
   return out;
 }

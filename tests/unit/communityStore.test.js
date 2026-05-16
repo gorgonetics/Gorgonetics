@@ -326,6 +326,10 @@ describe('community.svelte.ts — loadMore', () => {
     expect(communityView.pets).toHaveLength(1);
     expect(communityView.pets[0].contentHash).toBe('fresh-a');
     expect(communityView.cursor).toEqual({ __snap: 'fresh-cursor' });
+    // The stale pagination's finally MUST clear `loadingMore` even
+    // though the result was discarded, otherwise the "Load more"
+    // button stays disabled after the refresh.
+    expect(communityView.loadingMore).toBe(false);
   });
 
   it('skips a re-entrant call while loadingMore is true (single-flight)', async () => {

@@ -93,10 +93,14 @@ export interface AutoScanResult {
   skipped: number;
   imported: number;
   /**
-   * Files that matched an existing pet's content_hash but whose
-   * genome_text column was empty (legacy pets pre-v13). The scan
-   * backfills the raw text but counts the row as already-present
-   * rather than fresh, so `imported` stays accurate.
+   * Files that matched an existing pet's content_hash and ran
+   * `petService.uploadPet`'s in-place `kind: 'backfilled'` branch.
+   * That covers two cases:
+   *   1. legacy v13 rows with empty `genome_text` (filled);
+   *   2. corrupt rows whose stored `genome_text` didn't hash to
+   *      `content_hash` (repaired with the canonical text).
+   * Either way the row was already present, so the count is
+   * separate from `imported` to keep "fresh insert" accurate.
    */
   backfilled: number;
   failures: Array<{ file: string; reason: string }>;
