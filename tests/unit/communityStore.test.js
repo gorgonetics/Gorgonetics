@@ -267,6 +267,21 @@ describe('community.svelte.ts — loadMore', () => {
     expect(communityView.hasMore).toBe(false);
   });
 
+  it('noops when a first-page load is in flight (avoids stale-cursor append)', async () => {
+    // Starting a pagination while `communityView.loading === true`
+    // captures the same `loadGeneration` the upcoming refresh will
+    // use, but reads the OLD cursor. If the refresh resolves first
+    // the pagination's generation check still passes — and the old
+    // page-2 would land appended onto the new page-1 with
+    // duplicates or boundary gaps. Better to skip the pagination
+    // entirely while a refresh is mid-flight.
+    communityView.loading = true;
+    communityView.cursor = { __snap: 'stale' };
+    communityView.hasMore = true;
+    await loadMore();
+    expect(listPets).not.toHaveBeenCalled();
+  });
+
   it('noops when hasMore is false', async () => {
     communityView.hasMore = false;
     communityView.cursor = { __snap: 'any' };

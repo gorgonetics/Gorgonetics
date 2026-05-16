@@ -151,6 +151,14 @@ export async function loadInitial(opts: { force?: boolean } = {}): Promise<void>
 export async function loadMore(): Promise<void> {
   if (communityView.loadingMore || !communityView.hasMore) return;
   if (!communityView.cursor) return;
+  // Also skip while a first-page load is in flight. Without this,
+  // `loadMore` captures the same `loadGeneration` as the upcoming
+  // refresh but uses the OLD cursor — when the refresh resolves
+  // first the generation check still passes, so the old page-2 lands
+  // appended onto the new page-1 (duplicates or gaps at the
+  // boundary). The "Load more" button mirrors this gate in
+  // CommunityPetTable.
+  if (communityView.loading) return;
   // Snapshot the current generation: if a forced `loadInitial` runs
   // in parallel and resets the page (incrementing `loadGeneration`),
   // this pagination request's result is appending against a stale

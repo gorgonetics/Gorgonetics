@@ -55,7 +55,7 @@ import CommunityPetRow from './CommunityPetRow.svelte';
           class="btn btn-secondary load-more-btn"
           data-testid="community-load-more"
           onclick={loadMore}
-          disabled={communityView.loadingMore}
+          disabled={communityView.loadingMore || communityView.loading}
         >
           {communityView.loadingMore ? 'Loading…' : 'Load more'}
         </button>

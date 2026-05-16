@@ -1,8 +1,30 @@
 # Public Pet Sharing — v1 Implementation Plan
 
-**Status:** Design — not yet implemented
+**Status:** Implemented — see `src/lib/services/shareService.ts` and `firestore.rules` for the authoritative API/schema.
 **Scope source:** Scoping discussion 2026-05-09; see `Project: Gorgonetics` Logseq page section `2026-05-09: Public Pet Sharing v1 — Scope`.
 **Target:** A centralised, public catalogue where users can upload their pets (genomes + tags + metadata) and others can browse and import them into their local DB. Read-only catalogue + uploads in v1; comments, ratings, and images explicitly out of scope.
+
+> **Implementation drift from this doc** — the sections below describe the
+> *original* single-doc schema. The shipped implementation splits the
+> catalogue across two collections to keep the metadata-only list path
+> cheap:
+>
+> - **`/pets/{contentHash}`** — metadata only (name, character, species,
+>   gender, breed, breeder, notes, tags, schemaVersion, appVersion,
+>   uploadedAt, uploaderUid). No `genomeData` field on this doc.
+> - **`/genomes/{contentHash}`** — `{ genomeData: string }` only,
+>   keyed by the same hash. Written atomically with the metadata via
+>   `writeBatch`; rules require both halves to exist via `existsAfter()`.
+>
+> Consequences:
+> - `listPets()` reads `/pets` only — metadata-only `SharedPet`s with
+>   `genomeData === undefined`. `getSharedPet(hash)` reads both halves
+>   in parallel and returns the combined record.
+> - `verifySharedPet` runs on the importer side against the combined
+>   record.
+> - The Firestore rules in this doc (single `/pets` collection with a
+>   `genomeData` field) are out of date; `firestore.rules` is the
+>   source of truth.
 
 ---
 

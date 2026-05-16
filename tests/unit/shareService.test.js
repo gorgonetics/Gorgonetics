@@ -719,6 +719,35 @@ describe('shareService.importCommunityPet', () => {
     expect(updatePet).toHaveBeenCalledWith(81, { tags: ['community', 'fast', 'fierce'] });
   });
 
+  it('preserves a user-owned long tag (> wire 64-char cap) on a backfill merge', async () => {
+    // `pet_tags.tag` has no length constraint and
+    // `petService.setTagsForPet` doesn't enforce one either. The wire
+    // 64-char cap belongs in `sanitizeTags` for the publish path —
+    // applying it to the local-row merge would silently delete a
+    // user's pre-existing long tag when a community pet imports
+    // onto an existing row.
+    const shared = await makeShared('LONGTAG');
+    shared.tags = [];
+    const longTag = 'a'.repeat(120); // well over the 64-char wire cap
+    uploadPetLocally.mockResolvedValueOnce({
+      status: 'success',
+      kind: 'backfilled',
+      message: '',
+      pet_id: 91,
+      name: 'BigTagPet',
+    });
+    getPet.mockResolvedValueOnce({ id: 91, tags: ['favourite', longTag] });
+    updatePet.mockResolvedValue(true);
+
+    await importCommunityPet(shared);
+
+    const tagCall = updatePet.mock.calls.find(([id, payload]) => id === 91 && Array.isArray(payload?.tags));
+    expect(tagCall).toBeDefined();
+    expect(tagCall[1].tags).toContain(longTag);
+    expect(tagCall[1].tags).toContain('favourite');
+    expect(tagCall[1].tags).toContain('community');
+  });
+
   it('race-recovery surfaces tag-write failure in the message', async () => {
     // When the upload failed as duplicate and `findPetByHash` recovered
     // a pre-existing row, the community tag is best-effort. A failed
