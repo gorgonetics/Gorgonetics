@@ -24,7 +24,6 @@ vi.mock('$lib/stores/pets.js', () => ({
 }));
 
 import { importCommunityPet, listPets } from '$lib/services/shareService.js';
-import { appState } from '$lib/stores/pets.js';
 import {
   _resetCommunityStoreState,
   clearSelection,
@@ -34,6 +33,7 @@ import {
   selectedSharedPet,
   selectPet,
 } from '$lib/stores/community.svelte.js';
+import { appState } from '$lib/stores/pets.js';
 
 function makeSharedPet(hash, overrides = {}) {
   return {
@@ -82,9 +82,10 @@ describe('community.svelte.ts — loadInitial', () => {
     // race the first to overwrite the page.
     let resolveFirst;
     listPets.mockImplementationOnce(
-      () => new Promise((res) => {
-        resolveFirst = res;
-      }),
+      () =>
+        new Promise((res) => {
+          resolveFirst = res;
+        }),
     );
     const first = loadInitial();
     // Second call fires while first is still pending.
@@ -111,9 +112,10 @@ describe('community.svelte.ts — loadInitial', () => {
     // resolution — generation-token gating drops its return value.
     let resolveStale;
     listPets.mockImplementationOnce(
-      () => new Promise((res) => {
-        resolveStale = res;
-      }),
+      () =>
+        new Promise((res) => {
+          resolveStale = res;
+        }),
     );
     const stale = loadInitial();
 
@@ -153,7 +155,7 @@ describe('community.svelte.ts — loadInitial', () => {
     expect(communityView.selectedHash).toBe('A');
   });
 
-  it('keeps existing pets on error (transient failures don\'t blow away the view)', async () => {
+  it("keeps existing pets on error (transient failures don't blow away the view)", async () => {
     listPets.mockResolvedValueOnce({ pets: [makeSharedPet('A')], cursor: null });
     await loadInitial();
     listPets.mockRejectedValueOnce(new Error('Network down'));
@@ -171,9 +173,10 @@ describe('community.svelte.ts — importSelected', () => {
   it('serializes imports: a second concurrent call rejects with an in-progress message', async () => {
     let resolveFirst;
     importCommunityPet.mockImplementationOnce(
-      () => new Promise((res) => {
-        resolveFirst = res;
-      }),
+      () =>
+        new Promise((res) => {
+          resolveFirst = res;
+        }),
     );
     const pet = makeSharedPet('first', { genomeData: 'raw' });
     const firstPromise = importSelected(pet);

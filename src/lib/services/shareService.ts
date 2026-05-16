@@ -243,7 +243,7 @@ export async function importCommunityPet(shared: SharedPet, opts: { tag?: string
     // still resolve to a same-hash row owned by a parallel re-import,
     // and we'd merge against the wrong tag set. `getPet(pet_id)` either
     // returns the row we just updated or `null` if it's been deleted.
-    const existing = upload.kind === 'backfilled' ? (await getPet(upload.pet_id))?.tags ?? [] : [];
+    const existing = upload.kind === 'backfilled' ? ((await getPet(upload.pet_id))?.tags ?? []) : [];
     const tagsApplied = await applyImportTags(upload.pet_id, existing, localTag, shared.tags);
     if (upload.kind === 'backfilled') {
       return {

@@ -308,10 +308,11 @@ describe('Backup Service', () => {
       // passes (no UI feedback). The replace branch must wipe the
       // ledger alongside pets.
       const db = getDb();
-      await db.execute(
-        'INSERT INTO imported_files (content_hash, source_path, imported_at) VALUES ($h, $p, $t)',
-        { h: 'stale_hash', p: '/old/path.txt', t: '2026-01-01T00:00:00Z' },
-      );
+      await db.execute('INSERT INTO imported_files (content_hash, source_path, imported_at) VALUES ($h, $p, $t)', {
+        h: 'stale_hash',
+        p: '/old/path.txt',
+        t: '2026-01-01T00:00:00Z',
+      });
       const ledgerBefore = await db.select('SELECT content_hash FROM imported_files');
       expect(ledgerBefore).toHaveLength(1);
       expect(ledgerBefore[0].content_hash).toBe('stale_hash');
@@ -328,10 +329,11 @@ describe('Backup Service', () => {
       // auto-scan skip-list is part of their local state, not a
       // backup-resettable cache.
       const db = getDb();
-      await db.execute(
-        'INSERT INTO imported_files (content_hash, source_path, imported_at) VALUES ($h, $p, $t)',
-        { h: 'mine_hash', p: '/local/path.txt', t: '2026-01-01T00:00:00Z' },
-      );
+      await db.execute('INSERT INTO imported_files (content_hash, source_path, imported_at) VALUES ($h, $p, $t)', {
+        h: 'mine_hash',
+        p: '/local/path.txt',
+        t: '2026-01-01T00:00:00Z',
+      });
 
       const zipData = await buildZip({ pets: [samplePet] });
       await importDatabase(zipData, importOpts('merge'));
