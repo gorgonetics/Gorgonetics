@@ -33,24 +33,37 @@ function makePet(overrides = {}) {
 }
 
 describe('CommunityPetRow accessibility', () => {
-  it('renders a real <tr> with row semantics (no role="button" override)', () => {
+  it('renders a real <tr> with grid row semantics (not button)', () => {
     const { container } = render(CommunityPetRow, { pet: makePet(), selected: false });
     const row = container.querySelector('[data-testid="community-row"]');
     expect(row).not.toBeNull();
     expect(row.tagName).toBe('TR');
-    // Regression: an earlier revision applied `role="button"` directly to
-    // the `<tr>`, which silently overrode the row's implicit `role="row"`
-    // and hid the cells from assistive tech.
+    // Regression: an earlier revision applied `role="button"` directly
+    // to the `<tr>`, which silently overrode the row's table-row
+    // semantics. The `<tr>`'s implicit role="row" carries through
+    // inside the parent `<table role="grid">` in CommunityPetTable —
+    // an explicit `role="row"` here would be flagged as redundant by
+    // svelte/a11y.
     expect(row.getAttribute('role')).toBeNull();
     expect(row.getAttribute('aria-pressed')).toBeNull();
+    // Cells, however, do need explicit `role="gridcell"` — the
+    // implicit `cell` role on `<td>` doesn't upgrade to gridcell
+    // even inside a grid table, so screen readers need the hint.
+    const cells = row.querySelectorAll('td');
+    expect(cells.length).toBeGreaterThan(0);
+    for (const cell of cells) {
+      expect(cell.getAttribute('role')).toBe('gridcell');
+    }
   });
 
-  it('exposes aria-selected reflecting the selected prop', () => {
+  it('exposes aria-selected reflecting the selected prop', async () => {
     const { container, rerender } = render(CommunityPetRow, { pet: makePet(), selected: false });
     let row = container.querySelector('[data-testid="community-row"]');
     expect(row.getAttribute('aria-selected')).toBe('false');
 
-    rerender({ pet: makePet(), selected: true });
+    // `rerender` is async in @testing-library/svelte v5 — must await
+    // before re-reading the DOM or the assertion sees the old value.
+    await rerender({ pet: makePet(), selected: true });
     row = container.querySelector('[data-testid="community-row"]');
     expect(row.getAttribute('aria-selected')).toBe('true');
   });

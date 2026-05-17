@@ -25,7 +25,15 @@ import CommunityPetRow from './CommunityPetRow.svelte';
     </div>
   {:else}
     <div class="table-scroll">
-      <table>
+      <!--
+        `role="grid"` upgrades the table from a passive layout to an
+        interactive selection widget — pairs with `aria-selected` on
+        each row + `role="gridcell"` on each cell (see
+        CommunityPetRow). Screen readers then announce row
+        navigation + selection state instead of treating Enter/Space
+        on a `<tr>` as opaque.
+      -->
+      <table role="grid" aria-label="Community pet catalogue">
         <thead>
           <tr>
             <th>Name</th>

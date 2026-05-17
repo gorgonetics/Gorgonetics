@@ -20,10 +20,10 @@ describe('StatusBanner', () => {
     expect(banner.textContent).toContain('Hello');
   });
 
-  it('uses role="alert" for errors and role="status" otherwise', () => {
+  it('uses role="alert" for errors and role="status" otherwise', async () => {
     const { container, rerender } = render(StatusBanner, { type: 'error', message: 'oops' });
     expect(container.querySelector('[data-testid="status-banner"]').getAttribute('role')).toBe('alert');
-    rerender({ type: 'info', message: 'fyi' });
+    await rerender({ type: 'info', message: 'fyi' });
     expect(container.querySelector('[data-testid="status-banner"]').getAttribute('role')).toBe('status');
   });
 
@@ -43,7 +43,7 @@ describe('StatusBanner', () => {
     expect(onDismiss).not.toHaveBeenCalled();
   });
 
-  it('restarts the timer when the message changes (contract-level smoke test)', () => {
+  it('restarts the timer when the message changes (contract-level smoke test)', async () => {
     // Regression guard for the user-visible contract: a banner whose
     // displayed content swaps gets a fresh countdown, NOT the residual
     // time from the previous countdown (the bug from commit 5ce4514).
@@ -66,7 +66,10 @@ describe('StatusBanner', () => {
       onDismiss,
     });
     vi.advanceTimersByTime(3000);
-    rerender({ type: 'success', message: 'Second', autoDismissMs: 5000, onDismiss });
+    // `rerender` is async in @testing-library/svelte v5 — must await
+    // before advancing timers, otherwise the old timer can still be
+    // the active one and the test reads stale state.
+    await rerender({ type: 'success', message: 'Second', autoDismissMs: 5000, onDismiss });
     vi.advanceTimersByTime(3000);
     expect(onDismiss).not.toHaveBeenCalled();
     vi.advanceTimersByTime(2000);

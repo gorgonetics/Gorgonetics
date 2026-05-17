@@ -19,11 +19,14 @@ function handleKey(e) {
 </script>
 
 <!--
-  Selection on a real `<tr>` so assistive tech keeps the underlying
-  table-row semantics (a previous revision spelled `role="button"` and
-  silently dropped the row's role, hiding cells from screen readers).
-  `aria-selected` carries the visual selection state; the row remains
-  tabbable and Enter/Space-activatable for keyboard users.
+  Selection on a real `<tr>` under a `role="grid"` parent (see
+  CommunityPetTable). `role="row"` is explicit for the grid context;
+  each cell gets `role="gridcell"` so screen readers announce the
+  grid structure + selection state instead of seeing the row as an
+  opaque container (a previous revision spelled `role="button"` on
+  the `<tr>` which silently dropped the row's table-row semantics).
+  `aria-selected` carries the visual selection; the row stays
+  tabbable and Enter/Space-activatable.
 -->
 <tr
   class="row"
@@ -35,15 +38,15 @@ function handleKey(e) {
   onclick={handleClick}
   onkeydown={handleKey}
 >
-  <td class="cell-name">{pet.name || '(unnamed)'}</td>
-  <td class="cell-character">{pet.character || '—'}</td>
-  <td class="cell-species">{pet.species || '—'}</td>
-  <td class="cell-tags">
+  <td role="gridcell" class="cell-name">{pet.name || '(unnamed)'}</td>
+  <td role="gridcell" class="cell-character">{pet.character || '—'}</td>
+  <td role="gridcell" class="cell-species">{pet.species || '—'}</td>
+  <td role="gridcell" class="cell-tags">
     {#each pet.tags as t (t)}
       <span class="tag-badge">{t}</span>
     {/each}
   </td>
-  <td class="cell-uploaded">{uploadedLabel}</td>
+  <td role="gridcell" class="cell-uploaded">{uploadedLabel}</td>
 </tr>
 
 <style>
