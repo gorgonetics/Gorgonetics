@@ -140,19 +140,6 @@ const totalsB = $derived.by(() => {
         font-size: 13px;
     }
 
-    .spinner {
-        width: 24px;
-        height: 24px;
-        border: 3px solid var(--border-primary);
-        border-top: 3px solid var(--accent);
-        border-radius: 50%;
-        animation: spin 0.8s linear infinite;
-    }
-
-    @keyframes spin {
-        to { transform: rotate(360deg); }
-    }
-
     .error-state {
         padding: 12px 16px;
         background: var(--error-bg);

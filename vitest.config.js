@@ -28,5 +28,11 @@ export default defineConfig({
     alias: {
       $lib: resolve(__dirname, './src/lib'),
     },
+    // Component tests (statusBanner, …) mount real Svelte 5 modules via
+    // @testing-library/svelte. Without `browser`, Svelte ships its
+    // server bundle and `mount(...)` throws "lifecycle_function_unavailable"
+    // even under jsdom. The condition is safe for service tests too —
+    // they don't depend on SSR-only paths.
+    conditions: ['browser'],
   },
 });

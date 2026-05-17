@@ -47,6 +47,85 @@ describe('Pet Service', () => {
       expect(result.message).toContain('already been uploaded');
     });
 
+    it('backfills genome_text on re-import of a legacy pet (empty genome_text)', async () => {
+      // Seed a legacy pet: same content_hash, but no raw genome on file —
+      // simulates a row that predates migration v13.
+      const first = await petService.uploadPet(SAMPLE_BEEWASP, { name: 'Legacy', gender: 'Female' });
+      expect(first.status).toBe('success');
+      const db = getDb();
+      await db.execute('UPDATE pets SET genome_text = $text WHERE id = $id', { text: '', id: first.pet_id });
+      // Also clear the ledger entry so we can verify the backfill path
+      // records the re-import (otherwise the original insert's ledger
+      // write would mask the assertion).
+      await db.execute('DELETE FROM imported_files');
+
+      // Re-importing the same file should fill genome_text in place and
+      // surface a success message rather than the duplicate-rejection.
+      const result = await petService.uploadPet(SAMPLE_BEEWASP, {
+        name: 'AnyName',
+        gender: 'Female',
+        sourcePath: '/scan/Genes_Replay.txt',
+      });
+      expect(result.status).toBe('success');
+      expect(result.pet_id).toBe(first.pet_id);
+      expect(result.message).toMatch(/missing raw genome data/i);
+
+      const rows = await db.select('SELECT genome_text FROM pets WHERE id = $id', { id: first.pet_id });
+      expect(rows[0].genome_text).toBe(SAMPLE_BEEWASP);
+
+      // The backfill path must record the file in imported_files too —
+      // otherwise the auto-scanner picks the same file up next pass and
+      // reports it as a duplicate failure.
+      const ledger = await db.select('SELECT content_hash, source_path FROM imported_files');
+      expect(ledger).toHaveLength(1);
+      expect(ledger[0].source_path).toBe('/scan/Genes_Replay.txt');
+      expect(await petService.hasImportedFile(ledger[0].content_hash)).toBe(true);
+    });
+
+    it('repairs a corrupt non-empty genome_text on re-import (hash drift, not just empty)', async () => {
+      // Stronger contract than just "empty genome_text → backfill":
+      // a row whose genome_text doesn't hash to its content_hash is
+      // ALSO unshareable (shareService.uploadPet rejects with
+      // "local row is corrupt"). Re-importing the same file must
+      // repair it, otherwise the user is stuck on the duplicate-error
+      // branch with no path forward.
+      const upload = await petService.uploadPet(SAMPLE_BEEWASP, { name: 'Bee', gender: 'Female' });
+      expect(upload.status).toBe('success');
+      const db = getDb();
+      // Corrupt the row: keep the content_hash, scramble the genome_text.
+      await db.execute('UPDATE pets SET genome_text = $t WHERE id = $id', {
+        t: '[Overview]\nEntity=Different\n[Genes]\n',
+        id: upload.pet_id,
+      });
+
+      const result = await petService.uploadPet(SAMPLE_BEEWASP, { name: 'AnyName', gender: 'Female' });
+      expect(result.status).toBe('success');
+      expect(result.pet_id).toBe(upload.pet_id);
+      expect(result.message).toMatch(/repaired the corrupt/i);
+
+      const rows = await db.select('SELECT genome_text FROM pets WHERE id = $id', { id: upload.pet_id });
+      expect(rows[0].genome_text).toBe(SAMPLE_BEEWASP);
+    });
+
+    it('findPetGenomeTextByHash returns null / empty / populated states distinctly', async () => {
+      // Slim variant of findPetByHash used by the auto-scan ledger-skip
+      // path. Three states must be distinguishable:
+      //   - no pet with that hash    → null  (auto-scan skips)
+      //   - pet exists, genome_text=''  → ''   (auto-scan falls through to backfill)
+      //   - pet exists, genome_text set → text (auto-scan skips)
+      const db = getDb();
+      expect(await petService.findPetGenomeTextByHash('no_such_hash')).toBeNull();
+
+      const upload = await petService.uploadPet(SAMPLE_BEEWASP, { name: 'Pet', gender: 'Female' });
+      const populated = await petService.findPetGenomeTextByHash((await petService.getPet(upload.pet_id)).content_hash);
+      expect(typeof populated).toBe('string');
+      expect(populated.length).toBeGreaterThan(0);
+
+      await db.execute('UPDATE pets SET genome_text = $t WHERE id = $id', { t: '', id: upload.pet_id });
+      const empty = await petService.findPetGenomeTextByHash((await petService.getPet(upload.pet_id)).content_hash);
+      expect(empty).toBe('');
+    });
+
     it('infers breed, gender, and attributes from structured Horse name', async () => {
       // Create a Horse genome file with a structured Entity name
       const structuredHorse = SAMPLE_HORSE.replace('Entity=Sample Horse', 'Entity=Kb F 60 70 65 80 90 100 55');
@@ -149,6 +228,16 @@ describe('Pet Service', () => {
       const pet = await petService.getPet(upload.pet_id);
       expect(pet.toughness).toBe(75);
       expect(pet.ferocity).toBe(90);
+    });
+
+    it('returns false when the pet does not exist (rowsAffected = 0)', async () => {
+      // Contract guard: callers (notably shareService.applyImportTags)
+      // rely on `updatePet` returning `false` to signal a vanished row.
+      // An earlier revision returned `true` unconditionally after
+      // `setTagsForPet`, so TOCTOU paths surfaced misleading
+      // "tagged" success.
+      expect(await petService.updatePet(999_999, { name: 'Ghost' })).toBe(false);
+      expect(await petService.updatePet(999_999, { tags: ['orphan'] })).toBe(false);
     });
   });
 

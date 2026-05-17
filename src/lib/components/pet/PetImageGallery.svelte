@@ -8,6 +8,7 @@ import {
   uploadImage,
 } from '$lib/services/imageService.js';
 import { createDragState } from '$lib/utils/dragReorder.svelte.js';
+import { errorMessage } from '$lib/utils/error.js';
 import { focusTrap } from '$lib/utils/focusTrap.js';
 import { getBasename } from '$lib/utils/path.js';
 
@@ -43,7 +44,7 @@ async function handleUpload() {
     try {
       await uploadImage(pet.id, paths[i]);
     } catch (err) {
-      failures.push(`${fileName}: ${err instanceof Error ? err.message : String(err)}`);
+      failures.push(`${fileName}: ${errorMessage(err)}`);
     }
   }
 

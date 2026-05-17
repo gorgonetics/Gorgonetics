@@ -391,6 +391,19 @@ export interface UploadPetResult {
   message: string;
   pet_id?: number;
   name?: string;
+  /**
+   * Discriminates fresh inserts from in-place writes to `genome_text`
+   * on an existing row. `'backfilled'` covers two cases:
+   *   1. legacy v13 rows that already had the matching `content_hash`
+   *      but an empty `genome_text` column (filled from the re-imported
+   *      file);
+   *   2. corrupt rows whose stored `genome_text` doesn't hash to
+   *      `content_hash` (replaced by the canonical text from the
+   *      re-imported file — see the hash-drift branch in `uploadPet`).
+   * Callers that track import counts should bucket `backfilled`
+   * separately from `created` — see gameImport's AutoScanResult.
+   */
+  kind?: 'created' | 'backfilled';
 }
 
 /**
@@ -417,9 +430,53 @@ export async function uploadPet(content: string, options: UploadPetOptions = {})
   // Compute hash for duplicate detection
   const contentHash = await sha256Hex(content);
 
-  // Check for duplicate
+  // Check for duplicate. The genome_text column was added in migration v13;
+  // a re-import of a legacy pet (which has the right content_hash but an
+  // empty genome_text) is also the only way a user can fix their pet for
+  // sharing, so we backfill from the file they just re-picked instead of
+  // returning a flat "duplicate" error. Also covers the corrupt-row case:
+  // if `existing.genome_text` is non-empty but doesn't hash to
+  // `content_hash` (e.g. backup-restore mismatch, direct DB write), the
+  // newly-uploaded file is the canonical copy and we backfill from it —
+  // otherwise the user would be stuck on a `shareService.uploadPet`
+  // "local row is corrupt" error with no path forward.
   const existing = await findPetByHash(contentHash);
   if (existing) {
+    const existingHash = existing.genome_text ? await sha256Hex(existing.genome_text) : '';
+    const needsBackfill = existingHash !== contentHash;
+    if (needsBackfill) {
+      const db = getDb();
+      const updateResult = await db.execute('UPDATE pets SET genome_text = $text WHERE id = $id', {
+        text: content,
+        id: existing.id,
+      });
+      // TOCTOU: the row could have been deleted between `findPetByHash`
+      // and this UPDATE. `rowsAffected === 0` is the signal.
+      if ((updateResult.rowsAffected ?? 0) === 0) {
+        return {
+          status: 'error',
+          message: `The matching pet was deleted before the backfill could complete — please try the import again.`,
+        };
+      }
+      // Record the ledger entry so the auto-scanner skips this file on
+      // future passes — without it the next scan would re-pick the same
+      // file, hit the now-NOT-EMPTY genome_text branch below, and report
+      // a duplicate failure.
+      try {
+        await recordImportedFile(contentHash, sourcePath);
+      } catch (err) {
+        console.warn('imported_files: failed to record after backfill', err);
+      }
+      return {
+        status: 'success',
+        kind: 'backfilled',
+        message: existing.genome_text
+          ? `Repaired the corrupt genome data for '${existing.name}'. It can now be shared to the community.`
+          : `Filled the missing raw genome data for '${existing.name}'. It can now be shared to the community.`,
+        pet_id: existing.id,
+        name: existing.name,
+      };
+    }
     return {
       status: 'error',
       message: `This file has already been uploaded as '${existing.name}' on ${existing.created_at}`,
@@ -456,11 +513,11 @@ export async function uploadPet(content: string, options: UploadPetOptions = {})
   const result = await withTransaction(async () => {
     const res = await db.execute(
       `INSERT INTO pets
-       (name, species, gender, breed, breeder, content_hash, genome_data, notes,
+       (name, species, gender, breed, breeder, content_hash, genome_data, genome_text, notes,
         created_at, updated_at,
         intelligence, toughness, friendliness, ruggedness, enthusiasm, virility, ferocity, temperament, sort_order,
         starred, stabled, is_pet_quality, positive_genes, total_genes, known_genes, unknown_genes)
-       VALUES ($name, $species, $gender, $breed, $breeder, $content_hash, $genome_data, $notes,
+       VALUES ($name, $species, $gender, $breed, $breeder, $content_hash, $genome_data, $genome_text, $notes,
                $created_at, $updated_at,
                $intelligence, $toughness, $friendliness, $ruggedness, $enthusiasm, $virility, $ferocity, $temperament, $sort_order,
                $starred, $stabled, $is_pet_quality, $positive_genes, $total_genes, $known_genes, $unknown_genes)`,
@@ -472,6 +529,7 @@ export async function uploadPet(content: string, options: UploadPetOptions = {})
         breeder: genome.breeder,
         content_hash: contentHash,
         genome_data: genomeJson,
+        genome_text: content,
         notes: notes ?? '',
         created_at: ts,
         updated_at: ts,
@@ -513,6 +571,7 @@ export async function uploadPet(content: string, options: UploadPetOptions = {})
 
   return {
     status: 'success',
+    kind: 'created',
     message: 'Pet created successfully',
     pet_id: result.lastInsertId,
     name: petName,
@@ -605,6 +664,15 @@ export async function updatePet(petId: number, updates: Record<string, unknown>)
   }
 
   let changed = false;
+  // Tracks whether the target pet row actually exists at the time of
+  // the UPDATE. The pets-table UPDATEs below all carry a `WHERE id = …`
+  // clause that affects 0 rows for a deleted pet — capturing
+  // `rowsAffected` is the only way to detect that, since `db.execute`
+  // resolves successfully either way. Without this check `updatePet`
+  // would return `true` for a vanished pet, and TOCTOU callers (e.g.
+  // shareService's import flow) would surface a misleading "tagged"
+  // success even though the tag write never landed.
+  let petsRowsAffected = -1;
 
   const wantsPetsUpdate = setClauses.length > 0;
   const wantsPetGenesRewrite = flat.genome_data !== undefined && nextGenome !== null;
@@ -618,7 +686,8 @@ export async function updatePet(petId: number, updates: Record<string, unknown>)
         setClauses.push('updated_at = $updated_at');
         params.updated_at = now();
         params.w_id = petId;
-        await db.execute(`UPDATE pets SET ${setClauses.join(', ')} WHERE id = $w_id`, params);
+        const result = await db.execute(`UPDATE pets SET ${setClauses.join(', ')} WHERE id = $w_id`, params);
+        petsRowsAffected = result.rowsAffected ?? 0;
       }
       if (wantsPetGenesRewrite && nextGenome) {
         await writePetGenes(petId, nextGenome);
@@ -628,16 +697,25 @@ export async function updatePet(petId: number, updates: Record<string, unknown>)
   }
 
   if (newTags !== undefined) {
-    await setTagsForPet(petId, newTags);
-    if (setClauses.length === 0) {
-      await db.execute('UPDATE pets SET updated_at = $updated_at WHERE id = $w_id', {
+    // Probe the pet's existence via the updated_at bump BEFORE rewriting
+    // tags. Production FK enforcement would catch an orphan-tags insert,
+    // but the in-memory test adapter doesn't enforce FKs — a deleted
+    // pet would otherwise get tag rows inserted with a dangling pet_id.
+    if (petsRowsAffected === -1) {
+      const result = await db.execute('UPDATE pets SET updated_at = $updated_at WHERE id = $w_id', {
         updated_at: now(),
         w_id: petId,
       });
+      petsRowsAffected = result.rowsAffected ?? 0;
     }
-    changed = true;
+    if (petsRowsAffected > 0) {
+      await setTagsForPet(petId, newTags);
+      changed = true;
+    }
   }
 
+  // 0 rows affected ⇒ no such pet ⇒ updatePet did not commit.
+  if (petsRowsAffected === 0) return false;
   return changed;
 }
 
@@ -682,6 +760,24 @@ export async function findPetByHash(contentHash: string): Promise<Pet | null> {
   if (rows.length === 0) return null;
   const tags = await loadTagsForPet(rows[0].id as number);
   return enrichPet(rows[0], tags);
+}
+
+/**
+ * Slim variant of `findPetByHash` that only returns the `genome_text`
+ * state of the matching row (or `null` if no pet has that hash). Used
+ * by the auto-scan ledger-skip path to detect legacy v13 pets without
+ * paying for `SELECT *` and the tag-junction join that `findPetByHash`
+ * performs — that path runs once per already-imported file in a
+ * scanned folder, so the cost difference is N×two-extra-queries vs
+ * N×one-tiny-query.
+ */
+export async function findPetGenomeTextByHash(contentHash: string): Promise<string | null> {
+  const db = getDb();
+  const rows = await db.select<{ genome_text: string }[]>(
+    'SELECT genome_text FROM pets WHERE content_hash = $hash LIMIT 1',
+    { hash: contentHash },
+  );
+  return rows.length > 0 ? (rows[0].genome_text ?? '') : null;
 }
 
 /**

@@ -1,24 +1,30 @@
 <script>
+import StatusBanner from '$lib/components/shared/StatusBanner.svelte';
 import { isPlaceholderConfig } from '$lib/firebase.js';
 import { sanitizeTags, uploadPet } from '$lib/services/shareService.js';
+import { errorMessage } from '$lib/utils/error.js';
 import { focusTrap } from '$lib/utils/focusTrap.js';
 
 const { pet, onClose, onResult } = $props();
 
 let includeNotes = $state(false);
 let sharing = $state(false);
-let errorMessage = $state('');
+let shareError = $state('');
 
 const previewTags = $derived(sanitizeTags(pet?.tags ?? []));
 const hasNotes = $derived(typeof pet?.notes === 'string' && pet.notes.trim().length > 0);
+// Legacy pets imported before migration v13 don't have the raw genome
+// text on file, so we can't recompute the hash-matching upload payload
+// for them. They can be shared after the user re-imports the file.
+const hasRawGenome = $derived(typeof pet?.genome_text === 'string' && pet.genome_text.length > 0);
 
 async function handleShare() {
   // Belt-and-suspenders: the Share button is disabled when the placeholder
-  // config is still in place, so this should never fire. The early return
-  // guards programmatic re-entry.
-  if (isPlaceholderConfig) return;
+  // config is still in place or the pet lacks raw genome text, so this
+  // should never fire. The early return guards programmatic re-entry.
+  if (isPlaceholderConfig || !hasRawGenome) return;
   sharing = true;
-  errorMessage = '';
+  shareError = '';
   try {
     const petToShare = includeNotes ? pet : { ...pet, notes: '' };
     const result = await uploadPet(petToShare);
@@ -32,7 +38,7 @@ async function handleShare() {
     }
     onClose();
   } catch (err) {
-    errorMessage = err?.message ?? String(err);
+    shareError = errorMessage(err);
   } finally {
     sharing = false;
   }
@@ -73,6 +79,14 @@ async function handleShare() {
           The community catalogue isn't configured for this build of Gorgonetics yet, so
           uploads are disabled. See <code>docs/firebase-setup.md</code> for how to wire up a
           Firebase project, or wait for a release with sharing enabled.
+        </div>
+      {:else if !hasRawGenome}
+        <div class="banner banner-warn" data-testid="share-no-raw-genome">
+          This pet was imported with an older app version that didn't store the raw
+          genome text needed for sharing. Re-import the same
+          <code>Genes_*.txt</code> file from your game folder — the import path will
+          recognise the existing pet and backfill the missing text without creating a
+          duplicate.
         </div>
       {/if}
 
@@ -133,9 +147,9 @@ async function handleShare() {
         <pre class="notes-preview" data-testid="share-notes-preview">{pet.notes}</pre>
       {/if}
 
-      {#if errorMessage}
-        <div class="banner banner-error" role="alert" data-testid="share-error">
-          {errorMessage}
+      {#if shareError}
+        <div data-testid="share-error">
+          <StatusBanner type="error" message={shareError} />
         </div>
       {/if}
     </div>
@@ -146,7 +160,7 @@ async function handleShare() {
         class="btn btn-primary"
         data-testid="share-confirm"
         onclick={handleShare}
-        disabled={sharing || isPlaceholderConfig}
+        disabled={sharing || isPlaceholderConfig || !hasRawGenome}
       >
         {sharing ? 'Sharing…' : 'Share to community'}
       </button>
@@ -205,27 +219,4 @@ async function handleShare() {
     word-break: break-word;
   }
 
-  .banner {
-    padding: 10px 12px;
-    border-radius: 4px;
-    font-size: 13px;
-    margin: 0 0 12px;
-  }
-
-  .banner-warn {
-    background: rgba(220, 170, 0, 0.12);
-    border: 1px solid rgba(220, 170, 0, 0.4);
-    color: var(--text-primary);
-  }
-
-  .banner-error {
-    background: rgba(220, 80, 80, 0.12);
-    border: 1px solid rgba(220, 80, 80, 0.4);
-    color: var(--text-primary);
-  }
-
-  .banner code {
-    font-family: var(--mono, monospace);
-    font-size: 12px;
-  }
 </style>

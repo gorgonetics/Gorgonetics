@@ -60,3 +60,34 @@ test.describe('Share Pet Dialog', () => {
     await expect(dialog).not.toBeVisible();
   });
 });
+
+// PR 4 — Community catalogue browser tab.
+// Firestore is unreachable in this build (placeholder apiKey), so the store
+// surfaces the "not configured" error path. We assert the tab is reachable
+// and that the empty/error state renders correctly. The real fetch +
+// pagination + import paths are covered by the unit suite (mocked SDK) and
+// the integration suite (Firestore Emulator).
+
+test.describe('Community Tab', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await waitForPets(page);
+  });
+
+  test('Community tab is reachable from the TopBar', async ({ page }) => {
+    await page.locator('[data-testid="tab-community"]').click();
+    await expect(page.locator('[data-testid="community-tab"]')).toBeVisible();
+  });
+
+  test('surfaces the not-configured error when Firebase is not set up', async ({ page }) => {
+    await page.locator('[data-testid="tab-community"]').click();
+    const errorBox = page.locator('[data-testid="community-error"]');
+    await expect(errorBox).toBeVisible();
+    await expect(errorBox).toContainText(/not configured/i);
+  });
+
+  test('shows the empty-selection panel until a row is clicked', async ({ page }) => {
+    await page.locator('[data-testid="tab-community"]').click();
+    await expect(page.locator('[data-testid="community-empty-selection"]')).toBeVisible();
+  });
+});

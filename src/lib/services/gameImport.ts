@@ -9,8 +9,9 @@
  */
 
 import { isTauri } from '$lib/utils/environment.js';
+import { errorMessage } from '$lib/utils/error.js';
 import { sha256Hex } from '$lib/utils/hash.js';
-import { hasImportedFile, recordImportedFile, uploadPet } from './petService.js';
+import { findPetGenomeTextByHash, hasImportedFile, recordImportedFile, uploadPet } from './petService.js';
 import { getSetting, setSetting } from './settingsService.js';
 
 export type Platform = 'windows' | 'mac' | 'linux' | 'unknown';
@@ -91,11 +92,22 @@ export interface AutoScanResult {
   scanned: number;
   skipped: number;
   imported: number;
+  /**
+   * Files that matched an existing pet's content_hash and ran
+   * `petService.uploadPet`'s in-place `kind: 'backfilled'` branch.
+   * That covers two cases:
+   *   1. legacy v13 rows with empty `genome_text` (filled);
+   *   2. corrupt rows whose stored `genome_text` didn't hash to
+   *      `content_hash` (repaired with the canonical text).
+   * Either way the row was already present, so the count is
+   * separate from `imported` to keep "fresh insert" accurate.
+   */
+  backfilled: number;
   failures: Array<{ file: string; reason: string }>;
 }
 
 function emptyResult(status: AutoScanResult['status'], message?: string): AutoScanResult {
-  return { status, message, scanned: 0, skipped: 0, imported: 0, failures: [] };
+  return { status, message, scanned: 0, skipped: 0, imported: 0, backfilled: 0, failures: [] };
 }
 
 /**
@@ -120,7 +132,7 @@ export async function autoScanGameFolder(options?: {
   try {
     entries = await fs.readDir(folder, baseOpts);
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = errorMessage(err);
     return emptyResult('folder_missing', `Game folder not readable: ${configured} (${message})`);
   }
   // Path joining via plain concat is acceptable — Tauri's fs plugin
@@ -134,6 +146,7 @@ export async function autoScanGameFolder(options?: {
     scanned: 0,
     skipped: 0,
     imported: 0,
+    backfilled: 0,
     failures: [],
   };
 
@@ -151,7 +164,7 @@ export async function autoScanGameFolder(options?: {
           const hash = await sha256Hex(content);
           return { name, displayPath, content, hash } as const;
         } catch (err) {
-          return { name, displayPath, error: err instanceof Error ? err.message : String(err) } as const;
+          return { name, displayPath, error: errorMessage(err) } as const;
         }
       }),
     );
@@ -164,14 +177,45 @@ export async function autoScanGameFolder(options?: {
         continue;
       }
       if (await hasImportedFile(item.hash)) {
-        // Already in the ledger — first-seen source_path is intentionally
-        // immutable, so don't rewrite it on skip.
-        result.skipped++;
-        continue;
+        // Already in the ledger — but TWO classes of unhealthy rows
+        // need to fall through to `uploadPet`'s backfill/repair path:
+        //   1. legacy v13 pets: in the ledger (from
+        //      `backfillImportedFilesIfNeeded`) AND `genome_text = ''`.
+        //   2. corrupt rows: `genome_text` non-empty but doesn't
+        //      match the canonical file content (e.g. backup-restore
+        //      drift; uploadPet now explicitly repairs these).
+        //
+        // The cheap discriminator is direct byte-equality with
+        // `item.content`: a ledger hit means `sha256(item.content) ===
+        // content_hash`, so for a healthy row `genome_text` is exactly
+        // `item.content`. Any difference (empty OR mismatched) signals
+        // a row that needs the upload-side repair. The slim
+        // `findPetGenomeTextByHash` keeps the cost to a single-column
+        // SELECT per ledger hit; no separate sha256 here because the
+        // comparison is on already-computed text.
+        const existingGenomeText = await findPetGenomeTextByHash(item.hash);
+        if (existingGenomeText === null) {
+          // No matching pet (ledger entry exists for a pet that was
+          // since deleted). The skip preserves the immutable first-seen
+          // source_path the ledger captures.
+          result.skipped++;
+          continue;
+        }
+        if (existingGenomeText === item.content) {
+          // Healthy row — skip as before.
+          result.skipped++;
+          continue;
+        }
+        // Empty OR corrupt — fall through to uploadPet so its
+        // `kind: 'backfilled'` branch can repair the row in place.
       }
       const upload = await uploadPet(item.content, { sourcePath: item.displayPath });
       if (upload.status === 'success') {
-        result.imported++;
+        if (upload.kind === 'backfilled') {
+          result.backfilled++;
+        } else {
+          result.imported++;
+        }
       } else {
         // pets.content_hash matched but imported_files was missing the
         // row (e.g. pre-feature legacy not yet reached by backfill).

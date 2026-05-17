@@ -2,8 +2,9 @@ import { derived, type Writable, writable } from 'svelte/store';
 import type { UploadPetOptions } from '$lib/services/petService.js';
 import * as petService from '$lib/services/petService.js';
 import type { Pet } from '$lib/types/index.js';
+import { errorMessage } from '$lib/utils/error.js';
 
-export type Tab = 'pets' | 'editor' | 'compare' | 'stable' | 'breeding';
+export type Tab = 'pets' | 'editor' | 'compare' | 'stable' | 'breeding' | 'community';
 
 export const pets: Writable<Pet[]> = writable([]);
 export const selectedPet: Writable<Pet | null> = writable(null);
@@ -22,8 +23,6 @@ function getCurrentValue<T>(store: Writable<T>): T | undefined {
   return value;
 }
 
-const errMsg = (err: unknown) => (err instanceof Error ? err.message : String(err));
-
 const clearSelectionAndGeneView = () => {
   selectedPet.set(null);
   geneEditingView.set(null);
@@ -39,19 +38,30 @@ const TAB_STATE_RESETS: Record<Tab, () => void> = {
   compare: clearSelectionAndGeneView,
   stable: clearSelectionAndGeneView,
   breeding: clearSelectionAndGeneView,
+  community: clearSelectionAndGeneView,
 };
+
+// Monotonic generation counter for in-flight `loadPets` calls. Concurrent
+// callers (auto-scan + community import + manual upload finishing in any
+// order) all race to `pets.set(items)` — without this guard the older
+// `getAllPets()` result can resolve last and overwrite a fresher list,
+// leaving the Pets/Stable tab on a stale snapshot until the next refresh.
+let loadGeneration = 0;
 
 export const appState = {
   async loadPets() {
+    const myGeneration = ++loadGeneration;
     try {
       loading.set(true);
       error.set(null);
       const { items } = await petService.getAllPets();
+      if (myGeneration !== loadGeneration) return;
       pets.set(items as Pet[]);
     } catch (err: unknown) {
-      error.set(`Failed to load pets: ${errMsg(err)}`);
+      if (myGeneration !== loadGeneration) return;
+      error.set(`Failed to load pets: ${errorMessage(err)}`);
     } finally {
-      loading.set(false);
+      if (myGeneration === loadGeneration) loading.set(false);
     }
   },
 
@@ -71,7 +81,7 @@ export const appState = {
         selectedPet.set(null);
       }
     } catch (err: unknown) {
-      error.set(`Failed to delete pet: ${errMsg(err)}`);
+      error.set(`Failed to delete pet: ${errorMessage(err)}`);
     } finally {
       loading.set(false);
     }
@@ -84,7 +94,7 @@ export const appState = {
       await petService.updatePet(petId, updateData);
       await this.loadPets();
     } catch (err: unknown) {
-      error.set(`Failed to update pet: ${errMsg(err)}`);
+      error.set(`Failed to update pet: ${errorMessage(err)}`);
       throw err;
     } finally {
       loading.set(false);
@@ -106,8 +116,8 @@ export const appState = {
       await this.loadPets();
       return result;
     } catch (err: unknown) {
-      error.set(`Failed to upload pet: ${errMsg(err)}`);
-      return { status: 'error' as const, message: errMsg(err) };
+      error.set(`Failed to upload pet: ${errorMessage(err)}`);
+      return { status: 'error' as const, message: errorMessage(err) };
     } finally {
       loading.set(false);
     }
@@ -121,7 +131,7 @@ export const appState = {
     try {
       await petService.reorderPets(orderedIds);
     } catch (err: unknown) {
-      error.set(`Failed to save order: ${errMsg(err)}`);
+      error.set(`Failed to save order: ${errorMessage(err)}`);
       throw err;
     }
   },

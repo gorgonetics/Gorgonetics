@@ -48,6 +48,9 @@ const PET_COLUMNS = [
   'breeder',
   'content_hash',
   'genome_data',
+  // Raw genome file text (migration v13) — restoring without this would
+  // leave the imported pet stuck in legacy state and unable to share.
+  'genome_text',
   'notes',
   'created_at',
   'updated_at',
@@ -288,7 +291,18 @@ async function importGenesAndPets(
   if (options.mode === 'replace') {
     if (options.includeGenes) statements.push({ sql: 'DELETE FROM genes' });
     if (options.includeImages) statements.push({ sql: 'DELETE FROM pet_images' });
-    if (options.includePets) statements.push({ sql: 'DELETE FROM pets' });
+    if (options.includePets) {
+      statements.push({ sql: 'DELETE FROM pets' });
+      // `imported_files` is keyed by content_hash and has no FK to
+      // `pets` (migration v12 — it's a stand-alone auto-scan skip-list),
+      // so cascading deletes don't touch it. Clearing it alongside
+      // pets avoids resurrecting a stale ledger: a replace-restore from
+      // an older backup that omits some previously-deleted pets would
+      // otherwise leave their hashes in the ledger, and the next
+      // auto-scan would silently skip those files without surfacing
+      // why — the user loses the ability to re-import them.
+      statements.push({ sql: 'DELETE FROM imported_files' });
+    }
   }
 
   if (options.includeGenes && genes && genes.length > 0) {
@@ -303,6 +317,7 @@ async function importGenesAndPets(
 
   if (options.includePets && pets) {
     const petRows: Record<string, unknown>[] = [];
+    const restoredHashes: string[] = [];
     for (const pet of pets) {
       if (existingHashes?.has(pet.content_hash as string)) {
         petsSkipped++;
@@ -316,12 +331,38 @@ async function importGenesAndPets(
         else if (col === 'sort_order') row[col] = ((pet[col] as number) ?? 0) + sortOrderOffset;
         else if (col === 'stabled') row[col] = pet[col] ?? 1;
         else if (col === 'starred' || col === 'is_pet_quality') row[col] = pet[col] ?? 0;
+        // Pre-v13 backups don't carry genome_text. The column is
+        // NOT NULL DEFAULT '', and explicit-NULL inserts bypass the
+        // default, so coerce a missing/null value to '' here. The pet
+        // ends up in the same legacy-row state as a v12 import — the
+        // user can backfill it later by re-picking the original file.
+        else if (col === 'genome_text') row[col] = pet[col] ?? '';
         else row[col] = pet[col] ?? null;
       }
       petRows.push(row);
+      if (typeof pet.content_hash === 'string') restoredHashes.push(pet.content_hash);
     }
     statements.push(...buildBatchInserts('pets', PET_COLUMNS, petRows));
     petsImported = petRows.length;
+
+    // Repopulate the `imported_files` ledger for each restored pet.
+    // The one-shot `backfillImportedFilesIfNeeded` is guarded by a
+    // `pets.imported_files_backfilled` setting and won't re-run after
+    // a restore, so without this every restored genome file would look
+    // unseen to the next auto-scan, hit petService's duplicate path,
+    // and surface as a duplicate failure to the user. INSERT OR IGNORE
+    // keeps merge mode safe (any pre-existing ledger entry is
+    // preserved as-is — first-seen source_path is intentionally
+    // immutable). The synthetic source_path 'backup-restore' flags
+    // these rows for any future diagnostics that want to distinguish
+    // restored-from-backup from genuine first-imports.
+    const restoredAt = now();
+    for (const hash of restoredHashes) {
+      statements.push({
+        sql: 'INSERT OR IGNORE INTO imported_files (content_hash, source_path, imported_at) VALUES ($hash, $path, $ts)',
+        params: { hash, path: 'backup-restore', ts: restoredAt },
+      });
+    }
   }
 
   if (statements.length > 0) await db.transaction(statements);

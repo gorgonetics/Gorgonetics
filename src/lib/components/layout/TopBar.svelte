@@ -51,6 +51,14 @@ function switchTab(tab) {
         >
             ⚖️ Compare
         </button>
+        <button
+            class="tab-btn"
+            class:active={$activeTab === "community"}
+            data-testid="tab-community"
+            onclick={() => switchTab("community")}
+        >
+            🌐 Community
+        </button>
     </nav>
     <DataMenu />
     <SettingsModal />

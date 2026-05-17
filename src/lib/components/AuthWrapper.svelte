@@ -32,7 +32,7 @@ async function runLiveScan() {
     do {
       pendingRescan = false;
       const result = await autoScanGameFolder();
-      if (result.imported > 0) {
+      if (result.imported > 0 || result.backfilled > 0) {
         void appState.loadPets();
       }
     } while (pendingRescan);
@@ -161,10 +161,6 @@ onMount(async () => {
     margin-bottom: 1rem;
   }
 
-  @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-  }
 
   .loading-screen p {
     color: var(--text-tertiary);

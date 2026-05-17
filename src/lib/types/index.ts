@@ -81,6 +81,14 @@ export interface Pet {
   breeder: string;
   content_hash: string;
   genome_data: string;
+  /**
+   * Raw `[Overview]` / `[Genes]` text of the genome file, byte-identical to
+   * what was uploaded. Used by the community share path: `content_hash` is
+   * the SHA-256 of this string, and `genome_data` is the parsed JSON
+   * representation (which is lossy w.r.t. whitespace, so its hash would
+   * not match `content_hash`). Empty for rows that predate migration v13.
+   */
+  genome_text: string;
   notes: string;
   tags: string[];
   created_at: string;
@@ -327,6 +335,27 @@ export interface ComparisonResult {
   };
 }
 
+// --- Shared UI status types ---
+
+/**
+ * Status variants surfaced via the shared `<StatusBanner>` component.
+ * Used by share/import dialogs to communicate the outcome of an
+ * asynchronous action. `imported` / `already-imported` are
+ * community-specific aliases for green/blue used when the message
+ * mentions a pet's transition into the local stable.
+ */
+export type StatusType = 'success' | 'info' | 'warn' | 'error' | 'imported' | 'already-imported';
+
+/**
+ * Standard shape for the `onResult` callback used by modal dialogs
+ * (ExportDialog, ImportDialog, SharePetDialog, etc.). Surfaces the
+ * outcome to the parent component as a toast / banner.
+ */
+export interface DialogResult {
+  type: StatusType;
+  message: string;
+}
+
 // --- Public pet sharing (Community) types ---
 
 /**
@@ -351,6 +380,13 @@ export interface ComparisonResult {
  * any document predating that rule version, or any field tampered with
  * via the console, may contain non-string entries that must be dropped
  * before returning the record to the UI.
+ *
+ * `genomeData` is **optional** because the catalogue is split into two
+ * Firestore collections: `/pets/{hash}` (metadata only) and
+ * `/genomes/{hash}` (the genome blob). `listPets` returns metadata-only
+ * `SharedPet`s with `genomeData === undefined`; `getSharedPet` fetches
+ * both halves and returns the combined record. The import / verify paths
+ * require `genomeData` and throw if it's missing.
  */
 export interface SharedPet {
   contentHash: string;
@@ -364,13 +400,27 @@ export interface SharedPet {
   tags: string[];
   schemaVersion: number;
   appVersion: string;
-  genomeData: string;
+  genomeData?: string;
   uploadedAt: Date;
   uploaderUid: string | null;
+}
+
+/**
+ * One page of community-catalogue rows plus an opaque cursor for the
+ * next call. The cursor is the Firestore `QueryDocumentSnapshot` for the
+ * last row — opaque to UI callers because passing it back to `listPets`
+ * is the only valid operation. Using a snapshot avoids the
+ * Date-millisecond precision loss + missing doc-ID tiebreaker that a
+ * `Timestamp.fromDate(date)` cursor would suffer.
+ */
+export interface SharedPetsPage {
+  pets: SharedPet[];
+  cursor: unknown | null;
 }
 
 /** Cursor-based pagination options for `listPets`. */
 export interface ListPetsOpts {
   limit?: number;
-  after?: SharedPet;
+  /** Opaque cursor from the previous page's `SharedPetsPage.cursor`. */
+  after?: unknown;
 }
