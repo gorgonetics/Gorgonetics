@@ -94,3 +94,48 @@ There is no in-app delete in v1. To remove an offending pet:
 2. Delete the document.
 
 v2 will add anonymous-auth-scoped self-delete and a "My uploads" view.
+
+## Spark soft-cap monitoring
+
+`scripts/monitor-spark-usage.mjs` reads every doc in `/pets` and
+`/genomes` via the Firebase Admin SDK and prints estimated storage
+usage against Spark's 1 GiB Firestore cap. Reads/writes/egress
+quotas stay on the Firebase console dashboard (the script only
+covers storage).
+
+### One-time setup
+
+1. Firebase console → Project settings → **Service accounts** →
+   **Generate new private key**. Save the JSON file OUTSIDE this
+   repo — `~/.config/gorgonetics/firebase-admin-key.json` is a
+   reasonable default. The `.gitignore` blocks
+   `*service-account*.json` and `firebase-admin-key*.json` at the
+   repo root as a defensive net.
+
+2. Keep the key local; do NOT share it via chat/email. It carries
+   project-wide admin privileges that bypass the security rules.
+
+### Running
+
+```bash
+FIREBASE_SERVICE_ACCOUNT_PATH=~/.config/gorgonetics/firebase-admin-key.json \
+  pnpm monitor:spark
+```
+
+Output:
+
+```
+Spark plan — Firestore storage snapshot
+───────────────────────────────────────
+Project:                gorgonetics-share
+/pets docs:             1,247  (3.1 MiB)
+/genomes docs:          1,247  (62.8 MiB)
+Total estimated:        65.9 MiB of 1.00 GiB (6.4%)  [OK]
+
+Reads/writes/egress quotas are tracked on the Firebase console
+dashboard — this script only covers the storage cap.
+```
+
+Exit code: `0` for OK/WARN (≥75%), `2` for OVER (≥100%). The
+non-zero exit at OVER means the script can be wired into a cron/CI
+alert later without parsing stdout.
