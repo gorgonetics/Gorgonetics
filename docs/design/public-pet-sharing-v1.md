@@ -154,8 +154,8 @@ import { getFirestore } from 'firebase/firestore';
 
 const firebaseConfig = {
   apiKey: '...',           // public, safe to commit
-  authDomain: 'gorgonetics-share.firebaseapp.com',
-  projectId: 'gorgonetics-share',
+  authDomain: 'gorgonetics.firebaseapp.com',
+  projectId: 'gorgonetics',
   // storageBucket and messagingSenderId omitted — not used in v1
 };
 
@@ -323,7 +323,7 @@ Five PRs, each independently reviewable. Earlier PRs land behind no UI surface s
 - `package.json` — add `firebase` dependency.
 
 **Out-of-repo:**
-- Create the `gorgonetics-share` Firebase project on Spark plan.
+- Create the `gorgonetics` Firebase project on Spark plan.
 - Run `firebase deploy --only firestore:rules`.
 
 **Reviewer focus:** rules correctness against the hostile-input list in §4; that the public Firebase config is genuinely free of secrets; CSP changes don't break local dev.
