@@ -6,6 +6,9 @@ import { errorMessage } from '$lib/utils/error.js';
 
 export type Tab = 'pets' | 'editor' | 'compare' | 'stable' | 'breeding' | 'community';
 
+/** Boolean pet flags toggled in-place via `setPetMarker` (no full reload). */
+export type MarkerKey = 'starred' | 'stabled' | 'is_pet_quality';
+
 export const pets: Writable<Pet[]> = writable([]);
 export const selectedPet: Writable<Pet | null> = writable(null);
 export const loading = writable(false);
@@ -55,6 +58,13 @@ const TAB_STATE_RESETS: Record<Tab, () => void> = {
 // `getAllPets()` result can resolve last and overwrite a fresher list,
 // leaving the Pets/Stable tab on a stale snapshot until the next refresh.
 let loadGeneration = 0;
+
+// Tracks the latest in-flight `setPetMarker` op per `${petId}:${key}`. A
+// rapid re-toggle of the same marker supersedes the earlier op; when an
+// earlier (now-stale) write later fails, its rollback/error must be skipped
+// so it can't clobber the newer optimistic value or flash a stale error.
+let markerOpSeq = 0;
+const markerOps = new Map<string, number>();
 
 export const appState = {
   async loadPets() {
@@ -106,6 +116,63 @@ export const appState = {
       throw err;
     } finally {
       loading.set(false);
+    }
+  },
+
+  /**
+   * Flip a single boolean marker (starred/stabled/pet-quality) in place.
+   *
+   * Unlike `updatePet`, this does NOT reload the whole pet list or raise the
+   * global `loading` flag — both make a one-field toggle feel sluggish (#275).
+   * The change is applied optimistically to `pets` (and `selectedPet` if it
+   * matches), persisted in the background, and rolled back if the write fails.
+   */
+  async setPetMarker(petId: number, key: MarkerKey, value: boolean) {
+    // Optimistically flip the field, capturing the prior boolean for
+    // rollback. `found` keeps us from writing (and later restoring an
+    // `undefined`) for a pet that isn't in the current list.
+    let found = false;
+    let previous = false;
+    pets.update((list) =>
+      list.map((p) => {
+        if (p.id !== petId) return p;
+        found = true;
+        previous = p[key];
+        return { ...p, [key]: value };
+      }),
+    );
+    if (!found) return;
+
+    // Claim the latest-op slot for this pet+key. A later toggle bumps this,
+    // marking us stale (see `markerOps`).
+    const opKey = `${petId}:${key}`;
+    const opId = ++markerOpSeq;
+    markerOps.set(opKey, opId);
+    const isLatest = () => markerOps.get(opKey) === opId;
+
+    // Mirror onto `selectedPet` only while it still points at this pet —
+    // re-read on each write so we never overwrite a selection the user
+    // changed during the in-flight DB write.
+    const applyToSelected = (v: boolean) => {
+      const cur = getCurrentValue(selectedPet);
+      if (cur && cur.id === petId) selectedPet.set({ ...cur, [key]: v });
+    };
+    applyToSelected(value);
+
+    try {
+      const committed = await petService.updatePet(petId, { [key]: value });
+      if (!committed) throw new Error(`pet ${petId} not found`);
+    } catch (err: unknown) {
+      // A newer toggle superseded us: leave its optimistic value (and any
+      // error it may raise) intact rather than reverting to our stale baseline.
+      if (isLatest()) {
+        pets.update((list) => list.map((p) => (p.id === petId ? { ...p, [key]: previous } : p)));
+        applyToSelected(previous);
+        error.set(`Failed to update pet: ${errorMessage(err)}`);
+      }
+      throw err;
+    } finally {
+      if (isLatest()) markerOps.delete(opKey);
     }
   },
 
