@@ -26,15 +26,15 @@
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import admin from 'firebase-admin';
+import { fileURLToPath } from 'node:url';
 
 // Spark plan limits (verified against
 // https://firebase.google.com/pricing on 2026-05-09). These are the
 // hard daily caps; the script warns at 75% and errors at 100%.
-const SPARK_STORAGE_BYTES = 1 * 1024 * 1024 * 1024; // 1 GiB Firestore storage
+export const SPARK_STORAGE_BYTES = 1 * 1024 * 1024 * 1024; // 1 GiB Firestore storage
 
-const WARN_THRESHOLD = 0.75;
-const ERROR_THRESHOLD = 1.0;
+export const WARN_THRESHOLD = 0.75;
+export const ERROR_THRESHOLD = 1.0;
 
 function fail(message) {
   console.error(`monitor-spark-usage: ${message}`);
@@ -74,18 +74,18 @@ async function summariseCollection(db, name) {
   return { count: snap.size, bytes };
 }
 
-function formatBytes(bytes) {
+export function formatBytes(bytes) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KiB`;
   if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MiB`;
   return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GiB`;
 }
 
-function formatRow(label, value, width = 24) {
+export function formatRow(label, value, width = 24) {
   return `${label.padEnd(width)}${value}`;
 }
 
-function statusFor(ratio) {
+export function statusFor(ratio) {
   if (ratio >= ERROR_THRESHOLD) return 'OVER';
   if (ratio >= WARN_THRESHOLD) return 'WARN';
   return 'OK';
@@ -93,6 +93,9 @@ function statusFor(ratio) {
 
 async function main() {
   const serviceAccount = loadServiceAccount();
+  // Lazy-load the heavy Admin SDK so the module's pure helpers can be
+  // unit-tested without pulling firebase-admin into the test process.
+  const { default: admin } = await import('firebase-admin');
   admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
   const db = admin.firestore();
 
@@ -121,6 +124,11 @@ async function main() {
   if (status === 'OVER') process.exit(2);
 }
 
-main().catch((err) => {
-  fail(err.stack ?? err.message ?? String(err));
-});
+// Only run when executed directly (`pnpm monitor:spark`), not when the
+// module is imported for its helpers (unit tests).
+const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (isMain) {
+  main().catch((err) => {
+    fail(err.stack ?? err.message ?? String(err));
+  });
+}
