@@ -1,0 +1,114 @@
+import '@testing-library/jest-dom/vitest';
+import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+// Issue #254: the list path omits `genome_text`, so the pet handed to the
+// share dialog usually lacks it. The dialog must lazy-fetch by id before
+// it can share. These tests drive that path with `genome_text` absent on
+// the prop (the production list scenario) and control the fetch result.
+
+vi.mock('$lib/firebase.js', () => ({ isPlaceholderConfig: false }));
+vi.mock('$lib/utils/focusTrap.js', () => ({ focusTrap: () => ({}) }));
+
+const getPetGenomeText = vi.fn();
+vi.mock('$lib/services/petService.js', () => ({
+  getPetGenomeText: (id) => getPetGenomeText(id),
+}));
+
+const uploadPet = vi.fn();
+vi.mock('$lib/services/shareService.js', () => ({
+  uploadPet: (pet) => uploadPet(pet),
+  sanitizeTags: (tags) => tags ?? [],
+}));
+
+import SharePetDialog from '$lib/components/community/SharePetDialog.svelte';
+
+afterEach(() => {
+  cleanup();
+  getPetGenomeText.mockReset();
+  uploadPet.mockReset();
+});
+
+// A pet as it arrives from the list path: full metadata, NO genome_text.
+function listPet(overrides = {}) {
+  return {
+    id: 7,
+    name: 'Buzz',
+    species: 'BeeWasp',
+    gender: 'Female',
+    breed: '',
+    breeder: 'Player',
+    content_hash: 'hash-7',
+    notes: '',
+    tags: ['fast'],
+    ...overrides,
+  };
+}
+
+describe('SharePetDialog lazy genome fetch', () => {
+  it('disables Share while loading, then enables it once raw text resolves', async () => {
+    let resolveText;
+    getPetGenomeText.mockReturnValue(
+      new Promise((r) => {
+        resolveText = r;
+      }),
+    );
+
+    const { getByTestId } = render(SharePetDialog, {
+      pet: listPet(),
+      onClose: vi.fn(),
+      onResult: vi.fn(),
+    });
+
+    // Loading state: button disabled, loading banner shown.
+    expect(getByTestId('share-confirm')).toBeDisabled();
+    expect(getByTestId('share-genome-loading')).toBeTruthy();
+    expect(getPetGenomeText).toHaveBeenCalledWith(7);
+
+    resolveText('RAW-GENOME-TEXT');
+    await waitFor(() => expect(getByTestId('share-confirm')).toBeEnabled());
+  });
+
+  it('passes the lazily-fetched genome_text into uploadPet', async () => {
+    getPetGenomeText.mockResolvedValue('RAW-GENOME-TEXT');
+    uploadPet.mockResolvedValue({ status: 'created' });
+    const onResult = vi.fn();
+    const onClose = vi.fn();
+
+    const { getByTestId } = render(SharePetDialog, { pet: listPet(), onClose, onResult });
+    await waitFor(() => expect(getByTestId('share-confirm')).toBeEnabled());
+
+    await fireEvent.click(getByTestId('share-confirm'));
+
+    await waitFor(() => expect(uploadPet).toHaveBeenCalledTimes(1));
+    const shared = uploadPet.mock.calls[0][0];
+    expect(shared.genome_text).toBe('RAW-GENOME-TEXT');
+    expect(shared.content_hash).toBe('hash-7');
+    expect(onResult).toHaveBeenCalledWith(expect.objectContaining({ type: 'success' }));
+  });
+
+  it('shows the legacy banner and keeps Share disabled when the row has no raw text', async () => {
+    getPetGenomeText.mockResolvedValue('');
+
+    const { getByTestId } = render(SharePetDialog, {
+      pet: listPet(),
+      onClose: vi.fn(),
+      onResult: vi.fn(),
+    });
+
+    await waitFor(() => expect(getByTestId('share-no-raw-genome')).toBeTruthy());
+    expect(getByTestId('share-confirm')).toBeDisabled();
+    expect(uploadPet).not.toHaveBeenCalled();
+  });
+
+  it('skips the fetch when the prop already carries genome_text', async () => {
+    const { getByTestId } = render(SharePetDialog, {
+      pet: listPet({ genome_text: 'ALREADY-HERE' }),
+      onClose: vi.fn(),
+      onResult: vi.fn(),
+    });
+
+    await waitFor(() => expect(getByTestId('share-confirm')).toBeEnabled());
+    expect(getPetGenomeText).not.toHaveBeenCalled();
+  });
+});

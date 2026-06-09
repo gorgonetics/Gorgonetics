@@ -1,6 +1,7 @@
 <script>
 import StatusBanner from '$lib/components/shared/StatusBanner.svelte';
 import { isPlaceholderConfig } from '$lib/firebase.js';
+import { getPetGenomeText } from '$lib/services/petService.js';
 import { sanitizeTags, uploadPet } from '$lib/services/shareService.js';
 import { errorMessage } from '$lib/utils/error.js';
 import { focusTrap } from '$lib/utils/focusTrap.js';
@@ -11,22 +12,58 @@ let includeNotes = $state(false);
 let sharing = $state(false);
 let shareError = $state('');
 
+// The list path (`getAllPets`) omits `genome_text` for payload size
+// (issue #254), so `selectedPet` — and therefore the `pet` prop here —
+// usually lacks it. Lazy-load it by id. `undefined` means "still loading";
+// a string (possibly '') means resolved.
+let genomeText = $state(undefined);
+
+$effect(() => {
+  // Seed directly when the prop already carries the text (full-row fetches
+  // / the in-memory test adapter, which returns whole rows) — skip the query.
+  if (typeof pet?.genome_text === 'string') {
+    genomeText = pet.genome_text;
+    return;
+  }
+  const id = pet?.id;
+  if (typeof id !== 'number') {
+    genomeText = '';
+    return;
+  }
+  let cancelled = false;
+  getPetGenomeText(id)
+    .then((text) => {
+      if (!cancelled) genomeText = text ?? '';
+    })
+    .catch(() => {
+      if (!cancelled) genomeText = '';
+    });
+  return () => {
+    cancelled = true;
+  };
+});
+
 const previewTags = $derived(sanitizeTags(pet?.tags ?? []));
 const hasNotes = $derived(typeof pet?.notes === 'string' && pet.notes.trim().length > 0);
+const genomeLoading = $derived(genomeText === undefined);
 // Legacy pets imported before migration v13 don't have the raw genome
 // text on file, so we can't recompute the hash-matching upload payload
 // for them. They can be shared after the user re-imports the file.
-const hasRawGenome = $derived(typeof pet?.genome_text === 'string' && pet.genome_text.length > 0);
+const hasRawGenome = $derived(typeof genomeText === 'string' && genomeText.length > 0);
 
 async function handleShare() {
   // Belt-and-suspenders: the Share button is disabled when the placeholder
-  // config is still in place or the pet lacks raw genome text, so this
-  // should never fire. The early return guards programmatic re-entry.
+  // config is still in place, the genome text is still loading, or the pet
+  // lacks raw genome text, so this should never fire. The early return
+  // guards programmatic re-entry.
   if (isPlaceholderConfig || !hasRawGenome) return;
   sharing = true;
   shareError = '';
   try {
-    const petToShare = includeNotes ? pet : { ...pet, notes: '' };
+    const base = includeNotes ? pet : { ...pet, notes: '' };
+    // Attach the lazily-loaded raw text — `pet` from the list path doesn't
+    // carry it. uploadPet re-hashes this against content_hash.
+    const petToShare = { ...base, genome_text: genomeText };
     const result = await uploadPet(petToShare);
     if (result.status === 'already-shared') {
       onResult({
@@ -80,6 +117,8 @@ async function handleShare() {
           uploads are disabled. See <code>docs/firebase-setup.md</code> for how to wire up a
           Firebase project, or wait for a release with sharing enabled.
         </div>
+      {:else if genomeLoading}
+        <div class="banner" data-testid="share-genome-loading">Loading genome…</div>
       {:else if !hasRawGenome}
         <div class="banner banner-warn" data-testid="share-no-raw-genome">
           This pet was imported with an older app version that didn't store the raw
@@ -160,9 +199,9 @@ async function handleShare() {
         class="btn btn-primary"
         data-testid="share-confirm"
         onclick={handleShare}
-        disabled={sharing || isPlaceholderConfig || !hasRawGenome}
+        disabled={sharing || isPlaceholderConfig || genomeLoading || !hasRawGenome}
       >
-        {sharing ? 'Sharing…' : 'Share to community'}
+        {sharing ? 'Sharing…' : genomeLoading ? 'Loading…' : 'Share to community'}
       </button>
     </div>
   </div>

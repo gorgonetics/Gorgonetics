@@ -80,15 +80,27 @@ export interface Pet {
   breed: string;
   breeder: string;
   content_hash: string;
-  genome_data: string;
+  /**
+   * Parsed-and-JSON-stringified genome. **Optional on the type because the
+   * hot list path omits it:** `getAllPets` SELECTs an explicit column list
+   * that excludes the heavy genome columns (issue #254), so pets flowing
+   * from the list / `selectedPet` carry `undefined` here. Full-row fetches
+   * (`getPet`, `findPetByHash`) still populate it. Gene rendering re-reads
+   * from `pet_genes` by id (`loadPetGridFromDb`), so list consumers never
+   * need this field.
+   */
+  genome_data?: string;
   /**
    * Raw `[Overview]` / `[Genes]` text of the genome file, byte-identical to
    * what was uploaded. Used by the community share path: `content_hash` is
    * the SHA-256 of this string, and `genome_data` is the parsed JSON
    * representation (which is lossy w.r.t. whitespace, so its hash would
    * not match `content_hash`). Empty for rows that predate migration v13.
+   *
+   * Optional for the same reason as `genome_data` — omitted on the list
+   * path. The share dialog lazy-fetches it by id via `getPetGenomeText`.
    */
-  genome_text: string;
+  genome_text?: string;
   notes: string;
   tags: string[];
   created_at: string;

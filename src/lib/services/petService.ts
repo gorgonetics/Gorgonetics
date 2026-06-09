@@ -302,6 +302,52 @@ async function loadTagsForPet(petId: number): Promise<string[]> {
 }
 
 /**
+ * Columns selected by the list path (`getAllPets`). This is every `pets`
+ * column EXCEPT the two heavy genome blobs (`genome_data`, `genome_text`,
+ * up to 64 KiB each) — see issue #254. The list/grid UIs render only
+ * metadata + attributes + the persisted gene-analysis counts; gene
+ * rendering re-reads from `pet_genes` by id (`loadPetGridFromDb`) and the
+ * share path lazy-fetches `genome_text` (`getPetGenomeText`), so no list
+ * consumer needs the blobs.
+ *
+ * Maintenance: keep in sync with the `pets` schema (database.ts base table
+ * + `ALTER TABLE pets ADD COLUMN` migrations). A new column added to the
+ * schema but omitted here will be silently absent from list pets in
+ * production — `getAllPetsSelectsMetadataOnly` in petService.test.js guards
+ * the exclusion of the genome blobs, but not additions. The `tags` column
+ * is intentionally omitted: it is vestigial (tags live in `pet_tags` and
+ * `enrichPet` overwrites the field from the junction).
+ */
+const LIST_PET_COLUMNS = [
+  'id',
+  'name',
+  'species',
+  'gender',
+  'breed',
+  'breeder',
+  'content_hash',
+  'notes',
+  'created_at',
+  'updated_at',
+  'intelligence',
+  'toughness',
+  'friendliness',
+  'ruggedness',
+  'enthusiasm',
+  'virility',
+  'ferocity',
+  'temperament',
+  'sort_order',
+  'starred',
+  'stabled',
+  'is_pet_quality',
+  'positive_genes',
+  'total_genes',
+  'known_genes',
+  'unknown_genes',
+].join(', ');
+
+/**
  * Get all pets.
  */
 export async function getAllPets(options?: {
@@ -324,8 +370,9 @@ export async function getAllPets(options?: {
   const countRows = await db.select<{ cnt: number }[]>(`SELECT COUNT(*) as cnt FROM pets${where}`, bindParams);
   const total = countRows[0].cnt;
 
-  // Get paginated results
-  let query = `SELECT * FROM pets${where} ORDER BY sort_order, name`;
+  // Get paginated results. Explicit column list (no genome blobs) — see
+  // LIST_PET_COLUMNS / issue #254.
+  let query = `SELECT ${LIST_PET_COLUMNS} FROM pets${where} ORDER BY sort_order, name`;
   const selectParams = { ...bindParams };
   if (options?.limit !== undefined) {
     query += ' LIMIT $limit OFFSET $offset';
@@ -777,6 +824,21 @@ export async function findPetGenomeTextByHash(contentHash: string): Promise<stri
     'SELECT genome_text FROM pets WHERE content_hash = $hash LIMIT 1',
     { hash: contentHash },
   );
+  return rows.length > 0 ? (rows[0].genome_text ?? '') : null;
+}
+
+/**
+ * Fetch just the `genome_text` for one pet by id. The list path
+ * (`getAllPets`) omits the genome blobs (issue #254), so the share dialog
+ * lazy-loads the raw text on demand from the `selectedPet`'s id rather than
+ * paying for it on every list load. Returns `''` for legacy v13 rows that
+ * never had raw text, or `null` if the id doesn't exist.
+ */
+export async function getPetGenomeText(petId: number): Promise<string | null> {
+  const db = getDb();
+  const rows = await db.select<{ genome_text: string }[]>('SELECT genome_text FROM pets WHERE id = $id LIMIT 1', {
+    id: petId,
+  });
   return rows.length > 0 ? (rows[0].genome_text ?? '') : null;
 }
 
