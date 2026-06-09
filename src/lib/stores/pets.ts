@@ -13,6 +13,14 @@ export const error: Writable<string | null> = writable(null);
 export const geneEditingView: Writable<unknown> = writable(null);
 export const activeTab: Writable<Tab> = writable('pets');
 
+// Bounded back-stack of previously-active tabs (oldest first, newest last),
+// driving the TopBar "back" control (#276). Capped so long sessions of tab
+// hopping don't grow it without bound.
+const MAX_TAB_HISTORY = 50;
+const tabHistory: Writable<Tab[]> = writable([]);
+/** True when `appState.goBack()` has a previous tab to return to. */
+export const canGoBack = derived(tabHistory, (h) => h.length > 0);
+
 /** All unique tags across all pets, sorted. Shared by PetEditor and PetList. */
 export const allTags = derived(pets, ($pets) => [...new Set($pets.flatMap((p) => p.tags ?? []))].sort());
 
@@ -146,8 +154,31 @@ export const appState = {
   },
 
   switchTab(tab: Tab) {
+    const current = getCurrentValue(activeTab);
+    // Record the tab we're leaving so `goBack` can return to it. Re-selecting
+    // the already-active tab still re-runs its state reset (existing
+    // behaviour) but must not stack a duplicate history entry.
+    if (current !== undefined && current !== tab) {
+      tabHistory.update((h) => {
+        const next = [...h, current];
+        return next.length > MAX_TAB_HISTORY ? next.slice(next.length - MAX_TAB_HISTORY) : next;
+      });
+    }
     activeTab.set(tab);
     TAB_STATE_RESETS[tab]();
+  },
+
+  /** Return to the previously-active tab. No-op when there's no history. */
+  goBack() {
+    let target: Tab | undefined;
+    tabHistory.update((h) => {
+      if (h.length === 0) return h;
+      target = h[h.length - 1];
+      return h.slice(0, -1);
+    });
+    if (target === undefined) return;
+    activeTab.set(target);
+    TAB_STATE_RESETS[target]();
   },
 
   clearError() {

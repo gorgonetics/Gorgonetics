@@ -1,13 +1,34 @@
 <script>
+import { ArrowLeft } from '@lucide/svelte';
 import logoImg from '$lib/assets/logo.png';
-import { activeTab, appState } from '$lib/stores/pets.js';
+import { activeTab, appState, canGoBack } from '$lib/stores/pets.js';
 import DataMenu from './DataMenu.svelte';
 import SettingsModal from './SettingsModal.svelte';
 
 function switchTab(tab) {
   appState.switchTab(tab);
 }
+
+function handleWindowKeydown(e) {
+  // Alt+Left → previous tab. Don't hijack it while the user is typing.
+  if (!(e.altKey && e.key === 'ArrowLeft')) return;
+  const t = e.target;
+  if (t?.tagName === 'INPUT' || t?.tagName === 'TEXTAREA' || t?.isContentEditable) return;
+  e.preventDefault();
+  appState.goBack();
+}
+
+function handleMouseUp(e) {
+  // Mouse "back" button (button 3) → previous tab. goBack is a no-op
+  // when there's no history, so an unconditional call is safe.
+  if (e.button === 3) {
+    e.preventDefault();
+    appState.goBack();
+  }
+}
 </script>
+
+<svelte:window onkeydown={handleWindowKeydown} onmouseup={handleMouseUp} />
 
 <header class="top-bar">
     <div class="top-bar-left">
@@ -15,6 +36,15 @@ function switchTab(tab) {
         <span class="app-name">Gorgonetics</span>
     </div>
     <div class="top-bar-right">
+    <button
+        class="back-btn"
+        onclick={() => appState.goBack()}
+        disabled={!$canGoBack}
+        title="Back to previous tab (Alt+←)"
+        aria-label="Back to previous tab"
+    >
+        <ArrowLeft size={16} />
+    </button>
     <nav aria-label="Main navigation" class="top-bar-tabs">
         <button
             class="tab-btn"
@@ -100,6 +130,30 @@ function switchTab(tab) {
         display: flex;
         align-items: center;
         gap: 12px;
+    }
+
+    .back-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 30px;
+        height: 30px;
+        border: none;
+        border-radius: 6px;
+        background: var(--bg-tertiary);
+        color: var(--text-secondary);
+        cursor: pointer;
+        transition: all 0.15s ease;
+    }
+
+    .back-btn:hover:not(:disabled) {
+        color: var(--text-primary);
+        background: var(--border-primary);
+    }
+
+    .back-btn:disabled {
+        opacity: 0.35;
+        cursor: default;
     }
 
     .top-bar-tabs {
