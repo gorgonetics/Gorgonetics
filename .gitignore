@@ -41,6 +41,13 @@ src-tauri/resources/data/
 # Environment
 .env
 
+# Firebase Admin SDK service-account keys (used by
+# scripts/monitor-spark-usage.mjs). Keys must live OUTSIDE the
+# repo (default: ~/.config/gorgonetics/) but the patterns below
+# defend against accidental drops into the repo root.
+*service-account*.json
+firebase-admin-key*.json
+
 # Playwright
 playwright-report/
 test-results/
