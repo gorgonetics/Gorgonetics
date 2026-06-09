@@ -106,7 +106,9 @@ function selectPet(pet) {
 async function toggleMarker(petId, key, value) {
   const pet = $pets.find((p) => p.id === petId);
   if (pet && pet[key] === value) return;
-  await appState.updatePet(petId, { [key]: value });
+  // Optimistic in-place flip — no full list reload, so the toggle is
+  // instant (#275). Errors are surfaced via the shared `error` store.
+  await appState.setPetMarker(petId, key, value).catch(() => {});
 }
 
 async function handleUpload() {

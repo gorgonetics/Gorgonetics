@@ -6,6 +6,9 @@ import { errorMessage } from '$lib/utils/error.js';
 
 export type Tab = 'pets' | 'editor' | 'compare' | 'stable' | 'breeding' | 'community';
 
+/** Boolean pet flags toggled in-place via `setPetMarker` (no full reload). */
+export type MarkerKey = 'starred' | 'stabled' | 'is_pet_quality';
+
 export const pets: Writable<Pet[]> = writable([]);
 export const selectedPet: Writable<Pet | null> = writable(null);
 export const loading = writable(false);
@@ -98,6 +101,42 @@ export const appState = {
       throw err;
     } finally {
       loading.set(false);
+    }
+  },
+
+  /**
+   * Flip a single boolean marker (starred/stabled/pet-quality) in place.
+   *
+   * Unlike `updatePet`, this does NOT reload the whole pet list or raise the
+   * global `loading` flag — both make a one-field toggle feel sluggish (#275).
+   * The change is applied optimistically to `pets` (and `selectedPet` if it
+   * matches), persisted in the background, and rolled back if the write fails.
+   */
+  async setPetMarker(petId: number, key: MarkerKey, value: boolean) {
+    let previous: boolean | undefined;
+    pets.update((list) =>
+      list.map((p) => {
+        if (p.id !== petId) return p;
+        previous = p[key];
+        return { ...p, [key]: value };
+      }),
+    );
+    const sel = getCurrentValue(selectedPet);
+    const selMatches = !!sel && sel.id === petId;
+    if (selMatches) selectedPet.set({ ...sel, [key]: value });
+
+    const rollback = () => {
+      pets.update((list) => list.map((p) => (p.id === petId ? { ...p, [key]: previous } : p)));
+      if (selMatches) selectedPet.set({ ...sel, [key]: previous });
+    };
+
+    try {
+      const committed = await petService.updatePet(petId, { [key]: value });
+      if (!committed) throw new Error(`pet ${petId} not found`);
+    } catch (err: unknown) {
+      rollback();
+      error.set(`Failed to update pet: ${errorMessage(err)}`);
+      throw err;
     }
   },
 
