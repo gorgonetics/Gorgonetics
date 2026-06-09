@@ -39,3 +39,19 @@ export async function openEditor(page) {
   await page.locator('.edit-btn').first().click();
   await expect(page.locator('.modal-panel')).toBeVisible();
 }
+
+/**
+ * Abort every request to the Firestore backend so e2e never touches the
+ * live `gorgonetics` project. Since PR #279 wired the real public config
+ * into the bundle, `isPlaceholderConfig` is false in all builds — without
+ * this, the community store's `listPets` would make non-deterministic
+ * network calls against production and burn Spark read quota on each CI
+ * run. Aborting makes `getDocs` reject with `unavailable`, exercising the
+ * store's load-error path deterministically and offline.
+ *
+ * Install this BEFORE `page.goto` so the route is in place before any
+ * SDK call fires.
+ */
+export async function blockFirestore(page) {
+  await page.route('**://firestore.googleapis.com/**', (route) => route.abort());
+}

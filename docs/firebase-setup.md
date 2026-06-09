@@ -9,9 +9,13 @@ See `docs/design/public-pet-sharing-v1.md` for the design rationale.
 
 ## One-time project creation
 
-1. Visit <https://console.firebase.google.com> and create a new project
-   named **`gorgonetics`**. Stay on the default **Spark** plan
-   (no card required).
+1. Visit <https://console.firebase.google.com> and create a new project.
+   The **project ID** must be **`gorgonetics`** (not just the display
+   name) — `.firebaserc` and the SDK config both pin that exact ID, so a
+   mismatched ID leaves the CLI target and config out of sync. Firebase
+   may suffix the ID if `gorgonetics` is taken; if so, use the resulting
+   ID consistently in `.firebaserc` and `src/lib/firebase.ts`. Stay on
+   the default **Spark** plan (no card required).
 2. In the project, open **Build → Firestore Database → Create database**.
    - Mode: **Production** (rules deny by default).
    - Location: any region close to the user base — e.g. `eur3` for
