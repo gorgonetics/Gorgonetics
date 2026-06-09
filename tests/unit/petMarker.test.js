@@ -46,7 +46,14 @@ describe('appState.setPetMarker', () => {
     const list = get(pets);
     expect(list.find((p) => p.id === 1).stabled).toBe(true);
     expect(list.find((p) => p.id === 2).stabled).toBe(false);
-    expect(updatePet).toHaveBeenCalledExactlyOnceWith(1, { stabled: true });
+    expect(updatePet).toHaveBeenCalledTimes(1);
+    expect(updatePet).toHaveBeenCalledWith(1, { stabled: true });
+  });
+
+  it('is a no-op when the pet is not in the list', async () => {
+    await appState.setPetMarker(999, 'stabled', true);
+    expect(updatePet).not.toHaveBeenCalled();
+    expect(get(pets).map((p) => p.id)).toEqual([1, 2]);
   });
 
   it('does not raise the global loading flag', async () => {

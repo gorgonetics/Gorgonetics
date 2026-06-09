@@ -120,6 +120,21 @@ export const appState = {
    * matches), persisted in the background, and rolled back if the write fails.
    */
   async setPetMarker(petId: number, key: MarkerKey, value: boolean) {
+    // Optimistically flip the field, capturing the prior boolean for
+    // rollback. `found` keeps us from writing (and later restoring an
+    // `undefined`) for a pet that isn't in the current list.
+    let found = false;
+    let previous = false;
+    pets.update((list) =>
+      list.map((p) => {
+        if (p.id !== petId) return p;
+        found = true;
+        previous = p[key];
+        return { ...p, [key]: value };
+      }),
+    );
+    if (!found) return;
+
     // Claim the latest-op slot for this pet+key. A later toggle bumps this,
     // marking us stale (see `markerOps`).
     const opKey = `${petId}:${key}`;
@@ -127,18 +142,10 @@ export const appState = {
     markerOps.set(opKey, opId);
     const isLatest = () => markerOps.get(opKey) === opId;
 
-    let previous: boolean | undefined;
-    pets.update((list) =>
-      list.map((p) => {
-        if (p.id !== petId) return p;
-        previous = p[key];
-        return { ...p, [key]: value };
-      }),
-    );
     // Mirror onto `selectedPet` only while it still points at this pet —
     // re-read on each write so we never overwrite a selection the user
     // changed during the in-flight DB write.
-    const applyToSelected = (v: boolean | undefined) => {
+    const applyToSelected = (v: boolean) => {
       const cur = getCurrentValue(selectedPet);
       if (cur && cur.id === petId) selectedPet.set({ ...cur, [key]: v });
     };
