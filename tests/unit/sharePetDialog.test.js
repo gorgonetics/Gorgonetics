@@ -90,7 +90,7 @@ describe('SharePetDialog lazy genome fetch', () => {
   it('shows the legacy banner and keeps Share disabled when the row has no raw text', async () => {
     getPetGenomeText.mockResolvedValue('');
 
-    const { getByTestId } = render(SharePetDialog, {
+    const { getByTestId, queryByTestId } = render(SharePetDialog, {
       pet: listPet(),
       onClose: vi.fn(),
       onResult: vi.fn(),
@@ -98,17 +98,25 @@ describe('SharePetDialog lazy genome fetch', () => {
 
     await waitFor(() => expect(getByTestId('share-no-raw-genome')).toBeTruthy());
     expect(getByTestId('share-confirm')).toBeDisabled();
+    expect(queryByTestId('share-genome-error')).toBeNull();
     expect(uploadPet).not.toHaveBeenCalled();
   });
 
-  it('skips the fetch when the prop already carries genome_text', async () => {
-    const { getByTestId } = render(SharePetDialog, {
-      pet: listPet({ genome_text: 'ALREADY-HERE' }),
+  it('shows a distinct error banner (not the legacy banner) when the fetch fails', async () => {
+    // A transient DB read failure must not masquerade as a legacy pet that
+    // needs re-importing — it gets its own retryable error state.
+    getPetGenomeText.mockRejectedValue(new Error('database is locked'));
+
+    const { getByTestId, queryByTestId } = render(SharePetDialog, {
+      pet: listPet(),
       onClose: vi.fn(),
       onResult: vi.fn(),
     });
 
-    await waitFor(() => expect(getByTestId('share-confirm')).toBeEnabled());
-    expect(getPetGenomeText).not.toHaveBeenCalled();
+    await waitFor(() => expect(getByTestId('share-genome-error')).toBeTruthy());
+    expect(getByTestId('share-genome-error')).toHaveTextContent(/database is locked/);
+    expect(queryByTestId('share-no-raw-genome')).toBeNull();
+    expect(getByTestId('share-confirm')).toBeDisabled();
+    expect(uploadPet).not.toHaveBeenCalled();
   });
 });

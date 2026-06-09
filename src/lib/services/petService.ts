@@ -302,23 +302,14 @@ async function loadTagsForPet(petId: number): Promise<string[]> {
 }
 
 /**
- * Columns selected by the list path (`getAllPets`). This is every `pets`
- * column EXCEPT the two heavy genome blobs (`genome_data`, `genome_text`,
- * up to 64 KiB each) — see issue #254. The list/grid UIs render only
- * metadata + attributes + the persisted gene-analysis counts; gene
- * rendering re-reads from `pet_genes` by id (`loadPetGridFromDb`) and the
- * share path lazy-fetches `genome_text` (`getPetGenomeText`), so no list
- * consumer needs the blobs.
- *
- * Maintenance: keep in sync with the `pets` schema (database.ts base table
- * + `ALTER TABLE pets ADD COLUMN` migrations). A new column added to the
- * schema but omitted here will be silently absent from list pets in
- * production — `getAllPetsSelectsMetadataOnly` in petService.test.js guards
- * the exclusion of the genome blobs, but not additions. The `tags` column
- * is intentionally omitted: it is vestigial (tags live in `pet_tags` and
- * `enrichPet` overwrites the field from the junction).
+ * Every column in the `pets` table — the base schema (database.ts) plus all
+ * `ALTER TABLE pets ADD COLUMN` migrations. Single source of truth for the
+ * projections below. The test `list SELECT covers every pets column…` in
+ * petService.test.js asserts this stays aligned with the live schema, so a
+ * future `ADD COLUMN` that isn't reflected here fails a test instead of
+ * silently vanishing from list pets in production.
  */
-const LIST_PET_COLUMNS = [
+const ALL_PET_COLUMNS = [
   'id',
   'name',
   'species',
@@ -326,7 +317,10 @@ const LIST_PET_COLUMNS = [
   'breed',
   'breeder',
   'content_hash',
+  'genome_data',
+  'genome_text',
   'notes',
+  'tags',
   'created_at',
   'updated_at',
   'intelligence',
@@ -345,7 +339,21 @@ const LIST_PET_COLUMNS = [
   'total_genes',
   'known_genes',
   'unknown_genes',
-].join(', ');
+];
+
+/**
+ * Columns the list path (`getAllPets`) does NOT select:
+ *  - `genome_data` / `genome_text`: heavy blobs (up to 64 KiB each) the
+ *    list/grid UIs never render — issue #254. Gene rendering re-reads
+ *    `pet_genes` by id (`loadPetGridFromDb`); the share path lazy-fetches
+ *    `genome_text` (`getPetGenomeText`).
+ *  - `tags`: vestigial — tags live in `pet_tags` and `enrichPet` overwrites
+ *    the field from the junction.
+ */
+const NON_LIST_PET_COLUMNS = new Set(['genome_data', 'genome_text', 'tags']);
+
+/** Explicit list-path projection: every pets column minus the heavy/vestigial ones. */
+const LIST_PET_COLUMNS = ALL_PET_COLUMNS.filter((c) => !NON_LIST_PET_COLUMNS.has(c)).join(', ');
 
 /**
  * Get all pets.
@@ -818,13 +826,24 @@ export async function findPetByHash(contentHash: string): Promise<Pet | null> {
  * scanned folder, so the cost difference is N×two-extra-queries vs
  * N×one-tiny-query.
  */
-export async function findPetGenomeTextByHash(contentHash: string): Promise<string | null> {
+/**
+ * Slim single-row `genome_text` lookup shared by the by-hash and by-id
+ * fetchers. `whereColumn` and `bindName` are hardcoded identifiers from the
+ * callers below (never user input). Defines the lookup contract once:
+ * returns `''` for a legacy v13 row whose `genome_text` is NULL/empty, or
+ * `null` when no row matches.
+ */
+async function selectGenomeText(whereColumn: string, bindName: string, value: string | number): Promise<string | null> {
   const db = getDb();
   const rows = await db.select<{ genome_text: string }[]>(
-    'SELECT genome_text FROM pets WHERE content_hash = $hash LIMIT 1',
-    { hash: contentHash },
+    `SELECT genome_text FROM pets WHERE ${whereColumn} = $${bindName} LIMIT 1`,
+    { [bindName]: value },
   );
   return rows.length > 0 ? (rows[0].genome_text ?? '') : null;
+}
+
+export async function findPetGenomeTextByHash(contentHash: string): Promise<string | null> {
+  return selectGenomeText('content_hash', 'hash', contentHash);
 }
 
 /**
@@ -835,11 +854,7 @@ export async function findPetGenomeTextByHash(contentHash: string): Promise<stri
  * never had raw text, or `null` if the id doesn't exist.
  */
 export async function getPetGenomeText(petId: number): Promise<string | null> {
-  const db = getDb();
-  const rows = await db.select<{ genome_text: string }[]>('SELECT genome_text FROM pets WHERE id = $id LIMIT 1', {
-    id: petId,
-  });
-  return rows.length > 0 ? (rows[0].genome_text ?? '') : null;
+  return selectGenomeText('id', 'id', petId);
 }
 
 /**

@@ -5,6 +5,7 @@ import { getPetGenomeText } from '$lib/services/petService.js';
 import { sanitizeTags, uploadPet } from '$lib/services/shareService.js';
 import { errorMessage } from '$lib/utils/error.js';
 import { focusTrap } from '$lib/utils/focusTrap.js';
+import { keyedResource } from '$lib/utils/keyedResource.svelte.js';
 
 const { pet, onClose, onResult } = $props();
 
@@ -14,56 +15,38 @@ let shareError = $state('');
 
 // The list path (`getAllPets`) omits `genome_text` for payload size
 // (issue #254), so `selectedPet` — and therefore the `pet` prop here —
-// usually lacks it. Lazy-load it by id. `undefined` means "still loading";
-// a string (possibly '') means resolved.
-let genomeText = $state(undefined);
-
-$effect(() => {
-  // Seed directly when the prop already carries the text (full-row fetches
-  // / the in-memory test adapter, which returns whole rows) — skip the query.
-  if (typeof pet?.genome_text === 'string') {
-    genomeText = pet.genome_text;
-    return;
-  }
-  const id = pet?.id;
-  if (typeof id !== 'number') {
-    genomeText = '';
-    return;
-  }
-  let cancelled = false;
-  getPetGenomeText(id)
-    .then((text) => {
-      if (!cancelled) genomeText = text ?? '';
-    })
-    .catch(() => {
-      if (!cancelled) genomeText = '';
-    });
-  return () => {
-    cancelled = true;
-  };
-});
+// lacks it. Lazy-load by id through the shared keyed resource: it handles
+// the loading flag, rejects a stale result if the dialog is re-pointed at
+// another pet, and surfaces a real fetch error (vs. a legacy empty row)
+// distinctly. `value` is the raw text ('' for legacy v13 rows, null for a
+// missing id).
+const genome = keyedResource(
+  () => pet?.id,
+  (id) => getPetGenomeText(id),
+);
 
 const previewTags = $derived(sanitizeTags(pet?.tags ?? []));
 const hasNotes = $derived(typeof pet?.notes === 'string' && pet.notes.trim().length > 0);
-const genomeLoading = $derived(genomeText === undefined);
+const genomeLoading = $derived(genome.loading);
+const genomeError = $derived(genome.error ? errorMessage(genome.error) : '');
 // Legacy pets imported before migration v13 don't have the raw genome
 // text on file, so we can't recompute the hash-matching upload payload
 // for them. They can be shared after the user re-imports the file.
-const hasRawGenome = $derived(typeof genomeText === 'string' && genomeText.length > 0);
+const hasRawGenome = $derived(typeof genome.value === 'string' && genome.value.length > 0);
 
 async function handleShare() {
-  // Belt-and-suspenders: the Share button is disabled when the placeholder
-  // config is still in place, the genome text is still loading, or the pet
-  // lacks raw genome text, so this should never fire. The early return
-  // guards programmatic re-entry.
-  if (isPlaceholderConfig || !hasRawGenome) return;
+  // Belt-and-suspenders: the Share button is already disabled while the
+  // config is a placeholder, the genome text is loading or errored, or the
+  // pet lacks raw genome text (`hasRawGenome` is false in all those cases),
+  // so this should never fire. The early return guards programmatic re-entry.
+  if (isPlaceholderConfig || genomeLoading || !hasRawGenome) return;
   sharing = true;
   shareError = '';
   try {
-    const base = includeNotes ? pet : { ...pet, notes: '' };
-    // Attach the lazily-loaded raw text — `pet` from the list path doesn't
-    // carry it. uploadPet re-hashes this against content_hash.
-    const petToShare = { ...base, genome_text: genomeText };
+    // Rebuild the upload payload: strip notes unless opted in, and attach the
+    // lazily-loaded raw text (the list-path `pet` doesn't carry it). uploadPet
+    // re-hashes genome_text against content_hash.
+    const petToShare = { ...pet, notes: includeNotes ? pet.notes : '', genome_text: genome.value };
     const result = await uploadPet(petToShare);
     if (result.status === 'already-shared') {
       onResult({
@@ -119,6 +102,11 @@ async function handleShare() {
         </div>
       {:else if genomeLoading}
         <div class="banner" data-testid="share-genome-loading">Loading genome…</div>
+      {:else if genomeError}
+        <div class="banner banner-warn" data-testid="share-genome-error">
+          Couldn't read this pet's genome from the local database: {genomeError}. Close
+          and reopen this dialog to try again.
+        </div>
       {:else if !hasRawGenome}
         <div class="banner banner-warn" data-testid="share-no-raw-genome">
           This pet was imported with an older app version that didn't store the raw

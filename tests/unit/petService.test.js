@@ -217,9 +217,16 @@ describe('Pet Service', () => {
     // in-memory adapter returns whole rows regardless of the projection, so
     // assert at the SQL level by capturing the issued query. In production
     // (real SQLite) the projection is what actually drops the columns.
-    it('SELECTs an explicit column list that excludes the genome blobs', async () => {
+    //
+    // This also guards against the silent-drop bug class: it compares the
+    // captured list SELECT against the LIVE schema columns (SELECT * keys),
+    // so a future `ALTER TABLE pets ADD COLUMN` not reflected in
+    // ALL_PET_COLUMNS fails here instead of vanishing from list pets in prod.
+    it('list SELECT covers every pets column except the genome blobs and vestigial tags', async () => {
       await petService.uploadPet(SAMPLE_BEEWASP, { name: 'Bee', gender: 'Female' });
       const db = getDb();
+      const schemaCols = Object.keys((await db.select('SELECT * FROM pets LIMIT 1'))[0]);
+
       const queries = [];
       const originalSelect = db.select.bind(db);
       db.select = (q, params) => {
@@ -233,11 +240,15 @@ describe('Pet Service', () => {
       }
       const listQuery = queries.find((q) => /from pets/i.test(q) && !/count\(/i.test(q));
       expect(listQuery).toBeDefined();
-      expect(listQuery).not.toMatch(/genome_text/);
-      expect(listQuery).not.toMatch(/genome_data/);
-      // Still selects the columns list/detail consumers rely on.
-      for (const col of ['id', 'name', 'species', 'content_hash', 'positive_genes', 'sort_order']) {
-        expect(listQuery).toContain(col);
+
+      const excluded = new Set(['genome_data', 'genome_text', 'tags']);
+      for (const col of schemaCols) {
+        const inQuery = new RegExp(`\\b${col}\\b`).test(listQuery);
+        if (excluded.has(col)) {
+          expect(inQuery, `"${col}" should be excluded from the list SELECT`).toBe(false);
+        } else {
+          expect(inQuery, `"${col}" missing from the list SELECT — add it to ALL_PET_COLUMNS`).toBe(true);
+        }
       }
     });
   });
