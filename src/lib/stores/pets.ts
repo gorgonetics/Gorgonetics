@@ -6,12 +6,23 @@ import { errorMessage } from '$lib/utils/error.js';
 
 export type Tab = 'pets' | 'editor' | 'compare' | 'stable' | 'breeding' | 'community';
 
+/** Boolean pet flags toggled in-place via `setPetMarker` (no full reload). */
+export type MarkerKey = 'starred' | 'stabled' | 'is_pet_quality';
+
 export const pets: Writable<Pet[]> = writable([]);
 export const selectedPet: Writable<Pet | null> = writable(null);
 export const loading = writable(false);
 export const error: Writable<string | null> = writable(null);
 export const geneEditingView: Writable<unknown> = writable(null);
 export const activeTab: Writable<Tab> = writable('pets');
+
+// Bounded back-stack of previously-active tabs (oldest first, newest last),
+// driving the TopBar "back" control (#276). Capped so long sessions of tab
+// hopping don't grow it without bound.
+const MAX_TAB_HISTORY = 50;
+const tabHistory: Writable<Tab[]> = writable([]);
+/** True when `appState.goBack()` has a previous tab to return to. */
+export const canGoBack = derived(tabHistory, (h) => h.length > 0);
 
 /** All unique tags across all pets, sorted. Shared by PetEditor and PetList. */
 export const allTags = derived(pets, ($pets) => [...new Set($pets.flatMap((p) => p.tags ?? []))].sort());
@@ -47,6 +58,13 @@ const TAB_STATE_RESETS: Record<Tab, () => void> = {
 // `getAllPets()` result can resolve last and overwrite a fresher list,
 // leaving the Pets/Stable tab on a stale snapshot until the next refresh.
 let loadGeneration = 0;
+
+// Tracks the latest in-flight `setPetMarker` op per `${petId}:${key}`. A
+// rapid re-toggle of the same marker supersedes the earlier op; when an
+// earlier (now-stale) write later fails, its rollback/error must be skipped
+// so it can't clobber the newer optimistic value or flash a stale error.
+let markerOpSeq = 0;
+const markerOps = new Map<string, number>();
 
 export const appState = {
   async loadPets() {
@@ -101,6 +119,63 @@ export const appState = {
     }
   },
 
+  /**
+   * Flip a single boolean marker (starred/stabled/pet-quality) in place.
+   *
+   * Unlike `updatePet`, this does NOT reload the whole pet list or raise the
+   * global `loading` flag — both make a one-field toggle feel sluggish (#275).
+   * The change is applied optimistically to `pets` (and `selectedPet` if it
+   * matches), persisted in the background, and rolled back if the write fails.
+   */
+  async setPetMarker(petId: number, key: MarkerKey, value: boolean) {
+    // Optimistically flip the field, capturing the prior boolean for
+    // rollback. `found` keeps us from writing (and later restoring an
+    // `undefined`) for a pet that isn't in the current list.
+    let found = false;
+    let previous = false;
+    pets.update((list) =>
+      list.map((p) => {
+        if (p.id !== petId) return p;
+        found = true;
+        previous = p[key];
+        return { ...p, [key]: value };
+      }),
+    );
+    if (!found) return;
+
+    // Claim the latest-op slot for this pet+key. A later toggle bumps this,
+    // marking us stale (see `markerOps`).
+    const opKey = `${petId}:${key}`;
+    const opId = ++markerOpSeq;
+    markerOps.set(opKey, opId);
+    const isLatest = () => markerOps.get(opKey) === opId;
+
+    // Mirror onto `selectedPet` only while it still points at this pet —
+    // re-read on each write so we never overwrite a selection the user
+    // changed during the in-flight DB write.
+    const applyToSelected = (v: boolean) => {
+      const cur = getCurrentValue(selectedPet);
+      if (cur && cur.id === petId) selectedPet.set({ ...cur, [key]: v });
+    };
+    applyToSelected(value);
+
+    try {
+      const committed = await petService.updatePet(petId, { [key]: value });
+      if (!committed) throw new Error(`pet ${petId} not found`);
+    } catch (err: unknown) {
+      // A newer toggle superseded us: leave its optimistic value (and any
+      // error it may raise) intact rather than reverting to our stale baseline.
+      if (isLatest()) {
+        pets.update((list) => list.map((p) => (p.id === petId ? { ...p, [key]: previous } : p)));
+        applyToSelected(previous);
+        error.set(`Failed to update pet: ${errorMessage(err)}`);
+      }
+      throw err;
+    } finally {
+      if (isLatest()) markerOps.delete(opKey);
+    }
+  },
+
   async uploadPet(content: string, options: UploadPetOptions = {}) {
     try {
       loading.set(true);
@@ -146,8 +221,31 @@ export const appState = {
   },
 
   switchTab(tab: Tab) {
+    const current = getCurrentValue(activeTab);
+    // Record the tab we're leaving so `goBack` can return to it. Re-selecting
+    // the already-active tab still re-runs its state reset (existing
+    // behaviour) but must not stack a duplicate history entry.
+    if (current !== undefined && current !== tab) {
+      tabHistory.update((h) => {
+        const next = [...h, current];
+        return next.length > MAX_TAB_HISTORY ? next.slice(next.length - MAX_TAB_HISTORY) : next;
+      });
+    }
     activeTab.set(tab);
     TAB_STATE_RESETS[tab]();
+  },
+
+  /** Return to the previously-active tab. No-op when there's no history. */
+  goBack() {
+    let target: Tab | undefined;
+    tabHistory.update((h) => {
+      if (h.length === 0) return h;
+      target = h[h.length - 1];
+      return h.slice(0, -1);
+    });
+    if (target === undefined) return;
+    activeTab.set(target);
+    TAB_STATE_RESETS[target]();
   },
 
   clearError() {
@@ -163,5 +261,8 @@ export const appState = {
     geneEditingView.set(null);
     error.set(null);
     loading.set(false);
+    // Drop the back-stack too — its entries point into the pre-reset
+    // session and shouldn't survive a full reset (#276 review).
+    tabHistory.set([]);
   },
 };
