@@ -194,5 +194,8 @@ export const appState = {
     geneEditingView.set(null);
     error.set(null);
     loading.set(false);
+    // Drop the back-stack too — its entries point into the pre-reset
+    // session and shouldn't survive a full reset (#276 review).
+    tabHistory.set([]);
   },
 };

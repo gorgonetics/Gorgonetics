@@ -70,4 +70,12 @@ describe('tab navigation history', () => {
     expect(get(activeTab)).toBe('editor');
     expect(get(selectedPet)).toBeNull();
   });
+
+  it('clears the back-stack on reset', () => {
+    appState.switchTab('stable');
+    expect(get(canGoBack)).toBe(true);
+
+    appState.reset();
+    expect(get(canGoBack)).toBe(false);
+  });
 });
