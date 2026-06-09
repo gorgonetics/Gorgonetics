@@ -51,6 +51,13 @@ const TAB_STATE_RESETS: Record<Tab, () => void> = {
 // leaving the Pets/Stable tab on a stale snapshot until the next refresh.
 let loadGeneration = 0;
 
+// Tracks the latest in-flight `setPetMarker` op per `${petId}:${key}`. A
+// rapid re-toggle of the same marker supersedes the earlier op; when an
+// earlier (now-stale) write later fails, its rollback/error must be skipped
+// so it can't clobber the newer optimistic value or flash a stale error.
+let markerOpSeq = 0;
+const markerOps = new Map<string, number>();
+
 export const appState = {
   async loadPets() {
     const myGeneration = ++loadGeneration;
@@ -113,6 +120,13 @@ export const appState = {
    * matches), persisted in the background, and rolled back if the write fails.
    */
   async setPetMarker(petId: number, key: MarkerKey, value: boolean) {
+    // Claim the latest-op slot for this pet+key. A later toggle bumps this,
+    // marking us stale (see `markerOps`).
+    const opKey = `${petId}:${key}`;
+    const opId = ++markerOpSeq;
+    markerOps.set(opKey, opId);
+    const isLatest = () => markerOps.get(opKey) === opId;
+
     let previous: boolean | undefined;
     pets.update((list) =>
       list.map((p) => {
@@ -121,22 +135,29 @@ export const appState = {
         return { ...p, [key]: value };
       }),
     );
-    const sel = getCurrentValue(selectedPet);
-    const selMatches = !!sel && sel.id === petId;
-    if (selMatches) selectedPet.set({ ...sel, [key]: value });
-
-    const rollback = () => {
-      pets.update((list) => list.map((p) => (p.id === petId ? { ...p, [key]: previous } : p)));
-      if (selMatches) selectedPet.set({ ...sel, [key]: previous });
+    // Mirror onto `selectedPet` only while it still points at this pet —
+    // re-read on each write so we never overwrite a selection the user
+    // changed during the in-flight DB write.
+    const applyToSelected = (v: boolean | undefined) => {
+      const cur = getCurrentValue(selectedPet);
+      if (cur && cur.id === petId) selectedPet.set({ ...cur, [key]: v });
     };
+    applyToSelected(value);
 
     try {
       const committed = await petService.updatePet(petId, { [key]: value });
       if (!committed) throw new Error(`pet ${petId} not found`);
     } catch (err: unknown) {
-      rollback();
-      error.set(`Failed to update pet: ${errorMessage(err)}`);
+      // A newer toggle superseded us: leave its optimistic value (and any
+      // error it may raise) intact rather than reverting to our stale baseline.
+      if (isLatest()) {
+        pets.update((list) => list.map((p) => (p.id === petId ? { ...p, [key]: previous } : p)));
+        applyToSelected(previous);
+        error.set(`Failed to update pet: ${errorMessage(err)}`);
+      }
       throw err;
+    } finally {
+      if (isLatest()) markerOps.delete(opKey);
     }
   },
 

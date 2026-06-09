@@ -89,4 +89,45 @@ describe('appState.setPetMarker', () => {
 
     expect(get(pets).find((p) => p.id === 1).starred).toBe(false);
   });
+
+  it('does not clobber a selection the user changed during the in-flight write', async () => {
+    selectedPet.set(makePet(1));
+    let reject;
+    vi.mocked(updatePet).mockReturnValueOnce(
+      new Promise((_, rej) => {
+        reject = rej;
+      }),
+    );
+
+    const pending = appState.setPetMarker(1, 'stabled', true);
+    // User navigates to a different pet while the write is in flight.
+    selectedPet.set(makePet(2));
+    reject(new Error('db down'));
+
+    await expect(pending).rejects.toThrow('db down');
+    // Rollback must leave the newer selection (pet 2) in place.
+    expect(get(selectedPet).id).toBe(2);
+  });
+
+  it('a superseded failing toggle does not revert the newer optimistic value', async () => {
+    let rejectFirst;
+    vi.mocked(updatePet)
+      .mockReturnValueOnce(
+        new Promise((_, rej) => {
+          rejectFirst = rej;
+        }),
+      )
+      .mockResolvedValueOnce(true);
+
+    const first = appState.setPetMarker(1, 'stabled', true); // in flight, will fail
+    const second = appState.setPetMarker(1, 'stabled', false); // supersedes
+    await second;
+    rejectFirst(new Error('late failure'));
+    await expect(first).rejects.toThrow('late failure');
+
+    // The newer toggle's value wins; the stale failure neither reverts it
+    // nor surfaces an error.
+    expect(get(pets).find((p) => p.id === 1).stabled).toBe(false);
+    expect(get(error)).toBeNull();
+  });
 });
