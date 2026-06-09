@@ -5,10 +5,9 @@
  * is not a secret. Security comes from `firestore.rules`, not from hiding
  * these values.
  *
- * Before this module can talk to a real project, replace the placeholder
- * values with the config printed by `firebase apps:sdkconfig web` after
- * creating the `gorgonetics-share` Firebase project on the Spark plan.
- * See docs/firebase-setup.md for the full procedure.
+ * The config below is the real public config for the `gorgonetics` Firebase
+ * project (Spark plan), printed by `firebase apps:sdkconfig web`. See
+ * docs/firebase-setup.md for the full procedure.
  */
 
 import { getApp, getApps, initializeApp } from 'firebase/app';
@@ -17,9 +16,12 @@ import { getFirestore } from 'firebase/firestore';
 const PLACEHOLDER_API_KEY = 'PLACEHOLDER_REPLACE_AFTER_PROJECT_CREATION';
 
 const firebaseConfig = {
-  apiKey: PLACEHOLDER_API_KEY,
-  authDomain: 'gorgonetics-share.firebaseapp.com',
-  projectId: 'gorgonetics-share',
+  apiKey: 'AIzaSyC4dMgz9Ocu1-KOp-DGxZOOwdm4zS1VRC0',
+  authDomain: 'gorgonetics.firebaseapp.com',
+  projectId: 'gorgonetics',
+  storageBucket: 'gorgonetics.firebasestorage.app',
+  messagingSenderId: '12621482059',
+  appId: '1:12621482059:web:dd9960e2d6d1a7a592a5ce',
 };
 
 export const isPlaceholderConfig = firebaseConfig.apiKey === PLACEHOLDER_API_KEY;
@@ -41,7 +43,7 @@ export function assertFirebaseConfigured(): void {
   if (isPlaceholderConfig) {
     throw new Error(
       'Firebase is not configured: src/lib/firebase.ts still uses the placeholder ' +
-        'apiKey. Replace it with the real public config from the gorgonetics-share ' +
+        'apiKey. Replace it with the real public config from the gorgonetics ' +
         'project (see docs/firebase-setup.md) before using the community catalogue.',
     );
   }

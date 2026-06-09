@@ -9,9 +9,13 @@ See `docs/design/public-pet-sharing-v1.md` for the design rationale.
 
 ## One-time project creation
 
-1. Visit <https://console.firebase.google.com> and create a new project
-   named **`gorgonetics-share`**. Stay on the default **Spark** plan
-   (no card required).
+1. Visit <https://console.firebase.google.com> and create a new project.
+   The **project ID** must be **`gorgonetics`** (not just the display
+   name) — `.firebaserc` and the SDK config both pin that exact ID, so a
+   mismatched ID leaves the CLI target and config out of sync. Firebase
+   may suffix the ID if `gorgonetics` is taken; if so, use the resulting
+   ID consistently in `.firebaserc` and `src/lib/firebase.ts`. Stay on
+   the default **Spark** plan (no card required).
 2. In the project, open **Build → Firestore Database → Create database**.
    - Mode: **Production** (rules deny by default).
    - Location: any region close to the user base — e.g. `eur3` for
@@ -29,8 +33,11 @@ values from step 4 above:
 ```ts
 const firebaseConfig = {
   apiKey: '…',
-  authDomain: 'gorgonetics-share.firebaseapp.com',
-  projectId: 'gorgonetics-share',
+  authDomain: 'gorgonetics.firebaseapp.com',
+  projectId: 'gorgonetics',
+  storageBucket: 'gorgonetics.firebasestorage.app',
+  messagingSenderId: '…',
+  appId: '…',
 };
 ```
 
@@ -46,7 +53,7 @@ it globally with `npm i -g firebase-tools` if you prefer).
 
 ```bash
 pnpm exec firebase login
-pnpm exec firebase use gorgonetics-share
+pnpm exec firebase use gorgonetics
 pnpm exec firebase deploy --only firestore:rules
 pnpm exec firebase deploy --only firestore:indexes   # empty in v1
 ```
@@ -54,7 +61,7 @@ pnpm exec firebase deploy --only firestore:indexes   # empty in v1
 Both files are checked in at the repo root:
 
 - `firebase.json` — points the CLI at `firestore.rules` + indexes.
-- `.firebaserc` — pins the `default` project alias to `gorgonetics-share`.
+- `.firebaserc` — pins the `default` project alias to `gorgonetics`.
 - `firestore.rules` — the entire backend (see design §4).
 - `firestore.indexes.json` — empty for v1; populated when filtering lands.
 

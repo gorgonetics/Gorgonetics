@@ -1,13 +1,16 @@
 import { expect, test } from '@playwright/test';
-import { waitForPets } from './helpers.js';
+import { blockFirestore, waitForPets } from './helpers.js';
 
 // Exercises the dialog flow: open, preview, cancel, backdrop, Escape, and the
-// disabled state when Firebase is unconfigured (which is always true in this
-// build — `src/lib/firebase.ts` ships a placeholder apiKey by design). The
-// upload round-trip is covered by tests/integration/shareService.emulator.test.js.
+// enabled Share button now that the real public Firebase config ships in the
+// bundle (PR #279 — `isPlaceholderConfig` is false). Firestore traffic is
+// aborted via `blockFirestore` so the suite stays offline and never touches
+// the live project; the upload round-trip is covered by
+// tests/integration/shareService.emulator.test.js.
 
 test.describe('Share Pet Dialog', () => {
   test.beforeEach(async ({ page }) => {
+    await blockFirestore(page);
     await page.goto('/');
     await waitForPets(page);
     await page.locator('.pet-card').first().click();
@@ -25,11 +28,14 @@ test.describe('Share Pet Dialog', () => {
     await expect(page.locator('[data-testid="share-preview"]')).toBeVisible();
   });
 
-  test('shows the not-configured banner and disables the Share button on this build', async ({ page }) => {
+  test('enables the Share button now that Firebase is configured', async ({ page }) => {
     await page.locator('[data-testid="share-pet-btn"]').click();
 
-    await expect(page.locator('[data-testid="share-not-configured"]')).toBeVisible();
-    await expect(page.locator('[data-testid="share-confirm"]')).toBeDisabled();
+    // Real config ships in the bundle, so the not-configured banner is gone
+    // and the confirm button is live. We do not click it — that would attempt
+    // a write, which `blockFirestore` aborts anyway.
+    await expect(page.locator('[data-testid="share-not-configured"]')).toHaveCount(0);
+    await expect(page.locator('[data-testid="share-confirm"]')).toBeEnabled();
   });
 
   test('Cancel closes the dialog', async ({ page }) => {
@@ -62,14 +68,18 @@ test.describe('Share Pet Dialog', () => {
 });
 
 // PR 4 — Community catalogue browser tab.
-// Firestore is unreachable in this build (placeholder apiKey), so the store
-// surfaces the "not configured" error path. We assert the tab is reachable
-// and that the empty/error state renders correctly. The real fetch +
-// pagination + import paths are covered by the unit suite (mocked SDK) and
-// the integration suite (Firestore Emulator).
+// Firebase is configured in this build (PR #279), but `blockFirestore`
+// aborts all backend traffic so the suite stays offline and never touches
+// the live project or burns Spark quota. We assert the tab renders and is
+// navigable under a blocked backend. The fetch/error/pagination/import
+// paths (including the load-error UI) are covered by the unit suite (mocked
+// SDK) and the integration suite (Firestore Emulator) — exercising the
+// network-error path here is unreliable because the Firestore SDK retries
+// the WebChannel indefinitely rather than letting `getDocs` reject.
 
 test.describe('Community Tab', () => {
   test.beforeEach(async ({ page }) => {
+    await blockFirestore(page);
     await page.goto('/');
     await waitForPets(page);
   });
@@ -77,13 +87,6 @@ test.describe('Community Tab', () => {
   test('Community tab is reachable from the TopBar', async ({ page }) => {
     await page.locator('[data-testid="tab-community"]').click();
     await expect(page.locator('[data-testid="community-tab"]')).toBeVisible();
-  });
-
-  test('surfaces the not-configured error when Firebase is not set up', async ({ page }) => {
-    await page.locator('[data-testid="tab-community"]').click();
-    const errorBox = page.locator('[data-testid="community-error"]');
-    await expect(errorBox).toBeVisible();
-    await expect(errorBox).toContainText(/not configured/i);
   });
 
   test('shows the empty-selection panel until a row is clicked', async ({ page }) => {
