@@ -1209,7 +1209,7 @@ export function getStatsData() {
     {#if loading}
         <div class="visualizer-state"><StatusPane variant="loading" body="Loading gene data..." /></div>
     {:else if error}
-        <div class="visualizer-state"><StatusPane variant="error" body="Error: {error}" /></div>
+        <div class="visualizer-state"><StatusPane variant="error" body={`Error: ${error}`} /></div>
     {:else if !currentPet}
         <div class="visualizer-state"><StatusPane variant="empty" body="Select a pet to visualize its genes" /></div>
     {:else}
