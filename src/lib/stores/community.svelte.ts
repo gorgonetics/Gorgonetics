@@ -225,18 +225,20 @@ export async function importSelected(fullPet: SharedPet): Promise<ImportResult> 
   communityView.importingHash = fullPet.contentHash;
   try {
     const result = await importCommunityPet(fullPet);
-    // Refresh the local pets store on any state-changing result so the
-    // Pets / Stable views see the new row (or, for the backfill /
-    // race-recheck branches, the freshly-applied community tag and
-    // genome_text on the existing row) without a manual reload. We
-    // deliberately don't await this — the toast can land before the
-    // background refetch completes.
-    if (result.status === 'imported' || result.status === 'already-imported') {
-      appState.loadPets().catch(() => {
-        // The pet is committed locally; a refresh failure is a UI sync
-        // issue, not an import failure. The Pets tab's own onMount will
-        // pick it up on next navigation.
-      });
+    // Refresh the local pets store so the Pets / Stable views see the change
+    // without a manual reload. We deliberately don't await — the toast can
+    // land before the background refetch completes. A refresh failure is a
+    // UI sync issue, not an import failure; the Pets tab's onMount picks it
+    // up on next navigation.
+    if (result.status === 'imported') {
+      // Fresh insert at MAX(sort_order)+1 — append just that row (#256)
+      // instead of an O(N) full reload.
+      appState.appendPet(result.pet_id).catch(() => {});
+    } else if (result.status === 'already-imported') {
+      // Backfill / race-recheck branch mutated an existing row's community
+      // tag + genome_text in place, so a targeted append won't reflect it —
+      // fall back to a full reload.
+      appState.loadPets().catch(() => {});
     }
     return result;
   } catch (err) {

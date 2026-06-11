@@ -233,4 +233,35 @@ describe('Pets Store', () => {
       expect(get(loading)).toBe(false);
     });
   });
+
+  describe('appendPet', () => {
+    it('appends a single fetched pet without a full reload, stripping heavy blobs', async () => {
+      const upload = await appState.uploadPetQuiet(SAMPLE_BEEWASP, { gender: 'Female' });
+      expect(upload.pet_id).toBeDefined();
+
+      // Store starts empty (no loadPets) — appendPet adds just the one row.
+      expect(get(pets)).toHaveLength(0);
+      await appState.appendPet(upload.pet_id);
+
+      const list = get(pets);
+      expect(list).toHaveLength(1);
+      expect(list[0].id).toBe(upload.pet_id);
+      expect(list[0].name).toBeTruthy();
+      // List-path shape: the heavy blobs getAllPets omits (#254) are stripped.
+      expect(list[0].genome_text).toBeUndefined();
+      expect(list[0].genome_data).toBeUndefined();
+    });
+
+    it('is a no-op when the pet is already in the store', async () => {
+      const upload = await appState.uploadPetQuiet(SAMPLE_BEEWASP, { name: 'Once', gender: 'Female' });
+      await appState.appendPet(upload.pet_id);
+      await appState.appendPet(upload.pet_id);
+      expect(get(pets)).toHaveLength(1);
+    });
+
+    it('is a no-op when the id does not exist', async () => {
+      await appState.appendPet(999999);
+      expect(get(pets)).toHaveLength(0);
+    });
+  });
 });

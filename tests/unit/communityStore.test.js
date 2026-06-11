@@ -20,6 +20,7 @@ vi.mock('$lib/services/shareService.js', () => ({
 vi.mock('$lib/stores/pets.js', () => ({
   appState: {
     loadPets: vi.fn().mockResolvedValue(undefined),
+    appendPet: vi.fn().mockResolvedValue(undefined),
   },
 }));
 
@@ -169,6 +170,7 @@ describe('community.svelte.ts — loadInitial', () => {
 describe('community.svelte.ts — importSelected', () => {
   beforeEach(() => {
     appState.loadPets.mockResolvedValue(undefined);
+    appState.appendPet.mockResolvedValue(undefined);
   });
 
   it('serializes imports: a second concurrent call rejects with an in-progress message', async () => {
@@ -191,30 +193,35 @@ describe('community.svelte.ts — importSelected', () => {
     await firstPromise;
   });
 
-  it('triggers appState.loadPets() on imported status', async () => {
+  it('appends the single new row on imported status (no full reload)', async () => {
+    // Fresh insert lands at MAX(sort_order)+1, so a targeted append is enough
+    // and avoids the O(N) full reload (#256).
     importCommunityPet.mockResolvedValueOnce({ status: 'imported', message: 'ok', pet_id: 1 });
     await importSelected(makeSharedPet('imp', { genomeData: 'raw' }));
     // The refresh is fire-and-forget — await a microtask so it runs.
     await Promise.resolve();
-    expect(appState.loadPets).toHaveBeenCalledTimes(1);
+    expect(appState.appendPet).toHaveBeenCalledTimes(1);
+    expect(appState.appendPet).toHaveBeenCalledWith(1);
+    expect(appState.loadPets).not.toHaveBeenCalled();
   });
 
-  it('triggers appState.loadPets() on already-imported (backfill / race-recovery mutate local state too)', async () => {
-    // Regression guard: an earlier revision only refreshed on
-    // 'imported', so the backfill / race-recovery paths (which apply
-    // the community tag to an existing row) left the in-memory pets
-    // store stale until the user navigated away and back.
+  it('does a full reload on already-imported (backfill / race-recovery mutate an existing row)', async () => {
+    // The backfill / race-recovery paths apply the community tag + genome_text
+    // to an EXISTING row, which a targeted append can't reflect — so this
+    // branch still needs the full reload.
     importCommunityPet.mockResolvedValueOnce({ status: 'already-imported', message: 'linked', pet_id: 7 });
     await importSelected(makeSharedPet('back', { genomeData: 'raw' }));
     await Promise.resolve();
     expect(appState.loadPets).toHaveBeenCalledTimes(1);
+    expect(appState.appendPet).not.toHaveBeenCalled();
   });
 
-  it('does NOT trigger appState.loadPets() on error', async () => {
+  it('does NOT refresh the pets store on error', async () => {
     importCommunityPet.mockResolvedValueOnce({ status: 'error', message: 'boom' });
     await importSelected(makeSharedPet('err', { genomeData: 'raw' }));
     await Promise.resolve();
     expect(appState.loadPets).not.toHaveBeenCalled();
+    expect(appState.appendPet).not.toHaveBeenCalled();
   });
 
   it('releases the importingHash slot after completion (success and failure both)', async () => {
