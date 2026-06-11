@@ -14,6 +14,34 @@ export function arrayMove<T>(list: T[], from: number, to: number): T[] {
 }
 
 /**
+ * Translate a move expressed in a filtered view — `from`/`to` are indices into
+ * `view` — into a reordering of the full `list`, matching items by `idOf`.
+ * Used when the rendered list is a subset of the backing list (e.g. the pet
+ * list under an active marker filter): indexing the backing list directly would
+ * move the wrong items. Moving down places the item after the target; moving up,
+ * before it. Returns a new list (or the original if indices don't resolve).
+ */
+export function moveByFilteredIndex<T>(
+  list: T[],
+  view: T[],
+  from: number,
+  to: number,
+  idOf: (item: T) => unknown,
+): T[] {
+  const moved = view[from];
+  const target = view[to];
+  if (!moved || !target) return list;
+  const copy = [...list];
+  const fromIdx = copy.findIndex((x) => idOf(x) === idOf(moved));
+  if (fromIdx < 0) return list;
+  copy.splice(fromIdx, 1);
+  const targetIdx = copy.findIndex((x) => idOf(x) === idOf(target));
+  if (targetIdx < 0) return list;
+  copy.splice(to > from ? targetIdx + 1 : targetIdx, 0, moved);
+  return copy;
+}
+
+/**
  * Shared drag-and-drop reorder state and handlers.
  * Components provide their own handleDrop since the reorder logic differs
  * (PetList resolves through a filtered list, gallery operates on a flat array).
@@ -122,20 +150,32 @@ export function createKeyboardReorder(opts: KeyboardReorderOptions) {
     suppressBlur = false;
   }
 
-  async function drop(): Promise<number | null> {
+  async function drop(): Promise<{ index: number; persisted: boolean } | null> {
     if (grabbedIndex === null) return null;
     const moved = grabbedIndex !== originIndex;
     const at = grabbedIndex;
     grabbedIndex = null;
     originIndex = null;
-    if (moved) {
-      try {
-        await opts.persist();
-      } catch {
-        opts.restore(preGrab);
-      }
+    if (!moved) return { index: at, persisted: true };
+    try {
+      await opts.persist();
+      return { index: at, persisted: true };
+    } catch {
+      // Roll back the optimistic move; report failure so the caller doesn't
+      // announce a successful drop.
+      opts.restore(preGrab);
+      return { index: at, persisted: false };
     }
-    return at;
+  }
+
+  /** Announce the outcome of a drop (shared by Space-drop and blur-commit). */
+  function announceDrop(res: { index: number; persisted: boolean } | null) {
+    if (!res) return;
+    if (res.persisted) {
+      opts.announce(`Dropped ${opts.label(res.index)} at position ${res.index + 1} of ${opts.count()}.`);
+    } else {
+      opts.announce('Could not save the new order — it was restored.');
+    }
   }
 
   return {
@@ -162,8 +202,7 @@ export function createKeyboardReorder(opts: KeyboardReorderOptions) {
               'Use up and down arrows to move, space to drop, escape to cancel.',
           );
         } else {
-          const at = await drop();
-          if (at !== null) opts.announce(`Dropped ${opts.label(at)} at position ${at + 1} of ${count}.`);
+          announceDrop(await drop());
         }
         return;
       }
@@ -202,7 +241,7 @@ export function createKeyboardReorder(opts: KeyboardReorderOptions) {
     /** Commit the current position when focus genuinely leaves a grabbed handle. */
     async handleBlur() {
       if (suppressBlur) return;
-      await drop();
+      announceDrop(await drop());
     },
   };
 }

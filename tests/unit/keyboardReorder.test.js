@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createKeyboardReorder } from '$lib/utils/dragReorder.svelte.js';
+import { arrayMove, createKeyboardReorder, moveByFilteredIndex } from '$lib/utils/dragReorder.svelte.js';
 
 // Fake keyboard event with the only two methods the helper calls.
 function key(k) {
@@ -122,5 +122,54 @@ describe('createKeyboardReorder', () => {
     const move = key('ArrowDown');
     await kb.handleKeydown(move, 0);
     expect(move.preventDefault).toHaveBeenCalled();
+  });
+
+  it('announces a restore (not a successful drop) when persist fails on drop', async () => {
+    persist.mockRejectedValueOnce(new Error('db down'));
+    await kb.handleKeydown(key(' '), 0);
+    await kb.handleKeydown(key('ArrowDown'), 0);
+    announce.mockClear();
+    await kb.handleKeydown(key(' '), 1); // drop -> persist rejects
+    expect(announce).toHaveBeenCalledWith(expect.stringMatching(/restored/i));
+    expect(announce).not.toHaveBeenCalledWith(expect.stringMatching(/^Dropped/));
+  });
+
+  it('announces the drop on blur-commit (not silent for screen readers)', async () => {
+    await kb.handleKeydown(key(' '), 0);
+    await kb.handleKeydown(key('ArrowDown'), 0);
+    announce.mockClear();
+    await kb.handleBlur();
+    expect(announce).toHaveBeenCalledWith(expect.stringMatching(/^Dropped/));
+  });
+});
+
+describe('moveByFilteredIndex', () => {
+  const id = (x) => x.id;
+  const full = [{ id: 'a' }, { id: 'b' }, { id: 'c' }, { id: 'd' }];
+
+  it('matches arrayMove when the view is the full list', () => {
+    const out = moveByFilteredIndex(full, full, 0, 1, id);
+    expect(out.map(id)).toEqual(arrayMove(full, 0, 1).map(id));
+    expect(out.map(id)).toEqual(['b', 'a', 'c', 'd']);
+  });
+
+  it('reorders the FULL list correctly when the view is a filtered subset', () => {
+    // View hides 'b' and 'd' (e.g. a marker filter): view = [a, c].
+    const view = [full[0], full[2]];
+    // Move 'a' (view idx 0) down past 'c' (view idx 1): 'a' should land just
+    // after 'c' in the full list, NOT swap with 'b'.
+    const out = moveByFilteredIndex(full, view, 0, 1, id);
+    expect(out.map(id)).toEqual(['b', 'c', 'a', 'd']);
+  });
+
+  it('moving up in a filtered view places the item before the target in the full list', () => {
+    const view = [full[0], full[2]]; // [a, c]
+    // Move 'c' (view idx 1) up above 'a' (view idx 0).
+    const out = moveByFilteredIndex(full, view, 1, 0, id);
+    expect(out.map(id)).toEqual(['c', 'a', 'b', 'd']);
+  });
+
+  it('returns the original list when indices do not resolve', () => {
+    expect(moveByFilteredIndex(full, [], 0, 1, id)).toBe(full);
   });
 });

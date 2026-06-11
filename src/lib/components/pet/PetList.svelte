@@ -4,7 +4,7 @@ import { pickGenomeFiles, readFileContent } from '$lib/services/fileService.js';
 import { autoScanGameFolder } from '$lib/services/gameImport.js';
 import { compareSelectMode, comparisonActions, comparisonPets, comparisonReady } from '$lib/stores/comparison.js';
 import { allTags as allTagsStore, appState, error, pets, selectedPet } from '$lib/stores/pets.js';
-import { arrayMove, createDragState, createKeyboardReorder } from '$lib/utils/dragReorder.svelte.js';
+import { createDragState, createKeyboardReorder, moveByFilteredIndex } from '$lib/utils/dragReorder.svelte.js';
 import { errorMessage } from '$lib/utils/error.js';
 import { focusTrap } from '$lib/utils/focusTrap.js';
 import { getBasename } from '$lib/utils/path.js';
@@ -284,17 +284,19 @@ async function handleDrop(e, dropIndex) {
   }
 }
 
-// Keyboard-accessible reordering (#105). Only active while unfiltered
-// (`isDraggable`), so a card's index in `filteredPets` equals its index in
-// `$pets` and we can reorder the backing list directly.
+// Keyboard-accessible reordering (#105). Handle indices are positions in the
+// rendered `filteredPets`, which can be a subset of `$pets` (the starred/stabled
+// marker filters narrow it even while `isDraggable` is true). So translate the
+// move to `$pets` by pet id — the same id-resolution the drag `handleDrop` uses
+// — rather than indexing `$pets` directly.
 let reorderAnnouncement = $state('');
 const kbReorder = createKeyboardReorder({
-  count: () => $pets.length,
-  reorder: (from, to) => pets.set(arrayMove($pets, from, to)),
+  count: () => filteredPets.length,
+  reorder: (from, to) => pets.set(moveByFilteredIndex($pets, filteredPets, from, to, (p) => p.id)),
   persist: () => appState.reorderPets($pets.map((p) => p.id)),
   snapshot: () => [...$pets],
   restore: (snap) => pets.set(snap),
-  label: (i) => $pets[i]?.name || 'Unnamed',
+  label: (i) => filteredPets[i]?.name || 'Unnamed',
   announce: (msg) => {
     reorderAnnouncement = msg;
   },
