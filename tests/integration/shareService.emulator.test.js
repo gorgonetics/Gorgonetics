@@ -33,6 +33,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { getSharedPet, listPets, uploadPet } from '$lib/services/shareService.js';
 import { Gender } from '$lib/types/index.js';
 import { sha256Hex } from '$lib/utils/hash.js';
+import { freshPet } from '../fixtures/sharePet.js';
 
 const META_COLLECTION = 'pets';
 const GENOME_COLLECTION = 'genomes';
@@ -67,47 +68,6 @@ afterEach(async () => {
     { method: 'DELETE' },
   );
 });
-
-function makePet(rawText, overrides = {}) {
-  // Production-shape Pet: content_hash = sha256(rawText), genome_text holds
-  // the raw file text (used by shareService.uploadPet), and genome_data is
-  // the JSON-stringified parsed form (used locally for visualization). The
-  // share path reads genome_text, not genome_data.
-  return {
-    id: 1,
-    name: 'Buzz',
-    species: 'BeeWasp',
-    gender: Gender.FEMALE,
-    breed: '',
-    breeder: 'PlayerOne',
-    content_hash: '',
-    genome_data: JSON.stringify({ name: 'Buzz', breeder: 'PlayerOne', genes: {} }),
-    genome_text: rawText,
-    notes: '',
-    tags: ['fast'],
-    created_at: '2026-05-01T00:00:00Z',
-    updated_at: '2026-05-01T00:00:00Z',
-    intelligence: 50,
-    toughness: 50,
-    friendliness: 50,
-    ruggedness: 50,
-    enthusiasm: 50,
-    virility: 50,
-    ferocity: 50,
-    temperament: 0,
-    positive_genes: 0,
-    starred: false,
-    stabled: false,
-    is_pet_quality: false,
-    ...overrides,
-  };
-}
-
-async function freshPet(seed = 'pet') {
-  const rawText = `[Overview]\nCharacter=Player${seed}\nEntity=Buzz${seed}\n[Genes]\n`;
-  const content_hash = await sha256Hex(rawText);
-  return makePet(rawText, { content_hash, breeder: `Player${seed}` });
-}
 
 describe('shareService end-to-end via emulator', () => {
   it('uploads, lists (metadata only), then fetches the full pet with genome', async () => {

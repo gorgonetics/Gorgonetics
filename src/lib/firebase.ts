@@ -11,7 +11,7 @@
  */
 
 import { getApp, getApps, initializeApp } from 'firebase/app';
-import { getFirestore } from 'firebase/firestore';
+import { connectFirestoreEmulator, getFirestore } from 'firebase/firestore';
 
 const PLACEHOLDER_API_KEY = 'PLACEHOLDER_REPLACE_AFTER_PROJECT_CREATION';
 
@@ -54,3 +54,22 @@ export function assertFirebaseConfigured(): void {
 // already exists`). Reusing the existing instance is the documented pattern.
 export const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 export const firestore = getFirestore(app);
+
+// Opt-in Firestore emulator for local dev (#281). Since #279 committed the
+// real public config, every build — including `pnpm dev` — otherwise talks to
+// the live production catalogue, burning read quota and writing real docs.
+// Set VITE_USE_FIRESTORE_EMULATOR=true to route share/import at the local
+// emulator (localhost:8080, per firebase.json) instead. Dev-only and opt-in:
+// some workflows still want to hit production, so this stays off by default.
+// See docs/firebase-setup.md.
+if (import.meta.env.DEV && import.meta.env.VITE_USE_FIRESTORE_EMULATOR === 'true') {
+  try {
+    connectFirestoreEmulator(firestore, 'localhost', 8080);
+    console.info('[firebase] Connected to Firestore emulator at localhost:8080 (VITE_USE_FIRESTORE_EMULATOR).');
+  } catch (err) {
+    // connectFirestoreEmulator throws if Firestore has already been used or
+    // re-connected (e.g. Vite HMR re-running this module). Harmless — the
+    // first connection stands.
+    console.warn('[firebase] Firestore emulator connection skipped:', err);
+  }
+}

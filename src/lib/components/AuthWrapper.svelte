@@ -31,10 +31,8 @@ async function runLiveScan() {
   try {
     do {
       pendingRescan = false;
-      const result = await autoScanGameFolder();
-      if (result.imported > 0 || result.backfilled > 0) {
-        void appState.loadPets();
-      }
+      // autoScanGameFolder refreshes the pets store itself on a DB change (#253).
+      await autoScanGameFolder();
     } while (pendingRescan);
   } catch (err) {
     console.warn('live game-folder scan failed:', err);

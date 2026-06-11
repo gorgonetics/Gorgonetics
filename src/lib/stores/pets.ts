@@ -202,6 +202,38 @@ export const appState = {
     return petService.uploadPet(content, options);
   },
 
+  /**
+   * Append a single freshly-created pet to the in-memory list instead of the
+   * O(N) full `loadPets()` reload (#256). Community imports land at
+   * `MAX(sort_order)+1`, so the new row sorts last under getAllPets'
+   * `ORDER BY sort_order, name` — appending matches that order. The heavy
+   * `genome_text` / `genome_data` blobs are stripped to keep the list-store
+   * shape aligned with the list path (#254). No-op if the id is already
+   * present or the fetch returns nothing.
+   */
+  async appendPet(petId: number) {
+    const pet = await petService.getPet(petId);
+    if (!pet) return;
+    const { genome_text, genome_data, ...listPet } = pet;
+    let appended = false;
+    pets.update((list) => {
+      if (list.some((p) => p.id === petId)) return list;
+      appended = true;
+      return [...list, listPet as Pet];
+    });
+    // Invalidate any loadPets() already in flight: its getAllPets() snapshot
+    // predates this freshly-imported row, so letting it resolve would run
+    // pets.set() over our append (appendPet bypasses the last-writer-wins
+    // guard otherwise). A loadPets() started after this bump re-snapshots and
+    // already includes the row, so it's safe. We also clear `loading`: a
+    // superseded loadPets skips its own `loading.set(false)` (generation
+    // mismatch), so as the new latest writer appendPet owns that reset.
+    if (appended) {
+      loadGeneration++;
+      loading.set(false);
+    }
+  },
+
   async reorderPets(orderedIds: number[]) {
     try {
       await petService.reorderPets(orderedIds);

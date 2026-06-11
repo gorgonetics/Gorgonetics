@@ -66,6 +66,7 @@ import {
 } from '$lib/services/shareService.js';
 import { Gender } from '$lib/types/index.js';
 import { sha256Hex } from '$lib/utils/hash.js';
+import { makePet, DEFAULT_RAW_TEXT as RAW_TEXT, DEFAULT_RAW_TEXT_HASH as RAW_TEXT_HASH } from '../fixtures/sharePet.js';
 
 afterEach(() => {
   // Clear call-history for every spy. Then individually reset the
@@ -86,44 +87,6 @@ afterEach(() => {
 
 function lastBatch() {
   return batchCalls.at(-1);
-}
-
-// `uploadPet` re-hashes `genome_text` and rejects rows whose stored
-// `content_hash` doesn't match — so makePet must produce a coherent
-// fixture rather than a placeholder. Precomputed at module load via
-// top-level await so test bodies stay synchronous.
-const RAW_TEXT = '[Overview]\nCharacter=PlayerOne\nEntity=Buzz\n[Genes]\n';
-const RAW_TEXT_HASH = await sha256Hex(RAW_TEXT);
-
-function makePet(overrides = {}) {
-  return {
-    id: 1,
-    name: 'Buzz',
-    species: 'BeeWasp',
-    gender: Gender.FEMALE,
-    breed: '',
-    breeder: 'PlayerOne',
-    content_hash: RAW_TEXT_HASH,
-    genome_data: JSON.stringify({ name: 'Buzz', breeder: 'PlayerOne', genes: {} }),
-    genome_text: RAW_TEXT,
-    notes: '',
-    tags: ['fast', 'fierce'],
-    created_at: '2026-05-01T00:00:00Z',
-    updated_at: '2026-05-01T00:00:00Z',
-    intelligence: 50,
-    toughness: 50,
-    friendliness: 50,
-    ruggedness: 50,
-    enthusiasm: 50,
-    virility: 50,
-    ferocity: 50,
-    temperament: 0,
-    positive_genes: 0,
-    starred: false,
-    stabled: false,
-    is_pet_quality: false,
-    ...overrides,
-  };
 }
 
 describe('shareService.uploadPet', () => {

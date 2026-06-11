@@ -93,6 +93,26 @@ UI) per `firebase.json`. The `demo-` project ID prefix tells the SDK to
 skip Google-side config validation, so the local emulator works even
 when `src/lib/firebase.ts` still has its placeholder `apiKey`.
 
+## Running the app against the emulator (dev)
+
+Since the real public config is committed, `pnpm dev` / `pnpm tauri:dev`
+talk to the **live production catalogue** by default: reads count against
+the Spark quota and any share/import writes real documents. To point a dev
+build at the local emulator instead, set the opt-in env var:
+
+```bash
+# Terminal 1 — start the emulator
+pnpm exec firebase emulators:start --only firestore --project demo-gorgonetics
+
+# Terminal 2 — run the app against it
+VITE_USE_FIRESTORE_EMULATOR=true pnpm dev
+```
+
+`src/lib/firebase.ts` calls `connectFirestoreEmulator(firestore, 'localhost', 8080)`
+only when `import.meta.env.DEV` **and** `VITE_USE_FIRESTORE_EMULATOR=true`.
+It's off by default — some workflows want to hit production from dev — and
+ignored entirely in production builds.
+
 ## Takedowns (v1)
 
 There is no in-app delete in v1. To remove an offending pet:

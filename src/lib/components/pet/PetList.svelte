@@ -173,10 +173,7 @@ async function handleAutoScan() {
       return;
     }
 
-    if (result.imported > 0 || result.backfilled > 0) {
-      await appState.loadPets();
-    }
-
+    // autoScanGameFolder refreshes the pets store itself on a DB change (#253).
     const backfillNote = result.backfilled > 0 ? `, ${result.backfilled} unlocked for sharing` : '';
     const summary = `Auto-import: ${result.imported} new, ${result.skipped} already imported${backfillNote} (of ${result.scanned} files).`;
     if (result.failures.length > 0) {
