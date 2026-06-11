@@ -263,5 +263,32 @@ describe('Pets Store', () => {
       await appState.appendPet(999999);
       expect(get(pets)).toHaveLength(0);
     });
+
+    it('survives a slower in-flight loadPets that snapshotted before the append', async () => {
+      const upload = await appState.uploadPetQuiet(SAMPLE_BEEWASP, { gender: 'Female' });
+
+      // A loadPets() whose getAllPets() snapshot predates the append (empty
+      // list) is left pending, then resolves AFTER appendPet runs.
+      let resolveStale;
+      vi.spyOn(petService, 'getAllPets').mockReturnValueOnce(
+        new Promise((r) => {
+          resolveStale = r;
+        }),
+      );
+      const stalePromise = appState.loadPets();
+
+      await appState.appendPet(upload.pet_id);
+      expect(get(pets).some((p) => p.id === upload.pet_id)).toBe(true);
+
+      // The stale snapshot resolves last; the generation bump in appendPet must
+      // cause loadPets to discard it instead of clobbering the appended row.
+      resolveStale({ items: [] });
+      await stalePromise;
+
+      expect(get(pets).some((p) => p.id === upload.pet_id)).toBe(true);
+      // appendPet, as the new latest writer, also cleared the loading flag the
+      // superseded loadPets left set.
+      expect(get(loading)).toBe(false);
+    });
   });
 });

@@ -215,7 +215,23 @@ export const appState = {
     const pet = await petService.getPet(petId);
     if (!pet) return;
     const { genome_text, genome_data, ...listPet } = pet;
-    pets.update((list) => (list.some((p) => p.id === petId) ? list : [...list, listPet as Pet]));
+    let appended = false;
+    pets.update((list) => {
+      if (list.some((p) => p.id === petId)) return list;
+      appended = true;
+      return [...list, listPet as Pet];
+    });
+    // Invalidate any loadPets() already in flight: its getAllPets() snapshot
+    // predates this freshly-imported row, so letting it resolve would run
+    // pets.set() over our append (appendPet bypasses the last-writer-wins
+    // guard otherwise). A loadPets() started after this bump re-snapshots and
+    // already includes the row, so it's safe. We also clear `loading`: a
+    // superseded loadPets skips its own `loading.set(false)` (generation
+    // mismatch), so as the new latest writer appendPet owns that reset.
+    if (appended) {
+      loadGeneration++;
+      loading.set(false);
+    }
   },
 
   async reorderPets(orderedIds: number[]) {
