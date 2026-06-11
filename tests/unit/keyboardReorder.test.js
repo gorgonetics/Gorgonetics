@@ -26,6 +26,10 @@ describe('createKeyboardReorder', () => {
       },
       persist,
       focusItem,
+      snapshot: () => [...items],
+      restore: (snap) => {
+        items = snap;
+      },
       label: (i) => items[i],
       announce,
     });
@@ -89,6 +93,16 @@ describe('createKeyboardReorder', () => {
     await kb.handleKeydown(key(' '), 1); // grab
     await kb.handleKeydown(key(' '), 1); // drop, unmoved
     expect(persist).not.toHaveBeenCalled();
+  });
+
+  it('rolls back to the pre-grab order when persist fails', async () => {
+    persist.mockRejectedValueOnce(new Error('db down'));
+    await kb.handleKeydown(key(' '), 0); // grab Alpha
+    await kb.handleKeydown(key('ArrowDown'), 0); // optimistic -> [Bravo, Alpha, Charlie]
+    expect(items).toEqual(['Bravo', 'Alpha', 'Charlie']);
+
+    await kb.handleKeydown(key(' '), 1); // drop -> persist rejects -> restore snapshot
+    expect(items).toEqual(['Alpha', 'Bravo', 'Charlie']);
   });
 
   it('blur commits a moved item', async () => {

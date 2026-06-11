@@ -7,7 +7,7 @@ import {
   reorderImages,
   uploadImage,
 } from '$lib/services/imageService.js';
-import { createDragState, createKeyboardReorder } from '$lib/utils/dragReorder.svelte.js';
+import { arrayMove, createDragState, createKeyboardReorder } from '$lib/utils/dragReorder.svelte.js';
 import { errorMessage } from '$lib/utils/error.js';
 import { focusTrap } from '$lib/utils/focusTrap.js';
 import { getBasename } from '$lib/utils/path.js';
@@ -125,11 +125,7 @@ async function handleDrop(e, dropIndex) {
   }
 
   const previous = [...images];
-  const reordered = [...images];
-  const [moved] = reordered.splice(drag.draggedIndex, 1);
-  reordered.splice(dropIndex, 0, moved);
-
-  images = reordered;
+  images = arrayMove(images, drag.draggedIndex, dropIndex);
   drag.draggedIndex = null;
 
   try {
@@ -139,26 +135,21 @@ async function handleDrop(e, dropIndex) {
   }
 }
 
-// Keyboard-accessible reordering (#105).
+// Keyboard-accessible reordering (#105). The thumbnail grid renders every
+// image in backing-array order with no filtering, so the handle index equals
+// the `images` index. If image filtering is ever added, gate the handle (as
+// PetList does with `isDraggable`) and map indices by id, or this will reorder
+// by a misaligned index.
 let reorderAnnouncement = $state('');
-let preGrabOrder = null;
 const kbReorder = createKeyboardReorder({
   count: () => images.length,
   reorder: (from, to) => {
-    const list = [...images];
-    const [moved] = list.splice(from, 1);
-    list.splice(to, 0, moved);
-    images = list;
+    images = arrayMove(images, from, to);
   },
-  onGrab: () => {
-    preGrabOrder = [...images];
-  },
-  persist: async () => {
-    try {
-      await reorderImages(images.map((img) => img.id));
-    } catch {
-      if (preGrabOrder) images = preGrabOrder;
-    }
+  persist: () => reorderImages(images.map((img) => img.id)),
+  snapshot: () => [...images],
+  restore: (snap) => {
+    images = snap;
   },
   label: (i) => images[i]?.original_name || 'image',
   announce: (msg) => {
@@ -196,7 +187,7 @@ $effect(() => {
       <p class="empty-hint">Upload screenshots of your pet to build a gallery</p>
     </div>
   {:else}
-    <div class="sr-only" aria-live="assertive" role="status">{reorderAnnouncement}</div>
+    <div class="sr-only" aria-live="polite" role="status">{reorderAnnouncement}</div>
     <div class="thumbnail-grid">
       {#each images as img, i (img.id)}
         <!-- svelte-ignore a11y_no_static_element_interactions -->

@@ -4,7 +4,7 @@ import { pickGenomeFiles, readFileContent } from '$lib/services/fileService.js';
 import { autoScanGameFolder } from '$lib/services/gameImport.js';
 import { compareSelectMode, comparisonActions, comparisonPets, comparisonReady } from '$lib/stores/comparison.js';
 import { allTags as allTagsStore, appState, error, pets, selectedPet } from '$lib/stores/pets.js';
-import { createDragState, createKeyboardReorder } from '$lib/utils/dragReorder.svelte.js';
+import { arrayMove, createDragState, createKeyboardReorder } from '$lib/utils/dragReorder.svelte.js';
 import { errorMessage } from '$lib/utils/error.js';
 import { focusTrap } from '$lib/utils/focusTrap.js';
 import { getBasename } from '$lib/utils/path.js';
@@ -288,25 +288,12 @@ async function handleDrop(e, dropIndex) {
 // (`isDraggable`), so a card's index in `filteredPets` equals its index in
 // `$pets` and we can reorder the backing list directly.
 let reorderAnnouncement = $state('');
-let preGrabOrder = null;
 const kbReorder = createKeyboardReorder({
   count: () => $pets.length,
-  reorder: (from, to) => {
-    const list = [...$pets];
-    const [moved] = list.splice(from, 1);
-    list.splice(to, 0, moved);
-    pets.set(list);
-  },
-  onGrab: () => {
-    preGrabOrder = [...$pets];
-  },
-  persist: async () => {
-    try {
-      await appState.reorderPets($pets.map((p) => p.id));
-    } catch {
-      if (preGrabOrder) pets.set(preGrabOrder);
-    }
-  },
+  reorder: (from, to) => pets.set(arrayMove($pets, from, to)),
+  persist: () => appState.reorderPets($pets.map((p) => p.id)),
+  snapshot: () => [...$pets],
+  restore: (snap) => pets.set(snap),
   label: (i) => $pets[i]?.name || 'Unnamed',
   announce: (msg) => {
     reorderAnnouncement = msg;
@@ -352,7 +339,7 @@ const kbReorder = createKeyboardReorder({
         {/if}
     </div>
 
-    <div class="sr-only" aria-live="assertive" role="status">{reorderAnnouncement}</div>
+    <div class="sr-only" aria-live="polite" role="status">{reorderAnnouncement}</div>
     <div class="pet-list-items" aria-label="Pet list">
         {#if filteredPets.length > 0}
             {#each filteredPets as pet, index (pet.id)}

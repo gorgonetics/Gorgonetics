@@ -1,6 +1,19 @@
 import { tick } from 'svelte';
 
 /**
+ * Pure list move: return a copy of `list` with the item at `from` removed and
+ * reinserted at `to` (interpreted in the post-removal array, matching a
+ * splice-out/splice-in). Shared by the drag and keyboard reorder paths so the
+ * move logic lives in exactly one place.
+ */
+export function arrayMove<T>(list: T[], from: number, to: number): T[] {
+  const copy = [...list];
+  const [moved] = copy.splice(from, 1);
+  copy.splice(to, 0, moved);
+  return copy;
+}
+
+/**
  * Shared drag-and-drop reorder state and handlers.
  * Components provide their own handleDrop since the reorder logic differs
  * (PetList resolves through a filtered list, gallery operates on a flat array).
@@ -55,13 +68,18 @@ export interface KeyboardReorderOptions {
   /** Focus the reorder handle at `index` (called after the DOM settles so the
    * moved item keeps focus across a keyed `{#each}` reorder). */
   focusItem: (index: number) => void;
-  /** Snapshot the pre-grab order so a failed persist() can roll back. */
-  onGrab?: () => void;
+  /** Capture the current order so a failed persist() can roll back to it. */
+  snapshot: () => Snapshot;
+  /** Restore an order captured by `snapshot()` (rollback on persist failure). */
+  restore: (snap: Snapshot) => void;
   /** Human label for the item at `index`, used in screen-reader announcements. */
   label: (index: number) => string;
   /** Emit a message; wire to an aria-live region. */
   announce: (message: string) => void;
 }
+
+/** Opaque order snapshot captured by `snapshot()` and replayed by `restore()`. */
+type Snapshot = unknown;
 
 /**
  * Keyboard-accessible reordering (#105) — the a11y counterpart to
@@ -85,6 +103,9 @@ export interface KeyboardReorderOptions {
 export function createKeyboardReorder(opts: KeyboardReorderOptions) {
   let grabbedIndex = $state<number | null>(null);
   let originIndex: number | null = null;
+  // Order captured at grab time so a failed persist() (or some other consumer
+  // need) can roll back without each component hand-rolling the snapshot.
+  let preGrab: Snapshot;
   // Guards the blur that a keyed reorder fires while we relocate focus.
   let suppressBlur = false;
 
@@ -94,7 +115,10 @@ export function createKeyboardReorder(opts: KeyboardReorderOptions) {
     opts.reorder(from, to);
     grabbedIndex = to;
     await tick();
-    opts.focusItem(to);
+    // A concurrent external list update during the tick (e.g. a background
+    // reload) may have cleared or invalidated the grab — only refocus a handle
+    // that's still in range.
+    if (grabbedIndex !== null && grabbedIndex < opts.count()) opts.focusItem(grabbedIndex);
     suppressBlur = false;
   }
 
@@ -104,7 +128,13 @@ export function createKeyboardReorder(opts: KeyboardReorderOptions) {
     const at = grabbedIndex;
     grabbedIndex = null;
     originIndex = null;
-    if (moved) await opts.persist();
+    if (moved) {
+      try {
+        await opts.persist();
+      } catch {
+        opts.restore(preGrab);
+      }
+    }
     return at;
   }
 
@@ -126,7 +156,7 @@ export function createKeyboardReorder(opts: KeyboardReorderOptions) {
         if (grabbedIndex === null) {
           grabbedIndex = index;
           originIndex = index;
-          opts.onGrab?.();
+          preGrab = opts.snapshot();
           opts.announce(
             `Grabbed ${opts.label(index)}, position ${index + 1} of ${count}. ` +
               'Use up and down arrows to move, space to drop, escape to cancel.',
