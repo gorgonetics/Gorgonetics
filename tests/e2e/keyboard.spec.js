@@ -116,6 +116,64 @@ test.describe('Keyboard Navigation', () => {
     });
   });
 
+  test.describe('Keyboard Reordering (Issue #105)', () => {
+    test.beforeEach(async ({ page }) => {
+      await page.goto('/');
+      await waitForPets(page);
+    });
+
+    async function petNames(page) {
+      return page.locator('.pet-list-items .pet-card-name').allInnerTexts();
+    }
+
+    test('grab, move, and drop reorders the list and keeps focus on the moved item', async ({ page }) => {
+      const before = await petNames(page);
+      test.skip(before.length < 2, 'needs at least two pets');
+
+      const firstHandle = page.locator('.pet-list-items .reorder-handle').first();
+      await firstHandle.focus();
+      await expect(firstHandle).toHaveAttribute('aria-grabbed', 'false');
+
+      // Grab the first item.
+      await page.keyboard.press('Space');
+      await expect(firstHandle).toHaveAttribute('aria-grabbed', 'true');
+      await expect(page.locator('.pet-list [aria-live]')).toContainText('Grabbed');
+
+      // Move it down one slot — it should swap with the former second item.
+      await page.keyboard.press('ArrowDown');
+      const afterMove = await petNames(page);
+      expect(afterMove[0]).toBe(before[1]);
+      expect(afterMove[1]).toBe(before[0]);
+
+      // The grabbed item's handle keeps focus across the keyed reorder.
+      const grabbedHandle = page.locator('.pet-list-items .reorder-handle').nth(1);
+      await expect(grabbedHandle).toBeFocused();
+      await expect(grabbedHandle).toHaveAttribute('aria-grabbed', 'true');
+
+      // Drop it.
+      await page.keyboard.press('Space');
+      await expect(page.locator('.reorder-handle[aria-grabbed="true"]')).toHaveCount(0);
+      await expect(page.locator('.pet-list [aria-live]')).toContainText('Dropped');
+      // Order holds after dropping.
+      expect(await petNames(page)).toEqual(afterMove);
+    });
+
+    test('Escape cancels a move and restores the original order', async ({ page }) => {
+      const before = await petNames(page);
+      test.skip(before.length < 2, 'needs at least two pets');
+
+      await page.locator('.pet-list-items .reorder-handle').first().focus();
+      await page.keyboard.press('Space');
+      await page.keyboard.press('ArrowDown');
+      expect((await petNames(page))[0]).toBe(before[1]);
+
+      await page.keyboard.press('Escape');
+      expect(await petNames(page)).toEqual(before);
+      await expect(page.locator('.reorder-handle[aria-grabbed="true"]')).toHaveCount(0);
+      await expect(page.locator('.pet-list [aria-live]')).toContainText('Cancelled');
+    });
+  });
+
   test.describe('Settings Modal', () => {
     test('Escape closes the modal', async ({ page }) => {
       await page.goto('/');

@@ -7,7 +7,7 @@ import {
   reorderImages,
   uploadImage,
 } from '$lib/services/imageService.js';
-import { createDragState } from '$lib/utils/dragReorder.svelte.js';
+import { arrayMove, createDragState, createKeyboardReorder } from '$lib/utils/dragReorder.svelte.js';
 import { errorMessage } from '$lib/utils/error.js';
 import { focusTrap } from '$lib/utils/focusTrap.js';
 import { getBasename } from '$lib/utils/path.js';
@@ -125,11 +125,7 @@ async function handleDrop(e, dropIndex) {
   }
 
   const previous = [...images];
-  const reordered = [...images];
-  const [moved] = reordered.splice(drag.draggedIndex, 1);
-  reordered.splice(dropIndex, 0, moved);
-
-  images = reordered;
+  images = arrayMove(images, drag.draggedIndex, dropIndex);
   drag.draggedIndex = null;
 
   try {
@@ -138,6 +134,31 @@ async function handleDrop(e, dropIndex) {
     images = previous;
   }
 }
+
+// Keyboard-accessible reordering (#105). The thumbnail grid renders every
+// image in backing-array order with no filtering, so the handle index equals
+// the `images` index. If image filtering is ever added, gate the handle (as
+// PetList does with `isDraggable`) and map indices by id, or this will reorder
+// by a misaligned index.
+let reorderAnnouncement = $state('');
+const kbReorder = createKeyboardReorder({
+  count: () => images.length,
+  reorder: (from, to) => {
+    images = arrayMove(images, from, to);
+  },
+  persist: () => reorderImages(images.map((img) => img.id)),
+  snapshot: () => [...images],
+  restore: (snap) => {
+    images = snap;
+  },
+  label: (i) => images[i]?.original_name || 'image',
+  announce: (msg) => {
+    reorderAnnouncement = msg;
+  },
+  focusItem: (i) => {
+    document.querySelectorAll('.thumbnail-grid .reorder-handle')[i]?.focus();
+  },
+});
 
 onDestroy(() => clearTimeout(statusTimer));
 
@@ -166,6 +187,7 @@ $effect(() => {
       <p class="empty-hint">Upload screenshots of your pet to build a gallery</p>
     </div>
   {:else}
+    <div class="sr-only" aria-live="polite" role="status">{reorderAnnouncement}</div>
     <div class="thumbnail-grid">
       {#each images as img, i (img.id)}
         <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -173,6 +195,7 @@ $effect(() => {
           class="thumbnail-card"
           class:dragging={drag.draggedIndex === i}
           class:drag-over={drag.dragOverIndex === i && drag.draggedIndex !== i}
+          class:kb-grabbed={kbReorder.isGrabbed(i)}
           draggable="true"
           ondragstart={(e) => drag.handleDragStart(e, i)}
           ondragover={(e) => drag.handleDragOver(e, i)}
@@ -180,6 +203,15 @@ $effect(() => {
           ondrop={(e) => handleDrop(e, i)}
           ondragend={drag.handleDragEnd}
         >
+          <button
+            type="button"
+            class="reorder-handle"
+            aria-label="Reorder {img.original_name || 'image'}"
+            aria-grabbed={kbReorder.isGrabbed(i)}
+            title="Reorder: press Space to grab, arrow keys to move, Space to drop"
+            onkeydown={(e) => kbReorder.handleKeydown(e, i)}
+            onblur={kbReorder.handleBlur}
+          >⠿</button>
           <button class="thumbnail-btn" onclick={() => openLightbox(i)}>
             <img src={img.url} alt={img.original_name} loading="lazy" />
           </button>
@@ -313,6 +345,45 @@ $effect(() => {
   .thumbnail-card.drag-over {
     border-color: var(--accent);
     box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+  }
+
+  .thumbnail-card.kb-grabbed {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent);
+  }
+
+  .reorder-handle {
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    z-index: 1;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: none;
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.45);
+    color: #fff;
+    cursor: grab;
+    font-size: 13px;
+    line-height: 1;
+    opacity: 0;
+  }
+
+  .thumbnail-card:hover .reorder-handle,
+  .thumbnail-card:focus-within .reorder-handle,
+  .reorder-handle:focus-visible {
+    opacity: 1;
+  }
+
+  .reorder-handle:focus-visible {
+    outline: 2px solid var(--accent);
+  }
+
+  .reorder-handle[aria-grabbed='true'] {
+    cursor: grabbing;
+    background: var(--accent);
+    opacity: 1;
   }
 
   .thumbnail-btn {
