@@ -4,7 +4,7 @@ import { pickGenomeFiles, readFileContent } from '$lib/services/fileService.js';
 import { autoScanGameFolder } from '$lib/services/gameImport.js';
 import { compareSelectMode, comparisonActions, comparisonPets, comparisonReady } from '$lib/stores/comparison.js';
 import { allTags as allTagsStore, appState, error, pets, selectedPet } from '$lib/stores/pets.js';
-import { createDragState } from '$lib/utils/dragReorder.svelte.js';
+import { createDragState, createKeyboardReorder } from '$lib/utils/dragReorder.svelte.js';
 import { errorMessage } from '$lib/utils/error.js';
 import { focusTrap } from '$lib/utils/focusTrap.js';
 import { getBasename } from '$lib/utils/path.js';
@@ -283,6 +283,38 @@ async function handleDrop(e, dropIndex) {
     pets.set(previous);
   }
 }
+
+// Keyboard-accessible reordering (#105). Only active while unfiltered
+// (`isDraggable`), so a card's index in `filteredPets` equals its index in
+// `$pets` and we can reorder the backing list directly.
+let reorderAnnouncement = $state('');
+let preGrabOrder = null;
+const kbReorder = createKeyboardReorder({
+  count: () => $pets.length,
+  reorder: (from, to) => {
+    const list = [...$pets];
+    const [moved] = list.splice(from, 1);
+    list.splice(to, 0, moved);
+    pets.set(list);
+  },
+  onGrab: () => {
+    preGrabOrder = [...$pets];
+  },
+  persist: async () => {
+    try {
+      await appState.reorderPets($pets.map((p) => p.id));
+    } catch {
+      if (preGrabOrder) pets.set(preGrabOrder);
+    }
+  },
+  label: (i) => $pets[i]?.name || 'Unnamed',
+  announce: (msg) => {
+    reorderAnnouncement = msg;
+  },
+  focusItem: (i) => {
+    document.querySelectorAll('.pet-list-items .reorder-handle')[i]?.focus();
+  },
+});
 </script>
 
 <div class="pet-list">
@@ -320,6 +352,7 @@ async function handleDrop(e, dropIndex) {
         {/if}
     </div>
 
+    <div class="sr-only" aria-live="assertive" role="status">{reorderAnnouncement}</div>
     <div class="pet-list-items" aria-label="Pet list">
         {#if filteredPets.length > 0}
             {#each filteredPets as pet, index (pet.id)}
@@ -328,6 +361,7 @@ async function handleDrop(e, dropIndex) {
                     class="pet-card-wrapper"
                     class:drag-over={drag.dragOverIndex === index && drag.draggedIndex !== index}
                     class:dragging={drag.draggedIndex === index}
+                    class:kb-grabbed={kbReorder.isGrabbed(index)}
                     draggable={isDraggable}
                     ondragstart={(e) => drag.handleDragStart(e, index)}
                     ondragover={(e) => drag.handleDragOver(e, index)}
@@ -335,6 +369,17 @@ async function handleDrop(e, dropIndex) {
                     ondrop={(e) => handleDrop(e, index)}
                     ondragend={drag.handleDragEnd}
                 >
+                    {#if isDraggable}
+                        <button
+                            type="button"
+                            class="reorder-handle"
+                            aria-label="Reorder {pet.name || 'Unnamed'}"
+                            aria-grabbed={kbReorder.isGrabbed(index)}
+                            title="Reorder: press Space to grab, arrow keys to move, Space to drop"
+                            onkeydown={(e) => kbReorder.handleKeydown(e, index)}
+                            onblur={kbReorder.handleBlur}
+                        >⠿</button>
+                    {/if}
                     {#if $compareSelectMode}
                         <input
                             type="checkbox"
@@ -585,6 +630,44 @@ async function handleDrop(e, dropIndex) {
 
     .pet-card-wrapper.drag-over {
         border-top: 2px solid var(--accent);
+    }
+
+    .pet-card-wrapper.kb-grabbed {
+        outline: 2px solid var(--accent);
+        outline-offset: 1px;
+        border-radius: 8px;
+    }
+
+    .reorder-handle {
+        flex: 0 0 auto;
+        width: 18px;
+        height: 32px;
+        padding: 0;
+        border: none;
+        background: none;
+        color: var(--text-tertiary);
+        cursor: grab;
+        font-size: 14px;
+        line-height: 1;
+        opacity: 0;
+        border-radius: 4px;
+    }
+
+    .pet-card-wrapper:hover .reorder-handle,
+    .pet-card-wrapper:focus-within .reorder-handle,
+    .reorder-handle:focus-visible {
+        opacity: 1;
+    }
+
+    .reorder-handle:focus-visible {
+        outline: 2px solid var(--accent);
+        color: var(--text-primary);
+    }
+
+    .reorder-handle[aria-grabbed='true'] {
+        cursor: grabbing;
+        color: var(--accent);
+        opacity: 1;
     }
 
     .drop-zone-end {
