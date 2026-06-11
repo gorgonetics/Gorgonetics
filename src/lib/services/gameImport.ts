@@ -226,6 +226,18 @@ export async function autoScanGameFolder(options?: {
     }
   }
 
+  // Refresh the in-memory pets store ourselves when the scan changed the DB,
+  // so every caller doesn't have to remember the post-scan `loadPets()` chant
+  // (#253). Dynamic import keeps this UI-store dependency out of the service's
+  // static graph and off the non-Tauri path. Fire-and-forget: the scan result
+  // is already complete and shouldn't block on the reload.
+  if (result.imported > 0 || result.backfilled > 0) {
+    const { appState } = await import('$lib/stores/pets.js');
+    appState.loadPets().catch(() => {
+      /* a failed reload surfaces via the store's own error state */
+    });
+  }
+
   return result;
 }
 
