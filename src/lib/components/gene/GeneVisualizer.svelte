@@ -1207,11 +1207,11 @@ export function getStatsData() {
 
 <div class="gene-visualizer" bind:this={containerElement}>
     {#if loading}
-        <StatusPane variant="loading" body="Loading gene data..." />
+        <div class="visualizer-state"><StatusPane variant="loading" body="Loading gene data..." /></div>
     {:else if error}
-        <StatusPane variant="error" body="Error: {error}" />
+        <div class="visualizer-state"><StatusPane variant="error" body="Error: {error}" /></div>
     {:else if !currentPet}
-        <StatusPane variant="empty" body="Select a pet to visualize its genes" />
+        <div class="visualizer-state"><StatusPane variant="empty" body="Select a pet to visualize its genes" /></div>
     {:else}
         <div class="visualizer-content">
             <div class="gene-section">
@@ -1633,6 +1633,15 @@ export function getStatsData() {
 
 <style>
     /* Gene colors defined as --gene-* CSS vars in :root in src/app.css */
+
+    /* Fills the visualizer column and centres the shared StatusPane vertically
+       (the states previously occupied a fixed 300px centred box). */
+    .visualizer-state {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
 
     .gene-visualizer {
         height: 100%;
