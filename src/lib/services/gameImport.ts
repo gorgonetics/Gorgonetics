@@ -235,7 +235,9 @@ export async function autoScanGameFolder(options?: {
   // surfaces via the store's own error state, so it must not reject the scan.
   if (result.imported > 0 || result.backfilled > 0) {
     const { appState } = await import('$lib/stores/pets.js');
-    await appState.loadPets().catch(() => {});
+    // loadPets() handles its own errors (surfaces via the store's error state)
+    // and never rejects, so awaiting it bare is safe.
+    await appState.loadPets();
   }
 
   return result;

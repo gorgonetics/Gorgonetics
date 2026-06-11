@@ -25,12 +25,22 @@ export const DEFAULT_RAW_TEXT_HASH = await sha256Hex(DEFAULT_RAW_TEXT);
  * @param {object} [opts]
  * @param {string} [opts.rawText]      genome text (defaults to DEFAULT_RAW_TEXT)
  * @param {string} [opts.contentHash]  explicit hash; defaults to the digest of
- *   `DEFAULT_RAW_TEXT` when `rawText` is the default, else `''` (use `freshPet`
- *   for a real digest of arbitrary text — hashing is async)
- * @param {object} [opts.overrides]    any further field overrides (snake_case,
- *   e.g. `{ content_hash: '' }` or `{ genome_text: '' }`), applied last
+ *   `DEFAULT_RAW_TEXT` when `rawText` is the default
+ * @param {...*} [opts.overrides]      any other own properties are spread onto
+ *   the pet as field overrides (snake_case, e.g. `makePet({ content_hash: '' })`
+ *   or `makePet({ genome_text: '' })`), applied last
  */
 export function makePet({ rawText = DEFAULT_RAW_TEXT, contentHash, ...overrides } = {}) {
+  // Resolve a coherent content_hash. We can only sync-derive it for the
+  // default text; arbitrary rawText must hash async (use freshPet) or carry an
+  // explicit hash. An explicit content_hash override (including '') is honoured
+  // via `overrides`. Fail loud at the fixture boundary rather than letting an
+  // incoherent pet trip a vaguer error deep inside uploadPet.
+  const hash =
+    contentHash ?? overrides.content_hash ?? (rawText === DEFAULT_RAW_TEXT ? DEFAULT_RAW_TEXT_HASH : undefined);
+  if (hash === undefined) {
+    throw new Error('makePet: pass contentHash (or use freshPet) when overriding rawText — hashing is async');
+  }
   return {
     id: 1,
     name: 'Buzz',
@@ -38,7 +48,7 @@ export function makePet({ rawText = DEFAULT_RAW_TEXT, contentHash, ...overrides 
     gender: Gender.FEMALE,
     breed: '',
     breeder: 'PlayerOne',
-    content_hash: contentHash ?? (rawText === DEFAULT_RAW_TEXT ? DEFAULT_RAW_TEXT_HASH : ''),
+    content_hash: hash,
     genome_data: JSON.stringify({ name: 'Buzz', breeder: 'PlayerOne', genes: {} }),
     genome_text: rawText,
     notes: '',

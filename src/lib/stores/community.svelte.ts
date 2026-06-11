@@ -237,8 +237,9 @@ export async function importSelected(fullPet: SharedPet): Promise<ImportResult> 
     } else if (result.status === 'already-imported') {
       // Backfill / race-recheck branch mutated an existing row's community
       // tag + genome_text in place, so a targeted append won't reflect it —
-      // fall back to a full reload.
-      appState.loadPets().catch(() => {});
+      // fall back to a full reload. loadPets() handles its own errors and
+      // never rejects, so fire-and-forget with void.
+      void appState.loadPets();
     }
     return result;
   } catch (err) {
