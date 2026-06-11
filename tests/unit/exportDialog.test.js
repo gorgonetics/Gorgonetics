@@ -42,11 +42,11 @@ describe('ExportDialog image-size warning (#92)', () => {
 
   it('does not warn for a typical-sized library', async () => {
     getTotalImageCount.mockResolvedValue(40);
-    const { queryByTestId } = renderDialog();
+    const { getByText, queryByTestId } = renderDialog();
 
-    // Let the count effect resolve, then confirm no warning.
-    await waitFor(() => expect(queryByTestId('share-genome-loading')).toBeNull());
-    await Promise.resolve();
+    // Wait for the count to actually land (it renders in the images checkbox
+    // description) before asserting the warning is absent.
+    await waitFor(() => expect(getByText(/40 images/)).toBeInTheDocument());
     expect(queryByTestId('export-image-warning')).toBeNull();
   });
 
