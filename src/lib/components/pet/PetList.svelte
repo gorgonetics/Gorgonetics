@@ -1,4 +1,5 @@
 <script>
+import StatusPane from '$lib/components/shared/StatusPane.svelte';
 import { normalizeSpecies } from '$lib/services/configService.js';
 import { pickGenomeFiles, readFileContent } from '$lib/services/fileService.js';
 import { autoScanGameFolder } from '$lib/services/gameImport.js';
@@ -415,9 +416,9 @@ const kbReorder = createKeyboardReorder({
                 ></div>
             {/if}
         {:else if $pets.length > 0 && (searchQuery || selectedTags.length > 0 || starredOnly || stabledOnly)}
-            <div class="empty-state">No pets match the current filters</div>
+            <StatusPane variant="empty" body="No pets match the current filters" />
         {:else}
-            <div class="empty-state">No pets yet. Upload a genome file to get started.</div>
+            <StatusPane variant="empty" body="No pets yet. Upload a genome file to get started." />
         {/if}
     </div>
 
@@ -705,13 +706,6 @@ const kbReorder = createKeyboardReorder({
     .delete-btn:hover {
         background: var(--error-bg);
         color: var(--error);
-    }
-
-    .empty-state {
-        padding: 24px 12px;
-        text-align: center;
-        color: var(--text-muted);
-        font-size: 13px;
     }
 
     .pet-list-footer {

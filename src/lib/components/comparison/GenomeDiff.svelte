@@ -1,4 +1,5 @@
 <script>
+import StatusPane from '$lib/components/shared/StatusPane.svelte';
 import { diffGenomes } from '$lib/services/comparisonService.js';
 
 const { petA, petB } = $props();
@@ -66,12 +67,9 @@ function geneTypeClass(type) {
 
 <div class="genome-diff">
     {#if loading}
-        <div class="loading-state">
-            <div class="spinner"></div>
-            <p>Computing genome diff...</p>
-        </div>
+        <StatusPane variant="loading" body="Computing genome diff..." />
     {:else if error}
-        <div class="error-state">⚠️ {error}</div>
+        <StatusPane variant="error" icon="⚠️" body={error} />
     {:else if summary}
         <div class="diff-summary">
             <span class="similarity-badge">
@@ -153,25 +151,6 @@ function geneTypeClass(type) {
 <style>
     .genome-diff {
         width: 100%;
-    }
-
-    .loading-state {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 8px;
-        padding: 40px;
-        color: var(--text-muted);
-        font-size: 13px;
-    }
-
-    .error-state {
-        padding: 12px 16px;
-        background: var(--error-bg);
-        border: 1px solid var(--error-border);
-        border-radius: 6px;
-        color: var(--error-text);
-        font-size: 13px;
     }
 
     .diff-summary {

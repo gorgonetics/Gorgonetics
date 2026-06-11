@@ -1,5 +1,6 @@
 <script>
 import { onDestroy, onMount } from 'svelte';
+import StatusPane from '$lib/components/shared/StatusPane.svelte';
 import {
   getAllAppearanceDisplayInfo,
   getAllAttributeDisplayInfo,
@@ -1206,11 +1207,11 @@ export function getStatsData() {
 
 <div class="gene-visualizer" bind:this={containerElement}>
     {#if loading}
-        <div class="loading-state">Loading gene data...</div>
+        <StatusPane variant="loading" body="Loading gene data..." />
     {:else if error}
-        <div class="error-state">Error: {error}</div>
+        <StatusPane variant="error" body="Error: {error}" />
     {:else if !currentPet}
-        <div class="empty-state">Select a pet to visualize its genes</div>
+        <StatusPane variant="empty" body="Select a pet to visualize its genes" />
     {:else}
         <div class="visualizer-content">
             <div class="gene-section">
@@ -1639,21 +1640,6 @@ export function getStatsData() {
         flex-direction: column;
         background: var(--bg-primary);
         min-height: 0;
-    }
-
-    .loading-state,
-    .error-state,
-    .empty-state {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        height: 300px;
-        color: var(--text-tertiary);
-        font-size: 16px;
-    }
-
-    .error-state {
-        color: var(--gene-negative);
     }
 
     .gene-visualizer {

@@ -2,6 +2,7 @@
 import AttributeComparison from '$lib/components/comparison/AttributeComparison.svelte';
 import GeneStatsComparison from '$lib/components/comparison/GeneStatsComparison.svelte';
 import GenomeGridDiff from '$lib/components/comparison/GenomeGridDiff.svelte';
+import StatusPane from '$lib/components/shared/StatusPane.svelte';
 import { normalizeSpecies } from '$lib/services/configService.js';
 import { comparisonPets, comparisonReady, speciesMismatch } from '$lib/stores/comparison.js';
 import { getSpeciesEmoji } from '$lib/utils/species.js';
@@ -71,9 +72,12 @@ const speciesLabel = $derived($comparisonPets[0] ? normalizeSpecies($comparisonP
         </div>
     {:else}
         <div class="empty-state">
-            <div class="empty-icon">⚖️</div>
-            <p class="state-title">Select two pets to compare</p>
-            <p class="state-text">Use the sidebar to pick two same-species pets for head-to-head comparison</p>
+            <StatusPane
+                variant="empty"
+                icon="⚖️"
+                title="Select two pets to compare"
+                body="Use the sidebar to pick two same-species pets for head-to-head comparison"
+            />
         </div>
     {/if}
 </div>
@@ -178,31 +182,11 @@ const speciesLabel = $derived($comparisonPets[0] ? normalizeSpecies($comparisonP
         padding: 20px;
     }
 
+    /* Fills the comparison area and centres the shared StatusPane vertically. */
     .empty-state {
         flex: 1;
         display: flex;
-        flex-direction: column;
         align-items: center;
         justify-content: center;
-        gap: 8px;
-        color: var(--text-muted);
-    }
-
-    .empty-icon {
-        font-size: 48px;
-        opacity: 0.4;
-    }
-
-    .state-title {
-        font-size: 16px;
-        font-weight: 600;
-        color: var(--text-tertiary);
-        margin: 0;
-    }
-
-    .state-text {
-        font-size: 13px;
-        color: var(--text-muted);
-        margin: 0;
     }
 </style>

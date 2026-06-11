@@ -1,4 +1,5 @@
 <script>
+import StatusPane from '$lib/components/shared/StatusPane.svelte';
 import { compareGeneStats } from '$lib/services/comparisonService.js';
 
 const { petA, petB } = $props();
@@ -58,12 +59,9 @@ const totalsB = $derived.by(() => {
 
 <div class="gene-stats-comparison">
     {#if loading}
-        <div class="loading-state">
-            <div class="spinner"></div>
-            <p>Loading gene stats...</p>
-        </div>
+        <StatusPane variant="loading" body="Loading gene stats..." />
     {:else if error}
-        <div class="error-state">⚠️ {error}</div>
+        <StatusPane variant="error" icon="⚠️" body={error} />
     {:else if results.length > 0}
         <table class="stats-table">
             <thead>
@@ -130,24 +128,6 @@ const totalsB = $derived.by(() => {
         width: 100%;
     }
 
-    .loading-state {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 8px;
-        padding: 40px;
-        color: var(--text-muted);
-        font-size: 13px;
-    }
-
-    .error-state {
-        padding: 12px 16px;
-        background: var(--error-bg);
-        border: 1px solid var(--error-border);
-        border-radius: 6px;
-        color: var(--error-text);
-        font-size: 13px;
-    }
 
     .stats-table {
         width: 100%;

@@ -1,4 +1,5 @@
 <script>
+import StatusPane from '$lib/components/shared/StatusPane.svelte';
 import { rankBreedingPairs } from '$lib/services/breedingService.js';
 import { getAllAttributeNames, getSupportedSpecies, normalizeSpecies } from '$lib/services/configService.js';
 import { breedingView } from '$lib/stores/breeding.svelte.js';
@@ -123,27 +124,24 @@ const horseBreedOptions = Object.keys(HORSE_BREEDS);
 
     <section class="results">
         {#if errored}
-            <div class="status-pane error" role="alert" data-testid="breeding-error">
-                <p><strong>Couldn't rank breeding pairs.</strong></p>
-                <p class="muted">
-                    Something went wrong while computing scores. Check the browser
-                    console for details, then change a control to retry.
-                </p>
+            <div class="status-state" data-testid="breeding-error">
+                <StatusPane
+                    variant="error"
+                    title="Couldn't rank breeding pairs."
+                    body="Something went wrong while computing scores. Check the browser console for details, then change a control to retry."
+                />
             </div>
         {:else if loading && pairs.length === 0}
-            <div class="status-pane" data-testid="breeding-loading">
-                <div class="spinner"></div>
-                <p>Computing pair scores…</p>
+            <div class="status-state" data-testid="breeding-loading">
+                <StatusPane variant="loading" body="Computing pair scores…" />
             </div>
         {:else if eligibleForCurrent.male === 0 || eligibleForCurrent.female === 0}
-            <div class="status-pane empty" data-testid="breeding-empty">
-                <p>
-                    No pairs to rank — need at least one stabled
-                    <strong>{breedingView.species}</strong> of each gender.
-                </p>
-                <p class="muted">
-                    Currently: {eligibleForCurrent.male} ♂ × {eligibleForCurrent.female} ♀
-                </p>
+            <div class="status-state" data-testid="breeding-empty">
+                <StatusPane
+                    variant="empty"
+                    title="No pairs to rank"
+                    body={`Need at least one stabled ${breedingView.species} of each gender. Currently: ${eligibleForCurrent.male} ♂ × ${eligibleForCurrent.female} ♀`}
+                />
             </div>
         {:else}
             <div class="results-meta">
@@ -252,23 +250,11 @@ const horseBreedOptions = Object.keys(HORSE_BREEDS);
         color: var(--text-muted);
     }
 
-    .status-pane {
+    /* Fills the results area and centres the shared StatusPane vertically. */
+    .status-state {
         flex: 1;
         display: flex;
-        flex-direction: column;
         align-items: center;
         justify-content: center;
-        gap: 8px;
-        color: var(--text-muted);
     }
-
-    .status-pane.empty p,
-    .status-pane.error p {
-        margin: 0;
-    }
-
-    .status-pane.error {
-        color: var(--error-text, var(--text-secondary));
-    }
-
 </style>
