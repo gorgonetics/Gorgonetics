@@ -1,5 +1,6 @@
 <script>
 import { onDestroy, onMount } from 'svelte';
+import StatusPane from '$lib/components/shared/StatusPane.svelte';
 import {
   getAllAppearanceDisplayInfo,
   getAllAttributeDisplayInfo,
@@ -1206,11 +1207,11 @@ export function getStatsData() {
 
 <div class="gene-visualizer" bind:this={containerElement}>
     {#if loading}
-        <div class="loading-state">Loading gene data...</div>
+        <div class="visualizer-state"><StatusPane variant="loading" body="Loading gene data..." /></div>
     {:else if error}
-        <div class="error-state">Error: {error}</div>
+        <div class="visualizer-state"><StatusPane variant="error" body={`Error: ${error}`} /></div>
     {:else if !currentPet}
-        <div class="empty-state">Select a pet to visualize its genes</div>
+        <div class="visualizer-state"><StatusPane variant="empty" body="Select a pet to visualize its genes" /></div>
     {:else}
         <div class="visualizer-content">
             <div class="gene-section">
@@ -1633,27 +1634,21 @@ export function getStatsData() {
 <style>
     /* Gene colors defined as --gene-* CSS vars in :root in src/app.css */
 
+    /* Fills the visualizer column and centres the shared StatusPane vertically
+       (the states previously occupied a fixed 300px centred box). */
+    .visualizer-state {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
     .gene-visualizer {
         height: 100%;
         display: flex;
         flex-direction: column;
         background: var(--bg-primary);
         min-height: 0;
-    }
-
-    .loading-state,
-    .error-state,
-    .empty-state {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        height: 300px;
-        color: var(--text-tertiary);
-        font-size: 16px;
-    }
-
-    .error-state {
-        color: var(--gene-negative);
     }
 
     .gene-visualizer {
