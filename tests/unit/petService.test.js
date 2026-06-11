@@ -212,6 +212,67 @@ describe('Pet Service', () => {
       expect(items[0].total_genes).toBeGreaterThan(0);
       expect(items[0].species).toBe('Horse');
     });
+
+    // Issue #254: the list path must not pull the heavy genome blobs. The
+    // in-memory adapter returns whole rows regardless of the projection, so
+    // assert at the SQL level by capturing the issued query. In production
+    // (real SQLite) the projection is what actually drops the columns.
+    //
+    // This also guards against the silent-drop bug class: it compares the
+    // captured list SELECT against the LIVE schema columns (SELECT * keys),
+    // so a future `ALTER TABLE pets ADD COLUMN` not reflected in
+    // ALL_PET_COLUMNS fails here instead of vanishing from list pets in prod.
+    it('list SELECT covers every pets column except the genome blobs and vestigial tags', async () => {
+      await petService.uploadPet(SAMPLE_BEEWASP, { name: 'Bee', gender: 'Female' });
+      const db = getDb();
+      const schemaCols = Object.keys((await db.select('SELECT * FROM pets LIMIT 1'))[0]);
+
+      const queries = [];
+      const originalSelect = db.select.bind(db);
+      db.select = (q, params) => {
+        queries.push(q);
+        return originalSelect(q, params);
+      };
+      try {
+        await petService.getAllPets();
+      } finally {
+        db.select = originalSelect;
+      }
+      const listQuery = queries.find((q) => /from pets/i.test(q) && !/count\(/i.test(q));
+      expect(listQuery).toBeDefined();
+
+      const excluded = new Set(['genome_data', 'genome_text', 'tags']);
+      for (const col of schemaCols) {
+        const inQuery = new RegExp(`\\b${col}\\b`).test(listQuery);
+        if (excluded.has(col)) {
+          expect(inQuery, `"${col}" should be excluded from the list SELECT`).toBe(false);
+        } else {
+          expect(inQuery, `"${col}" missing from the list SELECT — add it to ALL_PET_COLUMNS`).toBe(true);
+        }
+      }
+    });
+  });
+
+  describe('getPetGenomeText', () => {
+    it('returns the raw genome text for an existing pet', async () => {
+      const upload = await petService.uploadPet(SAMPLE_BEEWASP, { name: 'Bee', gender: 'Female' });
+      const text = await petService.getPetGenomeText(upload.pet_id);
+      expect(typeof text).toBe('string');
+      expect(text.length).toBeGreaterThan(0);
+      // It is the byte-identical uploaded file, so it re-hashes to content_hash.
+      const full = await petService.getPet(upload.pet_id);
+      expect(text).toBe(full.genome_text);
+    });
+
+    it('returns null for a non-existent id', async () => {
+      expect(await petService.getPetGenomeText(999999)).toBeNull();
+    });
+
+    it('returns empty string for a legacy row with no raw text', async () => {
+      const upload = await petService.uploadPet(SAMPLE_HORSE, { name: 'Legacy', gender: 'Male' });
+      await getDb().execute('UPDATE pets SET genome_text = $t WHERE id = $id', { t: '', id: upload.pet_id });
+      expect(await petService.getPetGenomeText(upload.pet_id)).toBe('');
+    });
   });
 
   describe('updatePet', () => {

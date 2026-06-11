@@ -302,6 +302,60 @@ async function loadTagsForPet(petId: number): Promise<string[]> {
 }
 
 /**
+ * Every column in the `pets` table — the base schema (database.ts) plus all
+ * `ALTER TABLE pets ADD COLUMN` migrations. Single source of truth for the
+ * projections below. The test `list SELECT covers every pets column…` in
+ * petService.test.js asserts this stays aligned with the live schema, so a
+ * future `ADD COLUMN` that isn't reflected here fails a test instead of
+ * silently vanishing from list pets in production.
+ */
+const ALL_PET_COLUMNS = [
+  'id',
+  'name',
+  'species',
+  'gender',
+  'breed',
+  'breeder',
+  'content_hash',
+  'genome_data',
+  'genome_text',
+  'notes',
+  'tags',
+  'created_at',
+  'updated_at',
+  'intelligence',
+  'toughness',
+  'friendliness',
+  'ruggedness',
+  'enthusiasm',
+  'virility',
+  'ferocity',
+  'temperament',
+  'sort_order',
+  'starred',
+  'stabled',
+  'is_pet_quality',
+  'positive_genes',
+  'total_genes',
+  'known_genes',
+  'unknown_genes',
+];
+
+/**
+ * Columns the list path (`getAllPets`) does NOT select:
+ *  - `genome_data` / `genome_text`: heavy blobs (up to 64 KiB each) the
+ *    list/grid UIs never render — issue #254. Gene rendering re-reads
+ *    `pet_genes` by id (`loadPetGridFromDb`); the share path lazy-fetches
+ *    `genome_text` (`getPetGenomeText`).
+ *  - `tags`: vestigial — tags live in `pet_tags` and `enrichPet` overwrites
+ *    the field from the junction.
+ */
+const NON_LIST_PET_COLUMNS = new Set(['genome_data', 'genome_text', 'tags']);
+
+/** Explicit list-path projection: every pets column minus the heavy/vestigial ones. */
+const LIST_PET_COLUMNS = ALL_PET_COLUMNS.filter((c) => !NON_LIST_PET_COLUMNS.has(c)).join(', ');
+
+/**
  * Get all pets.
  */
 export async function getAllPets(options?: {
@@ -324,8 +378,9 @@ export async function getAllPets(options?: {
   const countRows = await db.select<{ cnt: number }[]>(`SELECT COUNT(*) as cnt FROM pets${where}`, bindParams);
   const total = countRows[0].cnt;
 
-  // Get paginated results
-  let query = `SELECT * FROM pets${where} ORDER BY sort_order, name`;
+  // Get paginated results. Explicit column list (no genome blobs) — see
+  // LIST_PET_COLUMNS / issue #254.
+  let query = `SELECT ${LIST_PET_COLUMNS} FROM pets${where} ORDER BY sort_order, name`;
   const selectParams = { ...bindParams };
   if (options?.limit !== undefined) {
     query += ' LIMIT $limit OFFSET $offset';
@@ -771,13 +826,35 @@ export async function findPetByHash(contentHash: string): Promise<Pet | null> {
  * scanned folder, so the cost difference is N×two-extra-queries vs
  * N×one-tiny-query.
  */
-export async function findPetGenomeTextByHash(contentHash: string): Promise<string | null> {
+/**
+ * Slim single-row `genome_text` lookup shared by the by-hash and by-id
+ * fetchers. `whereColumn` and `bindName` are hardcoded identifiers from the
+ * callers below (never user input). Defines the lookup contract once:
+ * returns `''` for a legacy v13 row whose `genome_text` is NULL/empty, or
+ * `null` when no row matches.
+ */
+async function selectGenomeText(whereColumn: string, bindName: string, value: string | number): Promise<string | null> {
   const db = getDb();
   const rows = await db.select<{ genome_text: string }[]>(
-    'SELECT genome_text FROM pets WHERE content_hash = $hash LIMIT 1',
-    { hash: contentHash },
+    `SELECT genome_text FROM pets WHERE ${whereColumn} = $${bindName} LIMIT 1`,
+    { [bindName]: value },
   );
   return rows.length > 0 ? (rows[0].genome_text ?? '') : null;
+}
+
+export async function findPetGenomeTextByHash(contentHash: string): Promise<string | null> {
+  return selectGenomeText('content_hash', 'hash', contentHash);
+}
+
+/**
+ * Fetch just the `genome_text` for one pet by id. The list path
+ * (`getAllPets`) omits the genome blobs (issue #254), so the share dialog
+ * lazy-loads the raw text on demand from the `selectedPet`'s id rather than
+ * paying for it on every list load. Returns `''` for legacy v13 rows that
+ * never had raw text, or `null` if the id doesn't exist.
+ */
+export async function getPetGenomeText(petId: number): Promise<string | null> {
+  return selectGenomeText('id', 'id', petId);
 }
 
 /**

@@ -1,9 +1,11 @@
 <script>
 import StatusBanner from '$lib/components/shared/StatusBanner.svelte';
 import { isPlaceholderConfig } from '$lib/firebase.js';
+import { getPetGenomeText } from '$lib/services/petService.js';
 import { sanitizeTags, uploadPet } from '$lib/services/shareService.js';
 import { errorMessage } from '$lib/utils/error.js';
 import { focusTrap } from '$lib/utils/focusTrap.js';
+import { keyedResource } from '$lib/utils/keyedResource.svelte.js';
 
 const { pet, onClose, onResult } = $props();
 
@@ -11,22 +13,45 @@ let includeNotes = $state(false);
 let sharing = $state(false);
 let shareError = $state('');
 
+// The list path (`getAllPets`) omits `genome_text` for payload size
+// (issue #254), so `selectedPet` — and therefore the `pet` prop here —
+// usually lacks it. When it's already present (e.g. a full-row fetch
+// path), use it directly and skip the lazy load; otherwise lazy-load by
+// id through the shared keyed resource, which handles the loading flag,
+// rejects a stale result if the dialog is re-pointed at another pet, and
+// surfaces a real fetch error (vs. a legacy empty row) distinctly.
+// `value` is the raw text ('' for legacy v13 rows, null for a missing id).
+const propHasGenome = $derived(typeof pet?.genome_text === 'string');
+const genome = keyedResource(
+  () => (propHasGenome ? undefined : pet?.id),
+  (id) => getPetGenomeText(id),
+);
+// Single source of truth for the raw text: prefer the prop, fall back to
+// the lazily-loaded value.
+const genomeText = $derived(propHasGenome ? pet.genome_text : genome.value);
+
 const previewTags = $derived(sanitizeTags(pet?.tags ?? []));
 const hasNotes = $derived(typeof pet?.notes === 'string' && pet.notes.trim().length > 0);
+const genomeLoading = $derived(!propHasGenome && genome.loading);
+const genomeError = $derived(!propHasGenome && genome.error ? errorMessage(genome.error) : '');
 // Legacy pets imported before migration v13 don't have the raw genome
 // text on file, so we can't recompute the hash-matching upload payload
 // for them. They can be shared after the user re-imports the file.
-const hasRawGenome = $derived(typeof pet?.genome_text === 'string' && pet.genome_text.length > 0);
+const hasRawGenome = $derived(typeof genomeText === 'string' && genomeText.length > 0);
 
 async function handleShare() {
-  // Belt-and-suspenders: the Share button is disabled when the placeholder
-  // config is still in place or the pet lacks raw genome text, so this
-  // should never fire. The early return guards programmatic re-entry.
-  if (isPlaceholderConfig || !hasRawGenome) return;
+  // Belt-and-suspenders: the Share button is already disabled while the
+  // config is a placeholder, the genome text is loading or errored, or the
+  // pet lacks raw genome text (`hasRawGenome` is false in all those cases),
+  // so this should never fire. The early return guards programmatic re-entry.
+  if (isPlaceholderConfig || genomeLoading || !hasRawGenome) return;
   sharing = true;
   shareError = '';
   try {
-    const petToShare = includeNotes ? pet : { ...pet, notes: '' };
+    // Rebuild the upload payload: strip notes unless opted in, and attach the
+    // lazily-loaded raw text (the list-path `pet` doesn't carry it). uploadPet
+    // re-hashes genome_text against content_hash.
+    const petToShare = { ...pet, notes: includeNotes ? pet.notes : '', genome_text: genomeText };
     const result = await uploadPet(petToShare);
     if (result.status === 'already-shared') {
       onResult({
@@ -79,6 +104,13 @@ async function handleShare() {
           The community catalogue isn't configured for this build of Gorgonetics yet, so
           uploads are disabled. See <code>docs/firebase-setup.md</code> for how to wire up a
           Firebase project, or wait for a release with sharing enabled.
+        </div>
+      {:else if genomeLoading}
+        <div class="banner" data-testid="share-genome-loading">Loading genome…</div>
+      {:else if genomeError}
+        <div class="banner banner-warn" data-testid="share-genome-error">
+          Couldn't read this pet's genome from the local database: {genomeError}. Close
+          and reopen this dialog to try again.
         </div>
       {:else if !hasRawGenome}
         <div class="banner banner-warn" data-testid="share-no-raw-genome">
@@ -160,9 +192,9 @@ async function handleShare() {
         class="btn btn-primary"
         data-testid="share-confirm"
         onclick={handleShare}
-        disabled={sharing || isPlaceholderConfig || !hasRawGenome}
+        disabled={sharing || isPlaceholderConfig || genomeLoading || !hasRawGenome}
       >
-        {sharing ? 'Sharing…' : 'Share to community'}
+        {sharing ? 'Sharing…' : genomeLoading ? 'Loading…' : 'Share to community'}
       </button>
     </div>
   </div>

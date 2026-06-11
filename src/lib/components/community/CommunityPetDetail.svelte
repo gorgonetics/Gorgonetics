@@ -3,6 +3,7 @@ import StatusBanner from '$lib/components/shared/StatusBanner.svelte';
 import { getSharedPet } from '$lib/services/shareService.js';
 import { clearSelection, communityView, importSelected, selectedSharedPet } from '$lib/stores/community.svelte.js';
 import { errorMessage } from '$lib/utils/error.js';
+import { keyedResource } from '$lib/utils/keyedResource.svelte.js';
 import { formatShortDate } from '$lib/utils/timestamp.js';
 
 const pet = $derived(selectedSharedPet());
@@ -17,55 +18,31 @@ const isImportingThis = $derived(communityView.importingHash === pet?.contentHas
 const isAnyImportInFlight = $derived(communityView.importingHash !== null);
 
 // The list view holds metadata-only SharedPets (no `genomeData`); the
-// detail pane fetches the genome on demand. Tracked locally so the store
-// doesn't need a parallel "full pet" cache layer.
-let fullPet = $state(null);
-let genomeLoading = $state(false);
-let genomeError = $state(null);
+// detail pane fetches the full pet on demand via the shared keyed resource,
+// which rejects a stale result if the user moves to another row mid-fetch.
 let importStatus = $state(null);
 
-// Non-reactive guard against duplicate fetches. We can't read `fullPet`
-// inside the effect (assigning to it during the effect body would
-// retrigger the effect before the in-flight `getSharedPet` resolves,
-// firing a second fetch for the same hash), so we track the in-flight
-// hash separately as a plain variable.
-let loadedHash = '';
+const genome = keyedResource(
+  () => pet?.contentHash,
+  (hash) => getSharedPet(hash),
+);
+const genomeLoading = $derived(genome.loading);
+// A successful fetch whose `genomeData` is missing means the blob was taken
+// down — surfaced as an error message, distinct from a genuine fetch failure.
+const fullPet = $derived(genome.value?.genomeData ? genome.value : null);
+const genomeError = $derived(
+  genome.error
+    ? errorMessage(genome.error)
+    : genome.value && !genome.value.genomeData
+      ? 'Genome data is missing for this pet — it may have been taken down.'
+      : null,
+);
 
+// Reset the transient import banner when the selection changes, so a stale
+// "Imported …" message doesn't follow the user across rows.
 $effect(() => {
-  const hash = pet?.contentHash;
-  // Reset transient state whenever the selection changes — stale
-  // "Imported …" banners would otherwise follow the user across rows.
+  void pet?.contentHash;
   importStatus = null;
-  genomeError = null;
-  if (!hash) {
-    fullPet = null;
-    genomeLoading = false;
-    loadedHash = '';
-    return;
-  }
-  if (loadedHash === hash) return;
-
-  loadedHash = hash;
-  fullPet = null;
-  genomeLoading = true;
-  getSharedPet(hash)
-    .then((p) => {
-      // The user might have moved on while the fetch was in flight; only
-      // accept the result if it still matches the current selection.
-      if (loadedHash !== hash) return;
-      if (!p?.genomeData) {
-        genomeError = 'Genome data is missing for this pet — it may have been taken down.';
-        return;
-      }
-      fullPet = p;
-    })
-    .catch((err) => {
-      if (loadedHash !== hash) return;
-      genomeError = errorMessage(err);
-    })
-    .finally(() => {
-      if (loadedHash === hash) genomeLoading = false;
-    });
 });
 
 async function handleImport() {
