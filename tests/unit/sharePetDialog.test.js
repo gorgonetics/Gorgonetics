@@ -102,6 +102,53 @@ describe('SharePetDialog lazy genome fetch', () => {
     expect(uploadPet).not.toHaveBeenCalled();
   });
 
+  it('uses genome_text from the prop without fetching when it is already present', async () => {
+    uploadPet.mockResolvedValue({ status: 'created' });
+    const onResult = vi.fn();
+
+    const { getByTestId } = render(SharePetDialog, {
+      pet: listPet({ genome_text: 'PROP-GENOME-TEXT' }),
+      onClose: vi.fn(),
+      onResult,
+    });
+
+    // No lazy fetch, no loading state — Share is immediately available.
+    expect(getPetGenomeText).not.toHaveBeenCalled();
+    expect(getByTestId('share-confirm')).toBeEnabled();
+
+    await fireEvent.click(getByTestId('share-confirm'));
+    await waitFor(() => expect(uploadPet).toHaveBeenCalledTimes(1));
+    expect(uploadPet.mock.calls[0][0].genome_text).toBe('PROP-GENOME-TEXT');
+  });
+
+  it('discards a stale in-flight fetch when the key is cleared before it resolves', async () => {
+    // keyedResource must invalidate the previous key's fetch when the key
+    // goes null/undefined — otherwise a late resolution repopulates state
+    // the dialog has already cleared.
+    let resolveText;
+    getPetGenomeText.mockReturnValue(
+      new Promise((r) => {
+        resolveText = r;
+      }),
+    );
+
+    const { getByTestId, rerender } = render(SharePetDialog, {
+      pet: listPet(),
+      onClose: vi.fn(),
+      onResult: vi.fn(),
+    });
+    expect(getByTestId('share-genome-loading')).toBeTruthy();
+
+    // Re-point the dialog at a pet without an id (key becomes undefined).
+    await rerender({ pet: listPet({ id: undefined }), onClose: vi.fn(), onResult: vi.fn() });
+
+    // The original fetch resolves late — its result must be ignored.
+    resolveText('STALE-GENOME-TEXT');
+    await Promise.resolve();
+    await waitFor(() => expect(getByTestId('share-confirm')).toBeDisabled());
+    expect(uploadPet).not.toHaveBeenCalled();
+  });
+
   it('shows a distinct error banner (not the legacy banner) when the fetch fails', async () => {
     // A transient DB read failure must not masquerade as a legacy pet that
     // needs re-importing — it gets its own retryable error state.

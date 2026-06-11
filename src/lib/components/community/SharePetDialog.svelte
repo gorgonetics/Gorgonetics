@@ -15,24 +15,29 @@ let shareError = $state('');
 
 // The list path (`getAllPets`) omits `genome_text` for payload size
 // (issue #254), so `selectedPet` — and therefore the `pet` prop here —
-// lacks it. Lazy-load by id through the shared keyed resource: it handles
-// the loading flag, rejects a stale result if the dialog is re-pointed at
-// another pet, and surfaces a real fetch error (vs. a legacy empty row)
-// distinctly. `value` is the raw text ('' for legacy v13 rows, null for a
-// missing id).
+// usually lacks it. When it's already present (e.g. a full-row fetch
+// path), use it directly and skip the lazy load; otherwise lazy-load by
+// id through the shared keyed resource, which handles the loading flag,
+// rejects a stale result if the dialog is re-pointed at another pet, and
+// surfaces a real fetch error (vs. a legacy empty row) distinctly.
+// `value` is the raw text ('' for legacy v13 rows, null for a missing id).
+const propHasGenome = $derived(typeof pet?.genome_text === 'string');
 const genome = keyedResource(
-  () => pet?.id,
+  () => (propHasGenome ? undefined : pet?.id),
   (id) => getPetGenomeText(id),
 );
+// Single source of truth for the raw text: prefer the prop, fall back to
+// the lazily-loaded value.
+const genomeText = $derived(propHasGenome ? pet.genome_text : genome.value);
 
 const previewTags = $derived(sanitizeTags(pet?.tags ?? []));
 const hasNotes = $derived(typeof pet?.notes === 'string' && pet.notes.trim().length > 0);
-const genomeLoading = $derived(genome.loading);
-const genomeError = $derived(genome.error ? errorMessage(genome.error) : '');
+const genomeLoading = $derived(!propHasGenome && genome.loading);
+const genomeError = $derived(!propHasGenome && genome.error ? errorMessage(genome.error) : '');
 // Legacy pets imported before migration v13 don't have the raw genome
 // text on file, so we can't recompute the hash-matching upload payload
 // for them. They can be shared after the user re-imports the file.
-const hasRawGenome = $derived(typeof genome.value === 'string' && genome.value.length > 0);
+const hasRawGenome = $derived(typeof genomeText === 'string' && genomeText.length > 0);
 
 async function handleShare() {
   // Belt-and-suspenders: the Share button is already disabled while the
@@ -46,7 +51,7 @@ async function handleShare() {
     // Rebuild the upload payload: strip notes unless opted in, and attach the
     // lazily-loaded raw text (the list-path `pet` doesn't carry it). uploadPet
     // re-hashes genome_text against content_hash.
-    const petToShare = { ...pet, notes: includeNotes ? pet.notes : '', genome_text: genome.value };
+    const petToShare = { ...pet, notes: includeNotes ? pet.notes : '', genome_text: genomeText };
     const result = await uploadPet(petToShare);
     if (result.status === 'already-shared') {
       onResult({

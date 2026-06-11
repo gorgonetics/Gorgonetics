@@ -30,6 +30,9 @@ export function keyedResource(key, fetcher) {
     const k = key();
     if (k === null || k === undefined) {
       activeKey = k;
+      // Invalidate any in-flight fetch for the previous key — otherwise a
+      // late resolution would repopulate the state we're about to clear.
+      token++;
       state.loading = false;
       state.value = undefined;
       state.error = null;
