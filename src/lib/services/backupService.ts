@@ -16,7 +16,7 @@ import type {
 import { isTauri } from '$lib/utils/environment.js';
 import { now } from '$lib/utils/timestamp.js';
 import { getDb, type TxStatement } from './database.js';
-import { saveExportBinaryFile } from './fileService.js';
+import { pickExportSavePath, saveExportBinaryFile } from './fileService.js';
 import { CURRENT_SCHEMA_VERSION, getSchemaVersion } from './migrationService.js';
 
 const EXPORT_FORMAT = 'gorgonetics-backup' as const;
@@ -70,10 +70,42 @@ const PET_COLUMNS = [
 
 // --- Export ---
 
-export async function exportDatabase(options: ExportOptions): Promise<ExportResult> {
+/** A text member of the archive, written inline (JSON files). */
+interface ZipTextEntry {
+  archive_path: string;
+  contents: string;
+}
+
+/**
+ * An image file streamed into the archive natively. `source_rel` is resolved
+ * against the app data dir by the Rust `write_zip` command, which reads it
+ * straight from disk — the bytes never enter the JS heap (issue #92).
+ */
+interface ZipFileEntry {
+  archive_path: string;
+  source_rel: string;
+}
+
+interface WriteZipResult {
+  images_written: number;
+  images_skipped: string[];
+}
+
+/**
+ * Gather everything that goes into a backup archive.
+ *
+ * JSON members are collected as in-memory strings; image files are collected
+ * as path pairs (source on disk -> path inside the archive) rather than bytes.
+ * In Tauri, each referenced image is existence-checked (a cheap stat, not a
+ * read) so the manifest only lists files that are actually present.
+ */
+async function gatherBackupContents(
+  options: ExportOptions,
+): Promise<{ textEntries: ZipTextEntry[]; fileEntries: ZipFileEntry[]; counts: ExportResult }> {
   const db = getDb();
   const schemaVersion = await getSchemaVersion();
-  const zip = new JSZip();
+  const textEntries: ZipTextEntry[] = [];
+  const fileEntries: ZipFileEntry[] = [];
   let geneCount = 0;
   let petCount = 0;
   let imageCount = 0;
@@ -82,14 +114,13 @@ export async function exportDatabase(options: ExportOptions): Promise<ExportResu
     const genes = await db.select<Record<string, unknown>[]>(
       'SELECT * FROM genes ORDER BY animal_type, chromosome, gene',
     );
-    zip.file('genes.json', JSON.stringify(genes));
+    textEntries.push({ archive_path: 'genes.json', contents: JSON.stringify(genes) });
     geneCount = genes.length;
   }
 
-  let petsExport: Record<string, unknown>[] = [];
   if (options.includePets || options.includeImages) {
     const pets = await db.select<Record<string, unknown>[]>('SELECT * FROM pets ORDER BY name');
-    petsExport = pets.map((pet) => {
+    const petsExport = pets.map((pet) => {
       const copy = { ...pet };
       delete copy.id;
       if (typeof copy.genome_data === 'string') {
@@ -102,63 +133,64 @@ export async function exportDatabase(options: ExportOptions): Promise<ExportResu
       return copy;
     });
     if (options.includePets) {
-      zip.file('pets.json', JSON.stringify(petsExport));
+      textEntries.push({ archive_path: 'pets.json', contents: JSON.stringify(petsExport) });
       petCount = petsExport.length;
 
       // Export pet tags from junction table, keyed by content_hash for portability
       const tagRows = await db.select<{ content_hash: string; tag: string }[]>(
         'SELECT p.content_hash, pt.tag FROM pet_tags pt JOIN pets p ON pt.pet_id = p.id ORDER BY p.content_hash, pt.tag',
       );
-      zip.file('pet_tags.json', JSON.stringify(tagRows));
+      textEntries.push({ archive_path: 'pet_tags.json', contents: JSON.stringify(tagRows) });
     }
   }
 
   if (options.includeImages) {
-    const imageRows = await db.select<Record<string, unknown>[]>(
-      'SELECT pi.*, p.content_hash FROM pet_images pi JOIN pets p ON pi.pet_id = p.id ORDER BY pi.pet_id, pi.created_at',
-    );
-
-    // Read image files in parallel batches and track which succeeded
     const exportedImages: Record<string, unknown>[] = [];
+    // Images can only be streamed from disk under Tauri; in the browser/test
+    // fallback there is no filesystem to read, so the manifest stays empty
+    // (matching the previous behaviour).
     if (isTauri()) {
-      const { readFile, BaseDirectory } = await import('@tauri-apps/plugin-fs');
-      const BATCH = 10;
+      const imageRows = await db.select<Record<string, unknown>[]>(
+        'SELECT pi.*, p.content_hash FROM pet_images pi JOIN pets p ON pi.pet_id = p.id ORDER BY pi.pet_id, pi.created_at',
+      );
+      const { exists, BaseDirectory } = await import('@tauri-apps/plugin-fs');
+      const BATCH = 20;
       for (let i = 0; i < imageRows.length; i += BATCH) {
         const batch = imageRows.slice(i, i + BATCH);
-        const results = await Promise.allSettled(
-          batch.map(async (row) => {
-            const data = await readFile(`images/${row.pet_id}/${row.filename}`, { baseDir: BaseDirectory.AppData });
-            return { row, data };
-          }),
+        const checks = await Promise.all(
+          batch.map(async (row) => ({
+            row,
+            present: await exists(`images/${row.pet_id}/${row.filename}`, { baseDir: BaseDirectory.AppData }),
+          })),
         );
-        for (const r of results) {
-          if (r.status === 'fulfilled') {
-            const { row, data } = r.value;
-            zip.file(`images/${row.content_hash}/${row.filename}`, data);
-            exportedImages.push({
-              content_hash: row.content_hash,
-              filename: row.filename,
-              original_name: row.original_name,
-              caption: row.caption ?? '',
-              tags: row.tags ?? '[]',
-              created_at: row.created_at,
-              sort_order: row.sort_order ?? 0,
-            });
-            imageCount++;
-          }
+        for (const { row, present } of checks) {
+          if (!present) continue;
+          fileEntries.push({
+            archive_path: `images/${row.content_hash}/${row.filename}`,
+            source_rel: `images/${row.pet_id}/${row.filename}`,
+          });
+          exportedImages.push({
+            content_hash: row.content_hash,
+            filename: row.filename,
+            original_name: row.original_name,
+            caption: row.caption ?? '',
+            tags: row.tags ?? '[]',
+            created_at: row.created_at,
+            sort_order: row.sort_order ?? 0,
+          });
+          imageCount++;
         }
       }
     }
-    zip.file('images/pet_images.json', JSON.stringify(exportedImages));
+    textEntries.push({ archive_path: 'images/pet_images.json', contents: JSON.stringify(exportedImages) });
   }
 
-  const ts = now();
   const metadata: GorgonExportMetadata = {
     format: EXPORT_FORMAT,
     format_version: EXPORT_FORMAT_VERSION,
     schema_version: schemaVersion || CURRENT_SCHEMA_VERSION,
     app_version: APP_VERSION,
-    exported_at: ts,
+    exported_at: now(),
     contents: {
       genes: options.includeGenes,
       pets: options.includePets,
@@ -166,13 +198,39 @@ export async function exportDatabase(options: ExportOptions): Promise<ExportResu
     },
     record_counts: { genes: geneCount, pets: petCount, images: imageCount },
   };
-  zip.file('metadata.json', JSON.stringify(metadata, null, 2));
+  textEntries.push({ archive_path: 'metadata.json', contents: JSON.stringify(metadata, null, 2) });
 
+  return {
+    textEntries,
+    fileEntries,
+    counts: { saved: false, genes: geneCount, pets: petCount, images: imageCount },
+  };
+}
+
+export async function exportDatabase(options: ExportOptions): Promise<ExportResult> {
+  const { textEntries, fileEntries, counts } = await gatherBackupContents(options);
+  const dateStr = now().split('T')[0];
+  const filename = `gorgonetics-backup-${dateStr}.zip`;
+
+  if (isTauri()) {
+    // Native streaming path: Rust copies each image straight from disk into
+    // the archive, so a large library never materialises in the JS heap.
+    const outputPath = await pickExportSavePath(filename);
+    if (!outputPath) return { ...counts, saved: false };
+    const { invoke } = await import('@tauri-apps/api/core');
+    const result = await invoke<WriteZipResult>('write_zip', { outputPath, textEntries, fileEntries });
+    // Report what actually landed in the archive: a file that vanished between
+    // the existence check and the write is dropped by Rust.
+    return { ...counts, saved: true, images: result.images_written };
+  }
+
+  // Browser/test fallback: no native command, so build the (image-less)
+  // archive in memory with JSZip.
+  const zip = new JSZip();
+  for (const entry of textEntries) zip.file(entry.archive_path, entry.contents);
   const zipData = await zip.generateAsync({ type: 'uint8array' });
-  const dateStr = ts.split('T')[0];
-  const saved = await saveExportBinaryFile(`gorgonetics-backup-${dateStr}.zip`, zipData);
-
-  return { saved, genes: geneCount, pets: petCount, images: imageCount };
+  const saved = await saveExportBinaryFile(filename, zipData);
+  return { ...counts, saved };
 }
 
 // --- Import ---
