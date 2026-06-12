@@ -21,9 +21,18 @@ let exporting = $state(false);
 const showImageWarning = $derived(includeImages && imageCount >= LARGE_IMAGE_LIBRARY);
 
 $effect(() => {
-  getTotalImageCount().then((count) => {
-    imageCount = count;
-  });
+  let active = true;
+  getTotalImageCount()
+    .then((count) => {
+      if (active) imageCount = count;
+    })
+    .catch(() => {
+      // Count is only used to decide whether to show a warning; if it fails
+      // we leave the warning hidden rather than block the export dialog.
+    });
+  return () => {
+    active = false;
+  };
 });
 
 async function handleExport() {
