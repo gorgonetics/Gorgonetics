@@ -131,8 +131,14 @@ Output: `src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/Gorgonetics
 - **No raw fetch**: All data access through service layer, not HTTP calls
 
 ### Rust (src-tauri/)
-- Minimal — only plugin registration and Tauri boilerplate
-- No custom Tauri commands (all logic in TypeScript)
+- Minimal — plugin registration, Tauri boilerplate, and a small set of custom
+  commands only for work the webview genuinely can't do well in JS:
+  - `db_execute_transaction` — real multi-statement SQLite transactions
+    (tauri-plugin-sql exposes only per-statement execute; see issue #153)
+  - `write_zip` — streams the backup archive to disk so a large image library
+    is never fully resident in the JS heap (issue #92)
+- Default to TypeScript; add a command only when there's a memory, atomicity,
+  or capability reason the frontend can't satisfy.
 
 ### Quality Gates (enforced by CI)
 ```bash

@@ -162,12 +162,15 @@ fn write_zip_inner(
         }
         let mut src = match File::open(base.join(&entry.source_rel)) {
             Ok(f) => f,
-            // Missing/unreadable between the JS existence check and now: skip
-            // rather than abort the whole export.
-            Err(_) => {
+            // A file that vanished between the JS existence check and now is
+            // skipped (the export still succeeds). Any other open error
+            // (permissions, I/O) is surfaced rather than silently producing an
+            // incomplete backup.
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
                 images_skipped.push(entry.archive_path.clone());
                 continue;
             }
+            Err(e) => return Err(format!("open {}: {e}", entry.source_rel)),
         };
         zw.start_file(&entry.archive_path, opts)
             .map_err(|e| e.to_string())?;
