@@ -1,7 +1,14 @@
 <script>
+import StatusBanner from '$lib/components/shared/StatusBanner.svelte';
 import { exportDatabase } from '$lib/services/backupService.js';
 import { getTotalImageCount } from '$lib/services/imageService.js';
 import { focusTrap } from '$lib/utils/focusTrap.js';
+
+// The zip is built entirely in memory (JSZip `generateAsync`), so a very large
+// image library can briefly hold ~2× its total bytes (issue #92). Each image is
+// capped at 20 MB on upload, so count is a reasonable proxy: warn once a library
+// is large enough that the in-memory export could fail on a low-memory machine.
+const LARGE_IMAGE_LIBRARY = 100;
 
 const { onClose, onResult } = $props();
 
@@ -11,10 +18,21 @@ let includeImages = $state(true);
 let imageCount = $state(0);
 let exporting = $state(false);
 
+const showImageWarning = $derived(includeImages && imageCount >= LARGE_IMAGE_LIBRARY);
+
 $effect(() => {
-  getTotalImageCount().then((count) => {
-    imageCount = count;
-  });
+  let active = true;
+  getTotalImageCount()
+    .then((count) => {
+      if (active) imageCount = count;
+    })
+    .catch(() => {
+      // Count is only used to decide whether to show a warning; if it fails
+      // we leave the warning hidden rather than block the export dialog.
+    });
+  return () => {
+    active = false;
+  };
 });
 
 async function handleExport() {
@@ -72,6 +90,15 @@ async function handleExport() {
           </span>
         </div>
       </label>
+
+      {#if showImageWarning}
+        <div class="image-warning" data-testid="export-image-warning">
+          <StatusBanner
+            type="warn"
+            message={`Backing up ${imageCount} images builds the archive in memory and may fail on a low-memory machine. If the export fails, retry with images unchecked.`}
+          />
+        </div>
+      {/if}
     </div>
 
     <div class="dialog-footer">
@@ -105,5 +132,9 @@ async function handleExport() {
 
   .checkbox-row:last-of-type {
     border-bottom: none;
+  }
+
+  .image-warning {
+    margin-top: 12px;
   }
 </style>

@@ -1,0 +1,8 @@
+id: eslint/eslint-plugin-testing-library
+notes: []
+issues: []
+fixes: []
+practices:
+- author: jlopezpena
+  date: 2026-06-12
+  note: 'In Svelte component tests, select elements by accessible role/name, not by positional DOM index. Replace `document.querySelectorAll(''input[type="checkbox"]'')[2]` with `getByRole(''checkbox'', { name: /Pet images/i })` — the index-based form silently targets the wrong control when the layout changes (extra checkbox added/reordered) and the test keeps passing. For a label-wrapped input, the accessible name is the label''s text content, so a substring regex on `name` matches reliably. The `prefer-query-by-role` / `no-node-access` rules enforce this.'
