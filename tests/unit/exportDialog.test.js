@@ -52,13 +52,12 @@ describe('ExportDialog image-size warning (#92)', () => {
 
   it('hides the warning when images are excluded, even with a large library', async () => {
     getTotalImageCount.mockResolvedValue(250);
-    const { getByTestId, queryByTestId } = renderDialog();
+    const { getByRole, getByTestId, queryByTestId } = renderDialog();
 
     await waitFor(() => expect(getByTestId('export-image-warning')).toBeInTheDocument());
 
-    // Uncheck "Pet images" (third checkbox) — the warning must disappear.
-    const checkboxes = document.querySelectorAll('input[type="checkbox"]');
-    await fireEvent.click(checkboxes[2]);
+    // Uncheck "Pet images" — the warning must disappear.
+    await fireEvent.click(getByRole('checkbox', { name: /Pet images/i }));
 
     expect(queryByTestId('export-image-warning')).toBeNull();
   });
