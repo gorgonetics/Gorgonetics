@@ -9,6 +9,7 @@ import { allTags as allTagsStore, appState, error, pets, selectedPet } from '$li
 import { createDragState, createKeyboardReorder, moveByFilteredIndex } from '$lib/utils/dragReorder.svelte.js';
 import { errorMessage } from '$lib/utils/error.js';
 import { focusTrap } from '$lib/utils/focusTrap.js';
+import { isFileDrag, runGenomeUpload, selectGenomeFiles } from '$lib/utils/genomeUpload.js';
 import { getBasename } from '$lib/utils/path.js';
 import PetCard from './PetCard.svelte';
 import PetEditor from './PetEditor.svelte';
@@ -113,43 +114,89 @@ async function toggleMarker(petId, key, value) {
   await appState.setPetMarker(petId, key, value).catch(() => {});
 }
 
-async function handleUpload() {
+// Upload a batch of genome sources (file paths or dropped files), reusing the
+// shared sequential runner. Reloads the list once and surfaces a per-file
+// failure summary. Guarded so picker and drop uploads can't run concurrently.
+async function uploadSources(sources) {
+  if (sources.length === 0 || uploading || autoScanning) return;
+  uploading = true;
+  error.set(null);
   try {
-    const filePaths = await pickGenomeFiles();
-    if (filePaths.length === 0) return;
-
-    uploading = true;
-    error.set(null);
-    const total = filePaths.length;
-    const failures = [];
-
-    // Sequential upload — consider parallel with concurrency limit if this becomes a bottleneck
-    for (let i = 0; i < filePaths.length; i++) {
-      uploadProgress = { current: i + 1, total };
-      const fileName = getBasename(filePaths[i]);
-      try {
-        const content = await readFileContent(filePaths[i]);
-        const result = await appState.uploadPetQuiet(content);
-        if (result.status === 'error') {
-          failures.push(`${fileName}: ${result.message}`);
-        }
-      } catch (err) {
-        failures.push(`${fileName}: ${err.message}`);
-      }
-    }
-
+    const { total, succeeded, failures } = await runGenomeUpload(sources, {
+      upload: (content) => appState.uploadPetQuiet(content),
+      onProgress: (current, t) => {
+        uploadProgress = { current, total: t };
+      },
+    });
     await appState.loadPets();
-
     if (failures.length > 0) {
-      const succeeded = total - failures.length;
       error.set(`${succeeded}/${total} uploaded. ${failures.length} failed:\n${failures.join('\n')}`);
     }
   } catch (err) {
-    error.set(`Upload failed: ${err.message}`);
+    error.set(`Upload failed: ${errorMessage(err)}`);
   } finally {
     uploading = false;
     uploadProgress = null;
   }
+}
+
+async function handleUpload() {
+  let filePaths;
+  try {
+    filePaths = await pickGenomeFiles();
+  } catch (err) {
+    error.set(`Upload failed: ${errorMessage(err)}`);
+    return;
+  }
+  await uploadSources(filePaths.map((path) => ({ name: getBasename(path), read: () => readFileContent(path) })));
+}
+
+// Drag-and-drop genome upload (#98). dragDropEnabled is false in
+// tauri.conf.json (so Tauri doesn't intercept events used for card
+// reordering), which leaves the webview's native HTML5 drag events to us.
+// External OS file drags carry a 'Files' type; internal card-reorder drags
+// don't — so isFileDrag() tells the two apart.
+let fileDragActive = $state(false);
+
+function handleFileDragOver(e) {
+  if (!isFileDrag(e.dataTransfer)) return;
+  e.preventDefault();
+  if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+  fileDragActive = true;
+}
+
+function handleFileDragLeave(e) {
+  if (!isFileDrag(e.dataTransfer)) return;
+  // Ignore leaves into descendant elements; only clear when the cursor leaves
+  // the panel entirely (relatedTarget is null when leaving the window).
+  if (e.currentTarget.contains(e.relatedTarget)) return;
+  fileDragActive = false;
+}
+
+async function handleFileDrop(e) {
+  if (!isFileDrag(e.dataTransfer)) return;
+  e.preventDefault();
+  fileDragActive = false;
+  const dropped = Array.from(e.dataTransfer?.files ?? []);
+  if (dropped.length === 0) return;
+
+  const { accepted, rejected } = selectGenomeFiles(dropped);
+  if (accepted.length === 0) {
+    error.set('No genome files (.txt) in the dropped items.');
+    return;
+  }
+  await uploadSources(accepted.map((file) => ({ name: file.name, read: () => file.text() })));
+  if (rejected.length > 0 && !$error) {
+    error.set(`Skipped ${rejected.length} non-genome file${rejected.length === 1 ? '' : 's'}.`);
+  }
+}
+
+// External file drags also bubble through the per-card reorder handlers. Skip
+// the reorder path for them so they don't show the reorder indicator or fight
+// the panel-level drop handler.
+function handleCardDragOver(e, index) {
+  if (isFileDrag(e.dataTransfer)) return;
+  drag.handleDragOver(e, index);
 }
 
 async function handleAutoScan() {
@@ -310,7 +357,19 @@ const kbReorder = createKeyboardReorder({
 });
 </script>
 
-<div class="pet-list">
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div
+    class="pet-list"
+    class:file-drag-active={fileDragActive}
+    ondragover={handleFileDragOver}
+    ondragleave={handleFileDragLeave}
+    ondrop={handleFileDrop}
+>
+    {#if fileDragActive}
+        <div class="file-drop-overlay" aria-hidden="true">
+            <span>Drop genome files to upload</span>
+        </div>
+    {/if}
     <div class="pet-list-header">
         <input
             class="text-input text-input--lg"
@@ -357,7 +416,7 @@ const kbReorder = createKeyboardReorder({
                     class:kb-grabbed={kbReorder.isGrabbed(index)}
                     draggable={isDraggable}
                     ondragstart={(e) => drag.handleDragStart(e, index)}
-                    ondragover={(e) => drag.handleDragOver(e, index)}
+                    ondragover={(e) => handleCardDragOver(e, index)}
                     ondragleave={drag.handleDragLeave}
                     ondrop={(e) => handleDrop(e, index)}
                     ondragend={drag.handleDragEnd}
@@ -533,9 +592,35 @@ const kbReorder = createKeyboardReorder({
     }
 
     .pet-list {
+        position: relative;
         display: flex;
         flex-direction: column;
         height: 100%;
+    }
+
+    .file-drop-overlay {
+        position: absolute;
+        inset: 0;
+        z-index: 5;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        /* Let drag events fall through to the panel handlers underneath. */
+        pointer-events: none;
+        background: var(--bg-selected);
+        border: 2px dashed var(--accent);
+        border-radius: 8px;
+        opacity: 0.95;
+    }
+
+    .file-drop-overlay span {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--accent-text);
+        padding: 12px 20px;
+        border-radius: 8px;
+        background: var(--bg-primary);
+        box-shadow: var(--shadow-lg);
     }
 
     .pet-list-header {
