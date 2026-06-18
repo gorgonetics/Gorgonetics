@@ -11,6 +11,7 @@ import {
   backfillPetGenesIfNeeded,
   backfillPositiveGenesIfNeeded,
 } from '$lib/services/petService.js';
+import { refreshPendingImportCount } from '$lib/stores/gameImport.js';
 import { appState } from '$lib/stores/pets.js';
 import { settings, settingsActions } from '$lib/stores/settings.js';
 
@@ -39,6 +40,8 @@ async function runLiveScan() {
   } finally {
     liveScanRunning = false;
     pendingRescan = false;
+    // Whatever the scan imported, the pending badge should reflect what's left.
+    void refreshPendingImportCount();
   }
 }
 
@@ -55,6 +58,10 @@ $effect(() => {
 
   let cancelled = false;
   let activeStop = null;
+
+  // Recompute the pending badge whenever the watched folder is (re)armed —
+  // covers app startup (ready flips true) and the user changing the path.
+  void refreshPendingImportCount();
 
   void (async () => {
     try {
@@ -124,6 +131,10 @@ onMount(async () => {
     } catch (err) {
       console.warn('imported_files backfill aborted:', err);
     }
+    // The ledger the pending count reads is only populated once this backfill
+    // runs (legacy DBs start without it), so recompute now that it's seeded —
+    // otherwise the startup count can over-report until the next scan/event.
+    void refreshPendingImportCount();
   })();
 });
 </script>

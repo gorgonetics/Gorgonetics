@@ -430,6 +430,21 @@ export async function hasImportedFile(contentHash: string): Promise<boolean> {
   return rows.length > 0;
 }
 
+/**
+ * Of the given content hashes, return the subset already in the ledger, in a
+ * single query — the batch counterpart to `hasImportedFile`, so callers
+ * checking many hashes (e.g. the pending-import count) avoid N round-trips.
+ */
+export async function filterImportedHashes(contentHashes: readonly string[]): Promise<Set<string>> {
+  if (contentHashes.length === 0) return new Set();
+  const { placeholders, params } = buildInClauseParams(contentHashes, 'h');
+  const rows = await getDb().select<{ content_hash: string }[]>(
+    `SELECT content_hash FROM imported_files WHERE content_hash IN (${placeholders})`,
+    params,
+  );
+  return new Set(rows.map((r) => r.content_hash));
+}
+
 export interface UploadPetOptions {
   /** Fallback when the genome file's Entity name is empty. */
   name?: string;

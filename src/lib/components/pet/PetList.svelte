@@ -4,6 +4,7 @@ import { normalizeSpecies } from '$lib/services/configService.js';
 import { pickGenomeFiles, readFileContent } from '$lib/services/fileService.js';
 import { autoScanGameFolder } from '$lib/services/gameImport.js';
 import { compareSelectMode, comparisonActions, comparisonPets, comparisonReady } from '$lib/stores/comparison.js';
+import { pendingImportCount, refreshPendingImportCount } from '$lib/stores/gameImport.js';
 import { allTags as allTagsStore, appState, error, pets, selectedPet } from '$lib/stores/pets.js';
 import { createDragState, createKeyboardReorder, moveByFilteredIndex } from '$lib/utils/dragReorder.svelte.js';
 import { errorMessage } from '$lib/utils/error.js';
@@ -235,6 +236,8 @@ async function handleAutoScan() {
   } finally {
     autoScanning = false;
     autoScanProgress = null;
+    // Reflect whatever the scan left un-imported (e.g. files that failed).
+    void refreshPendingImportCount();
   }
 }
 
@@ -509,13 +512,20 @@ const kbReorder = createKeyboardReorder({
                 class="auto-scan-btn"
                 onclick={handleAutoScan}
                 disabled={uploading || autoScanning}
-                title="Auto-import new genome files from the game folder"
-                aria-label="Auto-import new genome files from the game folder"
+                title={$pendingImportCount > 0
+                    ? `Auto-import: ${$pendingImportCount} new genome file${$pendingImportCount === 1 ? '' : 's'} in the game folder`
+                    : 'Auto-import new genome files from the game folder'}
+                aria-label={$pendingImportCount > 0
+                    ? `Auto-import ${$pendingImportCount} new genome file${$pendingImportCount === 1 ? '' : 's'} from the game folder`
+                    : 'Auto-import new genome files from the game folder'}
             >
                 {#if autoScanProgress}
                     🔄 ({autoScanProgress.current}/{autoScanProgress.total})
                 {:else}
                     🔄
+                    {#if $pendingImportCount > 0}
+                        <span class="pending-badge" aria-hidden="true">{$pendingImportCount > 99 ? '99+' : $pendingImportCount}</span>
+                    {/if}
                 {/if}
             </button>
             <button
@@ -844,6 +854,7 @@ const kbReorder = createKeyboardReorder({
     }
 
     .auto-scan-btn {
+        position: relative;
         padding: 8px 10px;
         background: var(--bg-secondary);
         border: 1px solid var(--border-primary);
@@ -852,6 +863,26 @@ const kbReorder = createKeyboardReorder({
         cursor: pointer;
         transition: all 0.15s ease;
         flex-shrink: 0;
+    }
+
+    .pending-badge {
+        position: absolute;
+        top: -6px;
+        right: -6px;
+        min-width: 16px;
+        height: 16px;
+        padding: 0 4px;
+        box-sizing: border-box;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--accent);
+        color: var(--bg-primary);
+        border-radius: 8px;
+        font-size: 10px;
+        font-weight: 700;
+        line-height: 1;
+        pointer-events: none;
     }
 
     .auto-scan-btn:hover:not(:disabled) {
