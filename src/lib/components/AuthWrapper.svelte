@@ -131,6 +131,10 @@ onMount(async () => {
     } catch (err) {
       console.warn('imported_files backfill aborted:', err);
     }
+    // The ledger the pending count reads is only populated once this backfill
+    // runs (legacy DBs start without it), so recompute now that it's seeded —
+    // otherwise the startup count can over-report until the next scan/event.
+    void refreshPendingImportCount();
   })();
 });
 </script>

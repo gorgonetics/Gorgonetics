@@ -162,6 +162,21 @@ describe('gameImport service', () => {
     });
   });
 
+  describe('filterImportedHashes', () => {
+    it('returns only the hashes present in the ledger', async () => {
+      const known = await sha256Hex(SAMPLE_BEEWASP);
+      await petService.uploadPet(SAMPLE_BEEWASP, { name: 'Test', gender: 'Female' });
+
+      const result = await petService.filterImportedHashes([known, 'absent1', 'absent2']);
+      expect(result).toBeInstanceOf(Set);
+      expect([...result]).toEqual([known]);
+    });
+
+    it('returns an empty set for no input', async () => {
+      expect([...(await petService.filterImportedHashes([]))]).toEqual([]);
+    });
+  });
+
   describe('imported_files ledger', () => {
     it('records hash on successful upload', async () => {
       const hash = await sha256Hex(SAMPLE_BEEWASP);

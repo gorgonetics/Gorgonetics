@@ -11,7 +11,13 @@
 import { isTauri } from '$lib/utils/environment.js';
 import { errorMessage } from '$lib/utils/error.js';
 import { sha256Hex } from '$lib/utils/hash.js';
-import { findPetGenomeTextByHash, hasImportedFile, recordImportedFile, uploadPet } from './petService.js';
+import {
+  filterImportedHashes,
+  findPetGenomeTextByHash,
+  hasImportedFile,
+  recordImportedFile,
+  uploadPet,
+} from './petService.js';
 import { getSetting, setSetting } from './settingsService.js';
 
 export type Platform = 'windows' | 'mac' | 'linux' | 'unknown';
@@ -251,11 +257,11 @@ export async function autoScanGameFolder(options?: {
  * "pending files".
  */
 export async function countUnimportedHashes(hashes: string[]): Promise<number> {
-  let pending = 0;
-  for (const hash of new Set(hashes)) {
-    if (!(await hasImportedFile(hash))) pending++;
-  }
-  return pending;
+  const distinct = [...new Set(hashes)];
+  if (distinct.length === 0) return 0;
+  // One ledger query for the whole batch rather than a round-trip per hash.
+  const imported = await filterImportedHashes(distinct);
+  return distinct.filter((hash) => !imported.has(hash)).length;
 }
 
 /**
