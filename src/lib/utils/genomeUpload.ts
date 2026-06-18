@@ -4,20 +4,23 @@
  * the drop-filtering rules can be unit-tested without a component harness.
  */
 
+import type { UploadPetResult } from '$lib/services/petService.js';
+
 /** A pending upload: a display name plus a lazy reader for its text content. */
 export interface UploadSource {
   name: string;
   read: () => Promise<string>;
 }
 
-export interface UploadResult {
-  status: string;
-  message?: string;
-}
-
 export interface RunUploadOptions {
-  /** Persist one genome's text; mirrors `appState.uploadPetQuiet`. */
-  upload: (content: string) => Promise<UploadResult>;
+  /**
+   * Persist one genome's text; the `appState.uploadPetQuiet` / `uploadPet`
+   * contract. Typed against `UploadPetResult` so `status` is the actual
+   * union and `message` is always present — the failure formatter relies on
+   * both, and a loose `string`/optional shape would let `${name}: undefined`
+   * slip through.
+   */
+  upload: (content: string) => Promise<UploadPetResult>;
   /** Progress callback, 1-based current of total. */
   onProgress?: (current: number, total: number) => void;
 }
