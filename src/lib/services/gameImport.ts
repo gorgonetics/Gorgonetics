@@ -244,6 +244,72 @@ export async function autoScanGameFolder(options?: {
 }
 
 /**
+ * Count distinct content-hashes not present in the `imported_files` ledger.
+ * Factored out of the folder I/O so the dedup logic is unit-testable against
+ * the real ledger without mocking Tauri's fs. Duplicate files (identical
+ * content) collapse to one pending entry, matching "pending pets" rather than
+ * "pending files".
+ */
+export async function countUnimportedHashes(hashes: string[]): Promise<number> {
+  let pending = 0;
+  for (const hash of new Set(hashes)) {
+    if (!(await hasImportedFile(hash))) pending++;
+  }
+  return pending;
+}
+
+/**
+ * Read-only dry run of the early part of `autoScanGameFolder`: how many
+ * genome files in the configured folder aren't in the ledger yet (i.e. would
+ * be imported by a scan). Keying off the ledger — not the live pet rows —
+ * means pets the user deliberately deleted stay skipped and aren't counted,
+ * matching the scan's own skip semantics. Returns 0 (rather than throwing)
+ * outside Tauri, when unconfigured, or when the folder isn't readable, so it's
+ * safe to call as a best-effort badge refresh.
+ */
+export async function countPendingImports(): Promise<number> {
+  if (!isTauri()) return 0;
+
+  const configured = await getConfiguredGameFolder();
+  if (isPlaceholderPath(configured)) return 0;
+
+  const folder = toRelativeHome(configured);
+  const fs = await import('@tauri-apps/plugin-fs');
+  const { BaseDirectory } = await import('@tauri-apps/api/path');
+  const baseOpts = { baseDir: BaseDirectory.Home };
+
+  let entries: Awaited<ReturnType<typeof fs.readDir>>;
+  try {
+    entries = await fs.readDir(folder, baseOpts);
+  } catch {
+    return 0;
+  }
+  const txtFiles = entries.filter((e) => e.isFile && e.name.toLowerCase().endsWith('.txt'));
+
+  // Read+hash in parallel chunks, same shape as autoScanGameFolder. Files that
+  // can't be read are skipped (a scan would surface them as failures; for a
+  // count they just don't contribute).
+  const READ_CHUNK = 8;
+  const hashes: string[] = [];
+  for (let i = 0; i < txtFiles.length; i += READ_CHUNK) {
+    const chunk = txtFiles.slice(i, i + READ_CHUNK);
+    const chunkHashes = await Promise.all(
+      chunk.map(async (e) => {
+        try {
+          const content = await fs.readTextFile(`${folder}/${e.name}`, baseOpts);
+          return await sha256Hex(content);
+        } catch {
+          return null;
+        }
+      }),
+    );
+    for (const hash of chunkHashes) if (hash !== null) hashes.push(hash);
+  }
+
+  return countUnimportedHashes(hashes);
+}
+
+/**
  * Watch the configured game folder for changes and invoke `onChange`
  * when a `.txt` event fires (debounced). Returns a stop function, or
  * `null` if there's nothing to watch (non-Tauri host, unconfigured

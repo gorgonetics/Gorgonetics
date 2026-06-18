@@ -129,6 +129,39 @@ describe('gameImport service', () => {
     });
   });
 
+  describe('countPendingImports', () => {
+    it('returns 0 outside Tauri', async () => {
+      expect(await gameImport.countPendingImports()).toBe(0);
+    });
+  });
+
+  describe('countUnimportedHashes', () => {
+    it('counts only hashes absent from the ledger', async () => {
+      const known = await sha256Hex(SAMPLE_BEEWASP);
+      await petService.uploadPet(SAMPLE_BEEWASP, { name: 'Test', gender: 'Female' });
+
+      expect(await gameImport.countUnimportedHashes([known, 'newhash1', 'newhash2'])).toBe(2);
+    });
+
+    it('deduplicates identical hashes so duplicate files count once', async () => {
+      expect(await gameImport.countUnimportedHashes(['dup', 'dup', 'dup'])).toBe(1);
+    });
+
+    it('does not count a hash already in the ledger from a deleted pet', async () => {
+      const hash = await sha256Hex(SAMPLE_BEEWASP);
+      const upload = await petService.uploadPet(SAMPLE_BEEWASP, { name: 'Test', gender: 'Female' });
+      await petService.deletePet(upload.pet_id);
+
+      // Ledger retains the hash after deletion, so a deliberately-removed pet
+      // is not flagged as pending.
+      expect(await gameImport.countUnimportedHashes([hash])).toBe(0);
+    });
+
+    it('returns 0 for no hashes', async () => {
+      expect(await gameImport.countUnimportedHashes([])).toBe(0);
+    });
+  });
+
   describe('imported_files ledger', () => {
     it('records hash on successful upload', async () => {
       const hash = await sha256Hex(SAMPLE_BEEWASP);
