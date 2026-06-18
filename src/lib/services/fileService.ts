@@ -37,6 +37,23 @@ export async function readBinaryFile(path: string): Promise<Uint8Array> {
   throw new Error('Binary file reading not available outside Tauri');
 }
 
+/**
+ * Run the OS "Save As" dialog for a backup archive and return the chosen
+ * path (null if cancelled or not in Tauri). Used by the streaming export
+ * path, where the zip is written natively by the `write_zip` command rather
+ * than handed back through JS as a Uint8Array.
+ */
+export async function pickExportSavePath(defaultFilename: string): Promise<string | null> {
+  if (!isTauri()) return null;
+  const { save } = await import('@tauri-apps/plugin-dialog');
+  const path = await save({
+    defaultPath: defaultFilename,
+    filters: [{ name: 'Zip Archives', extensions: ['zip'] }],
+    title: 'Export Gorgonetics Backup',
+  });
+  return path ?? null;
+}
+
 export async function saveExportBinaryFile(defaultFilename: string, data: Uint8Array): Promise<boolean> {
   if (isTauri()) {
     const { save } = await import('@tauri-apps/plugin-dialog');
