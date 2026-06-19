@@ -347,6 +347,63 @@ export interface ComparisonResult {
   };
 }
 
+// --- Offspring trio types ---
+
+/**
+ * Per-locus verdict for the trio (Father / Offspring / Mother) view.
+ *  - `gain`: offspring can express a positive neither parent expresses,
+ *    or lock in a parent's heterozygous positive as homozygous-dominant.
+ *  - `risk`: offspring can express a negative neither parent expresses.
+ *  - `neutral`: no expression change worth flagging.
+ */
+export type TrioVerdict = 'gain' | 'risk' | 'neutral';
+
+/**
+ * One locus in the trio view. `dist` is the offspring's probabilistic
+ * outcome (the middle row); `fatherType`/`motherType` are the parents'
+ * concrete alleles. `source` attributes the beneficial (gain) or
+ * dangerous (risk) allele to the contributing parent(s).
+ */
+export interface GeneTrioEntry {
+  geneId: string;
+  block: string;
+  position: number;
+  fatherType: GeneType | null;
+  motherType: GeneType | null;
+  dist: AlleleDistribution;
+  verdict: TrioVerdict;
+  /** Which parent carries the allele driving the verdict; null for neutral/unknown. */
+  source: 'father' | 'mother' | 'both' | null;
+  /** A `gain` that comes from locking in a heterozygous positive (homozygous-dominant offspring). */
+  lockedIn: boolean;
+  /** Probability the offspring expresses a positive / negative effect at this locus. */
+  pPositive: number;
+  pNegative: number;
+  /** Display metadata (attribute name and human effect string), when known. */
+  attribute?: string;
+  fatherEffect?: string;
+  motherEffect?: string;
+}
+
+export interface ChromosomeTrio {
+  chromosome: string;
+  totalGenes: number;
+  gains: number;
+  risks: number;
+  genes: GeneTrioEntry[];
+}
+
+export interface OffspringTrioResult {
+  chromosomes: ChromosomeTrio[];
+  summary: {
+    totalGenes: number;
+    gains: number;
+    risks: number;
+    lockedIn: number;
+    unknownLoci: number;
+  };
+}
+
 // --- Shared UI status types ---
 
 /**

@@ -79,3 +79,119 @@ export function positiveExpressionProbability(dist: AlleleDistribution, gene: Ge
   if (gene.recessiveSign === '+') p += dist.R;
   return p;
 }
+
+/**
+ * Probability the offspring expresses a negative-effect attribute at this
+ * locus. Mirror of `positiveExpressionProbability` for the `-` sign; used
+ * by the trio view to flag pairings that surface a hidden downside.
+ */
+export function negativeExpressionProbability(dist: AlleleDistribution, gene: GeneSignSummary | undefined): number {
+  if (!gene) return 0;
+  let p = 0;
+  if (gene.dominantSign === '-') p += dist.D + dist.x;
+  if (gene.recessiveSign === '-') p += dist.R;
+  return p;
+}
+
+/**
+ * The effect sign a parent *expresses* at this locus given its allele.
+ * `D`/`x` express the dominant effect; `R` expresses the recessive
+ * effect; `?` (or a missing gene record) expresses nothing knowable.
+ */
+export function expressedSign(type: GeneType, gene: GeneSignSummary | undefined): '+' | '-' | null {
+  if (!gene) return null;
+  if (type === GeneType.DOMINANT || type === GeneType.MIXED) return gene.dominantSign;
+  if (type === GeneType.RECESSIVE) return gene.recessiveSign;
+  return null;
+}
+
+/** Outcome of classifying a single locus for the trio view. */
+export interface TrioLocusClassification {
+  verdict: 'gain' | 'risk' | 'neutral';
+  source: 'father' | 'mother' | 'both' | null;
+  lockedIn: boolean;
+  pPositive: number;
+  pNegative: number;
+}
+
+/** Combine two per-parent carrier booleans into a `source` attribution. */
+function attributeSource(fatherCarries: boolean, motherCarries: boolean): 'father' | 'mother' | 'both' | null {
+  if (fatherCarries && motherCarries) return 'both';
+  if (fatherCarries) return 'father';
+  if (motherCarries) return 'mother';
+  return null;
+}
+
+/** Does this allele carry a dominant allele (can pass D)? `D` and `x` do. */
+function carriesDominant(type: GeneType): boolean {
+  return type === GeneType.DOMINANT || type === GeneType.MIXED;
+}
+
+/** Does this allele carry a recessive allele (can pass R)? `R` and `x` do. */
+function carriesRecessive(type: GeneType): boolean {
+  return type === GeneType.RECESSIVE || type === GeneType.MIXED;
+}
+
+/**
+ * Classify a locus for the trio (Father / Offspring / Mother) view.
+ *
+ * Priority — a cell carries a single verdict:
+ *  1. `gain` (new positive): offspring can express a `+` neither parent
+ *     expresses. Source = parent(s) carrying the `+` allele.
+ *  2. `risk`: offspring can express a `-` neither parent expresses.
+ *     Source = parent(s) carrying the `-` allele.
+ *  3. `gain` (locked-in): a heterozygous `+` dominant can become
+ *     homozygous-dominant in the offspring — already expressed by a
+ *     parent, but stabilised. Source = the `x` parent(s).
+ *  4. `neutral`.
+ */
+export function classifyTrioLocus(
+  fatherType: GeneType,
+  motherType: GeneType,
+  dist: AlleleDistribution,
+  gene: GeneSignSummary | undefined,
+): TrioLocusClassification {
+  const pPositive = positiveExpressionProbability(dist, gene);
+  const pNegative = negativeExpressionProbability(dist, gene);
+  const base = { pPositive, pNegative };
+
+  if (!gene) return { verdict: 'neutral', source: null, lockedIn: false, ...base };
+
+  const fSign = expressedSign(fatherType, gene);
+  const mSign = expressedSign(motherType, gene);
+  const parentExpressesPositive = fSign === '+' || mSign === '+';
+  const parentExpressesNegative = fSign === '-' || mSign === '-';
+
+  // 1. New positive the parents don't show.
+  if (pPositive > 0 && !parentExpressesPositive) {
+    const fatherCarries =
+      (gene.dominantSign === '+' && carriesDominant(fatherType)) ||
+      (gene.recessiveSign === '+' && carriesRecessive(fatherType));
+    const motherCarries =
+      (gene.dominantSign === '+' && carriesDominant(motherType)) ||
+      (gene.recessiveSign === '+' && carriesRecessive(motherType));
+    return { verdict: 'gain', source: attributeSource(fatherCarries, motherCarries), lockedIn: false, ...base };
+  }
+
+  // 2. New negative the parents don't show.
+  if (pNegative > 0 && !parentExpressesNegative) {
+    const fatherCarries =
+      (gene.dominantSign === '-' && carriesDominant(fatherType)) ||
+      (gene.recessiveSign === '-' && carriesRecessive(fatherType));
+    const motherCarries =
+      (gene.dominantSign === '-' && carriesDominant(motherType)) ||
+      (gene.recessiveSign === '-' && carriesRecessive(motherType));
+    return { verdict: 'risk', source: attributeSource(fatherCarries, motherCarries), lockedIn: false, ...base };
+  }
+
+  // 3. Lock in a heterozygous dominant positive as homozygous-dominant.
+  if (gene.dominantSign === '+' && dist.D > 0) {
+    const fatherHet = fatherType === GeneType.MIXED;
+    const motherHet = motherType === GeneType.MIXED;
+    if (fatherHet || motherHet) {
+      return { verdict: 'gain', source: attributeSource(fatherHet, motherHet), lockedIn: true, ...base };
+    }
+  }
+
+  return { verdict: 'neutral', source: null, lockedIn: false, ...base };
+}

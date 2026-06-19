@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { offspringDistribution, positiveExpressionProbability } from '$lib/utils/breedingGenetics.js';
+import {
+  classifyTrioLocus,
+  expressedSign,
+  negativeExpressionProbability,
+  offspringDistribution,
+  positiveExpressionProbability,
+} from '$lib/utils/breedingGenetics.js';
 
 const KNOWN_TYPES = ['D', 'R', 'x'];
 const ALL_TYPES = [...KNOWN_TYPES, '?'];
@@ -109,5 +115,87 @@ describe('positiveExpressionProbability', () => {
   it('ignores negative dominant signs (they do not subtract from positive)', () => {
     // negativeDominant has dominantSign === '-', not '+', so it returns 0.
     expect(positiveExpressionProbability(offspringDistribution('D', 'D'), negativeDominant)).toBe(0);
+  });
+});
+
+describe('negativeExpressionProbability', () => {
+  const negativeDominant = { dominantSign: '-', recessiveSign: null };
+  const negativeRecessive = { dominantSign: null, recessiveSign: '-' };
+  const positiveDominant = { dominantSign: '+', recessiveSign: null };
+
+  it('mirrors the positive helper for the `-` sign', () => {
+    // xx: D=.25 x=.5 R=.25 → dominant `-` mass = .75
+    expect(negativeExpressionProbability(offspringDistribution('x', 'x'), negativeDominant)).toBeCloseTo(0.75, 10);
+    // xx recessive `-` → R mass = .25
+    expect(negativeExpressionProbability(offspringDistribution('x', 'x'), negativeRecessive)).toBeCloseTo(0.25, 10);
+  });
+
+  it('returns 0 for positive-signed or missing genes', () => {
+    expect(negativeExpressionProbability(offspringDistribution('D', 'D'), positiveDominant)).toBe(0);
+    expect(negativeExpressionProbability(offspringDistribution('D', 'D'), undefined)).toBe(0);
+  });
+});
+
+describe('expressedSign', () => {
+  const gene = { dominantSign: '+', recessiveSign: '-' };
+
+  it('reads the dominant sign for D and x, recessive for R, nothing for ?', () => {
+    expect(expressedSign('D', gene)).toBe('+');
+    expect(expressedSign('x', gene)).toBe('+');
+    expect(expressedSign('R', gene)).toBe('-');
+    expect(expressedSign('?', gene)).toBeNull();
+  });
+
+  it('returns null without a gene record', () => {
+    expect(expressedSign('D', undefined)).toBeNull();
+  });
+});
+
+describe('classifyTrioLocus', () => {
+  const recPositive = { dominantSign: null, recessiveSign: '+' };
+  const recNegative = { dominantSign: null, recessiveSign: '-' };
+  const domPositive = { dominantSign: '+', recessiveSign: null };
+
+  const classify = (f, m, gene) => classifyTrioLocus(f, m, offspringDistribution(f, m), gene);
+
+  it('flags a new recessive positive neither parent expresses (x × x) as a gain from both', () => {
+    const c = classify('x', 'x', recPositive);
+    expect(c.verdict).toBe('gain');
+    expect(c.source).toBe('both');
+    expect(c.lockedIn).toBe(false);
+    expect(c.pPositive).toBeCloseTo(0.25, 10);
+  });
+
+  it('does not flag a gain when a parent already expresses the positive', () => {
+    // Father R expresses the recessive +, so the offspring positive is not new.
+    const c = classify('R', 'x', recPositive);
+    expect(c.verdict).toBe('neutral');
+  });
+
+  it('flags a new recessive negative neither parent expresses (x × x) as a risk', () => {
+    const c = classify('x', 'x', recNegative);
+    expect(c.verdict).toBe('risk');
+    expect(c.source).toBe('both');
+    expect(c.pNegative).toBeCloseTo(0.25, 10);
+  });
+
+  it('flags locking in a heterozygous dominant positive as a gain, attributed to the het parent', () => {
+    // Father x, mother D — both already express +, but offspring can be DD.
+    const c = classify('x', 'D', domPositive);
+    expect(c.verdict).toBe('gain');
+    expect(c.lockedIn).toBe(true);
+    expect(c.source).toBe('father');
+  });
+
+  it('returns neutral when both parents are already homozygous-dominant positive', () => {
+    const c = classify('D', 'D', domPositive);
+    expect(c.verdict).toBe('neutral');
+    expect(c.lockedIn).toBe(false);
+  });
+
+  it('returns neutral for an unknown parent and for a missing gene record', () => {
+    expect(classify('?', 'D', domPositive).verdict).toBe('neutral');
+    expect(classify('x', 'x', undefined).verdict).toBe('neutral');
+    expect(classify('x', 'x', undefined).source).toBeNull();
   });
 });
