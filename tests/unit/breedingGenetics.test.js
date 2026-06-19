@@ -218,6 +218,31 @@ describe('classifyTrioLocus', () => {
     expect(c.source).toBe('both');
   });
 
+  it('handles a carrier gene (recessive +, dominant -) like horse chromosome 1', () => {
+    // The good trait shows only when homozygous-recessive; the dominant allele
+    // expresses the harmful version.
+    const carrier = { dominantSign: '-', recessiveSign: '+' };
+
+    // Carrier × carrier: both parents show the harmful dominant, but the cross
+    // can surface the beneficial recessive (25%) neither parent expresses.
+    const xx = classify('x', 'x', carrier);
+    expect(xx.verdict).toBe('gain');
+    expect(xx.source).toBe('both');
+    expect(xx.lockedIn).toBe(false);
+    expect(xx.pPositive).toBeCloseTo(0.25, 10);
+    expect(xx.pNegative).toBeCloseTo(0.75, 10);
+
+    // Both recessive: the beneficial trait is locked in (offspring guaranteed RR).
+    const rr = classify('R', 'R', carrier);
+    expect(rr.verdict).toBe('gain');
+    expect(rr.lockedIn).toBe(true);
+
+    // Both dominant / dominant×carrier: offspring still expresses the harmful
+    // dominant the parents already show — nothing new.
+    expect(classify('D', 'D', carrier).verdict).toBe('neutral');
+    expect(classify('D', 'x', carrier).verdict).toBe('neutral');
+  });
+
   it('returns neutral for an unknown parent and for a missing gene record', () => {
     expect(classify('?', 'D', domPositive).verdict).toBe('neutral');
     expect(classify('x', 'x', undefined).verdict).toBe('neutral');
