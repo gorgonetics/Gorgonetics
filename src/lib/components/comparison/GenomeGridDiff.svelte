@@ -3,18 +3,14 @@ import { onDestroy, onMount } from 'svelte';
 import GenomeDiffControls from '$lib/components/comparison/GenomeDiffControls.svelte';
 import GeneTooltip from '$lib/components/gene/GeneTooltip.svelte';
 import StatusPane from '$lib/components/shared/StatusPane.svelte';
-import {
-  getAppearanceAttributes,
-  getAppearanceConfig,
-  getAttributeConfig,
-  normalizeSpecies,
-} from '$lib/services/configService.js';
+import { getAppearanceConfig, getAttributeConfig, normalizeSpecies } from '$lib/services/configService.js';
 import { getGeneEffectsCached } from '$lib/services/geneService.js';
 import { loadPetGridFromDb } from '$lib/services/petService.js';
 import { settings } from '$lib/stores/settings.js';
 import { HORSE_BREEDS } from '$lib/types/index.js';
 import { buildFilterCSS } from '$lib/utils/filterCSS.js';
 import { breedFor, effectFor, isNoEffect } from '$lib/utils/geneAnalysis.js';
+import { buildAppearanceLookup, createGeneCellBuilder } from '$lib/utils/geneGridCells.js';
 import { capitalize } from '$lib/utils/string.js';
 
 const { petA, petB } = $props();
@@ -167,6 +163,12 @@ async function loadData() {
       key: a.key.replace(/_/g, '-'),
     }));
     appearanceLookup = buildAppearanceLookup(speciesKey);
+    const cellBuilder = createGeneCellBuilder({
+      effectsDB,
+      attributeNames: allAttributeNames,
+      appearanceLookup,
+      speciesKey,
+    });
 
     const allBlks = new Set();
     const maxGenes = new Map();
@@ -239,8 +241,8 @@ async function loadData() {
           const gA = genesA[i] || null;
           const gB = genesB[i] || null;
           // Pre-compute everything: static CSS class, attribute, breed
-          cellsA[block][i] = gA ? makeCell(gA) : null;
-          cellsB[block][i] = gB ? makeCell(gB) : null;
+          cellsA[block][i] = gA ? cellBuilder.makeCell(gA) : null;
+          cellsB[block][i] = gB ? cellBuilder.makeCell(gB) : null;
           const isDiff = (gA?.type || null) !== (gB?.type || null);
           diffs[block][i] = isDiff;
           if (isDiff) chrDiffs++;
@@ -261,87 +263,6 @@ async function loadData() {
   } finally {
     loading = false;
   }
-}
-
-/** Build a cell object with pre-computed static CSS class strings for both views. */
-function makeCell(gene) {
-  const analysis = analyzeGene(gene.id, gene.type);
-  const appearance = categorizeAppearance(gene.id);
-
-  let zygosity;
-  if (gene.type === 'D') zygosity = 'gene-dominant';
-  else if (gene.type === 'R') zygosity = 'gene-recessive';
-  else if (gene.type === 'x') zygosity = 'gene-mixed';
-  else zygosity = 'gene-recessive';
-
-  const attributeCls =
-    gene.type === '?' ? 'gene-cell gene-neutral gene-unknown' : `gene-cell gene-${analysis.effectType} ${zygosity}`;
-  const appearanceCls =
-    gene.type === '?'
-      ? 'gene-cell gene-neutral gene-unknown'
-      : `gene-cell gene-${appearance || 'appearance-neutral'} ${zygosity}`;
-
-  return {
-    id: gene.id,
-    type: gene.type,
-    attributeCls,
-    appearanceCls,
-    attribute: analysis.attribute || '',
-    appearance,
-    breed: analysis.breed || '',
-    effect: analysis.effect || '',
-  };
-}
-
-function buildAppearanceLookup(species) {
-  const attrs = getAppearanceAttributes(species);
-  const byName = new Map();
-  for (const [key, info] of Object.entries(attrs)) {
-    byName.set(info.name.toLowerCase(), key);
-  }
-  return byName;
-}
-
-function categorizeAppearance(geneId) {
-  const raw = effectsDB[geneId]?.appearance;
-  if (!raw || raw === 'None' || raw.includes('String for me to fill')) return '';
-  const lower = raw.toLowerCase();
-  const matcher = speciesKey === 'horse' ? (name) => lower.startsWith(name) : (name) => lower.includes(name);
-  for (const [name, key] of appearanceLookup) {
-    if (matcher(name)) return key;
-  }
-  return '';
-}
-
-// --- Gene analysis (once per gene) ---
-
-function analyzeGene(geneId, geneType) {
-  const geneData = effectsDB[geneId];
-  const effect = effectFor(geneData, geneType);
-  const breed = breedFor(geneData);
-
-  if (isNoEffect(effect)) return { effectType: 'neutral', attribute: null, effect, breed };
-
-  const effectStr = effect || '';
-  let attribute = null;
-  for (const attrName of allAttributeNames) {
-    if (effectStr.includes(attrName)) {
-      attribute = attrName;
-      break;
-    }
-  }
-
-  const isPotential = effectStr.includes('?') || effectStr.toLowerCase().includes('potential');
-  const hasPlus = effectStr.includes('+');
-  const hasMinus = effectStr.includes('-');
-
-  let effectType = 'neutral';
-  if (isPotential && hasPlus) effectType = 'potential-positive';
-  else if (isPotential && hasMinus) effectType = 'potential-negative';
-  else if (!isPotential && hasPlus) effectType = 'positive';
-  else if (!isPotential && hasMinus) effectType = 'negative';
-
-  return { effectType, attribute, effect, breed };
 }
 
 // --- Filter UI actions ---
