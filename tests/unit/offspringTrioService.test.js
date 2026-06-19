@@ -74,7 +74,7 @@ describe('computeOffspringTrio', () => {
 
     expect(byId['01A3'].verdict).toBe('gain');
     expect(byId['01A3'].lockedIn).toBe(true);
-    expect(byId['01A3'].source).toBe('father');
+    expect(byId['01A3'].source).toBe('both');
   });
 
   it('carries the offspring distribution and parent allele types on each entry', async () => {

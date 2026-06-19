@@ -140,9 +140,11 @@ function carriesRecessive(type: GeneType): boolean {
  *     expresses. Source = parent(s) carrying the `+` allele.
  *  2. `risk`: offspring can express a `-` neither parent expresses.
  *     Source = parent(s) carrying the `-` allele.
- *  3. `gain` (locked-in): a heterozygous `+` dominant can become
- *     homozygous-dominant in the offspring — already expressed by a
- *     parent, but stabilised. Source = the `x` parent(s).
+ *  3. `gain` (locked-in): both parents already express the same positive
+ *     (they share the gene), so the offspring reliably inherits it —
+ *     applies to a dominant positive (both `D`/`x` → offspring can be
+ *     homozygous-dominant) and a recessive positive (both `R` → offspring
+ *     is guaranteed homozygous-recessive). Source = `both`.
  *  4. `neutral`.
  */
 export function classifyTrioLocus(
@@ -184,13 +186,11 @@ export function classifyTrioLocus(
     return { verdict: 'risk', source: attributeSource(fatherCarries, motherCarries), lockedIn: false, ...base };
   }
 
-  // 3. Lock in a heterozygous dominant positive as homozygous-dominant.
-  if (gene.dominantSign === '+' && dist.D > 0) {
-    const fatherHet = fatherType === GeneType.MIXED;
-    const motherHet = motherType === GeneType.MIXED;
-    if (fatherHet || motherHet) {
-      return { verdict: 'gain', source: attributeSource(fatherHet, motherHet), lockedIn: true, ...base };
-    }
+  // 3. Lock in a positive both parents share (both express the same `+`),
+  //    consolidating it in the offspring — dominant (both D/x) or
+  //    recessive (both R).
+  if (fSign === '+' && mSign === '+') {
+    return { verdict: 'gain', source: 'both', lockedIn: true, ...base };
   }
 
   return { verdict: 'neutral', source: null, lockedIn: false, ...base };

@@ -179,18 +179,27 @@ describe('classifyTrioLocus', () => {
     expect(c.pNegative).toBeCloseTo(0.25, 10);
   });
 
-  it('flags locking in a heterozygous dominant positive as a gain, attributed to the het parent', () => {
-    // Father x, mother D — both already express +, but offspring can be DD.
+  it('locks in a dominant positive both parents express (x × D), attributed to both', () => {
+    // Both already express +, and the offspring can be homozygous-dominant.
     const c = classify('x', 'D', domPositive);
     expect(c.verdict).toBe('gain');
     expect(c.lockedIn).toBe(true);
-    expect(c.source).toBe('father');
+    expect(c.source).toBe('both');
   });
 
-  it('returns neutral when both parents are already homozygous-dominant positive', () => {
+  it('locks in a dominant positive when both parents are homozygous-dominant (D × D)', () => {
     const c = classify('D', 'D', domPositive);
-    expect(c.verdict).toBe('neutral');
-    expect(c.lockedIn).toBe(false);
+    expect(c.verdict).toBe('gain');
+    expect(c.lockedIn).toBe(true);
+    expect(c.source).toBe('both');
+  });
+
+  it('locks in a recessive positive both parents express (R × R)', () => {
+    const c = classify('R', 'R', recPositive);
+    expect(c.verdict).toBe('gain');
+    expect(c.lockedIn).toBe(true);
+    expect(c.source).toBe('both');
+    expect(c.pPositive).toBe(1);
   });
 
   it('returns neutral for an unknown parent and for a missing gene record', () => {

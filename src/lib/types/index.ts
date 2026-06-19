@@ -352,7 +352,7 @@ export interface ComparisonResult {
 /**
  * Per-locus verdict for the trio (Father / Offspring / Mother) view.
  *  - `gain`: offspring can express a positive neither parent expresses,
- *    or lock in a parent's heterozygous positive as homozygous-dominant.
+ *    or lock in a positive both parents share (consolidated in the offspring).
  *  - `risk`: offspring can express a negative neither parent expresses.
  *  - `neutral`: no expression change worth flagging.
  */
@@ -374,7 +374,7 @@ export interface GeneTrioEntry {
   verdict: TrioVerdict;
   /** Which parent carries the allele driving the verdict; null for neutral/unknown. */
   source: 'father' | 'mother' | 'both' | null;
-  /** A `gain` that comes from locking in a heterozygous positive (homozygous-dominant offspring). */
+  /** A `gain` where both parents share the positive, consolidating it in the offspring (homozygous dominant or recessive). */
   lockedIn: boolean;
   /** Probability the offspring expresses a positive / negative effect at this locus. */
   pPositive: number;
