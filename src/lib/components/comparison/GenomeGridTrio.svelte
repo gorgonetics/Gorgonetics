@@ -1,29 +1,28 @@
-<script>
+<script lang="ts">
 import StatusPane from '$lib/components/shared/StatusPane.svelte';
 import { getAttributeConfig, normalizeSpecies } from '$lib/services/configService.js';
 import { getGeneEffectsCached } from '$lib/services/geneService.js';
 import { computeOffspringTrio } from '$lib/services/offspringTrioService.js';
-import { buildAppearanceLookup, createGeneCellBuilder } from '$lib/utils/geneGridCells.js';
+import type { OffspringTrioResult, Pet } from '$lib/types/index.js';
+import { buildAppearanceLookup, createGeneCellBuilder, type GeneCell } from '$lib/utils/geneGridCells.js';
 import { capitalize } from '$lib/utils/string.js';
-import { buildTrioGrid } from '$lib/utils/trioGrid.js';
+import { buildTrioGrid, type TrioGrid, type TrioLocusCell } from '$lib/utils/trioGrid.js';
 
-/**
- * @typedef {Object} Props
- * @property {any} father
- * @property {any} mother
- * @property {string} [offspringBreed]
- */
+interface Props {
+  father: Pet;
+  mother: Pet;
+  offspringBreed?: string;
+}
 
-/** @type {Props} */
-const { father, mother, offspringBreed = '' } = $props();
+const { father, mother, offspringBreed = '' }: Props = $props();
 
 let loading = $state(false);
-let error = $state(null);
-let grid = $state(null);
-let summary = $state(null);
+let error = $state<string | null>(null);
+let grid = $state<TrioGrid | null>(null);
+let summary = $state<OffspringTrioResult['summary'] | null>(null);
 
-const ALLELE_LABEL = { D: 'Dominant', x: 'Mixed', R: 'Recessive', unknown: 'Unknown' };
-const VERDICT_LABEL = { gain: 'Gain', risk: 'Risk', neutral: '' };
+const ALLELE_LABEL: Record<string, string> = { D: 'Dominant', x: 'Mixed', R: 'Recessive', unknown: 'Unknown' };
+const VERDICT_LABEL: Record<string, string> = { gain: 'Gain', risk: 'Risk', neutral: '' };
 
 $effect(() => {
   if (father?.id && mother?.id) {
@@ -31,7 +30,7 @@ $effect(() => {
   }
 });
 
-async function load(f, m, breed) {
+async function load(f: Pet, m: Pet, breed: string) {
   try {
     loading = true;
     error = null;
@@ -52,8 +51,8 @@ async function load(f, m, breed) {
 
     grid = buildTrioGrid(result, cellBuilder);
     summary = result.summary;
-  } catch (err) {
-    error = err?.message || 'Failed to build the trio view';
+  } catch (err: unknown) {
+    error = err instanceof Error ? err.message : 'Failed to build the trio view';
     grid = null;
     summary = null;
   } finally {
@@ -62,7 +61,7 @@ async function load(f, m, breed) {
 }
 
 /** Hover text for the offspring distribution cell. */
-function offspringTitle(cell) {
+function offspringTitle(cell: TrioLocusCell) {
   const parts = [`Gene ${cell.geneId}`];
   if (cell.attribute) parts.push(cell.attribute);
   if (cell.verdict !== 'neutral') {
@@ -76,7 +75,7 @@ function offspringTitle(cell) {
   return parts.join('\n');
 }
 
-function parentTitle(cell, label) {
+function parentTitle(cell: GeneCell | null, label: string) {
   if (!cell) return '';
   return `${label} · Gene ${cell.id} (${ALLELE_LABEL[cell.type] ?? cell.type})\n${cell.effect || 'No effect'}`;
 }

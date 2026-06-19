@@ -1,9 +1,15 @@
-<script>
+<script lang="ts">
 import { compareAttributes } from '$lib/services/comparisonService.js';
+import type { AttributeComparisonResult, Pet } from '$lib/types/index.js';
 
-const { petA, petB } = $props();
+interface Props {
+  petA: Pet;
+  petB: Pet;
+}
 
-const results = $derived(petA && petB ? compareAttributes(petA, petB) : []);
+const { petA, petB }: Props = $props();
+
+const results = $derived<AttributeComparisonResult[]>(petA && petB ? compareAttributes(petA, petB) : []);
 
 const summary = $derived.by(() => {
   let aWins = 0;

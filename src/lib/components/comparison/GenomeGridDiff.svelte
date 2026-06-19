@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 import { onDestroy, onMount } from 'svelte';
 import GenomeDiffControls from '$lib/components/comparison/GenomeDiffControls.svelte';
 import GeneTooltip from '$lib/components/gene/GeneTooltip.svelte';
@@ -7,49 +7,68 @@ import { getAppearanceConfig, getAttributeConfig, normalizeSpecies } from '$lib/
 import { getGeneEffectsCached } from '$lib/services/geneService.js';
 import { loadPetGridFromDb } from '$lib/services/petService.js';
 import { settings } from '$lib/stores/settings.js';
+import type { AppearanceInfo, AttributeInfo, GenomeDiffSummary, Pet } from '$lib/types/index.js';
 import { HORSE_BREEDS } from '$lib/types/index.js';
 import { buildFilterCSS } from '$lib/utils/filterCSS.js';
-import { breedFor, effectFor, isNoEffect } from '$lib/utils/geneAnalysis.js';
-import { buildAppearanceLookup, createGeneCellBuilder } from '$lib/utils/geneGridCells.js';
+import { breedFor, effectFor, type GeneEffectData, isNoEffect } from '$lib/utils/geneAnalysis.js';
+import { buildAppearanceLookup, createGeneCellBuilder, type GeneCell } from '$lib/utils/geneGridCells.js';
 import { capitalize } from '$lib/utils/string.js';
 
-const { petA, petB } = $props();
+interface ChromosomeRow {
+  chr: string;
+  cellsA: Record<string, (GeneCell | null)[]>;
+  cellsB: Record<string, (GeneCell | null)[]>;
+  diffs: Record<string, boolean[]>;
+  hasDiffs: boolean;
+}
+
+interface ChrBreedEntry {
+  generic: boolean;
+  breeds: Set<string>;
+}
+
+interface Props {
+  petA: Pet;
+  petB: Pet;
+}
+
+const { petA, petB }: Props = $props();
 
 let loading = $state(false);
-let error = $state(null);
-let summary = $state(null);
+let error = $state<string | null>(null);
+let summary = $state<GenomeDiffSummary | null>(null);
 let showDiffsOnly = $state(false);
-let currentView = $state('attribute');
+let currentView = $state<'attribute' | 'appearance'>('attribute');
 
-let effectsDB = {};
+let effectsDB: Record<string, GeneEffectData> = {};
 let speciesKey = $state('');
 const isHorse = $derived(speciesKey === 'horse');
 
-let sortedBlocks = $state([]);
-let blockMaxGenes = new Map();
-let blockIndices = $state({});
+let sortedBlocks = $state<string[]>([]);
+let blockMaxGenes = new Map<string, number>();
+let blockIndices = $state<Record<string, number[]>>({});
 
-let allAttributeNames = [];
-let attributeDisplayInfo = $state([]);
-let appearanceDisplayInfo = $state([]);
-let appearanceLookup = new Map();
+let allAttributeNames: string[] = [];
+let attributeDisplayInfo = $state<AttributeInfo[]>([]);
+let appearanceDisplayInfo = $state<AppearanceInfo[]>([]);
+let appearanceLookup = new Map<string, string>();
 
-let chromosomeRows = $state([]);
-let chrBreedRelevance = {};
+let chromosomeRows = $state<ChromosomeRow[]>([]);
+let chrBreedRelevance: Record<string, ChrBreedEntry> = {};
 
 // Filters
 let breedFilter = $state('');
 let autoBreed = $state(false);
-let selectedChromosomes = $state([]);
-let hiddenChromosomes = $state([]);
-let selectedAttributes = $state([]);
-let hiddenAttributes = $state([]);
-let selectedAppearances = $state([]);
-let hiddenAppearances = $state([]);
+let selectedChromosomes = $state<string[]>([]);
+let hiddenChromosomes = $state<string[]>([]);
+let selectedAttributes = $state<string[]>([]);
+let hiddenAttributes = $state<string[]>([]);
+let selectedAppearances = $state<string[]>([]);
+let hiddenAppearances = $state<string[]>([]);
 
 // Auto-breed: use the shared setting and detect from pets' breeds
 const petsHaveKnownBreed = $derived(
-  isHorse && petA?.breed && HORSE_BREEDS[petA.breed] && petB?.breed && HORSE_BREEDS[petB.breed],
+  !!(isHorse && petA?.breed && HORSE_BREEDS[petA.breed] && petB?.breed && HORSE_BREEDS[petB.breed]),
 );
 const petsShareBreed = $derived(petsHaveKnownBreed && petA.breed === petB.breed);
 
@@ -89,10 +108,10 @@ let tooltipY = $state(0);
 let tooltipGeneId = $state('');
 let tooltipGeneType = $state('');
 let tooltipEffect = $state('');
-let tooltipPotentialEffects = $state([]);
+let tooltipPotentialEffects = $state<string[]>([]);
 
 // Dynamic filter style element — created programmatically (a Svelte component can't declare a dynamic style block in its markup)
-let filterStyleEl = null;
+let filterStyleEl: HTMLStyleElement | null = null;
 
 onMount(() => {
   filterStyleEl = document.createElement('style');
@@ -170,8 +189,8 @@ async function loadData() {
       speciesKey,
     });
 
-    const allBlks = new Set();
-    const maxGenes = new Map();
+    const allBlks = new Set<string>();
+    const maxGenes = new Map<string, number>();
     for (const parsed of [parsedA, parsedB]) {
       for (const chrData of Object.values(parsed)) {
         for (const block of chrData.blocks) {
@@ -184,7 +203,7 @@ async function loadData() {
     sortedBlocks = [...allBlks].sort();
     blockMaxGenes = maxGenes;
 
-    const indices = {};
+    const indices: Record<string, number[]> = {};
     for (const block of sortedBlocks) {
       indices[block] = Array.from({ length: maxGenes.get(block) || 0 }, (_, i) => i);
     }
@@ -219,14 +238,14 @@ async function loadData() {
       const dataA = parsedA[chr] || { blocks: [] };
       const dataB = parsedB[chr] || { blocks: [] };
 
-      const genesByBlockA = new Map();
-      const genesByBlockB = new Map();
+      const genesByBlockA = new Map<string, { id: string; type: string }[]>();
+      const genesByBlockB = new Map<string, { id: string; type: string }[]>();
       for (const b of dataA.blocks) genesByBlockA.set(b.letter, b.genes);
       for (const b of dataB.blocks) genesByBlockB.set(b.letter, b.genes);
 
-      const cellsA = {};
-      const cellsB = {};
-      const diffs = {};
+      const cellsA: Record<string, (GeneCell | null)[]> = {};
+      const cellsB: Record<string, (GeneCell | null)[]> = {};
+      const diffs: Record<string, boolean[]> = {};
       let chrDiffs = 0;
 
       for (const block of sortedBlocks) {
@@ -256,8 +275,8 @@ async function loadData() {
     const identicalGenes = totalGenes - differentGenes;
     const pct = totalGenes > 0 ? Math.round((identicalGenes / totalGenes) * 100) : 0;
     summary = { totalGenes, identicalGenes, differentGenes, similarityPercent: pct };
-  } catch (err) {
-    error = err.message || 'Failed to load genome data';
+  } catch (err: unknown) {
+    error = err instanceof Error ? err.message : 'Failed to load genome data';
     chromosomeRows = [];
     summary = null;
   } finally {
@@ -267,7 +286,13 @@ async function loadData() {
 
 // --- Filter UI actions ---
 
-function triStateToggle(key, selected, hidden, ctrlKey, altKey) {
+function triStateToggle(
+  key: string,
+  selected: string[],
+  hidden: string[],
+  ctrlKey: boolean,
+  altKey: boolean,
+): { selected: string[]; hidden: string[] } {
   if (altKey) {
     const nextHidden = hidden.includes(key)
       ? hidden.filter((k) => k !== key)
@@ -282,7 +307,7 @@ function triStateToggle(key, selected, hidden, ctrlKey, altKey) {
   return { selected: nextSelected, hidden: hidden.filter((k) => k !== key) };
 }
 
-function toggleChromosomeFilter(chr, ctrlKey, altKey) {
+function toggleChromosomeFilter(chr: string, ctrlKey: boolean, altKey: boolean) {
   ({ selected: selectedChromosomes, hidden: hiddenChromosomes } = triStateToggle(
     chr,
     selectedChromosomes,
@@ -292,7 +317,7 @@ function toggleChromosomeFilter(chr, ctrlKey, altKey) {
   ));
 }
 
-function toggleAttributeFilter(attrKey, ctrlKey, altKey) {
+function toggleAttributeFilter(attrKey: string, ctrlKey: boolean, altKey: boolean) {
   ({ selected: selectedAttributes, hidden: hiddenAttributes } = triStateToggle(
     attrKey,
     selectedAttributes,
@@ -302,7 +327,7 @@ function toggleAttributeFilter(attrKey, ctrlKey, altKey) {
   ));
 }
 
-function toggleAppearanceFilter(key, ctrlKey, altKey) {
+function toggleAppearanceFilter(key: string, ctrlKey: boolean, altKey: boolean) {
   ({ selected: selectedAppearances, hidden: hiddenAppearances } = triStateToggle(
     key,
     selectedAppearances,
@@ -314,9 +339,9 @@ function toggleAppearanceFilter(key, ctrlKey, altKey) {
 
 // --- Tooltip ---
 
-function handleCellEnter(event, cell) {
+function handleCellEnter(event: MouseEvent, cell: GeneCell) {
   if (!cell) return;
-  const potentialEffects = [];
+  const potentialEffects: string[] = [];
   const cellData = effectsDB[cell.id];
   const dominantEffect = effectFor(cellData, 'D');
   const recessiveEffect = effectFor(cellData, 'R');

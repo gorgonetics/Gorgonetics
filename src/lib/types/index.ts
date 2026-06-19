@@ -332,6 +332,14 @@ export interface ChromosomeDiff {
   genes: GeneDiffEntry[];
 }
 
+/** Aggregate counts for a two-pet genome diff, shared across the comparison UI. */
+export interface GenomeDiffSummary {
+  totalGenes: number;
+  identicalGenes: number;
+  differentGenes: number;
+  similarityPercent: number;
+}
+
 export interface ComparisonResult {
   petA: Pet;
   petB: Pet;
@@ -339,12 +347,7 @@ export interface ComparisonResult {
   attributes: AttributeComparisonResult[];
   geneStats: GeneStatsComparisonResult[];
   genomeDiff: ChromosomeDiff[];
-  summary: {
-    totalGenes: number;
-    identicalGenes: number;
-    differentGenes: number;
-    similarityPercent: number;
-  };
+  summary: GenomeDiffSummary;
 }
 
 // --- Offspring trio types ---

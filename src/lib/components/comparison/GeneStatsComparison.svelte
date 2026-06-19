@@ -1,12 +1,18 @@
-<script>
+<script lang="ts">
 import StatusPane from '$lib/components/shared/StatusPane.svelte';
 import { compareGeneStats } from '$lib/services/comparisonService.js';
+import type { GeneStatsComparisonResult, GeneStatsEntry, Pet } from '$lib/types/index.js';
 
-const { petA, petB } = $props();
+interface Props {
+  petA: Pet;
+  petB: Pet;
+}
 
-let results = $state([]);
+const { petA, petB }: Props = $props();
+
+let results = $state<GeneStatsComparisonResult[]>([]);
 let loading = $state(false);
-let error = $state(null);
+let error = $state<string | null>(null);
 
 // Reload when pets change
 $effect(() => {
@@ -20,15 +26,15 @@ async function loadStats() {
     loading = true;
     error = null;
     results = await compareGeneStats(petA, petB);
-  } catch (err) {
-    error = err.message || 'Failed to load gene stats';
+  } catch (err: unknown) {
+    error = err instanceof Error ? err.message : 'Failed to load gene stats';
     results = [];
   } finally {
     loading = false;
   }
 }
 
-function sumEntry(entry) {
+function sumEntry(entry: GeneStatsEntry) {
   return entry.positive + entry.negative;
 }
 

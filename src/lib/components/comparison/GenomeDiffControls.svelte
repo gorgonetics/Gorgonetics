@@ -1,5 +1,31 @@
-<script>
+<script lang="ts">
+import type { AppearanceInfo, AttributeInfo, GenomeDiffSummary } from '$lib/types/index.js';
 import { HORSE_BREEDS } from '$lib/types/index.js';
+
+interface Props {
+  summary: GenomeDiffSummary;
+  isHorse: boolean;
+  breedFilter: string;
+  autoBreed?: boolean;
+  petsHaveKnownBreed?: boolean;
+  petsShareBreed?: boolean;
+  showDiffsOnly: boolean;
+  selectedAttributes: string[];
+  hiddenAttributes: string[];
+  attributeDisplayInfo: AttributeInfo[];
+  selectedAppearances?: string[];
+  hiddenAppearances?: string[];
+  appearanceDisplayInfo?: AppearanceInfo[];
+  currentView?: 'attribute' | 'appearance';
+  onBreedChange: (name: string) => void;
+  onAutoBreedToggle: () => void;
+  onAttributeToggle: (key: string, ctrlKey: boolean, altKey: boolean) => void;
+  onAppearanceToggle: (key: string, ctrlKey: boolean, altKey: boolean) => void;
+  onDiffsOnlyChange: (val: boolean) => void;
+  onResetAttributes: () => void;
+  onResetAppearances: () => void;
+  onViewChange: (view: 'attribute' | 'appearance') => void;
+}
 
 const {
   summary,
@@ -24,7 +50,7 @@ const {
   onResetAttributes,
   onResetAppearances,
   onViewChange,
-} = $props();
+}: Props = $props();
 </script>
 
 <div class="diff-controls">
@@ -36,7 +62,7 @@ const {
             <button class="view-btn" class:active={currentView === 'appearance'} onclick={() => onViewChange('appearance')}>Appearance</button>
         </div>
         <label class="diff-toggle">
-            <input type="checkbox" checked={showDiffsOnly} onchange={(e) => onDiffsOnlyChange(e.target.checked)} />
+            <input type="checkbox" checked={showDiffsOnly} onchange={(e) => onDiffsOnlyChange((e.target as HTMLInputElement).checked)} />
             Differences only
         </label>
     </div>

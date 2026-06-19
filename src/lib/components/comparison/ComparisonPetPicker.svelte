@@ -1,7 +1,8 @@
-<script>
+<script lang="ts">
 import { normalizeSpecies } from '$lib/services/configService.js';
 import { comparisonActions, comparisonPets, speciesMismatch } from '$lib/stores/comparison.js';
 import { pets } from '$lib/stores/pets.js';
+import type { Pet } from '$lib/types/index.js';
 import { getSpeciesEmoji } from '$lib/utils/species.js';
 
 let searchQuery = $state('');
@@ -24,7 +25,7 @@ const filteredPets = $derived.by(() => {
   });
 });
 
-function handlePetClick(pet) {
+function handlePetClick(pet: Pet) {
   comparisonActions.addPet(pet);
 }
 </script>
