@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 import AttributeComparison from '$lib/components/comparison/AttributeComparison.svelte';
 import GeneStatsComparison from '$lib/components/comparison/GeneStatsComparison.svelte';
 import GenomeGridDiff from '$lib/components/comparison/GenomeGridDiff.svelte';
@@ -63,11 +63,11 @@ const speciesLabel = $derived($comparisonPets[0] ? normalizeSpecies($comparisonP
 
         <div class="comparison-body">
             {#if activeView === 'attributes'}
-                <AttributeComparison petA={$comparisonPets[0]} petB={$comparisonPets[1]} />
+                <AttributeComparison petA={$comparisonPets[0]!} petB={$comparisonPets[1]!} />
             {:else if activeView === 'geneStats'}
-                <GeneStatsComparison petA={$comparisonPets[0]} petB={$comparisonPets[1]} />
+                <GeneStatsComparison petA={$comparisonPets[0]!} petB={$comparisonPets[1]!} />
             {:else if activeView === 'genomeDiff'}
-                <GenomeGridDiff petA={$comparisonPets[0]} petB={$comparisonPets[1]} />
+                <GenomeGridDiff petA={$comparisonPets[0]!} petB={$comparisonPets[1]!} />
             {/if}
         </div>
     {:else}

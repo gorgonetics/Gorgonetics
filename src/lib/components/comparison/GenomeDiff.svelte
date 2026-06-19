@@ -1,17 +1,28 @@
-<script>
+<script lang="ts">
 import StatusPane from '$lib/components/shared/StatusPane.svelte';
 import { diffGenomes } from '$lib/services/comparisonService.js';
+import type { ChromosomeDiff, GeneType, Pet } from '$lib/types/index.js';
 
-const { petA, petB } = $props();
+interface Props {
+  petA: Pet;
+  petB: Pet;
+}
 
-let diffs = $state([]);
-let summary = $state(null);
+const { petA, petB }: Props = $props();
+
+let diffs = $state<ChromosomeDiff[]>([]);
+let summary = $state<{
+  totalGenes: number;
+  identicalGenes: number;
+  differentGenes: number;
+  similarityPercent: number;
+} | null>(null);
 let loading = $state(false);
-let error = $state(null);
+let error = $state<string | null>(null);
 let showDiffsOnly = $state(false);
 
 // Track which chromosomes are expanded
-let expandedChromosomes = $state(new Set());
+let expandedChromosomes = $state(new Set<string>());
 
 $effect(() => {
   if (petA?.id && petB?.id) {
@@ -28,13 +39,13 @@ async function loadDiff() {
     summary = result.summary;
 
     // Auto-expand chromosomes with differences
-    const expanded = new Set();
+    const expanded = new Set<string>();
     for (const d of diffs) {
       if (d.differentGenes > 0) expanded.add(d.chromosome);
     }
     expandedChromosomes = expanded;
-  } catch (err) {
-    error = err.message || 'Failed to load genome diff';
+  } catch (err: unknown) {
+    error = err instanceof Error ? err.message : 'Failed to load genome diff';
     diffs = [];
     summary = null;
   } finally {
@@ -42,7 +53,7 @@ async function loadDiff() {
   }
 }
 
-function toggleChromosome(chr) {
+function toggleChromosome(chr: string) {
   expandedChromosomes = new Set(expandedChromosomes);
   if (expandedChromosomes.has(chr)) {
     expandedChromosomes.delete(chr);
@@ -51,12 +62,12 @@ function toggleChromosome(chr) {
   }
 }
 
-function geneTypeLabel(type) {
+function geneTypeLabel(type: GeneType | null) {
   if (!type) return '·';
   return type;
 }
 
-function geneTypeClass(type) {
+function geneTypeClass(type: GeneType | null) {
   if (type === 'D') return 'dominant';
   if (type === 'R') return 'recessive';
   if (type === 'x') return 'mixed';
