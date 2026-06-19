@@ -186,10 +186,17 @@ export function classifyTrioLocus(
     return { verdict: 'risk', source: attributeSource(fatherCarries, motherCarries), lockedIn: false, ...base };
   }
 
-  // 3. Lock in a positive both parents share (both express the same `+`),
-  //    consolidating it in the offspring — dominant (both D/x) or
-  //    recessive (both R).
-  if (fSign === '+' && mSign === '+') {
+  // 3. Lock in a positive both parents express via the SAME allele, where the
+  //    offspring can consolidate it toward homozygosity. Checked per allele so
+  //    a both-positive gene paired D × R (offspring all heterozygous, no
+  //    consolidation) is not mislabelled as locked-in.
+  //    - dominant `+`: both parents carry the dominant allele (D/x) → offspring
+  //      can be homozygous-dominant (dist.D > 0).
+  //    - recessive `+`: both parents are R → offspring is guaranteed R.
+  if (gene.dominantSign === '+' && carriesDominant(fatherType) && carriesDominant(motherType) && dist.D > 0) {
+    return { verdict: 'gain', source: 'both', lockedIn: true, ...base };
+  }
+  if (gene.recessiveSign === '+' && fatherType === GeneType.RECESSIVE && motherType === GeneType.RECESSIVE) {
     return { verdict: 'gain', source: 'both', lockedIn: true, ...base };
   }
 

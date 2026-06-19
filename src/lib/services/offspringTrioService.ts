@@ -127,7 +127,13 @@ export async function computeOffspringTrio(
       const cls = classifyTrioLocus(fatherType, motherType, dist, gd);
 
       const effects = effectsDB[geneId];
-      const attribute = gd?.dominantAttribute ?? gd?.recessiveAttribute ?? undefined;
+      // A single attribute label only makes sense when both sides agree (or one
+      // side has no attribute). When the dominant and recessive effects target
+      // different attributes — common in the shipped horse templates — any
+      // single label would mislabel some genotypes, so leave it undefined.
+      const domAttr = gd?.dominantAttribute ?? null;
+      const recAttr = gd?.recessiveAttribute ?? null;
+      const attribute = domAttr && recAttr && domAttr !== recAttr ? null : (domAttr ?? recAttr);
 
       genes.push({
         geneId,
@@ -158,7 +164,11 @@ export async function computeOffspringTrio(
       if (dist.unknown === 1) unknownLoci++;
     }
 
-    chromosomes.push({ chromosome: chr, totalGenes: genes.length, gains: chrGains, risks: chrRisks, genes });
+    // A chromosome whose every locus was breed-filtered contributes no rows;
+    // drop it so the grid doesn't render an empty chromosome header.
+    if (genes.length > 0) {
+      chromosomes.push({ chromosome: chr, totalGenes: genes.length, gains: chrGains, risks: chrRisks, genes });
+    }
   }
 
   return {
