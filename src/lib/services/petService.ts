@@ -712,7 +712,7 @@ export async function updatePet(petId: number, updates: Record<string, unknown>)
   if (flat.genome_data !== undefined || flat.breed !== undefined) {
     const current = await getPet(petId);
     if (current) {
-      const nextGenomeData = (params.genome_data as string | undefined) ?? current.genome_data;
+      const nextGenomeData = (params.genome_data as string | undefined) ?? current.genome_data ?? '';
       const nextBreed = (flat.breed as string | undefined) ?? current.breed ?? '';
       try {
         nextGenome = JSON.parse(nextGenomeData) as Genome;
