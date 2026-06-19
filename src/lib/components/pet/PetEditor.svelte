@@ -1,65 +1,76 @@
-<script>
+<script lang="ts">
 import { House, PawPrint, Star } from '@lucide/svelte';
 import { untrack } from 'svelte';
 import { getAllAttributeDisplayInfo, getAllAttributeNames } from '$lib/services/configService.js';
 import { allTags as allTagsStore, appState } from '$lib/stores/pets.js';
+import type { AttributeInfo, Gender, Pet } from '$lib/types/index.js';
 import { HORSE_BREEDS } from '$lib/types/index.js';
 import { focusTrap } from '$lib/utils/focusTrap.js';
 import TagInput from './TagInput.svelte';
 
-const ALL_ATTRIBUTES = getAllAttributeDisplayInfo();
+interface Props {
+  pet: Pet;
+  open: boolean;
+  onClose?: () => void;
+  onSave?: (petId: number) => void;
+}
 
-let { pet, open = $bindable(), onClose, onSave } = $props();
+const ALL_ATTRIBUTES: AttributeInfo[] = getAllAttributeDisplayInfo();
 
-const BREED_OPTIONS = {
+let { pet, open = $bindable(), onClose, onSave }: Props = $props();
+
+const BREED_OPTIONS: Record<string, string[]> = {
   BeeWasp: ['Bee', 'Wasp'],
   Horse: Object.keys(HORSE_BREEDS),
   default: ['Mixed'],
 };
 
-const getBreedOptions = (species) => BREED_OPTIONS[species] || BREED_OPTIONS.default;
-const breedOptions = $derived(getBreedOptions(pet.species));
+const getBreedOptions = (species: string): string[] => BREED_OPTIONS[species] ?? BREED_OPTIONS.default;
+const breedOptions: string[] = $derived(getBreedOptions(pet.species));
 
-function initEditState(p) {
+function initEditState(p: Pet): { name: string; gender: Gender; breed: string; attributes: Record<string, number> } {
   const opts = getBreedOptions(p.species);
   return {
     name: p.name || '',
-    gender: p.gender || 'Male',
+    gender: (p.gender || 'Male') as Gender,
     breed: opts.includes(p.breed) ? p.breed : opts[0],
     attributes: Object.fromEntries(
-      ALL_ATTRIBUTES.map((attr) => [attr.key.toLowerCase(), p[attr.key.toLowerCase()] ?? 50]),
+      ALL_ATTRIBUTES.map((attr) => [
+        attr.key.toLowerCase(),
+        ((p as unknown as Record<string, unknown>)[attr.key.toLowerCase()] as number) ?? 50,
+      ]),
     ),
   };
 }
 
 const initial = untrack(() => initEditState(pet));
-let editName = $state(initial.name);
-let editGender = $state(initial.gender);
-let editBreed = $state(initial.breed);
-const editAttributes = $state(initial.attributes);
-let editTags = $state(untrack(() => [...(pet.tags ?? [])]));
-let editStarred = $state(untrack(() => !!pet.starred));
-let editStabled = $state(untrack(() => !!pet.stabled));
-let editIsPetQuality = $state(untrack(() => !!pet.is_pet_quality));
-let saveError = $state('');
+let editName: string = $state(initial.name);
+let editGender: Gender = $state(initial.gender);
+let editBreed: string = $state(initial.breed);
+const editAttributes: Record<string, number> = $state(initial.attributes);
+let editTags: string[] = $state(untrack(() => [...(pet.tags ?? [])]));
+let editStarred: boolean = $state(untrack(() => !!pet.starred));
+let editStabled: boolean = $state(untrack(() => !!pet.stabled));
+let editIsPetQuality: boolean = $state(untrack(() => !!pet.is_pet_quality));
+let saveError: string = $state('');
 
-const allTags = $derived($allTagsStore);
+const allTags: string[] = $derived($allTagsStore);
 
-const availableAttributes = $derived(getAllAttributeNames(pet.species));
-const filteredAttributeList = $derived(
+const availableAttributes: string[] = $derived(getAllAttributeNames(pet.species));
+const filteredAttributeList: AttributeInfo[] = $derived(
   ALL_ATTRIBUTES.filter((attr) => availableAttributes.includes(attr.key.toLowerCase())),
 );
 
-async function handleSave() {
+async function handleSave(): Promise<void> {
   try {
-    const updateData = {};
+    const updateData: Record<string, unknown> = {};
     if (editName.trim() !== pet.name) updateData.name = editName.trim();
     if (editGender !== pet.gender) updateData.gender = editGender;
     if (editBreed.trim() !== (pet.breed || 'Mixed')) updateData.breed = editBreed.trim();
 
-    const attributeChanges = {};
+    const attributeChanges: Record<string, number> = {};
     for (const [key, value] of Object.entries(editAttributes)) {
-      if (pet[key] !== value) attributeChanges[key] = value;
+      if ((pet as unknown as Record<string, unknown>)[key] !== value) attributeChanges[key] = value;
     }
     if (Object.keys(attributeChanges).length > 0) updateData.attributes = attributeChanges;
 
@@ -80,25 +91,25 @@ async function handleSave() {
     open = false;
     onClose?.();
   } catch (err) {
-    saveError = err.message || 'Failed to save changes.';
+    saveError = (err as Error).message || 'Failed to save changes.';
   }
 }
 
-function handleCancel() {
+function handleCancel(): void {
   saveError = '';
   open = false;
   onClose?.();
 }
 
-function handleBackdropClick(e) {
+function handleBackdropClick(e: MouseEvent): void {
   if (e.target === e.currentTarget) handleCancel();
 }
 
-function handleKeydown(e) {
+function handleKeydown(e: KeyboardEvent): void {
   if (e.key === 'Escape') handleCancel();
 }
 
-function updateAttribute(attrKey, value) {
+function updateAttribute(attrKey: string, value: string): void {
   editAttributes[attrKey] = Number.parseInt(value, 10) || 0;
 }
 </script>
@@ -209,7 +220,7 @@ function updateAttribute(attrKey, value) {
                 min="0"
                 max="100"
                 value={editAttributes[attr.key.toLowerCase()] ?? 50}
-                oninput={(e) => updateAttribute(attr.key.toLowerCase(), e.target.value)}
+                oninput={(e) => updateAttribute(attr.key.toLowerCase(), (e.currentTarget as HTMLInputElement).value)}
               />
             </div>
           {/each}

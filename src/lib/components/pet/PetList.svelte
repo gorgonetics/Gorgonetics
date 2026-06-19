@@ -1,24 +1,27 @@
-<script>
+<script lang="ts">
 import StatusPane from '$lib/components/shared/StatusPane.svelte';
 import { normalizeSpecies } from '$lib/services/configService.js';
 import { pickGenomeFiles, readFileContent } from '$lib/services/fileService.js';
 import { autoScanGameFolder } from '$lib/services/gameImport.js';
 import { compareSelectMode, comparisonActions, comparisonPets, comparisonReady } from '$lib/stores/comparison.js';
 import { pendingImportCount, refreshPendingImportCount } from '$lib/stores/gameImport.js';
+import type { MarkerKey } from '$lib/stores/pets.js';
 import { allTags as allTagsStore, appState, error, pets, selectedPet } from '$lib/stores/pets.js';
+import type { Pet } from '$lib/types/index.js';
 import { createDragState, createKeyboardReorder, moveByFilteredIndex } from '$lib/utils/dragReorder.svelte.js';
 import { errorMessage } from '$lib/utils/error.js';
 import { focusTrap } from '$lib/utils/focusTrap.js';
+import type { UploadSource } from '$lib/utils/genomeUpload.js';
 import { isFileDrag, runGenomeUpload, selectGenomeFiles } from '$lib/utils/genomeUpload.js';
 import { getBasename } from '$lib/utils/path.js';
 import PetCard from './PetCard.svelte';
 import PetEditor from './PetEditor.svelte';
 
-function isSelectedForComparison(petId) {
+function isSelectedForComparison(petId: number): boolean {
   return $comparisonPets[0]?.id === petId || $comparisonPets[1]?.id === petId;
 }
 
-function toggleComparisonPet(pet) {
+function toggleComparisonPet(pet: Pet): void {
   if (isSelectedForComparison(pet.id)) {
     comparisonActions.removePet(pet.id);
   } else {
@@ -26,7 +29,7 @@ function toggleComparisonPet(pet) {
   }
 }
 
-function isCompareDisabled(pet) {
+function isCompareDisabled(pet: Pet): boolean {
   if (isSelectedForComparison(pet.id)) return false;
   if ($comparisonReady) return true;
   // Disable different species when first pet is selected
@@ -35,7 +38,7 @@ function isCompareDisabled(pet) {
   return false;
 }
 
-function startCompare() {
+function startCompare(): void {
   comparisonActions.toggleSelectMode();
   appState.switchTab('compare');
 }
@@ -45,16 +48,16 @@ let searchQuery = $state('');
 // $derived.by below doesn't replay the whole filter on every keystroke.
 let debouncedSearchQuery = $state('');
 const SEARCH_DEBOUNCE_MS = 150;
-let selectedTags = $state([]);
+let selectedTags = $state<string[]>([]);
 let starredOnly = $state(false);
 let stabledOnly = $state(true);
 let uploading = $state(false);
-let uploadProgress = $state(null);
+let uploadProgress = $state<{ current: number; total: number } | null>(null);
 let autoScanning = $state(false);
-let autoScanProgress = $state(null);
+let autoScanProgress = $state<{ current: number; total: number } | null>(null);
 let showEditor = $state(false);
-let editingPet = $state(null);
-let deletingPet = $state(null);
+let editingPet = $state<Pet | null>(null);
+let deletingPet = $state<Pet | null>(null);
 
 const availableTags = $derived($allTagsStore);
 
@@ -76,9 +79,9 @@ $effect(() => {
   return () => clearTimeout(timer);
 });
 
-const filteredPets = $derived.by(() => {
+const filteredPets = $derived.by((): Pet[] => {
   const q = debouncedSearchQuery ? debouncedSearchQuery.toLowerCase() : '';
-  return $pets.filter((pet) => {
+  return $pets.filter((pet: Pet) => {
     if (q) {
       if (!(pet.name || '').toLowerCase().includes(q) && !(pet.species || '').toLowerCase().includes(q)) {
         return false;
@@ -94,7 +97,7 @@ const filteredPets = $derived.by(() => {
   });
 });
 
-function toggleTagFilter(tag) {
+function toggleTagFilter(tag: string): void {
   if (selectedTags.includes(tag)) {
     selectedTags = selectedTags.filter((t) => t !== tag);
   } else {
@@ -102,12 +105,12 @@ function toggleTagFilter(tag) {
   }
 }
 
-function selectPet(pet) {
+function selectPet(pet: Pet): void {
   appState.selectPet(pet);
 }
 
-async function toggleMarker(petId, key, value) {
-  const pet = $pets.find((p) => p.id === petId);
+async function toggleMarker(petId: number, key: MarkerKey, value: boolean): Promise<void> {
+  const pet = $pets.find((p: Pet) => p.id === petId);
   if (!pet || pet[key] === value) return;
   // Optimistic in-place flip — no full list reload, so the toggle is
   // instant (#275). Errors are surfaced via the shared `error` store.
@@ -117,14 +120,14 @@ async function toggleMarker(petId, key, value) {
 // Upload a batch of genome sources (file paths or dropped files), reusing the
 // shared sequential runner. Reloads the list once and surfaces a per-file
 // failure summary. Guarded so picker and drop uploads can't run concurrently.
-async function uploadSources(sources) {
+async function uploadSources(sources: UploadSource[]): Promise<void> {
   if (sources.length === 0 || uploading || autoScanning) return;
   uploading = true;
   error.set(null);
   try {
     const { total, succeeded, failures } = await runGenomeUpload(sources, {
-      upload: (content) => appState.uploadPetQuiet(content),
-      onProgress: (current, t) => {
+      upload: (content: string) => appState.uploadPetQuiet(content),
+      onProgress: (current: number, t: number) => {
         uploadProgress = { current, total: t };
       },
     });
@@ -140,8 +143,8 @@ async function uploadSources(sources) {
   }
 }
 
-async function handleUpload() {
-  let filePaths;
+async function handleUpload(): Promise<void> {
+  let filePaths: string[];
   try {
     filePaths = await pickGenomeFiles();
   } catch (err) {
@@ -158,22 +161,22 @@ async function handleUpload() {
 // don't — so isFileDrag() tells the two apart.
 let fileDragActive = $state(false);
 
-function handleFileDragOver(e) {
+function handleFileDragOver(e: DragEvent): void {
   if (!isFileDrag(e.dataTransfer)) return;
   e.preventDefault();
   if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
   fileDragActive = true;
 }
 
-function handleFileDragLeave(e) {
+function handleFileDragLeave(e: DragEvent & { currentTarget: EventTarget & Element }): void {
   if (!isFileDrag(e.dataTransfer)) return;
   // Ignore leaves into descendant elements; only clear when the cursor leaves
   // the panel entirely (relatedTarget is null when leaving the window).
-  if (e.currentTarget.contains(e.relatedTarget)) return;
+  if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
   fileDragActive = false;
 }
 
-async function handleFileDrop(e) {
+async function handleFileDrop(e: DragEvent): Promise<void> {
   if (!isFileDrag(e.dataTransfer)) return;
   e.preventDefault();
   fileDragActive = false;
@@ -185,7 +188,7 @@ async function handleFileDrop(e) {
     error.set('No genome files (.txt) in the dropped items.');
     return;
   }
-  await uploadSources(accepted.map((file) => ({ name: file.name, read: () => file.text() })));
+  await uploadSources(accepted.map((file: File) => ({ name: file.name, read: () => file.text() })));
   if (rejected.length > 0 && !$error) {
     error.set(`Skipped ${rejected.length} non-genome file${rejected.length === 1 ? '' : 's'}.`);
   }
@@ -194,17 +197,17 @@ async function handleFileDrop(e) {
 // External file drags also bubble through the per-card reorder handlers. Skip
 // the reorder path for them so they don't show the reorder indicator or fight
 // the panel-level drop handler.
-function handleCardDragOver(e, index) {
+function handleCardDragOver(e: DragEvent, index: number): void {
   if (isFileDrag(e.dataTransfer)) return;
   drag.handleDragOver(e, index);
 }
 
-async function handleAutoScan() {
+async function handleAutoScan(): Promise<void> {
   try {
     autoScanning = true;
     error.set(null);
     const result = await autoScanGameFolder({
-      onProgress: (current, total) => {
+      onProgress: (current: number, total: number) => {
         autoScanProgress = { current, total };
       },
     });
@@ -226,7 +229,7 @@ async function handleAutoScan() {
     const backfillNote = result.backfilled > 0 ? `, ${result.backfilled} unlocked for sharing` : '';
     const summary = `Auto-import: ${result.imported} new, ${result.skipped} already imported${backfillNote} (of ${result.scanned} files).`;
     if (result.failures.length > 0) {
-      const lines = result.failures.map((f) => `${f.file}: ${f.reason}`);
+      const lines = result.failures.map((f: { file: string; reason: string }) => `${f.file}: ${f.reason}`);
       error.set(`${summary}\n${result.failures.length} failed:\n${lines.join('\n')}`);
     } else if (result.imported > 0 || result.backfilled > 0) {
       error.set(summary);
@@ -241,27 +244,27 @@ async function handleAutoScan() {
   }
 }
 
-function closeEditor() {
+function closeEditor(): void {
   showEditor = false;
   editingPet = null;
 }
 
-function handleDelete(pet) {
+function handleDelete(pet: Pet): void {
   deletingPet = pet;
 }
 
-async function confirmDelete() {
+async function confirmDelete(): Promise<void> {
   if (deletingPet) {
     await appState.deletePet(deletingPet.id);
     deletingPet = null;
   }
 }
 
-function cancelDelete() {
+function cancelDelete(): void {
   deletingPet = null;
 }
 
-function handlePetCardKeydown(e, index) {
+function handlePetCardKeydown(e: KeyboardEvent, index: number): void {
   const len = filteredPets.length;
   if (len === 0) return;
 
@@ -281,7 +284,7 @@ function handlePetCardKeydown(e, index) {
   }
 
   if (nextIndex >= 0 && nextIndex !== index) {
-    const cards = document.querySelectorAll('.pet-list-items .pet-card');
+    const cards = document.querySelectorAll<HTMLElement>('.pet-list-items .pet-card');
     cards[nextIndex]?.focus();
   }
 }
@@ -289,7 +292,7 @@ function handlePetCardKeydown(e, index) {
 const drag = createDragState();
 const isDraggable = $derived(!searchQuery && selectedTags.length === 0);
 
-async function handleDrop(e, dropIndex) {
+async function handleDrop(e: DragEvent, dropIndex: number): Promise<void> {
   e.preventDefault();
   drag.dragOverIndex = null;
   if (drag.draggedIndex === null || drag.draggedIndex === dropIndex) return;
@@ -303,7 +306,7 @@ async function handleDrop(e, dropIndex) {
 
   const previous = [...$pets];
   const reordered = [...$pets];
-  const fromIdx = reordered.findIndex((p) => p.id === fromPet.id);
+  const fromIdx = reordered.findIndex((p: Pet) => p.id === fromPet.id);
   if (fromIdx < 0) {
     drag.draggedIndex = null;
     return;
@@ -318,7 +321,7 @@ async function handleDrop(e, dropIndex) {
       drag.draggedIndex = null;
       return;
     }
-    const toIdx = reordered.findIndex((p) => p.id === toPet.id);
+    const toIdx = reordered.findIndex((p: Pet) => p.id === toPet.id);
     if (toIdx < 0) {
       drag.draggedIndex = null;
       return;
@@ -329,7 +332,7 @@ async function handleDrop(e, dropIndex) {
   drag.draggedIndex = null;
 
   try {
-    await appState.reorderPets(reordered.map((p) => p.id));
+    await appState.reorderPets(reordered.map((p: Pet) => p.id));
   } catch {
     pets.set(previous);
   }
@@ -343,16 +346,16 @@ async function handleDrop(e, dropIndex) {
 let reorderAnnouncement = $state('');
 const kbReorder = createKeyboardReorder({
   count: () => filteredPets.length,
-  reorder: (from, to) => pets.set(moveByFilteredIndex($pets, filteredPets, from, to, (p) => p.id)),
-  persist: () => appState.reorderPets($pets.map((p) => p.id)),
+  reorder: (from: number, to: number) => pets.set(moveByFilteredIndex($pets, filteredPets, from, to, (p: Pet) => p.id)),
+  persist: () => appState.reorderPets($pets.map((p: Pet) => p.id)),
   snapshot: () => [...$pets],
-  restore: (snap) => pets.set(snap),
-  label: (i) => filteredPets[i]?.name || 'Unnamed',
-  announce: (msg) => {
+  restore: (snap: unknown) => pets.set(snap as Pet[]),
+  label: (i: number) => filteredPets[i]?.name || 'Unnamed',
+  announce: (msg: string) => {
     reorderAnnouncement = msg;
   },
-  focusItem: (i) => {
-    document.querySelectorAll('.pet-list-items .reorder-handle')[i]?.focus();
+  focusItem: (i: number) => {
+    document.querySelectorAll<HTMLElement>('.pet-list-items .reorder-handle')[i]?.focus();
   },
 });
 </script>

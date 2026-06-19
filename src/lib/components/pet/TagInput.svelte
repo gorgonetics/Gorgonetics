@@ -1,8 +1,14 @@
-<script>
-let { tags = [], allTags = [], onchange } = $props();
+<script lang="ts">
+interface Props {
+  tags?: string[];
+  allTags?: string[];
+  onchange?: (tags: string[]) => void;
+}
 
-let inputValue = $state('');
-let showSuggestions = $state(false);
+let { tags = [], allTags = [], onchange }: Props = $props();
+
+let inputValue = $state<string>('');
+let showSuggestions = $state<boolean>(false);
 
 const suggestions = $derived(
   inputValue.trim()
@@ -10,7 +16,7 @@ const suggestions = $derived(
     : [],
 );
 
-function addTag(value) {
+function addTag(value: string): void {
   const tag = value.trim().toLowerCase();
   if (!tag || tags.includes(tag)) return;
   const updated = [...tags, tag];
@@ -19,11 +25,11 @@ function addTag(value) {
   showSuggestions = false;
 }
 
-function removeTag(tag) {
+function removeTag(tag: string): void {
   onchange?.(tags.filter((t) => t !== tag));
 }
 
-function handleKeydown(e) {
+function handleKeydown(e: KeyboardEvent): void {
   if (e.key === 'Enter') {
     e.preventDefault();
     if (suggestions.length > 0) {
@@ -36,8 +42,8 @@ function handleKeydown(e) {
   }
 }
 
-function handleInput(e) {
-  inputValue = e.target.value;
+function handleInput(e: Event): void {
+  inputValue = (e.target as HTMLInputElement).value;
   if (inputValue.includes(',')) {
     const parts = inputValue.split(',');
     for (const part of parts.slice(0, -1)) {
@@ -48,15 +54,15 @@ function handleInput(e) {
   showSuggestions = inputValue.trim().length > 0;
 }
 
-function handleFocus() {
+function handleFocus(): void {
   showSuggestions = inputValue.trim().length > 0;
 }
 
-function handleBlur() {
+function handleBlur(): void {
   showSuggestions = false;
 }
 
-function handleSuggestionMousedown(e, suggestion) {
+function handleSuggestionMousedown(e: MouseEvent, suggestion: string): void {
   e.preventDefault();
   addTag(suggestion);
 }
