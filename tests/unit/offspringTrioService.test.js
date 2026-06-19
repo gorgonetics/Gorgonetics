@@ -100,6 +100,44 @@ describe('computeOffspringTrio', () => {
     expect(summary.unknownLoci).toBe(1);
   });
 
+  it('treats an unknown parent allele as having no expressed effect', async () => {
+    await registerGenes();
+    const father = await uploadParent('Sire', Gender.MALE, '?xx');
+    const mother = await uploadParent('Dam', Gender.FEMALE, 'Dxx');
+
+    const { chromosomes } = await computeOffspringTrio(father, mother, { species: 'BeeWasp' });
+    const a1 = chromosomes.flatMap((c) => c.genes).find((g) => g.geneId === '01A1');
+
+    // Father's allele is '?', so it expresses nothing knowable.
+    expect(a1.fatherType).toBe('?');
+    expect(a1.fatherEffect).toBeUndefined();
+    // Mother's D allele expresses the dominant effect string.
+    expect(a1.motherEffect).toBe('None');
+    expect(a1.dist).toEqual({ D: 0, x: 0, R: 0, unknown: 1 });
+  });
+
+  it('pairs loci by gene_id, treating a locus absent from one parent as unknown', async () => {
+    // Add a fourth locus so the father's genome is longer than the mother's.
+    await registerGenes();
+    await geneService.upsertGene('beewasp', '01', '01A4', { effectDominant: 'Toughness+', effectRecessive: 'None' });
+    geneService.clearGeneEffectsCache('beewasp');
+
+    const father = await uploadParent('Sire', Gender.MALE, 'xxxD');
+    const mother = await uploadParent('Dam', Gender.FEMALE, 'xxx');
+
+    const { chromosomes, summary } = await computeOffspringTrio(father, mother, { species: 'BeeWasp' });
+    const byId = Object.fromEntries(chromosomes.flatMap((c) => c.genes).map((g) => [g.geneId, g]));
+
+    // The union covers all four loci; 01A4 exists only on the father.
+    expect(summary.totalGenes).toBe(4);
+    expect(byId['01A4'].fatherType).toBe('D');
+    expect(byId['01A4'].motherType).toBeNull();
+    // Mother absent → offspring allele is unknowable, not a bogus pairing.
+    expect(byId['01A4'].dist).toEqual({ D: 0, x: 0, R: 0, unknown: 1 });
+    expect(byId['01A4'].verdict).toBe('neutral');
+    expect(byId['01A4'].motherEffect).toBeUndefined();
+  });
+
   it('throws when a parent has no projected genome', async () => {
     await registerGenes();
     const father = await uploadParent('Sire', Gender.MALE, 'xxx');

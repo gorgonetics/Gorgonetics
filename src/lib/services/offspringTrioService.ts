@@ -3,19 +3,63 @@
  *
  * Computes a per-locus, chromosome-grouped view of a single breeding
  * pair: each parent's concrete allele plus the offspring's probabilistic
- * outcome and a gain/risk verdict. Structurally mirrors
- * `comparisonService.diffGenomes` (positional, index-aligned walk over
- * the pre-projected `pet_genes` rows) but for three rows, and composes
- * the pure genetics in `breedingGenetics` for the offspring middle row.
+ * outcome and a gain/risk verdict. Loci are paired by `gene_id` (not by
+ * positional index) so parents with differing projected loci stay aligned
+ * — a locus present in only one parent treats the other as unknown, which
+ * `offspringDistribution` already collapses to an unknown offspring.
+ * Composes the pure genetics in `breedingGenetics` for the middle row.
  */
 
 import { getGeneEffectsCached, getParsedGenesCached, isHorseBreedFiltered } from '$lib/services/geneService.js';
+import { compareBlockLetters } from '$lib/services/genomeParser.js';
 import type { ChromosomeTrio, GeneTrioEntry, OffspringTrioResult, Pet } from '$lib/types/index.js';
 import { GeneType } from '$lib/types/index.js';
 import { classifyTrioLocus, offspringDistribution } from '$lib/utils/breedingGenetics.js';
-import { groupLociByChromosome, loadAllPetLoci } from '$lib/utils/petLoci.js';
+import { type ChromosomeLocus, groupLociByChromosome, loadAllPetLoci } from '$lib/utils/petLoci.js';
 import { capitalize } from '$lib/utils/string.js';
 import { normalizeSpecies } from './configService.js';
+
+interface GeneEffectColumns {
+  effectDominant?: string | null;
+  effectRecessive?: string | null;
+}
+
+/**
+ * The human effect string a parent expresses given its allele. Unknown
+ * (`?`) or absent alleles express nothing knowable → undefined.
+ */
+function parentEffect(type: GeneType, effects: GeneEffectColumns | undefined): string | undefined {
+  if (!effects || type === GeneType.UNKNOWN) return undefined;
+  return (type === GeneType.RECESSIVE ? effects.effectRecessive : effects.effectDominant) ?? undefined;
+}
+
+/**
+ * Ordered union of two parents' loci for one chromosome, keyed by
+ * `gene_id`. Each entry pairs the father's and mother's allele at that
+ * locus (`null` when that parent has no row). Ordered canonically by
+ * block then position so the grid renders the same layout as the 2-pet
+ * genome diff.
+ */
+function pairLociById(
+  genesF: ChromosomeLocus[],
+  genesM: ChromosomeLocus[],
+): { locus: ChromosomeLocus; father: ChromosomeLocus | null; mother: ChromosomeLocus | null }[] {
+  const byIdF = new Map(genesF.map((g) => [g.id, g]));
+  const byIdM = new Map(genesM.map((g) => [g.id, g]));
+  const union = [...genesF];
+  for (const g of genesM) {
+    if (!byIdF.has(g.id)) union.push(g);
+  }
+  union.sort((a, b) => {
+    const blockCmp = compareBlockLetters(a.block, b.block);
+    return blockCmp !== 0 ? blockCmp : a.position - b.position;
+  });
+  return union.map((locus) => ({
+    locus,
+    father: byIdF.get(locus.id) ?? null,
+    mother: byIdM.get(locus.id) ?? null,
+  }));
+}
 
 export interface OffspringTrioOptions {
   /** Canonical or display species — passed through `normalizeSpecies`. */
@@ -65,17 +109,12 @@ export async function computeOffspringTrio(
   let unknownLoci = 0;
 
   for (const chr of allChromosomes) {
-    const genesF = groupedF.get(chr) ?? [];
-    const genesM = groupedM.get(chr) ?? [];
-    const maxLen = Math.max(genesF.length, genesM.length);
     const genes: GeneTrioEntry[] = [];
     let chrGains = 0;
     let chrRisks = 0;
 
-    for (let i = 0; i < maxLen; i++) {
-      const gF = genesF[i] ?? null;
-      const gM = genesM[i] ?? null;
-      const geneId = gF?.id ?? gM?.id ?? `${chr}?${i + 1}`;
+    for (const { locus, father: gF, mother: gM } of pairLociById(groupedF.get(chr) ?? [], groupedM.get(chr) ?? [])) {
+      const geneId = locus.id;
       const gd = parsedGenes[geneId];
 
       // Skip loci locked to another breed — keeps the trio consistent
@@ -92,8 +131,8 @@ export async function computeOffspringTrio(
 
       genes.push({
         geneId,
-        block: gF?.block ?? gM?.block ?? '?',
-        position: gF?.position ?? gM?.position ?? i + 1,
+        block: locus.block,
+        position: locus.position,
         fatherType: (gF?.type ?? null) as GeneType | null,
         motherType: (gM?.type ?? null) as GeneType | null,
         dist,
@@ -103,16 +142,8 @@ export async function computeOffspringTrio(
         pPositive: cls.pPositive,
         pNegative: cls.pNegative,
         attribute: attribute ? capitalize(attribute) : undefined,
-        fatherEffect: effects
-          ? fatherType === GeneType.RECESSIVE
-            ? effects.effectRecessive
-            : effects.effectDominant
-          : undefined,
-        motherEffect: effects
-          ? motherType === GeneType.RECESSIVE
-            ? effects.effectRecessive
-            : effects.effectDominant
-          : undefined,
+        fatherEffect: parentEffect(fatherType, effects),
+        motherEffect: parentEffect(motherType, effects),
       });
 
       totalGenes++;
