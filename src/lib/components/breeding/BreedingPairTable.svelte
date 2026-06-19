@@ -1,8 +1,21 @@
-<script>
+<script lang="ts">
 import { breedingView } from '$lib/stores/breeding.svelte.js';
 import { appState } from '$lib/stores/pets.js';
+import type { BreedingPairResult, Pet } from '$lib/types/index.js';
 
-let { results, attrNames } = $props();
+interface Props {
+  results: BreedingPairResult[];
+  attrNames: string[];
+}
+
+// Discriminated on `numeric` so the accessor's return type is tied to the flag:
+// a numeric column sorts by subtraction, a text column by localeCompare, and a
+// mismatch is a compile error rather than a silent cast.
+type Column =
+  | { id: string; label: string; numeric: true; accessor: (r: BreedingPairResult) => number }
+  | { id: string; label: string; numeric: false; accessor: (r: BreedingPairResult) => string };
+
+const { results, attrNames }: Props = $props();
 
 /**
  * Column definitions. The per-attribute columns are appended after the
@@ -10,18 +23,20 @@ let { results, attrNames } = $props();
  * which in turn matches `breedingView.sortCol` after a click on the
  * header.
  */
-const columns = $derived([
+const columns = $derived<Column[]>([
   { id: 'male', label: '♂ Male', accessor: (r) => r.male.name, numeric: false },
   { id: 'female', label: '♀ Female', accessor: (r) => r.female.name, numeric: false },
   { id: 'evMixed', label: 'Mixed', accessor: (r) => r.evMixed, numeric: true },
   { id: 'evUnknown', label: 'Unknown', accessor: (r) => r.evUnknown, numeric: true },
   { id: 'evPositiveTotal', label: 'Total +', accessor: (r) => r.evPositiveTotal, numeric: true },
-  ...attrNames.map((name) => ({
-    id: name,
-    label: name,
-    accessor: (r) => r.evPositiveByAttribute[name] ?? 0,
-    numeric: true,
-  })),
+  ...attrNames.map(
+    (name): Column => ({
+      id: name,
+      label: name,
+      accessor: (r: BreedingPairResult) => r.evPositiveByAttribute[name] ?? 0,
+      numeric: true,
+    }),
+  ),
 ]);
 
 const sortedResults = $derived.by(() => {
@@ -31,14 +46,13 @@ const sortedResults = $derived.by(() => {
     columns.find((c) => c.id === breedingView.sortCol) ?? columns.find((c) => c.id === 'evPositiveTotal') ?? columns[0];
   const dir = breedingView.sortDir === 'asc' ? 1 : -1;
   return [...results].sort((a, b) => {
-    const av = col.accessor(a);
-    const bv = col.accessor(b);
-    const cmp = col.numeric ? av - bv : String(av).localeCompare(String(bv));
+    // `col.numeric` narrows the accessor's return type, so no cast is needed.
+    const cmp = col.numeric ? col.accessor(a) - col.accessor(b) : col.accessor(a).localeCompare(col.accessor(b));
     return cmp * dir;
   });
 });
 
-function setSort(colId) {
+function setSort(colId: string) {
   if (breedingView.sortCol === colId) {
     breedingView.sortDir = breedingView.sortDir === 'asc' ? 'desc' : 'asc';
   } else {
@@ -47,21 +61,21 @@ function setSort(colId) {
   }
 }
 
-function sortIndicator(colId) {
+function sortIndicator(colId: string) {
   if (colId !== breedingView.sortCol) return '';
   return breedingView.sortDir === 'asc' ? ' ▲' : ' ▼';
 }
 
-function openPet(pet) {
+function openPet(pet: Pet) {
   appState.selectPet(pet);
   appState.switchTab('pets');
 }
 
-function openTrio(pair) {
+function openTrio(pair: BreedingPairResult) {
   breedingView.selectedPair = { male: pair.male, female: pair.female };
 }
 
-function fmt(n) {
+function fmt(n: number) {
   return n.toFixed(1);
 }
 </script>

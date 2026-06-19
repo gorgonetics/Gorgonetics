@@ -1,17 +1,17 @@
-<script>
+<script lang="ts">
 import StatusPane from '$lib/components/shared/StatusPane.svelte';
 import { rankBreedingPairs } from '$lib/services/breedingService.js';
 import { getAllAttributeNames, getSupportedSpecies, normalizeSpecies } from '$lib/services/configService.js';
 import { breedingView } from '$lib/stores/breeding.svelte.js';
 import { pets } from '$lib/stores/pets.js';
-import { Gender, HORSE_BREEDS } from '$lib/types/index.js';
+import { type BreedingPairResult, Gender, HORSE_BREEDS } from '$lib/types/index.js';
 import { capitalize } from '$lib/utils/string.js';
 import BreedingPairTable from './BreedingPairTable.svelte';
 import TrioView from './TrioView.svelte';
 
 const species = getSupportedSpecies();
 
-let pairs = $state([]);
+let pairs = $state<BreedingPairResult[]>([]);
 let loading = $state(false);
 let errored = $state(false);
 let pairsSequence = 0;
@@ -52,7 +52,7 @@ $effect(() => {
       pairs = result;
       loading = false;
     })
-    .catch((err) => {
+    .catch((err: unknown) => {
       if (seq !== pairsSequence) return;
       console.error('rankBreedingPairs failed', err);
       pairs = [];
