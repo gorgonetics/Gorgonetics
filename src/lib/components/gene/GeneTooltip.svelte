@@ -1,19 +1,25 @@
-<script>
-/**
- * @typedef {Object} Props
- * @property {boolean} [visible]
- * @property {number} [x]
- * @property {number} [y]
- * @property {string} [geneId]
- * @property {string} [geneType]
- * @property {string} [effect]
- * @property {any} [potentialEffects]
- */
+<script lang="ts">
+interface Props {
+  visible?: boolean;
+  x?: number;
+  y?: number;
+  geneId?: string;
+  geneType?: string;
+  effect?: string;
+  potentialEffects?: string[];
+}
 
-/** @type {Props} */
-const { visible = false, x = 0, y = 0, geneId = '', geneType = '', effect = '', potentialEffects = [] } = $props();
+const {
+  visible = false,
+  x = 0,
+  y = 0,
+  geneId = '',
+  geneType = '',
+  effect = '',
+  potentialEffects = [],
+}: Props = $props();
 
-function getTypeDescription(type) {
+function getTypeDescription(type: string) {
   switch (type) {
     case 'R':
       return 'Recessive';

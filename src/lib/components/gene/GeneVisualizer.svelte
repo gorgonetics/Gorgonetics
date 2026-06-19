@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 import { onDestroy, onMount } from 'svelte';
 import StatusPane from '$lib/components/shared/StatusPane.svelte';
 import {
@@ -13,7 +13,15 @@ import {
 import { getGeneEffectsCached } from '$lib/services/geneService.js';
 import { loadPetGridFromDb } from '$lib/services/petService.js';
 import { EFFECT_COLORS } from '$lib/theme/gene-colors.js';
-import { breedFor, effectFor, isNoEffect } from '$lib/utils/geneAnalysis.js';
+import type { AppearanceInfo, Pet } from '$lib/types/index.js';
+import {
+  breedFor,
+  effectFor,
+  type GeneEffectData,
+  isNoEffect,
+  type ParsedChromosome,
+  type ParsedGene,
+} from '$lib/utils/geneAnalysis.js';
 import { handleGridNavigation } from '$lib/utils/keyboard.js';
 import { capitalize } from '$lib/utils/string.js';
 import GeneCell from './GeneCell.svelte';
@@ -23,10 +31,10 @@ const ALL_ATTRIBUTES = getAllAttributeDisplayInfo();
 const FALLBACK_APPEARANCE_KEYS = getAllAppearanceDisplayInfo('beewasp').map((a) => a.key.replace(/_/g, '-'));
 
 // Build appearance category lookup maps from configService data (avoids long if/else chains)
-function buildAppearanceLookup(species) {
+function buildAppearanceLookup(species: string): Map<string, string> {
   const attrs = getAppearanceAttributes(species);
-  const byName = new Map();
-  for (const [key, info] of Object.entries(attrs)) {
+  const byName = new Map<string, string>();
+  for (const [key, info] of Object.entries(attrs) as [string, { name: string }][]) {
     byName.set(info.name.toLowerCase(), key);
   }
   return byName;
@@ -35,7 +43,7 @@ function buildAppearanceLookup(species) {
 const HORSE_APPEARANCE = buildAppearanceLookup('horse');
 const BEEWASP_APPEARANCE = buildAppearanceLookup('beewasp');
 
-function categorizeAppearance(species, appearance) {
+function categorizeAppearance(species: string, appearance: string) {
   if (!appearance || appearance === 'None') return 'appearance-neutral';
   const lower = appearance.toLowerCase();
 
@@ -51,36 +59,89 @@ function categorizeAppearance(species, appearance) {
   return 'appearance-neutral';
 }
 
-const { pet, onStatsUpdated } = $props();
+interface Props {
+  pet?: Pet | null;
+  onStatsUpdated?: () => void;
+}
 
-let containerElement = $state();
+interface GeneAnalysisResult {
+  type: string;
+  attribute: string | null;
+  effect: string;
+}
+
+interface ProcessedGene extends ParsedGene {
+  geneAnalysis: GeneAnalysisResult;
+  isVisible: boolean;
+}
+
+interface SpeciesTemplate {
+  species: string;
+  chromosomeCount: number;
+  blockCount: number;
+  sortedBlocks: string[];
+  blockMaxGenes: Map<string, number>;
+  timestamp: number;
+}
+
+interface HeaderStructure {
+  sortedBlocks: string[];
+  blockMaxGenes: Map<string, number>;
+}
+
+interface ChromosomeRow {
+  chromosome: string;
+  data: ParsedChromosome;
+  processedBlocks: Record<string, (ProcessedGene | null)[]>;
+}
+
+// Stats types
+interface AttrStatEntry {
+  positive: number;
+  negative: number;
+  dominant: number;
+  recessive: number;
+  mixed: number;
+}
+
+type StatsMap = Record<string, AttrStatEntry | number>;
+
+const { pet, onStatsUpdated }: Props = $props();
+
+let containerElement = $state<HTMLElement | undefined>(undefined);
 
 let loading = $state(false);
-let error = $state(null);
-let currentPet = $state(null);
+let error = $state<string | null>(null);
+let currentPet = $state<{
+  id: number;
+  name: string;
+  species: string;
+  breed: string;
+  grid: Record<string, ParsedChromosome>;
+} | null>(null);
 let currentView = $state('attribute');
-let geneEffectsDB = null;
+let geneEffectsDB: Record<string, Record<string, GeneEffectData>> | null = null;
 
 // Stats-related reactive variables
-let currentStats = $state(null);
+let currentStats = $state<StatsMap | null>(null);
 let totalGenes = $state(0);
 let neutralGenes = $state(0);
-let appearanceList = $state([]);
-let selectedAttributes = $state([]);
-let hiddenAttributes = $state([]);
-let selectedChromosomes = $state([]);
-let hiddenChromosomes = $state([]);
+let appearanceList = $state<AppearanceInfo[]>([]);
+let selectedAttributes = $state<string[]>([]);
+let hiddenAttributes = $state<string[]>([]);
+let selectedChromosomes = $state<string[]>([]);
+let hiddenChromosomes = $state<string[]>([]);
 
 // Filter states
-let currentEffectFilter = $state([]);
-let hiddenEffectFilters = $state([]);
-let currentValueFilter = $state([]);
-let hiddenValueFilters = $state([]);
+let currentEffectFilter = $state<string[]>([]);
+let hiddenEffectFilters = $state<string[]>([]);
+let currentValueFilter = $state<string[]>([]);
+let hiddenValueFilters = $state<string[]>([]);
 
 // Breed filter state (horse only)
 let currentBreedFilter = $state('');
 
-function chromosomeHasBreed(chromosome, breedName) {
+function chromosomeHasBreed(chromosome: string, breedName: string) {
   if (!geneEffectsDB || !currentPet) return true;
   const speciesKey = normalizeSpecies(currentPet.species);
   const speciesEffects = geneEffectsDB[speciesKey];
@@ -105,18 +166,18 @@ let tooltipGeneType = $state('');
 
 // Template system state (disabled)
 let tooltipEffect = $state('');
-let tooltipPotentialEffects = $state([]);
+let tooltipPotentialEffects = $state<string[]>([]);
 
 // Parsed gene data
-let headerStructure = $state(null);
-let chromosomeData = $state([]);
+let headerStructure = $state<HeaderStructure | null>(null);
+let chromosomeData = $state<ChromosomeRow[]>([]);
 
 // Global gene effects database - persists across pet selections
-let globalGeneEffectsDB = {};
+let globalGeneEffectsDB: Record<string, Record<string, GeneEffectData>> = {};
 
 // DOM template cache - stores pre-built table structures per species
-const speciesTemplateCache = new Map();
-let currentSpeciesTemplate = $state(null);
+const speciesTemplateCache = new Map<string, SpeciesTemplate>();
+let currentSpeciesTemplate = $state<SpeciesTemplate | null>(null);
 let isUsingCachedTemplate = false;
 
 onMount(async () => {
@@ -149,31 +210,31 @@ async function preloadGeneEffects() {
   await Promise.all(loadPromises);
 }
 
-function createSpeciesTemplate(species, headerStructure, chromosomeCount) {
-  const template = {
+function createSpeciesTemplate(species: string, hs: HeaderStructure, chromosomeCount: number): SpeciesTemplate {
+  return {
     species,
     chromosomeCount,
-    blockCount: headerStructure.sortedBlocks.length,
-    sortedBlocks: [...headerStructure.sortedBlocks],
-    blockMaxGenes: new Map(headerStructure.blockMaxGenes),
+    blockCount: hs.sortedBlocks.length,
+    sortedBlocks: [...hs.sortedBlocks],
+    blockMaxGenes: new Map(hs.blockMaxGenes),
     timestamp: Date.now(),
   };
-
-  return template;
 }
 
-function getOrCreateSpeciesTemplate(species, headerStructure, chromosomeCount) {
+function getOrCreateSpeciesTemplate(species: string, hs: HeaderStructure, chromosomeCount: number): SpeciesTemplate {
   // sortedBlocks.length is fully derived from species + chromosomeCount, so
   // it adds nothing to cache identity. Drop it from the key.
   const cacheKey = `${species}_${chromosomeCount}`;
 
   if (speciesTemplateCache.has(cacheKey)) {
     const cached = speciesTemplateCache.get(cacheKey);
-    isUsingCachedTemplate = true;
-    return cached;
+    if (cached) {
+      isUsingCachedTemplate = true;
+      return cached;
+    }
   }
 
-  const template = createSpeciesTemplate(species, headerStructure, chromosomeCount);
+  const template = createSpeciesTemplate(species, hs, chromosomeCount);
   speciesTemplateCache.set(cacheKey, template);
   isUsingCachedTemplate = false;
   return template;
@@ -209,22 +270,23 @@ async function loadPetData() {
     error = null;
 
     const grid = await loadPetGridFromDb(pet.id);
-    currentPet = { id: pet.id, name: pet.name, species: pet.species, breed: pet.breed, grid };
+    const loaded = { id: pet.id, name: pet.name, species: pet.species, breed: pet.breed, grid };
+    currentPet = loaded;
 
     // Load gene effects and appearance config in parallel for better performance
-    await loadGeneEffectsForSpecies(currentPet.species);
-    loadAppearanceConfigForSpecies(currentPet.species);
+    await loadGeneEffectsForSpecies(loaded.species);
+    loadAppearanceConfigForSpecies(loaded.species);
 
     await updateVisualization();
-  } catch (err) {
-    error = `Failed to load pet: ${err.message}`;
+  } catch (err: unknown) {
+    error = `Failed to load pet: ${err instanceof Error ? err.message : String(err)}`;
     console.error('❌ Error loading pet data:', err);
   } finally {
     loading = false;
   }
 }
 
-async function loadGeneEffectsForSpecies(species) {
+async function loadGeneEffectsForSpecies(species: string) {
   const normalizedSpecies = normalizeSpecies(species);
   if (globalGeneEffectsDB[normalizedSpecies]) {
     geneEffectsDB = globalGeneEffectsDB;
@@ -239,7 +301,7 @@ async function loadGeneEffectsForSpecies(species) {
   }
 }
 
-function loadAppearanceConfigForSpecies(species) {
+function loadAppearanceConfigForSpecies(species: string) {
   if (!species) {
     appearanceList = [];
     return;
@@ -248,10 +310,10 @@ function loadAppearanceConfigForSpecies(species) {
   appearanceList = config.appearance_attributes || [];
 }
 
-async function initializeStats() {
+async function initializeStats(): Promise<StatsMap> {
   if (currentView === 'attribute') {
     const emptyAttr = () => ({ positive: 0, negative: 0, dominant: 0, recessive: 0, mixed: 0 });
-    const stats = {
+    const stats: StatsMap = {
       positive: 0,
       negative: 0,
       neutral: 0,
@@ -277,7 +339,7 @@ async function initializeStats() {
 
     return stats;
   } else {
-    const stats = { 'appearance-neutral': 0, 'inactive-breed': 0 };
+    const stats: StatsMap = { 'appearance-neutral': 0, 'inactive-breed': 0 };
 
     let attrNames = FALLBACK_APPEARANCE_KEYS;
     if (currentPet?.species) {
@@ -295,46 +357,54 @@ async function initializeStats() {
   }
 }
 
-function updateStats(stats, geneAnalysis, geneType) {
+function updateStats(stats: StatsMap, geneAnalysis: GeneAnalysisResult, geneType: string) {
   // Skip inactive-breed genes from all stats
   if (geneAnalysis.type === 'inactive-breed') {
-    stats['inactive-breed']++;
+    (stats['inactive-breed'] as number)++;
     return;
   }
 
   if (currentView === 'attribute') {
-    stats[geneAnalysis.type]++;
+    const typeVal = stats[geneAnalysis.type];
+    if (typeof typeVal === 'number') stats[geneAnalysis.type] = typeVal + 1;
 
     // Global gene-type counters (one per unique gene)
-    if (geneType === 'D') stats._dominant++;
-    else if (geneType === 'R') stats._recessive++;
-    else if (geneType === 'x') stats._mixed++;
+    if (geneType === 'D') (stats._dominant as number)++;
+    else if (geneType === 'R') (stats._recessive as number)++;
+    else if (geneType === 'x') (stats._mixed as number)++;
 
-    if (geneAnalysis.attribute && stats[geneAnalysis.attribute]) {
+    if (geneAnalysis.attribute) {
       const attrStats = stats[geneAnalysis.attribute];
+      if (attrStats && typeof attrStats === 'object') {
+        const as = attrStats as {
+          dominant: number;
+          recessive: number;
+          mixed: number;
+          positive: number;
+          negative: number;
+        };
+        // Track gene type (D/R/x)
+        if (geneType === 'D') as.dominant++;
+        else if (geneType === 'R') as.recessive++;
+        else if (geneType === 'x') as.mixed++;
 
-      // Track gene type (D/R/x)
-      if (geneType === 'D') attrStats.dominant++;
-      else if (geneType === 'R') attrStats.recessive++;
-      else if (geneType === 'x') attrStats.mixed++;
-
-      // Only count confirmed positive/negative effects (not potential)
-      if (geneAnalysis.type === 'positive' || geneAnalysis.type === 'negative') {
-        attrStats[geneAnalysis.type]++;
+        // Only count confirmed positive/negative effects (not potential)
+        if (geneAnalysis.type === 'positive' || geneAnalysis.type === 'negative') {
+          as[geneAnalysis.type]++;
+        }
       }
     }
   } else {
-    if (stats[geneAnalysis.type] !== undefined) {
-      stats[geneAnalysis.type]++;
-    }
+    const typeVal = stats[geneAnalysis.type];
+    if (typeof typeVal === 'number') stats[geneAnalysis.type] = typeVal + 1;
   }
 }
 
-function getGeneEffect(speciesKey, geneId, geneType) {
+function getGeneEffect(speciesKey: string, geneId: string, geneType: string) {
   return effectFor(geneEffectsDB?.[speciesKey]?.[geneId], geneType);
 }
 
-function getGeneAppearance(speciesKey, geneId) {
+function getGeneAppearance(speciesKey: string, geneId: string) {
   if (!geneEffectsDB) return 'No appearance effect';
   const geneData = geneEffectsDB[speciesKey]?.[geneId];
   if (
@@ -347,19 +417,19 @@ function getGeneAppearance(speciesKey, geneId) {
   return geneData.appearance;
 }
 
-function extractAttributeFromEffect(species, effectStr) {
+function extractAttributeFromEffect(species: string, effectStr: string) {
   return getAttributeMatcher(species).findFirst(effectStr);
 }
 
-function extractAttributesFromEffect(species, effectStr) {
+function extractAttributesFromEffect(species: string, effectStr: string) {
   return getAttributeMatcher(species).findAll(effectStr);
 }
 
-function getGeneBreed(speciesKey, geneId) {
+function getGeneBreed(speciesKey: string, geneId: string) {
   return breedFor(geneEffectsDB?.[speciesKey]?.[geneId]);
 }
 
-function isGeneRelevantToBreed(speciesKey, geneId) {
+function isGeneRelevantToBreed(speciesKey: string, geneId: string) {
   if (speciesKey !== 'horse') return true;
   // If pet has no breed set or it's "Mixed", all genes are relevant
   // Use the pet prop (has breed) rather than currentPet (genome data only)
@@ -370,7 +440,7 @@ function isGeneRelevantToBreed(speciesKey, geneId) {
   return !geneBreed || geneBreed === petBreed;
 }
 
-function analyzeGeneEffect(species, geneId, geneType) {
+function analyzeGeneEffect(species: string, geneId: string, geneType: string): GeneAnalysisResult {
   if (currentView === 'attribute') {
     const effect = getGeneEffect(species, geneId, geneType);
 
@@ -435,7 +505,7 @@ function analyzeGeneEffect(species, geneId, geneType) {
   }
 }
 
-function hasAnyPotentialEffect(species, geneId) {
+function hasAnyPotentialEffect(species: string, geneId: string) {
   if (currentView === 'attribute') {
     const dominantEffect = getGeneEffect(species, geneId, 'D');
     const recessiveEffect = getGeneEffect(species, geneId, 'R');
@@ -450,7 +520,7 @@ function hasAnyPotentialEffect(species, geneId) {
   }
 }
 
-function analyzePotentialEffectType(species, geneId) {
+function analyzePotentialEffectType(species: string, geneId: string) {
   const dominantEffect = getGeneEffect(species, geneId, 'D');
   const recessiveEffect = getGeneEffect(species, geneId, 'R');
 
@@ -472,7 +542,7 @@ function analyzePotentialEffectType(species, geneId) {
   return null;
 }
 
-function isGeneVisible(chromosome, gene, geneAnalysis) {
+function isGeneVisible(chromosome: string, gene: ParsedGene, geneAnalysis: GeneAnalysisResult) {
   const sk = normalizeSpecies(currentPet?.species || '');
   // Chromosome filter
   if (selectedChromosomes.length > 0 && !selectedChromosomes.includes(chromosome)) {
@@ -490,13 +560,17 @@ function isGeneVisible(chromosome, gene, geneAnalysis) {
       return false;
     }
   } else {
-    if (selectedAttributes.length > 0 && !selectedAttributes.includes(geneAnalysis.attribute)) {
+    if (
+      selectedAttributes.length > 0 &&
+      geneAnalysis.attribute &&
+      !selectedAttributes.includes(geneAnalysis.attribute)
+    ) {
       return false;
     }
   }
 
   // Hidden attributes
-  if (hiddenAttributes.includes(geneAnalysis.attribute)) {
+  if (geneAnalysis.attribute && hiddenAttributes.includes(geneAnalysis.attribute)) {
     return false;
   }
 
@@ -548,7 +622,7 @@ function isGeneVisible(chromosome, gene, geneAnalysis) {
   return true;
 }
 
-function getContextualAnalysis(species, geneId, geneAnalysis) {
+function getContextualAnalysis(species: string, geneId: string, geneAnalysis: GeneAnalysisResult): GeneAnalysisResult {
   if (selectedAttributes.length !== 1 || currentView !== 'attribute' || geneAnalysis.type === 'inactive-breed') {
     return geneAnalysis;
   }
@@ -572,7 +646,7 @@ function getContextualAnalysis(species, geneId, geneAnalysis) {
   return geneAnalysis;
 }
 
-function genePotentiallyAffectsSelectedAttributes(species, geneId, selectedAttributes) {
+function genePotentiallyAffectsSelectedAttributes(species: string, geneId: string, selectedAttributes: string[]) {
   if (selectedAttributes.length === 0) {
     return true;
   }
@@ -634,15 +708,15 @@ async function createGeneVisualization() {
     // OPTIMIZED SINGLE-PASS PROCESSING - Everything done in one loop!
     if (import.meta.env.DEV) console.time('📊 Single-pass gene analysis');
 
-    const allBlocks = new Set();
-    const blockMaxGenes = new Map();
-    const geneAnalysisCache = new Map();
+    const allBlocks = new Set<string>();
+    const blockMaxGenes = new Map<string, number>();
+    const geneAnalysisCache = new Map<string, GeneAnalysisResult>();
     let totalGenesCount = 0;
 
     // SINGLE PASS: Analyze genes, collect blocks, and update stats - all at once!
     Object.values(parsedGenes).forEach((chromosomeData) => {
       // Count genes per block for this chromosome
-      const thisChromosomeBlockCount = new Map();
+      const thisChromosomeBlockCount = new Map<string, number>();
 
       chromosomeData.allGenes.forEach((gene) => {
         allBlocks.add(gene.block);
@@ -701,13 +775,14 @@ async function createGeneVisualization() {
     }
 
     currentStats = allStats;
-    const inactiveCount = allStats['inactive-breed'] || 0;
+    const inactiveRaw = allStats['inactive-breed'];
+    const inactiveCount = typeof inactiveRaw === 'number' ? inactiveRaw : 0;
     totalGenes = totalGenesCount - inactiveCount;
 
     if (currentView === 'attribute') {
-      neutralGenes = allStats.neutral;
+      neutralGenes = typeof allStats.neutral === 'number' ? allStats.neutral : 0;
     } else {
-      neutralGenes = allStats['appearance-neutral'];
+      neutralGenes = typeof allStats['appearance-neutral'] === 'number' ? allStats['appearance-neutral'] : 0;
     }
 
     onStatsUpdated?.();
@@ -724,38 +799,39 @@ async function createGeneVisualization() {
       return numA - numB;
     });
 
-    headerStructure = {
+    const newHeaderStructure: HeaderStructure = {
       sortedBlocks,
       blockMaxGenes,
     };
+    headerStructure = newHeaderStructure;
 
     // Create or reuse species template
-    currentSpeciesTemplate = getOrCreateSpeciesTemplate(pet.species, headerStructure, chromosomeCount);
+    currentSpeciesTemplate = getOrCreateSpeciesTemplate(pet.species, newHeaderStructure, chromosomeCount);
 
     // Build chromosome data using cached analysis
     const buildTime = isUsingCachedTemplate ? '🔄 Updating chromosome data' : '🏗️ Building chromosome data';
     if (import.meta.env.DEV) console.time(buildTime);
     chromosomeData = sortedChromosomes.map(([chromosome, data]) => {
-      const processedBlocks = {};
+      const processedBlocks: Record<string, (ProcessedGene | null)[]> = {};
 
       // Pre-group genes by block for efficiency
-      const genesByBlock = new Map();
+      const genesByBlock = new Map<string, ParsedGene[]>();
       data.allGenes.forEach((gene) => {
         if (!genesByBlock.has(gene.block)) {
           genesByBlock.set(gene.block, []);
         }
-        genesByBlock.get(gene.block).push(gene);
+        (genesByBlock.get(gene.block) ?? []).push(gene);
       });
 
       sortedBlocks.forEach((block) => {
         const genesInBlock = genesByBlock.get(block) || [];
         processedBlocks[block] = [];
 
-        for (let i = 0; i < blockMaxGenes.get(block); i++) {
+        for (let i = 0; i < (blockMaxGenes.get(block) || 0); i++) {
           const gene = genesInBlock[i];
           if (gene) {
             const cacheKey = `${gene.id}_${gene.type}`;
-            const geneAnalysis = geneAnalysisCache.get(cacheKey);
+            const geneAnalysis = geneAnalysisCache.get(cacheKey) ?? { type: 'neutral', attribute: null, effect: '' };
             const displayAnalysis = getContextualAnalysis(pet.species, gene.id, geneAnalysis);
 
             processedBlocks[block][i] = {
@@ -778,22 +854,24 @@ async function createGeneVisualization() {
     if (import.meta.env.DEV) console.timeEnd(buildTime);
 
     if (import.meta.env.DEV) console.timeEnd('🚀 Gene Visualization Processing');
-  } catch (err) {
+  } catch (err: unknown) {
     console.error('Error in createGeneVisualization:', err);
-    error = `Failed to create gene visualization: ${err.message}`;
+    error = `Failed to create gene visualization: ${err instanceof Error ? err.message : String(err)}`;
     headerStructure = null;
     chromosomeData = [];
   }
 }
 
-function handleTooltipShow(event) {
+function handleTooltipShow(
+  event: CustomEvent<{ geneId: string; geneType: string; effect: string; event: { clientX: number; clientY: number } }>,
+) {
   const detail = event.detail;
   const geneId = detail.geneId;
   const geneType = detail.geneType;
 
   const effectInfo = detail.effect;
 
-  const potentialEffects = [];
+  const potentialEffects: string[] = [];
   if (currentPet) {
     const sk = normalizeSpecies(currentPet.species);
     const dominantEffect = getGeneEffect(sk, geneId, 'D');
@@ -870,13 +948,13 @@ function handleTooltipHide() {
   tooltipVisible = false;
 }
 
-function handleGridKeydown(e) {
+function handleGridKeydown(e: KeyboardEvent) {
   if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
 
-  const container = e.currentTarget;
-  const cells = Array.from(container.querySelectorAll('.gene-cell[role="button"]'));
-  const activeCell = document.activeElement?.closest('.gene-cell');
-  const current = cells.indexOf(activeCell);
+  const container = e.currentTarget as HTMLElement;
+  const cells = Array.from(container.querySelectorAll<HTMLElement>('.gene-cell[role="button"]'));
+  const activeCell = document.activeElement?.closest('.gene-cell') as HTMLElement | null;
+  const current = activeCell ? cells.indexOf(activeCell) : -1;
   if (current < 0) return;
 
   const row = activeCell?.closest('tr');
@@ -884,7 +962,12 @@ function handleGridKeydown(e) {
   handleGridNavigation(cells, current, e, cols);
 }
 
-function toggleFilterState(selectedArr, hiddenArr, key, action) {
+function toggleFilterState(
+  selectedArr: string[],
+  hiddenArr: string[],
+  key: string,
+  action: string,
+): { selected: string[]; hidden: string[] } {
   const isSelected = selectedArr.includes(key);
   const isHidden = hiddenArr.includes(key);
 
@@ -931,10 +1014,10 @@ function toggleFilterState(selectedArr, hiddenArr, key, action) {
   return { selected: selectedArr, hidden: hiddenArr };
 }
 
-export function handleAttributeFilter(event) {
+export function handleAttributeFilter(event: CustomEvent<{ attribute: string; ctrlKey: boolean; altKey: boolean }>) {
   const { attribute, ctrlKey, altKey } = event.detail;
 
-  let result;
+  let result: { selected: string[]; hidden: string[] };
   if (altKey) {
     result = toggleFilterState(selectedAttributes, hiddenAttributes, attribute, 'toggle-hide');
   } else if (ctrlKey) {
@@ -960,7 +1043,7 @@ export function handleAttributeFilter(event) {
   updateVisualization();
 }
 
-function toggleChromosomeFilter(chromosome, ctrlKey = false, altKey = false) {
+function toggleChromosomeFilter(chromosome: string, ctrlKey = false, altKey = false) {
   if (altKey) {
     const index = hiddenChromosomes.indexOf(chromosome);
     if (index === -1) {
@@ -985,7 +1068,7 @@ function toggleChromosomeFilter(chromosome, ctrlKey = false, altKey = false) {
   updateVisualization();
 }
 
-function handleLegendFilterClick(filterType, event) {
+function handleLegendFilterClick(filterType: string, event: MouseEvent | KeyboardEvent) {
   const isCtrlClick = event.ctrlKey || event.metaKey;
   const isAltClick = event.altKey;
 
@@ -1000,10 +1083,10 @@ function handleLegendFilterClick(filterType, event) {
   }
 }
 
-function handleEffectFilter(effectType, isCtrlClick = false, isAltClick = false) {
+function handleEffectFilter(effectType: string, isCtrlClick = false, isAltClick = false) {
   const newFilter = Array.isArray(currentEffectFilter) ? [...currentEffectFilter] : [];
   const newHidden = Array.isArray(hiddenEffectFilters) ? [...hiddenEffectFilters] : [];
-  let result;
+  let result: { selected: string[]; hidden: string[] };
 
   if (isAltClick) {
     result = toggleFilterState(newFilter, newHidden, effectType, 'toggle-hide');
@@ -1029,8 +1112,8 @@ function handleEffectFilter(effectType, isCtrlClick = false, isAltClick = false)
   updateVisualization();
 }
 
-function handleValueFilter(valueType, isCtrlClick = false, isAltClick = false) {
-  const valueMap = {
+function handleValueFilter(valueType: string, isCtrlClick = false, isAltClick = false) {
+  const valueMap: Record<string, string> = {
     dominant: 'gene-dominant',
     recessive: 'gene-recessive',
     mixed: 'gene-mixed',
@@ -1040,7 +1123,7 @@ function handleValueFilter(valueType, isCtrlClick = false, isAltClick = false) {
 
   const newValueFilter = Array.isArray(currentValueFilter) ? [...currentValueFilter] : [];
   const newHiddenValues = Array.isArray(hiddenValueFilters) ? [...hiddenValueFilters] : [];
-  let result;
+  let result: { selected: string[]; hidden: string[] };
 
   if (isAltClick) {
     result = toggleFilterState(newValueFilter, newHiddenValues, mappedValueType, 'toggle-hide');
@@ -1066,8 +1149,8 @@ function handleValueFilter(valueType, isCtrlClick = false, isAltClick = false) {
   updateVisualization();
 }
 
-function handleAppearanceFilter(appearanceType, isCtrlClick = false, isAltClick = false) {
-  let attributeGroups = [];
+function handleAppearanceFilter(appearanceType: string, isCtrlClick = false, isAltClick = false) {
+  let attributeGroups: string[] = [];
   switch (appearanceType) {
     // BeeWasp appearance categories
     case 'body-color':
@@ -1168,7 +1251,7 @@ function handleAppearanceFilter(appearanceType, isCtrlClick = false, isAltClick 
 }
 
 // Track the last processed pet ID to prevent loops
-let lastProcessedPetId = $state(null);
+let lastProcessedPetId = $state<number | null>(null);
 
 // Use $effect for pet change detection
 $effect(() => {
@@ -1182,12 +1265,12 @@ $effect(() => {
 });
 
 // Export functions for parent component
-export function handleViewChange(view) {
+export function handleViewChange(view: string) {
   currentView = view;
   updateVisualization();
 }
 
-export function setBreedFilter(breed) {
+export function setBreedFilter(breed: string) {
   currentBreedFilter = breed;
   updateVisualization();
 }
@@ -1541,7 +1624,7 @@ export function getStatsData() {
                                     <tr>
                                         <th class="chromosome-header">Chr</th>
                                         {#each headerStructure.sortedBlocks as block (block)}
-                                            {#each Array.from({ length: headerStructure.blockMaxGenes.get(block) }, (_, i) => i) as i (i)}
+                                            {#each Array.from({ length: headerStructure.blockMaxGenes.get(block) ?? 0 }, (_, i) => i) as i (i)}
                                                 <th
                                                     class="position-header {i ===
                                                     0
@@ -1580,7 +1663,7 @@ export function getStatsData() {
                                                 {chromosome}
                                             </td>
                                             {#each headerStructure.sortedBlocks as block (block)}
-                                                {#each Array.from({ length: headerStructure.blockMaxGenes.get(block) }, (_, i) => i) as i (i)}
+                                                {#each Array.from({ length: headerStructure.blockMaxGenes.get(block) ?? 0 }, (_, i) => i) as i (i)}
                                                     {@const gene =
                                                         processedBlocks?.[
                                                             block

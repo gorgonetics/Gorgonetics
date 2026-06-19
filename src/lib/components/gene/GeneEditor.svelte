@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 import { onMount } from 'svelte';
 import { run } from 'svelte/legacy';
 import * as geneService from '$lib/services/geneService.js';
@@ -6,15 +6,15 @@ import { appState } from '$lib/stores/pets.js';
 
 let selectedAnimalType = $state('');
 let selectedChromosome = $state('');
-let animalTypes = $state([]);
-let chromosomes = $state([]);
+let animalTypes = $state<string[]>([]);
+let chromosomes = $state<string[]>([]);
 let loadingChromosomes = $state(false);
 let editorError = $state('');
 
 onMount(async () => {
   try {
     animalTypes = await geneService.getAnimalTypes();
-  } catch (err) {
+  } catch (err: unknown) {
     console.error('Failed to load animal types:', err);
     editorError = 'Failed to load animal types';
   }
@@ -30,7 +30,7 @@ async function loadChromosomes() {
     selectedChromosome = '';
     // Clear any existing gene editing view
     appState.clearGeneEditingView();
-  } catch (err) {
+  } catch (err: unknown) {
     console.error('Failed to load chromosomes:', err);
     editorError = 'Failed to load chromosomes';
   } finally {

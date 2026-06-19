@@ -1,21 +1,41 @@
-<script>
+<script lang="ts">
 import { createEventDispatcher } from 'svelte';
 
-/**
- * @typedef {Object} Props
- * @property {any} [gene]
- * @property {string} [chromosome]
- * @property {any} [geneAnalysis]
- * @property {string} [currentView]
- * @property {boolean} [isVisible]
- */
+interface GeneAnalysisShape {
+  type: string;
+  attribute: string | null;
+  effect?: string;
+}
 
-/** @type {Props} */
-const { gene = null, chromosome = '', geneAnalysis = null, currentView = 'attribute', isVisible = true } = $props();
+interface GeneShape {
+  id: string;
+  type: string;
+}
+
+interface Props {
+  gene?: GeneShape | null;
+  chromosome?: string;
+  geneAnalysis?: GeneAnalysisShape | null;
+  currentView?: string;
+  isVisible?: boolean;
+}
+
+const {
+  gene = null,
+  chromosome = '',
+  geneAnalysis = null,
+  currentView = 'attribute',
+  isVisible = true,
+}: Props = $props();
 
 const dispatch = createEventDispatcher();
 
-function computeCssClass(gene, geneAnalysis, currentView, isVisible) {
+function computeCssClass(
+  gene: GeneShape | null,
+  geneAnalysis: GeneAnalysisShape | null,
+  currentView: string,
+  isVisible: boolean,
+) {
   if (!gene || !geneAnalysis) return 'gene-cell';
 
   let cssClass = 'gene-cell ';
@@ -45,7 +65,7 @@ function computeCssClass(gene, geneAnalysis, currentView, isVisible) {
   return cssClass;
 }
 
-function handleMouseEnter(event) {
+function handleMouseEnter(event: MouseEvent) {
   if (!gene) return;
   dispatch('tooltip-show', {
     event,
@@ -56,16 +76,16 @@ function handleMouseEnter(event) {
   });
 }
 
-function handleMouseLeave(event) {
+function handleMouseLeave(event: MouseEvent) {
   dispatch('tooltip-hide', { event });
 }
 
-function handleKeydown(event) {
+function handleKeydown(event: KeyboardEvent) {
   if (event.key === 'Enter' || event.key === ' ') {
     event.preventDefault();
     if (!gene) return;
     // Use element bounding rect for tooltip positioning since KeyboardEvent has no clientX/Y
-    const rect = event.currentTarget.getBoundingClientRect();
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
     const syntheticEvent = { clientX: rect.left + rect.width / 2, clientY: rect.top };
     dispatch('tooltip-show', {
       event: syntheticEvent,
@@ -79,7 +99,7 @@ function handleKeydown(event) {
   }
 }
 
-function handleBlur(event) {
+function handleBlur(event: FocusEvent) {
   dispatch('tooltip-hide', { event });
 }
 
