@@ -5,7 +5,10 @@
  * variant renders the global `.spinner` (24px). `error` variant gets
  * `role="alert"` for accessibility.
  */
-interface Props {
+/** The optional action button is all-or-nothing: label and handler travel together. */
+type ActionProps = { actionLabel: string; onAction: () => void } | { actionLabel?: undefined; onAction?: undefined };
+
+type Props = {
   /** Pane variant. */
   variant?: 'loading' | 'empty' | 'error';
   /** Optional emoji/character above the text (ignored when variant='loading'). */
@@ -14,11 +17,7 @@ interface Props {
   title?: string;
   /** Descriptive paragraph. */
   body?: string;
-  /** Text on an optional secondary button below the body. */
-  actionLabel?: string;
-  /** Click handler for the action button; required alongside actionLabel. */
-  onAction?: () => void;
-}
+} & ActionProps;
 
 const { variant = 'empty', icon, title, body, actionLabel, onAction }: Props = $props();
 </script>

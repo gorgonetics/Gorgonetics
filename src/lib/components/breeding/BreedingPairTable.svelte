@@ -8,12 +8,12 @@ interface Props {
   attrNames: string[];
 }
 
-interface Column {
-  id: string;
-  label: string;
-  accessor: (r: BreedingPairResult) => string | number;
-  numeric: boolean;
-}
+// Discriminated on `numeric` so the accessor's return type is tied to the flag:
+// a numeric column sorts by subtraction, a text column by localeCompare, and a
+// mismatch is a compile error rather than a silent cast.
+type Column =
+  | { id: string; label: string; numeric: true; accessor: (r: BreedingPairResult) => number }
+  | { id: string; label: string; numeric: false; accessor: (r: BreedingPairResult) => string };
 
 const { results, attrNames }: Props = $props();
 
@@ -29,12 +29,14 @@ const columns = $derived<Column[]>([
   { id: 'evMixed', label: 'Mixed', accessor: (r) => r.evMixed, numeric: true },
   { id: 'evUnknown', label: 'Unknown', accessor: (r) => r.evUnknown, numeric: true },
   { id: 'evPositiveTotal', label: 'Total +', accessor: (r) => r.evPositiveTotal, numeric: true },
-  ...attrNames.map((name) => ({
-    id: name,
-    label: name,
-    accessor: (r: BreedingPairResult) => r.evPositiveByAttribute[name] ?? 0,
-    numeric: true,
-  })),
+  ...attrNames.map(
+    (name): Column => ({
+      id: name,
+      label: name,
+      accessor: (r: BreedingPairResult) => r.evPositiveByAttribute[name] ?? 0,
+      numeric: true,
+    }),
+  ),
 ]);
 
 const sortedResults = $derived.by(() => {
@@ -44,9 +46,8 @@ const sortedResults = $derived.by(() => {
     columns.find((c) => c.id === breedingView.sortCol) ?? columns.find((c) => c.id === 'evPositiveTotal') ?? columns[0];
   const dir = breedingView.sortDir === 'asc' ? 1 : -1;
   return [...results].sort((a, b) => {
-    const av = col.accessor(a);
-    const bv = col.accessor(b);
-    const cmp = col.numeric ? (av as number) - (bv as number) : String(av).localeCompare(String(bv));
+    // `col.numeric` narrows the accessor's return type, so no cast is needed.
+    const cmp = col.numeric ? col.accessor(a) - col.accessor(b) : col.accessor(a).localeCompare(col.accessor(b));
     return cmp * dir;
   });
 });
