@@ -14,6 +14,7 @@ import { getGeneEffectsCached } from '$lib/services/geneService.js';
 import { loadPetGridFromDb } from '$lib/services/petService.js';
 import { EFFECT_COLORS } from '$lib/theme/gene-colors.js';
 import type { AppearanceInfo, Pet } from '$lib/types/index.js';
+import { resolveFilterClick } from '$lib/utils/filterToggle.js';
 import {
   breedFor,
   effectFor,
@@ -22,6 +23,12 @@ import {
   type ParsedChromosome,
   type ParsedGene,
 } from '$lib/utils/geneAnalysis.js';
+import { type GeneEffectLookup, type GeneFilterState, isGeneVisible } from '$lib/utils/geneFilter.js';
+import {
+  updateStats as accumulateStats,
+  initializeStats as buildEmptyStats,
+  type StatsMap,
+} from '$lib/utils/geneStats.js';
 import { handleGridNavigation } from '$lib/utils/keyboard.js';
 import { capitalize } from '$lib/utils/string.js';
 import GeneCell from './GeneCell.svelte';
@@ -94,17 +101,6 @@ interface ChromosomeRow {
   data: ParsedChromosome;
   processedBlocks: Record<string, (ProcessedGene | null)[]>;
 }
-
-// Stats types
-interface AttrStatEntry {
-  positive: number;
-  negative: number;
-  dominant: number;
-  recessive: number;
-  mixed: number;
-}
-
-type StatsMap = Record<string, AttrStatEntry | number>;
 
 const { pet, onStatsUpdated }: Props = $props();
 
@@ -310,22 +306,12 @@ function loadAppearanceConfigForSpecies(species: string) {
   appearanceList = config.appearance_attributes || [];
 }
 
+// Resolve the per-view attribute names then delegate to the pure stats builder.
+// Kept async (awaited by the caller) so the heavy synchronous state writes in
+// createGeneVisualization stay on a later microtask — collapsing that boundary
+// reintroduces an effect_update_depth_exceeded loop.
 async function initializeStats(): Promise<StatsMap> {
   if (currentView === 'attribute') {
-    const emptyAttr = () => ({ positive: 0, negative: 0, dominant: 0, recessive: 0, mixed: 0 });
-    const stats: StatsMap = {
-      positive: 0,
-      negative: 0,
-      neutral: 0,
-      'potential-positive': 0,
-      'potential-negative': 0,
-      'inactive-breed': 0,
-      // Global gene-type counters (unique genes, not per-attribute)
-      _dominant: 0,
-      _recessive: 0,
-      _mixed: 0,
-    };
-
     let attrNames = ALL_ATTRIBUTES.map((a) => a.key);
     if (currentPet?.species) {
       const config = getAttributeConfig(normalizeSpecies(currentPet.species));
@@ -333,71 +319,17 @@ async function initializeStats(): Promise<StatsMap> {
         attrNames = config.all_attribute_names.map((name) => capitalize(name));
       }
     }
-    for (const attr of attrNames) {
-      stats[attr] = emptyAttr();
-    }
-
-    return stats;
-  } else {
-    const stats: StatsMap = { 'appearance-neutral': 0, 'inactive-breed': 0 };
-
-    let attrNames = FALLBACK_APPEARANCE_KEYS;
-    if (currentPet?.species) {
-      const config = getAppearanceConfig(normalizeSpecies(currentPet.species));
-      if (config) {
-        attrNames = config.appearance_attribute_names;
-      }
-    }
-
-    attrNames.forEach((attr) => {
-      stats[attr] = 0;
-    });
-
-    return stats;
-  }
-}
-
-function updateStats(stats: StatsMap, geneAnalysis: GeneAnalysisResult, geneType: string) {
-  // Skip inactive-breed genes from all stats
-  if (geneAnalysis.type === 'inactive-breed') {
-    (stats['inactive-breed'] as number)++;
-    return;
+    return buildEmptyStats('attribute', attrNames);
   }
 
-  if (currentView === 'attribute') {
-    const typeVal = stats[geneAnalysis.type];
-    if (typeof typeVal === 'number') stats[geneAnalysis.type] = typeVal + 1;
-
-    // Global gene-type counters (one per unique gene)
-    if (geneType === 'D') (stats._dominant as number)++;
-    else if (geneType === 'R') (stats._recessive as number)++;
-    else if (geneType === 'x') (stats._mixed as number)++;
-
-    if (geneAnalysis.attribute) {
-      const attrStats = stats[geneAnalysis.attribute];
-      if (attrStats && typeof attrStats === 'object') {
-        const as = attrStats as {
-          dominant: number;
-          recessive: number;
-          mixed: number;
-          positive: number;
-          negative: number;
-        };
-        // Track gene type (D/R/x)
-        if (geneType === 'D') as.dominant++;
-        else if (geneType === 'R') as.recessive++;
-        else if (geneType === 'x') as.mixed++;
-
-        // Only count confirmed positive/negative effects (not potential)
-        if (geneAnalysis.type === 'positive' || geneAnalysis.type === 'negative') {
-          as[geneAnalysis.type]++;
-        }
-      }
+  let attrNames = FALLBACK_APPEARANCE_KEYS;
+  if (currentPet?.species) {
+    const config = getAppearanceConfig(normalizeSpecies(currentPet.species));
+    if (config) {
+      attrNames = config.appearance_attribute_names;
     }
-  } else {
-    const typeVal = stats[geneAnalysis.type];
-    if (typeof typeVal === 'number') stats[geneAnalysis.type] = typeVal + 1;
   }
+  return buildEmptyStats('appearance', attrNames);
 }
 
 function getGeneEffect(speciesKey: string, geneId: string, geneType: string) {
@@ -542,84 +474,6 @@ function analyzePotentialEffectType(species: string, geneId: string) {
   return null;
 }
 
-function isGeneVisible(chromosome: string, gene: ParsedGene, geneAnalysis: GeneAnalysisResult) {
-  const sk = normalizeSpecies(currentPet?.species || '');
-  // Chromosome filter
-  if (selectedChromosomes.length > 0 && !selectedChromosomes.includes(chromosome)) {
-    return false;
-  }
-
-  // Hidden chromosomes
-  if (hiddenChromosomes.includes(chromosome)) {
-    return false;
-  }
-
-  // Attribute filter
-  if (currentView === 'attribute') {
-    if (selectedAttributes.length > 0 && !genePotentiallyAffectsSelectedAttributes(sk, gene.id, selectedAttributes)) {
-      return false;
-    }
-  } else {
-    // Coerce a null attribute to '' (never a selected value) so that, as before,
-    // a gene with no attribute is filtered out when a specific attribute is selected.
-    if (selectedAttributes.length > 0 && !selectedAttributes.includes(geneAnalysis.attribute ?? '')) {
-      return false;
-    }
-  }
-
-  // Hidden attributes
-  if (geneAnalysis.attribute && hiddenAttributes.includes(geneAnalysis.attribute)) {
-    return false;
-  }
-
-  // Effect filter
-  if (currentEffectFilter.length > 0) {
-    let effectType = geneAnalysis.type;
-
-    // Handle potential effects for neutral genes
-    if (geneAnalysis.type === 'neutral' && hasAnyPotentialEffect(sk, gene.id)) {
-      const potentialType = analyzePotentialEffectType(sk, gene.id);
-      if (potentialType) {
-        effectType = potentialType;
-      }
-    }
-
-    const matchesEffect = currentEffectFilter.includes(effectType);
-    if (!matchesEffect) return false;
-  }
-
-  // Hidden effects
-  if (hiddenEffectFilters.length > 0) {
-    let effectType = geneAnalysis.type;
-
-    if (geneAnalysis.type === 'neutral' && hasAnyPotentialEffect(sk, gene.id)) {
-      const potentialType = analyzePotentialEffectType(sk, gene.id);
-      if (potentialType) {
-        effectType = potentialType;
-      }
-    }
-
-    const isHidden = hiddenEffectFilters.includes(effectType);
-    if (isHidden) return false;
-  }
-
-  // Value filter
-  if (currentValueFilter.length > 0) {
-    const geneTypeClass = `gene-${gene.type === 'D' ? 'dominant' : gene.type === 'R' ? 'recessive' : gene.type === 'x' ? 'mixed' : gene.type === '?' ? 'unknown' : 'recessive'}`;
-    const matchesValue = currentValueFilter.some((value) => geneTypeClass.includes(value));
-    if (!matchesValue) return false;
-  }
-
-  // Hidden values
-  if (hiddenValueFilters.length > 0) {
-    const geneTypeClass = `gene-${gene.type === 'D' ? 'dominant' : gene.type === 'R' ? 'recessive' : gene.type === 'x' ? 'mixed' : gene.type === '?' ? 'unknown' : 'recessive'}`;
-    const isHidden = hiddenValueFilters.some((value) => geneTypeClass.includes(value));
-    if (isHidden) return false;
-  }
-
-  return true;
-}
-
 function getContextualAnalysis(species: string, geneId: string, geneAnalysis: GeneAnalysisResult): GeneAnalysisResult {
   if (selectedAttributes.length !== 1 || currentView !== 'attribute' || geneAnalysis.type === 'inactive-breed') {
     return geneAnalysis;
@@ -744,7 +598,7 @@ async function createGeneVisualization() {
           };
 
           geneAnalysisCache.set(cacheKey, processedAnalysis);
-          updateStats(allStats, processedAnalysis, gene.type);
+          accumulateStats(allStats, processedAnalysis, gene.type, currentView as 'attribute' | 'appearance');
         }
       });
 
@@ -809,6 +663,26 @@ async function createGeneVisualization() {
     // Build chromosome data using cached analysis
     const buildTime = isUsingCachedTemplate ? '🔄 Updating chromosome data' : '🏗️ Building chromosome data';
     if (import.meta.env.DEV) console.time(buildTime);
+
+    // Lift component filter state + effect helpers into the pure predicate's inputs.
+    const filterState: GeneFilterState = {
+      selectedChromosomes,
+      hiddenChromosomes,
+      selectedAttributes,
+      hiddenAttributes,
+      currentEffectFilter,
+      hiddenEffectFilters,
+      currentValueFilter,
+      hiddenValueFilters,
+      currentView: currentView as 'attribute' | 'appearance',
+    };
+    const effectLookup: GeneEffectLookup = {
+      affectsSelectedAttributes: (geneId, selected) =>
+        genePotentiallyAffectsSelectedAttributes(speciesKey, geneId, selected),
+      hasAnyPotentialEffect: (geneId) => hasAnyPotentialEffect(speciesKey, geneId),
+      potentialEffectType: (geneId) => analyzePotentialEffectType(speciesKey, geneId),
+    };
+
     chromosomeData = sortedChromosomes.map(([chromosome, data]) => {
       const processedBlocks: Record<string, (ProcessedGene | null)[]> = {};
 
@@ -835,7 +709,7 @@ async function createGeneVisualization() {
             processedBlocks[block][i] = {
               ...gene,
               geneAnalysis: displayAnalysis,
-              isVisible: isGeneVisible(chromosome, gene, geneAnalysis),
+              isVisible: isGeneVisible(chromosome, gene, geneAnalysis, filterState, effectLookup),
             };
           } else {
             processedBlocks[block][i] = null;
@@ -960,82 +834,9 @@ function handleGridKeydown(e: KeyboardEvent) {
   handleGridNavigation(cells, current, e, cols);
 }
 
-function toggleFilterState(
-  selectedArr: string[],
-  hiddenArr: string[],
-  key: string,
-  action: string,
-): { selected: string[]; hidden: string[] } {
-  const isSelected = selectedArr.includes(key);
-  const isHidden = hiddenArr.includes(key);
-
-  if (
-    (action === 'select' && isHidden) ||
-    (action === 'hide' && isSelected) ||
-    (action === 'toggle-select' && isHidden) ||
-    (action === 'toggle-hide' && isSelected)
-  ) {
-    return {
-      selected: selectedArr.filter((k) => k !== key),
-      hidden: hiddenArr.filter((k) => k !== key),
-    };
-  }
-
-  if (action === 'select' || action === 'toggle-select') {
-    if (isSelected) {
-      return {
-        selected: selectedArr.filter((k) => k !== key),
-        hidden: hiddenArr,
-      };
-    } else {
-      return {
-        selected: [...selectedArr, key],
-        hidden: hiddenArr.filter((k) => k !== key),
-      };
-    }
-  }
-
-  if (action === 'hide' || action === 'toggle-hide') {
-    if (isHidden) {
-      return {
-        selected: selectedArr,
-        hidden: hiddenArr.filter((k) => k !== key),
-      };
-    } else {
-      return {
-        selected: selectedArr.filter((k) => k !== key),
-        hidden: [...hiddenArr, key],
-      };
-    }
-  }
-
-  return { selected: selectedArr, hidden: hiddenArr };
-}
-
 export function handleAttributeFilter(event: CustomEvent<{ attribute: string; ctrlKey: boolean; altKey: boolean }>) {
   const { attribute, ctrlKey, altKey } = event.detail;
-
-  let result: { selected: string[]; hidden: string[] };
-  if (altKey) {
-    result = toggleFilterState(selectedAttributes, hiddenAttributes, attribute, 'toggle-hide');
-  } else if (ctrlKey) {
-    result = toggleFilterState(selectedAttributes, hiddenAttributes, attribute, 'toggle-select');
-  } else {
-    if (hiddenAttributes.includes(attribute)) {
-      result = toggleFilterState([], hiddenAttributes, attribute, 'toggle-select');
-    } else if (selectedAttributes.length === 1 && selectedAttributes[0] === attribute) {
-      result = {
-        selected: [],
-        hidden: hiddenAttributes.filter((a) => a !== attribute),
-      };
-    } else {
-      result = {
-        selected: [attribute],
-        hidden: hiddenAttributes.filter((a) => a !== attribute),
-      };
-    }
-  }
-
+  const result = resolveFilterClick(selectedAttributes, hiddenAttributes, attribute, ctrlKey, altKey);
   selectedAttributes = result.selected;
   hiddenAttributes = result.hidden;
   updateVisualization();
@@ -1082,29 +883,7 @@ function handleLegendFilterClick(filterType: string, event: MouseEvent | Keyboar
 }
 
 function handleEffectFilter(effectType: string, isCtrlClick = false, isAltClick = false) {
-  const newFilter = Array.isArray(currentEffectFilter) ? [...currentEffectFilter] : [];
-  const newHidden = Array.isArray(hiddenEffectFilters) ? [...hiddenEffectFilters] : [];
-  let result: { selected: string[]; hidden: string[] };
-
-  if (isAltClick) {
-    result = toggleFilterState(newFilter, newHidden, effectType, 'toggle-hide');
-  } else if (isCtrlClick) {
-    result = toggleFilterState(newFilter, newHidden, effectType, 'toggle-select');
-  } else {
-    if (newHidden.includes(effectType)) {
-      result = toggleFilterState([], newHidden, effectType, 'toggle-select');
-    } else if (newFilter.length === 1 && newFilter[0] === effectType) {
-      result = {
-        selected: [],
-        hidden: newHidden.filter((t) => t !== effectType),
-      };
-    } else {
-      result = {
-        selected: [effectType],
-        hidden: newHidden.filter((t) => t !== effectType),
-      };
-    }
-  }
+  const result = resolveFilterClick(currentEffectFilter, hiddenEffectFilters, effectType, isCtrlClick, isAltClick);
   currentEffectFilter = result.selected;
   hiddenEffectFilters = result.hidden;
   updateVisualization();
@@ -1119,29 +898,7 @@ function handleValueFilter(valueType: string, isCtrlClick = false, isAltClick = 
   };
   const mappedValueType = valueMap[valueType] || valueType;
 
-  const newValueFilter = Array.isArray(currentValueFilter) ? [...currentValueFilter] : [];
-  const newHiddenValues = Array.isArray(hiddenValueFilters) ? [...hiddenValueFilters] : [];
-  let result: { selected: string[]; hidden: string[] };
-
-  if (isAltClick) {
-    result = toggleFilterState(newValueFilter, newHiddenValues, mappedValueType, 'toggle-hide');
-  } else if (isCtrlClick) {
-    result = toggleFilterState(newValueFilter, newHiddenValues, mappedValueType, 'toggle-select');
-  } else {
-    if (newHiddenValues.includes(mappedValueType)) {
-      result = toggleFilterState([], newHiddenValues, mappedValueType, 'toggle-select');
-    } else if (newValueFilter.length === 1 && newValueFilter[0] === mappedValueType) {
-      result = {
-        selected: [],
-        hidden: newHiddenValues.filter((t) => t !== mappedValueType),
-      };
-    } else {
-      result = {
-        selected: [mappedValueType],
-        hidden: newHiddenValues.filter((t) => t !== mappedValueType),
-      };
-    }
-  }
+  const result = resolveFilterClick(currentValueFilter, hiddenValueFilters, mappedValueType, isCtrlClick, isAltClick);
   currentValueFilter = result.selected;
   hiddenValueFilters = result.hidden;
   updateVisualization();

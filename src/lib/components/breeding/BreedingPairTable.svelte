@@ -2,18 +2,17 @@
 import { breedingView } from '$lib/stores/breeding.svelte.js';
 import { appState } from '$lib/stores/pets.js';
 import type { BreedingPairResult, Pet } from '$lib/types/index.js';
+import { type SortableColumn, sortByColumn } from '$lib/utils/sortColumn.js';
 
 interface Props {
   results: BreedingPairResult[];
   attrNames: string[];
 }
 
-// Discriminated on `numeric` so the accessor's return type is tied to the flag:
-// a numeric column sorts by subtraction, a text column by localeCompare, and a
-// mismatch is a compile error rather than a silent cast.
-type Column =
-  | { id: string; label: string; numeric: true; accessor: (r: BreedingPairResult) => number }
-  | { id: string; label: string; numeric: false; accessor: (r: BreedingPairResult) => string };
+// `SortableColumn` is discriminated on `numeric` so the accessor's return type
+// is tied to the flag: a numeric column sorts by subtraction, a text column by
+// localeCompare, and a mismatch is a compile error rather than a silent cast.
+type Column = { id: string; label: string } & SortableColumn<BreedingPairResult>;
 
 const { results, attrNames }: Props = $props();
 
@@ -44,12 +43,7 @@ const sortedResults = $derived.by(() => {
   // the column list later won't silently change the default sort.
   const col =
     columns.find((c) => c.id === breedingView.sortCol) ?? columns.find((c) => c.id === 'evPositiveTotal') ?? columns[0];
-  const dir = breedingView.sortDir === 'asc' ? 1 : -1;
-  return [...results].sort((a, b) => {
-    // `col.numeric` narrows the accessor's return type, so no cast is needed.
-    const cmp = col.numeric ? col.accessor(a) - col.accessor(b) : col.accessor(a).localeCompare(col.accessor(b));
-    return cmp * dir;
-  });
+  return sortByColumn(results, col, breedingView.sortDir);
 });
 
 function setSort(colId: string) {
