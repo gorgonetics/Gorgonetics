@@ -10,6 +10,7 @@ import { settings } from '$lib/stores/settings.js';
 import type { AppearanceInfo, AttributeInfo, GenomeDiffSummary, Pet } from '$lib/types/index.js';
 import { HORSE_BREEDS } from '$lib/types/index.js';
 import { buildFilterCSS } from '$lib/utils/filterCSS.js';
+import { triStateToggle } from '$lib/utils/filterToggle.js';
 import { breedFor, effectFor, type GeneEffectData, isNoEffect } from '$lib/utils/geneAnalysis.js';
 import { buildAppearanceLookup, createGeneCellBuilder, type GeneCell } from '$lib/utils/geneGridCells.js';
 import { capitalize } from '$lib/utils/string.js';
@@ -285,27 +286,6 @@ async function loadData() {
 }
 
 // --- Filter UI actions ---
-
-function triStateToggle(
-  key: string,
-  selected: string[],
-  hidden: string[],
-  ctrlKey: boolean,
-  altKey: boolean,
-): { selected: string[]; hidden: string[] } {
-  if (altKey) {
-    const nextHidden = hidden.includes(key)
-      ? hidden.filter((k) => k !== key)
-      : [...hidden.filter((k) => k !== key), key];
-    return { selected: selected.filter((k) => k !== key), hidden: nextHidden };
-  }
-  if (ctrlKey) {
-    const nextSelected = selected.includes(key) ? selected.filter((k) => k !== key) : [...selected, key];
-    return { selected: nextSelected, hidden: hidden.filter((k) => k !== key) };
-  }
-  const nextSelected = selected.length === 1 && selected[0] === key ? [] : [key];
-  return { selected: nextSelected, hidden: hidden.filter((k) => k !== key) };
-}
 
 function toggleChromosomeFilter(chr: string, ctrlKey: boolean, altKey: boolean) {
   ({ selected: selectedChromosomes, hidden: hiddenChromosomes } = triStateToggle(

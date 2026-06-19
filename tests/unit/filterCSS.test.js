@@ -1,0 +1,84 @@
+import { describe, expect, it } from 'vitest';
+import { buildFilterCSS } from '$lib/utils/filterCSS.js';
+
+const FILTERED = '{ opacity: 0.15 !important; filter: grayscale(1) !important; pointer-events: none !important; }';
+const HIDDEN = '{ display: none !important; }';
+const INACTIVE = '{ background-color: #e8e8ec !important; border-color: #d0d0d6 !important; opacity: 0.5 !important; }';
+const DIMMED = '{ opacity: 0.2 !important; }';
+
+const base = {
+  selectedAttributes: [],
+  hiddenAttributes: [],
+  selectedAppearances: [],
+  hiddenAppearances: [],
+  breedFilter: '',
+  selectedChromosomes: [],
+  hiddenChromosomes: [],
+  showDiffsOnly: false,
+  isHorse: false,
+  currentView: 'attribute',
+  chrBreedRelevance: {},
+};
+
+describe('buildFilterCSS', () => {
+  it('returns an empty string when no filters are active', () => {
+    expect(buildFilterCSS(base)).toBe('');
+  });
+
+  it('dims non-selected attribute cells via a :not() chain', () => {
+    const css = buildFilterCSS({ ...base, selectedAttributes: ['Toughness', 'Speed'] });
+    expect(css).toBe(
+      `.grid-container .gene-cell[data-attr]:not([data-attr="Toughness"]):not([data-attr="Speed"]) ${FILTERED}`,
+    );
+  });
+
+  it('dims a hidden attribute cell directly', () => {
+    const css = buildFilterCSS({ ...base, hiddenAttributes: ['Toughness'] });
+    expect(css).toBe(`.grid-container .gene-cell[data-attr="Toughness"] ${FILTERED}`);
+  });
+
+  it('targets data-appearance in the appearance view', () => {
+    const css = buildFilterCSS({ ...base, currentView: 'appearance', selectedAppearances: ['coat'] });
+    expect(css).toBe(`.grid-container .gene-cell[data-appearance]:not([data-appearance="coat"]) ${FILTERED}`);
+  });
+
+  it('hides chromosomes outside an active selection', () => {
+    const css = buildFilterCSS({ ...base, selectedChromosomes: ['1', '3'] });
+    expect(css).toBe(`.grid-container tr[data-chr]:not([data-chr="1"]):not([data-chr="3"]) ${HIDDEN}`);
+  });
+
+  it('hides explicitly hidden chromosomes', () => {
+    const css = buildFilterCSS({ ...base, hiddenChromosomes: ['2'] });
+    expect(css).toBe(`.grid-container tr[data-chr="2"] ${HIDDEN}`);
+  });
+
+  it('applies breed filtering only for horses', () => {
+    const filters = {
+      ...base,
+      isHorse: true,
+      breedFilter: 'Arabian',
+      chrBreedRelevance: {
+        1: { generic: true, breeds: new Set() },
+        2: { generic: false, breeds: new Set(['Clydesdale']) },
+      },
+    };
+    const css = buildFilterCSS(filters);
+    expect(css).toContain(
+      `.grid-container .gene-cell[data-breed]:not([data-breed=""]):not([data-breed="Arabian"]) ${INACTIVE}`,
+    );
+    // Chromosome 2 is breed-specific and irrelevant to Arabian → hidden; chr 1 is generic → kept.
+    expect(css).toContain(`.grid-container tr[data-chr="2"] ${HIDDEN}`);
+    expect(css).not.toContain('tr[data-chr="1"]');
+  });
+
+  it('ignores the breed filter when not a horse', () => {
+    const css = buildFilterCSS({ ...base, isHorse: false, breedFilter: 'Arabian' });
+    expect(css).toBe('');
+  });
+
+  it('dims non-diff cells and hides diff-free rows in diffs-only mode', () => {
+    const css = buildFilterCSS({ ...base, showDiffsOnly: true });
+    expect(css).toContain(`.grid-container td[data-isdiff="false"][data-hascell="true"] ${DIMMED}`);
+    expect(css).toContain(`.grid-container tr[data-hasdiffs="false"] ${HIDDEN}`);
+  });
+});
