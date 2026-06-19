@@ -138,6 +138,22 @@ describe('computeOffspringTrio', () => {
     expect(byId['01A4'].motherEffect).toBeUndefined();
   });
 
+  it('leaves attribute undefined when dominant and recessive target different attributes', async () => {
+    await geneService.upsertGene('beewasp', '01', '01A1', { effectDominant: 'Toughness+', effectRecessive: 'Speed-' });
+    await geneService.upsertGene('beewasp', '01', '01A2', { effectDominant: 'Intelligence+', effectRecessive: 'None' });
+    geneService.clearGeneEffectsCache('beewasp');
+    const father = await uploadParent('Sire', Gender.MALE, 'xx');
+    const mother = await uploadParent('Dam', Gender.FEMALE, 'xx');
+
+    const { chromosomes } = await computeOffspringTrio(father, mother, { species: 'BeeWasp' });
+    const byId = Object.fromEntries(chromosomes.flatMap((c) => c.genes).map((g) => [g.geneId, g]));
+
+    // Conflicting attributes → no single label.
+    expect(byId['01A1'].attribute).toBeUndefined();
+    // Single-sided effect → its attribute.
+    expect(byId['01A2'].attribute).toBe('Intelligence');
+  });
+
   it('throws when a parent has no projected genome', async () => {
     await registerGenes();
     const father = await uploadParent('Sire', Gender.MALE, 'xxx');

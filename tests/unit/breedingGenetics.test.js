@@ -155,6 +155,7 @@ describe('classifyTrioLocus', () => {
   const recPositive = { dominantSign: null, recessiveSign: '+' };
   const recNegative = { dominantSign: null, recessiveSign: '-' };
   const domPositive = { dominantSign: '+', recessiveSign: null };
+  const bothPositive = { dominantSign: '+', recessiveSign: '+' };
 
   const classify = (f, m, gene) => classifyTrioLocus(f, m, offspringDistribution(f, m), gene);
 
@@ -200,6 +201,21 @@ describe('classifyTrioLocus', () => {
     expect(c.lockedIn).toBe(true);
     expect(c.source).toBe('both');
     expect(c.pPositive).toBe(1);
+  });
+
+  it('does not lock in when both positives come from different alleles with no consolidation (D × R)', () => {
+    // Both parents express a `+` (father dominant, mother recessive), but the
+    // offspring is all heterozygous — nothing is consolidated toward homozygosity.
+    const c = classify('D', 'R', bothPositive);
+    expect(c.verdict).toBe('neutral');
+    expect(c.lockedIn).toBe(false);
+  });
+
+  it('still locks in a both-positive gene when the dominant allele can consolidate (D × x)', () => {
+    const c = classify('D', 'x', bothPositive);
+    expect(c.verdict).toBe('gain');
+    expect(c.lockedIn).toBe(true);
+    expect(c.source).toBe('both');
   });
 
   it('returns neutral for an unknown parent and for a missing gene record', () => {
