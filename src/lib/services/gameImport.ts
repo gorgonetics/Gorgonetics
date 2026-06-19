@@ -179,7 +179,7 @@ export async function autoScanGameFolder(options?: {
       result.scanned++;
       options?.onProgress?.(result.scanned, txtFiles.length);
       if ('error' in item) {
-        result.failures.push({ file: item.name, reason: item.error });
+        result.failures.push({ file: item.name, reason: item.error ?? 'Unknown error' });
         continue;
       }
       if (await hasImportedFile(item.hash)) {

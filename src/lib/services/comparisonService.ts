@@ -26,8 +26,8 @@ export function compareAttributes(petA: Pet, petB: Pet): AttributeComparisonResu
   return attrNames.map((attrName) => {
     const info = config.attributes.find((a) => a.key.toLowerCase() === attrName.toLowerCase());
     const key = capitalize(attrName);
-    const valA = ((petA as Record<string, unknown>)[attrName] as number) ?? 0;
-    const valB = ((petB as Record<string, unknown>)[attrName] as number) ?? 0;
+    const valA = ((petA as unknown as Record<string, unknown>)[attrName] as number) ?? 0;
+    const valB = ((petB as unknown as Record<string, unknown>)[attrName] as number) ?? 0;
     const diff = valA - valB;
 
     let winner: 'a' | 'b' | 'tie' = 'tie';

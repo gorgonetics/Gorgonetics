@@ -91,7 +91,7 @@ let tooltipGeneType = $state('');
 let tooltipEffect = $state('');
 let tooltipPotentialEffects = $state([]);
 
-// Dynamic filter style element — created programmatically (can't use <style> in Svelte template)
+// Dynamic filter style element — created programmatically (a Svelte component can't declare a dynamic style block in its markup)
 let filterStyleEl = null;
 
 onMount(() => {

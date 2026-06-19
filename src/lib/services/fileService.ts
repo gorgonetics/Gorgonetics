@@ -68,7 +68,7 @@ export async function saveExportBinaryFile(defaultFilename: string, data: Uint8A
     return true;
   }
 
-  const blob = new Blob([data], { type: 'application/zip' });
+  const blob = new Blob([data as BlobPart], { type: 'application/zip' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;

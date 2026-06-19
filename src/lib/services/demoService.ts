@@ -172,7 +172,7 @@ export async function loadDemoPetsIfNeeded(): Promise<void> {
       });
       if (result.status === 'success') {
         if (breed) {
-          await updatePet(result.pet_id, { breed });
+          await updatePet(result.pet_id as number, { breed });
         }
         console.log(`Loaded demo pet: ${name} (ID: ${result.pet_id})`);
       } else {

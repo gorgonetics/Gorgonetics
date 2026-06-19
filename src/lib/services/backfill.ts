@@ -53,7 +53,7 @@ export async function runBatchBackfill<Row, Update>(spec: BackfillSpec<Row, Upda
   let applied = 0;
   for (let i = 0; i < rows.length; i += batchSize) {
     const slice = rows.slice(i, i + batchSize);
-    const computed = await Promise.all(slice.map((r) => Promise.resolve(spec.computeUpdate(r))));
+    const computed: (Update | null)[] = await Promise.all(slice.map((r) => Promise.resolve(spec.computeUpdate(r))));
     const updates = computed.filter((u): u is Update => u != null);
     if (updates.length > 0) {
       applied += await spec.applyBatch(updates);

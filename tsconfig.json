@@ -1,0 +1,19 @@
+{
+  "extends": "./.svelte-kit/tsconfig.json",
+  "compilerOptions": {
+    "allowJs": true,
+    // The codebase is JS + JSDoc; deep JS type-checking is out of scope for
+    // now. svelte-check still type-checks .ts files and Svelte template
+    // bindings and parses every component with the real Svelte compiler —
+    // which is what makes the bogus "<script> left open" error go away.
+    // Flip to true in a follow-up once the JS surface is annotated.
+    "checkJs": false,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "sourceMap": true,
+    "strict": true,
+    "moduleResolution": "bundler"
+  }
+}
