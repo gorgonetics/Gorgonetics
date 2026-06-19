@@ -1,18 +1,17 @@
-<script>
+<script lang="ts">
 import GenomeGridTrio from '$lib/components/comparison/GenomeGridTrio.svelte';
 import { normalizeSpecies } from '$lib/services/configService.js';
+import type { SelectedBreedingPair } from '$lib/stores/breeding.svelte.js';
 import { focusTrap } from '$lib/utils/focusTrap.js';
 import { getSpeciesEmoji } from '$lib/utils/species.js';
 
-/**
- * @typedef {Object} Props
- * @property {import('$lib/stores/breeding.svelte.js').SelectedBreedingPair} pair
- * @property {string} [offspringBreed]
- * @property {() => void} onClose
- */
+interface Props {
+  pair: SelectedBreedingPair;
+  offspringBreed?: string;
+  onClose: () => void;
+}
 
-/** @type {Props} */
-const { pair, offspringBreed = '', onClose } = $props();
+const { pair, offspringBreed = '', onClose }: Props = $props();
 
 const father = $derived(pair.male);
 const mother = $derived(pair.female);

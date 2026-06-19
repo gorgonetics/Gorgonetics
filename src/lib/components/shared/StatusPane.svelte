@@ -1,21 +1,26 @@
-<script>
+<script lang="ts">
 /**
  * Centered loading / empty / error pane. Shared shape across the tab
  * surfaces (Stable, Compare, Community, Breeding…). The `loading`
  * variant renders the global `.spinner` (24px). `error` variant gets
  * `role="alert"` for accessibility.
- *
- * Props:
- *  - `variant`     — 'loading' | 'empty' | 'error'
- *  - `icon`        — optional emoji/character above the text
- *                    (ignored when variant='loading')
- *  - `title`       — bold one-liner; optional
- *  - `body`        — descriptive paragraph; optional
- *  - `actionLabel` — text on an optional secondary-button below the body
- *  - `onAction`    — click handler for the action button; required
- *                    alongside actionLabel
  */
-const { variant = 'empty', icon, title, body, actionLabel, onAction } = $props();
+interface Props {
+  /** Pane variant. */
+  variant?: 'loading' | 'empty' | 'error';
+  /** Optional emoji/character above the text (ignored when variant='loading'). */
+  icon?: string;
+  /** Bold one-liner. */
+  title?: string;
+  /** Descriptive paragraph. */
+  body?: string;
+  /** Text on an optional secondary button below the body. */
+  actionLabel?: string;
+  /** Click handler for the action button; required alongside actionLabel. */
+  onAction?: () => void;
+}
+
+const { variant = 'empty', icon, title, body, actionLabel, onAction }: Props = $props();
 </script>
 
 <div

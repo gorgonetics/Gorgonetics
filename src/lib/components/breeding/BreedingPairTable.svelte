@@ -1,8 +1,21 @@
-<script>
+<script lang="ts">
 import { breedingView } from '$lib/stores/breeding.svelte.js';
 import { appState } from '$lib/stores/pets.js';
+import type { BreedingPairResult, Pet } from '$lib/types/index.js';
 
-let { results, attrNames } = $props();
+interface Props {
+  results: BreedingPairResult[];
+  attrNames: string[];
+}
+
+interface Column {
+  id: string;
+  label: string;
+  accessor: (r: BreedingPairResult) => string | number;
+  numeric: boolean;
+}
+
+const { results, attrNames }: Props = $props();
 
 /**
  * Column definitions. The per-attribute columns are appended after the
@@ -10,7 +23,7 @@ let { results, attrNames } = $props();
  * which in turn matches `breedingView.sortCol` after a click on the
  * header.
  */
-const columns = $derived([
+const columns = $derived<Column[]>([
   { id: 'male', label: '♂ Male', accessor: (r) => r.male.name, numeric: false },
   { id: 'female', label: '♀ Female', accessor: (r) => r.female.name, numeric: false },
   { id: 'evMixed', label: 'Mixed', accessor: (r) => r.evMixed, numeric: true },
@@ -19,7 +32,7 @@ const columns = $derived([
   ...attrNames.map((name) => ({
     id: name,
     label: name,
-    accessor: (r) => r.evPositiveByAttribute[name] ?? 0,
+    accessor: (r: BreedingPairResult) => r.evPositiveByAttribute[name] ?? 0,
     numeric: true,
   })),
 ]);
@@ -33,12 +46,12 @@ const sortedResults = $derived.by(() => {
   return [...results].sort((a, b) => {
     const av = col.accessor(a);
     const bv = col.accessor(b);
-    const cmp = col.numeric ? av - bv : String(av).localeCompare(String(bv));
+    const cmp = col.numeric ? (av as number) - (bv as number) : String(av).localeCompare(String(bv));
     return cmp * dir;
   });
 });
 
-function setSort(colId) {
+function setSort(colId: string) {
   if (breedingView.sortCol === colId) {
     breedingView.sortDir = breedingView.sortDir === 'asc' ? 'desc' : 'asc';
   } else {
@@ -47,21 +60,21 @@ function setSort(colId) {
   }
 }
 
-function sortIndicator(colId) {
+function sortIndicator(colId: string) {
   if (colId !== breedingView.sortCol) return '';
   return breedingView.sortDir === 'asc' ? ' ▲' : ' ▼';
 }
 
-function openPet(pet) {
+function openPet(pet: Pet) {
   appState.selectPet(pet);
   appState.switchTab('pets');
 }
 
-function openTrio(pair) {
+function openTrio(pair: BreedingPairResult) {
   breedingView.selectedPair = { male: pair.male, female: pair.female };
 }
 
-function fmt(n) {
+function fmt(n: number) {
   return n.toFixed(1);
 }
 </script>
