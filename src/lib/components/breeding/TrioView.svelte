@@ -6,7 +6,7 @@ import { getSpeciesEmoji } from '$lib/utils/species.js';
 
 /**
  * @typedef {Object} Props
- * @property {{ male: any, female: any }} pair
+ * @property {import('$lib/stores/breeding.svelte.js').SelectedBreedingPair} pair
  * @property {string} [offspringBreed]
  * @property {() => void} onClose
  */
@@ -49,7 +49,7 @@ const speciesLabel = $derived(father ? normalizeSpecies(father.species) : '');
                     <span class="breed-badge">{offspringBreed}</span>
                 {/if}
             </h3>
-            <button class="close-btn" onclick={onClose} aria-label="Close trio view">×</button>
+            <button type="button" class="close-btn" onclick={onClose} aria-label="Close trio view">×</button>
         </div>
 
         <div class="dialog-body trio-body">

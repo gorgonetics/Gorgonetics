@@ -94,6 +94,7 @@ function fmt(n) {
                 <tr>
                     <td class="action-cell">
                         <button
+                            type="button"
                             class="inspect-btn"
                             onclick={() => openTrio(pair)}
                             title="View offspring trio"
