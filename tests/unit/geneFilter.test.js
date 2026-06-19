@@ -31,7 +31,7 @@ describe('isGeneVisible — regression #309', () => {
         '1',
         gene,
         { type: 'inactive-breed', attribute: null },
-        { ...empty, currentView: 'appearance', selectedAttributes: ['Coat'] },
+        { ...empty, currentView: 'appearance', selectedAttributes: ['coat'] },
         noEffects,
       ),
     ).toBe(false);
@@ -42,8 +42,8 @@ describe('isGeneVisible — regression #309', () => {
       isGeneVisible(
         '1',
         gene,
-        { type: 'coat', attribute: 'Coat' },
-        { ...empty, currentView: 'appearance', selectedAttributes: ['Coat'] },
+        { type: 'coat', attribute: 'coat' },
+        { ...empty, currentView: 'appearance', selectedAttributes: ['coat'] },
         noEffects,
       ),
     ).toBe(true);
