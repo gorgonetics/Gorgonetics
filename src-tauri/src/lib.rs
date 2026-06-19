@@ -337,7 +337,7 @@ async fn backup_before_update(
         let source = install_artifact_for(&exe)?;
         let name = source
             .file_name()
-            .ok_or("install artifact has no file name")?;
+            .ok_or_else(|| "install artifact has no file name".to_string())?;
 
         // Clear any stale backup (e.g. from an earlier failed update).
         if dir.exists() {

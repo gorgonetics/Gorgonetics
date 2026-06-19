@@ -7,6 +7,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { installUpdateWithBackup } from '$lib/services/updateService.js';
 
+// Shared step log so every actor — the Update, the backup command, and
+// relaunch — records into the same ordering across a run.
+let order = [];
 const invoke = vi.fn();
 const relaunch = vi.fn();
 
@@ -14,7 +17,7 @@ vi.mock('@tauri-apps/api/core', () => ({ invoke: (...args) => invoke(...args) })
 vi.mock('@tauri-apps/plugin-process', () => ({ relaunch: (...args) => relaunch(...args) }));
 
 /** A fake Update that records call order and drives the progress callback. */
-function makeUpdate(order) {
+function makeUpdate() {
   return {
     version: '0.7.0',
     download: vi.fn(async (onEvent) => {
@@ -31,8 +34,13 @@ function makeUpdate(order) {
 
 describe('installUpdateWithBackup', () => {
   beforeEach(() => {
-    invoke.mockReset().mockResolvedValue(undefined);
-    relaunch.mockReset().mockResolvedValue(undefined);
+    order = [];
+    invoke.mockReset().mockImplementation(async () => {
+      order.push('backup');
+    });
+    relaunch.mockReset().mockImplementation(async () => {
+      order.push('relaunch');
+    });
   });
 
   afterEach(() => {
@@ -40,14 +48,15 @@ describe('installUpdateWithBackup', () => {
   });
 
   it('backs up between download and install, then relaunches', async () => {
-    const order = [];
-    const update = makeUpdate(order);
+    const update = makeUpdate();
 
     await installUpdateWithBackup(update);
 
     expect(invoke).toHaveBeenCalledWith('backup_before_update', { toVersion: '0.7.0' });
-    // Backup must land after the download finishes and before the install swap.
-    expect(order).toEqual(['download', 'install']);
+    // The backup must land after the download finishes and before the install
+    // swap; relaunch happens last. The full sequence is asserted so the test
+    // fails if any step is reordered.
+    expect(order).toEqual(['download', 'backup', 'install', 'relaunch']);
     expect(update.download).toHaveBeenCalledOnce();
     expect(update.install).toHaveBeenCalledOnce();
     expect(relaunch).toHaveBeenCalledOnce();
@@ -55,7 +64,7 @@ describe('installUpdateWithBackup', () => {
 
   it('reports download progress as a percentage', async () => {
     const onProgress = vi.fn();
-    await installUpdateWithBackup(makeUpdate([]), onProgress);
+    await installUpdateWithBackup(makeUpdate(), onProgress);
 
     // 200-byte total, two 100-byte chunks → 50% then 100%.
     expect(onProgress).toHaveBeenNthCalledWith(1, 50);
@@ -65,12 +74,13 @@ describe('installUpdateWithBackup', () => {
   it('proceeds with install when the backup fails', async () => {
     invoke.mockRejectedValueOnce(new Error('disk full'));
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const order = [];
-    const update = makeUpdate(order);
+    const update = makeUpdate();
 
     await installUpdateWithBackup(update);
 
     expect(warn).toHaveBeenCalled();
+    // Backup failed (no 'backup' entry) but install and relaunch still ran.
+    expect(order).toEqual(['download', 'install', 'relaunch']);
     expect(update.install).toHaveBeenCalledOnce();
     expect(relaunch).toHaveBeenCalledOnce();
   });
