@@ -171,8 +171,10 @@ export async function loadDemoPetsIfNeeded(): Promise<void> {
         notes: 'Sample pet for exploring Gorgonetics features',
       });
       if (result.status === 'success') {
-        if (breed) {
-          await updatePet(result.pet_id as number, { breed });
+        if (breed && result.pet_id != null) {
+          await updatePet(result.pet_id, { breed });
+        } else if (breed) {
+          console.warn(`Demo pet "${name}" uploaded without a pet_id; breed not set`);
         }
         console.log(`Loaded demo pet: ${name} (ID: ${result.pet_id})`);
       } else {
