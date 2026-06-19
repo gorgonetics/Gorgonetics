@@ -7,19 +7,12 @@ import { getAppearanceConfig, getAttributeConfig, normalizeSpecies } from '$lib/
 import { getGeneEffectsCached } from '$lib/services/geneService.js';
 import { loadPetGridFromDb } from '$lib/services/petService.js';
 import { settings } from '$lib/stores/settings.js';
-import type { AppearanceInfo, AttributeInfo, Pet } from '$lib/types/index.js';
+import type { AppearanceInfo, AttributeInfo, GenomeDiffSummary, Pet } from '$lib/types/index.js';
 import { HORSE_BREEDS } from '$lib/types/index.js';
 import { buildFilterCSS } from '$lib/utils/filterCSS.js';
 import { breedFor, effectFor, type GeneEffectData, isNoEffect } from '$lib/utils/geneAnalysis.js';
 import { buildAppearanceLookup, createGeneCellBuilder, type GeneCell } from '$lib/utils/geneGridCells.js';
 import { capitalize } from '$lib/utils/string.js';
-
-interface DiffSummary {
-  totalGenes: number;
-  identicalGenes: number;
-  differentGenes: number;
-  similarityPercent: number;
-}
 
 interface ChromosomeRow {
   chr: string;
@@ -43,7 +36,7 @@ const { petA, petB }: Props = $props();
 
 let loading = $state(false);
 let error = $state<string | null>(null);
-let summary = $state<DiffSummary | null>(null);
+let summary = $state<GenomeDiffSummary | null>(null);
 let showDiffsOnly = $state(false);
 let currentView = $state<'attribute' | 'appearance'>('attribute');
 

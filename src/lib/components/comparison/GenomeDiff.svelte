@@ -1,7 +1,7 @@
 <script lang="ts">
 import StatusPane from '$lib/components/shared/StatusPane.svelte';
 import { diffGenomes } from '$lib/services/comparisonService.js';
-import type { ChromosomeDiff, GeneType, Pet } from '$lib/types/index.js';
+import type { ChromosomeDiff, GeneType, GenomeDiffSummary, Pet } from '$lib/types/index.js';
 
 interface Props {
   petA: Pet;
@@ -11,12 +11,7 @@ interface Props {
 const { petA, petB }: Props = $props();
 
 let diffs = $state<ChromosomeDiff[]>([]);
-let summary = $state<{
-  totalGenes: number;
-  identicalGenes: number;
-  differentGenes: number;
-  similarityPercent: number;
-} | null>(null);
+let summary = $state<GenomeDiffSummary | null>(null);
 let loading = $state(false);
 let error = $state<string | null>(null);
 let showDiffsOnly = $state(false);

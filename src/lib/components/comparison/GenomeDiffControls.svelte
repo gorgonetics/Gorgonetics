@@ -1,16 +1,9 @@
 <script lang="ts">
-import type { AppearanceInfo, AttributeInfo } from '$lib/types/index.js';
+import type { AppearanceInfo, AttributeInfo, GenomeDiffSummary } from '$lib/types/index.js';
 import { HORSE_BREEDS } from '$lib/types/index.js';
 
-interface DiffSummary {
-  totalGenes: number;
-  identicalGenes: number;
-  differentGenes: number;
-  similarityPercent: number;
-}
-
 interface Props {
-  summary: DiffSummary;
+  summary: GenomeDiffSummary;
   isHorse: boolean;
   breedFilter: string;
   autoBreed?: boolean;
