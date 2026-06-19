@@ -103,4 +103,26 @@ test.describe('Breeding Assistant — ranking UI (PR 4)', () => {
     // pass even if no pet were actually selected.
     await expect(page.locator('.detail-content').getByText(name, { exact: false }).first()).toBeVisible();
   });
+
+  test('inspecting a pair opens the trio view with father / offspring / mother rows', async ({ page }) => {
+    await openBreedingTab(page);
+    const found = await pickSpeciesWithPairs(page);
+    expect(found).toBe(true);
+
+    await page.locator('[data-testid="inspect-pair"]').first().click();
+
+    const trio = page.getByTestId('trio-view');
+    await expect(trio).toBeVisible();
+
+    // The grid loads asynchronously; waiting on the role labels rides out the
+    // loading state. There is one role label per chromosome, so scope to the
+    // first. Offspring sits between the two parents.
+    await expect(trio.getByText('Father', { exact: false }).first()).toBeVisible();
+    await expect(trio.getByText('Offspring', { exact: false }).first()).toBeVisible();
+    await expect(trio.getByText('Mother', { exact: false }).first()).toBeVisible();
+    await expect(trio.locator('.offspring-row').first()).toBeVisible();
+
+    await trio.getByRole('button', { name: 'Close trio view' }).click();
+    await expect(page.getByTestId('trio-view')).toHaveCount(0);
+  });
 });

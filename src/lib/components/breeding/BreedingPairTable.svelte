@@ -57,6 +57,10 @@ function openPet(pet) {
   appState.switchTab('pets');
 }
 
+function openTrio(pair) {
+  breedingView.selectedPair = { male: pair.male, female: pair.female };
+}
+
 function fmt(n) {
   return n.toFixed(1);
 }
@@ -66,6 +70,7 @@ function fmt(n) {
     <table>
         <thead>
             <tr>
+                <th class="action-col" aria-label="Inspect"></th>
                 {#each columns as col (col.id)}
                     {@const isActive = breedingView.sortCol === col.id}
                     <th
@@ -87,6 +92,16 @@ function fmt(n) {
         <tbody>
             {#each sortedResults as pair (`${pair.male.id}-${pair.female.id}`)}
                 <tr>
+                    <td class="action-cell">
+                        <button
+                            type="button"
+                            class="inspect-btn"
+                            onclick={() => openTrio(pair)}
+                            title="View offspring trio"
+                            aria-label={`View offspring trio for ${pair.male.name} × ${pair.female.name}`}
+                            data-testid="inspect-pair"
+                        >🔬</button>
+                    </td>
                     <td><button class="parent-link" onclick={() => openPet(pair.male)}>{pair.male.name}</button></td>
                     <td><button class="parent-link" onclick={() => openPet(pair.female)}>{pair.female.name}</button></td>
                     <td class="numeric">{fmt(pair.evMixed)}</td>
@@ -182,5 +197,32 @@ function fmt(n) {
 
     .parent-link:hover {
         text-decoration: underline;
+    }
+
+    .action-col {
+        width: 32px;
+        min-width: 32px;
+    }
+
+    .action-cell {
+        text-align: center;
+        padding: 2px 4px;
+    }
+
+    .inspect-btn {
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-size: 14px;
+        line-height: 1;
+        padding: 4px;
+        border-radius: 4px;
+        opacity: 0.65;
+        transition: opacity 0.15s ease, background 0.15s ease;
+    }
+
+    .inspect-btn:hover {
+        opacity: 1;
+        background: var(--bg-tertiary);
     }
 </style>

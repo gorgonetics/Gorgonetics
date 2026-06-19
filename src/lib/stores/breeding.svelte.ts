@@ -12,6 +12,13 @@
  */
 
 import { getSupportedSpecies } from '$lib/services/configService.js';
+import type { Pet } from '$lib/types/index.js';
+
+/** The (father, mother) pair currently open in the trio detail view. */
+export interface SelectedBreedingPair {
+  male: Pet;
+  female: Pet;
+}
 
 /**
  * Sort columns the breeding pair table will support in PR 4. The
@@ -32,4 +39,6 @@ export const breedingView = $state({
   sortCol: 'evPositiveTotal' as BreedingSortColumn,
   /** Sort direction. Most useful columns are descending by default. */
   sortDir: 'desc' as 'asc' | 'desc',
+  /** Pair open in the trio detail view; null when the view is closed. */
+  selectedPair: null as SelectedBreedingPair | null,
 });

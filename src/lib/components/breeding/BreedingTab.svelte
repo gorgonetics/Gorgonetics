@@ -7,6 +7,7 @@ import { pets } from '$lib/stores/pets.js';
 import { Gender, HORSE_BREEDS } from '$lib/types/index.js';
 import { capitalize } from '$lib/utils/string.js';
 import BreedingPairTable from './BreedingPairTable.svelte';
+import TrioView from './TrioView.svelte';
 
 const species = getSupportedSpecies();
 
@@ -153,6 +154,14 @@ const horseBreedOptions = Object.keys(HORSE_BREEDS);
             <BreedingPairTable results={pairs} {attrNames} />
         {/if}
     </section>
+
+    {#if breedingView.selectedPair}
+        <TrioView
+            pair={breedingView.selectedPair}
+            offspringBreed={breedingView.offspringBreed}
+            onClose={() => { breedingView.selectedPair = null; }}
+        />
+    {/if}
 </div>
 
 <style>
