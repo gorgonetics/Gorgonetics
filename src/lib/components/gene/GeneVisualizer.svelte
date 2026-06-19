@@ -560,11 +560,9 @@ function isGeneVisible(chromosome: string, gene: ParsedGene, geneAnalysis: GeneA
       return false;
     }
   } else {
-    if (
-      selectedAttributes.length > 0 &&
-      geneAnalysis.attribute &&
-      !selectedAttributes.includes(geneAnalysis.attribute)
-    ) {
+    // Coerce a null attribute to '' (never a selected value) so that, as before,
+    // a gene with no attribute is filtered out when a specific attribute is selected.
+    if (selectedAttributes.length > 0 && !selectedAttributes.includes(geneAnalysis.attribute ?? '')) {
       return false;
     }
   }
