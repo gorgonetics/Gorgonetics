@@ -203,13 +203,209 @@ async fn write_zip(
     .map_err(|e| e.to_string())?
 }
 
+/// Records a pre-update copy of the current install so a botched update can be
+/// restored manually. `to_version` is the version being installed; when the app
+/// next launches reporting that version, the update succeeded and the backup is
+/// deleted on startup (see `run`). Persisted as JSON at
+/// `<app_data>/update-backup/manifest.json`.
+#[derive(Serialize, Deserialize, Clone)]
+struct UpdateBackupManifest {
+    /// Version that was running when the backup was taken (the one to restore).
+    from_version: String,
+    /// Version being installed. Startup cleanup keys off this.
+    to_version: String,
+    /// Absolute path of the install artifact that was copied.
+    source_path: String,
+    /// Absolute path of the backup copy under the app data dir.
+    backup_path: String,
+}
+
+/// Locate the on-disk install artifact for the running app, per platform:
+/// the `.app` bundle (macOS), the AppImage file (Linux), or the install
+/// directory containing the executable (Windows). Derived from `exe` so the
+/// core logic is unit-testable without a live Tauri context.
+fn install_artifact_for(exe: &Path) -> Result<PathBuf, String> {
+    #[cfg(target_os = "macos")]
+    {
+        // exe is .../Gorgonetics.app/Contents/MacOS/Gorgonetics — walk up to
+        // the bundle root.
+        for anc in exe.ancestors() {
+            if anc.extension().is_some_and(|e| e == "app") {
+                return Ok(anc.to_path_buf());
+            }
+        }
+        Err("could not locate .app bundle from executable path".into())
+    }
+    #[cfg(target_os = "linux")]
+    {
+        // The AppImage runtime exports APPIMAGE as the absolute path of the
+        // running image. Absent it, the app was started some other way (cargo
+        // run, extracted bundle) and there is no single artifact to back up.
+        let _ = exe;
+        std::env::var("APPIMAGE")
+            .map(PathBuf::from)
+            .map_err(|_| "not running as an AppImage (APPIMAGE unset)".into())
+    }
+    #[cfg(target_os = "windows")]
+    {
+        exe.parent()
+            .map(Path::to_path_buf)
+            .ok_or_else(|| "executable has no parent directory".into())
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
+    {
+        let _ = exe;
+        Err("update backup is not supported on this platform".into())
+    }
+}
+
+/// Recursively copy `src` to `dst`, preserving symlinks (macOS `.app` bundles
+/// rely on versioned symlinks under `Contents/Frameworks`). Files are copied
+/// byte-for-byte; an existing `dst` tree is assumed already cleared by the
+/// caller.
+fn copy_tree(src: &Path, dst: &Path) -> std::io::Result<()> {
+    if src.is_dir() {
+        std::fs::create_dir_all(dst)?;
+        for entry in std::fs::read_dir(src)? {
+            let entry = entry?;
+            let ty = entry.file_type()?;
+            let from = entry.path();
+            let to = dst.join(entry.file_name());
+            if ty.is_symlink() {
+                let target = std::fs::read_link(&from)?;
+                #[cfg(unix)]
+                std::os::unix::fs::symlink(&target, &to)?;
+                #[cfg(not(unix))]
+                {
+                    let _ = target;
+                    std::fs::copy(&from, &to)?;
+                }
+            } else if ty.is_dir() {
+                copy_tree(&from, &to)?;
+            } else {
+                std::fs::copy(&from, &to)?;
+            }
+        }
+    } else {
+        if let Some(parent) = dst.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        std::fs::copy(src, dst)?;
+    }
+    Ok(())
+}
+
+/// Directory holding the most recent pre-update backup and its manifest.
+fn backup_dir(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    Ok(app
+        .path()
+        .app_data_dir()
+        .map_err(|e| e.to_string())?
+        .join("update-backup"))
+}
+
+fn read_backup_manifest(dir: &Path) -> Result<Option<UpdateBackupManifest>, String> {
+    let path = dir.join("manifest.json");
+    match std::fs::read_to_string(&path) {
+        Ok(s) => serde_json::from_str(&s).map(Some).map_err(|e| e.to_string()),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+/// A backup is stale once the running version matches the version it was taken
+/// for — that means the update it guarded has installed and launched
+/// successfully, so the backup can be discarded.
+fn backup_is_obsolete(manifest: &UpdateBackupManifest, current_version: &str) -> bool {
+    manifest.to_version == current_version
+}
+
+/// Copy the current install to the backup directory and write a manifest, so a
+/// failed update can be manually restored. Best-effort by design: the JS caller
+/// treats a failure as non-fatal and proceeds with the update. Any prior backup
+/// is discarded first. Heavy I/O runs on the blocking pool.
+#[tauri::command]
+async fn backup_before_update(
+    app: tauri::AppHandle,
+    to_version: String,
+) -> Result<UpdateBackupManifest, String> {
+    let from_version = app.package_info().version.to_string();
+    let dir = backup_dir(&app)?;
+    let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+
+    tauri::async_runtime::spawn_blocking(move || {
+        let source = install_artifact_for(&exe)?;
+        let name = source
+            .file_name()
+            .ok_or_else(|| "install artifact has no file name".to_string())?;
+
+        // Clear any stale backup (e.g. from an earlier failed update).
+        if dir.exists() {
+            std::fs::remove_dir_all(&dir).map_err(|e| e.to_string())?;
+        }
+        let payload = dir.join("payload");
+        let dest = payload.join(name);
+        std::fs::create_dir_all(&payload).map_err(|e| e.to_string())?;
+        copy_tree(&source, &dest).map_err(|e| format!("copy install to backup: {e}"))?;
+
+        let manifest = UpdateBackupManifest {
+            from_version,
+            to_version,
+            source_path: source.to_string_lossy().into_owned(),
+            backup_path: dest.to_string_lossy().into_owned(),
+        };
+        let json = serde_json::to_string_pretty(&manifest).map_err(|e| e.to_string())?;
+        std::fs::write(dir.join("manifest.json"), json).map_err(|e| e.to_string())?;
+        Ok(manifest)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// Read the current backup manifest, if any. Surfaced to the UI so a failed
+/// update can point the user at the restore path.
+#[tauri::command]
+fn get_update_backup(app: tauri::AppHandle) -> Result<Option<UpdateBackupManifest>, String> {
+    read_backup_manifest(&backup_dir(&app)?)
+}
+
+/// Delete the pre-update backup. Called on startup once the update is confirmed
+/// (see `run`) and exposed for an explicit "discard backup" action.
+#[tauri::command]
+fn cleanup_update_backup(app: tauri::AppHandle) -> Result<(), String> {
+    let dir = backup_dir(&app)?;
+    if dir.exists() {
+        std::fs::remove_dir_all(&dir).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+/// On startup, drop the pre-update backup if the running version shows the
+/// guarded update landed. A surviving backup (still on the old version) means
+/// the update failed; it is kept for manual restore.
+fn cleanup_backup_on_launch(app: &tauri::AppHandle) {
+    let Ok(dir) = backup_dir(app) else { return };
+    let current = app.package_info().version.to_string();
+    if let Ok(Some(manifest)) = read_backup_manifest(&dir) {
+        if backup_is_obsolete(&manifest, &current) {
+            let _ = std::fs::remove_dir_all(&dir);
+        }
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_sql::Builder::default().build())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
-        .invoke_handler(tauri::generate_handler![db_execute_transaction, write_zip])
+        .invoke_handler(tauri::generate_handler![
+            db_execute_transaction,
+            write_zip,
+            backup_before_update,
+            get_update_backup,
+            cleanup_update_backup
+        ])
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(
@@ -223,6 +419,8 @@ pub fn run() {
                 .plugin(tauri_plugin_updater::Builder::new().build())?;
             #[cfg(desktop)]
             app.handle().plugin(tauri_plugin_process::init())?;
+            #[cfg(desktop)]
+            cleanup_backup_on_launch(app.handle());
             Ok(())
         })
         .run(tauri::generate_context!())
@@ -293,6 +491,81 @@ mod tests {
             .unwrap();
         assert_eq!(got, img_bytes);
         assert!(archive.by_name("images/h/gone.png").is_err());
+
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn backup_obsolete_only_when_version_matches() {
+        let manifest = UpdateBackupManifest {
+            from_version: "0.6.3".into(),
+            to_version: "0.6.4".into(),
+            source_path: "/x".into(),
+            backup_path: "/y".into(),
+        };
+        // Still on the old version → update hasn't landed → keep the backup.
+        assert!(!backup_is_obsolete(&manifest, "0.6.3"));
+        // Running the installed version → update succeeded → discard.
+        assert!(backup_is_obsolete(&manifest, "0.6.4"));
+    }
+
+    #[test]
+    fn read_manifest_absent_is_none() {
+        let dir = std::env::temp_dir().join(format!("gorg_nomanifest_{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        assert!(read_backup_manifest(&dir).unwrap().is_none());
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn copy_tree_preserves_files_symlinks_and_nesting() {
+        let root = std::env::temp_dir().join(format!("gorg_copytree_{}", std::process::id()));
+        let src = root.join("src");
+        let nested = src.join("Contents/MacOS");
+        std::fs::create_dir_all(&nested).unwrap();
+        std::fs::write(nested.join("bin"), b"binary").unwrap();
+        std::fs::write(src.join("Info.plist"), b"plist").unwrap();
+        #[cfg(unix)]
+        std::os::unix::fs::symlink("Contents/MacOS/bin", src.join("link")).unwrap();
+
+        let dst = root.join("dst");
+        copy_tree(&src, &dst).unwrap();
+
+        assert_eq!(std::fs::read(dst.join("Contents/MacOS/bin")).unwrap(), b"binary");
+        assert_eq!(std::fs::read(dst.join("Info.plist")).unwrap(), b"plist");
+        #[cfg(unix)]
+        {
+            let meta = std::fs::symlink_metadata(dst.join("link")).unwrap();
+            assert!(meta.file_type().is_symlink());
+            assert_eq!(
+                std::fs::read_link(dst.join("link")).unwrap(),
+                Path::new("Contents/MacOS/bin")
+            );
+        }
+
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    #[test]
+    fn read_manifest_roundtrips_written_json() {
+        let dir = std::env::temp_dir().join(format!("gorg_manifest_{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let manifest = UpdateBackupManifest {
+            from_version: "0.6.3".into(),
+            to_version: "0.6.4".into(),
+            source_path: "/Applications/Gorgonetics.app".into(),
+            backup_path: "/data/update-backup/payload/Gorgonetics.app".into(),
+        };
+        std::fs::write(
+            dir.join("manifest.json"),
+            serde_json::to_string_pretty(&manifest).unwrap(),
+        )
+        .unwrap();
+
+        let read = read_backup_manifest(&dir).unwrap().unwrap();
+        assert_eq!(read.to_version, "0.6.4");
+        assert_eq!(read.from_version, "0.6.3");
+        assert_eq!(read.source_path, "/Applications/Gorgonetics.app");
 
         std::fs::remove_dir_all(&dir).ok();
     }

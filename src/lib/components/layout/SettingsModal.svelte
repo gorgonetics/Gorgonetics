@@ -87,18 +87,10 @@ async function installUpdate() {
   updateStatus = 'downloading';
   downloadProgress = 0;
   try {
-    let totalSize = 0;
-    let downloaded = 0;
-    await pendingUpdate.downloadAndInstall((event) => {
-      if (event.event === 'Started') {
-        totalSize = event.data.contentLength ?? 0;
-      } else if (event.event === 'Progress') {
-        downloaded += event.data.chunkLength ?? 0;
-        downloadProgress = totalSize > 0 ? Math.round((downloaded / totalSize) * 100) : 0;
-      }
+    const { installUpdateWithBackup } = await import('$lib/services/updateService.js');
+    await installUpdateWithBackup(pendingUpdate, (percent) => {
+      downloadProgress = percent;
     });
-    const { relaunch } = await import('@tauri-apps/plugin-process');
-    await relaunch();
   } catch (err) {
     errorMessage = toErrorMessage(err);
     updateStatus = 'error';
