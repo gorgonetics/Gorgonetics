@@ -162,3 +162,63 @@ describe('computeOffspringTrio', () => {
     await expect(computeOffspringTrio(father, ghost, { species: 'BeeWasp' })).rejects.toThrow();
   });
 });
+
+describe('computeOffspringTrio — horse chromosome 1 carrier genes (recessive +, dominant -)', () => {
+  beforeEach(reset);
+
+  const horseGenome = (name, alleles) => `[Overview]
+Format=1.0
+Character=Tester
+Entity=${name}
+Genome=Horse
+
+[Genes]
+1=${alleles}
+`;
+
+  async function uploadHorse(name, gender, alleles) {
+    const result = await petService.uploadPet(horseGenome(name, alleles), { name, gender });
+    expect(result.status).toBe('success');
+    const pet = await petService.getPet(result.pet_id);
+    expect(pet).not.toBeNull();
+    return pet;
+  }
+
+  // Chromosome-1 horse genes express the beneficial trait only when
+  // homozygous-recessive; the dominant allele expresses the harmful version.
+  async function registerCarrierGenes() {
+    for (const id of ['01A1', '01A2', '01A3']) {
+      await geneService.upsertGene('horse', '01', id, { effectDominant: 'Speed-', effectRecessive: 'Speed+' });
+    }
+    geneService.clearGeneEffectsCache('horse');
+  }
+
+  it('reads carrier×carrier as a gain, recessive pair as locked-in, dominant pair as neutral', async () => {
+    await registerCarrierGenes();
+    // locus 01A1 → x × x, 01A2 → R × R, 01A3 → D × D
+    const father = await uploadHorse('Sire', Gender.MALE, 'xRD');
+    const mother = await uploadHorse('Dam', Gender.FEMALE, 'xRD');
+
+    const { chromosomes, summary } = await computeOffspringTrio(father, mother, { species: 'Horse' });
+    const byId = Object.fromEntries(chromosomes.flatMap((c) => c.genes).map((g) => [g.geneId, g]));
+
+    // Carrier × carrier: both parents show the harmful dominant, but the cross
+    // can surface the beneficial recessive (25%) neither parent expresses.
+    expect(byId['01A1'].verdict).toBe('gain');
+    expect(byId['01A1'].source).toBe('both');
+    expect(byId['01A1'].lockedIn).toBe(false);
+    expect(byId['01A1'].pPositive).toBeCloseTo(0.25, 10);
+    expect(byId['01A1'].pNegative).toBeCloseTo(0.75, 10);
+    // Both sides target the same attribute, so it is kept (not ambiguous).
+    expect(byId['01A1'].attribute).toBe('Speed');
+
+    // Both recessive: the beneficial trait is locked in (offspring guaranteed RR).
+    expect(byId['01A2'].verdict).toBe('gain');
+    expect(byId['01A2'].lockedIn).toBe(true);
+
+    // Both dominant: offspring guaranteed to express the harmful dominant; nothing new.
+    expect(byId['01A3'].verdict).toBe('neutral');
+
+    expect(summary).toMatchObject({ totalGenes: 3, gains: 2, risks: 0, lockedIn: 1, unknownLoci: 0 });
+  });
+});
