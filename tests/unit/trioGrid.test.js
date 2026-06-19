@@ -117,6 +117,36 @@ describe('buildTrioGrid', () => {
     expect(a1.attribute).toBe('Speed');
   });
 
+  it('normalises an unexpected effectType to a neutral tone (no undefined tone-* class)', () => {
+    const stubBuilder = {
+      makeCell: () => ({
+        id: '01A1',
+        type: 'D',
+        attributeCls: '',
+        appearanceCls: '',
+        attribute: '',
+        appearance: '',
+        breed: '',
+        effect: '',
+      }),
+      analyzeGene: () => ({ effectType: 'totally-made-up' }),
+    };
+    const stubResult = {
+      chromosomes: [
+        {
+          chromosome: '01',
+          totalGenes: 1,
+          gains: 0,
+          risks: 0,
+          genes: [entry({ dist: { D: 1, x: 0, R: 0, unknown: 0 } })],
+        },
+      ],
+      summary: {},
+    };
+    const g = buildTrioGrid(stubResult, stubBuilder);
+    expect(g.rows[0].cells.A1.segments).toEqual([{ allele: 'D', pct: 100, tone: 'neutral' }]);
+  });
+
   it('returns an empty layout for an empty result', () => {
     const empty = buildTrioGrid({ chromosomes: [], summary: {} }, cellBuilder);
     expect(empty.blocks).toEqual([]);

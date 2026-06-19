@@ -66,11 +66,17 @@ interface CellBuilderLike {
 
 const ALLELE_ORDER: readonly (keyof AlleleDistribution)[] = ['D', 'x', 'R', 'unknown'];
 
+/** Effect-type strings that map to a defined `tone-*` style. */
+const KNOWN_TONES = new Set<TrioTone>(['positive', 'negative', 'potential-positive', 'potential-negative', 'neutral']);
+
 function toneFor(geneId: string, allele: keyof AlleleDistribution, cellBuilder: CellBuilderLike): TrioTone {
   if (allele === 'unknown') return 'unknown';
   // `D`/`x` express the dominant effect, `R` the recessive — `analyzeGene`
-  // resolves the right one from the allele it's given.
-  return cellBuilder.analyzeGene(geneId, allele).effectType as TrioTone;
+  // resolves the right one from the allele it's given. Normalise to the known
+  // tone set so an unexpected/expanded effectType can't emit an undefined
+  // `tone-*` class; `neutral` is the safe default for a known allele.
+  const effectType = cellBuilder.analyzeGene(geneId, allele).effectType;
+  return KNOWN_TONES.has(effectType as TrioTone) ? (effectType as TrioTone) : 'neutral';
 }
 
 function buildSegments(geneId: string, dist: AlleleDistribution, cellBuilder: CellBuilderLike): TrioSegment[] {
