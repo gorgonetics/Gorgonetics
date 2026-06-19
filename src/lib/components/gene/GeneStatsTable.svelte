@@ -1,23 +1,30 @@
-<script>
+<script lang="ts">
 import { createEventDispatcher } from 'svelte';
 import { run } from 'svelte/legacy';
 import { getAppearanceConfig, getAttributeConfig, normalizeSpecies } from '$lib/services/configService.js';
+import type { AppearanceInfo, AttributeInfo, Pet } from '$lib/types/index.js';
 
 const dispatch = createEventDispatcher();
 
-/**
- * @typedef {Object} Props
- * @property {any} [currentStats]
- * @property {string} [currentView]
- * @property {any} [selectedAttributes]
- * @property {any} [hiddenAttributes]
- * @property {number} [totalGenes]
- * @property {number} [neutralGenes]
- * @property {any} [petSpecies]
- * @property {any} [pet]
- */
+interface AttrStats {
+  positive?: number;
+  negative?: number;
+  dominant?: number;
+  recessive?: number;
+  mixed?: number;
+}
 
-/** @type {Props} */
+interface Props {
+  currentStats?: Record<string, AttrStats | number | undefined> | null;
+  currentView?: string;
+  selectedAttributes?: string[];
+  hiddenAttributes?: string[];
+  totalGenes?: number;
+  neutralGenes?: number;
+  petSpecies?: string | null;
+  pet?: Pet | null;
+}
+
 const {
   currentStats = null,
   currentView = 'attribute',
@@ -27,19 +34,35 @@ const {
   neutralGenes = 0,
   petSpecies = null,
   pet = null,
-} = $props();
+}: Props = $props();
 
-let attributeList = $state([]);
-let appearanceList = $state([]);
+let attributeList = $state<AttributeInfo[]>([]);
+let appearanceList = $state<AppearanceInfo[]>([]);
 
-function loadAttributeConfigForTable(species) {
+function loadAttributeConfigForTable(species: string) {
   const normalized = normalizeSpecies(species || 'BeeWasp');
   attributeList = getAttributeConfig(normalized).attributes;
 }
 
-function loadAppearanceConfigForTable(species) {
+function loadAppearanceConfigForTable(species: string) {
   const normalized = normalizeSpecies(species || 'BeeWasp');
   appearanceList = getAppearanceConfig(normalized).appearance_attributes;
+}
+
+/** Safely coerce a currentStats value to AttrStats (returns null if it is a plain number). */
+function asAttrStats(v: AttrStats | number | undefined): AttrStats | null {
+  if (v == null || typeof v === 'number') return null;
+  return v;
+}
+
+/** Safely coerce a currentStats value to a numeric count (appearance mode). */
+function asCount(v: AttrStats | number | undefined): number {
+  return typeof v === 'number' ? v : 0;
+}
+
+/** Pet row has dynamic numeric attribute columns — use a typed cast to access them. */
+function petAttrValue(attrKey: string): number {
+  return ((pet as unknown as Record<string, unknown>)?.[attrKey] as number | undefined) ?? 0;
 }
 
 function calculateTotals() {
@@ -47,10 +70,9 @@ function calculateTotals() {
   if (!currentStats || currentView !== 'attribute') return totals;
 
   attributeList.forEach((attr) => {
-    const s = currentStats[attr.key];
+    const s = asAttrStats(currentStats[attr.key]);
     if (!s) return;
-    const attrKey = attr.key.toLowerCase();
-    totals.value += pet?.[attrKey] ?? 0;
+    totals.value += petAttrValue(attr.key.toLowerCase());
     totals.positive += s.positive ?? 0;
     totals.negative += s.negative ?? 0;
     totals.dominant += s.dominant ?? 0;
@@ -65,12 +87,12 @@ function calculateAppearanceGrandTotal() {
   let total = 0;
   appearanceList.forEach((attr) => {
     const attrKey = attr.key.replace(/_/g, '-');
-    total += currentStats[attrKey] || 0;
+    total += asCount(currentStats[attrKey]);
   });
   return total;
 }
 
-function handleAttributeClick(attributeKey, event) {
+function handleAttributeClick(attributeKey: string, event: MouseEvent) {
   const isCtrlClick = event.ctrlKey || event.metaKey;
   const isAltClick = event.altKey;
 
@@ -96,13 +118,13 @@ run(() => {
 const selectedCount = $derived(selectedAttributes.length);
 // Create reactive object lookups
 const selectedLookup = $derived(
-  selectedAttributes.reduce((acc, attr) => {
+  selectedAttributes.reduce<Record<string, boolean>>((acc, attr) => {
     acc[attr] = true;
     return acc;
   }, {}),
 );
 const hiddenLookup = $derived(
-  hiddenAttributes.reduce((acc, attr) => {
+  hiddenAttributes.reduce<Record<string, boolean>>((acc, attr) => {
     acc[attr] = true;
     return acc;
   }, {}),
@@ -153,9 +175,8 @@ const hiddenLookup = $derived(
             <tbody id="tableBody">
                 {#if currentView === "attribute"}
                     {#each attributeList as attr (attr.key)}
-                        {@const s = currentStats?.[attr.key] ?? {}}
-                        {@const attrKey = attr.key.toLowerCase()}
-                        {@const value = pet?.[attrKey] ?? 0}
+                        {@const s = asAttrStats(currentStats?.[attr.key])}
+                        {@const value = petAttrValue(attr.key.toLowerCase())}
                         <tr
                             class="attribute-row"
                             class:selected={selectedLookup[attr.key]}
@@ -168,11 +189,11 @@ const hiddenLookup = $derived(
                                 {attr.name}
                             </td>
                             <td class="num">{value}</td>
-                            <td class="num pos">{s.positive ?? 0}</td>
-                            <td class="num neg">{s.negative ?? 0}</td>
-                            <td class="num">{s.dominant ?? 0}</td>
-                            <td class="num">{s.recessive ?? 0}</td>
-                            <td class="num">{s.mixed ?? 0}</td>
+                            <td class="num pos">{s?.positive ?? 0}</td>
+                            <td class="num neg">{s?.negative ?? 0}</td>
+                            <td class="num">{s?.dominant ?? 0}</td>
+                            <td class="num">{s?.recessive ?? 0}</td>
+                            <td class="num">{s?.mixed ?? 0}</td>
                         </tr>
                     {/each}
                     <tr class="totals-row" title="Confirmed effects only — potential effects are not counted">
@@ -187,7 +208,7 @@ const hiddenLookup = $derived(
                 {:else}
                     {#each appearanceList as type (type.key)}
                         {@const attrKey = type.key.replace(/_/g, "-")}
-                        {@const count = currentStats?.[attrKey] || 0}
+                        {@const count = asCount(currentStats?.[attrKey])}
 
                         <tr
                             class="appearance-row"
