@@ -1,6 +1,7 @@
 <script lang="ts">
 import ComparisonPetPicker from '$lib/components/comparison/ComparisonPetPicker.svelte';
 import GeneEditor from '$lib/components/gene/GeneEditor.svelte';
+import Library from '$lib/components/library/Library.svelte';
 import PetList from '$lib/components/pet/PetList.svelte';
 import { activeTab } from '$lib/stores/pets.js';
 import {
@@ -83,6 +84,8 @@ function onHandleKeydown(e: KeyboardEvent) {
             </div>
         {:else if $activeTab === "compare"}
             <ComparisonPetPicker />
+        {:else if $activeTab === "library"}
+            <Library />
         {/if}
         <!-- svelte-ignore a11y_no_static_element_interactions -->
         <!-- svelte-ignore a11y_no_noninteractive_tabindex -->

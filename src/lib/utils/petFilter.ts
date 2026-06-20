@@ -1,11 +1,17 @@
 /**
- * Pure pet-list filtering for `PetList`.
+ * Pure pet-list filtering, shared by `PetList` and the redesign Library.
  *
  * Extracted from the in-component `filteredPets` $derived so the
  * search / tag / starred / stabled predicate can be unit-tested rather than
  * living as a closure over component reactive state (#306 audit per #310).
+ *
+ * The `species` / `breed` / `petQualityOnly` fields are optional so the
+ * Library can reuse this predicate as the single source of truth for filtering
+ * (absorbing the Stable filters) without changing `PetList`, which omits them.
+ * See docs/design/redesign-library-workspace-v1.md.
  */
 
+import { normalizeSpecies } from '$lib/services/configService.js';
 import type { Pet } from '$lib/types/index.js';
 
 export interface PetListFilters {
@@ -15,6 +21,11 @@ export interface PetListFilters {
   tags: string[];
   starredOnly: boolean;
   stabledOnly: boolean;
+  /** Normalized species; '' or omitted means all species. */
+  species?: string;
+  /** Breed name; '' or omitted means all breeds. */
+  breed?: string;
+  petQualityOnly?: boolean;
 }
 
 /** Whether a pet passes the active list filters. */
@@ -31,6 +42,9 @@ export function petMatchesFilters(pet: Pet, filters: PetListFilters): boolean {
   }
   if (filters.starredOnly && !pet.starred) return false;
   if (filters.stabledOnly && !pet.stabled) return false;
+  if (filters.petQualityOnly && !pet.is_pet_quality) return false;
+  if (filters.species && normalizeSpecies(pet.species) !== filters.species) return false;
+  if (filters.breed && pet.breed !== filters.breed) return false;
   return true;
 }
 

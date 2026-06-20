@@ -4,6 +4,7 @@ import BreedingTab from '$lib/components/breeding/BreedingTab.svelte';
 import CommunityTab from '$lib/components/community/CommunityTab.svelte';
 import ComparisonView from '$lib/components/comparison/ComparisonView.svelte';
 import GeneEditingView from '$lib/components/GeneEditingView.svelte';
+import Workspace from '$lib/components/library/Workspace.svelte';
 import PetVisualization from '$lib/components/pet/PetVisualization.svelte';
 import StableTable from '$lib/components/stable/StableTable.svelte';
 import { activeTab, appState, error, geneEditingView, loading, selectedPet } from '$lib/stores/pets.js';
@@ -21,7 +22,9 @@ onMount(async () => {
 		</div>
 	{/if}
 
-	{#if $activeTab === 'stable'}
+	{#if $activeTab === 'library'}
+		<Workspace />
+	{:else if $activeTab === 'stable'}
 		<StableTable />
 	{:else if $activeTab === 'compare'}
 		<ComparisonView />
