@@ -1,5 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
-import { waitForAppReady } from './helpers.js';
+import { blockFirestore, waitForAppReady } from './helpers.js';
 
 async function openStable(page: Page) {
   await page.goto('/');
@@ -152,5 +152,65 @@ test.describe('Stable Table', () => {
     await horseCompare.click();
 
     await expect(page.locator('.compare-now-btn')).toBeVisible();
+  });
+});
+
+test.describe('Stable Table — bulk share', () => {
+  test('select-all checks every filtered row and shows the bulk action bar', async ({ page }) => {
+    await openStable(page);
+    const rows = page.locator('.stable-table tbody tr[data-pet-id]');
+    const rowCount = await rows.count();
+    expect(rowCount).toBeGreaterThan(0);
+
+    // No selection → no bulk action bar.
+    await expect(page.getByTestId('bulk-actions')).toHaveCount(0);
+
+    await page.getByTestId('bulk-select-all').check();
+
+    // Every row checkbox is checked and the bar reports the full count.
+    const rowBoxes = page.getByTestId('bulk-select-row');
+    for (let i = 0; i < rowCount; i++) {
+      await expect(rowBoxes.nth(i)).toBeChecked();
+    }
+    await expect(page.getByTestId('bulk-actions')).toContainText(`${rowCount} selected`);
+
+    // Clear resets selection and hides the bar.
+    await page.locator('.bulk-clear-btn').click();
+    await expect(page.getByTestId('bulk-actions')).toHaveCount(0);
+    await expect(rowBoxes.first()).not.toBeChecked();
+  });
+
+  test('a single row selection opens the bulk dialog with the right count, and cancel closes it', async ({ page }) => {
+    await openStable(page);
+    await page.getByTestId('bulk-select-row').first().check();
+    await expect(page.getByTestId('bulk-actions')).toContainText('1 selected');
+
+    await page.getByTestId('bulk-share-open').click();
+    const dialog = page.getByTestId('bulk-share-dialog');
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toContainText('Share 1 pet to the community');
+    // Notes-excluded guarantee is stated up front.
+    await expect(dialog).toContainText('Notes stay local');
+
+    await dialog.getByRole('button', { name: 'Cancel' }).click();
+    await expect(page.getByTestId('bulk-share-dialog')).toHaveCount(0);
+  });
+
+  test('confirming starts the batch run (progress UI appears)', async ({ page }) => {
+    // Block Firestore so the run never touches the live catalogue. We assert
+    // the run *starts* (progress phase) rather than waiting for completion —
+    // the Firestore client queues writes when offline instead of failing fast,
+    // so the terminal summary is non-deterministic here. The created/skipped/
+    // failed accounting is covered by the uploadPets unit tests.
+    await blockFirestore(page);
+    await openStable(page);
+
+    await page.getByTestId('bulk-select-all').check();
+    await page.getByTestId('bulk-share-open').click();
+    await page.getByTestId('bulk-share-confirm').click();
+
+    // Confirm flips the dialog into the running phase with a progress bar.
+    await expect(page.getByTestId('bulk-share-progress')).toBeVisible();
+    await expect(page.getByTestId('bulk-share-cancel')).toBeVisible();
   });
 });

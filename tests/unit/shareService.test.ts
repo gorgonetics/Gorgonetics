@@ -54,21 +54,24 @@ vi.mock('$lib/firebase.js', () => ({
 vi.mock('$lib/services/petService.js', () => ({
   findPetByHash: vi.fn(),
   getPet: vi.fn(),
+  getPetGenomeText: vi.fn(),
   updatePet: vi.fn(),
   uploadPet: vi.fn(),
 }));
 
 import { getDoc, getDocs, orderBy, startAfter, Timestamp, writeBatch } from 'firebase/firestore';
 import { findPetByHash, getPet, updatePet, uploadPet as uploadPetLocally } from '$lib/services/petService.js';
+import type { UploadResult } from '$lib/services/shareService.js';
 import {
   getSharedPet,
   importCommunityPet,
   listPets,
   sanitizeTags,
   uploadPet,
+  uploadPets,
   verifySharedPet,
 } from '$lib/services/shareService.js';
-import { Gender, type SharedPet } from '$lib/types/index.js';
+import { Gender, type Pet, type SharedPet } from '$lib/types/index.js';
 import { sha256Hex } from '$lib/utils/hash.js';
 import { makePet, DEFAULT_RAW_TEXT as RAW_TEXT, DEFAULT_RAW_TEXT_HASH as RAW_TEXT_HASH } from '../fixtures/sharePet.js';
 
@@ -814,5 +817,77 @@ describe('shareService.importCommunityPet', () => {
     expect(result.status).toBe('error');
     expect(result.message).toMatch(/Invalid genome file format/);
     expect(updatePet).not.toHaveBeenCalled();
+  });
+});
+
+describe('shareService.uploadPets', () => {
+  // uploadPets is exercised through its injectable `upload` / `loadGenomeText`
+  // seams so these stay pure — no Firestore, no real petService.
+  const pet = (id: number, over: Record<string, unknown> = {}) =>
+    ({ id, name: `Pet ${id}`, genome_text: `genome-${id}`, content_hash: `h${id}`, ...over }) as unknown as Pet;
+
+  function fakeUpload(byHash: Record<string, UploadResult['status'] | 'throw'>) {
+    return vi.fn(async (p: Pet): Promise<UploadResult> => {
+      const outcome = byHash[p.content_hash ?? ''] ?? 'created';
+      if (outcome === 'throw') throw new Error(`network failure for ${p.content_hash}`);
+      return { status: outcome, contentHash: p.content_hash ?? '' };
+    });
+  }
+
+  it('partitions outcomes into created / already-shared / skipped / failed', async () => {
+    const pets = [pet(1), pet(2), pet(3, { genome_text: undefined }), pet(4)];
+    const upload = fakeUpload({ h1: 'created', h2: 'already-shared', h4: 'throw' });
+    // Mirror production legacy semantics: the list projection drops genome_text
+    // (so the pet field is `undefined`), and getPetGenomeText returns '' for a
+    // pre-v13 row with no stored raw text. Both → skipped.
+    const loadGenomeText = vi.fn().mockResolvedValue('');
+
+    const summary = await uploadPets(pets, { upload, loadGenomeText });
+
+    expect(summary.created).toBe(1);
+    expect(summary.alreadyShared).toBe(1);
+    expect(summary.skipped).toBe(1);
+    expect(summary.failed).toBe(1);
+    expect(summary.items.map((i) => i.status)).toEqual(['created', 'already-shared', 'skipped', 'failed']);
+    // A single failure never aborts the batch — pet 4 was still attempted.
+    expect(upload).toHaveBeenCalledTimes(3); // pets 1, 2, 4 (3 was skipped before upload)
+    expect(summary.items[3].error).toMatch(/network failure/);
+  });
+
+  it('reports progress once per pet, in order', async () => {
+    const pets = [pet(1), pet(2), pet(3)];
+    const onProgress = vi.fn();
+    await uploadPets(pets, { upload: fakeUpload({}), loadGenomeText: vi.fn(), onProgress });
+    expect(onProgress.mock.calls).toEqual([
+      [1, 3],
+      [2, 3],
+      [3, 3],
+    ]);
+  });
+
+  it('lazy-loads genome_text only when the pet lacks it', async () => {
+    const pets = [pet(1, { genome_text: 'inline' }), pet(2, { genome_text: undefined })];
+    const upload = fakeUpload({});
+    const loadGenomeText = vi.fn().mockResolvedValue('loaded-text');
+
+    await uploadPets(pets, { upload, loadGenomeText });
+
+    // Pet 1 carried its text; only pet 2 triggers a load.
+    expect(loadGenomeText).toHaveBeenCalledTimes(1);
+    expect(loadGenomeText).toHaveBeenCalledWith(2);
+    expect(upload.mock.calls[0][0].genome_text).toBe('inline');
+    expect(upload.mock.calls[1][0].genome_text).toBe('loaded-text');
+  });
+
+  it('stops early when shouldCancel returns true', async () => {
+    const pets = [pet(1), pet(2), pet(3)];
+    const upload = fakeUpload({});
+    let calls = 0;
+    const shouldCancel = () => ++calls > 2; // allow pets 1 and 2, cancel before 3
+
+    const summary = await uploadPets(pets, { upload, loadGenomeText: vi.fn(), shouldCancel });
+
+    expect(summary.items).toHaveLength(2);
+    expect(upload).toHaveBeenCalledTimes(2);
   });
 });
