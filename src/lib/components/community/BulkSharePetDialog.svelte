@@ -62,6 +62,10 @@ function finish() {
     if (failed) parts.push(`${failed} failed`);
     const msg = `Bulk share complete — ${parts.join(', ')}.`;
     onResult({ type: failed > 0 ? 'error' : created > 0 ? 'success' : 'info', message: msg });
+  } else if (runError) {
+    // Batch-wide failure (no per-pet summary). Surface it to the parent so the
+    // error survives the dialog closing as a StatusBanner, not just in-dialog.
+    onResult({ type: 'error', message: `Bulk share failed: ${runError}` });
   }
   onClose();
 }

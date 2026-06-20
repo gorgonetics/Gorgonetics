@@ -835,10 +835,12 @@ describe('shareService.uploadPets', () => {
   }
 
   it('partitions outcomes into created / already-shared / skipped / failed', async () => {
-    const pets = [pet(1), pet(2), pet(3, { genome_text: null }), pet(4)];
+    const pets = [pet(1), pet(2), pet(3, { genome_text: undefined }), pet(4)];
     const upload = fakeUpload({ h1: 'created', h2: 'already-shared', h4: 'throw' });
-    // Pet 3 has no in-memory genome_text and the loader also returns null → skipped.
-    const loadGenomeText = vi.fn().mockResolvedValue(null);
+    // Mirror production legacy semantics: the list projection drops genome_text
+    // (so the pet field is `undefined`), and getPetGenomeText returns '' for a
+    // pre-v13 row with no stored raw text. Both → skipped.
+    const loadGenomeText = vi.fn().mockResolvedValue('');
 
     const summary = await uploadPets(pets, { upload, loadGenomeText });
 
