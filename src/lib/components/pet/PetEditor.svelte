@@ -6,6 +6,7 @@ import { allTags as allTagsStore, appState } from '$lib/stores/pets.js';
 import type { AttributeInfo, Gender, Pet } from '$lib/types/index.js';
 import { HORSE_BREEDS } from '$lib/types/index.js';
 import { focusTrap } from '$lib/utils/focusTrap.js';
+import { computePetChanges } from '$lib/utils/petChanges.js';
 import TagInput from './TagInput.svelte';
 
 interface Props {
@@ -63,26 +64,16 @@ const filteredAttributeList: AttributeInfo[] = $derived(
 
 async function handleSave(): Promise<void> {
   try {
-    const updateData: Record<string, unknown> = {};
-    if (editName.trim() !== pet.name) updateData.name = editName.trim();
-    if (editGender !== pet.gender) updateData.gender = editGender;
-    if (editBreed.trim() !== (pet.breed || 'Mixed')) updateData.breed = editBreed.trim();
-
-    const attributeChanges: Record<string, number> = {};
-    for (const [key, value] of Object.entries(editAttributes)) {
-      if ((pet as unknown as Record<string, unknown>)[key] !== value) attributeChanges[key] = value;
-    }
-    if (Object.keys(attributeChanges).length > 0) updateData.attributes = attributeChanges;
-
-    const currentTags = pet.tags ?? [];
-    const tagsChanged = editTags.length !== currentTags.length || editTags.some((t, i) => t !== currentTags[i]);
-    if (tagsChanged) {
-      updateData.tags = editTags;
-    }
-
-    if (editStarred !== !!pet.starred) updateData.starred = editStarred;
-    if (editStabled !== !!pet.stabled) updateData.stabled = editStabled;
-    if (editIsPetQuality !== !!pet.is_pet_quality) updateData.is_pet_quality = editIsPetQuality;
+    const updateData = computePetChanges(pet, {
+      name: editName,
+      gender: editGender,
+      breed: editBreed,
+      attributes: editAttributes,
+      tags: editTags,
+      starred: editStarred,
+      stabled: editStabled,
+      isPetQuality: editIsPetQuality,
+    });
 
     if (Object.keys(updateData).length > 0) {
       await appState.updatePet(pet.id, updateData);
