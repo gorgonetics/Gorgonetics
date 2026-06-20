@@ -130,13 +130,35 @@ Settled 2026-06-20:
 The six primitives (§5 step 1) are built and merged into the `redesign/library-workspace` epic. Adoption (§5 steps 2–5) changes the live app, so it follows three settled rules (2026-06-20):
 
 - **Parallel build, single flip.** The new shell is built as a hidden/flagged **My Pets** destination *alongside* the existing tabs. Every lens is migrated against it while the old app stays fully working; a final PR flips the nav 6 → 3 destinations and deletes the old paths. The epic stays shippable throughout.
-- **GeneGrid swap goes first.** Lowest structural risk and self-contained — it isolates retiring the global `.gene-cell` circle CSS from the structural work.
 - **E2E green every PR via testid aliases.** New components carry the old `data-testid`s forward so the existing suite keeps passing; the big e2e rewrite happens in the cutover PR.
+- **GeneGrid swap is deferred to a parity pass.** Originally planned first, but on starting it we found the live grids need feature parity GeneGrid doesn't have yet (appearance view, hover/focus tooltips, breed-inactive styling, `filterCSS` dimming, and the trio's multi-segment *distribution bars*). Retiring the global `.gene-cell` circle CSS requires that parity, so the swap moved after the structural work. Until then the new Workspace embeds the existing `PetVisualization` unchanged.
 
-Adoption PRs into the epic, in order:
+Adoption PRs into the epic, in the **actual order** (reordered 2026-06-20 per the parity finding):
 
-1. **GeneGrid swap** — adopt `GeneGrid` in the pet view, Compare, and trio; retire the global `.gene-cell` circle rules in `GeneCell.svelte`; update `filterCSS.ts` selectors (`.gene-cell[data-attr]` → the new cell hook) and affected e2e.
-2. **Library shell** — new `Library.svelte` (FilterBar + PetRow list + card/table density + multi-select) and `Workspace.svelte` (selection-aware lens host), wired as the flagged **My Pets** destination. Pets + Stable collapse into it.
-3. **Workspace lenses** — fold Compare (2-pet) and Breed (rank → trio) into selection-driven lenses; preserve bulk-share and the trio breed/attribute filters.
-4. **Relocate** — gene-template editing → **Reference** destination; Community → the shared Library+detail shell with a source switch.
+1. **Library shell** *(done — PR #327)* — `Library.svelte` (FilterBar + PetRow list + card/table density + multi-select) in the left panel + selection-aware `Workspace.svelte` in the main area, wired as the flagged **My Pets** destination. 1-pet → existing `PetVisualization`. Extended shared `petFilter` with species/breed/pet-quality.
+2. **Workspace lenses** *(next)* — fold Compare (2-pet) and Breed (rank → trio) into selection-driven lenses in the Workspace; preserve bulk-share and the trio breed/attribute filters. Absorb the Stable table as the Library's table density.
+3. **Relocate** — gene-template editing → **Reference** destination; Community → the shared Library+detail shell with a source switch.
+4. **GeneGrid parity + swap** — bring `GeneGrid` to parity (appearance, tooltips, breed-inactive, filter dimming, distribution bars), adopt it in the pet/Compare/trio views, retire the global `.gene-cell` circle rules + update `filterCSS.ts` selectors.
 5. **Cutover + cleanup** — flip top nav 6 → 3, delete dead components/panels (old MasterPanel/tab routing), rewrite e2e, regenerate screenshots, remove the flag.
+
+---
+
+## 8. Progress & resume (updated 2026-06-21)
+
+**Branch topology.** Integration branch: **`redesign/library-workspace`** (the epic), based on `main` + this doc. Every redesign PR targets the epic; CI runs on epic PRs because `redesign/**` was added to the `ci.yml`/`integration.yml` triggers (drop that before the epic→main cutover if undesired). The epic is ~14 commits ahead of `main`. Final step is one `redesign/library-workspace → main` PR.
+
+**Try the new shell.** Run the app and append `?redesign=1` (persists via `localStorage['gorgonetics:redesign']`; `?redesign=0` clears it). A **✨ My Pets** destination appears in the top nav. Normal users never see it until cutover.
+
+**Done & merged into the epic:**
+- Primitives (all 6): `BreedSelector` (#322), `EmptyState`+`PageHeader` (#323), `PetRow` (#324), `FilterBar` (#325), `GeneGrid` (#326) — in `src/lib/components/shared/`, each unit-tested.
+- CI triggers for `redesign/**`.
+
+**In review (green, not yet merged):**
+- **PR #327** — adoption slice 1, the Library + Workspace shell (`src/lib/components/library/`, `src/lib/stores/library.svelte.ts`, `src/lib/stores/flags.ts`, extended `src/lib/utils/petFilter.ts`). All CI green.
+
+**Resume here tomorrow:**
+1. Merge **#327** into the epic (`gh pr merge 327 --merge`).
+2. Start **slice 2 — Workspace lenses**: in `Workspace.svelte`, render the Compare view for a 2-pet selection and the Breed-rank → Trio flow for 2+ (defaulting to all stabled when ≤1 selected). Reuse the existing `ComparisonView`/`GenomeGridDiff` and `BreedingTab` internals for now (embed, like the 1-pet `PetVisualization`), preserving bulk-share and the trio breed/attribute filters. Also fold the Stable table in as the Library's table density.
+3. Keep each slice a PR into the epic; e2e stays green via testid aliases.
+
+**Watch-outs:** the recent **bulk-share** and **trio breed/attribute filter** features must survive as lenses, not be lost. Don't retire the global `.gene-cell` CSS until the GeneGrid parity pass (slice 4).
