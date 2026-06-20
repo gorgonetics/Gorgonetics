@@ -272,6 +272,19 @@
       font-size: 0.85em;
     }
 
+    .download-card .install-note code.permalink {
+      display: block;
+      margin-top: 6px;
+      padding: 8px 10px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 0.8em;
+      line-height: 1.4;
+      word-break: break-all;
+      user-select: all;
+    }
+
     /* Install */
     .install {
       padding: 64px 0;
@@ -387,6 +400,10 @@
           <img src="images/screenshot-gene-editor.png" alt="Gene editor showing dominant and recessive effects per chromosome">
           <div class="caption">Gene editor &mdash; edit dominant and recessive effects for each chromosome</div>
         </div>
+        <div class="screenshot-item">
+          <img src="images/screenshot-trio.png" alt="Offspring trio view showing Father, Offspring, and Mother rows per chromosome with breed and attribute filters and gain/risk summary chips">
+          <div class="caption">Breeding trio view &mdash; project a cross locus by locus, filterable by offspring breed and attribute</div>
+        </div>
       </div>
     </div>
   </section>
@@ -412,12 +429,24 @@
           <p>See summarised attribute scores (Toughness, Ferocity, Intelligence, etc.) with counts and breakdowns.</p>
         </div>
         <div class="feature-card">
+          <h4>Breeding Assistant</h4>
+          <p>Rank stabled male &times; female pairs by expected offspring quality, then inspect any pair for a Father / Offspring / Mother trio projection with per-locus gain/risk verdicts. Filter by offspring breed or focus a single attribute.</p>
+        </div>
+        <div class="feature-card">
+          <h4>Community Sharing</h4>
+          <p>Browse a public catalogue of pets shared by other players, and publish your own to share genomes. Entirely opt-in &mdash; nothing leaves your machine unless you choose to share.</p>
+        </div>
+        <div class="feature-card">
+          <h4>Safe Updates &amp; Backups</h4>
+          <p>Export and import your whole library as a single archive. The updater backs up your current install before applying an update, so a failed update can be rolled back.</p>
+        </div>
+        <div class="feature-card">
           <h4>Multi-Species</h4>
           <p>Supports BeeWasp (10 chromosomes) and Horse (48 chromosomes) with species-specific attribute configs.</p>
         </div>
         <div class="feature-card">
           <h4>Local &amp; Private</h4>
-          <p>All data stored locally in SQLite. No accounts, no cloud, no tracking. Your pet data stays on your machine.</p>
+          <p>All pet data is stored locally in SQLite &mdash; no account required and no tracking. Sharing to the community catalogue is opt-in and on your terms.</p>
         </div>
       </div>
     </div>
@@ -464,7 +493,9 @@
             <a href="https://github.com/gorgonetics/Gorgonetics/releases/latest/download/gorgonetics-genes.zip">gorgonetics-genes.zip</a>
           </div>
           <div class="install-note">
-            For community devs building Project Gorgon tools on top of the same gene catalog. Zip contains <code>assets/horse/</code>, <code>assets/beewasp/</code>, and a top-level <code>MANIFEST.json</code> with the version and per-species file count. The link above is a stable permalink that always resolves to the latest release — safe to use directly from <code>curl</code> / <code>wget</code> in your build scripts.
+            For community devs building Project Gorgon tools on top of the same gene catalog. Zip contains <code>assets/horse/</code>, <code>assets/beewasp/</code>, and a top-level <code>MANIFEST.json</code> with the version and per-species file count.
+            <p style="margin-top: 10px;">Stable permalink &mdash; always resolves to the latest release, safe to share or use directly from <code>curl</code> / <code>wget</code>:</p>
+            <code class="permalink">https://github.com/gorgonetics/Gorgonetics/releases/latest/download/gorgonetics-genes.zip</code>
           </div>
         </div>
       </div>

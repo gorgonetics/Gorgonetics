@@ -473,6 +473,30 @@ await page.locator('.species-btn', { hasText: 'horse' }).click();
 await waitFor(page, '[data-testid="breeding-pair-table"]');
 await shot(page, '25-breeding-tab.png');
 
+// 26 — Trio offspring projection (inspect the demo horse pair). Wait on the
+// rendered grid, not just the modal, so we never capture the loading state.
+await page.locator('[data-testid="inspect-pair"]').first().click();
+await waitFor(page, '[data-testid="trio-view"]');
+await waitFor(page, '.trio-table');
+await shot(page, '26-trio-view.png');
+// Same view also fronts the homepage "See It in Action" grid.
+await page.screenshot({ path: 'docs/images/screenshot-trio.png', type: 'png' });
+console.log('  ✓ screenshot-trio.png (homepage)');
+await page.getByRole('button', { name: 'Close trio view' }).click();
+await page.waitForTimeout(200);
+
+// 27 — Share to Community dialog (deterministic offline; the catalogue browser
+// needs remote data, so the share flow is the reliable way to show the feature).
+await page.locator('.tab-btn', { hasText: 'Pets' }).click();
+await page.waitForTimeout(200);
+await page.locator('.pet-card', { hasText: 'Sample Fae Bee' }).first().click();
+await waitFor(page, '.pet-visualization, .gene-visualizer');
+await page.locator('[data-testid="share-pet-btn"]').click();
+await waitFor(page, '[data-testid="share-preview"]');
+await shot(page, '27-share-dialog.png');
+await page.locator('[data-testid="share-pet-backdrop"]').click({ position: { x: 10, y: 10 } });
+await page.waitForTimeout(200);
+
 // Return to Pets tab so downstream homepage captures work.
 await page.locator('.tab-btn', { hasText: 'Pets' }).click();
 await page.waitForTimeout(200);
