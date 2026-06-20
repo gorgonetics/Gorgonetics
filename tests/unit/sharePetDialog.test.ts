@@ -22,6 +22,7 @@ vi.mock('$lib/services/shareService.js', () => ({
 }));
 
 import SharePetDialog from '$lib/components/community/SharePetDialog.svelte';
+import type { Pet } from '$lib/types/index.js';
 
 afterEach(() => {
   cleanup();
@@ -30,7 +31,9 @@ afterEach(() => {
 });
 
 // A pet as it arrives from the list path: full metadata, NO genome_text.
-function listPet(overrides = {}) {
+// Partial fixture cast to satisfy the dialog's typed `pet` prop; the omitted
+// attribute/flag columns are irrelevant to the lazy-genome-fetch behaviour.
+function listPet(overrides: Partial<Pet> = {}): Pet {
   return {
     id: 7,
     name: 'Buzz',
@@ -42,7 +45,7 @@ function listPet(overrides = {}) {
     notes: '',
     tags: ['fast'],
     ...overrides,
-  };
+  } as unknown as Pet;
 }
 
 describe('SharePetDialog lazy genome fetch', () => {

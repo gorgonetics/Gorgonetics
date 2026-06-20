@@ -1,13 +1,13 @@
 {
   "extends": "./.svelte-kit/tsconfig.json",
   "compilerOptions": {
+    // Kept on for any incidental .js (config files); no .js remains under
+    // src/ or tests/ after the #306 migration.
     "allowJs": true,
-    // All app components use <script lang="ts"> and every former src/ .js file
-    // is now .ts (#306), so the full app script surface is type-checked
-    // (lang="ts" scripts are checked regardless of this flag). Still false
-    // because the vitest test files under tests/ remain plain JS and aren't
-    // yet annotated; flip to true once those are migrated too.
-    "checkJs": false,
+    // Full type coverage: every component uses <script lang="ts"> and all of
+    // src/ and tests/ is .ts (#306). checkJs catches any stray JS reintroduced
+    // later. CI runs `pnpm run check`, so a regression fails the build.
+    "checkJs": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
