@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildFilterCSS } from '$lib/utils/filterCSS.js';
+import { attributeFilterCSS, buildFilterCSS } from '$lib/utils/filterCSS.js';
 
 const FILTERED = '{ opacity: 0.15 !important; filter: grayscale(1) !important; pointer-events: none !important; }';
 const HIDDEN = '{ display: none !important; }';
@@ -80,5 +80,21 @@ describe('buildFilterCSS', () => {
     const css = buildFilterCSS({ ...base, showDiffsOnly: true });
     expect(css).toContain(`.grid-container td[data-isdiff="false"][data-hascell="true"] ${DIMMED}`);
     expect(css).toContain(`.grid-container tr[data-hasdiffs="false"] ${HIDDEN}`);
+  });
+});
+
+describe('attributeFilterCSS', () => {
+  it('returns an empty string when nothing is selected or hidden', () => {
+    expect(attributeFilterCSS('.trio-grid-container', '*', [], [])).toBe('');
+  });
+
+  it('dims everything but the selected attributes, scoped to the given grid/cell selectors', () => {
+    const css = attributeFilterCSS('.trio-grid-container', '*', ['Speed'], []);
+    expect(css).toBe(`.trio-grid-container *[data-attr]:not([data-attr="Speed"]) ${FILTERED}`);
+  });
+
+  it('dims a hidden attribute directly', () => {
+    const css = attributeFilterCSS('.trio-grid-container', '*', [], ['Toughness']);
+    expect(css).toBe(`.trio-grid-container *[data-attr="Toughness"] ${FILTERED}`);
   });
 });
