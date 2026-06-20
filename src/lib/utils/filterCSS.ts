@@ -33,8 +33,9 @@ function pushInclusionRules(
  * and cell selectors. Selected attributes dim everything else; hidden
  * attributes dim themselves. Shares the exact dimming declaration the 2-pet
  * diff grid uses so the trio grid filters identically. `cellSelector` is the
- * element carrying `data-attr` (the diff grid uses `.gene-cell`; grids whose
- * cells aren't `.gene-cell` can pass `[data-attr]`).
+ * element selector that *carries* `data-attr` — `[data-attr]` is appended
+ * internally, so pass the element only (the diff grid uses `.gene-cell`; the
+ * trio grid uses `*` because its rows mix `.gene-cell` and `.dist-bar` cells).
  */
 export function attributeFilterCSS(
   gridSelector: string,
