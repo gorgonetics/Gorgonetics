@@ -2,9 +2,9 @@ name: Integration Tests
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, develop, "redesign/**"]
   pull_request:
-    branches: [main, develop]
+    branches: [main, develop, "redesign/**"]
 
 jobs:
   e2e-integration:
