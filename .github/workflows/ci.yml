@@ -29,6 +29,12 @@ jobs:
       - name: Run Biome lint
         run: pnpm run lint:ci
 
+      - name: Type-check (svelte-check)
+        run: pnpm run check
+
+      - name: Run unit tests
+        run: pnpm test
+
       - name: Build frontend
         run: pnpm build
 

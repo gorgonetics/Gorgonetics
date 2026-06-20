@@ -1,6 +1,9 @@
-<script>
-/* global __APP_VERSION__ */
+<script lang="ts" module>
+declare const __APP_VERSION__: string;
+</script>
 
+<script lang="ts">
+import type { Update } from '@tauri-apps/plugin-updater';
 import { detectPlatform, getDefaultGameFolder } from '$lib/services/gameImport.js';
 import { settings, settingsActions } from '$lib/stores/settings.js';
 import { isTauri } from '$lib/utils/environment.js';
@@ -8,20 +11,21 @@ import { focusTrap } from '$lib/utils/focusTrap.js';
 import { getFontScale as _getFontScale, clampScale, MAX_SCALE, MIN_SCALE } from '$lib/utils/fontScale.js';
 import { getThemePreference } from '$lib/utils/theme.js';
 
+type UpdateStatus = 'idle' | 'checking' | 'available' | 'downloading' | 'upToDate' | 'error';
+
 let open = $state(false);
 
-/** @type {'idle' | 'checking' | 'available' | 'downloading' | 'upToDate' | 'error'} */
-let updateStatus = $state('idle');
+let updateStatus = $state<UpdateStatus>('idle');
 let updateVersion = $state('');
 let updateNotes = $state('');
 let downloadProgress = $state(0);
 let errorMessage = $state('');
-let pendingUpdate = null;
+let pendingUpdate: Update | null = null;
 
-const APP_VERSION = __APP_VERSION__;
+const APP_VERSION: string = __APP_VERSION__;
 const inTauri = isTauri();
 
-function toErrorMessage(err) {
+function toErrorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
@@ -32,19 +36,19 @@ const platformLabel = detectPlatform();
 const gameFolderPlaceholder = getDefaultGameFolder(platformLabel);
 const gameFolderValue = $derived($settings['import.gameFolderPath'] ?? '');
 
-function setGameFolderPath(value) {
+function setGameFolderPath(value: string) {
   settingsActions.update('import.gameFolderPath', value);
 }
 
-function setFontScale(scale) {
+function setFontScale(scale: number) {
   settingsActions.update('display.fontScale', clampScale(scale));
 }
 
-function adjustFontScale(delta) {
+function adjustFontScale(delta: number) {
   setFontScale(currentScale + delta);
 }
 
-function setTheme(value) {
+function setTheme(value: string) {
   settingsActions.update('display.theme', value);
 }
 
@@ -56,7 +60,7 @@ function close() {
   open = false;
 }
 
-async function toggleSetting(key) {
+async function toggleSetting(key: string) {
   const current = $settings[key];
   await settingsActions.update(key, !current);
 }
@@ -135,7 +139,7 @@ async function installUpdate() {
               onclick={() => toggleSetting('horse.autoSelectBreedFilter')}
               role="switch"
               aria-label="Auto-select breed filter"
-              aria-checked={$settings['horse.autoSelectBreedFilter']}
+              aria-checked={!!$settings['horse.autoSelectBreedFilter']}
             >
               <span class="toggle-thumb"></span>
             </button>

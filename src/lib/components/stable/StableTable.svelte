@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 import PetEditor from '$lib/components/pet/PetEditor.svelte';
 import {
   getAllAttributeNames,
@@ -9,43 +9,53 @@ import {
 import { comparisonActions, comparisonPets, comparisonReady } from '$lib/stores/comparison.js';
 import { allTags as allTagsStore, appState, pets } from '$lib/stores/pets.js';
 import { stableView } from '$lib/stores/stable.svelte.js';
-import { HORSE_BREEDS } from '$lib/types/index.js';
+import { HORSE_BREEDS, type Pet } from '$lib/types/index.js';
 
-const SPECIES = getSupportedSpecies();
+interface Column {
+  id: string;
+  label: string;
+  title?: string;
+  accessor: (pet: Pet) => string | number;
+  numeric: boolean;
+  compact?: boolean;
+  sortable?: boolean;
+}
 
-const BREEDS_BY_SPECIES = {
+const SPECIES: string[] = getSupportedSpecies();
+
+const BREEDS_BY_SPECIES: Record<string, string[]> = {
   beewasp: ['Bee', 'Wasp'],
   horse: Object.keys(HORSE_BREEDS),
 };
 
-let editingPet = $state(null);
+let editingPet = $state<Pet | null>(null);
 let editorOpen = $state(false);
 
-function isInComparison(id) {
+function isInComparison(id: number): boolean {
   return $comparisonPets[0]?.id === id || $comparisonPets[1]?.id === id;
 }
 
-function viewPet(pet) {
+function viewPet(pet: Pet): void {
   appState.selectPet(pet);
   appState.switchTab('pets');
 }
 
-function openEditor(pet) {
+function openEditor(pet: Pet): void {
   editingPet = pet;
   editorOpen = true;
 }
 
-function closeEditor() {
+function closeEditor(): void {
   editorOpen = false;
   editingPet = null;
 }
 
-function toggleCompare(pet) {
+function toggleCompare(pet: Pet): void {
   if (isInComparison(pet.id)) comparisonActions.removePet(pet.id);
   else comparisonActions.addPet(pet);
 }
 
-function startCompare() {
+function startCompare(): void {
   appState.switchTab('compare');
 }
 
@@ -55,29 +65,30 @@ function startCompare() {
  * belong to; Breed is a shared column that may be blank on species that don't
  * use it yet.
  */
-function buildColumns(species) {
-  const attrConfig = getAllAttributes(species);
+function buildColumns(species: string): Column[] {
+  const attrConfig = getAllAttributes(species) as Record<string, { name?: string }>;
   const attrNames = getAllAttributeNames(species);
-  const attrCols = attrNames.map((attr) => {
+  const attrCols: Column[] = attrNames.map((attr) => {
     const info = attrConfig[attr];
     return {
       id: attr,
       label: info?.name ?? attr,
       title: info?.name ?? attr,
-      accessor: (pet) => pet[attr] ?? 0,
+      accessor: (pet: Pet) => (pet as unknown as Record<string, number>)[attr] ?? 0,
       numeric: true,
       compact: true,
       sortable: true,
     };
   });
 
-  const attrTotal = (pet) => attrNames.reduce((sum, attr) => sum + (pet[attr] ?? 0), 0);
+  const attrTotal = (pet: Pet): number =>
+    attrNames.reduce((sum, attr) => sum + ((pet as unknown as Record<string, number>)[attr] ?? 0), 0);
 
   return [
     { id: 'actions', label: 'Actions', accessor: () => '', numeric: false, sortable: false },
-    { id: 'name', label: 'Name', accessor: (pet) => pet.name ?? '', numeric: false, sortable: true },
-    { id: 'gender', label: 'Gender', accessor: (pet) => pet.gender ?? '', numeric: false, sortable: true },
-    { id: 'breed', label: 'Breed', accessor: (pet) => pet.breed ?? '', numeric: false, sortable: true },
+    { id: 'name', label: 'Name', accessor: (pet: Pet) => pet.name ?? '', numeric: false, sortable: true },
+    { id: 'gender', label: 'Gender', accessor: (pet: Pet) => pet.gender ?? '', numeric: false, sortable: true },
+    { id: 'breed', label: 'Breed', accessor: (pet: Pet) => pet.breed ?? '', numeric: false, sortable: true },
     ...attrCols,
     {
       id: 'attr_total',
@@ -92,22 +103,22 @@ function buildColumns(species) {
       id: 'positive_genes',
       label: '+ Genes',
       title: 'Confirmed positive-effect genes',
-      accessor: (pet) => pet.positive_genes ?? 0,
+      accessor: (pet: Pet) => pet.positive_genes ?? 0,
       numeric: true,
       sortable: true,
     },
   ];
 }
 
-const columns = $derived(buildColumns(stableView.species));
+const columns: Column[] = $derived(buildColumns(stableView.species));
 
-const breedOptions = $derived(BREEDS_BY_SPECIES[stableView.species] ?? []);
-const availableTags = $derived($allTagsStore);
+const breedOptions: string[] = $derived(BREEDS_BY_SPECIES[stableView.species] ?? []);
+const availableTags: string[] = $derived($allTagsStore);
 
-const filteredPets = $derived.by(() => {
+const filteredPets = $derived.by((): Pet[] => {
   const q = stableView.search.trim().toLowerCase();
   const tagSet = new Set(stableView.tags);
-  return $pets.filter((pet) => {
+  return $pets.filter((pet: Pet) => {
     if (!pet.stabled) return false;
     if (normalizeSpecies(pet.species) !== stableView.species) return false;
     if (q && !(pet.name ?? '').toLowerCase().includes(q)) return false;
@@ -140,7 +151,7 @@ $effect(() => {
   }
 });
 
-function toggleTagFilter(tag) {
+function toggleTagFilter(tag: string): void {
   if (stableView.tags.includes(tag)) {
     stableView.tags = stableView.tags.filter((t) => t !== tag);
   } else {
@@ -148,7 +159,7 @@ function toggleTagFilter(tag) {
   }
 }
 
-const sortedPets = $derived.by(() => {
+const sortedPets = $derived.by((): Pet[] => {
   const col = columns.find((c) => c.id === stableView.sortCol) ?? columns[0];
   const list = [...filteredPets];
   list.sort((a, b) => {
@@ -170,7 +181,7 @@ $effect(() => {
   }
 });
 
-function toggleSort(colId) {
+function toggleSort(colId: string): void {
   const col = columns.find((c) => c.id === colId);
   if (!col || col.sortable === false) return;
   if (stableView.sortCol === colId) {
@@ -181,7 +192,7 @@ function toggleSort(colId) {
   }
 }
 
-function sortIndicator(colId) {
+function sortIndicator(colId: string): string {
   if (colId !== stableView.sortCol) return '';
   return stableView.sortDir === 'asc' ? ' ▲' : ' ▼';
 }

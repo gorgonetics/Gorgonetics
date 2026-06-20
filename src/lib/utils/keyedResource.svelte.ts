@@ -1,3 +1,9 @@
+export interface KeyedResource<V> {
+  loading: boolean;
+  value: V | undefined;
+  error: unknown;
+}
+
 /**
  * Reactive async resource keyed by a value.
  *
@@ -12,18 +18,16 @@
  * component hand-rolled its own stale guard (a `cancelled` flag vs a
  * `loadedHash` token), which is easy to get subtly wrong. Call it once
  * during component initialisation (it registers a `$effect`).
- *
- * @template K, V
- * @param {() => K | null | undefined} key   reactive key accessor
- * @param {(key: K) => Promise<V>} fetcher    async loader for a key
- * @returns {{ loading: boolean, value: V | undefined, error: unknown }}
  */
-export function keyedResource(key, fetcher) {
-  const state = $state({ loading: false, value: undefined, error: null });
+export function keyedResource<K, V>(
+  key: () => K | null | undefined,
+  fetcher: (key: K) => Promise<V>,
+): KeyedResource<V> {
+  const state = $state<KeyedResource<V>>({ loading: false, value: undefined, error: null });
   // Plain (non-reactive) bookkeeping so writing to it never re-triggers the
   // effect. `activeKey` dedupes benign re-renders; `token` discards stale
   // resolutions.
-  let activeKey;
+  let activeKey: K | null | undefined;
   let token = 0;
 
   $effect(() => {

@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 import ComparisonPetPicker from '$lib/components/comparison/ComparisonPetPicker.svelte';
 import GeneEditor from '$lib/components/gene/GeneEditor.svelte';
 import PetList from '$lib/components/pet/PetList.svelte';
@@ -16,9 +16,9 @@ let dragging = $state(false);
 
 $effect(() => {
   if (!dragging) return;
-  let pendingX = null;
+  let pendingX: number | null = null;
   let frame = 0;
-  const onMove = (ev) => {
+  const onMove = (ev: MouseEvent) => {
     pendingX = ev.clientX;
     if (frame) return;
     frame = requestAnimationFrame(() => {
@@ -40,13 +40,13 @@ $effect(() => {
   };
 });
 
-function startDrag(e) {
+function startDrag(e: MouseEvent) {
   if (e.button !== 0) return;
   e.preventDefault();
   dragging = true;
 }
 
-function onHandleKeydown(e) {
+function onHandleKeydown(e: KeyboardEvent) {
   const step = e.shiftKey ? 32 : 8;
   if (e.key === 'ArrowLeft') {
     e.preventDefault();

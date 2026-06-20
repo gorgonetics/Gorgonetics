@@ -1,8 +1,18 @@
-<script>
+<script lang="ts">
 import StatusBanner from '$lib/components/shared/StatusBanner.svelte';
 import { exportDatabase } from '$lib/services/backupService.js';
 import { getTotalImageCount } from '$lib/services/imageService.js';
 import { focusTrap } from '$lib/utils/focusTrap.js';
+
+interface StatusResult {
+  type: 'success' | 'error';
+  message: string;
+}
+
+interface Props {
+  onClose: () => void;
+  onResult: (result: StatusResult) => void;
+}
 
 // The zip is built entirely in memory (JSZip `generateAsync`), so a very large
 // image library can briefly hold ~2× its total bytes (issue #92). Each image is
@@ -10,7 +20,7 @@ import { focusTrap } from '$lib/utils/focusTrap.js';
 // is large enough that the in-memory export could fail on a low-memory machine.
 const LARGE_IMAGE_LIBRARY = 100;
 
-const { onClose, onResult } = $props();
+const { onClose, onResult }: Props = $props();
 
 let includeGenes = $state(true);
 let includePets = $state(true);
@@ -46,7 +56,7 @@ async function handleExport() {
       });
     }
   } catch (err) {
-    onResult({ type: 'error', message: `Export failed: ${err.message}` });
+    onResult({ type: 'error', message: `Export failed: ${(err as Error).message}` });
   }
   exporting = false;
   onClose();

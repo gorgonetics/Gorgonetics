@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 import { onMount } from 'svelte';
 import BreedingTab from '$lib/components/breeding/BreedingTab.svelte';
 import CommunityTab from '$lib/components/community/CommunityTab.svelte';
@@ -38,8 +38,8 @@ onMount(async () => {
 		<PetVisualization pet={$selectedPet} />
 	{:else if $geneEditingView}
 		<GeneEditingView
-			animalType={$geneEditingView.animalType}
-			chromosome={$geneEditingView.chromosome}
+			animalType={($geneEditingView as { animalType?: string; chromosome?: string }).animalType}
+			chromosome={($geneEditingView as { animalType?: string; chromosome?: string }).chromosome}
 		/>
 	{:else}
 		<div class="center-state">

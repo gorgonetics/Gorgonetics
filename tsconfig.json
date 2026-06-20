@@ -2,11 +2,11 @@
   "extends": "./.svelte-kit/tsconfig.json",
   "compilerOptions": {
     "allowJs": true,
-    // The codebase is JS + JSDoc; deep JS type-checking is out of scope for
-    // now. svelte-check still type-checks .ts files and Svelte template
-    // bindings and parses every component with the real Svelte compiler —
-    // which is what makes the bogus "<script> left open" error go away.
-    // Flip to true in a follow-up once the JS surface is annotated.
+    // All app components use <script lang="ts"> and every former src/ .js file
+    // is now .ts (#306), so the full app script surface is type-checked
+    // (lang="ts" scripts are checked regardless of this flag). Still false
+    // because the vitest test files under tests/ remain plain JS and aren't
+    // yet annotated; flip to true once those are migrated too.
     "checkJs": false,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,

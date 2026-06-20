@@ -1,13 +1,20 @@
-<script>
+<script lang="ts">
 import StatusBanner from '$lib/components/shared/StatusBanner.svelte';
 import { isPlaceholderConfig } from '$lib/firebase.js';
 import { getPetGenomeText } from '$lib/services/petService.js';
 import { sanitizeTags, uploadPet } from '$lib/services/shareService.js';
+import type { DialogResult, Pet } from '$lib/types/index.js';
 import { errorMessage } from '$lib/utils/error.js';
 import { focusTrap } from '$lib/utils/focusTrap.js';
 import { keyedResource } from '$lib/utils/keyedResource.svelte.js';
 
-const { pet, onClose, onResult } = $props();
+interface Props {
+  pet: Pet;
+  onClose: () => void;
+  onResult: (result: DialogResult) => void;
+}
+
+const { pet, onClose, onResult }: Props = $props();
 
 let includeNotes = $state(false);
 let sharing = $state(false);
@@ -51,7 +58,9 @@ async function handleShare() {
     // Rebuild the upload payload: strip notes unless opted in, and attach the
     // lazily-loaded raw text (the list-path `pet` doesn't carry it). uploadPet
     // re-hashes genome_text against content_hash.
-    const petToShare = { ...pet, notes: includeNotes ? pet.notes : '', genome_text: genomeText };
+    // The `!hasRawGenome` guard above guarantees `genomeText` is a non-empty
+    // string here, but TS can't narrow across the derived boolean.
+    const petToShare: Pet = { ...pet, notes: includeNotes ? pet.notes : '', genome_text: genomeText as string };
     const result = await uploadPet(petToShare);
     if (result.status === 'already-shared') {
       onResult({

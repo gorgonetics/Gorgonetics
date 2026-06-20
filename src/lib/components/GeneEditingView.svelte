@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 import { onDestroy } from 'svelte';
 import { run, stopPropagation } from 'svelte/legacy';
 import * as configService from '$lib/services/configService.js';
@@ -6,25 +6,32 @@ import { saveExportTextFile } from '$lib/services/fileService.js';
 import * as geneService from '$lib/services/geneService.js';
 import { errorMessage as toErrorMessage } from '$lib/utils/error.js';
 
-/**
- * @typedef {Object} Props
- * @property {string} [animalType] - Props from parent
- * @property {string} [chromosome]
- */
+interface GeneRow {
+  gene: string;
+  effectDominant: string;
+  effectRecessive: string;
+  appearance: string;
+  notes: string;
+  [key: string]: string;
+}
 
-/** @type {Props} */
-const { animalType = '', chromosome = '' } = $props();
+interface Props {
+  animalType?: string;
+  chromosome?: string;
+}
+
+const { animalType = '', chromosome = '' }: Props = $props();
 
 // State
-let genes = $state([]);
-let effectOptions = $state([]);
+let genes = $state<GeneRow[]>([]);
+let effectOptions = $state<string[]>([]);
 let loadingGenes = $state(false);
 let successMessage = $state('');
 let errorMessage = $state('');
-let successTimer = null;
-let expandedNotes = $state({});
-let openDropdown = $state(null);
-let originalGenes = [];
+let successTimer: ReturnType<typeof setTimeout> | undefined;
+let expandedNotes = $state<Record<string, boolean>>({});
+let openDropdown = $state<string | null>(null);
+let originalGenes: GeneRow[] = [];
 
 const negativeOptions = $derived(effectOptions.filter((opt) => opt.includes('-')).sort());
 const positiveOptions = $derived(effectOptions.filter((opt) => opt.includes('+')).sort());
@@ -39,20 +46,20 @@ let exporting = $state(false);
 
 onDestroy(() => clearTimeout(successTimer));
 
-function loadEffectOptions() {
+function loadEffectOptions(): void {
   if (!animalType) return;
   effectOptions = configService.getEffectOptionsForSpecies(animalType);
 }
 
 // Load genes for the selected chromosome
-async function loadGenes() {
+async function loadGenes(): Promise<void> {
   if (!animalType || !chromosome) return;
 
   loadingGenes = true;
   errorMessage = '';
 
   try {
-    genes = await geneService.getGenesByChromosome(animalType, chromosome);
+    genes = (await geneService.getGenesByChromosome(animalType, chromosome)) as GeneRow[];
     originalGenes = JSON.parse(JSON.stringify(genes));
     hasUnsavedChanges = false;
   } catch (err) {
@@ -63,7 +70,7 @@ async function loadGenes() {
 }
 
 // Save all changes
-async function saveAllChanges() {
+async function saveAllChanges(): Promise<void> {
   if (!hasUnsavedChanges) return;
 
   savingChanges = true;
@@ -87,7 +94,7 @@ async function saveAllChanges() {
 }
 
 // Export chromosome to JSON file
-async function exportChromosome() {
+async function exportChromosome(): Promise<void> {
   if (!animalType || !chromosome || exporting) return;
 
   exporting = true;
@@ -119,7 +126,7 @@ async function exportChromosome() {
 }
 
 // Handle input changes
-function handleInputChange(gene, field, value) {
+function handleInputChange(gene: GeneRow, field: string, value: string): void {
   const geneIndex = genes.findIndex((g) => g.gene === gene.gene);
   if (geneIndex !== -1) {
     genes[geneIndex] = { ...genes[geneIndex], [field]: value };
@@ -129,12 +136,12 @@ function handleInputChange(gene, field, value) {
 }
 
 // Check for unsaved changes
-function checkForUnsavedChanges() {
+function checkForUnsavedChanges(): void {
   hasUnsavedChanges = genes.some((gene) => isGeneChanged(gene));
 }
 
 // Check if a specific gene has changes
-function isGeneChanged(gene) {
+function isGeneChanged(gene: GeneRow): boolean {
   const original = originalGenes.find((g) => g.gene === gene.gene);
   if (!original) return false;
 
@@ -147,21 +154,21 @@ function isGeneChanged(gene) {
 }
 
 // Get effect class for styling
-function getEffectClass(effect) {
+function getEffectClass(effect: string): string {
   if (!effect || effect === 'None') return 'none';
   return effect.includes('+') ? 'positive' : effect.includes('-') ? 'negative' : 'none';
 }
 
 // Toggle dropdown
-function toggleDropdown(geneId, field, event) {
+function toggleDropdown(geneId: string, field: string, event: Event): void {
   const dropdownId = `${geneId}-${field}`;
   openDropdown = openDropdown === dropdownId ? null : dropdownId;
 
   if (openDropdown) {
     // Check if dropdown should flip upward
     setTimeout(() => {
-      const trigger = event.target;
-      const dropdown = trigger.nextElementSibling;
+      const trigger = event.target as HTMLElement;
+      const dropdown = trigger.nextElementSibling as HTMLElement | null;
       if (dropdown?.classList.contains('dropdown')) {
         const rect = trigger.getBoundingClientRect();
         const dropdownHeight = dropdown.offsetHeight;
@@ -179,13 +186,13 @@ function toggleDropdown(geneId, field, event) {
 }
 
 // Select option from dropdown
-function selectOption(gene, field, value) {
+function selectOption(gene: GeneRow, field: string, value: string): void {
   handleInputChange(gene, field, value === 'None' ? '' : value);
   openDropdown = null;
 }
 
 // Toggle notes expansion
-function toggleNotes(geneId) {
+function toggleNotes(geneId: string): void {
   expandedNotes[geneId] = !expandedNotes[geneId];
   expandedNotes = { ...expandedNotes };
 }
@@ -331,7 +338,7 @@ run(() => {
                                         handleInputChange(
                                             gene,
                                             "appearance",
-                                            e.target.value,
+                                            (e.currentTarget as HTMLInputElement).value,
                                         )}
                                     placeholder="Enter appearance"
                                 />
@@ -348,7 +355,7 @@ run(() => {
                                         handleInputChange(
                                             gene,
                                             "notes",
-                                            e.target.value,
+                                            (e.currentTarget as HTMLTextAreaElement).value,
                                         )}
                                     placeholder="Add notes..."
                                     rows="3"
@@ -365,7 +372,7 @@ run(() => {
 <!-- Click outside to close dropdown -->
 <svelte:window
     onclick={(e) => {
-        if (!e.target.closest(".select-wrapper")) {
+        if (!(e.target as HTMLElement).closest(".select-wrapper")) {
             openDropdown = null;
         }
     }}

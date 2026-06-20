@@ -220,7 +220,7 @@ onDestroy(() => {
         </div>
     </div>
 
-    {#if showShare}
+    {#if showShare && pet}
         <SharePetDialog
             {pet}
             onClose={() => { showShare = false; }}

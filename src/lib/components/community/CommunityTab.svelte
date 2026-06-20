@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 import { onMount } from 'svelte';
 import { communityView, loadInitial } from '$lib/stores/community.svelte.js';
 import CommunityPetDetail from './CommunityPetDetail.svelte';

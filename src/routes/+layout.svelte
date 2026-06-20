@@ -1,6 +1,6 @@
-<script>
+<script lang="ts">
 import '../app.css';
-import { onDestroy, onMount } from 'svelte';
+import { onDestroy, onMount, type Snippet } from 'svelte';
 import AuthWrapper from '$lib/components/AuthWrapper.svelte';
 import MasterPanel from '$lib/components/layout/MasterPanel.svelte';
 import TopBar from '$lib/components/layout/TopBar.svelte';
@@ -8,13 +8,17 @@ import { settings, settingsActions } from '$lib/stores/settings.js';
 import { applyFontScale, clampScale, getFontScale, STEP } from '$lib/utils/fontScale.js';
 import { applyTheme, getThemePreference } from '$lib/utils/theme.js';
 
-const { children } = $props();
+interface Props {
+  children: Snippet;
+}
+
+const { children }: Props = $props();
 
 const fontScale = $derived(getFontScale($settings));
 const themePreference = $derived(getThemePreference($settings));
 
-let mediaQuery;
-function onSystemThemeChange() {
+let mediaQuery: MediaQueryList | undefined;
+function onSystemThemeChange(): void {
   applyTheme(themePreference);
 }
 onMount(() => {
@@ -23,14 +27,14 @@ onMount(() => {
 });
 onDestroy(() => mediaQuery?.removeEventListener('change', onSystemThemeChange));
 
-function setScale(scale) {
+function setScale(scale: number): void {
   const clamped = clampScale(scale);
   applyFontScale(clamped);
   // Update store optimistically so rapid key presses read the latest value
   settingsActions.update('display.fontScale', clamped);
 }
 
-function handleGlobalKeydown(e) {
+function handleGlobalKeydown(e: KeyboardEvent): void {
   const mod = e.metaKey || e.ctrlKey;
   if (!mod) return;
 
