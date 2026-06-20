@@ -100,14 +100,42 @@ echo "Version bumped to $NEW_VERSION in package.json, tauri.conf.json, Cargo.tom
 # --- Update screenshots ---
 echo "Updating screenshots (starting dev server)..."
 
-# Kill any existing dev server on the port
-if command -v lsof >/dev/null 2>&1; then
-  EXISTING_PID=$(lsof -ti:5174 2>/dev/null || true)
-  if [[ -n "$EXISTING_PID" ]]; then
-    kill "$EXISTING_PID" 2>/dev/null || true
-    sleep 1
+# Kill whatever is listening on the Vite port. `pnpm dev` spawns vite as a
+# child, so signalling only the pnpm wrapper leaves vite holding the port;
+# targeting the port listener catches the process that actually matters.
+free_dev_port() {
+  if command -v lsof >/dev/null 2>&1; then
+    local pids
+    pids=$(lsof -ti:5174 2>/dev/null || true)
+    if [[ -n "$pids" ]]; then
+      # shellcheck disable=SC2086
+      kill $pids 2>/dev/null || true
+    fi
   fi
-fi
+}
+
+# Tear down the dev server started for screenshots. Killing only $DEV_PID (the
+# pnpm wrapper) leaves vite alive and pnpm blocked waiting on it, so a plain
+# `wait $DEV_PID` hangs forever. Kill the child subtree and free the port, then
+# reap the wrapper.
+stop_dev_server() {
+  local pid="${1:-}"
+  if [[ -n "$pid" ]]; then
+    pkill -P "$pid" 2>/dev/null || true   # vite (and any other children)
+    kill "$pid" 2>/dev/null || true       # the pnpm wrapper
+  fi
+  free_dev_port
+  if [[ -n "$pid" ]]; then
+    wait "$pid" 2>/dev/null || true
+  fi
+}
+
+# Free a leftover dev server from a previous run before starting our own.
+free_dev_port
+sleep 1
+
+# Always tear the dev server down on exit, even if a later step fails.
+trap 'stop_dev_server "${DEV_PID:-}"' EXIT
 
 pnpm dev &
 DEV_PID=$!
@@ -129,8 +157,8 @@ else
   echo "Warning: dev server not responding after 20s, skipping screenshots"
 fi
 
-kill $DEV_PID 2>/dev/null || true
-wait $DEV_PID 2>/dev/null || true
+stop_dev_server "$DEV_PID"
+DEV_PID=""
 
 # --- Lint and test ---
 echo "Running lint..."
