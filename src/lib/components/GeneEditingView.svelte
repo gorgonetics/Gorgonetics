@@ -165,9 +165,12 @@ function toggleDropdown(geneId: string, field: string, event: Event): void {
   openDropdown = openDropdown === dropdownId ? null : dropdownId;
 
   if (openDropdown) {
+    // Capture the trigger button now: `currentTarget` is the button the handler
+    // is bound to (not the clicked chevron span, which has no dropdown sibling),
+    // and it is nulled once dispatch finishes — so read it before the setTimeout.
+    const trigger = event.currentTarget as HTMLElement;
     // Check if dropdown should flip upward
     setTimeout(() => {
-      const trigger = event.target as HTMLElement;
       const dropdown = trigger.nextElementSibling as HTMLElement | null;
       if (dropdown?.classList.contains('dropdown')) {
         const rect = trigger.getBoundingClientRect();
@@ -372,7 +375,7 @@ run(() => {
 <!-- Click outside to close dropdown -->
 <svelte:window
     onclick={(e) => {
-        if (!(e.target as HTMLElement).closest(".select-wrapper")) {
+        if (!(e.target instanceof Element) || !e.target.closest(".select-wrapper")) {
             openDropdown = null;
         }
     }}

@@ -2,6 +2,7 @@
 import { importDatabase, type LoadedBackup } from '$lib/services/backupService.js';
 import { appState } from '$lib/stores/pets.js';
 import type { ImportMode } from '$lib/types/index.js';
+import { errorMessage } from '$lib/utils/error.js';
 import { focusTrap } from '$lib/utils/focusTrap.js';
 import { formatShortDate } from '$lib/utils/timestamp.js';
 
@@ -51,7 +52,7 @@ async function handleImport() {
     onResult({ type: 'success', message });
     await appState.loadPets();
   } catch (err) {
-    onResult({ type: 'error', message: `Import failed: ${(err as Error).message}` });
+    onResult({ type: 'error', message: `Import failed: ${errorMessage(err)}` });
   }
   importing = false;
   onClose();

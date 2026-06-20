@@ -2,6 +2,7 @@
 import { onDestroy, tick } from 'svelte';
 import { type LoadedBackup, loadBackup } from '$lib/services/backupService.js';
 import { pickBackupFile, readBinaryFile } from '$lib/services/fileService.js';
+import { errorMessage } from '$lib/utils/error.js';
 import ExportDialog from './ExportDialog.svelte';
 import ImportDialog from './ImportDialog.svelte';
 
@@ -87,7 +88,7 @@ async function openImport() {
     loadedBackup = await loadBackup(data);
     showImport = true;
   } catch (err) {
-    status = { type: 'error', message: `Failed to read backup: ${(err as Error).message}` };
+    status = { type: 'error', message: `Failed to read backup: ${errorMessage(err)}` };
     clearStatusAfterDelay();
   }
 }

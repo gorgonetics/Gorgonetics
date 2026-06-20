@@ -2,6 +2,7 @@
 import StatusBanner from '$lib/components/shared/StatusBanner.svelte';
 import { exportDatabase } from '$lib/services/backupService.js';
 import { getTotalImageCount } from '$lib/services/imageService.js';
+import { errorMessage } from '$lib/utils/error.js';
 import { focusTrap } from '$lib/utils/focusTrap.js';
 
 interface StatusResult {
@@ -56,7 +57,7 @@ async function handleExport() {
       });
     }
   } catch (err) {
-    onResult({ type: 'error', message: `Export failed: ${(err as Error).message}` });
+    onResult({ type: 'error', message: `Export failed: ${errorMessage(err)}` });
   }
   exporting = false;
   onClose();
