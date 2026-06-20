@@ -14,13 +14,16 @@ vi.mock('$lib/utils/timestamp.js', () => ({
 }));
 
 import CommunityPetRow from '$lib/components/community/CommunityPetRow.svelte';
+import type { SharedPet } from '$lib/types/index.js';
 
 afterEach(() => {
   cleanup();
   selectPetSpy.mockReset();
 });
 
-function makePet(overrides = {}) {
+// Partial fixture — only the fields the row renders. Cast to satisfy the
+// component's typed `pet` prop without spelling out every SharedPet field.
+function makePet(overrides: Partial<SharedPet> = {}): SharedPet {
   return {
     contentHash: 'abc123',
     name: 'Buzz',
@@ -29,7 +32,7 @@ function makePet(overrides = {}) {
     tags: ['fast'],
     uploadedAt: new Date('2026-05-10T12:00:00Z'),
     ...overrides,
-  };
+  } as unknown as SharedPet;
 }
 
 describe('CommunityPetRow accessibility', () => {

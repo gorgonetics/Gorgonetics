@@ -36,6 +36,10 @@ export const SPARK_STORAGE_BYTES = 1 * 1024 * 1024 * 1024; // 1 GiB Firestore st
 export const WARN_THRESHOLD = 0.75;
 export const ERROR_THRESHOLD = 1.0;
 
+/**
+ * @param {string} message
+ * @returns {never}
+ */
 function fail(message) {
   console.error(`monitor-spark-usage: ${message}`);
   process.exit(1);
@@ -53,9 +57,8 @@ function loadServiceAccount() {
   try {
     return JSON.parse(readFileSync(abs, 'utf-8'));
   } catch (err) {
-    fail(`service account key at ${abs} is not valid JSON: ${err.message}`);
+    fail(`service account key at ${abs} is not valid JSON: ${err instanceof Error ? err.message : String(err)}`);
   }
-  return null; // unreachable, makes the type-checker happy
 }
 
 /**
@@ -64,6 +67,9 @@ function loadServiceAccount() {
  * server-side overhead per doc is slightly higher (index entries,
  * metadata), but the approximation is within ~10% in practice and
  * good enough for a soft-cap warning.
+ *
+ * @param {any} db  Admin SDK Firestore instance (legacy namespaced API; see main)
+ * @param {string} name
  */
 async function summariseCollection(db, name) {
   const snap = await db.collection(name).get();
@@ -74,6 +80,7 @@ async function summariseCollection(db, name) {
   return { count: snap.size, bytes };
 }
 
+/** @param {number} bytes */
 export function formatBytes(bytes) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KiB`;
@@ -81,10 +88,16 @@ export function formatBytes(bytes) {
   return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GiB`;
 }
 
+/**
+ * @param {string} label
+ * @param {string | number} value
+ * @param {number} [width]
+ */
 export function formatRow(label, value, width = 24) {
   return `${label.padEnd(width)}${value}`;
 }
 
+/** @param {number} ratio */
 export function statusFor(ratio) {
   if (ratio >= ERROR_THRESHOLD) return 'OVER';
   if (ratio >= WARN_THRESHOLD) return 'WARN';
@@ -95,7 +108,10 @@ async function main() {
   const serviceAccount = loadServiceAccount();
   // Lazy-load the heavy Admin SDK so the module's pure helpers can be
   // unit-tested without pulling firebase-admin into the test process.
-  const { default: admin } = await import('firebase-admin');
+  // Typed as `any`: this uses the legacy namespaced API (admin.credential /
+  // admin.firestore) which firebase-admin v14 ships at runtime but no longer
+  // exposes through its modular type definitions.
+  const { default: admin } = /** @type {{ default: any }} */ (await import('firebase-admin'));
   admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
   const db = admin.firestore();
 
