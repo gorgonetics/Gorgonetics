@@ -272,9 +272,9 @@ function sortIndicator(colId: string): string {
             {/each}
         </div>
         <span class="count">{sortedPets.length} stabled</span>
-        {#if selectedIds.size > 0}
+        {#if selectedPets.length > 0}
             <div class="bulk-actions" data-testid="bulk-actions">
-                <span class="bulk-count">{selectedIds.size} selected</span>
+                <span class="bulk-count">{selectedPets.length} selected</span>
                 <button
                     class="bulk-share-btn"
                     data-testid="bulk-share-open"
