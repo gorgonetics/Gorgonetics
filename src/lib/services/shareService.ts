@@ -42,7 +42,13 @@ import {
 
 import { firestore as defaultFirestore } from '$lib/firebase.js';
 import { CURRENT_SCHEMA_VERSION } from '$lib/services/migrationService.js';
-import { findPetByHash, getPet, updatePet, uploadPet as uploadPetLocally } from '$lib/services/petService.js';
+import {
+  findPetByHash,
+  getPet,
+  getPetGenomeText,
+  updatePet,
+  uploadPet as uploadPetLocally,
+} from '$lib/services/petService.js';
 import { Gender, type ListPetsOpts, type Pet, type SharedPet, type SharedPetsPage } from '$lib/types/index.js';
 import { sha256Hex } from '$lib/utils/hash.js';
 
@@ -173,6 +179,99 @@ export async function uploadPet(pet: Pet, db: Firestore = defaultFirestore): Pro
     }
     throw err;
   }
+}
+
+/** Per-pet outcome of a bulk share. `skipped` = no shareable genome (legacy). */
+export type BulkUploadItemStatus = 'created' | 'already-shared' | 'skipped' | 'failed';
+
+export interface BulkUploadItemResult {
+  petId: number;
+  petName: string;
+  status: BulkUploadItemStatus;
+  contentHash?: string;
+  /** Present for `failed`/`skipped` — a human-readable reason. */
+  error?: string;
+}
+
+export interface BulkUploadSummary {
+  created: number;
+  alreadyShared: number;
+  skipped: number;
+  failed: number;
+  items: BulkUploadItemResult[];
+}
+
+export interface UploadPetsOptions {
+  /** Reports progress after each pet completes (0…total). */
+  onProgress?: (done: number, total: number) => void;
+  /** Abort early when this returns true (e.g. a user-cancelled dialog). */
+  shouldCancel?: () => boolean;
+  db?: Firestore;
+  /** Injectable seams for testing. */
+  upload?: (pet: Pet, db?: Firestore) => Promise<UploadResult>;
+  loadGenomeText?: (petId: number) => Promise<string | null>;
+}
+
+/**
+ * Share many local pets to the public catalogue, one at a time.
+ *
+ * Sequential by design: each pet is two Firestore writes, and a burst of
+ * hundreds of parallel writes risks tripping Spark-plan quotas and gives no
+ * usable progress signal. A single pet failing (network, corruption) never
+ * aborts the batch — its error is captured in `items` and the rest proceed.
+ *
+ * The in-memory pet list drops `genome_text` (see petService LIST_PET_COLUMNS),
+ * so the raw genome is loaded per pet here. A pet with no stored genome text
+ * (imported before migration v13) can't be shared and is reported as
+ * `skipped` rather than `failed` — it needs re-importing, not retrying.
+ */
+export async function uploadPets(pets: Pet[], options: UploadPetsOptions = {}): Promise<BulkUploadSummary> {
+  const upload = options.upload ?? uploadPet;
+  const loadGenomeText = options.loadGenomeText ?? getPetGenomeText;
+  const items: BulkUploadItemResult[] = [];
+  let done = 0;
+
+  for (const pet of pets) {
+    if (options.shouldCancel?.()) break;
+    const petName = pet.name ?? `Pet ${pet.id}`;
+    try {
+      // `genome_text` isn't on the list-projected pet; load it on demand.
+      const genomeText = pet.genome_text ?? (await loadGenomeText(pet.id)) ?? undefined;
+      if (!genomeText) {
+        items.push({
+          petId: pet.id,
+          petName,
+          status: 'skipped',
+          error: 'No stored genome text — re-import this pet before sharing.',
+        });
+        continue;
+      }
+      const result = await upload({ ...pet, genome_text: genomeText }, options.db);
+      items.push({
+        petId: pet.id,
+        petName,
+        status: result.status === 'created' ? 'created' : 'already-shared',
+        contentHash: result.contentHash,
+      });
+    } catch (err) {
+      items.push({ petId: pet.id, petName, status: 'failed', error: errorText(err) });
+    } finally {
+      done++;
+      options.onProgress?.(done, pets.length);
+    }
+  }
+
+  return {
+    created: items.filter((i) => i.status === 'created').length,
+    alreadyShared: items.filter((i) => i.status === 'already-shared').length,
+    skipped: items.filter((i) => i.status === 'skipped').length,
+    failed: items.filter((i) => i.status === 'failed').length,
+    items,
+  };
+}
+
+function errorText(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
 }
 
 /**

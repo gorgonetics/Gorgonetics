@@ -1,5 +1,7 @@
 <script lang="ts">
+import BulkSharePetDialog from '$lib/components/community/BulkSharePetDialog.svelte';
 import PetEditor from '$lib/components/pet/PetEditor.svelte';
+import StatusBanner from '$lib/components/shared/StatusBanner.svelte';
 import {
   getAllAttributeNames,
   getAllAttributes,
@@ -9,7 +11,7 @@ import {
 import { comparisonActions, comparisonPets, comparisonReady } from '$lib/stores/comparison.js';
 import { allTags as allTagsStore, appState, pets } from '$lib/stores/pets.js';
 import { stableView } from '$lib/stores/stable.svelte.js';
-import { HORSE_BREEDS, type Pet } from '$lib/types/index.js';
+import { type DialogResult, HORSE_BREEDS, type Pet } from '$lib/types/index.js';
 
 interface Column {
   id: string;
@@ -30,6 +32,13 @@ const BREEDS_BY_SPECIES: Record<string, string[]> = {
 
 let editingPet = $state<Pet | null>(null);
 let editorOpen = $state(false);
+
+// Bulk-share selection. Keyed by pet id so it survives re-sorts and filter
+// narrowing; "select all" operates on the full filtered set (`sortedPets`),
+// not the rendered rows, so it covers every match regardless of scroll.
+let selectedIds = $state<Set<number>>(new Set());
+let bulkShareOpen = $state(false);
+let shareStatus = $state<DialogResult | null>(null);
 
 function isInComparison(id: number): boolean {
   return $comparisonPets[0]?.id === id || $comparisonPets[1]?.id === id;
@@ -181,6 +190,54 @@ $effect(() => {
   }
 });
 
+// --- Bulk-share selection ---
+
+// How many of the currently-visible (filtered) pets are selected drives the
+// header checkbox's checked/indeterminate state.
+const selectedInView = $derived(sortedPets.reduce((n, p) => n + (selectedIds.has(p.id) ? 1 : 0), 0));
+const allSelected = $derived(sortedPets.length > 0 && selectedInView === sortedPets.length);
+const someSelected = $derived(selectedInView > 0 && !allSelected);
+
+// Switching species changes the pet universe entirely; carrying a selection
+// across would let "Share selected" include pets you can no longer see.
+$effect(() => {
+  stableView.species; // track
+  selectedIds = new Set();
+});
+
+function toggleRow(id: number): void {
+  const next = new Set(selectedIds);
+  if (next.has(id)) next.delete(id);
+  else next.add(id);
+  selectedIds = next;
+}
+
+function toggleSelectAll(): void {
+  if (allSelected) {
+    // Clear only the in-view pets, preserving any selected-but-now-filtered.
+    const next = new Set(selectedIds);
+    for (const p of sortedPets) next.delete(p.id);
+    selectedIds = next;
+  } else {
+    const next = new Set(selectedIds);
+    for (const p of sortedPets) next.add(p.id);
+    selectedIds = next;
+  }
+}
+
+function clearSelection(): void {
+  selectedIds = new Set();
+}
+
+const selectedPets = $derived($pets.filter((p) => selectedIds.has(p.id)));
+
+function handleBulkShareResult(result: DialogResult): void {
+  shareStatus = result;
+  // A run that shared or skipped is "done" with these pets; clear so the user
+  // isn't left with a stale selection that re-shares on a second click.
+  if (result.type !== 'error') clearSelection();
+}
+
 function toggleSort(colId: string): void {
   const col = columns.find((c) => c.id === colId);
   if (!col || col.sortable === false) return;
@@ -215,12 +272,35 @@ function sortIndicator(colId: string): string {
             {/each}
         </div>
         <span class="count">{sortedPets.length} stabled</span>
+        {#if selectedIds.size > 0}
+            <div class="bulk-actions" data-testid="bulk-actions">
+                <span class="bulk-count">{selectedIds.size} selected</span>
+                <button
+                    class="bulk-share-btn"
+                    data-testid="bulk-share-open"
+                    onclick={() => { bulkShareOpen = true; }}
+                    title="Share the selected pets to the community catalogue"
+                >🌐 Share selected</button>
+                <button class="bulk-clear-btn" onclick={clearSelection} title="Clear selection">Clear</button>
+            </div>
+        {/if}
         {#if $comparisonReady}
             <button class="compare-now-btn" onclick={startCompare} title="Open comparison view">
                 ⚖️ Compare ({[$comparisonPets[0]?.name, $comparisonPets[1]?.name].filter(Boolean).join(' vs ')})
             </button>
         {/if}
     </header>
+
+    {#if shareStatus}
+        <div class="share-status">
+            <StatusBanner
+                type={shareStatus.type}
+                message={shareStatus.message}
+                autoDismissMs={8000}
+                onDismiss={() => { shareStatus = null; }}
+            />
+        </div>
+    {/if}
 
     <div class="filter-bar">
         <input
@@ -278,6 +358,18 @@ function sortIndicator(colId: string): string {
         <table class="stable-table">
             <thead>
                 <tr>
+                    <th class="select-col">
+                        <input
+                            type="checkbox"
+                            class="row-select"
+                            data-testid="bulk-select-all"
+                            checked={allSelected}
+                            indeterminate={someSelected}
+                            onchange={toggleSelectAll}
+                            aria-label="Select all {sortedPets.length} pets matching the current filters"
+                            title="Select all {sortedPets.length} matching"
+                        />
+                    </th>
                     {#each columns as col (col.id)}
                         <th
                             class="header-cell"
@@ -306,13 +398,23 @@ function sortIndicator(colId: string): string {
             <tbody>
                 {#if sortedPets.length === 0}
                     <tr>
-                        <td class="empty" colspan={columns.length}>
+                        <td class="empty" colspan={columns.length + 1}>
                             No stabled {stableView.species} pets.
                         </td>
                     </tr>
                 {:else}
                     {#each sortedPets as pet (pet.id)}
-                        <tr data-pet-id={pet.id}>
+                        <tr data-pet-id={pet.id} class:row-selected={selectedIds.has(pet.id)}>
+                            <td class="select-col">
+                                <input
+                                    type="checkbox"
+                                    class="row-select"
+                                    data-testid="bulk-select-row"
+                                    checked={selectedIds.has(pet.id)}
+                                    onchange={() => toggleRow(pet.id)}
+                                    aria-label="Select {pet.name}"
+                                />
+                            </td>
                             {#each columns as col (col.id)}
                                 <td class:numeric={col.numeric} class:compact={col.compact} data-col={col.id}>
                                     {#if col.id === 'actions'}
@@ -360,6 +462,14 @@ function sortIndicator(colId: string): string {
         bind:open={editorOpen}
         onClose={closeEditor}
         onSave={() => {}}
+    />
+{/if}
+
+{#if bulkShareOpen}
+    <BulkSharePetDialog
+        pets={selectedPets}
+        onClose={() => { bulkShareOpen = false; }}
+        onResult={handleBulkShareResult}
     />
 {/if}
 
@@ -547,6 +657,77 @@ function sortIndicator(colId: string): string {
         background: var(--accent);
         border-color: var(--accent);
         color: var(--bg-primary);
+    }
+
+    .bulk-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-left: auto;
+    }
+
+    .bulk-count {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text-secondary);
+    }
+
+    .bulk-share-btn {
+        padding: 6px 14px;
+        background: var(--accent);
+        border: none;
+        border-radius: 6px;
+        color: white;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.15s ease;
+    }
+
+    .bulk-share-btn:hover {
+        background: var(--accent-hover);
+    }
+
+    .bulk-clear-btn {
+        padding: 6px 10px;
+        background: transparent;
+        border: 1px solid var(--border-primary);
+        border-radius: 6px;
+        color: var(--text-tertiary);
+        font-size: 12px;
+        cursor: pointer;
+    }
+
+    .bulk-clear-btn:hover {
+        color: var(--text-secondary);
+        border-color: var(--border-secondary);
+    }
+
+    /* When bulk-actions takes the right slot, Compare follows it rather than
+       grabbing the auto margin. */
+    .bulk-actions ~ .compare-now-btn {
+        margin-left: 0;
+    }
+
+    .share-status {
+        padding: 8px 16px 0;
+        flex-shrink: 0;
+    }
+
+    .select-col {
+        width: 1%;
+        text-align: center;
+        padding-left: 10px;
+        padding-right: 4px;
+    }
+
+    .row-select {
+        cursor: pointer;
+        margin: 0;
+    }
+
+    .stable-table tbody tr.row-selected {
+        background: var(--bg-selected);
     }
 
     .compare-now-btn {
