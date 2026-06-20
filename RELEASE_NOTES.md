@@ -1,13 +1,36 @@
-# v0.6.3
+# v0.7.0
 
-Hotfix release. v0.6.1 shipped corrected horse gene effects and v0.6.2 shipped the auto-refresh that should have propagated them — but neither actually reached the bundled application because Tauri bundles assets from `src-tauri/resources/assets/`, not from the top-level `assets/` directory where the corrections were applied. The two directories had been silently drifting since the project's Tauri migration.
+A feature release covering community pet sharing, offspring breeding projections, and import/backup improvements.
 
-This release re-syncs the bundled asset directory from the canonical source. After upgrading, v0.6.2's auto-refresh will pick up the corrected templates on first launch and the gene editor (and every downstream view) will finally show the right effects.
+## Community pet sharing
 
-If you've been running v0.6.2 with the wrong effects, simply install v0.6.3 — no manual intervention needed. The hash-gated refresh in v0.6.2 will detect the new bundle and re-sync your local catalog automatically; your gene notes are preserved across the refresh, and pet `Total +` counts are recomputed in the background to reflect the corrected effects.
+- New **Community** tab to browse a public catalogue of shared pets.
+- Share any pet to the community via a dedicated dialog; the catalogue is split into metadata and genome collections so browsing stays fast.
+- Firebase-backed, with App Check protecting public reads.
 
-## What's actually fixed
+## Breeding — offspring trio view
 
-The 58 horse + beewasp template JSONs in `src-tauri/resources/assets/` now match the corrected versions in `assets/`. Concretely, all the gene-effect corrections from #214 (chr15, chr16, chr20, chr22, chr24, chr42) and the field-order normalization from #215 are now in the bundle.
+- New trio genome grid showing Father / Offspring / Mother side by side, with a per-locus offspring projection and gain/risk verdicts.
+- Inspect any ranked breeding pair to open its trio view.
+- Filter the trio by offspring breed and focus on a single attribute.
+- Locked-in gains now recognise shared recessive positives, not just dominants.
 
-A follow-up issue (#222) tracks the structural fix to eliminate the duplication so future asset edits can't regress this way.
+## Import & upload
+
+- Drag-and-drop genome files directly onto the pet list to import them.
+- Pending-import count badge on the auto-scan button.
+
+## Backup & updates
+
+- The updater backs up the current install before applying an update, so a failed update can be rolled back.
+- Export streams the archive natively to keep memory bounded on large libraries, and warns before exporting a very large image library.
+
+## Accessibility & navigation
+
+- Keyboard-accessible reordering for the pet list and gallery.
+- Back navigation between tabs.
+
+## Under the hood
+
+- Full migration of the frontend to TypeScript with `checkJs` enabled for end-to-end type coverage.
+- Numerous correctness and review fixes across community, breeding, comparison, and the pet stores.
