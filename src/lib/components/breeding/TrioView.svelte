@@ -44,9 +44,6 @@ const speciesLabel = $derived(father ? normalizeSpecies(father.species) : '');
                 {#if speciesLabel}
                     <span class="species-badge">{getSpeciesEmoji(father?.species)} {speciesLabel}</span>
                 {/if}
-                {#if offspringBreed}
-                    <span class="breed-badge">{offspringBreed}</span>
-                {/if}
             </h3>
             <button type="button" class="close-btn" onclick={onClose} aria-label="Close trio view">×</button>
         </div>
@@ -79,8 +76,7 @@ const speciesLabel = $derived(father ? normalizeSpecies(father.species) : '');
     .parent-name.mother { color: #a855f7; }
     .cross { color: var(--text-muted); font-weight: 500; }
 
-    .species-badge,
-    .breed-badge {
+    .species-badge {
         font-size: 12px;
         font-weight: 500;
         padding: 2px 8px;

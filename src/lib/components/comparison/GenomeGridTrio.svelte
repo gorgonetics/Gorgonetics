@@ -1,9 +1,12 @@
 <script lang="ts">
+import { onDestroy, onMount, untrack } from 'svelte';
 import StatusPane from '$lib/components/shared/StatusPane.svelte';
 import { getAttributeConfig, normalizeSpecies } from '$lib/services/configService.js';
 import { getGeneEffectsCached } from '$lib/services/geneService.js';
 import { computeOffspringTrio } from '$lib/services/offspringTrioService.js';
-import type { OffspringTrioResult, Pet } from '$lib/types/index.js';
+import { type AttributeInfo, HORSE_BREEDS, type OffspringTrioResult, type Pet } from '$lib/types/index.js';
+import { attributeFilterCSS } from '$lib/utils/filterCSS.js';
+import { triStateToggle } from '$lib/utils/filterToggle.js';
 import { buildAppearanceLookup, createGeneCellBuilder, type GeneCell } from '$lib/utils/geneGridCells.js';
 import { capitalize } from '$lib/utils/string.js';
 import { buildTrioGrid, type TrioGrid, type TrioLocusCell } from '$lib/utils/trioGrid.js';
@@ -16,37 +19,83 @@ interface Props {
 
 const { father, mother, offspringBreed = '' }: Props = $props();
 
+const isHorse = $derived(normalizeSpecies(father.species) === 'horse');
+const horseBreeds = Object.entries(HORSE_BREEDS);
+
 let loading = $state(false);
 let error = $state<string | null>(null);
 let grid = $state<TrioGrid | null>(null);
 let summary = $state<OffspringTrioResult['summary'] | null>(null);
+let attributeDisplayInfo = $state<AttributeInfo[]>([]);
+
+// Breed re-runs the projection (the service drops loci locked to other breeds,
+// keeping the trio consistent with the breeding ranking). Attribute is a visual
+// focus filter applied as CSS over the rendered grid — the same engine the
+// 2-pet diff grid uses (select dims everything else, alt-click hides).
+let selectedBreed = $state(untrack(() => offspringBreed));
+let selectedAttributes = $state<string[]>([]);
+let hiddenAttributes = $state<string[]>([]);
 
 const ALLELE_LABEL: Record<string, string> = { D: 'Dominant', x: 'Mixed', R: 'Recessive', unknown: 'Unknown' };
 const VERDICT_LABEL: Record<string, string> = { gain: 'Gain', risk: 'Risk', neutral: '' };
 
 $effect(() => {
   if (father?.id && mother?.id) {
-    load(father, mother, offspringBreed);
+    load(father, mother, selectedBreed);
   }
 });
+
+// Dynamic filter stylesheet — the zero-rerender pattern from GenomeGridDiff,
+// scoped to this modal's grid so it can't leak into the diff grid.
+let filterStyleEl: HTMLStyleElement | null = null;
+onMount(() => {
+  filterStyleEl = document.createElement('style');
+  filterStyleEl.id = 'trio-grid-filters';
+  document.head.appendChild(filterStyleEl);
+});
+onDestroy(() => {
+  filterStyleEl?.remove();
+  filterStyleEl = null;
+});
+$effect(() => {
+  if (!filterStyleEl) return;
+  // `*` cell selector: the trio's three rows use different cell classes
+  // (`.gene-cell` parents, `.dist-bar` offspring); all carry `data-attr`.
+  filterStyleEl.textContent = attributeFilterCSS('.trio-grid-container', '*', selectedAttributes, hiddenAttributes);
+});
+
+function toggleAttributeFilter(attrKey: string, ctrlKey: boolean, altKey: boolean) {
+  ({ selected: selectedAttributes, hidden: hiddenAttributes } = triStateToggle(
+    attrKey,
+    selectedAttributes,
+    hiddenAttributes,
+    ctrlKey,
+    altKey,
+  ));
+}
 
 async function load(f: Pet, m: Pet, breed: string) {
   try {
     loading = true;
     error = null;
-    const species = normalizeSpecies(f.species);
+    // A new pair or breed changes which loci exist; a focus carried over from
+    // the previous set could dim the whole grid, so start unfiltered.
+    selectedAttributes = [];
+    hiddenAttributes = [];
+    const sp = normalizeSpecies(f.species);
     const [result, efData] = await Promise.all([
-      computeOffspringTrio(f, m, { species, offspringBreed: breed }),
-      getGeneEffectsCached(species),
+      computeOffspringTrio(f, m, { species: sp, offspringBreed: breed }),
+      getGeneEffectsCached(sp),
     ]);
 
     const effectsDB = efData?.effects ?? {};
-    const attributeNames = getAttributeConfig(species).all_attribute_names.map((n) => capitalize(n));
+    const config = getAttributeConfig(sp);
+    attributeDisplayInfo = config.attributes;
     const cellBuilder = createGeneCellBuilder({
       effectsDB,
-      attributeNames,
-      appearanceLookup: buildAppearanceLookup(species),
-      speciesKey: species,
+      attributeNames: config.all_attribute_names.map((n) => capitalize(n)),
+      appearanceLookup: buildAppearanceLookup(sp),
+      speciesKey: sp,
     });
 
     grid = buildTrioGrid(result, cellBuilder);
@@ -82,11 +131,58 @@ function parentTitle(cell: GeneCell | null, label: string) {
 </script>
 
 <div class="genome-grid-trio">
+    {#if !error}
+        <div class="trio-filters">
+            {#if isHorse}
+                <div class="breed-filter" data-testid="trio-breed-filter">
+                    <span class="breed-label">Breed:</span>
+                    <button
+                        type="button"
+                        class="breed-btn"
+                        class:active={selectedBreed === ''}
+                        onclick={() => { selectedBreed = ''; }}
+                    >All</button>
+                    {#each horseBreeds as [name, abbrev] (name)}
+                        <button
+                            type="button"
+                            class="breed-btn"
+                            class:active={selectedBreed === name}
+                            onclick={() => { selectedBreed = name; }}
+                            title={name}
+                        >{abbrev}</button>
+                    {/each}
+                </div>
+            {/if}
+            {#if attributeDisplayInfo.length > 0}
+                <div class="attribute-filter" data-testid="trio-attribute-filter">
+                    <span class="attr-filter-label">Attribute:</span>
+                    <button
+                        type="button"
+                        class="attr-filter-btn"
+                        class:active={selectedAttributes.length === 0 && hiddenAttributes.length === 0}
+                        onclick={() => { selectedAttributes = []; hiddenAttributes = []; }}
+                    >All</button>
+                    {#each attributeDisplayInfo as attr (attr.key)}
+                        <button
+                            type="button"
+                            class="attr-filter-btn"
+                            class:active={selectedAttributes.includes(attr.key)}
+                            class:hidden-attr={hiddenAttributes.includes(attr.key)}
+                            onclick={(e) => toggleAttributeFilter(attr.key, e.ctrlKey || e.metaKey, e.altKey)}
+                            title={attr.name}
+                        >{attr.icon} {attr.name}</button>
+                    {/each}
+                </div>
+                <span class="filter-hint">Click to focus · Ctrl+click multi-select · Alt+click hide</span>
+            {/if}
+        </div>
+    {/if}
+
     {#if loading}
         <StatusPane variant="loading" body="Building offspring projection…" />
     {:else if error}
         <StatusPane variant="error" icon="⚠️" body={error} />
-    {:else if grid && summary}
+    {:else if grid && summary && grid.rows.length > 0}
         <div class="trio-summary">
             <span class="chip chip-gain">{summary.gains} gains</span>
             <span class="chip chip-risk">{summary.risks} risks</span>
@@ -100,7 +196,7 @@ function parentTitle(cell: GeneCell | null, label: string) {
             </span>
         </div>
 
-        <div class="grid-container">
+        <div class="grid-container trio-grid-container">
             <table class="trio-table">
                 <thead>
                     <tr>
@@ -123,7 +219,7 @@ function parentTitle(cell: GeneCell | null, label: string) {
                                     {@const cell = row.cells[`${block}${pos}`]}
                                     <td class="grid-cell {pos === 1 ? 'block-start' : ''}">
                                         {#if cell?.fatherCell}
-                                            <div class={cell.fatherCell.attributeCls} title={parentTitle(cell.fatherCell, 'Father')}>
+                                            <div class={cell.fatherCell.attributeCls} data-attr={cell.fatherCell.attribute} title={parentTitle(cell.fatherCell, 'Father')}>
                                                 {#if cell.fatherCell.type === '?'}<span class="unknown-symbol">?</span>{/if}
                                             </div>
                                         {/if}
@@ -141,6 +237,7 @@ function parentTitle(cell: GeneCell | null, label: string) {
                                             <div
                                                 class="dist-bar verdict-{cell.verdict}"
                                                 class:locked={cell.lockedIn}
+                                                data-attr={cell.attribute ?? ''}
                                                 title={offspringTitle(cell)}
                                             >
                                                 {#each cell.segments as seg, i (i)}
@@ -159,7 +256,7 @@ function parentTitle(cell: GeneCell | null, label: string) {
                                     {@const cell = row.cells[`${block}${pos}`]}
                                     <td class="grid-cell {pos === 1 ? 'block-start' : ''}">
                                         {#if cell?.motherCell}
-                                            <div class={cell.motherCell.attributeCls} title={parentTitle(cell.motherCell, 'Mother')}>
+                                            <div class={cell.motherCell.attributeCls} data-attr={cell.motherCell.attribute} title={parentTitle(cell.motherCell, 'Mother')}>
                                                 {#if cell.motherCell.type === '?'}<span class="unknown-symbol">?</span>{/if}
                                             </div>
                                         {/if}
@@ -171,6 +268,8 @@ function parentTitle(cell: GeneCell | null, label: string) {
                 </tbody>
             </table>
         </div>
+    {:else if selectedBreed}
+        <p class="empty-text">No loci for the {selectedBreed} breed in this pair.</p>
     {:else}
         <p class="empty-text">No genome data available for this pair.</p>
     {/if}
@@ -178,6 +277,52 @@ function parentTitle(cell: GeneCell | null, label: string) {
 
 <style>
     .genome-grid-trio { width: 100%; }
+
+    .trio-filters {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin-bottom: 12px;
+    }
+    .breed-filter,
+    .attribute-filter {
+        display: flex;
+        align-items: center;
+        gap: 3px;
+        flex-wrap: wrap;
+        padding: 0 4px;
+    }
+    .breed-label,
+    .attr-filter-label {
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--text-tertiary);
+        margin-right: 4px;
+    }
+    .breed-btn,
+    .attr-filter-btn {
+        padding: 3px 8px;
+        border: 1px solid var(--border-primary);
+        border-radius: 4px;
+        background: var(--bg-primary);
+        color: var(--text-tertiary);
+        font-size: 11px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.15s;
+        white-space: nowrap;
+    }
+    .breed-btn:hover,
+    .attr-filter-btn:hover { border-color: var(--border-secondary); color: var(--text-secondary); }
+    .breed-btn.active,
+    .attr-filter-btn.active { background: var(--accent); border-color: var(--accent); color: white; }
+    .attr-filter-btn.hidden-attr {
+        background: var(--error-bg);
+        border-color: var(--error-border);
+        color: var(--error-text);
+        text-decoration: line-through;
+    }
+    .filter-hint { font-size: 11px; color: var(--text-tertiary); font-style: italic; padding: 0 4px; }
 
     .trio-summary {
         display: flex;

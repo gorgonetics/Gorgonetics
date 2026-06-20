@@ -125,4 +125,65 @@ test.describe('Breeding Assistant — ranking UI (PR 4)', () => {
     await trio.getByRole('button', { name: 'Close trio view' }).click();
     await expect(page.getByTestId('trio-view')).toHaveCount(0);
   });
+
+  test('trio view filters offspring loci by attribute', async ({ page }) => {
+    await openBreedingTab(page);
+    const found = await pickSpeciesWithPairs(page);
+    expect(found).toBe(true);
+
+    await page.locator('[data-testid="inspect-pair"]').first().click();
+    const trio = page.getByTestId('trio-view');
+    await expect(trio).toBeVisible();
+
+    // The attribute filter renders once the projection loads.
+    const attrFilter = trio.getByTestId('trio-attribute-filter');
+    await expect(attrFilter).toBeVisible();
+
+    // Clicking a specific attribute marks it active and clears "All".
+    const firstAttr = attrFilter.locator('.attr-filter-btn').nth(1);
+    await firstAttr.click();
+    await expect(firstAttr).toHaveClass(/active/);
+    await expect(attrFilter.locator('.attr-filter-btn').first()).not.toHaveClass(/active/);
+
+    // Clicking it again resets back to "All".
+    await firstAttr.click();
+    await expect(attrFilter.locator('.attr-filter-btn').first()).toHaveClass(/active/);
+  });
+
+  test('trio view shows the offspring-breed filter only for horses', async ({ page }) => {
+    await openBreedingTab(page);
+    const horseBtn = page.locator('.species-btn').filter({ hasText: /horse/i });
+    if ((await horseBtn.count()) === 0) test.skip(true, 'no horse species supported in this build');
+    await horseBtn.click();
+
+    const inspect = page.locator('[data-testid="inspect-pair"]');
+    if ((await inspect.count()) === 0) test.skip(true, 'no horse pairs in demo data');
+    await inspect.first().click();
+
+    const trio = page.getByTestId('trio-view');
+    await expect(trio).toBeVisible();
+    await expect(trio.getByTestId('trio-breed-filter')).toBeVisible();
+  });
+
+  test('changing the offspring breed clears an active attribute focus', async ({ page }) => {
+    await openBreedingTab(page);
+    const horseBtn = page.locator('.species-btn').filter({ hasText: /horse/i });
+    if ((await horseBtn.count()) === 0) test.skip(true, 'no horse species supported in this build');
+    await horseBtn.click();
+
+    const inspect = page.locator('[data-testid="inspect-pair"]');
+    if ((await inspect.count()) === 0) test.skip(true, 'no horse pairs in demo data');
+    await inspect.first().click();
+
+    const trio = page.getByTestId('trio-view');
+    await expect(trio).toBeVisible();
+
+    // Focus an attribute, then switch breed — the focus must reset to "All".
+    const attrFilter = trio.getByTestId('trio-attribute-filter');
+    await attrFilter.locator('.attr-filter-btn').nth(1).click();
+    await expect(attrFilter.locator('.attr-filter-btn').first()).not.toHaveClass(/active/);
+
+    await trio.getByTestId('trio-breed-filter').locator('.breed-btn').nth(1).click();
+    await expect(attrFilter.locator('.attr-filter-btn').first()).toHaveClass(/active/);
+  });
 });

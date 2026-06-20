@@ -16,15 +16,35 @@ function pushInclusionRules(
   selected: string[],
   hidden: string[],
   declaration: string,
+  gridSelector: string = G,
 ): void {
   if (selected.length > 0) {
     let not = '';
     for (const v of selected) not += `:not([${attr}="${v}"])`;
-    rules.push(`${G} ${baseSelector}[${attr}]${not} ${declaration}`);
+    rules.push(`${gridSelector} ${baseSelector}[${attr}]${not} ${declaration}`);
   }
   for (const v of hidden) {
-    rules.push(`${G} ${baseSelector}[${attr}="${v}"] ${declaration}`);
+    rules.push(`${gridSelector} ${baseSelector}[${attr}="${v}"] ${declaration}`);
   }
+}
+
+/**
+ * Attribute select/hide rules for any genome grid, parameterised by the grid
+ * and cell selectors. Selected attributes dim everything else; hidden
+ * attributes dim themselves. Shares the exact dimming declaration the 2-pet
+ * diff grid uses so the trio grid filters identically. `cellSelector` is the
+ * element carrying `data-attr` (the diff grid uses `.gene-cell`; grids whose
+ * cells aren't `.gene-cell` can pass `[data-attr]`).
+ */
+export function attributeFilterCSS(
+  gridSelector: string,
+  cellSelector: string,
+  selectedAttributes: string[],
+  hiddenAttributes: string[],
+): string {
+  const rules: string[] = [];
+  pushInclusionRules(rules, cellSelector, 'data-attr', selectedAttributes, hiddenAttributes, FILTERED, gridSelector);
+  return rules.join('\n');
 }
 
 /** Per-chromosome breed relevance: `generic` rows apply to all breeds. */
