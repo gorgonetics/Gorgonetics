@@ -86,22 +86,24 @@ The redesign's real work is collapsing N variants into 1 each. Build these share
 |---|---|---|
 | `PetRow` | 5 list/row/card renderings | density variants (card / table-row); optional columns + action slots |
 | `FilterBar` | Stable filters, Pets pills, per-view filters | one control vocabulary (see §4) |
-| `BreedSelector` | dropdown ×2 + button-row ×3 | single control, used in filters AND lenses (trio offspring breed, compare breed filter) |
-| `GeneGrid` | circles (Pets) vs squares (Compare/Trio) | one cell shape + one legend treatment |
+| `BreedSelector` | dropdown ×2 + button-row ×3 | **popover trigger**; used in filters AND lenses (trio offspring breed, compare breed filter) |
+| `GeneGrid` | circles (Pets) vs squares (Compare/Trio) | **squares + dual encoding (effect colour / zygosity fill), one compact legend** |
 | `PageHeader` | 4 ad-hoc header styles | title / subtitle / actions slot |
 | `EmptyState` | reused-wrongly Pets copy | context-appropriate copy; fixes §1.6 |
 | `MasterDetailShell` | Community's in-content master-detail | Library + detail used everywhere |
 
 ---
 
-## 4. Open decisions (resolve during design, before building)
+## 4. Resolved decisions
 
-1. **Breed control form** — 10 horse breeds. Single `<select>`, searchable popover, or button row? (Recommend: one searchable popover/segmented for filters; same control reused in lenses.)
-2. **Gene-grid cell** — circles vs squares; keep the dual Effect+Value legend or simplify to one? (Squares are denser for 48-chromosome horses; circles are friendlier.)
-3. **Community shell** — same Library shell with a "source: community" switch, or a visually distinct destination that merely reuses `PetRow`/`MasterDetailShell`?
-4. **Gene-template editing home** — a top-level "Reference" destination, or inside Settings?
-5. **Narrow-window behaviour** — Tauri windows can be small; how do Library + Workspace collapse (drawer? stacked?).
-6. **Selection ergonomics** — does selecting 3+ pets offer Breed-rank scoped to the selection, or always all-stabled?
+Settled 2026-06-20:
+
+1. **Breed control** → a single **popover trigger** ("Breed: All ▾" opening a name+abbreviation list). One `BreedSelector` used in the filter bar and in lenses (Trio offspring breed, Compare breed filter). Retires the dropdown and the 11-wide button row.
+2. **Gene grid** → **squares** (denser; already proven on the 48-chromosome horse genome in Compare/Trio), keeping the **dual encoding** (colour = effect, fill/zygosity = value) under **one consistent compact legend**. Retires the circle rendering on Pets.
+3. **Community** → the **same Library + detail shell with a local↔community source switch**. `PetRow` carries source-specific columns/actions (uploader/date/import for community; star/edit/stable for local).
+4. **Gene-template editing** → a top-level **Reference destination** (per-species/chromosome editor), not buried in Settings.
+5. **Narrow window** → Library becomes a **collapsible overlay drawer** (extending the existing collapse chevron); Workspace goes full-width. No separate mobile/stacked flow for v1.
+6. **Selection → Breed lens** → Breed-rank defaults to **all stabled of the species**, and **scopes to the selection when 2+ are selected**. Compare requires exactly 2. 0–1 selected → all-stabled ranking.
 
 ---
 
