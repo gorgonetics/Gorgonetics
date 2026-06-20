@@ -1,23 +1,27 @@
-<script>
+<script lang="ts">
 import { onDestroy, tick } from 'svelte';
-import { loadBackup } from '$lib/services/backupService.js';
+import { type LoadedBackup, loadBackup } from '$lib/services/backupService.js';
 import { pickBackupFile, readBinaryFile } from '$lib/services/fileService.js';
+import { errorMessage } from '$lib/utils/error.js';
 import ExportDialog from './ExportDialog.svelte';
 import ImportDialog from './ImportDialog.svelte';
+
+interface StatusResult {
+  type: 'success' | 'error';
+  message: string;
+}
 
 let menuOpen = $state(false);
 let showExport = $state(false);
 let showImport = $state(false);
-/** @type {import('$lib/services/backupService.js').LoadedBackup | null} */
-let loadedBackup = $state(null);
-/** @type {{ type: 'success' | 'error', message: string } | null} */
-let status = $state(null);
-let statusTimer = 0;
+let loadedBackup = $state<LoadedBackup | null>(null);
+let status = $state<StatusResult | null>(null);
+let statusTimer: ReturnType<typeof setTimeout> | undefined;
 
 let focusedIndex = $state(-1);
-let exportBtn = $state(null);
-let importBtn = $state(null);
-const menuItems = $derived([exportBtn, importBtn].filter(Boolean));
+let exportBtn = $state<HTMLButtonElement | null>(null);
+let importBtn = $state<HTMLButtonElement | null>(null);
+const menuItems = $derived([exportBtn, importBtn].filter((b): b is HTMLButtonElement => b !== null));
 
 function toggleMenu() {
   menuOpen = !menuOpen;
@@ -33,7 +37,7 @@ function closeMenu() {
   focusedIndex = -1;
 }
 
-function handleToggleKeydown(e) {
+function handleToggleKeydown(e: KeyboardEvent) {
   if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') {
     if (!menuOpen) {
       e.preventDefault();
@@ -45,11 +49,11 @@ function handleToggleKeydown(e) {
   }
 }
 
-function handleMenuKeydown(e) {
+function handleMenuKeydown(e: KeyboardEvent) {
   if (e.key === 'Escape') {
     e.preventDefault();
     closeMenu();
-    document.querySelector('.menu-toggle')?.focus();
+    document.querySelector<HTMLElement>('.menu-toggle')?.focus();
   } else if (e.key === 'ArrowDown') {
     e.preventDefault();
     focusedIndex = (focusedIndex + 1) % menuItems.length;
@@ -84,12 +88,12 @@ async function openImport() {
     loadedBackup = await loadBackup(data);
     showImport = true;
   } catch (err) {
-    status = { type: 'error', message: `Failed to read backup: ${err.message}` };
+    status = { type: 'error', message: `Failed to read backup: ${errorMessage(err)}` };
     clearStatusAfterDelay();
   }
 }
 
-function handleResult(result) {
+function handleResult(result: StatusResult) {
   status = result;
   clearStatusAfterDelay();
 }
@@ -103,7 +107,7 @@ function clearStatusAfterDelay() {
 
 onDestroy(() => clearTimeout(statusTimer));
 
-function handleClickOutside(event) {
+function handleClickOutside(event: MouseEvent) {
   const target = event.target;
   if (!(target instanceof Element)) return;
   if (menuOpen && !target.closest('.data-menu')) {

@@ -1,5 +1,5 @@
-<script>
-import { onMount } from 'svelte';
+<script lang="ts">
+import { onMount, type Snippet } from 'svelte';
 import { initDatabase } from '$lib/services/database.js';
 import { loadDemoPetsIfNeeded, refreshGeneTemplatesIfChanged } from '$lib/services/demoService.js';
 import { autoScanGameFolder, watchGameFolder } from '$lib/services/gameImport.js';
@@ -15,12 +15,16 @@ import { refreshPendingImportCount } from '$lib/stores/gameImport.js';
 import { appState } from '$lib/stores/pets.js';
 import { settings, settingsActions } from '$lib/stores/settings.js';
 
-const { children } = $props();
+interface Props {
+  children: Snippet;
+}
+
+const { children }: Props = $props();
 let ready = $state(false);
 let liveScanRunning = false;
 let pendingRescan = false;
 
-async function runLiveScan() {
+async function runLiveScan(): Promise<void> {
   // Drop into a queued state instead of starting a parallel scan —
   // a file written during a long scan would otherwise be missed
   // until the next unrelated event.
@@ -57,7 +61,7 @@ $effect(() => {
   void gameFolderPath;
 
   let cancelled = false;
-  let activeStop = null;
+  let activeStop: (() => Promise<void>) | null = null;
 
   // Recompute the pending badge whenever the watched folder is (re)armed —
   // covers app startup (ready flips true) and the user changing the path.

@@ -1,24 +1,24 @@
-<script>
+<script lang="ts">
 import { ArrowLeft } from '@lucide/svelte';
 import logoImg from '$lib/assets/logo.png';
-import { activeTab, appState, canGoBack } from '$lib/stores/pets.js';
+import { activeTab, appState, canGoBack, type Tab } from '$lib/stores/pets.js';
 import DataMenu from './DataMenu.svelte';
 import SettingsModal from './SettingsModal.svelte';
 
-function switchTab(tab) {
+function switchTab(tab: Tab) {
   appState.switchTab(tab);
 }
 
-function handleWindowKeydown(e) {
+function handleWindowKeydown(e: KeyboardEvent) {
   // Alt+Left → previous tab. Don't hijack it while the user is typing.
   if (!(e.altKey && e.key === 'ArrowLeft')) return;
-  const t = e.target;
+  const t = e.target as HTMLElement | null;
   if (t?.tagName === 'INPUT' || t?.tagName === 'TEXTAREA' || t?.isContentEditable) return;
   e.preventDefault();
   appState.goBack();
 }
 
-function handleMouseUp(e) {
+function handleMouseUp(e: MouseEvent) {
   // Mouse "back" button (button 3) → previous tab. goBack is a no-op
   // when there's no history, so an unconditional call is safe.
   if (e.button === 3) {

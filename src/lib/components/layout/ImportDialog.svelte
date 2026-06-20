@@ -1,14 +1,26 @@
-<script>
-import { importDatabase } from '$lib/services/backupService.js';
+<script lang="ts">
+import { importDatabase, type LoadedBackup } from '$lib/services/backupService.js';
 import { appState } from '$lib/stores/pets.js';
+import type { ImportMode } from '$lib/types/index.js';
+import { errorMessage } from '$lib/utils/error.js';
 import { focusTrap } from '$lib/utils/focusTrap.js';
 import { formatShortDate } from '$lib/utils/timestamp.js';
 
-const { backup, onClose, onResult } = $props();
+interface StatusResult {
+  type: 'success' | 'error';
+  message: string;
+}
+
+interface Props {
+  backup: LoadedBackup;
+  onClose: () => void;
+  onResult: (result: StatusResult) => void;
+}
+
+const { backup, onClose, onResult }: Props = $props();
 const metadata = $derived(backup?.metadata ?? null);
 
-/** @type {'replace' | 'merge'} */
-let mode = $state('replace');
+let mode = $state<ImportMode>('replace');
 let includeGenes = $state(true);
 let includePets = $state(true);
 let includeImages = $state(true);
@@ -29,7 +41,7 @@ async function handleImport() {
       includeImages: includeImages && hasImages,
     });
 
-    let parts = [];
+    let parts: string[] = [];
     if (result.genes > 0) parts.push(`${result.genes} genes`);
     if (result.pets > 0) parts.push(`${result.pets} pets`);
     if (result.images > 0) parts.push(`${result.images} images`);
@@ -40,7 +52,7 @@ async function handleImport() {
     onResult({ type: 'success', message });
     await appState.loadPets();
   } catch (err) {
-    onResult({ type: 'error', message: `Import failed: ${err.message}` });
+    onResult({ type: 'error', message: `Import failed: ${errorMessage(err)}` });
   }
   importing = false;
   onClose();

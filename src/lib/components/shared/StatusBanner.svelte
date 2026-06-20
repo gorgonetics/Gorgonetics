@@ -1,5 +1,6 @@
-<script>
+<script lang="ts">
 import { onDestroy, untrack } from 'svelte';
+import type { StatusType } from '$lib/types/index.js';
 
 /**
  * Inline or toast-mode status banner. Colour palette comes from the
@@ -26,9 +27,17 @@ import { onDestroy, untrack } from 'svelte';
  * (which change identity on every parent re-render) don't keep
  * resetting the countdown on their own.
  */
-const { type, message, toast = false, autoDismissMs, onDismiss } = $props();
+interface Props {
+  type: StatusType;
+  message: string;
+  toast?: boolean;
+  autoDismissMs?: number;
+  onDismiss?: () => void;
+}
 
-let timer = 0;
+const { type, message, toast = false, autoDismissMs, onDismiss }: Props = $props();
+
+let timer: ReturnType<typeof setTimeout> | 0 = 0;
 
 $effect(() => {
   // Depend explicitly on the user-visible content so an in-place

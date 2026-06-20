@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 import StatusBanner from '$lib/components/shared/StatusBanner.svelte';
 import StatusPane from '$lib/components/shared/StatusPane.svelte';
 import { communityView, loadInitial, loadMore } from '$lib/stores/community.svelte.js';

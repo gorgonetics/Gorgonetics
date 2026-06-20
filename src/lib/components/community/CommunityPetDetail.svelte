@@ -1,6 +1,6 @@
-<script>
+<script lang="ts">
 import StatusBanner from '$lib/components/shared/StatusBanner.svelte';
-import { getSharedPet } from '$lib/services/shareService.js';
+import { getSharedPet, type ImportResult } from '$lib/services/shareService.js';
 import { clearSelection, communityView, importSelected, selectedSharedPet } from '$lib/stores/community.svelte.js';
 import { errorMessage } from '$lib/utils/error.js';
 import { keyedResource } from '$lib/utils/keyedResource.svelte.js';
@@ -20,7 +20,7 @@ const isAnyImportInFlight = $derived(communityView.importingHash !== null);
 // The list view holds metadata-only SharedPets (no `genomeData`); the
 // detail pane fetches the full pet on demand via the shared keyed resource,
 // which rejects a stale result if the user moves to another row mid-fetch.
-let importStatus = $state(null);
+let importStatus = $state<ImportResult | null>(null);
 
 const genome = keyedResource(
   () => pet?.contentHash,

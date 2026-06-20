@@ -1,8 +1,14 @@
-<script>
+<script lang="ts">
 import { selectPet } from '$lib/stores/community.svelte.js';
+import type { SharedPet } from '$lib/types/index.js';
 import { formatShortDate } from '$lib/utils/timestamp.js';
 
-const { pet, selected = false } = $props();
+interface Props {
+  pet: SharedPet;
+  selected?: boolean;
+}
+
+const { pet, selected = false }: Props = $props();
 
 const uploadedLabel = $derived(formatShortDate(pet.uploadedAt));
 
@@ -10,7 +16,7 @@ function handleClick() {
   selectPet(pet.contentHash);
 }
 
-function handleKey(e) {
+function handleKey(e: KeyboardEvent) {
   if (e.key === 'Enter' || e.key === ' ') {
     e.preventDefault();
     selectPet(pet.contentHash);

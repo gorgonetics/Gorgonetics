@@ -9,7 +9,14 @@ const HIDDEN = '{ display: none !important; }';
 const INACTIVE = '{ background-color: #e8e8ec !important; border-color: #d0d0d6 !important; opacity: 0.5 !important; }';
 const DIMMED = '{ opacity: 0.2 !important; }';
 
-function pushInclusionRules(rules, baseSelector, attr, selected, hidden, declaration) {
+function pushInclusionRules(
+  rules: string[],
+  baseSelector: string,
+  attr: string,
+  selected: string[],
+  hidden: string[],
+  declaration: string,
+): void {
   if (selected.length > 0) {
     let not = '';
     for (const v of selected) not += `:not([${attr}="${v}"])`;
@@ -20,22 +27,27 @@ function pushInclusionRules(rules, baseSelector, attr, selected, hidden, declara
   }
 }
 
-/**
- * @param {object} filters
- * @param {string[]} filters.selectedAttributes
- * @param {string[]} filters.hiddenAttributes
- * @param {string[]} filters.selectedAppearances
- * @param {string[]} filters.hiddenAppearances
- * @param {string} filters.breedFilter
- * @param {string[]} filters.selectedChromosomes
- * @param {string[]} filters.hiddenChromosomes
- * @param {boolean} filters.showDiffsOnly
- * @param {boolean} filters.isHorse
- * @param {'attribute'|'appearance'} filters.currentView
- * @param {Record<string, { generic: boolean; breeds: Set<string> }>} filters.chrBreedRelevance
- * @returns {string}
- */
-export function buildFilterCSS(filters) {
+/** Per-chromosome breed relevance: `generic` rows apply to all breeds. */
+export interface ChrBreedRelevance {
+  generic: boolean;
+  breeds: Set<string>;
+}
+
+export interface FilterCSSInput {
+  selectedAttributes: string[];
+  hiddenAttributes: string[];
+  selectedAppearances?: string[];
+  hiddenAppearances?: string[];
+  breedFilter: string;
+  selectedChromosomes: string[];
+  hiddenChromosomes: string[];
+  showDiffsOnly: boolean;
+  isHorse: boolean;
+  currentView?: 'attribute' | 'appearance';
+  chrBreedRelevance: Record<string, ChrBreedRelevance>;
+}
+
+export function buildFilterCSS(filters: FilterCSSInput): string {
   const {
     selectedAttributes: sa,
     hiddenAttributes: ha,
@@ -50,7 +62,7 @@ export function buildFilterCSS(filters) {
     chrBreedRelevance,
   } = filters;
 
-  const rules = [];
+  const rules: string[] = [];
 
   if (currentView === 'attribute') {
     pushInclusionRules(rules, '.gene-cell', 'data-attr', sa, ha, FILTERED);
