@@ -122,3 +122,21 @@ Settled 2026-06-20:
 - **E2E churn** — many `data-testid` selectors will move; keep/alias testids per step so suites stay green.
 - **Feature regressions** — the recent Trio view and bulk-share must survive as first-class lenses, not be lost in the restructure.
 - **Don't fabricate game facts** — any new copy about Project Gorgon mechanics stays verified or omitted (per CLAUDE.md).
+
+---
+
+## 7. Adoption plan
+
+The six primitives (§5 step 1) are built and merged into the `redesign/library-workspace` epic. Adoption (§5 steps 2–5) changes the live app, so it follows three settled rules (2026-06-20):
+
+- **Parallel build, single flip.** The new shell is built as a hidden/flagged **My Pets** destination *alongside* the existing tabs. Every lens is migrated against it while the old app stays fully working; a final PR flips the nav 6 → 3 destinations and deletes the old paths. The epic stays shippable throughout.
+- **GeneGrid swap goes first.** Lowest structural risk and self-contained — it isolates retiring the global `.gene-cell` circle CSS from the structural work.
+- **E2E green every PR via testid aliases.** New components carry the old `data-testid`s forward so the existing suite keeps passing; the big e2e rewrite happens in the cutover PR.
+
+Adoption PRs into the epic, in order:
+
+1. **GeneGrid swap** — adopt `GeneGrid` in the pet view, Compare, and trio; retire the global `.gene-cell` circle rules in `GeneCell.svelte`; update `filterCSS.ts` selectors (`.gene-cell[data-attr]` → the new cell hook) and affected e2e.
+2. **Library shell** — new `Library.svelte` (FilterBar + PetRow list + card/table density + multi-select) and `Workspace.svelte` (selection-aware lens host), wired as the flagged **My Pets** destination. Pets + Stable collapse into it.
+3. **Workspace lenses** — fold Compare (2-pet) and Breed (rank → trio) into selection-driven lenses; preserve bulk-share and the trio breed/attribute filters.
+4. **Relocate** — gene-template editing → **Reference** destination; Community → the shared Library+detail shell with a source switch.
+5. **Cutover + cleanup** — flip top nav 6 → 3, delete dead components/panels (old MasterPanel/tab routing), rewrite e2e, regenerate screenshots, remove the flag.
