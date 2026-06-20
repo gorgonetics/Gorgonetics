@@ -14,6 +14,7 @@ import { focusTrap } from '$lib/utils/focusTrap.js';
 import type { UploadSource } from '$lib/utils/genomeUpload.js';
 import { isFileDrag, runGenomeUpload, selectGenomeFiles } from '$lib/utils/genomeUpload.js';
 import { getBasename } from '$lib/utils/path.js';
+import { filterPets } from '$lib/utils/petFilter.js';
 import PetCard from './PetCard.svelte';
 import PetEditor from './PetEditor.svelte';
 
@@ -79,23 +80,9 @@ $effect(() => {
   return () => clearTimeout(timer);
 });
 
-const filteredPets = $derived.by((): Pet[] => {
-  const q = debouncedSearchQuery ? debouncedSearchQuery.toLowerCase() : '';
-  return $pets.filter((pet: Pet) => {
-    if (q) {
-      if (!(pet.name || '').toLowerCase().includes(q) && !(pet.species || '').toLowerCase().includes(q)) {
-        return false;
-      }
-    }
-    if (selectedTags.length > 0) {
-      const petTags = pet.tags ?? [];
-      if (!selectedTags.every((t) => petTags.includes(t))) return false;
-    }
-    if (starredOnly && !pet.starred) return false;
-    if (stabledOnly && !pet.stabled) return false;
-    return true;
-  });
-});
+const filteredPets = $derived.by((): Pet[] =>
+  filterPets($pets, { query: debouncedSearchQuery, tags: selectedTags, starredOnly, stabledOnly }),
+);
 
 function toggleTagFilter(tag: string): void {
   if (selectedTags.includes(tag)) {
