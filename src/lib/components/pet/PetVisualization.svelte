@@ -1,28 +1,48 @@
-<script>
+<script lang="ts">
 import { onDestroy } from 'svelte';
 import SharePetDialog from '$lib/components/community/SharePetDialog.svelte';
 import GeneStatsTable from '$lib/components/gene/GeneStatsTable.svelte';
 import GeneVisualizer from '$lib/components/gene/GeneVisualizer.svelte';
 import StatusBanner from '$lib/components/shared/StatusBanner.svelte';
 import { settings } from '$lib/stores/settings.js';
+import type { DialogResult, Pet } from '$lib/types/index.js';
 import { HORSE_BREEDS } from '$lib/types/index.js';
+import type { StatsMap } from '$lib/utils/geneStats.js';
 import PetImageGallery from './PetImageGallery.svelte';
 
-const { pet } = $props();
+interface GeneVisualizerInstance {
+  getStatsData(): {
+    currentStats: StatsMap | null;
+    currentView: string;
+    selectedAttributes: string[];
+    hiddenAttributes: string[];
+    totalGenes: number;
+    neutralGenes: number;
+    petSpecies: string | undefined;
+  };
+  handleViewChange(view: string): void;
+  handleAttributeFilter(event: CustomEvent<{ attribute: string; ctrlKey: boolean; altKey: boolean }>): void;
+  setBreedFilter(breed: string): void;
+}
 
-let geneVisualizerRef = $state();
+interface Props {
+  pet?: Pet | null;
+}
+
+const { pet }: Props = $props();
+
+let geneVisualizerRef = $state<GeneVisualizerInstance | undefined>(undefined);
 let currentView = $state('attribute');
 let statsOpen = $state(false);
 let galleryOpen = $state(false);
-let drawerWidth = $state(320);
-let stats = $state(null);
+let drawerWidth = $state<number>(320);
+let stats = $state<ReturnType<GeneVisualizerInstance['getStatsData']> | null>(null);
 let breedFilter = $state('');
 let autoBreed = $state(false);
 let showShare = $state(false);
-/** @type {import('$lib/types/index.js').DialogResult | null} */
-let shareStatus = $state(null);
+let shareStatus = $state<DialogResult | null>(null);
 
-function handleShareResult(result) {
+function handleShareResult(result: DialogResult): void {
   shareStatus = result;
 }
 
@@ -37,7 +57,7 @@ $effect(() => {
 
 // Apply the breed filter whenever autoBreed or pet changes
 $effect(() => {
-  if (autoBreed && petHasKnownBreed) {
+  if (autoBreed && petHasKnownBreed && pet) {
     breedFilter = pet.breed;
   }
   if (geneVisualizerRef) {
@@ -45,9 +65,9 @@ $effect(() => {
   }
 });
 
-function toggleAutoBreed() {
+function toggleAutoBreed(): void {
   autoBreed = !autoBreed;
-  if (autoBreed && petHasKnownBreed) {
+  if (autoBreed && petHasKnownBreed && pet) {
     breedFilter = pet.breed;
   } else {
     breedFilter = '';
@@ -57,7 +77,7 @@ function toggleAutoBreed() {
   }
 }
 
-function setBreedFilter(fullName) {
+function setBreedFilter(fullName: string): void {
   breedFilter = breedFilter === fullName ? '' : fullName;
   if (geneVisualizerRef) {
     geneVisualizerRef.setBreedFilter(breedFilter);
@@ -65,9 +85,9 @@ function setBreedFilter(fullName) {
 }
 
 // Cleanup refs for resize listeners
-let cleanupResize = null;
+let cleanupResize = $state<(() => void) | null>(null);
 
-function handleViewChange(view) {
+function handleViewChange(view: string): void {
   currentView = view;
   if (geneVisualizerRef) {
     geneVisualizerRef.handleViewChange(view);
@@ -75,18 +95,18 @@ function handleViewChange(view) {
   refreshStats();
 }
 
-function toggleStats() {
+function toggleStats(): void {
   statsOpen = !statsOpen;
   if (statsOpen) refreshStats();
 }
 
-function refreshStats() {
+function refreshStats(): void {
   if (geneVisualizerRef) {
     stats = geneVisualizerRef.getStatsData();
   }
 }
 
-function handleAttributeFilter(event) {
+function handleAttributeFilter(event: CustomEvent<{ attribute: string; ctrlKey: boolean; altKey: boolean }>): void {
   if (geneVisualizerRef?.handleAttributeFilter) {
     geneVisualizerRef.handleAttributeFilter(event);
     refreshStats();
@@ -94,20 +114,20 @@ function handleAttributeFilter(event) {
 }
 
 // Called by GeneVisualizer when stats data changes
-function handleStatsUpdated() {
+function handleStatsUpdated(): void {
   if (statsOpen) refreshStats();
 }
 
-function startResize(e) {
+function startResize(e: MouseEvent): void {
   e.preventDefault();
   const startX = e.clientX;
   const startWidth = drawerWidth;
 
-  function onMove(e) {
+  function onMove(e: MouseEvent): void {
     drawerWidth = Math.max(240, Math.min(600, startWidth + (startX - e.clientX)));
   }
 
-  function onUp() {
+  function onUp(): void {
     window.removeEventListener('mousemove', onMove);
     window.removeEventListener('mouseup', onUp);
     cleanupResize = null;
@@ -219,7 +239,7 @@ onDestroy(() => {
     {/if}
 
     <div class="content-area">
-      {#if galleryOpen}
+      {#if galleryOpen && pet}
         <div class="gallery-container">
             <PetImageGallery {pet} />
         </div>

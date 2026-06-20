@@ -1,15 +1,25 @@
-<script>
+<script lang="ts">
 import { House, PawPrint, Star } from '@lucide/svelte';
+import type { MarkerKey } from '$lib/stores/pets.js';
+import type { Pet } from '$lib/types/index.js';
 import { getSpeciesEmoji } from '$lib/utils/species.js';
 
-const { pet, selected = false, onclick, onkeydown, onToggleMarker } = $props();
+interface Props {
+  pet: Pet;
+  selected?: boolean;
+  onclick?: (pet: Pet) => void;
+  onkeydown?: (e: KeyboardEvent) => void;
+  onToggleMarker?: (id: number, key: MarkerKey, value: boolean) => void;
+}
 
-function toggleMarker(e, key, value) {
+const { pet, selected = false, onclick, onkeydown, onToggleMarker }: Props = $props();
+
+function toggleMarker(e: MouseEvent, key: MarkerKey, value: boolean) {
   e.stopPropagation();
   onToggleMarker?.(pet.id, key, value);
 }
 
-function handleKey(e) {
+function handleKey(e: KeyboardEvent) {
   // Ignore keys that bubbled up from inner marker buttons — they handle
   // Space/Enter themselves; otherwise hitting those on a marker would also
   // fire the card's own "select pet" action.

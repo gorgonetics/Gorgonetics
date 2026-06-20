@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 import { onDestroy } from 'svelte';
 import {
   deleteImage,
@@ -7,35 +7,40 @@ import {
   reorderImages,
   uploadImage,
 } from '$lib/services/imageService.js';
+import type { Pet, PetImage } from '$lib/types/index.js';
 import { arrayMove, createDragState, createKeyboardReorder } from '$lib/utils/dragReorder.svelte.js';
 import { errorMessage } from '$lib/utils/error.js';
 import { focusTrap } from '$lib/utils/focusTrap.js';
 import { getBasename } from '$lib/utils/path.js';
 
-const { pet } = $props();
+interface Props {
+  pet: Pet;
+}
 
-let images = $state([]);
-let uploading = $state(false);
-let uploadProgress = $state(null);
-let lightboxIndex = $state(-1);
-let deleteTarget = $state(null);
-let statusMessage = $state(null);
-let statusTimer = null;
+const { pet }: Props = $props();
+
+let images = $state<PetImage[]>([]);
+let uploading = $state<boolean>(false);
+let uploadProgress = $state<{ current: number; total: number } | null>(null);
+let lightboxIndex = $state<number>(-1);
+let deleteTarget = $state<PetImage | null>(null);
+let statusMessage = $state<string | null>(null);
+let statusTimer: ReturnType<typeof setTimeout> | null = null;
 
 const lightboxImage = $derived(lightboxIndex >= 0 ? images[lightboxIndex] : null);
 
-async function loadImages() {
+async function loadImages(): Promise<void> {
   if (!pet?.id) return;
   images = await getImagesForPet(pet.id);
 }
 
-async function handleUpload() {
+async function handleUpload(): Promise<void> {
   const paths = await pickImageFiles();
   if (paths.length === 0) return;
 
   uploading = true;
   const total = paths.length;
-  const failures = [];
+  const failures: string[] = [];
 
   // Sequential upload — consider parallel with concurrency limit if this becomes a bottleneck
   for (let i = 0; i < paths.length; i++) {
@@ -59,44 +64,44 @@ async function handleUpload() {
     statusMessage = `Uploaded ${total} image${total > 1 ? 's' : ''}`;
   }
   if (statusMessage) {
-    clearTimeout(statusTimer);
+    clearTimeout(statusTimer ?? undefined);
     statusTimer = setTimeout(() => {
       statusMessage = null;
     }, 5000);
   }
 }
 
-function openLightbox(index) {
+function openLightbox(index: number): void {
   lightboxIndex = index;
 }
 
-function closeLightbox() {
+function closeLightbox(): void {
   lightboxIndex = -1;
 }
 
-function prevImage() {
+function prevImage(): void {
   if (lightboxIndex > 0) lightboxIndex--;
 }
 
-function nextImage() {
+function nextImage(): void {
   if (lightboxIndex < images.length - 1) lightboxIndex++;
 }
 
-function handleLightboxKey(e) {
+function handleLightboxKey(e: KeyboardEvent): void {
   if (e.key === 'Escape') closeLightbox();
   else if (e.key === 'ArrowLeft') prevImage();
   else if (e.key === 'ArrowRight') nextImage();
 }
 
-function confirmDelete(img) {
+function confirmDelete(img: PetImage): void {
   deleteTarget = img;
 }
 
-function cancelDelete() {
+function cancelDelete(): void {
   deleteTarget = null;
 }
 
-async function executeDelete() {
+async function executeDelete(): Promise<void> {
   if (!deleteTarget) return;
   try {
     await deleteImage(deleteTarget.id, deleteTarget.pet_id, deleteTarget.filename);
@@ -113,7 +118,7 @@ async function executeDelete() {
 
 const drag = createDragState();
 
-async function handleDrop(e, dropIndex) {
+async function handleDrop(e: DragEvent, dropIndex: number): Promise<void> {
   e.preventDefault();
   drag.dragOverIndex = null;
   if (drag.draggedIndex === null || drag.draggedIndex === dropIndex) return;
@@ -129,7 +134,7 @@ async function handleDrop(e, dropIndex) {
   drag.draggedIndex = null;
 
   try {
-    await reorderImages(reordered.map((img) => img.id));
+    await reorderImages(images.map((img) => img.id));
   } catch {
     images = previous;
   }
@@ -140,27 +145,27 @@ async function handleDrop(e, dropIndex) {
 // the `images` index. If image filtering is ever added, gate the handle (as
 // PetList does with `isDraggable`) and map indices by id, or this will reorder
 // by a misaligned index.
-let reorderAnnouncement = $state('');
+let reorderAnnouncement = $state<string>('');
 const kbReorder = createKeyboardReorder({
   count: () => images.length,
-  reorder: (from, to) => {
+  reorder: (from: number, to: number) => {
     images = arrayMove(images, from, to);
   },
   persist: () => reorderImages(images.map((img) => img.id)),
   snapshot: () => [...images],
-  restore: (snap) => {
-    images = snap;
+  restore: (snap: unknown) => {
+    images = snap as PetImage[];
   },
-  label: (i) => images[i]?.original_name || 'image',
-  announce: (msg) => {
+  label: (i: number) => images[i]?.original_name || 'image',
+  announce: (msg: string) => {
     reorderAnnouncement = msg;
   },
-  focusItem: (i) => {
-    document.querySelectorAll('.thumbnail-grid .reorder-handle')[i]?.focus();
+  focusItem: (i: number) => {
+    document.querySelectorAll<HTMLElement>('.thumbnail-grid .reorder-handle')[i]?.focus();
   },
 });
 
-onDestroy(() => clearTimeout(statusTimer));
+onDestroy(() => clearTimeout(statusTimer ?? undefined));
 
 $effect(() => {
   const _id = pet?.id;
