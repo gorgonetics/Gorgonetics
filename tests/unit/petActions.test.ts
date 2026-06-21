@@ -65,6 +65,21 @@ describe('PetActions', () => {
     expect(deletePet).toHaveBeenCalledWith(7);
   });
 
+  it('clicking inside the dialog does not dismiss it (only the backdrop does)', async () => {
+    const { container } = render(PetActions, { pet } as never);
+    await fireEvent.click(q(container, '[data-testid="pet-delete-btn"]') as HTMLElement);
+    await waitFor(() => expect(q(container, '[role="alertdialog"]')).not.toBeNull());
+
+    // A click that bubbles up from the dialog body must not close it.
+    await fireEvent.click(q(container, '.confirm-message') as HTMLElement);
+    expect(q(container, '[role="alertdialog"]')).not.toBeNull();
+    expect(deletePet).not.toHaveBeenCalled();
+
+    // The backdrop itself does close it.
+    await fireEvent.click(q(container, '.modal-backdrop') as HTMLElement);
+    await waitFor(() => expect(q(container, '[role="alertdialog"]')).toBeNull());
+  });
+
   it('cancel dismisses the confirm dialog without deleting', async () => {
     const { container } = render(PetActions, { pet } as never);
     await fireEvent.click(q(container, '[data-testid="pet-delete-btn"]') as HTMLElement);

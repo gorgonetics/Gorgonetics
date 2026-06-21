@@ -90,7 +90,11 @@ async function doDelete(): Promise<void> {
 
 {#if confirming}
   <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="modal-backdrop" onclick={cancelDelete} onkeydown={(e) => { if (e.key === 'Escape') cancelDelete(); }}>
+  <div
+    class="modal-backdrop"
+    onclick={(e) => { if (e.target === e.currentTarget) cancelDelete(); }}
+    onkeydown={(e) => { if (e.key === 'Escape') cancelDelete(); }}
+  >
     <div class="confirm-dialog" role="alertdialog" aria-label="Confirm delete" aria-modal="true" use:focusTrap>
       <p class="confirm-message">Delete <strong>{pet.name}</strong>?</p>
       <p class="confirm-subtext">This action cannot be undone.</p>
