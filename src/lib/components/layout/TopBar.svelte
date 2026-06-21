@@ -56,6 +56,14 @@ function handleMouseUp(e: MouseEvent) {
             >
                 ✨ My Pets
             </button>
+            <button
+                class="tab-btn"
+                class:active={$activeTab === "reference"}
+                data-testid="tab-reference"
+                onclick={() => switchTab("reference")}
+            >
+                📚 Reference
+            </button>
         {/if}
         <button
             class="tab-btn"

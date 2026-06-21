@@ -6,6 +6,7 @@ import ComparisonView from '$lib/components/comparison/ComparisonView.svelte';
 import GeneEditingView from '$lib/components/GeneEditingView.svelte';
 import Workspace from '$lib/components/library/Workspace.svelte';
 import PetVisualization from '$lib/components/pet/PetVisualization.svelte';
+import EmptyState from '$lib/components/shared/EmptyState.svelte';
 import StableTable from '$lib/components/stable/StableTable.svelte';
 import { activeTab, appState, error, geneEditingView, loading, selectedPet } from '$lib/stores/pets.js';
 
@@ -24,6 +25,19 @@ onMount(async () => {
 
 	{#if $activeTab === 'library'}
 		<Workspace />
+	{:else if $activeTab === 'reference'}
+		{#if $geneEditingView}
+			<GeneEditingView
+				animalType={($geneEditingView as { animalType?: string; chromosome?: string }).animalType}
+				chromosome={($geneEditingView as { animalType?: string; chromosome?: string }).chromosome}
+			/>
+		{:else}
+			<EmptyState
+				icon="📚"
+				title="Edit gene templates"
+				body="Pick an animal type and chromosome in the sidebar, then choose Edit Genes."
+			/>
+		{/if}
 	{:else if $activeTab === 'stable'}
 		<StableTable />
 	{:else if $activeTab === 'compare'}
