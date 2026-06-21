@@ -12,29 +12,27 @@ test.describe('Pet Editor – Save', () => {
   });
 
   test('saves name change and persists it', async ({ page }) => {
-    // Grab original name from the card
-    const originalName = (await page.locator('.pr-name').first().textContent()) ?? '';
+    // The roster is name-sorted, so target rows by name rather than position.
+    const firstRow = page.locator('[data-testid="roster"] tbody tr').first();
+    const originalName = (await firstRow.locator('[data-testid="roster-open"]').textContent())?.trim() ?? '';
 
-    await openEditor(page);
-    const nameInput = page.locator('#petName');
+    await firstRow.locator('[data-testid="pet-edit-btn"]').click();
+    await expect(page.locator('.modal-panel')).toBeVisible();
     const newName = `Renamed-${Date.now()}`;
-    await nameInput.fill(newName);
-
+    await page.locator('#petName').fill(newName);
     await page.locator('.btn-primary').click();
 
-    // Modal should close without error
     await expect(page.locator('.modal-panel')).not.toBeVisible();
     await expect(page.locator('.save-error')).toHaveCount(0);
 
-    // The pet card should now show the updated name
-    await expect(page.locator('.pr-name').first()).toHaveText(newName);
+    // The renamed pet shows in the table (sort may move it).
+    const renamedRow = page.locator('[data-testid="roster"] tbody tr').filter({ hasText: newName });
+    await expect(renamedRow).toHaveCount(1);
 
-    // Re-open editor and verify the name stuck
-    await openEditor(page);
+    // Re-open that pet by name and verify the change stuck, then restore.
+    await renamedRow.locator('[data-testid="pet-edit-btn"]').click();
     await expect(page.locator('#petName')).toHaveValue(newName);
-
-    // Restore original name so other tests aren't affected
-    await nameInput.fill(originalName);
+    await page.locator('#petName').fill(originalName);
     await page.locator('.btn-primary').click();
     await expect(page.locator('.modal-panel')).not.toBeVisible();
   });
@@ -203,14 +201,14 @@ test.describe('Pet Editor – Cancel', () => {
   });
 
   test('cancel discards name change', async ({ page }) => {
-    const originalName = (await page.locator('.pr-name').first().textContent()) ?? '';
+    const originalName = (await page.locator('[data-testid="roster-open"]').first().textContent()) ?? '';
 
     await openEditor(page);
     await page.locator('#petName').fill('ShouldNotPersist');
     await page.locator('.btn-secondary').click();
 
     await expect(page.locator('.modal-panel')).not.toBeVisible();
-    await expect(page.locator('.pr-name').first()).toHaveText(originalName);
+    await expect(page.locator('[data-testid="roster-open"]').first()).toHaveText(originalName);
   });
 
   test('cancel discards attribute change', async ({ page }) => {
@@ -231,25 +229,25 @@ test.describe('Pet Editor – Cancel', () => {
   });
 
   test('escape key closes modal without saving', async ({ page }) => {
-    const originalName = (await page.locator('.pr-name').first().textContent()) ?? '';
+    const originalName = (await page.locator('[data-testid="roster-open"]').first().textContent()) ?? '';
 
     await openEditor(page);
     await page.locator('#petName').fill('EscapeShouldDiscard');
     await page.keyboard.press('Escape');
 
     await expect(page.locator('.modal-panel')).not.toBeVisible();
-    await expect(page.locator('.pr-name').first()).toHaveText(originalName);
+    await expect(page.locator('[data-testid="roster-open"]').first()).toHaveText(originalName);
   });
 
   test('backdrop click closes modal without saving', async ({ page }) => {
-    const originalName = (await page.locator('.pr-name').first().textContent()) ?? '';
+    const originalName = (await page.locator('[data-testid="roster-open"]').first().textContent()) ?? '';
 
     await openEditor(page);
     await page.locator('#petName').fill('BackdropShouldDiscard');
     await page.locator('.modal-backdrop').click({ position: { x: 5, y: 5 } });
 
     await expect(page.locator('.modal-panel')).not.toBeVisible();
-    await expect(page.locator('.pr-name').first()).toHaveText(originalName);
+    await expect(page.locator('[data-testid="roster-open"]').first()).toHaveText(originalName);
   });
 });
 
@@ -264,7 +262,7 @@ test.describe('Pet Editor – Initial Values', () => {
   });
 
   test('editor shows correct pet name', async ({ page }) => {
-    const cardName = (await page.locator('.pr-name').first().textContent()) ?? '';
+    const cardName = (await page.locator('[data-testid="roster-open"]').first().textContent()) ?? '';
     await openEditor(page);
     await expect(page.locator('#petName')).toHaveValue(cardName);
   });
@@ -320,7 +318,7 @@ test.describe('Pet Delete – Count Integrity', () => {
   });
 
   test('deleting a pet updates the pet count', async ({ page }) => {
-    const rows = page.locator('[data-testid="pet-row"]');
+    const rows = page.locator('[data-testid="roster"] tbody tr');
     const countBefore = await rows.count();
 
     await rows.first().locator('[data-testid="pet-delete-btn"]').click();

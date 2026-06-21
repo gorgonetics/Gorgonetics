@@ -7,12 +7,21 @@
  * name opens that pet; checkboxes build a multi-selection for the lenses.
  * See docs/design/redesign-library-workspace-v1.md (§2.1).
  */
+import PetActions from '$lib/components/shared/PetActions.svelte';
 import { getAllAttributeNames, getAllAttributes } from '$lib/services/configService.js';
 import { libraryView, setLibrarySelection, toggleLibrarySelection } from '$lib/stores/library.svelte.js';
 import { pets } from '$lib/stores/pets.js';
 import type { Pet } from '$lib/types/index.js';
 import { filterPets } from '$lib/utils/petFilter.js';
 import { capitalize } from '$lib/utils/string.js';
+
+interface Props {
+  /** Open a pet's detail (clicking its name). Distinct from the row checkbox,
+   *  which builds the multi-selection for bulk actions. */
+  onOpen?: (pet: Pet) => void;
+}
+
+const { onOpen }: Props = $props();
 
 interface Column {
   id: string;
@@ -111,9 +120,10 @@ function toggleSelectAll(): void {
   setLibrarySelection(next);
 }
 
-// Open a single pet (replaces the selection so the Workspace shows its detail).
+// Open a single pet's detail. The row checkbox is separate (multi-select for
+// bulk actions); clicking the name opens the full-view detail.
 function open(pet: Pet): void {
-  setLibrarySelection(new Set([pet.id]));
+  onOpen?.(pet);
 }
 </script>
 
@@ -138,11 +148,12 @@ function open(pet: Pet): void {
             </button>
           </th>
         {/each}
+        <th class="act-col" aria-label="Actions"></th>
       </tr>
     </thead>
     <tbody>
       {#if sorted.length === 0}
-        <tr><td class="empty" colspan={columns.length + 1}>No pets match these filters.</td></tr>
+        <tr><td class="empty" colspan={columns.length + 2}>No pets match these filters.</td></tr>
       {:else}
         {#each sorted as pet (pet.id)}
           <tr class:row-selected={libraryView.selectedIds.has(pet.id)} data-pet-id={pet.id}>
@@ -152,7 +163,7 @@ function open(pet: Pet): void {
                 data-testid="roster-row-select"
                 checked={libraryView.selectedIds.has(pet.id)}
                 onchange={() => toggleLibrarySelection(pet.id)}
-                aria-label="Select {pet.name}"
+                aria-label="Select {pet.name ?? 'pet'}"
               />
             </td>
             {#each columns as col (col.id)}
@@ -166,6 +177,9 @@ function open(pet: Pet): void {
                 {/if}
               </td>
             {/each}
+            <td class="act-col">
+              <PetActions {pet} variant="icon" />
+            </td>
           </tr>
         {/each}
       {/if}
@@ -183,6 +197,8 @@ function open(pet: Pet): void {
   .roster-table thead th { position: sticky; top: 0; background: var(--bg-tertiary); color: var(--text-secondary); font-weight: 600; z-index: 1; }
   .roster-table th.active-sort { color: var(--accent-text, var(--accent)); }
   .sel-col { width: 1%; text-align: center; }
+  .act-col { width: 1%; white-space: nowrap; text-align: right; }
+  .act-col :global(.action-btn) { display: inline-grid; }
   .sort-btn { background: none; border: none; padding: 0; font: inherit; color: inherit; cursor: pointer; }
   .sort-btn:hover { color: var(--accent-text, var(--accent)); }
   .name-btn { background: none; border: none; padding: 0; font: inherit; font-weight: 600; color: var(--accent-text, var(--accent)); cursor: pointer; }

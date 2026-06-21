@@ -1,29 +1,31 @@
 import { expect, test } from '@playwright/test';
 import { gotoDestination, openGeneEditor, waitForAppReady, waitForPets } from './helpers.js';
 
-// App-level smoke coverage for the three-destination IA (My Pets / Community /
-// Reference). Pet editing/deletion lives in pet-crud.spec; the Library/Workspace
-// flows live in the redesign-*.spec files — this file keeps only the launch,
-// layout, navigation, and gene-editor reachability checks.
+// App-level smoke coverage for the four-destination IA (My Pets / Breed /
+// Community / Reference). The table-first My Pets flows live in
+// redesign-mypets.spec; pet editing/deletion detail lives in pet-crud.spec.
+// This file keeps launch, layout, navigation, and gene-editor reachability.
 
 test.describe('App Launch', () => {
-  test('shows top bar with the three destinations', async ({ page }) => {
+  test('shows top bar with the four destinations', async ({ page }) => {
     await page.goto('/');
     await waitForAppReady(page);
 
     await expect(page.locator('.app-name')).toHaveText('Gorgonetics');
     await expect(page.locator('[data-testid="tab-library"]')).toBeVisible();
+    await expect(page.locator('[data-testid="tab-breed"]')).toBeVisible();
     await expect(page.locator('[data-testid="tab-community"]')).toBeVisible();
     await expect(page.locator('[data-testid="tab-reference"]')).toBeVisible();
   });
 
-  test('shows the master-detail layout with the library and workspace', async ({ page }) => {
+  test('My Pets is the full-width default with no sidebar', async ({ page }) => {
     await page.goto('/');
     await waitForAppReady(page);
 
-    await expect(page.locator('.master-panel')).toBeVisible();
-    await expect(page.locator('[data-testid="library"]')).toBeVisible();
-    await expect(page.locator('[data-testid="workspace"]')).toBeVisible();
+    await expect(page.locator('[data-testid="my-pets"]')).toBeVisible();
+    await expect(page.locator('[data-testid="roster"]')).toBeVisible();
+    // Table-first: no persistent master-panel sidebar on My Pets.
+    await expect(page.locator('.master-panel')).toHaveCount(0);
   });
 
   test('has no auth UI', async ({ page }) => {
@@ -33,50 +35,44 @@ test.describe('App Launch', () => {
     await expect(page.getByText('Sign In')).toHaveCount(0);
     await expect(page.getByText('Sign Up')).toHaveCount(0);
   });
-
-  test('opens on the roster when nothing is selected', async ({ page }) => {
-    await page.goto('/');
-    await waitForPets(page);
-    // With pets present and no selection, the workspace shows the roster table.
-    await expect(page.locator('[data-testid="workspace-roster"]')).toBeVisible();
-  });
 });
 
-test.describe('Library', () => {
+test.describe('My Pets table', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await waitForPets(page);
   });
 
-  test('shows demo pet rows', async ({ page }) => {
-    expect(await page.locator('[data-testid="pet-row"]').count()).toBeGreaterThan(0);
+  test('shows demo pets as roster rows', async ({ page }) => {
+    expect(await page.locator('[data-testid="roster-open"]').count()).toBeGreaterThan(0);
   });
 
   test('shows search input and upload button', async ({ page }) => {
     await expect(page.locator('[data-testid="filter-search"]')).toBeVisible();
-    await expect(page.locator('[data-testid="library-upload"]')).toContainText('Upload Genome');
+    await expect(page.locator('[data-testid="mypets-upload"]')).toContainText('Upload Genome');
   });
 
-  test('shows the pet count', async ({ page }) => {
-    await expect(page.locator('[data-testid="library-count"]')).toContainText('pet');
-  });
-
-  test('filters pet rows by search', async ({ page }) => {
-    const rows = page.locator('[data-testid="pet-row"]');
+  test('filters rows by search', async ({ page }) => {
+    const rows = page.locator('[data-testid="roster"] tbody tr');
     const before = await rows.count();
     expect(before).toBeGreaterThan(0);
 
     await page.locator('[data-testid="filter-search"]').fill('zzz-nonexistent');
-    await expect(rows).toHaveCount(0);
+    await expect(page.locator('[data-testid="roster-open"]')).toHaveCount(0);
 
     await page.locator('[data-testid="filter-search"]').fill('');
     await expect(rows).toHaveCount(before);
   });
 
   test('shows per-row edit/delete actions', async ({ page }) => {
-    const firstRow = page.locator('[data-testid="pet-row"]').first();
+    const firstRow = page.locator('[data-testid="roster"] tbody tr').first();
     await expect(firstRow.locator('[data-testid="pet-edit-btn"]')).toBeVisible();
     await expect(firstRow.locator('[data-testid="pet-delete-btn"]')).toBeVisible();
+  });
+
+  test('checking a row marks it selected', async ({ page }) => {
+    await page.locator('[data-testid="roster-row-select"]').first().check();
+    await expect(page.locator('[data-testid="roster"] tbody tr.row-selected')).toHaveCount(1);
   });
 });
 
@@ -84,36 +80,33 @@ test.describe('Pet Detail View', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await waitForPets(page);
+    await page.locator('[data-testid="roster-open"]').first().click();
+    await expect(page.locator('[data-testid="pet-detail"]')).toBeVisible();
   });
 
-  test('selecting a pet shows its visualization', async ({ page }) => {
-    await page.locator('[data-testid="pet-row"]').first().click();
+  test('opening a pet shows its visualization', async ({ page }) => {
     await expect(page.locator('.pet-visualization')).toBeVisible();
     await expect(page.locator('.detail-title')).toBeVisible();
   });
 
   test('shows view control buttons', async ({ page }) => {
-    await page.locator('[data-testid="pet-row"]').first().click();
     await expect(page.locator('.view-btn').filter({ hasText: 'Attributes' })).toBeVisible();
     await expect(page.locator('.view-btn').filter({ hasText: 'Appearance' })).toBeVisible();
     await expect(page.locator('.view-btn').filter({ hasText: 'Stats' })).toBeVisible();
   });
 
-  test('highlights the selected pet row', async ({ page }) => {
-    await page.locator('[data-testid="pet-row"]').first().click();
-    await expect(page.locator('[data-testid="pet-row"].selected')).toHaveCount(1);
-  });
-
   test('stats drawer toggles on button click', async ({ page }) => {
-    await page.locator('[data-testid="pet-row"]').first().click();
-    await expect(page.locator('.pet-visualization')).toBeVisible();
     await expect(page.locator('.stats-drawer')).toHaveCount(0);
-
     await page.locator('.view-btn').filter({ hasText: 'Stats' }).click();
     await expect(page.locator('.stats-drawer')).toBeVisible();
-
     await page.locator('.view-btn').filter({ hasText: 'Stats' }).click();
     await expect(page.locator('.stats-drawer')).toHaveCount(0);
+  });
+
+  test('back returns to the table', async ({ page }) => {
+    await page.locator('[data-testid="pet-detail-back"]').click();
+    await expect(page.locator('[data-testid="pet-detail"]')).toHaveCount(0);
+    await expect(page.locator('[data-testid="roster"]')).toBeVisible();
   });
 });
 
@@ -154,6 +147,10 @@ test.describe('Destination Navigation', () => {
 
     await expect(page.locator('[data-testid="tab-library"]')).toHaveClass(/active/);
 
+    await gotoDestination(page, 'Breed');
+    await expect(page.locator('[data-testid="tab-breed"]')).toHaveClass(/active/);
+    await expect(page.locator('[data-testid="breed-view"]')).toBeVisible();
+
     await gotoDestination(page, 'Reference');
     await expect(page.locator('[data-testid="tab-reference"]')).toHaveClass(/active/);
     await expect(page.locator('#animalType')).toBeVisible();
@@ -162,18 +159,18 @@ test.describe('Destination Navigation', () => {
     await expect(page.locator('[data-testid="tab-library"]')).toHaveClass(/active/);
   });
 
-  test('clears the pet selection when returning to My Pets', async ({ page }) => {
+  test('returning to My Pets resets to the table', async ({ page }) => {
     await page.goto('/');
     await waitForPets(page);
 
-    await page.locator('[data-testid="pet-row"]').first().click();
-    await expect(page.locator('.pet-visualization')).toBeVisible();
+    await page.locator('[data-testid="roster-open"]').first().click();
+    await expect(page.locator('[data-testid="pet-detail"]')).toBeVisible();
 
-    // Leaving unmounts the Library; returning remounts it and its mount effect
-    // clears the selection, so the workspace falls back to the roster.
+    // Leaving unmounts My Pets; returning remounts it back at the table.
     await gotoDestination(page, 'Reference');
     await gotoDestination(page, 'My Pets');
-    await expect(page.locator('[data-testid="workspace-roster"]')).toBeVisible();
+    await expect(page.locator('[data-testid="pet-detail"]')).toHaveCount(0);
+    await expect(page.locator('[data-testid="roster"]')).toBeVisible();
   });
 });
 
@@ -188,7 +185,7 @@ test.describe('Window Sizing', () => {
       await page.goto('/');
       await waitForAppReady(page);
       await expect(page.locator('.top-bar')).toBeVisible();
-      await expect(page.locator('.master-panel')).toBeVisible();
+      await expect(page.locator('[data-testid="my-pets"]')).toBeVisible();
     });
   }
 });

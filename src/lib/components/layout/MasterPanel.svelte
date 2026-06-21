@@ -1,6 +1,5 @@
 <script lang="ts">
 import GeneEditor from '$lib/components/gene/GeneEditor.svelte';
-import Library from '$lib/components/library/Library.svelte';
 import { activeTab } from '$lib/stores/pets.js';
 import {
   commitSidebarWidth,
@@ -62,9 +61,9 @@ function onHandleKeydown(e: KeyboardEvent) {
 }
 </script>
 
-<!-- Only the destinations that have a master list use the sidebar; My Pets
-     (table-first), Breed, and Community render full-width with no rail. -->
-{#if $activeTab !== "reference" && $activeTab !== "library"}
+<!-- Only Reference uses the sidebar (its gene-template picker). My Pets is
+     table-first, and Breed/Community render full-width — no rail. -->
+{#if $activeTab !== "reference"}
     <!-- no sidebar for this destination -->
 {:else if sidebar.collapsed}
     <button class="sidebar-rail" title="Expand sidebar" aria-label="Expand sidebar" onclick={toggleSidebar}>
@@ -78,13 +77,9 @@ function onHandleKeydown(e: KeyboardEvent) {
             aria-label="Collapse sidebar"
             onclick={toggleSidebar}
         >‹</button>
-        {#if $activeTab === "reference"}
-            <div class="gene-editor-wrapper">
-                <GeneEditor />
-            </div>
-        {:else if $activeTab === "library"}
-            <Library />
-        {/if}
+        <div class="gene-editor-wrapper">
+            <GeneEditor />
+        </div>
         <!-- svelte-ignore a11y_no_static_element_interactions -->
         <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
         <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->

@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render } from '@testing-library/svelte';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import Roster from '$lib/components/library/Roster.svelte';
 import { libraryView } from '$lib/stores/library.svelte.js';
 import { pets } from '$lib/stores/pets.js';
@@ -94,10 +94,14 @@ describe('Roster', () => {
     expect(rowNames(container)).toEqual(['Roach', 'Dusty']);
   });
 
-  it('opening a pet by name sets it as the sole selection', async () => {
-    const { container } = render(Roster);
+  it('clicking a pet name invokes onOpen with that pet (separate from selection)', async () => {
+    const onOpen = vi.fn();
+    const { container } = render(Roster, { onOpen } as never);
     await fireEvent.click(container.querySelectorAll('[data-testid="roster-open"]')[1] as HTMLButtonElement);
-    expect([...libraryView.selectedIds]).toEqual([2]);
+    expect(onOpen).toHaveBeenCalledTimes(1);
+    expect(onOpen.mock.calls[0][0].id).toBe(2);
+    // Opening must NOT mutate the multi-selection.
+    expect(libraryView.selectedIds.size).toBe(0);
   });
 
   it('row checkbox toggles multi-selection; select-all covers the filtered set', async () => {

@@ -3,7 +3,7 @@ import { onMount } from 'svelte';
 import BreedView from '$lib/components/breeding/BreedView.svelte';
 import CommunityTab from '$lib/components/community/CommunityTab.svelte';
 import GeneEditingView from '$lib/components/GeneEditingView.svelte';
-import Workspace from '$lib/components/library/Workspace.svelte';
+import MyPets from '$lib/components/library/MyPets.svelte';
 import EmptyState from '$lib/components/shared/EmptyState.svelte';
 import { activeTab, appState, error, geneEditingView, loading } from '$lib/stores/pets.js';
 
@@ -47,7 +47,7 @@ onMount(async () => {
 	{:else if $activeTab === 'community'}
 		<CommunityTab />
 	{:else}
-		<Workspace />
+		<MyPets />
 	{/if}
 </div>
 
