@@ -52,18 +52,24 @@ $effect(() => {
   }
 });
 
-// Switching species changes the candidate universe; drop a multi-selection that
-// would otherwise act on now-hidden pets, and close any open detail/compare.
-$effect(() => {
-  libraryView.species;
-  clearLibrarySelection();
-  detailPetId = null;
-  comparing = false;
-});
-
 // --- View mode: table (default) | detail | compare -------------------------
 let detailPetId = $state<number | null>(null);
 let comparing = $state(false);
+
+// Switching species changes the candidate universe; drop a multi-selection that
+// would otherwise act on now-hidden pets, and close any open detail/compare.
+// Guarded on an actual change (not the initial mount run) so it can't clobber a
+// freshly-opened detail when a click and the effect's first run race.
+let prevSpecies: string | undefined;
+$effect(() => {
+  const species = libraryView.species;
+  if (prevSpecies !== undefined && prevSpecies !== species) {
+    clearLibrarySelection();
+    detailPetId = null;
+    comparing = false;
+  }
+  prevSpecies = species;
+});
 
 // Resolve against the live pet list so a deleted pet drops out (→ back to table).
 const detailPet = $derived(detailPetId == null ? null : ($pets.find((p) => p.id === detailPetId) ?? null));
