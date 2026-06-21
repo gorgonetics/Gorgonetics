@@ -7,7 +7,7 @@
  * name opens that pet; checkboxes build a multi-selection for the lenses.
  * See docs/design/redesign-library-workspace-v1.md (§2.1).
  */
-import { getAllAttributeNames, getAllAttributes, normalizeSpecies } from '$lib/services/configService.js';
+import { getAllAttributeNames, getAllAttributes } from '$lib/services/configService.js';
 import { libraryView, setLibrarySelection, toggleLibrarySelection } from '$lib/stores/library.svelte.js';
 import { pets } from '$lib/stores/pets.js';
 import type { Pet } from '$lib/types/index.js';
