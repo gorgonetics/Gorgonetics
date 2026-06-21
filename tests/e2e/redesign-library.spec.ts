@@ -150,4 +150,24 @@ test.describe('Redesign — Library + Workspace shell', () => {
     await expect(rows).toHaveCount(before);
     await expect(rows.filter({ hasText: 'Sample Horse' }).first()).toBeVisible();
   });
+
+  test('a multi-selection can be bulk-shared to the community', async ({ page }) => {
+    await openLibrary(page);
+
+    const checks = page.locator('[data-testid="pet-row-select"]');
+    await checks.nth(0).check();
+    await checks.nth(1).check();
+
+    // The selection footer surfaces the bulk-share action.
+    const foot = page.locator('[data-testid="library-foot"]');
+    await expect(foot).toContainText('2 selected');
+    await foot.locator('[data-testid="library-bulk-share"]').click();
+
+    const dialog = page.getByTestId('bulk-share-dialog');
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toContainText('Share 2 pets to the community');
+
+    await dialog.getByRole('button', { name: 'Cancel' }).click();
+    await expect(page.getByTestId('bulk-share-dialog')).toHaveCount(0);
+  });
 });
