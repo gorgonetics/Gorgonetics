@@ -3,6 +3,7 @@ import { onDestroy } from 'svelte';
 import SharePetDialog from '$lib/components/community/SharePetDialog.svelte';
 import GeneStatsTable from '$lib/components/gene/GeneStatsTable.svelte';
 import GeneVisualizer from '$lib/components/gene/GeneVisualizer.svelte';
+import PetActions from '$lib/components/shared/PetActions.svelte';
 import StatusBanner from '$lib/components/shared/StatusBanner.svelte';
 import { settings } from '$lib/stores/settings.js';
 import type { DialogResult, Pet } from '$lib/types/index.js';
@@ -216,6 +217,7 @@ onDestroy(() => {
                 >
                     Share
                 </button>
+                {#if pet}<PetActions {pet} variant="button" />{/if}
             </div>
         </div>
     </div>
