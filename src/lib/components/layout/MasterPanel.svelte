@@ -62,7 +62,11 @@ function onHandleKeydown(e: KeyboardEvent) {
 }
 </script>
 
-{#if sidebar.collapsed}
+<!-- Only the destinations that have a master list use the sidebar; My Pets
+     (table-first), Breed, and Community render full-width with no rail. -->
+{#if $activeTab !== "reference" && $activeTab !== "library"}
+    <!-- no sidebar for this destination -->
+{:else if sidebar.collapsed}
     <button class="sidebar-rail" title="Expand sidebar" aria-label="Expand sidebar" onclick={toggleSidebar}>
         ›
     </button>
