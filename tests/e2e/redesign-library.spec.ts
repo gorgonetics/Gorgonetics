@@ -9,6 +9,21 @@ async function openLibrary(page: Page) {
   await expect(page.locator('[data-testid="library"]')).toBeVisible();
 }
 
+/** Dispatch a synthetic genome-file drop onto the library list (see drop-upload.spec). */
+async function dropGenomeOnLibrary(page: Page, files: { name: string; url?: string; content?: string }[]) {
+  await page.evaluate(async (files) => {
+    const dt = new DataTransfer();
+    for (const f of files) {
+      const content = f.url ? await (await fetch(f.url)).text() : (f.content ?? '');
+      dt.items.add(new File([content], f.name, { type: 'text/plain' }));
+    }
+    Object.defineProperty(dt, 'types', { value: ['Files'], configurable: true });
+    document
+      .querySelector('[data-testid="library-list"]')
+      ?.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt }));
+  }, files);
+}
+
 test.describe('Redesign — Library + Workspace shell', () => {
   test('the My Pets destination appears only with the flag', async ({ page }) => {
     await page.goto('/');
@@ -97,5 +112,42 @@ test.describe('Redesign — Library + Workspace shell', () => {
     await dialog.locator('.btn-danger').click();
 
     await expect(rows).toHaveCount(before - 1);
+  });
+
+  test('the library exposes upload and auto-scan actions', async ({ page }) => {
+    await openLibrary(page);
+    await expect(page.locator('[data-testid="library-upload"]')).toBeVisible();
+    await expect(page.locator('[data-testid="library-autoscan"]')).toBeVisible();
+  });
+
+  test('dragging genome files over the library shows a drop overlay', async ({ page }) => {
+    await openLibrary(page);
+    await page.evaluate(() => {
+      const dt = new DataTransfer();
+      Object.defineProperty(dt, 'types', { value: ['Files'], configurable: true });
+      document
+        .querySelector('[data-testid="library-list"]')
+        ?.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: dt }));
+    });
+    await expect(page.locator('.file-drop-overlay')).toBeVisible();
+    await expect(page.locator('.file-drop-overlay')).toHaveText(/Drop genome files/);
+  });
+
+  test('dropping a genome file uploads it into the library', async ({ page }) => {
+    await openLibrary(page);
+    const rows = page.locator('[data-testid="pet-row"]');
+
+    // Remove the demo Sample Horse so the drop re-adds it (content-hash dedup
+    // makes re-uploading an existing pet a no-op otherwise).
+    const horseRow = rows.filter({ hasText: 'Sample Horse' }).first();
+    const before = await rows.count();
+    await horseRow.locator('[data-testid="pet-delete-btn"]').click();
+    await page.locator('[role="alertdialog"] .btn-danger').click();
+    await expect(rows).toHaveCount(before - 1);
+
+    await dropGenomeOnLibrary(page, [{ name: 'Genes_SampleHorse.txt', url: '/data/Genes_SampleHorse.txt' }]);
+
+    await expect(rows).toHaveCount(before);
+    await expect(rows.filter({ hasText: 'Sample Horse' }).first()).toBeVisible();
   });
 });

@@ -9,13 +9,16 @@ import FilterBar from '$lib/components/shared/FilterBar.svelte';
 import PetActions from '$lib/components/shared/PetActions.svelte';
 import PetRow from '$lib/components/shared/PetRow.svelte';
 import { getSupportedSpecies, normalizeSpecies } from '$lib/services/configService.js';
+import { pendingImportCount } from '$lib/stores/gameImport.js';
 import { clearLibrarySelection, libraryView, toggleLibrarySelection } from '$lib/stores/library.svelte.js';
 import { pets } from '$lib/stores/pets.js';
 import { HORSE_BREEDS, type Pet } from '$lib/types/index.js';
+import { createGenomeUploadController } from '$lib/utils/genomeUploadController.svelte.js';
 import { filterPets } from '$lib/utils/petFilter.js';
 import { getSpeciesEmoji } from '$lib/utils/species.js';
 
 const speciesOptions = getSupportedSpecies();
+const upload = createGenomeUploadController();
 
 // Breed maps per species. Horse has canonical abbreviations; beewasp's
 // sub-types are their own labels (no invented abbreviations).
@@ -107,7 +110,18 @@ function metaFor(pet: Pet): string {
     </div>
   </div>
 
-  <div class="lib-list" class:table={libraryView.density === 'table'} data-testid="library-list">
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div
+    class="lib-list"
+    class:table={libraryView.density === 'table'}
+    data-testid="library-list"
+    ondragover={upload.handleFileDragOver}
+    ondragleave={upload.handleFileDragLeave}
+    ondrop={upload.handleFileDrop}
+  >
+    {#if upload.fileDragActive}
+      <div class="file-drop-overlay"><span>Drop genome files to upload</span></div>
+    {/if}
     {#if filtered.length === 0}
       <p class="lib-empty">No pets match these filters.</p>
     {:else}
@@ -137,6 +151,44 @@ function metaFor(pet: Pet): string {
       <button type="button" class="clear-btn" onclick={clearLibrarySelection}>Clear</button>
     </div>
   {/if}
+
+  <div class="lib-actions" data-testid="library-actions">
+    <button
+      type="button"
+      class="upload-btn"
+      data-testid="library-upload"
+      onclick={upload.handleUpload}
+      disabled={upload.uploading || upload.autoScanning}
+    >
+      {#if upload.uploadProgress}
+        Uploading… ({upload.uploadProgress.current}/{upload.uploadProgress.total})
+      {:else}
+        + Upload Genome
+      {/if}
+    </button>
+    <button
+      type="button"
+      class="auto-scan-btn"
+      data-testid="library-autoscan"
+      onclick={upload.handleAutoScan}
+      disabled={upload.uploading || upload.autoScanning}
+      title={$pendingImportCount > 0
+        ? `Auto-import: ${$pendingImportCount} new genome file${$pendingImportCount === 1 ? '' : 's'} in the game folder`
+        : 'Auto-import new genome files from the game folder'}
+      aria-label={$pendingImportCount > 0
+        ? `Auto-import ${$pendingImportCount} new genome file${$pendingImportCount === 1 ? '' : 's'} from the game folder`
+        : 'Auto-import new genome files from the game folder'}
+    >
+      {#if upload.autoScanProgress}
+        🔄 ({upload.autoScanProgress.current}/{upload.autoScanProgress.total})
+      {:else}
+        🔄
+        {#if $pendingImportCount > 0}
+          <span class="pending-badge" aria-hidden="true">{$pendingImportCount > 99 ? '99+' : $pendingImportCount}</span>
+        {/if}
+      {/if}
+    </button>
+  </div>
 </div>
 
 <style>
@@ -152,10 +204,24 @@ function metaFor(pet: Pet): string {
   .density button.active { background: var(--bg-primary); color: var(--text-primary); box-shadow: var(--shadow-sm, 0 1px 2px rgba(0,0,0,0.06)); }
   .lib-count { font-size: 11px; color: var(--text-muted); }
 
-  .lib-list { flex: 1; overflow: auto; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+  .lib-list { position: relative; flex: 1; overflow: auto; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
   .lib-list.table { padding: 0; gap: 0; }
   .lib-empty { color: var(--text-muted); font-size: 13px; text-align: center; padding: 24px; font-style: italic; }
   .lib-star { color: #f5a623; font-size: 13px; }
+
+  /* Drag-and-drop genome upload overlay. pointer-events: none lets the drag
+     events fall through to the list's drop handlers underneath. */
+  .file-drop-overlay {
+    position: absolute; inset: 0; z-index: 5;
+    display: flex; align-items: center; justify-content: center;
+    pointer-events: none;
+    background: var(--bg-selected); border: 2px dashed var(--accent); border-radius: 8px;
+    opacity: 0.95;
+  }
+  .file-drop-overlay span {
+    font-size: 14px; font-weight: 600; color: var(--accent-text);
+    padding: 12px 20px; border-radius: 8px; background: var(--bg-primary); box-shadow: var(--shadow-lg);
+  }
 
   .lib-foot {
     border-top: 1px solid var(--border-primary); padding: 9px 12px;
@@ -168,4 +234,27 @@ function metaFor(pet: Pet): string {
     font-size: 12px; font-weight: 600; cursor: pointer;
   }
   .clear-btn:hover { color: var(--text-secondary); }
+
+  .lib-actions {
+    border-top: 1px solid var(--border-primary); padding: 9px 12px;
+    display: flex; align-items: center; gap: 8px; background: var(--bg-secondary); flex-shrink: 0;
+  }
+  .upload-btn {
+    flex: 1; padding: 7px 12px; border: none; border-radius: 7px;
+    background: var(--accent); color: var(--accent-text);
+    font-size: 12px; font-weight: 600; cursor: pointer;
+  }
+  .upload-btn:hover:not(:disabled) { filter: brightness(1.05); }
+  .upload-btn:disabled { opacity: 0.6; cursor: default; }
+  .auto-scan-btn {
+    position: relative; flex-shrink: 0; padding: 7px 10px; border: 1px solid var(--border-primary);
+    border-radius: 7px; background: var(--bg-primary); font-size: 13px; cursor: pointer;
+  }
+  .auto-scan-btn:hover:not(:disabled) { background: var(--bg-hover); }
+  .auto-scan-btn:disabled { opacity: 0.6; cursor: default; }
+  .pending-badge {
+    position: absolute; top: -4px; right: -4px; min-width: 16px; height: 16px;
+    padding: 0 3px; border-radius: 8px; background: var(--accent); color: var(--accent-text);
+    font-size: 9px; font-weight: 700; line-height: 16px; text-align: center;
+  }
 </style>
