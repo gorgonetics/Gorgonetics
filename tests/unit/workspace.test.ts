@@ -37,29 +37,29 @@ describe('Workspace', () => {
     select([]);
     const { container } = render(Workspace);
     expect(emptyState(container)?.textContent).toContain('Pick a pet to begin');
-    expect(container.querySelector('[data-testid="workspace-compare"]')).toBeNull();
+    expect(container.querySelector('[data-testid="workspace-multi"]')).toBeNull();
   });
 
   it('guides toward same-species when two different species are selected', () => {
     select([1, 3]); // Horse + BeeWasp
     const { container } = render(Workspace);
-    expect(emptyState(container)?.textContent).toContain('Pick two pets of the same species');
-    expect(container.querySelector('[data-testid="workspace-compare"]')).toBeNull();
+    expect(emptyState(container)?.textContent).toContain('Pick pets of the same species');
+    expect(container.querySelector('[data-testid="workspace-multi"]')).toBeNull();
   });
 
-  it('points at the breeding lens for 3+ selected (next slice)', () => {
-    select([1, 2, 3]);
+  it('guides toward same-species for a 3+ mixed-species selection', () => {
+    select([1, 2, 3]); // Horse, Horse, BeeWasp
     const { container } = render(Workspace);
-    expect(emptyState(container)?.textContent).toContain('3 pets selected');
-    expect(container.querySelector('[data-testid="workspace-compare"]')).toBeNull();
+    expect(emptyState(container)?.textContent).toContain('Pick pets of the same species');
+    expect(container.querySelector('[data-testid="workspace-multi"]')).toBeNull();
   });
 
   it('does NOT treat two unknown-species pets as same-species', () => {
-    // Both normalize to '' — must not open a Compare lens (would error in the diff).
+    // Both normalize to '' — must not open the multi lens (would error in the diff/rank).
     pets.set([pet(10, 'Mystery', 'Q'), pet(11, '', 'Z')]);
     select([10, 11]);
     const { container } = render(Workspace);
-    expect(container.querySelector('[data-testid="workspace-compare"]')).toBeNull();
-    expect(emptyState(container)?.textContent).toContain('Pick two pets of the same species');
+    expect(container.querySelector('[data-testid="workspace-multi"]')).toBeNull();
+    expect(emptyState(container)?.textContent).toContain('Pick pets of the same species');
   });
 });

@@ -27,7 +27,7 @@ test.describe('Redesign — Library + Workspace shell', () => {
     await expect(page.locator('.pet-visualization')).toBeVisible();
   });
 
-  test('selecting two same-species pets opens the Compare lens', async ({ page }) => {
+  test('two same-species pets open the multi lens with Compare and Breed tabs', async ({ page }) => {
     await openLibrary(page);
 
     // Narrow to horses (the demo has two) so both selected pets share a species.
@@ -37,7 +37,23 @@ test.describe('Redesign — Library + Workspace shell', () => {
     await checks.nth(0).check();
     await checks.nth(1).check();
 
-    await expect(page.locator('[data-testid="workspace-compare"]')).toBeVisible();
-    await expect(page.locator('[data-testid="workspace-compare"]')).toContainText('Compare');
+    // Compare is the default lens for exactly two same-species pets.
+    await expect(page.locator('[data-testid="workspace-multi"]')).toBeVisible();
+    await expect(page.locator('[data-testid="lens-tab-compare"]')).toHaveClass(/active/);
+
+    // Switching to the Breed lens ranks the pair; inspecting opens the trio.
+    await page.locator('[data-testid="lens-tab-breed"]').click();
+    await expect(page.locator('[data-testid="lens-tab-breed"]')).toHaveClass(/active/);
+    await expect(page.locator('[data-testid="breeding-pair-table"]')).toBeVisible();
+    await page.locator('[data-testid="inspect-pair"]').first().click();
+    await expect(page.getByTestId('trio-view')).toBeVisible();
+    await page.getByTestId('trio-view').getByRole('button', { name: 'Close trio view' }).click();
+
+    // Clearing the selection resets the lens — a fresh 2-pet selection reopens on Compare.
+    await page.locator('[data-testid="library-foot"] .clear-btn').click();
+    const checks2 = page.locator('[data-testid="pet-row-select"]');
+    await checks2.nth(0).check();
+    await checks2.nth(1).check();
+    await expect(page.locator('[data-testid="lens-tab-compare"]')).toHaveClass(/active/);
   });
 });
