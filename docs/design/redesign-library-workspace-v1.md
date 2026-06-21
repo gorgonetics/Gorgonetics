@@ -145,20 +145,22 @@ Adoption PRs into the epic, in the **actual order** (reordered 2026-06-20 per th
 
 ## 8. Progress & resume (updated 2026-06-21)
 
-**Branch topology.** Integration branch: **`redesign/library-workspace`** (the epic), based on `main` + this doc. Every redesign PR targets the epic; CI runs on epic PRs because `redesign/**` was added to the `ci.yml`/`integration.yml` triggers (drop that before the epic→main cutover if undesired). The epic is ~14 commits ahead of `main`. Final step is one `redesign/library-workspace → main` PR.
+**Branch topology.** Integration branch: **`redesign/library-workspace`** (the epic), based on `main` + this doc. Every redesign PR targets the epic; CI runs on epic PRs because `redesign/**` was added to the `ci.yml`/`integration.yml` triggers (drop that before the epic→main cutover if undesired). Final step is one `redesign/library-workspace → main` PR.
 
-**Try the new shell.** Run the app and append `?redesign=1` (persists via `localStorage['gorgonetics:redesign']`; `?redesign=0` clears it). A **✨ My Pets** destination appears in the top nav. Normal users never see it until cutover.
+**Try the new shell.** Run the app and append `?redesign=1` (persists via `localStorage['gorgonetics:redesign']`; `?redesign=0` clears it). The **✨ My Pets** and **📚 Reference** destinations appear in the top nav. Normal users never see them until cutover.
 
 **Done & merged into the epic:**
 - Primitives (all 6): `BreedSelector` (#322), `EmptyState`+`PageHeader` (#323), `PetRow` (#324), `FilterBar` (#325), `GeneGrid` (#326) — in `src/lib/components/shared/`, each unit-tested.
 - CI triggers for `redesign/**`.
+- **Slice 1** — Library + Workspace shell (#327): left `Library.svelte` (FilterBar + PetRow list + density + multi-select on `libraryView`), selection-aware `Workspace.svelte`, `Roster.svelte` (absorbs Stable), `BreedLens.svelte`. Stores `library.svelte.ts`, `flags.ts`; extended `petFilter.ts`. MasterPanel/+page/TopBar route the flagged `library`/`reference` tabs.
+- **Slice 2** — Workspace lenses: 0 selected → Roster; 1 → PetVisualization; 2+ same-species → Compare/Breed lens tabs (lens resets on empty selection, #329); mixed-species → guidance. Copilot fixes #328/#329.
+- **Slice 3** — Community shell (#3xx): `CommunityTab` uses shared `PageHeader`+`EmptyState`.
+- **Slice 4** — squares unification: Compare (#333 → 4a), Pets (#334 → 4b), then **trio + retire the circle default** (#335 → 4c). The base `.gene-cell` is now square (`border-radius: 3px`); the `gene-cell--square` modifier is gone. e2e polls computed `border-radius` to guard the shape (Copilot #335).
 
-**In review (green, not yet merged):**
-- **PR #327** — adoption slice 1, the Library + Workspace shell (`src/lib/components/library/`, `src/lib/stores/library.svelte.ts`, `src/lib/stores/flags.ts`, extended `src/lib/utils/petFilter.ts`). All CI green.
+**Resume here — slice 5 (cutover), the last slice:**
+1. Flip the nav: replace the 6 legacy tabs (Stable/Compare/Breeding/Community/single-pet/editor) with the **3 destinations** (My Pets, Community, Reference). Make `library`/`reference` the defaults rather than flag-gated.
+2. Delete the now-dead routing: old tab branches in `+page.svelte`/`MasterPanel.svelte`, the standalone `StableTable`/`ComparisonView`/`BreedingTab` mount points (their internals live on inside the lenses), and the `redesignEnabled` flag + `flags.ts` gating.
+3. Rewrite e2e off the `?redesign=1` prefix onto the default nav; regenerate screenshots; drop `redesign/**` from CI triggers if undesired.
+4. Final `redesign/library-workspace → main` PR.
 
-**Resume here tomorrow:**
-1. Merge **#327** into the epic (`gh pr merge 327 --merge`).
-2. Start **slice 2 — Workspace lenses**: in `Workspace.svelte`, render the Compare view for a 2-pet selection and the Breed-rank → Trio flow for 2+ (defaulting to all stabled when ≤1 selected). Reuse the existing `ComparisonView`/`GenomeGridDiff` and `BreedingTab` internals for now (embed, like the 1-pet `PetVisualization`), preserving bulk-share and the trio breed/attribute filters. Also fold the Stable table in as the Library's table density.
-3. Keep each slice a PR into the epic; e2e stays green via testid aliases.
-
-**Watch-outs:** the recent **bulk-share** and **trio breed/attribute filter** features must survive as lenses, not be lost. Don't retire the global `.gene-cell` CSS until the GeneGrid parity pass (slice 4).
+**Watch-outs:** **bulk-share** and the **trio breed/attribute filters** must survive the cutover as lenses, not be lost. Community still mounts its purpose-built `CommunityPetTable` (role=grid, remote columnar data) — the source-switch shell was deferred to this cutover, decide then whether it's worth unifying.
