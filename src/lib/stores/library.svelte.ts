@@ -18,6 +18,9 @@ export const libraryView = $state({
   petQualityOnly: false,
   tags: [] as string[],
   density: 'card' as LibraryDensity,
+  /** Roster (table) sort — column id + direction. */
+  sortCol: 'name' as string,
+  sortDir: 'asc' as 'asc' | 'desc',
   /** Multi-select for bulk actions / driving the Workspace. */
   selectedIds: new Set<number>() as Set<number>,
 });

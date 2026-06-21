@@ -33,11 +33,20 @@ afterEach(() => {
 const emptyState = (c: HTMLElement) => c.querySelector('[data-testid="empty-state"]');
 
 describe('Workspace', () => {
-  it('prompts to pick a pet when nothing is selected', () => {
+  it('shows the roster when nothing is selected and pets exist', () => {
     select([]);
     const { container } = render(Workspace);
-    expect(emptyState(container)?.textContent).toContain('Pick a pet to begin');
+    expect(container.querySelector('[data-testid="workspace-roster"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="roster"]')).not.toBeNull();
     expect(container.querySelector('[data-testid="workspace-multi"]')).toBeNull();
+  });
+
+  it('shows an empty state only when there are no pets at all', () => {
+    pets.set([]);
+    select([]);
+    const { container } = render(Workspace);
+    expect(emptyState(container)?.textContent).toContain('No pets yet');
+    expect(container.querySelector('[data-testid="workspace-roster"]')).toBeNull();
   });
 
   it('guides toward same-species when two different species are selected', () => {

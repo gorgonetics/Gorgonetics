@@ -19,11 +19,14 @@ test.describe('Redesign — Library + Workspace shell', () => {
     await expect(page.locator('[data-testid="tab-library"]')).toBeVisible();
   });
 
-  test('selecting one pet shows its detail; the prompt shows when none selected', async ({ page }) => {
+  test('shows the roster when nothing is selected, and a pet detail once selected', async ({ page }) => {
     await openLibrary(page);
-    await expect(page.locator('[data-testid="workspace"] [data-testid="empty-state"]')).toBeVisible();
+    // Nothing selected → the full roster table fills the workspace.
+    await expect(page.locator('[data-testid="workspace-roster"]')).toBeVisible();
+    await expect(page.locator('[data-testid="roster"]')).toBeVisible();
 
-    await page.locator('[data-testid="pet-row-select"]').first().check();
+    // Opening a pet from the roster shows its detail.
+    await page.locator('[data-testid="roster-open"]').first().click();
     await expect(page.locator('.pet-visualization')).toBeVisible();
   });
 
