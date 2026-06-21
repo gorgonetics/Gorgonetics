@@ -434,7 +434,7 @@ function handleCellLeave() {
                                         data-isdiff={isDiff} data-hascell={!!cell}>
                                         {#if cell}
                                             <!-- svelte-ignore a11y_no_static_element_interactions -->
-                                            <div class={currentView === 'appearance' ? cell.appearanceCls : cell.attributeCls} data-attr={cell.attribute} data-appearance={cell.appearance} data-breed={cell.breed}
+                                            <div class="{currentView === 'appearance' ? cell.appearanceCls : cell.attributeCls} gene-cell--square" data-attr={cell.attribute} data-appearance={cell.appearance} data-breed={cell.breed}
                                                 onmouseenter={(e) => handleCellEnter(e, cell)} onmouseleave={handleCellLeave}
                                             >{#if cell.type === '?'}<span class="gene-unknown-symbol">?</span>{/if}</div>
                                         {/if}
@@ -452,7 +452,7 @@ function handleCellLeave() {
                                         data-isdiff={isDiff} data-hascell={!!cell}>
                                         {#if cell}
                                             <!-- svelte-ignore a11y_no_static_element_interactions -->
-                                            <div class={currentView === 'appearance' ? cell.appearanceCls : cell.attributeCls} data-attr={cell.attribute} data-appearance={cell.appearance} data-breed={cell.breed}
+                                            <div class="{currentView === 'appearance' ? cell.appearanceCls : cell.attributeCls} gene-cell--square" data-attr={cell.attribute} data-appearance={cell.appearance} data-breed={cell.breed}
                                                 onmouseenter={(e) => handleCellEnter(e, cell)} onmouseleave={handleCellLeave}
                                             >{#if cell.type === '?'}<span class="gene-unknown-symbol">?</span>{/if}</div>
                                         {/if}
