@@ -28,8 +28,12 @@ test.describe('Redesign — Library + Workspace shell', () => {
     // Opening a pet from the roster shows its detail.
     await page.locator('[data-testid="roster-open"]').first().click();
     await expect(page.locator('.pet-visualization')).toBeVisible();
-    // The pet detail now renders square cells too (slice 4b).
-    await expect(page.locator('.pet-visualization .gene-cell--square').first()).toBeVisible();
+    // The pet detail renders gene cells in the unified square shape — assert
+    // the computed border-radius so a regression back to circles (50% → 7px)
+    // fails the test rather than passing on mere presence.
+    const petCell = page.locator('.pet-visualization .gene-cell').first();
+    await expect(petCell).toBeVisible();
+    await expect.poll(() => petCell.evaluate((el) => getComputedStyle(el).borderRadius)).toBe('3px');
   });
 
   test('two same-species pets open the multi lens with Compare and Breed tabs', async ({ page }) => {
@@ -45,8 +49,11 @@ test.describe('Redesign — Library + Workspace shell', () => {
     // Compare is the default lens for exactly two same-species pets.
     await expect(page.locator('[data-testid="workspace-multi"]')).toBeVisible();
     await expect(page.locator('[data-testid="lens-tab-compare"]')).toHaveClass(/active/);
-    // The Compare diff renders square cells (the redesign squares pilot).
-    await expect(page.locator('[data-testid="workspace-multi"] .gene-cell--square').first()).toBeVisible();
+    // The Compare diff renders gene cells in the unified square shape — assert
+    // the computed border-radius to guard against a regression to circles.
+    const compareCell = page.locator('[data-testid="workspace-multi"] .gene-cell').first();
+    await expect(compareCell).toBeVisible();
+    await expect.poll(() => compareCell.evaluate((el) => getComputedStyle(el).borderRadius)).toBe('3px');
 
     // Switching to the Breed lens ranks the pair; inspecting opens the trio.
     await page.locator('[data-testid="lens-tab-breed"]').click();

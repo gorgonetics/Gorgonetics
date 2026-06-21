@@ -62,12 +62,6 @@ function computeCssClass(
     cssClass += ' gene-filtered-out';
   }
 
-  // Squares (redesign decision #2). GeneCell is used only by the pet view, so
-  // opting in here squares Pets without touching the inline-rendered Compare
-  // (already squared) or trio cells. Once trio opts in too, the circle default
-  // can be dropped and this modifier folded into the base rule.
-  cssClass += ' gene-cell--square';
-
   return cssClass;
 }
 
@@ -140,7 +134,7 @@ const cssClass = $derived(computeCssClass(gene, geneAnalysis, currentView, isVis
         width: 14px;
         height: 14px;
         margin: 0px;
-        border-radius: 50%;
+        border-radius: 3px;
         border: 2px solid;
         cursor: pointer;
         transition: all 0.2s ease;
@@ -155,15 +149,6 @@ const cssClass = $derived(computeCssClass(gene, geneAnalysis, currentView, isVis
         transform: scale(1.2);
         z-index: 20;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-    }
-
-    /* Opt-in square shape (redesign decision #2). The circle remains the
-       default; only surfaces that add `gene-cell--square` (currently the
-       comparison grid) render squares — colour/zygosity/appearance/breed
-       encoding is unchanged. Retire the circle default once every surface
-       opts in. */
-    :global(.gene-cell.gene-cell--square) {
-        border-radius: 3px;
     }
 
     /* Gene effect colors — values from --gene-* CSS vars (src/lib/theme/gene-colors.ts) */
