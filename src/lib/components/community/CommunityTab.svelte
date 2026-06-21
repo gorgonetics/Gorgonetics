@@ -1,5 +1,7 @@
 <script lang="ts">
 import { onMount } from 'svelte';
+import EmptyState from '$lib/components/shared/EmptyState.svelte';
+import PageHeader from '$lib/components/shared/PageHeader.svelte';
 import { communityView, loadInitial } from '$lib/stores/community.svelte.js';
 import CommunityPetDetail from './CommunityPetDetail.svelte';
 import CommunityPetTable from './CommunityPetTable.svelte';
@@ -15,13 +17,11 @@ onMount(() => {
 </script>
 
 <div class="community-tab" data-testid="community-tab">
-  <header class="community-header">
-    <h2>Community catalogue</h2>
-    <p class="subtitle">
-      Browse pets shared by other players. Click a row to preview, then import to add it
-      to your stable.
-    </p>
-  </header>
+  <PageHeader
+    icon="🌐"
+    title="Community catalogue"
+    subtitle="Browse pets shared by other players. Click a row to preview, then import to add it to your stable."
+  />
 
   <div class="community-body">
     <div class="community-table-pane">
@@ -32,10 +32,12 @@ onMount(() => {
       {#if communityView.selectedHash}
         <CommunityPetDetail />
       {:else}
-        <div class="empty-state" data-testid="community-empty-selection">
-          <div class="empty-icon">🐾</div>
-          <p class="empty-title">Select a pet to see details</p>
-          <p class="empty-text">Click any row in the catalogue to preview its genome and import.</p>
+        <div data-testid="community-empty-selection" class="community-empty">
+          <EmptyState
+            icon="🐾"
+            title="Select a pet to see details"
+            body="Click any row in the catalogue to preview its genome and import it."
+          />
         </div>
       {/if}
     </aside>
@@ -48,25 +50,6 @@ onMount(() => {
     flex-direction: column;
     height: 100%;
     min-height: 0;
-  }
-
-  .community-header {
-    padding: 16px 20px;
-    border-bottom: 1px solid var(--border-primary);
-    flex-shrink: 0;
-  }
-
-  .community-header h2 {
-    margin: 0;
-    font-size: 18px;
-    font-weight: 700;
-    color: var(--text-primary);
-  }
-
-  .subtitle {
-    margin: 4px 0 0;
-    color: var(--text-tertiary);
-    font-size: 13px;
   }
 
   .community-body {
@@ -93,26 +76,8 @@ onMount(() => {
     flex-direction: column;
   }
 
-  .empty-state {
-    padding: 32px 20px;
-    text-align: center;
-    color: var(--text-tertiary);
-  }
-
-  .empty-icon {
-    font-size: 32px;
-    margin-bottom: 12px;
-  }
-
-  .empty-title {
-    margin: 0;
-    font-size: 14px;
-    color: var(--text-primary);
-    font-weight: 600;
-  }
-
-  .empty-text {
-    margin: 8px 0 0;
-    font-size: 12px;
+  .community-empty {
+    flex: 1;
+    min-height: 0;
   }
 </style>
