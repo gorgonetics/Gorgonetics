@@ -21,9 +21,14 @@ import { libraryView } from '$lib/stores/library.svelte.js';
 import { pets } from '$lib/stores/pets.js';
 
 const selected = $derived($pets.filter((p) => libraryView.selectedIds.has(p.id)));
-const sameSpecies = $derived(
-  selected.length === 2 && normalizeSpecies(selected[0].species) === normalizeSpecies(selected[1].species),
-);
+const sameSpecies = $derived.by(() => {
+  if (selected.length !== 2) return false;
+  const a = normalizeSpecies(selected[0].species);
+  // Require a known species: two species-less pets both normalize to '' and
+  // would otherwise compare-equal, opening a Compare lens that errors when
+  // GenomeGridDiff looks up config for an empty species key.
+  return a !== '' && a === normalizeSpecies(selected[1].species);
+});
 </script>
 
 <section class="workspace" data-testid="workspace">

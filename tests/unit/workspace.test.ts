@@ -53,4 +53,13 @@ describe('Workspace', () => {
     expect(emptyState(container)?.textContent).toContain('3 pets selected');
     expect(container.querySelector('[data-testid="workspace-compare"]')).toBeNull();
   });
+
+  it('does NOT treat two unknown-species pets as same-species', () => {
+    // Both normalize to '' — must not open a Compare lens (would error in the diff).
+    pets.set([pet(10, 'Mystery', 'Q'), pet(11, '', 'Z')]);
+    select([10, 11]);
+    const { container } = render(Workspace);
+    expect(container.querySelector('[data-testid="workspace-compare"]')).toBeNull();
+    expect(emptyState(container)?.textContent).toContain('Pick two pets of the same species');
+  });
 });
