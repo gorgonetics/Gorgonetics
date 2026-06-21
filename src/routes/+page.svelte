@@ -6,8 +6,13 @@ import ComparisonView from '$lib/components/comparison/ComparisonView.svelte';
 import GeneEditingView from '$lib/components/GeneEditingView.svelte';
 import Workspace from '$lib/components/library/Workspace.svelte';
 import PetVisualization from '$lib/components/pet/PetVisualization.svelte';
+import EmptyState from '$lib/components/shared/EmptyState.svelte';
 import StableTable from '$lib/components/stable/StableTable.svelte';
 import { activeTab, appState, error, geneEditingView, loading, selectedPet } from '$lib/stores/pets.js';
+
+// `geneEditingView` is an untyped store carrying the editor target; type it
+// once here rather than re-asserting the shape at each prop site.
+const geneEdit = $derived($geneEditingView as { animalType?: string; chromosome?: string } | null);
 
 onMount(async () => {
   await appState.loadPets();
@@ -24,6 +29,19 @@ onMount(async () => {
 
 	{#if $activeTab === 'library'}
 		<Workspace />
+	{:else if $activeTab === 'reference'}
+		{#if $geneEditingView}
+			<GeneEditingView
+				animalType={geneEdit?.animalType}
+				chromosome={geneEdit?.chromosome}
+			/>
+		{:else}
+			<EmptyState
+				icon="📚"
+				title="Edit gene templates"
+				body="Pick an animal type and chromosome in the sidebar, then choose Edit Genes."
+			/>
+		{/if}
 	{:else if $activeTab === 'stable'}
 		<StableTable />
 	{:else if $activeTab === 'compare'}
@@ -41,8 +59,8 @@ onMount(async () => {
 		<PetVisualization pet={$selectedPet} />
 	{:else if $geneEditingView}
 		<GeneEditingView
-			animalType={($geneEditingView as { animalType?: string; chromosome?: string }).animalType}
-			chromosome={($geneEditingView as { animalType?: string; chromosome?: string }).chromosome}
+			animalType={geneEdit?.animalType}
+			chromosome={geneEdit?.chromosome}
 		/>
 	{:else}
 		<div class="center-state">

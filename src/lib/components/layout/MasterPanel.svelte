@@ -78,7 +78,7 @@ function onHandleKeydown(e: KeyboardEvent) {
         >‹</button>
         {#if $activeTab === "pets"}
             <PetList />
-        {:else if $activeTab === "editor"}
+        {:else if $activeTab === "editor" || $activeTab === "reference"}
             <div class="gene-editor-wrapper">
                 <GeneEditor />
             </div>

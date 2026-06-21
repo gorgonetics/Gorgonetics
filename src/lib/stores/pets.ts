@@ -4,7 +4,7 @@ import * as petService from '$lib/services/petService.js';
 import type { Pet } from '$lib/types/index.js';
 import { errorMessage } from '$lib/utils/error.js';
 
-export type Tab = 'pets' | 'editor' | 'compare' | 'stable' | 'breeding' | 'community' | 'library';
+export type Tab = 'pets' | 'editor' | 'compare' | 'stable' | 'breeding' | 'community' | 'library' | 'reference';
 
 /** Boolean pet flags toggled in-place via `setPetMarker` (no full reload). */
 export type MarkerKey = 'starred' | 'stabled' | 'is_pet_quality';
@@ -53,6 +53,9 @@ const TAB_STATE_RESETS: Record<Tab, () => void> = {
   // The Library drives its own selection (libraryView.selectedIds); clear the
   // legacy single-pet/gene-edit state so it can't leak into the workspace.
   library: clearSelectionAndGeneView,
+  // Reference (gene-template editing) is its own destination, like 'editor';
+  // clear any selected pet so the legacy detail view doesn't bleed through.
+  reference: () => selectedPet.set(null),
 };
 
 // Monotonic generation counter for in-flight `loadPets` calls. Concurrent
