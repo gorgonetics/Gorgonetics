@@ -24,12 +24,12 @@ test.describe('Redesign — Roster table', () => {
 
   test('selecting a species reveals that species attribute columns', async ({ page }) => {
     await openRoster(page);
-    // Narrow to horses; horse-specific attribute columns (e.g. Speed) appear.
+    const headerCells = page.locator('[data-testid="roster"] thead th');
+    // Narrow to horses; horse-specific attribute columns appear alongside Total.
     await page.locator('[data-testid="filter-species"] [data-species="horse"]').click();
-    const headerText = await page.locator('[data-testid="roster"] thead').textContent();
-    expect(headerText).toContain('Total');
+    await expect(headerCells.filter({ hasText: 'Total' })).toHaveCount(1);
     // More than the four species-agnostic columns once attributes are shown.
-    await expect(page.locator('[data-testid="roster"] thead th').count()).resolves.toBeGreaterThan(5);
+    await expect.poll(() => headerCells.count()).toBeGreaterThan(5);
   });
 
   test('clicking a header toggles the sort direction', async ({ page }) => {
@@ -52,6 +52,6 @@ test.describe('Redesign — Roster table', () => {
     const firstName = (await rows.first().locator('.name-btn').textContent())?.trim() ?? '';
     await page.locator('[data-testid="filter-search"]').fill(firstName);
     await expect(rows.first().locator('.name-btn')).toContainText(firstName);
-    await expect(await rows.count()).toBeLessThanOrEqual(before);
+    await expect.poll(() => rows.count()).toBeLessThanOrEqual(before);
   });
 });
