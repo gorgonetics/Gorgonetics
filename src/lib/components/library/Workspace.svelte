@@ -11,6 +11,7 @@
  */
 import GenomeGridDiff from '$lib/components/comparison/GenomeGridDiff.svelte';
 import BreedLens from '$lib/components/library/BreedLens.svelte';
+import Roster from '$lib/components/library/Roster.svelte';
 import PetVisualization from '$lib/components/pet/PetVisualization.svelte';
 import EmptyState from '$lib/components/shared/EmptyState.svelte';
 import { normalizeSpecies } from '$lib/services/configService.js';
@@ -45,11 +46,13 @@ $effect(() => {
 
 <section class="workspace" data-testid="workspace">
   {#if selected.length === 0}
-    <EmptyState
-      icon="🐾"
-      title="Pick a pet to begin"
-      body="Select one pet from the library to inspect its genes and stats, or two or more of the same species to compare and rank breeding pairs."
-    />
+    {#if $pets.length === 0}
+      <EmptyState icon="🐾" title="No pets yet" body="Upload a genome file from the library to get started." />
+    {:else}
+      <div class="roster-wrap" data-testid="workspace-roster">
+        <Roster />
+      </div>
+    {/if}
   {:else if selected.length === 1}
     <PetVisualization pet={selected[0]} />
   {:else if commonSpecies === null}
@@ -94,6 +97,7 @@ $effect(() => {
 
 <style>
   .workspace { flex: 1; min-width: 0; height: 100%; display: flex; flex-direction: column; overflow: hidden; }
+  .roster-wrap { flex: 1; min-height: 0; overflow: auto; padding: 16px 20px; }
   .multi { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 
   .lens-tabs {
