@@ -6,13 +6,13 @@ test('debug: capture pet visualization layout', async ({ page }) => {
 
   // Wait for app to load
   await page.waitForSelector('.top-bar');
-  await page.waitForSelector('.pet-card');
+  await page.waitForSelector('[data-testid="pet-row"]');
 
   // Take screenshot of initial state
   await page.screenshot({ path: 'test-results/01-initial.png' });
 
   // Click first pet
-  await page.locator('.pet-card').first().click();
+  await page.locator('[data-testid="pet-row"]').first().click();
   await page.waitForSelector('.pet-visualization', { timeout: 15000 });
 
   // Wait for gene grid to render

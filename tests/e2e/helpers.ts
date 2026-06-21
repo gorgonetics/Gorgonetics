@@ -10,15 +10,21 @@ export async function waitForAppReady(page: Page) {
   });
 }
 
-/** Wait for demo pet cards to appear in the list. */
+/** Wait for the Library (default destination) to render its pet rows. */
 export async function waitForPets(page: Page) {
   await waitForAppReady(page);
-  await page.waitForSelector('.pet-card');
+  await page.waitForSelector('[data-testid="pet-row"]');
 }
 
-/** Navigate to gene editor with a selected chromosome, return true if successful. */
+/** Open one of the three destinations by its nav button. */
+export async function gotoDestination(page: Page, name: 'My Pets' | 'Community' | 'Reference') {
+  const testid = name === 'My Pets' ? 'tab-library' : name === 'Community' ? 'tab-community' : 'tab-reference';
+  await page.locator(`[data-testid="${testid}"]`).click();
+}
+
+/** Navigate to gene editor (Reference destination) with a selected chromosome. */
 export async function openGeneEditor(page: Page) {
-  await page.locator('.tab-btn').filter({ hasText: 'Genes' }).click();
+  await gotoDestination(page, 'Reference');
   await expect(page.locator('#animalType option')).not.toHaveCount(1);
 
   const firstValue = await page.locator('#animalType option').nth(1).getAttribute('value');
@@ -33,10 +39,9 @@ export async function openGeneEditor(page: Page) {
   await expect(page.locator('.gene-editing-view')).toBeVisible();
 }
 
-/** Open the edit modal for the first pet. */
+/** Open the edit modal for the first pet via its Library row action. */
 export async function openEditor(page: Page) {
-  await page.locator('.pet-card-wrapper').first().hover();
-  await page.locator('.edit-btn').first().click();
+  await page.locator('[data-testid="pet-row"]').first().locator('[data-testid="pet-edit-btn"]').click();
   await expect(page.locator('.modal-panel')).toBeVisible();
 }
 

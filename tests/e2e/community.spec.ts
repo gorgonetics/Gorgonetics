@@ -13,12 +13,12 @@ test.describe('Share Pet Dialog', () => {
     await blockFirestore(page);
     await page.goto('/');
     await waitForPets(page);
-    await page.locator('.pet-card').first().click();
+    await page.locator('[data-testid="pet-row"]').first().click();
     await expect(page.locator('.pet-visualization')).toBeVisible();
   });
 
   test('opens dialog showing a preview of the pet metadata', async ({ page }) => {
-    const petName = await page.locator('.pet-card-name').first().textContent();
+    const petName = await page.locator('.pr-name').first().textContent();
 
     await page.locator('[data-testid="share-pet-btn"]').click();
 

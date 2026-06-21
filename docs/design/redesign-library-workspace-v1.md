@@ -157,10 +157,19 @@ Adoption PRs into the epic, in the **actual order** (reordered 2026-06-20 per th
 - **Slice 3** — Community shell (#3xx): `CommunityTab` uses shared `PageHeader`+`EmptyState`.
 - **Slice 4** — squares unification: Compare (#333 → 4a), Pets (#334 → 4b), then **trio + retire the circle default** (#335 → 4c). The base `.gene-cell` is now square (`border-radius: 3px`); the `gene-cell--square` modifier is gone. e2e polls computed `border-radius` to guard the shape (Copilot #335).
 
-**Resume here — slice 5 (cutover), the last slice:**
-1. Flip the nav: replace the 6 legacy tabs (Stable/Compare/Breeding/Community/single-pet/editor) with the **3 destinations** (My Pets, Community, Reference). Make `library`/`reference` the defaults rather than flag-gated.
-2. Delete the now-dead routing: old tab branches in `+page.svelte`/`MasterPanel.svelte`, the standalone `StableTable`/`ComparisonView`/`BreedingTab` mount points (their internals live on inside the lenses), and the `redesignEnabled` flag + `flags.ts` gating.
-3. Rewrite e2e off the `?redesign=1` prefix onto the default nav; regenerate screenshots; drop `redesign/**` from CI triggers if undesired.
-4. Final `redesign/library-workspace → main` PR.
+**Parity slices (done) — feature gaps that blocked the cutover:**
+A full old→new capability audit (PetList/PetCard/Stable/Compare/Breeding/editor/Community) found the new shell was missing several capabilities. Closed before flipping:
+- **CRUD** (#336): shared `PetActions.svelte` (icon variant on library rows, button variant in the workspace header) reusing the existing `PetEditor` modal + delete-confirm.
+- **Upload/auto-scan** (#337): `createGenomeUploadController` (`genomeUploadController.svelte.ts`) wired into the Library — manual upload, drag-drop overlay, manual auto-scan + pending badge. (Automatic startup scan already survived via `AuthWrapper`.)
+- **Bulk-share** (#338): Library selection footer hosts 🌐 Share via `BulkSharePetDialog`, driven off `libraryView.selectedIds`. Select-all lives in the Roster.
+- Dropped per decision: pet drag-reorder, keyboard arrow-nav between pets.
+- Not lost: per-pet star/stabled/tags are editable via the `PetActions` editor modal (one extra click vs the old inline toggle).
 
-**Watch-outs:** **bulk-share** and the **trio breed/attribute filters** must survive the cutover as lenses, not be lost. Community still mounts its purpose-built `CommunityPetTable` (role=grid, remote columnar data) — the source-switch shell was deferred to this cutover, decide then whether it's worth unifying.
+**Slice 5b (flip) — done:** nav is now the **3 destinations** (My Pets / Community / Reference), un-gated; default `activeTab='library'`. e2e migrated: deleted the superseded `stable-table`/`comparison`/`breeding`/`drop-upload` specs; ported their unique coverage into new `redesign-roster`/`redesign-breed-lens` specs and the Compare-lens diff-summary regression into `redesign-library`; repointed `pet-crud`/`app`/`keyboard`/`gallery`/`community`/`layout-debug` onto the new nav (helpers `gotoDestination`/`waitForPets`/`openEditor` updated). Full suite green (106 passed).
+
+**Resume here — slice 5c (cleanup), the last slice:**
+1. Delete the now-dead components + routing: `PetList`/`PetCard`/`StableTable`/`ComparisonView`/`ComparisonPetPicker`/`BreedingTab` and their `+page.svelte`/`MasterPanel.svelte` branches; the `redesignEnabled` flag + `flags.ts` (+ `?redesign` handling); the still-`.skip`ped `perf-comparison.spec`.
+2. Regenerate screenshots; update website/docs; drop `redesign/**` from CI triggers if undesired.
+3. Final `redesign/library-workspace → main` PR.
+
+**Watch-outs:** the old `Tab` union still carries `pets`/`editor`/`compare`/`stable`/`breeding` values + `TAB_STATE_RESETS` entries — prune them with the components in 5c. Community still mounts its purpose-built `CommunityPetTable` (role=grid, remote columnar data); the source-switch shell stays deferred — decide in 5c whether it's worth unifying.

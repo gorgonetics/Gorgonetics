@@ -2,13 +2,8 @@ import { expect, test } from '@playwright/test';
 import { waitForAppReady } from './helpers.js';
 
 test.describe('Redesign — Reference destination', () => {
-  test('flag-gated Reference hosts the gene-template editor with its own empty state', async ({ page }) => {
-    // Hidden without the flag.
+  test('Reference hosts the gene-template editor with its own empty state', async ({ page }) => {
     await page.goto('/');
-    await waitForAppReady(page);
-    await expect(page.locator('[data-testid="tab-reference"]')).toHaveCount(0);
-
-    await page.goto('/?redesign=1');
     await waitForAppReady(page);
     await page.locator('[data-testid="tab-reference"]').click();
 

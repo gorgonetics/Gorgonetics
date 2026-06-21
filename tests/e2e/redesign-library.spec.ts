@@ -1,11 +1,10 @@
 import { expect, type Page, test } from '@playwright/test';
 import { waitForAppReady } from './helpers.js';
 
-// The redesign Library + Workspace shell lives behind the ?redesign=1 flag.
+// My Pets (the Library + Workspace shell) is the default destination.
 async function openLibrary(page: Page) {
-  await page.goto('/?redesign=1');
+  await page.goto('/');
   await waitForAppReady(page);
-  await page.locator('[data-testid="tab-library"]').click();
   await expect(page.locator('[data-testid="library"]')).toBeVisible();
 }
 
@@ -25,13 +24,14 @@ async function dropGenomeOnLibrary(page: Page, files: { name: string; url?: stri
 }
 
 test.describe('Redesign — Library + Workspace shell', () => {
-  test('the My Pets destination appears only with the flag', async ({ page }) => {
+  test('My Pets is the default destination', async ({ page }) => {
     await page.goto('/');
     await waitForAppReady(page);
-    await expect(page.locator('[data-testid="tab-library"]')).toHaveCount(0);
-
-    await openLibrary(page);
-    await expect(page.locator('[data-testid="tab-library"]')).toBeVisible();
+    // The three-destination nav, with My Pets active by default.
+    await expect(page.locator('[data-testid="tab-library"]')).toHaveClass(/active/);
+    await expect(page.locator('[data-testid="tab-community"]')).toBeVisible();
+    await expect(page.locator('[data-testid="tab-reference"]')).toBeVisible();
+    await expect(page.locator('[data-testid="library"]')).toBeVisible();
   });
 
   test('shows the roster when nothing is selected, and a pet detail once selected', async ({ page }) => {
@@ -84,6 +84,24 @@ test.describe('Redesign — Library + Workspace shell', () => {
     await checks2.nth(0).check();
     await checks2.nth(1).check();
     await expect(page.locator('[data-testid="lens-tab-compare"]')).toHaveClass(/active/);
+  });
+
+  test('the Compare lens reports the species gene total, not the padded grid size', async ({ page }) => {
+    // Regression (ported from the retired Compare tab): the diff loop padded
+    // every chromosome to the largest grid shape (48×48=2304 for horses), which
+    // was wrongly reported as the gene total — a horse genome has 1576 positions.
+    await openLibrary(page);
+    await page.locator('[data-testid="filter-species"] [data-species="horse"]').click();
+    const checks = page.locator('[data-testid="pet-row-select"]');
+    await expect(checks).toHaveCount(2);
+    await checks.nth(0).check();
+    await checks.nth(1).check();
+
+    await expect(page.locator('[data-testid="lens-tab-compare"]')).toHaveClass(/active/);
+    const summary = page.locator('[data-testid="workspace-multi"] .summary-detail');
+    await expect(summary).toBeVisible();
+    await expect(summary).toContainText('/1576 genes match');
+    await expect(summary).not.toContainText('/2304');
   });
 
   test('a library row can edit a pet via the shared editor', async ({ page }) => {
