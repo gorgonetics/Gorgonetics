@@ -10,16 +10,23 @@ export async function waitForAppReady(page: Page) {
   });
 }
 
-/** Wait for the Library (default destination) to render its pet rows. */
+/** Wait for My Pets (the default destination) to render its roster table. */
 export async function waitForPets(page: Page) {
   await waitForAppReady(page);
-  await page.waitForSelector('[data-testid="pet-row"]');
+  await page.waitForSelector('[data-testid="roster-open"]');
 }
 
-/** Open one of the three destinations by its nav button. */
-export async function gotoDestination(page: Page, name: 'My Pets' | 'Community' | 'Reference') {
-  const testid = name === 'My Pets' ? 'tab-library' : name === 'Community' ? 'tab-community' : 'tab-reference';
-  await page.locator(`[data-testid="${testid}"]`).click();
+/** Open one of the destinations by its nav button. */
+export async function gotoDestination(page: Page, name: 'My Pets' | 'Breed' | 'Community' | 'Reference') {
+  const map = { 'My Pets': 'tab-library', Breed: 'tab-breed', Community: 'tab-community', Reference: 'tab-reference' };
+  await page.locator(`[data-testid="${map[name]}"]`).click();
+}
+
+/** Open the first pet's detail (full-view) from the roster table. */
+export async function openFirstPet(page: Page) {
+  await page.locator('[data-testid="roster-open"]').first().click();
+  await expect(page.locator('[data-testid="pet-detail"]')).toBeVisible();
+  await expect(page.locator('.pet-visualization')).toBeVisible();
 }
 
 /** Navigate to gene editor (Reference destination) with a selected chromosome. */
@@ -39,9 +46,9 @@ export async function openGeneEditor(page: Page) {
   await expect(page.locator('.gene-editing-view')).toBeVisible();
 }
 
-/** Open the edit modal for the first pet via its Library row action. */
+/** Open the edit modal for the first pet via its roster row action. */
 export async function openEditor(page: Page) {
-  await page.locator('[data-testid="pet-row"]').first().locator('[data-testid="pet-edit-btn"]').click();
+  await page.locator('[data-testid="roster"] tbody tr').first().locator('[data-testid="pet-edit-btn"]').click();
   await expect(page.locator('.modal-panel')).toBeVisible();
 }
 

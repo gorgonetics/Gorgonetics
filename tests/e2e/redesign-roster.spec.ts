@@ -8,7 +8,7 @@ import { waitForAppReady } from './helpers.js';
 async function openRoster(page: Page) {
   await page.goto('/');
   await waitForAppReady(page);
-  await expect(page.locator('[data-testid="workspace-roster"]')).toBeVisible();
+  await expect(page.locator('[data-testid="my-pets"]')).toBeVisible();
   await expect(page.locator('[data-testid="roster"]')).toBeVisible();
 }
 

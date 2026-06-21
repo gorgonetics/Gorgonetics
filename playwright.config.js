@@ -2,7 +2,9 @@ import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests/e2e',
-  timeout: 15000,
+  // 30s per test: the genome grids (trio / diff) render ~2304 cells and compute
+  // asynchronously, which can exceed a tighter budget under CPU contention.
+  timeout: 30000,
   expect: {
     timeout: 5000,
   },

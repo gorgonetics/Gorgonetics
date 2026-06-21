@@ -175,7 +175,7 @@ test.describe('Keyboard Navigation', () => {
       await waitForPets(page);
 
       // Select a pet first to get gene visualization
-      await page.locator('[data-testid="pet-row"]').first().click();
+      await page.locator('[data-testid="roster-open"]').first().click();
       await page.waitForTimeout(500);
 
       const geneCells = page.locator('.gene-cell[role="button"]');
@@ -209,7 +209,7 @@ test.describe('Keyboard Navigation', () => {
     });
 
     test('delete dialog has aria-modal and closes on Escape', async ({ page }) => {
-      await page.locator('[data-testid="pet-row"]').first().locator('[data-testid="pet-delete-btn"]').click();
+      await page.locator('[data-testid="roster"] tbody tr').first().locator('[data-testid="pet-delete-btn"]').click();
 
       const dialog = page.locator('.confirm-dialog');
       await expect(dialog).toBeVisible();
