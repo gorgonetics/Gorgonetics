@@ -48,8 +48,8 @@ const TAB_STATE_RESETS: Record<Tab, () => void> = {
   // legacy single-pet/gene-edit state so it can't leak into the workspace.
   library: clearSelectionAndGeneView,
   community: clearSelectionAndGeneView,
-  // Reference (gene-template editing) clears any selected pet so the legacy
-  // detail view doesn't bleed through.
+  // Reference (gene-template editing) clears any single-pet selection so it
+  // can't carry over from the library when switching destinations.
   reference: () => selectedPet.set(null),
 };
 
