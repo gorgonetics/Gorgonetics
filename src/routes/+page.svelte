@@ -1,5 +1,6 @@
 <script lang="ts">
 import { onMount } from 'svelte';
+import BreedView from '$lib/components/breeding/BreedView.svelte';
 import CommunityTab from '$lib/components/community/CommunityTab.svelte';
 import GeneEditingView from '$lib/components/GeneEditingView.svelte';
 import Workspace from '$lib/components/library/Workspace.svelte';
@@ -41,6 +42,8 @@ onMount(async () => {
 				body="Pick an animal type and chromosome in the sidebar, then choose Edit Genes."
 			/>
 		{/if}
+	{:else if $activeTab === 'breed'}
+		<BreedView />
 	{:else if $activeTab === 'community'}
 		<CommunityTab />
 	{:else}

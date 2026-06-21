@@ -4,7 +4,7 @@ import * as petService from '$lib/services/petService.js';
 import type { Pet } from '$lib/types/index.js';
 import { errorMessage } from '$lib/utils/error.js';
 
-export type Tab = 'library' | 'community' | 'reference';
+export type Tab = 'library' | 'breed' | 'community' | 'reference';
 
 /** Boolean pet flags toggled in-place via `setPetMarker` (no full reload). */
 export type MarkerKey = 'starred' | 'stabled' | 'is_pet_quality';
@@ -47,6 +47,9 @@ const TAB_STATE_RESETS: Record<Tab, () => void> = {
   // The Library drives its own selection (libraryView.selectedIds); clear the
   // legacy single-pet/gene-edit state so it can't leak into the workspace.
   library: clearSelectionAndGeneView,
+  // Breed ranks across the whole stable by species; it doesn't use the library
+  // single-pet/gene state, so clear it on entry.
+  breed: clearSelectionAndGeneView,
   community: clearSelectionAndGeneView,
   // Reference (gene-template editing) clears any single-pet selection so it
   // can't carry over from the library when switching destinations.
