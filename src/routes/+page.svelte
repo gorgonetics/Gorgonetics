@@ -2,14 +2,9 @@
 import { onMount } from 'svelte';
 import BreedView from '$lib/components/breeding/BreedView.svelte';
 import CommunityTab from '$lib/components/community/CommunityTab.svelte';
-import GeneEditingView from '$lib/components/GeneEditingView.svelte';
+import ReferenceView from '$lib/components/gene/ReferenceView.svelte';
 import MyPets from '$lib/components/library/MyPets.svelte';
-import EmptyState from '$lib/components/shared/EmptyState.svelte';
-import { activeTab, appState, error, geneEditingView, loading } from '$lib/stores/pets.js';
-
-// `geneEditingView` is an untyped store carrying the editor target; type it
-// once here rather than re-asserting the shape at each prop site.
-const geneEdit = $derived($geneEditingView as { animalType?: string; chromosome?: string } | null);
+import { activeTab, appState, error, loading } from '$lib/stores/pets.js';
 
 onMount(async () => {
   await appState.loadPets();
@@ -30,18 +25,7 @@ onMount(async () => {
 			<p class="state-text">Loading...</p>
 		</div>
 	{:else if $activeTab === 'reference'}
-		{#if $geneEditingView}
-			<GeneEditingView
-				animalType={geneEdit?.animalType}
-				chromosome={geneEdit?.chromosome}
-			/>
-		{:else}
-			<EmptyState
-				icon="📚"
-				title="Edit gene templates"
-				body="Pick an animal type and chromosome in the sidebar, then choose Edit Genes."
-			/>
-		{/if}
+		<ReferenceView />
 	{:else if $activeTab === 'breed'}
 		<BreedView />
 	{:else if $activeTab === 'community'}
