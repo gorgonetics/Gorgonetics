@@ -6,6 +6,7 @@
  * until cutover. See docs/design/redesign-library-workspace-v1.md.
  */
 import FilterBar from '$lib/components/shared/FilterBar.svelte';
+import PetActions from '$lib/components/shared/PetActions.svelte';
 import PetRow from '$lib/components/shared/PetRow.svelte';
 import { getSupportedSpecies, normalizeSpecies } from '$lib/services/configService.js';
 import { clearLibrarySelection, libraryView, toggleLibrarySelection } from '$lib/stores/library.svelte.js';
@@ -123,6 +124,7 @@ function metaFor(pet: Pet): string {
         >
           {#snippet trailing()}
             {#if pet.starred}<span class="lib-star" title="Starred">★</span>{/if}
+            <PetActions {pet} variant="icon" />
           {/snippet}
         </PetRow>
       {/each}

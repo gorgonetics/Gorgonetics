@@ -70,4 +70,32 @@ test.describe('Redesign — Library + Workspace shell', () => {
     await checks2.nth(1).check();
     await expect(page.locator('[data-testid="lens-tab-compare"]')).toHaveClass(/active/);
   });
+
+  test('a library row can edit a pet via the shared editor', async ({ page }) => {
+    await openLibrary(page);
+    const firstRow = page.locator('[data-testid="pet-row"]').first();
+    const newName = `Renamed-${Date.now()}`;
+
+    await firstRow.locator('[data-testid="pet-edit-btn"]').click();
+    await expect(page.locator('.modal-panel')).toBeVisible();
+    await page.locator('#petName').fill(newName);
+    await page.locator('.btn-primary').click();
+
+    await expect(page.locator('.modal-panel')).not.toBeVisible();
+    await expect(page.locator('[data-testid="pet-row"] .pr-name').filter({ hasText: newName }).first()).toBeVisible();
+  });
+
+  test('a library row can delete a pet after confirmation', async ({ page }) => {
+    await openLibrary(page);
+    const rows = page.locator('[data-testid="pet-row"]');
+    const before = await rows.count();
+    expect(before).toBeGreaterThan(0);
+
+    await rows.first().locator('[data-testid="pet-delete-btn"]').click();
+    const dialog = page.locator('[role="alertdialog"]');
+    await expect(dialog).toBeVisible();
+    await dialog.locator('.btn-danger').click();
+
+    await expect(rows).toHaveCount(before - 1);
+  });
 });
