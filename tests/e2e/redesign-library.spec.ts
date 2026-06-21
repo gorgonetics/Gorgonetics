@@ -28,6 +28,9 @@ test.describe('Redesign — Library + Workspace shell', () => {
     // Opening a pet from the roster shows its detail.
     await page.locator('[data-testid="roster-open"]').first().click();
     await expect(page.locator('.pet-visualization')).toBeVisible();
+    // The pet detail still renders circle cells (squares are opt-in per surface).
+    await expect(page.locator('.pet-visualization .gene-cell').first()).toBeVisible();
+    await expect(page.locator('.pet-visualization .gene-cell--square')).toHaveCount(0);
   });
 
   test('two same-species pets open the multi lens with Compare and Breed tabs', async ({ page }) => {
@@ -43,6 +46,8 @@ test.describe('Redesign — Library + Workspace shell', () => {
     // Compare is the default lens for exactly two same-species pets.
     await expect(page.locator('[data-testid="workspace-multi"]')).toBeVisible();
     await expect(page.locator('[data-testid="lens-tab-compare"]')).toHaveClass(/active/);
+    // The Compare diff renders square cells (the redesign squares pilot).
+    await expect(page.locator('[data-testid="workspace-multi"] .gene-cell--square').first()).toBeVisible();
 
     // Switching to the Breed lens ranks the pair; inspecting opens the trio.
     await page.locator('[data-testid="lens-tab-breed"]').click();

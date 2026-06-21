@@ -151,6 +151,15 @@ const cssClass = $derived(computeCssClass(gene, geneAnalysis, currentView, isVis
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
     }
 
+    /* Opt-in square shape (redesign decision #2). The circle remains the
+       default; only surfaces that add `gene-cell--square` (currently the
+       comparison grid) render squares — colour/zygosity/appearance/breed
+       encoding is unchanged. Retire the circle default once every surface
+       opts in. */
+    :global(.gene-cell.gene-cell--square) {
+        border-radius: 3px;
+    }
+
     /* Gene effect colors — values from --gene-* CSS vars (src/lib/theme/gene-colors.ts) */
     :global(.gene-positive.gene-dominant) {
         background-color: var(--gene-positive);
