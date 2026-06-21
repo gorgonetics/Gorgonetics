@@ -13,7 +13,7 @@ test.describe('Pet Editor – Save', () => {
 
   test('saves name change and persists it', async ({ page }) => {
     // Grab original name from the card
-    const originalName = (await page.locator('.pet-card-name').first().textContent()) ?? '';
+    const originalName = (await page.locator('.pr-name').first().textContent()) ?? '';
 
     await openEditor(page);
     const nameInput = page.locator('#petName');
@@ -27,7 +27,7 @@ test.describe('Pet Editor – Save', () => {
     await expect(page.locator('.save-error')).toHaveCount(0);
 
     // The pet card should now show the updated name
-    await expect(page.locator('.pet-card-name').first()).toHaveText(newName);
+    await expect(page.locator('.pr-name').first()).toHaveText(newName);
 
     // Re-open editor and verify the name stuck
     await openEditor(page);
@@ -203,14 +203,14 @@ test.describe('Pet Editor – Cancel', () => {
   });
 
   test('cancel discards name change', async ({ page }) => {
-    const originalName = (await page.locator('.pet-card-name').first().textContent()) ?? '';
+    const originalName = (await page.locator('.pr-name').first().textContent()) ?? '';
 
     await openEditor(page);
     await page.locator('#petName').fill('ShouldNotPersist');
     await page.locator('.btn-secondary').click();
 
     await expect(page.locator('.modal-panel')).not.toBeVisible();
-    await expect(page.locator('.pet-card-name').first()).toHaveText(originalName);
+    await expect(page.locator('.pr-name').first()).toHaveText(originalName);
   });
 
   test('cancel discards attribute change', async ({ page }) => {
@@ -231,25 +231,25 @@ test.describe('Pet Editor – Cancel', () => {
   });
 
   test('escape key closes modal without saving', async ({ page }) => {
-    const originalName = (await page.locator('.pet-card-name').first().textContent()) ?? '';
+    const originalName = (await page.locator('.pr-name').first().textContent()) ?? '';
 
     await openEditor(page);
     await page.locator('#petName').fill('EscapeShouldDiscard');
     await page.keyboard.press('Escape');
 
     await expect(page.locator('.modal-panel')).not.toBeVisible();
-    await expect(page.locator('.pet-card-name').first()).toHaveText(originalName);
+    await expect(page.locator('.pr-name').first()).toHaveText(originalName);
   });
 
   test('backdrop click closes modal without saving', async ({ page }) => {
-    const originalName = (await page.locator('.pet-card-name').first().textContent()) ?? '';
+    const originalName = (await page.locator('.pr-name').first().textContent()) ?? '';
 
     await openEditor(page);
     await page.locator('#petName').fill('BackdropShouldDiscard');
     await page.locator('.modal-backdrop').click({ position: { x: 5, y: 5 } });
 
     await expect(page.locator('.modal-panel')).not.toBeVisible();
-    await expect(page.locator('.pet-card-name').first()).toHaveText(originalName);
+    await expect(page.locator('.pr-name').first()).toHaveText(originalName);
   });
 });
 
@@ -264,7 +264,7 @@ test.describe('Pet Editor – Initial Values', () => {
   });
 
   test('editor shows correct pet name', async ({ page }) => {
-    const cardName = (await page.locator('.pet-card-name').first().textContent()) ?? '';
+    const cardName = (await page.locator('.pr-name').first().textContent()) ?? '';
     await openEditor(page);
     await expect(page.locator('#petName')).toHaveValue(cardName);
   });
@@ -320,15 +320,14 @@ test.describe('Pet Delete – Count Integrity', () => {
   });
 
   test('deleting a pet updates the pet count', async ({ page }) => {
-    const petCards = page.locator('.pet-card');
-    const countBefore = await petCards.count();
+    const rows = page.locator('[data-testid="pet-row"]');
+    const countBefore = await rows.count();
 
-    await page.locator('.pet-card-wrapper').first().hover();
-    await page.locator('.delete-btn').first().click();
+    await rows.first().locator('[data-testid="pet-delete-btn"]').click();
     await page.locator('.btn-danger').filter({ hasText: 'Delete' }).click();
     await expect(page.locator('.confirm-dialog')).toHaveCount(0);
 
     // Use Playwright's auto-retrying assertion to avoid races with async UI updates
-    await expect(petCards).toHaveCount(countBefore - 1);
+    await expect(rows).toHaveCount(countBefore - 1);
   });
 });

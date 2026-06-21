@@ -14,7 +14,7 @@ export const selectedPet: Writable<Pet | null> = writable(null);
 export const loading = writable(false);
 export const error: Writable<string | null> = writable(null);
 export const geneEditingView: Writable<unknown> = writable(null);
-export const activeTab: Writable<Tab> = writable('pets');
+export const activeTab: Writable<Tab> = writable('library');
 
 // Bounded back-stack of previously-active tabs (oldest first, newest last),
 // driving the TopBar "back" control (#276). Capped so long sessions of tab
