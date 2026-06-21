@@ -9,7 +9,7 @@ import FilterBar from '$lib/components/shared/FilterBar.svelte';
 import PetRow from '$lib/components/shared/PetRow.svelte';
 import { getSupportedSpecies, normalizeSpecies } from '$lib/services/configService.js';
 import { clearLibrarySelection, libraryView, toggleLibrarySelection } from '$lib/stores/library.svelte.js';
-import { allTags as allTagsStore, pets } from '$lib/stores/pets.js';
+import { pets } from '$lib/stores/pets.js';
 import { HORSE_BREEDS, type Pet } from '$lib/types/index.js';
 import { filterPets } from '$lib/utils/petFilter.js';
 import { getSpeciesEmoji } from '$lib/utils/species.js';
@@ -44,13 +44,22 @@ const flags = $derived([
   { key: 'petQuality', label: '🏆 Pet quality', active: libraryView.petQualityOnly },
 ]);
 
-// Switching species invalidates a breed from another species, and a stale
-// selection from another species shouldn't linger.
+// A breed from another species no longer applies once the species changes.
 $effect(() => {
   libraryView.species;
   if (libraryView.breed && (!breedsForSpecies || !(libraryView.breed in breedsForSpecies))) {
     libraryView.breed = '';
   }
+});
+
+// Clear the multi-selection when the species changes — pets selected under the
+// old species would otherwise linger invisibly and still drive the Workspace
+// (which resolves selection against the full pet list, not the filtered view).
+// Tracks species only, so narrowing other filters (breed/flags) keeps the
+// selection. Runs once on mount against an empty set (a no-op).
+$effect(() => {
+  libraryView.species;
+  clearLibrarySelection();
 });
 
 function toggleFlag(key: string): void {

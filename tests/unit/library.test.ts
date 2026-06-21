@@ -91,6 +91,17 @@ describe('Library', () => {
     expect(libraryView.selectedIds.size).toBe(1);
   });
 
+  it('clears the selection when the species filter changes', async () => {
+    const { container } = render(Library);
+    await fireEvent.click(container.querySelector('[data-testid="pet-row-select"]') as HTMLInputElement);
+    expect(libraryView.selectedIds.size).toBe(1);
+
+    // Switching species would otherwise leave a now-hidden pet selected.
+    await fireEvent.click(container.querySelector('[data-species="horse"]') as HTMLButtonElement);
+    expect(libraryView.selectedIds.size).toBe(0);
+    expect(container.querySelector('[data-testid="library-foot"]')).toBeNull();
+  });
+
   it('clears the selection from the footer', async () => {
     const { container } = render(Library);
     await fireEvent.click(container.querySelector('[data-testid="pet-row-select"]') as HTMLInputElement);
