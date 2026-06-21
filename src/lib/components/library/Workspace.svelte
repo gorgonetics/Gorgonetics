@@ -34,6 +34,13 @@ const canCompare = $derived(selected.length === 2 && commonSpecies !== null);
 let multiLens = $state<'compare' | 'breed'>('compare');
 // Compare needs exactly two pets; fall back to Breed otherwise.
 const activeLens = $derived(multiLens === 'compare' && canCompare ? 'compare' : 'breed');
+
+// Reset to the default lens when the selection is fully cleared, so a fresh
+// 2-pet selection always opens on Compare. Edits within a selection keep the
+// user's chosen lens (no flip on every checkbox toggle).
+$effect(() => {
+  if (selected.length === 0) multiLens = 'compare';
+});
 </script>
 
 <section class="workspace" data-testid="workspace">
@@ -53,13 +60,12 @@ const activeLens = $derived(multiLens === 'compare' && canCompare ? 'compare' : 
     />
   {:else}
     <div class="multi" data-testid="workspace-multi">
-      <div class="lens-tabs" role="tablist" aria-label="Lens">
+      <div class="lens-tabs" role="group" aria-label="Workspace lens">
         <button
           type="button"
-          role="tab"
           class="lens-tab"
           class:active={activeLens === 'compare'}
-          aria-selected={activeLens === 'compare'}
+          aria-pressed={activeLens === 'compare'}
           disabled={!canCompare}
           title={canCompare ? 'Head-to-head genome diff' : 'Select exactly two pets to compare'}
           data-testid="lens-tab-compare"
@@ -67,10 +73,9 @@ const activeLens = $derived(multiLens === 'compare' && canCompare ? 'compare' : 
         >⚖️ Compare</button>
         <button
           type="button"
-          role="tab"
           class="lens-tab"
           class:active={activeLens === 'breed'}
-          aria-selected={activeLens === 'breed'}
+          aria-pressed={activeLens === 'breed'}
           data-testid="lens-tab-breed"
           onclick={() => { multiLens = 'breed'; }}
         >💞 Breed</button>
