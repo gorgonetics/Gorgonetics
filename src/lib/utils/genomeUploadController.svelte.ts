@@ -2,8 +2,9 @@
  * Reactive controller for the genome add-pet affordances: file-picker upload,
  * drag-and-drop upload, and the manual game-folder auto-scan. The pre-redesign
  * UI inlined all of this in PetList.svelte; the Library + Workspace shell needs
- * the same behaviour, so the orchestration lives here (the pure helpers stay in
- * `genomeUpload.ts`) and both surfaces drive it the same way.
+ * the same behaviour, so the orchestration is extracted here (the pure helpers
+ * stay in `genomeUpload.ts`). The Library drives it today; PetList keeps its own
+ * inline copy until the cutover removes that component.
  *
  * Wire the returned handlers onto a scroll container (drag/drop) and the
  * footer buttons (upload, auto-scan); read the `*` getters for button state and
