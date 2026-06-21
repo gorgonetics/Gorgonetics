@@ -1,8 +1,6 @@
 <script lang="ts">
-import ComparisonPetPicker from '$lib/components/comparison/ComparisonPetPicker.svelte';
 import GeneEditor from '$lib/components/gene/GeneEditor.svelte';
 import Library from '$lib/components/library/Library.svelte';
-import PetList from '$lib/components/pet/PetList.svelte';
 import { activeTab } from '$lib/stores/pets.js';
 import {
   commitSidebarWidth,
@@ -76,14 +74,10 @@ function onHandleKeydown(e: KeyboardEvent) {
             aria-label="Collapse sidebar"
             onclick={toggleSidebar}
         >‹</button>
-        {#if $activeTab === "pets"}
-            <PetList />
-        {:else if $activeTab === "editor" || $activeTab === "reference"}
+        {#if $activeTab === "reference"}
             <div class="gene-editor-wrapper">
                 <GeneEditor />
             </div>
-        {:else if $activeTab === "compare"}
-            <ComparisonPetPicker />
         {:else if $activeTab === "library"}
             <Library />
         {/if}

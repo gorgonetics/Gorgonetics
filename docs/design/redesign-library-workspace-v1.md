@@ -167,9 +167,10 @@ A full old→new capability audit (PetList/PetCard/Stable/Compare/Breeding/edito
 
 **Slice 5b (flip) — done:** nav is now the **3 destinations** (My Pets / Community / Reference), un-gated; default `activeTab='library'`. e2e migrated: deleted the superseded `stable-table`/`comparison`/`breeding`/`drop-upload` specs; ported their unique coverage into new `redesign-roster`/`redesign-breed-lens` specs and the Compare-lens diff-summary regression into `redesign-library`; repointed `pet-crud`/`app`/`keyboard`/`gallery`/`community`/`layout-debug` onto the new nav (helpers `gotoDestination`/`waitForPets`/`openEditor` updated). Full suite green (106 passed).
 
-**Resume here — slice 5c (cleanup), the last slice:**
-1. Delete the now-dead components + routing: `PetList`/`PetCard`/`StableTable`/`ComparisonView`/`ComparisonPetPicker`/`BreedingTab` and their `+page.svelte`/`MasterPanel.svelte` branches; the `redesignEnabled` flag + `flags.ts` (+ `?redesign` handling); the still-`.skip`ped `perf-comparison.spec`.
-2. Regenerate screenshots; update website/docs; drop `redesign/**` from CI triggers if undesired.
-3. Final `redesign/library-workspace → main` PR.
+**Slice 5c (cleanup) — done:** deleted the dead components (`PetList`, `PetCard`, `StableTable`, `ComparisonView`, `ComparisonPetPicker`, `AttributeComparison`, `GeneStatsComparison`, `BreedingTab`), the now-orphaned stores (`stores/comparison.ts`, `stores/stable.svelte.ts`, `stores/flags.ts`), the dead `comparisonStore.test`, and the `.skip`ped `perf-comparison.spec`. Pruned the `Tab` union to `library | community | reference` and `TAB_STATE_RESETS` to match. `BreedingPairTable`'s parent-link now collapses the library selection to that pet (was `switchTab('pets')`). `MasterPanel`/`+page.svelte` route only the three destinations. Kept: `GenomeGridDiff`/`GenomeDiff`/`GenomeDiffControls` + `comparisonService` (the Compare lens uses them), `dragReorder` (the pet-image gallery uses it). check 0/0, unit 745, e2e green.
 
-**Watch-outs:** the old `Tab` union still carries `pets`/`editor`/`compare`/`stable`/`breeding` values + `TAB_STATE_RESETS` entries — prune them with the components in 5c. Community still mounts its purpose-built `CommunityPetTable` (role=grid, remote columnar data); the source-switch shell stays deferred — decide in 5c whether it's worth unifying.
+**Resume here — the final step:**
+1. Regenerate screenshots; update website/docs for the new IA (release-time).
+2. Open the `redesign/library-workspace → main` PR. After it merges, optionally drop `redesign/**` from the `ci.yml`/`integration.yml` triggers.
+
+**Watch-outs:** Community still mounts its purpose-built `CommunityPetTable` (role=grid, remote columnar data); the source-switch shell stays deferred — a future call on whether it's worth unifying. The heavy trio grid (~2304 cells) renders slowly enough that the `redesign-breed-lens` trio tests can flake under CPU contention; they pass on retry and `openTrio` waits out the grid load.
