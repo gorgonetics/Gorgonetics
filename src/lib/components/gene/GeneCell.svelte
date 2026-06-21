@@ -62,6 +62,12 @@ function computeCssClass(
     cssClass += ' gene-filtered-out';
   }
 
+  // Squares (redesign decision #2). GeneCell is used only by the pet view, so
+  // opting in here squares Pets without touching the inline-rendered Compare
+  // (already squared) or trio cells. Once trio opts in too, the circle default
+  // can be dropped and this modifier folded into the base rule.
+  cssClass += ' gene-cell--square';
+
   return cssClass;
 }
 

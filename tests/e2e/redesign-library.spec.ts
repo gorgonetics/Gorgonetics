@@ -28,9 +28,8 @@ test.describe('Redesign — Library + Workspace shell', () => {
     // Opening a pet from the roster shows its detail.
     await page.locator('[data-testid="roster-open"]').first().click();
     await expect(page.locator('.pet-visualization')).toBeVisible();
-    // The pet detail still renders circle cells (squares are opt-in per surface).
-    await expect(page.locator('.pet-visualization .gene-cell').first()).toBeVisible();
-    await expect(page.locator('.pet-visualization .gene-cell--square')).toHaveCount(0);
+    // The pet detail now renders square cells too (slice 4b).
+    await expect(page.locator('.pet-visualization .gene-cell--square').first()).toBeVisible();
   });
 
   test('two same-species pets open the multi lens with Compare and Breed tabs', async ({ page }) => {
