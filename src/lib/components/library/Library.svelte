@@ -5,14 +5,16 @@
  * Replaces the Pets sidebar and the Stable filters. Behind the redesign flag
  * until cutover. See docs/design/redesign-library-workspace-v1.md.
  */
+import BulkSharePetDialog from '$lib/components/community/BulkSharePetDialog.svelte';
 import FilterBar from '$lib/components/shared/FilterBar.svelte';
 import PetActions from '$lib/components/shared/PetActions.svelte';
 import PetRow from '$lib/components/shared/PetRow.svelte';
+import StatusBanner from '$lib/components/shared/StatusBanner.svelte';
 import { getSupportedSpecies, normalizeSpecies } from '$lib/services/configService.js';
 import { pendingImportCount } from '$lib/stores/gameImport.js';
 import { clearLibrarySelection, libraryView, toggleLibrarySelection } from '$lib/stores/library.svelte.js';
 import { pets } from '$lib/stores/pets.js';
-import { HORSE_BREEDS, type Pet } from '$lib/types/index.js';
+import { type DialogResult, HORSE_BREEDS, type Pet } from '$lib/types/index.js';
 import { createGenomeUploadController } from '$lib/utils/genomeUploadController.svelte.js';
 import { filterPets } from '$lib/utils/petFilter.js';
 import { getSpeciesEmoji } from '$lib/utils/species.js';
@@ -74,6 +76,19 @@ function toggleFlag(key: string): void {
 
 function metaFor(pet: Pet): string {
   return [normalizeSpecies(pet.species), pet.breed || null, pet.gender].filter(Boolean).join(' · ');
+}
+
+// --- Bulk share to community ---
+let bulkShareOpen = $state(false);
+let shareStatus = $state<DialogResult | null>(null);
+
+const selectedPets = $derived($pets.filter((p) => libraryView.selectedIds.has(p.id)));
+
+function handleBulkShareResult(result: DialogResult): void {
+  shareStatus = result;
+  // A run that shared or skipped is "done" with these pets; clear so a second
+  // click doesn't re-share a stale selection.
+  if (result.type !== 'error') clearLibrarySelection();
 }
 </script>
 
@@ -145,9 +160,27 @@ function metaFor(pet: Pet): string {
     {/if}
   </div>
 
+  {#if shareStatus}
+    <div class="lib-share-status">
+      <StatusBanner
+        type={shareStatus.type}
+        message={shareStatus.message}
+        autoDismissMs={8000}
+        onDismiss={() => { shareStatus = null; }}
+      />
+    </div>
+  {/if}
+
   {#if libraryView.selectedIds.size > 0}
     <div class="lib-foot" data-testid="library-foot">
       <span class="sel-count">{libraryView.selectedIds.size} selected</span>
+      <button
+        type="button"
+        class="share-btn"
+        data-testid="library-bulk-share"
+        onclick={() => { bulkShareOpen = true; }}
+        title="Share the selected pets to the community catalogue"
+      >🌐 Share</button>
       <button type="button" class="clear-btn" onclick={clearLibrarySelection}>Clear</button>
     </div>
   {/if}
@@ -191,6 +224,14 @@ function metaFor(pet: Pet): string {
   </div>
 </div>
 
+{#if bulkShareOpen}
+  <BulkSharePetDialog
+    pets={selectedPets}
+    onClose={() => { bulkShareOpen = false; }}
+    onResult={handleBulkShareResult}
+  />
+{/if}
+
 <style>
   .library { display: flex; flex-direction: column; height: 100%; min-height: 0; }
   .lib-head { padding: 10px 12px; border-bottom: 1px solid var(--border-primary); display: flex; flex-direction: column; gap: 9px; }
@@ -228,12 +269,19 @@ function metaFor(pet: Pet): string {
     display: flex; align-items: center; gap: 8px; background: var(--bg-secondary);
   }
   .sel-count { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
-  .clear-btn {
+  .share-btn {
     margin-left: auto; padding: 4px 10px; border: 1px solid var(--border-primary);
+    border-radius: 6px; background: var(--bg-primary); color: var(--text-secondary);
+    font-size: 12px; font-weight: 600; cursor: pointer;
+  }
+  .share-btn:hover { color: var(--accent-text, var(--accent)); border-color: var(--accent); }
+  .clear-btn {
+    padding: 4px 10px; border: 1px solid var(--border-primary);
     border-radius: 6px; background: var(--bg-primary); color: var(--text-tertiary);
     font-size: 12px; font-weight: 600; cursor: pointer;
   }
   .clear-btn:hover { color: var(--text-secondary); }
+  .lib-share-status { padding: 8px 12px 0; }
 
   .lib-actions {
     border-top: 1px solid var(--border-primary); padding: 9px 12px;
