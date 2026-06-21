@@ -1,6 +1,7 @@
 <script lang="ts">
 import { ArrowLeft } from '@lucide/svelte';
 import logoImg from '$lib/assets/logo.png';
+import { redesignEnabled } from '$lib/stores/flags.js';
 import { activeTab, appState, canGoBack, type Tab } from '$lib/stores/pets.js';
 import DataMenu from './DataMenu.svelte';
 import SettingsModal from './SettingsModal.svelte';
@@ -46,6 +47,16 @@ function handleMouseUp(e: MouseEvent) {
         <ArrowLeft size={16} />
     </button>
     <nav aria-label="Main navigation" class="top-bar-tabs">
+        {#if redesignEnabled}
+            <button
+                class="tab-btn"
+                class:active={$activeTab === "library"}
+                data-testid="tab-library"
+                onclick={() => switchTab("library")}
+            >
+                ✨ My Pets
+            </button>
+        {/if}
         <button
             class="tab-btn"
             class:active={$activeTab === "pets"}
