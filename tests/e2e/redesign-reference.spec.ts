@@ -19,7 +19,7 @@ test.describe('Redesign — Reference destination', () => {
 
     // Picking an animal type + chromosome and editing opens the editing view.
     await page.locator('#animalType').selectOption('beewasp');
-    await page.locator('select').nth(1).selectOption({ index: 1 });
+    await page.locator('#chromosome').selectOption({ index: 1 });
     await page.getByRole('button', { name: 'Edit Genes' }).click();
     await expect(page.locator('.gene-editing-view')).toBeVisible();
   });
