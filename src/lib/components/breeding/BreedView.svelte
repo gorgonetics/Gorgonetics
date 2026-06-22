@@ -130,14 +130,20 @@ onDestroy(() => {
 
 <style>
   .breed-view { display: flex; flex-direction: column; height: 100%; min-height: 0; }
-  .bv-species { display: flex; gap: 6px; padding: 0 20px 10px; flex-wrap: wrap; flex-shrink: 0; }
+  /* Segmented control, consistent with the My Pets species toggle (FilterBar). */
+  .bv-species {
+    display: inline-flex; align-self: flex-start; gap: 2px; flex-shrink: 0;
+    margin: 0 20px 10px; padding: 2px; border-radius: 8px; background: var(--bg-tertiary);
+  }
   .species-btn {
-    padding: 5px 14px; border: 1px solid var(--border-primary); border-radius: 16px;
-    background: var(--bg-primary); color: var(--text-tertiary);
-    font-size: 12px; font-weight: 600; cursor: pointer;
+    border: none; background: transparent; color: var(--text-tertiary);
+    font-size: 12px; font-weight: 600; padding: 5px 14px; border-radius: 6px; cursor: pointer;
   }
   .species-btn:hover { color: var(--text-secondary); }
-  .species-btn.active { background: var(--accent); color: var(--text-inverse); border-color: var(--accent); }
+  .species-btn.active {
+    background: var(--bg-primary); color: var(--text-primary);
+    box-shadow: var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.06));
+  }
   .bv-body { flex: 1; min-height: 0; overflow: auto; padding: 0 20px 16px; display: flex; flex-direction: column; gap: 8px; }
   .bv-meta { font-size: 12px; color: var(--text-tertiary); }
 </style>
