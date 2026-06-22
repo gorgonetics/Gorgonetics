@@ -80,7 +80,7 @@ function fmt(n: number) {
     <table>
         <thead>
             <tr>
-                <th class="action-col" aria-label="Inspect"></th>
+                <th class="action-col">Offspring</th>
                 {#each columns as col (col.id)}
                     {@const isActive = breedingView.sortCol === col.id}
                     <th
@@ -110,7 +110,7 @@ function fmt(n: number) {
                             title="View offspring trio"
                             aria-label={`View offspring trio for ${pair.male.name} × ${pair.female.name}`}
                             data-testid="inspect-pair"
-                        >🔬</button>
+                        >🔬 Trio</button>
                     </td>
                     <td><button class="parent-link" onclick={() => openPet(pair.male)}>{pair.male.name}</button></td>
                     <td><button class="parent-link" onclick={() => openPet(pair.female)}>{pair.female.name}</button></td>
@@ -209,30 +209,48 @@ function fmt(n: number) {
         text-decoration: underline;
     }
 
+    /* The pair table is wide (attribute columns); pin the offspring action to
+       the left so it stays reachable at any horizontal scroll position. */
     .action-col {
-        width: 32px;
-        min-width: 32px;
+        width: 84px;
+        min-width: 84px;
+        left: 0;
+        z-index: 2;
     }
 
     .action-cell {
         text-align: center;
-        padding: 2px 4px;
+        padding: 4px 8px;
+        position: sticky;
+        left: 0;
+        background: var(--bg-primary);
+        z-index: 1;
+    }
+
+    tbody tr:hover .action-cell {
+        background: var(--bg-secondary);
     }
 
     .inspect-btn {
-        background: none;
-        border: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-primary);
+        color: var(--text-secondary);
         cursor: pointer;
-        font-size: 14px;
+        font-size: 12px;
+        font-weight: 600;
         line-height: 1;
-        padding: 4px;
-        border-radius: 4px;
-        opacity: 0.65;
-        transition: opacity 0.15s ease, background 0.15s ease;
+        padding: 4px 8px;
+        border-radius: 6px;
+        white-space: nowrap;
+        transition: all 0.15s ease;
     }
 
     .inspect-btn:hover {
-        opacity: 1;
-        background: var(--bg-tertiary);
+        background: var(--accent);
+        color: var(--text-inverse);
+        border-color: var(--accent);
     }
 </style>

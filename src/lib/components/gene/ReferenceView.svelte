@@ -127,7 +127,7 @@ $effect(() => {
   .ref-field select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
   .ref-field select:disabled { background: var(--bg-secondary); color: var(--text-muted); }
   .load-btn {
-    padding: 7px 16px; background: var(--accent); color: var(--accent-text, var(--text-inverse));
+    padding: 7px 16px; background: var(--accent); color: var(--text-inverse);
     border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer;
   }
   .load-btn:hover:not(:disabled) { filter: brightness(1.05); }

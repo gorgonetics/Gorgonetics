@@ -137,7 +137,7 @@ onDestroy(() => {
     font-size: 12px; font-weight: 600; cursor: pointer;
   }
   .species-btn:hover { color: var(--text-secondary); }
-  .species-btn.active { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+  .species-btn.active { background: var(--accent); color: var(--text-inverse); border-color: var(--accent); }
   .bv-body { flex: 1; min-height: 0; overflow: auto; padding: 0 20px 16px; display: flex; flex-direction: column; gap: 8px; }
   .bv-meta { font-size: 12px; color: var(--text-tertiary); }
 </style>
