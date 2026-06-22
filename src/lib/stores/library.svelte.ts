@@ -1,8 +1,7 @@
 /**
- * Reactive state for the redesign Library (the unified pet list + filters that
- * replaces the Pets sidebar and the Stable filters). Module-scoped so it
- * survives tab switches, mirroring `stableView`.
- * See docs/design/redesign-library-workspace-v1.md.
+ * Reactive state for My Pets (the table-first home): the filters, roster sort,
+ * and multi-selection. Module-scoped so it survives tab switches.
+ * See docs/design/redesign-library-workspace-v1.md (§9, IA v2).
  */
 
 export type LibraryDensity = 'card' | 'table';
@@ -21,8 +20,11 @@ export const libraryView = $state({
   /** Roster (table) sort — column id + direction. */
   sortCol: 'name' as string,
   sortDir: 'asc' as 'asc' | 'desc',
-  /** Multi-select for bulk actions / driving the Workspace. */
+  /** Multi-select for bulk actions (Compare / Share). */
   selectedIds: new Set<number>() as Set<number>,
+  /** Cross-destination request to open a pet's detail in My Pets (e.g. clicking
+   *  a parent in the Breed pair table). MyPets consumes and clears it. */
+  openPetId: null as number | null,
 });
 
 /** Replace the selection set (reassign so $state tracks the change). */
@@ -39,4 +41,9 @@ export function toggleLibrarySelection(id: number): void {
 
 export function clearLibrarySelection(): void {
   libraryView.selectedIds = new Set();
+}
+
+/** Ask My Pets to open a pet's detail (used from other destinations). */
+export function requestOpenPet(id: number): void {
+  libraryView.openPetId = id;
 }

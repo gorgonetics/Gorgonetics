@@ -1,6 +1,7 @@
 <script lang="ts">
 import { breedingView } from '$lib/stores/breeding.svelte.js';
-import { setLibrarySelection } from '$lib/stores/library.svelte.js';
+import { requestOpenPet } from '$lib/stores/library.svelte.js';
+import { appState } from '$lib/stores/pets.js';
 import type { BreedingPairResult, Pet } from '$lib/types/index.js';
 import { type SortableColumn, sortByColumn } from '$lib/utils/sortColumn.js';
 
@@ -61,8 +62,9 @@ function sortIndicator(colId: string) {
 }
 
 function openPet(pet: Pet) {
-  // Collapse the selection to this one pet so the Workspace shows its detail.
-  setLibrarySelection(new Set([pet.id]));
+  // Jump to My Pets and open this parent's full detail.
+  requestOpenPet(pet.id);
+  appState.switchTab('library');
 }
 
 function openTrio(pair: BreedingPairResult) {
