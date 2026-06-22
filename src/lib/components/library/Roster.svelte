@@ -46,17 +46,26 @@ const columns = $derived.by((): Column[] => {
     accessor: (pet: Pet) => num(pet, attr),
   }));
 
+  // Total only makes sense alongside the per-species attribute columns; under
+  // "All" species there are no attributes to sum, so it would read 0 for every
+  // pet — omit it (and the attr columns) there.
+  const totalCol: Column[] = attrNames.length
+    ? [
+        {
+          id: 'attr_total',
+          label: 'Total',
+          numeric: true,
+          accessor: (p: Pet) => attrNames.reduce((sum, a) => sum + num(p, a), 0),
+        },
+      ]
+    : [];
+
   return [
     { id: 'name', label: 'Name', numeric: false, accessor: (p) => p.name ?? '' },
     { id: 'gender', label: 'Gender', numeric: false, accessor: (p) => p.gender ?? '' },
     { id: 'breed', label: 'Breed', numeric: false, accessor: (p) => p.breed ?? '' },
     ...attrCols,
-    {
-      id: 'attr_total',
-      label: 'Total',
-      numeric: true,
-      accessor: (p) => attrNames.reduce((sum, a) => sum + num(p, a), 0),
-    },
+    ...totalCol,
     { id: 'positive_genes', label: '+ Genes', numeric: true, accessor: (p) => p.positive_genes ?? 0 },
   ];
 });

@@ -291,7 +291,7 @@ function handleBulkShareResult(result: DialogResult): void {
   .mp-add { display: flex; align-items: center; gap: 8px; padding: 9px 16px; }
   .upload-btn {
     padding: 7px 14px; border: none; border-radius: 7px;
-    background: var(--accent); color: var(--accent-text); font-size: 12px; font-weight: 600; cursor: pointer;
+    background: var(--accent); color: var(--text-inverse); font-size: 12px; font-weight: 600; cursor: pointer;
   }
   .upload-btn:hover:not(:disabled) { filter: brightness(1.05); }
   .upload-btn:disabled { opacity: 0.6; cursor: default; }
@@ -303,7 +303,7 @@ function handleBulkShareResult(result: DialogResult): void {
   .auto-scan-btn:disabled { opacity: 0.6; cursor: default; }
   .pending-badge {
     position: absolute; top: -4px; right: -4px; min-width: 16px; height: 16px;
-    padding: 0 3px; border-radius: 8px; background: var(--accent); color: var(--accent-text);
+    padding: 0 3px; border-radius: 8px; background: var(--accent); color: var(--text-inverse);
     font-size: 9px; font-weight: 700; line-height: 16px; text-align: center;
   }
 

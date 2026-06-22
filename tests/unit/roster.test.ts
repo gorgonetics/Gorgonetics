@@ -57,10 +57,11 @@ describe('Roster', () => {
     const labels = headers(container);
     expect(labels?.some((l) => l?.startsWith('Name'))).toBe(true);
     expect(labels).toContain('Gender');
-    expect(labels?.some((l) => l?.startsWith('Total'))).toBe(true);
     expect(labels?.some((l) => l?.startsWith('+ Genes'))).toBe(true);
-    // No horse attribute column (e.g. Toughness) until a species is chosen.
+    // No horse attribute column (e.g. Toughness) until a species is chosen…
     expect(labels?.some((l) => l?.toLowerCase().includes('toughness'))).toBe(false);
+    // …and no Total either — with no attributes to sum it would read 0 for all.
+    expect(labels?.some((l) => l?.startsWith('Total'))).toBe(false);
   });
 
   it('adds per-attribute columns when a species is selected', () => {
