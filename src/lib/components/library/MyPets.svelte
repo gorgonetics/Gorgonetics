@@ -71,6 +71,17 @@ $effect(() => {
   prevSpecies = species;
 });
 
+// Honour a cross-destination "open this pet" request (e.g. clicking a parent in
+// the Breed pair table switched here). Consume it so it fires once.
+$effect(() => {
+  const requested = libraryView.openPetId;
+  if (requested != null) {
+    detailPetId = requested;
+    comparing = false;
+    libraryView.openPetId = null;
+  }
+});
+
 // Resolve against the live pet list so a deleted pet drops out (→ back to table).
 const detailPet = $derived(detailPetId == null ? null : ($pets.find((p) => p.id === detailPetId) ?? null));
 
