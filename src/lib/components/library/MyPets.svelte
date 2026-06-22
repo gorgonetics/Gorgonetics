@@ -19,7 +19,7 @@ import StatusBanner from '$lib/components/shared/StatusBanner.svelte';
 import { getSupportedSpecies, normalizeSpecies } from '$lib/services/configService.js';
 import { pendingImportCount } from '$lib/stores/gameImport.js';
 import { clearLibrarySelection, libraryView } from '$lib/stores/library.svelte.js';
-import { pets } from '$lib/stores/pets.js';
+import { loading, pets } from '$lib/stores/pets.js';
 import { type DialogResult, HORSE_BREEDS, type Pet } from '$lib/types/index.js';
 import { createGenomeUploadController } from '$lib/utils/genomeUploadController.svelte.js';
 import { getSpeciesEmoji } from '$lib/utils/species.js';
@@ -160,7 +160,7 @@ function handleBulkShareResult(result: DialogResult): void {
       {#if upload.fileDragActive}
         <div class="file-drop-overlay"><span>Drop genome files to upload</span></div>
       {/if}
-      {#if $pets.length === 0}
+      {#if $pets.length === 0 && !$loading}
         <div class="mp-empty" data-testid="mypets-empty">
           <EmptyState
             icon="🐾"
@@ -174,27 +174,6 @@ function handleBulkShareResult(result: DialogResult): void {
     </div>
 
     <div class="mp-foot">
-      {#if selectedPets.length > 0}
-        <div class="mp-selection" data-testid="mypets-selection">
-          <span class="sel-count">{selectedPets.length} selected</span>
-          <button
-            type="button"
-            class="act-btn"
-            data-testid="mypets-compare"
-            disabled={!canCompare}
-            title={canCompare ? 'Compare the two selected pets' : 'Select exactly two pets of the same species'}
-            onclick={openCompare}
-          >⚖️ Compare</button>
-          <button
-            type="button"
-            class="act-btn"
-            data-testid="mypets-share"
-            title="Share the selected pets to the community catalogue"
-            onclick={() => { bulkShareOpen = true; }}
-          >🌐 Share</button>
-          <button type="button" class="act-btn ghost" data-testid="mypets-clear" onclick={clearLibrarySelection}>Clear</button>
-        </div>
-      {/if}
       <div class="mp-add" data-testid="mypets-actions">
         <button
           type="button"
@@ -232,6 +211,27 @@ function handleBulkShareResult(result: DialogResult): void {
           {/if}
         </button>
       </div>
+      {#if selectedPets.length > 0}
+        <div class="mp-selection" data-testid="mypets-selection">
+          <span class="sel-count">{selectedPets.length} selected</span>
+          <button
+            type="button"
+            class="act-btn"
+            data-testid="mypets-compare"
+            disabled={!canCompare}
+            title={canCompare ? 'Compare the two selected pets' : 'Select exactly two pets of the same species'}
+            onclick={openCompare}
+          >⚖️ Compare</button>
+          <button
+            type="button"
+            class="act-btn"
+            data-testid="mypets-share"
+            title="Share the selected pets to the community catalogue"
+            onclick={() => { bulkShareOpen = true; }}
+          >🌐 Share</button>
+          <button type="button" class="act-btn ghost" data-testid="mypets-clear" onclick={clearLibrarySelection}>Clear</button>
+        </div>
+      {/if}
     </div>
   </div>
 
@@ -291,7 +291,7 @@ function handleBulkShareResult(result: DialogResult): void {
     display: flex; align-items: center; gap: 12px; padding: 8px 16px;
     border-top: 1px solid var(--border-primary); background: var(--bg-secondary); flex-shrink: 0;
   }
-  .mp-selection { order: 2; margin-left: auto; display: flex; align-items: center; gap: 8px; }
+  .mp-selection { margin-left: auto; display: flex; align-items: center; gap: 8px; }
   .sel-count { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
   .act-btn {
     padding: 5px 12px; border: 1px solid var(--border-primary); border-radius: 6px;
@@ -302,7 +302,7 @@ function handleBulkShareResult(result: DialogResult): void {
   .act-btn:disabled { opacity: 0.5; cursor: default; }
   .act-btn.ghost { border-color: transparent; color: var(--text-tertiary); }
 
-  .mp-add { order: 1; display: flex; align-items: center; gap: 8px; }
+  .mp-add { display: flex; align-items: center; gap: 8px; }
   .upload-btn {
     padding: 7px 14px; border: none; border-radius: 7px;
     background: var(--accent); color: var(--text-inverse); font-size: 12px; font-weight: 600; cursor: pointer;

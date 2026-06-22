@@ -122,6 +122,7 @@ async function doDelete(): Promise<void> {
     transition: background 0.12s, color 0.12s, border-color 0.12s;
   }
   .action-btn:hover { background: var(--bg-hover); border-color: var(--border-primary); color: var(--text-primary); }
+  .action-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .edit-btn:hover { color: var(--accent); }
   .action-btn.delete-btn:hover { color: var(--gene-negative); }
 
