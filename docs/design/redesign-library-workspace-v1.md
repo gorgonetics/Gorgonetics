@@ -175,15 +175,24 @@ A full old→new capability audit (PetList/PetCard/Stable/Compare/Breeding/edito
 
 **Watch-outs:** Community still mounts its purpose-built `CommunityPetTable` (role=grid, remote columnar data); the source-switch shell stays deferred — a future call on whether it's worth unifying. The heavy trio grid (~2304 cells) renders slowly enough that the `redesign-breed-lens` trio tests can flake under CPU contention; they pass on retry and `openTrio` waits out the grid load.
 
-## 9. IA v2 — table-first pivot (updated 2026-06-21)
+## 9. IA v2 — table-first pivot (updated 2026-06-22)
 
 **Why.** Usability feedback on the v1 shell: the persistent narrow pet **sidebar is useless at a few-hundred-pet scale** (nobody scrolls 300 cards), and **breeding was buried** behind a multi-select gesture in the Workspace. Root causes: the wrong primitive for the pet list (rail vs. table), and conflating *selection-first* Compare with *search-first* Breed.
 
-**The model.** Four full-width destinations, **no persistent pet sidebar**: `✨ My Pets · 💞 Breed · 🌐 Community · 📚 Reference`.
+**The model.** Four **full-width** destinations, **no sidebar anywhere**: `✨ My Pets · 💞 Breed · 🌐 Community · 📚 Reference`.
 - **My Pets** (`MyPets.svelte`) — the full-width sortable/filterable **Roster table** is the home. Clicking a name opens the pet's full-view detail (`PetVisualization`) with a **← back** button; the table stays mounted underneath (scroll preserved). Row checkboxes build a multi-selection for the action bar (**Compare** / **Share**); per-row edit/delete via `PetActions`. Upload/drop/auto-scan in the footer.
-- **Breed** (`BreedView.svelte`) — first-class, search-first: pick a species → rank pairs across your stabled pets of that species → trio. No pre-selection.
-- `MasterPanel` now renders only for **Reference** (its gene-template picker).
+- **Breed** (`BreedView.svelte`) — first-class, search-first: pick a species → rank pairs across your stabled pets of that species → trio. No pre-selection. A parent name in the pair table jumps to that pet's detail in My Pets (via `libraryView.openPetId`, consumed once by `MyPets`).
+- **Reference** (`ReferenceView.svelte`) — the animal-type/chromosome pickers sit in a **top toolbar**, the gene-editing grid full-width below.
+- **No `MasterPanel`** — the layout shell (`+layout.svelte`) renders `TopBar` + a full-width `main`; the sidebar component and its `sidebar` store are gone.
 
-**Done & merged:** R1 top-level Breed (#342). R2 table-first My Pets — built `MyPets`/`BreedView`, refactored `Roster` (gains `onOpen` + an actions column), retired `Library`/`Workspace`/`BreedLens`, migrated e2e (`redesign-mypets`, `redesign-breed-destination`, repointed app/pet-crud/community/gallery/keyboard/layout-debug). Per-test timeout raised to 30s for the heavy grids.
+**Done & merged (all into the epic):**
+- **R1** top-level Breed (#342).
+- **R2** table-first My Pets (#343) — built `MyPets`/`BreedView`, refactored `Roster` (gains `onOpen` + a per-row actions column), retired `Library`/`Workspace`/`BreedLens`; migrated e2e (`redesign-mypets`, `redesign-breed-destination`, repointed app/pet-crud/community/gallery/keyboard/layout-debug). Fixed a mount race (the species-reset effect could clobber a freshly-opened detail). Per-test timeout 30s.
+- **R3** full-width Reference (#344) — `ReferenceView`; deleted `MasterPanel`, the standalone `GeneEditor`, and the `sidebar` store; dropped the rail from the layout shell. Widened e2e timeouts (expect 10s, retries 2) for the cold genome-grid renders.
+- **Cleanup** (#354) — removed the never-adopted `GeneGrid` primitive; fixed the Breed parent-link (was a dead `setLibrarySelection`); refreshed stale store comments.
 
-**Watch-outs:** the heavy trio/diff grids (~2304 cells) still flake under local CPU contention (pass in isolation / CI). `libraryView` remains the state backbone (filters, sort, `selectedIds`); detail/compare are local `MyPets` state, reset on remount. The epic→main PR (#341) stays a draft until IA v2 is signed off.
+**Surviving primitives:** `PetRow` (now only `CommunityPetTable`), `FilterBar` (My Pets), `PageHeader`/`EmptyState` (Breed/Reference/Community), `BreedSelector`. `PetActions` (edit/delete), `genomeUploadController`, `GenomeGridDiff`/`GenomeDiff`, the breeding service/table/`TrioView`, squared gene cells — all reused.
+
+**Watch-outs:** the heavy trio/diff/detail grids (~2304 cells) render slowly enough that their e2e can flake under CPU contention (they pass in isolation / CI; the dev server also recompiles modules on first navigation per test). `libraryView` is the state backbone (filters, sort, `selectedIds`, the one-shot `openPetId`); detail/compare are local `MyPets` state, reset on remount. Community still mounts its purpose-built `CommunityPetTable` (role=grid, remote columnar data) — a future call on unifying it. The grid render cost is a standing perf concern beyond the redesign.
+
+**Remaining before main:** regenerate screenshots + website/docs (release-time); then un-draft the epic→main PR (#341).
