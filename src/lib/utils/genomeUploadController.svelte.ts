@@ -87,6 +87,13 @@ export function createGenomeUploadController() {
     if (!isFileDrag(e.dataTransfer)) return;
     e.preventDefault();
     fileDragActive = false;
+    // An upload/auto-scan already in flight would make uploadSources() a silent
+    // no-op; tell the user their drop was ignored rather than dropping it on the
+    // floor.
+    if (uploading || autoScanning) {
+      error.set('An import is already in progress. Wait for it to finish, then drop the files again.');
+      return;
+    }
     const dropped = Array.from(e.dataTransfer?.files ?? []);
     if (dropped.length === 0) return;
 

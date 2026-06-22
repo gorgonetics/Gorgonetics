@@ -97,6 +97,38 @@ test.describe('Redesign — My Pets (table-first)', () => {
     await expect(page.locator('[data-testid="pet-compare"]')).toHaveCount(0);
   });
 
+  test('the gender filter narrows the roster', async ({ page }) => {
+    await openMyPets(page);
+    // Narrow to horses: Sample Horse (Male) + Roach (Female).
+    await page.locator('[data-testid="filter-species"] [data-species="horse"]').click();
+    const rows = page.locator('[data-testid="roster"] tbody tr');
+    await expect(rows).toHaveCount(2);
+
+    await page.locator('[data-testid="filter-gender"] [data-gender="Male"]').click();
+    await expect(rows).toHaveCount(1);
+    await expect(rows.first()).toContainText('Sample Horse');
+
+    await page.locator('[data-testid="filter-gender"] [data-gender=""]').click();
+    await expect(rows).toHaveCount(2);
+  });
+
+  test('a selected pet hidden by a filter drops out of the bulk selection', async ({ page }) => {
+    await openMyPets(page);
+    await page.locator('[data-testid="filter-species"] [data-species="horse"]').click();
+    const checks = page.locator('[data-testid="roster-row-select"]');
+    await expect(checks).toHaveCount(2);
+    await checks.nth(0).check();
+    await checks.nth(1).check();
+    await expect(page.locator('[data-testid="mypets-selection"]')).toContainText('2 selected');
+    await expect(page.locator('[data-testid="mypets-compare"]')).toBeEnabled();
+
+    // Filter to Male hides one selected horse; it must leave the selection so
+    // Compare/Share can't act on an off-screen pet.
+    await page.locator('[data-testid="filter-gender"] [data-gender="Male"]').click();
+    await expect(page.locator('[data-testid="mypets-selection"]')).toContainText('1 selected');
+    await expect(page.locator('[data-testid="mypets-compare"]')).toBeDisabled();
+  });
+
   test('a multi-selection can be bulk-shared to the community', async ({ page }) => {
     await openMyPets(page);
     const checks = page.locator('[data-testid="roster-row-select"]');

@@ -34,19 +34,34 @@ const attrNames = $derived(species ? getAllAttributeNames(species).map(capitaliz
 
 // Breed across the stable: every stabled pet of the chosen species.
 const candidates = $derived($pets.filter((p) => p.stabled && normalizeSpecies(p.species) === species));
+// Identity of the candidate set (which stabled pets of this species exist).
+// Lets us skip a re-rank when a `$pets` re-emit returns the same set with a new
+// array reference (a background loadPets, an unrelated marker toggle, …).
+const candidateKey = $derived(`${species}|${candidates.map((p) => p.id).join(',')}`);
 
 let pairs = $state<BreedingPairResult[]>([]);
 let loading = $state(false);
 let errored = $state(false);
 let seq = 0;
+let prevKey: string | undefined;
+let prevSpecies: string | undefined;
 
 $effect(() => {
-  // Re-rank whenever the species (and thus the candidate set) changes. A
-  // sequence guard discards stale results if the inputs change faster than the
-  // service responds.
+  // Re-rank when the species or its candidate set actually changes — NOT on
+  // every `$pets` emission. A sequence guard discards stale async results.
   const sp = species;
+  const key = candidateKey;
   const ps = candidates;
-  breedingView.selectedPair = null;
+
+  // Only close an open Trio on a genuine species change. An unrelated store
+  // refresh must not yank the offspring projection shut underneath the user.
+  if (prevSpecies !== undefined && prevSpecies !== sp) {
+    breedingView.selectedPair = null;
+  }
+  const unchanged = prevKey === key;
+  prevKey = key;
+  prevSpecies = sp;
+  if (unchanged) return;
 
   if (!sp || ps.length === 0) {
     pairs = [];

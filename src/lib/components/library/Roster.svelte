@@ -9,10 +9,16 @@
  */
 import PetActions from '$lib/components/shared/PetActions.svelte';
 import { getAllAttributeNames, getAllAttributes } from '$lib/services/configService.js';
-import { libraryView, setLibrarySelection, toggleLibrarySelection } from '$lib/stores/library.svelte.js';
+import {
+  getLibraryFilters,
+  libraryView,
+  setLibrarySelection,
+  toggleLibrarySelection,
+} from '$lib/stores/library.svelte.js';
 import { pets } from '$lib/stores/pets.js';
 import type { Pet } from '$lib/types/index.js';
 import { filterPets } from '$lib/utils/petFilter.js';
+import { type SortableColumn, sortByColumn } from '$lib/utils/sortColumn.js';
 import { capitalize } from '$lib/utils/string.js';
 
 interface Props {
@@ -30,15 +36,32 @@ interface Column {
   accessor: (pet: Pet) => string | number;
 }
 
+const num = (pet: Pet, k: string) => (pet as unknown as Record<string, number>)[k] ?? 0;
+
 // Per-attribute columns only when a single species is selected (different
 // species expose different attributes); species-agnostic columns are always
 // shown so the roster is useful for an all-species view too.
-const columns = $derived.by((): Column[] => {
-  const species = libraryView.species;
-  const attrNames = species ? getAllAttributeNames(species) : [];
-  const attrInfo = species ? (getAllAttributes(species) as Record<string, { name?: string }>) : {};
-  const num = (pet: Pet, k: string) => (pet as unknown as Record<string, number>)[k] ?? 0;
+const attrNames = $derived(libraryView.species ? getAllAttributeNames(libraryView.species) : []);
+const attrInfo = $derived(
+  libraryView.species ? (getAllAttributes(libraryView.species) as Record<string, { name?: string }>) : {},
+);
 
+const filtered = $derived(filterPets($pets, getLibraryFilters()));
+
+// Precompute one attribute total per visible pet so sorting by Total doesn't
+// re-sum every attribute on each O(n log n) comparison.
+const totals = $derived.by(() => {
+  if (attrNames.length === 0) return null;
+  const m = new Map<number, number>();
+  for (const p of filtered)
+    m.set(
+      p.id,
+      attrNames.reduce((sum, a) => sum + num(p, a), 0),
+    );
+  return m;
+});
+
+const columns = $derived.by((): Column[] => {
   const attrCols: Column[] = attrNames.map((attr) => ({
     id: attr,
     label: attrInfo[attr]?.name ?? capitalize(attr),
@@ -50,14 +73,7 @@ const columns = $derived.by((): Column[] => {
   // "All" species there are no attributes to sum, so it would read 0 for every
   // pet — omit it (and the attr columns) there.
   const totalCol: Column[] = attrNames.length
-    ? [
-        {
-          id: 'attr_total',
-          label: 'Total',
-          numeric: true,
-          accessor: (p: Pet) => attrNames.reduce((sum, a) => sum + num(p, a), 0),
-        },
-      ]
+    ? [{ id: 'attr_total', label: 'Total', numeric: true, accessor: (p: Pet) => totals?.get(p.id) ?? 0 }]
     : [];
 
   return [
@@ -70,28 +86,13 @@ const columns = $derived.by((): Column[] => {
   ];
 });
 
-const filtered = $derived(
-  filterPets($pets, {
-    query: libraryView.search,
-    tags: libraryView.tags,
-    starredOnly: libraryView.starredOnly,
-    stabledOnly: libraryView.stabledOnly,
-    petQualityOnly: libraryView.petQualityOnly,
-    species: libraryView.species,
-    breed: libraryView.breed,
-  }),
-);
-
 const sorted = $derived.by(() => {
   const col = columns.find((c) => c.id === libraryView.sortCol) ?? columns[0];
-  const list = [...filtered];
-  list.sort((a, b) => {
-    const av = col.accessor(a);
-    const bv = col.accessor(b);
-    const cmp = col.numeric ? Number(av) - Number(bv) : String(av).localeCompare(String(bv));
-    return libraryView.sortDir === 'asc' ? cmp : -cmp;
-  });
-  return list;
+  // Reuse the shared, tested comparator (numeric subtract vs localeCompare).
+  const sortable: SortableColumn<Pet> = col.numeric
+    ? { numeric: true, accessor: (p) => Number(col.accessor(p)) }
+    : { numeric: false, accessor: (p) => String(col.accessor(p)) };
+  return sortByColumn(filtered, sortable, libraryView.sortDir);
 });
 
 // If the sorted column disappears (species change drops an attribute), fall

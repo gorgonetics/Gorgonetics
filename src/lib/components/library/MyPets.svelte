@@ -18,10 +18,11 @@ import FilterBar from '$lib/components/shared/FilterBar.svelte';
 import StatusBanner from '$lib/components/shared/StatusBanner.svelte';
 import { getSupportedSpecies, normalizeSpecies } from '$lib/services/configService.js';
 import { pendingImportCount } from '$lib/stores/gameImport.js';
-import { clearLibrarySelection, libraryView } from '$lib/stores/library.svelte.js';
-import { loading, pets } from '$lib/stores/pets.js';
-import { type DialogResult, HORSE_BREEDS, type Pet } from '$lib/types/index.js';
+import { clearLibrarySelection, getLibraryFilters, libraryView } from '$lib/stores/library.svelte.js';
+import { allTags, loading, pets } from '$lib/stores/pets.js';
+import { type DialogResult, type Gender, HORSE_BREEDS, type Pet } from '$lib/types/index.js';
 import { createGenomeUploadController } from '$lib/utils/genomeUploadController.svelte.js';
+import { filterPets } from '$lib/utils/petFilter.js';
 import { getSpeciesEmoji } from '$lib/utils/species.js';
 
 const speciesOptions = getSupportedSpecies();
@@ -45,25 +46,26 @@ function toggleFlag(key: string): void {
   else if (key === 'petQuality') libraryView.petQualityOnly = !libraryView.petQualityOnly;
 }
 
-// A breed from another species no longer applies once the species changes.
-$effect(() => {
-  libraryView.species;
-  if (libraryView.breed && (!breedsForSpecies || !(libraryView.breed in breedsForSpecies))) {
-    libraryView.breed = '';
-  }
-});
+function toggleTag(tag: string): void {
+  libraryView.tags = libraryView.tags.includes(tag)
+    ? libraryView.tags.filter((t) => t !== tag)
+    : [...libraryView.tags, tag];
+}
 
 // --- View mode: table (default) | detail | compare -------------------------
 let detailPetId = $state<number | null>(null);
 let comparing = $state(false);
 
-// Switching species changes the candidate universe; drop a multi-selection that
-// would otherwise act on now-hidden pets, and close any open detail/compare.
-// Guarded on an actual change (not the initial mount run) so it can't clobber a
-// freshly-opened detail when a click and the effect's first run race.
+// Switching species changes the candidate universe. In one effect, keyed on the
+// species: drop a breed that no longer belongs to it, and (on an *actual*
+// change, not the initial mount run, so it can't clobber a freshly-opened
+// detail) clear the multi-selection and close any open detail/compare.
 let prevSpecies: string | undefined;
 $effect(() => {
   const species = libraryView.species;
+  if (libraryView.breed && (!breedsForSpecies || !(libraryView.breed in breedsForSpecies))) {
+    libraryView.breed = '';
+  }
   if (prevSpecies !== undefined && prevSpecies !== species) {
     clearLibrarySelection();
     detailPetId = null;
@@ -73,26 +75,37 @@ $effect(() => {
 });
 
 // Honour a cross-destination "open this pet" request (e.g. clicking a parent in
-// the Breed pair table switched here). Consume it so it fires once.
+// the Breed pair table switched here). Wait until the pet is actually in the
+// loaded list before consuming the request, so one that arrives before
+// loadPets() resolves isn't silently dropped (it opens once the pet lands).
 $effect(() => {
   const requested = libraryView.openPetId;
-  if (requested != null) {
-    detailPetId = requested;
-    comparing = false;
-    libraryView.openPetId = null;
-  }
+  if (requested == null) return;
+  if (!$pets.some((p) => p.id === requested)) return;
+  detailPetId = requested;
+  comparing = false;
+  libraryView.openPetId = null;
 });
 
 // Resolve against the live pet list so a deleted pet drops out (→ back to table).
 const detailPet = $derived(detailPetId == null ? null : ($pets.find((p) => p.id === detailPetId) ?? null));
 
-// Selection drives the bulk-action bar. Count actual pets (not raw ids) so a
-// pet deleted out from under the selection doesn't inflate the count.
-const selectedPets = $derived($pets.filter((p) => libraryView.selectedIds.has(p.id)));
+// Visible pets = the same filtered set the Roster shows (one source of truth via
+// getLibraryFilters). The selection is scoped to these so a pet hidden by a
+// search/breed/gender/flag filter can't drive Compare or Share while off-screen.
+const visiblePets = $derived(filterPets($pets, getLibraryFilters()));
+const selectedPets = $derived(visiblePets.filter((p) => libraryView.selectedIds.has(p.id)));
 const compareSpecies = $derived(selectedPets.length === 2 ? normalizeSpecies(selectedPets[0].species) : '');
 const canCompare = $derived(
   selectedPets.length === 2 && compareSpecies !== '' && normalizeSpecies(selectedPets[1].species) === compareSpecies,
 );
+
+// A compare view that loses its second pet (deletion, filtered out, or a
+// background reload) would otherwise leave `comparing` true with the overlay
+// unmounted and the table hidden — a blank screen. Drop back to the table.
+$effect(() => {
+  if (comparing && !canCompare) comparing = false;
+});
 
 function openDetail(pet: Pet): void {
   comparing = false;
@@ -133,6 +146,12 @@ function handleBulkShareResult(result: DialogResult): void {
         breeds={breedsForSpecies}
         breed={libraryView.breed}
         onBreed={(v) => { libraryView.breed = v; }}
+        genders={['Male', 'Female']}
+        activeGender={libraryView.gender}
+        onGender={(v) => { libraryView.gender = v as Gender | ''; }}
+        tagOptions={$allTags}
+        activeTags={libraryView.tags}
+        onToggleTag={toggleTag}
         {flags}
         onToggleFlag={toggleFlag}
       />

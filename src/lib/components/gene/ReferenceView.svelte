@@ -20,6 +20,9 @@ let animalTypes = $state<string[]>([]);
 let chromosomes = $state<string[]>([]);
 let loadingChromosomes = $state(false);
 let editorError = $state('');
+// Discards a stale chromosome fetch when the animal type changes again before
+// the earlier request resolves (otherwise the slower, older response wins).
+let chromosomeSeq = 0;
 
 onMount(async () => {
   try {
@@ -32,17 +35,22 @@ onMount(async () => {
 
 async function loadChromosomes(): Promise<void> {
   if (!selectedAnimalType) return;
+  const mine = ++chromosomeSeq;
+  const animalType = selectedAnimalType;
   try {
     loadingChromosomes = true;
     editorError = '';
-    chromosomes = await geneService.getChromosomes(selectedAnimalType);
+    const result = await geneService.getChromosomes(animalType);
+    if (mine !== chromosomeSeq) return; // a newer animal-type load superseded us
+    chromosomes = result;
     selectedChromosome = '';
     appState.clearGeneEditingView();
   } catch (err: unknown) {
+    if (mine !== chromosomeSeq) return;
     console.error('Failed to load chromosomes:', err);
     editorError = 'Failed to load chromosomes';
   } finally {
-    loadingChromosomes = false;
+    if (mine === chromosomeSeq) loadingChromosomes = false;
   }
 }
 

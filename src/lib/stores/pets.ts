@@ -24,7 +24,7 @@ const tabHistory: Writable<Tab[]> = writable([]);
 /** True when `appState.goBack()` has a previous tab to return to. */
 export const canGoBack = derived(tabHistory, (h) => h.length > 0);
 
-/** All unique tags across all pets, sorted. Shared by PetEditor and PetList. */
+/** All unique tags across all pets, sorted. Shared by PetEditor and the Library filter bar. */
 export const allTags = derived(pets, ($pets) => [...new Set($pets.flatMap((p) => p.tags ?? []))].sort());
 
 function getCurrentValue<T>(store: Writable<T>): T | undefined {

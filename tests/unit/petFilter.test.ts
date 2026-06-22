@@ -104,6 +104,12 @@ describe('petMatchesFilters — Library criteria (species / breed / pet-quality)
     expect(petMatchesFilters(pet({ is_pet_quality: false }), { ...noFilters, petQualityOnly: true })).toBe(false);
   });
 
+  it('matches gender exactly; "" means all', () => {
+    expect(petMatchesFilters(pet({ gender: 'Male' }), { ...noFilters, gender: 'Male' })).toBe(true);
+    expect(petMatchesFilters(pet({ gender: 'Female' }), { ...noFilters, gender: 'Male' })).toBe(false);
+    expect(petMatchesFilters(pet({ gender: 'Female' }), { ...noFilters, gender: '' })).toBe(true);
+  });
+
   it('combines new criteria with the existing ones (AND)', () => {
     const matching = pet({
       name: 'Dusty',

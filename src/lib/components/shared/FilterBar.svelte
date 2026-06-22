@@ -33,7 +33,17 @@ interface Props {
   breeds?: Record<string, string>;
   breed?: string;
   onBreed?: (value: string) => void;
-  /** Toggle pills (starred, stabled, pet-quality, tags…). */
+  /** Gender options (e.g. ['Male','Female']); omit to hide the gender toggle. */
+  genders?: string[];
+  /** Active gender; '' means "all". */
+  activeGender?: string;
+  onGender?: (value: string) => void;
+  /** Available tags to filter by; omit to hide the tag pills. */
+  tagOptions?: string[];
+  /** Currently-active tags (AND semantics). */
+  activeTags?: string[];
+  onToggleTag?: (tag: string) => void;
+  /** Toggle pills (starred, stabled, pet-quality). */
   flags?: FlagSpec[];
   onToggleFlag?: (key: string) => void;
 }
@@ -49,6 +59,12 @@ const {
   breeds,
   breed = '',
   onBreed,
+  genders,
+  activeGender = '',
+  onGender,
+  tagOptions,
+  activeTags = [],
+  onToggleTag,
   flags,
   onToggleFlag,
 }: Props = $props();
@@ -91,6 +107,29 @@ const {
     <BreedSelector value={breed} {breeds} onChange={(v) => onBreed?.(v)} />
   {/if}
 
+  {#if genders && genders.length > 0}
+    <div class="fb-seg" role="group" aria-label="Gender" data-testid="filter-gender">
+      <button
+        type="button"
+        class="fb-seg-btn"
+        class:active={activeGender === ''}
+        aria-pressed={activeGender === ''}
+        data-gender=""
+        onclick={() => onGender?.('')}
+      >All</button>
+      {#each genders as g (g)}
+        <button
+          type="button"
+          class="fb-seg-btn"
+          class:active={activeGender === g}
+          aria-pressed={activeGender === g}
+          data-gender={g}
+          onclick={() => onGender?.(g)}
+        >{g}</button>
+      {/each}
+    </div>
+  {/if}
+
   {#if flags && flags.length > 0}
     <div class="fb-flags" data-testid="filter-flags">
       {#each flags as flag (flag.key)}
@@ -102,6 +141,21 @@ const {
           data-flag={flag.key}
           onclick={() => onToggleFlag?.(flag.key)}
         >{flag.label}</button>
+      {/each}
+    </div>
+  {/if}
+
+  {#if tagOptions && tagOptions.length > 0}
+    <div class="fb-flags" data-testid="filter-tags">
+      {#each tagOptions as tag (tag)}
+        <button
+          type="button"
+          class="fb-pill"
+          class:active={activeTags.includes(tag)}
+          aria-pressed={activeTags.includes(tag)}
+          data-tag={tag}
+          onclick={() => onToggleTag?.(tag)}
+        >🏷️ {tag}</button>
       {/each}
     </div>
   {/if}

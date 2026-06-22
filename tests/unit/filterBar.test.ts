@@ -29,7 +29,33 @@ describe('FilterBar', () => {
     const { container } = mount();
     expect(q(container, '[data-testid="filter-species"]')).toBeNull();
     expect(q(container, '[data-testid="breed-selector"]')).toBeNull();
+    expect(q(container, '[data-testid="filter-gender"]')).toBeNull();
+    expect(q(container, '[data-testid="filter-tags"]')).toBeNull();
     expect(q(container, '[data-testid="filter-flags"]')).toBeNull();
+  });
+
+  it('renders the gender toggle with All + each option and fires onGender ("" for All)', async () => {
+    const onGender = vi.fn();
+    const { container } = mount({ genders: ['Male', 'Female'], activeGender: 'Female', onGender });
+    const seg = q(container, '[data-testid="filter-gender"]') as HTMLElement;
+    const btns = seg.querySelectorAll('.fb-seg-btn');
+    expect([...btns].map((b) => b.getAttribute('data-gender'))).toEqual(['', 'Male', 'Female']);
+    expect(seg.querySelector('[data-gender="Female"]')?.getAttribute('aria-pressed')).toBe('true');
+    await fireEvent.click(seg.querySelector('[data-gender="Male"]') as HTMLButtonElement);
+    await fireEvent.click(seg.querySelector('[data-gender=""]') as HTMLButtonElement);
+    expect(onGender).toHaveBeenNthCalledWith(1, 'Male');
+    expect(onGender).toHaveBeenNthCalledWith(2, '');
+  });
+
+  it('renders tag pills reflecting active state and toggles them', async () => {
+    const onToggleTag = vi.fn();
+    const { container } = mount({ tagOptions: ['foal', 'fast'], activeTags: ['fast'], onToggleTag });
+    const tags = q(container, '[data-testid="filter-tags"]') as HTMLElement;
+    expect(tags.querySelectorAll('.fb-pill')).toHaveLength(2);
+    expect(tags.querySelector('[data-tag="fast"]')?.getAttribute('aria-pressed')).toBe('true');
+    expect(tags.querySelector('[data-tag="foal"]')?.getAttribute('aria-pressed')).toBe('false');
+    await fireEvent.click(tags.querySelector('[data-tag="foal"]') as HTMLButtonElement);
+    expect(onToggleTag).toHaveBeenCalledExactlyOnceWith('foal');
   });
 
   it('renders the species toggle with All + each option and reflects the active one', () => {

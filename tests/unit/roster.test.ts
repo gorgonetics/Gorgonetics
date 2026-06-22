@@ -27,6 +27,7 @@ function resetView() {
   libraryView.search = '';
   libraryView.species = '';
   libraryView.breed = '';
+  libraryView.gender = '';
   libraryView.starredOnly = false;
   libraryView.stabledOnly = false;
   libraryView.petQualityOnly = false;
@@ -77,6 +78,29 @@ describe('Roster', () => {
     libraryView.search = 'roach';
     await rerender({});
     expect(rowNames(container)).toEqual(['Roach']);
+  });
+
+  it('respects the gender filter', async () => {
+    const { container, rerender } = render(Roster);
+    expect(rowNames(container)).toEqual(['Dusty', 'Roach']);
+    libraryView.gender = 'Female';
+    await rerender({});
+    expect(rowNames(container)).toEqual(['Roach']);
+  });
+
+  it('sorts by the per-species Total column', async () => {
+    libraryView.species = 'horse';
+    const { container } = render(Roster);
+    const total = [...container.querySelectorAll('thead .sort-btn')].find((b) =>
+      b.textContent?.startsWith('Total'),
+    ) as HTMLButtonElement;
+    expect(total).toBeTruthy();
+    // Dusty toughness 60, Roach 40 → asc: Roach, Dusty.
+    await fireEvent.click(total);
+    expect(libraryView.sortCol).toBe('attr_total');
+    expect(rowNames(container)).toEqual(['Roach', 'Dusty']);
+    await fireEvent.click(total);
+    expect(rowNames(container)).toEqual(['Dusty', 'Roach']);
   });
 
   it('sorts by a clicked column and toggles direction', async () => {

@@ -4,7 +4,8 @@
  * See docs/design/redesign-library-workspace-v1.md (§9, IA v2).
  */
 
-export type LibraryDensity = 'card' | 'table';
+import type { Gender } from '$lib/types/index.js';
+import type { PetListFilters } from '$lib/utils/petFilter.js';
 
 export const libraryView = $state({
   search: '',
@@ -12,11 +13,12 @@ export const libraryView = $state({
   species: '' as string,
   /** Breed name; '' = all. */
   breed: '' as string,
+  /** Exact gender; '' = all. */
+  gender: '' as Gender | '',
   starredOnly: false,
   stabledOnly: false,
   petQualityOnly: false,
   tags: [] as string[],
-  density: 'card' as LibraryDensity,
   /** Roster (table) sort — column id + direction. */
   sortCol: 'name' as string,
   sortDir: 'asc' as 'asc' | 'desc',
@@ -26,6 +28,25 @@ export const libraryView = $state({
    *  a parent in the Breed pair table). MyPets consumes and clears it. */
   openPetId: null as number | null,
 });
+
+/**
+ * The active filter criteria as a plain `PetListFilters`. The single source of
+ * truth both MyPets (for the bulk-action selection) and Roster (for the visible
+ * rows) filter by, so they can never disagree about which pets are visible.
+ * Call inside a reactive context ($derived) so the field reads are tracked.
+ */
+export function getLibraryFilters(): PetListFilters {
+  return {
+    query: libraryView.search,
+    tags: libraryView.tags,
+    starredOnly: libraryView.starredOnly,
+    stabledOnly: libraryView.stabledOnly,
+    petQualityOnly: libraryView.petQualityOnly,
+    species: libraryView.species,
+    breed: libraryView.breed,
+    gender: libraryView.gender,
+  };
+}
 
 /** Replace the selection set (reassign so $state tracks the change). */
 export function setLibrarySelection(ids: Set<number>): void {
