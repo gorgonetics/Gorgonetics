@@ -44,6 +44,11 @@ const {
 }: Props = $props();
 
 function onKeydown(e: KeyboardEvent): void {
+  // Only activate when the row container itself has focus. A key event that
+  // bubbled up from a nested control (the multi-select checkbox, a trailing
+  // action) must reach its own handler — otherwise Space on the checkbox would
+  // be preventDefault'd here and open the row instead of toggling selection.
+  if (e.target !== e.currentTarget) return;
   if (e.key === 'Enter' || e.key === ' ') {
     e.preventDefault();
     onActivate?.();

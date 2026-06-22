@@ -63,6 +63,16 @@ describe('PetRow', () => {
     expect(onActivate).not.toHaveBeenCalled();
   });
 
+  it('a key press bubbling from the checkbox does not activate the row', async () => {
+    const onActivate = vi.fn();
+    const { container } = mount({ selectable: true, onActivate });
+    // Space/Enter while the checkbox is focused must reach the checkbox, not be
+    // hijacked by the row's activate handler.
+    await fireEvent.keyDown(checkbox(container), { key: ' ', bubbles: true });
+    await fireEvent.keyDown(checkbox(container), { key: 'Enter', bubbles: true });
+    expect(onActivate).not.toHaveBeenCalled();
+  });
+
   it('marks the active row with aria-current', () => {
     const { container } = mount({ active: true });
     expect(row(container).getAttribute('aria-current')).toBe('true');
