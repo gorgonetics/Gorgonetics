@@ -209,6 +209,7 @@ onDestroy(() => {
                 >
                     Gallery
                 </button>
+                <span class="vc-divider" aria-hidden="true"></span>
                 <button
                     class="view-btn share-btn"
                     data-testid="share-pet-btn"
@@ -378,10 +379,21 @@ onDestroy(() => {
 
     .view-controls {
         display: flex;
+        align-items: center;
         gap: 4px;
         background: var(--bg-tertiary);
         border-radius: 6px;
         padding: 3px;
+    }
+
+    /* Separates the view toggles (Attributes/Appearance/Stats/Gallery) from the
+       actions (Share/Edit/Delete) so the destructive Delete isn't adjacent to a
+       routine view toggle. */
+    .vc-divider {
+        width: 1px;
+        align-self: stretch;
+        margin: 2px 4px;
+        background: var(--border-secondary);
     }
 
     .view-btn {

@@ -109,19 +109,20 @@ async function doDelete(): Promise<void> {
 <style>
   /* Compact glyph buttons for list rows (icon variant). */
   .action-btn {
-    width: 22px;
-    height: 22px;
+    width: 24px;
+    height: 24px;
     display: grid;
     place-items: center;
-    border: none;
+    border: 1px solid transparent;
     border-radius: 5px;
     background: transparent;
-    color: var(--text-tertiary);
-    font-size: 12px;
+    color: var(--text-secondary);
+    font-size: 13px;
     cursor: pointer;
-    transition: background 0.12s, color 0.12s;
+    transition: background 0.12s, color 0.12s, border-color 0.12s;
   }
-  .action-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+  .action-btn:hover { background: var(--bg-hover); border-color: var(--border-primary); color: var(--text-primary); }
+  .action-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .edit-btn:hover { color: var(--accent); }
   .action-btn.delete-btn:hover { color: var(--gene-negative); }
 
