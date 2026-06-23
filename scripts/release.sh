@@ -103,10 +103,12 @@ echo "Updating screenshots (starting dev server)..."
 # Kill whatever is listening on the Vite port. `pnpm dev` spawns vite as a
 # child, so signalling only the pnpm wrapper leaves vite holding the port;
 # targeting the port listener catches the process that actually matters.
+# Restrict to the TCP LISTEN socket so we only kill the server bound to the
+# port, never browser/Playwright clients that merely have a connection open.
 free_dev_port() {
   if command -v lsof >/dev/null 2>&1; then
     local pids
-    pids=$(lsof -ti:5174 2>/dev/null || true)
+    pids=$(lsof -ti:5174 -sTCP:LISTEN 2>/dev/null || true)
     if [[ -n "$pids" ]]; then
       # shellcheck disable=SC2086
       kill $pids 2>/dev/null || true
@@ -120,14 +122,15 @@ free_dev_port() {
 # reap the wrapper.
 stop_dev_server() {
   local pid="${1:-}"
-  if [[ -n "$pid" ]]; then
-    pkill -P "$pid" 2>/dev/null || true   # vite (and any other children)
-    kill "$pid" 2>/dev/null || true       # the pnpm wrapper
+  # No PID means we never started a server (e.g. the EXIT trap firing before
+  # `pnpm dev`). Do nothing rather than freeing a port we don't own.
+  if [[ -z "$pid" ]]; then
+    return
   fi
+  pkill -P "$pid" 2>/dev/null || true   # vite (and any other children)
+  kill "$pid" 2>/dev/null || true       # the pnpm wrapper
   free_dev_port
-  if [[ -n "$pid" ]]; then
-    wait "$pid" 2>/dev/null || true
-  fi
+  wait "$pid" 2>/dev/null || true
 }
 
 # Free a leftover dev server from a previous run before starting our own.
