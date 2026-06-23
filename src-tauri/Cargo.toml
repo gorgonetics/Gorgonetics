@@ -38,7 +38,7 @@ tokio = { version = "1", features = ["sync"] }
 # never fully resident in the webview's JS heap (issue #92). Stored-only:
 # images are already-compressed PNG/JPEG, so deflate buys nothing and we skip
 # the flate2 dependency.
-zip = { version = "7", default-features = false }
+zip = { version = "8", default-features = false }
 
 [target."cfg(not(any(target_os = \"android\", target_os = \"ios\")))".dependencies]
 tauri-plugin-updater = "2"
