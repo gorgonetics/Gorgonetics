@@ -100,14 +100,45 @@ echo "Version bumped to $NEW_VERSION in package.json, tauri.conf.json, Cargo.tom
 # --- Update screenshots ---
 echo "Updating screenshots (starting dev server)..."
 
-# Kill any existing dev server on the port
-if command -v lsof >/dev/null 2>&1; then
-  EXISTING_PID=$(lsof -ti:5174 2>/dev/null || true)
-  if [[ -n "$EXISTING_PID" ]]; then
-    kill "$EXISTING_PID" 2>/dev/null || true
-    sleep 1
+# Kill whatever is listening on the Vite port. `pnpm dev` spawns vite as a
+# child, so signalling only the pnpm wrapper leaves vite holding the port;
+# targeting the port listener catches the process that actually matters.
+# Restrict to the TCP LISTEN socket so we only kill the server bound to the
+# port, never browser/Playwright clients that merely have a connection open.
+free_dev_port() {
+  if command -v lsof >/dev/null 2>&1; then
+    local pids
+    pids=$(lsof -ti:5174 -sTCP:LISTEN 2>/dev/null || true)
+    if [[ -n "$pids" ]]; then
+      # shellcheck disable=SC2086
+      kill $pids 2>/dev/null || true
+    fi
   fi
-fi
+}
+
+# Tear down the dev server started for screenshots. Killing only $DEV_PID (the
+# pnpm wrapper) leaves vite alive and pnpm blocked waiting on it, so a plain
+# `wait $DEV_PID` hangs forever. Kill the child subtree and free the port, then
+# reap the wrapper.
+stop_dev_server() {
+  local pid="${1:-}"
+  # No PID means we never started a server (e.g. the EXIT trap firing before
+  # `pnpm dev`). Do nothing rather than freeing a port we don't own.
+  if [[ -z "$pid" ]]; then
+    return
+  fi
+  pkill -P "$pid" 2>/dev/null || true   # vite (and any other children)
+  kill "$pid" 2>/dev/null || true       # the pnpm wrapper
+  free_dev_port
+  wait "$pid" 2>/dev/null || true
+}
+
+# Free a leftover dev server from a previous run before starting our own.
+free_dev_port
+sleep 1
+
+# Always tear the dev server down on exit, even if a later step fails.
+trap 'stop_dev_server "${DEV_PID:-}"' EXIT
 
 pnpm dev &
 DEV_PID=$!
@@ -129,8 +160,8 @@ else
   echo "Warning: dev server not responding after 20s, skipping screenshots"
 fi
 
-kill $DEV_PID 2>/dev/null || true
-wait $DEV_PID 2>/dev/null || true
+stop_dev_server "$DEV_PID"
+DEV_PID=""
 
 # --- Lint and test ---
 echo "Running lint..."
