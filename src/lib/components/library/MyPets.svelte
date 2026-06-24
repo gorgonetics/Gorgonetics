@@ -99,7 +99,11 @@ let detailPetSnapshot = $state<Pet | null>(null);
 $effect(() => {
   if (livePet) detailPetSnapshot = livePet;
 });
-const detailPet = $derived(detailPetId == null ? null : (livePet ?? detailPetSnapshot));
+// Only fall back to the snapshot when it's the *same* pet — otherwise switching
+// to another pet while its row hasn't landed yet would briefly show the prior one.
+const detailPet = $derived(
+  detailPetId == null ? null : (livePet ?? (detailPetSnapshot?.id === detailPetId ? detailPetSnapshot : null)),
+);
 
 // A genuinely deleted pet still drops us back to the table — but only on a
 // *settled* load (`!$loading`). During an in-flight reload the list can briefly
