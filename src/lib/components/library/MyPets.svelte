@@ -87,8 +87,34 @@ $effect(() => {
   libraryView.openPetId = null;
 });
 
-// Resolve against the live pet list so a deleted pet drops out (→ back to table).
-const detailPet = $derived(detailPetId == null ? null : ($pets.find((p) => p.id === detailPetId) ?? null));
+// Resolve against the live pet list, but retain a snapshot of the open pet so a
+// transient absence during a background reload can't blink the overlay shut.
+// AuthWrapper's startup backfills each fire `loadPets()` → `pets.set(...)` well
+// after mount; coupling the overlay's lifetime directly to a `$pets.find()`
+// would tear down the detail (and its Share/Edit/Delete controls) mid-render if
+// a reload momentarily lands without our pet. Reconcile to the fresh object
+// whenever it's present so backfilled fields (gene counts, …) still surface.
+const livePet = $derived(detailPetId == null ? null : ($pets.find((p) => p.id === detailPetId) ?? null));
+let detailPetSnapshot = $state<Pet | null>(null);
+$effect(() => {
+  if (livePet) detailPetSnapshot = livePet;
+});
+// Only fall back to the snapshot when it's the *same* pet — otherwise switching
+// to another pet while its row hasn't landed yet would briefly show the prior one.
+const detailPet = $derived(
+  detailPetId == null ? null : (livePet ?? (detailPetSnapshot?.id === detailPetId ? detailPetSnapshot : null)),
+);
+
+// A genuinely deleted pet still drops us back to the table — but only on a
+// *settled* load (`!$loading`). During an in-flight reload the list can briefly
+// lack the pet; that window always closes with `loading` true, so it can't be
+// mistaken for a deletion.
+$effect(() => {
+  if (detailPetId != null && !$loading && !$pets.some((p) => p.id === detailPetId)) {
+    detailPetId = null;
+    detailPetSnapshot = null;
+  }
+});
 
 // Visible pets = the same filtered set the Roster shows (one source of truth via
 // getLibraryFilters). The selection is scoped to these so a pet hidden by a
