@@ -23,6 +23,7 @@ import { pendingImportCount } from '$lib/stores/gameImport.js';
 import { clearLibrarySelection, getLibraryFilters, libraryView } from '$lib/stores/library.svelte.js';
 import { allTags, loading, pets } from '$lib/stores/pets.js';
 import { type DialogResult, type Gender, HORSE_BREEDS, type Pet } from '$lib/types/index.js';
+import { focusTrap } from '$lib/utils/focusTrap.js';
 import { createGenomeUploadController } from '$lib/utils/genomeUploadController.svelte.js';
 import { filterPets } from '$lib/utils/petFilter.js';
 import { getSpeciesEmoji } from '$lib/utils/species.js';
@@ -329,14 +330,23 @@ const canShareAll = $derived(!isPlaceholderConfig && $pets.length > 0);
 
 {#if showShareAllConfirm}
   <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-  <div class="modal-backdrop" onclick={() => { showShareAllConfirm = false; }}>
+  <div
+    class="modal-backdrop"
+    onclick={() => { showShareAllConfirm = false; }}
+    onkeydown={(e) => { if (e.key === 'Escape') showShareAllConfirm = false; }}
+    role="presentation"
+  >
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div
       class="dialog share-all-dialog"
       role="dialog"
       aria-modal="true"
       aria-label="Share all pets to community"
+      tabindex="-1"
+      use:focusTrap
       data-testid="share-all-dialog"
       onclick={(e) => e.stopPropagation()}
+      onkeydown={(e) => { if (e.key === 'Escape') showShareAllConfirm = false; }}
     >
       <div class="dialog-header"><h3>Share all {$pets.length} {$pets.length === 1 ? 'pet' : 'pets'} to the community?</h3></div>
       <div class="dialog-body">
