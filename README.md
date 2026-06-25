@@ -10,14 +10,18 @@ Built with **Tauri v2** (Rust) + **Svelte 5** (SvelteKit) + **TypeScript** + **S
 
 ## Features
 
-- Upload and manage pet genome files (.txt format from Project Gorgon)
+- Upload and manage pet genome files (.txt format from Project Gorgon), including auto-import from your game folder
 - Interactive gene visualization grid with attribute/appearance views
 - Attribute stats summary with counts and breakdowns
 - Edit gene effects (dominant/recessive) per chromosome
+- Breeding assistant and side-by-side pet comparison
+- Per-pet image gallery with drag-and-drop reordering
+- Optional community catalogue: share pets publicly and browse/import others' (opt-in)
 - Species-specific attribute configuration (BeeWasp, Horse)
-- Export gene data as JSON
+- Export gene data as JSON; back up and restore the whole database
+- Automatic update checks for installed builds
 - Native file dialogs, SQLite database, single-binary distribution
-- All data stored locally — no accounts, no cloud, no tracking
+- Pet data is stored locally by default — accounts and the cloud are only involved if you opt in to community sharing
 
 ## Download
 
@@ -30,7 +34,7 @@ See the [website](https://gorgonetics.github.io/Gorgonetics/) for detailed insta
 ### Prerequisites
 
 - [Rust](https://rustup.rs/) (stable toolchain)
-- [Node.js](https://nodejs.org/) 20+
+- [Node.js](https://nodejs.org/) 22 (matches CI)
 - [pnpm](https://pnpm.io/)
 
 ### Setup
@@ -62,10 +66,13 @@ pnpm tauri:build      # Build production app (.app/.dmg on macOS)
 | `pnpm build` | Build frontend (static site) |
 | `pnpm tauri:build` | Build production native app |
 | `pnpm tauri:build:windows` | Cross-compile Windows installer from macOS |
-| `pnpm run lint:ci` | Biome lint check |
-| `pnpm run lint:fix` | Auto-fix formatting and lint issues |
+| `pnpm test` | Vitest unit tests |
 | `pnpm test:e2e` | Playwright E2E tests |
 | `pnpm test:e2e:headed` | E2E tests with visible browser |
+| `pnpm test:firestore` | Firestore-emulator integration tests |
+| `pnpm check` | `svelte-check` type checking |
+| `pnpm run lint:ci` | Biome lint check |
+| `pnpm run lint:fix` | Auto-fix formatting and lint issues |
 
 ### Architecture
 
@@ -73,24 +80,28 @@ pnpm tauri:build      # Build production app (.app/.dmg on macOS)
 src/
   routes/           SvelteKit pages (layout + main page)
   lib/
-    components/     Svelte 5 components (layout, pet, gene)
-    services/       TypeScript service layer (database, API, parsing)
+    components/     Svelte 5 components (layout, pet, gene, breeding,
+                    comparison, community, stable, shared)
+    services/       TypeScript service layer (database, parsing, breeding,
+                    sharing, game-folder import, backup, updates)
     stores/         Svelte writable stores
     types/          TypeScript interfaces
 src-tauri/          Tauri Rust backend + config
 assets/             Gene template JSON source files
 data/               Sample genome text files
-tests/e2e/          Playwright E2E tests
+scripts/            Build/release helpers (asset sync, release, screenshots)
+tests/              Vitest unit tests + Playwright E2E (tests/e2e/)
 ```
 
 ### Tech Stack
 
 - **Desktop Shell**: Tauri v2 (Rust)
 - **Frontend**: SvelteKit + Svelte 5 (runes)
-- **Styling**: Tailwind CSS v4
+- **Styling**: Plain CSS + Svelte scoped styles (no CSS framework); shared classes in `src/app.css`
 - **Database**: SQLite via tauri-plugin-sql
-- **Icons**: Lucide Svelte
-- **Testing**: Playwright
+- **Community backend**: Firebase / Firestore (used only for opt-in pet sharing)
+- **Icons**: `@lucide/svelte`
+- **Testing**: Vitest (unit) + Playwright (E2E) + Firestore emulator (integration)
 - **Linting**: Biome
 
 ## Species & Data
