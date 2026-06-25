@@ -11,6 +11,7 @@
  * the drop overlay. See docs/design/redesign-library-workspace-v1.md §5.
  */
 import { get } from 'svelte/store';
+import { autoShareImportedPets, summarizeAutoShare } from '$lib/services/autoShare.js';
 import { pickGenomeFiles, readFileContent } from '$lib/services/fileService.js';
 import { autoScanGameFolder } from '$lib/services/gameImport.js';
 import { refreshPendingImportCount } from '$lib/stores/gameImport.js';
@@ -37,15 +38,21 @@ export function createGenomeUploadController() {
     uploading = true;
     error.set(null);
     try {
-      const { total, succeeded, failures } = await runGenomeUpload(sources, {
+      const { total, succeeded, failures, createdPetIds } = await runGenomeUpload(sources, {
         upload: (content: string) => appState.uploadPetQuiet(content),
         onProgress: (current: number, t: number) => {
           uploadProgress = { current, total: t };
         },
       });
       await appState.loadPets();
+      // Auto-share runs against the freshly-reloaded store and is a no-op unless
+      // the user opted in. It never throws, so it can't fail the upload.
+      const shareNote = summarizeAutoShare(await autoShareImportedPets(createdPetIds));
       if (failures.length > 0) {
-        error.set(`${succeeded}/${total} uploaded. ${failures.length} failed:\n${failures.join('\n')}`);
+        const base = `${succeeded}/${total} uploaded. ${failures.length} failed:\n${failures.join('\n')}`;
+        error.set(shareNote ? `${base}\n${shareNote}` : base);
+      } else if (shareNote) {
+        error.set(shareNote);
       }
     } catch (err) {
       error.set(`Upload failed: ${errorMessage(err)}`);
@@ -131,9 +138,13 @@ export function createGenomeUploadController() {
         return;
       }
 
-      // autoScanGameFolder refreshes the pets store itself on a DB change (#253).
+      // autoScanGameFolder refreshes the pets store itself on a DB change (#253),
+      // and auto-shares the fresh inserts itself when the opt-in is on (#363).
       const backfillNote = result.backfilled > 0 ? `, ${result.backfilled} unlocked for sharing` : '';
-      const summary = `Auto-import: ${result.imported} new, ${result.skipped} already imported${backfillNote} (of ${result.scanned} files).`;
+      const shareNote = summarizeAutoShare(result.shared ?? null);
+      const summary =
+        `Auto-import: ${result.imported} new, ${result.skipped} already imported${backfillNote} (of ${result.scanned} files).` +
+        (shareNote ? `\n${shareNote}` : '');
       if (result.failures.length > 0) {
         const lines = result.failures.map((f: { file: string; reason: string }) => `${f.file}: ${f.reason}`);
         error.set(`${summary}\n${result.failures.length} failed:\n${lines.join('\n')}`);

@@ -19,6 +19,7 @@ import {
   uploadPet,
 } from './petService.js';
 import { getSetting, setSetting } from './settingsService.js';
+import type { BulkUploadSummary } from './shareService.js';
 
 export type Platform = 'windows' | 'mac' | 'linux' | 'unknown';
 
@@ -110,10 +111,16 @@ export interface AutoScanResult {
    */
   backfilled: number;
   failures: Array<{ file: string; reason: string }>;
+  /**
+   * Auto-share outcome for the freshly-imported pets, when the opt-in
+   * `community.autoShareOnImport` setting is on. `null` when sharing was
+   * skipped (disabled, not configured, or nothing new to share).
+   */
+  shared?: BulkUploadSummary | null;
 }
 
 function emptyResult(status: AutoScanResult['status'], message?: string): AutoScanResult {
-  return { status, message, scanned: 0, skipped: 0, imported: 0, backfilled: 0, failures: [] };
+  return { status, message, scanned: 0, skipped: 0, imported: 0, backfilled: 0, failures: [], shared: null };
 }
 
 /**
@@ -154,7 +161,10 @@ export async function autoScanGameFolder(options?: {
     imported: 0,
     backfilled: 0,
     failures: [],
+    shared: null,
   };
+  // Ids of fresh inserts this scan, for auto-share once the store is reloaded.
+  const createdPetIds: number[] = [];
 
   // Read+hash in parallel chunks — the slow step on cold scans is disk
   // I/O, and SHA-256 of a small text file is negligible. SQL writes
@@ -221,6 +231,7 @@ export async function autoScanGameFolder(options?: {
           result.backfilled++;
         } else {
           result.imported++;
+          if (upload.pet_id != null) createdPetIds.push(upload.pet_id);
         }
       } else {
         // pets.content_hash matched but imported_files was missing the
@@ -244,6 +255,16 @@ export async function autoScanGameFolder(options?: {
     // loadPets() handles its own errors (surfaces via the store's error state)
     // and never rejects, so awaiting it bare is safe.
     await appState.loadPets();
+  }
+
+  // Auto-share the fresh inserts once the store reflects them. Dynamic import
+  // keeps the shareService/store/firebase graph off this service's static deps
+  // (same rationale as the loadPets import above). No-op unless the user opted
+  // in; never throws — a failed share must not fail the scan. Covers every scan
+  // caller, including AuthWrapper's background folder watcher.
+  if (createdPetIds.length > 0) {
+    const { autoShareImportedPets } = await import('./autoShare.js');
+    result.shared = await autoShareImportedPets(createdPetIds);
   }
 
   return result;

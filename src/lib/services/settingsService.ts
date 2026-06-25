@@ -12,6 +12,9 @@ const SETTING_DEFAULTS: Record<string, unknown> = {
   'display.fontScale': 100,
   'display.theme': 'system',
   'import.gameFolderPath': '',
+  // Privacy-sensitive: sharing publishes a pet to the public catalogue, so this
+  // stays OFF unless the user explicitly opts in. See autoShare.ts.
+  'community.autoShareOnImport': false,
 };
 
 export function getDefaultSettings(): Record<string, unknown> {
