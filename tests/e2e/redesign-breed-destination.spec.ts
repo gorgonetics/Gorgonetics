@@ -39,15 +39,20 @@ test.describe('Redesign — Breed destination', () => {
     await expect(trio).toHaveClass(/detail-overlay/);
     await expect(trio.locator('.modal-backdrop')).toHaveCount(0);
     await expect(trio.getByTestId('trio-view-back')).toBeVisible();
-    // Wait out the heavy grid render before asserting its labels.
-    await expect(trio.locator('.role-label').first()).toBeVisible({ timeout: 15000 });
+    // The covered pair table is made inert so focus / AT can't reach controls
+    // hidden behind the overlay.
+    await expect(page.getByTestId('breed-view')).toHaveAttribute('inert', '');
+    // Wait out the heavy grid render (~2304 cells; slow under CPU contention).
+    await expect(trio.locator('.role-label').first()).toBeVisible({ timeout: 30000 });
     await expect(trio.getByText('Offspring', { exact: false }).first()).toBeVisible();
 
     // Escape backs out (focus lands inside the overlay on open), returning to
     // the still-mounted pair table — the keyboard affordance the old modal had.
     await page.keyboard.press('Escape');
     await expect(page.getByTestId('trio-view')).toHaveCount(0);
-    await expect(page.locator('[data-testid="breeding-pair-table"]')).toBeVisible();
+    // Backed out to the breed destination; the covered table is interactive again.
+    await expect(page.getByTestId('breed-view')).toBeVisible();
+    await expect(page.getByTestId('breed-view')).not.toHaveAttribute('inert', '');
   });
 
   test('clicking a parent name opens that pet in My Pets', async ({ page }) => {

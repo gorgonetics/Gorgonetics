@@ -47,14 +47,33 @@ const {
   children,
 }: Props = $props();
 
+let sectionEl = $state<HTMLElement | null>(null);
 let backBtn = $state<HTMLButtonElement | null>(null);
 
 onMount(() => {
-  // Land focus inside the overlay so keyboard / screen-reader users start in
-  // the lens rather than on the now-hidden control behind it; restore on close.
   const previouslyFocused = document.activeElement as HTMLElement | null;
+
+  // Make the covered UI inert: the overlay sits over its siblings (the
+  // table/list), so keyboard focus and assistive tech must not reach controls
+  // hidden behind it. Scoped to siblings, so nested modals (PetEditor /
+  // delete-confirm) — which are our descendants — stay interactive, and the top
+  // nav — a sibling of our *container*, not ours — stays reachable (these are
+  // non-modal in-tab lenses by design).
+  const covered: Element[] = [];
+  for (const sib of sectionEl?.parentElement?.children ?? []) {
+    if (sib !== sectionEl && !sib.hasAttribute('inert')) {
+      sib.setAttribute('inert', '');
+      covered.push(sib);
+    }
+  }
+
+  // Land focus inside the overlay so keyboard / SR users start in the lens.
   backBtn?.focus();
-  return () => previouslyFocused?.focus();
+
+  return () => {
+    for (const sib of covered) sib.removeAttribute('inert');
+    previouslyFocused?.focus();
+  };
 });
 
 function handleKeydown(e: KeyboardEvent) {
@@ -69,6 +88,7 @@ function handleKeydown(e: KeyboardEvent) {
 <!-- A <section> with an accessible name is already a `region` landmark. -->
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <section
+  bind:this={sectionEl}
   class="detail-overlay"
   data-testid={testid}
   aria-label={ariaLabel}
