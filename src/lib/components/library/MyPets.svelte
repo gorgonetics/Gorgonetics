@@ -302,13 +302,13 @@ const canShareAll = $derived(!isPlaceholderConfig && $pets.length > 0);
   </div>
 
   {#if detailPet}
-    <DetailOverlay testid="pet-detail" backTestid="pet-detail-back" backLabel="← Pets" onBack={closeDetail}>
+    <DetailOverlay testid="pet-detail" backTestid="pet-detail-back" backLabel="← Pets" ariaLabel="Pet detail" onBack={closeDetail}>
       {#snippet title()}{getSpeciesEmoji(detailPet.species)} {detailPet.name || 'Pet'}{/snippet}
       <!-- PetVisualization owns its own header (views / stats / gallery / share / edit / delete). -->
       <PetVisualization pet={detailPet} />
     </DetailOverlay>
   {:else if comparing && canCompare}
-    <DetailOverlay testid="pet-compare" backTestid="pet-compare-back" backLabel="← Pets" onBack={closeCompare}>
+    <DetailOverlay testid="pet-compare" backTestid="pet-compare-back" backLabel="← Pets" ariaLabel="Pet comparison" onBack={closeCompare}>
       {#snippet title()}⚖️ {selectedPets[0].name || 'Pet A'} vs {selectedPets[1].name || 'Pet B'}{/snippet}
       <GenomeGridDiff petA={selectedPets[0]} petB={selectedPets[1]} />
     </DetailOverlay>

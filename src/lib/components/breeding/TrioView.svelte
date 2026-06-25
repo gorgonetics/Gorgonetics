@@ -22,7 +22,7 @@ const speciesLabel = $derived(father ? normalizeSpecies(father.species) : '');
   testid="trio-view"
   backTestid="trio-view-back"
   backLabel="← Pairs"
-  backAriaLabel="Close trio view"
+  ariaLabel="Offspring trio"
   onBack={onClose}
 >
   {#snippet title()}

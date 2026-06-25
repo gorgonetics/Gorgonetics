@@ -7,18 +7,26 @@
  * three detail views share one presentation.
  * See docs/design/redesign-library-workspace-v1.md (§3, component unification).
  *
+ * These are deliberately *non-modal* in-tab lenses (you can still switch tabs),
+ * not dialogs — so this is a `region` landmark, not `role="dialog"`. It still
+ * manages keyboard affordances: focus lands inside on open and is restored to
+ * the trigger on close, and Escape backs out. True modals layered on top
+ * (PetEditor, delete-confirm) keep their own focus trap + Escape; the Escape
+ * handler here defers to them so it can't double-close.
+ *
  * Position: absolute/inset:0, so it covers its nearest positioned ancestor —
  * mount it inside a `position: relative` (or absolute) container.
  */
 import type { Snippet } from 'svelte';
+import { onMount } from 'svelte';
 
 interface Props {
-  /** Back out of the detail view (back button click). */
+  /** Back out of the detail view (back button / Escape). */
   onBack: () => void;
   /** Visible back-button text (e.g. "← Pets", "← Pairs"). */
   backLabel?: string;
-  /** Accessible name for the back button; defaults to the visible label. */
-  backAriaLabel?: string;
+  /** Accessible name for the region landmark (e.g. "Offspring trio"). */
+  ariaLabel?: string;
   /** testid for the overlay root, so callers keep their existing hooks. */
   testid?: string;
   /** testid for the back button. */
@@ -29,18 +37,48 @@ interface Props {
   children: Snippet;
 }
 
-const { onBack, backLabel = '← Back', backAriaLabel, testid, backTestid, title, children }: Props = $props();
+const {
+  onBack,
+  backLabel = '← Back',
+  ariaLabel = 'Detail view',
+  testid,
+  backTestid,
+  title,
+  children,
+}: Props = $props();
+
+let backBtn = $state<HTMLButtonElement | null>(null);
+
+onMount(() => {
+  // Land focus inside the overlay so keyboard / screen-reader users start in
+  // the lens rather than on the now-hidden control behind it; restore on close.
+  const previouslyFocused = document.activeElement as HTMLElement | null;
+  backBtn?.focus();
+  return () => previouslyFocused?.focus();
+});
+
+function handleKeydown(e: KeyboardEvent) {
+  if (e.key !== 'Escape') return;
+  // Defer to a nested true-modal (PetEditor / delete-confirm): it owns its own
+  // Escape, so don't also tear down the lens underneath it.
+  if ((e.target as HTMLElement | null)?.closest?.('.modal-backdrop')) return;
+  onBack();
+}
 </script>
 
-<section class="detail-overlay" data-testid={testid}>
+<!-- A <section> with an accessible name is already a `region` landmark. -->
+<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+<section
+  class="detail-overlay"
+  data-testid={testid}
+  aria-label={ariaLabel}
+  tabindex="-1"
+  onkeydown={handleKeydown}
+>
   <header class="do-head">
-    <button
-      type="button"
-      class="back-btn"
-      data-testid={backTestid}
-      aria-label={backAriaLabel ?? backLabel}
-      onclick={onBack}
-    >{backLabel}</button>
+    <button bind:this={backBtn} type="button" class="back-btn" data-testid={backTestid} onclick={onBack}>
+      {backLabel}
+    </button>
     <span class="do-title">{@render title()}</span>
   </header>
   <div class="do-body">{@render children()}</div>
@@ -55,6 +93,8 @@ const { onBack, backLabel = '← Back', backAriaLabel, testid, backTestid, title
     display: flex;
     flex-direction: column;
   }
+  /* Landmark is focusable for Escape/focus-on-open but shows no focus ring. */
+  .detail-overlay:focus { outline: none; }
   .do-head {
     display: flex;
     align-items: center;

@@ -43,8 +43,9 @@ test.describe('Redesign — Breed destination', () => {
     await expect(trio.locator('.role-label').first()).toBeVisible({ timeout: 15000 });
     await expect(trio.getByText('Offspring', { exact: false }).first()).toBeVisible();
 
-    // Back returns to the still-mounted pair table (overlay torn down).
-    await trio.getByTestId('trio-view-back').click();
+    // Escape backs out (focus lands inside the overlay on open), returning to
+    // the still-mounted pair table — the keyboard affordance the old modal had.
+    await page.keyboard.press('Escape');
     await expect(page.getByTestId('trio-view')).toHaveCount(0);
     await expect(page.locator('[data-testid="breeding-pair-table"]')).toBeVisible();
   });
