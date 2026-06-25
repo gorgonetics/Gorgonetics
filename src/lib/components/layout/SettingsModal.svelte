@@ -233,6 +233,28 @@ async function installUpdate() {
         </div>
 
         <div class="settings-section">
+          <h4>Community</h4>
+
+          <label class="setting-row">
+            <div class="setting-info">
+              <span class="setting-name">Auto-share pets on import</span>
+              <span class="setting-desc">Automatically publish newly imported pets to the public community catalogue. Off by default — leave it off to keep imports private.</span>
+            </div>
+            <button
+              class="toggle"
+              class:toggle-on={$settings['community.autoShareOnImport']}
+              onclick={() => toggleSetting('community.autoShareOnImport')}
+              role="switch"
+              aria-label="Auto-share pets on import"
+              aria-checked={!!$settings['community.autoShareOnImport']}
+              data-testid="setting-auto-share"
+            >
+              <span class="toggle-thumb"></span>
+            </button>
+          </label>
+        </div>
+
+        <div class="settings-section">
           <h4>Updates</h4>
 
           <div class="setting-row" style="cursor: default;">
