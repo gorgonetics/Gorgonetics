@@ -14,6 +14,10 @@ export async function waitForAppReady(page: Page) {
 export async function waitForPets(page: Page) {
   await waitForAppReady(page);
   await page.waitForSelector('[data-testid="roster-open"]');
+  // The startup backfill chain fires loadPets() after the spinner clears,
+  // re-rendering the roster. Wait for it to settle so a click doesn't race a
+  // DOM swap that detaches the row/control mid-action. See AuthWrapper.
+  await page.waitForSelector('[data-backfills-done="true"]');
 }
 
 /** Open one of the destinations by its nav button. */
