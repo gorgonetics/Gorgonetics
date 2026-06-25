@@ -109,42 +109,45 @@ onMount(async () => {
   // for the slow ones (pet_genes can take minutes on big stables).
   void (async () => {
     try {
-      await backfillParsedGeneEffectsIfNeeded();
-    } catch (err) {
-      console.warn('parsed-effects backfill aborted:', err);
-    }
+      try {
+        await backfillParsedGeneEffectsIfNeeded();
+      } catch (err) {
+        console.warn('parsed-effects backfill aborted:', err);
+      }
 
-    try {
-      await backfillPositiveGenesIfNeeded();
-      void appState.loadPets();
-    } catch (err) {
-      console.warn('positive_genes backfill aborted:', err);
-    }
+      try {
+        await backfillPositiveGenesIfNeeded();
+        void appState.loadPets();
+      } catch (err) {
+        console.warn('positive_genes backfill aborted:', err);
+      }
 
-    try {
-      await backfillPetGenesIfNeeded();
-    } catch (err) {
-      console.warn('pet_genes backfill aborted:', err);
-    }
+      try {
+        await backfillPetGenesIfNeeded();
+      } catch (err) {
+        console.warn('pet_genes backfill aborted:', err);
+      }
 
-    try {
-      await backfillGeneCountsIfNeeded();
-      void appState.loadPets();
-    } catch (err) {
-      console.warn('gene_counts backfill aborted:', err);
-    }
+      try {
+        await backfillGeneCountsIfNeeded();
+        void appState.loadPets();
+      } catch (err) {
+        console.warn('gene_counts backfill aborted:', err);
+      }
 
-    try {
-      await backfillImportedFilesIfNeeded();
-    } catch (err) {
-      console.warn('imported_files backfill aborted:', err);
+      try {
+        await backfillImportedFilesIfNeeded();
+      } catch (err) {
+        console.warn('imported_files backfill aborted:', err);
+      }
+      // The ledger the pending count reads is only populated once this backfill
+      // runs (legacy DBs start without it), so recompute now that it's seeded —
+      // otherwise the startup count can over-report until the next scan/event.
+      void refreshPendingImportCount();
+    } finally {
+      // Flip even if an unguarded step throws, so waitForPets() never hangs.
+      backfillsDone = true;
     }
-    // The ledger the pending count reads is only populated once this backfill
-    // runs (legacy DBs start without it), so recompute now that it's seeded —
-    // otherwise the startup count can over-report until the next scan/event.
-    void refreshPendingImportCount();
-
-    backfillsDone = true;
   })();
 });
 </script>
