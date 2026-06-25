@@ -16,7 +16,9 @@ import PetVisualization from '$lib/components/pet/PetVisualization.svelte';
 import EmptyState from '$lib/components/shared/EmptyState.svelte';
 import FilterBar from '$lib/components/shared/FilterBar.svelte';
 import StatusBanner from '$lib/components/shared/StatusBanner.svelte';
+import { isPlaceholderConfig } from '$lib/firebase.js';
 import { getSupportedSpecies, normalizeSpecies } from '$lib/services/configService.js';
+import { bulkShareJob, startBulkShare } from '$lib/stores/bulkShare.svelte.js';
 import { pendingImportCount } from '$lib/stores/gameImport.js';
 import { clearLibrarySelection, getLibraryFilters, libraryView } from '$lib/stores/library.svelte.js';
 import { allTags, loading, pets } from '$lib/stores/pets.js';
@@ -157,6 +159,13 @@ function handleBulkShareResult(result: DialogResult): void {
   shareStatus = result;
   if (result.type !== 'error') clearLibrarySelection();
 }
+
+// --- Share all (whole collection, background job) ---------------------------
+// "All" means every pet, deliberately not the Stabled subset — the button
+// label/confirm say so to avoid conflating it with the Stabled flag. Hidden
+// when there's nothing to share or this build can't reach the catalogue.
+let showShareAllConfirm = $state(false);
+const canShareAll = $derived(!isPlaceholderConfig && $pets.length > 0);
 </script>
 
 <div class="my-pets" data-testid="my-pets">
@@ -256,6 +265,16 @@ function handleBulkShareResult(result: DialogResult): void {
           {/if}
         </button>
       </div>
+      {#if canShareAll}
+        <button
+          type="button"
+          class="act-btn share-all-btn"
+          data-testid="mypets-share-all"
+          disabled={bulkShareJob.status === 'running'}
+          title="Share every pet in your collection to the public community catalogue"
+          onclick={() => { showShareAllConfirm = true; }}
+        >🌐 Share all</button>
+      {/if}
       {#if selectedPets.length > 0}
         <div class="mp-selection" data-testid="mypets-selection">
           <span class="sel-count">{selectedPets.length} selected</span>
@@ -308,6 +327,38 @@ function handleBulkShareResult(result: DialogResult): void {
   />
 {/if}
 
+{#if showShareAllConfirm}
+  <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+  <div class="modal-backdrop" onclick={() => { showShareAllConfirm = false; }}>
+    <div
+      class="dialog share-all-dialog"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Share all pets to community"
+      data-testid="share-all-dialog"
+      onclick={(e) => e.stopPropagation()}
+    >
+      <div class="dialog-header"><h3>Share all {$pets.length} {$pets.length === 1 ? 'pet' : 'pets'} to the community?</h3></div>
+      <div class="dialog-body">
+        <p class="dialog-desc">
+          This publishes <strong>every pet in your collection</strong> — not just stabled ones — to the public
+          community catalogue. Pets already shared are skipped. Sharing runs in the background; you can keep using the
+          app and cancel any time.
+        </p>
+      </div>
+      <div class="dialog-footer">
+        <button type="button" class="act-btn ghost" onclick={() => { showShareAllConfirm = false; }}>Cancel</button>
+        <button
+          type="button"
+          class="upload-btn"
+          data-testid="share-all-confirm"
+          onclick={() => { startBulkShare($pets); showShareAllConfirm = false; }}
+        >🌐 Share all</button>
+      </div>
+    </div>
+  </div>
+{/if}
+
 <style>
   .my-pets { position: relative; flex: 1; min-width: 0; height: 100%; display: flex; flex-direction: column; overflow: hidden; }
 
@@ -346,6 +397,12 @@ function handleBulkShareResult(result: DialogResult): void {
   .act-btn:hover:not(:disabled) { color: var(--accent-text, var(--accent)); border-color: var(--accent); }
   .act-btn:disabled { opacity: 0.5; cursor: default; }
   .act-btn.ghost { border-color: transparent; color: var(--text-tertiary); }
+  /* Share-all sits with the add-actions, pushed to the right of the strip. */
+  .share-all-btn { margin-left: auto; }
+  .share-all-btn ~ .mp-selection { margin-left: 0; }
+
+  .share-all-dialog { max-width: 460px; }
+  .dialog-desc { font-size: 14px; color: var(--text-secondary); margin: 0; line-height: 1.5; }
 
   .mp-add { display: flex; align-items: center; gap: 8px; }
   .upload-btn {
