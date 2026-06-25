@@ -21,6 +21,10 @@ interface Props {
 
 const { children }: Props = $props();
 let ready = $state(false);
+// Flips true once the startup backfill chain settles. The backfills fire
+// `loadPets()` after `ready`, re-rendering the roster after the spinner is gone;
+// e2e waits on this marker so it never clicks a row/control mid-DOM-swap.
+let backfillsDone = $state(false);
 let liveScanRunning = false;
 let pendingRescan = false;
 
@@ -139,6 +143,8 @@ onMount(async () => {
     // runs (legacy DBs start without it), so recompute now that it's seeded —
     // otherwise the startup count can over-report until the next scan/event.
     void refreshPendingImportCount();
+
+    backfillsDone = true;
   })();
 });
 </script>
@@ -149,7 +155,7 @@ onMount(async () => {
     <p>Loading...</p>
   </div>
 {:else}
-  <div class="app-root">
+  <div class="app-root" data-backfills-done={backfillsDone}>
     {@render children()}
   </div>
 {/if}
