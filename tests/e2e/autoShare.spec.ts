@@ -18,7 +18,9 @@ test.describe('Auto-share on import setting', () => {
     await expect(toggle).not.toHaveClass(/toggle-on/);
   });
 
-  test('toggling on persists across reopen', async ({ page }) => {
+  test('toggling on survives closing and reopening the modal', async ({ page }) => {
+    // Within-session only: the e2e DB is in-memory and resets on reload, so true
+    // cross-session DB persistence is covered by the settingsService unit test.
     await page.goto('/');
     await waitForAppReady(page);
 
@@ -27,7 +29,6 @@ test.describe('Auto-share on import setting', () => {
     await toggle.click();
     await expect(toggle).toHaveAttribute('aria-checked', 'true');
 
-    // Close and reopen — the setting is read back from the DB.
     await page.keyboard.press('Escape');
     await expect(page.locator('.settings-dialog')).not.toBeVisible();
     await page.locator('.settings-toggle').click();
