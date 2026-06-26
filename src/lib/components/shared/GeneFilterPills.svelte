@@ -53,11 +53,14 @@ const allActive = $derived(selected.length === 0 && hidden.length === 0);
         class="gfp-btn"
         class:active={selected.includes(item.key)}
         class:hidden-pill={hidden.includes(item.key)}
-        style:--swatch-color={item.swatch ?? undefined}
+        style:--swatch-color={item.swatch}
         onclick={(e) => onToggle(item.key, e.ctrlKey || e.metaKey, e.altKey)}
         title={item.title ?? item.name}
       >
-        {#if item.swatch}<span class="gfp-swatch"></span>{:else if item.icon}{item.icon}&nbsp;{/if}{item.name}
+        <!-- Swatch wins when defined (incl. ""→grey fallback, matching the
+             appearance grid); otherwise an icon. Both are their own flex item so
+             the row gap spaces them from the label identically. -->
+        {#if item.swatch != null}<span class="gfp-swatch"></span>{:else if item.icon}<span class="gfp-icon" aria-hidden="true">{item.icon}</span>{/if}{item.name}
       </button>
     {/each}
   </div>

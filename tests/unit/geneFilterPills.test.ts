@@ -93,6 +93,18 @@ describe('GeneFilterPills', () => {
     expect(coat.style.getPropertyValue('--swatch-color')).toBe('#e74c3c');
   });
 
+  it('renders the icon as its own element so the row gap spaces it from the label', () => {
+    const { container } = setup();
+    const icon = pill(container, 'Toughness').querySelector('.gfp-icon');
+    expect(icon).toBeInTheDocument();
+    expect(icon?.textContent).toBe('💪');
+  });
+
+  it('still renders a swatch for an empty colour (grey fallback, matching the grid)', () => {
+    const { container } = setup({ label: 'Appearance', items: [{ key: 'coat', name: 'Coat', swatch: '' }] });
+    expect(pill(container, 'Coat').querySelector('.gfp-swatch')).toBeInTheDocument();
+  });
+
   it('renders the interaction hint when provided', () => {
     const { container } = setup({ hint: 'Click to focus' });
     expect(container.querySelector('.gfp-hint')?.textContent).toContain('Click to focus');
