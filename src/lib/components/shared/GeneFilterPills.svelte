@@ -44,15 +44,16 @@ const allActive = $derived(selected.length === 0 && hidden.length === 0);
 </script>
 
 <div class="gfp" data-testid={testid}>
-  <div class="gfp-row">
+  <div class="gfp-row" role="group" aria-label={label}>
     <span class="gfp-label">{label}:</span>
-    <button type="button" class="gfp-btn" class:active={allActive} onclick={onReset}>All</button>
+    <button type="button" class="gfp-btn" class:active={allActive} aria-pressed={allActive} onclick={onReset}>All</button>
     {#each items as item (item.key)}
       <button
         type="button"
         class="gfp-btn"
         class:active={selected.includes(item.key)}
         class:hidden-pill={hidden.includes(item.key)}
+        aria-pressed={hidden.includes(item.key) ? 'mixed' : selected.includes(item.key)}
         style:--swatch-color={item.swatch}
         onclick={(e) => onToggle(item.key, e.ctrlKey || e.metaKey, e.altKey)}
         title={item.title ?? item.name}

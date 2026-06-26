@@ -105,6 +105,25 @@ describe('GeneFilterPills', () => {
     expect(pill(container, 'Coat').querySelector('.gfp-swatch')).toBeInTheDocument();
   });
 
+  it('exposes tri-state via aria-pressed (true=focus, mixed=hidden, false=neither)', () => {
+    const { container } = setup({ selected: ['toughness'], hidden: ['intelligence'] });
+    expect(pill(container, 'Toughness')).toHaveAttribute('aria-pressed', 'true');
+    expect(pill(container, 'Intelligence')).toHaveAttribute('aria-pressed', 'mixed');
+  });
+
+  it('marks a neutral pill aria-pressed=false and All pressed when nothing is filtered', () => {
+    const { container } = setup();
+    expect(pill(container, 'Toughness')).toHaveAttribute('aria-pressed', 'false');
+    expect(pill(container, 'All')).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('groups the row as a labelled ARIA group', () => {
+    const { container } = setup();
+    const row = container.querySelector('.gfp-row');
+    expect(row).toHaveAttribute('role', 'group');
+    expect(row).toHaveAttribute('aria-label', 'Attribute');
+  });
+
   it('renders the interaction hint when provided', () => {
     const { container } = setup({ hint: 'Click to focus' });
     expect(container.querySelector('.gfp-hint')?.textContent).toContain('Click to focus');
