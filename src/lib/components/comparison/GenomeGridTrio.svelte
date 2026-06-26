@@ -270,13 +270,16 @@ function parentTitle(cell: GeneCell | null, label: string) {
 </div>
 
 <style>
-    .genome-grid-trio { width: 100%; }
+    /* Flex column so the grid-container can be the single scroll region while
+       the filters + summary stay pinned above it. */
+    .genome-grid-trio { width: 100%; height: 100%; display: flex; flex-direction: column; min-height: 0; }
 
     .trio-filters {
         display: flex;
         flex-direction: column;
         gap: 6px;
         margin-bottom: 12px;
+        flex-shrink: 0;
     }
     /* Attribute tri-state pills now live in GeneFilterPills. */
     .breed-filter {
@@ -313,6 +316,7 @@ function parentTitle(cell: GeneCell | null, label: string) {
         gap: 8px;
         margin-bottom: 10px;
         flex-wrap: wrap;
+        flex-shrink: 0;
     }
     .chip {
         font-size: 12px;
@@ -331,6 +335,8 @@ function parentTitle(cell: GeneCell | null, label: string) {
     .swatch-risk { border: 2px solid var(--gene-negative); }
 
     .grid-container {
+        flex: 1;
+        min-height: 0;
         overflow: auto;
         border: 1px solid var(--border-primary);
         border-radius: 6px;

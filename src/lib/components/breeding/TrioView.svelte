@@ -34,7 +34,7 @@ const speciesLabel = $derived(father ? normalizeSpecies(father.species) : '');
     {/if}
   {/snippet}
 
-  <div class="trio-scroll">
+  <div class="trio-body">
     <GenomeGridTrio {father} {mother} {offspringBreed} />
   </div>
 </DetailOverlay>
@@ -55,11 +55,13 @@ const speciesLabel = $derived(father ? normalizeSpecies(father.species) : '');
     white-space: nowrap;
   }
 
-  /* The wide grid scrolls on its own inside the overlay body. */
-  .trio-scroll {
+  /* Fill the overlay body; the grid itself owns the single scroll region so the
+     filters / summary stay pinned above it (no nested double scrollbar). */
+  .trio-body {
     flex: 1;
     min-height: 0;
-    overflow: auto;
+    display: flex;
+    flex-direction: column;
     padding: 16px 20px;
   }
 </style>
