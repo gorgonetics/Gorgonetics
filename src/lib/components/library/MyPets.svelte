@@ -13,6 +13,7 @@ import BulkSharePetDialog from '$lib/components/community/BulkSharePetDialog.sve
 import GenomeGridDiff from '$lib/components/comparison/GenomeGridDiff.svelte';
 import Roster from '$lib/components/library/Roster.svelte';
 import PetVisualization from '$lib/components/pet/PetVisualization.svelte';
+import DetailOverlay from '$lib/components/shared/DetailOverlay.svelte';
 import EmptyState from '$lib/components/shared/EmptyState.svelte';
 import FilterBar from '$lib/components/shared/FilterBar.svelte';
 import StatusBanner from '$lib/components/shared/StatusBanner.svelte';
@@ -301,22 +302,16 @@ const canShareAll = $derived(!isPlaceholderConfig && $pets.length > 0);
   </div>
 
   {#if detailPet}
-    <section class="mp-overlay" data-testid="pet-detail">
-      <header class="mp-overlay-head">
-        <button type="button" class="back-btn" data-testid="pet-detail-back" onclick={closeDetail}>← Pets</button>
-        <span class="mp-overlay-title">{getSpeciesEmoji(detailPet.species)} {detailPet.name || 'Pet'}</span>
-      </header>
+    <DetailOverlay testid="pet-detail" backTestid="pet-detail-back" backLabel="← Pets" ariaLabel="Pet detail" onBack={closeDetail}>
+      {#snippet title()}{getSpeciesEmoji(detailPet.species)} {detailPet.name || 'Pet'}{/snippet}
       <!-- PetVisualization owns its own header (views / stats / gallery / share / edit / delete). -->
-      <div class="mp-overlay-body"><PetVisualization pet={detailPet} /></div>
-    </section>
+      <PetVisualization pet={detailPet} />
+    </DetailOverlay>
   {:else if comparing && canCompare}
-    <section class="mp-overlay" data-testid="pet-compare">
-      <header class="mp-overlay-head">
-        <button type="button" class="back-btn" data-testid="pet-compare-back" onclick={closeCompare}>← Pets</button>
-        <span class="mp-overlay-title">⚖️ {selectedPets[0].name || 'Pet A'} vs {selectedPets[1].name || 'Pet B'}</span>
-      </header>
-      <div class="mp-overlay-body"><GenomeGridDiff petA={selectedPets[0]} petB={selectedPets[1]} /></div>
-    </section>
+    <DetailOverlay testid="pet-compare" backTestid="pet-compare-back" backLabel="← Pets" ariaLabel="Pet comparison" onBack={closeCompare}>
+      {#snippet title()}⚖️ {selectedPets[0].name || 'Pet A'} vs {selectedPets[1].name || 'Pet B'}{/snippet}
+      <GenomeGridDiff petA={selectedPets[0]} petB={selectedPets[1]} />
+    </DetailOverlay>
   {/if}
 </div>
 
@@ -433,17 +428,5 @@ const canShareAll = $derived(!isPlaceholderConfig && $pets.length > 0);
     font-size: 9px; font-weight: 700; line-height: 16px; text-align: center;
   }
 
-  /* Detail / compare overlay covers the (still-mounted) table. */
-  .mp-overlay { position: absolute; inset: 0; z-index: 10; background: var(--bg-primary); display: flex; flex-direction: column; }
-  .mp-overlay-head {
-    display: flex; align-items: center; gap: 12px; padding: 8px 16px;
-    border-bottom: 1px solid var(--border-primary); flex-shrink: 0;
-  }
-  .mp-overlay-title { font-size: 13px; font-weight: 600; color: var(--text-primary); }
-  .back-btn {
-    padding: 5px 12px; border: 1px solid var(--border-primary); border-radius: 6px;
-    background: var(--bg-primary); color: var(--text-secondary); font-size: 12px; font-weight: 600; cursor: pointer;
-  }
-  .back-btn:hover { color: var(--text-primary); background: var(--bg-hover); }
-  .mp-overlay-body { flex: 1; min-height: 0; overflow: hidden; display: flex; }
+  /* Detail / compare full-view shells (DetailOverlay) cover the still-mounted table. */
 </style>
