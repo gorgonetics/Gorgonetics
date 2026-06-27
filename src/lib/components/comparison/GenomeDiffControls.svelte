@@ -1,4 +1,5 @@
 <script lang="ts">
+import GeneFilterPills, { type FilterPillItem } from '$lib/components/shared/GeneFilterPills.svelte';
 import type { AppearanceInfo, AttributeInfo, GenomeDiffSummary } from '$lib/types/index.js';
 import { HORSE_BREEDS } from '$lib/types/index.js';
 
@@ -51,6 +52,18 @@ const {
   onResetAppearances,
   onViewChange,
 }: Props = $props();
+
+const attributeItems = $derived<FilterPillItem[]>(
+  attributeDisplayInfo.map((a) => ({ key: a.key, name: a.name, icon: a.icon })),
+);
+const appearanceItems = $derived<FilterPillItem[]>(
+  appearanceDisplayInfo.map((a) => ({
+    key: a.key,
+    name: a.name,
+    swatch: a.color_indicator,
+    title: a.examples ? `${a.name} — ${a.examples}` : a.name,
+  })),
+);
 </script>
 
 <div class="diff-controls">
@@ -80,35 +93,24 @@ const {
         </div>
     {/if}
     {#if currentView === 'attribute'}
-        <div class="attribute-filter">
-            <span class="attr-filter-label">Attribute:</span>
-            <button class="attr-filter-btn" class:active={selectedAttributes.length === 0 && hiddenAttributes.length === 0} onclick={onResetAttributes}>All</button>
-            {#each attributeDisplayInfo as attr (attr.key)}
-                <button
-                    class="attr-filter-btn"
-                    class:active={selectedAttributes.includes(attr.key)}
-                    class:hidden-attr={hiddenAttributes.includes(attr.key)}
-                    onclick={(e) => onAttributeToggle(attr.key, e.ctrlKey || e.metaKey, e.altKey)}
-                    title="{attr.name}"
-                >{attr.icon} {attr.name}</button>
-            {/each}
-        </div>
+        <GeneFilterPills
+            label="Attribute"
+            items={attributeItems}
+            selected={selectedAttributes}
+            hidden={hiddenAttributes}
+            onToggle={onAttributeToggle}
+            onReset={onResetAttributes}
+        />
     {/if}
-    {#if currentView === 'appearance' && appearanceDisplayInfo.length > 0}
-        <div class="attribute-filter appearance-filter">
-            <span class="attr-filter-label">Appearance:</span>
-            <button class="attr-filter-btn" class:active={selectedAppearances.length === 0 && hiddenAppearances.length === 0} onclick={onResetAppearances}>All</button>
-            {#each appearanceDisplayInfo as ap (ap.key)}
-                <button
-                    class="attr-filter-btn appearance-btn"
-                    class:active={selectedAppearances.includes(ap.key)}
-                    class:hidden-attr={hiddenAppearances.includes(ap.key)}
-                    style:--ap-color={ap.color_indicator}
-                    onclick={(e) => onAppearanceToggle(ap.key, e.ctrlKey || e.metaKey, e.altKey)}
-                    title="{ap.name}{ap.examples ? ' — ' + ap.examples : ''}"
-                ><span class="ap-swatch"></span>{ap.name}</button>
-            {/each}
-        </div>
+    {#if currentView === 'appearance' && appearanceItems.length > 0}
+        <GeneFilterPills
+            label="Appearance"
+            items={appearanceItems}
+            selected={selectedAppearances}
+            hidden={hiddenAppearances}
+            onToggle={onAppearanceToggle}
+            onReset={onResetAppearances}
+        />
     {/if}
 </div>
 
@@ -137,16 +139,7 @@ const {
     .auto-btn.active { background: #22c55e; border-color: #22c55e; color: var(--bg-primary); }
     .breed-divider { width: 1px; height: 16px; background: var(--border-primary); margin: 0 2px; }
 
-    .attribute-filter { display: flex; align-items: center; gap: 3px; flex-wrap: wrap; padding: 0 4px; }
-    .attr-filter-label { font-size: 11px; font-weight: 600; color: var(--text-tertiary); margin-right: 4px; }
-    .attr-filter-btn { padding: 3px 8px; border: 1px solid var(--border-primary); border-radius: 4px; background: var(--bg-primary); color: var(--text-tertiary); font-size: 11px; font-weight: 500; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
-    .attr-filter-btn:hover { border-color: var(--border-secondary); color: var(--text-secondary); }
-    .attr-filter-btn.active { background: var(--accent); border-color: var(--accent); color: white; }
-    .attr-filter-btn.hidden-attr { background: var(--error-bg); border-color: var(--error-border); color: var(--error-text); text-decoration: line-through; }
-
-    .appearance-filter { margin-top: 2px; }
-    .appearance-btn { display: inline-flex; align-items: center; gap: 5px; }
-    .ap-swatch { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--ap-color, #6b7280); border: 1px solid rgba(0, 0, 0, 0.2); }
+    /* Attribute / appearance tri-state pills now live in GeneFilterPills. */
 
     .grid-instructions { font-size: 11px; color: var(--text-tertiary); margin-bottom: 6px; font-style: italic; padding: 0 4px; }
 </style>

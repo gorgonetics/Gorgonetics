@@ -48,38 +48,19 @@ function handleMouseUp(e: MouseEvent) {
     <nav aria-label="Main navigation" class="top-bar-tabs">
         <button
             class="tab-btn"
-            class:active={$activeTab === "pets"}
-            onclick={() => switchTab("pets")}
+            class:active={$activeTab === "library"}
+            data-testid="tab-library"
+            onclick={() => switchTab("library")}
         >
-            🐾 Pets
+            ✨ My Pets
         </button>
         <button
             class="tab-btn"
-            class:active={$activeTab === "editor"}
-            onclick={() => switchTab("editor")}
-        >
-            🧬 Genes
-        </button>
-        <button
-            class="tab-btn"
-            class:active={$activeTab === "stable"}
-            onclick={() => switchTab("stable")}
-        >
-            📋 Stable
-        </button>
-        <button
-            class="tab-btn"
-            class:active={$activeTab === "breeding"}
-            onclick={() => switchTab("breeding")}
+            class:active={$activeTab === "breed"}
+            data-testid="tab-breed"
+            onclick={() => switchTab("breed")}
         >
             💞 Breed
-        </button>
-        <button
-            class="tab-btn"
-            class:active={$activeTab === "compare"}
-            onclick={() => switchTab("compare")}
-        >
-            ⚖️ Compare
         </button>
         <button
             class="tab-btn"
@@ -88,6 +69,14 @@ function handleMouseUp(e: MouseEvent) {
             onclick={() => switchTab("community")}
         >
             🌐 Community
+        </button>
+        <button
+            class="tab-btn"
+            class:active={$activeTab === "reference"}
+            data-testid="tab-reference"
+            onclick={() => switchTab("reference")}
+        >
+            📚 Reference
         </button>
     </nav>
     <DataMenu />

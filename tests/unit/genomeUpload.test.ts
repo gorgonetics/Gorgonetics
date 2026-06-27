@@ -13,7 +13,7 @@ describe('runGenomeUpload', () => {
 
     expect(upload).toHaveBeenCalledTimes(2);
     expect(upload).toHaveBeenNthCalledWith(1, 'A');
-    expect(summary).toEqual({ total: 2, succeeded: 2, failures: [] });
+    expect(summary).toEqual({ total: 2, succeeded: 2, failures: [], createdPetIds: [] });
   });
 
   it('reports per-file progress, 1-based', async () => {
@@ -33,7 +33,7 @@ describe('runGenomeUpload', () => {
     const summary = await runGenomeUpload([source('bad.txt', 'X'), source('ok.txt', 'Y')], { upload });
 
     expect(upload).toHaveBeenCalledTimes(2);
-    expect(summary).toEqual({ total: 2, succeeded: 1, failures: ['bad.txt: bad genome'] });
+    expect(summary).toEqual({ total: 2, succeeded: 1, failures: ['bad.txt: bad genome'], createdPetIds: [] });
   });
 
   it('treats a read failure as a failure for that file only', async () => {
@@ -45,7 +45,7 @@ describe('runGenomeUpload', () => {
     const summary = await runGenomeUpload(sources, { upload });
 
     expect(upload).toHaveBeenCalledTimes(1);
-    expect(summary).toEqual({ total: 2, succeeded: 1, failures: ['unreadable.txt: EACCES'] });
+    expect(summary).toEqual({ total: 2, succeeded: 1, failures: ['unreadable.txt: EACCES'], createdPetIds: [] });
   });
 
   it('returns an empty summary for no sources', async () => {
@@ -53,7 +53,23 @@ describe('runGenomeUpload', () => {
     const summary = await runGenomeUpload([], { upload });
 
     expect(upload).not.toHaveBeenCalled();
-    expect(summary).toEqual({ total: 0, succeeded: 0, failures: [] });
+    expect(summary).toEqual({ total: 0, succeeded: 0, failures: [], createdPetIds: [] });
+  });
+
+  it('collects ids of freshly created pets, excluding backfilled/errored', async () => {
+    const upload = vi
+      .fn()
+      .mockResolvedValueOnce({ status: 'success', kind: 'created', pet_id: 7 })
+      .mockResolvedValueOnce({ status: 'success', kind: 'backfilled', pet_id: 8 })
+      .mockResolvedValueOnce({ status: 'error', message: 'bad' })
+      .mockResolvedValueOnce({ status: 'success', kind: 'created', pet_id: 9 });
+    const summary = await runGenomeUpload(
+      [source('a.txt', 'A'), source('b.txt', 'B'), source('c.txt', 'C'), source('d.txt', 'D')],
+      { upload },
+    );
+
+    expect(summary.createdPetIds).toEqual([7, 9]);
+    expect(summary.succeeded).toBe(3);
   });
 });
 

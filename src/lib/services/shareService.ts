@@ -207,9 +207,31 @@ export interface UploadPetsOptions {
   /** Abort early when this returns true (e.g. a user-cancelled dialog). */
   shouldCancel?: () => boolean;
   db?: Firestore;
+  /**
+   * Pause between pets, in ms, to stay under Firestore's per-second write
+   * quota on large stables (Spark plan). Default 0 (no pause). The delay is
+   * applied after each pet that did a network write, never after the last.
+   */
+  interRequestDelayMs?: number;
+  /**
+   * When an upload trips a quota / `resource-exhausted` error, retry that pet
+   * up to this many times with exponential backoff before giving up and
+   * marking it `failed`. Default 0 (no retry). Backoff is
+   * `quotaBackoffBaseMs * 2 ** attempt`.
+   */
+  maxQuotaRetries?: number;
+  /** Base delay for quota backoff, in ms. Default 1000. */
+  quotaBackoffBaseMs?: number;
   /** Injectable seams for testing. */
   upload?: (pet: Pet, db?: Firestore) => Promise<UploadResult>;
   loadGenomeText?: (petId: number) => Promise<string | null>;
+  /** Injectable sleep, for deterministic throttle/backoff tests. */
+  sleep?: (ms: number) => Promise<void>;
+}
+
+/** Firestore signals a quota / rate breach with code `resource-exhausted`. */
+function isResourceExhausted(err: unknown): boolean {
+  return typeof err === 'object' && err !== null && (err as { code?: unknown }).code === 'resource-exhausted';
 }
 
 /**
@@ -228,12 +250,18 @@ export interface UploadPetsOptions {
 export async function uploadPets(pets: Pet[], options: UploadPetsOptions = {}): Promise<BulkUploadSummary> {
   const upload = options.upload ?? uploadPet;
   const loadGenomeText = options.loadGenomeText ?? getPetGenomeText;
+  const sleep = options.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
+  const interRequestDelayMs = options.interRequestDelayMs ?? 0;
+  const maxQuotaRetries = options.maxQuotaRetries ?? 0;
+  const quotaBackoffBaseMs = options.quotaBackoffBaseMs ?? 1000;
   const items: BulkUploadItemResult[] = [];
   let done = 0;
 
-  for (const pet of pets) {
+  for (let index = 0; index < pets.length; index++) {
+    const pet = pets[index];
     if (options.shouldCancel?.()) break;
     const petName = pet.name ?? `Pet ${pet.id}`;
+    let didNetworkWrite = false;
     try {
       // `genome_text` isn't on the list-projected pet; load it on demand.
       const genomeText = pet.genome_text ?? (await loadGenomeText(pet.id)) ?? undefined;
@@ -246,18 +274,40 @@ export async function uploadPets(pets: Pet[], options: UploadPetsOptions = {}): 
         });
         continue;
       }
-      const result = await upload({ ...pet, genome_text: genomeText }, options.db);
-      items.push({
-        petId: pet.id,
-        petName,
-        status: result.status === 'created' ? 'created' : 'already-shared',
-        contentHash: result.contentHash,
-      });
+      didNetworkWrite = true;
+      // Retry only on quota / resource-exhausted, backing off exponentially —
+      // that's the recoverable "slow down" signal. Any other error (corruption,
+      // permission) fails the pet immediately so the batch keeps moving.
+      let attempt = 0;
+      for (;;) {
+        try {
+          const result = await upload({ ...pet, genome_text: genomeText }, options.db);
+          items.push({
+            petId: pet.id,
+            petName,
+            status: result.status === 'created' ? 'created' : 'already-shared',
+            contentHash: result.contentHash,
+          });
+          break;
+        } catch (err) {
+          if (isResourceExhausted(err) && attempt < maxQuotaRetries && !options.shouldCancel?.()) {
+            await sleep(quotaBackoffBaseMs * 2 ** attempt);
+            attempt++;
+            continue;
+          }
+          throw err;
+        }
+      }
     } catch (err) {
       items.push({ petId: pet.id, petName, status: 'failed', error: errorText(err) });
     } finally {
       done++;
       options.onProgress?.(done, pets.length);
+    }
+    // Throttle between network writes to ease per-second quota pressure; never
+    // after the last pet, and skip when nothing was written (skipped pet).
+    if (interRequestDelayMs > 0 && didNetworkWrite && index < pets.length - 1 && !options.shouldCancel?.()) {
+      await sleep(interRequestDelayMs);
     }
   }
 

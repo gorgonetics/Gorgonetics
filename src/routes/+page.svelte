@@ -1,12 +1,10 @@
 <script lang="ts">
 import { onMount } from 'svelte';
-import BreedingTab from '$lib/components/breeding/BreedingTab.svelte';
+import BreedView from '$lib/components/breeding/BreedView.svelte';
 import CommunityTab from '$lib/components/community/CommunityTab.svelte';
-import ComparisonView from '$lib/components/comparison/ComparisonView.svelte';
-import GeneEditingView from '$lib/components/GeneEditingView.svelte';
-import PetVisualization from '$lib/components/pet/PetVisualization.svelte';
-import StableTable from '$lib/components/stable/StableTable.svelte';
-import { activeTab, appState, error, geneEditingView, loading, selectedPet } from '$lib/stores/pets.js';
+import ReferenceView from '$lib/components/gene/ReferenceView.svelte';
+import MyPets from '$lib/components/library/MyPets.svelte';
+import { activeTab, appState, error, loading } from '$lib/stores/pets.js';
 
 onMount(async () => {
   await appState.loadPets();
@@ -21,32 +19,19 @@ onMount(async () => {
 		</div>
 	{/if}
 
-	{#if $activeTab === 'stable'}
-		<StableTable />
-	{:else if $activeTab === 'compare'}
-		<ComparisonView />
-	{:else if $activeTab === 'breeding'}
-		<BreedingTab />
-	{:else if $activeTab === 'community'}
-		<CommunityTab />
-	{:else if $loading}
+	{#if $loading}
 		<div class="center-state">
 			<div class="spinner"></div>
 			<p class="state-text">Loading...</p>
 		</div>
-	{:else if $selectedPet}
-		<PetVisualization pet={$selectedPet} />
-	{:else if $geneEditingView}
-		<GeneEditingView
-			animalType={($geneEditingView as { animalType?: string; chromosome?: string }).animalType}
-			chromosome={($geneEditingView as { animalType?: string; chromosome?: string }).chromosome}
-		/>
+	{:else if $activeTab === 'reference'}
+		<ReferenceView />
+	{:else if $activeTab === 'breed'}
+		<BreedView />
+	{:else if $activeTab === 'community'}
+		<CommunityTab />
 	{:else}
-		<div class="center-state">
-			<div class="empty-icon">🐾</div>
-			<p class="state-title">Select a pet to view details</p>
-			<p class="state-text">Choose a pet from the list, or upload a new genome file</p>
-		</div>
+		<MyPets />
 	{/if}
 </div>
 
@@ -97,18 +82,6 @@ onMount(async () => {
 		justify-content: center;
 		gap: 8px;
 		color: var(--text-muted);
-	}
-
-	.empty-icon {
-		font-size: 48px;
-		opacity: 0.4;
-	}
-
-	.state-title {
-		font-size: 16px;
-		font-weight: 600;
-		color: var(--text-tertiary);
-		margin: 0;
 	}
 
 	.state-text {

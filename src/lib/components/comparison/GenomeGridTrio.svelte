@@ -1,5 +1,6 @@
 <script lang="ts">
 import { onDestroy, onMount, untrack } from 'svelte';
+import GeneFilterPills, { type FilterPillItem } from '$lib/components/shared/GeneFilterPills.svelte';
 import StatusPane from '$lib/components/shared/StatusPane.svelte';
 import { getAttributeConfig, normalizeSpecies } from '$lib/services/configService.js';
 import { getGeneEffectsCached } from '$lib/services/geneService.js';
@@ -27,6 +28,9 @@ let error = $state<string | null>(null);
 let grid = $state<TrioGrid | null>(null);
 let summary = $state<OffspringTrioResult['summary'] | null>(null);
 let attributeDisplayInfo = $state<AttributeInfo[]>([]);
+const attributeItems = $derived<FilterPillItem[]>(
+  attributeDisplayInfo.map((a) => ({ key: a.key, name: a.name, icon: a.icon })),
+);
 
 // Breed re-runs the projection (the service drops loci locked to other breeds,
 // keeping the trio consistent with the breeding ranking). Attribute is a visual
@@ -153,27 +157,17 @@ function parentTitle(cell: GeneCell | null, label: string) {
                     {/each}
                 </div>
             {/if}
-            {#if attributeDisplayInfo.length > 0}
-                <div class="attribute-filter" data-testid="trio-attribute-filter">
-                    <span class="attr-filter-label">Attribute:</span>
-                    <button
-                        type="button"
-                        class="attr-filter-btn"
-                        class:active={selectedAttributes.length === 0 && hiddenAttributes.length === 0}
-                        onclick={() => { selectedAttributes = []; hiddenAttributes = []; }}
-                    >All</button>
-                    {#each attributeDisplayInfo as attr (attr.key)}
-                        <button
-                            type="button"
-                            class="attr-filter-btn"
-                            class:active={selectedAttributes.includes(attr.key)}
-                            class:hidden-attr={hiddenAttributes.includes(attr.key)}
-                            onclick={(e) => toggleAttributeFilter(attr.key, e.ctrlKey || e.metaKey, e.altKey)}
-                            title={attr.name}
-                        >{attr.icon} {attr.name}</button>
-                    {/each}
-                </div>
-                <span class="filter-hint">Click to focus · Ctrl+click multi-select · Alt+click hide</span>
+            {#if attributeItems.length > 0}
+                <GeneFilterPills
+                    label="Attribute"
+                    items={attributeItems}
+                    selected={selectedAttributes}
+                    hidden={hiddenAttributes}
+                    onToggle={toggleAttributeFilter}
+                    onReset={() => { selectedAttributes = []; hiddenAttributes = []; }}
+                    hint="Click to focus · Ctrl+click multi-select · Alt+click hide"
+                    testid="trio-attribute-filter"
+                />
             {/if}
         </div>
     {/if}
@@ -276,31 +270,32 @@ function parentTitle(cell: GeneCell | null, label: string) {
 </div>
 
 <style>
-    .genome-grid-trio { width: 100%; }
+    /* Flex column so the grid-container can be the single scroll region while
+       the filters + summary stay pinned above it. */
+    .genome-grid-trio { width: 100%; height: 100%; display: flex; flex-direction: column; min-height: 0; }
 
     .trio-filters {
         display: flex;
         flex-direction: column;
         gap: 6px;
         margin-bottom: 12px;
+        flex-shrink: 0;
     }
-    .breed-filter,
-    .attribute-filter {
+    /* Attribute tri-state pills now live in GeneFilterPills. */
+    .breed-filter {
         display: flex;
         align-items: center;
         gap: 3px;
         flex-wrap: wrap;
         padding: 0 4px;
     }
-    .breed-label,
-    .attr-filter-label {
+    .breed-label {
         font-size: 11px;
         font-weight: 600;
         color: var(--text-tertiary);
         margin-right: 4px;
     }
-    .breed-btn,
-    .attr-filter-btn {
+    .breed-btn {
         padding: 3px 8px;
         border: 1px solid var(--border-primary);
         border-radius: 4px;
@@ -312,17 +307,8 @@ function parentTitle(cell: GeneCell | null, label: string) {
         transition: all 0.15s;
         white-space: nowrap;
     }
-    .breed-btn:hover,
-    .attr-filter-btn:hover { border-color: var(--border-secondary); color: var(--text-secondary); }
-    .breed-btn.active,
-    .attr-filter-btn.active { background: var(--accent); border-color: var(--accent); color: white; }
-    .attr-filter-btn.hidden-attr {
-        background: var(--error-bg);
-        border-color: var(--error-border);
-        color: var(--error-text);
-        text-decoration: line-through;
-    }
-    .filter-hint { font-size: 11px; color: var(--text-tertiary); font-style: italic; padding: 0 4px; }
+    .breed-btn:hover { border-color: var(--border-secondary); color: var(--text-secondary); }
+    .breed-btn.active { background: var(--accent); border-color: var(--accent); color: white; }
 
     .trio-summary {
         display: flex;
@@ -330,6 +316,7 @@ function parentTitle(cell: GeneCell | null, label: string) {
         gap: 8px;
         margin-bottom: 10px;
         flex-wrap: wrap;
+        flex-shrink: 0;
     }
     .chip {
         font-size: 12px;
@@ -348,6 +335,8 @@ function parentTitle(cell: GeneCell | null, label: string) {
     .swatch-risk { border: 2px solid var(--gene-negative); }
 
     .grid-container {
+        flex: 1;
+        min-height: 0;
         overflow: auto;
         border: 1px solid var(--border-primary);
         border-radius: 6px;

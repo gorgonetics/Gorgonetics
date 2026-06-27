@@ -890,4 +890,86 @@ describe('shareService.uploadPets', () => {
     expect(summary.items).toHaveLength(2);
     expect(upload).toHaveBeenCalledTimes(2);
   });
+
+  // Quota / throttle behaviour. `sleep` is injected so these are instant and
+  // can assert the exact delays the throttle/backoff would have waited.
+  const quotaError = () => Object.assign(new Error('quota exceeded'), { code: 'resource-exhausted' });
+
+  it('throttles between network writes but never after the last pet', async () => {
+    const pets = [pet(1), pet(2), pet(3)];
+    const sleeps: number[] = [];
+    const sleep = vi.fn(async (ms: number) => {
+      sleeps.push(ms);
+    });
+
+    await uploadPets(pets, { upload: fakeUpload({}), loadGenomeText: vi.fn(), interRequestDelayMs: 50, sleep });
+
+    expect(sleeps).toEqual([50, 50]); // after pets 1 and 2, not 3
+  });
+
+  it('does not throttle after a skipped pet (no network write)', async () => {
+    const pets = [pet(1, { genome_text: undefined }), pet(2)];
+    const sleep = vi.fn(async () => {});
+    // pet 1 has no genome text → skipped → no throttle; pet 2 is last → no throttle.
+    await uploadPets(pets, {
+      upload: fakeUpload({}),
+      loadGenomeText: vi.fn().mockResolvedValue(''),
+      interRequestDelayMs: 50,
+      sleep,
+    });
+    expect(sleep).not.toHaveBeenCalled();
+  });
+
+  it('retries a quota error with exponential backoff, then succeeds', async () => {
+    const sleeps: number[] = [];
+    const sleep = vi.fn(async (ms: number) => {
+      sleeps.push(ms);
+    });
+    const upload = vi
+      .fn<(p: Pet) => Promise<UploadResult>>()
+      .mockRejectedValueOnce(quotaError())
+      .mockRejectedValueOnce(quotaError())
+      .mockResolvedValueOnce({ status: 'created', contentHash: 'h1' });
+
+    const summary = await uploadPets([pet(1)], {
+      upload,
+      loadGenomeText: vi.fn(),
+      maxQuotaRetries: 5,
+      quotaBackoffBaseMs: 1000,
+      sleep,
+    });
+
+    expect(upload).toHaveBeenCalledTimes(3);
+    expect(sleeps).toEqual([1000, 2000]); // 1000 * 2**0, 1000 * 2**1
+    expect(summary.created).toBe(1);
+    expect(summary.failed).toBe(0);
+  });
+
+  it('gives up after maxQuotaRetries and marks the pet failed', async () => {
+    const sleep = vi.fn(async () => {});
+    const upload = vi.fn<(p: Pet) => Promise<UploadResult>>().mockRejectedValue(quotaError());
+
+    const summary = await uploadPets([pet(1)], {
+      upload,
+      loadGenomeText: vi.fn(),
+      maxQuotaRetries: 2,
+      quotaBackoffBaseMs: 1000,
+      sleep,
+    });
+
+    expect(upload).toHaveBeenCalledTimes(3); // initial + 2 retries
+    expect(sleep).toHaveBeenCalledTimes(2);
+    expect(summary.failed).toBe(1);
+  });
+
+  it('does not retry a non-quota error', async () => {
+    const sleep = vi.fn(async () => {});
+    const upload = vi.fn<(p: Pet) => Promise<UploadResult>>().mockRejectedValue(new Error('corrupt row'));
+
+    const summary = await uploadPets([pet(1)], { upload, loadGenomeText: vi.fn(), maxQuotaRetries: 5, sleep });
+
+    expect(upload).toHaveBeenCalledTimes(1);
+    expect(sleep).not.toHaveBeenCalled();
+    expect(summary.failed).toBe(1);
+  });
 });

@@ -30,6 +30,12 @@ export interface UploadSummary {
   succeeded: number;
   /** `"<name>: <reason>"` for each source that failed to read or import. */
   failures: string[];
+  /**
+   * Ids of pets freshly created by this batch (`kind: 'created'`), in upload
+   * order. Excludes backfilled/repaired rows, which already existed. Lets the
+   * caller auto-share exactly the new pets without re-deriving them.
+   */
+  createdPetIds: number[];
 }
 
 /**
@@ -43,6 +49,7 @@ export async function runGenomeUpload(
 ): Promise<UploadSummary> {
   const total = sources.length;
   const failures: string[] = [];
+  const createdPetIds: number[] = [];
 
   for (let i = 0; i < total; i++) {
     onProgress?.(i + 1, total);
@@ -51,12 +58,13 @@ export async function runGenomeUpload(
       const content = await read();
       const result = await upload(content);
       if (result.status === 'error') failures.push(`${name}: ${result.message}`);
+      else if (result.kind === 'created' && result.pet_id != null) createdPetIds.push(result.pet_id);
     } catch (err) {
       failures.push(`${name}: ${err instanceof Error ? err.message : String(err)}`);
     }
   }
 
-  return { total, succeeded: total - failures.length, failures };
+  return { total, succeeded: total - failures.length, failures, createdPetIds };
 }
 
 /** True when a drag carries OS files (vs. an internal card-reorder drag). */
