@@ -1,4 +1,5 @@
 <script lang="ts">
+import BreedSelector from '$lib/components/shared/BreedSelector.svelte';
 import GeneFilterPills, { type FilterPillItem } from '$lib/components/shared/GeneFilterPills.svelte';
 import type { AppearanceInfo, AttributeInfo, GenomeDiffSummary } from '$lib/types/index.js';
 import { HORSE_BREEDS } from '$lib/types/index.js';
@@ -81,15 +82,22 @@ const appearanceItems = $derived<FilterPillItem[]>(
     </div>
     {#if isHorse}
         <div class="breed-filter">
-            <span class="breed-label">Breed:</span>
             {#if petsHaveKnownBreed}
-                <button class="breed-btn auto-btn" class:active={autoBreed} onclick={onAutoBreedToggle} title={petsShareBreed ? "Auto-select pets' breed" : "Pets have different breeds"}>Auto</button>
-                <span class="breed-divider"></span>
+                <button
+                    type="button"
+                    class="auto-btn"
+                    class:active={autoBreed}
+                    aria-pressed={autoBreed}
+                    onclick={onAutoBreedToggle}
+                    title={petsShareBreed ? "Auto-select pets' breed" : 'Pets have different breeds'}
+                >Auto</button>
             {/if}
-            <button class="breed-btn" class:active={(!autoBreed || !petsHaveKnownBreed) && breedFilter === ''} disabled={autoBreed && petsHaveKnownBreed} onclick={() => onBreedChange('')}>All</button>
-            {#each Object.entries(HORSE_BREEDS) as [name, abbrev]}
-                <button class="breed-btn" class:active={(!autoBreed || !petsHaveKnownBreed) && breedFilter === name} disabled={autoBreed && petsHaveKnownBreed} onclick={() => onBreedChange(name)} title={name}>{abbrev}</button>
-            {/each}
+            <BreedSelector
+                value={breedFilter}
+                breeds={HORSE_BREEDS}
+                disabled={autoBreed && petsHaveKnownBreed}
+                onChange={onBreedChange}
+            />
         </div>
     {/if}
     {#if currentView === 'attribute'}
@@ -130,14 +138,12 @@ const appearanceItems = $derived<FilterPillItem[]>(
     .view-btn:hover { color: var(--text-secondary); }
     .view-btn.active { background: var(--accent); color: white; }
 
-    .breed-filter { display: flex; align-items: center; gap: 3px; padding: 0 4px; }
-    .breed-label { font-size: 11px; font-weight: 600; color: var(--text-tertiary); margin-right: 4px; }
-    .breed-btn { padding: 3px 8px; border: 1px solid var(--border-primary); border-radius: 4px; background: var(--bg-primary); color: var(--text-tertiary); font-size: 11px; font-weight: 500; cursor: pointer; transition: all 0.15s; }
-    .breed-btn:hover { border-color: var(--border-secondary); color: var(--text-secondary); }
-    .breed-btn.active { background: var(--accent); border-color: var(--accent); color: white; }
-    .breed-btn:disabled { opacity: 0.4; cursor: default; pointer-events: none; }
+    .breed-filter { display: flex; align-items: center; gap: 6px; padding: 0 4px; }
+    /* Auto = Compare-only mode toggle that owns the breed; the breed picker
+       itself is the shared BreedSelector popover. */
+    .auto-btn { padding: 3px 8px; border: 1px solid var(--border-primary); border-radius: 4px; background: var(--bg-primary); color: var(--text-tertiary); font-size: 11px; font-weight: 500; cursor: pointer; transition: all 0.15s; }
+    .auto-btn:hover { border-color: var(--border-secondary); color: var(--text-secondary); }
     .auto-btn.active { background: #22c55e; border-color: #22c55e; color: var(--bg-primary); }
-    .breed-divider { width: 1px; height: 16px; background: var(--border-primary); margin: 0 2px; }
 
     /* Attribute / appearance tri-state pills now live in GeneFilterPills. */
 

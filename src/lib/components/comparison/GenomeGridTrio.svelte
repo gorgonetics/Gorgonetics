@@ -1,5 +1,6 @@
 <script lang="ts">
 import { onDestroy, onMount, untrack } from 'svelte';
+import BreedSelector from '$lib/components/shared/BreedSelector.svelte';
 import GeneFilterPills, { type FilterPillItem } from '$lib/components/shared/GeneFilterPills.svelte';
 import StatusPane from '$lib/components/shared/StatusPane.svelte';
 import { getAttributeConfig, normalizeSpecies } from '$lib/services/configService.js';
@@ -21,7 +22,6 @@ interface Props {
 const { father, mother, offspringBreed = '' }: Props = $props();
 
 const isHorse = $derived(normalizeSpecies(father.species) === 'horse');
-const horseBreeds = Object.entries(HORSE_BREEDS);
 
 let loading = $state(false);
 let error = $state<string | null>(null);
@@ -139,22 +139,12 @@ function parentTitle(cell: GeneCell | null, label: string) {
         <div class="trio-filters">
             {#if isHorse}
                 <div class="breed-filter" data-testid="trio-breed-filter">
-                    <span class="breed-label">Breed:</span>
-                    <button
-                        type="button"
-                        class="breed-btn"
-                        class:active={selectedBreed === ''}
-                        onclick={() => { selectedBreed = ''; }}
-                    >All</button>
-                    {#each horseBreeds as [name, abbrev] (name)}
-                        <button
-                            type="button"
-                            class="breed-btn"
-                            class:active={selectedBreed === name}
-                            onclick={() => { selectedBreed = name; }}
-                            title={name}
-                        >{abbrev}</button>
-                    {/each}
+                    <BreedSelector
+                        value={selectedBreed}
+                        breeds={HORSE_BREEDS}
+                        label="Offspring breed"
+                        onChange={(v) => { selectedBreed = v; }}
+                    />
                 </div>
             {/if}
             {#if attributeItems.length > 0}
@@ -281,34 +271,8 @@ function parentTitle(cell: GeneCell | null, label: string) {
         margin-bottom: 12px;
         flex-shrink: 0;
     }
-    /* Attribute tri-state pills now live in GeneFilterPills. */
-    .breed-filter {
-        display: flex;
-        align-items: center;
-        gap: 3px;
-        flex-wrap: wrap;
-        padding: 0 4px;
-    }
-    .breed-label {
-        font-size: 11px;
-        font-weight: 600;
-        color: var(--text-tertiary);
-        margin-right: 4px;
-    }
-    .breed-btn {
-        padding: 3px 8px;
-        border: 1px solid var(--border-primary);
-        border-radius: 4px;
-        background: var(--bg-primary);
-        color: var(--text-tertiary);
-        font-size: 11px;
-        font-weight: 500;
-        cursor: pointer;
-        transition: all 0.15s;
-        white-space: nowrap;
-    }
-    .breed-btn:hover { border-color: var(--border-secondary); color: var(--text-secondary); }
-    .breed-btn.active { background: var(--accent); border-color: var(--accent); color: white; }
+    /* Attribute pills → GeneFilterPills; breed picker → shared BreedSelector. */
+    .breed-filter { display: flex; padding: 0 4px; }
 
     .trio-summary {
         display: flex;

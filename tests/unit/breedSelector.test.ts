@@ -86,6 +86,17 @@ describe('BreedSelector', () => {
     expect(opt(container, '').getAttribute('aria-pressed')).toBe('false');
   });
 
+  it('when disabled, the trigger is disabled and the popover never opens', async () => {
+    const { container, onChange } = mount({ value: 'Kurbone', disabled: true });
+    const t = trigger(container);
+    expect(t.disabled).toBe(true);
+    // Still shows the current value (e.g. Compare's auto-selected breed).
+    expect(t.querySelector('.bs-value')?.textContent).toBe('Kurbone');
+    await fireEvent.click(t);
+    expect(pop(container)).toBeNull();
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
   it('closes on Escape', async () => {
     const { container } = mount();
     await fireEvent.click(trigger(container));
