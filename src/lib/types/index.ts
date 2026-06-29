@@ -288,7 +288,6 @@ export interface BreedingPairResult {
   evPositiveByAttribute: Record<string, number>;
   evPositiveTotal: number;
   evPositiveWeighted: number;
-  evPositiveWeightedByAttribute: Record<string, number>;
   evUnknown: number;
   totalLoci: number;
 }

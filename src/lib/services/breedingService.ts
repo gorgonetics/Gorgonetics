@@ -45,6 +45,20 @@ export type PoolCoverage = Map<string, SlotCoverage>;
 export const GAP_WEIGHT: Record<CoverageTier, number> = { missing: 2.0, partial: 1.2, locked: 0.6 };
 
 /**
+ * The (capitalized) attribute each positive slot targets, or null when that
+ * slot isn't a named positive — a slot counts only when its sign is `'+'` and
+ * it names an attribute. The single source of truth for slot eligibility,
+ * shared by `buildPoolCoverage` and `accumulatePositive` so coverage and
+ * scoring can't drift on which loci count.
+ */
+function positiveSlots(gd: ParsedGeneRecord): { dom: string | null; rec: string | null } {
+  return {
+    dom: gd.dominantSign === '+' && gd.dominantAttribute ? capitalize(gd.dominantAttribute) : null,
+    rec: gd.recessiveSign === '+' && gd.recessiveAttribute ? capitalize(gd.recessiveAttribute) : null,
+  };
+}
+
+/**
  * One pass over the whole candidate pool to classify, per gene, how well each
  * positive slot is already covered. A horse gene has up to two positive slots
  * (a dominant-positive and a recessive-positive, often on *different*
@@ -70,9 +84,8 @@ export function buildPoolCoverage(
     for (const [geneId, type] of loci) {
       const gd = parsedGenes[geneId];
       if (!gd) continue;
-      const hasDomPos = gd.dominantSign === '+' && !!gd.dominantAttribute;
-      const hasRecPos = gd.recessiveSign === '+' && !!gd.recessiveAttribute;
-      if (!hasDomPos && !hasRecPos) continue;
+      const slots = positiveSlots(gd);
+      if (!slots.dom && !slots.rec) continue;
       if (isHorseBreedFiltered(species, offspringBreed, gd.breed)) continue;
       let f = flags.get(geneId);
       if (!f) {
@@ -115,9 +128,11 @@ export interface RankBreedingPairsOptions {
 
 /**
  * Add this locus's contribution to the per-attribute positive-expression
- * tally (`into`) and, scaled by the pool-coverage gap weight for each slot,
- * to the weighted tally (`weightedInto`). Returns both aggregates so the
- * caller can keep running totals without re-summing the records.
+ * tally (`into`). Returns the raw total plus the pool-gap-weighted total —
+ * each slot's mass scaled by `GAP_WEIGHT` for its coverage tier — so the
+ * caller keeps both running aggregates without re-summing the record. Only
+ * the scalar weighted total is surfaced; the breakdown stays raw (the UI
+ * sorts the weighted figure as a single "Pool gain" column).
  *
  * `cov` is this gene's pool coverage; absent (shouldn't happen for a locus
  * present in the pool) it defaults to the `missing` weight.
@@ -127,30 +142,24 @@ function accumulatePositive(
   gd: ParsedGeneRecord,
   cov: SlotCoverage | undefined,
   into: Record<string, number>,
-  weightedInto: Record<string, number>,
 ): { total: number; weighted: number } {
+  const slots = positiveSlots(gd);
   let total = 0;
   let weighted = 0;
-  if (gd.dominantSign === '+' && gd.dominantAttribute) {
+  if (slots.dom) {
     const p = dist.D + dist.x;
     if (p > 0) {
-      const key = capitalize(gd.dominantAttribute);
-      into[key] = (into[key] ?? 0) + p;
+      into[slots.dom] = (into[slots.dom] ?? 0) + p;
       total += p;
-      const w = p * GAP_WEIGHT[cov?.dom ?? 'missing'];
-      weightedInto[key] = (weightedInto[key] ?? 0) + w;
-      weighted += w;
+      weighted += p * GAP_WEIGHT[cov?.dom ?? 'missing'];
     }
   }
-  if (gd.recessiveSign === '+' && gd.recessiveAttribute) {
+  if (slots.rec) {
     const p = dist.R;
     if (p > 0) {
-      const key = capitalize(gd.recessiveAttribute);
-      into[key] = (into[key] ?? 0) + p;
+      into[slots.rec] = (into[slots.rec] ?? 0) + p;
       total += p;
-      const w = p * GAP_WEIGHT[cov?.rec ?? 'missing'];
-      weightedInto[key] = (weightedInto[key] ?? 0) + w;
-      weighted += w;
+      weighted += p * GAP_WEIGHT[cov?.rec ?? 'missing'];
     }
   }
   return { total, weighted };
@@ -174,7 +183,6 @@ function scorePair(
   attrNames: readonly string[],
 ): BreedingPairResult {
   const evPositiveByAttribute = emptyAttributeBreakdown(attrNames);
-  const evPositiveWeightedByAttribute = emptyAttributeBreakdown(attrNames);
   let evMixed = 0;
   let evUnknown = 0;
   let evPositiveTotal = 0;
@@ -189,29 +197,13 @@ function scorePair(
     evUnknown += dist.unknown;
     totalLoci++;
     if (gd) {
-      const { total, weighted } = accumulatePositive(
-        dist,
-        gd,
-        coverage.get(geneId),
-        evPositiveByAttribute,
-        evPositiveWeightedByAttribute,
-      );
+      const { total, weighted } = accumulatePositive(dist, gd, coverage.get(geneId), evPositiveByAttribute);
       evPositiveTotal += total;
       evPositiveWeighted += weighted;
     }
   });
 
-  return {
-    male,
-    female,
-    evMixed,
-    evPositiveByAttribute,
-    evPositiveTotal,
-    evPositiveWeighted,
-    evPositiveWeightedByAttribute,
-    evUnknown,
-    totalLoci,
-  };
+  return { male, female, evMixed, evPositiveByAttribute, evPositiveTotal, evPositiveWeighted, evUnknown, totalLoci };
 }
 
 /**
