@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { rankBreedingPairs } from '$lib/services/breedingService.js';
+import { buildPoolCoverage, rankBreedingPairs } from '$lib/services/breedingService.js';
 import { closeDatabase, initDatabase } from '$lib/services/database.js';
+import type { ParsedGeneRecord } from '$lib/services/geneService.js';
 import * as geneService from '$lib/services/geneService.js';
 import { runMigrations } from '$lib/services/migrationService.js';
 import * as petService from '$lib/services/petService.js';
-import { Gender, type Pet } from '$lib/types/index.js';
+import { Gender, GeneType, type Pet } from '$lib/types/index.js';
+import type { PetLoci } from '$lib/utils/petLoci.js';
 
 /**
  * Three-locus beewasp genome: positions 01A1, 01A2, 01A3 — alleles
@@ -140,6 +142,88 @@ describe('rankBreedingPairs — EV math', () => {
     expect(pair.evMixed).toBe(0);
     expect(pair.evPositiveTotal).toBe(0);
     expect(pair.evPositiveByAttribute.Toughness).toBe(0);
+  });
+});
+
+describe('buildPoolCoverage — per-slot tier classification', () => {
+  // One gene with both positive slots on different attributes, so the dominant
+  // and recessive coverage are classified independently.
+  function gene(over: Partial<ParsedGeneRecord> = {}): ParsedGeneRecord {
+    return {
+      dominantAttribute: 'Toughness',
+      dominantSign: '+',
+      recessiveAttribute: 'Speed',
+      recessiveSign: '+',
+      breed: '',
+      ...over,
+    };
+  }
+  // Each allele → a pet carrying only gene 'G' with that allele.
+  const pool = (...alleles: GeneType[]): PetLoci[] => alleles.map((a) => new Map([['G', a]]));
+  const cover = (alleles: GeneType[], parsed = { G: gene() }, species = 'beewasp', breed?: string) =>
+    buildPoolCoverage(pool(...alleles), parsed, species, breed).get('G');
+
+  it('dominant slot: D→locked, x→partial, R/?→missing', () => {
+    expect(cover([GeneType.DOMINANT])?.dom).toBe('locked');
+    expect(cover([GeneType.MIXED])?.dom).toBe('partial');
+    expect(cover([GeneType.RECESSIVE])?.dom).toBe('missing');
+    expect(cover([GeneType.UNKNOWN])?.dom).toBe('missing');
+  });
+
+  it('recessive slot: R→locked, x→partial, D/?→missing', () => {
+    expect(cover([GeneType.RECESSIVE])?.rec).toBe('locked');
+    expect(cover([GeneType.MIXED])?.rec).toBe('partial');
+    expect(cover([GeneType.DOMINANT])?.rec).toBe('missing');
+    expect(cover([GeneType.UNKNOWN])?.rec).toBe('missing');
+  });
+
+  it('takes the strongest evidence across the whole pool per slot', () => {
+    // A carrier (x) and a recessive: dominant has no D but a carrier → partial;
+    // recessive is expressed somewhere → locked.
+    expect(cover([GeneType.MIXED, GeneType.RECESSIVE])).toEqual({ dom: 'partial', rec: 'locked' });
+    // A dominant and a recessive lock both slots.
+    expect(cover([GeneType.DOMINANT, GeneType.RECESSIVE])).toEqual({ dom: 'locked', rec: 'locked' });
+  });
+
+  it('omits genes with no positive slot', () => {
+    const parsed = { G: gene({ dominantSign: '-', recessiveSign: null, recessiveAttribute: null }) };
+    expect(cover([GeneType.DOMINANT], parsed)).toBeUndefined();
+  });
+
+  it('excludes loci breed-locked to a different offspring breed', () => {
+    const parsed = { G: gene({ breed: 'Standardbred' }) };
+    expect(cover([GeneType.DOMINANT], parsed, 'horse', 'Ilmarian')).toBeUndefined();
+    expect(cover([GeneType.DOMINANT], parsed, 'horse', 'Standardbred')?.dom).toBe('locked');
+  });
+});
+
+describe('rankBreedingPairs — pool-gap-weighted EV', () => {
+  beforeEach(reset);
+
+  it('down-weights an already-locked positive and up-weights a partial one', async () => {
+    // 01A1 Toughness+ : both parents D → pool has it locked (weight 0.6).
+    // 01A2 Intelligence+ : both parents x, no D → pool only partial (weight 1.2).
+    await geneService.upsertGene('beewasp', '01', '01A1', { effectDominant: 'Toughness+', effectRecessive: 'None' });
+    await geneService.upsertGene('beewasp', '01', '01A2', { effectDominant: 'Intelligence+', effectRecessive: 'None' });
+    geneService.clearGeneEffectsCache('beewasp');
+
+    const male = await uploadParent('M', Gender.MALE, 'Dx?');
+    const female = await uploadParent('F', Gender.FEMALE, 'Dx?');
+
+    const [pair] = await rankBreedingPairs({ species: 'BeeWasp', pets: [male, female] });
+
+    // Raw EV (unweighted): 01A1 D×D → P(D)=1; 01A2 x×x → P(D∨x)=0.75.
+    expect(pair.evPositiveByAttribute.Toughness).toBeCloseTo(1, 10);
+    expect(pair.evPositiveByAttribute.Intelligence).toBeCloseTo(0.75, 10);
+    expect(pair.evPositiveTotal).toBeCloseTo(1.75, 10);
+
+    // Weighted: Toughness (locked) 1.0×0.6 = 0.6; Intelligence (partial) 0.75×1.2 = 0.9.
+    // The 1.5 total can only arise from per-slot weighting (1.0×0.6 + 0.75×1.2);
+    // a single weight on the raw 1.75 would give 1.05 (all locked) or 2.1 (all
+    // partial), so this scalar alone pins that the locked slot was down-weighted
+    // and the partial slot up-weighted.
+    expect(pair.evPositiveWeighted).toBeCloseTo(1.5, 10);
+    expect(pair.evPositiveWeighted).toBeLessThan(pair.evPositiveTotal);
   });
 });
 
