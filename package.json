@@ -38,7 +38,7 @@
     "@sveltejs/vite-plugin-svelte": "^7.1.2",
     "@tauri-apps/cli": "^2.11.2",
     "@testing-library/jest-dom": "^6.9.1",
-    "@testing-library/svelte": "^5.4.1",
+    "@testing-library/svelte": "^5.4.2",
     "@types/node": "^26.0.0",
     "@vitest/ui": "^4.1.9",
     "firebase-admin": "^14.0.0",
