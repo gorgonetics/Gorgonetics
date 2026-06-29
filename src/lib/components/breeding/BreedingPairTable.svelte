@@ -29,6 +29,7 @@ const columns = $derived<Column[]>([
   { id: 'evMixed', label: 'Mixed', accessor: (r) => r.evMixed, numeric: true },
   { id: 'evUnknown', label: 'Unknown', accessor: (r) => r.evUnknown, numeric: true },
   { id: 'evPositiveTotal', label: 'Total +', accessor: (r) => r.evPositiveTotal, numeric: true },
+  { id: 'evPositiveWeighted', label: 'Pool gain', accessor: (r) => r.evPositiveWeighted, numeric: true },
   ...attrNames.map(
     (name): Column => ({
       id: name,
@@ -117,6 +118,7 @@ function fmt(n: number) {
                     <td class="numeric">{fmt(pair.evMixed)}</td>
                     <td class="numeric">{fmt(pair.evUnknown)}</td>
                     <td class="numeric strong">{fmt(pair.evPositiveTotal)}</td>
+                    <td class="numeric strong">{fmt(pair.evPositiveWeighted)}</td>
                     {#each attrNames as name (name)}
                         <td class="numeric">{fmt(pair.evPositiveByAttribute[name] ?? 0)}</td>
                     {/each}

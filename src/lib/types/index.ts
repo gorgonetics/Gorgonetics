@@ -274,6 +274,12 @@ export interface AlleleDistribution {
  * every locus the parents share (attribute + appearance + selector) and
  * is the predictability metric; `evPositiveByAttribute` is attribute-only
  * and broken down per attribute so the breeder can sort to target one.
+ *
+ * `evPositiveWeighted` is the pool-gap-aware variant: each positive slot's
+ * expected mass is scaled by how well the candidate pool already covers that
+ * slot (missing > partial > locked), so a pair that fills a gap nothing else
+ * covers outranks one re-covering an already-secured positive. Raw EV stays
+ * untouched for display; the weighted figure is a separate "Pool gain" metric.
  */
 export interface BreedingPairResult {
   male: Pet;
@@ -281,6 +287,8 @@ export interface BreedingPairResult {
   evMixed: number;
   evPositiveByAttribute: Record<string, number>;
   evPositiveTotal: number;
+  evPositiveWeighted: number;
+  evPositiveWeightedByAttribute: Record<string, number>;
   evUnknown: number;
   totalLoci: number;
 }
