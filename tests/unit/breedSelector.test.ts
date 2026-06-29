@@ -97,6 +97,14 @@ describe('BreedSelector', () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
+  it('force-closes an open popover when disabled flips to true', async () => {
+    const { container, rerender } = mount({ value: 'Kurbone' });
+    await fireEvent.click(trigger(container));
+    expect(pop(container)).not.toBeNull();
+    await rerender({ value: 'Kurbone', breeds: BREEDS, disabled: true } as never);
+    expect(pop(container)).toBeNull();
+  });
+
   it('closes on Escape', async () => {
     const { container } = mount();
     await fireEvent.click(trigger(container));

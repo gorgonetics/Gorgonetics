@@ -35,6 +35,12 @@ let root = $state<HTMLDivElement | undefined>();
 const entries = $derived(Object.entries(breeds));
 const currentLabel = $derived(value === '' ? allLabel : value);
 
+// If the parent disables the control while the popover is open (e.g. Compare
+// flips Auto on), force it shut so the UI/ARIA state can't drift.
+$effect(() => {
+  if (disabled) open = false;
+});
+
 function choose(next: string): void {
   open = false;
   if (next !== value) onChange(next);
