@@ -21,16 +21,25 @@ interface Props {
   label?: string;
   /** Label for the "no filter" option. */
   allLabel?: string;
+  /** Greys out the trigger and suppresses the popover (e.g. Compare's Auto
+   *  mode owns the breed). The current value still shows on the trigger. */
+  disabled?: boolean;
   onChange: (value: string) => void;
 }
 
-const { value, breeds, label = 'Breed', allLabel = 'All', onChange }: Props = $props();
+const { value, breeds, label = 'Breed', allLabel = 'All', disabled = false, onChange }: Props = $props();
 
 let open = $state(false);
 let root = $state<HTMLDivElement | undefined>();
 
 const entries = $derived(Object.entries(breeds));
 const currentLabel = $derived(value === '' ? allLabel : value);
+
+// If the parent disables the control while the popover is open (e.g. Compare
+// flips Auto on), force it shut so the UI/ARIA state can't drift.
+$effect(() => {
+  if (disabled) open = false;
+});
 
 function choose(next: string): void {
   open = false;
@@ -66,7 +75,8 @@ onDestroy(() => {
     data-testid="breed-selector-trigger"
     aria-haspopup="true"
     aria-expanded={open}
-    onclick={(e) => { e.stopPropagation(); open = !open; }}
+    {disabled}
+    onclick={(e) => { if (disabled) return; e.stopPropagation(); open = !open; }}
   >
     <span class="bs-label">{label}:</span>
     <strong class="bs-value">{currentLabel}</strong>
@@ -120,7 +130,8 @@ onDestroy(() => {
     font-weight: 600;
     cursor: pointer;
   }
-  .bs-trigger:hover { border-color: var(--border-secondary); }
+  .bs-trigger:hover:not(:disabled) { border-color: var(--border-secondary); }
+  .bs-trigger:disabled { opacity: 0.5; cursor: default; }
 
   .bs-label { color: var(--text-tertiary); }
   .bs-value { color: var(--text-secondary); }
