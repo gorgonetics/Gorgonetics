@@ -69,7 +69,7 @@ Gorgonetics is a native desktop app for genetic breeding analysis in Project Gor
 
 ### Prerequisites
 - [Rust](https://rustup.rs/) (stable)
-- Node.js 20+, [pnpm](https://pnpm.io/)
+- Node.js 22 (matches CI), [pnpm](https://pnpm.io/)
 
 ### Commands
 
