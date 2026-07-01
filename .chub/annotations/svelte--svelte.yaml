@@ -1,8 +1,12 @@
 id: svelte/svelte
 notes: []
-issues: []
+issues:
+- author: jlopezpena
+  date: 2026-07-01
+  note: 'HMR can duplicate a store singleton. In a long-running `pnpm tauri:dev`/`vite dev` session, hot-reloading a module that exports a singleton store (e.g. a `writable`) can leave two live instances: a writer (e.g. appState.loadPets) updates one while a component stays subscribed to the stale one, so the UI never reflects the update. Symptom seen: My Pets showed "No pets yet" although the DB and getAllPets() both returned all 32 rows and the store logic was correct. Not a code bug. Fix: clean dev restart — kill the stale Vite (`lsof -ti:5174 | xargs kill -9`; the port stays held after the native window closes), optionally `rm -rf node_modules/.vite`, then `pnpm tauri:dev`. Suspect this whenever the UI goes stale after editing a store/service module.'
+  severity: medium
 fixes: []
 practices:
 - author: jlopezpena
-  date: 2026-04-16
+  date: 2026-07-01
   note: This project uses Svelte 5 with SvelteKit and static adapter for a Tauri desktop app. No Tailwind — use plain CSS + Svelte scoped styles. Biome is the linter (not ESLint).
