@@ -6,7 +6,7 @@ import StatusPane from '$lib/components/shared/StatusPane.svelte';
 import { getAttributeConfig, normalizeSpecies } from '$lib/services/configService.js';
 import { getGeneEffectsCached } from '$lib/services/geneService.js';
 import { computeOffspringTrio } from '$lib/services/offspringTrioService.js';
-import { type AttributeInfo, HORSE_BREEDS, type OffspringTrioResult, type Pet } from '$lib/types/index.js';
+import { type AttributeInfo, GeneType, HORSE_BREEDS, type OffspringTrioResult, type Pet } from '$lib/types/index.js';
 import { attributeFilterCSS } from '$lib/utils/filterCSS.js';
 import { triStateToggle } from '$lib/utils/filterToggle.js';
 import { buildAppearanceLookup, createGeneCellBuilder, type GeneCell } from '$lib/utils/geneGridCells.js';
@@ -39,10 +39,37 @@ const attributeItems = $derived<FilterPillItem[]>(
 let selectedBreed = $state(untrack(() => offspringBreed));
 let selectedAttributes = $state<string[]>([]);
 let hiddenAttributes = $state<string[]>([]);
-// "New gains only": hide locked-in loci (both parents already express the same
-// positive, so the offspring can't gain anything new there) to focus on the
-// gains the offspring could actually acquire.
+// "New gains only": hide locked loci — those where both parents share the same
+// homozygous allele (both dominant or both recessive), so every offspring is
+// fixed to that same genotype and nothing new can appear. This is broader than
+// a "locked-in gain" (it includes neutral loci with no attribute effect), which
+// is what the player means by "won't change in the offspring".
 let hideLocked = $state(false);
+
+/** Locked = both parents the same homozygous allele → offspring can't differ. */
+function isLocked(cell: TrioLocusCell): boolean {
+  const f = cell.fatherType;
+  return f !== null && f === cell.motherType && (f === GeneType.DOMINANT || f === GeneType.RECESSIVE);
+}
+
+const lockedCount = $derived.by(() => {
+  if (!grid) return 0;
+  let n = 0;
+  for (const row of grid.rows) for (const key in row.cells) if (isLocked(row.cells[key])) n++;
+  return n;
+});
+
+// Gains the offspring could newly acquire — a gain at a non-locked locus.
+const newGainCount = $derived.by(() => {
+  if (!grid) return 0;
+  let n = 0;
+  for (const row of grid.rows)
+    for (const key in row.cells) {
+      const c = row.cells[key];
+      if (c.verdict === 'gain' && !isLocked(c)) n++;
+    }
+  return n;
+});
 
 const ALLELE_LABEL: Record<string, string> = { D: 'Dominant', x: 'Mixed', R: 'Recessive', unknown: 'Unknown' };
 const VERDICT_LABEL: Record<string, string> = { gain: 'Gain', risk: 'Risk', neutral: '' };
@@ -172,19 +199,19 @@ function parentTitle(cell: GeneCell | null, label: string) {
         <StatusPane variant="error" icon="⚠️" body={error} />
     {:else if grid && summary && grid.rows.length > 0}
         <div class="trio-summary">
-            <span class="chip chip-gain">{hideLocked ? summary.gains - summary.lockedIn : summary.gains} {hideLocked ? 'new gains' : 'gains'}</span>
+            <span class="chip chip-gain">{hideLocked ? newGainCount : summary.gains} {hideLocked ? 'new gains' : 'gains'}</span>
             <span class="chip chip-risk">{summary.risks} risks</span>
-            {#if summary.lockedIn > 0}
+            {#if lockedCount > 0}
                 <button
                     type="button"
                     class="chip chip-lock toggle"
                     class:active={hideLocked}
                     aria-pressed={hideLocked}
                     data-testid="trio-hide-locked"
-                    title="Locked-in: both parents already express the same positive, so the offspring can't gain anything new here. Toggle to hide these and show new gains only."
+                    title="Locked: both parents share the same allele (both dominant or both recessive), so the offspring can't differ here. Toggle to hide these and show new gains only."
                     onclick={() => { hideLocked = !hideLocked; }}
                 >
-                    {summary.lockedIn} locked in{hideLocked ? ' · hidden' : ''}
+                    {lockedCount} locked{hideLocked ? ' · hidden' : ''}
                 </button>
             {/if}
             {#if summary.unknownLoci > 0}
@@ -219,7 +246,7 @@ function parentTitle(cell: GeneCell | null, label: string) {
                                     {@const cell = row.cells[`${block}${pos}`]}
                                     <td class="grid-cell {pos === 1 ? 'block-start' : ''}">
                                         {#if cell?.fatherCell}
-                                            <div class={cell.fatherCell.attributeCls} data-attr={cell.fatherCell.attribute} title={parentTitle(cell.fatherCell, 'Father')}>
+                                            <div class={cell.fatherCell.attributeCls} class:fixed={isLocked(cell)} data-attr={cell.fatherCell.attribute} title={parentTitle(cell.fatherCell, 'Father')}>
                                                 {#if cell.fatherCell.type === '?'}<span class="unknown-symbol">?</span>{/if}
                                             </div>
                                         {/if}
@@ -237,6 +264,7 @@ function parentTitle(cell: GeneCell | null, label: string) {
                                             <div
                                                 class="dist-bar verdict-{cell.verdict}"
                                                 class:locked={cell.lockedIn}
+                                                class:fixed={isLocked(cell)}
                                                 data-attr={cell.attribute ?? ''}
                                                 title={offspringTitle(cell)}
                                             >
@@ -256,7 +284,7 @@ function parentTitle(cell: GeneCell | null, label: string) {
                                     {@const cell = row.cells[`${block}${pos}`]}
                                     <td class="grid-cell {pos === 1 ? 'block-start' : ''}">
                                         {#if cell?.motherCell}
-                                            <div class={cell.motherCell.attributeCls} data-attr={cell.motherCell.attribute} title={parentTitle(cell.motherCell, 'Mother')}>
+                                            <div class={cell.motherCell.attributeCls} class:fixed={isLocked(cell)} data-attr={cell.motherCell.attribute} title={parentTitle(cell.motherCell, 'Mother')}>
                                                 {#if cell.motherCell.type === '?'}<span class="unknown-symbol">?</span>{/if}
                                             </div>
                                         {/if}
@@ -394,9 +422,14 @@ function parentTitle(cell: GeneCell | null, label: string) {
     .dist-bar.locked { box-shadow: inset 0 0 0 1px var(--bg-secondary); }
     .seg { display: block; height: 100%; }
 
-    /* "New gains only": fade locked-in loci out of the offspring row so the
-       remaining gain-coloured bars are only the new gains. */
-    .trio-grid-container.hide-locked .dist-bar.locked { opacity: 0.12; border-color: transparent; box-shadow: none; }
+    /* Parent cells share the offspring bar's box size so the three rows line up
+       column-for-column (the shared .gene-cell is 14px elsewhere). */
+    .trio-table :global(.gene-cell) { width: 20px; height: 20px; }
+
+    /* "New gains only": fade locked loci out of ALL three rows (both parents and
+       the offspring) so the remaining gain-coloured bars are only new gains. */
+    .trio-grid-container.hide-locked .fixed { opacity: 0.12; }
+    .trio-grid-container.hide-locked .dist-bar.fixed { border-color: transparent; box-shadow: none; }
 
     .tone-positive { background: var(--gene-positive); }
     .tone-negative { background: var(--gene-negative); }
