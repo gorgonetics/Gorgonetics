@@ -107,18 +107,17 @@ test.describe('Redesign — Breed destination', () => {
     await expect(trio.locator('.dist-bar').first()).toBeVisible();
 
     const toggle = trio.getByTestId('trio-hide-locked');
-    // The toggle only exists when the pair has locked-in loci to hide.
+    // The toggle only exists when the pair has locked loci to hide.
     await expect(toggle).toBeVisible();
-    const gainsChip = trio.locator('.chip-gain');
-    await expect(gainsChip).toContainText('gains');
-    await expect(gainsChip).not.toContainText('new gains');
+    await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+    await expect(toggle).not.toContainText('hidden');
 
     // force: the toggle is pinned and clickable, but the heavy grid reflowing
     // underneath can keep Playwright's stability check from settling under CI
     // CPU load. The assertions below confirm the click actually applied.
     await toggle.click({ force: true });
     await expect(toggle).toHaveAttribute('aria-pressed', 'true');
-    await expect(gainsChip).toContainText('new gains');
+    await expect(toggle).toContainText('hidden');
     await expect(trio.locator('.trio-grid-container.hide-locked')).toBeVisible();
   });
 

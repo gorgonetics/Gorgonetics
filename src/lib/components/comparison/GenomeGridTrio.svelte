@@ -199,7 +199,7 @@ function parentTitle(cell: GeneCell | null, label: string) {
         <StatusPane variant="error" icon="⚠️" body={error} />
     {:else if grid && summary && grid.rows.length > 0}
         <div class="trio-summary">
-            <span class="chip chip-gain">{hideLocked ? newGainCount : summary.gains} {hideLocked ? 'new gains' : 'gains'}</span>
+            <span class="chip chip-gain" title="Gains the offspring could newly acquire (locked-in positives both parents already share are counted under “locked”, not here). {summary.gains} gain loci total.">{newGainCount} gains</span>
             <span class="chip chip-risk">{summary.risks} risks</span>
             {#if lockedCount > 0}
                 <button
