@@ -64,14 +64,12 @@ const allActive = $derived(selected.length === 0 && hidden.length === 0);
         {#if item.swatch != null}<span class="gfp-swatch"></span>{:else if item.icon}<span class="gfp-icon" aria-hidden="true">{item.icon}</span>{/if}{item.name}
       </button>
     {/each}
+    {#if hint}<span class="gfp-hint">{hint}</span>{/if}
   </div>
-  {#if hint}
-    <span class="gfp-hint">{hint}</span>
-  {/if}
 </div>
 
 <style>
-  .gfp { display: flex; flex-direction: column; gap: 4px; }
+  .gfp { display: flex; flex-direction: column; }
   .gfp-row { display: flex; align-items: center; gap: 3px; flex-wrap: wrap; padding: 0 4px; }
   .gfp-label { font-size: 11px; font-weight: 600; color: var(--text-tertiary); margin-right: 4px; }
   .gfp-btn {
@@ -105,5 +103,5 @@ const allActive = $derived(selected.length === 0 && hidden.length === 0);
     background: var(--swatch-color, #6b7280);
     border: 1px solid rgba(0, 0, 0, 0.2);
   }
-  .gfp-hint { font-size: 11px; color: var(--text-tertiary); font-style: italic; padding: 0 4px; }
+  .gfp-hint { font-size: 10px; color: var(--text-muted); font-style: italic; margin-left: 6px; }
 </style>

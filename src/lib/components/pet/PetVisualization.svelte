@@ -292,14 +292,16 @@ onDestroy(() => {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 12px 20px;
+        gap: 12px;
+        flex-wrap: wrap;
+        padding: 8px 16px;
         border-bottom: 1px solid var(--border-primary);
         background: var(--bg-primary);
         flex-shrink: 0;
     }
 
     .detail-title {
-        font-size: 18px;
+        font-size: 15px;
         font-weight: 700;
         color: var(--text-primary);
         margin: 0;

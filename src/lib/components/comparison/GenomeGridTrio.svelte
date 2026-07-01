@@ -186,9 +186,35 @@ function parentTitle(cell: GeneCell | null, label: string) {
                     hidden={hiddenAttributes}
                     onToggle={toggleAttributeFilter}
                     onReset={() => { selectedAttributes = []; hiddenAttributes = []; }}
-                    hint="Click to focus · Ctrl+click multi-select · Alt+click hide"
+                    hint="Click focus · Ctrl multi · Alt hide"
                     testid="trio-attribute-filter"
                 />
+            {/if}
+            {#if grid && summary && grid.rows.length > 0}
+                <div class="trio-summary">
+                    <span class="chip chip-gain" title="Gains the offspring could newly acquire (locked-in positives both parents already share are counted under “locked”, not here). {summary.gains} gain loci total.">{newGainCount} gains</span>
+                    <span class="chip chip-risk">{summary.risks} risks</span>
+                    {#if lockedCount > 0}
+                        <button
+                            type="button"
+                            class="chip chip-lock toggle"
+                            class:active={hideLocked}
+                            aria-pressed={hideLocked}
+                            data-testid="trio-hide-locked"
+                            title="Locked: both parents share the same allele (both dominant or both recessive), so the offspring can't differ here. Toggle to hide these and show new gains only."
+                            onclick={() => { hideLocked = !hideLocked; }}
+                        >
+                            {lockedCount} locked{hideLocked ? ' · hidden' : ''}
+                        </button>
+                    {/if}
+                    {#if summary.unknownLoci > 0}
+                        <span class="chip chip-unknown">{summary.unknownLoci} unknown</span>
+                    {/if}
+                    <span class="legend">
+                        <span class="legend-item"><span class="swatch swatch-gain"></span>gain</span>
+                        <span class="legend-item"><span class="swatch swatch-risk"></span>risk</span>
+                    </span>
+                </div>
             {/if}
         </div>
     {/if}
@@ -198,31 +224,6 @@ function parentTitle(cell: GeneCell | null, label: string) {
     {:else if error}
         <StatusPane variant="error" icon="⚠️" body={error} />
     {:else if grid && summary && grid.rows.length > 0}
-        <div class="trio-summary">
-            <span class="chip chip-gain" title="Gains the offspring could newly acquire (locked-in positives both parents already share are counted under “locked”, not here). {summary.gains} gain loci total.">{newGainCount} gains</span>
-            <span class="chip chip-risk">{summary.risks} risks</span>
-            {#if lockedCount > 0}
-                <button
-                    type="button"
-                    class="chip chip-lock toggle"
-                    class:active={hideLocked}
-                    aria-pressed={hideLocked}
-                    data-testid="trio-hide-locked"
-                    title="Locked: both parents share the same allele (both dominant or both recessive), so the offspring can't differ here. Toggle to hide these and show new gains only."
-                    onclick={() => { hideLocked = !hideLocked; }}
-                >
-                    {lockedCount} locked{hideLocked ? ' · hidden' : ''}
-                </button>
-            {/if}
-            {#if summary.unknownLoci > 0}
-                <span class="chip chip-unknown">{summary.unknownLoci} unknown</span>
-            {/if}
-            <span class="legend">
-                <span class="legend-item"><span class="swatch swatch-gain"></span>gain</span>
-                <span class="legend-item"><span class="swatch swatch-risk"></span>risk</span>
-            </span>
-        </div>
-
         <div class="grid-container trio-grid-container" class:hide-locked={hideLocked}>
             <table class="trio-table">
                 <thead>
@@ -308,11 +309,14 @@ function parentTitle(cell: GeneCell | null, label: string) {
        the filters + summary stay pinned above it. */
     .genome-grid-trio { width: 100%; height: 100%; display: flex; flex-direction: column; min-height: 0; }
 
+    /* One compact controls band: breed selector, attribute pills, and the
+       summary chips share a single wrapping row instead of stacking. */
     .trio-filters {
         display: flex;
-        flex-direction: column;
-        gap: 6px;
-        margin-bottom: 12px;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px 14px;
+        margin-bottom: 6px;
         flex-shrink: 0;
     }
     /* Attribute pills → GeneFilterPills; breed picker → shared BreedSelector. */
@@ -322,7 +326,8 @@ function parentTitle(cell: GeneCell | null, label: string) {
         display: flex;
         align-items: center;
         gap: 8px;
-        margin-bottom: 10px;
+        margin-bottom: 0;
+        margin-left: auto;
         flex-wrap: wrap;
         flex-shrink: 0;
     }

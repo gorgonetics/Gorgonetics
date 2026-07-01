@@ -80,6 +80,7 @@ const appearanceItems = $derived<FilterPillItem[]>(
             Differences only
         </label>
     </div>
+    <div class="diff-filters">
     {#if isHorse}
         <div class="breed-filter">
             {#if petsHaveKnownBreed}
@@ -120,13 +121,16 @@ const appearanceItems = $derived<FilterPillItem[]>(
             onReset={onResetAppearances}
         />
     {/if}
+    </div>
 </div>
 
-<div class="grid-instructions">Click chromosome labels to filter · Ctrl+click to multi-select · Alt+click to hide</div>
+<div class="grid-instructions">Click chromosome labels · Ctrl+click multi · Alt+click hide</div>
 
 <style>
-    .diff-controls { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
-    .diff-summary { display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: var(--bg-secondary); border-radius: 8px; flex-wrap: wrap; }
+    .diff-controls { display: flex; flex-direction: column; gap: 6px; margin-bottom: 6px; }
+    .diff-summary { display: flex; align-items: center; gap: 10px; padding: 6px 12px; background: var(--bg-secondary); border-radius: 8px; flex-wrap: wrap; }
+    /* Breed selector + attribute/appearance pills share one wrapping band. */
+    .diff-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; }
     .similarity-badge { font-size: 14px; font-weight: 700; color: var(--text-primary); padding: 4px 10px; background: var(--bg-tertiary); border-radius: 10px; }
     .summary-detail { font-size: 12px; color: var(--text-secondary); }
     .diff-toggle { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary); cursor: pointer; }
@@ -147,5 +151,5 @@ const appearanceItems = $derived<FilterPillItem[]>(
 
     /* Attribute / appearance tri-state pills now live in GeneFilterPills. */
 
-    .grid-instructions { font-size: 11px; color: var(--text-tertiary); margin-bottom: 6px; font-style: italic; padding: 0 4px; }
+    .grid-instructions { font-size: 10px; color: var(--text-muted); margin-bottom: 4px; font-style: italic; padding: 0 4px; }
 </style>

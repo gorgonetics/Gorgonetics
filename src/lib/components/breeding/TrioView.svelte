@@ -62,6 +62,6 @@ const speciesLabel = $derived(father ? normalizeSpecies(father.species) : '');
     min-height: 0;
     display: flex;
     flex-direction: column;
-    padding: 16px 20px;
+    padding: 8px 14px;
   }
 </style>
