@@ -67,4 +67,38 @@ test.describe('Redesign — Breed destination', () => {
     await expect(page.locator('[data-testid="pet-detail"]')).toBeVisible();
     await expect(page.locator('.pet-visualization')).toBeVisible();
   });
+
+  test('offspring breed can be chosen and re-ranks the pairs (horses)', async ({ page }) => {
+    await openBreed(page);
+    await page.locator('[data-testid="breed-species"] [data-species="horse"]').click();
+    await expect(page.locator('[data-testid="breeding-pair-table"]')).toBeVisible();
+
+    // Horses expose an offspring-breed control that shapes the ranking.
+    const offspring = page.getByTestId('breed-offspring');
+    await expect(offspring).toBeVisible();
+
+    const trigger = offspring.getByTestId('breed-selector-trigger');
+    await trigger.click();
+    const pop = offspring.getByTestId('breed-selector-pop');
+    await expect(pop).toBeVisible();
+
+    const opt = pop.locator('.bs-opt[data-breed]:not([data-breed=""])').first();
+    const chosen = await opt.getAttribute('data-breed');
+    await opt.click();
+
+    await expect(pop).toHaveCount(0);
+    await expect(trigger.locator('.bs-value')).toHaveText(chosen ?? '');
+    // Re-ranks under the chosen breed without emptying the table.
+    await expect(page.locator('[data-testid="breeding-pair-table"] tbody tr').first()).toBeVisible();
+  });
+
+  test('the offspring-breed control is horse-only', async ({ page }) => {
+    await openBreed(page);
+    await page.locator('[data-testid="breed-species"] [data-species="horse"]').click();
+    await expect(page.getByTestId('breed-offspring')).toBeVisible();
+
+    // Species without breeds (beewasp) don't expose the control.
+    await page.locator('[data-testid="breed-species"] [data-species="beewasp"]').click();
+    await expect(page.getByTestId('breed-offspring')).toHaveCount(0);
+  });
 });

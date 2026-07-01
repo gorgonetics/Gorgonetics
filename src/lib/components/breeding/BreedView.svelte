@@ -10,6 +10,7 @@
 import { onDestroy } from 'svelte';
 import BreedingPairTable from '$lib/components/breeding/BreedingPairTable.svelte';
 import TrioView from '$lib/components/breeding/TrioView.svelte';
+import BreedSelector from '$lib/components/shared/BreedSelector.svelte';
 import EmptyState from '$lib/components/shared/EmptyState.svelte';
 import PageHeader from '$lib/components/shared/PageHeader.svelte';
 import StatusPane from '$lib/components/shared/StatusPane.svelte';
@@ -17,7 +18,7 @@ import { rankBreedingPairs } from '$lib/services/breedingService.js';
 import { getAllAttributeNames, getSupportedSpecies, normalizeSpecies } from '$lib/services/configService.js';
 import { breedingView } from '$lib/stores/breeding.svelte.js';
 import { pets } from '$lib/stores/pets.js';
-import type { BreedingPairResult } from '$lib/types/index.js';
+import { type BreedingPairResult, HORSE_BREEDS } from '$lib/types/index.js';
 import { getSpeciesEmoji } from '$lib/utils/species.js';
 import { capitalize } from '$lib/utils/string.js';
 
@@ -29,6 +30,10 @@ const speciesOptions = getSupportedSpecies().map((s) => ({
 }));
 
 let species = $state(speciesOptions[0]?.key ?? '');
+
+// Offspring breed only shapes the ranking for species that have breeds (horses:
+// breed-locked loci are dropped, and it feeds the pool-gap pairing weight).
+const breedsForSpecies = $derived(species === 'horse' ? HORSE_BREEDS : null);
 
 const attrNames = $derived(species ? getAllAttributeNames(species).map(capitalize) : []);
 
@@ -47,14 +52,16 @@ let prevKey: string | undefined;
 let prevSpecies: string | undefined;
 
 $effect(() => {
-  // Re-rank when the species or its candidate set actually changes — NOT on
-  // every `$pets` emission. A sequence guard discards stale async results.
+  // Re-rank when the species, its candidate set, or the offspring breed
+  // actually changes — NOT on every `$pets` emission. A sequence guard
+  // discards stale async results.
   const sp = species;
-  const key = candidateKey;
+  const breed = breedingView.offspringBreed;
   const ps = candidates;
+  const key = `${candidateKey}|${breed}`;
 
   // Only close an open Trio on a genuine species change. An unrelated store
-  // refresh must not yank the offspring projection shut underneath the user.
+  // refresh (or an offspring-breed change) must not yank the projection shut.
   if (prevSpecies !== undefined && prevSpecies !== sp) {
     breedingView.selectedPair = null;
   }
@@ -73,7 +80,7 @@ $effect(() => {
   const mine = ++seq;
   loading = true;
   errored = false;
-  rankBreedingPairs({ species: sp, pets: ps })
+  rankBreedingPairs({ species: sp, pets: ps, offspringBreed: breed })
     .then((result) => {
       if (mine !== seq) return;
       pairs = result;
@@ -108,12 +115,23 @@ onDestroy(() => {
         class:active={species === opt.key}
         aria-pressed={species === opt.key}
         data-species={opt.key}
-        onclick={() => { species = opt.key; }}
+        onclick={() => { species = opt.key; breedingView.offspringBreed = ''; }}
       >
         {getSpeciesEmoji(opt.raw)} {opt.label}
       </button>
     {/each}
   </div>
+
+  {#if breedsForSpecies}
+    <div class="bv-breed" data-testid="breed-offspring">
+      <BreedSelector
+        value={breedingView.offspringBreed}
+        breeds={breedsForSpecies}
+        label="Offspring breed"
+        onChange={(v) => { breedingView.offspringBreed = v; }}
+      />
+    </div>
+  {/if}
 
   <div class="bv-body">
     {#if errored}
@@ -140,7 +158,11 @@ onDestroy(() => {
 </div>
 
 {#if breedingView.selectedPair}
-  <TrioView pair={breedingView.selectedPair} onClose={() => { breedingView.selectedPair = null; }} />
+  <TrioView
+    pair={breedingView.selectedPair}
+    offspringBreed={breedingView.offspringBreed}
+    onClose={() => { breedingView.selectedPair = null; }}
+  />
 {/if}
 
 <style>
@@ -159,6 +181,7 @@ onDestroy(() => {
     background: var(--bg-primary); color: var(--text-primary);
     box-shadow: var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.06));
   }
+  .bv-breed { margin: 0 20px 10px; flex-shrink: 0; }
   .bv-body { flex: 1; min-height: 0; overflow: auto; padding: 0 20px 16px; display: flex; flex-direction: column; gap: 8px; }
   .bv-meta { font-size: 12px; color: var(--text-tertiary); }
 </style>
