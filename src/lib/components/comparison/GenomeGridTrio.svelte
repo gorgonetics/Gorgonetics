@@ -39,6 +39,10 @@ const attributeItems = $derived<FilterPillItem[]>(
 let selectedBreed = $state(untrack(() => offspringBreed));
 let selectedAttributes = $state<string[]>([]);
 let hiddenAttributes = $state<string[]>([]);
+// "New gains only": hide locked-in loci (both parents already express the same
+// positive, so the offspring can't gain anything new there) to focus on the
+// gains the offspring could actually acquire.
+let hideLocked = $state(false);
 
 const ALLELE_LABEL: Record<string, string> = { D: 'Dominant', x: 'Mixed', R: 'Recessive', unknown: 'Unknown' };
 const VERDICT_LABEL: Record<string, string> = { gain: 'Gain', risk: 'Risk', neutral: '' };
@@ -168,9 +172,21 @@ function parentTitle(cell: GeneCell | null, label: string) {
         <StatusPane variant="error" icon="⚠️" body={error} />
     {:else if grid && summary && grid.rows.length > 0}
         <div class="trio-summary">
-            <span class="chip chip-gain">{summary.gains} gains</span>
+            <span class="chip chip-gain">{hideLocked ? summary.gains - summary.lockedIn : summary.gains} {hideLocked ? 'new gains' : 'gains'}</span>
             <span class="chip chip-risk">{summary.risks} risks</span>
-            <span class="chip chip-lock">{summary.lockedIn} locked in</span>
+            {#if summary.lockedIn > 0}
+                <button
+                    type="button"
+                    class="chip chip-lock toggle"
+                    class:active={hideLocked}
+                    aria-pressed={hideLocked}
+                    data-testid="trio-hide-locked"
+                    title="Locked-in: both parents already express the same positive, so the offspring can't gain anything new here. Toggle to hide these and show new gains only."
+                    onclick={() => { hideLocked = !hideLocked; }}
+                >
+                    {summary.lockedIn} locked in{hideLocked ? ' · hidden' : ''}
+                </button>
+            {/if}
             {#if summary.unknownLoci > 0}
                 <span class="chip chip-unknown">{summary.unknownLoci} unknown</span>
             {/if}
@@ -180,7 +196,7 @@ function parentTitle(cell: GeneCell | null, label: string) {
             </span>
         </div>
 
-        <div class="grid-container trio-grid-container">
+        <div class="grid-container trio-grid-container" class:hide-locked={hideLocked}>
             <table class="trio-table">
                 <thead>
                     <tr>
@@ -290,6 +306,9 @@ function parentTitle(cell: GeneCell | null, label: string) {
         background: var(--bg-tertiary);
         color: var(--text-secondary);
     }
+    .chip.toggle { cursor: pointer; border: 1px solid transparent; }
+    .chip.toggle:hover { border-color: var(--border-secondary); }
+    .chip.toggle.active { border-color: var(--accent); color: var(--text-primary); background: color-mix(in srgb, var(--accent) 16%, transparent); }
     .chip-gain { background: color-mix(in srgb, var(--gene-positive) 18%, transparent); color: var(--gene-positive); }
     .chip-risk { background: color-mix(in srgb, var(--gene-negative) 18%, transparent); color: var(--gene-negative); }
     .legend { display: flex; gap: 10px; margin-left: auto; font-size: 11px; color: var(--text-tertiary); }
@@ -374,6 +393,10 @@ function parentTitle(cell: GeneCell | null, label: string) {
     .dist-bar.verdict-risk { border-color: var(--gene-negative); }
     .dist-bar.locked { box-shadow: inset 0 0 0 1px var(--bg-secondary); }
     .seg { display: block; height: 100%; }
+
+    /* "New gains only": fade locked-in loci out of the offspring row so the
+       remaining gain-coloured bars are only the new gains. */
+    .trio-grid-container.hide-locked .dist-bar.locked { opacity: 0.12; border-color: transparent; box-shadow: none; }
 
     .tone-positive { background: var(--gene-positive); }
     .tone-negative { background: var(--gene-negative); }

@@ -92,6 +92,36 @@ test.describe('Redesign — Breed destination', () => {
     await expect(page.locator('[data-testid="breeding-pair-table"] tbody tr').first()).toBeVisible();
   });
 
+  test('trio can hide locked-in loci to show new gains only', async ({ page }) => {
+    test.slow();
+    await openBreed(page);
+    await page.locator('[data-testid="breed-species"] [data-species="horse"]').click();
+    await expect(page.locator('[data-testid="breeding-pair-table"]')).toBeVisible();
+    await page.locator('[data-testid="inspect-pair"]').first().click();
+
+    const trio = page.getByTestId('trio-view');
+    await expect(trio).toBeVisible();
+    // Wait for the heavy grid (~2304 cells) to fully render before interacting,
+    // so a click doesn't race the summary re-rendering as the grid settles.
+    await expect(trio.locator('.role-label').first()).toBeVisible({ timeout: 30000 });
+    await expect(trio.locator('.dist-bar').first()).toBeVisible();
+
+    const toggle = trio.getByTestId('trio-hide-locked');
+    // The toggle only exists when the pair has locked-in loci to hide.
+    await expect(toggle).toBeVisible();
+    const gainsChip = trio.locator('.chip-gain');
+    await expect(gainsChip).toContainText('gains');
+    await expect(gainsChip).not.toContainText('new gains');
+
+    // force: the toggle is pinned and clickable, but the heavy grid reflowing
+    // underneath can keep Playwright's stability check from settling under CI
+    // CPU load. The assertions below confirm the click actually applied.
+    await toggle.click({ force: true });
+    await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    await expect(gainsChip).toContainText('new gains');
+    await expect(trio.locator('.trio-grid-container.hide-locked')).toBeVisible();
+  });
+
   test('the offspring-breed control is horse-only', async ({ page }) => {
     await openBreed(page);
     await page.locator('[data-testid="breed-species"] [data-species="horse"]').click();
