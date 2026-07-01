@@ -1,4 +1,4 @@
-import { expect, type Page, test } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { waitForAppReady, waitForPets } from './helpers.js';
 
 // ==========================================
@@ -74,103 +74,6 @@ test.describe('Keyboard Navigation', () => {
 
       await toggle.click();
       await expect(toggle).toHaveAttribute('aria-expanded', 'true');
-    });
-  });
-
-  test.describe('Pet List Navigation', () => {
-    test.beforeEach(async ({ page }) => {
-      await page.goto('/');
-      await waitForPets(page);
-    });
-
-    test('arrow keys navigate between pet cards', async ({ page }) => {
-      const firstCard = page.locator('.pet-card').first();
-      await firstCard.focus();
-
-      // Arrow down moves to second card
-      await page.keyboard.press('ArrowDown');
-      const secondCard = page.locator('.pet-card').nth(1);
-      await expect(secondCard).toBeFocused();
-
-      // Arrow up moves back
-      await page.keyboard.press('ArrowUp');
-      await expect(firstCard).toBeFocused();
-    });
-
-    test('Enter on pet card selects the pet', async ({ page }) => {
-      const firstCard = page.locator('.pet-card').first();
-      await firstCard.focus();
-      await page.keyboard.press('Enter');
-
-      // Pet card should now be selected
-      await expect(firstCard).toHaveClass(/selected/);
-    });
-
-    test('action buttons visible on keyboard focus', async ({ page }) => {
-      const firstCard = page.locator('.pet-card').first();
-      await firstCard.focus();
-
-      // Action buttons should be visible when card is focused
-      const actions = page.locator('.pet-card-wrapper').first().locator('.pet-card-actions');
-      await expect(actions).toBeVisible();
-    });
-  });
-
-  test.describe('Keyboard Reordering (Issue #105)', () => {
-    test.beforeEach(async ({ page }) => {
-      await page.goto('/');
-      await waitForPets(page);
-    });
-
-    async function petNames(page: Page) {
-      return page.locator('.pet-list-items .pet-card-name').allInnerTexts();
-    }
-
-    test('grab, move, and drop reorders the list and keeps focus on the moved item', async ({ page }) => {
-      const before = await petNames(page);
-      test.skip(before.length < 2, 'needs at least two pets');
-
-      const firstHandle = page.locator('.pet-list-items .reorder-handle').first();
-      await firstHandle.focus();
-      await expect(firstHandle).toHaveAttribute('aria-grabbed', 'false');
-
-      // Grab the first item.
-      await page.keyboard.press('Space');
-      await expect(firstHandle).toHaveAttribute('aria-grabbed', 'true');
-      await expect(page.locator('.pet-list [aria-live]')).toContainText('Grabbed');
-
-      // Move it down one slot — it should swap with the former second item.
-      await page.keyboard.press('ArrowDown');
-      const afterMove = await petNames(page);
-      expect(afterMove[0]).toBe(before[1]);
-      expect(afterMove[1]).toBe(before[0]);
-
-      // The grabbed item's handle keeps focus across the keyed reorder.
-      const grabbedHandle = page.locator('.pet-list-items .reorder-handle').nth(1);
-      await expect(grabbedHandle).toBeFocused();
-      await expect(grabbedHandle).toHaveAttribute('aria-grabbed', 'true');
-
-      // Drop it.
-      await page.keyboard.press('Space');
-      await expect(page.locator('.reorder-handle[aria-grabbed="true"]')).toHaveCount(0);
-      await expect(page.locator('.pet-list [aria-live]')).toContainText('Dropped');
-      // Order holds after dropping.
-      expect(await petNames(page)).toEqual(afterMove);
-    });
-
-    test('Escape cancels a move and restores the original order', async ({ page }) => {
-      const before = await petNames(page);
-      test.skip(before.length < 2, 'needs at least two pets');
-
-      await page.locator('.pet-list-items .reorder-handle').first().focus();
-      await page.keyboard.press('Space');
-      await page.keyboard.press('ArrowDown');
-      expect((await petNames(page))[0]).toBe(before[1]);
-
-      await page.keyboard.press('Escape');
-      expect(await petNames(page)).toEqual(before);
-      await expect(page.locator('.reorder-handle[aria-grabbed="true"]')).toHaveCount(0);
-      await expect(page.locator('.pet-list [aria-live]')).toContainText('Cancelled');
     });
   });
 
@@ -272,7 +175,7 @@ test.describe('Keyboard Navigation', () => {
       await waitForPets(page);
 
       // Select a pet first to get gene visualization
-      await page.locator('.pet-card').first().click();
+      await page.locator('[data-testid="roster-open"]').first().click();
       await page.waitForTimeout(500);
 
       const geneCells = page.locator('.gene-cell[role="button"]');
@@ -306,9 +209,7 @@ test.describe('Keyboard Navigation', () => {
     });
 
     test('delete dialog has aria-modal and closes on Escape', async ({ page }) => {
-      // Hover to reveal delete button, then click
-      await page.locator('.pet-card-wrapper').first().hover();
-      await page.locator('.delete-btn').first().click();
+      await page.locator('[data-testid="roster"] tbody tr').first().locator('[data-testid="pet-delete-btn"]').click();
 
       const dialog = page.locator('.confirm-dialog');
       await expect(dialog).toBeVisible();

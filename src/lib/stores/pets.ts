@@ -4,7 +4,7 @@ import * as petService from '$lib/services/petService.js';
 import type { Pet } from '$lib/types/index.js';
 import { errorMessage } from '$lib/utils/error.js';
 
-export type Tab = 'pets' | 'editor' | 'compare' | 'stable' | 'breeding' | 'community';
+export type Tab = 'library' | 'breed' | 'community' | 'reference';
 
 /** Boolean pet flags toggled in-place via `setPetMarker` (no full reload). */
 export type MarkerKey = 'starred' | 'stabled' | 'is_pet_quality';
@@ -14,7 +14,7 @@ export const selectedPet: Writable<Pet | null> = writable(null);
 export const loading = writable(false);
 export const error: Writable<string | null> = writable(null);
 export const geneEditingView: Writable<unknown> = writable(null);
-export const activeTab: Writable<Tab> = writable('pets');
+export const activeTab: Writable<Tab> = writable('library');
 
 // Bounded back-stack of previously-active tabs (oldest first, newest last),
 // driving the TopBar "back" control (#276). Capped so long sessions of tab
@@ -24,7 +24,7 @@ const tabHistory: Writable<Tab[]> = writable([]);
 /** True when `appState.goBack()` has a previous tab to return to. */
 export const canGoBack = derived(tabHistory, (h) => h.length > 0);
 
-/** All unique tags across all pets, sorted. Shared by PetEditor and PetList. */
+/** All unique tags across all pets, sorted. Shared by PetEditor and the Library filter bar. */
 export const allTags = derived(pets, ($pets) => [...new Set($pets.flatMap((p) => p.tags ?? []))].sort());
 
 function getCurrentValue<T>(store: Writable<T>): T | undefined {
@@ -44,12 +44,16 @@ const clearSelectionAndGeneView = () => {
  * union so the compiler catches a missed branch when a new tab is added.
  */
 const TAB_STATE_RESETS: Record<Tab, () => void> = {
-  pets: () => geneEditingView.set(null),
-  editor: () => selectedPet.set(null),
-  compare: clearSelectionAndGeneView,
-  stable: clearSelectionAndGeneView,
-  breeding: clearSelectionAndGeneView,
+  // The Library drives its own selection (libraryView.selectedIds); clear the
+  // legacy single-pet/gene-edit state so it can't leak into the workspace.
+  library: clearSelectionAndGeneView,
+  // Breed ranks across the whole stable by species; it doesn't use the library
+  // single-pet/gene state, so clear it on entry.
+  breed: clearSelectionAndGeneView,
   community: clearSelectionAndGeneView,
+  // Reference (gene-template editing) clears any single-pet selection so it
+  // can't carry over from the library when switching destinations.
+  reference: () => selectedPet.set(null),
 };
 
 // Monotonic generation counter for in-flight `loadPets` calls. Concurrent

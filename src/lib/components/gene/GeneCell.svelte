@@ -134,7 +134,7 @@ const cssClass = $derived(computeCssClass(gene, geneAnalysis, currentView, isVis
         width: 14px;
         height: 14px;
         margin: 0px;
-        border-radius: 50%;
+        border-radius: 3px;
         border: 2px solid;
         cursor: pointer;
         transition: all 0.2s ease;

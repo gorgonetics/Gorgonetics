@@ -4,11 +4,6 @@
  * Lives at module scope so the offspring-breed pick and the sort column
  * survive tab switches — the tab's components are unmounted when the
  * user navigates away, but this state persists for the session.
- *
- * The PR-3 placeholder doesn't yet read these fields; PR 4 (the ranking
- * UI) is where they get wired into the breed selector and sortable
- * column headers. They are defined now so the surface is stable across
- * the remaining PRs.
  */
 
 import { getSupportedSpecies } from '$lib/services/configService.js';

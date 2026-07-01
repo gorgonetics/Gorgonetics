@@ -17,6 +17,10 @@ describe('Settings Service', () => {
       defaults['horse.autoSelectBreedFilter'] = false;
       expect(settings.getDefaultSettings()['horse.autoSelectBreedFilter']).toBe(true);
     });
+
+    it('defaults auto-share-on-import to OFF (privacy-safe)', () => {
+      expect(settings.getDefaultSettings()).toHaveProperty('community.autoShareOnImport', false);
+    });
   });
 
   describe('getSetting / setSetting', () => {
