@@ -10,6 +10,10 @@ async function openMyPets(page: Page) {
   await waitForAppReady(page);
   await expect(page.locator('[data-testid="my-pets"]')).toBeVisible();
   await expect(page.locator('[data-testid="roster"]')).toBeVisible();
+  // The startup backfill chain fires loadPets() after the spinner clears,
+  // re-rendering the roster. Wait for it to settle so a later click doesn't
+  // race a DOM swap that detaches the row/control mid-action. See AuthWrapper.
+  await page.waitForSelector('[data-backfills-done="true"]');
 }
 
 /** Synthetic genome-file drop onto the roster table. */
