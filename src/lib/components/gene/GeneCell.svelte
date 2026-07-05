@@ -273,14 +273,16 @@ const cssClass = $derived(computeCssClass(gene, geneAnalysis, currentView, isVis
         border-color: #d0d0d6 !important;
     }
 
+    /* De-emphasise a gene the current filter/selection excludes. Only fade
+       and desaturate — do NOT override background/border, or a recessive
+       (transparent centre) and mixed (half gradient) gene would redraw as a
+       solid fill. Matches the trio grid, which dims locked loci with opacity
+       alone. Keeping the fill also avoids the flicker from the base
+       `.gene-cell { transition: all }` animating a background swap. */
     :global(.gene-filtered-out) {
         opacity: 0.25 !important;
-        filter: grayscale(1) blur(0.5px);
+        filter: grayscale(1);
         pointer-events: none !important;
-        background: #f9fafb !important;
-        border-color: #b0b4ba !important;
-        color: #b0b4ba !important;
-        transition: opacity 0.2s;
     }
 
     /* Appearance-based gene colors */

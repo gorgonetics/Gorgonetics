@@ -57,6 +57,42 @@ test.describe('Redesign — My Pets (table-first)', () => {
     await expect(page.locator('[data-testid="roster"]')).toBeVisible();
   });
 
+  test('dimming a gene (chromosome select) preserves its fill, only fading it', async ({ page }) => {
+    // Regression: `.gene-filtered-out` used to force a solid background + grey
+    // border, so a dimmed recessive (hollow) or mixed (half-gradient) gene
+    // redrew as a solid square (visible flicker + wrong shape). Dimming must
+    // only fade/desaturate and keep the original fill, like the trio grid.
+    await openMyPets(page);
+    await page.locator('button[data-testid="roster-open"]:has-text("Sample Horse")').click();
+    await expect(page.locator('.pet-visualization')).toBeVisible();
+
+    // Select a single chromosome — every gene on other chromosomes dims.
+    await page.locator('.pet-visualization .chromosome-label[data-chromosome="01"]').click();
+
+    const dimmedRecessive = page.locator('.pet-visualization .gene-cell.gene-filtered-out.gene-recessive').first();
+    await expect(dimmedRecessive).toBeAttached();
+    // Poll opacity — the fade transitions from 1 over 0.2s, so a bare read can
+    // catch it mid-animation.
+    await expect
+      .poll(() => dimmedRecessive.evaluate((el) => Number(getComputedStyle(el).opacity)))
+      .toBeLessThan(1);
+    const recessive = await dimmedRecessive.evaluate((el) => {
+      const cs = getComputedStyle(el);
+      return { bg: cs.backgroundColor, borderWidth: cs.borderWidth };
+    });
+    // Recessive keeps its translucent centre + thick border (not the old solid
+    // rgb(249,250,251) fill).
+    expect(recessive.borderWidth).toBe('4px');
+    expect(recessive.bg).not.toBe('rgb(249, 250, 251)');
+
+    const dimmedMixed = page.locator('.pet-visualization .gene-cell.gene-filtered-out.gene-mixed').first();
+    if (await dimmedMixed.count()) {
+      const bgImage = await dimmedMixed.evaluate((el) => getComputedStyle(el).backgroundImage);
+      // Mixed keeps its half-fill gradient rather than a flat fill.
+      expect(bgImage).toContain('linear-gradient');
+    }
+  });
+
   test('a roster row can edit and delete a pet', async ({ page }) => {
     await openMyPets(page);
     const rows = page.locator('[data-testid="roster"] tbody tr');
