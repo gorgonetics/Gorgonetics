@@ -41,55 +41,93 @@ service cloud.firestore {
         && (tags.size() < 30 || (tags[29] is string && tags[29].size() <= 64));
     }
 
-    // Pet *metadata* only — name, tags, attribution, schema/version stamps,
-    // and the server-side upload timestamp. The genome text itself lives in
-    // `/genomes/{contentHash}` (see below) so the catalogue list view can
-    // page metadata without dragging 64 KiB-cap genome strings over the
-    // wire. Document ID is the SHA-256 hex of the genome — the same ID is
-    // used in both collections to bind a metadata row to its genome.
+    // Validate the nested `attributes` map: the eight attribute columns,
+    // each an integer in the 0–100 range published by the client (matching
+    // the in-app editor bound and the structured-name parser's own cap).
+    function isValidAttributes(a) {
+      return a is map
+        && a.intelligence is int && a.intelligence >= 0 && a.intelligence <= 100
+        && a.toughness    is int && a.toughness    >= 0 && a.toughness    <= 100
+        && a.friendliness is int && a.friendliness >= 0 && a.friendliness <= 100
+        && a.ruggedness   is int && a.ruggedness   >= 0 && a.ruggedness   <= 100
+        && a.enthusiasm   is int && a.enthusiasm   >= 0 && a.enthusiasm   <= 100
+        && a.virility     is int && a.virility     >= 0 && a.virility     <= 100
+        && a.ferocity     is int && a.ferocity     >= 0 && a.ferocity     <= 100
+        && a.temperament  is int && a.temperament  >= 0 && a.temperament  <= 100;
+    }
+
+    // Field-level validation shared by first-share and correction writes.
+    // The doc-ID / hash-binding differ between the two (see below); the
+    // metadata body does not.
+    function isValidPetMeta(data) {
+      return data.name is string
+        && data.name.size() > 0
+        && data.name.size() <= 100
+        && data.character is string
+        && data.character.size() <= 100
+        && data.species in ['Horse', 'BeeWasp']
+        && data.gender in ['Male', 'Female']
+        && data.breed is string
+        && data.breed.size() <= 100
+        && data.breeder is string
+        && data.breeder.size() <= 100
+        && data.notes is string
+        && data.notes.size() <= 4096
+        && isValidTagList(data.tags)
+        && isValidAttributes(data.attributes)
+        && data.schemaVersion is int
+        && data.appVersion is string
+        && data.appVersion.size() <= 32
+        && data.uploadedAt is timestamp
+        && data.uploadedAt == request.time
+        && data.uploaderUid == null;
+    }
+
+    // Pet *metadata* only — name, tags, attributes, attribution, schema/
+    // version stamps, and the server-side upload timestamp. The genome text
+    // itself lives in `/genomes/{contentHash}` (see below) so the catalogue
+    // list view can page metadata without dragging 64 KiB-cap genome strings
+    // over the wire.
     //
-    // `existsAfter()` ties the two collections together: a /pets create is
-    // only accepted if /genomes/{hash} ALSO exists after the same
-    // transaction. The client `writeBatch` writes both atomically, so the
-    // pair lands together. This blocks single-collection writes that
-    // would otherwise create orphan metadata rows pointing at no genome.
-    match /pets/{contentHash} {
+    // The catalogue is ADD-ONLY (no auth, no mutation). Two write shapes:
+    //
+    //  1. First share — doc ID IS the genome's SHA-256 hex; no `contentHash`
+    //     field. `existsAfter()` ties it to /genomes/{hash}: the create is
+    //     only accepted if the genome blob ALSO exists after the same
+    //     transaction (the client `writeBatch` writes both atomically),
+    //     blocking orphan metadata pointing at no genome.
+    //
+    //  2. Correction — an auto-ID doc carrying a `contentHash` field that
+    //     points back at an already-published genome. Lets a user append a
+    //     superseding metadata entry (corrected attributes/tags) without
+    //     mutating the original; reads resolve a hash to its latest entry
+    //     by `uploadedAt`. Requires the genome to already exist, so a
+    //     correction can never precede a first share.
+    //
+    // update/delete stay denied — corrections are appends, never edits.
+    match /pets/{docId} {
       allow read: if true;
 
-      allow create: if request.resource.data.keys().hasAll([
-                        'name', 'character', 'species', 'gender',
-                        'breed', 'breeder', 'notes', 'tags',
-                        'schemaVersion', 'appVersion',
-                        'uploadedAt', 'uploaderUid'
-                      ])
+      allow create: if isValidPetMeta(request.resource.data)
                  && request.resource.data.keys().hasOnly([
                         'name', 'character', 'species', 'gender',
-                        'breed', 'breeder', 'notes', 'tags',
+                        'breed', 'breeder', 'notes', 'tags', 'attributes',
                         'schemaVersion', 'appVersion',
                         'uploadedAt', 'uploaderUid'
                       ])
-                 && request.resource.data.name is string
-                 && request.resource.data.name.size() > 0
-                 && request.resource.data.name.size() <= 100
-                 && request.resource.data.character is string
-                 && request.resource.data.character.size() <= 100
-                 && request.resource.data.species in ['Horse', 'BeeWasp']
-                 && request.resource.data.gender in ['Male', 'Female']
-                 && request.resource.data.breed is string
-                 && request.resource.data.breed.size() <= 100
-                 && request.resource.data.breeder is string
-                 && request.resource.data.breeder.size() <= 100
-                 && request.resource.data.notes is string
-                 && request.resource.data.notes.size() <= 4096
-                 && isValidTagList(request.resource.data.tags)
-                 && request.resource.data.schemaVersion is int
-                 && request.resource.data.appVersion is string
-                 && request.resource.data.appVersion.size() <= 32
-                 && contentHash.matches('^[a-f0-9]{64}$')
-                 && request.resource.data.uploadedAt is timestamp
-                 && request.resource.data.uploadedAt == request.time
-                 && request.resource.data.uploaderUid == null
-                 && existsAfter(/databases/$(db)/documents/genomes/$(contentHash));
+                 && docId.matches('^[a-f0-9]{64}$')
+                 && existsAfter(/databases/$(db)/documents/genomes/$(docId));
+
+      allow create: if isValidPetMeta(request.resource.data)
+                 && request.resource.data.keys().hasOnly([
+                        'name', 'character', 'species', 'gender',
+                        'breed', 'breeder', 'notes', 'tags', 'attributes',
+                        'schemaVersion', 'appVersion',
+                        'uploadedAt', 'uploaderUid', 'contentHash'
+                      ])
+                 && request.resource.data.contentHash is string
+                 && request.resource.data.contentHash.matches('^[a-f0-9]{64}$')
+                 && existsAfter(/databases/$(db)/documents/genomes/$(request.resource.data.contentHash));
 
       allow update, delete: if false;
     }

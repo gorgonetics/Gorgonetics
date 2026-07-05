@@ -407,3 +407,34 @@ describe('community.svelte.ts — selection helpers', () => {
     expect(communityView.selectedHash).toBeNull();
   });
 });
+
+describe('community.svelte.ts — add-only latest-per-hash dedup', () => {
+  it('keeps only the newest entry per content hash within a page (newest-first)', async () => {
+    // listPets pages newest-first, so a correction (newer) precedes the base
+    // it supersedes. Keep-first-seen therefore keeps the correction.
+    const correction = makeSharedPet('dup', { name: 'Corrected', uploadedAt: new Date('2026-06-01T00:00:00Z') });
+    const base = makeSharedPet('dup', { name: 'Original', uploadedAt: new Date('2026-05-01T00:00:00Z') });
+    listPets.mockResolvedValueOnce({ pets: [makeSharedPet('other'), correction, base], cursor: null });
+
+    await loadInitial();
+
+    expect(communityView.pets).toHaveLength(2);
+    const dup = communityView.pets.find((p) => p.contentHash === 'dup');
+    expect(dup?.name).toBe('Corrected');
+  });
+
+  it('collapses a base/correction pair that straddles a page boundary', async () => {
+    // Correction lands on page 1 (newer), its base on page 2 (older). The
+    // accumulated list must not show both.
+    const correction = makeSharedPet('dup', { name: 'Corrected', uploadedAt: new Date('2026-06-01T00:00:00Z') });
+    const base = makeSharedPet('dup', { name: 'Original', uploadedAt: new Date('2026-05-01T00:00:00Z') });
+    listPets.mockResolvedValueOnce({ pets: [correction], cursor: { __snap: 'c1' } });
+    await loadInitial();
+    listPets.mockResolvedValueOnce({ pets: [base], cursor: null });
+    await loadMore();
+
+    const dups = communityView.pets.filter((p) => p.contentHash === 'dup');
+    expect(dups).toHaveLength(1);
+    expect(dups[0].name).toBe('Corrected');
+  });
+});
