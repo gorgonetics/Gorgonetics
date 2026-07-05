@@ -52,6 +52,7 @@ async function doDelete(): Promise<void> {
   <button
     class="action-btn edit-btn"
     title="Edit pet"
+    aria-label="Edit {pet.name}"
     data-testid="pet-edit-btn"
     data-action="edit"
     data-pet-id={pet.id}
@@ -60,6 +61,7 @@ async function doDelete(): Promise<void> {
   <button
     class="action-btn delete-btn"
     title="Delete pet"
+    aria-label="Delete {pet.name}"
     data-testid="pet-delete-btn"
     data-action="delete"
     data-pet-id={pet.id}

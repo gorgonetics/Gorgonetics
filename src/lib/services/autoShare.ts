@@ -38,7 +38,12 @@ export async function autoShareImportedPets(petIds: number[]): Promise<BulkUploa
   if (petIds.length === 0 || !autoShareEnabled()) return null;
 
   const wanted = new Set(petIds);
-  const toShare = get(pets).filter((p) => wanted.has(p.id));
+  // Strip notes: auto-share has no per-pet review step, so — like the bulk-share
+  // flow (BulkSharePetDialog) — it must never publish the private local notes
+  // field. Opting notes in stays exclusive to per-pet sharing (SharePetDialog).
+  const toShare = get(pets)
+    .filter((p) => wanted.has(p.id))
+    .map((p) => ({ ...p, notes: '' }));
   if (toShare.length === 0) return null;
 
   try {
