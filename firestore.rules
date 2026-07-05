@@ -135,7 +135,11 @@ service cloud.firestore {
                         || (
                           request.resource.data.contentHash is string
                           && request.resource.data.contentHash.matches('^[a-f0-9]{64}$')
-                          && existsAfter(/databases/$(db)/documents/genomes/$(request.resource.data.contentHash))
+                          // `exists` (already committed), not `existsAfter`: a
+                          // correction may only follow a first share that has
+                          // already published the genome — it cannot bootstrap
+                          // the genome in its own batch.
+                          && exists(/databases/$(db)/documents/genomes/$(request.resource.data.contentHash))
                         )
                     );
 

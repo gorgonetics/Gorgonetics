@@ -775,6 +775,11 @@ const strOrNull = (v: unknown): string | null => (typeof v === 'string' ? v : nu
  * for legacy entries that predate attribute publishing, or any doc whose
  * map is incomplete/tampered — callers then fall back to genome-derived
  * attributes, exactly as before this field existed.
+ *
+ * Enforces the same 0–100 integer contract as the rules/publish path: a
+ * float or out-of-range value (only reachable via a pre-rule or admin write)
+ * is treated as invalid so `applyImportMetadata` never writes a garbage
+ * attribute onto a local pet — it falls back to genome-derived values.
  */
 function readAttributes(raw: unknown): Record<string, number> | undefined {
   if (typeof raw !== 'object' || raw === null) return undefined;
@@ -782,7 +787,7 @@ function readAttributes(raw: unknown): Record<string, number> | undefined {
   const out: Record<string, number> = {};
   for (const k of ATTRIBUTE_KEYS) {
     const v = src[k];
-    if (typeof v !== 'number' || !Number.isFinite(v)) return undefined;
+    if (typeof v !== 'number' || !Number.isInteger(v) || v < 0 || v > 100) return undefined;
     out[k] = v;
   }
   return out;
