@@ -50,12 +50,16 @@ describe('autoShareImportedPets', () => {
     h.pets.set([{ id: 1 }, { id: 2 }, { id: 3 }]);
   });
 
-  it('shares the matching imported pets when enabled', async () => {
+  it('shares the matching imported pets when enabled, with notes stripped', async () => {
     uploadPetsMock.mockResolvedValue(summary({ created: 2 }));
     const result = await autoShareImportedPets([1, 3]);
 
     expect(uploadPetsMock).toHaveBeenCalledTimes(1);
-    expect(uploadPetsMock.mock.calls[0][0]).toEqual([{ id: 1 }, { id: 3 }]);
+    // Notes are cleared before publishing (auto-share has no per-pet review).
+    expect(uploadPetsMock.mock.calls[0][0]).toEqual([
+      { id: 1, notes: '' },
+      { id: 3, notes: '' },
+    ]);
     expect(result).toEqual(summary({ created: 2 }));
   });
 
