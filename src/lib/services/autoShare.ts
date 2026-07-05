@@ -11,11 +11,21 @@
  * dedupe on `content_hash` (`already-shared`), and skipping legacy rows that
  * have no shareable genome text. Failures never throw out of here — the caller's
  * import must succeed regardless of whether the share did.
+ *
+ * Attribute gate: a freshly-imported pet only has correct attributes when they
+ * were parsed from a structured name (Horse only); otherwise `petService`
+ * stores all-50 defaults that the user must hand-edit. Auto-sharing those would
+ * publish wrong data with no review, so auto-share only publishes pets whose
+ * name parses structurally. Everything else (all BeeWasp, unstructured Horses)
+ * is held back for a manual, reviewed share. The catalogue is add-only, so a
+ * user who later corrects a manually-shared pet's attributes re-shares to
+ * append a superseding entry.
  */
 import { get } from 'svelte/store';
 import { isPlaceholderConfig } from '$lib/firebase.js';
 import { pets } from '$lib/stores/pets.js';
 import { settings } from '$lib/stores/settings.js';
+import { parseStructuredPetName } from './nameParser.js';
 import { type BulkUploadSummary, uploadPets } from './shareService.js';
 
 /** Settings key for the opt-in toggle. */
@@ -43,6 +53,9 @@ export async function autoShareImportedPets(petIds: number[]): Promise<BulkUploa
   // field. Opting notes in stays exclusive to per-pet sharing (SharePetDialog).
   const toShare = get(pets)
     .filter((p) => wanted.has(p.id))
+    // Only pets with known-good (structured-name-parsed) attributes; skip the
+    // rest so we never auto-publish default-50 placeholders.
+    .filter((p) => parseStructuredPetName(p.name, p.species) !== null)
     .map((p) => ({ ...p, notes: '' }));
   if (toShare.length === 0) return null;
 

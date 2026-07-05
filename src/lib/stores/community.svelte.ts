@@ -21,6 +21,26 @@ import type { SharedPet } from '$lib/types/index.js';
 import { errorMessage } from '$lib/utils/error.js';
 
 const PAGE_SIZE = 50;
+
+/**
+ * Collapse the add-only catalogue to one row per content hash, keeping the
+ * latest. `listPets` pages newest-first, and a correction always has a later
+ * `uploadedAt` than the base entry it supersedes, so the newest entry for a
+ * hash is always encountered first — keep-first-seen therefore keeps the
+ * latest and preserves the newest-first display order. Deduping the whole
+ * accumulated list (not just each page) also catches the case where a base
+ * entry and its correction straddle a page boundary.
+ */
+function dedupeLatest(pets: SharedPet[]): SharedPet[] {
+  const seen = new Set<string>();
+  const out: SharedPet[] = [];
+  for (const pet of pets) {
+    if (seen.has(pet.contentHash)) continue;
+    seen.add(pet.contentHash);
+    out.push(pet);
+  }
+  return out;
+}
 /**
  * How long a `loadInitial` result counts as fresh. Tab toggles within
  * this window reuse the cached page instead of refetching. Five minutes
@@ -121,8 +141,11 @@ export async function loadInitial(opts: { force?: boolean } = {}): Promise<void>
   try {
     const { pets, cursor } = await listPets({ limit: PAGE_SIZE });
     if (myGeneration !== loadGeneration) return;
-    communityView.pets = pets;
+    const deduped = dedupeLatest(pets);
+    communityView.pets = deduped;
     communityView.cursor = cursor;
+    // `hasMore` tracks the raw page size, not the deduped count: a full
+    // page means more docs remain to page through even if some collapsed.
     communityView.hasMore = pets.length === PAGE_SIZE;
     lastLoadedAt = Date.now();
     // If the previously-selected pet was paginated out of the new first
@@ -169,7 +192,7 @@ export async function loadMore(): Promise<void> {
   try {
     const { pets, cursor } = await listPets({ limit: PAGE_SIZE, after: communityView.cursor });
     if (myGeneration !== loadGeneration) return;
-    communityView.pets = [...communityView.pets, ...pets];
+    communityView.pets = dedupeLatest([...communityView.pets, ...pets]);
     communityView.cursor = cursor;
     communityView.hasMore = pets.length === PAGE_SIZE;
   } catch (err) {

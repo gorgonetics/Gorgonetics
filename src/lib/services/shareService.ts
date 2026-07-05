@@ -14,9 +14,21 @@
  * without having to mock module-level state. Production callers omit the
  * argument and get the singleton from `$lib/firebase`.
  *
+ * The catalogue is **add-only**. There is no auth and nothing is ever
+ * mutated: the *first* share of a genome writes `/pets/{hash}` (metadata)
+ * and `/genomes/{hash}` (blob) atomically. When a user later corrects the
+ * attributes or tags of that same genome and re-shares, a *new* metadata
+ * doc is appended under an auto-ID carrying a `contentHash` field pointing
+ * back at the hash; the genome blob is never rewritten. Reads resolve a
+ * hash to its **latest** metadata entry (by `uploadedAt`). Because the
+ * breeder's `Character=` name is part of the hashed genome text, a hash is
+ * intrinsically tied to one breeder — spoofing a different name changes the
+ * hash and forks a separate entry rather than overwriting anyone's.
+ *
  * Wire-format vs interface conversions are owned here:
- *  - the upload payload does NOT carry `contentHash` (the doc ID is the
- *    hash; `firestore.rules` rejects a payload `contentHash` field).
+ *  - the *first-share* payload has no `contentHash` field (the doc ID is
+ *    the hash). *Correction* payloads carry `contentHash` since their doc
+ *    ID is an auto-ID. `firestore.rules` validates both shapes.
  *  - `uploadedAt` is sent as `serverTimestamp()` on write and converted
  *    from Firestore `Timestamp` to JS `Date` on read.
  *  - `tags` is sanitized on read to defend against pre-rule documents or
@@ -35,8 +47,10 @@ import {
   query,
   limit as queryLimit,
   serverTimestamp,
+  setDoc,
   startAfter,
   Timestamp,
+  where,
   writeBatch,
 } from 'firebase/firestore';
 
@@ -62,6 +76,31 @@ const TAG_CAP = 30;
 const TAG_MAX_LEN = 64;
 /** Default local tag applied to pets imported from the community catalogue. */
 const COMMUNITY_TAG = 'community';
+
+/** The eight attribute columns published as a nested `attributes` map. */
+const ATTRIBUTE_KEYS = [
+  'intelligence',
+  'toughness',
+  'friendliness',
+  'ruggedness',
+  'enthusiasm',
+  'virility',
+  'ferocity',
+  'temperament',
+] as const;
+
+/** Clamp a stored attribute to the published 0–100 integer range. */
+function clampAttribute(v: unknown): number {
+  const n = typeof v === 'number' && Number.isFinite(v) ? Math.round(v) : 0;
+  return Math.max(0, Math.min(100, n));
+}
+
+/** Build the nested attribute map for the wire payload from a local pet. */
+function buildAttributes(pet: Pet): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const k of ATTRIBUTE_KEYS) out[k] = clampAttribute((pet as unknown as Record<string, unknown>)[k]);
+  return out;
+}
 
 export type UploadStatus = 'created' | 'already-shared';
 
@@ -116,49 +155,75 @@ export async function uploadPet(pet: Pet, db: Firestore = defaultFirestore): Pro
 
   const metaRef = doc(db, META_COLLECTION, pet.content_hash);
   const genomeRef = doc(db, GENOME_COLLECTION, pet.content_hash);
+  const payload = buildMetadataPayload(pet);
 
+  // Read the current catalogue state for this hash: the base metadata doc
+  // (ID == hash, written on first share), the genome blob, and any appended
+  // correction docs (auto-ID, carrying a `contentHash` field).
+  const [baseSnap, genomeSnap, corrSnap] = await Promise.all([
+    getDoc(metaRef),
+    getDoc(genomeRef),
+    getDocs(query(collection(db, META_COLLECTION), where('contentHash', '==', pet.content_hash))),
+  ]);
+
+  if (!baseSnap.exists()) {
+    // First share of this genome: metadata + blob written atomically.
+    return firstShare(pet, metaRef, genomeRef, payload, db);
+  }
+
+  // Base exists → the genome blob must too, or the entry is half-published
+  // and unimportable (rules deny repair). Surface it rather than piling a
+  // correction onto a broken row.
+  if (!genomeSnap.exists()) {
+    throw new Error(
+      `uploadPet: catalogue is half-published for hash ${pet.content_hash} (meta=true, genome=false). Contact an admin to repair.`,
+    );
+  }
+  await assertGenomeIntegrity(pet.content_hash, genomeSnap);
+
+  // Resolve the latest metadata across base + corrections. If it already
+  // matches what we're publishing, this is an idempotent no-op.
+  const latest = pickLatestSnapshot([baseSnap, ...corrSnap.docs]);
+  if (metadataMatches(toMetadataSharedPet(latest), pet)) {
+    return { status: 'already-shared', contentHash: pet.content_hash };
+  }
+
+  // Attributes/tags (or name/breed/…) differ from the latest entry: append
+  // a correction. The genome blob is unchanged, so this is a single metadata
+  // write under an auto-ID with a `contentHash` back-reference. Add-only —
+  // the prior entries stay, and reads resolve to this newest one.
+  const correctionRef = doc(collection(db, META_COLLECTION));
+  await setDoc(correctionRef, { ...payload, contentHash: pet.content_hash });
+  return { status: 'created', contentHash: pet.content_hash };
+}
+
+/**
+ * First-share path: write `/pets/{hash}` + `/genomes/{hash}` atomically.
+ * A concurrent first-share of the same hash trips permission-denied on the
+ * create; the recheck disambiguates an already-published entry (idempotent
+ * `already-shared`) from a half-published/corrupt one (surfaced as an error
+ * since rules deny repair). Duck-typed on `.code` because instanceof
+ * FirestoreError is fragile across module-graph re-instantiations.
+ */
+async function firstShare(
+  pet: Pet,
+  metaRef: ReturnType<typeof doc>,
+  genomeRef: ReturnType<typeof doc>,
+  payload: ReturnType<typeof buildMetadataPayload>,
+  db: Firestore,
+): Promise<UploadResult> {
   try {
     const batch = writeBatch(db);
-    batch.set(metaRef, buildMetadataPayload(pet));
+    batch.set(metaRef, payload);
     batch.set(genomeRef, { genomeData: pet.genome_text });
     await batch.commit();
     return { status: 'created', contentHash: pet.content_hash };
   } catch (err) {
-    // The only rules-allowed reason for permission-denied on this path is
-    // that one (or both) of the docs already exists (create is denied
-    // because it isn't a create; update/delete are denied unconditionally).
-    // A recheck disambiguates that from a genuinely misconfigured rules
-    // deploy. Duck-typed on `.code` because instanceof FirestoreError is
-    // fragile across module-graph re-instantiations (mocks, bundling).
     if (isPermissionDenied(err)) {
       try {
-        // Verify BOTH halves — a stale `/pets/{hash}` without its
-        // `/genomes/{hash}` twin (or vice versa) is a partial-publish
-        // state, not an idempotent already-shared. Returning
-        // already-shared in that case would mask a catalogue row that
-        // lists but cannot be imported, with no way for the client to
-        // repair (rules deny update/delete).
         const [metaSnap, genomeSnap] = await Promise.all([getDoc(metaRef), getDoc(genomeRef)]);
         if (metaSnap.exists() && genomeSnap.exists()) {
-          // Both docs exist — but Firestore rules only validate the doc
-          // ID shape, not that `genomeData` hashes to the ID. A corrupt
-          // (or maliciously-squatted) `/genomes/{hash}` doc would let
-          // listPets surface a row that fails every importer's
-          // `verifySharedPet`. Re-hash here so a legitimate uploader
-          // sees the corruption rather than thinking they've already
-          // published their pet.
-          const genomeData = (genomeSnap.data() as { genomeData?: unknown } | undefined)?.genomeData;
-          if (typeof genomeData !== 'string') {
-            throw new Error(
-              `uploadPet: catalogue entry ${pet.content_hash} is missing a genomeData field — contact an admin to repair.`,
-            );
-          }
-          const onWireHash = await sha256Hex(genomeData);
-          if (onWireHash !== pet.content_hash) {
-            throw new Error(
-              `uploadPet: catalogue entry ${pet.content_hash} is corrupt — sha256(genomeData on wire) = ${onWireHash}. Rules deny overwriting, so contact an admin to repair.`,
-            );
-          }
+          await assertGenomeIntegrity(pet.content_hash, genomeSnap);
           return { status: 'already-shared', contentHash: pet.content_hash };
         }
         if (metaSnap.exists() !== genomeSnap.exists()) {
@@ -167,11 +232,6 @@ export async function uploadPet(pet: Pet, db: Firestore = defaultFirestore): Pro
           );
         }
       } catch (recheckErr) {
-        // Re-throw any of the recheck-time integrity errors we raised
-        // above (half-publish / missing field / hash mismatch). For
-        // anything else (network hiccup, rules also denying reads,
-        // etc.), fall through and surface the original batch error —
-        // that's the one the caller can act on.
         if (recheckErr instanceof Error && recheckErr.message.startsWith('uploadPet: catalogue ')) {
           throw recheckErr;
         }
@@ -179,6 +239,69 @@ export async function uploadPet(pet: Pet, db: Firestore = defaultFirestore): Pro
     }
     throw err;
   }
+}
+
+/**
+ * Firestore rules validate only the doc-ID shape, not that a genome blob
+ * hashes to its ID. A corrupt (or maliciously-squatted) `/genomes/{hash}`
+ * would let the catalogue surface a row that fails every importer's
+ * `verifySharedPet`. Re-hash so a legitimate uploader sees the corruption
+ * rather than silently building on a broken entry.
+ */
+async function assertGenomeIntegrity(contentHash: string, genomeSnap: DocumentSnapshot<DocumentData>): Promise<void> {
+  const genomeData = (genomeSnap.data() as { genomeData?: unknown } | undefined)?.genomeData;
+  if (typeof genomeData !== 'string') {
+    throw new Error(
+      `uploadPet: catalogue entry ${contentHash} is missing a genomeData field — contact an admin to repair.`,
+    );
+  }
+  const onWireHash = await sha256Hex(genomeData);
+  if (onWireHash !== contentHash) {
+    throw new Error(
+      `uploadPet: catalogue entry ${contentHash} is corrupt — sha256(genomeData on wire) = ${onWireHash}. Rules deny overwriting, so contact an admin to repair.`,
+    );
+  }
+}
+
+/** Millis of a snapshot's `uploadedAt`, or 0 when absent/unwritten. */
+function snapshotMillis(snap: DocumentSnapshot<DocumentData>): number {
+  const ts = snap.data()?.uploadedAt;
+  return ts instanceof Timestamp ? ts.toMillis() : 0;
+}
+
+/** The most-recently-uploaded snapshot (latest-wins). Assumes a non-empty list. */
+function pickLatestSnapshot(snaps: DocumentSnapshot<DocumentData>[]): DocumentSnapshot<DocumentData> {
+  return snaps.reduce((a, b) => (snapshotMillis(b) >= snapshotMillis(a) ? b : a));
+}
+
+/**
+ * True when the already-published latest metadata equals what `pet` would
+ * publish now — the signal to skip an add-only correction. Compares only
+ * user-editable fields; `uploadedAt`/`appVersion`/`schemaVersion` are
+ * expected to drift and don't count as a change. A legacy entry with no
+ * attributes never matches a pet that now carries them, so re-sharing an
+ * old pet backfills its attributes via one correction.
+ */
+function metadataMatches(existing: SharedPet, pet: Pet): boolean {
+  if (existing.name !== pet.name) return false;
+  if (existing.gender !== pet.gender) return false;
+  if (existing.breed !== pet.breed) return false;
+  if ((existing.breeder ?? '') !== (pet.breeder ?? '')) return false;
+  if ((existing.notes ?? '') !== (pet.notes ?? '')) return false;
+  if (!sameStringSet(existing.tags, sanitizeTags(pet.tags))) return false;
+  return sameAttributes(existing.attributes, buildAttributes(pet));
+}
+
+function sameStringSet(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false;
+  const sortedA = [...a].sort();
+  const sortedB = [...b].sort();
+  return sortedA.every((v, i) => v === sortedB[i]);
+}
+
+function sameAttributes(existing: Record<string, number> | undefined, next: Record<string, number>): boolean {
+  if (!existing) return false;
+  return ATTRIBUTE_KEYS.every((k) => existing[k] === next[k]);
 }
 
 /** Per-pet outcome of a bulk share. `skipped` = no shareable genome (legacy). */
@@ -357,13 +480,20 @@ export async function listPets(opts: ListPetsOpts = {}, db: Firestore = defaultF
  * to retry or treat as broken. The two reads run in parallel.
  */
 export async function getSharedPet(contentHash: string, db: Firestore = defaultFirestore): Promise<SharedPet | null> {
-  const [metaSnap, genomeSnap] = await Promise.all([
+  const [baseSnap, genomeSnap, corrSnap] = await Promise.all([
     getDoc(doc(db, META_COLLECTION, contentHash)),
     getDoc(doc(db, GENOME_COLLECTION, contentHash)),
+    // Correction docs carry the hash as a field (equality query, no
+    // composite index needed); the base doc's ID is the hash.
+    getDocs(query(collection(db, META_COLLECTION), where('contentHash', '==', contentHash))),
   ]);
-  if (!metaSnap.exists()) return null;
 
-  const pet = toMetadataSharedPet(metaSnap);
+  const metaSnaps = [...(baseSnap.exists() ? [baseSnap] : []), ...corrSnap.docs];
+  if (metaSnaps.length === 0) return null;
+
+  // Latest-wins: resolve the hash to its most recent metadata entry.
+  const pet = toMetadataSharedPet(pickLatestSnapshot(metaSnaps));
+  pet.contentHash = contentHash;
   const genomeData = genomeSnap.exists() ? (genomeSnap.data().genomeData as unknown) : undefined;
   pet.genomeData = typeof genomeData === 'string' ? genomeData : undefined;
   return pet;
@@ -574,6 +704,11 @@ async function applyImportMetadata(petId: number, shared: SharedPet): Promise<vo
   // apply when the uploader explicitly set one, so we don't clobber a
   // locally-parsed breed with empty.
   if (shared.breed) updates.breed = shared.breed;
+  // Corrected attributes published by the uploader supersede the values
+  // `petService.uploadPet` re-derived from the genome/name (which are the
+  // all-50 defaults when the name isn't structured). Absent on legacy
+  // entries — then the re-derived values stand, as before.
+  if (shared.attributes) updates.attributes = shared.attributes;
   if (Object.keys(updates).length === 0) return;
   try {
     await updatePet(petId, updates);
@@ -623,6 +758,7 @@ function buildMetadataPayload(pet: Pet) {
     breeder: pet.breeder,
     notes: pet.notes ?? '',
     tags: sanitizeTags(pet.tags),
+    attributes: buildAttributes(pet),
     schemaVersion: CURRENT_SCHEMA_VERSION,
     appVersion: APP_VERSION,
     uploadedAt: serverTimestamp(),
@@ -634,13 +770,38 @@ const str = (v: unknown, fallback = ''): string => (typeof v === 'string' ? v : 
 const num = (v: unknown, fallback = 0): number => (typeof v === 'number' ? v : fallback);
 const strOrNull = (v: unknown): string | null => (typeof v === 'string' ? v : null);
 
+/**
+ * Read the nested `attributes` map off a catalogue doc. Returns `undefined`
+ * for legacy entries that predate attribute publishing, or any doc whose
+ * map is incomplete/tampered — callers then fall back to genome-derived
+ * attributes, exactly as before this field existed.
+ *
+ * Enforces the same 0–100 integer contract as the rules/publish path: a
+ * float or out-of-range value (only reachable via a pre-rule or admin write)
+ * is treated as invalid so `applyImportMetadata` never writes a garbage
+ * attribute onto a local pet — it falls back to genome-derived values.
+ */
+function readAttributes(raw: unknown): Record<string, number> | undefined {
+  if (typeof raw !== 'object' || raw === null) return undefined;
+  const src = raw as Record<string, unknown>;
+  const out: Record<string, number> = {};
+  for (const k of ATTRIBUTE_KEYS) {
+    const v = src[k];
+    if (typeof v !== 'number' || !Number.isInteger(v) || v < 0 || v > 100) return undefined;
+    out[k] = v;
+  }
+  return out;
+}
+
 function toMetadataSharedPet(snap: DocumentSnapshot<DocumentData>): SharedPet {
   const data = snap.data() ?? {};
   const uploadedAt = data.uploadedAt instanceof Timestamp ? data.uploadedAt.toDate() : new Date(0);
   const gender = data.gender === Gender.MALE || data.gender === Gender.FEMALE ? data.gender : Gender.MALE;
 
   return {
-    contentHash: snap.id,
+    // Correction docs carry the hash as a field (their doc ID is an
+    // auto-ID); the first-share doc's ID *is* the hash.
+    contentHash: typeof data.contentHash === 'string' ? data.contentHash : snap.id,
     name: str(data.name),
     character: str(data.character),
     species: str(data.species),
@@ -649,6 +810,7 @@ function toMetadataSharedPet(snap: DocumentSnapshot<DocumentData>): SharedPet {
     breeder: str(data.breeder),
     notes: str(data.notes),
     tags: sanitizeTags(data.tags),
+    attributes: readAttributes(data.attributes),
     schemaVersion: num(data.schemaVersion),
     appVersion: str(data.appVersion),
     // genomeData is intentionally absent on metadata-only reads.

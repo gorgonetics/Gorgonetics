@@ -19,7 +19,7 @@ const h = vi.hoisted(() => {
   return {
     placeholder: false,
     settings: makeStore<Record<string, unknown>>({}),
-    pets: makeStore<Array<{ id: number }>>([]),
+    pets: makeStore<Array<Record<string, unknown>>>([]),
   };
 });
 
@@ -42,25 +42,48 @@ function summary(over: Partial<Record<string, number>> = {}) {
   return { created: 0, alreadyShared: 0, skipped: 0, failed: 0, items: [], ...over } as never;
 }
 
+// Structured Horse names (breed + M/F + 7 attribute values) parse into
+// known-good attributes, so they clear the auto-share gate. Everything else
+// (unstructured names, all BeeWasp) is held back for a reviewed manual share.
+const STRUCTURED_1 = { id: 1, name: 'Sb M 50 50 50 50 50 50 50', species: 'Horse', notes: 'private-1' };
+const STRUCTURED_3 = { id: 3, name: 'Sb F 60 60 60 60 60 60 60', species: 'Horse', notes: 'private-3' };
+const UNSTRUCTURED_2 = { id: 2, name: 'Just A Name', species: 'Horse', notes: '' };
+
 describe('autoShareImportedPets', () => {
   beforeEach(() => {
     uploadPetsMock.mockReset();
     h.placeholder = false;
     h.settings.set({ [AUTO_SHARE_ON_IMPORT]: true });
-    h.pets.set([{ id: 1 }, { id: 2 }, { id: 3 }]);
+    h.pets.set([STRUCTURED_1, UNSTRUCTURED_2, STRUCTURED_3]);
   });
 
-  it('shares the matching imported pets when enabled, with notes stripped', async () => {
+  it('shares gated (structured-name) imported pets with notes stripped', async () => {
     uploadPetsMock.mockResolvedValue(summary({ created: 2 }));
     const result = await autoShareImportedPets([1, 3]);
 
     expect(uploadPetsMock).toHaveBeenCalledTimes(1);
-    // Notes are cleared before publishing (auto-share has no per-pet review).
+    // Both structured pets go, but notes are cleared (no per-pet review).
     expect(uploadPetsMock.mock.calls[0][0]).toEqual([
-      { id: 1, notes: '' },
-      { id: 3, notes: '' },
+      { ...STRUCTURED_1, notes: '' },
+      { ...STRUCTURED_3, notes: '' },
     ]);
     expect(result).toEqual(summary({ created: 2 }));
+  });
+
+  it('skips pets whose attributes are not known-good (unstructured name)', async () => {
+    uploadPetsMock.mockResolvedValue(summary({ created: 1 }));
+    const result = await autoShareImportedPets([1, 2]);
+
+    expect(uploadPetsMock).toHaveBeenCalledTimes(1);
+    // Only the structured pet 1 is published; the unstructured pet 2 is held back.
+    expect(uploadPetsMock.mock.calls[0][0]).toEqual([{ ...STRUCTURED_1, notes: '' }]);
+    expect(result).toEqual(summary({ created: 1 }));
+  });
+
+  it('returns null (no upload) when every requested pet fails the attribute gate', async () => {
+    h.pets.set([UNSTRUCTURED_2, { id: 4, name: 'Buzz', species: 'BeeWasp', notes: '' }]);
+    expect(await autoShareImportedPets([2, 4])).toBeNull();
+    expect(uploadPetsMock).not.toHaveBeenCalled();
   });
 
   it('does nothing when the setting is off (default-safe)', async () => {

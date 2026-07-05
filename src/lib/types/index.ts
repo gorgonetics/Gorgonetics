@@ -477,6 +477,15 @@ export interface SharedPet {
   breeder: string;
   notes: string;
   tags: string[];
+  /**
+   * Corrected attribute values (0–100), keyed by the eight attribute
+   * columns. Present on entries shared by app versions that publish
+   * attributes; `undefined` on legacy entries, whose attributes the
+   * importer re-derives from the genome/name as before. Because the
+   * catalogue is add-only, a user correcting attributes publishes a new
+   * entry for the same content hash — reads resolve to the latest.
+   */
+  attributes?: Record<string, number>;
   schemaVersion: number;
   appVersion: string;
   genomeData?: string;
