@@ -71,11 +71,12 @@ test.describe('Redesign — My Pets (table-first)', () => {
 
     const dimmedRecessive = page.locator('.pet-visualization .gene-cell.gene-filtered-out.gene-recessive').first();
     await expect(dimmedRecessive).toBeAttached();
-    // Poll opacity — the fade transitions from 1 over 0.2s, so a bare read can
-    // catch it mid-animation.
+    // Poll until the fade settles at the CSS value (0.25). Polling both rides
+    // out the 0.2s transition and pins the exact target, so a regression to a
+    // barely-dimmed value (e.g. 0.9) still fails.
     await expect
       .poll(() => dimmedRecessive.evaluate((el) => Number(getComputedStyle(el).opacity)))
-      .toBeLessThan(1);
+      .toBeCloseTo(0.25, 2);
     const recessive = await dimmedRecessive.evaluate((el) => {
       const cs = getComputedStyle(el);
       return { bg: cs.backgroundColor, borderWidth: cs.borderWidth };
