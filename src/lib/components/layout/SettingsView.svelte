@@ -4,16 +4,20 @@ declare const __APP_VERSION__: string;
 
 <script lang="ts">
 import type { Update } from '@tauri-apps/plugin-updater';
+import DetailOverlay from '$lib/components/shared/DetailOverlay.svelte';
 import { detectPlatform, getDefaultGameFolder } from '$lib/services/gameImport.js';
 import { settings, settingsActions } from '$lib/stores/settings.js';
 import { isTauri } from '$lib/utils/environment.js';
-import { focusTrap } from '$lib/utils/focusTrap.js';
 import { getFontScale as _getFontScale, clampScale, MAX_SCALE, MIN_SCALE } from '$lib/utils/fontScale.js';
 import { getThemePreference } from '$lib/utils/theme.js';
 
-type UpdateStatus = 'idle' | 'checking' | 'available' | 'downloading' | 'upToDate' | 'error';
+interface Props {
+  onClose: () => void;
+}
 
-let open = $state(false);
+const { onClose }: Props = $props();
+
+type UpdateStatus = 'idle' | 'checking' | 'available' | 'downloading' | 'upToDate' | 'error';
 
 let updateStatus = $state<UpdateStatus>('idle');
 let updateVersion = $state('');
@@ -50,14 +54,6 @@ function adjustFontScale(delta: number) {
 
 function setTheme(value: string) {
   settingsActions.update('display.theme', value);
-}
-
-function toggle() {
-  open = !open;
-}
-
-function close() {
-  open = false;
 }
 
 async function toggleSetting(key: string) {
@@ -102,29 +98,11 @@ async function installUpdate() {
 }
 </script>
 
-<button class="settings-toggle" onclick={toggle} title="Settings">
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
-    <circle cx="12" cy="12" r="3"/>
-  </svg>
-</button>
-
-{#if open}
-  <!-- svelte-ignore a11y_no_static_element_interactions -->
-  <div class="modal-backdrop" onclick={close} onkeydown={(e) => { if (e.key === 'Escape') close(); }} role="presentation">
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="dialog settings-dialog" role="dialog" aria-label="Settings" aria-modal="true" tabindex="-1" use:focusTrap onclick={(e) => e.stopPropagation()} onkeydown={(e) => { if (e.key === 'Escape') close(); }}>
-      <div class="dialog-header">
-        <h3>Settings</h3>
-        <button class="close-btn" onclick={close} aria-label="Close settings">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="18" y1="6" x2="6" y2="18"/>
-            <line x1="6" y1="6" x2="18" y2="18"/>
-          </svg>
-        </button>
-      </div>
-
-      <div class="dialog-body">
+<DetailOverlay onBack={onClose} backLabel="← Back" ariaLabel="Settings" testid="settings-view" backTestid="settings-back">
+  {#snippet title()}Settings{/snippet}
+  {#snippet children()}
+    <div class="settings-scroll">
+      <div class="settings-inner">
         <div class="settings-section">
           <h4>Horse Visualization</h4>
 
@@ -317,31 +295,20 @@ async function installUpdate() {
         </div>
       </div>
     </div>
-  </div>
-{/if}
+  {/snippet}
+</DetailOverlay>
 
 <style>
-  .settings-toggle {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    border: none;
-    border-radius: 6px;
-    background: transparent;
-    color: var(--text-tertiary);
-    cursor: pointer;
-    transition: all 0.15s ease;
+  .settings-scroll {
+    flex: 1;
+    min-width: 0;
+    overflow-y: auto;
   }
 
-  .settings-toggle:hover {
-    background: var(--bg-tertiary);
-    color: var(--text-secondary);
-  }
-
-  .settings-dialog {
-    max-width: 480px;
+  .settings-inner {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 20px;
   }
 
   .settings-section h4 {
@@ -350,7 +317,7 @@ async function installUpdate() {
     color: var(--text-tertiary);
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    margin-bottom: 12px;
+    margin-bottom: 8px;
   }
 
   .setting-row {
@@ -358,7 +325,7 @@ async function installUpdate() {
     align-items: center;
     justify-content: space-between;
     gap: 16px;
-    padding: 12px 0;
+    padding: 8px 0;
     cursor: pointer;
   }
 
@@ -414,8 +381,8 @@ async function installUpdate() {
   }
 
   .settings-section + .settings-section {
-    margin-top: 20px;
-    padding-top: 16px;
+    margin-top: 16px;
+    padding-top: 14px;
     border-top: 1px solid var(--border-primary);
   }
 

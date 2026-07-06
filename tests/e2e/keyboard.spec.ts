@@ -77,28 +77,30 @@ test.describe('Keyboard Navigation', () => {
     });
   });
 
-  test.describe('Settings Modal', () => {
-    test('Escape closes the modal', async ({ page }) => {
+  test.describe('Settings View', () => {
+    test('Escape closes the view', async ({ page }) => {
       await page.goto('/');
       await waitForAppReady(page);
 
       // Open settings
       await page.locator('.settings-toggle').click();
-      await expect(page.locator('.settings-dialog')).toBeVisible();
+      await expect(page.locator('[data-testid="settings-view"]')).toBeVisible();
 
       // Escape closes it
       await page.keyboard.press('Escape');
-      await expect(page.locator('.settings-dialog')).not.toBeVisible();
+      await expect(page.locator('[data-testid="settings-view"]')).not.toBeVisible();
     });
 
-    test('modal has aria-modal and focus trap', async ({ page }) => {
+    test('settings is a labelled in-space region', async ({ page }) => {
       await page.goto('/');
       await waitForAppReady(page);
 
+      // Settings is a non-modal in-space lens (DetailOverlay), so it's a
+      // labelled region landmark — not a role=dialog / aria-modal popup.
       await page.locator('.settings-toggle').click();
-      const dialog = page.locator('.settings-dialog');
-      await expect(dialog).toHaveAttribute('aria-modal', 'true');
-      await expect(dialog).toHaveAttribute('role', 'dialog');
+      const view = page.locator('[data-testid="settings-view"]');
+      await expect(view).toBeVisible();
+      await expect(view).toHaveAttribute('aria-label', 'Settings');
     });
 
     test('font scale controls are visible', async ({ page }) => {

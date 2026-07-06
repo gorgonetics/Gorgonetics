@@ -3,8 +3,11 @@ import { onMount } from 'svelte';
 import BreedView from '$lib/components/breeding/BreedView.svelte';
 import CommunityTab from '$lib/components/community/CommunityTab.svelte';
 import ReferenceView from '$lib/components/gene/ReferenceView.svelte';
+import SettingsView from '$lib/components/layout/SettingsView.svelte';
 import MyPets from '$lib/components/library/MyPets.svelte';
+import PetEditor from '$lib/components/pet/PetEditor.svelte';
 import { activeTab, appState, error, loading } from '$lib/stores/pets.js';
+import { editingPet, settingsOpen, uiActions } from '$lib/stores/ui.js';
 
 onMount(async () => {
   await appState.loadPets();
@@ -32,6 +35,16 @@ onMount(async () => {
 		<CommunityTab />
 	{:else}
 		<MyPets />
+	{/if}
+
+	{#if $editingPet}
+		{#key $editingPet.id}
+			<PetEditor pet={$editingPet} onClose={uiActions.closeEditor} onSave={uiActions.closeEditor} />
+		{/key}
+	{/if}
+
+	{#if $settingsOpen}
+		<SettingsView onClose={uiActions.closeSettings} />
 	{/if}
 </div>
 

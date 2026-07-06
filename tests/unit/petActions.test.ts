@@ -1,23 +1,22 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte';
+import { get } from 'svelte/store';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { Pet } from '$lib/types/index.js';
 
 // PetActions is the redesign's edit/delete affordance (icon variant for library
-// rows, button variant for the workspace header). It owns the PetEditor modal
-// and the delete-confirm dialog, deleting via appState.deletePet. The real
-// editor is stubbed so this stays a focused unit; deletePet is spied on.
+// rows, button variant for the workspace header). Editing is a top-level
+// in-space view, so Edit sets the `editingPet` UI store (the +page overlay
+// renders the editor); PetActions itself only owns the delete-confirm dialog,
+// deleting via appState.deletePet (spied on here).
 
 const deletePet = vi.fn(async (_id: number) => {});
 vi.mock('$lib/stores/pets.js', () => ({
   appState: { deletePet: (id: number) => deletePet(id) },
 }));
 
-vi.mock('$lib/components/pet/PetEditor.svelte', async () => ({
-  default: (await import('../fixtures/PetEditorStub.svelte')).default,
-}));
-
 import PetActions from '$lib/components/shared/PetActions.svelte';
+import { editingPet } from '$lib/stores/ui.js';
 
 const pet = { id: 7, name: 'Dobbin' } as Pet;
 
@@ -26,6 +25,7 @@ const q = (c: HTMLElement, sel: string) => c.querySelector(sel) as HTMLElement |
 afterEach(() => {
   cleanup();
   deletePet.mockClear();
+  editingPet.set(null);
 });
 
 describe('PetActions', () => {
@@ -41,11 +41,11 @@ describe('PetActions', () => {
     expect(q(container, '[data-testid="pet-delete-btn"]')?.textContent).toBe('Delete');
   });
 
-  it('opens the editor when edit is clicked', async () => {
+  it('opens the editor (sets editingPet) when edit is clicked', async () => {
     const { container } = render(PetActions, { pet } as never);
-    expect(q(container, '[data-testid="pet-editor-stub"]')).toBeNull();
+    expect(get(editingPet)).toBeNull();
     await fireEvent.click(q(container, '[data-testid="pet-edit-btn"]') as HTMLElement);
-    await waitFor(() => expect(q(container, '[data-testid="pet-editor-stub"]')).not.toBeNull());
+    await waitFor(() => expect(get(editingPet)).toBe(pet));
   });
 
   it('shows a confirm dialog on delete and calls deletePet on confirm', async () => {

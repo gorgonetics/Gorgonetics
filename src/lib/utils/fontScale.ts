@@ -1,6 +1,6 @@
 /**
  * Shared font scale utilities.
- * Used by both +layout.svelte (global keyboard shortcuts) and SettingsModal (UI controls).
+ * Used by both +layout.svelte (global keyboard shortcuts) and SettingsView (UI controls).
  */
 
 export const MIN_SCALE = 75;
