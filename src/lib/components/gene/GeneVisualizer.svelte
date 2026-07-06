@@ -24,6 +24,7 @@ import {
   type ParsedGene,
 } from '$lib/utils/geneAnalysis.js';
 import { type GeneEffectLookup, type GeneFilterState, isGeneVisible } from '$lib/utils/geneFilter.js';
+import { computeGeneCellSize } from '$lib/utils/geneGridCells.js';
 import {
   updateStats as accumulateStats,
   initializeStats as buildEmptyStats,
@@ -167,6 +168,38 @@ let tooltipPotentialEffects = $state<string[]>([]);
 // Parsed gene data
 let headerStructure = $state<HeaderStructure | null>(null);
 let chromosomeData = $state<ChromosomeRow[]>([]);
+
+// Responsive cell sizing — scale the fixed-cell grid to fill its container
+// width instead of leaving a large dead zone (wide window) or overflowing
+// with a scrollbar (narrow window / stats drawer open). A ResizeObserver
+// tracks the live container width; cell size is clamped for readability.
+let gridContainerEl = $state<HTMLDivElement>();
+let gridContainerWidth = $state(0);
+const totalGeneColumns = $derived.by(() => {
+  const hs = headerStructure;
+  if (!hs) return 0;
+  let total = 0;
+  for (const block of hs.sortedBlocks) total += hs.blockMaxGenes.get(block) ?? 0;
+  return total;
+});
+const cellSize = $derived(
+  computeGeneCellSize({
+    containerWidth: gridContainerWidth,
+    totalColumns: totalGeneColumns,
+    blockCount: headerStructure?.sortedBlocks.length ?? 0,
+  }),
+);
+
+$effect(() => {
+  const el = gridContainerEl;
+  if (!el) return;
+  const ro = new ResizeObserver((entries) => {
+    for (const entry of entries) gridContainerWidth = entry.contentRect.width;
+  });
+  ro.observe(el);
+  gridContainerWidth = el.clientWidth;
+  return () => ro.disconnect();
+});
 
 // Global gene effects database - persists across pet selections
 let globalGeneEffectsDB: Record<string, Record<string, GeneEffectData>> = {};
@@ -1370,7 +1403,12 @@ export function getStatsData() {
 
                 <!-- Gene Grid -->
                 <!-- svelte-ignore a11y_no_static_element_interactions -->
-                <div class="gene-grid-container" onkeydown={handleGridKeydown}>
+                <div
+                    class="gene-grid-container"
+                    bind:this={gridContainerEl}
+                    style="--cell-size: {cellSize}px"
+                    onkeydown={handleGridKeydown}
+                >
                     {#if headerStructure && chromosomeData.length > 0}
                         <!-- Optimized dynamic rendering -->
                         {#key currentSpeciesTemplate ? currentSpeciesTemplate.species + "_" + currentSpeciesTemplate.chromosomeCount + "_" + currentSpeciesTemplate.blockCount : "initial"}
@@ -1645,9 +1683,9 @@ export function getStatsData() {
     }
 
     .position-header {
-        width: 16px;
-        min-width: 16px;
-        max-width: 16px;
+        width: var(--cell-size, 16px);
+        min-width: var(--cell-size, 16px);
+        max-width: var(--cell-size, 16px);
         font-weight: normal;
     }
 
@@ -1717,7 +1755,7 @@ export function getStatsData() {
         text-align: center;
         vertical-align: middle;
         position: relative;
-        width: 16px;
+        width: var(--cell-size, 16px);
     }
 
     .gene-cell-container.empty {

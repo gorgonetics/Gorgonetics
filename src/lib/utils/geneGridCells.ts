@@ -48,6 +48,40 @@ export interface GeneCell {
   effect: string;
 }
 
+/** Smallest / largest / fallback gene-cell edge (px) for the responsive grid. */
+export const GENE_CELL_MIN = 12;
+export const GENE_CELL_MAX = 34;
+export const GENE_CELL_DEFAULT = 16;
+
+/** Fixed chromosome-label column width and per-block left padding (px). */
+const CHR_COL_WIDTH = 28;
+const BLOCK_GAP = 8;
+
+/**
+ * Compute the gene-cell edge (px) so the fixed-cell genome grid fills the
+ * width of its container instead of leaving a dead zone (wide window) or
+ * overflowing with a scrollbar (narrow window / stats drawer open).
+ *
+ * The width budget reserves the chromosome-label column, the per-block left
+ * padding, and a small rounding margin. The result is clamped to
+ * [GENE_CELL_MIN, GENE_CELL_MAX] for readability, and falls back to
+ * GENE_CELL_DEFAULT before the container has been measured.
+ */
+export function computeGeneCellSize({
+  containerWidth,
+  totalColumns,
+  blockCount,
+}: {
+  containerWidth: number;
+  totalColumns: number;
+  blockCount: number;
+}): number {
+  if (!containerWidth || totalColumns <= 0) return GENE_CELL_DEFAULT;
+  const available = containerWidth - CHR_COL_WIDTH - blockCount * BLOCK_GAP - 4;
+  const raw = Math.floor(available / totalColumns);
+  return Math.max(GENE_CELL_MIN, Math.min(GENE_CELL_MAX, raw));
+}
+
 /** Build the `appearance name → key` lookup for a species. */
 export function buildAppearanceLookup(species: string): Map<string, string> {
   const attrs = getAppearanceAttributes(species);
