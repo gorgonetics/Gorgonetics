@@ -101,10 +101,10 @@ test.describe('Redesign — My Pets (table-first)', () => {
     // Edit the first pet's name via its row action.
     const newName = `Renamed-${Date.now()}`;
     await rows.first().locator('[data-testid="pet-edit-btn"]').click();
-    await expect(page.locator('.modal-panel')).toBeVisible();
+    await expect(page.locator('[data-testid="pet-editor"]')).toBeVisible();
     await page.locator('#petName').fill(newName);
     await page.locator('.btn-primary').click();
-    await expect(page.locator('.modal-panel')).not.toBeVisible();
+    await expect(page.locator('[data-testid="pet-editor"]')).not.toBeVisible();
     await expect(page.locator('[data-testid="roster-open"]').filter({ hasText: newName }).first()).toBeVisible();
 
     // Delete a pet via its row action.

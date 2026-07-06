@@ -292,10 +292,16 @@ textarea {
 }
 
 /* --- Shared dialog styles --- */
+/* Bounded to the viewport with a scrollable body so tall dialogs (e.g.
+   Settings) never clip their header/footer on short windows. Header and
+   footer stay pinned; only .dialog-body scrolls. */
 .dialog {
   background: var(--bg-primary);
   border-radius: 12px;
   width: 90%;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
   box-shadow: var(--shadow-lg);
   overflow: hidden;
 }
@@ -306,6 +312,7 @@ textarea {
   justify-content: space-between;
   padding: 16px 20px;
   border-bottom: 1px solid var(--border-primary);
+  flex-shrink: 0;
 }
 
 .dialog-header h3 {
@@ -316,6 +323,9 @@ textarea {
 
 .dialog-body {
   padding: 16px 20px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
 }
 
 .dialog-footer {
@@ -325,6 +335,7 @@ textarea {
   padding: 14px 20px;
   border-top: 1px solid var(--border-primary);
   background: var(--bg-secondary);
+  flex-shrink: 0;
 }
 
 .close-btn {

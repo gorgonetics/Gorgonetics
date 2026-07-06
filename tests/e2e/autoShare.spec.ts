@@ -30,7 +30,7 @@ test.describe('Auto-share on import setting', () => {
     await expect(toggle).toHaveAttribute('aria-checked', 'true');
 
     await page.keyboard.press('Escape');
-    await expect(page.locator('.settings-dialog')).not.toBeVisible();
+    await expect(page.locator('[data-testid="settings-view"]')).not.toBeVisible();
     await page.locator('.settings-toggle').click();
     await expect(page.locator('[data-testid="setting-auto-share"]')).toHaveAttribute('aria-checked', 'true');
   });

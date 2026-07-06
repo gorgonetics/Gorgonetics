@@ -10,9 +10,11 @@
  * These are deliberately *non-modal* in-tab lenses (you can still switch tabs),
  * not dialogs — so this is a `region` landmark, not `role="dialog"`. It still
  * manages keyboard affordances: focus lands inside on open and is restored to
- * the trigger on close, and Escape backs out. True modals layered on top
- * (PetEditor, delete-confirm) keep their own focus trap + Escape; the Escape
- * handler here defers to them so it can't double-close.
+ * the trigger on close, and Escape backs out. A true modal layered on top
+ * (the delete-confirm dialog) keeps its own focus trap + Escape; the Escape
+ * handler here defers to it so it can't double-close. (Settings and the pet
+ * editor are themselves in-space DetailOverlays mounted at the page root, not
+ * modals nested here.)
  *
  * Position: absolute/inset:0, so it covers its nearest positioned ancestor —
  * mount it inside a `position: relative` (or absolute) container.
@@ -78,7 +80,7 @@ onMount(() => {
 
 function handleKeydown(e: KeyboardEvent) {
   if (e.key !== 'Escape') return;
-  // Defer to a nested true-modal (PetEditor / delete-confirm): it owns its own
+  // Defer to a nested true-modal (the delete-confirm dialog): it owns its own
   // Escape, so don't also tear down the lens underneath it.
   if ((e.target as HTMLElement | null)?.closest?.('.modal-backdrop')) return;
   onBack();

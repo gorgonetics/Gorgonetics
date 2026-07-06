@@ -10,8 +10,8 @@
  * `appState.deletePet`. See docs/design/redesign-library-workspace-v1.md §5.
  */
 
-import PetEditor from '$lib/components/pet/PetEditor.svelte';
 import { appState } from '$lib/stores/pets.js';
+import { uiActions } from '$lib/stores/ui.js';
 import type { Pet } from '$lib/types/index.js';
 import { focusTrap } from '$lib/utils/focusTrap.js';
 
@@ -23,15 +23,10 @@ interface Props {
 
 const { pet, variant = 'icon' }: Props = $props();
 
-let showEditor = $state(false);
 let confirming = $state(false);
 
 function openEditor(): void {
-  showEditor = true;
-}
-
-function closeEditor(): void {
-  showEditor = false;
+  uiActions.openEditor(pet);
 }
 
 function confirmDelete(): void {
@@ -84,10 +79,6 @@ async function doDelete(): Promise<void> {
     data-pet-id={pet.id}
     onclick={confirmDelete}
   >Delete</button>
-{/if}
-
-{#if showEditor}
-  <PetEditor {pet} bind:open={showEditor} onClose={closeEditor} onSave={() => {}} />
 {/if}
 
 {#if confirming}

@@ -50,10 +50,10 @@ export async function openGeneEditor(page: Page) {
   await expect(page.locator('.gene-editing-view')).toBeVisible();
 }
 
-/** Open the edit modal for the first pet via its roster row action. */
+/** Open the in-space pet editor for the first pet via its roster row action. */
 export async function openEditor(page: Page) {
   await page.locator('[data-testid="roster"] tbody tr').first().locator('[data-testid="pet-edit-btn"]').click();
-  await expect(page.locator('.modal-panel')).toBeVisible();
+  await expect(page.locator('[data-testid="pet-editor"]')).toBeVisible();
 }
 
 /**
