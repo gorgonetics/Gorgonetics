@@ -89,8 +89,10 @@ test.describe('Community Tab', () => {
     await expect(page.locator('[data-testid="community-tab"]')).toBeVisible();
   });
 
-  test('shows the empty-selection panel until a row is clicked', async ({ page }) => {
+  test('renders the catalogue table with no detail overlay until a row is clicked', async ({ page }) => {
     await page.locator('[data-testid="tab-community"]').click();
-    await expect(page.locator('[data-testid="community-empty-selection"]')).toBeVisible();
+    await expect(page.locator('[data-testid="community-table"]')).toBeVisible();
+    // The full-view genome preview only opens on row activation.
+    await expect(page.locator('[data-testid="community-detail-overlay"]')).toHaveCount(0);
   });
 });

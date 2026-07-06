@@ -1,10 +1,11 @@
 <script lang="ts">
 import { onMount } from 'svelte';
-import EmptyState from '$lib/components/shared/EmptyState.svelte';
+import DetailOverlay from '$lib/components/shared/DetailOverlay.svelte';
 import PageHeader from '$lib/components/shared/PageHeader.svelte';
-import { communityView, loadInitial } from '$lib/stores/community.svelte.js';
-import CommunityPetDetail from './CommunityPetDetail.svelte';
+import { clearSelection, loadInitial, selectedSharedPet } from '$lib/stores/community.svelte.js';
+import { getSpeciesEmoji } from '$lib/utils/species.js';
 import CommunityPetTable from './CommunityPetTable.svelte';
+import CommunityPetVisualization from './CommunityPetVisualization.svelte';
 
 onMount(() => {
   // Pull-on-demand (design §7): the catalogue loads when this tab is
@@ -14,70 +15,64 @@ onMount(() => {
   // burning Spark read quota.
   loadInitial();
 });
+
+// The selected row opens a full-view genome preview overlay (mirrors My
+// Pets), keyed on the store's `selectedHash`. The list holds metadata-only
+// SharedPets; the overlay lazy-fetches the genome blob itself.
+const selected = $derived(selectedSharedPet());
 </script>
 
 <div class="community-tab" data-testid="community-tab">
-  <PageHeader
-    icon="🌐"
-    title="Community catalogue"
-    subtitle="Browse pets shared by other players. Click a row to preview, then import to add it to your stable."
-  />
-
-  <div class="community-body">
-    <div class="community-table-pane">
+  <div class="ct-main" class:hidden={selected}>
+    <PageHeader
+      icon="🌐"
+      title="Community catalogue"
+      subtitle="Browse pets shared by other players. Click a row to preview its genome, then import it to your stable."
+    />
+    <div class="ct-table">
       <CommunityPetTable />
     </div>
-
-    <aside class="community-detail-pane">
-      {#if communityView.selectedHash}
-        <CommunityPetDetail />
-      {:else}
-        <div data-testid="community-empty-selection" class="community-empty">
-          <EmptyState
-            icon="🐾"
-            title="Select a pet to see details"
-            body="Click any row in the catalogue to preview its genome and import it."
-          />
-        </div>
-      {/if}
-    </aside>
   </div>
+
+  {#if selected}
+    <DetailOverlay
+      testid="community-detail-overlay"
+      backTestid="community-detail-back"
+      backLabel="← Catalogue"
+      ariaLabel="Community pet detail"
+      onBack={clearSelection}
+    >
+      {#snippet title()}{getSpeciesEmoji(selected.species)} {selected.name || '(unnamed)'}{/snippet}
+      <CommunityPetVisualization pet={selected} />
+    </DetailOverlay>
+  {/if}
 </div>
 
 <style>
   .community-tab {
+    position: relative;
     display: flex;
     flex-direction: column;
     height: 100%;
     min-height: 0;
+    overflow: hidden;
   }
 
-  .community-body {
-    display: flex;
+  .ct-main {
     flex: 1;
     min-height: 0;
-    overflow: hidden;
-  }
-
-  .community-table-pane {
-    flex: 1 1 auto;
-    min-width: 0;
-    overflow: hidden;
     display: flex;
     flex-direction: column;
   }
-
-  .community-detail-pane {
-    width: 360px;
-    flex-shrink: 0;
-    border-left: 1px solid var(--border-primary);
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
+  .ct-main.hidden {
+    display: none;
   }
 
-  .community-empty {
+  .ct-table {
     flex: 1;
     min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
   }
 </style>

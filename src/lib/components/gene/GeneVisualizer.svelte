@@ -70,6 +70,13 @@ function categorizeAppearance(species: string, appearance: string) {
 interface Props {
   pet?: Pet | null;
   onStatsUpdated?: () => void;
+  /**
+   * Pre-built chromosome grid to render instead of loading from the local
+   * DB by `pet.id`. Used for community-catalogue previews, whose genome
+   * lives in the share blob (not `pet_genes`) — see `genomeTextToGrid`.
+   * When set, `loadPetGridFromDb` is bypassed entirely.
+   */
+  gridOverride?: Record<string, ParsedChromosome> | null;
 }
 
 interface GeneAnalysisResult {
@@ -103,7 +110,7 @@ interface ChromosomeRow {
   processedBlocks: Record<string, (ProcessedGene | null)[]>;
 }
 
-const { pet, onStatsUpdated }: Props = $props();
+const { pet, onStatsUpdated, gridOverride = null }: Props = $props();
 
 let containerElement = $state<HTMLElement | undefined>(undefined);
 
@@ -298,7 +305,7 @@ async function loadPetData() {
     loading = true;
     error = null;
 
-    const grid = await loadPetGridFromDb(pet.id);
+    const grid = gridOverride ?? (await loadPetGridFromDb(pet.id));
     const loaded = { id: pet.id, name: pet.name, species: pet.species, breed: pet.breed, grid };
     currentPet = loaded;
 

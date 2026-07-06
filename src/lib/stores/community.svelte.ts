@@ -235,7 +235,7 @@ export function clearSelection(): void {
  * SharedPet (with `genomeData` populated) — `listPets` returns metadata
  * only, so the detail component is responsible for lazy-loading the
  * genome via `getSharedPet` before invoking this. The caller
- * (CommunityPetDetail) handles surfacing the toast.
+ * (CommunityPetVisualization) handles surfacing the toast.
  *
  * Rejects with an `error` result if another import is already in flight:
  * we serialize imports per-store to avoid `appState.loadPets()` races
