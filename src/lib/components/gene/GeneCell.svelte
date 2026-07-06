@@ -130,9 +130,12 @@ const cssClass = $derived(computeCssClass(gene, geneAnalysis, currentView, isVis
 <style>
     /* Gene colors defined as --gene-* CSS vars in :root in src/app.css */
 
+    /* Size derives from --cell-size (set by the responsive grid container) so
+       the genome grid scales to fill its panel. Falls back to 14px wherever
+       --cell-size is unset (legend, comparison views, appearance summary). */
     :global(.gene-cell) {
-        width: 14px;
-        height: 14px;
+        width: calc(var(--cell-size, 16px) - 2px);
+        height: calc(var(--cell-size, 16px) - 2px);
         margin: 0px;
         border-radius: 3px;
         border: 2px solid;
