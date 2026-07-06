@@ -57,6 +57,43 @@ test.describe('Redesign — My Pets (table-first)', () => {
     await expect(page.locator('[data-testid="roster"]')).toBeVisible();
   });
 
+  test('dimming a gene (chromosome select) preserves its fill, only fading it', async ({ page }) => {
+    // Regression: `.gene-filtered-out` used to force a solid background + grey
+    // border, so a dimmed recessive (hollow) or mixed (half-gradient) gene
+    // redrew as a solid square (visible flicker + wrong shape). Dimming must
+    // only fade/desaturate and keep the original fill, like the trio grid.
+    await openMyPets(page);
+    await page.locator('button[data-testid="roster-open"]:has-text("Sample Horse")').click();
+    await expect(page.locator('.pet-visualization')).toBeVisible();
+
+    // Select a single chromosome — every gene on other chromosomes dims.
+    await page.locator('.pet-visualization .chromosome-label[data-chromosome="01"]').click();
+
+    const dimmedRecessive = page.locator('.pet-visualization .gene-cell.gene-filtered-out.gene-recessive').first();
+    await expect(dimmedRecessive).toBeAttached();
+    // Poll until the fade settles at the CSS value (0.25). Polling both rides
+    // out the 0.2s transition and pins the exact target, so a regression to a
+    // barely-dimmed value (e.g. 0.9) still fails.
+    await expect
+      .poll(() => dimmedRecessive.evaluate((el) => Number(getComputedStyle(el).opacity)))
+      .toBeCloseTo(0.25, 2);
+    const recessive = await dimmedRecessive.evaluate((el) => {
+      const cs = getComputedStyle(el);
+      return { bg: cs.backgroundColor, borderWidth: cs.borderWidth };
+    });
+    // Recessive keeps its translucent centre + thick border (not the old solid
+    // rgb(249,250,251) fill).
+    expect(recessive.borderWidth).toBe('4px');
+    expect(recessive.bg).not.toBe('rgb(249, 250, 251)');
+
+    const dimmedMixed = page.locator('.pet-visualization .gene-cell.gene-filtered-out.gene-mixed').first();
+    if (await dimmedMixed.count()) {
+      const bgImage = await dimmedMixed.evaluate((el) => getComputedStyle(el).backgroundImage);
+      // Mixed keeps its half-fill gradient rather than a flat fill.
+      expect(bgImage).toContain('linear-gradient');
+    }
+  });
+
   test('a roster row can edit and delete a pet', async ({ page }) => {
     await openMyPets(page);
     const rows = page.locator('[data-testid="roster"] tbody tr');
