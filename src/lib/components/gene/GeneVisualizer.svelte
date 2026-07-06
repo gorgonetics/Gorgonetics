@@ -1727,6 +1727,7 @@ export function getStatsData() {
         cursor: pointer;
         transition: background-color 0.2s ease;
         user-select: none;
+        /* KEEP IN SYNC with CHR_COL_WIDTH in utils/geneGridCells.ts */
         width: 28px;
         min-width: 28px;
         max-width: 28px;
@@ -1763,6 +1764,7 @@ export function getStatsData() {
     }
 
     .gene-cell-container.block-start {
+        /* KEEP IN SYNC with BLOCK_GAP in utils/geneGridCells.ts */
         padding-left: 8px;
     }
 

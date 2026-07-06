@@ -53,7 +53,14 @@ export const GENE_CELL_MIN = 12;
 export const GENE_CELL_MAX = 34;
 export const GENE_CELL_DEFAULT = 16;
 
-/** Fixed chromosome-label column width and per-block left padding (px). */
+/**
+ * Fixed chromosome-label column width and per-block left padding (px).
+ *
+ * KEEP IN SYNC with GeneVisualizer.svelte CSS: `.chromosome-label` /
+ * `.chromosome-header` width (CHR_COL_WIDTH) and `.gene-cell-container.block-start`
+ * padding-left (BLOCK_GAP). If those change, this width budget under- or
+ * over-estimates and reintroduces dead space or a horizontal scrollbar.
+ */
 const CHR_COL_WIDTH = 28;
 const BLOCK_GAP = 8;
 
