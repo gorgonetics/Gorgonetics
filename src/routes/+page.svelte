@@ -15,27 +15,33 @@ onMount(async () => {
 </script>
 
 <div class="detail-content">
-	{#if $error}
-		<div class="error-banner" role="alert">
-			<div class="error-message">⚠️ {$error}</div>
-			<button class="error-close" onclick={() => appState.clearError()} aria-label="Dismiss error">×</button>
-		</div>
-	{/if}
+	<!-- The tab content is covered by the in-space overlays below. `inert` is
+	     bound reactively (not set once on mount by DetailOverlay's sibling
+	     logic) so that switching tabs while an overlay is open re-inerts the
+	     freshly-rendered tab content, keeping focus/AT out of the covered UI. -->
+	<div class="tab-layer" inert={$editingPet !== null || $settingsOpen}>
+		{#if $error}
+			<div class="error-banner" role="alert">
+				<div class="error-message">⚠️ {$error}</div>
+				<button class="error-close" onclick={() => appState.clearError()} aria-label="Dismiss error">×</button>
+			</div>
+		{/if}
 
-	{#if $loading}
-		<div class="center-state">
-			<div class="spinner"></div>
-			<p class="state-text">Loading...</p>
-		</div>
-	{:else if $activeTab === 'reference'}
-		<ReferenceView />
-	{:else if $activeTab === 'breed'}
-		<BreedView />
-	{:else if $activeTab === 'community'}
-		<CommunityTab />
-	{:else}
-		<MyPets />
-	{/if}
+		{#if $loading}
+			<div class="center-state">
+				<div class="spinner"></div>
+				<p class="state-text">Loading...</p>
+			</div>
+		{:else if $activeTab === 'reference'}
+			<ReferenceView />
+		{:else if $activeTab === 'breed'}
+			<BreedView />
+		{:else if $activeTab === 'community'}
+			<CommunityTab />
+		{:else}
+			<MyPets />
+		{/if}
+	</div>
 
 	{#if $editingPet}
 		{#key $editingPet.id}
@@ -54,6 +60,13 @@ onMount(async () => {
 		flex-direction: column;
 		position: absolute;
 		inset: 0;
+	}
+
+	.tab-layer {
+		display: flex;
+		flex-direction: column;
+		flex: 1;
+		min-height: 0;
 	}
 
 	.error-banner {
