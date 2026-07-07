@@ -221,6 +221,43 @@ textarea {
   background: var(--error-hover);
 }
 
+/* --- Shared segmented control --- */
+/* One chrome for exclusive-choice button groups (FilterBar's species/gender
+   toggles, Breed's species picker, Settings' theme picker): a tinted track
+   with a raised active segment. Components keep scoped size tweaks on their
+   own class alongside `seg-btn`. */
+.seg {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-lg);
+}
+
+.seg-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.seg-btn:hover:not(:disabled) {
+  color: var(--text-secondary);
+}
+
+.seg-btn.active {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
+}
+
 /* --- Shared tag badge (pet cards + share dialog) --- */
 .tag-badge {
   display: inline-block;
