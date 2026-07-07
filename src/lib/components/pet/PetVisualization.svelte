@@ -100,8 +100,18 @@ function handleViewChange(view: string): void {
 }
 
 function toggleStats(): void {
+  // The stats drawer belongs to the grid content: opening it brings the grid
+  // back if the gallery took over, so pressed state always matches the screen.
+  if (!statsOpen) galleryOpen = false;
   statsOpen = !statsOpen;
   if (statsOpen) refreshStats();
+}
+
+function toggleGallery(): void {
+  galleryOpen = !galleryOpen;
+  // The gallery hides the grid and its stats drawer; close Stats too so its
+  // pressed state never points at a hidden panel.
+  if (galleryOpen) statsOpen = false;
 }
 
 function refreshStats(): void {
@@ -223,7 +233,7 @@ onDestroy(() => {
                     aria-pressed={galleryOpen}
                     data-testid="detail-gallery-toggle"
                     title="Toggle the image gallery"
-                    onclick={() => { galleryOpen = !galleryOpen; }}
+                    onclick={toggleGallery}
                 >
                     Gallery
                 </button>

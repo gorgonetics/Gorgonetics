@@ -147,6 +147,26 @@ describe('PetVisualization detail header', () => {
       expect(btn(container, 'Attributes').classList.contains('active')).toBe(true);
     });
 
+    it('opening the Gallery closes the Stats drawer so its pressed state never points at a hidden panel', async () => {
+      const { container, getByTestId } = render(PetVisualization, { pet: makePet() });
+      const stats = getByTestId('detail-stats-toggle');
+      const gallery = getByTestId('detail-gallery-toggle');
+
+      await fireEvent.click(stats);
+      expect(stats.getAttribute('aria-pressed')).toBe('true');
+
+      await fireEvent.click(gallery);
+      expect(gallery.getAttribute('aria-pressed')).toBe('true');
+      expect(stats.getAttribute('aria-pressed')).toBe('false');
+      expect(q(container, '.stats-drawer')).toBeNull();
+
+      // Pressing Stats while the gallery is open swaps back to the grid + drawer.
+      await fireEvent.click(stats);
+      expect(gallery.getAttribute('aria-pressed')).toBe('false');
+      expect(stats.getAttribute('aria-pressed')).toBe('true');
+      expect(q(container, '.stats-drawer')).not.toBeNull();
+    });
+
     it('picking a view while the Gallery is open closes it and re-highlights the view', async () => {
       const { container, getByTestId } = render(PetVisualization, { pet: makePet() });
       const gallery = getByTestId('detail-gallery-toggle');
