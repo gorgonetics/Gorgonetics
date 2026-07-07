@@ -178,12 +178,18 @@ describe('distBarBackground', () => {
     );
   });
 
-  it('renders an all-unknown offspring as the diagonal hatch', () => {
+  it('renders an all-unknown offspring as the diagonal hatch with the dimming baked into the stripe', () => {
     const segs: TrioSegment[] = [{ allele: 'unknown', pct: 100, tone: 'unknown' }];
     expect(distBarBackground(segs)).toBe(
-      'repeating-linear-gradient(45deg, var(--gene-neutral) 0 2px, transparent 2px 4px)',
+      'repeating-linear-gradient(45deg, color-mix(in srgb, var(--gene-neutral) 60%, transparent) 0 2px, transparent 2px 4px)',
     );
     expect(isUnknownDist(segs)).toBe(true);
+  });
+
+  it('keys the unknown case off the allele, not the tone', () => {
+    // A hypothetical tone remap must not reclassify a solid allele as unknown.
+    expect(isUnknownDist([{ allele: 'unknown', pct: 100, tone: 'neutral' }])).toBe(true);
+    expect(isUnknownDist([{ allele: 'D', pct: 100, tone: 'unknown' }])).toBe(false);
   });
 
   it('treats a solid single-allele distribution as a normal gradient, not unknown', () => {

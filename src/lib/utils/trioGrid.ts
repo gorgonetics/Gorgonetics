@@ -82,7 +82,7 @@ const TONE_VAR: Record<TrioTone, string> = {
  * mixed with solid alleles — it is always the sole, full-width segment.
  */
 export function isUnknownDist(segments: TrioSegment[]): boolean {
-  return segments.length === 1 && segments[0].tone === 'unknown';
+  return segments.length === 1 && segments[0].allele === 'unknown';
 }
 
 /**
@@ -90,11 +90,12 @@ export function isUnknownDist(segments: TrioSegment[]): boolean {
  * `linear-gradient` across the segments, replacing the per-segment `<span>`s.
  * Colours use the same `var(--gene-*)` references the old `.tone-*` classes
  * did, so themes and the grid's grayscale filter still apply. The all-unknown
- * case keeps the diagonal hatch (dimming is applied via a class on the bar).
+ * case keeps the diagonal hatch; the old span's 0.6 opacity is baked into the
+ * stripe colour so only the hatch is dimmed, not the bar's border/shadow.
  */
 export function distBarBackground(segments: TrioSegment[]): string {
   if (isUnknownDist(segments)) {
-    return 'repeating-linear-gradient(45deg, var(--gene-neutral) 0 2px, transparent 2px 4px)';
+    return 'repeating-linear-gradient(45deg, color-mix(in srgb, var(--gene-neutral) 60%, transparent) 0 2px, transparent 2px 4px)';
   }
   const stops: string[] = [];
   let acc = 0;

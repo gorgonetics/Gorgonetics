@@ -11,13 +11,7 @@ import { attributeFilterCSS } from '$lib/utils/filterCSS.js';
 import { triStateToggle } from '$lib/utils/filterToggle.js';
 import { buildAppearanceLookup, createGeneCellBuilder, type GeneCell } from '$lib/utils/geneGridCells.js';
 import { capitalize } from '$lib/utils/string.js';
-import {
-  buildTrioGrid,
-  distBarBackground,
-  isUnknownDist,
-  type TrioGrid,
-  type TrioLocusCell,
-} from '$lib/utils/trioGrid.js';
+import { buildTrioGrid, distBarBackground, type TrioGrid, type TrioLocusCell } from '$lib/utils/trioGrid.js';
 
 interface Props {
   father: Pet;
@@ -277,9 +271,9 @@ function parentTitle(cell: GeneCell | null, label: string) {
                                             <div
                                                 class="dist-bar verdict-{cell.verdict}"
                                                 class:locked={cell.lockedIn}
-                                                class:unknown-dist={isUnknownDist(cell.segments)}
                                                 class:fixed={isLocked(cell)}
                                                 data-attr={cell.attribute ?? ''}
+                                                role="img"
                                                 title={offspringTitle(cell)}
                                                 aria-label={offspringAria(cell)}
                                                 style="background: {distBarBackground(cell.segments)}"
@@ -438,8 +432,6 @@ function parentTitle(cell: GeneCell | null, label: string) {
     .dist-bar.verdict-gain { border-color: var(--gene-positive); }
     .dist-bar.verdict-risk { border-color: var(--gene-negative); }
     .dist-bar.locked { box-shadow: inset 0 0 0 1px var(--bg-secondary); }
-    /* All-unknown offspring: same dimming the old striped `.tone-unknown` span had. */
-    .dist-bar.unknown-dist { opacity: 0.6; }
 
     /* Parent cells share the offspring bar's box size so the three rows line up
        column-for-column (the shared .gene-cell is 14px elsewhere). */
