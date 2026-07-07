@@ -2,16 +2,24 @@
 import { ArrowLeft } from '@lucide/svelte';
 import logoImg from '$lib/assets/logo.png';
 import { activeTab, appState, canGoBack, type Tab } from '$lib/stores/pets.js';
-import { uiActions } from '$lib/stores/ui.js';
+import { overlayOpen, uiActions } from '$lib/stores/ui.js';
 import DataMenu from './DataMenu.svelte';
 
+// Destination navigation is gated (disabled) while a root overlay (Settings /
+// pet editor) is open: switching the tab underneath would move the content and
+// the nav highlight while the overlay stays on top, leaving the two in
+// disagreement — and a nav click could silently discard editor changes (#396).
+// Close the overlay (Back / Escape) first, then navigate.
+
 function switchTab(tab: Tab) {
+  if ($overlayOpen) return; // defence in depth — the buttons are also disabled
   appState.switchTab(tab);
 }
 
 function handleWindowKeydown(e: KeyboardEvent) {
   // Alt+Left → previous tab. Don't hijack it while the user is typing.
   if (!(e.altKey && e.key === 'ArrowLeft')) return;
+  if ($overlayOpen) return; // nav is gated while a root overlay is open
   const t = e.target as HTMLElement | null;
   if (t?.tagName === 'INPUT' || t?.tagName === 'TEXTAREA' || t?.isContentEditable) return;
   e.preventDefault();
@@ -21,7 +29,7 @@ function handleWindowKeydown(e: KeyboardEvent) {
 function handleMouseUp(e: MouseEvent) {
   // Mouse "back" button (button 3) → previous tab. goBack is a no-op
   // when there's no history, so an unconditional call is safe.
-  if (e.button === 3) {
+  if (e.button === 3 && !$overlayOpen) {
     e.preventDefault();
     appState.goBack();
   }
@@ -39,7 +47,7 @@ function handleMouseUp(e: MouseEvent) {
     <button
         class="back-btn"
         onclick={() => appState.goBack()}
-        disabled={!$canGoBack}
+        disabled={!$canGoBack || $overlayOpen}
         title="Back to previous tab (Alt+←)"
         aria-label="Back to previous tab"
     >
@@ -50,6 +58,7 @@ function handleMouseUp(e: MouseEvent) {
             class="tab-btn"
             class:active={$activeTab === "library"}
             data-testid="tab-library"
+            disabled={$overlayOpen}
             onclick={() => switchTab("library")}
         >
             ✨ My Pets
@@ -58,6 +67,7 @@ function handleMouseUp(e: MouseEvent) {
             class="tab-btn"
             class:active={$activeTab === "breed"}
             data-testid="tab-breed"
+            disabled={$overlayOpen}
             onclick={() => switchTab("breed")}
         >
             💞 Breed
@@ -66,6 +76,7 @@ function handleMouseUp(e: MouseEvent) {
             class="tab-btn"
             class:active={$activeTab === "community"}
             data-testid="tab-community"
+            disabled={$overlayOpen}
             onclick={() => switchTab("community")}
         >
             🌐 Community
@@ -74,13 +85,14 @@ function handleMouseUp(e: MouseEvent) {
             class="tab-btn"
             class:active={$activeTab === "reference"}
             data-testid="tab-reference"
+            disabled={$overlayOpen}
             onclick={() => switchTab("reference")}
         >
             📚 Reference
         </button>
     </nav>
     <DataMenu />
-    <button type="button" class="settings-toggle" onclick={() => uiActions.openSettings()} title="Settings" aria-label="Settings">
+    <button type="button" class="settings-toggle" disabled={$overlayOpen} onclick={() => uiActions.openSettings()} title="Settings" aria-label="Settings">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
             <circle cx="12" cy="12" r="3"/>
@@ -170,9 +182,16 @@ function handleMouseUp(e: MouseEvent) {
         transition: all 0.15s ease;
     }
 
-    .tab-btn:hover {
+    .tab-btn:hover:not(:disabled) {
         color: var(--text-secondary);
         background: var(--border-primary);
+    }
+
+    /* Gated while a root overlay (Settings / editor) is open. The active
+       highlight stays visible so the current destination remains legible. */
+    .tab-btn:disabled {
+        opacity: 0.55;
+        cursor: default;
     }
 
     .tab-btn.active {
@@ -195,8 +214,13 @@ function handleMouseUp(e: MouseEvent) {
         transition: all 0.15s ease;
     }
 
-    .settings-toggle:hover {
+    .settings-toggle:hover:not(:disabled) {
         background: var(--bg-tertiary);
         color: var(--text-secondary);
+    }
+
+    .settings-toggle:disabled {
+        opacity: 0.4;
+        cursor: default;
     }
 </style>

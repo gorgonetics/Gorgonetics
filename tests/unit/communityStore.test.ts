@@ -17,12 +17,18 @@ vi.mock('$lib/services/shareService.js', () => ({
   verifySharedPet: vi.fn(),
 }));
 
-vi.mock('$lib/stores/pets.js', () => ({
-  appState: {
-    loadPets: vi.fn().mockResolvedValue(undefined),
-    appendPet: vi.fn().mockResolvedValue(undefined),
-  },
-}));
+vi.mock('$lib/stores/pets.js', async () => {
+  const { writable } = await import('svelte/store');
+  return {
+    // The store subscribes to `activeTab` at module scope to clear the open
+    // preview on destination switch (#396) — provide a real writable.
+    activeTab: writable('community'),
+    appState: {
+      loadPets: vi.fn().mockResolvedValue(undefined),
+      appendPet: vi.fn().mockResolvedValue(undefined),
+    },
+  };
+});
 
 import {
   type ImportResult,
@@ -39,7 +45,7 @@ import {
   selectedSharedPet,
   selectPet,
 } from '$lib/stores/community.svelte.js';
-import { appState as appStateReal } from '$lib/stores/pets.js';
+import { activeTab, appState as appStateReal } from '$lib/stores/pets.js';
 import { Gender, type SharedPet } from '$lib/types/index.js';
 
 // These modules are `vi.mock`ed above, so the imported bindings are
@@ -78,6 +84,7 @@ afterEach(() => {
   // or in-flight generation counters.
   vi.resetAllMocks();
   _resetCommunityStoreState();
+  activeTab.set('community');
   communityView.pets = [];
   communityView.loading = false;
   communityView.loadingMore = false;
@@ -436,5 +443,30 @@ describe('community.svelte.ts — add-only latest-per-hash dedup', () => {
     const dups = communityView.pets.filter((p) => p.contentHash === 'dup');
     expect(dups).toHaveLength(1);
     expect(dups[0].name).toBe('Corrected');
+  });
+});
+
+describe('community.svelte.ts — preview reset on destination switch (#396)', () => {
+  it('clears selectedHash when the user leaves the Community destination', () => {
+    selectPet('h1');
+    expect(communityView.selectedHash).toBe('h1');
+
+    activeTab.set('library');
+    expect(communityView.selectedHash).toBeNull();
+  });
+
+  it('keeps the selection while staying on Community', () => {
+    selectPet('h1');
+    activeTab.set('community');
+    expect(communityView.selectedHash).toBe('h1');
+  });
+
+  it('the preview reset does not evict the cached page', () => {
+    communityView.pets = [makeSharedPet('h1')];
+    selectPet('h1');
+
+    activeTab.set('breed');
+    expect(communityView.selectedHash).toBeNull();
+    expect(communityView.pets).toHaveLength(1);
   });
 });

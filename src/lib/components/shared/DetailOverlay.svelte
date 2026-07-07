@@ -1,3 +1,14 @@
+<script lang="ts" module>
+/**
+ * Stack of currently-mounted overlays, bottom → top. Escape is handled by a
+ * document-level listener (so it works no matter where focus sits — e.g. on
+ * document.body after a click on non-focusable content), but only the topmost
+ * overlay backs out, so stacked lenses (Settings opened over a pet detail)
+ * unwind one per press.
+ */
+const overlayStack: symbol[] = [];
+</script>
+
 <script lang="ts">
 /**
  * The unified full-view shell for the Workspace's detail lenses — single pet,
@@ -52,8 +63,11 @@ const {
 let sectionEl = $state<HTMLElement | null>(null);
 let backBtn = $state<HTMLButtonElement | null>(null);
 
+const stackId = Symbol('detail-overlay');
+
 onMount(() => {
   const previouslyFocused = document.activeElement as HTMLElement | null;
+  overlayStack.push(stackId);
 
   // Make the covered UI inert: the overlay sits over its siblings (the
   // table/list), so keyboard focus and assistive tech must not reach controls
@@ -73,29 +87,36 @@ onMount(() => {
   backBtn?.focus();
 
   return () => {
+    const idx = overlayStack.indexOf(stackId);
+    if (idx !== -1) overlayStack.splice(idx, 1);
     for (const sib of covered) sib.removeAttribute('inert');
     previouslyFocused?.focus();
   };
 });
 
-function handleKeydown(e: KeyboardEvent) {
+// Document-level so Escape backs out regardless of where focus is (a section
+// -scoped handler misses it when focus rests on document.body). Scoped to the
+// topmost mounted overlay via the module-level stack.
+function handleDocumentKeydown(e: KeyboardEvent) {
   if (e.key !== 'Escape') return;
-  // Defer to a nested true-modal (the delete-confirm dialog): it owns its own
-  // Escape, so don't also tear down the lens underneath it.
-  if ((e.target as HTMLElement | null)?.closest?.('.modal-backdrop')) return;
+  if (overlayStack[overlayStack.length - 1] !== stackId) return;
+  // Defer to an open true-modal (delete/discard confirms, import dialogs —
+  // anything on a .modal-backdrop): it owns its own Escape, so don't also
+  // tear down the lens underneath it.
+  if (document.querySelector('.modal-backdrop')) return;
   onBack();
 }
 </script>
 
+<svelte:document onkeydown={handleDocumentKeydown} />
+
 <!-- A <section> with an accessible name is already a `region` landmark. -->
-<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <section
   bind:this={sectionEl}
   class="detail-overlay"
   data-testid={testid}
   aria-label={ariaLabel}
   tabindex="-1"
-  onkeydown={handleKeydown}
 >
   <header class="do-head">
     <button bind:this={backBtn} type="button" class="back-btn" data-testid={backTestid} onclick={onBack}>

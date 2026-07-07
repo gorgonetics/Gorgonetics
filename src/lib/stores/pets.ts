@@ -50,6 +50,9 @@ const TAB_STATE_RESETS: Record<Tab, () => void> = {
   // Breed ranks across the whole stable by species; it doesn't use the library
   // single-pet/gene state, so clear it on entry.
   breed: clearSelectionAndGeneView,
+  // The Community preview (communityView.selectedHash) resets itself on any
+  // destination switch via the community store's own activeTab subscription —
+  // importing it here would pull firebase into every pets.js consumer.
   community: clearSelectionAndGeneView,
   // Reference (gene-template editing) clears any single-pet selection so it
   // can't carry over from the library when switching destinations.

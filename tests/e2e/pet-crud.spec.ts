@@ -200,25 +200,60 @@ test.describe('Pet Editor – Cancel', () => {
     await waitForPets(page);
   });
 
-  test('cancel discards name change', async ({ page }) => {
+  // Backing out with pending changes (Cancel / Escape / back button) opens a
+  // discard-confirm dialog instead of silently dropping the edits (#396).
+
+  test('cancel with no changes closes immediately without a confirm', async ({ page }) => {
+    await openEditor(page);
+    await page.locator('.editor-footer .btn-secondary').click();
+
+    await expect(page.locator('[data-testid="pet-editor-discard-confirm"]')).toHaveCount(0);
+    await expect(page.locator('[data-testid="pet-editor"]')).not.toBeVisible();
+  });
+
+  test('cancel with a name change asks before discarding', async ({ page }) => {
     const originalName = (await page.locator('[data-testid="roster-open"]').first().textContent()) ?? '';
 
     await openEditor(page);
     await page.locator('#petName').fill('ShouldNotPersist');
-    await page.locator('.btn-secondary').click();
+    await page.locator('.editor-footer .btn-secondary').click();
 
+    // The editor stays until the discard is confirmed.
+    await expect(page.locator('[data-testid="pet-editor-discard-confirm"]')).toBeVisible();
+    await expect(page.locator('[data-testid="pet-editor"]')).toBeVisible();
+
+    await page.locator('[data-testid="discard-confirm"]').click();
     await expect(page.locator('[data-testid="pet-editor"]')).not.toBeVisible();
     await expect(page.locator('[data-testid="roster-open"]').first()).toHaveText(originalName);
   });
 
-  test('cancel discards attribute change', async ({ page }) => {
+  test('"Keep editing" returns to the editor with the edits intact', async ({ page }) => {
+    await openEditor(page);
+    await page.locator('#petName').fill('StillEditing');
+    await page.locator('[data-testid="pet-editor-back"]').click();
+
+    await expect(page.locator('[data-testid="pet-editor-discard-confirm"]')).toBeVisible();
+    await page.locator('[data-testid="discard-keep-editing"]').click();
+
+    await expect(page.locator('[data-testid="pet-editor-discard-confirm"]')).toHaveCount(0);
+    await expect(page.locator('[data-testid="pet-editor"]')).toBeVisible();
+    await expect(page.locator('#petName')).toHaveValue('StillEditing');
+
+    // Clean up: discard for real.
+    await page.locator('[data-testid="pet-editor-back"]').click();
+    await page.locator('[data-testid="discard-confirm"]').click();
+    await expect(page.locator('[data-testid="pet-editor"]')).not.toBeVisible();
+  });
+
+  test('cancel discards attribute change after confirming', async ({ page }) => {
     await openEditor(page);
 
     const attrInput = page.locator('.attr-field input[type="number"]').first();
     const originalValue = await attrInput.inputValue();
 
     await attrInput.fill('0');
-    await page.locator('.btn-secondary').click();
+    await page.locator('.editor-footer .btn-secondary').click();
+    await page.locator('[data-testid="discard-confirm"]').click();
 
     await expect(page.locator('[data-testid="pet-editor"]')).not.toBeVisible();
 
@@ -228,23 +263,34 @@ test.describe('Pet Editor – Cancel', () => {
     await page.locator('[data-testid="pet-editor-back"]').click();
   });
 
-  test('escape key closes editor without saving', async ({ page }) => {
+  test('escape key with unsaved changes asks, then discards', async ({ page }) => {
     const originalName = (await page.locator('[data-testid="roster-open"]').first().textContent()) ?? '';
 
     await openEditor(page);
     await page.locator('#petName').fill('EscapeShouldDiscard');
     await page.keyboard.press('Escape');
 
+    // Escape surfaces the guard rather than closing outright; a second Escape
+    // dismisses only the dialog (keep editing).
+    await expect(page.locator('[data-testid="pet-editor-discard-confirm"]')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.locator('[data-testid="pet-editor-discard-confirm"]')).toHaveCount(0);
+    await expect(page.locator('[data-testid="pet-editor"]')).toBeVisible();
+
+    await page.keyboard.press('Escape');
+    await page.locator('[data-testid="discard-confirm"]').click();
+
     await expect(page.locator('[data-testid="pet-editor"]')).not.toBeVisible();
     await expect(page.locator('[data-testid="roster-open"]').first()).toHaveText(originalName);
   });
 
-  test('back button closes editor without saving', async ({ page }) => {
+  test('back button with unsaved changes asks, then discards', async ({ page }) => {
     const originalName = (await page.locator('[data-testid="roster-open"]').first().textContent()) ?? '';
 
     await openEditor(page);
     await page.locator('#petName').fill('BackShouldDiscard');
     await page.locator('[data-testid="pet-editor-back"]').click();
+    await page.locator('[data-testid="discard-confirm"]').click();
 
     await expect(page.locator('[data-testid="pet-editor"]')).not.toBeVisible();
     await expect(page.locator('[data-testid="roster-open"]').first()).toHaveText(originalName);

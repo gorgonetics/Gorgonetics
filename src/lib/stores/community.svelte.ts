@@ -16,7 +16,7 @@
 
 import { isPlaceholderConfig } from '$lib/firebase.js';
 import { type ImportResult, importCommunityPet, listPets } from '$lib/services/shareService.js';
-import { appState } from '$lib/stores/pets.js';
+import { activeTab, appState } from '$lib/stores/pets.js';
 import type { SharedPet } from '$lib/types/index.js';
 import { errorMessage } from '$lib/utils/error.js';
 
@@ -106,14 +106,22 @@ export function selectedSharedPet(): SharedPet | null {
   return communityView.pets.find((p) => p.contentHash === communityView.selectedHash) ?? null;
 }
 
+// Close the open preview whenever the user leaves the Community destination.
+// The page cache above deliberately survives tab switches (read quota), but
+// the *preview* must not: My Pets holds its detail in component-local state
+// that dies on unmount, so a destination switch always lands back on the
+// table — mirror that instead of restoring a stale detail on return (#396).
+activeTab.subscribe((tab) => {
+  if (tab !== 'community') communityView.selectedHash = null;
+});
+
 /**
  * Load the first page. By default short-circuits when the cached page is
  * fresh (see `STALE_AFTER_MS`) — pass `{ force: true }` to bypass the
  * cache (used by the "Try again" button in the error state).
  *
- * Selection is intentionally preserved across reloads — if the user
- * navigates away from the tab and returns, the pet they were
- * inspecting stays selected (provided it's still in the loaded page).
+ * Selection is preserved across reloads *within* the tab, but cleared on
+ * destination switch (see the `activeTab` subscription above).
  */
 export async function loadInitial(opts: { force?: boolean } = {}): Promise<void> {
   if (isPlaceholderConfig) {
