@@ -40,10 +40,20 @@ const { variant = 'empty', hero = false, icon, title, body, actionLabel, onActio
   {:else if icon}
     <div class="status-icon" data-testid="status-pane-icon" aria-hidden="true">{icon}</div>
   {/if}
-  {#if title}<p class="status-title">{title}</p>{/if}
+  <!-- Hero titles are headings (as EmptyState's h3 was) so SR users can jump
+       to the whole-surface prompt; h3 sits under a destination PageHeader's
+       h2. Compact loading/error strips stay plain text. -->
+  {#if title}
+    <svelte:element this={hero ? 'h3' : 'p'} class="status-title">{title}</svelte:element>
+  {/if}
   {#if body}<p class="status-body">{body}</p>{/if}
   {#if actionLabel && onAction}
-    <button class="btn {hero ? 'btn-primary' : 'btn-secondary'}" data-testid="status-pane-action" onclick={onAction}>
+    <button
+      type="button"
+      class="btn {hero ? 'btn-primary' : 'btn-secondary'}"
+      data-testid="status-pane-action"
+      onclick={onAction}
+    >
       {actionLabel}
     </button>
   {/if}
