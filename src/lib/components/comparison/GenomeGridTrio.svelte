@@ -9,7 +9,13 @@ import { attributeFilterCSS } from '$lib/utils/filterCSS.js';
 import { triStateToggle } from '$lib/utils/filterToggle.js';
 import { buildAppearanceLookup, createGeneCellBuilder, type GeneCell } from '$lib/utils/geneGridCells.js';
 import { capitalize } from '$lib/utils/string.js';
-import { buildTrioGrid, type TrioGrid, type TrioLocusCell } from '$lib/utils/trioGrid.js';
+import {
+  buildTrioGrid,
+  distBarBackground,
+  isUnknownDist,
+  type TrioGrid,
+  type TrioLocusCell,
+} from '$lib/utils/trioGrid.js';
 
 interface Props {
   father: Pet;
@@ -122,6 +128,12 @@ function offspringTitle(cell: TrioLocusCell) {
   const dist = cell.segments.map((s) => `${ALLELE_LABEL[s.allele]} ${Math.round(s.pct)}%`).join(', ');
   parts.push(dist);
   return parts.join('\n');
+}
+
+/** One-line aggregate label for the bar — carries the distribution the
+ * removed per-segment spans no longer describe. */
+function offspringAria(cell: TrioLocusCell) {
+  return offspringTitle(cell).replace(/\n/g, '; ');
 }
 
 function parentTitle(cell: GeneCell | null, label: string) {
@@ -237,13 +249,12 @@ function parentTitle(cell: GeneCell | null, label: string) {
                                             <div
                                                 class="dist-bar verdict-{cell.verdict}"
                                                 class:locked={cell.lockedIn}
+                                                class:unknown-dist={isUnknownDist(cell.segments)}
                                                 data-attr={cell.attribute ?? ''}
                                                 title={offspringTitle(cell)}
-                                            >
-                                                {#each cell.segments as seg, i (i)}
-                                                    <span class="seg tone-{seg.tone}" style="flex: {seg.pct} 0 0"></span>
-                                                {/each}
-                                            </div>
+                                                aria-label={offspringAria(cell)}
+                                                style="background: {distBarBackground(cell.segments)}"
+                                            ></div>
                                         {/if}
                                     </td>
                                 {/each}
@@ -408,7 +419,6 @@ function parentTitle(cell: GeneCell | null, label: string) {
     /* Offspring row is taller and its cells host the distribution bar. */
     .offspring-cell { height: 26px; }
     .dist-bar {
-        display: flex;
         width: 20px;
         height: 20px;
         margin: 0 auto;
@@ -416,21 +426,15 @@ function parentTitle(cell: GeneCell | null, label: string) {
         overflow: hidden;
         border: 2px solid transparent;
         box-sizing: border-box;
+        /* Clip the gradient to the padding box so it fills the same interior
+           the per-segment spans did (inside the 2px verdict border). */
+        background-clip: padding-box;
     }
     .dist-bar.verdict-gain { border-color: var(--gene-positive); }
     .dist-bar.verdict-risk { border-color: var(--gene-negative); }
     .dist-bar.locked { box-shadow: inset 0 0 0 1px var(--bg-secondary); }
-    .seg { display: block; height: 100%; }
-
-    .tone-positive { background: var(--gene-positive); }
-    .tone-negative { background: var(--gene-negative); }
-    .tone-potential-positive { background: var(--gene-potential-positive); }
-    .tone-potential-negative { background: var(--gene-potential-negative); }
-    .tone-neutral { background: var(--gene-neutral); }
-    .tone-unknown {
-        background: repeating-linear-gradient(45deg, var(--gene-neutral) 0 2px, transparent 2px 4px);
-        opacity: 0.6;
-    }
+    /* All-unknown offspring: same dimming the old striped `.tone-unknown` span had. */
+    .dist-bar.unknown-dist { opacity: 0.6; }
 
     .unknown-symbol { color: var(--text-muted); font-size: 1em; font-weight: 600; }
     .empty-text { color: var(--text-muted); font-size: 13px; text-align: center; padding: 40px; }

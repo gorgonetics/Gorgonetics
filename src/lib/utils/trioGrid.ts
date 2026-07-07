@@ -66,6 +66,46 @@ interface CellBuilderLike {
 
 const ALLELE_ORDER: readonly (keyof AlleleDistribution)[] = ['D', 'x', 'R', 'unknown'];
 
+/** CSS colour variable each tone paints with (same vars the old `.tone-*` rules used). */
+const TONE_VAR: Record<TrioTone, string> = {
+  positive: 'var(--gene-positive)',
+  negative: 'var(--gene-negative)',
+  'potential-positive': 'var(--gene-potential-positive)',
+  'potential-negative': 'var(--gene-potential-negative)',
+  neutral: 'var(--gene-neutral)',
+  unknown: 'var(--gene-neutral)',
+};
+
+/**
+ * True when the bar is an all-unknown offspring. `offspringDistribution`
+ * collapses any unknown parent to `{ unknown: 1 }`, so `unknown` is never
+ * mixed with solid alleles — it is always the sole, full-width segment.
+ */
+export function isUnknownDist(segments: TrioSegment[]): boolean {
+  return segments.length === 1 && segments[0].tone === 'unknown';
+}
+
+/**
+ * CSS `background` for one offspring distribution bar — a single hard-stop
+ * `linear-gradient` across the segments, replacing the per-segment `<span>`s.
+ * Colours use the same `var(--gene-*)` references the old `.tone-*` classes
+ * did, so themes and the grid's grayscale filter still apply. The all-unknown
+ * case keeps the diagonal hatch (dimming is applied via a class on the bar).
+ */
+export function distBarBackground(segments: TrioSegment[]): string {
+  if (isUnknownDist(segments)) {
+    return 'repeating-linear-gradient(45deg, var(--gene-neutral) 0 2px, transparent 2px 4px)';
+  }
+  const stops: string[] = [];
+  let acc = 0;
+  for (const seg of segments) {
+    const start = acc;
+    acc += seg.pct;
+    stops.push(`${TONE_VAR[seg.tone]} ${start}% ${acc}%`);
+  }
+  return `linear-gradient(90deg, ${stops.join(', ')})`;
+}
+
 /** Effect-type strings that map to a defined `tone-*` style. */
 const KNOWN_TONES = new Set<TrioTone>(['positive', 'negative', 'potential-positive', 'potential-negative', 'neutral']);
 
