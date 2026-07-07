@@ -114,7 +114,7 @@ test.describe('Keyboard Navigation', () => {
 
       // Destination buttons, history back, and the settings toggle are
       // disabled while a root overlay covers the workspace (#396).
-      for (const id of ['tab-library', 'tab-breed', 'tab-community', 'tab-reference']) {
+      for (const id of ['tab-mypets', 'tab-breed', 'tab-community', 'tab-reference']) {
         await expect(page.locator(`[data-testid="${id}"]`)).toBeDisabled();
       }
       await expect(page.locator('.top-bar .back-btn')).toBeDisabled();

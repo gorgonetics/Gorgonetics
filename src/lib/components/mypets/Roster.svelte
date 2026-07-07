@@ -4,21 +4,21 @@
  * pet is selected. Absorbs the old Stable tab: a sortable matrix of the
  * filtered pets with Name / Gender / Breed / per-species attributes / Total /
  * +Genes. Receives the already-filtered pets from MyPets (one filterPets pass
- * shared by table and selection); sort + multi-select live in `libraryView`.
+ * shared by table and selection); sort + multi-select live in `myPetsView`.
  * Clicking a name opens that pet; checkboxes build a multi-selection for the
  * lenses.
  * See docs/design/redesign-library-workspace-v1.md (§2.1).
  */
 import PetActions from '$lib/components/shared/PetActions.svelte';
 import { getAllAttributeNames, getAllAttributes } from '$lib/services/configService.js';
-import { libraryView, setLibrarySelection, toggleLibrarySelection } from '$lib/stores/library.svelte.js';
+import { myPetsView, setMyPetsSelection, toggleMyPetsSelection } from '$lib/stores/mypets.svelte.js';
 import type { Pet } from '$lib/types/index.js';
 import { type SortableColumn, sortByColumn } from '$lib/utils/sortColumn.js';
 import { capitalize } from '$lib/utils/string.js';
 
 interface Props {
   /** The already-filtered pets to list. MyPets computes the visible set once
-   *  (filterPets + getLibraryFilters) and shares it with the roster (#405). */
+   *  (filterPets + getMyPetsFilters) and shares it with the roster (#405). */
   pets: Pet[];
   /** Open a pet's detail (clicking its name). Distinct from the row checkbox,
    *  which builds the multi-selection for bulk actions. */
@@ -39,9 +39,9 @@ const num = (pet: Pet, k: string) => (pet as unknown as Record<string, number>)[
 // Per-attribute columns only when a single species is selected (different
 // species expose different attributes); species-agnostic columns are always
 // shown so the roster is useful for an all-species view too.
-const attrNames = $derived(libraryView.species ? getAllAttributeNames(libraryView.species) : []);
+const attrNames = $derived(myPetsView.species ? getAllAttributeNames(myPetsView.species) : []);
 const attrInfo = $derived(
-  libraryView.species ? (getAllAttributes(libraryView.species) as Record<string, { name?: string }>) : {},
+  myPetsView.species ? (getAllAttributes(myPetsView.species) as Record<string, { name?: string }>) : {},
 );
 
 // Precompute one attribute total per visible pet so sorting by Total doesn't
@@ -83,47 +83,47 @@ const columns = $derived.by((): Column[] => {
 });
 
 const sorted = $derived.by(() => {
-  const col = columns.find((c) => c.id === libraryView.sortCol) ?? columns[0];
+  const col = columns.find((c) => c.id === myPetsView.sortCol) ?? columns[0];
   // Reuse the shared, tested comparator (numeric subtract vs localeCompare).
   const sortable: SortableColumn<Pet> = col.numeric
     ? { numeric: true, accessor: (p) => Number(col.accessor(p)) }
     : { numeric: false, accessor: (p) => String(col.accessor(p)) };
-  return sortByColumn(filtered, sortable, libraryView.sortDir);
+  return sortByColumn(filtered, sortable, myPetsView.sortDir);
 });
 
 // If the sorted column disappears (species change drops an attribute), fall
 // back to name so the table doesn't silently sort by a stale, missing column.
 $effect(() => {
   const ids = new Set(columns.map((c) => c.id));
-  if (!ids.has(libraryView.sortCol)) {
-    libraryView.sortCol = 'name';
-    libraryView.sortDir = 'asc';
+  if (!ids.has(myPetsView.sortCol)) {
+    myPetsView.sortCol = 'name';
+    myPetsView.sortDir = 'asc';
   }
 });
 
-const selectedInView = $derived(sorted.reduce((n, p) => n + (libraryView.selectedIds.has(p.id) ? 1 : 0), 0));
+const selectedInView = $derived(sorted.reduce((n, p) => n + (myPetsView.selectedIds.has(p.id) ? 1 : 0), 0));
 const allSelected = $derived(sorted.length > 0 && selectedInView === sorted.length);
 const someSelected = $derived(selectedInView > 0 && !allSelected);
 
 function toggleSort(colId: string): void {
-  if (libraryView.sortCol === colId) {
-    libraryView.sortDir = libraryView.sortDir === 'asc' ? 'desc' : 'asc';
+  if (myPetsView.sortCol === colId) {
+    myPetsView.sortDir = myPetsView.sortDir === 'asc' ? 'desc' : 'asc';
   } else {
-    libraryView.sortCol = colId;
-    libraryView.sortDir = 'asc';
+    myPetsView.sortCol = colId;
+    myPetsView.sortDir = 'asc';
   }
 }
 
 function sortIndicator(colId: string): string {
-  if (colId !== libraryView.sortCol) return '';
-  return libraryView.sortDir === 'asc' ? ' ▲' : ' ▼';
+  if (colId !== myPetsView.sortCol) return '';
+  return myPetsView.sortDir === 'asc' ? ' ▲' : ' ▼';
 }
 
 function toggleSelectAll(): void {
-  const next = new Set(libraryView.selectedIds);
+  const next = new Set(myPetsView.selectedIds);
   if (allSelected) for (const p of sorted) next.delete(p.id);
   else for (const p of sorted) next.add(p.id);
-  setLibrarySelection(next);
+  setMyPetsSelection(next);
 }
 
 // Open a single pet's detail. The row checkbox is separate (multi-select for
@@ -148,7 +148,7 @@ function open(pet: Pet): void {
           />
         </th>
         {#each columns as col (col.id)}
-          <th class:numeric={col.numeric} class:active-sort={libraryView.sortCol === col.id}>
+          <th class:numeric={col.numeric} class:active-sort={myPetsView.sortCol === col.id}>
             <button type="button" class="sort-btn" onclick={() => toggleSort(col.id)}>
               {col.label}{sortIndicator(col.id)}
             </button>
@@ -162,13 +162,13 @@ function open(pet: Pet): void {
         <tr><td class="empty" colspan={columns.length + 2}>No pets match these filters.</td></tr>
       {:else}
         {#each sorted as pet (pet.id)}
-          <tr class:row-selected={libraryView.selectedIds.has(pet.id)} data-pet-id={pet.id}>
+          <tr class:row-selected={myPetsView.selectedIds.has(pet.id)} data-pet-id={pet.id}>
             <td class="sel-col">
               <input
                 type="checkbox"
                 data-testid="roster-row-select"
-                checked={libraryView.selectedIds.has(pet.id)}
-                onchange={() => toggleLibrarySelection(pet.id)}
+                checked={myPetsView.selectedIds.has(pet.id)}
+                onchange={() => toggleMyPetsSelection(pet.id)}
                 aria-label="Select {pet.name ?? 'pet'}"
               />
             </td>

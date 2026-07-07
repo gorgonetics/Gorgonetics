@@ -17,7 +17,7 @@ beforeEach(() => {
   // known starting tab. (tabHistory is module-private by design.)
   let guard = 0;
   while (get(canGoBack) && guard++ < 200) appState.goBack();
-  activeTab.set('library');
+  activeTab.set('mypets');
   selectedPet.set(null);
 });
 
@@ -32,7 +32,7 @@ describe('tab navigation history', () => {
     expect(get(canGoBack)).toBe(true);
 
     appState.goBack();
-    expect(get(activeTab)).toBe('library');
+    expect(get(activeTab)).toBe('mypets');
     expect(get(canGoBack)).toBe(false);
   });
 
@@ -43,29 +43,29 @@ describe('tab navigation history', () => {
     appState.goBack();
     expect(get(activeTab)).toBe('community');
     appState.goBack();
-    expect(get(activeTab)).toBe('library');
+    expect(get(activeTab)).toBe('mypets');
     expect(get(canGoBack)).toBe(false);
   });
 
   it('does not push a duplicate entry when re-selecting the active tab', () => {
-    appState.switchTab('library');
+    appState.switchTab('mypets');
     expect(get(canGoBack)).toBe(false);
   });
 
   it('goBack is a no-op when there is no history', () => {
     appState.goBack();
-    expect(get(activeTab)).toBe('library');
+    expect(get(activeTab)).toBe('mypets');
     expect(get(canGoBack)).toBe(false);
   });
 
   it('runs the per-tab state reset when navigating back', () => {
-    // Reference is reached, then a pet is selected; navigating back to library
-    // runs library's reset (clearSelectionAndGeneView), clearing the selection.
+    // Reference is reached, then a pet is selected; navigating back to My Pets
+    // runs its reset (clearSelectionAndGeneView), clearing the selection.
     appState.switchTab('reference');
     selectedPet.set({ id: 1, name: 'x' } as unknown as Pet);
 
     appState.goBack();
-    expect(get(activeTab)).toBe('library');
+    expect(get(activeTab)).toBe('mypets');
     expect(get(selectedPet)).toBeNull();
   });
 

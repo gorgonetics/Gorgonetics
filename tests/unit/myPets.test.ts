@@ -1,7 +1,7 @@
 import { cleanup, render } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import MyPets from '$lib/components/library/MyPets.svelte';
-import { libraryView } from '$lib/stores/library.svelte.js';
+import MyPets from '$lib/components/mypets/MyPets.svelte';
+import { myPetsView } from '$lib/stores/mypets.svelte.js';
 import { pets } from '$lib/stores/pets.js';
 import type { Pet } from '$lib/types/index.js';
 
@@ -21,15 +21,15 @@ const pet = (over: Partial<Pet>): Pet =>
 const SAMPLE = [pet({ id: 1, name: 'Dusty', gender: 'Male' }), pet({ id: 2, name: 'Roach', gender: 'Female' })];
 
 function resetView() {
-  libraryView.search = '';
-  libraryView.species = '';
-  libraryView.breed = '';
-  libraryView.gender = '';
-  libraryView.starredOnly = false;
-  libraryView.stabledOnly = false;
-  libraryView.petQualityOnly = false;
-  libraryView.tags = [];
-  libraryView.selectedIds = new Set();
+  myPetsView.search = '';
+  myPetsView.species = '';
+  myPetsView.breed = '';
+  myPetsView.gender = '';
+  myPetsView.starredOnly = false;
+  myPetsView.stabledOnly = false;
+  myPetsView.petQualityOnly = false;
+  myPetsView.tags = [];
+  myPetsView.selectedIds = new Set();
 }
 
 beforeEach(() => {
@@ -48,21 +48,21 @@ const compareBtn = (c: HTMLElement) => c.querySelector('[data-testid="mypets-com
 
 describe('MyPets — selection is scoped to the visible (filtered) pets', () => {
   it('counts and compares two selected pets while both are visible', () => {
-    libraryView.species = 'horse';
-    libraryView.selectedIds = new Set([1, 2]);
+    myPetsView.species = 'horse';
+    myPetsView.selectedIds = new Set([1, 2]);
     const { container } = render(MyPets);
     expect(selection(container)?.textContent).toContain('2 selected');
     expect(compareBtn(container).disabled).toBe(false);
   });
 
   it('drops a hidden pet from the count and disables Compare when a filter hides it', async () => {
-    libraryView.species = 'horse';
-    libraryView.selectedIds = new Set([1, 2]);
+    myPetsView.species = 'horse';
+    myPetsView.selectedIds = new Set([1, 2]);
     const { container, rerender } = render(MyPets);
     expect(selection(container)?.textContent).toContain('2 selected');
 
     // A search that hides Roach must not leave it driving the bulk bar / Compare.
-    libraryView.search = 'dusty';
+    myPetsView.search = 'dusty';
     await rerender({});
     expect(selection(container)?.textContent).toContain('1 selected');
     expect(compareBtn(container).disabled).toBe(true);
@@ -73,18 +73,18 @@ describe('MyPets — selection is scoped to the visible (filtered) pets', () => 
     const count = () => container.querySelector('[data-testid="mypets-count"]')?.textContent?.trim();
     expect(count()).toBe('Showing 2 of 2 pets');
 
-    libraryView.search = 'roach';
+    myPetsView.search = 'roach';
     await rerender({});
     expect(count()).toBe('Showing 1 of 2 pets');
   });
 
   it('hides the selection bar entirely when every selected pet is filtered out', async () => {
-    libraryView.species = 'horse';
-    libraryView.selectedIds = new Set([1]);
+    myPetsView.species = 'horse';
+    myPetsView.selectedIds = new Set([1]);
     const { container, rerender } = render(MyPets);
     expect(selection(container)).not.toBeNull();
 
-    libraryView.starredOnly = true; // neither sample pet is starred
+    myPetsView.starredOnly = true; // neither sample pet is starred
     await rerender({});
     expect(selection(container)).toBeNull();
   });

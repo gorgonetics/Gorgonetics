@@ -7,7 +7,7 @@
  *
  * The `species` / `breed` / `gender` / `petQualityOnly` fields are optional so
  * a search-less or species-agnostic surface can omit them; the redesign Library
- * (MyPets, which feeds the Roster) passes them all via `getLibraryFilters()`.
+ * (MyPets, which feeds the Roster) passes them all via `getMyPetsFilters()`.
  * See docs/design/redesign-library-workspace-v1.md.
  */
 

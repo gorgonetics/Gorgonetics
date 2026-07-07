@@ -63,7 +63,7 @@ test.describe('Redesign — Breed destination', () => {
     await page.locator('[data-testid="breeding-pair-table"] .parent-link').first().click();
 
     // Jumps to My Pets with that pet's detail open.
-    await expect(page.locator('[data-testid="tab-library"]')).toHaveClass(/active/);
+    await expect(page.locator('[data-testid="tab-mypets"]')).toHaveClass(/active/);
     await expect(page.locator('[data-testid="pet-detail"]')).toBeVisible();
     await expect(page.locator('.pet-visualization')).toBeVisible();
 

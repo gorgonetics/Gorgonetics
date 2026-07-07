@@ -7,7 +7,7 @@
 import type { Gender } from '$lib/types/index.js';
 import type { PetListFilters } from '$lib/utils/petFilter.js';
 
-export const libraryView = $state({
+export const myPetsView = $state({
   search: '',
   /** Normalized species; '' = all. */
   species: '' as string,
@@ -35,36 +35,36 @@ export const libraryView = $state({
  * so table rows and the bulk-action selection can never disagree (#405).
  * Call inside a reactive context ($derived) so the field reads are tracked.
  */
-export function getLibraryFilters(): PetListFilters {
+export function getMyPetsFilters(): PetListFilters {
   return {
-    query: libraryView.search,
-    tags: libraryView.tags,
-    starredOnly: libraryView.starredOnly,
-    stabledOnly: libraryView.stabledOnly,
-    petQualityOnly: libraryView.petQualityOnly,
-    species: libraryView.species,
-    breed: libraryView.breed,
-    gender: libraryView.gender,
+    query: myPetsView.search,
+    tags: myPetsView.tags,
+    starredOnly: myPetsView.starredOnly,
+    stabledOnly: myPetsView.stabledOnly,
+    petQualityOnly: myPetsView.petQualityOnly,
+    species: myPetsView.species,
+    breed: myPetsView.breed,
+    gender: myPetsView.gender,
   };
 }
 
 /** Replace the selection set (reassign so $state tracks the change). */
-export function setLibrarySelection(ids: Set<number>): void {
-  libraryView.selectedIds = ids;
+export function setMyPetsSelection(ids: Set<number>): void {
+  myPetsView.selectedIds = ids;
 }
 
-export function toggleLibrarySelection(id: number): void {
-  const next = new Set(libraryView.selectedIds);
+export function toggleMyPetsSelection(id: number): void {
+  const next = new Set(myPetsView.selectedIds);
   if (next.has(id)) next.delete(id);
   else next.add(id);
-  libraryView.selectedIds = next;
+  myPetsView.selectedIds = next;
 }
 
-export function clearLibrarySelection(): void {
-  libraryView.selectedIds = new Set();
+export function clearMyPetsSelection(): void {
+  myPetsView.selectedIds = new Set();
 }
 
 /** Ask My Pets to open a pet's detail (used from other destinations). */
 export function requestOpenPet(id: number): void {
-  libraryView.openPetId = id;
+  myPetsView.openPetId = id;
 }

@@ -28,7 +28,7 @@ import type { Pet } from '$lib/types/index.js';
 beforeEach(() => {
   let guard = 0;
   while (get(canGoBack) && guard++ < 200) appState.goBack();
-  activeTab.set('library');
+  activeTab.set('mypets');
   settingsOpen.set(false);
   editingPet.set(null);
 });
@@ -40,7 +40,7 @@ const tabButton = (c: HTMLElement, id: string) => c.querySelector(`[data-testid=
 describe('TopBar nav gating while a root overlay is open', () => {
   it('destination buttons are enabled with no overlay open', () => {
     const { container } = render(TopBar);
-    for (const id of ['library', 'breed', 'community', 'reference']) {
+    for (const id of ['mypets', 'breed', 'community', 'reference']) {
       expect(tabButton(container, id).disabled).toBe(false);
     }
   });
@@ -48,7 +48,7 @@ describe('TopBar nav gating while a root overlay is open', () => {
   it('disables destination buttons and the settings toggle while Settings is open', () => {
     settingsOpen.set(true);
     const { container } = render(TopBar);
-    for (const id of ['library', 'breed', 'community', 'reference']) {
+    for (const id of ['mypets', 'breed', 'community', 'reference']) {
       expect(tabButton(container, id).disabled).toBe(true);
     }
     expect((container.querySelector('.settings-toggle') as HTMLButtonElement).disabled).toBe(true);
@@ -57,7 +57,7 @@ describe('TopBar nav gating while a root overlay is open', () => {
   it('disables destination buttons while the pet editor is open', () => {
     editingPet.set({ id: 1, name: 'Dobbin' } as Pet);
     const { container } = render(TopBar);
-    for (const id of ['library', 'breed', 'community', 'reference']) {
+    for (const id of ['mypets', 'breed', 'community', 'reference']) {
       expect(tabButton(container, id).disabled).toBe(true);
     }
   });
@@ -77,7 +77,7 @@ describe('TopBar nav gating while a root overlay is open', () => {
     const { container } = render(TopBar);
 
     await fireEvent.click(tabButton(container, 'community'));
-    expect(get(activeTab)).toBe('library');
+    expect(get(activeTab)).toBe('mypets');
   });
 
   it('disables the history back button while an overlay is open', () => {
@@ -100,7 +100,7 @@ describe('TopBar nav gating while a root overlay is open', () => {
 
     settingsOpen.set(false);
     await fireEvent.keyDown(window, { key: 'ArrowLeft', altKey: true });
-    expect(get(activeTab)).toBe('library');
+    expect(get(activeTab)).toBe('mypets');
   });
 
   it('gates the mouse back-button navigation but still suppresses the browser gesture', async () => {
