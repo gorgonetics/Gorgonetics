@@ -1,5 +1,6 @@
 <script lang="ts">
 import { onDestroy, onMount, untrack } from 'svelte';
+import '$lib/components/gene/geneCell.css';
 import BreedSelector from '$lib/components/shared/BreedSelector.svelte';
 import GeneFilterPills, { type FilterPillItem } from '$lib/components/shared/GeneFilterPills.svelte';
 import StatusPane from '$lib/components/shared/StatusPane.svelte';

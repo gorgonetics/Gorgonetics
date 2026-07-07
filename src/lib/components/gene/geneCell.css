@@ -1,0 +1,487 @@
+/*
+ * Shared gene-cell visuals for every genome grid.
+ *
+ * These rules used to live as `:global(...)` blocks inside GeneCell.svelte,
+ * loaded only because GeneVisualizer imported that component. GeneVisualizer no
+ * longer mounts per-cell components (it renders plain divs built once — see
+ * issue #403), so the shared styles moved here and are imported for their
+ * side-effect by every grid that renders `.gene-cell` divs: GeneVisualizer,
+ * GenomeGridDiff, GenomeGridTrio.
+ *
+ * Colors come from the `--gene-*` CSS vars (src/lib/theme/gene-colors.ts).
+ *
+ * NOTE: dimming (the old `.gene-filtered-out`) is now emitted by the injected
+ * filter stylesheet (utils/filterCSS.ts `buildVisualizerFilterCSS`), so it is
+ * intentionally absent here.
+ */
+
+/* Size derives from --cell-size (set by the responsive grid container) so the
+   genome grid scales to fill its panel. Falls back to 16px wherever --cell-size
+   is unset (legend, comparison views, appearance summary). */
+.gene-cell {
+  width: calc(var(--cell-size, 16px) - 2px);
+  height: calc(var(--cell-size, 16px) - 2px);
+  margin: 0px;
+  border-radius: 3px;
+  border: 2px solid;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gene-cell:hover {
+  transform: scale(1.2);
+  z-index: 20;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Gene effect colors */
+.gene-positive.gene-dominant {
+  background-color: var(--gene-positive);
+  border-color: var(--gene-positive);
+}
+
+.gene-negative.gene-dominant {
+  background-color: var(--gene-negative);
+  border-color: var(--gene-negative);
+}
+
+.gene-neutral.gene-dominant {
+  background-color: var(--gene-neutral);
+  border-color: var(--gene-neutral);
+}
+
+.gene-positive.gene-recessive {
+  background-color: color-mix(in srgb, var(--gene-positive) 15%, transparent);
+  border-color: var(--gene-positive);
+  border-width: 4px;
+}
+
+.gene-negative.gene-recessive {
+  background-color: color-mix(in srgb, var(--gene-negative) 15%, transparent);
+  border-color: var(--gene-negative);
+  border-width: 4px;
+}
+
+.gene-neutral.gene-recessive {
+  background-color: color-mix(in srgb, var(--gene-neutral) 15%, transparent);
+  border-color: var(--gene-neutral);
+  border-width: 4px;
+}
+
+.gene-positive.gene-mixed {
+  background: linear-gradient(135deg, transparent 50%, var(--gene-positive) 50%);
+  border-color: var(--gene-positive);
+}
+
+.gene-negative.gene-mixed {
+  background: linear-gradient(135deg, transparent 50%, var(--gene-negative) 50%);
+  border-color: var(--gene-negative);
+}
+
+.gene-neutral.gene-mixed {
+  background: linear-gradient(135deg, transparent 50%, var(--gene-neutral) 50%);
+  border-color: var(--gene-neutral);
+}
+
+.gene-neutral.gene-unknown {
+  background: var(--bg-tertiary);
+  border: 2.5px dashed color-mix(in srgb, var(--gene-neutral) 50%, transparent);
+  color: var(--text-muted);
+  opacity: 0.7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gene-unknown-symbol {
+  color: var(--text-muted);
+  font-size: 1em;
+  font-weight: 600;
+  opacity: 1;
+  text-align: center;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Potential effect colors */
+.gene-potential-positive.gene-dominant {
+  background-color: var(--gene-potential-positive);
+  border-color: var(--gene-potential-positive);
+}
+
+.gene-potential-positive.gene-recessive {
+  background-color: color-mix(in srgb, var(--gene-potential-positive) 15%, transparent);
+  border-color: var(--gene-potential-positive);
+  border-width: 4px;
+}
+
+.gene-potential-positive.gene-mixed {
+  background: linear-gradient(135deg, transparent 50%, var(--gene-potential-positive) 50%);
+  border-color: var(--gene-potential-positive);
+}
+
+.gene-potential-negative.gene-dominant {
+  background-color: var(--gene-potential-negative);
+  border-color: var(--gene-potential-negative);
+}
+
+.gene-potential-negative.gene-recessive {
+  background-color: color-mix(in srgb, var(--gene-potential-negative) 15%, transparent);
+  border-color: var(--gene-potential-negative);
+  border-width: 4px;
+}
+
+.gene-potential-negative.gene-mixed {
+  background: linear-gradient(135deg, transparent 50%, var(--gene-potential-negative) 50%);
+  border-color: var(--gene-potential-negative);
+}
+
+/* Inactive breed — gene belongs to a different breed, muted but distinct from neutral */
+.gene-inactive-breed {
+  background-color: #e8e8ec !important;
+  border-color: #d0d0d6 !important;
+  opacity: 0.5;
+}
+
+.gene-inactive-breed.gene-recessive {
+  background-color: rgba(208, 208, 214, 0.15) !important;
+  border-color: #d0d0d6 !important;
+}
+
+.gene-inactive-breed.gene-mixed {
+  background: linear-gradient(135deg, transparent 50%, #d0d0d6 50%) !important;
+  border-color: #d0d0d6 !important;
+}
+
+/* Appearance-based gene colors */
+.gene-body-color-hue {
+  --gene-color: var(--gene-body-hue);
+}
+
+.gene-body-color-saturation {
+  --gene-color: var(--gene-body-saturation);
+}
+
+.gene-body-color-intensity {
+  --gene-color: var(--gene-body-intensity);
+}
+
+.gene-wing-color-hue {
+  --gene-color: var(--gene-wing-hue);
+}
+
+.gene-wing-color-saturation {
+  --gene-color: var(--gene-wing-saturation);
+}
+
+.gene-wing-color-intensity {
+  --gene-color: var(--gene-wing-intensity);
+}
+
+.gene-body-scale {
+  --gene-color: var(--gene-body-scale);
+}
+
+.gene-wing-scale {
+  --gene-color: var(--gene-wing-scale);
+}
+
+.gene-head-scale {
+  --gene-color: var(--gene-head-scale);
+}
+
+.gene-tail-scale {
+  --gene-color: var(--gene-tail-scale);
+}
+
+.gene-antenna-scale {
+  --gene-color: var(--gene-antenna-scale);
+}
+
+.gene-leg-deformity {
+  --gene-color: var(--gene-leg-deformity);
+}
+
+.gene-antenna-deformity {
+  --gene-color: var(--gene-antenna-deformity);
+}
+
+.gene-particles {
+  --gene-color: var(--gene-particles);
+}
+
+.gene-particle-location {
+  --gene-color: var(--gene-particle-location);
+}
+
+.gene-glow {
+  --gene-color: var(--gene-glow);
+}
+
+/* Horse appearance gene colors - grouped attributes */
+.gene-scale {
+  --gene-color: var(--gene-scale);
+}
+
+.gene-attributes {
+  --gene-color: var(--gene-attributes);
+}
+
+.gene-selector {
+  --gene-color: var(--gene-selector);
+}
+
+.gene-horn {
+  --gene-color: var(--gene-horn);
+}
+
+.gene-aura {
+  --gene-color: var(--gene-aura);
+}
+
+.gene-coat {
+  --gene-color: var(--gene-coat);
+}
+
+.gene-face-markings {
+  --gene-color: var(--gene-face-markings);
+}
+
+.gene-hair {
+  --gene-color: var(--gene-hair);
+}
+
+.gene-leg-markings {
+  --gene-color: var(--gene-leg-markings);
+}
+
+.gene-magical {
+  --gene-color: var(--gene-magical);
+}
+
+.gene-markings {
+  --gene-color: var(--gene-markings);
+}
+
+.gene-appearance-neutral {
+  --gene-color: var(--gene-appearance-neutral);
+}
+
+/* Universal patterns for appearance genes */
+.gene-body-color-hue.gene-dominant,
+.gene-body-color-saturation.gene-dominant,
+.gene-body-color-intensity.gene-dominant,
+.gene-wing-color-hue.gene-dominant,
+.gene-wing-color-saturation.gene-dominant,
+.gene-wing-color-intensity.gene-dominant,
+.gene-body-scale.gene-dominant,
+.gene-wing-scale.gene-dominant,
+.gene-head-scale.gene-dominant,
+.gene-tail-scale.gene-dominant,
+.gene-antenna-scale.gene-dominant,
+.gene-leg-deformity.gene-dominant,
+.gene-antenna-deformity.gene-dominant,
+.gene-particles.gene-dominant,
+.gene-particle-location.gene-dominant,
+.gene-glow.gene-dominant,
+.gene-scale.gene-dominant,
+.gene-attributes.gene-dominant,
+.gene-selector.gene-dominant,
+.gene-horn.gene-dominant,
+.gene-aura.gene-dominant,
+.gene-coat.gene-dominant,
+.gene-face-markings.gene-dominant,
+.gene-hair.gene-dominant,
+.gene-leg-markings.gene-dominant,
+.gene-magical.gene-dominant,
+.gene-markings.gene-dominant,
+.gene-appearance-neutral.gene-dominant {
+  background-color: var(--gene-color);
+  border-color: var(--gene-color);
+}
+
+.gene-body-color-hue.gene-recessive,
+.gene-body-color-saturation.gene-recessive,
+.gene-body-color-intensity.gene-recessive,
+.gene-wing-color-hue.gene-recessive,
+.gene-wing-color-saturation.gene-recessive,
+.gene-wing-color-intensity.gene-recessive,
+.gene-body-scale.gene-recessive,
+.gene-wing-scale.gene-recessive,
+.gene-head-scale.gene-recessive,
+.gene-tail-scale.gene-recessive,
+.gene-antenna-scale.gene-recessive,
+.gene-leg-deformity.gene-recessive,
+.gene-antenna-deformity.gene-recessive,
+.gene-particles.gene-recessive,
+.gene-particle-location.gene-recessive,
+.gene-glow.gene-recessive,
+.gene-scale.gene-recessive,
+.gene-attributes.gene-recessive,
+.gene-selector.gene-recessive,
+.gene-horn.gene-recessive,
+.gene-aura.gene-recessive,
+.gene-coat.gene-recessive,
+.gene-face-markings.gene-recessive,
+.gene-hair.gene-recessive,
+.gene-leg-markings.gene-recessive,
+.gene-magical.gene-recessive,
+.gene-markings.gene-recessive,
+.gene-appearance-neutral.gene-recessive {
+  border-color: var(--gene-color);
+  border-width: 4px;
+}
+
+.gene-body-color-hue.gene-mixed,
+.gene-body-color-saturation.gene-mixed,
+.gene-body-color-intensity.gene-mixed,
+.gene-wing-color-hue.gene-mixed,
+.gene-wing-color-saturation.gene-mixed,
+.gene-wing-color-intensity.gene-mixed,
+.gene-body-scale.gene-mixed,
+.gene-wing-scale.gene-mixed,
+.gene-head-scale.gene-mixed,
+.gene-tail-scale.gene-mixed,
+.gene-antenna-scale.gene-mixed,
+.gene-leg-deformity.gene-mixed,
+.gene-antenna-deformity.gene-mixed,
+.gene-particles.gene-mixed,
+.gene-particle-location.gene-mixed,
+.gene-glow.gene-mixed,
+.gene-scale.gene-mixed,
+.gene-attributes.gene-mixed,
+.gene-selector.gene-mixed,
+.gene-horn.gene-mixed,
+.gene-aura.gene-mixed,
+.gene-coat.gene-mixed,
+.gene-face-markings.gene-mixed,
+.gene-hair.gene-mixed,
+.gene-leg-markings.gene-mixed,
+.gene-magical.gene-mixed,
+.gene-markings.gene-mixed,
+.gene-appearance-neutral.gene-mixed {
+  background: linear-gradient(135deg, transparent 50%, var(--gene-color) 50%);
+  border-color: var(--gene-color);
+}
+
+/* Individual rgba backgrounds for recessive genes */
+.gene-body-color-hue.gene-recessive {
+  background-color: rgba(255, 152, 0, 0.15);
+}
+
+.gene-body-color-saturation.gene-recessive {
+  background-color: rgba(255, 111, 0, 0.15);
+}
+
+.gene-body-color-intensity.gene-recessive {
+  background-color: rgba(255, 204, 2, 0.15);
+}
+
+.gene-wing-color-hue.gene-recessive {
+  background-color: rgba(33, 150, 243, 0.15);
+}
+
+.gene-wing-color-saturation.gene-recessive {
+  background-color: rgba(25, 118, 210, 0.15);
+}
+
+.gene-wing-color-intensity.gene-recessive {
+  background-color: rgba(13, 71, 161, 0.15);
+}
+
+.gene-body-scale.gene-recessive {
+  background-color: rgba(156, 39, 176, 0.15);
+}
+
+.gene-wing-scale.gene-recessive {
+  background-color: rgba(123, 31, 162, 0.15);
+}
+
+.gene-head-scale.gene-recessive {
+  background-color: rgba(142, 36, 170, 0.15);
+}
+
+.gene-tail-scale.gene-recessive {
+  background-color: rgba(171, 71, 188, 0.15);
+}
+
+.gene-antenna-scale.gene-recessive {
+  background-color: rgba(186, 104, 200, 0.15);
+}
+
+.gene-leg-deformity.gene-recessive {
+  background-color: rgba(233, 30, 99, 0.15);
+}
+
+.gene-antenna-deformity.gene-recessive {
+  background-color: rgba(194, 24, 91, 0.15);
+}
+
+.gene-particles.gene-recessive {
+  background-color: rgba(0, 188, 212, 0.15);
+}
+
+.gene-particle-location.gene-recessive {
+  background-color: rgba(0, 151, 167, 0.15);
+}
+
+.gene-glow.gene-recessive {
+  background-color: rgba(139, 195, 74, 0.15);
+}
+
+.gene-appearance-neutral.gene-recessive {
+  background-color: rgba(149, 165, 166, 0.15);
+}
+
+/* Individual rgba backgrounds for horse grouped appearance genes - using config colors */
+.gene-scale.gene-recessive {
+  background-color: rgba(41, 128, 185, 0.15); /* #2980b9 */
+}
+
+.gene-attributes.gene-recessive {
+  background-color: rgba(231, 76, 60, 0.15); /* #e74c3c */
+}
+
+.gene-selector.gene-recessive {
+  background-color: rgba(142, 68, 173, 0.15); /* #8e44ad */
+}
+
+.gene-horn.gene-recessive {
+  background-color: rgba(26, 188, 156, 0.15); /* #1abc9c */
+}
+
+.gene-aura.gene-recessive {
+  background-color: rgba(52, 152, 219, 0.15); /* #3498db */
+}
+
+.gene-coat.gene-recessive {
+  background-color: rgba(46, 204, 113, 0.15); /* #2ecc71 */
+}
+
+.gene-face-markings.gene-recessive {
+  background-color: rgba(243, 156, 18, 0.15); /* #f39c12 */
+}
+
+.gene-hair.gene-recessive {
+  background-color: rgba(155, 89, 182, 0.15); /* #9b59b6 */
+}
+
+.gene-leg-markings.gene-recessive {
+  background-color: rgba(52, 73, 94, 0.15); /* #34495e */
+}
+
+.gene-magical.gene-recessive {
+  background-color: rgba(230, 126, 34, 0.15); /* #e67e22 */
+}
+
+.gene-markings.gene-recessive {
+  background-color: rgba(22, 160, 133, 0.15); /* #16a085 */
+}

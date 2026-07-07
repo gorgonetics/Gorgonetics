@@ -58,10 +58,12 @@ test.describe('Redesign — My Pets (table-first)', () => {
   });
 
   test('dimming a gene (chromosome select) preserves its fill, only fading it', async ({ page }) => {
-    // Regression: `.gene-filtered-out` used to force a solid background + grey
-    // border, so a dimmed recessive (hollow) or mixed (half-gradient) gene
-    // redrew as a solid square (visible flicker + wrong shape). Dimming must
-    // only fade/desaturate and keep the original fill, like the trio grid.
+    // Dimming is now driven by an injected stylesheet (buildVisualizerFilterCSS),
+    // not a per-cell `.gene-filtered-out` class — a chromosome selection dims
+    // cells on every OTHER chromosome row to opacity 0.25. The dim must only
+    // fade/desaturate and keep the original fill, so a dimmed recessive (hollow)
+    // or mixed (half-gradient) gene keeps its shape (regression: it used to
+    // redraw as a solid square). 0.25 is the pinned dim value.
     await openMyPets(page);
     await page.locator('button[data-testid="roster-open"]:has-text("Sample Horse")').click();
     await expect(page.locator('.pet-visualization')).toBeVisible();
@@ -69,7 +71,9 @@ test.describe('Redesign — My Pets (table-first)', () => {
     // Select a single chromosome — every gene on other chromosomes dims.
     await page.locator('.pet-visualization .chromosome-label[data-chromosome="01"]').click();
 
-    const dimmedRecessive = page.locator('.pet-visualization .gene-cell.gene-filtered-out.gene-recessive').first();
+    const dimmedRecessive = page
+      .locator('.pet-visualization tr[data-chromosome]:not([data-chromosome="01"]) .gene-cell.gene-recessive')
+      .first();
     await expect(dimmedRecessive).toBeAttached();
     // Poll until the fade settles at the CSS value (0.25). Polling both rides
     // out the 0.2s transition and pins the exact target, so a regression to a
@@ -86,7 +90,9 @@ test.describe('Redesign — My Pets (table-first)', () => {
     expect(recessive.borderWidth).toBe('4px');
     expect(recessive.bg).not.toBe('rgb(249, 250, 251)');
 
-    const dimmedMixed = page.locator('.pet-visualization .gene-cell.gene-filtered-out.gene-mixed').first();
+    const dimmedMixed = page
+      .locator('.pet-visualization tr[data-chromosome]:not([data-chromosome="01"]) .gene-cell.gene-mixed')
+      .first();
     if (await dimmedMixed.count()) {
       const bgImage = await dimmedMixed.evaluate((el) => getComputedStyle(el).backgroundImage);
       // Mixed keeps its half-fill gradient rather than a flat fill.
