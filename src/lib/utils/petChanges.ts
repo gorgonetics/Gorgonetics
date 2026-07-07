@@ -41,7 +41,9 @@ export function computePetChanges(pet: Pet, draft: PetEditDraft): Record<string,
 
   if (draft.name.trim() !== pet.name) updateData.name = draft.name.trim();
   if (draft.gender !== pet.gender) updateData.gender = draft.gender;
-  if (draft.breed.trim() !== (pet.breed || 'Mixed')) updateData.breed = draft.breed.trim();
+  // Unset breed is stored as '' (DB default); the editor's "Not set" option
+  // maps to '' too, so an unset breed round-trips without a spurious write.
+  if (draft.breed.trim() !== (pet.breed ?? '')) updateData.breed = draft.breed.trim();
 
   const attributeChanges: Record<string, number> = {};
   for (const [key, value] of Object.entries(draft.attributes)) {

@@ -171,7 +171,7 @@ test('debug: capture pet visualization layout', async ({ page }) => {
   console.log(JSON.stringify(dims, null, 2));
 
   // Now click Stats button
-  const statsBtn = page.locator('.view-btn').filter({ hasText: 'Stats' });
+  const statsBtn = page.getByTestId('detail-stats-toggle');
   if (await statsBtn.isVisible()) {
     await statsBtn.click();
     await page.waitForTimeout(500);

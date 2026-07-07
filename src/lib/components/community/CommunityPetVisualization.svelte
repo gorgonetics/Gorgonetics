@@ -14,6 +14,7 @@
  */
 import GeneStatsTable from '$lib/components/gene/GeneStatsTable.svelte';
 import GeneVisualizer from '$lib/components/gene/GeneVisualizer.svelte';
+import BreedSelector from '$lib/components/shared/BreedSelector.svelte';
 import StatusBanner from '$lib/components/shared/StatusBanner.svelte';
 import { getSharedPet, type ImportResult } from '$lib/services/shareService.js';
 import { communityView, importSelected } from '$lib/stores/community.svelte.js';
@@ -124,8 +125,8 @@ function handleAttributeFilter(event: CustomEvent<{ attribute: string; ctrlKey: 
   }
 }
 
-function setBreedFilter(fullName: string): void {
-  breedFilter = breedFilter === fullName ? '' : fullName;
+function handleBreedChange(fullName: string): void {
+  breedFilter = fullName;
   geneVisualizerRef?.setBreedFilter(breedFilter);
 }
 </script>
@@ -158,21 +159,23 @@ function setBreedFilter(fullName: string): void {
     </div>
     <div class="header-controls">
       {#if isHorse}
-        <div class="breed-filter">
-          <span class="breed-label">Breed:</span>
-          <button class="breed-btn" class:active={breedFilter === ''} onclick={() => setBreedFilter('')}>All</button>
-          {#each Object.entries(HORSE_BREEDS) as [name, abbrev] (name)}
-            <button class="breed-btn" class:active={breedFilter === name} onclick={() => setBreedFilter(name)} title={name}>{abbrev}</button>
-          {/each}
-        </div>
+        <BreedSelector value={breedFilter} breeds={HORSE_BREEDS} onChange={handleBreedChange} />
       {/if}
-      <div class="view-controls">
+      <div class="view-controls" role="group" aria-label="Grid view">
         <button class="view-btn" class:active={currentView === 'attribute'} onclick={() => handleViewChange('attribute')}>Attributes</button>
         <button class="view-btn" class:active={currentView === 'appearance'} onclick={() => handleViewChange('appearance')}>Appearance</button>
-        <button class="view-btn stats-btn" class:active={statsOpen} onclick={toggleStats}>Stats</button>
-        <span class="vc-divider" aria-hidden="true"></span>
+      </div>
+      <button
+        class="toggle-btn"
+        class:active={statsOpen}
+        aria-pressed={statsOpen}
+        data-testid="detail-stats-toggle"
+        title="Toggle the stats side panel"
+        onclick={toggleStats}
+      >Stats</button>
+      <div class="header-actions">
         <button
-          class="view-btn import-btn"
+          class="import-btn"
           class:imported={isImported}
           data-testid="community-import"
           onclick={handleImport}
@@ -292,46 +295,14 @@ function setBreedFilter(fullName: string): void {
     font-size: 10px;
   }
 
+  /* Control kinds, each its own cluster: exclusive views (segmented), the
+     Stats panel toggle (bordered, pressed state), and the Import action.
+     Wraps so everything stays reachable at narrow widths. */
   .header-controls {
     display: flex;
     align-items: center;
-    gap: 12px;
-  }
-
-  .breed-filter {
-    display: flex;
-    align-items: center;
-    gap: 3px;
-  }
-
-  .breed-label {
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--text-tertiary);
-    margin-right: 4px;
-  }
-
-  .breed-btn {
-    padding: 3px 8px;
-    border: 1px solid var(--border-primary);
-    border-radius: 4px;
-    background: var(--bg-primary);
-    color: var(--text-tertiary);
-    font-size: 11px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.15s;
-  }
-
-  .breed-btn:hover {
-    border-color: var(--border-secondary);
-    color: var(--text-secondary);
-  }
-
-  .breed-btn.active {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: var(--bg-primary);
+    flex-wrap: wrap;
+    gap: 6px 12px;
   }
 
   .view-controls {
@@ -343,11 +314,32 @@ function setBreedFilter(fullName: string): void {
     padding: 3px;
   }
 
-  .vc-divider {
-    width: 1px;
-    align-self: stretch;
-    margin: 2px 4px;
-    background: var(--border-secondary);
+  .toggle-btn {
+    padding: 4px 12px;
+    border: 1px solid var(--border-primary);
+    border-radius: 6px;
+    background: var(--bg-primary);
+    color: var(--text-tertiary);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .toggle-btn:hover {
+    border-color: var(--border-secondary);
+    color: var(--text-secondary);
+  }
+
+  .toggle-btn.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--bg-primary);
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
   }
 
   .view-btn {
@@ -373,8 +365,15 @@ function setBreedFilter(fullName: string): void {
   }
 
   .import-btn {
+    padding: 5px 14px;
+    border: none;
+    border-radius: 6px;
     background: var(--accent);
     color: var(--text-inverse);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
   }
 
   .import-btn:hover:not(:disabled) {

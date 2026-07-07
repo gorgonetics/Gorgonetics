@@ -16,9 +16,10 @@
 
 import { isPlaceholderConfig } from '$lib/firebase.js';
 import { type ImportResult, importCommunityPet, listPets } from '$lib/services/shareService.js';
-import { appState } from '$lib/stores/pets.js';
+import { activeTab, appState } from '$lib/stores/pets.js';
 import type { SharedPet } from '$lib/types/index.js';
 import { errorMessage } from '$lib/utils/error.js';
+import { mergeCorrectionIdentity } from '$lib/utils/sharedPet.js';
 
 const PAGE_SIZE = 50;
 
@@ -30,14 +31,28 @@ const PAGE_SIZE = 50;
  * latest and preserves the newest-first display order. Deduping the whole
  * accumulated list (not just each page) also catches the case where a base
  * entry and its correction straddle a page boundary.
+ *
+ * Identity binding (issue #393): only attributes/tags/notes are
+ * correction-eligible — the identity fields (name/character/species/
+ * gender/breed/breeder) belong to the first-share entry. firestore.rules
+ * enforces that for new writes; this merge covers already-poisoned
+ * pre-rule corrections. When the kept row is a correction and its base
+ * (first-share) entry is encountered later in the accumulated list, the
+ * base's identity fields overwrite the correction's. A correction whose
+ * base hasn't been paged in yet is shown as-is (best effort — the detail
+ * view's `getSharedPet` always fetches the base doc and re-merges).
  */
 function dedupeLatest(pets: SharedPet[]): SharedPet[] {
-  const seen = new Set<string>();
+  const indexByHash = new Map<string, number>();
   const out: SharedPet[] = [];
   for (const pet of pets) {
-    if (seen.has(pet.contentHash)) continue;
-    seen.add(pet.contentHash);
-    out.push(pet);
+    const keptIndex = indexByHash.get(pet.contentHash);
+    if (keptIndex === undefined) {
+      indexByHash.set(pet.contentHash, out.length);
+      out.push(pet);
+    } else if (!pet.isCorrection && out[keptIndex].isCorrection) {
+      out[keptIndex] = mergeCorrectionIdentity(out[keptIndex], pet);
+    }
   }
   return out;
 }
@@ -119,14 +134,22 @@ export function selectedSharedPet(): SharedPet | null {
   return communityView.pets.find((p) => p.contentHash === communityView.selectedHash) ?? null;
 }
 
+// Close the open preview whenever the user leaves the Community destination.
+// The page cache above deliberately survives tab switches (read quota), but
+// the *preview* must not: My Pets holds its detail in component-local state
+// that dies on unmount, so a destination switch always lands back on the
+// table — mirror that instead of restoring a stale detail on return (#396).
+activeTab.subscribe((tab) => {
+  if (tab !== 'community') communityView.selectedHash = null;
+});
+
 /**
  * Load the first page. By default short-circuits when the cached page is
  * fresh (see `STALE_AFTER_MS`) — pass `{ force: true }` to bypass the
  * cache (used by the "Try again" button in the error state).
  *
- * Selection is intentionally preserved across reloads — if the user
- * navigates away from the tab and returns, the pet they were
- * inspecting stays selected (provided it's still in the loaded page).
+ * Selection is preserved across reloads *within* the tab, but cleared on
+ * destination switch (see the `activeTab` subscription above).
  */
 export async function loadInitial(opts: { force?: boolean } = {}): Promise<void> {
   if (isPlaceholderConfig) {

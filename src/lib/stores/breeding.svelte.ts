@@ -6,7 +6,6 @@
  * user navigates away, but this state persists for the session.
  */
 
-import { getSupportedSpecies } from '$lib/services/configService.js';
 import type { Pet } from '$lib/types/index.js';
 
 /** The (father, mother) pair currently open in the trio detail view. */
@@ -26,8 +25,14 @@ export interface SelectedBreedingPair {
 export type BreedingSortColumn = 'evMixed' | 'evPositiveTotal' | 'evUnknown' | (string & {});
 
 export const breedingView = $state({
-  /** Canonical species the player is breeding within (defaults to first supported). */
-  species: getSupportedSpecies()[0],
+  /**
+   * Normalized species key the player is breeding within. '' means "not
+   * chosen yet" — BreedView then derives a default (the most-populated
+   * stabled species) instead of the alphabetical first. Set on an explicit
+   * species click so the choice survives destination switches (e.g. a
+   * parent-name excursion to My Pets and back).
+   */
+  species: '' as string,
   /** Player-selected offspring breed (horse-only; '' = no filter / mixed). */
   offspringBreed: '' as string,
   /** Active sort column for the pair table. */
@@ -36,4 +41,12 @@ export const breedingView = $state({
   sortDir: 'desc' as 'asc' | 'desc',
   /** Pair open in the trio detail view; null when the view is closed. */
   selectedPair: null as SelectedBreedingPair | null,
+  /**
+   * Pair-table scroll offsets, saved by BreedingPairTable so the ranking
+   * position survives destination switches (the component unmounts).
+   * Reset on a species change — an offset from one species' table is
+   * meaningless in another's.
+   */
+  scrollTop: 0,
+  scrollLeft: 0,
 });

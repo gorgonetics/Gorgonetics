@@ -120,8 +120,8 @@ $effect(() => {
   }
 });
 
-// Visible pets = the same filtered set the Roster shows (one source of truth via
-// getLibraryFilters). The selection is scoped to these so a pet hidden by a
+// Visible pets = the filtered set, computed once and passed to the Roster as a
+// prop (#405). The selection is scoped to these so a pet hidden by a
 // search/breed/gender/flag filter can't drive Compare or Share while off-screen.
 const visiblePets = $derived(filterPets($pets, getLibraryFilters()));
 const selectedPets = $derived(visiblePets.filter((p) => libraryView.selectedIds.has(p.id)));
@@ -225,7 +225,7 @@ const canShareAll = $derived(!isPlaceholderConfig && $pets.length > 0);
           />
         </div>
       {:else}
-        <Roster onOpen={openDetail} />
+        <Roster pets={visiblePets} onOpen={openDetail} />
       {/if}
     </div>
 
@@ -267,6 +267,11 @@ const canShareAll = $derived(!isPlaceholderConfig && $pets.length > 0);
           {/if}
         </button>
       </div>
+      {#if $pets.length > 0}
+        <span class="mp-count" data-testid="mypets-count">
+          Showing {visiblePets.length} of {$pets.length} {$pets.length === 1 ? 'pet' : 'pets'}
+        </span>
+      {/if}
       {#if canShareAll}
         <button
           type="button"
@@ -392,6 +397,7 @@ const canShareAll = $derived(!isPlaceholderConfig && $pets.length > 0);
     display: flex; align-items: center; gap: 12px; padding: 8px 16px;
     border-top: 1px solid var(--border-primary); background: var(--bg-secondary); flex-shrink: 0;
   }
+  .mp-count { font-size: 12px; color: var(--text-tertiary); white-space: nowrap; }
   .mp-selection { margin-left: auto; display: flex; align-items: center; gap: 8px; }
   .sel-count { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
   .act-btn {

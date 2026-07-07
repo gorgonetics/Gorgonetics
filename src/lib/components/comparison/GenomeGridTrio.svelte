@@ -11,7 +11,7 @@ import { attributeFilterCSS } from '$lib/utils/filterCSS.js';
 import { triStateToggle } from '$lib/utils/filterToggle.js';
 import { buildAppearanceLookup, createGeneCellBuilder, type GeneCell } from '$lib/utils/geneGridCells.js';
 import { capitalize } from '$lib/utils/string.js';
-import { buildTrioGrid, type TrioGrid, type TrioLocusCell } from '$lib/utils/trioGrid.js';
+import { buildTrioGrid, distBarBackground, type TrioGrid, type TrioLocusCell } from '$lib/utils/trioGrid.js';
 
 interface Props {
   father: Pet;
@@ -159,6 +159,12 @@ function offspringTitle(cell: TrioLocusCell) {
   return parts.join('\n');
 }
 
+/** One-line aggregate label for the bar — carries the distribution the
+ * removed per-segment spans no longer describe. */
+function offspringAria(cell: TrioLocusCell) {
+  return offspringTitle(cell).replace(/\n/g, '; ');
+}
+
 function parentTitle(cell: GeneCell | null, label: string) {
   if (!cell) return '';
   return `${label} · Gene ${cell.id} (${ALLELE_LABEL[cell.type] ?? cell.type})\n${cell.effect || 'No effect'}`;
@@ -267,12 +273,11 @@ function parentTitle(cell: GeneCell | null, label: string) {
                                                 class:locked={cell.lockedIn}
                                                 class:fixed={isLocked(cell)}
                                                 data-attr={cell.attribute ?? ''}
+                                                role="img"
                                                 title={offspringTitle(cell)}
-                                            >
-                                                {#each cell.segments as seg, i (i)}
-                                                    <span class="seg tone-{seg.tone}" style="flex: {seg.pct} 0 0"></span>
-                                                {/each}
-                                            </div>
+                                                aria-label={offspringAria(cell)}
+                                                style="background: {distBarBackground(cell.segments)}"
+                                            ></div>
                                         {/if}
                                     </td>
                                 {/each}
@@ -413,7 +418,6 @@ function parentTitle(cell: GeneCell | null, label: string) {
     /* Offspring row is taller and its cells host the distribution bar. */
     .offspring-cell { height: 26px; }
     .dist-bar {
-        display: flex;
         width: 20px;
         height: 20px;
         margin: 0 auto;
@@ -421,11 +425,13 @@ function parentTitle(cell: GeneCell | null, label: string) {
         overflow: hidden;
         border: 2px solid transparent;
         box-sizing: border-box;
+        /* Clip the gradient to the padding box so it fills the same interior
+           the per-segment spans did (inside the 2px verdict border). */
+        background-clip: padding-box;
     }
     .dist-bar.verdict-gain { border-color: var(--gene-positive); }
     .dist-bar.verdict-risk { border-color: var(--gene-negative); }
     .dist-bar.locked { box-shadow: inset 0 0 0 1px var(--bg-secondary); }
-    .seg { display: block; height: 100%; }
 
     /* Parent cells share the offspring bar's box size so the three rows line up
        column-for-column (the shared .gene-cell is 14px elsewhere). */
@@ -435,16 +441,6 @@ function parentTitle(cell: GeneCell | null, label: string) {
        the offspring) so the remaining gain-coloured bars are only new gains. */
     .trio-grid-container.hide-locked .fixed { opacity: 0.12; }
     .trio-grid-container.hide-locked .dist-bar.fixed { border-color: transparent; box-shadow: none; }
-
-    .tone-positive { background: var(--gene-positive); }
-    .tone-negative { background: var(--gene-negative); }
-    .tone-potential-positive { background: var(--gene-potential-positive); }
-    .tone-potential-negative { background: var(--gene-potential-negative); }
-    .tone-neutral { background: var(--gene-neutral); }
-    .tone-unknown {
-        background: repeating-linear-gradient(45deg, var(--gene-neutral) 0 2px, transparent 2px 4px);
-        opacity: 0.6;
-    }
 
     .unknown-symbol { color: var(--text-muted); font-size: 1em; font-weight: 600; }
     .empty-text { color: var(--text-muted); font-size: 13px; text-align: center; padding: 40px; }

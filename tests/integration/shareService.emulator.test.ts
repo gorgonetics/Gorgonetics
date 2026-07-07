@@ -200,6 +200,29 @@ describe('shareService end-to-end via emulator', () => {
     expect((await uploadPet(pet, db)).status).toBe('already-shared');
     expect((await getDocs(query(collection(db, META_COLLECTION)))).size).toBe(1);
   });
+
+  it('a rename-only local change is already-shared (identity is not correction-eligible)', async () => {
+    const pet = await freshPet('C3');
+    await uploadPet(pet, db);
+    expect((await uploadPet({ ...pet, name: 'RenamedLocally' }, db)).status).toBe('already-shared');
+    expect((await getDocs(query(collection(db, META_COLLECTION)))).size).toBe(1);
+  });
+
+  it('a correction after a local rename passes the rules (identity pinned to first share)', async () => {
+    // The correction payload must carry the FIRST-share identity — sending
+    // the renamed local values would trip identityMatchesFirstShare and
+    // fail the whole re-share with permission-denied.
+    const pet = await freshPet('C4');
+    await uploadPet(pet, db);
+
+    const corrected = { ...pet, name: 'RenamedLocally', intelligence: 99 };
+    expect((await uploadPet(corrected, db)).status).toBe('created');
+
+    const fetched = await getSharedPet(pet.content_hash, db);
+    expect(fetched?.name).toBe(pet.name); // identity from the first share
+    expect(fetched?.attributes?.intelligence).toBe(99); // eligible field corrected
+    expect((await getDocs(query(collection(db, META_COLLECTION)))).size).toBe(2);
+  });
 });
 
 // Any 64-char lowercase hex value passes the rule regex; the rules
@@ -389,6 +412,38 @@ describe('firestore.rules — add-only corrections', () => {
   it('rejects a correction carrying an unknown extra field', async () => {
     await batchWrite(VALID_DOC_ID);
     await expectRejected(setDoc(doc(collection(db, META_COLLECTION)), correctionMeta(VALID_DOC_ID, { nope: 1 })));
+  });
+
+  it('accepts a correction that changes only the correction-eligible fields (attributes/tags/notes)', async () => {
+    await batchWrite(VALID_DOC_ID);
+    await setDoc(
+      doc(collection(db, META_COLLECTION)),
+      correctionMeta(VALID_DOC_ID, {
+        attributes: { ...validAttributes(), intelligence: 99 },
+        tags: ['fast', 'corrected'],
+        notes: 'corrected notes',
+      }),
+    );
+    expect((await getDocs(query(collection(db, META_COLLECTION)))).size).toBe(2);
+  });
+
+  // Identity binding (issue #393): a correction whose identity fields differ
+  // from the first-share doc would let anyone permanently deface someone
+  // else's published pet (reads resolve latest-wins; update/delete denied).
+  // Every override below is individually valid per isValidPetMeta — the
+  // rejection must come from identityMatchesFirstShare alone.
+  it.each([
+    ['name', { name: 'Defaced' }],
+    ['character', { character: 'Mallory' }],
+    ['species', { species: 'Horse' }],
+    ['gender', { gender: Gender.MALE }],
+    ['breed', { breed: 'FakeBreed' }],
+    ['breeder', { breeder: 'Mallory' }],
+  ])('rejects a correction that changes the identity field %s', async (_field, override) => {
+    await batchWrite(VALID_DOC_ID);
+    await expectRejected(setDoc(doc(collection(db, META_COLLECTION)), correctionMeta(VALID_DOC_ID, override)));
+    // The defacement never landed — the base entry stays the only doc.
+    expect((await getDocs(query(collection(db, META_COLLECTION)))).size).toBe(1);
   });
 });
 

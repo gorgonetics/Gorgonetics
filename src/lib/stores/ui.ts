@@ -1,4 +1,4 @@
-import { writable } from 'svelte/store';
+import { derived, writable } from 'svelte/store';
 import type { Pet } from '$lib/types/index.js';
 
 /**
@@ -9,6 +9,18 @@ import type { Pet } from '$lib/types/index.js';
  */
 export const settingsOpen = writable(false);
 export const editingPet = writable<Pet | null>(null);
+
+/**
+ * True while a root overlay (Settings or the pet editor) covers the workspace.
+ * The TopBar gates destination navigation (tab buttons, history back, the
+ * settings toggle) on this: switching the underlying destination while an
+ * overlay covers it would desync the nav highlight from what's visible, and
+ * a nav-dismiss would bypass the editor's unsaved-changes guard (#396).
+ */
+export const overlayOpen = derived(
+  [settingsOpen, editingPet],
+  ([$settingsOpen, $editingPet]) => $settingsOpen || $editingPet !== null,
+);
 
 export const uiActions = {
   openSettings: () => settingsOpen.set(true),
