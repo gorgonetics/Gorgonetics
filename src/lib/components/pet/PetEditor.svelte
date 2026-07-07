@@ -6,6 +6,7 @@ import { getAllAttributeDisplayInfo, getAllAttributeNames } from '$lib/services/
 import { allTags as allTagsStore, appState } from '$lib/stores/pets.js';
 import type { AttributeInfo, Gender, Pet } from '$lib/types/index.js';
 import { HORSE_BREEDS } from '$lib/types/index.js';
+import { focusTrap } from '$lib/utils/focusTrap.js';
 import { computePetChanges } from '$lib/utils/petChanges.js';
 import TagInput from './TagInput.svelte';
 
@@ -55,6 +56,7 @@ let editStarred: boolean = $state(untrack(() => !!pet.starred));
 let editStabled: boolean = $state(untrack(() => !!pet.stabled));
 let editIsPetQuality: boolean = $state(untrack(() => !!pet.is_pet_quality));
 let saveError: string = $state('');
+let confirmingDiscard: boolean = $state(false);
 
 const allTags: string[] = $derived($allTagsStore);
 
@@ -63,18 +65,23 @@ const filteredAttributeList: AttributeInfo[] = $derived(
   ALL_ATTRIBUTES.filter((attr) => availableAttributes.includes(attr.key.toLowerCase())),
 );
 
+/** The current form values, in the shape `computePetChanges` diffs against the pet. */
+function currentEdits() {
+  return {
+    name: editName,
+    gender: editGender,
+    breed: editBreed,
+    attributes: editAttributes,
+    tags: editTags,
+    starred: editStarred,
+    stabled: editStabled,
+    isPetQuality: editIsPetQuality,
+  };
+}
+
 async function handleSave(): Promise<void> {
   try {
-    const updateData = computePetChanges(pet, {
-      name: editName,
-      gender: editGender,
-      breed: editBreed,
-      attributes: editAttributes,
-      tags: editTags,
-      starred: editStarred,
-      stabled: editStabled,
-      isPetQuality: editIsPetQuality,
-    });
+    const updateData = computePetChanges(pet, currentEdits());
 
     if (Object.keys(updateData).length > 0) {
       await appState.updatePet(pet.id, updateData);
@@ -88,6 +95,23 @@ async function handleSave(): Promise<void> {
 
 function handleCancel(): void {
   saveError = '';
+  // Dirty guard: backing out (Cancel / back button / Escape) with pending
+  // changes asks for confirmation instead of silently discarding them.
+  // `computePetChanges` diffs the form against the saved pet, so reverting an
+  // edit by hand counts as clean again.
+  if (Object.keys(computePetChanges(pet, currentEdits())).length > 0) {
+    confirmingDiscard = true;
+    return;
+  }
+  onClose?.();
+}
+
+function keepEditing(): void {
+  confirmingDiscard = false;
+}
+
+function discardChanges(): void {
+  confirmingDiscard = false;
   onClose?.();
 }
 
@@ -208,6 +232,29 @@ function updateAttribute(attrKey: string, value: string): void {
         <button class="btn btn-secondary" onclick={handleCancel}>Cancel</button>
         <button class="btn btn-primary" onclick={handleSave}>Save Changes</button>
       </div>
+
+      {#if confirmingDiscard}
+        <!-- Same true-modal pattern as PetActions' delete confirm: a focus-
+             trapped alertdialog on .modal-backdrop. DetailOverlay's document-
+             level Escape defers to any open .modal-backdrop, so Escape here
+             closes only this dialog (keep editing), not the editor. -->
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <div
+          class="modal-backdrop"
+          data-testid="pet-editor-discard-confirm"
+          onclick={(e) => { if (e.target === e.currentTarget) keepEditing(); }}
+          onkeydown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); keepEditing(); } }}
+        >
+          <div class="confirm-dialog" role="alertdialog" aria-label="Discard unsaved changes" aria-modal="true" use:focusTrap>
+            <p class="confirm-message">Discard unsaved changes?</p>
+            <p class="confirm-subtext">Your edits to <strong>{pet.name}</strong> have not been saved.</p>
+            <div class="confirm-actions">
+              <button class="btn btn-secondary" data-testid="discard-keep-editing" onclick={keepEditing}>Keep editing</button>
+              <button class="btn btn-danger" data-testid="discard-confirm" onclick={discardChanges}>Discard</button>
+            </div>
+          </div>
+        </div>
+      {/if}
     </div>
   {/snippet}
 </DetailOverlay>
@@ -409,5 +456,34 @@ function updateAttribute(attrKey: string, value: string): void {
     font-size: 13px;
     padding: 10px 14px;
     margin-bottom: 16px;
+  }
+
+  /* Discard-confirm dialog (mirrors PetActions' delete confirm). */
+  .confirm-dialog {
+    background: var(--bg-primary);
+    border-radius: 12px;
+    box-shadow: var(--shadow-xl);
+    padding: 24px;
+    width: 340px;
+    max-width: 90vw;
+    text-align: center;
+  }
+
+  .confirm-message {
+    font-size: 15px;
+    color: var(--text-primary);
+    margin: 0 0 4px 0;
+  }
+
+  .confirm-subtext {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin: 0 0 20px 0;
+  }
+
+  .confirm-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
   }
 </style>

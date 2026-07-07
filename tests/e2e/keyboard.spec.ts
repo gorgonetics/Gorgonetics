@@ -91,6 +91,41 @@ test.describe('Keyboard Navigation', () => {
       await expect(page.locator('[data-testid="settings-view"]')).not.toBeVisible();
     });
 
+    test('Escape closes settings even when focus is outside the overlay', async ({ page }) => {
+      await page.goto('/');
+      await waitForAppReady(page);
+
+      await page.locator('.settings-toggle').click();
+      await expect(page.locator('[data-testid="settings-view"]')).toBeVisible();
+
+      // Click non-focusable overlay content so focus falls back to the body —
+      // the document-level Escape handler must still catch it (#396).
+      await page.locator('.settings-inner').click({ position: { x: 5, y: 5 } });
+      await page.keyboard.press('Escape');
+      await expect(page.locator('[data-testid="settings-view"]')).not.toBeVisible();
+    });
+
+    test('top nav is gated while settings is open', async ({ page }) => {
+      await page.goto('/');
+      await waitForAppReady(page);
+
+      await page.locator('.settings-toggle').click();
+      await expect(page.locator('[data-testid="settings-view"]')).toBeVisible();
+
+      // Destination buttons, history back, and the settings toggle are
+      // disabled while a root overlay covers the workspace (#396).
+      for (const id of ['tab-library', 'tab-breed', 'tab-community', 'tab-reference']) {
+        await expect(page.locator(`[data-testid="${id}"]`)).toBeDisabled();
+      }
+      await expect(page.locator('.top-bar .back-btn')).toBeDisabled();
+      await expect(page.locator('.settings-toggle')).toBeDisabled();
+
+      // Backing out re-enables the nav.
+      await page.keyboard.press('Escape');
+      await expect(page.locator('[data-testid="tab-breed"]')).toBeEnabled();
+      await expect(page.locator('.settings-toggle')).toBeEnabled();
+    });
+
     test('settings is a labelled in-space region', async ({ page }) => {
       await page.goto('/');
       await waitForAppReady(page);
