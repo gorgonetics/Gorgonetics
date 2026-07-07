@@ -10,10 +10,11 @@ import type { SharedPet } from '$lib/types/index.js';
 // stubbed — their behaviour is covered by their own suites.
 
 const importingHash: { value: string | null } = { value: null };
+const importedHashes: { value: Set<string> } = { value: new Set() };
 const importSelected = vi.fn();
 vi.mock('$lib/stores/community.svelte.js', () => ({
   get communityView() {
-    return { importingHash: importingHash.value };
+    return { importingHash: importingHash.value, importedHashes: importedHashes.value };
   },
   importSelected: (p: SharedPet) => importSelected(p),
 }));
@@ -56,6 +57,7 @@ function makeSharedPet(overrides: Partial<SharedPet> = {}): SharedPet {
 afterEach(() => {
   cleanup();
   importingHash.value = null;
+  importedHashes.value = new Set();
   getSharedPet.mockReset();
   importSelected.mockReset();
 });
@@ -100,6 +102,38 @@ describe('CommunityPetVisualization genome lazy-load', () => {
     await waitFor(() =>
       expect(importSelected).toHaveBeenCalledWith(expect.objectContaining({ contentHash: 'hash-7' })),
     );
+  });
+});
+
+describe('CommunityPetVisualization import feedback (#398)', () => {
+  it('shows a success banner after a completed import', async () => {
+    getSharedPet.mockResolvedValue(makeSharedPet({ genomeData: GENOME }));
+    importSelected.mockResolvedValue({ status: 'imported', message: 'Imported to your stable', pet_id: 1, tags: [] });
+    const { getByTestId } = render(CommunityPetVisualization, { pet: makeSharedPet() });
+    await waitFor(() => expect(getByTestId('community-import')).toBeEnabled());
+    getByTestId('community-import').click();
+    await waitFor(() => expect(getByTestId('status-banner')).toHaveTextContent('Imported to your stable'));
+  });
+
+  it('renders a disabled "✓ Imported" button once the hash is in importedHashes', async () => {
+    importedHashes.value = new Set(['hash-7']);
+    getSharedPet.mockResolvedValue(makeSharedPet({ genomeData: GENOME }));
+    const { getByTestId } = render(CommunityPetVisualization, { pet: makeSharedPet() });
+    await waitFor(() => expect(getByTestId('community-import')).toHaveTextContent('✓ Imported'));
+    expect(getByTestId('community-import')).toBeDisabled();
+  });
+
+  it('surfaces a failed import in an error banner and leaves the button clickable', async () => {
+    getSharedPet.mockResolvedValue(makeSharedPet({ genomeData: GENOME }));
+    importSelected.mockResolvedValue({ status: 'error', message: 'Import failed: hash mismatch' });
+    const { getByTestId } = render(CommunityPetVisualization, { pet: makeSharedPet() });
+    await waitFor(() => expect(getByTestId('community-import')).toBeEnabled());
+    getByTestId('community-import').click();
+    await waitFor(() => expect(getByTestId('status-banner')).toHaveTextContent('Import failed: hash mismatch'));
+    expect(getByTestId('status-banner')).toHaveClass('banner-error');
+    // No success latch on failure — the user can retry.
+    expect(getByTestId('community-import')).toBeEnabled();
+    expect(getByTestId('community-import')).toHaveTextContent('⬇ Import');
   });
 });
 

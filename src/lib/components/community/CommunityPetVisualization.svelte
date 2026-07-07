@@ -78,6 +78,10 @@ let breedFilter = $state('');
 // --- Import ---------------------------------------------------------------
 const isImportingThis = $derived(communityView.importingHash === pet.contentHash);
 const isAnyImportInFlight = $derived(communityView.importingHash !== null);
+// Session-scoped success latch (#398): once an import lands (or the pet
+// turns out to be already in the stable), the button flips to a disabled
+// "✓ Imported" so a silent success can't invite a re-click.
+const isImported = $derived(communityView.importedHashes.has(pet.contentHash));
 let importStatus = $state<ImportResult | null>(null);
 
 // Reset the transient import banner when the selection changes.
@@ -87,7 +91,7 @@ $effect(() => {
 });
 
 async function handleImport(): Promise<void> {
-  if (!fullPet) return;
+  if (!fullPet || isImported) return;
   const startedHash = fullPet.contentHash;
   importStatus = null;
   const result = await importSelected(fullPet);
@@ -172,18 +176,21 @@ function handleBreedChange(fullName: string): void {
       <div class="header-actions">
         <button
           class="import-btn"
+          class:imported={isImported}
           data-testid="community-import"
           onclick={handleImport}
-          disabled={isAnyImportInFlight || !fullPet}
-          title={fullPet
-            ? isAnyImportInFlight && !isImportingThis
-              ? 'Another import is already running'
-              : 'Import to my stable'
-            : genomeError
-              ? "Can't import — the genome failed to load"
-              : 'Waiting for genome to load…'}
+          disabled={isImported || isAnyImportInFlight || !fullPet}
+          title={isImported
+            ? 'This pet is in your stable'
+            : fullPet
+              ? isAnyImportInFlight && !isImportingThis
+                ? 'Another import is already running'
+                : 'Import to my stable'
+              : genomeError
+                ? "Can't import — the genome failed to load"
+                : 'Waiting for genome to load…'}
         >
-          {isImportingThis ? 'Importing…' : '⬇ Import'}
+          {isImported ? '✓ Imported' : isImportingThis ? 'Importing…' : '⬇ Import'}
         </button>
       </div>
     </div>
@@ -377,6 +384,13 @@ function handleBreedChange(fullName: string): void {
   .import-btn:disabled {
     opacity: 0.6;
     cursor: default;
+  }
+
+  /* Success latch reads as a done-state, not a greyed-out action. */
+  .import-btn.imported:disabled {
+    opacity: 1;
+    background: var(--bg-primary);
+    color: var(--text-secondary);
   }
 
   .notes-strip {
