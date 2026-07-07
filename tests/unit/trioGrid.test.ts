@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { GeneTrioEntry, OffspringTrioResult } from '$lib/types/index.js';
 import { createGeneCellBuilder } from '$lib/utils/geneGridCells.js';
-import { buildTrioGrid } from '$lib/utils/trioGrid.js';
+import { buildTrioGrid, distBarBackground, isUnknownDist, type TrioSegment } from '$lib/utils/trioGrid.js';
 
 const effectsDB = {
   // carrier gene: harmful dominant, beneficial recessive
@@ -152,5 +152,49 @@ describe('buildTrioGrid', () => {
     const empty = buildTrioGrid({ chromosomes: [], summary: {} } as unknown as OffspringTrioResult, cellBuilder);
     expect(empty.blocks).toEqual([]);
     expect(empty.rows).toEqual([]);
+  });
+});
+
+describe('distBarBackground', () => {
+  it('builds a hard-stop linear-gradient across the segments in order', () => {
+    const segs: TrioSegment[] = [
+      { allele: 'D', pct: 25, tone: 'negative' },
+      { allele: 'x', pct: 50, tone: 'negative' },
+      { allele: 'R', pct: 25, tone: 'positive' },
+    ];
+    expect(distBarBackground(segs)).toBe(
+      'linear-gradient(90deg, var(--gene-negative) 0% 25%, var(--gene-negative) 25% 75%, var(--gene-positive) 75% 100%)',
+    );
+  });
+
+  it('maps every tone to its gene colour variable', () => {
+    const segs: TrioSegment[] = [
+      { allele: 'D', pct: 25, tone: 'potential-positive' },
+      { allele: 'x', pct: 25, tone: 'potential-negative' },
+      { allele: 'R', pct: 50, tone: 'neutral' },
+    ];
+    expect(distBarBackground(segs)).toBe(
+      'linear-gradient(90deg, var(--gene-potential-positive) 0% 25%, var(--gene-potential-negative) 25% 50%, var(--gene-neutral) 50% 100%)',
+    );
+  });
+
+  it('renders an all-unknown offspring as the diagonal hatch with the dimming baked into the stripe', () => {
+    const segs: TrioSegment[] = [{ allele: 'unknown', pct: 100, tone: 'unknown' }];
+    expect(distBarBackground(segs)).toBe(
+      'repeating-linear-gradient(45deg, color-mix(in srgb, var(--gene-neutral) 60%, transparent) 0 2px, transparent 2px 4px)',
+    );
+    expect(isUnknownDist(segs)).toBe(true);
+  });
+
+  it('keys the unknown case off the allele, not the tone', () => {
+    // A hypothetical tone remap must not reclassify a solid allele as unknown.
+    expect(isUnknownDist([{ allele: 'unknown', pct: 100, tone: 'neutral' }])).toBe(true);
+    expect(isUnknownDist([{ allele: 'D', pct: 100, tone: 'unknown' }])).toBe(false);
+  });
+
+  it('treats a solid single-allele distribution as a normal gradient, not unknown', () => {
+    const segs: TrioSegment[] = [{ allele: 'D', pct: 100, tone: 'positive' }];
+    expect(isUnknownDist(segs)).toBe(false);
+    expect(distBarBackground(segs)).toBe('linear-gradient(90deg, var(--gene-positive) 0% 100%)');
   });
 });
