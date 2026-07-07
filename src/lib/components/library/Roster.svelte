@@ -3,31 +3,29 @@
  * Roster — the Library's full attribute table, shown in the Workspace when no
  * pet is selected. Absorbs the old Stable tab: a sortable matrix of the
  * filtered pets with Name / Gender / Breed / per-species attributes / Total /
- * +Genes, driven by `libraryView` (filters + sort + multi-select). Clicking a
- * name opens that pet; checkboxes build a multi-selection for the lenses.
+ * +Genes. Receives the already-filtered pets from MyPets (one filterPets pass
+ * shared by table and selection); sort + multi-select live in `libraryView`.
+ * Clicking a name opens that pet; checkboxes build a multi-selection for the
+ * lenses.
  * See docs/design/redesign-library-workspace-v1.md (§2.1).
  */
 import PetActions from '$lib/components/shared/PetActions.svelte';
 import { getAllAttributeNames, getAllAttributes } from '$lib/services/configService.js';
-import {
-  getLibraryFilters,
-  libraryView,
-  setLibrarySelection,
-  toggleLibrarySelection,
-} from '$lib/stores/library.svelte.js';
-import { pets } from '$lib/stores/pets.js';
+import { libraryView, setLibrarySelection, toggleLibrarySelection } from '$lib/stores/library.svelte.js';
 import type { Pet } from '$lib/types/index.js';
-import { filterPets } from '$lib/utils/petFilter.js';
 import { type SortableColumn, sortByColumn } from '$lib/utils/sortColumn.js';
 import { capitalize } from '$lib/utils/string.js';
 
 interface Props {
+  /** The already-filtered pets to list. MyPets computes the visible set once
+   *  (filterPets + getLibraryFilters) and shares it with the roster (#405). */
+  pets: Pet[];
   /** Open a pet's detail (clicking its name). Distinct from the row checkbox,
    *  which builds the multi-selection for bulk actions. */
   onOpen?: (pet: Pet) => void;
 }
 
-const { onOpen }: Props = $props();
+const { pets: filtered, onOpen }: Props = $props();
 
 interface Column {
   id: string;
@@ -45,8 +43,6 @@ const attrNames = $derived(libraryView.species ? getAllAttributeNames(libraryVie
 const attrInfo = $derived(
   libraryView.species ? (getAllAttributes(libraryView.species) as Record<string, { name?: string }>) : {},
 );
-
-const filtered = $derived(filterPets($pets, getLibraryFilters()));
 
 // Precompute one attribute total per visible pet so sorting by Total doesn't
 // re-sum every attribute on each O(n log n) comparison.

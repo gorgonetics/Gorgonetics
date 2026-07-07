@@ -33,7 +33,9 @@ function initEditState(p: Pet): { name: string; gender: Gender; breed: string; a
   return {
     name: p.name || '',
     gender: (p.gender || 'Male') as Gender,
-    breed: opts.includes(p.breed) ? p.breed : opts[0],
+    // An unknown/unset breed maps to '' (the explicit "Not set" option) so
+    // opening and saving the editor can't silently assign the first option.
+    breed: opts.includes(p.breed) ? p.breed : '',
     attributes: Object.fromEntries(
       ALL_ATTRIBUTES.map((attr) => [
         attr.key.toLowerCase(),
@@ -121,6 +123,7 @@ function updateAttribute(attrKey: string, value: string): void {
               <div class="field">
                 <label for="petBreed">Breed</label>
                 <select id="petBreed" bind:value={editBreed}>
+                  <option value="">Not set</option>
                   {#each breedOptions as breed}
                     <option value={breed}>{breed}</option>
                   {/each}
