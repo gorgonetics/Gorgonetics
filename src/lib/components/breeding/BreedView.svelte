@@ -17,7 +17,8 @@ import StatusPane from '$lib/components/shared/StatusPane.svelte';
 import { rankBreedingPairs } from '$lib/services/breedingService.js';
 import { getAllAttributeNames, getSupportedSpecies, normalizeSpecies } from '$lib/services/configService.js';
 import { breedingView } from '$lib/stores/breeding.svelte.js';
-import { pets } from '$lib/stores/pets.js';
+// `loading` aliased: this component has its own ranking `loading` flag.
+import { pets, loading as petsLoading } from '$lib/stores/pets.js';
 import { type BreedingPairResult, HORSE_BREEDS } from '$lib/types/index.js';
 import { getSpeciesEmoji } from '$lib/utils/species.js';
 import { capitalize } from '$lib/utils/string.js';
@@ -29,7 +30,45 @@ const speciesOptions = getSupportedSpecies().map((s) => ({
   label: capitalize(normalizeSpecies(s)),
 }));
 
-let species = $state(speciesOptions[0]?.key ?? '');
+// Until the player picks a species, default to the most-populated *stabled*
+// one (a user with 25 stabled horses and 7 beewasps should land on horses,
+// not the alphabetical first). Derived, not assigned at mount: the pet list
+// lands well after mount (AuthWrapper's loadPets), so a mount-time pick would
+// race it and lock in the fallback. Ties go to supported-species order.
+const defaultSpecies = $derived.by(() => {
+  const counts = new Map<string, number>();
+  for (const p of $pets) {
+    if (!p.stabled) continue;
+    const key = normalizeSpecies(p.species);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  let best = '';
+  let bestCount = 0;
+  for (const opt of speciesOptions) {
+    const count = counts.get(opt.key) ?? 0;
+    if (count > bestCount) {
+      best = opt.key;
+      bestCount = count;
+    }
+  }
+  return best || (speciesOptions[0]?.key ?? '');
+});
+
+// An explicit pick persists in breedingView.species across destination
+// switches (this component unmounts); '' falls through to the default.
+const species = $derived(breedingView.species || defaultSpecies);
+
+function selectSpecies(key: string) {
+  const changed = key !== species;
+  // Pin the choice even when it matches the current default, so a later
+  // change in stable composition can't silently move the player elsewhere.
+  breedingView.species = key;
+  if (changed) {
+    breedingView.offspringBreed = '';
+    breedingView.scrollTop = 0;
+    breedingView.scrollLeft = 0;
+  }
+}
 
 // Offspring breed only shapes the ranking for species that have breeds (horses:
 // breed-locked loci are dropped, and it feeds the pool-gap pairing weight).
@@ -95,6 +134,22 @@ $effect(() => {
     });
 });
 
+// An open Trio holds Pet objects frozen at click time; nothing above ties its
+// lifetime to the candidate set, so a parent that is deleted or unstabled
+// would keep rendering stale data indefinitely. Drop back to the pair table
+// when either parent leaves the candidates — but only on a *settled* load
+// (!$petsLoading): during an in-flight reload the list can briefly lack the
+// pet, and that window always closes with `loading` true, so it can't be
+// mistaken for a deletion (same guard as MyPets' detail overlay).
+$effect(() => {
+  const pair = breedingView.selectedPair;
+  if (!pair || $petsLoading) return;
+  const inCandidates = (id: number) => candidates.some((p) => p.id === id);
+  if (!inCandidates(pair.male.id) || !inCandidates(pair.female.id)) {
+    breedingView.selectedPair = null;
+  }
+});
+
 onDestroy(() => {
   breedingView.selectedPair = null;
 });
@@ -115,7 +170,7 @@ onDestroy(() => {
         class:active={species === opt.key}
         aria-pressed={species === opt.key}
         data-species={opt.key}
-        onclick={() => { species = opt.key; breedingView.offspringBreed = ''; }}
+        onclick={() => selectSpecies(opt.key)}
       >
         {getSpeciesEmoji(opt.raw)} {opt.label}
       </button>
