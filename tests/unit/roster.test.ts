@@ -2,7 +2,6 @@ import { cleanup, fireEvent, render } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import Roster from '$lib/components/library/Roster.svelte';
 import { libraryView } from '$lib/stores/library.svelte.js';
-import { pets } from '$lib/stores/pets.js';
 import type { Pet } from '$lib/types/index.js';
 
 const pet = (over: Partial<Pet>): Pet =>
@@ -39,12 +38,10 @@ function resetView() {
 
 beforeEach(() => {
   resetView();
-  pets.set(SAMPLE);
 });
 
 afterEach(() => {
   cleanup();
-  pets.set([]);
   resetView();
 });
 
@@ -54,7 +51,7 @@ const rowNames = (c: HTMLElement) =>
 
 describe('Roster', () => {
   it('shows species-agnostic columns when no species is selected (no per-attribute columns)', () => {
-    const { container } = render(Roster);
+    const { container } = render(Roster, { pets: SAMPLE });
     const labels = headers(container);
     expect(labels?.some((l) => l?.startsWith('Name'))).toBe(true);
     expect(labels).toContain('Gender');
@@ -67,30 +64,23 @@ describe('Roster', () => {
 
   it('adds per-attribute columns when a species is selected', () => {
     libraryView.species = 'horse';
-    const { container } = render(Roster);
+    const { container } = render(Roster, { pets: SAMPLE });
     const labels = headers(container).map((l) => l?.toLowerCase() ?? '');
     expect(labels.some((l) => l.includes('toughness'))).toBe(true);
   });
 
-  it('lists the filtered pets and respects the search filter', async () => {
-    const { container, rerender } = render(Roster);
+  // Filtering itself lives in MyPets (one filterPets pass, #405); the roster
+  // just lists whatever it is given and tracks prop updates.
+  it('lists the pets it is given and updates when the prop changes', async () => {
+    const { container, rerender } = render(Roster, { pets: SAMPLE });
     expect(rowNames(container)).toEqual(['Dusty', 'Roach']);
-    libraryView.search = 'roach';
-    await rerender({});
-    expect(rowNames(container)).toEqual(['Roach']);
-  });
-
-  it('respects the gender filter', async () => {
-    const { container, rerender } = render(Roster);
-    expect(rowNames(container)).toEqual(['Dusty', 'Roach']);
-    libraryView.gender = 'Female';
-    await rerender({});
+    await rerender({ pets: SAMPLE.filter((p) => p.name === 'Roach') });
     expect(rowNames(container)).toEqual(['Roach']);
   });
 
   it('sorts by the per-species Total column', async () => {
     libraryView.species = 'horse';
-    const { container } = render(Roster);
+    const { container } = render(Roster, { pets: SAMPLE });
     const total = [...container.querySelectorAll('thead .sort-btn')].find((b) =>
       b.textContent?.startsWith('Total'),
     ) as HTMLButtonElement;
@@ -104,7 +94,7 @@ describe('Roster', () => {
   });
 
   it('sorts by a clicked column and toggles direction', async () => {
-    const { container } = render(Roster);
+    const { container } = render(Roster, { pets: SAMPLE });
     // Default name asc → Dusty, Roach.
     expect(rowNames(container)).toEqual(['Dusty', 'Roach']);
     // Click +Genes → asc (30, 36) → Dusty, Roach; click again → desc → Roach, Dusty.
@@ -121,7 +111,7 @@ describe('Roster', () => {
 
   it('clicking a pet name invokes onOpen with that pet (separate from selection)', async () => {
     const onOpen = vi.fn();
-    const { container } = render(Roster, { onOpen } as never);
+    const { container } = render(Roster, { pets: SAMPLE, onOpen } as never);
     await fireEvent.click(container.querySelectorAll('[data-testid="roster-open"]')[1] as HTMLButtonElement);
     expect(onOpen).toHaveBeenCalledTimes(1);
     expect(onOpen.mock.calls[0][0].id).toBe(2);
@@ -130,7 +120,7 @@ describe('Roster', () => {
   });
 
   it('row checkbox toggles multi-selection; select-all covers the filtered set', async () => {
-    const { container } = render(Roster);
+    const { container } = render(Roster, { pets: SAMPLE });
     await fireEvent.click(container.querySelector('[data-testid="roster-row-select"]') as HTMLInputElement);
     expect(libraryView.selectedIds.size).toBe(1);
 

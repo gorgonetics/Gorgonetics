@@ -68,6 +68,16 @@ describe('MyPets — selection is scoped to the visible (filtered) pets', () => 
     expect(compareBtn(container).disabled).toBe(true);
   });
 
+  it('shows a "Showing N of M" count that tracks the active filters', async () => {
+    const { container, rerender } = render(MyPets);
+    const count = () => container.querySelector('[data-testid="mypets-count"]')?.textContent?.trim();
+    expect(count()).toBe('Showing 2 of 2 pets');
+
+    libraryView.search = 'roach';
+    await rerender({});
+    expect(count()).toBe('Showing 1 of 2 pets');
+  });
+
   it('hides the selection bar entirely when every selected pet is filtered out', async () => {
     libraryView.species = 'horse';
     libraryView.selectedIds = new Set([1]);

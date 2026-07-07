@@ -30,9 +30,9 @@ export const libraryView = $state({
 });
 
 /**
- * The active filter criteria as a plain `PetListFilters`. The single source of
- * truth both MyPets (for the bulk-action selection) and Roster (for the visible
- * rows) filter by, so they can never disagree about which pets are visible.
+ * The active filter criteria as a plain `PetListFilters`. MyPets filters once
+ * with these (`visiblePets`) and shares the result with the Roster via a prop,
+ * so table rows and the bulk-action selection can never disagree (#405).
  * Call inside a reactive context ($derived) so the field reads are tracked.
  */
 export function getLibraryFilters(): PetListFilters {
