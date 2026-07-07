@@ -66,6 +66,32 @@ test.describe('Redesign — Breed destination', () => {
     await expect(page.locator('[data-testid="tab-library"]')).toHaveClass(/active/);
     await expect(page.locator('[data-testid="pet-detail"]')).toBeVisible();
     await expect(page.locator('.pet-visualization')).toBeVisible();
+
+    // Returning to Breed keeps the chosen species — the excursion must not
+    // reset the destination to its default (#399).
+    await page.locator('[data-testid="tab-breed"]').click();
+    await expect(page.locator('[data-testid="breed-view"]')).toBeVisible();
+    await expect(page.locator('[data-testid="breed-species"] [data-species="horse"]')).toHaveClass(/active/);
+    await expect(page.locator('[data-testid="breeding-pair-table"]')).toBeVisible();
+  });
+
+  test('a sparse pair table hugs its rows instead of framing empty space', async ({ page }) => {
+    // The demo stable ranks a single horse pair; the bordered wrapper must
+    // size to the table rather than stretching to the full body height (#401).
+    await openBreed(page);
+    await page.locator('[data-testid="breed-species"] [data-species="horse"]').click();
+    const wrapper = page.locator('[data-testid="breeding-pair-table"]');
+    await expect(wrapper).toBeVisible();
+    await expect(wrapper.locator('tbody tr').first()).toBeVisible();
+
+    const wrapperBox = await wrapper.boundingBox();
+    const tableBox = await wrapper.locator('table').boundingBox();
+    expect(wrapperBox).not.toBeNull();
+    expect(tableBox).not.toBeNull();
+    if (!wrapperBox || !tableBox) return;
+    // Allowance: 2px of border + a horizontal scrollbar gutter (the table is
+    // wide) on platforms with classic scrollbars.
+    expect(wrapperBox.height).toBeLessThanOrEqual(tableBox.height + 20);
   });
 
   test('offspring breed can be chosen and re-ranks the pairs (horses)', async ({ page }) => {

@@ -75,9 +75,30 @@ function openTrio(pair: BreedingPairResult) {
 function fmt(n: number) {
   return n.toFixed(1);
 }
+
+// --- Scroll persistence -----------------------------------------------------
+// The wrapper is the ranking's scroll container; the component unmounts on a
+// destination switch (e.g. a parent-name excursion to My Pets), so the offsets
+// live in breedingView. Restore once the ranked rows are in the DOM — before
+// that, scrollHeight is too small for the saved offset to apply.
+let wrapperEl = $state<HTMLDivElement>();
+let restored = false;
+
+$effect(() => {
+  if (restored || !wrapperEl || sortedResults.length === 0) return;
+  restored = true;
+  wrapperEl.scrollTop = breedingView.scrollTop;
+  wrapperEl.scrollLeft = breedingView.scrollLeft;
+});
+
+function persistScroll() {
+  if (!wrapperEl) return;
+  breedingView.scrollTop = wrapperEl.scrollTop;
+  breedingView.scrollLeft = wrapperEl.scrollLeft;
+}
 </script>
 
-<div class="table-wrapper" data-testid="breeding-pair-table">
+<div class="table-wrapper" data-testid="breeding-pair-table" bind:this={wrapperEl} onscroll={persistScroll}>
     <table>
         <thead>
             <tr>
@@ -129,8 +150,12 @@ function fmt(n: number) {
 </div>
 
 <style>
+    /* Hug the rows: `flex: 0 1 auto` sizes the bordered box to the table's
+       natural height (a sparse ranking doesn't sit in a full-height frame of
+       empty space), while flex-shrink + min-height: 0 still cap it at the
+       parent's constrained height so a long ranking scrolls inside as before. */
     .table-wrapper {
-        flex: 1;
+        flex: 0 1 auto;
         min-height: 0;
         overflow: auto;
         border: 1px solid var(--border-primary);
