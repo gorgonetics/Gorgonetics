@@ -51,11 +51,15 @@ describe('computePetChanges — scalar fields', () => {
     expect(computePetChanges(pet(), draft({ breed: '  Kurbone  ' }))).toEqual({ breed: 'Kurbone' });
   });
 
-  it("compares breed against 'Mixed' default when the pet has no breed", () => {
-    // Pet with falsy breed, draft left at the 'Mixed' default → no change.
-    expect(computePetChanges(pet({ breed: '' }), draft({ breed: 'Mixed' }))).toEqual({});
-    // Same pet, draft moved off the default → change.
+  it("round-trips an unset breed ('') without a spurious write", () => {
+    // Pet with unset breed, draft left on the "Not set" option → no change.
+    expect(computePetChanges(pet({ breed: '' }), draft({ breed: '' }))).toEqual({});
+    // Same for a pet imported before the column existed (undefined breed).
+    expect(computePetChanges(pet({ breed: undefined }), draft({ breed: '' }))).toEqual({});
+    // Draft moved off "Not set" → change.
     expect(computePetChanges(pet({ breed: '' }), draft({ breed: 'Bee' }))).toEqual({ breed: 'Bee' });
+    // Clearing a stored breed back to "Not set" persists ''.
+    expect(computePetChanges(pet(), draft({ breed: '' }))).toEqual({ breed: '' });
   });
 });
 

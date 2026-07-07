@@ -71,7 +71,8 @@ test.describe('Pet Editor – Save', () => {
     if (options.length < 2) return;
 
     const originalBreed = await breedSelect.inputValue();
-    const newBreed = options.find((o) => o !== originalBreed);
+    // Skip the explicit "Not set" (empty-value) option — pick a real breed.
+    const newBreed = options.find((o) => o !== originalBreed && o !== 'Not set');
     if (newBreed === undefined) return;
     await breedSelect.selectOption(newBreed);
 
