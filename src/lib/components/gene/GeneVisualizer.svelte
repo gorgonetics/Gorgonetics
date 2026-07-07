@@ -109,7 +109,10 @@ interface VisCell {
   ctxpos: string;
   /** Delimited attributes this cell recolours potential-negative for. */
   ctxneg: string;
+  /** Active-allele effect string — the attribute-view tooltip's "Current Effect". */
   effect: string;
+  /** Appearance string (or "Different breed") — the appearance-view tooltip's "Current Effect". */
+  appearanceEffect: string;
 }
 
 interface ChromosomeRow {
@@ -157,7 +160,10 @@ let hiddenValueFilters = $state<string[]>([]);
 let currentBreedFilter = $state('');
 
 // Per-chromosome breed relevance (horse) — drives the breed row-hide in CSS.
-let chrBreedRelevance: Record<string, ChrBreedRelevance> = {};
+// $state so buildGrid()'s reassignment on a pet switch retriggers the filter
+// stylesheet $effect (a plain `let` would leave stale row-hiding when the breed
+// filter is active and the other reactive inputs are unchanged).
+let chrBreedRelevance = $state<Record<string, ChrBreedRelevance>>({});
 const isHorse = $derived(normalizeSpecies(currentPet?.species ?? '') === 'horse');
 
 // Tooltip state
@@ -285,16 +291,26 @@ async function preloadGeneEffects() {
 // One trigger only. The old component loaded from BOTH onMount and a reactive
 // $effect, so the initial mount raced two loads (the "About to render N DOM
 // elements" warning fired twice). A single keyed effect guarantees one build.
-let lastLoadedKey = $state<string | null>(null);
+//
+// `loadedKey` is the pet actually built and displayed — set only when a load
+// *finishes* (not when it starts), so a pet that changes mid-load is not
+// silently acknowledged and dropped. The effect reads `loading`, so it re-runs
+// when an in-flight load settles and reconciles to the latest requested pet;
+// loads stay serialized (the `loading` guard) so completions can't interleave.
+let loadedKey: string | null = null;
 $effect(() => {
   const key = pet ? String(pet.id) : null;
-  if (key && key !== lastLoadedKey) {
-    lastLoadedKey = key;
-    loadPetData();
-  } else if (!pet && lastLoadedKey !== null) {
-    lastLoadedKey = null;
-    cleanup();
+  if (key === null) {
+    if (loadedKey !== null || currentPet) {
+      loadedKey = null;
+      cleanup();
+    }
+    return;
   }
+  // Reading `loading` makes this effect re-run when a load settles, so a pet
+  // switched during an in-flight load is picked up once the earlier load ends.
+  if (loading) return;
+  if (key !== loadedKey) loadPetData();
 });
 
 function cleanup() {
@@ -316,16 +332,19 @@ function cleanup() {
 }
 
 async function loadPetData() {
-  if (!pet || loading) return;
+  // Capture the pet at entry so a mid-load prop change can't scramble this
+  // build; the effect reconciles to the newer pet once this load settles.
+  const p = pet;
+  if (!p || loading) return;
   try {
     loading = true;
     error = null;
 
-    const grid = gridOverride ?? (await loadPetGridFromDb(pet.id));
-    currentPet = { id: pet.id, name: pet.name, species: pet.species, breed: pet.breed, grid };
+    const grid = gridOverride ?? (await loadPetGridFromDb(p.id));
+    currentPet = { id: p.id, name: p.name, species: p.species, breed: p.breed, grid };
 
-    await loadGeneEffectsForSpecies(pet.species);
-    loadAppearanceConfigForSpecies(pet.species);
+    await loadGeneEffectsForSpecies(p.species);
+    loadAppearanceConfigForSpecies(p.species);
 
     buildGrid();
   } catch (err: unknown) {
@@ -334,6 +353,10 @@ async function loadPetData() {
     headerStructure = null;
     chromosomeData = [];
   } finally {
+    // Mark this pet as built (success or error) so the effect won't re-load it,
+    // then drop `loading` — that flip re-runs the effect, which reconciles to a
+    // pet that changed while this load was in flight.
+    loadedKey = String(p.id);
     loading = false;
   }
 }
@@ -498,10 +521,14 @@ function buildGrid() {
     }
     const inactiveBreed = effectType === 'inactive-breed';
 
-    // Appearance-view category.
-    const appearanceCategory = categorizeAppearance(speciesKey, getGeneAppearance(speciesKey, gene.id));
+    // Appearance-view category + the appearance-view tooltip string (the old
+    // analyzeGeneEffect appearance branch used the appearance text, or
+    // "Different breed" for an inactive-breed gene).
+    const appearanceString = getGeneAppearance(speciesKey, gene.id);
+    const appearanceCategory = categorizeAppearance(speciesKey, appearanceString);
     const appearance = inactiveBreed ? '' : appearanceCategory;
     const appearanceStatsType = inactiveBreed ? 'inactive-breed' : appearanceCategory;
+    const appearanceEffect = inactiveBreed ? 'Different breed' : appearanceString;
 
     // Both alleles' attributes (either-allele attribute select filter) + the
     // contextual-recolor targets (old getContextualAnalysis).
@@ -561,6 +588,7 @@ function buildGrid() {
       ctxpos,
       ctxneg,
       effect: activeEffect,
+      appearanceEffect,
     };
     cellCache.set(cacheKey, cell);
     return cell;
@@ -648,10 +676,24 @@ function computeStats() {
 
 // --- Tooltip (event-delegated; no per-cell components / handlers) -----------
 
+// The potential-effect lines are rendered via {@html} in GeneTooltip, so any
+// DB/genome-file text interpolated into them is escaped. (The "Current Effect"
+// itself is a plain text binding in GeneTooltip and needs no escaping here.)
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function showTooltipForCell(cell: HTMLElement, clientX: number, clientY: number) {
   const geneId = cell.dataset.geneId ?? '';
   const geneType = cell.dataset.geneType ?? '';
-  const effectInfo = cell.dataset.effect ?? '';
+  // "Current Effect" is view-specific: the attribute-view effect string in the
+  // attribute view, the appearance string (or "Different breed") in appearance.
+  const effectInfo = currentView === 'appearance' ? (cell.dataset.appearanceEffect ?? '') : (cell.dataset.effect ?? '');
 
   const potentialEffects: string[] = [];
   if (currentPet) {
@@ -665,7 +707,7 @@ function showTooltipForCell(cell: HTMLElement, clientX: number, clientY: number)
         : dominantEffect.includes('-')
           ? EFFECT_COLORS.negative
           : '#666';
-      potentialEffects.push(`If Dominant: <span style="color: ${color}">${dominantEffect}</span>`);
+      potentialEffects.push(`If Dominant: <span style="color: ${color}">${escapeHtml(dominantEffect)}</span>`);
     }
     if (geneType !== 'R' && !isNoEffect(recessiveEffect)) {
       const color = recessiveEffect.includes('+')
@@ -673,12 +715,14 @@ function showTooltipForCell(cell: HTMLElement, clientX: number, clientY: number)
         : recessiveEffect.includes('-')
           ? EFFECT_COLORS.negative
           : '#666';
-      potentialEffects.push(`If Recessive: <span style="color: ${color}">${recessiveEffect}</span>`);
+      potentialEffects.push(`If Recessive: <span style="color: ${color}">${escapeHtml(recessiveEffect)}</span>`);
     }
 
     const geneBreed = getGeneBreed(sk, geneId);
     if (!isGeneRelevantToBreed(sk, geneId) && geneBreed) {
-      potentialEffects.push(`<span style="color: #9ca3af">⚬ ${geneBreed} breed only — no effect on this pet</span>`);
+      potentialEffects.push(
+        `<span style="color: #9ca3af">⚬ ${escapeHtml(geneBreed)} breed only — no effect on this pet</span>`,
+      );
     }
   }
 
@@ -1045,6 +1089,7 @@ const blockIndices = $derived.by(() => {
                                                                 data-gene-id={cell.id}
                                                                 data-gene-type={cell.type}
                                                                 data-effect={cell.effect}
+                                                                data-appearance-effect={cell.appearanceEffect}
                                                                 data-attr={cell.attr}
                                                                 data-attrs={cell.attrs}
                                                                 data-appearance={cell.appearance}
