@@ -12,7 +12,7 @@ test.describe('App Launch', () => {
     await waitForAppReady(page);
 
     await expect(page.locator('.app-name')).toHaveText('Gorgonetics');
-    await expect(page.locator('[data-testid="tab-library"]')).toBeVisible();
+    await expect(page.locator('[data-testid="tab-mypets"]')).toBeVisible();
     await expect(page.locator('[data-testid="tab-breed"]')).toBeVisible();
     await expect(page.locator('[data-testid="tab-community"]')).toBeVisible();
     await expect(page.locator('[data-testid="tab-reference"]')).toBeVisible();
@@ -145,7 +145,7 @@ test.describe('Destination Navigation', () => {
     await page.goto('/');
     await waitForAppReady(page);
 
-    await expect(page.locator('[data-testid="tab-library"]')).toHaveClass(/active/);
+    await expect(page.locator('[data-testid="tab-mypets"]')).toHaveClass(/active/);
 
     await gotoDestination(page, 'Breed');
     await expect(page.locator('[data-testid="tab-breed"]')).toHaveClass(/active/);
@@ -156,7 +156,7 @@ test.describe('Destination Navigation', () => {
     await expect(page.locator('#animalType')).toBeVisible();
 
     await gotoDestination(page, 'My Pets');
-    await expect(page.locator('[data-testid="tab-library"]')).toHaveClass(/active/);
+    await expect(page.locator('[data-testid="tab-mypets"]')).toHaveClass(/active/);
   });
 
   test('returning to My Pets resets to the table', async ({ page }) => {

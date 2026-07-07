@@ -147,7 +147,7 @@ const appearanceItems = $derived<FilterPillItem[]>(
        itself is the shared BreedSelector popover. */
     .auto-btn { padding: 3px 8px; border: 1px solid var(--border-primary); border-radius: 4px; background: var(--bg-primary); color: var(--text-tertiary); font-size: 11px; font-weight: 500; cursor: pointer; transition: all 0.15s; }
     .auto-btn:hover { border-color: var(--border-secondary); color: var(--text-secondary); }
-    .auto-btn.active { background: #22c55e; border-color: #22c55e; color: var(--bg-primary); }
+    .auto-btn.active { background: var(--auto-active); border-color: var(--auto-active); color: var(--bg-primary); }
 
     /* Attribute / appearance tri-state pills now live in GeneFilterPills. */
 

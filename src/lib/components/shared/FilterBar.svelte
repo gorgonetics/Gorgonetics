@@ -81,10 +81,10 @@ const {
   />
 
   {#if species && species.length > 0}
-    <div class="fb-seg" role="group" aria-label="Species" data-testid="filter-species">
+    <div class="seg" role="group" aria-label="Species" data-testid="filter-species">
       <button
         type="button"
-        class="fb-seg-btn"
+        class="seg-btn fb-seg-btn"
         class:active={activeSpecies === ''}
         aria-pressed={activeSpecies === ''}
         data-species=""
@@ -93,7 +93,7 @@ const {
       {#each species as sp (sp)}
         <button
           type="button"
-          class="fb-seg-btn"
+          class="seg-btn fb-seg-btn"
           class:active={activeSpecies === sp}
           aria-pressed={activeSpecies === sp}
           data-species={sp}
@@ -108,10 +108,10 @@ const {
   {/if}
 
   {#if genders && genders.length > 0}
-    <div class="fb-seg" role="group" aria-label="Gender" data-testid="filter-gender">
+    <div class="seg" role="group" aria-label="Gender" data-testid="filter-gender">
       <button
         type="button"
-        class="fb-seg-btn"
+        class="seg-btn fb-seg-btn"
         class:active={activeGender === ''}
         aria-pressed={activeGender === ''}
         data-gender=""
@@ -120,7 +120,7 @@ const {
       {#each genders as g (g)}
         <button
           type="button"
-          class="fb-seg-btn"
+          class="seg-btn fb-seg-btn"
           class:active={activeGender === g}
           aria-pressed={activeGender === g}
           data-gender={g}
@@ -174,7 +174,7 @@ const {
     min-width: 140px;
     padding: 6px 10px;
     border: 1px solid var(--border-primary);
-    border-radius: 7px;
+    border-radius: var(--radius-md);
     background: var(--bg-secondary);
     color: var(--text-primary);
     font-size: 12px;
@@ -182,20 +182,13 @@ const {
   .fb-search::placeholder { color: var(--text-muted); }
   .fb-search:focus { outline: none; border-color: var(--accent); background: var(--bg-primary); }
 
-  .fb-seg { display: inline-flex; background: var(--bg-tertiary); border-radius: 7px; padding: 2px; }
+  /* Chrome comes from the shared .seg/.seg-btn (app.css); only the filter
+     bar's compact sizing lives here. */
   .fb-seg-btn {
-    border: none;
-    background: transparent;
-    color: var(--text-tertiary);
     font-size: 11px;
-    font-weight: 600;
     padding: 4px 10px;
-    border-radius: 5px;
-    cursor: pointer;
     text-transform: capitalize;
   }
-  .fb-seg-btn:hover { color: var(--text-secondary); }
-  .fb-seg-btn.active { background: var(--bg-primary); color: var(--text-primary); box-shadow: var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.06)); }
 
   .fb-flags { display: flex; flex-wrap: wrap; gap: 4px; }
   .fb-pill {
@@ -205,9 +198,9 @@ const {
     font-size: 11px;
     font-weight: 600;
     padding: 4px 9px;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     cursor: pointer;
   }
   .fb-pill:hover { border-color: var(--accent); color: var(--accent); }
-  .fb-pill.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .fb-pill.active { background: var(--accent); border-color: var(--accent); color: var(--text-inverse); }
 </style>

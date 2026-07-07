@@ -1,11 +1,11 @@
 <script lang="ts">
 /**
- * One empty / prompt state for the whole app. Replaces the ad-hoc paw-print
- * "Select a pet to view details" markup that was copy-pasted across views —
- * including onto the Genes tab, where it described the wrong thing. Every
- * caller passes context-appropriate copy, so an empty state always explains
- * what *this* surface needs. See docs/design/redesign-library-workspace-v1.md.
+ * One empty / prompt state for the whole app — a thin full-height wrapper
+ * around StatusPane's `hero` look. Every caller passes context-appropriate
+ * copy, so an empty state always explains what *this* surface needs.
+ * See docs/design/redesign-library-workspace-v1.md.
  */
+import StatusPane from '$lib/components/shared/StatusPane.svelte';
 
 interface Props {
   /** Optional decorative glyph (emoji). Omit for a text-only state. */
@@ -20,24 +20,12 @@ interface Props {
 }
 
 const { icon, title, body, actionLabel, onAction }: Props = $props();
-const hasAction = $derived(!!actionLabel && !!onAction);
+/** StatusPane's action props are all-or-nothing; only forward a complete pair. */
+const action = $derived(actionLabel && onAction ? { actionLabel, onAction } : {});
 </script>
 
 <div class="empty-state" data-testid="empty-state">
-  <div class="es-inner">
-    {#if icon}
-      <div class="es-icon" data-testid="empty-state-icon" aria-hidden="true">{icon}</div>
-    {/if}
-    <h3 class="es-title">{title}</h3>
-    {#if body}
-      <p class="es-body">{body}</p>
-    {/if}
-    {#if hasAction}
-      <button type="button" class="es-action" data-testid="empty-state-action" onclick={onAction}>
-        {actionLabel}
-      </button>
-    {/if}
-  </div>
+  <StatusPane variant="empty" hero {icon} {title} {body} {...action} />
 </div>
 
 <style>
@@ -46,22 +34,5 @@ const hasAction = $derived(!!actionLabel && !!onAction);
     display: grid;
     place-items: center;
     padding: 32px;
-    text-align: center;
   }
-  .es-inner { max-width: 380px; display: flex; flex-direction: column; align-items: center; gap: 6px; }
-  .es-icon { font-size: 40px; line-height: 1; opacity: 0.55; margin-bottom: 6px; }
-  .es-title { font-size: 16px; font-weight: 600; color: var(--text-secondary); margin: 0; }
-  .es-body { font-size: 13px; color: var(--text-muted); margin: 0; }
-  .es-action {
-    margin-top: 12px;
-    padding: 7px 16px;
-    border: none;
-    border-radius: 7px;
-    background: var(--accent);
-    color: #fff;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-  }
-  .es-action:hover { background: var(--accent-hover); }
 </style>

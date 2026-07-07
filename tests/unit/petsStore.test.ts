@@ -22,7 +22,7 @@ describe('Pets Store', () => {
     await runMigrations();
     appState.reset();
     pets.set([]);
-    activeTab.set('library');
+    activeTab.set('mypets');
   });
 
   describe('initial state', () => {
@@ -38,8 +38,8 @@ describe('Pets Store', () => {
       expect(get(error)).toBeNull();
     });
 
-    it('starts on the library tab', () => {
-      expect(get(activeTab)).toBe('library');
+    it('starts on the My Pets tab', () => {
+      expect(get(activeTab)).toBe('mypets');
     });
 
     it('starts not loading', () => {
@@ -63,10 +63,10 @@ describe('Pets Store', () => {
       expect(get(selectedPet)).toBeNull();
     });
 
-    it('switches to the library tab and clears the gene editing view', () => {
+    it('switches to the My Pets tab and clears the gene editing view', () => {
       appState.setGeneEditingView({ some: 'data' });
-      appState.switchTab('library');
-      expect(get(activeTab)).toBe('library');
+      appState.switchTab('mypets');
+      expect(get(activeTab)).toBe('mypets');
       expect(get(geneEditingView)).toBeNull();
     });
   });

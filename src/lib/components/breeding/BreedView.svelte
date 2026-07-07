@@ -162,11 +162,11 @@ onDestroy(() => {
     subtitle="Pick a species to rank the best male × female pairs across your stable, then inspect the offspring projection."
   />
 
-  <div class="bv-species" role="group" aria-label="Species" data-testid="breed-species">
+  <div class="seg bv-species" role="group" aria-label="Species" data-testid="breed-species">
     {#each speciesOptions as opt (opt.key)}
       <button
         type="button"
-        class="species-btn"
+        class="seg-btn species-btn"
         class:active={species === opt.key}
         aria-pressed={species === opt.key}
         data-species={opt.key}
@@ -222,20 +222,9 @@ onDestroy(() => {
 
 <style>
   .breed-view { display: flex; flex-direction: column; height: 100%; min-height: 0; }
-  /* Segmented control, consistent with the My Pets species toggle (FilterBar). */
-  .bv-species {
-    display: inline-flex; align-self: flex-start; gap: 2px; flex-shrink: 0;
-    margin: 0 20px 10px; padding: 2px; border-radius: 8px; background: var(--bg-tertiary);
-  }
-  .species-btn {
-    border: none; background: transparent; color: var(--text-tertiary);
-    font-size: 12px; font-weight: 600; padding: 5px 14px; border-radius: 6px; cursor: pointer;
-  }
-  .species-btn:hover { color: var(--text-secondary); }
-  .species-btn.active {
-    background: var(--bg-primary); color: var(--text-primary);
-    box-shadow: var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.06));
-  }
+  /* Chrome comes from the shared .seg/.seg-btn (app.css). */
+  .bv-species { align-self: flex-start; flex-shrink: 0; margin: 0 20px 10px; }
+  .species-btn { padding: 5px 14px; }
   .bv-breed { margin: 0 20px 10px; flex-shrink: 0; }
   .bv-body { flex: 1; min-height: 0; overflow: auto; padding: 0 20px 16px; display: flex; flex-direction: column; gap: 8px; }
   .bv-meta { font-size: 12px; color: var(--text-tertiary); }

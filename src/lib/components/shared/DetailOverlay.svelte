@@ -36,7 +36,12 @@ import { onMount } from 'svelte';
 interface Props {
   /** Back out of the detail view (back button / Escape). */
   onBack: () => void;
-  /** Visible back-button text (e.g. "← Pets", "← Pairs"). */
+  /**
+   * Visible back-button text. Convention: name the surface Back returns to
+   * ("← Pets", "← Pairs", "← Catalogue") when it's fixed; overlays that
+   * return to a variable surface (Settings, the pet editor) omit the prop
+   * and take the generic "← Back" default.
+   */
   backLabel?: string;
   /** Accessible name for the region landmark (e.g. "Offspring trio"). */
   ariaLabel?: string;
@@ -152,8 +157,10 @@ function handleDocumentKeydown(e: KeyboardEvent) {
     border-bottom: 1px solid var(--border-primary);
     flex-shrink: 0;
   }
+  /* Title scale: PageHeader 18px (destination) → this 15px (detail lens) →
+     13px control/section labels. */
   .do-title {
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 600;
     color: var(--text-primary);
     display: flex;
@@ -165,7 +172,7 @@ function handleDocumentKeydown(e: KeyboardEvent) {
   .back-btn {
     padding: 5px 12px;
     border: 1px solid var(--border-primary);
-    border-radius: 6px;
+    border-radius: var(--radius-md);
     background: var(--bg-primary);
     color: var(--text-secondary);
     font-size: 12px;

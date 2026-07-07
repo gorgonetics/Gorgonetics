@@ -1,6 +1,6 @@
 <script lang="ts">
 import { breedingView } from '$lib/stores/breeding.svelte.js';
-import { requestOpenPet } from '$lib/stores/library.svelte.js';
+import { requestOpenPet } from '$lib/stores/mypets.svelte.js';
 import { appState } from '$lib/stores/pets.js';
 import type { BreedingPairResult, Pet } from '$lib/types/index.js';
 import { type SortableColumn, sortByColumn } from '$lib/utils/sortColumn.js';
@@ -65,7 +65,7 @@ function sortIndicator(colId: string) {
 function openPet(pet: Pet) {
   // Jump to My Pets and open this parent's full detail.
   requestOpenPet(pet.id);
-  appState.switchTab('library');
+  appState.switchTab('mypets');
 }
 
 function openTrio(pair: BreedingPairResult) {

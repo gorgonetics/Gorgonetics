@@ -1,6 +1,6 @@
 import { cleanup, render } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { libraryView } from '$lib/stores/library.svelte.js';
+import { myPetsView } from '$lib/stores/mypets.svelte.js';
 import { loading, pets } from '$lib/stores/pets.js';
 import type { Pet } from '$lib/types/index.js';
 
@@ -17,7 +17,7 @@ vi.mock('$lib/components/pet/PetVisualization.svelte', async () => ({
   default: (await import('../fixtures/PetVisualizationStub.svelte')).default,
 }));
 
-import MyPets from '$lib/components/library/MyPets.svelte';
+import MyPets from '$lib/components/mypets/MyPets.svelte';
 
 const pet = (over: Partial<Pet>): Pet =>
   ({
@@ -35,16 +35,16 @@ const pet = (over: Partial<Pet>): Pet =>
 const sample = () => [pet({ id: 1, name: 'Dusty', gender: 'Male' }), pet({ id: 2, name: 'Roach' })];
 
 function resetView() {
-  libraryView.search = '';
-  libraryView.species = '';
-  libraryView.breed = '';
-  libraryView.gender = '';
-  libraryView.starredOnly = false;
-  libraryView.stabledOnly = false;
-  libraryView.petQualityOnly = false;
-  libraryView.tags = [];
-  libraryView.selectedIds = new Set();
-  libraryView.openPetId = null;
+  myPetsView.search = '';
+  myPetsView.species = '';
+  myPetsView.breed = '';
+  myPetsView.gender = '';
+  myPetsView.starredOnly = false;
+  myPetsView.stabledOnly = false;
+  myPetsView.petQualityOnly = false;
+  myPetsView.tags = [];
+  myPetsView.selectedIds = new Set();
+  myPetsView.openPetId = null;
 }
 
 beforeEach(() => {
@@ -64,7 +64,7 @@ const detail = (c: HTMLElement) => c.querySelector('[data-testid="pet-detail"]')
 
 describe('MyPets — detail overlay survives background pet reloads', () => {
   it('keeps the open detail mounted while $pets is replaced (and briefly empty) during a reload', async () => {
-    libraryView.openPetId = 1; // consumed on mount → opens pet 1's detail
+    myPetsView.openPetId = 1; // consumed on mount → opens pet 1's detail
     const { container, rerender } = render(MyPets);
     await rerender({});
     expect(detail(container)).not.toBeNull();
@@ -85,7 +85,7 @@ describe('MyPets — detail overlay survives background pet reloads', () => {
   });
 
   it('closes back to the table when the open pet is deleted (settled load without it)', async () => {
-    libraryView.openPetId = 1;
+    myPetsView.openPetId = 1;
     const { container, rerender } = render(MyPets);
     await rerender({});
     expect(detail(container)).not.toBeNull();

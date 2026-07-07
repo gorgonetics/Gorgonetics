@@ -495,7 +495,7 @@ function handleCellLeave() {
 
     .pet-label { position: sticky; left: 28px; z-index: 1; font-size: 9px; font-weight: 600; padding: 1px 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-right: 1px solid var(--border-primary); width: 60px; min-width: 60px; max-width: 60px; }
     .pet-a-label { background: color-mix(in srgb, var(--accent) 8%, var(--bg-secondary)); color: var(--accent); }
-    .pet-b-label { background: color-mix(in srgb, #a855f7 8%, var(--bg-secondary)); color: #a855f7; }
+    .pet-b-label { background: color-mix(in srgb, var(--pet-b) 8%, var(--bg-secondary)); color: var(--pet-b); }
 
     .gene-cell-container { padding: 1px; text-align: center; vertical-align: middle; }
     .gene-cell-container.empty { opacity: 0.3; }

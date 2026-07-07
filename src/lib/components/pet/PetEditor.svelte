@@ -120,7 +120,7 @@ function updateAttribute(attrKey: string, value: string): void {
 }
 </script>
 
-<DetailOverlay onBack={handleCancel} backLabel="← Back" ariaLabel="Edit pet" testid="pet-editor" backTestid="pet-editor-back">
+<DetailOverlay onBack={handleCancel} ariaLabel="Edit pet" testid="pet-editor" backTestid="pet-editor-back">
   {#snippet title()}Edit Pet{/snippet}
   {#snippet children()}
     <div class="editor">

@@ -98,7 +98,7 @@ async function installUpdate() {
 }
 </script>
 
-<DetailOverlay onBack={onClose} backLabel="← Back" ariaLabel="Settings" testid="settings-view" backTestid="settings-back">
+<DetailOverlay onBack={onClose} ariaLabel="Settings" testid="settings-view" backTestid="settings-back">
   {#snippet title()}Settings{/snippet}
   {#snippet children()}
     <div class="settings-scroll">
@@ -159,21 +159,21 @@ async function installUpdate() {
               <span class="setting-name">Theme</span>
               <span class="setting-desc">Choose light, dark, or match your system</span>
             </div>
-            <div class="theme-selector">
+            <div class="seg theme-selector" role="group" aria-label="Theme">
               <button
-                class="theme-btn"
+                class="seg-btn theme-btn"
                 class:active={currentTheme === 'light'}
                 onclick={() => setTheme('light')}
                 aria-label="Light theme"
               >☀️ Light</button>
               <button
-                class="theme-btn"
+                class="seg-btn theme-btn"
                 class:active={currentTheme === 'dark'}
                 onclick={() => setTheme('dark')}
                 aria-label="Dark theme"
               >🌙 Dark</button>
               <button
-                class="theme-btn"
+                class="seg-btn theme-btn"
                 class:active={currentTheme === 'system'}
                 onclick={() => setTheme('system')}
                 aria-label="System theme"
@@ -449,37 +449,14 @@ async function installUpdate() {
     cursor: not-allowed;
   }
 
+  /* Chrome comes from the shared .seg/.seg-btn (app.css). `.theme-btn` stays
+     as the e2e hook (theme.spec). */
   .theme-selector {
-    display: flex;
-    gap: 4px;
-    background: var(--bg-tertiary);
-    border-radius: 8px;
-    padding: 3px;
     flex-shrink: 0;
   }
 
   .theme-btn {
     padding: 5px 12px;
-    border: none;
-    border-radius: 6px;
-    background: transparent;
-    color: var(--text-tertiary);
-    font-size: 12px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.15s ease;
-    white-space: nowrap;
-  }
-
-  .theme-btn:hover {
-    color: var(--text-secondary);
-    background: var(--bg-hover);
-  }
-
-  .theme-btn.active {
-    background: var(--bg-primary);
-    color: var(--text-primary);
-    box-shadow: var(--shadow-sm);
   }
 
   .check-update-btn {

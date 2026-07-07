@@ -4,7 +4,7 @@ import BreedView from '$lib/components/breeding/BreedView.svelte';
 import CommunityTab from '$lib/components/community/CommunityTab.svelte';
 import ReferenceView from '$lib/components/gene/ReferenceView.svelte';
 import SettingsView from '$lib/components/layout/SettingsView.svelte';
-import MyPets from '$lib/components/library/MyPets.svelte';
+import MyPets from '$lib/components/mypets/MyPets.svelte';
 import PetEditor from '$lib/components/pet/PetEditor.svelte';
 import { activeTab, appState, error, loading } from '$lib/stores/pets.js';
 import { editingPet, settingsOpen, uiActions } from '$lib/stores/ui.js';

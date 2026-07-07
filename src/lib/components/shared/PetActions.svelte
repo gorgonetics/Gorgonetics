@@ -107,7 +107,7 @@ async function doDelete(): Promise<void> {
     display: grid;
     place-items: center;
     border: 1px solid transparent;
-    border-radius: 5px;
+    border-radius: var(--radius-sm);
     background: transparent;
     color: var(--text-secondary);
     font-size: 13px;
@@ -124,7 +124,7 @@ async function doDelete(): Promise<void> {
   .hdr-btn {
     padding: 5px 14px;
     border: none;
-    border-radius: 4px;
+    border-radius: var(--radius-sm);
     background: transparent;
     color: var(--text-tertiary);
     font-size: 12px;
@@ -137,7 +137,7 @@ async function doDelete(): Promise<void> {
 
   .confirm-dialog {
     background: var(--bg-primary);
-    border-radius: 12px;
+    border-radius: var(--radius-xl);
     box-shadow: var(--shadow-xl);
     padding: 24px;
     width: 340px;

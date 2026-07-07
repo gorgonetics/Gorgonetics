@@ -60,10 +60,10 @@ function handleMouseUp(e: MouseEvent) {
     <nav aria-label="Main navigation" class="top-bar-tabs">
         <button
             class="tab-btn"
-            class:active={$activeTab === "library"}
-            data-testid="tab-library"
+            class:active={$activeTab === "mypets"}
+            data-testid="tab-mypets"
             disabled={$overlayOpen}
-            onclick={() => switchTab("library")}
+            onclick={() => switchTab("mypets")}
         >
             ✨ My Pets
         </button>

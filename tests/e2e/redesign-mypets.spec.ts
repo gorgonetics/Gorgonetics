@@ -35,7 +35,7 @@ test.describe('Redesign — My Pets (table-first)', () => {
   test('My Pets is the default destination and shows the roster table', async ({ page }) => {
     await page.goto('/');
     await waitForAppReady(page);
-    await expect(page.locator('[data-testid="tab-library"]')).toHaveClass(/active/);
+    await expect(page.locator('[data-testid="tab-mypets"]')).toHaveClass(/active/);
     await expect(page.locator('[data-testid="tab-breed"]')).toBeVisible();
     await expect(page.locator('[data-testid="my-pets"]')).toBeVisible();
     await expect(page.locator('[data-testid="roster-open"]').first()).toBeVisible();

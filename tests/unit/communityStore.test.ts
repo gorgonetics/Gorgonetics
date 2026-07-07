@@ -560,7 +560,7 @@ describe('community.svelte.ts — preview reset on destination switch (#396)', (
     selectPet('h1');
     expect(communityView.selectedHash).toBe('h1');
 
-    activeTab.set('library');
+    activeTab.set('mypets');
     expect(communityView.selectedHash).toBeNull();
   });
 

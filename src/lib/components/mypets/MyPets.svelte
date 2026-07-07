@@ -11,7 +11,7 @@
 
 import BulkSharePetDialog from '$lib/components/community/BulkSharePetDialog.svelte';
 import GenomeGridDiff from '$lib/components/comparison/GenomeGridDiff.svelte';
-import Roster from '$lib/components/library/Roster.svelte';
+import Roster from '$lib/components/mypets/Roster.svelte';
 import PetVisualization from '$lib/components/pet/PetVisualization.svelte';
 import DetailOverlay from '$lib/components/shared/DetailOverlay.svelte';
 import EmptyState from '$lib/components/shared/EmptyState.svelte';
@@ -21,7 +21,7 @@ import { isPlaceholderConfig } from '$lib/firebase.js';
 import { getSupportedSpecies, normalizeSpecies } from '$lib/services/configService.js';
 import { bulkShareJob, startBulkShare } from '$lib/stores/bulkShare.svelte.js';
 import { pendingImportCount } from '$lib/stores/gameImport.js';
-import { clearLibrarySelection, getLibraryFilters, libraryView } from '$lib/stores/library.svelte.js';
+import { clearMyPetsSelection, getMyPetsFilters, myPetsView } from '$lib/stores/mypets.svelte.js';
 import { allTags, loading, pets } from '$lib/stores/pets.js';
 import { type DialogResult, type Gender, HORSE_BREEDS, type Pet } from '$lib/types/index.js';
 import { focusTrap } from '$lib/utils/focusTrap.js';
@@ -36,24 +36,24 @@ const BREEDS_BY_SPECIES: Record<string, Record<string, string>> = {
   beewasp: { Bee: 'Bee', Wasp: 'Wasp' },
   horse: HORSE_BREEDS,
 };
-const breedsForSpecies = $derived(libraryView.species ? BREEDS_BY_SPECIES[libraryView.species] : undefined);
+const breedsForSpecies = $derived(myPetsView.species ? BREEDS_BY_SPECIES[myPetsView.species] : undefined);
 
 const flags = $derived([
-  { key: 'starred', label: '★ Starred', active: libraryView.starredOnly },
-  { key: 'stabled', label: '🏠 Stabled', active: libraryView.stabledOnly },
-  { key: 'petQuality', label: '🏆 Pet quality', active: libraryView.petQualityOnly },
+  { key: 'starred', label: '★ Starred', active: myPetsView.starredOnly },
+  { key: 'stabled', label: '🏠 Stabled', active: myPetsView.stabledOnly },
+  { key: 'petQuality', label: '🏆 Pet quality', active: myPetsView.petQualityOnly },
 ]);
 
 function toggleFlag(key: string): void {
-  if (key === 'starred') libraryView.starredOnly = !libraryView.starredOnly;
-  else if (key === 'stabled') libraryView.stabledOnly = !libraryView.stabledOnly;
-  else if (key === 'petQuality') libraryView.petQualityOnly = !libraryView.petQualityOnly;
+  if (key === 'starred') myPetsView.starredOnly = !myPetsView.starredOnly;
+  else if (key === 'stabled') myPetsView.stabledOnly = !myPetsView.stabledOnly;
+  else if (key === 'petQuality') myPetsView.petQualityOnly = !myPetsView.petQualityOnly;
 }
 
 function toggleTag(tag: string): void {
-  libraryView.tags = libraryView.tags.includes(tag)
-    ? libraryView.tags.filter((t) => t !== tag)
-    : [...libraryView.tags, tag];
+  myPetsView.tags = myPetsView.tags.includes(tag)
+    ? myPetsView.tags.filter((t) => t !== tag)
+    : [...myPetsView.tags, tag];
 }
 
 // --- View mode: table (default) | detail | compare -------------------------
@@ -66,12 +66,12 @@ let comparing = $state(false);
 // detail) clear the multi-selection and close any open detail/compare.
 let prevSpecies: string | undefined;
 $effect(() => {
-  const species = libraryView.species;
-  if (libraryView.breed && (!breedsForSpecies || !(libraryView.breed in breedsForSpecies))) {
-    libraryView.breed = '';
+  const species = myPetsView.species;
+  if (myPetsView.breed && (!breedsForSpecies || !(myPetsView.breed in breedsForSpecies))) {
+    myPetsView.breed = '';
   }
   if (prevSpecies !== undefined && prevSpecies !== species) {
-    clearLibrarySelection();
+    clearMyPetsSelection();
     detailPetId = null;
     comparing = false;
   }
@@ -83,12 +83,12 @@ $effect(() => {
 // loaded list before consuming the request, so one that arrives before
 // loadPets() resolves isn't silently dropped (it opens once the pet lands).
 $effect(() => {
-  const requested = libraryView.openPetId;
+  const requested = myPetsView.openPetId;
   if (requested == null) return;
   if (!$pets.some((p) => p.id === requested)) return;
   detailPetId = requested;
   comparing = false;
-  libraryView.openPetId = null;
+  myPetsView.openPetId = null;
 });
 
 // Resolve against the live pet list, but retain a snapshot of the open pet so a
@@ -123,8 +123,8 @@ $effect(() => {
 // Visible pets = the filtered set, computed once and passed to the Roster as a
 // prop (#405). The selection is scoped to these so a pet hidden by a
 // search/breed/gender/flag filter can't drive Compare or Share while off-screen.
-const visiblePets = $derived(filterPets($pets, getLibraryFilters()));
-const selectedPets = $derived(visiblePets.filter((p) => libraryView.selectedIds.has(p.id)));
+const visiblePets = $derived(filterPets($pets, getMyPetsFilters()));
+const selectedPets = $derived(visiblePets.filter((p) => myPetsView.selectedIds.has(p.id)));
 const compareSpecies = $derived(selectedPets.length === 2 ? normalizeSpecies(selectedPets[0].species) : '');
 const canCompare = $derived(
   selectedPets.length === 2 && compareSpecies !== '' && normalizeSpecies(selectedPets[1].species) === compareSpecies,
@@ -159,7 +159,7 @@ let shareStatus = $state<DialogResult | null>(null);
 
 function handleBulkShareResult(result: DialogResult): void {
   shareStatus = result;
-  if (result.type !== 'error') clearLibrarySelection();
+  if (result.type !== 'error') clearMyPetsSelection();
 }
 
 // --- Share all (whole collection, background job) ---------------------------
@@ -175,19 +175,19 @@ const canShareAll = $derived(!isPlaceholderConfig && $pets.length > 0);
   <div class="mp-main" class:hidden={detailPet || comparing}>
     <div class="mp-head">
       <FilterBar
-        search={libraryView.search}
-        onSearch={(v) => { libraryView.search = v; }}
+        search={myPetsView.search}
+        onSearch={(v) => { myPetsView.search = v; }}
         species={speciesOptions}
-        activeSpecies={libraryView.species}
-        onSpecies={(v) => { libraryView.species = v; }}
+        activeSpecies={myPetsView.species}
+        onSpecies={(v) => { myPetsView.species = v; }}
         breeds={breedsForSpecies}
-        breed={libraryView.breed}
-        onBreed={(v) => { libraryView.breed = v; }}
+        breed={myPetsView.breed}
+        onBreed={(v) => { myPetsView.breed = v; }}
         genders={['Male', 'Female']}
-        activeGender={libraryView.gender}
-        onGender={(v) => { libraryView.gender = v as Gender | ''; }}
+        activeGender={myPetsView.gender}
+        onGender={(v) => { myPetsView.gender = v as Gender | ''; }}
         tagOptions={$allTags}
-        activeTags={libraryView.tags}
+        activeTags={myPetsView.tags}
         onToggleTag={toggleTag}
         {flags}
         onToggleFlag={toggleFlag}
@@ -300,7 +300,7 @@ const canShareAll = $derived(!isPlaceholderConfig && $pets.length > 0);
             title="Share the selected pets to the community catalogue"
             onclick={() => { bulkShareOpen = true; }}
           >🌐 Share</button>
-          <button type="button" class="act-btn ghost" data-testid="mypets-clear" onclick={clearLibrarySelection}>Clear</button>
+          <button type="button" class="act-btn ghost" data-testid="mypets-clear" onclick={clearMyPetsSelection}>Clear</button>
         </div>
       {/if}
     </div>

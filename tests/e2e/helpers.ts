@@ -22,7 +22,7 @@ export async function waitForPets(page: Page) {
 
 /** Open one of the destinations by its nav button. */
 export async function gotoDestination(page: Page, name: 'My Pets' | 'Breed' | 'Community' | 'Reference') {
-  const map = { 'My Pets': 'tab-library', Breed: 'tab-breed', Community: 'tab-community', Reference: 'tab-reference' };
+  const map = { 'My Pets': 'tab-mypets', Breed: 'tab-breed', Community: 'tab-community', Reference: 'tab-reference' };
   await page.locator(`[data-testid="${map[name]}"]`).click();
 }
 

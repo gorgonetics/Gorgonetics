@@ -123,7 +123,7 @@ onDestroy(() => {
     gap: 6px;
     padding: 4px 10px;
     border: 1px solid var(--border-primary);
-    border-radius: 7px;
+    border-radius: var(--radius-md);
     background: var(--bg-primary);
     color: var(--text-secondary);
     font-size: 11px;
@@ -148,8 +148,8 @@ onDestroy(() => {
     padding: 5px;
     background: var(--bg-primary);
     border: 1px solid var(--border-primary);
-    border-radius: 9px;
-    box-shadow: var(--shadow-md, 0 4px 14px rgba(0, 0, 0, 0.1));
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-md);
   }
 
   .bs-opt {
@@ -159,7 +159,7 @@ onDestroy(() => {
     gap: 8px;
     padding: 6px 9px;
     border: none;
-    border-radius: 6px;
+    border-radius: var(--radius-md);
     background: transparent;
     color: var(--text-secondary);
     font-size: 12px;
