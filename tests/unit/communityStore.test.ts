@@ -86,6 +86,7 @@ afterEach(() => {
   communityView.cursor = null;
   communityView.selectedHash = null;
   communityView.importingHash = null;
+  communityView.importedHashes = new Set();
 });
 
 describe('community.svelte.ts — loadInitial', () => {
@@ -242,6 +243,36 @@ describe('community.svelte.ts — importSelected', () => {
     await Promise.resolve();
     expect(appState.loadPets).not.toHaveBeenCalled();
     expect(appState.appendPet).not.toHaveBeenCalled();
+  });
+
+  it('marks the hash imported on success (#398 session latch, reassigned Set)', async () => {
+    const before = communityView.importedHashes;
+    importCommunityPet.mockResolvedValueOnce({
+      status: 'imported',
+      message: 'ok',
+      pet_id: 1,
+    } as unknown as ImportResult);
+    await importSelected(makeSharedPet('done', { genomeData: 'raw' }));
+    expect(communityView.importedHashes.has('done')).toBe(true);
+    // Reassigned, not mutated — $state doesn't proxy Set internals, so an
+    // in-place .add() would never re-render the Import button.
+    expect(communityView.importedHashes).not.toBe(before);
+  });
+
+  it('marks the hash imported on already-imported (the pet IS in the stable)', async () => {
+    importCommunityPet.mockResolvedValueOnce({ status: 'already-imported', message: 'linked', pet_id: 7 });
+    await importSelected(makeSharedPet('linked', { genomeData: 'raw' }));
+    expect(communityView.importedHashes.has('linked')).toBe(true);
+  });
+
+  it('does NOT mark the hash on an error result or a thrown import', async () => {
+    importCommunityPet.mockResolvedValueOnce({ status: 'error', message: 'boom' });
+    await importSelected(makeSharedPet('failed', { genomeData: 'raw' }));
+    expect(communityView.importedHashes.has('failed')).toBe(false);
+
+    importCommunityPet.mockRejectedValueOnce(new Error('thrown'));
+    await importSelected(makeSharedPet('thrown', { genomeData: 'raw' }));
+    expect(communityView.importedHashes.has('thrown')).toBe(false);
   });
 
   it('releases the importingHash slot after completion (success and failure both)', async () => {

@@ -87,6 +87,19 @@ export const communityView = $state({
    * `appState.loadPets()` races and double-toasts.
    */
   importingHash: null as string | null,
+  /**
+   * Hashes imported (or confirmed already-imported) during this session.
+   * Drives the "✓ Imported" disabled state on the Import button so a
+   * successful import can't be re-clicked. Session-scoped on purpose: the
+   * durable already-in-stable truth lives in the local DB (content_hash
+   * UNIQUE), and `importCommunityPet` maps a re-import onto
+   * 'already-imported' anyway — this set is UI feedback, not a guard.
+   *
+   * Always REASSIGNED, never mutated in place: Svelte 5's `$state` proxy
+   * doesn't track `Set` internals, so `.add()` on the existing instance
+   * would not trigger re-renders.
+   */
+  importedHashes: new Set<string>(),
 });
 
 /**
@@ -253,6 +266,13 @@ export async function importSelected(fullPet: SharedPet): Promise<ImportResult> 
     // land before the background refetch completes. A refresh failure is a
     // UI sync issue, not an import failure; the Pets tab's onMount picks it
     // up on next navigation.
+    if (result.status !== 'error') {
+      // Both success shapes mean the pet is now in the stable — flip the
+      // Import control to its session-scoped "Imported ✓" state (#398).
+      const next = new Set(communityView.importedHashes);
+      next.add(fullPet.contentHash);
+      communityView.importedHashes = next;
+    }
     if (result.status === 'imported') {
       // Fresh insert at MAX(sort_order)+1 — append just that row (#256)
       // instead of an O(N) full reload.
