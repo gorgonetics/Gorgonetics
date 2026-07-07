@@ -491,6 +491,15 @@ export interface SharedPet {
   genomeData?: string;
   uploadedAt: Date;
   uploaderUid: string | null;
+  /**
+   * True when this entry was read from a correction doc (auto-ID, carries
+   * a `contentHash` field) rather than the first-share doc (whose ID *is*
+   * the hash). The read path uses it to resolve identity fields
+   * (name/character/species/gender/breed/breeder) from the first-share
+   * entry — corrections may only alter attributes/tags/notes, and this
+   * flag lets the client enforce that even for pre-rule poisoned docs.
+   */
+  isCorrection?: boolean;
 }
 
 /**

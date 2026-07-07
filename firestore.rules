@@ -83,6 +83,31 @@ service cloud.firestore {
         && data.uploaderUid == null;
     }
 
+    // A correction may not rewrite the identity of the pet it corrects —
+    // only attributes/tags/notes (plus version stamps) are correction-
+    // eligible. Compare the six identity fields against the FIRST-share
+    // doc, whose ID is the hash itself; without this bind, anyone could
+    // append a "correction" with arbitrary name/species/… for someone
+    // else's published pet and permanently deface the catalogue entry
+    // (reads resolve latest-wins and update/delete are denied). Rules
+    // have no `let`, so the get() result is bound exactly once by passing
+    // its data through a function argument. The two functions inline to a
+    // single get() plus six equality checks (~20 evaluated expressions) —
+    // comfortably inside the 1000-expression budget that the unrolled
+    // isValidTagList already dominates (see the create rule below).
+    function identityMatchesFirstShare(data) {
+      return identityEquals(data, get(/databases/$(db)/documents/pets/$(data.contentHash)).data);
+    }
+
+    function identityEquals(data, base) {
+      return data.name == base.name
+        && data.character == base.character
+        && data.species == base.species
+        && data.gender == base.gender
+        && data.breed == base.breed
+        && data.breeder == base.breeder;
+    }
+
     // Pet *metadata* only — name, tags, attributes, attribution, schema/
     // version stamps, and the server-side upload timestamp. The genome text
     // itself lives in `/genomes/{contentHash}` (see below) so the catalogue
@@ -99,10 +124,12 @@ service cloud.firestore {
     //
     //  2. Correction — an auto-ID doc carrying a `contentHash` field that
     //     points back at an already-published genome. Lets a user append a
-    //     superseding metadata entry (corrected attributes/tags) without
-    //     mutating the original; reads resolve a hash to its latest entry
-    //     by `uploadedAt`. Requires the genome to already exist, so a
-    //     correction can never precede a first share.
+    //     superseding metadata entry (corrected attributes/tags/notes)
+    //     without mutating the original; reads resolve a hash to its latest
+    //     entry by `uploadedAt`. Requires the genome to already exist, so a
+    //     correction can never precede a first share — and its identity
+    //     fields must equal the first-share doc's (identityMatchesFirstShare
+    //     above), so a correction can never deface someone else's entry.
     //
     // update/delete stay denied — corrections are appends, never edits.
     match /pets/{docId} {
@@ -140,6 +167,11 @@ service cloud.firestore {
                           // already published the genome — it cannot bootstrap
                           // the genome in its own batch.
                           && exists(/databases/$(db)/documents/genomes/$(request.resource.data.contentHash))
+                          // Identity binding: the six identity fields must
+                          // equal the first-share doc's (see the function
+                          // comment above). Ordered after exists() so the
+                          // get() only runs for a plausible correction.
+                          && identityMatchesFirstShare(request.resource.data)
                         )
                     );
 

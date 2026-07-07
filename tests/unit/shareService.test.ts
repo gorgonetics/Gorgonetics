@@ -330,6 +330,54 @@ describe('shareService.uploadPet — add-only corrections', () => {
     expect(setDoc).toHaveBeenCalledTimes(1);
   });
 
+  it('pins the correction identity fields to the first-share doc, not the local pet (issue #393)', async () => {
+    // The catalogue entry's identity belongs to the first share — rules
+    // reject a correction whose identity differs. The local pet was
+    // renamed and re-bred; the appended correction must carry the BASE
+    // doc's identity so the write passes the rules, while still
+    // publishing the corrected attributes.
+    getDocMock
+      .mockResolvedValueOnce(
+        readSnap(
+          matchingMeta({
+            name: 'CatalogueName',
+            breed: 'CatalogueBreed',
+            attributes: { ...FIXTURE_ATTRS, intelligence: 99 },
+          }),
+          { id: RAW_TEXT_HASH },
+        ),
+      )
+      .mockResolvedValueOnce(readSnap({ genomeData: RAW_TEXT }));
+
+    const result = await uploadPet(makePet({ name: 'LocalRename', breed: 'LocalBreed' }));
+    expect(result.status).toBe('created');
+    expect(setDoc).toHaveBeenCalledTimes(1);
+    const payload = setDocMock.mock.calls[0][1] as Record<string, unknown>;
+    expect(payload.name).toBe('CatalogueName');
+    expect(payload.breed).toBe('CatalogueBreed');
+    expect(payload.character).toBe('PlayerOne');
+    expect(payload.species).toBe('BeeWasp');
+    expect(payload.gender).toBe(Gender.FEMALE);
+    expect(payload.breeder).toBe('PlayerOne');
+    // The correction-eligible payload still comes from the local pet.
+    expect(payload.attributes).toEqual(FIXTURE_ATTRS);
+    expect(payload.contentHash).toBe(RAW_TEXT_HASH);
+  });
+
+  it('treats a rename-only local change as already-shared (identity is not correction-eligible)', async () => {
+    // Identity fields can't be published via a correction, so a local
+    // rename with identical notes/tags/attributes must be an idempotent
+    // no-op — NOT an appended no-op correction on every re-share.
+    getDocMock
+      .mockResolvedValueOnce(readSnap(matchingMeta(), { id: RAW_TEXT_HASH }))
+      .mockResolvedValueOnce(readSnap({ genomeData: RAW_TEXT }));
+
+    const result = await uploadPet(makePet({ name: 'RenamedLocally' }));
+    expect(result.status).toBe('already-shared');
+    expect(setDoc).not.toHaveBeenCalled();
+    expect(writeBatch).not.toHaveBeenCalled();
+  });
+
   it('resolves the latest entry across base + corrections before deciding', async () => {
     // Base (older) differs, but a correction (newer) already matches → no-op.
     getDocMock
@@ -405,6 +453,21 @@ describe('shareService.listPets', () => {
     expect(pets[0].name).toBe('Buzz');
     // Cursor is the underlying snapshot — opaque to callers.
     expect(cursor).toBe(lastSnap);
+  });
+
+  it('flags correction docs with isCorrection so read-side merges can find the base entry', async () => {
+    getDocsMock.mockResolvedValueOnce({
+      docs: [
+        readSnap(matchingMeta({ contentHash: RAW_TEXT_HASH }), { id: 'auto-1' }),
+        readSnap(matchingMeta(), { id: RAW_TEXT_HASH }),
+      ],
+    } as never);
+
+    const { pets } = await listPets();
+    expect(pets[0].isCorrection).toBe(true);
+    expect(pets[0].contentHash).toBe(RAW_TEXT_HASH);
+    expect(pets[1].isCorrection).toBe(false);
+    expect(pets[1].contentHash).toBe(RAW_TEXT_HASH);
   });
 
   it('returns a null cursor when the page is empty', async () => {
@@ -494,9 +557,11 @@ describe('shareService.getSharedPet', () => {
     expect(pet?.genomeData).toBeUndefined();
   });
 
-  it('resolves the latest correction over the base entry (latest-wins)', async () => {
+  it('resolves the latest correction over the base entry (latest-wins), identity from the base', async () => {
     // Base entry (older) + a correction doc (newer, carries the hash as a
-    // field). getSharedPet must return the newest.
+    // field). getSharedPet must return the newest correction-eligible
+    // fields (attributes/tags/notes) — but the identity fields stay the
+    // base entry's (issue #393).
     getDocMock
       .mockResolvedValueOnce(
         readSnap(matchingMeta({ name: 'OldName', uploadedAt: Timestamp.fromDate(new Date('2026-05-01T00:00:00Z')) }), {
@@ -508,8 +573,8 @@ describe('shareService.getSharedPet', () => {
       docs: [
         readSnap(
           matchingMeta({
-            name: 'NewName',
             contentHash: RAW_TEXT_HASH,
+            notes: 'corrected notes',
             attributes: { ...FIXTURE_ATTRS, intelligence: 90 },
             uploadedAt: Timestamp.fromDate(new Date('2026-06-01T00:00:00Z')),
           }),
@@ -519,10 +584,58 @@ describe('shareService.getSharedPet', () => {
     } as never);
 
     const pet = await getSharedPet(RAW_TEXT_HASH);
-    expect(pet?.name).toBe('NewName');
+    expect(pet?.name).toBe('OldName');
     expect(pet?.contentHash).toBe(RAW_TEXT_HASH);
+    expect(pet?.notes).toBe('corrected notes');
     expect(pet?.attributes).toEqual({ ...FIXTURE_ATTRS, intelligence: 90 });
     expect(pet?.genomeData).toBe('GENOME-BODY');
+  });
+
+  it('ignores identity fields on a hostile correction (defacement attempt, issue #393)', async () => {
+    // A pre-rule "correction" that tries to rewrite someone else's entry:
+    // new name/character/species/gender/breed/breeder. The read must pin
+    // every identity field to the first-share doc and honour only the
+    // correction-eligible attributes/tags/notes.
+    getDocMock
+      .mockResolvedValueOnce(
+        readSnap(matchingMeta({ uploadedAt: Timestamp.fromDate(new Date('2026-05-01T00:00:00Z')) }), {
+          id: RAW_TEXT_HASH,
+        }),
+      )
+      .mockResolvedValueOnce(readSnap({ genomeData: 'GENOME-BODY' }));
+    getDocsMock.mockResolvedValueOnce({
+      docs: [
+        readSnap(
+          matchingMeta({
+            contentHash: RAW_TEXT_HASH,
+            name: 'HACKED',
+            character: 'Mallory',
+            species: 'Horse',
+            gender: Gender.MALE,
+            breed: 'FakeBreed',
+            breeder: 'Mallory',
+            notes: 'rude notes',
+            tags: ['defaced'],
+            attributes: { ...FIXTURE_ATTRS, ferocity: 100 },
+            uploadedAt: Timestamp.fromDate(new Date('2026-06-01T00:00:00Z')),
+          }),
+          { id: 'auto-evil' },
+        ),
+      ],
+    } as never);
+
+    const pet = await getSharedPet(RAW_TEXT_HASH);
+    // Identity: first-share values, not the hostile correction's.
+    expect(pet?.name).toBe('Buzz');
+    expect(pet?.character).toBe('PlayerOne');
+    expect(pet?.species).toBe('BeeWasp');
+    expect(pet?.gender).toBe(Gender.FEMALE);
+    expect(pet?.breed).toBe('');
+    expect(pet?.breeder).toBe('PlayerOne');
+    // Correction-eligible fields still resolve latest-wins.
+    expect(pet?.notes).toBe('rude notes');
+    expect(pet?.tags).toEqual(['defaced']);
+    expect(pet?.attributes).toEqual({ ...FIXTURE_ATTRS, ferocity: 100 });
   });
 
   it('reads a complete attribute map into SharedPet.attributes, undefined when incomplete', async () => {

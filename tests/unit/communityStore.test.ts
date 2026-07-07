@@ -411,8 +411,15 @@ describe('community.svelte.ts — selection helpers', () => {
 describe('community.svelte.ts — add-only latest-per-hash dedup', () => {
   it('keeps only the newest entry per content hash within a page (newest-first)', async () => {
     // listPets pages newest-first, so a correction (newer) precedes the base
-    // it supersedes. Keep-first-seen therefore keeps the correction.
-    const correction = makeSharedPet('dup', { name: 'Corrected', uploadedAt: new Date('2026-06-01T00:00:00Z') });
+    // it supersedes. Keep-first-seen therefore keeps the correction's
+    // correction-eligible fields — but its identity fields resolve from
+    // the base entry (issue #393), so the displayed name is the original.
+    const correction = makeSharedPet('dup', {
+      name: 'Corrected',
+      notes: 'corrected notes',
+      isCorrection: true,
+      uploadedAt: new Date('2026-06-01T00:00:00Z'),
+    });
     const base = makeSharedPet('dup', { name: 'Original', uploadedAt: new Date('2026-05-01T00:00:00Z') });
     listPets.mockResolvedValueOnce({ pets: [makeSharedPet('other'), correction, base], cursor: null });
 
@@ -420,21 +427,92 @@ describe('community.svelte.ts — add-only latest-per-hash dedup', () => {
 
     expect(communityView.pets).toHaveLength(2);
     const dup = communityView.pets.find((p) => p.contentHash === 'dup');
-    expect(dup?.name).toBe('Corrected');
+    expect(dup?.name).toBe('Original');
+    expect(dup?.notes).toBe('corrected notes');
+    expect(dup?.uploadedAt).toEqual(new Date('2026-06-01T00:00:00Z'));
   });
 
   it('collapses a base/correction pair that straddles a page boundary', async () => {
     // Correction lands on page 1 (newer), its base on page 2 (older). The
-    // accumulated list must not show both.
-    const correction = makeSharedPet('dup', { name: 'Corrected', uploadedAt: new Date('2026-06-01T00:00:00Z') });
+    // accumulated list must not show both, and once the base is paged in
+    // its identity fields win over the correction's. Page 1 must be FULL
+    // (PAGE_SIZE = 50 rows) or `hasMore` flips false and loadMore never
+    // runs — an earlier revision of this test passed vacuously that way.
+    const correction = makeSharedPet('dup', {
+      name: 'Corrected',
+      tags: ['updated'],
+      isCorrection: true,
+      uploadedAt: new Date('2026-06-01T00:00:00Z'),
+    });
     const base = makeSharedPet('dup', { name: 'Original', uploadedAt: new Date('2026-05-01T00:00:00Z') });
-    listPets.mockResolvedValueOnce({ pets: [correction], cursor: { __snap: 'c1' } });
+    const filler = Array.from({ length: 49 }, (_, i) => makeSharedPet(`filler-${i}`));
+    listPets.mockResolvedValueOnce({ pets: [correction, ...filler], cursor: { __snap: 'c1' } });
     await loadInitial();
     listPets.mockResolvedValueOnce({ pets: [base], cursor: null });
     await loadMore();
 
     const dups = communityView.pets.filter((p) => p.contentHash === 'dup');
     expect(dups).toHaveLength(1);
-    expect(dups[0].name).toBe('Corrected');
+    expect(dups[0].name).toBe('Original');
+    expect(dups[0].tags).toEqual(['updated']);
+  });
+
+  it('resolves identity from the base entry when a hostile correction rewrites name/species (issue #393)', async () => {
+    // Pre-rule poisoned data: a "correction" carrying a different
+    // name/species/breeder for someone else's pet. The merged row must
+    // pin every identity field to the first-share entry and honour only
+    // the correction-eligible attributes/tags/notes.
+    const hostile = makeSharedPet('dup', {
+      name: 'HACKED',
+      character: 'Mallory',
+      species: 'Horse',
+      gender: Gender.MALE,
+      breed: 'FakeBreed',
+      breeder: 'Mallory',
+      notes: 'rude notes',
+      tags: ['defaced'],
+      attributes: { intelligence: 1 },
+      isCorrection: true,
+      uploadedAt: new Date('2026-06-01T00:00:00Z'),
+    });
+    const base = makeSharedPet('dup', { name: 'Original', uploadedAt: new Date('2026-05-01T00:00:00Z') });
+    listPets.mockResolvedValueOnce({ pets: [hostile, base], cursor: null });
+
+    await loadInitial();
+
+    expect(communityView.pets).toHaveLength(1);
+    const merged = communityView.pets[0];
+    expect(merged.name).toBe('Original');
+    expect(merged.character).toBe('Player');
+    expect(merged.species).toBe('BeeWasp');
+    expect(merged.gender).toBe(Gender.FEMALE);
+    expect(merged.breed).toBe('');
+    expect(merged.breeder).toBe('Player');
+    // Correction-eligible fields still come from the latest entry.
+    expect(merged.notes).toBe('rude notes');
+    expect(merged.tags).toEqual(['defaced']);
+    expect(merged.attributes).toEqual({ intelligence: 1 });
+  });
+
+  it('does not merge identity across two corrections (base not yet paged in)', async () => {
+    // Without the base entry there is nothing authoritative to pin to —
+    // the newest correction is shown as-is (the detail view's
+    // getSharedPet always fetches the base doc and re-merges).
+    const newer = makeSharedPet('dup', {
+      name: 'Newer',
+      isCorrection: true,
+      uploadedAt: new Date('2026-06-02T00:00:00Z'),
+    });
+    const older = makeSharedPet('dup', {
+      name: 'Older',
+      isCorrection: true,
+      uploadedAt: new Date('2026-06-01T00:00:00Z'),
+    });
+    listPets.mockResolvedValueOnce({ pets: [newer, older], cursor: null });
+
+    await loadInitial();
+
+    expect(communityView.pets).toHaveLength(1);
+    expect(communityView.pets[0].name).toBe('Newer');
   });
 });

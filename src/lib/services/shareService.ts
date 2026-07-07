@@ -65,6 +65,7 @@ import {
 } from '$lib/services/petService.js';
 import { Gender, type ListPetsOpts, type Pet, type SharedPet, type SharedPetsPage } from '$lib/types/index.js';
 import { sha256Hex } from '$lib/utils/hash.js';
+import { mergeCorrectionIdentity } from '$lib/utils/sharedPet.js';
 
 declare const __APP_VERSION__: string;
 const APP_VERSION = __APP_VERSION__;
@@ -181,19 +182,34 @@ export async function uploadPet(pet: Pet, db: Firestore = defaultFirestore): Pro
   }
   await assertGenomeIntegrity(pet.content_hash, genomeSnap);
 
-  // Resolve the latest metadata across base + corrections. If it already
+  // Resolve the latest metadata across base + corrections (identity always
+  // from the base entry — see mergeCorrectionIdentity). If it already
   // matches what we're publishing, this is an idempotent no-op.
-  const latest = pickLatestSnapshot([baseSnap, ...corrSnap.docs]);
-  if (metadataMatches(toMetadataSharedPet(latest), pet)) {
+  const base = toMetadataSharedPet(baseSnap);
+  const latest = mergeCorrectionIdentity(toMetadataSharedPet(pickLatestSnapshot([baseSnap, ...corrSnap.docs])), base);
+  if (metadataMatches(latest, pet)) {
     return { status: 'already-shared', contentHash: pet.content_hash };
   }
 
-  // Attributes/tags (or name/breed/…) differ from the latest entry: append
-  // a correction. The genome blob is unchanged, so this is a single metadata
-  // write under an auto-ID with a `contentHash` back-reference. Add-only —
-  // the prior entries stay, and reads resolve to this newest one.
+  // Attributes/tags/notes differ from the latest entry: append a correction.
+  // The genome blob is unchanged, so this is a single metadata write under
+  // an auto-ID with a `contentHash` back-reference. Add-only — the prior
+  // entries stay, and reads resolve to this newest one. Identity fields are
+  // pinned to the first-share doc's values: firestore.rules rejects a
+  // correction whose identity differs from the base entry
+  // (identityMatchesFirstShare), so a locally-renamed pet re-shares its
+  // corrected attributes/tags without tripping permission-denied.
   const correctionRef = doc(collection(db, META_COLLECTION));
-  await setDoc(correctionRef, { ...payload, contentHash: pet.content_hash });
+  await setDoc(correctionRef, {
+    ...payload,
+    name: base.name,
+    character: base.character,
+    species: base.species,
+    gender: base.gender,
+    breed: base.breed,
+    breeder: base.breeder,
+    contentHash: pet.content_hash,
+  });
   return { status: 'created', contentHash: pet.content_hash };
 }
 
@@ -277,16 +293,16 @@ function pickLatestSnapshot(snaps: DocumentSnapshot<DocumentData>[]): DocumentSn
 /**
  * True when the already-published latest metadata equals what `pet` would
  * publish now — the signal to skip an add-only correction. Compares only
- * user-editable fields; `uploadedAt`/`appVersion`/`schemaVersion` are
- * expected to drift and don't count as a change. A legacy entry with no
+ * the correction-eligible fields (notes/tags/attributes);
+ * `uploadedAt`/`appVersion`/`schemaVersion` are expected to drift and don't
+ * count as a change, and the identity fields (name/character/species/
+ * gender/breed/breeder) are bound to the first share by firestore.rules —
+ * a local rename can't be published, so counting it as a difference would
+ * append a no-op correction on every re-share. A legacy entry with no
  * attributes never matches a pet that now carries them, so re-sharing an
  * old pet backfills its attributes via one correction.
  */
 function metadataMatches(existing: SharedPet, pet: Pet): boolean {
-  if (existing.name !== pet.name) return false;
-  if (existing.gender !== pet.gender) return false;
-  if (existing.breed !== pet.breed) return false;
-  if ((existing.breeder ?? '') !== (pet.breeder ?? '')) return false;
   if ((existing.notes ?? '') !== (pet.notes ?? '')) return false;
   if (!sameStringSet(existing.tags, sanitizeTags(pet.tags))) return false;
   return sameAttributes(existing.attributes, buildAttributes(pet));
@@ -491,8 +507,16 @@ export async function getSharedPet(contentHash: string, db: Firestore = defaultF
   const metaSnaps = [...(baseSnap.exists() ? [baseSnap] : []), ...corrSnap.docs];
   if (metaSnaps.length === 0) return null;
 
-  // Latest-wins: resolve the hash to its most recent metadata entry.
-  const pet = toMetadataSharedPet(pickLatestSnapshot(metaSnaps));
+  // Latest-wins for the correction-eligible fields (attributes/tags/notes),
+  // but identity fields always come from the first-share doc — a hostile
+  // pre-rule "correction" must not be able to rename/re-species the entry
+  // (issue #393). When no correction exists the merge is a no-op; when the
+  // base doc is somehow missing (half-published legacy state) the latest
+  // entry is returned unmerged, as before.
+  let pet = toMetadataSharedPet(pickLatestSnapshot(metaSnaps));
+  if (baseSnap.exists()) {
+    pet = mergeCorrectionIdentity(pet, toMetadataSharedPet(baseSnap));
+  }
   pet.contentHash = contentHash;
   const genomeData = genomeSnap.exists() ? (genomeSnap.data().genomeData as unknown) : undefined;
   pet.genomeData = typeof genomeData === 'string' ? genomeData : undefined;
@@ -800,8 +824,11 @@ function toMetadataSharedPet(snap: DocumentSnapshot<DocumentData>): SharedPet {
 
   return {
     // Correction docs carry the hash as a field (their doc ID is an
-    // auto-ID); the first-share doc's ID *is* the hash.
+    // auto-ID); the first-share doc's ID *is* the hash. `isCorrection`
+    // preserves the distinction so read-side merges can resolve identity
+    // fields from the first-share entry (see mergeCorrectionIdentity).
     contentHash: typeof data.contentHash === 'string' ? data.contentHash : snap.id,
+    isCorrection: typeof data.contentHash === 'string',
     name: str(data.name),
     character: str(data.character),
     species: str(data.species),
