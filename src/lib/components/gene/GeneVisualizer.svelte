@@ -1,5 +1,6 @@
 <script lang="ts">
 import { onDestroy, onMount } from 'svelte';
+import './geneCell.css';
 import StatusPane from '$lib/components/shared/StatusPane.svelte';
 import {
   getAllAppearanceDisplayInfo,
@@ -14,6 +15,7 @@ import { getGeneEffectsCached } from '$lib/services/geneService.js';
 import { loadPetGridFromDb } from '$lib/services/petService.js';
 import { EFFECT_COLORS } from '$lib/theme/gene-colors.js';
 import type { AppearanceInfo, Pet } from '$lib/types/index.js';
+import { ATTR_DELIM, buildVisualizerFilterCSS, type ChrBreedRelevance } from '$lib/utils/filterCSS.js';
 import { resolveFilterClick } from '$lib/utils/filterToggle.js';
 import {
   breedFor,
@@ -23,7 +25,6 @@ import {
   type ParsedChromosome,
   type ParsedGene,
 } from '$lib/utils/geneAnalysis.js';
-import { type GeneEffectLookup, type GeneFilterState, isGeneVisible } from '$lib/utils/geneFilter.js';
 import { computeGeneCellSize } from '$lib/utils/geneGridCells.js';
 import {
   updateStats as accumulateStats,
@@ -32,7 +33,6 @@ import {
 } from '$lib/utils/geneStats.js';
 import { handleGridNavigation } from '$lib/utils/keyboard.js';
 import { capitalize } from '$lib/utils/string.js';
-import GeneCell from './GeneCell.svelte';
 import GeneTooltip from './GeneTooltip.svelte';
 
 const ALL_ATTRIBUTES = getAllAttributeDisplayInfo();
@@ -79,24 +79,42 @@ interface Props {
   gridOverride?: Record<string, ParsedChromosome> | null;
 }
 
-interface GeneAnalysisResult {
+/**
+ * One rendered grid cell. Built ONCE per pet load with every filter/colour
+ * input precomputed as a CSS class or data attribute; filtering then happens
+ * entirely through an injected stylesheet (`buildVisualizerFilterCSS`) with
+ * zero component re-render or DOM rebuild. Both views' colour classes are
+ * baked in so the attribute↔appearance toggle is a class swap, not a rebuild.
+ */
+interface VisCell {
+  id: string;
   type: string;
-  attribute: string | null;
+  /** Colour class for the attribute view (`gene-cell gene-<effectType> gene-<zygosity>`). */
+  attributeCls: string;
+  /** Colour class for the appearance view. */
+  appearanceCls: string;
+  /** Active-allele attribute (attribute-view hidden filter + per-attribute stats). */
+  attr: string;
+  /** Delimited union of both alleles' attributes (attribute-view select filter). */
+  attrs: string;
+  /** Appearance category for the appearance-view filter ('' for inactive-breed). */
+  appearance: string;
+  /** Resolved/promoted effect type (attribute-view effect filter). */
+  effectType: string;
+  /** Appearance category used for appearance-view stats. */
+  appearanceStatsType: string;
+  /** `dominant` | `recessive` | `mixed` | `unknown` (value filter). */
+  zygosity: string;
+  /** Delimited attributes this cell recolours potential-positive for when singly selected. */
+  ctxpos: string;
+  /** Delimited attributes this cell recolours potential-negative for. */
+  ctxneg: string;
   effect: string;
 }
 
-interface ProcessedGene extends ParsedGene {
-  geneAnalysis: GeneAnalysisResult;
-  isVisible: boolean;
-}
-
-interface SpeciesTemplate {
-  species: string;
-  chromosomeCount: number;
-  blockCount: number;
-  sortedBlocks: string[];
-  blockMaxGenes: Map<string, number>;
-  timestamp: number;
+interface ChromosomeRow {
+  chromosome: string;
+  cells: (VisCell | null)[][]; // [blockIndex][positionIndex]
 }
 
 interface HeaderStructure {
@@ -104,15 +122,7 @@ interface HeaderStructure {
   blockMaxGenes: Map<string, number>;
 }
 
-interface ChromosomeRow {
-  chromosome: string;
-  data: ParsedChromosome;
-  processedBlocks: Record<string, (ProcessedGene | null)[]>;
-}
-
 const { pet, onStatsUpdated, gridOverride = null }: Props = $props();
-
-let containerElement = $state<HTMLElement | undefined>(undefined);
 
 let loading = $state(false);
 let error = $state<string | null>(null);
@@ -123,43 +133,32 @@ let currentPet = $state<{
   breed: string;
   grid: Record<string, ParsedChromosome>;
 } | null>(null);
-let currentView = $state('attribute');
+let currentView = $state<'attribute' | 'appearance'>('attribute');
 let geneEffectsDB: Record<string, Record<string, GeneEffectData>> | null = null;
 
-// Stats-related reactive variables
+// Stats
 let currentStats = $state<StatsMap | null>(null);
 let totalGenes = $state(0);
 let neutralGenes = $state(0);
 let appearanceList = $state<AppearanceInfo[]>([]);
+let attributeStatNames: string[] = [];
+let appearanceStatNames: string[] = [];
+
+// Filter state — plain reactive state; changing it only regenerates the
+// injected stylesheet (see the $effect below), never rebuilds the grid.
 let selectedAttributes = $state<string[]>([]);
 let hiddenAttributes = $state<string[]>([]);
 let selectedChromosomes = $state<string[]>([]);
 let hiddenChromosomes = $state<string[]>([]);
-
-// Filter states
 let currentEffectFilter = $state<string[]>([]);
 let hiddenEffectFilters = $state<string[]>([]);
 let currentValueFilter = $state<string[]>([]);
 let hiddenValueFilters = $state<string[]>([]);
-
-// Breed filter state (horse only)
 let currentBreedFilter = $state('');
 
-function chromosomeHasBreed(chromosome: string, breedName: string) {
-  if (!geneEffectsDB || !currentPet) return true;
-  const speciesKey = normalizeSpecies(currentPet.species);
-  const speciesEffects = geneEffectsDB[speciesKey];
-  if (!speciesEffects) return true;
-  // A chromosome matches if it has generic genes (no breed) or genes for this breed
-  for (const [geneId, data] of Object.entries(speciesEffects)) {
-    if (geneId.startsWith(chromosome)) {
-      if (!data.breed || data.breed === '' || data.breed === breedName) {
-        return true;
-      }
-    }
-  }
-  return false;
-}
+// Per-chromosome breed relevance (horse) — drives the breed row-hide in CSS.
+let chrBreedRelevance: Record<string, ChrBreedRelevance> = {};
+const isHorse = $derived(normalizeSpecies(currentPet?.species ?? '') === 'horse');
 
 // Tooltip state
 let tooltipVisible = $state(false);
@@ -167,19 +166,14 @@ let tooltipX = $state(0);
 let tooltipY = $state(0);
 let tooltipGeneId = $state('');
 let tooltipGeneType = $state('');
-
-// Template system state (disabled)
 let tooltipEffect = $state('');
 let tooltipPotentialEffects = $state<string[]>([]);
 
-// Parsed gene data
+// Built grid
 let headerStructure = $state<HeaderStructure | null>(null);
 let chromosomeData = $state<ChromosomeRow[]>([]);
 
-// Responsive cell sizing — scale the fixed-cell grid to fill its container
-// width instead of leaving a large dead zone (wide window) or overflowing
-// with a scrollbar (narrow window / stats drawer open). A ResizeObserver
-// tracks the live container width; cell size is clamped for readability.
+// Responsive cell sizing — scale the fixed-cell grid to fill its container.
 let gridContainerEl = $state<HTMLDivElement>();
 let gridContainerWidth = $state(0);
 const totalGeneColumns = $derived.by(() => {
@@ -208,76 +202,99 @@ $effect(() => {
   return () => ro.disconnect();
 });
 
-// Global gene effects database - persists across pet selections
+// Tooltip + keyboard-nav listeners are delegated on the grid container (rather
+// than per-cell inline handlers) — attaching them here instead of as inline
+// attributes keeps the 1576-cell grid handler-free and sidesteps the
+// mouse/focus a11y lint (the keyboard path is covered via focusin/keydown).
+$effect(() => {
+  const el = gridContainerEl;
+  if (!el) return;
+  el.addEventListener('mouseover', handleGridPointerOver);
+  el.addEventListener('mouseout', handleGridPointerOut);
+  el.addEventListener('focusin', handleGridFocusIn);
+  el.addEventListener('focusout', handleGridFocusOut);
+  el.addEventListener('keydown', handleGridKeydown);
+  return () => {
+    el.removeEventListener('mouseover', handleGridPointerOver);
+    el.removeEventListener('mouseout', handleGridPointerOut);
+    el.removeEventListener('focusin', handleGridFocusIn);
+    el.removeEventListener('focusout', handleGridFocusOut);
+    el.removeEventListener('keydown', handleGridKeydown);
+  };
+});
+
+// Gene effects DB — persists across pet selections.
 let globalGeneEffectsDB: Record<string, Record<string, GeneEffectData>> = {};
 
-// DOM template cache - stores pre-built table structures per species
-const speciesTemplateCache = new Map<string, SpeciesTemplate>();
-let currentSpeciesTemplate = $state<SpeciesTemplate | null>(null);
-let isUsingCachedTemplate = false;
+// --- Injected filter stylesheet (zero rebuild / zero re-render) --------------
+// A GeneVisualizer never coexists with another (pet detail OR community detail),
+// so a single shared `.gene-grid-container`-scoped sheet is safe.
+let filterStyleEl: HTMLStyleElement | null = null;
 
-onMount(async () => {
-  // Preload gene effects for common species to improve performance
-  await preloadGeneEffects();
+onMount(() => {
+  filterStyleEl = document.createElement('style');
+  filterStyleEl.id = 'gene-visualizer-filters';
+  document.head.appendChild(filterStyleEl);
+  // Warm the effect cache for the common species; the load path also loads
+  // on demand, so this is a best-effort optimisation only.
+  void preloadGeneEffects();
+});
 
-  if (pet) {
-    await loadPetData();
-  }
+onDestroy(() => {
+  filterStyleEl?.remove();
+  filterStyleEl = null;
+  cleanup();
+});
+
+$effect(() => {
+  if (!filterStyleEl) return;
+  filterStyleEl.textContent = buildVisualizerFilterCSS({
+    selectedChromosomes,
+    hiddenChromosomes,
+    selectedAttributes,
+    hiddenAttributes,
+    currentEffectFilter,
+    hiddenEffectFilters,
+    currentValueFilter,
+    hiddenValueFilters,
+    currentView,
+    breedFilter: currentBreedFilter,
+    isHorse,
+    chrBreedRelevance,
+  });
 });
 
 async function preloadGeneEffects() {
   const commonSpecies = ['horse', 'beewasp'];
-
-  // Load in parallel for better performance
-  const loadPromises = commonSpecies.map(async (species) => {
-    try {
-      const normalizedSpecies = normalizeSpecies(species);
-      if (!globalGeneEffectsDB[normalizedSpecies]) {
-        const data = await getGeneEffectsCached(species);
-        if (data) {
-          globalGeneEffectsDB[normalizedSpecies] = data.effects;
+  await Promise.all(
+    commonSpecies.map(async (species) => {
+      try {
+        const normalizedSpecies = normalizeSpecies(species);
+        if (!globalGeneEffectsDB[normalizedSpecies]) {
+          const data = await getGeneEffectsCached(species);
+          if (data) globalGeneEffectsDB[normalizedSpecies] = data.effects;
         }
+      } catch (err) {
+        console.warn(`Failed to preload gene effects for ${species}:`, err);
       }
-    } catch (error) {
-      console.warn(`Failed to preload gene effects for ${species}:`, error);
-    }
-  });
-
-  await Promise.all(loadPromises);
+    }),
+  );
 }
 
-function createSpeciesTemplate(species: string, hs: HeaderStructure, chromosomeCount: number): SpeciesTemplate {
-  return {
-    species,
-    chromosomeCount,
-    blockCount: hs.sortedBlocks.length,
-    sortedBlocks: [...hs.sortedBlocks],
-    blockMaxGenes: new Map(hs.blockMaxGenes),
-    timestamp: Date.now(),
-  };
-}
-
-function getOrCreateSpeciesTemplate(species: string, hs: HeaderStructure, chromosomeCount: number): SpeciesTemplate {
-  // sortedBlocks.length is fully derived from species + chromosomeCount, so
-  // it adds nothing to cache identity. Drop it from the key.
-  const cacheKey = `${species}_${chromosomeCount}`;
-
-  if (speciesTemplateCache.has(cacheKey)) {
-    const cached = speciesTemplateCache.get(cacheKey);
-    if (cached) {
-      isUsingCachedTemplate = true;
-      return cached;
-    }
+// --- Single load path -------------------------------------------------------
+// One trigger only. The old component loaded from BOTH onMount and a reactive
+// $effect, so the initial mount raced two loads (the "About to render N DOM
+// elements" warning fired twice). A single keyed effect guarantees one build.
+let lastLoadedKey = $state<string | null>(null);
+$effect(() => {
+  const key = pet ? String(pet.id) : null;
+  if (key && key !== lastLoadedKey) {
+    lastLoadedKey = key;
+    loadPetData();
+  } else if (!pet && lastLoadedKey !== null) {
+    lastLoadedKey = null;
+    cleanup();
   }
-
-  const template = createSpeciesTemplate(species, hs, chromosomeCount);
-  speciesTemplateCache.set(cacheKey, template);
-  isUsingCachedTemplate = false;
-  return template;
-}
-
-onDestroy(() => {
-  cleanup();
 });
 
 function cleanup() {
@@ -289,34 +306,33 @@ function cleanup() {
   hiddenAttributes = [];
   selectedChromosomes = [];
   hiddenChromosomes = [];
+  currentEffectFilter = [];
+  hiddenEffectFilters = [];
+  currentValueFilter = [];
+  hiddenValueFilters = [];
   headerStructure = null;
   chromosomeData = [];
-  // NOTE: We keep globalGeneEffectsDB intact for performance
-
   error = null;
 }
 
 async function loadPetData() {
-  if (!pet || loading) {
-    return;
-  }
-
+  if (!pet || loading) return;
   try {
     loading = true;
     error = null;
 
     const grid = gridOverride ?? (await loadPetGridFromDb(pet.id));
-    const loaded = { id: pet.id, name: pet.name, species: pet.species, breed: pet.breed, grid };
-    currentPet = loaded;
+    currentPet = { id: pet.id, name: pet.name, species: pet.species, breed: pet.breed, grid };
 
-    // Load gene effects and appearance config in parallel for better performance
-    await loadGeneEffectsForSpecies(loaded.species);
-    loadAppearanceConfigForSpecies(loaded.species);
+    await loadGeneEffectsForSpecies(pet.species);
+    loadAppearanceConfigForSpecies(pet.species);
 
-    await updateVisualization();
+    buildGrid();
   } catch (err: unknown) {
     error = `Failed to load pet: ${err instanceof Error ? err.message : String(err)}`;
     console.error('❌ Error loading pet data:', err);
+    headerStructure = null;
+    chromosomeData = [];
   } finally {
     loading = false;
   }
@@ -329,12 +345,8 @@ async function loadGeneEffectsForSpecies(species: string) {
     return;
   }
   const data = await getGeneEffectsCached(species);
-  if (data) {
-    globalGeneEffectsDB[normalizedSpecies] = data.effects;
-    geneEffectsDB = globalGeneEffectsDB;
-  } else {
-    geneEffectsDB = globalGeneEffectsDB;
-  }
+  if (data) globalGeneEffectsDB[normalizedSpecies] = data.effects;
+  geneEffectsDB = globalGeneEffectsDB;
 }
 
 function loadAppearanceConfigForSpecies(species: string) {
@@ -346,31 +358,7 @@ function loadAppearanceConfigForSpecies(species: string) {
   appearanceList = config.appearance_attributes || [];
 }
 
-// Resolve the per-view attribute names then delegate to the pure stats builder.
-// Kept async (awaited by the caller) so the heavy synchronous state writes in
-// createGeneVisualization stay on a later microtask — collapsing that boundary
-// reintroduces an effect_update_depth_exceeded loop.
-async function initializeStats(): Promise<StatsMap> {
-  if (currentView === 'attribute') {
-    let attrNames = ALL_ATTRIBUTES.map((a) => a.key);
-    if (currentPet?.species) {
-      const config = getAttributeConfig(normalizeSpecies(currentPet.species));
-      if (config) {
-        attrNames = config.all_attribute_names.map((name) => capitalize(name));
-      }
-    }
-    return buildEmptyStats('attribute', attrNames);
-  }
-
-  let attrNames = FALLBACK_APPEARANCE_KEYS;
-  if (currentPet?.species) {
-    const config = getAppearanceConfig(normalizeSpecies(currentPet.species));
-    if (config) {
-      attrNames = config.appearance_attribute_names;
-    }
-  }
-  return buildEmptyStats('appearance', attrNames);
-}
+// --- Effect / breed helpers (shared by cell build + tooltip) ----------------
 
 function getGeneEffect(speciesKey: string, geneId: string, geneType: string) {
   return effectFor(geneEffectsDB?.[speciesKey]?.[geneId], geneType);
@@ -389,399 +377,281 @@ function getGeneAppearance(speciesKey: string, geneId: string) {
   return geneData.appearance;
 }
 
-function extractAttributeFromEffect(species: string, effectStr: string) {
-  return getAttributeMatcher(species).findFirst(effectStr);
-}
-
-function extractAttributesFromEffect(species: string, effectStr: string) {
-  return getAttributeMatcher(species).findAll(effectStr);
-}
-
 function getGeneBreed(speciesKey: string, geneId: string) {
   return breedFor(geneEffectsDB?.[speciesKey]?.[geneId]);
 }
 
+/** Breed-inactive styling is a property of the PET's own breed, not the filter. */
 function isGeneRelevantToBreed(speciesKey: string, geneId: string) {
   if (speciesKey !== 'horse') return true;
-  // If pet has no breed set or it's "Mixed", all genes are relevant
-  // Use the pet prop (has breed) rather than currentPet (genome data only)
   const petBreed = pet?.breed;
   if (!petBreed || petBreed === 'Mixed') return true;
-  // Gene is relevant if it's generic (no breed) or matches pet's breed
   const geneBreed = getGeneBreed(speciesKey, geneId);
   return !geneBreed || geneBreed === petBreed;
 }
 
-function analyzeGeneEffect(species: string, geneId: string, geneType: string): GeneAnalysisResult {
-  if (currentView === 'attribute') {
-    const effect = getGeneEffect(species, geneId, geneType);
-
-    // Check if gene belongs to a different breed — mark as inactive
-    if (!isGeneRelevantToBreed(species, geneId)) {
-      return {
-        type: 'inactive-breed',
-        attribute: null,
-        effect: effect,
-      };
-    }
-
-    if (isNoEffect(effect)) {
-      return {
-        type: 'neutral',
-        attribute: null,
-        effect: effect,
-      };
-    }
-
-    // Robust potential/neutral/positive/negative detection
-    let type = 'neutral';
-    const effectStr = effect || '';
-
-    // Dynamic attribute detection using centralized config
-    const attribute = extractAttributeFromEffect(species, effectStr);
-
-    // Potential effect detection
-    const isPotential = effectStr.includes('?') || effectStr.toLowerCase().includes('potential');
-    const hasPlus = effectStr.includes('+');
-    const hasMinus = effectStr.includes('-');
-
-    if (isPotential && hasPlus) type = 'potential-positive';
-    else if (isPotential && hasMinus) type = 'potential-negative';
-    else if (!isPotential && hasPlus) type = 'positive';
-    else if (!isPotential && hasMinus) type = 'negative';
-    // else remains "neutral"
-
-    return {
-      type,
-      attribute: attribute,
-      effect: effect,
-    };
-  } else {
-    // Appearance mode
-    if (!isGeneRelevantToBreed(species, geneId)) {
-      return {
-        type: 'inactive-breed',
-        attribute: null,
-        effect: 'Different breed',
-      };
-    }
-
-    const appearance = getGeneAppearance(species, geneId);
-    const appearanceCategory = categorizeAppearance(species, appearance);
-
-    return {
-      type: appearanceCategory,
-      attribute: appearanceCategory,
-      effect: appearance,
-    };
-  }
+/** Whether either allele carries a real (non-neutral) effect. */
+function hasAnyPotentialEffect(speciesKey: string, geneId: string) {
+  const d = getGeneEffect(speciesKey, geneId, 'D');
+  const r = getGeneEffect(speciesKey, geneId, 'R');
+  return (!isNoEffect(d) && d.trim() !== '') || (!isNoEffect(r) && r.trim() !== '');
 }
 
-function hasAnyPotentialEffect(species: string, geneId: string) {
-  if (currentView === 'attribute') {
-    const dominantEffect = getGeneEffect(species, geneId, 'D');
-    const recessiveEffect = getGeneEffect(species, geneId, 'R');
-
-    const dominantHasEffect = !isNoEffect(dominantEffect) && dominantEffect.trim() !== '';
-    const recessiveHasEffect = !isNoEffect(recessiveEffect) && recessiveEffect.trim() !== '';
-
-    return dominantHasEffect || recessiveHasEffect;
-  } else {
-    const appearance = getGeneAppearance(species, geneId);
-    return appearance !== 'No appearance effect';
-  }
-}
-
-function analyzePotentialEffectType(species: string, geneId: string) {
-  const dominantEffect = getGeneEffect(species, geneId, 'D');
-  const recessiveEffect = getGeneEffect(species, geneId, 'R');
-
+/** The promoted potential type for a neutral gene, or null. */
+function analyzePotentialEffectType(speciesKey: string, geneId: string): string | null {
+  const d = getGeneEffect(speciesKey, geneId, 'D');
+  const r = getGeneEffect(speciesKey, geneId, 'R');
   let hasPositive = false;
   let hasNegative = false;
-
-  if (!isNoEffect(dominantEffect)) {
-    if (dominantEffect.includes('+')) hasPositive = true;
-    if (dominantEffect.includes('-')) hasNegative = true;
+  if (!isNoEffect(d)) {
+    if (d.includes('+')) hasPositive = true;
+    if (d.includes('-')) hasNegative = true;
   }
-
-  if (!isNoEffect(recessiveEffect)) {
-    if (recessiveEffect.includes('+')) hasPositive = true;
-    if (recessiveEffect.includes('-')) hasNegative = true;
+  if (!isNoEffect(r)) {
+    if (r.includes('+')) hasPositive = true;
+    if (r.includes('-')) hasNegative = true;
   }
-
   if (hasPositive) return 'potential-positive';
   if (hasNegative) return 'potential-negative';
   return null;
 }
 
-function getContextualAnalysis(species: string, geneId: string, geneAnalysis: GeneAnalysisResult): GeneAnalysisResult {
-  if (selectedAttributes.length !== 1 || currentView !== 'attribute' || geneAnalysis.type === 'inactive-breed') {
-    return geneAnalysis;
-  }
-  const attr = selectedAttributes[0];
-  if (geneAnalysis.attribute === attr) {
-    return geneAnalysis;
-  }
-  // Gene's active effect is on a different attribute — check if it potentially
-  // affects the selected attribute via the other allele
-  const dominantEffect = getGeneEffect(species, geneId, 'D');
-  const recessiveEffect = getGeneEffect(species, geneId, 'R');
-  for (const eff of [dominantEffect, recessiveEffect]) {
-    if (isNoEffect(eff)) continue;
-    if (eff.includes(attr)) {
-      const hasPlus = eff.includes('+');
-      const hasMinus = eff.includes('-');
-      if (hasPlus) return { ...geneAnalysis, type: 'potential-positive', attribute: attr };
-      if (hasMinus) return { ...geneAnalysis, type: 'potential-negative', attribute: attr };
-    }
-  }
-  return geneAnalysis;
-}
+// --- Build the grid (once per pet) ------------------------------------------
 
-function genePotentiallyAffectsSelectedAttributes(species: string, geneId: string, selectedAttributes: string[]) {
-  if (selectedAttributes.length === 0) {
-    return true;
-  }
-
-  const dominantEffect = getGeneEffect(species, geneId, 'D');
-  const recessiveEffect = getGeneEffect(species, geneId, 'R');
-
-  const allPotentialAttributes = [];
-
-  if (!isNoEffect(dominantEffect)) {
-    allPotentialAttributes.push(...extractAttributesFromEffect(species, dominantEffect));
-  }
-  if (!isNoEffect(recessiveEffect)) {
-    allPotentialAttributes.push(...extractAttributesFromEffect(species, recessiveEffect));
-  }
-
-  return allPotentialAttributes.some((attr) => selectedAttributes.includes(attr));
-}
-
-async function updateVisualization() {
-  if (!currentPet) {
-    return;
-  }
-
-  try {
-    await createGeneVisualization();
-  } catch (err) {
-    console.error('Error updating visualization:', err);
-    error = 'Failed to update gene visualization';
-  }
-}
-
-async function createGeneVisualization() {
-  if (!currentPet?.grid) {
-    // Reset to empty state with proper structure
+function buildGrid() {
+  const petData = currentPet;
+  if (!petData?.grid || Object.keys(petData.grid).length === 0) {
     headerStructure = null;
     chromosomeData = [];
     currentStats = null;
     totalGenes = 0;
     neutralGenes = 0;
-
     return;
   }
 
-  try {
-    if (import.meta.env.DEV) console.time('🚀 Gene Visualization Processing');
-    const pet = currentPet;
-    const speciesKey = normalizeSpecies(pet.species);
-    const parsedGenes = pet.grid;
+  if (import.meta.env.DEV) console.time('🚀 Gene Visualization Build');
 
-    if (!parsedGenes || Object.keys(parsedGenes).length === 0) {
-      headerStructure = null;
-      chromosomeData = [];
-      return;
+  const speciesKey = normalizeSpecies(petData.species);
+  const parsedGenes = petData.grid;
+  const matcher = getAttributeMatcher(speciesKey);
+
+  // Resolve the per-view stat attribute name lists once.
+  const attrConfig = getAttributeConfig(speciesKey);
+  attributeStatNames = attrConfig ? attrConfig.all_attribute_names.map(capitalize) : ALL_ATTRIBUTES.map((a) => a.key);
+  const apConfig = getAppearanceConfig(speciesKey);
+  appearanceStatNames = apConfig ? apConfig.appearance_attribute_names : FALLBACK_APPEARANCE_KEYS;
+
+  // Per-chromosome breed relevance (horse only) → row hide via CSS.
+  chrBreedRelevance = {};
+  if (speciesKey === 'horse') {
+    const speciesEffects = geneEffectsDB?.[speciesKey] ?? {};
+    for (const [geneId, data] of Object.entries(speciesEffects)) {
+      const chr = geneId.replace(/[A-Z].*/i, '');
+      if (!chrBreedRelevance[chr]) chrBreedRelevance[chr] = { generic: false, breeds: new Set() };
+      if (!data.breed) chrBreedRelevance[chr].generic = true;
+      else chrBreedRelevance[chr].breeds.add(data.breed);
     }
+  }
 
-    const allStats = await initializeStats();
+  const cellCache = new Map<string, VisCell>();
+  const makeCell = (gene: ParsedGene): VisCell => {
+    const cacheKey = `${gene.id}_${gene.type}`;
+    const cached = cellCache.get(cacheKey);
+    if (cached) return cached;
 
-    // OPTIMIZED SINGLE-PASS PROCESSING - Everything done in one loop!
-    if (import.meta.env.DEV) console.time('📊 Single-pass gene analysis');
+    const zygosity =
+      gene.type === 'D'
+        ? 'dominant'
+        : gene.type === 'R'
+          ? 'recessive'
+          : gene.type === 'x'
+            ? 'mixed'
+            : gene.type === '?'
+              ? 'unknown'
+              : 'recessive';
 
-    const allBlocks = new Set<string>();
-    const blockMaxGenes = new Map<string, number>();
-    const geneAnalysisCache = new Map<string, GeneAnalysisResult>();
-    let totalGenesCount = 0;
+    const relevant = isGeneRelevantToBreed(speciesKey, gene.id);
+    const activeEffect = getGeneEffect(speciesKey, gene.id, gene.type);
 
-    // SINGLE PASS: Analyze genes, collect blocks, and update stats - all at once!
-    Object.values(parsedGenes).forEach((chromosomeData) => {
-      // Count genes per block for this chromosome
-      const thisChromosomeBlockCount = new Map<string, number>();
+    // Attribute-view type + active attribute (mirrors the old analyzeGeneEffect
+    // attribute branch, plus the neutral→potential promotion done afterwards).
+    let effectType: string;
+    let activeAttr = '';
+    if (!relevant) {
+      effectType = 'inactive-breed';
+    } else if (isNoEffect(activeEffect)) {
+      effectType = 'neutral';
+    } else {
+      activeAttr = matcher.findFirst(activeEffect) ?? '';
+      const isPotential = activeEffect.includes('?') || activeEffect.toLowerCase().includes('potential');
+      const hasPlus = activeEffect.includes('+');
+      const hasMinus = activeEffect.includes('-');
+      if (isPotential && hasPlus) effectType = 'potential-positive';
+      else if (isPotential && hasMinus) effectType = 'potential-negative';
+      else if (!isPotential && hasPlus) effectType = 'positive';
+      else if (!isPotential && hasMinus) effectType = 'negative';
+      else effectType = 'neutral';
+    }
+    if (effectType === 'neutral' && hasAnyPotentialEffect(speciesKey, gene.id)) {
+      const pt = analyzePotentialEffectType(speciesKey, gene.id);
+      if (pt) effectType = pt;
+    }
+    const inactiveBreed = effectType === 'inactive-breed';
 
-      chromosomeData.allGenes.forEach((gene) => {
-        allBlocks.add(gene.block);
-        totalGenesCount++;
+    // Appearance-view category.
+    const appearanceCategory = categorizeAppearance(speciesKey, getGeneAppearance(speciesKey, gene.id));
+    const appearance = inactiveBreed ? '' : appearanceCategory;
+    const appearanceStatsType = inactiveBreed ? 'inactive-breed' : appearanceCategory;
 
-        // Track genes per block for this chromosome
-        const currentCount = thisChromosomeBlockCount.get(gene.block) || 0;
-        thisChromosomeBlockCount.set(gene.block, currentCount + 1);
+    // Both alleles' attributes (either-allele attribute select filter) + the
+    // contextual-recolor targets (old getContextualAnalysis).
+    const dEff = getGeneEffect(speciesKey, gene.id, 'D');
+    const rEff = getGeneEffect(speciesKey, gene.id, 'R');
+    const attrSet = new Set<string>();
+    if (!isNoEffect(dEff)) for (const a of matcher.findAll(dEff)) attrSet.add(a);
+    if (!isNoEffect(rEff)) for (const a of matcher.findAll(rEff)) attrSet.add(a);
+    const attrs = attrSet.size ? ATTR_DELIM + [...attrSet].join(ATTR_DELIM) + ATTR_DELIM : '';
 
-        // Pre-compute and cache gene analysis once
-        const cacheKey = `${gene.id}_${gene.type}`;
-        if (!geneAnalysisCache.has(cacheKey)) {
-          const geneAnalysis = analyzeGeneEffect(speciesKey, gene.id, gene.type);
-
-          // Handle potential effects in the same pass
-          let effectType = geneAnalysis.type;
-          if (geneAnalysis.type === 'neutral' && hasAnyPotentialEffect(speciesKey, gene.id)) {
-            const potentialType = analyzePotentialEffectType(speciesKey, gene.id);
-            if (potentialType) {
-              effectType = potentialType;
+    const ctxPosSet = new Set<string>();
+    const ctxNegSet = new Set<string>();
+    if (!inactiveBreed) {
+      for (const a of attrSet) {
+        if (a === activeAttr) continue;
+        for (const eff of [dEff, rEff]) {
+          if (isNoEffect(eff)) continue;
+          if (eff.includes(a)) {
+            if (eff.includes('+')) {
+              ctxPosSet.add(a);
+              break;
+            }
+            if (eff.includes('-')) {
+              ctxNegSet.add(a);
+              break;
             }
           }
-
-          const processedAnalysis = {
-            ...geneAnalysis,
-            type: effectType,
-          };
-
-          geneAnalysisCache.set(cacheKey, processedAnalysis);
-          accumulateStats(allStats, processedAnalysis, gene.type, currentView as 'attribute' | 'appearance');
         }
-      });
-
-      // Update global max for each block based on this chromosome
-      thisChromosomeBlockCount.forEach((count, block) => {
-        const currentMax = blockMaxGenes.get(block) || 0;
-        blockMaxGenes.set(block, Math.max(currentMax, count));
-      });
-    });
-
-    if (import.meta.env.DEV) console.timeEnd('📊 Single-pass gene analysis');
-
-    // Calculate potential DOM elements to be rendered
-    const chromosomeCount = Object.keys(parsedGenes).length;
-    let totalDOMElements = 0;
-    blockMaxGenes.forEach((maxGenes) => {
-      totalDOMElements += chromosomeCount * maxGenes;
-    });
-    if (import.meta.env.DEV) {
-      console.warn(
-        `⚠️ About to render ${totalDOMElements} DOM elements (${chromosomeCount} chromosomes × blocks × genes)`,
-      );
-      if (totalDOMElements > 5000) {
-        console.warn('🚨 This will likely cause DOM rendering delays!');
       }
     }
+    const ctxpos = ctxPosSet.size ? ATTR_DELIM + [...ctxPosSet].join(ATTR_DELIM) + ATTR_DELIM : '';
+    const ctxneg = ctxNegSet.size ? ATTR_DELIM + [...ctxNegSet].join(ATTR_DELIM) + ATTR_DELIM : '';
 
-    currentStats = allStats;
-    const inactiveRaw = allStats['inactive-breed'];
-    const inactiveCount = typeof inactiveRaw === 'number' ? inactiveRaw : 0;
-    totalGenes = totalGenesCount - inactiveCount;
-
-    if (currentView === 'attribute') {
-      neutralGenes = typeof allStats.neutral === 'number' ? allStats.neutral : 0;
+    const zygCls = `gene-${zygosity}`;
+    let attributeCls: string;
+    let appearanceCls: string;
+    if (gene.type === '?') {
+      attributeCls = 'gene-cell gene-neutral gene-unknown';
+      appearanceCls = 'gene-cell gene-neutral gene-unknown';
     } else {
-      neutralGenes = typeof allStats['appearance-neutral'] === 'number' ? allStats['appearance-neutral'] : 0;
+      attributeCls = `gene-cell gene-${effectType} ${zygCls}`;
+      const appType = inactiveBreed ? 'inactive-breed' : appearanceCategory || 'appearance-neutral';
+      appearanceCls = `gene-cell gene-${appType} ${zygCls}`;
     }
 
-    onStatsUpdated?.();
-
-    const sortedBlocks = Array.from(allBlocks).sort((a, b) => {
-      const numA = parseInt(a, 10);
-      const numB = parseInt(b, 10);
-      return numA - numB;
-    });
-
-    const sortedChromosomes = Object.entries(parsedGenes).sort(([a], [b]) => {
-      const numA = parseInt(a, 10);
-      const numB = parseInt(b, 10);
-      return numA - numB;
-    });
-
-    const newHeaderStructure: HeaderStructure = {
-      sortedBlocks,
-      blockMaxGenes,
+    const cell: VisCell = {
+      id: gene.id,
+      type: gene.type,
+      attributeCls,
+      appearanceCls,
+      attr: activeAttr,
+      attrs,
+      appearance,
+      effectType,
+      appearanceStatsType,
+      zygosity,
+      ctxpos,
+      ctxneg,
+      effect: activeEffect,
     };
-    headerStructure = newHeaderStructure;
+    cellCache.set(cacheKey, cell);
+    return cell;
+  };
 
-    // Create or reuse species template
-    currentSpeciesTemplate = getOrCreateSpeciesTemplate(pet.species, newHeaderStructure, chromosomeCount);
-
-    // Build chromosome data using cached analysis
-    const buildTime = isUsingCachedTemplate ? '🔄 Updating chromosome data' : '🏗️ Building chromosome data';
-    if (import.meta.env.DEV) console.time(buildTime);
-
-    // Lift component filter state + effect helpers into the pure predicate's inputs.
-    const filterState: GeneFilterState = {
-      selectedChromosomes,
-      hiddenChromosomes,
-      selectedAttributes,
-      hiddenAttributes,
-      currentEffectFilter,
-      hiddenEffectFilters,
-      currentValueFilter,
-      hiddenValueFilters,
-      currentView: currentView as 'attribute' | 'appearance',
-    };
-    const effectLookup: GeneEffectLookup = {
-      affectsSelectedAttributes: (geneId, selected) =>
-        genePotentiallyAffectsSelectedAttributes(speciesKey, geneId, selected),
-      hasAnyPotentialEffect: (geneId) => hasAnyPotentialEffect(speciesKey, geneId),
-      potentialEffectType: (geneId) => analyzePotentialEffectType(speciesKey, geneId),
-    };
-
-    chromosomeData = sortedChromosomes.map(([chromosome, data]) => {
-      const processedBlocks: Record<string, (ProcessedGene | null)[]> = {};
-
-      // Pre-group genes by block for efficiency
-      const genesByBlock = new Map<string, ParsedGene[]>();
-      data.allGenes.forEach((gene) => {
-        if (!genesByBlock.has(gene.block)) {
-          genesByBlock.set(gene.block, []);
-        }
-        (genesByBlock.get(gene.block) ?? []).push(gene);
-      });
-
-      sortedBlocks.forEach((block) => {
-        const genesInBlock = genesByBlock.get(block) || [];
-        processedBlocks[block] = [];
-
-        for (let i = 0; i < (blockMaxGenes.get(block) || 0); i++) {
-          const gene = genesInBlock[i];
-          if (gene) {
-            const cacheKey = `${gene.id}_${gene.type}`;
-            const geneAnalysis = geneAnalysisCache.get(cacheKey) ?? { type: 'neutral', attribute: null, effect: '' };
-            const displayAnalysis = getContextualAnalysis(pet.species, gene.id, geneAnalysis);
-
-            processedBlocks[block][i] = {
-              ...gene,
-              geneAnalysis: displayAnalysis,
-              isVisible: isGeneVisible(chromosome, gene, geneAnalysis, filterState, effectLookup),
-            };
-          } else {
-            processedBlocks[block][i] = null;
-          }
-        }
-      });
-
-      return {
-        chromosome,
-        data,
-        processedBlocks,
-      };
-    });
-    if (import.meta.env.DEV) console.timeEnd(buildTime);
-
-    if (import.meta.env.DEV) console.timeEnd('🚀 Gene Visualization Processing');
-  } catch (err: unknown) {
-    console.error('Error in createGeneVisualization:', err);
-    error = `Failed to create gene visualization: ${err instanceof Error ? err.message : String(err)}`;
-    headerStructure = null;
-    chromosomeData = [];
+  // Collect block shape.
+  const allBlocks = new Set<string>();
+  const blockMaxGenes = new Map<string, number>();
+  for (const chromosome of Object.values(parsedGenes)) {
+    const perBlock = new Map<string, number>();
+    for (const gene of chromosome.allGenes) {
+      allBlocks.add(gene.block);
+      perBlock.set(gene.block, (perBlock.get(gene.block) || 0) + 1);
+    }
+    for (const [block, count] of perBlock) {
+      blockMaxGenes.set(block, Math.max(blockMaxGenes.get(block) || 0, count));
+    }
   }
+
+  const sortedBlocks = Array.from(allBlocks).sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
+  const sortedChromosomes = Object.entries(parsedGenes).sort(([a], [b]) => parseInt(a, 10) - parseInt(b, 10));
+
+  const rows: ChromosomeRow[] = sortedChromosomes.map(([chromosome, data]) => {
+    const genesByBlock = new Map<string, ParsedGene[]>();
+    for (const gene of data.allGenes) {
+      const list = genesByBlock.get(gene.block);
+      if (list) list.push(gene);
+      else genesByBlock.set(gene.block, [gene]);
+    }
+    const cells: (VisCell | null)[][] = sortedBlocks.map((block) => {
+      const genesInBlock = genesByBlock.get(block) || [];
+      const max = blockMaxGenes.get(block) || 0;
+      const out: (VisCell | null)[] = new Array(max);
+      for (let i = 0; i < max; i++) out[i] = genesInBlock[i] ? makeCell(genesInBlock[i]) : null;
+      return out;
+    });
+    return { chromosome, cells };
+  });
+
+  if (import.meta.env.DEV) {
+    let totalDOMElements = 0;
+    const chromosomeCount = Object.keys(parsedGenes).length;
+    for (const maxGenes of blockMaxGenes.values()) totalDOMElements += chromosomeCount * maxGenes;
+    console.warn(`ℹ️ Rendering ${totalDOMElements} gene cells (${chromosomeCount} chromosomes × blocks × genes)`);
+  }
+
+  headerStructure = { sortedBlocks, blockMaxGenes };
+  chromosomeData = rows;
+  computeStats();
+
+  if (import.meta.env.DEV) console.timeEnd('🚀 Gene Visualization Build');
 }
 
-function handleTooltipShow(
-  event: CustomEvent<{ geneId: string; geneType: string; effect: string; event: { clientX: number; clientY: number } }>,
-) {
-  const detail = event.detail;
-  const geneId = detail.geneId;
-  const geneType = detail.geneType;
+// Stats depend on (pet, view) only — never on filters — so they recompute on
+// load and on view change, not per filter click.
+function computeStats() {
+  const view = currentView;
+  const names = view === 'attribute' ? attributeStatNames : appearanceStatNames;
+  const stats = buildEmptyStats(view, names);
+  let total = 0;
+  for (const row of chromosomeData) {
+    for (const block of row.cells) {
+      for (const cell of block) {
+        if (!cell) continue;
+        total++;
+        const analysis =
+          view === 'attribute'
+            ? { type: cell.effectType, attribute: cell.attr || null }
+            : { type: cell.appearanceStatsType, attribute: cell.appearanceStatsType };
+        accumulateStats(stats, analysis, cell.type, view);
+      }
+    }
+  }
+  currentStats = stats;
+  const inactiveRaw = stats['inactive-breed'];
+  const inactiveCount = typeof inactiveRaw === 'number' ? inactiveRaw : 0;
+  totalGenes = total - inactiveCount;
+  if (view === 'attribute') {
+    neutralGenes = typeof stats.neutral === 'number' ? stats.neutral : 0;
+  } else {
+    neutralGenes = typeof stats['appearance-neutral'] === 'number' ? stats['appearance-neutral'] : 0;
+  }
+  onStatsUpdated?.();
+}
 
-  const effectInfo = detail.effect;
+// --- Tooltip (event-delegated; no per-cell components / handlers) -----------
+
+function showTooltipForCell(cell: HTMLElement, clientX: number, clientY: number) {
+  const geneId = cell.dataset.geneId ?? '';
+  const geneType = cell.dataset.geneType ?? '';
+  const effectInfo = cell.dataset.effect ?? '';
 
   const potentialEffects: string[] = [];
   if (currentPet) {
@@ -790,65 +660,47 @@ function handleTooltipShow(
     const recessiveEffect = getGeneEffect(sk, geneId, 'R');
 
     if (geneType !== 'D' && !isNoEffect(dominantEffect)) {
-      const isPositive = dominantEffect.includes('+');
-      const isNegative = dominantEffect.includes('-');
-      const color = isPositive ? EFFECT_COLORS.positive : isNegative ? EFFECT_COLORS.negative : '#666';
+      const color = dominantEffect.includes('+')
+        ? EFFECT_COLORS.positive
+        : dominantEffect.includes('-')
+          ? EFFECT_COLORS.negative
+          : '#666';
       potentialEffects.push(`If Dominant: <span style="color: ${color}">${dominantEffect}</span>`);
     }
-
     if (geneType !== 'R' && !isNoEffect(recessiveEffect)) {
-      const isPositive = recessiveEffect.includes('+');
-      const isNegative = recessiveEffect.includes('-');
-      const color = isPositive ? EFFECT_COLORS.positive : isNegative ? EFFECT_COLORS.negative : '#666';
+      const color = recessiveEffect.includes('+')
+        ? EFFECT_COLORS.positive
+        : recessiveEffect.includes('-')
+          ? EFFECT_COLORS.negative
+          : '#666';
       potentialEffects.push(`If Recessive: <span style="color: ${color}">${recessiveEffect}</span>`);
+    }
+
+    const geneBreed = getGeneBreed(sk, geneId);
+    if (!isGeneRelevantToBreed(sk, geneId) && geneBreed) {
+      potentialEffects.push(`<span style="color: #9ca3af">⚬ ${geneBreed} breed only — no effect on this pet</span>`);
     }
   }
 
-  // Add breed relevance note if gene belongs to a different breed
-  const sk = normalizeSpecies(currentPet?.species || '');
-  const geneBreed = getGeneBreed(sk, geneId);
-  const isRelevant = isGeneRelevantToBreed(sk, geneId);
-  if (!isRelevant && geneBreed) {
-    potentialEffects.push(`<span style="color: #9ca3af">⚬ ${geneBreed} breed only — no effect on this pet</span>`);
-  }
-
-  const mouseEvent = detail.event;
-
-  // Calculate smart positioning to stay close to mouse cursor while avoiding edge cropping
-  const tooltipWidth = 250; // max-width from CSS
-  // Calculate actual height based on content
-  const baseHeight = 45; // base height for gene ID and type
-  const effectHeight = 20; // height per effect line
-  const potentialEffectHeight = 15; // height per potential effect
+  const tooltipWidth = 250;
+  const baseHeight = 45;
+  const effectHeight = 20;
+  const potentialEffectHeight = 15;
   const tooltipHeight =
     baseHeight + (!isNoEffect(effectInfo) ? effectHeight : 0) + potentialEffects.length * potentialEffectHeight;
-  const offset = 12; // Small offset from cursor
-
-  // Get viewport dimensions
+  const offset = 12;
   const viewportWidth = window.innerWidth;
   const viewportHeight = window.innerHeight;
 
-  // Use viewport (fixed) coordinates — avoids all scroll offset issues
-  let x = mouseEvent.clientX + offset;
-  let y = mouseEvent.clientY + offset;
-
-  // Keep tooltip within viewport
-  if (x + tooltipWidth > viewportWidth) {
-    x = mouseEvent.clientX - tooltipWidth - offset;
-  }
-  if (y + tooltipHeight > viewportHeight) {
-    y = mouseEvent.clientY - tooltipHeight - offset;
-  }
-  if (y < 0) {
-    y = mouseEvent.clientY + offset;
-  }
-  if (x < 0) {
-    x = mouseEvent.clientX + offset;
-  }
+  let x = clientX + offset;
+  let y = clientY + offset;
+  if (x + tooltipWidth > viewportWidth) x = clientX - tooltipWidth - offset;
+  if (y + tooltipHeight > viewportHeight) y = clientY - tooltipHeight - offset;
+  if (y < 0) y = clientY + offset;
+  if (x < 0) x = clientX + offset;
 
   tooltipX = x;
   tooltipY = y;
-
   tooltipGeneId = geneId;
   tooltipGeneType = geneType;
   tooltipEffect = effectInfo;
@@ -856,55 +708,73 @@ function handleTooltipShow(
   tooltipVisible = true;
 }
 
-function handleTooltipHide() {
+function cellFromEvent(e: Event): HTMLElement | null {
+  const target = e.target as HTMLElement | null;
+  return target?.closest?.('.gene-cell[data-gene-id]') ?? null;
+}
+
+function handleGridPointerOver(e: MouseEvent) {
+  const cell = cellFromEvent(e);
+  if (cell) showTooltipForCell(cell, e.clientX, e.clientY);
+}
+
+function handleGridPointerOut(e: MouseEvent) {
+  const cell = cellFromEvent(e);
+  if (!cell) return;
+  const to = e.relatedTarget as Node | null;
+  if (to && cell.contains(to)) return;
+  tooltipVisible = false;
+}
+
+function handleGridFocusIn(e: FocusEvent) {
+  const cell = cellFromEvent(e);
+  if (!cell) return;
+  const rect = cell.getBoundingClientRect();
+  showTooltipForCell(cell, rect.left + rect.width / 2, rect.top);
+}
+
+function handleGridFocusOut() {
   tooltipVisible = false;
 }
 
 function handleGridKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape') {
+    tooltipVisible = false;
+    return;
+  }
+  const active = document.activeElement as HTMLElement | null;
+  const activeCell = (active?.closest?.('.gene-cell[data-gene-id]') as HTMLElement | null) ?? null;
+  if ((e.key === 'Enter' || e.key === ' ') && activeCell) {
+    e.preventDefault();
+    const rect = activeCell.getBoundingClientRect();
+    showTooltipForCell(activeCell, rect.left + rect.width / 2, rect.top);
+    return;
+  }
   if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
 
   const container = e.currentTarget as HTMLElement;
   const cells = Array.from(container.querySelectorAll<HTMLElement>('.gene-cell[role="button"]'));
-  const activeCell = document.activeElement?.closest('.gene-cell') as HTMLElement | null;
   const current = activeCell ? cells.indexOf(activeCell) : -1;
   if (current < 0) return;
-
   const row = activeCell?.closest('tr');
   const cols = row ? row.querySelectorAll('.gene-cell[role="button"]').length : 1;
   handleGridNavigation(cells, current, e, cols);
 }
 
-export function handleAttributeFilter(event: CustomEvent<{ attribute: string; ctrlKey: boolean; altKey: boolean }>) {
-  const { attribute, ctrlKey, altKey } = event.detail;
-  const result = resolveFilterClick(selectedAttributes, hiddenAttributes, attribute, ctrlKey, altKey);
-  selectedAttributes = result.selected;
-  hiddenAttributes = result.hidden;
-  updateVisualization();
-}
+// --- Filter actions (state-only; the injected sheet reacts) -----------------
 
 function toggleChromosomeFilter(chromosome: string, ctrlKey = false, altKey = false) {
   if (altKey) {
-    const index = hiddenChromosomes.indexOf(chromosome);
-    if (index === -1) {
-      hiddenChromosomes = [...hiddenChromosomes, chromosome];
-    } else {
-      hiddenChromosomes = hiddenChromosomes.filter((c) => c !== chromosome);
-    }
+    hiddenChromosomes = hiddenChromosomes.includes(chromosome)
+      ? hiddenChromosomes.filter((c) => c !== chromosome)
+      : [...hiddenChromosomes, chromosome];
   } else if (ctrlKey) {
-    const index = selectedChromosomes.indexOf(chromosome);
-    if (index === -1) {
-      selectedChromosomes = [...selectedChromosomes, chromosome];
-    } else {
-      selectedChromosomes = selectedChromosomes.filter((c) => c !== chromosome);
-    }
+    selectedChromosomes = selectedChromosomes.includes(chromosome)
+      ? selectedChromosomes.filter((c) => c !== chromosome)
+      : [...selectedChromosomes, chromosome];
   } else {
-    if (selectedChromosomes.length === 1 && selectedChromosomes[0] === chromosome) {
-      selectedChromosomes = [];
-    } else {
-      selectedChromosomes = [chromosome];
-    }
+    selectedChromosomes = selectedChromosomes.length === 1 && selectedChromosomes[0] === chromosome ? [] : [chromosome];
   }
-  updateVisualization();
 }
 
 function handleLegendFilterClick(filterType: string, event: MouseEvent | KeyboardEvent) {
@@ -926,7 +796,6 @@ function handleEffectFilter(effectType: string, isCtrlClick = false, isAltClick 
   const result = resolveFilterClick(currentEffectFilter, hiddenEffectFilters, effectType, isCtrlClick, isAltClick);
   currentEffectFilter = result.selected;
   hiddenEffectFilters = result.hidden;
-  updateVisualization();
 }
 
 function handleValueFilter(valueType: string, isCtrlClick = false, isAltClick = false) {
@@ -937,17 +806,14 @@ function handleValueFilter(valueType: string, isCtrlClick = false, isAltClick = 
     unknown: 'gene-unknown',
   };
   const mappedValueType = valueMap[valueType] || valueType;
-
   const result = resolveFilterClick(currentValueFilter, hiddenValueFilters, mappedValueType, isCtrlClick, isAltClick);
   currentValueFilter = result.selected;
   hiddenValueFilters = result.hidden;
-  updateVisualization();
 }
 
 function handleAppearanceFilter(appearanceType: string, isCtrlClick = false, isAltClick = false) {
   let attributeGroups: string[] = [];
   switch (appearanceType) {
-    // BeeWasp appearance categories
     case 'body-color':
       attributeGroups = ['body-color-hue', 'body-color-saturation', 'body-color-intensity'];
       break;
@@ -966,8 +832,6 @@ function handleAppearanceFilter(appearanceType: string, isCtrlClick = false, isA
     case 'neutral':
       attributeGroups = ['appearance-neutral'];
       break;
-
-    // Horse appearance categories
     case 'scale':
       attributeGroups = ['scale'];
       break;
@@ -1001,8 +865,6 @@ function handleAppearanceFilter(appearanceType: string, isCtrlClick = false, isA
     case 'markings':
       attributeGroups = ['markings'];
       break;
-
-    // BeeWasp scale categories (keeping for compatibility)
     case 'body-scale':
     case 'wing-scale':
     case 'head-scale':
@@ -1012,62 +874,45 @@ function handleAppearanceFilter(appearanceType: string, isCtrlClick = false, isA
       break;
   }
 
-  attributeGroups.forEach((attr) => {
+  for (const attr of attributeGroups) {
     if (isAltClick) {
-      const index = hiddenAttributes.indexOf(attr);
-      if (index === -1) {
-        hiddenAttributes = [...hiddenAttributes, attr];
-      } else {
-        hiddenAttributes = hiddenAttributes.filter((a) => a !== attr);
-      }
+      hiddenAttributes = hiddenAttributes.includes(attr)
+        ? hiddenAttributes.filter((a) => a !== attr)
+        : [...hiddenAttributes, attr];
     } else if (isCtrlClick) {
-      const index = selectedAttributes.indexOf(attr);
-      if (index === -1) {
-        selectedAttributes = [...selectedAttributes, attr];
-      } else {
-        selectedAttributes = selectedAttributes.filter((a) => a !== attr);
-      }
-    } else {
-      const allSelected = attributeGroups.every((a) => selectedAttributes.includes(a));
-      if (allSelected) {
-        selectedAttributes = selectedAttributes.filter((a) => !attributeGroups.includes(a));
-      } else {
-        const newSelected = [...selectedAttributes];
-        attributeGroups.forEach((a) => {
-          if (!newSelected.includes(a)) {
-            newSelected.push(a);
-          }
-        });
-        selectedAttributes = newSelected;
-      }
+      selectedAttributes = selectedAttributes.includes(attr)
+        ? selectedAttributes.filter((a) => a !== attr)
+        : [...selectedAttributes, attr];
     }
-  });
-  updateVisualization();
+  }
+  if (!isAltClick && !isCtrlClick) {
+    const allSelected = attributeGroups.every((a) => selectedAttributes.includes(a));
+    if (allSelected) {
+      selectedAttributes = selectedAttributes.filter((a) => !attributeGroups.includes(a));
+    } else {
+      const next = [...selectedAttributes];
+      for (const a of attributeGroups) if (!next.includes(a)) next.push(a);
+      selectedAttributes = next;
+    }
+  }
 }
 
-// Track the last processed pet ID to prevent loops
-let lastProcessedPetId = $state<number | null>(null);
+// --- Exported API (unchanged signatures for PetVisualization / community) ----
 
-// Use $effect for pet change detection
-$effect(() => {
-  if (pet && pet.id !== lastProcessedPetId && !loading) {
-    lastProcessedPetId = pet.id;
-    loadPetData();
-  } else if (!pet && lastProcessedPetId !== null) {
-    lastProcessedPetId = null;
-    cleanup();
-  }
-});
+export function handleAttributeFilter(event: CustomEvent<{ attribute: string; ctrlKey: boolean; altKey: boolean }>) {
+  const { attribute, ctrlKey, altKey } = event.detail;
+  const result = resolveFilterClick(selectedAttributes, hiddenAttributes, attribute, ctrlKey, altKey);
+  selectedAttributes = result.selected;
+  hiddenAttributes = result.hidden;
+}
 
-// Export functions for parent component
 export function handleViewChange(view: string) {
-  currentView = view;
-  updateVisualization();
+  currentView = view === 'appearance' ? 'appearance' : 'attribute';
+  computeStats();
 }
 
 export function setBreedFilter(breed: string) {
   currentBreedFilter = breed;
-  updateVisualization();
 }
 
 export function getStatsData() {
@@ -1081,9 +926,19 @@ export function getStatsData() {
     petSpecies: currentPet?.species,
   };
 }
+
+const blockIndices = $derived.by(() => {
+  const hs = headerStructure;
+  if (!hs) return {} as Record<string, number[]>;
+  const out: Record<string, number[]> = {};
+  for (const block of hs.sortedBlocks) {
+    out[block] = Array.from({ length: hs.blockMaxGenes.get(block) ?? 0 }, (_, i) => i);
+  }
+  return out;
+});
 </script>
 
-<div class="gene-visualizer" bind:this={containerElement}>
+<div class="gene-visualizer">
     {#if loading}
         <div class="visualizer-state"><StatusPane variant="loading" body="Loading gene data..." /></div>
     {:else if error}
@@ -1093,313 +948,56 @@ export function getStatsData() {
     {:else}
         <div class="visualizer-content">
             <div class="gene-section">
-                <!-- Legend -->
+                <!-- Legend — clickable dual-encoding (effect colour / value zygosity) filters -->
                 <div class="gene-legend">
                     <div class="legend-items">
                         {#if currentView === "attribute"}
                             <div class="legend-row">
-                                <span class="legend-label legend-label-effect"
-                                    >Effect:</span
-                                >
+                                <span class="legend-label legend-label-effect">Effect:</span>
 
-                                <span
-                                    class="legend-item effect-legend-item {currentEffectFilter.includes(
-                                        'positive',
-                                    )
-                                        ? 'selected'
-                                        : ''} {hiddenEffectFilters.includes(
-                                        'positive',
-                                    )
-                                        ? 'hidden-effect'
-                                        : ''}"
-                                    role="button"
-                                    tabindex="0"
-                                    onclick={(e) =>
-                                        handleLegendFilterClick("positive", e)}
-                                    onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleLegendFilterClick("positive", e); }}
-                                >
-                                    <GeneCell
-                                        gene={{ id: "sample", type: "D" }}
-                                        geneAnalysis={{
-                                            type: "positive",
-                                            attribute: null,
-                                        }}
-                                        currentView="attribute"
-                                        isVisible={true}
-                                    />
-                                    <span>Positive</span>
-                                </span>
+                                {#each [["positive", "Positive", "dominant"], ["potential-positive", "Potential Positive", "dominant"], ["neutral", "Neutral", "dominant"], ["potential-negative", "Potential Negative", "dominant"], ["negative", "Negative", "dominant"]] as [key, label, zyg] (key)}
+                                    <span
+                                        class="legend-item effect-legend-item {currentEffectFilter.includes(key) ? 'selected' : ''} {hiddenEffectFilters.includes(key) ? 'hidden-effect' : ''}"
+                                        role="button"
+                                        tabindex="0"
+                                        onclick={(e) => handleLegendFilterClick(key, e)}
+                                        onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleLegendFilterClick(key, e); }}
+                                    >
+                                        <span class="gene-cell gene-{key} gene-{zyg}"></span>
+                                        <span>{label}</span>
+                                    </span>
+                                {/each}
 
-                                <span
-                                    class="legend-item effect-legend-item {currentEffectFilter.includes(
-                                        'potential-positive',
-                                    )
-                                        ? 'selected'
-                                        : ''} {hiddenEffectFilters.includes(
-                                        'potential-positive',
-                                    )
-                                        ? 'hidden-effect'
-                                        : ''}"
-                                    role="button"
-                                    tabindex="0"
-                                    onclick={(e) =>
-                                        handleLegendFilterClick(
-                                            "potential-positive",
-                                            e,
-                                        )}
-                                    onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleLegendFilterClick("potential-positive", e); }}
-                                >
-                                    <GeneCell
-                                        gene={{ id: "sample", type: "D" }}
-                                        geneAnalysis={{
-                                            type: "potential-positive",
-                                            attribute: null,
-                                        }}
-                                        currentView="attribute"
-                                        isVisible={true}
-                                    />
-                                    <span>Potential Positive</span>
-                                </span>
+                                <span class="legend-label legend-label-value">Value:</span>
 
-                                <span
-                                    class="legend-item effect-legend-item {currentEffectFilter.includes(
-                                        'neutral',
-                                    )
-                                        ? 'selected'
-                                        : ''} {hiddenEffectFilters.includes(
-                                        'neutral',
-                                    )
-                                        ? 'hidden-effect'
-                                        : ''}"
-                                    role="button"
-                                    tabindex="0"
-                                    onclick={(e) =>
-                                        handleLegendFilterClick("neutral", e)}
-                                    onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleLegendFilterClick("neutral", e); }}
-                                >
-                                    <GeneCell
-                                        gene={{ id: "sample", type: "D" }}
-                                        geneAnalysis={{
-                                            type: "neutral",
-                                            attribute: null,
-                                        }}
-                                        currentView="attribute"
-                                        isVisible={true}
-                                    />
-                                    <span>Neutral</span>
-                                </span>
-
-                                <span
-                                    class="legend-item effect-legend-item {currentEffectFilter.includes(
-                                        'potential-negative',
-                                    )
-                                        ? 'selected'
-                                        : ''} {hiddenEffectFilters.includes(
-                                        'potential-negative',
-                                    )
-                                        ? 'hidden-effect'
-                                        : ''}"
-                                    role="button"
-                                    tabindex="0"
-                                    onclick={(e) =>
-                                        handleLegendFilterClick(
-                                            "potential-negative",
-                                            e,
-                                        )}
-                                    onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleLegendFilterClick("potential-negative", e); }}
-                                >
-                                    <GeneCell
-                                        gene={{ id: "sample", type: "D" }}
-                                        geneAnalysis={{
-                                            type: "potential-negative",
-                                            attribute: null,
-                                        }}
-                                        currentView="attribute"
-                                        isVisible={true}
-                                    />
-                                    <span>Potential Negative</span>
-                                </span>
-
-                                <span
-                                    class="legend-item effect-legend-item {currentEffectFilter.includes(
-                                        'negative',
-                                    )
-                                        ? 'selected'
-                                        : ''} {hiddenEffectFilters.includes(
-                                        'negative',
-                                    )
-                                        ? 'hidden-effect'
-                                        : ''}"
-                                    role="button"
-                                    tabindex="0"
-                                    onclick={(e) =>
-                                        handleLegendFilterClick("negative", e)}
-                                    onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleLegendFilterClick("negative", e); }}
-                                >
-                                    <GeneCell
-                                        gene={{ id: "sample", type: "D" }}
-                                        geneAnalysis={{
-                                            type: "negative",
-                                            attribute: null,
-                                        }}
-                                        currentView="attribute"
-                                        isVisible={true}
-                                    />
-                                    <span>Negative</span>
-                                </span>
-                                <span class="legend-label legend-label-value"
-                                    >Value:</span
-                                >
-
-                                <span
-                                    class="legend-item value-legend-item {currentValueFilter.includes(
-                                        'gene-dominant',
-                                    )
-                                        ? 'selected'
-                                        : ''} {hiddenValueFilters.includes(
-                                        'gene-dominant',
-                                    )
-                                        ? 'hidden-effect'
-                                        : ''}"
-                                    role="button"
-                                    tabindex="0"
-                                    onclick={(e) =>
-                                        handleLegendFilterClick("dominant", e)}
-                                    onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleLegendFilterClick("dominant", e); }}
-                                >
-                                    <GeneCell
-                                        gene={{ id: "sample", type: "D" }}
-                                        geneAnalysis={{
-                                            type: "neutral",
-                                            attribute: null,
-                                        }}
-                                        currentView="attribute"
-                                        isVisible={true}
-                                    />
-                                    <span>Dominant</span>
-                                </span>
-
-                                <span
-                                    class="legend-item value-legend-item {currentValueFilter.includes(
-                                        'gene-recessive',
-                                    )
-                                        ? 'selected'
-                                        : ''} {hiddenValueFilters.includes(
-                                        'gene-recessive',
-                                    )
-                                        ? 'hidden-effect'
-                                        : ''}"
-                                    role="button"
-                                    tabindex="0"
-                                    onclick={(e) =>
-                                        handleLegendFilterClick("recessive", e)}
-                                    onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleLegendFilterClick("recessive", e); }}
-                                >
-                                    <GeneCell
-                                        gene={{ id: "sample", type: "R" }}
-                                        geneAnalysis={{
-                                            type: "neutral",
-                                            attribute: null,
-                                        }}
-                                        currentView="attribute"
-                                        isVisible={true}
-                                    />
-                                    <span>Recessive</span>
-                                </span>
-
-                                <span
-                                    class="legend-item value-legend-item {currentValueFilter.includes(
-                                        'gene-mixed',
-                                    )
-                                        ? 'selected'
-                                        : ''} {hiddenValueFilters.includes(
-                                        'gene-mixed',
-                                    )
-                                        ? 'hidden-effect'
-                                        : ''}"
-                                    role="button"
-                                    tabindex="0"
-                                    onclick={(e) =>
-                                        handleLegendFilterClick("mixed", e)}
-                                    onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleLegendFilterClick("mixed", e); }}
-                                >
-                                    <GeneCell
-                                        gene={{ id: "sample", type: "x" }}
-                                        geneAnalysis={{
-                                            type: "neutral",
-                                            attribute: null,
-                                        }}
-                                        currentView="attribute"
-                                        isVisible={true}
-                                    />
-                                    <span>Mixed</span>
-                                </span>
-
-                                <span
-                                    class="legend-item value-legend-item {currentValueFilter.includes(
-                                        'gene-unknown',
-                                    )
-                                        ? 'selected'
-                                        : ''} {hiddenValueFilters.includes(
-                                        'gene-unknown',
-                                    )
-                                        ? 'hidden-effect'
-                                        : ''}"
-                                    role="button"
-                                    tabindex="0"
-                                    onclick={(e) =>
-                                        handleLegendFilterClick("unknown", e)}
-                                    onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleLegendFilterClick("unknown", e); }}
-                                >
-                                    <GeneCell
-                                        gene={{ id: "sample", type: "?" }}
-                                        geneAnalysis={{
-                                            type: "neutral",
-                                            attribute: null,
-                                        }}
-                                        currentView="attribute"
-                                        isVisible={true}
-                                    />
-                                    <span>Unknown</span>
-                                </span>
+                                {#each [["dominant", "Dominant"], ["recessive", "Recessive"], ["mixed", "Mixed"], ["unknown", "Unknown"]] as [key, label] (key)}
+                                    {@const stateKey = `gene-${key}`}
+                                    <span
+                                        class="legend-item value-legend-item {currentValueFilter.includes(stateKey) ? 'selected' : ''} {hiddenValueFilters.includes(stateKey) ? 'hidden-effect' : ''}"
+                                        role="button"
+                                        tabindex="0"
+                                        onclick={(e) => handleLegendFilterClick(key, e)}
+                                        onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleLegendFilterClick(key, e); }}
+                                    >
+                                        <span class="gene-cell gene-neutral gene-{key}"></span>
+                                        <span>{label}</span>
+                                    </span>
+                                {/each}
                             </div>
                         {:else}
                             <div class="legend-row">
-                                <span
-                                    class="legend-label legend-label-appearance"
-                                    >Appearance:</span
-                                >
+                                <span class="legend-label legend-label-appearance">Appearance:</span>
 
                                 {#each appearanceList as appearance (appearance.key)}
-                                    {@const attrKey = appearance.key.replace(
-                                        /_/g,
-                                        "-",
-                                    )}
+                                    {@const attrKey = appearance.key.replace(/_/g, "-")}
                                     <span
-                                        class="legend-item appearance-legend-item {selectedAttributes.includes(
-                                            attrKey,
-                                        )
-                                            ? 'selected'
-                                            : ''} {hiddenAttributes.includes(
-                                            attrKey,
-                                        )
-                                            ? 'hidden-effect'
-                                            : ''}"
+                                        class="legend-item appearance-legend-item {selectedAttributes.includes(attrKey) ? 'selected' : ''} {hiddenAttributes.includes(attrKey) ? 'hidden-effect' : ''}"
                                         role="button"
                                         tabindex="0"
-                                        onclick={(e) =>
-                                            handleLegendFilterClick(attrKey, e)}
+                                        onclick={(e) => handleLegendFilterClick(attrKey, e)}
                                         onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleLegendFilterClick(attrKey, e); }}
                                     >
-                                        <GeneCell
-                                            gene={{ id: "sample", type: "D" }}
-                                            geneAnalysis={{
-                                                type: attrKey,
-                                                attribute: attrKey,
-                                            }}
-                                            currentView="appearance"
-                                            isVisible={true}
-                                        />
+                                        <span class="gene-cell gene-{attrKey} gene-dominant"></span>
                                         <span>{appearance.name}</span>
                                     </span>
                                 {/each}
@@ -1408,90 +1006,61 @@ export function getStatsData() {
                     </div>
                 </div>
 
-                <!-- Gene Grid -->
-                <!-- svelte-ignore a11y_no_static_element_interactions -->
+                <!-- Gene grid — plain divs built once; filtering is CSS-only.
+                     Tooltip + keyboard-nav listeners are delegated on this
+                     container via addEventListener (see the $effect above). -->
                 <div
                     class="gene-grid-container"
                     bind:this={gridContainerEl}
                     style="--cell-size: {cellSize}px"
-                    onkeydown={handleGridKeydown}
                 >
                     {#if headerStructure && chromosomeData.length > 0}
-                        <!-- Optimized dynamic rendering -->
-                        {#key currentSpeciesTemplate ? currentSpeciesTemplate.species + "_" + currentSpeciesTemplate.chromosomeCount + "_" + currentSpeciesTemplate.blockCount : "initial"}
+                        {#key headerStructure}
                             <table class="gene-grid-table">
                                 <thead class="gene-headers">
                                     <tr>
                                         <th class="chromosome-header">Chr</th>
                                         {#each headerStructure.sortedBlocks as block (block)}
-                                            {#each Array.from({ length: headerStructure.blockMaxGenes.get(block) ?? 0 }, (_, i) => i) as i (i)}
-                                                <th
-                                                    class="position-header {i ===
-                                                    0
-                                                        ? 'block-label block-start'
-                                                        : ''}"
-                                                >
-                                                    {i === 0 ? block : ""}
-                                                </th>
+                                            {#each blockIndices[block] as i (i)}
+                                                <th class="position-header {i === 0 ? 'block-label block-start' : ''}">{i === 0 ? block : ""}</th>
                                             {/each}
                                         {/each}
                                     </tr>
                                 </thead>
                                 <tbody class="gene-rows">
-                                    {#each chromosomeData as { chromosome, processedBlocks } (chromosome)}
-                                        {@const hasMatchingGenes = !currentBreedFilter || chromosomeHasBreed(chromosome, currentBreedFilter)}
-                                        {#if hasMatchingGenes}
-                                        <tr class="chromosome-row">
+                                    {#each chromosomeData as row (row.chromosome)}
+                                        <tr class="chromosome-row" data-chromosome={row.chromosome}>
                                             <td
-                                                class="chromosome-label {selectedChromosomes.includes(
-                                                    chromosome,
-                                                )
-                                                    ? 'selected'
-                                                    : ''} {hiddenChromosomes.includes(
-                                                    chromosome,
-                                                )
-                                                    ? 'hidden-chromosome'
-                                                    : ''}"
-                                                data-chromosome={chromosome}
-                                                onclick={(e) =>
-                                                    toggleChromosomeFilter(
-                                                        chromosome,
-                                                        e.ctrlKey || e.metaKey,
-                                                        e.altKey,
-                                                    )}
-                                            >
-                                                {chromosome}
-                                            </td>
-                                            {#each headerStructure.sortedBlocks as block (block)}
-                                                {#each Array.from({ length: headerStructure.blockMaxGenes.get(block) ?? 0 }, (_, i) => i) as i (i)}
-                                                    {@const gene =
-                                                        processedBlocks?.[
-                                                            block
-                                                        ]?.[i] || null}
-                                                    <td
-                                                        class="gene-cell-container {i ===
-                                                        0
-                                                            ? 'block-start'
-                                                            : ''} {!gene
-                                                            ? 'empty'
-                                                            : ''}"
-                                                    >
-                                                        {#if gene}
-                                                            <GeneCell
-                                                                {gene}
-                                                                {chromosome}
-                                                                geneAnalysis={gene.geneAnalysis}
-                                                                {currentView}
-                                                                isVisible={gene.isVisible}
-                                                                on:tooltip-show={handleTooltipShow}
-                                                                on:tooltip-hide={handleTooltipHide}
-                                                            />
+                                                class="chromosome-label {selectedChromosomes.includes(row.chromosome) ? 'selected' : ''} {hiddenChromosomes.includes(row.chromosome) ? 'hidden-chromosome' : ''}"
+                                                data-chromosome={row.chromosome}
+                                                onclick={(e) => toggleChromosomeFilter(row.chromosome, e.ctrlKey || e.metaKey, e.altKey)}
+                                            >{row.chromosome}</td>
+                                            {#each headerStructure.sortedBlocks as block, bi (block)}
+                                                {#each blockIndices[block] as i (i)}
+                                                    {@const cell = row.cells[bi]?.[i] ?? null}
+                                                    <td class="gene-cell-container {i === 0 ? 'block-start' : ''} {!cell ? 'empty' : ''}">
+                                                        {#if cell}
+                                                            <div
+                                                                class={currentView === "appearance" ? cell.appearanceCls : cell.attributeCls}
+                                                                data-gene-id={cell.id}
+                                                                data-gene-type={cell.type}
+                                                                data-effect={cell.effect}
+                                                                data-attr={cell.attr}
+                                                                data-attrs={cell.attrs}
+                                                                data-appearance={cell.appearance}
+                                                                data-effecttype={cell.effectType}
+                                                                data-zygosity={cell.zygosity}
+                                                                data-ctxpos={cell.ctxpos}
+                                                                data-ctxneg={cell.ctxneg}
+                                                                role="button"
+                                                                tabindex="0"
+                                                                aria-label={`Gene ${cell.id}${cell.effect ? ': ' + cell.effect : ''}`}
+                                                            >{#if cell.type === "?"}<span class="gene-unknown-symbol" title="Unknown gene">?</span>{/if}</div>
                                                         {/if}
                                                     </td>
                                                 {/each}
                                             {/each}
                                         </tr>
-                                        {/if}
                                     {/each}
                                 </tbody>
                             </table>
@@ -1502,7 +1071,6 @@ export function getStatsData() {
         </div>
     {/if}
 
-    <!-- Tooltip using existing component -->
     <GeneTooltip
         visible={tooltipVisible}
         x={tooltipX}
@@ -1515,10 +1083,9 @@ export function getStatsData() {
 </div>
 
 <style>
-    /* Gene colors defined as --gene-* CSS vars in :root in src/app.css */
+    /* Gene colors defined as --gene-* CSS vars in :root in src/app.css.
+       Shared .gene-cell visuals live in ./geneCell.css (imported above). */
 
-    /* Fills the visualizer column and centres the shared StatusPane vertically
-       (the states previously occupied a fixed 300px centred box). */
     .visualizer-state {
         flex: 1;
         display: flex;
@@ -1527,17 +1094,11 @@ export function getStatsData() {
     }
 
     .gene-visualizer {
-        height: 100%;
         display: flex;
         flex-direction: column;
+        height: 100%;
         background: var(--bg-primary);
         min-height: 0;
-    }
-
-    .gene-visualizer {
-        display: flex;
-        flex-direction: column;
-        height: 100%;
     }
 
     .visualizer-content {
@@ -1554,7 +1115,6 @@ export function getStatsData() {
         flex: 1;
         min-height: 0;
     }
-
 
     .gene-legend {
         margin-bottom: 6px;
@@ -1583,6 +1143,11 @@ export function getStatsData() {
         margin-right: 1em;
     }
 
+    .legend-label-appearance {
+        font-weight: 600;
+        margin-right: 1em;
+    }
+
     .legend-item {
         display: flex;
         align-items: center;
@@ -1600,12 +1165,14 @@ export function getStatsData() {
         background-color: var(--bg-hover);
     }
 
-    /* Adjust legend item spacing for GeneCell components */
+    /* Sample swatch sizing for the legend (a plain .gene-cell with no grid --cell-size) */
     .legend-item :global(.gene-cell) {
+        width: 14px;
+        height: 14px;
         margin: 0 4px 0 0;
+        pointer-events: none;
     }
 
-    /* Legend selection states */
     .effect-legend-item,
     .value-legend-item,
     .appearance-legend-item {
@@ -1778,5 +1345,4 @@ export function getStatsData() {
     .gene-cell-container.block-start:first-of-type {
         padding-left: 1px;
     }
-
 </style>

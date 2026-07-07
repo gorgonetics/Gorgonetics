@@ -1,5 +1,6 @@
 <script lang="ts">
 import { onDestroy, onMount } from 'svelte';
+import '$lib/components/gene/geneCell.css';
 import GenomeDiffControls from '$lib/components/comparison/GenomeDiffControls.svelte';
 import GeneTooltip from '$lib/components/gene/GeneTooltip.svelte';
 import StatusPane from '$lib/components/shared/StatusPane.svelte';
