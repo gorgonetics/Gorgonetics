@@ -1,37 +1,53 @@
 <script lang="ts">
 /**
- * Community catalogue table. Mirrors the local My Pets roster: a sortable
- * matrix of Name / Species / Gender / Breed / the eight attribute columns /
+ * Community catalogue table. Mirrors the local My Pets roster: a shared
+ * FilterBar (search / species / breed / gender / tags) over a sortable
+ * matrix of Name / Owner / Species / Gender / Breed / attribute columns /
  * Total / Uploaded. Clicking a row opens its full-view genome preview
  * (CommunityTab hosts the overlay, keyed on the store's `selectedHash`).
  *
- * Attribute cells are species-aware — each of the eight columns is filled
- * only for the attributes that apply to a row's species (Temperament for
- * horses, Ferocity for bees), blank otherwise. Legacy entries with no
- * published `attributes` map show "—" across the attribute columns.
+ * Filtering is client-side over the LOADED pages only (#397) — the
+ * catalogue is cursor-paginated 50/page, so entries not yet loaded are
+ * not searched. The footer says so whenever filters are active and more
+ * pages remain, and "Load more" stays available to widen the searched
+ * set. Match semantics live in `sharedPetFilter.ts`, kept pure so a
+ * future server-side pass can reuse/replace them in one place.
  *
- * Sorting is client-side over the loaded pages (the catalogue is paged
- * server-side, newest-first); it re-orders what's on screen without
- * refetching.
+ * Attribute columns are species-aware — a column is filled only for the
+ * attributes that apply to a row's species (Temperament for horses,
+ * Ferocity for bees). A column that is empty for EVERY loaded row (e.g.
+ * an all-legacy catalogue with no published `attributes`) is hidden
+ * entirely instead of rendering a dash per row; visibility is computed
+ * over the loaded set, not the filtered subset, so columns don't pop in
+ * and out as filters change.
+ *
+ * Sorting is client-side over the filtered rows; it re-orders what's on
+ * screen without refetching.
  */
+import FilterBar from '$lib/components/shared/FilterBar.svelte';
 import StatusBanner from '$lib/components/shared/StatusBanner.svelte';
 import StatusPane from '$lib/components/shared/StatusPane.svelte';
-import { getAllAttributeNames } from '$lib/services/configService.js';
+import { getAllAttributeNames, getSupportedSpecies } from '$lib/services/configService.js';
 import { communityView, loadInitial, loadMore, selectPet } from '$lib/stores/community.svelte.js';
-import type { SharedPet } from '$lib/types/index.js';
+import { type Gender, HORSE_BREEDS, type SharedPet } from '$lib/types/index.js';
+import { filterSharedPets, sharedPetOwner } from '$lib/utils/sharedPetFilter.js';
 import { type SortableColumn, sortByColumn } from '$lib/utils/sortColumn.js';
 import { formatShortDate } from '$lib/utils/timestamp.js';
 
-/** The eight published attribute columns, in wire order, with short labels. */
+/**
+ * The eight published attribute columns, in wire order. Full names, not
+ * abbreviations — matches the My Pets roster's header naming (Roster
+ * labels attribute columns with the config's full display names).
+ */
 const ATTR_COLUMNS = [
-  { key: 'intelligence', label: 'Int' },
-  { key: 'toughness', label: 'Tou' },
-  { key: 'friendliness', label: 'Fri' },
-  { key: 'ruggedness', label: 'Rug' },
-  { key: 'enthusiasm', label: 'Ent' },
-  { key: 'virility', label: 'Vir' },
-  { key: 'ferocity', label: 'Fer' },
-  { key: 'temperament', label: 'Tem' },
+  { key: 'intelligence', label: 'Intelligence' },
+  { key: 'toughness', label: 'Toughness' },
+  { key: 'friendliness', label: 'Friendliness' },
+  { key: 'ruggedness', label: 'Ruggedness' },
+  { key: 'enthusiasm', label: 'Enthusiasm' },
+  { key: 'virility', label: 'Virility' },
+  { key: 'ferocity', label: 'Ferocity' },
+  { key: 'temperament', label: 'Temperament' },
 ] as const;
 
 // Which of the eight attributes apply to a given species — cached per
@@ -53,11 +69,10 @@ function attrApplies(pet: SharedPet, key: string): boolean {
 /**
  * The owner/sharer — the genome's in-game `Character=` name. The share
  * payload stores it in both `character` and `breeder`; prefer `character`
- * and fall back to `breeder` for older entries.
+ * and fall back to `breeder` for older entries. Shared with the filter
+ * predicate so search matches exactly what the Owner column shows.
  */
-function ownerName(pet: SharedPet): string {
-  return pet.character || pet.breeder || '';
-}
+const ownerName = sharedPetOwner;
 
 /** Cell value for an attribute, or null when it doesn't apply / is absent. */
 function attrValue(pet: SharedPet, key: string): number | null {
@@ -77,8 +92,93 @@ function attrTotal(pet: SharedPet): number | null {
   return sum;
 }
 
+// --- Filters (#397) ---------------------------------------------------------
+// Component-local state, mirroring the vocabulary MyPets feeds the same
+// FilterBar. The tab content stays mounted (covered/inert) across tab
+// switches, so these survive navigation within a session.
+const speciesOptions = getSupportedSpecies();
+const BREEDS_BY_SPECIES: Record<string, Record<string, string>> = {
+  beewasp: { Bee: 'Bee', Wasp: 'Wasp' },
+  horse: HORSE_BREEDS,
+};
+
+let search = $state('');
+let speciesFilter = $state('');
+let breedFilter = $state('');
+let genderFilter = $state<Gender | ''>('');
+let tagFilters = $state<string[]>([]);
+
+const breedsForSpecies = $derived(speciesFilter ? BREEDS_BY_SPECIES[speciesFilter] : undefined);
+
+// Switching species changes the breed universe — drop a breed that no
+// longer belongs to it (same rule MyPets applies).
+$effect(() => {
+  if (breedFilter && (!breedsForSpecies || !(breedFilter in breedsForSpecies))) {
+    breedFilter = '';
+  }
+});
+
+// Tag pills are offered from whatever the loaded entries actually carry.
+const tagOptions = $derived.by(() => {
+  const set = new Set<string>();
+  for (const pet of communityView.pets) for (const t of pet.tags) set.add(t);
+  return [...set].sort((a, b) => a.localeCompare(b));
+});
+
+// A tag filter can outlive the tags visible in the loaded set (e.g. a
+// forced refresh replaced the page) — prune it so an invisible pill can't
+// silently keep filtering.
+$effect(() => {
+  if (tagFilters.length > 0 && !tagFilters.every((t) => tagOptions.includes(t))) {
+    tagFilters = tagFilters.filter((t) => tagOptions.includes(t));
+  }
+});
+
+function toggleTag(tag: string): void {
+  tagFilters = tagFilters.includes(tag) ? tagFilters.filter((t) => t !== tag) : [...tagFilters, tag];
+}
+
+const filtersActive = $derived(
+  search !== '' || speciesFilter !== '' || breedFilter !== '' || genderFilter !== '' || tagFilters.length > 0,
+);
+
+const filtered = $derived(
+  filterSharedPets(communityView.pets, {
+    query: search,
+    species: speciesFilter,
+    breed: breedFilter,
+    gender: genderFilter,
+    tags: tagFilters,
+  }),
+);
+
+// --- Column visibility (#397) ------------------------------------------------
+// Hide attribute columns that are empty for EVERY loaded row (legacy
+// entries with no published attributes, or attributes that apply to no
+// loaded species). Computed over the loaded set — not the filtered
+// subset — so columns stay put while the user types.
+const visibleAttrCols = $derived(
+  ATTR_COLUMNS.filter((col) => communityView.pets.some((p) => attrValue(p, col.key) !== null)),
+);
+const showTotal = $derived(communityView.pets.some((p) => attrTotal(p) !== null));
+const columnCount = $derived(5 + visibleAttrCols.length + (showTotal ? 1 : 0) + 1);
+
+// --- Sorting ------------------------------------------------------------------
 let sortCol = $state('uploaded');
 let sortDir = $state<'asc' | 'desc'>('desc');
+
+// If the sorted column disappears (a forced refresh can shrink the loaded
+// set and hide its column), fall back to the default order rather than
+// silently sorting by an invisible column.
+$effect(() => {
+  const valid = new Set<string>(['name', 'owner', 'species', 'gender', 'breed', 'uploaded']);
+  for (const col of visibleAttrCols) valid.add(col.key);
+  if (showTotal) valid.add('total');
+  if (!valid.has(sortCol)) {
+    sortCol = 'uploaded';
+    sortDir = 'desc';
+  }
+});
 
 function toggleSort(col: string): void {
   if (sortCol === col) {
@@ -96,7 +196,7 @@ function sortIndicator(col: string): string {
 }
 
 const sorted = $derived.by(() => {
-  const pets = communityView.pets;
+  const pets = filtered;
   let column: SortableColumn<SharedPet>;
   if (sortCol === 'name') column = { numeric: false, accessor: (p) => p.name || '' };
   else if (sortCol === 'owner') column = { numeric: false, accessor: ownerName };
@@ -136,6 +236,26 @@ function handleKey(e: KeyboardEvent, hash: string): void {
       <StatusPane variant="empty" body="The catalogue is empty — be the first to share a pet." />
     </div>
   {:else}
+    <div class="ct-filter">
+      <FilterBar
+        {search}
+        onSearch={(v) => { search = v; }}
+        searchPlaceholder="Search name, owner, species…"
+        species={speciesOptions}
+        activeSpecies={speciesFilter}
+        onSpecies={(v) => { speciesFilter = v; }}
+        breeds={breedsForSpecies}
+        breed={breedFilter}
+        onBreed={(v) => { breedFilter = v; }}
+        genders={['Male', 'Female']}
+        activeGender={genderFilter}
+        onGender={(v) => { genderFilter = v as Gender | ''; }}
+        {tagOptions}
+        activeTags={tagFilters}
+        onToggleTag={toggleTag}
+      />
+    </div>
+
     <div class="table-scroll">
       <!--
         `role="grid"` upgrades the table from a passive layout to an
@@ -151,14 +271,24 @@ function handleKey(e: KeyboardEvent, hash: string): void {
             <th class="col-text"><button type="button" class="sort-btn" onclick={() => toggleSort('species')}>Species{sortIndicator('species')}</button></th>
             <th class="col-text"><button type="button" class="sort-btn" onclick={() => toggleSort('gender')}>Gender{sortIndicator('gender')}</button></th>
             <th class="col-text"><button type="button" class="sort-btn" onclick={() => toggleSort('breed')}>Breed{sortIndicator('breed')}</button></th>
-            {#each ATTR_COLUMNS as col (col.key)}
-              <th class="col-num" title={col.key}><button type="button" class="sort-btn" onclick={() => toggleSort(col.key)}>{col.label}{sortIndicator(col.key)}</button></th>
+            {#each visibleAttrCols as col (col.key)}
+              <th class="col-num"><button type="button" class="sort-btn" onclick={() => toggleSort(col.key)}>{col.label}{sortIndicator(col.key)}</button></th>
             {/each}
-            <th class="col-num"><button type="button" class="sort-btn" onclick={() => toggleSort('total')}>Total{sortIndicator('total')}</button></th>
+            {#if showTotal}
+              <th class="col-num"><button type="button" class="sort-btn" onclick={() => toggleSort('total')}>Total{sortIndicator('total')}</button></th>
+            {/if}
             <th class="col-num col-uploaded"><button type="button" class="sort-btn" onclick={() => toggleSort('uploaded')}>Uploaded{sortIndicator('uploaded')}</button></th>
           </tr>
         </thead>
         <tbody>
+          {#if sorted.length === 0}
+            <tr>
+              <td class="filter-empty" colspan={columnCount} data-testid="community-filter-empty">
+                No loaded pets match these filters.
+                {#if communityView.hasMore}Load more to search older entries.{/if}
+              </td>
+            </tr>
+          {/if}
           {#each sorted as pet (pet.contentHash)}
             {@const selected = pet.contentHash === communityView.selectedHash}
             {@const total = attrTotal(pet)}
@@ -177,11 +307,13 @@ function handleKey(e: KeyboardEvent, hash: string): void {
               <td role="gridcell" class="cell-text">{pet.species || '—'}</td>
               <td role="gridcell" class="cell-text">{pet.gender || '—'}</td>
               <td role="gridcell" class="cell-text">{pet.breed || '—'}</td>
-              {#each ATTR_COLUMNS as col (col.key)}
+              {#each visibleAttrCols as col (col.key)}
                 {@const v = attrValue(pet, col.key)}
                 <td role="gridcell" class="cell-num" class:muted={v === null}>{v ?? '—'}</td>
               {/each}
-              <td role="gridcell" class="cell-num cell-total" class:muted={total === null}>{total ?? '—'}</td>
+              {#if showTotal}
+                <td role="gridcell" class="cell-num cell-total" class:muted={total === null}>{total ?? '—'}</td>
+              {/if}
               <td role="gridcell" class="cell-num cell-uploaded">{formatShortDate(pet.uploadedAt)}</td>
             </tr>
           {/each}
@@ -195,7 +327,20 @@ function handleKey(e: KeyboardEvent, hash: string): void {
       </div>
     {/if}
 
+    <!--
+      Honest counts under filtering + pagination: the filter only sees the
+      loaded pages, so while more pages remain the count is labelled "of N
+      loaded" and "Load more" stays visible — loading more both extends the
+      catalogue AND widens the searched set.
+    -->
     <div class="table-footer">
+      {#if filtersActive}
+        <span class="filter-count" data-testid="community-filter-count">
+          {sorted.length} of {communityView.pets.length} loaded
+          {communityView.pets.length === 1 ? 'pet' : 'pets'} match{#if communityView.hasMore}
+            &nbsp;· older entries not loaded yet{/if}
+        </span>
+      {/if}
       {#if communityView.hasMore}
         <button
           class="btn btn-secondary load-more-btn"
@@ -223,10 +368,23 @@ function handleKey(e: KeyboardEvent, hash: string): void {
     min-height: 0;
   }
 
+  .ct-filter {
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border-primary);
+    flex-shrink: 0;
+  }
+
   .table-scroll {
     flex: 1;
     overflow: auto;
     min-height: 0;
+  }
+
+  .filter-empty {
+    text-align: center;
+    color: var(--text-muted);
+    font-style: italic;
+    padding: 24px;
   }
 
   table {
@@ -320,11 +478,14 @@ function handleKey(e: KeyboardEvent, hash: string): void {
     padding: 12px 16px;
     border-top: 1px solid var(--border-primary);
     display: flex;
+    align-items: center;
     justify-content: center;
+    gap: 12px;
     flex-shrink: 0;
   }
 
-  .end-marker {
+  .end-marker,
+  .filter-count {
     font-size: 12px;
     color: var(--text-tertiary);
   }
