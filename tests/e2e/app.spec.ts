@@ -86,20 +86,20 @@ test.describe('Pet Detail View', () => {
 
   test('opening a pet shows its visualization', async ({ page }) => {
     await expect(page.locator('.pet-visualization')).toBeVisible();
-    await expect(page.locator('.detail-title')).toBeVisible();
+    await expect(page.locator('.detail-meta')).toBeVisible();
   });
 
   test('shows view control buttons', async ({ page }) => {
     await expect(page.locator('.view-btn').filter({ hasText: 'Attributes' })).toBeVisible();
     await expect(page.locator('.view-btn').filter({ hasText: 'Appearance' })).toBeVisible();
-    await expect(page.locator('.view-btn').filter({ hasText: 'Stats' })).toBeVisible();
+    await expect(page.getByTestId('detail-stats-toggle')).toBeVisible();
   });
 
   test('stats drawer toggles on button click', async ({ page }) => {
     await expect(page.locator('.stats-drawer')).toHaveCount(0);
-    await page.locator('.view-btn').filter({ hasText: 'Stats' }).click();
+    await page.getByTestId('detail-stats-toggle').click();
     await expect(page.locator('.stats-drawer')).toBeVisible();
-    await page.locator('.view-btn').filter({ hasText: 'Stats' }).click();
+    await page.getByTestId('detail-stats-toggle').click();
     await expect(page.locator('.stats-drawer')).toHaveCount(0);
   });
 

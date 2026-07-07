@@ -102,3 +102,39 @@ describe('CommunityPetVisualization genome lazy-load', () => {
     );
   });
 });
+
+// Header rework (#394/#395): the community detail adopts the shared
+// BreedSelector popover (no Auto — there is no local pet to follow) and
+// separates the Attributes/Appearance segmented pair from the Stats toggle
+// and the Import action.
+describe('CommunityPetVisualization detail header', () => {
+  it('renders the shared BreedSelector for horses instead of the abbreviation row', () => {
+    getSharedPet.mockReturnValue(new Promise(() => {}));
+    const { container } = render(CommunityPetVisualization, {
+      pet: makeSharedPet({ species: 'Horse', breed: 'Kurbone' }),
+    });
+    expect(container.querySelector('[data-testid="breed-selector-trigger"]')).not.toBeNull();
+    expect(container.querySelectorAll('.breed-btn')).toHaveLength(0);
+    // No Auto button in the community view.
+    expect(container.querySelector('.auto-btn')).toBeNull();
+  });
+
+  it('omits the breed control for non-horse species', () => {
+    getSharedPet.mockReturnValue(new Promise(() => {}));
+    const { container } = render(CommunityPetVisualization, { pet: makeSharedPet() });
+    expect(container.querySelector('[data-testid="breed-selector"]')).toBeNull();
+  });
+
+  it('keeps Attributes/Appearance segmented and Stats as a separate pressed toggle', () => {
+    getSharedPet.mockReturnValue(new Promise(() => {}));
+    const { container, getByTestId } = render(CommunityPetVisualization, { pet: makeSharedPet() });
+    const segment = container.querySelector('.view-controls') as HTMLElement;
+    expect([...segment.querySelectorAll('button')].map((b) => b.textContent?.trim())).toEqual([
+      'Attributes',
+      'Appearance',
+    ]);
+    const stats = getByTestId('detail-stats-toggle');
+    expect(stats.getAttribute('aria-pressed')).toBe('false');
+    expect(container.querySelector('.header-actions [data-testid="community-import"]')).not.toBeNull();
+  });
+});
