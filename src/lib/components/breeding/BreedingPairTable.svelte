@@ -79,16 +79,23 @@ function fmt(n: number) {
 // --- Scroll persistence -----------------------------------------------------
 // The wrapper is the ranking's scroll container; the component unmounts on a
 // destination switch (e.g. a parent-name excursion to My Pets), so the offsets
-// live in breedingView. Restore once the ranked rows are in the DOM — before
-// that, scrollHeight is too small for the saved offset to apply.
+// live in breedingView. Sync the DOM to the store whenever the offsets
+// change: this restores them on mount (only once the ranked rows are in the
+// DOM — before that, scrollHeight is too small for the offset to apply) AND
+// applies external resets (a species change zeroes the offsets while this
+// component stays mounted; a one-shot restore would leave the table visually
+// scrolled with the store saying 0, and the next user scroll would re-persist
+// the stale offsets). Comparing before assigning breaks the feedback loop
+// with the onscroll handler — a store write that merely echoes the element's
+// own scroll position is a no-op here.
 let wrapperEl = $state<HTMLDivElement>();
-let restored = false;
 
 $effect(() => {
-  if (restored || !wrapperEl || sortedResults.length === 0) return;
-  restored = true;
-  wrapperEl.scrollTop = breedingView.scrollTop;
-  wrapperEl.scrollLeft = breedingView.scrollLeft;
+  const top = breedingView.scrollTop;
+  const left = breedingView.scrollLeft;
+  if (!wrapperEl || sortedResults.length === 0) return;
+  if (wrapperEl.scrollTop !== top) wrapperEl.scrollTop = top;
+  if (wrapperEl.scrollLeft !== left) wrapperEl.scrollLeft = left;
 });
 
 function persistScroll() {
