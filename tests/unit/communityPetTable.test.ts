@@ -158,7 +158,7 @@ describe('CommunityPetTable — filtering (#397)', () => {
     const rows = getAllByTestId('community-row');
     expect(rows).toHaveLength(1);
     expect(rows[0].getAttribute('data-content-hash')).toBe('a');
-    expect(getByTestId('community-filter-count')).toHaveTextContent('1 of 2 loaded pets match');
+    expect(getByTestId('community-filter-count')).toHaveTextContent('1 of 2 loaded pets matches');
   });
 
   it('search also matches the owner name', async () => {
@@ -243,7 +243,7 @@ describe('CommunityPetTable — filtering (#397)', () => {
     const { getByTestId } = render(CommunityPetTable);
     await fireEvent.input(getByTestId('filter-search'), { target: { value: 'buzz' } });
     const count = getByTestId('community-filter-count');
-    expect(count).toHaveTextContent('1 of 2 loaded pets match');
+    expect(count).toHaveTextContent('1 of 2 loaded pets matches');
     expect(count).not.toHaveTextContent('older entries not loaded yet');
   });
 });
