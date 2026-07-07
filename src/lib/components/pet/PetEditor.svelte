@@ -240,7 +240,7 @@ function updateAttribute(attrKey: string, value: string): void {
           class="modal-backdrop"
           data-testid="pet-editor-discard-confirm"
           onclick={(e) => { if (e.target === e.currentTarget) keepEditing(); }}
-          onkeydown={(e) => { if (e.key === 'Escape') keepEditing(); }}
+          onkeydown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); keepEditing(); } }}
         >
           <div class="confirm-dialog" role="alertdialog" aria-label="Discard unsaved changes" aria-modal="true" use:focusTrap>
             <p class="confirm-message">Discard unsaved changes?</p>

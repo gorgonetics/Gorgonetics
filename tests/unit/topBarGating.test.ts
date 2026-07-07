@@ -87,25 +87,33 @@ describe('TopBar nav gating while a root overlay is open', () => {
     expect((container.querySelector('.back-btn') as HTMLButtonElement).disabled).toBe(true);
   });
 
-  it('gates the Alt+Left keyboard back-navigation', async () => {
+  it('gates the Alt+Left keyboard back-navigation but still suppresses the browser gesture', async () => {
     appState.switchTab('community');
     settingsOpen.set(true);
     render(TopBar);
 
-    await fireEvent.keyDown(window, { key: 'ArrowLeft', altKey: true });
+    // Gated: no tab switch, but the default (webview history back) is still
+    // prevented so the app shell can't be navigated away.
+    const notPrevented = await fireEvent.keyDown(window, { key: 'ArrowLeft', altKey: true });
     expect(get(activeTab)).toBe('community');
+    expect(notPrevented).toBe(false);
 
     settingsOpen.set(false);
     await fireEvent.keyDown(window, { key: 'ArrowLeft', altKey: true });
     expect(get(activeTab)).toBe('library');
   });
 
-  it('gates the mouse back-button navigation', async () => {
+  it('gates the mouse back-button navigation but still suppresses the browser gesture', async () => {
     appState.switchTab('community');
     settingsOpen.set(true);
     render(TopBar);
 
-    await fireEvent.mouseUp(window, { button: 3 });
+    const notPrevented = await fireEvent.mouseUp(window, { button: 3 });
     expect(get(activeTab)).toBe('community');
+    expect(notPrevented).toBe(false);
+
+    // The forward button is suppressed too (it has no in-app meaning).
+    const fwdNotPrevented = await fireEvent.mouseUp(window, { button: 4 });
+    expect(fwdNotPrevented).toBe(false);
   });
 });

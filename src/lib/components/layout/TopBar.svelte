@@ -19,19 +19,23 @@ function switchTab(tab: Tab) {
 function handleWindowKeydown(e: KeyboardEvent) {
   // Alt+Left → previous tab. Don't hijack it while the user is typing.
   if (!(e.altKey && e.key === 'ArrowLeft')) return;
-  if ($overlayOpen) return; // nav is gated while a root overlay is open
   const t = e.target as HTMLElement | null;
   if (t?.tagName === 'INPUT' || t?.tagName === 'TEXTAREA' || t?.isContentEditable) return;
+  // Always suppress the webview's own back gesture — even while the nav is
+  // gated, Alt+Left must not navigate the app shell away.
   e.preventDefault();
+  if ($overlayOpen) return; // nav is gated while a root overlay is open
   appState.goBack();
 }
 
 function handleMouseUp(e: MouseEvent) {
-  // Mouse "back" button (button 3) → previous tab. goBack is a no-op
-  // when there's no history, so an unconditional call is safe.
-  if (e.button === 3 && !$overlayOpen) {
+  // Mouse back/forward buttons (3/4): suppress the webview's history
+  // navigation unconditionally so the app shell can't be navigated away,
+  // then treat "back" as previous-tab — unless the nav is gated by an open
+  // root overlay. goBack is a no-op without history, so the call is safe.
+  if (e.button === 3 || e.button === 4) {
     e.preventDefault();
-    appState.goBack();
+    if (e.button === 3 && !$overlayOpen) appState.goBack();
   }
 }
 </script>

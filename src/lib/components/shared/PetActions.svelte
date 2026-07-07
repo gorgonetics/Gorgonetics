@@ -86,7 +86,7 @@ async function doDelete(): Promise<void> {
   <div
     class="modal-backdrop"
     onclick={(e) => { if (e.target === e.currentTarget) cancelDelete(); }}
-    onkeydown={(e) => { if (e.key === 'Escape') cancelDelete(); }}
+    onkeydown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); cancelDelete(); } }}
   >
     <div class="confirm-dialog" role="alertdialog" aria-label="Confirm delete" aria-modal="true" use:focusTrap>
       <p class="confirm-message">Delete <strong>{pet.name}</strong>?</p>

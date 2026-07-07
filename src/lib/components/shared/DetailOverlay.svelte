@@ -104,6 +104,12 @@ function handleDocumentKeydown(e: KeyboardEvent) {
   // anything on a .modal-backdrop): it owns its own Escape, so don't also
   // tear down the lens underneath it.
   if (document.querySelector('.modal-backdrop')) return;
+  // The modal's own Escape handler may already have torn it down earlier in
+  // this same event's bubble path (Svelte flushes the removal synchronously),
+  // so the live-DOM check above misses it. The event target still sits in the
+  // detached subtree, and `closest` walks detached trees — if this Escape was
+  // aimed at a modal, it's consumed, not a back-out of the lens beneath.
+  if ((e.target as HTMLElement | null)?.closest?.('.modal-backdrop')) return;
   onBack();
 }
 </script>
