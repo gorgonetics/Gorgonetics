@@ -388,7 +388,7 @@ function handleCellLeave() {
             {appearanceDisplayInfo}
             {currentView}
             onViewChange={(v) => { currentView = v; }}
-            onBreedChange={(name) => { breedFilter = breedFilter === name ? '' : name; }}
+            onBreedChange={(name) => { breedFilter = name; }}
             onAutoBreedToggle={() => {
                 manualBreedOverride = true;
                 autoBreed = !autoBreed;

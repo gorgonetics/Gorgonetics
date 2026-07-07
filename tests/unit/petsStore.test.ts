@@ -22,7 +22,7 @@ describe('Pets Store', () => {
     await runMigrations();
     appState.reset();
     pets.set([]);
-    activeTab.set('pets');
+    activeTab.set('library');
   });
 
   describe('initial state', () => {
@@ -38,8 +38,8 @@ describe('Pets Store', () => {
       expect(get(error)).toBeNull();
     });
 
-    it('starts on pets tab', () => {
-      expect(get(activeTab)).toBe('pets');
+    it('starts on the library tab', () => {
+      expect(get(activeTab)).toBe('library');
     });
 
     it('starts not loading', () => {
@@ -56,17 +56,17 @@ describe('Pets Store', () => {
   });
 
   describe('switchTab', () => {
-    it('switches to editor tab and clears selected pet', () => {
+    it('switches to the reference tab and clears the selected pet', () => {
       appState.selectPet(asPet({ id: 1, name: 'TestBee' }));
-      appState.switchTab('editor');
-      expect(get(activeTab)).toBe('editor');
+      appState.switchTab('reference');
+      expect(get(activeTab)).toBe('reference');
       expect(get(selectedPet)).toBeNull();
     });
 
-    it('switches to pets tab and clears gene editing view', () => {
+    it('switches to the library tab and clears the gene editing view', () => {
       appState.setGeneEditingView({ some: 'data' });
-      appState.switchTab('pets');
-      expect(get(activeTab)).toBe('pets');
+      appState.switchTab('library');
+      expect(get(activeTab)).toBe('library');
       expect(get(geneEditingView)).toBeNull();
     });
   });

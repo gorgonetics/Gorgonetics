@@ -1,12 +1,18 @@
 /**
- * Pure pet-list filtering for `PetList`.
+ * Pure pet-list filtering, the single source of truth for the Library roster.
  *
- * Extracted from the in-component `filteredPets` $derived so the
+ * Extracted from the old in-component `filteredPets` $derived so the
  * search / tag / starred / stabled predicate can be unit-tested rather than
  * living as a closure over component reactive state (#306 audit per #310).
+ *
+ * The `species` / `breed` / `gender` / `petQualityOnly` fields are optional so
+ * a search-less or species-agnostic surface can omit them; the redesign Library
+ * (MyPets + Roster) passes them all via `getLibraryFilters()`.
+ * See docs/design/redesign-library-workspace-v1.md.
  */
 
-import type { Pet } from '$lib/types/index.js';
+import { normalizeSpecies } from '$lib/services/configService.js';
+import type { Gender, Pet } from '$lib/types/index.js';
 
 export interface PetListFilters {
   /** Search text, matched case-insensitively against name and species. Empty means "no search". */
@@ -15,6 +21,13 @@ export interface PetListFilters {
   tags: string[];
   starredOnly: boolean;
   stabledOnly: boolean;
+  /** Normalized species; '' or omitted means all species. */
+  species?: string;
+  /** Breed name; '' or omitted means all breeds. */
+  breed?: string;
+  /** Exact gender; '' or omitted means all genders. */
+  gender?: Gender | '';
+  petQualityOnly?: boolean;
 }
 
 /** Whether a pet passes the active list filters. */
@@ -31,6 +44,10 @@ export function petMatchesFilters(pet: Pet, filters: PetListFilters): boolean {
   }
   if (filters.starredOnly && !pet.starred) return false;
   if (filters.stabledOnly && !pet.stabled) return false;
+  if (filters.petQualityOnly && !pet.is_pet_quality) return false;
+  if (filters.species && normalizeSpecies(pet.species) !== filters.species) return false;
+  if (filters.breed && pet.breed !== filters.breed) return false;
+  if (filters.gender && pet.gender !== filters.gender) return false;
   return true;
 }
 

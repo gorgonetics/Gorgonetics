@@ -13,12 +13,12 @@ test.describe('Share Pet Dialog', () => {
     await blockFirestore(page);
     await page.goto('/');
     await waitForPets(page);
-    await page.locator('.pet-card').first().click();
+    await page.locator('[data-testid="roster-open"]').first().click();
     await expect(page.locator('.pet-visualization')).toBeVisible();
   });
 
   test('opens dialog showing a preview of the pet metadata', async ({ page }) => {
-    const petName = await page.locator('.pet-card-name').first().textContent();
+    const petName = await page.locator('[data-testid="roster-open"]').first().textContent();
 
     await page.locator('[data-testid="share-pet-btn"]').click();
 
@@ -89,8 +89,10 @@ test.describe('Community Tab', () => {
     await expect(page.locator('[data-testid="community-tab"]')).toBeVisible();
   });
 
-  test('shows the empty-selection panel until a row is clicked', async ({ page }) => {
+  test('renders the catalogue table with no detail overlay until a row is clicked', async ({ page }) => {
     await page.locator('[data-testid="tab-community"]').click();
-    await expect(page.locator('[data-testid="community-empty-selection"]')).toBeVisible();
+    await expect(page.locator('[data-testid="community-table"]')).toBeVisible();
+    // The full-view genome preview only opens on row activation.
+    await expect(page.locator('[data-testid="community-detail-overlay"]')).toHaveCount(0);
   });
 });

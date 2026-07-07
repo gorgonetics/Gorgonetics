@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { getAppearanceAttributes } from '$lib/services/configService.js';
-import { buildAppearanceLookup, createGeneCellBuilder } from '$lib/utils/geneGridCells.js';
+import {
+  buildAppearanceLookup,
+  computeGeneCellSize,
+  createGeneCellBuilder,
+  GENE_CELL_DEFAULT,
+  GENE_CELL_MAX,
+  GENE_CELL_MIN,
+} from '$lib/utils/geneGridCells.js';
 
 const effectsDB = {
   // dominant positive
@@ -90,6 +97,44 @@ describe('createGeneCellBuilder.makeCell', () => {
   it('falls back to appearance-neutral when no appearance matches', () => {
     const cell = makeCell({ id: '01A1', type: 'D' });
     expect(cell.appearanceCls).toBe('gene-cell gene-appearance-neutral gene-dominant');
+  });
+});
+
+describe('computeGeneCellSize', () => {
+  // 48 gene columns across 12 blocks — the horse chr01 shape.
+  const shape = { totalColumns: 48, blockCount: 12 };
+
+  it('falls back to the default before the container is measured', () => {
+    expect(computeGeneCellSize({ containerWidth: 0, ...shape })).toBe(GENE_CELL_DEFAULT);
+  });
+
+  it('falls back to the default when there are no columns', () => {
+    expect(computeGeneCellSize({ containerWidth: 1200, totalColumns: 0, blockCount: 0 })).toBe(GENE_CELL_DEFAULT);
+  });
+
+  it('scales cells up to fill a wide container', () => {
+    // 1334 wide: (1334 - 28 - 96 - 4) / 48 = 25.1 → 25
+    expect(computeGeneCellSize({ containerWidth: 1334, ...shape })).toBe(25);
+  });
+
+  it('shrinks cells to fit a narrow container (stats drawer open)', () => {
+    // 862 wide: (862 - 28 - 96 - 4) / 48 = 15.3 → 15
+    expect(computeGeneCellSize({ containerWidth: 862, ...shape })).toBe(15);
+  });
+
+  it('never produces a size that overflows the width budget', () => {
+    for (const containerWidth of [400, 700, 862, 1000, 1200, 1334, 1920, 3000]) {
+      const size = computeGeneCellSize({ containerWidth, ...shape });
+      const consumed = 28 + shape.blockCount * 8 + shape.totalColumns * size;
+      // Only assert the fit when cells are not pinned to the min (a container
+      // too small for MIN_CELL legitimately overflows and scrolls).
+      if (size > GENE_CELL_MIN) expect(consumed).toBeLessThanOrEqual(containerWidth);
+    }
+  });
+
+  it('clamps to the readable min and max bounds', () => {
+    expect(computeGeneCellSize({ containerWidth: 100, ...shape })).toBe(GENE_CELL_MIN);
+    expect(computeGeneCellSize({ containerWidth: 100000, ...shape })).toBe(GENE_CELL_MAX);
   });
 });
 

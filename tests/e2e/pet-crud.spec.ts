@@ -12,31 +12,29 @@ test.describe('Pet Editor – Save', () => {
   });
 
   test('saves name change and persists it', async ({ page }) => {
-    // Grab original name from the card
-    const originalName = (await page.locator('.pet-card-name').first().textContent()) ?? '';
+    // The roster is name-sorted, so target rows by name rather than position.
+    const firstRow = page.locator('[data-testid="roster"] tbody tr').first();
+    const originalName = (await firstRow.locator('[data-testid="roster-open"]').textContent())?.trim() ?? '';
 
-    await openEditor(page);
-    const nameInput = page.locator('#petName');
+    await firstRow.locator('[data-testid="pet-edit-btn"]').click();
+    await expect(page.locator('[data-testid="pet-editor"]')).toBeVisible();
     const newName = `Renamed-${Date.now()}`;
-    await nameInput.fill(newName);
-
+    await page.locator('#petName').fill(newName);
     await page.locator('.btn-primary').click();
 
-    // Modal should close without error
-    await expect(page.locator('.modal-panel')).not.toBeVisible();
+    await expect(page.locator('[data-testid="pet-editor"]')).not.toBeVisible();
     await expect(page.locator('.save-error')).toHaveCount(0);
 
-    // The pet card should now show the updated name
-    await expect(page.locator('.pet-card-name').first()).toHaveText(newName);
+    // The renamed pet shows in the table (sort may move it).
+    const renamedRow = page.locator('[data-testid="roster"] tbody tr').filter({ hasText: newName });
+    await expect(renamedRow).toHaveCount(1);
 
-    // Re-open editor and verify the name stuck
-    await openEditor(page);
+    // Re-open that pet by name and verify the change stuck, then restore.
+    await renamedRow.locator('[data-testid="pet-edit-btn"]').click();
     await expect(page.locator('#petName')).toHaveValue(newName);
-
-    // Restore original name so other tests aren't affected
-    await nameInput.fill(originalName);
+    await page.locator('#petName').fill(originalName);
     await page.locator('.btn-primary').click();
-    await expect(page.locator('.modal-panel')).not.toBeVisible();
+    await expect(page.locator('[data-testid="pet-editor"]')).not.toBeVisible();
   });
 
   test('saves gender change and persists it', async ({ page }) => {
@@ -50,7 +48,7 @@ test.describe('Pet Editor – Save', () => {
     await page.locator('.btn-primary').click();
 
     // Modal closes without error
-    await expect(page.locator('.modal-panel')).not.toBeVisible();
+    await expect(page.locator('[data-testid="pet-editor"]')).not.toBeVisible();
     await expect(page.locator('.save-error')).toHaveCount(0);
 
     // Re-open and verify
@@ -60,7 +58,7 @@ test.describe('Pet Editor – Save', () => {
     // Restore
     await genderSelect.selectOption(originalGender);
     await page.locator('.btn-primary').click();
-    await expect(page.locator('.modal-panel')).not.toBeVisible();
+    await expect(page.locator('[data-testid="pet-editor"]')).not.toBeVisible();
   });
 
   test('saves breed change and persists it', async ({ page }) => {
@@ -78,7 +76,7 @@ test.describe('Pet Editor – Save', () => {
     await breedSelect.selectOption(newBreed);
 
     await page.locator('.btn-primary').click();
-    await expect(page.locator('.modal-panel')).not.toBeVisible();
+    await expect(page.locator('[data-testid="pet-editor"]')).not.toBeVisible();
     await expect(page.locator('.save-error')).toHaveCount(0);
 
     // Re-open and verify
@@ -88,7 +86,7 @@ test.describe('Pet Editor – Save', () => {
     // Restore
     await breedSelect.selectOption(originalBreed);
     await page.locator('.btn-primary').click();
-    await expect(page.locator('.modal-panel')).not.toBeVisible();
+    await expect(page.locator('[data-testid="pet-editor"]')).not.toBeVisible();
   });
 
   test('saves attribute changes and persists them', async ({ page }) => {
@@ -103,7 +101,7 @@ test.describe('Pet Editor – Save', () => {
     await page.locator('.btn-primary').click();
 
     // Modal closes without error — this is the exact scenario that was broken
-    await expect(page.locator('.modal-panel')).not.toBeVisible();
+    await expect(page.locator('[data-testid="pet-editor"]')).not.toBeVisible();
     await expect(page.locator('.save-error')).toHaveCount(0);
 
     // Re-open and verify the attribute value persisted
@@ -113,7 +111,7 @@ test.describe('Pet Editor – Save', () => {
     // Restore
     await attrInput.fill(originalValue);
     await page.locator('.btn-primary').click();
-    await expect(page.locator('.modal-panel')).not.toBeVisible();
+    await expect(page.locator('[data-testid="pet-editor"]')).not.toBeVisible();
   });
 
   test('saves multiple attribute changes at once', async ({ page }) => {
@@ -136,7 +134,7 @@ test.describe('Pet Editor – Save', () => {
     }
 
     await page.locator('.btn-primary').click();
-    await expect(page.locator('.modal-panel')).not.toBeVisible();
+    await expect(page.locator('[data-testid="pet-editor"]')).not.toBeVisible();
     await expect(page.locator('.save-error')).toHaveCount(0);
 
     // Re-open and verify all values
@@ -150,7 +148,7 @@ test.describe('Pet Editor – Save', () => {
       await attrInputs.nth(i).fill(originals[i]);
     }
     await page.locator('.btn-primary').click();
-    await expect(page.locator('.modal-panel')).not.toBeVisible();
+    await expect(page.locator('[data-testid="pet-editor"]')).not.toBeVisible();
   });
 
   test('saves combined name and attribute changes', async ({ page }) => {
@@ -168,7 +166,7 @@ test.describe('Pet Editor – Save', () => {
     await attrInput.fill(newAttr);
     await page.locator('.btn-primary').click();
 
-    await expect(page.locator('.modal-panel')).not.toBeVisible();
+    await expect(page.locator('[data-testid="pet-editor"]')).not.toBeVisible();
     await expect(page.locator('.save-error')).toHaveCount(0);
 
     // Verify both persisted
@@ -180,14 +178,14 @@ test.describe('Pet Editor – Save', () => {
     await nameInput.fill(originalName);
     await attrInput.fill(originalAttr);
     await page.locator('.btn-primary').click();
-    await expect(page.locator('.modal-panel')).not.toBeVisible();
+    await expect(page.locator('[data-testid="pet-editor"]')).not.toBeVisible();
   });
 
   test('saving with no changes closes modal without error', async ({ page }) => {
     await openEditor(page);
     await page.locator('.btn-primary').click();
 
-    await expect(page.locator('.modal-panel')).not.toBeVisible();
+    await expect(page.locator('[data-testid="pet-editor"]')).not.toBeVisible();
     await expect(page.locator('.save-error')).toHaveCount(0);
   });
 });
@@ -203,14 +201,14 @@ test.describe('Pet Editor – Cancel', () => {
   });
 
   test('cancel discards name change', async ({ page }) => {
-    const originalName = (await page.locator('.pet-card-name').first().textContent()) ?? '';
+    const originalName = (await page.locator('[data-testid="roster-open"]').first().textContent()) ?? '';
 
     await openEditor(page);
     await page.locator('#petName').fill('ShouldNotPersist');
     await page.locator('.btn-secondary').click();
 
-    await expect(page.locator('.modal-panel')).not.toBeVisible();
-    await expect(page.locator('.pet-card-name').first()).toHaveText(originalName);
+    await expect(page.locator('[data-testid="pet-editor"]')).not.toBeVisible();
+    await expect(page.locator('[data-testid="roster-open"]').first()).toHaveText(originalName);
   });
 
   test('cancel discards attribute change', async ({ page }) => {
@@ -222,34 +220,34 @@ test.describe('Pet Editor – Cancel', () => {
     await attrInput.fill('0');
     await page.locator('.btn-secondary').click();
 
-    await expect(page.locator('.modal-panel')).not.toBeVisible();
+    await expect(page.locator('[data-testid="pet-editor"]')).not.toBeVisible();
 
     // Re-open and verify original value is intact
     await openEditor(page);
     await expect(page.locator('.attr-field input[type="number"]').first()).toHaveValue(originalValue);
-    await page.locator('.modal-close').click();
+    await page.locator('[data-testid="pet-editor-back"]').click();
   });
 
-  test('escape key closes modal without saving', async ({ page }) => {
-    const originalName = (await page.locator('.pet-card-name').first().textContent()) ?? '';
+  test('escape key closes editor without saving', async ({ page }) => {
+    const originalName = (await page.locator('[data-testid="roster-open"]').first().textContent()) ?? '';
 
     await openEditor(page);
     await page.locator('#petName').fill('EscapeShouldDiscard');
     await page.keyboard.press('Escape');
 
-    await expect(page.locator('.modal-panel')).not.toBeVisible();
-    await expect(page.locator('.pet-card-name').first()).toHaveText(originalName);
+    await expect(page.locator('[data-testid="pet-editor"]')).not.toBeVisible();
+    await expect(page.locator('[data-testid="roster-open"]').first()).toHaveText(originalName);
   });
 
-  test('backdrop click closes modal without saving', async ({ page }) => {
-    const originalName = (await page.locator('.pet-card-name').first().textContent()) ?? '';
+  test('back button closes editor without saving', async ({ page }) => {
+    const originalName = (await page.locator('[data-testid="roster-open"]').first().textContent()) ?? '';
 
     await openEditor(page);
-    await page.locator('#petName').fill('BackdropShouldDiscard');
-    await page.locator('.modal-backdrop').click({ position: { x: 5, y: 5 } });
+    await page.locator('#petName').fill('BackShouldDiscard');
+    await page.locator('[data-testid="pet-editor-back"]').click();
 
-    await expect(page.locator('.modal-panel')).not.toBeVisible();
-    await expect(page.locator('.pet-card-name').first()).toHaveText(originalName);
+    await expect(page.locator('[data-testid="pet-editor"]')).not.toBeVisible();
+    await expect(page.locator('[data-testid="roster-open"]').first()).toHaveText(originalName);
   });
 });
 
@@ -264,15 +262,20 @@ test.describe('Pet Editor – Initial Values', () => {
   });
 
   test('editor shows correct pet name', async ({ page }) => {
-    const cardName = (await page.locator('.pet-card-name').first().textContent()) ?? '';
+    const cardName = (await page.locator('[data-testid="roster-open"]').first().textContent()) ?? '';
     await openEditor(page);
     await expect(page.locator('#petName')).toHaveValue(cardName);
   });
 
-  test('species and breeder fields are disabled', async ({ page }) => {
+  test('species and breeder shown as read-only metadata', async ({ page }) => {
     await openEditor(page);
-    await expect(page.locator('#petSpecies')).toBeDisabled();
-    await expect(page.locator('#petBreeder')).toBeDisabled();
+    // Provenance is not editable: shown as a static meta line, not inputs.
+    const meta = page.locator('.meta-line');
+    await expect(meta).toBeVisible();
+    await expect(meta).toContainText('Species');
+    await expect(meta).toContainText('Breeder');
+    await expect(page.locator('#petSpecies')).toHaveCount(0);
+    await expect(page.locator('#petBreeder')).toHaveCount(0);
   });
 
   test('attribute inputs have numeric values between 0-100', async ({ page }) => {
@@ -290,7 +293,8 @@ test.describe('Pet Editor – Initial Values', () => {
 
   test('shows species-appropriate attributes', async ({ page }) => {
     await openEditor(page);
-    const species = await page.locator('#petSpecies').inputValue();
+    const meta = (await page.locator('.meta-line').textContent()) ?? '';
+    const species = meta.includes('BeeWasp') ? 'BeeWasp' : meta.includes('Horse') ? 'Horse' : '';
     const labels = await page.locator('.attr-field label').allTextContents();
     const labelText = labels.join(' ').toLowerCase();
 
@@ -320,15 +324,14 @@ test.describe('Pet Delete – Count Integrity', () => {
   });
 
   test('deleting a pet updates the pet count', async ({ page }) => {
-    const petCards = page.locator('.pet-card');
-    const countBefore = await petCards.count();
+    const rows = page.locator('[data-testid="roster"] tbody tr');
+    const countBefore = await rows.count();
 
-    await page.locator('.pet-card-wrapper').first().hover();
-    await page.locator('.delete-btn').first().click();
+    await rows.first().locator('[data-testid="pet-delete-btn"]').click();
     await page.locator('.btn-danger').filter({ hasText: 'Delete' }).click();
     await expect(page.locator('.confirm-dialog')).toHaveCount(0);
 
     // Use Playwright's auto-retrying assertion to avoid races with async UI updates
-    await expect(petCards).toHaveCount(countBefore - 1);
+    await expect(rows).toHaveCount(countBefore - 1);
   });
 });
