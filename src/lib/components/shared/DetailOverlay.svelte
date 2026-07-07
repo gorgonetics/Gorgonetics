@@ -165,7 +165,7 @@ function handleDocumentKeydown(e: KeyboardEvent) {
   .back-btn {
     padding: 5px 12px;
     border: 1px solid var(--border-primary);
-    border-radius: 6px;
+    border-radius: var(--radius-md);
     background: var(--bg-primary);
     color: var(--text-secondary);
     font-size: 12px;

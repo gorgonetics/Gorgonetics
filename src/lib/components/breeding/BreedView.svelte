@@ -234,7 +234,7 @@ onDestroy(() => {
   .species-btn:hover { color: var(--text-secondary); }
   .species-btn.active {
     background: var(--bg-primary); color: var(--text-primary);
-    box-shadow: var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.06));
+    box-shadow: var(--shadow-sm);
   }
   .bv-breed { margin: 0 20px 10px; flex-shrink: 0; }
   .bv-body { flex: 1; min-height: 0; overflow: auto; padding: 0 20px 16px; display: flex; flex-direction: column; gap: 8px; }

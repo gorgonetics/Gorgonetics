@@ -369,8 +369,8 @@ function geneTypeClass(type: GeneType | null) {
     }
 
     .effect-label.effect-b {
-        background: rgba(168, 85, 247, 0.1);
-        color: #a855f7;
+        background: var(--pet-b-soft);
+        color: var(--pet-b);
     }
 
     .empty-text {

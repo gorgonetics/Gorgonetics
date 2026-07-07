@@ -78,7 +78,7 @@ const allActive = $derived(selected.length === 0 && hidden.length === 0);
     gap: 5px;
     padding: 3px 8px;
     border: 1px solid var(--border-primary);
-    border-radius: 4px;
+    border-radius: var(--radius-sm);
     background: var(--bg-primary);
     color: var(--text-tertiary);
     font-size: 11px;
@@ -88,7 +88,7 @@ const allActive = $derived(selected.length === 0 && hidden.length === 0);
     white-space: nowrap;
   }
   .gfp-btn:hover { border-color: var(--border-secondary); color: var(--text-secondary); }
-  .gfp-btn.active { background: var(--accent); border-color: var(--accent); color: white; }
+  .gfp-btn.active { background: var(--accent); border-color: var(--accent); color: var(--text-inverse); }
   .gfp-btn.hidden-pill {
     background: var(--error-bg);
     border-color: var(--error-border);

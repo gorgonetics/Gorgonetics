@@ -42,7 +42,7 @@ const speciesLabel = $derived(father ? normalizeSpecies(father.species) : '');
 <style>
   .parent-name { font-weight: 700; }
   .parent-name.father { color: var(--accent); }
-  .parent-name.mother { color: #a855f7; }
+  .parent-name.mother { color: var(--pet-b); }
   .cross { color: var(--text-muted); font-weight: 500; }
 
   .species-badge {

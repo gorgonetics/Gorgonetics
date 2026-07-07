@@ -374,8 +374,8 @@ onDestroy(() => {
     }
 
     .auto-btn.active {
-        background: #22c55e;
-        border-color: #22c55e;
+        background: var(--auto-active);
+        border-color: var(--auto-active);
         color: var(--bg-primary);
     }
 
@@ -445,7 +445,7 @@ onDestroy(() => {
     .view-btn.active {
         background: var(--bg-primary);
         color: var(--text-primary);
-        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+        box-shadow: var(--shadow-sm);
     }
 
     .content-area {

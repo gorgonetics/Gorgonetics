@@ -174,7 +174,7 @@ const {
     min-width: 140px;
     padding: 6px 10px;
     border: 1px solid var(--border-primary);
-    border-radius: 7px;
+    border-radius: var(--radius-md);
     background: var(--bg-secondary);
     color: var(--text-primary);
     font-size: 12px;
@@ -182,7 +182,7 @@ const {
   .fb-search::placeholder { color: var(--text-muted); }
   .fb-search:focus { outline: none; border-color: var(--accent); background: var(--bg-primary); }
 
-  .fb-seg { display: inline-flex; background: var(--bg-tertiary); border-radius: 7px; padding: 2px; }
+  .fb-seg { display: inline-flex; background: var(--bg-tertiary); border-radius: var(--radius-lg); padding: 2px; }
   .fb-seg-btn {
     border: none;
     background: transparent;
@@ -190,12 +190,12 @@ const {
     font-size: 11px;
     font-weight: 600;
     padding: 4px 10px;
-    border-radius: 5px;
+    border-radius: var(--radius-md);
     cursor: pointer;
     text-transform: capitalize;
   }
   .fb-seg-btn:hover { color: var(--text-secondary); }
-  .fb-seg-btn.active { background: var(--bg-primary); color: var(--text-primary); box-shadow: var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.06)); }
+  .fb-seg-btn.active { background: var(--bg-primary); color: var(--text-primary); box-shadow: var(--shadow-sm); }
 
   .fb-flags { display: flex; flex-wrap: wrap; gap: 4px; }
   .fb-pill {
@@ -205,9 +205,9 @@ const {
     font-size: 11px;
     font-weight: 600;
     padding: 4px 9px;
-    border-radius: 999px;
+    border-radius: var(--radius-pill);
     cursor: pointer;
   }
   .fb-pill:hover { border-color: var(--accent); color: var(--accent); }
-  .fb-pill.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .fb-pill.active { background: var(--accent); border-color: var(--accent); color: var(--text-inverse); }
 </style>
