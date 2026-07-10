@@ -192,6 +192,31 @@ describe('BreedView — bench + planning', () => {
     expect(lastCall?.pets.map((p) => p.id).sort((a, b) => a - b)).toEqual([1, 2]);
   });
 
+  it('shows a benched (not "no stabled pets") empty state when every animal is benched', async () => {
+    breedingView.benchedIds = new Set([1, 2, 3]);
+    const { container, rerender } = render(BreedView);
+    await rerender({});
+    const empty = container.querySelector('[data-testid="empty-state"]');
+    expect(empty).not.toBeNull();
+    expect(empty?.textContent).toContain('benched');
+    expect(empty?.textContent).not.toContain('No stabled');
+    expect(container.querySelector('[data-testid="breeding-pair-table"]')).toBeNull();
+  });
+
+  it('"Return all" only un-benches the current species, not animals of others', async () => {
+    // 3 is a horse in this pool; 999 is a benched animal of another species.
+    breedingView.benchedIds = new Set([3, 999]);
+    const { container, rerender } = render(BreedView);
+    await rerender({});
+
+    await fireEvent.click(container.querySelector('[data-testid="breeding-pool"] .pool-toggle') as HTMLButtonElement);
+    await fireEvent.click(container.querySelector('[data-testid="pool-return-all"]') as HTMLButtonElement);
+    await rerender({});
+
+    expect(breedingView.benchedIds.has(3)).toBe(false);
+    expect(breedingView.benchedIds.has(999)).toBe(true);
+  });
+
   it('the spots stepper drives breedingView.spots and clamps at zero', async () => {
     const { container, rerender } = render(BreedView);
     await rerender({});

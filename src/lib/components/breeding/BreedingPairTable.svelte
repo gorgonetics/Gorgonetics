@@ -60,7 +60,7 @@ const sortedResults = $derived.by(() => {
 // Planning groups the *displayed* ranking into disjoint batches — WYSIWYG, so
 // the plan follows whatever column is active (the default sort is a quality
 // column, so it's sensible out of the box). null when planning is off.
-const plan = $derived(spots > 0 ? buildBatches(sortedResults, spots) : null);
+const batches = $derived(spots > 0 ? buildBatches(sortedResults, spots) : null);
 
 function setSort(colId: string) {
   if (breedingView.sortCol === colId) {
@@ -185,8 +185,8 @@ function persistScroll() {
             </tr>
         {/snippet}
 
-        {#if plan}
-            {#each plan.batches as batch, i (i)}
+        {#if batches}
+            {#each batches as batch, i (i)}
                 <tbody class="batch" data-testid="pair-batch">
                     <tr class="batch-head">
                         <td colspan={columns.length + 1}>

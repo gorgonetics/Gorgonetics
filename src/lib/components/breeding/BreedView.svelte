@@ -228,7 +228,7 @@ onDestroy(() => {
         {pool}
         benchedIds={breedingView.benchedIds}
         onToggle={toggleBench}
-        onClearBench={clearBench}
+        onClearBench={() => clearBench(pool.map((p) => p.id))}
       />
     </div>
   {/if}
@@ -238,11 +238,17 @@ onDestroy(() => {
       <StatusPane variant="error" title="Couldn't rank these pairs." body="Something went wrong computing scores. Switch species to retry." />
     {:else if loading && pairs.length === 0}
       <StatusPane variant="loading" body="Computing pair scores…" />
-    {:else if candidates.length === 0}
+    {:else if pool.length === 0}
       <EmptyState
         icon="🐾"
         title="No stabled {capitalize(species)} pets"
         body="Breeding ranks pairs from your stabled pets. Stable some {capitalize(species)} pets in My Pets, then come back."
+      />
+    {:else if candidates.length === 0}
+      <EmptyState
+        icon="⏸️"
+        title="Every {capitalize(species)} is benched"
+        body="All your stabled {capitalize(species)} pets are benched. Return some from the Pool above to rank pairs."
       />
     {:else if pairs.length === 0}
       <EmptyState
@@ -252,7 +258,11 @@ onDestroy(() => {
       />
     {:else}
       <div class="bv-meta">
-        {pairs.length} {pairs.length === 1 ? 'pair' : 'pairs'} · ranked by expected offspring quality{breedingView.spots > 0 ? ` · planning ${breedingView.spots} per batch` : ''}
+        {#if breedingView.spots > 0}
+          Planning {breedingView.spots} {breedingView.spots === 1 ? 'pair' : 'pairs'} per batch · no animal reused
+        {:else}
+          {pairs.length} {pairs.length === 1 ? 'pair' : 'pairs'} · ranked by expected offspring quality
+        {/if}
       </div>
       <BreedingPairTable results={pairs} {attrNames} spots={breedingView.spots} onBench={toggleBench} />
     {/if}

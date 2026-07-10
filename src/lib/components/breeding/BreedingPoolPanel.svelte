@@ -23,20 +23,28 @@ const { pool, benchedIds, onToggle, onClearBench }: Props = $props();
 
 let open = $state(false);
 
-// Benched chips sink to the bottom of their column but keep name order within
-// each group, so a chip's position only changes when you bench/return it.
-function ordered(pets: Pet[]): Pet[] {
-  return [...pets].sort((a, b) => {
-    const ba = benchedIds.has(a.id) ? 1 : 0;
-    const bb = benchedIds.has(b.id) ? 1 : 0;
-    return ba - bb || a.name.localeCompare(b.name);
-  });
-}
+// One pass over the pool: split by gender and count benched. Benched chips sink
+// to the bottom of their column but keep name order within each group, so a
+// chip's position only changes when you bench/return it.
+const grouped = $derived.by(() => {
+  const males: Pet[] = [];
+  const females: Pet[] = [];
+  let benched = 0;
+  for (const p of pool) {
+    if (benchedIds.has(p.id)) benched++;
+    (p.gender === Gender.MALE ? males : females).push(p);
+  }
+  const order = (a: Pet, b: Pet) =>
+    (benchedIds.has(a.id) ? 1 : 0) - (benchedIds.has(b.id) ? 1 : 0) || a.name.localeCompare(b.name);
+  males.sort(order);
+  females.sort(order);
+  return { males, females, benchedCount: benched, availableCount: pool.length - benched };
+});
 
-const males = $derived(ordered(pool.filter((p) => p.gender === Gender.MALE)));
-const females = $derived(ordered(pool.filter((p) => p.gender === Gender.FEMALE)));
-const benchedCount = $derived(pool.reduce((n, p) => n + (benchedIds.has(p.id) ? 1 : 0), 0));
-const availableCount = $derived(pool.length - benchedCount);
+const males = $derived(grouped.males);
+const females = $derived(grouped.females);
+const benchedCount = $derived(grouped.benchedCount);
+const availableCount = $derived(grouped.availableCount);
 </script>
 
 <section class="pool" data-testid="breeding-pool">

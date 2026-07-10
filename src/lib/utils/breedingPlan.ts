@@ -18,21 +18,15 @@
 
 import type { BreedingPairResult } from '$lib/types/index.js';
 
-export interface BreedingPlan {
-  /** Disjoint pair batches, best first. `batches[0]` is the "breed now" set. */
-  batches: BreedingPairResult[][];
-  /** Ids of every animal committed to a pair — the complement is "couldn't pair". */
-  matchedIds: Set<number>;
-}
-
 /**
- * Build a breeding plan from `ranked` (already in the player's chosen order)
- * and the number of simultaneous `spots`. `spots <= 0` returns an empty plan —
- * callers treat that as "planning off" and render the flat ranking instead.
+ * Build a breeding plan from `ranked` (already in the player's chosen order) and
+ * the number of simultaneous `spots`. Returns the disjoint pair batches, best
+ * first: `batches[0]` is the "breed now" set. `spots <= 0` returns [] — callers
+ * treat that as "planning off" and render the flat ranking instead.
  */
-export function buildBatches(ranked: readonly BreedingPairResult[], spots: number): BreedingPlan {
+export function buildBatches(ranked: readonly BreedingPairResult[], spots: number): BreedingPairResult[][] {
   const size = Math.floor(spots);
-  if (size <= 0) return { batches: [], matchedIds: new Set() };
+  if (size <= 0) return [];
 
   const usedMales = new Set<number>();
   const usedFemales = new Set<number>();
@@ -49,10 +43,5 @@ export function buildBatches(ranked: readonly BreedingPairResult[], spots: numbe
   for (let i = 0; i < matching.length; i += size) {
     batches.push(matching.slice(i, i + size));
   }
-
-  const matchedIds = new Set<number>();
-  for (const id of usedMales) matchedIds.add(id);
-  for (const id of usedFemales) matchedIds.add(id);
-
-  return { batches, matchedIds };
+  return batches;
 }

@@ -79,8 +79,22 @@ export function toggleBench(id: number): void {
   breedingView.benchedIds = next;
 }
 
-/** Un-bench every animal (return the whole pool to the ranking). */
-export function clearBench(): void {
+/**
+ * Un-bench animals. With `ids`, only those return to the pool — callers pass the
+ * current species' pool so a "Return all" in one species' panel can't silently
+ * un-bench animals of another (benchedIds spans every species). Without `ids`,
+ * clears the whole set.
+ */
+export function clearBench(ids?: Iterable<number>): void {
   if (breedingView.benchedIds.size === 0) return;
-  breedingView.benchedIds = new Set();
+  if (ids === undefined) {
+    breedingView.benchedIds = new Set();
+    return;
+  }
+  const next = new Set(breedingView.benchedIds);
+  let changed = false;
+  for (const id of ids) {
+    if (next.delete(id)) changed = true;
+  }
+  if (changed) breedingView.benchedIds = next;
 }
