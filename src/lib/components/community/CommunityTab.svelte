@@ -23,6 +23,9 @@ const selected = $derived(selectedSharedPet());
 
 <div class="community-tab" data-testid="community-tab">
   <div class="ct-main" class:hidden={selected}>
+    <!-- Heading landmark for screen readers; the visible title was dropped as a
+         redundant repeat of the nav tab (its description is the tab's tooltip). -->
+    <h2 class="sr-only">Community catalogue</h2>
     <div class="ct-table">
       <CommunityPetTable />
     </div>

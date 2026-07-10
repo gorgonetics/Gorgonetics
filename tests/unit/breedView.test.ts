@@ -63,6 +63,15 @@ afterEach(() => {
 const activeSpecies = (c: HTMLElement) =>
   c.querySelector('[data-testid="breed-species"] .species-btn.active')?.getAttribute('data-species');
 
+describe('BreedView — accessibility', () => {
+  it('keeps a heading landmark even though the visible title is dropped', async () => {
+    const { container, rerender } = render(BreedView);
+    await rerender({});
+    const heading = container.querySelector('h2.sr-only');
+    expect(heading?.textContent).toBe('Breeding helper');
+  });
+});
+
 describe('BreedView — default species', () => {
   it('defaults to the most-populated stabled species, not the alphabetical first', async () => {
     // Beewasps outnumber horses overall, but most are unstabled — only the

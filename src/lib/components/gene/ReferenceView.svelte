@@ -70,6 +70,9 @@ $effect(() => {
 </script>
 
 <div class="reference" data-testid="reference-view">
+  <!-- Heading landmark for screen readers; the visible title was dropped as a
+       redundant repeat of the nav tab (its description is the tab's tooltip). -->
+  <h2 class="sr-only">Reference</h2>
   <div class="ref-toolbar">
     <label class="ref-field">
       <span>Animal type</span>

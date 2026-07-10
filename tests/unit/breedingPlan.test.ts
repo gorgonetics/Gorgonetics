@@ -70,10 +70,21 @@ describe('suggestPlans', () => {
     expect(plans.length).toBeLessThanOrEqual(3);
   });
 
-  it('best-effort fills when slots exceed the maximum matching', () => {
-    // Only one male → at most one pair per plan.
+  it('collapses to a single option when only one pair can breed at once', () => {
+    // Only one male → every plan is a single pair; return just the best rather
+    // than a list of single-pair "plans" that never fill the slots.
     const ranked = [pair(1, 2, 5), pair(1, 3, 4)];
     const plans = suggestPlans({ ranked, slots: 3 });
-    for (const plan of plans) expect(plan.pairs.length).toBe(1);
+    expect(plans.length).toBe(1);
+    expect(plans[0].pairs.map(key)).toEqual(['1x2']);
+  });
+
+  it('returns only full-size plans (never a mix of full and partial)', () => {
+    // Lead (1,4) blocks its own completion (only females 2 and 4 exist), so it
+    // yields a 1-pair plan; the others reach 2. Only the 2-pair plans survive.
+    const ranked = [pair(1, 2, 10), pair(3, 4, 9), pair(1, 4, 8)];
+    const plans = suggestPlans({ ranked, slots: 2 });
+    expect(plans.length).toBeGreaterThan(0);
+    for (const plan of plans) expect(plan.pairs.length).toBe(2);
   });
 });

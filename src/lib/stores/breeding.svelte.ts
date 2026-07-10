@@ -52,9 +52,9 @@ export const breedingView = $state({
   benchedIds: new Set<number>() as Set<number>,
   /**
    * Available simultaneous breeding spots. 0 = planning off (the flat
-   * ranking). N > 0 groups the ranking into batches of N pairs with no
-   * animal reused within the plan (see `buildBatches`). Global, not
-   * per-species — it describes your stable, not the current breed.
+   * ranking). N > 0 shows suggested N-pair plans, each reusing no animal
+   * within a plan (see `suggestPlans`). Global, not per-species — it
+   * describes your stable, not the current breed.
    */
   spots: 0,
   /**

@@ -118,6 +118,11 @@ $effect(() => {
   // refresh (or an offspring-breed change) must not yank the projection shut.
   if (prevSpecies !== undefined && prevSpecies !== sp) {
     breedingView.selectedPair = null;
+    // Drop the previous species' pairs so the loading pane shows instead of
+    // ranking/plans built from the old species during the async re-rank. Only
+    // on a species change — same-species refreshes keep `pairs` to avoid
+    // flicker.
+    pairs = [];
   }
   const unchanged = prevKey === key;
   prevKey = key;
@@ -171,6 +176,10 @@ onDestroy(() => {
 </script>
 
 <div class="breed-view" data-testid="breed-view">
+  <!-- Heading landmark for screen readers / heading-order checks. The visible
+       title is dropped (it just repeats the nav tab), but the page still needs a
+       heading — see commit d090655. -->
+  <h2 class="sr-only">Breeding helper</h2>
   <PageHeader>
     {#snippet actions()}
       <div class="seg bv-species" role="group" aria-label="Species" data-testid="breed-species">
@@ -260,12 +269,15 @@ onDestroy(() => {
     {:else}
       <div class="bv-meta">
         {#if breedingView.spots > 0}
-          {breedingView.spots} {breedingView.spots === 1 ? 'pair' : 'pairs'} at once · suggested plans, best first · sort any column
+          {@const planSize = plans?.[0]?.pairs.length ?? 0}
+          {planSize} {planSize === 1 ? 'pair' : 'pairs'} at once{planSize < breedingView.spots ? ' · most your pool allows' : ''} · suggested plans, best first · sort any column
         {:else}
           {pairs.length} {pairs.length === 1 ? 'pair' : 'pairs'} · ranked by expected offspring quality
         {/if}
       </div>
-      <BreedingPairTable results={pairs} {attrNames} {plans} onBench={toggleBench} />
+      <!-- Row-level bench is a ranking-mode convenience; hidden while planning
+           so a stray click can't silently collapse several shown options. -->
+      <BreedingPairTable results={pairs} {attrNames} {plans} onBench={breedingView.spots > 0 ? undefined : toggleBench} />
     {/if}
   </div>
 </div>

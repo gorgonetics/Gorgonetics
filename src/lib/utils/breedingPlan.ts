@@ -8,14 +8,20 @@
  * To surface genuinely different options rather than near-identical permutations,
  * each candidate plan is seeded by forcing a distinct strong pairing as its lead
  * and greedily completing the rest from the ranking. Dedup collapses seeds that
- * complete to the same set; the survivors are ranked by total score, best first.
- * Option 1 is therefore the globally greedy best plan (its lead is the top pair).
+ * complete to the same set; the survivors are ranked by total score, best first,
+ * so Option 1 is the highest-scoring candidate (a greedy result, not a proven
+ * global optimum, and not necessarily led by the single top pair).
+ *
+ * Every returned plan holds the same number of pairs — the largest achievable
+ * (`min(slots, max matching)`) — so options are never a mix of full and partial
+ * plans. When even the best plan can hold only one pair (e.g. a single male),
+ * planning is degenerate and a single option is returned.
  */
 
 import type { BreedingPairResult } from '$lib/types/index.js';
 
 export interface SuggestedPlan {
-  /** The plan's pairs, strongest first. Length is `min(slots, max matching)`. */
+  /** The plan's pairs, in greedy pick order. Length is `min(slots, max matching)`. */
   pairs: BreedingPairResult[];
   /** Sum of `score` across the plan's pairs — what plans are ranked by. */
   total: number;
@@ -51,6 +57,9 @@ export function suggestPlans(opts: SuggestPlansOptions): SuggestedPlan[] {
   // top pairs are the lead seeds.
   const ranked = [...opts.ranked].sort((a, b) => score(b) - score(a));
 
+  // Greedy completion from a forced lead. Pairs stay in pick order — the only
+  // consumer re-sorts by the active table column, so an internal sort would be
+  // wasted work discarded before render.
   const complete = (lead: BreedingPairResult): BreedingPairResult[] => {
     const usedM = new Set<number>([lead.male.id]);
     const usedF = new Set<number>([lead.female.id]);
@@ -62,7 +71,7 @@ export function suggestPlans(opts: SuggestPlansOptions): SuggestedPlan[] {
       usedM.add(p.male.id);
       usedF.add(p.female.id);
     }
-    return pairs.sort((a, b) => score(b) - score(a));
+    return pairs;
   };
 
   const seen = new Set<string>();
@@ -76,6 +85,16 @@ export function suggestPlans(opts: SuggestPlansOptions): SuggestedPlan[] {
     plans.push({ pairs, total: pairs.reduce((s, p) => s + score(p), 0) });
   }
 
-  plans.sort((a, b) => b.total - a.total);
-  return plans.slice(0, maxPlans);
+  // Keep only plans that fill the most slots any plan reached, so options are
+  // never a mix of full and partial plans (a lead that blocks its own
+  // completion mustn't masquerade as an equal alternative).
+  const bestSize = plans.reduce((n, p) => Math.max(n, p.pairs.length), 0);
+  const full = plans.filter((p) => p.pairs.length === bestSize);
+  full.sort((a, b) => b.total - a.total);
+
+  // Degenerate: if the best plan holds a single pair (e.g. one male in the
+  // pool), there is nothing to "plan" — return just the top option rather than
+  // a list of single-pair "plans" that never fill the requested slots.
+  if (bestSize <= 1) return full.slice(0, 1);
+  return full.slice(0, maxPlans);
 }
