@@ -8,7 +8,6 @@
 import { onMount } from 'svelte';
 import GeneEditingView from '$lib/components/GeneEditingView.svelte';
 import EmptyState from '$lib/components/shared/EmptyState.svelte';
-import PageHeader from '$lib/components/shared/PageHeader.svelte';
 import * as geneService from '$lib/services/geneService.js';
 import { appState, geneEditingView } from '$lib/stores/pets.js';
 
@@ -71,10 +70,6 @@ $effect(() => {
 </script>
 
 <div class="reference" data-testid="reference-view">
-  <PageHeader
-    subtitle="Edit the gene templates for a species and chromosome."
-  />
-
   <div class="ref-toolbar">
     <label class="ref-field">
       <span>Animal type</span>
