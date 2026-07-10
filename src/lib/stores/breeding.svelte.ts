@@ -42,6 +42,22 @@ export const breedingView = $state({
   /** Pair open in the trio detail view; null when the view is closed. */
   selectedPair: null as SelectedBreedingPair | null,
   /**
+   * Animals benched from the candidate pool — typically because they are
+   * already breeding elsewhere. Benched pets are dropped before ranking, so
+   * every pair involving them disappears. Session-scoped by design: real
+   * breeding spans days, but the tool re-derives the pool from your stable
+   * each launch rather than persisting a flag that would drift out of sync
+   * with the game. Keyed by pet id so it survives species switches.
+   */
+  benchedIds: new Set<number>() as Set<number>,
+  /**
+   * Available simultaneous breeding spots. 0 = planning off (the flat
+   * ranking). N > 0 groups the ranking into batches of N pairs with no
+   * animal reused within the plan (see `buildBatches`). Global, not
+   * per-species — it describes your stable, not the current breed.
+   */
+  spots: 0,
+  /**
    * Pair-table scroll offsets, saved by BreedingPairTable so the ranking
    * position survives destination switches (the component unmounts).
    * Reset on a species change — an offset from one species' table is
@@ -50,3 +66,21 @@ export const breedingView = $state({
   scrollTop: 0,
   scrollLeft: 0,
 });
+
+/**
+ * Toggle an animal's benched state. Reassigns the Set so `$state` tracks the
+ * change (mutating in place wouldn't re-run derived candidate filters), matching
+ * `toggleMyPetsSelection`.
+ */
+export function toggleBench(id: number): void {
+  const next = new Set(breedingView.benchedIds);
+  if (next.has(id)) next.delete(id);
+  else next.add(id);
+  breedingView.benchedIds = next;
+}
+
+/** Un-bench every animal (return the whole pool to the ranking). */
+export function clearBench(): void {
+  if (breedingView.benchedIds.size === 0) return;
+  breedingView.benchedIds = new Set();
+}

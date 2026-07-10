@@ -147,6 +147,44 @@ test.describe('Redesign — Breed destination', () => {
     await expect(trio.locator('.trio-grid-container.hide-locked')).toBeVisible();
   });
 
+  test('benching an animal drops its pairs, and Return all restores them', async ({ page }) => {
+    await openBreed(page);
+    await page.locator('[data-testid="breed-species"] [data-species="horse"]').click();
+    await expect(page.locator('[data-testid="breeding-pair-table"]')).toBeVisible();
+
+    // Expand the pool (collapsed by default) and bench the one stabled male —
+    // the demo has a single M × F horse pair, so this empties the ranking.
+    const pool = page.getByTestId('breeding-pool');
+    await pool.locator('.pool-toggle').click();
+    const chips = pool.getByTestId('pool-chip');
+    await expect(chips).toHaveCount(2);
+    await chips.first().click();
+
+    await expect(page.getByTestId('breeding-pair-table')).toHaveCount(0);
+    await expect(page.getByTestId('empty-state')).toBeVisible();
+
+    // Return all brings the pool — and the ranking — back.
+    await pool.getByTestId('pool-return-all').click();
+    await expect(page.getByTestId('breeding-pair-table')).toBeVisible();
+  });
+
+  test('setting breeding spots groups the ranking into batches', async ({ page }) => {
+    await openBreed(page);
+    await page.locator('[data-testid="breed-species"] [data-species="horse"]').click();
+    await expect(page.locator('[data-testid="breeding-pair-table"]')).toBeVisible();
+    // Flat ranking has no batch headers.
+    await expect(page.getByTestId('pair-batch')).toHaveCount(0);
+
+    const controls = page.getByTestId('breed-plan-controls');
+    await expect(controls.getByTestId('spots-value')).toHaveText('Off');
+    await controls.getByRole('button', { name: 'More breeding spots' }).click();
+    await expect(controls.getByTestId('spots-value')).toHaveText('1');
+
+    // Planning mode groups the disjoint matching into a "breed now" batch.
+    await expect(page.getByTestId('pair-batch').first()).toBeVisible();
+    await expect(page.getByTestId('pair-batch').first()).toContainText('breed now');
+  });
+
   test('the offspring-breed control is horse-only', async ({ page }) => {
     await openBreed(page);
     await page.locator('[data-testid="breed-species"] [data-species="horse"]').click();

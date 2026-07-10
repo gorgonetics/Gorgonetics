@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, render } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { rankBreedingPairs } from '$lib/services/breedingService.js';
 import { breedingView } from '$lib/stores/breeding.svelte.js';
 import { loading, pets } from '$lib/stores/pets.js';
 import type { Pet } from '$lib/types/index.js';
@@ -42,6 +43,8 @@ function resetView() {
   breedingView.selectedPair = null;
   breedingView.scrollTop = 0;
   breedingView.scrollLeft = 0;
+  breedingView.benchedIds = new Set();
+  breedingView.spots = 0;
 }
 
 beforeEach(() => {
@@ -161,5 +164,51 @@ describe('BreedView — trio invalidation when a parent leaves the candidate set
     pets.set([stallion, pet({ id: 2, name: 'Roach', stabled: false })]);
     await rerender({});
     expect(breedingView.selectedPair).toBeNull();
+  });
+});
+
+describe('BreedView — bench + planning', () => {
+  const stallion2 = pet({ id: 3, name: 'Comet', gender: 'Male' });
+
+  beforeEach(() => {
+    breedingView.species = 'horse';
+    pets.set([stallion, stallion2, mare]);
+  });
+
+  it('excludes a benched animal from the pets fed to the ranking', async () => {
+    const ranker = vi.mocked(rankBreedingPairs);
+    const { container, rerender } = render(BreedView);
+    await rerender({});
+
+    // Expand the pool and bench the second stallion.
+    await fireEvent.click(container.querySelector('[data-testid="breeding-pool"] .pool-toggle') as HTMLButtonElement);
+    await fireEvent.click(container.querySelector('[data-testid="breeding-pool"] [data-pet-id="3"]') as HTMLButtonElement);
+    await rerender({});
+
+    expect(breedingView.benchedIds.has(3)).toBe(true);
+    const lastCall = ranker.mock.calls.at(-1)?.[0];
+    expect(lastCall?.pets.map((p) => p.id).sort((a, b) => a - b)).toEqual([1, 2]);
+  });
+
+  it('the spots stepper drives breedingView.spots and clamps at zero', async () => {
+    const { container, rerender } = render(BreedView);
+    await rerender({});
+    const value = () => container.querySelector('[data-testid="spots-value"]')?.textContent;
+    const inc = container.querySelector('[aria-label="More breeding spots"]') as HTMLButtonElement;
+    const dec = container.querySelector('[aria-label="Fewer breeding spots"]') as HTMLButtonElement;
+
+    expect(value()).toBe('Off');
+    expect(dec.disabled).toBe(true);
+
+    await fireEvent.click(inc);
+    await fireEvent.click(inc);
+    expect(breedingView.spots).toBe(2);
+    expect(value()).toBe('2');
+
+    await fireEvent.click(dec);
+    await fireEvent.click(dec);
+    expect(breedingView.spots).toBe(0);
+    expect(value()).toBe('Off');
+    expect((container.querySelector('[aria-label="Fewer breeding spots"]') as HTMLButtonElement).disabled).toBe(true);
   });
 });

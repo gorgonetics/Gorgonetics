@@ -9,6 +9,7 @@
  */
 import { onDestroy } from 'svelte';
 import BreedingPairTable from '$lib/components/breeding/BreedingPairTable.svelte';
+import BreedingPoolPanel from '$lib/components/breeding/BreedingPoolPanel.svelte';
 import TrioView from '$lib/components/breeding/TrioView.svelte';
 import BreedSelector from '$lib/components/shared/BreedSelector.svelte';
 import EmptyState from '$lib/components/shared/EmptyState.svelte';
@@ -16,7 +17,7 @@ import PageHeader from '$lib/components/shared/PageHeader.svelte';
 import StatusPane from '$lib/components/shared/StatusPane.svelte';
 import { rankBreedingPairs } from '$lib/services/breedingService.js';
 import { getAllAttributeNames, getSupportedSpecies, normalizeSpecies } from '$lib/services/configService.js';
-import { breedingView } from '$lib/stores/breeding.svelte.js';
+import { breedingView, clearBench, toggleBench } from '$lib/stores/breeding.svelte.js';
 // `loading` aliased: this component has its own ranking `loading` flag.
 import { pets, loading as petsLoading } from '$lib/stores/pets.js';
 import { type BreedingPairResult, HORSE_BREEDS } from '$lib/types/index.js';
@@ -58,6 +59,12 @@ const defaultSpecies = $derived.by(() => {
 // switches (this component unmounts); '' falls through to the default.
 const species = $derived(breedingView.species || defaultSpecies);
 
+// Breeding spots. 0 = planning off (flat ranking). Clamped to a sane range;
+// the exact ceiling is arbitrary — you never plan dozens of simultaneous pairs.
+function setSpots(n: number) {
+  breedingView.spots = Math.max(0, Math.min(99, Math.floor(n)));
+}
+
 function selectSpecies(key: string) {
   const changed = key !== species;
   // Pin the choice even when it matches the current default, so a later
@@ -76,8 +83,11 @@ const breedsForSpecies = $derived(species === 'horse' ? HORSE_BREEDS : null);
 
 const attrNames = $derived(species ? getAllAttributeNames(species).map(capitalize) : []);
 
-// Breed across the stable: every stabled pet of the chosen species.
-const candidates = $derived($pets.filter((p) => p.stabled && normalizeSpecies(p.species) === species));
+// Breed across the stable: every stabled pet of the chosen species. `pool` is
+// the full set (shown in the bench panel so benched animals can be returned);
+// `candidates` drops the benched ones and feeds the ranking.
+const pool = $derived($pets.filter((p) => p.stabled && normalizeSpecies(p.species) === species));
+const candidates = $derived(pool.filter((p) => !breedingView.benchedIds.has(p.id)));
 // Identity of the candidate set (which stabled pets of this species exist).
 // Lets us skip a re-rank when a `$pets` re-emit returns the same set with a new
 // array reference (a background loadPets, an unrelated marker toggle, …).
@@ -188,6 +198,41 @@ onDestroy(() => {
     </div>
   {/if}
 
+  {#if pool.length > 0}
+    <div class="bv-plan" data-testid="breed-plan-controls">
+      <span class="plan-label">Breeding spots</span>
+      <div class="stepper" role="group" aria-label="Breeding spots">
+        <button
+          type="button"
+          class="step-btn"
+          aria-label="Fewer breeding spots"
+          disabled={breedingView.spots <= 0}
+          onclick={() => setSpots(breedingView.spots - 1)}
+        >−</button>
+        <span class="spots-val" data-testid="spots-value">{breedingView.spots > 0 ? breedingView.spots : 'Off'}</span>
+        <button
+          type="button"
+          class="step-btn"
+          aria-label="More breeding spots"
+          onclick={() => setSpots(breedingView.spots + 1)}
+        >+</button>
+      </div>
+      <span class="plan-hint">
+        {breedingView.spots > 0
+          ? `grouped into batches of ${breedingView.spots} (no animal reused)`
+          : 'ranking every pair'}
+      </span>
+    </div>
+    <div class="bv-pool">
+      <BreedingPoolPanel
+        {pool}
+        benchedIds={breedingView.benchedIds}
+        onToggle={toggleBench}
+        onClearBench={clearBench}
+      />
+    </div>
+  {/if}
+
   <div class="bv-body">
     {#if errored}
       <StatusPane variant="error" title="Couldn't rank these pairs." body="Something went wrong computing scores. Switch species to retry." />
@@ -206,8 +251,10 @@ onDestroy(() => {
         body="Breeding pairs a male with a female. You need at least one stabled male and one stabled female of this species."
       />
     {:else}
-      <div class="bv-meta">{pairs.length} {pairs.length === 1 ? 'pair' : 'pairs'} · ranked by expected offspring quality</div>
-      <BreedingPairTable results={pairs} {attrNames} />
+      <div class="bv-meta">
+        {pairs.length} {pairs.length === 1 ? 'pair' : 'pairs'} · ranked by expected offspring quality{breedingView.spots > 0 ? ` · planning ${breedingView.spots} per batch` : ''}
+      </div>
+      <BreedingPairTable results={pairs} {attrNames} spots={breedingView.spots} onBench={toggleBench} />
     {/if}
   </div>
 </div>
@@ -226,6 +273,15 @@ onDestroy(() => {
   .bv-species { align-self: flex-start; flex-shrink: 0; margin: 0 20px 10px; }
   .species-btn { padding: 5px 14px; }
   .bv-breed { margin: 0 20px 10px; flex-shrink: 0; }
+  .bv-plan { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0 20px 10px; flex-shrink: 0; }
+  .plan-label { font-size: 13px; font-weight: 600; color: var(--text-secondary); }
+  .stepper { display: inline-flex; align-items: center; border: 1px solid var(--border-primary); border-radius: 6px; overflow: hidden; }
+  .step-btn { width: 28px; height: 26px; background: var(--bg-secondary); border: none; color: var(--text-primary); font-size: 15px; line-height: 1; cursor: pointer; }
+  .step-btn:hover:not(:disabled) { background: var(--bg-tertiary); }
+  .step-btn:disabled { color: var(--text-tertiary); cursor: default; }
+  .spots-val { min-width: 34px; text-align: center; font-size: 13px; font-variant-numeric: tabular-nums; padding: 0 4px; }
+  .plan-hint { font-size: 12px; color: var(--text-tertiary); }
+  .bv-pool { margin: 0 20px 10px; flex-shrink: 0; }
   .bv-body { flex: 1; min-height: 0; overflow: auto; padding: 0 20px 16px; display: flex; flex-direction: column; gap: 8px; }
   .bv-meta { font-size: 12px; color: var(--text-tertiary); }
 </style>
