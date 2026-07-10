@@ -3,18 +3,18 @@ import { breedingView } from '$lib/stores/breeding.svelte.js';
 import { requestOpenPet } from '$lib/stores/mypets.svelte.js';
 import { appState } from '$lib/stores/pets.js';
 import type { BreedingPairResult, Pet } from '$lib/types/index.js';
-import { buildBatches } from '$lib/utils/breedingPlan.js';
+import type { SuggestedPlan } from '$lib/utils/breedingPlan.js';
 import { type SortableColumn, sortByColumn } from '$lib/utils/sortColumn.js';
 
 interface Props {
   results: BreedingPairResult[];
   attrNames: string[];
   /**
-   * Available breeding spots. 0 (default) renders the flat ranking; N > 0
-   * groups the ranking into disjoint batches of N pairs (see `buildBatches`),
-   * showing only the planned matching.
+   * Suggested plans. When set, the table renders each plan as a colour-coded,
+   * vertically-stacked group of rows (best first) instead of the flat ranking —
+   * all columns stay visible and sortable within each group.
    */
-  spots?: number;
+  plans?: SuggestedPlan[];
   /** Bench an animal straight from a row (drops every pair using it). */
   onBench?: (petId: number) => void;
 }
@@ -24,7 +24,11 @@ interface Props {
 // localeCompare, and a mismatch is a compile error rather than a silent cast.
 type Column = { id: string; label: string } & SortableColumn<BreedingPairResult>;
 
-const { results, attrNames, spots = 0, onBench }: Props = $props();
+const { results, attrNames, plans, onBench }: Props = $props();
+
+// Distinct hues per option — saturated mid-tones that read in light and dark.
+const OPTION_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#ef4444'];
+const optionColor = (i: number) => OPTION_COLORS[i % OPTION_COLORS.length];
 
 /**
  * Column definitions. The per-attribute columns are appended after the
@@ -49,18 +53,15 @@ const columns = $derived<Column[]>([
   ),
 ]);
 
-const sortedResults = $derived.by(() => {
-  // Fallback to the headline column by name (not by index) so re-ordering
-  // the column list later won't silently change the default sort.
-  const col =
-    columns.find((c) => c.id === breedingView.sortCol) ?? columns.find((c) => c.id === 'evPositiveTotal') ?? columns[0];
-  return sortByColumn(results, col, breedingView.sortDir);
-});
+// The active column: matched by name (not index) so re-ordering the column
+// list later won't silently change the default sort.
+const activeCol = $derived(
+  columns.find((c) => c.id === breedingView.sortCol) ?? columns.find((c) => c.id === 'evPositiveTotal') ?? columns[0],
+);
 
-// Planning groups the *displayed* ranking into disjoint batches — WYSIWYG, so
-// the plan follows whatever column is active (the default sort is a quality
-// column, so it's sensible out of the box). null when planning is off.
-const batches = $derived(spots > 0 ? buildBatches(sortedResults, spots) : null);
+const sortPairs = (pairs: BreedingPairResult[]) => sortByColumn(pairs, activeCol, breedingView.sortDir);
+
+const sortedResults = $derived(sortPairs(results));
 
 function setSort(colId: string) {
   if (breedingView.sortCol === colId) {
@@ -185,16 +186,17 @@ function persistScroll() {
             </tr>
         {/snippet}
 
-        {#if batches}
-            {#each batches as batch, i (i)}
-                <tbody class="batch" data-testid="pair-batch">
-                    <tr class="batch-head">
+        {#if plans}
+            {#each plans as plan, i (i)}
+                <tbody class="option" data-testid="plan-option" style="--option-color: {optionColor(i)}">
+                    <tr class="option-head">
                         <td colspan={columns.length + 1}>
-                            Batch {i + 1}{i === 0 ? ' · breed now' : ''}
-                            <span class="batch-count">{batch.length} {batch.length === 1 ? 'pair' : 'pairs'}</span>
+                            <span class="option-dot"></span>
+                            Option {i + 1}{i === 0 ? ' · best' : ''}
+                            <span class="option-total">pool gain {fmt(plan.total)}</span>
                         </td>
                     </tr>
-                    {#each batch as pair (`${pair.male.id}-${pair.female.id}`)}
+                    {#each sortPairs(plan.pairs) as pair (`${pair.male.id}-${pair.female.id}`)}
                         {@render row(pair)}
                     {/each}
                 </tbody>
@@ -325,22 +327,38 @@ function persistScroll() {
         color: var(--accent);
     }
 
-    /* Batch grouping (plan mode). A sticky sub-header under the column head. */
-    .batch-head td {
-        position: sticky;
-        top: 33px;
-        z-index: 1;
-        background: var(--bg-tertiary);
+    /* Suggested-plan groups: each option is a colour-coded block of rows so the
+       stacked alternatives stay visually distinct while keeping every column. */
+    .option-head td {
+        background: var(--bg-secondary);
+        border-top: 2px solid var(--option-color);
+        border-bottom: 1px solid var(--border-primary);
         color: var(--text-secondary);
         font-size: 12px;
         font-weight: 600;
         padding: 5px 10px;
     }
 
-    .batch-count {
-        margin-left: 6px;
+    .option-dot {
+        display: inline-block;
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: var(--option-color);
+        margin-right: 6px;
+        vertical-align: middle;
+    }
+
+    .option-total {
+        margin-left: 8px;
         font-weight: 400;
         color: var(--text-tertiary);
+        font-variant-numeric: tabular-nums;
+    }
+
+    /* Colour spine down the left of every row in the option. */
+    .option .action-cell {
+        border-left: 3px solid var(--option-color);
     }
 
     /* The pair table is wide (attribute columns); pin the offspring action to

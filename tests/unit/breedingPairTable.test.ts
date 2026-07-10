@@ -105,42 +105,10 @@ describe('BreedingPairTable — scroll persistence', () => {
   });
 });
 
-describe('BreedingPairTable — planning batches', () => {
+describe('BreedingPairTable — row bench', () => {
   const m = (id: number, name: string) => pet({ id, name, gender: 'Male' });
   const f = (id: number, name: string) => pet({ id, name });
-  // Distinct evPositiveTotal so the default sort order is deterministic.
-  const scored = (male: Pet, female: Pet, total: number): BreedingPairResult => ({
-    ...result(male, female),
-    evPositiveTotal: total,
-  });
-
-  // Best-first by evPositiveTotal (the default sort). Lower rows reuse M1 / F2.
-  const MULTI = [
-    scored(m(1, 'A'), f(2, 'X'), 9),
-    scored(m(1, 'A'), f(4, 'Y'), 8),
-    scored(m(3, 'B'), f(2, 'X'), 7),
-    scored(m(3, 'B'), f(4, 'Y'), 6),
-    scored(m(5, 'C'), f(6, 'Z'), 5),
-  ];
-
-  it('renders a flat table (no batches) when spots is 0', async () => {
-    const { container, rerender } = render(BreedingPairTable, { results: MULTI, attrNames: [], spots: 0 });
-    await rerender({});
-    expect(container.querySelectorAll('[data-testid="pair-batch"]').length).toBe(0);
-    expect(container.querySelectorAll('[data-testid="inspect-pair"]').length).toBe(MULTI.length);
-  });
-
-  it('groups the disjoint matching into batches of `spots`, hiding reuse pairs', async () => {
-    const { container, rerender } = render(BreedingPairTable, { results: MULTI, attrNames: [], spots: 2 });
-    await rerender({});
-    const batches = container.querySelectorAll('[data-testid="pair-batch"]');
-    // Matching is M1×F2, M3×F4, M5×F6 → 3 pairs → batches of 2 = [2, 1].
-    expect(batches.length).toBe(2);
-    expect(batches[0].querySelectorAll('[data-testid="inspect-pair"]').length).toBe(2);
-    expect(batches[1].querySelectorAll('[data-testid="inspect-pair"]').length).toBe(1);
-    // The two reuse pairs (M1×F4, M3×F2) are not rendered in plan mode.
-    expect(container.querySelectorAll('[data-testid="inspect-pair"]').length).toBe(3);
-  });
+  const MULTI = [result(m(1, 'A'), f(2, 'X')), result(m(3, 'B'), f(4, 'Y'))];
 
   it('invokes onBench with the animal id from a row bench button', async () => {
     const benched: number[] = [];
@@ -159,5 +127,39 @@ describe('BreedingPairTable — planning batches', () => {
     const { container, rerender } = render(BreedingPairTable, { results: MULTI, attrNames: [] });
     await rerender({});
     expect(container.querySelectorAll('[data-testid="bench-animal"]').length).toBe(0);
+  });
+});
+
+describe('BreedingPairTable — suggested plan groups', () => {
+  const m = (id: number, name: string) => pet({ id, name, gender: 'Male' });
+  const f = (id: number, name: string) => pet({ id, name });
+  const plans = [
+    { pairs: [result(m(1, 'A'), f(2, 'X')), result(m(3, 'B'), f(4, 'Y'))], total: 20 },
+    { pairs: [result(m(1, 'A'), f(4, 'Y')), result(m(3, 'B'), f(2, 'X'))], total: 18 },
+  ];
+
+  it('renders one colour-coded group per plan, best first', async () => {
+    const { container, rerender } = render(BreedingPairTable, { results: [], attrNames: [], plans });
+    await rerender({});
+    const groups = container.querySelectorAll('[data-testid="plan-option"]');
+    expect(groups.length).toBe(2);
+    expect(groups[0].textContent).toContain('Option 1');
+    expect(groups[0].textContent).toContain('best');
+    expect(groups[0].querySelectorAll('[data-testid="inspect-pair"]').length).toBe(2);
+    // Distinct colour per option.
+    const c0 = (groups[0] as HTMLElement).style.getPropertyValue('--option-color').trim();
+    const c1 = (groups[1] as HTMLElement).style.getPropertyValue('--option-color').trim();
+    expect(c0).not.toBe('');
+    expect(c0).not.toBe(c1);
+  });
+
+  it('renders the flat ranking (no groups) when plans is absent', async () => {
+    const { container, rerender } = render(BreedingPairTable, {
+      results: [result(m(1, 'A'), f(2, 'X'))],
+      attrNames: [],
+    });
+    await rerender({});
+    expect(container.querySelectorAll('[data-testid="plan-option"]').length).toBe(0);
+    expect(container.querySelectorAll('[data-testid="inspect-pair"]').length).toBe(1);
   });
 });

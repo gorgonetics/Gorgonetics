@@ -1,13 +1,11 @@
 <script lang="ts">
 /**
- * The breeding pool — one chip per stabled animal of the chosen species, split
- * ♂ / ♀. Click a chip to bench that animal (it's already breeding elsewhere, or
- * you just don't want it paired): benched animals drop out of the ranking, so
- * every pair involving them disappears. Benched chips sink to the bottom of
- * their column, dimmed and struck through, and click again to return them.
- *
- * Collapsed by default so it doesn't crowd the ranking; the header keeps the
- * available/benched counts visible either way.
+ * The breeding pool — every stabled animal of the chosen species, split ♂ / ♀
+ * and listed in stable alphabetical order so a pet is findable by position.
+ * Click one to bench it (already breeding elsewhere, or just not wanted): benched
+ * animals drop out of the ranking, so every pair using them disappears. Benched
+ * rows dim and check off *in place* — order never shifts under you. Collapsed by
+ * default so it doesn't crowd the ranking; the header keeps the counts visible.
  */
 import { Gender, type Pet } from '$lib/types/index.js';
 
@@ -23,28 +21,14 @@ const { pool, benchedIds, onToggle, onClearBench }: Props = $props();
 
 let open = $state(false);
 
-// One pass over the pool: split by gender and count benched. Benched chips sink
-// to the bottom of their column but keep name order within each group, so a
-// chip's position only changes when you bench/return it.
-const grouped = $derived.by(() => {
-  const males: Pet[] = [];
-  const females: Pet[] = [];
-  let benched = 0;
-  for (const p of pool) {
-    if (benchedIds.has(p.id)) benched++;
-    (p.gender === Gender.MALE ? males : females).push(p);
-  }
-  const order = (a: Pet, b: Pet) =>
-    (benchedIds.has(a.id) ? 1 : 0) - (benchedIds.has(b.id) ? 1 : 0) || a.name.localeCompare(b.name);
-  males.sort(order);
-  females.sort(order);
-  return { males, females, benchedCount: benched, availableCount: pool.length - benched };
-});
+const byName = (a: Pet, b: Pet) => a.name.localeCompare(b.name);
 
-const males = $derived(grouped.males);
-const females = $derived(grouped.females);
-const benchedCount = $derived(grouped.benchedCount);
-const availableCount = $derived(grouped.availableCount);
+// Split by gender in one pass; sort each column alphabetically (stable order —
+// benching doesn't move a pet). benchedCount drives the header + Return all.
+const males = $derived(pool.filter((p) => p.gender === Gender.MALE).sort(byName));
+const females = $derived(pool.filter((p) => p.gender === Gender.FEMALE).sort(byName));
+const benchedCount = $derived(pool.reduce((n, p) => n + (benchedIds.has(p.id) ? 1 : 0), 0));
+const availableCount = $derived(pool.length - benchedCount);
 </script>
 
 <section class="pool" data-testid="breeding-pool">
@@ -68,15 +52,15 @@ const availableCount = $derived(grouped.availableCount);
 
   {#if open}
     <div class="pool-body">
-      {#each [{ label: '♂', pets: males }, { label: '♀', pets: females }] as col (col.label)}
+      {#each [{ label: '♂ Males', pets: males }, { label: '♀ Females', pets: females }] as col (col.label)}
         <div class="pool-col">
-          <div class="col-head">{col.label} {col.pets.length}</div>
-          <div class="chips">
+          <div class="col-head">{col.label} · {col.pets.length}</div>
+          <div class="grid">
             {#each col.pets as pet (pet.id)}
               {@const benched = benchedIds.has(pet.id)}
               <button
                 type="button"
-                class="chip"
+                class="cell"
                 class:benched
                 aria-pressed={benched}
                 title={benched ? `Return ${pet.name} to the pool` : `Bench ${pet.name} (already breeding)`}
@@ -84,7 +68,8 @@ const availableCount = $derived(grouped.availableCount);
                 data-pet-id={pet.id}
                 onclick={() => onToggle(pet.id)}
               >
-                {pet.name}
+                <span class="box" aria-hidden="true">{benched ? '' : '✓'}</span>
+                <span class="name">{pet.name}</span>
               </button>
             {/each}
           </div>
@@ -114,7 +99,7 @@ const availableCount = $derived(grouped.availableCount);
     align-items: center;
     gap: 8px;
     flex: 1;
-    padding: 8px 10px;
+    padding: 7px 10px;
     background: transparent;
     border: none;
     color: var(--text-primary);
@@ -159,48 +144,73 @@ const availableCount = $derived(grouped.availableCount);
   .pool-body {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 10px;
+    gap: 8px 16px;
     padding: 0 10px 10px;
   }
 
   .col-head {
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
     color: var(--text-tertiary);
-    margin-bottom: 6px;
+    margin-bottom: 4px;
   }
 
-  .chips {
+  /* Aligned columns of names — scannable like a list, not a pill cloud. */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 1px 8px;
+  }
+
+  .cell {
     display: flex;
-    flex-wrap: wrap;
+    align-items: center;
     gap: 6px;
-  }
-
-  .chip {
-    padding: 3px 9px;
-    background: var(--bg-primary);
-    border: 1px solid var(--border-primary);
-    border-radius: 999px;
+    padding: 2px 4px;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
     color: var(--text-primary);
     font-size: 12px;
     cursor: pointer;
-    transition: all 0.12s ease;
+    text-align: left;
+    overflow: hidden;
   }
 
-  .chip:hover {
-    border-color: var(--accent);
-    color: var(--accent);
+  .cell:hover {
+    background: var(--bg-tertiary);
   }
 
-  .chip.benched {
+  .box {
+    flex-shrink: 0;
+    width: 14px;
+    height: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--border-primary);
+    border-radius: 3px;
+    background: var(--accent);
+    color: var(--text-inverse);
+    font-size: 10px;
+    line-height: 1;
+  }
+
+  .name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .cell.benched .box {
     background: transparent;
+    color: transparent;
+  }
+
+  .cell.benched .name {
     color: var(--text-tertiary);
     text-decoration: line-through;
-    opacity: 0.7;
-  }
-
-  .chip.benched:hover {
-    color: var(--text-secondary);
-    border-color: var(--border-primary);
   }
 </style>

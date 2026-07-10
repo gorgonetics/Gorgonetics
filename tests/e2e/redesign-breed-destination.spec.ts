@@ -168,21 +168,27 @@ test.describe('Redesign — Breed destination', () => {
     await expect(page.getByTestId('breeding-pair-table')).toBeVisible();
   });
 
-  test('setting breeding spots groups the ranking into batches', async ({ page }) => {
+  test('setting breeding spots groups the ranking into suggested plans', async ({ page }) => {
     await openBreed(page);
     await page.locator('[data-testid="breed-species"] [data-species="horse"]').click();
     await expect(page.locator('[data-testid="breeding-pair-table"]')).toBeVisible();
-    // Flat ranking has no batch headers.
-    await expect(page.getByTestId('pair-batch')).toHaveCount(0);
+    // Flat ranking has no option groups.
+    await expect(page.getByTestId('plan-option')).toHaveCount(0);
 
     const controls = page.getByTestId('breed-plan-controls');
     await expect(controls.getByTestId('spots-value')).toHaveText('Off');
     await controls.getByRole('button', { name: 'More breeding spots' }).click();
     await expect(controls.getByTestId('spots-value')).toHaveText('1');
 
-    // Planning mode groups the disjoint matching into a "breed now" batch.
-    await expect(page.getByTestId('pair-batch').first()).toBeVisible();
-    await expect(page.getByTestId('pair-batch').first()).toContainText('breed now');
+    // Same table, now split into ranked colour-coded option groups; #1 is best.
+    await expect(page.getByTestId('breeding-pair-table')).toBeVisible();
+    await expect(page.getByTestId('plan-option').first()).toBeVisible();
+    await expect(page.getByTestId('plan-option').first()).toContainText('best');
+
+    // Turning planning off returns the flat ranking.
+    await controls.getByRole('button', { name: 'Fewer breeding spots' }).click();
+    await expect(page.getByTestId('plan-option')).toHaveCount(0);
+    await expect(page.getByTestId('breeding-pair-table')).toBeVisible();
   });
 
   test('the offspring-breed control is horse-only', async ({ page }) => {

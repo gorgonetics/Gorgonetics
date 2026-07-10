@@ -1,47 +1,81 @@
 /**
- * Groups a ranked list of breeding pairs into batches sized to the player's
- * available breeding spots.
+ * Suggests several complete breeding plans for a given number of slots.
  *
- * A batch is a set of pairs that can breed at the same time, so no animal may
- * appear twice *within the whole plan* — each male and each female is committed
- * to at most one pair. The selection is a greedy pass over the ranking the
- * caller already produced: walk top-to-bottom, take each pair whose parents are
- * both still free, skip any that would reuse a committed animal. This honours
- * whatever column the player sorted by (WYSIWYG — the plan is "the best pairs
- * you can see, minus reuses") at the cost of the exact max-total-score a
- * Hungarian matching would give; the transparency is the point.
+ * A plan is a set of `slots` pairs you can breed at the same time, so no animal
+ * appears twice within a plan. Plans are *alternatives*, not consecutive rounds:
+ * different plans may reuse the same animal because you'll only ever pick one.
  *
- * The resulting disjoint matching is then chunked into groups of `spots`:
- * batch 1 is the "breed now" set, batch 2 the next round once those animals
- * free up, and so on.
+ * To surface genuinely different options rather than near-identical permutations,
+ * each candidate plan is seeded by forcing a distinct strong pairing as its lead
+ * and greedily completing the rest from the ranking. Dedup collapses seeds that
+ * complete to the same set; the survivors are ranked by total score, best first.
+ * Option 1 is therefore the globally greedy best plan (its lead is the top pair).
  */
 
 import type { BreedingPairResult } from '$lib/types/index.js';
 
-/**
- * Build a breeding plan from `ranked` (already in the player's chosen order) and
- * the number of simultaneous `spots`. Returns the disjoint pair batches, best
- * first: `batches[0]` is the "breed now" set. `spots <= 0` returns [] — callers
- * treat that as "planning off" and render the flat ranking instead.
- */
-export function buildBatches(ranked: readonly BreedingPairResult[], spots: number): BreedingPairResult[][] {
-  const size = Math.floor(spots);
-  if (size <= 0) return [];
+export interface SuggestedPlan {
+  /** The plan's pairs, strongest first. Length is `min(slots, max matching)`. */
+  pairs: BreedingPairResult[];
+  /** Sum of `score` across the plan's pairs — what plans are ranked by. */
+  total: number;
+}
 
-  const usedMales = new Set<number>();
-  const usedFemales = new Set<number>();
-  const matching: BreedingPairResult[] = [];
+export interface SuggestPlansOptions {
+  /** Pairs to draw from — need NOT be pre-sorted; sorted internally by `score`. */
+  ranked: readonly BreedingPairResult[];
+  /** Slots to fill. `<= 0` returns []. */
+  slots: number;
+  /** Per-pair objective; plans maximise its sum. Defaults to pool gain. */
+  score?: (p: BreedingPairResult) => number;
+  /** Cap on plans returned (default 5). */
+  maxPlans?: number;
+  /** Cap on distinct lead pairings tried (default 30) — bounds cost. */
+  maxLeads?: number;
+}
 
-  for (const pair of ranked) {
-    if (usedMales.has(pair.male.id) || usedFemales.has(pair.female.id)) continue;
-    matching.push(pair);
-    usedMales.add(pair.male.id);
-    usedFemales.add(pair.female.id);
+const planKey = (pairs: readonly BreedingPairResult[]): string =>
+  pairs
+    .map((p) => `${p.male.id}x${p.female.id}`)
+    .sort()
+    .join('|');
+
+export function suggestPlans(opts: SuggestPlansOptions): SuggestedPlan[] {
+  const size = Math.floor(opts.slots);
+  if (size <= 0 || opts.ranked.length === 0) return [];
+  const score = opts.score ?? ((p: BreedingPairResult) => p.evPositiveWeighted);
+  const maxPlans = opts.maxPlans ?? 5;
+  const maxLeads = opts.maxLeads ?? 30;
+
+  // Strongest first: greedy completion picks the best available pair, and the
+  // top pairs are the lead seeds.
+  const ranked = [...opts.ranked].sort((a, b) => score(b) - score(a));
+
+  const complete = (lead: BreedingPairResult): BreedingPairResult[] => {
+    const usedM = new Set<number>([lead.male.id]);
+    const usedF = new Set<number>([lead.female.id]);
+    const pairs = [lead];
+    for (const p of ranked) {
+      if (pairs.length === size) break;
+      if (usedM.has(p.male.id) || usedF.has(p.female.id)) continue;
+      pairs.push(p);
+      usedM.add(p.male.id);
+      usedF.add(p.female.id);
+    }
+    return pairs.sort((a, b) => score(b) - score(a));
+  };
+
+  const seen = new Set<string>();
+  const plans: SuggestedPlan[] = [];
+  const leadCap = Math.min(ranked.length, maxLeads);
+  for (let i = 0; i < leadCap; i++) {
+    const pairs = complete(ranked[i]);
+    const key = planKey(pairs);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    plans.push({ pairs, total: pairs.reduce((s, p) => s + score(p), 0) });
   }
 
-  const batches: BreedingPairResult[][] = [];
-  for (let i = 0; i < matching.length; i += size) {
-    batches.push(matching.slice(i, i + size));
-  }
-  return batches;
+  plans.sort((a, b) => b.total - a.total);
+  return plans.slice(0, maxPlans);
 }

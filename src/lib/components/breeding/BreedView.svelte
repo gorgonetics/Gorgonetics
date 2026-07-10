@@ -21,6 +21,7 @@ import { breedingView, clearBench, toggleBench } from '$lib/stores/breeding.svel
 // `loading` aliased: this component has its own ranking `loading` flag.
 import { pets, loading as petsLoading } from '$lib/stores/pets.js';
 import { type BreedingPairResult, HORSE_BREEDS } from '$lib/types/index.js';
+import { suggestPlans } from '$lib/utils/breedingPlan.js';
 import { getSpeciesEmoji } from '$lib/utils/species.js';
 import { capitalize } from '$lib/utils/string.js';
 
@@ -96,6 +97,10 @@ const candidateKey = $derived(`${species}|${candidates.map((p) => p.id).join(','
 let pairs = $state<BreedingPairResult[]>([]);
 let loading = $state(false);
 let errored = $state(false);
+
+// Suggested plans (spots > 0): several distinct N-pair options, ranked by pool
+// gain. undefined when planning is off — the table then shows the flat ranking.
+const plans = $derived(breedingView.spots > 0 ? suggestPlans({ ranked: pairs, slots: breedingView.spots }) : undefined);
 let seq = 0;
 let prevKey: string | undefined;
 let prevSpecies: string | undefined;
@@ -169,7 +174,7 @@ onDestroy(() => {
   <PageHeader
     icon="💞"
     title="Breeding helper"
-    subtitle="Pick a species to rank the best male × female pairs across your stable, then inspect the offspring projection."
+    subtitle="Rank the best pairs across your stable, or plan several to breed at once."
   />
 
   <div class="seg bv-species" role="group" aria-label="Species" data-testid="breed-species">
@@ -187,42 +192,45 @@ onDestroy(() => {
     {/each}
   </div>
 
-  {#if breedsForSpecies}
-    <div class="bv-breed" data-testid="breed-offspring">
-      <BreedSelector
-        value={breedingView.offspringBreed}
-        breeds={breedsForSpecies}
-        label="Offspring breed"
-        onChange={(v) => { breedingView.offspringBreed = v; }}
-      />
-    </div>
-  {/if}
+  <div class="bv-toolbar">
+    {#if breedsForSpecies}
+      <div data-testid="breed-offspring">
+        <BreedSelector
+          value={breedingView.offspringBreed}
+          breeds={breedsForSpecies}
+          label="Offspring breed"
+          onChange={(v) => { breedingView.offspringBreed = v; }}
+        />
+      </div>
+    {/if}
+
+    {#if pool.length > 0}
+      <div class="tb-spots" data-testid="breed-plan-controls">
+        <span class="plan-label">Breed at once</span>
+        <div class="stepper" role="group" aria-label="Breeding spots">
+          <button
+            type="button"
+            class="step-btn"
+            aria-label="Fewer breeding spots"
+            disabled={breedingView.spots <= 0}
+            onclick={() => setSpots(breedingView.spots - 1)}
+          >−</button>
+          <span class="spots-val" data-testid="spots-value">{breedingView.spots > 0 ? breedingView.spots : 'Off'}</span>
+          <button
+            type="button"
+            class="step-btn"
+            aria-label="More breeding spots"
+            onclick={() => setSpots(breedingView.spots + 1)}
+          >+</button>
+        </div>
+        <span class="plan-hint">
+          {breedingView.spots > 0 ? 'suggested plans' : 'ranking every pair'}
+        </span>
+      </div>
+    {/if}
+  </div>
 
   {#if pool.length > 0}
-    <div class="bv-plan" data-testid="breed-plan-controls">
-      <span class="plan-label">Breeding spots</span>
-      <div class="stepper" role="group" aria-label="Breeding spots">
-        <button
-          type="button"
-          class="step-btn"
-          aria-label="Fewer breeding spots"
-          disabled={breedingView.spots <= 0}
-          onclick={() => setSpots(breedingView.spots - 1)}
-        >−</button>
-        <span class="spots-val" data-testid="spots-value">{breedingView.spots > 0 ? breedingView.spots : 'Off'}</span>
-        <button
-          type="button"
-          class="step-btn"
-          aria-label="More breeding spots"
-          onclick={() => setSpots(breedingView.spots + 1)}
-        >+</button>
-      </div>
-      <span class="plan-hint">
-        {breedingView.spots > 0
-          ? `grouped into batches of ${breedingView.spots} (no animal reused)`
-          : 'ranking every pair'}
-      </span>
-    </div>
     <div class="bv-pool">
       <BreedingPoolPanel
         {pool}
@@ -259,12 +267,12 @@ onDestroy(() => {
     {:else}
       <div class="bv-meta">
         {#if breedingView.spots > 0}
-          Planning {breedingView.spots} {breedingView.spots === 1 ? 'pair' : 'pairs'} per batch · no animal reused
+          {breedingView.spots} {breedingView.spots === 1 ? 'pair' : 'pairs'} at once · suggested plans, best first · sort any column
         {:else}
           {pairs.length} {pairs.length === 1 ? 'pair' : 'pairs'} · ranked by expected offspring quality
         {/if}
       </div>
-      <BreedingPairTable results={pairs} {attrNames} spots={breedingView.spots} onBench={toggleBench} />
+      <BreedingPairTable results={pairs} {attrNames} {plans} onBench={toggleBench} />
     {/if}
   </div>
 </div>
@@ -280,10 +288,11 @@ onDestroy(() => {
 <style>
   .breed-view { display: flex; flex-direction: column; height: 100%; min-height: 0; }
   /* Chrome comes from the shared .seg/.seg-btn (app.css). */
-  .bv-species { align-self: flex-start; flex-shrink: 0; margin: 0 20px 10px; }
+  .bv-species { align-self: flex-start; flex-shrink: 0; margin: 0 20px 8px; }
   .species-btn { padding: 5px 14px; }
-  .bv-breed { margin: 0 20px 10px; flex-shrink: 0; }
-  .bv-plan { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 0 20px 10px; flex-shrink: 0; }
+  /* One dense row: offspring breed + spots stepper share the line. */
+  .bv-toolbar { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin: 0 20px 8px; flex-shrink: 0; }
+  .tb-spots { display: flex; align-items: center; gap: 8px; }
   .plan-label { font-size: 13px; font-weight: 600; color: var(--text-secondary); }
   .stepper { display: inline-flex; align-items: center; border: 1px solid var(--border-primary); border-radius: 6px; overflow: hidden; }
   .step-btn { width: 28px; height: 26px; background: var(--bg-secondary); border: none; color: var(--text-primary); font-size: 15px; line-height: 1; cursor: pointer; }
@@ -291,7 +300,7 @@ onDestroy(() => {
   .step-btn:disabled { color: var(--text-tertiary); cursor: default; }
   .spots-val { min-width: 34px; text-align: center; font-size: 13px; font-variant-numeric: tabular-nums; padding: 0 4px; }
   .plan-hint { font-size: 12px; color: var(--text-tertiary); }
-  .bv-pool { margin: 0 20px 10px; flex-shrink: 0; }
+  .bv-pool { margin: 0 20px 8px; flex-shrink: 0; }
   .bv-body { flex: 1; min-height: 0; overflow: auto; padding: 0 20px 16px; display: flex; flex-direction: column; gap: 8px; }
   .bv-meta { font-size: 12px; color: var(--text-tertiary); }
 </style>
