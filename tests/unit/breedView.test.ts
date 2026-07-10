@@ -182,7 +182,9 @@ describe('BreedView — bench + planning', () => {
 
     // Expand the pool and bench the second stallion.
     await fireEvent.click(container.querySelector('[data-testid="breeding-pool"] .pool-toggle') as HTMLButtonElement);
-    await fireEvent.click(container.querySelector('[data-testid="breeding-pool"] [data-pet-id="3"]') as HTMLButtonElement);
+    await fireEvent.click(
+      container.querySelector('[data-testid="breeding-pool"] [data-pet-id="3"]') as HTMLButtonElement,
+    );
     await rerender({});
 
     expect(breedingView.benchedIds.has(3)).toBe(true);
