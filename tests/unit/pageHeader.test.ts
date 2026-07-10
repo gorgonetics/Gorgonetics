@@ -39,6 +39,12 @@ describe('PageHeader', () => {
     expect(container.querySelector('[data-testid="page-header-actions"]')).toBeNull();
   });
 
+  it('omits the title when not provided, keeping the subtitle', () => {
+    const { container } = render(PageHeader, { subtitle: 'Just a hint.' } as unknown as Props);
+    expect(container.querySelector('.ph-title')).toBeNull();
+    expect(container.querySelector('[data-testid="page-header-subtitle"]')?.textContent).toBe('Just a hint.');
+  });
+
   it('renders the actions snippet content when provided', () => {
     const { container } = render(PageHeaderHarness, { title: 'Stable' } as never);
     const actions = container.querySelector('[data-testid="page-header-actions"]');

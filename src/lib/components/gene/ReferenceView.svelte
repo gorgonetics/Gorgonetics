@@ -8,7 +8,6 @@
 import { onMount } from 'svelte';
 import GeneEditingView from '$lib/components/GeneEditingView.svelte';
 import EmptyState from '$lib/components/shared/EmptyState.svelte';
-import PageHeader from '$lib/components/shared/PageHeader.svelte';
 import * as geneService from '$lib/services/geneService.js';
 import { appState, geneEditingView } from '$lib/stores/pets.js';
 
@@ -71,12 +70,9 @@ $effect(() => {
 </script>
 
 <div class="reference" data-testid="reference-view">
-  <PageHeader
-    icon="📚"
-    title="Reference"
-    subtitle="Edit the gene templates for a species and chromosome."
-  />
-
+  <!-- Heading landmark for screen readers; the visible title was dropped as a
+       redundant repeat of the nav tab (its description is the tab's tooltip). -->
+  <h2 class="sr-only">Reference</h2>
   <div class="ref-toolbar">
     <label class="ref-field">
       <span>Animal type</span>

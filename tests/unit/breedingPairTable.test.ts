@@ -104,3 +104,62 @@ describe('BreedingPairTable — scroll persistence', () => {
     expect(breedingView.scrollTop).toBe(60);
   });
 });
+
+describe('BreedingPairTable — row bench', () => {
+  const m = (id: number, name: string) => pet({ id, name, gender: 'Male' });
+  const f = (id: number, name: string) => pet({ id, name });
+  const MULTI = [result(m(1, 'A'), f(2, 'X')), result(m(3, 'B'), f(4, 'Y'))];
+
+  it('invokes onBench with the animal id from a row bench button', async () => {
+    const benched: number[] = [];
+    const { container, rerender } = render(BreedingPairTable, {
+      results: MULTI,
+      attrNames: [],
+      onBench: (id: number) => benched.push(id),
+    });
+    await rerender({});
+    const btn = container.querySelector('[data-testid="bench-animal"]') as HTMLButtonElement;
+    await fireEvent.click(btn);
+    expect(benched).toEqual([Number(btn.getAttribute('data-pet-id'))]);
+  });
+
+  it('omits row bench buttons when onBench is not provided', async () => {
+    const { container, rerender } = render(BreedingPairTable, { results: MULTI, attrNames: [] });
+    await rerender({});
+    expect(container.querySelectorAll('[data-testid="bench-animal"]').length).toBe(0);
+  });
+});
+
+describe('BreedingPairTable — suggested plan groups', () => {
+  const m = (id: number, name: string) => pet({ id, name, gender: 'Male' });
+  const f = (id: number, name: string) => pet({ id, name });
+  const plans = [
+    { pairs: [result(m(1, 'A'), f(2, 'X')), result(m(3, 'B'), f(4, 'Y'))], total: 20 },
+    { pairs: [result(m(1, 'A'), f(4, 'Y')), result(m(3, 'B'), f(2, 'X'))], total: 18 },
+  ];
+
+  it('renders one colour-coded group per plan, best first', async () => {
+    const { container, rerender } = render(BreedingPairTable, { results: [], attrNames: [], plans });
+    await rerender({});
+    const groups = container.querySelectorAll('[data-testid="plan-option"]');
+    expect(groups.length).toBe(2);
+    expect(groups[0].textContent).toContain('Option 1');
+    expect(groups[0].textContent).toContain('best');
+    expect(groups[0].querySelectorAll('[data-testid="inspect-pair"]').length).toBe(2);
+    // Distinct colour per option.
+    const c0 = (groups[0] as HTMLElement).style.getPropertyValue('--option-color').trim();
+    const c1 = (groups[1] as HTMLElement).style.getPropertyValue('--option-color').trim();
+    expect(c0).not.toBe('');
+    expect(c0).not.toBe(c1);
+  });
+
+  it('renders the flat ranking (no groups) when plans is absent', async () => {
+    const { container, rerender } = render(BreedingPairTable, {
+      results: [result(m(1, 'A'), f(2, 'X'))],
+      attrNames: [],
+    });
+    await rerender({});
+    expect(container.querySelectorAll('[data-testid="plan-option"]').length).toBe(0);
+    expect(container.querySelectorAll('[data-testid="inspect-pair"]').length).toBe(1);
+  });
+});

@@ -64,6 +64,7 @@ function handleMouseUp(e: MouseEvent) {
             data-testid="tab-mypets"
             disabled={$overlayOpen}
             onclick={() => switchTab("mypets")}
+            title="Your pet collection — search, compare, and manage your stable."
         >
             ✨ My Pets
         </button>
@@ -73,6 +74,7 @@ function handleMouseUp(e: MouseEvent) {
             data-testid="tab-breed"
             disabled={$overlayOpen}
             onclick={() => switchTab("breed")}
+            title="Rank the best pairs across your stable, or plan several to breed at once."
         >
             💞 Breed
         </button>
@@ -82,6 +84,7 @@ function handleMouseUp(e: MouseEvent) {
             data-testid="tab-community"
             disabled={$overlayOpen}
             onclick={() => switchTab("community")}
+            title="Browse pets shared by other players. Click a row to preview its genome, then import it to your stable."
         >
             🌐 Community
         </button>
@@ -91,6 +94,7 @@ function handleMouseUp(e: MouseEvent) {
             data-testid="tab-reference"
             disabled={$overlayOpen}
             onclick={() => switchTab("reference")}
+            title="Edit the gene templates for a species and chromosome."
         >
             📚 Reference
         </button>
