@@ -25,8 +25,6 @@ const selected = $derived(selectedSharedPet());
 <div class="community-tab" data-testid="community-tab">
   <div class="ct-main" class:hidden={selected}>
     <PageHeader
-      icon="🌐"
-      title="Community catalogue"
       subtitle="Browse pets shared by other players. Click a row to preview its genome, then import it to your stable."
     />
     <div class="ct-table">

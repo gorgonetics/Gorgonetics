@@ -72,8 +72,6 @@ $effect(() => {
 
 <div class="reference" data-testid="reference-view">
   <PageHeader
-    icon="📚"
-    title="Reference"
     subtitle="Edit the gene templates for a species and chromosome."
   />
 

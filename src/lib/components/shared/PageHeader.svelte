@@ -10,7 +10,12 @@
 import type { Snippet } from 'svelte';
 
 interface Props {
-  title: string;
+  /**
+   * Page title. Optional: destinations whose name already appears in the nav
+   * tab omit it to avoid the redundant repeat, leaving just the subtitle and/or
+   * the actions row as the (slimmer) header band.
+   */
+  title?: string;
   subtitle?: string;
   /** Optional decorative glyph (emoji) before the title. */
   icon?: string;
@@ -22,15 +27,19 @@ const { title, subtitle, icon, actions }: Props = $props();
 </script>
 
 <header class="page-header" data-testid="page-header">
-  <div class="ph-text">
-    <h2 class="ph-title">
-      {#if icon}<span class="ph-icon" aria-hidden="true">{icon}</span>{/if}
-      {title}
-    </h2>
-    {#if subtitle}
-      <p class="ph-subtitle" data-testid="page-header-subtitle">{subtitle}</p>
-    {/if}
-  </div>
+  {#if title || subtitle}
+    <div class="ph-text">
+      {#if title}
+        <h2 class="ph-title">
+          {#if icon}<span class="ph-icon" aria-hidden="true">{icon}</span>{/if}
+          {title}
+        </h2>
+      {/if}
+      {#if subtitle}
+        <p class="ph-subtitle" data-testid="page-header-subtitle">{subtitle}</p>
+      {/if}
+    </div>
+  {/if}
   {#if actions}
     <div class="ph-actions" data-testid="page-header-actions">
       {@render actions()}
@@ -41,10 +50,10 @@ const { title, subtitle, icon, actions }: Props = $props();
 <style>
   .page-header {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: space-between;
     gap: 16px;
-    padding: 14px 22px;
+    padding: 8px 20px;
     border-bottom: 1px solid var(--border-primary);
     background: var(--bg-primary);
     flex-shrink: 0;
@@ -53,13 +62,15 @@ const { title, subtitle, icon, actions }: Props = $props();
   .ph-title {
     display: flex;
     align-items: center;
-    gap: 9px;
+    gap: 8px;
     margin: 0;
-    font-size: 18px;
+    font-size: 15px;
     font-weight: 700;
     color: var(--text-primary);
   }
-  .ph-icon { font-size: 18px; line-height: 1; }
-  .ph-subtitle { margin: 2px 0 0; font-size: 12px; color: var(--text-tertiary); }
-  .ph-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .ph-icon { font-size: 15px; line-height: 1; }
+  .ph-subtitle { margin: 1px 0 0; font-size: 11.5px; color: var(--text-tertiary); }
+  /* Controls can wrap under the title on narrow widths without forcing the band
+     taller than needed on wide ones. */
+  .ph-actions { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 8px; flex-shrink: 0; }
 </style>

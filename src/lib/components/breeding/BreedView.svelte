@@ -171,64 +171,57 @@ onDestroy(() => {
 </script>
 
 <div class="breed-view" data-testid="breed-view">
-  <PageHeader
-    icon="💞"
-    title="Breeding helper"
-    subtitle="Rank the best pairs across your stable, or plan several to breed at once."
-  />
-
-  <div class="seg bv-species" role="group" aria-label="Species" data-testid="breed-species">
-    {#each speciesOptions as opt (opt.key)}
-      <button
-        type="button"
-        class="seg-btn species-btn"
-        class:active={species === opt.key}
-        aria-pressed={species === opt.key}
-        data-species={opt.key}
-        onclick={() => selectSpecies(opt.key)}
-      >
-        {getSpeciesEmoji(opt.raw)} {opt.label}
-      </button>
-    {/each}
-  </div>
-
-  <div class="bv-toolbar">
-    {#if breedsForSpecies}
-      <div data-testid="breed-offspring">
-        <BreedSelector
-          value={breedingView.offspringBreed}
-          breeds={breedsForSpecies}
-          label="Offspring breed"
-          onChange={(v) => { breedingView.offspringBreed = v; }}
-        />
+  <PageHeader>
+    {#snippet actions()}
+      <div class="seg bv-species" role="group" aria-label="Species" data-testid="breed-species">
+        {#each speciesOptions as opt (opt.key)}
+          <button
+            type="button"
+            class="seg-btn species-btn"
+            class:active={species === opt.key}
+            aria-pressed={species === opt.key}
+            data-species={opt.key}
+            onclick={() => selectSpecies(opt.key)}
+          >
+            {getSpeciesEmoji(opt.raw)} {opt.label}
+          </button>
+        {/each}
       </div>
-    {/if}
 
-    {#if pool.length > 0}
-      <div class="tb-spots" data-testid="breed-plan-controls">
-        <span class="plan-label">Breed at once</span>
-        <div class="stepper" role="group" aria-label="Breeding spots">
-          <button
-            type="button"
-            class="step-btn"
-            aria-label="Fewer breeding spots"
-            disabled={breedingView.spots <= 0}
-            onclick={() => setSpots(breedingView.spots - 1)}
-          >−</button>
-          <span class="spots-val" data-testid="spots-value">{breedingView.spots > 0 ? breedingView.spots : 'Off'}</span>
-          <button
-            type="button"
-            class="step-btn"
-            aria-label="More breeding spots"
-            onclick={() => setSpots(breedingView.spots + 1)}
-          >+</button>
+      {#if breedsForSpecies}
+        <div data-testid="breed-offspring">
+          <BreedSelector
+            value={breedingView.offspringBreed}
+            breeds={breedsForSpecies}
+            label="Offspring breed"
+            onChange={(v) => { breedingView.offspringBreed = v; }}
+          />
         </div>
-        <span class="plan-hint">
-          {breedingView.spots > 0 ? 'suggested plans' : 'ranking every pair'}
-        </span>
-      </div>
-    {/if}
-  </div>
+      {/if}
+
+      {#if pool.length > 0}
+        <div class="tb-spots" data-testid="breed-plan-controls">
+          <span class="plan-label">Breed at once</span>
+          <div class="stepper" role="group" aria-label="Breeding spots">
+            <button
+              type="button"
+              class="step-btn"
+              aria-label="Fewer breeding spots"
+              disabled={breedingView.spots <= 0}
+              onclick={() => setSpots(breedingView.spots - 1)}
+            >−</button>
+            <span class="spots-val" data-testid="spots-value">{breedingView.spots > 0 ? breedingView.spots : 'Off'}</span>
+            <button
+              type="button"
+              class="step-btn"
+              aria-label="More breeding spots"
+              onclick={() => setSpots(breedingView.spots + 1)}
+            >+</button>
+          </div>
+        </div>
+      {/if}
+    {/snippet}
+  </PageHeader>
 
   {#if pool.length > 0}
     <div class="bv-pool">
@@ -287,20 +280,18 @@ onDestroy(() => {
 
 <style>
   .breed-view { display: flex; flex-direction: column; height: 100%; min-height: 0; }
-  /* Chrome comes from the shared .seg/.seg-btn (app.css). */
-  .bv-species { align-self: flex-start; flex-shrink: 0; margin: 0 20px 8px; }
-  .species-btn { padding: 5px 14px; }
-  /* One dense row: offspring breed + spots stepper share the line. */
-  .bv-toolbar { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin: 0 20px 8px; flex-shrink: 0; }
-  .tb-spots { display: flex; align-items: center; gap: 8px; }
-  .plan-label { font-size: 13px; font-weight: 600; color: var(--text-secondary); }
+  /* Header controls (in PageHeader's actions slot). Chrome for .seg/.seg-btn
+     comes from app.css. */
+  .bv-species { flex-shrink: 0; }
+  .species-btn { padding: 4px 12px; }
+  .tb-spots { display: flex; align-items: center; gap: 6px; }
+  .plan-label { font-size: 12px; font-weight: 600; color: var(--text-secondary); white-space: nowrap; }
   .stepper { display: inline-flex; align-items: center; border: 1px solid var(--border-primary); border-radius: 6px; overflow: hidden; }
-  .step-btn { width: 28px; height: 26px; background: var(--bg-secondary); border: none; color: var(--text-primary); font-size: 15px; line-height: 1; cursor: pointer; }
+  .step-btn { width: 26px; height: 24px; background: var(--bg-secondary); border: none; color: var(--text-primary); font-size: 15px; line-height: 1; cursor: pointer; }
   .step-btn:hover:not(:disabled) { background: var(--bg-tertiary); }
   .step-btn:disabled { color: var(--text-tertiary); cursor: default; }
-  .spots-val { min-width: 34px; text-align: center; font-size: 13px; font-variant-numeric: tabular-nums; padding: 0 4px; }
-  .plan-hint { font-size: 12px; color: var(--text-tertiary); }
-  .bv-pool { margin: 0 20px 8px; flex-shrink: 0; }
-  .bv-body { flex: 1; min-height: 0; overflow: auto; padding: 0 20px 16px; display: flex; flex-direction: column; gap: 8px; }
+  .spots-val { min-width: 32px; text-align: center; font-size: 13px; font-variant-numeric: tabular-nums; padding: 0 4px; }
+  .bv-pool { margin: 8px 20px 0; flex-shrink: 0; }
+  .bv-body { flex: 1; min-height: 0; overflow: auto; padding: 8px 20px 16px; display: flex; flex-direction: column; gap: 8px; }
   .bv-meta { font-size: 12px; color: var(--text-tertiary); }
 </style>
