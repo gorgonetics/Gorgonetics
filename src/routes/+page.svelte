@@ -6,7 +6,8 @@ import ReferenceView from '$lib/components/gene/ReferenceView.svelte';
 import SettingsView from '$lib/components/layout/SettingsView.svelte';
 import MyPets from '$lib/components/mypets/MyPets.svelte';
 import PetEditor from '$lib/components/pet/PetEditor.svelte';
-import { activeTab, appState, error, loading } from '$lib/stores/pets.js';
+import StatusBanner from '$lib/components/shared/StatusBanner.svelte';
+import { activeTab, appState, error, loading, notice } from '$lib/stores/pets.js';
 import { editingPet, settingsOpen, uiActions } from '$lib/stores/ui.js';
 
 onMount(async () => {
@@ -25,6 +26,10 @@ onMount(async () => {
 				<div class="error-message">⚠️ {$error}</div>
 				<button class="error-close" onclick={() => appState.clearError()} aria-label="Dismiss error">×</button>
 			</div>
+		{/if}
+
+		{#if $notice}
+			<StatusBanner type="success" message={$notice} toast autoDismissMs={8000} onDismiss={() => appState.clearNotice()} />
 		{/if}
 
 		{#if $loading}

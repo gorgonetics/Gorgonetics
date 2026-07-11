@@ -13,6 +13,9 @@ export const pets: Writable<Pet[]> = writable([]);
 export const selectedPet: Writable<Pet | null> = writable(null);
 export const loading = writable(false);
 export const error: Writable<string | null> = writable(null);
+/** Non-error, positive outcome text (e.g. import/auto-share summaries). Rendered
+ *  as a success banner, distinct from the destructive `error` channel. */
+export const notice: Writable<string | null> = writable(null);
 export const geneEditingView: Writable<unknown> = writable(null);
 export const activeTab: Writable<Tab> = writable('mypets');
 
@@ -289,6 +292,10 @@ export const appState = {
 
   clearError() {
     error.set(null);
+  },
+
+  clearNotice() {
+    notice.set(null);
   },
 
   setError(message: string) {

@@ -89,3 +89,22 @@ describe('MyPets — selection is scoped to the visible (filtered) pets', () => 
     expect(selection(container)).toBeNull();
   });
 });
+
+describe('MyPets — prunes tag filters that no longer exist on any pet', () => {
+  it('drops a selected tag once its last carrier is gone, keeping live tags', async () => {
+    pets.set([pet({ id: 1, name: 'Dusty', tags: ['keep'] })]);
+    myPetsView.tags = ['keep', 'ghost'];
+    const { rerender } = render(MyPets);
+    await rerender({});
+    expect(myPetsView.tags).toEqual(['keep']);
+  });
+
+  it('clears an all-stale tag filter so the roster is not stranded empty', async () => {
+    pets.set([pet({ id: 1, name: 'Dusty', tags: [] })]);
+    myPetsView.tags = ['ghost'];
+    const { container, rerender } = render(MyPets);
+    await rerender({});
+    expect(myPetsView.tags).toEqual([]);
+    expect(container.querySelector('[data-testid="mypets-count"]')?.textContent).toContain('Showing 1 of 1');
+  });
+});

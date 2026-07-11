@@ -199,9 +199,13 @@ export async function uploadPet(pet: Pet, db: Firestore = defaultFirestore): Pro
   // correction whose identity differs from the base entry
   // (identityMatchesFirstShare), so a locally-renamed pet re-shares its
   // corrected attributes/tags without tripping permission-denied.
+  // Preserve already-published notes when this share carries none (bulk/auto),
+  // so a correction appended for an attribute/tag change can't blank them.
+  const preservedNotes = (pet.notes ?? '') || (latest.notes ?? '');
   const correctionRef = doc(collection(db, META_COLLECTION));
   await setDoc(correctionRef, {
     ...payload,
+    notes: preservedNotes,
     name: base.name,
     character: base.character,
     species: base.species,
@@ -303,7 +307,12 @@ function pickLatestSnapshot(snaps: DocumentSnapshot<DocumentData>[]): DocumentSn
  * old pet backfills its attributes via one correction.
  */
 function metadataMatches(existing: SharedPet, pet: Pet): boolean {
-  if ((existing.notes ?? '') !== (pet.notes ?? '')) return false;
+  // Empty incoming notes carries no opinion: the bulk / auto-share paths always
+  // send notes='' (only per-pet share opts them in), so an empty value must not
+  // count as a change — otherwise re-sharing a pet in bulk would append a
+  // correction that silently wipes notes the user published via per-pet share.
+  const petNotes = pet.notes ?? '';
+  if (petNotes && petNotes !== (existing.notes ?? '')) return false;
   if (!sameStringSet(existing.tags, sanitizeTags(pet.tags))) return false;
   return sameAttributes(existing.attributes, buildAttributes(pet));
 }
