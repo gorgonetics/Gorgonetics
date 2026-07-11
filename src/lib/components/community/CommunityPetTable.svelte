@@ -29,9 +29,11 @@ import StatusBanner from '$lib/components/shared/StatusBanner.svelte';
 import StatusPane from '$lib/components/shared/StatusPane.svelte';
 import { getAllAttributeNames, getAllAttributes, getSupportedSpecies } from '$lib/services/configService.js';
 import { communityView, loadInitial, loadMore, selectPet } from '$lib/stores/community.svelte.js';
-import { type Gender, HORSE_BREEDS, type SharedPet } from '$lib/types/index.js';
+import { type Gender, type SharedPet } from '$lib/types/index.js';
+import { ATTRIBUTE_KEYS } from '$lib/utils/sharedPet.js';
 import { filterSharedPets, sharedPetOwner } from '$lib/utils/sharedPetFilter.js';
 import { type SortableColumn, sortByColumn } from '$lib/utils/sortColumn.js';
+import { BREEDS_BY_SPECIES } from '$lib/utils/species.js';
 import { capitalize } from '$lib/utils/string.js';
 import { formatShortDate } from '$lib/utils/timestamp.js';
 
@@ -48,17 +50,7 @@ const ATTR_COLUMNS = (() => {
       displayNames[key] ??= info.name ?? capitalize(key);
     }
   }
-  const wireOrder = [
-    'intelligence',
-    'toughness',
-    'friendliness',
-    'ruggedness',
-    'enthusiasm',
-    'virility',
-    'ferocity',
-    'temperament',
-  ] as const;
-  return wireOrder.map((key) => ({ key, label: displayNames[key] ?? capitalize(key) }));
+  return ATTRIBUTE_KEYS.map((key) => ({ key, label: displayNames[key] ?? capitalize(key) }));
 })();
 
 // Which of the eight attributes apply to a given species — cached per
@@ -108,10 +100,6 @@ function attrTotal(pet: SharedPet): number | null {
 // FilterBar. The tab content stays mounted (covered/inert) across tab
 // switches, so these survive navigation within a session.
 const speciesOptions = getSupportedSpecies();
-const BREEDS_BY_SPECIES: Record<string, Record<string, string>> = {
-  beewasp: { Bee: 'Bee', Wasp: 'Wasp' },
-  horse: HORSE_BREEDS,
-};
 
 let search = $state('');
 let speciesFilter = $state('');

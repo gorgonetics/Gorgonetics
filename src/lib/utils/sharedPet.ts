@@ -18,7 +18,12 @@ import { DEFAULT_ATTRIBUTE_VALUE, type Pet, type SharedPet } from '$lib/types/in
 /** Sentinel id for a not-in-DB preview pet. Never persisted or queried. */
 export const PREVIEW_PET_ID = -1;
 
-const ATTRIBUTE_KEYS = [
+/**
+ * The eight published attribute columns, in wire order. Single source of truth
+ * shared by the upload payload (shareService), the read adapter (this module),
+ * and the community table columns (CommunityPetTable) so they can't drift.
+ */
+export const ATTRIBUTE_KEYS = [
   'intelligence',
   'toughness',
   'friendliness',

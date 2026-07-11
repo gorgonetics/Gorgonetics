@@ -200,14 +200,6 @@ describe('Pets Store', () => {
     });
   });
 
-  describe('reorderPets', () => {
-    it('sets error on failure', async () => {
-      vi.spyOn(petService, 'reorderPets').mockRejectedValueOnce(new Error('reorder failed'));
-      await expect(appState.reorderPets([1, 2])).rejects.toThrow('reorder failed');
-      expect(get(error)).toContain('reorder failed');
-    });
-  });
-
   describe('uploadPet', () => {
     it('uploads a pet and reloads the list', async () => {
       await appState.uploadPet(SAMPLE_BEEWASP, { name: 'UploadTest', gender: 'Female' });

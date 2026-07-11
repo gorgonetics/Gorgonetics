@@ -5,7 +5,6 @@ vi.mock('$lib/services/petService.js', () => ({
   updatePet: vi.fn(),
   getAllPets: vi.fn(),
   deletePet: vi.fn(),
-  reorderPets: vi.fn(),
   uploadPet: vi.fn(),
 }));
 

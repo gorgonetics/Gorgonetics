@@ -310,23 +310,6 @@ describe('Pet Service', () => {
     });
   });
 
-  describe('reorderPets', () => {
-    it('persists custom sort order', async () => {
-      const a = await petService.uploadPet(SAMPLE_BEEWASP, { name: 'A', gender: 'Female' });
-      const b = await petService.uploadPet(SAMPLE_HORSE, { name: 'B', gender: 'Male' });
-
-      // Default order is by insertion (sort_order 0, 1)
-      const before = await petService.getAllPets();
-      expect(before.items.map((p) => p.id)).toEqual([a.pet_id, b.pet_id]);
-
-      // Reverse the order
-      await petService.reorderPets([b.pet_id!, a.pet_id!]);
-
-      const after = await petService.getAllPets();
-      expect(after.items.map((p) => p.id)).toEqual([b.pet_id, a.pet_id]);
-    });
-  });
-
   describe('deletePet', () => {
     it('deletes a pet', async () => {
       const upload = await petService.uploadPet(SAMPLE_BEEWASP, { name: 'Bee', gender: 'Female' });

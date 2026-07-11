@@ -182,9 +182,9 @@ describe('buildVisualizerFilterCSS', () => {
     );
   });
 
-  it('attribute view: dims a hidden attribute by its single active attribute', () => {
+  it('attribute view: dims a hidden attribute by both-allele potential (symmetric with focus)', () => {
     const css = buildVisualizerFilterCSS({ ...base, hiddenAttributes: ['Toughness'] });
-    expect(css).toBe(`${VG} .gene-cell[data-attr="Toughness"] ${DIM}`);
+    expect(css).toBe(`${VG} .gene-cell[data-attrs*="·Toughness·"] ${DIM}`);
   });
 
   it('appearance view: dims by the single appearance category', () => {

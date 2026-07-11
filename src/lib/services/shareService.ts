@@ -65,7 +65,7 @@ import {
 } from '$lib/services/petService.js';
 import { Gender, type ListPetsOpts, type Pet, type SharedPet, type SharedPetsPage } from '$lib/types/index.js';
 import { sha256Hex } from '$lib/utils/hash.js';
-import { mergeCorrectionIdentity } from '$lib/utils/sharedPet.js';
+import { ATTRIBUTE_KEYS, mergeCorrectionIdentity } from '$lib/utils/sharedPet.js';
 
 declare const __APP_VERSION__: string;
 const APP_VERSION = __APP_VERSION__;
@@ -77,18 +77,6 @@ const TAG_CAP = 30;
 const TAG_MAX_LEN = 64;
 /** Default local tag applied to pets imported from the community catalogue. */
 const COMMUNITY_TAG = 'community';
-
-/** The eight attribute columns published as a nested `attributes` map. */
-const ATTRIBUTE_KEYS = [
-  'intelligence',
-  'toughness',
-  'friendliness',
-  'ruggedness',
-  'enthusiasm',
-  'virility',
-  'ferocity',
-  'temperament',
-] as const;
 
 /** Clamp a stored attribute to the published 0–100 integer range. */
 function clampAttribute(v: unknown): number {
