@@ -237,8 +237,15 @@ export function offspringOutcomeBuckets(
     return b;
   }
 
+  // Compare per allele, not by a global +/- sign: the dominant and recessive
+  // alleles can affect different attributes, so "does a parent already show
+  // this?" must ask about the SAME allele the offspring expresses. `D`/`x`
+  // express the dominant effect (a parent shows it iff it carries a dominant
+  // allele); `R` expresses the recessive effect (only an `R` parent shows it).
+  const parentExpressesDominant = carriesDominant(fatherType) || carriesDominant(motherType);
+  const parentExpressesRecessive = fatherType === GeneType.RECESSIVE || motherType === GeneType.RECESSIVE;
+  // For a neutral outcome, "lost a positive" only needs *any* parent positive.
   const parentExpressesPositive = expressedSign(fatherType, gene) === '+' || expressedSign(motherType, gene) === '+';
-  const parentExpressesNegative = expressedSign(fatherType, gene) === '-' || expressedSign(motherType, gene) === '-';
   // A homozygous offspring clears heterozygosity only if a parent actually had it.
   const parentMixed = fatherType === GeneType.MIXED || motherType === GeneType.MIXED;
 
@@ -246,13 +253,15 @@ export function offspringOutcomeBuckets(
     if (mass <= 0) return;
     const sign = expressedSign(type, gene);
     const homozygous = type === GeneType.DOMINANT || type === GeneType.RECESSIVE;
+    // Does a parent already express this exact allele's effect?
+    const parentSharesAllele = type === GeneType.RECESSIVE ? parentExpressesRecessive : parentExpressesDominant;
     if (sign === '+') {
-      if (!parentExpressesPositive) b.newPositive += mass;
+      if (!parentSharesAllele) b.newPositive += mass;
       else if (homozygous && parentMixed) b.clarifiedPositive += mass;
       else b.keepPositive += mass;
     } else if (sign === '-') {
-      if (parentExpressesNegative) b.keepNegative += mass;
-      else b.loss += mass;
+      if (!parentSharesAllele) b.loss += mass;
+      else b.keepNegative += mass;
     } else {
       // Neutral expression: a loss only if a parent had a positive to lose.
       if (parentExpressesPositive) b.loss += mass;

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { GeneTrioEntry, OffspringOutcomeBuckets, OffspringTrioResult } from '$lib/types/index.js';
 import { createGeneCellBuilder } from '$lib/utils/geneGridCells.js';
-import { buildTrioGrid, isFixedOutcome, outcomeBoxBackground } from '$lib/utils/trioGrid.js';
+import { buildTrioGrid, outcomeBoxBackground } from '$lib/utils/trioGrid.js';
 
 const effectsDB = {
   // carrier gene: harmful dominant, beneficial recessive
@@ -130,7 +130,6 @@ describe('buildTrioGrid', () => {
     const a1 = grid.rows[0].cells.A1;
     expect(a1.verdict).toBe('gain');
     expect(a1.source).toBe('both');
-    expect(a1.pPositive).toBe(0.25);
     expect(a1.attribute).toBe('Speed');
   });
 
@@ -172,18 +171,5 @@ describe('outcomeBoxBackground', () => {
     expect(outcomeBoxBackground(buckets({ neutral: 1 }), 'attributes')).toBe(
       'linear-gradient(180deg, var(--trio-neutral) 0.00% 100.00%)',
     );
-  });
-});
-
-describe('isFixedOutcome', () => {
-  it('is fixed when there is no gain and no loss', () => {
-    expect(isFixedOutcome(buckets({ keepPositive: 1 }))).toBe(true);
-    expect(isFixedOutcome(buckets({ neutral: 0.5, keepNegative: 0.5 }))).toBe(true);
-  });
-
-  it('is not fixed when any gain or loss is possible', () => {
-    expect(isFixedOutcome(buckets({ newPositive: 0.25, keepPositive: 0.75 }))).toBe(false);
-    expect(isFixedOutcome(buckets({ clarifiedPositive: 0.5, keepPositive: 0.5 }))).toBe(false);
-    expect(isFixedOutcome(buckets({ keepPositive: 0.75, loss: 0.25 }))).toBe(false);
   });
 });

@@ -130,7 +130,7 @@ test.describe('Redesign — Breed destination', () => {
     // Wait for the heavy grid (~2304 cells) to fully render before interacting,
     // so a click doesn't race the summary re-rendering as the grid settles.
     await expect(trio.locator('.role-label').first()).toBeVisible({ timeout: 30000 });
-    await expect(trio.locator('.dist-bar').first()).toBeVisible();
+    await expect(trio.locator('.outcome-box').first()).toBeVisible();
 
     const toggle = trio.getByTestId('trio-hide-locked');
     // The toggle only exists when the pair has locked loci to hide.

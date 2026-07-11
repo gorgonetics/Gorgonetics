@@ -43,8 +43,6 @@ export interface TrioLocusCell {
    * attribute effect, so it dims under an active selection.
    */
   attrs: string;
-  pPositive: number;
-  pNegative: number;
   fatherEffect?: string;
   motherEffect?: string;
 }
@@ -66,11 +64,6 @@ export interface TrioGrid {
 interface CellBuilderLike {
   makeCell(gene: { id: string; type: string }): GeneCell;
   attributesForGene(geneId: string): string[];
-}
-
-/** True when the locus can't change vs the parents (no gain and no loss). */
-export function isFixedOutcome(b: OffspringOutcomeBuckets): boolean {
-  return b.newPositive === 0 && b.clarifiedPositive === 0 && b.loss === 0;
 }
 
 const HATCH =
@@ -144,8 +137,6 @@ export function buildTrioGrid(result: OffspringTrioResult, cellBuilder: CellBuil
         source: g.source,
         lockedIn: g.lockedIn,
         attribute: g.attribute,
-        pPositive: g.pPositive,
-        pNegative: g.pNegative,
         fatherEffect: g.fatherEffect,
         motherEffect: g.motherEffect,
       };

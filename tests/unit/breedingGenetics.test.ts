@@ -282,6 +282,25 @@ describe('offspringOutcomeBuckets', () => {
     expect(b('x', 'x', recPositive)).toMatchObject({ newPositive: 0.25, neutral: 0.75, clarifiedPositive: 0 });
   });
 
+  it('compares per allele, so a recessive positive is new even when parents show the (different) dominant positive', () => {
+    // dominant + and recessive + target different attributes. x × x parents show
+    // only the dominant one; the 25% homozygous-recessive offspring gains the
+    // recessive positive neither parent expresses — a new gain, not a clarify.
+    const bothPositive: GeneSignSummary = { dominantSign: '+', recessiveSign: '+' };
+    expect(b('x', 'x', bothPositive)).toEqual({
+      newPositive: 0.25,
+      clarifiedPositive: 0.25,
+      keepPositive: 0.5,
+      neutral: 0,
+      keepNegative: 0,
+      loss: 0,
+      unknown: 0,
+    });
+    // negative mirror: the recessive negative is a new loss, not a kept negative.
+    const bothNegative: GeneSignSummary = { dominantSign: '-', recessiveSign: '-' };
+    expect(b('x', 'x', bothNegative)).toMatchObject({ keepNegative: 0.75, loss: 0.25 });
+  });
+
   it('does not call a homozygous outcome a clarification when nothing was mixed', () => {
     // D × D, dominant +: already homozygous in both parents → pure keep, fixed.
     expect(b('D', 'D', domPositive)).toEqual({

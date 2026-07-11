@@ -200,6 +200,11 @@ function offspringTitle(cell: TrioLocusCell) {
   }).filter(Boolean);
   parts.push(`Of the offspring: ${outcomes.join(', ')}`);
   parts.push(`♂ ${cell.fatherEffect || '—'} · ♀ ${cell.motherEffect || '—'}`);
+  // Surface silent carriers: a parent can carry the allele driving the gain/loss
+  // without expressing it (its effect line above reads neutral).
+  if (cell.source) {
+    parts.push(`Carried by ${cell.source === 'both' ? 'both parents' : `the ${cell.source}`}`);
+  }
   return parts.join('\n');
 }
 
