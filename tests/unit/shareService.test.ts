@@ -330,6 +330,48 @@ describe('shareService.uploadPet — add-only corrections', () => {
     expect(setDoc).toHaveBeenCalledTimes(1);
   });
 
+  it('does not blank published notes when a bulk re-share (notes="") only differs in notes', async () => {
+    // The catalogue entry has notes the user published via per-pet share; a
+    // later bulk/auto share sends notes='' but is otherwise identical.
+    getDocMock
+      .mockResolvedValueOnce(readSnap(matchingMeta({ notes: 'hand-written' }), { id: RAW_TEXT_HASH }))
+      .mockResolvedValueOnce(readSnap({ genomeData: RAW_TEXT }));
+
+    const result = await uploadPet(makePet({ notes: '' }));
+    expect(result.status).toBe('already-shared');
+    expect(setDoc).not.toHaveBeenCalled();
+  });
+
+  it('preserves published notes in a correction appended for a non-notes change', async () => {
+    // Attributes differ (so a correction is warranted), but the bulk pet carries
+    // notes='' — the correction must carry the existing notes, not blank them.
+    getDocMock
+      .mockResolvedValueOnce(
+        readSnap(matchingMeta({ notes: 'hand-written', attributes: { ...FIXTURE_ATTRS, intelligence: 99 } }), {
+          id: RAW_TEXT_HASH,
+        }),
+      )
+      .mockResolvedValueOnce(readSnap({ genomeData: RAW_TEXT }));
+
+    const result = await uploadPet(makePet({ notes: '' }));
+    expect(result.status).toBe('created');
+    expect(setDoc).toHaveBeenCalledTimes(1);
+    const payload = setDocMock.mock.calls[0][1] as Record<string, unknown>;
+    expect(payload.notes).toBe('hand-written');
+  });
+
+  it('still publishes non-empty notes from a per-pet share as a correction', async () => {
+    getDocMock
+      .mockResolvedValueOnce(readSnap(matchingMeta({ notes: '' }), { id: RAW_TEXT_HASH }))
+      .mockResolvedValueOnce(readSnap({ genomeData: RAW_TEXT }));
+
+    const result = await uploadPet(makePet({ notes: 'freshly typed' }));
+    expect(result.status).toBe('created');
+    expect(setDoc).toHaveBeenCalledTimes(1);
+    const payload = setDocMock.mock.calls[0][1] as Record<string, unknown>;
+    expect(payload.notes).toBe('freshly typed');
+  });
+
   it('pins the correction identity fields to the first-share doc, not the local pet (issue #393)', async () => {
     // The catalogue entry's identity belongs to the first share — rules
     // reject a correction whose identity differs. The local pet was

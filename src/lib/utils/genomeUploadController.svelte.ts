@@ -15,7 +15,7 @@ import { autoShareImportedPets, summarizeAutoShare } from '$lib/services/autoSha
 import { pickGenomeFiles, readFileContent } from '$lib/services/fileService.js';
 import { autoScanGameFolder } from '$lib/services/gameImport.js';
 import { refreshPendingImportCount } from '$lib/stores/gameImport.js';
-import { appState, error } from '$lib/stores/pets.js';
+import { appState, error, notice } from '$lib/stores/pets.js';
 import { errorMessage } from '$lib/utils/error.js';
 import type { UploadSource } from '$lib/utils/genomeUpload.js';
 import { isFileDrag, runGenomeUpload, selectGenomeFiles } from '$lib/utils/genomeUpload.js';
@@ -37,6 +37,7 @@ export function createGenomeUploadController() {
     if (sources.length === 0 || uploading || autoScanning) return;
     uploading = true;
     error.set(null);
+    notice.set(null);
     try {
       const { total, succeeded, failures, createdPetIds } = await runGenomeUpload(sources, {
         upload: (content: string) => appState.uploadPetQuiet(content),
@@ -52,7 +53,7 @@ export function createGenomeUploadController() {
         const base = `${succeeded}/${total} uploaded. ${failures.length} failed:\n${failures.join('\n')}`;
         error.set(shareNote ? `${base}\n${shareNote}` : base);
       } else if (shareNote) {
-        error.set(shareNote);
+        notice.set(shareNote);
       }
     } catch (err) {
       error.set(`Upload failed: ${errorMessage(err)}`);
@@ -119,6 +120,7 @@ export function createGenomeUploadController() {
     try {
       autoScanning = true;
       error.set(null);
+      notice.set(null);
       const result = await autoScanGameFolder({
         onProgress: (current: number, total: number) => {
           autoScanProgress = { current, total };
@@ -149,7 +151,7 @@ export function createGenomeUploadController() {
         const lines = result.failures.map((f: { file: string; reason: string }) => `${f.file}: ${f.reason}`);
         error.set(`${summary}\n${result.failures.length} failed:\n${lines.join('\n')}`);
       } else if (result.imported > 0 || result.backfilled > 0) {
-        error.set(summary);
+        notice.set(summary);
       }
     } catch (err) {
       error.set(`Auto-import failed: ${errorMessage(err)}`);

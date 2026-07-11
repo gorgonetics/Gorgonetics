@@ -78,6 +78,16 @@ $effect(() => {
   prevSpecies = species;
 });
 
+// Drop selected tag filters that no longer exist on any pet — e.g. the last
+// pet carrying a tag was deleted or re-tagged. Its pill disappears from the
+// FilterBar (pills come from $allTags), but the filter would stay active and
+// strand the roster on an empty result with no pill left to clear it.
+$effect(() => {
+  const live = $allTags;
+  const pruned = myPetsView.tags.filter((t) => live.includes(t));
+  if (pruned.length !== myPetsView.tags.length) myPetsView.tags = pruned;
+});
+
 // Honour a cross-destination "open this pet" request (e.g. clicking a parent in
 // the Breed pair table switched here). Wait until the pet is actually in the
 // loaded list before consuming the request, so one that arrives before
