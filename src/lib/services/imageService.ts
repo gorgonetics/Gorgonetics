@@ -221,41 +221,6 @@ export async function deleteAllImagesForPet(petId: number): Promise<void> {
   await db.execute('DELETE FROM pet_images WHERE pet_id = $pet_id', { pet_id: petId });
 }
 
-/**
- * Update image metadata (caption and/or tags).
- */
-export async function updateImageMetadata(
-  imageId: number,
-  updates: { caption?: string; tags?: string[] },
-): Promise<void> {
-  const db = getDb();
-  const setClauses: string[] = [];
-  const params: Record<string, unknown> = { id: imageId };
-
-  if (updates.caption !== undefined) {
-    setClauses.push('caption = $caption');
-    params.caption = updates.caption;
-  }
-  if (updates.tags !== undefined) {
-    setClauses.push('tags = $tags');
-    params.tags = JSON.stringify(updates.tags);
-  }
-
-  if (setClauses.length === 0) return;
-  await db.execute(`UPDATE pet_images SET ${setClauses.join(', ')} WHERE id = $id`, params);
-}
-
-/**
- * Get image count for a pet (for badges/display).
- */
-export async function getImageCount(petId: number): Promise<number> {
-  const db = getDb();
-  const rows = await db.select<{ cnt: number }[]>('SELECT COUNT(*) as cnt FROM pet_images WHERE pet_id = $pet_id', {
-    pet_id: petId,
-  });
-  return rows[0]?.cnt ?? 0;
-}
-
 export async function getTotalImageCount(): Promise<number> {
   const db = getDb();
   const rows = await db.select<{ cnt: number }[]>('SELECT COUNT(*) as cnt FROM pet_images');

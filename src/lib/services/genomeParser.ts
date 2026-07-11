@@ -158,48 +158,6 @@ export function parseGenome(content: string): Genome {
 }
 
 /**
- * Get all genes for a specific chromosome from a genome.
- */
-export function getChromosomeGenes(genome: Genome, chromosome: string): Gene[] {
-  return genome.genes[chromosome.padStart(2, '0')] ?? [];
-}
-
-/**
- * Get a specific gene by ID (e.g., '01A1').
- */
-export function getGeneById(genome: Genome, geneId: string): Gene | null {
-  if (geneId.length < 4) return null;
-
-  const chromosome = geneId.slice(0, 2);
-  const block = geneId.slice(2, -1);
-  const position = parseInt(geneId.slice(-1), 10);
-
-  const chromosomeGenes = getChromosomeGenes(genome, chromosome);
-  return chromosomeGenes.find((g) => g.block === block && g.position === position) ?? null;
-}
-
-/**
- * Get all genes across all chromosomes.
- */
-export function getAllGenes(genome: Genome): Gene[] {
-  return Object.values(genome.genes).flat();
-}
-
-/**
- * Convert a genome to JSON string.
- */
-export function genomeToJson(genome: Genome): string {
-  return JSON.stringify(genome, null, 2);
-}
-
-/**
- * Create a genome from a JSON string.
- */
-export function genomeFromJson(jsonStr: string): Genome {
-  return JSON.parse(jsonStr) as Genome;
-}
-
-/**
  * Validate that file content looks like a valid genome file.
  */
 export function isValidGenomeFile(content: string): boolean {

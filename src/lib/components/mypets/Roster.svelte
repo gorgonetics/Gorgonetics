@@ -194,7 +194,7 @@ function open(pet: Pet): void {
 </div>
 
 <style>
-  .roster { width: 100%; overflow: auto; }
+  .roster { width: 100%; }
   .roster-table { width: 100%; border-collapse: collapse; font-size: 12px; }
   .roster-table th,
   .roster-table td { padding: 6px 10px; text-align: left; border-bottom: 1px solid var(--border-primary); white-space: nowrap; }

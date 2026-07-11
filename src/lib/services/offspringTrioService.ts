@@ -72,8 +72,7 @@ export interface OffspringTrioOptions {
  * Build the trio view for one (father × mother) pair.
  *
  * Both parents must have at least one projected `pet_genes` row; a parent
- * missing from the projection is treated as a load failure, matching
- * `diffGenomes`.
+ * missing from the projection is treated as a load failure.
  */
 export async function computeOffspringTrio(
   father: Pet,

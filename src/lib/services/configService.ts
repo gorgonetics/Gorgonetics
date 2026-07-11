@@ -281,13 +281,6 @@ export function getCoreAttributeNames(): string[] {
 }
 
 /**
- * Get core attributes configuration.
- */
-export function getCoreAttributes() {
-  return { ...CORE_ATTRIBUTES };
-}
-
-/**
  * Get species-specific attribute names. Returns a shared frozen array — do
  * not mutate.
  */
