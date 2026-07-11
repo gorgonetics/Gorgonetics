@@ -41,6 +41,15 @@ const PAGE_SIZE = 50;
  * base's identity fields overwrite the correction's. A correction whose
  * base hasn't been paged in yet is shown as-is (best effort — the detail
  * view's `getSharedPet` always fetches the base doc and re-merges).
+ *
+ * Accepted residual risk (review #3): a correction paged in before its base
+ * shows the correction's own identity in the list. For rule-compliant docs
+ * that identity equals the base's, so it's correct; only a legacy pre-rule
+ * "poisoned" correction could briefly show spoofed text here, and opening it
+ * re-fetches the base and corrects it. We don't fetch each orphan
+ * correction's base to verify (extra reads per page against the Spark quota)
+ * nor blank correction identity wholesale (it would blank legitimate
+ * corrections whose base simply isn't paged in — the common case).
  */
 function dedupeLatest(pets: SharedPet[]): SharedPet[] {
   const indexByHash = new Map<string, number>();

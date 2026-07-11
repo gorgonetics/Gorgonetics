@@ -244,15 +244,6 @@ export const appState = {
     }
   },
 
-  async reorderPets(orderedIds: number[]) {
-    try {
-      await petService.reorderPets(orderedIds);
-    } catch (err: unknown) {
-      error.set(`Failed to save order: ${errorMessage(err)}`);
-      throw err;
-    }
-  },
-
   setGeneEditingView(editingData: unknown) {
     geneEditingView.set(editingData);
     selectedPet.set(null);

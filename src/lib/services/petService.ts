@@ -10,7 +10,7 @@ import { capitalize } from '$lib/utils/string.js';
 import { now } from '$lib/utils/timestamp.js';
 import { runBatchBackfill } from './backfill.js';
 import { getAttributeConfig, getDefaultValues, normalizeSpecies } from './configService.js';
-import { buildInClauseParams, getDb, reorderRows, type TxStatement, withTransaction } from './database.js';
+import { buildInClauseParams, getDb, type TxStatement, withTransaction } from './database.js';
 import { getParsedGenesCached, isHorseBreedFiltered } from './geneService.js';
 import { compareBlockLetters, isValidGenomeFile, parseGenome } from './genomeParser.js';
 import { parseStructuredPetName } from './nameParser.js';
@@ -916,13 +916,6 @@ export async function hasPets(): Promise<boolean> {
   const db = getDb();
   const rows = await db.select<{ cnt: number }[]>('SELECT COUNT(*) as cnt FROM pets');
   return rows[0].cnt > 0;
-}
-
-/**
- * Update sort_order for a list of pets based on their position in the array.
- */
-export function reorderPets(orderedIds: number[]): Promise<void> {
-  return reorderRows('pets', orderedIds);
 }
 
 const POSITIVE_GENES_BACKFILL_KEY = 'pets.positive_genes_backfilled';
