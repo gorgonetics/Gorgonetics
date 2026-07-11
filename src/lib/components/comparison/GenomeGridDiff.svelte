@@ -1,7 +1,9 @@
 <script lang="ts">
 import { onDestroy, onMount } from 'svelte';
+import '$lib/components/gene/geneCell.css';
 import GenomeDiffControls from '$lib/components/comparison/GenomeDiffControls.svelte';
 import GeneTooltip from '$lib/components/gene/GeneTooltip.svelte';
+import DetailOverlay from '$lib/components/shared/DetailOverlay.svelte';
 import StatusPane from '$lib/components/shared/StatusPane.svelte';
 import { getAppearanceConfig, getAttributeConfig, normalizeSpecies } from '$lib/services/configService.js';
 import { getGeneEffectsCached } from '$lib/services/geneService.js';
@@ -9,7 +11,7 @@ import { loadPetGridFromDb } from '$lib/services/petService.js';
 import { settings } from '$lib/stores/settings.js';
 import type { AppearanceInfo, AttributeInfo, GenomeDiffSummary, Pet } from '$lib/types/index.js';
 import { HORSE_BREEDS } from '$lib/types/index.js';
-import { buildFilterCSS } from '$lib/utils/filterCSS.js';
+import { buildFilterCSS, joinAttrs } from '$lib/utils/filterCSS.js';
 import { triStateToggle } from '$lib/utils/filterToggle.js';
 import { breedFor, effectFor, type GeneEffectData, isNoEffect } from '$lib/utils/geneAnalysis.js';
 import { buildAppearanceLookup, createGeneCellBuilder, type GeneCell } from '$lib/utils/geneGridCells.js';
@@ -20,6 +22,12 @@ interface ChromosomeRow {
   cellsA: Record<string, (GeneCell | null)[]>;
   cellsB: Record<string, (GeneCell | null)[]>;
   diffs: Record<string, boolean[]>;
+  /**
+   * Delimited (`·Attr·Attr·`) potential-attribute set per locus, derived once
+   * from the gene effect DB (both alleles) and shared by both pet rows — the
+   * attribute filter keys off this, not each pet's resolved allele.
+   */
+  attrs: Record<string, string[]>;
   hasDiffs: boolean;
 }
 
@@ -31,9 +39,11 @@ interface ChrBreedEntry {
 interface Props {
   petA: Pet;
   petB: Pet;
+  /** Back out of the compare lens (→ Pets). */
+  onBack: () => void;
 }
 
-const { petA, petB }: Props = $props();
+const { petA, petB, onBack }: Props = $props();
 
 let loading = $state(false);
 let error = $state<string | null>(null);
@@ -247,6 +257,7 @@ async function loadData() {
       const cellsA: Record<string, (GeneCell | null)[]> = {};
       const cellsB: Record<string, (GeneCell | null)[]> = {};
       const diffs: Record<string, boolean[]> = {};
+      const attrs: Record<string, string[]> = {};
       let chrDiffs = 0;
 
       for (const block of sortedBlocks) {
@@ -256,6 +267,7 @@ async function loadData() {
         cellsA[block] = new Array(maxLen);
         cellsB[block] = new Array(maxLen);
         diffs[block] = new Array(maxLen);
+        attrs[block] = new Array(maxLen);
 
         for (let i = 0; i < maxLen; i++) {
           const gA = genesA[i] || null;
@@ -263,6 +275,11 @@ async function loadData() {
           // Pre-compute everything: static CSS class, attribute, breed
           cellsA[block][i] = gA ? cellBuilder.makeCell(gA) : null;
           cellsB[block][i] = gB ? cellBuilder.makeCell(gB) : null;
+          // Both pets share the locus gene, so resolve its potential attributes
+          // once (from the effect DB) and use the same value for both rows.
+          const geneId = (gA ?? gB)?.id;
+          const list = geneId ? cellBuilder.attributesForGene(geneId) : [];
+          attrs[block][i] = joinAttrs(list);
           const isDiff = (gA?.type || null) !== (gB?.type || null);
           diffs[block][i] = isDiff;
           if (isDiff) chrDiffs++;
@@ -270,7 +287,7 @@ async function loadData() {
       }
 
       differentGenes += chrDiffs;
-      return { chr, cellsA, cellsB, diffs, hasDiffs: chrDiffs > 0 };
+      return { chr, cellsA, cellsB, diffs, attrs, hasDiffs: chrDiffs > 0 };
     });
 
     const identicalGenes = totalGenes - differentGenes;
@@ -366,20 +383,46 @@ function handleCellLeave() {
 }
 </script>
 
-<div class="genome-grid-diff">
+<DetailOverlay
+    testid="pet-compare"
+    backTestid="pet-compare-back"
+    backLabel="← Pets"
+    ariaLabel="Pet comparison"
+    {onBack}
+>
+    {#snippet title()}⚖️ {petA.name || 'Pet A'} vs {petB.name || 'Pet B'}{/snippet}
+
+    <!-- Summary + view / diffs-only ride in the header bar next to the names;
+         the filter row sits below — two rows of chrome, matching the trio. -->
+    {#snippet headerActions()}
+        {#if summary}
+            <div class="diff-summary">
+                <span class="similarity-badge">{summary.similarityPercent}% identical</span>
+                <span class="summary-detail">{summary.identicalGenes}/{summary.totalGenes} genes match · {summary.differentGenes} diff</span>
+                <div class="view-toggle">
+                    <button type="button" class="view-btn" class:active={currentView === 'attribute'} onclick={() => { currentView = 'attribute'; }}>Attributes</button>
+                    <button type="button" class="view-btn" class:active={currentView === 'appearance'} onclick={() => { currentView = 'appearance'; }}>Appearance</button>
+                </div>
+                <label class="diff-toggle">
+                    <input type="checkbox" checked={showDiffsOnly} onchange={(e) => { showDiffsOnly = (e.target as HTMLInputElement).checked; }} />
+                    Differences only
+                </label>
+            </div>
+        {/if}
+    {/snippet}
+
+    <div class="genome-grid-diff">
     {#if loading}
         <StatusPane variant="loading" body="Loading genomes..." />
     {:else if error}
         <StatusPane variant="error" icon="⚠️" body={error} />
     {:else if summary}
         <GenomeDiffControls
-            {summary}
             {isHorse}
             {breedFilter}
             {autoBreed}
             {petsHaveKnownBreed}
             {petsShareBreed}
-            {showDiffsOnly}
             {selectedAttributes}
             {hiddenAttributes}
             {attributeDisplayInfo}
@@ -387,8 +430,7 @@ function handleCellLeave() {
             {hiddenAppearances}
             {appearanceDisplayInfo}
             {currentView}
-            onViewChange={(v) => { currentView = v; }}
-            onBreedChange={(name) => { breedFilter = breedFilter === name ? '' : name; }}
+            onBreedChange={(name) => { breedFilter = name; }}
             onAutoBreedToggle={() => {
                 manualBreedOverride = true;
                 autoBreed = !autoBreed;
@@ -400,7 +442,6 @@ function handleCellLeave() {
             }}
             onAttributeToggle={toggleAttributeFilter}
             onAppearanceToggle={toggleAppearanceFilter}
-            onDiffsOnlyChange={(val) => { showDiffsOnly = val; }}
             onResetAttributes={() => { selectedAttributes = []; hiddenAttributes = []; }}
             onResetAppearances={() => { selectedAppearances = []; hiddenAppearances = []; }}
         />
@@ -434,7 +475,7 @@ function handleCellLeave() {
                                         data-isdiff={isDiff} data-hascell={!!cell}>
                                         {#if cell}
                                             <!-- svelte-ignore a11y_no_static_element_interactions -->
-                                            <div class={currentView === 'appearance' ? cell.appearanceCls : cell.attributeCls} data-attr={cell.attribute} data-appearance={cell.appearance} data-breed={cell.breed}
+                                            <div class={currentView === 'appearance' ? cell.appearanceCls : cell.attributeCls} data-attrs={row.attrs[block][i]} data-appearance={cell.appearance} data-breed={cell.breed}
                                                 onmouseenter={(e) => handleCellEnter(e, cell)} onmouseleave={handleCellLeave}
                                             >{#if cell.type === '?'}<span class="gene-unknown-symbol">?</span>{/if}</div>
                                         {/if}
@@ -452,7 +493,7 @@ function handleCellLeave() {
                                         data-isdiff={isDiff} data-hascell={!!cell}>
                                         {#if cell}
                                             <!-- svelte-ignore a11y_no_static_element_interactions -->
-                                            <div class={currentView === 'appearance' ? cell.appearanceCls : cell.attributeCls} data-attr={cell.attribute} data-appearance={cell.appearance} data-breed={cell.breed}
+                                            <div class={currentView === 'appearance' ? cell.appearanceCls : cell.attributeCls} data-attrs={row.attrs[block][i]} data-appearance={cell.appearance} data-breed={cell.breed}
                                                 onmouseenter={(e) => handleCellEnter(e, cell)} onmouseleave={handleCellLeave}
                                             >{#if cell.type === '?'}<span class="gene-unknown-symbol">?</span>{/if}</div>
                                         {/if}
@@ -469,18 +510,35 @@ function handleCellLeave() {
     {:else}
         <p class="empty-text">No genome data available for comparison.</p>
     {/if}
-</div>
+    </div>
+</DetailOverlay>
 
 <style>
-    .genome-grid-diff { width: 100%; }
+    /* Fills the overlay body. */
+    .genome-grid-diff { width: 100%; height: 100%; display: flex; flex-direction: column; min-height: 0; padding: 8px 14px; box-sizing: border-box; }
 
-    .grid-container { overflow: auto; border: 1px solid var(--border-primary); border-radius: 6px; background: var(--bg-secondary); }
+    /* Summary band content now lives in the DetailOverlay header (headerActions). */
+    .diff-summary { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .similarity-badge { font-size: 14px; font-weight: 700; color: var(--text-primary); padding: 4px 10px; background: var(--bg-tertiary); border-radius: 10px; }
+    .summary-detail { font-size: 12px; color: var(--text-secondary); }
+    .diff-toggle { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary); cursor: pointer; }
+    .diff-toggle input { cursor: pointer; }
+    .view-toggle { display: inline-flex; border: 1px solid var(--border-primary); border-radius: 4px; overflow: hidden; }
+    .view-btn { padding: 3px 10px; border: none; background: var(--bg-primary); color: var(--text-tertiary); font-size: 11px; font-weight: 500; cursor: pointer; transition: all 0.15s; }
+    .view-btn + .view-btn { border-left: 1px solid var(--border-primary); }
+    .view-btn:hover { color: var(--text-secondary); }
+    .view-btn.active { background: var(--accent); color: white; }
+
+    /* --cell-size 18px → 16px gene cells (calc subtracts the 2px border), the
+       same density as the trio view. flex:1 makes the grid the single scroll
+       region so the filter row stays pinned above it. */
+    .grid-container { --cell-size: 18px; flex: 1; min-height: 0; overflow: auto; border: 1px solid var(--border-primary); border-radius: 6px; background: var(--bg-secondary); }
     .gene-grid-table { width: auto; border-collapse: collapse; table-layout: fixed; }
     .gene-headers { position: sticky; top: 0; z-index: 10; background: var(--bg-secondary); }
     .gene-headers th { background: var(--bg-secondary); border-bottom: 1px solid var(--border-primary); padding: 2px 4px; font-size: 9px; font-weight: normal; color: var(--text-secondary); text-align: center; white-space: nowrap; }
     .chromosome-header { position: sticky; left: 0; z-index: 11; background: var(--bg-secondary); font-weight: bold; width: 28px; min-width: 28px; max-width: 28px; }
     .pet-label-header { position: sticky; left: 28px; z-index: 11; background: var(--bg-secondary); font-weight: bold; width: 60px; min-width: 60px; max-width: 60px; }
-    .position-header { width: 16px; min-width: 16px; max-width: 16px; }
+    .position-header { width: 18px; min-width: 18px; max-width: 18px; }
     .position-header.block-label { font-weight: bold; }
     .position-header.block-start { padding-left: 10px; }
 
@@ -494,28 +552,15 @@ function handleCellLeave() {
 
     .pet-label { position: sticky; left: 28px; z-index: 1; font-size: 9px; font-weight: 600; padding: 1px 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-right: 1px solid var(--border-primary); width: 60px; min-width: 60px; max-width: 60px; }
     .pet-a-label { background: color-mix(in srgb, var(--accent) 8%, var(--bg-secondary)); color: var(--accent); }
-    .pet-b-label { background: color-mix(in srgb, #a855f7 8%, var(--bg-secondary)); color: #a855f7; }
+    .pet-b-label { background: color-mix(in srgb, var(--pet-b) 8%, var(--bg-secondary)); color: var(--pet-b); }
 
     .gene-cell-container { padding: 1px; text-align: center; vertical-align: middle; }
     .gene-cell-container.empty { opacity: 0.3; }
     .gene-cell-container.block-start { padding-left: 8px; }
-    .gene-cell-container.diff-cell { background: rgba(234, 179, 8, 0.15); }
-    .gene-cell-container.identical-dimmed { opacity: 0.2; }
-
-    /* Breed override — applied via direct DOM manipulation */
-    :global(.gene-inactive-breed-override) {
-        background-color: #e8e8ec !important;
-        border-color: #d0d0d6 !important;
-        opacity: 0.5;
-    }
-    :global(.gene-inactive-breed-override.gene-recessive) {
-        background-color: rgba(208, 208, 214, 0.15) !important;
-        border-color: #d0d0d6 !important;
-    }
-    :global(.gene-inactive-breed-override.gene-mixed) {
-        background: linear-gradient(135deg, transparent 50%, #d0d0d6 50%) !important;
-        border-color: #d0d0d6 !important;
-    }
+    /* Confine the diff tint to the gene square (content box) so it doesn't
+       paint the cell padding — otherwise it bleeds across the 8px inter-block
+       gap on block-start cells and merges adjacent diffs into one band. */
+    .gene-cell-container.diff-cell { background-color: rgba(234, 179, 8, 0.15); background-clip: content-box; }
 
     .gene-unknown-symbol { color: var(--text-muted); font-size: 1em; font-weight: 600; }
     .empty-text { color: var(--text-muted); font-size: 13px; text-align: center; padding: 40px; }

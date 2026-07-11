@@ -2,10 +2,17 @@
 import { ArrowLeft } from '@lucide/svelte';
 import logoImg from '$lib/assets/logo.png';
 import { activeTab, appState, canGoBack, type Tab } from '$lib/stores/pets.js';
+import { overlayOpen, uiActions } from '$lib/stores/ui.js';
 import DataMenu from './DataMenu.svelte';
-import SettingsModal from './SettingsModal.svelte';
+
+// Destination navigation is gated (disabled) while a root overlay (Settings /
+// pet editor) is open: switching the tab underneath would move the content and
+// the nav highlight while the overlay stays on top, leaving the two in
+// disagreement — and a nav click could silently discard editor changes (#396).
+// Close the overlay (Back / Escape) first, then navigate.
 
 function switchTab(tab: Tab) {
+  if ($overlayOpen) return; // defence in depth — the buttons are also disabled
   appState.switchTab(tab);
 }
 
@@ -14,16 +21,21 @@ function handleWindowKeydown(e: KeyboardEvent) {
   if (!(e.altKey && e.key === 'ArrowLeft')) return;
   const t = e.target as HTMLElement | null;
   if (t?.tagName === 'INPUT' || t?.tagName === 'TEXTAREA' || t?.isContentEditable) return;
+  // Always suppress the webview's own back gesture — even while the nav is
+  // gated, Alt+Left must not navigate the app shell away.
   e.preventDefault();
+  if ($overlayOpen) return; // nav is gated while a root overlay is open
   appState.goBack();
 }
 
 function handleMouseUp(e: MouseEvent) {
-  // Mouse "back" button (button 3) → previous tab. goBack is a no-op
-  // when there's no history, so an unconditional call is safe.
-  if (e.button === 3) {
+  // Mouse back/forward buttons (3/4): suppress the webview's history
+  // navigation unconditionally so the app shell can't be navigated away,
+  // then treat "back" as previous-tab — unless the nav is gated by an open
+  // root overlay. goBack is a no-op without history, so the call is safe.
+  if (e.button === 3 || e.button === 4) {
     e.preventDefault();
-    appState.goBack();
+    if (e.button === 3 && !$overlayOpen) appState.goBack();
   }
 }
 </script>
@@ -39,7 +51,7 @@ function handleMouseUp(e: MouseEvent) {
     <button
         class="back-btn"
         onclick={() => appState.goBack()}
-        disabled={!$canGoBack}
+        disabled={!$canGoBack || $overlayOpen}
         title="Back to previous tab (Alt+←)"
         aria-label="Back to previous tab"
     >
@@ -48,50 +60,52 @@ function handleMouseUp(e: MouseEvent) {
     <nav aria-label="Main navigation" class="top-bar-tabs">
         <button
             class="tab-btn"
-            class:active={$activeTab === "pets"}
-            onclick={() => switchTab("pets")}
+            class:active={$activeTab === "mypets"}
+            data-testid="tab-mypets"
+            disabled={$overlayOpen}
+            onclick={() => switchTab("mypets")}
+            title="Your pet collection — search, compare, and manage your stable."
         >
-            🐾 Pets
+            ✨ My Pets
         </button>
         <button
             class="tab-btn"
-            class:active={$activeTab === "editor"}
-            onclick={() => switchTab("editor")}
-        >
-            🧬 Genes
-        </button>
-        <button
-            class="tab-btn"
-            class:active={$activeTab === "stable"}
-            onclick={() => switchTab("stable")}
-        >
-            📋 Stable
-        </button>
-        <button
-            class="tab-btn"
-            class:active={$activeTab === "breeding"}
-            onclick={() => switchTab("breeding")}
+            class:active={$activeTab === "breed"}
+            data-testid="tab-breed"
+            disabled={$overlayOpen}
+            onclick={() => switchTab("breed")}
+            title="Rank the best pairs across your stable, or plan several to breed at once."
         >
             💞 Breed
         </button>
         <button
             class="tab-btn"
-            class:active={$activeTab === "compare"}
-            onclick={() => switchTab("compare")}
-        >
-            ⚖️ Compare
-        </button>
-        <button
-            class="tab-btn"
             class:active={$activeTab === "community"}
             data-testid="tab-community"
+            disabled={$overlayOpen}
             onclick={() => switchTab("community")}
+            title="Browse pets shared by other players. Click a row to preview its genome, then import it to your stable."
         >
             🌐 Community
         </button>
+        <button
+            class="tab-btn"
+            class:active={$activeTab === "reference"}
+            data-testid="tab-reference"
+            disabled={$overlayOpen}
+            onclick={() => switchTab("reference")}
+            title="Edit the gene templates for a species and chromosome."
+        >
+            📚 Reference
+        </button>
     </nav>
     <DataMenu />
-    <SettingsModal />
+    <button type="button" class="settings-toggle" disabled={$overlayOpen} onclick={() => uiActions.openSettings()} title="Settings" aria-label="Settings">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
+            <circle cx="12" cy="12" r="3"/>
+        </svg>
+    </button>
     </div>
 </header>
 
@@ -176,14 +190,45 @@ function handleMouseUp(e: MouseEvent) {
         transition: all 0.15s ease;
     }
 
-    .tab-btn:hover {
+    .tab-btn:hover:not(:disabled) {
         color: var(--text-secondary);
         background: var(--border-primary);
+    }
+
+    /* Gated while a root overlay (Settings / editor) is open. The active
+       highlight stays visible so the current destination remains legible. */
+    .tab-btn:disabled {
+        opacity: 0.55;
+        cursor: default;
     }
 
     .tab-btn.active {
         background: var(--bg-primary);
         color: var(--text-primary);
         box-shadow: var(--shadow-sm);
+    }
+
+    .settings-toggle {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        border: none;
+        border-radius: 6px;
+        background: transparent;
+        color: var(--text-tertiary);
+        cursor: pointer;
+        transition: all 0.15s ease;
+    }
+
+    .settings-toggle:hover:not(:disabled) {
+        background: var(--bg-tertiary);
+        color: var(--text-secondary);
+    }
+
+    .settings-toggle:disabled {
+        opacity: 0.4;
+        cursor: default;
     }
 </style>

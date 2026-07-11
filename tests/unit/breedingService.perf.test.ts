@@ -28,7 +28,11 @@ const SAMPLE_GENOME = parseGenome(SAMPLE_HORSE);
 
 const NUM_MALES = 15;
 const NUM_FEMALES = 15;
-const SCORING_BUDGET_MS = 500;
+// Generous headroom on purpose: a typical run is well under half this, but
+// shared CI runners jitter (a 500ms bound flaked at ~502ms). This is a
+// regression alarm — it should fire when scoring roughly doubles, not on
+// runner noise.
+const SCORING_BUDGET_MS = 1000;
 
 const ALLELE_CYCLE = ['D', 'R', 'x', 'D', 'R', 'D', 'x', 'R'];
 const EFFECTS = ['Toughness+', 'Friendliness+', 'Intelligence-', 'None', 'Ruggedness+', 'Temperament+'];

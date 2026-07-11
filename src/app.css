@@ -71,6 +71,16 @@ textarea {
   --accent-soft: rgba(59, 130, 246, 0.1);
   --accent-text: #3b82f6;
 
+  /* Pet B / second subject (Compare's pet B, the trio's mother). Pairs with
+     --accent as "pet A / father"; like --accent it keeps one value in both
+     themes so the two sides stay symmetric. */
+  --pet-b: #a855f7;
+  --pet-b-soft: rgba(168, 85, 247, 0.1);
+
+  /* "Auto" follow-the-pet's-breed toggle (pet detail + Compare). Solid green
+     with --bg-primary text; readable on both themes, so no dark override. */
+  --auto-active: #22c55e;
+
   /* Status — error */
   --error: #ef4444;
   --error-hover: #dc2626;
@@ -92,6 +102,15 @@ textarea {
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
   --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.15);
   --shadow-xl: 0 20px 60px rgba(0, 0, 0, 0.15);
+
+  /* Radius scale (theme-independent): sm = small chips/glyph buttons,
+     md = buttons/inputs, lg = containers/popovers/segmented controls,
+     xl = dialogs/cards, pill = fully-rounded pills. */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-pill: 999px;
 
   /* Toggle */
   --toggle-off: #d1d5db;
@@ -164,7 +183,7 @@ textarea {
 /* --- Shared button styles --- */
 .btn {
   padding: 8px 16px;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
@@ -202,6 +221,43 @@ textarea {
   background: var(--error-hover);
 }
 
+/* --- Shared segmented control --- */
+/* One chrome for exclusive-choice button groups (FilterBar's species/gender
+   toggles, Breed's species picker, Settings' theme picker): a tinted track
+   with a raised active segment. Components keep scoped size tweaks on their
+   own class alongside `seg-btn`. */
+.seg {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-lg);
+}
+
+.seg-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.seg-btn:hover:not(:disabled) {
+  color: var(--text-secondary);
+}
+
+.seg-btn.active {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
+}
+
 /* --- Shared tag badge (pet cards + share dialog) --- */
 .tag-badge {
   display: inline-block;
@@ -209,7 +265,7 @@ textarea {
   margin: 0 4px 2px 0;
   background: var(--bg-selected);
   color: var(--accent-text);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   font-size: 10px;
   font-weight: 500;
 }
@@ -247,7 +303,7 @@ textarea {
 /* --- Shared inline banner (status / warning / error strips) --- */
 .banner {
   padding: 10px 12px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   font-size: 13px;
   margin: 0 0 12px;
   border: 1px solid var(--border-primary);
@@ -292,10 +348,16 @@ textarea {
 }
 
 /* --- Shared dialog styles --- */
+/* Bounded to the viewport with a scrollable body so tall dialogs (e.g.
+   Settings) never clip their header/footer on short windows. Header and
+   footer stay pinned; only .dialog-body scrolls. */
 .dialog {
   background: var(--bg-primary);
-  border-radius: 12px;
+  border-radius: var(--radius-xl);
   width: 90%;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
   box-shadow: var(--shadow-lg);
   overflow: hidden;
 }
@@ -306,6 +368,7 @@ textarea {
   justify-content: space-between;
   padding: 16px 20px;
   border-bottom: 1px solid var(--border-primary);
+  flex-shrink: 0;
 }
 
 .dialog-header h3 {
@@ -316,6 +379,9 @@ textarea {
 
 .dialog-body {
   padding: 16px 20px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
 }
 
 .dialog-footer {
@@ -325,13 +391,14 @@ textarea {
   padding: 14px 20px;
   border-top: 1px solid var(--border-primary);
   background: var(--bg-secondary);
+  flex-shrink: 0;
 }
 
 .close-btn {
   width: 28px;
   height: 28px;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   background: transparent;
   color: var(--text-tertiary);
   font-size: 18px;
@@ -388,7 +455,7 @@ textarea:focus:not(:focus-visible) {
   width: 100%;
   padding: 6px 10px;
   border: 1px solid var(--border-primary);
-  border-radius: 6px;
+  border-radius: var(--radius-md);
   background: var(--bg-primary);
   color: var(--text-primary);
   font-size: 12px;

@@ -443,34 +443,6 @@ run(() => {
         border-color: var(--text-muted);
     }
 
-    .view-btn {
-        padding: 8px 16px;
-        background: rgba(255, 255, 255, 0.1);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        border-radius: 6px;
-        color: rgba(255, 255, 255, 0.8);
-        font-size: 0.8rem;
-        font-weight: 500;
-        cursor: pointer;
-        transition: all 0.2s ease;
-    }
-
-    .view-btn:hover:not(:disabled) {
-        background: rgba(255, 255, 255, 0.2);
-        color: var(--bg-primary);
-    }
-
-    .view-btn.active {
-        background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hover) 100%);
-        border-color: var(--accent-hover);
-        color: var(--bg-primary);
-    }
-
-    .view-btn:disabled {
-        opacity: 0.6;
-        cursor: not-allowed;
-    }
-
     .gene-visualizer-container {
         flex: 1;
         width: 100%;

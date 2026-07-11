@@ -1,12 +1,14 @@
 <script lang="ts">
 import { onMount } from 'svelte';
-import BreedingTab from '$lib/components/breeding/BreedingTab.svelte';
+import BreedView from '$lib/components/breeding/BreedView.svelte';
 import CommunityTab from '$lib/components/community/CommunityTab.svelte';
-import ComparisonView from '$lib/components/comparison/ComparisonView.svelte';
-import GeneEditingView from '$lib/components/GeneEditingView.svelte';
-import PetVisualization from '$lib/components/pet/PetVisualization.svelte';
-import StableTable from '$lib/components/stable/StableTable.svelte';
-import { activeTab, appState, error, geneEditingView, loading, selectedPet } from '$lib/stores/pets.js';
+import ReferenceView from '$lib/components/gene/ReferenceView.svelte';
+import SettingsView from '$lib/components/layout/SettingsView.svelte';
+import MyPets from '$lib/components/mypets/MyPets.svelte';
+import PetEditor from '$lib/components/pet/PetEditor.svelte';
+import StatusBanner from '$lib/components/shared/StatusBanner.svelte';
+import { activeTab, appState, error, loading, notice } from '$lib/stores/pets.js';
+import { editingPet, settingsOpen, uiActions } from '$lib/stores/ui.js';
 
 onMount(async () => {
   await appState.loadPets();
@@ -14,39 +16,46 @@ onMount(async () => {
 </script>
 
 <div class="detail-content">
-	{#if $error}
-		<div class="error-banner" role="alert">
-			<div class="error-message">⚠️ {$error}</div>
-			<button class="error-close" onclick={() => appState.clearError()} aria-label="Dismiss error">×</button>
-		</div>
+	<!-- The tab content is covered by the in-space overlays below. `inert` is
+	     bound reactively (not set once on mount by DetailOverlay's sibling
+	     logic) so that switching tabs while an overlay is open re-inerts the
+	     freshly-rendered tab content, keeping focus/AT out of the covered UI. -->
+	<div class="tab-layer" inert={$editingPet !== null || $settingsOpen}>
+		{#if $error}
+			<div class="error-banner" role="alert">
+				<div class="error-message">⚠️ {$error}</div>
+				<button class="error-close" onclick={() => appState.clearError()} aria-label="Dismiss error">×</button>
+			</div>
+		{/if}
+
+		{#if $notice}
+			<StatusBanner type="success" message={$notice} toast autoDismissMs={8000} onDismiss={() => appState.clearNotice()} />
+		{/if}
+
+		{#if $loading}
+			<div class="center-state">
+				<div class="spinner"></div>
+				<p class="state-text">Loading...</p>
+			</div>
+		{:else if $activeTab === 'reference'}
+			<ReferenceView />
+		{:else if $activeTab === 'breed'}
+			<BreedView />
+		{:else if $activeTab === 'community'}
+			<CommunityTab />
+		{:else}
+			<MyPets />
+		{/if}
+	</div>
+
+	{#if $editingPet}
+		{#key $editingPet.id}
+			<PetEditor pet={$editingPet} onClose={uiActions.closeEditor} onSave={uiActions.closeEditor} />
+		{/key}
 	{/if}
 
-	{#if $activeTab === 'stable'}
-		<StableTable />
-	{:else if $activeTab === 'compare'}
-		<ComparisonView />
-	{:else if $activeTab === 'breeding'}
-		<BreedingTab />
-	{:else if $activeTab === 'community'}
-		<CommunityTab />
-	{:else if $loading}
-		<div class="center-state">
-			<div class="spinner"></div>
-			<p class="state-text">Loading...</p>
-		</div>
-	{:else if $selectedPet}
-		<PetVisualization pet={$selectedPet} />
-	{:else if $geneEditingView}
-		<GeneEditingView
-			animalType={($geneEditingView as { animalType?: string; chromosome?: string }).animalType}
-			chromosome={($geneEditingView as { animalType?: string; chromosome?: string }).chromosome}
-		/>
-	{:else}
-		<div class="center-state">
-			<div class="empty-icon">🐾</div>
-			<p class="state-title">Select a pet to view details</p>
-			<p class="state-text">Choose a pet from the list, or upload a new genome file</p>
-		</div>
+	{#if $settingsOpen}
+		<SettingsView onClose={uiActions.closeSettings} />
 	{/if}
 </div>
 
@@ -56,6 +65,13 @@ onMount(async () => {
 		flex-direction: column;
 		position: absolute;
 		inset: 0;
+	}
+
+	.tab-layer {
+		display: flex;
+		flex-direction: column;
+		flex: 1;
+		min-height: 0;
 	}
 
 	.error-banner {
@@ -97,18 +113,6 @@ onMount(async () => {
 		justify-content: center;
 		gap: 8px;
 		color: var(--text-muted);
-	}
-
-	.empty-icon {
-		font-size: 48px;
-		opacity: 0.4;
-	}
-
-	.state-title {
-		font-size: 16px;
-		font-weight: 600;
-		color: var(--text-tertiary);
-		margin: 0;
 	}
 
 	.state-text {

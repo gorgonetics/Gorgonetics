@@ -16,11 +16,55 @@
 
 import { isPlaceholderConfig } from '$lib/firebase.js';
 import { type ImportResult, importCommunityPet, listPets } from '$lib/services/shareService.js';
-import { appState } from '$lib/stores/pets.js';
+import { activeTab, appState } from '$lib/stores/pets.js';
 import type { SharedPet } from '$lib/types/index.js';
 import { errorMessage } from '$lib/utils/error.js';
+import { mergeCorrectionIdentity } from '$lib/utils/sharedPet.js';
 
 const PAGE_SIZE = 50;
+
+/**
+ * Collapse the add-only catalogue to one row per content hash, keeping the
+ * latest. `listPets` pages newest-first, and a correction always has a later
+ * `uploadedAt` than the base entry it supersedes, so the newest entry for a
+ * hash is always encountered first — keep-first-seen therefore keeps the
+ * latest and preserves the newest-first display order. Deduping the whole
+ * accumulated list (not just each page) also catches the case where a base
+ * entry and its correction straddle a page boundary.
+ *
+ * Identity binding (issue #393): only attributes/tags/notes are
+ * correction-eligible — the identity fields (name/character/species/
+ * gender/breed/breeder) belong to the first-share entry. firestore.rules
+ * enforces that for new writes; this merge covers already-poisoned
+ * pre-rule corrections. When the kept row is a correction and its base
+ * (first-share) entry is encountered later in the accumulated list, the
+ * base's identity fields overwrite the correction's. A correction whose
+ * base hasn't been paged in yet is shown as-is (best effort — the detail
+ * view's `getSharedPet` always fetches the base doc and re-merges).
+ *
+ * Accepted residual risk (review #3): a correction paged in before its base
+ * shows the correction's own identity in the list. For rule-compliant docs
+ * that identity equals the base's, so it's correct; only a legacy pre-rule
+ * "poisoned" correction could briefly show spoofed text here, and opening it
+ * re-fetches the base and corrects it. We don't fetch each orphan
+ * correction's base to verify (extra reads per page against the Spark quota)
+ * nor blank correction identity wholesale (it would blank legitimate
+ * corrections whose base simply isn't paged in — the common case).
+ */
+function dedupeLatest(pets: SharedPet[]): SharedPet[] {
+  const indexByHash = new Map<string, number>();
+  const out: SharedPet[] = [];
+  for (const pet of pets) {
+    const keptIndex = indexByHash.get(pet.contentHash);
+    if (keptIndex === undefined) {
+      indexByHash.set(pet.contentHash, out.length);
+      out.push(pet);
+    } else if (!pet.isCorrection && out[keptIndex].isCorrection) {
+      out[keptIndex] = mergeCorrectionIdentity(out[keptIndex], pet);
+    }
+  }
+  return out;
+}
 /**
  * How long a `loadInitial` result counts as fresh. Tab toggles within
  * this window reuse the cached page instead of refetching. Five minutes
@@ -67,6 +111,19 @@ export const communityView = $state({
    * `appState.loadPets()` races and double-toasts.
    */
   importingHash: null as string | null,
+  /**
+   * Hashes imported (or confirmed already-imported) during this session.
+   * Drives the "✓ Imported" disabled state on the Import button so a
+   * successful import can't be re-clicked. Session-scoped on purpose: the
+   * durable already-in-stable truth lives in the local DB (content_hash
+   * UNIQUE), and `importCommunityPet` maps a re-import onto
+   * 'already-imported' anyway — this set is UI feedback, not a guard.
+   *
+   * Always REASSIGNED, never mutated in place: Svelte 5's `$state` proxy
+   * doesn't track `Set` internals, so `.add()` on the existing instance
+   * would not trigger re-renders.
+   */
+  importedHashes: new Set<string>(),
 });
 
 /**
@@ -86,14 +143,22 @@ export function selectedSharedPet(): SharedPet | null {
   return communityView.pets.find((p) => p.contentHash === communityView.selectedHash) ?? null;
 }
 
+// Close the open preview whenever the user leaves the Community destination.
+// The page cache above deliberately survives tab switches (read quota), but
+// the *preview* must not: My Pets holds its detail in component-local state
+// that dies on unmount, so a destination switch always lands back on the
+// table — mirror that instead of restoring a stale detail on return (#396).
+activeTab.subscribe((tab) => {
+  if (tab !== 'community') communityView.selectedHash = null;
+});
+
 /**
  * Load the first page. By default short-circuits when the cached page is
  * fresh (see `STALE_AFTER_MS`) — pass `{ force: true }` to bypass the
  * cache (used by the "Try again" button in the error state).
  *
- * Selection is intentionally preserved across reloads — if the user
- * navigates away from the tab and returns, the pet they were
- * inspecting stays selected (provided it's still in the loaded page).
+ * Selection is preserved across reloads *within* the tab, but cleared on
+ * destination switch (see the `activeTab` subscription above).
  */
 export async function loadInitial(opts: { force?: boolean } = {}): Promise<void> {
   if (isPlaceholderConfig) {
@@ -121,8 +186,11 @@ export async function loadInitial(opts: { force?: boolean } = {}): Promise<void>
   try {
     const { pets, cursor } = await listPets({ limit: PAGE_SIZE });
     if (myGeneration !== loadGeneration) return;
-    communityView.pets = pets;
+    const deduped = dedupeLatest(pets);
+    communityView.pets = deduped;
     communityView.cursor = cursor;
+    // `hasMore` tracks the raw page size, not the deduped count: a full
+    // page means more docs remain to page through even if some collapsed.
     communityView.hasMore = pets.length === PAGE_SIZE;
     lastLoadedAt = Date.now();
     // If the previously-selected pet was paginated out of the new first
@@ -169,7 +237,7 @@ export async function loadMore(): Promise<void> {
   try {
     const { pets, cursor } = await listPets({ limit: PAGE_SIZE, after: communityView.cursor });
     if (myGeneration !== loadGeneration) return;
-    communityView.pets = [...communityView.pets, ...pets];
+    communityView.pets = dedupeLatest([...communityView.pets, ...pets]);
     communityView.cursor = cursor;
     communityView.hasMore = pets.length === PAGE_SIZE;
   } catch (err) {
@@ -212,7 +280,7 @@ export function clearSelection(): void {
  * SharedPet (with `genomeData` populated) — `listPets` returns metadata
  * only, so the detail component is responsible for lazy-loading the
  * genome via `getSharedPet` before invoking this. The caller
- * (CommunityPetDetail) handles surfacing the toast.
+ * (CommunityPetVisualization) handles surfacing the toast.
  *
  * Rejects with an `error` result if another import is already in flight:
  * we serialize imports per-store to avoid `appState.loadPets()` races
@@ -230,6 +298,13 @@ export async function importSelected(fullPet: SharedPet): Promise<ImportResult> 
     // land before the background refetch completes. A refresh failure is a
     // UI sync issue, not an import failure; the Pets tab's onMount picks it
     // up on next navigation.
+    if (result.status !== 'error') {
+      // Both success shapes mean the pet is now in the stable — flip the
+      // Import control to its session-scoped "Imported ✓" state (#398).
+      const next = new Set(communityView.importedHashes);
+      next.add(fullPet.contentHash);
+      communityView.importedHashes = next;
+    }
     if (result.status === 'imported') {
       // Fresh insert at MAX(sort_order)+1 — append just that row (#256)
       // instead of an O(N) full reload.

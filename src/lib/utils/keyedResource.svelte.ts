@@ -14,7 +14,7 @@ export interface KeyedResource<V> {
  * that leave the key unchanged do NOT refetch.
  *
  * This is the shared form of the lazy-load-by-key pattern used across the
- * community UI (SharePetDialog, CommunityPetDetail) — previously each
+ * community UI (SharePetDialog, CommunityPetVisualization) — previously each
  * component hand-rolled its own stale guard (a `cancelled` flag vs a
  * `loadedHash` token), which is easy to get subtly wrong. Call it once
  * during component initialisation (it registers a `$effect`).

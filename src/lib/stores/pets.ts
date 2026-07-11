@@ -4,7 +4,7 @@ import * as petService from '$lib/services/petService.js';
 import type { Pet } from '$lib/types/index.js';
 import { errorMessage } from '$lib/utils/error.js';
 
-export type Tab = 'pets' | 'editor' | 'compare' | 'stable' | 'breeding' | 'community';
+export type Tab = 'mypets' | 'breed' | 'community' | 'reference';
 
 /** Boolean pet flags toggled in-place via `setPetMarker` (no full reload). */
 export type MarkerKey = 'starred' | 'stabled' | 'is_pet_quality';
@@ -13,8 +13,17 @@ export const pets: Writable<Pet[]> = writable([]);
 export const selectedPet: Writable<Pet | null> = writable(null);
 export const loading = writable(false);
 export const error: Writable<string | null> = writable(null);
+/** Non-error, positive outcome text (e.g. import/auto-share summaries). Rendered
+ *  as a success banner, distinct from the destructive `error` channel. */
+export const notice: Writable<string | null> = writable(null);
+// The two channels are mutually exclusive: surfacing an error (from any call
+// site) dismisses a lingering success toast so a stale "shared to community"
+// banner never sits next to a fresh failure.
+error.subscribe((v) => {
+  if (v !== null) notice.set(null);
+});
 export const geneEditingView: Writable<unknown> = writable(null);
-export const activeTab: Writable<Tab> = writable('pets');
+export const activeTab: Writable<Tab> = writable('mypets');
 
 // Bounded back-stack of previously-active tabs (oldest first, newest last),
 // driving the TopBar "back" control (#276). Capped so long sessions of tab
@@ -24,7 +33,7 @@ const tabHistory: Writable<Tab[]> = writable([]);
 /** True when `appState.goBack()` has a previous tab to return to. */
 export const canGoBack = derived(tabHistory, (h) => h.length > 0);
 
-/** All unique tags across all pets, sorted. Shared by PetEditor and PetList. */
+/** All unique tags across all pets, sorted. Shared by PetEditor and the Library filter bar. */
 export const allTags = derived(pets, ($pets) => [...new Set($pets.flatMap((p) => p.tags ?? []))].sort());
 
 function getCurrentValue<T>(store: Writable<T>): T | undefined {
@@ -44,12 +53,19 @@ const clearSelectionAndGeneView = () => {
  * union so the compiler catches a missed branch when a new tab is added.
  */
 const TAB_STATE_RESETS: Record<Tab, () => void> = {
-  pets: () => geneEditingView.set(null),
-  editor: () => selectedPet.set(null),
-  compare: clearSelectionAndGeneView,
-  stable: clearSelectionAndGeneView,
-  breeding: clearSelectionAndGeneView,
+  // My Pets drives its own selection (myPetsView.selectedIds); clear the
+  // legacy single-pet/gene-edit state so it can't leak into the workspace.
+  mypets: clearSelectionAndGeneView,
+  // Breed ranks across the whole stable by species; it doesn't use the My Pets
+  // single-pet/gene state, so clear it on entry.
+  breed: clearSelectionAndGeneView,
+  // The Community preview (communityView.selectedHash) resets itself on any
+  // destination switch via the community store's own activeTab subscription —
+  // importing it here would pull firebase into every pets.js consumer.
   community: clearSelectionAndGeneView,
+  // Reference (gene-template editing) clears any single-pet selection so it
+  // can't carry over from My Pets when switching destinations.
+  reference: () => selectedPet.set(null),
 };
 
 // Monotonic generation counter for in-flight `loadPets` calls. Concurrent
@@ -234,15 +250,6 @@ export const appState = {
     }
   },
 
-  async reorderPets(orderedIds: number[]) {
-    try {
-      await petService.reorderPets(orderedIds);
-    } catch (err: unknown) {
-      error.set(`Failed to save order: ${errorMessage(err)}`);
-      throw err;
-    }
-  },
-
   setGeneEditingView(editingData: unknown) {
     geneEditingView.set(editingData);
     selectedPet.set(null);
@@ -284,6 +291,10 @@ export const appState = {
     error.set(null);
   },
 
+  clearNotice() {
+    notice.set(null);
+  },
+
   setError(message: string) {
     error.set(message);
   },
@@ -292,6 +303,7 @@ export const appState = {
     selectedPet.set(null);
     geneEditingView.set(null);
     error.set(null);
+    notice.set(null);
     loading.set(false);
     // Drop the back-stack too — its entries point into the pre-reset
     // session and shouldn't survive a full reset (#276 review).

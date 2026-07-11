@@ -14,7 +14,7 @@
  * recessive effect.
  */
 
-import type { AlleleDistribution } from '$lib/types/index.js';
+import type { AlleleDistribution, OffspringOutcomeBuckets } from '$lib/types/index.js';
 import { GeneType } from '$lib/types/index.js';
 
 /**
@@ -201,4 +201,75 @@ export function classifyTrioLocus(
   }
 
   return { verdict: 'neutral', source: null, lockedIn: false, ...base };
+}
+
+/**
+ * Split the offspring's Punnett outcome at one locus into buckets describing
+ * how each genotype compares with the parents (see `OffspringOutcomeBuckets`).
+ * Pure per-locus; masses sum to 1.
+ *
+ * Two positive-change kinds are kept separate so the UI can toggle which it
+ * treats as the highlighted gain:
+ *  - `newPositive`: expresses a `+` neither parent expresses.
+ *  - `clarifiedPositive`: keeps a `+` a parent has AND becomes homozygous while
+ *    clearing a mixed parent — "Clarification". A homozygous outcome is only a
+ *    clarification when a parent was mixed (`x`); D×D / R×R already breed true
+ *    and D×R yields only mixed offspring (nothing cleared).
+ */
+export function offspringOutcomeBuckets(
+  fatherType: GeneType,
+  motherType: GeneType,
+  dist: AlleleDistribution,
+  gene: GeneSignSummary | undefined,
+): OffspringOutcomeBuckets {
+  const b: OffspringOutcomeBuckets = {
+    newPositive: 0,
+    clarifiedPositive: 0,
+    keepPositive: 0,
+    neutral: 0,
+    keepNegative: 0,
+    loss: 0,
+    unknown: dist.unknown,
+  };
+  const solidMass = dist.D + dist.x + dist.R;
+  if (!gene || solidMass <= 0) {
+    b.neutral += solidMass;
+    return b;
+  }
+
+  // Compare per allele, not by a global +/- sign: the dominant and recessive
+  // alleles can affect different attributes, so "does a parent already show
+  // this?" must ask about the SAME allele the offspring expresses. `D`/`x`
+  // express the dominant effect (a parent shows it iff it carries a dominant
+  // allele); `R` expresses the recessive effect (only an `R` parent shows it).
+  const parentExpressesDominant = carriesDominant(fatherType) || carriesDominant(motherType);
+  const parentExpressesRecessive = fatherType === GeneType.RECESSIVE || motherType === GeneType.RECESSIVE;
+  // For a neutral outcome, "lost a positive" only needs *any* parent positive.
+  const parentExpressesPositive = expressedSign(fatherType, gene) === '+' || expressedSign(motherType, gene) === '+';
+  // A homozygous offspring clears heterozygosity only if a parent actually had it.
+  const parentMixed = fatherType === GeneType.MIXED || motherType === GeneType.MIXED;
+
+  const classify = (type: GeneType, mass: number) => {
+    if (mass <= 0) return;
+    const sign = expressedSign(type, gene);
+    const homozygous = type === GeneType.DOMINANT || type === GeneType.RECESSIVE;
+    // Does a parent already express this exact allele's effect?
+    const parentSharesAllele = type === GeneType.RECESSIVE ? parentExpressesRecessive : parentExpressesDominant;
+    if (sign === '+') {
+      if (!parentSharesAllele) b.newPositive += mass;
+      else if (homozygous && parentMixed) b.clarifiedPositive += mass;
+      else b.keepPositive += mass;
+    } else if (sign === '-') {
+      if (!parentSharesAllele) b.loss += mass;
+      else b.keepNegative += mass;
+    } else {
+      // Neutral expression: a loss only if a parent had a positive to lose.
+      if (parentExpressesPositive) b.loss += mass;
+      else b.neutral += mass;
+    }
+  };
+  classify(GeneType.DOMINANT, dist.D);
+  classify(GeneType.MIXED, dist.x);
+  classify(GeneType.RECESSIVE, dist.R);
+  return b;
 }

@@ -33,17 +33,22 @@ vi.mock('firebase/firestore', async () => {
   const actual = await vi.importActual('firebase/firestore');
   return {
     ...actual,
-    getDoc: vi.fn(),
-    getDocs: vi.fn(),
+    // Default to "nothing published yet": a bare `getDoc`/`getDocs` reads as
+    // absent so the first-share path runs without per-test wiring. Tests that
+    // exercise already-shared / correction / recheck paths override with
+    // `mockResolvedValueOnce` (consumed before the default).
+    getDoc: vi.fn(async () => ({ exists: () => false })),
+    getDocs: vi.fn(async () => ({ docs: [] })),
     setDoc: vi.fn(),
     writeBatch: vi.fn(() => createBatch()),
     serverTimestamp: vi.fn(() => '__SENTINEL_SERVER_TIMESTAMP__'),
-    doc: vi.fn((db, col, id) => ({ __db: db, path: `${col}/${id}`, id, col })),
+    doc: vi.fn((db, col, id) => ({ __db: db, path: id ? `${col}/${id}` : `${col}/__auto__`, id, col })),
     collection: vi.fn((db, col) => ({ __db: db, path: col })),
     query: vi.fn((coll, ...constraints) => ({ __coll: coll, constraints })),
     orderBy: vi.fn((field, dir) => ({ __op: 'orderBy', field, dir })),
     limit: vi.fn((n) => ({ __op: 'limit', n })),
     startAfter: vi.fn((value) => ({ __op: 'startAfter', value })),
+    where: vi.fn((field, op, value) => ({ __op: 'where', field, op, value })),
   };
 });
 
@@ -59,7 +64,7 @@ vi.mock('$lib/services/petService.js', () => ({
   uploadPet: vi.fn(),
 }));
 
-import { getDoc, getDocs, orderBy, startAfter, Timestamp, writeBatch } from 'firebase/firestore';
+import { getDoc, getDocs, orderBy, setDoc, startAfter, Timestamp, writeBatch } from 'firebase/firestore';
 import { findPetByHash, getPet, updatePet, uploadPet as uploadPetLocally } from '$lib/services/petService.js';
 import type { UploadResult } from '$lib/services/shareService.js';
 import {
@@ -80,6 +85,7 @@ import { makePet, DEFAULT_RAW_TEXT as RAW_TEXT, DEFAULT_RAW_TEXT_HASH as RAW_TEX
 const writeBatchMock = vi.mocked(writeBatch);
 const getDocMock = vi.mocked(getDoc);
 const getDocsMock = vi.mocked(getDocs);
+const setDocMock = vi.mocked(setDoc);
 const startAfterMock = vi.mocked(startAfter);
 const findPetByHashMock = vi.mocked(findPetByHash);
 const getPetMock = vi.mocked(getPet);
@@ -116,12 +122,50 @@ function lastBatch(): BatchCall[] {
   return batch;
 }
 
-describe('shareService.uploadPet', () => {
+/** The eight attribute columns of the default fixture pet (all 50, temperament 0). */
+const FIXTURE_ATTRS = {
+  intelligence: 50,
+  toughness: 50,
+  friendliness: 50,
+  ruggedness: 50,
+  enthusiasm: 50,
+  virility: 50,
+  ferocity: 50,
+  temperament: 0,
+};
+
+/** Catalogue metadata that matches `makePet()` field-for-field (an idempotent re-share). */
+function matchingMeta(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    name: 'Buzz',
+    character: 'PlayerOne',
+    species: 'BeeWasp',
+    gender: Gender.FEMALE,
+    breed: '',
+    breeder: 'PlayerOne',
+    notes: '',
+    tags: ['fast', 'fierce'],
+    attributes: { ...FIXTURE_ATTRS },
+    schemaVersion: 1,
+    appVersion: '0.6.3',
+    uploadedAt: Timestamp.fromDate(new Date('2026-05-10T12:00:00Z')),
+    uploaderUid: null,
+    ...overrides,
+  };
+}
+
+/** A read snapshot double. `getDoc` reads: base then genome, in that call order. */
+function readSnap(data: unknown, { exists = true, id }: { exists?: boolean; id?: string } = {}) {
+  return { exists: () => exists, id, data: () => data } as never;
+}
+
+describe('shareService.uploadPet — first share', () => {
   it('writes metadata + raw genome text in a single batch with no contentHash field in metadata', async () => {
     const result = await uploadPet(makePet());
 
     expect(result.status).toBe('created');
     expect(writeBatch).toHaveBeenCalledTimes(1);
+    expect(setDoc).not.toHaveBeenCalled();
     const batch = lastBatch();
     expect(batch).toHaveLength(2);
 
@@ -134,6 +178,7 @@ describe('shareService.uploadPet', () => {
     expect(Object.keys(meta.payload).sort()).toEqual(
       [
         'appVersion',
+        'attributes',
         'breed',
         'breeder',
         'character',
@@ -152,6 +197,8 @@ describe('shareService.uploadPet', () => {
     expect(meta.payload).not.toHaveProperty('genomeData');
     expect(meta.payload.uploaderUid).toBeNull();
     expect(meta.payload.uploadedAt).toBe('__SENTINEL_SERVER_TIMESTAMP__');
+    // Attributes are published as a nested, clamped 0–100 int map.
+    expect(meta.payload.attributes).toEqual(FIXTURE_ATTRS);
 
     // Genome doc gets the raw genome_text, NOT the JSON-stringified
     // genome_data. content_hash is sha256(raw text).
@@ -164,75 +211,7 @@ describe('shareService.uploadPet', () => {
     expect(writeBatch).not.toHaveBeenCalled();
   });
 
-  it('returns already-shared when both metadata and genome docs exist and the on-wire genome hashes correctly', async () => {
-    const batch = createBatch();
-    writeBatchMock.mockReturnValueOnce(batch as unknown as ReturnType<typeof writeBatch>);
-    batch.commit.mockRejectedValueOnce(Object.assign(new Error('PERMISSION_DENIED'), { code: 'permission-denied' }));
-    // Recheck reads BOTH halves in parallel — must mock both, AND the
-    // genome doc must carry `genomeData` that hashes to the
-    // content_hash so the new integrity-recheck path passes.
-    getDocMock.mockResolvedValueOnce({ exists: () => true, data: () => ({}) } as never); // meta
-    getDocMock.mockResolvedValueOnce({ exists: () => true, data: () => ({ genomeData: RAW_TEXT }) } as never);
-
-    const result = await uploadPet(makePet());
-    expect(result.status).toBe('already-shared');
-    expect(result.contentHash).toBe(RAW_TEXT_HASH);
-  });
-
-  it('rejects on duplicate recheck when the catalogue genome doc is missing its genomeData field', async () => {
-    // A doc that exists but doesn't carry a `genomeData` string is
-    // structurally invalid (rules require it on create, but admin /
-    // schema-migrating writes can bypass that). Surface explicitly
-    // rather than masking as already-shared.
-    const batch = createBatch();
-    writeBatchMock.mockReturnValueOnce(batch as unknown as ReturnType<typeof writeBatch>);
-    batch.commit.mockRejectedValueOnce(Object.assign(new Error('PERMISSION_DENIED'), { code: 'permission-denied' }));
-    getDocMock.mockResolvedValueOnce({ exists: () => true, data: () => ({}) } as never);
-    getDocMock.mockResolvedValueOnce({ exists: () => true, data: () => ({}) } as never); // no genomeData
-    await expect(uploadPet(makePet())).rejects.toThrow(/missing a genomeData field/);
-  });
-
-  it('rejects on duplicate recheck when the on-wire genome does not hash to the content_hash', async () => {
-    // Detects a corrupt / squatted catalogue entry: the genome blob
-    // on the wire doesn't match the doc ID hash, so every importer's
-    // `verifySharedPet` would reject the row. Block the legitimate
-    // uploader from getting a misleading already-shared response.
-    const batch = createBatch();
-    writeBatchMock.mockReturnValueOnce(batch as unknown as ReturnType<typeof writeBatch>);
-    batch.commit.mockRejectedValueOnce(Object.assign(new Error('PERMISSION_DENIED'), { code: 'permission-denied' }));
-    getDocMock.mockResolvedValueOnce({ exists: () => true, data: () => ({}) } as never);
-    getDocMock.mockResolvedValueOnce({
-      exists: () => true,
-      data: () => ({ genomeData: 'TAMPERED — not the raw text whose sha256 matches content_hash' }),
-    } as never);
-    await expect(uploadPet(makePet())).rejects.toThrow(/corrupt/);
-  });
-
-  it('re-throws the permission-denied when neither half exists (rules misconfig, not a duplicate)', async () => {
-    const batch = createBatch();
-    writeBatchMock.mockReturnValueOnce(batch as unknown as ReturnType<typeof writeBatch>);
-    batch.commit.mockRejectedValueOnce(Object.assign(new Error('PERMISSION_DENIED'), { code: 'permission-denied' }));
-    getDocMock.mockResolvedValueOnce({ exists: () => false } as never);
-    getDocMock.mockResolvedValueOnce({ exists: () => false } as never);
-    await expect(uploadPet(makePet())).rejects.toThrow(/PERMISSION_DENIED/);
-  });
-
-  it('rejects half-published state when /pets exists but /genomes does not', async () => {
-    // Catching this here keeps a catalogue row from appearing in
-    // listPets that no importer can ever load (the genome doc is
-    // missing). Surfacing as an error gives the user actionable
-    // signal and lets ops repair before more entries pile up.
-    const batch = createBatch();
-    writeBatchMock.mockReturnValueOnce(batch as unknown as ReturnType<typeof writeBatch>);
-    batch.commit.mockRejectedValueOnce(Object.assign(new Error('PERMISSION_DENIED'), { code: 'permission-denied' }));
-    getDocMock.mockResolvedValueOnce({ exists: () => true } as never); // meta
-    getDocMock.mockResolvedValueOnce({ exists: () => false } as never); // genome missing
-    await expect(uploadPet(makePet())).rejects.toThrow(/half-published/);
-  });
-
   it('rejects local rows whose stored content_hash does not match sha256(genome_text)', async () => {
-    // Defends against stale/restored/corrupt rows publishing a row
-    // that would fail every importer's `verifySharedPet`.
     const broken = makePet({ content_hash: 'f'.repeat(64) });
     await expect(uploadPet(broken)).rejects.toThrow(/local row is corrupt/);
     expect(writeBatch).not.toHaveBeenCalled();
@@ -241,6 +220,246 @@ describe('shareService.uploadPet', () => {
   it('rejects when content_hash is missing', async () => {
     await expect(uploadPet(makePet({ content_hash: '' }))).rejects.toThrow(/content_hash/);
     expect(writeBatch).not.toHaveBeenCalled();
+  });
+});
+
+describe('shareService.uploadPet — concurrent first-share race (batch permission-denied → recheck)', () => {
+  // The upfront reads see nothing published, so uploadPet takes the
+  // first-share batch path. A racer creates the docs before commit, so
+  // commit trips permission-denied and the recheck runs. getDoc call order
+  // per attempt: [upfront base, upfront genome, recheck meta, recheck genome].
+  function racingBatch() {
+    const batch = createBatch();
+    writeBatchMock.mockReturnValueOnce(batch as unknown as ReturnType<typeof writeBatch>);
+    batch.commit.mockRejectedValueOnce(Object.assign(new Error('PERMISSION_DENIED'), { code: 'permission-denied' }));
+  }
+
+  it('returns already-shared when the recheck finds both halves and the genome hashes correctly', async () => {
+    racingBatch();
+    getDocMock
+      .mockResolvedValueOnce(readSnap(null, { exists: false })) // upfront base
+      .mockResolvedValueOnce(readSnap(null, { exists: false })) // upfront genome
+      .mockResolvedValueOnce(readSnap({})) // recheck meta
+      .mockResolvedValueOnce(readSnap({ genomeData: RAW_TEXT })); // recheck genome
+
+    const result = await uploadPet(makePet());
+    expect(result.status).toBe('already-shared');
+    expect(result.contentHash).toBe(RAW_TEXT_HASH);
+  });
+
+  it('rejects when the raced-in genome doc is missing its genomeData field', async () => {
+    racingBatch();
+    getDocMock
+      .mockResolvedValueOnce(readSnap(null, { exists: false }))
+      .mockResolvedValueOnce(readSnap(null, { exists: false }))
+      .mockResolvedValueOnce(readSnap({}))
+      .mockResolvedValueOnce(readSnap({})); // exists but no genomeData
+    await expect(uploadPet(makePet())).rejects.toThrow(/missing a genomeData field/);
+  });
+
+  it('rejects when the raced-in genome does not hash to the content_hash', async () => {
+    racingBatch();
+    getDocMock
+      .mockResolvedValueOnce(readSnap(null, { exists: false }))
+      .mockResolvedValueOnce(readSnap(null, { exists: false }))
+      .mockResolvedValueOnce(readSnap({}))
+      .mockResolvedValueOnce(readSnap({ genomeData: 'TAMPERED — not the raw text whose sha256 matches content_hash' }));
+    await expect(uploadPet(makePet())).rejects.toThrow(/corrupt/);
+  });
+
+  it('re-throws permission-denied when neither half exists on recheck (rules misconfig, not a race)', async () => {
+    racingBatch();
+    getDocMock
+      .mockResolvedValueOnce(readSnap(null, { exists: false }))
+      .mockResolvedValueOnce(readSnap(null, { exists: false }))
+      .mockResolvedValueOnce(readSnap(null, { exists: false }))
+      .mockResolvedValueOnce(readSnap(null, { exists: false }));
+    await expect(uploadPet(makePet())).rejects.toThrow(/PERMISSION_DENIED/);
+  });
+
+  it('rejects half-published state when the recheck finds /pets but not /genomes', async () => {
+    racingBatch();
+    getDocMock
+      .mockResolvedValueOnce(readSnap(null, { exists: false }))
+      .mockResolvedValueOnce(readSnap(null, { exists: false }))
+      .mockResolvedValueOnce(readSnap({})) // meta exists
+      .mockResolvedValueOnce(readSnap(null, { exists: false })); // genome missing
+    await expect(uploadPet(makePet())).rejects.toThrow(/half-published/);
+  });
+});
+
+describe('shareService.uploadPet — add-only corrections', () => {
+  it('is an idempotent no-op when the latest entry already matches (no write)', async () => {
+    getDocMock
+      .mockResolvedValueOnce(readSnap(matchingMeta(), { id: RAW_TEXT_HASH })) // base exists, matches
+      .mockResolvedValueOnce(readSnap({ genomeData: RAW_TEXT })); // genome valid
+    // corrections query → default empty
+
+    const result = await uploadPet(makePet());
+    expect(result.status).toBe('already-shared');
+    expect(result.contentHash).toBe(RAW_TEXT_HASH);
+    expect(writeBatch).not.toHaveBeenCalled();
+    expect(setDoc).not.toHaveBeenCalled();
+  });
+
+  it('appends a correction doc (auto-ID, with contentHash back-reference) when attributes differ', async () => {
+    getDocMock
+      .mockResolvedValueOnce(
+        readSnap(matchingMeta({ attributes: { ...FIXTURE_ATTRS, intelligence: 99 } }), { id: RAW_TEXT_HASH }),
+      )
+      .mockResolvedValueOnce(readSnap({ genomeData: RAW_TEXT }));
+
+    const result = await uploadPet(makePet());
+    expect(result.status).toBe('created');
+    // Add-only: a NEW metadata doc is set; the genome blob is untouched.
+    expect(writeBatch).not.toHaveBeenCalled();
+    expect(setDoc).toHaveBeenCalledTimes(1);
+    const payload = setDocMock.mock.calls[0][1] as Record<string, unknown>;
+    expect(payload.contentHash).toBe(RAW_TEXT_HASH);
+    expect(payload.attributes).toEqual(FIXTURE_ATTRS);
+    expect(payload).not.toHaveProperty('genomeData');
+  });
+
+  it('appends a correction when only the tags differ', async () => {
+    getDocMock
+      .mockResolvedValueOnce(readSnap(matchingMeta({ tags: ['fast'] }), { id: RAW_TEXT_HASH }))
+      .mockResolvedValueOnce(readSnap({ genomeData: RAW_TEXT }));
+
+    const result = await uploadPet(makePet());
+    expect(result.status).toBe('created');
+    expect(setDoc).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not blank published notes when a bulk re-share (notes="") only differs in notes', async () => {
+    // The catalogue entry has notes the user published via per-pet share; a
+    // later bulk/auto share sends notes='' but is otherwise identical.
+    getDocMock
+      .mockResolvedValueOnce(readSnap(matchingMeta({ notes: 'hand-written' }), { id: RAW_TEXT_HASH }))
+      .mockResolvedValueOnce(readSnap({ genomeData: RAW_TEXT }));
+
+    const result = await uploadPet(makePet({ notes: '' }));
+    expect(result.status).toBe('already-shared');
+    expect(setDoc).not.toHaveBeenCalled();
+  });
+
+  it('preserves published notes in a correction appended for a non-notes change', async () => {
+    // Attributes differ (so a correction is warranted), but the bulk pet carries
+    // notes='' — the correction must carry the existing notes, not blank them.
+    getDocMock
+      .mockResolvedValueOnce(
+        readSnap(matchingMeta({ notes: 'hand-written', attributes: { ...FIXTURE_ATTRS, intelligence: 99 } }), {
+          id: RAW_TEXT_HASH,
+        }),
+      )
+      .mockResolvedValueOnce(readSnap({ genomeData: RAW_TEXT }));
+
+    const result = await uploadPet(makePet({ notes: '' }));
+    expect(result.status).toBe('created');
+    expect(setDoc).toHaveBeenCalledTimes(1);
+    const payload = setDocMock.mock.calls[0][1] as Record<string, unknown>;
+    expect(payload.notes).toBe('hand-written');
+  });
+
+  it('still publishes non-empty notes from a per-pet share as a correction', async () => {
+    getDocMock
+      .mockResolvedValueOnce(readSnap(matchingMeta({ notes: '' }), { id: RAW_TEXT_HASH }))
+      .mockResolvedValueOnce(readSnap({ genomeData: RAW_TEXT }));
+
+    const result = await uploadPet(makePet({ notes: 'freshly typed' }));
+    expect(result.status).toBe('created');
+    expect(setDoc).toHaveBeenCalledTimes(1);
+    const payload = setDocMock.mock.calls[0][1] as Record<string, unknown>;
+    expect(payload.notes).toBe('freshly typed');
+  });
+
+  it('pins the correction identity fields to the first-share doc, not the local pet (issue #393)', async () => {
+    // The catalogue entry's identity belongs to the first share — rules
+    // reject a correction whose identity differs. The local pet was
+    // renamed and re-bred; the appended correction must carry the BASE
+    // doc's identity so the write passes the rules, while still
+    // publishing the corrected attributes.
+    getDocMock
+      .mockResolvedValueOnce(
+        readSnap(
+          matchingMeta({
+            name: 'CatalogueName',
+            breed: 'CatalogueBreed',
+            attributes: { ...FIXTURE_ATTRS, intelligence: 99 },
+          }),
+          { id: RAW_TEXT_HASH },
+        ),
+      )
+      .mockResolvedValueOnce(readSnap({ genomeData: RAW_TEXT }));
+
+    const result = await uploadPet(makePet({ name: 'LocalRename', breed: 'LocalBreed' }));
+    expect(result.status).toBe('created');
+    expect(setDoc).toHaveBeenCalledTimes(1);
+    const payload = setDocMock.mock.calls[0][1] as Record<string, unknown>;
+    expect(payload.name).toBe('CatalogueName');
+    expect(payload.breed).toBe('CatalogueBreed');
+    expect(payload.character).toBe('PlayerOne');
+    expect(payload.species).toBe('BeeWasp');
+    expect(payload.gender).toBe(Gender.FEMALE);
+    expect(payload.breeder).toBe('PlayerOne');
+    // The correction-eligible payload still comes from the local pet.
+    expect(payload.attributes).toEqual(FIXTURE_ATTRS);
+    expect(payload.contentHash).toBe(RAW_TEXT_HASH);
+  });
+
+  it('treats a rename-only local change as already-shared (identity is not correction-eligible)', async () => {
+    // Identity fields can't be published via a correction, so a local
+    // rename with identical notes/tags/attributes must be an idempotent
+    // no-op — NOT an appended no-op correction on every re-share.
+    getDocMock
+      .mockResolvedValueOnce(readSnap(matchingMeta(), { id: RAW_TEXT_HASH }))
+      .mockResolvedValueOnce(readSnap({ genomeData: RAW_TEXT }));
+
+    const result = await uploadPet(makePet({ name: 'RenamedLocally' }));
+    expect(result.status).toBe('already-shared');
+    expect(setDoc).not.toHaveBeenCalled();
+    expect(writeBatch).not.toHaveBeenCalled();
+  });
+
+  it('resolves the latest entry across base + corrections before deciding', async () => {
+    // Base (older) differs, but a correction (newer) already matches → no-op.
+    getDocMock
+      .mockResolvedValueOnce(
+        readSnap(matchingMeta({ tags: ['stale'], uploadedAt: Timestamp.fromDate(new Date('2026-05-01T00:00:00Z')) }), {
+          id: RAW_TEXT_HASH,
+        }),
+      )
+      .mockResolvedValueOnce(readSnap({ genomeData: RAW_TEXT }));
+    getDocsMock.mockResolvedValueOnce({
+      docs: [
+        readSnap(
+          matchingMeta({
+            contentHash: RAW_TEXT_HASH,
+            uploadedAt: Timestamp.fromDate(new Date('2026-06-01T00:00:00Z')),
+          }),
+          { id: 'auto-123' },
+        ),
+      ],
+    } as never);
+
+    const result = await uploadPet(makePet());
+    expect(result.status).toBe('already-shared');
+    expect(setDoc).not.toHaveBeenCalled();
+  });
+
+  it('rejects a half-published entry (base exists, genome missing) rather than piling on a correction', async () => {
+    getDocMock
+      .mockResolvedValueOnce(readSnap(matchingMeta(), { id: RAW_TEXT_HASH }))
+      .mockResolvedValueOnce(readSnap(null, { exists: false })); // genome missing
+    await expect(uploadPet(makePet())).rejects.toThrow(/half-published/);
+    expect(setDoc).not.toHaveBeenCalled();
+  });
+
+  it('rejects when the existing genome blob is corrupt (does not hash to its ID)', async () => {
+    getDocMock
+      .mockResolvedValueOnce(readSnap(matchingMeta(), { id: RAW_TEXT_HASH }))
+      .mockResolvedValueOnce(readSnap({ genomeData: 'TAMPERED' }));
+    await expect(uploadPet(makePet())).rejects.toThrow(/corrupt/);
+    expect(setDoc).not.toHaveBeenCalled();
   });
 });
 
@@ -276,6 +495,21 @@ describe('shareService.listPets', () => {
     expect(pets[0].name).toBe('Buzz');
     // Cursor is the underlying snapshot — opaque to callers.
     expect(cursor).toBe(lastSnap);
+  });
+
+  it('flags correction docs with isCorrection so read-side merges can find the base entry', async () => {
+    getDocsMock.mockResolvedValueOnce({
+      docs: [
+        readSnap(matchingMeta({ contentHash: RAW_TEXT_HASH }), { id: 'auto-1' }),
+        readSnap(matchingMeta(), { id: RAW_TEXT_HASH }),
+      ],
+    } as never);
+
+    const { pets } = await listPets();
+    expect(pets[0].isCorrection).toBe(true);
+    expect(pets[0].contentHash).toBe(RAW_TEXT_HASH);
+    expect(pets[1].isCorrection).toBe(false);
+    expect(pets[1].contentHash).toBe(RAW_TEXT_HASH);
   });
 
   it('returns a null cursor when the page is empty', async () => {
@@ -363,6 +597,109 @@ describe('shareService.getSharedPet', () => {
       .mockResolvedValueOnce({ exists: () => false } as never);
     const pet = await getSharedPet(RAW_TEXT_HASH);
     expect(pet?.genomeData).toBeUndefined();
+  });
+
+  it('resolves the latest correction over the base entry (latest-wins), identity from the base', async () => {
+    // Base entry (older) + a correction doc (newer, carries the hash as a
+    // field). getSharedPet must return the newest correction-eligible
+    // fields (attributes/tags/notes) — but the identity fields stay the
+    // base entry's (issue #393).
+    getDocMock
+      .mockResolvedValueOnce(
+        readSnap(matchingMeta({ name: 'OldName', uploadedAt: Timestamp.fromDate(new Date('2026-05-01T00:00:00Z')) }), {
+          id: RAW_TEXT_HASH,
+        }),
+      )
+      .mockResolvedValueOnce(readSnap({ genomeData: 'GENOME-BODY' }));
+    getDocsMock.mockResolvedValueOnce({
+      docs: [
+        readSnap(
+          matchingMeta({
+            contentHash: RAW_TEXT_HASH,
+            notes: 'corrected notes',
+            attributes: { ...FIXTURE_ATTRS, intelligence: 90 },
+            uploadedAt: Timestamp.fromDate(new Date('2026-06-01T00:00:00Z')),
+          }),
+          { id: 'auto-9' },
+        ),
+      ],
+    } as never);
+
+    const pet = await getSharedPet(RAW_TEXT_HASH);
+    expect(pet?.name).toBe('OldName');
+    expect(pet?.contentHash).toBe(RAW_TEXT_HASH);
+    expect(pet?.notes).toBe('corrected notes');
+    expect(pet?.attributes).toEqual({ ...FIXTURE_ATTRS, intelligence: 90 });
+    expect(pet?.genomeData).toBe('GENOME-BODY');
+  });
+
+  it('ignores identity fields on a hostile correction (defacement attempt, issue #393)', async () => {
+    // A pre-rule "correction" that tries to rewrite someone else's entry:
+    // new name/character/species/gender/breed/breeder. The read must pin
+    // every identity field to the first-share doc and honour only the
+    // correction-eligible attributes/tags/notes.
+    getDocMock
+      .mockResolvedValueOnce(
+        readSnap(matchingMeta({ uploadedAt: Timestamp.fromDate(new Date('2026-05-01T00:00:00Z')) }), {
+          id: RAW_TEXT_HASH,
+        }),
+      )
+      .mockResolvedValueOnce(readSnap({ genomeData: 'GENOME-BODY' }));
+    getDocsMock.mockResolvedValueOnce({
+      docs: [
+        readSnap(
+          matchingMeta({
+            contentHash: RAW_TEXT_HASH,
+            name: 'HACKED',
+            character: 'Mallory',
+            species: 'Horse',
+            gender: Gender.MALE,
+            breed: 'FakeBreed',
+            breeder: 'Mallory',
+            notes: 'rude notes',
+            tags: ['defaced'],
+            attributes: { ...FIXTURE_ATTRS, ferocity: 100 },
+            uploadedAt: Timestamp.fromDate(new Date('2026-06-01T00:00:00Z')),
+          }),
+          { id: 'auto-evil' },
+        ),
+      ],
+    } as never);
+
+    const pet = await getSharedPet(RAW_TEXT_HASH);
+    // Identity: first-share values, not the hostile correction's.
+    expect(pet?.name).toBe('Buzz');
+    expect(pet?.character).toBe('PlayerOne');
+    expect(pet?.species).toBe('BeeWasp');
+    expect(pet?.gender).toBe(Gender.FEMALE);
+    expect(pet?.breed).toBe('');
+    expect(pet?.breeder).toBe('PlayerOne');
+    // Correction-eligible fields still resolve latest-wins.
+    expect(pet?.notes).toBe('rude notes');
+    expect(pet?.tags).toEqual(['defaced']);
+    expect(pet?.attributes).toEqual({ ...FIXTURE_ATTRS, ferocity: 100 });
+  });
+
+  it('reads a complete attribute map into SharedPet.attributes, undefined when incomplete', async () => {
+    getDocMock
+      .mockResolvedValueOnce(readSnap(matchingMeta({ attributes: { intelligence: 10 } }), { id: RAW_TEXT_HASH }))
+      .mockResolvedValueOnce(readSnap({ genomeData: 'X' }));
+    // Partial attribute maps are treated as absent so the importer falls back
+    // to genome-derived values.
+    const pet = await getSharedPet(RAW_TEXT_HASH);
+    expect(pet?.attributes).toBeUndefined();
+  });
+
+  it.each([
+    ['a non-integer (float) attribute', { ...FIXTURE_ATTRS, intelligence: 50.5 }],
+    ['an out-of-range attribute (>100)', { ...FIXTURE_ATTRS, toughness: 101 }],
+    ['a negative attribute', { ...FIXTURE_ATTRS, ferocity: -1 }],
+  ])('treats %s as absent (tampered/pre-rule doc) so import falls back to genome-derived values', async (_label, attributes) => {
+    getDocMock
+      .mockResolvedValueOnce(readSnap(matchingMeta({ attributes }), { id: RAW_TEXT_HASH }))
+      .mockResolvedValueOnce(readSnap({ genomeData: 'X' }));
+    const pet = await getSharedPet(RAW_TEXT_HASH);
+    expect(pet?.attributes).toBeUndefined();
   });
 });
 
@@ -624,6 +961,53 @@ describe('shareService.importCommunityPet', () => {
       breed: 'Kurbone',
       gender: Gender.MALE,
     });
+  });
+
+  it('applies corrected attributes from the shared entry after a fresh import', async () => {
+    // petService re-derives attributes from the genome/name (all-50 defaults
+    // for an unstructured name). When the catalogue entry carries corrected
+    // attributes, those must supersede the re-derived ones.
+    const shared = await makeShared('ATTR');
+    shared.attributes = {
+      intelligence: 88,
+      toughness: 12,
+      friendliness: 50,
+      ruggedness: 50,
+      enthusiasm: 50,
+      virility: 50,
+      ferocity: 73,
+      temperament: 0,
+    };
+    uploadPetLocallyMock.mockResolvedValueOnce({
+      status: 'success',
+      kind: 'created',
+      message: '',
+      pet_id: 61,
+      name: shared.name,
+    });
+    updatePetMock.mockResolvedValue(true);
+
+    await importCommunityPet(shared);
+
+    expect(updatePet).toHaveBeenCalledWith(61, expect.objectContaining({ attributes: shared.attributes }));
+  });
+
+  it('does not touch attributes when the shared entry is legacy (no attributes)', async () => {
+    const shared = await makeShared('LEGACY');
+    shared.name = 'Renamed';
+    // attributes intentionally left undefined (pre-attribute catalogue entry)
+    uploadPetLocallyMock.mockResolvedValueOnce({
+      status: 'success',
+      kind: 'created',
+      message: '',
+      pet_id: 62,
+      name: shared.name,
+    });
+    updatePetMock.mockResolvedValue(true);
+
+    await importCommunityPet(shared);
+
+    expect(updatePet).not.toHaveBeenCalledWith(62, expect.objectContaining({ attributes: expect.anything() }));
   });
 
   it('does NOT override metadata on a backfilled import (preserves user edits)', async () => {
@@ -889,5 +1273,87 @@ describe('shareService.uploadPets', () => {
 
     expect(summary.items).toHaveLength(2);
     expect(upload).toHaveBeenCalledTimes(2);
+  });
+
+  // Quota / throttle behaviour. `sleep` is injected so these are instant and
+  // can assert the exact delays the throttle/backoff would have waited.
+  const quotaError = () => Object.assign(new Error('quota exceeded'), { code: 'resource-exhausted' });
+
+  it('throttles between network writes but never after the last pet', async () => {
+    const pets = [pet(1), pet(2), pet(3)];
+    const sleeps: number[] = [];
+    const sleep = vi.fn(async (ms: number) => {
+      sleeps.push(ms);
+    });
+
+    await uploadPets(pets, { upload: fakeUpload({}), loadGenomeText: vi.fn(), interRequestDelayMs: 50, sleep });
+
+    expect(sleeps).toEqual([50, 50]); // after pets 1 and 2, not 3
+  });
+
+  it('does not throttle after a skipped pet (no network write)', async () => {
+    const pets = [pet(1, { genome_text: undefined }), pet(2)];
+    const sleep = vi.fn(async () => {});
+    // pet 1 has no genome text → skipped → no throttle; pet 2 is last → no throttle.
+    await uploadPets(pets, {
+      upload: fakeUpload({}),
+      loadGenomeText: vi.fn().mockResolvedValue(''),
+      interRequestDelayMs: 50,
+      sleep,
+    });
+    expect(sleep).not.toHaveBeenCalled();
+  });
+
+  it('retries a quota error with exponential backoff, then succeeds', async () => {
+    const sleeps: number[] = [];
+    const sleep = vi.fn(async (ms: number) => {
+      sleeps.push(ms);
+    });
+    const upload = vi
+      .fn<(p: Pet) => Promise<UploadResult>>()
+      .mockRejectedValueOnce(quotaError())
+      .mockRejectedValueOnce(quotaError())
+      .mockResolvedValueOnce({ status: 'created', contentHash: 'h1' });
+
+    const summary = await uploadPets([pet(1)], {
+      upload,
+      loadGenomeText: vi.fn(),
+      maxQuotaRetries: 5,
+      quotaBackoffBaseMs: 1000,
+      sleep,
+    });
+
+    expect(upload).toHaveBeenCalledTimes(3);
+    expect(sleeps).toEqual([1000, 2000]); // 1000 * 2**0, 1000 * 2**1
+    expect(summary.created).toBe(1);
+    expect(summary.failed).toBe(0);
+  });
+
+  it('gives up after maxQuotaRetries and marks the pet failed', async () => {
+    const sleep = vi.fn(async () => {});
+    const upload = vi.fn<(p: Pet) => Promise<UploadResult>>().mockRejectedValue(quotaError());
+
+    const summary = await uploadPets([pet(1)], {
+      upload,
+      loadGenomeText: vi.fn(),
+      maxQuotaRetries: 2,
+      quotaBackoffBaseMs: 1000,
+      sleep,
+    });
+
+    expect(upload).toHaveBeenCalledTimes(3); // initial + 2 retries
+    expect(sleep).toHaveBeenCalledTimes(2);
+    expect(summary.failed).toBe(1);
+  });
+
+  it('does not retry a non-quota error', async () => {
+    const sleep = vi.fn(async () => {});
+    const upload = vi.fn<(p: Pet) => Promise<UploadResult>>().mockRejectedValue(new Error('corrupt row'));
+
+    const summary = await uploadPets([pet(1)], { upload, loadGenomeText: vi.fn(), maxQuotaRetries: 5, sleep });
+
+    expect(upload).toHaveBeenCalledTimes(1);
+    expect(sleep).not.toHaveBeenCalled();
+    expect(summary.failed).toBe(1);
   });
 });

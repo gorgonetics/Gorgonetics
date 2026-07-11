@@ -3,6 +3,8 @@ import { onDestroy } from 'svelte';
 import SharePetDialog from '$lib/components/community/SharePetDialog.svelte';
 import GeneStatsTable from '$lib/components/gene/GeneStatsTable.svelte';
 import GeneVisualizer from '$lib/components/gene/GeneVisualizer.svelte';
+import BreedSelector from '$lib/components/shared/BreedSelector.svelte';
+import PetActions from '$lib/components/shared/PetActions.svelte';
 import StatusBanner from '$lib/components/shared/StatusBanner.svelte';
 import { settings } from '$lib/stores/settings.js';
 import type { DialogResult, Pet } from '$lib/types/index.js';
@@ -77,8 +79,8 @@ function toggleAutoBreed(): void {
   }
 }
 
-function setBreedFilter(fullName: string): void {
-  breedFilter = breedFilter === fullName ? '' : fullName;
+function handleBreedChange(fullName: string): void {
+  breedFilter = fullName;
   if (geneVisualizerRef) {
     geneVisualizerRef.setBreedFilter(breedFilter);
   }
@@ -88,6 +90,8 @@ function setBreedFilter(fullName: string): void {
 let cleanupResize = $state<(() => void) | null>(null);
 
 function handleViewChange(view: string): void {
+  // Picking a grid view always brings the grid back if the gallery took over.
+  galleryOpen = false;
   currentView = view;
   if (geneVisualizerRef) {
     geneVisualizerRef.handleViewChange(view);
@@ -96,8 +100,18 @@ function handleViewChange(view: string): void {
 }
 
 function toggleStats(): void {
+  // The stats drawer belongs to the grid content: opening it brings the grid
+  // back if the gallery took over, so pressed state always matches the screen.
+  if (!statsOpen) galleryOpen = false;
   statsOpen = !statsOpen;
   if (statsOpen) refreshStats();
+}
+
+function toggleGallery(): void {
+  galleryOpen = !galleryOpen;
+  // The gallery hides the grid and its stats drawer; close Stats too so its
+  // pressed state never points at a hidden panel.
+  if (galleryOpen) statsOpen = false;
 }
 
 function refreshStats(): void {
@@ -146,7 +160,7 @@ onDestroy(() => {
 <div class="pet-visualization">
     <div class="detail-header">
         <div class="detail-header-info">
-            <h2 class="detail-title">{pet?.name || 'Pet'}</h2>
+            <!-- The pet name lives in the DetailOverlay title; only the meta line here. -->
             <div class="detail-meta">
                 <span>{pet?.species || 'Unknown'}</span>
                 {#if pet?.breed && pet.breed !== 'Mixed'}
@@ -168,46 +182,63 @@ onDestroy(() => {
         <div class="header-controls">
             {#if isHorse}
                 <div class="breed-filter">
-                    <span class="breed-label">Breed:</span>
                     {#if petHasKnownBreed}
-                        <button class="breed-btn auto-btn" class:active={autoBreed} onclick={toggleAutoBreed} title="Auto-select pet's breed">Auto</button>
-                        <span class="breed-divider"></span>
+                        <button
+                            type="button"
+                            class="auto-btn"
+                            class:active={autoBreed}
+                            aria-pressed={autoBreed}
+                            onclick={toggleAutoBreed}
+                            title="Auto-select pet's breed"
+                        >Auto</button>
                     {/if}
-                    <button class="breed-btn" class:active={!autoBreed && breedFilter === ''} disabled={autoBreed} onclick={() => setBreedFilter('')}>All</button>
-                    {#each Object.entries(HORSE_BREEDS) as [name, abbrev]}
-                        <button class="breed-btn" class:active={!autoBreed && breedFilter === name} disabled={autoBreed} onclick={() => setBreedFilter(name)} title={name}>{abbrev}</button>
-                    {/each}
+                    <BreedSelector
+                        value={breedFilter}
+                        breeds={HORSE_BREEDS}
+                        disabled={autoBreed && !!petHasKnownBreed}
+                        onChange={handleBreedChange}
+                    />
                 </div>
             {/if}
-            <div class="view-controls">
+            <div class="view-controls" role="group" aria-label="Grid view">
                 <button
                     class="view-btn"
-                    class:active={currentView === "attribute"}
+                    class:active={!galleryOpen && currentView === "attribute"}
                     onclick={() => handleViewChange("attribute")}
                 >
                     Attributes
                 </button>
                 <button
                     class="view-btn"
-                    class:active={currentView === "appearance"}
+                    class:active={!galleryOpen && currentView === "appearance"}
                     onclick={() => handleViewChange("appearance")}
                 >
                     Appearance
                 </button>
+            </div>
+            <div class="toggle-controls">
                 <button
-                    class="view-btn stats-btn"
+                    class="toggle-btn"
                     class:active={statsOpen}
+                    aria-pressed={statsOpen}
+                    data-testid="detail-stats-toggle"
+                    title="Toggle the stats side panel"
                     onclick={toggleStats}
                 >
                     Stats
                 </button>
                 <button
-                    class="view-btn"
+                    class="toggle-btn"
                     class:active={galleryOpen}
-                    onclick={() => { galleryOpen = !galleryOpen; }}
+                    aria-pressed={galleryOpen}
+                    data-testid="detail-gallery-toggle"
+                    title="Toggle the image gallery"
+                    onclick={toggleGallery}
                 >
                     Gallery
                 </button>
+            </div>
+            <div class="header-actions">
                 <button
                     class="view-btn share-btn"
                     data-testid="share-pet-btn"
@@ -216,6 +247,7 @@ onDestroy(() => {
                 >
                     Share
                 </button>
+                {#if pet}<PetActions {pet} variant="button" />{/if}
             </div>
         </div>
     </div>
@@ -289,23 +321,17 @@ onDestroy(() => {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 12px 20px;
+        gap: 12px;
+        flex-wrap: wrap;
+        padding: 8px 16px;
         border-bottom: 1px solid var(--border-primary);
         background: var(--bg-primary);
         flex-shrink: 0;
     }
 
-    .detail-title {
-        font-size: 18px;
-        font-weight: 700;
-        color: var(--text-primary);
-        margin: 0;
-    }
-
     .detail-meta {
         font-size: 12px;
         color: var(--text-tertiary);
-        margin-top: 2px;
     }
 
     .unknown-badge {
@@ -313,26 +339,24 @@ onDestroy(() => {
         font-weight: 600;
     }
 
+    /* Three control kinds, each its own cluster: exclusive views (segmented),
+       panel/content toggles (bordered, pressed state), actions (Share/Edit/
+       Delete). Wraps so everything stays reachable at narrow widths. */
     .header-controls {
         display: flex;
         align-items: center;
-        gap: 12px;
+        flex-wrap: wrap;
+        gap: 6px 12px;
     }
 
     .breed-filter {
         display: flex;
         align-items: center;
-        gap: 3px;
+        gap: 6px;
     }
 
-    .breed-label {
-        font-size: 11px;
-        font-weight: 600;
-        color: var(--text-tertiary);
-        margin-right: 4px;
-    }
-
-    .breed-btn {
+    /* Auto = follow the pet's breed; it owns the BreedSelector while active. */
+    .auto-btn {
         padding: 3px 8px;
         border: 1px solid var(--border-primary);
         border-radius: 4px;
@@ -344,38 +368,58 @@ onDestroy(() => {
         transition: all 0.15s;
     }
 
-    .breed-btn:hover {
+    .auto-btn:hover {
         border-color: var(--border-secondary);
         color: var(--text-secondary);
     }
 
-    .breed-btn.active {
+    .auto-btn.active {
+        background: var(--auto-active);
+        border-color: var(--auto-active);
+        color: var(--bg-primary);
+    }
+
+    .view-controls {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        background: var(--bg-tertiary);
+        border-radius: 6px;
+        padding: 3px;
+    }
+
+    .toggle-controls {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .toggle-btn {
+        padding: 4px 12px;
+        border: 1px solid var(--border-primary);
+        border-radius: 6px;
+        background: var(--bg-primary);
+        color: var(--text-tertiary);
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.15s ease;
+    }
+
+    .toggle-btn:hover {
+        border-color: var(--border-secondary);
+        color: var(--text-secondary);
+    }
+
+    .toggle-btn.active {
         background: var(--accent);
         border-color: var(--accent);
         color: var(--bg-primary);
     }
 
-    .breed-btn:disabled {
-        opacity: 0.4;
-        cursor: default;
-        pointer-events: none;
-    }
-
-    .auto-btn.active {
-        background: #22c55e;
-        border-color: #22c55e;
-        color: var(--bg-primary);
-    }
-
-    .breed-divider {
-        width: 1px;
-        height: 16px;
-        background: var(--border-secondary);
-        margin: 0 2px;
-    }
-
-    .view-controls {
+    .header-actions {
         display: flex;
+        align-items: center;
         gap: 4px;
         background: var(--bg-tertiary);
         border-radius: 6px;
@@ -401,7 +445,7 @@ onDestroy(() => {
     .view-btn.active {
         background: var(--bg-primary);
         color: var(--text-primary);
-        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+        box-shadow: var(--shadow-sm);
     }
 
     .content-area {

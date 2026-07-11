@@ -17,12 +17,18 @@ vi.mock('$lib/services/shareService.js', () => ({
   verifySharedPet: vi.fn(),
 }));
 
-vi.mock('$lib/stores/pets.js', () => ({
-  appState: {
-    loadPets: vi.fn().mockResolvedValue(undefined),
-    appendPet: vi.fn().mockResolvedValue(undefined),
-  },
-}));
+vi.mock('$lib/stores/pets.js', async () => {
+  const { writable } = await import('svelte/store');
+  return {
+    // The store subscribes to `activeTab` at module scope to clear the open
+    // preview on destination switch (#396) — provide a real writable.
+    activeTab: writable('community'),
+    appState: {
+      loadPets: vi.fn().mockResolvedValue(undefined),
+      appendPet: vi.fn().mockResolvedValue(undefined),
+    },
+  };
+});
 
 import {
   type ImportResult,
@@ -39,7 +45,7 @@ import {
   selectedSharedPet,
   selectPet,
 } from '$lib/stores/community.svelte.js';
-import { appState as appStateReal } from '$lib/stores/pets.js';
+import { activeTab, appState as appStateReal } from '$lib/stores/pets.js';
 import { Gender, type SharedPet } from '$lib/types/index.js';
 
 // These modules are `vi.mock`ed above, so the imported bindings are
@@ -78,6 +84,7 @@ afterEach(() => {
   // or in-flight generation counters.
   vi.resetAllMocks();
   _resetCommunityStoreState();
+  activeTab.set('community');
   communityView.pets = [];
   communityView.loading = false;
   communityView.loadingMore = false;
@@ -86,6 +93,7 @@ afterEach(() => {
   communityView.cursor = null;
   communityView.selectedHash = null;
   communityView.importingHash = null;
+  communityView.importedHashes = new Set();
 });
 
 describe('community.svelte.ts — loadInitial', () => {
@@ -242,6 +250,36 @@ describe('community.svelte.ts — importSelected', () => {
     await Promise.resolve();
     expect(appState.loadPets).not.toHaveBeenCalled();
     expect(appState.appendPet).not.toHaveBeenCalled();
+  });
+
+  it('marks the hash imported on success (#398 session latch, reassigned Set)', async () => {
+    const before = communityView.importedHashes;
+    importCommunityPet.mockResolvedValueOnce({
+      status: 'imported',
+      message: 'ok',
+      pet_id: 1,
+    } as unknown as ImportResult);
+    await importSelected(makeSharedPet('done', { genomeData: 'raw' }));
+    expect(communityView.importedHashes.has('done')).toBe(true);
+    // Reassigned, not mutated — $state doesn't proxy Set internals, so an
+    // in-place .add() would never re-render the Import button.
+    expect(communityView.importedHashes).not.toBe(before);
+  });
+
+  it('marks the hash imported on already-imported (the pet IS in the stable)', async () => {
+    importCommunityPet.mockResolvedValueOnce({ status: 'already-imported', message: 'linked', pet_id: 7 });
+    await importSelected(makeSharedPet('linked', { genomeData: 'raw' }));
+    expect(communityView.importedHashes.has('linked')).toBe(true);
+  });
+
+  it('does NOT mark the hash on an error result or a thrown import', async () => {
+    importCommunityPet.mockResolvedValueOnce({ status: 'error', message: 'boom' });
+    await importSelected(makeSharedPet('failed', { genomeData: 'raw' }));
+    expect(communityView.importedHashes.has('failed')).toBe(false);
+
+    importCommunityPet.mockRejectedValueOnce(new Error('thrown'));
+    await importSelected(makeSharedPet('thrown', { genomeData: 'raw' }));
+    expect(communityView.importedHashes.has('thrown')).toBe(false);
   });
 
   it('releases the importingHash slot after completion (success and failure both)', async () => {
@@ -405,5 +443,139 @@ describe('community.svelte.ts — selection helpers', () => {
     expect(communityView.selectedHash).toBe('xyz');
     clearSelection();
     expect(communityView.selectedHash).toBeNull();
+  });
+});
+
+describe('community.svelte.ts — add-only latest-per-hash dedup', () => {
+  it('keeps only the newest entry per content hash within a page (newest-first)', async () => {
+    // listPets pages newest-first, so a correction (newer) precedes the base
+    // it supersedes. Keep-first-seen therefore keeps the correction's
+    // correction-eligible fields — but its identity fields resolve from
+    // the base entry (issue #393), so the displayed name is the original.
+    const correction = makeSharedPet('dup', {
+      name: 'Corrected',
+      notes: 'corrected notes',
+      isCorrection: true,
+      uploadedAt: new Date('2026-06-01T00:00:00Z'),
+    });
+    const base = makeSharedPet('dup', { name: 'Original', uploadedAt: new Date('2026-05-01T00:00:00Z') });
+    listPets.mockResolvedValueOnce({ pets: [makeSharedPet('other'), correction, base], cursor: null });
+
+    await loadInitial();
+
+    expect(communityView.pets).toHaveLength(2);
+    const dup = communityView.pets.find((p) => p.contentHash === 'dup');
+    expect(dup?.name).toBe('Original');
+    expect(dup?.notes).toBe('corrected notes');
+    expect(dup?.uploadedAt).toEqual(new Date('2026-06-01T00:00:00Z'));
+  });
+
+  it('collapses a base/correction pair that straddles a page boundary', async () => {
+    // Correction lands on page 1 (newer), its base on page 2 (older). The
+    // accumulated list must not show both, and once the base is paged in
+    // its identity fields win over the correction's. Page 1 must be FULL
+    // (PAGE_SIZE = 50 rows) or `hasMore` flips false and loadMore never
+    // runs — an earlier revision of this test passed vacuously that way.
+    const correction = makeSharedPet('dup', {
+      name: 'Corrected',
+      tags: ['updated'],
+      isCorrection: true,
+      uploadedAt: new Date('2026-06-01T00:00:00Z'),
+    });
+    const base = makeSharedPet('dup', { name: 'Original', uploadedAt: new Date('2026-05-01T00:00:00Z') });
+    const filler = Array.from({ length: 49 }, (_, i) => makeSharedPet(`filler-${i}`));
+    listPets.mockResolvedValueOnce({ pets: [correction, ...filler], cursor: { __snap: 'c1' } });
+    await loadInitial();
+    listPets.mockResolvedValueOnce({ pets: [base], cursor: null });
+    await loadMore();
+
+    const dups = communityView.pets.filter((p) => p.contentHash === 'dup');
+    expect(dups).toHaveLength(1);
+    expect(dups[0].name).toBe('Original');
+    expect(dups[0].tags).toEqual(['updated']);
+  });
+
+  it('resolves identity from the base entry when a hostile correction rewrites name/species (issue #393)', async () => {
+    // Pre-rule poisoned data: a "correction" carrying a different
+    // name/species/breeder for someone else's pet. The merged row must
+    // pin every identity field to the first-share entry and honour only
+    // the correction-eligible attributes/tags/notes.
+    const hostile = makeSharedPet('dup', {
+      name: 'HACKED',
+      character: 'Mallory',
+      species: 'Horse',
+      gender: Gender.MALE,
+      breed: 'FakeBreed',
+      breeder: 'Mallory',
+      notes: 'rude notes',
+      tags: ['defaced'],
+      attributes: { intelligence: 1 },
+      isCorrection: true,
+      uploadedAt: new Date('2026-06-01T00:00:00Z'),
+    });
+    const base = makeSharedPet('dup', { name: 'Original', uploadedAt: new Date('2026-05-01T00:00:00Z') });
+    listPets.mockResolvedValueOnce({ pets: [hostile, base], cursor: null });
+
+    await loadInitial();
+
+    expect(communityView.pets).toHaveLength(1);
+    const merged = communityView.pets[0];
+    expect(merged.name).toBe('Original');
+    expect(merged.character).toBe('Player');
+    expect(merged.species).toBe('BeeWasp');
+    expect(merged.gender).toBe(Gender.FEMALE);
+    expect(merged.breed).toBe('');
+    expect(merged.breeder).toBe('Player');
+    // Correction-eligible fields still come from the latest entry.
+    expect(merged.notes).toBe('rude notes');
+    expect(merged.tags).toEqual(['defaced']);
+    expect(merged.attributes).toEqual({ intelligence: 1 });
+  });
+
+  it('does not merge identity across two corrections (base not yet paged in)', async () => {
+    // Without the base entry there is nothing authoritative to pin to —
+    // the newest correction is shown as-is (the detail view's
+    // getSharedPet always fetches the base doc and re-merges).
+    const newer = makeSharedPet('dup', {
+      name: 'Newer',
+      isCorrection: true,
+      uploadedAt: new Date('2026-06-02T00:00:00Z'),
+    });
+    const older = makeSharedPet('dup', {
+      name: 'Older',
+      isCorrection: true,
+      uploadedAt: new Date('2026-06-01T00:00:00Z'),
+    });
+    listPets.mockResolvedValueOnce({ pets: [newer, older], cursor: null });
+
+    await loadInitial();
+
+    expect(communityView.pets).toHaveLength(1);
+    expect(communityView.pets[0].name).toBe('Newer');
+  });
+});
+
+describe('community.svelte.ts — preview reset on destination switch (#396)', () => {
+  it('clears selectedHash when the user leaves the Community destination', () => {
+    selectPet('h1');
+    expect(communityView.selectedHash).toBe('h1');
+
+    activeTab.set('mypets');
+    expect(communityView.selectedHash).toBeNull();
+  });
+
+  it('keeps the selection while staying on Community', () => {
+    selectPet('h1');
+    activeTab.set('community');
+    expect(communityView.selectedHash).toBe('h1');
+  });
+
+  it('the preview reset does not evict the cached page', () => {
+    communityView.pets = [makeSharedPet('h1')];
+    selectPet('h1');
+
+    activeTab.set('breed');
+    expect(communityView.selectedHash).toBeNull();
+    expect(communityView.pets).toHaveLength(1);
   });
 });

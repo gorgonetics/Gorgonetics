@@ -85,3 +85,47 @@ describe('filterPets', () => {
     expect(pets).toEqual(input);
   });
 });
+
+describe('petMatchesFilters — Library criteria (species / breed / pet-quality)', () => {
+  it('matches normalized species; "" means all', () => {
+    expect(petMatchesFilters(pet({ species: 'Horse' }), { ...noFilters, species: 'horse' })).toBe(true);
+    expect(petMatchesFilters(pet({ species: 'BeeWasp' }), { ...noFilters, species: 'horse' })).toBe(false);
+    expect(petMatchesFilters(pet({ species: 'BeeWasp' }), { ...noFilters, species: '' })).toBe(true);
+  });
+
+  it('matches breed exactly; "" means all', () => {
+    expect(petMatchesFilters(pet({ breed: 'Standardbred' }), { ...noFilters, breed: 'Standardbred' })).toBe(true);
+    expect(petMatchesFilters(pet({ breed: 'Kurbone' }), { ...noFilters, breed: 'Standardbred' })).toBe(false);
+    expect(petMatchesFilters(pet({ breed: 'Kurbone' }), { ...noFilters, breed: '' })).toBe(true);
+  });
+
+  it('petQualityOnly requires is_pet_quality', () => {
+    expect(petMatchesFilters(pet({ is_pet_quality: true }), { ...noFilters, petQualityOnly: true })).toBe(true);
+    expect(petMatchesFilters(pet({ is_pet_quality: false }), { ...noFilters, petQualityOnly: true })).toBe(false);
+  });
+
+  it('matches gender exactly; "" means all', () => {
+    expect(petMatchesFilters(pet({ gender: 'Male' }), { ...noFilters, gender: 'Male' })).toBe(true);
+    expect(petMatchesFilters(pet({ gender: 'Female' }), { ...noFilters, gender: 'Male' })).toBe(false);
+    expect(petMatchesFilters(pet({ gender: 'Female' }), { ...noFilters, gender: '' })).toBe(true);
+  });
+
+  it('combines new criteria with the existing ones (AND)', () => {
+    const matching = pet({
+      name: 'Dusty',
+      species: 'Horse',
+      breed: 'Standardbred',
+      is_pet_quality: true,
+      stabled: true,
+    });
+    const wrongBreed = pet({ name: 'Pip', species: 'Horse', breed: 'Kurbone', is_pet_quality: true, stabled: true });
+    const result = filterPets([matching, wrongBreed], {
+      ...noFilters,
+      species: 'horse',
+      breed: 'Standardbred',
+      petQualityOnly: true,
+      stabledOnly: true,
+    });
+    expect(result.map((p) => p.name)).toEqual(['Dusty']);
+  });
+});

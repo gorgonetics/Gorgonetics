@@ -1,32 +1,53 @@
 <script lang="ts">
 import { onDestroy, onMount, untrack } from 'svelte';
+import '$lib/components/gene/geneCell.css';
+import GeneTooltip from '$lib/components/gene/GeneTooltip.svelte';
+import BreedSelector from '$lib/components/shared/BreedSelector.svelte';
+import DetailOverlay from '$lib/components/shared/DetailOverlay.svelte';
+import GeneFilterPills, { type FilterPillItem } from '$lib/components/shared/GeneFilterPills.svelte';
 import StatusPane from '$lib/components/shared/StatusPane.svelte';
 import { getAttributeConfig, normalizeSpecies } from '$lib/services/configService.js';
 import { getGeneEffectsCached } from '$lib/services/geneService.js';
 import { computeOffspringTrio } from '$lib/services/offspringTrioService.js';
-import { type AttributeInfo, HORSE_BREEDS, type OffspringTrioResult, type Pet } from '$lib/types/index.js';
-import { attributeFilterCSS } from '$lib/utils/filterCSS.js';
+import {
+  type AttributeInfo,
+  GeneType,
+  HORSE_BREEDS,
+  type OffspringTrioResult,
+  type Pet,
+  type TrioGainMode,
+} from '$lib/types/index.js';
+import { attributePotentialFilterCSS } from '$lib/utils/filterCSS.js';
 import { triStateToggle } from '$lib/utils/filterToggle.js';
+import { breedFor, effectFor, type GeneEffectData, isNoEffect } from '$lib/utils/geneAnalysis.js';
 import { buildAppearanceLookup, createGeneCellBuilder, type GeneCell } from '$lib/utils/geneGridCells.js';
+import { getSpeciesEmoji } from '$lib/utils/species.js';
 import { capitalize } from '$lib/utils/string.js';
-import { buildTrioGrid, type TrioGrid, type TrioLocusCell } from '$lib/utils/trioGrid.js';
+import { buildTrioGrid, outcomeBoxBackground, type TrioGrid, type TrioLocusCell } from '$lib/utils/trioGrid.js';
 
 interface Props {
   father: Pet;
   mother: Pet;
   offspringBreed?: string;
+  /** Back out of the trio lens (→ Pairs). */
+  onClose: () => void;
 }
 
-const { father, mother, offspringBreed = '' }: Props = $props();
+const { father, mother, offspringBreed = '', onClose }: Props = $props();
 
 const isHorse = $derived(normalizeSpecies(father.species) === 'horse');
-const horseBreeds = Object.entries(HORSE_BREEDS);
+const speciesLabel = $derived(normalizeSpecies(father.species));
 
 let loading = $state(false);
 let error = $state<string | null>(null);
 let grid = $state<TrioGrid | null>(null);
 let summary = $state<OffspringTrioResult['summary'] | null>(null);
 let attributeDisplayInfo = $state<AttributeInfo[]>([]);
+// Kept for the styled parent tooltip (the "if Dominant/Recessive" alternatives).
+let effectsDB = $state<Record<string, GeneEffectData>>({});
+const attributeItems = $derived<FilterPillItem[]>(
+  attributeDisplayInfo.map((a) => ({ key: a.key, name: a.name, icon: a.icon })),
+);
 
 // Breed re-runs the projection (the service drops loci locked to other breeds,
 // keeping the trio consistent with the breeding ranking). Attribute is a visual
@@ -35,9 +56,52 @@ let attributeDisplayInfo = $state<AttributeInfo[]>([]);
 let selectedBreed = $state(untrack(() => offspringBreed));
 let selectedAttributes = $state<string[]>([]);
 let hiddenAttributes = $state<string[]>([]);
+// "New gains only": hide locked loci — those where both parents share the same
+// homozygous allele (both dominant or both recessive), so every offspring is
+// fixed to that same genotype and nothing new can appear. This is broader than
+// a "locked-in gain" (it includes neutral loci with no attribute effect), which
+// is what the player means by "won't change in the offspring".
+let hideLocked = $state(false);
+// Which improvement the offspring boxes highlight as the vivid gain: expressing
+// a new positive attribute, or "Clarification" (clearing a mixed gene to
+// homozygous, so it breeds true). The other collapses into the muted keep shade.
+let gainMode = $state<TrioGainMode>('attributes');
 
-const ALLELE_LABEL: Record<string, string> = { D: 'Dominant', x: 'Mixed', R: 'Recessive', unknown: 'Unknown' };
-const VERDICT_LABEL: Record<string, string> = { gain: 'Gain', risk: 'Risk', neutral: '' };
+/** The gain bucket the current mode highlights. */
+function activeGain(cell: TrioLocusCell): number {
+  return gainMode === 'attributes' ? cell.buckets.newPositive : cell.buckets.clarifiedPositive;
+}
+
+/** Locked = both parents the same homozygous allele → offspring can't differ. */
+function isLocked(cell: TrioLocusCell): boolean {
+  const f = cell.fatherType;
+  return f !== null && f === cell.motherType && (f === GeneType.DOMINANT || f === GeneType.RECESSIVE);
+}
+
+const lockedCount = $derived.by(() => {
+  if (!grid) return 0;
+  let n = 0;
+  for (const row of grid.rows) for (const key in row.cells) if (isLocked(row.cells[key])) n++;
+  return n;
+});
+
+// Loci where the offspring could gain what the current mode highlights.
+const gainCount = $derived.by(() => {
+  if (!grid) return 0;
+  let n = 0;
+  for (const row of grid.rows) for (const key in row.cells) if (activeGain(row.cells[key]) > 0) n++;
+  return n;
+});
+
+// Loci where the offspring risks a loss (new negative, or losing a parent's positive).
+const lossCount = $derived.by(() => {
+  if (!grid) return 0;
+  let n = 0;
+  for (const row of grid.rows) for (const key in row.cells) if (row.cells[key].buckets.loss > 0) n++;
+  return n;
+});
+
+const ALLELE_LABEL: Record<string, string> = { D: 'Dominant', x: 'Mixed', R: 'Recessive', '?': 'Unknown' };
 
 $effect(() => {
   if (father?.id && mother?.id) {
@@ -60,8 +124,16 @@ onDestroy(() => {
 $effect(() => {
   if (!filterStyleEl) return;
   // `*` cell selector: the trio's three rows use different cell classes
-  // (`.gene-cell` parents, `.dist-bar` offspring); all carry `data-attr`.
-  filterStyleEl.textContent = attributeFilterCSS('.trio-grid-container', '*', selectedAttributes, hiddenAttributes);
+  // (`.gene-cell` parents, `.dist-bar` offspring); all carry `data-attrs`.
+  // Potential-attribute match keeps both parents + the offspring lit at every
+  // locus whose gene could affect the attribute, even where a parent's current
+  // allele is neutral.
+  filterStyleEl.textContent = attributePotentialFilterCSS(
+    '.trio-grid-container',
+    '*',
+    selectedAttributes,
+    hiddenAttributes,
+  );
 });
 
 function toggleAttributeFilter(attrKey: string, ctrlKey: boolean, altKey: boolean) {
@@ -88,7 +160,7 @@ async function load(f: Pet, m: Pet, breed: string) {
       getGeneEffectsCached(sp),
     ]);
 
-    const effectsDB = efData?.effects ?? {};
+    effectsDB = efData?.effects ?? {};
     const config = getAttributeConfig(sp);
     attributeDisplayInfo = config.attributes;
     const cellBuilder = createGeneCellBuilder({
@@ -109,73 +181,238 @@ async function load(f: Pet, m: Pet, breed: string) {
   }
 }
 
-/** Hover text for the offspring distribution cell. */
+const BUCKET_LABEL: { key: keyof TrioLocusCell['buckets']; label: string }[] = [
+  { key: 'newPositive', label: 'new positive' },
+  { key: 'clarifiedPositive', label: 'clarify a positive' },
+  { key: 'keepPositive', label: 'keep a positive' },
+  { key: 'neutral', label: 'neutral' },
+  { key: 'keepNegative', label: 'keep a negative' },
+  { key: 'loss', label: 'lose / worsen' },
+];
+
+/** Hover text for the offspring outcome cell — the Punnett breakdown vs parents. */
 function offspringTitle(cell: TrioLocusCell) {
   const parts = [`Gene ${cell.geneId}`];
   if (cell.attribute) parts.push(cell.attribute);
-  if (cell.verdict !== 'neutral') {
-    const via = cell.source === 'both' ? 'both parents' : cell.source ? `the ${cell.source}` : '';
-    const lock = cell.lockedIn ? ' (locked in)' : '';
-    parts.push(`${VERDICT_LABEL[cell.verdict]}${lock}${via ? ` via ${via}` : ''}`);
+  if (cell.buckets.unknown >= 1) {
+    parts.push('Unknown — not visible at your genetics skill');
+    return parts.join('\n');
   }
-  parts.push(`P(+) ${Math.round(cell.pPositive * 100)}%  P(−) ${Math.round(cell.pNegative * 100)}%`);
-  const dist = cell.segments.map((s) => `${ALLELE_LABEL[s.allele]} ${Math.round(s.pct)}%`).join(', ');
-  parts.push(dist);
+  const outcomes = BUCKET_LABEL.map(({ key, label }) => {
+    const pct = Math.round(cell.buckets[key] * 100);
+    return pct > 0 ? `${pct}% ${label}` : null;
+  }).filter(Boolean);
+  parts.push(`Of the offspring: ${outcomes.join(', ')}`);
+  parts.push(`♂ ${cell.fatherEffect || '—'} · ♀ ${cell.motherEffect || '—'}`);
+  // Surface silent carriers: a parent can carry the allele driving the gain/loss
+  // without expressing it (its effect line above reads neutral).
+  if (cell.source) {
+    parts.push(`Carried by ${cell.source === 'both' ? 'both parents' : `the ${cell.source}`}`);
+  }
   return parts.join('\n');
+}
+
+/** One-line aggregate label for the box (the per-quarter fills carry no text). */
+function offspringAria(cell: TrioLocusCell) {
+  return offspringTitle(cell).replace(/\n/g, '; ');
 }
 
 function parentTitle(cell: GeneCell | null, label: string) {
   if (!cell) return '';
   return `${label} · Gene ${cell.id} (${ALLELE_LABEL[cell.type] ?? cell.type})\n${cell.effect || 'No effect'}`;
 }
+
+// --- Styled tooltip (same GeneTooltip the compare/single-pet grids use) ---
+const BUCKET_TONE: Record<keyof TrioLocusCell['buckets'], string> = {
+  newPositive: '#34d399',
+  clarifiedPositive: '#34d399',
+  keepPositive: '#6ee7b7',
+  neutral: '#9ca3af',
+  keepNegative: '#fca5a5',
+  loss: '#f87171',
+  unknown: '#9ca3af',
+};
+
+let tooltipVisible = $state(false);
+let tooltipX = $state(0);
+let tooltipY = $state(0);
+let tooltipGeneId = $state('');
+let tooltipGeneType = $state('');
+let tooltipEffect = $state('');
+let tooltipSubtitle = $state('');
+let tooltipLabel = $state('Potential Effects');
+let tooltipPotentialEffects = $state<string[]>([]);
+
+function positionTooltip(e: MouseEvent) {
+  const offset = 12;
+  let x = e.clientX + offset;
+  let y = e.clientY - offset - 60;
+  if (x + 250 > window.innerWidth) x = e.clientX - 250 - offset;
+  if (y < 0) y = e.clientY + offset;
+  tooltipX = x;
+  tooltipY = y;
+}
+
+/** Parent cell: current allele + the "if Dominant/Recessive" alternatives. */
+function handleParentEnter(e: MouseEvent, parent: GeneCell | null) {
+  if (!parent) return;
+  const cellData = effectsDB[parent.id];
+  const potentialEffects: string[] = [];
+  const dominantEffect = effectFor(cellData, 'D');
+  const recessiveEffect = effectFor(cellData, 'R');
+  if (parent.type !== 'D' && !isNoEffect(dominantEffect)) {
+    const color = dominantEffect.includes('+') ? '#34d399' : dominantEffect.includes('-') ? '#f87171' : '#9ca3af';
+    potentialEffects.push(`If Dominant: <span style="color: ${color}">${dominantEffect}</span>`);
+  }
+  if (parent.type !== 'R' && !isNoEffect(recessiveEffect)) {
+    const color = recessiveEffect.includes('+') ? '#34d399' : recessiveEffect.includes('-') ? '#f87171' : '#9ca3af';
+    potentialEffects.push(`If Recessive: <span style="color: ${color}">${recessiveEffect}</span>`);
+  }
+  const breed = breedFor(cellData);
+  if (breed && isHorse) {
+    potentialEffects.push(`<span style="color: #9ca3af">⚬ ${breed} breed gene</span>`);
+  }
+  positionTooltip(e);
+  tooltipGeneId = parent.id;
+  tooltipGeneType = parent.type;
+  tooltipEffect = parent.effect || '';
+  tooltipSubtitle = '';
+  tooltipLabel = 'Potential Effects';
+  tooltipPotentialEffects = potentialEffects;
+  tooltipVisible = true;
+}
+
+/** Offspring cell: the Punnett outcome split vs the parents. */
+function handleOffspringEnter(e: MouseEvent, cell: TrioLocusCell) {
+  const lines: string[] = [];
+  if (cell.buckets.unknown >= 1) {
+    lines.push('<span style="color: #9ca3af">Not visible at your genetics skill</span>');
+  } else {
+    for (const { key, label } of BUCKET_LABEL) {
+      const pct = Math.round(cell.buckets[key] * 100);
+      if (pct > 0) lines.push(`<span style="color: ${BUCKET_TONE[key]}">${pct}% ${label}</span>`);
+    }
+    lines.push(`<span style="color: #9ca3af">♂ ${cell.fatherEffect || '—'} · ♀ ${cell.motherEffect || '—'}</span>`);
+    if (cell.source) {
+      lines.push(
+        `<span style="color: #9ca3af">Carried by ${cell.source === 'both' ? 'both parents' : `the ${cell.source}`}</span>`,
+      );
+    }
+  }
+  positionTooltip(e);
+  tooltipGeneId = cell.geneId;
+  tooltipGeneType = '';
+  tooltipEffect = '';
+  tooltipSubtitle = cell.attribute ?? '';
+  tooltipLabel = 'Offspring outcome';
+  tooltipPotentialEffects = lines;
+  tooltipVisible = true;
+}
+
+function handleCellLeave() {
+  tooltipVisible = false;
+}
 </script>
 
-<div class="genome-grid-trio">
+<DetailOverlay
+    testid="trio-view"
+    backTestid="trio-view-back"
+    backLabel="← Pairs"
+    ariaLabel="Offspring trio"
+    onBack={onClose}
+>
+    {#snippet title()}
+        <span class="parent-name father">♂ {father?.name}</span>
+        <span class="cross">×</span>
+        <span class="parent-name mother">♀ {mother?.name}</span>
+        {#if speciesLabel}
+            <span class="species-badge">{getSpeciesEmoji(father?.species)} {speciesLabel}</span>
+        {/if}
+    {/snippet}
+
+    <!-- Stat pills ride in the header bar alongside the parent names; the filter
+         row + legend sit below — two rows of chrome instead of three. -->
+    {#snippet headerActions()}
+        {#if grid && summary && grid.rows.length > 0}
+            <div class="trio-stats">
+                <span class="chip chip-gain" title="Loci where the offspring could {gainMode === 'attributes' ? 'express a positive attribute neither parent has' : 'clarify a mixed gene to homozygous (breeds true)'}.">{gainCount} {gainMode === 'attributes' ? 'gains' : 'clarifications'}</span>
+                <span class="chip chip-risk" title="Loci where the offspring risks a new negative, or losing a positive a parent has.">{lossCount} losses</span>
+                {#if lockedCount > 0}
+                    <button
+                        type="button"
+                        class="chip chip-lock toggle"
+                        class:active={hideLocked}
+                        aria-pressed={hideLocked}
+                        data-testid="trio-hide-locked"
+                        title="Locked: both parents share the same allele (both dominant or both recessive), so the offspring can't differ here. Toggle to hide these and show new gains only."
+                        onclick={() => { hideLocked = !hideLocked; }}
+                    >
+                        {lockedCount} locked{hideLocked ? ' · hidden' : ''}
+                    </button>
+                {/if}
+                {#if summary.unknownLoci > 0}
+                    <span class="chip chip-unknown">{summary.unknownLoci} unknown</span>
+                {/if}
+            </div>
+        {/if}
+    {/snippet}
+
+    <div class="trio-body">
     {#if !error}
         <div class="trio-filters">
             {#if isHorse}
                 <div class="breed-filter" data-testid="trio-breed-filter">
-                    <span class="breed-label">Breed:</span>
-                    <button
-                        type="button"
-                        class="breed-btn"
-                        class:active={selectedBreed === ''}
-                        onclick={() => { selectedBreed = ''; }}
-                    >All</button>
-                    {#each horseBreeds as [name, abbrev] (name)}
-                        <button
-                            type="button"
-                            class="breed-btn"
-                            class:active={selectedBreed === name}
-                            onclick={() => { selectedBreed = name; }}
-                            title={name}
-                        >{abbrev}</button>
-                    {/each}
+                    <BreedSelector
+                        value={selectedBreed}
+                        breeds={HORSE_BREEDS}
+                        label="Offspring breed"
+                        onChange={(v) => { selectedBreed = v; }}
+                    />
                 </div>
             {/if}
-            {#if attributeDisplayInfo.length > 0}
-                <div class="attribute-filter" data-testid="trio-attribute-filter">
-                    <span class="attr-filter-label">Attribute:</span>
+            {#if attributeItems.length > 0}
+                <GeneFilterPills
+                    label="Attribute"
+                    items={attributeItems}
+                    selected={selectedAttributes}
+                    hidden={hiddenAttributes}
+                    onToggle={toggleAttributeFilter}
+                    onReset={() => { selectedAttributes = []; hiddenAttributes = []; }}
+                    testid="trio-attribute-filter"
+                />
+            {/if}
+            {#if grid && summary && grid.rows.length > 0}
+                <div class="seg gain-mode" role="group" aria-label="Highlight which gain">
                     <button
                         type="button"
-                        class="attr-filter-btn"
-                        class:active={selectedAttributes.length === 0 && hiddenAttributes.length === 0}
-                        onclick={() => { selectedAttributes = []; hiddenAttributes = []; }}
-                    >All</button>
-                    {#each attributeDisplayInfo as attr (attr.key)}
-                        <button
-                            type="button"
-                            class="attr-filter-btn"
-                            class:active={selectedAttributes.includes(attr.key)}
-                            class:hidden-attr={hiddenAttributes.includes(attr.key)}
-                            onclick={(e) => toggleAttributeFilter(attr.key, e.ctrlKey || e.metaKey, e.altKey)}
-                            title={attr.name}
-                        >{attr.icon} {attr.name}</button>
-                    {/each}
+                        class="seg-btn"
+                        class:active={gainMode === 'attributes'}
+                        aria-pressed={gainMode === 'attributes'}
+                        data-testid="trio-gain-attributes"
+                        title="Highlight loci where the offspring can express a positive attribute neither parent has."
+                        onclick={() => { gainMode = 'attributes'; }}
+                    >New attributes</button>
+                    <button
+                        type="button"
+                        class="seg-btn"
+                        class:active={gainMode === 'clarification'}
+                        aria-pressed={gainMode === 'clarification'}
+                        data-testid="trio-gain-clarification"
+                        title="Highlight loci where the offspring can clear a mixed gene to homozygous, so it breeds true (Clarification)."
+                        onclick={() => { gainMode = 'clarification'; }}
+                    >Clarification</button>
                 </div>
-                <span class="filter-hint">Click to focus · Ctrl+click multi-select · Alt+click hide</span>
+                <span class="legend">
+                    <span class="legend-item"><span class="swatch swatch-gain"></span>{gainMode === 'attributes' ? 'new +' : 'clarify'}</span>
+                    <span class="legend-item"><span class="swatch swatch-keep"></span>keep</span>
+                    <span class="legend-item"><span class="swatch swatch-neutral"></span>neutral</span>
+                    <span class="legend-item"><span class="swatch swatch-loss"></span>loss</span>
+                </span>
             {/if}
         </div>
+        {#if attributeItems.length > 0}
+            <div class="grid-instructions">Click attribute to focus · Ctrl+click multi · Alt+click hide</div>
+        {/if}
     {/if}
 
     {#if loading}
@@ -183,20 +420,7 @@ function parentTitle(cell: GeneCell | null, label: string) {
     {:else if error}
         <StatusPane variant="error" icon="⚠️" body={error} />
     {:else if grid && summary && grid.rows.length > 0}
-        <div class="trio-summary">
-            <span class="chip chip-gain">{summary.gains} gains</span>
-            <span class="chip chip-risk">{summary.risks} risks</span>
-            <span class="chip chip-lock">{summary.lockedIn} locked in</span>
-            {#if summary.unknownLoci > 0}
-                <span class="chip chip-unknown">{summary.unknownLoci} unknown</span>
-            {/if}
-            <span class="legend">
-                <span class="legend-item"><span class="swatch swatch-gain"></span>gain</span>
-                <span class="legend-item"><span class="swatch swatch-risk"></span>risk</span>
-            </span>
-        </div>
-
-        <div class="grid-container trio-grid-container">
+        <div class="grid-container trio-grid-container" class:hide-locked={hideLocked}>
             <table class="trio-table">
                 <thead>
                     <tr>
@@ -219,7 +443,15 @@ function parentTitle(cell: GeneCell | null, label: string) {
                                     {@const cell = row.cells[`${block}${pos}`]}
                                     <td class="grid-cell {pos === 1 ? 'block-start' : ''}">
                                         {#if cell?.fatherCell}
-                                            <div class={cell.fatherCell.attributeCls} data-attr={cell.fatherCell.attribute} title={parentTitle(cell.fatherCell, 'Father')}>
+                                            <div
+                                                class={cell.fatherCell.attributeCls}
+                                                class:fixed={isLocked(cell)}
+                                                data-attrs={cell.attrs}
+                                                role="img"
+                                                aria-label={parentTitle(cell.fatherCell, 'Father')}
+                                                onmouseenter={(e) => handleParentEnter(e, cell.fatherCell)}
+                                                onmouseleave={handleCellLeave}
+                                            >
                                                 {#if cell.fatherCell.type === '?'}<span class="unknown-symbol">?</span>{/if}
                                             </div>
                                         {/if}
@@ -235,15 +467,16 @@ function parentTitle(cell: GeneCell | null, label: string) {
                                     <td class="grid-cell offspring-cell {pos === 1 ? 'block-start' : ''}">
                                         {#if cell}
                                             <div
-                                                class="dist-bar verdict-{cell.verdict}"
-                                                class:locked={cell.lockedIn}
-                                                data-attr={cell.attribute ?? ''}
-                                                title={offspringTitle(cell)}
-                                            >
-                                                {#each cell.segments as seg, i (i)}
-                                                    <span class="seg tone-{seg.tone}" style="flex: {seg.pct} 0 0"></span>
-                                                {/each}
-                                            </div>
+                                                class="outcome-box"
+                                                class:hatch={cell.buckets.unknown >= 1}
+                                                class:fixed={isLocked(cell)}
+                                                data-attrs={cell.attrs}
+                                                role="img"
+                                                aria-label={offspringAria(cell)}
+                                                onmouseenter={(e) => handleOffspringEnter(e, cell)}
+                                                onmouseleave={handleCellLeave}
+                                                style={cell.buckets.unknown >= 1 ? undefined : `background: ${outcomeBoxBackground(cell.buckets, gainMode)}`}
+                                            ></div>
                                         {/if}
                                     </td>
                                 {/each}
@@ -256,7 +489,15 @@ function parentTitle(cell: GeneCell | null, label: string) {
                                     {@const cell = row.cells[`${block}${pos}`]}
                                     <td class="grid-cell {pos === 1 ? 'block-start' : ''}">
                                         {#if cell?.motherCell}
-                                            <div class={cell.motherCell.attributeCls} data-attr={cell.motherCell.attribute} title={parentTitle(cell.motherCell, 'Mother')}>
+                                            <div
+                                                class={cell.motherCell.attributeCls}
+                                                class:fixed={isLocked(cell)}
+                                                data-attrs={cell.attrs}
+                                                role="img"
+                                                aria-label={parentTitle(cell.motherCell, 'Mother')}
+                                                onmouseenter={(e) => handleParentEnter(e, cell.motherCell)}
+                                                onmouseleave={handleCellLeave}
+                                            >
                                                 {#if cell.motherCell.type === '?'}<span class="unknown-symbol">?</span>{/if}
                                             </div>
                                         {/if}
@@ -273,64 +514,74 @@ function parentTitle(cell: GeneCell | null, label: string) {
     {:else}
         <p class="empty-text">No genome data available for this pair.</p>
     {/if}
-</div>
+    </div>
+    <GeneTooltip
+        visible={tooltipVisible}
+        x={tooltipX}
+        y={tooltipY}
+        geneId={tooltipGeneId}
+        geneType={tooltipGeneType}
+        effect={tooltipEffect}
+        subtitle={tooltipSubtitle}
+        effectsLabel={tooltipLabel}
+        potentialEffects={tooltipPotentialEffects}
+    />
+</DetailOverlay>
 
 <style>
-    .genome-grid-trio { width: 100%; }
-
-    .trio-filters {
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-        margin-bottom: 12px;
-    }
-    .breed-filter,
-    .attribute-filter {
-        display: flex;
-        align-items: center;
-        gap: 3px;
-        flex-wrap: wrap;
-        padding: 0 4px;
-    }
-    .breed-label,
-    .attr-filter-label {
-        font-size: 11px;
-        font-weight: 600;
-        color: var(--text-tertiary);
-        margin-right: 4px;
-    }
-    .breed-btn,
-    .attr-filter-btn {
-        padding: 3px 8px;
-        border: 1px solid var(--border-primary);
-        border-radius: 4px;
-        background: var(--bg-primary);
-        color: var(--text-tertiary);
-        font-size: 11px;
+    /* Title (header bar) — parent names + species badge, moved here now that
+       this component owns its DetailOverlay. */
+    .parent-name { font-weight: 700; }
+    .parent-name.father { color: var(--accent); }
+    .parent-name.mother { color: var(--pet-b); }
+    .cross { color: var(--text-muted); font-weight: 500; }
+    .species-badge {
+        font-size: 12px;
         font-weight: 500;
-        cursor: pointer;
-        transition: all 0.15s;
+        padding: 2px 8px;
+        background: var(--bg-tertiary);
+        border-radius: 10px;
+        color: var(--text-secondary);
         white-space: nowrap;
     }
-    .breed-btn:hover,
-    .attr-filter-btn:hover { border-color: var(--border-secondary); color: var(--text-secondary); }
-    .breed-btn.active,
-    .attr-filter-btn.active { background: var(--accent); border-color: var(--accent); color: white; }
-    .attr-filter-btn.hidden-attr {
-        background: var(--error-bg);
-        border-color: var(--error-border);
-        color: var(--error-text);
-        text-decoration: line-through;
-    }
-    .filter-hint { font-size: 11px; color: var(--text-tertiary); font-style: italic; padding: 0 4px; }
 
-    .trio-summary {
+    /* Stat pills that ride in the header bar (DetailOverlay's headerActions). No
+       band background — the header itself is the bar. */
+    .trio-stats { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+    /* Body fills the overlay; a flex column so the grid is the single scroll
+       region and the filter row stays pinned above it. */
+    .trio-body {
+        flex: 1;
+        min-height: 0;
         display: flex;
-        align-items: center;
-        gap: 8px;
-        margin-bottom: 10px;
-        flex-wrap: wrap;
+        flex-direction: column;
+        padding: 8px 14px;
+        /* Offspring-outcome palette, derived from the shared gene colours so the
+           trio stays coherent with the rest of the app. Vivid = a change vs the
+           parents (gain / loss); muted (mixed toward neutral) = a hold. */
+        --trio-gain: var(--gene-positive);
+        --trio-keep-pos: color-mix(in srgb, var(--gene-positive) 42%, var(--gene-neutral));
+        --trio-neutral: color-mix(in srgb, var(--gene-neutral) 60%, transparent);
+        --trio-keep-neg: color-mix(in srgb, var(--gene-negative) 42%, var(--gene-neutral));
+        --trio-loss: var(--gene-negative);
     }
+    /* Compact the shared segmented control to sit in the dense filter row. */
+    .gain-mode { font-size: 11px; }
+    /* Filter row: breed + attribute pills on the left, legend pushed right. */
+    .trio-filters {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px 14px;
+        margin-bottom: 6px;
+        flex-shrink: 0;
+    }
+    /* Attribute pills → GeneFilterPills; breed picker → shared BreedSelector. */
+    .breed-filter { display: flex; padding: 0 4px; }
+
+    /* Shared instruction line (identical to GenomeGridDiff's .grid-instructions). */
+    .grid-instructions { font-size: 10px; color: var(--text-muted); margin-bottom: 4px; font-style: italic; padding: 0 4px; }
     .chip {
         font-size: 12px;
         font-weight: 600;
@@ -339,15 +590,22 @@ function parentTitle(cell: GeneCell | null, label: string) {
         background: var(--bg-tertiary);
         color: var(--text-secondary);
     }
+    .chip.toggle { cursor: pointer; border: 1px solid transparent; }
+    .chip.toggle:hover { border-color: var(--border-secondary); }
+    .chip.toggle.active { border-color: var(--accent); color: var(--text-primary); background: color-mix(in srgb, var(--accent) 16%, transparent); }
     .chip-gain { background: color-mix(in srgb, var(--gene-positive) 18%, transparent); color: var(--gene-positive); }
     .chip-risk { background: color-mix(in srgb, var(--gene-negative) 18%, transparent); color: var(--gene-negative); }
     .legend { display: flex; gap: 10px; margin-left: auto; font-size: 11px; color: var(--text-tertiary); }
     .legend-item { display: inline-flex; align-items: center; gap: 4px; }
-    .swatch { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
-    .swatch-gain { border: 2px solid var(--gene-positive); }
-    .swatch-risk { border: 2px solid var(--gene-negative); }
+    .swatch { width: 11px; height: 11px; border-radius: 2px; display: inline-block; box-shadow: inset 0 0 0 1px rgba(127, 127, 127, 0.25); }
+    .swatch-gain { background: var(--trio-gain); }
+    .swatch-keep { background: var(--trio-keep-pos); }
+    .swatch-neutral { background: var(--trio-neutral); }
+    .swatch-loss { background: var(--trio-loss); }
 
     .grid-container {
+        flex: 1;
+        min-height: 0;
         overflow: auto;
         border: 1px solid var(--border-primary);
         border-radius: 6px;
@@ -370,7 +628,7 @@ function parentTitle(cell: GeneCell | null, label: string) {
     }
     .chr-header { position: sticky; left: 0; z-index: 11; width: 28px; min-width: 28px; font-weight: bold; }
     .role-header { position: sticky; left: 28px; z-index: 11; width: 72px; min-width: 72px; }
-    .pos-header { width: 22px; min-width: 22px; max-width: 22px; }
+    .pos-header { width: 18px; min-width: 18px; max-width: 18px; }
     .pos-header.block-start { font-weight: bold; padding-left: 8px; }
 
     .chr-label {
@@ -405,32 +663,33 @@ function parentTitle(cell: GeneCell | null, label: string) {
     .grid-cell { padding: 1px; text-align: center; vertical-align: middle; }
     .grid-cell.block-start { padding-left: 8px; }
 
-    /* Offspring row is taller and its cells host the distribution bar. */
-    .offspring-cell { height: 26px; }
-    .dist-bar {
-        display: flex;
-        width: 20px;
-        height: 20px;
+    /* Offspring row is taller and its cells host the outcome box. */
+    .offspring-cell { height: 22px; }
+    /* One box per locus: a hard-stop vertical gradient of the outcome buckets
+       (gain / keep / neutral / keep-negative / loss), quartered by the Punnett
+       odds. No verdict border — the fill carries direction, magnitude and the
+       gain/hold distinction on its own. */
+    .outcome-box {
+        width: 16px;
+        height: 16px;
         margin: 0 auto;
         border-radius: 3px;
         overflow: hidden;
-        border: 2px solid transparent;
         box-sizing: border-box;
+        box-shadow: inset 0 0 0 1px rgba(127, 127, 127, 0.22);
     }
-    .dist-bar.verdict-gain { border-color: var(--gene-positive); }
-    .dist-bar.verdict-risk { border-color: var(--gene-negative); }
-    .dist-bar.locked { box-shadow: inset 0 0 0 1px var(--bg-secondary); }
-    .seg { display: block; height: 100%; }
+    .outcome-box.hatch {
+        background: repeating-linear-gradient(45deg, color-mix(in srgb, var(--gene-neutral) 60%, transparent) 0 2px, transparent 2px 4px);
+    }
 
-    .tone-positive { background: var(--gene-positive); }
-    .tone-negative { background: var(--gene-negative); }
-    .tone-potential-positive { background: var(--gene-potential-positive); }
-    .tone-potential-negative { background: var(--gene-potential-negative); }
-    .tone-neutral { background: var(--gene-neutral); }
-    .tone-unknown {
-        background: repeating-linear-gradient(45deg, var(--gene-neutral) 0 2px, transparent 2px 4px);
-        opacity: 0.6;
-    }
+    /* Parent cells share the offspring bar's box size so the three rows line up
+       column-for-column, at the same 16px density as the compare view. */
+    .trio-table :global(.gene-cell) { width: 16px; height: 16px; }
+
+    /* "New gains only": fade locked loci out of ALL three rows (both parents and
+       the offspring) so the remaining gain-coloured bars are only new gains. */
+    .trio-grid-container.hide-locked .fixed { opacity: 0.12; }
+    .trio-grid-container.hide-locked .outcome-box.fixed { box-shadow: none; }
 
     .unknown-symbol { color: var(--text-muted); font-size: 1em; font-weight: 600; }
     .empty-text { color: var(--text-muted); font-size: 13px; text-align: center; padding: 40px; }

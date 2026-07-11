@@ -274,6 +274,12 @@ export interface AlleleDistribution {
  * every locus the parents share (attribute + appearance + selector) and
  * is the predictability metric; `evPositiveByAttribute` is attribute-only
  * and broken down per attribute so the breeder can sort to target one.
+ *
+ * `evPositiveWeighted` is the pool-gap-aware variant: each positive slot's
+ * expected mass is scaled by how well the candidate pool already covers that
+ * slot (missing > partial > locked), so a pair that fills a gap nothing else
+ * covers outranks one re-covering an already-secured positive. Raw EV stays
+ * untouched for display; the weighted figure is a separate "Pool gain" metric.
  */
 export interface BreedingPairResult {
   male: Pet;
@@ -281,21 +287,12 @@ export interface BreedingPairResult {
   evMixed: number;
   evPositiveByAttribute: Record<string, number>;
   evPositiveTotal: number;
+  evPositiveWeighted: number;
   evUnknown: number;
   totalLoci: number;
 }
 
 // --- Comparison types ---
-
-export interface AttributeComparisonResult {
-  key: string;
-  name: string;
-  icon: string;
-  petAValue: number;
-  petBValue: number;
-  diff: number;
-  winner: 'a' | 'b' | 'tie';
-}
 
 export interface GeneStatsEntry {
   positive: number;
@@ -305,49 +302,12 @@ export interface GeneStatsEntry {
   mixed: number;
 }
 
-export interface GeneStatsComparisonResult {
-  key: string;
-  name: string;
-  icon: string;
-  petA: GeneStatsEntry;
-  petB: GeneStatsEntry;
-}
-
-export interface GeneDiffEntry {
-  geneId: string;
-  block: string;
-  position: number;
-  petAType: GeneType | null;
-  petBType: GeneType | null;
-  isDifferent: boolean;
-  petAEffect?: string;
-  petBEffect?: string;
-}
-
-export interface ChromosomeDiff {
-  chromosome: string;
-  totalGenes: number;
-  identicalGenes: number;
-  differentGenes: number;
-  genes: GeneDiffEntry[];
-}
-
 /** Aggregate counts for a two-pet genome diff, shared across the comparison UI. */
 export interface GenomeDiffSummary {
   totalGenes: number;
   identicalGenes: number;
   differentGenes: number;
   similarityPercent: number;
-}
-
-export interface ComparisonResult {
-  petA: Pet;
-  petB: Pet;
-  species: string;
-  attributes: AttributeComparisonResult[];
-  geneStats: GeneStatsComparisonResult[];
-  genomeDiff: ChromosomeDiff[];
-  summary: GenomeDiffSummary;
 }
 
 // --- Offspring trio types ---
@@ -362,10 +322,47 @@ export interface ComparisonResult {
 export type TrioVerdict = 'gain' | 'risk' | 'neutral';
 
 /**
+ * The offspring's Punnett outcome at one locus, split by how it compares
+ * with the parents. Every field is a probability mass (0–1, multiples of
+ * 0.25 for known loci); they sum to 1.
+ *  - `newPositive`: expresses a positive **neither** parent expresses.
+ *  - `clarifiedPositive`: keeps a positive a parent has **and** clears a mixed
+ *    gene to homozygous (dominant or recessive) — the community "Clarification"
+ *    outcome. Same expressed effect as a mixed parent, but breeds true, so
+ *    future breeding is less random.
+ *  - `keepPositive`: keeps a positive a parent has, still mixed (no clarification).
+ *  - `neutral`: no effect either way, unchanged.
+ *  - `keepNegative`: keeps a negative a parent has.
+ *  - `loss`: a new negative neither parent has, or losing a positive a parent had.
+ *  - `unknown`: parent allele unknowable (skill-gated) → outcome unprojectable.
+ * `newPositive` and `clarifiedPositive` stay separate so the view can toggle
+ * which one it highlights as the gain (see `TrioGainMode`).
+ */
+export interface OffspringOutcomeBuckets {
+  newPositive: number;
+  clarifiedPositive: number;
+  keepPositive: number;
+  neutral: number;
+  keepNegative: number;
+  loss: number;
+  unknown: number;
+}
+
+/**
+ * Which improvement the trio offspring cell highlights as the (vivid) gain:
+ *  - `attributes`: expressing a new positive effect.
+ *  - `clarification`: clearing a mixed gene to homozygous (breeds true).
+ * The other collapses into the muted "keep" shade. The classification itself
+ * is mode-independent; the mode only remaps colours.
+ */
+export type TrioGainMode = 'attributes' | 'clarification';
+
+/**
  * One locus in the trio view. `dist` is the offspring's probabilistic
  * outcome (the middle row); `fatherType`/`motherType` are the parents'
  * concrete alleles. `source` attributes the beneficial (gain) or
- * dangerous (risk) allele to the contributing parent(s).
+ * dangerous (risk) allele to the contributing parent(s). `buckets` is the
+ * outcome split vs the parents that drives the offspring cell's rendering.
  */
 export interface GeneTrioEntry {
   geneId: string;
@@ -374,6 +371,8 @@ export interface GeneTrioEntry {
   fatherType: GeneType | null;
   motherType: GeneType | null;
   dist: AlleleDistribution;
+  /** Offspring outcome split vs the parents; drives the offspring cell render. */
+  buckets: OffspringOutcomeBuckets;
   verdict: TrioVerdict;
   /** Which parent carries the allele driving the verdict; null for neutral/unknown. */
   source: 'father' | 'mother' | 'both' | null;
@@ -470,11 +469,29 @@ export interface SharedPet {
   breeder: string;
   notes: string;
   tags: string[];
+  /**
+   * Corrected attribute values (0–100), keyed by the eight attribute
+   * columns. Present on entries shared by app versions that publish
+   * attributes; `undefined` on legacy entries, whose attributes the
+   * importer re-derives from the genome/name as before. Because the
+   * catalogue is add-only, a user correcting attributes publishes a new
+   * entry for the same content hash — reads resolve to the latest.
+   */
+  attributes?: Record<string, number>;
   schemaVersion: number;
   appVersion: string;
   genomeData?: string;
   uploadedAt: Date;
   uploaderUid: string | null;
+  /**
+   * True when this entry was read from a correction doc (auto-ID, carries
+   * a `contentHash` field) rather than the first-share doc (whose ID *is*
+   * the hash). The read path uses it to resolve identity fields
+   * (name/character/species/gender/breed/breeder) from the first-share
+   * entry — corrections may only alter attributes/tags/notes, and this
+   * flag lets the client enforce that even for pre-rule poisoned docs.
+   */
+  isCorrection?: boolean;
 }
 
 /**

@@ -1,6 +1,7 @@
 <script lang="ts">
 import { House, PawPrint, Star } from '@lucide/svelte';
 import { untrack } from 'svelte';
+import DetailOverlay from '$lib/components/shared/DetailOverlay.svelte';
 import { getAllAttributeDisplayInfo, getAllAttributeNames } from '$lib/services/configService.js';
 import { allTags as allTagsStore, appState } from '$lib/stores/pets.js';
 import type { AttributeInfo, Gender, Pet } from '$lib/types/index.js';
@@ -11,14 +12,13 @@ import TagInput from './TagInput.svelte';
 
 interface Props {
   pet: Pet;
-  open: boolean;
   onClose?: () => void;
   onSave?: (petId: number) => void;
 }
 
 const ALL_ATTRIBUTES: AttributeInfo[] = getAllAttributeDisplayInfo();
 
-let { pet, open = $bindable(), onClose, onSave }: Props = $props();
+let { pet, onClose, onSave }: Props = $props();
 
 const BREED_OPTIONS: Record<string, string[]> = {
   BeeWasp: ['Bee', 'Wasp'],
@@ -34,7 +34,9 @@ function initEditState(p: Pet): { name: string; gender: Gender; breed: string; a
   return {
     name: p.name || '',
     gender: (p.gender || 'Male') as Gender,
-    breed: opts.includes(p.breed) ? p.breed : opts[0],
+    // An unknown/unset breed maps to '' (the explicit "Not set" option) so
+    // opening and saving the editor can't silently assign the first option.
+    breed: opts.includes(p.breed) ? p.breed : '',
     attributes: Object.fromEntries(
       ALL_ATTRIBUTES.map((attr) => [
         attr.key.toLowerCase(),
@@ -54,6 +56,7 @@ let editStarred: boolean = $state(untrack(() => !!pet.starred));
 let editStabled: boolean = $state(untrack(() => !!pet.stabled));
 let editIsPetQuality: boolean = $state(untrack(() => !!pet.is_pet_quality));
 let saveError: string = $state('');
+let confirmingDiscard: boolean = $state(false);
 
 const allTags: string[] = $derived($allTagsStore);
 
@@ -62,24 +65,28 @@ const filteredAttributeList: AttributeInfo[] = $derived(
   ALL_ATTRIBUTES.filter((attr) => availableAttributes.includes(attr.key.toLowerCase())),
 );
 
+/** The current form values, in the shape `computePetChanges` diffs against the pet. */
+function currentEdits() {
+  return {
+    name: editName,
+    gender: editGender,
+    breed: editBreed,
+    attributes: editAttributes,
+    tags: editTags,
+    starred: editStarred,
+    stabled: editStabled,
+    isPetQuality: editIsPetQuality,
+  };
+}
+
 async function handleSave(): Promise<void> {
   try {
-    const updateData = computePetChanges(pet, {
-      name: editName,
-      gender: editGender,
-      breed: editBreed,
-      attributes: editAttributes,
-      tags: editTags,
-      starred: editStarred,
-      stabled: editStabled,
-      isPetQuality: editIsPetQuality,
-    });
+    const updateData = computePetChanges(pet, currentEdits());
 
     if (Object.keys(updateData).length > 0) {
       await appState.updatePet(pet.id, updateData);
       onSave?.(pet.id);
     }
-    open = false;
     onClose?.();
   } catch (err) {
     saveError = (err as Error).message || 'Failed to save changes.';
@@ -88,16 +95,24 @@ async function handleSave(): Promise<void> {
 
 function handleCancel(): void {
   saveError = '';
-  open = false;
+  // Dirty guard: backing out (Cancel / back button / Escape) with pending
+  // changes asks for confirmation instead of silently discarding them.
+  // `computePetChanges` diffs the form against the saved pet, so reverting an
+  // edit by hand counts as clean again.
+  if (Object.keys(computePetChanges(pet, currentEdits())).length > 0) {
+    confirmingDiscard = true;
+    return;
+  }
   onClose?.();
 }
 
-function handleBackdropClick(e: MouseEvent): void {
-  if (e.target === e.currentTarget) handleCancel();
+function keepEditing(): void {
+  confirmingDiscard = false;
 }
 
-function handleKeydown(e: KeyboardEvent): void {
-  if (e.key === 'Escape') handleCancel();
+function discardChanges(): void {
+  confirmingDiscard = false;
+  onClose?.();
 }
 
 function updateAttribute(attrKey: string, value: string): void {
@@ -105,185 +120,173 @@ function updateAttribute(attrKey: string, value: string): void {
 }
 </script>
 
-{#if open}
-<!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="modal-backdrop" onclick={handleBackdropClick} onkeydown={handleKeydown}>
-  <div class="modal-panel" role="dialog" aria-label="Edit Pet" aria-modal="true" use:focusTrap>
-    <div class="modal-header">
-      <h2>Edit Pet</h2>
-      <button class="modal-close" onclick={handleCancel}>×</button>
-    </div>
+<DetailOverlay onBack={handleCancel} ariaLabel="Edit pet" testid="pet-editor" backTestid="pet-editor-back">
+  {#snippet title()}Edit Pet{/snippet}
+  {#snippet children()}
+    <div class="editor">
+      <div class="editor-scroll">
+        <div class="editor-inner">
+          {#if saveError}
+            <div class="save-error" role="alert">{saveError}</div>
+          {/if}
 
-    <div class="modal-body">
-      {#if saveError}
-        <div class="save-error" role="alert">{saveError}</div>
-      {/if}
-
-      <section class="form-section">
-        <h3>Basic Information</h3>
-        <div class="field">
-          <label for="petName">Pet Name</label>
-          <input id="petName" type="text" bind:value={editName} placeholder="Enter pet name" />
-        </div>
-        <div class="field-row">
-          <div class="field">
-            <label for="petSpecies">Species</label>
-            <input id="petSpecies" type="text" value={pet.species || 'Unknown'} disabled />
-          </div>
-          <div class="field">
-            <label for="petBreeder">Breeder</label>
-            <input id="petBreeder" type="text" value={pet.breeder || 'Unknown'} disabled />
-          </div>
-          <div class="field">
-            <label for="petGender">Gender</label>
-            <select id="petGender" bind:value={editGender}>
-              <option value="Male">Male</option>
-              <option value="Female">Female</option>
-            </select>
-          </div>
-          <div class="field">
-            <label for="petBreed">Breed</label>
-            <select id="petBreed" bind:value={editBreed}>
-              {#each breedOptions as breed}
-                <option value={breed}>{breed}</option>
-              {/each}
-            </select>
-          </div>
-        </div>
-      </section>
-
-      <section class="form-section">
-        <h3>Tags</h3>
-        <TagInput tags={editTags} {allTags} onchange={(t) => { editTags = t; }} />
-      </section>
-
-      <section class="form-section">
-        <h3>Markers</h3>
-        <div class="markers">
-          <button
-            type="button"
-            class="marker star"
-            class:active={editStarred}
-            aria-pressed={editStarred}
-            onclick={() => { editStarred = !editStarred; }}
-          >
-            <Star size={16} fill={editStarred ? 'currentColor' : 'none'} />
-            <span>Starred</span>
-            <span class="marker-hint">favourites</span>
-          </button>
-          <button
-            type="button"
-            class="marker stable"
-            class:active={editStabled}
-            aria-pressed={editStabled}
-            onclick={() => { editStabled = !editStabled; }}
-          >
-            <House size={16} fill={editStabled ? 'currentColor' : 'none'} />
-            <span>Stabled</span>
-            <span class="marker-hint">available in your stables</span>
-          </button>
-          <button
-            type="button"
-            class="marker pet-quality"
-            class:active={editIsPetQuality}
-            aria-pressed={editIsPetQuality}
-            onclick={() => { editIsPetQuality = !editIsPetQuality; }}
-          >
-            <PawPrint size={16} fill={editIsPetQuality ? 'currentColor' : 'none'} />
-            <span>Pet quality</span>
-            <span class="marker-hint">not used for breeding</span>
-          </button>
-        </div>
-      </section>
-
-      <section class="form-section">
-        <h3>Attributes ({pet.species})</h3>
-        <div class="attributes-grid">
-          {#each filteredAttributeList as attr (attr.key)}
-            <div class="attr-field">
-              <label for="attr-{attr.key}">
-                <span class="attr-icon">{attr.icon}</span>
-                {attr.name}
-              </label>
-              <input
-                type="number"
-                id="attr-{attr.key}"
-                min="0"
-                max="100"
-                value={editAttributes[attr.key.toLowerCase()] ?? 50}
-                oninput={(e) => updateAttribute(attr.key.toLowerCase(), (e.currentTarget as HTMLInputElement).value)}
-              />
+          <section class="form-section">
+            <h3>Basic Information</h3>
+            <div class="field">
+              <label for="petName">Pet Name</label>
+              <input id="petName" type="text" bind:value={editName} placeholder="Enter pet name" />
             </div>
-          {/each}
-        </div>
-      </section>
-    </div>
+            <div class="field-row">
+              <div class="field">
+                <label for="petGender">Gender</label>
+                <select id="petGender" bind:value={editGender}>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="petBreed">Breed</label>
+                <select id="petBreed" bind:value={editBreed}>
+                  <option value="">Not set</option>
+                  {#each breedOptions as breed}
+                    <option value={breed}>{breed}</option>
+                  {/each}
+                </select>
+              </div>
+            </div>
+            <p class="meta-line">
+              <span><span class="meta-label">Species</span> {pet.species || 'Unknown'}</span>
+              <span><span class="meta-label">Breeder</span> {pet.breeder || 'Unknown'}</span>
+            </p>
+          </section>
 
-    <div class="modal-footer">
-      <button class="btn btn-secondary" onclick={handleCancel}>Cancel</button>
-      <button class="btn btn-primary" onclick={handleSave}>Save Changes</button>
+          <section class="form-section">
+            <h3>Tags</h3>
+            <TagInput tags={editTags} {allTags} onchange={(t) => { editTags = t; }} />
+          </section>
+
+          <section class="form-section">
+            <h3>Markers</h3>
+            <div class="markers">
+              <button
+                type="button"
+                class="marker star"
+                class:active={editStarred}
+                aria-pressed={editStarred}
+                onclick={() => { editStarred = !editStarred; }}
+              >
+                <Star size={15} fill={editStarred ? 'currentColor' : 'none'} />
+                <span>Starred</span>
+                <span class="marker-hint">favourites</span>
+              </button>
+              <button
+                type="button"
+                class="marker stable"
+                class:active={editStabled}
+                aria-pressed={editStabled}
+                onclick={() => { editStabled = !editStabled; }}
+              >
+                <House size={15} fill={editStabled ? 'currentColor' : 'none'} />
+                <span>Stabled</span>
+                <span class="marker-hint">available in your stables</span>
+              </button>
+              <button
+                type="button"
+                class="marker pet-quality"
+                class:active={editIsPetQuality}
+                aria-pressed={editIsPetQuality}
+                onclick={() => { editIsPetQuality = !editIsPetQuality; }}
+              >
+                <PawPrint size={15} fill={editIsPetQuality ? 'currentColor' : 'none'} />
+                <span>Pet quality</span>
+                <span class="marker-hint">not used for breeding</span>
+              </button>
+            </div>
+          </section>
+
+          <section class="form-section">
+            <h3>Attributes ({pet.species})</h3>
+            <div class="attributes-grid">
+              {#each filteredAttributeList as attr (attr.key)}
+                <div class="attr-field">
+                  <label for="attr-{attr.key}">
+                    <span class="attr-icon">{attr.icon}</span>
+                    {attr.name}
+                  </label>
+                  <input
+                    type="number"
+                    id="attr-{attr.key}"
+                    min="0"
+                    max="100"
+                    value={editAttributes[attr.key.toLowerCase()] ?? 50}
+                    oninput={(e) => updateAttribute(attr.key.toLowerCase(), (e.currentTarget as HTMLInputElement).value)}
+                  />
+                </div>
+              {/each}
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <div class="editor-footer">
+        <button class="btn btn-secondary" onclick={handleCancel}>Cancel</button>
+        <button class="btn btn-primary" onclick={handleSave}>Save Changes</button>
+      </div>
+
+      {#if confirmingDiscard}
+        <!-- Same true-modal pattern as PetActions' delete confirm: a focus-
+             trapped alertdialog on .modal-backdrop. DetailOverlay's document-
+             level Escape defers to any open .modal-backdrop, so Escape here
+             closes only this dialog (keep editing), not the editor. -->
+        <!-- svelte-ignore a11y_no_static_element_interactions -->
+        <div
+          class="modal-backdrop"
+          data-testid="pet-editor-discard-confirm"
+          onclick={(e) => { if (e.target === e.currentTarget) keepEditing(); }}
+          onkeydown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); keepEditing(); } }}
+        >
+          <div class="confirm-dialog" role="alertdialog" aria-label="Discard unsaved changes" aria-modal="true" use:focusTrap>
+            <p class="confirm-message">Discard unsaved changes?</p>
+            <p class="confirm-subtext">Your edits to <strong>{pet.name}</strong> have not been saved.</p>
+            <div class="confirm-actions">
+              <button class="btn btn-secondary" data-testid="discard-keep-editing" onclick={keepEditing}>Keep editing</button>
+              <button class="btn btn-danger" data-testid="discard-confirm" onclick={discardChanges}>Discard</button>
+            </div>
+          </div>
+        </div>
+      {/if}
     </div>
-  </div>
-</div>
-{/if}
+  {/snippet}
+</DetailOverlay>
 
 <style>
-  .modal-panel {
-    background: var(--bg-primary);
-    border-radius: 12px;
-    box-shadow: var(--shadow-xl);
-    width: 560px;
-    max-width: 90vw;
-    max-height: 85vh;
+  .editor {
+    flex: 1;
+    min-width: 0;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
   }
 
-  .modal-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 16px 20px;
-    border-bottom: 1px solid var(--border-primary);
-  }
-
-  .modal-header h2 {
-    margin: 0;
-    font-size: 16px;
-    font-weight: 700;
-    color: var(--text-primary);
-  }
-
-  .modal-close {
-    background: none;
-    border: none;
-    font-size: 20px;
-    color: var(--text-muted);
-    cursor: pointer;
-    padding: 4px 8px;
-    border-radius: 4px;
-    line-height: 1;
-  }
-
-  .modal-close:hover {
-    background: var(--bg-tertiary);
-    color: var(--text-secondary);
-  }
-
-  .modal-body {
-    padding: 20px;
-    overflow-y: auto;
+  .editor-scroll {
     flex: 1;
+    min-height: 0;
+    overflow-y: auto;
   }
 
-  .modal-footer {
+  .editor-inner {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 20px;
+  }
+
+  .editor-footer {
     display: flex;
     justify-content: flex-end;
     gap: 8px;
     padding: 14px 20px;
     border-top: 1px solid var(--border-primary);
     background: var(--bg-secondary);
+    flex-shrink: 0;
   }
 
   .form-section {
@@ -335,15 +338,25 @@ function updateAttribute(attrKey: string, value: string): void {
     box-shadow: 0 0 0 2px var(--accent-soft);
   }
 
-  .field input:disabled {
-    background: var(--bg-secondary);
-    color: var(--text-muted);
-  }
-
   .field-row {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: 12px;
+  }
+
+  /* Read-only provenance shown as plain text, not fake-editable inputs. */
+  .meta-line {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 20px;
+    margin: 4px 0 0 0;
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+
+  .meta-label {
+    color: var(--text-muted);
+    margin-right: 4px;
   }
 
   .attributes-grid {
@@ -443,5 +456,34 @@ function updateAttribute(attrKey: string, value: string): void {
     font-size: 13px;
     padding: 10px 14px;
     margin-bottom: 16px;
+  }
+
+  /* Discard-confirm dialog (mirrors PetActions' delete confirm). */
+  .confirm-dialog {
+    background: var(--bg-primary);
+    border-radius: 12px;
+    box-shadow: var(--shadow-xl);
+    padding: 24px;
+    width: 340px;
+    max-width: 90vw;
+    text-align: center;
+  }
+
+  .confirm-message {
+    font-size: 15px;
+    color: var(--text-primary);
+    margin: 0 0 4px 0;
+  }
+
+  .confirm-subtext {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin: 0 0 20px 0;
+  }
+
+  .confirm-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
   }
 </style>

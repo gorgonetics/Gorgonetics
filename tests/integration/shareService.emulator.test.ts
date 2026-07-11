@@ -146,6 +146,7 @@ describe('shareService end-to-end via emulator', () => {
         breeder: pet.breeder,
         notes: pet.notes,
         tags: pet.tags,
+        attributes: validAttributes(),
         schemaVersion: 1,
         appVersion: '0.6.3',
         uploadedAt: serverTimestamp(),
@@ -172,12 +173,75 @@ describe('shareService end-to-end via emulator', () => {
   it('getSharedPet returns null for an unknown hash', async () => {
     expect(await getSharedPet('0'.repeat(64), db)).toBeNull();
   });
+
+  it('re-sharing with corrected attributes appends a superseding entry (add-only)', async () => {
+    const pet = await freshPet('C1');
+    expect((await uploadPet(pet, db)).status).toBe('created');
+
+    // Same genome (same hash) but corrected attributes → a new metadata
+    // entry, not a mutation. Attributes aren't part of the hashed genome.
+    const corrected = { ...pet, intelligence: 99, toughness: 7 };
+    expect((await uploadPet(corrected, db)).status).toBe('created');
+
+    // getSharedPet resolves latest-wins.
+    const fetched = await getSharedPet(pet.content_hash, db);
+    expect(fetched?.attributes?.intelligence).toBe(99);
+    expect(fetched?.attributes?.toughness).toBe(7);
+    expect(fetched?.genomeData).toBe(pet.genome_text);
+
+    // Two metadata docs (base + correction), a single shared genome blob.
+    expect((await getDocs(query(collection(db, META_COLLECTION)))).size).toBe(2);
+    expect((await getDocs(query(collection(db, GENOME_COLLECTION)))).size).toBe(1);
+  });
+
+  it('re-sharing an identical pet stays already-shared (no correction appended)', async () => {
+    const pet = await freshPet('C2');
+    await uploadPet(pet, db);
+    expect((await uploadPet(pet, db)).status).toBe('already-shared');
+    expect((await getDocs(query(collection(db, META_COLLECTION)))).size).toBe(1);
+  });
+
+  it('a rename-only local change is already-shared (identity is not correction-eligible)', async () => {
+    const pet = await freshPet('C3');
+    await uploadPet(pet, db);
+    expect((await uploadPet({ ...pet, name: 'RenamedLocally' }, db)).status).toBe('already-shared');
+    expect((await getDocs(query(collection(db, META_COLLECTION)))).size).toBe(1);
+  });
+
+  it('a correction after a local rename passes the rules (identity pinned to first share)', async () => {
+    // The correction payload must carry the FIRST-share identity — sending
+    // the renamed local values would trip identityMatchesFirstShare and
+    // fail the whole re-share with permission-denied.
+    const pet = await freshPet('C4');
+    await uploadPet(pet, db);
+
+    const corrected = { ...pet, name: 'RenamedLocally', intelligence: 99 };
+    expect((await uploadPet(corrected, db)).status).toBe('created');
+
+    const fetched = await getSharedPet(pet.content_hash, db);
+    expect(fetched?.name).toBe(pet.name); // identity from the first share
+    expect(fetched?.attributes?.intelligence).toBe(99); // eligible field corrected
+    expect((await getDocs(query(collection(db, META_COLLECTION)))).size).toBe(2);
+  });
 });
 
 // Any 64-char lowercase hex value passes the rule regex; the rules
 // can't verify hash agreement (the SHA-256 ↔ genomeData binding is
 // enforced client-side via verifySharedPet).
 const VALID_DOC_ID = 'a'.repeat(64);
+
+function validAttributes() {
+  return {
+    intelligence: 50,
+    toughness: 50,
+    friendliness: 50,
+    ruggedness: 50,
+    enthusiasm: 50,
+    virility: 50,
+    ferocity: 50,
+    temperament: 0,
+  };
+}
 
 function validMetadata() {
   return {
@@ -189,6 +253,7 @@ function validMetadata() {
     breeder: 'PlayerOne',
     notes: '',
     tags: ['fast'],
+    attributes: validAttributes(),
     schemaVersion: 1,
     appVersion: '0.6.3',
     // Rules require `uploadedAt == request.time`, so the only way to
@@ -258,6 +323,11 @@ describe('firestore.rules — /pets metadata schema', () => {
     ['non-string entry in tags', { tags: ['ok', 42] }],
     ['over-long tag entry (>64 chars)', { tags: ['x'.repeat(65)] }],
     ['uploaderUid != null', { uploaderUid: 'someone' }],
+    ['attribute above 100', { attributes: { ...validAttributes(), intelligence: 101 } }],
+    ['attribute below 0', { attributes: { ...validAttributes(), toughness: -1 } }],
+    ['non-integer attribute', { attributes: { ...validAttributes(), ferocity: 50.5 } }],
+    ['attributes missing a key', { attributes: { intelligence: 50 } }],
+    ['attributes not a map', { attributes: 'nope' }],
   ])('rejects %s', async (_label, override) => {
     await expectRejected(batchWrite(VALID_DOC_ID, override));
   });
@@ -312,6 +382,68 @@ describe('firestore.rules — existsAfter() bans orphan docs', () => {
 
   it('rejects a single-collection write to /genomes (no matching /pets)', async () => {
     await expectRejected(setDoc(doc(db, GENOME_COLLECTION, VALID_DOC_ID), validGenome()));
+  });
+});
+
+describe('firestore.rules — add-only corrections', () => {
+  // A correction is an auto-ID /pets doc carrying a `contentHash` field that
+  // points back at an already-published genome. It lets a user append a
+  // superseding metadata entry without mutating the immutable original.
+  function correctionMeta(hash: string, override = {}) {
+    return { ...validMetadata(), contentHash: hash, ...override };
+  }
+
+  it('accepts a correction doc referencing an existing genome', async () => {
+    await batchWrite(VALID_DOC_ID); // first share establishes the genome
+    await setDoc(doc(collection(db, META_COLLECTION)), correctionMeta(VALID_DOC_ID));
+    // Base + correction both present under the same content hash.
+    expect((await getDocs(query(collection(db, META_COLLECTION)))).size).toBe(2);
+  });
+
+  it('rejects a correction whose contentHash points at a genome that does not exist', async () => {
+    await expectRejected(setDoc(doc(collection(db, META_COLLECTION)), correctionMeta('b'.repeat(64))));
+  });
+
+  it('rejects a correction with a malformed contentHash', async () => {
+    await batchWrite(VALID_DOC_ID);
+    await expectRejected(setDoc(doc(collection(db, META_COLLECTION)), correctionMeta('not-hex')));
+  });
+
+  it('rejects a correction carrying an unknown extra field', async () => {
+    await batchWrite(VALID_DOC_ID);
+    await expectRejected(setDoc(doc(collection(db, META_COLLECTION)), correctionMeta(VALID_DOC_ID, { nope: 1 })));
+  });
+
+  it('accepts a correction that changes only the correction-eligible fields (attributes/tags/notes)', async () => {
+    await batchWrite(VALID_DOC_ID);
+    await setDoc(
+      doc(collection(db, META_COLLECTION)),
+      correctionMeta(VALID_DOC_ID, {
+        attributes: { ...validAttributes(), intelligence: 99 },
+        tags: ['fast', 'corrected'],
+        notes: 'corrected notes',
+      }),
+    );
+    expect((await getDocs(query(collection(db, META_COLLECTION)))).size).toBe(2);
+  });
+
+  // Identity binding (issue #393): a correction whose identity fields differ
+  // from the first-share doc would let anyone permanently deface someone
+  // else's published pet (reads resolve latest-wins; update/delete denied).
+  // Every override below is individually valid per isValidPetMeta — the
+  // rejection must come from identityMatchesFirstShare alone.
+  it.each([
+    ['name', { name: 'Defaced' }],
+    ['character', { character: 'Mallory' }],
+    ['species', { species: 'Horse' }],
+    ['gender', { gender: Gender.MALE }],
+    ['breed', { breed: 'FakeBreed' }],
+    ['breeder', { breeder: 'Mallory' }],
+  ])('rejects a correction that changes the identity field %s', async (_field, override) => {
+    await batchWrite(VALID_DOC_ID);
+    await expectRejected(setDoc(doc(collection(db, META_COLLECTION)), correctionMeta(VALID_DOC_ID, override)));
+    // The defacement never landed — the base entry stays the only doc.
+    expect((await getDocs(query(collection(db, META_COLLECTION)))).size).toBe(1);
   });
 });
 

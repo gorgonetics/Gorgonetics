@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { closeDatabase, initDatabase } from '$lib/services/database.js';
 import { runMigrations } from '$lib/services/migrationService.js';
 import * as petService from '$lib/services/petService.js';
-import { activeTab, appState, error, geneEditingView, loading, pets, selectedPet } from '$lib/stores/pets.js';
+import { activeTab, appState, error, geneEditingView, loading, notice, pets, selectedPet } from '$lib/stores/pets.js';
 import type { Pet } from '$lib/types/index.js';
 
 // The store's `selectPet` takes a full `Pet`; these tests only need the
@@ -22,7 +22,7 @@ describe('Pets Store', () => {
     await runMigrations();
     appState.reset();
     pets.set([]);
-    activeTab.set('pets');
+    activeTab.set('mypets');
   });
 
   describe('initial state', () => {
@@ -38,8 +38,8 @@ describe('Pets Store', () => {
       expect(get(error)).toBeNull();
     });
 
-    it('starts on pets tab', () => {
-      expect(get(activeTab)).toBe('pets');
+    it('starts on the My Pets tab', () => {
+      expect(get(activeTab)).toBe('mypets');
     });
 
     it('starts not loading', () => {
@@ -56,17 +56,17 @@ describe('Pets Store', () => {
   });
 
   describe('switchTab', () => {
-    it('switches to editor tab and clears selected pet', () => {
+    it('switches to the reference tab and clears the selected pet', () => {
       appState.selectPet(asPet({ id: 1, name: 'TestBee' }));
-      appState.switchTab('editor');
-      expect(get(activeTab)).toBe('editor');
+      appState.switchTab('reference');
+      expect(get(activeTab)).toBe('reference');
       expect(get(selectedPet)).toBeNull();
     });
 
-    it('switches to pets tab and clears gene editing view', () => {
+    it('switches to the My Pets tab and clears the gene editing view', () => {
       appState.setGeneEditingView({ some: 'data' });
-      appState.switchTab('pets');
-      expect(get(activeTab)).toBe('pets');
+      appState.switchTab('mypets');
+      expect(get(activeTab)).toBe('mypets');
       expect(get(geneEditingView)).toBeNull();
     });
   });
@@ -98,6 +98,13 @@ describe('Pets Store', () => {
       appState.setError('something went wrong');
       appState.clearError();
       expect(get(error)).toBeNull();
+    });
+
+    it('dismisses a lingering success notice when an error is surfaced', () => {
+      notice.set('3 shared to community');
+      appState.setError('boom');
+      expect(get(notice)).toBeNull();
+      appState.clearError();
     });
   });
 
@@ -190,14 +197,6 @@ describe('Pets Store', () => {
       vi.spyOn(petService, 'updatePet').mockRejectedValueOnce(new Error('update failed'));
       await expect(appState.updatePet(999, { name: 'X' })).rejects.toThrow('update failed');
       expect(get(error)).toContain('update failed');
-    });
-  });
-
-  describe('reorderPets', () => {
-    it('sets error on failure', async () => {
-      vi.spyOn(petService, 'reorderPets').mockRejectedValueOnce(new Error('reorder failed'));
-      await expect(appState.reorderPets([1, 2])).rejects.toThrow('reorder failed');
-      expect(get(error)).toContain('reorder failed');
     });
   });
 

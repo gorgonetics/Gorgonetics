@@ -48,6 +48,47 @@ export interface GeneCell {
   effect: string;
 }
 
+/** Smallest / largest / fallback gene-cell edge (px) for the responsive grid. */
+export const GENE_CELL_MIN = 12;
+export const GENE_CELL_MAX = 34;
+export const GENE_CELL_DEFAULT = 16;
+
+/**
+ * Fixed chromosome-label column width and per-block left padding (px).
+ *
+ * KEEP IN SYNC with GeneVisualizer.svelte CSS: `.chromosome-label` /
+ * `.chromosome-header` width (CHR_COL_WIDTH) and `.gene-cell-container.block-start`
+ * padding-left (BLOCK_GAP). If those change, this width budget under- or
+ * over-estimates and reintroduces dead space or a horizontal scrollbar.
+ */
+const CHR_COL_WIDTH = 28;
+const BLOCK_GAP = 8;
+
+/**
+ * Compute the gene-cell edge (px) so the fixed-cell genome grid fills the
+ * width of its container instead of leaving a dead zone (wide window) or
+ * overflowing with a scrollbar (narrow window / stats drawer open).
+ *
+ * The width budget reserves the chromosome-label column, the per-block left
+ * padding, and a small rounding margin. The result is clamped to
+ * [GENE_CELL_MIN, GENE_CELL_MAX] for readability, and falls back to
+ * GENE_CELL_DEFAULT before the container has been measured.
+ */
+export function computeGeneCellSize({
+  containerWidth,
+  totalColumns,
+  blockCount,
+}: {
+  containerWidth: number;
+  totalColumns: number;
+  blockCount: number;
+}): number {
+  if (!containerWidth || totalColumns <= 0) return GENE_CELL_DEFAULT;
+  const available = containerWidth - CHR_COL_WIDTH - blockCount * BLOCK_GAP - 4;
+  const raw = Math.floor(available / totalColumns);
+  return Math.max(GENE_CELL_MIN, Math.min(GENE_CELL_MAX, raw));
+}
+
 /** Build the `appearance name → key` lookup for a species. */
 export function buildAppearanceLookup(species: string): Map<string, string> {
   const attrs = getAppearanceAttributes(species);
@@ -94,6 +135,27 @@ export function createGeneCellBuilder(ctx: GeneCellContext) {
     return { effectType, attribute, effect, breed };
   }
 
+  /**
+   * Attributes the gene at this locus can affect via *either* allele — the
+   * union of the dominant and recessive effects' attribute names, independent
+   * of which allele a given pet carries. A parent whose current allele is
+   * neutral is still reported here as potentially responsible, so the trio
+   * grid's attribute focus can highlight it (and the offspring) rather than
+   * dimming it out. Names are capitalised to match `data-attr` / filter keys.
+   */
+  function attributesForGene(geneId: string): string[] {
+    const geneData = ctx.effectsDB[geneId];
+    if (!geneData) return [];
+    const set = new Set<string>();
+    for (const eff of [geneData.effectDominant, geneData.effectRecessive]) {
+      if (isNoEffect(eff)) continue;
+      for (const attrName of ctx.attributeNames) {
+        if (eff.includes(attrName)) set.add(attrName);
+      }
+    }
+    return [...set];
+  }
+
   function categorizeAppearance(geneId: string): string {
     const raw = ctx.effectsDB[geneId]?.appearance;
     if (!raw || raw === 'None' || raw.includes('String for me to fill')) return '';
@@ -136,5 +198,5 @@ export function createGeneCellBuilder(ctx: GeneCellContext) {
     };
   }
 
-  return { makeCell, analyzeGene, categorizeAppearance };
+  return { makeCell, analyzeGene, categorizeAppearance, attributesForGene };
 }

@@ -8,14 +8,14 @@ test.describe('Pet Image Gallery', () => {
   });
 
   test('Gallery button appears in view controls', async ({ page }) => {
-    await page.locator('.pet-card', { hasText: 'Sample Fae Bee' }).first().click();
-    await expect(page.locator('.view-btn', { hasText: 'Gallery' })).toBeVisible();
+    await page.locator('[data-testid="roster-open"]', { hasText: 'Sample Fae Bee' }).first().click();
+    await expect(page.getByTestId('detail-gallery-toggle')).toBeVisible();
   });
 
   test('Clicking Gallery shows the gallery view', async ({ page }) => {
-    await page.locator('.pet-card', { hasText: 'Sample Fae Bee' }).first().click();
-    await expect(page.locator('.view-btn', { hasText: 'Gallery' })).toBeVisible();
-    await page.locator('.view-btn', { hasText: 'Gallery' }).click();
+    await page.locator('[data-testid="roster-open"]', { hasText: 'Sample Fae Bee' }).first().click();
+    await expect(page.getByTestId('detail-gallery-toggle')).toBeVisible();
+    await page.getByTestId('detail-gallery-toggle').click();
 
     await expect(page.locator('.gallery')).toBeVisible();
     await expect(page.getByText('No images yet')).toBeVisible();
@@ -23,31 +23,31 @@ test.describe('Pet Image Gallery', () => {
   });
 
   test('Toggling Gallery hides the gene visualizer', async ({ page }) => {
-    await page.locator('.pet-card', { hasText: 'Sample Fae Bee' }).first().click();
+    await page.locator('[data-testid="roster-open"]', { hasText: 'Sample Fae Bee' }).first().click();
     await expect(page.locator('.gene-visualizer')).toBeVisible();
 
-    await page.locator('.view-btn', { hasText: 'Gallery' }).click();
+    await page.getByTestId('detail-gallery-toggle').click();
     await expect(page.locator('.gallery')).toBeVisible();
     await expect(page.locator('.gene-visualizer')).not.toBeVisible();
 
-    await page.locator('.view-btn', { hasText: 'Gallery' }).click();
+    await page.getByTestId('detail-gallery-toggle').click();
     await expect(page.locator('.gene-visualizer')).toBeVisible();
     await expect(page.locator('.gallery')).not.toBeVisible();
   });
 
   test('Gallery shows image count', async ({ page }) => {
-    await page.locator('.pet-card', { hasText: 'Sample Fae Bee' }).first().click();
-    await expect(page.locator('.view-btn', { hasText: 'Gallery' })).toBeVisible();
-    await page.locator('.view-btn', { hasText: 'Gallery' }).click();
+    await page.locator('[data-testid="roster-open"]', { hasText: 'Sample Fae Bee' }).first().click();
+    await expect(page.getByTestId('detail-gallery-toggle')).toBeVisible();
+    await page.getByTestId('detail-gallery-toggle').click();
 
     await expect(page.locator('.gallery-count')).toHaveText('0 images');
   });
 
   test('Upload button exists but requires Tauri for actual upload', async ({ page }) => {
-    await page.locator('.pet-card', { hasText: 'Sample Fae Bee' }).first().click();
-    await expect(page.locator('.view-btn', { hasText: 'Gallery' })).toBeVisible();
+    await page.locator('[data-testid="roster-open"]', { hasText: 'Sample Fae Bee' }).first().click();
+    await expect(page.getByTestId('detail-gallery-toggle')).toBeVisible();
 
-    await page.locator('.view-btn', { hasText: 'Gallery' }).click();
+    await page.getByTestId('detail-gallery-toggle').click();
     await expect(page.getByText('Upload Images')).toBeVisible();
     await expect(page.getByText('Upload Images')).toBeEnabled();
   });
