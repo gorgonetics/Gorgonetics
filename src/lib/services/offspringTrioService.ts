@@ -14,7 +14,7 @@ import { getGeneEffectsCached, getParsedGenesCached, isHorseBreedFiltered } from
 import { compareBlockLetters } from '$lib/services/genomeParser.js';
 import type { ChromosomeTrio, GeneTrioEntry, OffspringTrioResult, Pet } from '$lib/types/index.js';
 import { GeneType } from '$lib/types/index.js';
-import { classifyTrioLocus, offspringDistribution } from '$lib/utils/breedingGenetics.js';
+import { classifyTrioLocus, offspringDistribution, offspringOutcomeBuckets } from '$lib/utils/breedingGenetics.js';
 import { type ChromosomeLocus, groupLociByChromosome, loadAllPetLoci } from '$lib/utils/petLoci.js';
 import { capitalize } from '$lib/utils/string.js';
 import { normalizeSpecies } from './configService.js';
@@ -141,6 +141,7 @@ export async function computeOffspringTrio(
         fatherType: (gF?.type ?? null) as GeneType | null,
         motherType: (gM?.type ?? null) as GeneType | null,
         dist,
+        buckets: offspringOutcomeBuckets(fatherType, motherType, dist, gd),
         verdict: cls.verdict,
         source: cls.source,
         lockedIn: cls.lockedIn,

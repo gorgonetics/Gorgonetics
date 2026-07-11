@@ -322,10 +322,47 @@ export interface GenomeDiffSummary {
 export type TrioVerdict = 'gain' | 'risk' | 'neutral';
 
 /**
+ * The offspring's Punnett outcome at one locus, split by how it compares
+ * with the parents. Every field is a probability mass (0–1, multiples of
+ * 0.25 for known loci); they sum to 1.
+ *  - `newPositive`: expresses a positive **neither** parent expresses.
+ *  - `clarifiedPositive`: keeps a positive a parent has **and** clears a mixed
+ *    gene to homozygous (dominant or recessive) — the community "Clarification"
+ *    outcome. Same expressed effect as a mixed parent, but breeds true, so
+ *    future breeding is less random.
+ *  - `keepPositive`: keeps a positive a parent has, still mixed (no clarification).
+ *  - `neutral`: no effect either way, unchanged.
+ *  - `keepNegative`: keeps a negative a parent has.
+ *  - `loss`: a new negative neither parent has, or losing a positive a parent had.
+ *  - `unknown`: parent allele unknowable (skill-gated) → outcome unprojectable.
+ * `newPositive` and `clarifiedPositive` stay separate so the view can toggle
+ * which one it highlights as the gain (see `TrioGainMode`).
+ */
+export interface OffspringOutcomeBuckets {
+  newPositive: number;
+  clarifiedPositive: number;
+  keepPositive: number;
+  neutral: number;
+  keepNegative: number;
+  loss: number;
+  unknown: number;
+}
+
+/**
+ * Which improvement the trio offspring cell highlights as the (vivid) gain:
+ *  - `attributes`: expressing a new positive effect.
+ *  - `clarification`: clearing a mixed gene to homozygous (breeds true).
+ * The other collapses into the muted "keep" shade. The classification itself
+ * is mode-independent; the mode only remaps colours.
+ */
+export type TrioGainMode = 'attributes' | 'clarification';
+
+/**
  * One locus in the trio view. `dist` is the offspring's probabilistic
  * outcome (the middle row); `fatherType`/`motherType` are the parents'
  * concrete alleles. `source` attributes the beneficial (gain) or
- * dangerous (risk) allele to the contributing parent(s).
+ * dangerous (risk) allele to the contributing parent(s). `buckets` is the
+ * outcome split vs the parents that drives the offspring cell's rendering.
  */
 export interface GeneTrioEntry {
   geneId: string;
@@ -334,6 +371,8 @@ export interface GeneTrioEntry {
   fatherType: GeneType | null;
   motherType: GeneType | null;
   dist: AlleleDistribution;
+  /** Offspring outcome split vs the parents; drives the offspring cell render. */
+  buckets: OffspringOutcomeBuckets;
   verdict: TrioVerdict;
   /** Which parent carries the allele driving the verdict; null for neutral/unknown. */
   source: 'father' | 'mother' | 'both' | null;

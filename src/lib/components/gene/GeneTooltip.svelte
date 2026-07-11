@@ -7,6 +7,10 @@ interface Props {
   geneType?: string;
   effect?: string;
   potentialEffects?: string[];
+  /** Optional muted line under the header (e.g. the attribute name). */
+  subtitle?: string;
+  /** Heading for the list section; defaults to "Potential Effects". */
+  effectsLabel?: string;
 }
 
 const {
@@ -17,6 +21,8 @@ const {
   geneType = '',
   effect = '',
   potentialEffects = [],
+  subtitle = '',
+  effectsLabel = 'Potential Effects',
 }: Props = $props();
 
 function getTypeDescription(type: string) {
@@ -39,20 +45,25 @@ function getTypeDescription(type: string) {
     <div class="gene-tooltip" style="left: {x}px; top: {y}px;">
         <div class="tooltip-header">
             <strong>Gene {geneId}</strong>
+            {#if subtitle}<div class="tooltip-subtitle">{subtitle}</div>{/if}
         </div>
         <div class="tooltip-content">
-            <div class="gene-type">Type: {getTypeDescription(geneType)}</div>
-            <div class="current-effect">
-                <strong
-                    >Current Effect: <span
-                        class:positive={effect.includes("+")}
-                        class:negative={effect.includes("-")}>{effect}</span
-                    ></strong
-                >
-            </div>
+            {#if geneType}
+                <div class="gene-type">Type: {getTypeDescription(geneType)}</div>
+            {/if}
+            {#if effect}
+                <div class="current-effect">
+                    <strong
+                        >Current Effect: <span
+                            class:positive={effect.includes("+")}
+                            class:negative={effect.includes("-")}>{effect}</span
+                        ></strong
+                    >
+                </div>
+            {/if}
             {#if potentialEffects.length > 0}
                 <div class="potential-effects">
-                    <strong>Potential Effects:</strong>
+                    <strong>{effectsLabel}:</strong>
                     {#each potentialEffects as potentialEffect, i (i)}
                         <div
                             class="potential-effect"
@@ -92,6 +103,12 @@ function getTypeDescription(type: string) {
     .tooltip-header strong {
         color: #60a5fa;
         font-weight: 600;
+    }
+
+    .tooltip-subtitle {
+        color: #9ca3af;
+        font-size: 11px;
+        margin-top: 1px;
     }
 
     .tooltip-content {
