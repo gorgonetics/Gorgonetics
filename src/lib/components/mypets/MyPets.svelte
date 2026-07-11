@@ -313,10 +313,9 @@ const canShareAll = $derived(!isPlaceholderConfig && $pets.length > 0);
       <PetVisualization pet={detailPet} />
     </DetailOverlay>
   {:else if comparing && canCompare}
-    <DetailOverlay testid="pet-compare" backTestid="pet-compare-back" backLabel="← Pets" ariaLabel="Pet comparison" onBack={closeCompare}>
-      {#snippet title()}⚖️ {selectedPets[0].name || 'Pet A'} vs {selectedPets[1].name || 'Pet B'}{/snippet}
-      <GenomeGridDiff petA={selectedPets[0]} petB={selectedPets[1]} />
-    </DetailOverlay>
+    <!-- GenomeGridDiff owns its DetailOverlay shell (back button, title, and the
+         summary pills in the header). -->
+    <GenomeGridDiff petA={selectedPets[0]} petB={selectedPets[1]} onBack={closeCompare} />
   {/if}
 </div>
 

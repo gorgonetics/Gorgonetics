@@ -8,43 +8,76 @@ const FILTERED = '{ opacity: 0.15 !important; filter: grayscale(1) !important; p
 const HIDDEN = '{ display: none !important; }';
 const INACTIVE = '{ background-color: #e8e8ec !important; border-color: #d0d0d6 !important; opacity: 0.5 !important; }';
 const DIMMED = '{ opacity: 0.2 !important; }';
+/** Drop the diff-cell amber tint on a filtered-out cell (the dimmed glyph would
+ *  otherwise let the tint bleed through, distracting from the focus). */
+const DIFF_BG_CLEARED = '{ background-color: transparent !important; }';
 
-function pushInclusionRules(
-  rules: string[],
+/**
+ * Inner cell selectors (one per active clause) matching the cells to dim:
+ * the single `:not()`-chained selector for a `selected` set, plus one per
+ * `hidden` value. `exact` matches `[attr="v"]`; otherwise a delimited
+ * substring `[attr*="·v·"]` (the both-allele `data-attrs` list).
+ */
+function matchSelectors(
   baseSelector: string,
   attr: string,
+  selected: string[],
+  hidden: string[],
+  exact: boolean,
+): string[] {
+  const term = (v: string) => (exact ? `[${attr}="${v}"]` : `[${attr}*="${delim(v)}"]`);
+  const sels: string[] = [];
+  if (selected.length > 0) {
+    let not = '';
+    for (const v of selected) not += `:not(${term(v)})`;
+    sels.push(`${baseSelector}[${attr}]${not}`);
+  }
+  for (const v of hidden) sels.push(`${baseSelector}${term(v)}`);
+  return sels;
+}
+
+/**
+ * Push select/hide rules that match the *potential* attributes of a locus
+ * carried in a delimited `data-attrs` list (`·Attr·Attr·`). This is the
+ * gene-effect-database view of the filter: the attribute set is a property of
+ * the gene (union of both alleles' effects), so a cell stays lit whenever its
+ * gene could affect the attribute — independent of which allele the pet
+ * actually carries. `data-attrs` must be present (even empty) on every
+ * filterable cell so attribute-less loci dim under a selection.
+ */
+function pushPotentialInclusionRules(
+  rules: string[],
+  baseSelector: string,
   selected: string[],
   hidden: string[],
   declaration: string,
   gridSelector: string = G,
 ): void {
-  if (selected.length > 0) {
-    let not = '';
-    for (const v of selected) not += `:not([${attr}="${v}"])`;
-    rules.push(`${gridSelector} ${baseSelector}[${attr}]${not} ${declaration}`);
-  }
-  for (const v of hidden) {
-    rules.push(`${gridSelector} ${baseSelector}[${attr}="${v}"] ${declaration}`);
+  for (const s of matchSelectors(baseSelector, 'data-attrs', selected, hidden, false)) {
+    rules.push(`${gridSelector} ${s} ${declaration}`);
   }
 }
 
 /**
- * Attribute select/hide rules for any genome grid, parameterised by the grid
- * and cell selectors. Selected attributes dim everything else; hidden
- * attributes dim themselves. Shares the exact dimming declaration the 2-pet
- * diff grid uses so the trio grid filters identically. `cellSelector` is the
- * element selector that *carries* `data-attr` — `[data-attr]` is appended
- * internally, so pass the element only (the diff grid uses `.gene-cell`; the
- * trio grid uses `*` because its rows mix `.gene-cell` and `.dist-bar` cells).
+ * Attribute focus rules matching the *potential* attributes of a locus: the
+ * union of both alleles' effects, carried as a delimited `data-attrs` list
+ * (`·Attr·Attr·`). A locus stays lit whenever its gene could affect the
+ * attribute via either allele — even if the pet's current allele is neutral —
+ * so the grids highlight every responsible locus rather than dimming a cell
+ * whose allele happens to be neutral. `data-attrs` must be present (even empty)
+ * on every filterable cell, so attribute-less loci dim under an active
+ * selection. `cellSelector` carries `data-attrs` (the diff grid uses
+ * `.gene-cell`; the trio grid uses `*` because its rows mix `.gene-cell` and
+ * `.dist-bar` cells). See `ATTR_DELIM` / `joinAttrs`.
  */
-export function attributeFilterCSS(
+export function attributePotentialFilterCSS(
   gridSelector: string,
   cellSelector: string,
   selectedAttributes: string[],
   hiddenAttributes: string[],
 ): string {
   const rules: string[] = [];
-  pushInclusionRules(rules, cellSelector, 'data-attr', selectedAttributes, hiddenAttributes, FILTERED, gridSelector);
+  pushPotentialInclusionRules(rules, cellSelector, selectedAttributes, hiddenAttributes, FILTERED, gridSelector);
   return rules.join('\n');
 }
 
@@ -85,10 +118,23 @@ export function buildFilterCSS(filters: FilterCSSInput): string {
 
   const rules: string[] = [];
 
-  if (currentView === 'attribute') {
-    pushInclusionRules(rules, '.gene-cell', 'data-attr', sa, ha, FILTERED);
-  } else if (currentView === 'appearance') {
-    pushInclusionRules(rules, '.gene-cell', 'data-appearance', sap, hap, FILTERED);
+  // Attribute filter keys off the gene effect DB (both alleles), carried as the
+  // delimited `data-attrs` list — not the pet's resolved per-allele `data-attr`.
+  // Both pet rows at a locus share the same gene, so the same selector decides
+  // both; a pet whose current allele is neutral stays lit when its gene could
+  // affect the attribute via the other allele. Appearance is a single per-gene
+  // category (`data-appearance`), matched exactly.
+  const focusSelectors =
+    currentView === 'attribute'
+      ? matchSelectors('.gene-cell', 'data-attrs', sa, ha, false)
+      : currentView === 'appearance'
+        ? matchSelectors('.gene-cell', 'data-appearance', sap, hap, true)
+        : [];
+  for (const s of focusSelectors) {
+    rules.push(`${G} ${s} ${FILTERED}`);
+    // Clear the amber diff tint on the containing cell too, so a dimmed glyph
+    // doesn't let it bleed through and fight the focus.
+    rules.push(`${G} .gene-cell-container.diff-cell:has(> ${s}) ${DIFF_BG_CLEARED}`);
   }
 
   // Breed filter
@@ -146,6 +192,17 @@ export const ATTR_DELIM = '·';
 /** Wrap a single value for a delimited-substring `*=` match. */
 function delim(value: string): string {
   return `${ATTR_DELIM}${value}${ATTR_DELIM}`;
+}
+
+/**
+ * Encode a set of values as a delimited token list for a `data-attrs`-style
+ * attribute (`·a·b·`, empty string when none). The multi-value counterpart of
+ * `delim()` — the single encoder for every producer of these lists, so the
+ * wrapping stays in lockstep with the `[attr*="·v·"]` selectors emitted here.
+ */
+export function joinAttrs(values: Iterable<string>): string {
+  const arr = [...values];
+  return arr.length ? ATTR_DELIM + arr.join(ATTR_DELIM) + ATTR_DELIM : '';
 }
 
 /** `gene-dominant` → `dominant` (the value carried by `data-zygosity`). */

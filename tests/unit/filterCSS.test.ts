@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
-  attributeFilterCSS,
+  attributePotentialFilterCSS,
   buildFilterCSS,
   buildVisualizerFilterCSS,
+  joinAttrs,
   type VisualizerFilterInput,
 } from '$lib/utils/filterCSS.js';
 
@@ -10,6 +11,7 @@ const FILTERED = '{ opacity: 0.15 !important; filter: grayscale(1) !important; p
 const HIDDEN = '{ display: none !important; }';
 const INACTIVE = '{ background-color: #e8e8ec !important; border-color: #d0d0d6 !important; opacity: 0.5 !important; }';
 const DIMMED = '{ opacity: 0.2 !important; }';
+const DIFF_CLEARED = '{ background-color: transparent !important; }';
 
 const base = {
   selectedAttributes: [],
@@ -30,21 +32,31 @@ describe('buildFilterCSS', () => {
     expect(buildFilterCSS(base)).toBe('');
   });
 
-  it('dims non-selected attribute cells via a :not() chain', () => {
+  it('dims cells whose gene cannot affect any selected attribute (gene-DB data-attrs match)', () => {
     const css = buildFilterCSS({ ...base, selectedAttributes: ['Toughness', 'Speed'] });
+    const sel = '.gene-cell[data-attrs]:not([data-attrs*="·Toughness·"]):not([data-attrs*="·Speed·"])';
     expect(css).toBe(
-      `.grid-container .gene-cell[data-attr]:not([data-attr="Toughness"]):not([data-attr="Speed"]) ${FILTERED}`,
+      `.grid-container ${sel} ${FILTERED}\n` +
+        `.grid-container .gene-cell-container.diff-cell:has(> ${sel}) ${DIFF_CLEARED}`,
     );
   });
 
-  it('dims a hidden attribute cell directly', () => {
+  it('dims a hidden attribute via delimited data-attrs match', () => {
     const css = buildFilterCSS({ ...base, hiddenAttributes: ['Toughness'] });
-    expect(css).toBe(`.grid-container .gene-cell[data-attr="Toughness"] ${FILTERED}`);
+    const sel = '.gene-cell[data-attrs*="·Toughness·"]';
+    expect(css).toBe(
+      `.grid-container ${sel} ${FILTERED}\n` +
+        `.grid-container .gene-cell-container.diff-cell:has(> ${sel}) ${DIFF_CLEARED}`,
+    );
   });
 
-  it('targets data-appearance in the appearance view', () => {
+  it('targets data-appearance in the appearance view and clears the diff tint on filtered cells', () => {
     const css = buildFilterCSS({ ...base, currentView: 'appearance', selectedAppearances: ['coat'] });
-    expect(css).toBe(`.grid-container .gene-cell[data-appearance]:not([data-appearance="coat"]) ${FILTERED}`);
+    const sel = '.gene-cell[data-appearance]:not([data-appearance="coat"])';
+    expect(css).toBe(
+      `.grid-container ${sel} ${FILTERED}\n` +
+        `.grid-container .gene-cell-container.diff-cell:has(> ${sel}) ${DIFF_CLEARED}`,
+    );
   });
 
   it('hides chromosomes outside an active selection', () => {
@@ -88,19 +100,37 @@ describe('buildFilterCSS', () => {
   });
 });
 
-describe('attributeFilterCSS', () => {
+describe('joinAttrs', () => {
+  it('wraps each value in the delimiter so it matches the [attr*="·v·"] selectors', () => {
+    expect(joinAttrs(['Toughness'])).toBe('·Toughness·');
+    expect(joinAttrs(['Speed', 'Toughness'])).toBe('·Speed·Toughness·');
+  });
+
+  it('returns an empty string for an empty set (so the cell dims under a focus)', () => {
+    expect(joinAttrs([])).toBe('');
+    expect(joinAttrs(new Set<string>())).toBe('');
+  });
+
+  it('accepts a Set (GeneVisualizer builds its attribute sets that way)', () => {
+    expect(joinAttrs(new Set(['Speed', 'Toughness']))).toBe('·Speed·Toughness·');
+  });
+});
+
+describe('attributePotentialFilterCSS', () => {
   it('returns an empty string when nothing is selected or hidden', () => {
-    expect(attributeFilterCSS('.trio-grid-container', '*', [], [])).toBe('');
+    expect(attributePotentialFilterCSS('.trio-grid-container', '*', [], [])).toBe('');
   });
 
-  it('dims everything but the selected attributes, scoped to the given grid/cell selectors', () => {
-    const css = attributeFilterCSS('.trio-grid-container', '*', ['Speed'], []);
-    expect(css).toBe(`.trio-grid-container *[data-attr]:not([data-attr="Speed"]) ${FILTERED}`);
+  it('dims loci whose gene cannot affect the selected attribute via either allele', () => {
+    const css = attributePotentialFilterCSS('.trio-grid-container', '*', ['Toughness'], []);
+    // delimited-substring match keeps a locus lit even when the pet's current
+    // allele is neutral, as long as ·Toughness· is in its both-allele set.
+    expect(css).toBe(`.trio-grid-container *[data-attrs]:not([data-attrs*="·Toughness·"]) ${FILTERED}`);
   });
 
-  it('dims a hidden attribute directly', () => {
-    const css = attributeFilterCSS('.trio-grid-container', '*', [], ['Toughness']);
-    expect(css).toBe(`.trio-grid-container *[data-attr="Toughness"] ${FILTERED}`);
+  it('dims a hidden attribute via delimited-substring match', () => {
+    const css = attributePotentialFilterCSS('.trio-grid-container', '*', [], ['Speed']);
+    expect(css).toBe(`.trio-grid-container *[data-attrs*="·Speed·"] ${FILTERED}`);
   });
 });
 

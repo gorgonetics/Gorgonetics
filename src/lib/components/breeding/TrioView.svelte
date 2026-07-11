@@ -1,9 +1,6 @@
 <script lang="ts">
 import GenomeGridTrio from '$lib/components/comparison/GenomeGridTrio.svelte';
-import DetailOverlay from '$lib/components/shared/DetailOverlay.svelte';
-import { normalizeSpecies } from '$lib/services/configService.js';
 import type { SelectedBreedingPair } from '$lib/stores/breeding.svelte.js';
-import { getSpeciesEmoji } from '$lib/utils/species.js';
 
 interface Props {
   pair: SelectedBreedingPair;
@@ -13,55 +10,9 @@ interface Props {
 
 const { pair, offspringBreed = '', onClose }: Props = $props();
 
-const father = $derived(pair.male);
-const mother = $derived(pair.female);
-const speciesLabel = $derived(father ? normalizeSpecies(father.species) : '');
+// Thin adapter: GenomeGridTrio owns the DetailOverlay shell (back button, the
+// parent-name title, and the stat pills in the header), so this just maps the
+// breeding pair to its parents.
 </script>
 
-<DetailOverlay
-  testid="trio-view"
-  backTestid="trio-view-back"
-  backLabel="← Pairs"
-  ariaLabel="Offspring trio"
-  onBack={onClose}
->
-  {#snippet title()}
-    <span class="parent-name father">♂ {father?.name}</span>
-    <span class="cross">×</span>
-    <span class="parent-name mother">♀ {mother?.name}</span>
-    {#if speciesLabel}
-      <span class="species-badge">{getSpeciesEmoji(father?.species)} {speciesLabel}</span>
-    {/if}
-  {/snippet}
-
-  <div class="trio-body">
-    <GenomeGridTrio {father} {mother} {offspringBreed} />
-  </div>
-</DetailOverlay>
-
-<style>
-  .parent-name { font-weight: 700; }
-  .parent-name.father { color: var(--accent); }
-  .parent-name.mother { color: var(--pet-b); }
-  .cross { color: var(--text-muted); font-weight: 500; }
-
-  .species-badge {
-    font-size: 12px;
-    font-weight: 500;
-    padding: 2px 8px;
-    background: var(--bg-tertiary);
-    border-radius: 10px;
-    color: var(--text-secondary);
-    white-space: nowrap;
-  }
-
-  /* Fill the overlay body; the grid itself owns the single scroll region so the
-     filters / summary stay pinned above it (no nested double scrollbar). */
-  .trio-body {
-    flex: 1;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    padding: 8px 14px;
-  }
-</style>
+<GenomeGridTrio father={pair.male} mother={pair.female} {offspringBreed} {onClose} />

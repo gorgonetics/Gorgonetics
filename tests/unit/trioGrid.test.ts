@@ -97,6 +97,14 @@ describe('buildTrioGrid', () => {
     expect(a2.motherCell).toBeNull(); // motherType null → no cell
   });
 
+  it('carries a per-locus both-allele attribute set (potential responsibility, not just the expressed allele)', () => {
+    // 01A1: both alleles affect Speed → ·Speed·
+    expect(grid.rows[0].cells.A1.attrs).toBe('·Speed·');
+    // 01A2: dominant Toughness+, recessive neutral → still ·Toughness· so a
+    // parent carrying the neutral allele stays lit under a Toughness focus.
+    expect(grid.rows[0].cells.A2.attrs).toBe('·Toughness·');
+  });
+
   it('builds offspring segments, omitting zero-mass alleles and toning by expressed effect', () => {
     const segs = grid.rows[0].cells.A1.segments;
     expect(segs).toEqual([
@@ -131,6 +139,7 @@ describe('buildTrioGrid', () => {
         effect: '',
       }),
       analyzeGene: () => ({ effectType: 'totally-made-up' }),
+      attributesForGene: () => [],
     };
     const stubResult = {
       chromosomes: [
