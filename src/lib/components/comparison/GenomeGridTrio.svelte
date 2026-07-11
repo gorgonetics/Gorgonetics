@@ -101,7 +101,7 @@ const lossCount = $derived.by(() => {
   return n;
 });
 
-const ALLELE_LABEL: Record<string, string> = { D: 'Dominant', x: 'Mixed', R: 'Recessive', unknown: 'Unknown' };
+const ALLELE_LABEL: Record<string, string> = { D: 'Dominant', x: 'Mixed', R: 'Recessive', '?': 'Unknown' };
 
 $effect(() => {
   if (father?.id && mother?.id) {
