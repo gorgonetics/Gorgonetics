@@ -1,17 +1,21 @@
 <script lang="ts">
 import BreedSelector from '$lib/components/shared/BreedSelector.svelte';
 import GeneFilterPills, { type FilterPillItem } from '$lib/components/shared/GeneFilterPills.svelte';
-import type { AppearanceInfo, AttributeInfo, GenomeDiffSummary } from '$lib/types/index.js';
+import type { AppearanceInfo, AttributeInfo } from '$lib/types/index.js';
 import { HORSE_BREEDS } from '$lib/types/index.js';
 
+/**
+ * The compare view's filter row: breed picker + attribute/appearance tri-state
+ * pills. The summary stats and the view / diffs-only toggles now ride in the
+ * DetailOverlay header (rendered by GenomeGridDiff), so the lens reads as two
+ * rows of chrome — header + this row — matching the trio view.
+ */
 interface Props {
-  summary: GenomeDiffSummary;
   isHorse: boolean;
   breedFilter: string;
   autoBreed?: boolean;
   petsHaveKnownBreed?: boolean;
   petsShareBreed?: boolean;
-  showDiffsOnly: boolean;
   selectedAttributes: string[];
   hiddenAttributes: string[];
   attributeDisplayInfo: AttributeInfo[];
@@ -23,20 +27,16 @@ interface Props {
   onAutoBreedToggle: () => void;
   onAttributeToggle: (key: string, ctrlKey: boolean, altKey: boolean) => void;
   onAppearanceToggle: (key: string, ctrlKey: boolean, altKey: boolean) => void;
-  onDiffsOnlyChange: (val: boolean) => void;
   onResetAttributes: () => void;
   onResetAppearances: () => void;
-  onViewChange: (view: 'attribute' | 'appearance') => void;
 }
 
 const {
-  summary,
   isHorse,
   breedFilter,
   autoBreed = false,
   petsHaveKnownBreed = false,
   petsShareBreed = false,
-  showDiffsOnly,
   selectedAttributes,
   hiddenAttributes,
   attributeDisplayInfo,
@@ -48,10 +48,8 @@ const {
   onAutoBreedToggle,
   onAttributeToggle,
   onAppearanceToggle,
-  onDiffsOnlyChange,
   onResetAttributes,
   onResetAppearances,
-  onViewChange,
 }: Props = $props();
 
 const attributeItems = $derived<FilterPillItem[]>(
@@ -67,20 +65,7 @@ const appearanceItems = $derived<FilterPillItem[]>(
 );
 </script>
 
-<div class="diff-controls">
-    <div class="diff-summary">
-        <span class="similarity-badge">{summary.similarityPercent}% identical</span>
-        <span class="summary-detail">{summary.identicalGenes}/{summary.totalGenes} genes match · {summary.differentGenes} diff</span>
-        <div class="view-toggle">
-            <button class="view-btn" class:active={currentView === 'attribute'} onclick={() => onViewChange('attribute')}>Attributes</button>
-            <button class="view-btn" class:active={currentView === 'appearance'} onclick={() => onViewChange('appearance')}>Appearance</button>
-        </div>
-        <label class="diff-toggle">
-            <input type="checkbox" checked={showDiffsOnly} onchange={(e) => onDiffsOnlyChange((e.target as HTMLInputElement).checked)} />
-            Differences only
-        </label>
-    </div>
-    <div class="diff-filters">
+<div class="diff-filters">
     {#if isHorse}
         <div class="breed-filter">
             {#if petsHaveKnownBreed}
@@ -121,26 +106,13 @@ const appearanceItems = $derived<FilterPillItem[]>(
             onReset={onResetAppearances}
         />
     {/if}
-    </div>
 </div>
 
 <div class="grid-instructions">Click chromosome labels · Ctrl+click multi · Alt+click hide</div>
 
 <style>
-    .diff-controls { display: flex; flex-direction: column; gap: 6px; margin-bottom: 6px; }
-    .diff-summary { display: flex; align-items: center; gap: 10px; padding: 6px 12px; background: var(--bg-secondary); border-radius: 8px; flex-wrap: wrap; }
     /* Breed selector + attribute/appearance pills share one wrapping band. */
     .diff-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; }
-    .similarity-badge { font-size: 14px; font-weight: 700; color: var(--text-primary); padding: 4px 10px; background: var(--bg-tertiary); border-radius: 10px; }
-    .summary-detail { font-size: 12px; color: var(--text-secondary); }
-    .diff-toggle { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary); cursor: pointer; }
-    .diff-toggle input { cursor: pointer; }
-
-    .view-toggle { margin-left: auto; display: inline-flex; border: 1px solid var(--border-primary); border-radius: 4px; overflow: hidden; }
-    .view-btn { padding: 3px 10px; border: none; background: var(--bg-primary); color: var(--text-tertiary); font-size: 11px; font-weight: 500; cursor: pointer; transition: all 0.15s; }
-    .view-btn + .view-btn { border-left: 1px solid var(--border-primary); }
-    .view-btn:hover { color: var(--text-secondary); }
-    .view-btn.active { background: var(--accent); color: white; }
 
     .breed-filter { display: flex; align-items: center; gap: 6px; padding: 0 4px; }
     /* Auto = Compare-only mode toggle that owns the breed; the breed picker
@@ -149,7 +121,5 @@ const appearanceItems = $derived<FilterPillItem[]>(
     .auto-btn:hover { border-color: var(--border-secondary); color: var(--text-secondary); }
     .auto-btn.active { background: var(--auto-active); border-color: var(--auto-active); color: var(--bg-primary); }
 
-    /* Attribute / appearance tri-state pills now live in GeneFilterPills. */
-
-    .grid-instructions { font-size: 10px; color: var(--text-muted); margin-bottom: 4px; font-style: italic; padding: 0 4px; }
+    .grid-instructions { font-size: 10px; color: var(--text-muted); margin: 4px 0; font-style: italic; padding: 0 4px; }
 </style>

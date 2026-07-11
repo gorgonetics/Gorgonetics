@@ -135,6 +135,27 @@ export function createGeneCellBuilder(ctx: GeneCellContext) {
     return { effectType, attribute, effect, breed };
   }
 
+  /**
+   * Attributes the gene at this locus can affect via *either* allele — the
+   * union of the dominant and recessive effects' attribute names, independent
+   * of which allele a given pet carries. A parent whose current allele is
+   * neutral is still reported here as potentially responsible, so the trio
+   * grid's attribute focus can highlight it (and the offspring) rather than
+   * dimming it out. Names are capitalised to match `data-attr` / filter keys.
+   */
+  function attributesForGene(geneId: string): string[] {
+    const geneData = ctx.effectsDB[geneId];
+    if (!geneData) return [];
+    const set = new Set<string>();
+    for (const eff of [geneData.effectDominant, geneData.effectRecessive]) {
+      if (isNoEffect(eff)) continue;
+      for (const attrName of ctx.attributeNames) {
+        if (eff.includes(attrName)) set.add(attrName);
+      }
+    }
+    return [...set];
+  }
+
   function categorizeAppearance(geneId: string): string {
     const raw = ctx.effectsDB[geneId]?.appearance;
     if (!raw || raw === 'None' || raw.includes('String for me to fill')) return '';
@@ -177,5 +198,5 @@ export function createGeneCellBuilder(ctx: GeneCellContext) {
     };
   }
 
-  return { makeCell, analyzeGene, categorizeAppearance };
+  return { makeCell, analyzeGene, categorizeAppearance, attributesForGene };
 }

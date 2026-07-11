@@ -51,6 +51,11 @@ interface Props {
   backTestid?: string;
   /** Header title content (plain text, or rich markup like the trio cross). */
   title: Snippet;
+  /**
+   * Optional right-aligned header content — the summary/stat pills the trio and
+   * compare lenses hoist up next to the title so their controls fit in two rows.
+   */
+  headerActions?: Snippet;
   /** The lens body (PetVisualization / GenomeGridDiff / GenomeGridTrio …). */
   children: Snippet;
 }
@@ -62,6 +67,7 @@ const {
   testid,
   backTestid,
   title,
+  headerActions,
   children,
 }: Props = $props();
 
@@ -134,6 +140,7 @@ function handleDocumentKeydown(e: KeyboardEvent) {
       {backLabel}
     </button>
     <span class="do-title">{@render title()}</span>
+    {#if headerActions}<div class="do-actions">{@render headerActions()}</div>{/if}
   </header>
   <div class="do-body">{@render children()}</div>
 </section>
@@ -182,5 +189,8 @@ function handleDocumentKeydown(e: KeyboardEvent) {
     flex-shrink: 0;
   }
   .back-btn:hover { color: var(--text-primary); background: var(--bg-hover); }
+  /* Right-aligned header content (summary/stat pills). Wraps under the title on
+     narrow widths rather than overflowing the bar. */
+  .do-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .do-body { flex: 1; min-height: 0; overflow: hidden; display: flex; }
 </style>

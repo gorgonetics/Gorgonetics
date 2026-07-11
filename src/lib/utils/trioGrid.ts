@@ -12,6 +12,7 @@
 
 import { compareBlockLetters } from '$lib/services/genomeParser.js';
 import type { AlleleDistribution, GeneType, OffspringTrioResult, TrioVerdict } from '$lib/types/index.js';
+import { ATTR_DELIM } from '$lib/utils/filterCSS.js';
 import type { GeneCell } from '$lib/utils/geneGridCells.js';
 
 /** Effect tone of an offspring allele outcome — drives the segment colour. */
@@ -39,6 +40,13 @@ export interface TrioLocusCell {
   source: 'father' | 'mother' | 'both' | null;
   lockedIn: boolean;
   attribute?: string;
+  /**
+   * Delimited (`·Attr·Attr·`) set of attributes the locus gene can affect via
+   * *either* allele — drives the attribute focus filter across all three rows
+   * (see `attributePotentialFilterCSS`). Empty string when the gene has no
+   * attribute effect, so it dims under an active selection.
+   */
+  attrs: string;
   pPositive: number;
   pNegative: number;
   fatherEffect?: string;
@@ -62,6 +70,7 @@ export interface TrioGrid {
 interface CellBuilderLike {
   makeCell(gene: { id: string; type: string }): GeneCell;
   analyzeGene(geneId: string, geneType: string): { effectType: string };
+  attributesForGene(geneId: string): string[];
 }
 
 const ALLELE_ORDER: readonly (keyof AlleleDistribution)[] = ['D', 'x', 'R', 'unknown'];
@@ -158,8 +167,10 @@ export function buildTrioGrid(result: OffspringTrioResult, cellBuilder: CellBuil
   const rows: TrioGridRow[] = result.chromosomes.map((chr) => {
     const cells: Record<string, TrioLocusCell> = {};
     for (const g of chr.genes) {
+      const attrList = cellBuilder.attributesForGene(g.geneId);
       cells[`${g.block}${g.position}`] = {
         geneId: g.geneId,
+        attrs: attrList.length ? ATTR_DELIM + attrList.join(ATTR_DELIM) + ATTR_DELIM : '',
         block: g.block,
         position: g.position,
         fatherType: g.fatherType,
