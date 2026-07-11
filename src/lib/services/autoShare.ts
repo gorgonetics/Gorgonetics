@@ -60,7 +60,10 @@ export async function autoShareImportedPets(petIds: number[]): Promise<BulkUploa
   if (toShare.length === 0) return null;
 
   try {
-    return await uploadPets(toShare);
+    // Throttle + retry like the other bulk callers (bulkShare / BulkSharePetDialog)
+    // so a large auto-import batch stays within the Firestore Spark write quota
+    // instead of tripping resource-exhausted and silently dropping later pets.
+    return await uploadPets(toShare, { interRequestDelayMs: 150, maxQuotaRetries: 5 });
   } catch (err) {
     // uploadPets isolates per-pet errors internally, so reaching here means an
     // unexpected failure (e.g. genome-text loader throwing). Swallow it — a

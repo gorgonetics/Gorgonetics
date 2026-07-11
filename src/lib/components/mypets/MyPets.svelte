@@ -23,19 +23,15 @@ import { bulkShareJob, startBulkShare } from '$lib/stores/bulkShare.svelte.js';
 import { pendingImportCount } from '$lib/stores/gameImport.js';
 import { clearMyPetsSelection, getMyPetsFilters, myPetsView } from '$lib/stores/mypets.svelte.js';
 import { allTags, loading, pets } from '$lib/stores/pets.js';
-import { type DialogResult, type Gender, HORSE_BREEDS, type Pet } from '$lib/types/index.js';
+import { type DialogResult, type Gender, type Pet } from '$lib/types/index.js';
 import { focusTrap } from '$lib/utils/focusTrap.js';
 import { createGenomeUploadController } from '$lib/utils/genomeUploadController.svelte.js';
 import { filterPets } from '$lib/utils/petFilter.js';
-import { getSpeciesEmoji } from '$lib/utils/species.js';
+import { BREEDS_BY_SPECIES, getSpeciesEmoji } from '$lib/utils/species.js';
 
 const speciesOptions = getSupportedSpecies();
 const upload = createGenomeUploadController();
 
-const BREEDS_BY_SPECIES: Record<string, Record<string, string>> = {
-  beewasp: { Bee: 'Bee', Wasp: 'Wasp' },
-  horse: HORSE_BREEDS,
-};
 const breedsForSpecies = $derived(myPetsView.species ? BREEDS_BY_SPECIES[myPetsView.species] : undefined);
 
 const flags = $derived([

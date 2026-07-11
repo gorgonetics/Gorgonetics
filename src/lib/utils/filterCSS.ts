@@ -269,8 +269,11 @@ export function buildVisualizerFilterCSS(input: VisualizerFilterInput): string {
       const not = sa.map((a) => `:not([data-attrs*="${delim(a)}"])`).join('');
       rules.push(`${VG} .gene-cell[data-attrs]${not} ${DIMMED_25}`);
     }
+    // Hide matches the same both-allele potential (`data-attrs`) as focus, so a
+    // locus whose other allele could express the hidden attribute is dimmed too
+    // — otherwise focus and hide would disagree on the same attribute.
     for (const h of ha) {
-      rules.push(`${VG} .gene-cell[data-attr="${h}"] ${DIMMED_25}`);
+      rules.push(`${VG} .gene-cell[data-attrs*="${delim(h)}"] ${DIMMED_25}`);
     }
   } else {
     if (sa.length > 0) {

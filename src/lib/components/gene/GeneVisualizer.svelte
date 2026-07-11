@@ -1090,7 +1090,6 @@ const blockIndices = $derived.by(() => {
                                                                 data-gene-type={cell.type}
                                                                 data-effect={cell.effect}
                                                                 data-appearance-effect={cell.appearanceEffect}
-                                                                data-attr={cell.attr}
                                                                 data-attrs={cell.attrs}
                                                                 data-appearance={cell.appearance}
                                                                 data-effecttype={cell.effectType}
