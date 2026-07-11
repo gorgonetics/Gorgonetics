@@ -16,6 +16,12 @@ export const error: Writable<string | null> = writable(null);
 /** Non-error, positive outcome text (e.g. import/auto-share summaries). Rendered
  *  as a success banner, distinct from the destructive `error` channel. */
 export const notice: Writable<string | null> = writable(null);
+// The two channels are mutually exclusive: surfacing an error (from any call
+// site) dismisses a lingering success toast so a stale "shared to community"
+// banner never sits next to a fresh failure.
+error.subscribe((v) => {
+  if (v !== null) notice.set(null);
+});
 export const geneEditingView: Writable<unknown> = writable(null);
 export const activeTab: Writable<Tab> = writable('mypets');
 
@@ -306,6 +312,7 @@ export const appState = {
     selectedPet.set(null);
     geneEditingView.set(null);
     error.set(null);
+    notice.set(null);
     loading.set(false);
     // Drop the back-stack too — its entries point into the pre-reset
     // session and shouldn't survive a full reset (#276 review).

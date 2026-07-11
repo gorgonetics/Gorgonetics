@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { closeDatabase, initDatabase } from '$lib/services/database.js';
 import { runMigrations } from '$lib/services/migrationService.js';
 import * as petService from '$lib/services/petService.js';
-import { activeTab, appState, error, geneEditingView, loading, pets, selectedPet } from '$lib/stores/pets.js';
+import { activeTab, appState, error, geneEditingView, loading, notice, pets, selectedPet } from '$lib/stores/pets.js';
 import type { Pet } from '$lib/types/index.js';
 
 // The store's `selectPet` takes a full `Pet`; these tests only need the
@@ -98,6 +98,13 @@ describe('Pets Store', () => {
       appState.setError('something went wrong');
       appState.clearError();
       expect(get(error)).toBeNull();
+    });
+
+    it('dismisses a lingering success notice when an error is surfaced', () => {
+      notice.set('3 shared to community');
+      appState.setError('boom');
+      expect(get(notice)).toBeNull();
+      appState.clearError();
     });
   });
 
