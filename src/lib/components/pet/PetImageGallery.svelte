@@ -88,19 +88,17 @@ function nextImage(): void {
 }
 
 function handleLightboxKey(e: KeyboardEvent): void {
-  // Stop the keys we consume from bubbling to document-level handlers (e.g.
-  // DetailOverlay's Escape back-out), so closing the lightbox doesn't also
-  // tear down the pet-detail overlay underneath it.
-  if (e.key === 'Escape') {
-    e.stopPropagation();
-    closeLightbox();
-  } else if (e.key === 'ArrowLeft') {
-    e.stopPropagation();
-    prevImage();
-  } else if (e.key === 'ArrowRight') {
-    e.stopPropagation();
-    nextImage();
-  }
+  // For the keys the lightbox consumes: stopPropagation keeps them off
+  // document-level handlers (e.g. DetailOverlay's Escape back-out) so closing
+  // the lightbox doesn't also tear down the pet-detail overlay underneath;
+  // preventDefault suppresses the browser default (e.g. arrow keys scrolling
+  // the covered page when focus sits on a button inside the lightbox).
+  if (e.key !== 'Escape' && e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+  e.stopPropagation();
+  e.preventDefault();
+  if (e.key === 'Escape') closeLightbox();
+  else if (e.key === 'ArrowLeft') prevImage();
+  else nextImage();
 }
 
 function confirmDelete(img: PetImage): void {

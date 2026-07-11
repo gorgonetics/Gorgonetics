@@ -47,14 +47,17 @@ describe('PetImageGallery lightbox', () => {
     // otherwise closing the lightbox also tears down the pet-detail overlay.
     const docSpy = vi.fn();
     document.addEventListener('keydown', docSpy);
+    let notCancelled = true;
     try {
-      await fireEvent.keyDown(lightbox as Element, { key: 'Escape' });
+      // fireEvent returns false when the handler called preventDefault.
+      notCancelled = await fireEvent.keyDown(lightbox as Element, { key: 'Escape' });
     } finally {
       document.removeEventListener('keydown', docSpy);
     }
 
     expect(container.querySelector('.lightbox')).toBeNull();
     expect(docSpy).not.toHaveBeenCalled();
+    expect(notCancelled).toBe(false);
   });
 
   it('control: an Escape outside the lightbox does reach document listeners', async () => {
