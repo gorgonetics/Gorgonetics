@@ -6,6 +6,7 @@ import {
   expressedSign,
   negativeExpressionProbability,
   offspringDistribution,
+  offspringOutcomeBuckets,
   positiveExpressionProbability,
 } from '$lib/utils/breedingGenetics.js';
 
@@ -250,5 +251,85 @@ describe('classifyTrioLocus', () => {
     expect(classify('?', 'D', domPositive).verdict).toBe('neutral');
     expect(classify('x', 'x', undefined).verdict).toBe('neutral');
     expect(classify('x', 'x', undefined).source).toBeNull();
+  });
+});
+
+describe('offspringOutcomeBuckets', () => {
+  const domPositive: GeneSignSummary = { dominantSign: '+', recessiveSign: null };
+  const recPositive: GeneSignSummary = { dominantSign: null, recessiveSign: '+' };
+  const recNegative: GeneSignSummary = { dominantSign: null, recessiveSign: '-' };
+  const domNegative: GeneSignSummary = { dominantSign: '-', recessiveSign: null };
+  const b = (f: GeneType, m: GeneType, gene: GeneSignSummary | undefined) =>
+    offspringOutcomeBuckets(f, m, offspringDistribution(f, m), gene);
+
+  it('splits a two mixed-positive parents cross into clarify / keep / loss (no new gain)', () => {
+    // x × x, dominant +: both parents express + (mixed). Offspring D consolidates
+    // to homozygous (clarification), x keeps it mixed, R drops the positive.
+    expect(b('x', 'x', domPositive)).toEqual({
+      newPositive: 0,
+      clarifiedPositive: 0.25,
+      keepPositive: 0.5,
+      neutral: 0,
+      keepNegative: 0,
+      loss: 0.25,
+      unknown: 0,
+    });
+  });
+
+  it('flags a positive neither parent expresses as a new gain', () => {
+    // x × x, recessive +: parents express the (neutral) dominant, so neither shows
+    // the +. The 25% homozygous-recessive offspring is a brand-new positive.
+    expect(b('x', 'x', recPositive)).toMatchObject({ newPositive: 0.25, neutral: 0.75, clarifiedPositive: 0 });
+  });
+
+  it('does not call a homozygous outcome a clarification when nothing was mixed', () => {
+    // D × D, dominant +: already homozygous in both parents → pure keep, fixed.
+    expect(b('D', 'D', domPositive)).toEqual({
+      newPositive: 0,
+      clarifiedPositive: 0,
+      keepPositive: 1,
+      neutral: 0,
+      keepNegative: 0,
+      loss: 0,
+      unknown: 0,
+    });
+  });
+
+  it('flags a negative neither parent expresses as a loss, an existing one as keep-negative', () => {
+    expect(b('x', 'x', recNegative)).toMatchObject({ loss: 0.25, neutral: 0.75 });
+    // both parents express the dominant negative → the offspring only keeps it.
+    expect(b('x', 'x', domNegative)).toMatchObject({ keepNegative: 0.75, neutral: 0.25, loss: 0 });
+  });
+
+  it('treats losing a parent-expressed positive as a loss', () => {
+    // D(+dominant) × R: offspring all mixed x → still expresses +, kept, no loss.
+    // R × x on a recessive-positive: the x offspring drops the recessive +.
+    expect(b('R', 'x', recPositive)).toMatchObject({ loss: 0.5 });
+  });
+
+  it('routes all mass to unknown when a parent allele is unknowable', () => {
+    expect(b('?', 'x', domPositive)).toEqual({
+      newPositive: 0,
+      clarifiedPositive: 0,
+      keepPositive: 0,
+      neutral: 0,
+      keepNegative: 0,
+      loss: 0,
+      unknown: 1,
+    });
+  });
+
+  it('treats a locus with no gene record as fully neutral', () => {
+    expect(b('x', 'x', undefined)).toMatchObject({ neutral: 1 });
+  });
+
+  it('produces masses that sum to 1', () => {
+    for (const f of ALL_TYPES) {
+      for (const m of ALL_TYPES) {
+        const out = b(f, m, domPositive);
+        const sum = Object.values(out).reduce((s, v) => s + v, 0);
+        expect(sum).toBeCloseTo(1, 10);
+      }
+    }
   });
 });

@@ -3,28 +3,23 @@
  *
  * Turns the `OffspringTrioResult` from `offspringTrioService` into a
  * block/position grid layout plus, per locus, the two parent cells (built
- * with the shared `geneGridCells` factory) and the offspring's allele
- * distribution as coloured segments for the taller middle row.
+ * with the shared `geneGridCells` factory) and the offspring's outcome
+ * buckets for the middle row.
  *
  * Pure: no Svelte, no DB. The component owns loading and the DOM; this owns
  * the shape so it can be unit-tested without rendering.
  */
 
 import { compareBlockLetters } from '$lib/services/genomeParser.js';
-import type { AlleleDistribution, GeneType, OffspringTrioResult, TrioVerdict } from '$lib/types/index.js';
+import type {
+  GeneType,
+  OffspringOutcomeBuckets,
+  OffspringTrioResult,
+  TrioGainMode,
+  TrioVerdict,
+} from '$lib/types/index.js';
 import { joinAttrs } from '$lib/utils/filterCSS.js';
 import type { GeneCell } from '$lib/utils/geneGridCells.js';
-
-/** Effect tone of an offspring allele outcome — drives the segment colour. */
-export type TrioTone = 'positive' | 'negative' | 'potential-positive' | 'potential-negative' | 'neutral' | 'unknown';
-
-/** One slice of the offspring distribution bar. */
-export interface TrioSegment {
-  allele: 'D' | 'x' | 'R' | 'unknown';
-  /** Probability as a percentage (0–100) — the segment's flex width. */
-  pct: number;
-  tone: TrioTone;
-}
 
 /** A fully-resolved locus ready to render across the three rows. */
 export interface TrioLocusCell {
@@ -35,7 +30,8 @@ export interface TrioLocusCell {
   motherType: GeneType | null;
   fatherCell: GeneCell | null;
   motherCell: GeneCell | null;
-  segments: TrioSegment[];
+  /** Offspring outcome split vs the parents; drives the middle-row box. */
+  buckets: OffspringOutcomeBuckets;
   verdict: TrioVerdict;
   source: 'father' | 'mother' | 'both' | null;
   lockedIn: boolean;
@@ -69,79 +65,45 @@ export interface TrioGrid {
 /** Minimal slice of the `geneGridCells` factory this module needs. */
 interface CellBuilderLike {
   makeCell(gene: { id: string; type: string }): GeneCell;
-  analyzeGene(geneId: string, geneType: string): { effectType: string };
   attributesForGene(geneId: string): string[];
 }
 
-const ALLELE_ORDER: readonly (keyof AlleleDistribution)[] = ['D', 'x', 'R', 'unknown'];
-
-/** CSS colour variable each tone paints with (same vars the old `.tone-*` rules used). */
-const TONE_VAR: Record<TrioTone, string> = {
-  positive: 'var(--gene-positive)',
-  negative: 'var(--gene-negative)',
-  'potential-positive': 'var(--gene-potential-positive)',
-  'potential-negative': 'var(--gene-potential-negative)',
-  neutral: 'var(--gene-neutral)',
-  unknown: 'var(--gene-neutral)',
-};
-
-/**
- * True when the bar is an all-unknown offspring. `offspringDistribution`
- * collapses any unknown parent to `{ unknown: 1 }`, so `unknown` is never
- * mixed with solid alleles — it is always the sole, full-width segment.
- */
-export function isUnknownDist(segments: TrioSegment[]): boolean {
-  return segments.length === 1 && segments[0].allele === 'unknown';
+/** True when the locus can't change vs the parents (no gain and no loss). */
+export function isFixedOutcome(b: OffspringOutcomeBuckets): boolean {
+  return b.newPositive === 0 && b.clarifiedPositive === 0 && b.loss === 0;
 }
 
+const HATCH =
+  'repeating-linear-gradient(45deg, color-mix(in srgb, var(--gene-neutral) 60%, transparent) 0 2px, transparent 2px 4px)';
+
 /**
- * CSS `background` for one offspring distribution bar — a single hard-stop
- * `linear-gradient` across the segments, replacing the per-segment `<span>`s.
- * Colours use the same `var(--gene-*)` references the old `.tone-*` classes
- * did, so themes and the grid's grayscale filter still apply. The all-unknown
- * case keeps the diagonal hatch; the old span's 0.6 opacity is baked into the
- * stripe colour so only the hatch is dimmed, not the bar's border/shadow.
+ * CSS `background` for one offspring outcome box — a single hard-stop
+ * `linear-gradient` (no gaps) stacking the buckets top→bottom: gain, keep,
+ * neutral, keep-negative, loss. `mode` picks which positive-change bucket is
+ * the vivid gain; the other collapses into the muted "keep" green. A
+ * fully-unknown locus renders the diagonal hatch instead.
  */
-export function distBarBackground(segments: TrioSegment[]): string {
-  if (isUnknownDist(segments)) {
-    return 'repeating-linear-gradient(45deg, color-mix(in srgb, var(--gene-neutral) 60%, transparent) 0 2px, transparent 2px 4px)';
-  }
+export function outcomeBoxBackground(b: OffspringOutcomeBuckets, mode: TrioGainMode): string {
+  if (b.unknown >= 1) return HATCH;
+  const activeGain = mode === 'attributes' ? b.newPositive : b.clarifiedPositive;
+  const mutedGreen = (mode === 'attributes' ? b.clarifiedPositive : b.newPositive) + b.keepPositive;
+  const segments: [number, string][] = [
+    [activeGain, 'var(--trio-gain)'],
+    [mutedGreen, 'var(--trio-keep-pos)'],
+    [b.neutral, 'var(--trio-neutral)'],
+    [b.keepNegative, 'var(--trio-keep-neg)'],
+    [b.loss, 'var(--trio-loss)'],
+  ];
   const stops: string[] = [];
   let acc = 0;
-  for (const seg of segments) {
-    const start = acc;
-    acc += seg.pct;
-    stops.push(`${TONE_VAR[seg.tone]} ${start}% ${acc}%`);
+  for (const [mass, color] of segments) {
+    if (mass <= 0) continue;
+    const start = acc * 100;
+    acc += mass;
+    stops.push(`${color} ${start.toFixed(2)}% ${(acc * 100).toFixed(2)}%`);
   }
-  return `linear-gradient(90deg, ${stops.join(', ')})`;
-}
-
-/** Effect-type strings that map to a defined `tone-*` style. */
-const KNOWN_TONES = new Set<TrioTone>(['positive', 'negative', 'potential-positive', 'potential-negative', 'neutral']);
-
-function toneFor(geneId: string, allele: keyof AlleleDistribution, cellBuilder: CellBuilderLike): TrioTone {
-  if (allele === 'unknown') return 'unknown';
-  // `D`/`x` express the dominant effect, `R` the recessive — `analyzeGene`
-  // resolves the right one from the allele it's given. Normalise to the known
-  // tone set so an unexpected/expanded effectType can't emit an undefined
-  // `tone-*` class; `neutral` is the safe default for a known allele.
-  const effectType = cellBuilder.analyzeGene(geneId, allele).effectType;
-  return KNOWN_TONES.has(effectType as TrioTone) ? (effectType as TrioTone) : 'neutral';
-}
-
-function buildSegments(geneId: string, dist: AlleleDistribution, cellBuilder: CellBuilderLike): TrioSegment[] {
-  const segments: TrioSegment[] = [];
-  for (const allele of ALLELE_ORDER) {
-    const mass = dist[allele];
-    if (mass > 0) {
-      segments.push({
-        allele: allele as TrioSegment['allele'],
-        pct: mass * 100,
-        tone: toneFor(geneId, allele, cellBuilder),
-      });
-    }
-  }
-  return segments;
+  if (stops.length === 0) return 'var(--trio-neutral)';
+  return `linear-gradient(180deg, ${stops.join(', ')})`;
 }
 
 /**
@@ -177,7 +139,7 @@ export function buildTrioGrid(result: OffspringTrioResult, cellBuilder: CellBuil
         motherType: g.motherType,
         fatherCell: g.fatherType ? cellBuilder.makeCell({ id: g.geneId, type: g.fatherType }) : null,
         motherCell: g.motherType ? cellBuilder.makeCell({ id: g.geneId, type: g.motherType }) : null,
-        segments: buildSegments(g.geneId, g.dist, cellBuilder),
+        buckets: g.buckets,
         verdict: g.verdict,
         source: g.source,
         lockedIn: g.lockedIn,

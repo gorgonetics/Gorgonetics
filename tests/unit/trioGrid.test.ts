@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import type { GeneTrioEntry, OffspringTrioResult } from '$lib/types/index.js';
+import type { GeneTrioEntry, OffspringOutcomeBuckets, OffspringTrioResult } from '$lib/types/index.js';
 import { createGeneCellBuilder } from '$lib/utils/geneGridCells.js';
-import { buildTrioGrid, distBarBackground, isUnknownDist, type TrioSegment } from '$lib/utils/trioGrid.js';
+import { buildTrioGrid, isFixedOutcome, outcomeBoxBackground } from '$lib/utils/trioGrid.js';
 
 const effectsDB = {
   // carrier gene: harmful dominant, beneficial recessive
@@ -16,6 +16,17 @@ const cellBuilder = createGeneCellBuilder({
   speciesKey: 'beewasp',
 });
 
+const buckets = (over: Partial<OffspringOutcomeBuckets> = {}): OffspringOutcomeBuckets => ({
+  newPositive: 0,
+  clarifiedPositive: 0,
+  keepPositive: 0,
+  neutral: 0,
+  keepNegative: 0,
+  loss: 0,
+  unknown: 0,
+  ...over,
+});
+
 const entry = (over: Partial<GeneTrioEntry>): GeneTrioEntry => ({
   geneId: '01A1',
   block: 'A',
@@ -23,6 +34,7 @@ const entry = (over: Partial<GeneTrioEntry>): GeneTrioEntry => ({
   fatherType: 'x',
   motherType: 'x',
   dist: { D: 0.25, x: 0.5, R: 0.25, unknown: 0 },
+  buckets: buckets({ keepPositive: 0.25, loss: 0.75 }),
   verdict: 'gain',
   source: 'both',
   lockedIn: false,
@@ -49,6 +61,7 @@ const result = {
           fatherType: 'D',
           motherType: null,
           dist: { D: 0, x: 0, R: 0, unknown: 1 },
+          buckets: buckets({ unknown: 1 }),
           verdict: 'neutral',
           source: null,
           attribute: 'Toughness',
@@ -64,7 +77,14 @@ const result = {
       gains: 0,
       risks: 0,
       genes: [
-        entry({ geneId: '02B1', block: 'B', position: 1, dist: { D: 1, x: 0, R: 0, unknown: 0 }, verdict: 'neutral' }),
+        entry({
+          geneId: '02B1',
+          block: 'B',
+          position: 1,
+          dist: { D: 1, x: 0, R: 0, unknown: 0 },
+          buckets: buckets({ keepPositive: 1 }),
+          verdict: 'neutral',
+        }),
       ],
     },
   ],
@@ -88,7 +108,6 @@ describe('buildTrioGrid', () => {
 
   it('builds parent cells with the shared gene-cell classes, null when a parent lacks the locus', () => {
     const a1 = grid.rows[0].cells.A1;
-    // father x → expresses the harmful dominant (Speed-) as mixed zygosity
     expect(a1.fatherCell?.attributeCls).toBe('gene-cell gene-negative gene-mixed');
     expect(a1.motherCell?.attributeCls).toBe('gene-cell gene-negative gene-mixed');
 
@@ -98,24 +117,13 @@ describe('buildTrioGrid', () => {
   });
 
   it('carries a per-locus both-allele attribute set (potential responsibility, not just the expressed allele)', () => {
-    // 01A1: both alleles affect Speed → ·Speed·
     expect(grid.rows[0].cells.A1.attrs).toBe('·Speed·');
-    // 01A2: dominant Toughness+, recessive neutral → still ·Toughness· so a
-    // parent carrying the neutral allele stays lit under a Toughness focus.
     expect(grid.rows[0].cells.A2.attrs).toBe('·Toughness·');
   });
 
-  it('builds offspring segments, omitting zero-mass alleles and toning by expressed effect', () => {
-    const segs = grid.rows[0].cells.A1.segments;
-    expect(segs).toEqual([
-      { allele: 'D', pct: 25, tone: 'negative' }, // D expresses the dominant Speed-
-      { allele: 'x', pct: 50, tone: 'negative' }, // x also expresses dominant
-      { allele: 'R', pct: 25, tone: 'positive' }, // R expresses the recessive Speed+
-    ]);
-  });
-
-  it('represents an all-unknown offspring as a single unknown segment', () => {
-    expect(grid.rows[0].cells.A2.segments).toEqual([{ allele: 'unknown', pct: 100, tone: 'unknown' }]);
+  it('carries the offspring outcome buckets through to the cell', () => {
+    expect(grid.rows[0].cells.A1.buckets).toEqual(buckets({ keepPositive: 0.25, loss: 0.75 }));
+    expect(grid.rows[0].cells.A2.buckets).toEqual(buckets({ unknown: 1 }));
   });
 
   it('carries the verdict metadata through to the cell', () => {
@@ -126,37 +134,6 @@ describe('buildTrioGrid', () => {
     expect(a1.attribute).toBe('Speed');
   });
 
-  it('normalises an unexpected effectType to a neutral tone (no undefined tone-* class)', () => {
-    const stubBuilder = {
-      makeCell: () => ({
-        id: '01A1',
-        type: 'D',
-        attributeCls: '',
-        appearanceCls: '',
-        attribute: '',
-        appearance: '',
-        breed: '',
-        effect: '',
-      }),
-      analyzeGene: () => ({ effectType: 'totally-made-up' }),
-      attributesForGene: () => [],
-    };
-    const stubResult = {
-      chromosomes: [
-        {
-          chromosome: '01',
-          totalGenes: 1,
-          gains: 0,
-          risks: 0,
-          genes: [entry({ dist: { D: 1, x: 0, R: 0, unknown: 0 } })],
-        },
-      ],
-      summary: {},
-    } as unknown as OffspringTrioResult;
-    const g = buildTrioGrid(stubResult, stubBuilder);
-    expect(g.rows[0].cells.A1.segments).toEqual([{ allele: 'D', pct: 100, tone: 'neutral' }]);
-  });
-
   it('returns an empty layout for an empty result', () => {
     const empty = buildTrioGrid({ chromosomes: [], summary: {} } as unknown as OffspringTrioResult, cellBuilder);
     expect(empty.blocks).toEqual([]);
@@ -164,46 +141,49 @@ describe('buildTrioGrid', () => {
   });
 });
 
-describe('distBarBackground', () => {
-  it('builds a hard-stop linear-gradient across the segments in order', () => {
-    const segs: TrioSegment[] = [
-      { allele: 'D', pct: 25, tone: 'negative' },
-      { allele: 'x', pct: 50, tone: 'negative' },
-      { allele: 'R', pct: 25, tone: 'positive' },
-    ];
-    expect(distBarBackground(segs)).toBe(
-      'linear-gradient(90deg, var(--gene-negative) 0% 25%, var(--gene-negative) 25% 75%, var(--gene-positive) 75% 100%)',
+describe('outcomeBoxBackground', () => {
+  it('stacks the buckets top→bottom as a hard-stop vertical gradient', () => {
+    const b = buckets({ newPositive: 0.5, keepPositive: 0.25, loss: 0.25 });
+    expect(outcomeBoxBackground(b, 'attributes')).toBe(
+      'linear-gradient(180deg, var(--trio-gain) 0.00% 50.00%, var(--trio-keep-pos) 50.00% 75.00%, var(--trio-loss) 75.00% 100.00%)',
     );
   });
 
-  it('maps every tone to its gene colour variable', () => {
-    const segs: TrioSegment[] = [
-      { allele: 'D', pct: 25, tone: 'potential-positive' },
-      { allele: 'x', pct: 25, tone: 'potential-negative' },
-      { allele: 'R', pct: 50, tone: 'neutral' },
-    ];
-    expect(distBarBackground(segs)).toBe(
-      'linear-gradient(90deg, var(--gene-potential-positive) 0% 25%, var(--gene-potential-negative) 25% 50%, var(--gene-neutral) 50% 100%)',
+  it('swaps which positive bucket is the vivid gain when the mode changes', () => {
+    const b = buckets({ newPositive: 0.25, clarifiedPositive: 0.5, loss: 0.25 });
+    // attributes: newPositive is the gain (0–25); clarified folds into keep (25–75)
+    expect(outcomeBoxBackground(b, 'attributes')).toBe(
+      'linear-gradient(180deg, var(--trio-gain) 0.00% 25.00%, var(--trio-keep-pos) 25.00% 75.00%, var(--trio-loss) 75.00% 100.00%)',
+    );
+    // clarification: clarified is the gain (0–50); newPositive folds into keep (50–75)
+    expect(outcomeBoxBackground(b, 'clarification')).toBe(
+      'linear-gradient(180deg, var(--trio-gain) 0.00% 50.00%, var(--trio-keep-pos) 50.00% 75.00%, var(--trio-loss) 75.00% 100.00%)',
     );
   });
 
-  it('renders an all-unknown offspring as the diagonal hatch with the dimming baked into the stripe', () => {
-    const segs: TrioSegment[] = [{ allele: 'unknown', pct: 100, tone: 'unknown' }];
-    expect(distBarBackground(segs)).toBe(
-      'repeating-linear-gradient(45deg, color-mix(in srgb, var(--gene-neutral) 60%, transparent) 0 2px, transparent 2px 4px)',
+  it('renders a fully-unknown locus as the diagonal hatch, regardless of mode', () => {
+    const hatch =
+      'repeating-linear-gradient(45deg, color-mix(in srgb, var(--gene-neutral) 60%, transparent) 0 2px, transparent 2px 4px)';
+    expect(outcomeBoxBackground(buckets({ unknown: 1 }), 'attributes')).toBe(hatch);
+    expect(outcomeBoxBackground(buckets({ unknown: 1 }), 'clarification')).toBe(hatch);
+  });
+
+  it('renders a settled all-neutral locus as a solid neutral fill', () => {
+    expect(outcomeBoxBackground(buckets({ neutral: 1 }), 'attributes')).toBe(
+      'linear-gradient(180deg, var(--trio-neutral) 0.00% 100.00%)',
     );
-    expect(isUnknownDist(segs)).toBe(true);
+  });
+});
+
+describe('isFixedOutcome', () => {
+  it('is fixed when there is no gain and no loss', () => {
+    expect(isFixedOutcome(buckets({ keepPositive: 1 }))).toBe(true);
+    expect(isFixedOutcome(buckets({ neutral: 0.5, keepNegative: 0.5 }))).toBe(true);
   });
 
-  it('keys the unknown case off the allele, not the tone', () => {
-    // A hypothetical tone remap must not reclassify a solid allele as unknown.
-    expect(isUnknownDist([{ allele: 'unknown', pct: 100, tone: 'neutral' }])).toBe(true);
-    expect(isUnknownDist([{ allele: 'D', pct: 100, tone: 'unknown' }])).toBe(false);
-  });
-
-  it('treats a solid single-allele distribution as a normal gradient, not unknown', () => {
-    const segs: TrioSegment[] = [{ allele: 'D', pct: 100, tone: 'positive' }];
-    expect(isUnknownDist(segs)).toBe(false);
-    expect(distBarBackground(segs)).toBe('linear-gradient(90deg, var(--gene-positive) 0% 100%)');
+  it('is not fixed when any gain or loss is possible', () => {
+    expect(isFixedOutcome(buckets({ newPositive: 0.25, keepPositive: 0.75 }))).toBe(false);
+    expect(isFixedOutcome(buckets({ clarifiedPositive: 0.5, keepPositive: 0.5 }))).toBe(false);
+    expect(isFixedOutcome(buckets({ keepPositive: 0.75, loss: 0.25 }))).toBe(false);
   });
 });
