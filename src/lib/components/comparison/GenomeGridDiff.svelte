@@ -561,22 +561,6 @@ function handleCellLeave() {
        paint the cell padding — otherwise it bleeds across the 8px inter-block
        gap on block-start cells and merges adjacent diffs into one band. */
     .gene-cell-container.diff-cell { background-color: rgba(234, 179, 8, 0.15); background-clip: content-box; }
-    .gene-cell-container.identical-dimmed { opacity: 0.2; }
-
-    /* Breed override — applied via direct DOM manipulation */
-    :global(.gene-inactive-breed-override) {
-        background-color: #e8e8ec !important;
-        border-color: #d0d0d6 !important;
-        opacity: 0.5;
-    }
-    :global(.gene-inactive-breed-override.gene-recessive) {
-        background-color: rgba(208, 208, 214, 0.15) !important;
-        border-color: #d0d0d6 !important;
-    }
-    :global(.gene-inactive-breed-override.gene-mixed) {
-        background: linear-gradient(135deg, transparent 50%, #d0d0d6 50%) !important;
-        border-color: #d0d0d6 !important;
-    }
 
     .gene-unknown-symbol { color: var(--text-muted); font-size: 1em; font-weight: 600; }
     .empty-text { color: var(--text-muted); font-size: 13px; text-align: center; padding: 40px; }

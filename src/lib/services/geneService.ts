@@ -400,18 +400,6 @@ export async function exportGenesToJson(animalType: string, chromosome: string):
 }
 
 /**
- * Export all chromosomes for an animal type.
- */
-export async function exportAllChromosomes(animalType: string): Promise<Record<string, Record<string, string>[]>> {
-  const chromosomes = await getChromosomes(animalType);
-  const result: Record<string, Record<string, string>[]> = {};
-  for (const chr of chromosomes) {
-    result[chr] = await exportGenesToJson(animalType, chr);
-  }
-  return result;
-}
-
-/**
  * Check if genes table has any data.
  */
 export async function hasGenes(): Promise<boolean> {

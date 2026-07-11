@@ -18,7 +18,7 @@ import {
   recordImportedFile,
   uploadPet,
 } from './petService.js';
-import { getSetting, setSetting } from './settingsService.js';
+import { getSetting } from './settingsService.js';
 import type { BulkUploadSummary } from './shareService.js';
 
 export type Platform = 'windows' | 'mac' | 'linux' | 'unknown';
@@ -72,10 +72,6 @@ export function isPlaceholderPath(path: string): boolean {
 export async function getConfiguredGameFolder(): Promise<string> {
   const stored = (await getSetting<string>(GAME_FOLDER_SETTING_KEY)) ?? '';
   return stored.trim() || getDefaultGameFolder();
-}
-
-export function setConfiguredGameFolder(path: string): Promise<void> {
-  return setSetting(GAME_FOLDER_SETTING_KEY, path);
 }
 
 const HOME_PREFIX = /^(~|\$HOME)(?:\/|$)/;

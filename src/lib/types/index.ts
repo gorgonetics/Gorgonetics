@@ -294,16 +294,6 @@ export interface BreedingPairResult {
 
 // --- Comparison types ---
 
-export interface AttributeComparisonResult {
-  key: string;
-  name: string;
-  icon: string;
-  petAValue: number;
-  petBValue: number;
-  diff: number;
-  winner: 'a' | 'b' | 'tie';
-}
-
 export interface GeneStatsEntry {
   positive: number;
   negative: number;
@@ -312,49 +302,12 @@ export interface GeneStatsEntry {
   mixed: number;
 }
 
-export interface GeneStatsComparisonResult {
-  key: string;
-  name: string;
-  icon: string;
-  petA: GeneStatsEntry;
-  petB: GeneStatsEntry;
-}
-
-export interface GeneDiffEntry {
-  geneId: string;
-  block: string;
-  position: number;
-  petAType: GeneType | null;
-  petBType: GeneType | null;
-  isDifferent: boolean;
-  petAEffect?: string;
-  petBEffect?: string;
-}
-
-export interface ChromosomeDiff {
-  chromosome: string;
-  totalGenes: number;
-  identicalGenes: number;
-  differentGenes: number;
-  genes: GeneDiffEntry[];
-}
-
 /** Aggregate counts for a two-pet genome diff, shared across the comparison UI. */
 export interface GenomeDiffSummary {
   totalGenes: number;
   identicalGenes: number;
   differentGenes: number;
   similarityPercent: number;
-}
-
-export interface ComparisonResult {
-  petA: Pet;
-  petB: Pet;
-  species: string;
-  attributes: AttributeComparisonResult[];
-  geneStats: GeneStatsComparisonResult[];
-  genomeDiff: ChromosomeDiff[];
-  summary: GenomeDiffSummary;
 }
 
 // --- Offspring trio types ---
