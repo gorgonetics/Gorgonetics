@@ -12,7 +12,7 @@
 
 import { compareBlockLetters } from '$lib/services/genomeParser.js';
 import type { AlleleDistribution, GeneType, OffspringTrioResult, TrioVerdict } from '$lib/types/index.js';
-import { ATTR_DELIM } from '$lib/utils/filterCSS.js';
+import { joinAttrs } from '$lib/utils/filterCSS.js';
 import type { GeneCell } from '$lib/utils/geneGridCells.js';
 
 /** Effect tone of an offspring allele outcome — drives the segment colour. */
@@ -170,7 +170,7 @@ export function buildTrioGrid(result: OffspringTrioResult, cellBuilder: CellBuil
       const attrList = cellBuilder.attributesForGene(g.geneId);
       cells[`${g.block}${g.position}`] = {
         geneId: g.geneId,
-        attrs: attrList.length ? ATTR_DELIM + attrList.join(ATTR_DELIM) + ATTR_DELIM : '',
+        attrs: joinAttrs(attrList),
         block: g.block,
         position: g.position,
         fatherType: g.fatherType,

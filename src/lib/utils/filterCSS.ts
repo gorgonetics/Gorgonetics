@@ -36,28 +36,14 @@ function matchSelectors(
   return sels;
 }
 
-function pushInclusionRules(
-  rules: string[],
-  baseSelector: string,
-  attr: string,
-  selected: string[],
-  hidden: string[],
-  declaration: string,
-  gridSelector: string = G,
-): void {
-  for (const s of matchSelectors(baseSelector, attr, selected, hidden, true)) {
-    rules.push(`${gridSelector} ${s} ${declaration}`);
-  }
-}
-
 /**
- * Like `pushInclusionRules`, but matches the *potential* attributes of a locus
- * carried in a delimited `data-attrs` list (`·Attr·Attr·`) rather than a single
- * exact `data-attr`. This is the gene-effect-database view of the filter: the
- * attribute set is a property of the gene (union of both alleles' effects), so
- * a cell stays lit whenever its gene could affect the attribute — independent
- * of which allele the pet actually carries. `data-attrs` must be present (even
- * empty) on every filterable cell so attribute-less loci dim under a selection.
+ * Push select/hide rules that match the *potential* attributes of a locus
+ * carried in a delimited `data-attrs` list (`·Attr·Attr·`). This is the
+ * gene-effect-database view of the filter: the attribute set is a property of
+ * the gene (union of both alleles' effects), so a cell stays lit whenever its
+ * gene could affect the attribute — independent of which allele the pet
+ * actually carries. `data-attrs` must be present (even empty) on every
+ * filterable cell so attribute-less loci dim under a selection.
  */
 function pushPotentialInclusionRules(
   rules: string[],
@@ -73,34 +59,16 @@ function pushPotentialInclusionRules(
 }
 
 /**
- * Attribute select/hide rules for any genome grid, parameterised by the grid
- * and cell selectors. Selected attributes dim everything else; hidden
- * attributes dim themselves. Shares the exact dimming declaration the 2-pet
- * diff grid uses so the trio grid filters identically. `cellSelector` is the
- * element selector that *carries* `data-attr` — `[data-attr]` is appended
- * internally, so pass the element only (the diff grid uses `.gene-cell`; the
- * trio grid uses `*` because its rows mix `.gene-cell` and `.dist-bar` cells).
- */
-export function attributeFilterCSS(
-  gridSelector: string,
-  cellSelector: string,
-  selectedAttributes: string[],
-  hiddenAttributes: string[],
-): string {
-  const rules: string[] = [];
-  pushInclusionRules(rules, cellSelector, 'data-attr', selectedAttributes, hiddenAttributes, FILTERED, gridSelector);
-  return rules.join('\n');
-}
-
-/**
- * Like `attributeFilterCSS`, but matches the *potential* attributes of a locus:
- * the union of both alleles' effects, carried as a delimited `data-attrs` list
+ * Attribute focus rules matching the *potential* attributes of a locus: the
+ * union of both alleles' effects, carried as a delimited `data-attrs` list
  * (`·Attr·Attr·`). A locus stays lit whenever its gene could affect the
  * attribute via either allele — even if the pet's current allele is neutral —
- * so the trio grid's focus highlights both parents and the offspring at every
- * responsible locus rather than dimming a parent whose allele happens to be
- * neutral. `data-attrs` must be present (even empty) on every filterable cell,
- * so attribute-less loci dim under an active selection. See `ATTR_DELIM`.
+ * so the grids highlight every responsible locus rather than dimming a cell
+ * whose allele happens to be neutral. `data-attrs` must be present (even empty)
+ * on every filterable cell, so attribute-less loci dim under an active
+ * selection. `cellSelector` carries `data-attrs` (the diff grid uses
+ * `.gene-cell`; the trio grid uses `*` because its rows mix `.gene-cell` and
+ * `.dist-bar` cells). See `ATTR_DELIM` / `joinAttrs`.
  */
 export function attributePotentialFilterCSS(
   gridSelector: string,
@@ -224,6 +192,17 @@ export const ATTR_DELIM = '·';
 /** Wrap a single value for a delimited-substring `*=` match. */
 function delim(value: string): string {
   return `${ATTR_DELIM}${value}${ATTR_DELIM}`;
+}
+
+/**
+ * Encode a set of values as a delimited token list for a `data-attrs`-style
+ * attribute (`·a·b·`, empty string when none). The multi-value counterpart of
+ * `delim()` — the single encoder for every producer of these lists, so the
+ * wrapping stays in lockstep with the `[attr*="·v·"]` selectors emitted here.
+ */
+export function joinAttrs(values: Iterable<string>): string {
+  const arr = [...values];
+  return arr.length ? ATTR_DELIM + arr.join(ATTR_DELIM) + ATTR_DELIM : '';
 }
 
 /** `gene-dominant` → `dominant` (the value carried by `data-zygosity`). */

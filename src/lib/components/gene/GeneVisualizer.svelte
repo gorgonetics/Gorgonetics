@@ -15,7 +15,7 @@ import { getGeneEffectsCached } from '$lib/services/geneService.js';
 import { loadPetGridFromDb } from '$lib/services/petService.js';
 import { EFFECT_COLORS } from '$lib/theme/gene-colors.js';
 import type { AppearanceInfo, Pet } from '$lib/types/index.js';
-import { ATTR_DELIM, buildVisualizerFilterCSS, type ChrBreedRelevance } from '$lib/utils/filterCSS.js';
+import { buildVisualizerFilterCSS, type ChrBreedRelevance, joinAttrs } from '$lib/utils/filterCSS.js';
 import { resolveFilterClick } from '$lib/utils/filterToggle.js';
 import {
   breedFor,
@@ -537,7 +537,7 @@ function buildGrid() {
     const attrSet = new Set<string>();
     if (!isNoEffect(dEff)) for (const a of matcher.findAll(dEff)) attrSet.add(a);
     if (!isNoEffect(rEff)) for (const a of matcher.findAll(rEff)) attrSet.add(a);
-    const attrs = attrSet.size ? ATTR_DELIM + [...attrSet].join(ATTR_DELIM) + ATTR_DELIM : '';
+    const attrs = joinAttrs(attrSet);
 
     const ctxPosSet = new Set<string>();
     const ctxNegSet = new Set<string>();
@@ -559,8 +559,8 @@ function buildGrid() {
         }
       }
     }
-    const ctxpos = ctxPosSet.size ? ATTR_DELIM + [...ctxPosSet].join(ATTR_DELIM) + ATTR_DELIM : '';
-    const ctxneg = ctxNegSet.size ? ATTR_DELIM + [...ctxNegSet].join(ATTR_DELIM) + ATTR_DELIM : '';
+    const ctxpos = joinAttrs(ctxPosSet);
+    const ctxneg = joinAttrs(ctxNegSet);
 
     const zygCls = `gene-${zygosity}`;
     let attributeCls: string;

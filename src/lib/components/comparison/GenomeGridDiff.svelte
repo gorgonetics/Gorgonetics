@@ -11,7 +11,7 @@ import { loadPetGridFromDb } from '$lib/services/petService.js';
 import { settings } from '$lib/stores/settings.js';
 import type { AppearanceInfo, AttributeInfo, GenomeDiffSummary, Pet } from '$lib/types/index.js';
 import { HORSE_BREEDS } from '$lib/types/index.js';
-import { ATTR_DELIM, buildFilterCSS } from '$lib/utils/filterCSS.js';
+import { buildFilterCSS, joinAttrs } from '$lib/utils/filterCSS.js';
 import { triStateToggle } from '$lib/utils/filterToggle.js';
 import { breedFor, effectFor, type GeneEffectData, isNoEffect } from '$lib/utils/geneAnalysis.js';
 import { buildAppearanceLookup, createGeneCellBuilder, type GeneCell } from '$lib/utils/geneGridCells.js';
@@ -279,7 +279,7 @@ async function loadData() {
           // once (from the effect DB) and use the same value for both rows.
           const geneId = (gA ?? gB)?.id;
           const list = geneId ? cellBuilder.attributesForGene(geneId) : [];
-          attrs[block][i] = list.length ? ATTR_DELIM + list.join(ATTR_DELIM) + ATTR_DELIM : '';
+          attrs[block][i] = joinAttrs(list);
           const isDiff = (gA?.type || null) !== (gB?.type || null);
           diffs[block][i] = isDiff;
           if (isDiff) chrDiffs++;

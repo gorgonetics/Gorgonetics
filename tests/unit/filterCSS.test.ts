@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
-  attributeFilterCSS,
   attributePotentialFilterCSS,
   buildFilterCSS,
   buildVisualizerFilterCSS,
+  joinAttrs,
   type VisualizerFilterInput,
 } from '$lib/utils/filterCSS.js';
 
@@ -100,19 +100,19 @@ describe('buildFilterCSS', () => {
   });
 });
 
-describe('attributeFilterCSS', () => {
-  it('returns an empty string when nothing is selected or hidden', () => {
-    expect(attributeFilterCSS('.trio-grid-container', '*', [], [])).toBe('');
+describe('joinAttrs', () => {
+  it('wraps each value in the delimiter so it matches the [attr*="·v·"] selectors', () => {
+    expect(joinAttrs(['Toughness'])).toBe('·Toughness·');
+    expect(joinAttrs(['Speed', 'Toughness'])).toBe('·Speed·Toughness·');
   });
 
-  it('dims everything but the selected attributes, scoped to the given grid/cell selectors', () => {
-    const css = attributeFilterCSS('.trio-grid-container', '*', ['Speed'], []);
-    expect(css).toBe(`.trio-grid-container *[data-attr]:not([data-attr="Speed"]) ${FILTERED}`);
+  it('returns an empty string for an empty set (so the cell dims under a focus)', () => {
+    expect(joinAttrs([])).toBe('');
+    expect(joinAttrs(new Set<string>())).toBe('');
   });
 
-  it('dims a hidden attribute directly', () => {
-    const css = attributeFilterCSS('.trio-grid-container', '*', [], ['Toughness']);
-    expect(css).toBe(`.trio-grid-container *[data-attr="Toughness"] ${FILTERED}`);
+  it('accepts a Set (GeneVisualizer builds its attribute sets that way)', () => {
+    expect(joinAttrs(new Set(['Speed', 'Toughness']))).toBe('·Speed·Toughness·');
   });
 });
 
