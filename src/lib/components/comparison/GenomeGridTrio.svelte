@@ -1,6 +1,7 @@
 <script lang="ts">
 import { onDestroy, onMount, untrack } from 'svelte';
 import '$lib/components/gene/geneCell.css';
+import GeneTooltip from '$lib/components/gene/GeneTooltip.svelte';
 import BreedSelector from '$lib/components/shared/BreedSelector.svelte';
 import DetailOverlay from '$lib/components/shared/DetailOverlay.svelte';
 import GeneFilterPills, { type FilterPillItem } from '$lib/components/shared/GeneFilterPills.svelte';
@@ -18,6 +19,7 @@ import {
 } from '$lib/types/index.js';
 import { attributePotentialFilterCSS } from '$lib/utils/filterCSS.js';
 import { triStateToggle } from '$lib/utils/filterToggle.js';
+import { breedFor, effectFor, type GeneEffectData, isNoEffect } from '$lib/utils/geneAnalysis.js';
 import { buildAppearanceLookup, createGeneCellBuilder, type GeneCell } from '$lib/utils/geneGridCells.js';
 import { getSpeciesEmoji } from '$lib/utils/species.js';
 import { capitalize } from '$lib/utils/string.js';
@@ -41,6 +43,8 @@ let error = $state<string | null>(null);
 let grid = $state<TrioGrid | null>(null);
 let summary = $state<OffspringTrioResult['summary'] | null>(null);
 let attributeDisplayInfo = $state<AttributeInfo[]>([]);
+// Kept for the styled parent tooltip (the "if Dominant/Recessive" alternatives).
+let effectsDB = $state<Record<string, GeneEffectData>>({});
 const attributeItems = $derived<FilterPillItem[]>(
   attributeDisplayInfo.map((a) => ({ key: a.key, name: a.name, icon: a.icon })),
 );
@@ -156,7 +160,7 @@ async function load(f: Pet, m: Pet, breed: string) {
       getGeneEffectsCached(sp),
     ]);
 
-    const effectsDB = efData?.effects ?? {};
+    effectsDB = efData?.effects ?? {};
     const config = getAttributeConfig(sp);
     attributeDisplayInfo = config.attributes;
     const cellBuilder = createGeneCellBuilder({
@@ -216,6 +220,97 @@ function offspringAria(cell: TrioLocusCell) {
 function parentTitle(cell: GeneCell | null, label: string) {
   if (!cell) return '';
   return `${label} · Gene ${cell.id} (${ALLELE_LABEL[cell.type] ?? cell.type})\n${cell.effect || 'No effect'}`;
+}
+
+// --- Styled tooltip (same GeneTooltip the compare/single-pet grids use) ---
+const BUCKET_TONE: Record<keyof TrioLocusCell['buckets'], string> = {
+  newPositive: '#34d399',
+  clarifiedPositive: '#34d399',
+  keepPositive: '#6ee7b7',
+  neutral: '#9ca3af',
+  keepNegative: '#fca5a5',
+  loss: '#f87171',
+  unknown: '#9ca3af',
+};
+
+let tooltipVisible = $state(false);
+let tooltipX = $state(0);
+let tooltipY = $state(0);
+let tooltipGeneId = $state('');
+let tooltipGeneType = $state('');
+let tooltipEffect = $state('');
+let tooltipSubtitle = $state('');
+let tooltipLabel = $state('Potential Effects');
+let tooltipPotentialEffects = $state<string[]>([]);
+
+function positionTooltip(e: MouseEvent) {
+  const offset = 12;
+  let x = e.clientX + offset;
+  let y = e.clientY - offset - 60;
+  if (x + 250 > window.innerWidth) x = e.clientX - 250 - offset;
+  if (y < 0) y = e.clientY + offset;
+  tooltipX = x;
+  tooltipY = y;
+}
+
+/** Parent cell: current allele + the "if Dominant/Recessive" alternatives. */
+function handleParentEnter(e: MouseEvent, parent: GeneCell | null) {
+  if (!parent) return;
+  const cellData = effectsDB[parent.id];
+  const potentialEffects: string[] = [];
+  const dominantEffect = effectFor(cellData, 'D');
+  const recessiveEffect = effectFor(cellData, 'R');
+  if (parent.type !== 'D' && !isNoEffect(dominantEffect)) {
+    const color = dominantEffect.includes('+') ? '#34d399' : dominantEffect.includes('-') ? '#f87171' : '#9ca3af';
+    potentialEffects.push(`If Dominant: <span style="color: ${color}">${dominantEffect}</span>`);
+  }
+  if (parent.type !== 'R' && !isNoEffect(recessiveEffect)) {
+    const color = recessiveEffect.includes('+') ? '#34d399' : recessiveEffect.includes('-') ? '#f87171' : '#9ca3af';
+    potentialEffects.push(`If Recessive: <span style="color: ${color}">${recessiveEffect}</span>`);
+  }
+  const breed = breedFor(cellData);
+  if (breed && isHorse) {
+    potentialEffects.push(`<span style="color: #9ca3af">⚬ ${breed} breed gene</span>`);
+  }
+  positionTooltip(e);
+  tooltipGeneId = parent.id;
+  tooltipGeneType = parent.type;
+  tooltipEffect = parent.effect || '';
+  tooltipSubtitle = '';
+  tooltipLabel = 'Potential Effects';
+  tooltipPotentialEffects = potentialEffects;
+  tooltipVisible = true;
+}
+
+/** Offspring cell: the Punnett outcome split vs the parents. */
+function handleOffspringEnter(e: MouseEvent, cell: TrioLocusCell) {
+  const lines: string[] = [];
+  if (cell.buckets.unknown >= 1) {
+    lines.push('<span style="color: #9ca3af">Not visible at your genetics skill</span>');
+  } else {
+    for (const { key, label } of BUCKET_LABEL) {
+      const pct = Math.round(cell.buckets[key] * 100);
+      if (pct > 0) lines.push(`<span style="color: ${BUCKET_TONE[key]}">${pct}% ${label}</span>`);
+    }
+    lines.push(`<span style="color: #9ca3af">♂ ${cell.fatherEffect || '—'} · ♀ ${cell.motherEffect || '—'}</span>`);
+    if (cell.source) {
+      lines.push(
+        `<span style="color: #9ca3af">Carried by ${cell.source === 'both' ? 'both parents' : `the ${cell.source}`}</span>`,
+      );
+    }
+  }
+  positionTooltip(e);
+  tooltipGeneId = cell.geneId;
+  tooltipGeneType = '';
+  tooltipEffect = '';
+  tooltipSubtitle = cell.attribute ?? '';
+  tooltipLabel = 'Offspring outcome';
+  tooltipPotentialEffects = lines;
+  tooltipVisible = true;
+}
+
+function handleCellLeave() {
+  tooltipVisible = false;
 }
 </script>
 
@@ -348,7 +443,15 @@ function parentTitle(cell: GeneCell | null, label: string) {
                                     {@const cell = row.cells[`${block}${pos}`]}
                                     <td class="grid-cell {pos === 1 ? 'block-start' : ''}">
                                         {#if cell?.fatherCell}
-                                            <div class={cell.fatherCell.attributeCls} class:fixed={isLocked(cell)} data-attrs={cell.attrs} title={parentTitle(cell.fatherCell, 'Father')}>
+                                            <div
+                                                class={cell.fatherCell.attributeCls}
+                                                class:fixed={isLocked(cell)}
+                                                data-attrs={cell.attrs}
+                                                role="img"
+                                                aria-label={parentTitle(cell.fatherCell, 'Father')}
+                                                onmouseenter={(e) => handleParentEnter(e, cell.fatherCell)}
+                                                onmouseleave={handleCellLeave}
+                                            >
                                                 {#if cell.fatherCell.type === '?'}<span class="unknown-symbol">?</span>{/if}
                                             </div>
                                         {/if}
@@ -369,8 +472,9 @@ function parentTitle(cell: GeneCell | null, label: string) {
                                                 class:fixed={isLocked(cell)}
                                                 data-attrs={cell.attrs}
                                                 role="img"
-                                                title={offspringTitle(cell)}
                                                 aria-label={offspringAria(cell)}
+                                                onmouseenter={(e) => handleOffspringEnter(e, cell)}
+                                                onmouseleave={handleCellLeave}
                                                 style={cell.buckets.unknown >= 1 ? undefined : `background: ${outcomeBoxBackground(cell.buckets, gainMode)}`}
                                             ></div>
                                         {/if}
@@ -385,7 +489,15 @@ function parentTitle(cell: GeneCell | null, label: string) {
                                     {@const cell = row.cells[`${block}${pos}`]}
                                     <td class="grid-cell {pos === 1 ? 'block-start' : ''}">
                                         {#if cell?.motherCell}
-                                            <div class={cell.motherCell.attributeCls} class:fixed={isLocked(cell)} data-attrs={cell.attrs} title={parentTitle(cell.motherCell, 'Mother')}>
+                                            <div
+                                                class={cell.motherCell.attributeCls}
+                                                class:fixed={isLocked(cell)}
+                                                data-attrs={cell.attrs}
+                                                role="img"
+                                                aria-label={parentTitle(cell.motherCell, 'Mother')}
+                                                onmouseenter={(e) => handleParentEnter(e, cell.motherCell)}
+                                                onmouseleave={handleCellLeave}
+                                            >
                                                 {#if cell.motherCell.type === '?'}<span class="unknown-symbol">?</span>{/if}
                                             </div>
                                         {/if}
@@ -403,6 +515,17 @@ function parentTitle(cell: GeneCell | null, label: string) {
         <p class="empty-text">No genome data available for this pair.</p>
     {/if}
     </div>
+    <GeneTooltip
+        visible={tooltipVisible}
+        x={tooltipX}
+        y={tooltipY}
+        geneId={tooltipGeneId}
+        geneType={tooltipGeneType}
+        effect={tooltipEffect}
+        subtitle={tooltipSubtitle}
+        effectsLabel={tooltipLabel}
+        potentialEffects={tooltipPotentialEffects}
+    />
 </DetailOverlay>
 
 <style>
