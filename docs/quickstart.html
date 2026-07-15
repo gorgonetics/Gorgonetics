@@ -210,10 +210,11 @@
       color: var(--text-muted);
     }
 
+    /* Gene cells render as squares in the app, so the legend swatches match. */
     .legend-dot {
       width: 18px;
       height: 18px;
-      border-radius: 50%;
+      border-radius: 3px;
       flex-shrink: 0;
     }
 
@@ -348,11 +349,12 @@
           <div class="step-number">1</div>
           <h3>Launch the App</h3>
         </div>
-        <p>When you open Gorgonetics for the first time, it loads demo pets and gene templates automatically. You'll see two sample pets in the left sidebar &mdash; a BeeWasp and a Horse &mdash; ready to explore. No import needed.</p>
+        <p>When you open Gorgonetics for the first time, it loads demo pets and gene templates automatically &mdash; three sample pets (a BeeWasp and two Horses) so you can explore without importing anything. The app opens on <strong>✨ My Pets</strong>, your collection's home.</p>
         <div class="step-image">
-          <img src="images/quickstart/01-first-launch.png" alt="Gorgonetics on first launch showing demo pets in the sidebar">
-          <div class="caption">First launch &mdash; demo pets are pre-loaded and ready to explore</div>
+          <img src="images/quickstart/01-first-launch.png" alt="Gorgonetics on first launch showing the My Pets table with three demo pets">
+          <div class="caption">First launch &mdash; the My Pets table, pre-loaded with demo pets</div>
         </div>
+        <p style="margin-top: 16px;">The top bar has four destinations &mdash; <strong>✨ My Pets</strong>, <strong>💞 Breed</strong>, <strong>🌐 Community</strong>, and <strong>📚 Reference</strong> &mdash; plus a data-management button and a settings gear on the right.</p>
       </div>
 
       <!-- Step 2 -->
@@ -361,23 +363,24 @@
           <div class="step-number">2</div>
           <h3>Browse Your Pets</h3>
         </div>
-        <p>The app opens on the <strong>Pets</strong> tab. The left sidebar lists all your pets with their species, gender, and gene count. Click any pet card to select it and view its genome in the main panel.</p>
-        <div class="step-image">
-          <img src="images/quickstart/02-pet-list-highlight.png" alt="Pet list sidebar highlighted">
-          <div class="caption">The pet list sidebar &mdash; search, select, and manage your pets here</div>
-        </div>
-        <p style="margin-top: 16px;">Hover over a pet card to reveal the <strong>edit</strong> (pencil) and <strong>delete</strong> (&times;) buttons. Edit lets you change the pet's name, gender, breed, and attributes.</p>
-        <div class="step-image">
-          <img src="images/quickstart/03-pet-card-hover.png" alt="Pet card with edit and delete buttons visible on hover">
-          <div class="caption">Hover a pet card to reveal edit and delete controls</div>
-        </div>
-        <p style="margin-top: 16px;">Every card carries three one-click <strong>markers</strong>:</p>
+        <p>My Pets is a single, full-width table of your whole collection &mdash; sortable and filterable, built to stay usable at a few-hundred-pet scale. Each row shows the pet's <strong>name</strong>, <strong>gender</strong>, <strong>breed</strong>, and <strong>+ Genes</strong> score (its count of confirmed positive-effect genes). Click any column header to sort; click again to reverse. Click a pet's <strong>name</strong> to open its detail view.</p>
+        <p>A filter bar sits above the table:</p>
         <ul>
-          <li><strong>⭐ Starred</strong> &mdash; flag favourites.</li>
-          <li><strong>🏠 Stabled</strong> &mdash; in your stables. New uploads default to stabled, and the list filters to stabled pets by default.</li>
-          <li><strong>🐾 Pet quality</strong> &mdash; not usable for breeding. Reserved for future breeding sims to exclude.</li>
+          <li><strong>Search</strong> &mdash; filter by name.</li>
+          <li><strong>Species</strong> &mdash; All / beewasp / horse.</li>
+          <li><strong>Gender</strong> &mdash; All / Male / Female.</li>
+          <li><strong>★ Starred</strong>, <strong>🏠 Stabled</strong>, <strong>🏆 Pet quality</strong> &mdash; one-click flag filters.</li>
+          <li><strong>Breed</strong> and <strong>tag</strong> filters appear once you pick a species / your pets carry tags.</li>
         </ul>
-        <p>Two pill filters above the list &mdash; <strong>Starred</strong> and <strong>Stabled</strong> &mdash; narrow the view to those subsets, matching the tag-filter style introduced earlier. The sidebar itself is now resizable (drag the right edge) and collapsible (click the chevron) for more working room.</p>
+        <div class="step-image">
+          <img src="images/quickstart/02-filter-bar.png" alt="The My Pets filter bar highlighted: search, species, gender, and flag pills">
+          <div class="caption">The filter bar &mdash; search, species, gender, and flag pills</div>
+        </div>
+        <p style="margin-top: 16px;">Each row carries inline actions: <strong>✎ Edit</strong> opens the pet editor (name, gender, breed, attributes, tags), and <strong>✕ Delete</strong> removes the pet after a confirmation.</p>
+        <div class="step-image">
+          <img src="images/quickstart/03-row-actions.png" alt="A table row with its Edit and Delete actions highlighted">
+          <div class="caption">Row actions &mdash; edit or delete any pet inline</div>
+        </div>
       </div>
 
       <!-- Step 3 -->
@@ -386,12 +389,12 @@
           <div class="step-number">3</div>
           <h3>Upload a Genome</h3>
         </div>
-        <p>Click the <strong>"+ Upload Genome"</strong> button at the bottom of the pet list. Select a <code>.txt</code> genome file exported from Project Gorgon. The pet appears in your list immediately.</p>
+        <p>Click <strong>"+ Upload Genome"</strong> in the footer and pick a <code>.txt</code> genome file exported from Project Gorgon &mdash; or just <strong>drag the file straight onto the table</strong>. The pet appears in your list immediately.</p>
         <div class="step-image">
-          <img src="images/quickstart/04-upload-highlight.png" alt="Upload Genome button highlighted at the bottom of the sidebar">
-          <div class="caption">The Upload Genome button &mdash; import genome <code>.txt</code> files from the game</div>
+          <img src="images/quickstart/04-upload.png" alt="The Upload Genome and auto-import buttons highlighted in the footer">
+          <div class="caption">The footer &mdash; upload a genome file or auto-import from the game folder</div>
         </div>
-        <p style="margin-top: 16px;">Got a stack of new genome files? Open <strong>Settings &rarr; Auto-import</strong> and point the app at your Project Gorgon game folder. The <strong>🔄</strong> button next to <em>+ Upload Genome</em> then scans the folder and imports anything you don't already have. Once configured, the app also watches the folder while it's running and auto-imports new files in the background.</p>
+        <p style="margin-top: 16px;">Got a stack of new files? Open <strong>Settings</strong> and set your Project Gorgon <strong>game folder</strong>. The <strong>🔄</strong> button next to <em>+ Upload Genome</em> then scans that folder and imports anything you don't already have, showing a pending-count badge. Once configured, the app also watches the folder while it's running and imports new files in the background.</p>
       </div>
 
       <!-- Step 4 -->
@@ -400,59 +403,64 @@
           <div class="step-number">4</div>
           <h3>Read the Gene Grid</h3>
         </div>
-        <p>Click a pet to see its gene visualisation grid. Each dot represents a single gene, organised by chromosome (rows) and position (columns). The colours and patterns encode what each gene does.</p>
+        <p>Click a pet's name to open its detail view. The gene grid lays out every gene as a square, organised by chromosome (rows) and position (columns A&ndash;J). Colour encodes the gene's <strong>effect</strong>; the fill style encodes its <strong>value</strong> (zygosity).</p>
         <div class="step-image">
-          <img src="images/quickstart/05-gene-grid.png" alt="BeeWasp gene visualisation grid with colour-coded dots">
-          <div class="caption">The gene grid for a BeeWasp &mdash; 10 chromosomes of colour-coded gene dots</div>
+          <img src="images/quickstart/05-gene-grid.png" alt="Sample Fae Bee gene grid in the Attributes view">
+          <div class="caption">The gene grid &mdash; one square per gene, laid out by chromosome and position</div>
         </div>
 
         <div class="legend-section" style="margin-top: 24px;">
-          <h4>Gene Dot Legend</h4>
+          <h4>Effect (colour)</h4>
           <div class="legend-grid">
             <div class="legend-item">
               <div class="legend-dot positive"></div>
-              <span>Positive effect</span>
+              <span>Positive</span>
             </div>
             <div class="legend-item">
               <div class="legend-dot potential-positive"></div>
-              <span>Potential positive</span>
-            </div>
-            <div class="legend-item">
-              <div class="legend-dot negative"></div>
-              <span>Negative effect</span>
-            </div>
-            <div class="legend-item">
-              <div class="legend-dot potential-negative"></div>
-              <span>Potential negative</span>
+              <span>Potential Positive</span>
             </div>
             <div class="legend-item">
               <div class="legend-dot neutral"></div>
-              <span>Neutral / no effect</span>
+              <span>Neutral</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-dot potential-negative"></div>
+              <span>Potential Negative</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-dot negative"></div>
+              <span>Negative</span>
             </div>
             <div class="legend-item">
               <div class="legend-dot unknown"></div>
-              <span>Unknown effect</span>
+              <span>Unknown</span>
             </div>
           </div>
-          <h4 style="margin-top: 20px;">Gene Type</h4>
+          <h4 style="margin-top: 20px;">Value (fill)</h4>
           <div class="legend-grid">
             <div class="legend-item">
               <div class="legend-dot dominant"></div>
-              <span>Dominant (solid fill)</span>
+              <span>Dominant</span>
             </div>
             <div class="legend-item">
               <div class="legend-dot recessive"></div>
-              <span>Recessive (ring only)</span>
+              <span>Recessive</span>
             </div>
             <div class="legend-item">
               <div class="legend-dot mixed"></div>
-              <span>Mixed (diagonal)</span>
+              <span>Mixed</span>
             </div>
             <div class="legend-item">
               <div class="legend-dot unknown"></div>
-              <span>Unknown (dashed)</span>
+              <span>Unknown</span>
             </div>
           </div>
+        </div>
+        <p style="margin-top: 24px;">The <strong>Effect</strong> and <strong>Value</strong> rows above the grid double as filters &mdash; click a swatch to isolate genes of that effect or value; everything else dims.</p>
+        <div class="step-image">
+          <img src="images/quickstart/06-gene-legend.png" alt="The Effect and Value legend-filter row above the gene grid, highlighted">
+          <div class="caption">The Effect / Value legend &mdash; also a one-click filter</div>
         </div>
       </div>
 
@@ -462,13 +470,13 @@
           <div class="step-number">5</div>
           <h3>Inspect Individual Genes</h3>
         </div>
-        <p><strong>Hover over any gene dot</strong> to see a tooltip with detailed information: the gene's ID, whether it's Dominant (D) or Recessive (R), and its current effect. This is the quickest way to understand what a specific gene is doing.</p>
+        <p><strong>Hover over any gene square</strong> to see a tooltip with its ID, type (Dominant or Recessive), and current effect. This is the quickest way to understand what a specific gene is doing.</p>
         <div class="step-image">
-          <img src="images/quickstart/06-gene-tooltip.png" alt="Gene grid with tooltip popup showing gene ID, type, and current effect on hover">
-          <div class="caption">Hover any dot to see its tooltip &mdash; gene ID, type (Dominant/Recessive), and current effect</div>
+          <img src="images/quickstart/07-gene-tooltip.png" alt="Gene grid with a tooltip showing a gene's ID and effect on hover">
+          <div class="caption">Hover any square to see the gene's ID and current effect</div>
         </div>
         <div class="tip-box">
-          <strong>Tip:</strong> Dominant genes express their effect when present. Recessive genes only express when no dominant gene overrides them. Mixed genes carry both a dominant and recessive component.
+          <strong>Tip:</strong> Dominant genes express their effect when present. Recessive genes only express when no dominant gene overrides them. Mixed genes carry both a dominant and a recessive component.
         </div>
       </div>
 
@@ -478,28 +486,30 @@
           <div class="step-number">6</div>
           <h3>Switch Views &amp; Check Stats</h3>
         </div>
-        <p>Use the buttons in the top-right corner to switch between views:</p>
+        <p>The controls at the top of the detail view switch how the pet is shown:</p>
         <ul>
           <li><strong>Attributes</strong> &mdash; colours genes by gameplay attributes (Toughness, Intelligence, etc.)</li>
           <li><strong>Appearance</strong> &mdash; colours genes by visual traits (body colour, wing scale, etc.)</li>
-          <li><strong>Stats</strong> &mdash; opens the stats panel showing a summary of attribute counts and positive/negative breakdowns</li>
+          <li><strong>Stats</strong> &mdash; opens a side panel summarising attribute effect counts</li>
+          <li><strong>Gallery</strong> &mdash; switches to the pet's image gallery</li>
+          <li><strong>Share</strong>, <strong>Edit</strong>, <strong>Delete</strong> &mdash; publish, edit, or remove this pet</li>
         </ul>
         <div class="step-image">
-          <img src="images/quickstart/07-view-toggle-highlight.png" alt="View toggle buttons highlighted: Attributes, Appearance, Stats">
-          <div class="caption">The view toggle &mdash; switch between Attributes, Appearance, and Stats</div>
+          <img src="images/quickstart/08-detail-controls.png" alt="The pet detail controls highlighted: Attributes, Appearance, Stats, Gallery, Share, Edit, Delete">
+          <div class="caption">The detail controls &mdash; views, stats, gallery, and per-pet actions</div>
         </div>
         <div class="image-row">
           <div class="step-image">
-            <img src="images/quickstart/08-appearance-view.png" alt="Appearance view showing colourful gene dots grouped by visual traits">
+            <img src="images/quickstart/09-appearance-view.png" alt="Appearance view colouring genes by visual traits">
             <div class="caption">Appearance view &mdash; genes coloured by visual traits</div>
           </div>
           <div class="step-image">
-            <img src="images/quickstart/09-stats-panel.png" alt="Stats panel showing attribute effect counts and breakdowns">
-            <div class="caption">Stats panel &mdash; attribute counts at a glance</div>
+            <img src="images/quickstart/10-stats-panel.png" alt="Stats panel showing attribute effect counts">
+            <div class="caption">Stats panel &mdash; attribute effect counts at a glance</div>
           </div>
         </div>
 
-        <p style="margin-top: 24px;">The stats table is interactive &mdash; <strong>click any attribute row</strong> to filter the gene grid down to just that attribute's genes. Everything else dims out so you can see exactly where those genes sit across the chromosomes.</p>
+        <p style="margin-top: 24px;">The stats table is interactive &mdash; <strong>click any attribute row</strong> to filter the gene grid down to just that attribute's genes. Everything else dims so you can see exactly where they sit across the chromosomes.</p>
         <ul>
           <li><strong>Click</strong> an attribute to select it and filter the grid</li>
           <li><strong>Ctrl+click</strong> to select multiple attributes at once</li>
@@ -507,8 +517,8 @@
           <li>Click the selected attribute again to clear the filter</li>
         </ul>
         <div class="step-image">
-          <img src="images/quickstart/10-attribute-filtered.png" alt="Gene grid filtered to show only Intelligence genes, with other genes dimmed and Intelligence row highlighted in the stats panel">
-          <div class="caption">Intelligence selected &mdash; only Intelligence genes remain visible, everything else is dimmed</div>
+          <img src="images/quickstart/11-attribute-filtered.png" alt="Gene grid filtered to a single attribute, with the rest dimmed">
+          <div class="caption">An attribute selected &mdash; only its genes stay lit, everything else dims</div>
         </div>
       </div>
 
@@ -518,16 +528,12 @@
           <div class="step-number">7</div>
           <h3>Horse Breed Filtering</h3>
         </div>
-        <p>When viewing a Horse pet, breed filter buttons appear above the gene grid. If the pet has a known breed, an <strong>Auto</strong> button activates automatically &mdash; filtering genes to that breed and greying out the manual buttons. Click <strong>Auto</strong> to toggle it off and choose a different breed manually.</p>
-        <ul>
-          <li><strong>Auto (green)</strong> &mdash; automatically filters to the pet's breed. Manual buttons are disabled.</li>
-          <li><strong>Toggle Auto off</strong> &mdash; clears the filter and re-enables manual breed selection (All, St, Kb, etc.)</li>
-          <li>You can control whether Auto is on by default in <strong>Settings</strong> (gear icon in the top bar)</li>
-        </ul>
+        <p>When viewing a Horse, a breed filter row appears above the gene grid. If the pet has a known breed, an <strong>Auto</strong> button activates automatically &mdash; filtering genes to that breed. Toggle <strong>Auto</strong> off to clear the filter and choose a breed manually.</p>
         <div class="step-image">
-          <img src="images/quickstart/11-auto-breed-active.png" alt="Horse gene grid with Auto breed filter active, breed bar highlighted showing green Auto button and greyed-out manual buttons">
-          <div class="caption">Auto mode active &mdash; the green Auto button selects the pet's breed, manual buttons are greyed out</div>
+          <img src="images/quickstart/12-breed-filter.png" alt="Horse gene grid with the Auto breed filter row highlighted">
+          <div class="caption">Auto mode &mdash; genes filtered to the horse's own breed</div>
         </div>
+        <p style="margin-top: 16px;">Whether Auto is on by default is controlled by <strong>Auto-select breed filter</strong> in Settings.</p>
       </div>
 
       <!-- Step 8 -->
@@ -536,16 +542,15 @@
           <div class="step-number">8</div>
           <h3>Compare Two Pets Head-to-Head</h3>
         </div>
-        <p>Click the <strong>Compare</strong> tab in the top bar to compare two pets of the same species side by side. Pick two pets from the sidebar picker, or enter <strong>compare mode</strong> from the pet list and tick two checkboxes.</p>
-        <p>Once both pets are picked, three views are available along the top:</p>
-        <ul>
-          <li><strong>Attributes</strong> &mdash; side-by-side attribute totals with the winner highlighted per row</li>
-          <li><strong>Gene Stats</strong> &mdash; positive/negative counts per attribute for both pets</li>
-          <li><strong>Genome Diff</strong> &mdash; the full gene grid for both pets aligned by position, with differences highlighted. Click a chromosome label to focus; Ctrl-click to multi-select, Alt-click to hide.</li>
-        </ul>
-        <p>The Genome Diff grid has its own <strong>Attributes / Appearance</strong> toggle that mirrors the single-pet view &mdash; Attributes colours genes by effect direction, Appearance colours each gene by the trait category it controls (body hue, wing scale, coat, etc.). Each view has its own filter bar, shown only when that view is active.</p>
-        <div class="tip-box">
-          <strong>Tip:</strong> Use the <strong>Differences only</strong> checkbox to collapse the grid to rows where the pets disagree &mdash; useful for spotting which chromosomes drive the gap between a breeding pair.
+        <p>Tick the checkbox on two pets of the same species, then click <strong>⚖️ Compare</strong> in the selection bar. (The button enables only when exactly two same-species pets are selected.)</p>
+        <div class="step-image">
+          <img src="images/quickstart/13-select-compare.png" alt="Two table rows selected with the selection bar showing Compare, Share, and Clear">
+          <div class="caption">Select two pets &mdash; the selection bar offers Compare and Share</div>
+        </div>
+        <p style="margin-top: 16px;">Compare aligns both genomes position by position and highlights where they differ. It has its own <strong>Attributes / Appearance</strong> toggle, and a <strong>Differences only</strong> checkbox that collapses the grid to the chromosomes where the two pets disagree &mdash; handy for spotting what drives the gap between a breeding pair.</p>
+        <div class="step-image">
+          <img src="images/quickstart/14-compare.png" alt="Genome diff comparing two pets side by side, differences highlighted">
+          <div class="caption">The genome diff &mdash; both pets aligned by position, differences highlighted</div>
         </div>
       </div>
 
@@ -555,27 +560,24 @@
           <div class="step-number">9</div>
           <h3>Rank Breeding Pairs</h3>
         </div>
-        <p>The <strong>💞 Breed</strong> tab in the top bar opens the Breeding Assistant, which ranks every stabled male × female pair of the selected species by expected offspring quality, computed from each parent's Mendelian gene contributions.</p>
+        <p>The <strong>💞 Breed</strong> destination ranks every stabled male &times; female pair of the selected species by expected offspring quality, computed from each parent's Mendelian gene contributions.</p>
         <div class="step-image">
-          <img src="images/quickstart/25-breeding-tab.png" alt="Breeding tab showing a sortable table of horse breeding pairs with expected gene counts per attribute">
-          <div class="caption">The Breeding Assistant &mdash; every stabled M&times;F pair, ranked by expected offspring quality</div>
+          <img src="images/quickstart/15-breed-rank.png" alt="Breed destination showing a sortable table of horse breeding pairs">
+          <div class="caption">The Breed destination &mdash; every stabled M&times;F pair, ranked by expected offspring quality</div>
         </div>
         <ul>
-          <li><strong>Species toggle</strong> &mdash; switch which species you're ranking. Only stabled pets count.</li>
-          <li><strong>Offspring breed</strong> (horses only) &mdash; restricts scoring to genes that express on the chosen breed. Leave on <em>Mixed (no filter)</em> for breed-agnostic scoring.</li>
-          <li><strong>Mixed</strong> / <strong>Unknown</strong> / <strong>Total +</strong> &mdash; expected counts of mixed-allele offspring genes, unknown-effect genes, and total confirmed-positive genes.</li>
-          <li><strong>Per-attribute columns</strong> &mdash; expected positive-gene count broken down by attribute (Toughness, Intelligence, etc.).</li>
-          <li><strong>Click any column header</strong> to sort; click again to reverse direction. The table defaults to <strong>Total +</strong> descending.</li>
-          <li><strong>Click a parent name</strong> to jump straight to that pet's gene grid.</li>
-          <li><strong>Click the 🔬 inspect button</strong> on any row to open the offspring trio view (below).</li>
+          <li><strong>Species</strong> &mdash; switch which species you're ranking. Only stabled pets count.</li>
+          <li><strong>Offspring breed</strong> (horses) &mdash; restricts scoring to genes that express on the chosen breed.</li>
+          <li><strong>Breed at once</strong> &mdash; set how many pairs you plan to breed together; the ranking accounts for sharing your stable across that many crosses.</li>
+          <li>Click a column header to sort; click a parent name to jump to that pet; click the inspect button on a row to open the trio view.</li>
         </ul>
-        <p style="margin-top: 16px;">The <strong>trio view</strong> projects the cross locus by locus, showing the father's and mother's alleles alongside the offspring's probable outcome &mdash; each cell coloured by its gain/risk verdict, with summary chips counting expected gains, risks, and locked-in positives. Use the <strong>Breed</strong> buttons to re-score for a specific offspring breed, or the <strong>Attribute</strong> buttons to dim everything except a single stat so you can focus on gains there.</p>
+        <p style="margin-top: 16px;">The <strong>trio view</strong> projects the cross locus by locus &mdash; father's and mother's alleles alongside the offspring's probable outcome, each cell coloured by its verdict (new / keep / neutral / loss), with summary chips counting expected gains, losses, locked-in, and unknown outcomes. Re-score for a specific offspring breed, or focus on a single attribute, using the filters at the top.</p>
         <div class="step-image">
-          <img src="images/quickstart/26-trio-view.png" alt="Offspring trio view showing Father, Offspring, and Mother rows per chromosome, with breed and attribute filter buttons and gain/risk/locked-in summary chips">
-          <div class="caption">The trio view &mdash; Father / Offspring / Mother per locus, filterable by breed and attribute</div>
+          <img src="images/quickstart/16-trio.png" alt="Trio offspring view showing father, offspring, and mother per chromosome with gain/risk chips">
+          <div class="caption">The trio view &mdash; father / offspring / mother per locus, with gain/risk verdicts</div>
         </div>
         <div class="tip-box">
-          <strong>Tip:</strong> Only stabled pets show up here. Use the 🏠 marker on each pet card to flag your breeders, then come back to plan crosses.
+          <strong>Tip:</strong> Only stabled pets are ranked. Use the <strong>🏠 Stabled</strong> flag on My Pets to mark your breeders, then come back here to plan crosses.
         </div>
       </div>
 
@@ -583,26 +585,20 @@
       <div class="step">
         <div class="step-header">
           <div class="step-number">10</div>
-          <h3>The Stable Table</h3>
+          <h3>Edit Gene Effects (Reference)</h3>
         </div>
-        <p>Click the <strong>Stable</strong> tab in the top bar for a dense, at-a-glance view of every stabled pet of the selected species. Each row lists every attribute, a running <strong>Total</strong>, and a <strong>+Genes</strong> score &mdash; the count of confirmed positive-effect genes, computed at upload time.</p>
+        <p>The <strong>📚 Reference</strong> destination is where you edit the gene <em>templates</em> for a species &mdash; the effect data shared by every pet of that species. Pick an <strong>Animal type</strong> and a <strong>Chromosome</strong>, then click <strong>Edit Genes</strong>.</p>
         <div class="step-image">
-          <img src="images/quickstart/23-stable-table.png" alt="Stable tab showing a table of stabled beewasp pets with attribute columns and row actions">
-          <div class="caption">The Stable tab &mdash; one row per stabled pet, all attributes on one screen</div>
+          <img src="images/quickstart/17-reference.png" alt="Reference destination with animal type and chromosome selectors and the Edit Genes button">
+          <div class="caption">Reference &mdash; choose an animal type and chromosome to edit its gene templates</div>
         </div>
-        <p>Click any column header to sort; click again to reverse direction. Switch the active species with the button group at the top; species-specific attributes (Temperament on horses, Ferocity on beewasps) appear only where they apply.</p>
-        <p style="margin-top: 16px;">The filter bar narrows the view further &mdash; search by name, pick a gender (useful for breeding pairs), pick a breed, or toggle the <strong>Starred</strong> / <strong>Pet-quality</strong> pills and any tag filters. Every row carries three actions:</p>
-        <ul>
-          <li><strong>👁 View</strong> &mdash; jumps straight to the gene grid for that pet.</li>
-          <li><strong>✎ Edit</strong> &mdash; opens the pet editor modal.</li>
-          <li><strong>⚖️ Compare</strong> &mdash; toggles the pet for comparison. Pick two and a <strong>Compare now</strong> button appears in the header to jump to the Compare tab.</li>
-        </ul>
+        <p style="margin-top: 16px;">A table appears with every gene in that chromosome. Set the dominant and recessive effects, then save your changes.</p>
         <div class="step-image">
-          <img src="images/quickstart/24-stable-filters.png" alt="Stable tab with the filter bar active: gender set to Female, starred pill highlighted">
-          <div class="caption">Filter bar &mdash; narrow by gender, breed, starred, pet-quality, or tags</div>
+          <img src="images/quickstart/18-gene-editing.png" alt="Gene template editing table with dominant and recessive effect dropdowns">
+          <div class="caption">The gene editor &mdash; set the effect for each gene position</div>
         </div>
         <div class="tip-box">
-          <strong>Tip:</strong> The current species, sort, and every filter persist across tab switches, so bouncing to the gene grid and back doesn't lose your place.
+          <strong>Tip:</strong> Template changes are saved to your local database and immediately reflected across every pet's grid.
         </div>
       </div>
 
@@ -610,20 +606,20 @@
       <div class="step">
         <div class="step-header">
           <div class="step-number">11</div>
-          <h3>Edit Gene Effects</h3>
+          <h3>Pet Image Gallery</h3>
         </div>
-        <p>Switch to the <strong>Genes</strong> tab using the button in the top bar. The sidebar shows dropdowns to select an animal type and chromosome.</p>
+        <p>Open a pet and click <strong>Gallery</strong> to switch to its image gallery. Upload screenshots of your pet, view them in a thumbnail grid, and open them full-size in a lightbox.</p>
         <div class="step-image">
-          <img src="images/quickstart/12-genes-tab.png" alt="Genes tab with animal type and chromosome dropdowns highlighted in the sidebar">
-          <div class="caption">The Genes tab &mdash; select animal type and chromosome, then click Edit Genes</div>
+          <img src="images/quickstart/19-gallery.png" alt="Pet image gallery showing the empty state with an upload control">
+          <div class="caption">The Gallery &mdash; upload and manage screenshots of your pet</div>
         </div>
-        <p style="margin-top: 16px;">After clicking <strong>"Edit Genes"</strong>, a table appears with every gene in that chromosome. Use the dropdowns to set the dominant and recessive effects, then click <strong>"Save All Changes"</strong>.</p>
-        <div class="step-image">
-          <img src="images/quickstart/13-gene-editing.png" alt="Gene editing table showing dominant and recessive effect dropdowns for each gene">
-          <div class="caption">The gene editor &mdash; set effects for each gene position</div>
-        </div>
+        <ul>
+          <li><strong>Upload</strong> &mdash; select one or more images (PNG, JPG, WebP). They're stored locally with the app.</li>
+          <li><strong>Thumbnail grid</strong> &mdash; click any image to view it full-size; use arrow keys to browse.</li>
+          <li><strong>Delete</strong> &mdash; remove an image after a confirmation.</li>
+        </ul>
         <div class="tip-box">
-          <strong>Tip:</strong> Gene effect changes are saved to your local database and immediately reflected in the pet visualisation grid.
+          <strong>Tip:</strong> Images are included in backups when you select "Pet images" during export, and restored along with your pets on import.
         </div>
       </div>
 
@@ -631,20 +627,26 @@
       <div class="step">
         <div class="step-header">
           <div class="step-number">12</div>
-          <h3>Pet Image Gallery</h3>
+          <h3>Back Up &amp; Restore Your Data</h3>
         </div>
-        <p>Click the <strong>Gallery</strong> button in the view controls to switch to the image gallery. Here you can upload screenshots of your pets, view them in a thumbnail grid, and open them full-size in a lightbox.</p>
+        <p>Click the <strong>data-management button</strong> in the top bar to open the backup menu.</p>
         <div class="step-image">
-          <img src="images/quickstart/15-gallery.png" alt="Pet image gallery showing the empty state with Upload Images button">
-          <div class="caption">The Gallery view &mdash; upload and manage screenshots of your pets</div>
+          <img src="images/quickstart/20-data-menu.png" alt="Data management dropdown showing Export Backup and Import Backup">
+          <div class="caption">The data-management menu &mdash; export or import a backup archive</div>
+        </div>
+        <p style="margin-top: 16px;"><strong>Export Backup</strong> opens a dialog where you choose what to include:</p>
+        <div class="step-image">
+          <img src="images/quickstart/21-export-dialog.png" alt="Export dialog with checkboxes for gene definitions, pet data, and pet images">
+          <div class="caption">The export dialog &mdash; pick what to include in the backup archive</div>
         </div>
         <ul>
-          <li><strong>Upload Images</strong> &mdash; click the button and select one or more images (PNG, JPG, WebP). They're stored locally with the app.</li>
-          <li><strong>Thumbnail grid</strong> &mdash; click any image to view it full-size. Use arrow keys or click the navigation buttons to browse.</li>
-          <li><strong>Delete</strong> &mdash; hover over a thumbnail and click the &times; button. A confirmation dialog appears before deletion.</li>
+          <li><strong>Gene definitions</strong> &mdash; effect data for all chromosomes</li>
+          <li><strong>Pet data</strong> &mdash; genomes, attributes, and metadata</li>
+          <li><strong>Pet images</strong> &mdash; all uploaded screenshots</li>
         </ul>
+        <p>The backup saves as a <code>.zip</code> archive. <strong>Import Backup</strong> reads one back in, showing what it contains and letting you choose <strong>Replace</strong> (clear then restore) or <strong>Merge</strong> (keep existing, add new, skip duplicates).</p>
         <div class="tip-box">
-          <strong>Tip:</strong> Images are included in backups when you select "Pet images" during export. They'll be restored along with your pets when importing.
+          <strong>Tip:</strong> Export a backup before updating Gorgonetics. If anything goes wrong, you can always restore your data.
         </div>
       </div>
 
@@ -652,31 +654,34 @@
       <div class="step">
         <div class="step-header">
           <div class="step-number">13</div>
-          <h3>Back Up &amp; Restore Your Data</h3>
+          <h3>Settings &amp; Dark Mode</h3>
         </div>
-        <p>Click the <strong>database icon</strong> in the top bar to open the data management menu.</p>
+        <p>Click the <strong>gear icon</strong> in the top bar to open Settings.</p>
         <div class="step-image">
-          <img src="images/quickstart/14-data-menu.png" alt="Data management dropdown showing Export Backup and Import Backup options">
-          <div class="caption">The data management menu &mdash; export or import a backup archive</div>
-        </div>
-        <p style="margin-top: 16px;"><strong>Export Backup</strong> opens a dialog where you choose what to include:</p>
-        <div class="step-image">
-          <img src="images/quickstart/16-export-dialog.png" alt="Export dialog with checkboxes for gene definitions, pet data, and pet images">
-          <div class="caption">The export dialog &mdash; pick what to include in the backup archive</div>
+          <img src="images/quickstart/22-settings.png" alt="Settings modal showing display, theme, and update options">
+          <div class="caption">Settings &mdash; display, theme, game folder, and updates</div>
         </div>
         <ul>
-          <li><strong>Gene definitions</strong> &mdash; effect data for all chromosomes</li>
-          <li><strong>Pet data</strong> &mdash; genome, attributes, and metadata</li>
-          <li><strong>Pet images</strong> &mdash; all uploaded screenshots</li>
+          <li><strong>Theme</strong> &mdash; ☀️ Light, 🌙 Dark, or 💻 System (follows your OS).</li>
+          <li><strong>Font scale</strong> &mdash; adjust text size, or use <kbd>Cmd</kbd>/<kbd>Ctrl</kbd> + <kbd>+</kbd>/<kbd>-</kbd> (and <kbd>Cmd</kbd>/<kbd>Ctrl</kbd> + <kbd>0</kbd> to reset).</li>
+          <li><strong>Auto-select breed filter</strong> &mdash; whether viewing a Horse auto-activates its breed filter.</li>
+          <li><strong>Game folder</strong> &mdash; where the app looks for new genome files to auto-import.</li>
+          <li><strong>Auto-share pets on import</strong> &mdash; off by default; publishes newly imported pets to the community.</li>
+          <li><strong>Check for updates</strong> &mdash; checks GitHub for new releases (desktop app only).</li>
         </ul>
-        <p>The backup is saved as a <code>.zip</code> archive containing your selected data.</p>
-        <p style="margin-top: 12px;"><strong>Import Backup</strong> lets you pick a <code>.zip</code> backup file. The app shows what the archive contains and lets you choose what to restore, with two modes:</p>
-        <ul>
-          <li><strong>Replace</strong> &mdash; clears selected data and restores from the backup</li>
-          <li><strong>Merge</strong> &mdash; keeps existing data, adds new records, skips duplicates</li>
-        </ul>
-        <div class="tip-box">
-          <strong>Tip:</strong> Export a backup before updating Gorgonetics to a new version. If anything goes wrong, you can always restore your data.
+        <div class="image-row">
+          <div class="step-image">
+            <img src="images/quickstart/23-settings-dark.png" alt="Settings with the Dark theme selected">
+            <div class="caption">Switch to 🌙 Dark from the theme selector</div>
+          </div>
+          <div class="step-image">
+            <img src="images/quickstart/24-dark-mode.png" alt="The My Pets table in dark mode">
+            <div class="caption">Dark mode &mdash; easy on the eyes for late-night breeding</div>
+          </div>
+        </div>
+        <div class="step-image">
+          <img src="images/quickstart/25-dark-gene-grid.png" alt="A gene grid in dark mode with vibrant gene colours on a dark background">
+          <div class="caption">Gene grid in dark mode &mdash; gene colours stay vibrant</div>
         </div>
       </div>
 
@@ -686,23 +691,22 @@
           <div class="step-number">14</div>
           <h3>Tag &amp; Organise Your Pets</h3>
         </div>
-        <p>Add tags to your pets to categorise and filter them. Open the <strong>pet editor</strong> (hover a pet card and click the pencil icon) to manage tags.</p>
+        <p>Tags help you categorise and filter your collection. Open a pet's <strong>editor</strong> (the ✎ action on its row) and manage tags in the Tags section.</p>
         <div class="step-image">
-          <img src="images/quickstart/21-pet-tags-editor.png" alt="Pet editor showing the Tags section with tag input and autocomplete">
+          <img src="images/quickstart/26-tags.png" alt="Pet editor showing the Tags section with a tag input">
           <div class="caption">The pet editor &mdash; add, remove, and autocomplete tags</div>
         </div>
         <ul>
-          <li><strong>Type and press Enter</strong> to add a new tag, or pick from the autocomplete suggestions</li>
-          <li><strong>Click the &times;</strong> on a tag to remove it</li>
-          <li>Tags you've used before appear as <strong>filter buttons</strong> above the pet list &mdash; click them to filter</li>
-          <li>Select multiple tags to narrow down further (all selected tags must match)</li>
+          <li><strong>Type and press Enter</strong> to add a tag, or pick from autocomplete.</li>
+          <li>Tags you've used appear as <strong>filter pills</strong> in the My Pets filter bar.</li>
+          <li>Select several tags to narrow further (all selected tags must match).</li>
         </ul>
         <div class="step-image">
-          <img src="images/quickstart/22-pet-tag-filters.png" alt="Pet list showing tag filter buttons above the search bar">
-          <div class="caption">Tag filter buttons appear when your pets have tags &mdash; click to filter</div>
+          <img src="images/quickstart/27-tag-filters.png" alt="The My Pets filter bar showing tag filter pills">
+          <div class="caption">Tag pills appear in the filter bar once your pets have tags</div>
         </div>
         <div class="tip-box">
-          <strong>Tip:</strong> Tags are great for organising pets by purpose &mdash; "breeder", "keeper", "for sale", or by breeding line.
+          <strong>Tip:</strong> Tags are great for organising by purpose &mdash; "breeder", "keeper", "for sale", or by breeding line.
         </div>
       </div>
 
@@ -710,26 +714,20 @@
       <div class="step">
         <div class="step-header">
           <div class="step-number">15</div>
-          <h3>Dark Mode &amp; Display Settings</h3>
+          <h3>Share &amp; Browse Community Pets</h3>
         </div>
-        <p>Click the <strong>gear icon</strong> in the top bar to open Settings. The Display section lets you customise the look and feel.</p>
+        <p>The <strong>🌐 Community</strong> destination is a public catalogue of pets shared by other players. Browse the list, click a row to preview its genome, and import any pet into your own stable.</p>
         <div class="step-image">
-          <img src="images/quickstart/18-settings-dark-mode.png" alt="Settings modal showing theme toggle with Dark mode selected and font scale controls">
-          <div class="caption">Settings &mdash; theme toggle and font scale controls</div>
+          <img src="images/quickstart/28-community.png" alt="The Community destination catalogue">
+          <div class="caption">The Community catalogue &mdash; browse and import pets shared by others</div>
         </div>
-        <ul>
-          <li><strong>Theme</strong> &mdash; choose Light, Dark, or System (follows your OS preference)</li>
-          <li><strong>Font scale</strong> &mdash; adjust text size from 75% to 150%. You can also use <kbd>Cmd</kbd>/<kbd>Ctrl</kbd> + <kbd>+</kbd>/<kbd>-</kbd> keyboard shortcuts, and <kbd>Cmd</kbd>/<kbd>Ctrl</kbd> + <kbd>0</kbd> to reset</li>
-        </ul>
-        <div class="image-row">
-          <div class="step-image">
-            <img src="images/quickstart/19-dark-mode-overview.png" alt="Gorgonetics in dark mode showing the pet list">
-            <div class="caption">Dark mode &mdash; easy on the eyes for late-night breeding sessions</div>
-          </div>
-          <div class="step-image">
-            <img src="images/quickstart/20-dark-mode-gene-grid.png" alt="Gene grid in dark mode with vibrant gene colours on dark background">
-            <div class="caption">Gene grid in dark mode &mdash; gene colours stay vibrant</div>
-          </div>
+        <p style="margin-top: 16px;">To publish one of your own pets, open it and click <strong>Share</strong>. A dialog previews exactly what will be uploaded &mdash; name, character, species, gender, breed, and tags. Notes stay local unless you opt to include them. You can also select several pets and <strong>🌐 Share</strong> them together, or <strong>🌐 Share all</strong> to publish your whole collection in the background.</p>
+        <div class="step-image">
+          <img src="images/quickstart/29-share-dialog.png" alt="Share to community dialog previewing a pet's metadata before publishing">
+          <div class="caption">The Share dialog &mdash; review the metadata, then publish to the catalogue</div>
+        </div>
+        <div class="tip-box">
+          <strong>Note:</strong> Sharing is entirely opt-in &mdash; nothing leaves your machine until you publish a pet. Review the preview before sharing.
         </div>
       </div>
 
@@ -737,53 +735,19 @@
       <div class="step">
         <div class="step-header">
           <div class="step-number">16</div>
-          <h3>Settings</h3>
-        </div>
-        <p>The Settings panel (gear icon) also includes these options:</p>
-        <div class="step-image">
-          <img src="images/quickstart/17-settings-modal.png" alt="Settings modal showing Horse visualisation and update options">
-          <div class="caption">The Settings panel &mdash; visualisation options and update checking</div>
-        </div>
-        <ul>
-          <li><strong>Auto-select breed filter</strong> &mdash; when enabled (default), viewing a Horse pet automatically activates the breed filter for that pet's breed</li>
-          <li><strong>Check for updates</strong> &mdash; checks GitHub for new releases and can install them directly (desktop app only)</li>
-        </ul>
-      </div>
-
-      <!-- Step 17 -->
-      <div class="step">
-        <div class="step-header">
-          <div class="step-number">17</div>
           <h3>Keyboard Navigation</h3>
         </div>
-        <p>Gorgonetics is fully keyboard-navigable. Here are the key shortcuts:</p>
+        <p>Gorgonetics is fully keyboard-navigable:</p>
         <ul>
-          <li><strong>Tab</strong> &mdash; move between interactive elements. A visible focus ring shows what's selected</li>
-          <li><strong>Arrow keys</strong> &mdash; navigate between pet cards in the list, items in dropdown menus, and cells in the gene grid</li>
-          <li><strong>Enter / Space</strong> &mdash; activate buttons, select pets, or show gene tooltips</li>
-          <li><strong>Escape</strong> &mdash; close any modal, dialog, dropdown, or tooltip</li>
-          <li><strong>Cmd/Ctrl + Plus/Minus</strong> &mdash; increase or decrease font size</li>
-          <li><strong>Cmd/Ctrl + 0</strong> &mdash; reset font size to default</li>
+          <li><strong>Tab</strong> &mdash; move between interactive elements; a visible focus ring shows what's selected.</li>
+          <li><strong>Arrow keys</strong> &mdash; move between rows, menu items, and gene-grid cells.</li>
+          <li><strong>Enter / Space</strong> &mdash; activate buttons, open a pet, or show a gene tooltip.</li>
+          <li><strong>Escape</strong> &mdash; close any modal, dialog, dropdown, or tooltip.</li>
+          <li><strong>Alt + &larr;</strong> &mdash; go back to the previous destination.</li>
+          <li><strong>Cmd/Ctrl + Plus/Minus</strong> and <strong>Cmd/Ctrl + 0</strong> &mdash; adjust or reset font size.</li>
         </ul>
         <div class="tip-box">
-          <strong>Tip:</strong> All modals and dialogs trap focus so you can Tab through their controls without accidentally interacting with the background.
-        </div>
-      </div>
-
-      <!-- Step 18 -->
-      <div class="step">
-        <div class="step-header">
-          <div class="step-number">18</div>
-          <h3>Share &amp; Browse Community Pets</h3>
-        </div>
-        <p>The <strong>🌐 Community</strong> tab in the top bar opens a public catalogue of pets shared by other players. Browse the list, click a row to inspect its genome, and import any pet straight into your own stable.</p>
-        <p style="margin-top: 16px;">To publish one of your own pets, open it and click <strong>Share</strong> in the view controls. A dialog previews exactly what will be uploaded &mdash; name, character, species, gender, breed, and tags. Notes stay local unless you tick <strong>Include local notes</strong>.</p>
-        <div class="step-image">
-          <img src="images/quickstart/27-share-dialog.png" alt="Share to community dialog showing a preview of the pet's name, character, species, gender, breed, and tags, with an opt-in checkbox to include local notes">
-          <div class="caption">The Share dialog &mdash; review the metadata, then publish to the public catalogue</div>
-        </div>
-        <div class="tip-box">
-          <strong>Note:</strong> Sharing is entirely opt-in &mdash; nothing leaves your machine until you publish a pet. Uploads can't be edited or deleted from within the app, so review the preview before sharing.
+          <strong>Tip:</strong> Modals and dialogs trap focus, so you can Tab through their controls without touching the background.
         </div>
       </div>
 
