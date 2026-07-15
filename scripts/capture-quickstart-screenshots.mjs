@@ -373,11 +373,15 @@ await page.getByTestId('share-pet-backdrop').click({ position: { x: 10, y: 10 } 
 await page.waitForTimeout(200);
 
 // ===== Homepage screenshots (docs/images/) =====
-// Still on Sample Fae Bee detail, Attributes view by default.
+// Still on Sample Fae Bee detail, Attributes view, stats panel closed:
+// the plain gene grid.
+await shot(page, 'screenshot-gene-grid.png', { dir: HOME_OUT });
+// Open the stats side panel for the stats-focused shot so the two homepage
+// images are visually distinct (the "See It in Action" grid shows them as
+// separate features).
 await page.getByTestId('detail-stats-toggle').click();
 await waitFor(page, '.attribute-row');
 await page.waitForTimeout(200);
-await shot(page, 'screenshot-gene-grid.png', { dir: HOME_OUT });
 await shot(page, 'screenshot-stats.png', { dir: HOME_OUT });
 
 await browser.close();
