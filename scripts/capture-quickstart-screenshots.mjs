@@ -8,14 +8,22 @@
  *   - Playwright installed (@playwright/test)
  *
  * Outputs PNGs to docs/images/quickstart/ matching the filenames
- * referenced in docs/quickstart.html.
+ * referenced in docs/quickstart.html, plus a handful of homepage
+ * screenshots in docs/images/ referenced by docs/index.html.
+ *
+ * Selectors were verified against the live redesigned UI (no ?redesign
+ * flag needed — the new My Pets / Breed / Community / Reference IA is
+ * the default). Prefer data-testid, aria-label, and exact text over
+ * brittle class names wherever the app exposes one.
  */
 
 import { chromium } from '@playwright/test';
 
 const BASE_URL = 'http://localhost:5174';
 const OUT = 'docs/images/quickstart';
+const HOME_OUT = 'docs/images';
 const VIEWPORT = { width: 1280, height: 800 };
+const HIGHLIGHT_SHADOW = '0 0 0 3px #3b82f6, 0 0 20px rgba(59,130,246,0.5)';
 
 // --- Helpers ---
 
@@ -38,19 +46,43 @@ async function removeOverlay(page) {
   await page.evaluate(() => document.getElementById('qs-overlay')?.remove());
 }
 
+/** Highlight the first element matching a CSS selector. */
 async function highlight(page, selector, { padding = '' } = {}) {
   await page.evaluate(
-    ({ sel, pad }) => {
+    ({ sel, pad, shadow }) => {
       const el = document.querySelector(sel);
       if (!el) return;
       el.style.position = 'relative';
       el.style.zIndex = '9999';
-      el.style.boxShadow = '0 0 0 3px #3b82f6, 0 0 20px rgba(59,130,246,0.5)';
+      el.style.boxShadow = shadow;
       el.style.borderRadius = '6px';
       if (pad) el.style.padding = pad;
       el.id = 'qs-highlighted';
     },
-    { sel: selector, pad: padding },
+    { sel: selector, pad: padding, shadow: HIGHLIGHT_SHADOW },
+  );
+}
+
+/**
+ * Highlight an element located via an arbitrary DOM traversal, for cases
+ * where no single stable CSS selector identifies the target (e.g. "the
+ * parent of this button", "the row whose text includes this name").
+ * `finderBody` is the body of a zero-arg function returning the element.
+ */
+async function highlightNode(page, finderBody) {
+  await page.evaluate(
+    ({ body, shadow }) => {
+      // eslint-disable-next-line no-new-func
+      const finder = new Function(body);
+      const el = finder();
+      if (!el) return;
+      el.style.position = 'relative';
+      el.style.zIndex = '9999';
+      el.style.boxShadow = shadow;
+      el.style.borderRadius = '6px';
+      el.id = 'qs-highlighted';
+    },
+    { body: finderBody, shadow: HIGHLIGHT_SHADOW },
   );
 }
 
@@ -68,10 +100,18 @@ async function clearHighlight(page) {
   });
 }
 
-async function shot(page, name) {
+async function shot(page, name, { dir = OUT } = {}) {
   await page.waitForTimeout(200);
-  await page.screenshot({ path: `${OUT}/${name}`, type: 'png' });
+  await page.screenshot({ path: `${dir}/${name}`, type: 'png' });
   console.log(`  ✓ ${name}`);
+}
+
+async function openPet(page, name) {
+  await page
+    .getByRole('button', { name, exact: true })
+    .first()
+    .click();
+  await waitFor(page, '[data-testid="pet-detail"]');
 }
 
 // --- Main ---
@@ -80,459 +120,265 @@ console.log('Capturing quickstart screenshots...\n');
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: VIEWPORT });
 await page.goto(BASE_URL);
-await page.waitForSelector('.pet-card');
+await waitFor(page, '[data-testid="roster"]');
 
-// 01 — First launch (empty state, no pet selected)
+// 01 — First launch: My Pets table with all 3 demo pets, filter bar + footer visible
 await shot(page, '01-first-launch.png');
 
-// 02 — Pet list sidebar highlighted
+// 02 — Filter bar highlighted
 await addOverlay(page);
-await highlight(page, '[role="complementary"]');
-await shot(page, '02-pet-list-highlight.png');
+await highlight(page, '[data-testid="filter-bar"]');
+await shot(page, '02-filter-bar.png');
 await clearHighlight(page);
 await removeOverlay(page);
 
-// 03 — Pet card hover (edit/delete visible)
-const firstCard = page.locator('.pet-card-wrapper').first();
-await firstCard.hover();
-await page.waitForTimeout(200);
+// 03 — Roach row's ✎ Edit / ✕ Delete actions highlighted
 await addOverlay(page);
-await page.evaluate(() => {
-  const card = document.querySelector('.pet-card-wrapper');
-  if (card) {
-    card.style.position = 'relative';
-    card.style.zIndex = '9999';
-    card.style.boxShadow = '0 0 0 3px #3b82f6, 0 0 20px rgba(59,130,246,0.5)';
-    card.style.borderRadius = '8px';
-    card.id = 'qs-highlighted';
-  }
-});
-await shot(page, '03-pet-card-hover.png');
+await highlightNode(
+  page,
+  `return document.querySelector('[aria-label="Edit Roach"]')?.closest('td');`,
+);
+await shot(page, '03-row-actions.png');
 await clearHighlight(page);
 await removeOverlay(page);
 
-// 04 — Upload button highlighted
+// 04 — Footer "+ Upload Genome" and 🔄 auto-import highlighted
 await addOverlay(page);
-await page.evaluate(() => {
-  const btn = [...document.querySelectorAll('button')].find((b) =>
-    b.textContent.includes('Upload Genome'),
-  );
-  if (btn) {
-    btn.style.position = 'relative';
-    btn.style.zIndex = '9999';
-    btn.style.boxShadow = '0 0 0 3px #3b82f6, 0 0 20px rgba(59,130,246,0.5)';
-    btn.id = 'qs-highlighted';
-  }
-});
-await shot(page, '04-upload-highlight.png');
+await highlightNode(
+  page,
+  `return document.querySelector('[data-testid="mypets-upload"]')?.parentElement;`,
+);
+await shot(page, '04-upload.png');
 await clearHighlight(page);
 await removeOverlay(page);
 
-// 05 — BeeWasp gene grid (click bee pet)
-await page.locator('.pet-card', { hasText: 'Sample Fae Bee' }).first().click();
-await waitFor(page, ".gene-visualizer, .gallery");
+// 05 — Sample Fae Bee detail, Attributes gene grid (default view)
+await openPet(page, 'Sample Fae Bee');
 await shot(page, '05-gene-grid.png');
 
-// 06 — Gene tooltip on hover
-const positiveCells = page.locator('.gene-cell.gene-positive');
-const cellCount = await positiveCells.count();
-for (let i = 0; i < cellCount; i++) {
-  const box = await positiveCells.nth(i).boundingBox();
-  if (box && box.x > 350 && box.x < 800 && box.y > 200 && box.y < 400) {
-    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-    await waitFor(page, ".gene-visualizer, .gallery");
-    break;
-  }
-}
+// 06 — Effect:/Value: legend-filter row highlighted
 await addOverlay(page);
-await page.evaluate(() => {
-  const tooltip = document.querySelector('[class*="tooltip"]');
-  if (tooltip) {
-    tooltip.style.zIndex = '9999';
-    tooltip.style.boxShadow = '0 0 0 3px #3b82f6, 0 0 20px rgba(59,130,246,0.5)';
-    tooltip.style.borderRadius = '8px';
-  }
-  const grid = document.querySelector('.gene-grid-container');
-  if (grid) {
-    grid.style.position = 'relative';
-    grid.style.zIndex = '9999';
-  }
-});
-await shot(page, '06-gene-tooltip.png');
-await page.evaluate(() => {
-  const tooltip = document.querySelector('[class*="tooltip"]');
-  if (tooltip) {
-    tooltip.style.zIndex = '';
-    tooltip.style.boxShadow = '';
-    tooltip.style.borderRadius = '';
-  }
-  const grid = document.querySelector('.gene-grid-container');
-  if (grid) {
-    grid.style.position = '';
-    grid.style.zIndex = '';
-  }
-});
+await highlight(page, '.gene-legend');
+await shot(page, '06-gene-legend.png');
+await clearHighlight(page);
 await removeOverlay(page);
 
-// Move mouse away to dismiss tooltip
+// 07 — Hover a gene cell so its tooltip shows
+await page.getByRole('button', { name: 'Gene 01B3: Ferocity+' }).hover();
+await waitFor(page, '.gene-tooltip');
+await shot(page, '07-gene-tooltip.png');
 await page.mouse.move(0, 0);
-await page.waitForTimeout(200);
+await page.waitForTimeout(150);
 
-// 07 — View toggle buttons highlighted
+// 08 — Detail controls (Attributes/Appearance/Stats/Gallery/Share/Edit/Delete) highlighted
 await addOverlay(page);
-await page.evaluate(() => {
-  const btns = [...document.querySelectorAll('button')];
-  const toggleBtns = btns.filter((b) =>
-    ['Attributes', 'Appearance', 'Stats'].includes(b.textContent.trim()),
-  );
-  const parent = toggleBtns[0]?.parentElement;
-  if (parent) {
-    parent.style.position = 'relative';
-    parent.style.zIndex = '9999';
-    parent.style.boxShadow = '0 0 0 3px #3b82f6, 0 0 20px rgba(59,130,246,0.5)';
-    parent.style.borderRadius = '8px';
-    parent.id = 'qs-highlighted';
-  }
-});
-await shot(page, '07-view-toggle-highlight.png');
+await highlight(page, '.header-controls');
+await shot(page, '08-detail-controls.png');
 await clearHighlight(page);
 await removeOverlay(page);
 
-// 08 — Appearance view
-await page.locator('button', { hasText: 'Appearance' }).click();
-await waitFor(page, ".gene-visualizer, .gallery, .gene-editing-view, select");
-// Also open stats to show the appearance stats
-await page.locator('button', { hasText: 'Stats' }).click();
+// 09 — Appearance grid view
+await page.getByRole('button', { name: 'Appearance', exact: true }).click();
 await page.waitForTimeout(200);
-await shot(page, '08-appearance-view.png');
+await shot(page, '09-appearance-view.png');
 
-// 09 — Stats panel highlighted (switch back to Attributes first)
-await page.locator('button', { hasText: 'Attributes' }).click();
+// 10 — Stats panel open (Attribute Effects)
+await page.getByRole('button', { name: 'Attributes', exact: true }).click();
 await page.waitForTimeout(200);
-await addOverlay(page);
-await page.evaluate(() => {
-  const tables = document.querySelectorAll('table');
-  if (tables.length > 0) {
-    let container = tables[0].parentElement;
-    while (container && container.getBoundingClientRect().width < 300) {
-      container = container.parentElement;
-    }
-    if (container) {
-      container.style.position = 'relative';
-      container.style.zIndex = '9999';
-      container.style.boxShadow =
-        '0 0 0 3px #3b82f6, 0 0 20px rgba(59,130,246,0.5)';
-      container.style.borderRadius = '8px';
-      container.id = 'qs-highlighted';
-    }
-  }
-});
-await shot(page, '09-stats-panel.png');
-await clearHighlight(page);
-await removeOverlay(page);
+await page.getByTestId('detail-stats-toggle').click();
+await waitFor(page, '.attribute-row');
+await shot(page, '10-stats-panel.png');
 
-// 10 — Attribute filtered (click Intelligence)
-await page.locator('tr.attribute-row', { hasText: 'Intelligence' }).click();
-await waitFor(page, ".gene-visualizer, .gallery, .gene-editing-view, select");
-await addOverlay(page);
-await page.evaluate(() => {
-  // Lift stats and grid above overlay
-  for (const sel of ['.stats-section', '.stats-drawer-body']) {
-    const el = document.querySelector(sel);
-    if (el) {
-      el.style.position = 'relative';
-      el.style.zIndex = '9999';
-    }
-  }
-  const grid = document.querySelector('.gene-section, .gene-visualizer');
-  if (grid) {
-    grid.style.position = 'relative';
-    grid.style.zIndex = '9999';
-  }
-  // Highlight selected row
-  for (const row of document.querySelectorAll('tr.attribute-row')) {
-    if (row.textContent.includes('Intelligence')) {
-      row.style.boxShadow = '0 0 0 3px #3b82f6, 0 0 15px rgba(59,130,246,0.5)';
-      row.style.borderRadius = '6px';
-      row.id = 'qs-highlighted';
-    }
-  }
-});
-await shot(page, '10-attribute-filtered.png');
-await clearHighlight(page);
-await page.evaluate(() => {
-  for (const sel of ['.stats-section', '.stats-drawer-body', '.gene-section', '.gene-visualizer']) {
-    const el = document.querySelector(sel);
-    if (el) {
-      el.style.position = '';
-      el.style.zIndex = '';
-    }
-  }
-});
-await removeOverlay(page);
-
-// Deselect Intelligence filter
-await page.locator('tr.attribute-row', { hasText: 'Intelligence' }).click();
+// 11 — Attribute row clicked so the grid filters/dims
+await page.locator('.attribute-row', { hasText: 'Intelligence' }).click();
+await page.waitForTimeout(200);
+await shot(page, '11-attribute-filtered.png');
+// Deselect and close the stats panel for the next steps
+await page.locator('.attribute-row', { hasText: 'Intelligence' }).click();
+await page.getByTestId('detail-stats-toggle').click();
 await page.waitForTimeout(200);
 
-// 11 — Horse auto-breed filter (select horse pet)
-await page.locator('.pet-card', { hasText: 'Sample Horse' }).click();
-await waitFor(page, ".gene-visualizer");
+// 12 — Sample Horse detail, Auto breed filter row highlighted
+await page.getByTestId('pet-detail-back').click();
+await page.waitForTimeout(200);
+await openPet(page, 'Sample Horse');
 await addOverlay(page);
 await highlight(page, '.breed-filter', { padding: '4px' });
-await shot(page, '11-auto-breed-active.png');
+await shot(page, '12-breed-filter.png');
 await clearHighlight(page);
 await removeOverlay(page);
 
-// 12 — Genes tab with sidebar highlighted
-await page.locator('.tab-btn', { hasText: 'Genes' }).click();
-await waitFor(page, "#animalType");
+// 13 — Two rows selected, the selection bar highlighted
+await page.getByTestId('pet-detail-back').click();
+await page.waitForTimeout(200);
+await page.getByRole('checkbox', { name: 'Select Roach' }).check();
+await page.getByRole('checkbox', { name: 'Select Sample Horse' }).check();
+await page.waitForTimeout(200);
 await addOverlay(page);
-await highlight(page, '[role="complementary"]');
-await shot(page, '12-genes-tab.png');
+await highlight(page, '[data-testid="mypets-selection"]');
+await shot(page, '13-select-compare.png');
 await clearHighlight(page);
 await removeOverlay(page);
 
-// 13 — Gene editing view
-await page.locator('select').first().selectOption('beewasp');
+// 14 — Compare (GenomeGridDiff) view of the two selected pets
+await page.getByTestId('mypets-compare').click();
+await waitFor(page, '[data-testid="pet-compare"]');
+await shot(page, '14-compare.png');
+
+// 15 — Breed destination ranking table (switch species to horse)
+await page.getByTestId('pet-compare-back').click();
+await page.waitForTimeout(200);
+await page.getByTestId('mypets-clear').click();
+await page.waitForTimeout(200);
+await page.getByTestId('tab-breed').click();
+await page.getByRole('button', { name: '🐴 Horse' }).click();
+await waitFor(page, '[data-testid="breeding-pair-table"]');
+await shot(page, '15-breed-rank.png');
+
+// 16 — Trio offspring view (inspect the demo horse pair)
+await page.getByTestId('inspect-pair').first().click();
+await waitFor(page, '[data-testid="trio-view"]');
+await shot(page, '16-trio.png');
+// Same view also fronts the homepage "See It in Action" grid.
+await page.screenshot({ path: `${HOME_OUT}/screenshot-trio.png`, type: 'png' });
+console.log('  ✓ screenshot-trio.png (homepage)');
+await page.getByTestId('trio-view-back').click();
+await page.waitForTimeout(200);
+
+// 17 — Reference destination (Animal type + Chromosome selects + Edit Genes)
+await page.getByTestId('tab-reference').click();
+await page.waitForTimeout(200);
+await shot(page, '17-reference.png');
+
+// 18 — Gene-template editing table after choosing species+chromosome
+await page.locator('#animalType').selectOption('beewasp');
 await page.waitForTimeout(200);
 await page.locator('select').nth(1).selectOption({ index: 1 });
 await page.waitForTimeout(200);
-await page.locator('button', { hasText: 'Edit Genes' }).click();
+await page.getByRole('button', { name: 'Edit Genes' }).click();
 await waitFor(page, '.gene-editing-view');
-await shot(page, '13-gene-editing.png');
+await shot(page, '18-gene-editing.png');
+await page.screenshot({ path: `${HOME_OUT}/screenshot-gene-editor.png`, type: 'png' });
+console.log('  ✓ screenshot-gene-editor.png (homepage)');
 
-// 14 — Data menu dropdown
-await page.locator('.tab-btn', { hasText: 'Pets' }).click();
+// 19 — Pet Gallery view (empty state)
+await page.getByTestId('tab-mypets').click();
+await page.waitForTimeout(200);
+await openPet(page, 'Sample Fae Bee');
+await page.getByTestId('detail-gallery-toggle').click();
+await page.waitForTimeout(200);
+await shot(page, '19-gallery.png');
+await page.getByTestId('detail-gallery-toggle').click();
+await page.waitForTimeout(200);
+
+// 20 — "Data management" dropdown open (Export/Import Backup) highlighted
+await page.getByTestId('pet-detail-back').click();
 await page.waitForTimeout(200);
 await page.getByTitle('Data management').click();
 await page.waitForTimeout(200);
 await addOverlay(page);
-await page.evaluate(() => {
-  const dropdown = document.querySelector('.dropdown');
-  if (dropdown) {
-    dropdown.style.zIndex = '9999';
-    dropdown.style.boxShadow = '0 0 0 3px #3b82f6, 0 0 20px rgba(59,130,246,0.5)';
-    dropdown.id = 'qs-highlighted';
-  }
-  const toggle = document.querySelector('.menu-toggle');
-  if (toggle) {
-    toggle.style.position = 'relative';
-    toggle.style.zIndex = '9999';
-  }
-});
-await shot(page, '14-data-menu.png');
+await highlight(page, '.dropdown');
+await shot(page, '20-data-menu.png');
 await clearHighlight(page);
-await page.evaluate(() => {
-  const toggle = document.querySelector('.menu-toggle');
-  if (toggle) {
-    toggle.style.position = '';
-    toggle.style.zIndex = '';
-  }
-});
 await removeOverlay(page);
-// Close dropdown
-await page.locator('.top-bar-left').click();
+
+// 21 — Export Backup dialog
+await page.getByRole('menuitem', { name: 'Export Backup' }).click();
+await waitFor(page, 'dialog[aria-label="Export Backup"], [role="dialog"]');
+await shot(page, '21-export-dialog.png');
+await page.getByRole('button', { name: 'Cancel' }).click();
 await page.waitForTimeout(200);
 
-// 15 — Gallery empty state
-await page.locator('.tab-btn', { hasText: 'Pets' }).click();
-await page.waitForTimeout(200);
-await page.locator('.pet-card', { hasText: 'Sample Fae Bee' }).first().click();
-await waitFor(page, ".gene-visualizer, .gallery");
-await page.locator('.view-btn', { hasText: 'Gallery' }).click();
-await waitFor(page, ".gene-visualizer, .gallery, .gene-editing-view, select");
-await shot(page, '15-gallery.png');
+// 22 — Settings modal (Display/Theme/Updates)
+await page.getByTitle('Settings').click();
+await page.waitForTimeout(300);
+await shot(page, '22-settings.png');
 
-// 16 — Export dialog
-await page.locator('.view-btn', { hasText: 'Gallery' }).click(); // toggle off
-await page.waitForTimeout(200);
-await page.getByTitle('Data management').click();
-await page.waitForTimeout(200);
-await page.getByText('Export Backup').click();
-await page.waitForTimeout(200);
-await shot(page, '16-export-dialog.png');
+// 23 — Settings with 🌙 Dark theme selected
+await page.getByRole('button', { name: 'Dark theme' }).click();
+await page.waitForTimeout(300);
+await shot(page, '23-settings-dark.png');
 
-// Close export dialog
-await page.getByText('Cancel').click();
-await page.waitForTimeout(200);
+// 24 — My Pets table in dark mode
+await page.keyboard.press('Escape');
+await page.waitForTimeout(300);
+await shot(page, '24-dark-mode.png');
 
-// 17 — Settings modal
+// 25 — Gene grid in dark mode
+await openPet(page, 'Sample Fae Bee');
+await shot(page, '25-dark-gene-grid.png');
+
+// Revert to light mode before continuing
+await page.getByTestId('pet-detail-back').click();
+await page.waitForTimeout(200);
 await page.getByTitle('Settings').click();
 await page.waitForTimeout(200);
-await shot(page, '17-settings-modal.png');
-
-// 18 — Settings with dark mode toggle (switch to dark)
-await page.locator('.theme-btn', { hasText: 'Dark' }).click();
-await page.waitForTimeout(300);
-await shot(page, '18-settings-dark-mode.png');
-
-// Close settings modal
-await page.keyboard.press('Escape');
-await page.waitForTimeout(200);
-
-// 19 — App in dark mode (pet list)
-await shot(page, '19-dark-mode-overview.png');
-
-// 20 — Dark mode gene grid
-await page.locator('.pet-card', { hasText: 'Sample Fae Bee' }).first().click();
-await waitFor(page, '.gene-visualizer, .gallery');
-await shot(page, '20-dark-mode-gene-grid.png');
-
-// 21 — Pet tags: switch back to light mode, add tags, then screenshot
-await page.locator('.settings-toggle').click();
-await page.waitForTimeout(200);
-await page.locator('.theme-btn', { hasText: 'Light' }).click();
+await page.getByRole('button', { name: 'Light theme' }).click();
 await page.waitForTimeout(200);
 await page.keyboard.press('Escape');
 await page.waitForTimeout(200);
 
-// Add tags to the first pet via the editor
-await page.locator('.pet-card-wrapper').first().hover();
-await page.waitForTimeout(200);
-await page.locator('.edit-btn').first().click();
-await waitFor(page, '.modal-panel');
-
-// Type tags into the tag input
+// 26 — Pet editor open showing the Tags section (add a couple tags)
+await page.getByRole('button', { name: 'Edit Roach' }).click();
+await waitFor(page, '.tag-text-input');
 const tagInput = page.locator('.tag-text-input');
 await tagInput.fill('breeder');
 await tagInput.press('Enter');
-await page.waitForTimeout(100);
+await page.waitForTimeout(150);
 await tagInput.fill('keeper');
 await tagInput.press('Enter');
-await page.waitForTimeout(100);
-
-// Scroll tags section into view and screenshot
+await page.waitForTimeout(150);
 await page.evaluate(() => {
-  const tagsSection = [...document.querySelectorAll('h3')].find(h => h.textContent.includes('Tags'));
-  if (tagsSection) tagsSection.scrollIntoView({ block: 'center' });
+  const heading = [...document.querySelectorAll('h3')].find((h) => h.textContent.includes('Tags'));
+  heading?.scrollIntoView({ block: 'center' });
 });
 await addOverlay(page);
-await page.evaluate(() => {
-  const panel = document.querySelector('.modal-panel');
-  if (panel) {
-    panel.style.position = 'relative';
-    panel.style.zIndex = '9999';
-  }
-});
-await shot(page, '21-pet-tags-editor.png');
-await page.evaluate(() => {
-  const panel = document.querySelector('.modal-panel');
-  if (panel) { panel.style.position = ''; panel.style.zIndex = ''; }
-});
+await highlightNode(
+  page,
+  `return [...document.querySelectorAll('h3')].find(h => h.textContent.includes('Tags'))?.parentElement;`,
+);
+await shot(page, '26-tags.png');
+await clearHighlight(page);
 await removeOverlay(page);
-
-// Save the tags
-await page.getByText('Save Changes').click();
+await page.getByRole('button', { name: 'Save Changes' }).click();
 await page.waitForTimeout(300);
 
-// Add a different tag to the second pet
-await page.locator('.pet-card-wrapper').nth(1).hover();
-await page.waitForTimeout(200);
-await page.locator('.edit-btn').nth(1).click();
-await waitFor(page, '.modal-panel');
-const tagInput2 = page.locator('.tag-text-input');
-await tagInput2.fill('for sale');
-await tagInput2.press('Enter');
-await page.waitForTimeout(100);
-await tagInput2.fill('breeder');
-await tagInput2.press('Enter');
-await page.waitForTimeout(100);
-await page.getByText('Save Changes').click();
-await page.waitForTimeout(300);
-
-// 22 — Tag filter buttons in pet list
+// 27 — My Pets filter bar showing tag filter pills (now that a pet has tags)
 await addOverlay(page);
-await highlight(page, '.tag-filter');
-await shot(page, '22-pet-tag-filters.png');
+await highlight(page, '[data-testid="filter-tags"]');
+await shot(page, '27-tag-filters.png');
 await clearHighlight(page);
 await removeOverlay(page);
 
-// 23 — Stable table (default view, beewasp species)
-await page.locator('.tab-btn', { hasText: 'Stable' }).click();
-await waitFor(page, '.stable-table');
-await shot(page, '23-stable-table.png');
+// 28 — Community destination. NOTE: the dev environment is wired to a live
+// Firebase catalogue, so this is NOT an empty/placeholder state — it shows
+// real shared community pet listings (real owner names). Captured as-is
+// per instructions to never fake a state; flag before publishing if that
+// real user data shouldn't appear in public docs.
+await page.getByTestId('tab-community').click();
+await page
+  .locator('[data-testid="community-row"], [data-testid="community-empty"]')
+  .first()
+  .waitFor({ state: 'visible', timeout: 20000 });
+await shot(page, '28-community.png');
 
-// 24 — Stable filters applied (gender=Female + starred pill highlighted)
-await page.locator('[data-testid="stable-gender"]').selectOption('Female');
+// 29 — Share-to-community dialog from a pet detail
+await page.getByTestId('tab-mypets').click();
 await page.waitForTimeout(200);
-await addOverlay(page);
-await highlight(page, '.filter-bar');
-await shot(page, '24-stable-filters.png');
-await clearHighlight(page);
-await removeOverlay(page);
-
-// Reset filters
-await page.locator('[data-testid="stable-gender"]').selectOption('all');
-await page.waitForTimeout(200);
-
-// 25 — Breeding tab (switch to horse so the demo M×F pair populates the table)
-await page.locator('.tab-btn', { hasText: 'Breed' }).click();
-await waitFor(page, '[data-testid="breeding-tab"]');
-await page.locator('.species-btn', { hasText: 'horse' }).click();
-await waitFor(page, '[data-testid="breeding-pair-table"]');
-await shot(page, '25-breeding-tab.png');
-
-// 26 — Trio offspring projection (inspect the demo horse pair). Wait on the
-// rendered grid, not just the modal, so we never capture the loading state.
-await page.locator('[data-testid="inspect-pair"]').first().click();
-await waitFor(page, '[data-testid="trio-view"]');
-await waitFor(page, '.trio-table');
-await shot(page, '26-trio-view.png');
-// Same view also fronts the homepage "See It in Action" grid.
-await page.screenshot({ path: 'docs/images/screenshot-trio.png', type: 'png' });
-console.log('  ✓ screenshot-trio.png (homepage)');
-await page.getByRole('button', { name: 'Close trio view' }).click();
-await page.waitForTimeout(200);
-
-// 27 — Share to Community dialog (deterministic offline; the catalogue browser
-// needs remote data, so the share flow is the reliable way to show the feature).
-await page.locator('.tab-btn', { hasText: 'Pets' }).click();
-await page.waitForTimeout(200);
-await page.locator('.pet-card', { hasText: 'Sample Fae Bee' }).first().click();
-await waitFor(page, '.pet-visualization, .gene-visualizer');
-await page.locator('[data-testid="share-pet-btn"]').click();
+await openPet(page, 'Sample Fae Bee');
+await page.getByTestId('share-pet-btn').click();
 await waitFor(page, '[data-testid="share-preview"]');
-await shot(page, '27-share-dialog.png');
-await page.locator('[data-testid="share-pet-backdrop"]').click({ position: { x: 10, y: 10 } });
-await page.waitForTimeout(200);
-
-// Return to Pets tab so downstream homepage captures work.
-await page.locator('.tab-btn', { hasText: 'Pets' }).click();
+await shot(page, '29-share-dialog.png');
+await page.getByTestId('share-pet-backdrop').click({ position: { x: 10, y: 10 } });
 await page.waitForTimeout(200);
 
 // ===== Homepage screenshots (docs/images/) =====
-const HOME_OUT = 'docs/images';
-
-// screenshot-gene-grid — BeeWasp gene grid with stats open
-await page.locator('.pet-card', { hasText: 'Sample Fae Bee' }).first().click();
-await waitFor(page, ".gene-visualizer, .gallery");
-await page.locator('button', { hasText: 'Stats' }).click();
+// Still on Sample Fae Bee detail, Attributes view by default.
+await page.getByTestId('detail-stats-toggle').click();
+await waitFor(page, '.attribute-row');
 await page.waitForTimeout(200);
-await page.screenshot({ path: `${HOME_OUT}/screenshot-gene-grid.png`, type: 'png' });
-console.log(`  ✓ screenshot-gene-grid.png (homepage)`);
-
-// screenshot-stats — Stats panel (Attributes view, stats open)
-await page.locator('button', { hasText: 'Attributes' }).click();
-await page.waitForTimeout(200);
-await page.screenshot({ path: `${HOME_OUT}/screenshot-stats.png`, type: 'png' });
-console.log(`  ✓ screenshot-stats.png (homepage)`);
-
-// Close stats
-await page.locator('button', { hasText: 'Stats' }).click();
-await page.waitForTimeout(200);
-
-// screenshot-gene-editor — Gene editing table
-await page.locator('.tab-btn', { hasText: 'Genes' }).click();
-await waitFor(page, '#animalType');
-await page.locator('select').first().selectOption('beewasp');
-await page.waitForTimeout(200);
-await page.locator('select').nth(1).selectOption({ index: 1 });
-await page.waitForTimeout(200);
-await page.locator('button', { hasText: 'Edit Genes' }).click();
-await waitFor(page, '.gene-editing-view');
-await page.screenshot({ path: `${HOME_OUT}/screenshot-gene-editor.png`, type: 'png' });
-console.log(`  ✓ screenshot-gene-editor.png (homepage)`);
+await shot(page, 'screenshot-gene-grid.png', { dir: HOME_OUT });
+await shot(page, 'screenshot-stats.png', { dir: HOME_OUT });
 
 await browser.close();
 console.log(`\nAll screenshots saved to ${OUT}/ and ${HOME_OUT}/`);
