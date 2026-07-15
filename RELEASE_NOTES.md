@@ -1,36 +1,29 @@
-# v0.7.0
+# v0.8.0
 
-A feature release covering community pet sharing, offspring breeding projections, and import/backup improvements.
+A major release built around a complete UI redesign, alongside new community and breeding functionality. Still pre-1.0 while the redesign settles.
 
-## Community pet sharing
+## Redesigned interface
 
-- New **Community** tab to browse a public catalogue of shared pets.
-- Share any pet to the community via a dedicated dialog; the catalogue is split into metadata and genome collections so browsing stays fast.
-- Firebase-backed, with App Check protecting public reads.
+- Ground-up redesign of the library workspace: unified chrome primitives, pet rows, filter bar, and modals for a consistent look across the app.
+- New genome/gene grid with consistent fill and dimming behaviour.
+- Workspace "lenses" for switching how the library is viewed, plus a dedicated breed lens.
+- Unified trio overlay and grid filters so the same controls behave the same way everywhere.
+- Redesigned community shell and side-by-side comparison view.
+- A shared design-token system underpinning colours, spacing, and typography.
 
-## Breeding — offspring trio view
+## Community
 
-- New trio genome grid showing Father / Offspring / Mother side by side, with a per-locus offspring projection and gain/risk verdicts.
-- Inspect any ranked breeding pair to open its trio view.
-- Filter the trio by offspring breed and focus on a single attribute.
-- Locked-in gains now recognise shared recessive positives, not just dominants.
+- Submit and track community attribute corrections for shared pets, with corrections bound to the correct pet identity.
+- Auto-share on import, plus share-all and bulk-share flows for pushing pets to the community catalogue.
+- Import feedback and filtering when browsing the community.
 
-## Import & upload
+## Breeding
 
-- Drag-and-drop genome files directly onto the pet list to import them.
-- Pending-import count badge on the auto-scan button.
+- Breeding bench batches for working through multiple pairings.
+- Trio offspring outcome map for visualising projected offspring across a pairing.
+- Pool-gap pairing weight factored into breeding-pair suggestions.
 
-## Backup & updates
+## Fixes & performance
 
-- The updater backs up the current install before applying an update, so a failed update can be rolled back.
-- Export streams the archive natively to keep memory bounded on large libraries, and warns before exporting a very large image library.
-
-## Accessibility & navigation
-
-- Keyboard-accessible reordering for the pet list and gallery.
-- Back navigation between tabs.
-
-## Under the hood
-
-- Full migration of the frontend to TypeScript with `checkJs` enabled for end-to-end type coverage.
-- Numerous correctness and review fixes across community, breeding, comparison, and the pet stores.
+- Numerous regression fixes from the redesign cutover (detail header, overlay layering, breed destination, correction identity binding, detail-pane and backfill races).
+- Performance work on the gene visualizer (CSS filters) and trio gradient bars.
