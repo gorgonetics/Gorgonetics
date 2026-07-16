@@ -438,12 +438,37 @@ class InMemoryDatabase implements DatabaseAdapter {
   private matchesWhere(row: Record<string, unknown>, whereClause: string, params: unknown[]): boolean {
     if (!whereClause?.trim()) return true;
 
+    // Split on AND. Safe for the queries this adapter sees: an `IN (…)` list is
+    // comma-separated (no embedded AND) and no clause uses OR.
     const conditions = whereClause.split(/\s+and\s+/i);
     let paramIdx = 0;
-    for (const cond of conditions) {
-      const match = cond.trim().match(/(\w+)\s*=\s*\?/);
-      if (match) {
-        const col = match[1];
+    for (const rawCond of conditions) {
+      const cond = rawCond.trim();
+
+      // `col IN (?, ?, …)`: each `?` slot consumes one positional param in
+      // order. Without this the condition was silently dropped and every row
+      // matched, so a subset query (e.g. rows for a set of ids) leaked the
+      // rest. In practice every slot is a placeholder (see buildInClauseParams);
+      // a bare numeric literal also works, but a quoted string literal would not
+      // — `select` lowercases the whole query before this runs, so `'Horse'`
+      // arrives as `'horse'` and fails to match a cased value.
+      const inMatch = cond.match(/(\w+)\s+in\s*\(([^)]*)\)/i);
+      if (inMatch) {
+        const col = inMatch[1];
+        const slots = inMatch[2]
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean);
+        const allowed = slots.map((slot) =>
+          slot === '?' ? String(params[paramIdx++]) : String(slot).replace(/^'(.*)'$/, '$1'),
+        );
+        if (!allowed.includes(String(row[col]))) return false;
+        continue;
+      }
+
+      const eqMatch = cond.match(/(\w+)\s*=\s*\?/);
+      if (eqMatch) {
+        const col = eqMatch[1];
         if (String(row[col]) !== String(params[paramIdx])) return false;
         paramIdx++;
       }
