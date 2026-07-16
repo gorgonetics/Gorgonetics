@@ -165,10 +165,11 @@ This runs `scripts/release.sh` which:
 1. Bumps version in package.json, tauri.conf.json, Cargo.toml, Cargo.lock, docs/index.html
 2. Regenerates docs screenshots via `pnpm screenshots`
 3. Runs lint and E2E tests
-4. Builds changelog from commits since last tag
-5. Commits, creates annotated tag with changelog, pushes
-6. The tag triggers the Release workflow (builds macOS/Windows/Linux binaries)
-7. The Pages workflow deploys docs on release publish
+4. Deploys `firestore.rules` to the live project **if they changed since the last tag** (`firebase deploy --only firestore:rules`). The sharing catalogue has no auth — it's secured entirely by these rules, which CI does not deploy. If the client payload changes without the deployed rules matching, every share fails with `permission-denied`, so rules must never drift behind a release.
+5. Builds changelog from commits since last tag
+6. Commits, creates annotated tag with changelog, pushes
+7. The tag triggers the Release workflow (builds macOS/Windows/Linux binaries)
+8. The Pages workflow deploys docs on release publish
 
 After binaries are built, edit the draft release on GitHub to publish it.
 
