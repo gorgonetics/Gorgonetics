@@ -20,8 +20,8 @@ describe('InMemoryDatabase — WHERE IN', () => {
     ] as const) {
       await db.execute(
         `INSERT INTO pets (id, name, species, gender, content_hash, genome_data)
-         VALUES ($id, $name, $species, 'Male', $hash, '{}')`,
-        { id, name, species, hash: `h${id}` },
+         VALUES ($id, $name, $species, $gender, $hash, $genome)`,
+        { id, name, species, gender: 'Male', hash: `h${id}`, genome: '{}' },
       );
     }
   });

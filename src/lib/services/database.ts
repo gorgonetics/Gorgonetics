@@ -448,7 +448,10 @@ class InMemoryDatabase implements DatabaseAdapter {
       // `col IN (?, ?, …)`: each `?` slot consumes one positional param in
       // order. Without this the condition was silently dropped and every row
       // matched, so a subset query (e.g. rows for a set of ids) leaked the
-      // rest. Literal (quoted/numeric) slots are compared as-is.
+      // rest. In practice every slot is a placeholder (see buildInClauseParams);
+      // a bare numeric literal also works, but a quoted string literal would not
+      // — `select` lowercases the whole query before this runs, so `'Horse'`
+      // arrives as `'horse'` and fails to match a cased value.
       const inMatch = cond.match(/(\w+)\s+in\s*\(([^)]*)\)/i);
       if (inMatch) {
         const col = inMatch[1];
