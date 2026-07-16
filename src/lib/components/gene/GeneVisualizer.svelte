@@ -1260,6 +1260,15 @@ const blockIndices = $derived.by(() => {
         flex: 1;
         min-height: 0;
         overflow: auto;
+        /* Reserve the scrollbar gutter permanently. The responsive cell size is
+           derived from this element's contentRect width (ResizeObserver above);
+           with `overflow: auto` a vertical scrollbar that takes layout space
+           would shrink that width when it appears and restore it when it goes,
+           so any change to toolbar/legend HEIGHT (which decides whether the grid
+           overflows) leaked into cell WIDTH. `stable` keeps the width constant
+           regardless of scrollbar presence — a no-op on overlay-scrollbar
+           platforms, the decoupler on classic-scrollbar ones. See issue #436. */
+        scrollbar-gutter: stable;
         border: 1px solid var(--border-primary);
         border-radius: 6px;
         background: var(--bg-secondary);
