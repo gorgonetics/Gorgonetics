@@ -170,8 +170,29 @@ pnpm run lint:ci
 echo "Running tests..."
 pnpm test:e2e
 
-# --- Assemble release notes ---
+# --- Deploy Firestore rules if they changed ---
+# The public sharing catalogue has NO auth — it is secured entirely by
+# firestore.rules. Those rules live in the repo but are NOT deployed by CI or
+# the app build; they must be pushed to the live project separately. If the
+# client's write payload changes (e.g. a new field) without the deployed rules
+# being updated to match, every share fails with permission-denied. Deploy on
+# release whenever the rules changed since the last tag so they never drift.
 LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+if [[ -n "$LAST_TAG" ]] && git diff --quiet "$LAST_TAG" HEAD -- firestore.rules; then
+  echo "Firestore rules unchanged since $LAST_TAG — skipping deploy"
+else
+  echo "Firestore rules changed (or no prior tag) — deploying to gorgonetics..."
+  if command -v firebase >/dev/null 2>&1; then
+    firebase deploy --only firestore:rules --project gorgonetics
+  else
+    echo "Error: firestore.rules need deploying but the firebase CLI is not installed."
+    echo "Install it (npm i -g firebase-tools) and run:"
+    echo "  firebase deploy --only firestore:rules --project gorgonetics"
+    exit 1
+  fi
+fi
+
+# --- Assemble release notes ---
 COMPARE_LINK="**Full Changelog**: https://github.com/gorgonetics/Gorgonetics/compare/${LAST_TAG:-initial}...v$NEW_VERSION"
 
 if [[ -f "$NOTES_FILE" ]]; then
