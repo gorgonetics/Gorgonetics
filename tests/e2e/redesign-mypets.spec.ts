@@ -176,7 +176,7 @@ test.describe('Redesign — My Pets (table-first)', () => {
     await expect(page.locator('[data-testid="mypets-compare"]')).toBeDisabled();
   });
 
-  test('a multi-selection can be bulk-shared to the community', async ({ page }) => {
+  test('a multi-selection opens a confirm gate that Cancel dismisses', async ({ page }) => {
     await openMyPets(page);
     const checks = page.locator('[data-testid="roster-row-select"]');
     await checks.nth(0).check();
@@ -188,6 +188,8 @@ test.describe('Redesign — My Pets (table-first)', () => {
     const dialog = page.getByTestId('bulk-share-dialog');
     await expect(dialog).toBeVisible();
     await expect(dialog).toContainText('Share 2 pets to the community');
+    // The dialog only confirms — the upload itself runs as a background job.
+    await expect(dialog).toContainText('runs in the background');
     await dialog.getByRole('button', { name: 'Cancel' }).click();
     await expect(page.getByTestId('bulk-share-dialog')).toHaveCount(0);
   });

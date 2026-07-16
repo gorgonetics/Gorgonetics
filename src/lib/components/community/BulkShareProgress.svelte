@@ -20,6 +20,10 @@ const summaryText = $derived.by(() => {
 });
 
 const tone = $derived(job.error || (job.summary?.failed ?? 0) > 0 ? 'warn' : 'ok');
+
+// Per-pet problems (skipped/failed) worth listing back to the user — the detail
+// the old blocking dialog surfaced, now shown inline in the global widget.
+const problems = $derived((job.summary?.items ?? []).filter((i) => i.status === 'skipped' || i.status === 'failed'));
 </script>
 
 {#if job.status !== 'idle'}
@@ -44,6 +48,16 @@ const tone = $derived(job.error || (job.summary?.failed ?? 0) > 0 ? 'warn' : 'ok
         <span class="bsp-title" data-testid="bulk-share-done">{summaryText}</span>
         <button type="button" class="bsp-btn" data-testid="bulk-share-dismiss" onclick={dismissBulkShare} aria-label="Dismiss">×</button>
       </div>
+      {#if problems.length > 0}
+        <details class="bsp-problems" data-testid="bulk-share-problems">
+          <summary>Details ({problems.length})</summary>
+          <ul>
+            {#each problems as p (p.petId)}
+              <li><strong>{p.petName}</strong> — {p.status}: {p.error}</li>
+            {/each}
+          </ul>
+        </details>
+      {/if}
     {/if}
   </section>
 {/if}
@@ -96,4 +110,14 @@ const tone = $derived(job.error || (job.summary?.failed ?? 0) > 0 ? 'warn' : 'ok
     cursor: pointer;
   }
   .bsp-btn:hover { color: var(--text-primary); background: var(--bg-hover); }
+
+  .bsp-problems { font-size: 12px; color: var(--text-secondary); }
+  .bsp-problems summary { cursor: pointer; color: var(--text-tertiary); }
+  .bsp-problems ul {
+    margin: 6px 0 0;
+    padding-left: 16px;
+    max-height: 160px;
+    overflow: auto;
+  }
+  .bsp-problems li { margin-bottom: 4px; word-break: break-word; }
 </style>

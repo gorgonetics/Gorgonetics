@@ -42,4 +42,27 @@ test.describe('Share all pets', () => {
     await gotoDestination(page, 'My Pets');
     await expect(progress).toBeVisible();
   });
+
+  test('sharing a selection runs in the background via the global widget', async ({ page }) => {
+    // Select two pets and share them. Like "Share all", the selected-pets flow
+    // now delegates to the background job: the confirm dialog closes and the
+    // global, non-blocking widget takes over — no in-modal progress bar.
+    const checks = page.locator('[data-testid="roster-row-select"]');
+    await checks.nth(0).check();
+    await checks.nth(1).check();
+    await expect(page.locator('[data-testid="mypets-selection"]')).toContainText('2 selected');
+
+    await page.locator('[data-testid="mypets-share"]').click();
+    await page.locator('[data-testid="bulk-share-confirm"]').click();
+
+    // Confirm dialog is gone; the background widget is running.
+    await expect(page.getByTestId('bulk-share-dialog')).toHaveCount(0);
+    const progress = page.locator('[data-testid="bulk-share-progress-global"]');
+    await expect(progress).toBeVisible();
+    await expect(progress.locator('[role="progressbar"]')).toBeVisible();
+
+    // The selection is cleared and the Share button is disabled while it runs.
+    await expect(page.locator('[data-testid="mypets-selection"]')).toHaveCount(0);
+    await expect(page.locator('[data-testid="mypets-share-all"]')).toBeDisabled();
+  });
 });
