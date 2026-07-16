@@ -7,7 +7,7 @@ import SettingsView from '$lib/components/layout/SettingsView.svelte';
 import MyPets from '$lib/components/mypets/MyPets.svelte';
 import PetEditor from '$lib/components/pet/PetEditor.svelte';
 import StatusBanner from '$lib/components/shared/StatusBanner.svelte';
-import { activeTab, appState, error, loading, notice } from '$lib/stores/pets.js';
+import { activeTab, appState, error, loading, notice, pets } from '$lib/stores/pets.js';
 import { editingPet, settingsOpen, uiActions } from '$lib/stores/ui.js';
 
 onMount(async () => {
@@ -32,7 +32,13 @@ onMount(async () => {
 			<StatusBanner type="success" message={$notice} toast autoDismissMs={8000} onDismiss={() => appState.clearNotice()} />
 		{/if}
 
-		{#if $loading}
+		{#if $loading && $pets.length === 0}
+			<!-- Full-screen spinner only on the INITIAL load, when there's nothing to
+			     show yet. `$loading` also flips true for background reloads (e.g. an
+			     import/backfill re-running loadPets); gating on those blanked the whole
+			     destination to a spinner and remounted the active view mid-interaction —
+			     tearing down an open overlay (e.g. the breeding trio). With data already
+			     present, keep the current view mounted and let it update in place. -->
 			<div class="center-state">
 				<div class="spinner"></div>
 				<p class="state-text">Loading...</p>
