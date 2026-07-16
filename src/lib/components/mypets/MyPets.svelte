@@ -16,14 +16,13 @@ import PetVisualization from '$lib/components/pet/PetVisualization.svelte';
 import DetailOverlay from '$lib/components/shared/DetailOverlay.svelte';
 import EmptyState from '$lib/components/shared/EmptyState.svelte';
 import FilterBar from '$lib/components/shared/FilterBar.svelte';
-import StatusBanner from '$lib/components/shared/StatusBanner.svelte';
 import { isPlaceholderConfig } from '$lib/firebase.js';
 import { getSupportedSpecies, normalizeSpecies } from '$lib/services/configService.js';
 import { bulkShareJob, startBulkShare } from '$lib/stores/bulkShare.svelte.js';
 import { pendingImportCount } from '$lib/stores/gameImport.js';
 import { clearMyPetsSelection, getMyPetsFilters, myPetsView } from '$lib/stores/mypets.svelte.js';
 import { allTags, loading, pets } from '$lib/stores/pets.js';
-import { type DialogResult, type Gender, type Pet } from '$lib/types/index.js';
+import { type Gender, type Pet } from '$lib/types/index.js';
 import { focusTrap } from '$lib/utils/focusTrap.js';
 import { createGenomeUploadController } from '$lib/utils/genomeUploadController.svelte.js';
 import { filterPets } from '$lib/utils/petFilter.js';
@@ -159,13 +158,16 @@ function closeCompare(): void {
   comparing = false;
 }
 
-// --- Bulk share -------------------------------------------------------------
+// --- Bulk share (selected pets, background job) -----------------------------
+// The dialog is a confirm gate only; the upload runs as the same background job
+// as "Share all" (startBulkShare), so the app stays interactive and progress
+// surfaces in the global BulkShareProgress widget.
 let bulkShareOpen = $state(false);
-let shareStatus = $state<DialogResult | null>(null);
 
-function handleBulkShareResult(result: DialogResult): void {
-  shareStatus = result;
-  if (result.type !== 'error') clearMyPetsSelection();
+function confirmBulkShare(toShare: Pet[]): void {
+  startBulkShare(toShare);
+  clearMyPetsSelection();
+  bulkShareOpen = false;
 }
 
 // --- Share all (whole collection, background job) ---------------------------
@@ -199,17 +201,6 @@ const canShareAll = $derived(!isPlaceholderConfig && $pets.length > 0);
         onToggleFlag={toggleFlag}
       />
     </div>
-
-    {#if shareStatus}
-      <div class="mp-share-status">
-        <StatusBanner
-          type={shareStatus.type}
-          message={shareStatus.message}
-          autoDismissMs={8000}
-          onDismiss={() => { shareStatus = null; }}
-        />
-      </div>
-    {/if}
 
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div
@@ -303,7 +294,10 @@ const canShareAll = $derived(!isPlaceholderConfig && $pets.length > 0);
             type="button"
             class="act-btn"
             data-testid="mypets-share"
-            title="Share the selected pets to the community catalogue"
+            disabled={bulkShareJob.status === 'running'}
+            title={bulkShareJob.status === 'running'
+              ? 'A bulk share is already running'
+              : 'Share the selected pets to the community catalogue'}
             onclick={() => { bulkShareOpen = true; }}
           >🌐 Share</button>
           <button type="button" class="act-btn ghost" data-testid="mypets-clear" onclick={clearMyPetsSelection}>Clear</button>
@@ -329,7 +323,7 @@ const canShareAll = $derived(!isPlaceholderConfig && $pets.length > 0);
   <BulkSharePetDialog
     pets={selectedPets}
     onClose={() => { bulkShareOpen = false; }}
-    onResult={handleBulkShareResult}
+    onConfirm={confirmBulkShare}
   />
 {/if}
 
@@ -380,7 +374,6 @@ const canShareAll = $derived(!isPlaceholderConfig && $pets.length > 0);
   .mp-main { flex: 1; min-height: 0; display: flex; flex-direction: column; }
   .mp-main.hidden { display: none; }
   .mp-head { padding: 10px 16px; border-bottom: 1px solid var(--border-primary); flex-shrink: 0; }
-  .mp-share-status { padding: 8px 16px 0; }
 
   .mp-table { position: relative; flex: 1; min-height: 0; overflow: auto; }
   .mp-empty { height: 100%; display: flex; align-items: center; justify-content: center; }
