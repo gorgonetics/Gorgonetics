@@ -44,13 +44,13 @@ importers:
         version: 1.61.1
       '@sveltejs/adapter-static':
         specifier: ^3.0.10
-        version: 3.0.10(@sveltejs/kit@2.69.2(@opentelemetry/api@1.9.1)(@sveltejs/vite-plugin-svelte@7.1.2(svelte@5.56.3)(vite@8.1.3(@types/node@26.0.0)(yaml@2.9.0)))(svelte@5.56.3)(typescript@6.0.3)(vite@8.1.3(@types/node@26.0.0)(yaml@2.9.0)))
+        version: 3.0.10(@sveltejs/kit@2.69.2(@opentelemetry/api@1.9.1)(@sveltejs/vite-plugin-svelte@7.2.0(svelte@5.56.3)(vite@8.1.3(@types/node@26.0.0)(yaml@2.9.0)))(svelte@5.56.3)(typescript@6.0.3)(vite@8.1.3(@types/node@26.0.0)(yaml@2.9.0)))
       '@sveltejs/kit':
         specifier: ^2.69.2
-        version: 2.69.2(@opentelemetry/api@1.9.1)(@sveltejs/vite-plugin-svelte@7.1.2(svelte@5.56.3)(vite@8.1.3(@types/node@26.0.0)(yaml@2.9.0)))(svelte@5.56.3)(typescript@6.0.3)(vite@8.1.3(@types/node@26.0.0)(yaml@2.9.0))
+        version: 2.69.2(@opentelemetry/api@1.9.1)(@sveltejs/vite-plugin-svelte@7.2.0(svelte@5.56.3)(vite@8.1.3(@types/node@26.0.0)(yaml@2.9.0)))(svelte@5.56.3)(typescript@6.0.3)(vite@8.1.3(@types/node@26.0.0)(yaml@2.9.0))
       '@sveltejs/vite-plugin-svelte':
-        specifier: ^7.1.2
-        version: 7.1.2(svelte@5.56.3)(vite@8.1.3(@types/node@26.0.0)(yaml@2.9.0))
+        specifier: ^7.2.0
+        version: 7.2.0(svelte@5.56.3)(vite@8.1.3(@types/node@26.0.0)(yaml@2.9.0))
       '@tauri-apps/cli':
         specifier: ^2.11.4
         version: 2.11.4
@@ -954,8 +954,8 @@ packages:
     resolution: {integrity: sha512-BXXm+VOH/9X4N7Dd1iZ2MqA1h7M+9i2noI8QYuLDY8QcN2WHYn7D/VK/+IJNfcAmRw7ACNJ538UT9GXIhnBTiA==}
     engines: {node: '>= 18.0.0'}
 
-  '@sveltejs/vite-plugin-svelte@7.1.2':
-    resolution: {integrity: sha512-DrUBA2UXRfDmUX/ZTiEopd3X40yavsJF1FX2RygcuIScHL7o5YX1fMvoYnDhjeJQC4weCOklirpNWlcb2NiSeA==}
+  '@sveltejs/vite-plugin-svelte@7.2.0':
+    resolution: {integrity: sha512-1SpkuMSRLfugrVX+IrKfE1RUegzo8AQzKQ6qQPfVzbcWi5IhuTPaKb5ZrLpucleFznkc4/RTeSPoRnGWFxX+EQ==}
     engines: {node: ^20.19 || ^22.12 || >=24}
     peerDependencies:
       svelte: ^5.46.4
@@ -2845,11 +2845,12 @@ packages:
     resolution: {integrity: sha512-W67iLl4J2EXEGTbfeHCffrjDfitvLANg0UlX3wFUUSTx92KXRFegMHUVgSqE+wvhAbi4WqjGg9czysTV2Epbew==}
     engines: {node: '>= 0.4'}
 
-  obug@2.1.1:
-    resolution: {integrity: sha512-uTqF9MuPraAQ+IsnPf366RG4cP9RtUi7MLO1N3KEc+wb0a6yKpeL0lmk2IB1jY5KHPAlTc6T/JRdC/YqxHNwkQ==}
-
   obug@2.1.3:
     resolution: {integrity: sha512-9miFgM2OFba7hB+pRgvtV84pYTBaoTHohvmIgiRt6dRIzbwEOIaNaP+dIlGs2fNFoB0SeISs0Jz5WFVRid6Xyg==}
+    engines: {node: '>=12.20.0'}
+
+  obug@2.1.4:
+    resolution: {integrity: sha512-4a+OsYv9UktOJKE+l1A4OufDgdRF9PifWj+tJnHURo/P+WOxpG4GzUFL9qCalmWauao6ogiG+QvnCovwPoyAWA==}
     engines: {node: '>=12.20.0'}
 
   on-finished@2.3.0:
@@ -3647,10 +3648,10 @@ packages:
       yaml:
         optional: true
 
-  vitefu@1.1.2:
-    resolution: {integrity: sha512-zpKATdUbzbsycPFBN71nS2uzBUQiVnFoOrr2rvqv34S1lcAgMKKkjWleLGeiJlZ8lwCXvtWaRn7R3ZC16SYRuw==}
+  vitefu@1.1.3:
+    resolution: {integrity: sha512-ub4okH7Z5KLjb6hDyjqrGXqWtWvoYdU3IGm/NorpgHncKoLTCfRIbvlhBm7r0YstIaQRYlp4yEbFqDcKSzXSSg==}
     peerDependencies:
-      vite: ^3.0.0 || ^4.0.0 || ^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0-beta.0
+      vite: ^3.0.0 || ^4.0.0 || ^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0
     peerDependenciesMeta:
       vite:
         optional: true
@@ -4774,15 +4775,15 @@ snapshots:
     dependencies:
       acorn: 8.17.0
 
-  '@sveltejs/adapter-static@3.0.10(@sveltejs/kit@2.69.2(@opentelemetry/api@1.9.1)(@sveltejs/vite-plugin-svelte@7.1.2(svelte@5.56.3)(vite@8.1.3(@types/node@26.0.0)(yaml@2.9.0)))(svelte@5.56.3)(typescript@6.0.3)(vite@8.1.3(@types/node@26.0.0)(yaml@2.9.0)))':
+  '@sveltejs/adapter-static@3.0.10(@sveltejs/kit@2.69.2(@opentelemetry/api@1.9.1)(@sveltejs/vite-plugin-svelte@7.2.0(svelte@5.56.3)(vite@8.1.3(@types/node@26.0.0)(yaml@2.9.0)))(svelte@5.56.3)(typescript@6.0.3)(vite@8.1.3(@types/node@26.0.0)(yaml@2.9.0)))':
     dependencies:
-      '@sveltejs/kit': 2.69.2(@opentelemetry/api@1.9.1)(@sveltejs/vite-plugin-svelte@7.1.2(svelte@5.56.3)(vite@8.1.3(@types/node@26.0.0)(yaml@2.9.0)))(svelte@5.56.3)(typescript@6.0.3)(vite@8.1.3(@types/node@26.0.0)(yaml@2.9.0))
+      '@sveltejs/kit': 2.69.2(@opentelemetry/api@1.9.1)(@sveltejs/vite-plugin-svelte@7.2.0(svelte@5.56.3)(vite@8.1.3(@types/node@26.0.0)(yaml@2.9.0)))(svelte@5.56.3)(typescript@6.0.3)(vite@8.1.3(@types/node@26.0.0)(yaml@2.9.0))
 
-  '@sveltejs/kit@2.69.2(@opentelemetry/api@1.9.1)(@sveltejs/vite-plugin-svelte@7.1.2(svelte@5.56.3)(vite@8.1.3(@types/node@26.0.0)(yaml@2.9.0)))(svelte@5.56.3)(typescript@6.0.3)(vite@8.1.3(@types/node@26.0.0)(yaml@2.9.0))':
+  '@sveltejs/kit@2.69.2(@opentelemetry/api@1.9.1)(@sveltejs/vite-plugin-svelte@7.2.0(svelte@5.56.3)(vite@8.1.3(@types/node@26.0.0)(yaml@2.9.0)))(svelte@5.56.3)(typescript@6.0.3)(vite@8.1.3(@types/node@26.0.0)(yaml@2.9.0))':
     dependencies:
       '@standard-schema/spec': 1.1.0
       '@sveltejs/acorn-typescript': 1.0.11(acorn@8.17.0)
-      '@sveltejs/vite-plugin-svelte': 7.1.2(svelte@5.56.3)(vite@8.1.3(@types/node@26.0.0)(yaml@2.9.0))
+      '@sveltejs/vite-plugin-svelte': 7.2.0(svelte@5.56.3)(vite@8.1.3(@types/node@26.0.0)(yaml@2.9.0))
       '@types/cookie': 0.6.0
       acorn: 8.17.0
       cookie: 0.6.0
@@ -4801,14 +4802,14 @@ snapshots:
 
   '@sveltejs/load-config@0.1.1': {}
 
-  '@sveltejs/vite-plugin-svelte@7.1.2(svelte@5.56.3)(vite@8.1.3(@types/node@26.0.0)(yaml@2.9.0))':
+  '@sveltejs/vite-plugin-svelte@7.2.0(svelte@5.56.3)(vite@8.1.3(@types/node@26.0.0)(yaml@2.9.0))':
     dependencies:
       deepmerge: 4.3.1
       magic-string: 0.30.21
-      obug: 2.1.1
+      obug: 2.1.4
       svelte: 5.56.3
       vite: 8.1.3(@types/node@26.0.0)(yaml@2.9.0)
-      vitefu: 1.1.2(vite@8.1.3(@types/node@26.0.0)(yaml@2.9.0))
+      vitefu: 1.1.3(vite@8.1.3(@types/node@26.0.0)(yaml@2.9.0))
 
   '@tauri-apps/api@2.11.0': {}
 
@@ -6867,9 +6868,9 @@ snapshots:
 
   object-inspect@1.13.4: {}
 
-  obug@2.1.1: {}
-
   obug@2.1.3: {}
+
+  obug@2.1.4: {}
 
   on-finished@2.3.0:
     dependencies:
@@ -7782,7 +7783,7 @@ snapshots:
       fsevents: 2.3.3
       yaml: 2.9.0
 
-  vitefu@1.1.2(vite@8.1.3(@types/node@26.0.0)(yaml@2.9.0)):
+  vitefu@1.1.3(vite@8.1.3(@types/node@26.0.0)(yaml@2.9.0)):
     optionalDependencies:
       vite: 8.1.3(@types/node@26.0.0)(yaml@2.9.0)
 
