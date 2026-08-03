@@ -105,13 +105,13 @@ Two structural facts from the same data:
 Consequences of the shared centre, all intended:
 
 - **Common recedes to nothing.** A locus where the pet carries the abundant allele renders as flat neutral — the grid only lights up where something is scarce.
-- **A mixed cell with two common halves renders flat**, losing the visual split. Accepted: an all-common `x` locus is precisely the "nothing to see here" case. A **neutral structural border** keeps the cell delineated at rest — it must not be tinted with either arm's colour (§4).
+- **A mixed cell with two common halves renders flat**, losing the visual split. Accepted: an all-common `x` locus is precisely the "nothing to see here" case. If such cells need delineating, it must come from an **inset shadow, never a border colour** — see §4 on why a coloured or neutral border would shrink the painted area of exactly the cells worth looking at.
 - **Near-balanced loci (0.35 < p < 0.65) show a gentle two-tone**, purple against orange — which reads correctly as "this locus is a coin-flip in my stock".
 - **The mixed cell's two halves are complements**, so the second tone is strictly redundant given the first. It is kept anyway because it is what makes the cell read as *"you are carrying a scarce allele in unresolved form, and here is which way to clarify"* rather than *"you are a rare pet"*.
 
 **Hue choice: purple (dominant) ↔ orange (recessive).** The §4 base-class change means the rarity view **replaces** the attribute/appearance palette rather than sitting alongside it, so there is no simultaneous collision to avoid — which is fortunate, since the appearance view already spans nearly the entire hue wheel (`geneCell.css`) and "a hue nothing else uses" does not exist. The real constraints are: (a) **not green↔red**, which would import the attribute view's good/bad reading onto a scale that has no valence; (b) **colour-vision-safe**, since hue is what separates the two arms; (c) **theme-adaptive**. Purple↔orange satisfies all three — it is ColorBrewer's `PuOr`, a diverging scheme published as colourblind-safe, so this is a validated pair rather than a taste call. The centre and both arms are built by `color-mix` from a surface-relative neutral token so light/dark adapt without two hardcoded palettes; the missing-data style stays **dashed**, which is what keeps it distinct from the solid neutral of bucket 0.
 
-Zygosity shape is preserved throughout (see §4): dominant fills, recessive keeps its thick border, mixed its diagonal split. Hue redundantly encodes which allele a pure cell carries — reinforcing, and non-redundant on mixed cells, where it is the only thing distinguishing the two halves.
+Zygosity is still readable, but through **fill shape** rather than border thickness (see §4): solid = pure, diagonal split = mixed. For pure cells the hue itself says which allele — purple arm for `D`, orange arm for `R` — so the attribute view's thick recessive border is redundant in this view and is dropped, which is what lets every cell paint edge to edge at identical size.
 
 ## 3. Population tiers
 
@@ -167,16 +167,22 @@ Cells already carry `data-gene-id`. Within one pet's grid each locus renders exa
 3. Plus a **missing-data** rule (gene ids whose state is `?`, or whose locus is below `minKnown`), setting the dashed/neutral look directly. This set is listed **explicitly** — it is the complement of the union of the buckets. It cannot be selected with `:not([style*="--rarity-dom"])`, because the property is applied by this injected stylesheet, **not** by an inline `style` attribute, so an attribute-substring match on `style` would never fire. (`?` cells already carry `gene-unknown`, whose dashed style coincidentally matches; below-`minKnown` cells do not, which is exactly why the explicit list is required.)
 4. Static CSS (in `geneCell.css`, gated by `.view-rarity`) applies the properties with the correct **zygosity shape**:
    ```css
-   .view-rarity .gene-cell[data-zygosity="dominant"]  { background: var(--rarity-dom); border-color: var(--rarity-dom); }
-   .view-rarity .gene-cell[data-zygosity="recessive"] { /* tinted fill + 4px border, from --rarity-rec */ }
+   /* Every cell: kill the border's colour, keep its geometry. */
+   .view-rarity .gene-cell                            { border-color: transparent; }
+
+   .view-rarity .gene-cell[data-zygosity="dominant"]  { background: var(--rarity-dom); }
+   .view-rarity .gene-cell[data-zygosity="recessive"] { background: var(--rarity-rec); }
    .view-rarity .gene-cell[data-zygosity="mixed"] {
      background: linear-gradient(135deg, var(--rarity-rec) 50%, var(--rarity-dom) 50%);
-     border-color: var(--rarity-cell-edge);   /* neutral — NOT either arm's colour */
    }
    .view-rarity .gene-cell.gene-rarity-missing        { /* dashed neutral */ }
    ```
 
-   **Split cells must not take a solid single-hue border.** `.gene-cell` carries `border: 2px solid` unconditionally (`geneCell.css`), so a split cell would otherwise have to pick one of its two rarity colours for the whole outline — which reads as that allele owning the entire cell and directly contradicts the split. Split cells therefore get a **neutral structural border** (`--rarity-cell-edge`, a low-contrast surface token) that carries no rarity meaning and exists only to delineate the cell when both halves sit at the neutral centre. Pure `D`/`R` cells are unaffected: there the whole cell *is* one allele, so a single-hue border is accurate and stays — it is what carries the recessive zygosity cue (4px). This applies to every cell on the genome map (§7), where all cells are split.
+   **No cell paints a border colour in this view — and that is what keeps every cell the same visible size.** `.gene-cell` carries `border: 2px solid` unconditionally, and recessive cells widen it to 4px (`geneCell.css`). A split cell cannot honestly take a single hue for that outline — it would read as one allele owning the whole cell — but giving it a *neutral* outline is worse: because `box-sizing: border-box` is global (`app.css`), the border eats inward, so a neutral 2px ring insets the coloured area on all four sides. At a 12–16px cell that is roughly a third of the painted area lost, on precisely the cells worth looking at, and on the genome map it would apply to **every** cell (§7).
+
+   The fix costs nothing: set `border-color: transparent`. `background-clip` defaults to `border-box`, so the fill paints straight through the border band and reaches the cell's edge, while the border *width* is untouched — geometry is byte-identical to the other views, which the §4 non-goal requires. If all-neutral cells need delineating, use `box-shadow: inset 0 0 0 1px …`, which also leaves geometry alone; never reintroduce a coloured border.
+
+   **Zygosity is then carried by fill shape, not by border thickness.** Solid = pure, split = mixed, and for pure cells the *hue* already says which allele (purple arm vs orange arm), so the recessive 4px ring is redundant here and is dropped in this view only. The one thing it stops distinguishing is a pure `D` from a pure `R` at a locus where both alleles are common — and both are then the neutral centre, i.e. the "nothing to see here" case by construction.
    The mixed gradient keeps the existing `135deg` orientation from `geneCell.css` but paints both halves, with **recessive top-left and dominant bottom-right** — dominant lands in the half that is the filled one in the attribute/appearance views, so the established visual habit carries over, which is apt given `x` expresses dominant. The genome map (§7) splits every cell on this same axis, so the same locus never appears mirrored across the two surfaces.
 
 **Base-class note (required, not optional).** The grid's cell binding is `class={currentView === "appearance" ? cell.appearanceCls : cell.attributeCls}` — so in **any** non-appearance view, including rarity, a cell would otherwise carry `attributeCls` and paint itself with the attribute-view effect colours. Worse, wrong-breed cells carry `gene-inactive-breed`, whose grey fill/border use `!important` (`geneCell.css`) and would defeat a plain `.view-rarity` rule. So the binding must become a **three-way** choice: in rarity view the cell renders a neutral base (`gene-cell` + the zygosity class only, no effect/appearance/inactive-breed colour class), and `.view-rarity` supplies the rarity colour on top. This is the one render-template change Approach B needs; it touches the class expression only, not `VisCell`, `buildGrid`, or any sizing/layout code.
@@ -245,9 +251,13 @@ Reference today is a gene-*template* editor (animal type → chromosome → `Edi
 
 **No ranked "rarest genes" list.** §1's framing stands — the value is seeing *where* scarcity sits in genome layout, not reading an ordered table.
 
+**The template editor becomes an `Edit` toggle on the map.** With it on, clicking a single cell opens that gene's editor and clicking a row/chromosome header opens the chromosome editor — so the map doubles as the navigation the old animal-type/chromosome pickers provided, and editing is an explicit mode rather than the default. **Deliberately deferred:** the feature has a single user (the maintainer), so it is enough that the map does not strand it. Sequence the map first and fit the toggle afterwards; do not let editor plumbing shape the map's design.
+
 ### What a cell encodes when there is no pet
 
-Every map cell is **split diagonally, always** — the same shape and axis the pet grid uses for `x` (§4):
+**Every map cell is split — there are no solid cells here at all.** With no pet there is no zygosity to encode, so the split is unconditional and the two halves are the entire encoding. This is also why the border rule in §4 is not a detail on this surface: a coloured or neutral border would inset *every* cell on the map, uniformly dulling the whole thing. All cells use `border-color: transparent` and paint edge to edge.
+
+The split uses the same shape and axis the pet grid uses for `x` (§4):
 
 - **top-left half** — shaded by the **recessive** allele's rarity (orange arm)
 - **bottom-right half** — shaded by the **dominant** allele's rarity (purple arm)
@@ -351,7 +361,7 @@ Breed slices sit in a narrow band — 38% to 54% of each breed's loci reach b2+,
 - **Community preview** (§8): a shared pet is scored against the local baseline and is **excluded from its own denominator**; an allele no local pet carries reaches the `carriers = 0` step; and that step, like bucket 4, is suppressed below `soleCarrierMinPets`.
 - **Sole-carrier gate:** a sole carrier at a locus with ≥10 known pets lands in bucket 4; the same carrier at a locus with 9 falls back to its frequency bucket rather than to missing data.
 - **Genome map** (§7): a locus renders the same colour on the map as it does on the grid of a pet that carries its scarce allele, **on the same half** — the strongest guard that the two surfaces share one scale and one orientation. A monomorphic locus (`carriers = 0`) renders **neutral** on the map while the same count renders as the **loudest** step on the community preview; assert both, since they are the same number meaning opposite things. Breed and baseline toggles recompute; the map renders with no pet loaded at all.
-- **No split cell carries a rarity-tinted border** — assert on both the pet grid's `x` cells and every map cell, since `.gene-cell`'s unconditional `border: 2px solid` makes this an easy regression (§4).
+- **No cell paints a border colour in the rarity view, and every cell renders the same painted area** — measure a pure `D`, a pure `R` and an `x` cell and assert their filled regions are identical in size. `.gene-cell`'s unconditional `border: 2px solid` (4px on recessive) plus global `box-sizing: border-box` makes shrunken split cells an easy regression (§4).
 - **The scenario the feature exists for:** a baseline where one `x` pet is the sole carrier of a scarce recessive among otherwise-`D` pets — assert that pet's cell lands in the rarest recessive bucket while the phenotypically identical pure-`D` pets stay at the neutral centre. This is the case no other view in the app can distinguish (§2).
 
 ## 11. Open questions for review
@@ -365,7 +375,8 @@ Breed slices sit in a narrow band — 38% to 54% of each breed's loci reach b2+,
 - **Breed-scoped baselines: rejected** — every horse carries all 10 breeds' loci, so scoping to one breed discards most of the evidence for genes the whole collection holds (§8). The map's breed control is a *display* filter over the same species-wide baseline, not a population scope (§7).
 - Bucket 4 fires **symmetrically on both arms**, and is **gated to loci with ≥10 known pets** — ungated it gets louder as the baseline shrinks, which is the mirror of the problem it was introduced to fix (§2).
 - The viewed pet **is** included in its own denominator; a **community pet is scored from outside** the local population, which makes `carriers = 0` reachable there (§8).
-- **Reference is map-first** (§7): full-genome map by default, template editor demoted. Map cells are always split on the §4 axis — recessive top-left, dominant bottom-right — and split cells never take a rarity-tinted border.
+- **Reference is map-first** (§7): full-genome map by default; the template editor becomes an `Edit` toggle on the map (click a cell for one gene, a row for a chromosome), deferred as single-user functionality. Map cells are always split on the §4 axis — recessive top-left, dominant bottom-right.
+- **No cell paints a border colour in the rarity view** (§4). Borders go `transparent` so fills reach the cell edge at unchanged geometry; zygosity is carried by solid-vs-split, and the recessive 4px ring is dropped in this view since hue already names the allele.
 
 Still open:
 
@@ -375,5 +386,4 @@ Still open:
 4. **Surfacing the cross-breed signal** — you can hold scarce alleles for a breed you do not own (§8). The genome map's breed filter now covers this directly (select Calico, see your Calico scarcity), so the question is whether anything further is wanted — a summary line, or a nudge when a breed you own none of is heavily scarce.
 5. **Recalibration** — the thresholds hold for a ~30-pet single-species collection. Whether they still hold at 200+ pets, or across a species with different locus structure, is unknown; worth re-running the §2 measurement once the community tier exists.
 6. **Map density** — 45% of the map takes a notable-or-stronger tint (§7). Principled, but it is a lot of colour. Ship and look at it, or pre-emptively give the map its own threshold set?
-7. **The demoted template editor** — §7 moves it to a secondary mode but does not specify the affordance. A mode switch in the toolbar, or clicking a map cell to open that chromosome's editor? The latter is better if the map is where you now start, but it conflates "inspect" with "edit".
-8. **`carriers = 0` on the community preview** — confirm the label (*"no pet of yours carries this"*) and that it gets a step beyond bucket 4 rather than reusing bucket 4's colour (§8).
+7. **`carriers = 0` on the community preview** — confirm the label (*"no pet of yours carries this"*) and that it gets a step beyond bucket 4 rather than reusing bucket 4's colour (§8).
