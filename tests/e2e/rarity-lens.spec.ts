@@ -71,7 +71,9 @@ async function geometry(page: import('@playwright/test').Page) {
               .filter((c) => c && c !== 'view-rarity')
               .slice(0, 2)
               .join('.');
-            out.push(`${el.tagName.toLowerCase()}${cls ? `.${cls}` : ''}=${Math.round(el.getBoundingClientRect().width)}`);
+            out.push(
+              `${el.tagName.toLowerCase()}${cls ? `.${cls}` : ''}=${Math.round(el.getBoundingClientRect().width)}`,
+            );
             el = el.parentElement;
           }
           return out.join(' < ');
@@ -172,5 +174,32 @@ test.describe('Gene rarity lens', () => {
         { message: 'no cell ever received a rarity custom property' },
       )
       .toBeGreaterThan(0);
+  });
+});
+
+test.describe('rarity tooltip', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.setViewportSize({ width: 1920, height: 1080 });
+    await page.goto('/');
+    await waitForPets(page);
+  });
+
+  test('shows both alleles with exact percentages, not attribute-view text', async ({ page }) => {
+    await openPetDetail(page);
+    await page.getByRole('button', { name: 'Rarity', exact: true }).click();
+    await expect(page.getByTestId('rarity-legend')).toBeVisible();
+
+    await page.locator('.view-rarity .gene-cell').first().hover();
+    const tip = page.locator('.gene-tooltip');
+    await expect(tip).toBeVisible();
+
+    const text = (await tip.textContent()) ?? '';
+    // Both arms, always — not just on mixed cells.
+    expect(text).toContain('Dominant');
+    expect(text).toContain('Recessive');
+    // Exact frequency to one decimal, or an honest "not enough data".
+    expect(text).toMatch(/\d+\.\d%|Not enough data/);
+    // The heading is the rarity one, not the attribute view's.
+    expect(text).not.toContain('Potential Effects');
   });
 });
