@@ -1428,6 +1428,16 @@ const blockIndices = $derived.by(() => {
         flex: 1;
         min-height: 0;
         overflow: auto;
+        /* Reserve the scrollbar space permanently (#436).
+         *
+         * Cell size is computed from this box's `contentRect.width`, which
+         * EXCLUDES a vertical scrollbar that takes layout space. This box is
+         * the `flex: 1` remainder under the legend and toolbar, so anything
+         * that changes their height changes this box's height, which flips the
+         * vertical scrollbar near the overflow boundary, which changes the
+         * measured width — and a purely vertical change leaks into cell WIDTH.
+         * That is what has repeatedly destabilised layout work here. */
+        scrollbar-gutter: stable;
         border: 1px solid var(--border-primary);
         border-radius: 6px;
         background: var(--bg-secondary);

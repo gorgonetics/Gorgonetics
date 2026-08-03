@@ -222,18 +222,29 @@ describe('PetVisualization detail header', () => {
       expect(community.disabled).toBe(true);
     });
 
-    it('suppresses the stats drawer in the rarity view without losing its open state', async () => {
+    it('keeps the stats drawer MOUNTED in the rarity view — unmounting it resizes the grid', async () => {
+      // `.content-area` is a row: the drawer and `.visualizer-container`
+      // (flex: 1) share the width. Unmounting the drawer on a view switch hands
+      // the grid an extra `drawerWidth` px, the ResizeObserver fires and every
+      // cell resizes — the exact regression the design's §4 non-goal forbids.
       const { container, getByTestId } = render(PetVisualization, { pet: makePet() });
       await fireEvent.click(getByTestId('detail-stats-toggle'));
-      expect(q(container, '.stats-drawer')).not.toBeNull();
+      const widthBefore = (q(container, '.stats-drawer') as HTMLElement).style.width;
 
-      // Stats are attribute/appearance-specific — no rarity analogue.
       await fireEvent.click(btn(container, 'Rarity'));
-      expect(q(container, '.stats-drawer')).toBeNull();
-      expect((getByTestId('detail-stats-toggle') as HTMLButtonElement).disabled).toBe(true);
+      const drawer = q(container, '.stats-drawer');
+      expect(drawer).not.toBeNull();
+      expect((drawer as HTMLElement).style.width).toBe(widthBefore);
+      // The body swaps rather than the drawer disappearing.
+      expect(q(container, '[data-testid="stats-rarity-note"]')).not.toBeNull();
+    });
 
-      // ...and it comes back when the view does.
-      await fireEvent.click(btn(container, 'Attributes'));
+    it('leaves the Stats toggle usable in the rarity view', async () => {
+      const { container, getByTestId } = render(PetVisualization, { pet: makePet() });
+      await fireEvent.click(btn(container, 'Rarity'));
+      const stats = getByTestId('detail-stats-toggle') as HTMLButtonElement;
+      expect(stats.disabled).toBe(false);
+      await fireEvent.click(stats);
       expect(q(container, '.stats-drawer')).not.toBeNull();
     });
 

@@ -267,13 +267,10 @@ onDestroy(() => {
             <div class="toggle-controls">
                 <button
                     class="toggle-btn"
-                    class:active={statsOpen && currentView !== "rarity"}
-                    aria-pressed={statsOpen && currentView !== "rarity"}
+                    class:active={statsOpen}
+                    aria-pressed={statsOpen}
                     data-testid="detail-stats-toggle"
-                    disabled={currentView === "rarity"}
-                    title={currentView === "rarity"
-                        ? "Stats are attribute/appearance-specific"
-                        : "Toggle the stats side panel"}
+                    title="Toggle the stats side panel"
                     onclick={toggleStats}
                 >
                     Stats
@@ -331,31 +328,47 @@ onDestroy(() => {
             <GeneVisualizer {pet} {populationPets} bind:this={geneVisualizerRef} onStatsUpdated={handleStatsUpdated} />
         </div>
 
-        <!-- Stats are attribute/appearance-specific and have no rarity analogue,
-             so the drawer stays shut in that view rather than showing a table
-             about a different question. Its open/closed state is preserved. -->
-        {#if statsOpen && currentView !== "rarity"}
+        <!-- The drawer stays MOUNTED in every view, including rarity.
+             `.content-area` is a row: this drawer and `.visualizer-container`
+             (flex: 1) share the width, so unmounting it hands the grid an extra
+             `drawerWidth` px, the ResizeObserver fires and every cell resizes.
+             That is precisely the §4 non-goal — the grid must be byte-identical
+             across views. Stats have no rarity analogue, so the BODY swaps for a
+             short note while the geometry stays put. -->
+        {#if statsOpen}
             <div class="stats-drawer" style="width: {drawerWidth}px;">
                 <!-- svelte-ignore a11y_no_static_element_interactions -->
                 <div class="resize-handle" onmousedown={startResize}></div>
                 <div class="stats-drawer-header">
                     <span class="stats-drawer-title">
-                        {currentView === "attribute" ? "Attribute Effects" : "Appearance Effects"}
+                        {currentView === "attribute"
+                            ? "Attribute Effects"
+                            : currentView === "rarity"
+                              ? "Stats"
+                              : "Appearance Effects"}
                     </span>
                     <button class="stats-close" onclick={toggleStats}>×</button>
                 </div>
                 <div class="stats-drawer-body">
-                    <GeneStatsTable
-                        currentStats={stats?.currentStats}
-                        currentView={stats?.currentView ?? currentView}
-                        selectedAttributes={stats?.selectedAttributes ?? []}
-                        hiddenAttributes={stats?.hiddenAttributes ?? []}
-                        totalGenes={stats?.totalGenes ?? 0}
-                        neutralGenes={stats?.neutralGenes ?? 0}
-                        petSpecies={stats?.petSpecies ?? pet?.species}
-                        pet={pet}
-                        on:attributeFilter={handleAttributeFilter}
-                    />
+                    {#if currentView === "rarity"}
+                        <p class="stats-empty" data-testid="stats-rarity-note">
+                            Effect and appearance stats don't apply to the rarity view.
+                            The legend below the grid shows the scale, and hovering a
+                            gene gives its exact figures.
+                        </p>
+                    {:else}
+                        <GeneStatsTable
+                            currentStats={stats?.currentStats}
+                            currentView={stats?.currentView ?? currentView}
+                            selectedAttributes={stats?.selectedAttributes ?? []}
+                            hiddenAttributes={stats?.hiddenAttributes ?? []}
+                            totalGenes={stats?.totalGenes ?? 0}
+                            neutralGenes={stats?.neutralGenes ?? 0}
+                            petSpecies={stats?.petSpecies ?? pet?.species}
+                            pet={pet}
+                            on:attributeFilter={handleAttributeFilter}
+                        />
+                    {/if}
                 </div>
             </div>
         {/if}
@@ -369,6 +382,20 @@ onDestroy(() => {
         display: flex;
         flex-direction: column;
         overflow: hidden;
+        /* Fill the row instead of being sized by our own content (#436).
+         *
+         * `.do-body` is a flex ROW and this was a flex item with no `flex` and
+         * no width, so its width was shrink-to-fit over its contents — meaning
+         * the *header's* intrinsic width set the grid's width, and every cell
+         * resized whenever a control was added, removed or relabelled. Adding
+         * the rarity population toggle grew the header by ~327px and the grid
+         * went with it.
+         *
+         * `min-width: 0` is load-bearing: flex items default to
+         * `min-width: auto`, so without it a wide header could still push this
+         * past the container and reintroduce the coupling. */
+        flex: 1;
+        min-width: 0;
     }
 
     .detail-header {
@@ -584,5 +611,12 @@ onDestroy(() => {
     .stats-drawer-body {
         flex: 1;
         overflow-y: auto;
+    }
+
+    .stats-empty {
+        padding: 14px 16px;
+        font-size: 12px;
+        line-height: 1.5;
+        color: var(--text-tertiary);
     }
 </style>

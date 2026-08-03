@@ -26,7 +26,10 @@ export default defineConfig({
   webServer: {
     command: 'pnpm dev',
     port: 5174,
-    reuseExistingServer: false,
+    // Opt-in only, so CI and a plain `pnpm test:e2e` keep starting their own
+    // server. Set PW_REUSE_SERVER=1 to run against a dev server you already
+    // have up, instead of having to stop it first.
+    reuseExistingServer: process.env.PW_REUSE_SERVER === '1',
     timeout: 15000,
   },
 });
