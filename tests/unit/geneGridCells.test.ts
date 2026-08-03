@@ -113,8 +113,15 @@ describe('computeGeneCellSize', () => {
   });
 
   it('scales cells up to fill a wide container', () => {
-    // 1334 wide: (1334 - 28 - 96 - 4) / 48 = 25.1 → 25
-    expect(computeGeneCellSize({ containerWidth: 1334, ...shape })).toBe(25);
+    // 1200 wide: (1200 - 28 - 96 - 4) / 48 = 22.3 → 22
+    expect(computeGeneCellSize({ containerWidth: 1200, ...shape })).toBe(22);
+  });
+
+  it('stops growing at the cap instead of inflating on a large monitor', () => {
+    // Past the cap the surplus becomes whitespace rather than bigger cells.
+    // 1334 would give 25 unclamped; a full-screen 1920 would give 37.
+    expect(computeGeneCellSize({ containerWidth: 1334, ...shape })).toBe(GENE_CELL_MAX);
+    expect(computeGeneCellSize({ containerWidth: 1920, ...shape })).toBe(GENE_CELL_MAX);
   });
 
   it('shrinks cells to fit a narrow container (stats drawer open)', () => {
