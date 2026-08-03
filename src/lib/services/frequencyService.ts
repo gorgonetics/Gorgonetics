@@ -128,6 +128,19 @@ interface TallyRow {
  * produce 1,576 tallies. This does the grouping in C inside the database
  * process and returns only the 1,576, a ~37× cut in payload.
  *
+ * **The three `CASE WHEN`s do not scan the table three times.** Measured on
+ * a real 37-horse collection (58,312 rows), this and a plain
+ * `GROUP BY gene_id, gene_type` produce an identical query plan — one
+ * `SEARCH … USING INDEX idx_pet_genes_pet` plus one temp B-tree — and
+ * identical timing (9.7 ms vs 9.8 ms). SQL evaluates every aggregate in a
+ * single pass per group; the `CASE WHEN`s are extra accumulators, not extra
+ * traversals, and the sort dominates both. The two-column form was rejected
+ * only because it returns 3,753 rows rather than 1,576 and then needs a
+ * pivot loop in JS to rebuild each tally.
+ *
+ * For reference the raw row read is 15.3 ms in-process, so the database-side
+ * saving is modest; the win that matters is not serialising 58k rows over IPC.
+ *
  * **No `'?'` predicate, deliberately.** The obvious `AND gene_type <> '?'`
  * cannot be used: `resolveNamedParams` rewrites named params to positional
  * `?`, so a literal `'?'` in the SQL is miscounted as a placeholder. It is
