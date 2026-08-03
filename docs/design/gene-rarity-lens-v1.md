@@ -119,8 +119,8 @@ One feature, a widening denominator. Same computation at each tier; only `P` gro
 
 | Tier | Population | Cost | v1? |
 |---|---|---|---|
-| **Stabled** (default) | Pets with the `stabled` marker set | Local SQLite, instant | ✅ |
-| **All my pets** | Every pet in the local DB (`getAllPets()`) | Local SQLite, instant | ✅ |
+| **Stabled** | Pets with the `stabled` marker set | Local SQLite, instant | ✅ |
+| **All my pets** (default) | Every pet in the local DB (`getAllPets()`) | Local SQLite, instant | ✅ |
 | **Community** | The shared catalogue | See below | ❌ deferred |
 
 The two local tiers map to existing state: **Stabled** = the `stabled` boolean marker (`MarkerKey` in `stores/pets.ts`); **All my pets** = the full `getAllPets()` set. The app has **no "released" pet state** — a pet is either in the local DB or it isn't — so "All my pets" is simply "not filtered to the stabled subset", not a superset that adds released animals.
@@ -230,12 +230,28 @@ geneFrequency (pure, no DB)
 ## 6. UI
 
 - **View control:** add a `Rarity` button to the existing Attributes/Appearance group in `PetVisualization`.
-- **Population toggle:** a segmented `Stabled | All my pets` control, shown only in the rarity view, plus a disabled `Community · soon`.
+- **Population toggle:** a segmented `Stabled | All my pets` control, shown only in the rarity view, plus a disabled `Community · soon`. **Defaults to All my pets** — the widest local baseline gives the most evidence per locus, and the `stabled` subset is a housekeeping marker rather than a statement about which animals count as your genetic stock. It also keeps the default further from the small-baseline regime where the sole-carrier gate suppresses the top step (§2).
 - **Legend:** replaces the attribute/appearance legend in the rarity view — a **diverging bar** (`rare recessive ← common → rare dominant`) + the "missing data" swatch + the baseline size. The diverging bar is doing real teaching work here: it communicates the whole model — two arms, a shared common centre, hue = which allele — in one glance, which a one-way ramp could not. Non-interactive in v1.
 
   **The baseline size is a range, not a number.** Because denominators vary per locus (§2), "across 30 Horses" is wrong for any locus some of those pets have unstudied. The legend should state the population size and, when the two differ, flag that coverage is uneven — e.g. *"30 stabled Horses · 4 pets not fully studied"*. The exact per-locus figure belongs in the tooltip, where it can be correct per cell.
 - **Stats drawer:** attribute/appearance-specific; hidden in the rarity view. (Optionally a per-bucket count summary later.)
-- **Tooltip (proposed for v1):** on hover in the rarity view, show the allele figure **plus** the human-legible carrier breakdown, e.g. *"Recessive — 3 of 44 alleles (7%) across 22 Horses studied at this locus: 1 pure, 1 mixed carrier."* The pet count is the **per-locus** `knownPets`, not the population size — those differ whenever some pets were studied at a lower Genetics level (§2), and quoting the population size would misstate the evidence behind the colour. Allele frequency drives the colour; carrier counts are what a player actually reasons with when planning a pairing. For a mixed cell, show **both** arms, since the point of the cell is the contrast. Optionally a third line for the locus's unresolved share (*"9 of 22 still mixed here"*) — that is a fact about the stock, not about the allele's rarity, so it must not influence the colour.
+- **Tooltip — always both alleles, exact percentages, with effect alongside.** The colour is bucketed, but the tooltip is not: it shows the **actual frequency** for *both* alleles, and the effect each one produces, so the player can weigh scarce-against-desirable themselves.
+
+  ```
+  01A4 · chr01 · Kurbone
+                rarity          effect
+  Dominant      62.5%           Virility−
+  Recessive     37.5%           Temperament+   ✦ positive
+  Across 22 Horses studied at this locus · 8 pure R, 3 mixed
+  ```
+
+  - **Both arms, always** — not just on mixed cells. The two frequencies are what the scale is built from, and showing both matches the genome map, where both halves are always drawn (§7). It also spares the reader inverting `1 − p` in their head.
+  - **Exact, not bucketed.** Granularity is `1/(2N)` (1.7% at 30 pets), so one decimal place is enough; more would imply precision the sample does not have.
+  - **Effect per allele** from `effectDominant` / `effectRecessive`. `parseEffect` already returns `{attribute, sign}`, so mark the arm(s) whose sign is `+`. Mark **both** if both are positive and **neither** if neither is — "which, if any" is the honest framing. Fall back to the raw effect string with no marker when `parseEffect` returns null (unparseable, or a "potential"/`?` effect), and to "No dominant effect" via `isNoEffect`.
+  - **The pet count is the per-locus `knownPets`**, never the population size — those differ whenever some pets were studied at a lower Genetics level (§2), and quoting the population size would misstate the evidence behind the colour.
+  - **Keep valence and rarity in separate columns.** This tooltip is the one place where the attribute view's green/red effect semantics and the rarity view's purple/orange scale coexist. They must stay visually distinct — never blend them into a single swatch, or "rare" and "good" become one colour again, which §2's hue choice exists to prevent.
+
+  This is also where v1 quietly delivers the "rare **and** desirable" pairing that §1 defers: not as a score or a filter, but by putting both facts on one card and leaving the judgement to the player. #369 remains the systematic version.
 
   The data is cheap (the lookup holds it), but the *code* is not free: `showTooltipForCell` is hardwired to the attribute/appearance content (it reads `data-effect` / `data-appearance-effect`, computes potential-effect lines, and sizes the tooltip from effect-specific heights). Rarity needs a **third content branch** there. `GeneTooltip` already exposes `subtitle` and `effectsLabel` props, so it can render the rarity lines without new markup — but the branch in `showTooltipForCell` is real scope, not a freebie. Falls back to "not enough data" for missing-data cells.
 
@@ -380,10 +396,8 @@ Breed slices sit in a narrow band — 38% to 54% of each breed's loci reach b2+,
 
 Still open:
 
-1. **Tooltip in v1** — include the allele figure + carrier breakdown on hover (recommended), or ship shading-only first?
-2. **Default population** — Stabled (recommended) or All my pets?
-3. **Mixed-share line** — worth surfacing "9 of 22 still unresolved at this locus" in the tooltip, or noise?
-4. **Surfacing the cross-breed signal** — you can hold scarce alleles for a breed you do not own (§8). The genome map's breed filter now covers this directly (select Calico, see your Calico scarcity), so the question is whether anything further is wanted — a summary line, or a nudge when a breed you own none of is heavily scarce.
-5. **Recalibration** — the thresholds hold for a ~30-pet single-species collection. Whether they still hold at 200+ pets, or across a species with different locus structure, is unknown; worth re-running the §2 measurement once the community tier exists.
-6. **Map density** — 45% of the map takes a notable-or-stronger tint (§7). Principled, but it is a lot of colour. Ship and look at it, or pre-emptively give the map its own threshold set?
-7. **`carriers = 0` on the community preview** — confirm the label (*"no pet of yours carries this"*) and that it gets a step beyond bucket 4 rather than reusing bucket 4's colour (§8).
+1. **Mixed-share line** — should the tooltip carry a line like *"9 of 22 pets are still `x` at this locus"*? It answers "how much of my stock is unresolved here", which bears on how much clarifying work a locus needs. It is a fact about your breeding state, not about the allele's rarity, so it must never influence the colour — the question is only whether it earns tooltip space.
+2. **Surfacing the cross-breed signal** — you can hold scarce alleles for a breed you do not own (§8). The genome map's breed filter now covers this directly (select Calico, see your Calico scarcity), so the question is whether anything further is wanted — a summary line, or a nudge when a breed you own none of is heavily scarce.
+3. **Recalibration** — the thresholds hold for a ~30-pet single-species collection. Whether they still hold at 200+ pets, or across a species with different locus structure, is unknown; worth re-running the §2 measurement once the community tier exists.
+4. **Map density** — 45% of the map takes a notable-or-stronger tint (§7). Principled, but it is a lot of colour. Ship and look at it, or pre-emptively give the map its own threshold set?
+5. **`carriers = 0` on the community preview** — confirm the label (*"no pet of yours carries this"*) and that it gets a step beyond bucket 4 rather than reusing bucket 4's colour (§8).
