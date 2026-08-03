@@ -35,6 +35,7 @@ import {
 } from '$lib/utils/geneStats.js';
 import { handleGridNavigation } from '$lib/utils/keyboard.js';
 import { buildRarityCSS, type RarityCell } from '$lib/utils/rarityCSS.js';
+import { buildRarityTooltip } from '$lib/utils/rarityTooltip.js';
 import { capitalize } from '$lib/utils/string.js';
 import GeneTooltip from './GeneTooltip.svelte';
 
@@ -793,65 +794,16 @@ function escapeHtml(value: string): string {
     .replace(/'/g, '&#39;');
 }
 
-/**
- * Rarity-view tooltip body: both alleles' **exact** frequencies with the effect
- * each produces, so the player can weigh scarce against desirable themselves.
- *
- * Deliberate choices:
- * - **Both arms, always** — not just on mixed cells. The two frequencies are
- *   what the scale is built from, and it spares the reader inverting `1 − p`.
- * - **The pet count is the per-locus `knownPets`**, never the population size.
- *   They differ wherever pets were studied at a lower Genetics level, and
- *   quoting the population would misstate the evidence behind the colour.
- * - **One decimal.** Granularity is `1/(2N)` — 1.7% at 30 pets — so more digits
- *   would imply precision the sample does not have.
- * - **Valence stays in its own column.** This is the one place the attribute
- *   view's green/red and the rarity view's purple/orange coexist; blending them
- *   into a single swatch would make "rare" and "good" one colour again, which
- *   is exactly what the hue choice exists to prevent.
- */
-function buildRarityTooltipLines(geneId: string): { subtitle: string; lines: string[] } {
-  if (!rarityLookup) return { subtitle: '', lines: ['Analysing…'] };
-  if (!rarityLookup.measurable(geneId)) {
-    return { subtitle: '', lines: ['Not enough data at this locus'] };
-  }
-
-  const t = rarityLookup.tally(geneId);
-  const sk = currentPet ? normalizeSpecies(currentPet.species) : '';
-  const species = capitalize(currentPet?.species ?? 'pets');
-
-  const arm = (label: string, allele: 'D' | 'R', effect: string) => {
-    const pct = (rarityLookup?.frequency(geneId, allele) ?? 0) * 100;
-    const carriers = rarityLookup?.carriers(geneId, allele) ?? 0;
-    const parsed = parseEffect(effect);
-    const colour = parsed ? (parsed.sign === '+' ? EFFECT_COLORS.positive : EFFECT_COLORS.negative) : '#9ca3af';
-    const effectText = isNoEffect(effect) ? 'no effect' : effect;
-    // Mark whichever arm (if any) is beneficial — both if both are, neither if
-    // neither is. "Which, if any" is the honest framing.
-    const mark = parsed?.sign === '+' ? ' ✦' : '';
-    return (
-      `${label} <strong>${pct.toFixed(1)}%</strong> ` +
-      `<span style="color: ${colour}">${escapeHtml(effectText)}${mark}</span> ` +
-      `<span style="color: #9ca3af">· ${carriers} carrier${carriers === 1 ? '' : 's'}</span>`
-    );
-  };
-
-  return {
-    subtitle: `${t.knownPets} ${species} studied at this locus`,
-    lines: [
-      arm('Dominant', 'D', getGeneEffect(sk, geneId, 'D')),
-      arm('Recessive', 'R', getGeneEffect(sk, geneId, 'R')),
-      `<span style="color: #9ca3af">${t.pureD} pure D · ${t.mixed} mixed · ${t.pureR} pure R</span>`,
-    ],
-  };
-}
-
 function showTooltipForCell(cell: HTMLElement, clientX: number, clientY: number) {
   const geneId = cell.dataset.geneId ?? '';
   const geneType = cell.dataset.geneType ?? '';
 
   if (currentView === 'rarity') {
-    const { subtitle, lines } = buildRarityTooltipLines(geneId);
+    const sk = currentPet ? normalizeSpecies(currentPet.species) : '';
+    const { subtitle, lines } = buildRarityTooltip(rarityLookup, geneId, capitalize(currentPet?.species ?? 'pets'), {
+      dominant: getGeneEffect(sk, geneId, 'D'),
+      recessive: getGeneEffect(sk, geneId, 'R'),
+    });
     const height = 45 + lines.length * 18;
     const width = 300;
     const offset = 12;

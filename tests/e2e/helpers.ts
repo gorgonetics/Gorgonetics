@@ -36,6 +36,9 @@ export async function openFirstPet(page: Page) {
 /** Navigate to gene editor (Reference destination) with a selected chromosome. */
 export async function openGeneEditor(page: Page) {
   await gotoDestination(page, 'Reference');
+  // Reference is map-first since #368 §7; the template editor lives behind the
+  // Edit toggle, which is what exposes the chromosome picker.
+  await page.getByTestId('reference-edit-toggle').click();
   await expect(page.locator('#animalType option')).not.toHaveCount(1);
 
   const firstValue = await page.locator('#animalType option').nth(1).getAttribute('value');
