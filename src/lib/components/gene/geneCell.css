@@ -33,9 +33,17 @@
 :root {
   --rarity-purple: #6a3d9a;
   --rarity-orange: #c96a08;
-  --rarity-neutral: color-mix(in oklab, var(--text-muted) 12%, transparent);
+  /* Common must recede without vanishing. Too faint and the grid dissolves:
+     87% of cells sit at bucket 0, so this value alone decides whether the view
+     reads as a genome or as an empty sheet. */
+  --rarity-neutral: color-mix(in oklab, var(--text-muted) 22%, transparent);
+  /* One hairline on EVERY cell. Uniformity is the point: a coloured border on
+     pure cells and a neutral one on split cells would make split cells look
+     smaller, and no border at all leaves the grid shapeless with the dashed
+     `?` cells as the only visible outlines. */
+  --rarity-cell-edge: color-mix(in oklab, var(--text-muted) 45%, transparent);
   --rarity-missing-bg: var(--bg-tertiary);
-  --rarity-missing-border: color-mix(in oklab, var(--text-muted) 45%, transparent);
+  --rarity-missing-border: color-mix(in oklab, var(--text-muted) 55%, transparent);
 }
 
 [data-theme="dark"] {
@@ -50,28 +58,32 @@
      an all-common mixed cell read as flat rather than as two competing hues. */
   --rarity-d-0: var(--rarity-neutral);
   --rarity-r-0: var(--rarity-neutral);
-  --rarity-d-1: color-mix(in oklab, var(--rarity-purple) 18%, transparent);
-  --rarity-d-2: color-mix(in oklab, var(--rarity-purple) 38%, transparent);
-  --rarity-d-3: color-mix(in oklab, var(--rarity-purple) 66%, transparent);
+  --rarity-d-1: color-mix(in oklab, var(--rarity-purple) 32%, transparent);
+  --rarity-d-2: color-mix(in oklab, var(--rarity-purple) 55%, transparent);
+  --rarity-d-3: color-mix(in oklab, var(--rarity-purple) 78%, transparent);
   --rarity-d-4: var(--rarity-purple);
-  --rarity-r-1: color-mix(in oklab, var(--rarity-orange) 18%, transparent);
-  --rarity-r-2: color-mix(in oklab, var(--rarity-orange) 38%, transparent);
-  --rarity-r-3: color-mix(in oklab, var(--rarity-orange) 66%, transparent);
+  --rarity-r-1: color-mix(in oklab, var(--rarity-orange) 32%, transparent);
+  --rarity-r-2: color-mix(in oklab, var(--rarity-orange) 55%, transparent);
+  --rarity-r-3: color-mix(in oklab, var(--rarity-orange) 78%, transparent);
   --rarity-r-4: var(--rarity-orange);
 }
 
-/* No cell paints a border COLOUR in this view.
+/* Every cell gets the SAME hairline — that is what keeps the grid crisp.
  *
- * `.gene-cell` carries `border: 2px solid` unconditionally and `box-sizing` is
- * border-box globally, so the border eats inward: any visible border shrinks
- * the painted area on all four sides. On a split cell that costs roughly a
- * third of the colour at a 12–16px cell — and a single hue could not honestly
- * represent two arms anyway. Going transparent keeps geometry byte-identical
- * to the other views (the §4 non-goal) while `background-clip`'s border-box
- * default lets the fill reach the cell edge. Anything needing delineation must
- * use an inset shadow, never a border colour. */
+ * A hued border like the other views use is not available here: a split cell
+ * has two arms and a single hue would misrepresent it, and hueing only the
+ * pure cells would make split cells read as smaller. Dropping the border
+ * instead loses the grid's structure entirely and leaves the dashed `?` cells
+ * as the only visible outlines, so they read as disconnected boxes floating in
+ * empty space.
+ *
+ * One uniform neutral edge on every cell solves both: no cell is smaller than
+ * its neighbour, and the lattice stays legible. Width drops to 1px because at
+ * a ~20px cell a 2px ring eats a fifth of the fill — with `box-sizing:
+ * border-box` this changes no geometry at all, only how much colour shows. */
 .view-rarity.gene-grid-container .gene-cell:not(.gene-unknown) {
-  border-color: transparent;
+  border-width: 1px;
+  border-color: var(--rarity-cell-edge);
   background: var(--rarity-neutral);
 }
 
