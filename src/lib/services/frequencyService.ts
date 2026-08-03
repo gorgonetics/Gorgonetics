@@ -9,18 +9,18 @@
  */
 
 import { normalizeSpecies } from '$lib/services/configService.js';
+import { buildInClauseParams, getDb } from '$lib/services/database.js';
+import { ensurePetGenesPopulated } from '$lib/services/petService.js';
 import type { Pet } from '$lib/types/index.js';
 import {
   type Allele,
   alleleCarriers,
   alleleFrequency,
-  computeLocusFrequencies,
   isMeasurable,
   type LocusTally,
   type RarityOptions,
   rarityBucket,
 } from '$lib/utils/geneFrequency.js';
-import { loadAllPetLoci } from '$lib/utils/petLoci.js';
 
 const EMPTY_TALLY: LocusTally = Object.freeze({
   knownPets: 0,
@@ -113,6 +113,78 @@ function buildLookup(
   };
 }
 
+interface TallyRow {
+  gene_id: string;
+  pure_d: number;
+  pure_r: number;
+  mixed: number;
+}
+
+/**
+ * Aggregate `pet_genes` into one row per locus, **in SQLite**.
+ *
+ * The alternative — reading one row per pet per locus and tallying in JS —
+ * ships 58,312 rows across the IPC boundary for a 37-pet collection to
+ * produce 1,576 tallies. This does the grouping in C inside the database
+ * process and returns only the 1,576, a ~37× cut in payload.
+ *
+ * **No `'?'` predicate, deliberately.** The obvious `AND gene_type <> '?'`
+ * cannot be used: `resolveNamedParams` rewrites named params to positional
+ * `?`, so a literal `'?'` in the SQL is miscounted as a placeholder. It is
+ * not needed anyway — `?` rows match none of the three `CASE WHEN` arms and
+ * so contribute 0 to every sum, which *is* the rule that unknown readings
+ * count toward neither numerator nor denominator. `knownPets` is therefore
+ * derived from the three sums rather than from `COUNT(*)`.
+ */
+async function loadLocusTallies(petIds: readonly number[]): Promise<Map<string, LocusTally>> {
+  const out = new Map<string, LocusTally>();
+  if (petIds.length === 0) return out;
+
+  const { placeholders, params } = buildInClauseParams(petIds, 'pet');
+  const rows = await getDb().select<TallyRow[]>(
+    `SELECT gene_id,
+            SUM(CASE WHEN gene_type = 'D' THEN 1 ELSE 0 END) AS pure_d,
+            SUM(CASE WHEN gene_type = 'R' THEN 1 ELSE 0 END) AS pure_r,
+            SUM(CASE WHEN gene_type = 'x' THEN 1 ELSE 0 END) AS mixed
+     FROM pet_genes WHERE pet_id IN (${placeholders}) GROUP BY gene_id`,
+    params,
+  );
+
+  for (const row of rows) {
+    const pureD = Number(row.pure_d) || 0;
+    const pureR = Number(row.pure_r) || 0;
+    const mixed = Number(row.mixed) || 0;
+    const knownPets = pureD + pureR + mixed;
+    // A locus where every reading is `?` aggregates to all-zero. Drop it so
+    // the map means the same thing as `computeLocusFrequencies` produces.
+    if (knownPets === 0) continue;
+    out.set(row.gene_id, { knownPets, pureD, pureR, mixed });
+  }
+  return out;
+}
+
+/**
+ * Populate `pet_genes` for any pet that has no projected rows yet.
+ *
+ * Mirrors `loadAllPetLoci`'s inline populate-and-retry: a legacy pet
+ * uploaded before the projection existed, and not yet reached by the
+ * startup backfill, would otherwise contribute nothing to the baseline and
+ * silently shrink the denominator. The aggregate query cannot see which
+ * pets are missing (it groups by locus, not pet), so ask first — one cheap
+ * query returning at most one row per pet.
+ */
+async function ensureProjected(petIds: readonly number[]): Promise<void> {
+  const { placeholders, params } = buildInClauseParams(petIds, 'pet');
+  const present = await getDb().select<{ pet_id: number }[]>(
+    `SELECT DISTINCT pet_id FROM pet_genes WHERE pet_id IN (${placeholders})`,
+    params,
+  );
+  const have = new Set(present.map((r) => r.pet_id));
+  for (const id of petIds) {
+    if (!have.has(id)) await ensurePetGenesPopulated(id);
+  }
+}
+
 /**
  * Build (or reuse) the rarity baseline for one species over `pets`.
  *
@@ -142,7 +214,7 @@ export async function computeRarityLookup(
     return remember(cacheId, buildLookup(key, 0, new Map(), opts));
   }
 
-  const byPet = await loadAllPetLoci(petIds);
-  const loci = computeLocusFrequencies(byPet.values());
+  await ensureProjected(petIds);
+  const loci = await loadLocusTallies(petIds);
   return remember(cacheId, buildLookup(key, petIds.length, loci, opts));
 }

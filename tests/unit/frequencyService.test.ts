@@ -4,6 +4,8 @@ import { computeRarityLookup, invalidateRarityCache } from '$lib/services/freque
 import { runMigrations } from '$lib/services/migrationService.js';
 import * as petService from '$lib/services/petService.js';
 import { GeneType, type Pet } from '$lib/types/index.js';
+import { computeLocusFrequencies } from '$lib/utils/geneFrequency.js';
+import { loadAllPetLoci } from '$lib/utils/petLoci.js';
 
 const D = GeneType.DOMINANT;
 const R = GeneType.RECESSIVE;
@@ -96,6 +98,60 @@ describe('computeRarityLookup', () => {
     expect(lookup.frequency('01A1', D)).toBeCloseTo(0.75, 10);
     expect(lookup.carriers('01A1', R)).toBe(1);
     expect(lookup.carriers('01A1', D)).toBe(2);
+  });
+});
+
+describe('the SQL aggregate agrees with the reference JS tally', () => {
+  beforeEach(async () => {
+    await closeDatabase();
+    await initDatabase();
+    await runMigrations();
+    invalidateRarityCache();
+  });
+
+  /**
+   * The aggregate runs as `GROUP BY` in SQLite in production but through a
+   * hand-written branch in `InMemoryDatabase` here. That branch is exactly the
+   * kind of emulation that drifts from real SQL — #433 was the same class of
+   * bug — so pin it to `computeLocusFrequencies`, which is the reference the
+   * pure unit tests already cover.
+   */
+  it('produces identical tallies to computeLocusFrequencies over the same pets', async () => {
+    const genomes = ['DDD', 'DRx', 'xxR', 'RRD', 'D?R', 'xRD', '?xD'];
+    const pets: Pet[] = [];
+    for (const [i, g] of genomes.entries()) pets.push(await upload('Horse', `H${i}`, g));
+
+    const viaSql = await computeRarityLookup(pets, 'Horse');
+
+    const byPet = await loadAllPetLoci(pets.map((p) => p.id));
+    const viaJs = computeLocusFrequencies(byPet.values());
+
+    expect([...viaSql.loci.keys()].sort()).toEqual([...viaJs.keys()].sort());
+    for (const [geneId, expected] of viaJs) {
+      expect(viaSql.tally(geneId), `locus ${geneId}`).toEqual(expected);
+    }
+  });
+
+  it('excludes ? from the denominator without a "?" literal in the SQL', async () => {
+    // A '?' literal would be miscounted as a positional placeholder, so the
+    // query has no `<> '?'` predicate — unknown rows simply match no CASE arm.
+    const pets = [
+      await upload('Horse', 'H1', 'D??'),
+      await upload('Horse', 'H2', 'D??'),
+      await upload('Horse', 'H3', 'RDD'),
+    ];
+    const lookup = await computeRarityLookup(pets, 'Horse');
+    expect(lookup.tally('01A1')).toEqual({ knownPets: 3, pureD: 2, pureR: 1, mixed: 0 });
+    // 01A2/01A3 are known only for H3 — the two '?' readings add nothing.
+    expect(lookup.tally('01A2').knownPets).toBe(1);
+  });
+
+  it('drops a locus that is ? for every pet, rather than reporting an empty tally', async () => {
+    const pets = [await upload('Horse', 'H1', 'D??'), await upload('Horse', 'H2', 'R??')];
+    const lookup = await computeRarityLookup(pets, 'Horse');
+    expect(lookup.loci.has('01A1')).toBe(true);
+    expect(lookup.loci.has('01A2')).toBe(false);
+    expect(lookup.measurable('01A2')).toBe(false);
   });
 });
 
