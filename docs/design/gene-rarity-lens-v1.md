@@ -105,9 +105,11 @@ Two structural facts from the same data:
 Consequences of the shared centre, all intended:
 
 - **Common recedes to nothing.** A locus where the pet carries the abundant allele renders as flat neutral — the grid only lights up where something is scarce.
-- **A mixed cell with two common halves renders flat**, losing the visual split. Accepted: an all-common `x` locus is precisely the "nothing to see here" case. If such cells need delineating, it must come from an **inset shadow, never a border colour** — see §4 on why a coloured or neutral border would shrink the painted area of exactly the cells worth looking at.
+- **A mixed cell with two common halves renders flat**, losing the visual split. Accepted: an all-common `x` locus is precisely the "nothing to see here" case. The uniform hairline every cell carries (§4) keeps it delineated, so a flat cell still reads as a cell.
 - **Near-balanced loci (0.35 < p < 0.65) show a gentle two-tone**, purple against orange — which reads correctly as "this locus is a coin-flip in my stock".
 - **The mixed cell's two halves are complements**, so the second tone is strictly redundant given the first. It is kept anyway because it is what makes the cell read as *"you are carrying a scarce allele in unresolved form, and here is which way to clarify"* rather than *"you are a rare pet"*.
+
+**Ramp strength is a calibration, not a formality.** The arms are `color-mix` toward `transparent` at **32 / 55 / 78 / 100%**, over a bucket-0 neutral at 22%. A first attempt at 12 / 18 / 38 / 66% was measured on screen and failed: bucket 0 carries ~87% of cells, so at 12% the common tint vanished and took the grid's structure with it. "Common recedes" cannot mean "common disappears".
 
 **Hue choice: purple (dominant) ↔ orange (recessive).** The §4 base-class change means the rarity view **replaces** the attribute/appearance palette rather than sitting alongside it, so there is no simultaneous collision to avoid — which is fortunate, since the appearance view already spans nearly the entire hue wheel (`geneCell.css`) and "a hue nothing else uses" does not exist. The real constraints are: (a) **not green↔red**, which would import the attribute view's good/bad reading onto a scale that has no valence; (b) **colour-vision-safe**, since hue is what separates the two arms; (c) **theme-adaptive**. Purple↔orange satisfies all three — it is ColorBrewer's `PuOr`, a diverging scheme published as colourblind-safe, so this is a validated pair rather than a taste call. The centre and both arms are built by `color-mix` from a surface-relative neutral token so light/dark adapt without two hardcoded palettes; the missing-data style stays **dashed**, which is what keeps it distinct from the solid neutral of bucket 0.
 
@@ -176,8 +178,8 @@ Cells already carry `data-gene-id`. Within one pet's grid each locus renders exa
 3. Plus a **missing-data** rule (gene ids whose state is `?`, or whose locus is below `minKnown`), setting the dashed/neutral look directly. This set is listed **explicitly** — it is the complement of the union of the buckets. It cannot be selected with `:not([style*="--rarity-dom"])`, because the property is applied by this injected stylesheet, **not** by an inline `style` attribute, so an attribute-substring match on `style` would never fire. (`?` cells already carry `gene-unknown`, whose dashed style coincidentally matches; below-`minKnown` cells do not, which is exactly why the explicit list is required.)
 4. Static CSS (in `geneCell.css`, gated by `.view-rarity`) applies the properties with the correct **zygosity shape**:
    ```css
-   /* Every cell: kill the border's colour, keep its geometry. */
-   .view-rarity .gene-cell                            { border-color: transparent; }
+   /* Every cell: the SAME hairline. Uniformity is the requirement. */
+   .view-rarity .gene-cell { border-width: 1px; border-color: var(--rarity-cell-edge); }
 
    .view-rarity .gene-cell[data-zygosity="dominant"]  { background: var(--rarity-dom); }
    .view-rarity .gene-cell[data-zygosity="recessive"] { background: var(--rarity-rec); }
@@ -187,9 +189,9 @@ Cells already carry `data-gene-id`. Within one pet's grid each locus renders exa
    .view-rarity .gene-cell.gene-rarity-missing        { /* dashed neutral */ }
    ```
 
-   **No cell paints a border colour in this view — and that is what keeps every cell the same visible size.** `.gene-cell` carries `border: 2px solid` unconditionally, and recessive cells widen it to 4px (`geneCell.css`). A split cell cannot honestly take a single hue for that outline — it would read as one allele owning the whole cell — but giving it a *neutral* outline is worse: because `box-sizing: border-box` is global (`app.css`), the border eats inward, so a neutral 2px ring insets the coloured area on all four sides. At a 12–16px cell that is roughly a third of the painted area lost, on precisely the cells worth looking at, and on the genome map it would apply to **every** cell (§7).
+   **Every cell takes the same neutral hairline — the requirement is uniformity, not absence.** `.gene-cell` carries `border: 2px solid` unconditionally, and recessive cells widen it to 4px (`geneCell.css`). Neither of the obvious options works: a single hue on a split cell would read as one allele owning the whole cell, and hueing only the *pure* cells makes split cells look **smaller**, because `box-sizing: border-box` is global (`app.css`) so a border that does not match the fill eats inward on all four sides.
 
-   The fix costs nothing: set `border-color: transparent`. `background-clip` defaults to `border-box`, so the fill paints straight through the border band and reaches the cell's edge, while the border *width* is untouched — geometry is byte-identical to the other views, which the §4 non-goal requires. If all-neutral cells need delineating, use `box-shadow: inset 0 0 0 1px …`, which also leaves geometry alone; never reintroduce a coloured border.
+   **Dropping the border entirely was tried and is wrong.** It removes the lattice: cells dissolve into their fills, and since `?` cells keep their dashed outline they become the only bordered things on screen, reading as disconnected boxes floating in empty space. One uniform edge on every cell satisfies the size constraint *and* keeps the grid legible. Width drops to 1px so more fill shows; with border-box that changes no geometry at all, only how much colour is visible.
 
    **Zygosity is then carried by fill shape, not by border thickness.** Solid = pure, split = mixed, and for pure cells the *hue* already says which allele (purple arm vs orange arm), so the recessive 4px ring is redundant here and is dropped in this view only. The one thing it stops distinguishing is a pure `D` from a pure `R` at a locus where both alleles are common — and both are then the neutral centre, i.e. the "nothing to see here" case by construction.
    The mixed gradient keeps the existing `135deg` orientation from `geneCell.css` but paints both halves, with **recessive top-left and dominant bottom-right** — dominant lands in the half that is the filled one in the attribute/appearance views, so the established visual habit carries over, which is apt given `x` expresses dominant. The genome map (§7) splits every cell on this same axis, so the same locus never appears mirrored across the two surfaces.
@@ -199,6 +201,20 @@ Cells already carry `data-gene-id`. Within one pet's grid each locus renders exa
 **Why B is right:** it is **rebuild-free and layout-free by construction.** No `VisCell` changes, no `buildGrid` call, and — critically — **no change to cell sizing, the `ResizeObserver`, pane flex, or any existing layout CSS.** Verified against the code: the table is wrapped in `{#key headerStructure}`, which only re-keys on a pet load/rebuild, never on a view toggle; and `cellSize` derives solely from `gridContainerWidth` and `totalGeneColumns`, neither of which changes when `currentView` flips. So the grid is byte-for-byte the same size and position across all three views. Population changes and the async baseline load just regenerate the rarity stylesheet — never the grid.
 
 > **Explicit non-goal (hard-won):** v1 must not touch grid cell sizing, responsive behavior, the pane's flex layout, or any existing grid CSS. The only new CSS is scoped behind `.view-rarity`. If the lens appears to require a layout change, that is a signal the approach is wrong, not that the layout needs fixing.
+
+### The coupling that keeps breaking this feature
+
+`--cell-size` is computed from the grid container's measured **width**. Three separate paths let a change that has nothing to do with width reach it, and each has broken the lens at least once:
+
+| path | mechanism | fix |
+|---|---|---|
+| **Header content** | `.do-body` is a flex **row** and `.pet-visualization` had no `flex`/`width`, so it was sized shrink-to-fit by its own contents. The *header's* intrinsic width therefore set the *grid's* width — adding the population toggle grew it ~327px. | `flex: 1; min-width: 0` (#436) |
+| **Sibling width** | `.content-area` is a row shared with `.stats-drawer`. Unmounting the drawer on a view switch hands the grid its width. | keep the drawer mounted; swap its body (§6) |
+| **Vertical → horizontal** | Cell size reads `contentRect.width`, which *excludes* a scrollbar occupying layout space. A taller legend shortens the box, flips the vertical scrollbar, and the width changes. | `scrollbar-gutter: stable` (#436) |
+
+The first and third are pre-existing defects, not rarity-lens bugs — the lens only made them visible by being the first change to alter the header and the legend. **Any** future control added to this header or legend will hit them again if the fixes are reverted.
+
+**This cannot be verified by reasoning, and twice was not.** jsdom has no layout, so unit tests cannot see it. `tests/e2e/rarity-lens.spec.ts` measures real boxes across the three views and, on failure, prints the ancestor width chain — which is what identified the header coupling after two wrong guesses. It measures only once layout has settled: `.gene-cell` has a `0.2s` transition and cell size is the fixed point of a ResizeObserver loop, so a naive measurement reports drift between a view and *itself*.
 
 ## 5. Data flow
 
@@ -275,7 +291,7 @@ FROM pet_genes WHERE pet_id IN (…) GROUP BY gene_id
 - **Legend:** replaces the attribute/appearance legend in the rarity view — a **diverging bar** (`rare recessive ← common → rare dominant`) + the "missing data" swatch + the baseline size. The diverging bar is doing real teaching work here: it communicates the whole model — two arms, a shared common centre, hue = which allele — in one glance, which a one-way ramp could not. Non-interactive in v1.
 
   **The baseline size is a range, not a number.** Because denominators vary per locus (§2), "across 30 Horses" is wrong for any locus some of those pets have unstudied. The legend should state the population size and, when the two differ, flag that coverage is uneven — e.g. *"30 stabled Horses · 4 pets not fully studied"*. The exact per-locus figure belongs in the tooltip, where it can be correct per cell.
-- **Stats drawer:** attribute/appearance-specific; hidden in the rarity view. (Optionally a per-bucket count summary later.)
+- **Stats drawer: stays MOUNTED in the rarity view — its *body* swaps, not the drawer.** Stats are attribute/appearance-specific and have no rarity analogue, so the natural instinct is to hide the drawer. That breaks the grid: `.content-area` is a flex **row**, so the drawer and `.visualizer-container` (`flex: 1`) share the width, and unmounting it hands the grid an extra `drawerWidth` px — the ResizeObserver fires and every cell resizes. The §4 non-goal outranks the tidier UI, so the drawer keeps its box and shows a short note instead. (Optionally a per-bucket count summary later.)
 - **Tooltip — always both alleles, exact percentages, with effect alongside.** The colour is bucketed, but the tooltip is not: it shows the **actual frequency** for *both* alleles, and the effect each one produces, so the player can weigh scarce-against-desirable themselves.
 
   ```
@@ -312,7 +328,7 @@ Reference today is a gene-*template* editor (animal type → chromosome → `Edi
 
 ### What a cell encodes when there is no pet
 
-**Every map cell is split — there are no solid cells here at all.** With no pet there is no zygosity to encode, so the split is unconditional and the two halves are the entire encoding. This is also why the border rule in §4 is not a detail on this surface: a coloured or neutral border would inset *every* cell on the map, uniformly dulling the whole thing. All cells use `border-color: transparent` and paint edge to edge.
+**Every map cell is split — there are no solid cells here at all.** With no pet there is no zygosity to encode, so the split is unconditional and the two halves are the entire encoding. The §4 border rule therefore applies uniformly here by construction: every cell is split, so every cell takes the same neutral hairline and none can look smaller than its neighbour.
 
 The split uses the same shape and axis the pet grid uses for `x` (§4):
 
@@ -419,6 +435,8 @@ Breed slices sit in a narrow band — 38% to 54% of each breed's loci reach b2+,
 - **Breed-scoped baselines: rejected** — every horse carries all 10 breeds' loci, so scoping to one breed discards most of the evidence for genes the whole collection holds (§8). The map's breed control is a *display* filter over the same species-wide baseline, not a population scope (§7).
 - Bucket 4 fires **symmetrically on both arms**, and is **gated to loci with ≥10 known pets** — ungated it gets louder as the baseline shrinks, which is the mirror of the problem it was introduced to fix (§2).
 - The viewed pet **is** included in its own denominator. The lens stays **local-pet only**: a community pet cannot be bred with, so scoring one has no action attached (§8).
+- **Every cell carries the same neutral hairline in the rarity view** (§4); zygosity is solid-vs-split and the recessive 4px ring is dropped. Dropping borders entirely was tried and lost the grid's lattice.
+- **The stats drawer stays mounted in the rarity view** — unmounting it resizes the grid (§4, §6).
 - **Reference is map-first** (§7): full-genome map by default; the template editor becomes an `Edit` toggle on the map (click a cell for one gene, a row for a chromosome), deferred as single-user functionality. Map cells are always split on the §4 axis — recessive top-left, dominant bottom-right.
 - **No mixed-share line in the tooltip** for now — it is a fact about breeding state, not rarity, and the tooltip already carries two arms plus effects. Revisit if the card feels thin, not before.
 - **The cross-breed signal needs no dedicated affordance** — a pet's grid already shows every locus it carries, so not greying breed-inactive cells is the entire fix (§8).
