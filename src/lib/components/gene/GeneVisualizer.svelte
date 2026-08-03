@@ -1132,6 +1132,38 @@ const blockIndices = $derived.by(() => {
                                     </span>
                                 {/each}
                             </div>
+                        {:else if currentView === "rarity"}
+                            <!-- Diverging bar, not a one-way ramp: it teaches the
+                                 whole model at a glance — two arms, a shared
+                                 common centre, hue saying which allele is scarce. -->
+                            <div class="legend-row rarity-legend" data-testid="rarity-legend">
+                                <span class="legend-label">Rare recessive</span>
+                                {#each [4, 3, 2, 1] as b (b)}
+                                    <span class="rarity-swatch" style="background: var(--rarity-r-{b})"></span>
+                                {/each}
+                                <span class="rarity-swatch" style="background: var(--rarity-neutral)" title="Common"></span>
+                                {#each [1, 2, 3, 4] as b (b)}
+                                    <span class="rarity-swatch" style="background: var(--rarity-d-{b})"></span>
+                                {/each}
+                                <span class="legend-label">Rare dominant</span>
+
+                                <span class="rarity-swatch rarity-swatch-missing" title="Not enough data"></span>
+                                <span class="legend-label legend-label-muted">No data</span>
+
+                                <span class="legend-label legend-label-muted" data-testid="rarity-baseline">
+                                    {#if rarityError}
+                                        {rarityError}
+                                    {:else if rarityLoading || !rarityLookup}
+                                        Analysing…
+                                    {:else}
+                                        <!-- The POPULATION size. A per-locus count can be
+                                             lower where pets were studied at a lower
+                                             Genetics level; that figure belongs in the
+                                             tooltip, where it can be right per cell. -->
+                                        baseline: {rarityLookup.petCount} {capitalize(currentPet?.species ?? "pets")}
+                                    {/if}
+                                </span>
+                            </div>
                         {:else if currentView === "appearance"}
                             <div class="legend-row">
                                 <span class="legend-label legend-label-appearance">Appearance:</span>
@@ -1294,6 +1326,38 @@ const blockIndices = $derived.by(() => {
     .legend-label-appearance {
         font-weight: 600;
         margin-right: 1em;
+    }
+
+    /* Rarity legend — the swatches run edge to edge with no gap so the two arms
+       read as one continuous scale meeting at a shared neutral centre, rather
+       than as nine separate categories. */
+    .rarity-legend {
+        gap: 0.35em;
+    }
+
+    .rarity-legend .legend-label {
+        font-weight: 600;
+    }
+
+    .legend-label-muted {
+        color: var(--text-tertiary);
+        font-weight: 500;
+        margin-left: 1.5em;
+    }
+
+    .rarity-swatch {
+        width: 1.15em;
+        height: 1.15em;
+        border-radius: 3px;
+        border: 1px solid var(--border-secondary);
+        display: inline-block;
+        margin: 0 -0.3em;
+    }
+
+    .rarity-swatch-missing {
+        background: var(--rarity-missing-bg);
+        border: 2px dashed var(--rarity-missing-border);
+        margin: 0 0.25em 0 1.5em;
     }
 
     .legend-item {

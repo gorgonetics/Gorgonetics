@@ -6,6 +6,7 @@ import GeneVisualizer from '$lib/components/gene/GeneVisualizer.svelte';
 import BreedSelector from '$lib/components/shared/BreedSelector.svelte';
 import PetActions from '$lib/components/shared/PetActions.svelte';
 import StatusBanner from '$lib/components/shared/StatusBanner.svelte';
+import { pets as allPets } from '$lib/stores/pets.js';
 import { settings } from '$lib/stores/settings.js';
 import type { DialogResult, Pet } from '$lib/types/index.js';
 import { HORSE_BREEDS } from '$lib/types/index.js';
@@ -43,6 +44,14 @@ let breedFilter = $state('');
 let autoBreed = $state(false);
 let showShare = $state(false);
 let shareStatus = $state<DialogResult | null>(null);
+
+// --- Rarity lens ------------------------------------------------------------
+// Defaults to the widest local baseline: more evidence per locus, and `stabled`
+// is a housekeeping marker rather than a claim about which animals count as
+// your genetic stock. It also keeps the default clear of the small-baseline
+// regime where the sole-carrier step is suppressed.
+let rarityPopulation = $state<'stabled' | 'all'>('all');
+const populationPets = $derived(rarityPopulation === 'stabled' ? $allPets.filter((p) => p.stabled) : $allPets);
 
 function handleShareResult(result: DialogResult): void {
   shareStatus = result;
@@ -215,14 +224,56 @@ onDestroy(() => {
                 >
                     Appearance
                 </button>
+                <button
+                    class="view-btn"
+                    class:active={!galleryOpen && currentView === "rarity"}
+                    data-testid="view-rarity-btn"
+                    title="Shade each gene by how rare its value is across your pets"
+                    onclick={() => handleViewChange("rarity")}
+                >
+                    Rarity
+                </button>
             </div>
+            {#if currentView === "rarity" && !galleryOpen}
+                <!-- Its own class, not `view-controls`: it shares the segmented
+                     look but is a different axis (which pets to measure against,
+                     not which view to show), and conflating them would make
+                     "the view group" ambiguous to query. -->
+                <div class="rarity-population" role="group" aria-label="Rarity baseline">
+                    <button
+                        class="view-btn"
+                        class:active={rarityPopulation === "stabled"}
+                        data-testid="rarity-pop-stabled"
+                        onclick={() => { rarityPopulation = "stabled"; }}
+                    >
+                        Stabled
+                    </button>
+                    <button
+                        class="view-btn"
+                        class:active={rarityPopulation === "all"}
+                        data-testid="rarity-pop-all"
+                        onclick={() => { rarityPopulation = "all"; }}
+                    >
+                        All my pets
+                    </button>
+                    <!-- Deferred, not forgotten: a community baseline needs a
+                         precomputed aggregate rather than fetching every genome.
+                         Shown disabled so the tiering stays legible. -->
+                    <button class="view-btn" disabled title="Needs a shared aggregate — not yet available">
+                        Community · soon
+                    </button>
+                </div>
+            {/if}
             <div class="toggle-controls">
                 <button
                     class="toggle-btn"
-                    class:active={statsOpen}
-                    aria-pressed={statsOpen}
+                    class:active={statsOpen && currentView !== "rarity"}
+                    aria-pressed={statsOpen && currentView !== "rarity"}
                     data-testid="detail-stats-toggle"
-                    title="Toggle the stats side panel"
+                    disabled={currentView === "rarity"}
+                    title={currentView === "rarity"
+                        ? "Stats are attribute/appearance-specific"
+                        : "Toggle the stats side panel"}
                     onclick={toggleStats}
                 >
                     Stats
@@ -277,10 +328,13 @@ onDestroy(() => {
         </div>
       {:else}
         <div class="visualizer-container">
-            <GeneVisualizer {pet} bind:this={geneVisualizerRef} onStatsUpdated={handleStatsUpdated} />
+            <GeneVisualizer {pet} {populationPets} bind:this={geneVisualizerRef} onStatsUpdated={handleStatsUpdated} />
         </div>
 
-        {#if statsOpen}
+        <!-- Stats are attribute/appearance-specific and have no rarity analogue,
+             so the drawer stays shut in that view rather than showing a table
+             about a different question. Its open/closed state is preserved. -->
+        {#if statsOpen && currentView !== "rarity"}
             <div class="stats-drawer" style="width: {drawerWidth}px;">
                 <!-- svelte-ignore a11y_no_static_element_interactions -->
                 <div class="resize-handle" onmousedown={startResize}></div>
@@ -379,13 +433,19 @@ onDestroy(() => {
         color: var(--bg-primary);
     }
 
-    .view-controls {
+    .view-controls,
+    .rarity-population {
         display: flex;
         align-items: center;
         gap: 4px;
         background: var(--bg-tertiary);
         border-radius: 6px;
         padding: 3px;
+    }
+
+    .rarity-population .view-btn:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
     }
 
     .toggle-controls {
