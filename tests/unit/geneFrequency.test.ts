@@ -210,4 +210,19 @@ describe('monomorphic loci', () => {
     const t = tally(30, 30, 0, 0);
     expect(rarityBucket(t, R)).not.toBe(RARITY_LEVELS - 1);
   });
+
+  it('renders an absent allele as COMMON, not as the rarest thing on the grid', () => {
+    // Frequency 0 would otherwise fall through every band to the lowest one.
+    // Nobody carries it, so there is nothing to obtain — it is absent, not
+    // scarce. Unreachable per-pet (the pet is in its own population) but the
+    // genome map hits it at ~13% of loci.
+    const t = tally(30, 30, 0, 0);
+    expect(alleleCarriers(t, R)).toBe(0);
+    expect(rarityBucket(t, R)).toBe(0);
+  });
+
+  it('still ranks a single carrier as rarest — 0 and 1 carriers are opposite ends', () => {
+    expect(rarityBucket(tally(30, 30, 0, 0), R)).toBe(0);
+    expect(rarityBucket(tally(30, 29, 0, 1), R)).toBe(RARITY_LEVELS - 1);
+  });
 });

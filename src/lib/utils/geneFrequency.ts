@@ -171,8 +171,19 @@ export function isMeasurable(tally: LocusTally, opts: RarityOptions = {}): boole
 export function rarityBucket(tally: LocusTally, allele: Allele, opts: RarityOptions = {}): number | null {
   if (!isMeasurable(tally, opts)) return null;
 
+  const carriers = alleleCarriers(tally, allele);
+
+  // An allele NOBODY carries is absent, not scarce: there is nothing to
+  // obtain, so it recedes to the common centre rather than screaming at the
+  // rare end (frequency 0 would otherwise fall through to the lowest band).
+  //
+  // Unreachable in the per-pet view — the pet is always in its own population,
+  // so a rendered cell is by construction a carrier — but the genome map has no
+  // pet and scores every locus, where it is 12.9% of them.
+  if (carriers === 0) return 0;
+
   const soleMin = opts.soleCarrierMinPets ?? SOLE_CARRIER_MIN_PETS;
-  if (alleleCarriers(tally, allele) === 1 && tally.knownPets >= soleMin) {
+  if (carriers === 1 && tally.knownPets >= soleMin) {
     return RARITY_LEVELS - 1;
   }
 
