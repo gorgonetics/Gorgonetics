@@ -206,14 +206,21 @@ geneFrequency (pure, no DB)
 
 - **Community pet preview** (`CommunityPetVisualization`) renders via `gridOverride` and has no `pet_genes` rows or a local population — the Rarity button is **not** exposed there. Local pets only.
 - **Breed-inactive genes** (horse, wrong-breed loci): rarity coloring applies to any known-value cell; the existing breed row-hide is orthogonal and unchanged. But note the whole-chromosome row-hide is *not* the same as the per-cell `gene-inactive-breed` styling — individual wrong-breed cells survive on visible rows and carry `!important` grey. The §4 base-class change (neutral base in rarity view, no `gene-inactive-breed`) is what lets the rarity colour show on those cells; without it they stay grey.
+
+  This is **load-bearing, not cosmetic.** Since breed-tagged loci are 1320 of 1576 (84% of the genome) and every horse carries all of them, leaving wrong-breed cells grey would suppress the large majority of the grid — including the cross-breed signal described below. A rare Calico allele sitting unexpressed in a Kurbone is exactly the kind of thing this view exists to surface.
 - **Existing filters in the rarity view:** the attribute/effect legend filters don't map to rarity; v1 simply shows the rarity legend instead and leaves those filters inactive in this view. (Composing rarity with #369's gene-value filter is a later phase.)
 - **Tiny populations:** with only a handful of pets, most alleles sit near the neutral centre (a pure pet's own allele is ≥50% at a 2-pet baseline), so the grid is nearly colourless. This is correct, not a bug — you cannot have a rare allele in a 2-pet baseline. The "across N pets" label sets the expectation; the scale becomes meaningful around ~5+ pets of a species.
 - **Monomorphic loci:** if every pet in the baseline carries the same pure state, one arm is at 1.0 and the other at 0.0 — but the 0.0 arm is only reachable by a cell that carries that allele, and no such cell exists in the population. So an absent allele never renders; there is no "0%" bucket to design for. The only cell that can *hold* a bucket-4 allele is, by construction, a carrier of it — which is the whole point of the lens. Measured at **12.9% of loci** in a real 30-pet collection, so this is the common case, not a corner.
-- **Minority-breed pets read as uniformly rare — the most likely "this is broken" report.** Breed structure confounds a species-scoped baseline. In the calibration collection (Kurbone 24, Ilmarian 7, Paint 3, Statehelm 2, Standardbred 1), the sole Standardbred is the only carrier of an allele at **169 loci** and has **451** notable-or-rarer cells against a population median of 52 — an order of magnitude above every other pet. That is arithmetically correct and practically misleading: it reports "this pet is a different breed", not "this pet carries precious genes".
+- **Breed is not a confound, and the baseline must stay species-scoped.** Every horse carries every breed's genes — the horse gene set is 256 untagged loci plus **132 loci for each of 10 breeds** (Satincoat, Statehelm, Calico, Standardbred, Paint, Kurbone, Ilmarian, Blanketed, Leopard, Plateau Pony) = the full 1576. Breed does not determine which loci a horse *has*, only which ones are *expressed*. So a breed's allele frequencies are measured across the whole collection, and **the lens reports how rare Calico genes are even for a player who has never owned a Calico** — which is a genuine capability, not a workaround: it tells you whether you are already sitting on scarce material for a breed you might acquire later.
 
-  **Breed-scoping the baseline is not the fix — it is worse.** Measured: Paint (n=3) yields 174 sole-carrier loci *per pet*, Ilmarian (n=5) yields 24, and both singleton breeds are degenerate at n=1. Only Kurbone (n=20) is viable, and there it barely differs from the species-scoped result. A breed dimension would add a population selector, a second cache key and a whole new degenerate-baseline story to buy noise for four breeds out of five. **Rejected on the data.**
+  This also settles the population question: **breed-scoping the baseline would be wrong, not merely degenerate.** Restricting to same-breed pets discards ~29 of 30 readings for loci that every horse carries. Rejected.
 
-  v1 mitigation is a caveat, not a computation: when the viewed pet's breed has few representatives in the baseline, the legend says so (*"Only Standardbred in this population — most alleles will read as rare"*). Cheap, honest, and it heads off the bug report. Note the confound is a tail effect, not a general distortion — a Kurbone with 18 sole-carrier loci sits inside the largest breed and is genuinely distinctive, which is exactly the signal the lens exists to surface.
+- **Genetically distant pets light up broadly — correct behaviour, and about lineage, not breed.** One pet in the calibration collection (Sardinilla) is the sole carrier at **169 loci** with 451 notable-or-rarer cells against a median of 52. Two checks show breed does not cause this:
+
+  1. Only **12 of its 169** sole-carrier loci fall in its own breed's genes — *below* the 8.4% you would expect if they were scattered at random over the genome. 139 fall in **other** breeds' genes.
+  2. The control: the collection's other singleton-breed pet (the lone Statehelm) has **2** sole-carrier loci, and two of the three Paints have **0**. If "lone breed" were the mechanism, they would look alike. They do not.
+
+  The actual cause is ordinary genetic distance: mean pairwise genotype difference 0.555 against a population mean of 0.340 (σ = 0.056) — roughly 3.8σ out. The second-most-distinctive pet is a Kurbone, from the *largest* breed (n=20), at 0.482. So the lens is measuring lineage distinctiveness, which is exactly what it should measure; an unrelated import genuinely is the sole source of a lot of alleles. No mitigation needed, and no legend caveat — the "across N pets" label and the tooltip's carrier counts already give the reader what they need.
 
 ## 8. Scope
 
@@ -245,7 +252,7 @@ geneFrequency (pure, no DB)
 - Mixed cells render **two-tone** on a **diverging** scale with a shared common centre (§2, §4).
 - Arms are **purple = dominant, orange = recessive** (ColorBrewer `PuOr`, published colourblind-safe).
 - Thresholds are **0.35 / 0.18 / 0.07**, with bucket 4 defined by **carrier count**, calibrated against a 37-Horse collection (§2).
-- **Breed-scoped baselines: rejected on the data** (§7).
+- **Breed-scoped baselines: rejected** — every horse carries all 10 breeds' loci, so scoping to one breed discards most of the evidence for genes the whole collection holds (§7).
 - The viewed pet **is** included in its own denominator.
 
 Still open:
@@ -253,5 +260,5 @@ Still open:
 1. **Tooltip in v1** — include the allele figure + carrier breakdown on hover (recommended), or ship shading-only first?
 2. **Default population** — Stabled (recommended) or All my pets?
 3. **Mixed-share line** — worth surfacing "9 of 22 still unresolved at this locus" in the tooltip, or noise?
-4. **Minority-breed caveat** — is the legend note (§7) enough, or should a small-breed pet suppress the rarest buckets outright? Suppression is more honest but hides real information; the note is recommended.
+4. **Surfacing the cross-breed signal** — the lens can tell you that you hold scarce alleles for a breed you do not own (§7). Is that worth a dedicated affordance later (e.g. "rare Calico material in your stock"), or does the plain grid cover it? Out of scope for v1 either way, but it is a stronger companion surface than the generic species heatmap currently listed in §8.
 5. **Recalibration** — the thresholds hold for a ~30-pet single-species collection. Whether they still hold at 200+ pets, or across a species with different locus structure, is unknown; worth re-running the §2 measurement once the community tier exists.
