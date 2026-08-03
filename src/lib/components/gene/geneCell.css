@@ -15,6 +15,89 @@
  * intentionally absent here.
  */
 
+/* --- Rarity lens (#368) ----------------------------------------------------
+ *
+ * A diverging scale with a shared neutral centre: purple = a scarce DOMINANT
+ * allele, orange = a scarce RECESSIVE one, common recedes to near-nothing.
+ * The pair is ColorBrewer's PuOr, published as colourblind-safe — hue is what
+ * separates the two arms, so that matters. Green/red is deliberately avoided:
+ * it would import the attribute view's good/bad reading onto a scale that has
+ * no valence.
+ *
+ * Ramps are built with color-mix toward `transparent`, so the page surface
+ * shows through and both themes adapt from two base hues rather than two
+ * hardcoded palettes.
+ *
+ * See docs/design/gene-rarity-lens-v1.md §2 and §4.
+ */
+:root {
+  --rarity-purple: #6a3d9a;
+  --rarity-orange: #c96a08;
+  --rarity-neutral: color-mix(in oklab, var(--text-muted) 12%, transparent);
+  --rarity-missing-bg: var(--bg-tertiary);
+  --rarity-missing-border: color-mix(in oklab, var(--text-muted) 45%, transparent);
+}
+
+[data-theme="dark"] {
+  /* Lifted for contrast against a dark surface; the ramp maths is unchanged. */
+  --rarity-purple: #b085e8;
+  --rarity-orange: #f0a04b;
+}
+
+:root,
+[data-theme="dark"] {
+  /* Bucket 0 is the SAME token on both arms — that shared centre is what makes
+     an all-common mixed cell read as flat rather than as two competing hues. */
+  --rarity-d-0: var(--rarity-neutral);
+  --rarity-r-0: var(--rarity-neutral);
+  --rarity-d-1: color-mix(in oklab, var(--rarity-purple) 18%, transparent);
+  --rarity-d-2: color-mix(in oklab, var(--rarity-purple) 38%, transparent);
+  --rarity-d-3: color-mix(in oklab, var(--rarity-purple) 66%, transparent);
+  --rarity-d-4: var(--rarity-purple);
+  --rarity-r-1: color-mix(in oklab, var(--rarity-orange) 18%, transparent);
+  --rarity-r-2: color-mix(in oklab, var(--rarity-orange) 38%, transparent);
+  --rarity-r-3: color-mix(in oklab, var(--rarity-orange) 66%, transparent);
+  --rarity-r-4: var(--rarity-orange);
+}
+
+/* No cell paints a border COLOUR in this view.
+ *
+ * `.gene-cell` carries `border: 2px solid` unconditionally and `box-sizing` is
+ * border-box globally, so the border eats inward: any visible border shrinks
+ * the painted area on all four sides. On a split cell that costs roughly a
+ * third of the colour at a 12–16px cell — and a single hue could not honestly
+ * represent two arms anyway. Going transparent keeps geometry byte-identical
+ * to the other views (the §4 non-goal) while `background-clip`'s border-box
+ * default lets the fill reach the cell edge. Anything needing delineation must
+ * use an inset shadow, never a border colour. */
+.view-rarity.gene-grid-container .gene-cell:not(.gene-unknown) {
+  border-color: transparent;
+  background: var(--rarity-neutral);
+}
+
+/* Zygosity is carried by fill SHAPE here, not border thickness: solid = pure,
+   diagonal split = mixed. For a pure cell the hue already names the allele, so
+   the attribute view's thick recessive ring is redundant and is dropped.
+   Cells with no injected property fall back to the neutral centre. */
+.view-rarity.gene-grid-container .gene-cell[data-zygosity="dominant"] {
+  background: var(--rarity-dom, var(--rarity-neutral));
+}
+
+.view-rarity.gene-grid-container .gene-cell[data-zygosity="recessive"] {
+  background: var(--rarity-rec, var(--rarity-neutral));
+}
+
+/* Recessive top-left, dominant bottom-right — the same 135deg axis the
+   attribute/appearance views already use for mixed cells, so a locus never
+   appears mirrored between this grid and the genome map. */
+.view-rarity.gene-grid-container .gene-cell[data-zygosity="mixed"] {
+  background: linear-gradient(
+    135deg,
+    var(--rarity-rec, var(--rarity-neutral)) 50%,
+    var(--rarity-dom, var(--rarity-neutral)) 50%
+  );
+}
+
 /* Size derives from --cell-size (set by the responsive grid container) so the
    genome grid scales to fill its panel. Falls back to 16px wherever --cell-size
    is unset (legend, comparison views, appearance summary). */
