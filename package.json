@@ -39,7 +39,7 @@
     "@tauri-apps/cli": "^2.11.4",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/svelte": "^5.4.2",
-    "@types/node": "^26.0.0",
+    "@types/node": "^26.1.2",
     "@vitest/ui": "^4.1.10",
     "firebase-admin": "^14.1.0",
     "firebase-tools": "^15.24.0",
