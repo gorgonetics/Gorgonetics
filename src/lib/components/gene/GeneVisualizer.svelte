@@ -11,10 +11,11 @@ import {
   getAttributeMatcher,
   normalizeSpecies,
 } from '$lib/services/configService.js';
+import { computeRarityLookup, type RarityLookup } from '$lib/services/frequencyService.js';
 import { getGeneEffectsCached } from '$lib/services/geneService.js';
 import { loadPetGridFromDb } from '$lib/services/petService.js';
 import { EFFECT_COLORS } from '$lib/theme/gene-colors.js';
-import type { AppearanceInfo, Pet } from '$lib/types/index.js';
+import type { AppearanceInfo, GeneType, Pet } from '$lib/types/index.js';
 import { buildVisualizerFilterCSS, type ChrBreedRelevance, joinAttrs } from '$lib/utils/filterCSS.js';
 import { resolveFilterClick } from '$lib/utils/filterToggle.js';
 import {
@@ -32,6 +33,7 @@ import {
   type StatsMap,
 } from '$lib/utils/geneStats.js';
 import { handleGridNavigation } from '$lib/utils/keyboard.js';
+import { buildRarityCSS, type RarityCell } from '$lib/utils/rarityCSS.js';
 import { capitalize } from '$lib/utils/string.js';
 import GeneTooltip from './GeneTooltip.svelte';
 
@@ -77,6 +79,12 @@ interface Props {
    * When set, `loadPetGridFromDb` is bypassed entirely.
    */
   gridOverride?: Record<string, ParsedChromosome> | null;
+  /**
+   * Population the rarity baseline is computed over (rarity view only).
+   * Owned by the parent so the Stabled / All-my-pets toggle lives with the
+   * other view controls. Filtered to the viewed pet's species internally.
+   */
+  populationPets?: readonly Pet[];
 }
 
 /**
@@ -93,6 +101,18 @@ interface VisCell {
   attributeCls: string;
   /** Colour class for the appearance view. */
   appearanceCls: string;
+  /**
+   * Neutral base class for the rarity view: `gene-cell` + the zygosity class
+   * only, with no effect / appearance / inactive-breed colour. The injected
+   * rarity stylesheet supplies the colour on top via custom properties.
+   *
+   * Baked here rather than computed in the template because it is **static**
+   * per cell — it carries no rarity data, so it does not re-enter the async
+   * rebuild trap that baking a colour class would (see the design's §4). The
+   * alternative, a function call in the `{#each}`, would allocate ~1600
+   * strings on every view toggle.
+   */
+  rarityCls: string;
   /** Active-allele attribute (attribute-view hidden filter + per-attribute stats). */
   attr: string;
   /** Delimited union of both alleles' attributes (attribute-view select filter). */
@@ -125,7 +145,7 @@ interface HeaderStructure {
   blockMaxGenes: Map<string, number>;
 }
 
-const { pet, onStatsUpdated, gridOverride = null }: Props = $props();
+const { pet, onStatsUpdated, gridOverride = null, populationPets = [] }: Props = $props();
 
 let loading = $state(false);
 let error = $state<string | null>(null);
@@ -136,7 +156,18 @@ let currentPet = $state<{
   breed: string;
   grid: Record<string, ParsedChromosome>;
 } | null>(null);
-let currentView = $state<'attribute' | 'appearance'>('attribute');
+let currentView = $state<'attribute' | 'appearance' | 'rarity'>('attribute');
+
+// --- Rarity lens state ------------------------------------------------------
+// `rarityLoading` is deliberately NOT the component's `loading`: that one swaps
+// the whole grid for a full-pane StatusPane, so reusing it would blank the grid
+// on every population toggle. The grid stays on screen; cells just read as
+// missing data until the baseline arrives.
+let rarityLookup = $state<RarityLookup | null>(null);
+let rarityLoading = $state(false);
+let rarityError = $state<string | null>(null);
+/** Guards against an out-of-order baseline resolving after a newer request. */
+let raritySeq = 0;
 let geneEffectsDB: Record<string, Record<string, GeneEffectData>> | null = null;
 
 // Stats
@@ -236,11 +267,16 @@ let globalGeneEffectsDB: Record<string, Record<string, GeneEffectData>> = {};
 // A GeneVisualizer never coexists with another (pet detail OR community detail),
 // so a single shared `.gene-grid-container`-scoped sheet is safe.
 let filterStyleEl: HTMLStyleElement | null = null;
+/** Separate sheet from the filters one — never overload that. */
+let rarityStyleEl: HTMLStyleElement | null = null;
 
 onMount(() => {
   filterStyleEl = document.createElement('style');
   filterStyleEl.id = 'gene-visualizer-filters';
   document.head.appendChild(filterStyleEl);
+  rarityStyleEl = document.createElement('style');
+  rarityStyleEl.id = 'gene-visualizer-rarity';
+  document.head.appendChild(rarityStyleEl);
   // Warm the effect cache for the common species; the load path also loads
   // on demand, so this is a best-effort optimisation only.
   void preloadGeneEffects();
@@ -249,8 +285,59 @@ onMount(() => {
 onDestroy(() => {
   filterStyleEl?.remove();
   filterStyleEl = null;
+  rarityStyleEl?.remove();
+  rarityStyleEl = null;
   cleanup();
 });
+
+// Load the baseline lazily: only once the lens is actually opened, and again
+// when the pet's species or the population changes. Seq-guarded so a slower
+// earlier request cannot overwrite a newer one.
+$effect(() => {
+  if (currentView !== 'rarity' || !currentPet) return;
+  const species = currentPet.species;
+  const pets = populationPets;
+  const mine = ++raritySeq;
+  rarityLoading = true;
+  rarityError = null;
+  computeRarityLookup(pets, species)
+    .then((lookup) => {
+      if (mine !== raritySeq) return;
+      rarityLookup = lookup;
+      rarityLoading = false;
+    })
+    .catch((err: unknown) => {
+      if (mine !== raritySeq) return;
+      console.error('Failed to compute rarity baseline:', err);
+      rarityError = 'Could not analyse rarity';
+      rarityLookup = null;
+      rarityLoading = false;
+    });
+});
+
+// Regenerate the rarity sheet from the baseline + the rendered cells. Cells are
+// never rebuilt or re-rendered by this — only the stylesheet text changes.
+$effect(() => {
+  if (!rarityStyleEl) return;
+  if (currentView !== 'rarity' || !rarityLookup) {
+    rarityStyleEl.textContent = '';
+    return;
+  }
+  rarityStyleEl.textContent = buildRarityCSS({ cells: renderedCells(), lookup: rarityLookup });
+});
+
+/** Every cell currently in the grid, as the rarity sheet needs them. */
+function renderedCells(): RarityCell[] {
+  const out: RarityCell[] = [];
+  for (const row of chromosomeData) {
+    for (const block of row.cells) {
+      for (const cell of block) {
+        if (cell) out.push({ geneId: cell.id, type: cell.type as GeneType });
+      }
+    }
+  }
+  return out;
+}
 
 $effect(() => {
   if (!filterStyleEl) return;
@@ -565,13 +652,22 @@ function buildGrid() {
     const zygCls = `gene-${zygosity}`;
     let attributeCls: string;
     let appearanceCls: string;
+    let rarityCls: string;
     if (gene.type === '?') {
       attributeCls = 'gene-cell gene-neutral gene-unknown';
       appearanceCls = 'gene-cell gene-neutral gene-unknown';
+      // Keep both classes: `.gene-neutral.gene-unknown` is what carries the
+      // dashed "not revealed" style, and the rarity view wants it unchanged.
+      rarityCls = 'gene-cell gene-neutral gene-unknown';
     } else {
       attributeCls = `gene-cell gene-${effectType} ${zygCls}`;
       const appType = inactiveBreed ? 'inactive-breed' : appearanceCategory || 'appearance-neutral';
       appearanceCls = `gene-cell gene-${appType} ${zygCls}`;
+      // No effect / appearance / inactive-breed colour class. Dropping
+      // `gene-inactive-breed` matters most: its greys are `!important` and
+      // would defeat the rarity fill on wrong-breed cells — 84% of a horse
+      // genome — which is exactly where the cross-breed signal lives.
+      rarityCls = `gene-cell ${zygCls}`;
     }
 
     const cell: VisCell = {
@@ -579,6 +675,7 @@ function buildGrid() {
       type: gene.type,
       attributeCls,
       appearanceCls,
+      rarityCls,
       attr: activeAttr,
       attrs,
       appearance,
@@ -645,6 +742,10 @@ function buildGrid() {
 // Stats depend on (pet, view) only — never on filters — so they recompute on
 // load and on view change, not per filter click.
 function computeStats() {
+  // The stats drawer is attribute/appearance-specific and is hidden in the
+  // rarity view, so there is nothing to recompute — and `buildEmptyStats` has
+  // no bucket shape for it. Leave the last computed stats in place.
+  if (currentView === 'rarity') return;
   const view = currentView;
   const names = view === 'attribute' ? attributeStatNames : appearanceStatNames;
   const stats = buildEmptyStats(view, names);
@@ -951,7 +1052,10 @@ export function handleAttributeFilter(event: CustomEvent<{ attribute: string; ct
 }
 
 export function handleViewChange(view: string) {
-  currentView = view === 'appearance' ? 'appearance' : 'attribute';
+  // This coercion is load-bearing: an unrecognised value must not leave the
+  // component in a view the template cannot render. Anything new has to be
+  // added here or the button silently no-ops.
+  currentView = view === 'appearance' ? 'appearance' : view === 'rarity' ? 'rarity' : 'attribute';
   computeStats();
 }
 
@@ -1028,7 +1132,7 @@ const blockIndices = $derived.by(() => {
                                     </span>
                                 {/each}
                             </div>
-                        {:else}
+                        {:else if currentView === "appearance"}
                             <div class="legend-row">
                                 <span class="legend-label legend-label-appearance">Appearance:</span>
 
@@ -1054,7 +1158,7 @@ const blockIndices = $derived.by(() => {
                      Tooltip + keyboard-nav listeners are delegated on this
                      container via addEventListener (see the $effect above). -->
                 <div
-                    class="gene-grid-container"
+                    class="gene-grid-container {currentView === 'rarity' ? 'view-rarity' : ''}"
                     bind:this={gridContainerEl}
                     style="--cell-size: {cellSize}px"
                 >
@@ -1085,7 +1189,7 @@ const blockIndices = $derived.by(() => {
                                                     <td class="gene-cell-container {i === 0 ? 'block-start' : ''} {!cell ? 'empty' : ''}">
                                                         {#if cell}
                                                             <div
-                                                                class={currentView === "appearance" ? cell.appearanceCls : cell.attributeCls}
+                                                                class={currentView === "appearance" ? cell.appearanceCls : currentView === "rarity" ? cell.rarityCls : cell.attributeCls}
                                                                 data-gene-id={cell.id}
                                                                 data-gene-type={cell.type}
                                                                 data-effect={cell.effect}
