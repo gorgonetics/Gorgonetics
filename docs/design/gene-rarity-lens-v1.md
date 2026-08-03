@@ -231,6 +231,40 @@ geneFrequency (pure, no DB)
 **What the per-locus record must hold.** The *frequency* side needs one number — `dominantAlleles` over `2 × knownPets`, with the recessive arm deriving from `p_D + p_R = 1` (§2). But bucket 4 is a carrier count, so the colour also needs `carriers(D) = pureD + mixed` and `carriers(R) = pureR + mixed`. Storing `{knownPets, pureD, pureR, mixed}` yields all of it (`dominantAlleles = 2·pureD + mixed`), and the same four numbers render the tooltip's breakdown. `knownPets` is per locus, never the population size (§2).
 
 - **`loadAllPetLoci`** (existing, `utils/petLoci.ts`) already does the bulk `pet_genes` read for a set of ids in one query — reused as-is. This is the query that needs the in-memory `IN` fix (#433) to be correct in dev/tests.
+
+### Performance: measured, and where the real cost is
+
+The arithmetic is not the bottleneck. Measured on synthetic populations at a full 1576-locus horse genome:
+
+| population | tally | bucket pass (both arms, every locus) |
+|---|---|---|
+| 37 pets (a real collection) | 4.6 ms | 0.4 ms |
+| 200 pets | 11.4 ms | 0.1 ms |
+| 500 pets | 32.3 ms | 0.2 ms |
+
+Under a 16 ms frame at any realistic local size, in jsdom — slower than the production webview — and it happens **once per population**, behind the cache. `tests/unit/geneFrequencyPerf.test.ts` pins this as a regression guard against accidental super-linear work; it is not a benchmark.
+
+**The suspect is the read, not the maths.** `loadAllPetLoci` ships one row per pet per locus — **58,312 rows for 37 pets** — across the Tauri IPC boundary to produce 1,576 tallies. That serialisation, not the tally loop, is what could show as lag on first open. It is mitigated by the design already: lazy (only on first open of the lens), cached by population id-set, and behind the dedicated "Analysing…" flag that leaves the grid on screen.
+
+**The escape hatch, if it does show: push the aggregate into SQLite.**
+
+```sql
+SELECT gene_id,
+       COUNT(*)                                      AS known_pets,
+       SUM(CASE WHEN gene_type = 'D' THEN 1 ELSE 0 END) AS pure_d,
+       SUM(CASE WHEN gene_type = 'R' THEN 1 ELSE 0 END) AS pure_r,
+       SUM(CASE WHEN gene_type = 'x' THEN 1 ELSE 0 END) AS mixed
+FROM pet_genes WHERE pet_id IN (…) AND gene_type <> '?' GROUP BY gene_id
+```
+
+That returns 1,576 rows instead of 58,312 — a ~37× cut in IPC payload, with the grouping done in C inside the SQLite process rather than in JS. `LocusTally` is deliberately shaped as exactly this row, so the swap is a drop-in.
+
+**Not taken yet, deliberately.** The `InMemoryDatabase` adapter used in dev and unit tests is a regex-matched SQL subset with no `GROUP BY` branch — an aggregate query would fall through to its `SELECT … FROM` case and silently return **raw rows instead of aggregates**. Two further traps make a hand-rolled branch risky:
+
+- `select()` lowercases the whole query before matching, so `'D'` arrives as `'d'` and a `CASE WHEN gene_type = 'D'` never matches (the adapter already documents this hazard for `'Horse'`).
+- A literal `'?'` collides with positional-placeholder counting after `resolveNamedParams` rewriting.
+
+So the optimisation buys a cost we have not yet measured in production, at the price of a dev/prod divergence in exactly the class of bug that already cost this feature #433. **Measure in the real app first;** if it is needed, add the `GROUP BY` branch to the adapter *and* a test asserting it agrees with `computeLocusFrequencies` over the same fixture, which is what pins the emulator to the reference implementation.
 - **Lazy + cached:** the baseline is computed only when the lens is first opened, keyed by `(species, population-id-set)`; re-used until that key changes. A background reload of the pet list that returns the same ids must not recompute (key on the id set, not array identity).
 - **Loading state:** while the baseline loads, cells show the "missing data" style and the legend shows "Analysing…"; then the stylesheet fills in. This uses a **dedicated** loading flag, **not** the component's `loading` state — `loading` swaps the entire grid for a full-pane `StatusPane`, so reusing it would blank the grid on every population-toggle change.
 - **`currentView` widens in two places.** `GeneVisualizer` holds the render-driving `currentView` (`'attribute' | 'appearance'` today) and its exported `handleViewChange` **coerces any non-`'appearance'` value to `'attribute'`** — that coercion must learn `'rarity'` or the button silently no-ops. `PetVisualization` / `CommunityPetVisualization` keep a parallel `currentView` string for button state only. Enumerate this sync as a concrete edit; it is a likely stumbling point.
