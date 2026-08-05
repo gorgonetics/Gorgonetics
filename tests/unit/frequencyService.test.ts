@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { closeDatabase, initDatabase } from '$lib/services/database.js';
-import { computeRarityLookup, invalidateRarityCache } from '$lib/services/frequencyService.js';
+import { computeRarityLookup, invalidateRarityCache, petsForTier } from '$lib/services/frequencyService.js';
 import { runMigrations } from '$lib/services/migrationService.js';
 import * as petService from '$lib/services/petService.js';
 import { GeneType, type Pet } from '$lib/types/index.js';
@@ -304,6 +304,37 @@ describe('alleles nobody in the population carries', () => {
     expect(lookup.carriers('01A1', R)).toBe(1);
     expect(lookup.bucketOf('01A1', R)).toBe(RARITY_BUCKET_SOLE);
     expect(lookup.bucketOf('01A1', R)).toBeLessThan(RARITY_BUCKET_NEVER);
+  });
+});
+
+/**
+ * Both surfaces offering the baseline toggle resolve the tier through this, so
+ * "Stabled" cannot come to mean one thing on the pet lens and another on the map
+ * while both show the same label.
+ */
+describe('petsForTier', () => {
+  const roster = [
+    { id: 1, stabled: true },
+    { id: 2, stabled: false },
+    { id: 3, stabled: true },
+  ] as unknown as Pet[];
+
+  it('keeps only stabled pets for the stabled tier', () => {
+    expect(petsForTier('stabled', roster).map((p) => p.id)).toEqual([1, 3]);
+  });
+
+  it('returns the whole roster for the all tier, untouched', () => {
+    expect(petsForTier('all', roster)).toBe(roster);
+  });
+
+  it('does not mutate the roster it was given', () => {
+    petsForTier('stabled', roster);
+    expect(roster).toHaveLength(3);
+  });
+
+  it('treats a missing stabled flag as not stabled rather than throwing', () => {
+    const partial = [{ id: 9 }] as unknown as Pet[];
+    expect(petsForTier('stabled', partial)).toEqual([]);
   });
 });
 

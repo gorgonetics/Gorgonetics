@@ -11,6 +11,7 @@ import GenomeMap from '$lib/components/gene/GenomeMap.svelte';
 import BreedSelector from '$lib/components/shared/BreedSelector.svelte';
 import EmptyState from '$lib/components/shared/EmptyState.svelte';
 import { normalizeSpecies } from '$lib/services/configService.js';
+import { petsForTier, type RarityTier } from '$lib/services/frequencyService.js';
 import * as geneService from '$lib/services/geneService.js';
 import { pets as allPets, appState, geneEditingView } from '$lib/stores/pets.js';
 import { BREEDS_BY_SPECIES } from '$lib/utils/species.js';
@@ -30,11 +31,11 @@ let editorError = $state('');
 // single-user functionality, so it is enough that the map does not strand it.
 let editMode = $state(false);
 let breedFilter = $state('');
-let rarityPopulation = $state<'stabled' | 'all'>('all');
+let rarityPopulation = $state<RarityTier>('all');
 
 const speciesKey = $derived(normalizeSpecies(selectedAnimalType));
 const breedsForSpecies = $derived(speciesKey ? BREEDS_BY_SPECIES[speciesKey] : undefined);
-const populationPets = $derived(rarityPopulation === 'stabled' ? $allPets.filter((p) => p.stabled) : $allPets);
+const populationPets = $derived(petsForTier(rarityPopulation, $allPets));
 
 // A breed only means something within its own species.
 $effect(() => {

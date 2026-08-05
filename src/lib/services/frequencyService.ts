@@ -69,6 +69,25 @@ export interface RarityLookup {
 }
 
 /**
+ * Which of your pets a baseline is measured over. `community` is deferred — it
+ * needs a precomputed aggregate rather than fetching every shared genome.
+ */
+export type RarityTier = 'stabled' | 'all';
+
+/**
+ * Resolve a tier to the pets it means.
+ *
+ * Both surfaces that offer the toggle (the per-pet lens and the genome map) go
+ * through this, so "Stabled" cannot come to mean one thing on one surface and
+ * something else on the other — they would then score against different
+ * populations while showing the same label. Species scoping happens later, in
+ * `computeRarityLookup`.
+ */
+export function petsForTier(tier: RarityTier, pets: readonly Pet[]): readonly Pet[] {
+  return tier === 'stabled' ? pets.filter((pet) => pet.stabled) : pets;
+}
+
+/**
  * Cache key for a baseline.
  *
  * Keyed on the **sorted id set**, not array identity: a background reload

@@ -6,6 +6,7 @@ import GeneVisualizer from '$lib/components/gene/GeneVisualizer.svelte';
 import BreedSelector from '$lib/components/shared/BreedSelector.svelte';
 import PetActions from '$lib/components/shared/PetActions.svelte';
 import StatusBanner from '$lib/components/shared/StatusBanner.svelte';
+import { petsForTier, type RarityTier } from '$lib/services/frequencyService.js';
 import { pets as allPets } from '$lib/stores/pets.js';
 import { settings } from '$lib/stores/settings.js';
 import type { DialogResult, Pet } from '$lib/types/index.js';
@@ -34,6 +35,17 @@ interface Props {
 
 const { pet }: Props = $props();
 
+/**
+ * Drawer heading per view. A record rather than a chain of ternaries so adding a
+ * view is one entry, and an unknown value falls back instead of silently
+ * reading as "Appearance Effects".
+ */
+const DRAWER_TITLES: Record<string, string> = {
+  attribute: 'Attribute Effects',
+  appearance: 'Appearance Effects',
+  rarity: 'Stats',
+};
+
 let geneVisualizerRef = $state<GeneVisualizerInstance | undefined>(undefined);
 let currentView = $state('attribute');
 let statsOpen = $state(false);
@@ -50,8 +62,8 @@ let shareStatus = $state<DialogResult | null>(null);
 // is a housekeeping marker rather than a claim about which animals count as
 // your genetic stock. It also keeps the default clear of the small-baseline
 // regime where the sole-carrier step is suppressed.
-let rarityPopulation = $state<'stabled' | 'all'>('all');
-const populationPets = $derived(rarityPopulation === 'stabled' ? $allPets.filter((p) => p.stabled) : $allPets);
+let rarityPopulation = $state<RarityTier>('all');
+const populationPets = $derived(petsForTier(rarityPopulation, $allPets));
 
 function handleShareResult(result: DialogResult): void {
   shareStatus = result;
@@ -341,11 +353,7 @@ onDestroy(() => {
                 <div class="resize-handle" onmousedown={startResize}></div>
                 <div class="stats-drawer-header">
                     <span class="stats-drawer-title">
-                        {currentView === "attribute"
-                            ? "Attribute Effects"
-                            : currentView === "rarity"
-                              ? "Stats"
-                              : "Appearance Effects"}
+                        {DRAWER_TITLES[currentView] ?? DRAWER_TITLES.attribute}
                     </span>
                     <button class="stats-close" onclick={toggleStats}>×</button>
                 </div>
