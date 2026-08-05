@@ -1198,7 +1198,7 @@ const blockIndices = $derived.by(() => {
                                 <!-- The outermost step earns its own label: it is not one more
                                      shade of scarce but the one reading you cannot breed your
                                      way to, so it is what a capture decision turns on. -->
-                                <span class="rarity-swatch rarity-swatch-never" style="background: var(--rarity-r-5)"></span>
+                                <span class="rarity-swatch rarity-swatch-never rarity-key-never" style="background: var(--rarity-r-5)"></span>
                                 <span class="legend-label legend-label-muted">Never seen</span>
 
                                 <span class="rarity-swatch rarity-swatch-missing" title="Not enough data"></span>
@@ -1430,13 +1430,12 @@ const blockIndices = $derived.by(() => {
         margin: 0 0.25em 0 1.5em;
     }
 
-    /* The standalone "Never seen" key sits apart from the ramp it repeats. */
-    .rarity-swatch-never + .legend-label {
-        margin-right: 0.25em;
-    }
-
-    .legend-label + .rarity-swatch-never {
-        margin-left: 1.5em;
+    /* The standalone "Never seen" key sits apart from the ramp, like the "No
+       data" one. Keyed off its own class rather than sibling position: the ramp's
+       outermost swatch is also a `.rarity-swatch-never` preceded by a label, so
+       positional selectors put this gap inside the diverging bar. */
+    .rarity-key-never {
+        margin: 0 0.25em 0 1.5em;
     }
 
     .legend-item {
