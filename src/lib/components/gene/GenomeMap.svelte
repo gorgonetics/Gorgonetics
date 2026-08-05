@@ -314,7 +314,14 @@ function showTooltip(geneId: string, event: MouseEvent): void {
         z-index: 1;
     }
 
+    /* Cell and block spacing must match the pet grid exactly, and not only for
+       consistency: `computeGeneCellSize` budgets CHR_COL_WIDTH + one BLOCK_GAP
+       per block + a 1px gutter each side of every cell, so a grid that drops
+       them lays out tighter than the size it asked for. */
     .position-header {
+        width: var(--cell-size, 16px);
+        min-width: var(--cell-size, 16px);
+        max-width: var(--cell-size, 16px);
         font-size: 9px;
         color: var(--text-tertiary);
         font-weight: 600;
@@ -322,12 +329,28 @@ function showTooltip(geneId: string, event: MouseEvent): void {
         height: 14px;
     }
 
-    .block-start {
-        padding-left: 8px;
+    .position-header.block-start {
+        padding-left: 10px;
+    }
+
+    .position-header.block-start:first-of-type {
+        padding-left: 2px;
     }
 
     .gene-cell-container {
-        padding: 0;
+        padding: 1px;
+        text-align: center;
+        vertical-align: middle;
         line-height: 0;
+        width: var(--cell-size, 16px);
+    }
+
+    .gene-cell-container.block-start {
+        /* KEEP IN SYNC with BLOCK_GAP in utils/geneGridCells.ts */
+        padding-left: 8px;
+    }
+
+    .gene-cell-container.block-start:first-of-type {
+        padding-left: 1px;
     }
 </style>

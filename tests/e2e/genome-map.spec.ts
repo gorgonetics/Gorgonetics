@@ -77,6 +77,46 @@ async function settledPaint(page: import('@playwright/test').Page, root: string)
   return JSON.parse(previous);
 }
 
+/**
+ * Cell pitch and block gap for one grid, measured off the first chromosome row.
+ *
+ * `computeGeneCellSize` budgets a 1px gutter each side of every cell plus one
+ * BLOCK_GAP per block, so a grid that omits them lays out tighter than the size
+ * it asked for — which is how the map came to look denser than the pet grid.
+ */
+async function gridPitch(page: import('@playwright/test').Page, root: string) {
+  // `--cell-size` starts at the 16px fallback and lands once the ResizeObserver
+  // fires, and `.gene-cell` transitions `all 0.2s` — so an immediate read catches
+  // the width animating from the fallback toward the real size.
+  let previous = JSON.stringify(await readPitch(page, root));
+  for (let i = 0; i < 25; i++) {
+    await page.waitForTimeout(120);
+    const current = JSON.stringify(await readPitch(page, root));
+    if (current === previous) return JSON.parse(current);
+    previous = current;
+  }
+  return JSON.parse(previous);
+}
+
+function readPitch(page: import('@playwright/test').Page, root: string) {
+  return page.evaluate((rootSelector) => {
+    const container = document.querySelector(rootSelector) as HTMLElement;
+    const row = container.querySelector('.chromosome-row') as HTMLElement;
+    const cells = [...row.querySelectorAll('.gene-cell')].slice(0, 12);
+    const lefts = cells.map((c) => c.getBoundingClientRect().left);
+    const pitches = lefts.slice(1).map((left, i) => Math.round(left - lefts[i]));
+    const cellSize = Number.parseFloat(container.style.getPropertyValue('--cell-size'));
+    return {
+      cellSize,
+      cellWidth: Math.round(cells[0].getBoundingClientRect().width),
+      // Within a block every column is one cell-size apart; the first column of
+      // a block is further out by the block gap.
+      inBlock: Math.min(...pitches),
+      acrossBlocks: Math.max(...pitches),
+    };
+  }, root);
+}
+
 /** The resolved common-centre colour, so "is this cell tinted" is decidable. */
 function neutralColour(page: import('@playwright/test').Page) {
   return page.evaluate(() => {
@@ -247,6 +287,30 @@ test.describe('map and pet grid agree cell for cell', () => {
     await page.setViewportSize({ width: 1920, height: 1080 });
     await page.goto('/');
     await waitForPets(page);
+  });
+
+  test('the map spaces its cells and blocks exactly as the pet grid does', async ({ page }) => {
+    // The map shipped with `padding: 0` on its cell containers, which dropped
+    // both the 1px gutter and the block gap: same cells, visibly denser grid,
+    // and narrower than the width `computeGeneCellSize` had budgeted for.
+    await page.getByTestId('roster-open').filter({ hasText: 'Roach' }).click();
+    await expect(page.locator('.gene-grid-container .gene-cell').first()).toBeVisible();
+    const petGrid = await gridPitch(page, '.gene-grid-container');
+
+    await gotoDestination(page, 'Reference');
+    await selectSpecies(page, 'horse');
+    const map = await gridPitch(page, '[data-testid="genome-map-grid"]');
+
+    for (const [surface, geometry] of [
+      ['pet grid', petGrid],
+      ['map', map],
+    ] as const) {
+      // The cell is its slot inset by the 1px gutter on each side.
+      expect(geometry.cellWidth, `${surface} cell width`).toBe(geometry.cellSize - 2);
+      expect(geometry.inBlock, `${surface} column pitch`).toBe(geometry.cellSize);
+      expect(geometry.acrossBlocks, `${surface} block gap`).toBeGreaterThan(geometry.cellSize);
+    }
+    expect(map).toEqual(petGrid);
   });
 
   test('a locus paints the same colour on the same half on both surfaces', async ({ page }) => {
