@@ -50,6 +50,13 @@ let effects = $state<Record<string, GeneEffectData>>({});
 let loading = $state(true);
 let error = $state<string | null>(null);
 let lookup = $state<RarityLookup | null>(null);
+let lookupLoading = $state(true);
+/**
+ * Separate from `error`, which blanks the whole map: the grid's *structure*
+ * comes from the gene template, so a failed baseline costs the colours, not the
+ * genome. The map stays readable and says the frequencies are missing.
+ */
+let lookupError = $state<string | null>(null);
 // Separate counters on purpose: one shared counter would let each load
 // invalidate the other's in-flight request, and the gene-template load would
 // never commit — the map would render empty forever.
@@ -140,13 +147,24 @@ $effect(() => {
   const pets = populationPets;
   if (!key) return;
   const mine = ++lookupSeq;
+  lookupLoading = true;
+  lookupError = null;
   computeRarityLookup(pets, species)
     .then((result) => {
       if (mine !== lookupSeq) return;
       lookup = result;
+      lookupLoading = false;
     })
     .catch((err: unknown) => {
+      // Seq-guarded like the success path, and it must set state: without an
+      // error the map would render every cell at the common centre, telling the
+      // player there is nothing scarce in their stock when in fact nothing was
+      // measured at all.
+      if (mine !== lookupSeq) return;
       console.error('Failed to compute the genome map baseline:', err);
+      lookupError = 'Could not analyse rarity';
+      lookup = null;
+      lookupLoading = false;
     });
 });
 
@@ -161,11 +179,23 @@ $effect(() => {
   return () => ro.disconnect();
 });
 
+/**
+ * Whether the baseline in hand is about the species on screen.
+ *
+ * The animal-type switch reloads the template behind its own `loading` gate, but
+ * `lookup` outlives it — and gene ids are only meaningful within a species
+ * (`01A1` names a different gene on a horse than on a beewasp), so a stale
+ * lookup does not fail to match, it matches *everything* and paints the new
+ * genome with the old species' frequencies. Checking the species the lookup was
+ * built for is what makes that impossible rather than merely unlikely.
+ */
+const lookupReady = $derived(!lookupLoading && !lookupError && lookup !== null && lookup.species === speciesKey);
+
 // Every cell is the mixed case, so the pet grid's stylesheet builder applies
 // unchanged — no map-specific colour logic exists.
 $effect(() => {
   if (!styleEl) return;
-  if (!lookup) {
+  if (!lookupReady || !lookup) {
     styleEl.textContent = '';
     return;
   }
@@ -173,12 +203,18 @@ $effect(() => {
   styleEl.textContent = buildRarityCSS({ cells, lookup });
 });
 
-function showTooltip(geneId: string, event: MouseEvent): void {
-  const { subtitle, lines } = buildRarityTooltip(lookup, geneId, capitalize(species), {
+/**
+ * `clientX`/`clientY` come from the pointer, or from the cell's own box when the
+ * cell was focused rather than hovered — a `FocusEvent` has no coordinates, and
+ * reading them off one yields `undefined`, which propagates to `NaN` positions
+ * and drops the card in the corner of the panel.
+ */
+function showTooltip(geneId: string, clientX: number, clientY: number): void {
+  const { subtitle, lines } = buildRarityTooltip(lookupReady ? lookup : null, geneId, capitalize(species), {
     dominant: effectFor(effects[geneId], 'D'),
     recessive: effectFor(effects[geneId], 'R'),
   });
-  const { x, y } = placeRarityTooltip(event.clientX, event.clientY, lines.length, {
+  const { x, y } = placeRarityTooltip(clientX, clientY, lines.length, {
     width: window.innerWidth,
     height: window.innerHeight,
   });
@@ -207,8 +243,16 @@ function showTooltip(geneId: string, event: MouseEvent): void {
         <!-- Shares `.gene-grid-container` AND `.view-rarity` deliberately: that is
              what makes the pet grid's static rarity CSS and the injected
              stylesheet apply here with no duplication. -->
+        {#if lookupError}
+            <!-- The genome is still worth showing — only the frequencies are
+                 missing, and the dashed cells say so per-cell. -->
+            <p class="map-status" data-testid="map-baseline-error">
+                <span aria-hidden="true">⚠️</span> {lookupError} — the genome is shown without frequencies.
+            </p>
+        {/if}
         <div
             class="gene-grid-container view-rarity"
+            class:rarity-unscored={!lookupReady}
             data-testid="genome-map-grid"
             bind:this={containerEl}
             style="--cell-size: {cellSize}px"
@@ -240,9 +284,9 @@ function showTooltip(geneId: string, event: MouseEvent): void {
                                                 role="button"
                                                 tabindex="-1"
                                                 aria-label={geneId}
-                                                onmouseenter={(e) => showTooltip(geneId, e)}
+                                                onmouseenter={(e) => showTooltip(geneId, e.clientX, e.clientY)}
                                                 onmouseleave={() => { tooltipVisible = false; }}
-                                                onfocus={(e) => showTooltip(geneId, e as unknown as MouseEvent)}
+                                                onfocus={(e) => { const r = e.currentTarget.getBoundingClientRect(); showTooltip(geneId, r.left + r.width / 2, r.top); }}
                                                 onblur={() => { tooltipVisible = false; }}
                                             ></div>
                                         {/if}
@@ -330,6 +374,12 @@ function showTooltip(geneId: string, event: MouseEvent): void {
 
     .position-header.block-start:first-of-type {
         padding-left: 2px;
+    }
+
+    .map-status {
+        margin: 0 0 6px;
+        font-size: 11px;
+        color: var(--text-tertiary);
     }
 
     .gene-cell-container {

@@ -20,20 +20,43 @@ const mocks = vi.hoisted(() => {
   const getGeneEffectsCached = vi.fn(async (species: string) => ({
     effects: effects.value[species.toLowerCase()] ?? {},
   }));
-  /** Stand-in baseline; only the legend-facing counts matter here. */
-  const baseline: { petCount: number; partialPets: number } = { petCount: 30, partialPets: 0 };
-  const computeRarityLookup = vi.fn(async () => ({
-    species: 'horse',
-    petCount: baseline.petCount,
-    partialPets: baseline.partialPets,
-    loci: new Map(),
-    tally: () => ({ knownPets: 0, pureD: 0, pureR: 0, mixed: 0 }),
-    bucketOf: () => null,
-    frequency: () => 0,
-    carriers: () => 0,
-    measurable: () => false,
-  }));
-  return { gridResolvers, loadPetGridFromDb, effects, getGeneEffectsCached, baseline, computeRarityLookup };
+  /**
+   * Stand-in baseline. `species` overrides what the lookup claims it was built
+   * for (to exercise the mismatch guard) and `defer` holds it in flight.
+   */
+  const baseline: { petCount: number; partialPets: number; species: string | null; defer: boolean } = {
+    petCount: 30,
+    partialPets: 0,
+    species: null,
+    defer: false,
+  };
+  const rarityResolvers: Array<() => void> = [];
+  const computeRarityLookup = vi.fn((_pets: unknown, species: string) => {
+    const lookup = {
+      species: baseline.species ?? String(species).toLowerCase(),
+      petCount: baseline.petCount,
+      partialPets: baseline.partialPets,
+      loci: new Map(),
+      tally: () => ({ knownPets: 0, pureD: 0, pureR: 0, mixed: 0 }),
+      bucketOf: () => null,
+      frequency: () => 0,
+      carriers: () => 0,
+      measurable: () => false,
+    };
+    if (!baseline.defer) return Promise.resolve(lookup);
+    return new Promise((resolve) => {
+      rarityResolvers.push(() => resolve(lookup));
+    });
+  });
+  return {
+    gridResolvers,
+    loadPetGridFromDb,
+    effects,
+    getGeneEffectsCached,
+    baseline,
+    computeRarityLookup,
+    rarityResolvers,
+  };
 });
 
 vi.mock('$lib/services/petService.js', () => ({ loadPetGridFromDb: mocks.loadPetGridFromDb }));
@@ -59,12 +82,15 @@ const gridText = (genes: string) => genomeTextToGrid(`[Overview]\nGenome=Horse\n
 afterEach(() => {
   cleanup();
   mocks.gridResolvers.clear();
+  mocks.rarityResolvers.length = 0;
   mocks.loadPetGridFromDb.mockClear();
   mocks.getGeneEffectsCached.mockClear();
   mocks.computeRarityLookup.mockClear();
   mocks.effects.value = {};
   mocks.baseline.petCount = 30;
   mocks.baseline.partialPets = 0;
+  mocks.baseline.species = null;
+  mocks.baseline.defer = false;
   document.getElementById('gene-visualizer-filters')?.remove();
   document.getElementById('gene-visualizer-rarity')?.remove();
 });
@@ -91,6 +117,60 @@ describe('GeneVisualizer load reconciliation (#403 review #1)', () => {
     // The displayed grid is B's — it has chromosome 03, which A lacks.
     await waitFor(() => expect(container.querySelector('[data-chromosome="03"]')).not.toBeNull());
     expect(container.querySelector('[data-chromosome="02"]')).not.toBeNull();
+  });
+});
+
+/**
+ * A lookup outlives the state that produced it, and gene ids collide across
+ * species — so a stale baseline does not fail to match the grid, it matches
+ * everything and shades it from the wrong tallies. These pin that the fills and
+ * the tooltip both wait for a baseline that is actually about the grid on screen.
+ */
+describe('GeneVisualizer rarity readiness', () => {
+  const sheet = () => document.getElementById('gene-visualizer-rarity')?.textContent ?? '';
+
+  /** Render, land the grid, and switch into the rarity view. */
+  async function openRarity(pet: Pet) {
+    const rendered = render(GeneVisualizer, { pet, populationPets: [] });
+    await waitFor(() => expect(mocks.loadPetGridFromDb).toHaveBeenCalledWith(pet.id));
+    mocks.gridResolvers.get(pet.id)?.(gridText('1=D\n2=x\n'));
+    (rendered.component as unknown as { handleViewChange: (v: string) => void }).handleViewChange('rarity');
+    await tick();
+    return rendered;
+  }
+
+  it('paints nothing while the baseline is still in flight', async () => {
+    mocks.baseline.defer = true;
+    const { container } = await openRarity(makePet({ id: 1 }));
+
+    await waitFor(() => expect(mocks.computeRarityLookup).toHaveBeenCalled());
+    // Cells read as missing data rather than falling through to bucket 0, which
+    // would assert that nothing in the collection is scarce.
+    expect(container.querySelector('.gene-grid-container.rarity-unscored')).not.toBeNull();
+    expect(sheet()).toBe('');
+
+    for (const resolve of mocks.rarityResolvers) resolve();
+    await waitFor(() => expect(container.querySelector('.rarity-unscored')).toBeNull());
+    expect(sheet()).not.toBe('');
+  });
+
+  it('refuses a baseline built for another species', async () => {
+    // The detail overlay stays mounted across a pet switch, so a Horse baseline
+    // can still be in hand when a Beewasp is rendered.
+    mocks.baseline.species = 'horse';
+    const { container } = await openRarity(makePet({ id: 2, species: 'BeeWasp' }));
+
+    await waitFor(() => expect(mocks.computeRarityLookup).toHaveBeenCalled());
+    await tick();
+    expect(container.querySelector('.gene-grid-container.rarity-unscored')).not.toBeNull();
+    expect(sheet()).toBe('');
+  });
+
+  it('paints once the baseline matches the rendered pet', async () => {
+    const { container } = await openRarity(makePet({ id: 3, species: 'Horse' }));
+
+    await waitFor(() => expect(sheet()).not.toBe(''));
+    expect(container.querySelector('.rarity-unscored')).toBeNull();
   });
 });
 

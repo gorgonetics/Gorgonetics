@@ -321,11 +321,38 @@ $effect(() => {
     });
 });
 
+/**
+ * Whether the baseline in hand actually describes the grid on screen.
+ *
+ * `rarityLookup !== null` is not enough on its own. A lookup outlives the state
+ * that produced it, so two cases would otherwise paint the grid with numbers
+ * that are not about it:
+ *
+ * - **Mid-load.** The population toggle keeps the previous baseline until the
+ *   new one resolves, so the grid would show all-pets colours under an
+ *   "Analysing…" legend.
+ * - **Wrong species.** The detail overlay stays mounted across a pet switch, so
+ *   a Beewasp can be rendered while a Horse baseline is still in hand — and gene
+ *   ids collide between species, so *every* selector still matches and the grid
+ *   shades confidently from the wrong tallies.
+ *
+ * Until it is ready the cells read as missing data (`rarity-unscored`), which is
+ * the design's loading contract and, more importantly, the only honest state:
+ * bucket 0 would assert that nothing here is scarce.
+ */
+const rarityReady = $derived(
+  currentView === 'rarity' &&
+    !rarityLoading &&
+    rarityLookup !== null &&
+    currentPet !== null &&
+    rarityLookup.species === normalizeSpecies(currentPet.species),
+);
+
 // Regenerate the rarity sheet from the baseline + the rendered cells. Cells are
 // never rebuilt or re-rendered by this — only the stylesheet text changes.
 $effect(() => {
   if (!rarityStyleEl) return;
-  if (currentView !== 'rarity' || !rarityLookup) {
+  if (!rarityReady || !rarityLookup) {
     rarityStyleEl.textContent = '';
     return;
   }
@@ -795,10 +822,18 @@ function showTooltipForCell(cell: HTMLElement, clientX: number, clientY: number)
 
   if (currentView === 'rarity') {
     const sk = currentPet ? normalizeSpecies(currentPet.species) : '';
-    const { subtitle, lines } = buildRarityTooltip(rarityLookup, geneId, capitalize(currentPet?.species ?? 'pets'), {
-      dominant: getGeneEffect(sk, geneId, 'D'),
-      recessive: getGeneEffect(sk, geneId, 'R'),
-    });
+    // The same readiness gate the fills use: a baseline that is loading or was
+    // built for another species must not be quoted as this locus's evidence.
+    // `null` makes the card read "Analysing…" instead.
+    const { subtitle, lines } = buildRarityTooltip(
+      rarityReady ? rarityLookup : null,
+      geneId,
+      capitalize(currentPet?.species ?? 'pets'),
+      {
+        dominant: getGeneEffect(sk, geneId, 'D'),
+        recessive: getGeneEffect(sk, geneId, 'R'),
+      },
+    );
     const { x, y } = placeRarityTooltip(clientX, clientY, lines.length, {
       width: window.innerWidth,
       height: window.innerHeight,
@@ -1246,6 +1281,7 @@ const blockIndices = $derived.by(() => {
                      container via addEventListener (see the $effect above). -->
                 <div
                     class="gene-grid-container {currentView === 'rarity' ? 'view-rarity' : ''}"
+                    class:rarity-unscored={currentView === "rarity" && !rarityReady}
                     bind:this={gridContainerEl}
                     style="--cell-size: {cellSize}px"
                 >

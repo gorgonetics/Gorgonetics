@@ -101,6 +101,21 @@
   background: var(--rarity-neutral);
 }
 
+/* No usable baseline: still loading, failed, or computed for another species.
+ *
+ * Every cell reads as missing data rather than falling through to bucket 0.
+ * That fall-through is not a neutral default — the common centre asserts "there
+ * is nothing scarce here", which is a claim about the population, and it is the
+ * one claim you must not make while you do not yet have one. Specificity has to
+ * clear the zygosity fills below (0,4,0), hence the extra class.
+ *
+ * Width stays 1px, so the geometry rule (§4) holds through the loading state. */
+.view-rarity.gene-grid-container.rarity-unscored .gene-cell:not(.gene-unknown) {
+  background: var(--rarity-missing-bg);
+  border-color: var(--rarity-missing-border);
+  border-style: dashed;
+}
+
 /* Zygosity is carried by fill SHAPE here, not border thickness: solid = pure,
    diagonal split = mixed. For a pure cell the hue already names the allele, so
    the attribute view's thick recessive ring is redundant and is dropped.
