@@ -127,11 +127,36 @@ function buildLookup(
   };
 }
 
-interface TallyRow {
-  gene_id: string;
+interface AlleleSumRow {
   pure_d: number;
   pure_r: number;
   mixed: number;
+}
+
+/**
+ * The three per-group allele accumulators, shared by both aggregates below so
+ * they cannot drift in how they count.
+ *
+ * **No `'?'` predicate, deliberately.** The obvious `AND gene_type <> '?'`
+ * cannot be used: `resolveNamedParams` rewrites named params to positional `?`,
+ * so a literal `'?'` in the SQL is miscounted as a placeholder. It is not needed
+ * anyway — `?` rows match none of the three arms and so contribute 0 to every
+ * sum, which *is* the rule that unknown readings count toward neither numerator
+ * nor denominator.
+ */
+const ALLELE_SUMS = `SUM(CASE WHEN gene_type = 'D' THEN 1 ELSE 0 END) AS pure_d,
+            SUM(CASE WHEN gene_type = 'R' THEN 1 ELSE 0 END) AS pure_r,
+            SUM(CASE WHEN gene_type = 'x' THEN 1 ELSE 0 END) AS mixed`;
+
+/**
+ * One aggregated row as a tally. `knownPets` is derived from the three sums
+ * rather than from `COUNT(*)`, which is what excludes `?` readings.
+ */
+function tallyFromRow(row: AlleleSumRow): LocusTally {
+  const pureD = Number(row.pure_d) || 0;
+  const pureR = Number(row.pure_r) || 0;
+  const mixed = Number(row.mixed) || 0;
+  return { knownPets: pureD + pureR + mixed, pureD, pureR, mixed };
 }
 
 /**
@@ -154,38 +179,24 @@ interface TallyRow {
  *
  * For reference the raw row read is 15.3 ms in-process, so the database-side
  * saving is modest; the win that matters is not serialising 58k rows over IPC.
- *
- * **No `'?'` predicate, deliberately.** The obvious `AND gene_type <> '?'`
- * cannot be used: `resolveNamedParams` rewrites named params to positional
- * `?`, so a literal `'?'` in the SQL is miscounted as a placeholder. It is
- * not needed anyway — `?` rows match none of the three `CASE WHEN` arms and
- * so contribute 0 to every sum, which *is* the rule that unknown readings
- * count toward neither numerator nor denominator. `knownPets` is therefore
- * derived from the three sums rather than from `COUNT(*)`.
  */
 async function loadLocusTallies(petIds: readonly number[]): Promise<Map<string, LocusTally>> {
   const out = new Map<string, LocusTally>();
   if (petIds.length === 0) return out;
 
   const { placeholders, params } = buildInClauseParams(petIds, 'pet');
-  const rows = await getDb().select<TallyRow[]>(
-    `SELECT gene_id,
-            SUM(CASE WHEN gene_type = 'D' THEN 1 ELSE 0 END) AS pure_d,
-            SUM(CASE WHEN gene_type = 'R' THEN 1 ELSE 0 END) AS pure_r,
-            SUM(CASE WHEN gene_type = 'x' THEN 1 ELSE 0 END) AS mixed
+  const rows = await getDb().select<(AlleleSumRow & { gene_id: string })[]>(
+    `SELECT gene_id, ${ALLELE_SUMS}
      FROM pet_genes WHERE pet_id IN (${placeholders}) GROUP BY gene_id`,
     params,
   );
 
   for (const row of rows) {
-    const pureD = Number(row.pure_d) || 0;
-    const pureR = Number(row.pure_r) || 0;
-    const mixed = Number(row.mixed) || 0;
-    const knownPets = pureD + pureR + mixed;
+    const tally = tallyFromRow(row);
     // A locus where every reading is `?` aggregates to all-zero. Drop it so
     // the map means the same thing as `computeLocusFrequencies` produces.
-    if (knownPets === 0) continue;
-    out.set(row.gene_id, { knownPets, pureD, pureR, mixed });
+    if (tally.knownPets === 0) continue;
+    out.set(row.gene_id, tally);
   }
   return out;
 }
@@ -203,21 +214,13 @@ async function loadLocusTallies(petIds: readonly number[]): Promise<Map<string, 
  */
 async function loadPartialPetCount(petIds: readonly number[]): Promise<number> {
   const { placeholders, params } = buildInClauseParams(petIds, 'pet');
-  const rows = await getDb().select<{ pet_id: number; pure_d: number; pure_r: number; mixed: number }[]>(
-    `SELECT pet_id,
-            SUM(CASE WHEN gene_type = 'D' THEN 1 ELSE 0 END) AS pure_d,
-            SUM(CASE WHEN gene_type = 'R' THEN 1 ELSE 0 END) AS pure_r,
-            SUM(CASE WHEN gene_type = 'x' THEN 1 ELSE 0 END) AS mixed
+  const rows = await getDb().select<(AlleleSumRow & { pet_id: number })[]>(
+    `SELECT pet_id, ${ALLELE_SUMS}
      FROM pet_genes WHERE pet_id IN (${placeholders}) GROUP BY pet_id`,
     params,
   );
 
-  const knownByPet = new Map(
-    rows.map((row) => [
-      Number(row.pet_id),
-      (Number(row.pure_d) || 0) + (Number(row.pure_r) || 0) + (Number(row.mixed) || 0),
-    ]),
-  );
+  const knownByPet = new Map(rows.map((row) => [Number(row.pet_id), tallyFromRow(row).knownPets]));
   // A pet with no rows at all reads as zero known, not as absent — otherwise it
   // would drop out of the comparison it is most relevant to.
   const known = petIds.map((id) => knownByPet.get(id) ?? 0);
