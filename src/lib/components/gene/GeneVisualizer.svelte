@@ -27,6 +27,7 @@ import {
   type ParsedGene,
   parseEffect,
 } from '$lib/utils/geneAnalysis.js';
+import { RARITY_BUCKET_NEVER, RARITY_STEP_LABELS } from '$lib/utils/geneFrequency.js';
 import { computeGeneCellSize } from '$lib/utils/geneGridCells.js';
 import {
   updateStats as accumulateStats,
@@ -1175,14 +1176,30 @@ const blockIndices = $derived.by(() => {
                                  common centre, hue saying which allele is scarce. -->
                             <div class="legend-row rarity-legend" data-testid="rarity-legend">
                                 <span class="legend-label">Rare recessive</span>
-                                {#each [4, 3, 2, 1] as b (b)}
-                                    <span class="rarity-swatch" style="background: var(--rarity-r-{b})"></span>
+                                {#each [5, 4, 3, 2, 1] as b (b)}
+                                    <span
+                                        class="rarity-swatch"
+                                        class:rarity-swatch-never={b === RARITY_BUCKET_NEVER}
+                                        style="background: var(--rarity-r-{b})"
+                                        title={RARITY_STEP_LABELS[b]}
+                                    ></span>
                                 {/each}
                                 <span class="rarity-swatch" style="background: var(--rarity-neutral)" title="Common"></span>
-                                {#each [1, 2, 3, 4] as b (b)}
-                                    <span class="rarity-swatch" style="background: var(--rarity-d-{b})"></span>
+                                {#each [1, 2, 3, 4, 5] as b (b)}
+                                    <span
+                                        class="rarity-swatch"
+                                        class:rarity-swatch-never={b === RARITY_BUCKET_NEVER}
+                                        style="background: var(--rarity-d-{b})"
+                                        title={RARITY_STEP_LABELS[b]}
+                                    ></span>
                                 {/each}
                                 <span class="legend-label">Rare dominant</span>
+
+                                <!-- The outermost step earns its own label: it is not one more
+                                     shade of scarce but the one reading you cannot breed your
+                                     way to, so it is what a capture decision turns on. -->
+                                <span class="rarity-swatch rarity-swatch-never" style="background: var(--rarity-r-5)"></span>
+                                <span class="legend-label legend-label-muted">Never seen</span>
 
                                 <span class="rarity-swatch rarity-swatch-missing" title="Not enough data"></span>
                                 <span class="legend-label legend-label-muted">No data</span>
@@ -1401,10 +1418,25 @@ const blockIndices = $derived.by(() => {
         margin: 0 -0.3em;
     }
 
+    /* Same 1px width the grid's cells use, so the legend swatch shows the real
+       marker rather than an exaggerated one. */
+    .rarity-swatch-never {
+        border-color: var(--rarity-never-edge);
+    }
+
     .rarity-swatch-missing {
         background: var(--rarity-missing-bg);
         border: 2px dashed var(--rarity-missing-border);
         margin: 0 0.25em 0 1.5em;
+    }
+
+    /* The standalone "Never seen" key sits apart from the ramp it repeats. */
+    .rarity-swatch-never + .legend-label {
+        margin-right: 0.25em;
+    }
+
+    .legend-label + .rarity-swatch-never {
+        margin-left: 1.5em;
     }
 
     .legend-item {

@@ -6,6 +6,8 @@ import {
   computeLocusFrequencies,
   isMeasurable,
   type LocusTally,
+  RARITY_BUCKET_NEVER,
+  RARITY_BUCKET_SOLE,
   RARITY_LEVELS,
   rarityBucket,
 } from '$lib/utils/geneFrequency.js';
@@ -74,7 +76,7 @@ describe('the confound genotype counting introduced', () => {
     const t = computeLocusFrequencies(popAt([X, ...Array(21).fill(D)])).get('01A1') as LocusTally;
     expect(alleleFrequency(t, R)).toBeCloseTo(1 / 44, 4);
     expect(alleleCarriers(t, R)).toBe(1);
-    expect(rarityBucket(t, R)).toBe(RARITY_LEVELS - 1);
+    expect(rarityBucket(t, R)).toBe(RARITY_BUCKET_SOLE);
   });
 });
 
@@ -155,13 +157,13 @@ describe('rarityBucket — the sole-carrier step', () => {
 
   it('fires at every baseline size at or above the gate', () => {
     for (const n of [10, 20, 40]) {
-      expect(rarityBucket(soleCarrier(n), R)).toBe(RARITY_LEVELS - 1);
+      expect(rarityBucket(soleCarrier(n), R)).toBe(RARITY_BUCKET_SOLE);
     }
   });
 
   it('does not fire below the gate — it would get louder as the baseline shrinks', () => {
     for (const n of [3, 5, 9]) {
-      expect(rarityBucket(soleCarrier(n), R)).not.toBe(RARITY_LEVELS - 1);
+      expect(rarityBucket(soleCarrier(n), R)).not.toBe(RARITY_BUCKET_SOLE);
     }
   });
 
@@ -188,7 +190,7 @@ describe('rarityBucket — the sole-carrier step', () => {
   });
 
   it('fires symmetrically on the dominant arm', () => {
-    expect(rarityBucket(tally(20, 1, 19, 0), D)).toBe(RARITY_LEVELS - 1);
+    expect(rarityBucket(tally(20, 1, 19, 0), D)).toBe(RARITY_BUCKET_SOLE);
   });
 
   it('deliberately breaks monotonicity in frequency', () => {
@@ -199,6 +201,14 @@ describe('rarityBucket — the sole-carrier step', () => {
   });
 });
 
+/**
+ * Monomorphic loci — the never-seen step.
+ *
+ * These used to render at the neutral centre on the argument that a settled
+ * locus has nothing to act on. That holds only if your own stock is the whole
+ * world; wild pets carry alleles nobody local has, so "never seen" is the most
+ * actionable reading before a capture, and it now takes the top step.
+ */
 describe('monomorphic loci', () => {
   it('leaves the absent allele at frequency 0 with no carriers', () => {
     const t = computeLocusFrequencies(popAt([D, D, D, D])).get('01A1') as LocusTally;
@@ -206,23 +216,52 @@ describe('monomorphic loci', () => {
     expect(alleleCarriers(t, R)).toBe(0);
   });
 
-  it('never reaches the sole-carrier step, since that needs exactly one carrier', () => {
-    const t = tally(30, 30, 0, 0);
-    expect(rarityBucket(t, R)).not.toBe(RARITY_LEVELS - 1);
+  it('ranks an allele nobody carries above a sole carrier', () => {
+    const never = tally(30, 30, 0, 0);
+    const sole = tally(30, 29, 0, 1);
+    expect(rarityBucket(never, R)).toBe(RARITY_BUCKET_NEVER);
+    expect(rarityBucket(sole, R)).toBe(RARITY_BUCKET_SOLE);
+    expect(rarityBucket(never, R)).toBeGreaterThan(rarityBucket(sole, R) as number);
   });
 
-  it('renders an absent allele as COMMON, not as the rarest thing on the grid', () => {
-    // Frequency 0 would otherwise fall through every band to the lowest one.
-    // Nobody carries it, so there is nothing to obtain — it is absent, not
-    // scarce. Unreachable per-pet (the pet is in its own population) but the
-    // genome map hits it at ~13% of loci.
-    const t = tally(30, 30, 0, 0);
-    expect(alleleCarriers(t, R)).toBe(0);
-    expect(rarityBucket(t, R)).toBe(0);
+  it('is the top of the scale, so no bucket sits beyond it', () => {
+    expect(RARITY_BUCKET_NEVER).toBe(RARITY_LEVELS - 1);
   });
 
-  it('still ranks a single carrier as rarest — 0 and 1 carriers are opposite ends', () => {
-    expect(rarityBucket(tally(30, 30, 0, 0), R)).toBe(0);
-    expect(rarityBucket(tally(30, 29, 0, 1), R)).toBe(RARITY_LEVELS - 1);
+  it('fires symmetrically on the dominant arm', () => {
+    expect(rarityBucket(tally(30, 0, 30, 0), D)).toBe(RARITY_BUCKET_NEVER);
+  });
+
+  it('is gated like the sole-carrier step — "nobody has it" is trivial at N=3', () => {
+    // Ungated this gets louder as the baseline shrinks, which is the mirror of
+    // the problem the gate exists to fix: with three pets most loci are
+    // monomorphic, so the loudest colour would carpet the map.
+    for (const n of [10, 20, 40]) {
+      expect(rarityBucket(tally(n, n, 0, 0), R)).toBe(RARITY_BUCKET_NEVER);
+    }
+    for (const n of [2, 3, 5, 9]) {
+      expect(rarityBucket(tally(n, n, 0, 0), R)).not.toBe(RARITY_BUCKET_NEVER);
+    }
+  });
+
+  it('falls back to the neutral centre below the gate, not to missing data', () => {
+    // Below the gate the locus is still measured — it just makes no claim about
+    // scarcity, and neutral is the honest reading for "no evidence either way".
+    expect(rarityBucket(tally(5, 5, 0, 0), R)).toBe(0);
+    expect(rarityBucket(tally(5, 5, 0, 0), R)).not.toBeNull();
+  });
+
+  it('stays below minKnown as missing data rather than never-seen', () => {
+    // One pet, 2 known alleles: under the 4-allele floor, so the locus is not
+    // scored at all. "Never seen" would be a claim the sample cannot support.
+    expect(rarityBucket(tally(1, 1, 0, 0), R)).toBeNull();
+  });
+
+  it('is unreachable for the allele a pet actually carries', () => {
+    // The per-pet lens only consults the arms its cell holds, and the pet is in
+    // its own denominator — so its own allele always has at least one carrier.
+    const withPet = computeLocusFrequencies(popAt([X, D, D, D, D, D, D, D, D, D])).get('01A1') as LocusTally;
+    expect(alleleCarriers(withPet, R)).toBe(1);
+    expect(rarityBucket(withPet, R)).toBe(RARITY_BUCKET_SOLE);
   });
 });

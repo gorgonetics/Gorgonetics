@@ -44,6 +44,12 @@
   --rarity-cell-edge: color-mix(in oklab, var(--text-muted) 45%, transparent);
   --rarity-missing-bg: var(--bg-tertiary);
   --rarity-missing-border: color-mix(in oklab, var(--text-muted) 55%, transparent);
+  /* "Never seen" carries a second channel beyond the pure hue: an allele no pet
+     of yours has is categorically different from a scarce one, and the map is
+     scanned rather than read, so it should be findable without comparing
+     shades. Width stays 1px — the §4 rule is about uniform GEOMETRY, and a
+     colour-only change keeps every cell's painted area identical. */
+  --rarity-never-edge: color-mix(in oklab, var(--text-primary) 75%, transparent);
 }
 
 [data-theme="dark"] {
@@ -61,11 +67,16 @@
   --rarity-d-1: color-mix(in oklab, var(--rarity-purple) 32%, transparent);
   --rarity-d-2: color-mix(in oklab, var(--rarity-purple) 55%, transparent);
   --rarity-d-3: color-mix(in oklab, var(--rarity-purple) 78%, transparent);
-  --rarity-d-4: var(--rarity-purple);
+  /* The pure hue moves to bucket 5, so the sole-carrier step gives way by one
+     notch. The frequency thresholds are untouched — this is the ramp's top end
+     making room for a step beyond it, not a recalibration. */
+  --rarity-d-4: color-mix(in oklab, var(--rarity-purple) 85%, transparent);
+  --rarity-d-5: var(--rarity-purple);
   --rarity-r-1: color-mix(in oklab, var(--rarity-orange) 32%, transparent);
   --rarity-r-2: color-mix(in oklab, var(--rarity-orange) 55%, transparent);
   --rarity-r-3: color-mix(in oklab, var(--rarity-orange) 78%, transparent);
-  --rarity-r-4: var(--rarity-orange);
+  --rarity-r-4: color-mix(in oklab, var(--rarity-orange) 85%, transparent);
+  --rarity-r-5: var(--rarity-orange);
 }
 
 /* Every cell gets the SAME hairline — that is what keeps the grid crisp.
@@ -83,7 +94,10 @@
  * border-box` this changes no geometry at all, only how much colour shows. */
 .view-rarity.gene-grid-container .gene-cell:not(.gene-unknown) {
   border-width: 1px;
-  border-color: var(--rarity-cell-edge);
+  /* The injected sheet sets `--rarity-edge` on never-seen cells only; every
+     other cell falls through to the uniform hairline. Keeping the indirection
+     here means the stylesheet builder still only ever sets custom properties. */
+  border-color: var(--rarity-edge, var(--rarity-cell-edge));
   background: var(--rarity-neutral);
 }
 

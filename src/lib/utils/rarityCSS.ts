@@ -11,7 +11,7 @@
  */
 
 import { GeneType } from '$lib/types/index.js';
-import { RARITY_LEVELS } from '$lib/utils/geneFrequency.js';
+import { RARITY_BUCKET_NEVER, RARITY_LEVELS } from '$lib/utils/geneFrequency.js';
 
 /** The scoping selector. Matches the container class the view toggles on. */
 const SCOPE = '.view-rarity.gene-grid-container';
@@ -54,9 +54,9 @@ function missingSelectorList(geneIds: readonly string[]): string {
 
 /**
  * Emit **two independent partitions** over the rendered gene ids — one per
- * allele arm — plus an explicit missing-data set.
+ * allele arm — plus a never-seen set and an explicit missing-data set.
  *
- * Five buckets per arm is 10 rules, not 25: the arms never need to be
+ * Six buckets per arm is 12 rules, not 36: the arms never need to be
  * crossed, because a cell reads `--rarity-dom` and `--rarity-rec`
  * independently. A `D` cell receives only the dominant property, an `R` cell
  * only the recessive, and an `x` cell both — which is what makes its diagonal
@@ -74,6 +74,10 @@ export function buildRarityCSS({ cells, lookup }: RarityCSSInput): string {
   const dom: string[][] = Array.from({ length: RARITY_LEVELS }, () => []);
   const rec: string[][] = Array.from({ length: RARITY_LEVELS }, () => []);
   const missing: string[] = [];
+  // Cells holding an allele nobody carries. A second channel on top of the pure
+  // hue, because the two complementary arms cannot both be never-seen, so one
+  // border per cell is unambiguous about which half is lit.
+  const never: string[] = [];
 
   for (const { geneId, type } of cells) {
     if (type === GeneType.UNKNOWN) {
@@ -94,12 +98,16 @@ export function buildRarityCSS({ cells, lookup }: RarityCSSInput): string {
     }
     if (dBucket !== null) dom[dBucket].push(geneId);
     if (rBucket !== null) rec[rBucket].push(geneId);
+    if (dBucket === RARITY_BUCKET_NEVER || rBucket === RARITY_BUCKET_NEVER) never.push(geneId);
   }
 
   const out: string[] = [];
   for (let b = 0; b < RARITY_LEVELS; b++) {
     if (dom[b].length > 0) out.push(`${selectorList(dom[b])} { --rarity-dom: var(--rarity-d-${b}); }`);
     if (rec[b].length > 0) out.push(`${selectorList(rec[b])} { --rarity-rec: var(--rarity-r-${b}); }`);
+  }
+  if (never.length > 0) {
+    out.push(`${selectorList(never)} { --rarity-edge: var(--rarity-never-edge); }`);
   }
   if (missing.length > 0) {
     out.push(

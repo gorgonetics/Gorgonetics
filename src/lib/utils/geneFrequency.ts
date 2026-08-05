@@ -45,13 +45,32 @@ export interface LocusTally {
   mixed: number;
 }
 
-/** Number of ordinal rarity steps, common (0) → sole carrier (4). */
-export const RARITY_LEVELS = 5;
+/** Number of ordinal rarity steps, common (0) → never seen (5). */
+export const RARITY_LEVELS = 6;
+
+/**
+ * Exactly one pet in the population carries the allele. Gated — see
+ * `SOLE_CARRIER_MIN_PETS`.
+ */
+export const RARITY_BUCKET_SOLE = 4;
+
+/**
+ * **Nobody** in the population carries the allele. The loudest step, and the
+ * one step that is not a frequency at all.
+ *
+ * This reverses an earlier decision to render absent alleles at the neutral
+ * centre. That rested on "a monomorphic locus is settled, there is nothing to
+ * obtain" — true only if your own stock is the whole world. It is not: wild pets
+ * carry alleles no pet of yours has, so an allele you have **never seen** is the
+ * single most valuable thing a locus can tell you before a capture (#367), not
+ * the least. Same gate as the sole-carrier step, for the same reason.
+ */
+export const RARITY_BUCKET_NEVER = 5;
 
 /**
  * Frequency floors for buckets 0–2, descending. A frequency at or above
  * `RARITY_THRESHOLDS[i]` lands in bucket `i`; below the last one lands
- * in bucket 3. Bucket 4 is not a frequency — see `rarityBucket`.
+ * in bucket 3. Buckets 4 and 5 are not frequencies — see `rarityBucket`.
  *
  * Calibrated against a real 37-Horse collection rather than guessed:
  * these produce ~13% of rendered halves taking any tint at all, with
@@ -68,16 +87,27 @@ export const RARITY_THRESHOLDS = [0.35, 0.18, 0.07] as const;
 export const DEFAULT_MIN_KNOWN_ALLELES = 4;
 
 /**
- * Minimum known **pets** before the sole-carrier step can fire.
+ * Minimum known **pets** before the two carrier-count steps can fire.
  *
- * Without this gate bucket 4 fails the mirror of the problem it was
- * introduced to fix. "Only one carrier" is trivially true when there is
- * almost nobody to carry anything, so an ungated top step gets *louder*
- * as the baseline shrinks — measured at 0.36% of rendered halves at 30
- * pets but 2.7% at 5 and 7.1% at 3. Gating keeps the loudest colour
- * meaning "scarce across a population big enough to say so".
+ * Without this gate they fail the mirror of the problem they were
+ * introduced to fix. "Only one carrier" — and, worse, "no carrier at
+ * all" — is trivially true when there is almost nobody to carry
+ * anything, so an ungated top step gets *louder* as the baseline shrinks:
+ * measured at 0.36% of rendered halves at 30 pets but 2.7% at 5 and 7.1%
+ * at 3. Gating keeps the loudest colours meaning "scarce across a
+ * population big enough to say so".
+ *
+ * Below the gate both steps fall back to the frequency bands, so a small
+ * collection sees a working frequency scale with no top steps — which is
+ * honest, because at that size there is nothing for them to mean.
  */
 export const SOLE_CARRIER_MIN_PETS = 10;
+
+/**
+ * One label per bucket, indexed by bucket. Lives here rather than in the view so
+ * the legend, the tooltip and the design doc cannot drift from the scale.
+ */
+export const RARITY_STEP_LABELS = ['Common', 'Uncommon', 'Notable', 'Rare', 'Sole carrier', 'Never seen'] as const;
 
 export interface RarityOptions {
   minKnownAlleles?: number;
@@ -152,11 +182,12 @@ export function isMeasurable(tally: LocusTally, opts: RarityOptions = {}): boole
 }
 
 /**
- * Map a locus + allele onto an ordinal rarity step, 0 (common) → 4
- * (sole carrier). Returns `null` when the locus is below the minimum
+ * Map a locus + allele onto an ordinal rarity step, 0 (common) → 5
+ * (never seen). Returns `null` when the locus is below the minimum
  * sample and should render as missing data.
  *
- * **Bucket 4 is a carrier count, not a frequency, and is tested first.**
+ * **The top two steps are carrier counts, not frequencies, and are tested
+ * first.**
  * A fixed frequency floor is unreachable on small baselines — a single
  * mixed carrier sits at `1/(2N)`, so a `< 0.02` rule only ever fires
  * above 25 pets, i.e. the loudest step silently would not exist for most
@@ -172,19 +203,21 @@ export function rarityBucket(tally: LocusTally, allele: Allele, opts: RarityOpti
   if (!isMeasurable(tally, opts)) return null;
 
   const carriers = alleleCarriers(tally, allele);
-
-  // An allele NOBODY carries is absent, not scarce: there is nothing to
-  // obtain, so it recedes to the common centre rather than screaming at the
-  // rare end (frequency 0 would otherwise fall through to the lowest band).
-  //
-  // Unreachable in the per-pet view — the pet is always in its own population,
-  // so a rendered cell is by construction a carrier — but the genome map has no
-  // pet and scores every locus, where it is 12.9% of them.
-  if (carriers === 0) return 0;
-
   const soleMin = opts.soleCarrierMinPets ?? SOLE_CARRIER_MIN_PETS;
+
+  // An allele NOBODY carries is the loudest thing on the scale, not the
+  // quietest: it is the one reading that says "this cannot be bred from what
+  // you own", which is exactly what you want to know before a capture.
+  //
+  // Mostly a genome-map phenomenon — 12.9% of loci in a 30-pet collection. On
+  // the per-pet grid a rendered cell is normally a carrier by construction,
+  // since the pet sits in its own population; the exception is an unstabled pet
+  // viewed against the `stabled` baseline, where "no stabled pet carries this"
+  // is a real and useful reading, so the step is not suppressed per surface.
+  if (carriers === 0) return tally.knownPets >= soleMin ? RARITY_BUCKET_NEVER : 0;
+
   if (carriers === 1 && tally.knownPets >= soleMin) {
-    return RARITY_LEVELS - 1;
+    return RARITY_BUCKET_SOLE;
   }
 
   const freq = alleleFrequency(tally, allele);

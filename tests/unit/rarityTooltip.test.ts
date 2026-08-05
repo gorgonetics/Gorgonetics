@@ -195,7 +195,16 @@ describe('buildRarityTooltip — honest about missing evidence', () => {
     const content = buildRarityTooltip(stub({ '01A4': tally(20, 20, 0, 0) }), '01A4', 'Horses', NEUTRAL_EFFECTS);
     expect(content.lines[0]).toContain('100.0%');
     expect(content.lines[1]).toContain('0.0%');
-    expect(content.lines[1]).toContain('0 carriers');
+  });
+
+  it('says "never seen" rather than "0 carriers" — that reading is acted on differently', () => {
+    // An allele nobody owns cannot be bred for, only captured (#367). The words
+    // carry that; the number does not.
+    const content = buildRarityTooltip(stub({ '01A4': tally(20, 20, 0, 0) }), '01A4', 'Horses', NEUTRAL_EFFECTS);
+    expect(content.lines[1]).toContain('never seen');
+    expect(content.lines[1]).not.toContain('0 carriers');
+    // The arm that IS carried still counts carriers.
+    expect(content.lines[0]).toContain('20 carriers');
   });
 });
 

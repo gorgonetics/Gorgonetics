@@ -44,20 +44,60 @@ describe('buildRarityCSS', () => {
     expect(css).toContain('--rarity-rec: var(--rarity-r-4)');
   });
 
-  it('emits at most 10 bucket rules however many cells there are', () => {
-    // 200 loci across all five buckets on both arms.
+  it('emits at most 13 rules however many cells there are', () => {
+    // 200 loci across all six buckets on both arms: 12 bucket rules plus the
+    // never-seen edge rule. Two arms × six steps never needs crossing.
     const map: Record<string, { D: number; R: number }> = {};
     const list: [string, GeneType][] = [];
     for (let i = 0; i < 200; i++) {
       const id = `01A${i}`;
-      map[id] = { D: i % 5, R: (i + 2) % 5 };
+      map[id] = { D: i % 6, R: (i + 2) % 6 };
       list.push([id, X]);
     }
     const css = buildRarityCSS({ cells: cells(...list), lookup: stub(map) });
     const rules = css.split('}').filter((r) => r.trim()).length;
-    expect(rules).toBeLessThanOrEqual(10);
+    expect(rules).toBeLessThanOrEqual(13);
     // ...and every locus is still covered.
     for (let i = 0; i < 200; i++) expect(css).toContain(`data-gene-id="01A${i}"`);
+  });
+
+  it('marks a never-seen cell with the distinct edge as well as the pure hue', () => {
+    // Two channels on purpose: the map is scanned rather than read, so an allele
+    // nobody owns should be findable without comparing shades.
+    const css = buildRarityCSS({
+      cells: cells(['01A1', X]),
+      lookup: stub({ '01A1': { D: 0, R: 5 } }),
+    });
+    expect(css).toContain('--rarity-rec: var(--rarity-r-5)');
+    expect(css).toContain('--rarity-edge: var(--rarity-never-edge)');
+  });
+
+  it('fires the edge on the dominant arm too', () => {
+    const css = buildRarityCSS({
+      cells: cells(['01A1', D]),
+      lookup: stub({ '01A1': { D: 5 } }),
+    });
+    expect(css).toContain('--rarity-edge: var(--rarity-never-edge)');
+  });
+
+  it('leaves every other cell on the uniform hairline', () => {
+    // Including a sole carrier: one step below, and not a different KIND of
+    // reading, so it must not borrow the marker.
+    const css = buildRarityCSS({
+      cells: cells(['01A1', D], ['01A2', X]),
+      lookup: stub({ '01A1': { D: 4 }, '01A2': { D: 0, R: 4 } }),
+    });
+    expect(css).not.toContain('--rarity-edge');
+  });
+
+  it('does not mark a cell for an arm it does not carry', () => {
+    // The recessive allele is never seen, but this pet is pure D — the cell says
+    // nothing about the recessive arm, so it takes no marker.
+    const css = buildRarityCSS({
+      cells: cells(['01A1', D]),
+      lookup: stub({ '01A1': { D: 0, R: 5 } }),
+    });
+    expect(css).not.toContain('--rarity-edge');
   });
 
   it('groups loci sharing a bucket into one selector list', () => {

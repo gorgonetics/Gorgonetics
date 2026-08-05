@@ -4,7 +4,7 @@ import { computeRarityLookup, invalidateRarityCache } from '$lib/services/freque
 import { runMigrations } from '$lib/services/migrationService.js';
 import * as petService from '$lib/services/petService.js';
 import { GeneType, type Pet } from '$lib/types/index.js';
-import { computeLocusFrequencies } from '$lib/utils/geneFrequency.js';
+import { computeLocusFrequencies, RARITY_BUCKET_NEVER, RARITY_BUCKET_SOLE } from '$lib/utils/geneFrequency.js';
 import { loadAllPetLoci } from '$lib/utils/petLoci.js';
 import { buildRarityCSS } from '$lib/utils/rarityCSS.js';
 import { buildRarityTooltip } from '$lib/utils/rarityTooltip.js';
@@ -255,6 +255,55 @@ describe('uneven study depth within one population', () => {
     expect(shaded.some((rule) => rule.selector.includes('01A2'))).toBe(true);
     expect(shaded.some((rule) => rule.selector.includes('01A3'))).toBe(true);
     expect(shaded.every((rule) => !rule.selector.includes('01A4'))).toBe(true);
+  });
+});
+
+/**
+ * The never-seen step end to end (#368): an allele no pet of yours carries is
+ * the top of the scale, because it is the one reading you cannot breed your way
+ * to. Gated to ten known pets like the sole-carrier step.
+ */
+describe('alleles nobody in the population carries', () => {
+  beforeEach(async () => {
+    await closeDatabase();
+    await initDatabase();
+    await runMigrations();
+    invalidateRarityCache();
+  });
+
+  /** `n` horses, all pure dominant at every locus. */
+  async function monomorphic(n: number): Promise<Pet[]> {
+    const pets: Pet[] = [];
+    for (let i = 0; i < n; i++) pets.push(await upload('Horse', `H${i}`, 'DDD'));
+    return pets;
+  }
+
+  it('reaches the top step once the baseline is big enough to say so', async () => {
+    const lookup = await computeRarityLookup(await monomorphic(10), 'Horse');
+
+    expect(lookup.carriers('01A1', R)).toBe(0);
+    expect(lookup.frequency('01A1', R)).toBe(0);
+    expect(lookup.bucketOf('01A1', R)).toBe(RARITY_BUCKET_NEVER);
+    // The allele every pet has is the common centre, not scarce.
+    expect(lookup.bucketOf('01A1', D)).toBe(0);
+  });
+
+  it('stays at the neutral centre on a baseline too small to claim it', async () => {
+    // With three horses most loci are monomorphic; the loudest colour would
+    // carpet the map and mean nothing.
+    const lookup = await computeRarityLookup(await monomorphic(3), 'Horse');
+    expect(lookup.carriers('01A1', R)).toBe(0);
+    expect(lookup.bucketOf('01A1', R)).toBe(0);
+  });
+
+  it('drops back off the top step as soon as one pet carries the allele', async () => {
+    const pets = await monomorphic(10);
+    pets.push(await upload('Horse', 'Carrier', 'xDD'));
+    const lookup = await computeRarityLookup(pets, 'Horse');
+
+    expect(lookup.carriers('01A1', R)).toBe(1);
+    expect(lookup.bucketOf('01A1', R)).toBe(RARITY_BUCKET_SOLE);
+    expect(lookup.bucketOf('01A1', R)).toBeLessThan(RARITY_BUCKET_NEVER);
   });
 });
 

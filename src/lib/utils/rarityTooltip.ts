@@ -51,10 +51,14 @@ function armLine(label: string, frequency: number, carriers: number, effect: str
   // Mark whichever arm is beneficial — both if both are, neither if neither.
   const mark = parsed?.sign === '+' ? ' ✦' : '';
   const effectText = isNoEffect(effect) ? 'no effect' : effect;
+  // "0 carriers" states the number but not what it means. An allele nobody owns
+  // is the one reading the player acts on differently — it cannot be bred for,
+  // only captured — so it gets words, not arithmetic.
+  const source = carriers === 0 ? 'never seen' : `${carriers} carrier${carriers === 1 ? '' : 's'}`;
   return (
     `${label} <strong>${(frequency * 100).toFixed(1)}%</strong> ` +
     `<span style="color: ${colour}">${escapeHtml(effectText)}${mark}</span> ` +
-    `<span style="color: ${MUTED}">· ${carriers} carrier${carriers === 1 ? '' : 's'}</span>`
+    `<span style="color: ${MUTED}">· ${source}</span>`
   );
 }
 
