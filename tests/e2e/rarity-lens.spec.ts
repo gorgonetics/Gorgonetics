@@ -153,6 +153,86 @@ test.describe('Gene rarity lens', () => {
     expect(await geometry(page)).toEqual(before);
   });
 
+  test('every zygosity paints the same area, and no cell paints a border colour', async ({ page }) => {
+    // `.gene-cell` carries an unconditional `border: 2px solid` (4px on
+    // recessive) and `box-sizing: border-box` is global, so a hued or thicker
+    // border in this view shrinks the fill and makes split cells read as smaller
+    // than their neighbours — the reason §4 settled on one uniform hairline.
+    await openPetDetail(page);
+    await page.getByRole('button', { name: 'Rarity', exact: true }).click();
+    await expect(page.getByTestId('rarity-legend')).toBeVisible();
+    // The injected sheet arrives with the baseline, and `.gene-cell` transitions
+    // `all 0.2s` — measuring before both have landed reads a border interpolating
+    // between the attribute view's 2px and this view's hairline.
+    await expect
+      .poll(async () => (await page.locator('style#gene-visualizer-rarity').textContent())?.length ?? 0)
+      .toBeGreaterThan(0);
+    await page.waitForTimeout(400);
+
+    const measured = await page.evaluate(() => {
+      const box = (zygosity: string) => {
+        // Skip cells the baseline could not score: below `minKnown` they are
+        // deliberately dashed in their own colour, which is not the rule under
+        // test here.
+        const cell = [
+          ...document.querySelectorAll(
+            `.gene-grid-container.view-rarity .gene-cell[data-zygosity="${zygosity}"]:not(.gene-unknown)`,
+          ),
+        ].find((el) => getComputedStyle(el).borderStyle === 'solid') as HTMLElement | undefined;
+        if (!cell) return null;
+        const style = getComputedStyle(cell);
+        const rect = cell.getBoundingClientRect();
+        const borders = [style.borderTopWidth, style.borderRightWidth, style.borderBottomWidth, style.borderLeftWidth];
+        const width = Number.parseFloat(style.borderTopWidth);
+        return {
+          // The fill is the box inset by its border on each side — identical
+          // outer boxes with different borders are NOT identical fills.
+          filled: `${Math.round((rect.width - 2 * width) * 100) / 100}x${Math.round((rect.height - 2 * width) * 100) / 100}`,
+          borders: [...new Set(borders)],
+          colours: [
+            ...new Set([style.borderTopColor, style.borderRightColor, style.borderBottomColor, style.borderLeftColor]),
+          ],
+        };
+      };
+      // Resolve the tokens a border must never be painted with.
+      const resolve = (token: string) => {
+        const probe = document.createElement('div');
+        probe.style.color = `var(${token})`;
+        document.body.appendChild(probe);
+        const value = getComputedStyle(probe).color;
+        probe.remove();
+        return value;
+      };
+      const armColours = [1, 2, 3, 4].flatMap((b) => [resolve(`--rarity-d-${b}`), resolve(`--rarity-r-${b}`)]);
+      return {
+        dominant: box('dominant'),
+        recessive: box('recessive'),
+        mixed: box('mixed'),
+        edge: resolve('--rarity-cell-edge'),
+        armColours,
+      };
+    });
+
+    for (const zygosity of ['dominant', 'recessive', 'mixed'] as const) {
+      expect(measured[zygosity], `no ${zygosity} cell rendered to measure`).not.toBeNull();
+    }
+    // One uniform hairline: same width on all four sides of all three.
+    expect(measured.dominant?.borders).toEqual(['1px']);
+    expect(measured.recessive?.borders, 'the recessive 4px ring is dropped in this view').toEqual(['1px']);
+    expect(measured.mixed?.borders).toEqual(['1px']);
+    // Same painted area, so a split cell cannot look smaller than a pure one.
+    expect(measured.recessive?.filled).toBe(measured.dominant?.filled);
+    expect(measured.mixed?.filled).toBe(measured.dominant?.filled);
+    // One neutral edge everywhere, and never an arm hue: a coloured border would
+    // put rarity on the outline where it misrepresents a two-armed cell.
+    for (const zygosity of ['dominant', 'recessive', 'mixed'] as const) {
+      expect(measured[zygosity]?.colours, `${zygosity} border is not the uniform edge`).toEqual([measured.edge]);
+      for (const arm of measured.armColours) {
+        expect(measured[zygosity]?.colours).not.toContain(arm);
+      }
+    }
+  });
+
   test('the lens actually colours cells', async ({ page }) => {
     await openPetDetail(page);
     await page.getByRole('button', { name: 'Rarity', exact: true }).click();
