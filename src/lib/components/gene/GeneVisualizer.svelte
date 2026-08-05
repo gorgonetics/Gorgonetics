@@ -25,7 +25,6 @@ import {
   isNoEffect,
   type ParsedChromosome,
   type ParsedGene,
-  parseEffect,
 } from '$lib/utils/geneAnalysis.js';
 import { RARITY_BUCKET_NEVER, RARITY_STEP_LABELS } from '$lib/utils/geneFrequency.js';
 import { computeGeneCellSize } from '$lib/utils/geneGridCells.js';
