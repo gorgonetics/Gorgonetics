@@ -196,10 +196,26 @@ class InMemoryDatabase implements DatabaseAdapter {
     // Without this branch the query would fall through to the generic
     // `SELECT … FROM` case below and silently return raw rows instead of
     // aggregates, so dev and tests would disagree with production SQLite.
+    // The group-by column is NOT anchored to end-of-string: a trailing ORDER BY,
+    // HAVING or LIMIT would then fall through to the raw-rows branch below and
+    // return one row per pet per locus with no aggregate columns — silently
+    // yielding empty tallies in dev and test while the packaged SQLite build
+    // works, which is exactly the dev/prod divergence this branch exists to stop.
     const q0n = q0.replace(/\s+/g, ' ').trim();
-    const groupMatch = q0n.match(/^select\s+(\w+)\s*,\s*(.+?)\s+from\s+(\w+)\b.*?\s+group\s+by\s+(\w+)\s*$/i);
+    const groupMatch = q0n.match(/^select\s+(\w+)\s*,\s*(.+?)\s+from\s+(\w+)\b.*?\s+group\s+by\s+(\w+)\b(.*)$/i);
     if (groupMatch) {
-      const [, groupCol, selectList, table, groupBy] = groupMatch;
+      const [, groupCol, selectList, table, groupBy, tail] = groupMatch;
+      // ORDER BY / HAVING / LIMIT are not emulated. Throwing is deliberate: the
+      // alternative is to ignore them, which means dev and test quietly disagree
+      // with production SQLite — the failure mode this whole branch exists to
+      // prevent. A loud error tells whoever adds such a query to extend this.
+      const unsupported = tail.trim().match(/^(order\s+by|having|limit)\b/i);
+      if (unsupported) {
+        throw new Error(
+          `InMemoryDatabase: GROUP BY with a trailing ${unsupported[1].toUpperCase()} is not emulated (${q0n}). ` +
+            'Extend the aggregate branch rather than relying on SQLite-only behaviour.',
+        );
+      }
       const aggregates = [
         ...selectList.matchAll(
           /sum\(\s*case\s+when\s+(\w+)\s*=\s*'([^']*)'\s+then\s+1\s+else\s+0\s+end\s*\)\s+as\s+(\w+)/gi,

@@ -1,7 +1,7 @@
 import { expect, type Page } from '@playwright/test';
 
 /**
- * Read something off the page repeatedly until two consecutive reads agree.
+ * Read something off the page repeatedly until it stops changing.
  *
  * The genome grids animate: `.gene-cell` carries `transition: all 0.2s ease`, and
  * `--cell-size` starts at a fallback until the ResizeObserver lands. So a
@@ -9,18 +9,30 @@ import { expect, type Page } from '@playwright/test';
  * colour space, no less) or width animating, and reports differences that are
  * pure noise — including between a surface and itself.
  *
+ * **Throws if it never settles**, and requires `stableReads` consecutive
+ * agreements rather than one lucky pair. Returning the last unsettled value
+ * instead would hand the caller two mid-flight snapshots that then compare equal
+ * to each other — a green test over a broken invariant, which is precisely the
+ * regression class these helpers exist to catch (a ResizeObserver feedback loop
+ * that oscillates cell size never settles at all).
+ *
  * Compares by JSON, so `read` must return a plain serialisable value.
  */
-export async function settled<T>(page: Page, read: () => Promise<T>): Promise<T> {
+export async function settled<T>(page: Page, read: () => Promise<T>, stableReads = 3): Promise<T> {
   let previous = JSON.stringify(await read());
-  // Transitions run 200ms; ~3s is a generous ceiling.
-  for (let i = 0; i < 25; i++) {
+  let agreements = 0;
+  // Transitions run 200ms; ~6s is a generous ceiling for a settling grid.
+  for (let i = 0; i < 50; i++) {
     await page.waitForTimeout(120);
     const current = JSON.stringify(await read());
-    if (current === previous) return JSON.parse(current) as T;
+    agreements = current === previous ? agreements + 1 : 0;
     previous = current;
+    if (agreements >= stableReads) return JSON.parse(current) as T;
   }
-  return JSON.parse(previous) as T;
+  throw new Error(
+    `settled(): value never held still for ${stableReads} consecutive reads — the page is likely still animating. ` +
+      `Last read: ${previous.slice(0, 400)}`,
+  );
 }
 
 /**

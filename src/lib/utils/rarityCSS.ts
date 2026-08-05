@@ -35,6 +35,15 @@ export interface RarityCSSInput {
   lookup: RarityBucketSource;
 }
 
+/**
+ * Gene ids come from the `genes` table, so they are data, not literals — and one
+ * unusable id would not merely fail to match: a selector *list* is discarded
+ * whole when any selector in it is invalid, so it would strip the tint from every
+ * other locus sharing that bucket. Ids are `<chr><block><position>`, so this
+ * character class is generous rather than restrictive.
+ */
+const SAFE_GENE_ID = /^[A-Za-z0-9_-]+$/;
+
 function selectorList(geneIds: readonly string[]): string {
   return geneIds.map((id) => `${SCOPE} .gene-cell[data-gene-id="${id}"]`).join(',\n');
 }
@@ -84,6 +93,10 @@ export function buildRarityCSS({ cells, lookup }: RarityCSSInput): string {
       // Already dashed via `gene-unknown`; no rarity signal exists for it.
       continue;
     }
+    // Dropped before it can reach a selector list, where it would take every
+    // locus sharing its bucket down with it. The grid never renders such a cell
+    // either — `buildGenomeMapGrid` and the pet grid both parse the id first.
+    if (!SAFE_GENE_ID.test(geneId)) continue;
     const carriesD = type === GeneType.DOMINANT || type === GeneType.MIXED;
     const carriesR = type === GeneType.RECESSIVE || type === GeneType.MIXED;
 

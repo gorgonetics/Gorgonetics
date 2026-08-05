@@ -24,6 +24,7 @@ import { GeneType, type Pet } from '$lib/types/index.js';
 import { breedFor, effectFor, type GeneEffectData } from '$lib/utils/geneAnalysis.js';
 import { computeGeneCellSize } from '$lib/utils/geneGridCells.js';
 import { buildGenomeMapGrid, type GenomeMapGrid } from '$lib/utils/genomeMapGrid.js';
+import { handleGridNavigation } from '$lib/utils/keyboard.js';
 import { buildRarityCSS, type RarityCell } from '$lib/utils/rarityCSS.js';
 import { buildRarityTooltip, placeRarityTooltip } from '$lib/utils/rarityTooltip.js';
 import { capitalize } from '$lib/utils/string.js';
@@ -180,6 +181,39 @@ $effect(() => {
 });
 
 /**
+ * Keyboard navigation, delegated on the container exactly as the pet grid does.
+ *
+ * Without it the map was reachable by pointer only: a keyboard user could read
+ * exact allele frequencies on a pet's grid but not one cell of the reference map,
+ * and the cells' own `onfocus` tooltip could never fire. Attached imperatively
+ * rather than as `onkeydown` so the container stays a plain, non-interactive
+ * wrapper — the cells are the controls.
+ */
+$effect(() => {
+  const el = containerEl;
+  if (!el) return;
+  const onKeydown = (event: KeyboardEvent) => {
+    const active = document.activeElement as HTMLElement | null;
+    const cell = (active?.closest?.('.gene-cell[data-gene-id]') as HTMLElement | null) ?? null;
+    if ((event.key === 'Enter' || event.key === ' ') && cell) {
+      event.preventDefault();
+      const rect = cell.getBoundingClientRect();
+      showTooltip(cell.dataset.geneId ?? '', rect.left + rect.width / 2, rect.top);
+      return;
+    }
+    if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+    const cells = Array.from(el.querySelectorAll<HTMLElement>('.gene-cell[data-gene-id]'));
+    const current = cell ? cells.indexOf(cell) : -1;
+    if (current < 0) return;
+    const row = cell?.closest('tr');
+    const columns = row ? row.querySelectorAll('.gene-cell[data-gene-id]').length : 1;
+    handleGridNavigation(cells, current, event, columns);
+  };
+  el.addEventListener('keydown', onKeydown);
+  return () => el.removeEventListener('keydown', onKeydown);
+});
+
+/**
  * Whether the baseline in hand is about the species on screen.
  *
  * The animal-type switch reloads the template behind its own `loading` gate, but
@@ -282,7 +316,7 @@ function showTooltip(geneId: string, clientX: number, clientY: number): void {
                                                 data-gene-id={geneId}
                                                 data-zygosity="mixed"
                                                 role="button"
-                                                tabindex="-1"
+                                                tabindex="0"
                                                 aria-label={geneId}
                                                 onmouseenter={(e) => showTooltip(geneId, e.clientX, e.clientY)}
                                                 onmouseleave={() => { tooltipVisible = false; }}

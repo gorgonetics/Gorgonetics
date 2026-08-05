@@ -16,10 +16,12 @@ import {
   type Allele,
   alleleCarriers,
   alleleFrequency,
+  DEFAULT_MIN_KNOWN_ALLELES,
   isMeasurable,
   type LocusTally,
   type RarityOptions,
   rarityBucket,
+  SOLE_CARRIER_MIN_PETS,
 } from '$lib/utils/geneFrequency.js';
 
 const EMPTY_TALLY: LocusTally = Object.freeze({
@@ -97,8 +99,15 @@ export function petsForTier(tier: RarityTier, pets: readonly Pet[]): readonly Pe
  * key when every pet happens to be stabled, which is correct — the
  * baseline really is identical.
  */
-function cacheKey(species: string, petIds: readonly number[]): string {
-  return `${species}|${[...petIds].sort((a, b) => a - b).join(',')}`;
+function cacheKey(species: string, petIds: readonly number[], opts: RarityOptions): string {
+  // The options are part of the key because `buildLookup` closes over them:
+  // `bucketOf` and `measurable` answer differently under different thresholds, so
+  // a key that ignored them would serve the first caller's thresholds to every
+  // later caller for the same population — silently reporting loci as unscorable
+  // for one caller because another had asked with a stricter floor.
+  const minKnown = opts.minKnownAlleles ?? DEFAULT_MIN_KNOWN_ALLELES;
+  const soleMin = opts.soleCarrierMinPets ?? SOLE_CARRIER_MIN_PETS;
+  return `${species}|${minKnown}|${soleMin}|${[...petIds].sort((a, b) => a - b).join(',')}`;
 }
 
 /**
@@ -257,16 +266,28 @@ async function loadPartialPetCount(petIds: readonly number[]): Promise<number> {
  * pets are missing (it groups by locus, not pet), so ask first — one cheap
  * query returning at most one row per pet.
  */
-async function ensureProjected(petIds: readonly number[]): Promise<void> {
+async function ensureProjected(petIds: readonly number[]): Promise<number[]> {
   const { placeholders, params } = buildInClauseParams(petIds, 'pet');
   const present = await getDb().select<{ pet_id: number }[]>(
     `SELECT DISTINCT pet_id FROM pet_genes WHERE pet_id IN (${placeholders})`,
     params,
   );
   const have = new Set(present.map((r) => r.pet_id));
+  const usable: number[] = [];
   for (const id of petIds) {
-    if (!have.has(id)) await ensurePetGenesPopulated(id);
+    if (have.has(id)) {
+      usable.push(id);
+      continue;
+    }
+    // `ensurePetGenesPopulated` returns false for a malformed genome or a failed
+    // write. Such a pet contributes no rows, so counting it in the population
+    // would divide by a pet that is not in the numerator: every frequency reads
+    // low, and a recessive only that pet carries reads as *never seen* — telling
+    // the player to go capture an allele they already own.
+    if (await ensurePetGenesPopulated(id)) usable.push(id);
+    else console.warn(`rarity baseline: pet ${id} has no usable gene projection and is excluded`);
   }
+  return usable;
 }
 
 /**
@@ -288,7 +309,7 @@ export async function computeRarityLookup(
   const key = normalizeSpecies(species);
   const petIds = pets.filter((p) => normalizeSpecies(p.species) === key).map((p) => p.id);
 
-  const cacheId = cacheKey(key, petIds);
+  const cacheId = cacheKey(key, petIds, opts);
   const cached = cache.get(cacheId);
   if (cached) return cached;
 
@@ -298,8 +319,16 @@ export async function computeRarityLookup(
     return remember(cacheId, buildLookup(key, 0, 0, new Map(), opts));
   }
 
-  await ensureProjected(petIds);
-  const loci = await loadLocusTallies(petIds);
-  const partialPets = await loadPartialPetCount(petIds);
-  return remember(cacheId, buildLookup(key, petIds.length, partialPets, loci, opts));
+  // The population is the pets that can actually be measured, so the legend's
+  // count and the frequencies' denominator are the same set. Keyed on the
+  // *requested* ids, though — projecting first would cost a DB round trip on
+  // every cache hit — so recovery from a transient write failure comes from
+  // `invalidateRarityCache`, which `appState.loadPets` calls.
+  const measurableIds = await ensureProjected(petIds);
+  if (measurableIds.length === 0) {
+    return remember(cacheId, buildLookup(key, 0, 0, new Map(), opts));
+  }
+  const loci = await loadLocusTallies(measurableIds);
+  const partialPets = await loadPartialPetCount(measurableIds);
+  return remember(cacheId, buildLookup(key, measurableIds.length, partialPets, loci, opts));
 }

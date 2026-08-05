@@ -175,6 +175,20 @@ describe('buildRarityCSS', () => {
     }
   });
 
+  it('drops a gene id that cannot be written into a selector', () => {
+    // Ids come from the `genes` table, so they are data. A CSS selector LIST is
+    // discarded whole when one selector in it is invalid, so an id carrying a
+    // quote would strip the tint from every other locus in its bucket.
+    const css = buildRarityCSS({
+      cells: cells(['01A1', D], ['bad"id', D], ['01A2', D]),
+      lookup: stub({ '01A1': { D: 2 }, 'bad"id': { D: 2 }, '01A2': { D: 2 } }),
+    });
+    expect(css).not.toContain('bad"id');
+    // ...and its bucket-mates survive.
+    expect(css).toContain('data-gene-id="01A1"');
+    expect(css).toContain('data-gene-id="01A2"');
+  });
+
   it('returns empty CSS for an empty grid rather than a stray rule', () => {
     expect(buildRarityCSS({ cells: [], lookup: stub({}) })).toBe('');
   });

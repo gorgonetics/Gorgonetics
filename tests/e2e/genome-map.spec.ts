@@ -183,6 +183,30 @@ test.describe('Genome map', () => {
     expect(await rect()).toEqual(before);
   });
 
+  test('is reachable and navigable by keyboard', async ({ page }) => {
+    // The map is the one surface where allele frequencies are readable without a
+    // pet, so a keyboard user losing access to it loses the data entirely.
+    await selectSpecies(page, 'horse');
+    const first = page.locator('[data-testid="genome-map-grid"] .gene-cell[data-gene-id]').first();
+    await first.focus();
+    await expect(first).toBeFocused();
+
+    const focusedId = () =>
+      page.evaluate(() => (document.activeElement as HTMLElement | null)?.dataset?.geneId ?? null);
+    const start = await focusedId();
+
+    await page.keyboard.press('ArrowRight');
+    expect(await focusedId(), 'ArrowRight did not move focus').not.toBe(start);
+    await page.keyboard.press('ArrowDown');
+    expect(await focusedId()).not.toBe(start);
+
+    // Enter opens the card for the focused cell, without a pointer anywhere near.
+    await page.keyboard.press('Enter');
+    await expect(page.locator('.gene-tooltip')).toBeVisible();
+    const tip = await page.locator('.gene-tooltip').textContent();
+    expect(tip).toContain(await focusedId());
+  });
+
   test('renders with no pet loaded at all — the map has no pet in it', async ({ page }) => {
     // The map answers "where is there scarce material in my stock", which has no
     // pet in it: the grid comes from the gene template, not from a genome. So it
@@ -253,29 +277,47 @@ test.describe('map and pet grid agree cell for cell', () => {
     await waitForPets(page);
   });
 
-  test('the map spaces its cells and blocks exactly as the pet grid does', async ({ page }) => {
-    // The map shipped with `padding: 0` on its cell containers, which dropped
-    // both the 1px gutter and the block gap: same cells, visibly denser grid,
-    // and narrower than the width `computeGeneCellSize` had budgeted for.
-    await page.getByTestId('roster-open').filter({ hasText: 'Roach' }).click();
-    await expect(page.locator('.gene-grid-container .gene-cell').first()).toBeVisible();
-    const petGrid = await gridPitch(page, '.gene-grid-container');
+  /**
+   * Run at two widths on purpose.
+   *
+   * At 1920 both containers compute a cell size above `GENE_CELL_MAX` and clamp to
+   * it, so a bare `toEqual` between the two surfaces passes trivially — it was
+   * comparing two clamped 24s, not two spacing rules. At 1100 the panels (pet
+   * detail vs `.ref-body`, which has its own padding) resolve to *different*
+   * unclamped sizes, so only the size-independent relations can be asserted:
+   * each surface's own gutter and gap, and the gap being the same number of px on
+   * both. Those are what a padding regression actually breaks.
+   */
+  for (const width of [1920, 1100]) {
+    test(`spaces its cells and blocks as the pet grid does, at ${width}px`, async ({ page }) => {
+      // The map shipped with `padding: 0` on its cell containers, which dropped
+      // both the 1px gutter and the block gap: same cells, visibly denser grid,
+      // and narrower than the width `computeGeneCellSize` had budgeted for.
+      await page.setViewportSize({ width, height: 1080 });
+      await page.getByTestId('roster-open').filter({ hasText: 'Roach' }).click();
+      await expect(page.locator('.gene-grid-container .gene-cell').first()).toBeVisible();
+      const petGrid = await gridPitch(page, '.gene-grid-container');
 
-    await gotoDestination(page, 'Reference');
-    await selectSpecies(page, 'horse');
-    const map = await gridPitch(page, '[data-testid="genome-map-grid"]');
+      await gotoDestination(page, 'Reference');
+      await selectSpecies(page, 'horse');
+      const map = await gridPitch(page, '[data-testid="genome-map-grid"]');
 
-    for (const [surface, geometry] of [
-      ['pet grid', petGrid],
-      ['map', map],
-    ] as const) {
-      // The cell is its slot inset by the 1px gutter on each side.
-      expect(geometry.cellWidth, `${surface} cell width`).toBe(geometry.cellSize - 2);
-      expect(geometry.inBlock, `${surface} column pitch`).toBe(geometry.cellSize);
-      expect(geometry.acrossBlocks, `${surface} block gap`).toBeGreaterThan(geometry.cellSize);
-    }
-    expect(map).toEqual(petGrid);
-  });
+      for (const [surface, geometry] of [
+        ['pet grid', petGrid],
+        ['map', map],
+      ] as const) {
+        // The cell is its slot inset by the 1px gutter on each side.
+        expect(geometry.cellWidth, `${surface} cell width`).toBe(geometry.cellSize - 2);
+        expect(geometry.inBlock, `${surface} column pitch`).toBe(geometry.cellSize);
+        expect(geometry.acrossBlocks, `${surface} block gap`).toBeGreaterThan(geometry.cellSize);
+      }
+      // Size-independent: the block gap is a fixed px value (BLOCK_GAP), so it
+      // must agree across surfaces even when the cell sizes legitimately differ.
+      expect(map.acrossBlocks - map.inBlock, 'block gap differs between surfaces').toBe(
+        petGrid.acrossBlocks - petGrid.inBlock,
+      );
+    });
+  }
 
   test('a locus paints the same colour on the same half on both surfaces', async ({ page }) => {
     // Roach is a horse, so it shares a species — and therefore a baseline — with

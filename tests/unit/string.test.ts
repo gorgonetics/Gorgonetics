@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { capitalize, escapeHtml } from '$lib/utils/string.js';
+import { capitalize, escapeHtml, pluralise } from '$lib/utils/string.js';
 
 describe('capitalize', () => {
   it('raises the first character and leaves the rest alone', () => {
@@ -9,6 +9,18 @@ describe('capitalize', () => {
 
   it('is a no-op on an empty string', () => {
     expect(capitalize('')).toBe('');
+  });
+});
+
+describe('pluralise', () => {
+  it('keeps the singular at one and adds an s otherwise', () => {
+    expect(pluralise(1, 'Horse')).toBe('1 Horse');
+    expect(pluralise(12, 'Horse')).toBe('12 Horses');
+    expect(pluralise(0, 'Horse')).toBe('0 Horses');
+  });
+
+  it('works for the other species without a special case', () => {
+    expect(pluralise(3, 'BeeWasp')).toBe('3 BeeWasps');
   });
 });
 

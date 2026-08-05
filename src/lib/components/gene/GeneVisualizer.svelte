@@ -37,7 +37,7 @@ import {
 import { handleGridNavigation } from '$lib/utils/keyboard.js';
 import { buildRarityCSS, type RarityCell } from '$lib/utils/rarityCSS.js';
 import { buildRarityTooltip, placeRarityTooltip } from '$lib/utils/rarityTooltip.js';
-import { capitalize, escapeHtml } from '$lib/utils/string.js';
+import { capitalize, escapeHtml, pluralise } from '$lib/utils/string.js';
 import GeneTooltip from './GeneTooltip.svelte';
 
 const ALL_ATTRIBUTES = getAllAttributeDisplayInfo();
@@ -1244,7 +1244,7 @@ const blockIndices = $derived.by(() => {
                                              single number here is right for every cell. The
                                              exact per-locus figure belongs in the tooltip,
                                              where it can be. -->
-                                        baseline: {rarityLookup.petCount} {capitalize(currentPet?.species ?? "pets")}
+                                        baseline: {pluralise(rarityLookup.petCount, capitalize(currentPet?.species ?? "pet"))}
                                         {#if rarityLookup.partialPets > 0}
                                             <span
                                                 class="rarity-coverage"

@@ -14,7 +14,7 @@ import { EFFECT_COLORS } from '$lib/theme/gene-colors.js';
 import { GeneType } from '$lib/types/index.js';
 import { isNoEffect, parseEffect } from '$lib/utils/geneAnalysis.js';
 import { type Allele, type LocusTally, RARITY_BUCKET_NEVER } from '$lib/utils/geneFrequency.js';
-import { escapeHtml } from '$lib/utils/string.js';
+import { escapeHtml, pluralise } from '$lib/utils/string.js';
 
 /** Structural subset of `RarityLookup`, so this stays unit-testable with a stub. */
 export interface RarityTooltipSource {
@@ -146,7 +146,7 @@ export function buildRarityTooltip(
 
   const t = lookup.tally(geneId);
   return {
-    subtitle: `${t.knownPets} ${speciesLabel} studied at this locus`,
+    subtitle: `${pluralise(t.knownPets, speciesLabel)} studied at this locus`,
     lines: [
       armLine(
         'Dominant',

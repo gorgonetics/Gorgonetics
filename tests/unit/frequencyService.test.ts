@@ -72,10 +72,31 @@ describe('computeRarityLookup', () => {
     expect(lookup.measurable('01A1')).toBe(false);
     expect(lookup.bucketOf('01A1', D)).toBeNull();
 
-    invalidateRarityCache();
+    // No `invalidateRarityCache()` between these two calls, deliberately: the
+    // options are part of the cache key, so the relaxed request must not be
+    // served the strict baseline. Needing to clear the cache here was the shape
+    // of the bug.
     const relaxed = await computeRarityLookup(one, 'Horse', { minKnownAlleles: 2 });
     expect(relaxed.measurable('01A1')).toBe(true);
     expect(relaxed.bucketOf('01A1', D)).toBe(0);
+    // ...and the strict one is still strict when asked for again.
+    const strictAgain = await computeRarityLookup(one, 'Horse');
+    expect(strictAgain.measurable('01A1')).toBe(false);
+  });
+
+  it('keys the cache on the thresholds, not just the population', async () => {
+    // A sole carrier among 12 pets: bucket 4 by default, but only bucket 3 if the
+    // caller raises the gate above the baseline size. Same pets, same species —
+    // only the options differ, so only the key can tell them apart.
+    const pets: Pet[] = [await upload('Horse', 'Carrier', 'xDD')];
+    for (let i = 0; i < 11; i++) pets.push(await upload('Horse', `H${i}`, 'DDD'));
+
+    const gated = await computeRarityLookup(pets, 'Horse');
+    const raised = await computeRarityLookup(pets, 'Horse', { soleCarrierMinPets: 50 });
+
+    expect(gated).not.toBe(raised);
+    expect(gated.bucketOf('01A1', R)).toBe(RARITY_BUCKET_SOLE);
+    expect(raised.bucketOf('01A1', R)).toBeLessThan(RARITY_BUCKET_SOLE);
   });
 
   it('treats an empty population as a real state, not an error', async () => {
@@ -220,8 +241,8 @@ describe('uneven study depth within one population', () => {
 
     // 5 pets in the population, 3 with a reading here. Quoting 5 would
     // misstate the evidence behind the colour.
-    expect(buildRarityTooltip(lookup, '01A3', 'Horses', effects).subtitle).toBe('3 Horses studied at this locus');
-    expect(buildRarityTooltip(lookup, '01A1', 'Horses', effects).subtitle).toBe('5 Horses studied at this locus');
+    expect(buildRarityTooltip(lookup, '01A3', 'Horse', effects).subtitle).toBe('3 Horses studied at this locus');
+    expect(buildRarityTooltip(lookup, '01A1', 'Horse', effects).subtitle).toBe('5 Horses studied at this locus');
   });
 
   it('renders the under-studied locus as missing data while its neighbours shade normally', async () => {
@@ -312,6 +333,40 @@ describe('alleles nobody in the population carries', () => {
  * "Stabled" cannot come to mean one thing on the pet lens and another on the map
  * while both show the same label.
  */
+describe('a pet with no usable gene projection', () => {
+  beforeEach(async () => {
+    await closeDatabase();
+    await initDatabase();
+    await runMigrations();
+    invalidateRarityCache();
+  });
+
+  it('is excluded from the population rather than counted in the denominator', async () => {
+    // A pet whose genome_data cannot be projected contributes no rows. Counting
+    // it would divide by a pet that is not in the numerator: every frequency
+    // reads low, and a recessive only that pet carries reads as never seen —
+    // telling the player to capture an allele they already own.
+    const pets = [await upload('Horse', 'H1', 'DDD'), await upload('Horse', 'H2', 'DDx')];
+    const ghost = { ...pets[0], id: 9999 } as Pet;
+
+    const lookup = await computeRarityLookup([...pets, ghost], 'Horse');
+
+    expect(lookup.petCount).toBe(2);
+    expect(lookup.tally('01A1').knownPets).toBe(2);
+  });
+
+  it('reports an all-unprojectable population as empty, not as a baseline of ghosts', async () => {
+    const ghosts = [
+      { id: 8001, species: 'Horse' },
+      { id: 8002, species: 'Horse' },
+    ] as Pet[];
+    const lookup = await computeRarityLookup(ghosts, 'Horse');
+    expect(lookup.petCount).toBe(0);
+    expect(lookup.loci.size).toBe(0);
+    expect(lookup.measurable('01A1')).toBe(false);
+  });
+});
+
 describe('petsForTier', () => {
   const roster = [
     { id: 1, stabled: true },
