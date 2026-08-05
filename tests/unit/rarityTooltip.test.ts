@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { GeneType } from '$lib/types/index.js';
-import type { LocusTally } from '$lib/utils/geneFrequency.js';
+import { alleleCarriers, alleleFrequency, isMeasurable, type LocusTally } from '$lib/utils/geneFrequency.js';
 import { buildRarityTooltip, escapeHtml, type RarityTooltipSource } from '$lib/utils/rarityTooltip.js';
 
 /**
@@ -11,9 +10,6 @@ import { buildRarityTooltip, escapeHtml, type RarityTooltipSource } from '$lib/u
  * `{@html}` — so both the arithmetic and the escaping are load-bearing.
  */
 
-const D = GeneType.DOMINANT;
-const R = GeneType.RECESSIVE;
-
 const tally = (knownPets: number, pureD: number, pureR: number, mixed: number): LocusTally => ({
   knownPets,
   pureD,
@@ -22,25 +18,19 @@ const tally = (knownPets: number, pureD: number, pureR: number, mixed: number): 
 });
 
 /**
- * Baseline stub. Frequencies and carriers are derived from the tally exactly as
- * `geneFrequency` derives them, so a fixture cannot describe a locus the real
- * service could never produce.
+ * Baseline stub over hand-written tallies.
+ *
+ * Frequencies and carriers come from the **real** `geneFrequency` primitives, not
+ * from arithmetic copied into the test: a fixture then cannot describe a locus the
+ * service could never produce, and the two cannot drift apart.
  */
-function stub(tallies: Record<string, LocusTally>, minKnownAlleles = 4): RarityTooltipSource {
+function stub(tallies: Record<string, LocusTally>): RarityTooltipSource {
   const at = (geneId: string) => tallies[geneId] ?? tally(0, 0, 0, 0);
   return {
-    measurable: (geneId) => 2 * at(geneId).knownPets >= minKnownAlleles,
+    measurable: (geneId) => isMeasurable(at(geneId)),
     tally: at,
-    frequency: (geneId, allele) => {
-      const t = at(geneId);
-      if (t.knownPets === 0) return 0;
-      const copies = allele === D ? 2 * t.pureD + t.mixed : 2 * t.pureR + t.mixed;
-      return copies / (2 * t.knownPets);
-    },
-    carriers: (geneId, allele) => {
-      const t = at(geneId);
-      return allele === D ? t.pureD + t.mixed : t.pureR + t.mixed;
-    },
+    frequency: (geneId, allele) => alleleFrequency(at(geneId), allele),
+    carriers: (geneId, allele) => alleleCarriers(at(geneId), allele),
   };
 }
 

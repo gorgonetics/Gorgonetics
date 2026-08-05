@@ -1,5 +1,48 @@
 import { expect, type Page } from '@playwright/test';
 
+/**
+ * Read something off the page repeatedly until two consecutive reads agree.
+ *
+ * The genome grids animate: `.gene-cell` carries `transition: all 0.2s ease`, and
+ * `--cell-size` starts at a fallback until the ResizeObserver lands. So a
+ * measurement taken right after a click catches colour interpolating (in a third
+ * colour space, no less) or width animating, and reports differences that are
+ * pure noise — including between a surface and itself.
+ *
+ * Compares by JSON, so `read` must return a plain serialisable value.
+ */
+export async function settled<T>(page: Page, read: () => Promise<T>): Promise<T> {
+  let previous = JSON.stringify(await read());
+  // Transitions run 200ms; ~3s is a generous ceiling.
+  for (let i = 0; i < 25; i++) {
+    await page.waitForTimeout(120);
+    const current = JSON.stringify(await read());
+    if (current === previous) return JSON.parse(current) as T;
+    previous = current;
+  }
+  return JSON.parse(previous) as T;
+}
+
+/**
+ * Resolve CSS custom properties to concrete colours, in document order.
+ *
+ * A `color-mix()` ramp cannot be read off the custom property itself — that
+ * yields the unevaluated expression — so each token is painted onto a throwaway
+ * element and read back as a used value. One round trip for the whole list.
+ */
+export function resolveCssColours(page: Page, tokens: readonly string[]): Promise<string[]> {
+  return page.evaluate((names) => {
+    const probe = document.createElement('div');
+    document.body.appendChild(probe);
+    const out = names.map((name) => {
+      probe.style.color = `var(${name})`;
+      return getComputedStyle(probe).color;
+    });
+    probe.remove();
+    return out;
+  }, tokens as string[]);
+}
+
 /** Wait for the app to finish initializing (DB + demo data). */
 export async function waitForAppReady(page: Page) {
   await page.waitForSelector('.top-bar');

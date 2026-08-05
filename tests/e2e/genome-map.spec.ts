@@ -1,5 +1,5 @@
-import { expect, test } from '@playwright/test';
-import { gotoDestination, waitForPets } from './helpers.js';
+import { expect, type Page, test } from '@playwright/test';
+import { gotoDestination, resolveCssColours, settled, waitForPets } from './helpers.js';
 
 /**
  * Per-locus paint on either surface, read off the rendered pixels rather than
@@ -21,7 +21,7 @@ interface Paint {
  * paint catches a scale or orientation drift that comparing bucket numbers
  * would not.
  */
-function surfacePaint(page: import('@playwright/test').Page, root: string) {
+function surfacePaint(page: Page, root: string) {
   return page.evaluate((rootSelector) => {
     // Any colour FUNCTION, not just `rgb()`: the ramps are `color-mix(in oklab,
     // …)`, which Chromium resolves to `oklab(…)`, and an in-flight transition
@@ -29,7 +29,7 @@ function surfacePaint(page: import('@playwright/test').Page, root: string) {
     // nothing and every comparison below passes vacuously.
     const COLOUR = /(?:rgba?|hsla?|oklab|oklch|lab|lch|hwb|color)\([^)]*\)/g;
     const stops = (image: string) => [...image.matchAll(COLOUR)].map((m) => m[0]);
-    const out: Record<string, { rec: string | null; dom: string | null; missing: boolean }> = {};
+    const out: Record<string, Paint> = {};
     for (const el of document.querySelectorAll(`${rootSelector} .gene-cell[data-gene-id]`)) {
       const cell = el as HTMLElement;
       const geneId = cell.dataset.geneId;
@@ -57,48 +57,21 @@ function surfacePaint(page: import('@playwright/test').Page, root: string) {
   }, root);
 }
 
-/**
- * Paint read only once it has stopped moving.
- *
- * `.gene-cell` carries `transition: all 0.2s ease`, so a read taken right after
- * a view switch or a filter change catches the animation mid-flight and reports
- * an interpolated colour — a difference that is pure noise, including between a
- * surface and itself.
- */
-async function settledPaint(page: import('@playwright/test').Page, root: string): Promise<Record<string, Paint>> {
-  let previous = JSON.stringify(await surfacePaint(page, root));
-  // Transitions run 200ms; ~3s is a generous ceiling.
-  for (let i = 0; i < 25; i++) {
-    await page.waitForTimeout(120);
-    const current = JSON.stringify(await surfacePaint(page, root));
-    if (current === previous) return JSON.parse(current);
-    previous = current;
-  }
-  return JSON.parse(previous);
-}
+/** Paint read only once it has stopped moving — see `settled`. */
+const settledPaint = (page: Page, root: string): Promise<Record<string, Paint>> =>
+  settled(page, () => surfacePaint(page, root));
 
 /**
- * Cell pitch and block gap for one grid, measured off the first chromosome row.
+ * Cell pitch and block gap for one grid, measured off the first chromosome row
+ * once layout has settled.
  *
  * `computeGeneCellSize` budgets a 1px gutter each side of every cell plus one
  * BLOCK_GAP per block, so a grid that omits them lays out tighter than the size
  * it asked for — which is how the map came to look denser than the pet grid.
  */
-async function gridPitch(page: import('@playwright/test').Page, root: string) {
-  // `--cell-size` starts at the 16px fallback and lands once the ResizeObserver
-  // fires, and `.gene-cell` transitions `all 0.2s` — so an immediate read catches
-  // the width animating from the fallback toward the real size.
-  let previous = JSON.stringify(await readPitch(page, root));
-  for (let i = 0; i < 25; i++) {
-    await page.waitForTimeout(120);
-    const current = JSON.stringify(await readPitch(page, root));
-    if (current === previous) return JSON.parse(current);
-    previous = current;
-  }
-  return JSON.parse(previous);
-}
+const gridPitch = (page: Page, root: string) => settled(page, () => readPitch(page, root));
 
-function readPitch(page: import('@playwright/test').Page, root: string) {
+function readPitch(page: Page, root: string) {
   return page.evaluate((rootSelector) => {
     const container = document.querySelector(rootSelector) as HTMLElement;
     const row = container.querySelector('.chromosome-row') as HTMLElement;
@@ -118,16 +91,7 @@ function readPitch(page: import('@playwright/test').Page, root: string) {
 }
 
 /** The resolved common-centre colour, so "is this cell tinted" is decidable. */
-function neutralColour(page: import('@playwright/test').Page) {
-  return page.evaluate(() => {
-    const probe = document.createElement('div');
-    probe.style.background = 'var(--rarity-neutral)';
-    document.body.appendChild(probe);
-    const colour = getComputedStyle(probe).backgroundColor;
-    probe.remove();
-    return colour;
-  });
-}
+const neutralColour = async (page: Page) => (await resolveCssColours(page, ['--rarity-neutral']))[0];
 
 const tinted = (paint: Paint, neutral: string) =>
   (paint.rec !== null && paint.rec !== neutral) || (paint.dom !== null && paint.dom !== neutral);

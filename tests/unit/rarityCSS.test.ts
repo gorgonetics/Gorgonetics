@@ -72,6 +72,19 @@ describe('buildRarityCSS', () => {
     expect(css).toContain('--rarity-edge: var(--rarity-never-edge)');
   });
 
+  it('changes only the edge COLOUR, never geometry', () => {
+    // §4's rule is uniform geometry: a wider or dashed edge on these cells would
+    // shrink their fill and make them read as smaller than their neighbours. The
+    // rule may only set the colour custom property.
+    const css = buildRarityCSS({
+      cells: cells(['01A1', X]),
+      lookup: stub({ '01A1': { D: 0, R: 5 } }),
+    });
+    expect(css).not.toContain('border-width');
+    expect(css).not.toContain('border-style');
+    expect(css).not.toContain('padding');
+  });
+
   it('fires the edge on the dominant arm too', () => {
     const css = buildRarityCSS({
       cells: cells(['01A1', D]),

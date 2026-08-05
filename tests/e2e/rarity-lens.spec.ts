@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { waitForPets } from './helpers.js';
+import { resolveCssColours, waitForPets } from './helpers.js';
 
 /**
  * The rarity lens (#368) — and above all the constraint that made its design
@@ -153,11 +153,15 @@ test.describe('Gene rarity lens', () => {
     expect(await geometry(page)).toEqual(before);
   });
 
-  test('every zygosity paints the same area, and no cell paints a border colour', async ({ page }) => {
+  test('every zygosity paints the same area on the same uniform edge', async ({ page }) => {
     // `.gene-cell` carries an unconditional `border: 2px solid` (4px on
     // recessive) and `box-sizing: border-box` is global, so a hued or thicker
     // border in this view shrinks the fill and makes split cells read as smaller
     // than their neighbours — the reason §4 settled on one uniform hairline.
+    //
+    // Never-seen cells are the one sanctioned exception (§7): a different edge
+    // COLOUR at the same width, so they are excluded from the edge comparison but
+    // still bound by the geometry rule, which `rarityCSS` pins directly.
     await openPetDetail(page);
     await page.getByRole('button', { name: 'Rarity', exact: true }).click();
     await expect(page.getByTestId('rarity-legend')).toBeVisible();
@@ -171,14 +175,17 @@ test.describe('Gene rarity lens', () => {
 
     const measured = await page.evaluate(() => {
       const box = (zygosity: string) => {
-        // Skip cells the baseline could not score: below `minKnown` they are
-        // deliberately dashed in their own colour, which is not the rule under
-        // test here.
+        // Skip cells the baseline could not score (below `minKnown`, deliberately
+        // dashed in their own colour) and never-seen cells (their own edge colour
+        // by design) — neither is the rule under test here.
         const cell = [
           ...document.querySelectorAll(
             `.gene-grid-container.view-rarity .gene-cell[data-zygosity="${zygosity}"]:not(.gene-unknown)`,
           ),
-        ].find((el) => getComputedStyle(el).borderStyle === 'solid') as HTMLElement | undefined;
+        ].find((el) => {
+          const style = getComputedStyle(el);
+          return style.borderStyle === 'solid' && !style.getPropertyValue('--rarity-edge').trim();
+        }) as HTMLElement | undefined;
         if (!cell) return null;
         const style = getComputedStyle(cell);
         const rect = cell.getBoundingClientRect();
@@ -194,24 +201,16 @@ test.describe('Gene rarity lens', () => {
           ],
         };
       };
-      // Resolve the tokens a border must never be painted with.
-      const resolve = (token: string) => {
-        const probe = document.createElement('div');
-        probe.style.color = `var(${token})`;
-        document.body.appendChild(probe);
-        const value = getComputedStyle(probe).color;
-        probe.remove();
-        return value;
-      };
-      const armColours = [1, 2, 3, 4].flatMap((b) => [resolve(`--rarity-d-${b}`), resolve(`--rarity-r-${b}`)]);
       return {
         dominant: box('dominant'),
         recessive: box('recessive'),
         mixed: box('mixed'),
-        edge: resolve('--rarity-cell-edge'),
-        armColours,
       };
     });
+
+    // The tokens a border must never be painted with, plus the one it must be.
+    const armTokens = [1, 2, 3, 4, 5].flatMap((b) => [`--rarity-d-${b}`, `--rarity-r-${b}`]);
+    const [edge, ...armColours] = await resolveCssColours(page, ['--rarity-cell-edge', ...armTokens]);
 
     for (const zygosity of ['dominant', 'recessive', 'mixed'] as const) {
       expect(measured[zygosity], `no ${zygosity} cell rendered to measure`).not.toBeNull();
@@ -226,8 +225,8 @@ test.describe('Gene rarity lens', () => {
     // One neutral edge everywhere, and never an arm hue: a coloured border would
     // put rarity on the outline where it misrepresents a two-armed cell.
     for (const zygosity of ['dominant', 'recessive', 'mixed'] as const) {
-      expect(measured[zygosity]?.colours, `${zygosity} border is not the uniform edge`).toEqual([measured.edge]);
-      for (const arm of measured.armColours) {
+      expect(measured[zygosity]?.colours, `${zygosity} border is not the uniform edge`).toEqual([edge]);
+      for (const arm of armColours) {
         expect(measured[zygosity]?.colours).not.toContain(arm);
       }
     }
