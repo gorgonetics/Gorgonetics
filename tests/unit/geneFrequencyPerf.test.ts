@@ -32,8 +32,7 @@ describe('rarity baseline cost', () => {
       // Then the per-cell pass the stylesheet builder does: both arms, every locus.
       const t1 = performance.now();
       let seen = 0;
-      for (const [geneId, tally] of loci) {
-        void geneId;
+      for (const tally of loci.values()) {
         if (rarityBucket(tally, GeneType.DOMINANT) !== null) seen++;
         if (rarityBucket(tally, GeneType.RECESSIVE) !== null) seen++;
       }
