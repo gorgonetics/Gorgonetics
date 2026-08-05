@@ -1,0 +1,334 @@
+/**
+ * Baseline builder for the gene rarity lens (#368).
+ *
+ * Turns a population of pets into a per-locus allele tally the view layer
+ * can query by gene id. Owns the DB read, the species scoping and the
+ * cache; all the arithmetic lives in `utils/geneFrequency.js`.
+ *
+ * See `docs/design/gene-rarity-lens-v1.md` §5.
+ */
+
+import { normalizeSpecies } from '$lib/services/configService.js';
+import { buildInClauseParams, getDb } from '$lib/services/database.js';
+import { ensurePetGenesPopulated } from '$lib/services/petService.js';
+import type { Pet } from '$lib/types/index.js';
+import {
+  type Allele,
+  alleleCarriers,
+  alleleFrequency,
+  DEFAULT_MIN_KNOWN_ALLELES,
+  isMeasurable,
+  type LocusTally,
+  type RarityOptions,
+  rarityBucket,
+  SOLE_CARRIER_MIN_PETS,
+} from '$lib/utils/geneFrequency.js';
+
+const EMPTY_TALLY: LocusTally = Object.freeze({
+  knownPets: 0,
+  pureD: 0,
+  pureR: 0,
+  mixed: 0,
+});
+
+/**
+ * A computed baseline. Read-only and cheap to query — the whole point is
+ * that the stylesheet builder can walk ~1600 gene ids without touching
+ * the DB again.
+ */
+export interface RarityLookup {
+  /** Canonical species key this baseline was built for. */
+  readonly species: string;
+  /** Pets of this species in the population (the *population* size). */
+  readonly petCount: number;
+  /**
+   * Pets studied less deeply than the deepest-studied pet in the population.
+   *
+   * Exists so the legend can say *why* "across 30 Horses" is not the whole
+   * truth: with these pets present the denominator varies per locus, and no
+   * single figure in the legend can be right for every cell (§6). Measured
+   * against the deepest pet rather than against the species' full locus count,
+   * because that is what the projection can answer without a second notion of
+   * "complete" — and a collection where every pet stops at the same depth has
+   * even coverage, which is the thing being flagged.
+   */
+  readonly partialPets: number;
+  /**
+   * Per-locus tallies. Absent gene ids mean no pet in the population had
+   * a known reading there.
+   */
+  readonly loci: ReadonlyMap<string, LocusTally>;
+  /** Tally for a locus, or an all-zero tally when unseen. */
+  tally(geneId: string): LocusTally;
+  /** `0`–`4`, or `null` when the locus is below the minimum sample. */
+  bucketOf(geneId: string, allele: Allele): number | null;
+  /** Allele frequency in `[0, 1]`. Gate on `measurable` before trusting it. */
+  frequency(geneId: string, allele: Allele): number;
+  /** Pets carrying ≥1 copy. A mixed pet counts toward both alleles. */
+  carriers(geneId: string, allele: Allele): number;
+  /** Whether the locus has enough known alleles to be scored at all. */
+  measurable(geneId: string): boolean;
+}
+
+/**
+ * Which of your pets a baseline is measured over. `community` is deferred — it
+ * needs a precomputed aggregate rather than fetching every shared genome.
+ */
+export type RarityTier = 'stabled' | 'all';
+
+/**
+ * Resolve a tier to the pets it means.
+ *
+ * Both surfaces that offer the toggle (the per-pet lens and the genome map) go
+ * through this, so "Stabled" cannot come to mean one thing on one surface and
+ * something else on the other — they would then score against different
+ * populations while showing the same label. Species scoping happens later, in
+ * `computeRarityLookup`.
+ */
+export function petsForTier(tier: RarityTier, pets: readonly Pet[]): readonly Pet[] {
+  return tier === 'stabled' ? pets.filter((pet) => pet.stabled) : pets;
+}
+
+/**
+ * Cache key for a baseline.
+ *
+ * Keyed on the **sorted id set**, not array identity: a background reload
+ * of the pet list produces a fresh array with the same members, and
+ * recomputing on that would re-read `pet_genes` every time the store
+ * settles. Sorting also makes "stabled" and "all" collapse to the same
+ * key when every pet happens to be stabled, which is correct — the
+ * baseline really is identical.
+ */
+function cacheKey(species: string, petIds: readonly number[], opts: RarityOptions): string {
+  // The options are part of the key because `buildLookup` closes over them:
+  // `bucketOf` and `measurable` answer differently under different thresholds, so
+  // a key that ignored them would serve the first caller's thresholds to every
+  // later caller for the same population — silently reporting loci as unscorable
+  // for one caller because another had asked with a stricter floor.
+  const minKnown = opts.minKnownAlleles ?? DEFAULT_MIN_KNOWN_ALLELES;
+  const soleMin = opts.soleCarrierMinPets ?? SOLE_CARRIER_MIN_PETS;
+  return `${species}|${minKnown}|${soleMin}|${[...petIds].sort((a, b) => a - b).join(',')}`;
+}
+
+/**
+ * Small bounded cache. The population toggle flips between two
+ * populations and the user flips back and forth, so holding a handful of
+ * recent baselines avoids a re-read per toggle; the cap stops a long
+ * session from pinning every population it ever saw.
+ */
+const MAX_CACHED = 4;
+const cache = new Map<string, RarityLookup>();
+
+function remember(key: string, lookup: RarityLookup): RarityLookup {
+  cache.set(key, lookup);
+  while (cache.size > MAX_CACHED) {
+    const oldest = cache.keys().next().value;
+    if (oldest === undefined) break;
+    cache.delete(oldest);
+  }
+  return lookup;
+}
+
+/** Drop every cached baseline. Call when pets are added, edited or removed. */
+export function invalidateRarityCache(): void {
+  cache.clear();
+}
+
+function buildLookup(
+  species: string,
+  petCount: number,
+  partialPets: number,
+  loci: Map<string, LocusTally>,
+  opts: RarityOptions,
+): RarityLookup {
+  const tally = (geneId: string): LocusTally => loci.get(geneId) ?? EMPTY_TALLY;
+  return {
+    species,
+    petCount,
+    partialPets,
+    loci,
+    tally,
+    bucketOf: (geneId, allele) => rarityBucket(tally(geneId), allele, opts),
+    frequency: (geneId, allele) => alleleFrequency(tally(geneId), allele),
+    carriers: (geneId, allele) => alleleCarriers(tally(geneId), allele),
+    measurable: (geneId) => isMeasurable(tally(geneId), opts),
+  };
+}
+
+interface AlleleSumRow {
+  pure_d: number;
+  pure_r: number;
+  mixed: number;
+}
+
+/**
+ * The three per-group allele accumulators, shared by both aggregates below so
+ * they cannot drift in how they count.
+ *
+ * **No `'?'` predicate, deliberately.** The obvious `AND gene_type <> '?'`
+ * cannot be used: `resolveNamedParams` rewrites named params to positional `?`,
+ * so a literal `'?'` in the SQL is miscounted as a placeholder. It is not needed
+ * anyway — `?` rows match none of the three arms and so contribute 0 to every
+ * sum, which *is* the rule that unknown readings count toward neither numerator
+ * nor denominator.
+ */
+const ALLELE_SUMS = `SUM(CASE WHEN gene_type = 'D' THEN 1 ELSE 0 END) AS pure_d,
+            SUM(CASE WHEN gene_type = 'R' THEN 1 ELSE 0 END) AS pure_r,
+            SUM(CASE WHEN gene_type = 'x' THEN 1 ELSE 0 END) AS mixed`;
+
+/**
+ * One aggregated row as a tally. `knownPets` is derived from the three sums
+ * rather than from `COUNT(*)`, which is what excludes `?` readings.
+ */
+function tallyFromRow(row: AlleleSumRow): LocusTally {
+  const pureD = Number(row.pure_d) || 0;
+  const pureR = Number(row.pure_r) || 0;
+  const mixed = Number(row.mixed) || 0;
+  return { knownPets: pureD + pureR + mixed, pureD, pureR, mixed };
+}
+
+/**
+ * Aggregate `pet_genes` into one row per locus, **in SQLite**.
+ *
+ * The alternative — reading one row per pet per locus and tallying in JS —
+ * ships 58,312 rows across the IPC boundary for a 37-pet collection to
+ * produce 1,576 tallies. This does the grouping in C inside the database
+ * process and returns only the 1,576, a ~37× cut in payload.
+ *
+ * **The three `CASE WHEN`s do not scan the table three times.** Measured on
+ * a real 37-horse collection (58,312 rows), this and a plain
+ * `GROUP BY gene_id, gene_type` produce an identical query plan — one
+ * `SEARCH … USING INDEX idx_pet_genes_pet` plus one temp B-tree — and
+ * identical timing (9.7 ms vs 9.8 ms). SQL evaluates every aggregate in a
+ * single pass per group; the `CASE WHEN`s are extra accumulators, not extra
+ * traversals, and the sort dominates both. The two-column form was rejected
+ * only because it returns 3,753 rows rather than 1,576 and then needs a
+ * pivot loop in JS to rebuild each tally.
+ *
+ * For reference the raw row read is 15.3 ms in-process, so the database-side
+ * saving is modest; the win that matters is not serialising 58k rows over IPC.
+ */
+async function loadLocusTallies(petIds: readonly number[]): Promise<Map<string, LocusTally>> {
+  const out = new Map<string, LocusTally>();
+  if (petIds.length === 0) return out;
+
+  const { placeholders, params } = buildInClauseParams(petIds, 'pet');
+  const rows = await getDb().select<(AlleleSumRow & { gene_id: string })[]>(
+    `SELECT gene_id, ${ALLELE_SUMS}
+     FROM pet_genes WHERE pet_id IN (${placeholders}) GROUP BY gene_id`,
+    params,
+  );
+
+  for (const row of rows) {
+    const tally = tallyFromRow(row);
+    // A locus where every reading is `?` aggregates to all-zero. Drop it so
+    // the map means the same thing as `computeLocusFrequencies` produces.
+    if (tally.knownPets === 0) continue;
+    out.set(row.gene_id, tally);
+  }
+  return out;
+}
+
+/**
+ * Count the pets studied less deeply than the deepest-studied one.
+ *
+ * The same aggregate as `loadLocusTallies`, grouped the other way: one row per
+ * *pet* rather than per locus, so it is at most a few dozen rows and the same
+ * `CASE WHEN` accumulators answer it in a single pass. `?` rows match no arm and
+ * so are excluded from `known`, which is exactly the reading being counted.
+ *
+ * Grouping by locus cannot answer this — two pets each missing a different locus
+ * and one pet missing both produce identical per-locus tallies.
+ */
+async function loadPartialPetCount(petIds: readonly number[]): Promise<number> {
+  const { placeholders, params } = buildInClauseParams(petIds, 'pet');
+  const rows = await getDb().select<(AlleleSumRow & { pet_id: number })[]>(
+    `SELECT pet_id, ${ALLELE_SUMS}
+     FROM pet_genes WHERE pet_id IN (${placeholders}) GROUP BY pet_id`,
+    params,
+  );
+
+  const knownByPet = new Map(rows.map((row) => [Number(row.pet_id), tallyFromRow(row).knownPets]));
+  // A pet with no rows at all reads as zero known, not as absent — otherwise it
+  // would drop out of the comparison it is most relevant to.
+  const known = petIds.map((id) => knownByPet.get(id) ?? 0);
+  const deepest = Math.max(...known);
+  return known.filter((count) => count < deepest).length;
+}
+
+/**
+ * Populate `pet_genes` for any pet that has no projected rows yet.
+ *
+ * Mirrors `loadAllPetLoci`'s inline populate-and-retry: a legacy pet
+ * uploaded before the projection existed, and not yet reached by the
+ * startup backfill, would otherwise contribute nothing to the baseline and
+ * silently shrink the denominator. The aggregate query cannot see which
+ * pets are missing (it groups by locus, not pet), so ask first — one cheap
+ * query returning at most one row per pet.
+ */
+async function ensureProjected(petIds: readonly number[]): Promise<number[]> {
+  const { placeholders, params } = buildInClauseParams(petIds, 'pet');
+  const present = await getDb().select<{ pet_id: number }[]>(
+    `SELECT DISTINCT pet_id FROM pet_genes WHERE pet_id IN (${placeholders})`,
+    params,
+  );
+  const have = new Set(present.map((r) => r.pet_id));
+  const usable: number[] = [];
+  for (const id of petIds) {
+    if (have.has(id)) {
+      usable.push(id);
+      continue;
+    }
+    // `ensurePetGenesPopulated` returns false for a malformed genome or a failed
+    // write. Such a pet contributes no rows, so counting it in the population
+    // would divide by a pet that is not in the numerator: every frequency reads
+    // low, and a recessive only that pet carries reads as *never seen* — telling
+    // the player to go capture an allele they already own.
+    if (await ensurePetGenesPopulated(id)) usable.push(id);
+    else console.warn(`rarity baseline: pet ${id} has no usable gene projection and is excluded`);
+  }
+  return usable;
+}
+
+/**
+ * Build (or reuse) the rarity baseline for one species over `pets`.
+ *
+ * **Species scoping is not optional.** Gene ids are only comparable
+ * within a species — `01A1` names a different gene on a horse than on a
+ * beewasp — so a mixed-species population must never pool. Pets whose
+ * `normalizeSpecies` does not match are dropped before the DB read, which
+ * also keeps the `IN (…)` list to the pets that can contribute.
+ *
+ * Reads `pet_genes` once for the whole population via `loadAllPetLoci`.
+ */
+export async function computeRarityLookup(
+  pets: readonly Pet[],
+  species: string,
+  opts: RarityOptions = {},
+): Promise<RarityLookup> {
+  const key = normalizeSpecies(species);
+  const petIds = pets.filter((p) => normalizeSpecies(p.species) === key).map((p) => p.id);
+
+  const cacheId = cacheKey(key, petIds, opts);
+  const cached = cache.get(cacheId);
+  if (cached) return cached;
+
+  // An empty population is a real state (no pets of this species yet), not
+  // an error — every locus simply reads as missing data.
+  if (petIds.length === 0) {
+    return remember(cacheId, buildLookup(key, 0, 0, new Map(), opts));
+  }
+
+  // The population is the pets that can actually be measured, so the legend's
+  // count and the frequencies' denominator are the same set. Keyed on the
+  // *requested* ids, though — projecting first would cost a DB round trip on
+  // every cache hit — so recovery from a transient write failure comes from
+  // `invalidateRarityCache`, which `appState.loadPets` calls.
+  const measurableIds = await ensureProjected(petIds);
+  if (measurableIds.length === 0) {
+    return remember(cacheId, buildLookup(key, 0, 0, new Map(), opts));
+  }
+  const loci = await loadLocusTallies(measurableIds);
+  const partialPets = await loadPartialPetCount(measurableIds);
+  return remember(cacheId, buildLookup(key, measurableIds.length, partialPets, loci, opts));
+}

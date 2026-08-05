@@ -159,6 +159,23 @@ describe('CommunityPetVisualization detail header', () => {
     expect(container.querySelector('[data-testid="breed-selector"]')).toBeNull();
   });
 
+  it('does not offer the rarity lens — a community pet cannot be bred with (#368 §8)', () => {
+    // A shared pet is not yours, so a scarcity readout on it has no action
+    // attached; it would also make `carriers = 0` reachable (an allele no pet of
+    // yours carries), which needs a step beyond bucket 4 serving a decision the
+    // player cannot act on. Horse on purpose: the species that has a real local
+    // baseline is the one where the button would be tempting.
+    getSharedPet.mockReturnValue(new Promise(() => {}));
+    const { container } = render(CommunityPetVisualization, {
+      pet: makeSharedPet({ species: 'Horse', breed: 'Kurbone' }),
+    });
+    const buttons = [...container.querySelectorAll('button')].map((b) => b.textContent?.trim() ?? '');
+    expect(buttons).not.toContain('Rarity');
+    expect(container.querySelector('[data-testid="view-rarity-btn"]')).toBeNull();
+    // ...and no baseline control, which only exists to serve that view.
+    expect(container.querySelector('.rarity-population')).toBeNull();
+  });
+
   it('keeps Attributes/Appearance segmented and Stats as a separate pressed toggle', () => {
     getSharedPet.mockReturnValue(new Promise(() => {}));
     const { container, getByTestId } = render(CommunityPetVisualization, { pet: makeSharedPet() });

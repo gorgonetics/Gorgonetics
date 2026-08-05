@@ -11,6 +11,17 @@ interface Props {
   subtitle?: string;
   /** Heading for the list section; defaults to "Potential Effects". */
   effectsLabel?: string;
+  /**
+   * Whether to tint each line green/red by sniffing it for `+` / `-`.
+   *
+   * On by default, because the attribute/appearance views pass plain effect
+   * strings and rely on it. The rarity card must switch it **off**: its lines
+   * already colour their own spans, and each carries an effect name — so
+   * sniffing would tint the whole row, putting valence red on the frequency
+   * figure. Keeping "rare" and "good" in separate colours is the entire reason
+   * that view uses purple/orange rather than green/red.
+   */
+  valenceFromText?: boolean;
 }
 
 const {
@@ -23,6 +34,7 @@ const {
   potentialEffects = [],
   subtitle = '',
   effectsLabel = 'Potential Effects',
+  valenceFromText = true,
 }: Props = $props();
 
 function getTypeDescription(type: string) {
@@ -67,8 +79,8 @@ function getTypeDescription(type: string) {
                     {#each potentialEffects as potentialEffect, i (i)}
                         <div
                             class="potential-effect"
-                            class:positive={potentialEffect.includes("+")}
-                            class:negative={potentialEffect.includes("-")}
+                            class:positive={valenceFromText && potentialEffect.includes("+")}
+                            class:negative={valenceFromText && potentialEffect.includes("-")}
                         >
                             <!-- eslint-disable-next-line svelte/no-at-html-tags -->
                             {@html potentialEffect}

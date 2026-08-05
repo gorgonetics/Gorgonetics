@@ -15,6 +15,130 @@
  * intentionally absent here.
  */
 
+/* --- Rarity lens (#368) ----------------------------------------------------
+ *
+ * A diverging scale with a shared neutral centre: purple = a scarce DOMINANT
+ * allele, orange = a scarce RECESSIVE one, common recedes to near-nothing.
+ * The pair is ColorBrewer's PuOr, published as colourblind-safe — hue is what
+ * separates the two arms, so that matters. Green/red is deliberately avoided:
+ * it would import the attribute view's good/bad reading onto a scale that has
+ * no valence.
+ *
+ * Ramps are built with color-mix toward `transparent`, so the page surface
+ * shows through and both themes adapt from two base hues rather than two
+ * hardcoded palettes.
+ *
+ * See docs/design/gene-rarity-lens-v1.md §2 and §4.
+ */
+:root {
+  --rarity-purple: #6a3d9a;
+  --rarity-orange: #c96a08;
+  /* Common must recede without vanishing. Too faint and the grid dissolves:
+     87% of cells sit at bucket 0, so this value alone decides whether the view
+     reads as a genome or as an empty sheet. */
+  --rarity-neutral: color-mix(in oklab, var(--text-muted) 22%, transparent);
+  /* One hairline on EVERY cell. Uniformity is the point: a coloured border on
+     pure cells and a neutral one on split cells would make split cells look
+     smaller, and no border at all leaves the grid shapeless with the dashed
+     `?` cells as the only visible outlines. */
+  --rarity-cell-edge: color-mix(in oklab, var(--text-muted) 45%, transparent);
+  --rarity-missing-bg: var(--bg-tertiary);
+  --rarity-missing-border: color-mix(in oklab, var(--text-muted) 55%, transparent);
+  /* "Never seen" carries a second channel beyond the pure hue: an allele no pet
+     of yours has is categorically different from a scarce one, and the map is
+     scanned rather than read, so it should be findable without comparing
+     shades. Width stays 1px — the §4 rule is about uniform GEOMETRY, and a
+     colour-only change keeps every cell's painted area identical. */
+  --rarity-never-edge: color-mix(in oklab, var(--text-primary) 75%, transparent);
+}
+
+[data-theme="dark"] {
+  /* Lifted for contrast against a dark surface; the ramp maths is unchanged. */
+  --rarity-purple: #b085e8;
+  --rarity-orange: #f0a04b;
+}
+
+:root,
+[data-theme="dark"] {
+  /* Bucket 0 is the SAME token on both arms — that shared centre is what makes
+     an all-common mixed cell read as flat rather than as two competing hues. */
+  --rarity-d-0: var(--rarity-neutral);
+  --rarity-r-0: var(--rarity-neutral);
+  --rarity-d-1: color-mix(in oklab, var(--rarity-purple) 32%, transparent);
+  --rarity-d-2: color-mix(in oklab, var(--rarity-purple) 55%, transparent);
+  --rarity-d-3: color-mix(in oklab, var(--rarity-purple) 78%, transparent);
+  /* The pure hue moves to bucket 5, so the sole-carrier step gives way by one
+     notch. The frequency thresholds are untouched — this is the ramp's top end
+     making room for a step beyond it, not a recalibration. */
+  --rarity-d-4: color-mix(in oklab, var(--rarity-purple) 85%, transparent);
+  --rarity-d-5: var(--rarity-purple);
+  --rarity-r-1: color-mix(in oklab, var(--rarity-orange) 32%, transparent);
+  --rarity-r-2: color-mix(in oklab, var(--rarity-orange) 55%, transparent);
+  --rarity-r-3: color-mix(in oklab, var(--rarity-orange) 78%, transparent);
+  --rarity-r-4: color-mix(in oklab, var(--rarity-orange) 85%, transparent);
+  --rarity-r-5: var(--rarity-orange);
+}
+
+/* Every cell gets the SAME hairline — that is what keeps the grid crisp.
+ *
+ * A hued border like the other views use is not available here: a split cell
+ * has two arms and a single hue would misrepresent it, and hueing only the
+ * pure cells would make split cells read as smaller. Dropping the border
+ * instead loses the grid's structure entirely and leaves the dashed `?` cells
+ * as the only visible outlines, so they read as disconnected boxes floating in
+ * empty space.
+ *
+ * One uniform neutral edge on every cell solves both: no cell is smaller than
+ * its neighbour, and the lattice stays legible. Width drops to 1px because at
+ * a ~20px cell a 2px ring eats a fifth of the fill — with `box-sizing:
+ * border-box` this changes no geometry at all, only how much colour shows. */
+.view-rarity.gene-grid-container .gene-cell:not(.gene-unknown) {
+  border-width: 1px;
+  /* The injected sheet sets `--rarity-edge` on never-seen cells only; every
+     other cell falls through to the uniform hairline. Keeping the indirection
+     here means the stylesheet builder still only ever sets custom properties. */
+  border-color: var(--rarity-edge, var(--rarity-cell-edge));
+  background: var(--rarity-neutral);
+}
+
+/* No usable baseline: still loading, failed, or computed for another species.
+ *
+ * Every cell reads as missing data rather than falling through to bucket 0.
+ * That fall-through is not a neutral default — the common centre asserts "there
+ * is nothing scarce here", which is a claim about the population, and it is the
+ * one claim you must not make while you do not yet have one. Specificity has to
+ * clear the zygosity fills below (0,4,0), hence the extra class.
+ *
+ * Width stays 1px, so the geometry rule (§4) holds through the loading state. */
+.view-rarity.gene-grid-container.rarity-unscored .gene-cell:not(.gene-unknown) {
+  background: var(--rarity-missing-bg);
+  border-color: var(--rarity-missing-border);
+  border-style: dashed;
+}
+
+/* Zygosity is carried by fill SHAPE here, not border thickness: solid = pure,
+   diagonal split = mixed. For a pure cell the hue already names the allele, so
+   the attribute view's thick recessive ring is redundant and is dropped.
+   Cells with no injected property fall back to the neutral centre. */
+.view-rarity.gene-grid-container .gene-cell[data-zygosity="dominant"] {
+  background: var(--rarity-dom, var(--rarity-neutral));
+}
+
+.view-rarity.gene-grid-container .gene-cell[data-zygosity="recessive"] {
+  background: var(--rarity-rec, var(--rarity-neutral));
+}
+
+/* Recessive top-left, dominant bottom-right — the same 135deg axis the
+   attribute/appearance views already use for mixed cells, so a locus never
+   appears mirrored between this grid and the genome map. */
+.view-rarity.gene-grid-container .gene-cell[data-zygosity="mixed"] {
+  background: linear-gradient(
+    135deg,
+    var(--rarity-rec, var(--rarity-neutral)) 50%,
+    var(--rarity-dom, var(--rarity-neutral)) 50%
+  );
+}
+
 /* Size derives from --cell-size (set by the responsive grid container) so the
    genome grid scales to fill its panel. Falls back to 16px wherever --cell-size
    is unset (legend, comparison views, appearance summary). */

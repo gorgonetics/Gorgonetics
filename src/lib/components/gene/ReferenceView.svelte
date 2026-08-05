@@ -7,9 +7,14 @@
  */
 import { onMount } from 'svelte';
 import GeneEditingView from '$lib/components/GeneEditingView.svelte';
+import GenomeMap from '$lib/components/gene/GenomeMap.svelte';
+import BreedSelector from '$lib/components/shared/BreedSelector.svelte';
 import EmptyState from '$lib/components/shared/EmptyState.svelte';
+import { normalizeSpecies } from '$lib/services/configService.js';
+import { petsForTier, type RarityTier } from '$lib/services/frequencyService.js';
 import * as geneService from '$lib/services/geneService.js';
-import { appState, geneEditingView } from '$lib/stores/pets.js';
+import { pets as allPets, appState, geneEditingView } from '$lib/stores/pets.js';
+import { BREEDS_BY_SPECIES } from '$lib/utils/species.js';
 
 const geneEdit = $derived($geneEditingView as { animalType?: string; chromosome?: string } | null);
 
@@ -19,6 +24,24 @@ let animalTypes = $state<string[]>([]);
 let chromosomes = $state<string[]>([]);
 let loadingChromosomes = $state(false);
 let editorError = $state('');
+
+// --- Genome map (#368, design §7) -------------------------------------------
+// Reference is map-first: the full-genome rarity map is the default, and the
+// gene-template editor becomes a mode reached from the same toolbar. Editing is
+// single-user functionality, so it is enough that the map does not strand it.
+let editMode = $state(false);
+let breedFilter = $state('');
+let rarityPopulation = $state<RarityTier>('all');
+
+const speciesKey = $derived(normalizeSpecies(selectedAnimalType));
+const breedsForSpecies = $derived(speciesKey ? BREEDS_BY_SPECIES[speciesKey] : undefined);
+const populationPets = $derived(petsForTier(rarityPopulation, $allPets));
+
+// A breed only means something within its own species.
+$effect(() => {
+  const _key = speciesKey;
+  breedFilter = '';
+});
 // Discards a stale chromosome fetch when the animal type changes again before
 // the earlier request resolves (otherwise the slower, older response wins).
 let chromosomeSeq = 0;
@@ -83,35 +106,82 @@ $effect(() => {
         {/each}
       </select>
     </label>
-    <label class="ref-field">
-      <span>Chromosome</span>
-      <select id="chromosome" bind:value={selectedChromosome} disabled={loadingChromosomes || !selectedAnimalType}>
-        <option value="">Select…</option>
-        {#each chromosomes as chromosome (chromosome)}
-          <option value={chromosome}>{chromosome}</option>
-        {/each}
-      </select>
-    </label>
+    {#if editMode}
+      <label class="ref-field">
+        <span>Chromosome</span>
+        <select id="chromosome" bind:value={selectedChromosome} disabled={loadingChromosomes || !selectedAnimalType}>
+          <option value="">Select…</option>
+          {#each chromosomes as chromosome (chromosome)}
+            <option value={chromosome}>{chromosome}</option>
+          {/each}
+        </select>
+      </label>
+      <button
+        class="load-btn"
+        onclick={openGeneEditor}
+        disabled={!selectedAnimalType || !selectedChromosome || loadingChromosomes}
+      >
+        {loadingChromosomes ? 'Loading…' : 'Edit Genes'}
+      </button>
+    {:else}
+      {#if breedsForSpecies}
+        <label class="ref-field">
+          <span>Breed</span>
+          <BreedSelector value={breedFilter} breeds={breedsForSpecies} onChange={(b) => { breedFilter = b; }} />
+        </label>
+      {/if}
+      <div class="ref-field">
+        <span>Baseline</span>
+        <div class="ref-segment" role="group" aria-label="Rarity baseline">
+          <button
+            class="seg-btn"
+            class:active={rarityPopulation === 'stabled'}
+            data-testid="map-pop-stabled"
+            onclick={() => { rarityPopulation = 'stabled'; }}
+          >Stabled</button>
+          <button
+            class="seg-btn"
+            class:active={rarityPopulation === 'all'}
+            data-testid="map-pop-all"
+            onclick={() => { rarityPopulation = 'all'; }}
+          >All my pets</button>
+          <button class="seg-btn" disabled title="Needs a shared aggregate — not yet available">Community · soon</button>
+        </div>
+      </div>
+    {/if}
     <button
-      class="load-btn"
-      onclick={openGeneEditor}
-      disabled={!selectedAnimalType || !selectedChromosome || loadingChromosomes}
+      class="edit-toggle"
+      class:active={editMode}
+      aria-pressed={editMode}
+      data-testid="reference-edit-toggle"
+      title="Edit gene templates for a chromosome"
+      onclick={() => { editMode = !editMode; if (!editMode) appState.clearGeneEditingView(); }}
     >
-      {loadingChromosomes ? 'Loading…' : 'Edit Genes'}
+      Edit
     </button>
     {#if editorError}
       <span class="ref-error"><span aria-hidden="true">⚠️</span> {editorError}</span>
     {/if}
   </div>
 
-  <div class="ref-body">
-    {#if $geneEditingView}
-      <GeneEditingView animalType={geneEdit?.animalType} chromosome={geneEdit?.chromosome} />
+  <div class="ref-body" class:ref-body-map={!editMode}>
+    {#if editMode}
+      {#if $geneEditingView}
+        <GeneEditingView animalType={geneEdit?.animalType} chromosome={geneEdit?.chromosome} />
+      {:else}
+        <EmptyState
+          icon="📚"
+          title="Edit gene templates"
+          body="Pick an animal type and chromosome above, then choose Edit Genes."
+        />
+      {/if}
+    {:else if selectedAnimalType}
+      <GenomeMap species={selectedAnimalType} {populationPets} {breedFilter} />
     {:else}
       <EmptyState
-        icon="📚"
-        title="Edit gene templates"
-        body="Pick an animal type and chromosome above, then choose Edit Genes."
+        icon="🧬"
+        title="Genome map"
+        body="Pick an animal type above to see how rare each gene value is across your pets."
       />
     {/if}
   </div>
@@ -138,4 +208,27 @@ $effect(() => {
   .load-btn:disabled { opacity: 0.5; cursor: not-allowed; }
   .ref-error { font-size: 12px; color: var(--error-text); display: inline-flex; align-items: center; gap: 4px; }
   .ref-body { flex: 1; min-height: 0; overflow: auto; padding: 16px 20px; }
+  /* The map owns its own scrolling (its cell size is measured from that box),
+     so the wrapper must not scroll or the two would fight. */
+  .ref-body-map { overflow: hidden; display: flex; min-width: 0; }
+
+  .ref-segment {
+    display: flex; align-items: center; gap: 4px;
+    background: var(--bg-secondary); border-radius: 6px; padding: 3px;
+  }
+  .seg-btn {
+    padding: 5px 10px; border: none; background: transparent; border-radius: 4px;
+    font-size: 12px; font-weight: 600; color: var(--text-secondary); cursor: pointer;
+  }
+  .seg-btn:hover:not(:disabled) { background: var(--bg-primary); }
+  .seg-btn.active { background: var(--accent); color: var(--text-inverse); }
+  .seg-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  .edit-toggle {
+    margin-left: auto; padding: 7px 16px; border: 1px solid var(--border-secondary);
+    background: var(--bg-primary); color: var(--text-primary);
+    border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer;
+  }
+  .edit-toggle:hover { background: var(--bg-secondary); }
+  .edit-toggle.active { background: var(--accent); color: var(--text-inverse); border-color: var(--accent); }
 </style>

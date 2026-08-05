@@ -6,6 +6,8 @@ import GeneVisualizer from '$lib/components/gene/GeneVisualizer.svelte';
 import BreedSelector from '$lib/components/shared/BreedSelector.svelte';
 import PetActions from '$lib/components/shared/PetActions.svelte';
 import StatusBanner from '$lib/components/shared/StatusBanner.svelte';
+import { petsForTier, type RarityTier } from '$lib/services/frequencyService.js';
+import { pets as allPets } from '$lib/stores/pets.js';
 import { settings } from '$lib/stores/settings.js';
 import type { DialogResult, Pet } from '$lib/types/index.js';
 import { HORSE_BREEDS } from '$lib/types/index.js';
@@ -33,6 +35,17 @@ interface Props {
 
 const { pet }: Props = $props();
 
+/**
+ * Drawer heading per view. A record rather than a chain of ternaries so adding a
+ * view is one entry, and an unknown value falls back instead of silently
+ * reading as "Appearance Effects".
+ */
+const DRAWER_TITLES: Record<string, string> = {
+  attribute: 'Attribute Effects',
+  appearance: 'Appearance Effects',
+  rarity: 'Stats',
+};
+
 let geneVisualizerRef = $state<GeneVisualizerInstance | undefined>(undefined);
 let currentView = $state('attribute');
 let statsOpen = $state(false);
@@ -43,6 +56,14 @@ let breedFilter = $state('');
 let autoBreed = $state(false);
 let showShare = $state(false);
 let shareStatus = $state<DialogResult | null>(null);
+
+// --- Rarity lens ------------------------------------------------------------
+// Defaults to the widest local baseline: more evidence per locus, and `stabled`
+// is a housekeeping marker rather than a claim about which animals count as
+// your genetic stock. It also keeps the default clear of the small-baseline
+// regime where the sole-carrier step is suppressed.
+let rarityPopulation = $state<RarityTier>('all');
+const populationPets = $derived(petsForTier(rarityPopulation, $allPets));
 
 function handleShareResult(result: DialogResult): void {
   shareStatus = result;
@@ -215,7 +236,46 @@ onDestroy(() => {
                 >
                     Appearance
                 </button>
+                <button
+                    class="view-btn"
+                    class:active={!galleryOpen && currentView === "rarity"}
+                    data-testid="view-rarity-btn"
+                    title="Shade each gene by how rare its value is across your pets"
+                    onclick={() => handleViewChange("rarity")}
+                >
+                    Rarity
+                </button>
             </div>
+            {#if currentView === "rarity" && !galleryOpen}
+                <!-- Its own class, not `view-controls`: it shares the segmented
+                     look but is a different axis (which pets to measure against,
+                     not which view to show), and conflating them would make
+                     "the view group" ambiguous to query. -->
+                <div class="rarity-population" role="group" aria-label="Rarity baseline">
+                    <button
+                        class="view-btn"
+                        class:active={rarityPopulation === "stabled"}
+                        data-testid="rarity-pop-stabled"
+                        onclick={() => { rarityPopulation = "stabled"; }}
+                    >
+                        Stabled
+                    </button>
+                    <button
+                        class="view-btn"
+                        class:active={rarityPopulation === "all"}
+                        data-testid="rarity-pop-all"
+                        onclick={() => { rarityPopulation = "all"; }}
+                    >
+                        All my pets
+                    </button>
+                    <!-- Deferred, not forgotten: a community baseline needs a
+                         precomputed aggregate rather than fetching every genome.
+                         Shown disabled so the tiering stays legible. -->
+                    <button class="view-btn" disabled title="Needs a shared aggregate — not yet available">
+                        Community · soon
+                    </button>
+                </div>
+            {/if}
             <div class="toggle-controls">
                 <button
                     class="toggle-btn"
@@ -277,31 +337,46 @@ onDestroy(() => {
         </div>
       {:else}
         <div class="visualizer-container">
-            <GeneVisualizer {pet} bind:this={geneVisualizerRef} onStatsUpdated={handleStatsUpdated} />
+            <GeneVisualizer {pet} {populationPets} bind:this={geneVisualizerRef} onStatsUpdated={handleStatsUpdated} />
         </div>
 
+        <!-- The drawer stays MOUNTED in every view, including rarity.
+             `.content-area` is a row: this drawer and `.visualizer-container`
+             (flex: 1) share the width, so unmounting it hands the grid an extra
+             `drawerWidth` px, the ResizeObserver fires and every cell resizes.
+             That is precisely the §4 non-goal — the grid must be byte-identical
+             across views. Stats have no rarity analogue, so the BODY swaps for a
+             short note while the geometry stays put. -->
         {#if statsOpen}
             <div class="stats-drawer" style="width: {drawerWidth}px;">
                 <!-- svelte-ignore a11y_no_static_element_interactions -->
                 <div class="resize-handle" onmousedown={startResize}></div>
                 <div class="stats-drawer-header">
                     <span class="stats-drawer-title">
-                        {currentView === "attribute" ? "Attribute Effects" : "Appearance Effects"}
+                        {DRAWER_TITLES[currentView] ?? DRAWER_TITLES.attribute}
                     </span>
                     <button class="stats-close" onclick={toggleStats}>×</button>
                 </div>
                 <div class="stats-drawer-body">
-                    <GeneStatsTable
-                        currentStats={stats?.currentStats}
-                        currentView={stats?.currentView ?? currentView}
-                        selectedAttributes={stats?.selectedAttributes ?? []}
-                        hiddenAttributes={stats?.hiddenAttributes ?? []}
-                        totalGenes={stats?.totalGenes ?? 0}
-                        neutralGenes={stats?.neutralGenes ?? 0}
-                        petSpecies={stats?.petSpecies ?? pet?.species}
-                        pet={pet}
-                        on:attributeFilter={handleAttributeFilter}
-                    />
+                    {#if currentView === "rarity"}
+                        <p class="stats-empty" data-testid="stats-rarity-note">
+                            Effect and appearance stats don't apply to the rarity view.
+                            The legend below the grid shows the scale, and hovering a
+                            gene gives its exact figures.
+                        </p>
+                    {:else}
+                        <GeneStatsTable
+                            currentStats={stats?.currentStats}
+                            currentView={stats?.currentView ?? currentView}
+                            selectedAttributes={stats?.selectedAttributes ?? []}
+                            hiddenAttributes={stats?.hiddenAttributes ?? []}
+                            totalGenes={stats?.totalGenes ?? 0}
+                            neutralGenes={stats?.neutralGenes ?? 0}
+                            petSpecies={stats?.petSpecies ?? pet?.species}
+                            pet={pet}
+                            on:attributeFilter={handleAttributeFilter}
+                        />
+                    {/if}
                 </div>
             </div>
         {/if}
@@ -315,6 +390,20 @@ onDestroy(() => {
         display: flex;
         flex-direction: column;
         overflow: hidden;
+        /* Fill the row instead of being sized by our own content (#436).
+         *
+         * `.do-body` is a flex ROW and this was a flex item with no `flex` and
+         * no width, so its width was shrink-to-fit over its contents — meaning
+         * the *header's* intrinsic width set the grid's width, and every cell
+         * resized whenever a control was added, removed or relabelled. Adding
+         * the rarity population toggle grew the header by ~327px and the grid
+         * went with it.
+         *
+         * `min-width: 0` is load-bearing: flex items default to
+         * `min-width: auto`, so without it a wide header could still push this
+         * past the container and reintroduce the coupling. */
+        flex: 1;
+        min-width: 0;
     }
 
     .detail-header {
@@ -379,13 +468,19 @@ onDestroy(() => {
         color: var(--bg-primary);
     }
 
-    .view-controls {
+    .view-controls,
+    .rarity-population {
         display: flex;
         align-items: center;
         gap: 4px;
         background: var(--bg-tertiary);
         border-radius: 6px;
         padding: 3px;
+    }
+
+    .rarity-population .view-btn:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
     }
 
     .toggle-controls {
@@ -524,5 +619,12 @@ onDestroy(() => {
     .stats-drawer-body {
         flex: 1;
         overflow-y: auto;
+    }
+
+    .stats-empty {
+        padding: 14px 16px;
+        font-size: 12px;
+        line-height: 1.5;
+        color: var(--text-tertiary);
     }
 </style>

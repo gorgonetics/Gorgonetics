@@ -220,7 +220,13 @@ export interface VisualizerFilterInput {
   /** Zygosity values as `gene-dominant` / `gene-recessive` / `gene-mixed` / `gene-unknown`. */
   currentValueFilter: string[];
   hiddenValueFilters: string[];
-  currentView: 'attribute' | 'appearance';
+  /**
+   * `'rarity'` deliberately activates **neither** the attribute nor the
+   * appearance focus clauses: those legends do not exist in the rarity view, so
+   * their filters are inactive there. Chromosome, breed and value filters are
+   * outside the view branch and keep working.
+   */
+  currentView: 'attribute' | 'appearance' | 'rarity';
   breedFilter: string;
   isHorse: boolean;
   chrBreedRelevance: Record<string, ChrBreedRelevance>;
@@ -275,7 +281,7 @@ export function buildVisualizerFilterCSS(input: VisualizerFilterInput): string {
     for (const h of ha) {
       rules.push(`${VG} .gene-cell[data-attrs*="${delim(h)}"] ${DIMMED_25}`);
     }
-  } else {
+  } else if (view === 'appearance') {
     if (sa.length > 0) {
       const not = sa.map((a) => `:not([data-appearance="${a}"])`).join('');
       rules.push(`${VG} .gene-cell[data-appearance]${not} ${DIMMED_25}`);

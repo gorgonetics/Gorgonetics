@@ -1,4 +1,5 @@
 import { derived, type Writable, writable } from 'svelte/store';
+import { invalidateRarityCache } from '$lib/services/frequencyService.js';
 import type { UploadPetOptions } from '$lib/services/petService.js';
 import * as petService from '$lib/services/petService.js';
 import type { Pet } from '$lib/types/index.js';
@@ -88,6 +89,11 @@ export const appState = {
     try {
       loading.set(true);
       error.set(null);
+      // Every mutation path (upload, edit, delete, import) funnels through here,
+      // so this is the one place that can keep the rarity baselines honest: a
+      // memoised baseline is keyed on the pet id set, which does not change when
+      // a pet's *genome* does, and it would otherwise survive for the session.
+      invalidateRarityCache();
       const { items } = await petService.getAllPets();
       if (myGeneration !== loadGeneration) return;
       pets.set(items as Pet[]);

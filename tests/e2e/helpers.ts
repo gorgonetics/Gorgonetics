@@ -1,5 +1,60 @@
 import { expect, type Page } from '@playwright/test';
 
+/**
+ * Read something off the page repeatedly until it stops changing.
+ *
+ * The genome grids animate: `.gene-cell` carries `transition: all 0.2s ease`, and
+ * `--cell-size` starts at a fallback until the ResizeObserver lands. So a
+ * measurement taken right after a click catches colour interpolating (in a third
+ * colour space, no less) or width animating, and reports differences that are
+ * pure noise — including between a surface and itself.
+ *
+ * **Throws if it never settles**, and requires `stableReads` consecutive
+ * agreements rather than one lucky pair. Returning the last unsettled value
+ * instead would hand the caller two mid-flight snapshots that then compare equal
+ * to each other — a green test over a broken invariant, which is precisely the
+ * regression class these helpers exist to catch (a ResizeObserver feedback loop
+ * that oscillates cell size never settles at all).
+ *
+ * Compares by JSON, so `read` must return a plain serialisable value.
+ */
+export async function settled<T>(page: Page, read: () => Promise<T>, stableReads = 3): Promise<T> {
+  let previous = JSON.stringify(await read());
+  let agreements = 0;
+  // Transitions run 200ms; ~6s is a generous ceiling for a settling grid.
+  for (let i = 0; i < 50; i++) {
+    await page.waitForTimeout(120);
+    const current = JSON.stringify(await read());
+    agreements = current === previous ? agreements + 1 : 0;
+    previous = current;
+    if (agreements >= stableReads) return JSON.parse(current) as T;
+  }
+  throw new Error(
+    `settled(): value never held still for ${stableReads} consecutive reads — the page is likely still animating. ` +
+      `Last read: ${previous.slice(0, 400)}`,
+  );
+}
+
+/**
+ * Resolve CSS custom properties to concrete colours, in document order.
+ *
+ * A `color-mix()` ramp cannot be read off the custom property itself — that
+ * yields the unevaluated expression — so each token is painted onto a throwaway
+ * element and read back as a used value. One round trip for the whole list.
+ */
+export function resolveCssColours(page: Page, tokens: readonly string[]): Promise<string[]> {
+  return page.evaluate((names) => {
+    const probe = document.createElement('div');
+    document.body.appendChild(probe);
+    const out = names.map((name) => {
+      probe.style.color = `var(${name})`;
+      return getComputedStyle(probe).color;
+    });
+    probe.remove();
+    return out;
+  }, tokens as string[]);
+}
+
 /** Wait for the app to finish initializing (DB + demo data). */
 export async function waitForAppReady(page: Page) {
   await page.waitForSelector('.top-bar');
@@ -36,6 +91,9 @@ export async function openFirstPet(page: Page) {
 /** Navigate to gene editor (Reference destination) with a selected chromosome. */
 export async function openGeneEditor(page: Page) {
   await gotoDestination(page, 'Reference');
+  // Reference is map-first since #368 §7; the template editor lives behind the
+  // Edit toggle, which is what exposes the chromosome picker.
+  await page.getByTestId('reference-edit-toggle').click();
   await expect(page.locator('#animalType option')).not.toHaveCount(1);
 
   const firstValue = await page.locator('#animalType option').nth(1).getAttribute('value');

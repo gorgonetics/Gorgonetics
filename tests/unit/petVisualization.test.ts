@@ -17,6 +17,8 @@ vi.mock('$lib/stores/settings.js', () => ({
 
 vi.mock('$lib/stores/pets.js', () => ({
   appState: { deletePet: vi.fn(async () => {}) },
+  // The rarity baseline population is derived from this store.
+  pets: writable<Pet[]>([]),
 }));
 
 // Stub the heavy/irrelevant children; the header behaviour is what's under test.
@@ -106,12 +108,15 @@ describe('PetVisualization detail header', () => {
   });
 
   describe('control strip separation (#395)', () => {
-    it('keeps Attributes/Appearance as the exclusive segmented pair, with Stats/Gallery and actions in their own clusters', () => {
+    it('keeps the grid views as the exclusive segmented group, with Stats/Gallery and actions in their own clusters', () => {
       const { container } = render(PetVisualization, { pet: makePet() });
       const segment = q(container, '.view-controls') as HTMLElement;
+      // Rarity is a third grid view, so it belongs in this group. The rarity
+      // baseline toggle is a different axis and lives in `.rarity-population`.
       expect([...segment.querySelectorAll('button')].map((b) => b.textContent?.trim())).toEqual([
         'Attributes',
         'Appearance',
+        'Rarity',
       ]);
       expect(q(container, '.toggle-controls [data-testid="detail-stats-toggle"]')).not.toBeNull();
       expect(q(container, '.toggle-controls [data-testid="detail-gallery-toggle"]')).not.toBeNull();
@@ -177,6 +182,80 @@ describe('PetVisualization detail header', () => {
       expect(gallery.getAttribute('aria-pressed')).toBe('false');
       expect(btn(container, 'Appearance').classList.contains('active')).toBe(true);
       expect(btn(container, 'Attributes').classList.contains('active')).toBe(false);
+    });
+  });
+
+  describe('rarity lens controls (#368)', () => {
+    it('shows the baseline toggle only in the rarity view', async () => {
+      const { container } = render(PetVisualization, { pet: makePet() });
+      expect(q(container, '.rarity-population')).toBeNull();
+
+      await fireEvent.click(btn(container, 'Rarity'));
+      expect(q(container, '.rarity-population')).not.toBeNull();
+
+      await fireEvent.click(btn(container, 'Attributes'));
+      expect(q(container, '.rarity-population')).toBeNull();
+    });
+
+    it('defaults the baseline to All my pets, not the stabled subset', async () => {
+      const { container, getByTestId } = render(PetVisualization, { pet: makePet() });
+      await fireEvent.click(btn(container, 'Rarity'));
+      expect(getByTestId('rarity-pop-all').classList.contains('active')).toBe(true);
+      expect(getByTestId('rarity-pop-stabled').classList.contains('active')).toBe(false);
+    });
+
+    it('switches the baseline population', async () => {
+      const { container, getByTestId } = render(PetVisualization, { pet: makePet() });
+      await fireEvent.click(btn(container, 'Rarity'));
+      await fireEvent.click(getByTestId('rarity-pop-stabled'));
+      expect(getByTestId('rarity-pop-stabled').classList.contains('active')).toBe(true);
+      expect(getByTestId('rarity-pop-all').classList.contains('active')).toBe(false);
+    });
+
+    it('offers Community as a disabled affordance so the tiering stays legible', async () => {
+      const { container } = render(PetVisualization, { pet: makePet() });
+      await fireEvent.click(btn(container, 'Rarity'));
+      const community = [...(q(container, '.rarity-population') as HTMLElement).querySelectorAll('button')].find((b) =>
+        b.textContent?.includes('Community'),
+      ) as HTMLButtonElement;
+      expect(community).toBeDefined();
+      expect(community.disabled).toBe(true);
+    });
+
+    it('keeps the stats drawer MOUNTED in the rarity view — unmounting it resizes the grid', async () => {
+      // `.content-area` is a row: the drawer and `.visualizer-container`
+      // (flex: 1) share the width. Unmounting the drawer on a view switch hands
+      // the grid an extra `drawerWidth` px, the ResizeObserver fires and every
+      // cell resizes — the exact regression the design's §4 non-goal forbids.
+      const { container, getByTestId } = render(PetVisualization, { pet: makePet() });
+      await fireEvent.click(getByTestId('detail-stats-toggle'));
+      const widthBefore = (q(container, '.stats-drawer') as HTMLElement).style.width;
+
+      await fireEvent.click(btn(container, 'Rarity'));
+      const drawer = q(container, '.stats-drawer');
+      expect(drawer).not.toBeNull();
+      expect((drawer as HTMLElement).style.width).toBe(widthBefore);
+      // The body swaps rather than the drawer disappearing.
+      expect(q(container, '[data-testid="stats-rarity-note"]')).not.toBeNull();
+    });
+
+    it('leaves the Stats toggle usable in the rarity view', async () => {
+      const { container, getByTestId } = render(PetVisualization, { pet: makePet() });
+      await fireEvent.click(btn(container, 'Rarity'));
+      const stats = getByTestId('detail-stats-toggle') as HTMLButtonElement;
+      expect(stats.disabled).toBe(false);
+      await fireEvent.click(stats);
+      expect(q(container, '.stats-drawer')).not.toBeNull();
+    });
+
+    it('picking Rarity brings the grid back if the gallery had taken over', async () => {
+      const { container, getByTestId } = render(PetVisualization, { pet: makePet() });
+      await fireEvent.click(getByTestId('detail-gallery-toggle'));
+      expect(getByTestId('detail-gallery-toggle').getAttribute('aria-pressed')).toBe('true');
+
+      await fireEvent.click(btn(container, 'Rarity'));
+      expect(getByTestId('detail-gallery-toggle').getAttribute('aria-pressed')).toBe('false');
+      expect(btn(container, 'Rarity').classList.contains('active')).toBe(true);
     });
   });
 });
