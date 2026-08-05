@@ -25,7 +25,7 @@ import { breedFor, effectFor, type GeneEffectData } from '$lib/utils/geneAnalysi
 import { computeGeneCellSize } from '$lib/utils/geneGridCells.js';
 import { buildGenomeMapGrid, type GenomeMapGrid } from '$lib/utils/genomeMapGrid.js';
 import { buildRarityCSS, type RarityCell } from '$lib/utils/rarityCSS.js';
-import { buildRarityTooltip } from '$lib/utils/rarityTooltip.js';
+import { buildRarityTooltip, placeRarityTooltip } from '$lib/utils/rarityTooltip.js';
 import { capitalize } from '$lib/utils/string.js';
 
 interface Props {
@@ -178,15 +178,10 @@ function showTooltip(geneId: string, event: MouseEvent): void {
     dominant: effectFor(effects[geneId], 'D'),
     recessive: effectFor(effects[geneId], 'R'),
   });
-  const width = 300;
-  const height = 45 + lines.length * 18;
-  const offset = 12;
-  let x = event.clientX + offset;
-  let y = event.clientY + offset;
-  if (x + width > window.innerWidth) x = event.clientX - width - offset;
-  if (y + height > window.innerHeight) y = event.clientY - height - offset;
-  if (x < 0) x = event.clientX + offset;
-  if (y < 0) y = event.clientY + offset;
+  const { x, y } = placeRarityTooltip(event.clientX, event.clientY, lines.length, {
+    width: window.innerWidth,
+    height: window.innerHeight,
+  });
 
   tooltipX = x;
   tooltipY = y;

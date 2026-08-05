@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { alleleCarriers, alleleFrequency, isMeasurable, type LocusTally } from '$lib/utils/geneFrequency.js';
-import { buildRarityTooltip, escapeHtml, type RarityTooltipSource } from '$lib/utils/rarityTooltip.js';
+import { buildRarityTooltip, placeRarityTooltip, type RarityTooltipSource } from '$lib/utils/rarityTooltip.js';
 
 /**
  * The rarity tooltip (#368, design §6).
@@ -198,19 +198,47 @@ describe('buildRarityTooltip — honest about missing evidence', () => {
   });
 });
 
-describe('escapeHtml', () => {
-  it('escapes every character that could break out of an injected line', () => {
-    expect(escapeHtml(`<script>&"'`)).toBe('&lt;script&gt;&amp;&quot;&#39;');
+/**
+ * Placement is shared by both surfaces, so a locus is not positioned differently
+ * depending on which grid you hovered. A 3-line card is 99px tall (45 + 3 × 18)
+ * and the card is 300 wide, with a 12px cursor offset.
+ */
+describe('placeRarityTooltip', () => {
+  const VIEWPORT = { width: 1000, height: 800 };
+
+  it('sits below and to the right of the cursor when there is room', () => {
+    expect(placeRarityTooltip(100, 200, 3, VIEWPORT)).toEqual({ x: 112, y: 212 });
   });
 
-  it('escapes the ampersand first, so an entity is not double-decoded', () => {
-    expect(escapeHtml('&lt;')).toBe('&amp;lt;');
+  it('flips to the left of the cursor rather than overhanging the right edge', () => {
+    // 900 + 12 + 300 > 1000, so the card goes to the cursor's left.
+    expect(placeRarityTooltip(900, 200, 3, VIEWPORT)).toEqual({ x: 588, y: 212 });
   });
 
-  it('leaves ordinary effect text untouched', () => {
-    expect(escapeHtml('Temperament+')).toBe('Temperament+');
+  it('flips above the cursor rather than overhanging the bottom edge', () => {
+    // 780 + 12 + 99 > 800.
+    expect(placeRarityTooltip(100, 780, 3, VIEWPORT)).toEqual({ x: 112, y: 669 });
   });
 
+  it('flips on both axes at once in the bottom-right corner', () => {
+    expect(placeRarityTooltip(900, 780, 3, VIEWPORT)).toEqual({ x: 588, y: 669 });
+  });
+
+  it('stays on the near side when flipping would push it off the opposite edge', () => {
+    // A narrow viewport: flipping left would be negative, so it goes back right
+    // and overhangs rather than rendering off-screen to the left.
+    expect(placeRarityTooltip(50, 30, 3, { width: 200, height: 100 })).toEqual({ x: 62, y: 42 });
+  });
+
+  it('grows the card with the line count, so a taller card flips sooner', () => {
+    const short = placeRarityTooltip(100, 700, 1, VIEWPORT);
+    const tall = placeRarityTooltip(100, 700, 6, VIEWPORT);
+    expect(short.y).toBe(712); // 45 + 18 = 63 tall, still fits
+    expect(tall.y).toBeLessThan(700); // 45 + 108 = 153 tall, flips above
+  });
+});
+
+describe('escaping on the way into a tooltip line', () => {
   it('is applied to effect text on its way into a tooltip line', () => {
     // Effect strings come from the gene template DB, which the user can edit
     // through the Reference editor, and the lines are rendered with `{@html}`.

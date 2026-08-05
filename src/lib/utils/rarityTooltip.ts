@@ -14,6 +14,7 @@ import { EFFECT_COLORS } from '$lib/theme/gene-colors.js';
 import { GeneType } from '$lib/types/index.js';
 import { isNoEffect, parseEffect } from '$lib/utils/geneAnalysis.js';
 import type { Allele, LocusTally } from '$lib/utils/geneFrequency.js';
+import { escapeHtml } from '$lib/utils/string.js';
 
 /** Structural subset of `RarityLookup`, so this stays unit-testable with a stub. */
 export interface RarityTooltipSource {
@@ -29,17 +30,38 @@ export interface RarityTooltipContent {
   lines: string[];
 }
 
-const MUTED = '#9ca3af';
+/** The rarity card's rendered size; the arms and the breakdown are fixed-height rows. */
+const CARD_WIDTH = 300;
+const CARD_CHROME = 45;
+const LINE_HEIGHT = 18;
+const CURSOR_OFFSET = 12;
 
-/** The lines are injected as HTML, so DB/genome text must be escaped. */
-export function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
+/**
+ * Where to put the rarity card so it stays on screen.
+ *
+ * Shared by both surfaces for the same reason the content is: the card is the
+ * same size on each, so a locus should not be placed differently depending on
+ * which grid you hovered.
+ */
+export function placeRarityTooltip(
+  clientX: number,
+  clientY: number,
+  lineCount: number,
+  viewport: { width: number; height: number },
+): { x: number; y: number } {
+  const height = CARD_CHROME + lineCount * LINE_HEIGHT;
+  // Flip to the other side of the cursor when the card would overhang, then fall
+  // back to the near side if flipping would push it off the opposite edge.
+  let x = clientX + CURSOR_OFFSET;
+  let y = clientY + CURSOR_OFFSET;
+  if (x + CARD_WIDTH > viewport.width) x = clientX - CARD_WIDTH - CURSOR_OFFSET;
+  if (y + height > viewport.height) y = clientY - height - CURSOR_OFFSET;
+  if (x < 0) x = clientX + CURSOR_OFFSET;
+  if (y < 0) y = clientY + CURSOR_OFFSET;
+  return { x, y };
 }
+
+const MUTED = '#9ca3af';
 
 function armLine(label: string, frequency: number, carriers: number, effect: string): string {
   const parsed = parseEffect(effect);

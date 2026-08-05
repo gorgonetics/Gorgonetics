@@ -36,8 +36,8 @@ import {
 } from '$lib/utils/geneStats.js';
 import { handleGridNavigation } from '$lib/utils/keyboard.js';
 import { buildRarityCSS, type RarityCell } from '$lib/utils/rarityCSS.js';
-import { buildRarityTooltip } from '$lib/utils/rarityTooltip.js';
-import { capitalize } from '$lib/utils/string.js';
+import { buildRarityTooltip, placeRarityTooltip } from '$lib/utils/rarityTooltip.js';
+import { capitalize, escapeHtml } from '$lib/utils/string.js';
 import GeneTooltip from './GeneTooltip.svelte';
 
 const ALL_ATTRIBUTES = getAllAttributeDisplayInfo();
@@ -748,9 +748,10 @@ function buildGrid() {
 // Stats depend on (pet, view) only — never on filters — so they recompute on
 // load and on view change, not per filter click.
 function computeStats() {
-  // The stats drawer is attribute/appearance-specific and is hidden in the
-  // rarity view, so there is nothing to recompute — and `buildEmptyStats` has
-  // no bucket shape for it. Leave the last computed stats in place.
+  // Stats are attribute/appearance-specific: `buildEmptyStats` has no bucket
+  // shape for rarity, and the drawer swaps its body for a note in that view
+  // (it stays mounted — unmounting it would resize the grid). So there is
+  // nothing to recompute; leave the last computed stats in place.
   if (currentView === 'rarity') return;
   const view = currentView;
   const names = view === 'attribute' ? attributeStatNames : appearanceStatNames;
@@ -784,16 +785,9 @@ function computeStats() {
 // --- Tooltip (event-delegated; no per-cell components / handlers) -----------
 
 // The potential-effect lines are rendered via {@html} in GeneTooltip, so any
-// DB/genome-file text interpolated into them is escaped. (The "Current Effect"
-// itself is a plain text binding in GeneTooltip and needs no escaping here.)
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
+// DB/genome-file text interpolated into them is escaped by `escapeHtml`. (The
+// "Current Effect" itself is a plain text binding in GeneTooltip and needs no
+// escaping here.)
 
 function showTooltipForCell(cell: HTMLElement, clientX: number, clientY: number) {
   const geneId = cell.dataset.geneId ?? '';
@@ -805,15 +799,10 @@ function showTooltipForCell(cell: HTMLElement, clientX: number, clientY: number)
       dominant: getGeneEffect(sk, geneId, 'D'),
       recessive: getGeneEffect(sk, geneId, 'R'),
     });
-    const height = 45 + lines.length * 18;
-    const width = 300;
-    const offset = 12;
-    let x = clientX + offset;
-    let y = clientY + offset;
-    if (x + width > window.innerWidth) x = clientX - width - offset;
-    if (y + height > window.innerHeight) y = clientY - height - offset;
-    if (x < 0) x = clientX + offset;
-    if (y < 0) y = clientY + offset;
+    const { x, y } = placeRarityTooltip(clientX, clientY, lines.length, {
+      width: window.innerWidth,
+      height: window.innerHeight,
+    });
 
     tooltipX = x;
     tooltipY = y;
@@ -1089,11 +1078,15 @@ export function handleAttributeFilter(event: CustomEvent<{ attribute: string; ct
   hiddenAttributes = result.hidden;
 }
 
+/** The views this component can render. Anything else coerces to `attribute`. */
+const VIEWS = ['attribute', 'appearance', 'rarity'] as const;
+
 export function handleViewChange(view: string) {
-  // This coercion is load-bearing: an unrecognised value must not leave the
-  // component in a view the template cannot render. Anything new has to be
-  // added here or the button silently no-ops.
-  currentView = view === 'appearance' ? 'appearance' : view === 'rarity' ? 'rarity' : 'attribute';
+  // The coercion is load-bearing: an unrecognised value must not leave the
+  // component in a view the template cannot render. Membership in VIEWS rather
+  // than a ternary chain, so adding a view means adding it there — not editing
+  // a condition that silently no-ops when missed.
+  currentView = (VIEWS as readonly string[]).includes(view) ? (view as (typeof VIEWS)[number]) : 'attribute';
   computeStats();
 }
 
