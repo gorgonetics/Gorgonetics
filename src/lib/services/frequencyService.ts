@@ -40,6 +40,18 @@ export interface RarityLookup {
   /** Pets of this species in the population (the *population* size). */
   readonly petCount: number;
   /**
+   * Pets studied less deeply than the deepest-studied pet in the population.
+   *
+   * Exists so the legend can say *why* "across 30 Horses" is not the whole
+   * truth: with these pets present the denominator varies per locus, and no
+   * single figure in the legend can be right for every cell (§6). Measured
+   * against the deepest pet rather than against the species' full locus count,
+   * because that is what the projection can answer without a second notion of
+   * "complete" — and a collection where every pet stops at the same depth has
+   * even coverage, which is the thing being flagged.
+   */
+  readonly partialPets: number;
+  /**
    * Per-locus tallies. Absent gene ids mean no pet in the population had
    * a known reading there.
    */
@@ -97,6 +109,7 @@ export function invalidateRarityCache(): void {
 function buildLookup(
   species: string,
   petCount: number,
+  partialPets: number,
   loci: Map<string, LocusTally>,
   opts: RarityOptions,
 ): RarityLookup {
@@ -104,6 +117,7 @@ function buildLookup(
   return {
     species,
     petCount,
+    partialPets,
     loci,
     tally,
     bucketOf: (geneId, allele) => rarityBucket(tally(geneId), allele, opts),
@@ -177,6 +191,41 @@ async function loadLocusTallies(petIds: readonly number[]): Promise<Map<string, 
 }
 
 /**
+ * Count the pets studied less deeply than the deepest-studied one.
+ *
+ * The same aggregate as `loadLocusTallies`, grouped the other way: one row per
+ * *pet* rather than per locus, so it is at most a few dozen rows and the same
+ * `CASE WHEN` accumulators answer it in a single pass. `?` rows match no arm and
+ * so are excluded from `known`, which is exactly the reading being counted.
+ *
+ * Grouping by locus cannot answer this — two pets each missing a different locus
+ * and one pet missing both produce identical per-locus tallies.
+ */
+async function loadPartialPetCount(petIds: readonly number[]): Promise<number> {
+  const { placeholders, params } = buildInClauseParams(petIds, 'pet');
+  const rows = await getDb().select<{ pet_id: number; pure_d: number; pure_r: number; mixed: number }[]>(
+    `SELECT pet_id,
+            SUM(CASE WHEN gene_type = 'D' THEN 1 ELSE 0 END) AS pure_d,
+            SUM(CASE WHEN gene_type = 'R' THEN 1 ELSE 0 END) AS pure_r,
+            SUM(CASE WHEN gene_type = 'x' THEN 1 ELSE 0 END) AS mixed
+     FROM pet_genes WHERE pet_id IN (${placeholders}) GROUP BY pet_id`,
+    params,
+  );
+
+  const knownByPet = new Map(
+    rows.map((row) => [
+      Number(row.pet_id),
+      (Number(row.pure_d) || 0) + (Number(row.pure_r) || 0) + (Number(row.mixed) || 0),
+    ]),
+  );
+  // A pet with no rows at all reads as zero known, not as absent — otherwise it
+  // would drop out of the comparison it is most relevant to.
+  const known = petIds.map((id) => knownByPet.get(id) ?? 0);
+  const deepest = Math.max(...known);
+  return known.filter((count) => count < deepest).length;
+}
+
+/**
  * Populate `pet_genes` for any pet that has no projected rows yet.
  *
  * Mirrors `loadAllPetLoci`'s inline populate-and-retry: a legacy pet
@@ -224,10 +273,11 @@ export async function computeRarityLookup(
   // An empty population is a real state (no pets of this species yet), not
   // an error — every locus simply reads as missing data.
   if (petIds.length === 0) {
-    return remember(cacheId, buildLookup(key, 0, new Map(), opts));
+    return remember(cacheId, buildLookup(key, 0, 0, new Map(), opts));
   }
 
   await ensureProjected(petIds);
   const loci = await loadLocusTallies(petIds);
-  return remember(cacheId, buildLookup(key, petIds.length, loci, opts));
+  const partialPets = await loadPartialPetCount(petIds);
+  return remember(cacheId, buildLookup(key, petIds.length, partialPets, loci, opts));
 }

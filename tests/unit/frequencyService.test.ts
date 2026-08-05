@@ -6,6 +6,8 @@ import * as petService from '$lib/services/petService.js';
 import { GeneType, type Pet } from '$lib/types/index.js';
 import { computeLocusFrequencies } from '$lib/utils/geneFrequency.js';
 import { loadAllPetLoci } from '$lib/utils/petLoci.js';
+import { buildRarityCSS } from '$lib/utils/rarityCSS.js';
+import { buildRarityTooltip } from '$lib/utils/rarityTooltip.js';
 
 const D = GeneType.DOMINANT;
 const R = GeneType.RECESSIVE;
@@ -152,6 +154,107 @@ describe('the SQL aggregate agrees with the reference JS tally', () => {
     expect(lookup.loci.has('01A1')).toBe(true);
     expect(lookup.loci.has('01A2')).toBe(false);
     expect(lookup.measurable('01A2')).toBe(false);
+  });
+});
+
+/**
+ * A collection built while levelling Genetics holds pets revealed to different
+ * depths, so one population yields a different denominator at every locus. The
+ * fixtures have to construct that deliberately: the calibration collection has
+ * no `?` genotypes at all, so nothing about it would exercise this.
+ */
+describe('uneven study depth within one population', () => {
+  beforeEach(async () => {
+    await closeDatabase();
+    await initDatabase();
+    await runMigrations();
+    invalidateRarityCache();
+  });
+
+  /** Five horses, revealed to three different depths across four loci. */
+  async function unevenStable(): Promise<Pet[]> {
+    return [
+      await upload('Horse', 'H1', 'DDDD'), // studied to the end
+      await upload('Horse', 'H2', 'DxD?'),
+      await upload('Horse', 'H3', 'DRD?'),
+      await upload('Horse', 'H4', 'Dx??'), // studied shallowest
+      await upload('Horse', 'H5', 'DD??'),
+    ];
+  }
+
+  it('yields a different knownPets at different loci', async () => {
+    const lookup = await computeRarityLookup(await unevenStable(), 'Horse');
+
+    expect(lookup.petCount).toBe(5);
+    expect(lookup.tally('01A1').knownPets).toBe(5);
+    expect(lookup.tally('01A3').knownPets).toBe(3);
+    expect(lookup.tally('01A4').knownPets).toBe(1);
+  });
+
+  it('counts the pets studied less deeply, so the legend can flag uneven coverage', async () => {
+    // H1 has four readings, H2/H3 three, H4/H5 two — four pets short of the
+    // deepest. Per-locus tallies cannot answer this: two pets each missing a
+    // different locus and one missing both give identical tallies.
+    const lookup = await computeRarityLookup(await unevenStable(), 'Horse');
+    expect(lookup.partialPets).toBe(4);
+  });
+
+  it('reports no partial pets when the whole population was studied to the same depth', async () => {
+    const even = [await upload('Horse', 'H1', 'DDDD'), await upload('Horse', 'H2', 'DxRD')];
+    const lookup = await computeRarityLookup(even, 'Horse');
+    expect(lookup.partialPets).toBe(0);
+  });
+
+  it('treats a population that stopped at the same shallow depth as even', async () => {
+    // Every pet is missing the same two loci, so nothing about the baseline is
+    // lopsided — there is no per-pet difference for the legend to warn about.
+    const shallow = [await upload('Horse', 'H1', 'DD??'), await upload('Horse', 'H2', 'xR??')];
+    const lookup = await computeRarityLookup(shallow, 'Horse');
+    expect(lookup.partialPets).toBe(0);
+    expect(lookup.tally('01A3').knownPets).toBe(0);
+  });
+
+  it('quotes the per-locus count in the tooltip, not the population size', async () => {
+    const lookup = await computeRarityLookup(await unevenStable(), 'Horse');
+    const effects = { dominant: 'Toughness+', recessive: 'Virility-' };
+
+    // 5 pets in the population, 3 with a reading here. Quoting 5 would
+    // misstate the evidence behind the colour.
+    expect(buildRarityTooltip(lookup, '01A3', 'Horses', effects).subtitle).toBe('3 Horses studied at this locus');
+    expect(buildRarityTooltip(lookup, '01A1', 'Horses', effects).subtitle).toBe('5 Horses studied at this locus');
+  });
+
+  it('renders the under-studied locus as missing data while its neighbours shade normally', async () => {
+    const lookup = await computeRarityLookup(await unevenStable(), 'Horse');
+
+    // 01A4 has one reading — 2 known alleles, under the 4-allele floor.
+    expect(lookup.measurable('01A4')).toBe(false);
+    expect(lookup.bucketOf('01A4', D)).toBeNull();
+    expect(lookup.measurable('01A3')).toBe(true);
+
+    const css = buildRarityCSS({
+      cells: [
+        { geneId: '01A2', type: GeneType.MIXED },
+        { geneId: '01A3', type: D },
+        { geneId: '01A4', type: D },
+      ],
+      lookup,
+    });
+
+    const rules = css
+      .split('}')
+      .filter((rule) => rule.trim())
+      .map((rule) => {
+        const [selector, declaration] = rule.split('{');
+        return { selector, declaration };
+      });
+    const missing = rules.find((rule) => rule.declaration.includes('dashed'));
+    const shaded = rules.filter((rule) => !rule.declaration.includes('dashed'));
+
+    expect(missing?.selector, '01A4 was never listed as missing data').toContain('01A4');
+    expect(shaded.some((rule) => rule.selector.includes('01A2'))).toBe(true);
+    expect(shaded.some((rule) => rule.selector.includes('01A3'))).toBe(true);
+    expect(shaded.every((rule) => !rule.selector.includes('01A4'))).toBe(true);
   });
 });
 

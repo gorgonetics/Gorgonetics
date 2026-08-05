@@ -1193,11 +1193,19 @@ const blockIndices = $derived.by(() => {
                                     {:else if rarityLoading || !rarityLookup}
                                         Analysing…
                                     {:else}
-                                        <!-- The POPULATION size. A per-locus count can be
-                                             lower where pets were studied at a lower
-                                             Genetics level; that figure belongs in the
-                                             tooltip, where it can be right per cell. -->
+                                        <!-- The POPULATION size, plus a flag when it is not
+                                             the whole truth: pets studied at a lower Genetics
+                                             level make the denominator vary per locus, so no
+                                             single number here is right for every cell. The
+                                             exact per-locus figure belongs in the tooltip,
+                                             where it can be. -->
                                         baseline: {rarityLookup.petCount} {capitalize(currentPet?.species ?? "pets")}
+                                        {#if rarityLookup.partialPets > 0}
+                                            <span
+                                                class="rarity-coverage"
+                                                title="Studied at a lower Genetics level, so some loci are measured across fewer pets. Hover a cell for its own count."
+                                            >· {rarityLookup.partialPets} studied less deeply</span>
+                                        {/if}
                                     {/if}
                                 </span>
                             </div>
