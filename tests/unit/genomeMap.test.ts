@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup, render, waitFor } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { Pet } from '$lib/types/index.js';
 
 /**
  * The Reference genome map (#368 §7).
@@ -135,7 +136,10 @@ describe('GenomeMap baseline failure', () => {
     await waitFor(() => expect(getByTestId('map-baseline-error')).toBeTruthy());
 
     mocks.baseline.reject = false;
-    await rerender({ species: 'Horse', populationPets: [{ id: 1, species: 'Horse', stabled: true }] });
+    await rerender({
+      species: 'Horse',
+      populationPets: [{ id: 1, species: 'Horse', stabled: true } as unknown as Pet],
+    });
 
     await waitFor(() => expect(container.querySelector('[data-testid="map-baseline-error"]')).toBeNull());
     expect(sheet()).not.toBe('');

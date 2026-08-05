@@ -1352,6 +1352,7 @@ const blockIndices = $derived.by(() => {
         potentialEffects={tooltipPotentialEffects}
         subtitle={tooltipSubtitle}
         effectsLabel={tooltipEffectsLabel}
+        valenceFromText={currentView !== "rarity"}
     />
 </div>
 

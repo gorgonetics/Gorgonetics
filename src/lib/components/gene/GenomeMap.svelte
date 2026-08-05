@@ -308,6 +308,7 @@ function showTooltip(geneId: string, clientX: number, clientY: number): void {
         geneType="x"
         subtitle={tooltipSubtitle}
         effectsLabel="Rarity"
+        valenceFromText={false}
         potentialEffects={tooltipLines}
     />
 </div>

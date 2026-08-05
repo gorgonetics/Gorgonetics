@@ -13,7 +13,7 @@
 import { EFFECT_COLORS } from '$lib/theme/gene-colors.js';
 import { GeneType } from '$lib/types/index.js';
 import { isNoEffect, parseEffect } from '$lib/utils/geneAnalysis.js';
-import type { Allele, LocusTally } from '$lib/utils/geneFrequency.js';
+import { type Allele, type LocusTally, RARITY_BUCKET_NEVER } from '$lib/utils/geneFrequency.js';
 import { escapeHtml } from '$lib/utils/string.js';
 
 /** Structural subset of `RarityLookup`, so this stays unit-testable with a stub. */
@@ -22,6 +22,12 @@ export interface RarityTooltipSource {
   tally(geneId: string): LocusTally;
   frequency(geneId: string, allele: Allele): number;
   carriers(geneId: string, allele: Allele): number;
+  /**
+   * Needed so the card can only make a claim the *scale* is willing to make.
+   * `carriers === 0` is not on its own a licence to say "never seen" — that step
+   * is gated on baseline size, and the tooltip must respect the same gate.
+   */
+  bucketOf(geneId: string, allele: Allele): number | null;
 }
 
 export interface RarityTooltipContent {
@@ -30,11 +36,31 @@ export interface RarityTooltipContent {
   lines: string[];
 }
 
-/** The rarity card's rendered size; the arms and the breakdown are fixed-height rows. */
-const CARD_WIDTH = 300;
-const CARD_CHROME = 45;
-const LINE_HEIGHT = 18;
+/**
+ * The rarity card's rendered size, **measured** rather than assumed.
+ *
+ * A 3-line card renders 225 × 145 in Chromium at the app's default zoom.
+ * `GeneTooltip` caps at `max-width: 250px`, which is the honest upper bound for
+ * the width; a bigger figure just makes the card flip away from the cursor
+ * earlier than it needs to.
+ *
+ * `LINE_HEIGHT` allows **two** visual lines per logical line (14px each at
+ * 11px/1.3). An arm line carrying a long effect name plus a carrier count wraps
+ * inside the 225px content box, and under-estimating height is the one error that
+ * clips the card off the bottom of the screen rather than merely misplacing it.
+ * `CARD_CHROME` is the measured 145 − 3 × 14 = 103, rounded up.
+ */
+const CARD_WIDTH = 250;
+const CARD_CHROME = 104;
+const LINE_HEIGHT = 28;
 const CURSOR_OFFSET = 12;
+
+/** The card's estimated footprint. Exported so tests cannot re-guess it. */
+export function rarityTooltipSize(lineCount: number): { width: number; height: number } {
+  return { width: CARD_WIDTH, height: CARD_CHROME + lineCount * LINE_HEIGHT };
+}
+
+const clamp = (value: number, max: number) => Math.max(0, Math.min(value, max));
 
 /**
  * Where to put the rarity card so it stays on screen.
@@ -42,6 +68,10 @@ const CURSOR_OFFSET = 12;
  * Shared by both surfaces for the same reason the content is: the card is the
  * same size on each, so a locus should not be placed differently depending on
  * which grid you hovered.
+ *
+ * The final clamp is what makes the size estimate above non-load-bearing: flip
+ * on the estimate, then refuse to leave the viewport regardless. Without it every
+ * future change to the card's content becomes a chance to clip it.
  */
 export function placeRarityTooltip(
   clientX: number,
@@ -49,21 +79,21 @@ export function placeRarityTooltip(
   lineCount: number,
   viewport: { width: number; height: number },
 ): { x: number; y: number } {
-  const height = CARD_CHROME + lineCount * LINE_HEIGHT;
+  const { width, height } = rarityTooltipSize(lineCount);
   // Flip to the other side of the cursor when the card would overhang, then fall
   // back to the near side if flipping would push it off the opposite edge.
   let x = clientX + CURSOR_OFFSET;
   let y = clientY + CURSOR_OFFSET;
-  if (x + CARD_WIDTH > viewport.width) x = clientX - CARD_WIDTH - CURSOR_OFFSET;
+  if (x + width > viewport.width) x = clientX - width - CURSOR_OFFSET;
   if (y + height > viewport.height) y = clientY - height - CURSOR_OFFSET;
   if (x < 0) x = clientX + CURSOR_OFFSET;
   if (y < 0) y = clientY + CURSOR_OFFSET;
-  return { x, y };
+  return { x: clamp(x, viewport.width - width), y: clamp(y, viewport.height - height) };
 }
 
 const MUTED = '#9ca3af';
 
-function armLine(label: string, frequency: number, carriers: number, effect: string): string {
+function armLine(label: string, frequency: number, carriers: number, neverSeen: boolean, effect: string): string {
   const parsed = parseEffect(effect);
   // Valence keeps its own colour and column. This is the one place the
   // attribute view's green/red and the rarity view's purple/orange coexist;
@@ -76,7 +106,13 @@ function armLine(label: string, frequency: number, carriers: number, effect: str
   // "0 carriers" states the number but not what it means. An allele nobody owns
   // is the one reading the player acts on differently — it cannot be bred for,
   // only captured — so it gets words, not arithmetic.
-  const source = carriers === 0 ? 'never seen' : `${carriers} carrier${carriers === 1 ? '' : 's'}`;
+  //
+  // But only when the scale is willing to say it: below the sole-carrier gate,
+  // "nobody carries it" is trivially true and the cell is deliberately painted at
+  // the neutral centre. Saying "never seen" there would have the card contradict
+  // its own colour, and would defeat the small-baseline suppression on the one
+  // surface that states the claim in words.
+  const source = neverSeen ? 'never seen' : `${carriers} carrier${carriers === 1 ? '' : 's'}`;
   return (
     `${label} <strong>${(frequency * 100).toFixed(1)}%</strong> ` +
     `<span style="color: ${colour}">${escapeHtml(effectText)}${mark}</span> ` +
@@ -116,12 +152,14 @@ export function buildRarityTooltip(
         'Dominant',
         lookup.frequency(geneId, GeneType.DOMINANT),
         lookup.carriers(geneId, GeneType.DOMINANT),
+        lookup.bucketOf(geneId, GeneType.DOMINANT) === RARITY_BUCKET_NEVER,
         effects.dominant,
       ),
       armLine(
         'Recessive',
         lookup.frequency(geneId, GeneType.RECESSIVE),
         lookup.carriers(geneId, GeneType.RECESSIVE),
+        lookup.bucketOf(geneId, GeneType.RECESSIVE) === RARITY_BUCKET_NEVER,
         effects.recessive,
       ),
       `<span style="color: ${MUTED}">${t.pureD} pure D · ${t.mixed} mixed · ${t.pureR} pure R</span>`,

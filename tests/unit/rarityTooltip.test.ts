@@ -1,6 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { alleleCarriers, alleleFrequency, isMeasurable, type LocusTally } from '$lib/utils/geneFrequency.js';
-import { buildRarityTooltip, placeRarityTooltip, type RarityTooltipSource } from '$lib/utils/rarityTooltip.js';
+import {
+  alleleCarriers,
+  alleleFrequency,
+  isMeasurable,
+  type LocusTally,
+  rarityBucket,
+} from '$lib/utils/geneFrequency.js';
+import {
+  buildRarityTooltip,
+  placeRarityTooltip,
+  type RarityTooltipSource,
+  rarityTooltipSize,
+} from '$lib/utils/rarityTooltip.js';
 
 /**
  * The rarity tooltip (#368, design §6).
@@ -31,6 +42,7 @@ function stub(tallies: Record<string, LocusTally>): RarityTooltipSource {
     tally: at,
     frequency: (geneId, allele) => alleleFrequency(at(geneId), allele),
     carriers: (geneId, allele) => alleleCarriers(at(geneId), allele),
+    bucketOf: (geneId, allele) => rarityBucket(at(geneId), allele),
   };
 }
 
@@ -187,6 +199,15 @@ describe('buildRarityTooltip — honest about missing evidence', () => {
     expect(content.lines[1]).toContain('0.0%');
   });
 
+  it('withholds "never seen" below the sole-carrier gate, where the colour withholds it too', () => {
+    // 4 pets: measurable (8 known alleles), but `rarityBucket` refuses the
+    // never-seen step under 10 known pets and paints the neutral centre. The card
+    // must not make in words the claim the scale just declined to make in colour.
+    const content = buildRarityTooltip(stub({ '01A4': tally(4, 4, 0, 0) }), '01A4', 'Horses', NEUTRAL_EFFECTS);
+    expect(content.lines[1]).toContain('0 carriers');
+    expect(content.lines[1]).not.toContain('never seen');
+  });
+
   it('says "never seen" rather than "0 carriers" — that reading is acted on differently', () => {
     // An allele nobody owns cannot be bred for, only captured (#367). The words
     // carry that; the number does not.
@@ -200,41 +221,63 @@ describe('buildRarityTooltip — honest about missing evidence', () => {
 
 /**
  * Placement is shared by both surfaces, so a locus is not positioned differently
- * depending on which grid you hovered. A 3-line card is 99px tall (45 + 3 × 18)
- * and the card is 300 wide, with a 12px cursor offset.
+ * depending on which grid you hovered.
+ *
+ * Every expectation is derived from `rarityTooltipSize` rather than restating its
+ * constants: hardcoding them is how the previous version of this suite came to
+ * "pass" against a card model that was 50px too wide and ~45px too short.
  */
 describe('placeRarityTooltip', () => {
   const VIEWPORT = { width: 1000, height: 800 };
+  const OFFSET = 12;
+  const LINES = 3;
+  const { width, height } = rarityTooltipSize(LINES);
 
   it('sits below and to the right of the cursor when there is room', () => {
-    expect(placeRarityTooltip(100, 200, 3, VIEWPORT)).toEqual({ x: 112, y: 212 });
+    expect(placeRarityTooltip(100, 200, LINES, VIEWPORT)).toEqual({ x: 100 + OFFSET, y: 200 + OFFSET });
   });
 
   it('flips to the left of the cursor rather than overhanging the right edge', () => {
-    // 900 + 12 + 300 > 1000, so the card goes to the cursor's left.
-    expect(placeRarityTooltip(900, 200, 3, VIEWPORT)).toEqual({ x: 588, y: 212 });
+    const cursorX = VIEWPORT.width - 40;
+    expect(placeRarityTooltip(cursorX, 200, LINES, VIEWPORT).x).toBe(cursorX - width - OFFSET);
   });
 
   it('flips above the cursor rather than overhanging the bottom edge', () => {
-    // 780 + 12 + 99 > 800.
-    expect(placeRarityTooltip(100, 780, 3, VIEWPORT)).toEqual({ x: 112, y: 669 });
+    const cursorY = VIEWPORT.height - 20;
+    expect(placeRarityTooltip(100, cursorY, LINES, VIEWPORT).y).toBe(cursorY - height - OFFSET);
   });
 
-  it('flips on both axes at once in the bottom-right corner', () => {
-    expect(placeRarityTooltip(900, 780, 3, VIEWPORT)).toEqual({ x: 588, y: 669 });
-  });
-
-  it('stays on the near side when flipping would push it off the opposite edge', () => {
-    // A narrow viewport: flipping left would be negative, so it goes back right
-    // and overhangs rather than rendering off-screen to the left.
-    expect(placeRarityTooltip(50, 30, 3, { width: 200, height: 100 })).toEqual({ x: 62, y: 42 });
+  it('never places the card outside the viewport, on either axis', () => {
+    // The size above is an estimate of a wrapping card, so the clamp — not the
+    // estimate — is what guarantees this.
+    for (const [x, y] of [
+      [0, 0],
+      [VIEWPORT.width, VIEWPORT.height],
+      [VIEWPORT.width - 1, 5],
+      [5, VIEWPORT.height - 1],
+    ]) {
+      const placed = placeRarityTooltip(x, y, LINES, VIEWPORT);
+      expect(placed.x, `x at cursor ${x},${y}`).toBeGreaterThanOrEqual(0);
+      expect(placed.y, `y at cursor ${x},${y}`).toBeGreaterThanOrEqual(0);
+      expect(placed.x + width, `right edge at cursor ${x},${y}`).toBeLessThanOrEqual(VIEWPORT.width);
+      expect(placed.y + height, `bottom edge at cursor ${x},${y}`).toBeLessThanOrEqual(VIEWPORT.height);
+    }
   });
 
   it('grows the card with the line count, so a taller card flips sooner', () => {
-    const short = placeRarityTooltip(100, 700, 1, VIEWPORT);
-    const tall = placeRarityTooltip(100, 700, 6, VIEWPORT);
-    expect(short.y).toBe(712); // 45 + 18 = 63 tall, still fits
-    expect(tall.y).toBeLessThan(700); // 45 + 108 = 153 tall, flips above
+    const cursorY = VIEWPORT.height - rarityTooltipSize(1).height - OFFSET - 1;
+    expect(placeRarityTooltip(100, cursorY, 1, VIEWPORT).y).toBe(cursorY + OFFSET);
+    expect(placeRarityTooltip(100, cursorY, 8, VIEWPORT).y).toBeLessThan(cursorY);
+  });
+
+  it('models the card no smaller than GeneTooltip renders it', () => {
+    // Measured in Chromium: a 3-line rarity card is 225 × 145. Under-estimating
+    // height is the error that clips the card; the model must not go below it.
+    expect(width).toBeGreaterThanOrEqual(225);
+    expect(height).toBeGreaterThanOrEqual(145);
+    // ...and not wildly above the 250px cap GeneTooltip sets, or the card flips
+    // away from the cursor when it would have fitted.
+    expect(width).toBeLessThanOrEqual(250);
   });
 });
 
