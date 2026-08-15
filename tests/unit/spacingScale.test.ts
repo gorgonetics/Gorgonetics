@@ -11,7 +11,7 @@
  * in app.css as a known tail; forbidding them would push authors toward the
  * wrong fix (silently resizing something) instead of the right one.
  */
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -57,16 +57,9 @@ const PX = /(?<![-\d.])(\d+)px/g;
 const STYLE_BLOCK = /<style[^>]*>([\s\S]*?)<\/style>/g;
 
 function sourceFiles(dir: string): string[] {
-  const out: string[] = [];
-  for (const entry of readdirSync(dir)) {
-    const path = join(dir, entry);
-    if (statSync(path).isDirectory()) {
-      out.push(...sourceFiles(path));
-    } else if (/\.(svelte|css)$/.test(entry) && !entry.includes('generated')) {
-      out.push(path);
-    }
-  }
-  return out;
+  return readdirSync(dir, { recursive: true, encoding: 'utf-8' })
+    .filter((p) => /\.(svelte|css)$/.test(p) && !p.includes('generated'))
+    .map((p) => join(dir, p));
 }
 
 /** CSS text of a file — the `<style>` blocks only, for components. */
@@ -76,25 +69,19 @@ function styleText(path: string): string {
   return [...src.matchAll(STYLE_BLOCK)].map((m) => m[1]).join('\n');
 }
 
-interface Offence {
-  file: string;
-  decl: string;
-  px: number;
-  token: string;
-}
-
-function findOffences(): Offence[] {
-  const offences: Offence[] = [];
+/** Human-readable location + fix for every on-scale literal still present. */
+function findOffences(): string[] {
+  const offences: string[] = [];
   for (const file of sourceFiles('src')) {
-    const css = styleText(file);
-    for (const [, prop, value] of css.matchAll(DECL)) {
+    for (const [, prop, value] of styleText(file).matchAll(DECL)) {
       // calc() is exempt: the sweep skipped it, since substituting inside an
       // expression costs more readability than the token buys.
       if (value.includes('calc(')) continue;
       for (const [, raw] of value.matchAll(PX)) {
-        const px = Number(raw);
-        const token = SCALE.get(px);
-        if (token) offences.push({ file, decl: `${prop}: ${value.trim()}`, px, token });
+        const token = SCALE.get(Number(raw));
+        if (token) {
+          offences.push(`  ${file}\n    ${prop}: ${value.trim()}   → ${raw}px should be var(--space-${token})`);
+        }
       }
     }
   }
@@ -111,14 +98,15 @@ describe('spacing scale', () => {
 
   it('uses tokens for every on-scale spacing value', () => {
     const offences = findOffences();
-    const report = offences.map((o) => `  ${o.file}\n    ${o.decl}   → ${o.px}px should be var(--space-${o.token})`);
-    expect(offences.length, `on-scale px literals found:\n${report.join('\n')}`).toBe(0);
+    expect(offences.length, `on-scale px literals found:\n${offences.join('\n')}`).toBe(0);
   });
 
   it('still finds the declarations it is meant to police', () => {
-    // Self-check: if the regex silently stopped matching, the test above
-    // would pass vacuously and the guard would be worthless.
+    // Self-check: if the regex silently stopped matching, the test above would
+    // pass vacuously. The floor only has to be well clear of zero — the real
+    // count is ~390, so 100 proves broad matching without failing the day
+    // someone deletes a few components.
     const total = sourceFiles('src').reduce((n, f) => n + [...styleText(f).matchAll(DECL)].length, 0);
-    expect(total).toBeGreaterThan(300);
+    expect(total).toBeGreaterThan(100);
   });
 });
