@@ -91,15 +91,15 @@ const availableCount = $derived(pool.length - benchedCount);
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 8px;
+    gap: var(--space-sm);
   }
 
   .pool-toggle {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--space-sm);
     flex: 1;
-    padding: 7px 10px;
+    padding: 7px var(--space-md);
     background: transparent;
     border: none;
     color: var(--text-primary);
@@ -127,8 +127,8 @@ const availableCount = $derived(pool.length - benchedCount);
   }
 
   .return-all {
-    margin-right: 8px;
-    padding: 3px 8px;
+    margin-right: var(--space-sm);
+    padding: 3px var(--space-sm);
     background: transparent;
     border: 1px solid var(--border-primary);
     border-radius: 6px;
@@ -144,8 +144,8 @@ const availableCount = $derived(pool.length - benchedCount);
   .pool-body {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 8px 16px;
-    padding: 0 10px 10px;
+    gap: var(--space-sm) var(--space-xl);
+    padding: 0 var(--space-md) var(--space-md);
   }
 
   .col-head {
@@ -154,21 +154,21 @@ const availableCount = $derived(pool.length - benchedCount);
     text-transform: uppercase;
     letter-spacing: 0.04em;
     color: var(--text-tertiary);
-    margin-bottom: 4px;
+    margin-bottom: var(--space-2xs);
   }
 
   /* Aligned columns of names — scannable like a list, not a pill cloud. */
   .grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-    gap: 1px 8px;
+    gap: 1px var(--space-sm);
   }
 
   .cell {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 2px 4px;
+    gap: var(--space-xs);
+    padding: var(--space-3xs) var(--space-2xs);
     background: transparent;
     border: none;
     border-radius: 4px;

@@ -190,34 +190,34 @@ $effect(() => {
 <style>
   .reference { display: flex; flex-direction: column; height: 100%; min-height: 0; }
   .ref-toolbar {
-    display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap;
-    padding: 10px 16px; border-bottom: 1px solid var(--border-primary); flex-shrink: 0;
+    display: flex; align-items: flex-end; gap: var(--space-lg); flex-wrap: wrap;
+    padding: var(--space-md) var(--space-xl); border-bottom: 1px solid var(--border-primary); flex-shrink: 0;
   }
-  .ref-field { display: flex; flex-direction: column; gap: 4px; font-size: 11px; font-weight: 600; color: var(--text-tertiary); }
+  .ref-field { display: flex; flex-direction: column; gap: var(--space-2xs); font-size: 11px; font-weight: 600; color: var(--text-tertiary); }
   .ref-field select {
-    padding: 6px 8px; border: 1px solid var(--border-secondary); border-radius: 6px;
+    padding: var(--space-xs) var(--space-sm); border: 1px solid var(--border-secondary); border-radius: 6px;
     font-size: 13px; background: var(--bg-primary); color: var(--text-primary); min-width: 160px;
   }
   .ref-field select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
   .ref-field select:disabled { background: var(--bg-secondary); color: var(--text-muted); }
   .load-btn {
-    padding: 7px 16px; background: var(--accent); color: var(--text-inverse);
+    padding: 7px var(--space-xl); background: var(--accent); color: var(--text-inverse);
     border: none; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer;
   }
   .load-btn:hover:not(:disabled) { filter: brightness(1.05); }
   .load-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-  .ref-error { font-size: 12px; color: var(--error-text); display: inline-flex; align-items: center; gap: 4px; }
-  .ref-body { flex: 1; min-height: 0; overflow: auto; padding: 16px 20px; }
+  .ref-error { font-size: 12px; color: var(--error-text); display: inline-flex; align-items: center; gap: var(--space-2xs); }
+  .ref-body { flex: 1; min-height: 0; overflow: auto; padding: var(--space-xl) var(--space-2xl); }
   /* The map owns its own scrolling (its cell size is measured from that box),
      so the wrapper must not scroll or the two would fight. */
   .ref-body-map { overflow: hidden; display: flex; min-width: 0; }
 
   .ref-segment {
-    display: flex; align-items: center; gap: 4px;
+    display: flex; align-items: center; gap: var(--space-2xs);
     background: var(--bg-secondary); border-radius: 6px; padding: 3px;
   }
   .seg-btn {
-    padding: 5px 10px; border: none; background: transparent; border-radius: 4px;
+    padding: 5px var(--space-md); border: none; background: transparent; border-radius: 4px;
     font-size: 12px; font-weight: 600; color: var(--text-secondary); cursor: pointer;
   }
   .seg-btn:hover:not(:disabled) { background: var(--bg-primary); }
@@ -225,7 +225,7 @@ $effect(() => {
   .seg-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
   .edit-toggle {
-    margin-left: auto; padding: 7px 16px; border: 1px solid var(--border-secondary);
+    margin-left: auto; padding: 7px var(--space-xl); border: 1px solid var(--border-secondary);
     background: var(--bg-primary); color: var(--text-primary);
     border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer;
   }

@@ -391,20 +391,20 @@ const canShareAll = $derived(!isPlaceholderConfig && $pets.length > 0);
   }
   .file-drop-overlay span {
     font-size: 14px; font-weight: 600; color: var(--accent-text);
-    padding: 12px 20px; border-radius: 8px; background: var(--bg-primary); box-shadow: var(--shadow-lg);
+    padding: var(--space-lg) var(--space-2xl); border-radius: 8px; background: var(--bg-primary); box-shadow: var(--shadow-lg);
   }
 
   /* One footer strip: add-actions on the left, selection-actions on the right
      (when a selection exists) — no stacked bars. */
   .mp-foot {
-    display: flex; align-items: center; gap: 12px; padding: 8px 16px;
+    display: flex; align-items: center; gap: var(--space-lg); padding: var(--space-sm) var(--space-xl);
     border-top: 1px solid var(--border-primary); background: var(--bg-secondary); flex-shrink: 0;
   }
   .mp-count { font-size: 12px; color: var(--text-tertiary); white-space: nowrap; }
-  .mp-selection { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+  .mp-selection { margin-left: auto; display: flex; align-items: center; gap: var(--space-sm); }
   .sel-count { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
   .act-btn {
-    padding: 5px 12px; border: 1px solid var(--border-primary); border-radius: 6px;
+    padding: 5px var(--space-lg); border: 1px solid var(--border-primary); border-radius: 6px;
     background: var(--bg-primary); color: var(--text-secondary);
     font-size: 12px; font-weight: 600; cursor: pointer;
   }
@@ -418,7 +418,7 @@ const canShareAll = $derived(!isPlaceholderConfig && $pets.length > 0);
   .share-all-dialog { max-width: 460px; }
   .dialog-desc { font-size: 14px; color: var(--text-secondary); margin: 0; line-height: 1.5; }
 
-  .mp-add { display: flex; align-items: center; gap: 8px; }
+  .mp-add { display: flex; align-items: center; gap: var(--space-sm); }
   .upload-btn {
     padding: 7px 14px; border: none; border-radius: 7px;
     background: var(--accent); color: var(--text-inverse); font-size: 12px; font-weight: 600; cursor: pointer;
@@ -426,7 +426,7 @@ const canShareAll = $derived(!isPlaceholderConfig && $pets.length > 0);
   .upload-btn:hover:not(:disabled) { filter: brightness(1.05); }
   .upload-btn:disabled { opacity: 0.6; cursor: default; }
   .auto-scan-btn {
-    position: relative; padding: 7px 10px; border: 1px solid var(--border-primary);
+    position: relative; padding: 7px var(--space-md); border: 1px solid var(--border-primary);
     border-radius: 7px; background: var(--bg-primary); font-size: 13px; cursor: pointer;
   }
   .auto-scan-btn:hover:not(:disabled) { background: var(--bg-hover); }

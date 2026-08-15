@@ -97,7 +97,7 @@ function getTypeDescription(type: string) {
         position: fixed;
         background: #1f2937;
         color: white;
-        padding: 8px 12px;
+        padding: var(--space-sm) var(--space-lg);
         border-radius: 6px;
         font-size: 12px;
         line-height: 1.4;
@@ -109,7 +109,7 @@ function getTypeDescription(type: string) {
     }
 
     .tooltip-header {
-        margin-bottom: 4px;
+        margin-bottom: var(--space-2xs);
     }
 
     .tooltip-header strong {
@@ -126,7 +126,7 @@ function getTypeDescription(type: string) {
     .tooltip-content {
         display: flex;
         flex-direction: column;
-        gap: 2px;
+        gap: var(--space-3xs);
     }
 
     .gene-type {
@@ -135,7 +135,7 @@ function getTypeDescription(type: string) {
     }
 
     .current-effect {
-        margin: 2px 0;
+        margin: var(--space-3xs) 0;
     }
 
     .current-effect strong {
@@ -151,8 +151,8 @@ function getTypeDescription(type: string) {
     }
 
     .potential-effects {
-        margin-top: 4px;
-        padding-top: 4px;
+        margin-top: var(--space-2xs);
+        padding-top: var(--space-2xs);
         border-top: 1px solid rgba(255, 255, 255, 0.1);
     }
 
@@ -160,7 +160,7 @@ function getTypeDescription(type: string) {
         color: #a78bfa;
         font-size: 11px;
         display: block;
-        margin-bottom: 2px;
+        margin-bottom: var(--space-3xs);
     }
 
     .potential-effect {

@@ -100,16 +100,16 @@ function handleConfirm() {
   .dialog-desc {
     font-size: 14px;
     color: var(--text-tertiary);
-    margin: 0 0 12px;
+    margin: 0 0 var(--space-lg);
   }
 
   .confirm-notes {
-    margin: 0 0 8px;
+    margin: 0 0 var(--space-sm);
     padding-left: 18px;
     font-size: 13px;
     color: var(--text-secondary);
   }
   .confirm-notes li {
-    margin-bottom: 4px;
+    margin-bottom: var(--space-2xs);
   }
 </style>

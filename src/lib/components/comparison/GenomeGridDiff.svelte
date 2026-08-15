@@ -515,18 +515,18 @@ function handleCellLeave() {
 
 <style>
     /* Fills the overlay body. */
-    .genome-grid-diff { width: 100%; height: 100%; display: flex; flex-direction: column; min-height: 0; padding: 8px 14px; box-sizing: border-box; }
+    .genome-grid-diff { width: 100%; height: 100%; display: flex; flex-direction: column; min-height: 0; padding: var(--space-sm) 14px; box-sizing: border-box; }
 
     /* Summary band content now lives in the DetailOverlay header (headerActions). */
-    .diff-summary { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-    .similarity-badge { font-size: 14px; font-weight: 700; color: var(--text-primary); padding: 4px 10px; background: var(--bg-tertiary); border-radius: 10px; }
+    .diff-summary { display: flex; align-items: center; gap: var(--space-md); flex-wrap: wrap; }
+    .similarity-badge { font-size: 14px; font-weight: 700; color: var(--text-primary); padding: var(--space-2xs) var(--space-md); background: var(--bg-tertiary); border-radius: 10px; }
     .summary-detail { font-size: 12px; color: var(--text-secondary); }
-    .diff-toggle { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary); cursor: pointer; }
+    .diff-toggle { display: flex; align-items: center; gap: var(--space-xs); font-size: 12px; color: var(--text-secondary); cursor: pointer; }
     .diff-toggle input { cursor: pointer; }
     /* Same control as the pet-detail view switcher, so it takes the shared
        `.seg` chrome; only the density differs (this sits in the dense filter
        row) — same scoped-tweak pattern as GenomeGridTrio's `.gain-mode`. */
-    .view-toggle .view-btn { padding: 3px 10px; font-size: 11px; }
+    .view-toggle .view-btn { padding: 3px var(--space-md); font-size: 11px; }
 
     /* --cell-size 18px → 16px gene cells (calc subtracts the 2px border), the
        same density as the trio view. flex:1 makes the grid the single scroll
@@ -534,28 +534,28 @@ function handleCellLeave() {
     .grid-container { --cell-size: 18px; flex: 1; min-height: 0; overflow: auto; border: 1px solid var(--border-primary); border-radius: 6px; background: var(--bg-secondary); }
     .gene-grid-table { width: auto; border-collapse: collapse; table-layout: fixed; }
     .gene-headers { position: sticky; top: 0; z-index: 10; background: var(--bg-secondary); }
-    .gene-headers th { background: var(--bg-secondary); border-bottom: 1px solid var(--border-primary); padding: 2px 4px; font-size: 9px; font-weight: normal; color: var(--text-secondary); text-align: center; white-space: nowrap; }
+    .gene-headers th { background: var(--bg-secondary); border-bottom: 1px solid var(--border-primary); padding: var(--space-3xs) var(--space-2xs); font-size: 9px; font-weight: normal; color: var(--text-secondary); text-align: center; white-space: nowrap; }
     .chromosome-header { position: sticky; left: 0; z-index: 11; background: var(--bg-secondary); font-weight: bold; width: 28px; min-width: 28px; max-width: 28px; }
     .pet-label-header { position: sticky; left: 28px; z-index: 11; background: var(--bg-secondary); font-weight: bold; width: 60px; min-width: 60px; max-width: 60px; }
     .position-header { width: 18px; min-width: 18px; max-width: 18px; }
     .position-header.block-label { font-weight: bold; }
-    .position-header.block-start { padding-left: 10px; }
+    .position-header.block-start { padding-left: var(--space-md); }
 
     .gene-rows { background: var(--bg-secondary); }
     .chromosome-row { border-bottom: 1px solid var(--bg-tertiary); }
     .chromosome-row.pet-a-row { border-bottom: none; }
     .chromosome-row.pet-b-row { border-bottom: 2px solid var(--border-primary); }
 
-    .chromosome-label { position: sticky; left: 0; z-index: 1; background: var(--bg-secondary); font-size: 10px; font-weight: 700; color: var(--text-secondary); padding: 2px 4px; text-align: center; vertical-align: middle; border-right: 1px solid var(--border-primary); white-space: nowrap; cursor: pointer; user-select: none; }
+    .chromosome-label { position: sticky; left: 0; z-index: 1; background: var(--bg-secondary); font-size: 10px; font-weight: 700; color: var(--text-secondary); padding: var(--space-3xs) var(--space-2xs); text-align: center; vertical-align: middle; border-right: 1px solid var(--border-primary); white-space: nowrap; cursor: pointer; user-select: none; }
     .chromosome-label:hover { background: var(--bg-tertiary); color: var(--text-primary); }
 
-    .pet-label { position: sticky; left: 28px; z-index: 1; font-size: 9px; font-weight: 600; padding: 1px 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-right: 1px solid var(--border-primary); width: 60px; min-width: 60px; max-width: 60px; }
+    .pet-label { position: sticky; left: 28px; z-index: 1; font-size: 9px; font-weight: 600; padding: 1px var(--space-2xs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-right: 1px solid var(--border-primary); width: 60px; min-width: 60px; max-width: 60px; }
     .pet-a-label { background: color-mix(in srgb, var(--accent) 8%, var(--bg-secondary)); color: var(--accent); }
     .pet-b-label { background: color-mix(in srgb, var(--pet-b) 8%, var(--bg-secondary)); color: var(--pet-b); }
 
     .gene-cell-container { padding: 1px; text-align: center; vertical-align: middle; }
     .gene-cell-container.empty { opacity: 0.3; }
-    .gene-cell-container.block-start { padding-left: 8px; }
+    .gene-cell-container.block-start { padding-left: var(--space-sm); }
     /* Confine the diff tint to the gene square (content box) so it doesn't
        paint the cell padding — otherwise it bleeds across the 8px inter-block
        gap on block-start cells and merges adjacent diffs into one band. */

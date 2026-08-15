@@ -404,15 +404,15 @@ function showTooltip(geneId: string, clientX: number, clientY: number): void {
     }
 
     .position-header.block-start {
-        padding-left: 10px;
+        padding-left: var(--space-md);
     }
 
     .position-header.block-start:first-of-type {
-        padding-left: 2px;
+        padding-left: var(--space-3xs);
     }
 
     .map-status {
-        margin: 0 0 6px;
+        margin: 0 0 var(--space-xs);
         font-size: 11px;
         color: var(--text-tertiary);
     }
@@ -427,7 +427,7 @@ function showTooltip(geneId: string, clientX: number, clientY: number): void {
 
     .gene-cell-container.block-start {
         /* KEEP IN SYNC with BLOCK_GAP in utils/geneGridCells.ts */
-        padding-left: 8px;
+        padding-left: var(--space-sm);
     }
 
     .gene-cell-container.block-start:first-of-type {

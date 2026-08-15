@@ -58,8 +58,8 @@ const { title, subtitle, icon, actions, wide = false }: Props = $props();
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 16px;
-    padding: 8px 20px;
+    gap: var(--space-xl);
+    padding: var(--space-sm) var(--space-2xl);
     border-bottom: 1px solid var(--border-primary);
     background: var(--bg-primary);
     flex-shrink: 0;
@@ -68,7 +68,7 @@ const { title, subtitle, icon, actions, wide = false }: Props = $props();
   .ph-title {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--space-sm);
     margin: 0;
     font-size: 15px;
     font-weight: 700;
@@ -78,7 +78,7 @@ const { title, subtitle, icon, actions, wide = false }: Props = $props();
   .ph-subtitle { margin: 1px 0 0; font-size: 11.5px; color: var(--text-tertiary); }
   /* Controls can wrap under the title on narrow widths without forcing the band
      taller than needed on wide ones. */
-  .ph-actions { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 8px; flex-shrink: 0; }
+  .ph-actions { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-sm); flex-shrink: 0; }
   /* `wide`: the control row IS the band, so it grows and starts at the left. */
   .ph-actions-wide { flex: 1; min-width: 0; justify-content: flex-start; }
 </style>

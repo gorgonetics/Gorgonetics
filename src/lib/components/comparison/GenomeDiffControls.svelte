@@ -112,14 +112,14 @@ const appearanceItems = $derived<FilterPillItem[]>(
 
 <style>
     /* Breed selector + attribute/appearance pills share one wrapping band. */
-    .diff-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; }
+    .diff-filters { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2xs) 14px; }
 
-    .breed-filter { display: flex; align-items: center; gap: 6px; padding: 0 4px; }
+    .breed-filter { display: flex; align-items: center; gap: var(--space-xs); padding: 0 var(--space-2xs); }
     /* Auto = Compare-only mode toggle that owns the breed; the breed picker
        itself is the shared BreedSelector popover. */
-    .auto-btn { padding: 3px 8px; border: 1px solid var(--border-primary); border-radius: 4px; background: var(--bg-primary); color: var(--text-tertiary); font-size: 11px; font-weight: 500; cursor: pointer; transition: all 0.15s; }
+    .auto-btn { padding: 3px var(--space-sm); border: 1px solid var(--border-primary); border-radius: 4px; background: var(--bg-primary); color: var(--text-tertiary); font-size: 11px; font-weight: 500; cursor: pointer; transition: all 0.15s; }
     .auto-btn:hover { border-color: var(--border-secondary); color: var(--text-secondary); }
     .auto-btn.active { background: var(--auto-active); border-color: var(--auto-active); color: var(--bg-primary); }
 
-    .grid-instructions { font-size: 10px; color: var(--text-muted); margin: 4px 0; font-style: italic; padding: 0 4px; }
+    .grid-instructions { font-size: 10px; color: var(--text-muted); margin: var(--space-2xs) 0; font-style: italic; padding: 0 var(--space-2xs); }
 </style>

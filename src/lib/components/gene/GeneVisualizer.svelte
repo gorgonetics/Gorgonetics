@@ -1382,7 +1382,7 @@ const blockIndices = $derived.by(() => {
     }
 
     .gene-section {
-        padding: 6px 8px;
+        padding: var(--space-xs) var(--space-sm);
         display: flex;
         flex-direction: column;
         flex: 1;
@@ -1390,7 +1390,7 @@ const blockIndices = $derived.by(() => {
     }
 
     .gene-legend {
-        margin-bottom: 6px;
+        margin-bottom: var(--space-xs);
         flex-shrink: 0;
     }
 
@@ -1475,7 +1475,7 @@ const blockIndices = $derived.by(() => {
         color: var(--text-tertiary);
         white-space: nowrap;
         cursor: pointer;
-        padding: 2px 6px;
+        padding: var(--space-3xs) var(--space-xs);
         border-radius: 4px;
         transition: background-color 0.2s ease;
     }
@@ -1488,7 +1488,7 @@ const blockIndices = $derived.by(() => {
     .legend-item :global(.gene-cell) {
         width: 14px;
         height: 14px;
-        margin: 0 4px 0 0;
+        margin: 0 var(--space-2xs) 0 0;
         pointer-events: none;
     }
 
@@ -1566,7 +1566,7 @@ const blockIndices = $derived.by(() => {
     .gene-headers th {
         background: var(--bg-secondary);
         border-bottom: 1px solid var(--border-primary);
-        padding: 2px 4px;
+        padding: var(--space-3xs) var(--space-2xs);
         font-size: 9px;
         font-weight: normal;
         color: var(--text-secondary);
@@ -1597,11 +1597,11 @@ const blockIndices = $derived.by(() => {
     }
 
     .position-header.block-start {
-        padding-left: 10px;
+        padding-left: var(--space-md);
     }
 
     .position-header.block-start:first-of-type {
-        padding-left: 2px;
+        padding-left: var(--space-3xs);
     }
 
     .gene-rows {
@@ -1622,7 +1622,7 @@ const blockIndices = $derived.by(() => {
         z-index: 1;
         background: var(--bg-secondary);
         border-right: 1px solid var(--border-primary);
-        padding: 3px 2px;
+        padding: 3px var(--space-3xs);
         font-size: 10px;
         font-weight: 600;
         color: var(--text-secondary);
@@ -1668,7 +1668,7 @@ const blockIndices = $derived.by(() => {
 
     .gene-cell-container.block-start {
         /* KEEP IN SYNC with BLOCK_GAP in utils/geneGridCells.ts */
-        padding-left: 8px;
+        padding-left: var(--space-sm);
     }
 
     .gene-cell-container.block-start:first-of-type {

@@ -289,7 +289,7 @@ $effect(() => {
     height: 100%;
     display: flex;
     flex-direction: column;
-    padding: 16px;
+    padding: var(--space-xl);
     overflow-y: auto;
   }
 
@@ -297,7 +297,7 @@ $effect(() => {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 16px;
+    margin-bottom: var(--space-xl);
     flex-shrink: 0;
   }
 
@@ -318,7 +318,7 @@ $effect(() => {
 
   .empty-icon {
     font-size: 48px;
-    margin-bottom: 12px;
+    margin-bottom: var(--space-lg);
     opacity: 0.5;
   }
 
@@ -333,13 +333,13 @@ $effect(() => {
     font-size: 13px;
     font-weight: 400;
     color: var(--text-muted);
-    margin-top: 4px;
+    margin-top: var(--space-2xs);
   }
 
   .thumbnail-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-    gap: 12px;
+    gap: var(--space-lg);
   }
 
   .thumbnail-card {
@@ -416,10 +416,10 @@ $effect(() => {
   }
 
   .thumbnail-info {
-    padding: 8px 10px;
+    padding: var(--space-sm) var(--space-md);
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: var(--space-3xs);
   }
 
   .thumbnail-name {
@@ -493,7 +493,7 @@ $effect(() => {
   }
 
   .lightbox-info {
-    margin-top: 12px;
+    margin-top: var(--space-lg);
     text-align: center;
     color: #d1d5db;
     font-size: 13px;
@@ -503,7 +503,7 @@ $effect(() => {
     display: block;
     color: #9ca3af;
     font-size: 12px;
-    margin-top: 4px;
+    margin-top: var(--space-2xs);
   }
 
   .lightbox-close {
@@ -564,7 +564,7 @@ $effect(() => {
   .confirm-dialog {
     background: var(--bg-primary);
     border-radius: 12px;
-    padding: 24px;
+    padding: var(--space-3xl);
     max-width: 380px;
     width: 90%;
     box-shadow: var(--shadow-lg);
@@ -574,19 +574,19 @@ $effect(() => {
     font-size: 16px;
     font-weight: 700;
     color: var(--text-primary);
-    margin-bottom: 8px;
+    margin-bottom: var(--space-sm);
   }
 
   .confirm-dialog p {
     font-size: 14px;
     color: var(--text-tertiary);
     line-height: 1.5;
-    margin-bottom: 20px;
+    margin-bottom: var(--space-2xl);
   }
 
   .confirm-actions {
     display: flex;
-    gap: 8px;
+    gap: var(--space-sm);
     justify-content: flex-end;
   }
 
@@ -594,7 +594,7 @@ $effect(() => {
     position: fixed;
     bottom: 20px;
     right: 20px;
-    padding: 12px 20px;
+    padding: var(--space-lg) var(--space-2xl);
     border-radius: 8px;
     font-size: 13px;
     font-weight: 500;

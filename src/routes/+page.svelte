@@ -83,8 +83,8 @@ onMount(async () => {
 	.error-banner {
 		display: flex;
 		align-items: flex-start;
-		gap: 8px;
-		padding: 8px 16px;
+		gap: var(--space-sm);
+		padding: var(--space-sm) var(--space-xl);
 		background: var(--error-bg);
 		border-bottom: 1px solid var(--error-border);
 		color: var(--error-text);
@@ -108,7 +108,7 @@ onMount(async () => {
 		font-size: 16px;
 		cursor: pointer;
 		color: var(--error-text);
-		padding: 0 4px;
+		padding: 0 var(--space-2xs);
 	}
 
 	.center-state {
@@ -117,7 +117,7 @@ onMount(async () => {
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		gap: 8px;
+		gap: var(--space-sm);
 		color: var(--text-muted);
 	}
 

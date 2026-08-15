@@ -214,22 +214,22 @@ function handleClickOutside(event: MouseEvent) {
     position: absolute;
     top: 100%;
     right: 0;
-    margin-top: 6px;
+    margin-top: var(--space-xs);
     background: var(--bg-primary);
     border: 1px solid var(--border-primary);
     border-radius: 8px;
     box-shadow: var(--shadow-md);
     min-width: 180px;
-    padding: 4px;
+    padding: var(--space-2xs);
     z-index: 100;
   }
 
   .dropdown-item {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--space-sm);
     width: 100%;
-    padding: 8px 12px;
+    padding: var(--space-sm) var(--space-lg);
     border: none;
     border-radius: 6px;
     background: transparent;
@@ -249,7 +249,7 @@ function handleClickOutside(event: MouseEvent) {
     position: fixed;
     bottom: 20px;
     right: 20px;
-    padding: 12px 20px;
+    padding: var(--space-lg) var(--space-2xl);
     border-radius: 8px;
     font-size: 13px;
     font-weight: 500;

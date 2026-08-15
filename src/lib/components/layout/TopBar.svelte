@@ -115,7 +115,7 @@ function handleMouseUp(e: MouseEvent) {
         align-items: center;
         justify-content: space-between;
         height: 48px;
-        padding: 0 16px;
+        padding: 0 var(--space-xl);
         background: var(--bg-primary);
         border-bottom: 1px solid var(--border-primary);
         flex-shrink: 0;
@@ -124,7 +124,7 @@ function handleMouseUp(e: MouseEvent) {
     .top-bar-left {
         display: flex;
         align-items: center;
-        gap: 10px;
+        gap: var(--space-md);
     }
 
     .app-logo {
@@ -143,7 +143,7 @@ function handleMouseUp(e: MouseEvent) {
     .top-bar-right {
         display: flex;
         align-items: center;
-        gap: 12px;
+        gap: var(--space-lg);
     }
 
     .back-btn {
@@ -172,14 +172,14 @@ function handleMouseUp(e: MouseEvent) {
 
     .top-bar-tabs {
         display: flex;
-        gap: 4px;
+        gap: var(--space-2xs);
         background: var(--bg-tertiary);
         border-radius: 8px;
         padding: 3px;
     }
 
     .tab-btn {
-        padding: 6px 16px;
+        padding: var(--space-xs) var(--space-xl);
         border: none;
         border-radius: 6px;
         background: transparent;

@@ -64,8 +64,8 @@ const { variant = 'empty', hero = false, icon, title, body, actionLabel, onActio
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 12px;
-    padding: 32px 20px;
+    gap: var(--space-lg);
+    padding: var(--space-4xl) var(--space-2xl);
     text-align: center;
     color: var(--text-tertiary);
   }
@@ -89,13 +89,13 @@ const { variant = 'empty', hero = false, icon, title, body, actionLabel, onActio
   /* Hero: whole-surface prompt (via EmptyState). */
   .status-pane-hero {
     max-width: 380px;
-    gap: 6px;
+    gap: var(--space-xs);
   }
   .status-pane-hero .status-icon {
     font-size: 40px;
     line-height: 1;
     opacity: 0.55;
-    margin-bottom: 6px;
+    margin-bottom: var(--space-xs);
   }
   .status-pane-hero .status-title {
     font-size: 16px;
@@ -106,6 +106,6 @@ const { variant = 'empty', hero = false, icon, title, body, actionLabel, onActio
     color: var(--text-muted);
   }
   .status-pane-hero .btn {
-    margin-top: 12px;
+    margin-top: var(--space-lg);
   }
 </style>

@@ -369,7 +369,7 @@ function handleKey(e: KeyboardEvent, hash: string): void {
   }
 
   .ct-filter {
-    padding: 10px 16px;
+    padding: var(--space-md) var(--space-xl);
     border-bottom: 1px solid var(--border-primary);
     flex-shrink: 0;
   }
@@ -384,7 +384,7 @@ function handleKey(e: KeyboardEvent, hash: string): void {
     text-align: center;
     color: var(--text-muted);
     font-style: italic;
-    padding: 24px;
+    padding: var(--space-3xl);
   }
 
   table {
@@ -402,7 +402,7 @@ function handleKey(e: KeyboardEvent, hash: string): void {
 
   th {
     text-align: left;
-    padding: 6px 10px;
+    padding: var(--space-xs) var(--space-md);
     font-size: 11px;
     font-weight: 600;
     color: var(--text-secondary);
@@ -447,7 +447,7 @@ function handleKey(e: KeyboardEvent, hash: string): void {
   }
 
   td {
-    padding: 6px 10px;
+    padding: var(--space-xs) var(--space-md);
     border-bottom: 1px solid var(--border-primary);
     vertical-align: middle;
     color: var(--text-primary);
@@ -475,12 +475,12 @@ function handleKey(e: KeyboardEvent, hash: string): void {
   }
 
   .table-footer {
-    padding: 12px 16px;
+    padding: var(--space-lg) var(--space-xl);
     border-top: 1px solid var(--border-primary);
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 12px;
+    gap: var(--space-lg);
     flex-shrink: 0;
   }
 

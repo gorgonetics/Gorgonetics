@@ -252,7 +252,7 @@ function persistScroll() {
 
     .sort-btn {
         width: 100%;
-        padding: 8px 10px;
+        padding: var(--space-sm) var(--space-md);
         background: transparent;
         border: none;
         color: inherit;
@@ -267,7 +267,7 @@ function persistScroll() {
     }
 
     td {
-        padding: 6px 10px;
+        padding: var(--space-xs) var(--space-md);
         border-bottom: 1px solid var(--border-primary);
     }
 
@@ -287,7 +287,7 @@ function persistScroll() {
     .parent {
         display: inline-flex;
         align-items: center;
-        gap: 4px;
+        gap: var(--space-2xs);
     }
 
     .parent-link {
@@ -309,7 +309,7 @@ function persistScroll() {
     .bench-btn {
         background: none;
         border: none;
-        padding: 0 2px;
+        padding: 0 var(--space-3xs);
         color: var(--text-tertiary);
         cursor: pointer;
         font-size: 11px;
@@ -336,7 +336,7 @@ function persistScroll() {
         color: var(--text-secondary);
         font-size: 12px;
         font-weight: 600;
-        padding: 5px 10px;
+        padding: 5px var(--space-md);
     }
 
     .option-dot {
@@ -345,12 +345,12 @@ function persistScroll() {
         height: 9px;
         border-radius: 50%;
         background: var(--option-color);
-        margin-right: 6px;
+        margin-right: var(--space-xs);
         vertical-align: middle;
     }
 
     .option-total {
-        margin-left: 8px;
+        margin-left: var(--space-sm);
         font-weight: 400;
         color: var(--text-tertiary);
         font-variant-numeric: tabular-nums;
@@ -372,7 +372,7 @@ function persistScroll() {
 
     .action-cell {
         text-align: center;
-        padding: 4px 8px;
+        padding: var(--space-2xs) var(--space-sm);
         position: sticky;
         left: 0;
         background: var(--bg-primary);
@@ -394,7 +394,7 @@ function persistScroll() {
         font-size: 12px;
         font-weight: 600;
         line-height: 1;
-        padding: 4px 8px;
+        padding: var(--space-2xs) var(--space-sm);
         border-radius: 6px;
         white-space: nowrap;
         transition: all 0.15s ease;

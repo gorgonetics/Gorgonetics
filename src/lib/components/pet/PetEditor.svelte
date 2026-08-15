@@ -276,21 +276,21 @@ function updateAttribute(attrKey: string, value: string): void {
   .editor-inner {
     max-width: 640px;
     margin: 0 auto;
-    padding: 20px;
+    padding: var(--space-2xl);
   }
 
   .editor-footer {
     display: flex;
     justify-content: flex-end;
-    gap: 8px;
-    padding: 14px 20px;
+    gap: var(--space-sm);
+    padding: 14px var(--space-2xl);
     border-top: 1px solid var(--border-primary);
     background: var(--bg-secondary);
     flex-shrink: 0;
   }
 
   .form-section {
-    margin-bottom: 20px;
+    margin-bottom: var(--space-2xl);
   }
 
   .form-section:last-child {
@@ -298,7 +298,7 @@ function updateAttribute(attrKey: string, value: string): void {
   }
 
   .form-section h3 {
-    margin: 0 0 12px 0;
+    margin: 0 0 var(--space-lg) 0;
     font-size: 13px;
     font-weight: 600;
     color: var(--text-tertiary);
@@ -307,7 +307,7 @@ function updateAttribute(attrKey: string, value: string): void {
   }
 
   .field {
-    margin-bottom: 12px;
+    margin-bottom: var(--space-lg);
   }
 
   .field label {
@@ -315,13 +315,13 @@ function updateAttribute(attrKey: string, value: string): void {
     font-size: 13px;
     font-weight: 500;
     color: var(--text-secondary);
-    margin-bottom: 4px;
+    margin-bottom: var(--space-2xs);
   }
 
   .field input,
   .field select {
     width: 100%;
-    padding: 8px 10px;
+    padding: var(--space-sm) var(--space-md);
     border: 1px solid var(--border-primary);
     border-radius: 6px;
     font-size: 13px;
@@ -341,40 +341,40 @@ function updateAttribute(attrKey: string, value: string): void {
   .field-row {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 12px;
+    gap: var(--space-lg);
   }
 
   /* Read-only provenance shown as plain text, not fake-editable inputs. */
   .meta-line {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px 20px;
-    margin: 4px 0 0 0;
+    gap: var(--space-xs) var(--space-2xl);
+    margin: var(--space-2xs) 0 0 0;
     font-size: 13px;
     color: var(--text-secondary);
   }
 
   .meta-label {
     color: var(--text-muted);
-    margin-right: 4px;
+    margin-right: var(--space-2xs);
   }
 
   .attributes-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 10px;
+    gap: var(--space-md);
   }
 
   .attr-field {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: var(--space-2xs);
   }
 
   .attr-field label {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--space-xs);
     font-size: 13px;
     font-weight: 500;
     color: var(--text-secondary);
@@ -386,7 +386,7 @@ function updateAttribute(attrKey: string, value: string): void {
 
   .attr-field input {
     width: 100%;
-    padding: 6px 10px;
+    padding: var(--space-xs) var(--space-md);
     border: 1px solid var(--border-primary);
     border-radius: 6px;
     font-size: 13px;
@@ -404,14 +404,14 @@ function updateAttribute(attrKey: string, value: string): void {
   .markers {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: var(--space-xs);
   }
 
   .marker {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    padding: 6px 10px;
+    gap: var(--space-sm);
+    padding: var(--space-xs) var(--space-md);
     border: 1px solid var(--border-primary);
     background: var(--bg-primary);
     color: var(--text-muted);
@@ -454,8 +454,8 @@ function updateAttribute(attrKey: string, value: string): void {
     border-radius: 6px;
     color: var(--error-text);
     font-size: 13px;
-    padding: 10px 14px;
-    margin-bottom: 16px;
+    padding: var(--space-md) 14px;
+    margin-bottom: var(--space-xl);
   }
 
   /* Discard-confirm dialog (mirrors PetActions' delete confirm). */
@@ -463,7 +463,7 @@ function updateAttribute(attrKey: string, value: string): void {
     background: var(--bg-primary);
     border-radius: 12px;
     box-shadow: var(--shadow-xl);
-    padding: 24px;
+    padding: var(--space-3xl);
     width: 340px;
     max-width: 90vw;
     text-align: center;
@@ -472,18 +472,18 @@ function updateAttribute(attrKey: string, value: string): void {
   .confirm-message {
     font-size: 15px;
     color: var(--text-primary);
-    margin: 0 0 4px 0;
+    margin: 0 0 var(--space-2xs) 0;
   }
 
   .confirm-subtext {
     font-size: 12px;
     color: var(--text-muted);
-    margin: 0 0 20px 0;
+    margin: 0 0 var(--space-2xl) 0;
   }
 
   .confirm-actions {
     display: flex;
-    gap: 8px;
+    gap: var(--space-sm);
     justify-content: center;
   }
 </style>

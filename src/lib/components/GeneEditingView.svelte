@@ -393,7 +393,7 @@ run(() => {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 16px 20px;
+        padding: var(--space-xl) var(--space-2xl);
         border-bottom: 1px solid var(--border-primary);
         background: var(--bg-primary);
         flex-shrink: 0;
@@ -413,11 +413,11 @@ run(() => {
 
     .gene-editing-actions {
         display: flex;
-        gap: 8px;
+        gap: var(--space-sm);
     }
 
     .gene-editing-actions .action-btn {
-        padding: 6px 14px;
+        padding: var(--space-xs) 14px;
         border: 1px solid var(--border-primary);
         border-radius: 6px;
         background: var(--bg-primary);
