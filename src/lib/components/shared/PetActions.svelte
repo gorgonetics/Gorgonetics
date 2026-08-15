@@ -119,11 +119,11 @@ async function doDelete(): Promise<void> {
   .edit-btn:hover { color: var(--accent); }
   .action-btn.delete-btn:hover { color: var(--gene-negative); }
 
-  /* `.seg-btn.` is load-bearing, not decoration: the global
-     `.seg-btn:hover:not(:disabled)` is (0,3,0), and Svelte compiles a bare
-     `.hdr-delete:hover` to (0,3,0) too — an exact tie broken only by which
-     stylesheet the bundler emits last. Qualifying it to (0,4,0) keeps the
-     destructive action's red hover deterministic. */
+  /* Qualifying this with `.seg-btn` is load-bearing, not decoration: the
+     global `.seg-btn:hover:not(:disabled)` is (0,3,0), and Svelte compiles a
+     bare `.hdr-delete:hover` to (0,3,0) too — an exact tie broken only by
+     which stylesheet the bundler emits last. The extra class takes it to
+     (0,4,0), keeping the destructive action's red hover deterministic. */
   .seg-btn.hdr-delete:hover { color: var(--gene-negative); }
 
   .confirm-dialog {
