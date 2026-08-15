@@ -258,9 +258,9 @@ function handleBreedChange(fullName: string): void {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
+    gap: var(--space-lg);
     flex-wrap: wrap;
-    padding: 8px 16px;
+    padding: var(--space-sm) var(--space-xl);
     border-bottom: 1px solid var(--border-primary);
     background: var(--bg-primary);
     flex-shrink: 0;
@@ -275,15 +275,15 @@ function handleBreedChange(fullName: string): void {
     color: var(--text-tertiary);
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--space-xs);
     flex-wrap: wrap;
   }
 
   .detail-tags {
     display: flex;
     flex-wrap: wrap;
-    gap: 4px;
-    margin-top: 4px;
+    gap: var(--space-2xs);
+    margin-top: var(--space-2xs);
   }
 
   .tag-badge {
@@ -302,14 +302,14 @@ function handleBreedChange(fullName: string): void {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
-    gap: 6px 12px;
+    gap: var(--space-xs) var(--space-lg);
   }
 
   /* Track chrome comes from the global `.seg`; `.view-controls` stays as a
      semantic hook. */
 
   .toggle-btn {
-    padding: 4px 12px;
+    padding: var(--space-2xs) var(--space-lg);
     border: 1px solid var(--border-primary);
     border-radius: 6px;
     background: var(--bg-primary);
@@ -366,7 +366,7 @@ function handleBreedChange(fullName: string): void {
   }
 
   .notes-strip {
-    padding: 6px 16px;
+    padding: var(--space-xs) var(--space-xl);
     border-bottom: 1px solid var(--border-primary);
     font-size: 12px;
     flex-shrink: 0;
@@ -376,7 +376,7 @@ function handleBreedChange(fullName: string): void {
     font-size: 11px;
     text-transform: uppercase;
     color: var(--text-tertiary);
-    margin-right: 8px;
+    margin-right: var(--space-sm);
   }
 
   .notes-text {
@@ -385,7 +385,7 @@ function handleBreedChange(fullName: string): void {
   }
 
   .status-strip {
-    padding: 8px 16px 0;
+    padding: var(--space-sm) var(--space-xl) 0;
     flex-shrink: 0;
   }
 
@@ -409,7 +409,7 @@ function handleBreedChange(fullName: string): void {
     justify-content: center;
     color: var(--text-tertiary);
     font-size: 13px;
-    padding: 24px;
+    padding: var(--space-3xl);
   }
 
   .stats-drawer {
@@ -426,7 +426,7 @@ function handleBreedChange(fullName: string): void {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 10px 12px;
+    padding: var(--space-md) var(--space-lg);
     background: var(--bg-tertiary);
     border-bottom: 1px solid var(--border-primary);
     flex-shrink: 0;
@@ -444,7 +444,7 @@ function handleBreedChange(fullName: string): void {
     font-size: 18px;
     color: var(--text-tertiary);
     cursor: pointer;
-    padding: 0 4px;
+    padding: 0 var(--space-2xs);
     line-height: 1;
   }
 

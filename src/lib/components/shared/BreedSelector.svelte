@@ -120,8 +120,8 @@ onDestroy(() => {
   .bs-trigger {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    padding: 4px 10px;
+    gap: var(--space-xs);
+    padding: var(--space-2xs) var(--space-md);
     border: 1px solid var(--border-primary);
     border-radius: var(--radius-md);
     background: var(--bg-primary);
@@ -156,8 +156,8 @@ onDestroy(() => {
     width: 100%;
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 6px 9px;
+    gap: var(--space-sm);
+    padding: var(--space-xs) 9px;
     border: none;
     border-radius: var(--radius-md);
     background: transparent;

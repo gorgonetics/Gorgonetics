@@ -166,13 +166,13 @@ const {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 6px;
+    gap: var(--space-xs);
   }
 
   .fb-search {
     flex: 0 1 220px;
     min-width: 140px;
-    padding: 6px 10px;
+    padding: var(--space-xs) var(--space-md);
     border: 1px solid var(--border-primary);
     border-radius: var(--radius-md);
     background: var(--bg-secondary);
@@ -186,18 +186,18 @@ const {
      bar's compact sizing lives here. */
   .fb-seg-btn {
     font-size: 11px;
-    padding: 4px 10px;
+    padding: var(--space-2xs) var(--space-md);
     text-transform: capitalize;
   }
 
-  .fb-flags { display: flex; flex-wrap: wrap; gap: 4px; }
+  .fb-flags { display: flex; flex-wrap: wrap; gap: var(--space-2xs); }
   .fb-pill {
     border: 1px solid var(--border-primary);
     background: var(--bg-primary);
     color: var(--text-tertiary);
     font-size: 11px;
     font-weight: 600;
-    padding: 4px 9px;
+    padding: var(--space-2xs) 9px;
     border-radius: var(--radius-pill);
     cursor: pointer;
   }

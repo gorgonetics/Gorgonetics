@@ -133,11 +133,11 @@ async function handleExport() {
   .dialog-desc {
     font-size: 14px;
     color: var(--text-tertiary);
-    margin-bottom: 16px;
+    margin-bottom: var(--space-xl);
   }
 
   .checkbox-row {
-    padding: 10px 0;
+    padding: var(--space-md) 0;
     border-bottom: 1px solid var(--bg-tertiary);
   }
 
@@ -146,6 +146,6 @@ async function handleExport() {
   }
 
   .image-warning {
-    margin-top: 12px;
+    margin-top: var(--space-lg);
   }
 </style>

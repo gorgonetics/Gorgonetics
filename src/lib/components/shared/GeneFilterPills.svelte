@@ -70,13 +70,13 @@ const allActive = $derived(selected.length === 0 && hidden.length === 0);
 
 <style>
   .gfp { display: flex; flex-direction: column; }
-  .gfp-row { display: flex; align-items: center; gap: 3px; flex-wrap: wrap; padding: 0 4px; }
-  .gfp-label { font-size: 11px; font-weight: 600; color: var(--text-tertiary); margin-right: 4px; }
+  .gfp-row { display: flex; align-items: center; gap: 3px; flex-wrap: wrap; padding: 0 var(--space-2xs); }
+  .gfp-label { font-size: 11px; font-weight: 600; color: var(--text-tertiary); margin-right: var(--space-2xs); }
   .gfp-btn {
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    padding: 3px 8px;
+    padding: 3px var(--space-sm);
     border: 1px solid var(--border-primary);
     border-radius: var(--radius-sm);
     background: var(--bg-primary);
@@ -103,5 +103,5 @@ const allActive = $derived(selected.length === 0 && hidden.length === 0);
     background: var(--swatch-color, #6b7280);
     border: 1px solid rgba(0, 0, 0, 0.2);
   }
-  .gfp-hint { font-size: 10px; color: var(--text-muted); font-style: italic; margin-left: 6px; }
+  .gfp-hint { font-size: 10px; color: var(--text-muted); font-style: italic; margin-left: var(--space-xs); }
 </style>

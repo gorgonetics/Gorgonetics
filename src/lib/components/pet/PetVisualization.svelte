@@ -410,9 +410,9 @@ onDestroy(() => {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 12px;
+        gap: var(--space-lg);
         flex-wrap: wrap;
-        padding: 8px 16px;
+        padding: var(--space-sm) var(--space-xl);
         border-bottom: 1px solid var(--border-primary);
         background: var(--bg-primary);
         flex-shrink: 0;
@@ -435,18 +435,18 @@ onDestroy(() => {
         display: flex;
         align-items: center;
         flex-wrap: wrap;
-        gap: 6px 12px;
+        gap: var(--space-xs) var(--space-lg);
     }
 
     .breed-filter {
         display: flex;
         align-items: center;
-        gap: 6px;
+        gap: var(--space-xs);
     }
 
     /* Auto = follow the pet's breed; it owns the BreedSelector while active. */
     .auto-btn {
-        padding: 3px 8px;
+        padding: 3px var(--space-sm);
         border: 1px solid var(--border-primary);
         border-radius: 4px;
         background: var(--bg-primary);
@@ -478,11 +478,11 @@ onDestroy(() => {
     .toggle-controls {
         display: flex;
         align-items: center;
-        gap: 4px;
+        gap: var(--space-2xs);
     }
 
     .toggle-btn {
-        padding: 4px 12px;
+        padding: var(--space-2xs) var(--space-lg);
         border: 1px solid var(--border-primary);
         border-radius: 6px;
         background: var(--bg-primary);
@@ -551,7 +551,7 @@ onDestroy(() => {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 10px 12px;
+        padding: var(--space-md) var(--space-lg);
         background: var(--bg-tertiary);
         border-bottom: 1px solid var(--border-primary);
         flex-shrink: 0;
@@ -569,7 +569,7 @@ onDestroy(() => {
         font-size: 18px;
         color: var(--text-tertiary);
         cursor: pointer;
-        padding: 0 4px;
+        padding: 0 var(--space-2xs);
         line-height: 1;
     }
 
@@ -583,7 +583,7 @@ onDestroy(() => {
     }
 
     .stats-empty {
-        padding: 14px 16px;
+        padding: 14px var(--space-xl);
         font-size: 12px;
         line-height: 1.5;
         color: var(--text-tertiary);

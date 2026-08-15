@@ -295,15 +295,15 @@ onDestroy(() => {
   /* Header controls (in PageHeader's actions slot). Chrome for .seg/.seg-btn
      comes from app.css. */
   .bv-species { flex-shrink: 0; }
-  .species-btn { padding: 4px 12px; }
-  .tb-spots { display: flex; align-items: center; gap: 6px; }
+  .species-btn { padding: var(--space-2xs) var(--space-lg); }
+  .tb-spots { display: flex; align-items: center; gap: var(--space-xs); }
   .plan-label { font-size: 12px; font-weight: 600; color: var(--text-secondary); white-space: nowrap; }
   .stepper { display: inline-flex; align-items: center; border: 1px solid var(--border-primary); border-radius: 6px; overflow: hidden; }
   .step-btn { width: 26px; height: 24px; background: var(--bg-secondary); border: none; color: var(--text-primary); font-size: 15px; line-height: 1; cursor: pointer; }
   .step-btn:hover:not(:disabled) { background: var(--bg-tertiary); }
   .step-btn:disabled { color: var(--text-tertiary); cursor: default; }
-  .spots-val { min-width: 32px; text-align: center; font-size: 13px; font-variant-numeric: tabular-nums; padding: 0 4px; }
-  .bv-pool { margin: 8px 20px 0; flex-shrink: 0; }
-  .bv-body { flex: 1; min-height: 0; overflow: auto; padding: 8px 20px 16px; display: flex; flex-direction: column; gap: 8px; }
+  .spots-val { min-width: 32px; text-align: center; font-size: 13px; font-variant-numeric: tabular-nums; padding: 0 var(--space-2xs); }
+  .bv-pool { margin: var(--space-sm) var(--space-2xl) 0; flex-shrink: 0; }
+  .bv-body { flex: 1; min-height: 0; overflow: auto; padding: var(--space-sm) var(--space-2xl) var(--space-xl); display: flex; flex-direction: column; gap: var(--space-sm); }
   .bv-meta { font-size: 12px; color: var(--text-tertiary); }
 </style>

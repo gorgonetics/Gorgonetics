@@ -255,7 +255,7 @@ const hiddenLookup = $derived(
     .stats-section {
         width: 100%;
         background: var(--bg-secondary);
-        padding: 10px;
+        padding: var(--space-md);
         overflow-y: auto;
     }
 
@@ -268,7 +268,7 @@ const hiddenLookup = $derived(
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 12px;
+        margin-bottom: var(--space-lg);
     }
 
     .stats-table-container h4 {
@@ -289,7 +289,7 @@ const hiddenLookup = $derived(
         right: 0;
         background: var(--bg-selected);
         color: var(--accent-hover);
-        padding: 4px 8px;
+        padding: var(--space-2xs) var(--space-sm);
         border-radius: 12px;
         font-size: 11px;
         font-weight: 500;
@@ -304,7 +304,7 @@ const hiddenLookup = $derived(
     .table-instructions {
         font-size: 11px;
         color: var(--text-tertiary);
-        margin-bottom: 8px;
+        margin-bottom: var(--space-sm);
         font-style: italic;
     }
 
@@ -320,7 +320,7 @@ const hiddenLookup = $derived(
 
     .stats-table th,
     .stats-table td {
-        padding: 8px;
+        padding: var(--space-sm);
         text-align: left;
         border-bottom: 1px solid var(--border-primary);
         white-space: nowrap;
@@ -331,7 +331,7 @@ const hiddenLookup = $derived(
     .stats-table th.num,
     .stats-table td.num {
         text-align: center;
-        padding: 8px 4px;
+        padding: var(--space-sm) var(--space-2xs);
     }
 
     .stats-table th.pos,
@@ -415,15 +415,15 @@ const hiddenLookup = $derived(
         height: 8px;
         border-radius: 50%;
         display: inline-block;
-        margin-right: 8px;
+        margin-right: var(--space-sm);
         vertical-align: middle;
         border: 1px solid rgba(0, 0, 0, 0.1);
     }
 
     .summary-info {
-        margin-top: 12px;
+        margin-top: var(--space-lg);
         display: flex;
-        gap: 16px;
+        gap: var(--space-xl);
         font-size: 11px;
         color: var(--text-tertiary);
     }

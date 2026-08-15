@@ -177,13 +177,13 @@ async function handleImport() {
 
   .format-badge {
     display: inline-block;
-    padding: 4px 10px;
+    padding: var(--space-2xs) var(--space-md);
     border-radius: 12px;
     font-size: 11px;
     font-weight: 600;
     background: var(--accent-soft);
     color: var(--accent-hover);
-    margin-bottom: 12px;
+    margin-bottom: var(--space-lg);
   }
 
   .format-badge.legacy {
@@ -192,14 +192,14 @@ async function handleImport() {
   }
 
   .backup-info {
-    margin-bottom: 16px;
+    margin-bottom: var(--space-xl);
     font-size: 13px;
   }
 
   .info-row {
     display: flex;
     justify-content: space-between;
-    padding: 4px 0;
+    padding: var(--space-2xs) 0;
     color: var(--text-tertiary);
   }
 
@@ -214,21 +214,21 @@ async function handleImport() {
     color: var(--text-tertiary);
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    margin-bottom: 8px;
-    margin-top: 16px;
+    margin-bottom: var(--space-sm);
+    margin-top: var(--space-xl);
   }
 
   .mode-selector {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: var(--space-sm);
   }
 
   .mode-option {
     display: flex;
     align-items: flex-start;
-    gap: 12px;
-    padding: 10px 12px;
+    gap: var(--space-lg);
+    padding: var(--space-md) var(--space-lg);
     border: 1px solid var(--border-primary);
     border-radius: 8px;
     cursor: pointer;
@@ -241,14 +241,14 @@ async function handleImport() {
   }
 
   .mode-option input[type="radio"] {
-    margin-top: 2px;
+    margin-top: var(--space-3xs);
     flex-shrink: 0;
   }
 
   .mode-info {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: var(--space-3xs);
   }
 
   .mode-label {
@@ -263,8 +263,8 @@ async function handleImport() {
   }
 
   .warning {
-    margin-top: 12px;
-    padding: 10px 12px;
+    margin-top: var(--space-lg);
+    padding: var(--space-md) var(--space-lg);
     background: var(--error-bg);
     border: 1px solid var(--error-border);
     border-radius: 6px;

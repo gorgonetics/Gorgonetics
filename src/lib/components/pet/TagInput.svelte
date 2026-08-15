@@ -106,8 +106,8 @@ function handleSuggestionMousedown(e: MouseEvent, suggestion: string): void {
   .tag-input-container {
     display: flex;
     flex-wrap: wrap;
-    gap: 4px;
-    padding: 6px 8px;
+    gap: var(--space-2xs);
+    padding: var(--space-xs) var(--space-sm);
     border: 1px solid var(--border-primary);
     border-radius: 6px;
     background: var(--bg-primary);
@@ -126,7 +126,7 @@ function handleSuggestionMousedown(e: MouseEvent, suggestion: string): void {
     display: inline-flex;
     align-items: center;
     gap: 3px;
-    padding: 2px 8px;
+    padding: var(--space-3xs) var(--space-sm);
     background: var(--bg-selected);
     color: var(--accent-text);
     border-radius: 10px;
@@ -160,7 +160,7 @@ function handleSuggestionMousedown(e: MouseEvent, suggestion: string): void {
     font-size: 13px;
     color: var(--text-primary);
     background: transparent;
-    padding: 2px 0;
+    padding: var(--space-3xs) 0;
   }
 
   .tag-text-input::placeholder {
@@ -172,7 +172,7 @@ function handleSuggestionMousedown(e: MouseEvent, suggestion: string): void {
     top: 100%;
     left: 0;
     right: 0;
-    margin-top: 4px;
+    margin-top: var(--space-2xs);
     background: var(--bg-primary);
     border: 1px solid var(--border-primary);
     border-radius: 6px;
@@ -185,7 +185,7 @@ function handleSuggestionMousedown(e: MouseEvent, suggestion: string): void {
   .tag-suggestion {
     display: block;
     width: 100%;
-    padding: 6px 10px;
+    padding: var(--space-xs) var(--space-md);
     border: none;
     background: none;
     font-size: 13px;

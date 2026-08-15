@@ -197,7 +197,7 @@ function open(pet: Pet): void {
   .roster { width: 100%; }
   .roster-table { width: 100%; border-collapse: collapse; font-size: 12px; }
   .roster-table th,
-  .roster-table td { padding: 6px 10px; text-align: left; border-bottom: 1px solid var(--border-primary); white-space: nowrap; }
+  .roster-table td { padding: var(--space-xs) var(--space-md); text-align: left; border-bottom: 1px solid var(--border-primary); white-space: nowrap; }
   .roster-table th.numeric,
   .roster-table td.numeric { text-align: right; }
   .roster-table thead th { position: sticky; top: 0; background: var(--bg-tertiary); color: var(--text-secondary); font-weight: 600; z-index: 1; }
@@ -211,5 +211,5 @@ function open(pet: Pet): void {
   .name-btn:hover { text-decoration: underline; }
   .roster-table tbody tr:hover { background: var(--bg-secondary); }
   .roster-table tbody tr.row-selected { background: var(--bg-selected); }
-  .empty { text-align: center; color: var(--text-muted); font-style: italic; padding: 24px; }
+  .empty { text-align: center; color: var(--text-muted); font-style: italic; padding: var(--space-3xl); }
 </style>

@@ -308,7 +308,7 @@ async function installUpdate() {
   .settings-inner {
     max-width: 640px;
     margin: 0 auto;
-    padding: 20px;
+    padding: var(--space-2xl);
   }
 
   .settings-section h4 {
@@ -317,22 +317,22 @@ async function installUpdate() {
     color: var(--text-tertiary);
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    margin-bottom: 8px;
+    margin-bottom: var(--space-sm);
   }
 
   .setting-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 16px;
-    padding: 8px 0;
+    gap: var(--space-xl);
+    padding: var(--space-sm) 0;
     cursor: pointer;
   }
 
   .setting-info {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: var(--space-3xs);
   }
 
   .setting-name {
@@ -381,7 +381,7 @@ async function installUpdate() {
   }
 
   .settings-section + .settings-section {
-    margin-top: 16px;
+    margin-top: var(--space-xl);
     padding-top: 14px;
     border-top: 1px solid var(--border-primary);
   }
@@ -389,7 +389,7 @@ async function installUpdate() {
   .scale-controls {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--space-xs);
     flex-shrink: 0;
   }
 
@@ -428,7 +428,7 @@ async function installUpdate() {
   }
 
   .scale-reset-btn {
-    padding: 4px 10px;
+    padding: var(--space-2xs) var(--space-md);
     border: 1px solid var(--border-secondary);
     border-radius: 6px;
     background: var(--bg-primary);
@@ -456,11 +456,11 @@ async function installUpdate() {
   }
 
   .theme-btn {
-    padding: 5px 12px;
+    padding: 5px var(--space-lg);
   }
 
   .check-update-btn {
-    padding: 6px 14px;
+    padding: var(--space-xs) 14px;
     border: 1px solid var(--border-secondary);
     border-radius: 6px;
     background: var(--bg-primary);
@@ -478,7 +478,7 @@ async function installUpdate() {
   }
 
   .install-btn {
-    padding: 6px 14px;
+    padding: var(--space-xs) 14px;
     border: none;
     border-radius: 6px;
     background: var(--accent);
@@ -515,7 +515,7 @@ async function installUpdate() {
   .update-available {
     background: var(--bg-selected);
     border-radius: 8px;
-    padding: 12px;
+    padding: var(--space-lg);
     margin: -4px 0;
   }
 
@@ -525,7 +525,7 @@ async function installUpdate() {
     background: var(--border-primary);
     border-radius: 3px;
     overflow: hidden;
-    margin-top: 6px;
+    margin-top: var(--space-xs);
   }
 
   .progress-fill {

@@ -71,8 +71,8 @@ const problems = $derived((job.summary?.items ?? []).filter((i) => i.status === 
     width: min(360px, calc(100vw - 32px));
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    padding: 12px 14px;
+    gap: var(--space-sm);
+    padding: var(--space-lg) 14px;
     border: 1px solid var(--border-primary);
     border-left: 3px solid var(--accent);
     border-radius: 8px;
@@ -81,7 +81,7 @@ const problems = $derived((job.summary?.items ?? []).filter((i) => i.status === 
   }
   .bulk-share-progress.tone-warn { border-left-color: var(--warning-text, #b8860b); }
 
-  .bsp-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .bsp-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-lg); }
   .bsp-title { font-size: 13px; font-weight: 600; color: var(--text-primary); }
   .bsp-count { font-size: 12px; color: var(--text-tertiary); }
 
@@ -100,7 +100,7 @@ const problems = $derived((job.summary?.items ?? []).filter((i) => i.status === 
 
   .bsp-btn {
     flex-shrink: 0;
-    padding: 3px 10px;
+    padding: 3px var(--space-md);
     border: 1px solid var(--border-primary);
     border-radius: 6px;
     background: var(--bg-primary);
@@ -114,10 +114,10 @@ const problems = $derived((job.summary?.items ?? []).filter((i) => i.status === 
   .bsp-problems { font-size: 12px; color: var(--text-secondary); }
   .bsp-problems summary { cursor: pointer; color: var(--text-tertiary); }
   .bsp-problems ul {
-    margin: 6px 0 0;
-    padding-left: 16px;
+    margin: var(--space-xs) 0 0;
+    padding-left: var(--space-xl);
     max-height: 160px;
     overflow: auto;
   }
-  .bsp-problems li { margin-bottom: 4px; word-break: break-word; }
+  .bsp-problems li { margin-bottom: var(--space-2xs); word-break: break-word; }
 </style>

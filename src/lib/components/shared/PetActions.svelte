@@ -127,7 +127,7 @@ async function doDelete(): Promise<void> {
     background: var(--bg-primary);
     border-radius: var(--radius-xl);
     box-shadow: var(--shadow-xl);
-    padding: 24px;
+    padding: var(--space-3xl);
     width: 340px;
     max-width: 90vw;
     text-align: center;
@@ -136,18 +136,18 @@ async function doDelete(): Promise<void> {
   .confirm-message {
     font-size: 15px;
     color: var(--text-primary);
-    margin: 0 0 4px 0;
+    margin: 0 0 var(--space-2xs) 0;
   }
 
   .confirm-subtext {
     font-size: 12px;
     color: var(--text-muted);
-    margin: 0 0 20px 0;
+    margin: 0 0 var(--space-2xl) 0;
   }
 
   .confirm-actions {
     display: flex;
-    gap: 8px;
+    gap: var(--space-sm);
     justify-content: center;
   }
 </style>

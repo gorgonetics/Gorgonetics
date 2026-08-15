@@ -538,7 +538,7 @@ function handleCellLeave() {
     .species-badge {
         font-size: 12px;
         font-weight: 500;
-        padding: 2px 8px;
+        padding: var(--space-3xs) var(--space-sm);
         background: var(--bg-tertiary);
         border-radius: 10px;
         color: var(--text-secondary);
@@ -547,7 +547,7 @@ function handleCellLeave() {
 
     /* Stat pills that ride in the header bar (DetailOverlay's headerActions). No
        band background — the header itself is the bar. */
-    .trio-stats { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .trio-stats { display: flex; align-items: center; gap: var(--space-sm); flex-wrap: wrap; }
 
     /* Body fills the overlay; a flex column so the grid is the single scroll
        region and the filter row stays pinned above it. */
@@ -556,7 +556,7 @@ function handleCellLeave() {
         min-height: 0;
         display: flex;
         flex-direction: column;
-        padding: 8px 14px;
+        padding: var(--space-sm) 14px;
         /* Offspring-outcome palette, derived from the shared gene colours so the
            trio stays coherent with the rest of the app. Vivid = a change vs the
            parents (gain / loss); muted (mixed toward neutral) = a hold. */
@@ -573,19 +573,19 @@ function handleCellLeave() {
         display: flex;
         flex-wrap: wrap;
         align-items: center;
-        gap: 4px 14px;
-        margin-bottom: 6px;
+        gap: var(--space-2xs) 14px;
+        margin-bottom: var(--space-xs);
         flex-shrink: 0;
     }
     /* Attribute pills → GeneFilterPills; breed picker → shared BreedSelector. */
-    .breed-filter { display: flex; padding: 0 4px; }
+    .breed-filter { display: flex; padding: 0 var(--space-2xs); }
 
     /* Shared instruction line (identical to GenomeGridDiff's .grid-instructions). */
-    .grid-instructions { font-size: 10px; color: var(--text-muted); margin-bottom: 4px; font-style: italic; padding: 0 4px; }
+    .grid-instructions { font-size: 10px; color: var(--text-muted); margin-bottom: var(--space-2xs); font-style: italic; padding: 0 var(--space-2xs); }
     .chip {
         font-size: 12px;
         font-weight: 600;
-        padding: 2px 10px;
+        padding: var(--space-3xs) var(--space-md);
         border-radius: 10px;
         background: var(--bg-tertiary);
         color: var(--text-secondary);
@@ -595,8 +595,8 @@ function handleCellLeave() {
     .chip.toggle.active { border-color: var(--accent); color: var(--text-primary); background: color-mix(in srgb, var(--accent) 16%, transparent); }
     .chip-gain { background: color-mix(in srgb, var(--gene-positive) 18%, transparent); color: var(--gene-positive); }
     .chip-risk { background: color-mix(in srgb, var(--gene-negative) 18%, transparent); color: var(--gene-negative); }
-    .legend { display: flex; gap: 10px; margin-left: auto; font-size: 11px; color: var(--text-tertiary); }
-    .legend-item { display: inline-flex; align-items: center; gap: 4px; }
+    .legend { display: flex; gap: var(--space-md); margin-left: auto; font-size: 11px; color: var(--text-tertiary); }
+    .legend-item { display: inline-flex; align-items: center; gap: var(--space-2xs); }
     .swatch { width: 11px; height: 11px; border-radius: 2px; display: inline-block; box-shadow: inset 0 0 0 1px rgba(127, 127, 127, 0.25); }
     .swatch-gain { background: var(--trio-gain); }
     .swatch-keep { background: var(--trio-keep-pos); }
@@ -619,7 +619,7 @@ function handleCellLeave() {
         z-index: 10;
         background: var(--bg-secondary);
         border-bottom: 1px solid var(--border-primary);
-        padding: 2px 4px;
+        padding: var(--space-3xs) var(--space-2xs);
         font-size: 9px;
         font-weight: normal;
         color: var(--text-secondary);
@@ -629,7 +629,7 @@ function handleCellLeave() {
     .chr-header { position: sticky; left: 0; z-index: 11; width: 28px; min-width: 28px; font-weight: bold; }
     .role-header { position: sticky; left: 28px; z-index: 11; width: 72px; min-width: 72px; }
     .pos-header { width: 18px; min-width: 18px; max-width: 18px; }
-    .pos-header.block-start { font-weight: bold; padding-left: 8px; }
+    .pos-header.block-start { font-weight: bold; padding-left: var(--space-sm); }
 
     .chr-label {
         position: sticky;
@@ -650,7 +650,7 @@ function handleCellLeave() {
         background: var(--bg-secondary);
         font-size: 9px;
         font-weight: 600;
-        padding: 1px 6px;
+        padding: 1px var(--space-xs);
         white-space: nowrap;
         border-right: 1px solid var(--border-primary);
         color: var(--text-secondary);
@@ -661,7 +661,7 @@ function handleCellLeave() {
     .mother-row { border-bottom: 2px solid var(--border-primary); }
 
     .grid-cell { padding: 1px; text-align: center; vertical-align: middle; }
-    .grid-cell.block-start { padding-left: 8px; }
+    .grid-cell.block-start { padding-left: var(--space-sm); }
 
     /* Offspring row is taller and its cells host the outcome box. */
     .offspring-cell { height: 22px; }

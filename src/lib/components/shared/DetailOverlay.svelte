@@ -159,8 +159,8 @@ function handleDocumentKeydown(e: KeyboardEvent) {
   .do-head {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 8px 16px;
+    gap: var(--space-lg);
+    padding: var(--space-sm) var(--space-xl);
     border-bottom: 1px solid var(--border-primary);
     flex-shrink: 0;
   }
@@ -172,12 +172,12 @@ function handleDocumentKeydown(e: KeyboardEvent) {
     color: var(--text-primary);
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: var(--space-md);
     flex-wrap: wrap;
     min-width: 0;
   }
   .back-btn {
-    padding: 5px 12px;
+    padding: 5px var(--space-lg);
     border: 1px solid var(--border-primary);
     border-radius: var(--radius-md);
     background: var(--bg-primary);
@@ -191,6 +191,6 @@ function handleDocumentKeydown(e: KeyboardEvent) {
   .back-btn:hover { color: var(--text-primary); background: var(--bg-hover); }
   /* Right-aligned header content (summary/stat pills). Wraps under the title on
      narrow widths rather than overflowing the bar. */
-  .do-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .do-actions { margin-left: auto; display: flex; align-items: center; gap: var(--space-sm); flex-wrap: wrap; }
   .do-body { flex: 1; min-height: 0; overflow: hidden; display: flex; }
 </style>

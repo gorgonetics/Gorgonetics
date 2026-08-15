@@ -217,14 +217,14 @@ async function handleShare() {
   .dialog-desc {
     font-size: 14px;
     color: var(--text-tertiary);
-    margin: 0 0 12px;
+    margin: 0 0 var(--space-lg);
   }
 
   .preview-grid {
     display: grid;
     grid-template-columns: 100px 1fr;
-    gap: 6px 12px;
-    margin: 0 0 16px;
+    gap: var(--space-xs) var(--space-lg);
+    margin: 0 0 var(--space-xl);
     font-size: 14px;
   }
 
@@ -249,8 +249,8 @@ async function handleShare() {
   }
 
   .notes-preview {
-    margin: 0 0 12px;
-    padding: 8px 10px;
+    margin: 0 0 var(--space-lg);
+    padding: var(--space-sm) var(--space-md);
     max-height: 160px;
     overflow: auto;
     background: var(--surface-2, #1f1f1f);

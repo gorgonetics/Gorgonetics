@@ -33,6 +33,6 @@ const action = $derived(actionLabel && onAction ? { actionLabel, onAction } : {}
     height: 100%;
     display: grid;
     place-items: center;
-    padding: 32px;
+    padding: var(--space-4xl);
   }
 </style>
