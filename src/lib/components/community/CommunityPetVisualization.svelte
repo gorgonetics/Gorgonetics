@@ -162,8 +162,8 @@ function handleBreedChange(fullName: string): void {
         <BreedSelector value={breedFilter} breeds={HORSE_BREEDS} onChange={handleBreedChange} />
       {/if}
       <div class="seg view-controls" role="group" aria-label="Grid view">
-        <button class="seg-btn view-btn" class:active={currentView === 'attribute'} onclick={() => handleViewChange('attribute')}>Attributes</button>
-        <button class="seg-btn view-btn" class:active={currentView === 'appearance'} onclick={() => handleViewChange('appearance')}>Appearance</button>
+        <button class="seg-btn" class:active={currentView === 'attribute'} onclick={() => handleViewChange('attribute')}>Attributes</button>
+        <button class="seg-btn" class:active={currentView === 'appearance'} onclick={() => handleViewChange('appearance')}>Appearance</button>
       </div>
       <button
         class="toggle-btn"
@@ -304,9 +304,6 @@ function handleBreedChange(fullName: string): void {
     flex-wrap: wrap;
     gap: var(--space-xs) var(--space-lg);
   }
-
-  /* Track chrome comes from the global `.seg`; `.view-controls` stays as a
-     semantic hook. */
 
   .toggle-btn {
     padding: var(--space-2xs) var(--space-lg);
