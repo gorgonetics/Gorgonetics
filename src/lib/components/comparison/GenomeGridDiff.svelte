@@ -399,9 +399,9 @@ function handleCellLeave() {
             <div class="diff-summary">
                 <span class="similarity-badge">{summary.similarityPercent}% identical</span>
                 <span class="summary-detail">{summary.identicalGenes}/{summary.totalGenes} genes match · {summary.differentGenes} diff</span>
-                <div class="view-toggle">
-                    <button type="button" class="view-btn" class:active={currentView === 'attribute'} onclick={() => { currentView = 'attribute'; }}>Attributes</button>
-                    <button type="button" class="view-btn" class:active={currentView === 'appearance'} onclick={() => { currentView = 'appearance'; }}>Appearance</button>
+                <div class="seg view-toggle" role="group" aria-label="Grid view">
+                    <button type="button" class="seg-btn view-btn" class:active={currentView === 'attribute'} onclick={() => { currentView = 'attribute'; }}>Attributes</button>
+                    <button type="button" class="seg-btn view-btn" class:active={currentView === 'appearance'} onclick={() => { currentView = 'appearance'; }}>Appearance</button>
                 </div>
                 <label class="diff-toggle">
                     <input type="checkbox" checked={showDiffsOnly} onchange={(e) => { showDiffsOnly = (e.target as HTMLInputElement).checked; }} />
@@ -523,11 +523,10 @@ function handleCellLeave() {
     .summary-detail { font-size: 12px; color: var(--text-secondary); }
     .diff-toggle { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary); cursor: pointer; }
     .diff-toggle input { cursor: pointer; }
-    .view-toggle { display: inline-flex; border: 1px solid var(--border-primary); border-radius: 4px; overflow: hidden; }
-    .view-btn { padding: 3px 10px; border: none; background: var(--bg-primary); color: var(--text-tertiary); font-size: 11px; font-weight: 500; cursor: pointer; transition: all 0.15s; }
-    .view-btn + .view-btn { border-left: 1px solid var(--border-primary); }
-    .view-btn:hover { color: var(--text-secondary); }
-    .view-btn.active { background: var(--accent); color: white; }
+    /* Same control as the pet-detail view switcher, so it takes the shared
+       `.seg` chrome; only the density differs (this sits in the dense filter
+       row) — same scoped-tweak pattern as GenomeGridTrio's `.gain-mode`. */
+    .view-toggle .view-btn { padding: 3px 10px; font-size: 11px; }
 
     /* --cell-size 18px → 16px gene cells (calc subtracts the 2px border), the
        same density as the trio view. flex:1 makes the grid the single scroll

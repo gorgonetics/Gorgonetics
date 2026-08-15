@@ -4,14 +4,15 @@
 import PageHeader from '$lib/components/shared/PageHeader.svelte';
 
 interface Props {
-  title: string;
+  title?: string;
   subtitle?: string;
   icon?: string;
+  wide?: boolean;
 }
-const { title, subtitle, icon }: Props = $props();
+const { title, subtitle, icon, wide }: Props = $props();
 </script>
 
-<PageHeader {title} {subtitle} {icon}>
+<PageHeader {title} {subtitle} {icon} {wide}>
   {#snippet actions()}
     <button type="button" data-testid="harness-action">Do thing</button>
   {/snippet}

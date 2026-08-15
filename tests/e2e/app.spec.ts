@@ -103,6 +103,29 @@ test.describe('Pet Detail View', () => {
     await expect(page.locator('.stats-drawer')).toHaveCount(0);
   });
 
+  // Delete's red hover is the only visual warning on a destructive action, and
+  // it is won on a specificity margin over the shared `.seg-btn:hover` rule
+  // (#407). Asserted in the browser because a :hover colour can't be computed
+  // in jsdom — and the failure mode is silent: the button still works, it just
+  // stops looking dangerous.
+  test('delete keeps its danger colour on hover', async ({ page }) => {
+    const del = page.locator('[data-testid="pet-detail"] [data-testid="pet-delete-btn"]');
+    // Resolve the token to the rgb() the browser will report, via a probe.
+    const danger = await page.evaluate(() => {
+      const probe = document.createElement('span');
+      probe.style.color = getComputedStyle(document.documentElement).getPropertyValue('--gene-negative').trim();
+      document.body.appendChild(probe);
+      const v = getComputedStyle(probe).color;
+      probe.remove();
+      return v;
+    });
+    await del.hover();
+    // `.seg-btn` carries `transition: all 0.15s`, so the first frames after
+    // hover are interpolated colours — poll for the settled value rather than
+    // sampling one mid-transition (that read is what makes this flaky).
+    await expect.poll(() => del.evaluate((el) => getComputedStyle(el).color)).toBe(danger);
+  });
+
   test('back returns to the table', async ({ page }) => {
     await page.locator('[data-testid="pet-detail-back"]').click();
     await expect(page.locator('[data-testid="pet-detail"]')).toHaveCount(0);

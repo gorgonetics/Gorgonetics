@@ -222,10 +222,16 @@ textarea {
 }
 
 /* --- Shared segmented control --- */
-/* One chrome for exclusive-choice button groups (FilterBar's species/gender
-   toggles, Breed's species picker, Settings' theme picker): a tinted track
-   with a raised active segment. Components keep scoped size tweaks on their
-   own class alongside `seg-btn`. */
+/* One chrome for flush button groups: a tinted track holding borderless
+   buttons. Mostly exclusive-choice pickers (FilterBar's species/gender
+   toggles, Breed's species picker, Settings' theme picker, the detail
+   header's view switcher) — `.seg-btn.active` is what supplies the raised
+   active segment, so a track of plain actions (the detail header's
+   Share/Edit/Delete cluster) uses the same chrome without it.
+
+   Components keep scoped size tweaks on their own class alongside
+   `seg-btn` (e.g. GenomeGridTrio's `.gain-mode`, GenomeGridDiff's
+   `.view-toggle`) rather than re-declaring the track. */
 .seg {
   display: inline-flex;
   align-items: center;

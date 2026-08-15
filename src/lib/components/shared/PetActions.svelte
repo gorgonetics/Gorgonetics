@@ -64,7 +64,7 @@ async function doDelete(): Promise<void> {
   >✕</button>
 {:else}
   <button
-    class="hdr-btn"
+    class="seg-btn"
     title="Edit pet"
     data-testid="pet-edit-btn"
     data-action="edit"
@@ -72,7 +72,7 @@ async function doDelete(): Promise<void> {
     onclick={openEditor}
   >Edit</button>
   <button
-    class="hdr-btn hdr-delete"
+    class="seg-btn hdr-delete"
     title="Delete pet"
     data-testid="pet-delete-btn"
     data-action="delete"
@@ -119,21 +119,12 @@ async function doDelete(): Promise<void> {
   .edit-btn:hover { color: var(--accent); }
   .action-btn.delete-btn:hover { color: var(--gene-negative); }
 
-  /* Button variant: self-styled to match the detail header's .view-btn look
-     (a sibling's scoped style won't reach this child component's elements). */
-  .hdr-btn {
-    padding: 5px 14px;
-    border: none;
-    border-radius: var(--radius-sm);
-    background: transparent;
-    color: var(--text-tertiary);
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.15s ease;
-  }
-  .hdr-btn:hover { color: var(--text-secondary); }
-  .hdr-delete:hover { color: var(--gene-negative); }
+  /* Qualifying this with `.seg-btn` is load-bearing, not decoration: the
+     global `.seg-btn:hover:not(:disabled)` is (0,3,0), and Svelte compiles a
+     bare `.hdr-delete:hover` to (0,3,0) too — an exact tie broken only by
+     which stylesheet the bundler emits last. The extra class takes it to
+     (0,4,0), keeping the destructive action's red hover deterministic. */
+  .seg-btn.hdr-delete:hover { color: var(--gene-negative); }
 
   .confirm-dialog {
     background: var(--bg-primary);

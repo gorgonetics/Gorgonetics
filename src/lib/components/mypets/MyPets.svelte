@@ -16,6 +16,7 @@ import PetVisualization from '$lib/components/pet/PetVisualization.svelte';
 import DetailOverlay from '$lib/components/shared/DetailOverlay.svelte';
 import EmptyState from '$lib/components/shared/EmptyState.svelte';
 import FilterBar from '$lib/components/shared/FilterBar.svelte';
+import PageHeader from '$lib/components/shared/PageHeader.svelte';
 import { isPlaceholderConfig } from '$lib/firebase.js';
 import { getSupportedSpecies, normalizeSpecies } from '$lib/services/configService.js';
 import { bulkShareJob, startBulkShare } from '$lib/stores/bulkShare.svelte.js';
@@ -181,26 +182,32 @@ const canShareAll = $derived(!isPlaceholderConfig && $pets.length > 0);
 <div class="my-pets" data-testid="my-pets">
   <!-- Table layer — always mounted so detail/compare preserve its scroll. -->
   <div class="mp-main" class:hidden={detailPet || comparing}>
-    <div class="mp-head">
-      <FilterBar
-        search={myPetsView.search}
-        onSearch={(v) => { myPetsView.search = v; }}
-        species={speciesOptions}
-        activeSpecies={myPetsView.species}
-        onSpecies={(v) => { myPetsView.species = v; }}
-        breeds={breedsForSpecies}
-        breed={myPetsView.breed}
-        onBreed={(v) => { myPetsView.breed = v; }}
-        genders={['Male', 'Female']}
-        activeGender={myPetsView.gender}
-        onGender={(v) => { myPetsView.gender = v as Gender | ''; }}
-        tagOptions={$allTags}
-        activeTags={myPetsView.tags}
-        onToggleTag={toggleTag}
-        {flags}
-        onToggleFlag={toggleFlag}
-      />
-    </div>
+    <!-- Title omitted: the nav tab already names this destination, so the band
+         carries only the filter row (same shape as BreedView). The heading the
+         header would have provided stays for SR users. -->
+    <h2 class="sr-only">My pets</h2>
+    <PageHeader wide>
+      {#snippet actions()}
+        <FilterBar
+          search={myPetsView.search}
+          onSearch={(v) => { myPetsView.search = v; }}
+          species={speciesOptions}
+          activeSpecies={myPetsView.species}
+          onSpecies={(v) => { myPetsView.species = v; }}
+          breeds={breedsForSpecies}
+          breed={myPetsView.breed}
+          onBreed={(v) => { myPetsView.breed = v; }}
+          genders={['Male', 'Female']}
+          activeGender={myPetsView.gender}
+          onGender={(v) => { myPetsView.gender = v as Gender | ''; }}
+          tagOptions={$allTags}
+          activeTags={myPetsView.tags}
+          onToggleTag={toggleTag}
+          {flags}
+          onToggleFlag={toggleFlag}
+        />
+      {/snippet}
+    </PageHeader>
 
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div
@@ -373,8 +380,6 @@ const canShareAll = $derived(!isPlaceholderConfig && $pets.length > 0);
 
   .mp-main { flex: 1; min-height: 0; display: flex; flex-direction: column; }
   .mp-main.hidden { display: none; }
-  .mp-head { padding: 10px 16px; border-bottom: 1px solid var(--border-primary); flex-shrink: 0; }
-
   .mp-table { position: relative; flex: 1; min-height: 0; overflow: auto; }
   .mp-empty { height: 100%; display: flex; align-items: center; justify-content: center; }
 

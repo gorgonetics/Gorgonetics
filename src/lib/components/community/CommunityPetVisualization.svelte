@@ -161,9 +161,9 @@ function handleBreedChange(fullName: string): void {
       {#if isHorse}
         <BreedSelector value={breedFilter} breeds={HORSE_BREEDS} onChange={handleBreedChange} />
       {/if}
-      <div class="view-controls" role="group" aria-label="Grid view">
-        <button class="view-btn" class:active={currentView === 'attribute'} onclick={() => handleViewChange('attribute')}>Attributes</button>
-        <button class="view-btn" class:active={currentView === 'appearance'} onclick={() => handleViewChange('appearance')}>Appearance</button>
+      <div class="seg view-controls" role="group" aria-label="Grid view">
+        <button class="seg-btn" class:active={currentView === 'attribute'} onclick={() => handleViewChange('attribute')}>Attributes</button>
+        <button class="seg-btn" class:active={currentView === 'appearance'} onclick={() => handleViewChange('appearance')}>Appearance</button>
       </div>
       <button
         class="toggle-btn"
@@ -305,15 +305,6 @@ function handleBreedChange(fullName: string): void {
     gap: 6px 12px;
   }
 
-  .view-controls {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    background: var(--bg-tertiary);
-    border-radius: 6px;
-    padding: 3px;
-  }
-
   .toggle-btn {
     padding: 4px 12px;
     border: 1px solid var(--border-primary);
@@ -340,28 +331,6 @@ function handleBreedChange(fullName: string): void {
   .header-actions {
     display: flex;
     align-items: center;
-  }
-
-  .view-btn {
-    padding: 5px 14px;
-    border: none;
-    border-radius: 4px;
-    background: transparent;
-    color: var(--text-tertiary);
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.15s ease;
-  }
-
-  .view-btn:hover {
-    color: var(--text-secondary);
-  }
-
-  .view-btn.active {
-    background: var(--bg-primary);
-    color: var(--text-primary);
-    box-shadow: var(--shadow-sm);
   }
 
   .import-btn {
