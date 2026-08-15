@@ -132,7 +132,7 @@ $effect(() => {
       {/if}
       <div class="ref-field">
         <span>Baseline</span>
-        <div class="ref-segment" role="group" aria-label="Rarity baseline">
+        <div class="seg" role="group" aria-label="Rarity baseline">
           <button
             class="seg-btn"
             class:active={rarityPopulation === 'stabled'}
@@ -211,18 +211,6 @@ $effect(() => {
   /* The map owns its own scrolling (its cell size is measured from that box),
      so the wrapper must not scroll or the two would fight. */
   .ref-body-map { overflow: hidden; display: flex; min-width: 0; }
-
-  .ref-segment {
-    display: flex; align-items: center; gap: var(--space-2xs);
-    background: var(--bg-secondary); border-radius: 6px; padding: 3px;
-  }
-  .seg-btn {
-    padding: 5px var(--space-md); border: none; background: transparent; border-radius: 4px;
-    font-size: 12px; font-weight: 600; color: var(--text-secondary); cursor: pointer;
-  }
-  .seg-btn:hover:not(:disabled) { background: var(--bg-primary); }
-  .seg-btn.active { background: var(--accent); color: var(--text-inverse); }
-  .seg-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
   .edit-toggle {
     margin-left: auto; padding: 7px var(--space-xl); border: 1px solid var(--border-secondary);

@@ -280,6 +280,14 @@ textarea {
   color: var(--text-secondary);
 }
 
+/* Both surfaces that disable a segment do it for the same reason — a tier
+   that exists but isn't available yet (the deferred community baseline,
+   #368) — and dimmed the button identically in their own scoped blocks. */
+.seg-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .seg-btn.active {
   background: var(--bg-primary);
   color: var(--text-primary);

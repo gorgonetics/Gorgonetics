@@ -468,13 +468,6 @@ onDestroy(() => {
         color: var(--bg-primary);
     }
 
-    /* Community baseline is deferred (#368) — shown disabled so the tiering
-       stays legible. */
-    .rarity-population .view-btn:disabled {
-        opacity: 0.45;
-        cursor: not-allowed;
-    }
-
     .toggle-controls {
         display: flex;
         align-items: center;
