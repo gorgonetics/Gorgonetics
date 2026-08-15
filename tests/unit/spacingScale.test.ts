@@ -11,9 +11,30 @@
  * in app.css as a known tail; forbidding them would push authors toward the
  * wrong fix (silently resizing something) instead of the right one.
  */
-import { readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { dirname, join, relative } from 'node:path';
 import { describe, expect, it } from 'vitest';
+
+/**
+ * Repo root by walking up for `package.json`, so the guard survives vitest
+ * being rerooted or invoked from a subdirectory.
+ *
+ * Deliberately fs rather than `import.meta.glob('…', { query: '?raw' })`:
+ * Vite's CSS plugin intercepts `.css` and hands back an empty string, which
+ * would silently drop `app.css` and `geneCell.css` from the scan — the exact
+ * false-green this file exists to prevent.
+ */
+function repoRoot(): string {
+  let dir = process.cwd();
+  while (!existsSync(join(dir, 'package.json'))) {
+    const up = dirname(dir);
+    if (up === dir) throw new Error('spacingScale.test: could not locate repo root');
+    dir = up;
+  }
+  return dir;
+}
+
+const SRC = join(repoRoot(), 'src');
 
 /** px → token suffix. Mirrors the scale declared in `src/app.css`. */
 const SCALE = new Map([
@@ -56,41 +77,46 @@ const DECL = new RegExp(String.raw`(?<![-\w])(${SPACING_PROPS.join('|')})\s*:\s*
 const PX = /(?<![-\d.])(\d+)px/g;
 const STYLE_BLOCK = /<style[^>]*>([\s\S]*?)<\/style>/g;
 
-function sourceFiles(dir: string): string[] {
-  return readdirSync(dir, { recursive: true, encoding: 'utf-8' })
+/** `[displayPath, css]` per stylesheet — `<style>` blocks only, for components. */
+function stylesheets(): [string, string][] {
+  return readdirSync(SRC, { recursive: true, encoding: 'utf-8' })
     .filter((p) => /\.(svelte|css)$/.test(p) && !p.includes('generated'))
-    .map((p) => join(dir, p));
+    .map((p) => {
+      const full = join(SRC, p);
+      const src = readFileSync(full, 'utf-8');
+      const css = p.endsWith('.svelte') ? [...src.matchAll(STYLE_BLOCK)].map((m) => m[1]).join('\n') : src;
+      return [relative(repoRoot(), full), css];
+    });
 }
 
-/** CSS text of a file — the `<style>` blocks only, for components. */
-function styleText(path: string): string {
-  const src = readFileSync(path, 'utf-8');
-  if (!path.endsWith('.svelte')) return src;
-  return [...src.matchAll(STYLE_BLOCK)].map((m) => m[1]).join('\n');
-}
-
-/** Human-readable location + fix for every on-scale literal still present. */
-function findOffences(): string[] {
+/** Human-readable location + fix for every on-scale literal in one stylesheet. */
+function scanCss(css: string, label: string): string[] {
   const offences: string[] = [];
-  for (const file of sourceFiles('src')) {
-    for (const [, prop, value] of styleText(file).matchAll(DECL)) {
-      // calc() is exempt: the sweep skipped it, since substituting inside an
-      // expression costs more readability than the token buys.
-      if (value.includes('calc(')) continue;
-      for (const [, raw] of value.matchAll(PX)) {
-        const token = SCALE.get(Number(raw));
-        if (token) {
-          offences.push(`  ${file}\n    ${prop}: ${value.trim()}   → ${raw}px should be var(--space-${token})`);
-        }
+  for (const [, prop, value] of css.matchAll(DECL)) {
+    // calc() is exempt: the sweep skipped it, since substituting inside an
+    // expression costs more readability than the token buys.
+    if (value.includes('calc(')) continue;
+    for (const [, raw] of value.matchAll(PX)) {
+      const token = SCALE.get(Number(raw));
+      if (token) {
+        offences.push(`  ${label}\n    ${prop}: ${value.trim()}   → ${raw}px should be var(--space-${token})`);
       }
     }
   }
   return offences;
 }
 
+function findOffences(): string[] {
+  return stylesheets().flatMap(([path, css]) => scanCss(css, path));
+}
+
 describe('spacing scale', () => {
   it('declares every step the sweep maps to', () => {
-    const appCss = readFileSync('src/app.css', 'utf-8');
+    // Matched by suffix, not by exact key: Vite's glob key format is an
+    // implementation detail, and a missed lookup would silently make every
+    // `toContain` below assert against undefined.
+    const appCss = stylesheets().find(([path]) => path.endsWith('src/app.css'))?.[1];
+    expect(appCss, 'src/app.css not found in the glob').toBeTruthy();
     for (const [px, token] of SCALE) {
       expect(appCss).toContain(`--space-${token}: ${px}px;`);
     }
@@ -101,12 +127,26 @@ describe('spacing scale', () => {
     expect(offences.length, `on-scale px literals found:\n${offences.join('\n')}`).toBe(0);
   });
 
-  it('still finds the declarations it is meant to police', () => {
-    // Self-check: if the regex silently stopped matching, the test above would
-    // pass vacuously. The floor only has to be well clear of zero — the real
-    // count is ~390, so 100 proves broad matching without failing the day
-    // someone deletes a few components.
-    const total = sourceFiles('src').reduce((n, f) => n + [...styleText(f).matchAll(DECL)].length, 0);
+  // Positive control. Without it, rot in EITHER regex makes `findOffences()`
+  // return [] and the assertion above pass vacuously forever — `DECL` matching
+  // is not enough, since `PX` is the half that actually flags a value. These
+  // cases also pin the exemptions the sweep relied on.
+  it('flags an on-scale literal and spares the documented exemptions', () => {
+    expect(scanCss('.x { padding: 8px; }', 'synthetic')).toHaveLength(1);
+    expect(scanCss('.x { gap: 4px 12px; }', 'synthetic')).toHaveLength(2);
+
+    expect(scanCss('.x { padding: 14px; }', 'synthetic'), 'off-scale tail').toEqual([]);
+    expect(scanCss('.x { margin: -8px; }', 'synthetic'), 'negatives').toEqual([]);
+    expect(scanCss('.x { padding: calc(8px + 1px); }', 'synthetic'), 'calc()').toEqual([]);
+    expect(scanCss('.x { border-radius: 8px; }', 'synthetic'), 'non-spacing property').toEqual([]);
+    expect(scanCss(':root { --trio-gap: 8px; }', 'synthetic'), 'custom property').toEqual([]);
+  });
+
+  it('still reaches the real stylesheets', () => {
+    // Complements the positive control: that one proves the matcher works,
+    // this proves it is being pointed at actual content. The floor only has to
+    // be clear of zero — the real count is ~390.
+    const total = stylesheets().reduce((n, [, css]) => n + [...css.matchAll(DECL)].length, 0);
     expect(total).toBeGreaterThan(100);
   });
 });
