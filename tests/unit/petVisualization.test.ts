@@ -125,6 +125,21 @@ describe('PetVisualization detail header', () => {
       expect(q(container, '.header-actions [data-testid="pet-delete-btn"]')).not.toBeNull();
     });
 
+    // #407: these tracks used to re-declare the `.seg` chrome locally, which is
+    // how they drifted apart (gap/padding/radius all differed). They now take
+    // the shared classes; a re-implementation would drop them again.
+    it('takes the shared .seg chrome rather than re-declaring it', () => {
+      const { container } = render(PetVisualization, { pet: makePet() });
+      for (const track of ['.view-controls', '.header-actions']) {
+        expect((q(container, track) as HTMLElement).classList.contains('seg')).toBe(true);
+      }
+      const viewButtons = [...(q(container, '.view-controls') as HTMLElement).querySelectorAll('button')];
+      expect(viewButtons.every((b) => b.classList.contains('seg-btn'))).toBe(true);
+      // PetActions renders into .header-actions from a child component — the
+      // case that previously forced the self-styled `.hdr-btn` mimic.
+      expect(q(container, '.header-actions [data-testid="pet-edit-btn"]')?.classList.contains('seg-btn')).toBe(true);
+    });
+
     it('Stats is a pressed toggle, not a sibling view highlight', async () => {
       const { container, getByTestId } = render(PetVisualization, { pet: makePet() });
       const stats = getByTestId('detail-stats-toggle');

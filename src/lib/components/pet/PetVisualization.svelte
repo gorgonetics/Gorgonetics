@@ -221,23 +221,23 @@ onDestroy(() => {
                     />
                 </div>
             {/if}
-            <div class="view-controls" role="group" aria-label="Grid view">
+            <div class="seg view-controls" role="group" aria-label="Grid view">
                 <button
-                    class="view-btn"
+                    class="seg-btn view-btn"
                     class:active={!galleryOpen && currentView === "attribute"}
                     onclick={() => handleViewChange("attribute")}
                 >
                     Attributes
                 </button>
                 <button
-                    class="view-btn"
+                    class="seg-btn view-btn"
                     class:active={!galleryOpen && currentView === "appearance"}
                     onclick={() => handleViewChange("appearance")}
                 >
                     Appearance
                 </button>
                 <button
-                    class="view-btn"
+                    class="seg-btn view-btn"
                     class:active={!galleryOpen && currentView === "rarity"}
                     data-testid="view-rarity-btn"
                     title="Shade each gene by how rare its value is across your pets"
@@ -251,9 +251,9 @@ onDestroy(() => {
                      look but is a different axis (which pets to measure against,
                      not which view to show), and conflating them would make
                      "the view group" ambiguous to query. -->
-                <div class="rarity-population" role="group" aria-label="Rarity baseline">
+                <div class="seg rarity-population" role="group" aria-label="Rarity baseline">
                     <button
-                        class="view-btn"
+                        class="seg-btn view-btn"
                         class:active={rarityPopulation === "stabled"}
                         data-testid="rarity-pop-stabled"
                         onclick={() => { rarityPopulation = "stabled"; }}
@@ -261,7 +261,7 @@ onDestroy(() => {
                         Stabled
                     </button>
                     <button
-                        class="view-btn"
+                        class="seg-btn view-btn"
                         class:active={rarityPopulation === "all"}
                         data-testid="rarity-pop-all"
                         onclick={() => { rarityPopulation = "all"; }}
@@ -271,7 +271,7 @@ onDestroy(() => {
                     <!-- Deferred, not forgotten: a community baseline needs a
                          precomputed aggregate rather than fetching every genome.
                          Shown disabled so the tiering stays legible. -->
-                    <button class="view-btn" disabled title="Needs a shared aggregate — not yet available">
+                    <button class="seg-btn view-btn" disabled title="Needs a shared aggregate — not yet available">
                         Community · soon
                     </button>
                 </div>
@@ -298,9 +298,9 @@ onDestroy(() => {
                     Gallery
                 </button>
             </div>
-            <div class="header-actions">
+            <div class="seg header-actions">
                 <button
-                    class="view-btn share-btn"
+                    class="seg-btn share-btn"
                     data-testid="share-pet-btn"
                     title="Share this pet to the public community catalogue"
                     onclick={() => { showShare = true; }}
@@ -468,16 +468,8 @@ onDestroy(() => {
         color: var(--bg-primary);
     }
 
-    .view-controls,
-    .rarity-population {
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        background: var(--bg-tertiary);
-        border-radius: 6px;
-        padding: 3px;
-    }
-
+    /* Track chrome for .view-controls / .rarity-population / .header-actions
+       comes from the global `.seg`; these classes stay as semantic hooks. */
     .rarity-population .view-btn:disabled {
         opacity: 0.45;
         cursor: not-allowed;
@@ -510,37 +502,6 @@ onDestroy(() => {
         background: var(--accent);
         border-color: var(--accent);
         color: var(--bg-primary);
-    }
-
-    .header-actions {
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        background: var(--bg-tertiary);
-        border-radius: 6px;
-        padding: 3px;
-    }
-
-    .view-btn {
-        padding: 5px 14px;
-        border: none;
-        border-radius: 4px;
-        background: transparent;
-        color: var(--text-tertiary);
-        font-size: 12px;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.15s ease;
-    }
-
-    .view-btn:hover {
-        color: var(--text-secondary);
-    }
-
-    .view-btn.active {
-        background: var(--bg-primary);
-        color: var(--text-primary);
-        box-shadow: var(--shadow-sm);
     }
 
     .content-area {

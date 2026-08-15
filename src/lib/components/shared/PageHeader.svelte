@@ -21,9 +21,15 @@ interface Props {
   icon?: string;
   /** Right-aligned controls (buttons, toggles, badges). */
   actions?: Snippet;
+  /**
+   * Let `actions` take the full band width instead of hugging the right edge.
+   * For destinations whose header *is* a control row (My Pets' FilterBar)
+   * rather than a title with a few buttons beside it.
+   */
+  wide?: boolean;
 }
 
-const { title, subtitle, icon, actions }: Props = $props();
+const { title, subtitle, icon, actions, wide = false }: Props = $props();
 </script>
 
 <header class="page-header" data-testid="page-header">
@@ -41,7 +47,7 @@ const { title, subtitle, icon, actions }: Props = $props();
     </div>
   {/if}
   {#if actions}
-    <div class="ph-actions" data-testid="page-header-actions">
+    <div class="ph-actions" class:ph-actions-wide={wide} data-testid="page-header-actions">
       {@render actions()}
     </div>
   {/if}
@@ -73,4 +79,6 @@ const { title, subtitle, icon, actions }: Props = $props();
   /* Controls can wrap under the title on narrow widths without forcing the band
      taller than needed on wide ones. */
   .ph-actions { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 8px; flex-shrink: 0; }
+  /* `wide`: the control row IS the band, so it grows and starts at the left. */
+  .ph-actions-wide { flex: 1; min-width: 0; justify-content: flex-start; }
 </style>

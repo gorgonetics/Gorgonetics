@@ -51,4 +51,20 @@ describe('PageHeader', () => {
     expect(actions).not.toBeNull();
     expect(actions?.querySelector('[data-testid="harness-action"]')?.textContent).toBe('Do thing');
   });
+
+  it('keeps actions right-hugging by default', () => {
+    const { container } = render(PageHeaderHarness, { title: 'Stable' } as never);
+    expect(container.querySelector('[data-testid="page-header-actions"]')?.classList.contains('ph-actions-wide')).toBe(
+      false,
+    );
+  });
+
+  // `wide` is for destinations whose header IS the control row (My Pets'
+  // FilterBar) rather than a title with buttons beside it.
+  it('lets actions take the full band when wide', () => {
+    const { container } = render(PageHeaderHarness, { wide: true } as never);
+    expect(container.querySelector('[data-testid="page-header-actions"]')?.classList.contains('ph-actions-wide')).toBe(
+      true,
+    );
+  });
 });
