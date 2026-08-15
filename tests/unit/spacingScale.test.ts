@@ -12,7 +12,7 @@
  * wrong fix (silently resizing something) instead of the right one.
  */
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { dirname, join, relative } from 'node:path';
+import { dirname, join, relative, sep } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 /**
@@ -85,7 +85,9 @@ function stylesheets(): [string, string][] {
       const full = join(SRC, p);
       const src = readFileSync(full, 'utf-8');
       const css = p.endsWith('.svelte') ? [...src.matchAll(STYLE_BLOCK)].map((m) => m[1]).join('\n') : src;
-      return [relative(repoRoot(), full), css];
+      // Forward slashes regardless of platform, so both the offence report and
+      // the `src/app.css` lookup below read the same on Windows.
+      return [relative(repoRoot(), full).split(sep).join('/'), css];
     });
 }
 
@@ -112,11 +114,11 @@ function findOffences(): string[] {
 
 describe('spacing scale', () => {
   it('declares every step the sweep maps to', () => {
-    // Matched by suffix, not by exact key: Vite's glob key format is an
-    // implementation detail, and a missed lookup would silently make every
-    // `toContain` below assert against undefined.
-    const appCss = stylesheets().find(([path]) => path.endsWith('src/app.css'))?.[1];
-    expect(appCss, 'src/app.css not found in the glob').toBeTruthy();
+    // Found by scanning the same list the guard polices, rather than read
+    // separately — so if the scan ever stops reaching app.css, this fails
+    // loudly instead of every `toContain` below asserting against undefined.
+    const appCss = stylesheets().find(([path]) => path === 'src/app.css')?.[1];
+    expect(appCss, 'src/app.css missing from the scanned stylesheets').toBeTruthy();
     for (const [px, token] of SCALE) {
       expect(appCss).toContain(`--space-${token}: ${px}px;`);
     }
