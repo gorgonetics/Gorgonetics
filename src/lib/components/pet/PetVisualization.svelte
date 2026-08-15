@@ -300,7 +300,7 @@ onDestroy(() => {
             </div>
             <div class="seg header-actions">
                 <button
-                    class="seg-btn share-btn"
+                    class="seg-btn"
                     data-testid="share-pet-btn"
                     title="Share this pet to the public community catalogue"
                     onclick={() => { showShare = true; }}
@@ -468,8 +468,8 @@ onDestroy(() => {
         color: var(--bg-primary);
     }
 
-    /* Track chrome for .view-controls / .rarity-population / .header-actions
-       comes from the global `.seg`; these classes stay as semantic hooks. */
+    /* Community baseline is deferred (#368) — shown disabled so the tiering
+       stays legible. */
     .rarity-population .view-btn:disabled {
         opacity: 0.45;
         cursor: not-allowed;

@@ -64,7 +64,7 @@ async function doDelete(): Promise<void> {
   >✕</button>
 {:else}
   <button
-    class="seg-btn hdr-btn"
+    class="seg-btn"
     title="Edit pet"
     data-testid="pet-edit-btn"
     data-action="edit"
@@ -72,7 +72,7 @@ async function doDelete(): Promise<void> {
     onclick={openEditor}
   >Edit</button>
   <button
-    class="seg-btn hdr-btn hdr-delete"
+    class="seg-btn hdr-delete"
     title="Delete pet"
     data-testid="pet-delete-btn"
     data-action="delete"
@@ -119,8 +119,6 @@ async function doDelete(): Promise<void> {
   .edit-btn:hover { color: var(--accent); }
   .action-btn.delete-btn:hover { color: var(--gene-negative); }
 
-  /* Button variant: the global `.seg-btn` supplies the chrome, so this
-     matches the detail header's segmented track without re-declaring it. */
   .hdr-delete:hover { color: var(--gene-negative); }
 
   .confirm-dialog {
