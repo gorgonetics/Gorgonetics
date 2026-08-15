@@ -118,12 +118,16 @@ test.describe('Gene Editor (Reference)', () => {
 
   test('shows the selector form on the Reference destination', async ({ page }) => {
     await gotoDestination(page, 'Reference');
+    // Animal type is shared by both modes; the chromosome picker belongs to the
+    // editor, which is behind the Edit toggle now that Reference is map-first.
     await expect(page.locator('#animalType')).toBeVisible();
+    await page.getByTestId('reference-edit-toggle').click();
     await expect(page.locator('#chromosome')).toBeVisible();
   });
 
   test('populates animal types and loads chromosomes', async ({ page }) => {
     await gotoDestination(page, 'Reference');
+    await page.getByTestId('reference-edit-toggle').click();
     await expect(page.locator('#animalType option')).not.toHaveCount(1);
 
     const firstValue = await page.locator('#animalType option').nth(1).getAttribute('value');

@@ -57,24 +57,25 @@ That makes the recessive arm of this lens the only surface in the app that answe
 
 ### Rarity → shading (diverging, not sequential)
 
-Each arm is bucketed into 5 ordinal levels and rendered on a **diverging ramp with a shared neutral centre**: common is the *same* recessive shade on both arms, and colour diverges by hue as the allele gets scarcer. **Purple = a scarce dominant allele, orange = a scarce recessive allele.**
+Each arm is bucketed into 6 ordinal levels and rendered on a **diverging ramp with a shared neutral centre**: common is the *same* recessive shade on both arms, and colour diverges by hue as the allele gets scarcer. **Purple = a scarce dominant allele, orange = a scarce recessive allele.**
 
 ```
-  sole R   rare R   notable R   uncommon R  ←  COMMON  →  uncommon D  notable D  rare D  sole D
-  orange ◄─────────────────────────────────── neutral ───────────────────────────────────► purple
+  never R  sole R  rare R  notable R  uncommon R  ←  COMMON  →  uncommon D  notable D  rare D  sole D  never D
+  orange ◄──────────────────────────────────────── neutral ────────────────────────────────────────────► purple
 ```
 
-Bucket 4 is tested **first** and overrides the frequency bands; buckets 0–3 are then a straight partition of the frequency range.
+Buckets 5 and 4 are tested **first**, in that order, and override the frequency bands; buckets 0–3 are then a straight partition of the frequency range.
 
 | bucket | rule | label |
 |---|---|---|
-| 4 | **exactly one carrier**, and the locus has **≥ `soleCarrierMinPets` (10) known pets** | sole carrier |
+| 5 | **no carriers at all**, and the locus has **≥ `soleCarrierMinPets` (10) known pets** | never seen (§7) |
+| 4 | **exactly one carrier**, same gate | sole carrier |
 | 3 | freq < 0.07 | rare |
 | 2 | 0.07 ≤ freq < 0.18 | notable |
 | 1 | 0.18 ≤ freq < 0.35 | uncommon |
 | 0 | freq ≥ 0.35 | common (shared neutral centre) |
 
-A sole carrier below the gate falls back to its frequency bucket rather than rendering as missing data — the cell is still measured, it just does not get the top step.
+Either carrier-count step below the gate falls back rather than rendering as missing data — the cell is still measured, it just does not get a top step. A sole carrier falls back to its frequency bucket; a never-seen allele falls back to the neutral centre, since frequency 0 would otherwise drop it through every band to the loudest one it was just denied.
 
 **Bucket 4 is a carrier count, not a frequency — deliberately.** A fixed frequency floor is unreachable on small baselines: a single mixed carrier sits at `1/(2N)`, so a `< 0.02` bucket only ever fires when `N > 25`. Measured on a 20-pet baseline it fired on **0.00%** of cells — the loudest step on the scale silently does not exist for most players. A carrier count is the fact the player actually acts on. It also fixes an ordering wart: under pure allele frequency a *pure* sole carrier (2 copies) reads as **less** rare than a *mixed* sole carrier (1 copy), despite being the better breeding source. Counting carriers ranks them together, and the zygosity shape still distinguishes them.
 
@@ -98,16 +99,18 @@ About **13% of the grid takes any tint at all**, and roughly 7 halves per pet re
 
 Two structural facts from the same data:
 
-- **12.9% of loci are monomorphic** (one allele fixed, nobody carries the other). These render neutral, which is correct — see §8.
+- **12.9% of loci are monomorphic** (one allele fixed, nobody carries the other). These take the never-seen step — see §7. On the map that moves 12.9% of loci from the quiet centre to the loudest colour, so "notable or stronger" goes from 45% to ~58% of the map. Accepted for now: threshold tuning is deferred until the baseline is a few hundred pets (§11), where monomorphic loci are far rarer and the loud step is correspondingly sparse.
 - **The signal concentrates, which is the whole point.** "Notable or rarer" cells per pet: median **52**, max **451**, with a clear break after ~24 pets sit below 100 and a handful run into the hundreds. A lens that painted every pet alike would not support a keep/release decision; this one separates them by an order of magnitude.
 - **84% of the payoff is in mixed cells.** Of the loci where exactly one pet carries the recessive allele, **100 are mixed carriers against 19 pure recessives**. Those 100 are invisible in every other view in the app (`x` expresses dominant), so the two-tone mixed cell is not a nicety — it is where most of the feature's value lives.
 
 Consequences of the shared centre, all intended:
 
 - **Common recedes to nothing.** A locus where the pet carries the abundant allele renders as flat neutral — the grid only lights up where something is scarce.
-- **A mixed cell with two common halves renders flat**, losing the visual split. Accepted: an all-common `x` locus is precisely the "nothing to see here" case. If such cells need delineating, it must come from an **inset shadow, never a border colour** — see §4 on why a coloured or neutral border would shrink the painted area of exactly the cells worth looking at.
+- **A mixed cell with two common halves renders flat**, losing the visual split. Accepted: an all-common `x` locus is precisely the "nothing to see here" case. The uniform hairline every cell carries (§4) keeps it delineated, so a flat cell still reads as a cell.
 - **Near-balanced loci (0.35 < p < 0.65) show a gentle two-tone**, purple against orange — which reads correctly as "this locus is a coin-flip in my stock".
 - **The mixed cell's two halves are complements**, so the second tone is strictly redundant given the first. It is kept anyway because it is what makes the cell read as *"you are carrying a scarce allele in unresolved form, and here is which way to clarify"* rather than *"you are a rare pet"*.
+
+**Ramp strength is a calibration, not a formality.** The arms are `color-mix` toward `transparent` at **32 / 55 / 78 / 100%**, over a bucket-0 neutral at 22%. A first attempt at 12 / 18 / 38 / 66% was measured on screen and failed: bucket 0 carries ~87% of cells, so at 12% the common tint vanished and took the grid's structure with it. "Common recedes" cannot mean "common disappears".
 
 **Hue choice: purple (dominant) ↔ orange (recessive).** The §4 base-class change means the rarity view **replaces** the attribute/appearance palette rather than sitting alongside it, so there is no simultaneous collision to avoid — which is fortunate, since the appearance view already spans nearly the entire hue wheel (`geneCell.css`) and "a hue nothing else uses" does not exist. The real constraints are: (a) **not green↔red**, which would import the attribute view's good/bad reading onto a scale that has no valence; (b) **colour-vision-safe**, since hue is what separates the two arms; (c) **theme-adaptive**. Purple↔orange satisfies all three — it is ColorBrewer's `PuOr`, a diverging scheme published as colourblind-safe, so this is a validated pair rather than a taste call. The centre and both arms are built by `color-mix` from a surface-relative neutral token so light/dark adapt without two hardcoded palettes; the missing-data style stays **dashed**, which is what keeps it distinct from the solid neutral of bucket 0.
 
@@ -176,8 +179,8 @@ Cells already carry `data-gene-id`. Within one pet's grid each locus renders exa
 3. Plus a **missing-data** rule (gene ids whose state is `?`, or whose locus is below `minKnown`), setting the dashed/neutral look directly. This set is listed **explicitly** — it is the complement of the union of the buckets. It cannot be selected with `:not([style*="--rarity-dom"])`, because the property is applied by this injected stylesheet, **not** by an inline `style` attribute, so an attribute-substring match on `style` would never fire. (`?` cells already carry `gene-unknown`, whose dashed style coincidentally matches; below-`minKnown` cells do not, which is exactly why the explicit list is required.)
 4. Static CSS (in `geneCell.css`, gated by `.view-rarity`) applies the properties with the correct **zygosity shape**:
    ```css
-   /* Every cell: kill the border's colour, keep its geometry. */
-   .view-rarity .gene-cell                            { border-color: transparent; }
+   /* Every cell: the SAME hairline. Uniformity is the requirement. */
+   .view-rarity .gene-cell { border-width: 1px; border-color: var(--rarity-cell-edge); }
 
    .view-rarity .gene-cell[data-zygosity="dominant"]  { background: var(--rarity-dom); }
    .view-rarity .gene-cell[data-zygosity="recessive"] { background: var(--rarity-rec); }
@@ -187,9 +190,11 @@ Cells already carry `data-gene-id`. Within one pet's grid each locus renders exa
    .view-rarity .gene-cell.gene-rarity-missing        { /* dashed neutral */ }
    ```
 
-   **No cell paints a border colour in this view — and that is what keeps every cell the same visible size.** `.gene-cell` carries `border: 2px solid` unconditionally, and recessive cells widen it to 4px (`geneCell.css`). A split cell cannot honestly take a single hue for that outline — it would read as one allele owning the whole cell — but giving it a *neutral* outline is worse: because `box-sizing: border-box` is global (`app.css`), the border eats inward, so a neutral 2px ring insets the coloured area on all four sides. At a 12–16px cell that is roughly a third of the painted area lost, on precisely the cells worth looking at, and on the genome map it would apply to **every** cell (§7).
+   **Every cell takes the same neutral hairline — the requirement is uniformity, not absence.** `.gene-cell` carries `border: 2px solid` unconditionally, and recessive cells widen it to 4px (`geneCell.css`). Neither of the obvious options works: a single hue on a split cell would read as one allele owning the whole cell, and hueing only the *pure* cells makes split cells look **smaller**, because `box-sizing: border-box` is global (`app.css`) so a border that does not match the fill eats inward on all four sides.
 
-   The fix costs nothing: set `border-color: transparent`. `background-clip` defaults to `border-box`, so the fill paints straight through the border band and reaches the cell's edge, while the border *width* is untouched — geometry is byte-identical to the other views, which the §4 non-goal requires. If all-neutral cells need delineating, use `box-shadow: inset 0 0 0 1px …`, which also leaves geometry alone; never reintroduce a coloured border.
+   **Dropping the border entirely was tried and is wrong.** It removes the lattice: cells dissolve into their fills, and since `?` cells keep their dashed outline they become the only bordered things on screen, reading as disconnected boxes floating in empty space. One uniform edge on every cell satisfies the size constraint *and* keeps the grid legible. Width drops to 1px so more fill shows; with border-box that changes no geometry at all, only how much colour is visible.
+
+   **The one exception is "never seen" (§7), and it works because it is colour-only.** Those cells take `--rarity-never-edge` at the same 1px width, so the constraint above is untouched: no cell's painted area differs from another's, and no cell looks smaller than its neighbour. What is ruled out is a *per-allele* border hue, which would misrepresent a two-armed cell — never-seen is not per-allele in that sense, since the two arms are complements and only one can ever be absent.
 
    **Zygosity is then carried by fill shape, not by border thickness.** Solid = pure, split = mixed, and for pure cells the *hue* already says which allele (purple arm vs orange arm), so the recessive 4px ring is redundant here and is dropped in this view only. The one thing it stops distinguishing is a pure `D` from a pure `R` at a locus where both alleles are common — and both are then the neutral centre, i.e. the "nothing to see here" case by construction.
    The mixed gradient keeps the existing `135deg` orientation from `geneCell.css` but paints both halves, with **recessive top-left and dominant bottom-right** — dominant lands in the half that is the filled one in the attribute/appearance views, so the established visual habit carries over, which is apt given `x` expresses dominant. The genome map (§7) splits every cell on this same axis, so the same locus never appears mirrored across the two surfaces.
@@ -199,6 +204,20 @@ Cells already carry `data-gene-id`. Within one pet's grid each locus renders exa
 **Why B is right:** it is **rebuild-free and layout-free by construction.** No `VisCell` changes, no `buildGrid` call, and — critically — **no change to cell sizing, the `ResizeObserver`, pane flex, or any existing layout CSS.** Verified against the code: the table is wrapped in `{#key headerStructure}`, which only re-keys on a pet load/rebuild, never on a view toggle; and `cellSize` derives solely from `gridContainerWidth` and `totalGeneColumns`, neither of which changes when `currentView` flips. So the grid is byte-for-byte the same size and position across all three views. Population changes and the async baseline load just regenerate the rarity stylesheet — never the grid.
 
 > **Explicit non-goal (hard-won):** v1 must not touch grid cell sizing, responsive behavior, the pane's flex layout, or any existing grid CSS. The only new CSS is scoped behind `.view-rarity`. If the lens appears to require a layout change, that is a signal the approach is wrong, not that the layout needs fixing.
+
+### The coupling that keeps breaking this feature
+
+`--cell-size` is computed from the grid container's measured **width**. Three separate paths let a change that has nothing to do with width reach it, and each has broken the lens at least once:
+
+| path | mechanism | fix |
+|---|---|---|
+| **Header content** | `.do-body` is a flex **row** and `.pet-visualization` had no `flex`/`width`, so it was sized shrink-to-fit by its own contents. The *header's* intrinsic width therefore set the *grid's* width — adding the population toggle grew it ~327px. | `flex: 1; min-width: 0` (#436) |
+| **Sibling width** | `.content-area` is a row shared with `.stats-drawer`. Unmounting the drawer on a view switch hands the grid its width. | keep the drawer mounted; swap its body (§6) |
+| **Vertical → horizontal** | Cell size reads `contentRect.width`, which *excludes* a scrollbar occupying layout space. A taller legend shortens the box, flips the vertical scrollbar, and the width changes. | `scrollbar-gutter: stable` (#436) |
+
+The first and third are pre-existing defects, not rarity-lens bugs — the lens only made them visible by being the first change to alter the header and the legend. **Any** future control added to this header or legend will hit them again if the fixes are reverted.
+
+**This cannot be verified by reasoning, and twice was not.** jsdom has no layout, so unit tests cannot see it. `tests/e2e/rarity-lens.spec.ts` measures real boxes across the three views and, on failure, prints the ancestor width chain — which is what identified the header coupling after two wrong guesses. It measures only once layout has settled: `.gene-cell` has a `0.2s` transition and cell size is the fixed point of a ResizeObserver loop, so a naive measurement reports drift between a view and *itself*.
 
 ## 5. Data flow
 
@@ -214,14 +233,14 @@ GeneVisualizer (rarity view active)
   ├─ regenerates its own injected rarity stylesheet from the lookup + rendered cells
   └─ toggles `.view-rarity` on the grid container
 
-frequencyService.computeRarityLookup(pets, species, {minKnown})
-  ├─ filter pets to species → petIds
-  ├─ loadAllPetLoci(petIds)              // bulk read of pet_genes, one query
-  ├─ computeLocusFrequencies(loci)       // pure; excludes '?'
-  └─ → get(geneId) / bucketOf(geneId, allele)
+frequencyService.computeRarityLookup(pets, species, opts)
+  ├─ filter pets to species → petIds        // gene ids differ across species
+  ├─ ensureProjected(petIds)                // legacy pets with no pet_genes rows
+  ├─ loadLocusTallies(petIds)               // GROUP BY in SQLite, 1 row per locus
+  └─ → tally / bucketOf / frequency / carriers / measurable, by gene id
 
 geneFrequency (pure, no DB)
-  ├─ computeLocusFrequencies(Map<petId, Map<geneId, GeneType>>)
+  ├─ computeLocusFrequencies(Iterable<PetLoci>)   // reference impl; pins the SQL
   │     → per-locus { knownPets, pureD, pureR, mixed }   // '?' contributes nothing
   ├─ p_D = (2·pureD + mixed) / (2 × knownPets);  p_R = 1 − p_D
   ├─ carriers(D) = pureD + mixed;  carriers(R) = pureR + mixed
@@ -230,7 +249,39 @@ geneFrequency (pure, no DB)
 
 **What the per-locus record must hold.** The *frequency* side needs one number — `dominantAlleles` over `2 × knownPets`, with the recessive arm deriving from `p_D + p_R = 1` (§2). But bucket 4 is a carrier count, so the colour also needs `carriers(D) = pureD + mixed` and `carriers(R) = pureR + mixed`. Storing `{knownPets, pureD, pureR, mixed}` yields all of it (`dominantAlleles = 2·pureD + mixed`), and the same four numbers render the tooltip's breakdown. `knownPets` is per locus, never the population size (§2).
 
-- **`loadAllPetLoci`** (existing, `utils/petLoci.ts`) already does the bulk `pet_genes` read for a set of ids in one query — reused as-is. This is the query that needs the in-memory `IN` fix (#433) to be correct in dev/tests.
+- **The `IN (…)` clause still needs the in-memory adapter fix (#433)** to be correct in dev/tests — the aggregate below filters by `pet_id IN (…)` just as the row-based read did.
+
+### Performance: measured, and where the real cost is
+
+The arithmetic is not the bottleneck. Measured on synthetic populations at a full 1576-locus horse genome:
+
+| population | tally | bucket pass (both arms, every locus) |
+|---|---|---|
+| 37 pets (a real collection) | 4.6 ms | 0.4 ms |
+| 200 pets | 11.4 ms | 0.1 ms |
+| 500 pets | 32.3 ms | 0.2 ms |
+
+Under a 16 ms frame at any realistic local size, in jsdom — slower than the production webview — and it happens **once per population**, behind the cache. `tests/unit/geneFrequencyPerf.test.ts` pins this as a regression guard against accidental super-linear work; it is not a benchmark.
+
+**The read is the real cost, so it is aggregated in SQLite.** `loadAllPetLoci` would ship one row per pet per locus — **58,312 rows for 37 pets** — across the Tauri IPC boundary to produce 1,576 tallies. That serialisation, not the tally loop, is what would show as lag. So the baseline does not use it:
+
+```sql
+SELECT gene_id,
+       SUM(CASE WHEN gene_type = 'D' THEN 1 ELSE 0 END) AS pure_d,
+       SUM(CASE WHEN gene_type = 'R' THEN 1 ELSE 0 END) AS pure_r,
+       SUM(CASE WHEN gene_type = 'x' THEN 1 ELSE 0 END) AS mixed
+FROM pet_genes WHERE pet_id IN (…) GROUP BY gene_id
+```
+
+1,576 rows instead of 58,312 — a ~37× cut in IPC payload, with the grouping done in C inside the database process. `LocusTally` is shaped as exactly this row.
+
+**No `<> '?'` predicate, and that is not an oversight.** `resolveNamedParams` rewrites named params to positional `?`, so a literal `'?'` in the SQL would be miscounted as a placeholder. It is unnecessary anyway: `?` rows match none of the three `CASE WHEN` arms and contribute 0 to every sum, which *is* the rule that unknown readings count toward neither numerator nor denominator. `knownPets` therefore derives from the three sums rather than `COUNT(*)`, and a locus that is `?` for every pet aggregates to all-zero and is dropped — matching what `computeLocusFrequencies` produces.
+
+**This required extending `InMemoryDatabase`,** the regex-matched SQL subset used in dev and unit tests. It had no `GROUP BY` branch, so the query would have fallen through to its generic `SELECT … FROM` case and silently returned **raw rows instead of aggregates** — dev and tests quietly disagreeing with production, the same class of bug as #433. The new branch parses the **original-case** SQL, because `select()` lowercases before matching and would otherwise turn `'D'` into `'d'` and match nothing (a hazard the adapter already documents for `'Horse'`).
+
+**The guard that makes this safe:** a test asserts the aggregate path produces tallies identical to `computeLocusFrequencies` over the same pets. That pins the emulator to the reference implementation the pure unit tests already cover, so the two cannot drift apart unnoticed. `computeLocusFrequencies` is retained for exactly this purpose.
+
+**Populate-and-retry is preserved.** `loadAllPetLoci` inline-populates `pet_genes` for legacy pets with no projected rows; an aggregate grouped by locus cannot see which *pets* are missing, so the service asks first with a `SELECT DISTINCT pet_id` (at most one row per pet) and populates the gaps before aggregating. Without it a legacy pet would contribute nothing and silently shrink the denominator.
 - **Lazy + cached:** the baseline is computed only when the lens is first opened, keyed by `(species, population-id-set)`; re-used until that key changes. A background reload of the pet list that returns the same ids must not recompute (key on the id set, not array identity).
 - **Loading state:** while the baseline loads, cells show the "missing data" style and the legend shows "Analysing…"; then the stylesheet fills in. This uses a **dedicated** loading flag, **not** the component's `loading` state — `loading` swaps the entire grid for a full-pane `StatusPane`, so reusing it would blank the grid on every population-toggle change.
 - **`currentView` widens in two places.** `GeneVisualizer` holds the render-driving `currentView` (`'attribute' | 'appearance'` today) and its exported `handleViewChange` **coerces any non-`'appearance'` value to `'attribute'`** — that coercion must learn `'rarity'` or the button silently no-ops. `PetVisualization` / `CommunityPetVisualization` keep a parallel `currentView` string for button state only. Enumerate this sync as a concrete edit; it is a likely stumbling point.
@@ -240,10 +291,12 @@ geneFrequency (pure, no DB)
 
 - **View control:** add a `Rarity` button to the existing Attributes/Appearance group in `PetVisualization`.
 - **Population toggle:** a segmented `Stabled | All my pets` control, shown only in the rarity view, plus a disabled `Community · soon`. **Defaults to All my pets** — the widest local baseline gives the most evidence per locus, and the `stabled` subset is a housekeeping marker rather than a statement about which animals count as your genetic stock. It also keeps the default further from the small-baseline regime where the sole-carrier gate suppresses the top step (§2).
-- **Legend:** replaces the attribute/appearance legend in the rarity view — a **diverging bar** (`rare recessive ← common → rare dominant`) + the "missing data" swatch + the baseline size. The diverging bar is doing real teaching work here: it communicates the whole model — two arms, a shared common centre, hue = which allele — in one glance, which a one-way ramp could not. Non-interactive in v1.
+- **Legend:** replaces the attribute/appearance legend in the rarity view — a **diverging bar** (`rare recessive ← common → rare dominant`), six steps per arm, + a labelled **"Never seen"** key + the "missing data" swatch + the baseline size. Each swatch carries its step name as a `title`; only never-seen gets a visible label, because it is not one more shade of scarce but the reading a capture decision turns on (§7). The diverging bar is doing real teaching work here: it communicates the whole model — two arms, a shared common centre, hue = which allele — in one glance, which a one-way ramp could not. Non-interactive in v1.
 
-  **The baseline size is a range, not a number.** Because denominators vary per locus (§2), "across 30 Horses" is wrong for any locus some of those pets have unstudied. The legend should state the population size and, when the two differ, flag that coverage is uneven — e.g. *"30 stabled Horses · 4 pets not fully studied"*. The exact per-locus figure belongs in the tooltip, where it can be correct per cell.
-- **Stats drawer:** attribute/appearance-specific; hidden in the rarity view. (Optionally a per-bucket count summary later.)
+  **The baseline size is a range, not a number.** Because denominators vary per locus (§2), "across 30 Horses" is wrong for any locus some of those pets have unstudied. The legend states the population size and, when study depth is uneven, flags it: *"baseline: 30 Horses · 4 studied less deeply"*. The exact per-locus figure belongs in the tooltip, where it can be correct per cell.
+
+  **"Less deeply" is measured against the deepest pet in the population, not against the species' full gene set.** `RarityLookup.partialPets` comes from one extra aggregate over `pet_genes` grouped by `pet_id` rather than by locus — the per-locus tallies cannot answer it, since two pets each missing a different locus and one pet missing both produce identical tallies. The relative definition also means a collection where *every* pet stopped at the same Genetics level reports 0: coverage is even, no cell is measured against fewer pets than its neighbour, and there is nothing for the legend to warn about. The absolute "these pets are not fully studied" reading would need a second notion of what a complete genome is, which the projection does not hold.
+- **Stats drawer: stays MOUNTED in the rarity view — its *body* swaps, not the drawer.** Stats are attribute/appearance-specific and have no rarity analogue, so the natural instinct is to hide the drawer. That breaks the grid: `.content-area` is a flex **row**, so the drawer and `.visualizer-container` (`flex: 1`) share the width, and unmounting it hands the grid an extra `drawerWidth` px — the ResizeObserver fires and every cell resizes. The §4 non-goal outranks the tidier UI, so the drawer keeps its box and shows a short note instead. (Optionally a per-bucket count summary later.)
 - **Tooltip — always both alleles, exact percentages, with effect alongside.** The colour is bucketed, but the tooltip is not: it shows the **actual frequency** for *both* alleles, and the effect each one produces, so the player can weigh scarce-against-desirable themselves.
 
   ```
@@ -280,7 +333,7 @@ Reference today is a gene-*template* editor (animal type → chromosome → `Edi
 
 ### What a cell encodes when there is no pet
 
-**Every map cell is split — there are no solid cells here at all.** With no pet there is no zygosity to encode, so the split is unconditional and the two halves are the entire encoding. This is also why the border rule in §4 is not a detail on this surface: a coloured or neutral border would inset *every* cell on the map, uniformly dulling the whole thing. All cells use `border-color: transparent` and paint edge to edge.
+**Every map cell is split — there are no solid cells here at all.** With no pet there is no zygosity to encode, so the split is unconditional and the two halves are the entire encoding. The §4 border rule therefore applies uniformly here by construction: every cell is split, so every cell takes the same neutral hairline and none can look smaller than its neighbour.
 
 The split uses the same shape and axis the pet grid uses for `x` (§4):
 
@@ -299,32 +352,47 @@ This also agrees cell-for-cell with the per-pet view: a locus whose bottom-right
 
 **The map needs its own grid component — this is the main implementation risk.** `GeneVisualizer` cannot be reused as-is: `gridOverride` bypasses the DB read but the component still takes a `pet` and builds cells from genotypes (`const grid = gridOverride ?? await loadPetGridFromDb(p.id)`), baking zygosity classes the map must not have. Feeding it a synthetic genome with placeholder genotypes would be a hack that fights the component at every turn. The map instead wants a **thin grid that shares the layout maths** (chromosome/block structure, `computeGeneCellSize`, the `ResizeObserver`) and nothing else — every cell carries only `data-gene-id` and renders the fixed diagonal split, coloured by the same injected-stylesheet mechanism and the same `--rarity-dom` / `--rarity-rec` properties as §4. That is genuinely less machinery than the pet grid, not more: no genotype, no `data-zygosity` branching, and none of the effect, appearance or breed-inactive class logic applies — every cell is the mixed case. The §4 non-goal still binds: do not touch the existing grid's sizing to accommodate a new one.
 
-### Absent alleles render neutral
+### Absent alleles are the loudest step: "never seen"
 
-A locus where **nobody** carries the minority allele (12.9% of loci, §8) has `carriers = 0`. It renders at the **neutral centre**, not at the loud end: a monomorphic locus is settled, there is no variation to exploit, and nothing to act on. That matches the per-pet view, where such loci are also neutral, and it keeps the scale honest — it measures how scarce a thing you can actually obtain is, and with no carrier anywhere there is nothing to obtain.
+A locus where **nobody** carries the minority allele (12.9% of loci, §8) has `carriers = 0` and takes **bucket 5, the top of the scale**.
+
+This reverses the original decision, which rendered these at the neutral centre on the grounds that a monomorphic locus is settled and has nothing to act on. That premise only holds if your own stock is the whole world. It is not: wild pets carry alleles no pet of yours has, so before a capture an allele you have **never seen** is the most valuable thing a locus can tell you, not the least — it is the one reading that cannot be reached by breeding what you already own. The magical genes at the start of chromosome 07 are the motivating case: never observed locally, and exactly what a player checks a wild horse for.
+
+Two channels encode it, because the map is *scanned* rather than read:
+
+- **The pure arm hue.** The ramp's top end shifts down to make room — `--rarity-d-4` / `--rarity-r-4` (sole carrier) go from 100% to 85%, and the undiluted hue becomes bucket 5. **No frequency threshold moves**; this is the ramp growing a step at the end, not a recalibration.
+- **A distinct border**, `--rarity-never-edge` (a strong `--text-primary` mix), so a never-seen locus is findable without comparing shades against its neighbours. Width stays **1px**: §4's uniform-hairline rule is about geometry, and a colour-only change leaves every cell's painted area identical. The injected sheet sets `--rarity-edge` and the static sheet consumes it, so the stylesheet builder still only ever emits custom properties.
+
+**Gated exactly like the sole-carrier step** (`soleCarrierMinPets`, ≥10 known pets). "Nobody carries it" is even more trivially true on a small baseline than "only one pet carries it" — with three pets most loci are monomorphic, so an ungated top step would carpet the map with the loudest colour. Below the gate these loci fall back to the neutral centre, which is the honest reading for "no evidence either way".
+
+**Mostly, but not only, a map phenomenon.** On the per-pet grid a rendered cell is normally a carrier by construction, since the pet sits in its own denominator. The exception is an unstabled pet viewed against the `stabled` baseline, where "no stabled pet carries this" is a real reading — so the step is defined on the scale, not suppressed per surface.
+
+The tooltip says **"never seen"** rather than "0 carriers": the number is the same fact, but only the words carry that this allele cannot be bred for, only captured (#367).
 
 ### Measured density — the map is much louder, and that is correct
 
 Same thresholds, very different picture (30 stabled Horses, 1576 loci):
 
-| | absent | b0 common | b1 uncommon | b2 notable | b3 rare | b4 sole |
+| | b0 common | b1 uncommon | b2 notable | b3 rare | b4 sole | b5 never seen |
 |---|---|---|---|---|---|---|
-| genome map (share of loci) | 12.9% | 19.0% | 23.1% | 15.9% | 15.9% | 13.2% |
-| per-pet grid (share of halves) | — | 87.1% | 8.4% | 2.9% | 1.2% | 0.4% |
+| genome map (share of loci) | 19.0% | 23.1% | 15.9% | 15.9% | 13.2% | 12.9% |
+| per-pet grid (share of halves) | 87.1% | 8.4% | 2.9% | 1.2% | 0.4% | — |
 
-**45% of the map takes a notable-or-stronger tint, against 13% of the pet grid taking any tint at all.** That is not a miscalibration — the two surfaces select differently. A pet cell only lights up when *that pet* holds the scarce allele, and most pets hold the common one; a map cell is scored by whichever allele at that locus is scarcer, so any locus with scarcity anywhere lights up.
+**~58% of the map takes a notable-or-stronger tint, against 13% of the pet grid taking any tint at all.** That is not a miscalibration — the two surfaces select differently. A pet cell only lights up when *that pet* holds the scarce allele, and most pets hold the common one; a map cell is scored by whichever allele at that locus is scarcer, so any locus with scarcity anywhere lights up. The never-seen column is map-only for the reason §7 gives.
 
-The two densities suit their jobs. The pet grid wants sparse highlighting — a needle in a haystack, a handful of cells worth acting on. The map wants dynamic range — a near-flat spread across buckets (19 / 23 / 16 / 16 / 13) uses the whole scale and shows terrain; a map that was 87% neutral would be a blank sheet. One threshold set, two appropriate results, for principled reasons rather than luck.
+The two densities suit their jobs. The pet grid wants sparse highlighting — a needle in a haystack, a handful of cells worth acting on. The map wants dynamic range — a near-flat spread across buckets (19 / 23 / 16 / 16 / 13 / 13) uses the whole scale and shows terrain; a map that was 87% neutral would be a blank sheet. One threshold set, two appropriate results, for principled reasons rather than luck.
 
-Breed slices sit in a narrow band — 38% to 54% of each breed's loci reach b2+, with untagged loci lowest at 37.5% — so the breed toggle is for focus, not for finding a breed that is dramatically scarcer than the others.
+Breed slices sit in a narrow band — 38% to 54% of each breed's loci reached b2+ before the never-seen step was added, with untagged loci lowest at 37.5% — so the breed toggle is for focus, not for finding a breed that is dramatically scarcer than the others.
 
-> **Worth checking in practice:** 45% coloured is a real amount of colour. If the map reads as noisy rather than informative, the fix is a *map-specific* threshold set, not a change to the shared scale — the per-pet calibration should not be disturbed to fix a map problem.
+> **Deferred deliberately.** ~58% coloured is a lot of colour, and the biggest single contributor (the 12.9% never-seen slice) is the step that matters most. Both shrink as the baseline grows: on a few-hundred-pet collection far fewer loci are monomorphic, and far fewer alleles have a single carrier. So thresholds are **not** being tuned against a 30-pet measurement — the recalibration waits for the larger pool (§11). If the map still reads noisy then, the fix is a *map-specific* threshold set, not a change to the shared scale.
 
 ## 8. Edge cases
 
 - **Community pet preview** (`CommunityPetVisualization`) renders via `gridOverride` and has no `pet_genes` rows — the Rarity button is **not** exposed there. Local pets only.
 
-  The tempting reading is that a shared pet could be scored against your baseline to answer *"is this worth importing?"*. Rejected: **a community pet is not yours and cannot be bred with**, so a scarcity readout on it has no action attached. It would also make `carriers = 0` reachable — an allele no pet of yours carries — which would need its own step beyond bucket 4, its own label, and its own gate. That is a chain of machinery serving a decision players cannot act on. The shared catalogue's value is a bigger *sample*, not a shopping window (§3).
+  The tempting reading is that a shared pet could be scored against your baseline to answer *"is this worth importing?"*. Rejected: **a community pet is not yours and cannot be bred with**, so a scarcity readout on it has no action attached. The shared catalogue's value is a bigger *sample*, not a shopping window (§3).
+
+  This argument originally leaned on a second point — that scoring a community pet would make `carriers = 0` reachable and so demand a step beyond bucket 4. That step now exists (§7), for wild capture, so the objection is spent; only the first argument still stands. Note the two cases are not the same decision: a captured wild pet becomes yours and can be bred, an imported community pet cannot.
 - **Breed-inactive genes must not stay grey — this is the whole cross-breed story.** Rarity colouring applies to any known-value cell. The existing breed row-hide is orthogonal and unchanged, but note it is *not* the same as the per-cell `gene-inactive-breed` styling: individual wrong-breed cells survive on visible rows and carry `!important` grey. The §4 base-class change (neutral base in the rarity view, no `gene-inactive-breed`) is what lets rarity colour show on them.
 
   **Load-bearing, not cosmetic.** Breed-tagged loci are 1320 of 1576 — **84% of the genome** — and every horse carries all of them. Grey them out and the lens suppresses the large majority of the grid.
@@ -334,7 +402,9 @@ Breed slices sit in a narrow band — 38% to 54% of each breed's loci reach b2+,
 - **Tiny populations:** with only a handful of pets, most alleles sit near the neutral centre (a pure pet's own allele is ≥50% at a 2-pet baseline), so the frequency bands go nearly colourless. This is correct, not a bug — you cannot have a rare allele in a 2-pet baseline. The legend's baseline-size line sets the expectation; the scale becomes meaningful around ~5+ pets of a species.
 
   **Bucket 4 would go the other way, which is why it is gated.** "Sole carrier" is trivially satisfied when there are few pets to carry anything, so ungated the loudest colour fires *more* as the baseline shrinks. Measured by resampling the calibration collection: **N=30 → 0.36% of halves (~7 cells per pet); N=20 → 0.49%; N=12 → 0.96%; N=8 → 1.73%; N=5 → 2.71% (~43 cells); N=3 → 7.08% (~112 cells)**. At N=5 a pet would show six times as many "rarest" cells as at N=30, meaning far less. Hence `soleCarrierMinPets = 10` (§2): below that the step is suppressed and cells fall back to their frequency bucket. A player with fewer than 10 of a species sees a working frequency scale with no top step, which is honest — at that size there is nothing for the top step to mean.
-- **Monomorphic loci:** if every pet in the baseline carries the same pure state, one arm is at 1.0 and the other at 0.0 — but the 0.0 arm is only reachable by a cell that carries that allele, and no such cell exists in the population. So an absent allele never renders; there is no "0%" bucket to design for. The only cell that can *hold* a bucket-4 allele is, by construction, a carrier of it — which is the whole point of the lens. Measured at **12.9% of loci** in a real 30-pet collection, so it is a substantial slice of the grid rather than a rare corner, and it renders neutral by design.
+- **Monomorphic loci:** if every pet in the baseline carries the same pure state, one arm is at 1.0 and the other at 0.0. Measured at **12.9% of loci** in a real 30-pet collection, so a substantial slice rather than a rare corner. These are the **never-seen** step (§7) — the loudest colour plus a distinct border — because an allele nobody local owns is what a capture is *for*.
+
+  On the per-pet grid the 0.0 arm is normally unreachable: a cell only consults the arms it holds, and the pet is in its own denominator, so a rendered cell is a carrier by construction. The exception is an unstabled pet scored against the `stabled` baseline, where the pet is *not* in its own denominator and "no stabled pet carries this" is both reachable and useful.
 - **Breed is not a confound, and the baseline must stay species-scoped.** Every horse carries every breed's genes — the horse gene set is 256 untagged loci plus **132 loci for each of 10 breeds** (Satincoat, Statehelm, Calico, Standardbred, Paint, Kurbone, Ilmarian, Blanketed, Leopard, Plateau Pony) = the full 1576. Breed does not determine which loci a horse *has*, only which ones are *expressed*. So a breed's allele frequencies are measured across the whole collection, and **the lens reports how rare Calico genes are even for a player who has never owned a Calico** — which is a genuine capability, not a workaround: it tells you whether you are already sitting on scarce material for a breed you might acquire later.
 
   This also settles the population question: **breed-scoping the baseline would be wrong, not merely degenerate.** It discards every reading from pets of other breeds for loci they all carry — in the calibration collection that is anywhere from a third to 29 of 30 pets, depending on which breed the viewed pet belongs to. Rejected.
@@ -365,14 +435,17 @@ Breed slices sit in a narrow band — 38% to 54% of each breed's loci reach b2+,
 ## 10. Testing
 
 - **Pure unit** (`geneFrequency`): allele tallies (`D`→2, `x`→1, `R`→0); `?` excluded from numerator **and** denominator; `2 × knownPets` denominator; **`p_D + p_R === 1` as a property test over random populations**; the two §2 worked examples (20`x`+2`D` → p_R ≈ 0.45; 1`x`+21`D` → p_R ≈ 0.023) as explicit regression cases against genotype counting; all-unknown locus; missing locus (no synthetic fill); `rarityBucket` boundaries. **Monotonicity holds only for buckets 0–3 with carriers held above 1** — the sole-carrier override deliberately breaks monotonicity in frequency, so the property test must fix `carriers` before asserting it, or it will fail on exactly the behaviour §2 specifies.
-- **Bucket 4 is reachable at every baseline size** — the regression guard for the flaw that made it count-based. Assert a sole carrier lands in bucket 4 at N=5, 20 and 40; a frequency-based `< 0.02` rule fires at none of the first two. Also assert a *pure* sole carrier and a *mixed* sole carrier land in the same bucket.
+- **Bucket 4 is reachable at every baseline size at or above the gate** — the regression guard for the flaw that made it count-based. Assert a sole carrier lands in bucket 4 at N=10, 20 and 40, and does **not** at N=3, 5 or 9, where it falls back to its frequency bucket rather than to missing data. A frequency-based `< 0.02` rule would fire at none of 10 or 20 (`1/20` and `1/40` both clear it) — which is the flaw. Also assert a *pure* and a *mixed* sole carrier land in the same bucket, and that the step fires symmetrically on the dominant arm.
 - **Missing data must be synthesised.** The calibration collection has zero `?` genotypes, so fixtures have to construct partially-revealed pets deliberately: `?` cells excluded from both sides of the ratio, and the below-`minKnown` locus, which is the one that does *not* get `gene-unknown` for free (§4).
 - **Uneven study depth within one local population.** A stable where some pets were studied at a lower Genetics level must yield **different `knownPets` at different loci**; assert the tooltip quotes the per-locus count rather than the population size, and that a locus dropping below `minKnown` renders as missing data while its neighbours still shade normally.
 - **Service** (`computeRarityLookup`): species isolation (a mixed-species population yields only the requested species; the demo's beewasp must not leak into a horse baseline — the bug that motivated #433), `minKnown` gating in **alleles**.
 - **Component/e2e:** the Rarity view button toggles the lens; a `D` cell gets only `--rarity-dom`, an `R` cell only `--rarity-rec`, an `x` cell **both**; missing-data cells get the dashed style; the population toggle recomputes; **the grid dimensions are identical across Attributes/Appearance/Rarity** (regression guard for the reverted layout churn).
 - **Rarity is absent on the community preview** (§8) — local pets only.
 - **Sole-carrier gate:** a sole carrier at a locus with ≥10 known pets lands in bucket 4; the same carrier at a locus with 9 falls back to its frequency bucket rather than to missing data.
-- **Genome map** (§7): a locus renders the same colour on the map as it does on the grid of a pet that carries its scarce allele, **on the same half** — the strongest guard that the two surfaces share one scale and one orientation. A monomorphic locus (`carriers = 0`) renders **neutral**, not loud. Breed and baseline toggles recompute; the map renders with no pet loaded at all.
+- **Genome map** (§7): a locus renders the same colour on the map as it does on the grid of a pet that carries its scarce allele, **on the same half** — the strongest guard that the two surfaces share one scale and one orientation. Compare resolved paint, not bucket numbers: the ramps are `color-mix(in oklab, …)`, so the browser is the only thing that can resolve them, and a swapped gradient axis is invisible at the model level. Breed and baseline toggles recompute; the map renders with no pet loaded at all.
+- **The map's cell pitch and block gap equal the pet grid's.** `computeGeneCellSize` budgets a 1px gutter each side of every cell plus one `BLOCK_GAP` per block, so a grid that omits them is denser *and* narrower than the size it asked for. The map shipped with `padding: 0` on its cell containers and read as a visibly different surface.
+- **Never seen** (§7): a monomorphic locus reaches bucket 5 at ≥10 known pets and falls back to the **neutral centre** below the gate — never to missing data, and never through the frequency bands to bucket 3. It ranks above a sole carrier, fires on both arms, and is unreachable for the allele a pet actually carries. The cell takes the distinct border as well as the pure hue, and no other bucket does — a sole carrier must not borrow the marker.
+- **Both paint reads must be settled before asserting.** `.gene-cell` transitions `all 0.2s` and `--cell-size` starts at a fallback, so an immediate measurement catches colour interpolating in oklab and width animating from 16px. Every geometry and paint helper polls until two consecutive reads agree; without it these tests fail against themselves, or pass vacuously.
 - **No cell paints a border colour in the rarity view, and every cell renders the same painted area** — measure a pure `D`, a pure `R` and an `x` cell and assert their filled regions are identical in size. `.gene-cell`'s unconditional `border: 2px solid` (4px on recessive) plus global `box-sizing: border-box` makes shrunken split cells an easy regression (§4).
 - **The scenario the feature exists for:** a baseline where one `x` pet is the sole carrier of a scarce recessive among otherwise-`D` pets — assert that pet's cell lands in the rarest recessive bucket while the phenotypically identical pure-`D` pets stay at the neutral centre. This is the case no other view in the app can distinguish (§2).
 
@@ -383,16 +456,21 @@ Breed slices sit in a narrow band — 38% to 54% of each breed's loci reach b2+,
 - Rarity is measured per **allele**, not per displayed genotype — `x` is one of each, not a third value (§2).
 - Mixed cells render **two-tone** on a **diverging** scale with a shared common centre (§2, §4).
 - Arms are **purple = dominant, orange = recessive** (ColorBrewer `PuOr`, published colourblind-safe).
-- Thresholds are **0.35 / 0.18 / 0.07**, with bucket 4 defined by **carrier count**, calibrated against a 37-Horse collection (§2).
+- Thresholds are **0.35 / 0.18 / 0.07**, with buckets 4 and 5 defined by **carrier count**, calibrated against a 37-Horse collection (§2).
+- **An allele nobody carries is the top of the scale, not the centre** (§7, reversing the original decision): "never seen" means it cannot be bred from what you own, only captured, so it is the most actionable reading on the map rather than the least. Adding the step shifted the sole-carrier tint from 100% to 85% of the arm hue; **no frequency threshold moved.**
 - **Breed-scoped baselines: rejected** — every horse carries all 10 breeds' loci, so scoping to one breed discards most of the evidence for genes the whole collection holds (§8). The map's breed control is a *display* filter over the same species-wide baseline, not a population scope (§7).
-- Bucket 4 fires **symmetrically on both arms**, and is **gated to loci with ≥10 known pets** — ungated it gets louder as the baseline shrinks, which is the mirror of the problem it was introduced to fix (§2).
+- Buckets 4 and 5 fire **symmetrically on both arms**, and are **gated to loci with ≥10 known pets** — ungated they get louder as the baseline shrinks, which is the mirror of the problem they were introduced to fix (§2).
 - The viewed pet **is** included in its own denominator. The lens stays **local-pet only**: a community pet cannot be bred with, so scoring one has no action attached (§8).
+- **Every cell carries the same neutral hairline in the rarity view** (§4); zygosity is solid-vs-split and the recessive 4px ring is dropped. Dropping borders entirely was tried and lost the grid's lattice.
+- **The stats drawer stays mounted in the rarity view** — unmounting it resizes the grid (§4, §6).
 - **Reference is map-first** (§7): full-genome map by default; the template editor becomes an `Edit` toggle on the map (click a cell for one gene, a row for a chromosome), deferred as single-user functionality. Map cells are always split on the §4 axis — recessive top-left, dominant bottom-right.
-- **No mixed-share line in the tooltip** for now — it is a fact about breeding state, not rarity, and the tooltip already carries two arms plus effects. Revisit if the card feels thin, not before.
+- **The tooltip does carry the pure/mixed breakdown** (`8 pure D · 3 mixed · 11 pure R`), as the §6 example shows. An earlier draft ruled it out as a fact about breeding state rather than about rarity; it stayed because those three counts are exactly what the two frequencies were computed from, so the card shows its own working.
 - **The cross-breed signal needs no dedicated affordance** — a pet's grid already shows every locus it carries, so not greying breed-inactive cells is the entire fix (§8).
-- **No cell paints a border colour in the rarity view** (§4). Borders go `transparent` so fills reach the cell edge at unchanged geometry; zygosity is carried by solid-vs-split, and the recessive 4px ring is dropped in this view since hue already names the allele.
+- **Border colour carries exactly one meaning in the rarity view: never seen** (§4, §7). Every other cell takes the same 1px neutral hairline, at 1px width in every case, so no cell's painted area differs from another's — the rule is uniform geometry, not uniform colour. Dropping borders entirely was tried and lost the grid's lattice; hueing them *per allele* is still rejected, since a split cell has two arms and one hue would misrepresent it.
+- **The map's spacing is the pet grid's spacing** — 1px gutter per cell, one `BLOCK_GAP` per block. Both are in `computeGeneCellSize`'s width budget, so omitting them makes a grid denser and narrower than the size it computed (§7).
 
 Still open:
 
-1. **Recalibration** — the thresholds hold for a ~30-pet single-species collection. Whether they still hold at 200+ pets, or across a species with different locus structure, is unknown; worth re-running the §2 measurement once the community tier exists.
-2. **Map density** — 45% of the map takes a notable-or-stronger tint (§7). Principled, but it is a lot of colour. Ship and look at it, or pre-emptively give the map its own threshold set?
+1. **Recalibration against a large pool** — the thresholds hold for a ~30-pet single-species collection, and the never-seen and sole-carrier steps are the most sample-sensitive parts of the scale: both get rarer as the baseline grows. Re-run the §2 and §7 measurements against a few-hundred-pet collection before touching any number. Explicitly deferred rather than open-ended.
+2. **Map density after the never-seen step** — ~58% of the map now takes a notable-or-stronger tint (§7). Judged acceptable until (1) lands, on the reasoning that the loudest slice shrinks fastest with baseline size. If it still reads noisy on a large pool, give the map its own threshold set rather than moving the shared scale.
+3. **The capture workflow itself** (#367) — the never-seen step is the signal it needs, but reading it against a wild pet's genome is that issue's work, not this one's.

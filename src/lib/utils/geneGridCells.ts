@@ -50,7 +50,20 @@ export interface GeneCell {
 
 /** Smallest / largest / fallback gene-cell edge (px) for the responsive grid. */
 export const GENE_CELL_MIN = 12;
-export const GENE_CELL_MAX = 34;
+/**
+ * Upper bound on the cell edge (px).
+ *
+ * Cells scale to fill the container up to this cap, then stop — a wide window
+ * leaves whitespace to the right rather than inflating every cell. 24px is the
+ * size the grid has effectively always rendered at: until the `.pet-visualization`
+ * width fix (#436) the detail panel was sized shrink-to-fit by its header, so
+ * the grid never received more than ~1300px and never approached the old cap of
+ * 34. Raising the ceiling was an unintended side effect of that fix, not a
+ * decision, so the cap now encodes the size deliberately.
+ *
+ * Whether to fill the full width instead is tracked as an app option.
+ */
+export const GENE_CELL_MAX = 24;
 export const GENE_CELL_DEFAULT = 16;
 
 /**
@@ -65,9 +78,13 @@ const CHR_COL_WIDTH = 28;
 const BLOCK_GAP = 8;
 
 /**
- * Compute the gene-cell edge (px) so the fixed-cell genome grid fills the
- * width of its container instead of leaving a dead zone (wide window) or
- * overflowing with a scrollbar (narrow window / stats drawer open).
+ * Compute the gene-cell edge (px) so the fixed-cell genome grid adapts to its
+ * container instead of overflowing with a scrollbar (narrow window / stats
+ * drawer open).
+ *
+ * It fills the available width only up to `GENE_CELL_MAX`; past that the cells
+ * hold their size and the surplus becomes whitespace, rather than the grid
+ * inflating to fill a large monitor.
  *
  * The width budget reserves the chromosome-label column, the per-block left
  * padding, and a small rounding margin. The result is clamped to

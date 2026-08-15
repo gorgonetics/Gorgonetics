@@ -11,10 +11,11 @@ import {
   getAttributeMatcher,
   normalizeSpecies,
 } from '$lib/services/configService.js';
+import { computeRarityLookup, type RarityLookup } from '$lib/services/frequencyService.js';
 import { getGeneEffectsCached } from '$lib/services/geneService.js';
 import { loadPetGridFromDb } from '$lib/services/petService.js';
 import { EFFECT_COLORS } from '$lib/theme/gene-colors.js';
-import type { AppearanceInfo, Pet } from '$lib/types/index.js';
+import type { AppearanceInfo, GeneType, Pet } from '$lib/types/index.js';
 import { buildVisualizerFilterCSS, type ChrBreedRelevance, joinAttrs } from '$lib/utils/filterCSS.js';
 import { resolveFilterClick } from '$lib/utils/filterToggle.js';
 import {
@@ -25,6 +26,7 @@ import {
   type ParsedChromosome,
   type ParsedGene,
 } from '$lib/utils/geneAnalysis.js';
+import { RARITY_BUCKET_NEVER, RARITY_STEP_LABELS } from '$lib/utils/geneFrequency.js';
 import { computeGeneCellSize } from '$lib/utils/geneGridCells.js';
 import {
   updateStats as accumulateStats,
@@ -32,7 +34,9 @@ import {
   type StatsMap,
 } from '$lib/utils/geneStats.js';
 import { handleGridNavigation } from '$lib/utils/keyboard.js';
-import { capitalize } from '$lib/utils/string.js';
+import { buildRarityCSS, type RarityCell } from '$lib/utils/rarityCSS.js';
+import { buildRarityTooltip, placeRarityTooltip } from '$lib/utils/rarityTooltip.js';
+import { capitalize, escapeHtml, pluralise } from '$lib/utils/string.js';
 import GeneTooltip from './GeneTooltip.svelte';
 
 const ALL_ATTRIBUTES = getAllAttributeDisplayInfo();
@@ -77,6 +81,12 @@ interface Props {
    * When set, `loadPetGridFromDb` is bypassed entirely.
    */
   gridOverride?: Record<string, ParsedChromosome> | null;
+  /**
+   * Population the rarity baseline is computed over (rarity view only).
+   * Owned by the parent so the Stabled / All-my-pets toggle lives with the
+   * other view controls. Filtered to the viewed pet's species internally.
+   */
+  populationPets?: readonly Pet[];
 }
 
 /**
@@ -93,6 +103,18 @@ interface VisCell {
   attributeCls: string;
   /** Colour class for the appearance view. */
   appearanceCls: string;
+  /**
+   * Neutral base class for the rarity view: `gene-cell` + the zygosity class
+   * only, with no effect / appearance / inactive-breed colour. The injected
+   * rarity stylesheet supplies the colour on top via custom properties.
+   *
+   * Baked here rather than computed in the template because it is **static**
+   * per cell — it carries no rarity data, so it does not re-enter the async
+   * rebuild trap that baking a colour class would (see the design's §4). The
+   * alternative, a function call in the `{#each}`, would allocate ~1600
+   * strings on every view toggle.
+   */
+  rarityCls: string;
   /** Active-allele attribute (attribute-view hidden filter + per-attribute stats). */
   attr: string;
   /** Delimited union of both alleles' attributes (attribute-view select filter). */
@@ -125,7 +147,7 @@ interface HeaderStructure {
   blockMaxGenes: Map<string, number>;
 }
 
-const { pet, onStatsUpdated, gridOverride = null }: Props = $props();
+const { pet, onStatsUpdated, gridOverride = null, populationPets = [] }: Props = $props();
 
 let loading = $state(false);
 let error = $state<string | null>(null);
@@ -136,7 +158,18 @@ let currentPet = $state<{
   breed: string;
   grid: Record<string, ParsedChromosome>;
 } | null>(null);
-let currentView = $state<'attribute' | 'appearance'>('attribute');
+let currentView = $state<'attribute' | 'appearance' | 'rarity'>('attribute');
+
+// --- Rarity lens state ------------------------------------------------------
+// `rarityLoading` is deliberately NOT the component's `loading`: that one swaps
+// the whole grid for a full-pane StatusPane, so reusing it would blank the grid
+// on every population toggle. The grid stays on screen; cells just read as
+// missing data until the baseline arrives.
+let rarityLookup = $state<RarityLookup | null>(null);
+let rarityLoading = $state(false);
+let rarityError = $state<string | null>(null);
+/** Guards against an out-of-order baseline resolving after a newer request. */
+let raritySeq = 0;
 let geneEffectsDB: Record<string, Record<string, GeneEffectData>> | null = null;
 
 // Stats
@@ -174,6 +207,9 @@ let tooltipGeneId = $state('');
 let tooltipGeneType = $state('');
 let tooltipEffect = $state('');
 let tooltipPotentialEffects = $state<string[]>([]);
+/** Rarity view only; empty elsewhere so the other branches are unchanged. */
+let tooltipSubtitle = $state('');
+let tooltipEffectsLabel = $state('Potential Effects');
 
 // Built grid
 let headerStructure = $state<HeaderStructure | null>(null);
@@ -236,11 +272,16 @@ let globalGeneEffectsDB: Record<string, Record<string, GeneEffectData>> = {};
 // A GeneVisualizer never coexists with another (pet detail OR community detail),
 // so a single shared `.gene-grid-container`-scoped sheet is safe.
 let filterStyleEl: HTMLStyleElement | null = null;
+/** Separate sheet from the filters one — never overload that. */
+let rarityStyleEl: HTMLStyleElement | null = null;
 
 onMount(() => {
   filterStyleEl = document.createElement('style');
   filterStyleEl.id = 'gene-visualizer-filters';
   document.head.appendChild(filterStyleEl);
+  rarityStyleEl = document.createElement('style');
+  rarityStyleEl.id = 'gene-visualizer-rarity';
+  document.head.appendChild(rarityStyleEl);
   // Warm the effect cache for the common species; the load path also loads
   // on demand, so this is a best-effort optimisation only.
   void preloadGeneEffects();
@@ -249,8 +290,86 @@ onMount(() => {
 onDestroy(() => {
   filterStyleEl?.remove();
   filterStyleEl = null;
+  rarityStyleEl?.remove();
+  rarityStyleEl = null;
   cleanup();
 });
+
+// Load the baseline lazily: only once the lens is actually opened, and again
+// when the pet's species or the population changes. Seq-guarded so a slower
+// earlier request cannot overwrite a newer one.
+$effect(() => {
+  if (currentView !== 'rarity' || !currentPet) return;
+  const species = currentPet.species;
+  const pets = populationPets;
+  const mine = ++raritySeq;
+  rarityLoading = true;
+  rarityError = null;
+  computeRarityLookup(pets, species)
+    .then((lookup) => {
+      if (mine !== raritySeq) return;
+      rarityLookup = lookup;
+      rarityLoading = false;
+    })
+    .catch((err: unknown) => {
+      if (mine !== raritySeq) return;
+      console.error('Failed to compute rarity baseline:', err);
+      rarityError = 'Could not analyse rarity';
+      rarityLookup = null;
+      rarityLoading = false;
+    });
+});
+
+/**
+ * Whether the baseline in hand actually describes the grid on screen.
+ *
+ * `rarityLookup !== null` is not enough on its own. A lookup outlives the state
+ * that produced it, so two cases would otherwise paint the grid with numbers
+ * that are not about it:
+ *
+ * - **Mid-load.** The population toggle keeps the previous baseline until the
+ *   new one resolves, so the grid would show all-pets colours under an
+ *   "Analysing…" legend.
+ * - **Wrong species.** The detail overlay stays mounted across a pet switch, so
+ *   a Beewasp can be rendered while a Horse baseline is still in hand — and gene
+ *   ids collide between species, so *every* selector still matches and the grid
+ *   shades confidently from the wrong tallies.
+ *
+ * Until it is ready the cells read as missing data (`rarity-unscored`), which is
+ * the design's loading contract and, more importantly, the only honest state:
+ * bucket 0 would assert that nothing here is scarce.
+ */
+const rarityReady = $derived(
+  currentView === 'rarity' &&
+    !rarityLoading &&
+    rarityLookup !== null &&
+    currentPet !== null &&
+    rarityLookup.species === normalizeSpecies(currentPet.species),
+);
+
+// Regenerate the rarity sheet from the baseline + the rendered cells. Cells are
+// never rebuilt or re-rendered by this — only the stylesheet text changes.
+$effect(() => {
+  if (!rarityStyleEl) return;
+  if (!rarityReady || !rarityLookup) {
+    rarityStyleEl.textContent = '';
+    return;
+  }
+  rarityStyleEl.textContent = buildRarityCSS({ cells: renderedCells(), lookup: rarityLookup });
+});
+
+/** Every cell currently in the grid, as the rarity sheet needs them. */
+function renderedCells(): RarityCell[] {
+  const out: RarityCell[] = [];
+  for (const row of chromosomeData) {
+    for (const block of row.cells) {
+      for (const cell of block) {
+        if (cell) out.push({ geneId: cell.id, type: cell.type as GeneType });
+      }
+    }
+  }
+  return out;
+}
 
 $effect(() => {
   if (!filterStyleEl) return;
@@ -565,13 +684,22 @@ function buildGrid() {
     const zygCls = `gene-${zygosity}`;
     let attributeCls: string;
     let appearanceCls: string;
+    let rarityCls: string;
     if (gene.type === '?') {
       attributeCls = 'gene-cell gene-neutral gene-unknown';
       appearanceCls = 'gene-cell gene-neutral gene-unknown';
+      // Keep both classes: `.gene-neutral.gene-unknown` is what carries the
+      // dashed "not revealed" style, and the rarity view wants it unchanged.
+      rarityCls = 'gene-cell gene-neutral gene-unknown';
     } else {
       attributeCls = `gene-cell gene-${effectType} ${zygCls}`;
       const appType = inactiveBreed ? 'inactive-breed' : appearanceCategory || 'appearance-neutral';
       appearanceCls = `gene-cell gene-${appType} ${zygCls}`;
+      // No effect / appearance / inactive-breed colour class. Dropping
+      // `gene-inactive-breed` matters most: its greys are `!important` and
+      // would defeat the rarity fill on wrong-breed cells — 84% of a horse
+      // genome — which is exactly where the cross-breed signal lives.
+      rarityCls = `gene-cell ${zygCls}`;
     }
 
     const cell: VisCell = {
@@ -579,6 +707,7 @@ function buildGrid() {
       type: gene.type,
       attributeCls,
       appearanceCls,
+      rarityCls,
       attr: activeAttr,
       attrs,
       appearance,
@@ -645,6 +774,11 @@ function buildGrid() {
 // Stats depend on (pet, view) only — never on filters — so they recompute on
 // load and on view change, not per filter click.
 function computeStats() {
+  // Stats are attribute/appearance-specific: `buildEmptyStats` has no bucket
+  // shape for rarity, and the drawer swaps its body for a note in that view
+  // (it stays mounted — unmounting it would resize the grid). So there is
+  // nothing to recompute; leave the last computed stats in place.
+  if (currentView === 'rarity') return;
   const view = currentView;
   const names = view === 'attribute' ? attributeStatNames : appearanceStatNames;
   const stats = buildEmptyStats(view, names);
@@ -677,20 +811,48 @@ function computeStats() {
 // --- Tooltip (event-delegated; no per-cell components / handlers) -----------
 
 // The potential-effect lines are rendered via {@html} in GeneTooltip, so any
-// DB/genome-file text interpolated into them is escaped. (The "Current Effect"
-// itself is a plain text binding in GeneTooltip and needs no escaping here.)
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
+// DB/genome-file text interpolated into them is escaped by `escapeHtml`. (The
+// "Current Effect" itself is a plain text binding in GeneTooltip and needs no
+// escaping here.)
 
 function showTooltipForCell(cell: HTMLElement, clientX: number, clientY: number) {
   const geneId = cell.dataset.geneId ?? '';
   const geneType = cell.dataset.geneType ?? '';
+
+  if (currentView === 'rarity') {
+    const sk = currentPet ? normalizeSpecies(currentPet.species) : '';
+    // The same readiness gate the fills use: a baseline that is loading or was
+    // built for another species must not be quoted as this locus's evidence.
+    // `null` makes the card read "Analysing…" instead.
+    const { subtitle, lines } = buildRarityTooltip(
+      rarityReady ? rarityLookup : null,
+      geneId,
+      capitalize(currentPet?.species ?? 'pets'),
+      {
+        dominant: getGeneEffect(sk, geneId, 'D'),
+        recessive: getGeneEffect(sk, geneId, 'R'),
+      },
+    );
+    const { x, y } = placeRarityTooltip(clientX, clientY, lines.length, {
+      width: window.innerWidth,
+      height: window.innerHeight,
+    });
+
+    tooltipX = x;
+    tooltipY = y;
+    tooltipGeneId = geneId;
+    tooltipGeneType = geneType;
+    tooltipEffect = '';
+    tooltipSubtitle = subtitle;
+    tooltipEffectsLabel = 'Rarity';
+    tooltipPotentialEffects = lines;
+    tooltipVisible = true;
+    return;
+  }
+  tooltipSubtitle = '';
+  // Restate GeneTooltip's own default rather than '' — passing an empty string
+  // would override the default and blank the heading in the other views.
+  tooltipEffectsLabel = 'Potential Effects';
   // "Current Effect" is view-specific: the attribute-view effect string in the
   // attribute view, the appearance string (or "Different breed") in appearance.
   const effectInfo = currentView === 'appearance' ? (cell.dataset.appearanceEffect ?? '') : (cell.dataset.effect ?? '');
@@ -950,8 +1112,15 @@ export function handleAttributeFilter(event: CustomEvent<{ attribute: string; ct
   hiddenAttributes = result.hidden;
 }
 
+/** The views this component can render. Anything else coerces to `attribute`. */
+const VIEWS = ['attribute', 'appearance', 'rarity'] as const;
+
 export function handleViewChange(view: string) {
-  currentView = view === 'appearance' ? 'appearance' : 'attribute';
+  // The coercion is load-bearing: an unrecognised value must not leave the
+  // component in a view the template cannot render. Membership in VIEWS rather
+  // than a ternary chain, so adding a view means adding it there — not editing
+  // a condition that silently no-ops when missed.
+  currentView = (VIEWS as readonly string[]).includes(view) ? (view as (typeof VIEWS)[number]) : 'attribute';
   computeStats();
 }
 
@@ -1028,7 +1197,63 @@ const blockIndices = $derived.by(() => {
                                     </span>
                                 {/each}
                             </div>
-                        {:else}
+                        {:else if currentView === "rarity"}
+                            <!-- Diverging bar, not a one-way ramp: it teaches the
+                                 whole model at a glance — two arms, a shared
+                                 common centre, hue saying which allele is scarce. -->
+                            <div class="legend-row rarity-legend" data-testid="rarity-legend">
+                                <span class="legend-label">Rare recessive</span>
+                                {#each [5, 4, 3, 2, 1] as b (b)}
+                                    <span
+                                        class="rarity-swatch"
+                                        class:rarity-swatch-never={b === RARITY_BUCKET_NEVER}
+                                        style="background: var(--rarity-r-{b})"
+                                        title={RARITY_STEP_LABELS[b]}
+                                    ></span>
+                                {/each}
+                                <span class="rarity-swatch" style="background: var(--rarity-neutral)" title="Common"></span>
+                                {#each [1, 2, 3, 4, 5] as b (b)}
+                                    <span
+                                        class="rarity-swatch"
+                                        class:rarity-swatch-never={b === RARITY_BUCKET_NEVER}
+                                        style="background: var(--rarity-d-{b})"
+                                        title={RARITY_STEP_LABELS[b]}
+                                    ></span>
+                                {/each}
+                                <span class="legend-label">Rare dominant</span>
+
+                                <!-- The outermost step earns its own label: it is not one more
+                                     shade of scarce but the one reading you cannot breed your
+                                     way to, so it is what a capture decision turns on. -->
+                                <span class="rarity-swatch rarity-swatch-never rarity-key-never" style="background: var(--rarity-r-5)"></span>
+                                <span class="legend-label legend-label-muted">Never seen</span>
+
+                                <span class="rarity-swatch rarity-swatch-missing" title="Not enough data"></span>
+                                <span class="legend-label legend-label-muted">No data</span>
+
+                                <span class="legend-label legend-label-muted" data-testid="rarity-baseline">
+                                    {#if rarityError}
+                                        {rarityError}
+                                    {:else if rarityLoading || !rarityLookup}
+                                        Analysing…
+                                    {:else}
+                                        <!-- The POPULATION size, plus a flag when it is not
+                                             the whole truth: pets studied at a lower Genetics
+                                             level make the denominator vary per locus, so no
+                                             single number here is right for every cell. The
+                                             exact per-locus figure belongs in the tooltip,
+                                             where it can be. -->
+                                        baseline: {pluralise(rarityLookup.petCount, capitalize(currentPet?.species ?? "pet"))}
+                                        {#if rarityLookup.partialPets > 0}
+                                            <span
+                                                class="rarity-coverage"
+                                                title="Studied at a lower Genetics level, so some loci are measured across fewer pets. Hover a cell for its own count."
+                                            >· {rarityLookup.partialPets} studied less deeply</span>
+                                        {/if}
+                                    {/if}
+                                </span>
+                            </div>
+                        {:else if currentView === "appearance"}
                             <div class="legend-row">
                                 <span class="legend-label legend-label-appearance">Appearance:</span>
 
@@ -1054,7 +1279,8 @@ const blockIndices = $derived.by(() => {
                      Tooltip + keyboard-nav listeners are delegated on this
                      container via addEventListener (see the $effect above). -->
                 <div
-                    class="gene-grid-container"
+                    class="gene-grid-container {currentView === 'rarity' ? 'view-rarity' : ''}"
+                    class:rarity-unscored={currentView === "rarity" && !rarityReady}
                     bind:this={gridContainerEl}
                     style="--cell-size: {cellSize}px"
                 >
@@ -1085,7 +1311,7 @@ const blockIndices = $derived.by(() => {
                                                     <td class="gene-cell-container {i === 0 ? 'block-start' : ''} {!cell ? 'empty' : ''}">
                                                         {#if cell}
                                                             <div
-                                                                class={currentView === "appearance" ? cell.appearanceCls : cell.attributeCls}
+                                                                class={currentView === "appearance" ? cell.appearanceCls : currentView === "rarity" ? cell.rarityCls : cell.attributeCls}
                                                                 data-gene-id={cell.id}
                                                                 data-gene-type={cell.type}
                                                                 data-effect={cell.effect}
@@ -1123,6 +1349,9 @@ const blockIndices = $derived.by(() => {
         geneType={tooltipGeneType}
         effect={tooltipEffect}
         potentialEffects={tooltipPotentialEffects}
+        subtitle={tooltipSubtitle}
+        effectsLabel={tooltipEffectsLabel}
+        valenceFromText={currentView !== "rarity"}
     />
 </div>
 
@@ -1190,6 +1419,52 @@ const blockIndices = $derived.by(() => {
     .legend-label-appearance {
         font-weight: 600;
         margin-right: 1em;
+    }
+
+    /* Rarity legend — the swatches run edge to edge with no gap so the two arms
+       read as one continuous scale meeting at a shared neutral centre, rather
+       than as nine separate categories. */
+    .rarity-legend {
+        gap: 0.35em;
+    }
+
+    .rarity-legend .legend-label {
+        font-weight: 600;
+    }
+
+    .legend-label-muted {
+        color: var(--text-tertiary);
+        font-weight: 500;
+        margin-left: 1.5em;
+    }
+
+    .rarity-swatch {
+        width: 1.15em;
+        height: 1.15em;
+        border-radius: 3px;
+        border: 1px solid var(--border-secondary);
+        display: inline-block;
+        margin: 0 -0.3em;
+    }
+
+    /* Same 1px width the grid's cells use, so the legend swatch shows the real
+       marker rather than an exaggerated one. */
+    .rarity-swatch-never {
+        border-color: var(--rarity-never-edge);
+    }
+
+    .rarity-swatch-missing {
+        background: var(--rarity-missing-bg);
+        border: 2px dashed var(--rarity-missing-border);
+        margin: 0 0.25em 0 1.5em;
+    }
+
+    /* The standalone "Never seen" key sits apart from the ramp, like the "No
+       data" one. Keyed off its own class rather than sibling position: the ramp's
+       outermost swatch is also a `.rarity-swatch-never` preceded by a label, so
+       positional selectors put this gap inside the diverging bar. */
+    .rarity-key-never {
+        margin: 0 0.25em 0 1.5em;
     }
 
     .legend-item {
@@ -1260,6 +1535,16 @@ const blockIndices = $derived.by(() => {
         flex: 1;
         min-height: 0;
         overflow: auto;
+        /* Reserve the scrollbar space permanently (#436).
+         *
+         * Cell size is computed from this box's `contentRect.width`, which
+         * EXCLUDES a vertical scrollbar that takes layout space. This box is
+         * the `flex: 1` remainder under the legend and toolbar, so anything
+         * that changes their height changes this box's height, which flips the
+         * vertical scrollbar near the overflow boundary, which changes the
+         * measured width — and a purely vertical change leaks into cell WIDTH.
+         * That is what has repeatedly destabilised layout work here. */
+        scrollbar-gutter: stable;
         border: 1px solid var(--border-primary);
         border-radius: 6px;
         background: var(--bg-secondary);
