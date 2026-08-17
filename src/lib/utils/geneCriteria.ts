@@ -4,9 +4,9 @@
  * A criterion is a set of allowed states over `{D, R, x}`; `?` is missing
  * data and never satisfies anything (a pet whose Genetics level hadn't
  * revealed a locus reads `?` there — that says nothing about the pet).
- * Two criterion kinds exist because an attribute resolves to ~86–155 loci
- * and a conjunction over those matches nothing, ever — so an attribute is
- * a count with a threshold instead.
+ * Two criterion kinds exist because a locus *group* (an attribute's
+ * ~86–155 scoring loci, or a chromosome's row) ANDed as a conjunction
+ * matches nothing, ever — so a group is a count with a threshold instead.
  *
  * Pure: no Svelte, no DB. Expansion (which reads the parsed effect
  * columns) lives in `services/geneCriteriaService.ts`; this module only
@@ -22,8 +22,17 @@ export type KnownGeneType = Exclude<GeneType, typeof GeneType.UNKNOWN>;
 /** Allowed states. A non-empty proper subset of {D, R, x} once normalised. */
 export type AllowedStates = readonly KnownGeneType[];
 
-/** How an attribute expansion wants the good allele held (§5a). */
-export type AttributeWant = 'expresses' | 'carries' | 'pure';
+/** How a group expansion wants the good allele held (§5a). */
+export type GroupWant = 'expresses' | 'carries' | 'pure';
+
+/**
+ * Where a group's loci came from — needed to re-derive them on a want
+ * change or an explicit re-expand (§11: snapshots are stable, refresh is
+ * opt-in). `attribute` resolves loci by effect; `chromosome` resolves by
+ * position (§5e) — e.g. horse chromosome 01, whose 24 dual-effect,
+ * breed-generic loci are a natural breeding target as a set.
+ */
+export type GroupSource = { type: 'attribute'; attribute: string } | { type: 'chromosome'; chromosome: string };
 
 export interface LocusCriterion {
   kind: 'locus';
@@ -31,19 +40,20 @@ export interface LocusCriterion {
   allow: AllowedStates;
 }
 
-export interface AttributeCriterion {
-  kind: 'attribute';
-  /** Capitalised attribute key, e.g. `Toughness` (matches `getAttributeConfig().attributes[].key`). */
-  attribute: string;
+export interface GroupCriterion {
+  kind: 'group';
+  /** Chip/column label and count-map key, e.g. `Toughness` or `Chr 01`. */
+  label: string;
+  source: GroupSource;
   /** Kept for the chip label and re-expansion; the predicate only reads `loci`. */
-  want: AttributeWant;
+  want: GroupWant;
   /** Resolved from the parsed effect columns at expansion time and snapshotted (§11). */
   loci: readonly { geneId: string; allow: AllowedStates }[];
   /** Matched-count threshold; clamped to ≥ 1 at creation (§8). */
   min: number;
 }
 
-export type GeneCriterion = LocusCriterion | AttributeCriterion;
+export type GeneCriterion = LocusCriterion | GroupCriterion;
 
 /** The whole gene filter: criteria are ANDed, scoped to one species (§5c). */
 export interface GeneFilter {
@@ -66,7 +76,7 @@ export function stateMatches(state: GeneType | undefined, allow: AllowedStates):
 }
 
 /** Per-criterion evaluation detail, shared by the predicate, counts and exclusion classification. */
-export interface AttributeEvaluation {
+export interface GroupEvaluation {
   /** Loci whose reading is in the allow set. */
   matched: number;
   /** Snapshot size — the shared denominator; unrevealed loci stay in it (§10). */
@@ -77,11 +87,11 @@ export interface AttributeEvaluation {
 }
 
 /**
- * Evaluate an attribute criterion against one pet's loci. A vacuous
- * `min ≤ 0` reads as satisfied — the UI clamps to ≥ 1, this just keeps
- * the function total (§8).
+ * Evaluate a group criterion against one pet's loci. A vacuous `min ≤ 0`
+ * reads as satisfied — the UI clamps to ≥ 1, this just keeps the
+ * function total (§8).
  */
-export function evaluateAttribute(criterion: AttributeCriterion, loci: PetLoci | undefined): AttributeEvaluation {
+export function evaluateGroup(criterion: GroupCriterion, loci: PetLoci | undefined): GroupEvaluation {
   let matched = 0;
   let unrevealed = 0;
   for (const locus of criterion.loci) {
@@ -102,7 +112,7 @@ export function lociSatisfyCriteria(loci: PetLoci | undefined, criteria: readonl
   for (const criterion of criteria) {
     if (criterion.kind === 'locus') {
       if (!stateMatches(loci?.get(criterion.geneId), criterion.allow)) return false;
-    } else if (!evaluateAttribute(criterion, loci).satisfied) {
+    } else if (!evaluateGroup(criterion, loci).satisfied) {
       return false;
     }
   }
@@ -110,17 +120,17 @@ export function lociSatisfyCriteria(loci: PetLoci | undefined, criteria: readonl
 }
 
 /**
- * Per-attribute counts for the roster column (`Toughness 61/86`). Keyed by
- * attribute — at most one attribute criterion per attribute exists (§8).
+ * Per-group counts for the roster column (`Toughness 61/86`, `Chr 01
+ * 18/24`). Keyed by label — at most one group criterion per label (§8).
  */
-export function attributeMatchCounts(
+export function groupMatchCounts(
   criteria: readonly GeneCriterion[],
   loci: PetLoci | undefined,
-): Map<string, AttributeEvaluation> {
-  const out = new Map<string, AttributeEvaluation>();
+): Map<string, GroupEvaluation> {
+  const out = new Map<string, GroupEvaluation>();
   for (const criterion of criteria) {
-    if (criterion.kind !== 'attribute') continue;
-    out.set(criterion.attribute, evaluateAttribute(criterion, loci));
+    if (criterion.kind !== 'group') continue;
+    out.set(criterion.label, evaluateGroup(criterion, loci));
   }
   return out;
 }
@@ -128,7 +138,7 @@ export function attributeMatchCounts(
 /**
  * Why a pet is (or isn't) in the result. `not-revealed` means re-studying
  * the pet could still make it pass — for a locus criterion the pet reads
- * `?` there; for an attribute criterion `matched + unrevealed ≥ min` (§3).
+ * `?` there; for a group criterion `matched + unrevealed ≥ min` (§3).
  * `not-imported` — `loci` is `undefined`, i.e. the pet is absent from the
  * loaded map, which `loadAllPetLoci` reserves for pets with no projection
  * at all — is a different fix ("upload/re-import") from "re-study" (§8).
@@ -150,7 +160,7 @@ export function classifyAgainstCriteria(
       if (state === undefined || state === GeneType.UNKNOWN) couldStudyOut = true;
       else return 'no-match';
     } else {
-      const ev = evaluateAttribute(criterion, loci);
+      const ev = evaluateGroup(criterion, loci);
       if (ev.satisfied) continue;
       if (ev.matched + ev.unrevealed >= criterion.min) couldStudyOut = true;
       else return 'no-match';
@@ -161,7 +171,7 @@ export function classifyAgainstCriteria(
 
 /**
  * Normalise a criterion for storage: an all-states allow set is not a
- * filter and drops (§2); an attribute with no loci is not a criterion
+ * filter and drops (§2); a group with no loci is not a criterion
  * (§8, the Ferocity case); `min` clamps to `[1, loci.length]`. An empty
  * allow set is kept — the UI disallows it, but it must not silently
  * become "any" (§8).

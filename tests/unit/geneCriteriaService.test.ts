@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { closeDatabase, getDb, initDatabase } from '$lib/services/database.js';
-import { allowForWant, expandAttributeCriterion, listExpandableAttributes } from '$lib/services/geneCriteriaService.js';
+import { allowForWant, expandGroupCriterion, listExpandableGroups } from '$lib/services/geneCriteriaService.js';
 import { backfillParsedGeneEffectsIfNeeded, clearGeneEffectsCache } from '$lib/services/geneService.js';
 import { runMigrations } from '$lib/services/migrationService.js';
 import { GeneType } from '$lib/types/index.js';
@@ -67,38 +67,66 @@ const MEASURED: Record<string, number> = {
   Temperament: 77,
 };
 
-describe('listExpandableAttributes — horse (§5a/§8)', () => {
+describe('listExpandableGroups — horse (§5a/§5e/§8)', () => {
   it('offers exactly the attributes with clean-positive loci, with pinned counts', async () => {
-    const offered = await listExpandableAttributes('horse');
-    const byName = Object.fromEntries(offered.map((a) => [a.attribute, a.lociCount]));
+    const offered = await listExpandableGroups('horse');
+    const attrs = offered.filter((g) => g.source.type === 'attribute');
+    const byName = Object.fromEntries(attrs.map((g) => [g.label, g.lociCount]));
     expect(byName).toEqual(MEASURED);
   });
 
   it('does not offer Ferocity for horses — 0 loci is a real case, not hypothetical', async () => {
-    const offered = await listExpandableAttributes('horse');
-    expect(offered.some((a) => a.attribute === 'Ferocity')).toBe(false);
+    const offered = await listExpandableGroups('horse');
+    expect(offered.some((g) => g.label === 'Ferocity')).toBe(false);
+  });
+
+  it('offers chromosomes with clean-positive loci — Chr 01 is the full 24-locus row (§5e)', async () => {
+    const offered = await listExpandableGroups('horse');
+    const chroms = offered.filter((g) => g.source.type === 'chromosome');
+    expect(chroms.find((g) => g.label === 'Chr 01')?.lociCount).toBe(24);
+    // Chromosome 04 carries no clean-positive locus in the shipped data.
+    expect(chroms.some((g) => g.label === 'Chr 04')).toBe(false);
   });
 });
 
-describe('expandAttributeCriterion — parity and translation (§5a/§10)', () => {
+const attrSource = (attribute: string) => ({ type: 'attribute', attribute }) as const;
+const chromSource = (chromosome: string) => ({ type: 'chromosome', chromosome }) as const;
+
+describe('expandGroupCriterion — parity and translation (§5a/§5e/§10)', () => {
   it('expansion size matches the offered count for every attribute', async () => {
     for (const [attribute, count] of Object.entries(MEASURED)) {
-      const c = await expandAttributeCriterion('horse', attribute, 'carries');
+      const c = await expandGroupCriterion('horse', attrSource(attribute), 'carries');
       expect(c, attribute).not.toBeNull();
       expect(c?.loci.length, attribute).toBe(count);
+      expect(c?.label, attribute).toBe(attribute);
     }
   });
 
+  it('a chromosome expands to its clean-positive row — Chr 01 is 24 loci, all recessive-arm (§5e)', async () => {
+    // Every chromosome-01 gene is dominant-negative / recessive-positive
+    // and breed-generic, which is what makes the row a natural breeding
+    // target as a set.
+    const c = await expandGroupCriterion('horse', chromSource('01'), 'pure');
+    expect(c?.label).toBe('Chr 01');
+    expect(c?.loci.length).toBe(24);
+    expect(c?.loci.every((l) => l.geneId.startsWith('01'))).toBe(true);
+    expect(c?.loci.every((l) => l.allow.length === 1 && l.allow[0] === GeneType.RECESSIVE)).toBe(true);
+  });
+
+  it('a chromosome with no clean-positive loci expands to null', async () => {
+    expect(await expandGroupCriterion('horse', chromSource('04'), 'carries')).toBeNull();
+  });
+
   it('snapshots are sorted by gene id and independent between calls', async () => {
-    const a = await expandAttributeCriterion('horse', 'Toughness', 'carries');
-    const b = await expandAttributeCriterion('horse', 'Toughness', 'carries');
+    const a = await expandGroupCriterion('horse', attrSource('Toughness'), 'carries');
+    const b = await expandGroupCriterion('horse', attrSource('Toughness'), 'carries');
     expect(a).not.toBe(b);
     const ids = (a?.loci ?? []).map((l) => l.geneId);
     expect(ids).toEqual([...ids].sort((x, y) => x.localeCompare(y)));
   });
 
   it('translates the want per locus arm — carries always includes x', async () => {
-    const c = await expandAttributeCriterion('horse', 'Toughness', 'carries');
+    const c = await expandGroupCriterion('horse', attrSource('Toughness'), 'carries');
     for (const locus of c?.loci ?? []) {
       expect(locus.allow).toContain(GeneType.MIXED);
       expect(locus.allow.length).toBe(2);
@@ -106,7 +134,7 @@ describe('expandAttributeCriterion — parity and translation (§5a/§10)', () =
   });
 
   it('expansions mix arms, so the three wants differ per expansion (§11)', async () => {
-    const pure = await expandAttributeCriterion('horse', 'Toughness', 'pure');
+    const pure = await expandGroupCriterion('horse', attrSource('Toughness'), 'pure');
     const dArm = (pure?.loci ?? []).filter((l) => l.allow.includes(GeneType.DOMINANT)).length;
     const rArm = (pure?.loci ?? []).filter((l) => l.allow.includes(GeneType.RECESSIVE)).length;
     // Measured 37 D-arm / 49 R-arm in the shipped data.
@@ -115,7 +143,7 @@ describe('expandAttributeCriterion — parity and translation (§5a/§10)', () =
   });
 
   it('returns null for an attribute with no scoring loci', async () => {
-    expect(await expandAttributeCriterion('horse', 'Ferocity', 'carries')).toBeNull();
+    expect(await expandGroupCriterion('horse', attrSource('Ferocity'), 'carries')).toBeNull();
   });
 });
 
@@ -152,7 +180,7 @@ describe('strict-parse exclusions (§5a)', () => {
     );
     clearGeneEffectsCache('horse');
     await backfillParsedGeneEffectsIfNeeded();
-    const c = await expandAttributeCriterion('horse', 'Toughness', 'carries');
+    const c = await expandGroupCriterion('horse', attrSource('Toughness'), 'carries');
     expect(c?.loci.some((l) => l.geneId === '99Z1')).toBe(false);
     expect(c?.loci.length).toBe(MEASURED.Toughness);
   });
@@ -179,9 +207,9 @@ describe('strict-parse exclusions (§5a)', () => {
       },
     );
     clearGeneEffectsCache('horse');
-    const c = await expandAttributeCriterion('horse', 'Toughness', 'carries');
+    const c = await expandGroupCriterion('horse', attrSource('Toughness'), 'carries');
     expect(c?.loci.some((l) => l.geneId === '99Z2')).toBe(false);
-    const offered = await listExpandableAttributes('horse');
-    expect(offered.find((a) => a.attribute === 'Toughness')?.lociCount).toBe(MEASURED.Toughness);
+    const offered = await listExpandableGroups('horse');
+    expect(offered.find((g) => g.label === 'Toughness')?.lociCount).toBe(MEASURED.Toughness);
   });
 });

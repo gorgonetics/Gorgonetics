@@ -160,6 +160,14 @@ The cost is an intentional divergence: the filter's `61/86` will not match the p
 
 The roster's existing breed filter composes as before for players who only care about pets of one breed; the gene counts do not change meaning when it is set.
 
+### 5e. By chromosome (gene set)
+
+A breeder optimises in *rows*, not only in attributes: horse **chromosome 01** is 24 loci, every one dual-effect (dominant negative, recessive positive — measured across all 24) and none breed-locked, which makes "get the recessive at every chr01 locus" a natural first campaign; once that row is done, move to the next set. The attribute path cannot express it — chr01's recessives are scattered across seven attributes — and 24 hand-clicked ANDed locus chips are the §4 conjunction problem all over again.
+
+So the threshold criterion is a **group**, and an attribute is just one way to resolve a group's loci. A `GroupSource` is either an attribute (§5a) or a **chromosome**: the loci on that chromosome carrying a clean positive allele, want-translated per locus arm exactly as in §5a, snapshotted, thresholded, and contributing the same sortable roster column (`Chr 01 18/24`). For chr01 the clean-positive row is the whole row; chromosomes carrying only appearance genes offer nothing and are not listed, like Ferocity in §8. The adder is one control — attributes and chromosomes in two option groups.
+
+The workflow this serves: add `Chr 01 · pure`, sort by the column, breed toward `24/24`, remove the chip, add the next set.
+
 ## 6. Where it lives
 
 A collapsible **Genes** section in the My Pets `FilterBar`, below the existing controls. Collapsed by default and showing a count when active (`Genes (3)`), because it is a power feature and must not crowd the common path.
@@ -214,20 +222,27 @@ export type KnownGeneType = Exclude<GeneType, '?'>;
 /** Allowed states. A non-empty proper subset of {D, R, x}. */
 export type AllowedStates = KnownGeneType[];
 
+/** How a group's loci were resolved — re-derivable on want change / re-expand (§5a/§5e). */
+export type GroupSource =
+  | { type: 'attribute'; attribute: string }
+  | { type: 'chromosome'; chromosome: string };
+
 export type GeneCriterion =
   /** One locus must match. */
   | { kind: 'locus'; geneId: string; allow: AllowedStates }
-  /** At least `min` of `loci` must match — see §4/§5a. Breed-lock does not gate (§5d). */
+  /** At least `min` of `loci` must match — see §4/§5a/§5e. Breed-lock does not gate (§5d). */
   | {
-      kind: 'attribute';
-      attribute: string;
+      kind: 'group';
+      /** Chip/column label and count-map key, e.g. `Toughness` or `Chr 01`. */
+      label: string;
+      source: GroupSource;
       /** Resolved from the parsed effect columns at expansion time and snapshotted (§11). */
       loci: { geneId: string; allow: AllowedStates }[];
       /** Matched-count threshold; clamped to ≥ 1 at creation (§8). */
       min: number;
     };
 
-/** Per-attribute counts for the roster column. */
+/** Per-group counts for the roster column, keyed by label. */
 export function petGeneMatchCounts(
   pet: Pet,
   criteria: GeneCriterion[],
@@ -243,7 +258,7 @@ export function petMatchesFilters(
 
 `loci` is optional: when `geneFilter` is absent the argument is unused, so no caller has to supply it and no surface pays for a feature it does not use.
 
-At most one attribute criterion per attribute — selecting an attribute that already has a chip opens that chip's editor (§8) — so keying the count map by attribute name is unambiguous.
+At most one group criterion per label — selecting a group that already has a chip is not offered again (§8) — so keying the count map by label is unambiguous.
 
 **Scale.** ~1576 loci × ~30 pets ≈ 47k map entries, one query, held in memory. Rebuilt only when the pet set changes. The per-pet predicate is `criteria.length` map lookups — negligible next to the existing string search.
 
@@ -265,7 +280,7 @@ At most one attribute criterion per attribute — selecting an attribute that al
 **v1 (this design):**
 - `GeneCriterion` model (both kinds) + `petMatchesFilters` extension (pure, unit-tested).
 - Loci store with sorted-id caching, feeding MyPets.
-- FilterBar "Genes" section: attribute expansion with threshold (§5a) and locus chips (§6).
+- FilterBar "Genes" section: group expansion with threshold — attribute (§5a) and chromosome (§5e) sources — and locus chips (§6).
 - Sortable per-attribute match-count roster column while an attribute criterion is active (§5a); uniform denominators — breed-lock does not gate (§5d).
 - Genome-map click-to-add (§5b).
 - Not-revealed / not-imported exclusion counts surfaced in the result (§3).
@@ -293,6 +308,7 @@ At most one attribute criterion per attribute — selecting an attribute that al
 - **A 124-locus expansion evaluates without pathological cost** — the realistic size from the §4 table, not a 3-locus toy.
 - **Exclusion counts are correct and distinguish their causes** — not-revealed vs not-imported reported separately, using §3's could-pass-if-studied definition for attribute criteria, and matches + not-revealed + definite non-matches + not-imported equals the candidate count. This is the assertion that stops §3's empty-roster trap from regressing into a silent zero.
 - **Expansion parity with the parsed columns**: an attribute's expansion equals what `dominant_attribute` / `recessive_attribute` + sign yield directly, and the horse counts are pinned (86 Toughness, 112 Intelligence, …, 0 Ferocity — §4 table); a regression that halves an expansion is invisible without them. An unparseable effect string (e.g. `Toughness+?`) contributes no expansion locus; a both-alleles-positive locus is skipped, not misassigned.
+- **Chromosome expansion (§5e)**: Chr 01 expands to exactly 24 loci, all recessive-arm (the measured dominant-negative/recessive-positive invariant); a chromosome with no clean-positive locus (Chr 04 in the shipped data) is not offered and expands to null.
 - **Criteria are not applied while loci load** — the roster holds its previous result until the map resolves; "Matches 0" never renders from missing data (§7).
 - **Species scoping**: a horse criterion never evaluates against a beewasp; activating criteria forces the species filter; a criterion for a locus absent from the species surfaces as invalid rather than as zero matches.
 - **Loci cache** keyed on the sorted id set: reordering the pet array does not trigger a re-read; adding a pet does.
@@ -306,7 +322,8 @@ At most one attribute criterion per attribute — selecting an attribute that al
 - **`?` never matches**, and the exclusion count is part of the result — §3. Skill-gating is uniform across a collection, so a filter on an unrevealed locus returns zero pets for a reason that has nothing to do with the pets.
 - **AND**, not configurable — §4.
 - The filter narrows the **roster**, not a genome view — §1, §6.
-- **Both** selection paths ship: attribute expansion is primary, map clicking is the escape hatch for appearance genes, arbitrary loci, and effect strings the strict parse rejects — §5.
+- **Both** selection paths ship: group expansion (attribute §5a, chromosome §5e) is primary, map clicking is the escape hatch for appearance genes, arbitrary loci, and effect strings the strict parse rejects — §5.
+- The threshold criterion is a **group** with a pluggable source, not an attribute-only construct — §5e. A chromosome is a gene *set* a breeder optimises as a campaign (chr01: 24 dual-effect, breed-generic loci), and the attribute machinery (want translation, snapshot, threshold, count column) applies unchanged.
 - Expansions build on the **parsed effect columns** (`getParsedGenesCached`), not the grids' display heuristics — §5a. Same definition as `getPetGeneStats`, both string-matching failure modes structurally absent.
 - Horse **breed-locking never gates the filter** — breed-locked alleles inherit regardless of the parent's breed, so the filter counts what a pet carries; the stats view (which excludes breed-mismatched *effects* per pet) answers a different question, and the divergence is stated in the UI — §5d.
 - An expansion **snapshots** at creation. A template edit in Reference never mutates an active filter under the player; the chip's editor offers *re-expand* to pick up changes. (The parsed columns update on template save either way, so tracking would have been cheap but unpredictable.)

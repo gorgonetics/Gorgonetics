@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { GeneType } from '$lib/types/index.js';
 import {
-  type AttributeCriterion,
-  attributeMatchCounts,
   classifyAgainstCriteria,
-  evaluateAttribute,
+  evaluateGroup,
   type GeneCriterion,
+  type GroupCriterion,
+  groupMatchCounts,
   type KnownGeneType,
   lociSatisfyCriteria,
   normalizeCriterion,
@@ -51,9 +51,10 @@ describe('stateMatches — the 4×4 semantic core (§2/§3)', () => {
   });
 });
 
-const attr = (over: Partial<AttributeCriterion> = {}): AttributeCriterion => ({
-  kind: 'attribute',
-  attribute: 'Toughness',
+const attr = (over: Partial<GroupCriterion> = {}): GroupCriterion => ({
+  kind: 'group',
+  label: 'Toughness',
+  source: { type: 'attribute', attribute: 'Toughness' },
   want: 'carries',
   loci: [
     { geneId: '01A1', allow: [GeneType.RECESSIVE, GeneType.MIXED] },
@@ -64,32 +65,32 @@ const attr = (over: Partial<AttributeCriterion> = {}): AttributeCriterion => ({
   ...over,
 });
 
-describe('evaluateAttribute — threshold arithmetic (§10)', () => {
+describe('evaluateGroup — threshold arithmetic (§10)', () => {
   it('a pet matching exactly min passes; min - 1 fails', () => {
     const c = attr();
     const exactly = loci({ '01A1': GeneType.RECESSIVE, '01A2': GeneType.MIXED, '01A3': GeneType.RECESSIVE });
-    expect(evaluateAttribute(c, exactly)).toMatchObject({ matched: 2, satisfied: true });
+    expect(evaluateGroup(c, exactly)).toMatchObject({ matched: 2, satisfied: true });
     const oneShy = loci({ '01A1': GeneType.RECESSIVE, '01A2': GeneType.DOMINANT, '01A3': GeneType.RECESSIVE });
-    expect(evaluateAttribute(c, oneShy)).toMatchObject({ matched: 1, satisfied: false });
+    expect(evaluateGroup(c, oneShy)).toMatchObject({ matched: 1, satisfied: false });
   });
 
   it('min = total (the unusable conjunction) still evaluates correctly', () => {
     const c = attr({ min: 3 });
     const perfect = loci({ '01A1': GeneType.RECESSIVE, '01A2': GeneType.MIXED, '01A3': GeneType.DOMINANT });
-    expect(evaluateAttribute(c, perfect).satisfied).toBe(true);
+    expect(evaluateGroup(c, perfect).satisfied).toBe(true);
     const almost = loci({ '01A1': GeneType.RECESSIVE, '01A2': GeneType.MIXED, '01A3': GeneType.RECESSIVE });
-    expect(evaluateAttribute(c, almost).satisfied).toBe(false);
+    expect(evaluateGroup(c, almost).satisfied).toBe(false);
   });
 
   it('a vacuous min ≤ 0 reads satisfied (non-UI-reachable, kept total — §8)', () => {
-    expect(evaluateAttribute(attr({ min: 0 }), loci({})).satisfied).toBe(true);
-    expect(evaluateAttribute(attr({ min: 0 }), undefined).satisfied).toBe(true);
+    expect(evaluateGroup(attr({ min: 0 }), loci({})).satisfied).toBe(true);
+    expect(evaluateGroup(attr({ min: 0 }), undefined).satisfied).toBe(true);
   });
 
   it('unrevealed loci stay in the denominator and never count as matches (§10)', () => {
     const c = attr({ min: 1 });
     const halfStudied = loci({ '01A1': GeneType.RECESSIVE, '01A2': GeneType.UNKNOWN });
-    const ev = evaluateAttribute(c, halfStudied);
+    const ev = evaluateGroup(c, halfStudied);
     // 01A2 reads ?, 01A3 has no row — both are unrevealed, total stays 3.
     expect(ev).toMatchObject({ matched: 1, total: 3, unrevealed: 2, satisfied: true });
   });
@@ -104,7 +105,7 @@ describe('evaluateAttribute — threshold arithmetic (§10)', () => {
     });
     const reading: Record<string, GeneType> = {};
     for (let i = 0; i < 124; i++) reading[`G${i}`] = i < 62 ? GeneType.MIXED : GeneType.DOMINANT;
-    expect(evaluateAttribute(big, loci(reading))).toMatchObject({ matched: 62, total: 124, satisfied: true });
+    expect(evaluateGroup(big, loci(reading))).toMatchObject({ matched: 62, total: 124, satisfied: true });
   });
 });
 
@@ -173,10 +174,10 @@ describe('classifyAgainstCriteria — exclusion causes (§3/§8)', () => {
   });
 });
 
-describe('attributeMatchCounts — the roster column (§5a)', () => {
+describe('groupMatchCounts — the roster column (§5a)', () => {
   it('reports per-attribute counts and skips locus criteria', () => {
     const criteria: GeneCriterion[] = [{ kind: 'locus', geneId: '01A9', allow: [GeneType.DOMINANT] }, attr({ min: 1 })];
-    const counts = attributeMatchCounts(criteria, loci({ '01A1': GeneType.RECESSIVE }));
+    const counts = groupMatchCounts(criteria, loci({ '01A1': GeneType.RECESSIVE }));
     expect([...counts.keys()]).toEqual(['Toughness']);
     expect(counts.get('Toughness')).toMatchObject({ matched: 1, total: 3, unrevealed: 2 });
   });
@@ -200,9 +201,9 @@ describe('normalizeCriterion (§2/§8)', () => {
   });
 
   it('clamps attribute min to [1, loci count] and drops empty expansions', () => {
-    const clampedLow = normalizeCriterion(attr({ min: 0 })) as AttributeCriterion;
+    const clampedLow = normalizeCriterion(attr({ min: 0 })) as GroupCriterion;
     expect(clampedLow.min).toBe(1);
-    const clampedHigh = normalizeCriterion(attr({ min: 99 })) as AttributeCriterion;
+    const clampedHigh = normalizeCriterion(attr({ min: 99 })) as GroupCriterion;
     expect(clampedHigh.min).toBe(3);
     expect(normalizeCriterion(attr({ loci: [] }))).toBeNull();
   });

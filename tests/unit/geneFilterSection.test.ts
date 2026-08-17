@@ -6,19 +6,22 @@ import type * as geneCriteriaService from '$lib/services/geneCriteriaService.js'
 import * as petLociCache from '$lib/services/petLociCache.js';
 import { clearGeneCriteria, myPetsView } from '$lib/stores/mypets.svelte.js';
 import { GeneType, type Pet } from '$lib/types/index.js';
-import type { AttributeCriterion, GeneCriterion, LocusCriterion } from '$lib/utils/geneCriteria.js';
-import { attributeMatchCounts } from '$lib/utils/geneCriteria.js';
+import type { GeneCriterion, GroupCriterion, LocusCriterion } from '$lib/utils/geneCriteria.js';
+import { groupMatchCounts } from '$lib/utils/geneCriteria.js';
 import type { PetLoci } from '$lib/utils/petLoci.js';
 
 vi.mock('$lib/services/geneCriteriaService.js', async (importOriginal) => {
   const original = await importOriginal<typeof geneCriteriaService>();
   return {
     ...original,
-    listExpandableAttributes: vi.fn(async () => [{ attribute: 'Toughness', lociCount: 2 }]),
-    expandAttributeCriterion: vi.fn(
-      async (): Promise<AttributeCriterion> => ({
-        kind: 'attribute',
-        attribute: 'Toughness',
+    listExpandableGroups: vi.fn(async () => [
+      { source: { type: 'attribute', attribute: 'Toughness' }, label: 'Toughness', lociCount: 2 },
+    ]),
+    expandGroupCriterion: vi.fn(
+      async (): Promise<GroupCriterion> => ({
+        kind: 'group',
+        label: 'Toughness',
+        source: { type: 'attribute', attribute: 'Toughness' },
         want: 'carries',
         loci: [
           { geneId: '01A1', allow: [GeneType.RECESSIVE, GeneType.MIXED] },
@@ -133,18 +136,18 @@ describe('GeneFilterSection', () => {
     myPetsView.species = 'horse';
     myPetsView.genesOpen = true;
     const { getByTestId, findByTestId } = render(GeneFilterSection, { candidates: CANDIDATES, lociMap: undefined });
-    const select = (await findByTestId('gene-filter-attribute')) as HTMLSelectElement;
+    const select = (await findByTestId('gene-filter-group')) as HTMLSelectElement;
     await fireEvent.change(select, { target: { value: 'Toughness' } });
     await fireEvent.click(getByTestId('gene-filter-add'));
     await vi.waitFor(() => {
       expect(myPetsView.geneCriteria.length).toBe(1);
     });
-    const c = myPetsView.geneCriteria[0] as AttributeCriterion;
-    expect(c.kind).toBe('attribute');
+    const c = myPetsView.geneCriteria[0] as GroupCriterion;
+    expect(c.kind).toBe('group');
     // Matched counts are [0, 1, 2] → median 1.
     expect(c.min).toBe(1);
     // One chip per criterion, not per locus (§6).
-    const chips = (await findByTestId('gene-filter-chips')).querySelectorAll('[data-testid="gene-chip-attribute"]');
+    const chips = (await findByTestId('gene-filter-chips')).querySelectorAll('[data-testid="gene-chip-group"]');
     expect(chips.length).toBe(1);
     expect(chips[0].textContent).toContain('Toughness · carries ≥1 of 2');
     // The species filter is forced and recorded (§5c).
@@ -183,9 +186,10 @@ describe('GeneFilterSection', () => {
 
 describe('Roster gene count columns (§5a)', () => {
   it('adds a sortable matched/total column per active attribute criterion', () => {
-    const criterion: AttributeCriterion = {
-      kind: 'attribute',
-      attribute: 'Toughness',
+    const criterion: GroupCriterion = {
+      kind: 'group',
+      label: 'Toughness',
+      source: { type: 'attribute', attribute: 'Toughness' },
       want: 'carries',
       loci: [
         { geneId: '01A1', allow: [GeneType.RECESSIVE, GeneType.MIXED] },
@@ -205,9 +209,7 @@ describe('Roster gene count columns (§5a)', () => {
       ],
       [2, new Map([['01A1', GeneType.UNKNOWN]])],
     ]);
-    const geneCounts = new Map(
-      [1, 2].map((id) => [id, attributeMatchCounts(myPetsView.geneCriteria, lociMap.get(id))]),
-    );
+    const geneCounts = new Map([1, 2].map((id) => [id, groupMatchCounts(myPetsView.geneCriteria, lociMap.get(id))]));
     const pets = [pet({ id: 1, name: 'Dusty' }), pet({ id: 2, name: 'Roach' })];
     const { container } = render(Roster, { pets, geneCounts });
     const labels = [...container.querySelectorAll('thead .sort-btn')].map((b) => b.textContent?.trim());

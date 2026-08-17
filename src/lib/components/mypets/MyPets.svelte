@@ -27,7 +27,7 @@ import { clearMyPetsSelection, getMyPetsFilters, myPetsView } from '$lib/stores/
 import { allTags, loading, pets } from '$lib/stores/pets.js';
 import { type Gender, type Pet } from '$lib/types/index.js';
 import { focusTrap } from '$lib/utils/focusTrap.js';
-import { attributeMatchCounts } from '$lib/utils/geneCriteria.js';
+import { groupMatchCounts } from '$lib/utils/geneCriteria.js';
 import { createGenomeUploadController } from '$lib/utils/genomeUploadController.svelte.js';
 import { filterPets } from '$lib/utils/petFilter.js';
 import type { PetLoci } from '$lib/utils/petLoci.js';
@@ -168,12 +168,12 @@ const preGenePets = $derived(
   geneActive ? filterPets($pets, { ...getMyPetsFilters(), geneFilter: undefined }) : visiblePets,
 );
 
-// Per-pet attribute match counts for the roster column (§5a).
+// Per-pet group match counts for the roster column (§5a/§5e).
 const geneCounts = $derived.by(() => {
   if (!geneActive || !lociMap) return undefined;
   const loaded = lociMap;
-  const m = new Map<number, ReturnType<typeof attributeMatchCounts>>();
-  for (const p of visiblePets) m.set(p.id, attributeMatchCounts(myPetsView.geneCriteria, loaded.get(p.id)));
+  const m = new Map<number, ReturnType<typeof groupMatchCounts>>();
+  for (const p of visiblePets) m.set(p.id, groupMatchCounts(myPetsView.geneCriteria, loaded.get(p.id)));
   return m;
 });
 const selectedPets = $derived(visiblePets.filter((p) => myPetsView.selectedIds.has(p.id)));

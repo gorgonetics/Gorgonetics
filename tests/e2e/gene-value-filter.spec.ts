@@ -16,9 +16,9 @@ async function openMyPets(page: Page) {
 async function addToughnessCriterion(page: Page) {
   await page.locator('[data-testid="filter-species"] [data-species="horse"]').click();
   await page.locator('[data-testid="gene-filter-toggle"]').click();
-  await page.locator('[data-testid="gene-filter-attribute"]').selectOption('Toughness');
+  await page.locator('[data-testid="gene-filter-group"]').selectOption('Toughness');
   await page.locator('[data-testid="gene-filter-add"]').click();
-  await expect(page.locator('[data-testid="gene-chip-attribute"]')).toBeVisible();
+  await expect(page.locator('[data-testid="gene-chip-group"]')).toBeVisible();
 }
 
 test.describe('Gene value filter', () => {
@@ -29,7 +29,7 @@ test.describe('Gene value filter', () => {
 
     // One chip per criterion, not one per locus (§6) — with the real
     // Toughness expansion size in its label.
-    const chips = page.locator('[data-testid="gene-chip-attribute"]');
+    const chips = page.locator('[data-testid="gene-chip-group"]');
     await expect(chips).toHaveCount(1);
     await expect(chips.first()).toContainText('of 86');
 
@@ -71,6 +71,20 @@ test.describe('Gene value filter', () => {
 
     await page.locator('[data-testid="gene-chip-remove"]').click();
     await expect(rows).toHaveCount(before);
+  });
+
+  test('a chromosome group filters by one row — Chr 01 (§5e)', async ({ page }) => {
+    await openMyPets(page);
+    await page.locator('[data-testid="filter-species"] [data-species="horse"]').click();
+    await page.locator('[data-testid="gene-filter-toggle"]').click();
+    await page.locator('[data-testid="gene-filter-group"]').selectOption('Chr 01');
+    await page.locator('[data-testid="gene-filter-add"]').click();
+    // The full dual-effect, breed-generic first row: 24 loci.
+    const chip = page.locator('[data-testid="gene-chip-group"]');
+    await expect(chip).toContainText('Chr 01');
+    await expect(chip).toContainText('of 24');
+    await expect(page.locator('[data-testid="roster"] thead')).toContainText('🧬 Chr 01');
+    await expect(page.locator('[data-testid="roster"] tbody')).toContainText(/\d+\/24/);
   });
 
   test('genome-map click adds a locus criterion (§5b)', async ({ page }) => {

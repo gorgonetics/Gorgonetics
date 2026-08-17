@@ -11,11 +11,7 @@
  */
 
 import { normalizeSpecies } from '$lib/services/configService.js';
-import {
-  type ExpandableAttribute,
-  expandAttributeCriterion,
-  listExpandableAttributes,
-} from '$lib/services/geneCriteriaService.js';
+import { type ExpandableGroup, expandGroupCriterion, listExpandableGroups } from '$lib/services/geneCriteriaService.js';
 import { getAllPetLociCached } from '$lib/services/petLociCache.js';
 import {
   addGeneCriterion,
@@ -26,11 +22,11 @@ import {
 } from '$lib/stores/mypets.svelte.js';
 import { GeneType, type Pet } from '$lib/types/index.js';
 import {
-  type AttributeCriterion,
-  type AttributeWant,
   classifyAgainstCriteria,
-  evaluateAttribute,
+  evaluateGroup,
   type GeneFilterVerdict,
+  type GroupCriterion,
+  type GroupWant,
   type KnownGeneType,
   type LocusCriterion,
   normalizeCriterion,
@@ -46,7 +42,7 @@ interface Props {
 
 const { candidates, lociMap }: Props = $props();
 
-const WANTS: AttributeWant[] = ['expresses', 'carries', 'pure'];
+const WANTS: GroupWant[] = ['expresses', 'carries', 'pure'];
 const STATES: { state: KnownGeneType; label: string }[] = [
   { state: GeneType.DOMINANT, label: 'D' },
   { state: GeneType.RECESSIVE, label: 'R' },
@@ -57,38 +53,38 @@ const STATES: { state: KnownGeneType; label: string }[] = [
 const speciesForGenes = $derived(myPetsView.geneSpecies || myPetsView.species);
 const active = $derived(myPetsView.geneCriteria);
 
-// --- Attribute options for the adder --------------------------------------
-let attributes = $state<ExpandableAttribute[]>([]);
+// --- Group options for the adder (attributes + chromosomes, §5a/§5e) ------
+let groups = $state<ExpandableGroup[]>([]);
 $effect(() => {
   const sp = speciesForGenes;
   if (!sp) {
-    attributes = [];
+    groups = [];
     return;
   }
   let cancelled = false;
-  listExpandableAttributes(sp)
-    .then((a) => {
-      if (!cancelled) attributes = a;
+  listExpandableGroups(sp)
+    .then((g) => {
+      if (!cancelled) groups = g;
     })
     .catch((err) => {
-      console.error('gene filter: failed to list attributes', err);
-      if (!cancelled) attributes = [];
+      console.error('gene filter: failed to list groups', err);
+      if (!cancelled) groups = [];
     });
   return () => {
     cancelled = true;
   };
 });
 
-let selAttr = $state('');
-let selWant = $state<AttributeWant>('carries');
+let selLabel = $state('');
+let selWant = $state<GroupWant>('carries');
 let adding = $state(false);
 let editingIndex = $state<number | null>(null);
 
-const usedAttributes = $derived(
-  new Set(active.filter((c) => c.kind === 'attribute').map((c) => (c as AttributeCriterion).attribute)),
-);
-// One attribute criterion per attribute (§8) — offered list excludes active ones.
-const offerable = $derived(attributes.filter((a) => !usedAttributes.has(a.attribute)));
+const usedLabels = $derived(new Set(active.filter((c) => c.kind === 'group').map((c) => (c as GroupCriterion).label)));
+// One group criterion per label (§8) — offered list excludes active ones.
+const offerable = $derived(groups.filter((g) => !usedLabels.has(g.label)));
+const offerableAttrs = $derived(offerable.filter((g) => g.source.type === 'attribute'));
+const offerableChroms = $derived(offerable.filter((g) => g.source.type === 'chromosome'));
 
 /**
  * The slider default sits at the median of the per-pet matched counts over
@@ -96,25 +92,26 @@ const offerable = $derived(attributes.filter((a) => !usedAttributes.has(a.attrib
  * roster instead of zero or all of it (§5a). With one or two pets the
  * median is arbitrary — the sortable column is the interface there.
  */
-async function medianMatched(criterion: AttributeCriterion, sp: string): Promise<number> {
+async function medianMatched(criterion: GroupCriterion, sp: string): Promise<number> {
   const ids = candidates.filter((p) => normalizeSpecies(p.species) === sp).map((p) => p.id);
   if (ids.length === 0) return 1;
   const loci = await getAllPetLociCached(ids);
-  const counts = ids.map((id) => evaluateAttribute(criterion, loci.get(id)).matched).sort((a, b) => a - b);
+  const counts = ids.map((id) => evaluateGroup(criterion, loci.get(id)).matched).sort((a, b) => a - b);
   return counts[Math.floor(counts.length / 2)] ?? 1;
 }
 
-async function addAttribute(): Promise<void> {
+async function addGroup(): Promise<void> {
   const sp = speciesForGenes;
-  if (!sp || !selAttr || adding) return;
+  const group = groups.find((g) => g.label === selLabel);
+  if (!sp || !group || adding) return;
   adding = true;
   try {
-    const expanded = await expandAttributeCriterion(sp, selAttr, selWant);
+    const expanded = await expandGroupCriterion(sp, group.source, selWant);
     if (!expanded) return;
     const median = await medianMatched(expanded, sp);
     const criterion = normalizeCriterion({ ...expanded, min: median });
     if (criterion) addGeneCriterion(criterion, sp);
-    selAttr = '';
+    selLabel = '';
   } finally {
     adding = false;
   }
@@ -122,23 +119,23 @@ async function addAttribute(): Promise<void> {
 
 // --- Chip editing -----------------------------------------------------------
 
-function setThreshold(index: number, criterion: AttributeCriterion, min: number): void {
+function setThreshold(index: number, criterion: GroupCriterion, min: number): void {
   const next = normalizeCriterion({ ...criterion, min });
   if (next) replaceGeneCriterion(index, next);
 }
 
 /** Changing the want re-derives every locus's allow set — a re-expansion with the threshold kept. */
-async function setWant(index: number, criterion: AttributeCriterion, want: AttributeWant): Promise<void> {
+async function setWant(index: number, criterion: GroupCriterion, want: GroupWant): Promise<void> {
   if (want === criterion.want) return;
-  const expanded = await expandAttributeCriterion(myPetsView.geneSpecies, criterion.attribute, want);
+  const expanded = await expandGroupCriterion(myPetsView.geneSpecies, criterion.source, want);
   if (!expanded) return;
   const next = normalizeCriterion({ ...expanded, min: criterion.min });
   if (next) replaceGeneCriterion(index, next);
 }
 
 /** Re-snapshot against the current effects DB (§11: snapshots are stable; this is the opt-in refresh). */
-async function reExpand(index: number, criterion: AttributeCriterion): Promise<void> {
-  const expanded = await expandAttributeCriterion(myPetsView.geneSpecies, criterion.attribute, criterion.want);
+async function reExpand(index: number, criterion: GroupCriterion): Promise<void> {
+  const expanded = await expandGroupCriterion(myPetsView.geneSpecies, criterion.source, criterion.want);
   if (!expanded) {
     removeGeneCriterion(index);
     return;
@@ -176,8 +173,8 @@ const verdicts = $derived.by(() => {
   return tally;
 });
 
-function chipLabel(c: AttributeCriterion): string {
-  return `${c.attribute} · ${c.want} ≥${c.min} of ${c.loci.length}`;
+function chipLabel(c: GroupCriterion): string {
+  return `${c.label} · ${c.want} ≥${c.min} of ${c.loci.length}`;
 }
 </script>
 
@@ -217,14 +214,25 @@ function chipLabel(c: AttributeCriterion): string {
         <div class="gf-adder">
           <select
             class="gf-select"
-            data-testid="gene-filter-attribute"
-            bind:value={selAttr}
-            aria-label="Attribute to filter by"
+            data-testid="gene-filter-group"
+            bind:value={selLabel}
+            aria-label="Attribute or chromosome to filter by"
           >
-            <option value="">Attribute…</option>
-            {#each offerable as a (a.attribute)}
-              <option value={a.attribute}>{a.attribute} ({a.lociCount} loci)</option>
-            {/each}
+            <option value="">Attribute / chromosome…</option>
+            {#if offerableAttrs.length > 0}
+              <optgroup label="Attributes">
+                {#each offerableAttrs as g (g.label)}
+                  <option value={g.label}>{g.label} ({g.lociCount} loci)</option>
+                {/each}
+              </optgroup>
+            {/if}
+            {#if offerableChroms.length > 0}
+              <optgroup label="Chromosomes">
+                {#each offerableChroms as g (g.label)}
+                  <option value={g.label}>{g.label} ({g.lociCount} loci)</option>
+                {/each}
+              </optgroup>
+            {/if}
           </select>
           <div class="seg" role="group" aria-label="Want">
             {#each WANTS as w (w)}
@@ -243,17 +251,17 @@ function chipLabel(c: AttributeCriterion): string {
             type="button"
             class="gf-add"
             data-testid="gene-filter-add"
-            disabled={!selAttr || adding}
-            onclick={addAttribute}
+            disabled={!selLabel || adding}
+            onclick={addGroup}
           >{adding ? 'Adding…' : '+ Add'}</button>
           <span class="gf-map-hint">Specific loci: click cells on the Reference genome map.</span>
         </div>
 
         {#if active.length > 0}
           <div class="gf-chips" data-testid="gene-filter-chips">
-            {#each active as criterion, i (criterion.kind === 'locus' ? `locus:${criterion.geneId}` : `attr:${criterion.attribute}`)}
-              {#if criterion.kind === 'attribute'}
-                <div class="gf-chip" data-testid="gene-chip-attribute">
+            {#each active as criterion, i (criterion.kind === 'locus' ? `locus:${criterion.geneId}` : `group:${criterion.label}`)}
+              {#if criterion.kind === 'group'}
+                <div class="gf-chip" data-testid="gene-chip-group">
                   <span class="gf-chip-label">{chipLabel(criterion)}</span>
                   <button
                     type="button"
@@ -268,7 +276,7 @@ function chipLabel(c: AttributeCriterion): string {
                     type="button"
                     class="gf-chip-btn"
                     data-testid="gene-chip-remove"
-                    aria-label="Remove {criterion.attribute} criterion"
+                    aria-label="Remove {criterion.label} criterion"
                     onclick={() => {
                       editingIndex = null;
                       removeGeneCriterion(i);
@@ -277,7 +285,7 @@ function chipLabel(c: AttributeCriterion): string {
                 </div>
                 {#if editingIndex === i}
                   <div class="gf-editor" data-testid="gene-chip-editor">
-                    <div class="seg" role="group" aria-label="Want for {criterion.attribute}">
+                    <div class="seg" role="group" aria-label="Want for {criterion.label}">
                       {#each WANTS as w (w)}
                         <button
                           type="button"
