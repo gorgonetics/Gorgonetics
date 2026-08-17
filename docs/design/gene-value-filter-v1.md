@@ -150,13 +150,15 @@ Gene ids are only comparable **within a species** — `01A1` names a different l
 
 So the criteria set carries a species (one field on the filter, not one per criterion — §7), and **activating gene criteria sets the roster's species filter to that species and locks it** while criteria are active. The alternative — silently excluding every pet of another species — produces a roster that has quietly become single-species with no visible reason.
 
-### 5d. Breed-locked genes (horse)
+### 5d. Breed-locked genes (horse): they do not gate
 
-Not an edge case: **1320 of 1576** horse loci are breed-locked (10 breeds × 132 each), including **71 of the 86** Toughness clean-positive loci. The app already has semantics for them: `getPetGeneStats` excludes a breed-locked gene from a purebred pet's stats when the breeds mismatch (`isHorseBreedFiltered`). An expansion that ignored this would contradict the pet detail's own stats — and rank every purebred below every Mixed pet on a denominator mostly made of loci that are inert for it (a purebred Standardbred's relevant Toughness loci are 15 unlocked + 7 of its breed = 22 of 86).
+Not an edge case: **1320 of 1576** horse loci are breed-locked (10 breeds × 132 each), including **71 of the 86** Toughness clean-positive loci. The pet detail's stats exclude a breed-locked gene from a purebred pet when the breeds mismatch (`isHorseBreedFiltered` in `getPetGeneStats`) — the gene's *effect* does not act on that pet.
 
-So **attribute criteria honour the same rule**. Each snapshotted locus carries its breed lock; a locus is **relevant** to a pet unless `isHorseBreedFiltered` excludes it. `matched` and `unrevealed` count over relevant loci only, and the roster column shows the per-pet denominator (`22/22` for a perfect Standardbred, `61/86` for a Mixed) — an honest count of good alleles that actually act on that pet. The threshold `min` stays an **absolute matched count shared across pets**: a Mixed pet with 61 active good alleles genuinely has more of them than a purebred with 22, which is exactly what `getPetGeneStats` already says. When the roster's breed filter selects a single breed, the slider max and the chip's denominator narrow to that breed's relevant count, so a threshold is never unreachable for the population actually shown.
+**The filter deliberately does not apply that rule.** Breed-locked genes still inherit: a parent passes them to its offspring regardless of the parent's own breed, so a player hunting Calico alleles to breed toward a Calico foal needs them counted on a Kurbone. This is a breeding tool, and the question it answers is *"which alleles does this pet carry, and can pass on?"* — not *"which effects act on this pet?"*. So every expansion locus counts for every pet, the denominator is uniform (`Toughness 61/86` means the same thing on every row), and thresholds compare like for like across breeds.
 
-**Locus criteria are exempt.** A hand-picked locus filters on the allele state itself — the player may be breeding toward that breed, or after an appearance gene — so breed-lock does not apply to the `locus` kind. Only effect-based (attribute) criteria inherit the stats rule.
+The cost is an intentional divergence: the filter's `61/86` will not match the pet detail's Toughness stats, which answer the effects question and exclude breed-mismatched genes. The Genes section states this where the counts are shown (*"counts include breed-locked genes — alleles inherit regardless of breed"*), because the mismatch will otherwise be read as a bug.
+
+The roster's existing breed filter composes as before for players who only care about pets of one breed; the gene counts do not change meaning when it is set.
 
 ## 6. Where it lives
 
@@ -213,24 +215,24 @@ export type KnownGeneType = Exclude<GeneType, '?'>;
 export type AllowedStates = KnownGeneType[];
 
 export type GeneCriterion =
-  /** One locus must match. Exempt from breed-locking (§5d). */
+  /** One locus must match. */
   | { kind: 'locus'; geneId: string; allow: AllowedStates }
-  /** At least `min` of the pet-relevant `loci` must match — see §4/§5a/§5d. */
+  /** At least `min` of `loci` must match — see §4/§5a. Breed-lock does not gate (§5d). */
   | {
       kind: 'attribute';
       attribute: string;
       /** Resolved from the parsed effect columns at expansion time and snapshotted (§11). */
-      loci: { geneId: string; allow: AllowedStates; breed: string }[];
+      loci: { geneId: string; allow: AllowedStates }[];
       /** Matched-count threshold; clamped to ≥ 1 at creation (§8). */
       min: number;
     };
 
-/** Per-attribute counts for the roster column; denominators are per-pet (§5d). */
+/** Per-attribute counts for the roster column. */
 export function petGeneMatchCounts(
   pet: Pet,
   criteria: GeneCriterion[],
   loci: ReadonlyMap<number, PetLoci>,
-): Map<string, { matched: number; relevant: number; unrevealed: number }>;
+): Map<string, { matched: number; total: number; unrevealed: number }>;
 
 export function petMatchesFilters(
   pet: Pet,
@@ -255,7 +257,7 @@ At most one attribute criterion per attribute — selecting an attribute that al
 - **`min` below 1.** Not a filter — a vacuous threshold passes everything, including pets with no data, which contradicts the no-projection rule above. `min` is clamped to `[1, expansion size]` at creation; the predicate evaluates a (non-UI-reachable) `min ≤ 0` as satisfied rather than special-casing it, but no UI path produces one.
 - **Duplicate attribute criteria.** Disallowed — selecting an already-active attribute edits its existing chip. Keeps §7's per-attribute count map unambiguous.
 - **Attribute expansion yields zero loci.** Real, not hypothetical: Ferocity has 0 loci in the horse data (§4). Say so — do not present an empty criterion set as an active filter, and do not offer the attribute for a species where it scores nothing.
-- **Breed-locked loci.** §5d: excluded per pet from `matched`, `relevant`, and `unrevealed` alike for attribute criteria; never excluded for locus criteria.
+- **Breed-locked loci.** §5d: never gate — counted for every pet in both criterion kinds; the divergence from `getPetGeneStats` is intentional and surfaced in the UI.
 - **Mixed-species roster.** Covered by §5c: species is forced while criteria are active.
 
 ## 9. Scope
@@ -264,10 +266,10 @@ At most one attribute criterion per attribute — selecting an attribute that al
 - `GeneCriterion` model (both kinds) + `petMatchesFilters` extension (pure, unit-tested).
 - Loci store with sorted-id caching, feeding MyPets.
 - FilterBar "Genes" section: attribute expansion with threshold (§5a) and locus chips (§6).
-- Sortable per-attribute match-count roster column while an attribute criterion is active (§5a), breed-aware per §5d.
+- Sortable per-attribute match-count roster column while an attribute criterion is active (§5a); uniform denominators — breed-lock does not gate (§5d).
 - Genome-map click-to-add (§5b).
 - Not-revealed / not-imported exclusion counts surfaced in the result (§3).
-- Species forcing (§5c); per-pet breed relevance for horse expansions (§5d).
+- Species forcing (§5c); breed-lock transparency note in the Genes section (§5d).
 
 **Explicitly out of scope:**
 - **Rarity composition (#465)** — this design deliberately ships no rarity colour, so the two can be combined without undoing anything here.
@@ -286,8 +288,8 @@ At most one attribute criterion per attribute — selecting an attribute that al
 - **Absent locus behaves as `?`**, and a pet missing from the loci map entirely fails without throwing — the two different "no data" paths from §8, which must not be conflated in the counts.
 - **AND across criteria**: a pet satisfying 2 of 3 fails; order of criteria is irrelevant.
 - **Attribute threshold arithmetic**: a pet matching exactly `min` passes and `min - 1` fails (boundary); the predicate evaluates a (non-UI-reachable) `min ≤ 0` as vacuously satisfied while the UI clamps to ≥ 1 (§8); `min = total` is the conjunction the §4 table shows is unusable, and must still evaluate correctly rather than being special-cased away.
-- **Unrevealed loci do not inflate the count.** A pet reading `?` at 30 of its 86 relevant Toughness loci scores out of 86, not out of 56 — the count and the threshold must share the pet's denominator, or a poorly-studied pet ranks above a well-studied one by having fewer chances to fail. This is the §3 rule applied to the count, and it is the most likely subtle bug in the feature.
-- **Breed relevance (§5d)**: a purebred pet excludes breed-mismatched loci from `matched`, `relevant`, and `unrevealed` alike; a Mixed pet includes everything; a `locus` criterion on a breed-locked gene still evaluates for every pet; the slider max / chip denominator narrow when the roster's breed filter selects a single breed.
+- **Unrevealed loci do not inflate the count.** A pet reading `?` at 30 of 86 Toughness loci scores out of 86, not out of 56 — the count and the threshold must share a denominator, or a poorly-studied pet ranks above a well-studied one by having fewer chances to fail. This is the §3 rule applied to the count, and it is the most likely subtle bug in the feature.
+- **Breed-lock does not gate (§5d)**: a breed-locked locus counts toward `matched` / `total` / `unrevealed` for pets of any breed, in both criterion kinds; the denominator is uniform across the roster regardless of pet breed.
 - **A 124-locus expansion evaluates without pathological cost** — the realistic size from the §4 table, not a 3-locus toy.
 - **Exclusion counts are correct and distinguish their causes** — not-revealed vs not-imported reported separately, using §3's could-pass-if-studied definition for attribute criteria, and matches + not-revealed + definite non-matches + not-imported equals the candidate count. This is the assertion that stops §3's empty-roster trap from regressing into a silent zero.
 - **Expansion parity with the parsed columns**: an attribute's expansion equals what `dominant_attribute` / `recessive_attribute` + sign yield directly, and the horse counts are pinned (86 Toughness, 112 Intelligence, …, 0 Ferocity — §4 table); a regression that halves an expansion is invisible without them. An unparseable effect string (e.g. `Toughness+?`) contributes no expansion locus; a both-alleles-positive locus is skipped, not misassigned.
@@ -306,7 +308,7 @@ At most one attribute criterion per attribute — selecting an attribute that al
 - The filter narrows the **roster**, not a genome view — §1, §6.
 - **Both** selection paths ship: attribute expansion is primary, map clicking is the escape hatch for appearance genes, arbitrary loci, and effect strings the strict parse rejects — §5.
 - Expansions build on the **parsed effect columns** (`getParsedGenesCached`), not the grids' display heuristics — §5a. Same definition as `getPetGeneStats`, both string-matching failure modes structurally absent.
-- Attribute criteria honour horse **breed-locking** per pet; locus criteria do not — §5d.
+- Horse **breed-locking never gates the filter** — breed-locked alleles inherit regardless of the parent's breed, so the filter counts what a pet carries; the stats view (which excludes breed-mismatched *effects* per pet) answers a different question, and the divergence is stated in the UI — §5d.
 - An expansion **snapshots** at creation. A template edit in Reference never mutates an active filter under the player; the chip's editor offers *re-expand* to pick up changes. (The parsed columns update on template save either way, so tracking would have been cheap but unpredictable.)
 - The **three-way want control stays uniform**. For any single locus two of the three wants coincide (dominant arm: carries = expresses; recessive arm: expresses = pure), but expansions mix arms — Toughness is 37 D-arm + 49 R-arm — where all three produce different results. Locus chips expose raw `{D, R, x}` toggles and need no want control.
 - ~~How many loci is an attribute expansion allowed to add?~~ **Answered by measurement** — an expansion is 112–155 loci (§4), which is why the attribute kind is a threshold rather than a conjunction. No cap is needed; the chip renders as one attribute chip, not N locus chips.
