@@ -5,6 +5,7 @@
  */
 
 import type { Gender } from '$lib/types/index.js';
+import type { GeneCriterion } from '$lib/utils/geneCriteria.js';
 import type { PetListFilters } from '$lib/utils/petFilter.js';
 
 export const myPetsView = $state({
@@ -19,6 +20,12 @@ export const myPetsView = $state({
   stabledOnly: false,
   petQualityOnly: false,
   tags: [] as string[],
+  /** Gene criteria, ANDed (docs/design/gene-value-filter-v1.md). */
+  geneCriteria: [] as GeneCriterion[],
+  /** Species the gene criteria belong to; '' while none are active (§5c). */
+  geneSpecies: '' as string,
+  /** Whether the collapsible Genes section is expanded. */
+  genesOpen: false,
   /** Roster (table) sort — column id + direction. */
   sortCol: 'name' as string,
   sortDir: 'asc' as 'asc' | 'desc',
@@ -45,7 +52,46 @@ export function getMyPetsFilters(): PetListFilters {
     species: myPetsView.species,
     breed: myPetsView.breed,
     gender: myPetsView.gender,
+    geneFilter:
+      myPetsView.geneCriteria.length > 0
+        ? { species: myPetsView.geneSpecies, criteria: myPetsView.geneCriteria }
+        : undefined,
   };
+}
+
+/** Whether gene criteria are active — the species filter is forced and locked while they are (§5c). */
+export function geneCriteriaActive(): boolean {
+  return myPetsView.geneCriteria.length > 0;
+}
+
+/**
+ * Add a gene criterion for `species`. The first criterion adopts the
+ * species and **forces the roster's species filter** to it — the
+ * alternative (silently excluding every other species) produces a roster
+ * that quietly became single-species with no visible reason (§5c).
+ * Reassigns the array so `$state` tracks the change.
+ */
+export function addGeneCriterion(criterion: GeneCriterion, species: string): void {
+  if (myPetsView.geneCriteria.length === 0) myPetsView.geneSpecies = species;
+  else if (species !== myPetsView.geneSpecies) return; // criteria never mix species (§5c)
+  myPetsView.geneCriteria = [...myPetsView.geneCriteria, criterion];
+  myPetsView.species = myPetsView.geneSpecies;
+  myPetsView.genesOpen = true;
+}
+
+/** Replace a criterion in place (edit of want / threshold / allow set). */
+export function replaceGeneCriterion(index: number, criterion: GeneCriterion): void {
+  myPetsView.geneCriteria = myPetsView.geneCriteria.map((c, i) => (i === index ? criterion : c));
+}
+
+export function removeGeneCriterion(index: number): void {
+  myPetsView.geneCriteria = myPetsView.geneCriteria.filter((_, i) => i !== index);
+  if (myPetsView.geneCriteria.length === 0) myPetsView.geneSpecies = '';
+}
+
+export function clearGeneCriteria(): void {
+  myPetsView.geneCriteria = [];
+  myPetsView.geneSpecies = '';
 }
 
 /** Replace the selection set (reassign so $state tracks the change). */

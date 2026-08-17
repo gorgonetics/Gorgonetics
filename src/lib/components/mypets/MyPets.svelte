@@ -11,6 +11,7 @@
 
 import BulkSharePetDialog from '$lib/components/community/BulkSharePetDialog.svelte';
 import GenomeGridDiff from '$lib/components/comparison/GenomeGridDiff.svelte';
+import GeneFilterSection from '$lib/components/mypets/GeneFilterSection.svelte';
 import Roster from '$lib/components/mypets/Roster.svelte';
 import PetVisualization from '$lib/components/pet/PetVisualization.svelte';
 import DetailOverlay from '$lib/components/shared/DetailOverlay.svelte';
@@ -19,14 +20,17 @@ import FilterBar from '$lib/components/shared/FilterBar.svelte';
 import PageHeader from '$lib/components/shared/PageHeader.svelte';
 import { isPlaceholderConfig } from '$lib/firebase.js';
 import { getSupportedSpecies, normalizeSpecies } from '$lib/services/configService.js';
+import { getAllPetLociCached } from '$lib/services/petLociCache.js';
 import { bulkShareJob, startBulkShare } from '$lib/stores/bulkShare.svelte.js';
 import { pendingImportCount } from '$lib/stores/gameImport.js';
 import { clearMyPetsSelection, getMyPetsFilters, myPetsView } from '$lib/stores/mypets.svelte.js';
 import { allTags, loading, pets } from '$lib/stores/pets.js';
 import { type Gender, type Pet } from '$lib/types/index.js';
 import { focusTrap } from '$lib/utils/focusTrap.js';
+import { attributeMatchCounts } from '$lib/utils/geneCriteria.js';
 import { createGenomeUploadController } from '$lib/utils/genomeUploadController.svelte.js';
 import { filterPets } from '$lib/utils/petFilter.js';
+import type { PetLoci } from '$lib/utils/petLoci.js';
 import { BREEDS_BY_SPECIES, getSpeciesEmoji } from '$lib/utils/species.js';
 
 const speciesOptions = getSupportedSpecies();
@@ -126,10 +130,52 @@ $effect(() => {
   }
 });
 
+// --- Gene filter data flow (docs/design/gene-value-filter-v1.md §7) ---------
+// The predicate stays pure and sync; pet_genes is bulk-loaded once per pet set
+// and injected. While the load is in flight `lociMap` is undefined and the
+// gene criteria are NOT applied — the roster must never flash "0 matches"
+// because data hasn't arrived.
+const geneActive = $derived(myPetsView.geneCriteria.length > 0);
+let lociMap = $state<Map<number, PetLoci> | undefined>(undefined);
+$effect(() => {
+  if (!geneActive) {
+    lociMap = undefined;
+    return;
+  }
+  const ids = $pets.filter((p) => normalizeSpecies(p.species) === myPetsView.geneSpecies).map((p) => p.id);
+  let cancelled = false;
+  getAllPetLociCached(ids)
+    .then((m) => {
+      if (!cancelled) lociMap = m;
+    })
+    .catch((err) => {
+      console.error('gene filter: failed to load pet loci', err);
+      if (!cancelled) lociMap = new Map();
+    });
+  return () => {
+    cancelled = true;
+  };
+});
+
 // Visible pets = the filtered set, computed once and passed to the Roster as a
 // prop (#405). The selection is scoped to these so a pet hidden by a
 // search/breed/gender/flag filter can't drive Compare or Share while off-screen.
-const visiblePets = $derived(filterPets($pets, getMyPetsFilters()));
+const visiblePets = $derived(filterPets($pets, getMyPetsFilters(), lociMap));
+
+// The §3 exclusion counts are over the pets passing every *other* filter —
+// the population the player is actually looking at.
+const preGenePets = $derived(
+  geneActive ? filterPets($pets, { ...getMyPetsFilters(), geneFilter: undefined }) : visiblePets,
+);
+
+// Per-pet attribute match counts for the roster column (§5a).
+const geneCounts = $derived.by(() => {
+  if (!geneActive || !lociMap) return undefined;
+  const loaded = lociMap;
+  const m = new Map<number, ReturnType<typeof attributeMatchCounts>>();
+  for (const p of visiblePets) m.set(p.id, attributeMatchCounts(myPetsView.geneCriteria, loaded.get(p.id)));
+  return m;
+});
 const selectedPets = $derived(visiblePets.filter((p) => myPetsView.selectedIds.has(p.id)));
 const compareSpecies = $derived(selectedPets.length === 2 ? normalizeSpecies(selectedPets[0].species) : '');
 const canCompare = $derived(
@@ -194,6 +240,8 @@ const canShareAll = $derived(!isPlaceholderConfig && $pets.length > 0);
           species={speciesOptions}
           activeSpecies={myPetsView.species}
           onSpecies={(v) => { myPetsView.species = v; }}
+          speciesLocked={geneActive}
+          speciesLockTitle="Species is locked while gene criteria are active — clear the Genes filter to change it"
           breeds={breedsForSpecies}
           breed={myPetsView.breed}
           onBreed={(v) => { myPetsView.breed = v; }}
@@ -208,6 +256,10 @@ const canShareAll = $derived(!isPlaceholderConfig && $pets.length > 0);
         />
       {/snippet}
     </PageHeader>
+
+    <!-- Gene value filter (#369) — collapsible power feature, below the common
+         controls so it never crowds the everyday path. -->
+    <GeneFilterSection candidates={preGenePets} {lociMap} />
 
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div
@@ -229,7 +281,7 @@ const canShareAll = $derived(!isPlaceholderConfig && $pets.length > 0);
           />
         </div>
       {:else}
-        <Roster pets={visiblePets} onOpen={openDetail} />
+        <Roster pets={visiblePets} onOpen={openDetail} {geneCounts} />
       {/if}
     </div>
 
