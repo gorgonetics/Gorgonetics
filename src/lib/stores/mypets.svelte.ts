@@ -59,11 +59,6 @@ export function getMyPetsFilters(): PetListFilters {
   };
 }
 
-/** Whether gene criteria are active — the species filter is forced and locked while they are (§5c). */
-export function geneCriteriaActive(): boolean {
-  return myPetsView.geneCriteria.length > 0;
-}
-
 /**
  * Add a gene criterion for `species`. The first criterion adopts the
  * species and **forces the roster's species filter** to it — the

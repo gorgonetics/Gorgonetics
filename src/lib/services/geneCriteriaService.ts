@@ -15,7 +15,6 @@ import { getAttributeConfig, normalizeSpecies } from '$lib/services/configServic
 import { getParsedGenesCached, type ParsedGeneRecord } from '$lib/services/geneService.js';
 import { GeneType } from '$lib/types/index.js';
 import type { AllowedStates, AttributeCriterion, AttributeWant, KnownGeneType } from '$lib/utils/geneCriteria.js';
-import { capitalize } from '$lib/utils/string.js';
 
 /** An attribute offered for expansion, with its scoring-locus count. */
 export interface ExpandableAttribute {
@@ -25,18 +24,21 @@ export interface ExpandableAttribute {
 }
 
 /**
- * The allele whose effect is a clean positive for `attribute`, or null.
- * A locus positive on **both** alleles for the same attribute is
- * ambiguous — none exist in the shipped data (0 of 1576) — and is
- * skipped rather than silently included (§5a).
+ * The clean-positive alleles of one gene record, as `[attributeLower,
+ * allele]` pairs. A locus positive on **both** alleles for the same
+ * attribute is ambiguous — none exist in the shipped data (0 of 1576) —
+ * and yields nothing for that attribute rather than being silently
+ * included (§5a). The single source of that rule: both the offered
+ * counts and the expansion derive from it, so they cannot disagree (§10).
  */
-function goodAlleleFor(record: ParsedGeneRecord, attributeLower: string): KnownGeneType | null {
-  const domGood = record.dominantAttribute === attributeLower && record.dominantSign === '+';
-  const recGood = record.recessiveAttribute === attributeLower && record.recessiveSign === '+';
-  if (domGood && recGood) return null;
-  if (domGood) return GeneType.DOMINANT;
-  if (recGood) return GeneType.RECESSIVE;
-  return null;
+function goodAlleles(record: ParsedGeneRecord): [string, KnownGeneType][] {
+  const dom = record.dominantSign === '+' ? record.dominantAttribute : null;
+  const rec = record.recessiveSign === '+' ? record.recessiveAttribute : null;
+  if (dom && dom === rec) return [];
+  const out: [string, KnownGeneType][] = [];
+  if (dom) out.push([dom, GeneType.DOMINANT]);
+  if (rec) out.push([rec, GeneType.RECESSIVE]);
+  return out;
 }
 
 /**
@@ -63,15 +65,9 @@ export function allowForWant(goodAllele: KnownGeneType, want: AttributeWant): Al
 export async function listExpandableAttributes(species: string): Promise<ExpandableAttribute[]> {
   const key = normalizeSpecies(species);
   const parsed = await getParsedGenesCached(key);
-  // Count per attribute exactly as the expansion resolves loci, so the
-  // offered count and the snapshot size cannot disagree (§10 parity).
   const counts = new Map<string, number>();
   for (const record of Object.values(parsed)) {
-    const domGood = record.dominantSign === '+' ? record.dominantAttribute : null;
-    const recGood = record.recessiveSign === '+' ? record.recessiveAttribute : null;
-    if (domGood && domGood === recGood) continue; // ambiguous locus — expands to nothing (§5a)
-    if (domGood) counts.set(domGood, (counts.get(domGood) ?? 0) + 1);
-    if (recGood) counts.set(recGood, (counts.get(recGood) ?? 0) + 1);
+    for (const [attr] of goodAlleles(record)) counts.set(attr, (counts.get(attr) ?? 0) + 1);
   }
   const out: ExpandableAttribute[] = [];
   for (const attr of getAttributeConfig(key).attributes) {
@@ -98,11 +94,11 @@ export async function expandAttributeCriterion(
   const attributeLower = attribute.toLowerCase();
   const loci: { geneId: string; allow: AllowedStates }[] = [];
   for (const [geneId, record] of Object.entries(parsed)) {
-    const good = goodAlleleFor(record, attributeLower);
-    if (!good) continue;
-    loci.push({ geneId, allow: allowForWant(good, want) });
+    for (const [attr, allele] of goodAlleles(record)) {
+      if (attr === attributeLower) loci.push({ geneId, allow: allowForWant(allele, want) });
+    }
   }
   if (loci.length === 0) return null;
   loci.sort((a, b) => a.geneId.localeCompare(b.geneId));
-  return { kind: 'attribute', attribute: capitalize(attributeLower), want, loci, min: 1 };
+  return { kind: 'attribute', attribute, want, loci, min: 1 };
 }

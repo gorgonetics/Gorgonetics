@@ -55,7 +55,7 @@ export interface GeneFilter {
 const ALL_STATES: readonly KnownGeneType[] = [GeneType.DOMINANT, GeneType.RECESSIVE, GeneType.MIXED];
 
 /** All three real states — not a filter, it's the absence of one (§2). */
-export function allowsEveryState(allow: AllowedStates): boolean {
+function allowsEveryState(allow: AllowedStates): boolean {
   return ALL_STATES.every((s) => allow.includes(s));
 }
 
@@ -129,18 +129,19 @@ export function attributeMatchCounts(
  * Why a pet is (or isn't) in the result. `not-revealed` means re-studying
  * the pet could still make it pass — for a locus criterion the pet reads
  * `?` there; for an attribute criterion `matched + unrevealed ≥ min` (§3).
- * `not-imported` is a pet with no projection at all — a different fix
- * ("upload/re-import") from "re-study" (§8). Total and disjoint, so
- * matches + not-revealed + no-match + not-imported = candidates (§10).
+ * `not-imported` — `loci` is `undefined`, i.e. the pet is absent from the
+ * loaded map, which `loadAllPetLoci` reserves for pets with no projection
+ * at all — is a different fix ("upload/re-import") from "re-study" (§8).
+ * Total and disjoint, so matches + not-revealed + no-match + not-imported
+ * = candidates (§10).
  */
 export type GeneFilterVerdict = 'match' | 'not-revealed' | 'no-match' | 'not-imported';
 
 export function classifyAgainstCriteria(
   loci: PetLoci | undefined,
   criteria: readonly GeneCriterion[],
-  hasProjection: boolean,
 ): GeneFilterVerdict {
-  if (!hasProjection) return 'not-imported';
+  if (loci === undefined) return 'not-imported';
   let couldStudyOut = false;
   for (const criterion of criteria) {
     if (criterion.kind === 'locus') {

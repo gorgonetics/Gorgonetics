@@ -46,11 +46,6 @@ interface Props {
 
 const { candidates, lociMap }: Props = $props();
 
-const WANT_LABELS: Record<AttributeWant, string> = {
-  expresses: 'expresses',
-  carries: 'carries',
-  pure: 'pure',
-};
 const WANTS: AttributeWant[] = ['expresses', 'carries', 'pure'];
 const STATES: { state: KnownGeneType; label: string }[] = [
   { state: GeneType.DOMINANT, label: 'D' },
@@ -176,13 +171,13 @@ const verdicts = $derived.by(() => {
   if (active.length === 0 || !lociMap) return null;
   const tally: Record<GeneFilterVerdict, number> = { match: 0, 'not-revealed': 0, 'no-match': 0, 'not-imported': 0 };
   for (const p of speciesCandidates) {
-    tally[classifyAgainstCriteria(lociMap.get(p.id), active, lociMap.has(p.id))]++;
+    tally[classifyAgainstCriteria(lociMap.get(p.id), active)]++;
   }
   return tally;
 });
 
 function chipLabel(c: AttributeCriterion): string {
-  return `${c.attribute} · ${WANT_LABELS[c.want]} ≥${c.min} of ${c.loci.length}`;
+  return `${c.attribute} · ${c.want} ≥${c.min} of ${c.loci.length}`;
 }
 </script>
 
@@ -241,7 +236,7 @@ function chipLabel(c: AttributeCriterion): string {
                 onclick={() => {
                   selWant = w;
                 }}
-              >{WANT_LABELS[w]}</button>
+              >{w}</button>
             {/each}
           </div>
           <button
@@ -290,7 +285,7 @@ function chipLabel(c: AttributeCriterion): string {
                           class:active={criterion.want === w}
                           aria-pressed={criterion.want === w}
                           onclick={() => setWant(i, criterion, w)}
-                        >{WANT_LABELS[w]}</button>
+                        >{w}</button>
                       {/each}
                     </div>
                     <label class="gf-slider">

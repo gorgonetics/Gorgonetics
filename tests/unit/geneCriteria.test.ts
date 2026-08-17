@@ -133,21 +133,21 @@ describe('classifyAgainstCriteria — exclusion causes (§3/§8)', () => {
   const criteria: GeneCriterion[] = [{ kind: 'locus', geneId: '01A1', allow: [GeneType.RECESSIVE] }];
 
   it('distinguishes match / not-revealed / no-match / not-imported', () => {
-    expect(classifyAgainstCriteria(loci({ '01A1': GeneType.RECESSIVE }), criteria, true)).toBe('match');
-    expect(classifyAgainstCriteria(loci({ '01A1': GeneType.UNKNOWN }), criteria, true)).toBe('not-revealed');
-    expect(classifyAgainstCriteria(loci({}), criteria, true)).toBe('not-revealed');
-    expect(classifyAgainstCriteria(loci({ '01A1': GeneType.DOMINANT }), criteria, true)).toBe('no-match');
-    expect(classifyAgainstCriteria(undefined, criteria, false)).toBe('not-imported');
+    expect(classifyAgainstCriteria(loci({ '01A1': GeneType.RECESSIVE }), criteria)).toBe('match');
+    expect(classifyAgainstCriteria(loci({ '01A1': GeneType.UNKNOWN }), criteria)).toBe('not-revealed');
+    expect(classifyAgainstCriteria(loci({}), criteria)).toBe('not-revealed');
+    expect(classifyAgainstCriteria(loci({ '01A1': GeneType.DOMINANT }), criteria)).toBe('no-match');
+    expect(classifyAgainstCriteria(undefined, criteria)).toBe('not-imported');
   });
 
   it('attribute criteria use the could-pass-if-studied rule (§3)', () => {
     const c = [attr({ min: 2 })];
     // matched 1, unrevealed 1 → 1 + 1 ≥ 2, re-studying could flip it.
     const couldPass = loci({ '01A1': GeneType.RECESSIVE, '01A2': GeneType.UNKNOWN, '01A3': GeneType.RECESSIVE });
-    expect(classifyAgainstCriteria(couldPass, c, true)).toBe('not-revealed');
+    expect(classifyAgainstCriteria(couldPass, c)).toBe('not-revealed');
     // matched 1, unrevealed 0 → definite non-match even if fully studied.
     const definite = loci({ '01A1': GeneType.RECESSIVE, '01A2': GeneType.DOMINANT, '01A3': GeneType.RECESSIVE });
-    expect(classifyAgainstCriteria(definite, c, true)).toBe('no-match');
+    expect(classifyAgainstCriteria(definite, c)).toBe('no-match');
   });
 
   it('a definite fail on any criterion dominates a could-study-out on another', () => {
@@ -155,9 +155,7 @@ describe('classifyAgainstCriteria — exclusion causes (§3/§8)', () => {
       { kind: 'locus', geneId: '01A1', allow: [GeneType.RECESSIVE] }, // will read ?
       { kind: 'locus', geneId: '01A2', allow: [GeneType.RECESSIVE] }, // will definitively fail
     ];
-    expect(classifyAgainstCriteria(loci({ '01A1': GeneType.UNKNOWN, '01A2': GeneType.DOMINANT }), c, true)).toBe(
-      'no-match',
-    );
+    expect(classifyAgainstCriteria(loci({ '01A1': GeneType.UNKNOWN, '01A2': GeneType.DOMINANT }), c)).toBe('no-match');
   });
 
   it('verdicts partition the candidates: counts sum to the population (§10)', () => {
@@ -169,7 +167,7 @@ describe('classifyAgainstCriteria — exclusion causes (§3/§8)', () => {
       undefined, // not-imported
     ];
     const tally = { match: 0, 'not-revealed': 0, 'no-match': 0, 'not-imported': 0 };
-    for (const p of population) tally[classifyAgainstCriteria(p, c, p !== undefined)]++;
+    for (const p of population) tally[classifyAgainstCriteria(p, c)]++;
     expect(tally).toEqual({ match: 1, 'not-revealed': 1, 'no-match': 1, 'not-imported': 1 });
     expect(Object.values(tally).reduce((a, b) => a + b, 0)).toBe(population.length);
   });
