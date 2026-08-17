@@ -1,6 +1,6 @@
 # Gene Value Filter — v1 Design
 
-**Status:** Proposed — not yet implemented. For review.
+**Status:** Accepted — revised after review (PR #470). Implementation in progress.
 **Issue:** #369 (advanced pet filtering by values on a subset of genes).
 **Related:** #465 (compose with rarity — "rare AND desirable", blocked on this), #368 (gene rarity lens — shipped for the local tiers; supplies the population machinery reused here), #367 (wild-horse analysis — future consumer).
 
@@ -65,6 +65,8 @@ Matches 7 of 31 pets
 
 And when *every* candidate is excluded that way, the empty state must say so explicitly rather than rendering the generic "no pets match" — the actionable advice is "re-study these pets", which no generic empty state can give. This mirrors §3's rule for the rarity baseline: misses must not shrink the denominator silently.
 
+**What "excluded — not revealed" means per criterion kind.** For a locus criterion the classification is crisp: the pet reads `?` (or has no row) at the filtered locus. For an attribute criterion it needs a definition, because a threshold can fail with or without unknowns involved: a pet is **excluded as not-revealed** when `matched < min` but `matched + unrevealed ≥ min` — re-studying could still make it pass. Otherwise it is a definite non-match. That makes the classification total and disjoint: matches + not-revealed exclusions + definite non-matches + not-imported (§8) = candidates, which is the invariant §10 tests.
+
 ## 4. Two kinds of criterion, ANDed
 
 There are **two** criterion kinds, because measurement of the horse data showed a single kind cannot serve both intents:
@@ -124,29 +126,21 @@ Matches 7 of 31 pets · 4 excluded (not revealed)
 
 **The count is the deliverable, not just the gate.** "How many good Toughness alleles does this pet carry" is the ranking a breeder actually wants, so an active attribute criterion also contributes a **sortable roster column** (`Toughness 61/86`). The threshold then becomes a convenience over a column the player can already read and sort by — and a player who does not know what threshold to ask for can sort instead, which is the more common case.
 
-The slider's default sits at the population median rather than at a fixed number: a threshold of 52 means nothing until you know whether that is exceptional or typical for this collection, and the median guarantees the filter opens showing roughly half the roster instead of zero or all of it.
+The slider's default sits at the **median of the per-pet matched counts over the pets passing the other active filters** rather than at a fixed number: a threshold of 52 means nothing until you know whether that is exceptional or typical for this collection, and the median guarantees the filter opens showing roughly half the roster instead of zero or all of it. With one or two pets the median is arbitrary — at that roster size the sortable column, not the threshold, is the useful interface, and that is fine.
 
-The expansion uses machinery that already exists in `geneGridCells.ts`:
+The expansion uses the **parsed effect columns**, not the grids' display heuristics. The `genes` table already carries `dominant_attribute` / `dominant_sign` / `recessive_attribute` / `recessive_sign`, produced by the strict `^[A-Za-z]+[+-]$` parse (`parsedEffectColumns` in `geneAnalysis.ts`), kept in sync on every GeneEditor save, self-healed by `backfillParsedGeneEffectsIfNeeded`, cached per species by `getParsedGenesCached`, and already the basis of `getPetGeneStats` — the app's canonical per-pet attribute stats. Measured on the horse data, the strict parse reproduces the "clean positive allele" column above **exactly**, so the expansion and the table share a definition for free.
 
-- `attributesForGene(geneId)` — the attributes a locus can affect via *either* allele.
-- `analyzeGene(geneId, type)` — the effect valence for a given allele: `positive`, `negative`, `neutral`, `potential-positive`, `potential-negative`.
+For each gene whose parsed record marks an allele `+` for the chosen attribute, that allele is the good one, and the want translates to an allowed state set (`carries` → `{allele, x}`, `expresses` → `{allele}` plus `x` when the allele is `D`, `pure` → `{allele}`). No shipped locus is positive on **both** alleles for the same attribute (measured: 0 of 1576); if a template edit ever produces one, the good allele is ambiguous and the locus is skipped, visible in the expansion inspector, rather than silently included. The three wants are genuinely distinct at the expansion level because the arms mix — Toughness is 37 D-arm + 49 R-arm loci — even though for any single locus two of the three coincide (§11, settled).
 
-For each locus affecting the chosen attribute, evaluate `analyzeGene(geneId, 'D')` and `analyzeGene(geneId, 'R')`, take whichever allele is positive, and translate the want into an allowed state set (`carries` → `{allele, x}`, `expresses` → `{allele}` plus `x` when the allele is `D`, `pure` → `{allele}`).
+**Why not `analyzeGene` / `attributesForGene` (`geneGridCells.ts`)?** Those are display heuristics: valence by `includes('+')` / `includes('-')` over free text, and `analyzeGene` reports only the first matching attribute (it `break`s). Building the filter on them imports two failure modes the parsed columns do not have: a malformed effect string fails the strict parse and **drops out** of the expansion — visible, the locus count shrinks — instead of being misread, and per-allele columns cannot conflate attributes. The grids keep their heuristics; the filter does not inherit them. A parity test pins the expansion against the measured counts (§10).
 
-**Two known weaknesses in that data, both inherited:**
-
-1. **Valence is string matching.** `analyzeGene` decides positive/negative by `effectStr.includes('+')` / `includes('-')` on free-text effect strings. A malformed or unusual effect string silently reads as neutral.
-2. **`analyzeGene` reports only the first matching attribute** — it `break`s out of the attribute loop. A locus affecting two attributes reports one. **This design must use `attributesForGene` (which returns the full set) for expansion, never `analyzeGene(...).attribute`** — reusing the latter would silently drop loci from an attribute's expansion.
-
-Both are pre-existing and out of scope to fix here, but they cap how much trust the attribute path can carry, and they are the main reason the map path below is not optional.
-
-**Potential effects** (`potential-positive` / `potential-negative`, i.e. effect strings containing `?` or "potential") are **excluded from the expansion by default**, with a checkbox to include them. Treating a maybe-beneficial allele as beneficial is exactly the kind of quiet overclaim that makes a filter untrustworthy.
+**Effect strings the strict parse rejects** — including "potential"-style strings (containing `?` or "potential") — are simply not in any expansion. Measured across both shipped species (1814 loci), **zero** effect strings are potential-style or name more than one attribute, so today this excludes nothing; a player who cares about a locus with an unparseable user-edited effect adds it through the map path (§5b). The earlier draft's "include potential effects" checkbox is dropped — it toggled an empty set.
 
 ### 5b. By clicking the genome map (refinement)
 
 The Reference destination's genome map already renders every locus for a species, at the same cell pitch as the pet grid. Clicking a cell adds a criterion for that locus; the criterion chip then exposes the `{D, R, x}` toggles directly.
 
-This is the escape hatch for everything the attribute path cannot express — a specific locus a player has learned matters, an appearance gene, or a locus whose effect string the valence heuristic reads wrong. It is also the only path that works for loci with no attribute effect at all (appearance genes).
+This is the escape hatch for everything the attribute path cannot express — a specific locus a player has learned matters, an appearance gene, or a locus whose effect string the strict parse rejects (§5a). It is also the only path that works for loci with no attribute effect at all (appearance genes).
 
 The two paths compose by ANDing: a Toughness threshold *and* a specific locus the player insists on. Map-added loci are always their own criteria — they are never folded into an attribute's locus list, so removing the attribute never silently removes a locus the player picked deliberately.
 
@@ -154,7 +148,15 @@ The two paths compose by ANDing: a Toughness threshold *and* a specific locus th
 
 Gene ids are only comparable **within a species** — `01A1` names a different locus for a horse than for a beewasp (`gene-rarity-lens-v1.md` §2 makes the same point for rarity baselines). The roster shows mixed species by default.
 
-So a gene criterion carries a species, and **activating gene criteria sets the roster's species filter to that species and locks it** while criteria are active. The alternative — silently excluding every pet of another species — produces a roster that has quietly become single-species with no visible reason.
+So the criteria set carries a species (one field on the filter, not one per criterion — §7), and **activating gene criteria sets the roster's species filter to that species and locks it** while criteria are active. The alternative — silently excluding every pet of another species — produces a roster that has quietly become single-species with no visible reason.
+
+### 5d. Breed-locked genes (horse)
+
+Not an edge case: **1320 of 1576** horse loci are breed-locked (10 breeds × 132 each), including **71 of the 86** Toughness clean-positive loci. The app already has semantics for them: `getPetGeneStats` excludes a breed-locked gene from a purebred pet's stats when the breeds mismatch (`isHorseBreedFiltered`). An expansion that ignored this would contradict the pet detail's own stats — and rank every purebred below every Mixed pet on a denominator mostly made of loci that are inert for it (a purebred Standardbred's relevant Toughness loci are 15 unlocked + 7 of its breed = 22 of 86).
+
+So **attribute criteria honour the same rule**. Each snapshotted locus carries its breed lock; a locus is **relevant** to a pet unless `isHorseBreedFiltered` excludes it. `matched` and `unrevealed` count over relevant loci only, and the roster column shows the per-pet denominator (`22/22` for a perfect Standardbred, `61/86` for a Mixed) — an honest count of good alleles that actually act on that pet. The threshold `min` stays an **absolute matched count shared across pets**: a Mixed pet with 61 active good alleles genuinely has more of them than a purebred with 22, which is exactly what `getPetGeneStats` already says. When the roster's breed filter selects a single breed, the slider max and the chip's denominator narrow to that breed's relevant count, so a threshold is never unreachable for the population actually shown.
+
+**Locus criteria are exempt.** A hand-picked locus filters on the allele state itself — the player may be breeding toward that breed, or after an appearance gene — so breed-lock does not apply to the `locus` kind. Only effect-based (attribute) criteria inherit the stats rule.
 
 ## 6. Where it lives
 
@@ -171,7 +173,7 @@ Toughness · carries ≥52 of 86        [edit] [×]
 
 Rendering an 86-locus expansion as 86 chips would bury the two hand-picked loci that the player actually reasoned about, and there is nothing useful to do with an individual chip inside an expansion — the threshold is the control. `[edit]` opens the expansion (want + threshold, and the locus list read-only for inspection).
 
-An expansion is snapshotted at creation (§11.1), so the chip is a stable object rather than a live query.
+An expansion is snapshotted at creation (settled — §11), so the chip is a stable object rather than a live query; its editor offers *re-expand* to pick up template changes.
 
 **Keep valence and rarity visually separate** — #465's constraint from §6 of the rarity design. This feature ships no rarity colour at all, so the constraint is trivially satisfied in v1, but the chip design must not adopt the purple/orange rarity hues for "good/bad allele", or #465 will inherit a collision it cannot undo.
 
@@ -183,7 +185,7 @@ The resolution — the predicate stays sync; the data is loaded once and injecte
 
 ```
 MyPets
-  $effect: geneCriteria active?
+  $effect: geneFilter active?
       → loadAllPetLoci(petIds)        ← one query for N pets, already exists
       → cache in a store, keyed on sorted pet ids
   $derived: filterPets(pets, filters, loci)
@@ -192,6 +194,8 @@ MyPets
 
 `loadAllPetLoci` (in `petLoci.ts`) already does exactly what is needed: a single `WHERE pet_id IN (…)` read returning `Map<petId, Map<geneId, GeneType>>`, with inline populate-and-retry for legacy pets whose projection was never written. Nothing new is required at the data layer.
 
+**While the load is in flight, gene criteria are not applied.** The Genes section shows a loading state and the roster keeps its previous (gene-unfiltered) result until the map resolves. Filtering to zero and popping back in is §3's empty-roster trap in temporal form; "Matches 0" must never render because data hasn't arrived yet.
+
 Caching follows `frequencyService`'s precedent — key on the **sorted pet id set**, not array identity, so a background reload of the pet list does not re-read `pet_genes`. A small bounded cache (`MAX_CACHED = 4` there) is the model.
 
 Signature change, additive so every existing caller is untouched:
@@ -199,31 +203,34 @@ Signature change, additive so every existing caller is untouched:
 ```ts
 export interface PetListFilters {
   …existing…
-  /** Gene criteria, ANDed. Empty means no gene filtering. */
-  geneCriteria?: GeneCriterion[];
+  /** Gene filtering. Absent means none. Criteria are ANDed; species scopes them (§5c). */
+  geneFilter?: { species: string; criteria: GeneCriterion[] };
 }
 
-/** Allowed states. A subset of {D, R, x}; '?' is never allowed (§3). */
-export type AllowedStates = GeneType[];
+/** A state a criterion can require — '?' is excluded at the type level (§3). */
+export type KnownGeneType = Exclude<GeneType, '?'>;
+/** Allowed states. A non-empty proper subset of {D, R, x}. */
+export type AllowedStates = KnownGeneType[];
 
 export type GeneCriterion =
-  /** One locus must match. */
+  /** One locus must match. Exempt from breed-locking (§5d). */
   | { kind: 'locus'; geneId: string; allow: AllowedStates }
-  /** At least `min` of `loci` must match — see §4/§5a. */
+  /** At least `min` of the pet-relevant `loci` must match — see §4/§5a/§5d. */
   | {
       kind: 'attribute';
       attribute: string;
-      /** Resolved at expansion time and snapshotted (§11.1). */
-      loci: { geneId: string; allow: AllowedStates }[];
+      /** Resolved from the parsed effect columns at expansion time and snapshotted (§11). */
+      loci: { geneId: string; allow: AllowedStates; breed: string }[];
+      /** Matched-count threshold; clamped to ≥ 1 at creation (§8). */
       min: number;
     };
 
-/** Per-attribute match count for the roster column, alongside the verdict. */
+/** Per-attribute counts for the roster column; denominators are per-pet (§5d). */
 export function petGeneMatchCounts(
   pet: Pet,
   criteria: GeneCriterion[],
   loci: ReadonlyMap<number, PetLoci>,
-): Map<string, { matched: number; total: number; unrevealed: number }>;
+): Map<string, { matched: number; relevant: number; unrevealed: number }>;
 
 export function petMatchesFilters(
   pet: Pet,
@@ -232,18 +239,23 @@ export function petMatchesFilters(
 ): boolean;
 ```
 
-`loci` is optional: when `geneCriteria` is empty the argument is unused, so no caller has to supply it and no surface pays for a feature it does not use.
+`loci` is optional: when `geneFilter` is absent the argument is unused, so no caller has to supply it and no surface pays for a feature it does not use.
+
+At most one attribute criterion per attribute — selecting an attribute that already has a chip opens that chip's editor (§8) — so keying the count map by attribute name is unambiguous.
 
 **Scale.** ~1576 loci × ~30 pets ≈ 47k map entries, one query, held in memory. Rebuilt only when the pet set changes. The per-pet predicate is `criteria.length` map lookups — negligible next to the existing string search.
 
 ## 8. Edge cases
 
-- **Pet with no projection at all.** `loadAllPetLoci` omits pets with no rows (its doc is explicit that `map.has(id)` is the check, not `map.get(id)`). Such a pet fails every criterion, and is reported **separately from `?`** — "not yet imported" is a different fix from "not yet studied".
+- **Pet with no projection at all.** `loadAllPetLoci` omits pets with no rows (its doc is explicit that `map.has(id)` is the check, not `map.get(id)`). Such a pet fails every criterion — well-defined because v1 criteria always demand at least one matching locus (`allow` is non-empty, `min ≥ 1`) — and is reported **separately from `?`**: "not yet imported" is a different fix from "not yet studied".
 - **Locus absent from a pet's map.** Same as `?` — a genome studied to a shallower depth simply has no row. Fails, counted as not-revealed.
 - **Criterion on a locus that does not exist for the species.** Possible via a stale saved filter after a species switch. Treat as not-revealed for every pet, and surface it as an invalid criterion rather than an empty roster.
 - **All three states allowed.** Not a filter; normalise to "any" and drop the criterion rather than evaluating it.
 - **No states allowed.** Empty `allow` matches nothing. Disallow at the UI level; the predicate must still handle it without pretending it means "any".
+- **`min` below 1.** Not a filter — a vacuous threshold passes everything, including pets with no data, which contradicts the no-projection rule above. `min` is clamped to `[1, expansion size]` at creation; the predicate evaluates a (non-UI-reachable) `min ≤ 0` as satisfied rather than special-casing it, but no UI path produces one.
+- **Duplicate attribute criteria.** Disallowed — selecting an already-active attribute edits its existing chip. Keeps §7's per-attribute count map unambiguous.
 - **Attribute expansion yields zero loci.** Real, not hypothetical: Ferocity has 0 loci in the horse data (§4). Say so — do not present an empty criterion set as an active filter, and do not offer the attribute for a species where it scores nothing.
+- **Breed-locked loci.** §5d: excluded per pet from `matched`, `relevant`, and `unrevealed` alike for attribute criteria; never excluded for locus criteria.
 - **Mixed-species roster.** Covered by §5c: species is forced while criteria are active.
 
 ## 9. Scope
@@ -252,17 +264,19 @@ export function petMatchesFilters(
 - `GeneCriterion` model (both kinds) + `petMatchesFilters` extension (pure, unit-tested).
 - Loci store with sorted-id caching, feeding MyPets.
 - FilterBar "Genes" section: attribute expansion with threshold (§5a) and locus chips (§6).
-- Sortable per-attribute match-count roster column while an attribute criterion is active (§5a).
+- Sortable per-attribute match-count roster column while an attribute criterion is active (§5a), breed-aware per §5d.
 - Genome-map click-to-add (§5b).
 - Not-revealed / not-imported exclusion counts surfaced in the result (§3).
-- Species forcing (§5c).
+- Species forcing (§5c); per-pet breed relevance for horse expansions (§5d).
 
 **Explicitly out of scope:**
 - **Rarity composition (#465)** — this design deliberately ships no rarity colour, so the two can be combined without undoing anything here.
 - Configurable AND/OR (§4).
 - Saved/named filters. Criteria live in `myPetsView` and survive tab switches like every other filter; they do not persist across restarts in v1.
 - Filtering the **community catalogue** by gene values — the catalogue's genomes are not local, and `listPets` never fetches them (`gene-rarity-lens-v1.md` §3).
-- Fixing the valence heuristics (§5a) — inherited, capped, and worth its own issue.
+- Fixing the grids' display valence heuristics (`analyzeGene` string matching) — the filter no longer builds on them (§5a); tightening the grids is its own issue.
+- The genome-grid **display** filters (`GeneFilterPills`, tri-state focus/hide, CSS-injection dimming) — those dim loci inside one genome view; this feature filters pets. Different machinery by design, not an oversight.
+- A potential-effects opt-in — dropped (§5a): zero potential-style effect strings exist in the shipped data of either species.
 - Numeric **attribute** filtering (0–100 pet attributes). Different data, different UI; not what #369 asks for.
 
 ## 10. Testing
@@ -271,17 +285,18 @@ export function petMatchesFilters(
 - **`?` never matches**, for every state set including `{D, R, x}` before normalisation. A pet reading `?` must fail even a criterion that allows all three real states.
 - **Absent locus behaves as `?`**, and a pet missing from the loci map entirely fails without throwing — the two different "no data" paths from §8, which must not be conflated in the counts.
 - **AND across criteria**: a pet satisfying 2 of 3 fails; order of criteria is irrelevant.
-- **Attribute threshold arithmetic**: a pet matching exactly `min` passes and `min - 1` fails (boundary); `min = 0` matches every pet including one with no revealed loci; `min = total` is the conjunction the §4 table shows is unusable, and must still evaluate correctly rather than being special-cased away.
-- **Unrevealed loci do not inflate the count.** A pet reading `?` at 30 of 86 Toughness loci scores out of 86, not out of 56 — the count and the threshold must share a denominator, or a poorly-studied pet ranks above a well-studied one by having fewer chances to fail. This is the §3 rule applied to the count, and it is the most likely subtle bug in the feature.
+- **Attribute threshold arithmetic**: a pet matching exactly `min` passes and `min - 1` fails (boundary); the predicate evaluates a (non-UI-reachable) `min ≤ 0` as vacuously satisfied while the UI clamps to ≥ 1 (§8); `min = total` is the conjunction the §4 table shows is unusable, and must still evaluate correctly rather than being special-cased away.
+- **Unrevealed loci do not inflate the count.** A pet reading `?` at 30 of its 86 relevant Toughness loci scores out of 86, not out of 56 — the count and the threshold must share the pet's denominator, or a poorly-studied pet ranks above a well-studied one by having fewer chances to fail. This is the §3 rule applied to the count, and it is the most likely subtle bug in the feature.
+- **Breed relevance (§5d)**: a purebred pet excludes breed-mismatched loci from `matched`, `relevant`, and `unrevealed` alike; a Mixed pet includes everything; a `locus` criterion on a breed-locked gene still evaluates for every pet; the slider max / chip denominator narrow when the roster's breed filter selects a single breed.
 - **A 124-locus expansion evaluates without pathological cost** — the realistic size from the §4 table, not a 3-locus toy.
-- **Exclusion counts are correct and distinguish their causes** — not-revealed vs not-imported reported separately, and their sum plus matches equals the candidate count. This is the assertion that stops §3's empty-roster trap from regressing into a silent zero.
-- **Attribute expansion** uses `attributesForGene`, not `analyzeGene(...).attribute`: construct a locus whose effect string names two attributes and assert it appears in **both** expansions. This is the §5a weakness that would otherwise silently drop loci. Guard the real counts too — a regression that halves an expansion is invisible without them (§4 table).
-- **Potential effects excluded by default**, included when opted in.
+- **Exclusion counts are correct and distinguish their causes** — not-revealed vs not-imported reported separately, using §3's could-pass-if-studied definition for attribute criteria, and matches + not-revealed + definite non-matches + not-imported equals the candidate count. This is the assertion that stops §3's empty-roster trap from regressing into a silent zero.
+- **Expansion parity with the parsed columns**: an attribute's expansion equals what `dominant_attribute` / `recessive_attribute` + sign yield directly, and the horse counts are pinned (86 Toughness, 112 Intelligence, …, 0 Ferocity — §4 table); a regression that halves an expansion is invisible without them. An unparseable effect string (e.g. `Toughness+?`) contributes no expansion locus; a both-alleles-positive locus is skipped, not misassigned.
+- **Criteria are not applied while loci load** — the roster holds its previous result until the map resolves; "Matches 0" never renders from missing data (§7).
 - **Species scoping**: a horse criterion never evaluates against a beewasp; activating criteria forces the species filter; a criterion for a locus absent from the species surfaces as invalid rather than as zero matches.
 - **Loci cache** keyed on the sorted id set: reordering the pet array does not trigger a re-read; adding a pet does.
 - **Component/e2e:** expanding an attribute populates chips; removing a chip re-widens the roster; the roster row count matches the reported match count (the #405 rule — one filter result, shared, so table and bulk-selection cannot disagree); the not-revealed empty state renders its own copy rather than the generic one.
 
-## 11. Open questions for review
+## 11. Decisions from review
 
 **Settled** (recorded so the reasoning is not relitigated):
 
@@ -289,11 +304,13 @@ export function petMatchesFilters(
 - **`?` never matches**, and the exclusion count is part of the result — §3. Skill-gating is uniform across a collection, so a filter on an unrevealed locus returns zero pets for a reason that has nothing to do with the pets.
 - **AND**, not configurable — §4.
 - The filter narrows the **roster**, not a genome view — §1, §6.
-- **Both** selection paths ship: attribute expansion is primary, map clicking is the escape hatch the valence heuristics make necessary — §5.
+- **Both** selection paths ship: attribute expansion is primary, map clicking is the escape hatch for appearance genes, arbitrary loci, and effect strings the strict parse rejects — §5.
+- Expansions build on the **parsed effect columns** (`getParsedGenesCached`), not the grids' display heuristics — §5a. Same definition as `getPetGeneStats`, both string-matching failure modes structurally absent.
+- Attribute criteria honour horse **breed-locking** per pet; locus criteria do not — §5d.
+- An expansion **snapshots** at creation. A template edit in Reference never mutates an active filter under the player; the chip's editor offers *re-expand* to pick up changes. (The parsed columns update on template save either way, so tracking would have been cheap but unpredictable.)
+- The **three-way want control stays uniform**. For any single locus two of the three wants coincide (dominant arm: carries = expresses; recessive arm: expresses = pure), but expansions mix arms — Toughness is 37 D-arm + 49 R-arm — where all three produce different results. Locus chips expose raw `{D, R, x}` toggles and need no want control.
+- ~~How many loci is an attribute expansion allowed to add?~~ **Answered by measurement** — an expansion is 112–155 loci (§4), which is why the attribute kind is a threshold rather than a conjunction. No cap is needed; the chip renders as one attribute chip, not N locus chips.
 
 **Open:**
 
-1. **Should an attribute expansion track the effects DB, or snapshot it?** If a gene template is edited in Reference while a Toughness expansion is active, does the criterion set change under the player? Snapshotting is predictable; tracking is consistent. Leaning snapshot, with the chip showing it can be re-expanded.
-2. **Does "carries" mean the same thing on the dominant arm?** `{D, x}` is "expresses D" and `{D}` is "pure D" — there is no state that means "carries D but does not express it", because carrying one D always expresses it. The three-way want control (§5a) is therefore asymmetric between the arms: on the dominant side, "carries" and "expresses" are the same set. Options: hide the redundant option per-arm, or accept the redundancy for a uniform control.
-3. ~~How many loci is an attribute expansion allowed to add?~~ **Answered by measurement** — an expansion is 112–155 loci (§4), which is why the attribute kind is a threshold rather than a conjunction. No cap is needed; the chip renders as one attribute chip, not N locus chips.
-4. **Does the roster need a "why did this pet match" affordance?** With 40 ANDed criteria, a matching pet is interesting but opaque. Out of scope as designed, but it is the obvious next request.
+1. **Does the roster need a "why did this pet match" affordance?** With many ANDed criteria, a matching pet is interesting but opaque. The per-attribute count column answers most of it for attribute criteria; locus criteria are their own explanation. Out of scope as designed, but it is the obvious next request.
