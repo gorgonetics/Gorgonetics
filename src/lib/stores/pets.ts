@@ -1,5 +1,6 @@
 import { derived, type Writable, writable } from 'svelte/store';
 import { invalidateRarityCache } from '$lib/services/frequencyService.js';
+import { invalidatePetLociCache } from '$lib/services/petLociCache.js';
 import type { UploadPetOptions } from '$lib/services/petService.js';
 import * as petService from '$lib/services/petService.js';
 import type { Pet } from '$lib/types/index.js';
@@ -94,6 +95,8 @@ export const appState = {
       // memoised baseline is keyed on the pet id set, which does not change when
       // a pet's *genome* does, and it would otherwise survive for the session.
       invalidateRarityCache();
+      // Same keying, same staleness hazard — the gene-filter loci maps.
+      invalidatePetLociCache();
       const { items } = await petService.getAllPets();
       if (myGeneration !== loadGeneration) return;
       pets.set(items as Pet[]);
