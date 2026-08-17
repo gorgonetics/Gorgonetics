@@ -110,6 +110,7 @@ export interface SavedGeneFilter {
 }
 
 const KNOWN_STATES = new Set(['D', 'R', 'x']);
+const KNOWN_WANTS = new Set(['expresses', 'carries', 'pure']);
 const validAllow = (a: unknown): boolean =>
   Array.isArray(a) && a.length > 0 && a.every((s) => KNOWN_STATES.has(s as string));
 
@@ -121,11 +122,17 @@ function isValidCriterion(c: unknown): c is GeneCriterion {
   if (cr.kind === 'locus') return typeof cr.geneId === 'string' && validAllow(cr.allow);
   if (cr.kind === 'group') {
     const source = cr.source as Record<string, unknown> | undefined;
+    // `want` and the source's field feed re-expansion — a group without them
+    // would silently re-expand as something the user never asked for.
+    const validSource =
+      !!source &&
+      ((source.type === 'attribute' && typeof source.attribute === 'string') ||
+        (source.type === 'chromosome' && typeof source.chromosome === 'string'));
     return (
       typeof cr.label === 'string' &&
       typeof cr.min === 'number' &&
-      !!source &&
-      (source.type === 'attribute' || source.type === 'chromosome') &&
+      KNOWN_WANTS.has(cr.want as string) &&
+      validSource &&
       Array.isArray(cr.loci) &&
       cr.loci.every(
         (l) =>
@@ -139,18 +146,26 @@ function isValidCriterion(c: unknown): c is GeneCriterion {
 }
 
 /**
- * Fire-and-forget write-through; a failed write costs persistence, not the
- * session. Writes are **chained**: `setSetting` is a DELETE + INSERT, so two
- * concurrent writes (e.g. rapid slider edits) can interleave and leave the
- * stale row first — last call must win.
+ * Every settings write for the gene filter goes through one chain:
+ * `setSetting` is a DELETE + INSERT, so two concurrent writes can interleave
+ * and leave the stale row first, and the saved-filter functions are
+ * read-modify-write on a list, where two concurrent saves would each read
+ * the same base and the second would silently drop the first's entry.
+ * Serialising through the chain makes the last call win and keeps
+ * read-modify-write atomic with respect to other chained writes.
  */
 let persistChain: Promise<unknown> = Promise.resolve();
+function chainSettingsWrite(task: () => Promise<void>): Promise<void> {
+  const run = persistChain.then(task).catch((err) => console.warn('gene filter: persist failed', err));
+  persistChain = run;
+  return run;
+}
+
+/** Fire-and-forget write-through; a failed write costs persistence, not the session. */
 function persistActiveGeneFilter(): void {
   const value =
     myPetsView.geneCriteria.length > 0 ? { species: myPetsView.geneSpecies, criteria: myPetsView.geneCriteria } : null;
-  persistChain = persistChain
-    .then(() => setSetting(ACTIVE_FILTER_KEY, value))
-    .catch((err) => console.warn('gene filter: persist failed', err));
+  void chainSettingsWrite(() => setSetting(ACTIVE_FILTER_KEY, value));
 }
 
 /**
@@ -163,7 +178,9 @@ export async function restoreGeneFilter(): Promise<void> {
   try {
     if (myPetsView.geneCriteria.length > 0) return;
     const stored = await getSetting<{ species: string; criteria: unknown[] } | null>(ACTIVE_FILTER_KEY);
-    if (!stored || typeof stored.species !== 'string' || !Array.isArray(stored.criteria)) return;
+    // An empty species would make the gene filter exclude every pet (§5c) —
+    // a corrupt payload degrades to no filter instead.
+    if (!stored || typeof stored.species !== 'string' || !stored.species || !Array.isArray(stored.criteria)) return;
     const criteria = stored.criteria.filter(isValidCriterion);
     if (criteria.length === 0) return;
     myPetsView.geneCriteria = criteria;
@@ -197,8 +214,10 @@ export async function saveGeneFilterAs(name: string): Promise<void> {
     species: myPetsView.geneSpecies,
     criteria: myPetsView.geneCriteria,
   };
-  const existing = await listSavedGeneFilters();
-  await setSetting(SAVED_FILTERS_KEY, [...existing.filter((f) => f.name !== trimmed), entry]);
+  await chainSettingsWrite(async () => {
+    const existing = await listSavedGeneFilters();
+    await setSetting(SAVED_FILTERS_KEY, [...existing.filter((f) => f.name !== trimmed), entry]);
+  });
 }
 
 /** Load a saved filter as the active one (replaces it, campaign switch). */
@@ -214,11 +233,13 @@ export async function applySavedGeneFilter(name: string): Promise<boolean> {
 }
 
 export async function deleteSavedGeneFilter(name: string): Promise<void> {
-  const existing = await listSavedGeneFilters();
-  await setSetting(
-    SAVED_FILTERS_KEY,
-    existing.filter((f) => f.name !== name),
-  );
+  await chainSettingsWrite(async () => {
+    const existing = await listSavedGeneFilters();
+    await setSetting(
+      SAVED_FILTERS_KEY,
+      existing.filter((f) => f.name !== name),
+    );
+  });
 }
 
 /** Replace the selection set (reassign so $state tracks the change). */

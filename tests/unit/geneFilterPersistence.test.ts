@@ -152,4 +152,30 @@ describe('named saved filters (design §6)', () => {
     await setSetting('geneFilter.saved', [{ name: 'Bad', species: 'horse', criteria: [{ kind: 'nope' }] }, 'junk']);
     expect(await listSavedGeneFilters()).toHaveLength(0);
   });
+
+  it('concurrent saves are serialised — neither entry is lost to a read-modify-write race', async () => {
+    addGeneCriterion(group, 'horse');
+    // Fire both without awaiting: unserialised, both would read the same base
+    // list and the second write would silently drop the first's entry.
+    const a = saveGeneFilterAs('Line A');
+    const b = saveGeneFilterAs('Line B');
+    await Promise.all([a, b]);
+    expect((await listSavedGeneFilters()).map((f) => f.name).sort()).toEqual(['Line A', 'Line B']);
+  });
+});
+
+describe('restore rejects payloads that would misbehave (§6)', () => {
+  it('an empty species does not restore — it would exclude every pet (§5c)', async () => {
+    await setSetting('geneFilter.active', { species: '', criteria: [locus] });
+    await restoreGeneFilter();
+    expect(myPetsView.geneCriteria).toHaveLength(0);
+  });
+
+  it('a group without a valid want or source is dropped — it would re-expand as something else', async () => {
+    const noWant = { ...group, want: undefined };
+    const badSource = { ...group, source: { type: 'chromosome' } };
+    await setSetting('geneFilter.active', { species: 'horse', criteria: [noWant, badSource] });
+    await restoreGeneFilter();
+    expect(myPetsView.geneCriteria).toHaveLength(0);
+  });
 });

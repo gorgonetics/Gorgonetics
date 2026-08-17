@@ -137,10 +137,20 @@ $effect(() => {
 // because data hasn't arrived.
 const geneActive = $derived(myPetsView.geneCriteria.length > 0);
 let lociMap = $state<Map<number, PetLoci> | undefined>(undefined);
+// Species the current lociMap was loaded for. On a species switch (loading a
+// saved filter for another species) the old map is WRONG, not stale — the new
+// species' pets would all read as not-imported and the roster would flash
+// "0 matches", the §7 trap. Drop to undefined (criteria not applied) instead.
+let lociMapSpecies = '';
 $effect(() => {
   if (!geneActive) {
     lociMap = undefined;
+    lociMapSpecies = '';
     return;
+  }
+  if (lociMapSpecies !== myPetsView.geneSpecies) {
+    lociMap = undefined;
+    lociMapSpecies = myPetsView.geneSpecies;
   }
   const ids = $pets.filter((p) => normalizeSpecies(p.species) === myPetsView.geneSpecies).map((p) => p.id);
   let cancelled = false;

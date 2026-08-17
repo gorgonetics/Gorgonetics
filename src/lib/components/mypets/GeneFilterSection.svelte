@@ -83,7 +83,9 @@ $effect(() => {
 let selLabel = $state('');
 let selWant = $state<GroupWant>('carries');
 let adding = $state(false);
-let editingIndex = $state<number | null>(null);
+// Keyed by group label, not index — removing another chip must not
+// re-attach the open editor to whatever criterion slid into its slot.
+let editingLabel = $state<string | null>(null);
 
 const usedLabels = $derived(new Set(active.filter((c) => c.kind === 'group').map((c) => (c as GroupCriterion).label)));
 // One group criterion per label (§8) — offered list excludes active ones.
@@ -358,9 +360,9 @@ async function deleteSaved(): Promise<void> {
                     type="button"
                     class="gf-chip-btn"
                     data-testid="gene-chip-edit"
-                    aria-expanded={editingIndex === i}
+                    aria-expanded={editingLabel === criterion.label}
                     onclick={() => {
-                      editingIndex = editingIndex === i ? null : i;
+                      editingLabel = editingLabel === criterion.label ? null : criterion.label;
                     }}
                   >edit</button>
                   <button
@@ -369,12 +371,12 @@ async function deleteSaved(): Promise<void> {
                     data-testid="gene-chip-remove"
                     aria-label="Remove {criterion.label} criterion"
                     onclick={() => {
-                      editingIndex = null;
+                      if (editingLabel === criterion.label) editingLabel = null;
                       removeGeneCriterion(i);
                     }}
                   >×</button>
                 </div>
-                {#if editingIndex === i}
+                {#if editingLabel === criterion.label}
                   <div class="gf-editor" data-testid="gene-chip-editor">
                     <div class="seg" role="group" aria-label="Want for {criterion.label}">
                       {#each WANTS as w (w)}
