@@ -29,6 +29,9 @@ interface Props {
   activeSpecies?: string;
   onSpecies?: (value: string) => void;
   allSpeciesLabel?: string;
+  /** Disable the species toggle (e.g. gene criteria force a species — #369 §5c). */
+  speciesLocked?: boolean;
+  speciesLockTitle?: string;
   /** Breed name→abbreviation map; omit to hide the breed control. */
   breeds?: Record<string, string>;
   breed?: string;
@@ -56,6 +59,8 @@ const {
   activeSpecies = '',
   onSpecies,
   allSpeciesLabel = 'All',
+  speciesLocked = false,
+  speciesLockTitle,
   breeds,
   breed = '',
   onBreed,
@@ -81,13 +86,14 @@ const {
   />
 
   {#if species && species.length > 0}
-    <div class="seg" role="group" aria-label="Species" data-testid="filter-species">
+    <div class="seg" role="group" aria-label="Species" data-testid="filter-species" title={speciesLocked ? speciesLockTitle : undefined}>
       <button
         type="button"
         class="seg-btn fb-seg-btn"
         class:active={activeSpecies === ''}
         aria-pressed={activeSpecies === ''}
         data-species=""
+        disabled={speciesLocked}
         onclick={() => onSpecies?.('')}
       >{allSpeciesLabel}</button>
       {#each species as sp (sp)}
@@ -97,6 +103,7 @@ const {
           class:active={activeSpecies === sp}
           aria-pressed={activeSpecies === sp}
           data-species={sp}
+          disabled={speciesLocked}
           onclick={() => onSpecies?.(sp)}
         >{sp}</button>
       {/each}

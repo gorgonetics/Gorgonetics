@@ -13,6 +13,8 @@
 
 import { normalizeSpecies } from '$lib/services/configService.js';
 import type { Gender, Pet } from '$lib/types/index.js';
+import { type GeneFilter, lociSatisfyCriteria } from '$lib/utils/geneCriteria.js';
+import type { PetLoci } from '$lib/utils/petLoci.js';
 
 export interface PetListFilters {
   /** Search text, matched case-insensitively against name and species. Empty means "no search". */
@@ -28,10 +30,21 @@ export interface PetListFilters {
   /** Exact gender; '' or omitted means all genders. */
   gender?: Gender | '';
   petQualityOnly?: boolean;
+  /** Gene filtering (docs/design/gene-value-filter-v1.md). Absent/empty means none. */
+  geneFilter?: GeneFilter;
 }
 
-/** Whether a pet passes the active list filters. */
-export function petMatchesFilters(pet: Pet, filters: PetListFilters): boolean {
+/**
+ * Whether a pet passes the active list filters.
+ *
+ * `loci` is the bulk `pet_genes` projection (`loadAllPetLoci`), only
+ * consulted when `geneFilter` has criteria. Passing `undefined` while a
+ * gene filter is active means the data hasn't loaded yet — the gene
+ * criteria are then NOT applied (§7 of the design: never render
+ * "Matches 0" because data hasn't arrived). A pet merely absent from a
+ * loaded map, by contrast, fails (not-imported, §8).
+ */
+export function petMatchesFilters(pet: Pet, filters: PetListFilters, loci?: ReadonlyMap<number, PetLoci>): boolean {
   const q = filters.query ? filters.query.toLowerCase() : '';
   if (q) {
     if (!(pet.name || '').toLowerCase().includes(q) && !(pet.species || '').toLowerCase().includes(q)) {
@@ -48,10 +61,15 @@ export function petMatchesFilters(pet: Pet, filters: PetListFilters): boolean {
   if (filters.species && normalizeSpecies(pet.species) !== filters.species) return false;
   if (filters.breed && pet.breed !== filters.breed) return false;
   if (filters.gender && pet.gender !== filters.gender) return false;
+  const gf = filters.geneFilter;
+  if (gf && gf.criteria.length > 0 && loci !== undefined) {
+    if (normalizeSpecies(pet.species) !== gf.species) return false;
+    if (!lociSatisfyCriteria(loci.get(pet.id), gf.criteria)) return false;
+  }
   return true;
 }
 
 /** Return the pets that pass the active list filters, preserving order. */
-export function filterPets(pets: Pet[], filters: PetListFilters): Pet[] {
-  return pets.filter((pet) => petMatchesFilters(pet, filters));
+export function filterPets(pets: Pet[], filters: PetListFilters, loci?: ReadonlyMap<number, PetLoci>): Pet[] {
+  return pets.filter((pet) => petMatchesFilters(pet, filters, loci));
 }
