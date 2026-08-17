@@ -178,4 +178,26 @@ describe('restore rejects payloads that would misbehave (§6)', () => {
     await restoreGeneFilter();
     expect(myPetsView.geneCriteria).toHaveLength(0);
   });
+
+  it('non-integer thresholds are corrupt and dropped; out-of-range integers are clamped', async () => {
+    for (const min of [Number.NaN, Number.POSITIVE_INFINITY, 2.5]) {
+      await setSetting('geneFilter.active', { species: 'horse', criteria: [{ ...group, min }] });
+      await restoreGeneFilter();
+      expect(myPetsView.geneCriteria, `min=${min}`).toHaveLength(0);
+    }
+    // min 0 is a valid integer from a legacy payload — restore normalises it
+    // exactly as in-session creation would (clamped to [1, loci.length]).
+    await setSetting('geneFilter.active', { species: 'horse', criteria: [{ ...group, min: 0 }] });
+    await restoreGeneFilter();
+    expect((myPetsView.geneCriteria[0] as GroupCriterion).min).toBe(1);
+  });
+
+  it('an empty allow set survives restore — it matches nothing, it must not vanish into "any" (§8)', async () => {
+    await setSetting('geneFilter.active', {
+      species: 'horse',
+      criteria: [{ kind: 'locus', geneId: '01A1', allow: [] }],
+    });
+    await restoreGeneFilter();
+    expect(myPetsView.geneCriteria).toHaveLength(1);
+  });
 });

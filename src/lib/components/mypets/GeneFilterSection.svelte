@@ -43,9 +43,11 @@ interface Props {
   candidates: Pet[];
   /** Loaded `pet_genes` projection; undefined while loading (criteria not applied — §7). */
   lociMap: Map<number, PetLoci> | undefined;
+  /** The load failed — criteria stay unapplied; say so instead of "loading". */
+  lociError?: boolean;
 }
 
-const { candidates, lociMap }: Props = $props();
+const { candidates, lociMap, lociError = false }: Props = $props();
 
 const WANTS: GroupWant[] = ['expresses', 'carries', 'pure'];
 const STATES: { state: KnownGeneType; label: string }[] = [
@@ -247,6 +249,10 @@ async function deleteSaved(): Promise<void> {
       {#if verdicts['not-imported'] > 0}
         · {verdicts['not-imported']} not imported
       {/if}
+    </span>
+  {:else if active.length > 0 && lociError}
+    <span class="gf-counts" data-testid="gene-filter-error">
+      ⚠️ Couldn't load gene data — the gene filter is not applied.
     </span>
   {:else if active.length > 0 && !lociMap}
     <span class="gf-counts" data-testid="gene-filter-loading">Loading gene data — filter not applied yet…</span>

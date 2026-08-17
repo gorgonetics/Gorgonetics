@@ -93,6 +93,19 @@ describe('GeneFilterSection', () => {
     expect(queryByTestId('gene-filter-counts')).toBeNull();
   });
 
+  it('a failed loci load says so — not "loading", and never fake counts', () => {
+    myPetsView.geneCriteria = [locusCriterion];
+    myPetsView.geneSpecies = 'horse';
+    const { getByTestId, queryByTestId } = render(GeneFilterSection, {
+      candidates: CANDIDATES,
+      lociMap: undefined,
+      lociError: true,
+    });
+    expect(getByTestId('gene-filter-error').textContent).toContain('not applied');
+    expect(queryByTestId('gene-filter-loading')).toBeNull();
+    expect(queryByTestId('gene-filter-counts')).toBeNull();
+  });
+
   it('renders the not-revealed empty state with its own copy (§3)', () => {
     // Every candidate reads ? at the filtered locus — zero matches, all not-revealed.
     const allUnknown = new Map<number, PetLoci>(

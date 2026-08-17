@@ -6,7 +6,7 @@
 
 import { getSetting, setSetting } from '$lib/services/settingsService.js';
 import type { Gender } from '$lib/types/index.js';
-import type { GeneCriterion } from '$lib/utils/geneCriteria.js';
+import { type GeneCriterion, normalizeCriterion } from '$lib/utils/geneCriteria.js';
 import type { PetListFilters } from '$lib/utils/petFilter.js';
 
 export const myPetsView = $state({
@@ -111,8 +111,9 @@ export interface SavedGeneFilter {
 
 const KNOWN_STATES = new Set(['D', 'R', 'x']);
 const KNOWN_WANTS = new Set(['expresses', 'carries', 'pure']);
-const validAllow = (a: unknown): boolean =>
-  Array.isArray(a) && a.length > 0 && a.every((s) => KNOWN_STATES.has(s as string));
+// An empty allow set is VALID: it means "matches nothing" (§8), and dropping
+// it on restore would silently widen the filter — the divergence §8 forbids.
+const validAllow = (a: unknown): boolean => Array.isArray(a) && a.every((s) => KNOWN_STATES.has(s as string));
 
 /** Defensive shape check for criteria read back from settings — a corrupt or
  *  legacy payload must degrade to "no filter", never to a crash or a lie. */
@@ -130,7 +131,9 @@ function isValidCriterion(c: unknown): c is GeneCriterion {
         (source.type === 'chromosome' && typeof source.chromosome === 'string'));
     return (
       typeof cr.label === 'string' &&
-      typeof cr.min === 'number' &&
+      // NaN/Infinity/fractional thresholds are corrupt, not tunable: e.g.
+      // `matched >= NaN` is false for every pet. Range is clamped on restore.
+      Number.isInteger(cr.min) &&
       KNOWN_WANTS.has(cr.want as string) &&
       validSource &&
       Array.isArray(cr.loci) &&
@@ -181,7 +184,13 @@ export async function restoreGeneFilter(): Promise<void> {
     // An empty species would make the gene filter exclude every pet (§5c) —
     // a corrupt payload degrades to no filter instead.
     if (!stored || typeof stored.species !== 'string' || !stored.species || !Array.isArray(stored.criteria)) return;
-    const criteria = stored.criteria.filter(isValidCriterion);
+    // Same normalisation as in-session creation (min clamped, all-states
+    // allows dropped), so restored state is exactly what building the
+    // criteria by hand would have produced.
+    const criteria = stored.criteria
+      .filter(isValidCriterion)
+      .map(normalizeCriterion)
+      .filter((c): c is GeneCriterion => c !== null);
     if (criteria.length === 0) return;
     myPetsView.geneCriteria = criteria;
     myPetsView.geneSpecies = stored.species;

@@ -137,6 +137,7 @@ $effect(() => {
 // because data hasn't arrived.
 const geneActive = $derived(myPetsView.geneCriteria.length > 0);
 let lociMap = $state<Map<number, PetLoci> | undefined>(undefined);
+let lociLoadFailed = $state(false);
 // Species the current lociMap was loaded for. On a species switch (loading a
 // saved filter for another species) the old map is WRONG, not stale — the new
 // species' pets would all read as not-imported and the roster would flash
@@ -154,13 +155,18 @@ $effect(() => {
   }
   const ids = $pets.filter((p) => normalizeSpecies(p.species) === myPetsView.geneSpecies).map((p) => p.id);
   let cancelled = false;
+  lociLoadFailed = false;
   getAllPetLociCached(ids)
     .then((m) => {
       if (!cancelled) lociMap = m;
     })
     .catch((err) => {
+      // Keep the criteria UNAPPLIED (lociMap stays undefined): substituting an
+      // empty map would classify every pet "not imported" — a transient
+      // operational error dressed up as a semantic result. The failed load is
+      // evicted from the cache, so the next store settle retries.
       console.error('gene filter: failed to load pet loci', err);
-      if (!cancelled) lociMap = new Map();
+      if (!cancelled) lociLoadFailed = true;
     });
   return () => {
     cancelled = true;
@@ -269,7 +275,7 @@ const canShareAll = $derived(!isPlaceholderConfig && $pets.length > 0);
 
     <!-- Gene value filter (#369) — collapsible power feature, below the common
          controls so it never crowds the everyday path. -->
-    <GeneFilterSection candidates={preGenePets} {lociMap} />
+    <GeneFilterSection candidates={preGenePets} {lociMap} lociError={lociLoadFailed} />
 
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div
