@@ -87,6 +87,28 @@ test.describe('Gene value filter', () => {
     await expect(page.locator('[data-testid="roster"] tbody')).toContainText(/\d+\/24/);
   });
 
+  test('saved filters: save, clear, load restores the campaign (§6)', async ({ page }) => {
+    await openMyPets(page);
+    await page.locator('[data-testid="filter-species"] [data-species="horse"]').click();
+    await page.locator('[data-testid="gene-filter-toggle"]').click();
+    await page.locator('[data-testid="gene-filter-group"]').selectOption('Chr 01');
+    await page.locator('[data-testid="gene-filter-add"]').click();
+    await expect(page.locator('[data-testid="gene-chip-group"]')).toBeVisible();
+
+    await page.locator('[data-testid="gene-filter-save-name"]').fill('Line A');
+    await page.locator('[data-testid="gene-filter-save"]').click();
+    await page.locator('[data-testid="gene-filter-clear"]').click();
+    await expect(page.locator('[data-testid="gene-chip-group"]')).toHaveCount(0);
+
+    await page.locator('[data-testid="gene-filter-saved-select"]').selectOption('Line A');
+    await page.locator('[data-testid="gene-filter-load"]').click();
+    const chip = page.locator('[data-testid="gene-chip-group"]');
+    await expect(chip).toContainText('Chr 01');
+    await expect(chip).toContainText('of 24');
+    // Loading re-forces the species lock (§5c).
+    await expect(page.locator('[data-testid="filter-species"] [data-species="horse"]')).toBeDisabled();
+  });
+
   test('genome-map click adds a locus criterion (§5b)', async ({ page }) => {
     await openMyPets(page);
     await gotoDestination(page, 'Reference');

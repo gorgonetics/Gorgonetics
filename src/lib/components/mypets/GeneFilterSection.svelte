@@ -15,10 +15,15 @@ import { type ExpandableGroup, expandGroupCriterion, listExpandableGroups } from
 import { getAllPetLociCached } from '$lib/services/petLociCache.js';
 import {
   addGeneCriterion,
+  applySavedGeneFilter,
   clearGeneCriteria,
+  deleteSavedGeneFilter,
+  listSavedGeneFilters,
   myPetsView,
   removeGeneCriterion,
   replaceGeneCriterion,
+  type SavedGeneFilter,
+  saveGeneFilterAs,
 } from '$lib/stores/mypets.svelte.js';
 import { GeneType, type Pet } from '$lib/types/index.js';
 import {
@@ -176,6 +181,45 @@ const verdicts = $derived.by(() => {
 function chipLabel(c: GroupCriterion): string {
   return `${c.label} · ${c.want} ≥${c.min} of ${c.loci.length}`;
 }
+
+// --- Saved filters (design §6: a filter is a multi-day artefact) -------------
+
+let savedFilters = $state<SavedGeneFilter[]>([]);
+let saveName = $state('');
+let selSaved = $state('');
+
+async function refreshSavedFilters(): Promise<void> {
+  try {
+    savedFilters = await listSavedGeneFilters();
+  } catch (err) {
+    console.error('gene filter: failed to list saved filters', err);
+    savedFilters = [];
+  }
+}
+
+$effect(() => {
+  void refreshSavedFilters();
+});
+
+async function saveCurrent(): Promise<void> {
+  if (!saveName.trim()) return;
+  await saveGeneFilterAs(saveName);
+  saveName = '';
+  await refreshSavedFilters();
+}
+
+async function loadSaved(): Promise<void> {
+  if (!selSaved) return;
+  await applySavedGeneFilter(selSaved);
+  selSaved = '';
+}
+
+async function deleteSaved(): Promise<void> {
+  if (!selSaved) return;
+  await deleteSavedGeneFilter(selSaved);
+  selSaved = '';
+  await refreshSavedFilters();
+}
 </script>
 
 <div class="gene-filter" data-testid="gene-filter">
@@ -256,6 +300,53 @@ function chipLabel(c: GroupCriterion): string {
           >{adding ? 'Adding…' : '+ Add'}</button>
           <span class="gf-map-hint">Specific loci: click cells on the Reference genome map.</span>
         </div>
+
+        {#if active.length > 0 || savedFilters.length > 0}
+          <div class="gf-saved" data-testid="gene-filter-saved">
+            {#if active.length > 0}
+              <input
+                type="text"
+                class="gf-name"
+                data-testid="gene-filter-save-name"
+                placeholder="Save filter as…"
+                bind:value={saveName}
+                onkeydown={(e) => {
+                  if (e.key === 'Enter') void saveCurrent();
+                }}
+              />
+              <button
+                type="button"
+                class="gf-chip-btn"
+                data-testid="gene-filter-save"
+                disabled={!saveName.trim()}
+                onclick={saveCurrent}
+              >💾 Save</button>
+            {/if}
+            {#if savedFilters.length > 0}
+              <select class="gf-select" data-testid="gene-filter-saved-select" bind:value={selSaved} aria-label="Saved filters">
+                <option value="">Saved filters…</option>
+                {#each savedFilters as f (f.name)}
+                  <option value={f.name}>{f.name} ({f.species}, {f.criteria.length})</option>
+                {/each}
+              </select>
+              <button
+                type="button"
+                class="gf-chip-btn"
+                data-testid="gene-filter-load"
+                disabled={!selSaved}
+                onclick={loadSaved}
+              >Load</button>
+              <button
+                type="button"
+                class="gf-chip-btn"
+                data-testid="gene-filter-delete-saved"
+                disabled={!selSaved}
+                aria-label="Delete saved filter"
+                onclick={deleteSaved}
+              >🗑</button>
+            {/if}
+          </div>
+        {/if}
 
         {#if active.length > 0}
           <div class="gf-chips" data-testid="gene-filter-chips">
@@ -411,6 +502,18 @@ function chipLabel(c: GroupCriterion): string {
   .gf-add:hover:not(:disabled) { border-color: var(--accent); color: var(--accent-text, var(--accent)); }
   .gf-add:disabled { opacity: 0.5; cursor: default; }
   .gf-map-hint { color: var(--text-muted); font-size: 11px; }
+
+  .gf-saved { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-sm); }
+  .gf-name {
+    padding: var(--space-2xs) var(--space-sm);
+    border: 1px solid var(--border-primary);
+    border-radius: var(--radius-md);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 12px;
+    width: 160px;
+  }
+  .gf-name::placeholder { color: var(--text-muted); }
 
   .gf-chips { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs); }
   /* Deliberately neutral chrome: no purple/orange — those hues belong to the

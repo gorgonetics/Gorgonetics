@@ -185,6 +185,8 @@ Rendering an 86-locus expansion as 86 chips would bury the two hand-picked loci 
 
 An expansion is snapshotted at creation (settled — §11), so the chip is a stable object rather than a live query; its editor offers *re-expand* to pick up template changes.
 
+**Persistence.** A filter is a hand-tuned artefact — a chromosome campaign plus map-picked loci and thresholds — that a breeder reuses across days, so it must not die with the session. The **active filter** is written through to the settings table on every mutation (writes chained, last wins) and restored at startup before first render, re-forcing the species lock; a corrupt or legacy payload degrades to "no filter", never a crash. **Named saves** (`Save filter as…` / load / delete in the Genes section) let a player park one campaign and load another — loading replaces the active filter and becomes the new persisted state. The earlier draft deferred this; the multi-day breeding-line workflow made it v1.
+
 **Keep valence and rarity visually separate** — #465's constraint from §6 of the rarity design. This feature ships no rarity colour at all, so the constraint is trivially satisfied in v1, but the chip design must not adopt the purple/orange rarity hues for "good/bad allele", or #465 will inherit a collision it cannot undo.
 
 ## 7. Data flow
@@ -285,11 +287,11 @@ At most one group criterion per label — selecting a group that already has a c
 - Genome-map click-to-add (§5b).
 - Not-revealed / not-imported exclusion counts surfaced in the result (§3).
 - Species forcing (§5c); breed-lock transparency note in the Genes section (§5d).
+- Persistence: the active filter survives restarts; named saved filters for switching campaigns (§6).
 
 **Explicitly out of scope:**
 - **Rarity composition (#465)** — this design deliberately ships no rarity colour, so the two can be combined without undoing anything here.
 - Configurable AND/OR (§4).
-- Saved/named filters. Criteria live in `myPetsView` and survive tab switches like every other filter; they do not persist across restarts in v1.
 - Filtering the **community catalogue** by gene values — the catalogue's genomes are not local, and `listPets` never fetches them (`gene-rarity-lens-v1.md` §3).
 - Fixing the grids' display valence heuristics (`analyzeGene` string matching) — the filter no longer builds on them (§5a); tightening the grids is its own issue.
 - The genome-grid **display** filters (`GeneFilterPills`, tri-state focus/hide, CSS-injection dimming) — those dim loci inside one genome view; this feature filters pets. Different machinery by design, not an oversight.
@@ -310,6 +312,7 @@ At most one group criterion per label — selecting a group that already has a c
 - **Expansion parity with the parsed columns**: an attribute's expansion equals what `dominant_attribute` / `recessive_attribute` + sign yield directly, and the horse counts are pinned (86 Toughness, 112 Intelligence, …, 0 Ferocity — §4 table); a regression that halves an expansion is invisible without them. An unparseable effect string (e.g. `Toughness+?`) contributes no expansion locus; a both-alleles-positive locus is skipped, not misassigned.
 - **Chromosome expansion (§5e)**: Chr 01 expands to exactly 24 loci, all recessive-arm (the measured dominant-negative/recessive-positive invariant); a chromosome with no clean-positive locus (Chr 04 in the shipped data) is not offered and expands to null.
 - **Criteria are not applied while loci load** — the roster holds its previous result until the map resolves; "Matches 0" never renders from missing data (§7).
+- **Persistence (§6)**: the active filter round-trips a simulated restart (including thresholds — the tuned value is the artefact); clearing clears the stored copy; a corrupt payload degrades to no filter; concurrent write-throughs cannot leave a stale row (writes are chained); named save/load/delete cycle, same-name saves replace, loading re-forces the species lock and becomes the persisted active filter.
 - **Species scoping**: a horse criterion never evaluates against a beewasp; activating criteria forces the species filter; a criterion for a locus absent from the species surfaces as invalid rather than as zero matches.
 - **Loci cache** keyed on the sorted id set: reordering the pet array does not trigger a re-read; adding a pet does.
 - **Component/e2e:** expanding an attribute populates chips; removing a chip re-widens the roster; the roster row count matches the reported match count (the #405 rule — one filter result, shared, so table and bulk-selection cannot disagree); the not-revealed empty state renders its own copy rather than the generic one.
