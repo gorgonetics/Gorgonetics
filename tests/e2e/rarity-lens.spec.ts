@@ -19,10 +19,6 @@ async function openPetDetail(page: import('@playwright/test').Page) {
   await expect(page.getByTestId('view-rarity-btn')).toBeVisible();
   // The grid renders ~1500 cells asynchronously; wait for it to settle.
   await expect(page.locator('.gene-grid-container .gene-cell').first()).toBeVisible();
-  // Park the mouse: after the click it can land on a grid cell, whose
-  // `:hover` scale(1.2) inflates the measured box — geometry then compares
-  // a hovered baseline against unhovered views and fails on pure noise.
-  await page.mouse.move(0, 0);
 }
 
 /**

@@ -4,9 +4,7 @@
  * See docs/design/redesign-library-workspace-v1.md (§9, IA v2).
  */
 
-import { getSetting, setSetting } from '$lib/services/settingsService.js';
 import type { Gender } from '$lib/types/index.js';
-import { type GeneCriterion, normalizeCriterion } from '$lib/utils/geneCriteria.js';
 import type { PetListFilters } from '$lib/utils/petFilter.js';
 
 export const myPetsView = $state({
@@ -21,12 +19,6 @@ export const myPetsView = $state({
   stabledOnly: false,
   petQualityOnly: false,
   tags: [] as string[],
-  /** Gene criteria, ANDed (docs/design/gene-value-filter-v1.md). */
-  geneCriteria: [] as GeneCriterion[],
-  /** Species the gene criteria belong to; '' while none are active (§5c). */
-  geneSpecies: '' as string,
-  /** Whether the collapsible Genes section is expanded. */
-  genesOpen: false,
   /** Roster (table) sort — column id + direction. */
   sortCol: 'name' as string,
   sortDir: 'asc' as 'asc' | 'desc',
@@ -53,202 +45,7 @@ export function getMyPetsFilters(): PetListFilters {
     species: myPetsView.species,
     breed: myPetsView.breed,
     gender: myPetsView.gender,
-    geneFilter:
-      myPetsView.geneCriteria.length > 0
-        ? { species: myPetsView.geneSpecies, criteria: myPetsView.geneCriteria }
-        : undefined,
   };
-}
-
-/**
- * Add a gene criterion for `species`. The first criterion adopts the
- * species and **forces the roster's species filter** to it — the
- * alternative (silently excluding every other species) produces a roster
- * that quietly became single-species with no visible reason (§5c).
- * Reassigns the array so `$state` tracks the change.
- */
-export function addGeneCriterion(criterion: GeneCriterion, species: string): void {
-  if (myPetsView.geneCriteria.length === 0) myPetsView.geneSpecies = species;
-  else if (species !== myPetsView.geneSpecies) return; // criteria never mix species (§5c)
-  myPetsView.geneCriteria = [...myPetsView.geneCriteria, criterion];
-  myPetsView.species = myPetsView.geneSpecies;
-  myPetsView.genesOpen = true;
-  persistActiveGeneFilter();
-}
-
-/** Replace a criterion in place (edit of want / threshold / allow set). */
-export function replaceGeneCriterion(index: number, criterion: GeneCriterion): void {
-  myPetsView.geneCriteria = myPetsView.geneCriteria.map((c, i) => (i === index ? criterion : c));
-  persistActiveGeneFilter();
-}
-
-export function removeGeneCriterion(index: number): void {
-  myPetsView.geneCriteria = myPetsView.geneCriteria.filter((_, i) => i !== index);
-  if (myPetsView.geneCriteria.length === 0) myPetsView.geneSpecies = '';
-  persistActiveGeneFilter();
-}
-
-export function clearGeneCriteria(): void {
-  myPetsView.geneCriteria = [];
-  myPetsView.geneSpecies = '';
-  persistActiveGeneFilter();
-}
-
-// --- Gene filter persistence (design §6) -------------------------------------
-// A filter is a hand-tuned artefact — a chromosome campaign plus map-picked
-// loci and thresholds — that a breeder reuses across days. The active filter
-// is written through on every mutation and restored at startup; named saves
-// let a player park one campaign and load another.
-
-const ACTIVE_FILTER_KEY = 'geneFilter.active';
-const SAVED_FILTERS_KEY = 'geneFilter.saved';
-
-export interface SavedGeneFilter {
-  name: string;
-  species: string;
-  criteria: GeneCriterion[];
-}
-
-const KNOWN_STATES = new Set(['D', 'R', 'x']);
-const KNOWN_WANTS = new Set(['expresses', 'carries', 'pure']);
-// An empty allow set is VALID: it means "matches nothing" (§8), and dropping
-// it on restore would silently widen the filter — the divergence §8 forbids.
-const validAllow = (a: unknown): boolean => Array.isArray(a) && a.every((s) => KNOWN_STATES.has(s as string));
-
-/** Defensive shape check for criteria read back from settings — a corrupt or
- *  legacy payload must degrade to "no filter", never to a crash or a lie. */
-function isValidCriterion(c: unknown): c is GeneCriterion {
-  if (!c || typeof c !== 'object') return false;
-  const cr = c as Record<string, unknown>;
-  if (cr.kind === 'locus') return typeof cr.geneId === 'string' && validAllow(cr.allow);
-  if (cr.kind === 'group') {
-    const source = cr.source as Record<string, unknown> | undefined;
-    // `want` and the source's field feed re-expansion — a group without them
-    // would silently re-expand as something the user never asked for.
-    const validSource =
-      !!source &&
-      ((source.type === 'attribute' && typeof source.attribute === 'string') ||
-        (source.type === 'chromosome' && typeof source.chromosome === 'string'));
-    return (
-      typeof cr.label === 'string' &&
-      // NaN/Infinity/fractional thresholds are corrupt, not tunable: e.g.
-      // `matched >= NaN` is false for every pet. Range is clamped on restore.
-      Number.isInteger(cr.min) &&
-      KNOWN_WANTS.has(cr.want as string) &&
-      validSource &&
-      Array.isArray(cr.loci) &&
-      cr.loci.every(
-        (l) =>
-          l &&
-          typeof (l as Record<string, unknown>).geneId === 'string' &&
-          validAllow((l as Record<string, unknown>).allow),
-      )
-    );
-  }
-  return false;
-}
-
-/**
- * Every settings write for the gene filter goes through one chain:
- * `setSetting` is a DELETE + INSERT, so two concurrent writes can interleave
- * and leave the stale row first, and the saved-filter functions are
- * read-modify-write on a list, where two concurrent saves would each read
- * the same base and the second would silently drop the first's entry.
- * Serialising through the chain makes the last call win and keeps
- * read-modify-write atomic with respect to other chained writes.
- */
-let persistChain: Promise<unknown> = Promise.resolve();
-function chainSettingsWrite(task: () => Promise<void>): Promise<void> {
-  const run = persistChain.then(task).catch((err) => console.warn('gene filter: persist failed', err));
-  persistChain = run;
-  return run;
-}
-
-/** Fire-and-forget write-through; a failed write costs persistence, not the session. */
-function persistActiveGeneFilter(): void {
-  const value =
-    myPetsView.geneCriteria.length > 0 ? { species: myPetsView.geneSpecies, criteria: myPetsView.geneCriteria } : null;
-  void chainSettingsWrite(() => setSetting(ACTIVE_FILTER_KEY, value));
-}
-
-/**
- * Restore the active gene filter at startup (called from AuthWrapper after
- * the DB is ready). No-ops if the user already built criteria this session,
- * or if the stored payload fails the shape check. Restoring re-forces the
- * species filter (§5c), same as building the criteria by hand would.
- */
-export async function restoreGeneFilter(): Promise<void> {
-  try {
-    if (myPetsView.geneCriteria.length > 0) return;
-    const stored = await getSetting<{ species: string; criteria: unknown[] } | null>(ACTIVE_FILTER_KEY);
-    // An empty species would make the gene filter exclude every pet (§5c) —
-    // a corrupt payload degrades to no filter instead.
-    if (!stored || typeof stored.species !== 'string' || !stored.species || !Array.isArray(stored.criteria)) return;
-    // Same normalisation as in-session creation (min clamped, all-states
-    // allows dropped), so restored state is exactly what building the
-    // criteria by hand would have produced.
-    const criteria = stored.criteria
-      .filter(isValidCriterion)
-      .map(normalizeCriterion)
-      .filter((c): c is GeneCriterion => c !== null);
-    if (criteria.length === 0) return;
-    myPetsView.geneCriteria = criteria;
-    myPetsView.geneSpecies = stored.species;
-    myPetsView.species = stored.species;
-  } catch (err) {
-    console.warn('gene filter: restore failed', err);
-  }
-}
-
-/** Saved filters, shape-checked; corrupt entries are dropped, not crashed on. */
-export async function listSavedGeneFilters(): Promise<SavedGeneFilter[]> {
-  const raw = await getSetting<unknown>(SAVED_FILTERS_KEY);
-  if (!Array.isArray(raw)) return [];
-  return raw.filter(
-    (f): f is SavedGeneFilter =>
-      !!f &&
-      typeof (f as SavedGeneFilter).name === 'string' &&
-      typeof (f as SavedGeneFilter).species === 'string' &&
-      Array.isArray((f as SavedGeneFilter).criteria) &&
-      (f as SavedGeneFilter).criteria.every(isValidCriterion),
-  );
-}
-
-/** Save the current active filter under `name`, replacing an existing save of the same name. */
-export async function saveGeneFilterAs(name: string): Promise<void> {
-  const trimmed = name.trim();
-  if (!trimmed || myPetsView.geneCriteria.length === 0) return;
-  const entry: SavedGeneFilter = {
-    name: trimmed,
-    species: myPetsView.geneSpecies,
-    criteria: myPetsView.geneCriteria,
-  };
-  await chainSettingsWrite(async () => {
-    const existing = await listSavedGeneFilters();
-    await setSetting(SAVED_FILTERS_KEY, [...existing.filter((f) => f.name !== trimmed), entry]);
-  });
-}
-
-/** Load a saved filter as the active one (replaces it, campaign switch). */
-export async function applySavedGeneFilter(name: string): Promise<boolean> {
-  const saved = (await listSavedGeneFilters()).find((f) => f.name === name);
-  if (!saved || saved.criteria.length === 0) return false;
-  myPetsView.geneCriteria = saved.criteria;
-  myPetsView.geneSpecies = saved.species;
-  myPetsView.species = saved.species;
-  myPetsView.genesOpen = true;
-  persistActiveGeneFilter();
-  return true;
-}
-
-export async function deleteSavedGeneFilter(name: string): Promise<void> {
-  await chainSettingsWrite(async () => {
-    const existing = await listSavedGeneFilters();
-    await setSetting(
-      SAVED_FILTERS_KEY,
-      existing.filter((f) => f.name !== name),
-    );
-  });
 }
 
 /** Replace the selection set (reassign so $state tracks the change). */
