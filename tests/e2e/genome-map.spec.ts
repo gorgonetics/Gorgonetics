@@ -296,8 +296,6 @@ test.describe('map and pet grid agree cell for cell', () => {
       await page.setViewportSize({ width, height: 1080 });
       await page.getByTestId('roster-open').filter({ hasText: 'Roach' }).click();
       await expect(page.locator('.gene-grid-container .gene-cell').first()).toBeVisible();
-      // Park the mouse so no cell measures with its :hover scale applied.
-      await page.mouse.move(0, 0);
       const petGrid = await gridPitch(page, '.gene-grid-container');
 
       await gotoDestination(page, 'Reference');

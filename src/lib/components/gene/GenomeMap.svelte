@@ -20,7 +20,6 @@ import EmptyState from '$lib/components/shared/EmptyState.svelte';
 import { normalizeSpecies } from '$lib/services/configService.js';
 import { computeRarityLookup, type RarityLookup } from '$lib/services/frequencyService.js';
 import { getGeneEffectsCached } from '$lib/services/geneService.js';
-import { addGeneCriterion, myPetsView } from '$lib/stores/mypets.svelte.js';
 import { GeneType, type Pet } from '$lib/types/index.js';
 import { breedFor, effectFor, type GeneEffectData } from '$lib/utils/geneAnalysis.js';
 import { computeGeneCellSize } from '$lib/utils/geneGridCells.js';
@@ -196,14 +195,7 @@ $effect(() => {
   const onKeydown = (event: KeyboardEvent) => {
     const active = document.activeElement as HTMLElement | null;
     const cell = (active?.closest?.('.gene-cell[data-gene-id]') as HTMLElement | null) ?? null;
-    // Enter activates the cell (add to the gene filter — same as click);
-    // Space keeps the read-only tooltip so inspection stays keyboard-reachable.
-    if (event.key === 'Enter' && cell) {
-      event.preventDefault();
-      addLocusCriterion(cell.dataset.geneId ?? '');
-      return;
-    }
-    if (event.key === ' ' && cell) {
+    if ((event.key === 'Enter' || event.key === ' ') && cell) {
       event.preventDefault();
       const rect = cell.getBoundingClientRect();
       showTooltip(cell.dataset.geneId ?? '', rect.left + rect.width / 2, rect.top);
@@ -251,31 +243,6 @@ $effect(() => {
  * reading them off one yields `undefined`, which propagates to `NaN` positions
  * and drops the card in the corner of the panel.
  */
-/**
- * Click-to-add for the My Pets gene filter (#369 §5b) — the escape hatch for
- * loci the attribute expansion can't express (appearance genes, hand-picked
- * loci, unparseable effect strings). Adds a criterion for this locus; the
- * chip in My Pets exposes the {D, R, x} toggles. Defaults to "carries the
- * recessive" ({R, x}) — the breeding-relevant question (§2) — and the chip
- * is one click away from any other set. Criteria never mix species (§5c):
- * once criteria exist for another species the click is refused with a status
- * line rather than silently dropped.
- */
-let addStatus = $state<string | null>(null);
-function addLocusCriterion(geneId: string): void {
-  const existing = myPetsView.geneCriteria.some((c) => c.kind === 'locus' && c.geneId === geneId);
-  if (existing) {
-    addStatus = `${geneId} is already in the My Pets gene filter.`;
-    return;
-  }
-  if (myPetsView.geneSpecies && myPetsView.geneSpecies !== speciesKey) {
-    addStatus = `The gene filter is scoped to ${myPetsView.geneSpecies} — clear it before adding ${capitalize(species)} loci.`;
-    return;
-  }
-  addGeneCriterion({ kind: 'locus', geneId, allow: [GeneType.RECESSIVE, GeneType.MIXED] }, speciesKey);
-  addStatus = `Added ${geneId} to the My Pets gene filter (carries recessive — edit it there).`;
-}
-
 function showTooltip(geneId: string, clientX: number, clientY: number): void {
   const { subtitle, lines } = buildRarityTooltip(lookupReady ? lookup : null, geneId, capitalize(species), {
     dominant: effectFor(effects[geneId], 'D'),
@@ -317,9 +284,6 @@ function showTooltip(geneId: string, clientX: number, clientY: number): void {
                 <span aria-hidden="true">⚠️</span> {lookupError} — the genome is shown without frequencies.
             </p>
         {/if}
-        {#if addStatus}
-            <p class="map-status" data-testid="map-add-status" aria-live="polite">🧬 {addStatus}</p>
-        {/if}
         <div
             class="gene-grid-container view-rarity"
             class:rarity-unscored={!lookupReady}
@@ -347,8 +311,6 @@ function showTooltip(geneId: string, clientX: number, clientY: number): void {
                                     {@const geneId = row.cells[bi]?.[i] ?? null}
                                     <td class="gene-cell-container {i === 0 ? 'block-start' : ''} {!geneId ? 'empty' : ''}">
                                         {#if geneId}
-                                            <!-- svelte-ignore a11y_click_events_have_key_events -->
-                                            <!-- Keyboard activation is delegated on the container (Enter adds, Space inspects). -->
                                             <div
                                                 class="gene-cell gene-mixed"
                                                 data-gene-id={geneId}
@@ -360,7 +322,6 @@ function showTooltip(geneId: string, clientX: number, clientY: number): void {
                                                 onmouseleave={() => { tooltipVisible = false; }}
                                                 onfocus={(e) => { const r = e.currentTarget.getBoundingClientRect(); showTooltip(geneId, r.left + r.width / 2, r.top); }}
                                                 onblur={() => { tooltipVisible = false; }}
-                                                onclick={() => addLocusCriterion(geneId)}
                                             ></div>
                                         {/if}
                                     </td>

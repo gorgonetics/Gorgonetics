@@ -12,7 +12,6 @@ import {
   backfillPositiveGenesIfNeeded,
 } from '$lib/services/petService.js';
 import { refreshPendingImportCount } from '$lib/stores/gameImport.js';
-import { restoreGeneFilter } from '$lib/stores/mypets.svelte.js';
 import { appState } from '$lib/stores/pets.js';
 import { settings, settingsActions } from '$lib/stores/settings.js';
 
@@ -100,10 +99,6 @@ onMount(async () => {
   await refreshGeneTemplatesIfChanged();
   await loadDemoPetsIfNeeded();
   await settingsActions.load();
-  // Restore the persisted gene filter (design §6) — a breeding campaign's
-  // hand-tuned criteria survive restarts. Before `ready` so the roster's
-  // first render is already filtered rather than flashing the full list.
-  await restoreGeneFilter();
   ready = true;
 
   // Run startup backfills sequentially, off the critical path. They each
