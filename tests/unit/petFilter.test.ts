@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import type { Pet } from '$lib/types/index.js';
+import type { GeneType, Pet } from '$lib/types/index.js';
+import type { GeneCriterion } from '$lib/utils/geneCriteria.js';
 import { filterPets, petMatchesFilters } from '$lib/utils/petFilter.js';
+import type { PetLoci } from '$lib/utils/petLoci.js';
 
 // Minimal pet fixtures — only the fields the filter reads.
 const pet = (over: Partial<Pet> = {}): Pet =>
@@ -127,5 +129,50 @@ describe('petMatchesFilters — Library criteria (species / breed / pet-quality)
       stabledOnly: true,
     });
     expect(result.map((p) => p.name)).toEqual(['Dusty']);
+  });
+});
+
+describe('petMatchesFilters — gene filter (design §5c/§7/§8)', () => {
+  const geneFilter = {
+    species: 'horse',
+    criteria: [{ kind: 'locus', geneId: '01A1', allow: ['R', 'x'] }] as GeneCriterion[],
+  };
+  const horse = (id: number) => pet({ id, species: 'Horse' } as Partial<Pet>);
+  const lociMap = new Map<number, PetLoci>([
+    [1, new Map([['01A1', 'R' as GeneType]])],
+    [2, new Map([['01A1', 'D' as GeneType]])],
+    [3, new Map([['01A1', '?' as GeneType]])],
+    // 4 deliberately absent — not imported (§8).
+  ]);
+
+  it('applies criteria only when the loci map has loaded (§7 loading rule)', () => {
+    expect(petMatchesFilters(horse(2), { ...noFilters, geneFilter })).toBe(true);
+    expect(petMatchesFilters(horse(2), { ...noFilters, geneFilter }, lociMap)).toBe(false);
+  });
+
+  it('narrows to satisfying pets; ? and not-imported fail (§3/§8)', () => {
+    const result = filterPets([horse(1), horse(2), horse(3), horse(4)], { ...noFilters, geneFilter }, lociMap);
+    expect(result.map((p) => p.id)).toEqual([1]);
+  });
+
+  it('a pet of another species never evaluates against the criteria (§5c)', () => {
+    const wasp = pet({ id: 1, species: 'Beewasp' } as Partial<Pet>);
+    expect(petMatchesFilters(wasp, { ...noFilters, geneFilter }, lociMap)).toBe(false);
+  });
+
+  it('an empty criteria list filters nothing', () => {
+    const none = { species: 'horse', criteria: [] };
+    expect(petMatchesFilters(horse(4), { ...noFilters, geneFilter: none }, lociMap)).toBe(true);
+  });
+
+  it('composes with the other filters (AND)', () => {
+    const starredMatch = pet({ id: 1, species: 'Horse', starred: true } as Partial<Pet>);
+    const unstarredMatch = pet({ id: 5, species: 'Horse', starred: false } as Partial<Pet>);
+    const map = new Map<number, PetLoci>([
+      [1, new Map([['01A1', 'x' as GeneType]])],
+      [5, new Map([['01A1', 'x' as GeneType]])],
+    ]);
+    const result = filterPets([starredMatch, unstarredMatch], { ...noFilters, starredOnly: true, geneFilter }, map);
+    expect(result.map((p) => p.id)).toEqual([1]);
   });
 });
