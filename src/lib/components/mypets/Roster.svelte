@@ -13,6 +13,7 @@ import PetActions from '$lib/components/shared/PetActions.svelte';
 import { getAllAttributeNames, getAllAttributes } from '$lib/services/configService.js';
 import { myPetsView, setMyPetsSelection, toggleMyPetsSelection } from '$lib/stores/mypets.svelte.js';
 import type { Pet } from '$lib/types/index.js';
+import type { GroupEvaluation } from '$lib/utils/geneCriteria.js';
 import { type SortableColumn, sortByColumn } from '$lib/utils/sortColumn.js';
 import { capitalize } from '$lib/utils/string.js';
 
@@ -23,15 +24,20 @@ interface Props {
   /** Open a pet's detail (clicking its name). Distinct from the row checkbox,
    *  which builds the multi-selection for bulk actions. */
   onOpen?: (pet: Pet) => void;
+  /** Per-pet gene match counts while group gene criteria are active —
+   *  each contributes a sortable `matched/total` column (#369 §5a/§5e). */
+  geneCounts?: Map<number, Map<string, GroupEvaluation>>;
 }
 
-const { pets: filtered, onOpen }: Props = $props();
+const { pets: filtered, onOpen, geneCounts }: Props = $props();
 
 interface Column {
   id: string;
   label: string;
   numeric: boolean;
   accessor: (pet: Pet) => string | number;
+  /** Cell text when it differs from the sort value (e.g. `61/86`). */
+  display?: (pet: Pet) => string;
 }
 
 const num = (pet: Pet, k: string) => (pet as unknown as Record<string, number>)[k] ?? 0;
@@ -72,12 +78,32 @@ const columns = $derived.by((): Column[] => {
     ? [{ id: 'attr_total', label: 'Total', numeric: true, accessor: (p: Pet) => totals?.get(p.id) ?? 0 }]
     : [];
 
+  // One sortable count column per active group gene criterion (#369 §5a/§5e):
+  // the count is the deliverable, not just the gate — a player who doesn't
+  // know what threshold to ask for sorts by it instead. Sorts by matched;
+  // the cell shows matched/total so denominators stay visible.
+  const geneCols: Column[] = geneCounts
+    ? myPetsView.geneCriteria
+        .filter((c) => c.kind === 'group')
+        .map((c) => ({
+          id: `gene:${c.label}`,
+          label: `🧬 ${c.label}`,
+          numeric: true,
+          accessor: (p: Pet) => geneCounts.get(p.id)?.get(c.label)?.matched ?? 0,
+          display: (p: Pet) => {
+            const ev = geneCounts.get(p.id)?.get(c.label);
+            return ev ? `${ev.matched}/${ev.total}` : '—';
+          },
+        }))
+    : [];
+
   return [
     { id: 'name', label: 'Name', numeric: false, accessor: (p) => p.name ?? '' },
     { id: 'gender', label: 'Gender', numeric: false, accessor: (p) => p.gender ?? '' },
     { id: 'breed', label: 'Breed', numeric: false, accessor: (p) => p.breed ?? '' },
     ...attrCols,
     ...totalCol,
+    ...geneCols,
     { id: 'positive_genes', label: '+ Genes', numeric: true, accessor: (p) => p.positive_genes ?? 0 },
   ];
 });
@@ -179,7 +205,7 @@ function open(pet: Pet): void {
                     {col.accessor(pet)}
                   </button>
                 {:else}
-                  {col.accessor(pet)}
+                  {col.display ? col.display(pet) : col.accessor(pet)}
                 {/if}
               </td>
             {/each}
