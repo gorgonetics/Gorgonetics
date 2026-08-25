@@ -9,9 +9,12 @@ import {
   carries,
   expectedCapabilityGain,
   type GeneticQualityResult,
+  hasMeaningfulPopulation,
   liabilityCounts,
   MIN_POPULATION,
   type ScoredGene,
+  safeCullOrder,
+  scoreGroup,
   scorePet,
   supplyTier,
   TIER_CAPABILITY,
@@ -345,5 +348,117 @@ describe('expectedCapabilityGain — the breeding side', () => {
     const high = expectedCapabilityGain(dist(0, 0, 1), CHR01, t);
     expect(low).toBeLessThan(mid);
     expect(mid).toBeLessThan(high);
+  });
+});
+
+describe('scoreGroup', () => {
+  const genes = { '01A1': CHR01 };
+
+  it('scores every animal against the group it was given', () => {
+    const herd = pop([R, D, D]);
+    const byPet = new Map(herd.map((l, i) => [i, l]));
+    const scored = scoreGroup(byPet, genes, [0, 1, 2]);
+    // The lone R is the sole source of both benefits at 01A1.
+    expect(scored.get(0)?.atRiskCapability).toBeCloseTo(2, 10);
+    expect(scored.get(1)?.atRiskCapability).toBe(0);
+  });
+
+  it('re-bases the tally when the group shrinks', () => {
+    // Two R animals are mutually redundant; alone, one is irreplaceable.
+    const herd = pop([R, R, D]);
+    const byPet = new Map(herd.map((l, i) => [i, l]));
+    expect(scoreGroup(byPet, genes, [0, 1, 2]).get(0)?.atRiskCapability).toBe(0);
+    expect(scoreGroup(byPet, genes, [0, 2]).get(0)?.atRiskCapability).toBeCloseTo(2, 10);
+  });
+
+  it('scores an animal with no projected loci as empty rather than omitting it', () => {
+    const scored = scoreGroup(new Map(), genes, [7]);
+    expect(scored.get(7)).toEqual({
+      atRiskCapability: 0,
+      soleSourceSlots: 0,
+      soleLockSlots: 0,
+      liabilityAtRisk: 0,
+      byAttribute: {},
+    });
+  });
+});
+
+describe('safeCullOrder — the non-additivity fix', () => {
+  const genes = { '01A1': CHR01 };
+
+  /** Seven animals: two mutual carriers of the good allele, five without. */
+  function pairedRedundancy() {
+    const herd = pop([X, X, D, D, D, D, D]);
+    return { byPet: new Map(herd.map((l, i) => [i, l])), ids: [0, 1, 2, 3, 4, 5, 6] };
+  }
+
+  it('never releases both members of a mutually-redundant pair', () => {
+    const { byPet, ids } = pairedRedundancy();
+    // Individually every animal scores zero — the trap a sorted column sets.
+    const scored = scoreGroup(byPet, genes, ids);
+    expect([...scored.values()].every((r) => r.atRiskCapability === 0)).toBe(true);
+
+    const released = safeCullOrder(byPet, genes, ids).releasable.map((s) => s.id);
+    // At most one of the two carriers (ids 0, 1) may go.
+    expect(released.filter((id) => id === 0 || id === 1)).toHaveLength(1);
+  });
+
+  it('leaves the herd able to reach everything it could before', () => {
+    const { byPet, ids } = pairedRedundancy();
+    const released = new Set(safeCullOrder(byPet, genes, ids).releasable.map((s) => s.id));
+    const survivors = ids.filter((id) => !released.has(id));
+    // Some survivor still carries the recessive good allele.
+    expect(survivors.some((id) => byPet.get(id)?.get('01A1') === X)).toBe(true);
+  });
+
+  it('stops at the population floor rather than emptying the stable', () => {
+    const { byPet, ids } = pairedRedundancy();
+    const { releasable } = safeCullOrder(byPet, genes, ids);
+    expect(ids.length - releasable.length).toBe(MIN_POPULATION);
+  });
+
+  it('reports what the next release would cost when nothing is free', () => {
+    // Four animals, each the only carrier at a different locus: no free move.
+    const g: Record<string, ScoredGene> = {};
+    for (let i = 1; i <= 4; i++) g[`01A${i}`] = CHR01;
+    const byPet = new Map<number, PetLoci>();
+    for (let i = 0; i < 4; i++) {
+      const m = new Map<string, GeneType>();
+      for (let j = 1; j <= 4; j++) m.set(`01A${j}`, j === i + 1 ? X : D);
+      byPet.set(i, m as PetLoci);
+    }
+    const result = safeCullOrder(byPet, g, [0, 1, 2, 3]);
+    expect(result.releasable).toEqual([]);
+    expect(result.nextCost).toBeCloseTo(2 * 0.5, 10);
+  });
+
+  it('prefers releasing the animal that also clears the most liability', () => {
+    // Five `R` animals plus one `x`. Everything the `x` supplies in benefit
+    // terms is secured by the others, but it is the *only* carrier of the
+    // dominant allele — pure liability at 01A1 — so releasing it is both
+    // free and actively useful.
+    const herd = pop([R, R, R, R, R, X]);
+    const byPet = new Map(herd.map((l, i) => [i, l]));
+    const first = safeCullOrder(byPet, genes, [0, 1, 2, 3, 4, 5]).releasable[0];
+    expect(first.id).toBe(5);
+    expect(first.liabilityRemoved).toBeCloseTo(0.5, 10);
+    expect(first.cost).toBe(0);
+  });
+
+  it('counts no liability as removed when others still carry it', () => {
+    // Four `D` animals: releasing one leaves the negative allele behind, so
+    // nothing is cleared. `liabilityAtRisk` means "leaves with it", not
+    // "this animal has it".
+    const herd = pop([R, D, D, D, D]);
+    const byPet = new Map(herd.map((l, i) => [i, l]));
+    const scored = scoreGroup(byPet, genes, [0, 1, 2, 3, 4]);
+    expect(scored.get(1)?.liabilityAtRisk).toBe(0);
+  });
+});
+
+describe('hasMeaningfulPopulation', () => {
+  it('gates on the floor, where almost everything tiers sole', () => {
+    expect(hasMeaningfulPopulation(MIN_POPULATION)).toBe(true);
+    expect(hasMeaningfulPopulation(MIN_POPULATION - 1)).toBe(false);
   });
 });

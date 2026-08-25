@@ -419,6 +419,122 @@ export function capabilityShare(results: Iterable<[number, GeneticQualityResult]
   return out;
 }
 
+/** Whether a population is large enough for the score to mean anything. */
+export function hasMeaningfulPopulation(size: number): boolean {
+  return size >= MIN_POPULATION;
+}
+
+/**
+ * Score every animal in a group against that same group.
+ *
+ * The tally is built from exactly `ids`, which is what makes the score
+ * relative to the group under consideration rather than to some wider
+ * population. `safeCullOrder` relies on that: it re-scores a shrinking set
+ * and needs each pass measured against what is actually left.
+ *
+ * Animals with no entry in `lociByPet` are scored as empty rather than
+ * skipped, so a caller iterating the result never has to distinguish
+ * "not imported" from "contributes nothing" — both read zero.
+ */
+export function scoreGroup(
+  lociByPet: Map<number, PetLoci>,
+  genes: Readonly<Record<string, ScoredGene>>,
+  ids: readonly number[],
+  opts: ScorePetOptions = {},
+): Map<number, GeneticQualityResult> {
+  const empty: PetLoci = new Map();
+  const tallies = tallyAlleles(ids.map((id) => lociByPet.get(id) ?? empty));
+  const out = new Map<number, GeneticQualityResult>();
+  for (const id of ids) {
+    out.set(id, scorePet(lociByPet.get(id) ?? empty, genes, tallies, opts));
+  }
+  return out;
+}
+
+/** One animal's position in the greedy release order. */
+export interface CullStep {
+  id: number;
+  /** Capability lost by releasing it at this point in the sequence. */
+  cost: number;
+  /** Liability that leaves with it — the tie-break among free releases. */
+  liabilityRemoved: number;
+}
+
+export interface SafeCullResult {
+  /**
+   * Animals that can be released **in this order** at no capability cost.
+   * Order matters: the set is only free if released as a sequence, because
+   * each removal is scored against what remains.
+   */
+  releasable: CullStep[];
+  /**
+   * What the next release would cost, or `null` if the population floor
+   * stopped the walk first. Lets the UI say "one more costs 0.5" rather
+   * than silently ending the list.
+   */
+  nextCost: number | null;
+}
+
+/**
+ * The largest prefix of releases that costs nothing, found greedily.
+ *
+ * **Why this exists rather than sorting by `scorePet`:** leave-one-out is
+ * not additive. Where two animals are the only carriers of an allele, each
+ * scores zero — the other covers it — yet releasing both loses the allele.
+ * Selecting every zero-scoring animal from a sorted column is exactly that
+ * mistake; on the reference stable it costs 0.5 capability that the
+ * individual scores all reported as free. Re-scoring after each removal is
+ * what makes the answer honest.
+ *
+ * Takes no breed scope, deliberately. A breeding plan commits to one
+ * pairing and may be scoped to the breed it targets; releasing an animal is
+ * irreversible against every breed you might later target, so a cull must
+ * be judged over all loci. See the design doc §5 — a breed-scoped cull
+ * score recommends releasing the sole carrier of unrecoverable positives.
+ *
+ * Stops at `MIN_POPULATION`: below it every slot tiers `sole` and the
+ * measure stops discriminating, so it must not keep authorising releases.
+ */
+export function safeCullOrder(
+  lociByPet: Map<number, PetLoci>,
+  genes: Readonly<Record<string, ScoredGene>>,
+  ids: readonly number[],
+): SafeCullResult {
+  const remaining = [...ids];
+  const releasable: CullStep[] = [];
+
+  while (remaining.length > MIN_POPULATION) {
+    const scored = scoreGroup(lociByPet, genes, remaining);
+    let best: CullStep | null = null;
+    for (const id of remaining) {
+      const r = scored.get(id);
+      if (!r) continue;
+      const step: CullStep = {
+        id,
+        cost: r.atRiskCapability,
+        liabilityRemoved: r.liabilityAtRisk,
+      };
+      // Cheapest first; among equals prefer the animal whose departure also
+      // clears the most negatives, then lowest id so the walk is stable.
+      if (
+        best === null ||
+        step.cost < best.cost ||
+        (step.cost === best.cost &&
+          (step.liabilityRemoved > best.liabilityRemoved ||
+            (step.liabilityRemoved === best.liabilityRemoved && step.id < best.id)))
+      ) {
+        best = step;
+      }
+    }
+    if (best === null) break;
+    if (best.cost > 0) return { releasable, nextCost: best.cost };
+    releasable.push(best);
+    remaining.splice(remaining.indexOf(best.id), 1);
+  }
+
+  return { releasable, nextCost: null };
+}
+
 /**
  * Capability a foal is expected to add at one locus, given its genotype
  * distribution and what the stable can already do.
