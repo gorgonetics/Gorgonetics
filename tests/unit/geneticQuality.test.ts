@@ -4,15 +4,19 @@ import {
   type AlleleTally,
   benefitCounts,
   benefitSlots,
-  LOCK_BONUS,
+  capability,
+  capabilityShare,
+  carries,
+  expectedCapabilityGain,
+  type GeneticQualityResult,
+  liabilityCounts,
   MIN_POPULATION,
   type ScoredGene,
   scorePet,
   supplyTier,
-  TIER_WEIGHT,
+  TIER_CAPABILITY,
   tallyAlleles,
   transmissionProbability,
-  transmissionWeight,
 } from '$lib/utils/geneticQuality.js';
 import type { PetLoci } from '$lib/utils/petLoci.js';
 
@@ -21,7 +25,6 @@ const R = GeneType.RECESSIVE;
 const X = GeneType.MIXED;
 const Q = GeneType.UNKNOWN;
 
-/** A gene record with only the fields this module reads. */
 function gene(
   dominantSign: '+' | '-' | null,
   recessiveSign: '+' | '-' | null,
@@ -32,9 +35,9 @@ function gene(
 }
 
 /**
- * `01A1` — `Virility− / Temperament+`. The whole of chromosome 01 has this
- * shape and it is the only double-benefit class in the horse gene set, so
- * it earns a named fixture.
+ * `01A1` — `Virility− / Temperament+`. All of chromosome 01 has this shape
+ * and it is the only double-benefit class in the horse gene set, so it
+ * earns a named fixture.
  */
 const CHR01 = gene('-', '+', 'virility', 'temperament');
 
@@ -46,10 +49,28 @@ function tally(homD: number, carD: number, homR: number, carR: number): AlleleTa
   return { homD, carD, homR, carR };
 }
 
+describe('capability — the 2:1 weighting model', () => {
+  it('is 1 when the outcome breeds true, 0.5 for carriers only, 0 out of reach', () => {
+    expect(capability(1, 3)).toBe(1);
+    expect(capability(0, 2)).toBe(0.5);
+    expect(capability(0, 0)).toBe(0);
+  });
+
+  it('makes a locked allele worth exactly twice a carried one', () => {
+    // The entire weighting model, and why no LOCK_BONUS constant exists.
+    expect(capability(1, 1) / capability(0, 1)).toBe(2);
+  });
+
+  it('agrees with the tier labels it is displayed as', () => {
+    expect(TIER_CAPABILITY.sole).toBe(capability(0, 0));
+    expect(TIER_CAPABILITY.partial).toBe(capability(0, 1));
+    expect(TIER_CAPABILITY.secured).toBe(capability(1, 1));
+  });
+});
+
 describe('benefitSlots — what each allele can deliver', () => {
   it('gives chromosome 01 two recessive slots and no dominant slot', () => {
-    const slots = benefitSlots(CHR01);
-    expect(slots).toEqual([
+    expect(benefitSlots(CHR01)).toEqual([
       { allele: R, kind: 'add', attribute: 'temperament' },
       { allele: R, kind: 'clear', attribute: 'virility' },
     ]);
@@ -59,41 +80,38 @@ describe('benefitSlots — what each allele can deliver', () => {
   it('files a `clear` against the attribute of the negative being avoided', () => {
     // The recessive allele escapes Virility−, so the benefit is virility's —
     // NOT temperament's, which is what the recessive allele itself expresses.
-    const clear = benefitSlots(CHR01).find((s) => s.kind === 'clear');
-    expect(clear?.attribute).toBe('virility');
+    expect(benefitSlots(CHR01).find((s) => s.kind === 'clear')?.attribute).toBe('virility');
   });
 
-  it('covers the remaining five locus classes', () => {
+  it('covers the remaining locus classes', () => {
     expect(benefitCounts(gene('+', null))).toEqual({ dom: 1, rec: 0 });
     expect(benefitCounts(gene(null, '+'))).toEqual({ dom: 0, rec: 1 });
     expect(benefitCounts(gene(null, '-'))).toEqual({ dom: 1, rec: 0 });
     expect(benefitCounts(gene('-', null))).toEqual({ dom: 0, rec: 1 });
     expect(benefitCounts(gene(null, null))).toEqual({ dom: 0, rec: 0 });
+    expect(benefitCounts(gene('+', '+'))).toEqual({ dom: 1, rec: 1 });
   });
 
-  it('treats a both-positive locus as one slot per allele, not a double', () => {
-    expect(benefitCounts(gene('+', '+'))).toEqual({ dom: 1, rec: 1 });
+  it('counts liabilities on the allele that transmits them', () => {
+    expect(liabilityCounts(CHR01)).toEqual({ dom: 1, rec: 0 });
+    expect(liabilityCounts(gene(null, '-'))).toEqual({ dom: 0, rec: 1 });
+    expect(liabilityCounts(gene('+', '+'))).toEqual({ dom: 0, rec: 0 });
   });
 });
 
-describe('transmission weight', () => {
+describe('transmission', () => {
   it('is certain for the matching homozygote, half for mixed, zero otherwise', () => {
     expect(transmissionProbability(D, D)).toBe(1);
     expect(transmissionProbability(X, D)).toBe(0.5);
     expect(transmissionProbability(R, D)).toBe(0);
-    expect(transmissionProbability(R, R)).toBe(1);
-    expect(transmissionProbability(X, R)).toBe(0.5);
-    expect(transmissionProbability(D, R)).toBe(0);
-  });
-
-  it('passes nothing knowable for `?`', () => {
     expect(transmissionProbability(Q, D)).toBe(0);
-    expect(transmissionProbability(Q, R)).toBe(0);
   });
 
-  it('is superlinear at certainty — a homozygote beats two coin flips', () => {
-    expect(transmissionWeight(D, D)).toBeGreaterThan(2 * transmissionWeight(X, D));
-    expect(transmissionWeight(D, D)).toBe(1 + LOCK_BONUS);
+  it('reports carriage, where `x` carries both', () => {
+    expect(carries(X, D)).toBe(true);
+    expect(carries(X, R)).toBe(true);
+    expect(carries(D, R)).toBe(false);
+    expect(carries(Q, D)).toBe(false);
   });
 });
 
@@ -103,28 +121,24 @@ describe('tallyAlleles', () => {
   });
 
   it('excludes `?` entirely — it is unrevealed, not absent', () => {
-    // Skill-gated visibility is uniform across a collection, so a locus
-    // nobody can read must not look like one nobody carries.
     expect(tallyAlleles(pop([D, Q, Q])).get('01A1')).toEqual({ homD: 1, carD: 1, homR: 0, carR: 0 });
   });
 });
 
 describe('supplyTier — leave-one-out', () => {
-  it('never lets a pet tier its own allele as covered', () => {
-    // Sole carrier in a population of one carrier: after removing itself,
-    // nothing else supplies the allele.
+  it('never lets an animal tier its own allele as covered', () => {
     expect(supplyTier(tally(0, 1, 0, 0), D, X)).toBe('sole');
     expect(supplyTier(tally(1, 1, 0, 0), D, D)).toBe('sole');
   });
 
   it('reads `partial` when others carry but none breeds true', () => {
     expect(supplyTier(tally(0, 3, 0, 0), D, X)).toBe('partial');
+    // The only homozygote IS this animal → not secured elsewhere.
+    expect(supplyTier(tally(1, 3, 0, 0), D, D)).toBe('partial');
   });
 
-  it('reads `secured` only when another pet is homozygous', () => {
+  it('reads `secured` only when another animal is homozygous', () => {
     expect(supplyTier(tally(1, 3, 0, 0), D, X)).toBe('secured');
-    // The only homozygote IS this pet → not secured elsewhere.
-    expect(supplyTier(tally(1, 3, 0, 0), D, D)).toBe('partial');
   });
 
   it('clamps rather than going negative on an inconsistent tally', () => {
@@ -134,42 +148,70 @@ describe('supplyTier — leave-one-out', () => {
 
 describe('scorePet — the chromosome-01 table', () => {
   const genes = { '01A1': CHR01 };
-  // A population where every other pet is `D`, so the recessive allele is
-  // unsupplied elsewhere and both recessive slots tier `sole`.
-  const others = [D, D, D];
 
-  function scoreOf(own: GeneType) {
+  /** Score `own` against a herd of three `D` animals — recessive unsupplied. */
+  function againstDominantHerd(own: GeneType) {
     const loci = pop([own])[0];
-    const tallies = tallyAlleles([loci, ...pop(others)]);
-    return scorePet(loci, genes, tallies);
+    return scorePet(loci, genes, tallyAlleles([loci, ...pop([D, D, D])]));
   }
 
   it('scores a dominant homozygote zero — it can never clear the negative', () => {
     // `D` passes the dominant allele always, so every offspring expresses
-    // Virility− and Temperament+ is unreachable. Zero, not negative.
-    expect(scoreOf(D).score).toBe(0);
-    expect(scoreOf(D).soleSourceSlots).toBe(0);
+    // Virility− and Temperament+ is unreachable.
+    const r = againstDominantHerd(D);
+    expect(r.atRiskCapability).toBe(0);
+    expect(r.soleSourceSlots).toBe(0);
   });
 
-  it('scores a mixed gene on both counts', () => {
-    const r = scoreOf(X);
-    expect(r.score).toBeCloseTo(2 * 0.5 * TIER_WEIGHT.sole, 10);
-    expect(r.carriedSlots).toBe(2);
-    expect(r.lockedSlots).toBe(0);
+  it('credits a mixed animal as the sole source of both benefits', () => {
+    const r = againstDominantHerd(X);
+    // Carrier where nobody else carries: capability 0 → 0.5, twice over.
+    expect(r.atRiskCapability).toBeCloseTo(2 * 0.5, 10);
+    expect(r.soleSourceSlots).toBe(2);
   });
 
-  it('gives a recessive homozygote the locked double benefit', () => {
-    const r = scoreOf(R);
-    expect(r.score).toBeCloseTo(2 * (1 + LOCK_BONUS) * TIER_WEIGHT.sole, 10);
-    expect(r.lockedSlots).toBe(2);
-    expect(r.score).toBeGreaterThan(scoreOf(X).score);
+  it('credits a recessive homozygote double — it breeds the pair true', () => {
+    const r = againstDominantHerd(R);
+    expect(r.atRiskCapability).toBeCloseTo(2 * 1, 10);
+    expect(r.atRiskCapability).toBe(2 * againstDominantHerd(X).atRiskCapability);
   });
 
   it('splits the double benefit across both attributes', () => {
-    const r = scoreOf(R);
+    const r = againstDominantHerd(R);
     expect(Object.keys(r.byAttribute).sort()).toEqual(['temperament', 'virility']);
     expect(r.byAttribute.virility).toBeCloseTo(r.byAttribute.temperament, 10);
-    expect(r.byAttribute.virility + r.byAttribute.temperament).toBeCloseTo(r.score, 10);
+    expect(r.byAttribute.virility + r.byAttribute.temperament).toBeCloseTo(r.atRiskCapability, 10);
+  });
+
+  it('reports a dominant-negative carrier as liability that leaves with it', () => {
+    // Sole carrier of the `D` allele, which at 01A1 is purely a liability.
+    const loci = pop([X])[0];
+    const r = scorePet(loci, genes, tallyAlleles([loci, ...pop([R, R, R])]));
+    expect(r.liabilityAtRisk).toBeCloseTo(0.5, 10);
+    // Never folded into the headline.
+    expect(r.atRiskCapability).toBe(0);
+  });
+});
+
+describe('scorePet — irreplaceability, not abundance', () => {
+  const genes = { '01A1': CHR01 };
+
+  it('scores zero when everything it supplies is available elsewhere', () => {
+    // Four `R` animals: each is redundant, so nothing is lost by any one going.
+    const herd = pop([R, R, R, R]);
+    const tallies = tallyAlleles(herd);
+    expect(scorePet(herd[0], genes, tallies).atRiskCapability).toBe(0);
+  });
+
+  it('credits the sole animal that can breed a shared allele true', () => {
+    // Three carriers plus one homozygote: only the homozygote breeds it true.
+    const herd = pop([R, X, X, X]);
+    const tallies = tallyAlleles(herd);
+    const homozygote = scorePet(herd[0], genes, tallies);
+    const carrier = scorePet(herd[1], genes, tallies);
+    expect(homozygote.atRiskCapability).toBeCloseTo(2 * 0.5, 10);
+    expect(homozygote.soleLockSlots).toBe(2);
+    expect(carrier.atRiskCapability).toBe(0);
   });
 });
 
@@ -178,7 +220,7 @@ describe('scorePet — scoping and exclusions', () => {
 
   it('ignores `?` loci', () => {
     const loci = new Map([['01A1', Q]]) as PetLoci;
-    expect(scorePet(loci, genes, tallyAlleles([loci])).score).toBe(0);
+    expect(scorePet(loci, genes, tallyAlleles([loci])).atRiskCapability).toBe(0);
   });
 
   it('ignores unsigned loci and genes with no record', () => {
@@ -187,7 +229,7 @@ describe('scorePet — scoping and exclusions', () => {
       ['99Z9', R],
     ]) as PetLoci;
     const all = { ...genes, '03C1': gene(null, null) };
-    expect(scorePet(loci, all, tallyAlleles([loci])).score).toBe(0);
+    expect(scorePet(loci, all, tallyAlleles([loci])).atRiskCapability).toBe(0);
   });
 
   it('honours a breed scope predicate', () => {
@@ -196,22 +238,23 @@ describe('scorePet — scoping and exclusions', () => {
       ['02B1', D],
     ]) as PetLoci;
     const tallies = tallyAlleles([loci]);
-    const unscoped = scorePet(loci, genes, tallies).score;
-    const scoped = scorePet(loci, genes, tallies, { scopeToBreed: (g) => g.dominantSign !== '+' }).score;
+    const unscoped = scorePet(loci, genes, tallies).atRiskCapability;
+    const scoped = scorePet(loci, genes, tallies, {
+      scopeToBreed: (g) => g.dominantSign !== '+',
+    }).atRiskCapability;
     expect(scoped).toBeLessThan(unscoped);
   });
 });
 
-describe('the marginal term is what finds an outcrossed carrier', () => {
-  // This is the regression test for the failure recorded in the design doc:
-  // the per-gene rule alone ranks a heterozygous outcrosser BELOW a
-  // homozygous inbred core, because it credits a locked allele the same
-  // whether the herd already has it locked or not.
+describe('the marginal measure is what finds an outcrossed carrier', () => {
+  // Regression for the failure recorded in the design doc §3: an absolute
+  // benefit score ranks a heterozygous outcrosser BELOW a homozygous inbred
+  // core, because it credits a locked allele the same whether the herd
+  // already has it locked or not.
   //
-  // Ten sibling pets, homozygous-recessive (the good allele) at loci 1–20.
-  // One outcrosser is merely `x` at those, but is the sole carrier of the
-  // good allele at loci 21–30, where the siblings are all `D` (worth zero).
-  const CORE = 10;
+  // Ten homozygous siblings, good allele locked at loci 1–20. One
+  // outcrosser is merely `x` there, but is the only animal carrying the
+  // good allele at loci 21–30, where the siblings are all `D` (worthless).
   const genes: Record<string, ScoredGene> = {};
   for (let i = 1; i <= 30; i++) genes[`01A${i}`] = CHR01;
 
@@ -223,38 +266,84 @@ describe('the marginal term is what finds an outcrossed carrier', () => {
   };
   const outcrosser = (): PetLoci => {
     const m = new Map<string, GeneType>();
-    for (let i = 1; i <= 20; i++) m.set(`01A${i}`, X);
-    for (let i = 21; i <= 30; i++) m.set(`01A${i}`, X);
+    for (let i = 1; i <= 30; i++) m.set(`01A${i}`, X);
     return m as PetLoci;
   };
 
-  const herd = [...Array.from({ length: CORE }, sibling), outcrosser()];
+  const herd = [...Array.from({ length: 10 }, sibling), outcrosser()];
   const tallies = tallyAlleles(herd);
-  const score = (loci: PetLoci, opts = {}) => scorePet(loci, genes, tallies, opts).score;
 
   it('ranks the outcrosser above the inbred core', () => {
-    expect(score(outcrosser())).toBeGreaterThan(score(sibling()));
+    const out = scorePet(outcrosser(), genes, tallies);
+    const sib = scorePet(sibling(), genes, tallies);
+    expect(out.atRiskCapability).toBeGreaterThan(sib.atRiskCapability);
   });
 
-  it('inverts without the marginal term — the bug this guards', () => {
-    const flat = { tierWeight: { sole: 1, partial: 1, secured: 1 } } as const;
-    expect(score(outcrosser(), flat)).toBeLessThan(score(sibling(), flat));
+  it('scores the redundant siblings at exactly zero — the cull list', () => {
+    // Ten identical animals: none of them is irreplaceable.
+    expect(scorePet(sibling(), genes, tallies).atRiskCapability).toBe(0);
   });
 
-  it('holds across the whole lock-bonus range', () => {
-    // The calibrated tiers were chosen for exactly this: a lock bonus that
-    // could flip the ranking would be untunable later.
-    for (const lockBonus of [0, 0.25, 0.5, 1]) {
-      expect(score(outcrosser(), { lockBonus })).toBeGreaterThan(score(sibling(), { lockBonus }));
-    }
+  it('credits the outcrosser only where the herd actually lacks the allele', () => {
+    // Loci 21–30 only: 10 loci × 2 benefit slots × 0.5 (sole carrier).
+    const out = scorePet(outcrosser(), genes, tallies);
+    expect(out.soleSourceSlots).toBe(20);
+    expect(out.atRiskCapability).toBeCloseTo(20 * 0.5, 10);
   });
 
-  it('credits the outcrosser as the sole source at the loci the herd lacks', () => {
-    expect(scorePet(outcrosser(), genes, tallies).soleSourceSlots).toBe(20);
-    expect(scorePet(sibling(), genes, tallies).soleSourceSlots).toBe(0);
+  it('gives the outcrosser the whole share of irreplaceable capability', () => {
+    const scored: [number, GeneticQualityResult][] = herd.map((loci, i) => [i, scorePet(loci, genes, tallies)]);
+    const share = capabilityShare(scored);
+    expect(share.get(10)).toBeCloseTo(100, 10);
+    expect(share.get(0)).toBe(0);
   });
 
-  it('keeps a population floor for the degenerate single-pet case', () => {
+  it('reports zero share for every animal when nothing is irreplaceable', () => {
+    const redundant = pop([R, R, R]);
+    const t = tallyAlleles(redundant);
+    const scored: [number, GeneticQualityResult][] = redundant.map((l, i) => [i, scorePet(l, genes, t)]);
+    expect([...capabilityShare(scored).values()]).toEqual([0, 0, 0]);
+  });
+
+  it('keeps a population floor for the degenerate single-animal case', () => {
     expect(MIN_POPULATION).toBeGreaterThan(1);
+  });
+});
+
+describe('expectedCapabilityGain — the breeding side', () => {
+  const dist = (D_: number, x: number, R_: number) => ({ D: D_, x, R: R_, unknown: 0 });
+
+  it('credits nothing when the herd already breeds the outcome true', () => {
+    // The inert-`missing`-tier problem in reverse: no double-counting of
+    // what the stable can already do reliably.
+    expect(expectedCapabilityGain(dist(0, 0, 1), CHR01, tally(0, 4, 2, 4))).toBe(0);
+  });
+
+  it('credits a foal that locks in an allele the herd only carries', () => {
+    // base 0.5 → foal homozygous gives 1. Two slots at 01A1.
+    expect(expectedCapabilityGain(dist(0, 0, 1), CHR01, tally(0, 4, 0, 4))).toBeCloseTo(2 * 0.5, 10);
+  });
+
+  it('credits a foal that reaches an allele nothing in the herd carries', () => {
+    // base 0 → homozygous foal gives 1, heterozygous gives 0.5.
+    expect(expectedCapabilityGain(dist(0.25, 0.5, 0.25), CHR01, tally(4, 4, 0, 0))).toBeCloseTo(
+      2 * (0.25 * 1 + 0.5 * 0.5),
+      10,
+    );
+  });
+
+  it('never credits the allele that carries no benefit', () => {
+    // At 01A1 the dominant allele has no benefit slot, so dominant mass
+    // cannot earn anything however the herd looks.
+    expect(expectedCapabilityGain(dist(1, 0, 0), CHR01, tally(0, 0, 0, 0))).toBe(0);
+  });
+
+  it('is monotone in the probability of the useful genotype', () => {
+    const t = tally(4, 4, 0, 0);
+    const low = expectedCapabilityGain(dist(0.5, 0.5, 0), CHR01, t);
+    const mid = expectedCapabilityGain(dist(0.25, 0.5, 0.25), CHR01, t);
+    const high = expectedCapabilityGain(dist(0, 0, 1), CHR01, t);
+    expect(low).toBeLessThan(mid);
+    expect(mid).toBeLessThan(high);
   });
 });

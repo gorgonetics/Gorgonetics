@@ -18,7 +18,7 @@ by the developers to an early pre-alpha player, explicitly selected as
 "good genetic quality" breeding stock. They sit mid-pack on
 `positive_genes` (109 and 102, in a stable spanning 85–120) and neither is
 remarkable on attributes. Any score worth shipping must rank them at the
-top. That is the acceptance test this design is calibrated against.
+top. That is the acceptance test this design is validated against.
 
 Why the existing metric cannot see them:
 
@@ -54,34 +54,37 @@ allele can **add a positive** (recessive effect is good) or **be the half
 you need to escape a dominant negative** (only a `R/R` offspring avoids
 it).
 
-Transmission weight, from the pet's genotype:
+Each benefit slot is then valued by the **capability** a population has at
+it:
 
 ```
-p(D) = D → 1,  x → 0.5,  R → 0
-p(R) = R → 1,  x → 0.5,  D → 0
-w(p) = p === 1 ? 1 + LOCK_BONUS : p
+capability(homozygotes, carriers) =
+  homozygotes > 0 ? 1    : // the outcome can be bred true
+  carriers    > 0 ? 0.5  : // reachable, never reliably
+                    0      // out of reach from this stable
 ```
 
-`w` is superlinear at `p = 1`: a homozygote transmits with certainty and
-breeds true, which is worth more than twice a heterozygote's coin flip.
-`LOCK_BONUS` is small and calibrated — see §4.
-
-Per-locus score is then `w(p(D)) · benefit(D) + w(p(R)) · benefit(R)`.
+**The 2:1 ratio is the entire weighting model.** A locked allele is worth
+exactly twice a carried one — the "locked breeds true" intuition expressed
+as a capability rather than a tuned bonus. An earlier revision of this
+design had a `TIER_WEIGHT` table and a `LOCK_BONUS` calibrated against the
+reference collection; both are gone, because capability derives what they
+were approximating and there is nothing left to fit.
 
 ### Worked example: `01A1`
 
 `01A1` is `Virility− / Temperament+` — `ds = '-'`, `rs = '+'`. So
-`benefit(D) = 0` and `benefit(R) = 2`.
+`benefit(D) = 0` and `benefit(R) = 2`, and only the recessive allele can
+earn anything. Scored against a herd that carries no `R` at this locus:
 
-| genotype | p(R) | score | why |
+| genotype | contributes | score | why |
 |---|---|---|---|
-| `D` | 0 | **0** | passes `D` always; every offspring expresses Virility−, and Temperament+ is unreachable |
-| `x` | 0.5 | `0.5 × 2` | can pass `R`, so an offspring may both drop the negative *and* gain the positive |
-| `R` | 1 | `(1 + LOCK_BONUS) × 2` | passes `R` always — the double benefit is locked |
+| `D` | — | **0** | passes `D` always; every offspring expresses Virility−, and Temperament+ is unreachable |
+| `x` | 0.5 | `2 × 0.5` | the only carrier, so it alone puts the outcome in reach — both benefits, unreliably |
+| `R` | 1 | `2 × 1` | breeds the pair true; exactly twice the carrier |
 
-Note that `D` scores zero rather than negative. The scale is a
-contribution potential on `[0, ∞)`; it does not punish, it just declines
-to credit.
+`D` scores zero rather than negative — the benefit scale declines to
+credit rather than punishing. Liabilities are tracked separately (§3a).
 
 ### The locus classes, in full
 
@@ -102,87 +105,110 @@ attribute effect. Total 1576, matching `total_genes`.
 
 ## 3. The marginal term
 
-The per-gene rule of §2, summed over all loci, does **not** identify the
-two reference horses. Measured on the real stable:
+Benefit potential summed *absolutely* over all loci does **not** identify
+the two reference horses. Measured on the real stable, with the tuned
+bonus this design originally carried:
 
 | | Roach | Sardinilla | ρ vs `positive_genes` |
 |---|---|---|---|
-| `LOCK_BONUS = 0` | 15th | 24th | 0.63 |
-| `LOCK_BONUS = 1` | 30th | 31st (last) | 0.81 |
+| absolute score, no lock bonus | 15th | 24th | 0.63 |
+| absolute score, lock bonus 1 | 30th | 31st (last) | 0.81 |
 
-The harder `LOCK_BONUS` weights homozygosity, the more the score
-reproduces the metric it was built to replace. The reason is visible in
-the slot counts: the top-scoring pet holds 434 locked useful slots to 68
-carried, while Roach holds 266 to 379 and Sardinilla 260 to 376. They are
-heterozygous nearly everywhere — consistent with how they were
-constructed, to carry good alleles broadly rather than to breed true.
-Summed naively, "locked is worth more" is a bet on the homozygous inbred
-core of the stable, which is the opposite of the goal.
+The harder homozygosity is weighted, the more the score reproduces the
+metric it was built to replace. The reason is visible in the slot counts:
+the top-scoring animal holds 434 locked useful slots to 68 carried, while
+Roach holds 266 to 379 and Sardinilla 260 to 376. They are heterozygous
+nearly everywhere — consistent with how they were constructed, to carry
+good alleles broadly rather than to breed true. Summed naively, "locked is
+worth more" is a bet on the homozygous inbred core of the stable, which is
+the opposite of the goal.
 
-The per-gene reasoning is right *locally* — `R` at `01A1` genuinely does
-beat `x` there. It goes wrong only in aggregation, because it credits a
-locked allele identically whether twenty other pets have it locked too or
-nobody else has it at all.
+An intrinsic denominator cannot rescue it. Normalising by a perfect genome
+was tested and puts Sardinilla **30th of 31**: a perfect-genome
+denominator is a constant, so dividing by it cannot reorder anything — it
+only rescales the absolute score. The comparison has to be against the
+herd or the score does not work.
 
-So each benefit slot is scaled by what the **rest of the stable can
-already reliably produce**:
+So the score is the capability the stable **loses if this animal goes**:
 
-| tier | condition (excluding this pet) | meaning |
+```
+atRisk(animal) = Σ  benefit × ( capability(herd)
+     over slots               − capability(herd without this animal) )
+     it carries
+```
+
+Per slot that difference takes one of three values, which are also the
+labels the UI shows:
+
+| tier (herd without this animal) | capability | this animal's contribution |
 |---|---|---|
-| `sole` | no other pet carries the allele | only this pet can supply it |
-| `partial` | other carriers exist, none homozygous | reachable, but nobody breeds it true |
-| `secured` | some other pet is homozygous for it | already locked in elsewhere |
+| `sole` — no other animal carries it | 0 | 0.5 as a carrier, 1.0 locked |
+| `partial` — carriers, none homozygous | 0.5 | 0.5 if homozygous, else nothing |
+| `secured` — another animal is homozygous | 1 | nothing |
+
+Redundancy therefore scores zero, and that is the point: an animal whose
+every allele is available elsewhere costs nothing to let go.
 
 **This is not the gene-rarity lens, and deliberately not.** Rarity treats
 pool frequency as an estimate of a global property, which a 31-horse
-stable cannot support. The tiers make no claim about the world: they ask
+stable cannot support. Capability claims nothing about the world: it asks
 only "can I already breed this outcome from animals I own", which is a
-fact about the stable and is *supposed* to change when the stable changes.
-It is the same locked / partial / missing question `buildPoolCoverage`
-already answers for the Breeding Assistant, asked leave-one-out.
+fact about one stable and is *supposed* to move when the stable moves.
 
-`missing` from `GAP_WEIGHT` has no analogue here: the pet under
-consideration carries the allele by construction, so "nothing carries it"
-cannot arise. The inert tier of `#358` is structurally absent.
+`missing` from `GAP_WEIGHT` has no analogue. Tiers are only computed for
+an allele the animal itself carries, so "nothing carries it" cannot arise
+— the inert tier of `#358` is structurally impossible here rather than
+merely unused.
 
-## 4. Calibration
+### 3a. Liability
 
-Swept against the 31-stabled-horse reference collection. Reported: rank of
-each reference horse, Spearman ρ against `positive_genes` (near zero means
-the score adds information rather than restating it), and top-vs-median
-score ratio (spread — too high means the score has collapsed into a
-single indicator).
+The same leave-one-out applies to negative alleles: what negatives leave
+with the animal. Reported as `liabilityAtRisk` beside the headline and
+**never netted into it**, matching the house preference for separate
+columns over composites.
 
-| tiers (sole/partial/secured) | `LOCK_BONUS` | Sardinilla | Roach | ρ | spread |
+A flat, un-tiered liability penalty was tried and rejected: it drives 29
+of 31 animals negative (range −9% to +9%), because tier-discounted
+positives against undiscounted negatives is unit-inconsistent. Tier-weight
+it and the ranking is stable at every penalty tried (1.25, 2, 3), which is
+also why no penalty constant survives in the code.
+
+Benefits and liabilities are asymmetric in severity, and the model does
+not yet capture it: a transmitted `D` at a dominant-negative locus
+**guarantees** expression, while a transmitted `R` at a recessive-negative
+locus only bites if the other parent also passes `R`. Recorded in §11.
+
+## 4. Validation
+
+Nothing here is fitted, so this section validates rather than calibrates.
+Against the 31-stabled-horse reference collection:
+
+| | at-risk capability | share | sole source | sole lock | negatives removed |
 |---|---|---|---|---|---|
-| 1 / 1 / 1 (no marginal term) | 0 | 24th | 15th | 0.63 | 1.03 |
-| 2 / 1.2 / 0.6 (`GAP_WEIGHT`) | 0 | 1st | 2nd | 0.28 | 1.16 |
-| 2 / 1.2 / 0.6 | 0.5 | 3rd | 23rd | 0.73 | 1.07 |
-| 3 / 1.5 / 0.5 | 0 | 1st | 2nd | 0.13 | 1.35 |
-| 3 / 1.5 / 0.5 | 0.5 | 1st | 4th | 0.62 | 1.21 |
-| 3 / 1.5 / 0.5 | 1 | 1st | 22nd | 0.71 | 1.15 |
-| **4 / 1.5 / 0.25** | **0.25** | **1st** | **2nd** | **0.06** | **1.84** |
-| 4 / 1.5 / 0.25 | 1 | 1st | 2nd | 0.54 | 1.61 |
-| 2 / 1 / 0 | 0 | 1st | 2nd | −0.65 | 16.40 |
+| **Sardinilla** | 29.0 | 56.3% | 37 | 15 | 8 |
+| **Roach** | 5.0 | 9.7% | 3 | 7 | 0.5 |
+| 3rd place | 1.5 | 2.9% | 0 | 3 | 0 |
+| 9 animals | 0 | 0% | 0 | 0 | — |
 
-Chosen: **`sole 4 / partial 1.5 / secured 0.25`, `LOCK_BONUS = 0.25`.**
+Both reference horses land first and second with a wide margin, and nine
+animals score exactly zero irreplaceable capability — the cull list stated
+directly rather than inferred from a ranking.
 
-Rationale, in order of weight:
+`share` is at-risk capability over the stable's total (51.5 slot-units).
+That is the honest percentage: a real quantity over a real denominator,
+unlike a fraction of a perfect-genome ideal.
 
-1. **It is the only row where the ranking survives the whole
-   `LOCK_BONUS` range** (0 → 1 all hold 1st/2nd). Every shallower tier set
-   makes `LOCK_BONUS` load-bearing, and a parameter that flips Roach from
-   2nd to 22nd is one nobody can tune with confidence later.
-2. ρ = 0.06 — orthogonal to `positive_genes`, so the column earns its
-   place in the roster instead of restating a column already there.
-3. `LOCK_BONUS = 0.25` honours the "locked is worth more" intuition
-   without letting it dominate; at these tiers it is safe to raise.
-4. `secured = 0.25` rather than `0`: an allele the herd already has locked
-   still transmits, so it is worth a little. Setting it to zero collapses
-   the score into a sole-source count (spread 16.4).
+### The sparsity is real, and only half acceptable
 
-These constants are calibrated against one collection, as
-`RARITY_THRESHOLDS` was. They are exported and documented, not inlined.
+The measure is coarse by construction. For **culling** that is a feature —
+nine zeros is an answer. For **breeding optimisation** it is a limitation:
+across 234 M×F pairs the forward measure (§7, `expectedCapabilityGain`)
+produces only **17 distinct values, 64 of them exactly zero**. The top of
+the ranking is well separated and correct — the best pairings are exactly
+those involving the two reference horses, and Sardinilla's mean gain is
+0.97 against a herd mean of 0.28 — but past the leaders it is a flat
+plateau with no gradient. Anything wanting a total order over all pairs
+needs a denser tiebreak underneath. Noted in §11, not solved here.
 
 ## 5. Offspring-breed scoping
 
@@ -192,21 +218,28 @@ is **every locus, all breeds**. The score also accepts an
 reusing the Breeding Assistant's existing control and
 `isHorseBreedFiltered` gate.
 
-Measured behaviour of the filter (tiers 4/1.5/0.25):
+Measured behaviour of the filter:
 
-| `offspringBreed` | Sardinilla | Roach |
-|---|---|---|
-| any | 1st | 2nd |
-| Standardbred | 1st | 4th |
-| Kurbone | 1st | 25th |
-| Calico / Paint | 1st | 2nd |
+| `offspringBreed` | Sardinilla | Roach | animals scoring zero |
+|---|---|---|---|
+| any | 1st (29.0) | 2nd (5.0) | 9 of 31 |
+| Standardbred | 1st (4.0) | 2nd (1.0) | 21 of 31 |
+| Kurbone | 1st (5.0) | **18th (0)** | 24 of 31 |
+| Calico | 1st (7.0) | 17th (0) | 23 of 31 |
 
-Roach dropping to 25th under a Kurbone target is **correct, not a bug**.
-Roach is herself a Kurbone in a stable holding fourteen others, so at
-Kurbone-scoped loci she supplies little the herd cannot already reach; her
-value lay in other breeds' loci. Sardinilla, the lone Standardbred, stays
-first everywhere. The filter is doing real work and the semantics need
-documenting in the UI, or the swing will read as a defect.
+Roach falling to zero under a Kurbone target is **correct, not a bug**.
+She is herself a Kurbone in a stable holding fourteen others, so at
+Kurbone-scoped loci she supplies nothing the herd cannot already reach;
+her value lay in other breeds' loci. Sardinilla, the lone Standardbred,
+stays first under every target. The filter is doing real work, and the
+semantics need saying in the UI or the swing will read as a defect.
+
+Note the second column: narrowing the scope makes the measure much
+sparser, because fewer loci are in play and redundancy rises. Under a
+Kurbone target 24 of 31 animals are individually expendable. That is a
+true statement about a stable with a large same-breed cohort, but it
+leaves the ranking nearly flat, which reinforces §4's point about needing
+a denser tiebreak for anything that wants a total order.
 
 This also settles a pre-existing inconsistency: per-pet stats exclude
 breed-mismatched loci, the gene value filter never gates on breed lock.
@@ -236,12 +269,22 @@ Pure math, no I/O — mirrors `breedingGenetics.ts`. **Implemented**, with
 - **`src/lib/utils/geneticQuality.ts`**
   - `benefitSlots(gene): BenefitSlot[]` — enumerates the good outcomes, each
     tagged `add` / `clear` and with the attribute it moves.
-  - `benefitCounts(gene): { dom: number; rec: number }` — the scalar summary.
-  - `TIER_WEIGHT`, `LOCK_BONUS`, `MIN_POPULATION`
-  - `transmissionProbability(type, allele)`, `transmissionWeight(…)`
+  - `benefitCounts(gene)` / `liabilityCounts(gene)` — the scalar summaries.
+  - `capability(homozygotes, carriers)` — the 2:1 model, and the only
+    weighting in the module.
+  - `TIER_CAPABILITY`, `MIN_POPULATION`
+  - `transmissionProbability(type, allele)`, `carries(type, allele)`
   - `tallyAlleles(byPet)` → `Map<geneId, AlleleTally>`, `tallyFor(…)`
   - `supplyTier(tally, allele, ownType)` → `'sole' | 'partial' | 'secured'`
-  - `scorePet(loci, genes, tallies, opts): GeneticQualityResult`
+  - `scorePet(loci, genes, tallies, opts): GeneticQualityResult` — culling.
+  - `capabilityShare(results)` → `Map<petId, percent>` — the honest 0–100.
+  - `expectedCapabilityGain(dist, gene, tally)` — breeding, the same
+    capability function run forward over a foal's genotype distribution.
+
+No tuned constant survives. `TIER_WEIGHT` and `LOCK_BONUS` are gone with
+the absolute score they weighted; `TIER_CAPABILITY` is a naming of
+`capability`'s three outputs, asserted equal to it in the tests so the
+label and the arithmetic cannot drift.
 
 `benefitSlots` rather than a scalar per allele because a `clear` benefit
 lands on the attribute of the negative being *avoided*, not the one the
@@ -263,8 +306,9 @@ DB-aware composition (not yet built):
     pass, then per-pet scoring. Returns `Map<petId, GeneticQualityResult>`.
 
 `GeneticQualityResult` carries the headline plus the breakdown that makes
-it explicable: `score`, `soleSourceSlots`, `lockedSlots`, `carriedSlots`,
-and a per-attribute split (the Breeding Assistant precedent — attribute
+it explicable: `atRiskCapability`, `soleSourceSlots`, `soleLockSlots`,
+`liabilityAtRisk`, and a per-attribute split (the Breeding Assistant
+precedent — attribute
 breakdowns are what let a breeder target one trait).
 
 Reused as-is: `loadAllPetLoci` / `getAllPetLociCached`, `PetLoci`,
@@ -315,48 +359,59 @@ column with the default sort left alone — the same conservative choice
 
 ## 10. Testing
 
-Unit (`tests/unit/geneticQuality.test.ts`):
+Unit (`tests/unit/geneticQuality.test.ts`, 36 cases):
 
-- `benefit` counts for all six locus classes, `01A1` explicitly.
-- The `D → 0`, `x → 1`, `R → 2 × (1 + LOCK_BONUS)` table at `01A1`.
-- `slotTier` leave-one-out: a pet must never tier itself into `secured` or
-  `partial` on its own genotype.
+- `capability` — the 2:1 ratio asserted directly, and `TIER_CAPABILITY`
+  asserted equal to it so the display labels cannot drift from the maths.
+- `benefitSlots` / `benefitCounts` / `liabilityCounts` across every locus
+  class, with `01A1` named explicitly.
+- The `D → 0`, `x → 2 × 0.5`, `R → 2 × 1` table at `01A1`, plus the
+  attribute split (a `clear` files against the negative it avoids).
+- `supplyTier` leave-one-out: an animal must never read its own allele back
+  as coverage.
 - `?` excluded from tally and score.
-- Monotonicity within a tier: `D` ≥ `x` ≥ `R` for a dominant benefit.
+- Redundancy scores exactly zero; the sole animal able to breed a shared
+  allele true scores `soleLockSlots`.
+- `expectedCapabilityGain`: nothing credited where the herd already breeds
+  true, monotone in the useful genotype's probability, and the
+  no-benefit allele never earns.
 
 Regression: a **synthetic** herd — ten homozygous siblings plus one
-heterozygous outcrosser that is the sole carrier of the good allele where
+heterozygous outcrosser that is the only carrier of the good allele where
 the siblings are worthless — asserting the outcrosser outranks the core,
-that it *inverts* under flat tier weights, and that the ranking holds at
-`LOCK_BONUS` 0 / 0.25 / 0.5 / 1. This is the test that would have caught
-the inversion in §3, and the reason the constants are exported and
-overridable per call.
+that the siblings score exactly zero, and that the outcrosser holds 100%
+of the stable's irreplaceable capability. This is the invariant whose
+absence let the absolute score of §3 look plausible.
 
 Synthetic rather than a fixture of the reference stable, for two reasons:
 the stable is private user data, and an invariant ("an outcrossed sole
 carrier beats an inbred core") is what we actually mean — a memorised
 ranking of eleven names would pass for the wrong reasons the moment the
-weights moved. The real collection was used to *calibrate* (§4) and the
-shipped module reproduces its ranking (Sardinilla 272.1 with 37 sole-source
-slots, Roach 190.1, third place 163.9), but that check is run by hand, not
-in CI.
+model changed. The real collection is used to *validate* (§4) and the
+shipped module reproduces its ranking exactly, but that check is run by
+hand, not in CI.
 
 E2E: column sorts, breed selector changes the ranking, column suppressed
-below the minimum population.
+below `MIN_POPULATION`.
 
 ## 11. Open questions
 
-1. **Attribute weighting.** All benefits count 1 today. A breeder chasing
+1. **A denser tiebreak for breeding.** §4 measures the limitation: 234
+   pairs collapse to 17 distinct values, and a breed-scoped roster is
+   flatter still (§5). Capability is the right *objective*; it is a poor
+   *gradient*. Candidate: order by capability first, then by expected
+   benefit slots transmitted, which is dense but meaningless alone.
+2. **Liability severity.** `liabilityCounts` treats a dominant negative and
+   a recessive negative alike, but a transmitted `D` at a dominant-negative
+   locus guarantees expression while a transmitted `R` needs the other
+   parent to match. The counts are right; the severity is not modelled.
+3. **Attribute weighting.** All benefits count 1. A breeder chasing
    Virility does not value a Friendliness+ slot equally. Defer to the
    criterion model (§6) rather than adding a second weighting scheme.
-2. **Liability.** The score never subtracts. Sardinilla also carries 17
-   rare *negative* alleles, and a breeder ought to see that. A paired
-   liability figure is the obvious v2; folding it into the headline is not,
-   given the twice-deferred composite precedent.
-3. **Display scale.** Raw sums (~90–320 depending on scope) are not
-   meaningful to a player. Percentile-within-stable is legible but hides
-   absolute change; a fixed divisor keeps comparability. Undecided.
-4. **`LOCK_BONUS` at steeper tiers.** §4 shows 4/1.5/0.25 tolerates
-   `LOCK_BONUS = 1` while holding the ranking. If players find the locked
-   emphasis too weak at 0.25, it can be raised — the calibration test is
-   what makes that safe.
+4. **What capability means for a wild horse.** Capability is defined
+   against animals you own, so a wild horse carrying an allele nothing in
+   the stable has cannot be scored by it — the same gap `#367` blocks for
+   the rarity lens. Until then the score describes only the stable.
+5. **Whether `MIN_POPULATION = 3` is high enough.** At three animals almost
+   everything tiers `sole`, so the score is near-degenerate even above the
+   floor. The rarity lens needed ten for its loudest steps; this may too.
