@@ -129,7 +129,7 @@ already reliably produce**:
 
 | tier | condition (excluding this pet) | meaning |
 |---|---|---|
-| `absent` | no other pet carries the allele | only this pet can supply it |
+| `sole` | no other pet carries the allele | only this pet can supply it |
 | `partial` | other carriers exist, none homozygous | reachable, but nobody breeds it true |
 | `secured` | some other pet is homozygous for it | already locked in elsewhere |
 
@@ -153,7 +153,7 @@ the score adds information rather than restating it), and top-vs-median
 score ratio (spread — too high means the score has collapsed into a
 single indicator).
 
-| tiers (absent/partial/secured) | `LOCK_BONUS` | Sardinilla | Roach | ρ | spread |
+| tiers (sole/partial/secured) | `LOCK_BONUS` | Sardinilla | Roach | ρ | spread |
 |---|---|---|---|---|---|
 | 1 / 1 / 1 (no marginal term) | 0 | 24th | 15th | 0.63 | 1.03 |
 | 2 / 1.2 / 0.6 (`GAP_WEIGHT`) | 0 | 1st | 2nd | 0.28 | 1.16 |
@@ -165,7 +165,7 @@ single indicator).
 | 4 / 1.5 / 0.25 | 1 | 1st | 2nd | 0.54 | 1.61 |
 | 2 / 1 / 0 | 0 | 1st | 2nd | −0.65 | 16.40 |
 
-Chosen: **`absent 4 / partial 1.5 / secured 0.25`, `LOCK_BONUS = 0.25`.**
+Chosen: **`sole 4 / partial 1.5 / secured 0.25`, `LOCK_BONUS = 0.25`.**
 
 Rationale, in order of weight:
 
@@ -230,15 +230,33 @@ than invent parallel ones.
 
 ## 7. Module surface
 
-Pure math, no I/O — mirrors `breedingGenetics.ts`:
+Pure math, no I/O — mirrors `breedingGenetics.ts`. **Implemented**, with
+`tests/unit/geneticQuality.test.ts` covering it:
 
 - **`src/lib/utils/geneticQuality.ts`**
-  - `benefitCounts(gene): { dom: number; rec: number }`
-  - `TIER_WEIGHT`, `LOCK_BONUS`, `transmissionWeight(type, allele)`
-  - `slotTier(tally, allele, ownType)` → `'absent' | 'partial' | 'secured'`
-  - `scorePet(loci, parsedGenes, tallies, opts): GeneticQualityResult`
+  - `benefitSlots(gene): BenefitSlot[]` — enumerates the good outcomes, each
+    tagged `add` / `clear` and with the attribute it moves.
+  - `benefitCounts(gene): { dom: number; rec: number }` — the scalar summary.
+  - `TIER_WEIGHT`, `LOCK_BONUS`, `MIN_POPULATION`
+  - `transmissionProbability(type, allele)`, `transmissionWeight(…)`
+  - `tallyAlleles(byPet)` → `Map<geneId, AlleleTally>`, `tallyFor(…)`
+  - `supplyTier(tally, allele, ownType)` → `'sole' | 'partial' | 'secured'`
+  - `scorePet(loci, genes, tallies, opts): GeneticQualityResult`
 
-DB-aware composition:
+`benefitSlots` rather than a scalar per allele because a `clear` benefit
+lands on the attribute of the negative being *avoided*, not the one the
+allele expresses. At `01A1` the recessive allele adds Temperament+ **and**
+escapes Virility−; counting two benefits against `recessiveAttribute`
+would file half the per-attribute breakdown under the wrong trait at every
+chromosome-01 locus.
+
+`supplyTier`, not `slotTier`, and `sole`, not `absent` — the pet carries
+the allele, so nothing is absent; what varies is whether anything *else*
+supplies it. Named apart from `breedingService`'s `CoverageTier`
+(`locked`/`partial`/`missing`) because that one describes a pool including
+the pet and this one excludes it.
+
+DB-aware composition (not yet built):
 
 - **`src/lib/services/geneticQualityService.ts`**
   - `scoreStable(pets, opts)` — one `getAllPetLociCached` read, one tally
@@ -265,11 +283,11 @@ to `pets`.
 
 - **`?` loci** — skipped entirely, both in the tally and in scoring. `?`
   is skill-gated visibility uniform across the collection, not a per-animal
-  gap; a locus nobody can read must not tier as `absent`.
+  gap; a locus nobody can read must not tier as `sole`.
 - **Selector loci** — excluded (no attribute effect). Which breeds a pet
   can steer offspring toward is a separate question, out of scope for v1.
 - **Unsigned loci** — `benefit(D) = benefit(R) = 0`, contribute nothing.
-- **Single-pet stable** — every slot the pet carries tiers `absent`, so
+- **Single-pet stable** — every slot the pet carries tiers `sole`, so
   the score is at its structural maximum. Honest (nothing else can supply
   anything) but meaningless as a comparison. Suppress the column below a
   minimum population, as `SOLE_CARRIER_MIN_PETS` does for rarity.
@@ -306,11 +324,22 @@ Unit (`tests/unit/geneticQuality.test.ts`):
 - `?` excluded from tally and score.
 - Monotonicity within a tier: `D` ≥ `x` ≥ `R` for a dominant benefit.
 
-Regression (`tests/unit/geneticQualityCalibration.test.ts`): a fixture
-holding the reference stable's genotypes at the loci that matter, asserting
-Roach and Sardinilla rank 1st and 2nd. This is the test that would have
-caught the `LOCK_BONUS` inversion, and the reason the constants are
-exported.
+Regression: a **synthetic** herd — ten homozygous siblings plus one
+heterozygous outcrosser that is the sole carrier of the good allele where
+the siblings are worthless — asserting the outcrosser outranks the core,
+that it *inverts* under flat tier weights, and that the ranking holds at
+`LOCK_BONUS` 0 / 0.25 / 0.5 / 1. This is the test that would have caught
+the inversion in §3, and the reason the constants are exported and
+overridable per call.
+
+Synthetic rather than a fixture of the reference stable, for two reasons:
+the stable is private user data, and an invariant ("an outcrossed sole
+carrier beats an inbred core") is what we actually mean — a memorised
+ranking of eleven names would pass for the wrong reasons the moment the
+weights moved. The real collection was used to *calibrate* (§4) and the
+shipped module reproduces its ranking (Sardinilla 272.1 with 37 sole-source
+slots, Roach 190.1, third place 163.9), but that check is run by hand, not
+in CI.
 
 E2E: column sorts, breed selector changes the ranking, column suppressed
 below the minimum population.
