@@ -349,6 +349,16 @@ export interface BreedingPairResult {
   betterParentPositives: number;
   /** The weaker parent's own count, same basis. Baseline for `evPairUpgrade`. */
   weakerParentPositives: number;
+  /**
+   * Per-attribute expected improvement, each measured against the better
+   * parent **on that attribute**.
+   *
+   * The fifth breeding purpose: lifting one trait that is lagging. The
+   * absolute `evPositiveByAttribute` cannot express it — a pairing can lead
+   * the field on Intelligence while being unable to improve on either
+   * parent's Intelligence, which is the local maximum again, per attribute.
+   */
+  evAttributeImprovement: Record<string, number>;
   /** Expected number of negative effects the offspring expresses. */
   evNegativeTotal: number;
   /**

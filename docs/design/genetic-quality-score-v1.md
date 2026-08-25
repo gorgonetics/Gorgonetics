@@ -530,7 +530,7 @@ hand, not in CI.
 E2E: column sorts, breed selector changes the ranking, column suppressed
 below `MIN_POPULATION`.
 
-## 10a. Breeding has four purposes, not one
+## 10a. Breeding has five purposes, not one
 
 Every attempt to reduce pairing choice to a single objective failed against
 a case the player could name, and each failure was measured on the
@@ -561,15 +561,34 @@ measurements:
   negative, which can be worth doing when the foal is worse than both
   parents.
 
-So the Breeding Assistant gains four sortable columns and keeps its
-existing refusal to compose a single score — the same position `#358` took
-for Pool gain, now with four independent reasons rather than one.
-`suggestPlans` accepts the objective as a parameter, so a player picks the
-intent and the planner optimises for it.
+There is a fifth, and it is per-attribute: lifting one trait that lags.
+`evPositiveByAttribute` cannot express it for the same reason
+`evPositiveTotal` could not express the fourth — a pairing can lead the
+field on Intelligence while being unable to beat either parent's
+Intelligence. So `evAttributeImprovement` measures each attribute against
+the better parent *on that attribute*.
+
+| purpose | metric |
+|---|---|
+| Reach new ground | `evCapabilityGain` |
+| Raise the ceiling | `evPositiveImprovement` |
+| Raise the floor | `evPairUpgrade` |
+| Clean the line | `evLiabilityReduction` |
+| Improve one attribute | `evAttributeImprovement[attr]` |
+
+**The objective is a player choice per breeding round, not a property of
+the app.** `utils/breedingObjectives.ts` is the registry: named strategies
+with a selector each, plus `attributeObjective(attr)` for the parameterised
+one. `suggestPlans` already takes `score`, so the picker feeds the planner
+directly and nothing needs recomputing when the player changes intent —
+`rankBreedingPairs` returns every component on each pair.
 
 Deliberately **not** offered: a weighted blend. The weights would encode a
 breeding strategy the app has no basis to choose, and would hide exactly
-the conflicts a breeder needs to see.
+the conflicts a breeder needs to see. "Most positive genes" is kept in the
+registry because a player may genuinely want the level, but its description
+says plainly that it favours pairing your two best animals and that their
+foals often regress.
 
 ## 11. Open questions
 

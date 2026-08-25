@@ -150,6 +150,7 @@ function accumulatePositive(
   gd: ParsedGeneRecord,
   cov: SlotCoverage | undefined,
   into: Record<string, number>,
+  variance: Record<string, number>,
 ): { total: number; weighted: number } {
   const slots = positiveSlots(gd);
   let total = 0;
@@ -158,6 +159,7 @@ function accumulatePositive(
     const p = dist.D + dist.x;
     if (p > 0) {
       into[slots.dom] = (into[slots.dom] ?? 0) + p;
+      variance[slots.dom] = (variance[slots.dom] ?? 0) + p * (1 - p);
       total += p;
       weighted += p * GAP_WEIGHT[cov?.dom ?? 'missing'];
     }
@@ -166,6 +168,7 @@ function accumulatePositive(
     const p = dist.R;
     if (p > 0) {
       into[slots.rec] = (into[slots.rec] ?? 0) + p;
+      variance[slots.rec] = (variance[slots.rec] ?? 0) + p * (1 - p);
       total += p;
       weighted += p * GAP_WEIGHT[cov?.rec ?? 'missing'];
     }
@@ -195,6 +198,33 @@ function ownPositiveCount(
     else if (type === GeneType.RECESSIVE && gd.recessiveSign === '+') n++;
   }
   return n;
+}
+
+/**
+ * A parent's own positive count split by attribute, same basis as
+ * `ownPositiveCount`. The baseline for per-attribute improvement: "raise
+ * Intelligence" means beating the parents *on Intelligence*, so the
+ * comparison has to be per attribute rather than against the total.
+ */
+function ownPositivesByAttribute(
+  loci: PetLoci,
+  parsedGenes: Record<string, ParsedGeneRecord>,
+  species: string,
+  offspringBreed: string | undefined,
+): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const [geneId, type] of loci) {
+    const gd = parsedGenes[geneId];
+    if (!gd) continue;
+    if (isHorseBreedFiltered(species, offspringBreed, gd.breed)) continue;
+    const slots = positiveSlots(gd);
+    if ((type === GeneType.DOMINANT || type === GeneType.MIXED) && slots.dom) {
+      out[slots.dom] = (out[slots.dom] ?? 0) + 1;
+    } else if (type === GeneType.RECESSIVE && slots.rec) {
+      out[slots.rec] = (out[slots.rec] ?? 0) + 1;
+    }
+  }
+  return out;
 }
 
 /** A parent's own negative-effect count, same basis as `ownPositiveCount`. */
@@ -231,11 +261,13 @@ function scorePair(
   tallies: Map<string, AlleleTally>,
   ownPositives: Map<number, number>,
   ownNegatives: Map<number, number>,
+  ownByAttribute: Map<number, Record<string, number>>,
   offspringBreed: string | undefined,
   species: string,
   attrNames: readonly string[],
 ): BreedingPairResult {
   const evPositiveByAttribute = emptyAttributeBreakdown(attrNames);
+  const attributeVariance = emptyAttributeBreakdown(attrNames);
   let evMixed = 0;
   let evUnknown = 0;
   let evPositiveTotal = 0;
@@ -258,7 +290,13 @@ function scorePair(
     evUnknown += dist.unknown;
     totalLoci++;
     if (gd) {
-      const { total, weighted } = accumulatePositive(dist, gd, coverage.get(geneId), evPositiveByAttribute);
+      const { total, weighted } = accumulatePositive(
+        dist,
+        gd,
+        coverage.get(geneId),
+        evPositiveByAttribute,
+        attributeVariance,
+      );
       evPositiveTotal += total;
       evPositiveWeighted += weighted;
       evCapabilityGain += expectedCapabilityGain(dist, gd, tallyFor(tallies, geneId));
@@ -276,6 +314,21 @@ function scorePair(
   const weakerParentPositives = Math.min(malePositives, femalePositives);
   const sd = Math.sqrt(positiveVariance);
   const cleanerParentNegatives = Math.min(ownNegatives.get(male.id) ?? 0, ownNegatives.get(female.id) ?? 0);
+  // Per-attribute improvement, each against the better parent *on that
+  // attribute*. Targeting a weak trait is a strategy in its own right, and
+  // the absolute per-attribute EV cannot express it — a pairing can lead on
+  // Intelligence while being unable to improve on either parent's.
+  const mAttr = ownByAttribute.get(male.id) ?? {};
+  const fAttr = ownByAttribute.get(female.id) ?? {};
+  const evAttributeImprovement: Record<string, number> = {};
+  for (const attr of attrNames) {
+    const baseline = Math.max(mAttr[attr] ?? 0, fAttr[attr] ?? 0);
+    evAttributeImprovement[attr] = expectedImprovement(
+      evPositiveByAttribute[attr] ?? 0,
+      Math.sqrt(attributeVariance[attr] ?? 0),
+      baseline,
+    );
+  }
   return {
     male,
     female,
@@ -289,6 +342,7 @@ function scorePair(
     evPairUpgrade: expectedImprovement(evPositiveTotal, sd, weakerParentPositives),
     betterParentPositives,
     weakerParentPositives,
+    evAttributeImprovement,
     evNegativeTotal,
     evLiabilityReduction: expectedReduction(evNegativeTotal, Math.sqrt(negativeVariance), cleanerParentNegatives),
     cleanerParentNegatives,
@@ -326,9 +380,11 @@ export async function rankBreedingPairs(opts: RankBreedingPairsOptions): Promise
   // One pass per animal, not per pair: the baseline an offspring must beat.
   const ownPositives = new Map<number, number>();
   const ownNegatives = new Map<number, number>();
+  const ownByAttribute = new Map<number, Record<string, number>>();
   for (const [id, l] of petLociMap) {
     ownPositives.set(id, ownPositiveCount(l, parsedGenes, species, opts.offspringBreed));
     ownNegatives.set(id, ownNegativeCount(l, parsedGenes, species, opts.offspringBreed));
+    ownByAttribute.set(id, ownPositivesByAttribute(l, parsedGenes, species, opts.offspringBreed));
   }
 
   for (const m of males) {
@@ -346,6 +402,7 @@ export async function rankBreedingPairs(opts: RankBreedingPairsOptions): Promise
           tallies,
           ownPositives,
           ownNegatives,
+          ownByAttribute,
           opts.offspringBreed,
           species,
           attrNames,
