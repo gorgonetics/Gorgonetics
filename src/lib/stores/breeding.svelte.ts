@@ -7,6 +7,7 @@
  */
 
 import type { Pet } from '$lib/types/index.js';
+import { DEFAULT_BREEDING_OBJECTIVE } from '$lib/utils/breedingObjectives.js';
 
 /** The (father, mother) pair currently open in the trio detail view. */
 export interface SelectedBreedingPair {
@@ -43,6 +44,17 @@ export const breedingView = $state({
   species: '' as string,
   /** Player-selected offspring breed (horse-only; '' = no filter / mixed). */
   offspringBreed: '' as string,
+  /**
+   * The breeding strategy in play — an id from `breedingObjectives`, or
+   * `attribute:<Name>` for the per-attribute one. Drives both the table sort
+   * and the planner's objective.
+   *
+   * Persisted across destination switches because a breeder working toward
+   * one goal should not have it silently reset by a trip to My Pets. It is a
+   * per-round choice, not a preference: nothing here is "correct", and the
+   * app deliberately does not pick for the player (design doc §10a).
+   */
+  objective: DEFAULT_BREEDING_OBJECTIVE as string,
   /** Active sort column for the pair table. */
   // Genetic quality leads: an absolute positive count ranks the two best
   // animals together and their foals regress to the mean (design doc §10a).

@@ -173,3 +173,32 @@ describe('BreedingPairTable — suggested plan groups', () => {
     expect(container.querySelectorAll('[data-testid="inspect-pair"]').length).toBe(1);
   });
 });
+
+describe('BreedingPairTable — column integrity', () => {
+  /**
+   * The header row is generated from `columns`; the body cells are written
+   * out by hand. Adding a column to one and not the other shifts every value
+   * silently — each cell still renders a plausible number, just under the
+   * wrong heading. That shipped once. This is the guard.
+   */
+  it('renders exactly one body cell per header', async () => {
+    const { container, rerender } = render(BreedingPairTable, { results: RESULTS, attrNames: ['Toughness'] });
+    await rerender({});
+    const headers = container.querySelectorAll('thead th').length;
+    const cells = container.querySelectorAll('tbody tr td').length;
+    expect(cells).toBe(headers);
+  });
+
+  it('puts each metric under its own heading', async () => {
+    const { container, rerender } = render(BreedingPairTable, { results: RESULTS, attrNames: [] });
+    await rerender({});
+    const headers = [...container.querySelectorAll('thead th')].map((h) => h.textContent?.replace(/[▲▼]/g, '').trim());
+    const cells = [...container.querySelectorAll('tbody tr td')].map((c) => c.textContent?.trim());
+    const at = (label: string) => cells[headers.indexOf(label)];
+    // Values come from the RESULTS fixture; each must land under its label.
+    expect(at('Quality')).toBe('1.0');
+    expect(at('Ceiling')).toBe('0.5');
+    expect(at('Floor')).toBe('1.5');
+    expect(at('Total +')).toBe('2.0');
+  });
+});

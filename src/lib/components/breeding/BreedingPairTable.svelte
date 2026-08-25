@@ -180,10 +180,14 @@ function persistScroll() {
                 </td>
                 {@render parentCell(pair.male)}
                 {@render parentCell(pair.female)}
+                <td class="numeric strong">{fmt(pair.evCapabilityGain)}</td>
+                <td class="numeric">{fmt(pair.evPositiveImprovement)}</td>
+                <td class="numeric">{fmt(pair.evPairUpgrade)}</td>
+                <td class="numeric">{fmt(pair.evLiabilityReduction)}</td>
                 <td class="numeric">{fmt(pair.evMixed)}</td>
                 <td class="numeric">{fmt(pair.evUnknown)}</td>
-                <td class="numeric strong">{fmt(pair.evPositiveTotal)}</td>
-                <td class="numeric strong">{fmt(pair.evPositiveWeighted)}</td>
+                <td class="numeric">{fmt(pair.evPositiveTotal)}</td>
+                <td class="numeric">{fmt(pair.evPositiveWeighted)}</td>
                 {#each attrNames as name (name)}
                     <td class="numeric">{fmt(pair.evPositiveByAttribute[name] ?? 0)}</td>
                 {/each}
@@ -197,7 +201,7 @@ function persistScroll() {
                         <td colspan={columns.length + 1}>
                             <span class="option-dot"></span>
                             Option {i + 1}{i === 0 ? ' · best' : ''}
-                            <span class="option-total">pool gain {fmt(plan.total)}</span>
+                            <span class="option-total">total {fmt(plan.total)}</span>
                         </td>
                     </tr>
                     {#each sortPairs(plan.pairs) as pair (`${pair.male.id}-${pair.female.id}`)}
