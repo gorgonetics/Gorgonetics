@@ -236,6 +236,86 @@ those involving the two reference horses, and Sardinilla's mean gain is
 plateau with no gradient. Anything wanting a total order over all pairs
 needs a denser tiebreak underneath. Noted in §11, not solved here.
 
+## 4a. Choosing releases
+
+The game caps concurrent breeding at six pairs, so a full stable must give
+up six animals to start a round. The question is therefore **"which six,
+and what do they cost?"** — not "what is free?". `safeCullOrder` takes a
+target count and returns that many, priced, stopping early only at the
+population floor.
+
+Order of preference, cheapest released first:
+
+1. **Capability cost**, ascending — the measure itself.
+2. **Rare benefit alleles held**, ascending (§4b).
+3. **Liability cleared**, descending.
+4. **Attribute total**, ascending.
+5. **Id**, ascending — determinism, nothing more.
+
+Liability sits *below* rarity, reversing an earlier draft. A released rare
+allele may be unrecoverable; a negative allele can be bred out later, so
+irreversible loss outranks a temporary cost. The earlier order was measured
+and was wrong in practice: exactly one animal in nine has any liability to
+clear, and it is the one holding the most rare material, so liability-first
+fired once and fired on the animal it should have protected.
+
+### Attributes are not a value axis
+
+Attributes carry real in-game value — a mount's speed, resilience and
+carrying capacity — but they are **not** a reason to keep a genetically
+redundant animal. Only one mount is needed, and keeping several
+near-identical high-attribute horses serves nothing. So attributes never
+compete with the genetic measure; they only separate animals it has already
+called equal.
+
+The animal you actually ride is protected by **pinning**, not by scoring:
+`safeCullSet` excludes every `starred` pet from the walk. The score has no
+view on riding and should not pretend to; the exemption is declared by the
+player. An earlier draft tried a Pareto rule over capability, rarity and
+every attribute — it marked 1 of 31 animals releasable, and that one was the
+stable's strongest phenotype. With ten axes and thirty-one animals almost
+nothing is dominated, and "best in stable at ruggedness" is meaningless when
+five animals tie at 100. Dominance was abandoned for pinning.
+
+### 4b. Why rarity is bucketed
+
+Rarity is counted on `geneFrequency`'s ordinal buckets — benefit alleles at
+`RARE_BUCKET_FLOOR` or above — not on raw frequency, and delegates to
+`rarityBucket` so the app keeps one definition of rarity.
+
+A continuous rarity value resolves every tie it is handed, which leaves any
+criterion behind it dead code. Measured: continuous rarity gives 9 distinct
+values for the 9 tied animals, so the attribute term never fires; bucketed
+gives 4, leaving genuine ties. It also separates cleanly on real data — the
+lone Paint holds 30 rare benefit alleles, the Statehelm 3, every other
+animal 0–1.
+
+Counted over benefit-bearing alleles only. Rarity across all loci is
+dominated by the ~520 unsigned ones and ranks animals by how genetically
+unusual they are rather than how much rare *useful* material they hold. A
+naive sum over carried alleles is worse still: it correlates 0.923 with raw
+allele count, making it a heterozygosity measure wearing a rarity label.
+
+### Measured on the reference stable
+
+Asking for six slots costs **nothing** — all six releases are free, drawn
+from the redundant Kurbone core in ascending rarity then attribute order.
+
+Worth noting what the sequential walk does here. The stable's
+second-strongest animal by attributes (423) scores zero in the full stable
+and would be released by any batch rule. Its cost rises to 0.5 once three
+of its redundant siblings have gone:
+
+| after releasing | its cost |
+|---|---|
+| nothing | 0 |
+| 1 sibling | 0 |
+| 2 siblings | 0 |
+| 3 siblings | **0.5** |
+
+It stops being redundant when its redundancy leaves. The tiebreaks did not
+save it; re-scoring each step did.
+
 ## 5. Offspring-breed scoping
 
 Because offspring can be of a breed neither parent is, the default scope

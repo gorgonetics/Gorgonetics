@@ -42,6 +42,7 @@
 import type { AlleleDistribution } from '$lib/types/index.js';
 import { GeneType } from '$lib/types/index.js';
 import type { GeneSignSummary } from '$lib/utils/breedingGenetics.js';
+import { type LocusTally, RARITY_THRESHOLDS, type RarityOptions, rarityBucket } from '$lib/utils/geneFrequency.js';
 import type { PetLoci } from '$lib/utils/petLoci.js';
 
 /** The two transmissible alleles. `x` carries one of each; `?` carries neither. */
@@ -451,6 +452,54 @@ export function scoreGroup(
   return out;
 }
 
+/**
+ * Rarity floor counted by `rareBenefitAlleles`: the first ordinal step below
+ * the last frequency threshold in `geneFrequency`. Steps above it (sole
+ * carrier, never seen) count too. Derived from `RARITY_THRESHOLDS` rather
+ * than written as `3`, so recalibrating the lens cannot silently move what
+ * "rare" means here.
+ */
+export const RARE_BUCKET_FLOOR = RARITY_THRESHOLDS.length;
+
+/**
+ * Benefit alleles this animal carries that are rare in the population.
+ *
+ * Deliberately delegates to `geneFrequency.rarityBucket` rather than
+ * recomputing: rarity already has one definition in this app, including its
+ * sample-size gates, and a second one would drift.
+ *
+ * **Counted on the ordinal scale, not the raw frequency, and that is the
+ * point.** A continuous rarity value resolves every tie it is given, which
+ * leaves any criterion behind it dead code. Bucketing collapses the near-
+ * identical members of a sibling cluster back into genuine ties, so a later
+ * criterion can decide between them.
+ *
+ * Restricted to benefit-bearing alleles. Rarity over every locus is
+ * dominated by the ~520 unsigned ones and ranks animals by how genetically
+ * unusual they are rather than by how much rare *useful* material they hold.
+ */
+export function rareBenefitAlleles(
+  loci: PetLoci,
+  genes: Readonly<Record<string, ScoredGene>>,
+  frequencies: Map<string, LocusTally>,
+  opts: RarityOptions = {},
+): number {
+  let count = 0;
+  for (const [geneId, type] of loci) {
+    if (type === GeneType.UNKNOWN) continue;
+    const gene = genes[geneId];
+    if (!gene) continue;
+    const tally = frequencies.get(geneId);
+    if (!tally) continue;
+    for (const slot of benefitSlots(gene)) {
+      if (!carries(type, slot.allele)) continue;
+      const bucket = rarityBucket(tally, slot.allele, opts);
+      if (bucket !== null && bucket >= RARE_BUCKET_FLOOR) count += 1;
+    }
+  }
+  return count;
+}
+
 /** One animal's position in the greedy release order. */
 export interface CullStep {
   id: number;
@@ -460,31 +509,88 @@ export interface CullStep {
   liabilityRemoved: number;
 }
 
+export interface SafeCullOrderOptions {
+  /**
+   * Animals excluded from release outright, whatever they score. The
+   * genetic measure has no view on why an animal is wanted — a mount is
+   * kept for reasons no genome explains — so the exemption is declared, not
+   * inferred.
+   */
+  pinned?: ReadonlySet<number>;
+  /**
+   * Compared **before** liability, ascending. Lower is released first.
+   * The service supplies rare-benefit-allele counts.
+   *
+   * Rarity outranks liability deliberately: a rare beneficial allele, once
+   * released, may be unrecoverable, whereas a negative allele can be bred
+   * out later. Irreversible loss beats a temporary cost. Measured on the
+   * reference stable, liability-first fires exactly once in nine — and
+   * fires on the animal holding the most rare material.
+   */
+  primaryTiebreak?: ReadonlyMap<number, readonly number[]>;
+  /**
+   * Compared **after** liability, ascending. The service supplies the
+   * attribute total, which only ever separates animals the genetic measure
+   * has already called equal — a determinism device, not a value axis. A
+   * mount is kept by pinning it, not by out-scoring the genome.
+   */
+  secondaryTiebreak?: ReadonlyMap<number, readonly number[]>;
+}
+
+/**
+ * Two tuples rather than one because liability is **not** precomputable:
+ * `liabilityAtRisk` is itself leave-one-out, so it changes as the herd
+ * shrinks and can only be measured inside the walk. That forces the
+ * caller's criteria to be split around it.
+ */
+
+/** Lexicographic ascending compare of two tie-break tuples. */
+function compareTiebreak(a: readonly number[], b: readonly number[]): number {
+  const n = Math.max(a.length, b.length);
+  for (let i = 0; i < n; i++) {
+    const d = (a[i] ?? 0) - (b[i] ?? 0);
+    if (d !== 0) return d;
+  }
+  return 0;
+}
+
 export interface SafeCullResult {
   /**
-   * Animals that can be released **in this order** at no capability cost.
-   * Order matters: the set is only free if released as a sequence, because
-   * each removal is scored against what remains.
+   * The chosen releases **in order**. Order is load bearing: each step's
+   * cost is measured against what remained at that point, so the set is
+   * only this cheap if released as this sequence.
+   *
+   * With a `target`, the list is that long (or shorter if the population
+   * floor intervened) and may contain steps that cost something. Without
+   * one, it stops at the first release that would cost anything.
    */
-  releasable: CullStep[];
+  releases: CullStep[];
+  /** Capability lost across the whole list. */
+  totalCost: number;
   /**
-   * What the next release would cost, or `null` if the population floor
-   * stopped the walk first. Lets the UI say "one more costs 0.5" rather
-   * than silently ending the list.
+   * What the next release beyond the list would cost, or `null` when the
+   * population floor ended the walk. Lets the UI say "a seventh would cost
+   * 0.5" rather than the list just stopping.
    */
   nextCost: number | null;
 }
 
 /**
- * The largest prefix of releases that costs nothing, found greedily.
+ * Choose which animals to release, greedily, cheapest first.
+ *
+ * The real question is "the game lets me breed six pairs, so I must free
+ * six slots — which six, and what does it cost me?" With `target` set the
+ * walk returns exactly that many (subject to the floor) even when some cost
+ * something; without it, it stops at the first release that would.
  *
  * **Why this exists rather than sorting by `scorePet`:** leave-one-out is
  * not additive. Where two animals are the only carriers of an allele, each
  * scores zero — the other covers it — yet releasing both loses the allele.
- * Selecting every zero-scoring animal from a sorted column is exactly that
- * mistake; on the reference stable it costs 0.5 capability that the
- * individual scores all reported as free. Re-scoring after each removal is
- * what makes the answer honest.
+ * Selecting the bottom N from a sorted column is exactly that mistake; on
+ * the reference stable it costs 0.5 capability that the individual scores
+ * all reported as free. Re-scoring after each removal is what makes the
+ * answer honest, and it is why the result is an ordered list rather than a
+ * set.
  *
  * Takes no breed scope, deliberately. A breeding plan commits to one
  * pairing and may be scoped to the breed it targets; releasing an animal is
@@ -499,40 +605,62 @@ export function safeCullOrder(
   lociByPet: Map<number, PetLoci>,
   genes: Readonly<Record<string, ScoredGene>>,
   ids: readonly number[],
+  opts: SafeCullOrderOptions & { target?: number } = {},
 ): SafeCullResult {
+  const pinned = opts.pinned ?? new Set<number>();
+  const primary = opts.primaryTiebreak;
+  const secondary = opts.secondaryTiebreak;
+  const target = opts.target;
   const remaining = [...ids];
-  const releasable: CullStep[] = [];
+  const releases: CullStep[] = [];
+  let totalCost = 0;
 
-  while (remaining.length > MIN_POPULATION) {
+  const pick = (): CullStep | null => {
     const scored = scoreGroup(lociByPet, genes, remaining);
     let best: CullStep | null = null;
     for (const id of remaining) {
+      if (pinned.has(id)) continue;
       const r = scored.get(id);
       if (!r) continue;
-      const step: CullStep = {
-        id,
-        cost: r.atRiskCapability,
-        liabilityRemoved: r.liabilityAtRisk,
-      };
-      // Cheapest first; among equals prefer the animal whose departure also
-      // clears the most negatives, then lowest id so the walk is stable.
-      if (
-        best === null ||
-        step.cost < best.cost ||
-        (step.cost === best.cost &&
-          (step.liabilityRemoved > best.liabilityRemoved ||
-            (step.liabilityRemoved === best.liabilityRemoved && step.id < best.id)))
-      ) {
+      const step: CullStep = { id, cost: r.atRiskCapability, liabilityRemoved: r.liabilityAtRisk };
+      if (best === null) {
         best = step;
+        continue;
       }
+      // Cheapest first; then the caller's primary criterion (rarity); then
+      // the animal whose departure clears the most negatives; then the
+      // secondary criterion (attributes); then id, so the walk is
+      // deterministic rather than dependent on input order.
+      const cmpPrimary = primary ? compareTiebreak(primary.get(step.id) ?? [], primary.get(best.id) ?? []) : 0;
+      const cmpSecondary = secondary ? compareTiebreak(secondary.get(step.id) ?? [], secondary.get(best.id) ?? []) : 0;
+      const better =
+        step.cost !== best.cost
+          ? step.cost < best.cost
+          : cmpPrimary !== 0
+            ? cmpPrimary < 0
+            : step.liabilityRemoved !== best.liabilityRemoved
+              ? step.liabilityRemoved > best.liabilityRemoved
+              : cmpSecondary !== 0
+                ? cmpSecondary < 0
+                : step.id < best.id;
+      if (better) best = step;
     }
+    return best;
+  };
+
+  while (remaining.length > MIN_POPULATION) {
+    if (target !== undefined && releases.length >= target) break;
+    const best = pick();
     if (best === null) break;
-    if (best.cost > 0) return { releasable, nextCost: best.cost };
-    releasable.push(best);
+    // Without a target, stop before paying anything.
+    if (target === undefined && best.cost > 0) return { releases, totalCost, nextCost: best.cost };
+    releases.push(best);
+    totalCost += best.cost;
     remaining.splice(remaining.indexOf(best.id), 1);
   }
 
-  return { releasable, nextCost: null };
+  const next = remaining.length > MIN_POPULATION ? pick() : null;
+  return { releases, totalCost, nextCost: next ? next.cost : null };
 }
 
 /**

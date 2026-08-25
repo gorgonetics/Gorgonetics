@@ -20,17 +20,19 @@
  */
 
 import type { Pet } from '$lib/types/index.js';
+import { computeLocusFrequencies } from '$lib/utils/geneFrequency.js';
 import {
   capabilityShare,
   type GeneticQualityResult,
   hasMeaningfulPopulation,
+  rareBenefitAlleles,
   type SafeCullResult,
   type ScoredGene,
   safeCullOrder,
   scoreGroup,
 } from '$lib/utils/geneticQuality.js';
 import { loadAllPetLoci, type PetLoci } from '$lib/utils/petLoci.js';
-import { normalizeSpecies } from './configService.js';
+import { getAllAttributeNames, normalizeSpecies } from './configService.js';
 import { getParsedGenesCached, isHorseBreedFiltered } from './geneService.js';
 
 /**
@@ -131,26 +133,87 @@ export interface SafeCullOptions {
   species: string;
   /** The stabled population. Releases are judged against this set only. */
   pets: readonly Pet[];
+  /**
+   * How many slots to free. The game caps concurrent breeding, so the real
+   * question is "I need six slots — which six?" rather than "what is free?".
+   * Omit to stop at the first release that would cost capability.
+   */
+  slots?: number;
+  /**
+   * Extra animals to exempt, beyond the starred ones. Starred pets are
+   * always pinned: a mount is kept for reasons no genome explains, and the
+   * genetic measure has no view on riding at all.
+   */
+  pinned?: Iterable<number>;
+}
+
+export interface CullRelease {
+  pet: Pet;
+  /** Capability lost by releasing it at this point in the sequence. */
+  cost: number;
+  /** Negative-allele capability that leaves with it. */
+  liabilityRemoved: number;
 }
 
 export interface SafeCullSet {
   /**
-   * Animals releasable at no capability cost, **in release order**, each
-   * paired with the liability that leaves with it. The order is load
-   * bearing: the set is only free as a sequence, since each step is scored
-   * against what remains.
+   * The chosen releases, **in order**. The order is load bearing: each
+   * step's cost is measured against what remained, so the total holds only
+   * if they go in this sequence.
    */
-  releasable: { pet: Pet; liabilityRemoved: number }[];
-  /**
-   * The cheapest release beyond the free set, and what it would cost. Null
-   * when the population floor ended the walk instead.
-   */
+  releases: CullRelease[];
+  /** Capability lost across the whole list. Zero when every release is free. */
+  totalCost: number;
+  /** True when nothing is given up. */
+  allFree: boolean;
+  /** The next release beyond the list and its cost, if the walk could continue. */
   next: { pet: Pet; cost: number } | null;
+  /** Animals excluded from consideration — starred, plus any explicit pins. */
+  pinned: Pet[];
 }
 
 /**
- * The largest set of animals that can be released without losing any
- * breeding capability.
+ * The two tie-break criteria, split around liability because liability is
+ * itself leave-one-out and can only be measured inside the walk.
+ *
+ * Primary is the rare-benefit-allele count, ascending: the animal holding
+ * the least rare useful material goes first. It outranks liability because
+ * a released rare allele may be unrecoverable while a negative can be bred
+ * out later.
+ *
+ * Secondary is the attribute total, ascending, and it sits *last*
+ * deliberately. They are real in-game value
+ * (a mount's speed, resilience and carrying capacity), but they are not a
+ * reason to keep a genetically redundant animal: only one mount is needed,
+ * and that one is pinned by starring it. Here they only ever separate
+ * animals the genetic measure has already called equal, which is a
+ * determinism device rather than a value axis.
+ *
+ * Rarity is counted on `geneFrequency`'s ordinal buckets, not raw frequency.
+ * A continuous value resolves every tie it is handed, which would leave the
+ * attribute term dead code.
+ */
+function buildTiebreaks(
+  canonical: string,
+  pets: readonly Pet[],
+  loci: Map<number, PetLoci>,
+  genes: ParsedGenes,
+): { primary: Map<number, readonly number[]>; secondary: Map<number, readonly number[]> } {
+  const empty: PetLoci = new Map();
+  const frequencies = computeLocusFrequencies(pets.map((p) => loci.get(p.id) ?? empty));
+  const attributes = getAllAttributeNames(canonical);
+  const primary = new Map<number, readonly number[]>();
+  const secondary = new Map<number, readonly number[]>();
+  for (const pet of pets) {
+    primary.set(pet.id, [rareBenefitAlleles(loci.get(pet.id) ?? empty, genes, frequencies)]);
+    const row = pet as unknown as Record<string, unknown>;
+    secondary.set(pet.id, [attributes.reduce((sum, key) => sum + (Number(row[key]) || 0), 0)]);
+  }
+  return { primary, secondary };
+}
+
+/**
+ * Choose which animals to release, cheapest first.
  *
  * Deliberately **not** derivable from `scoreStable`: leave-one-out scores
  * are not additive, so selecting every zero-scoring animal from a sorted
@@ -163,27 +226,42 @@ export interface SafeCullSet {
  * unrecoverable positives.
  */
 export async function safeCullSet(opts: SafeCullOptions): Promise<SafeCullSet> {
-  if (opts.pets.length === 0) return { releasable: [], next: null };
-  const { loci, genes, ids } = await loadInputs(opts.species, opts.pets);
-  const order: SafeCullResult = safeCullOrder(loci, genes, ids);
+  const empty: SafeCullSet = { releases: [], totalCost: 0, allFree: true, next: null, pinned: [] };
+  if (opts.pets.length === 0) return empty;
 
+  const { canonical, loci, genes, ids } = await loadInputs(opts.species, opts.pets);
   const byId = new Map(opts.pets.map((p) => [p.id, p]));
-  const releasable: SafeCullSet['releasable'] = [];
-  for (const step of order.releasable) {
+
+  // Starred animals are pinned. The score measures breeding contribution and
+  // nothing else; a mount earns its slot for reasons it cannot see, so the
+  // exemption is declared by the player rather than inferred from stats.
+  const pinned = new Set<number>(opts.pinned ?? []);
+  for (const p of opts.pets) if (p.starred) pinned.add(p.id);
+
+  const { primary, secondary } = buildTiebreaks(canonical, opts.pets, loci, genes);
+  const order: SafeCullResult = safeCullOrder(loci, genes, ids, {
+    pinned,
+    primaryTiebreak: primary,
+    secondaryTiebreak: secondary,
+    target: opts.slots,
+  });
+
+  const releases: CullRelease[] = [];
+  for (const step of order.releases) {
     const pet = byId.get(step.id);
-    if (pet) releasable.push({ pet, liabilityRemoved: step.liabilityRemoved });
+    if (pet) releases.push({ pet, cost: step.cost, liabilityRemoved: step.liabilityRemoved });
   }
 
-  // `nextCost` is reported without its animal by the pure layer (it deals in
-  // ids and has no Pet); re-derive which animal it was by scoring what is
-  // left after the free releases.
+  // The pure layer reports `nextCost` without its animal (it deals in ids);
+  // re-derive which animal it was by scoring what would be left.
   let next: SafeCullSet['next'] = null;
   if (order.nextCost !== null) {
-    const released = new Set(order.releasable.map((s) => s.id));
-    const remaining = ids.filter((id) => !released.has(id));
+    const gone = new Set(order.releases.map((s) => s.id));
+    const remaining = ids.filter((id) => !gone.has(id));
     const scored = scoreGroup(loci, genes, remaining);
     let cheapest: { pet: Pet; cost: number } | null = null;
     for (const id of remaining) {
+      if (pinned.has(id)) continue;
       const cost = scored.get(id)?.atRiskCapability;
       const pet = byId.get(id);
       if (cost === undefined || !pet) continue;
@@ -192,5 +270,11 @@ export async function safeCullSet(opts: SafeCullOptions): Promise<SafeCullSet> {
     next = cheapest;
   }
 
-  return { releasable, next };
+  return {
+    releases,
+    totalCost: order.totalCost,
+    allFree: order.totalCost === 0,
+    next,
+    pinned: [...pinned].map((id) => byId.get(id)).filter((p): p is Pet => p !== undefined),
+  };
 }

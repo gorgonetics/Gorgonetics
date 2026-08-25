@@ -398,14 +398,14 @@ describe('safeCullOrder — the non-additivity fix', () => {
     const scored = scoreGroup(byPet, genes, ids);
     expect([...scored.values()].every((r) => r.atRiskCapability === 0)).toBe(true);
 
-    const released = safeCullOrder(byPet, genes, ids).releasable.map((s) => s.id);
+    const released = safeCullOrder(byPet, genes, ids).releases.map((s) => s.id);
     // At most one of the two carriers (ids 0, 1) may go.
     expect(released.filter((id) => id === 0 || id === 1)).toHaveLength(1);
   });
 
   it('leaves the herd able to reach everything it could before', () => {
     const { byPet, ids } = pairedRedundancy();
-    const released = new Set(safeCullOrder(byPet, genes, ids).releasable.map((s) => s.id));
+    const released = new Set(safeCullOrder(byPet, genes, ids).releases.map((s) => s.id));
     const survivors = ids.filter((id) => !released.has(id));
     // Some survivor still carries the recessive good allele.
     expect(survivors.some((id) => byPet.get(id)?.get('01A1') === X)).toBe(true);
@@ -413,8 +413,8 @@ describe('safeCullOrder — the non-additivity fix', () => {
 
   it('stops at the population floor rather than emptying the stable', () => {
     const { byPet, ids } = pairedRedundancy();
-    const { releasable } = safeCullOrder(byPet, genes, ids);
-    expect(ids.length - releasable.length).toBe(MIN_POPULATION);
+    const { releases } = safeCullOrder(byPet, genes, ids);
+    expect(ids.length - releases.length).toBe(MIN_POPULATION);
   });
 
   it('reports what the next release would cost when nothing is free', () => {
@@ -428,7 +428,7 @@ describe('safeCullOrder — the non-additivity fix', () => {
       byPet.set(i, m as PetLoci);
     }
     const result = safeCullOrder(byPet, g, [0, 1, 2, 3]);
-    expect(result.releasable).toEqual([]);
+    expect(result.releases).toEqual([]);
     expect(result.nextCost).toBeCloseTo(2 * 0.5, 10);
   });
 
@@ -439,7 +439,7 @@ describe('safeCullOrder — the non-additivity fix', () => {
     // free and actively useful.
     const herd = pop([R, R, R, R, R, X]);
     const byPet = new Map(herd.map((l, i) => [i, l]));
-    const first = safeCullOrder(byPet, genes, [0, 1, 2, 3, 4, 5]).releasable[0];
+    const first = safeCullOrder(byPet, genes, [0, 1, 2, 3, 4, 5]).releases[0];
     expect(first.id).toBe(5);
     expect(first.liabilityRemoved).toBeCloseTo(0.5, 10);
     expect(first.cost).toBe(0);

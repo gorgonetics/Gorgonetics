@@ -134,8 +134,8 @@ describe('safeCullSet', () => {
     const { scores } = await scoreStable({ species: 'BeeWasp', pets });
     expect([...scores.values()].every((r) => r.atRiskCapability === 0)).toBe(true);
 
-    const { releasable } = await safeCullSet({ species: 'BeeWasp', pets });
-    const releasedNames = releasable.map((r) => r.pet.name);
+    const { releases } = await safeCullSet({ species: 'BeeWasp', pets });
+    const releasedNames = releases.map((r) => r.pet.name);
     // At most one of the two carriers may go.
     expect(releasedNames.filter((n) => n === 'C1' || n === 'C2')).toHaveLength(1);
   });
@@ -159,15 +159,86 @@ describe('safeCullSet', () => {
       await upload('P4', Gender.FEMALE, 'DDDR'),
       await upload('P5', Gender.FEMALE, 'DDDD'),
     ];
-    const { releasable, next } = await safeCullSet({ species: 'BeeWasp', pets });
+    const { releases, next } = await safeCullSet({ species: 'BeeWasp', pets });
 
-    expect(releasable.map((r) => r.pet.name)).toEqual(['P5']);
+    expect(releases.map((r) => r.pet.name)).toEqual(['P5']);
     expect(next).not.toBeNull();
     // The cheapest remaining holds a single-benefit locus outright: 1.0.
     expect(next?.cost).toBeCloseTo(1, 10);
   });
 
   it('handles an empty stable', async () => {
-    expect(await safeCullSet({ species: 'BeeWasp', pets: [] })).toEqual({ releasable: [], next: null });
+    expect(await safeCullSet({ species: 'BeeWasp', pets: [] })).toEqual({
+      releases: [],
+      totalCost: 0,
+      allFree: true,
+      next: null,
+      pinned: [],
+    });
+  });
+});
+
+describe('safeCullSet — freeing a fixed number of slots', () => {
+  beforeEach(reset);
+
+  /** Six animals: one sole carrier, five redundant. */
+  async function stable() {
+    return [
+      await upload('Unique', Gender.FEMALE, 'RDx'),
+      await upload('Dup1', Gender.MALE, 'DDx'),
+      await upload('Dup2', Gender.MALE, 'DDx'),
+      await upload('Dup3', Gender.FEMALE, 'DDx'),
+      await upload('Dup4', Gender.FEMALE, 'DDx'),
+      await upload('Dup5', Gender.MALE, 'DDx'),
+    ];
+  }
+
+  it('frees exactly the requested number of slots', async () => {
+    const pets = await stable();
+    const { releases, allFree } = await safeCullSet({ species: 'BeeWasp', pets, slots: 2 });
+    expect(releases).toHaveLength(2);
+    expect(allFree).toBe(true);
+    expect(releases.map((r) => r.pet.name)).not.toContain('Unique');
+  });
+
+  it('keeps going past the free ones when the slots demand it, and prices them', async () => {
+    const pets = await stable();
+    // Only three releases are free before the floor bites; asking for more
+    // must surface the cost rather than silently returning a short list.
+    const { releases, totalCost, allFree } = await safeCullSet({ species: 'BeeWasp', pets, slots: 3 });
+    expect(releases).toHaveLength(3);
+    expect(totalCost).toBe(0);
+    expect(allFree).toBe(true);
+  });
+
+  it('never releases more than the population floor allows', async () => {
+    const pets = await stable();
+    const { releases } = await safeCullSet({ species: 'BeeWasp', pets, slots: 99 });
+    expect(pets.length - releases.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('pins starred animals out of the walk entirely', async () => {
+    const pets = await stable();
+    // Star a redundant animal: it would otherwise be released first.
+    await petService.updatePet(pets[1].id, { starred: true });
+    const starred = (await petService.getPet(pets[1].id)) as Pet;
+    const withStar = pets.map((p) => (p.id === starred.id ? starred : p));
+
+    const { releases, pinned } = await safeCullSet({ species: 'BeeWasp', pets: withStar, slots: 2 });
+    expect(pinned.map((p) => p.name)).toEqual(['Dup1']);
+    expect(releases.map((r) => r.pet.name)).not.toContain('Dup1');
+  });
+
+  it('accepts explicit pins alongside starred ones', async () => {
+    const pets = await stable();
+    const { releases } = await safeCullSet({
+      species: 'BeeWasp',
+      pets,
+      slots: 2,
+      pinned: [pets[1].id, pets[2].id],
+    });
+    const names = releases.map((r) => r.pet.name);
+    expect(names).not.toContain('Dup1');
+    expect(names).not.toContain('Dup2');
   });
 });
