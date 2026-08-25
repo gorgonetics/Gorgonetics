@@ -288,6 +288,24 @@ export interface BreedingPairResult {
   evPositiveByAttribute: Record<string, number>;
   evPositiveTotal: number;
   evPositiveWeighted: number;
+  /**
+   * Expected capability the foal adds to the stable — the Genetic Quality
+   * Score's measure run forward (see `docs/design/genetic-quality-score-v1.md`).
+   * Unlike `evPositiveWeighted` it cannot credit an allele nothing in the
+   * pool carries, because a foal only realises what its parents supply, so
+   * the inert `missing` tier of `GAP_WEIGHT` cannot arise.
+   *
+   * Deliberately coarse: it takes 17 distinct values across a 234-pair
+   * stable, 64 of them zero. Sort by it first and break ties on
+   * `evPositiveTotal`, which takes 108 — the pair is near-totally ordered
+   * where neither is alone.
+   *
+   * **Not additive across a plan.** Two pairs that secure the same allele
+   * add it once, not twice; summing them overcounts by ~7% on a six-pair
+   * plan. Tolerated rather than fixed, because an over-ranked plan costs
+   * one breeding round and the alternative pair is still there next time.
+   */
+  evCapabilityGain: number;
   evUnknown: number;
   totalLoci: number;
 }

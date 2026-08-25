@@ -15,6 +15,7 @@
 import type { AlleleDistribution, BreedingPairResult, Pet } from '$lib/types/index.js';
 import { Gender, GeneType } from '$lib/types/index.js';
 import { offspringDistribution } from '$lib/utils/breedingGenetics.js';
+import { type AlleleTally, expectedCapabilityGain, tallyAlleles, tallyFor } from '$lib/utils/geneticQuality.js';
 import { loadAllPetLoci, type PetLoci, walkPairLoci } from '$lib/utils/petLoci.js';
 import { capitalize } from '$lib/utils/string.js';
 import { getAllAttributeNames, normalizeSpecies } from './configService.js';
@@ -178,6 +179,7 @@ function scorePair(
   fLoci: PetLoci,
   parsedGenes: Record<string, ParsedGeneRecord>,
   coverage: PoolCoverage,
+  tallies: Map<string, AlleleTally>,
   offspringBreed: string | undefined,
   species: string,
   attrNames: readonly string[],
@@ -187,6 +189,7 @@ function scorePair(
   let evUnknown = 0;
   let evPositiveTotal = 0;
   let evPositiveWeighted = 0;
+  let evCapabilityGain = 0;
   let totalLoci = 0;
 
   walkPairLoci(mLoci, fLoci, (geneId, t1, t2) => {
@@ -200,10 +203,21 @@ function scorePair(
       const { total, weighted } = accumulatePositive(dist, gd, coverage.get(geneId), evPositiveByAttribute);
       evPositiveTotal += total;
       evPositiveWeighted += weighted;
+      evCapabilityGain += expectedCapabilityGain(dist, gd, tallyFor(tallies, geneId));
     }
   });
 
-  return { male, female, evMixed, evPositiveByAttribute, evPositiveTotal, evPositiveWeighted, evUnknown, totalLoci };
+  return {
+    male,
+    female,
+    evMixed,
+    evPositiveByAttribute,
+    evPositiveTotal,
+    evPositiveWeighted,
+    evCapabilityGain,
+    evUnknown,
+    totalLoci,
+  };
 }
 
 /**
@@ -228,12 +242,18 @@ export async function rankBreedingPairs(opts: RankBreedingPairsOptions): Promise
   // Pool coverage is computed once over the whole candidate set, then shared
   // across every pair — the gap weights describe the pool, not the pair.
   const coverage = buildPoolCoverage(petLociMap.values(), parsedGenes, species, opts.offspringBreed);
+  // Capability is measured against the whole candidate pool, parents
+  // included: a pairing that only reproduces what the stable already breeds
+  // true must score nothing, and that has to fall out of the arithmetic.
+  const tallies = tallyAlleles(petLociMap.values());
 
   for (const m of males) {
     const mLoci = petLociMap.get(m.id) ?? empty;
     for (const f of females) {
       const fLoci = petLociMap.get(f.id) ?? empty;
-      results.push(scorePair(m, f, mLoci, fLoci, parsedGenes, coverage, opts.offspringBreed, species, attrNames));
+      results.push(
+        scorePair(m, f, mLoci, fLoci, parsedGenes, coverage, tallies, opts.offspringBreed, species, attrNames),
+      );
     }
   }
 

@@ -282,3 +282,47 @@ Genome=Horse
     expect(withoutFilter.evPositiveByAttribute.Toughness).toBeCloseTo(2, 10);
   });
 });
+
+describe('rankBreedingPairs — capability gain', () => {
+  beforeEach(reset);
+
+  it('credits a pairing that puts an unreachable positive in reach', async () => {
+    await geneService.upsertGene('beewasp', '01', '01A1', { effectDominant: 'None', effectRecessive: 'Toughness+' });
+    geneService.clearGeneEffectsCache('beewasp');
+    // Neither parent is `R`, but `x` × `x` can produce one, and nothing in
+    // the pool breeds it true — so the foal genuinely adds capability.
+    const m = await uploadParent('M', Gender.MALE, 'x??');
+    const f = await uploadParent('F', Gender.FEMALE, 'x??');
+    const [pair] = await rankBreedingPairs({ species: 'BeeWasp', pets: [m, f] });
+    // Pool capability is 0.5 (carriers only); a homozygous foal lifts it to
+    // 1 with probability 0.25.
+    expect(pair.evCapabilityGain).toBeCloseTo(0.25 * 0.5, 10);
+  });
+
+  it('credits nothing when the pool already breeds the positive true', async () => {
+    await geneService.upsertGene('beewasp', '01', '01A1', { effectDominant: 'None', effectRecessive: 'Toughness+' });
+    geneService.clearGeneEffectsCache('beewasp');
+    // A third animal is already `R`, so the outcome is secured and a foal
+    // adds nothing — the inert-`missing`-tier problem in reverse.
+    const m = await uploadParent('M', Gender.MALE, 'x??');
+    const f = await uploadParent('F', Gender.FEMALE, 'x??');
+    const secured = await uploadParent('S', Gender.FEMALE, 'R??');
+    const results = await rankBreedingPairs({ species: 'BeeWasp', pets: [m, f, secured] });
+    for (const r of results) expect(r.evCapabilityGain).toBe(0);
+  });
+
+  it('is coarser than evPositiveTotal, which is why it is the primary sort', async () => {
+    await geneService.upsertGene('beewasp', '01', '01A1', { effectDominant: 'Toughness+', effectRecessive: 'None' });
+    await geneService.upsertGene('beewasp', '01', '01A2', { effectDominant: 'None', effectRecessive: 'Intelligence+' });
+    geneService.clearGeneEffectsCache('beewasp');
+    const m1 = await uploadParent('M1', Gender.MALE, 'Dx?');
+    const m2 = await uploadParent('M2', Gender.MALE, 'DD?');
+    const f = await uploadParent('F', Gender.FEMALE, 'Dx?');
+    const results = await rankBreedingPairs({ species: 'BeeWasp', pets: [m1, m2, f] });
+    // Both pairs secure the dominant positive the pool already has, so
+    // capability separates them less than raw positive EV does.
+    const gains = new Set(results.map((r) => r.evCapabilityGain));
+    const positives = new Set(results.map((r) => r.evPositiveTotal));
+    expect(gains.size).toBeLessThanOrEqual(positives.size);
+  });
+});

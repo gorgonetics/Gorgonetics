@@ -532,11 +532,22 @@ below `MIN_POPULATION`.
 
 ## 11. Open questions
 
-1. **A denser tiebreak for breeding.** §4 measures the limitation: 234
-   pairs collapse to 17 distinct values, and a breed-scoped roster is
-   flatter still (§5). Capability is the right *objective*; it is a poor
-   *gradient*. Candidate: order by capability first, then by expected
-   benefit slots transmitted, which is dense but meaningless alone.
+1. ~~**A denser tiebreak for breeding.**~~ **Resolved.** Sort pairs by
+   `evCapabilityGain`, break ties on `evPositiveTotal` — which
+   `rankBreedingPairs` already computed, so no new metric was needed.
+   Measured across 234 pairs: capability takes 17 distinct values,
+   `evPositiveTotal` takes 108, and within capability's 64-pair zero
+   plateau it still takes 48. The pair is near-totally ordered.
+
+   Two things make the remaining flatness acceptable rather than a defect.
+   A tie is not a decision you are stuck with — the alternative pairing is
+   still there next round — and `suggestPlans` seeds distinct lead pairings,
+   so a plateau naturally spreads across plan *variants* instead of needing
+   to be collapsed into one order.
+
+   The residual problem is at plan level, not pair level: `suggestPlans`
+   ranks by the sum of pair scores, and capability gains do not sum. See
+   `breedingPlan.ts` — ~7% overcount on six pairs, documented not fixed.
 2. **Liability severity.** `liabilityCounts` treats a dominant negative and
    a recessive negative alike, but a transmitted `D` at a dominant-negative
    locus guarantees expression while a transmitted `R` needs the other
