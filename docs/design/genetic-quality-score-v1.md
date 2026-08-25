@@ -198,6 +198,32 @@ directly rather than inferred from a ranking.
 That is the honest percentage: a real quantity over a real denominator,
 unlike a fraction of a perfect-genome ideal.
 
+### Individual scores do not add up
+
+Leave-one-out is not additive, and culling is the use case that trips over
+it. Where two animals are the only carriers of an allele, **each reads
+zero** — the other covers it — but removing both loses the allele outright.
+
+Measured on the reference stable: all nine zero-scoring animals read "free
+to let go" individually, yet culling all nine at once costs 0.5 capability.
+
+| approach | removed | capability lost |
+|---|---|---|
+| batch, every zero-scoring animal | 9 | 0.5 |
+| sequential, recomputing after each | 8 | 0.0 |
+
+Small here (0.07% of 758), structural everywhere, and worse the more paired
+redundancy a herd carries. Consequence for the UI: a sortable column is not
+enough, because a column invites selecting the bottom N at once. The
+service must expose a **safe cull set** built greedily — score, remove the
+cheapest, recompute, repeat while the cheapest costs zero — which is what
+correctly stops at eight above.
+
+The same caveat applies in reverse to the breeding side: two pairings that
+each add capability may add the *same* capability, so their gains are not
+summable across a multi-slot plan. `suggestPlans` would need the same
+sequential treatment to use this as its objective.
+
 ### The sparsity is real, and only half acceptable
 
 The measure is coarse by construction. For **culling** that is a feature —
@@ -304,6 +330,9 @@ DB-aware composition (not yet built):
 - **`src/lib/services/geneticQualityService.ts`**
   - `scoreStable(pets, opts)` — one `getAllPetLociCached` read, one tally
     pass, then per-pet scoring. Returns `Map<petId, GeneticQualityResult>`.
+  - `safeCullSet(pets, opts)` — greedy sequential removal while the cheapest
+    animal costs zero, per §4. Not derivable from `scoreStable`'s output:
+    leave-one-out scores are not additive.
 
 `GeneticQualityResult` carries the headline plus the breakdown that makes
 it explicable: `atRiskCapability`, `soleSourceSlots`, `soleLockSlots`,
