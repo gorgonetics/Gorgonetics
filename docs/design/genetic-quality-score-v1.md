@@ -431,7 +431,14 @@ supplies it. Named apart from `breedingService`'s `CoverageTier`
 (`locked`/`partial`/`missing`) because that one describes a pool including
 the pet and this one excludes it.
 
-DB-aware composition (not yet built):
+**Known debt:** the service reads via `loadAllPetLoci`, uncached. The
+bounded `getAllPetLociCached` this design names lives on
+`feat/369-gene-value-filter-v2` and is not on this branch; duplicating it
+here would collide on merge. Fine at 38 animals — the cull walk's repeated
+re-scoring is the heavier cost and it is in-memory — but it should switch
+to the cache when `#369` lands.
+
+DB-aware composition:
 
 - **`src/lib/services/geneticQualityService.ts`**
   - `scoreStable(pets, opts)` — one `getAllPetLociCached` read, one tally
