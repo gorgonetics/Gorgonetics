@@ -24,7 +24,8 @@
         "noUnknownPseudoClass": "off"
       },
       "complexity": {
-        "useOptionalChain": "warn"
+        "useOptionalChain": "warn",
+        "noImportantStyles": "off"
       },
       "suspicious": {
         "noConsole": "off"
