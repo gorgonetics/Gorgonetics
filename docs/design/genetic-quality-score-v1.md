@@ -267,6 +267,32 @@ true statement about a stable with a large same-breed cohort, but it
 leaves the ranking nearly flat, which reinforces §4's point about needing
 a denser tiebreak for anything that wants a total order.
 
+### The scope belongs to breeding, never to culling
+
+**`offspringBreed` must not be applied to the cull path.** A breeding plan
+commits to one pairing and can be scoped to the breed it targets. Releasing
+an animal is irreversible against *every* breed you might ever target, so
+it has to be judged unscoped.
+
+Roach is the worked example, and it is not a near miss. Under a Kurbone
+target she scores zero. Unscoped she scores 5.0 across ten irreplaceable
+slots — spread over six other breeds' loci, with **none** at Kurbone or
+breed-generic ones, exactly as her pedigree predicts: her Kurbone material
+is already held by her descendants and what survives is what they did not
+need. Three of the ten are sole-carrier slots, where no other animal in
+the stable carries the allele at all:
+
+| locus | breed | benefit | genotype |
+|---|---|---|---|
+| `10A4` | Standardbred | +virility | `x`, sole carrier |
+| `18B3` | Ilmarian | +ruggedness | `x`, sole carrier |
+| `22C2` | Plateau Pony | +ruggedness | `x`, sole carrier |
+
+A breed-scoped cull score would have recommended releasing the only carrier
+of three unrecoverable positives. `safeCullSet` therefore takes no
+`offspringBreed`, and the roster's cull view must not inherit the breeding
+view's filter.
+
 This also settles a pre-existing inconsistency: per-pet stats exclude
 breed-mismatched loci, the gene value filter never gates on breed lock.
 The rule that generalises is *scope by the breed of the animal you are
@@ -330,9 +356,10 @@ DB-aware composition (not yet built):
 - **`src/lib/services/geneticQualityService.ts`**
   - `scoreStable(pets, opts)` — one `getAllPetLociCached` read, one tally
     pass, then per-pet scoring. Returns `Map<petId, GeneticQualityResult>`.
-  - `safeCullSet(pets, opts)` — greedy sequential removal while the cheapest
+  - `safeCullSet(pets)` — greedy sequential removal while the cheapest
     animal costs zero, per §4. Not derivable from `scoreStable`'s output:
-    leave-one-out scores are not additive.
+    leave-one-out scores are not additive. Takes **no** `offspringBreed`;
+    see §5.
 
 `GeneticQualityResult` carries the headline plus the breakdown that makes
 it explicable: `atRiskCapability`, `soleSourceSlots`, `soleLockSlots`,
