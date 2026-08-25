@@ -42,7 +42,12 @@ export interface SuggestPlansOptions {
   ranked: readonly BreedingPairResult[];
   /** Slots to fill. `<= 0` returns []. */
   slots: number;
-  /** Per-pair objective; plans maximise its sum. Defaults to pool gain. */
+  /**
+   * Per-pair objective; plans maximise its sum. Defaults to genetic
+   * quality. Pass a selector from `breedingObjectives` to plan for a
+   * different strategy — the objective is the player's choice, not the
+   * planner's.
+   */
   score?: (p: BreedingPairResult) => number;
   /** Cap on plans returned (default 5). */
   maxPlans?: number;
@@ -59,7 +64,7 @@ const planKey = (pairs: readonly BreedingPairResult[]): string =>
 export function suggestPlans(opts: SuggestPlansOptions): SuggestedPlan[] {
   const size = Math.floor(opts.slots);
   if (size <= 0 || opts.ranked.length === 0) return [];
-  const score = opts.score ?? ((p: BreedingPairResult) => p.evPositiveWeighted);
+  const score = opts.score ?? ((p: BreedingPairResult) => p.evCapabilityGain);
   const maxPlans = opts.maxPlans ?? 5;
   const maxLeads = opts.maxLeads ?? 30;
 

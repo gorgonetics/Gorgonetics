@@ -39,6 +39,10 @@ const optionColor = (i: number) => OPTION_COLORS[i % OPTION_COLORS.length];
 const columns = $derived<Column[]>([
   { id: 'male', label: '♂ Male', accessor: (r) => r.male.name, numeric: false },
   { id: 'female', label: '♀ Female', accessor: (r) => r.female.name, numeric: false },
+  { id: 'evCapabilityGain', label: 'Quality', accessor: (r) => r.evCapabilityGain, numeric: true },
+  { id: 'evPositiveImprovement', label: 'Ceiling', accessor: (r) => r.evPositiveImprovement, numeric: true },
+  { id: 'evPairUpgrade', label: 'Floor', accessor: (r) => r.evPairUpgrade, numeric: true },
+  { id: 'evLiabilityReduction', label: 'Cleanup', accessor: (r) => r.evLiabilityReduction, numeric: true },
   { id: 'evMixed', label: 'Mixed', accessor: (r) => r.evMixed, numeric: true },
   { id: 'evUnknown', label: 'Unknown', accessor: (r) => r.evUnknown, numeric: true },
   { id: 'evPositiveTotal', label: 'Total +', accessor: (r) => r.evPositiveTotal, numeric: true },
@@ -56,7 +60,7 @@ const columns = $derived<Column[]>([
 // The active column: matched by name (not index) so re-ordering the column
 // list later won't silently change the default sort.
 const activeCol = $derived(
-  columns.find((c) => c.id === breedingView.sortCol) ?? columns.find((c) => c.id === 'evPositiveTotal') ?? columns[0],
+  columns.find((c) => c.id === breedingView.sortCol) ?? columns.find((c) => c.id === 'evCapabilityGain') ?? columns[0],
 );
 
 const sortPairs = (pairs: BreedingPairResult[]) => sortByColumn(pairs, activeCol, breedingView.sortDir);

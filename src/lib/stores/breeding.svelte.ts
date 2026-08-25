@@ -22,7 +22,15 @@ export interface SelectedBreedingPair {
  * collapsing the literals into a bare `string` so autocomplete still
  * surfaces the well-known column names.
  */
-export type BreedingSortColumn = 'evMixed' | 'evPositiveTotal' | 'evUnknown' | (string & {});
+export type BreedingSortColumn =
+  | 'evCapabilityGain'
+  | 'evPositiveImprovement'
+  | 'evPairUpgrade'
+  | 'evLiabilityReduction'
+  | 'evMixed'
+  | 'evPositiveTotal'
+  | 'evUnknown'
+  | (string & {});
 
 export const breedingView = $state({
   /**
@@ -36,7 +44,9 @@ export const breedingView = $state({
   /** Player-selected offspring breed (horse-only; '' = no filter / mixed). */
   offspringBreed: '' as string,
   /** Active sort column for the pair table. */
-  sortCol: 'evPositiveTotal' as BreedingSortColumn,
+  // Genetic quality leads: an absolute positive count ranks the two best
+  // animals together and their foals regress to the mean (design doc §10a).
+  sortCol: 'evCapabilityGain' as BreedingSortColumn,
   /** Sort direction. Most useful columns are descending by default. */
   sortDir: 'desc' as 'asc' | 'desc',
   /** Pair open in the trio detail view; null when the view is closed. */
