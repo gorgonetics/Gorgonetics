@@ -306,6 +306,67 @@ export interface BreedingPairResult {
    * one breeding round and the alternative pair is still there next time.
    */
   evCapabilityGain: number;
+  /**
+   * `E[max(0, offspring positives - better parent's positives)]`.
+   *
+   * The improvement metric, and the tie-break for `evCapabilityGain`.
+   * `evPositiveTotal` is an absolute level, so ranking by it rewards
+   * breeding the two best animals together — measured on a real stable,
+   * three of its top six pairings produce offspring almost certain to be
+   * *worse* than a parent. Scoring improvement instead points breeding at
+   * ground the stable has not already taken.
+   *
+   * Baseline is the **better** parent, deliberately: beating the weaker one
+   * is not progress.
+   */
+  evPositiveImprovement: number;
+  /** Probability the offspring's positive count beats the better parent's. */
+  pPositiveImprovement: number;
+  /**
+   * `E[max(0, offspring positives - weaker parent's positives)]` — the
+   * value of a foal that cannot beat the better parent but can replace the
+   * weaker one, giving a stronger pair next generation.
+   *
+   * Reported beside `evPositiveImprovement`, never blended into it: they
+   * are different strategies. One raises the ceiling, this raises the
+   * floor. On a real stable 113 of 234 pairings score near-zero frontier
+   * improvement yet a substantial pair upgrade — value that a
+   * better-parent baseline alone makes invisible.
+   *
+   * **Reads high for lopsided pairings by construction** (correlation 0.75
+   * with the gap between the parents), because a weak baseline is easy to
+   * clear. That is an honest description of the strategy — pairing your
+   * best with your worst really does upgrade the worst slot — not a defect,
+   * but it means the column must not be read as overall pair quality.
+   */
+  evPairUpgrade: number;
+  /**
+   * The better parent's own positive-effect count, on the same locus basis
+   * and breed scope as `evPositiveTotal` — so the two are comparable.
+   * Deliberately not `pets.positive_genes`, which is scoped to each pet's
+   * own breed rather than the offspring's.
+   */
+  betterParentPositives: number;
+  /** The weaker parent's own count, same basis. Baseline for `evPairUpgrade`. */
+  weakerParentPositives: number;
+  /** Expected number of negative effects the offspring expresses. */
+  evNegativeTotal: number;
+  /**
+   * `E[max(0, cleaner parent's negatives - offspring negatives)]` — the
+   * fourth breeding purpose, and the one none of the others can express.
+   *
+   * A pairing can be worth making purely to drop a negative the line has
+   * been carrying, even when the foal is worse than both parents on
+   * positive count. Ranking by any positive-side measure hides those
+   * pairings entirely.
+   *
+   * Baseline is the parent with *fewer* negatives, so the measure asks
+   * whether the line gets cleaner than its cleanest member — the mirror of
+   * `evPositiveImprovement`, not of `evPairUpgrade`.
+   */
+  evLiabilityReduction: number;
+  /** The cleaner parent's own negative count. Baseline for the above. */
+  cleanerParentNegatives: number;
   evUnknown: number;
   totalLoci: number;
 }

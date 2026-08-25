@@ -14,7 +14,14 @@
 
 import type { AlleleDistribution, BreedingPairResult, Pet } from '$lib/types/index.js';
 import { Gender, GeneType } from '$lib/types/index.js';
-import { offspringDistribution } from '$lib/utils/breedingGenetics.js';
+import {
+  expectedImprovement,
+  expectedReduction,
+  negativeExpressionProbability,
+  offspringDistribution,
+  positiveExpressionProbability,
+  probabilityOfImprovement,
+} from '$lib/utils/breedingGenetics.js';
 import { type AlleleTally, expectedCapabilityGain, tallyAlleles, tallyFor } from '$lib/utils/geneticQuality.js';
 import { loadAllPetLoci, type PetLoci, walkPairLoci } from '$lib/utils/petLoci.js';
 import { capitalize } from '$lib/utils/string.js';
@@ -166,6 +173,48 @@ function accumulatePositive(
   return { total, weighted };
 }
 
+/**
+ * A parent's own positive-effect count, measured on exactly the loci and
+ * breed scope the offspring EV uses. `pets.positive_genes` cannot serve:
+ * it is scoped to the pet's *own* breed, so comparing it against an
+ * offspring EV scoped to the target breed would compare two different
+ * locus sets and manufacture improvement out of the mismatch.
+ */
+function ownPositiveCount(
+  loci: PetLoci,
+  parsedGenes: Record<string, ParsedGeneRecord>,
+  species: string,
+  offspringBreed: string | undefined,
+): number {
+  let n = 0;
+  for (const [geneId, type] of loci) {
+    const gd = parsedGenes[geneId];
+    if (!gd) continue;
+    if (isHorseBreedFiltered(species, offspringBreed, gd.breed)) continue;
+    if ((type === GeneType.DOMINANT || type === GeneType.MIXED) && gd.dominantSign === '+') n++;
+    else if (type === GeneType.RECESSIVE && gd.recessiveSign === '+') n++;
+  }
+  return n;
+}
+
+/** A parent's own negative-effect count, same basis as `ownPositiveCount`. */
+function ownNegativeCount(
+  loci: PetLoci,
+  parsedGenes: Record<string, ParsedGeneRecord>,
+  species: string,
+  offspringBreed: string | undefined,
+): number {
+  let n = 0;
+  for (const [geneId, type] of loci) {
+    const gd = parsedGenes[geneId];
+    if (!gd) continue;
+    if (isHorseBreedFiltered(species, offspringBreed, gd.breed)) continue;
+    if ((type === GeneType.DOMINANT || type === GeneType.MIXED) && gd.dominantSign === '-') n++;
+    else if (type === GeneType.RECESSIVE && gd.recessiveSign === '-') n++;
+  }
+  return n;
+}
+
 function emptyAttributeBreakdown(attrNames: readonly string[]): Record<string, number> {
   const out: Record<string, number> = {};
   for (const a of attrNames) out[a] = 0;
@@ -180,6 +229,8 @@ function scorePair(
   parsedGenes: Record<string, ParsedGeneRecord>,
   coverage: PoolCoverage,
   tallies: Map<string, AlleleTally>,
+  ownPositives: Map<number, number>,
+  ownNegatives: Map<number, number>,
   offspringBreed: string | undefined,
   species: string,
   attrNames: readonly string[],
@@ -190,6 +241,13 @@ function scorePair(
   let evPositiveTotal = 0;
   let evPositiveWeighted = 0;
   let evCapabilityGain = 0;
+  // Variance of the offspring's positive count. Per-locus outcomes are
+  // independent given the parents, so the count is Poisson-binomial and its
+  // variance is the sum of p(1-p) — enough to say how likely the foal is to
+  // clear a parent, not just where it lands on average.
+  let positiveVariance = 0;
+  let evNegativeTotal = 0;
+  let negativeVariance = 0;
   let totalLoci = 0;
 
   walkPairLoci(mLoci, fLoci, (geneId, t1, t2) => {
@@ -204,9 +262,20 @@ function scorePair(
       evPositiveTotal += total;
       evPositiveWeighted += weighted;
       evCapabilityGain += expectedCapabilityGain(dist, gd, tallyFor(tallies, geneId));
+      const pPos = positiveExpressionProbability(dist, gd);
+      positiveVariance += pPos * (1 - pPos);
+      const pNeg = negativeExpressionProbability(dist, gd);
+      evNegativeTotal += pNeg;
+      negativeVariance += pNeg * (1 - pNeg);
     }
   });
 
+  const malePositives = ownPositives.get(male.id) ?? 0;
+  const femalePositives = ownPositives.get(female.id) ?? 0;
+  const betterParentPositives = Math.max(malePositives, femalePositives);
+  const weakerParentPositives = Math.min(malePositives, femalePositives);
+  const sd = Math.sqrt(positiveVariance);
+  const cleanerParentNegatives = Math.min(ownNegatives.get(male.id) ?? 0, ownNegatives.get(female.id) ?? 0);
   return {
     male,
     female,
@@ -215,6 +284,14 @@ function scorePair(
     evPositiveTotal,
     evPositiveWeighted,
     evCapabilityGain,
+    evPositiveImprovement: expectedImprovement(evPositiveTotal, sd, betterParentPositives),
+    pPositiveImprovement: probabilityOfImprovement(evPositiveTotal, sd, betterParentPositives),
+    evPairUpgrade: expectedImprovement(evPositiveTotal, sd, weakerParentPositives),
+    betterParentPositives,
+    weakerParentPositives,
+    evNegativeTotal,
+    evLiabilityReduction: expectedReduction(evNegativeTotal, Math.sqrt(negativeVariance), cleanerParentNegatives),
+    cleanerParentNegatives,
     evUnknown,
     totalLoci,
   };
@@ -246,13 +323,33 @@ export async function rankBreedingPairs(opts: RankBreedingPairsOptions): Promise
   // included: a pairing that only reproduces what the stable already breeds
   // true must score nothing, and that has to fall out of the arithmetic.
   const tallies = tallyAlleles(petLociMap.values());
+  // One pass per animal, not per pair: the baseline an offspring must beat.
+  const ownPositives = new Map<number, number>();
+  const ownNegatives = new Map<number, number>();
+  for (const [id, l] of petLociMap) {
+    ownPositives.set(id, ownPositiveCount(l, parsedGenes, species, opts.offspringBreed));
+    ownNegatives.set(id, ownNegativeCount(l, parsedGenes, species, opts.offspringBreed));
+  }
 
   for (const m of males) {
     const mLoci = petLociMap.get(m.id) ?? empty;
     for (const f of females) {
       const fLoci = petLociMap.get(f.id) ?? empty;
       results.push(
-        scorePair(m, f, mLoci, fLoci, parsedGenes, coverage, tallies, opts.offspringBreed, species, attrNames),
+        scorePair(
+          m,
+          f,
+          mLoci,
+          fLoci,
+          parsedGenes,
+          coverage,
+          tallies,
+          ownPositives,
+          ownNegatives,
+          opts.offspringBreed,
+          species,
+          attrNames,
+        ),
       );
     }
   }

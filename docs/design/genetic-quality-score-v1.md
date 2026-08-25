@@ -530,6 +530,47 @@ hand, not in CI.
 E2E: column sorts, breed selector changes the ranking, column suppressed
 below `MIN_POPULATION`.
 
+## 10a. Breeding has four purposes, not one
+
+Every attempt to reduce pairing choice to a single objective failed against
+a case the player could name, and each failure was measured on the
+reference stable rather than argued:
+
+| purpose | metric | what it answers |
+|---|---|---|
+| Reach new ground | `evCapabilityGain` | can the foal do something the stable cannot? |
+| Raise the ceiling | `evPositiveImprovement` | can it beat the **better** parent? |
+| Raise the floor | `evPairUpgrade` | can it replace the **weaker** parent, improving next round's pair? |
+| Clean the line | `evLiabilityReduction` | does it drop a negative, even at a cost elsewhere? |
+
+**A single objective is not merely inconvenient, it is wrong.** The
+measurements:
+
+- *Absolute positive count* ranks the two best animals together at the top,
+  and the foal regresses: three of its top six pairings have means of 346,
+  339 and 336 against a better parent of 349, with a 0.1–12.8% chance of
+  improving on it. This is the local maximum, visible in the data.
+- *Improvement over the better parent* fixes that — top-10 overlap with the
+  absolute measure is 1 of 10 — but blinds you to the 113 of 234 pairings
+  that cannot beat the better parent yet can replace the weaker one.
+- *Improvement over the weaker parent* surfaces those, but correlates 0.751
+  with the gap between the parents, so it ranks "breed your best to your
+  worst" at the top. That is an honest description of a floor-raising
+  strategy, not a defect, but it is not overall pair quality.
+- *Any positive-side measure* hides a pairing made purely to drop a
+  negative, which can be worth doing when the foal is worse than both
+  parents.
+
+So the Breeding Assistant gains four sortable columns and keeps its
+existing refusal to compose a single score — the same position `#358` took
+for Pool gain, now with four independent reasons rather than one.
+`suggestPlans` accepts the objective as a parameter, so a player picks the
+intent and the planner optimises for it.
+
+Deliberately **not** offered: a weighted blend. The weights would encode a
+breeding strategy the app has no basis to choose, and would hide exactly
+the conflicts a breeder needs to see.
+
 ## 11. Open questions
 
 1. ~~**A denser tiebreak for breeding.**~~ **Resolved.** Sort pairs by

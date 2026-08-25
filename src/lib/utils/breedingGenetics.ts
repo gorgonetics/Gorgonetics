@@ -273,3 +273,75 @@ export function offspringOutcomeBuckets(
   classify(GeneType.RECESSIVE, dist.R);
   return b;
 }
+
+/**
+ * Standard normal CDF, Abramowitz & Stegun 7.1.26 (|error| < 1.5e-7).
+ *
+ * Enough for ranking pairs: the offspring's positive-effect count is a sum
+ * of hundreds of independent per-locus outcomes, so its Poisson-binomial
+ * distribution is very close to normal well before the approximation's
+ * error matters.
+ */
+export function normalCdf(z: number): number {
+  const sign = z < 0 ? -1 : 1;
+  const x = Math.abs(z) / Math.SQRT2;
+  const t = 1 / (1 + 0.3275911 * x);
+  const y =
+    1 -
+    ((((1.061405429 * t - 1.453152027) * t + 1.421413741) * t - 0.284496736) * t + 0.254829592) * t * Math.exp(-x * x);
+  return 0.5 * (1 + sign * y);
+}
+
+/** Standard normal density. */
+function normalPdf(z: number): number {
+  return Math.exp(-0.5 * z * z) / Math.sqrt(2 * Math.PI);
+}
+
+/**
+ * Probability the offspring beats `baseline` — normally the better parent.
+ *
+ * **Why a baseline at all.** An absolute expected count rewards breeding the
+ * two best animals together, which is how a stable settles into a local
+ * maximum: measured on a real collection, three of the top six pairings by
+ * expected positive count produce offspring almost certain to be *worse*
+ * than a parent (means of 346, 339, 336 against a better parent of 349).
+ * Scoring the improvement instead of the level is what points breeding at
+ * ground it has not already taken.
+ *
+ * A degenerate `sd` (every locus certain) collapses to a step: the offspring
+ * either beats the baseline or does not.
+ */
+export function probabilityOfImprovement(mean: number, sd: number, baseline: number): number {
+  if (sd <= 0) return mean > baseline ? 1 : 0;
+  return 1 - normalCdf((baseline - mean) / sd);
+}
+
+/**
+ * Expected improvement over `baseline` — `E[max(0, offspring - baseline)]`.
+ *
+ * Preferred over `probabilityOfImprovement` as a sort key because it weighs
+ * how *much* better, not just how often: a near-certain gain of one is worth
+ * less than a likely gain of six. The same acquisition function Bayesian
+ * optimisation uses, and for the same reason — it balances a safe small step
+ * against a riskier large one instead of collapsing to whichever is likelier.
+ */
+export function expectedImprovement(mean: number, sd: number, baseline: number): number {
+  if (sd <= 0) return Math.max(0, mean - baseline);
+  const z = (mean - baseline) / sd;
+  return sd * normalPdf(z) + (mean - baseline) * normalCdf(z);
+}
+
+/**
+ * `E[max(0, baseline - offspring)]` — expected *reduction* below a
+ * baseline, for quantities where lower is better (negative effects).
+ *
+ * The mirror of `expectedImprovement`, and the same integral with the roles
+ * of mean and baseline exchanged, so the two cannot drift apart.
+ *
+ * Exists because clearing liabilities is a breeding purpose in its own
+ * right: a foal worse than both parents on positive count can still be the
+ * right pairing if it drops a negative the line has been carrying.
+ */
+export function expectedReduction(mean: number, sd: number, baseline: number): number {
+  return expectedImprovement(baseline, sd, mean);
+}
