@@ -694,13 +694,16 @@ describe('shareService.getSharedPet', () => {
     ['a non-integer (float) attribute', { ...FIXTURE_ATTRS, intelligence: 50.5 }],
     ['an out-of-range attribute (>100)', { ...FIXTURE_ATTRS, toughness: 101 }],
     ['a negative attribute', { ...FIXTURE_ATTRS, ferocity: -1 }],
-  ])('treats %s as absent (tampered/pre-rule doc) so import falls back to genome-derived values', async (_label, attributes) => {
-    getDocMock
-      .mockResolvedValueOnce(readSnap(matchingMeta({ attributes }), { id: RAW_TEXT_HASH }))
-      .mockResolvedValueOnce(readSnap({ genomeData: 'X' }));
-    const pet = await getSharedPet(RAW_TEXT_HASH);
-    expect(pet?.attributes).toBeUndefined();
-  });
+  ])(
+    'treats %s as absent (tampered/pre-rule doc) so import falls back to genome-derived values',
+    async (_label, attributes) => {
+      getDocMock
+        .mockResolvedValueOnce(readSnap(matchingMeta({ attributes }), { id: RAW_TEXT_HASH }))
+        .mockResolvedValueOnce(readSnap({ genomeData: 'X' }));
+      const pet = await getSharedPet(RAW_TEXT_HASH);
+      expect(pet?.attributes).toBeUndefined();
+    },
+  );
 });
 
 describe('shareService.sanitizeTags', () => {
