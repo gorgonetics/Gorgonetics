@@ -75,4 +75,18 @@ describe('breeding objectives', () => {
     expect(resolveObjective('attribute:Toughness')?.label).toBe('Improve Toughness');
     expect(resolveObjective('nonsense')).toBeNull();
   });
+
+  /**
+   * The persisted objective survives a species switch. Without the attribute
+   * filter, `attribute:Toughness` stays selected on a species with no
+   * Toughness, the <select> holds a value matching no option, and the planner
+   * ranks by a metric the table never shows.
+   */
+  it('rejects an attribute strategy the species has no attribute for', () => {
+    const attrs = ['Toughness', 'Speed'];
+    expect(resolveObjective('attribute:Toughness', attrs)?.id).toBe('attribute:Toughness');
+    expect(resolveObjective('attribute:Endurance', attrs)).toBeNull();
+    // A general strategy is species-independent and always resolves.
+    expect(resolveObjective('reach', attrs)?.id).toBe('reach');
+  });
 });

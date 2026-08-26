@@ -36,10 +36,19 @@ const optionColor = (i: number) => OPTION_COLORS[i % OPTION_COLORS.length];
  * which in turn matches `breedingView.sortCol` after a click on the
  * header.
  */
-/** Attribute named by an `attribute:<Name>` sort column, if that is active. */
-const activeAttribute = $derived(
-  breedingView.sortCol.startsWith('attribute:') ? breedingView.sortCol.slice('attribute:'.length) : '',
-);
+/**
+ * Attribute named by an `attribute:<Name>` sort column, if that is active.
+ *
+ * Gated on `attrNames`: a sort column persisted from another species names an
+ * attribute this one does not have, and an ungated Δ column would read an
+ * all-zero accessor. Dropping it makes `activeCol` fall back to the default
+ * column instead of sorting by a phantom one.
+ */
+const activeAttribute = $derived.by(() => {
+  if (!breedingView.sortCol.startsWith('attribute:')) return '';
+  const name = breedingView.sortCol.slice('attribute:'.length);
+  return attrNames.includes(name) ? name : '';
+});
 
 const columns = $derived<Column[]>([
   { id: 'male', label: '♂ Male', accessor: (r) => r.male.name, numeric: false },

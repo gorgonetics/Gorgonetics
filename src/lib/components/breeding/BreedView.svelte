@@ -117,7 +117,15 @@ const objectives = $derived<BreedingObjective[]>([
   ...BREEDING_OBJECTIVES,
   ...attrNames.map((a) => attributeObjective(a)),
 ]);
-const objective = $derived(resolveObjective(breedingView.objective) ?? (BREEDING_OBJECTIVES[0] as BreedingObjective));
+// `attrNames` invalidates a persisted `attribute:<Name>` pick that the current
+// species has no attribute for (switch from horses to beewasps and back). Left
+// unfiltered, the <select> would hold a value matching no option — the browser
+// shows the first option while the planner and the sort column still use the
+// stale attribute strategy. The store keeps the id, so the pick returns when
+// the player switches back.
+const objective = $derived(
+  resolveObjective(breedingView.objective, attrNames) ?? (BREEDING_OBJECTIVES[0] as BreedingObjective),
+);
 
 function selectObjective(id: string) {
   breedingView.objective = id;

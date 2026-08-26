@@ -188,6 +188,24 @@ describe('BreedingPairTable — column integrity', () => {
     expect(cells).toBe(headers);
   });
 
+  /**
+   * `sortCol` persists across species. A `attribute:<Name>` column left over
+   * from another species must not render a Δ column whose accessor reads an
+   * attribute this species does not have — every row would show 0.0.
+   */
+  it('drops a Δ column for an attribute the species lacks', async () => {
+    breedingView.sortCol = 'attribute:Endurance';
+    const { container, rerender } = render(BreedingPairTable, { results: RESULTS, attrNames: ['Toughness'] });
+    await rerender({});
+    const headers = [...container.querySelectorAll('thead th')].map((h) => h.textContent?.replace(/[▲▼]/g, '').trim());
+    expect(headers).not.toContain('Δ Endurance');
+    // The known attribute still gets its Δ column.
+    breedingView.sortCol = 'attribute:Toughness';
+    await rerender({});
+    const after = [...container.querySelectorAll('thead th')].map((h) => h.textContent?.replace(/[▲▼]/g, '').trim());
+    expect(after).toContain('Δ Toughness');
+  });
+
   it('puts each metric under its own heading', async () => {
     const { container, rerender } = render(BreedingPairTable, { results: RESULTS, attrNames: [] });
     await rerender({});
