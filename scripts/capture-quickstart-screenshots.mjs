@@ -208,6 +208,25 @@ await shot(page, '12-breed-filter.png');
 await clearHighlight(page);
 await removeOverlay(page);
 
+// 30 — Rarity lens on the same horse. Numbered after the original set rather
+// than inserted at its narrative position, so the existing files keep their
+// names and quickstart.html's other <img> references stay valid.
+await page.getByTestId('view-rarity-btn').click();
+await waitFor(page, '[data-testid="rarity-legend"]');
+// The baseline is computed asynchronously; the grid renders unshaded until it
+// lands, so wait for the legend to stop reporting progress before shooting.
+await page.waitForFunction(
+  () => {
+    const el = document.querySelector('[data-testid="rarity-baseline"]');
+    return el !== null && !el.textContent.includes('Analysing');
+  },
+  null,
+  { timeout: 10000 },
+);
+await shot(page, '30-rarity-view.png');
+await page.getByRole('button', { name: 'Attributes', exact: true }).click();
+await page.waitForTimeout(200);
+
 // 13 — Two rows selected, the selection bar highlighted
 await page.getByTestId('pet-detail-back').click();
 await page.waitForTimeout(200);
@@ -245,15 +264,27 @@ console.log('  ✓ screenshot-trio.png (homepage)');
 await page.getByTestId('trio-view-back').click();
 await page.waitForTimeout(200);
 
-// 17 — Reference destination (Animal type + Chromosome selects + Edit Genes)
+// 17 — Reference destination. It is map-first now: picking an animal type
+// renders the whole-species genome map, and gene editing sits behind the
+// Edit toggle (captured as 18 below).
+// Horse, not beewasp: rarity needs two pets with a reading at a locus before it
+// scores one, and the demo set has a single beewasp — a beewasp map is entirely
+// "no data" and shows nothing of the feature.
 await page.getByTestId('tab-reference').click();
 await page.waitForTimeout(200);
+await page.locator('#animalType').selectOption('horse');
+await waitFor(page, '[data-testid="genome-map-grid"]');
+await page.waitForTimeout(800);
 await shot(page, '17-reference.png');
 
-// 18 — Gene-template editing table after choosing species+chromosome
+// 18 — Gene-template editing table, reached via Edit → chromosome → Edit Genes.
+// #chromosome only exists in edit mode, so the toggle must come first. Back to
+// beewasp here: 10 chromosomes make a legible editor screenshot.
+await page.getByTestId('reference-edit-toggle').click();
+await waitFor(page, '#chromosome');
 await page.locator('#animalType').selectOption('beewasp');
-await page.waitForTimeout(200);
-await page.locator('select').nth(1).selectOption({ index: 1 });
+await page.waitForTimeout(400);
+await page.locator('#chromosome').selectOption({ index: 1 });
 await page.waitForTimeout(200);
 await page.getByRole('button', { name: 'Edit Genes' }).click();
 await waitFor(page, '.gene-editing-view');
