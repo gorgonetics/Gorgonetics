@@ -300,10 +300,9 @@ export interface BreedingPairResult {
    * `evPositiveTotal`, which takes 108 — the pair is near-totally ordered
    * where neither is alone.
    *
-   * **Not additive across a plan.** Two pairs that secure the same allele
-   * add it once, not twice; summing them overcounts by ~7% on a six-pair
-   * plan. Tolerated rather than fixed, because an over-ranked plan costs
-   * one breeding round and the alternative pair is still there next time.
+   * **Not additive across a plan** — two pairs that secure the same allele
+   * add it once, not twice. See `breedingPlan.ts`, where plans are summed
+   * and the size of the overcount is recorded.
    */
   evCapabilityGain: number;
   /**
@@ -320,8 +319,6 @@ export interface BreedingPairResult {
    * is not progress.
    */
   evPositiveImprovement: number;
-  /** Probability the offspring's positive count beats the better parent's. */
-  pPositiveImprovement: number;
   /**
    * `E[max(0, offspring positives - weaker parent's positives)]` — the
    * value of a foal that cannot beat the better parent but can replace the

@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { GeneType } from '$lib/types/index.js';
 import {
   type AlleleTally,
-  benefitCounts,
   benefitSlots,
   capability,
   capabilityShare,
@@ -52,6 +51,19 @@ function tally(homD: number, carD: number, homR: number, carR: number): AlleleTa
   return { homD, carD, homR, carR };
 }
 
+/**
+ * Benefits per allele, derived from `benefitSlots`. Lives here rather than in
+ * the module: production code only ever needs the slots themselves, and a
+ * scalar summary kept solely for its own assertions is dead weight.
+ */
+function counts(g: ScoredGene): { dom: number; rec: number } {
+  const slots = benefitSlots(g);
+  return {
+    dom: slots.filter((s) => s.allele === D).length,
+    rec: slots.filter((s) => s.allele === R).length,
+  };
+}
+
 describe('capability — the 2:1 weighting model', () => {
   it('is 1 when the outcome breeds true, 0.5 for carriers only, 0 out of reach', () => {
     expect(capability(1, 3)).toBe(1);
@@ -77,7 +89,7 @@ describe('benefitSlots — what each allele can deliver', () => {
       { allele: R, kind: 'add', attribute: 'temperament' },
       { allele: R, kind: 'clear', attribute: 'virility' },
     ]);
-    expect(benefitCounts(CHR01)).toEqual({ dom: 0, rec: 2 });
+    expect(counts(CHR01)).toEqual({ dom: 0, rec: 2 });
   });
 
   it('files a `clear` against the attribute of the negative being avoided', () => {
@@ -87,12 +99,12 @@ describe('benefitSlots — what each allele can deliver', () => {
   });
 
   it('covers the remaining locus classes', () => {
-    expect(benefitCounts(gene('+', null))).toEqual({ dom: 1, rec: 0 });
-    expect(benefitCounts(gene(null, '+'))).toEqual({ dom: 0, rec: 1 });
-    expect(benefitCounts(gene(null, '-'))).toEqual({ dom: 1, rec: 0 });
-    expect(benefitCounts(gene('-', null))).toEqual({ dom: 0, rec: 1 });
-    expect(benefitCounts(gene(null, null))).toEqual({ dom: 0, rec: 0 });
-    expect(benefitCounts(gene('+', '+'))).toEqual({ dom: 1, rec: 1 });
+    expect(counts(gene('+', null))).toEqual({ dom: 1, rec: 0 });
+    expect(counts(gene(null, '+'))).toEqual({ dom: 0, rec: 1 });
+    expect(counts(gene(null, '-'))).toEqual({ dom: 1, rec: 0 });
+    expect(counts(gene('-', null))).toEqual({ dom: 0, rec: 1 });
+    expect(counts(gene(null, null))).toEqual({ dom: 0, rec: 0 });
+    expect(counts(gene('+', '+'))).toEqual({ dom: 1, rec: 1 });
   });
 
   it('counts liabilities on the allele that transmits them', () => {

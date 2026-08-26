@@ -282,7 +282,7 @@ export function offspringOutcomeBuckets(
  * distribution is very close to normal well before the approximation's
  * error matters.
  */
-export function normalCdf(z: number): number {
+function normalCdf(z: number): number {
   const sign = z < 0 ? -1 : 1;
   const x = Math.abs(z) / Math.SQRT2;
   const t = 1 / (1 + 0.3275911 * x);
@@ -298,32 +298,14 @@ function normalPdf(z: number): number {
 }
 
 /**
- * Probability the offspring beats `baseline` — normally the better parent.
- *
- * **Why a baseline at all.** An absolute expected count rewards breeding the
- * two best animals together, which is how a stable settles into a local
- * maximum: measured on a real collection, three of the top six pairings by
- * expected positive count produce offspring almost certain to be *worse*
- * than a parent (means of 346, 339, 336 against a better parent of 349).
- * Scoring the improvement instead of the level is what points breeding at
- * ground it has not already taken.
- *
- * A degenerate `sd` (every locus certain) collapses to a step: the offspring
- * either beats the baseline or does not.
- */
-export function probabilityOfImprovement(mean: number, sd: number, baseline: number): number {
-  if (sd <= 0) return mean > baseline ? 1 : 0;
-  return 1 - normalCdf((baseline - mean) / sd);
-}
-
-/**
  * Expected improvement over `baseline` — `E[max(0, offspring - baseline)]`.
  *
- * Preferred over `probabilityOfImprovement` as a sort key because it weighs
- * how *much* better, not just how often: a near-certain gain of one is worth
- * less than a likely gain of six. The same acquisition function Bayesian
- * optimisation uses, and for the same reason — it balances a safe small step
- * against a riskier large one instead of collapsing to whichever is likelier.
+ * Weighs how *much* better, not just how often: a near-certain gain of one
+ * is worth less than a likely gain of six. The same acquisition function
+ * Bayesian optimisation uses, and for the same reason — it balances a safe
+ * small step against a riskier large one instead of collapsing to whichever
+ * is likelier, which is why a bare probability-of-improvement is not the
+ * sort key.
  */
 export function expectedImprovement(mean: number, sd: number, baseline: number): number {
   if (sd <= 0) return Math.max(0, mean - baseline);

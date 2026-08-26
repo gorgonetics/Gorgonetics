@@ -17,10 +17,10 @@ import { Gender, GeneType } from '$lib/types/index.js';
 import {
   expectedImprovement,
   expectedReduction,
+  expressedSign,
   negativeExpressionProbability,
   offspringDistribution,
   positiveExpressionProbability,
-  probabilityOfImprovement,
 } from '$lib/utils/breedingGenetics.js';
 import { type AlleleTally, expectedCapabilityGain, tallyAlleles, tallyFor } from '$lib/utils/geneticQuality.js';
 import { loadAllPetLoci, type PetLoci, walkPairLoci } from '$lib/utils/petLoci.js';
@@ -177,72 +177,56 @@ function accumulatePositive(
 }
 
 /**
- * A parent's own positive-effect count, measured on exactly the loci and
- * breed scope the offspring EV uses. `pets.positive_genes` cannot serve:
- * it is scoped to the pet's *own* breed, so comparing it against an
- * offspring EV scoped to the target breed would compare two different
- * locus sets and manufacture improvement out of the mismatch.
+ * What a parent itself expresses, on exactly the loci and breed scope the
+ * offspring EV uses — the baseline every improvement measure is judged
+ * against.
+ *
+ * `pets.positive_genes` cannot serve: it is scoped to the pet's *own* breed,
+ * so comparing it against an offspring EV scoped to the target breed would
+ * compare two different locus sets and manufacture improvement out of the
+ * mismatch.
+ *
+ * One walk, three figures. Positives, negatives and the per-attribute split
+ * share the same loop, the same breed gate and the same expression rule, so
+ * splitting them into three functions meant three passes over ~1,600 loci per
+ * animal and three copies of the `D`/`x` vs `R` branching that
+ * `expressedSign` already encodes.
  */
-function ownPositiveCount(
-  loci: PetLoci,
-  parsedGenes: Record<string, ParsedGeneRecord>,
-  species: string,
-  offspringBreed: string | undefined,
-): number {
-  let n = 0;
-  for (const [geneId, type] of loci) {
-    const gd = parsedGenes[geneId];
-    if (!gd) continue;
-    if (isHorseBreedFiltered(species, offspringBreed, gd.breed)) continue;
-    if ((type === GeneType.DOMINANT || type === GeneType.MIXED) && gd.dominantSign === '+') n++;
-    else if (type === GeneType.RECESSIVE && gd.recessiveSign === '+') n++;
-  }
-  return n;
+interface ExpressedProfile {
+  positives: number;
+  negatives: number;
+  /** Positive count keyed by the (capitalized) attribute it lands on. */
+  positivesByAttribute: Record<string, number>;
 }
 
-/**
- * A parent's own positive count split by attribute, same basis as
- * `ownPositiveCount`. The baseline for per-attribute improvement: "raise
- * Intelligence" means beating the parents *on Intelligence*, so the
- * comparison has to be per attribute rather than against the total.
- */
-function ownPositivesByAttribute(
+const EMPTY_PROFILE: Readonly<ExpressedProfile> = Object.freeze({
+  positives: 0,
+  negatives: 0,
+  positivesByAttribute: {},
+});
+
+function ownExpressedProfile(
   loci: PetLoci,
   parsedGenes: Record<string, ParsedGeneRecord>,
   species: string,
   offspringBreed: string | undefined,
-): Record<string, number> {
-  const out: Record<string, number> = {};
+): ExpressedProfile {
+  const profile: ExpressedProfile = { positives: 0, negatives: 0, positivesByAttribute: {} };
   for (const [geneId, type] of loci) {
     const gd = parsedGenes[geneId];
     if (!gd) continue;
     if (isHorseBreedFiltered(species, offspringBreed, gd.breed)) continue;
-    const slots = positiveSlots(gd);
-    if ((type === GeneType.DOMINANT || type === GeneType.MIXED) && slots.dom) {
-      out[slots.dom] = (out[slots.dom] ?? 0) + 1;
-    } else if (type === GeneType.RECESSIVE && slots.rec) {
-      out[slots.rec] = (out[slots.rec] ?? 0) + 1;
+    const sign = expressedSign(type, gd);
+    if (sign === '+') {
+      profile.positives++;
+      const slots = positiveSlots(gd);
+      const attr = type === GeneType.RECESSIVE ? slots.rec : slots.dom;
+      if (attr) profile.positivesByAttribute[attr] = (profile.positivesByAttribute[attr] ?? 0) + 1;
+    } else if (sign === '-') {
+      profile.negatives++;
     }
   }
-  return out;
-}
-
-/** A parent's own negative-effect count, same basis as `ownPositiveCount`. */
-function ownNegativeCount(
-  loci: PetLoci,
-  parsedGenes: Record<string, ParsedGeneRecord>,
-  species: string,
-  offspringBreed: string | undefined,
-): number {
-  let n = 0;
-  for (const [geneId, type] of loci) {
-    const gd = parsedGenes[geneId];
-    if (!gd) continue;
-    if (isHorseBreedFiltered(species, offspringBreed, gd.breed)) continue;
-    if ((type === GeneType.DOMINANT || type === GeneType.MIXED) && gd.dominantSign === '-') n++;
-    else if (type === GeneType.RECESSIVE && gd.recessiveSign === '-') n++;
-  }
-  return n;
+  return profile;
 }
 
 function emptyAttributeBreakdown(attrNames: readonly string[]): Record<string, number> {
@@ -259,9 +243,7 @@ function scorePair(
   parsedGenes: Record<string, ParsedGeneRecord>,
   coverage: PoolCoverage,
   tallies: Map<string, AlleleTally>,
-  ownPositives: Map<number, number>,
-  ownNegatives: Map<number, number>,
-  ownByAttribute: Map<number, Record<string, number>>,
+  ownProfiles: Map<number, ExpressedProfile>,
   offspringBreed: string | undefined,
   species: string,
   attrNames: readonly string[],
@@ -308,21 +290,19 @@ function scorePair(
     }
   });
 
-  const malePositives = ownPositives.get(male.id) ?? 0;
-  const femalePositives = ownPositives.get(female.id) ?? 0;
-  const betterParentPositives = Math.max(malePositives, femalePositives);
-  const weakerParentPositives = Math.min(malePositives, femalePositives);
+  const mProfile = ownProfiles.get(male.id) ?? EMPTY_PROFILE;
+  const fProfile = ownProfiles.get(female.id) ?? EMPTY_PROFILE;
+  const betterParentPositives = Math.max(mProfile.positives, fProfile.positives);
+  const weakerParentPositives = Math.min(mProfile.positives, fProfile.positives);
   const sd = Math.sqrt(positiveVariance);
-  const cleanerParentNegatives = Math.min(ownNegatives.get(male.id) ?? 0, ownNegatives.get(female.id) ?? 0);
+  const cleanerParentNegatives = Math.min(mProfile.negatives, fProfile.negatives);
   // Per-attribute improvement, each against the better parent *on that
   // attribute*. Targeting a weak trait is a strategy in its own right, and
   // the absolute per-attribute EV cannot express it — a pairing can lead on
   // Intelligence while being unable to improve on either parent's.
-  const mAttr = ownByAttribute.get(male.id) ?? {};
-  const fAttr = ownByAttribute.get(female.id) ?? {};
   const evAttributeImprovement: Record<string, number> = {};
   for (const attr of attrNames) {
-    const baseline = Math.max(mAttr[attr] ?? 0, fAttr[attr] ?? 0);
+    const baseline = Math.max(mProfile.positivesByAttribute[attr] ?? 0, fProfile.positivesByAttribute[attr] ?? 0);
     evAttributeImprovement[attr] = expectedImprovement(
       evPositiveByAttribute[attr] ?? 0,
       Math.sqrt(attributeVariance[attr] ?? 0),
@@ -338,7 +318,6 @@ function scorePair(
     evPositiveWeighted,
     evCapabilityGain,
     evPositiveImprovement: expectedImprovement(evPositiveTotal, sd, betterParentPositives),
-    pPositiveImprovement: probabilityOfImprovement(evPositiveTotal, sd, betterParentPositives),
     evPairUpgrade: expectedImprovement(evPositiveTotal, sd, weakerParentPositives),
     betterParentPositives,
     weakerParentPositives,
@@ -378,13 +357,9 @@ export async function rankBreedingPairs(opts: RankBreedingPairsOptions): Promise
   // true must score nothing, and that has to fall out of the arithmetic.
   const tallies = tallyAlleles(petLociMap.values());
   // One pass per animal, not per pair: the baseline an offspring must beat.
-  const ownPositives = new Map<number, number>();
-  const ownNegatives = new Map<number, number>();
-  const ownByAttribute = new Map<number, Record<string, number>>();
+  const ownProfiles = new Map<number, ExpressedProfile>();
   for (const [id, l] of petLociMap) {
-    ownPositives.set(id, ownPositiveCount(l, parsedGenes, species, opts.offspringBreed));
-    ownNegatives.set(id, ownNegativeCount(l, parsedGenes, species, opts.offspringBreed));
-    ownByAttribute.set(id, ownPositivesByAttribute(l, parsedGenes, species, opts.offspringBreed));
+    ownProfiles.set(id, ownExpressedProfile(l, parsedGenes, species, opts.offspringBreed));
   }
 
   for (const m of males) {
@@ -400,9 +375,7 @@ export async function rankBreedingPairs(opts: RankBreedingPairsOptions): Promise
           parsedGenes,
           coverage,
           tallies,
-          ownPositives,
-          ownNegatives,
-          ownByAttribute,
+          ownProfiles,
           opts.offspringBreed,
           species,
           attrNames,

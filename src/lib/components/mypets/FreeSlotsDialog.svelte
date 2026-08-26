@@ -45,15 +45,22 @@ let loading = $state(true);
 let failed = $state(false);
 let releasing = $state(false);
 
-// Recompute whenever the target changes. The walk re-scores after every
-// removal, so a different target is a different answer, not a prefix of one.
+/**
+ * Identity of the request: the target and the population it is judged
+ * against. Same shape as BreedView's `candidateKey` — it makes the effect's
+ * dependencies explicit instead of relying on which fields the body happens
+ * to read.
+ */
+const requestKey = $derived(`${species}|${slots}|${pets.map((p) => p.id).join(',')}`);
+
+// The walk re-scores after every removal, so a different target is a
+// different answer, not a prefix of one — any key change means a refetch.
 $effect(() => {
-  const want = slots;
-  const ids = pets.map((p) => p.id).join(',');
+  void requestKey;
   let live = true;
   loading = true;
   failed = false;
-  safeCullSet({ species, pets, slots: want })
+  safeCullSet({ species, pets, slots })
     .then((r) => {
       if (live) plan = r;
     })
@@ -63,8 +70,6 @@ $effect(() => {
     .finally(() => {
       if (live) loading = false;
     });
-  // `ids` is read so the effect re-runs when the population changes.
-  void ids;
   return () => {
     live = false;
   };

@@ -99,11 +99,9 @@ export const TIER_CAPABILITY: Readonly<Record<SupplyTier, number>> = Object.free
  */
 export const MIN_POPULATION = 3;
 
-/** Distinct benefits each allele at one locus could deliver. */
-export interface BenefitCounts {
-  /** Benefits carried by the dominant allele. */
+/** A per-allele count at one locus, keyed by which allele carries it. */
+export interface AlleleCounts {
   dom: number;
-  /** Benefits carried by the recessive allele. */
   rec: number;
 }
 
@@ -170,18 +168,6 @@ export function benefitSlots(gene: ScoredGene): BenefitSlot[] {
 }
 
 /**
- * How many distinct good outcomes each allele could deliver at one locus.
- * The scalar summary of `benefitSlots`, kept because it states the rule in
- * one line.
- */
-export function benefitCounts(gene: GeneSignSummary): BenefitCounts {
-  return {
-    dom: (gene.dominantSign === '+' ? 1 : 0) + (gene.recessiveSign === '-' ? 1 : 0),
-    rec: (gene.recessiveSign === '+' ? 1 : 0) + (gene.dominantSign === '-' ? 1 : 0),
-  };
-}
-
-/**
  * Liability slots per allele: transmitting this allele can make an
  * offspring express a negative.
  *
@@ -191,7 +177,7 @@ export function benefitCounts(gene: GeneSignSummary): BenefitCounts {
  * bites if the other parent also passes `R`. Same count, different
  * severity — recorded here, not yet weighted (see the design doc §11).
  */
-export function liabilityCounts(gene: GeneSignSummary): BenefitCounts {
+export function liabilityCounts(gene: GeneSignSummary): AlleleCounts {
   return {
     dom: gene.dominantSign === '-' ? 1 : 0,
     rec: gene.recessiveSign === '-' ? 1 : 0,
@@ -459,7 +445,7 @@ export function scoreGroup(
  * than written as `3`, so recalibrating the lens cannot silently move what
  * "rare" means here.
  */
-export const RARE_BUCKET_FLOOR = RARITY_THRESHOLDS.length;
+const RARE_BUCKET_FLOOR = RARITY_THRESHOLDS.length;
 
 /**
  * Benefit alleles this animal carries that are rare in the population.

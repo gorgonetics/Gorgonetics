@@ -22,7 +22,6 @@ const pair = (maleId: number, femaleId: number, score: number): BreedingPairResu
   evPositiveWeighted: score,
   evCapabilityGain: score,
   evPositiveImprovement: score,
-  pPositiveImprovement: 0,
   evPairUpgrade: score,
   betterParentPositives: 0,
   weakerParentPositives: 0,

@@ -342,7 +342,6 @@ describe('rankBreedingPairs — improvement over the parents', () => {
     expect(pair.betterParentPositives).toBe(2);
     expect(pair.evPositiveTotal).toBeCloseTo(2, 10);
     expect(pair.evPositiveImprovement).toBe(0);
-    expect(pair.pPositiveImprovement).toBe(0);
   });
 
   it('credits a pairing whose foal can exceed both parents', async () => {
@@ -355,7 +354,6 @@ describe('rankBreedingPairs — improvement over the parents', () => {
     const [pair] = await rankBreedingPairs({ species: 'BeeWasp', pets: [m, f] });
     expect(pair.betterParentPositives).toBe(1);
     expect(pair.evPositiveImprovement).toBeGreaterThan(0);
-    expect(pair.pPositiveImprovement).toBeGreaterThan(0);
   });
 
   it('does not reward a high absolute score that regresses on the parents', async () => {

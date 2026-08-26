@@ -26,7 +26,6 @@ const result = (male: Pet, female: Pet): BreedingPairResult => ({
   evPositiveWeighted: 2,
   evCapabilityGain: 1,
   evPositiveImprovement: 0.5,
-  pPositiveImprovement: 0.25,
   evPairUpgrade: 1.5,
   betterParentPositives: 2,
   weakerParentPositives: 1,
