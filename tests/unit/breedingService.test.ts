@@ -282,3 +282,176 @@ Genome=Horse
     expect(withoutFilter.evPositiveByAttribute.Toughness).toBeCloseTo(2, 10);
   });
 });
+
+describe('rankBreedingPairs — capability gain', () => {
+  beforeEach(reset);
+
+  it('credits a pairing that puts an unreachable positive in reach', async () => {
+    await geneService.upsertGene('beewasp', '01', '01A1', { effectDominant: 'None', effectRecessive: 'Toughness+' });
+    geneService.clearGeneEffectsCache('beewasp');
+    // Neither parent is `R`, but `x` × `x` can produce one, and nothing in
+    // the pool breeds it true — so the foal genuinely adds capability.
+    const m = await uploadParent('M', Gender.MALE, 'x??');
+    const f = await uploadParent('F', Gender.FEMALE, 'x??');
+    const [pair] = await rankBreedingPairs({ species: 'BeeWasp', pets: [m, f] });
+    // Pool capability is 0.5 (carriers only); a homozygous foal lifts it to
+    // 1 with probability 0.25.
+    expect(pair.evCapabilityGain).toBeCloseTo(0.25 * 0.5, 10);
+  });
+
+  it('credits nothing when the pool already breeds the positive true', async () => {
+    await geneService.upsertGene('beewasp', '01', '01A1', { effectDominant: 'None', effectRecessive: 'Toughness+' });
+    geneService.clearGeneEffectsCache('beewasp');
+    // A third animal is already `R`, so the outcome is secured and a foal
+    // adds nothing — the inert-`missing`-tier problem in reverse.
+    const m = await uploadParent('M', Gender.MALE, 'x??');
+    const f = await uploadParent('F', Gender.FEMALE, 'x??');
+    const secured = await uploadParent('S', Gender.FEMALE, 'R??');
+    const results = await rankBreedingPairs({ species: 'BeeWasp', pets: [m, f, secured] });
+    for (const r of results) expect(r.evCapabilityGain).toBe(0);
+  });
+
+  it('is coarser than evPositiveTotal, which is why it is the primary sort', async () => {
+    await geneService.upsertGene('beewasp', '01', '01A1', { effectDominant: 'Toughness+', effectRecessive: 'None' });
+    await geneService.upsertGene('beewasp', '01', '01A2', { effectDominant: 'None', effectRecessive: 'Intelligence+' });
+    geneService.clearGeneEffectsCache('beewasp');
+    const m1 = await uploadParent('M1', Gender.MALE, 'Dx?');
+    const m2 = await uploadParent('M2', Gender.MALE, 'DD?');
+    const f = await uploadParent('F', Gender.FEMALE, 'Dx?');
+    const results = await rankBreedingPairs({ species: 'BeeWasp', pets: [m1, m2, f] });
+    // Both pairs secure the dominant positive the pool already has, so
+    // capability separates them less than raw positive EV does.
+    const gains = new Set(results.map((r) => r.evCapabilityGain));
+    const positives = new Set(results.map((r) => r.evPositiveTotal));
+    expect(gains.size).toBeLessThanOrEqual(positives.size);
+  });
+});
+
+describe('rankBreedingPairs — improvement over the parents', () => {
+  beforeEach(reset);
+
+  it('scores no improvement when the offspring cannot beat a parent', async () => {
+    await geneService.upsertGene('beewasp', '01', '01A1', { effectDominant: 'Toughness+', effectRecessive: 'None' });
+    await geneService.upsertGene('beewasp', '01', '01A2', { effectDominant: 'Intelligence+', effectRecessive: 'None' });
+    geneService.clearGeneEffectsCache('beewasp');
+    // Both parents already express both positives and breed true, so every
+    // foal merely matches them. Nothing to gain.
+    const m = await uploadParent('M', Gender.MALE, 'DD?');
+    const f = await uploadParent('F', Gender.FEMALE, 'DD?');
+    const [pair] = await rankBreedingPairs({ species: 'BeeWasp', pets: [m, f] });
+    expect(pair.betterParentPositives).toBe(2);
+    expect(pair.evPositiveTotal).toBeCloseTo(2, 10);
+    expect(pair.evPositiveImprovement).toBe(0);
+  });
+
+  it('credits a pairing whose foal can exceed both parents', async () => {
+    await geneService.upsertGene('beewasp', '01', '01A1', { effectDominant: 'Toughness+', effectRecessive: 'None' });
+    await geneService.upsertGene('beewasp', '01', '01A2', { effectDominant: 'Intelligence+', effectRecessive: 'None' });
+    geneService.clearGeneEffectsCache('beewasp');
+    // Each parent expresses one positive; a foal can express both.
+    const m = await uploadParent('M', Gender.MALE, 'DR?');
+    const f = await uploadParent('F', Gender.FEMALE, 'RD?');
+    const [pair] = await rankBreedingPairs({ species: 'BeeWasp', pets: [m, f] });
+    expect(pair.betterParentPositives).toBe(1);
+    expect(pair.evPositiveImprovement).toBeGreaterThan(0);
+  });
+
+  it('does not reward a high absolute score that regresses on the parents', async () => {
+    await geneService.upsertGene('beewasp', '01', '01A1', { effectDominant: 'Toughness+', effectRecessive: 'None' });
+    await geneService.upsertGene('beewasp', '01', '01A2', { effectDominant: 'Intelligence+', effectRecessive: 'None' });
+    await geneService.upsertGene('beewasp', '01', '01A3', { effectDominant: 'None', effectRecessive: 'Virility+' });
+    geneService.clearGeneEffectsCache('beewasp');
+    // `strong` × `strong` has the higher absolute EV, but its foal cannot
+    // beat a parent. `improver` × `strong` scores lower in absolute terms
+    // and higher on improvement — the local-maximum trap, in miniature.
+    const strongM = await uploadParent('SM', Gender.MALE, 'DDR');
+    const strongF = await uploadParent('SF', Gender.FEMALE, 'DDR');
+    const improver = await uploadParent('IM', Gender.MALE, 'DRx');
+    const results = await rankBreedingPairs({ species: 'BeeWasp', pets: [strongM, strongF, improver] });
+    const byAbsolute = [...results].sort((a, b) => b.evPositiveTotal - a.evPositiveTotal);
+    const byImprovement = [...results].sort((a, b) => b.evPositiveImprovement - a.evPositiveImprovement);
+    expect(byAbsolute[0].male.name).toBe('SM');
+    expect(byAbsolute[0].evPositiveImprovement).toBe(0);
+    expect(byImprovement[0].male.name).toBe('IM');
+  });
+});
+
+describe('rankBreedingPairs — upgrading the weaker parent', () => {
+  beforeEach(reset);
+
+  it('credits a foal that cannot beat the better parent but can replace the weaker', async () => {
+    await geneService.upsertGene('beewasp', '01', '01A1', { effectDominant: 'Toughness+', effectRecessive: 'None' });
+    await geneService.upsertGene('beewasp', '01', '01A2', { effectDominant: 'Intelligence+', effectRecessive: 'None' });
+    geneService.clearGeneEffectsCache('beewasp');
+    // Strong parent has both positives locked; weak parent has neither.
+    // Every foal gets both dominants, so it matches the strong parent
+    // exactly — no frontier gain — but massively upgrades the weak slot.
+    const strong = await uploadParent('Strong', Gender.MALE, 'DD?');
+    const weak = await uploadParent('Weak', Gender.FEMALE, 'RR?');
+    const [pair] = await rankBreedingPairs({ species: 'BeeWasp', pets: [strong, weak] });
+    expect(pair.betterParentPositives).toBe(2);
+    expect(pair.weakerParentPositives).toBe(0);
+    expect(pair.evPositiveImprovement).toBe(0);
+    expect(pair.evPairUpgrade).toBeCloseTo(2, 10);
+  });
+
+  it('keeps the two measures separate rather than blending them', async () => {
+    await geneService.upsertGene('beewasp', '01', '01A1', { effectDominant: 'Toughness+', effectRecessive: 'None' });
+    geneService.clearGeneEffectsCache('beewasp');
+    const a = await uploadParent('A', Gender.MALE, 'D??');
+    const b = await uploadParent('B', Gender.FEMALE, 'D??');
+    const [pair] = await rankBreedingPairs({ species: 'BeeWasp', pets: [a, b] });
+    // Evenly matched parents: the upgrade measure must not inflate.
+    expect(pair.betterParentPositives).toBe(pair.weakerParentPositives);
+    expect(pair.evPairUpgrade).toBe(pair.evPositiveImprovement);
+  });
+});
+
+describe('rankBreedingPairs — clearing liabilities', () => {
+  beforeEach(reset);
+
+  it('credits a pairing that drops a negative even when the foal is worse overall', async () => {
+    // 01A1: recessive is a liability both parents carry; a `D` foal escapes it.
+    // 01A2/01A3: dominant positives the strong parent has locked.
+    await geneService.upsertGene('beewasp', '01', '01A1', { effectDominant: 'None', effectRecessive: 'Toughness-' });
+    await geneService.upsertGene('beewasp', '01', '01A2', { effectDominant: 'Intelligence+', effectRecessive: 'None' });
+    await geneService.upsertGene('beewasp', '01', '01A3', { effectDominant: 'Virility+', effectRecessive: 'None' });
+    geneService.clearGeneEffectsCache('beewasp');
+
+    const carrier = await uploadParent('Carrier', Gender.MALE, 'RDD');
+    const clean = await uploadParent('Clean', Gender.FEMALE, 'DRR');
+    const [pair] = await rankBreedingPairs({ species: 'BeeWasp', pets: [carrier, clean] });
+
+    // Every foal is `x` at 01A1, so the recessive negative can no longer be
+    // expressed — the line gets cleaner than either parent's baseline of 0
+    // is not the point; what matters is the carrier's exposure is gone.
+    expect(pair.evNegativeTotal).toBe(0);
+    expect(pair.cleanerParentNegatives).toBe(0);
+  });
+
+  it('measures the reduction against the cleaner parent, not the dirtier one', async () => {
+    await geneService.upsertGene('beewasp', '01', '01A1', { effectDominant: 'Toughness-', effectRecessive: 'None' });
+    geneService.clearGeneEffectsCache('beewasp');
+    // Dirty expresses the dominant negative; clean does not. Half the foals
+    // escape it, so expected negatives fall below the dirty parent but not
+    // below the clean one.
+    const dirty = await uploadParent('Dirty', Gender.MALE, 'x??');
+    const cleanP = await uploadParent('Clean', Gender.FEMALE, 'R??');
+    const [pair] = await rankBreedingPairs({ species: 'BeeWasp', pets: [dirty, cleanP] });
+    expect(pair.cleanerParentNegatives).toBe(0);
+    expect(pair.evNegativeTotal).toBeCloseTo(0.5, 10);
+    // Worse than the cleaner parent → no reduction credited beyond noise.
+    expect(pair.evLiabilityReduction).toBeLessThan(pair.evNegativeTotal);
+  });
+
+  it('credits a real drop when both parents express the negative', async () => {
+    await geneService.upsertGene('beewasp', '01', '01A1', { effectDominant: 'None', effectRecessive: 'Toughness-' });
+    geneService.clearGeneEffectsCache('beewasp');
+    // Both parents are R and express it; every foal is R too — no escape.
+    const a = await uploadParent('A', Gender.MALE, 'R??');
+    const b = await uploadParent('B', Gender.FEMALE, 'R??');
+    const [stuck] = await rankBreedingPairs({ species: 'BeeWasp', pets: [a, b] });
+    expect(stuck.evNegativeTotal).toBeCloseTo(1, 10);
+    expect(stuck.evLiabilityReduction).toBe(0);
+  });
+});

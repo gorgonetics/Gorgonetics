@@ -36,9 +36,27 @@ const optionColor = (i: number) => OPTION_COLORS[i % OPTION_COLORS.length];
  * which in turn matches `breedingView.sortCol` after a click on the
  * header.
  */
+/**
+ * Attribute named by an `attribute:<Name>` sort column, if that is active.
+ *
+ * Gated on `attrNames`: a sort column persisted from another species names an
+ * attribute this one does not have, and an ungated Δ column would read an
+ * all-zero accessor. Dropping it makes `activeCol` fall back to the default
+ * column instead of sorting by a phantom one.
+ */
+const activeAttribute = $derived.by(() => {
+  if (!breedingView.sortCol.startsWith('attribute:')) return '';
+  const name = breedingView.sortCol.slice('attribute:'.length);
+  return attrNames.includes(name) ? name : '';
+});
+
 const columns = $derived<Column[]>([
   { id: 'male', label: '♂ Male', accessor: (r) => r.male.name, numeric: false },
   { id: 'female', label: '♀ Female', accessor: (r) => r.female.name, numeric: false },
+  { id: 'evCapabilityGain', label: 'Quality', accessor: (r) => r.evCapabilityGain, numeric: true },
+  { id: 'evPositiveImprovement', label: 'Ceiling', accessor: (r) => r.evPositiveImprovement, numeric: true },
+  { id: 'evPairUpgrade', label: 'Floor', accessor: (r) => r.evPairUpgrade, numeric: true },
+  { id: 'evLiabilityReduction', label: 'Cleanup', accessor: (r) => r.evLiabilityReduction, numeric: true },
   { id: 'evMixed', label: 'Mixed', accessor: (r) => r.evMixed, numeric: true },
   { id: 'evUnknown', label: 'Unknown', accessor: (r) => r.evUnknown, numeric: true },
   { id: 'evPositiveTotal', label: 'Total +', accessor: (r) => r.evPositiveTotal, numeric: true },
@@ -51,12 +69,32 @@ const columns = $derived<Column[]>([
       numeric: true,
     }),
   ),
+  /**
+   * The improvement column for the *active* attribute strategy only.
+   *
+   * The plain per-attribute columns above are absolute expected value. An
+   * attribute strategy ranks by `evAttributeImprovement` instead, so without
+   * this the table would sort by one metric while the planner optimised
+   * another — the absolute-vs-improvement confusion the whole feature exists
+   * to avoid. Added per-attribute rather than for all seven, which would
+   * double the column count for six strategies nobody selected.
+   */
+  ...(activeAttribute
+    ? [
+        {
+          id: `attribute:${activeAttribute}`,
+          label: `Δ ${activeAttribute}`,
+          accessor: (r: BreedingPairResult) => r.evAttributeImprovement[activeAttribute] ?? 0,
+          numeric: true,
+        } as Column,
+      ]
+    : []),
 ]);
 
 // The active column: matched by name (not index) so re-ordering the column
 // list later won't silently change the default sort.
 const activeCol = $derived(
-  columns.find((c) => c.id === breedingView.sortCol) ?? columns.find((c) => c.id === 'evPositiveTotal') ?? columns[0],
+  columns.find((c) => c.id === breedingView.sortCol) ?? columns.find((c) => c.id === 'evCapabilityGain') ?? columns[0],
 );
 
 const sortPairs = (pairs: BreedingPairResult[]) => sortByColumn(pairs, activeCol, breedingView.sortDir);
@@ -176,10 +214,14 @@ function persistScroll() {
                 </td>
                 {@render parentCell(pair.male)}
                 {@render parentCell(pair.female)}
+                <td class="numeric strong">{fmt(pair.evCapabilityGain)}</td>
+                <td class="numeric">{fmt(pair.evPositiveImprovement)}</td>
+                <td class="numeric">{fmt(pair.evPairUpgrade)}</td>
+                <td class="numeric">{fmt(pair.evLiabilityReduction)}</td>
                 <td class="numeric">{fmt(pair.evMixed)}</td>
                 <td class="numeric">{fmt(pair.evUnknown)}</td>
-                <td class="numeric strong">{fmt(pair.evPositiveTotal)}</td>
-                <td class="numeric strong">{fmt(pair.evPositiveWeighted)}</td>
+                <td class="numeric">{fmt(pair.evPositiveTotal)}</td>
+                <td class="numeric">{fmt(pair.evPositiveWeighted)}</td>
                 {#each attrNames as name (name)}
                     <td class="numeric">{fmt(pair.evPositiveByAttribute[name] ?? 0)}</td>
                 {/each}
@@ -193,7 +235,7 @@ function persistScroll() {
                         <td colspan={columns.length + 1}>
                             <span class="option-dot"></span>
                             Option {i + 1}{i === 0 ? ' · best' : ''}
-                            <span class="option-total">pool gain {fmt(plan.total)}</span>
+                            <span class="option-total">total {fmt(plan.total)}</span>
                         </td>
                     </tr>
                     {#each sortPairs(plan.pairs) as pair (`${pair.male.id}-${pair.female.id}`)}

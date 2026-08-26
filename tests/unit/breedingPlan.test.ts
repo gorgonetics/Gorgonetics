@@ -5,14 +5,30 @@ import { suggestPlans } from '$lib/utils/breedingPlan.js';
 const pet = (id: number, gender: 'Male' | 'Female'): Pet =>
   ({ id, name: `P${id}`, gender, species: 'Horse', breed: '', tags: [], stabled: true }) as unknown as Pet;
 
-// `weighted` is the default plan objective (pool gain).
-const pair = (maleId: number, femaleId: number, weighted: number): BreedingPairResult => ({
+/**
+ * `score` is set on every objective field, so these tests exercise plan
+ * mechanics rather than whichever metric is currently the default. An
+ * earlier fixture set only `evPositiveWeighted` and silently produced NaN
+ * totals the day the default moved to genetic quality.
+ */
+const pair = (maleId: number, femaleId: number, score: number): BreedingPairResult => ({
   male: pet(maleId, 'Male'),
   female: pet(femaleId, 'Female'),
   evMixed: 0,
   evPositiveByAttribute: {},
+  // Left at zero deliberately: it is the fixture's "some other objective"
+  // field, used to prove a custom selector is honoured.
   evPositiveTotal: 0,
-  evPositiveWeighted: weighted,
+  evPositiveWeighted: score,
+  evCapabilityGain: score,
+  evPositiveImprovement: score,
+  evPairUpgrade: score,
+  betterParentPositives: 0,
+  weakerParentPositives: 0,
+  evAttributeImprovement: {},
+  evNegativeTotal: 0,
+  evLiabilityReduction: score,
+  cleanerParentNegatives: 0,
   evUnknown: 0,
   totalLoci: 0,
 });
@@ -59,9 +75,20 @@ describe('suggestPlans', () => {
 
   it('honours a custom score objective', () => {
     const ranked = [pair(1, 2, 1), pair(3, 4, 100)];
-    // Score by evPositiveTotal instead (all zero here) → totals collapse to 0.
+    // The fixture leaves evPositiveTotal at zero, so selecting it instead of
+    // the default collapses every plan total — proving the selector is what
+    // drives ranking, not the default field.
     const plans = suggestPlans({ ranked, slots: 2, score: (p) => p.evPositiveTotal });
     expect(plans[0].total).toBe(0);
+  });
+
+  it('defaults to genetic quality rather than pool gain', () => {
+    // Only evCapabilityGain distinguishes these two pairs; if the default
+    // were still evPositiveWeighted the totals would be equal.
+    const a = { ...pair(1, 2, 5), evCapabilityGain: 50 };
+    const b = { ...pair(3, 4, 5), evCapabilityGain: 1 };
+    const [best] = suggestPlans({ ranked: [a, b], slots: 1 });
+    expect(best.pairs[0].male.id).toBe(1);
   });
 
   it('caps the number of plans returned', () => {

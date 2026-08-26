@@ -10,9 +10,12 @@
  * See docs/design/redesign-library-workspace-v1.md (§2.1).
  */
 import PetActions from '$lib/components/shared/PetActions.svelte';
-import { getAllAttributeNames, getAllAttributes } from '$lib/services/configService.js';
+import { getAllAttributeNames, getAllAttributes, normalizeSpecies } from '$lib/services/configService.js';
+import { scoreStable } from '$lib/services/geneticQualityService.js';
 import { myPetsView, setMyPetsSelection, toggleMyPetsSelection } from '$lib/stores/mypets.svelte.js';
+import { pets as allPets } from '$lib/stores/pets.js';
 import type { Pet } from '$lib/types/index.js';
+import { keyedResource } from '$lib/utils/keyedResource.svelte.js';
 import { type SortableColumn, sortByColumn } from '$lib/utils/sortColumn.js';
 import { capitalize } from '$lib/utils/string.js';
 
@@ -35,6 +38,65 @@ interface Column {
 }
 
 const num = (pet: Pet, k: string) => (pet as unknown as Record<string, number>)[k] ?? 0;
+
+/**
+ * Genetic quality is measured against the **stabled population of one
+ * species**, never against the filtered view. Capability is defined
+ * relative to the animals you can breed from, so scoring the filtered set
+ * would make a search box silently change every score — a pet would look
+ * irreplaceable simply because you filtered its rivals out of sight.
+ *
+ * Needs a single species for the same reason the attribute columns do: the
+ * gene set differs per species, so an all-species roster has nothing
+ * coherent to compare.
+ */
+const scoredSpecies = $derived(myPetsView.species ? normalizeSpecies(myPetsView.species) : '');
+const scoredPool = $derived(
+  scoredSpecies ? $allPets.filter((p) => p.stabled && normalizeSpecies(p.species) === scoredSpecies) : [],
+);
+// Keyed on the population's identity, so an unrelated `$pets` re-emit with the
+// same members does not re-score.
+const qualityKey = $derived(scoredPool.length > 0 ? `${scoredSpecies}|${scoredPool.map((p) => p.id).join(',')}` : null);
+const quality = keyedResource(
+  () => qualityKey,
+  () => scoreStable({ species: scoredSpecies, pets: scoredPool }),
+);
+const qualityShare = (pet: Pet) => quality.value?.shares.get(pet.id) ?? 0;
+/**
+ * Suppressed below the population floor, where every allele reads as sole.
+ *
+ * Sticky across a refetch: `keyedResource` clears `value` the moment the key
+ * changes, so gating on it alone made the column vanish on every star toggle
+ * or stable change. A disappearing column trips the stale-sort guard below,
+ * which silently rewrote the sort to Name — so sorting by Quality and then
+ * un-stabling one pet reset the sort.
+ */
+let qualityEverMeaningful = $state(false);
+$effect(() => {
+  if (quality.value) qualityEverMeaningful = quality.value.meaningful;
+});
+const showQuality = $derived(Boolean(scoredSpecies) && (quality.value?.meaningful ?? qualityEverMeaningful));
+
+/**
+ * Whether this pet was in the scored population at all. An un-stabled pet
+ * shows in the filtered roster but is not scored, and rendering it as `—`
+ * would borrow the vocabulary that means "redundant" — a very different
+ * claim from "not measured".
+ */
+const wasScored = (pet: Pet) => quality.value?.scores.has(pet.id) ?? false;
+
+/** Tooltip: what the percentage is a share of, and why it is what it is. */
+function qualityTitle(pet: Pet): string {
+  const r = quality.value?.scores.get(pet.id);
+  if (!r) return 'Not scored — only stabled pets are, since capability is what you can breed from.';
+  if (r.atRiskCapability === 0) {
+    return 'Nothing here is irreplaceable — every allele it carries is available from another stabled pet.';
+  }
+  const parts = [`${r.atRiskCapability.toFixed(1)} of the stable's irreplaceable genetics`];
+  if (r.soleSourceSlots > 0) parts.push(`sole source of ${r.soleSourceSlots}`);
+  if (r.soleLockSlots > 0) parts.push(`only one able to breed ${r.soleLockSlots} true`);
+  return parts.join(' · ');
+}
 
 // Per-attribute columns only when a single species is selected (different
 // species expose different attributes); species-agnostic columns are always
@@ -79,6 +141,16 @@ const columns = $derived.by((): Column[] => {
     ...attrCols,
     ...totalCol,
     { id: 'positive_genes', label: '+ Genes', numeric: true, accessor: (p) => p.positive_genes ?? 0 },
+    ...(showQuality
+      ? [
+          {
+            id: 'genetic_quality',
+            label: 'Quality',
+            numeric: true,
+            accessor: (p: Pet) => qualityShare(p),
+          },
+        ]
+      : []),
   ];
 });
 
@@ -178,6 +250,21 @@ function open(pet: Pet): void {
                   <button type="button" class="name-btn" data-testid="roster-open" onclick={() => open(pet)}>
                     {col.accessor(pet)}
                   </button>
+                {:else if col.id === 'genetic_quality'}
+                  <span
+                    class="quality"
+                    class:redundant={wasScored(pet) && qualityShare(pet) === 0}
+                    class:unscored={!wasScored(pet)}
+                    title={qualityTitle(pet)}
+                  >
+                    {#if !wasScored(pet)}
+                      ·
+                    {:else if qualityShare(pet) < 0.05}
+                      —
+                    {:else}
+                      {qualityShare(pet).toFixed(1)}%
+                    {/if}
+                  </span>
                 {:else}
                   {col.accessor(pet)}
                 {/if}
@@ -212,4 +299,12 @@ function open(pet: Pet): void {
   .roster-table tbody tr:hover { background: var(--bg-secondary); }
   .roster-table tbody tr.row-selected { background: var(--bg-selected); }
   .empty { text-align: center; color: var(--text-muted); font-style: italic; padding: var(--space-3xl); }
+  /* Quality reads as a share of the stable's irreplaceable genetics. A zero is
+     the useful signal for culling, so it is muted rather than shouted — the
+     column is scanned for what is safe to release, not for a winner. */
+  .quality { font-variant-numeric: tabular-nums; cursor: help; }
+  .quality.redundant { color: var(--text-muted); cursor: default; }
+  /* Not measured, not redundant — a distinct mark so an un-stabled pet is
+     never mistaken for one whose alleles are all covered elsewhere. */
+  .quality.unscored { color: var(--border-primary); }
 </style>

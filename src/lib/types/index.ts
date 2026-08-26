@@ -288,6 +288,92 @@ export interface BreedingPairResult {
   evPositiveByAttribute: Record<string, number>;
   evPositiveTotal: number;
   evPositiveWeighted: number;
+  /**
+   * Expected capability the foal adds to the stable — the Genetic Quality
+   * Score's measure run forward (see `docs/design/genetic-quality-score-v1.md`).
+   * Unlike `evPositiveWeighted` it cannot credit an allele nothing in the
+   * pool carries, because a foal only realises what its parents supply, so
+   * the inert `missing` tier of `GAP_WEIGHT` cannot arise.
+   *
+   * Deliberately coarse: it takes 17 distinct values across a 234-pair
+   * stable, 64 of them zero. Sort by it first and break ties on
+   * `evPositiveTotal`, which takes 108 — the pair is near-totally ordered
+   * where neither is alone.
+   *
+   * **Not additive across a plan** — two pairs that secure the same allele
+   * add it once, not twice. See `breedingPlan.ts`, where plans are summed
+   * and the size of the overcount is recorded.
+   */
+  evCapabilityGain: number;
+  /**
+   * `E[max(0, offspring positives - better parent's positives)]`.
+   *
+   * The improvement metric, and the tie-break for `evCapabilityGain`.
+   * `evPositiveTotal` is an absolute level, so ranking by it rewards
+   * breeding the two best animals together — measured on a real stable,
+   * three of its top six pairings produce offspring almost certain to be
+   * *worse* than a parent. Scoring improvement instead points breeding at
+   * ground the stable has not already taken.
+   *
+   * Baseline is the **better** parent, deliberately: beating the weaker one
+   * is not progress.
+   */
+  evPositiveImprovement: number;
+  /**
+   * `E[max(0, offspring positives - weaker parent's positives)]` — the
+   * value of a foal that cannot beat the better parent but can replace the
+   * weaker one, giving a stronger pair next generation.
+   *
+   * Reported beside `evPositiveImprovement`, never blended into it: they
+   * are different strategies. One raises the ceiling, this raises the
+   * floor. On a real stable 113 of 234 pairings score near-zero frontier
+   * improvement yet a substantial pair upgrade — value that a
+   * better-parent baseline alone makes invisible.
+   *
+   * **Reads high for lopsided pairings by construction** (correlation 0.75
+   * with the gap between the parents), because a weak baseline is easy to
+   * clear. That is an honest description of the strategy — pairing your
+   * best with your worst really does upgrade the worst slot — not a defect,
+   * but it means the column must not be read as overall pair quality.
+   */
+  evPairUpgrade: number;
+  /**
+   * The better parent's own positive-effect count, on the same locus basis
+   * and breed scope as `evPositiveTotal` — so the two are comparable.
+   * Deliberately not `pets.positive_genes`, which is scoped to each pet's
+   * own breed rather than the offspring's.
+   */
+  betterParentPositives: number;
+  /** The weaker parent's own count, same basis. Baseline for `evPairUpgrade`. */
+  weakerParentPositives: number;
+  /**
+   * Per-attribute expected improvement, each measured against the better
+   * parent **on that attribute**.
+   *
+   * The fifth breeding purpose: lifting one trait that is lagging. The
+   * absolute `evPositiveByAttribute` cannot express it — a pairing can lead
+   * the field on Intelligence while being unable to improve on either
+   * parent's Intelligence, which is the local maximum again, per attribute.
+   */
+  evAttributeImprovement: Record<string, number>;
+  /** Expected number of negative effects the offspring expresses. */
+  evNegativeTotal: number;
+  /**
+   * `E[max(0, cleaner parent's negatives - offspring negatives)]` — the
+   * fourth breeding purpose, and the one none of the others can express.
+   *
+   * A pairing can be worth making purely to drop a negative the line has
+   * been carrying, even when the foal is worse than both parents on
+   * positive count. Ranking by any positive-side measure hides those
+   * pairings entirely.
+   *
+   * Baseline is the parent with *fewer* negatives, so the measure asks
+   * whether the line gets cleaner than its cleanest member — the mirror of
+   * `evPositiveImprovement`, not of `evPairUpgrade`.
+   */
+  evLiabilityReduction: number;
+  /** The cleaner parent's own negative count. Baseline for the above. */
+  cleanerParentNegatives: number;
   evUnknown: number;
   totalLoci: number;
 }

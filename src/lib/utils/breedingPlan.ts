@@ -12,6 +12,16 @@
  * so Option 1 is the highest-scoring candidate (a greedy result, not a proven
  * global optimum, and not necessarily led by the single top pair).
  *
+ * **Plans are ranked by the SUM of their pairs' scores, which assumes the
+ * objective is additive.** `evPositiveWeighted` is. `evCapabilityGain` is
+ * not: two pairs that secure the same allele add it once, not twice, so a
+ * plan summing them overcounts — measured at ~7% on a six-pair plan against
+ * a 31-horse stable. Tolerated rather than corrected, because an
+ * over-ranked plan costs one breeding round and the alternative pairing is
+ * still available next time. Anything that needs the true joint value must
+ * evaluate the plan as a whole, the way `safeCullOrder` re-scores a
+ * shrinking herd.
+ *
  * Every returned plan holds the same number of pairs — the largest achievable
  * (`min(slots, max matching)`) — so options are never a mix of full and partial
  * plans. When even the best plan can hold only one pair (e.g. a single male),
@@ -32,7 +42,12 @@ export interface SuggestPlansOptions {
   ranked: readonly BreedingPairResult[];
   /** Slots to fill. `<= 0` returns []. */
   slots: number;
-  /** Per-pair objective; plans maximise its sum. Defaults to pool gain. */
+  /**
+   * Per-pair objective; plans maximise its sum. Defaults to genetic
+   * quality. Pass a selector from `breedingObjectives` to plan for a
+   * different strategy — the objective is the player's choice, not the
+   * planner's.
+   */
   score?: (p: BreedingPairResult) => number;
   /** Cap on plans returned (default 5). */
   maxPlans?: number;
@@ -49,7 +64,7 @@ const planKey = (pairs: readonly BreedingPairResult[]): string =>
 export function suggestPlans(opts: SuggestPlansOptions): SuggestedPlan[] {
   const size = Math.floor(opts.slots);
   if (size <= 0 || opts.ranked.length === 0) return [];
-  const score = opts.score ?? ((p: BreedingPairResult) => p.evPositiveWeighted);
+  const score = opts.score ?? ((p: BreedingPairResult) => p.evCapabilityGain);
   const maxPlans = opts.maxPlans ?? 5;
   const maxLeads = opts.maxLeads ?? 30;
 

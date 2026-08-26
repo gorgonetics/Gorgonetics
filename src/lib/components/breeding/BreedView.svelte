@@ -21,6 +21,12 @@ import { breedingView, clearBench, toggleBench } from '$lib/stores/breeding.svel
 // `loading` aliased: this component has its own ranking `loading` flag.
 import { pets, loading as petsLoading } from '$lib/stores/pets.js';
 import { type BreedingPairResult, HORSE_BREEDS } from '$lib/types/index.js';
+import {
+  attributeObjective,
+  BREEDING_OBJECTIVES,
+  type BreedingObjective,
+  resolveObjective,
+} from '$lib/utils/breedingObjectives.js';
 import { suggestPlans } from '$lib/utils/breedingPlan.js';
 import { getSpeciesEmoji } from '$lib/utils/species.js';
 import { capitalize } from '$lib/utils/string.js';
@@ -98,9 +104,60 @@ let pairs = $state<BreedingPairResult[]>([]);
 let loading = $state(false);
 let errored = $state(false);
 
-// Suggested plans (spots > 0): several distinct N-pair options, ranked by pool
-// gain. undefined when planning is off — the table then shows the flat ranking.
-const plans = $derived(breedingView.spots > 0 ? suggestPlans({ ranked: pairs, slots: breedingView.spots }) : undefined);
+/**
+ * The strategies on offer: the five general ones plus one per attribute.
+ *
+ * Breeding has no single objective — each of these surfaces pairings the
+ * others hide, and which is right changes from round to round (design doc
+ * §10a). So the player picks, and the picked selector drives both the table
+ * sort and the planner. No blend is offered: the weights would encode a
+ * breeding strategy the app has no basis to choose.
+ */
+const objectives = $derived<BreedingObjective[]>([
+  ...BREEDING_OBJECTIVES,
+  ...attrNames.map((a) => attributeObjective(a)),
+]);
+// `attrNames` invalidates a persisted `attribute:<Name>` pick that the current
+// species has no attribute for (switch from horses to beewasps and back). Left
+// unfiltered, the <select> would hold a value matching no option — the browser
+// shows the first option while the planner and the sort column still use the
+// stale attribute strategy. The store keeps the id, so the pick returns when
+// the player switches back.
+const objective = $derived(
+  resolveObjective(breedingView.objective, attrNames) ?? (BREEDING_OBJECTIVES[0] as BreedingObjective),
+);
+
+function selectObjective(id: string) {
+  breedingView.objective = id;
+  // The table sorts by the strategy's own column so the ranking it shows and
+  // the ranking it planned with cannot disagree. An attribute strategy keeps
+  // its own id as the column: the table renders a Δ column for it, because
+  // the plain per-attribute column holds the *absolute* expected value, not
+  // the improvement the strategy ranks by.
+  const column = id.startsWith('attribute:') ? id : OBJECTIVE_COLUMN[id];
+  if (column) {
+    breedingView.sortCol = column;
+    breedingView.sortDir = 'desc';
+  }
+}
+
+/** Which table column each general strategy sorts. */
+const OBJECTIVE_COLUMN: Record<string, string> = {
+  reach: 'evCapabilityGain',
+  ceiling: 'evPositiveImprovement',
+  floor: 'evPairUpgrade',
+  clean: 'evLiabilityReduction',
+  positives: 'evPositiveTotal',
+};
+
+// Suggested plans (spots > 0): several distinct N-pair options, ranked by the
+// chosen strategy. undefined when planning is off — the table then shows the
+// flat ranking.
+const plans = $derived(
+  breedingView.spots > 0
+    ? suggestPlans({ ranked: pairs, slots: breedingView.spots, score: objective.score })
+    : undefined,
+);
 let seq = 0;
 let prevKey: string | undefined;
 let prevSpecies: string | undefined;
@@ -209,6 +266,21 @@ onDestroy(() => {
       {/if}
 
       {#if pool.length > 0}
+        <div class="tb-objective" data-testid="breed-objective">
+          <label class="plan-label" for="breed-objective-select">Breed for</label>
+          <select
+            id="breed-objective-select"
+            class="objective-select"
+            title={objective.description}
+            value={objective.id}
+            onchange={(e) => selectObjective((e.currentTarget as HTMLSelectElement).value)}
+          >
+            {#each objectives as opt (opt.id)}
+              <option value={opt.id} title={opt.description}>{opt.label}</option>
+            {/each}
+          </select>
+        </div>
+
         <div class="tb-spots" data-testid="breed-plan-controls">
           <span class="plan-label">Breed at once</span>
           <div class="stepper" role="group" aria-label="Breeding spots">
@@ -272,7 +344,9 @@ onDestroy(() => {
           {@const planSize = plans?.[0]?.pairs.length ?? 0}
           {planSize} {planSize === 1 ? 'pair' : 'pairs'} at once{planSize < breedingView.spots ? ' · most your pool allows' : ''} · suggested plans, best first · sort any column
         {:else}
-          {pairs.length} {pairs.length === 1 ? 'pair' : 'pairs'} · ranked by expected offspring quality
+          {pairs.length} {pairs.length === 1 ? 'pair' : 'pairs'} · ranked to
+          <span class="objective-name" data-testid="breed-objective-hint">{objective.label.toLowerCase()}</span>
+          <span class="objective-why">— {objective.description}</span>
         {/if}
       </div>
       <!-- Row-level bench is a ranking-mode convenience; hidden while planning
@@ -296,6 +370,18 @@ onDestroy(() => {
      comes from app.css. */
   .bv-species { flex-shrink: 0; }
   .species-btn { padding: var(--space-2xs) var(--space-lg); }
+  .tb-objective { display: flex; align-items: center; gap: var(--space-xs); min-width: 0; }
+  .objective-select {
+    font: inherit; font-size: 12px; padding: var(--space-3xs) var(--space-xs);
+    border: 1px solid var(--border-primary); border-radius: 6px;
+    background: var(--bg-primary); color: var(--text-primary); cursor: pointer;
+  }
+  /* The strategy's trade-off belongs where there is room to read it — the
+     labels alone ("Raise the floor") do not say what they cost. In the
+     toolbar it truncated mid-word, so it lives on the results line instead
+     and on the select as a tooltip. */
+  .objective-name { font-weight: 600; color: var(--text-secondary); }
+  .objective-why { color: var(--text-muted); }
   .tb-spots { display: flex; align-items: center; gap: var(--space-xs); }
   .plan-label { font-size: 12px; font-weight: 600; color: var(--text-secondary); white-space: nowrap; }
   .stepper { display: inline-flex; align-items: center; border: 1px solid var(--border-primary); border-radius: 6px; overflow: hidden; }
