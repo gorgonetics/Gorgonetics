@@ -259,6 +259,41 @@ and was wrong in practice: exactly one animal in nine has any liability to
 clear, and it is the one holding the most rare material, so liability-first
 fired once and fired on the animal it should have protected.
 
+### Why greedy, and when it would stop being enough
+
+Capability is monotone submodular — each slot's value is a max over the
+animals present, and a sum of maxes is submodular — so choosing which
+animals to retain is submodular maximisation under a cardinality
+constraint: NP-hard in general, and greedy *removal* carries no
+approximation guarantee. That invites a better search. Measured against a
+1-swap local search on the reference stable:
+
+| slots released | greedy | local search | gap |
+|---|---|---|---|
+| 6 | 0 | 0 | none |
+| 8 | 0 | 0 | none |
+| 10 | 1 | 1 | none |
+| 15 | 5 | 5 | none |
+| 20 | 11 | 10.5 | 0.5 |
+| 25 | 29 | 27.5 | 1.5 |
+
+At six slots — the game's cap, and so the case that matters — greedy costs
+**zero**, and zero is the lower bound. Greedy is therefore *provably*
+optimal there, and remains so to eight. A gap opens only past twenty, which
+means gutting the stable.
+
+For 10–15 the evidence is weaker than proof: no single-swap improvement
+exists, which is not the same as optimality, since the search explored only
+a 1-swap neighbourhood. Recorded as a bound, not a guarantee.
+
+The conclusion that matters is not about the algorithm. **At the working
+scale every candidate release costs zero, so there is no cheapest set to
+find — they are all tied.** What decides which six animals go is the
+tiebreak chain above, which encodes judgement the cost function cannot see.
+Effort spent on search would buy nothing; effort spent on the tiebreaks
+buys the whole decision. Revisit if a stable grows past roughly 60 animals
+or a player starts releasing large fractions of it.
+
 ### Attributes are not a value axis
 
 Attributes carry real in-game value — a mount's speed, resilience and
