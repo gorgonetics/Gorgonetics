@@ -28,11 +28,29 @@ const SAMPLE_GENOME = parseGenome(SAMPLE_HORSE);
 
 const NUM_MALES = 15;
 const NUM_FEMALES = 15;
-// Generous headroom on purpose: a typical run is well under half this, but
-// shared CI runners jitter (a 500ms bound flaked at ~502ms). This is a
-// regression alarm — it should fire when scoring roughly doubles, not on
-// runner noise.
-const SCORING_BUDGET_MS = 1000;
+/**
+ * Generous headroom on purpose: a typical run is well under half this, but
+ * shared CI runners jitter (a 500ms bound flaked at ~502ms). This is a
+ * regression alarm — it should fire when scoring roughly doubles, not on
+ * runner noise.
+ *
+ * **Raised from 1000ms when the Genetic Quality Score landed.** That change
+ * added four per-pair measures to the same locus walk (capability gain,
+ * positive and negative variance, per-attribute variance), so the cost went
+ * up for a reason rather than by accident. Measured locally over four runs:
+ * ~373ms mean, 344–419ms spread. CI on the same commit read 1014ms against
+ * the old 1000ms bound — a 1.4% overshoot on a runner ~3x slower than the
+ * dev machine, which is the boundary flake this comment already warned
+ * about, not a doubling.
+ *
+ * A `WeakMap` cache over the per-gene benefit slots was tried as the
+ * alternative to raising this and abandoned: repeated runs showed no gain
+ * outside the ±40ms noise, so it was pure added complexity.
+ *
+ * 1500ms keeps the alarm's purpose intact — it still fires if scoring
+ * doubles again from here.
+ */
+const SCORING_BUDGET_MS = 1500;
 
 const ALLELE_CYCLE = ['D', 'R', 'x', 'D', 'R', 'D', 'x', 'R'];
 const EFFECTS = ['Toughness+', 'Friendliness+', 'Intelligence-', 'None', 'Ruggedness+', 'Temperament+'];
