@@ -15,13 +15,22 @@
  * flag needed — the new My Pets / Breed / Community / Reference IA is
  * the default). Prefer data-testid, aria-label, and exact text over
  * brittle class names wherever the app exposes one.
+ *
+ * The three bundled demo pets are too few to photograph the app honestly:
+ * rarity, genetic quality and culling are all measured against a
+ * population, and each one suppresses itself below a floor the demo set
+ * cannot reach. So after the first-launch shot this script loads a real
+ * 38-horse stable from scripts/fixtures/stable/ and captures everything
+ * else against that. See seedStable() for how.
  */
 
+import { readdirSync, readFileSync } from 'node:fs';
 import { chromium } from '@playwright/test';
 
 const BASE_URL = 'http://localhost:5174';
 const OUT = 'docs/images/quickstart';
 const HOME_OUT = 'docs/images';
+const FIXTURES = 'scripts/fixtures/stable';
 const VIEWPORT = { width: 1280, height: 800 };
 const HIGHLIGHT_SHADOW = '0 0 0 3px #3b82f6, 0 0 20px rgba(59,130,246,0.5)';
 
@@ -106,6 +115,61 @@ async function shot(page, name, { dir = OUT } = {}) {
   console.log(`  ✓ ${name}`);
 }
 
+/**
+ * Load the fixture stable into the running app.
+ *
+ * Goes through the app's own drag-and-drop import rather than writing to the
+ * database: the "+ Upload Genome" button opens a native Tauri dialog and does
+ * nothing in a browser, but the drop handler reads `dataTransfer.files`
+ * directly, so a synthesised DataTransfer is the one import path that works
+ * here. Everything else follows from the genome text — the file's Entity name
+ * becomes the pet name, and the structured-name parser fills in breed, gender
+ * and attributes from it — and pets land stabled, which is what the
+ * population-gated features need.
+ */
+async function seedStable(page) {
+  const files = readdirSync(FIXTURES)
+    .filter((f) => f.endsWith('.txt'))
+    .map((f) => ({ name: f, content: readFileSync(`${FIXTURES}/${f}`, 'utf-8') }));
+  if (files.length === 0) throw new Error(`No genome fixtures in ${FIXTURES}`);
+
+  const before = await page.locator('[data-testid="roster"] tbody tr').count();
+  const dataTransfer = await page.evaluateHandle((items) => {
+    const dt = new DataTransfer();
+    for (const item of items) dt.items.add(new File([item.content], item.name, { type: 'text/plain' }));
+    return dt;
+  }, files);
+  await page.dispatchEvent('[data-testid="mypets-table"]', 'drop', { dataTransfer });
+
+  // The import is chunked and reloads the store when it finishes, so wait for
+  // the row count to reach the expected total rather than for a fixed delay.
+  await page
+    .locator('[data-testid="roster"] tbody tr')
+    .nth(before + files.length - 1)
+    .waitFor({ state: 'attached', timeout: 60000 });
+  console.log(`  · seeded ${files.length} horses from ${FIXTURES}`);
+}
+
+/**
+ * Scroll every scrollable ancestor of `selector` back to the top.
+ *
+ * Shooting a long list after something scrolled it captures the middle of the
+ * table while `allTextContents()` still reports the whole thing in order — the
+ * DOM looks right and the screenshot is wrong. Walking the ancestor chain
+ * avoids naming the scroll container, which is not the element the list's own
+ * test id is on.
+ */
+async function scrollToTop(page, selector) {
+  await page.evaluate((sel) => {
+    let el = document.querySelector(sel);
+    while (el) {
+      if (el.scrollHeight > el.clientHeight + 1) el.scrollTop = 0;
+      el = el.parentElement;
+    }
+  }, selector);
+  await page.waitForTimeout(150);
+}
+
 async function openPet(page, name) {
   await page
     .getByRole('button', { name, exact: true })
@@ -122,8 +186,12 @@ const page = await browser.newPage({ viewport: VIEWPORT });
 await page.goto(BASE_URL);
 await waitFor(page, '[data-testid="roster"]');
 
-// 01 — First launch: My Pets table with all 3 demo pets, filter bar + footer visible
+// 01 — First launch: My Pets table with all 3 demo pets, filter bar + footer
+// visible. Taken BEFORE the fixture stable lands, because step 1 of the guide
+// describes exactly this state and no other shot can show it.
 await shot(page, '01-first-launch.png');
+
+await seedStable(page);
 
 // 02 — Filter bar highlighted
 await addOverlay(page);
@@ -132,15 +200,19 @@ await shot(page, '02-filter-bar.png');
 await clearHighlight(page);
 await removeOverlay(page);
 
-// 03 — Roach row's ✎ Edit / ✕ Delete actions highlighted
+// 03 — Roach row's ✎ Edit / ✕ Delete actions highlighted. Roach sorts well down
+// a 41-pet roster, so scroll its row into view before shooting.
 await addOverlay(page);
 await highlightNode(
   page,
-  `return document.querySelector('[aria-label="Edit Roach"]')?.closest('td');`,
+  `const el = document.querySelector('[aria-label="Edit Roach"]')?.closest('td');
+   el?.scrollIntoView({ block: 'center' });
+   return el;`,
 );
 await shot(page, '03-row-actions.png');
 await clearHighlight(page);
 await removeOverlay(page);
+await scrollToTop(page, '.roster-table');
 
 // 04 — Footer "+ Upload Genome" and 🔄 auto-import highlighted
 await addOverlay(page);
@@ -151,6 +223,37 @@ await highlightNode(
 await shot(page, '04-upload.png');
 await clearHighlight(page);
 await removeOverlay(page);
+
+// 31 — Genetic quality column, sorted. Both this and 32 need a single species
+// selected: capability is only comparable within one gene set, so the column
+// and the "Free up slots" button are hidden until the roster is scoped.
+await page.locator('[data-testid="filter-species"] button', { hasText: 'Horse' }).click();
+await waitFor(page, 'th:has-text("Quality")');
+// Twice: the first click sorts ascending, which fills the top of the table with
+// the animals that carry nothing unique. Descending is the useful reading.
+await page.getByRole('button', { name: 'Quality', exact: true }).click();
+await page.waitForTimeout(400);
+await page.getByRole('button', { name: /^Quality/ }).click();
+await page.waitForTimeout(600);
+await scrollToTop(page, '.roster-table');
+// No dimming overlay here: the column sits at the far right of a wide table, and
+// a highlight ring on one narrow <th> reads as noise rather than emphasis.
+await shot(page, '31-quality-column.png');
+
+// 32 — "Free up slots" release plan
+await page.getByTestId('mypets-free-slots').click();
+await waitFor(page, '[data-testid="free-slots-dialog"]');
+await page
+  .locator('[data-testid="free-slots-list"], [data-testid="free-slots-none"]')
+  .first()
+  .waitFor({ state: 'visible', timeout: 30000 });
+await page.waitForTimeout(300);
+await shot(page, '32-free-slots.png');
+await page.getByRole('button', { name: 'Cancel' }).click();
+await page.waitForTimeout(200);
+// Back to an unscoped roster for the steps that follow.
+await page.locator('[data-testid="filter-species"] button', { hasText: 'All' }).first().click();
+await page.waitForTimeout(300);
 
 // 05 — Sample Fae Bee detail, Attributes gene grid (default view)
 await openPet(page, 'Sample Fae Bee');
@@ -252,6 +355,10 @@ await page.waitForTimeout(200);
 await page.getByTestId('tab-breed').click();
 await page.getByRole('button', { name: '🐴 Horse' }).click();
 await waitFor(page, '[data-testid="breeding-pair-table"]');
+// A full stable is hundreds of pairs rather than one, and every pair is scored
+// locus by locus; give the ranking time to land before shooting.
+await page.locator('[data-testid="breeding-pair-table"] tbody tr').first().waitFor({ timeout: 60000 });
+await page.waitForTimeout(1000);
 await shot(page, '15-breed-rank.png');
 
 // 16 — Trio offspring view (inspect the demo horse pair)
