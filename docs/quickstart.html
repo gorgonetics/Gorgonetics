@@ -364,11 +364,10 @@
           <h3>Browse Your Pets</h3>
         </div>
         <p>My Pets is a single, full-width table of your whole collection &mdash; sortable and filterable, built to stay usable at a few-hundred-pet scale. Each row shows the pet's <strong>name</strong>, <strong>gender</strong>, <strong>breed</strong>, and <strong>+ Genes</strong> score (its count of confirmed positive-effect genes). Click any column header to sort; click again to reverse. Click a pet's <strong>name</strong> to open its detail view.</p>
-        <p>Pick a single <strong>species</strong> and a <strong>Quality</strong> column appears. It is a different measure from <em>+ Genes</em>: instead of what the pet expresses, it scores what the pet can <em>pass on that no other stabled animal of that species can</em>, shown as a share of your stable's irreplaceable genetics. A pet reading <strong>&mdash;</strong> is not a poor pet; it means every allele it carries is available from another animal you already keep. A <strong>&middot;</strong> means the pet was not scored at all, because only stabled pets are. Hover any figure for the reasoning behind it. The column stays hidden for very small stables, where every allele trivially reads as sole-source.</p>
         <p>A filter bar sits above the table:</p>
         <ul>
           <li><strong>Search</strong> &mdash; filter by name.</li>
-          <li><strong>Species</strong> &mdash; All / beewasp / horse.</li>
+          <li><strong>Species</strong> &mdash; All / Beewasp / Horse. Picking one also unlocks the per-attribute and Quality columns.</li>
           <li><strong>Gender</strong> &mdash; All / Male / Female.</li>
           <li><strong>★ Starred</strong>, <strong>🏠 Stabled</strong>, <strong>🏆 Pet quality</strong> &mdash; one-click flag filters.</li>
           <li><strong>Breed</strong> and <strong>tag</strong> filters appear once you pick a species / your pets carry tags.</li>
@@ -382,7 +381,25 @@
           <img src="images/quickstart/03-row-actions.png" alt="A table row with its Edit and Delete actions highlighted">
           <div class="caption">Row actions &mdash; edit or delete any pet inline</div>
         </div>
-        <p style="margin-top: 16px;">Out of stable slots? With one species selected, a <strong>🏠 Free up slots</strong> button appears in the footer. Tell it how many slots you need and it works out the cheapest set of animals to release, in order. Each entry says whether releasing that animal is <strong>free</strong> &mdash; everything it carries survives in an animal you keep &mdash; or what breeding capability it <strong>costs</strong>, and how many negative alleles it <strong>clears</strong> on the way out.</p>
+
+        <p style="margin-top: 24px;">Once you pick a species, a <strong>Quality</strong> column joins the table. It is a different measure from <em>+ Genes</em>: instead of what the pet expresses, it scores what the pet can <em>pass on that no other stabled animal of that species can</em>, shown as a share of your stable's irreplaceable genetics. Sort by it to see which animals your collection actually depends on.</p>
+        <div class="step-image">
+          <img src="images/quickstart/31-quality-column.png" alt="My Pets scoped to Horse and sorted by the Quality column, highest share first">
+          <div class="caption">The Quality column &mdash; each horse's share of the stable's irreplaceable genetics</div>
+        </div>
+        <p style="margin-top: 16px;">A pet reading <strong>&mdash;</strong> is not a poor pet; it means every allele it carries is available from another animal you already keep. A <strong>&middot;</strong> means the pet was not scored at all, because only stabled pets are. Hover any figure for the reasoning behind it. The column stays hidden for very small stables, where every allele trivially reads as sole-source.</p>
+
+        <p style="margin-top: 24px;">Out of stable slots? With one species selected, a <strong>🏠 Free up slots</strong> button appears in the footer. Tell it how many slots you need and it works out the cheapest set of animals to release, in order.</p>
+        <div class="step-image">
+          <img src="images/quickstart/32-free-slots.png" alt="The Free up slots dialog listing six horses to release, each tagged free, with one clearing negative alleles">
+          <div class="caption">Free up slots &mdash; the cheapest six to release, and what each one costs</div>
+        </div>
+        <ul>
+          <li><strong>free</strong> &mdash; everything this animal carries survives in one you keep.</li>
+          <li><strong>costs <em>n</em></strong> &mdash; the breeding capability lost at this point in the order.</li>
+          <li><strong>clears <em>n</em></strong> &mdash; negative alleles that leave with the animal.</li>
+        </ul>
+        <p>Starred pets are never suggested, so star the animal you ride and it stays out of the list. The dialog also names what the next release would cost, so you can see whether one more slot is cheap.</p>
         <div class="tip-box">
           <strong>Tip:</strong> The order matters. Each step's cost is measured against what was still in the stable at that point, so releasing part of the list out of sequence can cost more than the total shown. Releasing only un-stables an animal &mdash; nothing is deleted, and you can stable it again at any time.
         </div>
