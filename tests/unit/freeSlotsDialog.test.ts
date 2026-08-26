@@ -133,7 +133,7 @@ describe('FreeSlotsDialog', () => {
     expect(released.map((id) => byId.get(id))).toEqual(listedNames);
   });
 
-  it('stops at the population floor and says why', async () => {
+  it('clamps an over-large target to what the floor allows', async () => {
     const pets = await stable();
     const { container } = render(FreeSlotsDialog, {
       species: 'beewasp',
@@ -141,11 +141,47 @@ describe('FreeSlotsDialog', () => {
       onRelease: noop,
       onClose: noop,
     });
-    // Ask for everything; the walk must refuse to empty the stable.
     const input = container.querySelector('[data-testid="free-slots-count"]') as HTMLInputElement;
     await fireEvent.input(input, { target: { value: '99' } });
-    await waitFor(() => expect(container.querySelector('[data-testid="free-slots-shortfall"]')).toBeTruthy());
-    expect(items(container).length).toBeLessThan(pets.length);
+    // 7 animals, floor of 3 → at most 4 releases, and asking for more is
+    // clamped rather than reported as a shortfall.
+    await waitFor(() => expect(items(container).length).toBe(pets.length - 3));
+    expect(container.querySelector('[data-testid="free-slots-shortfall"]')).toBeNull();
+  });
+
+  it('never reports nothing-releasable because the target was zero or blank', async () => {
+    // `min="1"` on the input is advisory: `bind:value` hands over 0 for a
+    // typed zero and null for a cleared field. Either would make the walk
+    // return an empty list, which the UI would misreport as "every animal
+    // holds something no other one does".
+    const pets = await stable();
+    const { container } = render(FreeSlotsDialog, {
+      species: 'beewasp',
+      pets,
+      onRelease: noop,
+      onClose: noop,
+    });
+    const input = container.querySelector('[data-testid="free-slots-count"]') as HTMLInputElement;
+    for (const value of ['0', '', '-4']) {
+      await fireEvent.input(input, { target: { value } });
+      await waitFor(() => expect(items(container).length).toBeGreaterThan(0));
+      expect(container.querySelector('[data-testid="free-slots-none"]')).toBeNull();
+    }
+  });
+
+  it('surfaces a failed release instead of closing on a lie', async () => {
+    const pets = await stable();
+    const { container } = render(FreeSlotsDialog, {
+      species: 'beewasp',
+      pets,
+      onRelease: async () => {
+        throw new Error('db down');
+      },
+      onClose: noop,
+    });
+    await waitFor(() => expect(items(container).length).toBeGreaterThan(0));
+    await fireEvent.click(container.querySelector('[data-testid="free-slots-confirm"]') as HTMLElement);
+    await waitFor(() => expect(container.querySelector('[data-testid="free-slots-release-error"]')).toBeTruthy());
   });
 
   it('nudges the player to star the animal they ride', async () => {

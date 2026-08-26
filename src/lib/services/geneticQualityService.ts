@@ -252,23 +252,10 @@ export async function safeCullSet(opts: SafeCullOptions): Promise<SafeCullSet> {
     if (pet) releases.push({ pet, cost: step.cost, liabilityRemoved: step.liabilityRemoved });
   }
 
-  // The pure layer reports `nextCost` without its animal (it deals in ids);
-  // re-derive which animal it was by scoring what would be left.
-  let next: SafeCullSet['next'] = null;
-  if (order.nextCost !== null) {
-    const gone = new Set(order.releases.map((s) => s.id));
-    const remaining = ids.filter((id) => !gone.has(id));
-    const scored = scoreGroup(loci, genes, remaining);
-    let cheapest: { pet: Pet; cost: number } | null = null;
-    for (const id of remaining) {
-      if (pinned.has(id)) continue;
-      const cost = scored.get(id)?.atRiskCapability;
-      const pet = byId.get(id);
-      if (cost === undefined || !pet) continue;
-      if (cheapest === null || cost < cheapest.cost) cheapest = { pet, cost };
-    }
-    next = cheapest;
-  }
+  // The walk names its own next pick, so its tie-breaks are honoured rather
+  // than re-derived here.
+  const nextPet = order.next ? byId.get(order.next.id) : undefined;
+  const next = order.next && nextPet ? { pet: nextPet, cost: order.next.cost } : null;
 
   return {
     releases,

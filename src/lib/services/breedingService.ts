@@ -152,6 +152,13 @@ function accumulatePositive(
   into: Record<string, number>,
   variance: Record<string, number>,
 ): { total: number; weighted: number } {
+  // Per-attribute variance sums p(1-p) per slot, which assumes the two slots
+  // are not both positive on the *same* attribute. Were they, their masses
+  // would be mutually exclusive and sum to a deterministic 1, so summing each
+  // slot's variance would overstate it. No such locus exists in any shipped
+  // gene template (checked across all horse and beewasp chromosomes), and
+  // gene tables are user-editable, so this is an assumption rather than an
+  // invariant — revisit if the templates ever gain one.
   const slots = positiveSlots(gd);
   let total = 0;
   let weighted = 0;

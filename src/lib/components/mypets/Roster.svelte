@@ -62,13 +62,33 @@ const quality = keyedResource(
   () => scoreStable({ species: scoredSpecies, pets: scoredPool }),
 );
 const qualityShare = (pet: Pet) => quality.value?.shares.get(pet.id) ?? 0;
-/** Suppressed below the population floor, where every allele reads as sole. */
-const showQuality = $derived(Boolean(scoredSpecies) && (quality.value?.meaningful ?? false));
+/**
+ * Suppressed below the population floor, where every allele reads as sole.
+ *
+ * Sticky across a refetch: `keyedResource` clears `value` the moment the key
+ * changes, so gating on it alone made the column vanish on every star toggle
+ * or stable change. A disappearing column trips the stale-sort guard below,
+ * which silently rewrote the sort to Name — so sorting by Quality and then
+ * un-stabling one pet reset the sort.
+ */
+let qualityEverMeaningful = $state(false);
+$effect(() => {
+  if (quality.value) qualityEverMeaningful = quality.value.meaningful;
+});
+const showQuality = $derived(Boolean(scoredSpecies) && (quality.value?.meaningful ?? qualityEverMeaningful));
+
+/**
+ * Whether this pet was in the scored population at all. An un-stabled pet
+ * shows in the filtered roster but is not scored, and rendering it as `—`
+ * would borrow the vocabulary that means "redundant" — a very different
+ * claim from "not measured".
+ */
+const wasScored = (pet: Pet) => quality.value?.scores.has(pet.id) ?? false;
 
 /** Tooltip: what the percentage is a share of, and why it is what it is. */
 function qualityTitle(pet: Pet): string {
   const r = quality.value?.scores.get(pet.id);
-  if (!r) return '';
+  if (!r) return 'Not scored — only stabled pets are, since capability is what you can breed from.';
   if (r.atRiskCapability === 0) {
     return 'Nothing here is irreplaceable — every allele it carries is available from another stabled pet.';
   }
@@ -231,8 +251,19 @@ function open(pet: Pet): void {
                     {col.accessor(pet)}
                   </button>
                 {:else if col.id === 'genetic_quality'}
-                  <span class="quality" class:redundant={qualityShare(pet) === 0} title={qualityTitle(pet)}>
-                    {qualityShare(pet) < 0.05 ? '—' : `${qualityShare(pet).toFixed(1)}%`}
+                  <span
+                    class="quality"
+                    class:redundant={wasScored(pet) && qualityShare(pet) === 0}
+                    class:unscored={!wasScored(pet)}
+                    title={qualityTitle(pet)}
+                  >
+                    {#if !wasScored(pet)}
+                      ·
+                    {:else if qualityShare(pet) < 0.05}
+                      —
+                    {:else}
+                      {qualityShare(pet).toFixed(1)}%
+                    {/if}
                   </span>
                 {:else}
                   {col.accessor(pet)}
@@ -273,4 +304,7 @@ function open(pet: Pet): void {
      column is scanned for what is safe to release, not for a winner. */
   .quality { font-variant-numeric: tabular-nums; cursor: help; }
   .quality.redundant { color: var(--text-muted); cursor: default; }
+  /* Not measured, not redundant — a distinct mark so an un-stabled pet is
+     never mistaken for one whose alleles are all covered elsewhere. */
+  .quality.unscored { color: var(--border-primary); }
 </style>

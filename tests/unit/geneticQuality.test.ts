@@ -441,7 +441,10 @@ describe('safeCullOrder — the non-additivity fix', () => {
     }
     const result = safeCullOrder(byPet, g, [0, 1, 2, 3]);
     expect(result.releases).toEqual([]);
-    expect(result.nextCost).toBeCloseTo(2 * 0.5, 10);
+    // The walk names its own next pick, so a tie cannot be resolved one way
+    // in the list and another in the "one more would cost" line.
+    expect(result.next?.cost).toBeCloseTo(2 * 0.5, 10);
+    expect(result.next?.id).toBeGreaterThanOrEqual(0);
   });
 
   it('prefers releasing the animal that also clears the most liability', () => {

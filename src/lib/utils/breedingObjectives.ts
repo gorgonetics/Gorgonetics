@@ -106,9 +106,22 @@ export function attributeObjective(attribute: string): BreedingObjective {
   };
 }
 
-/** Parse an objective id back to its objective; `null` if unknown. */
-export function resolveObjective(id: string): BreedingObjective | null {
+/**
+ * Parse an objective id back to its objective; `null` if unknown.
+ *
+ * `attributes` bounds the per-attribute strategies to the ones the current
+ * species actually has. The selection persists across species switches, so
+ * without it "Improve Temperament" survives a switch to a species with no
+ * Temperament and yields an objective scoring 0 for every pair — an
+ * arbitrary ranking, and a `<select>` whose value matches no option. Omit it
+ * only where no species context exists.
+ */
+export function resolveObjective(id: string, attributes?: readonly string[]): BreedingObjective | null {
   const attributeMatch = id.match(/^attribute:(.+)$/);
-  if (attributeMatch) return attributeObjective(attributeMatch[1]);
+  if (attributeMatch) {
+    const attribute = attributeMatch[1];
+    if (attributes && !attributes.includes(attribute)) return null;
+    return attributeObjective(attribute);
+  }
   return BREEDING_OBJECTIVES.find((o) => o.id === id) ?? null;
 }

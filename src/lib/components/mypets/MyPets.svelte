@@ -179,14 +179,33 @@ const stabledOfSpecies = $derived(
     ? $pets.filter((p) => p.stabled && normalizeSpecies(p.species) === normalizeSpecies(myPetsView.species))
     : [],
 );
-// Below the floor the score cannot discriminate, so the entry point is hidden
-// rather than opening a dialog that can only say "not enough animals".
-const canFreeSlots = $derived(stabledOfSpecies.length >= MIN_POPULATION);
+// Strictly greater, matching `safeCullOrder`'s `remaining.length > MIN_POPULATION`:
+// at exactly the floor the walk can release nothing, and the dialog would
+// blame the genetics ("every animal holds something no other does") for what
+// is really a population limit.
+const canFreeSlots = $derived(stabledOfSpecies.length > MIN_POPULATION);
 
-/** Un-stable the chosen animals — reversible, and nothing is deleted. */
+/**
+ * Un-stable the chosen animals — reversible, and nothing is deleted.
+ *
+ * Writes are sequential and can fail part way, which would otherwise leave
+ * the herd half-released with no reload and an unhandled rejection. The
+ * reload runs regardless so the roster reflects whatever did land, and the
+ * error is rethrown for the dialog to surface.
+ */
 async function releaseFromStable(ids: number[]): Promise<void> {
-  for (const id of ids) await updatePet(id, { stabled: false });
-  await appState.loadPets();
+  const done: number[] = [];
+  try {
+    for (const id of ids) {
+      await updatePet(id, { stabled: false });
+      done.push(id);
+    }
+  } catch (err) {
+    console.error(`release failed after ${done.length} of ${ids.length}`, err);
+    throw err;
+  } finally {
+    await appState.loadPets();
+  }
 }
 
 function confirmBulkShare(toShare: Pet[]): void {

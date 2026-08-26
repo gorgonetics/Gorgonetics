@@ -23,6 +23,7 @@
 import { type SafeCullSet, safeCullSet } from '$lib/services/geneticQualityService.js';
 import type { Pet } from '$lib/types/index.js';
 import { focusTrap } from '$lib/utils/focusTrap.js';
+import { MIN_POPULATION } from '$lib/utils/geneticQuality.js';
 
 interface Props {
   /** Canonical species key — capability is only comparable within one. */
@@ -40,10 +41,20 @@ const { species, pets, onRelease, onClose }: Props = $props();
 const DEFAULT_SLOTS = 6;
 
 let slots = $state(DEFAULT_SLOTS);
+/**
+ * The most that can be released: the walk stops strictly above the floor.
+ * `min`/`max` on the input are advisory only — `bind:value` will happily
+ * hand over `0`, or `null` for a cleared field, and a target of `0` makes
+ * the walk return an empty list that the UI would then misreport as "nothing
+ * is releasable".
+ */
+const maxSlots = $derived(Math.max(1, pets.length - MIN_POPULATION));
+const target = $derived(Math.min(maxSlots, Math.max(1, Math.floor(Number(slots) || 1))));
 let plan = $state<SafeCullSet | null>(null);
 let loading = $state(true);
 let failed = $state(false);
 let releasing = $state(false);
+let releaseFailed = $state(false);
 
 /**
  * Identity of the request: the target and the population it is judged
@@ -51,7 +62,7 @@ let releasing = $state(false);
  * dependencies explicit instead of relying on which fields the body happens
  * to read.
  */
-const requestKey = $derived(`${species}|${slots}|${pets.map((p) => p.id).join(',')}`);
+const requestKey = $derived(`${species}|${target}|${pets.map((p) => p.id).join(',')}`);
 
 // The walk re-scores after every removal, so a different target is a
 // different answer, not a prefix of one — any key change means a refetch.
@@ -60,7 +71,7 @@ $effect(() => {
   let live = true;
   loading = true;
   failed = false;
-  safeCullSet({ species, pets, slots })
+  safeCullSet({ species, pets, slots: target })
     .then((r) => {
       if (live) plan = r;
     })
@@ -76,15 +87,20 @@ $effect(() => {
 });
 
 const releases = $derived(plan?.releases ?? []);
-const shortfall = $derived(Math.max(0, slots - releases.length));
+const shortfall = $derived(Math.max(0, target - releases.length));
 const fmt = (n: number) => (n === 0 ? '0' : n.toFixed(1));
 
 async function release() {
   if (releases.length === 0 || releasing) return;
   releasing = true;
+  releaseFailed = false;
   try {
     await onRelease(releases.map((r) => r.pet.id));
     onClose();
+  } catch {
+    // Some animals may already have been released; the caller reloads either
+    // way, so keep the dialog open and say so rather than closing on a lie.
+    releaseFailed = true;
   } finally {
     releasing = false;
   }
@@ -125,7 +141,7 @@ async function release() {
           id="free-slots-count"
           type="number"
           min="1"
-          max={Math.max(1, pets.length)}
+          max={maxSlots}
           bind:value={slots}
           data-testid="free-slots-count"
         />
@@ -181,9 +197,17 @@ async function release() {
         </ol>
 
         {#if shortfall > 0}
+          <!-- The target is clamped to what the floor allows, so over-asking
+               cannot cause a shortfall. What remains is pinning: starred
+               animals are off the table, and enough of them shrinks the
+               releasable pool below the target. -->
           <p class="msg" data-testid="free-slots-shortfall">
-            Only {releases.length} can be released — the rest of the stable is at the minimum needed
-            to keep the score meaningful.
+            Only {releases.length} can be released.
+            {#if plan && plan.pinned.length > 0}
+              Starred animals are excluded, which leaves too few to reach {target}.
+            {:else}
+              The rest of the stable is at the minimum needed to keep the score meaningful.
+            {/if}
           </p>
         {/if}
 
@@ -208,7 +232,13 @@ async function release() {
     </div>
 
     <div class="dialog-footer">
-      <span class="foot-note">Releasing un-stables them. Nothing is deleted.</span>
+      {#if releaseFailed}
+        <span class="foot-note error" data-testid="free-slots-release-error">
+          Release failed part way. The roster shows what did go through.
+        </span>
+      {:else}
+        <span class="foot-note">Releasing un-stables them. Nothing is deleted.</span>
+      {/if}
       <button type="button" class="btn ghost" onclick={onClose}>Cancel</button>
       <button
         type="button"
@@ -246,4 +276,5 @@ async function release() {
   .tag.good { color: var(--success-text, var(--text-secondary)); }
   .tag.cost { color: var(--warning-text, var(--text-primary)); font-weight: 600; }
   .foot-note { flex: 1; font-size: 11px; color: var(--text-muted); }
+  .foot-note.error { color: var(--danger-text, var(--text-primary)); font-weight: 600; }
 </style>

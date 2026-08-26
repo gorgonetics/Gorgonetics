@@ -36,6 +36,11 @@ const optionColor = (i: number) => OPTION_COLORS[i % OPTION_COLORS.length];
  * which in turn matches `breedingView.sortCol` after a click on the
  * header.
  */
+/** Attribute named by an `attribute:<Name>` sort column, if that is active. */
+const activeAttribute = $derived(
+  breedingView.sortCol.startsWith('attribute:') ? breedingView.sortCol.slice('attribute:'.length) : '',
+);
+
 const columns = $derived<Column[]>([
   { id: 'male', label: '♂ Male', accessor: (r) => r.male.name, numeric: false },
   { id: 'female', label: '♀ Female', accessor: (r) => r.female.name, numeric: false },
@@ -55,6 +60,26 @@ const columns = $derived<Column[]>([
       numeric: true,
     }),
   ),
+  /**
+   * The improvement column for the *active* attribute strategy only.
+   *
+   * The plain per-attribute columns above are absolute expected value. An
+   * attribute strategy ranks by `evAttributeImprovement` instead, so without
+   * this the table would sort by one metric while the planner optimised
+   * another — the absolute-vs-improvement confusion the whole feature exists
+   * to avoid. Added per-attribute rather than for all seven, which would
+   * double the column count for six strategies nobody selected.
+   */
+  ...(activeAttribute
+    ? [
+        {
+          id: `attribute:${activeAttribute}`,
+          label: `Δ ${activeAttribute}`,
+          accessor: (r: BreedingPairResult) => r.evAttributeImprovement[activeAttribute] ?? 0,
+          numeric: true,
+        } as Column,
+      ]
+    : []),
 ]);
 
 // The active column: matched by name (not index) so re-ordering the column

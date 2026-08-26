@@ -122,8 +122,11 @@ const objective = $derived(resolveObjective(breedingView.objective) ?? (BREEDING
 function selectObjective(id: string) {
   breedingView.objective = id;
   // The table sorts by the strategy's own column so the ranking it shows and
-  // the ranking it planned with cannot disagree.
-  const column = id.startsWith('attribute:') ? id.slice('attribute:'.length) : OBJECTIVE_COLUMN[id];
+  // the ranking it planned with cannot disagree. An attribute strategy keeps
+  // its own id as the column: the table renders a Δ column for it, because
+  // the plain per-attribute column holds the *absolute* expected value, not
+  // the improvement the strategy ranks by.
+  const column = id.startsWith('attribute:') ? id : OBJECTIVE_COLUMN[id];
   if (column) {
     breedingView.sortCol = column;
     breedingView.sortDir = 'desc';

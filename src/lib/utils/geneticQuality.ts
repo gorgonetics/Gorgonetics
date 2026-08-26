@@ -554,11 +554,16 @@ export interface SafeCullResult {
   /** Capability lost across the whole list. */
   totalCost: number;
   /**
-   * What the next release beyond the list would cost, or `null` when the
-   * population floor ended the walk. Lets the UI say "a seventh would cost
-   * 0.5" rather than the list just stopping.
+   * The next release beyond the list, or `null` when the population floor
+   * ended the walk. Lets the UI say "a seventh would cost 0.5" rather than
+   * the list just stopping.
+   *
+   * Returned as the walk's own pick, not merely its cost: re-deriving the
+   * cheapest animal afterwards would ignore the tie-breaks `pick()` applies,
+   * so on a tie the UI could name a different animal than the one the walk
+   * would actually take next.
    */
-  nextCost: number | null;
+  next: CullStep | null;
 }
 
 /**
@@ -639,14 +644,13 @@ export function safeCullOrder(
     const best = pick();
     if (best === null) break;
     // Without a target, stop before paying anything.
-    if (target === undefined && best.cost > 0) return { releases, totalCost, nextCost: best.cost };
+    if (target === undefined && best.cost > 0) return { releases, totalCost, next: best };
     releases.push(best);
     totalCost += best.cost;
     remaining.splice(remaining.indexOf(best.id), 1);
   }
 
-  const next = remaining.length > MIN_POPULATION ? pick() : null;
-  return { releases, totalCost, nextCost: next ? next.cost : null };
+  return { releases, totalCost, next: remaining.length > MIN_POPULATION ? pick() : null };
 }
 
 /**
