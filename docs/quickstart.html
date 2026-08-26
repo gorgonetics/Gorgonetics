@@ -364,6 +364,7 @@
           <h3>Browse Your Pets</h3>
         </div>
         <p>My Pets is a single, full-width table of your whole collection &mdash; sortable and filterable, built to stay usable at a few-hundred-pet scale. Each row shows the pet's <strong>name</strong>, <strong>gender</strong>, <strong>breed</strong>, and <strong>+ Genes</strong> score (its count of confirmed positive-effect genes). Click any column header to sort; click again to reverse. Click a pet's <strong>name</strong> to open its detail view.</p>
+        <p>Pick a single <strong>species</strong> and a <strong>Quality</strong> column appears. It is a different measure from <em>+ Genes</em>: instead of what the pet expresses, it scores what the pet can <em>pass on that no other stabled animal of that species can</em>, shown as a share of your stable's irreplaceable genetics. A pet reading <strong>&mdash;</strong> is not a poor pet; it means every allele it carries is available from another animal you already keep. A <strong>&middot;</strong> means the pet was not scored at all, because only stabled pets are. Hover any figure for the reasoning behind it. The column stays hidden for very small stables, where every allele trivially reads as sole-source.</p>
         <p>A filter bar sits above the table:</p>
         <ul>
           <li><strong>Search</strong> &mdash; filter by name.</li>
@@ -380,6 +381,10 @@
         <div class="step-image">
           <img src="images/quickstart/03-row-actions.png" alt="A table row with its Edit and Delete actions highlighted">
           <div class="caption">Row actions &mdash; edit or delete any pet inline</div>
+        </div>
+        <p style="margin-top: 16px;">Out of stable slots? With one species selected, a <strong>🏠 Free up slots</strong> button appears in the footer. Tell it how many slots you need and it works out the cheapest set of animals to release, in order. Each entry says whether releasing that animal is <strong>free</strong> &mdash; everything it carries survives in an animal you keep &mdash; or what breeding capability it <strong>costs</strong>, and how many negative alleles it <strong>clears</strong> on the way out.</p>
+        <div class="tip-box">
+          <strong>Tip:</strong> The order matters. Each step's cost is measured against what was still in the stable at that point, so releasing part of the list out of sequence can cost more than the total shown. Releasing only un-stables an animal &mdash; nothing is deleted, and you can stable it again at any time.
         </div>
       </div>
 
@@ -490,6 +495,7 @@
         <ul>
           <li><strong>Attributes</strong> &mdash; colours genes by gameplay attributes (Toughness, Intelligence, etc.)</li>
           <li><strong>Appearance</strong> &mdash; colours genes by visual traits (body colour, wing scale, etc.)</li>
+          <li><strong>Rarity</strong> &mdash; colours genes by how rare they are across your own collection</li>
           <li><strong>Stats</strong> &mdash; opens a side panel summarising attribute effect counts</li>
           <li><strong>Gallery</strong> &mdash; switches to the pet's image gallery</li>
           <li><strong>Share</strong>, <strong>Edit</strong>, <strong>Delete</strong> &mdash; publish, edit, or remove this pet</li>
@@ -526,6 +532,45 @@
       <div class="step">
         <div class="step-header">
           <div class="step-number">7</div>
+          <h3>Find Your Rare Genes</h3>
+        </div>
+        <p>The <strong>Rarity</strong> view answers a different question from the other two. Not <em>"what does this gene do"</em>, but <em>"how many of my other pets already have it"</em>. Each gene cell is split into its two alleles, and each half is shaded by how scarce that value is across the pets you measure against.</p>
+        <div class="step-image">
+          <img src="images/quickstart/30-rarity-view.png" alt="The Rarity view of a gene grid, with the diverging rarity legend above it">
+          <div class="caption">The Rarity view &mdash; each allele shaded by how scarce it is in your own collection</div>
+        </div>
+
+        <p style="margin-top: 16px;">The scale runs outwards from common in two directions, so the colour tells you <em>which</em> allele is scarce as well as how scarce it is. Common values sit in the middle and stay quiet &mdash; most of the genome is common, and the view would be unreadable if they shouted.</p>
+        <div class="legend-section" style="margin-top: 16px;">
+          <h4>Rarity (colour)</h4>
+          <div class="legend-grid">
+            <div class="legend-item">
+              <div class="legend-dot" style="background: #f0a04b;"></div>
+              <span>Rare <strong>recessive</strong> value</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-dot" style="background: #b085e8;"></div>
+              <span>Rare <strong>dominant</strong> value</span>
+            </div>
+          </div>
+          <p style="margin: 16px 0 0;">Five steps of scarcity, plus one that is not a frequency at all: <strong>Common</strong>, <strong>Uncommon</strong>, <strong>Notable</strong>, <strong>Rare</strong>, <strong>Sole carrier</strong>, and <strong>Never seen</strong>. The last one marks a value <em>none</em> of your pets carries &mdash; the one reading you cannot breed your way to, so it is what a capture decision turns on. It carries a brighter outline as well as the strongest colour, so you can find it by scanning.</p>
+        </div>
+
+        <p style="margin-top: 16px;">Two controls sit beside the view:</p>
+        <ul>
+          <li><strong>Baseline</strong> &mdash; measure against your <strong>Stabled</strong> pets or <strong>All my pets</strong>. Stabled is the narrower, more decision-relevant set; all pets gives more evidence per gene.</li>
+          <li>The legend reports the baseline size, and flags any pets <strong>studied less deeply</strong> &mdash; genes your Genetics level had not revealed when the pet was read count for nothing, so those loci are measured across fewer pets.</li>
+        </ul>
+        <p>Hover any cell for its exact figures: how many pets carry each value at that position, and whether the effect is good or bad.</p>
+        <div class="tip-box">
+          <strong>Tip:</strong> Rarity is measured against <em>your</em> collection, not the game. A small collection makes almost everything look rare, so the two scarcest steps only appear once the baseline is large enough to mean something.
+        </div>
+      </div>
+
+      <!-- Step 8 -->
+      <div class="step">
+        <div class="step-header">
+          <div class="step-number">8</div>
           <h3>Horse Breed Filtering</h3>
         </div>
         <p>When viewing a Horse, a breed filter row appears above the gene grid. If the pet has a known breed, an <strong>Auto</strong> button activates automatically &mdash; filtering genes to that breed. Toggle <strong>Auto</strong> off to clear the filter and choose a breed manually.</p>
@@ -536,10 +581,10 @@
         <p style="margin-top: 16px;">Whether Auto is on by default is controlled by <strong>Auto-select breed filter</strong> in Settings.</p>
       </div>
 
-      <!-- Step 8 -->
+      <!-- Step 9 -->
       <div class="step">
         <div class="step-header">
-          <div class="step-number">8</div>
+          <div class="step-number">9</div>
           <h3>Compare Two Pets Head-to-Head</h3>
         </div>
         <p>Tick the checkbox on two pets of the same species, then click <strong>⚖️ Compare</strong> in the selection bar. (The button enables only when exactly two same-species pets are selected.)</p>
@@ -554,23 +599,38 @@
         </div>
       </div>
 
-      <!-- Step 9 -->
+      <!-- Step 10 -->
       <div class="step">
         <div class="step-header">
-          <div class="step-number">9</div>
+          <div class="step-number">10</div>
           <h3>Rank Breeding Pairs</h3>
         </div>
-        <p>The <strong>💞 Breed</strong> destination ranks every stabled male &times; female pair of the selected species by expected offspring quality, computed from each parent's Mendelian gene contributions.</p>
+        <p>The <strong>💞 Breed</strong> destination ranks every stabled male &times; female pair of the selected species, scoring each cross from the parents' Mendelian gene contributions.</p>
         <div class="step-image">
           <img src="images/quickstart/15-breed-rank.png" alt="Breed destination showing a sortable table of horse breeding pairs">
-          <div class="caption">The Breed destination &mdash; every stabled M&times;F pair, ranked by expected offspring quality</div>
+          <div class="caption">The Breed destination &mdash; every stabled M&times;F pair, ranked against the strategy you pick</div>
         </div>
         <ul>
           <li><strong>Species</strong> &mdash; switch which species you're ranking. Only stabled pets count.</li>
           <li><strong>Offspring breed</strong> (horses) &mdash; restricts scoring to genes that express on the chosen breed.</li>
+          <li><strong>Breed for</strong> &mdash; the strategy the ranking optimises for. See below.</li>
           <li><strong>Breed at once</strong> &mdash; set how many pairs you plan to breed together; the ranking accounts for sharing your stable across that many crosses.</li>
           <li>Click a column header to sort; click a parent name to jump to that pet; click the inspect button on a row to open the trio view.</li>
         </ul>
+
+        <p style="margin-top: 16px;">There is no single "best pair", because breeding has more than one goal and those goals conflict. So the app does not choose one for you &mdash; pick the strategy that matches what this round is for, and both the ranking and the plan follow it:</p>
+        <ul>
+          <li><strong>Reach new ground</strong> &mdash; foals that put an outcome within reach that your stable cannot currently breed at all.</li>
+          <li><strong>Raise the ceiling</strong> &mdash; foals likely to beat the better parent, pushing your best line forward.</li>
+          <li><strong>Raise the floor</strong> &mdash; foals that can replace the weaker parent, giving you a stronger pair next round.</li>
+          <li><strong>Clean the line</strong> &mdash; foals carrying fewer negative effects than the cleaner parent.</li>
+          <li><strong>Most positive genes</strong> &mdash; the highest expected positive count outright.</li>
+          <li><strong>Improve <em>&lt;attribute&gt;</em></strong> &mdash; one entry per attribute, for when a single trait is lagging.</li>
+        </ul>
+        <p>The table's <strong>Quality</strong>, <strong>Ceiling</strong>, <strong>Floor</strong>, and <strong>Cleanup</strong> columns are the four general strategies' own scores, so you can see how a pair rates on each. Choosing a strategy also sorts the table by its column, so the ranking you see and the ranking used for planning cannot disagree.</p>
+        <div class="tip-box">
+          <strong>Tip:</strong> These scores measure <em>improvement over the parents</em>, not the foal's absolute level. Ranking by absolute level puts your two best animals together at the top, and their foal usually regresses towards the middle. That is why <strong>Most positive genes</strong> is not the default.
+        </div>
         <p style="margin-top: 16px;">The <strong>trio view</strong> projects the cross locus by locus &mdash; father's and mother's alleles alongside the offspring's probable outcome, each cell coloured by its verdict (new / keep / neutral / loss), with summary chips counting expected gains, losses, locked-in, and unknown outcomes. Re-score for a specific offspring breed, or focus on a single attribute, using the filters at the top.</p>
         <div class="step-image">
           <img src="images/quickstart/16-trio.png" alt="Trio offspring view showing father, offspring, and mother per chromosome with gain/risk chips">
@@ -581,18 +641,24 @@
         </div>
       </div>
 
-      <!-- Step 10 -->
+      <!-- Step 11 -->
       <div class="step">
         <div class="step-header">
-          <div class="step-number">10</div>
-          <h3>Edit Gene Effects (Reference)</h3>
+          <div class="step-number">11</div>
+          <h3>The Genome Map &amp; Gene Editor (Reference)</h3>
         </div>
-        <p>The <strong>📚 Reference</strong> destination is where you edit the gene <em>templates</em> for a species &mdash; the effect data shared by every pet of that species. Pick an <strong>Animal type</strong> and a <strong>Chromosome</strong>, then click <strong>Edit Genes</strong>.</p>
+        <p>The <strong>📚 Reference</strong> destination opens on the <strong>genome map</strong>: every gene of a whole species on one screen, shaded by the same rarity scale as the pet view but with no pet selected. Where the Rarity view asks "how rare are <em>this pet's</em> genes", the map asks "where is my collection thin". Pick an <strong>Animal type</strong> to load it.</p>
         <div class="step-image">
-          <img src="images/quickstart/17-reference.png" alt="Reference destination with animal type and chromosome selectors and the Edit Genes button">
-          <div class="caption">Reference &mdash; choose an animal type and chromosome to edit its gene templates</div>
+          <img src="images/quickstart/17-reference.png" alt="Reference destination showing the whole-species genome map with animal type, breed, and baseline controls">
+          <div class="caption">The genome map &mdash; a whole species at once, shaded by rarity across your collection</div>
         </div>
-        <p style="margin-top: 16px;">A table appears with every gene in that chromosome. Set the dominant and recessive effects, then save your changes.</p>
+        <ul>
+          <li><strong>Breed</strong> (horses) &mdash; narrow the map to the genes that express on one breed.</li>
+          <li><strong>Baseline</strong> &mdash; the same <strong>Stabled</strong> / <strong>All my pets</strong> choice as the pet view.</li>
+        </ul>
+        <p>Expect the map to look louder than a single pet's grid, and read that as information: it shows every value you have <em>never</em> seen, not just the rare ones you happen to own.</p>
+
+        <p style="margin-top: 24px;">The same destination is where you edit gene <em>templates</em> &mdash; the effect data shared by every pet of a species. Click <strong>Edit</strong> in the toolbar, pick an <strong>Animal type</strong> and a <strong>Chromosome</strong>, then click <strong>Edit Genes</strong>. A table appears with every gene in that chromosome. Set the dominant and recessive effects, then save your changes.</p>
         <div class="step-image">
           <img src="images/quickstart/18-gene-editing.png" alt="Gene template editing table with dominant and recessive effect dropdowns">
           <div class="caption">The gene editor &mdash; set the effect for each gene position</div>
@@ -602,10 +668,10 @@
         </div>
       </div>
 
-      <!-- Step 11 -->
+      <!-- Step 12 -->
       <div class="step">
         <div class="step-header">
-          <div class="step-number">11</div>
+          <div class="step-number">12</div>
           <h3>Pet Image Gallery</h3>
         </div>
         <p>Open a pet and click <strong>Gallery</strong> to switch to its image gallery. Upload screenshots of your pet, view them in a thumbnail grid, and open them full-size in a lightbox.</p>
@@ -623,10 +689,10 @@
         </div>
       </div>
 
-      <!-- Step 12 -->
+      <!-- Step 13 -->
       <div class="step">
         <div class="step-header">
-          <div class="step-number">12</div>
+          <div class="step-number">13</div>
           <h3>Back Up &amp; Restore Your Data</h3>
         </div>
         <p>Click the <strong>data-management button</strong> in the top bar to open the backup menu.</p>
@@ -650,10 +716,10 @@
         </div>
       </div>
 
-      <!-- Step 13 -->
+      <!-- Step 14 -->
       <div class="step">
         <div class="step-header">
-          <div class="step-number">13</div>
+          <div class="step-number">14</div>
           <h3>Settings &amp; Dark Mode</h3>
         </div>
         <p>Click the <strong>gear icon</strong> in the top bar to open Settings.</p>
@@ -685,10 +751,10 @@
         </div>
       </div>
 
-      <!-- Step 14 -->
+      <!-- Step 15 -->
       <div class="step">
         <div class="step-header">
-          <div class="step-number">14</div>
+          <div class="step-number">15</div>
           <h3>Tag &amp; Organise Your Pets</h3>
         </div>
         <p>Tags help you categorise and filter your collection. Open a pet's <strong>editor</strong> (the ✎ action on its row) and manage tags in the Tags section.</p>
@@ -710,10 +776,10 @@
         </div>
       </div>
 
-      <!-- Step 15 -->
+      <!-- Step 16 -->
       <div class="step">
         <div class="step-header">
-          <div class="step-number">15</div>
+          <div class="step-number">16</div>
           <h3>Share &amp; Browse Community Pets</h3>
         </div>
         <p>The <strong>🌐 Community</strong> destination is a public catalogue of pets shared by other players. Browse the list, click a row to preview its genome, and import any pet into your own stable.</p>
@@ -731,10 +797,10 @@
         </div>
       </div>
 
-      <!-- Step 16 -->
+      <!-- Step 17 -->
       <div class="step">
         <div class="step-header">
-          <div class="step-number">16</div>
+          <div class="step-number">17</div>
           <h3>Keyboard Navigation</h3>
         </div>
         <p>Gorgonetics is fully keyboard-navigable:</p>

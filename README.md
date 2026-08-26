@@ -11,10 +11,12 @@ Built with **Tauri v2** (Rust) + **Svelte 5** (SvelteKit) + **TypeScript** + **S
 ## Features
 
 - Upload and manage pet genome files (.txt format from Project Gorgon), including auto-import from your game folder
-- Interactive gene visualization grid with attribute/appearance views
+- Interactive gene visualization grid with attribute, appearance, and rarity views
+- Gene rarity lens: colours each allele by how rare it is across your own collection, with a whole-species genome map in Reference
 - Attribute stats summary with counts and breakdowns
 - Edit gene effects (dominant/recessive) per chromosome
-- Breeding assistant and side-by-side pet comparison
+- Genetic quality score: ranks stabled pets by what they alone can pass on, plus a "free up slots" planner for culling
+- Breeding assistant with selectable strategies, and side-by-side pet comparison
 - Per-pet image gallery with drag-and-drop reordering
 - Optional community catalogue: share pets publicly and browse/import others' (opt-in)
 - Species-specific attribute configuration (BeeWasp, Horse)
