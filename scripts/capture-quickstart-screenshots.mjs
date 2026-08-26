@@ -20,8 +20,8 @@
  * rarity, genetic quality and culling are all measured against a
  * population, and each one suppresses itself below a floor the demo set
  * cannot reach. So after the first-launch shot this script loads a real
- * 38-horse stable from scripts/fixtures/stable/ and captures everything
- * else against that. See seedStable() for how.
+ * horse stable from scripts/fixtures/stable/ and captures everything else
+ * against that. See seedStable() for how.
  */
 
 import { readdirSync, readFileSync } from 'node:fs';
@@ -201,7 +201,7 @@ await clearHighlight(page);
 await removeOverlay(page);
 
 // 03 — Roach row's ✎ Edit / ✕ Delete actions highlighted. Roach sorts well down
-// a 41-pet roster, so scroll its row into view before shooting.
+// the seeded roster, so scroll its row into view before shooting.
 await addOverlay(page);
 await highlightNode(
   page,
