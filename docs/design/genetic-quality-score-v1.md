@@ -351,6 +351,57 @@ of its redundant siblings have gone:
 It stops being redundant when its redundancy leaves. The tiebreaks did not
 save it; re-scoring each step did.
 
+## 4c. Multi-round behaviour, and the guards around the score
+
+Added after simulating the loop a player actually runs — free six slots,
+breed six pairs, stable the foals, repeat — for forty rounds on the
+reference stable, one Mendelian draw per locus per foal, three seeds.
+`tests/unit/breedingLoop.test.ts` runs a shorter version of it against the
+real services on a synthetic herd.
+
+**The score does its job.** Under every breeding objective tried the stable
+converged to about 99% of its *reachable* ceiling — the benefit slots at
+least one animal carries (822 of 879 here). An allele nobody carries cannot
+be bred into existence, so that, not the genome's 879, is the number the loop
+approaches. `capabilitySummary` exposes both.
+
+**"Free" runs out, and that is correct.** All six releases were free for the
+first six rounds; afterwards most rounds priced at least one. The intuition
+"a foal carries nothing its parents lack, so either a parent or the foal is
+free" holds per allele and fails per animal: a foal that draws the recessive
+from two heterozygous parents *locks* an allele the stable could only carry,
+while each parent keeps a carried allele at some other locus the foal did not
+inherit. 53 of 240 foals left sire, dam and foal all irreplaceable.
+
+**But capability-only culling is a constraint, not a strategy.** Three things
+the score cannot see went wrong, and each is now a guard around the walk
+rather than a term inside the score:
+
+| gap | measured | guard |
+|---|---|---|
+| sex-blind releases | males fell to one; pairs dropped below six; one run shrank to four animals | `groupFloor`: never release below the pair count of either sex |
+| phenotype-blind releases | best horse by expressed positives released as "free" in 17 of 21 runs | `protectBest` (default on): pin the top by `positive_genes` and by attribute total |
+| liability-blind releases | locked-in negatives rose 212 → ~225 in every run | `mode: 'clean'`: order by cost net of liability cleared, about 1% of potential for flat negatives |
+
+Pins, not score terms, for the reason §4a gives: folding sex, phenotype or
+liability into the cost would hide the trade-off the player is making. The
+dialog shows each guard's effect separately.
+
+**Reach new ground saturates.** Its best plan's expected gain fell below one
+slot-unit between rounds 11 and 25 in every seed, after which each round's
+cull cost cancelled the breeding gain and the stable churned. Switching to
+Raise the ceiling at that point gave the best combined outcome in two of
+three seeds (potential intact, mean expressed positives up about six).
+Alternating objectives every round looked good on one seed and worse over
+three, so no cadence is recommended. The breeding view now shows the
+capability summary and, under Reach with a plan adding under one slot-unit,
+says so and points at the other objectives.
+
+**Greedy is tiebreak-dependent past about 18 releases.** Same cost rule,
+different tie orders: 10.5 vs 11 at 20 slots, 15 vs 15.5 at 22, 27.5 vs 29
+at 25. The dialog therefore describes the list as the cheapest order *found*,
+never as the cheapest possible.
+
 ## 5. Offspring-breed scoping
 
 Because offspring can be of a breed neither parent is, the default scope
