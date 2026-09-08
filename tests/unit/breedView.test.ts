@@ -306,6 +306,32 @@ describe('BreedView — when Reach new ground has run dry', () => {
     );
   });
 
+  it('judges the gain per pair, so the spot count cannot change the verdict', async () => {
+    // Six pairings gaining 0.25 each: exhausted per pair, but a plan total of
+    // 1.5 — which an absolute threshold against the total reads as healthy,
+    // so the same stable was called dry at one spot and fine at six.
+    const herd = [
+      pet({ id: 11, name: 'M1', gender: 'Male' }),
+      pet({ id: 12, name: 'M2', gender: 'Male' }),
+      pet({ id: 13, name: 'M3', gender: 'Male' }),
+      pet({ id: 14, name: 'F1' }),
+      pet({ id: 15, name: 'F2' }),
+      pet({ id: 16, name: 'F3' }),
+    ];
+    pets.set(herd);
+    breedingView.spots = 3;
+    const males = herd.filter((p) => p.gender === 'Male');
+    const females = herd.filter((p) => p.gender !== 'Male');
+    vi.mocked(rankBreedingPairs).mockResolvedValueOnce(
+      males.flatMap((m) => females.map((f) => ({ ...pairStub(0.25), male: m, female: f }))),
+    );
+    const { container, rerender } = render(BreedView);
+    await rerender({});
+    await waitFor(() => expect(container.querySelector('[data-testid="breed-capability"]')).toBeTruthy());
+    expect(container.querySelector('[data-testid="breed-capability"]')?.textContent).toContain('per pair');
+    expect(container.querySelector('[data-testid="breed-reach-exhausted"]')).toBeTruthy();
+  });
+
   it('stays quiet when the player is already breeding for something else', async () => {
     breedingView.objective = 'ceiling';
     vi.mocked(rankBreedingPairs).mockResolvedValueOnce([pairStub(0.25)]);

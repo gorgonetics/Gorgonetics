@@ -166,26 +166,39 @@ const plans = $derived(
  * much the best "Reach new ground" plan would still add.
  *
  * Reach runs out of ground fast. Simulated over forty rounds on the reference
- * stable its expected gain per round fell below one slot-unit between rounds
- * eleven and twenty-five, after which each round's cull cost cancels the
- * breeding gain and the stable churns — while every other objective still had
- * work to do. Below `REACH_EXHAUSTED` the view says so and points at them.
- * The plan total overcounts shared gains by a few percent (breedingPlan.ts);
- * as a "has it run dry" signal that error does not matter.
+ * stable its expected gain **per pair** fell below `REACH_EXHAUSTED` within a
+ * dozen or so rounds, after which each round's cull cost cancels the breeding
+ * gain and the stable churns — while every other objective still had work to
+ * do. Below the threshold the view says so and points at them.
+ *
+ * Per pair, not per plan: the plan total sums over however many spots are set,
+ * so an absolute threshold against the total would call one spot exhausted at
+ * a gain that reads as healthy across six. The total also overcounts shared
+ * gains by a few percent (breedingPlan.ts); as a "has it run dry" signal that
+ * error does not matter.
  */
 const REACH_EXHAUSTED = 1;
-const summaryKey = $derived(candidates.length > 0 ? candidateKey : null);
+// Only fetched while planning: the readout is shown there, and the summary is
+// a second `pet_genes` pass over the same animals the ranking just read.
+const summaryKey = $derived(breedingView.spots > 0 && candidates.length > 0 ? candidateKey : null);
 const summary = keyedResource(
   () => summaryKey,
   () => capabilitySummary({ species, pets: candidates }),
 );
 const reachObjective = BREEDING_OBJECTIVES.find((o) => o.id === 'reach') as BreedingObjective;
-const reachGain = $derived(
-  breedingView.spots > 0 && pairs.length > 0
-    ? (suggestPlans({ ranked: pairs, slots: breedingView.spots, score: reachObjective.score })[0]?.total ?? 0)
-    : null,
+// Reuse the plan already built when the player is breeding for reach, rather
+// than running the (O(pairs log pairs) × leads) planner a second time.
+const reachPlan = $derived.by(() => {
+  if (breedingView.spots === 0 || pairs.length === 0) return null;
+  if (objective.id === 'reach') return plans?.[0] ?? null;
+  return suggestPlans({ ranked: pairs, slots: breedingView.spots, score: reachObjective.score })[0] ?? null;
+});
+const reachGain = $derived(reachPlan ? reachPlan.total / Math.max(1, reachPlan.pairs.length) : null);
+// Gated on a settled ranking: mid-refetch `pairs` still holds the previous
+// offspring breed's numbers, and a stale "run dry" verdict is worse than none.
+const reachExhausted = $derived(
+  !loading && objective.id === 'reach' && reachGain !== null && reachGain < REACH_EXHAUSTED,
 );
-const reachExhausted = $derived(objective.id === 'reach' && reachGain !== null && reachGain < REACH_EXHAUSTED);
 let seq = 0;
 let prevKey: string | undefined;
 let prevSpecies: string | undefined;
@@ -376,7 +389,7 @@ onDestroy(() => {
               Pool holds <strong>{summary.value.capability.toFixed(1)}</strong> of
               <strong>{summary.value.reachable}</strong> reachable slot-units ({summary.value.ceiling} in the genome)
               {#if reachGain !== null}
-                · best reach plan adds ≈ {reachGain.toFixed(1)}
+                · best reach plan adds ≈ {reachGain.toFixed(1)} per pair
               {/if}
             </div>
           {/if}
