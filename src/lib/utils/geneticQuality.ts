@@ -529,9 +529,9 @@ export interface SafeCullOrderOptions {
    *
    * The score cannot see this. Foals are cheap to release because they are
    * young copies of their parents, and foal sex is random, so a sex-blind
-   * walk drains whichever sex happens to be scarce. Simulated over forty
-   * rounds on the reference stable, males fell to one and the stable shrank
-   * to four animals before the loop could no longer pair anything.
+   * walk drains whichever sex happens to be scarce. Rare but terminal:
+   * simulated over twenty rounds on the reference stable, one run in twelve
+   * lost the ability to form any pair at all. With the floor, none did.
    */
   groupFloor?: { group: ReadonlyMap<number, string>; min: number };
   /**
@@ -540,9 +540,10 @@ export interface SafeCullOrderOptions {
    * reported on each step is still the capability lost.
    *
    * Off by default: it spends potential to buy cleanliness. Measured over
-   * forty breeding rounds it held locked-in negatives flat where the plain
-   * walk let them rise by about six percent, for roughly one percent less
-   * capability. That is a strategy, so the player chooses it.
+   * forty breeding rounds on the reference stable, locked-in negatives rose
+   * by 12 slot-units under the plain walk and by about 4 under this one, for
+   * roughly 2 slot-units less capability out of the 58 gained. That is a
+   * strategy, so the player chooses it.
    */
   netLiability?: boolean;
 }
@@ -719,9 +720,9 @@ export interface CapabilitySummary {
  *
  * Exists so the breeding view can say when "Reach new ground" has run out of
  * ground. Simulated over forty rounds on the reference stable the loop
- * converged to 99% of `reachable` under every policy tried, and the reach
- * objective's expected gain per round fell below one slot-unit between rounds
- * eleven and twenty-five — after which it only churns.
+ * converged to 99.2–99.6% of `reachable` under every policy tried, and the
+ * reach objective's expected gain *per pair* fell below one slot-unit at
+ * round six, with the stable already holding 97.7% of what it could reach.
  */
 export function capabilitySummary(
   lociByPet: Iterable<PetLoci>,

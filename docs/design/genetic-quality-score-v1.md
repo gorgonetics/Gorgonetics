@@ -388,7 +388,7 @@ rather than a term inside the score:
 |---|---|---|
 | sex-blind releases | 1 run in 12 drained a sex until no pair could form at all; the floor held every run at six or more pairs | `groupFloor`: never release below the pair count of either sex |
 | phenotype-blind releases | the stable's current best by expressed positives was released in 17 of 240 rounds, hitting 8 of 12 runs; with the pin, none | `protectBest` (default on): pin the top by `positive_genes` and by attribute total |
-| liability-blind releases | locked-in negatives rose 212 → 224 in every seed | `mode: 'clean'`: order by cost net of liability cleared, about 1% of potential for flat negatives |
+| liability-blind releases | locked-in negatives rose 212 → 224 in every seed; clean mode held the rise to about 4 slot-units for 2 fewer of the 58 gained | `mode: 'clean'`: order by cost net of liability cleared |
 
 The sex figure is the one that moved: the defective generator produced
 correlated sex draws and made the collapse look routine. It is rare, not

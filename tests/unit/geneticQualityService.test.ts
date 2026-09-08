@@ -172,7 +172,6 @@ describe('safeCullSet', () => {
       releases: [],
       totalCost: 0,
       totalCleared: 0,
-      allFree: true,
       next: null,
       pinned: [],
       protectedBest: [],
@@ -200,9 +199,9 @@ describe('safeCullSet — freeing a fixed number of slots', () => {
 
   it('frees exactly the requested number of slots', async () => {
     const pets = await stable();
-    const { releases, allFree } = await safeCullSet({ species: 'BeeWasp', pets, slots: 2 });
+    const { releases, totalCost } = await safeCullSet({ species: 'BeeWasp', pets, slots: 2 });
     expect(releases).toHaveLength(2);
-    expect(allFree).toBe(true);
+    expect(totalCost).toBe(0);
     expect(releases.map((r) => r.pet.name)).not.toContain('Unique');
   });
 
@@ -210,10 +209,9 @@ describe('safeCullSet — freeing a fixed number of slots', () => {
     const pets = await stable();
     // Only three releases are free before the floor bites; asking for more
     // must surface the cost rather than silently returning a short list.
-    const { releases, totalCost, allFree } = await safeCullSet({ species: 'BeeWasp', pets, slots: 3 });
+    const { releases, totalCost } = await safeCullSet({ species: 'BeeWasp', pets, slots: 3 });
     expect(releases).toHaveLength(3);
     expect(totalCost).toBe(0);
-    expect(allFree).toBe(true);
   });
 
   it('never releases more than the population floor allows', async () => {

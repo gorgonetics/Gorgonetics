@@ -113,6 +113,9 @@ const keptOut = $derived(
 const fmt = (n: number) => (n === 0 ? '0' : n.toFixed(1));
 const names = (ps: Pet[]) => ps.map((p) => p.name || 'unnamed').join(', ');
 const sexLabel = (g: Gender) => (g === Gender.MALE ? 'males' : 'females');
+/** The sexes the floor is holding back, as the dialog names them. */
+const heldSexes = $derived((plan?.atFloor ?? []).map(sexLabel).join(' or '));
+const allFree = $derived(plan !== null && plan.totalCost === 0);
 
 async function release() {
   if (releases.length === 0 || releasing) return;
@@ -199,14 +202,14 @@ async function release() {
           {#if plan && keptOut >= pets.length}
             Every stabled animal is starred, protected as your best, or has no genome to score, so nothing can be suggested.
           {:else if plan && plan.atFloor.length > 0}
-            Releasing any more {plan.atFloor.map(sexLabel).join(' or ')} would leave too few to breed the pairs these slots are for.
+            Releasing any more {heldSexes} would leave too few to breed the pairs these slots are for.
           {:else}
             Nothing can be released without dropping below the minimum stable the score needs.
           {/if}
         </p>
       {:else}
         <p class="verdict" data-testid="free-slots-verdict">
-          {#if plan?.allFree}
+          {#if allFree}
             Releasing these {releases.length} costs <strong>nothing</strong> — every beneficial allele they carry
             is also held by an animal you keep.
           {:else if mode === 'clean'}
@@ -252,7 +255,7 @@ async function release() {
             Left afterwards: {plan.after.males} {plan.after.males === 1 ? 'male' : 'males'}, {plan.after.females}
             {plan.after.females === 1 ? 'female' : 'females'} — up to {plan.after.pairs} {plan.after.pairs === 1 ? 'pair' : 'pairs'}.
             {#if plan.atFloor.length > 0}
-              No more {plan.atFloor.map(sexLabel).join(' or ')} are suggested, so the pairs stay possible.
+              No more {heldSexes} are suggested, so the pairs stay possible.
             {/if}
           </p>
         {/if}
@@ -261,7 +264,7 @@ async function release() {
           <p class="msg" data-testid="free-slots-shortfall">
             Only {releases.length} can be released.
             {#if plan && plan.atFloor.length > 0}
-              Releasing more would leave too few {plan.atFloor.map(sexLabel).join(' or ')} to breed the pairs these slots are for.
+              Releasing more would leave too few {heldSexes} to breed the pairs these slots are for.
             {:else if plan && keptOut > 0}
               Starred, protected and unscored animals are excluded, which leaves too few to reach {target}.
             {:else}

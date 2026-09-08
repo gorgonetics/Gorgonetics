@@ -186,9 +186,10 @@ export interface SafeCullOptions {
    * The score prices what an animal can pass on, and once a founder's
    * alleles are covered by its foals it reads as free — correctly, for
    * breeding. But the animal you ride is the phenotype, and simulated over
-   * forty rounds the top horse by expressed positives was released as free
-   * in seventeen of twenty-one runs. Pinning is the design's answer; this
-   * applies it before the player has to think of it.
+   * twelve runs of twenty rounds the stable's current best by expressed
+   * positives was released in 17 of 240 rounds, touching 8 of the 12 runs.
+   * Pinning is the design's answer; this applies it before the player has to
+   * think of it.
    */
   protectBest?: boolean;
   /**
@@ -219,8 +220,6 @@ export interface SafeCullSet {
   totalCost: number;
   /** Negative-allele capability that leaves across the whole list. */
   totalCleared: number;
-  /** True when nothing is given up. */
-  allFree: boolean;
   /** The next release beyond the list and its cost, if the walk could continue. */
   next: { pet: Pet; cost: number } | null;
   /** Animals excluded from consideration — starred, plus any explicit pins. */
@@ -293,7 +292,6 @@ export async function safeCullSet(opts: SafeCullOptions): Promise<SafeCullSet> {
     releases: [],
     totalCost: 0,
     totalCleared: 0,
-    allFree: true,
     next: null,
     pinned: [],
     protectedBest: [],
@@ -409,7 +407,6 @@ export async function safeCullSet(opts: SafeCullOptions): Promise<SafeCullSet> {
     releases,
     totalCost,
     totalCleared,
-    allFree: totalCost === 0,
     next,
     pinned: petsOf(pinned),
     protectedBest: petsOf(protectedBest),
