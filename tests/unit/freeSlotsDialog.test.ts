@@ -312,6 +312,38 @@ describe('FreeSlotsDialog', () => {
     );
   });
 
+  it('cannot release a plan computed for different settings', async () => {
+    // The body swaps to a loading message on a settings change, but the footer
+    // button lives outside it — left enabled, it released the previous list.
+    const pets = await stable();
+    let released: number[] | null = null;
+    const { container } = render(FreeSlotsDialog, {
+      species: 'beewasp',
+      pets,
+      onRelease: async (ids) => {
+        released = ids;
+      },
+      onClose: noop,
+    });
+    await waitFor(() => expect(items(container).length).toBeGreaterThan(0));
+    const confirm = () => container.querySelector('[data-testid="free-slots-confirm"]') as HTMLButtonElement;
+    expect(confirm().disabled).toBe(false);
+
+    await fireEvent.input(container.querySelector('[data-testid="free-slots-count"]') as HTMLInputElement, {
+      target: { value: '2' },
+    });
+    expect(container.querySelector('[data-testid="free-slots-loading"]')).toBeTruthy();
+    expect(confirm().disabled).toBe(true);
+    await fireEvent.click(confirm());
+    expect(released).toBeNull();
+
+    // Once the matching answer lands the button works again, on the new list.
+    await waitFor(() => expect(items(container).length).toBe(2));
+    await fireEvent.click(confirm());
+    await waitFor(() => expect(released).not.toBeNull());
+    expect(released as unknown as number[]).toHaveLength(2);
+  });
+
   it('promises no deletion, because releasing only un-stables', async () => {
     const pets = await stable();
     const { container } = render(FreeSlotsDialog, {

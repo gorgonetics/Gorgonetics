@@ -80,6 +80,10 @@ $effect(() => {
   let live = true;
   loading = true;
   failed = false;
+  // Drop the previous answer rather than leaving it on screen behind the
+  // loading message. It was computed for different settings, and the footer
+  // button reads its list — so keeping it lets a click release the old set.
+  plan = null;
   safeCullSet({ species, pets, slots: target, protectBest, mode })
     .then((r) => {
       if (live) plan = r;
@@ -177,9 +181,9 @@ async function release() {
       <div class="options-row">
         <label class="mode">
           <span>Release by</span>
-          <select bind:value={mode} data-testid="free-slots-mode" title="Potential: lose the least breeding capability. Clean: let liability-heavy animals go first, even at some cost to potential.">
+          <select bind:value={mode} data-testid="free-slots-mode" title="Least potential lost: release whatever costs the least breeding capability. Negatives net of cost: rank each animal by what it clears minus what it costs, so a liability-heavy animal can go ahead of a free one.">
             <option value="potential">least potential lost</option>
-            <option value="clean">most negatives cleared</option>
+            <option value="clean">negatives cleared, net of cost</option>
           </select>
         </label>
         <label class="protect">
@@ -214,13 +218,14 @@ async function release() {
             is also held by an animal you keep.
           {:else if mode === 'clean'}
             Releasing these {releases.length} costs <strong>{fmt(plan?.totalCost ?? 0)}</strong> slot-units of
-            breeding capability — more than the cheapest order, in exchange for the negatives they take.
+            breeding capability, ordered by what each clears against what it costs.
           {:else}
             Releasing these {releases.length} costs <strong>{fmt(plan?.totalCost ?? 0)}</strong> slot-units of
             breeding capability, the cheapest order found.
           {/if}
           {#if (plan?.totalCleared ?? 0) > 0}
-            They take <strong>{fmt(plan?.totalCleared ?? 0)}</strong> of negative alleles with them.
+            They take <strong>{fmt(plan?.totalCleared ?? 0)}</strong> slot-units of negative-allele capability
+            with them.
           {/if}
         </p>
 
@@ -288,7 +293,7 @@ async function release() {
 
         {#if plan && plan.unscored.length > 0}
           <p class="msg subtle" data-testid="free-slots-unscored">
-            Not scored, so never suggested: {names(plan.unscored)} — no genome has been imported for them.
+            Not scored, so never suggested: {names(plan.unscored)} — no usable genome rows for them.
           </p>
         {/if}
 
@@ -323,10 +328,10 @@ async function release() {
         type="button"
         class="btn primary"
         data-testid="free-slots-confirm"
-        disabled={releases.length === 0 || releasing}
+        disabled={loading || releases.length === 0 || releasing}
         onclick={release}
       >
-        {releasing ? 'Releasing…' : `Release these ${releases.length}`}
+        {releasing ? 'Releasing…' : releases.length > 0 ? `Release these ${releases.length}` : 'Release'}
       </button>
     </div>
   </div>
