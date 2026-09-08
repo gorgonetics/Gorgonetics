@@ -93,7 +93,7 @@ function qualityTitle(pet: Pet): string {
   const r = quality.value?.scores.get(pet.id);
   if (!r) {
     return unscoredIds.has(pet.id)
-      ? 'Not scored — no genome has been imported for this pet.'
+      ? 'Not scored — no usable genome data for this pet. Re-import its genome file.'
       : 'Not scored — only stabled pets are, since capability is what you can breed from.';
   }
   if (r.atRiskCapability === 0) {

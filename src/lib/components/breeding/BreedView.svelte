@@ -395,7 +395,8 @@ onDestroy(() => {
           {/if}
           {#if reachExhausted}
             <div class="bv-hint" data-testid="breed-reach-exhausted">
-              Reach new ground has little left to gain here. Raise the ceiling or Clean the line will do more now.
+              Reach new ground has little left to gain here. Worth comparing Raise the ceiling or Clean the line
+              before this round.
             </div>
           {/if}
         {:else}
