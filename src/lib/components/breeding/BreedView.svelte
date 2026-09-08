@@ -17,6 +17,7 @@ import PageHeader from '$lib/components/shared/PageHeader.svelte';
 import StatusPane from '$lib/components/shared/StatusPane.svelte';
 import { rankBreedingPairs } from '$lib/services/breedingService.js';
 import { getAllAttributeNames, getSupportedSpecies, normalizeSpecies } from '$lib/services/configService.js';
+import { capabilitySummary } from '$lib/services/geneticQualityService.js';
 import { breedingView, clearBench, toggleBench } from '$lib/stores/breeding.svelte.js';
 // `loading` aliased: this component has its own ranking `loading` flag.
 import { pets, loading as petsLoading } from '$lib/stores/pets.js';
@@ -28,6 +29,7 @@ import {
   resolveObjective,
 } from '$lib/utils/breedingObjectives.js';
 import { suggestPlans } from '$lib/utils/breedingPlan.js';
+import { keyedResource } from '$lib/utils/keyedResource.svelte.js';
 import { getSpeciesEmoji } from '$lib/utils/species.js';
 import { capitalize } from '$lib/utils/string.js';
 
@@ -158,6 +160,32 @@ const plans = $derived(
     ? suggestPlans({ ranked: pairs, slots: breedingView.spots, score: objective.score })
     : undefined,
 );
+
+/**
+ * Where the candidate pool stands against what it could ever lock, and how
+ * much the best "Reach new ground" plan would still add.
+ *
+ * Reach runs out of ground fast. Simulated over forty rounds on the reference
+ * stable its expected gain per round fell below one slot-unit between rounds
+ * eleven and twenty-five, after which each round's cull cost cancels the
+ * breeding gain and the stable churns — while every other objective still had
+ * work to do. Below `REACH_EXHAUSTED` the view says so and points at them.
+ * The plan total overcounts shared gains by a few percent (breedingPlan.ts);
+ * as a "has it run dry" signal that error does not matter.
+ */
+const REACH_EXHAUSTED = 1;
+const summaryKey = $derived(candidates.length > 0 ? candidateKey : null);
+const summary = keyedResource(
+  () => summaryKey,
+  () => capabilitySummary({ species, pets: candidates }),
+);
+const reachObjective = BREEDING_OBJECTIVES.find((o) => o.id === 'reach') as BreedingObjective;
+const reachGain = $derived(
+  breedingView.spots > 0 && pairs.length > 0
+    ? (suggestPlans({ ranked: pairs, slots: breedingView.spots, score: reachObjective.score })[0]?.total ?? 0)
+    : null,
+);
+const reachExhausted = $derived(objective.id === 'reach' && reachGain !== null && reachGain < REACH_EXHAUSTED);
 let seq = 0;
 let prevKey: string | undefined;
 let prevSpecies: string | undefined;
@@ -343,6 +371,20 @@ onDestroy(() => {
         {#if breedingView.spots > 0}
           {@const planSize = plans?.[0]?.pairs.length ?? 0}
           {planSize} {planSize === 1 ? 'pair' : 'pairs'} at once{planSize < breedingView.spots ? ' · most your pool allows' : ''} · suggested plans, best first · sort any column
+          {#if summary.value}
+            <div class="bv-capability" data-testid="breed-capability">
+              Pool holds <strong>{summary.value.capability.toFixed(1)}</strong> of
+              <strong>{summary.value.reachable}</strong> reachable slot-units ({summary.value.ceiling} in the genome)
+              {#if reachGain !== null}
+                · best reach plan adds ≈ {reachGain.toFixed(1)}
+              {/if}
+            </div>
+          {/if}
+          {#if reachExhausted}
+            <div class="bv-hint" data-testid="breed-reach-exhausted">
+              Reach new ground has little left to gain here. Raise the ceiling or Clean the line will do more now.
+            </div>
+          {/if}
         {:else}
           {pairs.length} {pairs.length === 1 ? 'pair' : 'pairs'} · ranked to
           <span class="objective-name" data-testid="breed-objective-hint">{objective.label.toLowerCase()}</span>
@@ -392,4 +434,7 @@ onDestroy(() => {
   .bv-pool { margin: var(--space-sm) var(--space-2xl) 0; flex-shrink: 0; }
   .bv-body { flex: 1; min-height: 0; overflow: auto; padding: var(--space-sm) var(--space-2xl) var(--space-xl); display: flex; flex-direction: column; gap: var(--space-sm); }
   .bv-meta { font-size: 12px; color: var(--text-tertiary); }
+  .bv-capability { margin-top: var(--space-2xs); color: var(--text-muted); }
+  .bv-capability strong { color: var(--text-secondary); font-weight: 600; }
+  .bv-hint { margin-top: var(--space-2xs); color: var(--warning-text, var(--text-secondary)); font-weight: 600; }
 </style>

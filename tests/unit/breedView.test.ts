@@ -1,14 +1,20 @@
-import { cleanup, fireEvent, render } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { rankBreedingPairs } from '$lib/services/breedingService.js';
 import { breedingView } from '$lib/stores/breeding.svelte.js';
 import { loading, pets } from '$lib/stores/pets.js';
-import type { Pet } from '$lib/types/index.js';
+import type { BreedingPairResult, Pet } from '$lib/types/index.js';
 
 // The ranking service is exercised by its own suite; stub it so these tests
 // stay a focused check of BreedView's species defaulting and trio lifecycle.
 vi.mock('$lib/services/breedingService.js', () => ({
   rankBreedingPairs: vi.fn(async () => []),
+}));
+
+// The capability readout hits the DB through the quality service; a fixed
+// summary keeps these tests about the view's wording and gating.
+vi.mock('$lib/services/geneticQualityService.js', () => ({
+  capabilitySummary: vi.fn(async () => ({ capability: 700, reachable: 800, ceiling: 879 })),
 }));
 
 // The real TrioView mounts the heavy offspring grid (~2304 cells); the guard
@@ -45,6 +51,7 @@ function resetView() {
   breedingView.scrollLeft = 0;
   breedingView.benchedIds = new Set();
   breedingView.spots = 0;
+  breedingView.objective = 'reach';
 }
 
 beforeEach(() => {
@@ -246,5 +253,65 @@ describe('BreedView — bench + planning', () => {
     expect(breedingView.spots).toBe(0);
     expect(value()).toBe('Off');
     expect((container.querySelector('[aria-label="Fewer breeding spots"]') as HTMLButtonElement).disabled).toBe(true);
+  });
+});
+
+describe('BreedView — when Reach new ground has run dry', () => {
+  const pairStub = (evCapabilityGain: number): BreedingPairResult => ({
+    male: stallion,
+    female: mare,
+    evMixed: 0,
+    evPositiveByAttribute: {},
+    evPositiveTotal: 0,
+    evPositiveWeighted: 0,
+    evCapabilityGain,
+    evPositiveImprovement: 0,
+    evPairUpgrade: 0,
+    betterParentPositives: 0,
+    weakerParentPositives: 0,
+    evAttributeImprovement: {},
+    evNegativeTotal: 0,
+    evLiabilityReduction: 0,
+    cleanerParentNegatives: 0,
+    evUnknown: 0,
+    totalLoci: 0,
+  });
+
+  beforeEach(() => {
+    breedingView.species = 'horse';
+    breedingView.spots = 1;
+    pets.set([stallion, mare]);
+  });
+
+  it('shows what the pool holds against what it could ever lock', async () => {
+    vi.mocked(rankBreedingPairs).mockResolvedValueOnce([pairStub(3)]);
+    const { container, rerender } = render(BreedView);
+    await rerender({});
+    await waitFor(() => expect(container.querySelector('[data-testid="breed-capability"]')).toBeTruthy());
+    const text = container.querySelector('[data-testid="breed-capability"]')?.textContent?.replace(/\s+/g, ' ') ?? '';
+    expect(text).toContain('700.0');
+    expect(text).toContain('800');
+    expect(text).toContain('879');
+    expect(text).toContain('3.0');
+    expect(container.querySelector('[data-testid="breed-reach-exhausted"]')).toBeNull();
+  });
+
+  it('says so, and points at the other strategies, once the best reach plan adds under a slot-unit', async () => {
+    vi.mocked(rankBreedingPairs).mockResolvedValueOnce([pairStub(0.25)]);
+    const { container, rerender } = render(BreedView);
+    await rerender({});
+    await waitFor(() => expect(container.querySelector('[data-testid="breed-reach-exhausted"]')).toBeTruthy());
+    expect(container.querySelector('[data-testid="breed-reach-exhausted"]')?.textContent).toContain(
+      'Raise the ceiling',
+    );
+  });
+
+  it('stays quiet when the player is already breeding for something else', async () => {
+    breedingView.objective = 'ceiling';
+    vi.mocked(rankBreedingPairs).mockResolvedValueOnce([pairStub(0.25)]);
+    const { container, rerender } = render(BreedView);
+    await rerender({});
+    await waitFor(() => expect(container.querySelector('[data-testid="breed-capability"]')).toBeTruthy());
+    expect(container.querySelector('[data-testid="breed-reach-exhausted"]')).toBeNull();
   });
 });
