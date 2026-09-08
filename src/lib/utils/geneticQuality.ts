@@ -687,8 +687,11 @@ export function safeCullOrder(
     if (target !== undefined && releases.length >= target) break;
     const best = pick();
     if (best === null) break;
-    // Without a target, stop before paying anything.
-    if (target === undefined && best.cost > 0) return { releases, totalCost, next: best };
+    // Without a target, stop before paying anything — measured on the same
+    // key the walk orders by. In `netLiability` mode the cheapest pick is
+    // often one that costs capability and clears more of it, so testing raw
+    // cost here would abort the walk on its very first choice.
+    if (target === undefined && key(best) > 0) return { releases, totalCost, next: best };
     releases.push(best);
     totalCost += best.cost;
     remaining.splice(remaining.indexOf(best.id), 1);
