@@ -88,13 +88,20 @@ const wasScored = (pet: Pet) => quality.value?.scores.has(pet.id) ?? false;
 /** Tooltip: what the percentage is a share of, and why it is what it is. */
 function qualityTitle(pet: Pet): string {
   const r = quality.value?.scores.get(pet.id);
-  if (!r) return 'Not scored — only stabled pets are, since capability is what you can breed from.';
-  if (r.atRiskCapability === 0) {
-    return 'Nothing here is irreplaceable — every allele it carries is available from another stabled pet.';
+  if (!r) {
+    return quality.value?.unscored.includes(pet.id)
+      ? 'Not scored — no genome has been imported for this pet.'
+      : 'Not scored — only stabled pets are, since capability is what you can breed from.';
   }
-  const parts = [`${r.atRiskCapability.toFixed(1)} of the stable's irreplaceable genetics`];
+  if (r.atRiskCapability === 0) {
+    return 'Nothing here is irreplaceable — every beneficial allele it carries is available from another stabled pet.';
+  }
+  const parts = [
+    `${r.atRiskCapability.toFixed(1)} slot-units the stable would lose without it (0.5 = only carrier, 1 = only one breeding it true)`,
+  ];
   if (r.soleSourceSlots > 0) parts.push(`sole source of ${r.soleSourceSlots}`);
   if (r.soleLockSlots > 0) parts.push(`only one able to breed ${r.soleLockSlots} true`);
+  parts.push("shown as a share of the stable's total irreplaceable capability");
   return parts.join(' · ');
 }
 

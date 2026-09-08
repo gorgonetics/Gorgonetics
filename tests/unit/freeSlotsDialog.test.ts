@@ -215,6 +215,80 @@ describe('FreeSlotsDialog', () => {
     expect(items(container).join(' ')).not.toContain('Dup1 ');
   });
 
+  it('blames the exclusions, not the genetics, when nothing can be suggested', async () => {
+    const pets = await stable();
+    for (const p of pets) await petService.updatePet(p.id, { starred: true });
+    const starred = await Promise.all(pets.map(async (p) => (await petService.getPet(p.id)) as Pet));
+    const { container } = render(FreeSlotsDialog, {
+      species: 'beewasp',
+      pets: starred,
+      onRelease: noop,
+      onClose: noop,
+    });
+    await waitFor(() => expect(container.querySelector('[data-testid="free-slots-none"]')).toBeTruthy());
+    const text = container.querySelector('[data-testid="free-slots-none"]')?.textContent ?? '';
+    expect(text).toContain('starred');
+    expect(text).not.toContain('no other one does');
+  });
+
+  it('says how many of each sex are left and the pairs they can form', async () => {
+    const pets = await stable();
+    const { container } = render(FreeSlotsDialog, {
+      species: 'beewasp',
+      pets,
+      onRelease: noop,
+      onClose: noop,
+    });
+    await waitFor(() => expect(container.querySelector('[data-testid="free-slots-after"]')).toBeTruthy());
+    const text = container.querySelector('[data-testid="free-slots-after"]')?.textContent?.replace(/\s+/g, ' ') ?? '';
+    expect(text).toMatch(/\d+ males?, \d+ females?/);
+    expect(text).toContain('pair');
+  });
+
+  it('keeps the best animal by default and lets the player opt out', async () => {
+    // The founder expresses the only positive, so it is the stable's best.
+    const pets = await stable();
+    const { container } = render(FreeSlotsDialog, {
+      species: 'beewasp',
+      pets,
+      onRelease: noop,
+      onClose: noop,
+    });
+    await waitFor(() => expect(container.querySelector('[data-testid="free-slots-best"]')).toBeTruthy());
+    expect(container.querySelector('[data-testid="free-slots-best"]')?.textContent).toContain('Founder');
+
+    await fireEvent.click(container.querySelector('[data-testid="free-slots-protect"]') as HTMLInputElement);
+    await waitFor(() => expect(container.querySelector('[data-testid="free-slots-best"]')).toBeNull());
+    // Still never released: the founder is irreplaceable on the score too.
+    expect(items(container).join(' ')).not.toContain('Founder');
+  });
+
+  it('offers a clean-the-line release mode', async () => {
+    const pets = await stable();
+    const { container } = render(FreeSlotsDialog, {
+      species: 'beewasp',
+      pets,
+      onRelease: noop,
+      onClose: noop,
+    });
+    const select = container.querySelector('[data-testid="free-slots-mode"]') as HTMLSelectElement;
+    expect([...select.options].map((o) => o.value)).toEqual(['potential', 'clean']);
+    await fireEvent.change(select, { target: { value: 'clean' } });
+    await waitFor(() => expect(items(container).length).toBeGreaterThan(0));
+  });
+
+  it('states that only attribute-bearing alleles are priced', async () => {
+    const pets = await stable();
+    const { container } = render(FreeSlotsDialog, {
+      species: 'beewasp',
+      pets,
+      onRelease: noop,
+      onClose: noop,
+    });
+    await waitFor(() => expect(container.querySelector('[data-testid="free-slots-scope"]')).toBeTruthy());
+    expect(container.querySelector('[data-testid="free-slots-scope"]')?.textContent).toContain('selector');
+  });
+
   it('promises no deletion, because releasing only un-stables', async () => {
     const pets = await stable();
     const { container } = render(FreeSlotsDialog, {
