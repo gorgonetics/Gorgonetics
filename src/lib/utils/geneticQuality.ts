@@ -521,6 +521,31 @@ export interface SafeCullOrderOptions {
    * mount is kept by pinning it, not by out-scoring the genome.
    */
   secondaryTiebreak?: ReadonlyMap<number, readonly number[]>;
+  /**
+   * A partition of the animals and the smallest count of any part the walk
+   * may leave behind. An animal whose part is already at or below `min` is
+   * never released. The service passes sex: freeing slots for six pairs is
+   * pointless if it leaves five males.
+   *
+   * The score cannot see this. Foals are cheap to release because they are
+   * young copies of their parents, and foal sex is random, so a sex-blind
+   * walk drains whichever sex happens to be scarce. Rare but terminal:
+   * simulated over twenty rounds on the reference stable, one run in twelve
+   * lost the ability to form any pair at all. With the floor, none did.
+   */
+  groupFloor?: { group: ReadonlyMap<number, string>; min: number };
+  /**
+   * Order by `cost − liabilityRemoved` instead of cost alone, so an animal
+   * that takes more negatives with it than positives goes first. The cost
+   * reported on each step is still the capability lost.
+   *
+   * Off by default: it spends potential to buy cleanliness. Measured over
+   * forty breeding rounds on the reference stable, locked-in negatives rose
+   * by 12 slot-units under the plain walk and by about 4 under this one, for
+   * roughly 2 slot-units less capability out of the 58 gained. That is a
+   * strategy, so the player chooses it.
+   */
+  netLiability?: boolean;
 }
 
 /**
@@ -601,16 +626,36 @@ export function safeCullOrder(
   const pinned = opts.pinned ?? new Set<number>();
   const primary = opts.primaryTiebreak;
   const secondary = opts.secondaryTiebreak;
+  const floor = opts.groupFloor;
   const target = opts.target;
   const remaining = [...ids];
   const releases: CullStep[] = [];
   let totalCost = 0;
 
+  /** The ordering key: capability lost, or net of the liability it takes along. */
+  const key = (s: CullStep) => (opts.netLiability ? s.cost - s.liabilityRemoved : s.cost);
+
+  /** Parts of the partition the walk may not shrink further. */
+  const heldGroups = (): Set<string> => {
+    const held = new Set<string>();
+    if (!floor) return held;
+    const counts = new Map<string, number>();
+    for (const id of remaining) {
+      const g = floor.group.get(id);
+      if (g !== undefined) counts.set(g, (counts.get(g) ?? 0) + 1);
+    }
+    for (const [g, n] of counts) if (n <= floor.min) held.add(g);
+    return held;
+  };
+
   const pick = (): CullStep | null => {
     const scored = scoreGroup(lociByPet, genes, remaining);
+    const held = heldGroups();
     let best: CullStep | null = null;
     for (const id of remaining) {
       if (pinned.has(id)) continue;
+      const g = floor?.group.get(id);
+      if (g !== undefined && held.has(g)) continue;
       const r = scored.get(id);
       if (!r) continue;
       const step: CullStep = { id, cost: r.atRiskCapability, liabilityRemoved: r.liabilityAtRisk };
@@ -625,8 +670,8 @@ export function safeCullOrder(
       const cmpPrimary = primary ? compareTiebreak(primary.get(step.id) ?? [], primary.get(best.id) ?? []) : 0;
       const cmpSecondary = secondary ? compareTiebreak(secondary.get(step.id) ?? [], secondary.get(best.id) ?? []) : 0;
       const better =
-        step.cost !== best.cost
-          ? step.cost < best.cost
+        key(step) !== key(best)
+          ? key(step) < key(best)
           : cmpPrimary !== 0
             ? cmpPrimary < 0
             : step.liabilityRemoved !== best.liabilityRemoved
@@ -643,14 +688,62 @@ export function safeCullOrder(
     if (target !== undefined && releases.length >= target) break;
     const best = pick();
     if (best === null) break;
-    // Without a target, stop before paying anything.
-    if (target === undefined && best.cost > 0) return { releases, totalCost, next: best };
+    // Without a target, stop before paying anything — measured on the same
+    // key the walk orders by. In `netLiability` mode the cheapest pick is
+    // often one that costs capability and clears more of it, so testing raw
+    // cost here would abort the walk on its very first choice.
+    if (target === undefined && key(best) > 0) return { releases, totalCost, next: best };
     releases.push(best);
     totalCost += best.cost;
     remaining.splice(remaining.indexOf(best.id), 1);
   }
 
   return { releases, totalCost, next: remaining.length > MIN_POPULATION ? pick() : null };
+}
+
+/** Where a population stands against what its allele pool could ever lock. */
+export interface CapabilitySummary {
+  /** Capability held now: locked slots count 1, carried-only slots 0.5. */
+  capability: number;
+  /**
+   * Slots at least one animal carries — the most breeding from this pool can
+   * ever lock. An allele nobody carries cannot be bred into existence, so
+   * this, not `ceiling`, is the number a breeding loop converges toward.
+   */
+  reachable: number;
+  /** Every benefit slot in the gene set: the genome's own ceiling. */
+  ceiling: number;
+}
+
+/**
+ * Sum the population's capability and its reachable ceiling.
+ *
+ * Exists so the breeding view can say when "Reach new ground" has run out of
+ * ground. Simulated over forty rounds on the reference stable the loop
+ * converged to 99.2–99.6% of `reachable` under every policy tried, and the
+ * reach objective's expected gain *per pair* fell below one slot-unit at
+ * round six, with the stable already holding 97.7% of what it could reach.
+ */
+export function capabilitySummary(
+  lociByPet: Iterable<PetLoci>,
+  genes: Readonly<Record<string, ScoredGene>>,
+): CapabilitySummary {
+  const tallies = tallyAlleles(lociByPet);
+  let held = 0;
+  let reachable = 0;
+  let ceiling = 0;
+  for (const [geneId, gene] of Object.entries(genes)) {
+    const slots = benefitSlots(gene);
+    ceiling += slots.length;
+    const tally = tallies.get(geneId);
+    if (!tally) continue;
+    for (const slot of slots) {
+      const { hom, car } = countsFor(tally, slot.allele);
+      held += capability(hom, car);
+      if (car > 0) reachable += 1;
+    }
+  }
+  return { capability: held, reachable, ceiling };
 }
 
 /**

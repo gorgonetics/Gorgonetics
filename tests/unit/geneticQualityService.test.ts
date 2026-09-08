@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { closeDatabase, initDatabase } from '$lib/services/database.js';
+import { closeDatabase, getDb, initDatabase } from '$lib/services/database.js';
 import * as geneService from '$lib/services/geneService.js';
 import { safeCullSet, scoreStable } from '$lib/services/geneticQualityService.js';
 import { runMigrations } from '$lib/services/migrationService.js';
@@ -171,9 +171,13 @@ describe('safeCullSet', () => {
     expect(await safeCullSet({ species: 'BeeWasp', pets: [] })).toEqual({
       releases: [],
       totalCost: 0,
-      allFree: true,
+      totalCleared: 0,
       next: null,
       pinned: [],
+      protectedBest: [],
+      unscored: [],
+      after: { males: 0, females: 0, pairs: 0 },
+      atFloor: [],
     });
   });
 });
@@ -195,9 +199,9 @@ describe('safeCullSet — freeing a fixed number of slots', () => {
 
   it('frees exactly the requested number of slots', async () => {
     const pets = await stable();
-    const { releases, allFree } = await safeCullSet({ species: 'BeeWasp', pets, slots: 2 });
+    const { releases, totalCost } = await safeCullSet({ species: 'BeeWasp', pets, slots: 2 });
     expect(releases).toHaveLength(2);
-    expect(allFree).toBe(true);
+    expect(totalCost).toBe(0);
     expect(releases.map((r) => r.pet.name)).not.toContain('Unique');
   });
 
@@ -205,10 +209,9 @@ describe('safeCullSet — freeing a fixed number of slots', () => {
     const pets = await stable();
     // Only three releases are free before the floor bites; asking for more
     // must surface the cost rather than silently returning a short list.
-    const { releases, totalCost, allFree } = await safeCullSet({ species: 'BeeWasp', pets, slots: 3 });
+    const { releases, totalCost } = await safeCullSet({ species: 'BeeWasp', pets, slots: 3 });
     expect(releases).toHaveLength(3);
     expect(totalCost).toBe(0);
-    expect(allFree).toBe(true);
   });
 
   it('never releases more than the population floor allows', async () => {
@@ -240,5 +243,225 @@ describe('safeCullSet — freeing a fixed number of slots', () => {
     const names = releases.map((r) => r.pet.name);
     expect(names).not.toContain('Dup1');
     expect(names).not.toContain('Dup2');
+  });
+});
+
+describe('safeCullSet — what the score cannot see', () => {
+  beforeEach(reset);
+
+  it('keeps enough of each sex for the pairs the freed slots are for', async () => {
+    const pets = [
+      await upload('M1', Gender.MALE, 'DDx'),
+      await upload('M2', Gender.MALE, 'DDx'),
+      await upload('M3', Gender.MALE, 'DDx'),
+      await upload('M4', Gender.MALE, 'DDx'),
+      await upload('M5', Gender.MALE, 'DDx'),
+      await upload('F1', Gender.FEMALE, 'DDx'),
+      await upload('F2', Gender.FEMALE, 'DDx'),
+      await upload('F3', Gender.FEMALE, 'DDx'),
+    ];
+    // Everything is redundant, so only the sex floor shapes the answer.
+    // Three pairs wanted: no female may go, and two males may.
+    const three = await safeCullSet({ species: 'BeeWasp', pets, slots: 4, pairs: 3, protectBest: false });
+    expect(three.releases.map((r) => r.pet.gender)).toEqual([Gender.MALE, Gender.MALE]);
+    expect(three.after).toEqual({ males: 3, females: 3, pairs: 3 });
+    expect(three.atFloor.sort()).toEqual([Gender.FEMALE, Gender.MALE]);
+
+    // The default floor is the slot count, capped at what the animals left
+    // could pair: four slots from eight leaves four animals, so two pairs.
+    const auto = await safeCullSet({ species: 'BeeWasp', pets, slots: 4, protectBest: false });
+    expect(auto.releases).toHaveLength(4);
+    expect(auto.after.pairs).toBeGreaterThanOrEqual(2);
+
+    // Opting out of the floor lets the walk ignore sex entirely.
+    const none = await safeCullSet({ species: 'BeeWasp', pets, slots: 4, pairs: 0, protectBest: false });
+    expect(none.atFloor).toEqual([]);
+  });
+
+  it('keeps the best animal by expressed positives, whatever it scores', async () => {
+    // Two 'RDx' animals express two positives each and cover one another, so
+    // by the score either is free. The first is kept as the stable's best.
+    const pets = [
+      await upload('Best', Gender.MALE, 'RDx'),
+      await upload('Twin', Gender.FEMALE, 'RDx'),
+      await upload('Dup1', Gender.MALE, 'DDx'),
+      await upload('Dup2', Gender.FEMALE, 'DDx'),
+      await upload('Dup3', Gender.MALE, 'DDx'),
+      await upload('Dup4', Gender.FEMALE, 'DDx'),
+    ];
+    const kept = await safeCullSet({ species: 'BeeWasp', pets, slots: 2, pairs: 0 });
+    expect(kept.protectedBest.map((p) => p.name)).toEqual(['Best']);
+    expect(kept.releases.map((r) => r.pet.name)).not.toContain('Best');
+
+    const open = await safeCullSet({ species: 'BeeWasp', pets, slots: 2, pairs: 0, protectBest: false });
+    expect(open.protectedBest).toEqual([]);
+  });
+
+  it('never suggests a pet with no genome rows, and says so', async () => {
+    const pets = [
+      await upload('Ghost', Gender.MALE, 'DDx'),
+      await upload('A', Gender.FEMALE, 'RDx'),
+      await upload('B', Gender.MALE, 'DDx'),
+      await upload('C', Gender.FEMALE, 'DDx'),
+      await upload('D', Gender.MALE, 'DDx'),
+    ];
+    // Strip Ghost's projection and make the fallback re-population fail, as
+    // a pet whose genome never parsed would look.
+    const db = getDb();
+    await db.execute('DELETE FROM pet_genes WHERE pet_id = $id', { id: pets[0].id });
+    await db.execute('UPDATE pets SET genome_data = $g WHERE id = $id', { g: '{}', id: pets[0].id });
+
+    const set = await safeCullSet({ species: 'BeeWasp', pets, slots: 2, pairs: 0, protectBest: false });
+    expect(set.unscored.map((p) => p.name)).toEqual(['Ghost']);
+    expect(set.releases.map((r) => r.pet.name)).not.toContain('Ghost');
+
+    const { scores, unscored } = await scoreStable({ species: 'BeeWasp', pets });
+    expect(unscored).toEqual([pets[0].id]);
+    expect(scores.has(pets[0].id)).toBe(false);
+  });
+
+  it('clean mode lets a liability-heavy animal go before a free one', async () => {
+    const pets = [
+      // Homozygous for 01A1's negative and its only holder; sole carrier of
+      // 01A2's positive. Costs 0.5, clears 1.
+      await upload('Dirty', Gender.MALE, 'Dx?'),
+      // Three interchangeable clean animals: cost 0, nothing to clear.
+      await upload('Clean1', Gender.FEMALE, 'RR?'),
+      await upload('Clean2', Gender.MALE, 'RR?'),
+      await upload('Clean3', Gender.FEMALE, 'RR?'),
+    ];
+    const potential = await safeCullSet({ species: 'BeeWasp', pets, slots: 1, pairs: 0, protectBest: false });
+    expect(potential.releases[0].pet.name).toBe('Clean1');
+    expect(potential.totalCost).toBe(0);
+
+    const clean = await safeCullSet({
+      species: 'BeeWasp',
+      pets,
+      slots: 1,
+      pairs: 0,
+      protectBest: false,
+      mode: 'clean',
+    });
+    expect(clean.releases[0].pet.name).toBe('Dirty');
+    expect(clean.totalCost).toBe(0.5);
+    expect(clean.totalCleared).toBe(1);
+  });
+});
+
+describe('safeCullSet — the population the floor counts', () => {
+  beforeEach(reset);
+
+  /**
+   * `MIN_POPULATION` protects the *measured* population. A pinned animal still
+   * counts toward it, because its alleles stay in the tally; a pet with no
+   * genome rows contributes nothing to the tally and must not pad it.
+   */
+  it('never strips the stable of every scored animal to satisfy a slot target', async () => {
+    const pets: Pet[] = [];
+    for (let i = 0; i < 7; i++) pets.push(await upload(`Ghost${i}`, Gender.MALE, 'xDx'));
+    for (let i = 0; i < 3; i++) pets.push(await upload(`Real${i}`, Gender.FEMALE, 'xDx'));
+    const db = getDb();
+    for (const p of pets.slice(0, 7)) {
+      await db.execute('DELETE FROM pet_genes WHERE pet_id = $id', { id: p.id });
+      await db.execute('UPDATE pets SET genome_data = $g WHERE id = $id', { g: '{}', id: p.id });
+    }
+
+    const set = await safeCullSet({ species: 'BeeWasp', pets, slots: 6, pairs: 0, protectBest: false });
+    expect(set.unscored).toHaveLength(7);
+    // Three scored animals is exactly the floor, so none of them may go.
+    expect(set.releases).toEqual([]);
+
+    const kept = pets.filter((p) => !set.releases.some((r) => r.pet.id === p.id));
+    expect((await scoreStable({ species: 'BeeWasp', pets: kept })).meaningful).toBe(true);
+  });
+
+  it('still counts pinned animals toward the floor, since their alleles remain', async () => {
+    const pets = [
+      await upload('Star1', Gender.MALE, 'xDx'),
+      await upload('Star2', Gender.MALE, 'xDx'),
+      await upload('Star3', Gender.FEMALE, 'xDx'),
+      await upload('Free1', Gender.FEMALE, 'xDx'),
+    ];
+    const set = await safeCullSet({
+      species: 'BeeWasp',
+      pets,
+      slots: 1,
+      pairs: 0,
+      protectBest: false,
+      pinned: [pets[0].id, pets[1].id, pets[2].id],
+    });
+    // Four animals, floor of three: the one unpinned animal may still go,
+    // because the three kept ones hold the population up.
+    expect(set.releases.map((r) => r.pet.name)).toEqual(['Free1']);
+  });
+
+  it('reports a sex at the floor only when it has members the walk could have taken', async () => {
+    const pets: Pet[] = [];
+    for (let i = 0; i < 6; i++) pets.push(await upload(`Fem${i}`, Gender.FEMALE, 'xDx'));
+    const set = await safeCullSet({ species: 'BeeWasp', pets, slots: 3, protectBest: false });
+    // No males exist, so the floor never held any back; saying otherwise
+    // would have the dialog explain a shortfall that has another cause.
+    expect(set.atFloor).not.toContain(Gender.MALE);
+    expect(set.after.males).toBe(0);
+  });
+
+  it('protects the same animal whatever order the roster arrives in', async () => {
+    const a = await upload('Alpha', Gender.MALE, 'RDx');
+    const b = await upload('Beta', Gender.FEMALE, 'RDx');
+    const rest = [
+      await upload('D1', Gender.MALE, 'DDx'),
+      await upload('D2', Gender.FEMALE, 'DDx'),
+      await upload('D3', Gender.MALE, 'DDx'),
+    ];
+    // Alpha and Beta tie on every criterion; only their ids separate them.
+    const forward = await safeCullSet({ species: 'BeeWasp', pets: [a, b, ...rest], slots: 1, pairs: 0 });
+    const reversed = await safeCullSet({ species: 'BeeWasp', pets: [b, a, ...rest], slots: 1, pairs: 0 });
+    expect(forward.protectedBest.map((p) => p.name)).toEqual(['Alpha']);
+    expect(reversed.protectedBest.map((p) => p.name)).toEqual(['Alpha']);
+  });
+
+  it('clean mode with no slot target still walks the free releases', async () => {
+    const pets = [
+      // Sole carrier of 01A2's positive (cost 0.5) and sole holder of 01A1's
+      // dominant negative (clears 1) — net −0.5, so clean mode picks it first
+      // even though it costs something.
+      await upload('Dirty', Gender.MALE, 'DxD'),
+      await upload('C1', Gender.FEMALE, 'RDD'),
+      await upload('C2', Gender.MALE, 'RDD'),
+      await upload('C3', Gender.FEMALE, 'RDD'),
+      await upload('C4', Gender.MALE, 'RDD'),
+    ];
+    const clean = await safeCullSet({ species: 'BeeWasp', pets, pairs: 0, protectBest: false, mode: 'clean' });
+    // The old stop condition tested raw cost, so this returned nothing at all.
+    expect(clean.releases.length).toBeGreaterThan(0);
+    expect(clean.releases[0].pet.name).toBe('Dirty');
+    expect(clean.totalCleared).toBeGreaterThan(0);
+  });
+});
+
+describe('safeCullSet — atFloor names only a live constraint', () => {
+  beforeEach(reset);
+
+  it('does not blame the sex floor once the last releasable member of that sex has gone', async () => {
+    const pets = [
+      await upload('M1', Gender.MALE, 'xDx'),
+      await upload('M2', Gender.MALE, 'xDx'),
+      await upload('F1', Gender.FEMALE, 'xDx'),
+      await upload('F2', Gender.FEMALE, 'xDx'),
+      await upload('F3', Gender.FEMALE, 'xDx'),
+      await upload('F4', Gender.FEMALE, 'xDx'),
+    ];
+    // Pin one male; release the other. No male is left that the walk could
+    // have taken, so the floor is not what is holding the list back.
+    const set = await safeCullSet({
+      species: 'BeeWasp',
+      pets,
+      slots: 1,
+      pairs: 1,
+      protectBest: false,
+      pinned: [pets[0].id],
+    });
+    expect(set.releases.map((r) => r.pet.name)).toEqual(['M2']);
+    expect(set.atFloor).not.toContain(Gender.MALE);
   });
 });

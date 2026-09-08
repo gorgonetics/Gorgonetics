@@ -62,6 +62,9 @@ const quality = keyedResource(
   () => scoreStable({ species: scoredSpecies, pets: scoredPool }),
 );
 const qualityShare = (pet: Pet) => quality.value?.shares.get(pet.id) ?? 0;
+// Set, not the array: the tooltip asks per row, and the roster renders every
+// filtered pet.
+const unscoredIds = $derived(new Set(quality.value?.unscored ?? []));
 /**
  * Suppressed below the population floor, where every allele reads as sole.
  *
@@ -88,13 +91,20 @@ const wasScored = (pet: Pet) => quality.value?.scores.has(pet.id) ?? false;
 /** Tooltip: what the percentage is a share of, and why it is what it is. */
 function qualityTitle(pet: Pet): string {
   const r = quality.value?.scores.get(pet.id);
-  if (!r) return 'Not scored — only stabled pets are, since capability is what you can breed from.';
-  if (r.atRiskCapability === 0) {
-    return 'Nothing here is irreplaceable — every allele it carries is available from another stabled pet.';
+  if (!r) {
+    return unscoredIds.has(pet.id)
+      ? 'Not scored — no usable genome data for this pet. Re-import its genome file.'
+      : 'Not scored — only stabled pets are, since capability is what you can breed from.';
   }
-  const parts = [`${r.atRiskCapability.toFixed(1)} of the stable's irreplaceable genetics`];
+  if (r.atRiskCapability === 0) {
+    return 'Nothing here is irreplaceable — every beneficial allele it carries is available from another stabled pet.';
+  }
+  const parts = [
+    `${r.atRiskCapability.toFixed(1)} slot-units the stable would lose without it (0.5 = only carrier, 1 = only one breeding it true)`,
+  ];
   if (r.soleSourceSlots > 0) parts.push(`sole source of ${r.soleSourceSlots}`);
   if (r.soleLockSlots > 0) parts.push(`only one able to breed ${r.soleLockSlots} true`);
+  parts.push("shown as a share of the stable's total irreplaceable capability");
   return parts.join(' · ');
 }
 

@@ -16,12 +16,17 @@
  *    every breed you might later target; `safeCullSet` takes no breed filter,
  *    and this view must not offer one.
  *
+ * And three things the score cannot see, which the dialog adds around it
+ * (design doc §4c): enough of each sex for the pairs the slots are for, the
+ * stable's best animal by phenotype, and — as a mode the player picks — the
+ * negatives an animal takes with it.
+ *
  * Releasing here means un-stabling, not deleting: the pet and its genome stay
  * in the library, it simply leaves the breeding pool. That is the reversible
  * reading of "make room", and it is what the copy promises.
  */
 import { type SafeCullSet, safeCullSet } from '$lib/services/geneticQualityService.js';
-import type { Pet } from '$lib/types/index.js';
+import { Gender, type Pet } from '$lib/types/index.js';
 import { focusTrap } from '$lib/utils/focusTrap.js';
 import { MIN_POPULATION } from '$lib/utils/geneticQuality.js';
 
@@ -50,6 +55,10 @@ let slots = $state(DEFAULT_SLOTS);
  */
 const maxSlots = $derived(Math.max(1, pets.length - MIN_POPULATION));
 const target = $derived(Math.min(maxSlots, Math.max(1, Math.floor(Number(slots) || 1))));
+/** Keep the best animal by + Genes and by stats out of the list. */
+let protectBest = $state(true);
+/** What the release optimises: potential kept, or negatives shed. */
+let mode = $state<'potential' | 'clean'>('potential');
 let plan = $state<SafeCullSet | null>(null);
 let loading = $state(true);
 let failed = $state(false);
@@ -57,12 +66,12 @@ let releasing = $state(false);
 let releaseFailed = $state(false);
 
 /**
- * Identity of the request: the target and the population it is judged
- * against. Same shape as BreedView's `candidateKey` — it makes the effect's
- * dependencies explicit instead of relying on which fields the body happens
- * to read.
+ * Identity of the request: the target, the options and the population it is
+ * judged against. Same shape as BreedView's `candidateKey` — it makes the
+ * effect's dependencies explicit instead of relying on which fields the body
+ * happens to read.
  */
-const requestKey = $derived(`${species}|${target}|${pets.map((p) => p.id).join(',')}`);
+const requestKey = $derived(`${species}|${target}|${protectBest}|${mode}|${pets.map((p) => p.id).join(',')}`);
 
 // The walk re-scores after every removal, so a different target is a
 // different answer, not a prefix of one — any key change means a refetch.
@@ -71,7 +80,11 @@ $effect(() => {
   let live = true;
   loading = true;
   failed = false;
-  safeCullSet({ species, pets, slots: target })
+  // Drop the previous answer rather than leaving it on screen behind the
+  // loading message. It was computed for different settings, and the footer
+  // button reads its list — so keeping it lets a click release the old set.
+  plan = null;
+  safeCullSet({ species, pets, slots: target, protectBest, mode })
     .then((r) => {
       if (live) plan = r;
     })
@@ -88,7 +101,25 @@ $effect(() => {
 
 const releases = $derived(plan?.releases ?? []);
 const shortfall = $derived(Math.max(0, target - releases.length));
+/**
+ * Animals the walk was never allowed to touch. A union, not a sum of the three
+ * lists: a starred pet with no genome appears in two of them, and summing
+ * lengths can reach the herd size while releasable animals remain — which
+ * would tell the player everything is excluded and hide the real reason.
+ */
+const keptOut = $derived(
+  new Set([
+    ...(plan?.pinned ?? []).map((p) => p.id),
+    ...(plan?.protectedBest ?? []).map((p) => p.id),
+    ...(plan?.unscored ?? []).map((p) => p.id),
+  ]).size,
+);
 const fmt = (n: number) => (n === 0 ? '0' : n.toFixed(1));
+const names = (ps: Pet[]) => ps.map((p) => p.name || 'unnamed').join(', ');
+const sexLabel = (g: Gender) => (g === Gender.MALE ? 'males' : 'females');
+/** The sexes the floor is holding back, as the dialog names them. */
+const heldSexes = $derived((plan?.atFloor ?? []).map(sexLabel).join(' or '));
+const allFree = $derived(plan !== null && plan.totalCost === 0);
 
 async function release() {
   if (releases.length === 0 || releasing) return;
@@ -147,6 +178,19 @@ async function release() {
         />
         <span class="slots-note">from {pets.length} stabled</span>
       </div>
+      <div class="options-row">
+        <label class="mode">
+          <span>Release by</span>
+          <select bind:value={mode} data-testid="free-slots-mode" title="Least potential lost: release whatever costs the least breeding capability. Negatives net of cost: rank each animal by what it clears minus what it costs, so a liability-heavy animal can go ahead of a free one.">
+            <option value="potential">least potential lost</option>
+            <option value="clean">negatives cleared, net of cost</option>
+          </select>
+        </label>
+        <label class="protect">
+          <input type="checkbox" bind:checked={protectBest} data-testid="free-slots-protect" />
+          <span>Keep my best by + Genes and by stats</span>
+        </label>
+      </div>
 
       {#if failed}
         <p class="msg error" data-testid="free-slots-error">
@@ -155,18 +199,33 @@ async function release() {
       {:else if loading}
         <p class="msg" data-testid="free-slots-loading">Working out what you can afford to lose…</p>
       {:else if releases.length === 0}
+        <!-- With a target set the walk always prices something if it can, so
+             an empty list means every animal is excluded or the sex floor
+             holds — never that the genetics forbid it. Say which. -->
         <p class="msg" data-testid="free-slots-none">
-          Nothing can be released without losing breeding capability — every stabled animal holds
-          something no other one does.
+          {#if plan && keptOut >= pets.length}
+            Every stabled animal is starred, protected as your best, or has no genome to score, so nothing can be suggested.
+          {:else if plan && plan.atFloor.length > 0}
+            Releasing any more {heldSexes} would leave too few to breed the pairs these slots are for.
+          {:else}
+            Nothing can be released without dropping below the minimum stable the score needs.
+          {/if}
         </p>
       {:else}
         <p class="verdict" data-testid="free-slots-verdict">
-          {#if plan?.allFree}
-            Releasing these {releases.length} costs you <strong>nothing</strong> — everything they
-            carry is available from an animal you keep.
+          {#if allFree}
+            Releasing these {releases.length} costs <strong>nothing</strong> — every beneficial allele they carry
+            is also held by an animal you keep.
+          {:else if mode === 'clean'}
+            Releasing these {releases.length} costs <strong>{fmt(plan?.totalCost ?? 0)}</strong> slot-units of
+            breeding capability, ordered by what each clears against what it costs.
           {:else}
-            Releasing these {releases.length} costs <strong>{fmt(plan?.totalCost ?? 0)}</strong> of
-            breeding capability. There is no cheaper set this size.
+            Releasing these {releases.length} costs <strong>{fmt(plan?.totalCost ?? 0)}</strong> slot-units of
+            breeding capability, the cheapest order found.
+          {/if}
+          {#if (plan?.totalCleared ?? 0) > 0}
+            They take <strong>{fmt(plan?.totalCleared ?? 0)}</strong> slot-units of negative-allele capability
+            with them.
           {/if}
         </p>
 
@@ -180,14 +239,14 @@ async function release() {
               <span class="who">{r.pet.name || 'Unnamed'}</span>
               <span class="tags">
                 {#if r.cost > 0}
-                  <span class="tag cost" title="Breeding capability lost at this point in the order">
+                  <span class="tag cost" title="Breeding capability lost at this point in the order, in slot-units: 0.5 is the only carrier of a beneficial allele, 1 the only animal that breeds it true">
                     costs {fmt(r.cost)}
                   </span>
                 {:else}
-                  <span class="tag free">free</span>
+                  <span class="tag free" title="Every beneficial allele it carries is held by an animal you keep">free</span>
                 {/if}
                 {#if r.liabilityRemoved > 0}
-                  <span class="tag good" title="Negative alleles that leave with this animal">
+                  <span class="tag good" title="Negative-allele capability that leaves with it, in the same slot-units: 0.5 is the only carrier of a negative, 1 the only animal that breeds it true">
                     clears {fmt(r.liabilityRemoved)}
                   </span>
                 {/if}
@@ -196,15 +255,23 @@ async function release() {
           {/each}
         </ol>
 
+        {#if plan}
+          <p class="msg subtle" data-testid="free-slots-after">
+            Left afterwards: {plan.after.males} {plan.after.males === 1 ? 'male' : 'males'}, {plan.after.females}
+            {plan.after.females === 1 ? 'female' : 'females'} — up to {plan.after.pairs} {plan.after.pairs === 1 ? 'pair' : 'pairs'}.
+            {#if plan.atFloor.length > 0}
+              No more {heldSexes} are suggested, so the pairs stay possible.
+            {/if}
+          </p>
+        {/if}
+
         {#if shortfall > 0}
-          <!-- The target is clamped to what the floor allows, so over-asking
-               cannot cause a shortfall. What remains is pinning: starred
-               animals are off the table, and enough of them shrinks the
-               releasable pool below the target. -->
           <p class="msg" data-testid="free-slots-shortfall">
             Only {releases.length} can be released.
-            {#if plan && plan.pinned.length > 0}
-              Starred animals are excluded, which leaves too few to reach {target}.
+            {#if plan && plan.atFloor.length > 0}
+              Releasing more would leave too few {heldSexes} to breed the pairs these slots are for.
+            {:else if plan && keptOut > 0}
+              Starred, protected and unscored animals are excluded, which leaves too few to reach {target}.
             {:else}
               The rest of the stable is at the minimum needed to keep the score meaningful.
             {/if}
@@ -217,10 +284,22 @@ async function release() {
           </p>
         {/if}
 
+        {#if plan && plan.protectedBest.length > 0}
+          <p class="msg subtle" data-testid="free-slots-best">
+            Kept as your best: {names(plan.protectedBest)}. The score only sees what an animal can pass on, not
+            what it is.
+          </p>
+        {/if}
+
+        {#if plan && plan.unscored.length > 0}
+          <p class="msg subtle" data-testid="free-slots-unscored">
+            Not scored, so never suggested: {names(plan.unscored)} — no usable genome rows for them.
+          </p>
+        {/if}
+
         {#if plan && plan.pinned.length > 0}
           <p class="msg subtle" data-testid="free-slots-pinned">
-            Kept regardless: {plan.pinned.map((p) => p.name || 'unnamed').join(', ')} — starred pets
-            are never suggested.
+            Kept regardless: {names(plan.pinned)} — starred pets are never suggested.
           </p>
         {:else}
           <p class="msg subtle" data-testid="free-slots-nopins">
@@ -228,6 +307,11 @@ async function release() {
             score only sees breeding value.
           </p>
         {/if}
+
+        <p class="msg subtle" data-testid="free-slots-scope">
+          Only alleles with an attribute effect are priced. Coat, marking and breed-selector genes are not,
+          so a "free" release can still be the last of a look.
+        </p>
       {/if}
     </div>
 
@@ -244,21 +328,24 @@ async function release() {
         type="button"
         class="btn primary"
         data-testid="free-slots-confirm"
-        disabled={releases.length === 0 || releasing}
+        disabled={loading || releases.length === 0 || releasing}
         onclick={release}
       >
-        {releasing ? 'Releasing…' : `Release these ${releases.length}`}
+        {releasing ? 'Releasing…' : releases.length > 0 ? `Release these ${releases.length}` : 'Release'}
       </button>
     </div>
   </div>
 </div>
 
 <style>
-  .free-slots-dialog { max-width: 520px; }
-  .slots-row { display: flex; align-items: center; gap: var(--space-sm); margin-bottom: var(--space-md); }
+  .free-slots-dialog { max-width: 540px; }
+  .slots-row { display: flex; align-items: center; gap: var(--space-sm); margin-bottom: var(--space-sm); }
   .slots-row label { font-size: 13px; font-weight: 600; color: var(--text-secondary); }
   .slots-row input { width: 5ch; font: inherit; padding: var(--space-3xs) var(--space-xs); border: 1px solid var(--border-primary); border-radius: 6px; background: var(--bg-primary); color: var(--text-primary); }
   .slots-note { font-size: 12px; color: var(--text-muted); }
+  .options-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-md); margin-bottom: var(--space-md); font-size: 12px; color: var(--text-secondary); }
+  .options-row label { display: flex; align-items: center; gap: var(--space-xs); }
+  .options-row select { font: inherit; font-size: 12px; padding: var(--space-3xs) var(--space-xs); border: 1px solid var(--border-primary); border-radius: 6px; background: var(--bg-primary); color: var(--text-primary); }
   .verdict { font-size: 13px; color: var(--text-secondary); margin-bottom: var(--space-md); }
   .msg { font-size: 13px; color: var(--text-tertiary); }
   .msg.subtle { font-size: 12px; color: var(--text-muted); margin-top: var(--space-sm); }
@@ -271,7 +358,7 @@ async function release() {
   .step { display: grid; place-items: center; width: 1.6em; height: 1.6em; border-radius: 50%; background: var(--bg-tertiary); color: var(--text-secondary); font-size: 11px; font-weight: 600; flex: none; }
   .who { flex: 1; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .tags { display: flex; gap: var(--space-xs); flex: none; }
-  .tag { font-size: 11px; padding: 0 var(--space-xs); border-radius: 4px; background: var(--bg-tertiary); color: var(--text-muted); }
+  .tag { font-size: 11px; padding: 0 var(--space-xs); border-radius: 4px; background: var(--bg-tertiary); color: var(--text-muted); cursor: help; }
   .tag.free { color: var(--text-tertiary); }
   .tag.good { color: var(--success-text, var(--text-secondary)); }
   .tag.cost { color: var(--warning-text, var(--text-primary)); font-weight: 600; }

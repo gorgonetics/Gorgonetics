@@ -351,6 +351,72 @@ of its redundant siblings have gone:
 It stops being redundant when its redundancy leaves. The tiebreaks did not
 save it; re-scoring each step did.
 
+## 4c. Multi-round behaviour, and the guards around the score
+
+Added after simulating the loop a player actually runs — free six slots,
+breed six pairs, stable the foals, repeat — for forty rounds on the
+reference stable, one Mendelian draw per locus per foal, random foal sex.
+`tests/unit/breedingLoop.test.ts` runs a shorter version of it against the
+real services on a synthetic herd.
+
+**A note on the numbers.** The first pass used a seeded LCG whose product
+overflowed double precision, collapsing its period to about ten thousand —
+shorter than three foal genomes. Every figure below was re-measured with
+`Math.imul`, over twelve seeds where the count is a rate. Two claims moved
+materially and are corrected here; the conclusions did not.
+
+**The score does its job.** The stable converged to 99.2–99.6% of its
+*reachable* ceiling — the benefit slots at least one animal carries (822 of
+879 here). An allele nobody carries cannot be bred into existence, so that,
+not the genome's 879, is the number the loop approaches. `capabilitySummary`
+exposes both.
+
+**"Free" runs out, and that is correct.** The first priced release arrives at
+round three or four, and most later rounds price at least one. The intuition
+"a foal carries nothing its parents lack, so either a parent or the foal is
+free" holds per allele and fails per animal: a foal that draws the recessive
+from two heterozygous parents *locks* an allele the stable could only carry,
+while each parent keeps a carried allele at some other locus the foal did not
+inherit. Across three seeds, 30–61 of 240 foals left sire, dam and foal all
+irreplaceable.
+
+**But capability-only culling is a constraint, not a strategy.** Three things
+the score cannot see went wrong, and each is now a guard around the walk
+rather than a term inside the score:
+
+| gap | measured over 12 seeds × 20 rounds | guard |
+|---|---|---|
+| sex-blind releases | 1 run in 12 drained a sex until no pair could form at all; the floor held every run at six or more pairs | `groupFloor`: never release below the pair count of either sex |
+| phenotype-blind releases | the stable's current best by expressed positives was released in 17 of 240 rounds, hitting 8 of 12 runs; with the pin, none | `protectBest` (default on): pin the top by `positive_genes` and by attribute total |
+| liability-blind releases | locked-in negatives rose 212 → 224 in every seed; clean mode held the rise to about 4 slot-units for 2 fewer of the 58 gained | `mode: 'clean'`: order by cost net of liability cleared |
+
+The sex figure is the one that moved: the defective generator produced
+correlated sex draws and made the collapse look routine. It is rare, not
+routine — but it is terminal when it happens, and the floor costs nothing on
+the runs that never needed it.
+
+Pins, not score terms, for the reason §4a gives: folding sex, phenotype or
+liability into the cost would hide the trade-off the player is making. The
+dialog shows each guard's effect separately.
+
+**Reach new ground saturates.** Its best plan's gain **per pair** fell below
+one slot-unit at round six in every seed. That is the moment to switch, not
+the moment the stable stops improving: it holds 97.7% of its reachable
+capability there, and the next thirty-four rounds add 1.8 points more. Per
+pair rather than per plan, because the plan total sums over however many
+spots are set — an absolute threshold against the total would call one spot
+exhausted at a gain that reads as healthy across six. Switching to Raise the
+ceiling at that point gave the best combined outcome in two of three seeds
+(potential intact, mean expressed positives up about six). Alternating
+objectives every round looked good on one seed and worse over three, so no
+cadence is recommended. The breeding view shows the capability summary and,
+under Reach below the threshold, says so and points at the other objectives.
+
+**Greedy is tiebreak-dependent past about 18 releases.** Same cost rule,
+different tie orders: 10.5 vs 11 at 20 slots, 15 vs 15.5 at 22, 27.5 vs 29
+at 25. The dialog therefore describes the list as the cheapest order *found*,
+never as the cheapest possible.
+
 ## 5. Offspring-breed scoping
 
 Because offspring can be of a breed neither parent is, the default scope

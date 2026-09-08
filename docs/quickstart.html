@@ -387,7 +387,7 @@
           <img src="images/quickstart/31-quality-column.png" alt="My Pets scoped to Horse and sorted by the Quality column, highest share first">
           <div class="caption">The Quality column &mdash; each horse's share of the stable's irreplaceable genetics</div>
         </div>
-        <p style="margin-top: 16px;">A pet reading <strong>&mdash;</strong> is not a poor pet; it means every allele it carries is available from another animal you already keep. A <strong>&middot;</strong> means the pet was not scored at all, because only stabled pets are. Hover any figure for the reasoning behind it. The column stays hidden for very small stables, where every allele trivially reads as sole-source.</p>
+        <p style="margin-top: 16px;">A pet reading <strong>&mdash;</strong> is not a poor pet; it means every beneficial allele it carries is available from another animal you already keep. A <strong>&middot;</strong> means the pet was not scored at all, because only stabled pets with usable genome data are &mdash; re-import the genome file if a stabled pet shows one. Hover any figure for the reasoning behind it, in <em>slot-units</em>: 0.5 for each beneficial allele the pet alone carries, 1 for each it alone breeds true. The percentage is that figure as a share of the stable's total irreplaceable capability, so it shifts whenever a horse joins or leaves, not only when the pet itself changes. The column stays hidden for very small stables, where every allele trivially reads as sole-source.</p>
 
         <p style="margin-top: 24px;">Out of stable slots? With one species selected, a <strong>🏠 Free up slots</strong> button appears in the footer. Tell it how many slots you need and it works out the cheapest set of animals to release, in order.</p>
         <div class="step-image">
@@ -395,11 +395,13 @@
           <div class="caption">Free up slots &mdash; the cheapest six to release, and what each one costs</div>
         </div>
         <ul>
-          <li><strong>free</strong> &mdash; everything this animal carries survives in one you keep.</li>
-          <li><strong>costs <em>n</em></strong> &mdash; the breeding capability lost at this point in the order.</li>
-          <li><strong>clears <em>n</em></strong> &mdash; negative alleles that leave with the animal.</li>
+          <li><strong>free</strong> &mdash; every beneficial allele this animal carries survives in one you keep.</li>
+          <li><strong>costs <em>n</em></strong> &mdash; breeding capability lost at this point in the order, in slot-units: 0.5 for a beneficial allele only this animal carries, 1 for one only it breeds true.</li>
+          <li><strong>clears <em>n</em></strong> &mdash; negative-allele capability that leaves with it, in the same units.</li>
         </ul>
         <p>Starred pets are never suggested, so star the animal you ride and it stays out of the list. The dialog also names what the next release would cost, so you can see whether one more slot is cheap.</p>
+        <p style="margin-top: 16px;">Three guards sit around the score, because it prices only what an animal can pass on. The list never drops either sex below the number of pairs the freed slots are for, and says how many males, females and pairs are left. <strong>Keep my best</strong> (on by default) holds back your top animal by <em>+ Genes</em> and by attribute total, since a founder reads as free the moment its foals cover it. And <strong>Release by</strong> lets you choose between losing the least potential and clearing the most negatives &mdash; the second spends a little capability to shed liabilities the score would otherwise keep forever.</p>
+        <p style="margin-top: 16px;">Only alleles with an attribute effect are priced. Coat, marking and breed-selector genes are not, so a "free" release can still be the last carrier of a look.</p>
         <div class="tip-box">
           <strong>Tip:</strong> The order matters. Each step's cost is measured against what was still in the stable at that point, so releasing part of the list out of sequence can cost more than the total shown. Releasing only un-stables an animal &mdash; nothing is deleted, and you can stable it again at any time.
         </div>
@@ -648,6 +650,7 @@
         <div class="tip-box">
           <strong>Tip:</strong> These scores measure <em>improvement over the parents</em>, not the foal's absolute level. Ranking by absolute level puts your two best animals together at the top, and their foal usually regresses towards the middle. That is why <strong>Most positive genes</strong> is not the default.
         </div>
+        <p style="margin-top: 16px;">With spots set, the header also shows how much capability the pool holds against what its alleles could ever lock, and how much the best <em>Reach new ground</em> plan would still add per pair. Reach runs dry after a handful of rounds; once a pairing adds under a slot-unit the view says so and suggests comparing <em>Raise the ceiling</em> or <em>Clean the line</em>. It only measures Reach, so check what those two score before switching &mdash; on a pool that is already clean and cannot beat its best parent, they can be zero too.</p>
         <p style="margin-top: 16px;">The <strong>trio view</strong> projects the cross locus by locus &mdash; father's and mother's alleles alongside the offspring's probable outcome, each cell coloured by its verdict (new / keep / neutral / loss), with summary chips counting expected gains, losses, locked-in, and unknown outcomes. Re-score for a specific offspring breed, or focus on a single attribute, using the filters at the top.</p>
         <div class="step-image">
           <img src="images/quickstart/16-trio.png" alt="Trio offspring view showing father, offspring, and mother per chromosome with gain/risk chips">
