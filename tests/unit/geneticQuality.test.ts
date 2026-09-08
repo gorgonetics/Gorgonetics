@@ -5,6 +5,7 @@ import {
   benefitSlots,
   capability,
   capabilityShare,
+  capabilitySummary,
   carries,
   expectedCapabilityGain,
   type GeneticQualityResult,
@@ -475,5 +476,120 @@ describe('hasMeaningfulPopulation', () => {
   it('gates on the floor, where almost everything tiers sole', () => {
     expect(hasMeaningfulPopulation(MIN_POPULATION)).toBe(true);
     expect(hasMeaningfulPopulation(MIN_POPULATION - 1)).toBe(false);
+  });
+});
+
+describe('safeCullOrder — constraints the score cannot see', () => {
+  /** Six identical carriers: every one is redundant, so cost never decides. */
+  function redundantHerd(): Map<number, PetLoci> {
+    return new Map([1, 2, 3, 4, 5, 6].map((id) => [id, new Map([['01A1', X]]) as PetLoci]));
+  }
+  const genes = { '01A1': CHR01 };
+  const sexes = new Map<number, string>([
+    [1, 'M'],
+    [2, 'M'],
+    [3, 'M'],
+    [4, 'F'],
+    [5, 'F'],
+    [6, 'F'],
+  ]);
+
+  it('never shrinks a group below its floor, even when releases are free', () => {
+    const res = safeCullOrder(redundantHerd(), genes, [1, 2, 3, 4, 5, 6], {
+      target: 3,
+      groupFloor: { group: sexes, min: 2 },
+    });
+    // Three would be free by cost alone; the floor allows one of each sex.
+    expect(res.releases).toHaveLength(2);
+    const released = new Set(res.releases.map((s) => s.id));
+    for (const g of ['M', 'F']) {
+      const left = [...sexes].filter(([id, s]) => s === g && !released.has(id)).length;
+      expect(left).toBeGreaterThanOrEqual(2);
+    }
+    // Nothing else may go, so there is no "next" either.
+    expect(res.next).toBeNull();
+  });
+
+  it('leaves a group already below the floor entirely alone', () => {
+    const lone = new Map<number, string>([
+      [1, 'M'],
+      [2, 'F'],
+      [3, 'F'],
+      [4, 'F'],
+      [5, 'F'],
+      [6, 'F'],
+    ]);
+    const res = safeCullOrder(redundantHerd(), genes, [1, 2, 3, 4, 5, 6], {
+      target: 3,
+      groupFloor: { group: lone, min: 2 },
+    });
+    expect(res.releases.map((s) => s.id)).not.toContain(1);
+  });
+
+  it('orders by cost net of liability when asked, and by cost alone otherwise', () => {
+    // L1: recessive positive. L2: dominant negative (its R is the escape).
+    const g = { L1: gene(null, '+'), L2: gene('-', null) };
+    const loci = new Map<number, PetLoci>([
+      // A: sole carrier of L1's good allele (costs 0.5) and sole, homozygous
+      // holder of L2's negative (clears 1).
+      [
+        1,
+        new Map([
+          ['L1', X],
+          ['L2', D],
+        ]) as PetLoci,
+      ],
+      // B, C, E: identical and redundant — cost 0, nothing to clear.
+      [
+        2,
+        new Map([
+          ['L1', D],
+          ['L2', R],
+        ]) as PetLoci,
+      ],
+      [
+        3,
+        new Map([
+          ['L1', D],
+          ['L2', R],
+        ]) as PetLoci,
+      ],
+      [
+        4,
+        new Map([
+          ['L1', D],
+          ['L2', R],
+        ]) as PetLoci,
+      ],
+    ]);
+    const plain = safeCullOrder(loci, g, [1, 2, 3, 4], { target: 1 });
+    expect(plain.releases[0]).toMatchObject({ id: 2, cost: 0 });
+    const clean = safeCullOrder(loci, g, [1, 2, 3, 4], { target: 1, netLiability: true });
+    expect(clean.releases[0]).toMatchObject({ id: 1, cost: 0.5, liabilityRemoved: 1 });
+  });
+});
+
+describe('capabilitySummary — held, reachable, ceiling', () => {
+  const g = { L1: gene(null, '+'), L2: gene('+', null), L3: gene(null, '+') };
+
+  it('counts locked slots as 1, carried as 0.5, and reachable as any carrier', () => {
+    const pop = [
+      new Map([
+        ['L1', R],
+        ['L2', X],
+        ['L3', D],
+      ]) as PetLoci,
+      new Map([
+        ['L1', X],
+        ['L2', X],
+        ['L3', D],
+      ]) as PetLoci,
+    ];
+    // L1 bred true (1), L2 carried only (0.5), L3's good allele nowhere (0).
+    expect(capabilitySummary(pop, g)).toEqual({ capability: 1.5, reachable: 2, ceiling: 3 });
+  });
+
+  it('reports the genome ceiling even for an empty population', () => {
+    expect(capabilitySummary([], g)).toEqual({ capability: 0, reachable: 0, ceiling: 3 });
   });
 });
