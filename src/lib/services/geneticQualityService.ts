@@ -19,9 +19,10 @@
  * it to a column would guarantee a stale value.
  */
 
-import type { Pet } from '$lib/types/index.js';
+import { Gender, type Pet } from '$lib/types/index.js';
 import { computeLocusFrequencies } from '$lib/utils/geneFrequency.js';
 import {
+  type CapabilitySummary,
   capabilityShare,
   type GeneticQualityResult,
   hasMeaningfulPopulation,
@@ -30,6 +31,7 @@ import {
   type ScoredGene,
   safeCullOrder,
   scoreGroup,
+  capabilitySummary as summarise,
 } from '$lib/utils/geneticQuality.js';
 import { loadAllPetLoci, type PetLoci } from '$lib/utils/petLoci.js';
 import { getAllAttributeNames, normalizeSpecies } from './configService.js';
@@ -89,8 +91,18 @@ export interface ScoreStableOptions {
 }
 
 export interface StableScores {
-  /** Per-animal result, keyed by pet id. Every input id is present. */
+  /**
+   * Per-animal result, keyed by pet id. Present for every input pet that has
+   * genome rows; see `unscored` for the rest.
+   */
   scores: Map<number, GeneticQualityResult>;
+  /**
+   * Pets with no `pet_genes` rows — nothing imported, or a genome that failed
+   * to parse. Left out of `scores` rather than scored as empty, because an
+   * empty genome reads as "contributes nothing", which is the vocabulary for
+   * *redundant*, and a pet nobody has measured is not that.
+   */
+  unscored: number[];
   /**
    * Percentage of the stable's total at-risk capability, keyed by pet id.
    * The honest 0–100: a real quantity over a real denominator.
@@ -115,17 +127,30 @@ export interface StableScores {
  */
 export async function scoreStable(opts: ScoreStableOptions): Promise<StableScores> {
   if (opts.pets.length === 0) {
-    return { scores: new Map(), shares: new Map(), meaningful: false };
+    return { scores: new Map(), unscored: [], shares: new Map(), meaningful: false };
   }
   const { canonical, loci, genes, ids } = await loadInputs(opts.species, opts.pets);
-  const scores = scoreGroup(loci, genes, ids, {
+  const scored = ids.filter((id) => loci.has(id));
+  const scores = scoreGroup(loci, genes, scored, {
     scopeToBreed: breedScope(canonical, opts.offspringBreed),
   });
   return {
     scores,
+    unscored: ids.filter((id) => !loci.has(id)),
     shares: capabilityShare(scores),
-    meaningful: hasMeaningfulPopulation(opts.pets.length),
+    meaningful: hasMeaningfulPopulation(scored.length),
   };
+}
+
+/**
+ * Where the stable stands against what its allele pool could ever lock —
+ * the readout that tells a breeder when "Reach new ground" has run out of
+ * ground. Unstabled or benched animals must not be passed: the tally is
+ * exactly the population handed in.
+ */
+export async function capabilitySummary(opts: { species: string; pets: readonly Pet[] }): Promise<CapabilitySummary> {
+  const { loci, genes } = await loadInputs(opts.species, opts.pets);
+  return summarise(loci.values(), genes);
 }
 
 export interface SafeCullOptions {
@@ -145,6 +170,34 @@ export interface SafeCullOptions {
    * genetic measure has no view on riding at all.
    */
   pinned?: Iterable<number>;
+  /**
+   * Pairs the player intends to breed once the slots are free. The walk
+   * never releases an animal if that would leave fewer than this many of
+   * its sex. Defaults to `slots`, capped at what the animals left could
+   * pair at all: six slots freed for six pairs is pointless if five males
+   * remain, while a seven-animal stable freeing four can only ever breed one
+   * pair and must not be told nothing is releasable.
+   */
+  pairs?: number;
+  /**
+   * Keep the stable's best animal by expressed positives and its best by
+   * attribute total, whatever they score. On by default.
+   *
+   * The score prices what an animal can pass on, and once a founder's
+   * alleles are covered by its foals it reads as free — correctly, for
+   * breeding. But the animal you ride is the phenotype, and simulated over
+   * forty rounds the top horse by expressed positives was released as free
+   * in seventeen of twenty-one runs. Pinning is the design's answer; this
+   * applies it before the player has to think of it.
+   */
+  protectBest?: boolean;
+  /**
+   * `potential` (default) releases the animal costing the least capability.
+   * `clean` orders by capability lost net of the negatives it takes with it,
+   * so a liability-heavy animal goes first even when it holds something —
+   * cleanliness bought with potential. See `SafeCullOrderOptions.netLiability`.
+   */
+  mode?: 'potential' | 'clean';
 }
 
 export interface CullRelease {
@@ -164,12 +217,22 @@ export interface SafeCullSet {
   releases: CullRelease[];
   /** Capability lost across the whole list. Zero when every release is free. */
   totalCost: number;
+  /** Negative-allele capability that leaves across the whole list. */
+  totalCleared: number;
   /** True when nothing is given up. */
   allFree: boolean;
   /** The next release beyond the list and its cost, if the walk could continue. */
   next: { pet: Pet; cost: number } | null;
   /** Animals excluded from consideration — starred, plus any explicit pins. */
   pinned: Pet[];
+  /** Kept as the stable's best by expressed positives or attribute total. */
+  protectedBest: Pet[];
+  /** Pets with no genome rows: never suggested, because "free" would be a guess. */
+  unscored: Pet[];
+  /** Males and females left after the listed releases, and the pairs they can form. */
+  after: { males: number; females: number; pairs: number };
+  /** Sexes the walk would not shrink further because they are at the pair floor. */
+  atFloor: Gender[];
 }
 
 /**
@@ -226,11 +289,23 @@ function buildTiebreaks(
  * unrecoverable positives.
  */
 export async function safeCullSet(opts: SafeCullOptions): Promise<SafeCullSet> {
-  const empty: SafeCullSet = { releases: [], totalCost: 0, allFree: true, next: null, pinned: [] };
+  const empty: SafeCullSet = {
+    releases: [],
+    totalCost: 0,
+    totalCleared: 0,
+    allFree: true,
+    next: null,
+    pinned: [],
+    protectedBest: [],
+    unscored: [],
+    after: { males: 0, females: 0, pairs: 0 },
+    atFloor: [],
+  };
   if (opts.pets.length === 0) return empty;
 
   const { canonical, loci, genes, ids } = await loadInputs(opts.species, opts.pets);
   const byId = new Map(opts.pets.map((p) => [p.id, p]));
+  const petsOf = (set: Iterable<number>) => [...set].map((id) => byId.get(id)).filter((p): p is Pet => p !== undefined);
 
   // Starred animals are pinned. The score measures breeding contribution and
   // nothing else; a mount earns its slot for reasons it cannot see, so the
@@ -238,18 +313,52 @@ export async function safeCullSet(opts: SafeCullOptions): Promise<SafeCullSet> {
   const pinned = new Set<number>(opts.pinned ?? []);
   for (const p of opts.pets) if (p.starred) pinned.add(p.id);
 
+  // A pet with no genome rows would score zero and lead the list as "free".
+  // Nothing is known about it, so it sits out and is reported as such.
+  const unscored = new Set<number>(ids.filter((id) => !loci.has(id)));
+
   const { primary, secondary } = buildTiebreaks(canonical, opts.pets, loci, genes);
+  const protectedBest = new Set<number>();
+  if (opts.protectBest ?? true) {
+    const scorable = opts.pets.filter((p) => loci.has(p.id));
+    // Strictly the best: when every animal ties there is no "best" to keep.
+    const top = (value: (p: Pet) => number): Pet | null => {
+      let best: Pet | null = null;
+      let tied = true;
+      for (const p of scorable) {
+        if (best === null) best = p;
+        else if (value(p) > value(best)) {
+          best = p;
+          tied = false;
+        } else if (value(p) !== value(best)) tied = false;
+      }
+      return tied ? null : best;
+    };
+    const byPositives = top((p) => p.positive_genes ?? 0);
+    const byAttributes = top((p) => secondary.get(p.id)?.[0] ?? 0);
+    for (const p of [byPositives, byAttributes]) if (p && !pinned.has(p.id)) protectedBest.add(p.id);
+  }
+
+  const sex = new Map<number, string>(opts.pets.map((p) => [p.id, p.gender]));
+  const slots = opts.slots ?? 0;
+  const floor = Math.max(0, opts.pairs ?? Math.min(slots, Math.floor((opts.pets.length - slots) / 2)));
+  const excluded = new Set<number>([...pinned, ...unscored, ...protectedBest]);
   const order: SafeCullResult = safeCullOrder(loci, genes, ids, {
-    pinned,
+    pinned: excluded,
     primaryTiebreak: primary,
     secondaryTiebreak: secondary,
+    groupFloor: floor > 0 ? { group: sex, min: floor } : undefined,
+    netLiability: opts.mode === 'clean',
     target: opts.slots,
   });
 
   const releases: CullRelease[] = [];
+  let totalCleared = 0;
   for (const step of order.releases) {
     const pet = byId.get(step.id);
-    if (pet) releases.push({ pet, cost: step.cost, liabilityRemoved: step.liabilityRemoved });
+    if (!pet) continue;
+    releases.push({ pet, cost: step.cost, liabilityRemoved: step.liabilityRemoved });
+    totalCleared += step.liabilityRemoved;
   }
 
   // The walk names its own next pick, so its tie-breaks are honoured rather
@@ -257,11 +366,26 @@ export async function safeCullSet(opts: SafeCullOptions): Promise<SafeCullSet> {
   const nextPet = order.next ? byId.get(order.next.id) : undefined;
   const next = order.next && nextPet ? { pet: nextPet, cost: order.next.cost } : null;
 
+  const released = new Set(order.releases.map((s) => s.id));
+  const kept = opts.pets.filter((p) => !released.has(p.id));
+  const males = kept.filter((p) => p.gender === Gender.MALE).length;
+  const females = kept.filter((p) => p.gender === Gender.FEMALE).length;
+  const atFloor: Gender[] = [];
+  if (floor > 0) {
+    if (males <= floor) atFloor.push(Gender.MALE);
+    if (females <= floor) atFloor.push(Gender.FEMALE);
+  }
+
   return {
     releases,
     totalCost: order.totalCost,
+    totalCleared,
     allFree: order.totalCost === 0,
     next,
-    pinned: [...pinned].map((id) => byId.get(id)).filter((p): p is Pet => p !== undefined),
+    pinned: petsOf(pinned),
+    protectedBest: petsOf(protectedBest),
+    unscored: petsOf(unscored),
+    after: { males, females, pairs: Math.min(males, females) },
+    atFloor,
   };
 }
