@@ -349,3 +349,94 @@ describe('safeCullSet — what the score cannot see', () => {
     expect(clean.totalCleared).toBe(1);
   });
 });
+
+describe('safeCullSet — the population the floor counts', () => {
+  beforeEach(reset);
+
+  /**
+   * `MIN_POPULATION` protects the *measured* population. A pinned animal still
+   * counts toward it, because its alleles stay in the tally; a pet with no
+   * genome rows contributes nothing to the tally and must not pad it.
+   */
+  it('never strips the stable of every scored animal to satisfy a slot target', async () => {
+    const pets: Pet[] = [];
+    for (let i = 0; i < 7; i++) pets.push(await upload(`Ghost${i}`, Gender.MALE, 'xDx'));
+    for (let i = 0; i < 3; i++) pets.push(await upload(`Real${i}`, Gender.FEMALE, 'xDx'));
+    const db = getDb();
+    for (const p of pets.slice(0, 7)) {
+      await db.execute('DELETE FROM pet_genes WHERE pet_id = $id', { id: p.id });
+      await db.execute('UPDATE pets SET genome_data = $g WHERE id = $id', { g: '{}', id: p.id });
+    }
+
+    const set = await safeCullSet({ species: 'BeeWasp', pets, slots: 6, pairs: 0, protectBest: false });
+    expect(set.unscored).toHaveLength(7);
+    // Three scored animals is exactly the floor, so none of them may go.
+    expect(set.releases).toEqual([]);
+
+    const kept = pets.filter((p) => !set.releases.some((r) => r.pet.id === p.id));
+    expect((await scoreStable({ species: 'BeeWasp', pets: kept })).meaningful).toBe(true);
+  });
+
+  it('still counts pinned animals toward the floor, since their alleles remain', async () => {
+    const pets = [
+      await upload('Star1', Gender.MALE, 'xDx'),
+      await upload('Star2', Gender.MALE, 'xDx'),
+      await upload('Star3', Gender.FEMALE, 'xDx'),
+      await upload('Free1', Gender.FEMALE, 'xDx'),
+    ];
+    const set = await safeCullSet({
+      species: 'BeeWasp',
+      pets,
+      slots: 1,
+      pairs: 0,
+      protectBest: false,
+      pinned: [pets[0].id, pets[1].id, pets[2].id],
+    });
+    // Four animals, floor of three: the one unpinned animal may still go,
+    // because the three kept ones hold the population up.
+    expect(set.releases.map((r) => r.pet.name)).toEqual(['Free1']);
+  });
+
+  it('reports a sex at the floor only when it has members the walk could have taken', async () => {
+    const pets: Pet[] = [];
+    for (let i = 0; i < 6; i++) pets.push(await upload(`Fem${i}`, Gender.FEMALE, 'xDx'));
+    const set = await safeCullSet({ species: 'BeeWasp', pets, slots: 3, protectBest: false });
+    // No males exist, so the floor never held any back; saying otherwise
+    // would have the dialog explain a shortfall that has another cause.
+    expect(set.atFloor).not.toContain(Gender.MALE);
+    expect(set.after.males).toBe(0);
+  });
+
+  it('protects the same animal whatever order the roster arrives in', async () => {
+    const a = await upload('Alpha', Gender.MALE, 'RDx');
+    const b = await upload('Beta', Gender.FEMALE, 'RDx');
+    const rest = [
+      await upload('D1', Gender.MALE, 'DDx'),
+      await upload('D2', Gender.FEMALE, 'DDx'),
+      await upload('D3', Gender.MALE, 'DDx'),
+    ];
+    // Alpha and Beta tie on every criterion; only their ids separate them.
+    const forward = await safeCullSet({ species: 'BeeWasp', pets: [a, b, ...rest], slots: 1, pairs: 0 });
+    const reversed = await safeCullSet({ species: 'BeeWasp', pets: [b, a, ...rest], slots: 1, pairs: 0 });
+    expect(forward.protectedBest.map((p) => p.name)).toEqual(['Alpha']);
+    expect(reversed.protectedBest.map((p) => p.name)).toEqual(['Alpha']);
+  });
+
+  it('clean mode with no slot target still walks the free releases', async () => {
+    const pets = [
+      // Sole carrier of 01A2's positive (cost 0.5) and sole holder of 01A1's
+      // dominant negative (clears 1) — net −0.5, so clean mode picks it first
+      // even though it costs something.
+      await upload('Dirty', Gender.MALE, 'DxD'),
+      await upload('C1', Gender.FEMALE, 'RDD'),
+      await upload('C2', Gender.MALE, 'RDD'),
+      await upload('C3', Gender.FEMALE, 'RDD'),
+      await upload('C4', Gender.MALE, 'RDD'),
+    ];
+    const clean = await safeCullSet({ species: 'BeeWasp', pets, pairs: 0, protectBest: false, mode: 'clean' });
+    // The old stop condition tested raw cost, so this returned nothing at all.
+    expect(clean.releases.length).toBeGreaterThan(0);
+    expect(clean.releases[0].pet.name).toBe('Dirty');
+    expect(clean.totalCleared).toBeGreaterThan(0);
+  });
+});
