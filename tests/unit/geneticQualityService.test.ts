@@ -438,3 +438,30 @@ describe('safeCullSet — the population the floor counts', () => {
     expect(clean.totalCleared).toBeGreaterThan(0);
   });
 });
+
+describe('safeCullSet — atFloor names only a live constraint', () => {
+  beforeEach(reset);
+
+  it('does not blame the sex floor once the last releasable member of that sex has gone', async () => {
+    const pets = [
+      await upload('M1', Gender.MALE, 'xDx'),
+      await upload('M2', Gender.MALE, 'xDx'),
+      await upload('F1', Gender.FEMALE, 'xDx'),
+      await upload('F2', Gender.FEMALE, 'xDx'),
+      await upload('F3', Gender.FEMALE, 'xDx'),
+      await upload('F4', Gender.FEMALE, 'xDx'),
+    ];
+    // Pin one male; release the other. No male is left that the walk could
+    // have taken, so the floor is not what is holding the list back.
+    const set = await safeCullSet({
+      species: 'BeeWasp',
+      pets,
+      slots: 1,
+      pairs: 1,
+      protectBest: false,
+      pinned: [pets[0].id],
+    });
+    expect(set.releases.map((r) => r.pet.name)).toEqual(['M2']);
+    expect(set.atFloor).not.toContain(Gender.MALE);
+  });
+});

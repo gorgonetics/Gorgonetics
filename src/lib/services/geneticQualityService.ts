@@ -388,11 +388,10 @@ export async function safeCullSet(opts: SafeCullOptions): Promise<SafeCullSet> {
   // constrained by it, and saying "no more males are suggested, so the pairs
   // stay possible" about a stable that has none reads as nonsense — and worse,
   // pre-empts the true reason the list is short.
-  const releasable = (g: Gender) =>
-    population.some((id) => {
-      const p = byId.get(id);
-      return p?.gender === g && !excluded.has(id);
-    });
+  // Judged on what is left, not on the population the walk started from: an
+  // animal already released is not a candidate the floor is holding back, so
+  // counting it would blame the floor for what pinning actually caused.
+  const releasable = (g: Gender) => kept.some((p) => p.gender === g && !excluded.has(p.id) && !unscored.has(p.id));
   const atFloor: Gender[] = [];
   if (floor > 0) {
     for (const [g, n] of [
