@@ -13,11 +13,10 @@ import { suggestPlans } from '$lib/utils/breedingPlan.js';
 import { fromGeneId } from '$lib/utils/geneAnalysis.js';
 import {
   benefitSlots,
-  capability,
+  capabilitySummary,
   MIN_POPULATION,
   type ScoredGene,
   scoreGroup,
-  tallyAlleles,
 } from '$lib/utils/geneticQuality.js';
 import { loadAllPetLoci, type PetLoci } from '$lib/utils/petLoci.js';
 
@@ -98,9 +97,17 @@ const layout = (() => {
 })();
 
 let seed = 20260908;
-/** Seeded LCG so the run is reproducible. */
+/**
+ * Seeded LCG so the run is reproducible.
+ *
+ * `Math.imul`, not `*`: the product reaches 2^61, well past the 2^53 a double
+ * holds exactly, so plain multiplication rounds the low bits away before the
+ * mask and the sequence collapses to a period of about ten thousand. One horse
+ * genome draws 3152 numbers, so a naive generator repeats itself inside the
+ * second founder and every animal after it is a shifted copy.
+ */
 function rnd(): number {
-  seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+  seed = (Math.imul(seed, 1103515245) + 12345) & 0x7fffffff;
   return seed / 0x7fffffff;
 }
 
@@ -174,25 +181,14 @@ async function upload(name: string, gender: Gender, loci: PetLoci): Promise<numb
   return result.pet_id as number;
 }
 
-/** Total capability of a set of animals: the quantity the cull walk prices. */
-function totalCapability(lociByPet: Iterable<PetLoci>, genes: Record<string, ScoredGene>): number {
-  const tallies = tallyAlleles(lociByPet);
-  let total = 0;
-  for (const [geneId, gene] of Object.entries(genes)) {
-    const tally = tallies.get(geneId);
-    if (!tally) continue;
-    for (const slot of benefitSlots(gene)) {
-      const hom = slot.allele === GeneType.DOMINANT ? tally.homD : tally.homR;
-      const car = slot.allele === GeneType.DOMINANT ? tally.carD : tally.carR;
-      total += capability(hom, car);
-    }
-  }
-  return total;
-}
-
+/**
+ * Total capability of a set of animals: the quantity the cull walk prices.
+ * Uses the shipped summary rather than re-deriving it, so the assertions
+ * cannot pass against a formula that has drifted from the app's.
+ */
 async function stableCapability(pets: readonly Pet[], genes: Record<string, ScoredGene>): Promise<number> {
   const loci = await loadAllPetLoci(pets.map((p) => p.id));
-  return totalCapability(loci.values(), genes);
+  return capabilitySummary(loci.values(), genes).capability;
 }
 
 describe('breeding loop: cull six, breed six under Reach new ground, repeat', () => {
