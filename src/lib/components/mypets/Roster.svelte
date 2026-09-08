@@ -62,6 +62,9 @@ const quality = keyedResource(
   () => scoreStable({ species: scoredSpecies, pets: scoredPool }),
 );
 const qualityShare = (pet: Pet) => quality.value?.shares.get(pet.id) ?? 0;
+// Set, not the array: the tooltip asks per row, and the roster renders every
+// filtered pet.
+const unscoredIds = $derived(new Set(quality.value?.unscored ?? []));
 /**
  * Suppressed below the population floor, where every allele reads as sole.
  *
@@ -89,7 +92,7 @@ const wasScored = (pet: Pet) => quality.value?.scores.has(pet.id) ?? false;
 function qualityTitle(pet: Pet): string {
   const r = quality.value?.scores.get(pet.id);
   if (!r) {
-    return quality.value?.unscored.includes(pet.id)
+    return unscoredIds.has(pet.id)
       ? 'Not scored — no genome has been imported for this pet.'
       : 'Not scored — only stabled pets are, since capability is what you can breed from.';
   }

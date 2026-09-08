@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import FreeSlotsDialog from '$lib/components/mypets/FreeSlotsDialog.svelte';
-import { closeDatabase, initDatabase } from '$lib/services/database.js';
+import { closeDatabase, getDb, initDatabase } from '$lib/services/database.js';
 import * as geneService from '$lib/services/geneService.js';
 import { runMigrations } from '$lib/services/migrationService.js';
 import * as petService from '$lib/services/petService.js';
@@ -287,6 +287,29 @@ describe('FreeSlotsDialog', () => {
     });
     await waitFor(() => expect(container.querySelector('[data-testid="free-slots-scope"]')).toBeTruthy());
     expect(container.querySelector('[data-testid="free-slots-scope"]')?.textContent).toContain('selector');
+  });
+
+  it('does not claim everything is excluded when a starred pet also lacks a genome', async () => {
+    // `pinned` and `unscored` overlap here; summing their lengths reached the
+    // herd size and hid the real reason the list was short.
+    const pets = await stable();
+    const db = getDb();
+    for (const p of pets.slice(0, 4)) {
+      await petService.updatePet(p.id, { starred: true });
+      await db.execute('DELETE FROM pet_genes WHERE pet_id = $id', { id: p.id });
+      await db.execute('UPDATE pets SET genome_data = $g WHERE id = $id', { g: '{}', id: p.id });
+    }
+    const refreshed = await Promise.all(pets.map(async (p) => (await petService.getPet(p.id)) as Pet));
+    const { container } = render(FreeSlotsDialog, {
+      species: 'beewasp',
+      pets: refreshed,
+      onRelease: noop,
+      onClose: noop,
+    });
+    await waitFor(() => expect(container.querySelector('[data-testid="free-slots-loading"]')).toBeNull());
+    expect(container.querySelector('[data-testid="free-slots-none"]')?.textContent ?? '').not.toContain(
+      'Every stabled animal',
+    );
   });
 
   it('promises no deletion, because releasing only un-stables', async () => {

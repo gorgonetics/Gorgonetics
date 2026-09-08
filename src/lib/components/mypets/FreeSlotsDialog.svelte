@@ -97,7 +97,19 @@ $effect(() => {
 
 const releases = $derived(plan?.releases ?? []);
 const shortfall = $derived(Math.max(0, target - releases.length));
-const keptOut = $derived((plan?.pinned.length ?? 0) + (plan?.protectedBest.length ?? 0) + (plan?.unscored.length ?? 0));
+/**
+ * Animals the walk was never allowed to touch. A union, not a sum of the three
+ * lists: a starred pet with no genome appears in two of them, and summing
+ * lengths can reach the herd size while releasable animals remain — which
+ * would tell the player everything is excluded and hide the real reason.
+ */
+const keptOut = $derived(
+  new Set([
+    ...(plan?.pinned ?? []).map((p) => p.id),
+    ...(plan?.protectedBest ?? []).map((p) => p.id),
+    ...(plan?.unscored ?? []).map((p) => p.id),
+  ]).size,
+);
 const fmt = (n: number) => (n === 0 ? '0' : n.toFixed(1));
 const names = (ps: Pet[]) => ps.map((p) => p.name || 'unnamed').join(', ');
 const sexLabel = (g: Gender) => (g === Gender.MALE ? 'males' : 'females');
@@ -197,6 +209,9 @@ async function release() {
           {#if plan?.allFree}
             Releasing these {releases.length} costs <strong>nothing</strong> — every beneficial allele they carry
             is also held by an animal you keep.
+          {:else if mode === 'clean'}
+            Releasing these {releases.length} costs <strong>{fmt(plan?.totalCost ?? 0)}</strong> slot-units of
+            breeding capability — more than the cheapest order, in exchange for the negatives they take.
           {:else}
             Releasing these {releases.length} costs <strong>{fmt(plan?.totalCost ?? 0)}</strong> slot-units of
             breeding capability, the cheapest order found.
