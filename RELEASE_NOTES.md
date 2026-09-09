@@ -1,6 +1,8 @@
-# v0.9.1
+# v0.9.2
 
 Guards around the culling score, and a warning when *Reach new ground* has nothing left to reach. Both come out of simulating the loop a player actually runs — free slots, breed, stable the foals, repeat — over forty rounds. Still pre-1.0.
+
+v0.9.1 was tagged but its build failed before anything was published, so this release supersedes it. Everything below is new since v0.9.0, the last release with binaries.
 
 ## Release guards on Free up slots
 
@@ -25,6 +27,7 @@ With spots set, the breeding header shows how much capability the pool holds aga
 - Only scored animals count toward the release floor.
 - The untargeted cull walk stops on the ordering key rather than raw cost.
 - Dependency updates across npm and Cargo.
+- `@tauri-apps/plugin-updater` realigned with the 2.11 Rust crate; the mismatch broke the v0.9.1 build on every platform.
 
 ## Notes
 
