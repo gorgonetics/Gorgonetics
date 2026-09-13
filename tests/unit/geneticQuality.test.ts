@@ -14,6 +14,7 @@ import {
   isBreedGeneric,
   liabilityCounts,
   MIN_POPULATION,
+  parseBreedLockWeight,
   type ScoredGene,
   safeCullOrder,
   scoreGroup,
@@ -652,6 +653,36 @@ describe('breedReach — what a benefit is worth to this breeder', () => {
     const w = breedReach({ breedCount: 10, focus: 'Kurbone', lockWeight: 0 });
     expect(w(ilmarian)).toBe(0);
     expect(w(generic)).toBe(1);
+  });
+
+  it('floors a requested weight and a derived one alike', () => {
+    // The cull path's guard. It has to bite on the derived value too: a gene
+    // set with more than twenty breeds derives below the floor on its own,
+    // with no caller having asked for anything.
+    expect(breedReach({ breedCount: 10, lockWeight: 0, minWeight: 0.05 })(kurbone)).toBe(0.05);
+    expect(breedReach({ breedCount: 50, minWeight: 0.05 })(kurbone)).toBe(0.05);
+    // Never drags a healthy weight down.
+    expect(breedReach({ breedCount: 4, minWeight: 0.05 })(kurbone)).toBe(0.25);
+  });
+});
+
+describe('parseBreedLockWeight', () => {
+  it('reads the shipped default as "derive it"', () => {
+    expect(parseBreedLockWeight('auto')).toBeUndefined();
+    expect(parseBreedLockWeight(undefined)).toBeUndefined();
+    expect(parseBreedLockWeight(null)).toBeUndefined();
+  });
+
+  it('falls back to derived rather than to a guess on junk', () => {
+    expect(parseBreedLockWeight('abc')).toBeUndefined();
+    expect(parseBreedLockWeight(Number.NaN)).toBeUndefined();
+  });
+
+  it('clamps a number into [0, 1]', () => {
+    expect(parseBreedLockWeight('0.25')).toBe(0.25);
+    expect(parseBreedLockWeight(0)).toBe(0);
+    expect(parseBreedLockWeight(7)).toBe(1);
+    expect(parseBreedLockWeight(-3)).toBe(0);
   });
 });
 

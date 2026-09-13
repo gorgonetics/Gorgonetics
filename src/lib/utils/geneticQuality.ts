@@ -172,6 +172,13 @@ export interface BreedReachOptions {
    * `breedReach`.
    */
   lockWeight?: number;
+  /**
+   * Floor under the resulting locked weight, derived or requested alike.
+   * The cull path's guard against a breed pricing at zero; it lives here so
+   * the floor is applied to the same number the derivation produces, rather
+   * than to a second copy of it at the call site.
+   */
+  minWeight?: number;
 }
 
 /**
@@ -200,9 +207,9 @@ export interface BreedReachOptions {
  * one breed.
  */
 export function breedReach(opts: BreedReachOptions): BenefitWeight {
-  const { breedCount, focus, lockWeight } = opts;
+  const { breedCount, focus, lockWeight, minWeight } = opts;
   if (breedCount <= 1) return () => 1;
-  const locked = lockWeight ?? 1 / breedCount;
+  const locked = Math.max(minWeight ?? 0, lockWeight ?? 1 / breedCount);
   return (gene) => {
     if (isBreedGeneric(gene)) return 1;
     if (focus && gene.breed === focus) return 1;
@@ -236,10 +243,28 @@ export function breedReachFor(
   genes: Readonly<Record<string, ScoredGene>>,
   focus?: string,
   lockWeight?: number,
+  minWeight?: number,
 ): BenefitWeight | undefined {
   const breedCount = breedCountOf(genes);
   if (breedCount <= 1) return undefined;
-  return breedReach({ breedCount, focus: focus === 'Mixed' ? '' : focus, lockWeight });
+  return breedReach({ breedCount, focus: focus === 'Mixed' ? '' : focus, lockWeight, minWeight });
+}
+
+/**
+ * Read a persisted breed-lock-weight setting. `'auto'` — the shipped
+ * default — means "derive it", which `breedReach` does when `lockWeight` is
+ * undefined; anything unparseable means the same rather than a guess.
+ *
+ * Pure, so it sits beside the weight it feeds rather than in the DB-aware
+ * service. A component reading the setting should not have to import the
+ * query layer to interpret it, and a test stubbing that layer should not
+ * have to re-implement this.
+ */
+export function parseBreedLockWeight(raw: unknown): number | undefined {
+  if (raw === undefined || raw === null || raw === 'auto') return undefined;
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return undefined;
+  return Math.min(1, Math.max(0, n));
 }
 
 /**

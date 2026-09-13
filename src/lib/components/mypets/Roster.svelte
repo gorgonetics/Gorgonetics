@@ -11,11 +11,12 @@
  */
 import PetActions from '$lib/components/shared/PetActions.svelte';
 import { getAllAttributeNames, getAllAttributes, normalizeSpecies } from '$lib/services/configService.js';
-import { parseBreedLockWeight, scoreStable } from '$lib/services/geneticQualityService.js';
+import { scoreStable } from '$lib/services/geneticQualityService.js';
 import { myPetsView, setMyPetsSelection, toggleMyPetsSelection } from '$lib/stores/mypets.svelte.js';
 import { pets as allPets } from '$lib/stores/pets.js';
 import { settings } from '$lib/stores/settings.js';
 import type { Pet } from '$lib/types/index.js';
+import { parseBreedLockWeight } from '$lib/utils/geneticQuality.js';
 import { keyedResource } from '$lib/utils/keyedResource.svelte.js';
 import { type SortableColumn, sortByColumn } from '$lib/utils/sortColumn.js';
 import { capitalize } from '$lib/utils/string.js';
@@ -55,8 +56,6 @@ const scoredSpecies = $derived(myPetsView.species ? normalizeSpecies(myPetsView.
 const scoredPool = $derived(
   scoredSpecies ? $allPets.filter((p) => p.stabled && normalizeSpecies(p.species) === scoredSpecies) : [],
 );
-// Keyed on the population's identity, so an unrelated `$pets` re-emit with the
-// same members does not re-score.
 /**
  * The breed the score values at full weight, and what a benefit locked to
  * any other breed is worth against a breed-generic one.
@@ -69,6 +68,9 @@ const scoredPool = $derived(
  */
 const focusBreed = $derived(String($settings['quality.focusBreed'] ?? ''));
 const breedLockWeight = $derived(parseBreedLockWeight($settings['quality.breedLockWeight']));
+// Keyed on the population's identity and the weighting, so an unrelated
+// `$pets` re-emit with the same members does not re-score but a settings
+// change does.
 const qualityKey = $derived(
   scoredPool.length > 0
     ? `${scoredSpecies}|${focusBreed}|${breedLockWeight ?? 'auto'}|${scoredPool.map((p) => p.id).join(',')}`

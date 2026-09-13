@@ -17,7 +17,7 @@ import PageHeader from '$lib/components/shared/PageHeader.svelte';
 import StatusPane from '$lib/components/shared/StatusPane.svelte';
 import { rankBreedingPairs } from '$lib/services/breedingService.js';
 import { getAllAttributeNames, getSupportedSpecies, normalizeSpecies } from '$lib/services/configService.js';
-import { capabilitySummary, parseBreedLockWeight } from '$lib/services/geneticQualityService.js';
+import { capabilitySummary } from '$lib/services/geneticQualityService.js';
 import { breedingView, clearBench, toggleBench } from '$lib/stores/breeding.svelte.js';
 // `loading` aliased: this component has its own ranking `loading` flag.
 import { pets, loading as petsLoading } from '$lib/stores/pets.js';
@@ -30,6 +30,7 @@ import {
   resolveObjective,
 } from '$lib/utils/breedingObjectives.js';
 import { suggestPlans } from '$lib/utils/breedingPlan.js';
+import { parseBreedLockWeight } from '$lib/utils/geneticQuality.js';
 import { keyedResource } from '$lib/utils/keyedResource.svelte.js';
 import { getSpeciesEmoji } from '$lib/utils/species.js';
 import { capitalize } from '$lib/utils/string.js';

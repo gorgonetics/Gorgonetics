@@ -23,7 +23,6 @@ import { Gender, type Pet } from '$lib/types/index.js';
 import { computeLocusFrequencies } from '$lib/utils/geneFrequency.js';
 import {
   type BenefitWeight,
-  breedCountOf,
   breedReachFor,
   type CapabilitySummary,
   capabilityShare,
@@ -58,18 +57,6 @@ async function loadInputs(
 }
 
 /**
- * Resolve the persisted `quality.breedLockWeight`. `'auto'` (the default)
- * means derive it, which `breedReach` does when `lockWeight` is undefined.
- * Anything unparseable falls back to derived rather than to a guess.
- */
-export function parseBreedLockWeight(raw: unknown): number | undefined {
-  if (raw === undefined || raw === null || raw === 'auto') return undefined;
-  const n = Number(raw);
-  if (!Number.isFinite(n)) return undefined;
-  return Math.min(1, Math.max(0, n));
-}
-
-/**
  * Smallest weight the cull path will apply to a breed-locked benefit.
  *
  * Design doc §5 in one constant. A weight of 0 is a legitimate request from
@@ -88,8 +75,7 @@ export const MIN_CULL_BREED_WEIGHT = 0.05;
  * the two drift apart and an honest walk starts failing its own invariant.
  */
 export function cullBenefitWeight(genes: ParsedGenes, focus?: string, lockWeight?: number): BenefitWeight | undefined {
-  const derived = 1 / Math.max(1, breedCountOf(genes));
-  return breedReachFor(genes, focus, Math.max(MIN_CULL_BREED_WEIGHT, lockWeight ?? derived));
+  return breedReachFor(genes, focus, lockWeight, MIN_CULL_BREED_WEIGHT);
 }
 
 export interface ScoreStableOptions {

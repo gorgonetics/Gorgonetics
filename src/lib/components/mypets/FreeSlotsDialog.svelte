@@ -29,11 +29,11 @@
  */
 import { get } from 'svelte/store';
 import BreedSelector from '$lib/components/shared/BreedSelector.svelte';
-import { parseBreedLockWeight, type SafeCullSet, safeCullSet } from '$lib/services/geneticQualityService.js';
+import { type SafeCullSet, safeCullSet } from '$lib/services/geneticQualityService.js';
 import { settings } from '$lib/stores/settings.js';
 import { Gender, type Pet } from '$lib/types/index.js';
 import { focusTrap } from '$lib/utils/focusTrap.js';
-import { MIN_POPULATION } from '$lib/utils/geneticQuality.js';
+import { MIN_POPULATION, parseBreedLockWeight } from '$lib/utils/geneticQuality.js';
 import { BREEDS_BY_SPECIES } from '$lib/utils/species.js';
 
 interface Props {
@@ -73,9 +73,12 @@ let mode = $state<'potential' | 'clean'>('potential');
  */
 let focusBreed = $state(String(get(settings)['quality.focusBreed'] ?? ''));
 const breedLockWeight = $derived(parseBreedLockWeight($settings['quality.breedLockWeight']));
-/** Breeds to offer — only horses lock loci to one. */
-const breeds = $derived(BREEDS_BY_SPECIES[species] ?? null);
-const focusable = $derived(breeds !== null && species === 'horse');
+/**
+ * Breeds to offer. Gated on horses because they are the only species whose
+ * gene set locks loci to a breed — the same hardcode `isHorseBreedFiltered`
+ * makes, kept identical so the two cannot disagree about who has breeds.
+ */
+const breeds = $derived(species === 'horse' ? BREEDS_BY_SPECIES[species] : undefined);
 let plan = $state<SafeCullSet | null>(null);
 let loading = $state(true);
 let failed = $state(false);
@@ -210,14 +213,14 @@ async function release() {
           <span>Keep my best by + Genes and by stats</span>
         </label>
       </div>
-      {#if focusable && breeds}
+      {#if breeds}
         <!-- A focus, never a filter. Other breeds' loci keep a floor weight,
              so the sole carrier of an Ilmarian positive still prices above
              free in a stable focused on Kurbones. -->
         <div class="options-row focus-row">
           <BreedSelector
             value={focusBreed}
-            breeds={breeds}
+            {breeds}
             label="Breeding toward"
             allLabel="Any breed"
             onChange={(v) => {
