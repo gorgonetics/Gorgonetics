@@ -3,6 +3,7 @@ import { GeneType } from '$lib/types/index.js';
 import {
   type AlleleTally,
   benefitSlots,
+  breedReach,
   capability,
   capabilityShare,
   capabilitySummary,
@@ -10,6 +11,7 @@ import {
   expectedCapabilityGain,
   type GeneticQualityResult,
   hasMeaningfulPopulation,
+  isBreedGeneric,
   liabilityCounts,
   MIN_POPULATION,
   type ScoredGene,
@@ -248,17 +250,27 @@ describe('scorePet — scoping and exclusions', () => {
     expect(scorePet(loci, all, tallyAlleles([loci])).atRiskCapability).toBe(0);
   });
 
-  it('honours a breed scope predicate', () => {
+  it('scales capability by the benefit weight', () => {
     const loci = new Map([
       ['01A1', R],
       ['02B1', D],
     ]) as PetLoci;
     const tallies = tallyAlleles([loci]);
-    const unscoped = scorePet(loci, genes, tallies).atRiskCapability;
-    const scoped = scorePet(loci, genes, tallies, {
-      scopeToBreed: (g) => g.dominantSign !== '+',
+    const unweighted = scorePet(loci, genes, tallies).atRiskCapability;
+    const halved = scorePet(loci, genes, tallies, { weight: () => 0.5 }).atRiskCapability;
+    expect(halved).toBeCloseTo(unweighted / 2);
+  });
+
+  it('drops a locus weighing zero', () => {
+    const loci = new Map([
+      ['01A1', R],
+      ['02B1', D],
+    ]) as PetLoci;
+    const tallies = tallyAlleles([loci]);
+    const partial = scorePet(loci, genes, tallies, {
+      weight: (g) => (g.dominantSign === '+' ? 0 : 1),
     }).atRiskCapability;
-    expect(scoped).toBeLessThan(unscoped);
+    expect(partial).toBeLessThan(scorePet(loci, genes, tallies).atRiskCapability);
   });
 });
 
@@ -388,7 +400,10 @@ describe('scoreGroup', () => {
     const scored = scoreGroup(new Map(), genes, [7]);
     expect(scored.get(7)).toEqual({
       atRiskCapability: 0,
+      genericCapability: 0,
+      breedCapability: 0,
       soleSourceSlots: 0,
+      genericSoleSourceSlots: 0,
       soleLockSlots: 0,
       liabilityAtRisk: 0,
       byAttribute: {},
@@ -586,10 +601,126 @@ describe('capabilitySummary — held, reachable, ceiling', () => {
       ]) as PetLoci,
     ];
     // L1 bred true (1), L2 carried only (0.5), L3's good allele nowhere (0).
-    expect(capabilitySummary(pop, g)).toEqual({ capability: 1.5, reachable: 2, ceiling: 3 });
+    expect(capabilitySummary(pop, g)).toEqual({
+      capability: 1.5,
+      reachable: 2,
+      ceiling: 3,
+      // Every fixture locus is breed-generic, so the split mirrors the whole.
+      generic: { capability: 1.5, reachable: 2, ceiling: 3 },
+    });
   });
 
   it('reports the genome ceiling even for an empty population', () => {
-    expect(capabilitySummary([], g)).toEqual({ capability: 0, reachable: 0, ceiling: 3 });
+    expect(capabilitySummary([], g)).toEqual({
+      capability: 0,
+      reachable: 0,
+      ceiling: 3,
+      generic: { capability: 0, reachable: 0, ceiling: 3 },
+    });
+  });
+});
+
+describe('breedReach — what a benefit is worth to this breeder', () => {
+  const generic: ScoredGene = { ...CHR01, breed: '' };
+  const kurbone: ScoredGene = { ...CHR01, breed: 'Kurbone' };
+  const ilmarian: ScoredGene = { ...CHR01, breed: 'Ilmarian' };
+
+  it('identifies a generic locus by its empty breed', () => {
+    expect(isBreedGeneric(generic)).toBe(true);
+    expect(isBreedGeneric(kurbone)).toBe(false);
+  });
+
+  it('derives the locked weight as 1 / breedCount rather than tuning it', () => {
+    const w = breedReach({ breedCount: 10 });
+    expect(w(generic)).toBe(1);
+    expect(w(kurbone)).toBe(0.1);
+  });
+
+  it('raises the focus breed to generic value and leaves the rest at the floor', () => {
+    const w = breedReach({ breedCount: 10, focus: 'Kurbone' });
+    expect(w(generic)).toBe(1);
+    expect(w(kurbone)).toBe(1);
+    expect(w(ilmarian)).toBe(0.1);
+  });
+
+  it('weighs everything 1 for a species that locks no locus to a breed', () => {
+    const w = breedReach({ breedCount: 0 });
+    expect(w(kurbone)).toBe(1);
+  });
+
+  it('reproduces the old hard scope at lockWeight 0 — which is why the cull path clamps', () => {
+    const w = breedReach({ breedCount: 10, focus: 'Kurbone', lockWeight: 0 });
+    expect(w(ilmarian)).toBe(0);
+    expect(w(generic)).toBe(1);
+  });
+});
+
+describe('the generic / breed-locked split', () => {
+  /**
+   * Roach, reduced to her essentials (design doc §5): a Kurbone whose
+   * irreplaceable material sits entirely at *other* breeds' loci. The hard
+   * scope priced her at zero and offered her for release; a floored weight
+   * must price her low but never free.
+   */
+  const genes: Record<string, ScoredGene> = {
+    G1: { ...CHR01, breed: '' },
+    B1: { ...CHR01, breed: 'Ilmarian' },
+    B2: { ...CHR01, breed: 'Standardbred' },
+  };
+  const roach = new Map([
+    ['B1', R],
+    ['B2', R],
+  ]) as PetLoci;
+  const herd = [roach, ...pop([D, D, D], 'G1')];
+
+  it('partitions the headline exactly', () => {
+    const loci = new Map([
+      ['G1', R],
+      ['B1', R],
+    ]) as PetLoci;
+    const r = scorePet(loci, genes, tallyAlleles([loci, ...pop([D, D], 'G1')]), {
+      weight: breedReach({ breedCount: 10 }),
+    });
+    expect(r.genericCapability + r.breedCapability).toBeCloseTo(r.atRiskCapability, 10);
+    expect(r.genericCapability).toBeGreaterThan(r.breedCapability);
+  });
+
+  it('counts a generic sole source separately', () => {
+    const loci = new Map([['G1', X]]) as PetLoci;
+    const r = scorePet(loci, genes, tallyAlleles([loci, ...pop([D, D], 'G1')]));
+    expect(r.soleSourceSlots).toBe(2);
+    expect(r.genericSoleSourceSlots).toBe(2);
+  });
+
+  it('keeps an out-of-focus sole carrier priced above zero', () => {
+    const tallies = tallyAlleles(herd);
+    const floored = scorePet(roach, genes, tallies, {
+      weight: breedReach({ breedCount: 10, focus: 'Kurbone' }),
+    });
+    const filtered = scorePet(roach, genes, tallies, {
+      weight: breedReach({ breedCount: 10, focus: 'Kurbone', lockWeight: 0 }),
+    });
+    expect(filtered.atRiskCapability).toBe(0);
+    expect(floored.atRiskCapability).toBeGreaterThan(0);
+    expect(floored.genericCapability).toBe(0);
+  });
+
+  it('ranks generic material above the same count of breed-locked material', () => {
+    const genericHorse = new Map([['G1', R]]) as PetLoci;
+    const breedHorse = new Map([['B1', R]]) as PetLoci;
+    const tallies = tallyAlleles([genericHorse, breedHorse, ...pop([D, D], 'G1')]);
+    const w = breedReach({ breedCount: 10 });
+    const a = scorePet(genericHorse, genes, tallies, { weight: w }).atRiskCapability;
+    const b = scorePet(breedHorse, genes, tallies, { weight: w }).atRiskCapability;
+    expect(a).toBeGreaterThan(b);
+    expect(a / b).toBeCloseTo(10, 10);
+  });
+
+  it('splits the capability summary by generic ceiling', () => {
+    const s = capabilitySummary(herd, genes);
+    // Two benefit slots per locus, three loci.
+    expect(s.ceiling).toBe(6);
+    expect(s.generic.ceiling).toBe(2);
+    expect(s.generic.capability).toBeLessThanOrEqual(s.capability);
   });
 });

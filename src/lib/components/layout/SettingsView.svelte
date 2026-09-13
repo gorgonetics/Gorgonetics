@@ -4,9 +4,11 @@ declare const __APP_VERSION__: string;
 
 <script lang="ts">
 import type { Update } from '@tauri-apps/plugin-updater';
+import BreedSelector from '$lib/components/shared/BreedSelector.svelte';
 import DetailOverlay from '$lib/components/shared/DetailOverlay.svelte';
 import { detectPlatform, getDefaultGameFolder } from '$lib/services/gameImport.js';
 import { settings, settingsActions } from '$lib/stores/settings.js';
+import { HORSE_BREEDS } from '$lib/types/index.js';
 import { isTauri } from '$lib/utils/environment.js';
 import { getFontScale as _getFontScale, clampScale, MAX_SCALE, MIN_SCALE } from '$lib/utils/fontScale.js';
 import { getThemePreference } from '$lib/utils/theme.js';
@@ -32,6 +34,28 @@ const inTauri = isTauri();
 function toErrorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
+
+/**
+ * Breed reach, the weighting behind the Quality column and the Free-up-slots
+ * walk. 677 of the horse gene set's 879 benefit slots are locked to one of ten
+ * breeds, so without a weight three-quarters of the ranking is decided by
+ * material a single-breed breeder will never use.
+ *
+ * The default is derived — `1 / breeds` — not tuned, which is why it is
+ * offered as "Auto" with the arithmetic shown rather than as a number the
+ * player is invited to second-guess.
+ */
+const BREED_COUNT = Object.keys(HORSE_BREEDS).length;
+const AUTO_LOCK_WEIGHT = (1 / BREED_COUNT).toFixed(2);
+const LOCK_WEIGHT_OPTIONS: readonly { value: string; label: string }[] = [
+  { value: 'auto', label: `Auto (1 ÷ ${BREED_COUNT} = ${AUTO_LOCK_WEIGHT})` },
+  { value: '0.25', label: 'Softer (0.25)' },
+  { value: '0.5', label: 'Half (0.5)' },
+  { value: '1', label: 'Equal — no weighting (1)' },
+  { value: '0', label: 'Focus breed only (0)' },
+];
+const focusBreed = $derived(String($settings['quality.focusBreed'] ?? ''));
+const lockWeight = $derived(String($settings['quality.breedLockWeight'] ?? 'auto'));
 
 const modKey = /mac/i.test(navigator?.userAgent ?? '') ? '⌘' : 'Ctrl';
 const currentScale = $derived(_getFontScale($settings));
@@ -122,6 +146,49 @@ async function installUpdate() {
               <span class="toggle-thumb"></span>
             </button>
           </label>
+        </div>
+
+        <div class="settings-section">
+          <h4>Genetic Quality</h4>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <span class="setting-name">Breeding toward</span>
+              <span class="setting-desc">
+                Values this breed's genes alongside the breed-generic ones. Other breeds' still count — weighted, never
+                dropped — so the only carrier of a positive you are not chasing is never scored as expendable.
+              </span>
+            </div>
+            <BreedSelector
+              value={focusBreed}
+              breeds={HORSE_BREEDS}
+              label="Breeding toward"
+              allLabel="Any breed"
+              onChange={(v) => settingsActions.update('quality.focusBreed', v)}
+            />
+          </div>
+
+          <div class="setting-row">
+            <div class="setting-info">
+              <span class="setting-name">Breed-locked gene weight</span>
+              <span class="setting-desc">
+                What a gene locked to a breed you are not breeding is worth against a breed-generic one. Auto is the
+                derived value: a generic gene serves all {BREED_COUNT} breed targets, a locked one serves a single breed.
+                Pruning clamps this above zero whatever you pick.
+              </span>
+            </div>
+            <select
+              class="setting-select"
+              data-testid="breed-lock-weight"
+              aria-label="Breed-locked gene weight"
+              value={lockWeight}
+              onchange={(e) => settingsActions.update('quality.breedLockWeight', e.currentTarget.value)}
+            >
+              {#each LOCK_WEIGHT_OPTIONS as opt (opt.value)}
+                <option value={opt.value}>{opt.label}</option>
+              {/each}
+            </select>
+          </div>
         </div>
 
         <div class="settings-section">
@@ -327,6 +394,17 @@ async function installUpdate() {
     gap: var(--space-xl);
     padding: var(--space-sm) 0;
     cursor: pointer;
+  }
+
+  .setting-select {
+    flex: 0 0 auto;
+    font: inherit;
+    font-size: 13px;
+    padding: var(--space-2xs) var(--space-sm);
+    border: 1px solid var(--border-primary);
+    border-radius: 6px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
   }
 
   .setting-info {

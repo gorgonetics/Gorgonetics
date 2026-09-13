@@ -388,6 +388,14 @@ onDestroy(() => {
             <div class="bv-capability" data-testid="breed-capability">
               Pool holds <strong>{summary.value.capability.toFixed(1)}</strong> of
               <strong>{summary.value.reachable}</strong> reachable slot-units ({summary.value.ceiling} in the genome)
+              <!-- Split out because the unsplit figure is dominated by the ten
+                   breeds' locked loci, and a breeder working one breed is only
+                   ever chasing the generic block plus their own. -->
+              {#if summary.value.generic.ceiling > 0 && summary.value.generic.ceiling < summary.value.ceiling}
+                · <span class="bv-generic" data-testid="breed-capability-generic"
+                  >{summary.value.generic.capability.toFixed(1)} of {summary.value.generic.reachable} breed-generic</span
+                >
+              {/if}
               {#if reachGain !== null}
                 · best reach plan adds ≈ {reachGain.toFixed(1)} per pair
               {/if}
@@ -450,5 +458,6 @@ onDestroy(() => {
   .bv-meta { font-size: 12px; color: var(--text-tertiary); }
   .bv-capability { margin-top: var(--space-2xs); color: var(--text-muted); }
   .bv-capability strong { color: var(--text-secondary); font-weight: 600; }
+  .bv-generic { color: var(--accent-text, var(--accent)); }
   .bv-hint { margin-top: var(--space-2xs); color: var(--warning-text, var(--text-secondary)); font-weight: 600; }
 </style>

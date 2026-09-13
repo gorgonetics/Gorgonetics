@@ -30,6 +30,15 @@
  * else carries is worth. Capability is measured against the rest of the
  * herd for exactly that reason.
  *
+ * Capability is also weighted by **breed reach**: 677 of the horse gene
+ * set's 879 benefit slots are locked to one of ten breeds, so an unweighted
+ * ranking is three-quarters decided by material a single-breed player will
+ * never use. `breedReach` scales a slot by how many breed targets it can
+ * serve — generic serves all of them, locked serves one — which is why a
+ * horse with good generic genes now outranks one with the same count of
+ * breed-locked material. `GeneticQualityResult` reports the two shares
+ * separately so the UI can say which kind an animal holds.
+ *
  * This is **not** the rarity lens. `geneFrequency` reads pool frequency as
  * an estimate of a global property; nothing here claims anything about the
  * world. It asks only "can I already breed this outcome from animals I
@@ -132,6 +141,73 @@ export interface ScoredGene extends GeneSignSummary {
   dominantAttribute: string | null;
   recessiveAttribute: string | null;
   breed: string;
+}
+
+/**
+ * A locus no breed owns, so its benefits are live whatever breed you
+ * eventually target. The empty string is what `geneService` stores for the
+ * data file's blank `breed` column; nothing else means generic.
+ */
+export function isBreedGeneric(gene: ScoredGene): boolean {
+  return gene.breed === '';
+}
+
+/**
+ * How much one locus's benefits are worth to *this* breeder, in [0, 1].
+ * Multiplies the capability a slot contributes; 0 drops the locus outright.
+ */
+export type BenefitWeight = (gene: ScoredGene) => number;
+
+export interface BreedReachOptions {
+  /**
+   * How many breeds an offspring could be — `HORSE_BREEDS` has ten. At 0 or
+   * 1 every locus weighs 1, which is what a single-breed species needs.
+   */
+  breedCount: number;
+  /** The breed being bred toward. Omit or pass `''` for no commitment. */
+  focus?: string;
+  /**
+   * What a breed-locked slot outside the focus is worth. Defaults to the
+   * derived `1 / breedCount`. **Must stay above 0 on the cull path** — see
+   * `breedReach`.
+   */
+  lockWeight?: number;
+}
+
+/**
+ * Weight benefits by how many breed targets they can serve.
+ *
+ * A generic allele is live at every target you might pick; a Kurbone allele
+ * is live at one of ten. So generic weighs `1` and breed-locked weighs
+ * `1 / breedCount` — a count over the target set, not a tuned constant, in
+ * the same spirit as `capability`'s 2:1. This is the whole reason a horse
+ * with good generic genes outranks one with the same count of breed-locked
+ * material: it is a base for any breed, and the arithmetic now says so.
+ *
+ * Naming a `focus` collapses the target set toward that breed: its loci
+ * rise to `1` and the other nine fall to `lockWeight`.
+ *
+ * **`lockWeight` is a floor, not a filter, and that distinction is the
+ * point.** With it at 0 this reproduces the old hard `offspringBreed`
+ * scope, which design doc §5 had to forbid on the cull path: under a
+ * Kurbone target it scored Roach — sole carrier of three unrecoverable
+ * positives at Standardbred, Ilmarian and Plateau Pony loci — at exactly
+ * zero and offered her up for release. Any floor above 0 keeps those slots
+ * in the arithmetic while stopping them from outranking generic ones, so
+ * the cull path can finally take a breed preference. Callers on that path
+ * must clamp above 0; `breedReach` will not do it for them, because 0 is a
+ * legitimate request from the breeding side, which commits to one foal of
+ * one breed.
+ */
+export function breedReach(opts: BreedReachOptions): BenefitWeight {
+  const { breedCount, focus, lockWeight } = opts;
+  if (breedCount <= 1) return () => 1;
+  const locked = lockWeight ?? 1 / breedCount;
+  return (gene) => {
+    if (isBreedGeneric(gene)) return 1;
+    if (focus && gene.breed === focus) return 1;
+    return locked;
+  };
 }
 
 /**
@@ -292,13 +368,15 @@ function ownCapability(ownType: GeneType, allele: Allele): number {
 
 export interface ScorePetOptions {
   /**
-   * Restrict scoring to loci this predicate accepts — used for the
-   * offspring-breed filter. Omit to score every locus regardless of breed
-   * lock, the default, because offspring can be of a breed neither parent
-   * is, which makes a third breed's allele live material rather than dead
-   * weight.
+   * Scale each locus's benefits by what they are worth to this breeder —
+   * `breedReach` is the one implementation. A locus weighing 0 is skipped
+   * outright.
+   *
+   * Omit to weigh every locus 1, the default: offspring can be of a breed
+   * neither parent is, so a third breed's allele is live material rather
+   * than dead weight.
    */
-  scopeToBreed?: (gene: ScoredGene) => boolean;
+  weight?: BenefitWeight;
 }
 
 export interface GeneticQualityResult {
@@ -308,8 +386,26 @@ export interface GeneticQualityResult {
    * available elsewhere — nothing is lost by letting it go.
    */
   atRiskCapability: number;
+  /**
+   * The breed-generic share of `atRiskCapability` — capability at loci no
+   * breed owns, so it is a base for any breed the player later targets.
+   * Together with `breedCapability` it partitions the headline exactly.
+   *
+   * Weighted like the headline, not a raw slot count: a split whose parts
+   * did not add up to the number beside them would invite exactly the
+   * mis-reading the two columns exist to prevent.
+   */
+  genericCapability: number;
+  /** The breed-locked share of `atRiskCapability`. */
+  breedCapability: number;
   /** Benefit slots no other animal carries at all. */
   soleSourceSlots: number;
+  /**
+   * The breed-generic part of `soleSourceSlots`. The strongest single
+   * signal a roster can show: the only animal carrying an allele that
+   * every breed can use.
+   */
+  genericSoleSourceSlots: number;
   /** Benefit slots no other animal can breed true, though carriers exist. */
   soleLockSlots: number;
   /**
@@ -329,7 +425,16 @@ export interface GeneticQualityResult {
 }
 
 function emptyResult(): GeneticQualityResult {
-  return { atRiskCapability: 0, soleSourceSlots: 0, soleLockSlots: 0, liabilityAtRisk: 0, byAttribute: {} };
+  return {
+    atRiskCapability: 0,
+    genericCapability: 0,
+    breedCapability: 0,
+    soleSourceSlots: 0,
+    genericSoleSourceSlots: 0,
+    soleLockSlots: 0,
+    liabilityAtRisk: 0,
+    byAttribute: {},
+  };
 }
 
 /**
@@ -351,12 +456,14 @@ export function scorePet(
     if (type === GeneType.UNKNOWN) continue;
     const gene = genes[geneId];
     if (!gene) continue;
-    if (opts.scopeToBreed && !opts.scopeToBreed(gene)) continue;
+    const weight = opts.weight ? opts.weight(gene) : 1;
+    if (weight <= 0) continue;
 
     const slots = benefitSlots(gene);
     const liabilities = liabilityCounts(gene);
     if (slots.length === 0 && liabilities.dom === 0 && liabilities.rec === 0) continue;
 
+    const generic = isBreedGeneric(gene);
     const tally = tallyFor(tallies, geneId);
 
     for (const allele of [GeneType.DOMINANT, GeneType.RECESSIVE] as const) {
@@ -368,17 +475,24 @@ export function scorePet(
 
       for (const slot of slots) {
         if (slot.allele !== allele) continue;
-        const value = delta;
+        const value = delta * weight;
         result.atRiskCapability += value;
-        if (tier === 'sole') result.soleSourceSlots += 1;
-        else if (tier === 'partial' && type === allele) result.soleLockSlots += 1;
+        if (generic) result.genericCapability += value;
+        else result.breedCapability += value;
+        if (tier === 'sole') {
+          result.soleSourceSlots += 1;
+          if (generic) result.genericSoleSourceSlots += 1;
+        } else if (tier === 'partial' && type === allele) result.soleLockSlots += 1;
         if (slot.attribute) {
           result.byAttribute[slot.attribute] = (result.byAttribute[slot.attribute] ?? 0) + value;
         }
       }
 
+      // Weighted on the same axis as the benefits: a Kurbone negative only
+      // ever bites an offspring you breed as a Kurbone, so a breeder who is
+      // not must not be credited full value for shedding it.
       const liability = allele === GeneType.DOMINANT ? liabilities.dom : liabilities.rec;
-      if (liability > 0) result.liabilityAtRisk += delta * liability;
+      if (liability > 0) result.liabilityAtRisk += delta * liability * weight;
     }
   }
 
@@ -491,6 +605,13 @@ export interface CullStep {
   id: number;
   /** Capability lost by releasing it at this point in the sequence. */
   cost: number;
+  /**
+   * The breed-generic part of `cost`. Broken out because it is the part no
+   * change of breeding plan can make irrelevant, so a release that costs
+   * only breed-locked capability is a materially easier call than one of
+   * the same price that costs generic.
+   */
+  genericCost: number;
   /** Liability that leaves with it — the tie-break among free releases. */
   liabilityRemoved: number;
 }
@@ -546,6 +667,16 @@ export interface SafeCullOrderOptions {
    * strategy, so the player chooses it.
    */
   netLiability?: boolean;
+  /**
+   * Benefit weighting, applied at every re-score in the walk.
+   *
+   * A breed preference reaches the cull path **only** through this, and
+   * only as a `breedReach` whose `lockWeight` is above 0. A weight that
+   * zeroes a breed turns the walk back into the breed-scoped cull §5
+   * forbids, which released the sole carrier of three unrecoverable
+   * positives. The clamp is the caller's; see `breedReach`.
+   */
+  weight?: BenefitWeight;
 }
 
 /**
@@ -608,11 +739,13 @@ export interface SafeCullResult {
  * answer honest, and it is why the result is an ordered list rather than a
  * set.
  *
- * Takes no breed scope, deliberately. A breeding plan commits to one
- * pairing and may be scoped to the breed it targets; releasing an animal is
- * irreversible against every breed you might later target, so a cull must
- * be judged over all loci. See the design doc §5 — a breed-scoped cull
- * score recommends releasing the sole carrier of unrecoverable positives.
+ * Takes a breed preference only as a *weight*, never as a filter. A
+ * breeding plan commits to one pairing and may be scoped hard to the breed
+ * it targets; releasing an animal is irreversible against every breed you
+ * might later target, so no locus may fall out of a cull entirely. See the
+ * design doc §5 — the hard-scoped version of this recommended releasing the
+ * sole carrier of three unrecoverable positives. A `breedReach` weight with
+ * a floor above 0 ranks that animal low without ever calling it free.
  *
  * Stops at `MIN_POPULATION`: below it every slot tiers `sole` and the
  * measure stops discriminating, so it must not keep authorising releases.
@@ -649,7 +782,7 @@ export function safeCullOrder(
   };
 
   const pick = (): CullStep | null => {
-    const scored = scoreGroup(lociByPet, genes, remaining);
+    const scored = scoreGroup(lociByPet, genes, remaining, { weight: opts.weight });
     const held = heldGroups();
     let best: CullStep | null = null;
     for (const id of remaining) {
@@ -658,7 +791,12 @@ export function safeCullOrder(
       if (g !== undefined && held.has(g)) continue;
       const r = scored.get(id);
       if (!r) continue;
-      const step: CullStep = { id, cost: r.atRiskCapability, liabilityRemoved: r.liabilityAtRisk };
+      const step: CullStep = {
+        id,
+        cost: r.atRiskCapability,
+        genericCost: r.genericCapability,
+        liabilityRemoved: r.liabilityAtRisk,
+      };
       if (best === null) {
         best = step;
         continue;
@@ -713,6 +851,18 @@ export interface CapabilitySummary {
   reachable: number;
   /** Every benefit slot in the gene set: the genome's own ceiling. */
   ceiling: number;
+  /**
+   * The same three numbers over breed-generic loci only.
+   *
+   * Reported as raw slot-units, never weighted: this is a progress readout
+   * against a fixed ceiling, and a denominator that moved with a weighting
+   * setting would make "78% of reachable" mean something different on two
+   * machines. The horse gene set has 202 generic benefit slots against 677
+   * breed-locked ones, so a single-breed breeder's real ceiling is the
+   * generic block plus one breed's ~68 — a very different target from the
+   * 879 the unsplit figure implies.
+   */
+  generic: { capability: number; reachable: number; ceiling: number };
 }
 
 /**
@@ -723,27 +873,45 @@ export interface CapabilitySummary {
  * converged to 99.2–99.6% of `reachable` under every policy tried, and the
  * reach objective's expected gain *per pair* fell below one slot-unit at
  * round six, with the stable already holding 97.7% of what it could reach.
+ *
+ * `weight` exists so a caller can measure the same quantity the cull walk
+ * prices in — pass the walk's own weight and the two are directly
+ * comparable. The service's readout leaves it off on purpose: a progress
+ * bar whose denominator moved with a settings change would be unreadable.
+ * `reachable` and `ceiling` stay raw slot counts either way; only
+ * `capability` is scaled.
  */
 export function capabilitySummary(
   lociByPet: Iterable<PetLoci>,
   genes: Readonly<Record<string, ScoredGene>>,
+  opts: { weight?: BenefitWeight } = {},
 ): CapabilitySummary {
   const tallies = tallyAlleles(lociByPet);
   let held = 0;
   let reachable = 0;
   let ceiling = 0;
+  const generic = { capability: 0, reachable: 0, ceiling: 0 };
   for (const [geneId, gene] of Object.entries(genes)) {
+    const w = opts.weight ? opts.weight(gene) : 1;
+    if (w <= 0) continue;
     const slots = benefitSlots(gene);
+    const isGeneric = isBreedGeneric(gene);
     ceiling += slots.length;
+    if (isGeneric) generic.ceiling += slots.length;
     const tally = tallies.get(geneId);
     if (!tally) continue;
     for (const slot of slots) {
       const { hom, car } = countsFor(tally, slot.allele);
-      held += capability(hom, car);
+      const cap = capability(hom, car) * w;
+      held += cap;
       if (car > 0) reachable += 1;
+      if (isGeneric) {
+        generic.capability += cap;
+        if (car > 0) generic.reachable += 1;
+      }
     }
   }
-  return { capability: held, reachable, ceiling };
+  return { capability: held, reachable, ceiling, generic };
 }
 
 /**

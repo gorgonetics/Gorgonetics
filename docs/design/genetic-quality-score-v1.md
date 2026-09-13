@@ -448,7 +448,56 @@ true statement about a stable with a large same-breed cohort, but it
 leaves the ranking nearly flat, which reinforces §4's point about needing
 a denser tiebreak for anything that wants a total order.
 
+## 5a. Breed reach — v2, superseding the filter above
+
+**Status: implemented.** §5's include/exclude filter is replaced by a
+weight. The measurement that forced it: the horse gene set has **879
+benefit slots, of which 677 are locked to one of ten breeds** (~68 each)
+and only 202 are breed-generic. Unweighted, more than three-quarters of
+the ranking is decided by material a single-breed breeder will never use.
+Hard-filtered, the same breeder loses the sole-carrier signal §5 spends a
+page proving must be kept.
+
+The weight is a count over the target set, not a tuned constant — the same
+move that produced `capability`'s 2:1:
+
+| locus | live at | weight |
+|---|---|---|
+| breed-generic | every target | 1 |
+| the focus breed | the target | 1 |
+| any other breed | 1 of `breedCount` | `1 / breedCount` (0.1) |
+
+`breedCount` is counted from the gene set, not from the UI's breed list:
+bee/wasp offers two selectable breeds and locks no locus to either, and
+taking the UI's number would halve every bee benefit for nothing.
+
+At `lockWeight = 0` this reproduces §5's filter exactly, which is the
+cleanest statement of what that filter was: a weighting with the floor
+knocked out. `quality.breedLockWeight` exposes it, defaulting to `'auto'`
+(derived); `quality.focusBreed` holds the focus.
+
+`GeneticQualityResult` now partitions the headline into
+`genericCapability` + `breedCapability`, and `soleSourceSlots` into its
+generic part, because the UI has to be able to say *which kind* of
+material an animal holds. `CapabilitySummary` gains the same split, raw
+rather than weighted: it is a progress readout against a fixed ceiling and
+a denominator that moved with a settings change would be unreadable.
+
+**Consequence worth knowing:** the cull walk now prices in reach-weighted
+units while the breeding view's readout stays in raw slot-units. They are
+not comparable without passing the walk's weight to `capabilitySummary` —
+`cullBenefitWeight` exists so nothing has to rebuild it and drift.
+
 ### The scope belongs to breeding, never to culling
+
+**Superseded in part by §5a, and the reasoning is what superseded it.**
+The prohibition was on a *filter*. A floored weight satisfies every
+argument below while still letting a breeder say what they are breeding:
+Roach scores 0 under the filter and about 0.5 under the weight, ranking
+low without ever pricing as free. `MIN_CULL_BREED_WEIGHT` clamps the
+setting on the cull path so no configuration can reinstate the filter
+there. The original argument, which is still the reason the clamp exists:
+
 
 **`offspringBreed` must not be applied to the cull path.** A breeding plan
 commits to one pairing and can be scoped to the breed it targets. Releasing
@@ -513,6 +562,9 @@ Pure math, no I/O — mirrors `breedingGenetics.ts`. **Implemented**, with
   - `capabilityShare(results)` → `Map<petId, percent>` — the honest 0–100.
   - `expectedCapabilityGain(dist, gene, tally)` — breeding, the same
     capability function run forward over a foal's genotype distribution.
+  - `isBreedGeneric(gene)`, `breedReach(opts): BenefitWeight` — §5a. The
+    weight is derived from `breedCount`, so it adds no tuned constant
+    either.
 
 No tuned constant survives. `TIER_WEIGHT` and `LOCK_BONUS` are gone with
 the absolute score they weighted; `TIER_CAPABILITY` is a naming of

@@ -22,6 +22,8 @@
 import { Gender, type Pet } from '$lib/types/index.js';
 import { computeLocusFrequencies } from '$lib/utils/geneFrequency.js';
 import {
+  type BenefitWeight,
+  breedReach,
   type CapabilitySummary,
   capabilityShare,
   type GeneticQualityResult,
@@ -35,7 +37,7 @@ import {
 } from '$lib/utils/geneticQuality.js';
 import { loadAllPetLoci, type PetLoci } from '$lib/utils/petLoci.js';
 import { getAllAttributeNames, normalizeSpecies } from './configService.js';
-import { getParsedGenesCached, isHorseBreedFiltered } from './geneService.js';
+import { getParsedGenesCached } from './geneService.js';
 
 /**
  * `ParsedGeneRecord` already satisfies `ScoredGene` structurally; the alias
@@ -55,18 +57,72 @@ async function loadInputs(
 }
 
 /**
- * Build the locus filter for a target offspring breed. Genes locked to a
- * different breed are excluded; breed-generic genes and Mixed targets pass
- * through, via the same `isHorseBreedFiltered` gate the rest of the app
- * uses so the two cannot disagree about which loci exist.
+ * How many breeds the species' gene set actually locks loci to.
  *
- * Returns `undefined` for "all loci, every breed" — the default, because
- * offspring can be of a breed neither parent is, which makes a third
- * breed's allele live material rather than dead weight.
+ * Counted from the genes rather than read off `BREEDS_BY_SPECIES`, so the
+ * derived `1 / breedCount` is a fact about the loci being weighed. Bee/wasp
+ * lists two selectable breeds and locks no locus to either; taking the UI's
+ * number would halve every bee benefit for no reason.
  */
-function breedScope(canonical: string, offspringBreed: string | undefined) {
-  if (!offspringBreed) return undefined;
-  return (gene: ScoredGene) => !isHorseBreedFiltered(canonical, offspringBreed, gene.breed);
+function breedCountOf(genes: ParsedGenes): number {
+  const breeds = new Set<string>();
+  for (const gene of Object.values(genes)) if (gene.breed) breeds.add(gene.breed);
+  return breeds.size;
+}
+
+/**
+ * Resolve the persisted `quality.breedLockWeight`. `'auto'` (the default)
+ * means derive it, which `breedReach` does when `lockWeight` is undefined.
+ * Anything unparseable falls back to derived rather than to a guess.
+ */
+export function parseBreedLockWeight(raw: unknown): number | undefined {
+  if (raw === undefined || raw === null || raw === 'auto') return undefined;
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return undefined;
+  return Math.min(1, Math.max(0, n));
+}
+
+/**
+ * Smallest weight the cull path will apply to a breed-locked benefit.
+ *
+ * Design doc §5 in one constant. A weight of 0 is a legitimate request from
+ * the breeding side — that foal really is one breed — but on the cull path
+ * it reinstates the scoped score that offered up Roach, sole carrier of
+ * three positives no other animal in the stable could ever supply. Clamping
+ * rather than rejecting keeps one setting serving both paths.
+ */
+export const MIN_CULL_BREED_WEIGHT = 0.05;
+
+/**
+ * Weight benefits by how many breed targets they serve: generic loci at
+ * full value whatever you breed, the focus breed's at full value, the rest
+ * at the lock weight.
+ *
+ * Replaces the old hard `offspringBreed` filter, which could only include
+ * or exclude. `isHorseBreedFiltered` still gates the *breeding* surfaces —
+ * a committed pairing produces one foal of one breed — but a stable-level
+ * valuation has no such commitment to make.
+ */
+function benefitWeight(
+  genes: ParsedGenes,
+  focus: string | undefined,
+  lockWeight: number | undefined,
+): BenefitWeight | undefined {
+  const breedCount = breedCountOf(genes);
+  if (breedCount <= 1) return undefined;
+  return breedReach({ breedCount, focus: focus === 'Mixed' ? '' : focus, lockWeight });
+}
+
+/**
+ * Exactly the weight `safeCullSet` prices in, floor and all.
+ *
+ * Exported so anything measuring the walk's cost against a capability total
+ * uses the same units it does. Re-deriving the clamp at the call site is how
+ * the two drift apart and an honest walk starts failing its own invariant.
+ */
+export function cullBenefitWeight(genes: ParsedGenes, focus?: string, lockWeight?: number): BenefitWeight | undefined {
+  const derived = 1 / Math.max(1, breedCountOf(genes));
+  return benefitWeight(genes, focus, Math.max(MIN_CULL_BREED_WEIGHT, lockWeight ?? derived));
 }
 
 export interface ScoreStableOptions {
@@ -80,14 +136,20 @@ export interface ScoreStableOptions {
    */
   pets: readonly Pet[];
   /**
-   * Target offspring breed, scoping to breed-generic plus that breed's
-   * loci. Omit for every locus.
+   * The breed being bred toward, valued at full weight alongside the
+   * breed-generic loci. Omit for no commitment, where generic still leads
+   * because it serves every target and a locked locus serves one.
    *
-   * **Do not pass this for a cull decision** — use `safeCullSet`, which
-   * cannot take it. A breed-scoped score reports an animal as expendable
-   * when it is merely expendable *for that breed*.
+   * A weight, not a filter: other breeds' loci keep `breedLockWeight`, so
+   * this never reports an animal as expendable on the strength of loci it
+   * simply excluded. That is what lets `safeCullSet` take it too.
    */
-  offspringBreed?: string;
+  focusBreed?: string;
+  /**
+   * What a benefit locked to a non-focus breed is worth against a generic
+   * one. Omit to derive `1 / breedCount` — 0.1 for horses.
+   */
+  breedLockWeight?: number;
 }
 
 export interface StableScores {
@@ -129,10 +191,10 @@ export async function scoreStable(opts: ScoreStableOptions): Promise<StableScore
   if (opts.pets.length === 0) {
     return { scores: new Map(), unscored: [], shares: new Map(), meaningful: false };
   }
-  const { canonical, loci, genes, ids } = await loadInputs(opts.species, opts.pets);
+  const { loci, genes, ids } = await loadInputs(opts.species, opts.pets);
   const scored = ids.filter((id) => loci.has(id));
   const scores = scoreGroup(loci, genes, scored, {
-    scopeToBreed: breedScope(canonical, opts.offspringBreed),
+    weight: benefitWeight(genes, opts.focusBreed, opts.breedLockWeight),
   });
   return {
     scores,
@@ -199,12 +261,25 @@ export interface SafeCullOptions {
    * cleanliness bought with potential. See `SafeCullOrderOptions.netLiability`.
    */
   mode?: 'potential' | 'clean';
+  /**
+   * The breed being bred toward. Ranks its loci and the breed-generic ones
+   * above the other breeds' — it does **not** discard them.
+   *
+   * Safe here only because it arrives as a weight. The hard version of this
+   * is what design doc §5 forbids, and `MIN_CULL_BREED_WEIGHT` clamps
+   * `breedLockWeight` so no setting can turn it back into one.
+   */
+  focusBreed?: string;
+  /** As `ScoreStableOptions.breedLockWeight`, clamped to `MIN_CULL_BREED_WEIGHT`. */
+  breedLockWeight?: number;
 }
 
 export interface CullRelease {
   pet: Pet;
   /** Capability lost by releasing it at this point in the sequence. */
   cost: number;
+  /** The breed-generic part of `cost` — what no change of plan can recover. */
+  genericCost: number;
   /** Negative-allele capability that leaves with it. */
   liabilityRemoved: number;
 }
@@ -282,10 +357,11 @@ function buildTiebreaks(
  * column loses capability that each individual score reported as free.
  * This re-scores after every removal.
  *
- * Takes no `offspringBreed`. Releasing an animal is irreversible against
- * every breed you might later target — see the design doc §5, where a
- * breed-scoped cull recommends releasing the sole carrier of three
- * unrecoverable positives.
+ * Takes `focusBreed` only as a weight. Releasing an animal is irreversible
+ * against every breed you might later target — see the design doc §5, where
+ * the *filtered* version of this recommended releasing the sole carrier of
+ * three unrecoverable positives. Clamped at `MIN_CULL_BREED_WEIGHT` so no
+ * locus can ever price at zero here.
  */
 export async function safeCullSet(opts: SafeCullOptions): Promise<SafeCullSet> {
   const empty: SafeCullSet = {
@@ -323,6 +399,10 @@ export async function safeCullSet(opts: SafeCullOptions): Promise<SafeCullSet> {
   const unscored = new Set<number>(ids.filter((id) => !loci.has(id)));
   const population = ids.filter((id) => !unscored.has(id));
 
+  // Clamped, not rejected: the setting is shared with the roster, where 0 is
+  // a legitimate "score this breed only".
+  const weight = cullBenefitWeight(genes, opts.focusBreed, opts.breedLockWeight);
+
   const { primary, secondary } = buildTiebreaks(canonical, opts.pets, loci, genes);
   const protectedBest = new Set<number>();
   if (opts.protectBest ?? true) {
@@ -359,6 +439,7 @@ export async function safeCullSet(opts: SafeCullOptions): Promise<SafeCullSet> {
     groupFloor: floor > 0 ? { group: sex, min: floor } : undefined,
     netLiability: opts.mode === 'clean',
     target: opts.slots,
+    weight,
   });
 
   // `totalCost` comes from the walk, so the two totals must be summed over the
@@ -370,7 +451,12 @@ export async function safeCullSet(opts: SafeCullOptions): Promise<SafeCullSet> {
   for (const step of order.releases) {
     const pet = byId.get(step.id);
     if (!pet) continue;
-    releases.push({ pet, cost: step.cost, liabilityRemoved: step.liabilityRemoved });
+    releases.push({
+      pet,
+      cost: step.cost,
+      genericCost: step.genericCost,
+      liabilityRemoved: step.liabilityRemoved,
+    });
     totalCost += step.cost;
     totalCleared += step.liabilityRemoved;
   }
