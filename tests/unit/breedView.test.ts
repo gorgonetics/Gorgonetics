@@ -23,7 +23,8 @@ vi.mock('$lib/services/geneticQualityService.js', () => ({
   })),
   // Real, not stubbed: it only parses a setting, and stubbing it would let the
   // view pass a weight the service would reject.
-  parseBreedLockWeight: (raw: unknown) => (raw === undefined || raw === null || raw === 'auto' ? undefined : Number(raw)),
+  parseBreedLockWeight: (raw: unknown) =>
+    raw === undefined || raw === null || raw === 'auto' ? undefined : Number(raw),
 }));
 
 // The real TrioView mounts the heavy offspring grid (~2304 cells); the guard
