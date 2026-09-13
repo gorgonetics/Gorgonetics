@@ -17,10 +17,11 @@ import PageHeader from '$lib/components/shared/PageHeader.svelte';
 import StatusPane from '$lib/components/shared/StatusPane.svelte';
 import { rankBreedingPairs } from '$lib/services/breedingService.js';
 import { getAllAttributeNames, getSupportedSpecies, normalizeSpecies } from '$lib/services/configService.js';
-import { capabilitySummary } from '$lib/services/geneticQualityService.js';
+import { capabilitySummary, parseBreedLockWeight } from '$lib/services/geneticQualityService.js';
 import { breedingView, clearBench, toggleBench } from '$lib/stores/breeding.svelte.js';
 // `loading` aliased: this component has its own ranking `loading` flag.
 import { pets, loading as petsLoading } from '$lib/stores/pets.js';
+import { settings } from '$lib/stores/settings.js';
 import { type BreedingPairResult, HORSE_BREEDS } from '$lib/types/index.js';
 import {
   attributeObjective,
@@ -178,6 +179,12 @@ const plans = $derived(
  * error does not matter.
  */
 const REACH_EXHAUSTED = 1;
+/**
+ * Breed reach for the pair ranking. Only does anything while no offspring
+ * breed is committed — with one, the hard filter has already dropped the
+ * other breeds. See design doc §5a.
+ */
+const breedLockWeight = $derived(parseBreedLockWeight($settings['quality.breedLockWeight']));
 // Only fetched while planning: the readout is shown there, and the summary is
 // a second `pet_genes` pass over the same animals the ranking just read.
 const summaryKey = $derived(breedingView.spots > 0 && candidates.length > 0 ? candidateKey : null);
@@ -210,7 +217,7 @@ $effect(() => {
   const sp = species;
   const breed = breedingView.offspringBreed;
   const ps = candidates;
-  const key = `${candidateKey}|${breed}`;
+  const key = `${candidateKey}|${breed}|${breedLockWeight ?? 'auto'}`;
 
   // Only close an open Trio on a genuine species change. An unrelated store
   // refresh (or an offspring-breed change) must not yank the projection shut.
@@ -237,7 +244,7 @@ $effect(() => {
   const mine = ++seq;
   loading = true;
   errored = false;
-  rankBreedingPairs({ species: sp, pets: ps, offspringBreed: breed })
+  rankBreedingPairs({ species: sp, pets: ps, offspringBreed: breed, breedLockWeight })
     .then((result) => {
       if (mine !== seq) return;
       pairs = result;

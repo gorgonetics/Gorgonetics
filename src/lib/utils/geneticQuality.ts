@@ -211,6 +211,38 @@ export function breedReach(opts: BreedReachOptions): BenefitWeight {
 }
 
 /**
+ * How many breeds a gene set actually locks loci to.
+ *
+ * Counted from the genes, never from the UI's breed list: bee/wasp offers
+ * two selectable breeds and locks no locus to either, and taking the UI's
+ * number would halve every bee benefit for nothing.
+ */
+export function breedCountOf(genes: Readonly<Record<string, ScoredGene>>): number {
+  const breeds = new Set<string>();
+  for (const gene of Object.values(genes)) if (gene.breed) breeds.add(gene.breed);
+  return breeds.size;
+}
+
+/**
+ * The one `breedReach` builder every caller shares, so the roster, the cull
+ * walk and the pair ranking cannot end up weighing the same locus
+ * differently. Returns `undefined` — meaning "weigh everything 1" — for a
+ * gene set with no breed locks at all.
+ *
+ * `'Mixed'` is not a breed and reads as no focus, matching
+ * `isHorseBreedFiltered`, which lets a Mixed target through unfiltered.
+ */
+export function breedReachFor(
+  genes: Readonly<Record<string, ScoredGene>>,
+  focus?: string,
+  lockWeight?: number,
+): BenefitWeight | undefined {
+  const breedCount = breedCountOf(genes);
+  if (breedCount <= 1) return undefined;
+  return breedReach({ breedCount, focus: focus === 'Mixed' ? '' : focus, lockWeight });
+}
+
+/**
  * Enumerate the good outcomes each allele at one locus could deliver.
  *
  * A `D` allele can **add a positive** (the dominant effect is good) or

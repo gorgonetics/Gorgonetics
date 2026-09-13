@@ -21,6 +21,9 @@ vi.mock('$lib/services/geneticQualityService.js', () => ({
     // The horse gene set's real generic block: 202 of 879 benefit slots.
     generic: { capability: 170, reachable: 190, ceiling: 202 },
   })),
+  // Real, not stubbed: it only parses a setting, and stubbing it would let the
+  // view pass a weight the service would reject.
+  parseBreedLockWeight: (raw: unknown) => (raw === undefined || raw === null || raw === 'auto' ? undefined : Number(raw)),
 }));
 
 // The real TrioView mounts the heavy offspring grid (~2304 cells); the guard

@@ -455,3 +455,61 @@ describe('rankBreedingPairs — clearing liabilities', () => {
     expect(stuck.evLiabilityReduction).toBe(0);
   });
 });
+
+describe('rankBreedingPairs — breed reach on the capability objective', () => {
+  beforeEach(reset);
+
+  /**
+   * `01A1` breed-generic, `01A2` locked to Alpha, `01A3` locked to Beta —
+   * all three the dominant-positive class, so each offers the same raw
+   * capability and only the breed lock separates them.
+   */
+  async function seedBreedGenes() {
+    for (const [gene, breed] of [
+      ['01A1', ''],
+      ['01A2', 'Alpha'],
+      ['01A3', 'Beta'],
+    ] as const) {
+      await geneService.upsertGene('beewasp', '01', gene, {
+        effectDominant: 'Toughness+',
+        effectRecessive: 'None',
+        breed,
+      });
+    }
+    geneService.clearGeneEffectsCache('beewasp');
+  }
+
+  /**
+   * One pair that can only reach the generic locus, one that can only reach
+   * Beta's. Raw capability is identical; breed reach is the whole difference.
+   */
+  async function twoReachPairs() {
+    await seedBreedGenes();
+    return [
+      await uploadParent('GenericM', Gender.MALE, 'x??'),
+      await uploadParent('GenericF', Gender.FEMALE, 'x??'),
+      await uploadParent('BreedM', Gender.MALE, '??x'),
+      await uploadParent('BreedF', Gender.FEMALE, '??x'),
+    ];
+  }
+
+  const gainFor = (rs: Awaited<ReturnType<typeof rankBreedingPairs>>, m: string, f: string) =>
+    rs.find((r) => r.male.name === m && r.female.name === f)?.evCapabilityGain ?? 0;
+
+  it('prefers the generic pairing when no offspring breed is committed', async () => {
+    const pets = await twoReachPairs();
+    const ranked = await rankBreedingPairs({ species: 'BeeWasp', pets });
+    const generic = gainFor(ranked, 'GenericM', 'GenericF');
+    const locked = gainFor(ranked, 'BreedM', 'BreedF');
+    expect(generic).toBeGreaterThan(0);
+    expect(locked).toBeGreaterThan(0);
+    // Two breeds in the gene set, so a locked benefit derives to 1/2.
+    expect(locked).toBeCloseTo(generic / 2, 10);
+  });
+
+  it('ranks them level once the weighting is turned off', async () => {
+    const pets = await twoReachPairs();
+    const ranked = await rankBreedingPairs({ species: 'BeeWasp', pets, breedLockWeight: 1 });
+    expect(gainFor(ranked, 'BreedM', 'BreedF')).toBeCloseTo(gainFor(ranked, 'GenericM', 'GenericF'), 10);
+  });
+});

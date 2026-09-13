@@ -23,7 +23,8 @@ import { Gender, type Pet } from '$lib/types/index.js';
 import { computeLocusFrequencies } from '$lib/utils/geneFrequency.js';
 import {
   type BenefitWeight,
-  breedReach,
+  breedCountOf,
+  breedReachFor,
   type CapabilitySummary,
   capabilityShare,
   type GeneticQualityResult,
@@ -57,20 +58,6 @@ async function loadInputs(
 }
 
 /**
- * How many breeds the species' gene set actually locks loci to.
- *
- * Counted from the genes rather than read off `BREEDS_BY_SPECIES`, so the
- * derived `1 / breedCount` is a fact about the loci being weighed. Bee/wasp
- * lists two selectable breeds and locks no locus to either; taking the UI's
- * number would halve every bee benefit for no reason.
- */
-function breedCountOf(genes: ParsedGenes): number {
-  const breeds = new Set<string>();
-  for (const gene of Object.values(genes)) if (gene.breed) breeds.add(gene.breed);
-  return breeds.size;
-}
-
-/**
  * Resolve the persisted `quality.breedLockWeight`. `'auto'` (the default)
  * means derive it, which `breedReach` does when `lockWeight` is undefined.
  * Anything unparseable falls back to derived rather than to a guess.
@@ -94,26 +81,6 @@ export function parseBreedLockWeight(raw: unknown): number | undefined {
 export const MIN_CULL_BREED_WEIGHT = 0.05;
 
 /**
- * Weight benefits by how many breed targets they serve: generic loci at
- * full value whatever you breed, the focus breed's at full value, the rest
- * at the lock weight.
- *
- * Replaces the old hard `offspringBreed` filter, which could only include
- * or exclude. `isHorseBreedFiltered` still gates the *breeding* surfaces —
- * a committed pairing produces one foal of one breed — but a stable-level
- * valuation has no such commitment to make.
- */
-function benefitWeight(
-  genes: ParsedGenes,
-  focus: string | undefined,
-  lockWeight: number | undefined,
-): BenefitWeight | undefined {
-  const breedCount = breedCountOf(genes);
-  if (breedCount <= 1) return undefined;
-  return breedReach({ breedCount, focus: focus === 'Mixed' ? '' : focus, lockWeight });
-}
-
-/**
  * Exactly the weight `safeCullSet` prices in, floor and all.
  *
  * Exported so anything measuring the walk's cost against a capability total
@@ -122,7 +89,7 @@ function benefitWeight(
  */
 export function cullBenefitWeight(genes: ParsedGenes, focus?: string, lockWeight?: number): BenefitWeight | undefined {
   const derived = 1 / Math.max(1, breedCountOf(genes));
-  return benefitWeight(genes, focus, Math.max(MIN_CULL_BREED_WEIGHT, lockWeight ?? derived));
+  return breedReachFor(genes, focus, Math.max(MIN_CULL_BREED_WEIGHT, lockWeight ?? derived));
 }
 
 export interface ScoreStableOptions {
@@ -194,7 +161,7 @@ export async function scoreStable(opts: ScoreStableOptions): Promise<StableScore
   const { loci, genes, ids } = await loadInputs(opts.species, opts.pets);
   const scored = ids.filter((id) => loci.has(id));
   const scores = scoreGroup(loci, genes, scored, {
-    weight: benefitWeight(genes, opts.focusBreed, opts.breedLockWeight),
+    weight: breedReachFor(genes, opts.focusBreed, opts.breedLockWeight),
   });
   return {
     scores,

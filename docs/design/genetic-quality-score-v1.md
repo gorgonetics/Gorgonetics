@@ -483,6 +483,15 @@ material an animal holds. `CapabilitySummary` gains the same split, raw
 rather than weighted: it is a progress readout against a fixed ceiling and
 a denominator that moved with a settings change would be unreadable.
 
+`rankBreedingPairs` applies the same weight to `evCapabilityGain`. It only
+bites when no `offspringBreed` is committed — with one, `isHorseBreedFiltered`
+has already dropped the other breeds and every surviving locus weighs 1.
+Without one, it is the difference between "Reach new ground" chasing the 677
+breed-locked slots and chasing the 202 generic ones a base animal is made of.
+The expressed-positive counts (`evPositiveTotal`, `evPositiveWeighted`) are
+left unweighted: they are the `positive_genes` lens, counting what a foal
+*expresses*, and reach is a statement about what an allele is *for*.
+
 **Consequence worth knowing:** the cull walk now prices in reach-weighted
 units while the breeding view's readout stays in raw slot-units. They are
 not comparable without passing the walk's weight to `capabilitySummary` —
@@ -562,9 +571,12 @@ Pure math, no I/O — mirrors `breedingGenetics.ts`. **Implemented**, with
   - `capabilityShare(results)` → `Map<petId, percent>` — the honest 0–100.
   - `expectedCapabilityGain(dist, gene, tally)` — breeding, the same
     capability function run forward over a foal's genotype distribution.
-  - `isBreedGeneric(gene)`, `breedReach(opts): BenefitWeight` — §5a. The
-    weight is derived from `breedCount`, so it adds no tuned constant
-    either.
+  - `isBreedGeneric(gene)`, `breedReach(opts): BenefitWeight`,
+    `breedCountOf(genes)`, `breedReachFor(genes, focus?, lockWeight?)` —
+    §5a. The weight is derived from `breedCount`, so it adds no tuned
+    constant either. `breedReachFor` is the single builder the roster, the
+    cull walk and the pair ranking share, so they cannot weigh the same
+    locus differently.
 
 No tuned constant survives. `TIER_WEIGHT` and `LOCK_BONUS` are gone with
 the absolute score they weighted; `TIER_CAPABILITY` is a naming of
