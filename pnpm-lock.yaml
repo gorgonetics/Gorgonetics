@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@lucide/svelte':
-        specifier: ^1.35.0
-        version: 1.35.0(svelte@5.56.10)
+        specifier: ^1.44.0
+        version: 1.44.0(svelte@5.56.10)
       '@tauri-apps/api':
         specifier: ^2.11.1
         version: 2.11.1
@@ -717,8 +717,8 @@ packages:
   '@jsdevtools/ono@7.1.3':
     resolution: {integrity: sha512-4JQNk+3mVzK3xh2rqd6RB4J46qUR19azEHBneZyTZM+c456qOrbbM/5xcR8huNCCcbVt7+UmizG6GuUvPvKUYg==}
 
-  '@lucide/svelte@1.35.0':
-    resolution: {integrity: sha512-1I5WeiEFc21HOLv/GR11vuN3MqN/k/mhCEMW7nEtwSAGOcZ0C5ZgI1Y2Rvs/egfKTUiOTw+R9Ys9BJ+GwAKSWw==}
+  '@lucide/svelte@1.44.0':
+    resolution: {integrity: sha512-67510ne/YowceSyN9BECQaWfp5Ed446X6xpUE5C0e4rRV0e1jRj1KzIlKJCXcGc21hgr/VBDkqQXY7v4VQDeBw==}
     peerDependencies:
       svelte: ^5
 
@@ -4611,7 +4611,7 @@ snapshots:
 
   '@jsdevtools/ono@7.1.3': {}
 
-  '@lucide/svelte@1.35.0(svelte@5.56.10)':
+  '@lucide/svelte@1.44.0(svelte@5.56.10)':
     dependencies:
       svelte: 5.56.10
 
