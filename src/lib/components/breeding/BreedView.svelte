@@ -21,6 +21,7 @@ import { capabilitySummary } from '$lib/services/geneticQualityService.js';
 import { breedingView, clearBench, toggleBench } from '$lib/stores/breeding.svelte.js';
 // `loading` aliased: this component has its own ranking `loading` flag.
 import { pets, loading as petsLoading } from '$lib/stores/pets.js';
+import { settings } from '$lib/stores/settings.js';
 import { type BreedingPairResult, HORSE_BREEDS } from '$lib/types/index.js';
 import {
   attributeObjective,
@@ -29,6 +30,7 @@ import {
   resolveObjective,
 } from '$lib/utils/breedingObjectives.js';
 import { suggestPlans } from '$lib/utils/breedingPlan.js';
+import { parseBreedLockWeight } from '$lib/utils/geneticQuality.js';
 import { keyedResource } from '$lib/utils/keyedResource.svelte.js';
 import { getSpeciesEmoji } from '$lib/utils/species.js';
 import { capitalize } from '$lib/utils/string.js';
@@ -178,6 +180,12 @@ const plans = $derived(
  * error does not matter.
  */
 const REACH_EXHAUSTED = 1;
+/**
+ * Breed reach for the pair ranking. Only does anything while no offspring
+ * breed is committed — with one, the hard filter has already dropped the
+ * other breeds. See design doc §5a.
+ */
+const breedLockWeight = $derived(parseBreedLockWeight($settings['quality.breedLockWeight']));
 // Only fetched while planning: the readout is shown there, and the summary is
 // a second `pet_genes` pass over the same animals the ranking just read.
 const summaryKey = $derived(breedingView.spots > 0 && candidates.length > 0 ? candidateKey : null);
@@ -210,7 +218,7 @@ $effect(() => {
   const sp = species;
   const breed = breedingView.offspringBreed;
   const ps = candidates;
-  const key = `${candidateKey}|${breed}`;
+  const key = `${candidateKey}|${breed}|${breedLockWeight ?? 'auto'}`;
 
   // Only close an open Trio on a genuine species change. An unrelated store
   // refresh (or an offspring-breed change) must not yank the projection shut.
@@ -237,7 +245,7 @@ $effect(() => {
   const mine = ++seq;
   loading = true;
   errored = false;
-  rankBreedingPairs({ species: sp, pets: ps, offspringBreed: breed })
+  rankBreedingPairs({ species: sp, pets: ps, offspringBreed: breed, breedLockWeight })
     .then((result) => {
       if (mine !== seq) return;
       pairs = result;
@@ -388,6 +396,14 @@ onDestroy(() => {
             <div class="bv-capability" data-testid="breed-capability">
               Pool holds <strong>{summary.value.capability.toFixed(1)}</strong> of
               <strong>{summary.value.reachable}</strong> reachable slot-units ({summary.value.ceiling} in the genome)
+              <!-- Split out because the unsplit figure is dominated by the ten
+                   breeds' locked loci, and a breeder working one breed is only
+                   ever chasing the generic block plus their own. -->
+              {#if summary.value.generic.ceiling > 0 && summary.value.generic.ceiling < summary.value.ceiling}
+                · <span class="bv-generic" data-testid="breed-capability-generic"
+                  >{summary.value.generic.capability.toFixed(1)} of {summary.value.generic.reachable} breed-generic</span
+                >
+              {/if}
               {#if reachGain !== null}
                 · best reach plan adds ≈ {reachGain.toFixed(1)} per pair
               {/if}
@@ -450,5 +466,6 @@ onDestroy(() => {
   .bv-meta { font-size: 12px; color: var(--text-tertiary); }
   .bv-capability { margin-top: var(--space-2xs); color: var(--text-muted); }
   .bv-capability strong { color: var(--text-secondary); font-weight: 600; }
+  .bv-generic { color: var(--accent-text, var(--accent)); }
   .bv-hint { margin-top: var(--space-2xs); color: var(--warning-text, var(--text-secondary)); font-weight: 600; }
 </style>

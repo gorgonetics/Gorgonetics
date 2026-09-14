@@ -22,7 +22,14 @@ import {
   offspringDistribution,
   positiveExpressionProbability,
 } from '$lib/utils/breedingGenetics.js';
-import { type AlleleTally, expectedCapabilityGain, tallyAlleles, tallyFor } from '$lib/utils/geneticQuality.js';
+import {
+  type AlleleTally,
+  type BenefitWeight,
+  breedReachFor,
+  expectedCapabilityGain,
+  tallyAlleles,
+  tallyFor,
+} from '$lib/utils/geneticQuality.js';
 import { loadAllPetLoci, type PetLoci, walkPairLoci } from '$lib/utils/petLoci.js';
 import { capitalize } from '$lib/utils/string.js';
 import { getAllAttributeNames, normalizeSpecies } from './configService.js';
@@ -126,6 +133,18 @@ export interface RankBreedingPairsOptions {
    * species without breeds.
    */
   offspringBreed?: string;
+  /**
+   * What a benefit locked to a breed you are not breeding is worth against
+   * a breed-generic one, for `evCapabilityGain`. Omit to derive
+   * `1 / breedCount`.
+   *
+   * Only bites when no `offspringBreed` is committed — with one, the hard
+   * filter has already dropped the other breeds and every surviving locus
+   * weighs 1. Without one, it is the difference between "Reach new ground"
+   * chasing the 677 breed-locked slots and chasing the 202 generic ones a
+   * base animal is actually made of. See design doc §5a.
+   */
+  breedLockWeight?: number;
   /**
    * Pre-filtered candidate parents (caller is expected to pass only
    * stabled, same-species pets). The service splits by gender and ranks
@@ -254,6 +273,7 @@ function scorePair(
   offspringBreed: string | undefined,
   species: string,
   attrNames: readonly string[],
+  weight: BenefitWeight | undefined,
 ): BreedingPairResult {
   const evPositiveByAttribute = emptyAttributeBreakdown(attrNames);
   const attributeVariance = emptyAttributeBreakdown(attrNames);
@@ -288,7 +308,11 @@ function scorePair(
       );
       evPositiveTotal += total;
       evPositiveWeighted += weighted;
-      evCapabilityGain += expectedCapabilityGain(dist, gd, tallyFor(tallies, geneId));
+      // Breed reach: without a committed offspring breed every locus in the
+      // genome is in play, and three-quarters of them belong to a breed this
+      // foal will not be. Weighting keeps "Reach new ground" pointed at
+      // material that stays useful whatever breed the player ends up on.
+      evCapabilityGain += expectedCapabilityGain(dist, gd, tallyFor(tallies, geneId)) * (weight ? weight(gd) : 1);
       const pPos = positiveExpressionProbability(dist, gd);
       positiveVariance += pPos * (1 - pPos);
       const pNeg = negativeExpressionProbability(dist, gd);
@@ -363,6 +387,9 @@ export async function rankBreedingPairs(opts: RankBreedingPairsOptions): Promise
   // included: a pairing that only reproduces what the stable already breeds
   // true must score nothing, and that has to fall out of the arithmetic.
   const tallies = tallyAlleles(petLociMap.values());
+  // The focus is whatever breed the player committed to; with none, generic
+  // loci simply outweigh the breed-locked ones.
+  const weight = breedReachFor(parsedGenes, opts.offspringBreed, opts.breedLockWeight);
   // One pass per animal, not per pair: the baseline an offspring must beat.
   const ownProfiles = new Map<number, ExpressedProfile>();
   for (const [id, l] of petLociMap) {
@@ -386,6 +413,7 @@ export async function rankBreedingPairs(opts: RankBreedingPairsOptions): Promise
           opts.offspringBreed,
           species,
           attrNames,
+          weight,
         ),
       );
     }

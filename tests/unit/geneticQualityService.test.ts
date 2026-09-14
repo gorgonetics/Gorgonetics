@@ -465,3 +465,142 @@ describe('safeCullSet — atFloor names only a live constraint', () => {
     expect(set.atFloor).not.toContain(Gender.MALE);
   });
 });
+
+/**
+ * Breed reach at the service layer: does a focus actually re-rank, and does
+ * the cull path refuse to zero a breed whatever the setting says?
+ *
+ * The fixture is the design doc §5 shape in miniature — `01A1` generic,
+ * `01A2` locked to Alpha, `01A3` locked to Beta, all three the
+ * dominant-negative / recessive-positive class so the recessive allele is
+ * the valuable one at every locus.
+ */
+async function seedBreedGenes() {
+  for (const [gene, breed] of [
+    ['01A1', ''],
+    ['01A2', 'Alpha'],
+    ['01A3', 'Beta'],
+  ] as const) {
+    await geneService.upsertGene('beewasp', '01', gene, {
+      effectDominant: 'Toughness-',
+      effectRecessive: 'Intelligence+',
+      breed,
+    });
+  }
+  geneService.clearGeneEffectsCache('beewasp');
+}
+
+describe('breed reach', () => {
+  beforeEach(async () => {
+    await reset();
+    await seedBreedGenes();
+  });
+
+  /**
+   * Two animals holding one irreplaceable recessive each — one at the
+   * generic locus, one at Beta's — against a herd that supplies neither.
+   */
+  async function twoSoleCarriers() {
+    return [
+      await upload('Generic', Gender.FEMALE, 'RDD'),
+      await upload('BreedOnly', Gender.FEMALE, 'DDR'),
+      await upload('Filler1', Gender.MALE, 'DDD'),
+      await upload('Filler2', Gender.MALE, 'DDD'),
+    ];
+  }
+
+  it('ranks the generic carrier above the breed-locked one', async () => {
+    const pets = await twoSoleCarriers();
+    const { scores } = await scoreStable({ species: 'BeeWasp', pets });
+    const generic = scores.get(pets[0].id);
+    const locked = scores.get(pets[1].id);
+    expect(generic?.atRiskCapability).toBeGreaterThan(locked?.atRiskCapability ?? 0);
+    // Two breeds in the gene set, so a locked benefit derives to 1/2.
+    expect(locked?.atRiskCapability).toBeCloseTo((generic?.atRiskCapability ?? 0) / 2, 10);
+  });
+
+  it('partitions each score into its generic and breed-locked shares', async () => {
+    const pets = await twoSoleCarriers();
+    const { scores } = await scoreStable({ species: 'BeeWasp', pets });
+    const generic = scores.get(pets[0].id);
+    const locked = scores.get(pets[1].id);
+    expect(generic?.breedCapability).toBe(0);
+    expect(generic?.genericCapability).toBeCloseTo(generic?.atRiskCapability ?? 0, 10);
+    expect(locked?.genericCapability).toBe(0);
+    expect(locked?.genericSoleSourceSlots).toBe(0);
+    expect(generic?.genericSoleSourceSlots).toBeGreaterThan(0);
+  });
+
+  it('lifts the focus breed to generic value without touching the generic loci', async () => {
+    const pets = await twoSoleCarriers();
+    const unfocused = await scoreStable({ species: 'BeeWasp', pets });
+    const focused = await scoreStable({ species: 'BeeWasp', pets, focusBreed: 'Beta' });
+    const id = pets[1].id;
+    expect(focused.scores.get(id)?.atRiskCapability).toBeGreaterThan(unfocused.scores.get(id)?.atRiskCapability ?? 0);
+    expect(focused.scores.get(pets[0].id)?.atRiskCapability).toBeCloseTo(
+      unfocused.scores.get(pets[0].id)?.atRiskCapability ?? 0,
+      10,
+    );
+  });
+
+  it('lets the roster zero an out-of-focus breed when asked', async () => {
+    const pets = await twoSoleCarriers();
+    const { scores } = await scoreStable({
+      species: 'BeeWasp',
+      pets,
+      focusBreed: 'Alpha',
+      breedLockWeight: 0,
+    });
+    expect(scores.get(pets[1].id)?.atRiskCapability).toBe(0);
+  });
+
+  it('never zeroes one on the cull path, whatever the setting says', async () => {
+    // The §5 guarantee. At weight 0 this animal is the cheapest release in the
+    // stable and holds a positive no other animal carries; the floor is the
+    // only thing standing between the walk and that mistake.
+    const pets = await twoSoleCarriers();
+    const plan = await safeCullSet({
+      species: 'BeeWasp',
+      pets,
+      slots: 1,
+      focusBreed: 'Alpha',
+      breedLockWeight: 0,
+      protectBest: false,
+    });
+    const step = plan.releases.find((r) => r.pet.id === pets[1].id);
+    if (step) expect(step.cost).toBeGreaterThan(0);
+    // Whether or not it is picked, its price is never free.
+    const priced = await safeCullSet({
+      species: 'BeeWasp',
+      pets,
+      slots: 4,
+      focusBreed: 'Alpha',
+      breedLockWeight: 0,
+      protectBest: false,
+    });
+    const forced = priced.releases.find((r) => r.pet.id === pets[1].id) ?? priced.next;
+    expect(forced === null || forced === undefined ? 1 : forced.cost).toBeGreaterThan(0);
+  });
+
+  it('reports the generic part of each release cost', async () => {
+    const pets = await twoSoleCarriers();
+    const fillers = [await upload('Filler3', Gender.MALE, 'DDD')];
+    // Pin the fillers so the walk has to price the two carriers, and drop the
+    // sex floor — the point here is the cost breakdown, not who is releasable.
+    const plan = await safeCullSet({
+      species: 'BeeWasp',
+      pets: [...pets, ...fillers],
+      slots: 2,
+      pairs: 0,
+      protectBest: false,
+      pinned: [pets[2].id, pets[3].id, fillers[0].id],
+    });
+    const generic = plan.releases.find((r) => r.pet.id === pets[0].id);
+    const locked = plan.releases.find((r) => r.pet.id === pets[1].id);
+    expect(generic?.genericCost).toBeGreaterThan(0);
+    expect(generic?.genericCost).toBeCloseTo(generic?.cost ?? 0, 10);
+    // Its whole price sits at Beta's locus, so nothing of it is generic.
+    expect(locked?.cost).toBeGreaterThan(0);
+    expect(locked?.genericCost).toBe(0);
+  });
+});

@@ -14,7 +14,9 @@ import { getAllAttributeNames, getAllAttributes, normalizeSpecies } from '$lib/s
 import { scoreStable } from '$lib/services/geneticQualityService.js';
 import { myPetsView, setMyPetsSelection, toggleMyPetsSelection } from '$lib/stores/mypets.svelte.js';
 import { pets as allPets } from '$lib/stores/pets.js';
+import { settings } from '$lib/stores/settings.js';
 import type { Pet } from '$lib/types/index.js';
+import { parseBreedLockWeight } from '$lib/utils/geneticQuality.js';
 import { keyedResource } from '$lib/utils/keyedResource.svelte.js';
 import { type SortableColumn, sortByColumn } from '$lib/utils/sortColumn.js';
 import { capitalize } from '$lib/utils/string.js';
@@ -54,12 +56,29 @@ const scoredSpecies = $derived(myPetsView.species ? normalizeSpecies(myPetsView.
 const scoredPool = $derived(
   scoredSpecies ? $allPets.filter((p) => p.stabled && normalizeSpecies(p.species) === scoredSpecies) : [],
 );
-// Keyed on the population's identity, so an unrelated `$pets` re-emit with the
-// same members does not re-score.
-const qualityKey = $derived(scoredPool.length > 0 ? `${scoredSpecies}|${scoredPool.map((p) => p.id).join(',')}` : null);
+/**
+ * The breed the score values at full weight, and what a benefit locked to
+ * any other breed is worth against a breed-generic one.
+ *
+ * A weight, never a filter: 677 of the horse gene set's 879 benefit slots
+ * belong to one of ten breeds, so leaving them unweighted lets material a
+ * single-breed breeder will never use decide three-quarters of the column —
+ * but zeroing them would call the sole carrier of another breed's positive
+ * expendable, which is the mistake design doc §5 is about.
+ */
+const focusBreed = $derived(String($settings['quality.focusBreed'] ?? ''));
+const breedLockWeight = $derived(parseBreedLockWeight($settings['quality.breedLockWeight']));
+// Keyed on the population's identity and the weighting, so an unrelated
+// `$pets` re-emit with the same members does not re-score but a settings
+// change does.
+const qualityKey = $derived(
+  scoredPool.length > 0
+    ? `${scoredSpecies}|${focusBreed}|${breedLockWeight ?? 'auto'}|${scoredPool.map((p) => p.id).join(',')}`
+    : null,
+);
 const quality = keyedResource(
   () => qualityKey,
-  () => scoreStable({ species: scoredSpecies, pets: scoredPool }),
+  () => scoreStable({ species: scoredSpecies, pets: scoredPool, focusBreed, breedLockWeight }),
 );
 const qualityShare = (pet: Pet) => quality.value?.shares.get(pet.id) ?? 0;
 // Set, not the array: the tooltip asks per row, and the roster renders every
@@ -102,11 +121,34 @@ function qualityTitle(pet: Pet): string {
   const parts = [
     `${r.atRiskCapability.toFixed(1)} slot-units the stable would lose without it (0.5 = only carrier, 1 = only one breeding it true)`,
   ];
-  if (r.soleSourceSlots > 0) parts.push(`sole source of ${r.soleSourceSlots}`);
+  if (r.genericCapability > 0) {
+    parts.push(`${r.genericCapability.toFixed(1)} of that is breed-generic — a base for any breed you target`);
+  }
+  if (r.breedCapability > 0) {
+    parts.push(`${r.breedCapability.toFixed(1)} is breed-locked, weighted down for the breeds you are not breeding`);
+  }
+  if (r.soleSourceSlots > 0) {
+    const generic = r.genericSoleSourceSlots > 0 ? ` (${r.genericSoleSourceSlots} breed-generic)` : '';
+    parts.push(`sole source of ${r.soleSourceSlots}${generic}`);
+  }
   if (r.soleLockSlots > 0) parts.push(`only one able to breed ${r.soleLockSlots} true`);
   parts.push("shown as a share of the stable's total irreplaceable capability");
   return parts.join(' · ');
 }
+
+/**
+ * Mark an animal whose irreplaceable material is mostly breed-generic.
+ *
+ * The distinction the percentage cannot carry on its own: two animals at
+ * the same share are not the same buy if one of them keeps its value
+ * whatever breed you switch to. Half is the threshold because it is the
+ * point at which the generic part outweighs everything else combined —
+ * anything finer would need a legend nobody reads.
+ */
+const genericLed = (pet: Pet): boolean => {
+  const r = quality.value?.scores.get(pet.id);
+  return !!r && r.atRiskCapability > 0 && r.genericCapability > r.atRiskCapability / 2;
+};
 
 // Per-attribute columns only when a single species is selected (different
 // species expose different attributes); species-agnostic columns are always
@@ -272,7 +314,11 @@ function open(pet: Pet): void {
                     {:else if qualityShare(pet) < 0.05}
                       —
                     {:else}
-                      {qualityShare(pet).toFixed(1)}%
+                      {qualityShare(pet).toFixed(1)}%{#if genericLed(pet)}<span
+                          class="generic-mark"
+                          data-testid="quality-generic"
+                          aria-label="mostly breed-generic">◆</span
+                        >{/if}
                     {/if}
                   </span>
                 {:else}
@@ -317,4 +363,8 @@ function open(pet: Pet): void {
   /* Not measured, not redundant — a distinct mark so an un-stabled pet is
      never mistaken for one whose alleles are all covered elsewhere. */
   .quality.unscored { color: var(--border-primary); }
+  /* The one thing the percentage cannot say: this animal's value survives a
+     change of target breed. Accented rather than coloured by severity — it is
+     a property of the animal, not a warning. */
+  .generic-mark { margin-left: var(--space-3xs); font-size: 9px; vertical-align: 2px; color: var(--accent-text, var(--accent)); }
 </style>

@@ -4,7 +4,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { rankBreedingPairs } from '$lib/services/breedingService.js';
 import { closeDatabase, initDatabase } from '$lib/services/database.js';
 import * as geneService from '$lib/services/geneService.js';
-import { safeCullSet } from '$lib/services/geneticQualityService.js';
+import { cullBenefitWeight, safeCullSet } from '$lib/services/geneticQualityService.js';
 import { runMigrations } from '$lib/services/migrationService.js';
 import * as petService from '$lib/services/petService.js';
 import { Gender, GeneType, type Pet } from '$lib/types/index.js';
@@ -185,10 +185,16 @@ async function upload(name: string, gender: Gender, loci: PetLoci): Promise<numb
  * Total capability of a set of animals: the quantity the cull walk prices.
  * Uses the shipped summary rather than re-deriving it, so the assertions
  * cannot pass against a formula that has drifted from the app's.
+ *
+ * Weighted with `cullBenefitWeight` — the walk's own weight, taken from the
+ * service rather than rebuilt here. Breed reach means the walk prices in
+ * reach-weighted units while the breeding view's readout stays in raw
+ * slot-units, so an unweighted total here compares two different quantities
+ * and reads ten times the real cost on a breed-locked release.
  */
 async function stableCapability(pets: readonly Pet[], genes: Record<string, ScoredGene>): Promise<number> {
   const loci = await loadAllPetLoci(pets.map((p) => p.id));
-  return capabilitySummary(loci.values(), genes).capability;
+  return capabilitySummary(loci.values(), genes, { weight: cullBenefitWeight(genes) }).capability;
 }
 
 describe('breeding loop: cull six, breed six under Reach new ground, repeat', () => {

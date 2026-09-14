@@ -9,6 +9,14 @@ import { getDb } from './database.js';
 
 const SETTING_DEFAULTS: Record<string, unknown> = {
   'horse.autoSelectBreedFilter': true,
+  // The breed the genetic quality score values at full weight; '' = no
+  // commitment, every breed weighed alike. See geneticQualityService.
+  'quality.focusBreed': '',
+  // What a benefit locked to a breed you are not breeding is worth against a
+  // breed-generic one. `'auto'` derives it as 1 / (breed count) — 0.1 for
+  // horses — so the shipped value is a count over the target set rather than
+  // a tuned constant. A number in [0, 1] overrides it.
+  'quality.breedLockWeight': 'auto',
   'display.fontScale': 100,
   'display.theme': 'system',
   'import.gameFolderPath': '',

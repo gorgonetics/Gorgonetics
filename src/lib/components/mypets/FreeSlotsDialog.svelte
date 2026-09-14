@@ -12,9 +12,11 @@
  *    not additive: where two animals are the only carriers of an allele, each
  *    reads as free because the other covers it, yet releasing both loses it.
  *    The order is the guarantee, so the UI numbers the steps.
- *  - **Never breed-scope the decision.** Releasing is irreversible against
- *    every breed you might later target; `safeCullSet` takes no breed filter,
- *    and this view must not offer one.
+ *  - **Never breed-*filter* the decision.** Releasing is irreversible against
+ *    every breed you might later target. A breed preference reaches the walk
+ *    only as a weight with a floor above zero, so another breed's sole carrier
+ *    ranks low but never prices as free. The control below sets a focus, not
+ *    a filter, and the copy has to keep saying so.
  *
  * And three things the score cannot see, which the dialog adds around it
  * (design doc §4c): enough of each sex for the pairs the slots are for, the
@@ -25,10 +27,14 @@
  * in the library, it simply leaves the breeding pool. That is the reversible
  * reading of "make room", and it is what the copy promises.
  */
+import { get } from 'svelte/store';
+import BreedSelector from '$lib/components/shared/BreedSelector.svelte';
 import { type SafeCullSet, safeCullSet } from '$lib/services/geneticQualityService.js';
+import { settings } from '$lib/stores/settings.js';
 import { Gender, type Pet } from '$lib/types/index.js';
 import { focusTrap } from '$lib/utils/focusTrap.js';
-import { MIN_POPULATION } from '$lib/utils/geneticQuality.js';
+import { MIN_POPULATION, parseBreedLockWeight } from '$lib/utils/geneticQuality.js';
+import { BREEDS_BY_SPECIES } from '$lib/utils/species.js';
 
 interface Props {
   /** Canonical species key — capability is only comparable within one. */
@@ -59,6 +65,20 @@ const target = $derived(Math.min(maxSlots, Math.max(1, Math.floor(Number(slots) 
 let protectBest = $state(true);
 /** What the release optimises: potential kept, or negatives shed. */
 let mode = $state<'potential' | 'clean'>('potential');
+/**
+ * The breed whose loci are valued at full weight, seeded from the setting the
+ * roster's Quality column uses so the two columns rank by the same notion of
+ * value. Local to the dialog: a cull is a one-off decision and trying a
+ * different focus for it should not silently re-rank the roster behind it.
+ */
+let focusBreed = $state(String(get(settings)['quality.focusBreed'] ?? ''));
+const breedLockWeight = $derived(parseBreedLockWeight($settings['quality.breedLockWeight']));
+/**
+ * Breeds to offer. Gated on horses because they are the only species whose
+ * gene set locks loci to a breed — the same hardcode `isHorseBreedFiltered`
+ * makes, kept identical so the two cannot disagree about who has breeds.
+ */
+const breeds = $derived(species === 'horse' ? BREEDS_BY_SPECIES[species] : undefined);
 let plan = $state<SafeCullSet | null>(null);
 let loading = $state(true);
 let failed = $state(false);
@@ -71,7 +91,9 @@ let releaseFailed = $state(false);
  * effect's dependencies explicit instead of relying on which fields the body
  * happens to read.
  */
-const requestKey = $derived(`${species}|${target}|${protectBest}|${mode}|${pets.map((p) => p.id).join(',')}`);
+const requestKey = $derived(
+  `${species}|${target}|${protectBest}|${mode}|${focusBreed}|${breedLockWeight ?? 'auto'}|${pets.map((p) => p.id).join(',')}`,
+);
 
 // The walk re-scores after every removal, so a different target is a
 // different answer, not a prefix of one — any key change means a refetch.
@@ -84,7 +106,7 @@ $effect(() => {
   // loading message. It was computed for different settings, and the footer
   // button reads its list — so keeping it lets a click release the old set.
   plan = null;
-  safeCullSet({ species, pets, slots: target, protectBest, mode })
+  safeCullSet({ species, pets, slots: target, protectBest, mode, focusBreed, breedLockWeight })
     .then((r) => {
       if (live) plan = r;
     })
@@ -191,6 +213,30 @@ async function release() {
           <span>Keep my best by + Genes and by stats</span>
         </label>
       </div>
+      {#if breeds}
+        <!-- A focus, never a filter. Other breeds' loci keep a floor weight,
+             so the sole carrier of an Ilmarian positive still prices above
+             free in a stable focused on Kurbones. -->
+        <div class="options-row focus-row">
+          <BreedSelector
+            value={focusBreed}
+            {breeds}
+            label="Breeding toward"
+            allLabel="Any breed"
+            onChange={(v) => {
+              focusBreed = v;
+            }}
+          />
+          <span class="focus-note" data-testid="free-slots-focus-note">
+            {#if focusBreed}
+              Breed-generic and {focusBreed} genes count in full; other breeds' still count, weighted down — never
+              zeroed, so their only carrier is never priced as free.
+            {:else}
+              Breed-generic genes count in full; breed-locked ones count for the one breed they serve.
+            {/if}
+          </span>
+        </div>
+      {/if}
 
       {#if failed}
         <p class="msg error" data-testid="free-slots-error">
@@ -242,6 +288,18 @@ async function release() {
                   <span class="tag cost" title="Breeding capability lost at this point in the order, in slot-units: 0.5 is the only carrier of a beneficial allele, 1 the only animal that breeds it true">
                     costs {fmt(r.cost)}
                   </span>
+                  <!-- The part of the cost no change of breeding plan can make
+                       irrelevant. Flagged rather than folded into the number:
+                       two releases at the same price are not the same call. -->
+                  {#if r.genericCost > 0}
+                    <span
+                      class="tag generic"
+                      data-testid="free-slots-generic"
+                      title="Of that cost, this much is at breed-generic loci — material that stays useful whatever breed you switch to, so it cannot be recovered by changing plans"
+                    >
+                      {fmt(r.genericCost)} generic
+                    </span>
+                  {/if}
                 {:else}
                   <span class="tag free" title="Every beneficial allele it carries is held by an animal you keep">free</span>
                 {/if}
@@ -362,6 +420,11 @@ async function release() {
   .tag.free { color: var(--text-tertiary); }
   .tag.good { color: var(--success-text, var(--text-secondary)); }
   .tag.cost { color: var(--warning-text, var(--text-primary)); font-weight: 600; }
+  /* Sits beside the cost and qualifies it, so it reads as part of the price
+     rather than as a second, competing number. */
+  .tag.generic { color: var(--accent-text, var(--accent)); }
+  .focus-row { align-items: flex-start; }
+  .focus-note { flex: 1 1 220px; min-width: 0; font-size: 11px; color: var(--text-muted); line-height: 1.4; white-space: normal; }
   .foot-note { flex: 1; font-size: 11px; color: var(--text-muted); }
   .foot-note.error { color: var(--danger-text, var(--text-primary)); font-weight: 600; }
 </style>

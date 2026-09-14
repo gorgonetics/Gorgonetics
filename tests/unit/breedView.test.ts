@@ -14,7 +14,13 @@ vi.mock('$lib/services/breedingService.js', () => ({
 // The capability readout hits the DB through the quality service; a fixed
 // summary keeps these tests about the view's wording and gating.
 vi.mock('$lib/services/geneticQualityService.js', () => ({
-  capabilitySummary: vi.fn(async () => ({ capability: 700, reachable: 800, ceiling: 879 })),
+  capabilitySummary: vi.fn(async () => ({
+    capability: 700,
+    reachable: 800,
+    ceiling: 879,
+    // The horse gene set's real generic block: 202 of 879 benefit slots.
+    generic: { capability: 170, reachable: 190, ceiling: 202 },
+  })),
 }));
 
 // The real TrioView mounts the heavy offspring grid (~2304 cells); the guard

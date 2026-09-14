@@ -85,8 +85,10 @@ describe('Roster — genetic quality column', () => {
     const { container } = render(Roster, { pets });
 
     await waitFor(() => expect(headers(container)).toContain('Quality'));
-    // The founder holds every irreplaceable allele in the population.
-    await waitFor(() => expect(cellFor(container, 'Founder')?.textContent?.trim()).toBe('100.0%'));
+    // The founder holds every irreplaceable allele in the population. The ◆
+    // is the breed-generic mark: bee/wasp locks no locus to a breed, so all
+    // of her value survives any change of target.
+    await waitFor(() => expect(cellFor(container, 'Founder')?.textContent?.trim()).toBe('100.0%◆'));
     expect(cellFor(container, 'Dup1')?.textContent?.trim()).toBe('—');
     expect(cellFor(container, 'Dup1')?.classList.contains('redundant')).toBe(true);
   });
@@ -98,6 +100,10 @@ describe('Roster — genetic quality column', () => {
     await waitFor(() => expect(cellFor(container, 'Dup1')).toBeTruthy());
     expect(cellFor(container, 'Dup1')?.getAttribute('title')).toContain('available from another stabled pet');
     expect(cellFor(container, 'Founder')?.getAttribute('title')).toContain('sole source');
+    expect(cellFor(container, 'Founder')?.getAttribute('title')).toContain('breed-generic');
+    expect(cellFor(container, 'Founder')?.querySelector('[data-testid="quality-generic"]')).toBeTruthy();
+    // Nothing to mark on a pet holding nothing irreplaceable.
+    expect(cellFor(container, 'Dup1')?.querySelector('[data-testid="quality-generic"]')).toBeFalsy();
   });
 
   it('scores against the stabled population, not the filtered rows', async () => {
