@@ -376,6 +376,75 @@ describe('rankBreedingPairs — improvement over the parents', () => {
   });
 });
 
+/**
+ * The per-parent profiles behind `betterParentPositives` / `weakerParentPositives`.
+ * Surfaced because every absolute column in the pair table is an expected
+ * count with no baseline of its own, and the reader needs both parents' own
+ * figures to interpret one.
+ */
+describe('rankBreedingPairs — per-parent expressed profiles', () => {
+  beforeEach(reset);
+
+  it("reports each parent's own counts, and agrees with the better/weaker baselines", async () => {
+    await geneService.upsertGene('beewasp', '01', '01A1', { effectDominant: 'Toughness+', effectRecessive: 'None' });
+    await geneService.upsertGene('beewasp', '01', '01A2', { effectDominant: 'Intelligence+', effectRecessive: 'None' });
+    await geneService.upsertGene('beewasp', '01', '01A3', { effectDominant: 'Speed-', effectRecessive: 'None' });
+    geneService.clearGeneEffectsCache('beewasp');
+    // Male expresses both positives and the negative; female only the first.
+    const m = await uploadParent('M', Gender.MALE, 'DDD');
+    const f = await uploadParent('F', Gender.FEMALE, 'DRR');
+    const [pair] = await rankBreedingPairs({ species: 'BeeWasp', pets: [m, f] });
+
+    expect(pair.maleProfile.positives).toBe(2);
+    expect(pair.femaleProfile.positives).toBe(1);
+    expect(pair.maleProfile.negatives).toBe(1);
+    expect(pair.femaleProfile.negatives).toBe(0);
+    expect(pair.maleProfile.positivesByAttribute).toEqual({ Toughness: 1, Intelligence: 1 });
+    expect(pair.femaleProfile.positivesByAttribute).toEqual({ Toughness: 1 });
+
+    // The baselines the improvement integrals used are the max/min of these,
+    // so a drift between the two would make the table contradict the ranking.
+    expect(pair.betterParentPositives).toBe(Math.max(pair.maleProfile.positives, pair.femaleProfile.positives));
+    expect(pair.weakerParentPositives).toBe(Math.min(pair.maleProfile.positives, pair.femaleProfile.positives));
+    expect(pair.cleanerParentNegatives).toBe(Math.min(pair.maleProfile.negatives, pair.femaleProfile.negatives));
+  });
+
+  it('scopes a parent profile to the offspring breed, not the parent own breed', async () => {
+    // A locus locked to another breed is excluded from the foal's EV, so it
+    // must be excluded from the parent's baseline too — otherwise the gap the
+    // table shows is manufactured out of two different locus sets.
+    await geneService.upsertGene('horse', '01', '01A1', { effectDominant: 'Speed+', effectRecessive: 'None' });
+    await geneService.upsertGene('horse', '01', '01A2', {
+      effectDominant: 'Speed+',
+      effectRecessive: 'None',
+      breed: 'Kurbone',
+    });
+    geneService.clearGeneEffectsCache('horse');
+    const horseGenome = (name: string, alleles: string) => `[Overview]
+Format=1.0
+Character=Tester
+Entity=${name}
+Genome=Horse
+
+[Genes]
+1=${alleles}
+`;
+    const mUp = await petService.uploadPet(horseGenome('M', 'DD'), { name: 'M', gender: Gender.MALE });
+    const fUp = await petService.uploadPet(horseGenome('F', 'DD'), { name: 'F', gender: Gender.FEMALE });
+    const m = (await petService.getPet(mUp.pet_id!))!;
+    const f = (await petService.getPet(fUp.pet_id!))!;
+
+    const [unscoped] = await rankBreedingPairs({ species: 'Horse', pets: [m, f] });
+    expect(unscoped.maleProfile.positives).toBe(2);
+
+    // Breeding toward Standardbred drops the Kurbone-locked locus from both
+    // the foal's EV and the parents' baselines.
+    const [scoped] = await rankBreedingPairs({ species: 'Horse', pets: [m, f], offspringBreed: 'Standardbred' });
+    expect(scoped.maleProfile.positives).toBe(1);
+    expect(scoped.evPositiveTotal).toBeCloseTo(1, 10);
+  });
+});
+
 describe('rankBreedingPairs — upgrading the weaker parent', () => {
   beforeEach(reset);
 

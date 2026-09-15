@@ -249,12 +249,17 @@ $effect(() => {
     .then((result) => {
       if (mine !== seq) return;
       pairs = result;
+      repointTrio(result);
       loading = false;
     })
     .catch((err: unknown) => {
       if (mine !== seq) return;
       console.error('rankBreedingPairs failed', err);
       pairs = [];
+      // The Trio explains a ranked row. With no ranking left to explain, its
+      // score panel would keep showing the superseded one beside a projection
+      // the new pool rebuilt — two surfaces disagreeing with no way to tell.
+      breedingView.selectedPair = null;
       errored = true;
       loading = false;
     });
@@ -275,6 +280,34 @@ $effect(() => {
     breedingView.selectedPair = null;
   }
 });
+
+/**
+ * Keep an open Trio pointed at the *current* scored row.
+ *
+ * The selection carries the whole `BreedingPairResult`, and a re-rank replaces
+ * every row with one scored against the new pool. Left alone, the Trio's score
+ * panel would go on showing figures from the superseded ranking while its
+ * contribution lens — rebuilt from that same new pool — showed the current
+ * one, so the two halves of one panel would quietly disagree.
+ *
+ * Matched on the two ids: the re-rank always breaks object identity, and the
+ * store's state proxy means even the row just written back is not `===` the
+ * one handed to it. Called once where a ranking lands rather than from a
+ * standing effect, which would re-trigger on its own write.
+ *
+ * A pairing a *non-empty* ranking no longer contains closes the Trio rather
+ * than keeping the superseded row: both animals can still be candidates yet no
+ * longer form a pair (one of them edited to the other's gender), which the
+ * id-membership effect above cannot see.
+ */
+function repointTrio(ranked: BreedingPairResult[]) {
+  const pair = breedingView.selectedPair;
+  // An empty ranking is not evidence the pairing is gone: it is also what a
+  // pool with no male or no female produces, and closing on it would undo the
+  // deliberate guarantee that a Trio survives a reload.
+  if (!pair || ranked.length === 0) return;
+  breedingView.selectedPair = ranked.find((r) => r.male.id === pair.male.id && r.female.id === pair.female.id) ?? null;
+}
 
 onDestroy(() => {
   breedingView.selectedPair = null;
@@ -432,6 +465,8 @@ onDestroy(() => {
   <TrioView
     pair={breedingView.selectedPair}
     offspringBreed={breedingView.offspringBreed}
+    pool={candidates}
+    {breedLockWeight}
     onClose={() => { breedingView.selectedPair = null; }}
   />
 {/if}

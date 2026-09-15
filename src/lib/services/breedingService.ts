@@ -12,7 +12,7 @@
  * cached parsed-effect columns on the `genes` table.
  */
 
-import type { AlleleDistribution, BreedingPairResult, Pet } from '$lib/types/index.js';
+import type { AlleleDistribution, BreedingPairResult, ParentExpressedProfile, Pet } from '$lib/types/index.js';
 import { Gender, GeneType } from '$lib/types/index.js';
 import {
   expectedImprovement,
@@ -163,8 +163,14 @@ export interface RankBreedingPairsOptions {
  *
  * `cov` is this gene's pool coverage; absent (shouldn't happen for a locus
  * present in the pool) it defaults to the `missing` weight.
+ *
+ * Exported for the trio view, which attributes a pair's `Pool gain` back to
+ * individual loci. It calls this with scratch records it discards, keeping
+ * one implementation of the slot math: a second copy would be free to drift
+ * on which slots count, and the explanation would then contradict the column
+ * it claims to explain.
  */
-function accumulatePositive(
+export function accumulatePositive(
   dist: AlleleDistribution,
   gd: ParsedGeneRecord,
   cov: SlotCoverage | undefined,
@@ -202,15 +208,16 @@ function accumulatePositive(
   return { total, weighted };
 }
 
+const EMPTY_PROFILE: Readonly<ParentExpressedProfile> = Object.freeze({
+  positives: 0,
+  negatives: 0,
+  positivesByAttribute: {},
+});
+
 /**
  * What a parent itself expresses, on exactly the loci and breed scope the
  * offspring EV uses — the baseline every improvement measure is judged
  * against.
- *
- * `pets.positive_genes` cannot serve: it is scoped to the pet's *own* breed,
- * so comparing it against an offspring EV scoped to the target breed would
- * compare two different locus sets and manufacture improvement out of the
- * mismatch.
  *
  * One walk, three figures. Positives, negatives and the per-attribute split
  * share the same loop, the same breed gate and the same expression rule, so
@@ -218,26 +225,13 @@ function accumulatePositive(
  * animal and three copies of the `D`/`x` vs `R` branching that
  * `expressedSign` already encodes.
  */
-interface ExpressedProfile {
-  positives: number;
-  negatives: number;
-  /** Positive count keyed by the (capitalized) attribute it lands on. */
-  positivesByAttribute: Record<string, number>;
-}
-
-const EMPTY_PROFILE: Readonly<ExpressedProfile> = Object.freeze({
-  positives: 0,
-  negatives: 0,
-  positivesByAttribute: {},
-});
-
 function ownExpressedProfile(
   loci: PetLoci,
   parsedGenes: Record<string, ParsedGeneRecord>,
   species: string,
   offspringBreed: string | undefined,
-): ExpressedProfile {
-  const profile: ExpressedProfile = { positives: 0, negatives: 0, positivesByAttribute: {} };
+): ParentExpressedProfile {
+  const profile: ParentExpressedProfile = { positives: 0, negatives: 0, positivesByAttribute: {} };
   for (const [geneId, type] of loci) {
     const gd = parsedGenes[geneId];
     if (!gd) continue;
@@ -269,7 +263,7 @@ function scorePair(
   parsedGenes: Record<string, ParsedGeneRecord>,
   coverage: PoolCoverage,
   tallies: Map<string, AlleleTally>,
-  ownProfiles: Map<number, ExpressedProfile>,
+  ownProfiles: Map<number, ParentExpressedProfile>,
   offspringBreed: string | undefined,
   species: string,
   attrNames: readonly string[],
@@ -326,6 +320,7 @@ function scorePair(
   const betterParentPositives = Math.max(mProfile.positives, fProfile.positives);
   const weakerParentPositives = Math.min(mProfile.positives, fProfile.positives);
   const sd = Math.sqrt(positiveVariance);
+  const negativeSd = Math.sqrt(negativeVariance);
   const cleanerParentNegatives = Math.min(mProfile.negatives, fProfile.negatives);
   // Per-attribute improvement, each against the better parent *on that
   // attribute*. Targeting a weak trait is a strategy in its own right, and
@@ -354,8 +349,12 @@ function scorePair(
     weakerParentPositives,
     evAttributeImprovement,
     evNegativeTotal,
-    evLiabilityReduction: expectedReduction(evNegativeTotal, Math.sqrt(negativeVariance), cleanerParentNegatives),
+    evLiabilityReduction: expectedReduction(evNegativeTotal, negativeSd, cleanerParentNegatives),
     cleanerParentNegatives,
+    maleProfile: mProfile,
+    femaleProfile: fProfile,
+    positiveSd: sd,
+    negativeSd,
     evUnknown,
     totalLoci,
   };
@@ -391,7 +390,7 @@ export async function rankBreedingPairs(opts: RankBreedingPairsOptions): Promise
   // loci simply outweigh the breed-locked ones.
   const weight = breedReachFor(parsedGenes, opts.offspringBreed, opts.breedLockWeight);
   // One pass per animal, not per pair: the baseline an offspring must beat.
-  const ownProfiles = new Map<number, ExpressedProfile>();
+  const ownProfiles = new Map<number, ParentExpressedProfile>();
   for (const [id, l] of petLociMap) {
     ownProfiles.set(id, ownExpressedProfile(l, parsedGenes, species, opts.offspringBreed));
   }

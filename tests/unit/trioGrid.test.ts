@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { GeneTrioEntry, OffspringOutcomeBuckets, OffspringTrioResult } from '$lib/types/index.js';
 import { createGeneCellBuilder } from '$lib/utils/geneGridCells.js';
-import { buildTrioGrid, outcomeBoxBackground } from '$lib/utils/trioGrid.js';
+import {
+  buildTrioGrid,
+  contributionBackground,
+  contributionOf,
+  outcomeBoxBackground,
+  poolIdentity,
+} from '$lib/utils/trioGrid.js';
 
 const effectsDB = {
   // carrier gene: harmful dominant, beneficial recessive
@@ -41,6 +47,7 @@ const entry = (over: Partial<GeneTrioEntry>): GeneTrioEntry => ({
   attribute: 'Speed',
   pPositive: 0.25,
   pNegative: 0.75,
+  contributions: { positive: 0.25, poolGain: 0.3, capability: 0.5 },
   fatherEffect: 'Speed-',
   motherEffect: 'Speed-',
   ...over,
@@ -88,7 +95,7 @@ const result = {
       ],
     },
   ],
-  summary: { totalGenes: 3, gains: 1, risks: 0, lockedIn: 0, unknownLoci: 1 },
+  summary: { totalGenes: 3, gains: 1, risks: 0, lockedIn: 0, unknownLoci: 1, poolScored: true },
 };
 
 describe('buildTrioGrid', () => {
@@ -171,5 +178,79 @@ describe('outcomeBoxBackground', () => {
     expect(outcomeBoxBackground(buckets({ neutral: 1 }), 'attributes')).toBe(
       'linear-gradient(180deg, var(--trio-neutral) 0.00% 100.00%)',
     );
+  });
+});
+
+describe('contributionOf', () => {
+  const c = { positive: 0.25, poolGain: 0.3, capability: 0.125 };
+
+  it('reads the field each lens names', () => {
+    expect(contributionOf(c, 'positive')).toBe(0.25);
+    expect(contributionOf(c, 'poolGain')).toBe(0.3);
+    expect(contributionOf(c, 'capability')).toBe(0.125);
+  });
+
+  it('contributes nothing while the lens is off', () => {
+    expect(contributionOf(c, 'off')).toBe(0);
+  });
+});
+
+describe('contributionBackground', () => {
+  it('renders the empty tint for a locus that contributes nothing', () => {
+    expect(contributionBackground(0, 2)).toBe('var(--trio-contrib-none)');
+  });
+
+  it('renders the empty tint when no locus contributes, rather than dividing by zero', () => {
+    expect(contributionBackground(0, 0)).toBe('var(--trio-contrib-none)');
+    expect(contributionBackground(0.5, 0)).toBe('var(--trio-contrib-none)');
+  });
+
+  it('paints the largest contributor at full strength', () => {
+    expect(contributionBackground(2, 2)).toBe(
+      'color-mix(in srgb, var(--trio-contrib) 100.0%, var(--trio-contrib-none))',
+    );
+  });
+
+  it('holds a tiny contribution above the floor so it does not read as zero', () => {
+    const tiny = contributionBackground(0.000001, 100);
+    expect(tiny).not.toBe('var(--trio-contrib-none)');
+    const pct = Number(tiny.match(/ ([\d.]+)%/)?.[1]);
+    expect(pct).toBeGreaterThanOrEqual(8);
+  });
+
+  it('ramps by the square root, so the long tail stays distinguishable', () => {
+    // A quarter of the peak sits at half strength, not a quarter of it.
+    const quarter = Number(contributionBackground(0.25, 1).match(/ ([\d.]+)%/)?.[1]);
+    expect(quarter).toBeCloseTo(8 + 0.5 * 92, 6);
+  });
+
+  it('clamps a value above the stated maximum instead of overshooting the mix', () => {
+    expect(contributionBackground(5, 2)).toBe(
+      'color-mix(in srgb, var(--trio-contrib) 100.0%, var(--trio-contrib-none))',
+    );
+  });
+});
+
+describe('poolIdentity', () => {
+  const pets = [{ id: 3 }, { id: 1 }, { id: 2 }];
+
+  it('is stable across a re-emitted array holding the same animals', () => {
+    // The case that matters: an unrelated store emission hands over a fresh
+    // array, and the trio must not rebuild its projection for it.
+    expect(poolIdentity([...pets])).toBe(poolIdentity(pets));
+  });
+
+  it('ignores the order the animals arrive in', () => {
+    expect(poolIdentity([{ id: 1 }, { id: 2 }, { id: 3 }])).toBe(poolIdentity(pets));
+  });
+
+  it('changes when an animal joins or leaves', () => {
+    expect(poolIdentity([{ id: 1 }, { id: 2 }])).not.toBe(poolIdentity(pets));
+    expect(poolIdentity([...pets, { id: 4 }])).not.toBe(poolIdentity(pets));
+  });
+
+  it('treats an absent and an empty pool alike — neither can score against a pool', () => {
+    expect(poolIdentity(undefined)).toBe('');
+    expect(poolIdentity([])).toBe('');
   });
 });

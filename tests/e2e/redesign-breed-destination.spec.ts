@@ -201,3 +201,115 @@ test.describe('Redesign — Breed destination', () => {
     await expect(page.getByTestId('breed-offspring')).toHaveCount(0);
   });
 });
+
+/**
+ * Explaining the ranked columns inside the trio. The two halves answer
+ * different questions and are checked apart: the panel accounts for the scores
+ * no locus can be blamed for, the lens accounts for the ones that are a plain
+ * sum over loci.
+ */
+test.describe('Redesign — Breed destination — explaining a pair’s scores', () => {
+  async function openTrio(page: Page) {
+    test.slow();
+    await openBreed(page);
+    await page.locator('[data-testid="breed-species"] [data-species="horse"]').click();
+    await expect(page.getByTestId('breeding-pair-table')).toBeVisible();
+    await page.locator('[data-testid="inspect-pair"]').first().click();
+    const trio = page.getByTestId('trio-view');
+    await expect(trio).toBeVisible();
+    await expect(trio.locator('.outcome-box').first()).toBeVisible({ timeout: 30000 });
+    return trio;
+  }
+
+  test('the score panel shows the three terms behind Ceiling, Floor and Cleanup', async ({ page }) => {
+    const trio = await openTrio(page);
+
+    // Closed by default — the grid, not the arithmetic, is the primary reading.
+    await expect(trio.getByTestId('trio-score-panel')).toHaveCount(0);
+    await trio.getByTestId('trio-show-scores').click();
+
+    const panel = trio.getByTestId('trio-score-panel');
+    await expect(panel).toBeVisible();
+    for (const id of ['ceiling', 'floor', 'cleanup']) {
+      await expect(panel.getByTestId(`trio-score-${id}`)).toContainText('mean');
+      await expect(panel.getByTestId(`trio-score-${id}`)).toContainText('spread');
+    }
+    // The distinction the labels alone do not carry.
+    await expect(panel).toContainText('differ only in the baseline');
+  });
+
+  test('the contribution lens repaints the offspring row and totals what it shows', async ({ page }) => {
+    const trio = await openTrio(page);
+    // A locus the genetics skill cannot see renders with no `style` at all and
+    // keeps the hatch under every lens, so it can never show the repaint this
+    // asserts. Pick a projectable one rather than depending on which locus the
+    // fixture happens to put first.
+    const box = trio.locator('.outcome-box:not(.hatch)').first();
+    const outcomeFill = await box.getAttribute('style');
+    expect(outcomeFill).not.toBeNull();
+
+    await trio.getByTestId('trio-contrib-capability').click();
+    await expect(trio.getByTestId('trio-contrib-total')).toContainText('Quality');
+    // The middle row is now tinted by contribution, not by outcome bucket.
+    await expect(box).not.toHaveAttribute('style', outcomeFill as string);
+    await expect(box).toHaveAttribute('style', /--trio-contrib/);
+
+    // Off restores the outcome buckets.
+    await trio.getByTestId('trio-contrib-off').click();
+    await expect(trio.getByTestId('trio-contrib-total')).toHaveCount(0);
+    await expect(box).toHaveAttribute('style', outcomeFill as string);
+  });
+
+  /**
+   * A locus the genetics skill cannot read has no contribution to show — it is
+   * unscoreable, not scored at zero. Under a lens it must stay visibly apart
+   * from a locus that genuinely contributes nothing.
+   */
+  test('keeps unknown loci hatched under a contribution lens', async ({ page }) => {
+    const trio = await openTrio(page);
+    const hatched = trio.locator('.outcome-box.hatch');
+    const before = await hatched.count();
+    expect(before).toBeGreaterThan(0);
+
+    await trio.getByTestId('trio-contrib-positive').click();
+    await expect(trio.getByTestId('trio-contrib-total')).toContainText('Total +');
+    await expect(hatched).toHaveCount(before);
+    // And they carry no contribution tint of their own.
+    await expect(hatched.first()).not.toHaveAttribute('style', /--trio-contrib/);
+  });
+
+  /**
+   * Changing the trio's own breed re-projects the grid, so the lens total stops
+   * matching the ranked column. The score panel says so, but it is closed by
+   * default — the warning has to reach the legend too.
+   */
+  test('warns beside the lens total when the projected breed leaves the ranked one', async ({ page }) => {
+    const trio = await openTrio(page);
+    await trio.getByTestId('trio-contrib-positive').click();
+    await expect(trio.getByTestId('trio-contrib-breed-warn')).toHaveCount(0);
+
+    await trio
+      .getByTestId('trio-breed-filter')
+      .getByRole('button', { name: /Offspring breed/ })
+      .click();
+    await trio.getByRole('button', { name: 'Standardbred Sb' }).click();
+    await expect(trio.locator('.outcome-box').first()).toBeVisible({ timeout: 30000 });
+
+    await expect(trio.getByTestId('trio-contrib-breed-warn')).toBeVisible();
+  });
+
+  test('the score panel can drive the lens directly', async ({ page }) => {
+    const trio = await openTrio(page);
+    await trio.getByTestId('trio-show-scores').click();
+
+    const lens = trio.getByTestId('trio-score-lens-poolGain');
+    await lens.click();
+    await expect(lens).toContainText('highlighting');
+    await expect(trio.getByTestId('trio-contrib-total')).toContainText('Pool-weighted +');
+
+    // Clicking the active lens turns it back off.
+    await lens.click();
+    await expect(lens).toContainText('highlight');
+    await expect(trio.getByTestId('trio-contrib-total')).toHaveCount(0);
+  });
+});

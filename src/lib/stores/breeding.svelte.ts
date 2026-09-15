@@ -6,14 +6,20 @@
  * user navigates away, but this state persists for the session.
  */
 
-import type { Pet } from '$lib/types/index.js';
+import type { BreedingPairResult } from '$lib/types/index.js';
 import { DEFAULT_BREEDING_OBJECTIVE } from '$lib/utils/breedingObjectives.js';
 
-/** The (father, mother) pair currently open in the trio detail view. */
-export interface SelectedBreedingPair {
-  male: Pet;
-  female: Pet;
-}
+/**
+ * The pair currently open in the trio detail view — the whole ranked row,
+ * not just its two animals.
+ *
+ * The trio explains where the pair's scores came from, and `Ceiling`,
+ * `Floor` and `Cleanup` are not recoverable from the parents alone: each is
+ * an integral over the offspring distribution against a parent baseline. So
+ * the row travels with the selection rather than being recomputed, which
+ * also guarantees the trio explains the same numbers the table showed.
+ */
+export type SelectedBreedingPair = BreedingPairResult;
 
 /**
  * Sort columns the breeding pair table will support in PR 4. The

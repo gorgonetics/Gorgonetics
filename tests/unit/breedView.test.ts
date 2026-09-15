@@ -47,6 +47,31 @@ const pet = (over: Partial<Pet>): Pet =>
 const stallion = pet({ id: 1, name: 'Dusty', gender: 'Male' });
 const mare = pet({ id: 2, name: 'Roach' });
 
+/** A ranked row for this pair. The store holds the whole row, not just the two animals. */
+const pairStub = (evCapabilityGain: number): BreedingPairResult => ({
+  male: stallion,
+  female: mare,
+  evMixed: 0,
+  evPositiveByAttribute: {},
+  evPositiveTotal: 0,
+  evPositiveWeighted: 0,
+  evCapabilityGain,
+  evPositiveImprovement: 0,
+  evPairUpgrade: 0,
+  betterParentPositives: 0,
+  weakerParentPositives: 0,
+  evAttributeImprovement: {},
+  evNegativeTotal: 0,
+  evLiabilityReduction: 0,
+  cleanerParentNegatives: 0,
+  maleProfile: { positives: 0, negatives: 0, positivesByAttribute: {} },
+  femaleProfile: { positives: 0, negatives: 0, positivesByAttribute: {} },
+  positiveSd: 0,
+  negativeSd: 0,
+  evUnknown: 0,
+  totalLoci: 0,
+});
+
 function resetView() {
   breedingView.species = '';
   breedingView.offspringBreed = '';
@@ -146,7 +171,7 @@ describe('BreedView — trio invalidation when a parent leaves the candidate set
   beforeEach(() => {
     breedingView.species = 'horse';
     pets.set([stallion, mare]);
-    breedingView.selectedPair = { male: stallion, female: mare };
+    breedingView.selectedPair = pairStub(0);
   });
 
   it('keeps the trio open across an in-flight reload that briefly lacks a parent', async () => {
@@ -262,27 +287,102 @@ describe('BreedView — bench + planning', () => {
   });
 });
 
-describe('BreedView — when Reach new ground has run dry', () => {
-  const pairStub = (evCapabilityGain: number): BreedingPairResult => ({
-    male: stallion,
-    female: mare,
-    evMixed: 0,
-    evPositiveByAttribute: {},
-    evPositiveTotal: 0,
-    evPositiveWeighted: 0,
-    evCapabilityGain,
-    evPositiveImprovement: 0,
-    evPairUpgrade: 0,
-    betterParentPositives: 0,
-    weakerParentPositives: 0,
-    evAttributeImprovement: {},
-    evNegativeTotal: 0,
-    evLiabilityReduction: 0,
-    cleanerParentNegatives: 0,
-    evUnknown: 0,
-    totalLoci: 0,
+/**
+ * The selection carries the whole scored row, so it can go stale in a way that
+ * `{male, female}` never could: a re-rank replaces every row, and a Trio left
+ * pointing at the old object would explain figures the table no longer shows.
+ */
+describe('BreedView — keeping an open Trio on the current ranking', () => {
+  beforeEach(() => {
+    breedingView.species = 'horse';
+    pets.set([stallion, mare]);
   });
 
+  it('re-points the selection at the freshly scored row after a re-rank', async () => {
+    const stale = pairStub(1);
+    const fresh = pairStub(9);
+    expect(stale.evCapabilityGain).toBe(1);
+    vi.mocked(rankBreedingPairs).mockResolvedValue([fresh]);
+    breedingView.selectedPair = stale;
+
+    const { rerender } = render(BreedView);
+    await rerender({});
+
+    // Asserted by value, not identity: the store's state proxy means the row
+    // written back is never `===` the one handed to it.
+    await waitFor(() => {
+      expect(breedingView.selectedPair?.evCapabilityGain).toBe(9);
+    });
+    // Still the same pairing — re-pointed, not replaced with someone else's row.
+    expect(breedingView.selectedPair?.male.id).toBe(stallion.id);
+    expect(breedingView.selectedPair?.female.id).toBe(mare.id);
+  });
+});
+
+describe('BreedView — when the ranking no longer contains the open pair', () => {
+  beforeEach(() => {
+    breedingView.species = 'horse';
+    pets.set([stallion, mare]);
+  });
+
+  /**
+   * An empty ranking means "no pairs to compare against", not "your pairing is
+   * gone" — a pool momentarily without a male or a female produces one, and the
+   * Trio is deliberately kept open across that.
+   */
+  it('keeps the Trio open when the ranking comes back empty', async () => {
+    vi.mocked(rankBreedingPairs).mockResolvedValue([]);
+    breedingView.selectedPair = pairStub(1);
+
+    const { rerender } = render(BreedView);
+    await rerender({});
+    await rerender({});
+
+    expect(breedingView.selectedPair).not.toBeNull();
+  });
+
+  /**
+   * Both animals can still be candidates while the pair itself is gone — edit
+   * one to the other's gender and they no longer form a male × female pairing.
+   * The id-membership guard cannot see that, so the ranking has to.
+   */
+  it('closes the Trio when a settled re-rank drops the pairing', async () => {
+    // A ranking that produced pairs, just not this one — positive evidence the
+    // pairing is gone, unlike an empty result.
+    const someoneElse: BreedingPairResult = {
+      ...pairStub(1),
+      male: pet({ id: 7, name: 'Other', gender: 'Male' }),
+      female: pet({ id: 8, name: 'Else' }),
+    };
+    vi.mocked(rankBreedingPairs).mockResolvedValue([someoneElse]);
+    breedingView.selectedPair = pairStub(1);
+
+    const { rerender } = render(BreedView);
+    await rerender({});
+
+    await waitFor(() => {
+      expect(breedingView.selectedPair).toBeNull();
+    });
+  });
+
+  /**
+   * A failed re-rank clears `pairs`, so there is no ranking left for an open
+   * Trio to explain — and its projection would still rebuild from the new pool.
+   */
+  it('closes the Trio when the re-rank fails', async () => {
+    vi.mocked(rankBreedingPairs).mockRejectedValue(new Error('boom'));
+    breedingView.selectedPair = pairStub(1);
+
+    const { rerender } = render(BreedView);
+    await rerender({});
+
+    await waitFor(() => {
+      expect(breedingView.selectedPair).toBeNull();
+    });
+  });
+});
+
+describe('BreedView — when Reach new ground has run dry', () => {
   beforeEach(() => {
     breedingView.species = 'horse';
     breedingView.spots = 1;

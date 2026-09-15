@@ -10,11 +10,28 @@
  * Composes the pure genetics in `breedingGenetics` for the middle row.
  */
 
+import { accumulatePositive, buildPoolCoverage, type PoolCoverage } from '$lib/services/breedingService.js';
 import { getGeneEffectsCached, getParsedGenesCached, isHorseBreedFiltered } from '$lib/services/geneService.js';
 import { compareBlockLetters } from '$lib/services/genomeParser.js';
-import type { ChromosomeTrio, GeneTrioEntry, OffspringTrioResult, Pet } from '$lib/types/index.js';
-import { GeneType } from '$lib/types/index.js';
+import type {
+  AlleleDistribution,
+  ChromosomeTrio,
+  GeneTrioEntry,
+  OffspringTrioResult,
+  Pet,
+  TrioLocusContributions,
+} from '$lib/types/index.js';
+import { Gender, GeneType } from '$lib/types/index.js';
 import { classifyTrioLocus, offspringDistribution, offspringOutcomeBuckets } from '$lib/utils/breedingGenetics.js';
+import {
+  type AlleleTally,
+  type BenefitWeight,
+  breedReachFor,
+  expectedCapabilityGain,
+  type ScoredGene,
+  tallyAlleles,
+  tallyFor,
+} from '$lib/utils/geneticQuality.js';
 import { type ChromosomeLocus, groupLociByChromosome, loadAllPetLoci } from '$lib/utils/petLoci.js';
 import { capitalize } from '$lib/utils/string.js';
 import { normalizeSpecies } from './configService.js';
@@ -66,6 +83,83 @@ export interface OffspringTrioOptions {
   species: string;
   /** Player-selected offspring breed; drives `isHorseBreedFiltered` for horses. */
   offspringBreed?: string;
+  /**
+   * The candidate pool the pair was ranked against — **the same list**, the
+   * parents included.
+   *
+   * `Quality` and `Pool gain` are not properties of the pairing: both ask
+   * what the *rest of the stable* can already breed, so attributing them to
+   * loci needs the pool that produced them. Pass a different list and the
+   * trio will honestly explain a score the breeding table never showed.
+   * Omit it and those two contribution lenses are simply not offered.
+   */
+  pool?: readonly Pet[];
+  /** Breed-lock weight for `Quality`; mirrors `rankBreedingPairs`. */
+  breedLockWeight?: number;
+}
+
+/** The pool-derived state the additive scores are attributed against. */
+interface PoolContext {
+  coverage: PoolCoverage;
+  tallies: Map<string, AlleleTally>;
+  weight: BenefitWeight | undefined;
+}
+
+/**
+ * Load the candidate pool and derive exactly what `rankBreedingPairs`
+ * derives from it: per-slot coverage, allele tallies and the breed-reach
+ * weight. A second `pet_genes` pass over animals the ranking already read,
+ * accepted because it happens once when the player opens the trio, not per
+ * pair.
+ */
+async function loadPoolContext(
+  pool: readonly Pet[],
+  parsedGenes: Parameters<typeof buildPoolCoverage>[1],
+  species: string,
+  offspringBreed: string | undefined,
+  breedLockWeight: number | undefined,
+): Promise<PoolContext> {
+  // Same gate as `rankBreedingPairs`, which only ever loads the animals it
+  // pairs. `Gender` is a TypeScript union, not a database constraint, so a row
+  // with anything else in the column would otherwise feed this view's coverage
+  // and tallies but not the ranking's — and the two totals would stop
+  // reconciling, which is the one thing this pool is here to guarantee.
+  const paired = pool.filter((p) => p.gender === Gender.MALE || p.gender === Gender.FEMALE);
+  const poolLoci = await loadAllPetLoci(paired.map((p) => p.id));
+  return {
+    coverage: buildPoolCoverage(poolLoci.values(), parsedGenes, species, offspringBreed),
+    tallies: tallyAlleles(poolLoci.values()),
+    weight: breedReachFor(parsedGenes, offspringBreed, breedLockWeight),
+  };
+}
+
+/**
+ * This locus's share of each additive pair score.
+ *
+ * `accumulatePositive` is the ranking's own slot arithmetic, called here so the
+ * explanation cannot drift from the column it explains; the two records it
+ * fills are the per-attribute breakdown and its variance, neither of which the
+ * trio shows, so they are scratch.
+ *
+ * Without a pool the two pool-measured scores report 0 rather than falling back
+ * to `accumulatePositive`'s `missing` weight, which would invent a gap the
+ * caller never supplied. A gene with no record contributes to nothing.
+ */
+function locusContributions(
+  dist: AlleleDistribution,
+  gd: ScoredGene | undefined,
+  geneId: string,
+  poolCtx: PoolContext | null,
+): TrioLocusContributions {
+  if (!gd) return { positive: 0, poolGain: 0, capability: 0 };
+  const { total, weighted } = accumulatePositive(dist, gd, poolCtx?.coverage.get(geneId), {}, {});
+  return {
+    positive: total,
+    poolGain: poolCtx ? weighted : 0,
+    capability: poolCtx
+      ? expectedCapabilityGain(dist, gd, tallyFor(poolCtx.tallies, geneId)) * (poolCtx.weight ? poolCtx.weight(gd) : 1)
+      : 0,
+  };
 }
 
 /**
@@ -85,6 +179,12 @@ export async function computeOffspringTrio(
     getGeneEffectsCached(species),
     getParsedGenesCached(species),
   ]);
+
+  // Sequential on purpose: coverage and tallies are keyed off the parsed gene
+  // records, so there is nothing to overlap with.
+  const poolCtx = opts.pool?.length
+    ? await loadPoolContext(opts.pool, parsedGenes, species, opts.offspringBreed, opts.breedLockWeight)
+    : null;
 
   const lociF = petLociMap.get(father.id);
   const lociM = petLociMap.get(mother.id);
@@ -147,6 +247,7 @@ export async function computeOffspringTrio(
         lockedIn: cls.lockedIn,
         pPositive: cls.pPositive,
         pNegative: cls.pNegative,
+        contributions: locusContributions(dist, gd, geneId, poolCtx),
         attribute: attribute ? capitalize(attribute) : undefined,
         fatherEffect: parentEffect(fatherType, effects),
         motherEffect: parentEffect(motherType, effects),
@@ -173,6 +274,6 @@ export async function computeOffspringTrio(
 
   return {
     chromosomes,
-    summary: { totalGenes, gains, risks, lockedIn, unknownLoci },
+    summary: { totalGenes, gains, risks, lockedIn, unknownLoci, poolScored: poolCtx !== null },
   };
 }
