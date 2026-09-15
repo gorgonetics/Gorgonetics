@@ -30,6 +30,7 @@ import {
   contributionBackground,
   contributionOf,
   outcomeBoxBackground,
+  poolIdentity,
   type TrioGrid,
   type TrioLocusCell,
 } from '$lib/utils/trioGrid.js';
@@ -230,7 +231,21 @@ const lossCount = $derived.by(() => {
 
 const ALLELE_LABEL: Record<string, string> = { D: 'Dominant', x: 'Mixed', R: 'Recessive', '?': 'Unknown' };
 
+/**
+ * Identity of the candidate set, not of the array holding it.
+ *
+ * `pool` arrives as a `$derived` filter over the pets store, so it is a fresh
+ * array on every store emission — a background reload, an unrelated marker
+ * toggle. Tracking the array itself would reload the trio on each of those,
+ * throwing away the scroll position and the player's attribute focus for a set
+ * that did not change. `BreedView` guards its own re-rank the same way.
+ */
+const poolKey = $derived(poolIdentity(pool));
+
 $effect(() => {
+  // Read for the dependency, not the value: the reload should follow which
+  // animals are in the pool, and `load` reads the array itself untracked.
+  poolKey;
   if (father?.id && mother?.id) {
     load(father, mother, selectedBreed);
   }
@@ -283,7 +298,14 @@ async function load(f: Pet, m: Pet, breed: string) {
     hiddenAttributes = [];
     const sp = normalizeSpecies(f.species);
     const [result, efData] = await Promise.all([
-      computeOffspringTrio(f, m, { species: sp, offspringBreed: breed, pool, breedLockWeight }),
+      // `pool` untracked — `poolKey` above is the dependency. `breedLockWeight`
+      // stays tracked: a change to it really does rescore the projection.
+      computeOffspringTrio(f, m, {
+        species: sp,
+        offspringBreed: breed,
+        pool: untrack(() => pool),
+        breedLockWeight,
+      }),
       getGeneEffectsCached(sp),
     ]);
     // Quality and Pool gain need the candidate pool. Opened without one (or
@@ -599,6 +621,15 @@ function handleCellLeave() {
                         <span class="legend-item" data-testid="trio-contrib-total"
                             >{contributionStats.loci} loci · {contributionStats.total.toFixed(2)} {CONTRIBUTION_LABEL[contributionMode]}</span
                         >
+                        <!-- The total is summed at the trio's own breed. Once that
+                             diverges from the ranked one it stops matching the
+                             column it names, and the score panel that says so is
+                             closed by default — so say it here too. -->
+                        {#if breedDiverged}
+                            <span class="legend-item legend-warn" data-testid="trio-contrib-breed-warn"
+                                >≠ ranked breed</span
+                            >
+                        {/if}
                     {/if}
                 </span>
             {/if}
@@ -665,17 +696,17 @@ function handleCellLeave() {
                                         {#if cell}
                                             <div
                                                 class="outcome-box"
-                                                class:hatch={contributionMode === 'off' && cell.buckets.unknown >= 1}
+                                                class:hatch={cell.buckets.unknown >= 1}
                                                 class:fixed={isLocked(cell)}
                                                 data-attrs={cell.attrs}
                                                 role="img"
                                                 aria-label={offspringAria(cell)}
                                                 onmouseenter={(e) => handleOffspringEnter(e, cell)}
                                                 onmouseleave={handleCellLeave}
-                                                style={contributionMode !== 'off'
-                                                    ? `background: ${contributionBackground(contributionOf(cell.contributions, contributionMode), contributionStats.max)}`
-                                                    : cell.buckets.unknown >= 1
-                                                      ? undefined
+                                                style={cell.buckets.unknown >= 1
+                                                    ? undefined
+                                                    : contributionMode !== 'off'
+                                                      ? `background: ${contributionBackground(contributionOf(cell.contributions, contributionMode), contributionStats.max)}`
                                                       : `background: ${outcomeBoxBackground(cell.buckets, gainMode)}`}
                                             ></div>
                                         {/if}
@@ -842,6 +873,7 @@ function handleCellLeave() {
         color: var(--text-tertiary); padding: 0 var(--space-xs); white-space: nowrap;
     }
     .chip-score { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent-text, var(--accent)); }
+    .legend-warn { color: var(--warning-text, var(--text-secondary)); font-weight: 600; }
     .swatch-contrib-none { background: var(--trio-contrib-none); }
     .swatch-contrib-ramp { background: linear-gradient(90deg, var(--trio-contrib-none), var(--trio-contrib)); width: 34px; }
 

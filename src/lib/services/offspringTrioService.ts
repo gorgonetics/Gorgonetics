@@ -20,7 +20,7 @@ import type {
   Pet,
   TrioLocusContributions,
 } from '$lib/types/index.js';
-import { GeneType } from '$lib/types/index.js';
+import { Gender, GeneType } from '$lib/types/index.js';
 import { classifyTrioLocus, offspringDistribution, offspringOutcomeBuckets } from '$lib/utils/breedingGenetics.js';
 import {
   type AlleleTally,
@@ -124,7 +124,13 @@ async function loadPoolContext(
   offspringBreed: string | undefined,
   breedLockWeight: number | undefined,
 ): Promise<PoolContext> {
-  const poolLoci = await loadAllPetLoci(pool.map((p) => p.id));
+  // Same gate as `rankBreedingPairs`, which only ever loads the animals it
+  // pairs. `Gender` is a TypeScript union, not a database constraint, so a row
+  // with anything else in the column would otherwise feed this view's coverage
+  // and tallies but not the ranking's — and the two totals would stop
+  // reconciling, which is the one thing this pool is here to guarantee.
+  const paired = pool.filter((p) => p.gender === Gender.MALE || p.gender === Gender.FEMALE);
+  const poolLoci = await loadAllPetLoci(paired.map((p) => p.id));
   return {
     coverage: buildPoolCoverage(poolLoci.values(), parsedGenes, species, offspringBreed),
     tallies: tallyAlleles(poolLoci.values()),

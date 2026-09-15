@@ -103,6 +103,22 @@ export function outcomeBoxBackground(b: OffspringOutcomeBuckets, mode: TrioGainM
   return `linear-gradient(180deg, ${stops.join(', ')})`;
 }
 
+/**
+ * Identity of a candidate pool: which animals are in it, not which array
+ * carries them.
+ *
+ * The pool reaches the trio as a `$derived` filter over the pets store, so it
+ * is a fresh array on every emission — a background reload, an unrelated
+ * marker toggle, a community import. Keying the projection on the array itself
+ * rebuilds it for each of those, discarding the scroll position and the
+ * player's attribute focus for a set that never changed. Sorted so a reordered
+ * emission of the same animals is recognised as the same pool.
+ */
+export function poolIdentity(pets: readonly { id: number }[] | undefined): string {
+  if (!pets || pets.length === 0) return '';
+  return [...pets.map((p) => p.id)].sort((a, b) => a - b).join(',');
+}
+
 /** The contribution field each lens reads; `off` has none. */
 const CONTRIBUTION_FIELD: Record<Exclude<TrioContributionMode, 'off'>, keyof TrioLocusContributions> = {
   capability: 'capability',

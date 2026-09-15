@@ -249,6 +249,7 @@ $effect(() => {
     .then((result) => {
       if (mine !== seq) return;
       pairs = result;
+      repointTrio(result);
       loading = false;
     })
     .catch((err: unknown) => {
@@ -275,6 +276,30 @@ $effect(() => {
     breedingView.selectedPair = null;
   }
 });
+
+/**
+ * Keep an open Trio pointed at the *current* scored row.
+ *
+ * The selection carries the whole `BreedingPairResult`, and a re-rank replaces
+ * every row with one scored against the new pool. Left alone, the Trio's score
+ * panel would go on showing figures from the superseded ranking while its
+ * contribution lens — rebuilt from that same new pool — showed the current
+ * one, so the two halves of one panel would quietly disagree.
+ *
+ * Matched on the two ids: the re-rank always breaks object identity, and the
+ * store's state proxy means even the row just written back is not `===` the
+ * one handed to it. Called once where a ranking lands rather than from a
+ * standing effect, which would re-trigger on its own write.
+ *
+ * A pair whose parent has genuinely left the pool is not re-pointed here; the
+ * effect above closes the Trio for that case.
+ */
+function repointTrio(ranked: BreedingPairResult[]) {
+  const pair = breedingView.selectedPair;
+  if (!pair) return;
+  const fresh = ranked.find((r) => r.male.id === pair.male.id && r.female.id === pair.female.id);
+  if (fresh) breedingView.selectedPair = fresh;
+}
 
 onDestroy(() => {
   breedingView.selectedPair = null;

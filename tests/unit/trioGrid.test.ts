@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { GeneTrioEntry, OffspringOutcomeBuckets, OffspringTrioResult } from '$lib/types/index.js';
 import { createGeneCellBuilder } from '$lib/utils/geneGridCells.js';
-import { buildTrioGrid, contributionBackground, contributionOf, outcomeBoxBackground } from '$lib/utils/trioGrid.js';
+import {
+  buildTrioGrid,
+  contributionBackground,
+  contributionOf,
+  outcomeBoxBackground,
+  poolIdentity,
+} from '$lib/utils/trioGrid.js';
 
 const effectsDB = {
   // carrier gene: harmful dominant, beneficial recessive
@@ -222,5 +228,29 @@ describe('contributionBackground', () => {
     expect(contributionBackground(5, 2)).toBe(
       'color-mix(in srgb, var(--trio-contrib) 100.0%, var(--trio-contrib-none))',
     );
+  });
+});
+
+describe('poolIdentity', () => {
+  const pets = [{ id: 3 }, { id: 1 }, { id: 2 }];
+
+  it('is stable across a re-emitted array holding the same animals', () => {
+    // The case that matters: an unrelated store emission hands over a fresh
+    // array, and the trio must not rebuild its projection for it.
+    expect(poolIdentity([...pets])).toBe(poolIdentity(pets));
+  });
+
+  it('ignores the order the animals arrive in', () => {
+    expect(poolIdentity([{ id: 1 }, { id: 2 }, { id: 3 }])).toBe(poolIdentity(pets));
+  });
+
+  it('changes when an animal joins or leaves', () => {
+    expect(poolIdentity([{ id: 1 }, { id: 2 }])).not.toBe(poolIdentity(pets));
+    expect(poolIdentity([...pets, { id: 4 }])).not.toBe(poolIdentity(pets));
+  });
+
+  it('treats an absent and an empty pool alike — neither can score against a pool', () => {
+    expect(poolIdentity(undefined)).toBe('');
+    expect(poolIdentity([])).toBe('');
   });
 });

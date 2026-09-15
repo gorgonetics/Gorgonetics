@@ -287,6 +287,38 @@ describe('BreedView — bench + planning', () => {
   });
 });
 
+/**
+ * The selection carries the whole scored row, so it can go stale in a way that
+ * `{male, female}` never could: a re-rank replaces every row, and a Trio left
+ * pointing at the old object would explain figures the table no longer shows.
+ */
+describe('BreedView — keeping an open Trio on the current ranking', () => {
+  beforeEach(() => {
+    breedingView.species = 'horse';
+    pets.set([stallion, mare]);
+  });
+
+  it('re-points the selection at the freshly scored row after a re-rank', async () => {
+    const stale = pairStub(1);
+    const fresh = pairStub(9);
+    expect(stale.evCapabilityGain).toBe(1);
+    vi.mocked(rankBreedingPairs).mockResolvedValue([fresh]);
+    breedingView.selectedPair = stale;
+
+    const { rerender } = render(BreedView);
+    await rerender({});
+
+    // Asserted by value, not identity: the store's state proxy means the row
+    // written back is never `===` the one handed to it.
+    await waitFor(() => {
+      expect(breedingView.selectedPair?.evCapabilityGain).toBe(9);
+    });
+    // Still the same pairing — re-pointed, not replaced with someone else's row.
+    expect(breedingView.selectedPair?.male.id).toBe(stallion.id);
+    expect(breedingView.selectedPair?.female.id).toBe(mare.id);
+  });
+});
+
 describe('BreedView — when Reach new ground has run dry', () => {
   beforeEach(() => {
     breedingView.species = 'horse';

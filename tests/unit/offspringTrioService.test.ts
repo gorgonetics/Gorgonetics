@@ -287,6 +287,33 @@ describe('computeOffspringTrio — per-locus score contributions', () => {
     expect(byId['01A3'].contributions.capability).toBe(0);
   });
 
+  /**
+   * The pool is handed over unfiltered, but `rankBreedingPairs` only ever
+   * loads the animals it pairs. A row whose gender is neither — `Gender` is a
+   * TypeScript union, not a database constraint — would otherwise feed this
+   * view's coverage and tallies alone, and the totals would stop reconciling.
+   */
+  it('ignores a pool member the ranking would never pair', async () => {
+    await registerGenes();
+    const father = await uploadParent('Sire', Gender.MALE, 'xxx');
+    const mother = await uploadParent('Dam', Gender.FEMALE, 'xxD');
+    const neither = await uploadParent('Odd', 'Unknown' as Gender, 'DDD');
+
+    const ranked = await rankBreedingPairs({ species: 'BeeWasp', pets: [father, mother, neither] });
+    const row = ranked.find((r) => r.male.id === father.id && r.female.id === mother.id);
+    expect(row).toBeDefined();
+
+    const { chromosomes } = await computeOffspringTrio(father, mother, {
+      species: 'BeeWasp',
+      pool: [father, mother, neither],
+    });
+    const genes = chromosomes.flatMap((c) => c.genes);
+    const sum = (pick: (g: (typeof genes)[number]) => number) => genes.reduce((acc, g) => acc + pick(g), 0);
+
+    expect(sum((g) => g.contributions.poolGain)).toBeCloseTo(row!.evPositiveWeighted, 10);
+    expect(sum((g) => g.contributions.capability)).toBeCloseTo(row!.evCapabilityGain, 10);
+  });
+
   it('reports no pool-measured contribution when opened without a pool', async () => {
     await registerGenes();
     const father = await uploadParent('Sire', Gender.MALE, 'xxx');
