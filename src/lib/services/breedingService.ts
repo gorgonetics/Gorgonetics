@@ -208,15 +208,16 @@ export function accumulatePositive(
   return { total, weighted };
 }
 
+const EMPTY_PROFILE: Readonly<ParentExpressedProfile> = Object.freeze({
+  positives: 0,
+  negatives: 0,
+  positivesByAttribute: {},
+});
+
 /**
  * What a parent itself expresses, on exactly the loci and breed scope the
  * offspring EV uses — the baseline every improvement measure is judged
  * against.
- *
- * `pets.positive_genes` cannot serve: it is scoped to the pet's *own* breed,
- * so comparing it against an offspring EV scoped to the target breed would
- * compare two different locus sets and manufacture improvement out of the
- * mismatch.
  *
  * One walk, three figures. Positives, negatives and the per-attribute split
  * share the same loop, the same breed gate and the same expression rule, so
@@ -224,21 +225,13 @@ export function accumulatePositive(
  * animal and three copies of the `D`/`x` vs `R` branching that
  * `expressedSign` already encodes.
  */
-type ExpressedProfile = ParentExpressedProfile;
-
-const EMPTY_PROFILE: Readonly<ExpressedProfile> = Object.freeze({
-  positives: 0,
-  negatives: 0,
-  positivesByAttribute: {},
-});
-
 function ownExpressedProfile(
   loci: PetLoci,
   parsedGenes: Record<string, ParsedGeneRecord>,
   species: string,
   offspringBreed: string | undefined,
-): ExpressedProfile {
-  const profile: ExpressedProfile = { positives: 0, negatives: 0, positivesByAttribute: {} };
+): ParentExpressedProfile {
+  const profile: ParentExpressedProfile = { positives: 0, negatives: 0, positivesByAttribute: {} };
   for (const [geneId, type] of loci) {
     const gd = parsedGenes[geneId];
     if (!gd) continue;
@@ -270,7 +263,7 @@ function scorePair(
   parsedGenes: Record<string, ParsedGeneRecord>,
   coverage: PoolCoverage,
   tallies: Map<string, AlleleTally>,
-  ownProfiles: Map<number, ExpressedProfile>,
+  ownProfiles: Map<number, ParentExpressedProfile>,
   offspringBreed: string | undefined,
   species: string,
   attrNames: readonly string[],
@@ -397,7 +390,7 @@ export async function rankBreedingPairs(opts: RankBreedingPairsOptions): Promise
   // loci simply outweigh the breed-locked ones.
   const weight = breedReachFor(parsedGenes, opts.offspringBreed, opts.breedLockWeight);
   // One pass per animal, not per pair: the baseline an offspring must beat.
-  const ownProfiles = new Map<number, ExpressedProfile>();
+  const ownProfiles = new Map<number, ParentExpressedProfile>();
   for (const [id, l] of petLociMap) {
     ownProfiles.set(id, ownExpressedProfile(l, parsedGenes, species, opts.offspringBreed));
   }

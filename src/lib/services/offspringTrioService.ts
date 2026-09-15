@@ -14,6 +14,7 @@ import { accumulatePositive, buildPoolCoverage, type PoolCoverage } from '$lib/s
 import { getGeneEffectsCached, getParsedGenesCached, isHorseBreedFiltered } from '$lib/services/geneService.js';
 import { compareBlockLetters } from '$lib/services/genomeParser.js';
 import type {
+  AlleleDistribution,
   ChromosomeTrio,
   GeneTrioEntry,
   OffspringTrioResult,
@@ -27,6 +28,7 @@ import {
   type BenefitWeight,
   breedReachFor,
   expectedCapabilityGain,
+  type ScoredGene,
   tallyAlleles,
   tallyFor,
 } from '$lib/utils/geneticQuality.js';
@@ -96,13 +98,6 @@ export interface OffspringTrioOptions {
   breedLockWeight?: number;
 }
 
-/** Nothing to attribute — the shape every locus falls back to. */
-const NO_CONTRIBUTION: Readonly<TrioLocusContributions> = Object.freeze({
-  positive: 0,
-  poolGain: 0,
-  capability: 0,
-});
-
 /** The pool-derived state the additive scores are attributed against. */
 interface PoolContext {
   coverage: PoolCoverage;
@@ -135,6 +130,35 @@ async function loadPoolContext(
     coverage: buildPoolCoverage(poolLoci.values(), parsedGenes, species, offspringBreed),
     tallies: tallyAlleles(poolLoci.values()),
     weight: breedReachFor(parsedGenes, offspringBreed, breedLockWeight),
+  };
+}
+
+/**
+ * This locus's share of each additive pair score.
+ *
+ * `accumulatePositive` is the ranking's own slot arithmetic, called here so the
+ * explanation cannot drift from the column it explains; the two records it
+ * fills are the per-attribute breakdown and its variance, neither of which the
+ * trio shows, so they are scratch.
+ *
+ * Without a pool the two pool-measured scores report 0 rather than falling back
+ * to `accumulatePositive`'s `missing` weight, which would invent a gap the
+ * caller never supplied. A gene with no record contributes to nothing.
+ */
+function locusContributions(
+  dist: AlleleDistribution,
+  gd: ScoredGene | undefined,
+  geneId: string,
+  poolCtx: PoolContext | null,
+): TrioLocusContributions {
+  if (!gd) return { positive: 0, poolGain: 0, capability: 0 };
+  const { total, weighted } = accumulatePositive(dist, gd, poolCtx?.coverage.get(geneId), {}, {});
+  return {
+    positive: total,
+    poolGain: poolCtx ? weighted : 0,
+    capability: poolCtx
+      ? expectedCapabilityGain(dist, gd, tallyFor(poolCtx.tallies, geneId)) * (poolCtx.weight ? poolCtx.weight(gd) : 1)
+      : 0,
   };
 }
 
@@ -201,26 +225,6 @@ export async function computeOffspringTrio(
       const dist = offspringDistribution(fatherType, motherType);
       const cls = classifyTrioLocus(fatherType, motherType, dist, gd);
 
-      // Per-locus share of the additive scores. `accumulatePositive` is the
-      // ranking's own slot arithmetic; the two records it fills are the
-      // per-attribute breakdown and its variance, neither of which the trio
-      // shows, so they are scratch.
-      let contributions = NO_CONTRIBUTION as TrioLocusContributions;
-      if (gd) {
-        const { total, weighted } = accumulatePositive(dist, gd, poolCtx?.coverage.get(geneId), {}, {});
-        contributions = {
-          positive: total,
-          // Without a pool there is no coverage tier, and `accumulatePositive`
-          // would fall back to the `missing` weight — inventing a gap rather
-          // than reporting one. Report nothing instead.
-          poolGain: poolCtx ? weighted : 0,
-          capability: poolCtx
-            ? expectedCapabilityGain(dist, gd, tallyFor(poolCtx.tallies, geneId)) *
-              (poolCtx.weight ? poolCtx.weight(gd) : 1)
-            : 0,
-        };
-      }
-
       const effects = effectsDB[geneId];
       // A single attribute label only makes sense when both sides agree (or one
       // side has no attribute). When the dominant and recessive effects target
@@ -243,7 +247,7 @@ export async function computeOffspringTrio(
         lockedIn: cls.lockedIn,
         pPositive: cls.pPositive,
         pNegative: cls.pNegative,
-        contributions,
+        contributions: locusContributions(dist, gd, geneId, poolCtx),
         attribute: attribute ? capitalize(attribute) : undefined,
         fatherEffect: parentEffect(fatherType, effects),
         motherEffect: parentEffect(motherType, effects),

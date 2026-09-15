@@ -98,21 +98,43 @@ let contributionMode = $state<TrioContributionMode>('off');
 // itself is for.
 let showScores = $state(false);
 
-const CONTRIB_MODES = ['capability', 'poolGain', 'positive'] as const;
+/**
+ * The three lenses, in display order — one table rather than a mode list, a
+ * label map and a help map that have to agree. `needsPool` is which of them
+ * measure against the rest of the stable and so cannot be offered when the
+ * trio was opened without a candidate pool.
+ */
+const CONTRIBUTION_LENSES: readonly {
+  id: Exclude<TrioContributionMode, 'off'>;
+  label: string;
+  needsPool: boolean;
+  help: string;
+}[] = [
+  {
+    id: 'capability',
+    label: 'Quality',
+    needsPool: true,
+    help: 'Tint each locus by its share of Quality — the capability the foal adds that the pool cannot already breed true.',
+  },
+  {
+    id: 'poolGain',
+    label: 'Pool-weighted +',
+    needsPool: true,
+    help: 'Tint each locus by its share of Pool-weighted + — expected positives weighted by how thinly the pool already covers each slot. Not a gain over the parents: a positive both parents already breed true still counts, at the lowest weight.',
+  },
+  {
+    id: 'positive',
+    label: 'Total +',
+    needsPool: false,
+    help: 'Tint each locus by its share of Total + — the probability the foal expresses a positive here.',
+  },
+];
 
-const CONTRIBUTION_LABEL: Record<Exclude<TrioContributionMode, 'off'>, string> = {
-  capability: 'Quality',
-  poolGain: 'Pool-weighted +',
-  positive: 'Total +',
-};
+/** The lenses this trio can offer: the pool-measured ones need a pool. */
+const availableLenses = $derived(CONTRIBUTION_LENSES.filter((l) => !l.needsPool || summary?.poolScored));
 
-const CONTRIBUTION_HELP: Record<Exclude<TrioContributionMode, 'off'>, string> = {
-  capability:
-    'Tint each locus by its share of Quality — the capability the foal adds that the pool cannot already breed true.',
-  poolGain:
-    'Tint each locus by its share of Pool-weighted + — expected positives weighted by how thinly the pool already covers each slot. Not a gain over the parents: a positive both parents already breed true still counts, at the lowest weight.',
-  positive: 'Tint each locus by its share of Total + — the probability the foal expresses a positive here.',
-};
+const labelFor = (mode: Exclude<TrioContributionMode, 'off'>) =>
+  CONTRIBUTION_LENSES.find((l) => l.id === mode)?.label ?? '';
 
 /**
  * Pair-level total and per-locus peak for the active lens.
@@ -185,12 +207,12 @@ const improvementRows = $derived.by(() => {
 /** The additive scores, each with the lens that breaks it down per locus. */
 const additiveRows = $derived.by(() => {
   if (!scores) return [];
-  const rows: { id: Exclude<TrioContributionMode, 'off'>; label: string; score: number; pooled: boolean }[] = [
-    { id: 'capability', label: 'Quality', score: scores.evCapabilityGain, pooled: true },
-    { id: 'poolGain', label: 'Pool-weighted +', score: scores.evPositiveWeighted, pooled: true },
-    { id: 'positive', label: 'Total +', score: scores.evPositiveTotal, pooled: false },
-  ];
-  return rows.filter((r) => !r.pooled || summary?.poolScored);
+  const score: Record<Exclude<TrioContributionMode, 'off'>, number> = {
+    capability: scores.evCapabilityGain,
+    poolGain: scores.evPositiveWeighted,
+    positive: scores.evPositiveTotal,
+  };
+  return availableLenses.map((l) => ({ id: l.id, label: l.label, score: score[l.id] }));
 });
 
 const fmt = (n: number) => n.toFixed(2);
@@ -351,7 +373,7 @@ function offspringTitle(cell: TrioLocusCell) {
   if (cell.attribute) parts.push(cell.attribute);
   if (contributionMode !== 'off') {
     const v = contributionOf(cell.contributions, contributionMode);
-    parts.push(`${CONTRIBUTION_LABEL[contributionMode]}: ${v.toFixed(3)} of ${contributionStats.total.toFixed(2)}`);
+    parts.push(`${labelFor(contributionMode)}: ${v.toFixed(3)} of ${contributionStats.total.toFixed(2)}`);
   }
   if (cell.buckets.unknown >= 1) {
     parts.push('Unknown — not visible at your genetics skill');
@@ -446,7 +468,7 @@ function handleOffspringEnter(e: MouseEvent, cell: TrioLocusCell) {
   const lines: string[] = [];
   if (contributionMode !== 'off') {
     const v = contributionOf(cell.contributions, contributionMode);
-    const label = CONTRIBUTION_LABEL[contributionMode];
+    const label = labelFor(contributionMode);
     const share = contributionStats.total > 0 ? ` (${((v / contributionStats.total) * 100).toFixed(1)}%)` : '';
     lines.push(
       `<span style="color: ${v > 0 ? '#34d399' : '#9ca3af'}">${label}: ${v.toFixed(3)} of ${contributionStats.total.toFixed(2)}${share}</span>`,
@@ -595,18 +617,16 @@ function handleCellLeave() {
                         title="Show the offspring outcome buckets (the default)."
                         onclick={() => { contributionMode = 'off'; }}
                     >Off</button>
-                    {#each CONTRIB_MODES as mode (mode)}
-                        {#if mode === 'positive' || summary.poolScored}
-                            <button
-                                type="button"
-                                class="seg-btn"
-                                class:active={contributionMode === mode}
-                                aria-pressed={contributionMode === mode}
-                                data-testid="trio-contrib-{mode}"
-                                title={CONTRIBUTION_HELP[mode]}
-                                onclick={() => { contributionMode = mode; }}
-                            >{CONTRIBUTION_LABEL[mode]}</button>
-                        {/if}
+                    {#each availableLenses as lens (lens.id)}
+                        <button
+                            type="button"
+                            class="seg-btn"
+                            class:active={contributionMode === lens.id}
+                            aria-pressed={contributionMode === lens.id}
+                            data-testid="trio-contrib-{lens.id}"
+                            title={lens.help}
+                            onclick={() => { contributionMode = lens.id; }}
+                        >{lens.label}</button>
                     {/each}
                 </div>
                 <span class="legend">
@@ -619,7 +639,7 @@ function handleCellLeave() {
                         <span class="legend-item"><span class="swatch swatch-contrib-none"></span>none</span>
                         <span class="legend-item"><span class="swatch swatch-contrib-ramp"></span>more</span>
                         <span class="legend-item" data-testid="trio-contrib-total"
-                            >{contributionStats.loci} loci · {contributionStats.total.toFixed(2)} {CONTRIBUTION_LABEL[contributionMode]}</span
+                            >{contributionStats.loci} loci · {contributionStats.total.toFixed(2)} {labelFor(contributionMode)}</span
                         >
                         <!-- The total is summed at the trio's own breed. Once that
                              diverges from the ranked one it stops matching the
@@ -783,7 +803,7 @@ function handleCellLeave() {
                                     class="score-lens"
                                     class:active={contributionMode === r.id}
                                     data-testid="trio-score-lens-{r.id}"
-                                    title={CONTRIBUTION_HELP[r.id]}
+                                    title={CONTRIBUTION_LENSES.find((l) => l.id === r.id)?.help}
                                     onclick={() => { contributionMode = contributionMode === r.id ? 'off' : r.id; }}
                                     aria-pressed={contributionMode === r.id}
                                 >{contributionMode === r.id ? 'highlighting' : 'highlight'}</button>

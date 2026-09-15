@@ -116,19 +116,22 @@ export function outcomeBoxBackground(b: OffspringOutcomeBuckets, mode: TrioGainM
  */
 export function poolIdentity(pets: readonly { id: number }[] | undefined): string {
   if (!pets || pets.length === 0) return '';
-  return [...pets.map((p) => p.id)].sort((a, b) => a - b).join(',');
+  return pets
+    .map((p) => p.id)
+    .sort((a, b) => a - b)
+    .join(',');
 }
 
-/** The contribution field each lens reads; `off` has none. */
-const CONTRIBUTION_FIELD: Record<Exclude<TrioContributionMode, 'off'>, keyof TrioLocusContributions> = {
-  capability: 'capability',
-  poolGain: 'poolGain',
-  positive: 'positive',
-};
-
-/** This locus's contribution under `mode`, or 0 when the lens is off. */
+/**
+ * This locus's contribution under `mode`, or 0 when the lens is off.
+ *
+ * Every lens name is also the field it reads — `TrioContributionMode` minus
+ * `off` is exactly `keyof TrioLocusContributions` — so the mode indexes the
+ * record directly. A rename on either side is then a compile error rather than
+ * a silently stale mapping.
+ */
 export function contributionOf(c: TrioLocusContributions, mode: TrioContributionMode): number {
-  return mode === 'off' ? 0 : c[CONTRIBUTION_FIELD[mode]];
+  return mode === 'off' ? 0 : c[mode];
 }
 
 /**
