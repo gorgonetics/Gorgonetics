@@ -256,6 +256,10 @@ $effect(() => {
       if (mine !== seq) return;
       console.error('rankBreedingPairs failed', err);
       pairs = [];
+      // The Trio explains a ranked row. With no ranking left to explain, its
+      // score panel would keep showing the superseded one beside a projection
+      // the new pool rebuilt — two surfaces disagreeing with no way to tell.
+      breedingView.selectedPair = null;
       errored = true;
       loading = false;
     });
@@ -291,14 +295,18 @@ $effect(() => {
  * one handed to it. Called once where a ranking lands rather than from a
  * standing effect, which would re-trigger on its own write.
  *
- * A pair whose parent has genuinely left the pool is not re-pointed here; the
- * effect above closes the Trio for that case.
+ * A pairing a *non-empty* ranking no longer contains closes the Trio rather
+ * than keeping the superseded row: both animals can still be candidates yet no
+ * longer form a pair (one of them edited to the other's gender), which the
+ * id-membership effect above cannot see.
  */
 function repointTrio(ranked: BreedingPairResult[]) {
   const pair = breedingView.selectedPair;
-  if (!pair) return;
-  const fresh = ranked.find((r) => r.male.id === pair.male.id && r.female.id === pair.female.id);
-  if (fresh) breedingView.selectedPair = fresh;
+  // An empty ranking is not evidence the pairing is gone: it is also what a
+  // pool with no male or no female produces, and closing on it would undo the
+  // deliberate guarantee that a Trio survives a reload.
+  if (!pair || ranked.length === 0) return;
+  breedingView.selectedPair = ranked.find((r) => r.male.id === pair.male.id && r.female.id === pair.female.id) ?? null;
 }
 
 onDestroy(() => {

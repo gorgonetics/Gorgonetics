@@ -310,7 +310,19 @@ function toggleAttributeFilter(attrKey: string, ctrlKey: boolean, altKey: boolea
   ));
 }
 
+/**
+ * Generation counter for in-flight projections.
+ *
+ * The load is triggered by the pair, the projected breed and the pool, so two
+ * can overlap — change breed while a pool-driven reload is still running and
+ * the slower request lands last. Without this the older grid would overwrite
+ * the newer one, and the score panel and contribution lens would then describe
+ * different projections. Same guard `BreedView` uses for its ranking.
+ */
+let loadSeq = 0;
+
 async function load(f: Pet, m: Pet, breed: string) {
+  const mine = ++loadSeq;
   try {
     loading = true;
     error = null;
@@ -330,6 +342,7 @@ async function load(f: Pet, m: Pet, breed: string) {
       }),
       getGeneEffectsCached(sp),
     ]);
+    if (mine !== loadSeq) return;
     // Quality and Pool gain need the candidate pool. Opened without one (or
     // with an empty one), fall back rather than tint every cell at zero — a
     // uniform grid reads as "nothing contributes", which is a different claim.
@@ -350,11 +363,14 @@ async function load(f: Pet, m: Pet, breed: string) {
     grid = buildTrioGrid(result, cellBuilder);
     summary = result.summary;
   } catch (err: unknown) {
+    if (mine !== loadSeq) return;
     error = err instanceof Error ? err.message : 'Failed to build the trio view';
     grid = null;
     summary = null;
   } finally {
-    loading = false;
+    // A superseded load must not clear the spinner the newer one is still
+    // showing.
+    if (mine === loadSeq) loading = false;
   }
 }
 

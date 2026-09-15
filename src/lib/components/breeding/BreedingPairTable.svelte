@@ -217,11 +217,15 @@ function persistScroll() {
                          breed scope as the offspring EV. Without it every absolute
                          column on the row is a number with nothing to read it
                          against. -->
+                    <!-- A bare number carries no meaning to a screen reader, and a
+                         `title` on a non-focusable span never reaches one. -->
                     <span
                         class="parent-count"
                         title={`${pet.name} expresses ${profile.positives} positive and ${profile.negatives} negative effects, scored on the offspring's breed scope`}
-                        data-testid="parent-positives">{profile.positives}</span
                     >
+                        <span data-testid="parent-positives">{profile.positives}</span>
+                        <span class="sr-only"> positive effects</span>
+                    </span>
                     {#if onBench}
                         <button
                             type="button"

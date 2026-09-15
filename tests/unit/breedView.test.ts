@@ -319,6 +319,69 @@ describe('BreedView — keeping an open Trio on the current ranking', () => {
   });
 });
 
+describe('BreedView — when the ranking no longer contains the open pair', () => {
+  beforeEach(() => {
+    breedingView.species = 'horse';
+    pets.set([stallion, mare]);
+  });
+
+  /**
+   * An empty ranking means "no pairs to compare against", not "your pairing is
+   * gone" — a pool momentarily without a male or a female produces one, and the
+   * Trio is deliberately kept open across that.
+   */
+  it('keeps the Trio open when the ranking comes back empty', async () => {
+    vi.mocked(rankBreedingPairs).mockResolvedValue([]);
+    breedingView.selectedPair = pairStub(1);
+
+    const { rerender } = render(BreedView);
+    await rerender({});
+    await rerender({});
+
+    expect(breedingView.selectedPair).not.toBeNull();
+  });
+
+  /**
+   * Both animals can still be candidates while the pair itself is gone — edit
+   * one to the other's gender and they no longer form a male × female pairing.
+   * The id-membership guard cannot see that, so the ranking has to.
+   */
+  it('closes the Trio when a settled re-rank drops the pairing', async () => {
+    // A ranking that produced pairs, just not this one — positive evidence the
+    // pairing is gone, unlike an empty result.
+    const someoneElse: BreedingPairResult = {
+      ...pairStub(1),
+      male: pet({ id: 7, name: 'Other', gender: 'Male' }),
+      female: pet({ id: 8, name: 'Else' }),
+    };
+    vi.mocked(rankBreedingPairs).mockResolvedValue([someoneElse]);
+    breedingView.selectedPair = pairStub(1);
+
+    const { rerender } = render(BreedView);
+    await rerender({});
+
+    await waitFor(() => {
+      expect(breedingView.selectedPair).toBeNull();
+    });
+  });
+
+  /**
+   * A failed re-rank clears `pairs`, so there is no ranking left for an open
+   * Trio to explain — and its projection would still rebuild from the new pool.
+   */
+  it('closes the Trio when the re-rank fails', async () => {
+    vi.mocked(rankBreedingPairs).mockRejectedValue(new Error('boom'));
+    breedingView.selectedPair = pairStub(1);
+
+    const { rerender } = render(BreedView);
+    await rerender({});
+
+    await waitFor(() => {
+      expect(breedingView.selectedPair).toBeNull();
+    });
+  });
+});
+
 describe('BreedView — when Reach new ground has run dry', () => {
   beforeEach(() => {
     breedingView.species = 'horse';
