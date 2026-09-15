@@ -11,10 +11,12 @@ import { getGeneEffectsCached } from '$lib/services/geneService.js';
 import { computeOffspringTrio } from '$lib/services/offspringTrioService.js';
 import {
   type AttributeInfo,
+  type BreedingPairResult,
   GeneType,
   HORSE_BREEDS,
   type OffspringTrioResult,
   type Pet,
+  type TrioContributionMode,
   type TrioGainMode,
 } from '$lib/types/index.js';
 import { attributePotentialFilterCSS } from '$lib/utils/filterCSS.js';
@@ -23,17 +25,36 @@ import { breedFor, effectFor, type GeneEffectData, isNoEffect } from '$lib/utils
 import { buildAppearanceLookup, createGeneCellBuilder, type GeneCell } from '$lib/utils/geneGridCells.js';
 import { getSpeciesEmoji } from '$lib/utils/species.js';
 import { capitalize } from '$lib/utils/string.js';
-import { buildTrioGrid, outcomeBoxBackground, type TrioGrid, type TrioLocusCell } from '$lib/utils/trioGrid.js';
+import {
+  buildTrioGrid,
+  contributionBackground,
+  contributionOf,
+  outcomeBoxBackground,
+  type TrioGrid,
+  type TrioLocusCell,
+} from '$lib/utils/trioGrid.js';
 
 interface Props {
   father: Pet;
   mother: Pet;
   offspringBreed?: string;
+  /**
+   * The candidate pool the pair was ranked against. Required for the Quality
+   * and Pool gain lenses — both measure against the rest of the stable, so
+   * two parents alone cannot produce them.
+   */
+  pool?: readonly Pet[];
+  breedLockWeight?: number;
+  /**
+   * The pair's ranked row, when the trio was opened from the breeding table.
+   * Drives the score panel; absent, the panel is not shown.
+   */
+  scores?: BreedingPairResult;
   /** Back out of the trio lens (→ Pairs). */
   onClose: () => void;
 }
 
-const { father, mother, offspringBreed = '', onClose }: Props = $props();
+const { father, mother, offspringBreed = '', pool, breedLockWeight, scores, onClose }: Props = $props();
 
 const isHorse = $derived(normalizeSpecies(father.species) === 'horse');
 const speciesLabel = $derived(normalizeSpecies(father.species));
@@ -66,6 +87,112 @@ let hideLocked = $state(false);
 // a new positive attribute, or "Clarification" (clearing a mixed gene to
 // homozygous, so it breeds true). The other collapses into the muted keep shade.
 let gainMode = $state<TrioGainMode>('attributes');
+// Which additive pair score the offspring boxes are tinted by, or `off` for
+// the default outcome-bucket rendering. Only the three scores that are a plain
+// sum over loci appear here — see `TrioLocusContributions` for why Ceiling,
+// Floor and Cleanup cannot join them.
+let contributionMode = $state<TrioContributionMode>('off');
+// Open the arithmetic behind the non-additive scores. Off by default: it
+// answers "why is this number what it is", which is not the question the grid
+// itself is for.
+let showScores = $state(false);
+
+const CONTRIB_MODES = ['capability', 'poolGain', 'positive'] as const;
+
+const CONTRIBUTION_LABEL: Record<Exclude<TrioContributionMode, 'off'>, string> = {
+  capability: 'Quality',
+  poolGain: 'Pool-weighted +',
+  positive: 'Total +',
+};
+
+const CONTRIBUTION_HELP: Record<Exclude<TrioContributionMode, 'off'>, string> = {
+  capability:
+    'Tint each locus by its share of Quality — the capability the foal adds that the pool cannot already breed true.',
+  poolGain:
+    'Tint each locus by its share of Pool-weighted + — expected positives weighted by how thinly the pool already covers each slot. Not a gain over the parents: a positive both parents already breed true still counts, at the lowest weight.',
+  positive: 'Tint each locus by its share of Total + — the probability the foal expresses a positive here.',
+};
+
+/**
+ * Pair-level total and per-locus peak for the active lens.
+ *
+ * Summed from the rendered grid rather than read off the ranked row, so the
+ * total always matches the loci on screen: the trio has its own breed
+ * selector, and under a different breed the ranking's figure describes a
+ * locus set the player is no longer looking at.
+ */
+const contributionStats = $derived.by(() => {
+  const stats = { total: 0, max: 0, loci: 0 };
+  if (!grid || contributionMode === 'off') return stats;
+  for (const row of grid.rows) {
+    for (const key in row.cells) {
+      const v = contributionOf(row.cells[key].contributions, contributionMode);
+      if (v <= 0) continue;
+      stats.total += v;
+      stats.loci++;
+      if (v > stats.max) stats.max = v;
+    }
+  }
+  return stats;
+});
+
+/** The trio is projecting a different breed than the ranking scored. */
+const breedDiverged = $derived(selectedBreed !== offspringBreed);
+
+/**
+ * The three scores that cannot be attributed to a locus, each with the three
+ * numbers that actually produce it. Ceiling and Floor share a mean and a
+ * spread and differ only in the baseline — laying them out together is the
+ * clearest statement of what separates the two strategies.
+ */
+const improvementRows = $derived.by(() => {
+  if (!scores) return [];
+  return [
+    {
+      id: 'ceiling',
+      label: 'Ceiling',
+      score: scores.evPositiveImprovement,
+      formula: 'E[max(0, foal positives − better parent)]',
+      mean: scores.evPositiveTotal,
+      sd: scores.positiveSd,
+      baseline: scores.betterParentPositives,
+      baselineLabel: 'better parent',
+    },
+    {
+      id: 'floor',
+      label: 'Floor',
+      score: scores.evPairUpgrade,
+      formula: 'E[max(0, foal positives − weaker parent)]',
+      mean: scores.evPositiveTotal,
+      sd: scores.positiveSd,
+      baseline: scores.weakerParentPositives,
+      baselineLabel: 'weaker parent',
+    },
+    {
+      id: 'cleanup',
+      label: 'Cleanup',
+      score: scores.evLiabilityReduction,
+      formula: 'E[max(0, cleaner parent − foal negatives)]',
+      mean: scores.evNegativeTotal,
+      sd: scores.negativeSd,
+      baseline: scores.cleanerParentNegatives,
+      baselineLabel: 'cleaner parent',
+    },
+  ];
+});
+
+/** The additive scores, each with the lens that breaks it down per locus. */
+const additiveRows = $derived.by(() => {
+  if (!scores) return [];
+  const rows: { id: Exclude<TrioContributionMode, 'off'>; label: string; score: number; pooled: boolean }[] = [
+    { id: 'capability', label: 'Quality', score: scores.evCapabilityGain, pooled: true },
+    { id: 'poolGain', label: 'Pool-weighted +', score: scores.evPositiveWeighted, pooled: true },
+    { id: 'positive', label: 'Total +', score: scores.evPositiveTotal, pooled: false },
+  ];
+  return rows.filter((r) => !r.pooled || summary?.poolScored);
+});
+
+const fmt = (n: number) => n.toFixed(2);
 
 /** The gain bucket the current mode highlights. */
 function activeGain(cell: TrioLocusCell): number {
@@ -156,9 +283,15 @@ async function load(f: Pet, m: Pet, breed: string) {
     hiddenAttributes = [];
     const sp = normalizeSpecies(f.species);
     const [result, efData] = await Promise.all([
-      computeOffspringTrio(f, m, { species: sp, offspringBreed: breed }),
+      computeOffspringTrio(f, m, { species: sp, offspringBreed: breed, pool, breedLockWeight }),
       getGeneEffectsCached(sp),
     ]);
+    // Quality and Pool gain need the candidate pool. Opened without one (or
+    // with an empty one), fall back rather than tint every cell at zero — a
+    // uniform grid reads as "nothing contributes", which is a different claim.
+    if (!result.summary.poolScored && contributionMode !== 'off' && contributionMode !== 'positive') {
+      contributionMode = 'off';
+    }
 
     effectsDB = efData?.effects ?? {};
     const config = getAttributeConfig(sp);
@@ -194,6 +327,10 @@ const BUCKET_LABEL: { key: keyof TrioLocusCell['buckets']; label: string }[] = [
 function offspringTitle(cell: TrioLocusCell) {
   const parts = [`Gene ${cell.geneId}`];
   if (cell.attribute) parts.push(cell.attribute);
+  if (contributionMode !== 'off') {
+    const v = contributionOf(cell.contributions, contributionMode);
+    parts.push(`${CONTRIBUTION_LABEL[contributionMode]}: ${v.toFixed(3)} of ${contributionStats.total.toFixed(2)}`);
+  }
   if (cell.buckets.unknown >= 1) {
     parts.push('Unknown — not visible at your genetics skill');
     return parts.join('\n');
@@ -285,6 +422,14 @@ function handleParentEnter(e: MouseEvent, parent: GeneCell | null) {
 /** Offspring cell: the Punnett outcome split vs the parents. */
 function handleOffspringEnter(e: MouseEvent, cell: TrioLocusCell) {
   const lines: string[] = [];
+  if (contributionMode !== 'off') {
+    const v = contributionOf(cell.contributions, contributionMode);
+    const label = CONTRIBUTION_LABEL[contributionMode];
+    const share = contributionStats.total > 0 ? ` (${((v / contributionStats.total) * 100).toFixed(1)}%)` : '';
+    lines.push(
+      `<span style="color: ${v > 0 ? '#34d399' : '#9ca3af'}">${label}: ${v.toFixed(3)} of ${contributionStats.total.toFixed(2)}${share}</span>`,
+    );
+  }
   if (cell.buckets.unknown >= 1) {
     lines.push('<span style="color: #9ca3af">Not visible at your genetics skill</span>');
   } else {
@@ -353,6 +498,17 @@ function handleCellLeave() {
                 {#if summary.unknownLoci > 0}
                     <span class="chip chip-unknown">{summary.unknownLoci} unknown</span>
                 {/if}
+                {#if scores}
+                    <button
+                        type="button"
+                        class="chip chip-score toggle"
+                        class:active={showScores}
+                        aria-pressed={showScores}
+                        data-testid="trio-show-scores"
+                        title="Show how this pair's Ceiling, Floor and Cleanup scores were produced."
+                        onclick={() => { showScores = !showScores; }}
+                    >📊 Scores</button>
+                {/if}
             </div>
         {/if}
     {/snippet}
@@ -402,11 +558,48 @@ function handleCellLeave() {
                         onclick={() => { gainMode = 'clarification'; }}
                     >Clarification</button>
                 </div>
+                <!-- Contribution lens. Repaints the offspring row by each locus's
+                     share of one additive score, so "what triggers Quality" is a
+                     question the grid can answer directly. Off by default — the
+                     outcome buckets remain the view's primary reading. -->
+                <div class="seg contrib-mode" role="group" aria-label="Tint by score contribution">
+                    <span class="seg-caption">Contribution</span>
+                    <button
+                        type="button"
+                        class="seg-btn"
+                        class:active={contributionMode === 'off'}
+                        aria-pressed={contributionMode === 'off'}
+                        data-testid="trio-contrib-off"
+                        title="Show the offspring outcome buckets (the default)."
+                        onclick={() => { contributionMode = 'off'; }}
+                    >Off</button>
+                    {#each CONTRIB_MODES as mode (mode)}
+                        {#if mode === 'positive' || summary.poolScored}
+                            <button
+                                type="button"
+                                class="seg-btn"
+                                class:active={contributionMode === mode}
+                                aria-pressed={contributionMode === mode}
+                                data-testid="trio-contrib-{mode}"
+                                title={CONTRIBUTION_HELP[mode]}
+                                onclick={() => { contributionMode = mode; }}
+                            >{CONTRIBUTION_LABEL[mode]}</button>
+                        {/if}
+                    {/each}
+                </div>
                 <span class="legend">
-                    <span class="legend-item"><span class="swatch swatch-gain"></span>{gainMode === 'attributes' ? 'new +' : 'clarify'}</span>
-                    <span class="legend-item"><span class="swatch swatch-keep"></span>keep</span>
-                    <span class="legend-item"><span class="swatch swatch-neutral"></span>neutral</span>
-                    <span class="legend-item"><span class="swatch swatch-loss"></span>loss</span>
+                    {#if contributionMode === 'off'}
+                        <span class="legend-item"><span class="swatch swatch-gain"></span>{gainMode === 'attributes' ? 'new +' : 'clarify'}</span>
+                        <span class="legend-item"><span class="swatch swatch-keep"></span>keep</span>
+                        <span class="legend-item"><span class="swatch swatch-neutral"></span>neutral</span>
+                        <span class="legend-item"><span class="swatch swatch-loss"></span>loss</span>
+                    {:else}
+                        <span class="legend-item"><span class="swatch swatch-contrib-none"></span>none</span>
+                        <span class="legend-item"><span class="swatch swatch-contrib-ramp"></span>more</span>
+                        <span class="legend-item" data-testid="trio-contrib-total"
+                            >{contributionStats.loci} loci · {contributionStats.total.toFixed(2)} {CONTRIBUTION_LABEL[contributionMode]}</span
+                        >
+                    {/if}
                 </span>
             {/if}
         </div>
@@ -420,6 +613,10 @@ function handleCellLeave() {
     {:else if error}
         <StatusPane variant="error" icon="⚠️" body={error} />
     {:else if grid && summary && grid.rows.length > 0}
+        <!-- Grid and score panel share one row: the grid is the wide element and
+             the panel is narrow, so stacking them spent vertical space the grid
+             needs while leaving the right-hand third of the row empty. -->
+        <div class="trio-main">
         <div class="grid-container trio-grid-container" class:hide-locked={hideLocked}>
             <table class="trio-table">
                 <thead>
@@ -468,14 +665,18 @@ function handleCellLeave() {
                                         {#if cell}
                                             <div
                                                 class="outcome-box"
-                                                class:hatch={cell.buckets.unknown >= 1}
+                                                class:hatch={contributionMode === 'off' && cell.buckets.unknown >= 1}
                                                 class:fixed={isLocked(cell)}
                                                 data-attrs={cell.attrs}
                                                 role="img"
                                                 aria-label={offspringAria(cell)}
                                                 onmouseenter={(e) => handleOffspringEnter(e, cell)}
                                                 onmouseleave={handleCellLeave}
-                                                style={cell.buckets.unknown >= 1 ? undefined : `background: ${outcomeBoxBackground(cell.buckets, gainMode)}`}
+                                                style={contributionMode !== 'off'
+                                                    ? `background: ${contributionBackground(contributionOf(cell.contributions, contributionMode), contributionStats.max)}`
+                                                    : cell.buckets.unknown >= 1
+                                                      ? undefined
+                                                      : `background: ${outcomeBoxBackground(cell.buckets, gainMode)}`}
                                             ></div>
                                         {/if}
                                     </td>
@@ -508,6 +709,67 @@ function handleCellLeave() {
                     {/each}
                 </tbody>
             </table>
+        </div>
+        {#if showScores && scores}
+            <aside class="score-panel" data-testid="trio-score-panel">
+                <section class="score-group">
+                    <h4 class="score-head">Whole-genome</h4>
+                    <p class="score-note">
+                        No locus drives these — each is an expectation over the foal's whole count against a parent
+                        baseline, so only these three numbers move them.
+                    </p>
+                    {#each improvementRows as r (r.id)}
+                        <div class="score-item" data-testid="trio-score-{r.id}">
+                            <div class="score-top">
+                                <span class="score-label">{r.label}</span>
+                                <span class="score-value">{fmt(r.score)}</span>
+                            </div>
+                            <div class="score-formula">{r.formula}</div>
+                            <div class="score-terms">
+                                mean <strong>{fmt(r.mean)}</strong> · spread <strong>{fmt(r.sd)}</strong> ·
+                                {r.baselineLabel} <strong>{r.baseline}</strong>
+                            </div>
+                        </div>
+                    {/each}
+                    <!-- The one comparison the table cannot make on its own: the two
+                         strategies run the identical integral and disagree only here. -->
+                    <p class="score-note">
+                        Ceiling and Floor differ only in the baseline ({scores.betterParentPositives} vs
+                        {scores.weakerParentPositives}).
+                    </p>
+                </section>
+
+                {#if additiveRows.length > 0}
+                    <section class="score-group">
+                        <h4 class="score-head">Per-locus</h4>
+                        <p class="score-note">A plain sum over loci — highlight one to see where it came from.</p>
+                        {#each additiveRows as r (r.id)}
+                            <div class="score-item score-item-lens" data-testid="trio-score-{r.id}">
+                                <span class="score-label">{r.label}</span>
+                                <span class="score-value">{fmt(r.score)}</span>
+                                <button
+                                    type="button"
+                                    class="score-lens"
+                                    class:active={contributionMode === r.id}
+                                    data-testid="trio-score-lens-{r.id}"
+                                    title={CONTRIBUTION_HELP[r.id]}
+                                    onclick={() => { contributionMode = contributionMode === r.id ? 'off' : r.id; }}
+                                    aria-pressed={contributionMode === r.id}
+                                >{contributionMode === r.id ? 'highlighting' : 'highlight'}</button>
+                            </div>
+                        {/each}
+                    </section>
+                {/if}
+
+                {#if breedDiverged}
+                    <p class="score-warn" data-testid="trio-score-breed-warn">
+                        Scored for {offspringBreed || 'no committed breed'}; the grid is projecting
+                        {selectedBreed || 'no committed breed'}. These figures are the ranked ones and do not describe
+                        the loci on screen.
+                    </p>
+                {/if}
+            </aside>
+        {/if}
         </div>
     {:else if selectedBreed}
         <p class="empty-text">No loci for the {selectedBreed} breed in this pair.</p>
@@ -565,9 +827,75 @@ function handleCellLeave() {
         --trio-neutral: color-mix(in srgb, var(--gene-neutral) 60%, transparent);
         --trio-keep-neg: color-mix(in srgb, var(--gene-negative) 42%, var(--gene-neutral));
         --trio-loss: var(--gene-negative);
+        /* Contribution lens: one hue ramped by magnitude. Deliberately not the
+           gain/loss palette — a contribution has no sign, and reusing the green
+           would read as "this locus is good" rather than "this locus is most of
+           the score". The accent keeps the two lenses visually distinct. */
+        --trio-contrib: var(--accent);
+        --trio-contrib-none: color-mix(in srgb, var(--gene-neutral) 28%, transparent);
     }
     /* Compact the shared segmented control to sit in the dense filter row. */
     .gain-mode { font-size: 11px; }
+    .contrib-mode { font-size: 11px; display: inline-flex; align-items: center; }
+    .seg-caption {
+        font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em;
+        color: var(--text-tertiary); padding: 0 var(--space-xs); white-space: nowrap;
+    }
+    .chip-score { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent-text, var(--accent)); }
+    .swatch-contrib-none { background: var(--trio-contrib-none); }
+    .swatch-contrib-ramp { background: linear-gradient(90deg, var(--trio-contrib-none), var(--trio-contrib)); width: 34px; }
+
+    /* Grid + score panel share the row. The grid keeps the scroll region; the
+       panel is a fixed narrow column so a long score list never steals width
+       from the genes. */
+    .trio-main { display: flex; flex: 1; min-height: 0; gap: var(--space-sm); }
+
+    /* Score panel: the arithmetic behind the ranked columns, as a narrow
+       right-hand column. It reads as an annotation on the pair, not a control,
+       and scrolls on its own so the grid's scroll position is unaffected. */
+    .score-panel {
+        flex: 0 0 236px;
+        width: 236px;
+        min-height: 0;
+        overflow-y: auto;
+        display: flex; flex-direction: column; gap: var(--space-md);
+        padding: var(--space-sm) var(--space-sm) var(--space-md);
+        border: 1px solid var(--border-primary); border-radius: 6px;
+        background: var(--bg-secondary); font-size: 11px;
+    }
+    .score-group { display: flex; flex-direction: column; gap: var(--space-2xs); }
+    .score-head {
+        margin: 0; font-size: 10px; font-weight: 700; text-transform: uppercase;
+        letter-spacing: 0.05em; color: var(--text-tertiary);
+    }
+    .score-note { margin: 0; color: var(--text-tertiary); font-size: 10px; line-height: 1.4; }
+    .score-item { display: flex; flex-direction: column; gap: 1px; }
+    .score-top { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-xs); }
+    .score-label { font-weight: 600; color: var(--text-primary); font-size: 12px; }
+    .score-value { font-variant-numeric: tabular-nums; color: var(--text-primary); font-weight: 600; font-size: 12px; }
+    /* The formula is the substance of the explanation, so it stays visible
+       rather than retreating into a tooltip; it wraps at this width. */
+    .score-formula { color: var(--text-muted); font-size: 10px; line-height: 1.35; }
+    .score-terms { color: var(--text-secondary); font-size: 10px; line-height: 1.4; }
+    .score-terms strong { font-variant-numeric: tabular-nums; font-weight: 700; }
+    /* Per-locus rows carry no formula, so label, value and lens sit on one line. */
+    .score-item-lens { flex-direction: row; align-items: baseline; gap: var(--space-2xs); }
+    .score-item-lens .score-value { margin-left: auto; }
+    .score-lens {
+        font: inherit; font-size: 10px; padding: 1px var(--space-2xs);
+        border: 1px solid var(--border-primary); border-radius: 5px;
+        background: var(--bg-primary); color: var(--text-secondary); cursor: pointer; white-space: nowrap;
+    }
+    .score-lens:hover { border-color: var(--border-secondary); color: var(--text-primary); }
+    .score-lens.active { border-color: var(--accent); color: var(--accent-text, var(--accent)); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+    .score-warn { margin: 0; color: var(--warning-text, var(--text-secondary)); font-size: 10px; font-weight: 600; line-height: 1.4; }
+    /* Narrow windows have no width to spare: fall back to stacking, capped so
+       the panel cannot push the grid off-screen the way it did full-width. */
+    @media (max-width: 1000px) {
+        .trio-main { flex-direction: column; }
+        .score-panel { flex: 0 0 auto; width: auto; max-height: 40%; }
+    }
+
     /* Filter row: breed + attribute pills on the left, legend pushed right. */
     .trio-filters {
         display: flex;

@@ -33,6 +33,10 @@ const result = (male: Pet, female: Pet): BreedingPairResult => ({
   evNegativeTotal: 0,
   evLiabilityReduction: 0,
   cleanerParentNegatives: 0,
+  maleProfile: { positives: 2, negatives: 0, positivesByAttribute: {} },
+  femaleProfile: { positives: 1, negatives: 0, positivesByAttribute: {} },
+  positiveSd: 0,
+  negativeSd: 0,
   evUnknown: 0,
   totalLoci: 10,
 });
@@ -217,5 +221,117 @@ describe('BreedingPairTable — column integrity', () => {
     expect(at('Ceiling')).toBe('0.5');
     expect(at('Floor')).toBe('1.5');
     expect(at('Total +')).toBe('2.0');
+  });
+});
+
+/**
+ * The absolute columns (Total +, the per-attribute ones) are expected counts
+ * with no baseline of their own. Read alone they cannot answer the question
+ * breeding is actually asking — is this foal better than its parents — so the
+ * table carries the parents' own counts and the signed gap.
+ */
+describe('BreedingPairTable — reading the absolute columns against the parents', () => {
+  const cellsByHeader = (container: HTMLElement) => {
+    const headers = [...container.querySelectorAll('thead th')].map((h) => h.textContent?.replace(/[▲▼]/g, '').trim());
+    const cells = [...container.querySelectorAll('tbody tr td')];
+    return (label: string) => cells[headers.indexOf(label)];
+  };
+
+  it("shows each parent's own positive count beside its name", async () => {
+    const { container, rerender } = render(BreedingPairTable, { results: RESULTS, attrNames: [] });
+    await rerender({});
+    const counts = [...container.querySelectorAll('[data-testid="parent-positives"]')].map((e) => e.textContent);
+    expect(counts).toEqual(['2', '1']);
+  });
+
+  /**
+   * The case the improvement columns cannot express: `Ceiling` is
+   * `E[max(0, ...)]`, so a foal far below the better parent and one barely
+   * below it both read 0.00. The gap has to come from somewhere else.
+   */
+  it('shows an unclamped signed gap under Total +, including when the foal is worse', async () => {
+    const male = pet({ id: 1, name: 'Dusty', gender: 'Male' });
+    const female = pet({ id: 2, name: 'Roach' });
+    const worse: BreedingPairResult = {
+      ...result(male, female),
+      evPositiveTotal: 241.75,
+      betterParentPositives: 336,
+      weakerParentPositives: 236,
+      evPositiveImprovement: 0,
+      maleProfile: { positives: 336, negatives: 0, positivesByAttribute: {} },
+      femaleProfile: { positives: 236, negatives: 0, positivesByAttribute: {} },
+    };
+    const { container, rerender } = render(BreedingPairTable, { results: [worse], attrNames: [] });
+    await rerender({});
+    const at = cellsByHeader(container);
+
+    // Ceiling bottoms out at zero and says nothing about the size of the gap...
+    expect(at('Ceiling').textContent?.trim()).toBe('0.0');
+    // ...so the gap is stated outright, with its sign.
+    expect(at('Total +').querySelector('[data-testid="pair-delta"]')?.textContent).toBe('−94.3');
+    expect(at('Total +').querySelector('[data-testid="pair-delta"]')?.className).toContain('down');
+  });
+
+  it('marks a foal expected to beat the better parent as up', async () => {
+    const male = pet({ id: 1, name: 'Dusty', gender: 'Male' });
+    const female = pet({ id: 2, name: 'Roach' });
+    const better: BreedingPairResult = {
+      ...result(male, female),
+      evPositiveTotal: 12,
+      betterParentPositives: 8,
+      maleProfile: { positives: 8, negatives: 0, positivesByAttribute: {} },
+      femaleProfile: { positives: 3, negatives: 0, positivesByAttribute: {} },
+    };
+    const { container, rerender } = render(BreedingPairTable, { results: [better], attrNames: [] });
+    await rerender({});
+    const tag = cellsByHeader(container)('Total +').querySelector('[data-testid="pair-delta"]');
+    expect(tag?.textContent).toBe('+4.0');
+    expect(tag?.className).toContain('up');
+  });
+
+  /**
+   * Each attribute has its own baseline. A pair can lead the field on
+   * Intelligence while beating neither parent's Intelligence, so the aggregate
+   * baseline would misreport it.
+   */
+  it("measures an attribute against that attribute's own better parent", async () => {
+    const male = pet({ id: 1, name: 'Dusty', gender: 'Male' });
+    const female = pet({ id: 2, name: 'Roach' });
+    const pair: BreedingPairResult = {
+      ...result(male, female),
+      evPositiveTotal: 40,
+      betterParentPositives: 40,
+      evPositiveByAttribute: { Intelligence: 6 },
+      // Aggregate counts are equal, so the Total + gap is nil — but the male
+      // leads on Intelligence, and the foal falls four short of him there.
+      maleProfile: { positives: 40, negatives: 0, positivesByAttribute: { Intelligence: 10 } },
+      femaleProfile: { positives: 40, negatives: 0, positivesByAttribute: { Intelligence: 4 } },
+    };
+    const { container, rerender } = render(BreedingPairTable, { results: [pair], attrNames: ['Intelligence'] });
+    await rerender({});
+    const at = cellsByHeader(container);
+
+    expect(at('Total +').querySelector('[data-testid="pair-delta"]')).toBeNull();
+    expect(at('Intelligence').querySelector('[data-testid="pair-delta"]')?.textContent).toBe('−4.0');
+  });
+
+  it('stays quiet when the gap rounds to nothing', async () => {
+    const { container, rerender } = render(BreedingPairTable, { results: RESULTS, attrNames: [] });
+    await rerender({});
+    // The fixture's foal matches the better parent exactly.
+    expect(container.querySelector('[data-testid="pair-delta"]')).toBeNull();
+  });
+
+  /**
+   * The old label read as an improvement over the parents. It is an absolute
+   * expected count re-weighted by pool coverage — a positive both parents
+   * already breed true still scores, at the lowest weight.
+   */
+  it('names the weighted column for what it measures, not for a gain', async () => {
+    const { container, rerender } = render(BreedingPairTable, { results: RESULTS, attrNames: [] });
+    await rerender({});
+    const headers = [...container.querySelectorAll('thead th')].map((h) => h.textContent?.replace(/[▲▼]/g, '').trim());
+    expect(headers).toContain('Pool-weighted +');
+    expect(headers).not.toContain('Pool gain');
   });
 });

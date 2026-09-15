@@ -2,7 +2,7 @@
 import { breedingView } from '$lib/stores/breeding.svelte.js';
 import { requestOpenPet } from '$lib/stores/mypets.svelte.js';
 import { appState } from '$lib/stores/pets.js';
-import type { BreedingPairResult, Pet } from '$lib/types/index.js';
+import type { BreedingPairResult, ParentExpressedProfile, Pet } from '$lib/types/index.js';
 import type { SuggestedPlan } from '$lib/utils/breedingPlan.js';
 import { type SortableColumn, sortByColumn } from '$lib/utils/sortColumn.js';
 
@@ -60,7 +60,12 @@ const columns = $derived<Column[]>([
   { id: 'evMixed', label: 'Mixed', accessor: (r) => r.evMixed, numeric: true },
   { id: 'evUnknown', label: 'Unknown', accessor: (r) => r.evUnknown, numeric: true },
   { id: 'evPositiveTotal', label: 'Total +', accessor: (r) => r.evPositiveTotal, numeric: true },
-  { id: 'evPositiveWeighted', label: 'Pool gain', accessor: (r) => r.evPositiveWeighted, numeric: true },
+  // Named for what it is. It was "Pool gain", which reads as an improvement
+  // over the parents; it is the absolute expected positive count re-weighted
+  // by pool coverage, and a positive both parents already breed true still
+  // scores (at the lowest `locked` weight). Display-only rename — the sort key
+  // is still `evPositiveWeighted`, so persisted sort settings are unaffected.
+  { id: 'evPositiveWeighted', label: 'Pool-weighted +', accessor: (r) => r.evPositiveWeighted, numeric: true },
   ...attrNames.map(
     (name): Column => ({
       id: name,
@@ -122,11 +127,34 @@ function openPet(pet: Pet) {
 }
 
 function openTrio(pair: BreedingPairResult) {
-  breedingView.selectedPair = { male: pair.male, female: pair.female };
+  breedingView.selectedPair = pair;
 }
 
 function fmt(n: number) {
   return n.toFixed(1);
+}
+
+/**
+ * Signed difference between an expected offspring figure and the better
+ * parent's own, formatted for display.
+ *
+ * **Deliberately unclamped, which is the whole point.** `Ceiling` and `Floor`
+ * are `E[max(0, ...)]`, so both bottom out at zero: a `Ceiling` of 0.00 says
+ * the foal is not expected to beat the better parent but cannot say whether it
+ * falls one short or ninety. This does.
+ *
+ * Returns null when the gap rounds to nothing, so a row with no meaningful
+ * difference stays quiet rather than showing a decorative `+0.0`.
+ */
+function delta(expected: number, baseline: number): { text: string; sign: 'up' | 'down' } | null {
+  const d = expected - baseline;
+  if (Math.abs(d) < 0.05) return null;
+  return { text: `${d > 0 ? '+' : '−'}${Math.abs(d).toFixed(1)}`, sign: d > 0 ? 'up' : 'down' };
+}
+
+/** The better parent's count on one attribute — the baseline `evAttributeImprovement` uses. */
+function attrBaseline(pair: BreedingPairResult, attr: string): number {
+  return Math.max(pair.maleProfile.positivesByAttribute[attr] ?? 0, pair.femaleProfile.positivesByAttribute[attr] ?? 0);
 }
 
 // --- Scroll persistence -----------------------------------------------------
@@ -181,10 +209,19 @@ function persistScroll() {
                 {/each}
             </tr>
         </thead>
-        {#snippet parentCell(pet: Pet)}
+        {#snippet parentCell(pet: Pet, profile: ParentExpressedProfile)}
             <td>
                 <span class="parent">
                     <button class="parent-link" onclick={() => openPet(pet)}>{pet.name}</button>
+                    <!-- The animal's own positive count, on the same locus basis and
+                         breed scope as the offspring EV. Without it every absolute
+                         column on the row is a number with nothing to read it
+                         against. -->
+                    <span
+                        class="parent-count"
+                        title={`${pet.name} expresses ${profile.positives} positive and ${profile.negatives} negative effects, scored on the offspring's breed scope`}
+                        data-testid="parent-positives">{profile.positives}</span
+                    >
                     {#if onBench}
                         <button
                             type="button"
@@ -200,6 +237,12 @@ function persistScroll() {
             </td>
         {/snippet}
 
+        {#snippet deltaTag(d: { text: string; sign: 'up' | 'down' } | null, against: string)}
+            {#if d}
+                <span class="delta {d.sign}" title={`${d.text} vs ${against}`} data-testid="pair-delta">{d.text}</span>
+            {/if}
+        {/snippet}
+
         {#snippet row(pair: BreedingPairResult)}
             <tr>
                 <td class="action-cell">
@@ -212,18 +255,32 @@ function persistScroll() {
                         data-testid="inspect-pair"
                     >🔬 Trio</button>
                 </td>
-                {@render parentCell(pair.male)}
-                {@render parentCell(pair.female)}
+                {@render parentCell(pair.male, pair.maleProfile)}
+                {@render parentCell(pair.female, pair.femaleProfile)}
                 <td class="numeric strong">{fmt(pair.evCapabilityGain)}</td>
                 <td class="numeric">{fmt(pair.evPositiveImprovement)}</td>
                 <td class="numeric">{fmt(pair.evPairUpgrade)}</td>
                 <td class="numeric">{fmt(pair.evLiabilityReduction)}</td>
                 <td class="numeric">{fmt(pair.evMixed)}</td>
                 <td class="numeric">{fmt(pair.evUnknown)}</td>
-                <td class="numeric">{fmt(pair.evPositiveTotal)}</td>
+                <td class="numeric">
+                    {fmt(pair.evPositiveTotal)}
+                    {@render deltaTag(delta(pair.evPositiveTotal, pair.betterParentPositives), 'the better parent')}
+                </td>
+                <!-- No delta here: the figure is gap-weighted and the parents'
+                     counts are not, so a difference between them would compare
+                     two different units. The parent counts on the row are the
+                     honest reference for it. -->
                 <td class="numeric">{fmt(pair.evPositiveWeighted)}</td>
                 {#each attrNames as name (name)}
-                    <td class="numeric">{fmt(pair.evPositiveByAttribute[name] ?? 0)}</td>
+                    {@const value = pair.evPositiveByAttribute[name] ?? 0}
+                    <td class="numeric">
+                        {fmt(value)}
+                        <!-- Per attribute, against the better parent *on that
+                             attribute*: a pair can lead the field on Intelligence
+                             while beating neither parent's Intelligence. -->
+                        {@render deltaTag(delta(value, attrBaseline(pair, name)), `the better parent's ${name}`)}
+                    </td>
                 {/each}
             </tr>
         {/snippet}
@@ -331,6 +388,25 @@ function persistScroll() {
         align-items: center;
         gap: var(--space-2xs);
     }
+
+    /* The parent's own count: present on every row as the reference for the
+       absolute columns, but muted so it never competes with the name. */
+    .parent-count {
+        font-size: 11px;
+        font-variant-numeric: tabular-nums;
+        color: var(--text-tertiary);
+    }
+
+    /* Signed difference under an absolute figure. Its own line so the column
+       still scans as a single number, and tabular so the digits line up. */
+    .delta {
+        display: block;
+        font-size: 10px;
+        font-variant-numeric: tabular-nums;
+        line-height: 1.2;
+    }
+    .delta.up { color: var(--gene-positive); }
+    .delta.down { color: var(--gene-negative); }
 
     .parent-link {
         background: none;

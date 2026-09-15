@@ -432,6 +432,8 @@ onDestroy(() => {
   <TrioView
     pair={breedingView.selectedPair}
     offspringBreed={breedingView.offspringBreed}
+    pool={candidates}
+    {breedLockWeight}
     onClose={() => { breedingView.selectedPair = null; }}
   />
 {/if}

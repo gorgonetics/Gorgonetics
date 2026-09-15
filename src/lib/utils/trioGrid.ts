@@ -15,7 +15,9 @@ import type {
   GeneType,
   OffspringOutcomeBuckets,
   OffspringTrioResult,
+  TrioContributionMode,
   TrioGainMode,
+  TrioLocusContributions,
   TrioVerdict,
 } from '$lib/types/index.js';
 import { joinAttrs } from '$lib/utils/filterCSS.js';
@@ -32,6 +34,8 @@ export interface TrioLocusCell {
   motherCell: GeneCell | null;
   /** Offspring outcome split vs the parents; drives the middle-row box. */
   buckets: OffspringOutcomeBuckets;
+  /** This locus's share of each additive pair score; drives the contribution lens. */
+  contributions: TrioLocusContributions;
   verdict: TrioVerdict;
   source: 'father' | 'mother' | 'both' | null;
   lockedIn: boolean;
@@ -99,6 +103,37 @@ export function outcomeBoxBackground(b: OffspringOutcomeBuckets, mode: TrioGainM
   return `linear-gradient(180deg, ${stops.join(', ')})`;
 }
 
+/** The contribution field each lens reads; `off` has none. */
+const CONTRIBUTION_FIELD: Record<Exclude<TrioContributionMode, 'off'>, keyof TrioLocusContributions> = {
+  capability: 'capability',
+  poolGain: 'poolGain',
+  positive: 'positive',
+};
+
+/** This locus's contribution under `mode`, or 0 when the lens is off. */
+export function contributionOf(c: TrioLocusContributions, mode: TrioContributionMode): number {
+  return mode === 'off' ? 0 : c[CONTRIBUTION_FIELD[mode]];
+}
+
+/**
+ * CSS `background` for an offspring cell under the contribution lens: one
+ * flat tint whose intensity is this locus's share of the pair's score.
+ *
+ * **Square-root ramp, not linear.** A pair's score is spread over ~1,600
+ * loci, so a linear ramp against the maximum leaves all but a handful of
+ * cells at a few percent tint — visually identical to the zeroes, which is
+ * the one thing the lens exists to distinguish. The root compresses the top
+ * and opens up the tail. It is a display curve: read the tooltip for the
+ * number, not the shade, and never compare two shades as a ratio.
+ */
+export function contributionBackground(value: number, max: number): string {
+  if (!(value > 0) || !(max > 0)) return 'var(--trio-contrib-none)';
+  const t = Math.min(1, Math.sqrt(value / max));
+  // Floor at 8% so the smallest non-zero contribution still reads as present.
+  const pct = (8 + t * 92).toFixed(1);
+  return `color-mix(in srgb, var(--trio-contrib) ${pct}%, var(--trio-contrib-none))`;
+}
+
 /**
  * Build the full grid render-model. Column layout (blocks × positions) is the
  * union across all chromosomes so every chromosome row aligns, matching the
@@ -133,6 +168,7 @@ export function buildTrioGrid(result: OffspringTrioResult, cellBuilder: CellBuil
         fatherCell: g.fatherType ? cellBuilder.makeCell({ id: g.geneId, type: g.fatherType }) : null,
         motherCell: g.motherType ? cellBuilder.makeCell({ id: g.geneId, type: g.motherType }) : null,
         buckets: g.buckets,
+        contributions: g.contributions,
         verdict: g.verdict,
         source: g.source,
         lockedIn: g.lockedIn,

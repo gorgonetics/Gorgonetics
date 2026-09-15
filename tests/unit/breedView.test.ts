@@ -47,6 +47,31 @@ const pet = (over: Partial<Pet>): Pet =>
 const stallion = pet({ id: 1, name: 'Dusty', gender: 'Male' });
 const mare = pet({ id: 2, name: 'Roach' });
 
+/** A ranked row for this pair. The store holds the whole row, not just the two animals. */
+const pairStub = (evCapabilityGain: number): BreedingPairResult => ({
+  male: stallion,
+  female: mare,
+  evMixed: 0,
+  evPositiveByAttribute: {},
+  evPositiveTotal: 0,
+  evPositiveWeighted: 0,
+  evCapabilityGain,
+  evPositiveImprovement: 0,
+  evPairUpgrade: 0,
+  betterParentPositives: 0,
+  weakerParentPositives: 0,
+  evAttributeImprovement: {},
+  evNegativeTotal: 0,
+  evLiabilityReduction: 0,
+  cleanerParentNegatives: 0,
+  maleProfile: { positives: 0, negatives: 0, positivesByAttribute: {} },
+  femaleProfile: { positives: 0, negatives: 0, positivesByAttribute: {} },
+  positiveSd: 0,
+  negativeSd: 0,
+  evUnknown: 0,
+  totalLoci: 0,
+});
+
 function resetView() {
   breedingView.species = '';
   breedingView.offspringBreed = '';
@@ -146,7 +171,7 @@ describe('BreedView — trio invalidation when a parent leaves the candidate set
   beforeEach(() => {
     breedingView.species = 'horse';
     pets.set([stallion, mare]);
-    breedingView.selectedPair = { male: stallion, female: mare };
+    breedingView.selectedPair = pairStub(0);
   });
 
   it('keeps the trio open across an in-flight reload that briefly lacks a parent', async () => {
@@ -263,26 +288,6 @@ describe('BreedView — bench + planning', () => {
 });
 
 describe('BreedView — when Reach new ground has run dry', () => {
-  const pairStub = (evCapabilityGain: number): BreedingPairResult => ({
-    male: stallion,
-    female: mare,
-    evMixed: 0,
-    evPositiveByAttribute: {},
-    evPositiveTotal: 0,
-    evPositiveWeighted: 0,
-    evCapabilityGain,
-    evPositiveImprovement: 0,
-    evPairUpgrade: 0,
-    betterParentPositives: 0,
-    weakerParentPositives: 0,
-    evAttributeImprovement: {},
-    evNegativeTotal: 0,
-    evLiabilityReduction: 0,
-    cleanerParentNegatives: 0,
-    evUnknown: 0,
-    totalLoci: 0,
-  });
-
   beforeEach(() => {
     breedingView.species = 'horse';
     breedingView.spots = 1;

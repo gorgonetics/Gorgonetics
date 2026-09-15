@@ -29,6 +29,10 @@ const pair = (maleId: number, femaleId: number, score: number): BreedingPairResu
   evNegativeTotal: 0,
   evLiabilityReduction: score,
   cleanerParentNegatives: 0,
+  maleProfile: { positives: 0, negatives: 0, positivesByAttribute: {} },
+  femaleProfile: { positives: 0, negatives: 0, positivesByAttribute: {} },
+  positiveSd: 0,
+  negativeSd: 0,
   evUnknown: 0,
   totalLoci: 0,
 });

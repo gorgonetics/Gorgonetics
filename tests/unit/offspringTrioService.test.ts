@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { rankBreedingPairs } from '$lib/services/breedingService.js';
 import { closeDatabase, initDatabase } from '$lib/services/database.js';
 import * as geneService from '$lib/services/geneService.js';
 import { runMigrations } from '$lib/services/migrationService.js';
@@ -221,5 +222,149 @@ Genome=Horse
     expect(byId['01A3'].verdict).toBe('neutral');
 
     expect(summary).toMatchObject({ totalGenes: 3, gains: 2, risks: 0, lockedIn: 1, unknownLoci: 0 });
+  });
+});
+
+describe('computeOffspringTrio — per-locus score contributions', () => {
+  beforeEach(reset);
+
+  /**
+   * The contribution lens exists to answer "which loci produced this score",
+   * so the sum of what it shows has to be the score the breeding table
+   * ranked. Checked against `rankBreedingPairs` itself rather than against a
+   * hand-computed constant: a constant would keep passing if both sides
+   * drifted together, which is the failure that matters.
+   */
+  it('sums each locus contribution back to the pair score the ranking produced', async () => {
+    await registerGenes();
+    const father = await uploadParent('Sire', Gender.MALE, 'xxx');
+    const mother = await uploadParent('Dam', Gender.FEMALE, 'xxD');
+    const spare = await uploadParent('Spare', Gender.FEMALE, 'DDD');
+    const pool = [father, mother, spare];
+
+    const ranked = await rankBreedingPairs({ species: 'BeeWasp', pets: pool });
+    const row = ranked.find((r) => r.male.id === father.id && r.female.id === mother.id);
+    expect(row).toBeDefined();
+
+    const { chromosomes, summary } = await computeOffspringTrio(father, mother, { species: 'BeeWasp', pool });
+    expect(summary.poolScored).toBe(true);
+
+    const genes = chromosomes.flatMap((c) => c.genes);
+    const sum = (pick: (g: (typeof genes)[number]) => number) => genes.reduce((acc, g) => acc + pick(g), 0);
+
+    expect(sum((g) => g.contributions.positive)).toBeCloseTo(row!.evPositiveTotal, 10);
+    expect(sum((g) => g.contributions.poolGain)).toBeCloseTo(row!.evPositiveWeighted, 10);
+    expect(sum((g) => g.contributions.capability)).toBeCloseTo(row!.evCapabilityGain, 10);
+  });
+
+  it('attributes each locus by its own slots, and nothing to a locus with no positive slot', async () => {
+    await registerGenes();
+    const father = await uploadParent('Sire', Gender.MALE, 'xxx');
+    const mother = await uploadParent('Dam', Gender.FEMALE, 'xxD');
+    const spare = await uploadParent('Spare', Gender.FEMALE, 'DDD');
+
+    const { chromosomes } = await computeOffspringTrio(father, mother, {
+      species: 'BeeWasp',
+      pool: [father, mother, spare],
+    });
+    const byId = Object.fromEntries(chromosomes.flatMap((c) => c.genes).map((g) => [g.geneId, g]));
+
+    // 01A1 is recessive-positive; x × x puts 0.25 on the recessive outcome.
+    expect(byId['01A1'].contributions.positive).toBeCloseTo(0.25, 10);
+    // Only carriers in the pool → the `partial` gap weight, 1.2.
+    expect(byId['01A1'].contributions.poolGain).toBeCloseTo(0.3, 10);
+    // Pool capability at the slot is 0.5 (carriers, no homozygote); the foal
+    // reaches homozygous-recessive a quarter of the time.
+    expect(byId['01A1'].contributions.capability).toBeCloseTo(0.125, 10);
+
+    // 01A2 is recessive-negative: no positive slot, so nothing to attribute.
+    expect(byId['01A2'].contributions).toEqual({ positive: 0, poolGain: 0, capability: 0 });
+
+    // 01A3 is dominant-positive and x × D, so the foal always expresses it —
+    // but the pool already locks it, so it adds no capability.
+    expect(byId['01A3'].contributions.positive).toBeCloseTo(1, 10);
+    expect(byId['01A3'].contributions.poolGain).toBeCloseTo(0.6, 10);
+    expect(byId['01A3'].contributions.capability).toBe(0);
+  });
+
+  it('reports no pool-measured contribution when opened without a pool', async () => {
+    await registerGenes();
+    const father = await uploadParent('Sire', Gender.MALE, 'xxx');
+    const mother = await uploadParent('Dam', Gender.FEMALE, 'xxD');
+
+    const { chromosomes, summary } = await computeOffspringTrio(father, mother, { species: 'BeeWasp' });
+    expect(summary.poolScored).toBe(false);
+
+    const genes = chromosomes.flatMap((c) => c.genes);
+    // Total + needs only the two parents, so it is still attributed...
+    expect(genes.some((g) => g.contributions.positive > 0)).toBe(true);
+    // ...but Quality and Pool gain are measured against the rest of the
+    // stable, and must read zero rather than fall back to a `missing` gap
+    // weight that would invent a pool the caller never supplied.
+    expect(genes.every((g) => g.contributions.capability === 0)).toBe(true);
+    expect(genes.every((g) => g.contributions.poolGain === 0)).toBe(true);
+  });
+
+  /**
+   * A locus where both parents are homozygous for the same allele is "locked":
+   * every foal is that genotype, so nothing about it can change. It still
+   * contributes to Pool gain and Total +, because neither measures a change —
+   * both are absolute expected counts of what the foal expresses, and Pool
+   * gain only re-weights that count by pool coverage. Quality is the one that
+   * differences, so a locked positive contributes exactly nothing to it.
+   */
+  it('counts a locked positive toward Pool gain and Total + but never toward Quality', async () => {
+    await registerGenes();
+    // Both parents homozygous dominant at every locus → every locus locked.
+    const father = await uploadParent('Sire', Gender.MALE, 'DDD');
+    const mother = await uploadParent('Dam', Gender.FEMALE, 'DDD');
+    const pool = [father, mother];
+
+    const { chromosomes } = await computeOffspringTrio(father, mother, { species: 'BeeWasp', pool });
+    const byId = Object.fromEntries(chromosomes.flatMap((c) => c.genes).map((g) => [g.geneId, g]));
+
+    // 01A3 is dominant-positive, so a D × D lock means the foal always
+    // expresses it: full mass on Total +, scaled by the `locked` gap weight
+    // (0.6) for Pool gain.
+    expect(byId['01A3'].fatherType).toBe('D');
+    expect(byId['01A3'].motherType).toBe('D');
+    expect(byId['01A3'].contributions.positive).toBeCloseTo(1, 10);
+    expect(byId['01A3'].contributions.poolGain).toBeCloseTo(0.6, 10);
+    // ...but the pool already breeds it true, so it adds no capability at all.
+    expect(byId['01A3'].contributions.capability).toBe(0);
+
+    // 01A1's positive is on the recessive allele, which a D × D pair can never
+    // produce — locked, and contributing to nothing.
+    expect(byId['01A1'].contributions).toEqual({ positive: 0, poolGain: 0, capability: 0 });
+  });
+
+  /**
+   * The invariant behind the above, stated over a whole genome rather than one
+   * fixture locus: wherever both parents are homozygous for the same allele,
+   * that allele is in the pool, so the pool already breeds it true and the
+   * marginal capability is zero by construction.
+   */
+  it('never attributes Quality to a locked locus', async () => {
+    await registerGenes();
+    const father = await uploadParent('Sire', Gender.MALE, 'DRx');
+    const mother = await uploadParent('Dam', Gender.FEMALE, 'DRD');
+    const pool = [father, mother];
+
+    const { chromosomes } = await computeOffspringTrio(father, mother, { species: 'BeeWasp', pool });
+    const locked = chromosomes
+      .flatMap((c) => c.genes)
+      .filter((g) => g.fatherType !== null && g.fatherType === g.motherType && g.fatherType !== 'x');
+
+    expect(locked.length).toBeGreaterThan(0);
+    expect(locked.every((g) => g.contributions.capability === 0)).toBe(true);
+  });
+
+  it('treats an empty pool as no pool', async () => {
+    await registerGenes();
+    const father = await uploadParent('Sire', Gender.MALE, 'xxx');
+    const mother = await uploadParent('Dam', Gender.FEMALE, 'xxD');
+
+    const { summary } = await computeOffspringTrio(father, mother, { species: 'BeeWasp', pool: [] });
+    expect(summary.poolScored).toBe(false);
   });
 });
