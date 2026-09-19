@@ -50,6 +50,7 @@ import {
   type StudySubject,
   studyAll,
 } from '$lib/utils/attributeStudy.js';
+import { sha256Hex } from '$lib/utils/hash.js';
 import { loadAllPetLoci, type PetLoci } from '$lib/utils/petLoci.js';
 import { ATTRIBUTE_KEYS, dedupeLatest } from '$lib/utils/sharedPet.js';
 import { now } from '$lib/utils/timestamp.js';
@@ -375,6 +376,8 @@ export interface RefreshResult {
   cached: number;
   /** Entries skipped because they would teach nothing. */
   skipped: number;
+  /** Entries whose genome did not hash to the id it was filed under. */
+  unverified: number;
 }
 
 /** Marks a subject id as a cached community animal rather than a `pets` row. */
@@ -392,12 +395,19 @@ interface CachedRow {
 /**
  * Whether a catalogue entry can teach the study anything.
  *
- * The same bar local animals must clear — a name that parses, so the
- * attributes are readings rather than defaults, and a breed to pair
- * within. Applied before caching so the table holds only usable evidence.
+ * Runs the same `eligibility` rules the read path does, so the cache never
+ * fills with rows that will always be rejected on the way out — a Mixed
+ * horse has a truthy breed and used to be cached, then excluded on every
+ * read, inflating the "N cached" figure with unusable evidence.
+ *
+ * Deliberately permissive on two of them: `requiredGenes` is empty and
+ * `requireFullGenome` is off, because those depend on the gene table and on
+ * caller options that can change between refreshes. Filtering those at read
+ * time keeps the cache useful when they do.
  */
-function usableSharedPet(pet: SharedPet, genome: string): boolean {
-  return genome.length > 0 && !!pet.breed && !!pet.attributes && parseStructuredPetName(pet.name, pet.species) !== null;
+function usableSharedPet(pet: SharedPet, genes: Record<string, string>): boolean {
+  if (!pet.attributes) return false;
+  return eligibility({ name: pet.name, species: pet.species, breed: pet.breed }, viewOf(genes), [], false) === null;
 }
 
 /**
@@ -434,11 +444,29 @@ export async function refreshStudyCorpus(species: string): Promise<RefreshResult
 
   const ts = now();
   let cached = 0;
+  let unverified = 0;
   const rows: CachedRow[] = [];
   for (const [hash, pet] of metadata) {
     if (normalizeSpecies(pet.species) !== normalized) continue;
     const genome = genomes.get(hash) ?? '';
-    if (!usableSharedPet(pet, genome)) continue;
+    if (genome.length === 0) continue;
+
+    // The catalogue takes unauthenticated writes and `firestore.rules`
+    // cannot compute a digest, so nothing server-side guarantees that a
+    // `/genomes/{id}` blob actually hashes to the id it is filed under.
+    // `importCommunityPet` verifies for exactly this reason; the study
+    // must too, or a blob written under someone else's hash is joined to
+    // their metadata and every deduction drawn from it is corrupt.
+    if ((await sha256Hex(genome)) !== hash) {
+      unverified++;
+      continue;
+    }
+
+    const genes: Record<string, string> = {};
+    for (const [chromosome, list] of Object.entries(parseGenome(genome).genes))
+      for (const gene of list) genes[`${chromosome}${gene.block}${gene.position}`] = gene.gene_type;
+    if (!usableSharedPet(pet, genes)) continue;
+
     rows.push({
       content_hash: hash,
       breed: pet.breed,
@@ -475,7 +503,7 @@ export async function refreshStudyCorpus(species: string): Promise<RefreshResult
   cached = rows.length;
 
   const considered = [...metadata.values()].filter((p) => normalizeSpecies(p.species) === normalized).length;
-  return { considered, cached, skipped: considered - cached };
+  return { considered, cached, skipped: considered - cached, unverified };
 }
 
 /** How much community evidence is cached, and when it was last pulled. */
