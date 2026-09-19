@@ -15,6 +15,10 @@ import StudyFindingsTable from './StudyFindingsTable.svelte';
 // that is permanently empty and blames the animals for it.
 const speciesOptions = STUDYABLE_SPECIES;
 
+/** Community entries the study can learn from, without owning them. */
+const COMMUNITY_HINT =
+  'Pulls every shared animal into a local study cache. They stay out of My Pets and cannot be bred — they are evidence, not stock — and they can never settle a disagreement, since you cannot re-read someone else\u2019s animal in the game.';
+
 /**
  * Which species to study. Every count on this screen — slots, coverage,
  * the attribute tabs — comes from one species' gene table, so studying the
@@ -176,12 +180,6 @@ async function solve(target: string): Promise<void> {
     if (mine === generation) loading = false;
   }
 }
-</script>
-
-<script lang="ts" module>
-/** Community entries the study can learn from, without owning them. */
-export const COMMUNITY_HINT =
-  'Pulls every shared animal into a local study cache. They stay out of My Pets and cannot be bred — they are evidence, not stock — and they can never settle a disagreement, since you cannot re-read someone else\u2019s animal in the game.';
 </script>
 
 <div class="study" data-testid="study-view">

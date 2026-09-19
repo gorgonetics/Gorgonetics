@@ -36,7 +36,7 @@
  */
 
 import { normalizeSpecies } from '$lib/services/configService.js';
-import { buildInClauseParams, getDb, withTransaction } from '$lib/services/database.js';
+import { buildInClauseParams, getDb, type TxStatement } from '$lib/services/database.js';
 import { getGeneEffectsCached } from '$lib/services/geneService.js';
 import { parseGenome } from '$lib/services/genomeParser.js';
 import { parseStructuredPetName } from '$lib/services/nameParser.js';
@@ -51,7 +51,7 @@ import {
   studyAll,
 } from '$lib/utils/attributeStudy.js';
 import { loadAllPetLoci, type PetLoci } from '$lib/utils/petLoci.js';
-import { ATTRIBUTE_KEYS } from '$lib/utils/sharedPet.js';
+import { ATTRIBUTE_KEYS, dedupeLatest } from '$lib/utils/sharedPet.js';
 import { now } from '$lib/utils/timestamp.js';
 
 /** The breed value for an animal of no single breed; see the exclusion in `loadStudyCorpus`. */
@@ -230,7 +230,12 @@ export async function loadStudyCorpus(species: string, options: LoadCorpusOption
     subjects.push(subjectFrom(pet, loci));
   }
 
-  const community = await cachedSubjects(normalized, new Set(items.map((pet) => pet.content_hash)), required);
+  const community = await cachedSubjects(
+    normalized,
+    new Set(items.map((pet) => pet.content_hash)),
+    required,
+    requireFullGenome,
+  );
   subjects.push(...community.subjects);
   for (const [reason, count] of community.excluded) tally.set(reason, (tally.get(reason) ?? 0) + count);
 
@@ -254,6 +259,7 @@ async function cachedSubjects(
   normalized: string,
   ownedHashes: ReadonlySet<string>,
   required: readonly string[],
+  requireFullGenome: boolean,
 ): Promise<{ subjects: StudySubject[]; considered: number; excluded: Map<ExclusionReason, number> }> {
   const rows = await getDb().select<CachedRow[]>(
     'SELECT content_hash, breed, name, attributes, genome_text FROM study_corpus WHERE species = $species',
@@ -268,23 +274,42 @@ async function cachedSubjects(
   for (const row of rows) {
     if (ownedHashes.has(row.content_hash)) continue;
     considered++;
+    // Every gate below is re-applied at read time even though
+    // `usableSharedPet` checked some of them before caching. A row can
+    // outlive the gate that admitted it — written by an older build,
+    // restored from a backup — and the eligibility rules have to hold for
+    // whatever is in the table now, not for whatever was true when it
+    // arrived.
+    if (!parseStructuredPetName(row.name, normalized)) {
+      drop('unmeasured');
+      continue;
+    }
+    if (!row.breed) {
+      // Differencing only cancels the unknown base within a breed, so a
+      // breedless animal pooled with other breedless ones yields unsound
+      // equations rather than merely useless ones.
+      drop('no-breed');
+      continue;
+    }
     // Same rule as a local animal: which breed-locked genes apply to a
     // Mixed horse is unknowable, so its equations would be wrong either way.
     if (row.breed === MIXED_BREED) {
       drop('mixed-breed');
       continue;
     }
-    let genes: Record<string, string>;
-    try {
-      const parsed = parseGenome(row.genome_text);
-      genes = {};
-      for (const [chromosome, list] of Object.entries(parsed.genes))
-        for (const gene of list) genes[`${chromosome}${gene.block}${gene.position}`] = gene.gene_type;
-    } catch {
+    // `parseGenome` does not throw on junk — it returns no loci — so the
+    // emptiness test is what actually catches an unreadable blob. A catch
+    // alone would mislabel it `incomplete`, or admit a subject with no loci
+    // that is counted as studied while contributing to nothing.
+    const parsed = parseGenome(row.genome_text);
+    const genes: Record<string, string> = {};
+    for (const [chromosome, list] of Object.entries(parsed.genes))
+      for (const gene of list) genes[`${chromosome}${gene.block}${gene.position}`] = gene.gene_type;
+    if (Object.keys(genes).length === 0) {
       drop('no-genome');
       continue;
     }
-    if (Object.values(genes).includes(GeneType.UNKNOWN)) {
+    if (requireFullGenome && Object.values(genes).includes(GeneType.UNKNOWN)) {
       drop('unrevealed');
       continue;
     }
@@ -292,9 +317,13 @@ async function cachedSubjects(
       drop('incomplete');
       continue;
     }
+    // Mirror the local path's per-value check rather than casting: this
+    // JSON was written by an earlier run of this app, not validated on read.
     let attributes: Record<string, number>;
     try {
-      attributes = JSON.parse(row.attributes) as Record<string, number>;
+      const raw = JSON.parse(row.attributes) as Record<string, unknown>;
+      attributes = {};
+      for (const [key, value] of Object.entries(raw)) if (typeof value === 'number') attributes[key] = value;
     } catch {
       drop('unmeasured');
       continue;
@@ -385,13 +414,20 @@ function usableSharedPet(pet: SharedPet, genome: string): boolean {
 export async function refreshStudyCorpus(species: string): Promise<RefreshResult> {
   const normalized = normalizeSpecies(species);
 
-  const metadata = new Map<string, SharedPet>();
+  // The catalogue is add-only: a correction is a second document for the
+  // same hash. `listPets` pages newest-first, so keeping the last one seen
+  // would keep the *oldest* — caching the very attributes an uploader
+  // published a correction to fix. `dedupeLatest` keeps the newest and
+  // rebinds identity fields to the first-share entry, which matters here
+  // because `breed` drives pairing and `name` is the measurement gate.
+  const pages: SharedPet[] = [];
   let cursor: unknown = null;
   do {
     const page = await listPets(cursor ? { after: cursor } : {});
-    for (const pet of page.pets) metadata.set(pet.contentHash, pet);
+    pages.push(...page.pets);
     cursor = page.pets.length > 0 ? page.cursor : null;
   } while (cursor);
+  const metadata = new Map<string, SharedPet>(dedupeLatest(pages).map((pet) => [pet.contentHash, pet]));
 
   const genomes = new Map<string, string>();
   cursor = null;
@@ -417,26 +453,31 @@ export async function refreshStudyCorpus(species: string): Promise<RefreshResult
     });
   }
 
-  const db = getDb();
-  await withTransaction(async () => {
-    for (const row of rows) {
-      await db.execute(
-        `INSERT OR REPLACE INTO study_corpus
-         (content_hash, species, breed, name, attributes, genome_text, fetched_at)
-         VALUES ($hash, $species, $breed, $name, $attributes, $genome, $ts)`,
-        {
-          hash: row.content_hash,
-          species: normalized,
-          breed: row.breed,
-          name: row.name,
-          attributes: row.attributes,
-          genome: row.genome_text,
-          ts,
-        },
-      );
-      cached++;
-    }
-  });
+  // One real transaction, not `withTransaction`: that helper no-ops
+  // BEGIN/COMMIT on the Tauri path (see its own doc), so a per-statement
+  // loop would be several hundred round trips that leave a half-written
+  // cache if one fails. Replacing the species' rows wholesale also drops
+  // entries the catalogue no longer serves, or that no longer pass the
+  // gate — an add-only cache would keep feeding them to the study forever.
+  const statements: TxStatement[] = [
+    { sql: 'DELETE FROM study_corpus WHERE species = $species', params: { species: normalized } },
+    ...rows.map((row) => ({
+      sql: `INSERT OR REPLACE INTO study_corpus
+            (content_hash, species, breed, name, attributes, genome_text, fetched_at)
+            VALUES ($hash, $species, $breed, $name, $attributes, $genome, $ts)`,
+      params: {
+        hash: row.content_hash,
+        species: normalized,
+        breed: row.breed,
+        name: row.name,
+        attributes: row.attributes,
+        genome: row.genome_text,
+        ts,
+      },
+    })),
+  ];
+  await getDb().transaction(statements);
+  cached = rows.length;
 
   const considered = [...metadata.values()].filter((p) => normalizeSpecies(p.species) === normalized).length;
   return { considered, cached, skipped: considered - cached };

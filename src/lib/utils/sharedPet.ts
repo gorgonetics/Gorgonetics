@@ -59,6 +59,49 @@ export function mergeCorrectionIdentity(latest: SharedPet, base: SharedPet): Sha
   };
 }
 
+/**
+ * Collapse the add-only catalogue to one row per content hash, keeping the
+ * latest. `listPets` pages newest-first, and a correction always has a later
+ * `uploadedAt` than the base entry it supersedes, so the newest entry for a
+ * hash is always encountered first — keep-first-seen therefore keeps the
+ * latest and preserves the newest-first display order. Deduping the whole
+ * accumulated list (not just each page) also catches the case where a base
+ * entry and its correction straddle a page boundary.
+ *
+ * Identity binding (issue #393): only attributes/tags/notes are
+ * correction-eligible — the identity fields (name/character/species/
+ * gender/breed/breeder) belong to the first-share entry. firestore.rules
+ * enforces that for new writes; this merge covers already-poisoned
+ * pre-rule corrections. When the kept row is a correction and its base
+ * (first-share) entry is encountered later in the accumulated list, the
+ * base's identity fields overwrite the correction's. A correction whose
+ * base hasn't been paged in yet is shown as-is (best effort — the detail
+ * view's `getSharedPet` always fetches the base doc and re-merges).
+ *
+ * Accepted residual risk (review #3): a correction paged in before its base
+ * shows the correction's own identity in the list. For rule-compliant docs
+ * that identity equals the base's, so it's correct; only a legacy pre-rule
+ * "poisoned" correction could briefly show spoofed text here, and opening it
+ * re-fetches the base and corrects it. We don't fetch each orphan
+ * correction's base to verify (extra reads per page against the Spark quota)
+ * nor blank correction identity wholesale (it would blank legitimate
+ * corrections whose base simply isn't paged in — the common case).
+ */
+export function dedupeLatest(pets: SharedPet[]): SharedPet[] {
+  const indexByHash = new Map<string, number>();
+  const out: SharedPet[] = [];
+  for (const pet of pets) {
+    const keptIndex = indexByHash.get(pet.contentHash);
+    if (keptIndex === undefined) {
+      indexByHash.set(pet.contentHash, out.length);
+      out.push(pet);
+    } else if (!pet.isCorrection && out[keptIndex].isCorrection) {
+      out[keptIndex] = mergeCorrectionIdentity(out[keptIndex], pet);
+    }
+  }
+  return out;
+}
+
 export function sharedPetToPet(shared: SharedPet): Pet {
   const attrs = shared.attributes ?? {};
   const attributeFields = Object.fromEntries(

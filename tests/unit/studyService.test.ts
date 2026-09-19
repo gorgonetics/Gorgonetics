@@ -1,12 +1,22 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+// The catalogue is a network read; stub it so the refresh path can be
+// exercised against the real cache table.
+vi.mock('$lib/services/shareService.js', () => ({
+  listPets: vi.fn(),
+  listGenomes: vi.fn(),
+}));
+
 import { closeDatabase, getDb, initDatabase } from '$lib/services/database.js';
 import * as geneService from '$lib/services/geneService.js';
 import { runMigrations } from '$lib/services/migrationService.js';
 import * as petService from '$lib/services/petService.js';
+import * as shareService from '$lib/services/shareService.js';
 import {
   clearStudyCorpus,
   loadStudyCorpus,
   namesForSubjects,
+  refreshStudyCorpus,
   runAttributeStudy,
   STUDYABLE_SPECIES,
   studyCorpusStatus,
@@ -339,5 +349,96 @@ describe('cached community animals', () => {
     await cache('h1', name('Kb', 40, 80, 'Shared'), 'RRRR', attrs(40, 80));
     const names = await namesForSubjects(['shared:h1']);
     expect(names.get('shared:h1')).toBe(name('Kb', 40, 80, 'Shared'));
+  });
+});
+
+describe('refreshStudyCorpus', () => {
+  const ATTRS = {
+    temperament: 40,
+    toughness: 80,
+    ruggedness: 70,
+    enthusiasm: 70,
+    friendliness: 70,
+    intelligence: 70,
+    virility: 70,
+  };
+
+  /** A catalogue entry as `listPets` would return it. */
+  function shared(hash: string, over: Record<string, unknown> = {}) {
+    return {
+      contentHash: hash,
+      name: name('Kb', 40, 80, hash),
+      character: 'Tester',
+      species: 'Horse',
+      gender: 'Female',
+      breed: 'Kurbone',
+      breeder: 'Tester',
+      notes: '',
+      tags: [],
+      attributes: { ...ATTRS },
+      schemaVersion: 1,
+      appVersion: '1.0',
+      uploadedAt: new Date('2026-09-19T00:00:00Z'),
+      uploaderUid: null,
+      ...over,
+    };
+  }
+
+  function mockCatalogue(pets: unknown[], genomes: Record<string, string>) {
+    vi.mocked(shareService.listPets).mockResolvedValue({ pets, cursor: null } as never);
+    vi.mocked(shareService.listGenomes).mockResolvedValue({
+      genomes: Object.entries(genomes).map(([contentHash, genomeData]) => ({ contentHash, genomeData })),
+      cursor: null,
+    } as never);
+  }
+
+  it('keeps the correction, not the entry it supersedes', async () => {
+    // The catalogue is add-only and paged newest-first, so the correction
+    // arrives before the base. Keeping the last one seen would cache the
+    // very attributes the uploader published a correction to fix.
+    const correction = shared('h1', {
+      attributes: { ...ATTRS, temperament: 40 },
+      name: name('Kb', 40, 80, 'Fixed'),
+      isCorrection: true,
+    });
+    const base = shared('h1', { attributes: { ...ATTRS, temperament: 90 }, name: name('Kb', 90, 80, 'Typo') });
+    mockCatalogue([correction, base], { h1: genome(name('Kb', 40, 80, 'Fixed'), 'RRRR') });
+
+    await refreshStudyCorpus('horse');
+
+    const corpus = await loadStudyCorpus('horse');
+    expect(corpus.subjects).toHaveLength(1);
+    expect(corpus.subjects[0].attributes.temperament).toBe(40);
+  });
+
+  it('drops entries the catalogue no longer serves', async () => {
+    mockCatalogue([shared('h1'), shared('h2')], {
+      h1: genome(name('Kb', 40, 80, 'h1'), 'RRRR'),
+      h2: genome(name('Kb', 41, 80, 'h2'), 'DRRR'),
+    });
+    await refreshStudyCorpus('horse');
+    expect((await studyCorpusStatus('horse')).cached).toBe(2);
+
+    // h2 withdrawn upstream: an insert-only refresh would keep feeding it.
+    mockCatalogue([shared('h1')], { h1: genome(name('Kb', 40, 80, 'h1'), 'RRRR') });
+    await refreshStudyCorpus('horse');
+    expect((await studyCorpusStatus('horse')).cached).toBe(1);
+  });
+
+  it('skips an entry whose attributes were never measured', async () => {
+    // Attributes are present and well-formed; the name is what betrays them
+    // as the importer's defaults rather than readings.
+    mockCatalogue([shared('h1', { name: 'Wild Horse' }), shared('h2')], {
+      h1: genome('Wild Horse', 'RRRR'),
+      h2: genome(name('Kb', 41, 80, 'h2'), 'DRRR'),
+    });
+    const result = await refreshStudyCorpus('horse');
+    expect(result).toMatchObject({ cached: 1, skipped: 1 });
+  });
+
+  it('caches nothing for a species with no entries', async () => {
+    mockCatalogue([shared('h1', { species: 'BeeWasp' })], { h1: genome(name('Kb', 40, 80, 'x'), 'RRRR') });
+    const result = await refreshStudyCorpus('horse');
+    expect(result).toMatchObject({ considered: 0, cached: 0 });
   });
 });
