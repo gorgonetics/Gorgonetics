@@ -15,6 +15,13 @@
 import type { AlleleDistribution, BreedingPairResult, ParentExpressedProfile, Pet } from '$lib/types/index.js';
 import { Gender, GeneType } from '$lib/types/index.js';
 import {
+  type AttributeMagnitudes,
+  coverageOf,
+  EMPTY_MAGNITUDES,
+  hasMagnitudes,
+  magnitudeOf,
+} from '$lib/utils/attributePoints.js';
+import {
   expectedImprovement,
   expectedReduction,
   expressedSign,
@@ -70,6 +77,24 @@ function positiveSlots(gd: ParsedGeneRecord): { dom: string | null; rec: string 
   return {
     dom: gd.dominantSign === '+' && gd.dominantAttribute ? capitalize(gd.dominantAttribute) : null,
     rec: gd.recessiveSign === '+' && gd.recessiveAttribute ? capitalize(gd.recessiveAttribute) : null,
+  };
+}
+
+/**
+ * The attribute each slot names, whatever its sign.
+ *
+ * Deliberately not `positiveSlots`. That one is the eligibility rule for
+ * counting — a slot counts when it is a *positive* naming an attribute —
+ * and coverage and scoring share it so they cannot drift. Points need the
+ * other set: an attribute's expected change is what the foal gains minus
+ * what it loses, so a points figure built from positive slots alone would
+ * rank a pairing adding `+5` and `-6` above one adding `+4`. Two rules
+ * because there are two questions, each written once.
+ */
+function attributeSlots(gd: ParsedGeneRecord): { dom: string | null; rec: string | null } {
+  return {
+    dom: gd.dominantAttribute ? capitalize(gd.dominantAttribute) : null,
+    rec: gd.recessiveAttribute ? capitalize(gd.recessiveAttribute) : null,
   };
 }
 
@@ -151,6 +176,17 @@ export interface RankBreedingPairsOptions {
    * every M × F pair; same-gender or empty inputs return [].
    */
   pets: Pet[];
+  /**
+   * Known effect sizes, from `attributeStudy` via
+   * `attributeMagnitudesFor`. Supplied, the per-attribute figures are also
+   * reported in points; omitted, the result carries counts alone and every
+   * caller behaves exactly as before.
+   *
+   * Passed in rather than fetched here because the study is the expensive
+   * half of it: the caller decides when to pay, and the trio view can score
+   * one pair against the table the table view already loaded.
+   */
+  magnitudes?: AttributeMagnitudes;
 }
 
 /**
@@ -208,6 +244,53 @@ export function accumulatePositive(
   return { total, weighted };
 }
 
+/**
+ * Add this locus's contribution to the per-attribute *points* tally.
+ *
+ * The counting twin of this is `accumulatePositive`; the two differ in
+ * three ways, each forced:
+ *
+ *  - every declared slot participates, not only the positive ones (see
+ *    `attributeSlots`);
+ *  - a slot with no known magnitude contributes nothing at all, rather than
+ *    an imputed one — the study does not estimate and neither does this;
+ *  - the variance is `m²p(1-p)`, not `p(1-p)`, because the quantity is a
+ *    sum of scaled Bernoullis rather than a plain count. Getting this wrong
+ *    would not move the expected value, only the improvement integral that
+ *    reads the spread, which is exactly the kind of error that hides.
+ *
+ * Exported alongside `accumulatePositive` so the trio view can attribute a
+ * points column back to individual loci with the same arithmetic.
+ */
+export function accumulatePoints(
+  dist: AlleleDistribution,
+  geneId: string,
+  gd: ParsedGeneRecord,
+  magnitudes: AttributeMagnitudes,
+  into: Record<string, number>,
+  variance: Record<string, number>,
+): void {
+  const slots = attributeSlots(gd);
+  if (slots.dom) {
+    const magnitude = magnitudeOf(magnitudes, geneId, 'dominant');
+    if (magnitude !== undefined) {
+      // A mixed locus expresses exactly as a dominant one, which is why the
+      // study solves no separate `x` magnitude.
+      const p = dist.D + dist.x;
+      into[slots.dom] = (into[slots.dom] ?? 0) + p * magnitude;
+      variance[slots.dom] = (variance[slots.dom] ?? 0) + magnitude * magnitude * p * (1 - p);
+    }
+  }
+  if (slots.rec) {
+    const magnitude = magnitudeOf(magnitudes, geneId, 'recessive');
+    if (magnitude !== undefined) {
+      const p = dist.R;
+      into[slots.rec] = (into[slots.rec] ?? 0) + p * magnitude;
+      variance[slots.rec] = (variance[slots.rec] ?? 0) + magnitude * magnitude * p * (1 - p);
+    }
+  }
+}
+
 const EMPTY_PROFILE: Readonly<ParentExpressedProfile> = Object.freeze({
   positives: 0,
   negatives: 0,
@@ -230,8 +313,10 @@ function ownExpressedProfile(
   parsedGenes: Record<string, ParsedGeneRecord>,
   species: string,
   offspringBreed: string | undefined,
+  magnitudes: AttributeMagnitudes,
 ): ParentExpressedProfile {
   const profile: ParentExpressedProfile = { positives: 0, negatives: 0, positivesByAttribute: {} };
+  const points: Record<string, number> | null = hasMagnitudes(magnitudes) ? {} : null;
   for (const [geneId, type] of loci) {
     const gd = parsedGenes[geneId];
     if (!gd) continue;
@@ -245,7 +330,19 @@ function ownExpressedProfile(
     } else if (sign === '-') {
       profile.negatives++;
     }
+    // Points follow the same expression rule as the counts — `x` expresses
+    // as dominant — but take the slot whatever its sign, and skip `?`,
+    // which expresses nothing. Reading the slot off the type rather than
+    // off `sign` keeps an unrevealed locus from being credited with the
+    // dominant slot's magnitude.
+    if (points && type !== GeneType.UNKNOWN) {
+      const recessive = type === GeneType.RECESSIVE;
+      const attr = recessive ? attributeSlots(gd).rec : attributeSlots(gd).dom;
+      const magnitude = magnitudeOf(magnitudes, geneId, recessive ? 'recessive' : 'dominant');
+      if (attr && magnitude !== undefined) points[attr] = (points[attr] ?? 0) + magnitude;
+    }
   }
+  if (points) profile.pointsByAttribute = points;
   return profile;
 }
 
@@ -268,9 +365,18 @@ function scorePair(
   species: string,
   attrNames: readonly string[],
   weight: BenefitWeight | undefined,
+  magnitudes: AttributeMagnitudes,
+  pointAttributes: readonly string[],
 ): BreedingPairResult {
   const evPositiveByAttribute = emptyAttributeBreakdown(attrNames);
   const attributeVariance = emptyAttributeBreakdown(attrNames);
+  // Only the attributes the study has measured *something* on. An attribute
+  // with no findings would otherwise carry a row of zeroes that the
+  // objectives would rank by, hiding the counts that are the best available
+  // answer for it. Null when none qualify, so the fields are absent rather
+  // than empty.
+  const evPointsByAttribute = pointAttributes.length > 0 ? emptyAttributeBreakdown(pointAttributes) : null;
+  const pointVariance = evPointsByAttribute ? emptyAttributeBreakdown(pointAttributes) : null;
   let evMixed = 0;
   let evUnknown = 0;
   let evPositiveTotal = 0;
@@ -302,6 +408,8 @@ function scorePair(
       );
       evPositiveTotal += total;
       evPositiveWeighted += weighted;
+      if (evPointsByAttribute && pointVariance)
+        accumulatePoints(dist, geneId, gd, magnitudes, evPointsByAttribute, pointVariance);
       // Breed reach: without a committed offspring breed every locus in the
       // genome is in play, and three-quarters of them belong to a breed this
       // foal will not be. Weighting keeps "Reach new ground" pointed at
@@ -335,11 +443,28 @@ function scorePair(
       baseline,
     );
   }
+  // The same measure in points, where the corpus supports one. Baseline is
+  // the better parent on that attribute, as above — a pairing that leads
+  // the field on Intelligence while beating neither parent's is still the
+  // local maximum, and points do not change that.
+  let evAttributePointImprovement: Record<string, number> | undefined;
+  if (evPointsByAttribute && pointVariance) {
+    evAttributePointImprovement = {};
+    for (const attr of pointAttributes) {
+      const baseline = Math.max(mProfile.pointsByAttribute?.[attr] ?? 0, fProfile.pointsByAttribute?.[attr] ?? 0);
+      evAttributePointImprovement[attr] = expectedImprovement(
+        evPointsByAttribute[attr] ?? 0,
+        Math.sqrt(pointVariance[attr] ?? 0),
+        baseline,
+      );
+    }
+  }
   return {
     male,
     female,
     evMixed,
     evPositiveByAttribute,
+    ...(evPointsByAttribute ? { evPointsByAttribute, evAttributePointImprovement } : {}),
     evPositiveTotal,
     evPositiveWeighted,
     evCapabilityGain,
@@ -390,9 +515,14 @@ export async function rankBreedingPairs(opts: RankBreedingPairsOptions): Promise
   // loci simply outweigh the breed-locked ones.
   const weight = breedReachFor(parsedGenes, opts.offspringBreed, opts.breedLockWeight);
   // One pass per animal, not per pair: the baseline an offspring must beat.
+  const magnitudes = opts.magnitudes ?? EMPTY_MAGNITUDES;
+  // Which attributes are scorable in points at all, settled once for the
+  // whole ranking: every pair must be scored over the same slot set or the
+  // column is not a comparison.
+  const pointAttributes = attrNames.filter((attr) => coverageOf(magnitudes, attr).known > 0);
   const ownProfiles = new Map<number, ParentExpressedProfile>();
   for (const [id, l] of petLociMap) {
-    ownProfiles.set(id, ownExpressedProfile(l, parsedGenes, species, opts.offspringBreed));
+    ownProfiles.set(id, ownExpressedProfile(l, parsedGenes, species, opts.offspringBreed, magnitudes));
   }
 
   for (const m of males) {
@@ -413,6 +543,8 @@ export async function rankBreedingPairs(opts: RankBreedingPairsOptions): Promise
           species,
           attrNames,
           weight,
+          magnitudes,
+          pointAttributes,
         ),
       );
     }

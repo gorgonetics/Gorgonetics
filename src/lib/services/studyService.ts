@@ -43,6 +43,7 @@ import { parseStructuredPetName } from '$lib/services/nameParser.js';
 import { getAllPets } from '$lib/services/petService.js';
 import { listGenomes, listPets } from '$lib/services/shareService.js';
 import { GeneType, type Pet, type SharedPet } from '$lib/types/index.js';
+import { type AttributeMagnitudes, buildAttributeMagnitudes, EMPTY_MAGNITUDES } from '$lib/utils/attributePoints.js';
 import {
   type AttributeStudy,
   buildEffectSlots,
@@ -501,6 +502,10 @@ export async function refreshStudyCorpus(species: string): Promise<RefreshResult
   ];
   await getDb().transaction(statements);
   cached = rows.length;
+  // The corpus just changed under the memoised magnitudes, and a refresh is
+  // the one event that can *revise* a finding rather than only add one: an
+  // uploader's correction replaces the reading a magnitude was deduced from.
+  clearAttributeMagnitudesCache(normalized);
 
   const considered = [...metadata.values()].filter((p) => normalizeSpecies(p.species) === normalized).length;
   return { considered, cached, skipped: considered - cached, unverified };
@@ -552,4 +557,51 @@ export async function namesForSubjects(ids: readonly string[]): Promise<Map<stri
   }
 
   return names;
+}
+
+/**
+ * Known effect sizes for a species, memoised for the session.
+ *
+ * The breeding scorers need the magnitudes, not the study around them, and
+ * they need them on every re-rank — a species switch, a breed change, a pet
+ * edit. Solving the corpus again each time would pay for the whole study to
+ * answer a question whose answer has not changed, so the table is computed
+ * once per species and kept.
+ *
+ * **Staleness is one-directional and cheap.** A cached table can only be
+ * *short* of what a larger corpus would yield: importing animals or
+ * refreshing the community cache adds findings, it does not revise old ones
+ * — with one exception, a corrected attribute reading, which
+ * `refreshStudyCorpus` already invalidates. A missing magnitude costs
+ * coverage, never a wrong number, because an unknown slot scores nothing
+ * rather than an estimate.
+ *
+ * Species without a measurement path (`STUDYABLE_SPECIES`) return the empty
+ * table without touching the DB, which is what makes every scorer fall back
+ * to counting for them.
+ */
+const magnitudeCache = new Map<string, Promise<AttributeMagnitudes>>();
+
+export async function attributeMagnitudesFor(species: string): Promise<AttributeMagnitudes> {
+  const normalized = normalizeSpecies(species);
+  if (!STUDYABLE_SPECIES.includes(normalized)) return EMPTY_MAGNITUDES;
+  const existing = magnitudeCache.get(normalized);
+  if (existing) return existing;
+  const promise = runAttributeStudy(normalized)
+    .then((run) => buildAttributeMagnitudes(run.studies))
+    .catch((error: unknown) => {
+      // A failed study must not poison the session: drop the entry so the
+      // next re-rank retries, and rank by counts meanwhile.
+      magnitudeCache.delete(normalized);
+      console.error('attributeMagnitudesFor failed', error);
+      return EMPTY_MAGNITUDES;
+    });
+  magnitudeCache.set(normalized, promise);
+  return promise;
+}
+
+/** Drop the memoised magnitudes for a species, or all of them. */
+export function clearAttributeMagnitudesCache(species?: string): void {
+  if (species) magnitudeCache.delete(normalizeSpecies(species));
+  else magnitudeCache.clear();
 }

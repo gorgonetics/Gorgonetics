@@ -13,6 +13,8 @@ import { runMigrations } from '$lib/services/migrationService.js';
 import * as petService from '$lib/services/petService.js';
 import * as shareService from '$lib/services/shareService.js';
 import {
+  attributeMagnitudesFor,
+  clearAttributeMagnitudesCache,
   loadStudyCorpus,
   namesForSubjects,
   refreshStudyCorpus,
@@ -20,6 +22,7 @@ import {
   STUDYABLE_SPECIES,
   studyCorpusStatus,
 } from '$lib/services/studyService.js';
+import { coverageOf, EMPTY_MAGNITUDES, hasMagnitudes, magnitudeOf } from '$lib/utils/attributePoints.js';
 import { sha256Hex } from '$lib/utils/hash.js';
 
 /**
@@ -250,6 +253,45 @@ describe('runAttributeStudy', () => {
     expect(run.totals).toMatchObject({ found: 0, direct: 0, derived: 0 });
     expect(run.totals.slots).toBeGreaterThan(0);
     expect(run.validation).toEqual({ tested: 0, exact: 0, stabledTested: 0, stabledExact: 0 });
+  });
+});
+
+describe('attributeMagnitudesFor', () => {
+  beforeEach(() => clearAttributeMagnitudesCache());
+
+  it('hands the scorers the magnitudes the study found, with coverage', async () => {
+    await upload(name('Kb', 45, 80, 'With'), 'DRRR');
+    await upload(name('Kb', 40, 80, 'Without'), 'RRRR');
+
+    const magnitudes = await attributeMagnitudesFor('horse');
+    expect(magnitudeOf(magnitudes, '01A1', 'dominant')).toBe(5);
+    expect(coverageOf(magnitudes, 'Temperament')).toMatchObject({ known: 1 });
+    expect(coverageOf(magnitudes, 'Temperament').total).toBeGreaterThan(1);
+  });
+
+  it('memoises per species, and drops the memo when the corpus is refreshed', async () => {
+    await upload(name('Kb', 45, 80, 'With'), 'DRRR');
+    await upload(name('Kb', 40, 80, 'Without'), 'RRRR');
+
+    const first = await attributeMagnitudesFor('horse');
+    expect(await attributeMagnitudesFor('Horse')).toBe(first);
+
+    // A third animal pins a second magnitude — 01A3 is recessive-negative,
+    // so the one *not* carrying `R` is the tougher of the two. The memo is
+    // what the scorers read, though, until something invalidates it.
+    await upload(name('Kb', 40, 83, 'ToughA'), 'RRDR');
+    expect(await attributeMagnitudesFor('horse')).toBe(first);
+
+    clearAttributeMagnitudesCache('horse');
+    const second = await attributeMagnitudesFor('horse');
+    expect(second).not.toBe(first);
+    expect(magnitudeOf(second, '01A3', 'recessive')).toBeDefined();
+  });
+
+  it('is empty for a species with no measurement path, without touching the corpus', async () => {
+    const magnitudes = await attributeMagnitudesFor('beewasp');
+    expect(magnitudes).toBe(EMPTY_MAGNITUDES);
+    expect(hasMagnitudes(magnitudes)).toBe(false);
   });
 });
 

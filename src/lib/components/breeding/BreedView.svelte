@@ -18,11 +18,13 @@ import StatusPane from '$lib/components/shared/StatusPane.svelte';
 import { rankBreedingPairs } from '$lib/services/breedingService.js';
 import { getAllAttributeNames, getSupportedSpecies, normalizeSpecies } from '$lib/services/configService.js';
 import { capabilitySummary } from '$lib/services/geneticQualityService.js';
+import { attributeMagnitudesFor } from '$lib/services/studyService.js';
 import { breedingView, clearBench, toggleBench } from '$lib/stores/breeding.svelte.js';
 // `loading` aliased: this component has its own ranking `loading` flag.
 import { pets, loading as petsLoading } from '$lib/stores/pets.js';
 import { settings } from '$lib/stores/settings.js';
 import { type BreedingPairResult, HORSE_BREEDS } from '$lib/types/index.js';
+import { type AttributeMagnitudes, EMPTY_MAGNITUDES } from '$lib/utils/attributePoints.js';
 import {
   attributeObjective,
   BREEDING_OBJECTIVES,
@@ -107,6 +109,10 @@ const candidateKey = $derived(`${species}|${candidates.map((p) => p.id).join(','
 let pairs = $state<BreedingPairResult[]>([]);
 let loading = $state(false);
 let errored = $state(false);
+// Effect sizes behind the per-attribute columns. Held here rather than read
+// per row: the table needs the *coverage* beside the number, and coverage is
+// a property of the study, not of a pair.
+let magnitudes = $state<AttributeMagnitudes>(EMPTY_MAGNITUDES);
 
 /**
  * The strategies on offer: the five general ones plus one per attribute.
@@ -245,11 +251,30 @@ $effect(() => {
   const mine = ++seq;
   loading = true;
   errored = false;
-  rankBreedingPairs({ species: sp, pets: ps, offspringBreed: breed, breedLockWeight })
+  // Effect sizes first, so the per-attribute figures are in points wherever
+  // the study can supply one. Memoised per species in the service, so only
+  // the first ranking of a session pays for the corpus; a species with no
+  // measurement path resolves to the empty table without touching the DB.
+  attributeMagnitudesFor(sp)
+    .then(async (known) => {
+      if (mine !== seq) return null;
+      const ranked = await rankBreedingPairs({
+        species: sp,
+        pets: ps,
+        offspringBreed: breed,
+        breedLockWeight,
+        magnitudes: known,
+      });
+      return { known, ranked };
+    })
     .then((result) => {
-      if (mine !== seq) return;
-      pairs = result;
-      repointTrio(result);
+      if (mine !== seq || result === null) return;
+      // Together, never in two steps: the table reads the coverage from
+      // `magnitudes` and the numbers from `pairs`, so a render between the
+      // two assignments would label a count column in points.
+      magnitudes = result.known;
+      pairs = result.ranked;
+      repointTrio(result.ranked);
       loading = false;
     })
     .catch((err: unknown) => {
@@ -456,7 +481,13 @@ onDestroy(() => {
       </div>
       <!-- Row-level bench is a ranking-mode convenience; hidden while planning
            so a stray click can't silently collapse several shown options. -->
-      <BreedingPairTable results={pairs} {attrNames} {plans} onBench={breedingView.spots > 0 ? undefined : toggleBench} />
+      <BreedingPairTable
+        results={pairs}
+        {attrNames}
+        {plans}
+        {magnitudes}
+        onBench={breedingView.spots > 0 ? undefined : toggleBench}
+      />
     {/if}
   </div>
 </div>

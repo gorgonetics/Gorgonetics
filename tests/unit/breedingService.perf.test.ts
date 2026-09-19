@@ -8,6 +8,8 @@ import { parseGenome } from '$lib/services/genomeParser.js';
 import { runMigrations } from '$lib/services/migrationService.js';
 import * as petService from '$lib/services/petService.js';
 import { Gender, type Pet } from '$lib/types/index.js';
+import { type AttributeMagnitudes, buildAttributeMagnitudes } from '$lib/utils/attributePoints.js';
+import type { AttributeStudy, StudyFinding } from '$lib/utils/attributeStudy.js';
 import { toGeneId } from '$lib/utils/geneAnalysis.js';
 
 /**
@@ -91,6 +93,52 @@ async function seedHorseGeneTable() {
   geneService.clearGeneEffectsCache('horse');
 }
 
+/**
+ * A magnitude for *every* locus the gene table declares — the worst case for
+ * the points pass, since a slot the study has not reached costs one map miss
+ * and nothing else. The same cycle `seedHorseGeneTable` uses, so the two
+ * agree on which attribute each locus lands on.
+ */
+function fullMagnitudeTable(): AttributeMagnitudes {
+  const byAttribute = new Map<string, StudyFinding[]>();
+  let i = 0;
+  for (const genes of Object.values(SAMPLE_GENOME.genes)) {
+    for (const g of genes) {
+      const effect = EFFECTS[i % EFFECTS.length];
+      i++;
+      if (effect === 'None') continue;
+      const attribute = effect.slice(0, -1).toLowerCase();
+      const gene = toGeneId(g);
+      const findings = byAttribute.get(attribute) ?? [];
+      findings.push({
+        gene,
+        expression: 'dominant',
+        attribute,
+        magnitude: effect.endsWith('-') ? -((i % 4) + 1) : (i % 5) + 1,
+        tier: 'direct',
+        depth: 0,
+        support: 2,
+        dissent: 0,
+        witnesses: [],
+      });
+      byAttribute.set(attribute, findings);
+    }
+  }
+  return buildAttributeMagnitudes(
+    [...byAttribute].map(
+      ([attribute, findings]): AttributeStudy => ({
+        attribute,
+        slots: findings.length,
+        findings,
+        contradictions: [],
+        geneDoubts: [],
+        validation: { tested: 0, exact: 0, stabledTested: 0, stabledExact: 0 },
+        contributors: NUM_MALES + NUM_FEMALES,
+      }),
+    ),
+  );
+}
+
 async function uploadHorse(name: string, gender: Gender, seed: number): Promise<Pet> {
   const result = await petService.uploadPet(buildHorseGenome(name, seed), { name, gender });
   expect(result.status).toBe('success');
@@ -133,6 +181,32 @@ describe('rankBreedingPairs — performance regression', () => {
       console.log(
         `[perf] rankBreedingPairs ${NUM_MALES}×${NUM_FEMALES} pets, ${lociPerPet} loci/pet → ${elapsed.toFixed(1)}ms`,
       );
+    }
+    expect(elapsed).toBeLessThan(SCORING_BUDGET_MS);
+  }, 30_000);
+
+  it(`stays inside the same budget with every slot measured`, async () => {
+    // The points pass walks the same loci the count pass does, so a table
+    // that knows every slot is the ceiling on what it can cost. Same budget:
+    // if scoring in points is dear enough to need its own, that is a design
+    // problem, not a number to raise.
+    await seedHorseGeneTable();
+    const males = [];
+    for (let i = 0; i < NUM_MALES; i++) males.push(await uploadHorse(`M${i}`, Gender.MALE, i * 7 + 1));
+    const females = [];
+    for (let i = 0; i < NUM_FEMALES; i++) females.push(await uploadHorse(`F${i}`, Gender.FEMALE, i * 11 + 3));
+    const pets = [...males, ...females];
+    const magnitudes = fullMagnitudeTable();
+
+    const start = performance.now();
+    const results = await rankBreedingPairs({ species: 'Horse', pets, magnitudes });
+    const elapsed = performance.now() - start;
+
+    expect(results).toHaveLength(NUM_MALES * NUM_FEMALES);
+    expect(results.some((r) => (r.evPointsByAttribute?.Toughness ?? 0) !== 0)).toBe(true);
+
+    if (process.env.PERF_LOG) {
+      console.log(`[perf] rankBreedingPairs with full magnitudes → ${elapsed.toFixed(1)}ms`);
     }
     expect(elapsed).toBeLessThan(SCORING_BUDGET_MS);
   }, 30_000);
