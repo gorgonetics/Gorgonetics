@@ -13,7 +13,6 @@ import { runMigrations } from '$lib/services/migrationService.js';
 import * as petService from '$lib/services/petService.js';
 import * as shareService from '$lib/services/shareService.js';
 import {
-  clearStudyCorpus,
   loadStudyCorpus,
   namesForSubjects,
   refreshStudyCorpus,
@@ -340,9 +339,6 @@ describe('cached community animals', () => {
     await cache('h1', name('Kb', 40, 80, 'Shared'), 'RRRR', attrs(40, 80));
     expect(await studyCorpusStatus('horse')).toMatchObject({ cached: 1 });
     expect((await studyCorpusStatus('beewasp')).cached).toBe(0);
-
-    await clearStudyCorpus('horse');
-    expect((await studyCorpusStatus('horse')).cached).toBe(0);
   });
 
   it('resolves a cached animal back to its name for the evidence panel', async () => {

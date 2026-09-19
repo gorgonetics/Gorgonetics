@@ -68,6 +68,30 @@ const MIXED_BREED = 'Mixed';
  */
 export const STUDYABLE_SPECIES: readonly string[] = ['horse'];
 
+/**
+ * The genome, as eligibility needs to see it.
+ *
+ * A local animal's loci arrive as a `Map` and a cached one's as a plain
+ * object; both answer these three questions, so neither has to be copied
+ * into the other's shape to be checked.
+ */
+interface GenomeView {
+  readonly size: number;
+  has(gene: string): boolean;
+  values(): Iterable<string>;
+}
+
+/** Wrap a plain gene map so it can be checked without copying. */
+function viewOf(genes: Record<string, string>): GenomeView {
+  return {
+    get size() {
+      return Object.keys(genes).length;
+    },
+    has: (gene) => genes[gene] !== undefined,
+    values: () => Object.values(genes),
+  };
+}
+
 /** Why an animal was left out of the corpus. */
 export type ExclusionReason =
   /** Name does not parse, so its attributes are defaults rather than readings. */
@@ -162,31 +186,13 @@ export async function loadStudyCorpus(species: string, options: LoadCorpusOption
     tally.set(reason, (tally.get(reason) ?? 0) + 1);
   };
 
-  // Name and breed are free to check, so filter on them before paying for
-  // the locus read.
+  // Name and breed are free to check, so settle those before paying for the
+  // locus read; the genome gates run below once the loci are in hand.
   const candidates: Pet[] = [];
   for (const pet of items) {
-    // Name first: an unparsed name is *why* such a pet also has no breed
-    // (`petBreed = parsed?.breed ?? ''`), so checking breed first would
-    // report the symptom and hide the cause. `no-breed` then catches only
-    // the case this cannot explain — a breed cleared by a later edit.
-    if (!parseStructuredPetName(pet.name, pet.species)) {
-      exclude('unmeasured');
-      continue;
-    }
-    if (!pet.breed) {
-      exclude('no-breed');
-      continue;
-    }
-    // A Mixed horse is not a breed the gene table can be read against.
-    // Elsewhere the app lets Mixed pass every breed-locked gene
-    // (`isHorseBreedFiltered`), because for scoring an over-count is
-    // preferable to hiding a gene the player owns. Inference cannot take
-    // that liberty: crediting one animal with all ten breeds' effects
-    // invents terms, and crediting it with none erases real ones. Either
-    // way its equations would be wrong, so it sits the study out.
-    if (pet.breed === MIXED_BREED) {
-      exclude('mixed-breed');
+    const reason = eligibility(pet, null, [], false);
+    if (reason) {
+      exclude(reason);
       continue;
     }
     candidates.push(pet);
@@ -197,34 +203,13 @@ export async function loadStudyCorpus(species: string, options: LoadCorpusOption
   const subjects: StudySubject[] = [];
   for (const pet of candidates) {
     const loci = lociByPet.get(pet.id);
-    if (!loci || loci.size === 0) {
+    if (!loci) {
       exclude('no-genome');
       continue;
     }
-    if (requireFullGenome) {
-      let unrevealed = false;
-      for (const geneType of loci.values()) {
-        if (geneType === GeneType.UNKNOWN) {
-          unrevealed = true;
-          break;
-        }
-      }
-      if (unrevealed) {
-        exclude('unrevealed');
-        continue;
-      }
-    }
-    // An absent locus is not the same as an unrevealed one: `?` is a real
-    // stored allele state, this is a row that was never written.
-    let short = false;
-    for (const gene of required) {
-      if (!loci.has(gene)) {
-        short = true;
-        break;
-      }
-    }
-    if (short) {
-      exclude('incomplete');
+    const reason = eligibility(pet, loci, required, requireFullGenome);
+    if (reason) {
+      exclude(reason);
       continue;
     }
     subjects.push(subjectFrom(pet, loci));
@@ -274,51 +259,24 @@ async function cachedSubjects(
   for (const row of rows) {
     if (ownedHashes.has(row.content_hash)) continue;
     considered++;
-    // Every gate below is re-applied at read time even though
-    // `usableSharedPet` checked some of them before caching. A row can
-    // outlive the gate that admitted it — written by an older build,
-    // restored from a backup — and the eligibility rules have to hold for
-    // whatever is in the table now, not for whatever was true when it
-    // arrived.
-    if (!parseStructuredPetName(row.name, normalized)) {
-      drop('unmeasured');
-      continue;
-    }
-    if (!row.breed) {
-      // Differencing only cancels the unknown base within a breed, so a
-      // breedless animal pooled with other breedless ones yields unsound
-      // equations rather than merely useless ones.
-      drop('no-breed');
-      continue;
-    }
-    // Same rule as a local animal: which breed-locked genes apply to a
-    // Mixed horse is unknowable, so its equations would be wrong either way.
-    if (row.breed === MIXED_BREED) {
-      drop('mixed-breed');
-      continue;
-    }
-    // `parseGenome` does not throw on junk — it returns no loci — so the
-    // emptiness test is what actually catches an unreadable blob. A catch
-    // alone would mislabel it `incomplete`, or admit a subject with no loci
-    // that is counted as studied while contributing to nothing.
-    const parsed = parseGenome(row.genome_text);
+    // Gates re-run at read time even though `usableSharedPet` checked some
+    // before caching: a row can outlive the gate that admitted it, written
+    // by an older build or restored from a backup.
     const genes: Record<string, string> = {};
-    for (const [chromosome, list] of Object.entries(parsed.genes))
+    for (const [chromosome, list] of Object.entries(parseGenome(row.genome_text).genes))
       for (const gene of list) genes[`${chromosome}${gene.block}${gene.position}`] = gene.gene_type;
-    if (Object.keys(genes).length === 0) {
-      drop('no-genome');
+
+    const reason = eligibility(
+      { name: row.name, species: normalized, breed: row.breed },
+      viewOf(genes),
+      required,
+      requireFullGenome,
+    );
+    if (reason) {
+      drop(reason);
       continue;
     }
-    if (requireFullGenome && Object.values(genes).includes(GeneType.UNKNOWN)) {
-      drop('unrevealed');
-      continue;
-    }
-    if (required.some((gene) => genes[gene] === undefined)) {
-      drop('incomplete');
-      continue;
-    }
-    // Mirror the local path's per-value check rather than casting: this
-    // JSON was written by an earlier run of this app, not validated on read.
+
     let attributes: Record<string, number>;
     try {
       const raw = JSON.parse(row.attributes) as Record<string, unknown>;
@@ -338,6 +296,43 @@ async function cachedSubjects(
     });
   }
   return { subjects, considered, excluded };
+}
+
+/**
+ * Whether an animal can teach the study anything, and if not, why.
+ *
+ * Both corpus sources run this, in this order. The rules used to be written
+ * out twice — once per source — and drifted: the cached path was admitting
+ * Mixed-breed animals the local path excluded, and skipping its name and
+ * breed gates entirely because they had been applied at write time. A rule
+ * that lives in one place cannot disagree with itself.
+ *
+ * Pass `null` for the genome to check only what an animal's own fields can
+ * answer — the local path does this to reject what it can before paying for
+ * the locus read, then calls again with the loci.
+ *
+ * Returns null when the animal is usable.
+ */
+function eligibility(
+  animal: { name: string; species: string; breed: string },
+  genome: GenomeView | null,
+  required: readonly string[],
+  requireFullGenome: boolean,
+): ExclusionReason | null {
+  // Name first: an unparsed name is *why* such an animal also has no breed,
+  // so checking breed first would report the symptom and hide the cause.
+  if (!parseStructuredPetName(animal.name, animal.species)) return 'unmeasured';
+  if (!animal.breed) return 'no-breed';
+  if (animal.breed === MIXED_BREED) return 'mixed-breed';
+  if (!genome) return null;
+  // Empty rather than throwing: `parseGenome` yields no loci for a junk
+  // blob, and a pet row can simply have no projection yet.
+  if (genome.size === 0) return 'no-genome';
+  if (requireFullGenome) {
+    for (const geneType of genome.values()) if (geneType === GeneType.UNKNOWN) return 'unrevealed';
+  }
+  for (const gene of required) if (!genome.has(gene)) return 'incomplete';
+  return null;
 }
 
 /** Load the corpus and solve every attribute for one species. */
@@ -492,13 +487,6 @@ export async function studyCorpusStatus(species: string): Promise<{ cached: numb
   let latest: string | null = null;
   for (const row of rows) if (latest === null || row.fetched_at > latest) latest = row.fetched_at;
   return { cached: rows.length, fetchedAt: latest };
-}
-
-/** Drop every cached community animal for a species. */
-export async function clearStudyCorpus(species: string): Promise<void> {
-  await getDb().execute('DELETE FROM study_corpus WHERE species = $species', {
-    species: normalizeSpecies(species),
-  });
 }
 
 /**
