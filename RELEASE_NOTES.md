@@ -1,28 +1,29 @@
-# v0.9.3
+# v0.9.4
 
-Breed reach reaches the genetic quality score. A gene locked to a breed you are not breeding is now worth less than a breed-generic one — weighted, never dropped. Still pre-1.0.
+The breeding scores now show their work. A ranked pair told you which number won and never what produced it; the Trio and the pair table now answer that. Still pre-1.0.
 
-## Why a weight
+## What the Trio shows
 
-677 of the horse gene set's 879 benefit slots belong to one of ten breeds. Left unweighted, three-quarters of the Quality ranking was decided by material a single-breed breeder never uses. A filter was the obvious fix and the wrong one: hard-scoped to one breed, the sole carrier of three unrecoverable positives priced at zero and was offered for release.
+Select a pair and the offspring projection explains its own ranking.
 
-So the score weighs instead. A breed-generic locus counts 1, because it serves every breed target you might later pick. A locked locus counts 1 ÷ 10, the same arithmetic read the other way. Your focus breed counts 1. Nothing is derived by taste.
+- **Tint by score contribution** — colour the offspring row by each locus's share of **Quality**, **Pool-weighted +** or **Total +**, so you can see which slots carry the score rather than inferring it.
+- **Clarification** — the mean, the spread and the baseline behind **Ceiling**, **Floor** and **Cleanup**. Ceiling and Floor share a mean and a spread and differ only in their baseline (the better and the weaker parent); Cleanup reads against the cleaner parent's negatives.
 
-## What you set
+Only the first three scores are a sum over loci, so only they get a lens. Ceiling, Floor and Cleanup are `E[max(0, X − baseline)]` taken after the loop, and that integral's gradient with respect to the mean is one constant across the genome — a per-locus Ceiling lens would rank identically to Floor's and to Total +'s, so it is deliberately not built.
 
-Settings gains **Genetic Quality**:
+## What the pair table shows
 
-- **Breeding toward** — the breed valued at full weight. "Any breed" keeps the old behaviour.
-- **Breed-locked gene weight** — Auto (the derived 0.10), Softer, Half, Equal, or Focus breed only. Free up slots clamps this above zero whatever you pick, so no setting can price another breed's sole carrier at nothing.
+Absolute columns now carry the reference you should read them against.
 
-## What you see
+- Each parent's own positive count sits beside its name, on the same locus basis and breed scope as the offspring figures.
+- **Total +** and every attribute column carry an unclamped signed gap against the better parent. Ceiling bottoms out at zero, so on its own it cannot separate a foal one positive short of the better parent from one ninety short. The gap can. A difference that rounds to nothing is left off rather than shown as a decorative `+0.0`.
 
-- The Quality column marks animals whose value is mostly breed-generic, and the breakdown says how much of a score is breed-locked.
-- Free up slots separates the breed-generic part of each release cost — material that stays useful whichever breed you switch to, so it cannot be won back by changing plans.
-- Breeding pair ranking and the pool capability readout use the same weighting.
+No gap is shown on the pool-weighted column or on Mixed/Unknown: those figures are weighted and the parents' counts are not, so subtracting them would compare different units. The parent counts on the row remain the honest reference there.
 
-Release costs are now in reach-weighted units; the breeding readout stays in raw slot-units. The two are not directly comparable.
+## One rename
+
+**Pool gain** is now **Pool-weighted +**. It re-weights an absolute positive count by how thinly the pool already covers each slot; it does not measure a gain over the parents, and a positive both parents already breed true still scores, at the lowest weight. Display only — the sort key is unchanged, so saved sort settings still apply.
 
 ## Notes
 
-The weighting and the reasoning against a filter are written up in `docs/design/genetic-quality-score-v1.md` §5a, which supersedes §5.
+Also in this release: dependency updates to Svelte, SvelteKit, Vite, Biome, `@lucide/svelte`, `tauri-plugin-sql` and `tauri-plugin-log`.
