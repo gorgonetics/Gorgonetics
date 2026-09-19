@@ -195,8 +195,9 @@ async function solve(target: string): Promise<void> {
 				</span>
 			</div>
 			<p class="corpus">
-				{run.corpus.subjects.length} of {run.corpus.considered}
-				{species} studied{#if run.corpus.excluded.length > 0}&nbsp;— set
+				<!-- No species name here: it pluralises differently per species and
+				     the selector above already says which one is under study. -->
+				{run.corpus.subjects.length} of {run.corpus.considered} animals studied{#if run.corpus.excluded.length > 0}&nbsp;— set
 					aside: {#each run.corpus.excluded as ex, i (ex.reason)}{i > 0 ? ', ' : ''}{ex.count}
 						{EXCLUSION_LABEL[ex.reason] ?? ex.reason}{/each}{/if}
 			</p>
@@ -231,7 +232,7 @@ async function solve(target: string): Promise<void> {
 				{/if}
 
 				{#if doubts.length > 0}
-					<aside class="doubts">
+					<aside class="panel doubts">
 						<h3>Check these genes in game</h3>
 						<p>
 							The animals disagree with what the gene table says these do. The table is entered by
@@ -265,7 +266,7 @@ async function solve(target: string): Promise<void> {
 				{/if}
 
 				{#if suspects.length > 0}
-					<aside class="suspects">
+					<aside class="panel suspects shaded">
 						<h3>Suspect readings</h3>
 						<p>
 							These animals disagree with magnitudes the rest of the stable agrees on. The arithmetic
@@ -410,7 +411,10 @@ async function solve(target: string): Promise<void> {
 		font-variant-numeric: tabular-nums;
 	}
 
-	.doubts {
+	/* Both footer panels are the same object: a bordered strip holding a
+	   heading, one explanatory line and a tight list. They differ only in
+	   how each row is laid out, so only that differs below. */
+	.panel {
 		flex-shrink: 0;
 		max-height: 22%;
 		overflow-y: auto;
@@ -418,14 +422,18 @@ async function solve(target: string): Promise<void> {
 		border-top: 1px solid var(--border-primary);
 	}
 
-	.doubts h3 {
+	.panel.shaded {
+		background: var(--bg-secondary);
+	}
+
+	.panel h3 {
 		margin: 0 0 var(--space-3xs);
 		font-size: 12px;
 		font-weight: 600;
 		color: var(--text-secondary);
 	}
 
-	.doubts p {
+	.panel p {
 		margin: 0 0 var(--space-2xs);
 		font-size: 11px;
 		line-height: 1.4;
@@ -433,7 +441,7 @@ async function solve(target: string): Promise<void> {
 		max-width: 70ch;
 	}
 
-	.doubts ul {
+	.panel ul {
 		margin: 0;
 		padding: 0;
 		list-style: none;
@@ -442,12 +450,17 @@ async function solve(target: string): Promise<void> {
 		gap: 1px;
 	}
 
-	.doubts li {
+	.panel li {
 		display: flex;
 		align-items: center;
 		gap: var(--space-sm);
 		font-size: 12px;
 		max-width: 70ch;
+	}
+
+	.suspects li {
+		justify-content: space-between;
+		max-width: 60ch;
 	}
 
 	.doubt-gene {
@@ -465,48 +478,6 @@ async function solve(target: string): Promise<void> {
 	.doubt-animals {
 		color: var(--text-tertiary);
 		font-variant-numeric: tabular-nums;
-	}
-
-	.suspects {
-		flex-shrink: 0;
-		max-height: 22%;
-		overflow-y: auto;
-		padding: var(--space-sm) var(--space-md);
-		border-top: 1px solid var(--border-primary);
-		background: var(--bg-secondary);
-	}
-
-	.suspects h3 {
-		margin: 0 0 var(--space-3xs);
-		font-size: 12px;
-		font-weight: 600;
-		color: var(--text-secondary);
-	}
-
-	.suspects p {
-		margin: 0 0 var(--space-2xs);
-		font-size: 11px;
-		line-height: 1.4;
-		color: var(--text-tertiary);
-		max-width: 70ch;
-	}
-
-	.suspects ul {
-		margin: 0;
-		padding: 0;
-		list-style: none;
-		display: flex;
-		flex-direction: column;
-		gap: 1px;
-	}
-
-	.suspects li {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: var(--space-sm);
-		font-size: 12px;
-		max-width: 60ch;
 	}
 
 	.checkable {

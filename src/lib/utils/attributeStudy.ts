@@ -59,8 +59,8 @@
 import { type GeneEffectData, parseEffect } from './geneAnalysis.js';
 
 /** Lowest and highest value the game will display for an attribute. */
-export const ATTRIBUTE_FLOOR = 0;
-export const ATTRIBUTE_CEILING = 100;
+const ATTRIBUTE_FLOOR = 0;
+const ATTRIBUTE_CEILING = 100;
 
 /**
  * Which allele state expresses an effect. `dominant` covers both `D` and a
@@ -211,8 +211,6 @@ export interface StudyOptions {
    * substitution has been observed to close.
    */
   maxDistance?: number;
-  /** Witness pairs retained per finding. Kept small; this is for display. */
-  maxWitnesses?: number;
 }
 
 /**
@@ -250,7 +248,8 @@ function needsTwoMistakes(pairs: ReadonlyArray<readonly [string, string]>): bool
 }
 
 const DEFAULT_MAX_DISTANCE = 6;
-const DEFAULT_MAX_WITNESSES = 3;
+/** Witness pairs retained per finding. Kept small; this is for display. */
+const MAX_WITNESSES = 3;
 
 /** Stable key for a slot. */
 export function slotKey(slot: Pick<EffectSlot, 'gene' | 'expression'>): string {
@@ -442,7 +441,6 @@ export function studyAttribute(
   options: StudyOptions = {},
 ): AttributeStudy {
   const maxDistance = options.maxDistance ?? DEFAULT_MAX_DISTANCE;
-  const maxWitnesses = options.maxWitnesses ?? DEFAULT_MAX_WITNESSES;
 
   // Equations only cancel the unknown base within a breed, so subjects are
   // never paired across breeds.
@@ -522,7 +520,7 @@ export function studyAttribute(
       dissent,
       animals,
       checkable,
-      witnesses: (tally.get(observed) ?? []).slice(0, maxWitnesses),
+      witnesses: (tally.get(observed) ?? []).slice(0, MAX_WITNESSES),
     });
   };
 
@@ -582,7 +580,7 @@ export function studyAttribute(
       depth,
       support,
       dissent,
-      witnesses: (tally.get(magnitude) ?? []).slice(0, maxWitnesses),
+      witnesses: (tally.get(magnitude) ?? []).slice(0, MAX_WITNESSES),
     });
   };
 
