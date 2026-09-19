@@ -330,6 +330,19 @@ describe('stabled animals', () => {
 });
 
 describe('doubting the gene data', () => {
+  it('stays quiet when only one pair disputes the declaration', () => {
+    // One pair is one equation, and cannot separate a wrong gene entry from
+    // one mis-typed attribute. No finding either way — the slot is still not
+    // knowledge — but nothing is reported.
+    const study = studyAttribute(
+      [horse('a', base(), { temperament: 40 }), horse('b', base({ '01A2': 'D' }), { temperament: 46 })],
+      'temperament',
+      temperament,
+    );
+    expect(study.geneDoubts).toEqual([]);
+    expect(study.findings.find((f) => f.gene === '01A2')).toBeUndefined();
+  });
+
   it('reports a declared direction the animals contradict', () => {
     // 01A2 is declared Temperament-, but carrying it consistently adds 6.
     // That is a transcription slip in the gene table, not a finding.
@@ -351,8 +364,14 @@ describe('doubting the gene data', () => {
 
   it('reports a declared effect that does not show up at all', () => {
     // Carrying 01A3 makes no difference, yet an effect is declared for it.
+    // Four animals so the four resulting pairs clear the support floor.
     const study = studyAttribute(
-      [horse('a', base(), { temperament: 40 }), horse('b', base({ '01A3': 'D' }), { temperament: 40 })],
+      [
+        horse('a', base(), { temperament: 40 }),
+        horse('b', base(), { temperament: 40 }),
+        horse('c', base({ '01A3': 'D' }), { temperament: 40 }),
+        horse('d', base({ '01A3': 'D' }), { temperament: 40 }),
+      ],
       'temperament',
       temperament,
     );
@@ -400,7 +419,9 @@ describe('doubting the gene data', () => {
     const study = studyAttribute(
       [
         horse('a', base(), { temperament: 40 }, 'Kurbone', true),
-        horse('b', base({ '01A2': 'D' }), { temperament: 46 }, 'Kurbone', true),
+        horse('b', base(), { temperament: 40 }, 'Kurbone', true),
+        horse('c', base({ '01A2': 'D' }), { temperament: 46 }, 'Kurbone', true),
+        horse('d', base({ '01A2': 'D' }), { temperament: 46 }, 'Kurbone', true),
       ],
       'temperament',
       temperament,
@@ -423,7 +444,9 @@ describe('doubting the gene data', () => {
     const study = studyAttribute(
       [
         horse('a', base(), { temperament: 40 }),
+        horse('a2', base(), { temperament: 40 }),
         horse('b', base({ '01A2': 'D' }), { temperament: 46 }),
+        horse('b2', base({ '01A2': 'D' }), { temperament: 46 }),
         horse('c', base({ '14B4': 'D' }), { temperament: 45 }),
         horse('d', base({ '01A2': 'D', '14B4': 'D' }), { temperament: 51 }),
       ],

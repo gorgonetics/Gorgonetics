@@ -215,6 +215,25 @@ export interface StudyOptions {
   maxWitnesses?: number;
 }
 
+/**
+ * Equations a doubt needs before it is worth showing.
+ *
+ * A doubt sends the player to check a gene in the game, so a false one
+ * costs them a trip. One equation is one pair, and a single pair cannot
+ * tell "the gene table is wrong" from "one of these two animals has a
+ * mis-typed attribute" — a 60-animal sample raised two such alarms that
+ * both vanished at 412. Two independent equations need two independent
+ * mistakes to fake.
+ *
+ * The cost is real: a genuinely mis-entered gene witnessed by only one
+ * pair stays hidden until the corpus grows. A panel that cries wolf at
+ * small corpus sizes is one the player learns to ignore, which is worse.
+ *
+ * `unstable` is exempt — it already requires dissent spread across
+ * animals, which cannot happen with fewer than three equations.
+ */
+const MIN_DOUBT_SUPPORT = 2;
+
 const DEFAULT_MAX_DISTANCE = 6;
 const DEFAULT_MAX_WITNESSES = 3;
 
@@ -492,7 +511,14 @@ export function studyAttribute(
     // either way: a slot resting on a declaration we doubt is not knowledge.
     const sign = signOf.get(key);
     if (sign !== undefined && magnitude * sign <= 0) {
-      doubt(key, tally, magnitude, support, dissent, magnitude === 0 ? 'no-effect' : 'contradicts-sign');
+      // Still no finding either way — a slot resting on a declaration the
+      // animals contradict is not knowledge, whether or not the
+      // contradiction is yet worth reporting.
+      if (support >= MIN_DOUBT_SUPPORT) {
+        doubt(key, tally, magnitude, support, dissent, magnitude === 0 ? 'no-effect' : 'contradicts-sign');
+      } else {
+        doubted.add(key);
+      }
       return;
     }
     let worstAnimal = 0;
