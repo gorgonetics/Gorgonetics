@@ -83,8 +83,11 @@ export interface StudyRun {
   studies: AttributeStudy[];
   /** Unknowns across every attribute, and how many are now known. */
   totals: { slots: number; found: number; direct: number; derived: number };
-  /** Pooled out-of-sample score — the engine's health. */
-  validation: { tested: number; exact: number };
+  /**
+   * Pooled out-of-sample score — the engine's health. `stabled*` is the
+   * same score over pairs the player can re-read, and is the one to quote.
+   */
+  validation: { tested: number; exact: number; stabledTested: number; stabledExact: number };
 }
 
 function subjectFrom(pet: Pet, loci: PetLoci): StudySubject {
@@ -95,7 +98,9 @@ function subjectFrom(pet: Pet, loci: PetLoci): StudySubject {
     const value = (pet as unknown as Record<string, unknown>)[key];
     if (typeof value === 'number') attributes[key] = value;
   }
-  return { id: String(pet.id), breed: pet.breed, genes, attributes };
+  // `stabled` is what makes a reading checkable: only a stabled animal can
+  // be looked up in the game and its attributes confirmed.
+  return { id: String(pet.id), breed: pet.breed, genes, attributes, stabled: pet.stabled === true };
 }
 
 /**
@@ -180,7 +185,7 @@ export async function runAttributeStudy(
   const studies = studyAll(corpus.subjects, slots, options);
 
   const totals = { slots: 0, found: 0, direct: 0, derived: 0 };
-  const validation = { tested: 0, exact: 0 };
+  const validation = { tested: 0, exact: 0, stabledTested: 0, stabledExact: 0 };
   for (const study of studies) {
     totals.slots += study.slots;
     totals.found += study.findings.length;
@@ -190,6 +195,8 @@ export async function runAttributeStudy(
     }
     validation.tested += study.validation.tested;
     validation.exact += study.validation.exact;
+    validation.stabledTested += study.validation.stabledTested;
+    validation.stabledExact += study.validation.stabledExact;
   }
 
   return { corpus, studies, totals, validation };

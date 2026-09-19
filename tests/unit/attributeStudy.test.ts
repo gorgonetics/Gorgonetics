@@ -32,8 +32,9 @@ function horse(
   genes: Record<string, string>,
   attributes: Record<string, number>,
   breed = 'Kurbone',
+  stabled = false,
 ): StudySubject {
-  return { id, breed, genes, attributes };
+  return { id, breed, genes, attributes, stabled };
 }
 
 /** Every locus recessive, so nothing is active unless overridden. */
@@ -254,6 +255,76 @@ describe('studyAll', () => {
   it('is empty but well-formed on an empty corpus', () => {
     const [study] = studyAll([], slots);
     expect(study).toMatchObject({ findings: [], contradictions: [], contributors: 0 });
-    expect(study.validation).toEqual({ tested: 0, exact: 0 });
+    expect(study.validation).toEqual({ tested: 0, exact: 0, stabledTested: 0, stabledExact: 0 });
+  });
+});
+
+describe('stabled animals', () => {
+  it('marks a contradicting animal the player can re-read', () => {
+    const study = studyAttribute(
+      [
+        horse('ok1', base(), { temperament: 40 }),
+        horse('ok2', base(), { temperament: 40 }),
+        horse('ok3', base({ '14B4': 'D' }), { temperament: 45 }),
+        horse('bad', base({ '14B4': 'D' }), { temperament: 99 }, 'Kurbone', true),
+      ],
+      'temperament',
+      temperament,
+    );
+    expect(study.contradictions.find((c) => c.subjectId === 'bad')?.stabled).toBe(true);
+    expect(study.contradictions.find((c) => c.subjectId === 'ok1')?.stabled).toBe(false);
+  });
+
+  it('puts a checkable disagreement above a larger unfalsifiable one', () => {
+    // `loud` dissents more often, but nothing can settle it; `quiet` can be
+    // looked up in the game, so it is the one worth showing first.
+    const study = studyAttribute(
+      [
+        horse('a', base(), { temperament: 40 }),
+        horse('b', base(), { temperament: 40 }),
+        horse('c', base(), { temperament: 40 }),
+        horse('d', base({ '14B4': 'D' }), { temperament: 45 }),
+        horse('e', base({ '14B4': 'D' }), { temperament: 45 }),
+        horse('loud', base({ '14B4': 'D' }), { temperament: 90 }),
+        horse('quiet', base({ '01A3': 'D' }), { temperament: 80 }, 'Kurbone', true),
+      ],
+      'temperament',
+      temperament,
+    );
+    const stabledFirst = study.contradictions.findIndex((c) => c.stabled);
+    const unstabled = study.contradictions.findIndex((c) => !c.stabled);
+    expect(stabledFirst).toBeLessThan(unstabled);
+  });
+
+  it('scores stabled pairs separately, and counts only pairs stabled on both sides', () => {
+    const study = studyAttribute(
+      [
+        horse('a', base(), { temperament: 40 }, 'Kurbone', true),
+        horse('b', base({ '14B4': 'D' }), { temperament: 45 }, 'Kurbone', true),
+        horse('c', base({ '01A3': 'D' }), { temperament: 47 }, 'Kurbone', true),
+        // Unstabled: its pairs count toward the headline score only.
+        horse('d', base({ '14B4': 'D', '01A3': 'D' }), { temperament: 52 }),
+      ],
+      'temperament',
+      temperament,
+    );
+    expect(study.validation.stabledTested).toBeGreaterThan(0);
+    expect(study.validation.stabledTested).toBeLessThan(study.validation.tested);
+    expect(study.validation.stabledExact).toBe(study.validation.stabledTested);
+  });
+
+  it('reports no stabled score when nothing is stabled', () => {
+    const study = studyAttribute(
+      [
+        horse('a', base(), { temperament: 40 }),
+        horse('b', base({ '14B4': 'D' }), { temperament: 45 }),
+        horse('c', base({ '01A3': 'D' }), { temperament: 47 }),
+        horse('d', base({ '14B4': 'D', '01A3': 'D' }), { temperament: 52 }),
+      ],
+      'temperament',
+      temperament,
+    );
+    expect(study.validation.tested).toBeGreaterThan(0);
+    expect(study.validation.stabledTested).toBe(0);
   });
 });

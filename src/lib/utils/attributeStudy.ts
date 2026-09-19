@@ -89,6 +89,15 @@ export interface StudySubject {
   genes: Record<string, string>;
   /** Lowercased attribute name to observed value. */
   attributes: Record<string, number>;
+  /**
+   * Whether the player can go and re-read this animal's attributes.
+   *
+   * Only a stabled animal can be checked against the game, which makes it
+   * the one kind of evidence a disagreement can be *settled* with. It says
+   * nothing about whether the reading is right — an unstabled record is
+   * just as likely to be correct, only unfalsifiable.
+   */
+  stabled?: boolean;
 }
 
 export type FindingTier = 'direct' | 'derived';
@@ -115,6 +124,8 @@ export interface StudyContradiction {
   subjectId: string;
   /** How many dissenting equations this animal took part in. */
   count: number;
+  /** Stabled, so the player can settle this by re-reading the animal. */
+  stabled: boolean;
 }
 
 export interface ValidationReport {
@@ -122,6 +133,17 @@ export interface ValidationReport {
   tested: number;
   /** Equations whose predicted difference matched the observed one. */
   exact: number;
+  /**
+   * The same score over equations whose *both* animals are stabled.
+   *
+   * This is the figure to trust. The headline score is computed over
+   * readings nobody can confirm, so a shortfall in it is ambiguous — bad
+   * data and a bad model look identical. Restricted to animals the player
+   * can re-read, a shortfall is a claim they can go and falsify, and a
+   * clean score is evidence the model holds rather than a hope.
+   */
+  stabledTested: number;
+  stabledExact: number;
 }
 
 export interface AttributeStudy {
@@ -227,6 +249,8 @@ interface Equation {
   delta: number;
   left: string;
   right: string;
+  /** Both animals are stabled, so this equation is one the player can audit. */
+  stabled: boolean;
 }
 
 interface Observation {
@@ -283,6 +307,7 @@ function buildEquations(observations: readonly Observation[], maxDistance: numbe
         delta: a.value - b.value,
         left: a.subject.id,
         right: b.subject.id,
+        stabled: a.subject.stabled === true && b.subject.stabled === true,
       });
     }
   }
@@ -364,6 +389,9 @@ export function studyAttribute(
 
   const solved = new Map<string, StudyFinding>();
   const dissenters = new Map<string, number>();
+  const stabledIds = new Set<string>();
+  for (const observations of byBreed.values())
+    for (const o of observations) if (o.subject.stabled) stabledIds.add(o.subject.id);
 
   const commit = (key: string, tally: Tally, tier: FindingTier, depth: number): void => {
     const { magnitude, support, dissent } = majority(tally);
@@ -439,9 +467,11 @@ export function studyAttribute(
     findings: [...solved.values()].sort(
       (a, b) => a.depth - b.depth || b.support - a.support || a.gene.localeCompare(b.gene),
     ),
+    // Stabled animals first: a disagreement the player can go and settle is
+    // worth more than a louder one they cannot check, however large its count.
     contradictions: [...dissenters.entries()]
-      .map(([subjectId, count]) => ({ subjectId, count }))
-      .sort((a, b) => b.count - a.count),
+      .map(([subjectId, count]) => ({ subjectId, count, stabled: stabledIds.has(subjectId) }))
+      .sort((a, b) => Number(b.stabled) - Number(a.stabled) || b.count - a.count),
     validation: validate(equations, solved),
     contributors,
   };
@@ -457,6 +487,8 @@ export function studyAttribute(
 function validate(equations: readonly Equation[], solved: ReadonlyMap<string, StudyFinding>): ValidationReport {
   let tested = 0;
   let exact = 0;
+  let stabledTested = 0;
+  let stabledExact = 0;
   for (const equation of equations) {
     if (equation.terms.size < 2) continue;
     let predicted = 0;
@@ -470,10 +502,15 @@ function validate(equations: readonly Equation[], solved: ReadonlyMap<string, St
       predicted += sign * finding.magnitude;
     }
     if (!complete) continue;
+    const hit = predicted === equation.delta;
     tested++;
-    if (predicted === equation.delta) exact++;
+    if (hit) exact++;
+    if (equation.stabled) {
+      stabledTested++;
+      if (hit) stabledExact++;
+    }
   }
-  return { tested, exact };
+  return { tested, exact, stabledTested, stabledExact };
 }
 
 /** Run every attribute present in `slots`. */

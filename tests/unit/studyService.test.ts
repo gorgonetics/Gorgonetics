@@ -105,6 +105,33 @@ describe('loadStudyCorpus', () => {
   });
 });
 
+describe('stabled subjects', () => {
+  it('carries the stabled flag, which is what makes a reading checkable', async () => {
+    // Every pet inserts with `stabled = 1` (petService), so the distinction
+    // only appears once the player releases one.
+    const stabled = await upload(name('Kb', 40, 80, 'Stabled'), 'RRRR');
+    const loose = await upload(name('Kb', 45, 80, 'Loose'), 'DRRR');
+    await petService.updatePet(loose, { stabled: false });
+
+    const corpus = await loadStudyCorpus('horse');
+    const byId = new Map(corpus.subjects.map((s) => [s.id, s]));
+    expect(byId.get(String(stabled))?.stabled).toBe(true);
+    expect(byId.get(String(loose))?.stabled).toBe(false);
+  });
+
+  it('flags a contradiction the player can settle', async () => {
+    await upload(name('Kb', 40, 80, 'A'), 'RRRR');
+    await upload(name('Kb', 40, 80, 'B'), 'RRDR');
+    await upload(name('Kb', 45, 80, 'C'), 'DRRR');
+    const bad = await upload(name('Kb', 90, 80, 'Bad'), 'DRDR');
+
+    const run = await runAttributeStudy('horse');
+    const flagged = run.studies.flatMap((s) => s.contradictions).filter((c) => c.subjectId === String(bad));
+    expect(flagged.length).toBeGreaterThan(0);
+    expect(flagged.every((c) => c.stabled)).toBe(true);
+  });
+});
+
 describe('runAttributeStudy', () => {
   it('pins a magnitude end-to-end from two uploaded animals', async () => {
     // Identical but for 01A1, five temperament points apart.
@@ -163,7 +190,7 @@ describe('runAttributeStudy', () => {
     expect(run.corpus.subjects).toEqual([]);
     expect(run.totals).toMatchObject({ found: 0, direct: 0, derived: 0 });
     expect(run.totals.slots).toBeGreaterThan(0);
-    expect(run.validation).toEqual({ tested: 0, exact: 0 });
+    expect(run.validation).toEqual({ tested: 0, exact: 0, stabledTested: 0, stabledExact: 0 });
   });
 });
 

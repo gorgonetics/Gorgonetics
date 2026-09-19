@@ -26,6 +26,10 @@ const coverage = $derived(run && run.totals.slots > 0 ? Math.round((run.totals.f
 const accuracy = $derived(
   run && run.validation.tested > 0 ? (100 * run.validation.exact) / run.validation.tested : null,
 );
+/** The score over pairs the player can re-read, which is the one to trust. */
+const stabledAccuracy = $derived(
+  run && run.validation.stabledTested > 0 ? (100 * run.validation.stabledExact) / run.validation.stabledTested : null,
+);
 
 /**
  * Animals contradicting an otherwise-agreed magnitude, pooled across every
@@ -33,10 +37,18 @@ const accuracy = $derived(
  * almost always a mis-recorded row rather than a discovery.
  */
 const suspects = $derived.by(() => {
-  const totals = new Map<string, number>();
+  const totals = new Map<string, { count: number; stabled: boolean }>();
   for (const study of studies)
-    for (const c of study.contradictions) totals.set(c.subjectId, (totals.get(c.subjectId) ?? 0) + c.count);
-  return [...totals.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6);
+    for (const c of study.contradictions) {
+      const seen = totals.get(c.subjectId);
+      if (seen) seen.count += c.count;
+      else totals.set(c.subjectId, { count: c.count, stabled: c.stabled });
+    }
+  // Stabled first: only those can be settled by re-reading the animal, so a
+  // smaller checkable disagreement beats a larger unfalsifiable one.
+  return [...totals.entries()]
+    .sort(([, a], [, b]) => Number(b.stabled) - Number(a.stabled) || b.count - a.count)
+    .slice(0, 6);
 });
 
 onMount(async () => {
@@ -92,6 +104,20 @@ onMount(async () => {
 				     or the corpus holds bad rows. -->
 				<span class="stat-detail">on {run.validation.tested.toLocaleString()} held-out pairs</span>
 			</div>
+			<div class="stat">
+				<span class="stat-value" class:muted={stabledAccuracy === null}>
+					{stabledAccuracy === null ? '—' : `${stabledAccuracy.toFixed(1)}%`}
+				</span>
+				<span class="stat-label">exact, stabled only</span>
+				<!-- The score you can act on. Elsewhere a shortfall is ambiguous —
+				     bad data and a bad model look the same — but between two
+				     stabled animals it is a claim you can go and falsify. -->
+				<span class="stat-detail">
+					{run.validation.stabledTested === 0
+						? 'no stabled pair to check against'
+						: `on ${run.validation.stabledTested.toLocaleString()} checkable pairs`}
+				</span>
+			</div>
 			<p class="corpus">
 				{run.corpus.subjects.length} of {run.corpus.considered} horses studied{#if run.corpus.excluded.length > 0}&nbsp;— set
 					aside: {#each run.corpus.excluded as ex, i (ex.reason)}{i > 0 ? ', ' : ''}{ex.count}
@@ -132,13 +158,19 @@ onMount(async () => {
 						<h3>Suspect readings</h3>
 						<p>
 							These animals disagree with magnitudes the rest of the stable agrees on. The arithmetic
-							is exact, so a high count almost always means a mis-recorded attribute.
+							is exact, so a high count almost always means a mis-recorded attribute. Stabled animals
+							come first — those are the ones you can re-read in game and settle.
 						</p>
 						<ul>
-							{#each suspects as [id, count] (id)}
+							{#each suspects as [id, s] (id)}
 								<li>
 									<span class="suspect-name">{names.get(id) ?? `#${id}`}</span>
-									<span class="suspect-count">{count}</span>
+									{#if s.stabled}
+										<span class="checkable" title="Stabled — re-read this animal in game to settle the disagreement."
+											>checkable</span
+										>
+									{/if}
+									<span class="suspect-count">{s.count}</span>
 								</li>
 							{/each}
 						</ul>
@@ -280,13 +312,28 @@ onMount(async () => {
 
 	.suspects li {
 		display: flex;
+		align-items: center;
 		justify-content: space-between;
 		gap: var(--space-sm);
 		font-size: 12px;
 		max-width: 60ch;
 	}
 
+	.checkable {
+		flex-shrink: 0;
+		padding: 0 var(--space-2xs);
+		border: 1px solid var(--border-primary);
+		border-radius: 3px;
+		font-size: 11px;
+		color: var(--text-tertiary);
+	}
+
+	.stat-value.muted {
+		color: var(--text-tertiary);
+	}
+
 	.suspect-name {
+		flex: 1;
 		color: var(--text-secondary);
 		overflow: hidden;
 		text-overflow: ellipsis;
