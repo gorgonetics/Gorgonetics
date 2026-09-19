@@ -54,7 +54,9 @@ export type ExclusionReason =
   /** No projected `pet_genes` rows — malformed or unparsed genome. */
   | 'no-genome'
   /** No breed, so it cannot be paired with anything. */
-  | 'no-breed';
+  | 'no-breed'
+  /** Genome is missing loci the gene table declares an attribute effect for. */
+  | 'incomplete';
 
 export interface StudyCorpus {
   subjects: StudySubject[];
@@ -66,6 +68,17 @@ export interface StudyCorpus {
 }
 
 export interface LoadCorpusOptions {
+  /**
+   * Gene ids the study needs present on every subject.
+   *
+   * A projection can be short — a truncated genome, a half-written
+   * `pet_genes` write, or a locus added in Reference that no stored genome
+   * carries. `activeSlots` withdraws such a subject from the affected
+   * attribute, which is correct but silent: it would still be counted among
+   * the animals studied while contributing nothing. Passing the declared
+   * loci lets the shortfall be reported instead of vanishing.
+   */
+  requiredGenes?: Iterable<string>;
   /**
    * Drop animals carrying any unrevealed locus.
    *
@@ -111,6 +124,7 @@ function subjectFrom(pet: Pet, loci: PetLoci): StudySubject {
  */
 export async function loadStudyCorpus(species: string, options: LoadCorpusOptions = {}): Promise<StudyCorpus> {
   const requireFullGenome = options.requireFullGenome ?? true;
+  const required = options.requiredGenes ? [...options.requiredGenes] : [];
   const normalized = normalizeSpecies(species);
   // The `species` column holds the raw genome header (`Horse`), so a SQL
   // equality against the canonical key silently matches nothing. Scope in
@@ -164,6 +178,19 @@ export async function loadStudyCorpus(species: string, options: LoadCorpusOption
         continue;
       }
     }
+    // An absent locus is not the same as an unrevealed one: `?` is a real
+    // stored allele state, this is a row that was never written.
+    let short = false;
+    for (const gene of required) {
+      if (!loci.has(gene)) {
+        short = true;
+        break;
+      }
+    }
+    if (short) {
+      exclude('incomplete');
+      continue;
+    }
     subjects.push(subjectFrom(pet, loci));
   }
 
@@ -179,9 +206,14 @@ export async function runAttributeStudy(
   species: string,
   options: LoadCorpusOptions & StudyOptions = {},
 ): Promise<StudyRun> {
-  const corpus = await loadStudyCorpus(species, options);
+  // Effects first: the declared loci are what makes a genome "complete"
+  // for this study, so the corpus load needs them.
   const effects = await getGeneEffectsCached(species);
   const slots = buildEffectSlots(effects?.effects ?? {});
+  const corpus = await loadStudyCorpus(species, {
+    ...options,
+    requiredGenes: options.requiredGenes ?? new Set(slots.map((slot) => slot.gene)),
+  });
   const studies = studyAll(corpus.subjects, slots, options);
 
   const totals = { slots: 0, found: 0, direct: 0, derived: 0 };

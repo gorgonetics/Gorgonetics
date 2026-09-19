@@ -1,19 +1,51 @@
 <script lang="ts">
-import { onMount } from 'svelte';
+import { getSupportedSpecies, normalizeSpecies } from '$lib/services/configService.js';
 import { namesForSubjects, runAttributeStudy, type StudyRun } from '$lib/services/studyService.js';
+import { pets } from '$lib/stores/pets.js';
 import StudyFindingsTable from './StudyFindingsTable.svelte';
 
-const SPECIES = 'horse';
+const speciesOptions = getSupportedSpecies();
+
+/**
+ * Which species to study. Every count on this screen — slots, coverage,
+ * the attribute tabs — comes from one species' gene table, so studying the
+ * wrong one shows a panel that is not merely empty but mislabelled.
+ *
+ * Defaults to the most-populated species rather than a hardcoded one, the
+ * same rule `BreedView` uses, and is derived rather than set at mount
+ * because the pet list arrives well after mount.
+ */
+let picked = $state('');
+const defaultSpecies = $derived.by(() => {
+  const counts = new Map<string, number>();
+  for (const p of $pets) {
+    const key = normalizeSpecies(p.species);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  let best = '';
+  let bestCount = 0;
+  for (const key of speciesOptions) {
+    const count = counts.get(key) ?? 0;
+    if (count > bestCount) {
+      best = key;
+      bestCount = count;
+    }
+  }
+  return best || (speciesOptions[0] ?? '');
+});
+const species = $derived(picked || defaultSpecies);
 
 /** Plain-English reasons, so the corpus line reads as a sentence. */
 const EXCLUSION_LABEL: Record<string, string> = {
   unmeasured: 'attributes never recorded',
   unrevealed: 'genome not fully revealed',
   'no-genome': 'genome could not be read',
+  incomplete: 'genome missing some loci',
   'no-breed': 'no breed',
 };
 
 let run = $state<StudyRun | null>(null);
+let ranFor = $state('');
 let names = $state(new Map<string, string>());
 let attribute = $state<string | null>(null);
 let loading = $state(true);
@@ -65,9 +97,23 @@ const suspects = $derived.by(() => {
     .slice(0, 6);
 });
 
-onMount(async () => {
+/**
+ * Re-runs whenever the species changes, including the first time it
+ * resolves from an empty pet list. Guarded on `ranFor` so a re-render that
+ * does not change the species cannot restart the solve.
+ */
+$effect(() => {
+  const target = species;
+  if (!target || target === ranFor) return;
+  ranFor = target;
+  void solve(target);
+});
+
+async function solve(target: string): Promise<void> {
+  loading = true;
+  failure = null;
   try {
-    const result = await runAttributeStudy(SPECIES);
+    const result = await runAttributeStudy(target);
     // Resolve every id the UI can surface — witnesses and suspects — in one
     // query rather than per row.
     const ids = new Set<string>();
@@ -83,11 +129,27 @@ onMount(async () => {
   } finally {
     loading = false;
   }
-});
+}
 </script>
 
 <div class="study" data-testid="study-view">
 	<h2 class="sr-only">Genetic study</h2>
+
+	{#if speciesOptions.length > 1}
+		<nav class="species-tabs" aria-label="Species">
+			{#each speciesOptions as option (option)}
+				<button
+					type="button"
+					class="species-tab"
+					class:active={option === species}
+					data-testid="study-species-{option}"
+					onclick={() => (picked = option)}
+				>
+					{option}
+				</button>
+			{/each}
+		</nav>
+	{/if}
 
 	{#if loading}
 		<div class="center-state">
@@ -133,7 +195,8 @@ onMount(async () => {
 				</span>
 			</div>
 			<p class="corpus">
-				{run.corpus.subjects.length} of {run.corpus.considered} horses studied{#if run.corpus.excluded.length > 0}&nbsp;— set
+				{run.corpus.subjects.length} of {run.corpus.considered}
+				{species} studied{#if run.corpus.excluded.length > 0}&nbsp;— set
 					aside: {#each run.corpus.excluded as ex, i (ex.reason)}{i > 0 ? ', ' : ''}{ex.count}
 						{EXCLUSION_LABEL[ex.reason] ?? ex.reason}{/each}{/if}
 			</p>
@@ -142,8 +205,8 @@ onMount(async () => {
 		{#if run.corpus.subjects.length === 0}
 			<div class="center-state">
 				<p class="state-text">
-					No horse in your stable can be studied yet. An animal needs a fully revealed genome and a
-					name carrying its attribute readings.
+					No {species} in your stable can be studied yet. An animal needs a fully revealed genome
+					and a name carrying its attribute readings.
 				</p>
 			</div>
 		{:else}
@@ -237,6 +300,28 @@ onMount(async () => {
 		height: 100%;
 		min-height: 0;
 		overflow: hidden;
+	}
+
+	.species-tabs {
+		flex-shrink: 0;
+		display: flex;
+		gap: var(--space-3xs);
+		padding: var(--space-xs) var(--space-md) 0;
+	}
+
+	.species-tab {
+		padding: var(--space-3xs) var(--space-sm);
+		background: none;
+		border: 1px solid transparent;
+		border-radius: 4px;
+		font-size: 12px;
+		text-transform: capitalize;
+		color: var(--text-tertiary);
+		cursor: pointer;
+	}
+	.species-tab.active {
+		border-color: var(--border-primary);
+		color: var(--text-secondary);
 	}
 
 	.summary {

@@ -194,6 +194,27 @@ describe('studyAttribute', () => {
     }
   });
 
+  it('excludes from validation the equations a derived finding was read off', () => {
+    // 01A3 is derived from the a-c equation, so that equation reproduces
+    // its own delta by construction. Scoring it would be circular.
+    const study = studyAttribute(
+      [
+        horse('a', base(), { temperament: 40 }),
+        horse('b', base({ '14B4': 'D' }), { temperament: 45 }),
+        horse('d', base({ '01A2': 'D' }), { temperament: 37 }),
+        horse('c', base({ '14B4': 'D', '01A2': 'D', '01A3': 'D' }), { temperament: 49 }),
+      ],
+      'temperament',
+      temperament,
+    );
+    // Four multi-term equations exist; three of them could have produced
+    // 01A3 and are withheld. Only b-d — whose two slots are both direct —
+    // is genuinely independent, and it is the only one scored.
+    expect(study.findings.find((f) => f.gene === '01A3')?.tier).toBe('derived');
+    expect(study.validation.tested).toBe(1);
+    expect(study.validation.exact).toBe(1);
+  });
+
   it('scores validation only on pairs no finding was read off', () => {
     const study = studyAttribute(
       [
@@ -237,13 +258,29 @@ describe('studyAttribute', () => {
     const study = studyAttribute(
       [
         horse('measured', base(), { temperament: 40 }),
+        horse('paired', base({ '14B4': 'D' }), { temperament: 45 }),
         horse('clamped', base(), { temperament: 100 }),
         horse('unrevealed', base({ '14B4': '?' }), { temperament: 40 }),
       ],
       'temperament',
       temperament,
     );
-    expect(study.contributors).toBe(1);
+    expect(study.contributors).toBe(2);
+  });
+
+  it('counts nobody when the eligible animals cannot be paired', () => {
+    // Eligible is not the same as contributing: identical active sets yield
+    // no equation, and neither does a breed with a single animal.
+    const study = studyAttribute(
+      [
+        horse('same1', base(), { temperament: 40 }),
+        horse('same2', base(), { temperament: 40 }),
+        horse('lone', base({ '14B4': 'D' }), { temperament: 45 }, 'Paint'),
+      ],
+      'temperament',
+      temperament,
+    );
+    expect(study.contributors).toBe(0);
   });
 });
 
@@ -330,6 +367,43 @@ describe('stabled animals', () => {
 });
 
 describe('doubting the gene data', () => {
+  it('will not raise a doubt that one mis-recorded animal could explain', () => {
+    // Three sound animals against one misread carrier give three agreeing
+    // equations with no dissent at all — pair count alone cannot tell that
+    // apart from a genuinely wrong gene entry. Every pair shares `bad`.
+    const study = studyAttribute(
+      [
+        horse('ok1', base(), { temperament: 40 }),
+        horse('ok2', base(), { temperament: 40 }),
+        horse('ok3', base(), { temperament: 40 }),
+        horse('bad', base({ '01A3': 'D' }), { temperament: 28 }),
+      ],
+      'temperament',
+      temperament,
+    );
+    expect(study.geneDoubts).toEqual([]);
+  });
+
+  it('reopens a slot that an early weak contradiction could not settle', () => {
+    // One bad pair implies 01A3 is negative, which its declaration forbids.
+    // That must not bury the slot: three clean carriers later agree it is
+    // +7, and substitution should still get there.
+    const study = studyAttribute(
+      [
+        horse('a', base(), { temperament: 40 }),
+        horse('b', base({ '14B4': 'D' }), { temperament: 45 }),
+        horse('d', base({ '01A2': 'D' }), { temperament: 37 }),
+        horse('bad', base({ '01A3': 'D' }), { temperament: 34 }),
+        horse('c1', base({ '14B4': 'D', '01A2': 'D', '01A3': 'D' }), { temperament: 49 }),
+        horse('c2', base({ '14B4': 'D', '01A2': 'D', '01A3': 'D' }), { temperament: 49 }),
+        horse('c3', base({ '14B4': 'D', '01A2': 'D', '01A3': 'D' }), { temperament: 49 }),
+      ],
+      'temperament',
+      temperament,
+    );
+    expect(study.findings.find((f) => f.gene === '01A3')).toMatchObject({ magnitude: 7 });
+  });
+
   it('stays quiet when only one pair disputes the declaration', () => {
     // One pair is one equation, and cannot separate a wrong gene entry from
     // one mis-typed attribute. No finding either way — the slot is still not

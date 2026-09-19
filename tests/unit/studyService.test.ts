@@ -97,6 +97,26 @@ describe('loadStudyCorpus', () => {
     expect(corpus.excluded).toEqual([{ reason: 'unmeasured', count: 2 }]);
   });
 
+  it('excludes a genome missing a locus the gene table declares', async () => {
+    // Three loci stored, but the table declares an effect on 01A4 too — a
+    // truncated projection, not an unrevealed allele. Silently withdrawing
+    // it would still count the animal among those studied.
+    await upload(name('Kb', 40, 80, 'Short'), 'RRR');
+    // `runAttributeStudy` is what supplies the declared loci; the lower-level
+    // loader has no opinion without them.
+    const run = await runAttributeStudy('horse');
+    expect(run.corpus.subjects).toEqual([]);
+    expect(run.corpus.excluded).toContainEqual({ reason: 'incomplete', count: 1 });
+  });
+
+  it('does not call a complete genome incomplete', async () => {
+    await upload(name('Kb', 40, 80, 'Full'), 'RRRR');
+    const corpus = await loadStudyCorpus('horse', {
+      requiredGenes: ['01A1', '01A2', '01A3', '01A4'],
+    });
+    expect(corpus.subjects).toHaveLength(1);
+  });
+
   it('scopes to one species', async () => {
     await upload(name('Kb', 40, 80), 'RRRR');
     const corpus = await loadStudyCorpus('beewasp');

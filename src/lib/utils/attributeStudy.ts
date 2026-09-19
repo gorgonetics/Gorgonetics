@@ -216,23 +216,38 @@ export interface StudyOptions {
 }
 
 /**
- * Equations a doubt needs before it is worth showing.
+ * Whether the pairs behind a doubt need more than one bad animal to explain.
  *
- * A doubt sends the player to check a gene in the game, so a false one
- * costs them a trip. One equation is one pair, and a single pair cannot
- * tell "the gene table is wrong" from "one of these two animals has a
- * mis-typed attribute" — a 60-animal sample raised two such alarms that
- * both vanished at 412. Two independent equations need two independent
- * mistakes to fake.
+ * A doubt sends the player into the game to check a gene, so a false one
+ * costs them a trip. Counting *pairs* does not protect against that: three
+ * sound animals and one mis-typed one produce three pairs that all agree on
+ * the same wrong magnitude, with no dissent at all. What matters is whether
+ * a single animal could be behind the lot — so intersect the pairs, and
+ * accept the doubt only when nothing is common to all of them.
  *
- * The cost is real: a genuinely mis-entered gene witnessed by only one
- * pair stays hidden until the corpus grows. A panel that cries wolf at
- * small corpus sizes is one the player learns to ignore, which is worse.
+ * That subsumes any minimum count: a single pair always has both its
+ * animals in common with itself, so one equation can never raise a doubt.
  *
- * `unstable` is exempt — it already requires dissent spread across
- * animals, which cannot happen with fewer than three equations.
+ * The cost is real — a genuinely mis-entered gene witnessed only through
+ * one animal stays hidden until the corpus grows. A panel that cries wolf
+ * at small corpus sizes is one the player learns to ignore, which is worse.
+ *
+ * `unstable` is exempt: it already requires dissent no single animal
+ * accounts for, which is this same test by another route.
  */
-const MIN_DOUBT_SUPPORT = 2;
+function needsTwoMistakes(pairs: ReadonlyArray<readonly [string, string]>): boolean {
+  if (pairs.length === 0) return false;
+  let common: Set<string> | null = null;
+  for (const [left, right] of pairs) {
+    if (common === null) {
+      common = new Set([left, right]);
+      continue;
+    }
+    for (const id of [...common]) if (id !== left && id !== right) common.delete(id);
+    if (common.size === 0) return true;
+  }
+  return (common?.size ?? 0) === 0;
+}
 
 const DEFAULT_MAX_DISTANCE = 6;
 const DEFAULT_MAX_WITNESSES = 3;
@@ -443,11 +458,13 @@ export function studyAttribute(
   }
 
   const equations: Equation[] = [];
-  let contributors = 0;
-  for (const observations of byBreed.values()) {
-    contributors += observations.length;
-    equations.push(...buildEquations(observations, maxDistance));
-  }
+  for (const observations of byBreed.values()) equations.push(...buildEquations(observations, maxDistance));
+  // Subjects that actually produced an equation, not subjects that were
+  // merely eligible: two animals with identical active sets yield nothing,
+  // and a breed with a single measured animal yields nothing at all.
+  const contributing = new Set<string>();
+  for (const equation of equations) contributing.add(equation.left).add(equation.right);
+  const contributors = contributing.size;
 
   const signOf = new Map<string, 1 | -1>();
   for (const slot of attributeSlots) signOf.set(slotKey(slot), slot.sign);
@@ -458,6 +475,13 @@ export function studyAttribute(
   // A doubted slot never reaches `solved`, so without its own record every
   // later substitution round would re-derive it and file the doubt again.
   const doubted = new Set<string>();
+  // Equations a derived finding was read off. Within one attribute a pair of
+  // subjects yields exactly one equation, so the pair identifies it.
+  // `validate` must skip these: the magnitude was computed as the residual
+  // of the very equation, so it reproduces that delta by construction and
+  // would score a guaranteed hit. Roughly a third of multi-term equations
+  // are in this position once substitution has run.
+  const consumed = new Set<string>();
   const stabledIds = new Set<string>();
   for (const observations of byBreed.values())
     for (const o of observations) if (o.subject.stabled) stabledIds.add(o.subject.id);
@@ -511,13 +535,17 @@ export function studyAttribute(
     // either way: a slot resting on a declaration we doubt is not knowledge.
     const sign = signOf.get(key);
     if (sign !== undefined && magnitude * sign <= 0) {
-      // Still no finding either way — a slot resting on a declaration the
-      // animals contradict is not knowledge, whether or not the
-      // contradiction is yet worth reporting.
-      if (support >= MIN_DOUBT_SUPPORT) {
+      // No finding either way — a slot resting on a declaration the animals
+      // contradict is not knowledge. But only *file* the doubt when more
+      // than one bad animal would be needed to fake it.
+      //
+      // When it is not yet worth filing, the slot is left open rather than
+      // suppressed: one early bad pair must not be able to bury a slot that
+      // later, cleaner evidence would settle. `doubted` therefore marks only
+      // what has actually been reported, so a later round can still reopen
+      // this one.
+      if (needsTwoMistakes(tally.get(magnitude) ?? [])) {
         doubt(key, tally, magnitude, support, dissent, magnitude === 0 ? 'no-effect' : 'contradicts-sign');
-      } else {
-        doubted.add(key);
       }
       return;
     }
@@ -542,6 +570,8 @@ export function studyAttribute(
     if (dissent > 0 && worstAnimal * 2 <= dissent) {
       doubt(key, tally, magnitude, support, dissent, 'unstable');
     }
+    if (tier === 'derived')
+      for (const pairs of tally.values()) for (const [left, right] of pairs) consumed.add(`${left}|${right}`);
     const [gene, expression] = key.split(':') as [string, Expression];
     solved.set(key, {
       gene,
@@ -612,7 +642,7 @@ export function studyAttribute(
     contradictions: [...dissenters.entries()]
       .map(([subjectId, count]) => ({ subjectId, count, stabled: stabledIds.has(subjectId) }))
       .sort((a, b) => Number(b.stabled) - Number(a.stabled) || b.count - a.count),
-    validation: validate(equations, solved),
+    validation: validate(equations, solved, consumed),
     contributors,
   };
 }
@@ -624,13 +654,20 @@ export function studyAttribute(
  * single-difference pair is the very equation its finding was read off, so
  * scoring against it would be circular.
  */
-function validate(equations: readonly Equation[], solved: ReadonlyMap<string, StudyFinding>): ValidationReport {
+function validate(
+  equations: readonly Equation[],
+  solved: ReadonlyMap<string, StudyFinding>,
+  consumed: ReadonlySet<string>,
+): ValidationReport {
   let tested = 0;
   let exact = 0;
   let stabledTested = 0;
   let stabledExact = 0;
   for (const equation of equations) {
-    if (equation.terms.size < 2) continue;
+    // `terms.size < 2` drops the single-difference equations a direct
+    // finding is read off; `consumed` drops the wider ones a derived
+    // finding was read off. What remains is genuinely held out.
+    if (equation.terms.size < 2 || consumed.has(`${equation.left}|${equation.right}`)) continue;
     let predicted = 0;
     let complete = true;
     for (const [key, sign] of equation.terms) {
