@@ -32,6 +32,20 @@ const stabledAccuracy = $derived(
 );
 
 /**
+ * Genes whose declared effect the animals dispute, pooled across attributes.
+ *
+ * The gene table is hand-entered, so a disagreement is as likely to be a
+ * mistake in it as in an animal's record. Each of these is a specific
+ * question to put to the game.
+ */
+const doubts = $derived(
+  studies
+    .flatMap((s) => s.geneDoubts)
+    .sort((a, b) => Number(b.checkable) - Number(a.checkable) || b.animals - a.animals || b.support - a.support)
+    .slice(0, 6),
+);
+
+/**
  * Animals contradicting an otherwise-agreed magnitude, pooled across every
  * attribute. The model forbids disagreement, so a name high on this list is
  * almost always a mis-recorded row rather than a discovery.
@@ -151,6 +165,40 @@ onMount(async () => {
 
 				{#if current}
 					<StudyFindingsTable findings={current.findings} {names} slots={current.slots} />
+				{/if}
+
+				{#if doubts.length > 0}
+					<aside class="doubts">
+						<h3>Check these genes in game</h3>
+						<p>
+							The animals disagree with what the gene table says these do. The table is entered by
+							hand, so it is as likely to be wrong as a pet's record — confirm the effect in game and
+							correct it in Reference.
+						</p>
+						<ul>
+							{#each doubts as d (`${d.gene}:${d.expression}:${d.attribute}`)}
+								<li>
+									<span class="doubt-gene">{d.gene}</span>
+									<span class="doubt-claim">
+										{#if d.reason === 'contradicts-sign'}
+											declared {d.attribute}{d.declared > 0 ? '+' : '−'}, but reads
+											{d.observed > 0 ? '+' : '−'}{Math.abs(d.observed)}
+										{:else if d.reason === 'no-effect'}
+											declared {d.attribute}{d.declared > 0 ? '+' : '−'}, but changes nothing
+										{:else}
+											{d.attribute} effect is not consistent across animals
+										{/if}
+									</span>
+									{#if d.checkable}
+										<span class="checkable" title="A stabled pair witnesses this, so you can settle it now."
+											>checkable</span
+										>
+									{/if}
+									<span class="doubt-animals" title="Distinct animals behind this">{d.animals}</span>
+								</li>
+							{/each}
+						</ul>
+					</aside>
 				{/if}
 
 				{#if suspects.length > 0}
@@ -273,6 +321,63 @@ onMount(async () => {
 
 	.attr-count {
 		font-size: 11px;
+		color: var(--text-tertiary);
+		font-variant-numeric: tabular-nums;
+	}
+
+	.doubts {
+		flex-shrink: 0;
+		max-height: 22%;
+		overflow-y: auto;
+		padding: var(--space-sm) var(--space-md);
+		border-top: 1px solid var(--border-primary);
+	}
+
+	.doubts h3 {
+		margin: 0 0 var(--space-3xs);
+		font-size: 12px;
+		font-weight: 600;
+		color: var(--text-secondary);
+	}
+
+	.doubts p {
+		margin: 0 0 var(--space-2xs);
+		font-size: 11px;
+		line-height: 1.4;
+		color: var(--text-tertiary);
+		max-width: 70ch;
+	}
+
+	.doubts ul {
+		margin: 0;
+		padding: 0;
+		list-style: none;
+		display: flex;
+		flex-direction: column;
+		gap: 1px;
+	}
+
+	.doubts li {
+		display: flex;
+		align-items: center;
+		gap: var(--space-sm);
+		font-size: 12px;
+		max-width: 70ch;
+	}
+
+	.doubt-gene {
+		font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+		color: var(--text-secondary);
+		width: 5rem;
+		flex-shrink: 0;
+	}
+
+	.doubt-claim {
+		flex: 1;
+		color: var(--text-tertiary);
+	}
+
+	.doubt-animals {
 		color: var(--text-tertiary);
 		font-variant-numeric: tabular-nums;
 	}

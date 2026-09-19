@@ -328,3 +328,109 @@ describe('stabled animals', () => {
     expect(study.validation.stabledTested).toBe(0);
   });
 });
+
+describe('doubting the gene data', () => {
+  it('reports a declared direction the animals contradict', () => {
+    // 01A2 is declared Temperament-, but carrying it consistently adds 6.
+    // That is a transcription slip in the gene table, not a finding.
+    const study = studyAttribute(
+      [
+        horse('a', base(), { temperament: 40 }),
+        horse('b', base(), { temperament: 40 }),
+        horse('c', base({ '01A2': 'D' }), { temperament: 46 }),
+        horse('d', base({ '01A2': 'D' }), { temperament: 46 }),
+      ],
+      'temperament',
+      temperament,
+    );
+    expect(study.findings.find((f) => f.gene === '01A2')).toBeUndefined();
+    const doubt = study.geneDoubts.find((g) => g.gene === '01A2');
+    expect(doubt).toMatchObject({ reason: 'contradicts-sign', declared: -1, observed: 6 });
+    expect(doubt?.animals).toBe(4);
+  });
+
+  it('reports a declared effect that does not show up at all', () => {
+    // Carrying 01A3 makes no difference, yet an effect is declared for it.
+    const study = studyAttribute(
+      [horse('a', base(), { temperament: 40 }), horse('b', base({ '01A3': 'D' }), { temperament: 40 })],
+      'temperament',
+      temperament,
+    );
+    expect(study.geneDoubts.find((g) => g.gene === '01A3')).toMatchObject({
+      reason: 'no-effect',
+      observed: 0,
+    });
+  });
+
+  it('blames the declaration when dissent is spread across many animals', () => {
+    // Three carriers that disagree about how much 14B4 is worth (5, 6, 7),
+    // with no single animal behind the disagreement. The sign still holds,
+    // so this is not a transcription slip — the declaration itself is shaky.
+    const study = studyAttribute(
+      [
+        horse('a', base(), { temperament: 40 }),
+        horse('b', base(), { temperament: 40 }),
+        horse('c', base({ '14B4': 'D' }), { temperament: 45 }),
+        horse('d', base({ '14B4': 'D' }), { temperament: 46 }),
+        horse('e', base({ '14B4': 'D' }), { temperament: 47 }),
+      ],
+      'temperament',
+      temperament,
+    );
+    expect(study.geneDoubts.find((g) => g.gene === '14B4')?.reason).toBe('unstable');
+  });
+
+  it('blames the animal, not the gene, when one animal causes the dissent', () => {
+    const study = studyAttribute(
+      [
+        horse('ok1', base(), { temperament: 40 }),
+        horse('ok2', base(), { temperament: 40 }),
+        horse('ok3', base({ '14B4': 'D' }), { temperament: 45 }),
+        horse('ok4', base({ '14B4': 'D' }), { temperament: 45 }),
+        horse('bad', base({ '14B4': 'D' }), { temperament: 99 }),
+      ],
+      'temperament',
+      temperament,
+    );
+    expect(study.geneDoubts.find((g) => g.gene === '14B4')).toBeUndefined();
+    expect(study.contradictions[0].subjectId).toBe('bad');
+  });
+
+  it('marks a doubt settleable when a witness pair is stabled on both sides', () => {
+    const study = studyAttribute(
+      [
+        horse('a', base(), { temperament: 40 }, 'Kurbone', true),
+        horse('b', base({ '01A2': 'D' }), { temperament: 46 }, 'Kurbone', true),
+      ],
+      'temperament',
+      temperament,
+    );
+    expect(study.geneDoubts.find((g) => g.gene === '01A2')?.checkable).toBe(true);
+  });
+
+  it('is quiet when the gene data agrees with the animals', () => {
+    const study = studyAttribute(
+      [horse('a', base(), { temperament: 40 }), horse('b', base({ '14B4': 'D' }), { temperament: 45 })],
+      'temperament',
+      temperament,
+    );
+    expect(study.geneDoubts).toEqual([]);
+  });
+
+  it('files a doubt once, not once per substitution round', () => {
+    // A doubted slot never reaches `solved`, so nothing else stops a later
+    // round from re-deriving it.
+    const study = studyAttribute(
+      [
+        horse('a', base(), { temperament: 40 }),
+        horse('b', base({ '01A2': 'D' }), { temperament: 46 }),
+        horse('c', base({ '14B4': 'D' }), { temperament: 45 }),
+        horse('d', base({ '01A2': 'D', '14B4': 'D' }), { temperament: 51 }),
+      ],
+      'temperament',
+      temperament,
+    );
+    const forGene = study.geneDoubts.filter((g) => g.gene === '01A2');
+    expect(forGene).toHaveLength(1);
+  });
+});

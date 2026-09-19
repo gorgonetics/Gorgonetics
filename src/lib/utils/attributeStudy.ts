@@ -119,6 +119,50 @@ export interface StudyFinding {
   witnesses: Array<[string, string]>;
 }
 
+/**
+ * Why the corpus doubts a gene's declared effect.
+ *
+ *  - `contradicts-sign` — the animals consistently move the attribute the
+ *    other way. A `+` that reads `-4` is a transcription slip, not a
+ *    surprise about the game.
+ *  - `no-effect` — an effect is declared, but animals carrying it are
+ *    indistinguishable from those that do not. The locus probably belongs
+ *    to another attribute, or to none.
+ *  - `unstable` — pairs disagree, and no single animal accounts for the
+ *    disagreement. One bad reading shows up as one repeat offender; when
+ *    the dissent is spread across many animals instead, the thing they
+ *    have in common is the declaration.
+ */
+export type GeneDoubtReason = 'contradicts-sign' | 'no-effect' | 'unstable';
+
+/**
+ * A gene whose declared effect the corpus disputes.
+ *
+ * The gene table is hand-entered, so it is evidence like any other and can
+ * be wrong. These are the slots where the animals and the declaration
+ * disagree — each one a specific, checkable question to put to the game,
+ * not a vague warning.
+ */
+export interface GeneDoubt {
+  gene: string;
+  expression: Expression;
+  attribute: string;
+  /** The declared direction, `+1` or `-1`. */
+  declared: 1 | -1;
+  /** What the animals imply instead. Zero means no effect was detectable. */
+  observed: number;
+  reason: GeneDoubtReason;
+  /** Equations behind `observed`. */
+  support: number;
+  /** Equations implying something else again. */
+  dissent: number;
+  /** Distinct animals involved, so a wide disagreement can be told from a narrow one. */
+  animals: number;
+  /** At least one witness pair is stabled on both sides, so this is settleable now. */
+  checkable: boolean;
+  witnesses: Array<[string, string]>;
+}
+
 /** An animal whose readings conflict with an otherwise-agreed magnitude. */
 export interface StudyContradiction {
   subjectId: string;
@@ -152,6 +196,8 @@ export interface AttributeStudy {
   slots: number;
   findings: StudyFinding[];
   contradictions: StudyContradiction[];
+  /** Declared effects the corpus disputes, most-supported first. */
+  geneDoubts: GeneDoubt[];
   validation: ValidationReport;
   /** Subjects that contributed at least one equation. */
   contributors: number;
@@ -389,23 +435,86 @@ export function studyAttribute(
 
   const solved = new Map<string, StudyFinding>();
   const dissenters = new Map<string, number>();
+  const geneDoubts: GeneDoubt[] = [];
+  // A doubted slot never reaches `solved`, so without its own record every
+  // later substitution round would re-derive it and file the doubt again.
+  const doubted = new Set<string>();
   const stabledIds = new Set<string>();
   for (const observations of byBreed.values())
     for (const o of observations) if (o.subject.stabled) stabledIds.add(o.subject.id);
 
+  /** Distinct animals appearing anywhere in a tally, and whether any pair is checkable. */
+  const censusOf = (tally: Tally): { animals: number; checkable: boolean } => {
+    const seen = new Set<string>();
+    let checkable = false;
+    for (const pairs of tally.values())
+      for (const [left, right] of pairs) {
+        seen.add(left).add(right);
+        if (stabledIds.has(left) && stabledIds.has(right)) checkable = true;
+      }
+    return { animals: seen.size, checkable };
+  };
+
+  const doubt = (
+    key: string,
+    tally: Tally,
+    observed: number,
+    support: number,
+    dissent: number,
+    reason: GeneDoubtReason,
+  ): void => {
+    const declared = signOf.get(key);
+    if (declared === undefined || doubted.has(key)) return;
+    doubted.add(key);
+    const [gene, expression] = key.split(':') as [string, Expression];
+    const { animals, checkable } = censusOf(tally);
+    geneDoubts.push({
+      gene,
+      expression,
+      attribute,
+      declared,
+      observed,
+      reason,
+      support,
+      dissent,
+      animals,
+      checkable,
+      witnesses: (tally.get(observed) ?? []).slice(0, maxWitnesses),
+    });
+  };
+
   const commit = (key: string, tally: Tally, tier: FindingTier, depth: number): void => {
     const { magnitude, support, dissent } = majority(tally);
-    // The declared direction is an independent fact about the gene, never
-    // an input to the arithmetic. A magnitude that contradicts it means the
-    // slot is not entailed after all, so it is dropped rather than shown.
+    // The declared direction is an independent fact about the gene, never an
+    // input to the arithmetic — which is what lets it be *tested*. The gene
+    // table is hand-entered, so when the animals disagree with it the
+    // declaration is a suspect in its own right. No finding is published
+    // either way: a slot resting on a declaration we doubt is not knowledge.
     const sign = signOf.get(key);
-    if (sign !== undefined && magnitude * sign <= 0) return;
+    if (sign !== undefined && magnitude * sign <= 0) {
+      doubt(key, tally, magnitude, support, dissent, magnitude === 0 ? 'no-effect' : 'contradicts-sign');
+      return;
+    }
+    let worstAnimal = 0;
+    const blame = new Map<string, number>();
     for (const [value, pairs] of tally) {
       if (value === magnitude) continue;
       for (const [left, right] of pairs) {
         dissenters.set(left, (dissenters.get(left) ?? 0) + 1);
         dissenters.set(right, (dissenters.get(right) ?? 0) + 1);
+        for (const id of [left, right]) {
+          const n = (blame.get(id) ?? 0) + 1;
+          blame.set(id, n);
+          if (n > worstAnimal) worstAnimal = n;
+        }
       }
+    }
+    // One mis-recorded animal turns up in most of the dissent it causes.
+    // When no animal does — the disagreement is spread thin — the only
+    // thing every dissenting pair shares is this gene's declaration, so it
+    // is the declaration that wants checking, not the animals.
+    if (dissent > 0 && worstAnimal * 2 <= dissent) {
+      doubt(key, tally, magnitude, support, dissent, 'unstable');
     }
     const [gene, expression] = key.split(':') as [string, Expression];
     solved.set(key, {
@@ -453,7 +562,7 @@ export function studyAttribute(
     }
     let added = 0;
     for (const [key, tally] of candidates) {
-      if (solved.has(key)) continue;
+      if (solved.has(key) || doubted.has(key)) continue;
       const before = solved.size;
       commit(key, tally, 'derived', depth);
       if (solved.size > before) added++;
@@ -469,6 +578,11 @@ export function studyAttribute(
     ),
     // Stabled animals first: a disagreement the player can go and settle is
     // worth more than a louder one they cannot check, however large its count.
+    // Checkable first, then the widest disagreements: a doubt backed by many
+    // animals is far more likely the declaration's fault than one animal's.
+    geneDoubts: geneDoubts.sort(
+      (a, b) => Number(b.checkable) - Number(a.checkable) || b.animals - a.animals || b.support - a.support,
+    ),
     contradictions: [...dissenters.entries()]
       .map(([subjectId, count]) => ({ subjectId, count, stabled: stabledIds.has(subjectId) }))
       .sort((a, b) => Number(b.stabled) - Number(a.stabled) || b.count - a.count),
