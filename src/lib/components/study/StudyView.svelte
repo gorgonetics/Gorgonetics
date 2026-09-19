@@ -1,16 +1,19 @@
 <script lang="ts">
-import { getSupportedSpecies, normalizeSpecies } from '$lib/services/configService.js';
+import { normalizeSpecies } from '$lib/services/configService.js';
 import {
   namesForSubjects,
   refreshStudyCorpus,
   runAttributeStudy,
+  STUDYABLE_SPECIES,
   type StudyRun,
   studyCorpusStatus,
 } from '$lib/services/studyService.js';
 import { pets } from '$lib/stores/pets.js';
 import StudyFindingsTable from './StudyFindingsTable.svelte';
 
-const speciesOptions = getSupportedSpecies();
+// Only species the study can measure. Listing one it cannot gives a panel
+// that is permanently empty and blames the animals for it.
+const speciesOptions = STUDYABLE_SPECIES;
 
 /**
  * Which species to study. Every count on this screen — slots, coverage,
@@ -48,10 +51,18 @@ const EXCLUSION_LABEL: Record<string, string> = {
   'no-genome': 'genome could not be read',
   incomplete: 'genome missing some loci',
   'no-breed': 'no breed',
+  'mixed-breed': 'mixed breed',
 };
 
 let run = $state<StudyRun | null>(null);
 let ranFor = $state('');
+/**
+ * Which solve is current. Switching species starts a new one while the
+ * previous is still awaiting the DB, and the stale result would otherwise
+ * land last and overwrite the new species' findings — including its
+ * `loading` and error state, not just the data.
+ */
+let generation = 0;
 let cachedCount = $state(0);
 let fetchedAt = $state<string | null>(null);
 let refreshing = $state(false);
@@ -137,10 +148,12 @@ async function refresh(): Promise<void> {
 }
 
 async function solve(target: string): Promise<void> {
+  const mine = ++generation;
   loading = true;
   failure = null;
   try {
     const result = await runAttributeStudy(target);
+    if (mine !== generation) return;
     // Resolve every id the UI can surface — witnesses and suspects — in one
     // query rather than per row.
     const ids = new Set<string>();
@@ -148,16 +161,19 @@ async function solve(target: string): Promise<void> {
       for (const finding of study.findings) for (const [l, r] of finding.witnesses) ids.add(l).add(r);
       for (const c of study.contradictions) ids.add(c.subjectId);
     }
-    names = await namesForSubjects([...ids]);
+    const resolved = await namesForSubjects([...ids]);
+    if (mine !== generation) return;
+    names = resolved;
     run = result;
     attribute = result.studies[0]?.attribute ?? null;
     const status = await studyCorpusStatus(target);
     cachedCount = status.cached;
     fetchedAt = status.fetchedAt;
   } catch (err) {
+    if (mine !== generation) return;
     failure = err instanceof Error ? err.message : String(err);
   } finally {
-    loading = false;
+    if (mine === generation) loading = false;
   }
 }
 </script>

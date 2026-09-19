@@ -785,9 +785,10 @@ describe('shareService.importCommunityPet', () => {
   });
 
   it('never stables a community import — it is in someone else\u2019s stable, not yours', async () => {
-    // `stabled` is also what the genetic study reads as *checkable*: left at
-    // the insert default of 1, every import would claim to be verifiable
-    // against a game screen the player cannot open.
+    // Set on the insert, not patched afterwards: `applyImportMetadata` is
+    // best-effort, so a failed update would leave the animal claiming to be
+    // re-readable in the game. `stabled` is what the study reads as
+    // *checkable*, and you cannot open someone else's stable.
     const shared = await makeShared('S');
     uploadPetLocallyMock.mockResolvedValueOnce({
       status: 'success',
@@ -800,8 +801,8 @@ describe('shareService.importCommunityPet', () => {
 
     await importCommunityPet(shared);
 
-    const metadata = updatePetMock.mock.calls.find(([, u]) => 'stabled' in (u as object));
-    expect(metadata?.[1]).toMatchObject({ stabled: false });
+    expect(uploadPetLocally).toHaveBeenCalledWith(shared.genomeData, expect.objectContaining({ stabled: false }));
+    expect(updatePetMock.mock.calls.every(([, u]) => !('stabled' in (u as object)))).toBe(true);
   });
 
   it('leaves a pre-existing local animal stabled as the player set it', async () => {
@@ -999,7 +1000,6 @@ describe('shareService.importCommunityPet', () => {
 
     expect(result.status).toBe('imported');
     expect(updatePet).toHaveBeenCalledWith(55, {
-      stabled: false,
       name: 'CustomName',
       breed: 'Kurbone',
       gender: Gender.MALE,

@@ -8,6 +8,7 @@ import {
   loadStudyCorpus,
   namesForSubjects,
   runAttributeStudy,
+  STUDYABLE_SPECIES,
   studyCorpusStatus,
 } from '$lib/services/studyService.js';
 
@@ -123,6 +124,23 @@ describe('loadStudyCorpus', () => {
     expect(corpus.subjects).toHaveLength(1);
   });
 
+  it('excludes a Mixed-breed animal, whose breed-locked genes are unknowable', async () => {
+    // Elsewhere the app lets Mixed pass every breed-locked gene; inference
+    // cannot, since that would credit one animal with ten breeds' effects.
+    const id = await upload(name('Kb', 40, 80, 'Mongrel'), 'RRRR');
+    await petService.updatePet(id, { breed: 'Mixed' });
+
+    const corpus = await loadStudyCorpus('horse');
+    expect(corpus.subjects).toEqual([]);
+    expect(corpus.excluded).toContainEqual({ reason: 'mixed-breed', count: 1 });
+  });
+
+  it('offers only species it can actually measure', async () => {
+    // `parseStructuredPetName` parses horses alone, so any other species
+    // would give a permanently empty study blaming the animals for it.
+    expect([...STUDYABLE_SPECIES]).toEqual(['horse']);
+  });
+
   it('scopes to one species', async () => {
     await upload(name('Kb', 40, 80), 'RRRR');
     const corpus = await loadStudyCorpus('beewasp');
@@ -146,9 +164,14 @@ describe('stabled subjects', () => {
   });
 
   it('flags a contradiction the player can settle', async () => {
+    // Two sound carriers, so +5 wins outright; a 2-2 split would leave the
+    // slot unresolved and there would be no contradiction to flag.
     await upload(name('Kb', 40, 80, 'A'), 'RRRR');
     await upload(name('Kb', 40, 80, 'B'), 'RRDR');
     await upload(name('Kb', 45, 80, 'C'), 'DRRR');
+    // `x` expresses as dominant, so C2 has the same active set as C while
+    // being a distinct genome (an identical one would dedupe on hash).
+    await upload(name('Kb', 45, 80, 'C2'), 'xRRR');
     const bad = await upload(name('Kb', 90, 80, 'Bad'), 'DRDR');
 
     const run = await runAttributeStudy('horse');
