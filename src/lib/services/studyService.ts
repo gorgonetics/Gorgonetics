@@ -45,6 +45,20 @@ import {
 import { loadAllPetLoci, type PetLoci } from '$lib/utils/petLoci.js';
 import { ATTRIBUTE_KEYS } from '$lib/utils/sharedPet.js';
 
+/** The breed value for an animal of no single breed; see the exclusion in `loadStudyCorpus`. */
+const MIXED_BREED = 'Mixed';
+
+/**
+ * Species the study can actually measure.
+ *
+ * Inference needs attributes it can trust, and the only provenance signal
+ * is a structured name — which `parseStructuredPetName` parses for horses
+ * alone. Offering a species without one yields a permanently empty study
+ * that blames the animals ("attributes never recorded") for a gap in the
+ * app. Widening this means giving that species a measurement path first.
+ */
+export const STUDYABLE_SPECIES: readonly string[] = ['horse'];
+
 /** Why an animal was left out of the corpus. */
 export type ExclusionReason =
   /** Name does not parse, so its attributes are defaults rather than readings. */
@@ -55,6 +69,8 @@ export type ExclusionReason =
   | 'no-genome'
   /** No breed, so it cannot be paired with anything. */
   | 'no-breed'
+  /** Mixed breed: which breed-locked genes apply to it is unknowable. */
+  | 'mixed-breed'
   /** Genome is missing loci the gene table declares an attribute effect for. */
   | 'incomplete';
 
@@ -151,6 +167,17 @@ export async function loadStudyCorpus(species: string, options: LoadCorpusOption
     }
     if (!pet.breed) {
       exclude('no-breed');
+      continue;
+    }
+    // A Mixed horse is not a breed the gene table can be read against.
+    // Elsewhere the app lets Mixed pass every breed-locked gene
+    // (`isHorseBreedFiltered`), because for scoring an over-count is
+    // preferable to hiding a gene the player owns. Inference cannot take
+    // that liberty: crediting one animal with all ten breeds' effects
+    // invents terms, and crediting it with none erases real ones. Either
+    // way its equations would be wrong, so it sits the study out.
+    if (pet.breed === MIXED_BREED) {
+      exclude('mixed-breed');
       continue;
     }
     candidates.push(pet);

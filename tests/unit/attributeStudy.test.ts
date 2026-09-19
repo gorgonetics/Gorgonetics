@@ -173,6 +173,23 @@ describe('studyAttribute', () => {
     expect(study.contradictions[0].subjectId).toBe('bad');
   });
 
+  it('leaves a slot unresolved when no value leads', () => {
+    // Two equations each imply +5 and two imply +9. There is no majority,
+    // and picking either would publish a coin-flip that later substitutions
+    // and the validation score would then treat as known.
+    const study = studyAttribute(
+      [
+        horse('a', base(), { temperament: 40 }),
+        horse('b', base(), { temperament: 40 }),
+        horse('c', base({ '14B4': 'D' }), { temperament: 45 }),
+        horse('d', base({ '14B4': 'x' }), { temperament: 49 }),
+      ],
+      'temperament',
+      temperament,
+    );
+    expect(study.findings.find((f) => f.gene === '14B4')).toBeUndefined();
+  });
+
   it('drops a slot whose majority contradicts the declared direction', () => {
     // 01A2 is declared Temperament-, but these readings imply +6.
     const study = studyAttribute(
@@ -232,16 +249,22 @@ describe('studyAttribute', () => {
   });
 
   it('reports a validation miss when a finding does not generalise', () => {
+    // Doubled up so both magnitudes win outright rather than tie; `d` then
+    // disagrees with the pair of them (70, not 52) and is scored as a miss.
     const study = studyAttribute(
       [
         horse('a', base(), { temperament: 40 }),
+        horse('a2', base(), { temperament: 40 }),
         horse('b', base({ '14B4': 'D' }), { temperament: 45 }),
+        horse('b2', base({ '14B4': 'D' }), { temperament: 45 }),
         horse('c', base({ '01A3': 'D' }), { temperament: 47 }),
+        horse('c2', base({ '01A3': 'D' }), { temperament: 47 }),
         horse('d', base({ '14B4': 'D', '01A3': 'D' }), { temperament: 70 }), // not 52
       ],
       'temperament',
       temperament,
     );
+    expect(study.validation.tested).toBeGreaterThan(0);
     expect(study.validation.exact).toBeLessThan(study.validation.tested);
   });
 
@@ -303,6 +326,7 @@ describe('stabled animals', () => {
         horse('ok1', base(), { temperament: 40 }),
         horse('ok2', base(), { temperament: 40 }),
         horse('ok3', base({ '14B4': 'D' }), { temperament: 45 }),
+        horse('ok4', base({ '14B4': 'D' }), { temperament: 45 }),
         horse('bad', base({ '14B4': 'D' }), { temperament: 99 }, 'Kurbone', true),
       ],
       'temperament',

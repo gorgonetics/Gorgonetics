@@ -411,19 +411,30 @@ function record(tally: Tally, magnitude: number, pair: [string, string]): void {
   else tally.set(magnitude, [pair]);
 }
 
-/** The value with the most independent backing, ties broken by magnitude. */
-function majority(tally: Tally): { magnitude: number; support: number; dissent: number } {
+/**
+ * The value with strictly the most backing.
+ *
+ * `tied` when nothing leads outright. There is no sensible tie-break: with
+ * two values on two equations each, picking either publishes a coin-flip
+ * as a finding, and that value then feeds substitution and validation as
+ * though it were known. The corpus simply has not settled the slot.
+ */
+function majority(tally: Tally): { magnitude: number; support: number; dissent: number; tied: boolean } {
   let best = 0;
   let bestCount = -1;
+  let tied = false;
   let total = 0;
   for (const [magnitude, pairs] of tally) {
     total += pairs.length;
-    if (pairs.length > bestCount || (pairs.length === bestCount && magnitude < best)) {
+    if (pairs.length > bestCount) {
       best = magnitude;
       bestCount = pairs.length;
+      tied = false;
+    } else if (pairs.length === bestCount) {
+      tied = true;
     }
   }
-  return { magnitude: best, support: bestCount, dissent: total - bestCount };
+  return { magnitude: best, support: bestCount, dissent: total - bestCount, tied };
 }
 
 /**
@@ -525,7 +536,16 @@ export function studyAttribute(
   };
 
   const commit = (key: string, tally: Tally, tier: FindingTier, depth: number): void => {
-    const { magnitude, support, dissent } = majority(tally);
+    const { magnitude, support, dissent, tied } = majority(tally);
+    // Nothing leads: the slot is unresolved, not resolved-to-the-smaller.
+    // Reported as `unstable` when the disagreement is broad enough to
+    // implicate the declaration, and left open either way so a later round
+    // with more equations can still break the tie.
+    if (tied) {
+      const spread = [...tally.values()].flat();
+      if (needsTwoMistakes(spread)) doubt(key, tally, magnitude, support, dissent, 'unstable');
+      return;
+    }
     // The declared direction is an independent fact about the gene, never an
     // input to the arithmetic — which is what lets it be *tested*. The gene
     // table is hand-entered, so when the animals disagree with it the
