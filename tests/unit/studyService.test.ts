@@ -1,9 +1,15 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { closeDatabase, initDatabase } from '$lib/services/database.js';
+import { closeDatabase, getDb, initDatabase } from '$lib/services/database.js';
 import * as geneService from '$lib/services/geneService.js';
 import { runMigrations } from '$lib/services/migrationService.js';
 import * as petService from '$lib/services/petService.js';
-import { loadStudyCorpus, namesForSubjects, runAttributeStudy } from '$lib/services/studyService.js';
+import {
+  clearStudyCorpus,
+  loadStudyCorpus,
+  namesForSubjects,
+  runAttributeStudy,
+  studyCorpusStatus,
+} from '$lib/services/studyService.js';
 
 /**
  * Four horse loci on chromosome 01. `01A1` is generic, `01A4` belongs to
@@ -223,5 +229,92 @@ describe('namesForSubjects', () => {
 
   it('is empty rather than throwing on ids that are not numbers', async () => {
     expect(await namesForSubjects(['not-an-id'])).toEqual(new Map());
+  });
+});
+
+describe('cached community animals', () => {
+  /** Insert straight into the cache; the fetch itself is exercised elsewhere. */
+  async function cache(hash: string, entity: string, genes: string, attrs: Record<string, number>) {
+    // Every value is a named placeholder: the in-memory adapter binds an
+    // INSERT's params by position, so mixing literals into VALUES shifts
+    // every later column onto the wrong param.
+    await getDb().execute(
+      `INSERT OR REPLACE INTO study_corpus
+       (content_hash, species, breed, name, attributes, genome_text, fetched_at)
+       VALUES ($hash, $species, $breed, $name, $attributes, $genome, $fetched)`,
+      {
+        hash,
+        species: 'horse',
+        breed: 'Kurbone',
+        name: entity,
+        attributes: JSON.stringify(attrs),
+        genome: genome(entity, genes),
+        fetched: '2026-09-19T00:00:00Z',
+      },
+    );
+  }
+
+  const attrs = (temperament: number, toughness: number) => ({
+    temperament,
+    toughness,
+    ruggedness: 70,
+    enthusiasm: 70,
+    friendliness: 70,
+    intelligence: 70,
+    virility: 70,
+  });
+
+  it('studies a cached animal without putting it in the roster', async () => {
+    await cache('h1', name('Kb', 40, 80, 'Shared'), 'RRRR', attrs(40, 80));
+    const corpus = await loadStudyCorpus('horse');
+    expect(corpus.subjects).toHaveLength(1);
+    expect(corpus.subjects[0].id).toMatch(/^shared:/);
+    const { items } = await petService.getAllPets();
+    expect(items).toEqual([]);
+  });
+
+  it('never marks a community animal checkable', async () => {
+    // You cannot re-read someone else's animal in the game.
+    await cache('h1', name('Kb', 40, 80, 'Shared'), 'RRRR', attrs(40, 80));
+    const corpus = await loadStudyCorpus('horse');
+    expect(corpus.subjects[0].stabled).toBe(false);
+  });
+
+  it('drops a cached copy of an animal the player already owns', async () => {
+    // The same genome twice would pair with itself, and two records that
+    // disagree would read as a contradiction between an animal and itself.
+    const id = await upload(name('Kb', 40, 80, 'Mine'), 'RRRR');
+    const pet = await petService.getPet(id);
+    await cache(pet?.content_hash ?? 'x', name('Kb', 99, 80, 'Theirs'), 'RRRR', attrs(99, 80));
+
+    const corpus = await loadStudyCorpus('horse');
+    expect(corpus.subjects).toHaveLength(1);
+    expect(corpus.subjects[0].attributes.temperament).toBe(40);
+  });
+
+  it('pairs a cached animal with a local one to pin a magnitude', async () => {
+    await upload(name('Kb', 40, 80, 'Local'), 'RRRR');
+    await cache('h2', name('Kb', 45, 80, 'Shared'), 'DRRR', attrs(45, 80));
+
+    const run = await runAttributeStudy('horse');
+    const temperament = run.studies.find((s) => s.attribute === 'temperament');
+    expect(temperament?.findings[0]).toMatchObject({ gene: '01A1', magnitude: 5 });
+    // Mixed local/community pair: not something the player can settle.
+    expect(run.validation.stabledTested).toBe(0);
+  });
+
+  it('scopes the cache by species and reports its freshness', async () => {
+    await cache('h1', name('Kb', 40, 80, 'Shared'), 'RRRR', attrs(40, 80));
+    expect(await studyCorpusStatus('horse')).toMatchObject({ cached: 1 });
+    expect((await studyCorpusStatus('beewasp')).cached).toBe(0);
+
+    await clearStudyCorpus('horse');
+    expect((await studyCorpusStatus('horse')).cached).toBe(0);
+  });
+
+  it('resolves a cached animal back to its name for the evidence panel', async () => {
+    await cache('h1', name('Kb', 40, 80, 'Shared'), 'RRRR', attrs(40, 80));
+    const names = await namesForSubjects(['shared:h1']);
+    expect(names.get('shared:h1')).toBe(name('Kb', 40, 80, 'Shared'));
   });
 });

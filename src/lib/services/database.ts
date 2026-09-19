@@ -33,6 +33,18 @@ interface DatabaseAdapter {
 const PARAM_PREFIX_RE = /^[A-Za-z_]\w*$/;
 
 /**
+ * Columns that identify a row for `INSERT OR REPLACE`, per table.
+ *
+ * Real SQLite uses the declared primary key; this adapter has to be told.
+ * A table absent here falls back to `id`, and a row missing any of its key
+ * columns is treated as new rather than silently replacing something.
+ */
+const REPLACE_KEYS: Record<string, string[]> = {
+  genes: ['animal_type', 'gene'],
+  study_corpus: ['content_hash'],
+};
+
+/**
  * Build a named-placeholder `IN (…)` clause and the matching params
  * object for use with `db.select` / `db.execute`. Pairs N values with
  * `$prefix0..N-1`:
@@ -385,9 +397,15 @@ class InMemoryDatabase implements DatabaseAdapter {
 
           // INSERT OR REPLACE — replace existing by (animal_type, gene) PK
           if (qLower.includes('or replace')) {
-            const existingIdx = this.tables[table].findIndex(
-              (r) => r.animal_type === row.animal_type && r.gene === row.gene,
-            );
+            // Match on the table's real key. This used to compare
+            // `animal_type`+`gene` for every table, which are the `genes`
+            // key: on any other table both sides are `undefined`, so the
+            // first row always matched and every insert overwrote it —
+            // a table would never grow past one row in dev or test while
+            // packaged SQLite filled it correctly.
+            const keys = REPLACE_KEYS[table] ?? ['id'];
+            const keyed = keys.every((k) => row[k] !== undefined);
+            const existingIdx = keyed ? this.tables[table].findIndex((r) => keys.every((k) => r[k] === row[k])) : -1;
             if (existingIdx >= 0) {
               this.tables[table][existingIdx] = row;
               rowsAffected++;

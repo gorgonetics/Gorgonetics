@@ -20,21 +20,29 @@
  * than the re-parsed ones, because a user who edits an attribute afterwards
  * is correcting the name, not contradicting it.
  *
- * ## Why the corpus is local
+ * ## Why community animals are cached, not imported
  *
- * `listPets` returns metadata without genomes, so building a corpus from
- * the catalogue directly would mean one `getSharedPet` round-trip per
- * animal — several hundred requests for one run. Community animals join
- * the corpus the way they already do, by being imported, which puts them
- * in `pets`/`pet_genes` like anything else and costs nothing here.
+ * The study learns from animals; the roster holds animals the player owns.
+ * Importing the catalogue to widen the corpus would conflate the two and
+ * drop hundreds of other people's horses into My Pets. So community
+ * entries live in `study_corpus`, read by the study and by nothing else.
+ *
+ * They are never checkable: `stabled` means the player can re-read the
+ * animal in the game, and they cannot re-read someone else's.
+ *
+ * Refreshing is explicit. It costs one Firestore read per catalogue entry
+ * against a Spark quota, so it happens when the player asks rather than on
+ * mount, and the cache persists until they ask again.
  */
 
 import { normalizeSpecies } from '$lib/services/configService.js';
-import { buildInClauseParams, getDb } from '$lib/services/database.js';
+import { buildInClauseParams, getDb, withTransaction } from '$lib/services/database.js';
 import { getGeneEffectsCached } from '$lib/services/geneService.js';
+import { parseGenome } from '$lib/services/genomeParser.js';
 import { parseStructuredPetName } from '$lib/services/nameParser.js';
 import { getAllPets } from '$lib/services/petService.js';
-import { GeneType, type Pet } from '$lib/types/index.js';
+import { listGenomes, listPets } from '$lib/services/shareService.js';
+import { GeneType, type Pet, type SharedPet } from '$lib/types/index.js';
 import {
   type AttributeStudy,
   buildEffectSlots,
@@ -44,6 +52,7 @@ import {
 } from '$lib/utils/attributeStudy.js';
 import { loadAllPetLoci, type PetLoci } from '$lib/utils/petLoci.js';
 import { ATTRIBUTE_KEYS } from '$lib/utils/sharedPet.js';
+import { now } from '$lib/utils/timestamp.js';
 
 /** Why an animal was left out of the corpus. */
 export type ExclusionReason =
@@ -194,11 +203,79 @@ export async function loadStudyCorpus(species: string, options: LoadCorpusOption
     subjects.push(subjectFrom(pet, loci));
   }
 
+  const community = await cachedSubjects(normalized, new Set(items.map((pet) => pet.content_hash)), required);
+  subjects.push(...community.subjects);
+  for (const [reason, count] of community.excluded) tally.set(reason, (tally.get(reason) ?? 0) + count);
+
   return {
     subjects,
-    considered: items.length,
+    considered: items.length + community.considered,
     excluded: [...tally.entries()].map(([reason, count]) => ({ reason, count })).sort((a, b) => b.count - a.count),
   };
+}
+
+/**
+ * Community animals from the local cache, as study subjects.
+ *
+ * `ownedHashes` drops any entry the player also owns: the same genome
+ * appearing twice would pair with itself, and if the two records disagree
+ * about an attribute it would read as a contradiction between an animal
+ * and itself. The local copy wins, because it is the one that can be
+ * stabled and therefore re-read.
+ */
+async function cachedSubjects(
+  normalized: string,
+  ownedHashes: ReadonlySet<string>,
+  required: readonly string[],
+): Promise<{ subjects: StudySubject[]; considered: number; excluded: Map<ExclusionReason, number> }> {
+  const rows = await getDb().select<CachedRow[]>(
+    'SELECT content_hash, breed, name, attributes, genome_text FROM study_corpus WHERE species = $species',
+    { species: normalized },
+  );
+  const subjects: StudySubject[] = [];
+  const excluded = new Map<ExclusionReason, number>();
+  const drop = (reason: ExclusionReason): void => {
+    excluded.set(reason, (excluded.get(reason) ?? 0) + 1);
+  };
+  let considered = 0;
+  for (const row of rows) {
+    if (ownedHashes.has(row.content_hash)) continue;
+    considered++;
+    let genes: Record<string, string>;
+    try {
+      const parsed = parseGenome(row.genome_text);
+      genes = {};
+      for (const [chromosome, list] of Object.entries(parsed.genes))
+        for (const gene of list) genes[`${chromosome}${gene.block}${gene.position}`] = gene.gene_type;
+    } catch {
+      drop('no-genome');
+      continue;
+    }
+    if (Object.values(genes).includes(GeneType.UNKNOWN)) {
+      drop('unrevealed');
+      continue;
+    }
+    if (required.some((gene) => genes[gene] === undefined)) {
+      drop('incomplete');
+      continue;
+    }
+    let attributes: Record<string, number>;
+    try {
+      attributes = JSON.parse(row.attributes) as Record<string, number>;
+    } catch {
+      drop('unmeasured');
+      continue;
+    }
+    subjects.push({
+      id: `${SHARED_ID_PREFIX}${row.content_hash}`,
+      breed: row.breed,
+      genes,
+      attributes,
+      // Someone else's animal: it can raise a disagreement but never settle one.
+      stabled: false,
+    });
+  }
+  return { subjects, considered, excluded };
 }
 
 /** Load the corpus and solve every attribute for one species. */
@@ -234,6 +311,122 @@ export async function runAttributeStudy(
   return { corpus, studies, totals, validation };
 }
 
+export interface RefreshResult {
+  /** Catalogue entries examined. */
+  considered: number;
+  /** Entries now cached and usable by the study. */
+  cached: number;
+  /** Entries skipped because they would teach nothing. */
+  skipped: number;
+}
+
+/** Marks a subject id as a cached community animal rather than a `pets` row. */
+const SHARED_ID_PREFIX = 'shared:';
+
+/** A cached community animal, as the study consumes it. */
+interface CachedRow {
+  content_hash: string;
+  breed: string;
+  name: string;
+  attributes: string;
+  genome_text: string;
+}
+
+/**
+ * Whether a catalogue entry can teach the study anything.
+ *
+ * The same bar local animals must clear — a name that parses, so the
+ * attributes are readings rather than defaults, and a breed to pair
+ * within. Applied before caching so the table holds only usable evidence.
+ */
+function usableSharedPet(pet: SharedPet, genome: string): boolean {
+  return genome.length > 0 && !!pet.breed && !!pet.attributes && parseStructuredPetName(pet.name, pet.species) !== null;
+}
+
+/**
+ * Pull the catalogue into the local study cache.
+ *
+ * Two collection scans rather than a fetch per animal: the metadata and
+ * the genome blobs are paged separately and joined on the content hash.
+ */
+export async function refreshStudyCorpus(species: string): Promise<RefreshResult> {
+  const normalized = normalizeSpecies(species);
+
+  const metadata = new Map<string, SharedPet>();
+  let cursor: unknown = null;
+  do {
+    const page = await listPets(cursor ? { after: cursor } : {});
+    for (const pet of page.pets) metadata.set(pet.contentHash, pet);
+    cursor = page.pets.length > 0 ? page.cursor : null;
+  } while (cursor);
+
+  const genomes = new Map<string, string>();
+  cursor = null;
+  do {
+    const page = await listGenomes(cursor ? { after: cursor } : {});
+    for (const g of page.genomes) genomes.set(g.contentHash, g.genomeData);
+    cursor = page.genomes.length > 0 ? page.cursor : null;
+  } while (cursor);
+
+  const ts = now();
+  let cached = 0;
+  const rows: CachedRow[] = [];
+  for (const [hash, pet] of metadata) {
+    if (normalizeSpecies(pet.species) !== normalized) continue;
+    const genome = genomes.get(hash) ?? '';
+    if (!usableSharedPet(pet, genome)) continue;
+    rows.push({
+      content_hash: hash,
+      breed: pet.breed,
+      name: pet.name,
+      attributes: JSON.stringify(pet.attributes ?? {}),
+      genome_text: genome,
+    });
+  }
+
+  const db = getDb();
+  await withTransaction(async () => {
+    for (const row of rows) {
+      await db.execute(
+        `INSERT OR REPLACE INTO study_corpus
+         (content_hash, species, breed, name, attributes, genome_text, fetched_at)
+         VALUES ($hash, $species, $breed, $name, $attributes, $genome, $ts)`,
+        {
+          hash: row.content_hash,
+          species: normalized,
+          breed: row.breed,
+          name: row.name,
+          attributes: row.attributes,
+          genome: row.genome_text,
+          ts,
+        },
+      );
+      cached++;
+    }
+  });
+
+  const considered = [...metadata.values()].filter((p) => normalizeSpecies(p.species) === normalized).length;
+  return { considered, cached, skipped: considered - cached };
+}
+
+/** How much community evidence is cached, and when it was last pulled. */
+export async function studyCorpusStatus(species: string): Promise<{ cached: number; fetchedAt: string | null }> {
+  const rows = await getDb().select<Array<{ content_hash: string; fetched_at: string }>>(
+    'SELECT content_hash, fetched_at FROM study_corpus WHERE species = $species',
+    { species: normalizeSpecies(species) },
+  );
+  let latest: string | null = null;
+  for (const row of rows) if (latest === null || row.fetched_at > latest) latest = row.fetched_at;
+  return { cached: rows.length, fetchedAt: latest };
+}
+
+/** Drop every cached community animal for a species. */
+export async function clearStudyCorpus(species: string): Promise<void> {
+  await getDb().execute('DELETE FROM study_corpus WHERE species = $species', {
+    species: normalizeSpecies(species),
+  });
+}
+
 /**
  * Resolve subject ids back to display names.
  *
@@ -244,13 +437,29 @@ export async function runAttributeStudy(
  */
 export async function namesForSubjects(ids: readonly string[]): Promise<Map<string, string>> {
   const names = new Map<string, string>();
+  const db = getDb();
+
   const numeric = ids.map((id) => Number.parseInt(id, 10)).filter(Number.isInteger);
-  if (numeric.length === 0) return names;
-  const { placeholders, params } = buildInClauseParams(numeric, 'id');
-  const rows = await getDb().select<Array<{ id: number; name: string }>>(
-    `SELECT id, name FROM pets WHERE id IN (${placeholders})`,
-    params,
-  );
-  for (const row of rows) names.set(String(row.id), row.name);
+  if (numeric.length > 0) {
+    const { placeholders, params } = buildInClauseParams(numeric, 'id');
+    const rows = await db.select<Array<{ id: number; name: string }>>(
+      `SELECT id, name FROM pets WHERE id IN (${placeholders})`,
+      params,
+    );
+    for (const row of rows) names.set(String(row.id), row.name);
+  }
+
+  // Cached community animals are keyed `shared:<hash>` rather than by a
+  // `pets` row id, since they are deliberately not in that table.
+  const hashes = ids.filter((id) => id.startsWith(SHARED_ID_PREFIX)).map((id) => id.slice(SHARED_ID_PREFIX.length));
+  if (hashes.length > 0) {
+    const { placeholders, params } = buildInClauseParams(hashes, 'hash');
+    const rows = await db.select<Array<{ content_hash: string; name: string }>>(
+      `SELECT content_hash, name FROM study_corpus WHERE content_hash IN (${placeholders})`,
+      params,
+    );
+    for (const row of rows) names.set(`${SHARED_ID_PREFIX}${row.content_hash}`, row.name);
+  }
+
   return names;
 }

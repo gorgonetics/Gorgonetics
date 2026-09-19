@@ -1,6 +1,12 @@
 <script lang="ts">
 import { getSupportedSpecies, normalizeSpecies } from '$lib/services/configService.js';
-import { namesForSubjects, runAttributeStudy, type StudyRun } from '$lib/services/studyService.js';
+import {
+  namesForSubjects,
+  refreshStudyCorpus,
+  runAttributeStudy,
+  type StudyRun,
+  studyCorpusStatus,
+} from '$lib/services/studyService.js';
 import { pets } from '$lib/stores/pets.js';
 import StudyFindingsTable from './StudyFindingsTable.svelte';
 
@@ -46,6 +52,10 @@ const EXCLUSION_LABEL: Record<string, string> = {
 
 let run = $state<StudyRun | null>(null);
 let ranFor = $state('');
+let cachedCount = $state(0);
+let fetchedAt = $state<string | null>(null);
+let refreshing = $state(false);
+let refreshError = $state<string | null>(null);
 let names = $state(new Map<string, string>());
 let attribute = $state<string | null>(null);
 let loading = $state(true);
@@ -109,6 +119,23 @@ $effect(() => {
   void solve(target);
 });
 
+async function refresh(): Promise<void> {
+  refreshing = true;
+  refreshError = null;
+  try {
+    await refreshStudyCorpus(species);
+    // Re-solve rather than patch: the new animals change every count on
+    // screen, not just the cache line.
+    ranFor = '';
+    await solve(species);
+    ranFor = species;
+  } catch (err) {
+    refreshError = err instanceof Error ? err.message : String(err);
+  } finally {
+    refreshing = false;
+  }
+}
+
 async function solve(target: string): Promise<void> {
   loading = true;
   failure = null;
@@ -124,12 +151,21 @@ async function solve(target: string): Promise<void> {
     names = await namesForSubjects([...ids]);
     run = result;
     attribute = result.studies[0]?.attribute ?? null;
+    const status = await studyCorpusStatus(target);
+    cachedCount = status.cached;
+    fetchedAt = status.fetchedAt;
   } catch (err) {
     failure = err instanceof Error ? err.message : String(err);
   } finally {
     loading = false;
   }
 }
+</script>
+
+<script lang="ts" module>
+/** Community entries the study can learn from, without owning them. */
+export const COMMUNITY_HINT =
+  'Pulls every shared animal into a local study cache. They stay out of My Pets and cannot be bred — they are evidence, not stock — and they can never settle a disagreement, since you cannot re-read someone else\u2019s animal in the game.';
 </script>
 
 <div class="study" data-testid="study-view">
@@ -194,6 +230,29 @@ async function solve(target: string): Promise<void> {
 						: `on ${run.validation.stabledTested.toLocaleString()} checkable pairs`}
 				</span>
 			</div>
+			<p class="community">
+				<!-- Explicit, never on mount: one Firestore read per catalogue
+				     entry against a Spark quota. -->
+				<button
+					type="button"
+					class="refresh"
+					data-testid="study-refresh"
+					disabled={refreshing}
+					title={COMMUNITY_HINT}
+					onclick={refresh}
+				>
+					{refreshing ? 'Fetching…' : 'Fetch community animals'}
+				</button>
+				{#if refreshError}
+					<span class="refresh-error">{refreshError}</span>
+				{:else if cachedCount > 0}
+					<span class="community-detail">
+						{cachedCount.toLocaleString()} cached{fetchedAt ? `, last fetched ${fetchedAt.slice(0, 10)}` : ''}
+					</span>
+				{:else}
+					<span class="community-detail">none cached — the study sees only your own animals</span>
+				{/if}
+			</p>
 			<p class="corpus">
 				<!-- No species name here: it pluralises differently per species and
 				     the selector above already says which one is under study. -->
@@ -357,6 +416,37 @@ async function solve(target: string): Promise<void> {
 	.stat-detail {
 		font-size: 11px;
 		color: var(--text-tertiary);
+	}
+
+	.community {
+		flex-basis: 100%;
+		display: flex;
+		align-items: baseline;
+		gap: var(--space-xs);
+		margin: 0;
+		font-size: 11px;
+	}
+
+	.refresh {
+		background: none;
+		border: 1px solid var(--border-primary);
+		border-radius: 4px;
+		padding: var(--space-3xs) var(--space-xs);
+		font-size: 11px;
+		color: var(--text-secondary);
+		cursor: pointer;
+	}
+	.refresh:disabled {
+		color: var(--text-tertiary);
+		cursor: default;
+	}
+
+	.community-detail {
+		color: var(--text-tertiary);
+	}
+
+	.refresh-error {
+		color: var(--gene-negative);
 	}
 
 	.corpus {
