@@ -5,7 +5,7 @@ import * as petService from '$lib/services/petService.js';
 import type { Pet } from '$lib/types/index.js';
 import { errorMessage } from '$lib/utils/error.js';
 
-export type Tab = 'mypets' | 'breed' | 'community' | 'reference';
+export type Tab = 'mypets' | 'breed' | 'study' | 'community' | 'reference';
 
 /** Boolean pet flags toggled in-place via `setPetMarker` (no full reload). */
 export type MarkerKey = 'starred' | 'stabled' | 'is_pet_quality';
@@ -67,6 +67,8 @@ const TAB_STATE_RESETS: Record<Tab, () => void> = {
   // Reference (gene-template editing) clears any single-pet selection so it
   // can't carry over from My Pets when switching destinations.
   reference: () => selectedPet.set(null),
+  // Study reads the whole stable and holds no pet selection of its own.
+  study: clearSelectionAndGeneView,
 };
 
 // Monotonic generation counter for in-flight `loadPets` calls. Concurrent

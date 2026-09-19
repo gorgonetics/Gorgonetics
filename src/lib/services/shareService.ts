@@ -573,6 +573,10 @@ export async function importCommunityPet(shared: SharedPet, opts: { tag?: string
     gender: shared.gender,
     notes: shared.notes,
     sourcePath: `community:${shared.contentHash}`,
+    // Someone else's animal is not in your stable. Set on the insert, not
+    // patched after: a failed follow-up update would leave it claiming to
+    // be re-readable in the game when it is not.
+    stabled: false,
   });
 
   const localTag = opts.tag ?? COMMUNITY_TAG;
@@ -718,6 +722,10 @@ function mergeLocalTags(tags: unknown): string[] {
  * still be applied manually).
  */
 async function applyImportMetadata(petId: number, shared: SharedPet): Promise<void> {
+  // `stabled: false` is set on the insert by `uploadPetLocally`, not here:
+  // this update is best-effort and only runs for `kind: 'created'`, so a
+  // failure would otherwise leave a community animal marked as one the
+  // player can re-read in the game.
   const updates: Record<string, unknown> = {};
   if (shared.name) updates.name = shared.name;
   if (shared.gender) updates.gender = shared.gender;

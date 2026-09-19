@@ -7,6 +7,7 @@ import SettingsView from '$lib/components/layout/SettingsView.svelte';
 import MyPets from '$lib/components/mypets/MyPets.svelte';
 import PetEditor from '$lib/components/pet/PetEditor.svelte';
 import StatusBanner from '$lib/components/shared/StatusBanner.svelte';
+import StudyView from '$lib/components/study/StudyView.svelte';
 import { activeTab, appState, error, loading, notice, pets } from '$lib/stores/pets.js';
 import { editingPet, settingsOpen, uiActions } from '$lib/stores/ui.js';
 
@@ -47,6 +48,8 @@ onMount(async () => {
 			<ReferenceView />
 		{:else if $activeTab === 'breed'}
 			<BreedView />
+		{:else if $activeTab === 'study'}
+			<StudyView />
 		{:else if $activeTab === 'community'}
 			<CommunityTab />
 		{:else}

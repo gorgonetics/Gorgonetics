@@ -454,6 +454,17 @@ export interface UploadPetOptions {
   notes?: string;
   /** Origin path stored in the imported_files ledger so the auto-scanner can attribute imports later. */
   sourcePath?: string;
+  /**
+   * Whether the animal goes into the player's stable. Defaults true, which
+   * is right for a genome imported from the game's own reports folder.
+   *
+   * A community import passes false: the animal is in someone else's
+   * stable, and `stabled` is also what the genetic study reads as
+   * *checkable*. Set on the insert rather than patched afterwards so a
+   * failed follow-up update cannot leave it wrongly claiming to be
+   * verifiable against a game screen the player cannot open.
+   */
+  stabled?: boolean;
 }
 
 export interface UploadPetResult {
@@ -482,7 +493,7 @@ export interface UploadPetResult {
 export async function uploadPet(content: string, options: UploadPetOptions = {}): Promise<UploadPetResult> {
   // Default gender to 'Male' so an unstructured genome still gets a
   // sensible value — same convention as the manual upload UI.
-  const { name = '', gender = 'Male', notes = '', sourcePath } = options;
+  const { name = '', gender = 'Male', notes = '', sourcePath, stabled = true } = options;
 
   // Validate content
   if (!content.trim()) {
@@ -613,7 +624,7 @@ export async function uploadPet(content: string, options: UploadPetOptions = {})
         temperament: attrValues.temperament ?? 50,
         sort_order: nextOrder,
         starred: 0,
-        stabled: 1,
+        stabled: stabled ? 1 : 0,
         is_pet_quality: 0,
         positive_genes: positiveGenes,
         total_genes: geneCounts.total,
