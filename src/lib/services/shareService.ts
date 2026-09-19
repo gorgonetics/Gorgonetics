@@ -718,7 +718,17 @@ function mergeLocalTags(tags: unknown): string[] {
  * still be applied manually).
  */
 async function applyImportMetadata(petId: number, shared: SharedPet): Promise<void> {
-  const updates: Record<string, unknown> = {};
+  // A community animal is in someone else's stable, never in yours — the
+  // insert default of `stabled = 1` is simply wrong for it. Beyond the
+  // roster, `stabled` is what the genetic study treats as *checkable*: the
+  // player can re-read a stabled animal in game and settle a disagreement.
+  // Left at the default, every import would claim to be verifiable against
+  // a game screen the player cannot open.
+  //
+  // Only on `kind: 'created'`, which is the sole caller — a `backfilled`
+  // row is the player's own pre-existing animal that merely matches a
+  // shared hash, and its stabled state is theirs to set.
+  const updates: Record<string, unknown> = { stabled: false };
   if (shared.name) updates.name = shared.name;
   if (shared.gender) updates.gender = shared.gender;
   // `breed` may be the empty string for unstructured genomes — only
@@ -730,7 +740,6 @@ async function applyImportMetadata(petId: number, shared: SharedPet): Promise<vo
   // all-50 defaults when the name isn't structured). Absent on legacy
   // entries — then the re-derived values stand, as before.
   if (shared.attributes) updates.attributes = shared.attributes;
-  if (Object.keys(updates).length === 0) return;
   try {
     await updatePet(petId, updates);
   } catch (err) {

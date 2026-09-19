@@ -784,6 +784,45 @@ describe('shareService.importCommunityPet', () => {
     expect(findPetByHash).not.toHaveBeenCalled();
   });
 
+  it('never stables a community import — it is in someone else\u2019s stable, not yours', async () => {
+    // `stabled` is also what the genetic study reads as *checkable*: left at
+    // the insert default of 1, every import would claim to be verifiable
+    // against a game screen the player cannot open.
+    const shared = await makeShared('S');
+    uploadPetLocallyMock.mockResolvedValueOnce({
+      status: 'success',
+      kind: 'created',
+      message: '',
+      pet_id: 55,
+      name: shared.name,
+    });
+    updatePetMock.mockResolvedValue(true);
+
+    await importCommunityPet(shared);
+
+    const metadata = updatePetMock.mock.calls.find(([, u]) => 'stabled' in (u as object));
+    expect(metadata?.[1]).toMatchObject({ stabled: false });
+  });
+
+  it('leaves a pre-existing local animal stabled as the player set it', async () => {
+    // `backfilled` means the player already owned this animal; it merely
+    // matches a shared hash. Their own stabled state is authoritative.
+    const shared = await makeShared('B');
+    uploadPetLocallyMock.mockResolvedValueOnce({
+      status: 'success',
+      kind: 'backfilled',
+      message: '',
+      pet_id: 56,
+      name: shared.name,
+    });
+    getPetMock.mockResolvedValueOnce({ tags: [] } as unknown as Pet);
+    updatePetMock.mockResolvedValue(true);
+
+    await importCommunityPet(shared);
+
+    expect(updatePetMock.mock.calls.every(([, u]) => !('stabled' in (u as object)))).toBe(true);
+  });
+
   it('honours a custom tag label override', async () => {
     const shared = await makeShared('Y');
     uploadPetLocallyMock.mockResolvedValueOnce({
@@ -960,6 +999,7 @@ describe('shareService.importCommunityPet', () => {
 
     expect(result.status).toBe('imported');
     expect(updatePet).toHaveBeenCalledWith(55, {
+      stabled: false,
       name: 'CustomName',
       breed: 'Kurbone',
       gender: Gender.MALE,
