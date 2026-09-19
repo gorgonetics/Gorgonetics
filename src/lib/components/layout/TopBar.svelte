@@ -80,6 +80,16 @@ function handleMouseUp(e: MouseEvent) {
         </button>
         <button
             class="tab-btn"
+            class:active={$activeTab === "study"}
+            data-testid="tab-study"
+            disabled={$overlayOpen}
+            onclick={() => switchTab("study")}
+            title="Work out what each gene is worth in attribute points, deduced from your stable."
+        >
+            🔬 Study
+        </button>
+        <button
+            class="tab-btn"
             class:active={$activeTab === "community"}
             data-testid="tab-community"
             disabled={$overlayOpen}
