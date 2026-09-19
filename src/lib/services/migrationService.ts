@@ -210,6 +210,40 @@ const MIGRATIONS: Migration[] = [
       await db.execute("ALTER TABLE pets ADD COLUMN genome_text TEXT NOT NULL DEFAULT ''");
     },
   },
+  {
+    version: 14,
+    description: 'Add study_corpus — community genomes cached for the genetic study, kept out of pets',
+    up: async () => {
+      // The study learns from animals; the roster holds animals the player
+      // owns. Community entries are evidence, not property, so they get
+      // their own table rather than being imported: My Pets and the
+      // breeding pool stay exactly as the player left them.
+      //
+      // The genome is stored as raw text, not projected into per-locus rows
+      // the way `pet_genes` is. A few hundred community animals would be
+      // most of a million rows, and the study parses the whole corpus in
+      // one pass anyway — the projection would cost far more than it saves.
+      //
+      // `content_hash` is the primary key, so re-fetching an entry the
+      // cache already holds replaces it rather than duplicating, and a
+      // community entry the player also owns locally can be recognised and
+      // dropped (counting one animal twice would invent a disagreement
+      // between it and itself).
+      const db = getDb();
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS study_corpus (
+          content_hash TEXT PRIMARY KEY,
+          species      TEXT NOT NULL,
+          breed        TEXT NOT NULL,
+          name         TEXT NOT NULL,
+          attributes   TEXT NOT NULL,
+          genome_text  TEXT NOT NULL,
+          fetched_at   TEXT NOT NULL
+        )
+      `);
+      await db.execute('CREATE INDEX IF NOT EXISTS idx_study_corpus_species ON study_corpus(species)');
+    },
+  },
 ];
 
 /** Derived from the last migration — no manual bookkeeping needed. */

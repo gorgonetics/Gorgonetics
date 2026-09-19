@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { buildInClauseParams, closeDatabase, getDb, initDatabase } from '$lib/services/database.js';
+import { runMigrations } from '$lib/services/migrationService.js';
 
 // The in-memory database is used automatically outside Tauri
 
@@ -299,5 +300,61 @@ describe('buildInClauseParams', () => {
     // Underscores and word characters after the first position are fine.
     expect(() => buildInClauseParams([1], 'pet_id')).not.toThrow();
     expect(() => buildInClauseParams([1], '_x')).not.toThrow();
+  });
+});
+
+describe('INSERT OR REPLACE keying', () => {
+  beforeEach(async () => {
+    await closeDatabase();
+    await initDatabase();
+    await runMigrations();
+  });
+
+  it('keeps rows distinct on a table whose key is not animal_type+gene', async () => {
+    // The replace key used to be hardcoded to the `genes` table's. On any
+    // other table both key columns read `undefined`, so every insert
+    // matched the first row and the table never grew past one entry.
+    const db = getDb();
+    for (const hash of ['a', 'b', 'c']) {
+      await db.execute(
+        `INSERT OR REPLACE INTO study_corpus
+         (content_hash, species, breed, name, attributes, genome_text, fetched_at)
+         VALUES ($hash, $species, $breed, $name, $attributes, $genome, $fetched)`,
+        {
+          hash,
+          species: 'horse',
+          breed: 'Kurbone',
+          name: `pet-${hash}`,
+          attributes: '{}',
+          genome: '',
+          fetched: '2026-09-19T00:00:00Z',
+        },
+      );
+    }
+    const rows = await db.select<Array<{ content_hash: string }>>('SELECT content_hash FROM study_corpus');
+    expect(rows).toHaveLength(3);
+  });
+
+  it('still replaces on a repeated key rather than duplicating', async () => {
+    const db = getDb();
+    for (const name of ['first', 'second']) {
+      await db.execute(
+        `INSERT OR REPLACE INTO study_corpus
+         (content_hash, species, breed, name, attributes, genome_text, fetched_at)
+         VALUES ($hash, $species, $breed, $name, $attributes, $genome, $fetched)`,
+        {
+          hash: 'same',
+          species: 'horse',
+          breed: 'Kurbone',
+          name,
+          attributes: '{}',
+          genome: '',
+          fetched: '2026-09-19T00:00:00Z',
+        },
+      );
+    }
+    const rows = await db.select<Array<{ name: string }>>('SELECT name FROM study_corpus');
+    expect(rows).toHaveLength(1);
+    expect(rows[0].name).toBe('second');
   });
 });

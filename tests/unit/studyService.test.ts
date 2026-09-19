@@ -1,9 +1,26 @@
-import { beforeEach, describe, expect, it } from 'vitest';
-import { closeDatabase, initDatabase } from '$lib/services/database.js';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+// The catalogue is a network read; stub it so the refresh path can be
+// exercised against the real cache table.
+vi.mock('$lib/services/shareService.js', () => ({
+  listPets: vi.fn(),
+  listGenomes: vi.fn(),
+}));
+
+import { closeDatabase, getDb, initDatabase } from '$lib/services/database.js';
 import * as geneService from '$lib/services/geneService.js';
 import { runMigrations } from '$lib/services/migrationService.js';
 import * as petService from '$lib/services/petService.js';
-import { loadStudyCorpus, namesForSubjects, runAttributeStudy, STUDYABLE_SPECIES } from '$lib/services/studyService.js';
+import * as shareService from '$lib/services/shareService.js';
+import {
+  loadStudyCorpus,
+  namesForSubjects,
+  refreshStudyCorpus,
+  runAttributeStudy,
+  STUDYABLE_SPECIES,
+  studyCorpusStatus,
+} from '$lib/services/studyService.js';
+import { sha256Hex } from '$lib/utils/hash.js';
 
 /**
  * Four horse loci on chromosome 01. `01A1` is generic, `01A4` belongs to
@@ -245,5 +262,216 @@ describe('namesForSubjects', () => {
 
   it('is empty rather than throwing on ids that are not numbers', async () => {
     expect(await namesForSubjects(['not-an-id'])).toEqual(new Map());
+  });
+});
+
+describe('cached community animals', () => {
+  /** Insert straight into the cache; the fetch itself is exercised elsewhere. */
+  async function cache(hash: string, entity: string, genes: string, attrs: Record<string, number>) {
+    // Every value is a named placeholder: the in-memory adapter binds an
+    // INSERT's params by position, so mixing literals into VALUES shifts
+    // every later column onto the wrong param.
+    await getDb().execute(
+      `INSERT OR REPLACE INTO study_corpus
+       (content_hash, species, breed, name, attributes, genome_text, fetched_at)
+       VALUES ($hash, $species, $breed, $name, $attributes, $genome, $fetched)`,
+      {
+        hash,
+        species: 'horse',
+        breed: 'Kurbone',
+        name: entity,
+        attributes: JSON.stringify(attrs),
+        genome: genome(entity, genes),
+        fetched: '2026-09-19T00:00:00Z',
+      },
+    );
+  }
+
+  const attrs = (temperament: number, toughness: number) => ({
+    temperament,
+    toughness,
+    ruggedness: 70,
+    enthusiasm: 70,
+    friendliness: 70,
+    intelligence: 70,
+    virility: 70,
+  });
+
+  it('studies a cached animal without putting it in the roster', async () => {
+    await cache('h1', name('Kb', 40, 80, 'Shared'), 'RRRR', attrs(40, 80));
+    const corpus = await loadStudyCorpus('horse');
+    expect(corpus.subjects).toHaveLength(1);
+    expect(corpus.subjects[0].id).toMatch(/^shared:/);
+    const { items } = await petService.getAllPets();
+    expect(items).toEqual([]);
+  });
+
+  it('never marks a community animal checkable', async () => {
+    // You cannot re-read someone else's animal in the game.
+    await cache('h1', name('Kb', 40, 80, 'Shared'), 'RRRR', attrs(40, 80));
+    const corpus = await loadStudyCorpus('horse');
+    expect(corpus.subjects[0].stabled).toBe(false);
+  });
+
+  it('drops a cached copy of an animal the player already owns', async () => {
+    // The same genome twice would pair with itself, and two records that
+    // disagree would read as a contradiction between an animal and itself.
+    const id = await upload(name('Kb', 40, 80, 'Mine'), 'RRRR');
+    const pet = await petService.getPet(id);
+    await cache(pet?.content_hash ?? 'x', name('Kb', 99, 80, 'Theirs'), 'RRRR', attrs(99, 80));
+
+    const corpus = await loadStudyCorpus('horse');
+    expect(corpus.subjects).toHaveLength(1);
+    expect(corpus.subjects[0].attributes.temperament).toBe(40);
+  });
+
+  it('pairs a cached animal with a local one to pin a magnitude', async () => {
+    await upload(name('Kb', 40, 80, 'Local'), 'RRRR');
+    await cache('h2', name('Kb', 45, 80, 'Shared'), 'DRRR', attrs(45, 80));
+
+    const run = await runAttributeStudy('horse');
+    const temperament = run.studies.find((s) => s.attribute === 'temperament');
+    expect(temperament?.findings[0]).toMatchObject({ gene: '01A1', magnitude: 5 });
+    // Mixed local/community pair: not something the player can settle.
+    expect(run.validation.stabledTested).toBe(0);
+  });
+
+  it('scopes the cache by species and reports its freshness', async () => {
+    await cache('h1', name('Kb', 40, 80, 'Shared'), 'RRRR', attrs(40, 80));
+    expect(await studyCorpusStatus('horse')).toMatchObject({ cached: 1 });
+    expect((await studyCorpusStatus('beewasp')).cached).toBe(0);
+  });
+
+  it('resolves a cached animal back to its name for the evidence panel', async () => {
+    await cache('h1', name('Kb', 40, 80, 'Shared'), 'RRRR', attrs(40, 80));
+    const names = await namesForSubjects(['shared:h1']);
+    expect(names.get('shared:h1')).toBe(name('Kb', 40, 80, 'Shared'));
+  });
+});
+
+describe('refreshStudyCorpus', () => {
+  const ATTRS = {
+    temperament: 40,
+    toughness: 80,
+    ruggedness: 70,
+    enthusiasm: 70,
+    friendliness: 70,
+    intelligence: 70,
+    virility: 70,
+  };
+
+  /** A catalogue entry as `listPets` would return it. */
+  function shared(hash: string, over: Record<string, unknown> = {}) {
+    return {
+      contentHash: hash,
+      name: name('Kb', 40, 80, hash),
+      character: 'Tester',
+      species: 'Horse',
+      gender: 'Female',
+      breed: 'Kurbone',
+      breeder: 'Tester',
+      notes: '',
+      tags: [],
+      attributes: { ...ATTRS },
+      schemaVersion: 1,
+      appVersion: '1.0',
+      uploadedAt: new Date('2026-09-19T00:00:00Z'),
+      uploaderUid: null,
+      ...over,
+    };
+  }
+
+  function mockCatalogue(pets: unknown[], genomes: Record<string, string>) {
+    vi.mocked(shareService.listPets).mockResolvedValue({ pets, cursor: null } as never);
+    vi.mocked(shareService.listGenomes).mockResolvedValue({
+      genomes: Object.entries(genomes).map(([contentHash, genomeData]) => ({ contentHash, genomeData })),
+      cursor: null,
+    } as never);
+  }
+
+  /**
+   * A genome and the hash it is actually filed under. The refresh verifies
+   * the digest — nothing server-side can — so a fixture with a made-up hash
+   * is rejected exactly as a tampered blob would be.
+   */
+  async function entry(entityName: string, genes: string): Promise<{ hash: string; text: string }> {
+    const text = genome(entityName, genes);
+    return { hash: await sha256Hex(text), text };
+  }
+
+  it('keeps the correction, not the entry it supersedes', async () => {
+    // The catalogue is add-only and paged newest-first, so the correction
+    // arrives before the base. Keeping the last one seen would cache the
+    // very attributes the uploader published a correction to fix.
+    const g = await entry(name('Kb', 40, 80, 'Fixed'), 'RRRR');
+    const correction = shared(g.hash, {
+      attributes: { ...ATTRS, temperament: 40 },
+      name: name('Kb', 40, 80, 'Fixed'),
+      isCorrection: true,
+    });
+    const base = shared(g.hash, { attributes: { ...ATTRS, temperament: 90 }, name: name('Kb', 90, 80, 'Typo') });
+    mockCatalogue([correction, base], { [g.hash]: g.text });
+
+    await refreshStudyCorpus('horse');
+
+    const corpus = await loadStudyCorpus('horse');
+    expect(corpus.subjects).toHaveLength(1);
+    expect(corpus.subjects[0].attributes.temperament).toBe(40);
+  });
+
+  it('drops entries the catalogue no longer serves', async () => {
+    const a = await entry(name('Kb', 40, 80, 'a'), 'RRRR');
+    const b = await entry(name('Kb', 41, 80, 'b'), 'DRRR');
+    mockCatalogue(
+      [shared(a.hash, { name: name('Kb', 40, 80, 'a') }), shared(b.hash, { name: name('Kb', 41, 80, 'b') })],
+      {
+        [a.hash]: a.text,
+        [b.hash]: b.text,
+      },
+    );
+    await refreshStudyCorpus('horse');
+    expect((await studyCorpusStatus('horse')).cached).toBe(2);
+
+    // b withdrawn upstream: an insert-only refresh would keep feeding it.
+    mockCatalogue([shared(a.hash, { name: name('Kb', 40, 80, 'a') })], { [a.hash]: a.text });
+    await refreshStudyCorpus('horse');
+    expect((await studyCorpusStatus('horse')).cached).toBe(1);
+  });
+
+  it('refuses a genome that does not hash to the id it is filed under', async () => {
+    // Nothing server-side can check this: `/genomes/{id}` takes
+    // unauthenticated writes and Firestore rules cannot compute a digest.
+    const good = await entry(name('Kb', 40, 80, 'good'), 'RRRR');
+    const tampered = await entry(name('Kb', 41, 80, 'other'), 'DRRR');
+    mockCatalogue(
+      [
+        shared(good.hash, { name: name('Kb', 40, 80, 'good') }),
+        shared(tampered.hash, { name: name('Kb', 41, 80, 'other') }),
+      ],
+      { [good.hash]: good.text, [tampered.hash]: good.text }, // second blob filed under the wrong hash
+    );
+
+    const result = await refreshStudyCorpus('horse');
+    expect(result).toMatchObject({ cached: 1, unverified: 1 });
+  });
+
+  it('skips an entry whose attributes were never measured', async () => {
+    // Attributes are present and well-formed; the name is what betrays them
+    // as the importer's defaults rather than readings.
+    const wild = await entry('Wild Horse', 'RRRR');
+    const ok = await entry(name('Kb', 41, 80, 'ok'), 'DRRR');
+    mockCatalogue([shared(wild.hash, { name: 'Wild Horse' }), shared(ok.hash, { name: name('Kb', 41, 80, 'ok') })], {
+      [wild.hash]: wild.text,
+      [ok.hash]: ok.text,
+    });
+    const result = await refreshStudyCorpus('horse');
+    expect(result).toMatchObject({ cached: 1, skipped: 1 });
+  });
+
+  it('caches nothing for a species with no entries', async () => {
+    const g = await entry(name('Kb', 40, 80, 'x'), 'RRRR');
+    mockCatalogue([shared(g.hash, { species: 'BeeWasp' })], { [g.hash]: g.text });
+    const result = await refreshStudyCorpus('horse');
+    expect(result).toMatchObject({ considered: 0, cached: 0 });
   });
 });

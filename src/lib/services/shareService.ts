@@ -40,6 +40,7 @@ import {
   type DocumentData,
   type DocumentSnapshot,
   doc,
+  documentId,
   type Firestore,
   getDoc,
   getDocs,
@@ -482,6 +483,48 @@ export async function listPets(opts: ListPetsOpts = {}, db: Firestore = defaultF
   const snap = await getDocs(query(collection(db, META_COLLECTION), ...constraints));
   return {
     pets: snap.docs.map(toMetadataSharedPet),
+    cursor: snap.docs.length > 0 ? snap.docs[snap.docs.length - 1] : null,
+  };
+}
+
+/** One cached community genome: the hash it is keyed by, and its raw text. */
+export interface SharedGenome {
+  contentHash: string;
+  genomeData: string;
+}
+
+export interface SharedGenomesPage {
+  genomes: SharedGenome[];
+  cursor: unknown | null;
+}
+
+/**
+ * Page the genome blobs as a collection.
+ *
+ * The obvious way to assemble a corpus is `getSharedPet` per entry, which
+ * is one round trip per animal — several hundred requests, against a Spark
+ * quota, for one refresh. Genomes are a collection like any other, so
+ * paging them costs a couple of requests instead.
+ *
+ * Ordered by document id (the content hash) rather than a timestamp: these
+ * documents carry no `uploadedAt`, and the id is the only field guaranteed
+ * present and unique, which is also what makes the cursor stable.
+ */
+export async function listGenomes(
+  opts: ListPetsOpts = {},
+  db: Firestore = defaultFirestore,
+): Promise<SharedGenomesPage> {
+  const pageSize = opts.limit ?? DEFAULT_PAGE_SIZE;
+  const constraints = opts.after
+    ? [orderBy(documentId()), startAfter(opts.after), queryLimit(pageSize)]
+    : [orderBy(documentId()), queryLimit(pageSize)];
+
+  const snap = await getDocs(query(collection(db, GENOME_COLLECTION), ...constraints));
+  return {
+    genomes: snap.docs.map((d) => ({
+      contentHash: d.id,
+      genomeData: typeof d.data()?.genomeData === 'string' ? (d.data().genomeData as string) : '',
+    })),
     cursor: snap.docs.length > 0 ? snap.docs[snap.docs.length - 1] : null,
   };
 }
