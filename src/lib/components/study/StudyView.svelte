@@ -1,6 +1,7 @@
 <script lang="ts">
 import { normalizeSpecies } from '$lib/services/configService.js';
 import {
+  confirmGeneDeclaration,
   namesForSubjects,
   type RefreshProgress,
   refreshStudyCorpus,
@@ -10,6 +11,7 @@ import {
   studyCorpusStatus,
 } from '$lib/services/studyService.js';
 import { pets } from '$lib/stores/pets.js';
+import type { GeneDoubt } from '$lib/utils/attributeStudy.js';
 import StudyFindingsTable from './StudyFindingsTable.svelte';
 
 // Only species the study can measure. Listing one it cannot gives a panel
@@ -104,6 +106,29 @@ function progressLabel(p: RefreshProgress | { phase: 'solving' }): string {
 }
 let names = $state(new Map<string, string>());
 let attribute = $state<string | null>(null);
+/** The slot a confirmation is being written for, so its button can say so. */
+let confirming = $state<string | null>(null);
+
+/**
+ * Record that the player checked this gene in game and the table was right.
+ *
+ * Re-solves afterwards rather than just hiding the row: a confirmed
+ * declaration moves the blame onto the animals in the dispute, and they
+ * should appear under Suspect readings straight away — that is the next
+ * place to look, and the reason this is worth recording at all.
+ */
+async function confirmDoubt(d: GeneDoubt): Promise<void> {
+  const key = `${d.gene}:${d.expression}`;
+  confirming = key;
+  try {
+    await confirmGeneDeclaration(species, d.gene, d.expression, d.attribute, d.declared);
+    ranFor = '';
+    await solve(species);
+    ranFor = species;
+  } finally {
+    confirming = null;
+  }
+}
 let loading = $state(true);
 let failure = $state<string | null>(null);
 
@@ -349,8 +374,9 @@ async function solve(target: string): Promise<void> {
 						<h3>Check these genes in game</h3>
 						<p>
 							The animals disagree with what the gene table says these do. The table is entered by
-							hand, so it is as likely to be wrong as a pet's record — confirm the effect in game and
-							correct it in Reference.
+							hand, so it is as likely to be wrong as a pet's record. Check the gene in game: if it is
+							wrong, correct it in Reference; if it is right, say so here and the animals behind the
+							disagreement become the suspects instead.
 						</p>
 						<ul>
 							{#each doubts as d (`${d.gene}:${d.expression}:${d.attribute}`)}
@@ -372,6 +398,16 @@ async function solve(target: string): Promise<void> {
 										>
 									{/if}
 									<span class="doubt-animals" title="Distinct animals behind this">{d.animals}</span>
+									<button
+										type="button"
+										class="doubt-confirm"
+										data-testid="doubt-confirm-{d.gene}-{d.expression}"
+										disabled={confirming !== null}
+										title="I checked in game and the declared effect is right. Stop recommending this gene, and treat the animals in the dispute as the mis-recorded ones."
+										onclick={() => confirmDoubt(d)}
+									>
+										{confirming === `${d.gene}:${d.expression}` ? 'Saving…' : 'Table is right'}
+									</button>
 								</li>
 							{/each}
 						</ul>
@@ -501,6 +537,25 @@ async function solve(target: string): Promise<void> {
 
 	.refresh-error {
 		color: var(--gene-negative);
+	}
+
+	.doubt-confirm {
+		background: none;
+		border: 1px solid var(--border-primary);
+		border-radius: 3px;
+		padding: 1px var(--space-2xs);
+		font-size: 11px;
+		color: var(--text-secondary);
+		cursor: pointer;
+		white-space: nowrap;
+	}
+	.doubt-confirm:hover:not(:disabled) {
+		border-color: var(--accent);
+		color: var(--accent);
+	}
+	.doubt-confirm:disabled {
+		opacity: 0.5;
+		cursor: default;
 	}
 
 	.refresh-progress {

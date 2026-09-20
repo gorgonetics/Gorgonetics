@@ -47,8 +47,11 @@ import { type AttributeMagnitudes, buildAttributeMagnitudes, EMPTY_MAGNITUDES } 
 import {
   type AttributeStudy,
   buildEffectSlots,
+  type EffectSlot,
+  type Expression,
   type StudyOptions,
   type StudySubject,
+  slotKey,
   studyAll,
 } from '$lib/utils/attributeStudy.js';
 import { sha256Hex } from '$lib/utils/hash.js';
@@ -350,7 +353,10 @@ export async function runAttributeStudy(
     ...options,
     requiredGenes: options.requiredGenes ?? new Set(slots.map((slot) => slot.gene)),
   });
-  const studies = studyAll(corpus.subjects, slots, options);
+  const studies = studyAll(corpus.subjects, slots, {
+    ...options,
+    confirmedSlots: options.confirmedSlots ?? (await liveGeneConfirmations(species, slots)),
+  });
 
   const totals = { slots: 0, found: 0, direct: 0, derived: 0 };
   const validation = { tested: 0, exact: 0, stabledTested: 0, stabledExact: 0 };
@@ -600,6 +606,78 @@ export async function namesForSubjects(ids: readonly string[]): Promise<Map<stri
   }
 
   return names;
+}
+
+/**
+ * Record that the player checked this gene in the game and the declared
+ * effect was right.
+ *
+ * A doubt names two suspects — the hand-entered gene table, or an animal's
+ * record — and the engine cannot choose between them. This is the answer
+ * coming back, and it is the *commoner* answer: most of the time the table
+ * is fine and a pet's attributes were typed wrong.
+ *
+ * The declaration is stored alongside the slot, not just the slot id,
+ * because what was confirmed is a specific claim. Re-declaring the gene in
+ * Reference makes the confirmation describe something nobody checked.
+ */
+export async function confirmGeneDeclaration(
+  species: string,
+  gene: string,
+  expression: Expression,
+  attribute: string,
+  sign: 1 | -1,
+): Promise<void> {
+  await getDb().execute(
+    `INSERT OR REPLACE INTO gene_confirmations
+       (species, gene, expression, attribute, sign, confirmed_at)
+     VALUES ($species, $gene, $expression, $attribute, $sign, $confirmed_at)`,
+    {
+      species: normalizeSpecies(species),
+      gene,
+      expression,
+      attribute,
+      sign,
+      confirmed_at: now(),
+    },
+  );
+}
+
+/** Forget a confirmation, so the gene can be recommended for checking again. */
+export async function withdrawGeneConfirmation(species: string, gene: string, expression: Expression): Promise<void> {
+  await getDb().execute(
+    'DELETE FROM gene_confirmations WHERE species = $species AND gene = $gene AND expression = $expression',
+    { species: normalizeSpecies(species), gene, expression },
+  );
+}
+
+/**
+ * Confirmations that still describe what the gene table currently declares.
+ *
+ * A confirmation is about a claim, not a slot. If the gene has since been
+ * re-declared — a different attribute, or the other direction — then what
+ * the player verified is no longer what the app believes, and the slot goes
+ * back to being an open question. Stale rows are left in place rather than
+ * deleted: re-declaring a gene back to what it was should bring the old
+ * confirmation back with it, since the player really did check that claim.
+ */
+export async function liveGeneConfirmations(
+  species: string,
+  slots: readonly EffectSlot[],
+): Promise<ReadonlySet<string>> {
+  const normalized = normalizeSpecies(species);
+  const rows = await getDb().select<Array<{ gene: string; expression: string; attribute: string; sign: number }>>(
+    'SELECT gene, expression, attribute, sign FROM gene_confirmations WHERE species = $species',
+    { species: normalized },
+  );
+  const confirmed = new Map(rows.map((r) => [`${r.gene}:${r.expression}`, r]));
+  const live = new Set<string>();
+  for (const slot of slots) {
+    const key = slotKey(slot);
+    const row = confirmed.get(key);
+    if (row && row.attribute === slot.attribute && row.sign === slot.sign) live.add(key);
+  }
+  return live;
 }
 
 /**

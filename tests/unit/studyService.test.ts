@@ -15,6 +15,8 @@ import * as shareService from '$lib/services/shareService.js';
 import {
   attributeMagnitudesFor,
   clearAttributeMagnitudesCache,
+  confirmGeneDeclaration,
+  liveGeneConfirmations,
   loadStudyCorpus,
   namesForSubjects,
   peekAttributeMagnitudes,
@@ -23,8 +25,10 @@ import {
   runAttributeStudy,
   STUDYABLE_SPECIES,
   studyCorpusStatus,
+  withdrawGeneConfirmation,
 } from '$lib/services/studyService.js';
 import { coverageOf, EMPTY_MAGNITUDES, hasMagnitudes, magnitudeOf } from '$lib/utils/attributePoints.js';
+import { buildEffectSlots } from '$lib/utils/attributeStudy.js';
 import { sha256Hex } from '$lib/utils/hash.js';
 
 /**
@@ -404,6 +408,76 @@ describe('peekAttributeMagnitudes', () => {
     // "Not ready" and "nothing to know" are different answers: a caller that
     // confused them would keep waiting for a solve that will never run.
     expect(peekAttributeMagnitudes('beewasp')).toBe(EMPTY_MAGNITUDES);
+  });
+});
+
+describe('gene confirmations', () => {
+  /**
+   * Four animals in two pairs, each differing only at `01A1`, where carrying
+   * the gene reads 5 points *lower* against a declared `Temperament+`.
+   *
+   * Two pairs sharing no animal, because one bad animal is never enough to
+   * raise a doubt — `needsTwoMistakes` requires that no single record could
+   * account for the whole disagreement.
+   */
+  async function disputed(): Promise<void> {
+    await upload(name('Kb', 50, 80, 'PlainA'), 'RRRR');
+    await upload(name('Kb', 45, 80, 'CarrierA'), 'DRRR');
+    await upload(name('Kb', 60, 80, 'PlainB'), 'RRRR');
+    await upload(name('Kb', 55, 80, 'CarrierB'), 'DRRR');
+  }
+
+  it('recommends the gene for checking while nobody has checked it', async () => {
+    await disputed();
+    const run = await runAttributeStudy('horse');
+    expect(run.studies.flatMap((s) => s.geneDoubts).some((d) => d.gene === '01A1')).toBe(true);
+  });
+
+  it('stops recommending a gene the player confirmed, and blames the animals instead', async () => {
+    await disputed();
+    await confirmGeneDeclaration('horse', '01A1', 'dominant', 'temperament', 1);
+
+    const run = await runAttributeStudy('horse');
+    expect(run.studies.flatMap((s) => s.geneDoubts).some((d) => d.gene === '01A1')).toBe(false);
+    // The declaration is now a fact, so the animals contradicting it are the
+    // ones to go and re-read.
+    expect(run.studies.flatMap((s) => s.contradictions).length).toBeGreaterThan(0);
+  });
+
+  it('does not publish a magnitude just because the declaration was confirmed', async () => {
+    await disputed();
+    await confirmGeneDeclaration('horse', '01A1', 'dominant', 'temperament', 1);
+    const run = await runAttributeStudy('horse');
+    // Confirming says who is at fault; the arithmetic still disagrees, so
+    // nothing here is known.
+    expect(run.studies.flatMap((s) => s.findings).some((f) => f.gene === '01A1')).toBe(false);
+  });
+
+  it('drops a confirmation once the gene is re-declared as something else', async () => {
+    await disputed();
+    await confirmGeneDeclaration('horse', '01A1', 'dominant', 'temperament', 1);
+    expect([
+      ...(await liveGeneConfirmations(
+        'horse',
+        buildEffectSlots((await geneService.getGeneEffectsCached('horse'))?.effects ?? {}),
+      )),
+    ]).toContain('01A1:dominant');
+
+    // Re-declared the other way: what the player checked is no longer what
+    // the app claims, so the confirmation no longer describes anything.
+    await geneService.upsertGene('horse', '01', '01A1', { effectDominant: 'Temperament-', breed: '' });
+    geneService.clearGeneEffectsCache('horse');
+    const slots = buildEffectSlots((await geneService.getGeneEffectsCached('horse'))?.effects ?? {});
+    expect([...(await liveGeneConfirmations('horse', slots))]).not.toContain('01A1:dominant');
+  });
+
+  it('can be withdrawn, which puts the gene back on the list', async () => {
+    await disputed();
+    await confirmGeneDeclaration('horse', '01A1', 'dominant', 'temperament', 1);
+    await withdrawGeneConfirmation('horse', '01A1', 'dominant');
+
+    const run = await runAttributeStudy('horse');
+    expect(run.studies.flatMap((s) => s.geneDoubts).some((d) => d.gene === '01A1')).toBe(true);
   });
 });
 
