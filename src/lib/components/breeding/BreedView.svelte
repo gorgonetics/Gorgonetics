@@ -251,6 +251,9 @@ $effect(() => {
   const mine = ++seq;
   loading = true;
   errored = false;
+  // Whether a ranking for *this* run has reached the screen; read by the
+  // failure handler below.
+  let delivered = false;
   /**
    * One ranking pass at a given level of knowledge.
    *
@@ -260,7 +263,6 @@ $effect(() => {
    * otherwise read zero for every pair under a header claiming the study
    * had measured it.
    */
-  let delivered = false;
   const rankWith = async (known: AttributeMagnitudes) => {
     const scoped = await magnitudesForBreed(known, sp, breed);
     const ranked = await rankBreedingPairs({

@@ -560,8 +560,11 @@ function scorePair(
  * already-scoped table to the same breed is a no-op, which is what lets the
  * ranking apply it defensively without the caller having to know whether it
  * was already done.
+ *
+ * Private: callers outside this module hold no parsed gene table, so they
+ * reach it through `magnitudesForBreed`.
  */
-export function scopeMagnitudesToBreed(
+function scopeMagnitudesToBreed(
   magnitudes: AttributeMagnitudes,
   parsedGenes: Record<string, ParsedGeneRecord>,
   species: string,

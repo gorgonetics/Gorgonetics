@@ -18,11 +18,10 @@ vi.mock('$lib/services/breedingService.js', () => ({
 
 // The study is the expensive half of a ranking and hits the DB. Default it to
 // "already solved, nothing known" so the rest of these tests take the single
-// ranking pass; the progressive-render test drives it explicitly.
-// Built inline rather than imported: `vi.mock` factories are hoisted above
-// the import block, so a reference to `EMPTY_MAGNITUDES` here would read a
-// binding that is not initialised yet.
+// ranking pass; the progressive-render tests drive it explicitly.
 vi.mock('$lib/services/studyService.js', () => {
+  // Built here rather than imported: `vi.mock` factories are hoisted above
+  // the import block, so `EMPTY_MAGNITUDES` would not be initialised yet.
   const empty = { points: new Map<string, number>(), coverage: new Map() };
   return {
     attributeMagnitudesFor: vi.fn(async () => empty),

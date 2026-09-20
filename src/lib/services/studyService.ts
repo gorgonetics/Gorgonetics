@@ -601,6 +601,10 @@ export async function attributeMagnitudesFor(species: string): Promise<Attribute
   const existing = magnitudeCache.get(normalized);
   if (existing && existing.revision === revision) return existing.value;
 
+  // Declared before it is built because both callbacks close over it: they
+  // run after `entry` is assigned below, never before. Folding the assignment
+  // into the initialiser would leave no way to identify this entry from
+  // inside its own handlers, which is what the catch turns on.
   let entry: MagnitudeEntry;
   const value = runAttributeStudy(normalized)
     .then((run) => {

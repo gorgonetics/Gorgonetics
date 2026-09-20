@@ -10,25 +10,28 @@ import type { AttributeStudy, Expression, StudyFinding } from '$lib/utils/attrib
 import { expectedImprovement } from '$lib/utils/breedingGenetics.js';
 import { attributeObjective } from '$lib/utils/breedingObjectives.js';
 
-/** Same three-locus beewasp body the other breeding tests use. */
-function beewaspGenome(name: string, alleles: string) {
+/** One chromosome, one locus per allele — the body the other breeding tests use. */
+function genomeOf(species: string, name: string, alleles: string) {
   return `[Overview]
 Format=1.0
 Character=Tester
 Entity=${name}
-Genome=BeeWasp
+Genome=${species}
 
 [Genes]
 1=${alleles}
 `;
 }
 
-async function uploadParent(name: string, gender: Gender, alleles: string): Promise<Pet> {
-  const result = await petService.uploadPet(beewaspGenome(name, alleles), { name, gender });
+async function uploadParent(species: string, name: string, gender: Gender, alleles: string): Promise<Pet> {
+  const result = await petService.uploadPet(genomeOf(species, name, alleles), { name, gender });
   expect(result.status).toBe('success');
   const pet = await petService.getPet(result.pet_id!);
   return pet as Pet;
 }
+
+const uploadBeewasp = (name: string, gender: Gender, alleles: string) => uploadParent('BeeWasp', name, gender, alleles);
+const uploadHorse = (name: string, gender: Gender, alleles: string) => uploadParent('Horse', name, gender, alleles);
 
 async function reset() {
   await closeDatabase();
@@ -66,8 +69,8 @@ describe('rankBreedingPairs — attribute points', () => {
   it('leaves the result in counts when no magnitudes are supplied', async () => {
     await geneService.upsertGene('beewasp', '01', '01A1', { effectDominant: 'Toughness+', effectRecessive: 'None' });
     geneService.clearGeneEffectsCache('beewasp');
-    const male = await uploadParent('M', Gender.MALE, 'DRR');
-    const female = await uploadParent('F', Gender.FEMALE, 'DRR');
+    const male = await uploadBeewasp('M', Gender.MALE, 'DRR');
+    const female = await uploadBeewasp('F', Gender.FEMALE, 'DRR');
 
     const [pair] = await rankBreedingPairs({ species: 'BeeWasp', pets: [male, female] });
 
@@ -86,8 +89,8 @@ describe('rankBreedingPairs — attribute points', () => {
     await geneService.upsertGene('beewasp', '01', '01A3', { effectDominant: 'None', effectRecessive: 'Friendliness+' });
     geneService.clearGeneEffectsCache('beewasp');
 
-    const male = await uploadParent('M', Gender.MALE, 'DxR');
-    const female = await uploadParent('F', Gender.FEMALE, 'xRx');
+    const male = await uploadBeewasp('M', Gender.MALE, 'DxR');
+    const female = await uploadBeewasp('F', Gender.FEMALE, 'xRx');
 
     const magnitudes = magnitudesOf([
       { attribute: 'toughness', slots: 2, findings: [finding('01A1', 'dominant', 'toughness', 4)] },
@@ -112,8 +115,8 @@ describe('rankBreedingPairs — attribute points', () => {
   it('measures improvement against the better parent in the same unit', async () => {
     await geneService.upsertGene('beewasp', '01', '01A1', { effectDominant: 'Toughness+', effectRecessive: 'None' });
     geneService.clearGeneEffectsCache('beewasp');
-    const male = await uploadParent('M', Gender.MALE, 'DRR');
-    const female = await uploadParent('F', Gender.FEMALE, 'RRR');
+    const male = await uploadBeewasp('M', Gender.MALE, 'DRR');
+    const female = await uploadBeewasp('F', Gender.FEMALE, 'RRR');
 
     const magnitudes = magnitudesOf([
       { attribute: 'toughness', slots: 1, findings: [finding('01A1', 'dominant', 'toughness', 4)] },
@@ -131,8 +134,8 @@ describe('rankBreedingPairs — attribute points', () => {
   it('credits an unrevealed locus with nothing', async () => {
     await geneService.upsertGene('beewasp', '01', '01A1', { effectDominant: 'Toughness+', effectRecessive: 'None' });
     geneService.clearGeneEffectsCache('beewasp');
-    const male = await uploadParent('M', Gender.MALE, '?RR');
-    const female = await uploadParent('F', Gender.FEMALE, 'DRR');
+    const male = await uploadBeewasp('M', Gender.MALE, '?RR');
+    const female = await uploadBeewasp('F', Gender.FEMALE, 'DRR');
 
     const magnitudes = magnitudesOf([
       { attribute: 'toughness', slots: 1, findings: [finding('01A1', 'dominant', 'toughness', 4)] },
@@ -157,10 +160,10 @@ describe('rankBreedingPairs — attribute points', () => {
     // One line carries the single +5 locus, the other the two +1 loci, both
     // as carriers. Counting says the second is the better pairing, two
     // expected positives to one.
-    const bigSire = await uploadParent('BigM', Gender.MALE, 'xDD');
-    const bigDam = await uploadParent('BigF', Gender.FEMALE, 'xDD');
-    const smallSire = await uploadParent('SmallM', Gender.MALE, 'Dxx');
-    const smallDam = await uploadParent('SmallF', Gender.FEMALE, 'Dxx');
+    const bigSire = await uploadBeewasp('BigM', Gender.MALE, 'xDD');
+    const bigDam = await uploadBeewasp('BigF', Gender.FEMALE, 'xDD');
+    const smallSire = await uploadBeewasp('SmallM', Gender.MALE, 'Dxx');
+    const smallDam = await uploadBeewasp('SmallF', Gender.FEMALE, 'Dxx');
 
     const magnitudes = magnitudesOf([
       {
@@ -208,8 +211,8 @@ describe('rankBreedingPairs — attribute points', () => {
       effectRecessive: 'Toughness+',
     });
     geneService.clearGeneEffectsCache('beewasp');
-    const male = await uploadParent('M', Gender.MALE, 'xDD');
-    const female = await uploadParent('F', Gender.FEMALE, 'xDD');
+    const male = await uploadBeewasp('M', Gender.MALE, 'xDD');
+    const female = await uploadBeewasp('F', Gender.FEMALE, 'xDD');
 
     const magnitudes = magnitudesOf([
       {
@@ -245,8 +248,8 @@ describe('rankBreedingPairs — attribute points', () => {
       effectRecessive: 'Intelligence+',
     });
     geneService.clearGeneEffectsCache('beewasp');
-    const male = await uploadParent('M', Gender.MALE, 'xDD');
-    const female = await uploadParent('F', Gender.FEMALE, 'xDD');
+    const male = await uploadBeewasp('M', Gender.MALE, 'xDD');
+    const female = await uploadBeewasp('F', Gender.FEMALE, 'xDD');
 
     const magnitudes = magnitudesOf([
       { attribute: 'toughness', slots: 1, findings: [finding('01A1', 'dominant', 'toughness', -2)] },
@@ -271,24 +274,6 @@ describe('rankBreedingPairs — points coverage follows the committed breed', ()
     await geneService.upsertGene('horse', '01', '01A1', { effectDominant: 'Temperament+', breed: '' });
     await geneService.upsertGene('horse', '01', '01A4', { effectDominant: 'Toughness+', breed: 'Kurbone' });
     geneService.clearGeneEffectsCache('horse');
-  }
-
-  function horseGenome(petName: string, alleles: string) {
-    return `[Overview]
-Format=1.0
-Character=Tester
-Entity=${petName}
-Genome=Horse
-
-[Genes]
-1=${alleles}
-`;
-  }
-
-  async function uploadHorse(petName: string, gender: Gender, alleles: string): Promise<Pet> {
-    const result = await petService.uploadPet(horseGenome(petName, alleles), { name: petName, gender });
-    expect(result.status).toBe('success');
-    return (await petService.getPet(result.pet_id as number)) as Pet;
   }
 
   it('drops a points column whose only measured slots belong to another breed', async () => {
