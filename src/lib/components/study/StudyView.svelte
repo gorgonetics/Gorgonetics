@@ -109,8 +109,9 @@ function progressLabel(p: RefreshProgress | { phase: 'solving' }): string {
 let names = $state(new Map<string, string>());
 let attribute = $state<string | null>(null);
 /** The slot a confirmation is being written for, so its button can say so. */
-let confirming = $state<string | null>(null);
-let confirmError = $state<string | null>(null);
+/** The row an action is running for, so only that button says "Saving…". */
+let busyRow = $state<string | null>(null);
+let actionError = $state<string | null>(null);
 
 /**
  * Record that the player checked this gene in game and the table was right.
@@ -121,8 +122,8 @@ let confirmError = $state<string | null>(null);
  * place to look, and the reason this is worth recording at all.
  */
 async function confirmDoubt(d: GeneDoubt): Promise<void> {
-  confirming = `${d.gene}:${d.expression}`;
-  confirmError = null;
+  busyRow = `${d.gene}:${d.expression}`;
+  actionError = null;
   try {
     await confirmGeneDeclaration(species, d.gene, d.expression, d.attribute, d.declared);
     // `solve` directly rather than clearing `ranFor` to provoke the effect:
@@ -130,16 +131,14 @@ async function confirmDoubt(d: GeneDoubt): Promise<void> {
     // second identical solve that the generation guard then throws away.
     await solve(species);
   } catch (err) {
-    confirmError = err instanceof Error ? err.message : String(err);
+    actionError = err instanceof Error ? err.message : String(err);
   } finally {
-    confirming = null;
+    busyRow = null;
   }
 }
 let loading = $state(true);
 let failure = $state<string | null>(null);
 let excluded = $state<Array<{ subjectId: string; name: string }>>([]);
-let busySubject = $state<string | null>(null);
-let excludeError = $state<string | null>(null);
 
 /**
  * Stop learning from an animal, or start again.
@@ -150,15 +149,15 @@ let excludeError = $state<string | null>(null);
  * screen.
  */
 async function toggleUse(subjectId: string, use: boolean): Promise<void> {
-  busySubject = subjectId;
-  excludeError = null;
+  busyRow = subjectId;
+  actionError = null;
   try {
     await setUseForStudies(species, subjectId, use);
     await solve(species);
   } catch (err) {
-    excludeError = err instanceof Error ? err.message : String(err);
+    actionError = err instanceof Error ? err.message : String(err);
   } finally {
-    busySubject = null;
+    busyRow = null;
   }
 }
 
@@ -440,19 +439,19 @@ async function solve(target: string): Promise<void> {
 									<span class="doubt-animals" title="Distinct animals behind this">{d.animals}</span>
 									<button
 										type="button"
-										class="doubt-confirm"
-										data-testid="doubt-confirm-{d.gene}-{d.expression}"
-										disabled={confirming !== null}
+										class="row-action"
+										data-testid="gene-confirm-{d.gene}-{d.expression}"
+										disabled={busyRow !== null}
 										title="I checked in game and the declared effect is right. Stop recommending this gene, and treat the animals in the dispute as the mis-recorded ones."
 										onclick={() => confirmDoubt(d)}
 									>
-										{confirming === `${d.gene}:${d.expression}` ? 'Saving…' : 'Table is right'}
+										{busyRow === `${d.gene}:${d.expression}` ? 'Saving…' : 'Table is right'}
 									</button>
 								</li>
 							{/each}
 						</ul>
-						{#if confirmError}
-							<p class="doubt-error">Could not save that: {confirmError}</p>
+						{#if actionError}
+							<p class="action-error">Could not save that: {actionError}</p>
 						{/if}
 					</aside>
 				{/if}
@@ -504,12 +503,12 @@ async function solve(target: string): Promise<void> {
 									>
 									<button
 										type="button"
-										class="doubt-confirm"
+										class="row-action"
 										data-testid="exclude-{s.subjectId}"
-										disabled={busySubject !== null}
+										disabled={busyRow !== null}
 										onclick={() => toggleUse(s.subjectId, false)}
 									>
-										{busySubject === s.subjectId ? 'Saving…' : 'Stop using'}
+										{busyRow === s.subjectId ? 'Saving…' : 'Stop using'}
 									</button>
 								</li>
 							{/each}
@@ -527,12 +526,12 @@ async function solve(target: string): Promise<void> {
 									<span class="suspect-name">{e.name}</span>
 									<button
 										type="button"
-										class="doubt-confirm"
+										class="row-action"
 										data-testid="restore-{e.subjectId}"
-										disabled={busySubject !== null}
+										disabled={busyRow !== null}
 										onclick={() => toggleUse(e.subjectId, true)}
 									>
-										{busySubject === e.subjectId ? 'Saving…' : 'Use again'}
+										{busyRow === e.subjectId ? 'Saving…' : 'Use again'}
 									</button>
 								</li>
 							{/each}
@@ -540,9 +539,7 @@ async function solve(target: string): Promise<void> {
 					</aside>
 				{/if}
 
-				{#if confirmError || excludeError}
-					<p class="doubt-error">Could not save that: {confirmError ?? excludeError}</p>
-				{/if}
+
 			</div>
 		{/if}
 	{/if}
@@ -651,13 +648,13 @@ async function solve(target: string): Promise<void> {
 		font-variant-numeric: tabular-nums;
 	}
 
-	.doubt-error {
+	.action-error {
 		margin: var(--space-2xs) 0 0;
 		font-size: 12px;
 		color: var(--gene-negative);
 	}
 
-	.doubt-confirm {
+	.row-action {
 		background: none;
 		border: 1px solid var(--border-primary);
 		border-radius: 3px;
@@ -667,11 +664,11 @@ async function solve(target: string): Promise<void> {
 		cursor: pointer;
 		white-space: nowrap;
 	}
-	.doubt-confirm:hover:not(:disabled) {
+	.row-action:hover:not(:disabled) {
 		border-color: var(--accent);
 		color: var(--accent);
 	}
-	.doubt-confirm:disabled {
+	.row-action:disabled {
 		opacity: 0.5;
 		cursor: default;
 	}
