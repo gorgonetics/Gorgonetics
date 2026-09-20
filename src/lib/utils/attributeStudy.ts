@@ -400,7 +400,12 @@ interface Observation {
  * inequalities.
  */
 function isMeasured(value: number | undefined): value is number {
-  return value !== undefined && Number.isFinite(value) && value > ATTRIBUTE_FLOOR && value < ATTRIBUTE_CEILING;
+  // Integral too: the game displays whole numbers, so a fractional reading is
+  // a corrupt record rather than a measurement. Nothing produces one today —
+  // both subject sources only check `typeof value === 'number'` — but a
+  // single such row would otherwise reach the exact-arithmetic solver, where
+  // it is not merely useless but fatal to the whole study.
+  return value !== undefined && Number.isInteger(value) && value > ATTRIBUTE_FLOOR && value < ATTRIBUTE_CEILING;
 }
 
 function buildEquations(observations: readonly Observation[], maxDistance: number): Equation[] {
@@ -702,7 +707,9 @@ export function studyAttribute(
   // instead of it: the fixpoint is what builds the support/dissent tallies
   // that `doubt` and `contradictions` rest on, and a subsystem solve returns
   // one value with no tally and can reproduce none of that.
-  for (const found of determinedSlots(equations, solved)) {
+  const subsystem = determinedSlots(equations, solved);
+  for (const key of subsystem.consumed) consumed.add(key);
+  for (const found of subsystem.found) {
     if (solved.has(found.key) || doubted.has(found.key)) continue;
     const declared = signOf.get(found.key);
     // A single-entry tally, so the doubt surface reads the same for a
@@ -714,7 +721,7 @@ export function studyAttribute(
     // player when more than one bad animal would be needed to fake it —
     // `needsTwoMistakes` is the same guard `commit` applies, and a doubt
     // that sends them into the game for nothing costs them a trip.
-    const worthReporting = needsTwoMistakes(found.witnesses);
+    const worthReporting = needsTwoMistakes(found.pairs);
     if (!fIsInteger(found.value)) {
       // Determined, but to a fraction — impossible for an integral game, so
       // an animal in this subsystem is mis-recorded. Only this tier can see
@@ -777,7 +784,30 @@ interface DeterminedSlot {
   value: Frac;
   /** Residual equations mentioning this slot — how much evidence touches it. */
   support: number;
+  /**
+   * Every pair behind those equations.
+   *
+   * Kept whole and separate from `witnesses`, which is truncated for
+   * display: `needsTwoMistakes` intersects the pairs to ask whether one
+   * animal could be behind the lot, and handing it a three-item sample
+   * would answer that question about the sample rather than the evidence.
+   */
+  pairs: Array<[string, string]>;
   witnesses: Array<[string, string]>;
+}
+
+/** What a subsystem pass produced, plus the equations it used them from. */
+interface SubsystemResult {
+  found: DeterminedSlot[];
+  /**
+   * Equations satisfied by construction, which `validate` must skip.
+   *
+   * Every equation in a solved component is reproduced exactly by the
+   * solution read off it — the same reason `commit` consumes the equation a
+   * derived finding came from. Scoring against them would be the engine
+   * marking its own work.
+   */
+  consumed: Set<string>;
 }
 
 /**
@@ -799,13 +829,30 @@ interface DeterminedSlot {
  * the corpus exactly as a single-difference pair forces a `direct` finding;
  * the only difference is how many equations had to be combined to see it.
  *
- * Rows already reduced to no unknowns are dropped rather than checked here.
- * A contradictory one (`0 = k`) means a mis-recorded animal, which the
- * fixpoint's blame accounting already reports through `contradictions`.
+ * Solved per connected component over shared slots, which does three jobs at
+ * once: it keeps the matrices small (elimination touches every row on every
+ * pivot, so one big system costs far more than several small ones), it makes
+ * "inconsistent" a local verdict so one bad animal cannot withdraw an
+ * unrelated slot, and it bounds what has to be marked `consumed`.
+ *
+ * A component whose rows reduce to `0 = k` publishes nothing: the
+ * contradiction belongs to the combination rather than to any one slot, so
+ * there is no majority to take and picking a pivot value would republish a
+ * dispute as certainty.
+ *
+ * Rows already reduced to no unknowns are dropped rather than checked here —
+ * those dispute findings that are already published, which the fixpoint's
+ * blame accounting reports through `contradictions`.
  */
-function determinedSlots(equations: readonly Equation[], solved: ReadonlyMap<string, StudyFinding>): DeterminedSlot[] {
+function determinedSlots(equations: readonly Equation[], solved: ReadonlyMap<string, StudyFinding>): SubsystemResult {
   // Residual system: substitute what is already known, keep what is not.
-  const rowsIn: Array<{ terms: Map<string, 1 | -1>; delta: number; pair: [string, string] }> = [];
+  interface Row {
+    terms: Map<string, 1 | -1>;
+    delta: number;
+    pair: [string, string];
+    id: string;
+  }
+  const rowsIn: Row[] = [];
   for (const equation of equations) {
     const terms = new Map<string, 1 | -1>();
     let delta = equation.delta;
@@ -814,68 +861,146 @@ function determinedSlots(equations: readonly Equation[], solved: ReadonlyMap<str
       if (known) delta -= sign * known.magnitude;
       else terms.set(key, sign);
     }
+    // A row with nothing left unknown says something about findings already
+    // published, not about a new slot. Disagreement among those is the
+    // fixpoint's business and is already reported through `contradictions`.
     if (terms.size === 0) continue;
-    rowsIn.push({ terms, delta, pair: [equation.left, equation.right] });
+    rowsIn.push({ terms, delta, pair: [equation.left, equation.right], id: `${equation.left}|${equation.right}` });
   }
-  if (rowsIn.length === 0) return [];
+  if (rowsIn.length === 0) return { found: [], consumed: new Set() };
 
-  const vars = [...new Set(rowsIn.flatMap((r) => [...r.terms.keys()]))];
-  const column = new Map(vars.map((v, i) => [v, i]));
-  const width = vars.length + 1;
-  const matrix = rowsIn.map((r) => {
-    const row = new Array<Frac>(width).fill(frac(0n));
-    for (const [key, sign] of r.terms) row[column.get(key) as number] = frac(BigInt(sign));
-    row[vars.length] = frac(BigInt(r.delta));
-    return row;
-  });
-
-  const pivotOfRow: number[] = [];
-  let rank = 0;
-  for (let c = 0; c < vars.length && rank < matrix.length; c++) {
-    let pivot = -1;
-    for (let i = rank; i < matrix.length; i++) {
-      if (!fIsZero(matrix[i][c])) {
-        pivot = i;
-        break;
-      }
+  // Split into connected components over shared slots. Two rows with no slot
+  // in common cannot inform each other, so solving them together only makes
+  // the matrix bigger — elimination reduces every row on every pivot, so cost
+  // grows with the square of the row count rather than with the unknowns.
+  // Components also make "inconsistent" a local verdict: one mis-recorded
+  // animal must not be able to withdraw an unrelated slot.
+  const parent = new Map<string, string>();
+  const find = (x: string): string => {
+    let root = x;
+    while (parent.get(root) !== root) root = parent.get(root) as string;
+    while (parent.get(x) !== root) {
+      const next = parent.get(x) as string;
+      parent.set(x, root);
+      x = next;
     }
-    if (pivot === -1) continue;
-    [matrix[rank], matrix[pivot]] = [matrix[pivot], matrix[rank]];
-    const lead = matrix[rank][c];
-    for (let k = c; k < width; k++) matrix[rank][k] = fDiv(matrix[rank][k], lead);
-    for (let i = 0; i < matrix.length; i++) {
-      if (i === rank) continue;
-      const factor = matrix[i][c];
-      if (fIsZero(factor)) continue;
-      for (let k = c; k < width; k++) matrix[i][k] = fSub(matrix[i][k], fMul(factor, matrix[rank][k]));
-    }
-    pivotOfRow[rank] = c;
-    rank++;
+    return root;
+  };
+  const union = (a: string, b: string): void => {
+    const ra = find(a);
+    const rb = find(b);
+    if (ra !== rb) parent.set(ra, rb);
+  };
+  for (const row of rowsIn) for (const key of row.terms.keys()) if (!parent.has(key)) parent.set(key, key);
+  for (const row of rowsIn) {
+    const keys = [...row.terms.keys()];
+    for (let i = 1; i < keys.length; i++) union(keys[0], keys[i]);
+  }
+  const components = new Map<string, Row[]>();
+  for (const row of rowsIn) {
+    const root = find([...row.terms.keys()][0]);
+    const list = components.get(root);
+    if (list) list.push(row);
+    else components.set(root, [row]);
   }
 
-  const pivotColumns = new Set(pivotOfRow.slice(0, rank));
-  const out: DeterminedSlot[] = [];
-  for (let i = 0; i < rank; i++) {
-    const pc = pivotOfRow[i];
-    let isolated = true;
-    for (let c = 0; c < vars.length; c++) {
-      if (c === pc || pivotColumns.has(c)) continue;
-      if (!fIsZero(matrix[i][c])) {
-        isolated = false;
-        break;
-      }
+  const found: DeterminedSlot[] = [];
+  const consumed = new Set<string>();
+
+  for (const componentRows of components.values()) {
+    // Identical equations carry identical information. Two animals differing
+    // the same way are common in a stable bred from a few lines, and every
+    // duplicate costs a full reduction pass.
+    const seen = new Set<string>();
+    const rows: Row[] = [];
+    for (const row of componentRows) {
+      const signature = `${[...row.terms]
+        .sort((a, b) => a[0].localeCompare(b[0]))
+        .map(([k, s]) => `${k}${s}`)
+        .join(',')}=${row.delta}`;
+      if (seen.has(signature)) continue;
+      seen.add(signature);
+      rows.push(row);
     }
-    if (!isolated) continue;
-    const key = vars[pc];
-    const touching = rowsIn.filter((r) => r.terms.has(key));
-    out.push({
-      key,
-      value: matrix[i][vars.length],
-      support: touching.length,
-      witnesses: touching.slice(0, MAX_WITNESSES).map((r) => r.pair),
+
+    const vars = [...new Set(rows.flatMap((r) => [...r.terms.keys()]))];
+    const column = new Map(vars.map((v, i) => [v, i]));
+    const width = vars.length + 1;
+    const matrix = rows.map((r) => {
+      const row = new Array<Frac>(width).fill(frac(0n));
+      for (const [key, sign] of r.terms) row[column.get(key) as number] = frac(BigInt(sign));
+      row[vars.length] = frac(BigInt(r.delta));
+      return row;
     });
+
+    const pivotOfRow: number[] = [];
+    let rank = 0;
+    for (let c = 0; c < vars.length && rank < matrix.length; c++) {
+      let pivot = -1;
+      for (let i = rank; i < matrix.length; i++) {
+        if (!fIsZero(matrix[i][c])) {
+          pivot = i;
+          break;
+        }
+      }
+      if (pivot === -1) continue;
+      [matrix[rank], matrix[pivot]] = [matrix[pivot], matrix[rank]];
+      const lead = matrix[rank][c];
+      for (let k = c; k < width; k++) matrix[rank][k] = fDiv(matrix[rank][k], lead);
+      for (let i = 0; i < matrix.length; i++) {
+        if (i === rank) continue;
+        const factor = matrix[i][c];
+        if (fIsZero(factor)) continue;
+        for (let k = c; k < width; k++) matrix[i][k] = fSub(matrix[i][k], fMul(factor, matrix[rank][k]));
+      }
+      pivotOfRow[rank] = c;
+      rank++;
+    }
+
+    // A row reduced to `0 = k` means the animals in this component contradict
+    // each other. There is no "majority" to take — the contradiction is a
+    // property of the combination, not of one slot — so the component
+    // publishes nothing and the equations stay available to `validate`.
+    let contradictory = false;
+    for (let i = rank; i < matrix.length; i++) {
+      if (!fIsZero(matrix[i][vars.length])) {
+        contradictory = true;
+        break;
+      }
+    }
+    if (contradictory) continue;
+
+    const pivotColumns = new Set(pivotOfRow.slice(0, rank));
+    const componentFound: DeterminedSlot[] = [];
+    for (let i = 0; i < rank; i++) {
+      const pc = pivotOfRow[i];
+      let isolated = true;
+      for (let c = 0; c < vars.length; c++) {
+        if (c === pc || pivotColumns.has(c)) continue;
+        if (!fIsZero(matrix[i][c])) {
+          isolated = false;
+          break;
+        }
+      }
+      if (!isolated) continue;
+      const key = vars[pc];
+      const touching = componentRows.filter((r) => r.terms.has(key));
+      componentFound.push({
+        key,
+        value: matrix[i][vars.length],
+        support: touching.length,
+        pairs: touching.map((r) => r.pair),
+        witnesses: touching.slice(0, MAX_WITNESSES).map((r) => r.pair),
+      });
+    }
+    if (componentFound.length === 0) continue;
+    found.push(...componentFound);
+    // Every equation here is reproduced by the solution read off it, so none
+    // of them is a held-out test any more.
+    for (const row of componentRows) consumed.add(row.id);
   }
-  return out;
+
+  return { found, consumed };
 }
 
 /**

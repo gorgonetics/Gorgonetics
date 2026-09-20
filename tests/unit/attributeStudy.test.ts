@@ -625,6 +625,38 @@ describe('determined subsystems', () => {
     expect(byKey.get('14B4:dominant')?.magnitude).toBe(7);
   });
 
+  it('publishes nothing from a component its own animals contradict', () => {
+    // B and C are identical on every temperament locus and read differently,
+    // so `01A3:dominant` is 4 and 6 at once. The fixpoint correctly abstains
+    // (the tally ties, and one bad animal could explain it). The subsystem
+    // pass must abstain too rather than pick a pivot value and call it
+    // certain — the contradiction belongs to the combination, not the slot.
+    const contradicting = [
+      horse('A', base(), { temperament: 50 }),
+      horse('B', base({ '01A3': 'D' }), { temperament: 54 }),
+      horse('C', base({ '01A3': 'D' }), { temperament: 56 }),
+    ];
+    const study = studyAttribute(contradicting, 'temperament', temperament);
+    expect(study.findings).toEqual([]);
+  });
+
+  it('does not score itself: the equations it solved are not held-out tests', () => {
+    // Every equation in `pinned` went into the solve, so none of them is an
+    // out-of-sample test. Counting them would report a guaranteed 100%.
+    const study = studyAttribute(pinned, 'temperament', temperament);
+    expect(study.findings.length).toBe(3);
+    expect(study.validation.tested).toBe(0);
+  });
+
+  it('survives a corrupt non-integer reading instead of failing the study', () => {
+    // Nothing produces one today, but both subject sources only type-check
+    // the value. Reaching exact arithmetic, it would abort every attribute.
+    const corrupt = [...pinned, horse('X', base({ '01A3': 'D' }), { temperament: 55.5 })];
+    expect(() => studyAttribute(corrupt, 'temperament', temperament)).not.toThrow();
+    const study = studyAttribute(corrupt, 'temperament', temperament);
+    expect(study.findings.find((f) => slotKey(f) === '01A3:dominant')?.magnitude).toBe(3);
+  });
+
   it('leaves a slot open when the system does not determine it', () => {
     // Two animals, one equation, two unknowns: `A + B = 8` has infinitely
     // many solutions and neither slot may be published.

@@ -220,7 +220,10 @@ async function solve(target: string): Promise<void> {
 			<div class="stat">
 				<span class="stat-value">{run.totals.direct}</span>
 				<span class="stat-label">observed directly</span>
-				<span class="stat-detail">{run.totals.derived} more by substitution</span>
+				<span class="stat-detail"
+					>{run.totals.derived} more by substitution{#if run.totals.system > 0}, {run.totals.system} by solving
+						together{/if}</span
+				>
 			</div>
 			<div class="stat">
 				<span class="stat-value">{accuracy === null ? '—' : `${accuracy.toFixed(1)}%`}</span>

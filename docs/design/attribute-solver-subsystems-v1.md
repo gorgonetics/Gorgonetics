@@ -155,11 +155,21 @@ check on whether the extra 48 are real.
   doubt; a sign-clashing solution rejected; an inconsistent system
   publishing nothing.
 - The acceptance number from §1 re-measured on the reference stable.
-- The `validate` out-of-sample score before and after, quoted in the PR.
-  Measured on the reference stable: **196/196 exact before, 437/437 after**.
-  The extra 48 findings more than double the number of held-out equations
-  the engine can be tested against, and every one still lands exactly.
-  `direct` (13) and `derived` (51) counts are unchanged, which is the check
-  that the new pass is purely additive.
+- The `validate` out-of-sample score before and after. Measured on the
+  reference stable: **196/196 exact before, 196/196 after** — unchanged, and
+  that is the correct result. Every equation a subsystem solve used is
+  reproduced by the solution read off it, so those equations are consumed
+  (§5) rather than counted as held-out tests. An earlier draft of this
+  design reported 437/437 by omitting that step; the extra 241 were the
+  solver marking its own work.
+
+  **So the 48 new findings are not independently validated by `validate`.**
+  What stands behind them is entailment plus three checks that can fail and
+  did not: integrality, non-zero, and agreement with a declared sign that is
+  never an input to the arithmetic (48/48). Growing the corpus is what will
+  put them out of sample — a later animal that touches a solved component
+  produces equations outside it.
+- `direct` (13) and `derived` (51) counts are unchanged before and after,
+  which is the check that the new pass is purely additive.
 - `pnpm run lint:ci`, `npx tsc --noEmit -p .`, `npx vitest run`,
   `pnpm test:e2e`.
