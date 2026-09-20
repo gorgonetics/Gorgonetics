@@ -30,15 +30,19 @@
  * (if any exist) cannot contaminate a finding. Every equation here is a
  * difference for that reason.
  *
- * ## Two tiers of finding, which must not be confused
+ * ## Three tiers of finding, which must not be confused
  *
  * A pair differing at exactly one slot yields that slot's magnitude
  * outright — this is the `direct` tier, and it is as certain as the corpus.
  * Substituting known magnitudes into wider pairs then leaves a single
  * unknown and pins that too (`derived`), which roughly doubles the yield.
- * But a derived finding inherits every error upstream of it, so `depth` and
+ * What substitution cannot reach, elimination often can: a slot no one
+ * equation isolates may still be forced by several together (`system`, see
+ * `determinedSlots`), which roughly doubles the yield again.
+ *
+ * A derived finding inherits every error upstream of it, so `depth` and
  * `support` travel with each finding and the UI is expected to show them.
- * Collapsing the two tiers into one number would launder a chain of
+ * Collapsing the tiers into one number would launder a chain of
  * substitutions into the same object as a value 200 pairs agree on.
  *
  * ## Disagreement is data
@@ -712,32 +716,36 @@ export function studyAttribute(
   for (const found of subsystem.found) {
     if (solved.has(found.key) || doubted.has(found.key)) continue;
     const declared = signOf.get(found.key);
-    // A single-entry tally, so the doubt surface reads the same for a
-    // subsystem result as for a disputed one.
-    const asTally: Tally = new Map([[Number(found.value.n) / Number(found.value.d), found.witnesses]]);
+    const value = Number(found.value.n) / Number(found.value.d);
+    const witnesses = found.pairs.slice(0, MAX_WITNESSES);
+    /**
+     * File a doubt about this slot, unless one bad animal could explain the
+     * whole thing — the same guard `commit` applies, because a doubt that
+     * sends the player into the game for nothing costs them a trip. The
+     * tally has a single entry, so the doubt surface reads the same for a
+     * subsystem result as for a disputed one.
+     */
+    const raise = (reason: GeneDoubtReason): void => {
+      if (needsTwoMistakes(found.pairs)) {
+        doubt(found.key, new Map([[value, witnesses]]), value, found.support, 0, reason);
+      }
+    };
 
-    // The three gates, each a check this engine already believes in. A
-    // failure is evidence about the corpus, but only worth putting to the
-    // player when more than one bad animal would be needed to fake it —
-    // `needsTwoMistakes` is the same guard `commit` applies, and a doubt
-    // that sends them into the game for nothing costs them a trip.
-    const worthReporting = needsTwoMistakes(found.pairs);
+    // The three gates, each a check this engine already believes in.
     if (!fIsInteger(found.value)) {
       // Determined, but to a fraction — impossible for an integral game, so
       // an animal in this subsystem is mis-recorded. Only this tier can see
       // it, because only this tier combines enough equations to notice.
-      if (worthReporting) {
-        doubt(found.key, asTally, Number(found.value.n) / Number(found.value.d), found.support, 0, 'non-integer');
-      }
+      raise('non-integer');
       continue;
     }
     const magnitude = Number(found.value.n);
     if (magnitude === 0) {
-      if (worthReporting) doubt(found.key, asTally, 0, found.support, 0, 'no-effect');
+      raise('no-effect');
       continue;
     }
     if (declared !== undefined && magnitude * declared <= 0) {
-      if (worthReporting) doubt(found.key, asTally, magnitude, found.support, 0, 'contradicts-sign');
+      raise('contradicts-sign');
       continue;
     }
 
@@ -753,7 +761,7 @@ export function studyAttribute(
       // An inconsistent subsystem publishes nothing at all rather than a
       // majority, so a published one has nothing dissenting from it.
       dissent: 0,
-      witnesses: found.witnesses,
+      witnesses,
     });
   }
 
@@ -785,15 +793,14 @@ interface DeterminedSlot {
   /** Residual equations mentioning this slot — how much evidence touches it. */
   support: number;
   /**
-   * Every pair behind those equations.
+   * Every pair behind those equations, whole.
    *
-   * Kept whole and separate from `witnesses`, which is truncated for
-   * display: `needsTwoMistakes` intersects the pairs to ask whether one
-   * animal could be behind the lot, and handing it a three-item sample
-   * would answer that question about the sample rather than the evidence.
+   * Truncated to `MAX_WITNESSES` only where it is displayed.
+   * `needsTwoMistakes` intersects the pairs to ask whether one animal could
+   * be behind the lot, and handing it a three-item sample would answer that
+   * question about the sample rather than about the evidence.
    */
   pairs: Array<[string, string]>;
-  witnesses: Array<[string, string]>;
 }
 
 /** What a subsystem pass produced, plus the equations it used them from. */
@@ -990,7 +997,6 @@ function determinedSlots(equations: readonly Equation[], solved: ReadonlyMap<str
         value: matrix[i][vars.length],
         support: touching.length,
         pairs: touching.map((r) => r.pair),
-        witnesses: touching.slice(0, MAX_WITNESSES).map((r) => r.pair),
       });
     }
     if (componentFound.length === 0) continue;
