@@ -299,6 +299,32 @@ const MIGRATIONS: Migration[] = [
       await db.execute('ALTER TABLE study_corpus ADD COLUMN use_for_studies INTEGER NOT NULL DEFAULT 1');
     },
   },
+  {
+    version: 17,
+    description: 'Add study_magnitudes — the solved effect sizes, so a session need not re-derive them',
+    up: async () => {
+      // Solving is quadratic in corpus size and every session paid for it
+      // again: the first open of the Breed tab ranked in counts while it ran.
+      // The result is a pure function of the corpus, the gene declarations
+      // and the player's confirmations, so it can be cached — `fingerprint`
+      // is what makes that safe, and a mismatch re-solves rather than serving
+      // a stale table.
+      //
+      // Only the magnitudes, not the whole study run. They are what every
+      // breeding score reads, their shape is small and stable, and a cached
+      // run would need invalidating every time a field is added to it.
+      const db = getDb();
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS study_magnitudes (
+          species     TEXT PRIMARY KEY,
+          fingerprint TEXT NOT NULL,
+          points      TEXT NOT NULL,
+          coverage    TEXT NOT NULL,
+          computed_at TEXT NOT NULL
+        )
+      `);
+    },
+  },
 ];
 
 /** Derived from the last migration — no manual bookkeeping needed. */

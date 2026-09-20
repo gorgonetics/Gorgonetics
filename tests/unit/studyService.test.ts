@@ -371,6 +371,72 @@ describe('attributeMagnitudesFor', () => {
   });
 });
 
+describe('persisted magnitudes', () => {
+  beforeEach(() => clearAttributeMagnitudesCache());
+
+  /** A new session: the in-memory memo is gone, the database is not. */
+  const newSession = () => clearAttributeMagnitudesCache();
+
+  it('survives a session, so the solve is paid for once', async () => {
+    await upload(name('Kb', 45, 80, 'With'), 'DRRR');
+    await upload(name('Kb', 40, 80, 'Without'), 'RRRR');
+    const first = await attributeMagnitudesFor('horse');
+    expect(magnitudeOf(first, '01A1', 'dominant')).toBe(5);
+
+    newSession();
+    const second = await attributeMagnitudesFor('horse');
+    // A different object — it came back through JSON — carrying the same
+    // answer, which is the whole point of persisting it.
+    expect(second).not.toBe(first);
+    expect(magnitudeOf(second, '01A1', 'dominant')).toBe(5);
+    expect(coverageOf(second, 'Temperament')).toEqual(coverageOf(first, 'Temperament'));
+  });
+
+  it('re-solves when a reading changes, across sessions', async () => {
+    await upload(name('Kb', 45, 80, 'With'), 'DRRR');
+    const withoutId = await upload(name('Kb', 40, 80, 'Without'), 'RRRR');
+    expect(magnitudeOf(await attributeMagnitudesFor('horse'), '01A1', 'dominant')).toBe(5);
+
+    await petService.updatePet(withoutId, { attributes: { temperament: 36 } });
+    newSession();
+    // The in-memory revision counters reset with the session, so only the
+    // fingerprint can catch this — which is the reason it exists.
+    expect(magnitudeOf(await attributeMagnitudesFor('horse'), '01A1', 'dominant')).toBe(9);
+  });
+
+  it('re-solves when the gene table changes, across sessions', async () => {
+    await upload(name('Kb', 45, 80, 'With'), 'DRRR');
+    await upload(name('Kb', 40, 80, 'Without'), 'RRRR');
+    expect(coverageOf(await attributeMagnitudesFor('horse'), 'Temperament').known).toBe(1);
+
+    await geneService.upsertGene('horse', '01', '01A1', { effectDominant: 'Toughness+', breed: '' });
+    geneService.clearGeneEffectsCache('horse');
+    newSession();
+    expect(coverageOf(await attributeMagnitudesFor('horse'), 'Temperament').known).toBe(0);
+  });
+
+  it('re-solves when an animal is excluded, across sessions', async () => {
+    await upload(name('Kb', 45, 80, 'With'), 'DRRR');
+    const withoutId = await upload(name('Kb', 40, 80, 'Without'), 'RRRR');
+    expect(magnitudeOf(await attributeMagnitudesFor('horse'), '01A1', 'dominant')).toBe(5);
+
+    await setUseForStudies('horse', String(withoutId), false);
+    newSession();
+    expect(magnitudeOf(await attributeMagnitudesFor('horse'), '01A1', 'dominant')).toBeUndefined();
+  });
+
+  it('re-solves rather than serving a row it cannot parse', async () => {
+    await upload(name('Kb', 45, 80, 'With'), 'DRRR');
+    await upload(name('Kb', 40, 80, 'Without'), 'RRRR');
+    await attributeMagnitudesFor('horse');
+
+    await getDb().execute("UPDATE study_magnitudes SET points = $bad WHERE species = 'horse'", { bad: 'not json' });
+    newSession();
+    // Half a table is worse than none, so a corrupt row is ignored outright.
+    expect(magnitudeOf(await attributeMagnitudesFor('horse'), '01A1', 'dominant')).toBe(5);
+  });
+});
+
 describe('peekAttributeMagnitudes', () => {
   beforeEach(() => clearAttributeMagnitudesCache());
 
