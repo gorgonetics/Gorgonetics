@@ -149,6 +149,8 @@ class TauriDatabaseAdapter implements DatabaseAdapter {
 class InMemoryDatabase implements DatabaseAdapter {
   private tables: Record<string, Record<string, unknown>[]> = {};
   private autoIncrements: Record<string, number> = {};
+  /** Columns added by `ALTER TABLE`, and their defaults, per table. */
+  private addedColumns: Record<string, Record<string, unknown>> = {};
   private userVersion = 0;
   private snapshot: { tables: string; autoIncrements: string; userVersion: number } | null = null;
 
@@ -343,6 +345,29 @@ class InMemoryDatabase implements DatabaseAdapter {
     }
 
     // CREATE TABLE
+    // ALTER TABLE … ADD COLUMN … [DEFAULT x]
+    //
+    // Emulated because the schema-drift guards compare a query's projection
+    // against the *live* columns of a row. Ignoring this made every column
+    // added by a migration invisible to those guards, so a migration that
+    // forgot to update `ALL_PET_COLUMNS` passed its test and silently
+    // dropped the column in production. Recorded here and applied to every
+    // row so the guards can see it.
+    const addColumn = q.match(/alter\s+table\s+(\w+)\s+add\s+column\s+(\w+)([\s\S]*)$/i);
+    if (addColumn) {
+      const table = addColumn[1].toLowerCase();
+      const column = addColumn[2];
+      const defaultMatch = addColumn[3].match(/default\s+('([^']*)'|[-\w.]+)/i);
+      const raw = defaultMatch?.[2] ?? defaultMatch?.[1];
+      const fallback = raw === undefined ? null : /^-?\d+(\.\d+)?$/.test(raw) ? Number(raw) : raw;
+      const rows = this.tables[table];
+      if (rows) {
+        this.addedColumns[table] = { ...(this.addedColumns[table] ?? {}), [column]: fallback };
+        for (const row of rows) if (!(column in row)) row[column] = fallback;
+      }
+      return { rowsAffected: 0, lastInsertId: 0 };
+    }
+
     if (qLower.startsWith('create table')) {
       const nameMatch = q.match(/create\s+table\s+if\s+not\s+exists\s+(\w+)/i) ?? q.match(/create\s+table\s+(\w+)/i);
       if (nameMatch) {
@@ -377,6 +402,10 @@ class InMemoryDatabase implements DatabaseAdapter {
 
         for (let ri = 0; ri < rowCount; ri++) {
           const row: Record<string, unknown> = {};
+          // Altered-in columns first, so an INSERT that predates the
+          // migration still carries the column at its default — matching
+          // SQLite, and what the schema-drift guards read.
+          for (const [col, fallback] of Object.entries(this.addedColumns[table] ?? {})) row[col] = fallback;
           for (const col of cols) {
             row[col] = bindArr[paramIdx++];
           }

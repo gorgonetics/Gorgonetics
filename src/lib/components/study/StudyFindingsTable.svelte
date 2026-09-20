@@ -1,17 +1,76 @@
 <script lang="ts">
 import type { StudyFinding } from '$lib/utils/attributeStudy.js';
+import { type SortableColumn, sortByColumn } from '$lib/utils/sortColumn.js';
 
 interface Props {
   findings: readonly StudyFinding[];
   /** Subject id to display name, for the evidence column. */
   names: Map<string, string>;
-  /** Slots in scope for this attribute, so the header can say what is left. */
+  /**
+   * Slots in scope for this attribute.
+   *
+   * Only the empty state uses it now — the attribute tab above the table
+   * already reads "Enthusiasm 59/124", and repeating that over the table
+   * cost a row of a pane that was short of them.
+   */
   slots: number;
 }
 
 const { findings, names, slots }: Props = $props();
 
 let expanded = $state<string | null>(null);
+
+type ColumnId = 'gene' | 'expression' | 'magnitude' | 'tier' | 'support';
+
+/**
+ * The columns, and how each one compares.
+ *
+ * `SortableColumn` is discriminated on `numeric`, so the accessor's return
+ * type is tied to the comparison — the same contract the breeding table
+ * sorts through, rather than a second comparator that could drift from it.
+ *
+ * `tier` sorts by certainty rather than alphabetically: `observed` before
+ * `derived` before `solved` is the order that means something here, and
+ * "derived, observed, solved" would be an accident of spelling.
+ */
+const TIER_RANK: Record<StudyFinding['tier'], number> = { direct: 0, derived: 1, system: 2 };
+
+const COLUMNS: Array<{ id: ColumnId; label: string; cls: string } & SortableColumn<StudyFinding>> = [
+  { id: 'gene', label: 'Gene', cls: 'col-gene', numeric: false, accessor: (f) => f.gene },
+  { id: 'expression', label: 'Expressed', cls: 'col-expressed', numeric: false, accessor: (f) => f.expression },
+  { id: 'magnitude', label: 'Points', cls: 'numeric col-points', numeric: true, accessor: (f) => f.magnitude },
+  { id: 'tier', label: 'How', cls: 'col-how', numeric: true, accessor: (f) => TIER_RANK[f.tier] },
+  { id: 'support', label: 'Agreeing', cls: 'numeric col-agreeing', numeric: true, accessor: (f) => f.support },
+];
+
+/**
+ * `null` means the engine's own order, which is not arbitrary — most certain
+ * first, then best supported. That is the right default, so the first click
+ * on a header is a deliberate departure from it rather than a return to it.
+ */
+let sortCol = $state<ColumnId | null>(null);
+let sortDir = $state<'asc' | 'desc'>('asc');
+
+const rows = $derived.by(() => {
+  const column = COLUMNS.find((c) => c.id === sortCol);
+  return column ? sortByColumn([...findings], column, sortDir) : [...findings];
+});
+
+function setSort(id: ColumnId): void {
+  if (sortCol === id) {
+    // Third click returns to the engine's order rather than cycling between
+    // two sorts the player may not have wanted either of.
+    if (sortDir === 'desc') sortCol = null;
+    else sortDir = 'desc';
+    return;
+  }
+  sortCol = id;
+  // Numbers descend first: the largest magnitude and the best-supported
+  // finding are what anyone opens this table to see.
+  sortDir = COLUMNS.find((c) => c.id === id)?.numeric ? 'desc' : 'asc';
+}
+
+const indicator = (id: ColumnId) => (sortCol !== id ? '' : sortDir === 'asc' ? ' ▲' : ' ▼');
 
 const key = (f: StudyFinding) => `${f.gene}:${f.expression}`;
 
@@ -30,13 +89,9 @@ function subject(id: string): string {
 </script>
 
 <div class="findings" data-testid="study-findings">
-	<div class="findings-head">
-		<span class="found">{findings.length}</span> of {slots} known
-	</div>
-
 	{#if findings.length === 0}
 		<p class="empty">
-			Nothing is pinned for this attribute yet. A magnitude is only known once two animals
+			None of this attribute's {slots} effects is pinned yet. A magnitude is only known once two animals
 			differ at exactly one of its genes — or once every other gene in a wider pair is already known.
 		</p>
 	{:else}
@@ -44,16 +99,28 @@ function subject(id: string): string {
 		<table>
 			<thead>
 				<tr>
-					<th scope="col" class="col-gene">Gene</th>
-					<th scope="col" class="col-expressed">Expressed</th>
-					<th scope="col" class="numeric col-points">Points</th>
-					<th scope="col" class="col-how">How</th>
-					<th scope="col" class="numeric col-agreeing">Agreeing</th>
+					{#each COLUMNS as col (col.id)}
+						<th
+							scope="col"
+							class={col.cls}
+							class:active={sortCol === col.id}
+							aria-sort={sortCol !== col.id ? 'none' : sortDir === 'asc' ? 'ascending' : 'descending'}
+						>
+							<button
+								type="button"
+								class="sort-btn"
+								data-testid="study-sort-{col.id}"
+								onclick={() => setSort(col.id)}
+							>
+								{col.label}{indicator(col.id)}
+							</button>
+						</th>
+					{/each}
 					<th scope="col"><span class="sr-only">Evidence</span></th>
 				</tr>
 			</thead>
 			<tbody>
-				{#each findings as finding (key(finding))}
+				{#each rows as finding (key(finding))}
 					<tr class:open={expanded === key(finding)}>
 						<td class="gene">{finding.gene}</td>
 						<td class="expression">{finding.expression}</td>
@@ -139,18 +206,7 @@ function subject(id: string): string {
 		overflow: hidden;
 	}
 
-	.findings-head {
-		flex-shrink: 0;
-		padding: var(--space-xs) var(--space-md);
-		font-size: 12px;
-		color: var(--text-tertiary);
-		border-bottom: 1px solid var(--border-primary);
-	}
 
-	.found {
-		color: var(--text-secondary);
-		font-weight: 600;
-	}
 
 	.empty {
 		margin: 0;
@@ -170,12 +226,12 @@ function subject(id: string): string {
 		overflow-y: auto;
 	}
 
-	/* Six narrow columns stretched across a wide window leave the gene and
-	   its magnitude at opposite ends of the screen. Cap the measure instead. */
+	/* Five of six columns are fixed-width (below), so the table fills
+	   whatever width its column has rather than leaving a gap beside its
+	   neighbour — StudyView now puts evidence there instead of empty space. */
 	table {
 		border-collapse: collapse;
 		width: 100%;
-		max-width: 780px;
 		font-size: 13px;
 	}
 
@@ -198,6 +254,25 @@ function subject(id: string): string {
 	}
 	.col-agreeing {
 		width: 6rem;
+	}
+
+	.sort-btn {
+		width: 100%;
+		padding: var(--space-2xs) var(--space-sm);
+		margin: calc(-1 * var(--space-2xs)) calc(-1 * var(--space-sm));
+		background: transparent;
+		border: none;
+		color: inherit;
+		font: inherit;
+		cursor: pointer;
+		text-align: inherit;
+		white-space: nowrap;
+	}
+	.sort-btn:hover {
+		background: var(--bg-tertiary);
+	}
+	thead th.active {
+		color: var(--text-secondary);
 	}
 
 	thead th {

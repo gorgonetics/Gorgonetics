@@ -120,6 +120,15 @@ export interface Pet {
   starred: boolean;
   stabled: boolean;
   is_pet_quality: boolean;
+  /**
+   * Whether the genetic study may learn from this animal.
+   *
+   * On by default. Turned off when its recorded attributes are judged
+   * mis-typed — the study's model forbids disagreement, so one bad reading
+   * poisons every deduction that touches it. Reversible: it is a judgement
+   * about a record, not a property of the horse.
+   */
+  use_for_studies: boolean;
   // Computed fields (added by service layer)
   readonly?: boolean;
   is_demo?: boolean;

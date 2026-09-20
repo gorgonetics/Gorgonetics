@@ -315,7 +315,7 @@ describe('studyAll', () => {
   it('is empty but well-formed on an empty corpus', () => {
     const [study] = studyAll([], slots);
     expect(study).toMatchObject({ findings: [], contradictions: [], contributors: 0 });
-    expect(study.validation).toEqual({ tested: 0, exact: 0, stabledTested: 0, stabledExact: 0 });
+    expect(study.validation).toEqual({ tested: 0, exact: 0, stabledTested: 0, stabledExact: 0, suspects: [] });
   });
 });
 
@@ -553,6 +553,65 @@ describe('doubting the gene data', () => {
     );
     const forGene = study.geneDoubts.filter((g) => g.gene === '01A2');
     expect(forGene).toHaveLength(1);
+  });
+});
+
+describe('validation suspects', () => {
+  /**
+   * `01A1:recessive` is +5 and `01A3:dominant` is +3. Each is witnessed by
+   * four clean pairs, so the two pairs `bad` contributes are outvoted and
+   * both magnitudes are published — without that the tallies simply tie and
+   * nothing is solved, so nothing can be predicted or caught.
+   *
+   * `bad` expresses both slots, so predicting it is a two-term equation, and
+   * its reading is 6 points out.
+   */
+  const withBadRow = [
+    horse('plain', base(), { temperament: 50 }),
+    horse('plain2', base(), { temperament: 50 }),
+    horse('one', base({ '01A1': 'R' }), { temperament: 55 }),
+    horse('one2', base({ '01A1': 'R' }), { temperament: 55 }),
+    horse('other', base({ '01A3': 'D' }), { temperament: 53 }),
+    horse('other2', base({ '01A3': 'D' }), { temperament: 53 }),
+    horse('bad', base({ '01A1': 'R', '01A3': 'D' }), { temperament: 64 }),
+  ];
+
+  it('names the animals a failed prediction implicates', () => {
+    const study = studyAttribute(withBadRow, 'temperament', temperament);
+    expect(study.validation.tested).toBeGreaterThan(0);
+    expect(study.validation.exact).toBeLessThan(study.validation.tested);
+
+    const named = study.validation.suspects.map((s) => s.subjectId);
+    // A failed prediction accuses the pair, and the app cannot tell which of
+    // the two is wrong — so both are named and ranked by how often they recur.
+    expect(named).toContain('bad');
+  });
+
+  it('reports the constant offset that marks a mis-typed reading', () => {
+    const study = studyAttribute(withBadRow, 'temperament', temperament);
+    const bad = study.validation.suspects.find((s) => s.subjectId === 'bad');
+    // One wrong attribute shifts every prediction about that animal by the
+    // same amount, which is what tells a bad record from bad luck.
+    expect(bad?.offset).toBe(6);
+    expect(bad?.offsetShare).toBe(1);
+  });
+
+  it('carries every error size, so a pooled share is a share of the pooled total', () => {
+    const study = studyAttribute(withBadRow, 'temperament', temperament);
+    const bad = study.validation.suspects.find((s) => s.subjectId === 'bad');
+    // `offsets` is what lets the service recompute the share across
+    // attributes. Reporting one attribute's share beside a total summed over
+    // all of them would claim agreement the evidence does not have.
+    expect(bad?.offsets.length).toBeGreaterThan(0);
+    expect(bad?.offsets.reduce((n, [, count]) => n + count, 0)).toBe(bad?.failures);
+  });
+
+  it('implicates nobody when every prediction lands', () => {
+    // 50 + 5 + 3 — what the corpus says this animal must read.
+    const clean = [...withBadRow.slice(0, 6), horse('good', base({ '01A1': 'R', '01A3': 'D' }), { temperament: 58 })];
+    const study = studyAttribute(clean, 'temperament', temperament);
+    expect(study.validation.exact).toBe(study.validation.tested);
+    expect(study.validation.suspects).toEqual([]);
   });
 });
 

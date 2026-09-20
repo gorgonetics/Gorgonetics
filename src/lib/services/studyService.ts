@@ -53,6 +53,7 @@ import {
   type StudySubject,
   slotKey,
   studyAll,
+  type ValidationSuspect,
 } from '$lib/utils/attributeStudy.js';
 import { sha256Hex } from '$lib/utils/hash.js';
 import { loadAllPetLoci, type PetLoci } from '$lib/utils/petLoci.js';
@@ -110,7 +111,9 @@ export type ExclusionReason =
   /** Mixed breed: which breed-locked genes apply to it is unknowable. */
   | 'mixed-breed'
   /** Genome is missing loci the gene table declares an attribute effect for. */
-  | 'incomplete';
+  | 'incomplete'
+  /** The player has turned `use_for_studies` off — a record judged mis-recorded. */
+  | 'excluded';
 
 export interface StudyCorpus {
   subjects: StudySubject[];
@@ -155,6 +158,17 @@ export interface StudyRun {
    * same score over pairs the player can re-read, and is the one to quote.
    */
   validation: { tested: number; exact: number; stabledTested: number; stabledExact: number };
+  /**
+   * Animals implicated in failed predictions, pooled across attributes and
+   * worst first.
+   *
+   * The score alone says the corpus is imperfect; this says who, which is
+   * the only part anyone can act on. One mis-typed attribute shifts an
+   * animal by a constant, so a high `offsetShare` is the signature to look
+   * for — and on the live corpus twelve animals of 457 carried every
+   * failure.
+   */
+  suspects: ValidationSuspect[];
 }
 
 function subjectFrom(pet: Pet, loci: PetLoci): StudySubject {
@@ -198,6 +212,12 @@ export async function loadStudyCorpus(species: string, options: LoadCorpusOption
     const reason = eligibility(pet, null, [], false);
     if (reason) {
       exclude(reason);
+      continue;
+    }
+    // The player has judged this animal's record untrustworthy. Checked
+    // before the genome load, so an excluded pet costs nothing to skip.
+    if (pet.use_for_studies === false) {
+      exclude('excluded');
       continue;
     }
     candidates.push(pet);
@@ -252,7 +272,8 @@ async function cachedSubjects(
   requireFullGenome: boolean,
 ): Promise<{ subjects: StudySubject[]; considered: number; excluded: Map<ExclusionReason, number> }> {
   const rows = await getDb().select<CachedRow[]>(
-    'SELECT content_hash, breed, name, attributes, genome_text FROM study_corpus WHERE species = $species',
+    `SELECT content_hash, breed, name, attributes, genome_text, use_for_studies
+       FROM study_corpus WHERE species = $species`,
     { species: normalized },
   );
   const subjects: StudySubject[] = [];
@@ -264,6 +285,10 @@ async function cachedSubjects(
   for (const row of rows) {
     if (ownedHashes.has(row.content_hash)) continue;
     considered++;
+    if (Number(row.use_for_studies ?? 1) === 0) {
+      drop('excluded');
+      continue;
+    }
     // Gates re-run at read time even though `usableSharedPet` checked some
     // before caching: a row can outlive the gate that admitted it, written
     // by an older build or restored from a backup.
@@ -360,6 +385,8 @@ export async function runAttributeStudy(
 
   const totals = { slots: 0, found: 0, direct: 0, derived: 0, system: 0 };
   const validation = { tested: 0, exact: 0, stabledTested: 0, stabledExact: 0 };
+  /** Per subject, how often each error size was seen across every attribute. */
+  const pooled = new Map<string, Map<number, number>>();
   for (const study of studies) {
     totals.slots += study.slots;
     totals.found += study.findings.length;
@@ -372,9 +399,30 @@ export async function runAttributeStudy(
     validation.exact += study.validation.exact;
     validation.stabledTested += study.validation.stabledTested;
     validation.stabledExact += study.validation.stabledExact;
+    for (const suspect of study.validation.suspects) {
+      const seen = pooled.get(suspect.subjectId) ?? new Map<number, number>();
+      for (const [error, count] of suspect.offsets) seen.set(error, (seen.get(error) ?? 0) + count);
+      pooled.set(suspect.subjectId, seen);
+    }
   }
+  // Recomputed from the pooled counts, not copied from one attribute: the
+  // share has to be a share of the same total the row displays.
+  const suspects: ValidationSuspect[] = [...pooled].map(([subjectId, byError]) => {
+    let failures = 0;
+    let offset = 0;
+    let best = 0;
+    for (const [error, count] of byError) {
+      failures += count;
+      if (count > best) {
+        best = count;
+        offset = error;
+      }
+    }
+    return { subjectId, failures, offset, offsetShare: best / failures, offsets: [...byError] };
+  });
+  suspects.sort((a, b) => b.failures - a.failures || b.offsetShare - a.offsetShare);
 
-  return { corpus, studies, totals, validation };
+  return { corpus, studies, totals, validation, suspects };
 }
 
 export interface RefreshResult {
@@ -398,6 +446,8 @@ interface CachedRow {
   name: string;
   attributes: string;
   genome_text: string;
+  /** Absent on the write path, which sets it explicitly; 1 when unset. */
+  use_for_studies?: number;
 }
 
 /**
@@ -537,13 +587,25 @@ export async function refreshStudyCorpus(
   // cache if one fails. Replacing the species' rows wholesale also drops
   // entries the catalogue no longer serves, or that no longer pass the
   // gate — an add-only cache would keep feeding them to the study forever.
+  // The refresh replaces this species' rows wholesale, so anything the
+  // player has judged about them has to be carried across or a refresh would
+  // silently re-admit every record they excluded.
+  const previouslyExcluded = new Set(
+    (
+      await getDb().select<Array<{ content_hash: string }>>(
+        'SELECT content_hash FROM study_corpus WHERE species = $species AND use_for_studies = $off',
+        { species: normalized, off: 0 },
+      )
+    ).map((r) => r.content_hash),
+  );
+
   await report({ phase: 'saving', done: 0, total: rows.length });
   const statements: TxStatement[] = [
     { sql: 'DELETE FROM study_corpus WHERE species = $species', params: { species: normalized } },
     ...rows.map((row) => ({
       sql: `INSERT OR REPLACE INTO study_corpus
-            (content_hash, species, breed, name, attributes, genome_text, fetched_at)
-            VALUES ($hash, $species, $breed, $name, $attributes, $genome, $ts)`,
+            (content_hash, species, breed, name, attributes, genome_text, fetched_at, use_for_studies)
+            VALUES ($hash, $species, $breed, $name, $attributes, $genome, $ts, $use_for_studies)`,
       params: {
         hash: row.content_hash,
         species: normalized,
@@ -552,6 +614,7 @@ export async function refreshStudyCorpus(
         attributes: row.attributes,
         genome: row.genome_text,
         ts,
+        use_for_studies: previouslyExcluded.has(row.content_hash) ? 0 : 1,
       },
     })),
   ];
@@ -612,6 +675,64 @@ export async function namesForSubjects(ids: readonly string[]): Promise<Map<stri
   }
 
   return names;
+}
+
+/** Animals currently excluded from inference, so the choice can be undone. */
+export async function listExcludedSubjects(species: string): Promise<Array<{ subjectId: string; name: string }>> {
+  const normalized = normalizeSpecies(species);
+  const db = getDb();
+  const cached = await db.select<Array<{ content_hash: string; name: string }>>(
+    'SELECT content_hash, name FROM study_corpus WHERE species = $species AND use_for_studies = $off',
+    { species: normalized, off: 0 },
+  );
+  const local = (
+    await db.select<Array<{ id: number; name: string; species: string }>>(
+      'SELECT id, name, species FROM pets WHERE use_for_studies = $off',
+      { off: 0 },
+    )
+  ).filter((r) => normalizeSpecies(r.species) === normalized);
+  return [
+    ...local.map((r) => ({ subjectId: String(r.id), name: r.name })),
+    ...cached.map((r) => ({ subjectId: `${SHARED_ID_PREFIX}${r.content_hash}`, name: r.name })),
+  ];
+}
+
+/**
+ * Turn inference on or off for one animal.
+ *
+ * `subjectId` is what the study calls it: a pet id for a local animal,
+ * `shared:<content_hash>` for a cached community one. Both are addressed
+ * here because the study reads both and most bad records are community
+ * animals, which have no other surface in the app.
+ */
+export async function setUseForStudies(species: string, subjectId: string, use: boolean): Promise<void> {
+  const db = getDb();
+  const flag = use ? 1 : 0;
+  // Whatever happens below changes the corpus, and a memoised magnitude
+  // table derived from the old one would keep feeding the breeding scores an
+  // excluded animal's readings for the rest of the session — the Study tab
+  // re-solves directly and would silently disagree with the Breed tab.
+  clearAttributeMagnitudesCache(species);
+  if (subjectId.startsWith(SHARED_ID_PREFIX)) {
+    const result = await db.execute(
+      'UPDATE study_corpus SET use_for_studies = $flag WHERE species = $species AND content_hash = $hash',
+      { flag, species: normalizeSpecies(species), hash: subjectId.slice(SHARED_ID_PREFIX.length) },
+    );
+    // A hash this species does not hold updates nothing. Reporting success
+    // would have the view re-solve and show no change, with nothing to say why.
+    if ((result.rowsAffected ?? 0) === 0) {
+      throw new Error(`setUseForStudies: no cached ${species} animal for ${subjectId}`);
+    }
+    return;
+  }
+  const id = Number(subjectId);
+  // `Number('')` is 0, which is an integer and would update `id = 0` — a
+  // no-op the caller cannot distinguish from success.
+  if (!/^\d+$/.test(subjectId) || !Number.isInteger(id)) {
+    throw new Error(`setUseForStudies: not a subject id: ${subjectId}`);
+  }
+  const result = await db.execute('UPDATE pets SET use_for_studies = $flag WHERE id = $id', { flag, id });
+  if ((result.rowsAffected ?? 0) === 0) throw new Error(`setUseForStudies: no pet with id ${id}`);
 }
 
 /**

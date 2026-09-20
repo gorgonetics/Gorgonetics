@@ -2,15 +2,18 @@
 import { normalizeSpecies } from '$lib/services/configService.js';
 import {
   confirmGeneDeclaration,
+  listExcludedSubjects,
   namesForSubjects,
   type RefreshProgress,
   refreshStudyCorpus,
   runAttributeStudy,
   STUDYABLE_SPECIES,
   type StudyRun,
+  setUseForStudies,
   studyCorpusStatus,
 } from '$lib/services/studyService.js';
 import { pets } from '$lib/stores/pets.js';
+import { settings, settingsActions } from '$lib/stores/settings.js';
 import type { GeneDoubt } from '$lib/utils/attributeStudy.js';
 import StudyFindingsTable from './StudyFindingsTable.svelte';
 
@@ -107,8 +110,9 @@ function progressLabel(p: RefreshProgress | { phase: 'solving' }): string {
 let names = $state(new Map<string, string>());
 let attribute = $state<string | null>(null);
 /** The slot a confirmation is being written for, so its button can say so. */
-let confirming = $state<string | null>(null);
-let confirmError = $state<string | null>(null);
+/** The row an action is running for, so only that button says "Saving…". */
+let busyRow = $state<string | null>(null);
+let actionError = $state<string | null>(null);
 
 /**
  * Record that the player checked this gene in game and the table was right.
@@ -119,8 +123,8 @@ let confirmError = $state<string | null>(null);
  * place to look, and the reason this is worth recording at all.
  */
 async function confirmDoubt(d: GeneDoubt): Promise<void> {
-  confirming = `${d.gene}:${d.expression}`;
-  confirmError = null;
+  busyRow = `${d.gene}:${d.expression}`;
+  actionError = null;
   try {
     await confirmGeneDeclaration(species, d.gene, d.expression, d.attribute, d.declared);
     // `solve` directly rather than clearing `ranFor` to provoke the effect:
@@ -128,13 +132,106 @@ async function confirmDoubt(d: GeneDoubt): Promise<void> {
     // second identical solve that the generation guard then throws away.
     await solve(species);
   } catch (err) {
-    confirmError = err instanceof Error ? err.message : String(err);
+    actionError = err instanceof Error ? err.message : String(err);
   } finally {
-    confirming = null;
+    busyRow = null;
   }
 }
 let loading = $state(true);
 let failure = $state<string | null>(null);
+let excluded = $state<Array<{ subjectId: string; name: string }>>([]);
+
+/** Narrowest and widest the evidence column may be dragged, in pixels. */
+const EVIDENCE_MIN = 220;
+const EVIDENCE_MAX = 620;
+const EVIDENCE_DEFAULT = 300;
+const EVIDENCE_SETTING = 'study.evidenceWidth';
+
+const clampWidth = (px: number) => Math.min(EVIDENCE_MAX, Math.max(EVIDENCE_MIN, Math.round(px)));
+
+/**
+ * Width of the evidence column.
+ *
+ * Seeded from the saved setting on first read and owned locally afterwards:
+ * dragging writes here every pointer move, and persisting on every move
+ * would be a database write per frame. The save happens once the drag ends.
+ */
+let evidenceWidth = $state(EVIDENCE_DEFAULT);
+let widthLoaded = false;
+$effect(() => {
+  const saved = $settings[EVIDENCE_SETTING];
+  if (widthLoaded || typeof saved !== 'number') return;
+  widthLoaded = true;
+  evidenceWidth = clampWidth(saved);
+});
+
+let splitEl: HTMLDivElement | undefined = $state();
+
+/**
+ * Drag the divider.
+ *
+ * Measured from the split's right edge rather than by accumulating deltas,
+ * so the column cannot drift away from the pointer over a long drag or when
+ * the clamp bites. Pointer capture keeps the moves coming even when the
+ * cursor outruns the 6px handle.
+ */
+function startDrag(event: PointerEvent): void {
+  const split = splitEl;
+  if (!split) return;
+  const handle = event.currentTarget as HTMLElement;
+  handle.setPointerCapture(event.pointerId);
+  const right = split.getBoundingClientRect().right;
+
+  const move = (e: PointerEvent) => {
+    evidenceWidth = clampWidth(right - e.clientX);
+  };
+  const end = () => {
+    handle.releasePointerCapture(event.pointerId);
+    handle.removeEventListener('pointermove', move);
+    handle.removeEventListener('pointerup', end);
+    handle.removeEventListener('pointercancel', end);
+    void settingsActions.update(EVIDENCE_SETTING, evidenceWidth);
+  };
+  handle.addEventListener('pointermove', move);
+  handle.addEventListener('pointerup', end);
+  handle.addEventListener('pointercancel', end);
+  event.preventDefault();
+}
+
+/** Arrow keys move the divider too — a drag handle nobody can tab to is not one. */
+function nudge(event: KeyboardEvent): void {
+  const step = event.shiftKey ? 48 : 16;
+  let next = evidenceWidth;
+  if (event.key === 'ArrowLeft') next = evidenceWidth + step;
+  else if (event.key === 'ArrowRight') next = evidenceWidth - step;
+  else if (event.key === 'Home') next = EVIDENCE_MAX;
+  else if (event.key === 'End') next = EVIDENCE_MIN;
+  else return;
+  event.preventDefault();
+  evidenceWidth = clampWidth(next);
+  void settingsActions.update(EVIDENCE_SETTING, evidenceWidth);
+}
+
+/**
+ * Stop learning from an animal, or start again.
+ *
+ * Re-solves rather than filtering the view: an excluded animal changes which
+ * magnitudes are entailed at all, so the whole study is different afterwards
+ * and a filtered display would be a different claim than the numbers on
+ * screen.
+ */
+async function toggleUse(subjectId: string, use: boolean): Promise<void> {
+  busyRow = subjectId;
+  actionError = null;
+  try {
+    await setUseForStudies(species, subjectId, use);
+    await solve(species);
+  } catch (err) {
+    actionError = err instanceof Error ? err.message : String(err);
+  } finally {
+    busyRow = null;
+  }
+}
 
 const studies = $derived(run?.studies ?? []);
 const current = $derived(studies.find((s) => s.attribute === attribute) ?? studies[0]);
@@ -180,6 +277,32 @@ const suspects = $derived.by(() => {
   return [...totals.entries()]
     .sort(([, a], [, b]) => Number(b.stabled) - Number(a.stabled) || b.count - a.count)
     .slice(0, 6);
+});
+
+/**
+ * The four evidence panels used to stack in one column, each fighting the
+ * others for vertical space. They now share a rail with one visible at a
+ * time, picked from this list — built fresh each render so a panel that
+ * empties out (e.g. every doubt gets confirmed) drops off it.
+ */
+type EvidenceId = 'doubts' | 'suspects' | 'misrecorded' | 'excluded';
+const evidenceSections = $derived(
+  (
+    [
+      { id: 'doubts', label: 'Gene checks', count: doubts.length },
+      { id: 'suspects', label: 'Suspect readings', count: suspects.length },
+      { id: 'misrecorded', label: 'Mis-recorded', count: run?.suspects.length ?? 0 },
+      { id: 'excluded', label: 'Excluded', count: excluded.length },
+    ] satisfies Array<{ id: EvidenceId; label: string; count: number }>
+  ).filter((s) => s.count > 0),
+);
+let evidenceSection = $state<EvidenceId>('doubts');
+// Keep the selection on a panel that still has something in it, without
+// fighting the player's own click: only steps in once the current pick has
+// emptied out or nothing has been picked yet.
+$effect(() => {
+  if (evidenceSections.length === 0) return;
+  if (!evidenceSections.some((s) => s.id === evidenceSection)) evidenceSection = evidenceSections[0].id;
 });
 
 /**
@@ -231,14 +354,23 @@ async function solve(target: string): Promise<void> {
       for (const finding of study.findings) for (const [l, r] of finding.witnesses) ids.add(l).add(r);
       for (const c of study.contradictions) ids.add(c.subjectId);
     }
+    // Suspects come from *held-out* equations, so they are by construction
+    // not the pairs any finding was read off — without this they miss the
+    // witness ids entirely and the panel renders raw content hashes.
+    for (const s of result.suspects) ids.add(s.subjectId);
     const resolved = await namesForSubjects([...ids]);
     if (mine !== generation) return;
     names = resolved;
     run = result;
     attribute = result.studies[0]?.attribute ?? null;
-    const status = await studyCorpusStatus(target);
+    // Both reads before any assignment, then one guard: a solve that started
+    // while these were in flight has already published its own numbers, and
+    // writing these afterwards would pair the new study with the old corpus.
+    const [status, excludedNow] = await Promise.all([studyCorpusStatus(target), listExcludedSubjects(target)]);
+    if (mine !== generation) return;
     cachedCount = status.cached;
     fetchedAt = status.fetchedAt;
+    excluded = excludedNow;
   } catch (err) {
     if (mine !== generation) return;
     failure = err instanceof Error ? err.message : String(err);
@@ -313,6 +445,7 @@ async function solve(target: string): Promise<void> {
 						: `on ${run.validation.stabledTested.toLocaleString()} checkable pairs`}
 				</span>
 			</div>
+			<div class="corpus-block">
 			<p class="community">
 				<!-- Explicit, never on mount: one Firestore read per catalogue
 				     entry against a Spark quota. -->
@@ -345,6 +478,7 @@ async function solve(target: string): Promise<void> {
 					aside: {#each run.corpus.excluded as ex, i (ex.reason)}{i > 0 ? ', ' : ''}{ex.count}
 						{EXCLUSION_LABEL[ex.reason] ?? ex.reason}{/each}{/if}
 			</p>
+			</div>
 		</header>
 
 		{#if run.corpus.subjects.length === 0}
@@ -356,27 +490,66 @@ async function solve(target: string): Promise<void> {
 			</div>
 		{:else}
 			<div class="body">
-				<nav class="attr-tabs" aria-label="Attribute">
-					{#each studies as study (study.attribute)}
-						<button
-							type="button"
-							class="attr-tab"
-							class:active={study.attribute === current?.attribute}
-							data-testid="study-attr-{study.attribute}"
-							onclick={() => (attribute = study.attribute)}
-						>
-							{study.attribute}
-							<span class="attr-count">{study.findings.length}/{study.slots}</span>
-						</button>
-					{/each}
-				</nav>
+					<nav class="attr-tabs" aria-label="Attribute">
+						{#each studies as study (study.attribute)}
+							<button
+								type="button"
+								class="attr-tab"
+								class:active={study.attribute === current?.attribute}
+								data-testid="study-attr-{study.attribute}"
+								onclick={() => (attribute = study.attribute)}
+							>
+								{study.attribute}
+								<span class="attr-count">{study.findings.length}/{study.slots}</span>
+							</button>
+						{/each}
+					</nav>
+				<div class="split" bind:this={splitEl} style="--evidence-width: {evidenceWidth}px">
+					<div class="main">
 
-				{#if current}
-					<StudyFindingsTable findings={current.findings} {names} slots={current.slots} />
-				{/if}
+					{#if current}
+						<StudyFindingsTable findings={current.findings} {names} slots={current.slots} />
+					{/if}
+				</div>
 
-				{#if doubts.length > 0}
-					<aside class="panel doubts">
+				{#if evidenceSections.length > 0}
+					<!-- A focusable `separator` carrying aria-valuenow is the WAI-ARIA
+					     window-splitter pattern, which the linter's "noninteractive"
+					     rules do not model. Dropping the tabindex to satisfy them
+					     would leave the divider mouse-only. -->
+					<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+					<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+					<div
+						class="splitter"
+						role="separator"
+						tabindex="0"
+						aria-orientation="vertical"
+						aria-label="Resize evidence column"
+						aria-valuenow={evidenceWidth}
+						aria-valuemin={EVIDENCE_MIN}
+						aria-valuemax={EVIDENCE_MAX}
+						data-testid="study-splitter"
+						onpointerdown={startDrag}
+						onkeydown={nudge}
+					></div>
+					<aside class="evidence" data-testid="study-evidence">
+						<div class="evidence-nav" role="group" aria-label="Evidence">
+							{#each evidenceSections as section (section.id)}
+								<button
+									type="button"
+									class="evidence-tab"
+									class:active={section.id === evidenceSection}
+									data-testid="study-evidence-{section.id}"
+									onclick={() => (evidenceSection = section.id)}
+								>
+									{section.label}
+									<span class="evidence-count">{section.count}</span>
+								</button>
+							{/each}
+						</div>
+						<div class="evidence-body">
+				{#if evidenceSection === 'doubts' && doubts.length > 0}
+					<div class="panel doubts">
 						<h3>Check these genes in game</h3>
 						<p>
 							The animals disagree with what the gene table says these do. The table is entered by
@@ -409,25 +582,24 @@ async function solve(target: string): Promise<void> {
 									<span class="doubt-animals" title="Distinct animals behind this">{d.animals}</span>
 									<button
 										type="button"
-										class="doubt-confirm"
-										data-testid="doubt-confirm-{d.gene}-{d.expression}"
-										disabled={confirming !== null}
+										class="row-action"
+										data-testid="gene-confirm-{d.gene}-{d.expression}"
+										disabled={busyRow !== null}
 										title="I checked in game and the declared effect is right. Stop recommending this gene, and treat the animals in the dispute as the mis-recorded ones."
 										onclick={() => confirmDoubt(d)}
 									>
-										{confirming === `${d.gene}:${d.expression}` ? 'Saving…' : 'Table is right'}
+										{busyRow === `${d.gene}:${d.expression}` ? 'Saving…' : 'Table is right'}
 									</button>
 								</li>
 							{/each}
 						</ul>
-						{#if confirmError}
-							<p class="doubt-error">Could not save that: {confirmError}</p>
+						{#if actionError}
+							<p class="action-error">Could not save that: {actionError}</p>
 						{/if}
-					</aside>
-				{/if}
+						</div>
+				{:else if evidenceSection === 'suspects' && suspects.length > 0}
 
-				{#if suspects.length > 0}
-					<aside class="panel suspects shaded">
+					<div class="panel suspects shaded">
 						<h3>Suspect readings</h3>
 						<p>
 							These animals disagree with magnitudes the rest of the stable agrees on. The arithmetic
@@ -447,11 +619,69 @@ async function solve(target: string): Promise<void> {
 								</li>
 							{/each}
 						</ul>
-						{#if confirmError}
-							<p class="doubt-error">Could not save that: {confirmError}</p>
-						{/if}
-					</aside>
+					</div>
+				{:else if evidenceSection === 'misrecorded' && run && run.suspects.length > 0}
+
+					<div class="panel misrecorded shaded">
+						<h3>Animals the predictions disagree with</h3>
+						<p>
+							Each of these takes part in predictions that come out wrong. One mis-typed attribute
+							shifts an animal by a constant, so a high share at a single offset is the signature of a
+							bad record rather than bad luck. Turning one off stops the study learning from it; you
+							can turn it back on at any time.
+						</p>
+						<ul>
+							{#each run.suspects.slice(0, 8) as s (s.subjectId)}
+								<li>
+									<span class="suspect-name">{names.get(s.subjectId) ?? `#${s.subjectId}`}</span>
+									<span class="suspect-count" title="Failed predictions this animal appears in"
+										>{s.failures}</span
+									>
+									<span
+										class="offset"
+										title="Most of its failures are wrong by this same amount, which is what one mis-typed attribute looks like."
+										>off by {s.offset} · {Math.round(s.offsetShare * 100)}%</span
+									>
+									<button
+										type="button"
+										class="row-action"
+										data-testid="exclude-{s.subjectId}"
+										disabled={busyRow !== null}
+										onclick={() => toggleUse(s.subjectId, false)}
+									>
+										{busyRow === s.subjectId ? 'Saving…' : 'Stop using'}
+									</button>
+								</li>
+							{/each}
+						</ul>
+					</div>
+				{:else if evidenceSection === 'excluded' && excluded.length > 0}
+
+					<div class="panel excluded-panel">
+						<h3>Not used for studies</h3>
+						<p>These animals are excluded from inference. Their records are kept exactly as they are.</p>
+						<ul>
+							{#each excluded as e (e.subjectId)}
+								<li>
+									<span class="suspect-name">{e.name}</span>
+									<button
+										type="button"
+										class="row-action"
+										data-testid="restore-{e.subjectId}"
+										disabled={busyRow !== null}
+										onclick={() => toggleUse(e.subjectId, true)}
+									>
+										{busyRow === e.subjectId ? 'Saving…' : 'Use again'}
+									</button>
+								</li>
+							{/each}
+						</ul>
+					</div>
 				{/if}
+					</div>
+				</aside>
+			{/if}
+				</div>
 			</div>
 		{/if}
 	{/if}
@@ -489,13 +719,17 @@ async function solve(target: string): Promise<void> {
 		color: var(--text-secondary);
 	}
 
+	/* Everything above the split eats into the height the table and evidence
+	   get, so it stays tight: smaller gaps, no wasted line between the stat
+	   row and the two detail lines below it. Nothing here drops information
+	   — only the spacing shrank. */
 	.summary {
 		flex-shrink: 0;
 		display: flex;
 		flex-wrap: wrap;
 		align-items: flex-start;
-		gap: var(--space-xl);
-		padding: var(--space-md) var(--space-md) var(--space-sm);
+		gap: var(--space-lg);
+		padding: var(--space-xs) var(--space-md);
 		border-bottom: 1px solid var(--border-primary);
 	}
 
@@ -506,7 +740,7 @@ async function solve(target: string): Promise<void> {
 	}
 
 	.stat-value {
-		font-size: 22px;
+		font-size: 19px;
 		font-weight: 600;
 		color: var(--text-secondary);
 		font-variant-numeric: tabular-nums;
@@ -523,8 +757,18 @@ async function solve(target: string): Promise<void> {
 		color: var(--text-tertiary);
 	}
 
+	/* Beside the stats rather than under them: four stats leave most of a wide
+	   window empty, and these two lines used to claim a full row each. */
+	.corpus-block {
+		margin-left: auto;
+		display: flex;
+		flex-direction: column;
+		align-items: flex-end;
+		gap: var(--space-3xs);
+		text-align: right;
+	}
+
 	.community {
-		flex-basis: 100%;
 		display: flex;
 		align-items: baseline;
 		gap: var(--space-xs);
@@ -554,13 +798,19 @@ async function solve(target: string): Promise<void> {
 		color: var(--gene-negative);
 	}
 
-	.doubt-error {
+	.offset {
+		font-size: 11px;
+		color: var(--text-tertiary);
+		font-variant-numeric: tabular-nums;
+	}
+
+	.action-error {
 		margin: var(--space-2xs) 0 0;
 		font-size: 12px;
 		color: var(--gene-negative);
 	}
 
-	.doubt-confirm {
+	.row-action {
 		background: none;
 		border: 1px solid var(--border-primary);
 		border-radius: 3px;
@@ -570,11 +820,11 @@ async function solve(target: string): Promise<void> {
 		cursor: pointer;
 		white-space: nowrap;
 	}
-	.doubt-confirm:hover:not(:disabled) {
+	.row-action:hover:not(:disabled) {
 		border-color: var(--accent);
 		color: var(--accent);
 	}
-	.doubt-confirm:disabled {
+	.row-action:disabled {
 		opacity: 0.5;
 		cursor: default;
 	}
@@ -585,7 +835,6 @@ async function solve(target: string): Promise<void> {
 	}
 
 	.corpus {
-		flex-basis: 100%;
 		margin: 0;
 		font-size: 11px;
 		color: var(--text-tertiary);
@@ -597,6 +846,154 @@ async function solve(target: string): Promise<void> {
 		display: flex;
 		flex-direction: column;
 		overflow: hidden;
+	}
+
+	/* Findings and evidence side by side, each taking the split's full
+	   height instead of stacking and fighting over it. `.split` is the one
+	   place that decides row vs. column (flipped for narrow windows below),
+	   so neither child has to know which layout it is in. */
+	.split {
+		flex: 1;
+		min-height: 0;
+		display: flex;
+		overflow: hidden;
+	}
+
+	/* A flex item AND a flex container for the table below it, so both ends
+	   of the chain need their own min-height: 0 (and here, min-width: 0 —
+	   the split's main axis is horizontal) or the table's scroller silently
+	   stops clipping instead of scrolling. */
+	.main {
+		flex: 1;
+		min-width: 0;
+		min-height: 0;
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
+	}
+
+	/* The four "Check genes / Suspect readings / Mis-recorded / Excluded"
+	   panels used to stack under the table, each fighting the others (and
+	   the table) for height. Now only the picked one renders, beside the
+	   table rather than below it, so both get the split's full height and
+	   neither scrolls more than it has to. */
+	/* A hit area wider than the visible line: a 1px border is not draggable,
+	   and padding the handle instead of the border keeps the columns flush. */
+	.splitter {
+		flex-shrink: 0;
+		width: 7px;
+		margin-right: -1px;
+		cursor: col-resize;
+		background: transparent;
+		touch-action: none;
+	}
+	.splitter:hover,
+	.splitter:focus-visible {
+		background: var(--accent);
+		opacity: 0.35;
+		outline: none;
+	}
+
+	.evidence {
+		flex-shrink: 0;
+		width: var(--evidence-width, 300px);
+		min-height: 0;
+		display: flex;
+		flex-direction: column;
+		border-left: 1px solid var(--border-primary);
+		overflow: hidden;
+	}
+
+	.evidence-nav {
+		flex-shrink: 0;
+		display: flex;
+		flex-direction: column;
+		padding: var(--space-2xs);
+		border-bottom: 1px solid var(--border-primary);
+	}
+
+	.evidence-tab {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--space-sm);
+		width: 100%;
+		padding: var(--space-2xs) var(--space-sm);
+		background: none;
+		border: none;
+		border-left: 2px solid transparent;
+		border-radius: 0 4px 4px 0;
+		font-size: 12px;
+		text-align: left;
+		color: var(--text-tertiary);
+		cursor: pointer;
+	}
+	.evidence-tab:hover {
+		color: var(--text-secondary);
+		background: var(--bg-hover);
+	}
+	.evidence-tab.active {
+		background: var(--bg-secondary);
+		border-left-color: var(--accent);
+		color: var(--text-secondary);
+		font-weight: 600;
+	}
+
+	.evidence-count {
+		font-size: 11px;
+		color: var(--text-tertiary);
+		font-variant-numeric: tabular-nums;
+	}
+	.evidence-tab.active .evidence-count {
+		color: var(--text-secondary);
+	}
+
+	.evidence-body {
+		flex: 1;
+		min-height: 0;
+		overflow-y: auto;
+	}
+
+	/* Below this, a side-by-side split has no room to work with — flip to
+	   the findings table on top and evidence below, each with its own
+	   scroller. `.evidence` goes back to being capped by height rather than
+	   fixed-width, and its nav goes back to a wrapping row so four buttons
+	   don't cost four rows of a pane that is already short on height. */
+	@media (max-width: 860px) {
+		.corpus-block {
+			margin-left: 0;
+			align-items: flex-start;
+			text-align: left;
+		}
+
+		.split {
+			flex-direction: column;
+		}
+
+		/* Stacked: the divider has no axis to drag along, and the inline
+		   custom property must not keep forcing a width. */
+		.splitter {
+			display: none;
+		}
+
+		.evidence {
+			width: auto;
+			max-height: 40%;
+			border-left: none;
+			border-top: 1px solid var(--border-primary);
+		}
+
+		.evidence-nav {
+			flex-direction: row;
+			flex-wrap: wrap;
+			gap: var(--space-3xs);
+		}
+
+		.evidence-tab {
+			width: auto;
+			border-left: none;
+			border-radius: 4px;
+		}
 	}
 
 	.attr-tabs {
@@ -636,15 +1033,14 @@ async function solve(target: string): Promise<void> {
 		font-variant-numeric: tabular-nums;
 	}
 
-	/* Both footer panels are the same object: a bordered strip holding a
-	   heading, one explanatory line and a tight list. They differ only in
-	   how each row is laid out, so only that differs below. */
+	/* All four evidence panels are the same object: a heading, one
+	   explanatory line and a tight list. They differ only in how each row is
+	   laid out, so only that differs below. Only one is ever mounted at a
+	   time (see `evidenceSection`), and `.evidence-body` is the sole scroll
+	   container for it. `.evidence`'s own fixed width is the panel's measure
+	   now, so it needs no cap of its own. */
 	.panel {
-		flex-shrink: 0;
-		max-height: 22%;
-		overflow-y: auto;
 		padding: var(--space-sm) var(--space-md);
-		border-top: 1px solid var(--border-primary);
 	}
 
 	.panel.shaded {
@@ -675,17 +1071,21 @@ async function solve(target: string): Promise<void> {
 		gap: 1px;
 	}
 
+	/* `.evidence`'s own fixed width is this list's measure now (down from a
+	   panel that used to span most of the window), so a row with several
+	   inline pieces — gene, claim sentence, badge, count, button — no longer
+	   fits on one line. Wrapping lets the claim take the line it needs and
+	   drops the rest to a second line instead of overflowing the column. */
 	.panel li {
 		display: flex;
+		flex-wrap: wrap;
 		align-items: center;
-		gap: var(--space-sm);
+		gap: var(--space-3xs) var(--space-sm);
 		font-size: 12px;
-		max-width: 70ch;
 	}
 
 	.suspects li {
 		justify-content: space-between;
-		max-width: 60ch;
 	}
 
 	.doubt-gene {

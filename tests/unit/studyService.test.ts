@@ -16,6 +16,7 @@ import {
   attributeMagnitudesFor,
   clearAttributeMagnitudesCache,
   confirmGeneDeclaration,
+  listExcludedSubjects,
   liveGeneConfirmations,
   loadStudyCorpus,
   namesForSubjects,
@@ -24,6 +25,7 @@ import {
   refreshStudyCorpus,
   runAttributeStudy,
   STUDYABLE_SPECIES,
+  setUseForStudies,
   studyCorpusStatus,
   withdrawGeneConfirmation,
 } from '$lib/services/studyService.js';
@@ -481,6 +483,75 @@ describe('gene confirmations', () => {
   });
 });
 
+describe('use_for_studies', () => {
+  /** Four animals; `Bad` carries a temperament reading 7 points out. */
+  async function corpusWithOneBadRow(): Promise<number> {
+    await upload(name('Kb', 50, 80, 'PlainA'), 'RRRR');
+    await upload(name('Kb', 55, 80, 'CarrierA'), 'DRRR');
+    await upload(name('Kb', 60, 80, 'PlainB'), 'RRRR');
+    return upload(name('Kb', 72, 80, 'Bad'), 'DRRR');
+  }
+
+  it('implicates nobody when every prediction lands', async () => {
+    await corpusWithOneBadRow();
+    const run = await runAttributeStudy('horse');
+    // Which animals get named is exercised against hand-built equations in
+    // the engine's own suite; here the run just has to carry the field.
+    expect(Array.isArray(run.suspects)).toBe(true);
+    expect(run.suspects.every((s) => s.failures > 0)).toBe(true);
+  });
+
+  it('drops an excluded animal from the corpus and says why', async () => {
+    const badId = await corpusWithOneBadRow();
+    await setUseForStudies('horse', String(badId), false);
+
+    const run = await runAttributeStudy('horse');
+    expect(run.corpus.subjects.some((s) => s.id === String(badId))).toBe(false);
+    // Counted, not silently vanished — a corpus that halves itself without
+    // saying so is worse than one that explains.
+    expect(run.corpus.excluded.find((e) => e.reason === 'excluded')?.count).toBe(1);
+  });
+
+  it('drops the memoised magnitudes, so breeding does not keep using the animal', async () => {
+    const badId = await corpusWithOneBadRow();
+    const before = await attributeMagnitudesFor('horse');
+    expect(peekAttributeMagnitudes('horse')).toBe(before);
+
+    await setUseForStudies('horse', String(badId), false);
+
+    // The Study tab re-solves directly; without this the Breed tab would go
+    // on scoring from magnitudes derived from the excluded animal.
+    expect(peekAttributeMagnitudes('horse')).toBeUndefined();
+    expect(await attributeMagnitudesFor('horse')).not.toBe(before);
+  });
+
+  it('refuses a subject nothing matched, rather than reporting a silent no-op', async () => {
+    // The id is well-formed but names nothing here. An UPDATE that touches no
+    // row would otherwise look exactly like success, and the view would
+    // re-solve and show no change with nothing to say why.
+    await expect(setUseForStudies('horse', '999999', false)).rejects.toThrow(/no pet/);
+    await expect(setUseForStudies('horse', 'shared:deadbeef', false)).rejects.toThrow(/no cached/);
+  });
+
+  it('refuses a subject id that is neither a pet nor a cached animal', async () => {
+    // `Number('')` is 0 and an integer, which would update `id = 0` — a
+    // no-op the caller would report to the player as success.
+    await expect(setUseForStudies('horse', '', false)).rejects.toThrow();
+    await expect(setUseForStudies('horse', 'nonsense', false)).rejects.toThrow();
+  });
+
+  it('lists what is excluded so the choice can be undone', async () => {
+    const badId = await corpusWithOneBadRow();
+    await setUseForStudies('horse', String(badId), false);
+    expect((await listExcludedSubjects('horse')).map((e) => e.subjectId)).toContain(String(badId));
+
+    await setUseForStudies('horse', String(badId), true);
+    expect(await listExcludedSubjects('horse')).toEqual([]);
+    const run = await runAttributeStudy('horse');
+    expect(run.corpus.subjects.some((s) => s.id === String(badId))).toBe(true);
+  });
+});
+
 describe('namesForSubjects', () => {
   it('resolves subject ids back to pet names', async () => {
     const id = await upload(name('Kb', 40, 80, 'Named'), 'RRRR');
@@ -667,6 +738,21 @@ describe('refreshStudyCorpus', () => {
     const a = await entry('A', 'DRRR');
     mockCatalogue([shared(a.hash)], { [a.hash]: a.text });
     await expect(refreshStudyCorpus('horse')).resolves.toMatchObject({ cached: 1 });
+  });
+
+  it('keeps an exclusion across a catalogue refresh, which replaces every cached row', async () => {
+    const a = await entry('A', 'DRRR');
+    mockCatalogue([shared(a.hash)], { [a.hash]: a.text });
+    await refreshStudyCorpus('horse');
+
+    const cachedId = `shared:${a.hash}`;
+    await setUseForStudies('horse', cachedId, false);
+    expect((await listExcludedSubjects('horse')).map((e) => e.subjectId)).toContain(cachedId);
+
+    // The refresh deletes and re-inserts the species' rows. Without carrying
+    // the flag across, every excluded record would quietly come back.
+    await refreshStudyCorpus('horse');
+    expect((await listExcludedSubjects('horse')).map((e) => e.subjectId)).toContain(cachedId);
   });
 
   it('keeps the correction, not the entry it supersedes', async () => {

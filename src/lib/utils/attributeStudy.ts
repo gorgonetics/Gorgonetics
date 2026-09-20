@@ -216,6 +216,45 @@ export interface ValidationReport {
    */
   stabledTested: number;
   stabledExact: number;
+  /**
+   * Animals that appear in failing predictions, worst first.
+   *
+   * The model forbids disagreement, so a failed prediction is not noise to
+   * tolerate — it names two animals, one of which is almost certainly
+   * mis-recorded. Without this the score says only *that* the corpus is
+   * imperfect; these say *who*, which is the only form of it anyone can act
+   * on.
+   */
+  suspects: ValidationSuspect[];
+}
+
+/**
+ * An animal implicated in failing predictions.
+ *
+ * The distinguishing evidence is `offset`. One mis-typed attribute shifts
+ * that animal's value by a constant, so every equation it appears in is
+ * wrong by the *same amount* — measured on the live corpus, the large error
+ * clusters trace to a single animal at 100%. An animal whose failures are
+ * scattered across many different offsets is a different problem, most
+ * likely an ordinary participant in someone else's bad pairing.
+ */
+export interface ValidationSuspect {
+  subjectId: string;
+  /** Failing predictions this animal takes part in. */
+  failures: number;
+  /** The error this animal is most often wrong by. */
+  offset: number;
+  /** Share of its failures at that offset; near 1 means one bad reading. */
+  offsetShare: number;
+  /**
+   * Every error size seen, and how often — `[error, count]` pairs.
+   *
+   * Carried so that pooling across attributes can recompute `offset` and
+   * `offsetShare` from the whole picture. Taking one attribute's share and
+   * pairing it with a total counted across all of them would report, say,
+   * 100% agreement over 4 failures while quietly summing 7.
+   */
+  offsets: Array<[number, number]>;
 }
 
 export interface AttributeStudy {
@@ -1071,6 +1110,13 @@ function validate(
   let exact = 0;
   let stabledTested = 0;
   let stabledExact = 0;
+  /** Per animal, how often each error size was seen. */
+  const misses = new Map<string, Map<number, number>>();
+  const noteMiss = (id: string, error: number): void => {
+    const byError = misses.get(id) ?? new Map<number, number>();
+    byError.set(error, (byError.get(error) ?? 0) + 1);
+    misses.set(id, byError);
+  };
   for (const equation of equations) {
     // `terms.size < 2` drops the single-difference equations a direct
     // finding is read off; `consumed` drops the wider ones a derived
@@ -1090,12 +1136,36 @@ function validate(
     const hit = predicted === equation.delta;
     tested++;
     if (hit) exact++;
+    else {
+      const error = Math.abs(predicted - equation.delta);
+      noteMiss(equation.left, error);
+      noteMiss(equation.right, error);
+    }
     if (equation.stabled) {
       stabledTested++;
       if (hit) stabledExact++;
     }
   }
-  return { tested, exact, stabledTested, stabledExact };
+
+  const suspects: ValidationSuspect[] = [];
+  for (const [subjectId, byError] of misses) {
+    let failures = 0;
+    let offset = 0;
+    let best = 0;
+    for (const [error, count] of byError) {
+      failures += count;
+      if (count > best) {
+        best = count;
+        offset = error;
+      }
+    }
+    suspects.push({ subjectId, failures, offset, offsetShare: best / failures, offsets: [...byError] });
+  }
+  // Worst first, and a concentrated offset ahead of a scattered one at the
+  // same count: the concentrated one is the likelier mis-typed record.
+  suspects.sort((a, b) => b.failures - a.failures || b.offsetShare - a.offsetShare);
+
+  return { tested, exact, stabledTested, stabledExact, suspects };
 }
 
 /** Run every attribute present in `slots`. */

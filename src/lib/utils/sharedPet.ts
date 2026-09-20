@@ -126,5 +126,7 @@ export function sharedPetToPet(shared: SharedPet): Pet {
     starred: false,
     stabled: false,
     is_pet_quality: false,
+    // A preview of someone else's animal; it is not in any corpus.
+    use_for_studies: true,
   };
 }
