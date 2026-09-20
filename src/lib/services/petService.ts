@@ -20,6 +20,32 @@ type GeneCountSummary = { total: number; known: number; unknown: number };
 
 const EMPTY_GENE_COUNTS: GeneCountSummary = { total: 0, known: 0, unknown: 0 };
 
+/**
+ * Bumped whenever an animal already in the roster is **revised or removed**,
+ * so a consumer that caches something derived from the roster can tell its
+ * cache apart from a stale one.
+ *
+ * The attribute study is the consumer this exists for, and the distinction
+ * is what makes the counter cheap. A *new* animal only adds equations, and a
+ * memoised study that is merely short of the latest corpus costs coverage
+ * rather than correctness — an unknown slot scores nothing rather than an
+ * estimate — so an upload deliberately does not bump. An edit is the other
+ * case: attribute readings are parsed from the pet's name, so renaming a
+ * stabled animal *revises* every magnitude deduced from it, and a delete
+ * withdraws the equations it supported. Without this, the Study tab and the
+ * Breeding tab can disagree for a whole session.
+ *
+ * A counter read by the consumer rather than a callback fired at it, because
+ * `studyService` already imports this module and the reverse edge would be a
+ * cycle.
+ */
+let rosterRevision = 0;
+
+/** Current roster revision; see `rosterRevision`. */
+export function localPetsRevision(): number {
+  return rosterRevision;
+}
+
 /** Count total / known / unknown genes from a parsed Genome. */
 function countGenesFromGenome(genome: Genome): GeneCountSummary {
   let total = 0;
@@ -539,6 +565,9 @@ export async function uploadPet(content: string, options: UploadPetOptions = {})
           message: `The matching pet was deleted before the backfill could complete — please try the import again.`,
         };
       }
+      // A backfilled genome can make an animal studyable that was not, so
+      // anything caching a study result has to re-solve.
+      rosterRevision++;
       // Record the ledger entry so the auto-scanner skips this file on
       // future passes — without it the next scan would re-pick the same
       // file, hit the now-NOT-EMPTY genome_text branch below, and report
@@ -650,6 +679,9 @@ export async function uploadPet(content: string, options: UploadPetOptions = {})
     console.warn('imported_files: failed to record after successful upload', err);
   }
 
+  // No bump: a new animal only *adds* equations to the study, and a memoised
+  // result that is merely short costs coverage rather than correctness. See
+  // `rosterRevision`.
   return {
     status: 'success',
     kind: 'created',
@@ -797,6 +829,7 @@ export async function updatePet(petId: number, updates: Record<string, unknown>)
 
   // 0 rows affected ⇒ no such pet ⇒ updatePet did not commit.
   if (petsRowsAffected === 0) return false;
+  if (changed) rosterRevision++;
   return changed;
 }
 
@@ -827,7 +860,9 @@ export async function deletePet(petId: number): Promise<boolean> {
   // DELETE keeps test behaviour aligned with real SQLite.
   await db.execute('DELETE FROM pet_genes WHERE pet_id = $id', { id: petId });
   const result = await db.execute('DELETE FROM pets WHERE id = $id', { id: petId });
-  return result.rowsAffected > 0;
+  const deleted = result.rowsAffected > 0;
+  if (deleted) rosterRevision++;
+  return deleted;
 }
 
 /**

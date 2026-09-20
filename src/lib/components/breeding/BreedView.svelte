@@ -15,14 +15,17 @@ import BreedSelector from '$lib/components/shared/BreedSelector.svelte';
 import EmptyState from '$lib/components/shared/EmptyState.svelte';
 import PageHeader from '$lib/components/shared/PageHeader.svelte';
 import StatusPane from '$lib/components/shared/StatusPane.svelte';
-import { rankBreedingPairs } from '$lib/services/breedingService.js';
+import { magnitudesForBreed, rankBreedingPairs } from '$lib/services/breedingService.js';
 import { getAllAttributeNames, getSupportedSpecies, normalizeSpecies } from '$lib/services/configService.js';
 import { capabilitySummary } from '$lib/services/geneticQualityService.js';
+import { localPetsRevision } from '$lib/services/petService.js';
+import { attributeMagnitudesFor, peekAttributeMagnitudes } from '$lib/services/studyService.js';
 import { breedingView, clearBench, toggleBench } from '$lib/stores/breeding.svelte.js';
 // `loading` aliased: this component has its own ranking `loading` flag.
 import { pets, loading as petsLoading } from '$lib/stores/pets.js';
 import { settings } from '$lib/stores/settings.js';
 import { type BreedingPairResult, HORSE_BREEDS } from '$lib/types/index.js';
+import { type AttributeMagnitudes, EMPTY_MAGNITUDES, hasMagnitudes } from '$lib/utils/attributePoints.js';
 import {
   attributeObjective,
   BREEDING_OBJECTIVES,
@@ -107,6 +110,10 @@ const candidateKey = $derived(`${species}|${candidates.map((p) => p.id).join(','
 let pairs = $state<BreedingPairResult[]>([]);
 let loading = $state(false);
 let errored = $state(false);
+// Effect sizes behind the per-attribute columns. Held here rather than read
+// per row: the table needs the *coverage* beside the number, and coverage is
+// a property of the study, not of a pair.
+let magnitudes = $state<AttributeMagnitudes>(EMPTY_MAGNITUDES);
 
 /**
  * The strategies on offer: the five general ones plus one per attribute.
@@ -218,7 +225,14 @@ $effect(() => {
   const sp = species;
   const breed = breedingView.offspringBreed;
   const ps = candidates;
-  const key = `${candidateKey}|${breed}|${breedLockWeight ?? 'auto'}`;
+  // The roster revision is in the key because `candidateKey` is only the set
+  // of *ids*: correcting an attribute or renaming an animal leaves it
+  // identical, so a mounted table would keep showing scores and point
+  // baselines built from the reading that was just replaced. Reading the
+  // counter does not subscribe to it — the `$pets` emission that follows the
+  // edit is what re-runs this effect; the revision only stops it returning
+  // early once it does.
+  const key = `${candidateKey}|${breed}|${breedLockWeight ?? 'auto'}|${localPetsRevision()}`;
 
   // Only close an open Trio on a genuine species change. An unrelated store
   // refresh (or an offspring-breed change) must not yank the projection shut.
@@ -245,16 +259,67 @@ $effect(() => {
   const mine = ++seq;
   loading = true;
   errored = false;
-  rankBreedingPairs({ species: sp, pets: ps, offspringBreed: breed, breedLockWeight })
-    .then((result) => {
-      if (mine !== seq) return;
-      pairs = result;
-      repointTrio(result);
-      loading = false;
+  // Whether a ranking for *this* run has reached the screen; read by the
+  // failure handler below.
+  let delivered = false;
+  /**
+   * One ranking pass at a given level of knowledge.
+   *
+   * The coverage is scoped to the committed offspring breed before it is
+   * shown, because that is the set the ranking scored over: a points column
+   * whose only measured slots belong to a breed this foal will not be would
+   * otherwise read zero for every pair under a header claiming the study
+   * had measured it.
+   */
+  const rankWith = async (known: AttributeMagnitudes) => {
+    const scoped = await magnitudesForBreed(known, sp, breed);
+    const ranked = await rankBreedingPairs({
+      species: sp,
+      pets: ps,
+      offspringBreed: breed,
+      breedLockWeight,
+      magnitudes: scoped,
+    });
+    if (mine !== seq) return;
+    // Together, never in two steps: the table reads the coverage from
+    // `magnitudes` and the numbers from `pairs`, so a render between the
+    // two assignments would label a count column in points.
+    magnitudes = scoped;
+    pairs = ranked;
+    repointTrio(ranked);
+    delivered = true;
+    loading = false;
+  };
+
+  // The study costs quadratic time in the corpus and only the first open of
+  // a session pays it, but that open used to hold the entire table shut
+  // while it ran. Rank in counts straight away instead and re-rank in
+  // points when the solve lands; every later open finds the table already
+  // memoised, takes the single pass, and never shows counts at all. A
+  // species with no measurement path peeks as the empty table — its final
+  // answer — so it also ranks once.
+  const ready = peekAttributeMagnitudes(sp);
+  rankWith(ready ?? EMPTY_MAGNITUDES)
+    .then(() => {
+      if (ready !== undefined || mine !== seq) return;
+      return attributeMagnitudesFor(sp).then((known) => {
+        // Nothing measured means the count ranking already standing is the
+        // best answer there is; re-ranking would only redo it.
+        if (mine !== seq || !hasMagnitudes(known)) return;
+        return rankWith(known);
+      });
     })
     .catch((err: unknown) => {
       if (mine !== seq) return;
       console.error('rankBreedingPairs failed', err);
+      // A points re-rank that fails over a ranking already on screen leaves
+      // that ranking alone: it is in counts rather than points, which is a
+      // narrower answer, not a wrong one. Tearing the table down would cost
+      // the player the result they can already act on.
+      if (delivered) {
+        loading = false;
+        return;
+      }
       pairs = [];
       // The Trio explains a ranked row. With no ranking left to explain, its
       // score panel would keep showing the superseded one beside a projection
@@ -456,7 +521,13 @@ onDestroy(() => {
       </div>
       <!-- Row-level bench is a ranking-mode convenience; hidden while planning
            so a stray click can't silently collapse several shown options. -->
-      <BreedingPairTable results={pairs} {attrNames} {plans} onBench={breedingView.spots > 0 ? undefined : toggleBench} />
+      <BreedingPairTable
+        results={pairs}
+        {attrNames}
+        {plans}
+        {magnitudes}
+        onBench={breedingView.spots > 0 ? undefined : toggleBench}
+      />
     {/if}
   </div>
 </div>

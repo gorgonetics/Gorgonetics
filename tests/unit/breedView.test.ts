@@ -1,14 +1,40 @@
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { rankBreedingPairs } from '$lib/services/breedingService.js';
+import { localPetsRevision } from '$lib/services/petService.js';
+import { attributeMagnitudesFor, peekAttributeMagnitudes } from '$lib/services/studyService.js';
 import { breedingView } from '$lib/stores/breeding.svelte.js';
 import { loading, pets } from '$lib/stores/pets.js';
 import type { BreedingPairResult, Pet } from '$lib/types/index.js';
+import { type AttributeMagnitudes, EMPTY_MAGNITUDES } from '$lib/utils/attributePoints.js';
 
 // The ranking service is exercised by its own suite; stub it so these tests
 // stay a focused check of BreedView's species defaulting and trio lifecycle.
 vi.mock('$lib/services/breedingService.js', () => ({
   rankBreedingPairs: vi.fn(async () => []),
+  // Breed scoping is covered by the breeding suite; here it only has to
+  // hand back a table the view can label its columns from.
+  magnitudesForBreed: vi.fn(async (magnitudes: unknown) => magnitudes),
+}));
+
+// The study is the expensive half of a ranking and hits the DB. Default it to
+// "already solved, nothing known" so the rest of these tests take the single
+// ranking pass; the progressive-render tests drive it explicitly.
+vi.mock('$lib/services/studyService.js', () => {
+  // Built here rather than imported: `vi.mock` factories are hoisted above
+  // the import block, so `EMPTY_MAGNITUDES` would not be initialised yet.
+  const empty = { points: new Map<string, number>(), coverage: new Map() };
+  return {
+    attributeMagnitudesFor: vi.fn(async () => empty),
+    peekAttributeMagnitudes: vi.fn(() => empty),
+  };
+});
+
+// Only the revision is stubbed — the pets store imports this module too, so
+// the rest has to stay real.
+vi.mock('$lib/services/petService.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('$lib/services/petService.js')>()),
+  localPetsRevision: vi.fn(() => 0),
 }));
 
 // The capability readout hits the DB through the quality service; a fixed
@@ -445,5 +471,113 @@ describe('BreedView — when Reach new ground has run dry', () => {
     await rerender({});
     await waitFor(() => expect(container.querySelector('[data-testid="breed-capability"]')).toBeTruthy());
     expect(container.querySelector('[data-testid="breed-reach-exhausted"]')).toBeNull();
+  });
+});
+
+describe('BreedView — ranking does not wait on the study', () => {
+  /** A one-finding table, enough for `hasMagnitudes` to be true. */
+  const solved = (): AttributeMagnitudes => ({
+    points: new Map([['01A1:dominant', 4]]),
+    coverage: new Map([['Toughness', { known: 1, total: 2 }]]),
+  });
+
+  beforeEach(() => {
+    pets.set([stallion, mare]);
+    vi.mocked(rankBreedingPairs).mockClear();
+    vi.mocked(attributeMagnitudesFor).mockClear();
+    vi.mocked(peekAttributeMagnitudes).mockClear();
+  });
+
+  it('ranks in counts while a first study solves, then re-ranks in points', async () => {
+    // Nothing memoised yet — the first Breed open of a session. The study is
+    // quadratic in corpus size, and holding the table shut behind it is what
+    // this exists to avoid.
+    vi.mocked(peekAttributeMagnitudes).mockReturnValueOnce(undefined);
+    let settle: (m: AttributeMagnitudes) => void = () => {};
+    vi.mocked(attributeMagnitudesFor).mockReturnValueOnce(
+      new Promise<AttributeMagnitudes>((resolve) => {
+        settle = resolve;
+      }),
+    );
+    vi.mocked(rankBreedingPairs).mockResolvedValue([pairStub(0.25)]);
+
+    const { container, rerender } = render(BreedView);
+    await rerender({});
+
+    // A ranking is on screen before the study has produced anything.
+    await waitFor(() => expect(vi.mocked(rankBreedingPairs)).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(container.querySelector('[data-testid="breed-objective-hint"]')).toBeTruthy());
+    expect(vi.mocked(rankBreedingPairs).mock.calls[0][0].magnitudes).toBe(EMPTY_MAGNITUDES);
+
+    // When the solve lands, the same pairs are re-ranked in points.
+    const table = solved();
+    settle(table);
+    await waitFor(() => expect(vi.mocked(rankBreedingPairs)).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(rankBreedingPairs).mock.calls[1][0].magnitudes).toBe(table);
+  });
+
+  it('takes a single pass once the study is memoised', async () => {
+    const table = solved();
+    vi.mocked(peekAttributeMagnitudes).mockReturnValueOnce(table);
+    vi.mocked(rankBreedingPairs).mockResolvedValue([pairStub(0.25)]);
+
+    const { container, rerender } = render(BreedView);
+    await rerender({});
+    await waitFor(() => expect(container.querySelector('[data-testid="breed-objective-hint"]')).toBeTruthy());
+
+    // Every open after the first: straight to points, and no count ranking
+    // the player would see flicker past.
+    expect(vi.mocked(rankBreedingPairs)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(rankBreedingPairs).mock.calls[0][0].magnitudes).toBe(table);
+    expect(vi.mocked(attributeMagnitudesFor)).not.toHaveBeenCalled();
+  });
+
+  it('does not re-rank when the study finds nothing', async () => {
+    vi.mocked(peekAttributeMagnitudes).mockReturnValueOnce(undefined);
+    vi.mocked(rankBreedingPairs).mockResolvedValue([pairStub(0.25)]);
+
+    const { container, rerender } = render(BreedView);
+    await rerender({});
+    await waitFor(() => expect(container.querySelector('[data-testid="breed-objective-hint"]')).toBeTruthy());
+
+    // The default mock resolves to an empty table: the count ranking already
+    // standing is the best answer there is, so redoing it buys nothing.
+    await Promise.resolve();
+    expect(vi.mocked(rankBreedingPairs)).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('BreedView — an edit to a listed animal re-ranks', () => {
+  beforeEach(() => {
+    pets.set([stallion, mare]);
+    vi.mocked(rankBreedingPairs).mockClear();
+    vi.mocked(rankBreedingPairs).mockResolvedValue([pairStub(0.25)]);
+    vi.mocked(localPetsRevision).mockReturnValue(0);
+  });
+
+  it('re-ranks when a reading is corrected, though the candidate ids are unchanged', async () => {
+    const { rerender } = render(BreedView);
+    await rerender({});
+    await waitFor(() => expect(vi.mocked(rankBreedingPairs)).toHaveBeenCalledTimes(1));
+
+    // Correcting an attribute or renaming an animal leaves the candidate set
+    // identical, so the id-based key alone would hold the old scores on
+    // screen against a reading that has been replaced.
+    vi.mocked(localPetsRevision).mockReturnValue(1);
+    pets.set([stallion, mare]);
+    await rerender({});
+    await waitFor(() => expect(vi.mocked(rankBreedingPairs)).toHaveBeenCalledTimes(2));
+  });
+
+  it('still skips a bare store re-emit that changes nothing', async () => {
+    const { rerender } = render(BreedView);
+    await rerender({});
+    await waitFor(() => expect(vi.mocked(rankBreedingPairs)).toHaveBeenCalledTimes(1));
+
+    // A background `loadPets` hands back the same animals in a new array. The
+    // whole point of the key is that this costs nothing.
+    pets.set([stallion, mare]);
+    await rerender({});
+    expect(vi.mocked(rankBreedingPairs)).toHaveBeenCalledTimes(1);
   });
 });

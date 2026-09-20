@@ -287,6 +287,17 @@ export interface ParentExpressedProfile {
   negatives: number;
   /** Positive count keyed by the (capitalized) attribute it lands on. */
   positivesByAttribute: Record<string, number>;
+  /**
+   * Net attribute points this parent expresses, keyed the same way — the
+   * baseline a points improvement is measured against.
+   *
+   * Absent when no magnitudes are known, which is what makes the scorers
+   * fall back to counting. Sums both signs over slots the study has pinned
+   * down, so it is a partial total rather than the parent's true one —
+   * higher or lower, depending on which way the unmeasured slots point —
+   * measured on the same slots the offspring EV uses.
+   */
+  pointsByAttribute?: Record<string, number>;
 }
 
 /**
@@ -382,6 +393,30 @@ export interface BreedingPairResult {
    * parent's Intelligence, which is the local maximum again, per attribute.
    */
   evAttributeImprovement: Record<string, number>;
+  /**
+   * The same two figures in attribute *points* rather than effect counts,
+   * present only when `attributeStudy` has pinned down at least one
+   * magnitude (see `attributePoints.ts`).
+   *
+   * `evPointsByAttribute` is the offspring's expected net change on each
+   * attribute — both signs, summed over the slots whose magnitude is known
+   * — and `evAttributePointImprovement` is that measured against the better
+   * parent on that attribute, exactly as `evAttributeImprovement` is.
+   *
+   * Two fields rather than a replacement, because they are in different
+   * units and a player who has run no study still has the counts. The
+   * per-attribute objectives prefer points where they exist, so which one
+   * ranks a pairing follows the corpus rather than a setting.
+   *
+   * Partial coverage makes these *partial*, not a bound: an attribute with
+   * 7 of 9 slots known is scored over those 7 for every pair, and since
+   * both signs count, an unmeasured negative slot leaves the figure too
+   * high as readily as an unmeasured positive one leaves it too low. The
+   * comparison between pairs stays fair; the absolute number is not the
+   * game's. The UI is expected to show the coverage beside it.
+   */
+  evPointsByAttribute?: Record<string, number>;
+  evAttributePointImprovement?: Record<string, number>;
   /** Expected number of negative effects the offspring expresses. */
   evNegativeTotal: number;
   /**

@@ -96,13 +96,25 @@ export const DEFAULT_BREEDING_OBJECTIVE = 'reach';
  *
  * `attribute` must be the capitalised key `rankBreedingPairs` produces
  * (`Intelligence`, not `intelligence`).
+ *
+ * **Points where the corpus knows them, counts otherwise.** When
+ * `attributeStudy` has pinned down effect sizes, the ranking uses the
+ * improvement in attribute *points*, so one `+5` gene beats three `+1`s;
+ * with no study behind it, `evAttributePointImprovement` is absent and the
+ * effect count is the only thing to rank by. The switch is the presence of
+ * the data, not a setting — there is nothing for a player to choose
+ * between, since counting is the same question asked with less known.
+ *
+ * Both are improvements against the same baseline, so a pair's *order*
+ * under the two agrees wherever every slot is worth the same; they part
+ * company exactly where the magnitudes say they should.
  */
 export function attributeObjective(attribute: string): BreedingObjective {
   return {
     id: `attribute:${attribute}`,
     label: `Improve ${attribute}`,
     description: `Foals likely to beat both parents on ${attribute}.`,
-    score: (p) => p.evAttributeImprovement[attribute] ?? 0,
+    score: (p) => p.evAttributePointImprovement?.[attribute] ?? p.evAttributeImprovement[attribute] ?? 0,
   };
 }
 

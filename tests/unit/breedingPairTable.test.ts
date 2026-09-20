@@ -3,6 +3,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import BreedingPairTable from '$lib/components/breeding/BreedingPairTable.svelte';
 import { breedingView } from '$lib/stores/breeding.svelte.js';
 import type { BreedingPairResult, Pet } from '$lib/types/index.js';
+import { buildAttributeMagnitudes } from '$lib/utils/attributePoints.js';
+import type { AttributeStudy, StudyFinding } from '$lib/utils/attributeStudy.js';
 
 const pet = (over: Partial<Pet>): Pet =>
   ({
@@ -333,5 +335,77 @@ describe('BreedingPairTable — reading the absolute columns against the parents
     const headers = [...container.querySelectorAll('thead th')].map((h) => h.textContent?.replace(/[▲▼]/g, '').trim());
     expect(headers).toContain('Pool-weighted +');
     expect(headers).not.toContain('Pool gain');
+  });
+});
+
+describe('BreedingPairTable — attribute columns', () => {
+  const study = (attribute: string, slots: number, findings: StudyFinding[]): AttributeStudy => ({
+    attribute,
+    slots,
+    findings,
+    contradictions: [],
+    geneDoubts: [],
+    validation: { tested: 0, exact: 0, stabledTested: 0, stabledExact: 0 },
+    contributors: 2,
+  });
+
+  const magnitudes = buildAttributeMagnitudes([
+    study('toughness', 9, [
+      {
+        gene: '01A1',
+        expression: 'dominant',
+        attribute: 'toughness',
+        magnitude: 4,
+        tier: 'direct',
+        depth: 0,
+        support: 5,
+        dissent: 0,
+        witnesses: [],
+      },
+    ]),
+    study('friendliness', 4, []),
+  ]);
+
+  const scored = (): BreedingPairResult[] => [
+    {
+      ...RESULTS[0],
+      evPositiveByAttribute: { Toughness: 1.5, Friendliness: 0.5 },
+      evPointsByAttribute: { Toughness: 6 },
+      evAttributePointImprovement: { Toughness: 2 },
+    },
+  ];
+
+  const headers = (container: HTMLElement) => [...container.querySelectorAll('th')].map((th) => th.textContent?.trim());
+
+  it('counts effects when no study has run', async () => {
+    const { container, rerender } = render(BreedingPairTable, {
+      results: scored(),
+      attrNames: ['Toughness', 'Friendliness'],
+    });
+    await rerender({});
+    expect(headers(container)).toContain('Toughness');
+    expect(headers(container)).not.toContain('Toughness pts');
+  });
+
+  it('switches a measured attribute to points and says how much is known', async () => {
+    const { container, rerender } = render(BreedingPairTable, {
+      results: scored(),
+      attrNames: ['Toughness', 'Friendliness'],
+      magnitudes,
+    });
+    await rerender({});
+    expect(headers(container)).toContain('Toughness pts');
+    // Friendliness was studied and nothing was found, so it keeps the count
+    // rather than showing a column of zeroes.
+    expect(headers(container)).toContain('Friendliness');
+
+    const measured = [...container.querySelectorAll('th')].find((th) => th.textContent?.includes('Toughness'));
+    expect(measured?.getAttribute('title')).toContain('1 of 9');
+
+    // The cell follows the header: points for the measured attribute, the
+    // count for the one the study could not reach.
+    const cells = [...container.querySelectorAll('tbody td.numeric')].map((td) => td.textContent?.trim());
+    expect(cells.some((text) => text?.startsWith('6'))).toBe(true);
+    expect(cells.some((text) => text?.startsWith('0.5'))).toBe(true);
   });
 });

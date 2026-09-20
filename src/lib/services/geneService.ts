@@ -367,8 +367,32 @@ export async function getParsedGenesCached(species: string): Promise<Record<stri
   return promise;
 }
 
+/**
+ * Bumped every time the gene table is declared stale.
+ *
+ * Anything derived from the *declarations* — which attribute a slot targets,
+ * its sign, its breed — has to be rebuilt when they change, and a consumer
+ * that caches such a derivation has no other way to notice. The attribute
+ * study is the case this exists for: its findings are keyed by
+ * `gene:expression`, so a magnitude solved before a slot was re-pointed at a
+ * different attribute would be applied to the new one — a wrong number
+ * rather than a missing one.
+ *
+ * Deliberately global rather than per species. The counter exists so a
+ * consumer can ask "is what I derived still current?", and a cross-species
+ * false positive costs one re-derivation; tracking it per species would buy
+ * nothing and add a way to get it wrong.
+ */
+let geneTableRevision = 0;
+
+/** Current gene-table revision; see `geneTableRevision`. */
+export function geneDeclarationsRevision(): number {
+  return geneTableRevision;
+}
+
 /** Invalidate cached gene effects (raw and parsed) for a species, or all if omitted. */
 export function clearGeneEffectsCache(species?: string) {
+  geneTableRevision++;
   if (species) {
     const normalized = normalizeSpecies(species);
     geneEffectsCache.delete(normalized);

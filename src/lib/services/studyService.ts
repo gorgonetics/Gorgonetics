@@ -37,12 +37,13 @@
 
 import { normalizeSpecies } from '$lib/services/configService.js';
 import { buildInClauseParams, getDb, type TxStatement } from '$lib/services/database.js';
-import { getGeneEffectsCached } from '$lib/services/geneService.js';
+import { geneDeclarationsRevision, getGeneEffectsCached } from '$lib/services/geneService.js';
 import { parseGenome } from '$lib/services/genomeParser.js';
 import { parseStructuredPetName } from '$lib/services/nameParser.js';
-import { getAllPets } from '$lib/services/petService.js';
+import { getAllPets, localPetsRevision } from '$lib/services/petService.js';
 import { listGenomes, listPets } from '$lib/services/shareService.js';
 import { GeneType, type Pet, type SharedPet } from '$lib/types/index.js';
+import { type AttributeMagnitudes, buildAttributeMagnitudes, EMPTY_MAGNITUDES } from '$lib/utils/attributePoints.js';
 import {
   type AttributeStudy,
   buildEffectSlots,
@@ -501,6 +502,10 @@ export async function refreshStudyCorpus(species: string): Promise<RefreshResult
   ];
   await getDb().transaction(statements);
   cached = rows.length;
+  // The corpus just changed under the memoised magnitudes, and a refresh is
+  // the one event that can *revise* a finding rather than only add one: an
+  // uploader's correction replaces the reading a magnitude was deduced from.
+  clearAttributeMagnitudesCache(normalized);
 
   const considered = [...metadata.values()].filter((p) => normalizeSpecies(p.species) === normalized).length;
   return { considered, cached, skipped: considered - cached, unverified };
@@ -552,4 +557,112 @@ export async function namesForSubjects(ids: readonly string[]): Promise<Map<stri
   }
 
   return names;
+}
+
+/**
+ * Known effect sizes for a species, memoised for the session.
+ *
+ * The breeding scorers need the magnitudes, not the study around them, and
+ * they need them on every re-rank — a species switch, a breed change, a pet
+ * edit. Solving the corpus again each time would pay for the whole study to
+ * answer a question whose answer has not changed, so the table is computed
+ * once per species and kept.
+ *
+ * **Staleness is cheap in one direction and wrong in the other.** Adding
+ * animals only adds findings, and a table that is merely short costs
+ * coverage rather than correctness, because an unknown slot scores nothing
+ * rather than an estimate — so an import does not invalidate. Two things
+ * *revise* a finding, and both must. A community refresh replaces a reading
+ * an uploader corrected, which `refreshStudyCorpus` clears explicitly. A
+ * local edit does the same thing more quietly: attribute readings are parsed
+ * from the pet's name, so renaming a stabled animal revises every magnitude
+ * deduced from it, and deleting one withdraws its equations. Editing the gene
+ * table is the third case and the sharpest, because it revises the question
+ * rather than the answer — see `stamp`. Those last two are what the cached
+ * revision below is compared against; without it the Study tab and the
+ * Breeding tab can disagree for a whole session.
+ *
+ * Species without a measurement path (`STUDYABLE_SPECIES`) return the empty
+ * table without touching the DB, which is what makes every scorer fall back
+ * to counting for them.
+ */
+interface MagnitudeEntry {
+  /** `stamp()` when the study was started. */
+  revision: string;
+  value: Promise<AttributeMagnitudes>;
+  /** The resolved table, once it is in. Read by `peekAttributeMagnitudes`. */
+  settled?: AttributeMagnitudes;
+}
+
+/**
+ * What the memoised table was solved against: the roster it read, and the
+ * gene declarations it read them through.
+ *
+ * Both matter, for different reasons. A roster edit revises a *reading*, so
+ * the same slot gets a new magnitude. A gene-table edit revises the
+ * *question*: findings are keyed by `gene:expression`, and the attribute a
+ * slot belongs to is re-derived from the declarations at scoring time, so a
+ * magnitude solved before a slot was re-pointed would be applied to whatever
+ * attribute that slot names now — a wrong number, not a missing one.
+ */
+const stamp = () => `${localPetsRevision()}:${geneDeclarationsRevision()}`;
+
+const magnitudeCache = new Map<string, MagnitudeEntry>();
+
+export async function attributeMagnitudesFor(species: string): Promise<AttributeMagnitudes> {
+  const normalized = normalizeSpecies(species);
+  if (!STUDYABLE_SPECIES.includes(normalized)) return EMPTY_MAGNITUDES;
+  const revision = stamp();
+  const existing = magnitudeCache.get(normalized);
+  if (existing && existing.revision === revision) return existing.value;
+
+  // Declared before it is built because both callbacks close over it: they
+  // run after `entry` is assigned below, never before. Folding the assignment
+  // into the initialiser would leave no way to identify this entry from
+  // inside its own handlers, which is what the catch turns on.
+  let entry: MagnitudeEntry;
+  const value = runAttributeStudy(normalized)
+    .then((run) => {
+      const built = buildAttributeMagnitudes(run.studies);
+      entry.settled = built;
+      return built;
+    })
+    .catch((error: unknown) => {
+      // A failed study must not poison the session: drop the entry so the
+      // next re-rank retries, and rank by counts meanwhile. Only if it is
+      // still *this* entry — an unconditional delete would discard a newer
+      // one that a rename or an explicit clear had already put in its place.
+      if (magnitudeCache.get(normalized) === entry) magnitudeCache.delete(normalized);
+      console.error('attributeMagnitudesFor failed', error);
+      return EMPTY_MAGNITUDES;
+    });
+  entry = { revision, value };
+  magnitudeCache.set(normalized, entry);
+  return value;
+}
+
+/**
+ * The memoised table, but only if it is already solved and still current.
+ *
+ * The study is the expensive half of a ranking and its cost is quadratic in
+ * corpus size, so a view that awaits it unconditionally holds itself shut on
+ * the first open of a session. With this, a caller can render immediately
+ * from counts and upgrade to points when the solve lands, and pay nothing
+ * extra on every later open — by then the table is in hand.
+ *
+ * `undefined` means "not ready", never "nothing known": a species with no
+ * measurement path returns the empty table, which *is* its final answer.
+ */
+export function peekAttributeMagnitudes(species: string): AttributeMagnitudes | undefined {
+  const normalized = normalizeSpecies(species);
+  if (!STUDYABLE_SPECIES.includes(normalized)) return EMPTY_MAGNITUDES;
+  const entry = magnitudeCache.get(normalized);
+  if (!entry || entry.revision !== stamp()) return undefined;
+  return entry.settled;
+}
+
+/** Drop the memoised magnitudes for a species, or all of them. */
+export function clearAttributeMagnitudesCache(species?: string): void {
+  if (species) magnitudeCache.delete(normalizeSpecies(species));
+  else magnitudeCache.clear();
 }

@@ -3,6 +3,7 @@ import { breedingView } from '$lib/stores/breeding.svelte.js';
 import { requestOpenPet } from '$lib/stores/mypets.svelte.js';
 import { appState } from '$lib/stores/pets.js';
 import type { BreedingPairResult, ParentExpressedProfile, Pet } from '$lib/types/index.js';
+import { type AttributeMagnitudes, coverageOf, EMPTY_MAGNITUDES, hasMagnitudes } from '$lib/utils/attributePoints.js';
 import type { SuggestedPlan } from '$lib/utils/breedingPlan.js';
 import { type SortableColumn, sortByColumn } from '$lib/utils/sortColumn.js';
 
@@ -17,14 +18,31 @@ interface Props {
   plans?: SuggestedPlan[];
   /** Bench an animal straight from a row (drops every pair using it). */
   onBench?: (petId: number) => void;
+  /**
+   * Known effect sizes behind the ranking. Present and non-empty, the
+   * per-attribute columns switch from effect counts to attribute points and
+   * say in their header how much of each attribute the study has measured.
+   */
+  magnitudes?: AttributeMagnitudes;
 }
 
 // `SortableColumn` is discriminated on `numeric` so the accessor's return type
 // is tied to the flag: a numeric column sorts by subtraction, a text column by
 // localeCompare, and a mismatch is a compile error rather than a silent cast.
-type Column = { id: string; label: string } & SortableColumn<BreedingPairResult>;
+type Column = { id: string; label: string; hint?: string } & SortableColumn<BreedingPairResult>;
 
-const { results, attrNames, plans, onBench }: Props = $props();
+const { results, attrNames, plans, onBench, magnitudes = EMPTY_MAGNITUDES }: Props = $props();
+
+/**
+ * Whether one attribute's column is in points.
+ *
+ * Per attribute, not per table: the study measures each attribute
+ * separately and can know every slot of one and none of another. An
+ * attribute it has measured nothing on keeps its count column, which is the
+ * best answer available for it — a points column of zeroes would be worse
+ * than the count it replaced.
+ */
+const inPoints = (name: string) => hasMagnitudes(magnitudes) && coverageOf(magnitudes, name).known > 0;
 
 // Distinct hues per option — saturated mid-tones that read in light and dark.
 const OPTION_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#ef4444'];
@@ -66,14 +84,24 @@ const columns = $derived<Column[]>([
   // scores (at the lowest `locked` weight). Display-only rename — the sort key
   // is still `evPositiveWeighted`, so persisted sort settings are unaffected.
   { id: 'evPositiveWeighted', label: 'Pool-weighted +', accessor: (r) => r.evPositiveWeighted, numeric: true },
-  ...attrNames.map(
-    (name): Column => ({
+  ...attrNames.map((name): Column => {
+    if (!inPoints(name)) {
+      return {
+        id: name,
+        label: name,
+        accessor: (r: BreedingPairResult) => r.evPositiveByAttribute[name] ?? 0,
+        numeric: true,
+      };
+    }
+    const known = coverageOf(magnitudes, name);
+    return {
       id: name,
-      label: name,
-      accessor: (r: BreedingPairResult) => r.evPositiveByAttribute[name] ?? 0,
+      label: `${name} pts`,
+      hint: `Expected net ${name}, in attribute points, over the ${known.known} of ${known.total} effects the study has measured. Unmeasured effects score nothing whichever way they point, so the true change can be higher or lower.`,
+      accessor: (r: BreedingPairResult) => r.evPointsByAttribute?.[name] ?? 0,
       numeric: true,
-    }),
-  ),
+    };
+  }),
   /**
    * The improvement column for the *active* attribute strategy only.
    *
@@ -88,8 +116,12 @@ const columns = $derived<Column[]>([
     ? [
         {
           id: `attribute:${activeAttribute}`,
-          label: `Δ ${activeAttribute}`,
-          accessor: (r: BreedingPairResult) => r.evAttributeImprovement[activeAttribute] ?? 0,
+          label: inPoints(activeAttribute) ? `Δ ${activeAttribute} pts` : `Δ ${activeAttribute}`,
+          // Reads whichever measure the objective ranks by, so the column
+          // the table sorts and the number the planner optimised are the
+          // same one (see `attributeObjective`).
+          accessor: (r: BreedingPairResult) =>
+            r.evAttributePointImprovement?.[activeAttribute] ?? r.evAttributeImprovement[activeAttribute] ?? 0,
           numeric: true,
         } as Column,
       ]
@@ -152,8 +184,16 @@ function delta(expected: number, baseline: number): { text: string; sign: 'up' |
   return { text: `${d > 0 ? '+' : '−'}${Math.abs(d).toFixed(1)}`, sign: d > 0 ? 'up' : 'down' };
 }
 
-/** The better parent's count on one attribute — the baseline `evAttributeImprovement` uses. */
+/**
+ * The better parent on one attribute — the baseline the Δ tag reads against.
+ *
+ * In the same unit as the column above it: points where the column is in
+ * points, counts otherwise. A points delta against a count baseline would
+ * be a subtraction between two different things.
+ */
 function attrBaseline(pair: BreedingPairResult, attr: string): number {
+  if (inPoints(attr))
+    return Math.max(pair.maleProfile.pointsByAttribute?.[attr] ?? 0, pair.femaleProfile.pointsByAttribute?.[attr] ?? 0);
   return Math.max(pair.maleProfile.positivesByAttribute[attr] ?? 0, pair.femaleProfile.positivesByAttribute[attr] ?? 0);
 }
 
@@ -196,6 +236,7 @@ function persistScroll() {
                     <th
                         class:numeric={col.numeric}
                         class:active={isActive}
+                        title={col.hint}
                         aria-sort={isActive ? (breedingView.sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
                     >
                         <button
@@ -277,7 +318,7 @@ function persistScroll() {
                      honest reference for it. -->
                 <td class="numeric">{fmt(pair.evPositiveWeighted)}</td>
                 {#each attrNames as name (name)}
-                    {@const value = pair.evPositiveByAttribute[name] ?? 0}
+                    {@const value = inPoints(name) ? (pair.evPointsByAttribute?.[name] ?? 0) : (pair.evPositiveByAttribute[name] ?? 0)}
                     <td class="numeric">
                         {fmt(value)}
                         <!-- Per attribute, against the better parent *on that
