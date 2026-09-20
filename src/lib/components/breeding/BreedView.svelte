@@ -15,16 +15,16 @@ import BreedSelector from '$lib/components/shared/BreedSelector.svelte';
 import EmptyState from '$lib/components/shared/EmptyState.svelte';
 import PageHeader from '$lib/components/shared/PageHeader.svelte';
 import StatusPane from '$lib/components/shared/StatusPane.svelte';
-import { rankBreedingPairs } from '$lib/services/breedingService.js';
+import { magnitudesForBreed, rankBreedingPairs } from '$lib/services/breedingService.js';
 import { getAllAttributeNames, getSupportedSpecies, normalizeSpecies } from '$lib/services/configService.js';
 import { capabilitySummary } from '$lib/services/geneticQualityService.js';
-import { attributeMagnitudesFor } from '$lib/services/studyService.js';
+import { attributeMagnitudesFor, peekAttributeMagnitudes } from '$lib/services/studyService.js';
 import { breedingView, clearBench, toggleBench } from '$lib/stores/breeding.svelte.js';
 // `loading` aliased: this component has its own ranking `loading` flag.
 import { pets, loading as petsLoading } from '$lib/stores/pets.js';
 import { settings } from '$lib/stores/settings.js';
 import { type BreedingPairResult, HORSE_BREEDS } from '$lib/types/index.js';
-import { type AttributeMagnitudes, EMPTY_MAGNITUDES } from '$lib/utils/attributePoints.js';
+import { type AttributeMagnitudes, EMPTY_MAGNITUDES, hasMagnitudes } from '$lib/utils/attributePoints.js';
 import {
   attributeObjective,
   BREEDING_OBJECTIVES,
@@ -251,35 +251,65 @@ $effect(() => {
   const mine = ++seq;
   loading = true;
   errored = false;
-  // Effect sizes first, so the per-attribute figures are in points wherever
-  // the study can supply one. Memoised per species in the service, so only
-  // the first ranking of a session pays for the corpus; a species with no
-  // measurement path resolves to the empty table without touching the DB.
-  attributeMagnitudesFor(sp)
-    .then(async (known) => {
-      if (mine !== seq) return null;
-      const ranked = await rankBreedingPairs({
-        species: sp,
-        pets: ps,
-        offspringBreed: breed,
-        breedLockWeight,
-        magnitudes: known,
+  /**
+   * One ranking pass at a given level of knowledge.
+   *
+   * The coverage is scoped to the committed offspring breed before it is
+   * shown, because that is the set the ranking scored over: a points column
+   * whose only measured slots belong to a breed this foal will not be would
+   * otherwise read zero for every pair under a header claiming the study
+   * had measured it.
+   */
+  let delivered = false;
+  const rankWith = async (known: AttributeMagnitudes) => {
+    const scoped = await magnitudesForBreed(known, sp, breed);
+    const ranked = await rankBreedingPairs({
+      species: sp,
+      pets: ps,
+      offspringBreed: breed,
+      breedLockWeight,
+      magnitudes: scoped,
+    });
+    if (mine !== seq) return;
+    // Together, never in two steps: the table reads the coverage from
+    // `magnitudes` and the numbers from `pairs`, so a render between the
+    // two assignments would label a count column in points.
+    magnitudes = scoped;
+    pairs = ranked;
+    repointTrio(ranked);
+    delivered = true;
+    loading = false;
+  };
+
+  // The study costs quadratic time in the corpus and only the first open of
+  // a session pays it, but that open used to hold the entire table shut
+  // while it ran. Rank in counts straight away instead and re-rank in
+  // points when the solve lands; every later open finds the table already
+  // memoised, takes the single pass, and never shows counts at all. A
+  // species with no measurement path peeks as the empty table — its final
+  // answer — so it also ranks once.
+  const ready = peekAttributeMagnitudes(sp);
+  rankWith(ready ?? EMPTY_MAGNITUDES)
+    .then(() => {
+      if (ready !== undefined || mine !== seq) return;
+      return attributeMagnitudesFor(sp).then((known) => {
+        // Nothing measured means the count ranking already standing is the
+        // best answer there is; re-ranking would only redo it.
+        if (mine !== seq || !hasMagnitudes(known)) return;
+        return rankWith(known);
       });
-      return { known, ranked };
-    })
-    .then((result) => {
-      if (mine !== seq || result === null) return;
-      // Together, never in two steps: the table reads the coverage from
-      // `magnitudes` and the numbers from `pairs`, so a render between the
-      // two assignments would label a count column in points.
-      magnitudes = result.known;
-      pairs = result.ranked;
-      repointTrio(result.ranked);
-      loading = false;
     })
     .catch((err: unknown) => {
       if (mine !== seq) return;
       console.error('rankBreedingPairs failed', err);
+      // A points re-rank that fails over a ranking already on screen leaves
+      // that ranking alone: it is in counts rather than points, which is a
+      // narrower answer, not a wrong one. Tearing the table down would cost
+      // the player the result they can already act on.
+      if (delivered) {
+        loading = false;
+        return;
+      }
       pairs = [];
       // The Trio explains a ranked row. With no ranking left to explain, its
       // score panel would keep showing the superseded one beside a projection

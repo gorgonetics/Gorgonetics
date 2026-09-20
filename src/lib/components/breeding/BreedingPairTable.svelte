@@ -97,7 +97,7 @@ const columns = $derived<Column[]>([
     return {
       id: name,
       label: `${name} pts`,
-      hint: `Expected net ${name}, in attribute points, over the ${known.known} of ${known.total} effects the study has measured. Unmeasured effects score nothing, so this is a floor on the true change.`,
+      hint: `Expected net ${name}, in attribute points, over the ${known.known} of ${known.total} effects the study has measured. Unmeasured effects score nothing whichever way they point, so the true change can be higher or lower.`,
       accessor: (r: BreedingPairResult) => r.evPointsByAttribute?.[name] ?? 0,
       numeric: true,
     };

@@ -21,7 +21,10 @@
  *    is not comparable with one over 9 of 9, so `coverage` is reported per
  *    attribute and the UI is expected to show it. Two pairs are still
  *    ranked against each other fairly — they are scored over the same slot
- *    set — but the figure is a floor on the true one, not the true one.
+ *    set — but the figure is a partial sum, and it is not a bound in either
+ *    direction. Because both signs count (below), an unmeasured *negative*
+ *    slot leaves the figure too high exactly as an unmeasured positive one
+ *    leaves it too low.
  *  - **Both signs count.** A points figure is a net attribute change, so
  *    negative slots are in it. Summing positives only, in points units,
  *    would rank a pairing that adds `+5` and `-6` above one that adds `+4`.

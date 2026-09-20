@@ -1,12 +1,13 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { rankBreedingPairs } from '$lib/services/breedingService.js';
+import { magnitudesForBreed, rankBreedingPairs } from '$lib/services/breedingService.js';
 import { closeDatabase, initDatabase } from '$lib/services/database.js';
 import * as geneService from '$lib/services/geneService.js';
 import { runMigrations } from '$lib/services/migrationService.js';
 import * as petService from '$lib/services/petService.js';
 import { Gender, type Pet } from '$lib/types/index.js';
-import { type AttributeMagnitudes, buildAttributeMagnitudes } from '$lib/utils/attributePoints.js';
+import { type AttributeMagnitudes, buildAttributeMagnitudes, coverageOf } from '$lib/utils/attributePoints.js';
 import type { AttributeStudy, Expression, StudyFinding } from '$lib/utils/attributeStudy.js';
+import { expectedImprovement } from '$lib/utils/breedingGenetics.js';
 import { attributeObjective } from '$lib/utils/breedingObjectives.js';
 
 /** Same three-locus beewasp body the other breeding tests use. */
@@ -195,5 +196,151 @@ describe('rankBreedingPairs — attribute points', () => {
     const smallCounted = counted.find((p) => p.male.name === 'SmallM' && p.female.name === 'SmallF');
     if (!bigCounted || !smallCounted) throw new Error('expected both same-line pairs in the ranking');
     expect(objective.score(smallCounted)).toBeGreaterThan(objective.score(bigCounted));
+  });
+
+  it('treats one locus’s two slots as mutually exclusive, not independent', async () => {
+    // Both slots on the same attribute, pointing opposite ways — the shape
+    // the shipped horse table has on 01A4, 01C3 and 01E2. The foal takes one
+    // slot or the other, never both, so the two Bernoullis are disjoint and
+    // the variance carries a cross term.
+    await geneService.upsertGene('beewasp', '01', '01A1', {
+      effectDominant: 'Toughness-',
+      effectRecessive: 'Toughness+',
+    });
+    geneService.clearGeneEffectsCache('beewasp');
+    const male = await uploadParent('M', Gender.MALE, 'xDD');
+    const female = await uploadParent('F', Gender.FEMALE, 'xDD');
+
+    const magnitudes = magnitudesOf([
+      {
+        attribute: 'toughness',
+        slots: 2,
+        findings: [finding('01A1', 'dominant', 'toughness', -2), finding('01A1', 'recessive', 'toughness', 4)],
+      },
+    ]);
+    const [pair] = await rankBreedingPairs({ species: 'BeeWasp', pets: [male, female], magnitudes });
+
+    // x × x → P(D∨x) = 0.75, P(R) = 0.25. X is −2 or +4, so E[X] = −0.5 and
+    // Var(X) = E[X²] − E[X]² = (4·0.75 + 16·0.25) − 0.25 = 6.75. Summing each
+    // slot's own m²p(1−p) gives 3.75 and misses −2·m_d·m_r·p_d·p_r, which is
+    // *positive* here because the two slots disagree in sign — so the naive
+    // figure understates the spread rather than overstating it.
+    expect(pair.evPointsByAttribute?.Toughness).toBeCloseTo(-0.5, 10);
+    // Both parents are `x`, which expresses the dominant slot.
+    expect(pair.maleProfile.pointsByAttribute?.Toughness).toBeCloseTo(-2, 10);
+
+    const improvement = pair.evAttributePointImprovement?.Toughness;
+    expect(improvement).toBeCloseTo(expectedImprovement(-0.5, Math.sqrt(6.75), -2), 10);
+    // The mean is identical either way, which is exactly why this hides: only
+    // the improvement integral, which reads the spread, can tell them apart.
+    expect(improvement).not.toBeCloseTo(expectedImprovement(-0.5, Math.sqrt(3.75), -2), 6);
+  });
+
+  it('leaves slots on different attributes uncorrected, where the plain variance is exact', async () => {
+    // Same locus, two slots, but on two attributes. Each attribute's variance
+    // then sees a single indicator and needs no cross term — a correction
+    // applied here would be as wrong as its absence is above.
+    await geneService.upsertGene('beewasp', '01', '01A1', {
+      effectDominant: 'Toughness-',
+      effectRecessive: 'Intelligence+',
+    });
+    geneService.clearGeneEffectsCache('beewasp');
+    const male = await uploadParent('M', Gender.MALE, 'xDD');
+    const female = await uploadParent('F', Gender.FEMALE, 'xDD');
+
+    const magnitudes = magnitudesOf([
+      { attribute: 'toughness', slots: 1, findings: [finding('01A1', 'dominant', 'toughness', -2)] },
+      { attribute: 'intelligence', slots: 1, findings: [finding('01A1', 'recessive', 'intelligence', 4)] },
+    ]);
+    const [pair] = await rankBreedingPairs({ species: 'BeeWasp', pets: [male, female], magnitudes });
+
+    // Toughness: −2 with p = 0.75 → mean −1.5, var 4·0.75·0.25 = 0.75.
+    expect(pair.evPointsByAttribute?.Toughness).toBeCloseTo(-1.5, 10);
+    expect(pair.evAttributePointImprovement?.Toughness).toBeCloseTo(expectedImprovement(-1.5, Math.sqrt(0.75), -2), 10);
+    // Intelligence: +4 with p = 0.25 → mean 1, var 16·0.25·0.75 = 3.
+    expect(pair.evPointsByAttribute?.Intelligence).toBeCloseTo(1, 10);
+    expect(pair.evAttributePointImprovement?.Intelligence).toBeCloseTo(expectedImprovement(1, Math.sqrt(3), 0), 10);
+  });
+});
+
+describe('rankBreedingPairs — points coverage follows the committed breed', () => {
+  beforeEach(reset);
+
+  /** Four horse loci on chromosome 01; `01A4` is Kurbone-only. */
+  async function seedHorseGenes() {
+    await geneService.upsertGene('horse', '01', '01A1', { effectDominant: 'Temperament+', breed: '' });
+    await geneService.upsertGene('horse', '01', '01A4', { effectDominant: 'Toughness+', breed: 'Kurbone' });
+    geneService.clearGeneEffectsCache('horse');
+  }
+
+  function horseGenome(petName: string, alleles: string) {
+    return `[Overview]
+Format=1.0
+Character=Tester
+Entity=${petName}
+Genome=Horse
+
+[Genes]
+1=${alleles}
+`;
+  }
+
+  async function uploadHorse(petName: string, gender: Gender, alleles: string): Promise<Pet> {
+    const result = await petService.uploadPet(horseGenome(petName, alleles), { name: petName, gender });
+    expect(result.status).toBe('success');
+    return (await petService.getPet(result.pet_id as number)) as Pet;
+  }
+
+  it('drops a points column whose only measured slots belong to another breed', async () => {
+    await seedHorseGenes();
+    const male = await uploadHorse('M', Gender.MALE, 'DRRD');
+    const female = await uploadHorse('F', Gender.FEMALE, 'DRRD');
+    const pets = [male, female];
+    // The study solves every breed at once, so Toughness is "measured" —
+    // on a locus only a Kurbone foal can inherit.
+    const magnitudes = magnitudesOf([
+      { attribute: 'toughness', slots: 1, findings: [finding('01A4', 'dominant', 'toughness', 4)] },
+    ]);
+
+    const [kurbone] = await rankBreedingPairs({ species: 'Horse', pets, magnitudes, offspringBreed: 'Kurbone' });
+    expect(kurbone.evPointsByAttribute?.Toughness).toBeCloseTo(4, 10);
+
+    // Committing to Paint filters that locus out of scoring. A points column
+    // would then read zero for every pair while its header claimed the study
+    // had measured it — strictly worse than the count column it displaced.
+    const [paint] = await rankBreedingPairs({ species: 'Horse', pets, magnitudes, offspringBreed: 'Paint' });
+    expect(paint.evPointsByAttribute?.Toughness).toBeUndefined();
+    expect(paint.evAttributePointImprovement?.Toughness).toBeUndefined();
+    // The count column is still there, which is the point of dropping it.
+    expect(paint.evPositiveByAttribute.Toughness).toBe(0);
+  });
+
+  it('reports the coverage the ranking actually scored over, so the header cannot lie', async () => {
+    await seedHorseGenes();
+    const magnitudes = magnitudesOf([
+      { attribute: 'toughness', slots: 1, findings: [finding('01A4', 'dominant', 'toughness', 4)] },
+    ]);
+
+    expect(coverageOf(await magnitudesForBreed(magnitudes, 'Horse', 'Kurbone'), 'Toughness')).toMatchObject({
+      known: 1,
+      total: 1,
+    });
+    expect(coverageOf(await magnitudesForBreed(magnitudes, 'Horse', 'Paint'), 'Toughness')).toMatchObject({
+      known: 0,
+      total: 0,
+    });
+  });
+
+  it('is idempotent, so the ranking can scope defensively over an already-scoped table', async () => {
+    await seedHorseGenes();
+    const magnitudes = magnitudesOf([
+      { attribute: 'toughness', slots: 1, findings: [finding('01A4', 'dominant', 'toughness', 4)] },
+      { attribute: 'temperament', slots: 1, findings: [finding('01A1', 'dominant', 'temperament', 2)] },
+    ]);
+
+    const once = await magnitudesForBreed(magnitudes, 'Horse', 'Kurbone');
+    const twice = await magnitudesForBreed(once, 'Horse', 'Kurbone');
+    expect([...twice.points]).toEqual([...once.points]);
+    expect([...twice.coverage]).toEqual([...once.coverage]);
   });
 });
