@@ -386,6 +386,8 @@ export async function runAttributeStudy(
   const totals = { slots: 0, found: 0, direct: 0, derived: 0, system: 0 };
   const validation = { tested: 0, exact: 0, stabledTested: 0, stabledExact: 0 };
   const pooled = new Map<string, ValidationSuspect>();
+  /** Largest single-attribute failure count seen per subject. */
+  const best = new Map<string, number>();
   for (const study of studies) {
     totals.slots += study.slots;
     totals.found += study.findings.length;
@@ -401,15 +403,20 @@ export async function runAttributeStudy(
     for (const suspect of study.validation.suspects) {
       const seen = pooled.get(suspect.subjectId);
       if (seen) {
-        // Keep the offset from whichever attribute implicates it most: a
-        // mis-typed attribute shows up on that attribute and nowhere else,
-        // so the largest contributor is the one carrying the evidence.
-        if (suspect.failures > seen.failures) {
+        // Keep the offset from whichever *single* attribute implicates it
+        // most — a mis-typed attribute shows up on that attribute and nowhere
+        // else, so the largest single contributor carries the evidence.
+        // Compared against `best`, not the running total, which only grows.
+        if (suspect.failures > (best.get(suspect.subjectId) ?? 0)) {
           seen.offset = suspect.offset;
           seen.offsetShare = suspect.offsetShare;
+          best.set(suspect.subjectId, suspect.failures);
         }
         seen.failures += suspect.failures;
-      } else pooled.set(suspect.subjectId, { ...suspect });
+      } else {
+        pooled.set(suspect.subjectId, { ...suspect });
+        best.set(suspect.subjectId, suspect.failures);
+      }
     }
   }
   const suspects = [...pooled.values()].sort((a, b) => b.failures - a.failures || b.offsetShare - a.offsetShare);
@@ -700,6 +707,11 @@ export async function listExcludedSubjects(species: string): Promise<Array<{ sub
 export async function setUseForStudies(species: string, subjectId: string, use: boolean): Promise<void> {
   const db = getDb();
   const flag = use ? 1 : 0;
+  // Whatever happens below changes the corpus, and a memoised magnitude
+  // table derived from the old one would keep feeding the breeding scores an
+  // excluded animal's readings for the rest of the session — the Study tab
+  // re-solves directly and would silently disagree with the Breed tab.
+  clearAttributeMagnitudesCache(species);
   if (subjectId.startsWith(SHARED_ID_PREFIX)) {
     await db.execute(
       'UPDATE study_corpus SET use_for_studies = $flag WHERE species = $species AND content_hash = $hash',
@@ -708,7 +720,11 @@ export async function setUseForStudies(species: string, subjectId: string, use: 
     return;
   }
   const id = Number(subjectId);
-  if (!Number.isInteger(id)) return;
+  // `Number('')` is 0, which is an integer and would update `id = 0` — a
+  // no-op the caller cannot distinguish from success.
+  if (!/^\d+$/.test(subjectId) || !Number.isInteger(id)) {
+    throw new Error(`setUseForStudies: not a subject id: ${subjectId}`);
+  }
   await db.execute('UPDATE pets SET use_for_studies = $flag WHERE id = $id', { flag, id });
 }
 

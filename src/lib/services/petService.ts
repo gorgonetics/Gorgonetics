@@ -368,6 +368,7 @@ const ALL_PET_COLUMNS = [
   'total_genes',
   'known_genes',
   'unknown_genes',
+  'use_for_studies',
 ];
 
 /**

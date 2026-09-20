@@ -512,6 +512,26 @@ describe('use_for_studies', () => {
     expect(run.corpus.excluded.find((e) => e.reason === 'excluded')?.count).toBe(1);
   });
 
+  it('drops the memoised magnitudes, so breeding does not keep using the animal', async () => {
+    const badId = await corpusWithOneBadRow();
+    const before = await attributeMagnitudesFor('horse');
+    expect(peekAttributeMagnitudes('horse')).toBe(before);
+
+    await setUseForStudies('horse', String(badId), false);
+
+    // The Study tab re-solves directly; without this the Breed tab would go
+    // on scoring from magnitudes derived from the excluded animal.
+    expect(peekAttributeMagnitudes('horse')).toBeUndefined();
+    expect(await attributeMagnitudesFor('horse')).not.toBe(before);
+  });
+
+  it('refuses a subject id that is neither a pet nor a cached animal', async () => {
+    // `Number('')` is 0 and an integer, which would update `id = 0` — a
+    // no-op the caller would report to the player as success.
+    await expect(setUseForStudies('horse', '', false)).rejects.toThrow();
+    await expect(setUseForStudies('horse', 'nonsense', false)).rejects.toThrow();
+  });
+
   it('lists what is excluded so the choice can be undone', async () => {
     const badId = await corpusWithOneBadRow();
     await setUseForStudies('horse', String(badId), false);

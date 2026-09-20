@@ -257,6 +257,10 @@ async function solve(target: string): Promise<void> {
       for (const finding of study.findings) for (const [l, r] of finding.witnesses) ids.add(l).add(r);
       for (const c of study.contradictions) ids.add(c.subjectId);
     }
+    // Suspects come from *held-out* equations, so they are by construction
+    // not the pairs any finding was read off — without this they miss the
+    // witness ids entirely and the panel renders raw content hashes.
+    for (const s of result.suspects) ids.add(s.subjectId);
     const resolved = await namesForSubjects([...ids]);
     if (mine !== generation) return;
     names = resolved;
