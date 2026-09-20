@@ -363,10 +363,14 @@ async function solve(target: string): Promise<void> {
     names = resolved;
     run = result;
     attribute = result.studies[0]?.attribute ?? null;
-    const status = await studyCorpusStatus(target);
+    // Both reads before any assignment, then one guard: a solve that started
+    // while these were in flight has already published its own numbers, and
+    // writing these afterwards would pair the new study with the old corpus.
+    const [status, excludedNow] = await Promise.all([studyCorpusStatus(target), listExcludedSubjects(target)]);
+    if (mine !== generation) return;
     cachedCount = status.cached;
     fetchedAt = status.fetchedAt;
-    excluded = await listExcludedSubjects(target);
+    excluded = excludedNow;
   } catch (err) {
     if (mine !== generation) return;
     failure = err instanceof Error ? err.message : String(err);

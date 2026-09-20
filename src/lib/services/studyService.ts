@@ -385,9 +385,8 @@ export async function runAttributeStudy(
 
   const totals = { slots: 0, found: 0, direct: 0, derived: 0, system: 0 };
   const validation = { tested: 0, exact: 0, stabledTested: 0, stabledExact: 0 };
-  const pooled = new Map<string, ValidationSuspect>();
-  /** Largest single-attribute failure count seen per subject. */
-  const best = new Map<string, number>();
+  /** Per subject, how often each error size was seen across every attribute. */
+  const pooled = new Map<string, Map<number, number>>();
   for (const study of studies) {
     totals.slots += study.slots;
     totals.found += study.findings.length;
@@ -401,25 +400,27 @@ export async function runAttributeStudy(
     validation.stabledTested += study.validation.stabledTested;
     validation.stabledExact += study.validation.stabledExact;
     for (const suspect of study.validation.suspects) {
-      const seen = pooled.get(suspect.subjectId);
-      if (seen) {
-        // Keep the offset from whichever *single* attribute implicates it
-        // most — a mis-typed attribute shows up on that attribute and nowhere
-        // else, so the largest single contributor carries the evidence.
-        // Compared against `best`, not the running total, which only grows.
-        if (suspect.failures > (best.get(suspect.subjectId) ?? 0)) {
-          seen.offset = suspect.offset;
-          seen.offsetShare = suspect.offsetShare;
-          best.set(suspect.subjectId, suspect.failures);
-        }
-        seen.failures += suspect.failures;
-      } else {
-        pooled.set(suspect.subjectId, { ...suspect });
-        best.set(suspect.subjectId, suspect.failures);
-      }
+      const seen = pooled.get(suspect.subjectId) ?? new Map<number, number>();
+      for (const [error, count] of suspect.offsets) seen.set(error, (seen.get(error) ?? 0) + count);
+      pooled.set(suspect.subjectId, seen);
     }
   }
-  const suspects = [...pooled.values()].sort((a, b) => b.failures - a.failures || b.offsetShare - a.offsetShare);
+  // Recomputed from the pooled counts, not copied from one attribute: the
+  // share has to be a share of the same total the row displays.
+  const suspects: ValidationSuspect[] = [...pooled].map(([subjectId, byError]) => {
+    let failures = 0;
+    let offset = 0;
+    let best = 0;
+    for (const [error, count] of byError) {
+      failures += count;
+      if (count > best) {
+        best = count;
+        offset = error;
+      }
+    }
+    return { subjectId, failures, offset, offsetShare: best / failures, offsets: [...byError] };
+  });
+  suspects.sort((a, b) => b.failures - a.failures || b.offsetShare - a.offsetShare);
 
   return { corpus, studies, totals, validation, suspects };
 }
@@ -713,10 +714,15 @@ export async function setUseForStudies(species: string, subjectId: string, use: 
   // re-solves directly and would silently disagree with the Breed tab.
   clearAttributeMagnitudesCache(species);
   if (subjectId.startsWith(SHARED_ID_PREFIX)) {
-    await db.execute(
+    const result = await db.execute(
       'UPDATE study_corpus SET use_for_studies = $flag WHERE species = $species AND content_hash = $hash',
       { flag, species: normalizeSpecies(species), hash: subjectId.slice(SHARED_ID_PREFIX.length) },
     );
+    // A hash this species does not hold updates nothing. Reporting success
+    // would have the view re-solve and show no change, with nothing to say why.
+    if ((result.rowsAffected ?? 0) === 0) {
+      throw new Error(`setUseForStudies: no cached ${species} animal for ${subjectId}`);
+    }
     return;
   }
   const id = Number(subjectId);
@@ -725,7 +731,8 @@ export async function setUseForStudies(species: string, subjectId: string, use: 
   if (!/^\d+$/.test(subjectId) || !Number.isInteger(id)) {
     throw new Error(`setUseForStudies: not a subject id: ${subjectId}`);
   }
-  await db.execute('UPDATE pets SET use_for_studies = $flag WHERE id = $id', { flag, id });
+  const result = await db.execute('UPDATE pets SET use_for_studies = $flag WHERE id = $id', { flag, id });
+  if ((result.rowsAffected ?? 0) === 0) throw new Error(`setUseForStudies: no pet with id ${id}`);
 }
 
 /**

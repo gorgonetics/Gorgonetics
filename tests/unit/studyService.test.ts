@@ -525,6 +525,14 @@ describe('use_for_studies', () => {
     expect(await attributeMagnitudesFor('horse')).not.toBe(before);
   });
 
+  it('refuses a subject nothing matched, rather than reporting a silent no-op', async () => {
+    // The id is well-formed but names nothing here. An UPDATE that touches no
+    // row would otherwise look exactly like success, and the view would
+    // re-solve and show no change with nothing to say why.
+    await expect(setUseForStudies('horse', '999999', false)).rejects.toThrow(/no pet/);
+    await expect(setUseForStudies('horse', 'shared:deadbeef', false)).rejects.toThrow(/no cached/);
+  });
+
   it('refuses a subject id that is neither a pet nor a cached animal', async () => {
     // `Number('')` is 0 and an integer, which would update `id = 0` — a
     // no-op the caller would report to the player as success.

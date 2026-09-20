@@ -596,6 +596,16 @@ describe('validation suspects', () => {
     expect(bad?.offsetShare).toBe(1);
   });
 
+  it('carries every error size, so a pooled share is a share of the pooled total', () => {
+    const study = studyAttribute(withBadRow, 'temperament', temperament);
+    const bad = study.validation.suspects.find((s) => s.subjectId === 'bad');
+    // `offsets` is what lets the service recompute the share across
+    // attributes. Reporting one attribute's share beside a total summed over
+    // all of them would claim agreement the evidence does not have.
+    expect(bad?.offsets.length).toBeGreaterThan(0);
+    expect(bad?.offsets.reduce((n, [, count]) => n + count, 0)).toBe(bad?.failures);
+  });
+
   it('implicates nobody when every prediction lands', () => {
     // 50 + 5 + 3 — what the corpus says this animal must read.
     const clean = [...withBadRow.slice(0, 6), horse('good', base({ '01A1': 'R', '01A3': 'D' }), { temperament: 58 })];

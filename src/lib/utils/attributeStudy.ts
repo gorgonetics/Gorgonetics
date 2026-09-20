@@ -246,6 +246,15 @@ export interface ValidationSuspect {
   offset: number;
   /** Share of its failures at that offset; near 1 means one bad reading. */
   offsetShare: number;
+  /**
+   * Every error size seen, and how often — `[error, count]` pairs.
+   *
+   * Carried so that pooling across attributes can recompute `offset` and
+   * `offsetShare` from the whole picture. Taking one attribute's share and
+   * pairing it with a total counted across all of them would report, say,
+   * 100% agreement over 4 failures while quietly summing 7.
+   */
+  offsets: Array<[number, number]>;
 }
 
 export interface AttributeStudy {
@@ -1150,7 +1159,7 @@ function validate(
         offset = error;
       }
     }
-    suspects.push({ subjectId, failures, offset, offsetShare: best / failures });
+    suspects.push({ subjectId, failures, offset, offsetShare: best / failures, offsets: [...byError] });
   }
   // Worst first, and a concentrated offset ahead of a scattered one at the
   // same count: the concentrated one is the likelier mis-typed record.
