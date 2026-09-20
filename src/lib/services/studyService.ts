@@ -814,11 +814,18 @@ export async function liveGeneConfirmations(
  * are counters that reset when the app restarts, so they cannot key a cache
  * that outlives the session. This reads the inputs themselves instead.
  *
- * Deliberately cheap: counts and small per-row summaries, never the genomes.
- * A genome only reaches the study through a `pets` row whose `updated_at`
- * moves when it changes, or a `study_corpus` row that a refresh replaces
- * wholesale — so the expensive part never has to be read to know it is the
- * same expensive part.
+ * Deliberately cheap: small per-row summaries, never the genomes themselves.
+ * A cached animal's `content_hash` is its genome's digest, so that half is
+ * exact. A local animal's is not: `content_hash` is set at upload and
+ * `updatePet` never recomputes it, so a direct `genome_data` rewrite is
+ * covered only by the gene counts it does recompute — `positive_genes` and
+ * the total/known/unknown trio.
+ *
+ * **The one gap that leaves**: a genome rewritten through `updatePet` into a
+ * different genome with identical counts, name, breed and readings would
+ * fingerprint the same. No UI path passes `genome_data` to `updatePet` today,
+ * so it is unreachable; a path that added one should move `content_hash`
+ * with it, which would make this exact again.
  *
  * Errs towards re-solving: any input this misses would be a stale table, so
  * everything the corpus load and the solver read is represented here.
@@ -833,7 +840,8 @@ async function studyFingerprint(species: string): Promise<string> {
   // table to every test.
   const [pets, cached, genes, confirmations] = await Promise.all([
     db.select<Array<Record<string, unknown>>>(
-      `SELECT id, species, name, breed, use_for_studies, stabled, ${ATTRIBUTE_KEYS.join(', ')} FROM pets`,
+      `SELECT id, species, name, breed, content_hash, use_for_studies, stabled,
+              positive_genes, total_genes, known_genes, unknown_genes, ${ATTRIBUTE_KEYS.join(', ')} FROM pets`,
     ),
     db.select<Array<Record<string, unknown>>>(
       'SELECT content_hash, species, name, breed, attributes, use_for_studies FROM study_corpus',
@@ -861,7 +869,22 @@ async function studyFingerprint(species: string): Promise<string> {
       // The inputs themselves rather than `updated_at`: a rename and an
       // attribute correction are both study inputs, and a timestamp is only
       // as good as its resolution — two edits inside one tick would collide.
-      summarise(pets, 'species', ['id', 'name', 'breed', 'use_for_studies', 'stabled', ...ATTRIBUTE_KEYS]),
+      summarise(pets, 'species', [
+        'id',
+        'name',
+        'breed',
+        'content_hash',
+        'use_for_studies',
+        'stabled',
+        // Recomputed by `updatePet` whenever the genome is rewritten, which
+        // is the only way `pet_genes` changes without a fresh upload. See the
+        // caveat in this function's doc.
+        'positive_genes',
+        'total_genes',
+        'known_genes',
+        'unknown_genes',
+        ...ATTRIBUTE_KEYS,
+      ]),
       summarise(cached, 'species', ['content_hash', 'name', 'breed', 'attributes', 'use_for_studies']),
       summarise(genes, 'animal_type', [
         'gene',
@@ -885,9 +908,15 @@ async function loadPersistedMagnitudes(species: string, fingerprint: string): Pr
   const row = rows[0];
   if (!row || row.fingerprint !== fingerprint) return undefined;
   try {
+    const points: unknown = JSON.parse(row.points);
+    const coverage: unknown = JSON.parse(row.coverage);
+    // `JSON.parse('null')` does not throw and `new Map(null)` is a legal
+    // empty map, so without this a null column would read as "nothing is
+    // known" and silently drop every scorer back to counting.
+    if (!Array.isArray(points) || !Array.isArray(coverage)) return undefined;
     return {
-      points: new Map(JSON.parse(row.points) as Array<[string, number]>),
-      coverage: new Map(JSON.parse(row.coverage) as Array<[string, { known: number; total: number }]>),
+      points: new Map(points as Array<[string, number]>),
+      coverage: new Map(coverage as Array<[string, { known: number; total: number }]>),
     };
   } catch {
     // A row that will not parse is worse than no row: re-solve rather than
@@ -980,11 +1009,19 @@ export async function attributeMagnitudesFor(species: string): Promise<Attribute
     if (stored) return stored;
     const run = await runAttributeStudy(normalized);
     const built = buildAttributeMagnitudes(run.studies);
-    // Best-effort: a table that could not be written is a slow next session,
-    // not a wrong one, and must not fail the ranking that just succeeded.
-    await persistMagnitudes(normalized, fingerprint, built).catch((error: unknown) =>
-      console.warn('study_magnitudes: could not persist', error),
-    );
+    // The solve is deliberately slow, and an input can move while it runs —
+    // an exclusion toggled and toggled back, say. Storing it under the
+    // fingerprint taken beforehand would tag this table with inputs it was
+    // not solved from, and every later session would trust the match.
+    const after = await studyFingerprint(normalized);
+    if (after === fingerprint) {
+      // Best-effort: a table that could not be written is a slow next
+      // session, not a wrong one, and must not fail the ranking that just
+      // succeeded.
+      await persistMagnitudes(normalized, fingerprint, built).catch((error: unknown) =>
+        console.warn('study_magnitudes: could not persist', error),
+      );
+    }
     return built;
   })()
     .then((built) => {

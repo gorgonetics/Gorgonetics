@@ -9,6 +9,7 @@ vi.mock('$lib/services/shareService.js', () => ({
 
 import { closeDatabase, getDb, initDatabase } from '$lib/services/database.js';
 import * as geneService from '$lib/services/geneService.js';
+import { parseGenome } from '$lib/services/genomeParser.js';
 import { runMigrations } from '$lib/services/migrationService.js';
 import * as petService from '$lib/services/petService.js';
 import * as shareService from '$lib/services/shareService.js';
@@ -423,6 +424,51 @@ describe('persisted magnitudes', () => {
     await setUseForStudies('horse', String(withoutId), false);
     newSession();
     expect(magnitudeOf(await attributeMagnitudesFor('horse'), '01A1', 'dominant')).toBeUndefined();
+  });
+
+  it('keeps one row per species however many times it re-solves', async () => {
+    await upload(name('Kb', 45, 80, 'With'), 'DRRR');
+    const withoutId = await upload(name('Kb', 40, 80, 'Without'), 'RRRR');
+
+    for (const temperament of [40, 36, 32, 30]) {
+      await petService.updatePet(withoutId, { attributes: { temperament } });
+      newSession();
+      await attributeMagnitudesFor('horse');
+    }
+
+    // `INSERT OR REPLACE` only replaces if the adapter knows what identifies
+    // a row. Without that it appends, `rows[0]` stays the oldest forever, and
+    // the cache silently stops hitting while the table grows per solve.
+    const rows = await getDb().select<Array<Record<string, unknown>>>('SELECT species FROM study_magnitudes');
+    expect(rows.length).toBe(1);
+  });
+
+  it('re-solves when the genome changes, though the name and readings do not', async () => {
+    await upload(name('Kb', 45, 80, 'With'), 'DRRR');
+    const withoutId = await upload(name('Kb', 40, 80, 'Without'), 'RRRR');
+    expect(magnitudeOf(await attributeMagnitudesFor('horse'), '01A1', 'dominant')).toBe(5);
+
+    // Same name, same attributes, different alleles. `genome_data` holds the
+    // *parsed* genome — handed the raw text, `updatePet` fails to parse it
+    // and rewrites nothing, which is what an earlier version of this test
+    // did and why it proved nothing.
+    await petService.updatePet(withoutId, {
+      genome_data: parseGenome(genome(name('Kb', 40, 80, 'Without'), 'DRRR')),
+    });
+    newSession();
+    expect(magnitudeOf(await attributeMagnitudesFor('horse'), '01A1', 'dominant')).not.toBe(5);
+  });
+
+  it('refuses a row whose columns parse to null rather than reading it as empty', async () => {
+    await upload(name('Kb', 45, 80, 'With'), 'DRRR');
+    await upload(name('Kb', 40, 80, 'Without'), 'RRRR');
+    await attributeMagnitudesFor('horse');
+
+    // `new Map(null)` is a legal empty map, so this would otherwise read as
+    // "nothing is known" and drop every scorer back to counting.
+    await getDb().execute("UPDATE study_magnitudes SET points = $bad WHERE species = 'horse'", { bad: 'null' });
+    newSession();
+    expect(magnitudeOf(await attributeMagnitudesFor('horse'), '01A1', 'dominant')).toBe(5);
   });
 
   it('re-solves rather than serving a row it cannot parse', async () => {
