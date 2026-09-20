@@ -63,9 +63,18 @@ function subject(id: string): string {
 						<td>
 							<!-- A direct finding is read straight off a pair; a derived one
 							     sits at the end of a substitution chain and inherits every
-							     error in it. The two must not look alike. -->
+							     error in it; a system one is forced by several equations at
+							     once, no one of which isolates it. The three must not look
+							     alike. -->
 							{#if finding.tier === 'direct'}
 								<span class="tier direct">observed</span>
+							{:else if finding.tier === 'system'}
+								<span
+									class="tier system"
+									title="No single pair isolates this gene, but {finding.support} equations together leave only one value it can take."
+								>
+									solved
+								</span>
 							{:else}
 								<span class="tier derived" title="Reached by substituting {finding.depth} round{finding.depth === 1 ? '' : 's'} of already-known magnitudes.">
 									derived · {finding.depth}
@@ -73,7 +82,15 @@ function subject(id: string): string {
 							{/if}
 						</td>
 						<td class="numeric">
-							{finding.support}{#if finding.dissent > 0}<span
+							<!-- For direct and derived rows this is a count of independent
+							     agreements. For a system row it is not: those equations pin
+							     the slot jointly and none of them confirms it alone, so the
+							     figure is marked rather than left to read as agreement. -->
+							{finding.support}{#if finding.tier === 'system'}<span
+									class="joint"
+									title="These equations determine the value together. None of them agrees on it independently."
+								>&nbsp;joint</span
+								>{/if}{#if finding.dissent > 0}<span
 									class="dissent"
 									title="{finding.dissent} pair{finding.dissent === 1 ? '' : 's'} implied a different value. The majority is shown; the animals responsible are listed under Suspect readings."
 								>&nbsp;/&nbsp;{finding.dissent}</span
@@ -91,6 +108,9 @@ function subject(id: string): string {
 								<p class="evidence-lead">
 									{#if finding.tier === 'direct'}
 										These pairs match on every other {finding.attribute} gene, so the whole gap is this one.
+									{:else if finding.tier === 'system'}
+										No one of these pairs pins this gene on its own. Taken together they leave it only one
+										possible value.
 									{:else}
 										Every other {finding.attribute} gene in these pairs was already known, leaving this one.
 									{/if}
@@ -244,6 +264,19 @@ function subject(id: string): string {
 	.tier.derived {
 		background: transparent;
 		border: 1px solid var(--border-primary);
+		color: var(--text-tertiary);
+	}
+	/* Entailed like `direct`, but by several equations rather than one pair —
+	   so it reads as solid as `observed`, with a dashed edge saying the
+	   evidence is joint. */
+	.tier.system {
+		background: transparent;
+		border: 1px dashed var(--border-primary);
+		color: var(--text-secondary);
+	}
+
+	.joint {
+		font-size: 11px;
 		color: var(--text-tertiary);
 	}
 

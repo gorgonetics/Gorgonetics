@@ -146,7 +146,7 @@ export interface StudyRun {
   corpus: StudyCorpus;
   studies: AttributeStudy[];
   /** Unknowns across every attribute, and how many are now known. */
-  totals: { slots: number; found: number; direct: number; derived: number };
+  totals: { slots: number; found: number; direct: number; derived: number; system: number };
   /**
    * Pooled out-of-sample score — the engine's health. `stabled*` is the
    * same score over pairs the player can re-read, and is the one to quote.
@@ -352,13 +352,14 @@ export async function runAttributeStudy(
   });
   const studies = studyAll(corpus.subjects, slots, options);
 
-  const totals = { slots: 0, found: 0, direct: 0, derived: 0 };
+  const totals = { slots: 0, found: 0, direct: 0, derived: 0, system: 0 };
   const validation = { tested: 0, exact: 0, stabledTested: 0, stabledExact: 0 };
   for (const study of studies) {
     totals.slots += study.slots;
     totals.found += study.findings.length;
     for (const finding of study.findings) {
       if (finding.tier === 'direct') totals.direct++;
+      else if (finding.tier === 'system') totals.system++;
       else totals.derived++;
     }
     validation.tested += study.validation.tested;

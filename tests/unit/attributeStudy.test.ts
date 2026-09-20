@@ -555,3 +555,136 @@ describe('doubting the gene data', () => {
     expect(forGene).toHaveLength(1);
   });
 });
+
+describe('determined subsystems', () => {
+  /**
+   * Three slots, four animals, every pair differing at exactly two slots.
+   *
+   * No equation ever has a single unknown, so substitution cannot start —
+   * but the three equations determine all three magnitudes:
+   *
+   *   A + B = 8   B + C = 12   A + C = 10   =>   A = 3, B = 5, C = 7
+   *
+   * A, B and C are `01A3:dominant`, `01A1:recessive` and `14B4:dominant`.
+   */
+  const pinned = [
+    horse('V', base(), { temperament: 50 }),
+    horse('U', base({ '01A3': 'D', '01A1': 'R' }), { temperament: 58 }),
+    horse('T', base({ '01A1': 'R', '14B4': 'D' }), { temperament: 62 }),
+    horse('S', base({ '01A3': 'D', '14B4': 'D' }), { temperament: 60 }),
+  ];
+
+  it('solves what substitution cannot reach', () => {
+    const study = studyAttribute(pinned, 'temperament', temperament);
+    const byKey = new Map(study.findings.map((f) => [slotKey(f), f]));
+
+    expect(byKey.get('01A3:dominant')?.magnitude).toBe(3);
+    expect(byKey.get('01A1:recessive')?.magnitude).toBe(5);
+    expect(byKey.get('14B4:dominant')?.magnitude).toBe(7);
+    // Every pair differs at two slots, so the old solver reaches none of them.
+    expect(study.findings.every((f) => f.tier === 'system')).toBe(true);
+  });
+
+  it('carries the evidence that pinned each slot', () => {
+    const study = studyAttribute(pinned, 'temperament', temperament);
+    const found = study.findings.find((f) => slotKey(f) === '01A3:dominant');
+    expect(found?.support).toBeGreaterThan(1);
+    expect(found?.witnesses.length).toBeGreaterThan(0);
+    // An inconsistent subsystem publishes nothing at all, so a published one
+    // has nothing dissenting from it.
+    expect(found?.dissent).toBe(0);
+  });
+
+  it('refuses a fractional solution and says an animal is mis-recorded', () => {
+    // S moved by one. The system still determines all three slots, but now to
+    // halves — impossible when every effect is an integer.
+    const broken = [...pinned.slice(0, 3), horse('S', base({ '01A3': 'D', '14B4': 'D' }), { temperament: 61 })];
+    const study = studyAttribute(broken, 'temperament', temperament);
+
+    expect(study.findings).toEqual([]);
+    expect(study.geneDoubts.some((d) => d.reason === 'non-integer')).toBe(true);
+  });
+
+  it('refuses a solution that contradicts the declared direction', () => {
+    // Same shape, values chosen so `01A3:dominant` solves to -3 against a
+    // declared `+`. The declaration is never an input to the arithmetic,
+    // which is exactly what lets it reject the answer.
+    const wrongWay = [
+      horse('V', base(), { temperament: 50 }),
+      horse('U', base({ '01A3': 'D', '01A1': 'R' }), { temperament: 52 }),
+      horse('T', base({ '01A1': 'R', '14B4': 'D' }), { temperament: 62 }),
+      horse('S', base({ '01A3': 'D', '14B4': 'D' }), { temperament: 54 }),
+    ];
+    const study = studyAttribute(wrongWay, 'temperament', temperament);
+    const byKey = new Map(study.findings.map((f) => [slotKey(f), f]));
+
+    expect(byKey.has('01A3:dominant')).toBe(false);
+    expect(study.geneDoubts.some((d) => d.gene === '01A3' && d.reason === 'contradicts-sign')).toBe(true);
+    // The slots the same system pins correctly are still published.
+    expect(byKey.get('01A1:recessive')?.magnitude).toBe(5);
+    expect(byKey.get('14B4:dominant')?.magnitude).toBe(7);
+  });
+
+  it('publishes nothing from a component its own animals contradict', () => {
+    // B and C are identical on every temperament locus and read differently,
+    // so `01A3:dominant` is 4 and 6 at once. The fixpoint correctly abstains
+    // (the tally ties, and one bad animal could explain it). The subsystem
+    // pass must abstain too rather than pick a pivot value and call it
+    // certain — the contradiction belongs to the combination, not the slot.
+    const contradicting = [
+      horse('A', base(), { temperament: 50 }),
+      horse('B', base({ '01A3': 'D' }), { temperament: 54 }),
+      horse('C', base({ '01A3': 'D' }), { temperament: 56 }),
+    ];
+    const study = studyAttribute(contradicting, 'temperament', temperament);
+    expect(study.findings).toEqual([]);
+  });
+
+  it('does not score itself: the equations it solved are not held-out tests', () => {
+    // Every equation in `pinned` went into the solve, so none of them is an
+    // out-of-sample test. Counting them would report a guaranteed 100%.
+    const study = studyAttribute(pinned, 'temperament', temperament);
+    expect(study.findings.length).toBe(3);
+    expect(study.validation.tested).toBe(0);
+  });
+
+  it('survives a corrupt non-integer reading instead of failing the study', () => {
+    // Nothing produces one today, but both subject sources only type-check
+    // the value. Reaching exact arithmetic, it would abort every attribute.
+    const corrupt = [...pinned, horse('X', base({ '01A3': 'D' }), { temperament: 55.5 })];
+    expect(() => studyAttribute(corrupt, 'temperament', temperament)).not.toThrow();
+    const study = studyAttribute(corrupt, 'temperament', temperament);
+    expect(study.findings.find((f) => slotKey(f) === '01A3:dominant')?.magnitude).toBe(3);
+  });
+
+  it('counts every animal behind a doubt, not just the displayed witnesses', () => {
+    // Same shape as the sign-clash case — every pair differs at two slots, so
+    // only the subsystem pass can reach `01A3` — with two animals stabled.
+    // The doubt panel ranks by how many animals are involved and whether any
+    // pair is settleable, so both must come from the whole pair list rather
+    // than the three pairs the table happens to show.
+    const many = [
+      horse('V', base(), { temperament: 50 }),
+      horse('U', base({ '01A3': 'D', '01A1': 'R' }), { temperament: 52 }),
+      horse('T', base({ '01A1': 'R', '14B4': 'D' }), { temperament: 62 }, 'Kurbone', true),
+      horse('S', base({ '01A3': 'D', '14B4': 'D' }), { temperament: 54 }, 'Kurbone', true),
+    ];
+    const study = studyAttribute(many, 'temperament', temperament);
+    const doubt = study.geneDoubts.find((d) => d.gene === '01A3');
+
+    expect(doubt).toBeDefined();
+    expect(doubt?.witnesses.length).toBeLessThanOrEqual(3);
+    // T and S are both stabled and their difference mentions this slot, so
+    // the player can settle it — visible only if the census saw every pair.
+    expect(doubt?.checkable).toBe(true);
+    expect(doubt?.animals).toBe(4);
+  });
+
+  it('leaves a slot open when the system does not determine it', () => {
+    // Two animals, one equation, two unknowns: `A + B = 8` has infinitely
+    // many solutions and neither slot may be published.
+    const underdetermined = [pinned[0], pinned[1]];
+    const study = studyAttribute(underdetermined, 'temperament', temperament);
+    expect(study.findings).toEqual([]);
+  });
+});

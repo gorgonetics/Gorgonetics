@@ -220,7 +220,10 @@ async function solve(target: string): Promise<void> {
 			<div class="stat">
 				<span class="stat-value">{run.totals.direct}</span>
 				<span class="stat-label">observed directly</span>
-				<span class="stat-detail">{run.totals.derived} more by substitution</span>
+				<span class="stat-detail"
+					>{run.totals.derived} more by substitution{#if run.totals.system > 0}, {run.totals.system} by solving
+						together{/if}</span
+				>
 			</div>
 			<div class="stat">
 				<span class="stat-value">{accuracy === null ? '—' : `${accuracy.toFixed(1)}%`}</span>
@@ -322,6 +325,9 @@ async function solve(target: string): Promise<void> {
 											{d.observed > 0 ? '+' : '−'}{Math.abs(d.observed)}
 										{:else if d.reason === 'no-effect'}
 											declared {d.attribute}{d.declared > 0 ? '+' : '−'}, but changes nothing
+										{:else if d.reason === 'non-integer'}
+											{d.attribute} works out to {d.observed.toFixed(2)} — effects are whole numbers, so a
+											reading behind this is wrong
 										{:else}
 											{d.attribute} effect is not consistent across animals
 										{/if}
