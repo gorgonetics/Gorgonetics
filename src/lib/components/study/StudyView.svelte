@@ -208,6 +208,32 @@ const suspects = $derived.by(() => {
 });
 
 /**
+ * The four evidence panels used to stack in one column, each fighting the
+ * others for vertical space. They now share a rail with one visible at a
+ * time, picked from this list — built fresh each render so a panel that
+ * empties out (e.g. every doubt gets confirmed) drops off it.
+ */
+type EvidenceId = 'doubts' | 'suspects' | 'misrecorded' | 'excluded';
+const evidenceSections = $derived(
+  (
+    [
+      { id: 'doubts', label: 'Gene checks', count: doubts.length },
+      { id: 'suspects', label: 'Suspect readings', count: suspects.length },
+      { id: 'misrecorded', label: 'Mis-recorded', count: run?.suspects.length ?? 0 },
+      { id: 'excluded', label: 'Excluded', count: excluded.length },
+    ] satisfies Array<{ id: EvidenceId; label: string; count: number }>
+  ).filter((s) => s.count > 0),
+);
+let evidenceSection = $state<EvidenceId>('doubts');
+// Keep the selection on a panel that still has something in it, without
+// fighting the player's own click: only steps in once the current pick has
+// emptied out or nothing has been picked yet.
+$effect(() => {
+  if (evidenceSections.length === 0) return;
+  if (!evidenceSections.some((s) => s.id === evidenceSection)) evidenceSection = evidenceSections[0].id;
+});
+
+/**
  * Re-runs whenever the species changes, including the first time it
  * resolves from an empty pet list. Guarded on `ranFor` so a re-render that
  * does not change the species cannot restart the solve.
@@ -386,27 +412,46 @@ async function solve(target: string): Promise<void> {
 			</div>
 		{:else}
 			<div class="body">
-				<nav class="attr-tabs" aria-label="Attribute">
-					{#each studies as study (study.attribute)}
-						<button
-							type="button"
-							class="attr-tab"
-							class:active={study.attribute === current?.attribute}
-							data-testid="study-attr-{study.attribute}"
-							onclick={() => (attribute = study.attribute)}
-						>
-							{study.attribute}
-							<span class="attr-count">{study.findings.length}/{study.slots}</span>
-						</button>
-					{/each}
-				</nav>
+				<div class="main">
+					<nav class="attr-tabs" aria-label="Attribute">
+						{#each studies as study (study.attribute)}
+							<button
+								type="button"
+								class="attr-tab"
+								class:active={study.attribute === current?.attribute}
+								data-testid="study-attr-{study.attribute}"
+								onclick={() => (attribute = study.attribute)}
+							>
+								{study.attribute}
+								<span class="attr-count">{study.findings.length}/{study.slots}</span>
+							</button>
+						{/each}
+					</nav>
 
-				{#if current}
-					<StudyFindingsTable findings={current.findings} {names} slots={current.slots} />
-				{/if}
+					{#if current}
+						<StudyFindingsTable findings={current.findings} {names} slots={current.slots} />
+					{/if}
+				</div>
 
-				{#if doubts.length > 0}
-					<aside class="panel doubts">
+				{#if evidenceSections.length > 0}
+					<aside class="evidence" data-testid="study-evidence">
+						<div class="seg evidence-nav" role="group" aria-label="Evidence">
+							{#each evidenceSections as section (section.id)}
+								<button
+									type="button"
+									class="seg-btn evidence-tab"
+									class:active={section.id === evidenceSection}
+									data-testid="study-evidence-{section.id}"
+									onclick={() => (evidenceSection = section.id)}
+								>
+									{section.label}
+									<span class="evidence-count">{section.count}</span>
+								</button>
+							{/each}
+						</div>
+						<div class="evidence-body">
+				{#if evidenceSection === 'doubts' && doubts.length > 0}
+					<div class="panel doubts">
 						<h3>Check these genes in game</h3>
 						<p>
 							The animals disagree with what the gene table says these do. The table is entered by
@@ -453,11 +498,10 @@ async function solve(target: string): Promise<void> {
 						{#if actionError}
 							<p class="action-error">Could not save that: {actionError}</p>
 						{/if}
-					</aside>
-				{/if}
+						</div>
+				{:else if evidenceSection === 'suspects' && suspects.length > 0}
 
-				{#if suspects.length > 0}
-					<aside class="panel suspects shaded">
+					<div class="panel suspects shaded">
 						<h3>Suspect readings</h3>
 						<p>
 							These animals disagree with magnitudes the rest of the stable agrees on. The arithmetic
@@ -477,11 +521,10 @@ async function solve(target: string): Promise<void> {
 								</li>
 							{/each}
 						</ul>
-					</aside>
-				{/if}
+					</div>
+				{:else if evidenceSection === 'misrecorded' && run && run.suspects.length > 0}
 
-				{#if run && run.suspects.length > 0}
-					<aside class="panel misrecorded shaded">
+					<div class="panel misrecorded shaded">
 						<h3>Animals the predictions disagree with</h3>
 						<p>
 							Each of these takes part in predictions that come out wrong. One mis-typed attribute
@@ -513,11 +556,10 @@ async function solve(target: string): Promise<void> {
 								</li>
 							{/each}
 						</ul>
-					</aside>
-				{/if}
+					</div>
+				{:else if evidenceSection === 'excluded' && excluded.length > 0}
 
-				{#if excluded.length > 0}
-					<aside class="panel excluded-panel">
+					<div class="panel excluded-panel">
 						<h3>Not used for studies</h3>
 						<p>These animals are excluded from inference. Their records are kept exactly as they are.</p>
 						<ul>
@@ -536,10 +578,11 @@ async function solve(target: string): Promise<void> {
 								</li>
 							{/each}
 						</ul>
-					</aside>
+					</div>
 				{/if}
-
-
+					</div>
+				</aside>
+			{/if}
 			</div>
 		{/if}
 	{/if}
@@ -693,6 +736,61 @@ async function solve(target: string): Promise<void> {
 		overflow: hidden;
 	}
 
+	/* Findings is the primary content and takes whatever height `.evidence`
+	   below does not need. Needs its own min-height: 0 — it is a flex item
+	   AND a flex container for the table, so both ends of the chain must
+	   give up their default auto minimum or the table's scroller silently
+	   stops clipping instead of scrolling. */
+	.main {
+		flex: 1;
+		min-height: 0;
+		display: flex;
+		flex-direction: column;
+		overflow: hidden;
+	}
+
+	/* The four "Check genes / Suspect readings / Mis-recorded / Excluded"
+	   panels used to stack here one after another, each fighting the others
+	   for height and none of them actually scrolling. Now only the picked
+	   one renders, in a strip capped well under half the pane, so findings
+	   above keeps the room it needs. */
+	.evidence {
+		flex-shrink: 0;
+		max-height: 40%;
+		min-height: 0;
+		display: flex;
+		flex-direction: column;
+		border-top: 1px solid var(--border-primary);
+		overflow: hidden;
+	}
+
+	.evidence-nav {
+		flex-shrink: 0;
+		flex-wrap: wrap;
+		margin: var(--space-sm) var(--space-md) 0;
+	}
+
+	.evidence-tab {
+		display: flex;
+		align-items: center;
+		gap: var(--space-2xs);
+	}
+
+	.evidence-count {
+		font-size: 11px;
+		color: var(--text-tertiary);
+		font-variant-numeric: tabular-nums;
+	}
+	.evidence-tab.active .evidence-count {
+		color: var(--text-secondary);
+	}
+
+	.evidence-body {
+		flex: 1;
+		min-height: 0;
+		overflow-y: auto;
+	}
+
 	.attr-tabs {
 		flex-shrink: 0;
 		display: flex;
@@ -730,15 +828,17 @@ async function solve(target: string): Promise<void> {
 		font-variant-numeric: tabular-nums;
 	}
 
-	/* Both footer panels are the same object: a bordered strip holding a
-	   heading, one explanatory line and a tight list. They differ only in
-	   how each row is laid out, so only that differs below. */
+	/* All four evidence panels are the same object: a heading, one
+	   explanatory line and a tight list. They differ only in how each row is
+	   laid out, so only that differs below. Only one is ever mounted at a
+	   time (see `evidenceSection`), and `.evidence-body` is the sole scroll
+	   container for it. */
 	.panel {
-		flex-shrink: 0;
-		max-height: 22%;
-		overflow-y: auto;
+		/* Same measure as the findings table above it (StudyFindingsTable's
+		   own 780px cap), so a shaded panel's background does not stretch
+		   into a stripe the table above never uses. */
+		max-width: 780px;
 		padding: var(--space-sm) var(--space-md);
-		border-top: 1px solid var(--border-primary);
 	}
 
 	.panel.shaded {
