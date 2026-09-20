@@ -47,8 +47,11 @@ import { type AttributeMagnitudes, buildAttributeMagnitudes, EMPTY_MAGNITUDES } 
 import {
   type AttributeStudy,
   buildEffectSlots,
+  type EffectSlot,
+  type Expression,
   type StudyOptions,
   type StudySubject,
+  slotKey,
   studyAll,
 } from '$lib/utils/attributeStudy.js';
 import { sha256Hex } from '$lib/utils/hash.js';
@@ -350,7 +353,10 @@ export async function runAttributeStudy(
     ...options,
     requiredGenes: options.requiredGenes ?? new Set(slots.map((slot) => slot.gene)),
   });
-  const studies = studyAll(corpus.subjects, slots, options);
+  const studies = studyAll(corpus.subjects, slots, {
+    ...options,
+    confirmedSlots: options.confirmedSlots ?? (await liveGeneConfirmations(species, slots)),
+  });
 
   const totals = { slots: 0, found: 0, direct: 0, derived: 0, system: 0 };
   const validation = { tested: 0, exact: 0, stabledTested: 0, stabledExact: 0 };
@@ -418,8 +424,36 @@ function usableSharedPet(pet: SharedPet, genes: Record<string, string>): boolean
  * Two collection scans rather than a fetch per animal: the metadata and
  * the genome blobs are paged separately and joined on the content hash.
  */
-export async function refreshStudyCorpus(species: string): Promise<RefreshResult> {
+/**
+ * Where a refresh has got to.
+ *
+ * The work is four phases over a few hundred entries, and the slow two are
+ * paged network reads. Without this the button says "Fetching…" for as long
+ * as it takes and the player cannot tell a working fetch from a hung one.
+ *
+ * `total` is 0 while it is still unknown: the catalogue's size is only
+ * discovered by paging to the end of it, so the first phase can report how
+ * much it has found but not how much is left.
+ */
+export interface RefreshProgress {
+  phase: 'catalogue' | 'genomes' | 'checking' | 'saving';
+  done: number;
+  total: number;
+}
+
+/** Let the browser paint. `await` alone only drains microtasks. */
+const yieldToRender = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
+
+export async function refreshStudyCorpus(
+  species: string,
+  onProgress?: (progress: RefreshProgress) => void,
+): Promise<RefreshResult> {
   const normalized = normalizeSpecies(species);
+  const report = async (progress: RefreshProgress): Promise<void> => {
+    if (!onProgress) return;
+    onProgress(progress);
+    await yieldToRender();
+  };
 
   // The catalogue is add-only: a correction is a second document for the
   // same hash. `listPets` pages newest-first, so keeping the last one seen
@@ -429,26 +463,45 @@ export async function refreshStudyCorpus(species: string): Promise<RefreshResult
   // because `breed` drives pairing and `name` is the measurement gate.
   const pages: SharedPet[] = [];
   let cursor: unknown = null;
+  await report({ phase: 'catalogue', done: 0, total: 0 });
   do {
     const page = await listPets(cursor ? { after: cursor } : {});
     pages.push(...page.pets);
     cursor = page.pets.length > 0 ? page.cursor : null;
+    await report({ phase: 'catalogue', done: pages.length, total: 0 });
   } while (cursor);
   const metadata = new Map<string, SharedPet>(dedupeLatest(pages).map((pet) => [pet.contentHash, pet]));
 
   const genomes = new Map<string, string>();
   cursor = null;
+  // The catalogue is paged, so its size is known now and the genome fetch
+  // can be counted against it.
+  await report({ phase: 'genomes', done: 0, total: metadata.size });
   do {
     const page = await listGenomes(cursor ? { after: cursor } : {});
     for (const g of page.genomes) genomes.set(g.contentHash, g.genomeData);
     cursor = page.genomes.length > 0 ? page.cursor : null;
+    await report({ phase: 'genomes', done: genomes.size, total: metadata.size });
   } while (cursor);
 
   const ts = now();
   let cached = 0;
   let unverified = 0;
   const rows: CachedRow[] = [];
+  let checked = 0;
+  await report({ phase: 'checking', done: 0, total: metadata.size });
   for (const [hash, pet] of metadata) {
+    checked++;
+    // Hashing and parsing a few hundred genomes is the one phase that is
+    // this app's own work rather than the network's, and it is the phase
+    // that looks hung. Report in batches: every entry would cost more in
+    // repaints than the work itself.
+    // The last entry always reports, whatever the batch size: a corpus of
+    // twelve would otherwise sit at zero throughout, and a partial final
+    // batch would stop short of the total and read as a stall.
+    if (checked % 25 === 0 || checked === metadata.size) {
+      await report({ phase: 'checking', done: checked, total: metadata.size });
+    }
     if (normalizeSpecies(pet.species) !== normalized) continue;
     const genome = genomes.get(hash) ?? '';
     if (genome.length === 0) continue;
@@ -484,6 +537,7 @@ export async function refreshStudyCorpus(species: string): Promise<RefreshResult
   // cache if one fails. Replacing the species' rows wholesale also drops
   // entries the catalogue no longer serves, or that no longer pass the
   // gate — an add-only cache would keep feeding them to the study forever.
+  await report({ phase: 'saving', done: 0, total: rows.length });
   const statements: TxStatement[] = [
     { sql: 'DELETE FROM study_corpus WHERE species = $species', params: { species: normalized } },
     ...rows.map((row) => ({
@@ -558,6 +612,78 @@ export async function namesForSubjects(ids: readonly string[]): Promise<Map<stri
   }
 
   return names;
+}
+
+/**
+ * Record that the player checked this gene in the game and the declared
+ * effect was right.
+ *
+ * A doubt names two suspects — the hand-entered gene table, or an animal's
+ * record — and the engine cannot choose between them. This is the answer
+ * coming back, and it is the *commoner* answer: most of the time the table
+ * is fine and a pet's attributes were typed wrong.
+ *
+ * The declaration is stored alongside the slot, not just the slot id,
+ * because what was confirmed is a specific claim. Re-declaring the gene in
+ * Reference makes the confirmation describe something nobody checked.
+ */
+export async function confirmGeneDeclaration(
+  species: string,
+  gene: string,
+  expression: Expression,
+  attribute: string,
+  sign: 1 | -1,
+): Promise<void> {
+  await getDb().execute(
+    `INSERT OR REPLACE INTO gene_confirmations
+       (species, gene, expression, attribute, sign, confirmed_at)
+     VALUES ($species, $gene, $expression, $attribute, $sign, $confirmed_at)`,
+    {
+      species: normalizeSpecies(species),
+      gene,
+      expression,
+      attribute,
+      sign,
+      confirmed_at: now(),
+    },
+  );
+}
+
+/** Forget a confirmation, so the gene can be recommended for checking again. */
+export async function withdrawGeneConfirmation(species: string, gene: string, expression: Expression): Promise<void> {
+  await getDb().execute(
+    'DELETE FROM gene_confirmations WHERE species = $species AND gene = $gene AND expression = $expression',
+    { species: normalizeSpecies(species), gene, expression },
+  );
+}
+
+/**
+ * Confirmations that still describe what the gene table currently declares.
+ *
+ * A confirmation is about a claim, not a slot. If the gene has since been
+ * re-declared — a different attribute, or the other direction — then what
+ * the player verified is no longer what the app believes, and the slot goes
+ * back to being an open question. Stale rows are left in place rather than
+ * deleted: re-declaring a gene back to what it was should bring the old
+ * confirmation back with it, since the player really did check that claim.
+ */
+export async function liveGeneConfirmations(
+  species: string,
+  slots: readonly EffectSlot[],
+): Promise<ReadonlySet<string>> {
+  const normalized = normalizeSpecies(species);
+  const rows = await getDb().select<Array<{ gene: string; expression: string; attribute: string; sign: number }>>(
+    'SELECT gene, expression, attribute, sign FROM gene_confirmations WHERE species = $species',
+    { species: normalized },
+  );
+  const confirmed = new Map(rows.map((r) => [`${r.gene}:${r.expression}`, r]));
+  const live = new Set<string>();
+  for (const slot of slots) {
+    const key = slotKey(slot);
+    const row = confirmed.get(key);
+    if (row && row.attribute === slot.attribute && row.sign === slot.sign) live.add(key);
+  }
+  return live;
 }
 
 /**

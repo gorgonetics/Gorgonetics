@@ -239,6 +239,22 @@ export interface StudyOptions {
    * substitution has been observed to close.
    */
   maxDistance?: number;
+  /**
+   * Slots the player has checked in the game and found correctly declared,
+   * as `slotKey`s.
+   *
+   * A doubt names two possible culprits — the hand-entered gene table, or an
+   * animal's recorded attributes — and the engine cannot tell them apart.
+   * Only a trip into the game can. When the player comes back and says the
+   * declaration stands, the disagreement has to be the animals', so the slot
+   * stops being re-recommended and every animal behind the dispute is named
+   * in `contradictions` instead.
+   *
+   * Confirming does not publish a magnitude. The arithmetic still disagrees
+   * with the declaration; what changed is who is at fault, not what the
+   * corpus entails.
+   */
+  confirmedSlots?: ReadonlySet<string>;
 }
 
 /**
@@ -522,6 +538,7 @@ export function studyAttribute(
   options: StudyOptions = {},
 ): AttributeStudy {
   const maxDistance = options.maxDistance ?? DEFAULT_MAX_DISTANCE;
+  const confirmedSlots = options.confirmedSlots ?? new Set<string>();
 
   // Equations only cancel the unknown base within a breed, so subjects are
   // never paired across breeds.
@@ -632,6 +649,20 @@ export function studyAttribute(
       // later, cleaner evidence would settle. `doubted` therefore marks only
       // what has actually been reported, so a later round can still reopen
       // this one.
+      if (confirmedSlots.has(key)) {
+        // The player has been into the game and the declaration stands. The
+        // gene is no longer a suspect, so every animal in this dispute is —
+        // all of them, not just the minority, because the whole tally
+        // contradicts something now known to be true. Still no finding: the
+        // arithmetic disagrees with a confirmed fact, so what the corpus
+        // entails here is that a record is wrong, not what the gene is worth.
+        for (const pairs of tally.values())
+          for (const [left, right] of pairs) {
+            dissenters.set(left, (dissenters.get(left) ?? 0) + 1);
+            dissenters.set(right, (dissenters.get(right) ?? 0) + 1);
+          }
+        return;
+      }
       if (needsTwoMistakes(tally.get(magnitude) ?? [])) {
         doubt(key, tally, magnitude, support, dissent, magnitude === 0 ? 'no-effect' : 'contradicts-sign');
       }
@@ -655,7 +686,10 @@ export function studyAttribute(
     // When no animal does — the disagreement is spread thin — the only
     // thing every dissenting pair shares is this gene's declaration, so it
     // is the declaration that wants checking, not the animals.
-    if (dissent > 0 && worstAnimal * 2 <= dissent) {
+    // A confirmed declaration cannot be the thing every dissenting pair has
+    // in common, so `unstable` no longer points at it. The blame recorded
+    // just above already names the animals.
+    if (dissent > 0 && worstAnimal * 2 <= dissent && !confirmedSlots.has(key)) {
       doubt(key, tally, magnitude, support, dissent, 'unstable');
     }
     if (tier === 'derived')

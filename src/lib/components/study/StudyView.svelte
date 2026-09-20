@@ -1,7 +1,9 @@
 <script lang="ts">
 import { normalizeSpecies } from '$lib/services/configService.js';
 import {
+  confirmGeneDeclaration,
   namesForSubjects,
+  type RefreshProgress,
   refreshStudyCorpus,
   runAttributeStudy,
   STUDYABLE_SPECIES,
@@ -9,6 +11,7 @@ import {
   studyCorpusStatus,
 } from '$lib/services/studyService.js';
 import { pets } from '$lib/stores/pets.js';
+import type { GeneDoubt } from '$lib/utils/attributeStudy.js';
 import StudyFindingsTable from './StudyFindingsTable.svelte';
 
 // Only species the study can measure. Listing one it cannot gives a panel
@@ -71,8 +74,65 @@ let cachedCount = $state(0);
 let fetchedAt = $state<string | null>(null);
 let refreshing = $state(false);
 let refreshError = $state<string | null>(null);
+/**
+ * What the refresh is doing right now.
+ *
+ * The button alone cannot say: a fetch is two paged network reads, a few
+ * hundred hash checks and then a full re-solve, and "Fetching…" for all of
+ * it is indistinguishable from a hang. `null` once nothing is running.
+ */
+let progress = $state<RefreshProgress | { phase: 'solving' } | null>(null);
+
+/**
+ * Deliberately no time estimate. The rate depends on the catalogue size and
+ * the connection, and a number that turns out wrong is worse than a count
+ * the player can watch move.
+ */
+function progressLabel(p: RefreshProgress | { phase: 'solving' }): string {
+  switch (p.phase) {
+    case 'catalogue':
+      return p.done > 0
+        ? `Reading the catalogue — ${p.done.toLocaleString()} animals so far`
+        : 'Reading the catalogue…';
+    case 'genomes':
+      return `Downloading genomes — ${p.done.toLocaleString()} of ${p.total.toLocaleString()}`;
+    case 'checking':
+      return `Verifying genomes — ${p.done.toLocaleString()} of ${p.total.toLocaleString()}`;
+    case 'saving':
+      return `Saving ${p.total.toLocaleString()} animals…`;
+    case 'solving':
+      return 'Re-running the study…';
+  }
+}
 let names = $state(new Map<string, string>());
 let attribute = $state<string | null>(null);
+/** The slot a confirmation is being written for, so its button can say so. */
+let confirming = $state<string | null>(null);
+let confirmError = $state<string | null>(null);
+
+/**
+ * Record that the player checked this gene in game and the table was right.
+ *
+ * Re-solves afterwards rather than just hiding the row: a confirmed
+ * declaration moves the blame onto the animals in the dispute, and they
+ * should appear under Suspect readings straight away — that is the next
+ * place to look, and the reason this is worth recording at all.
+ */
+async function confirmDoubt(d: GeneDoubt): Promise<void> {
+  confirming = `${d.gene}:${d.expression}`;
+  confirmError = null;
+  try {
+    await confirmGeneDeclaration(species, d.gene, d.expression, d.attribute, d.declared);
+    // `solve` directly rather than clearing `ranFor` to provoke the effect:
+    // the species has not changed, so re-arming the effect only schedules a
+    // second identical solve that the generation guard then throws away.
+    await solve(species);
+  } catch (err) {
+    confirmError = err instanceof Error ? err.message : String(err);
+  } finally {
+    confirming = null;
+  }
+}
 let loading = $state(true);
 let failure = $state<string | null>(null);
 
@@ -137,17 +197,23 @@ $effect(() => {
 async function refresh(): Promise<void> {
   refreshing = true;
   refreshError = null;
+  progress = null;
   try {
-    await refreshStudyCorpus(species);
+    await refreshStudyCorpus(species, (p) => {
+      progress = p;
+    });
+    // The re-solve is the view's own step and can be the longest of the
+    // lot, so it gets named rather than left under the same spinner.
+    progress = { phase: 'solving' };
     // Re-solve rather than patch: the new animals change every count on
-    // screen, not just the cache line.
-    ranFor = '';
+    // screen, not just the cache line. Called directly — clearing `ranFor`
+    // would re-arm the effect and schedule a second identical solve.
     await solve(species);
-    ranFor = species;
   } catch (err) {
     refreshError = err instanceof Error ? err.message : String(err);
   } finally {
     refreshing = false;
+    progress = null;
   }
 }
 
@@ -262,6 +328,8 @@ async function solve(target: string): Promise<void> {
 				</button>
 				{#if refreshError}
 					<span class="refresh-error">{refreshError}</span>
+				{:else if progress}
+					<span class="refresh-progress" aria-live="polite">{progressLabel(progress)}</span>
 				{:else if cachedCount > 0}
 					<span class="community-detail">
 						{cachedCount.toLocaleString()} cached{fetchedAt ? `, last fetched ${fetchedAt.slice(0, 10)}` : ''}
@@ -312,8 +380,9 @@ async function solve(target: string): Promise<void> {
 						<h3>Check these genes in game</h3>
 						<p>
 							The animals disagree with what the gene table says these do. The table is entered by
-							hand, so it is as likely to be wrong as a pet's record — confirm the effect in game and
-							correct it in Reference.
+							hand, so it is as likely to be wrong as a pet's record. Check the gene in game: if it is
+							wrong, correct it in Reference; if it is right, say so here and the animals behind the
+							disagreement become the suspects instead.
 						</p>
 						<ul>
 							{#each doubts as d (`${d.gene}:${d.expression}:${d.attribute}`)}
@@ -338,9 +407,22 @@ async function solve(target: string): Promise<void> {
 										>
 									{/if}
 									<span class="doubt-animals" title="Distinct animals behind this">{d.animals}</span>
+									<button
+										type="button"
+										class="doubt-confirm"
+										data-testid="doubt-confirm-{d.gene}-{d.expression}"
+										disabled={confirming !== null}
+										title="I checked in game and the declared effect is right. Stop recommending this gene, and treat the animals in the dispute as the mis-recorded ones."
+										onclick={() => confirmDoubt(d)}
+									>
+										{confirming === `${d.gene}:${d.expression}` ? 'Saving…' : 'Table is right'}
+									</button>
 								</li>
 							{/each}
 						</ul>
+						{#if confirmError}
+							<p class="doubt-error">Could not save that: {confirmError}</p>
+						{/if}
 					</aside>
 				{/if}
 
@@ -365,6 +447,9 @@ async function solve(target: string): Promise<void> {
 								</li>
 							{/each}
 						</ul>
+						{#if confirmError}
+							<p class="doubt-error">Could not save that: {confirmError}</p>
+						{/if}
 					</aside>
 				{/if}
 			</div>
@@ -467,6 +552,36 @@ async function solve(target: string): Promise<void> {
 
 	.refresh-error {
 		color: var(--gene-negative);
+	}
+
+	.doubt-error {
+		margin: var(--space-2xs) 0 0;
+		font-size: 12px;
+		color: var(--gene-negative);
+	}
+
+	.doubt-confirm {
+		background: none;
+		border: 1px solid var(--border-primary);
+		border-radius: 3px;
+		padding: 1px var(--space-2xs);
+		font-size: 11px;
+		color: var(--text-secondary);
+		cursor: pointer;
+		white-space: nowrap;
+	}
+	.doubt-confirm:hover:not(:disabled) {
+		border-color: var(--accent);
+		color: var(--accent);
+	}
+	.doubt-confirm:disabled {
+		opacity: 0.5;
+		cursor: default;
+	}
+
+	.refresh-progress {
+		color: var(--text-tertiary);
+		font-variant-numeric: tabular-nums;
 	}
 
 	.corpus {

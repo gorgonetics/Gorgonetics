@@ -15,15 +15,20 @@ import * as shareService from '$lib/services/shareService.js';
 import {
   attributeMagnitudesFor,
   clearAttributeMagnitudesCache,
+  confirmGeneDeclaration,
+  liveGeneConfirmations,
   loadStudyCorpus,
   namesForSubjects,
   peekAttributeMagnitudes,
+  type RefreshProgress,
   refreshStudyCorpus,
   runAttributeStudy,
   STUDYABLE_SPECIES,
   studyCorpusStatus,
+  withdrawGeneConfirmation,
 } from '$lib/services/studyService.js';
 import { coverageOf, EMPTY_MAGNITUDES, hasMagnitudes, magnitudeOf } from '$lib/utils/attributePoints.js';
+import { buildEffectSlots } from '$lib/utils/attributeStudy.js';
 import { sha256Hex } from '$lib/utils/hash.js';
 
 /**
@@ -406,6 +411,76 @@ describe('peekAttributeMagnitudes', () => {
   });
 });
 
+describe('gene confirmations', () => {
+  /**
+   * Four animals in two pairs, each differing only at `01A1`, where carrying
+   * the gene reads 5 points *lower* against a declared `Temperament+`.
+   *
+   * Two pairs sharing no animal, because one bad animal is never enough to
+   * raise a doubt — `needsTwoMistakes` requires that no single record could
+   * account for the whole disagreement.
+   */
+  async function disputed(): Promise<void> {
+    await upload(name('Kb', 50, 80, 'PlainA'), 'RRRR');
+    await upload(name('Kb', 45, 80, 'CarrierA'), 'DRRR');
+    await upload(name('Kb', 60, 80, 'PlainB'), 'RRRR');
+    await upload(name('Kb', 55, 80, 'CarrierB'), 'DRRR');
+  }
+
+  it('recommends the gene for checking while nobody has checked it', async () => {
+    await disputed();
+    const run = await runAttributeStudy('horse');
+    expect(run.studies.flatMap((s) => s.geneDoubts).some((d) => d.gene === '01A1')).toBe(true);
+  });
+
+  it('stops recommending a gene the player confirmed, and blames the animals instead', async () => {
+    await disputed();
+    await confirmGeneDeclaration('horse', '01A1', 'dominant', 'temperament', 1);
+
+    const run = await runAttributeStudy('horse');
+    expect(run.studies.flatMap((s) => s.geneDoubts).some((d) => d.gene === '01A1')).toBe(false);
+    // The declaration is now a fact, so the animals contradicting it are the
+    // ones to go and re-read.
+    expect(run.studies.flatMap((s) => s.contradictions).length).toBeGreaterThan(0);
+  });
+
+  it('does not publish a magnitude just because the declaration was confirmed', async () => {
+    await disputed();
+    await confirmGeneDeclaration('horse', '01A1', 'dominant', 'temperament', 1);
+    const run = await runAttributeStudy('horse');
+    // Confirming says who is at fault; the arithmetic still disagrees, so
+    // nothing here is known.
+    expect(run.studies.flatMap((s) => s.findings).some((f) => f.gene === '01A1')).toBe(false);
+  });
+
+  it('drops a confirmation once the gene is re-declared as something else', async () => {
+    await disputed();
+    await confirmGeneDeclaration('horse', '01A1', 'dominant', 'temperament', 1);
+    expect([
+      ...(await liveGeneConfirmations(
+        'horse',
+        buildEffectSlots((await geneService.getGeneEffectsCached('horse'))?.effects ?? {}),
+      )),
+    ]).toContain('01A1:dominant');
+
+    // Re-declared the other way: what the player checked is no longer what
+    // the app claims, so the confirmation no longer describes anything.
+    await geneService.upsertGene('horse', '01', '01A1', { effectDominant: 'Temperament-', breed: '' });
+    geneService.clearGeneEffectsCache('horse');
+    const slots = buildEffectSlots((await geneService.getGeneEffectsCached('horse'))?.effects ?? {});
+    expect([...(await liveGeneConfirmations('horse', slots))]).not.toContain('01A1:dominant');
+  });
+
+  it('can be withdrawn, which puts the gene back on the list', async () => {
+    await disputed();
+    await confirmGeneDeclaration('horse', '01A1', 'dominant', 'temperament', 1);
+    await withdrawGeneConfirmation('horse', '01A1', 'dominant');
+
+    const run = await runAttributeStudy('horse');
+    expect(run.studies.flatMap((s) => s.geneDoubts).some((d) => d.gene === '01A1')).toBe(true);
+  });
+});
+
 describe('namesForSubjects', () => {
   it('resolves subject ids back to pet names', async () => {
     const id = await upload(name('Kb', 40, 80, 'Named'), 'RRRR');
@@ -551,6 +626,48 @@ describe('refreshStudyCorpus', () => {
     const text = genome(entityName, genes);
     return { hash: await sha256Hex(text), text };
   }
+
+  it('reports what it is doing, in order, so a long fetch is not a hang', async () => {
+    const a = await entry('A', 'DRRR');
+    const b = await entry('B', 'RRRR');
+    mockCatalogue([shared(a.hash), shared(b.hash)], { [a.hash]: a.text, [b.hash]: b.text });
+
+    const seen: RefreshProgress[] = [];
+    await refreshStudyCorpus('horse', (p) => seen.push(p));
+
+    // The phases are what the player is waiting through, and they only make
+    // sense in this order.
+    expect(seen.map((p) => p.phase).filter((phase, i, all) => phase !== all[i - 1])).toEqual([
+      'catalogue',
+      'genomes',
+      'checking',
+      'saving',
+    ]);
+    // The catalogue's size is discovered by paging to the end, so nothing can
+    // report a total until that finishes.
+    expect(seen.find((p) => p.phase === 'catalogue')?.total).toBe(0);
+    expect(seen.findLast((p) => p.phase === 'genomes')?.total).toBe(2);
+  });
+
+  it('reports the last entry even when the batch does not land on it', async () => {
+    // Two entries, reported in batches of 25: without a final report the
+    // verify phase would sit at zero and read as a stall.
+    const a = await entry('A', 'DRRR');
+    const b = await entry('B', 'RRRR');
+    mockCatalogue([shared(a.hash), shared(b.hash)], { [a.hash]: a.text, [b.hash]: b.text });
+
+    const seen: RefreshProgress[] = [];
+    await refreshStudyCorpus('horse', (p) => seen.push(p));
+
+    const checking = seen.filter((p) => p.phase === 'checking');
+    expect(checking.at(-1)).toMatchObject({ done: 2, total: 2 });
+  });
+
+  it('runs without a progress callback, which most callers do not want', async () => {
+    const a = await entry('A', 'DRRR');
+    mockCatalogue([shared(a.hash)], { [a.hash]: a.text });
+    await expect(refreshStudyCorpus('horse')).resolves.toMatchObject({ cached: 1 });
+  });
 
   it('keeps the correction, not the entry it supersedes', async () => {
     // The catalogue is add-only and paged newest-first, so the correction

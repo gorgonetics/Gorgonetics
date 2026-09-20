@@ -244,6 +244,37 @@ const MIGRATIONS: Migration[] = [
       await db.execute('CREATE INDEX IF NOT EXISTS idx_study_corpus_species ON study_corpus(species)');
     },
   },
+  {
+    version: 15,
+    description: 'Add gene_confirmations — slots the player has checked in game and found correct',
+    up: async () => {
+      // The study can say a gene's declared effect is disputed, but not who
+      // is wrong: the hand-entered table, or an animal's recorded
+      // attributes. Only the player can settle that, by looking in the game.
+      // Before this there was nowhere to put the answer, so the same handful
+      // of genes were re-recommended after every trip — and the commoner
+      // outcome, "the table was right", was the one the app could not record
+      // at all.
+      //
+      // `attribute` and `sign` are stored, not just the slot, because a
+      // confirmation is about a specific claim. If the gene is later edited
+      // in Reference to declare something else, what was confirmed no longer
+      // matches what is declared, and the confirmation is stale rather than
+      // wrong — see `liveGeneConfirmations`.
+      const db = getDb();
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS gene_confirmations (
+          species      TEXT NOT NULL,
+          gene         TEXT NOT NULL,
+          expression   TEXT NOT NULL,
+          attribute    TEXT NOT NULL,
+          sign         INTEGER NOT NULL,
+          confirmed_at TEXT NOT NULL,
+          PRIMARY KEY (species, gene, expression)
+        )
+      `);
+    },
+  },
 ];
 
 /** Derived from the last migration — no manual bookkeeping needed. */
