@@ -412,7 +412,6 @@ async function solve(target: string): Promise<void> {
 			</div>
 		{:else}
 			<div class="body">
-				<div class="main">
 					<nav class="attr-tabs" aria-label="Attribute">
 						{#each studies as study (study.attribute)}
 							<button
@@ -427,6 +426,8 @@ async function solve(target: string): Promise<void> {
 							</button>
 						{/each}
 					</nav>
+				<div class="split">
+					<div class="main">
 
 					{#if current}
 						<StudyFindingsTable findings={current.findings} {names} slots={current.slots} />
@@ -435,11 +436,11 @@ async function solve(target: string): Promise<void> {
 
 				{#if evidenceSections.length > 0}
 					<aside class="evidence" data-testid="study-evidence">
-						<div class="seg evidence-nav" role="group" aria-label="Evidence">
+						<div class="evidence-nav" role="group" aria-label="Evidence">
 							{#each evidenceSections as section (section.id)}
 								<button
 									type="button"
-									class="seg-btn evidence-tab"
+									class="evidence-tab"
 									class:active={section.id === evidenceSection}
 									data-testid="study-evidence-{section.id}"
 									onclick={() => (evidenceSection = section.id)}
@@ -583,6 +584,7 @@ async function solve(target: string): Promise<void> {
 					</div>
 				</aside>
 			{/if}
+				</div>
 			</div>
 		{/if}
 	{/if}
@@ -620,13 +622,17 @@ async function solve(target: string): Promise<void> {
 		color: var(--text-secondary);
 	}
 
+	/* Everything above the split eats into the height the table and evidence
+	   get, so it stays tight: smaller gaps, no wasted line between the stat
+	   row and the two detail lines below it. Nothing here drops information
+	   — only the spacing shrank. */
 	.summary {
 		flex-shrink: 0;
 		display: flex;
 		flex-wrap: wrap;
 		align-items: flex-start;
-		gap: var(--space-xl);
-		padding: var(--space-md) var(--space-md) var(--space-sm);
+		gap: var(--space-lg);
+		padding: var(--space-sm) var(--space-md) var(--space-xs);
 		border-bottom: 1px solid var(--border-primary);
 	}
 
@@ -637,7 +643,7 @@ async function solve(target: string): Promise<void> {
 	}
 
 	.stat-value {
-		font-size: 22px;
+		font-size: 19px;
 		font-weight: 600;
 		color: var(--text-secondary);
 		font-variant-numeric: tabular-nums;
@@ -736,13 +742,24 @@ async function solve(target: string): Promise<void> {
 		overflow: hidden;
 	}
 
-	/* Findings is the primary content and takes whatever height `.evidence`
-	   below does not need. Needs its own min-height: 0 — it is a flex item
-	   AND a flex container for the table, so both ends of the chain must
-	   give up their default auto minimum or the table's scroller silently
+	/* Findings and evidence side by side, each taking the split's full
+	   height instead of stacking and fighting over it. `.split` is the one
+	   place that decides row vs. column (flipped for narrow windows below),
+	   so neither child has to know which layout it is in. */
+	.split {
+		flex: 1;
+		min-height: 0;
+		display: flex;
+		overflow: hidden;
+	}
+
+	/* A flex item AND a flex container for the table below it, so both ends
+	   of the chain need their own min-height: 0 (and here, min-width: 0 —
+	   the split's main axis is horizontal) or the table's scroller silently
 	   stops clipping instead of scrolling. */
 	.main {
 		flex: 1;
+		min-width: 0;
 		min-height: 0;
 		display: flex;
 		flex-direction: column;
@@ -750,30 +767,53 @@ async function solve(target: string): Promise<void> {
 	}
 
 	/* The four "Check genes / Suspect readings / Mis-recorded / Excluded"
-	   panels used to stack here one after another, each fighting the others
-	   for height and none of them actually scrolling. Now only the picked
-	   one renders, in a strip capped well under half the pane, so findings
-	   above keeps the room it needs. */
+	   panels used to stack under the table, each fighting the others (and
+	   the table) for height. Now only the picked one renders, beside the
+	   table rather than below it, so both get the split's full height and
+	   neither scrolls more than it has to. */
 	.evidence {
 		flex-shrink: 0;
-		max-height: 40%;
+		width: 300px;
 		min-height: 0;
 		display: flex;
 		flex-direction: column;
-		border-top: 1px solid var(--border-primary);
+		border-left: 1px solid var(--border-primary);
 		overflow: hidden;
 	}
 
 	.evidence-nav {
 		flex-shrink: 0;
-		flex-wrap: wrap;
-		margin: var(--space-sm) var(--space-md) 0;
+		display: flex;
+		flex-direction: column;
+		padding: var(--space-2xs);
+		border-bottom: 1px solid var(--border-primary);
 	}
 
 	.evidence-tab {
 		display: flex;
 		align-items: center;
-		gap: var(--space-2xs);
+		justify-content: space-between;
+		gap: var(--space-sm);
+		width: 100%;
+		padding: var(--space-2xs) var(--space-sm);
+		background: none;
+		border: none;
+		border-left: 2px solid transparent;
+		border-radius: 0 4px 4px 0;
+		font-size: 12px;
+		text-align: left;
+		color: var(--text-tertiary);
+		cursor: pointer;
+	}
+	.evidence-tab:hover {
+		color: var(--text-secondary);
+		background: var(--bg-hover);
+	}
+	.evidence-tab.active {
+		background: var(--bg-secondary);
+		border-left-color: var(--accent);
+		color: var(--text-secondary);
+		font-weight: 600;
 	}
 
 	.evidence-count {
@@ -789,6 +829,36 @@ async function solve(target: string): Promise<void> {
 		flex: 1;
 		min-height: 0;
 		overflow-y: auto;
+	}
+
+	/* Below this, a side-by-side split has no room to work with — flip to
+	   the findings table on top and evidence below, each with its own
+	   scroller. `.evidence` goes back to being capped by height rather than
+	   fixed-width, and its nav goes back to a wrapping row so four buttons
+	   don't cost four rows of a pane that is already short on height. */
+	@media (max-width: 860px) {
+		.split {
+			flex-direction: column;
+		}
+
+		.evidence {
+			width: auto;
+			max-height: 40%;
+			border-left: none;
+			border-top: 1px solid var(--border-primary);
+		}
+
+		.evidence-nav {
+			flex-direction: row;
+			flex-wrap: wrap;
+			gap: var(--space-3xs);
+		}
+
+		.evidence-tab {
+			width: auto;
+			border-left: none;
+			border-radius: 4px;
+		}
 	}
 
 	.attr-tabs {
@@ -832,12 +902,9 @@ async function solve(target: string): Promise<void> {
 	   explanatory line and a tight list. They differ only in how each row is
 	   laid out, so only that differs below. Only one is ever mounted at a
 	   time (see `evidenceSection`), and `.evidence-body` is the sole scroll
-	   container for it. */
+	   container for it. `.evidence`'s own fixed width is the panel's measure
+	   now, so it needs no cap of its own. */
 	.panel {
-		/* Same measure as the findings table above it (StudyFindingsTable's
-		   own 780px cap), so a shaded panel's background does not stretch
-		   into a stripe the table above never uses. */
-		max-width: 780px;
 		padding: var(--space-sm) var(--space-md);
 	}
 
@@ -869,17 +936,21 @@ async function solve(target: string): Promise<void> {
 		gap: 1px;
 	}
 
+	/* `.evidence`'s own fixed width is this list's measure now (down from a
+	   panel that used to span most of the window), so a row with several
+	   inline pieces — gene, claim sentence, badge, count, button — no longer
+	   fits on one line. Wrapping lets the claim take the line it needs and
+	   drops the rest to a second line instead of overflowing the column. */
 	.panel li {
 		display: flex;
+		flex-wrap: wrap;
 		align-items: center;
-		gap: var(--space-sm);
+		gap: var(--space-3xs) var(--space-sm);
 		font-size: 12px;
-		max-width: 70ch;
 	}
 
 	.suspects li {
 		justify-content: space-between;
-		max-width: 60ch;
 	}
 
 	.doubt-gene {

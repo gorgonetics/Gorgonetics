@@ -170,12 +170,12 @@ function subject(id: string): string {
 		overflow-y: auto;
 	}
 
-	/* Six narrow columns stretched across a wide window leave the gene and
-	   its magnitude at opposite ends of the screen. Cap the measure instead. */
+	/* Five of six columns are fixed-width (below), so the table fills
+	   whatever width its column has rather than leaving a gap beside its
+	   neighbour — StudyView now puts evidence there instead of empty space. */
 	table {
 		border-collapse: collapse;
 		width: 100%;
-		max-width: 780px;
 		font-size: 13px;
 	}
 
