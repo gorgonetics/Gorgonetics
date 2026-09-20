@@ -657,6 +657,29 @@ describe('determined subsystems', () => {
     expect(study.findings.find((f) => slotKey(f) === '01A3:dominant')?.magnitude).toBe(3);
   });
 
+  it('counts every animal behind a doubt, not just the displayed witnesses', () => {
+    // Same shape as the sign-clash case — every pair differs at two slots, so
+    // only the subsystem pass can reach `01A3` — with two animals stabled.
+    // The doubt panel ranks by how many animals are involved and whether any
+    // pair is settleable, so both must come from the whole pair list rather
+    // than the three pairs the table happens to show.
+    const many = [
+      horse('V', base(), { temperament: 50 }),
+      horse('U', base({ '01A3': 'D', '01A1': 'R' }), { temperament: 52 }),
+      horse('T', base({ '01A1': 'R', '14B4': 'D' }), { temperament: 62 }, 'Kurbone', true),
+      horse('S', base({ '01A3': 'D', '14B4': 'D' }), { temperament: 54 }, 'Kurbone', true),
+    ];
+    const study = studyAttribute(many, 'temperament', temperament);
+    const doubt = study.geneDoubts.find((d) => d.gene === '01A3');
+
+    expect(doubt).toBeDefined();
+    expect(doubt?.witnesses.length).toBeLessThanOrEqual(3);
+    // T and S are both stabled and their difference mentions this slot, so
+    // the player can settle it — visible only if the census saw every pair.
+    expect(doubt?.checkable).toBe(true);
+    expect(doubt?.animals).toBe(4);
+  });
+
   it('leaves a slot open when the system does not determine it', () => {
     // Two animals, one equation, two unknowns: `A + B = 8` has infinitely
     // many solutions and neither slot may be published.

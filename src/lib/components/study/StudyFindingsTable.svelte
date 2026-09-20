@@ -82,7 +82,15 @@ function subject(id: string): string {
 							{/if}
 						</td>
 						<td class="numeric">
-							{finding.support}{#if finding.dissent > 0}<span
+							<!-- For direct and derived rows this is a count of independent
+							     agreements. For a system row it is not: those equations pin
+							     the slot jointly and none of them confirms it alone, so the
+							     figure is marked rather than left to read as agreement. -->
+							{finding.support}{#if finding.tier === 'system'}<span
+									class="joint"
+									title="These equations determine the value together. None of them agrees on it independently."
+								>&nbsp;joint</span
+								>{/if}{#if finding.dissent > 0}<span
 									class="dissent"
 									title="{finding.dissent} pair{finding.dissent === 1 ? '' : 's'} implied a different value. The majority is shown; the animals responsible are listed under Suspect readings."
 								>&nbsp;/&nbsp;{finding.dissent}</span
@@ -265,6 +273,11 @@ function subject(id: string): string {
 		background: transparent;
 		border: 1px dashed var(--border-primary);
 		color: var(--text-secondary);
+	}
+
+	.joint {
+		font-size: 11px;
+		color: var(--text-tertiary);
 	}
 
 	.dissent {

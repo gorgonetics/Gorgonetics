@@ -126,7 +126,15 @@ export interface StudyFinding {
   tier: FindingTier;
   /** 0 for `direct`; substitution rounds needed otherwise. */
   depth: number;
-  /** Independent equations yielding `magnitude`. */
+  /**
+   * Independent equations yielding `magnitude` — except for `system`, where
+   * it is the equations that *mention* the slot.
+   *
+   * The difference matters and the UI must not flatten it: a `direct`
+   * support of 4 is four separate confirmations, a `system` support of 4 is
+   * four equations that jointly leave one answer and individually confirm
+   * nothing.
+   */
   support: number;
   /** Independent equations yielding something else. */
   dissent: number;
@@ -726,8 +734,12 @@ export function studyAttribute(
      * subsystem result as for a disputed one.
      */
     const raise = (reason: GeneDoubtReason): void => {
+      // The whole pair list, not the displayed slice: `doubt` counts the
+      // distinct animals from this tally and asks whether any pair is
+      // stabled, and both decide how the panel ranks the doubt. It truncates
+      // for display itself.
       if (needsTwoMistakes(found.pairs)) {
-        doubt(found.key, new Map([[value, witnesses]]), value, found.support, 0, reason);
+        doubt(found.key, new Map([[value, found.pairs]]), value, found.support, 0, reason);
       }
     };
 
