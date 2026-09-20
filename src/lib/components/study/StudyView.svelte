@@ -322,6 +322,9 @@ async function solve(target: string): Promise<void> {
 											{d.observed > 0 ? '+' : '−'}{Math.abs(d.observed)}
 										{:else if d.reason === 'no-effect'}
 											declared {d.attribute}{d.declared > 0 ? '+' : '−'}, but changes nothing
+										{:else if d.reason === 'non-integer'}
+											{d.attribute} works out to {d.observed.toFixed(2)} — effects are whole numbers, so a
+											reading behind this is wrong
 										{:else}
 											{d.attribute} effect is not consistent across animals
 										{/if}

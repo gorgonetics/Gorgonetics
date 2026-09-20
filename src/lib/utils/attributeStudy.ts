@@ -100,7 +100,18 @@ export interface StudySubject {
   stabled?: boolean;
 }
 
-export type FindingTier = 'direct' | 'derived';
+/**
+ * How certain a finding is, and each tier must stay distinguishable.
+ *
+ *  - `direct` — a pair differing at exactly one slot. As certain as the
+ *    corpus.
+ *  - `derived` — substitution left a single unknown. Inherits every error
+ *    upstream of it, which is what `depth` records.
+ *  - `system` — the slot was not the sole unknown in any one equation, but
+ *    the equations *together* determine it. Entailed exactly as a `direct`
+ *    finding is, and not a fit: see `determinedSlots`.
+ */
+export type FindingTier = 'direct' | 'derived' | 'system';
 
 export interface StudyFinding {
   gene: string;
@@ -132,8 +143,13 @@ export interface StudyFinding {
  *    disagreement. One bad reading shows up as one repeat offender; when
  *    the dissent is spread across many animals instead, the thing they
  *    have in common is the declaration.
+ *  - `non-integer` — the equations determine this slot, but to a fraction.
+ *    The game's arithmetic is integral, so this cannot be a real magnitude:
+ *    some animal in the subsystem is mis-recorded. Only a subsystem solve
+ *    can raise this, because it is the only tier that combines enough
+ *    equations to contradict integrality.
  */
-export type GeneDoubtReason = 'contradicts-sign' | 'no-effect' | 'unstable';
+export type GeneDoubtReason = 'contradicts-sign' | 'no-effect' | 'unstable' | 'non-integer';
 
 /**
  * A gene whose declared effect the corpus disputes.
@@ -320,6 +336,43 @@ export function activeSlots(subject: StudySubject, attributeSlots: readonly Effe
   }
   return active;
 }
+
+/**
+ * Exact rational arithmetic, on `BigInt` so nothing rounds.
+ *
+ * Integrality is this module's correctness check — a determined slot that
+ * lands on a fraction is proof of a mis-recorded animal — so computing it in
+ * floating point would undermine the one thing it exists to establish. The
+ * systems are a few hundred rows with ±1 starting coefficients, so exactness
+ * is cheap here.
+ */
+interface Frac {
+  n: bigint;
+  /** Always positive, and the fraction is always reduced. */
+  d: bigint;
+}
+
+function gcd(a: bigint, b: bigint): bigint {
+  let x = a < 0n ? -a : a;
+  let y = b < 0n ? -b : b;
+  while (y) [x, y] = [y, x % y];
+  return x;
+}
+
+function frac(n: bigint, d: bigint = 1n): Frac {
+  if (d === 0n) throw new Error('frac: zero denominator');
+  const sign = d < 0n ? -1n : 1n;
+  const nn = n * sign;
+  const dd = d * sign;
+  const g = gcd(nn, dd) || 1n;
+  return { n: nn / g, d: dd / g };
+}
+
+const fSub = (a: Frac, b: Frac): Frac => frac(a.n * b.d - b.n * a.d, a.d * b.d);
+const fMul = (a: Frac, b: Frac): Frac => frac(a.n * b.n, a.d * b.d);
+const fDiv = (a: Frac, b: Frac): Frac => frac(a.n * b.d, a.d * b.n);
+const fIsZero = (a: Frac): boolean => a.n === 0n;
+const fIsInteger = (a: Frac): boolean => a.d === 1n;
 
 /** A difference equation: `Σ coefficient × magnitude = delta`. */
 interface Equation {
@@ -644,6 +697,59 @@ export function studyAttribute(
     if (added === 0) break;
   }
 
+  // Substitution has gone as far as it can; whatever it left may still be
+  // pinned by the equations jointly. Run after the fixpoint rather than
+  // instead of it: the fixpoint is what builds the support/dissent tallies
+  // that `doubt` and `contradictions` rest on, and a subsystem solve returns
+  // one value with no tally and can reproduce none of that.
+  for (const found of determinedSlots(equations, solved)) {
+    if (solved.has(found.key) || doubted.has(found.key)) continue;
+    const declared = signOf.get(found.key);
+    // A single-entry tally, so the doubt surface reads the same for a
+    // subsystem result as for a disputed one.
+    const asTally: Tally = new Map([[Number(found.value.n) / Number(found.value.d), found.witnesses]]);
+
+    // The three gates, each a check this engine already believes in. A
+    // failure is evidence about the corpus, but only worth putting to the
+    // player when more than one bad animal would be needed to fake it —
+    // `needsTwoMistakes` is the same guard `commit` applies, and a doubt
+    // that sends them into the game for nothing costs them a trip.
+    const worthReporting = needsTwoMistakes(found.witnesses);
+    if (!fIsInteger(found.value)) {
+      // Determined, but to a fraction — impossible for an integral game, so
+      // an animal in this subsystem is mis-recorded. Only this tier can see
+      // it, because only this tier combines enough equations to notice.
+      if (worthReporting) {
+        doubt(found.key, asTally, Number(found.value.n) / Number(found.value.d), found.support, 0, 'non-integer');
+      }
+      continue;
+    }
+    const magnitude = Number(found.value.n);
+    if (magnitude === 0) {
+      if (worthReporting) doubt(found.key, asTally, 0, found.support, 0, 'no-effect');
+      continue;
+    }
+    if (declared !== undefined && magnitude * declared <= 0) {
+      if (worthReporting) doubt(found.key, asTally, magnitude, found.support, 0, 'contradicts-sign');
+      continue;
+    }
+
+    const [gene, expression] = found.key.split(':') as [string, Expression];
+    solved.set(found.key, {
+      gene,
+      expression,
+      attribute,
+      magnitude,
+      tier: 'system',
+      depth: 0,
+      support: found.support,
+      // An inconsistent subsystem publishes nothing at all rather than a
+      // majority, so a published one has nothing dissenting from it.
+      dissent: 0,
+      witnesses: found.witnesses,
+    });
+  }
+
   return {
     attribute,
     slots: attributeSlots.length,
@@ -663,6 +769,113 @@ export function studyAttribute(
     validation: validate(equations, solved, consumed),
     contributors,
   };
+}
+
+/** A slot the equations pin jointly, though no single equation isolates it. */
+interface DeterminedSlot {
+  key: string;
+  value: Frac;
+  /** Residual equations mentioning this slot — how much evidence touches it. */
+  support: number;
+  witnesses: Array<[string, string]>;
+}
+
+/**
+ * Slots the equation system determines that substitution cannot reach.
+ *
+ * The fixpoint accepts a slot only when it is the *sole* remaining unknown
+ * in some equation. That is triangular: two equations in two unknowns
+ * determine both, and it takes neither. This closes that gap by asking the
+ * question elimination answers — which variables does the system pin,
+ * whatever order you solve in?
+ *
+ * A variable is uniquely determined exactly when `e_j` lies in the row space
+ * of the coefficient matrix. In reduced row echelon form that reads off
+ * directly: column `j` is a pivot, and its row has no non-zero entry in any
+ * free (non-pivot) column. Anything else leaves `x_j` moving along the null
+ * space, and a value that depends on the elimination order is not knowledge.
+ *
+ * This is still entailment, not estimation. A determined slot is forced by
+ * the corpus exactly as a single-difference pair forces a `direct` finding;
+ * the only difference is how many equations had to be combined to see it.
+ *
+ * Rows already reduced to no unknowns are dropped rather than checked here.
+ * A contradictory one (`0 = k`) means a mis-recorded animal, which the
+ * fixpoint's blame accounting already reports through `contradictions`.
+ */
+function determinedSlots(equations: readonly Equation[], solved: ReadonlyMap<string, StudyFinding>): DeterminedSlot[] {
+  // Residual system: substitute what is already known, keep what is not.
+  const rowsIn: Array<{ terms: Map<string, 1 | -1>; delta: number; pair: [string, string] }> = [];
+  for (const equation of equations) {
+    const terms = new Map<string, 1 | -1>();
+    let delta = equation.delta;
+    for (const [key, sign] of equation.terms) {
+      const known = solved.get(key);
+      if (known) delta -= sign * known.magnitude;
+      else terms.set(key, sign);
+    }
+    if (terms.size === 0) continue;
+    rowsIn.push({ terms, delta, pair: [equation.left, equation.right] });
+  }
+  if (rowsIn.length === 0) return [];
+
+  const vars = [...new Set(rowsIn.flatMap((r) => [...r.terms.keys()]))];
+  const column = new Map(vars.map((v, i) => [v, i]));
+  const width = vars.length + 1;
+  const matrix = rowsIn.map((r) => {
+    const row = new Array<Frac>(width).fill(frac(0n));
+    for (const [key, sign] of r.terms) row[column.get(key) as number] = frac(BigInt(sign));
+    row[vars.length] = frac(BigInt(r.delta));
+    return row;
+  });
+
+  const pivotOfRow: number[] = [];
+  let rank = 0;
+  for (let c = 0; c < vars.length && rank < matrix.length; c++) {
+    let pivot = -1;
+    for (let i = rank; i < matrix.length; i++) {
+      if (!fIsZero(matrix[i][c])) {
+        pivot = i;
+        break;
+      }
+    }
+    if (pivot === -1) continue;
+    [matrix[rank], matrix[pivot]] = [matrix[pivot], matrix[rank]];
+    const lead = matrix[rank][c];
+    for (let k = c; k < width; k++) matrix[rank][k] = fDiv(matrix[rank][k], lead);
+    for (let i = 0; i < matrix.length; i++) {
+      if (i === rank) continue;
+      const factor = matrix[i][c];
+      if (fIsZero(factor)) continue;
+      for (let k = c; k < width; k++) matrix[i][k] = fSub(matrix[i][k], fMul(factor, matrix[rank][k]));
+    }
+    pivotOfRow[rank] = c;
+    rank++;
+  }
+
+  const pivotColumns = new Set(pivotOfRow.slice(0, rank));
+  const out: DeterminedSlot[] = [];
+  for (let i = 0; i < rank; i++) {
+    const pc = pivotOfRow[i];
+    let isolated = true;
+    for (let c = 0; c < vars.length; c++) {
+      if (c === pc || pivotColumns.has(c)) continue;
+      if (!fIsZero(matrix[i][c])) {
+        isolated = false;
+        break;
+      }
+    }
+    if (!isolated) continue;
+    const key = vars[pc];
+    const touching = rowsIn.filter((r) => r.terms.has(key));
+    out.push({
+      key,
+      value: matrix[i][vars.length],
+      support: touching.length,
+      witnesses: touching.slice(0, MAX_WITNESSES).map((r) => r.pair),
+    });
+  }
+  return out;
 }
 
 /**
