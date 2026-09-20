@@ -2,6 +2,7 @@
 import { normalizeSpecies } from '$lib/services/configService.js';
 import {
   namesForSubjects,
+  type RefreshProgress,
   refreshStudyCorpus,
   runAttributeStudy,
   STUDYABLE_SPECIES,
@@ -71,6 +72,36 @@ let cachedCount = $state(0);
 let fetchedAt = $state<string | null>(null);
 let refreshing = $state(false);
 let refreshError = $state<string | null>(null);
+/**
+ * What the refresh is doing right now.
+ *
+ * The button alone cannot say: a fetch is two paged network reads, a few
+ * hundred hash checks and then a full re-solve, and "Fetching…" for all of
+ * it is indistinguishable from a hang. `null` once nothing is running.
+ */
+let progress = $state<RefreshProgress | { phase: 'solving' } | null>(null);
+
+/**
+ * Deliberately no time estimate. The rate depends on the catalogue size and
+ * the connection, and a number that turns out wrong is worse than a count
+ * the player can watch move.
+ */
+function progressLabel(p: RefreshProgress | { phase: 'solving' }): string {
+  switch (p.phase) {
+    case 'catalogue':
+      return p.done > 0
+        ? `Reading the catalogue — ${p.done.toLocaleString()} animals so far`
+        : 'Reading the catalogue…';
+    case 'genomes':
+      return `Downloading genomes — ${p.done.toLocaleString()} of ${p.total.toLocaleString()}`;
+    case 'checking':
+      return `Verifying genomes — ${p.done.toLocaleString()} of ${p.total.toLocaleString()}`;
+    case 'saving':
+      return `Saving ${p.total.toLocaleString()} animals…`;
+    case 'solving':
+      return 'Re-running the study…';
+  }
+}
 let names = $state(new Map<string, string>());
 let attribute = $state<string | null>(null);
 let loading = $state(true);
@@ -137,8 +168,14 @@ $effect(() => {
 async function refresh(): Promise<void> {
   refreshing = true;
   refreshError = null;
+  progress = null;
   try {
-    await refreshStudyCorpus(species);
+    await refreshStudyCorpus(species, (p) => {
+      progress = p;
+    });
+    // The re-solve is the view's own step and can be the longest of the
+    // lot, so it gets named rather than left under the same spinner.
+    progress = { phase: 'solving' };
     // Re-solve rather than patch: the new animals change every count on
     // screen, not just the cache line.
     ranFor = '';
@@ -148,6 +185,7 @@ async function refresh(): Promise<void> {
     refreshError = err instanceof Error ? err.message : String(err);
   } finally {
     refreshing = false;
+    progress = null;
   }
 }
 
@@ -259,6 +297,8 @@ async function solve(target: string): Promise<void> {
 				</button>
 				{#if refreshError}
 					<span class="refresh-error">{refreshError}</span>
+				{:else if progress}
+					<span class="refresh-progress" aria-live="polite">{progressLabel(progress)}</span>
 				{:else if cachedCount > 0}
 					<span class="community-detail">
 						{cachedCount.toLocaleString()} cached{fetchedAt ? `, last fetched ${fetchedAt.slice(0, 10)}` : ''}
@@ -461,6 +501,11 @@ async function solve(target: string): Promise<void> {
 
 	.refresh-error {
 		color: var(--gene-negative);
+	}
+
+	.refresh-progress {
+		color: var(--text-tertiary);
+		font-variant-numeric: tabular-nums;
 	}
 
 	.corpus {

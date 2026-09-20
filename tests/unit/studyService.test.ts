@@ -18,6 +18,7 @@ import {
   loadStudyCorpus,
   namesForSubjects,
   peekAttributeMagnitudes,
+  type RefreshProgress,
   refreshStudyCorpus,
   runAttributeStudy,
   STUDYABLE_SPECIES,
@@ -551,6 +552,34 @@ describe('refreshStudyCorpus', () => {
     const text = genome(entityName, genes);
     return { hash: await sha256Hex(text), text };
   }
+
+  it('reports what it is doing, in order, so a long fetch is not a hang', async () => {
+    const a = await entry('A', 'DRRR');
+    const b = await entry('B', 'RRRR');
+    mockCatalogue([shared(a.hash), shared(b.hash)], { [a.hash]: a.text, [b.hash]: b.text });
+
+    const seen: RefreshProgress[] = [];
+    await refreshStudyCorpus('horse', (p) => seen.push(p));
+
+    // The phases are what the player is waiting through, and they only make
+    // sense in this order.
+    expect(seen.map((p) => p.phase).filter((phase, i, all) => phase !== all[i - 1])).toEqual([
+      'catalogue',
+      'genomes',
+      'checking',
+      'saving',
+    ]);
+    // The catalogue's size is discovered by paging to the end, so nothing can
+    // report a total until that finishes.
+    expect(seen.find((p) => p.phase === 'catalogue')?.total).toBe(0);
+    expect(seen.findLast((p) => p.phase === 'genomes')?.total).toBe(2);
+  });
+
+  it('runs without a progress callback, which most callers do not want', async () => {
+    const a = await entry('A', 'DRRR');
+    mockCatalogue([shared(a.hash)], { [a.hash]: a.text });
+    await expect(refreshStudyCorpus('horse')).resolves.toMatchObject({ cached: 1 });
+  });
 
   it('keeps the correction, not the entry it supersedes', async () => {
     // The catalogue is add-only and paged newest-first, so the correction
