@@ -17,6 +17,10 @@ const SETTING_DEFAULTS: Record<string, unknown> = {
   // horses — so the shipped value is a count over the target set rather than
   // a tuned constant. A number in [0, 1] overrides it.
   'quality.breedLockWeight': 'auto',
+  // Width of the Study tab's evidence column, in pixels. Remembered because
+  // it is a workspace preference — how much of the window this player wants
+  // spent on evidence rather than findings — not a per-visit choice.
+  'study.evidenceWidth': 300,
   'display.fontScale': 100,
   'display.theme': 'system',
   'import.gameFolderPath': '',

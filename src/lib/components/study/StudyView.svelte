@@ -13,6 +13,7 @@ import {
   studyCorpusStatus,
 } from '$lib/services/studyService.js';
 import { pets } from '$lib/stores/pets.js';
+import { settings, settingsActions } from '$lib/stores/settings.js';
 import type { GeneDoubt } from '$lib/utils/attributeStudy.js';
 import StudyFindingsTable from './StudyFindingsTable.svelte';
 
@@ -139,6 +140,77 @@ async function confirmDoubt(d: GeneDoubt): Promise<void> {
 let loading = $state(true);
 let failure = $state<string | null>(null);
 let excluded = $state<Array<{ subjectId: string; name: string }>>([]);
+
+/** Narrowest and widest the evidence column may be dragged, in pixels. */
+const EVIDENCE_MIN = 220;
+const EVIDENCE_MAX = 620;
+const EVIDENCE_DEFAULT = 300;
+const EVIDENCE_SETTING = 'study.evidenceWidth';
+
+const clampWidth = (px: number) => Math.min(EVIDENCE_MAX, Math.max(EVIDENCE_MIN, Math.round(px)));
+
+/**
+ * Width of the evidence column.
+ *
+ * Seeded from the saved setting on first read and owned locally afterwards:
+ * dragging writes here every pointer move, and persisting on every move
+ * would be a database write per frame. The save happens once the drag ends.
+ */
+let evidenceWidth = $state(EVIDENCE_DEFAULT);
+let widthLoaded = false;
+$effect(() => {
+  const saved = $settings[EVIDENCE_SETTING];
+  if (widthLoaded || typeof saved !== 'number') return;
+  widthLoaded = true;
+  evidenceWidth = clampWidth(saved);
+});
+
+let splitEl: HTMLDivElement | undefined = $state();
+
+/**
+ * Drag the divider.
+ *
+ * Measured from the split's right edge rather than by accumulating deltas,
+ * so the column cannot drift away from the pointer over a long drag or when
+ * the clamp bites. Pointer capture keeps the moves coming even when the
+ * cursor outruns the 6px handle.
+ */
+function startDrag(event: PointerEvent): void {
+  const split = splitEl;
+  if (!split) return;
+  const handle = event.currentTarget as HTMLElement;
+  handle.setPointerCapture(event.pointerId);
+  const right = split.getBoundingClientRect().right;
+
+  const move = (e: PointerEvent) => {
+    evidenceWidth = clampWidth(right - e.clientX);
+  };
+  const end = () => {
+    handle.releasePointerCapture(event.pointerId);
+    handle.removeEventListener('pointermove', move);
+    handle.removeEventListener('pointerup', end);
+    handle.removeEventListener('pointercancel', end);
+    void settingsActions.update(EVIDENCE_SETTING, evidenceWidth);
+  };
+  handle.addEventListener('pointermove', move);
+  handle.addEventListener('pointerup', end);
+  handle.addEventListener('pointercancel', end);
+  event.preventDefault();
+}
+
+/** Arrow keys move the divider too — a drag handle nobody can tab to is not one. */
+function nudge(event: KeyboardEvent): void {
+  const step = event.shiftKey ? 48 : 16;
+  let next = evidenceWidth;
+  if (event.key === 'ArrowLeft') next = evidenceWidth + step;
+  else if (event.key === 'ArrowRight') next = evidenceWidth - step;
+  else if (event.key === 'Home') next = EVIDENCE_MAX;
+  else if (event.key === 'End') next = EVIDENCE_MIN;
+  else return;
+  event.preventDefault();
+  evidenceWidth = clampWidth(next);
+  void settingsActions.update(EVIDENCE_SETTING, evidenceWidth);
+}
 
 /**
  * Stop learning from an animal, or start again.
@@ -426,7 +498,7 @@ async function solve(target: string): Promise<void> {
 							</button>
 						{/each}
 					</nav>
-				<div class="split">
+				<div class="split" bind:this={splitEl} style="--evidence-width: {evidenceWidth}px">
 					<div class="main">
 
 					{#if current}
@@ -435,6 +507,25 @@ async function solve(target: string): Promise<void> {
 				</div>
 
 				{#if evidenceSections.length > 0}
+					<!-- A focusable `separator` carrying aria-valuenow is the WAI-ARIA
+					     window-splitter pattern, which the linter's "noninteractive"
+					     rules do not model. Dropping the tabindex to satisfy them
+					     would leave the divider mouse-only. -->
+					<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+					<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+					<div
+						class="splitter"
+						role="separator"
+						tabindex="0"
+						aria-orientation="vertical"
+						aria-label="Resize evidence column"
+						aria-valuenow={evidenceWidth}
+						aria-valuemin={EVIDENCE_MIN}
+						aria-valuemax={EVIDENCE_MAX}
+						data-testid="study-splitter"
+						onpointerdown={startDrag}
+						onkeydown={nudge}
+					></div>
 					<aside class="evidence" data-testid="study-evidence">
 						<div class="evidence-nav" role="group" aria-label="Evidence">
 							{#each evidenceSections as section (section.id)}
@@ -771,9 +862,26 @@ async function solve(target: string): Promise<void> {
 	   the table) for height. Now only the picked one renders, beside the
 	   table rather than below it, so both get the split's full height and
 	   neither scrolls more than it has to. */
+	/* A hit area wider than the visible line: a 1px border is not draggable,
+	   and padding the handle instead of the border keeps the columns flush. */
+	.splitter {
+		flex-shrink: 0;
+		width: 7px;
+		margin-right: -1px;
+		cursor: col-resize;
+		background: transparent;
+		touch-action: none;
+	}
+	.splitter:hover,
+	.splitter:focus-visible {
+		background: var(--accent);
+		opacity: 0.35;
+		outline: none;
+	}
+
 	.evidence {
 		flex-shrink: 0;
-		width: 300px;
+		width: var(--evidence-width, 300px);
 		min-height: 0;
 		display: flex;
 		flex-direction: column;
@@ -839,6 +947,12 @@ async function solve(target: string): Promise<void> {
 	@media (max-width: 860px) {
 		.split {
 			flex-direction: column;
+		}
+
+		/* Stacked: the divider has no axis to drag along, and the inline
+		   custom property must not keep forcing a width. */
+		.splitter {
+			display: none;
 		}
 
 		.evidence {
