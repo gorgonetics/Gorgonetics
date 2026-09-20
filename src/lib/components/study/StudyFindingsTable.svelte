@@ -1,5 +1,6 @@
 <script lang="ts">
 import type { StudyFinding } from '$lib/utils/attributeStudy.js';
+import { type SortableColumn, sortByColumn } from '$lib/utils/sortColumn.js';
 
 interface Props {
   findings: readonly StudyFinding[];
@@ -12,6 +13,58 @@ interface Props {
 const { findings, names, slots }: Props = $props();
 
 let expanded = $state<string | null>(null);
+
+type ColumnId = 'gene' | 'expression' | 'magnitude' | 'tier' | 'support';
+
+/**
+ * The columns, and how each one compares.
+ *
+ * `SortableColumn` is discriminated on `numeric`, so the accessor's return
+ * type is tied to the comparison — the same contract the breeding table
+ * sorts through, rather than a second comparator that could drift from it.
+ *
+ * `tier` sorts by certainty rather than alphabetically: `observed` before
+ * `derived` before `solved` is the order that means something here, and
+ * "derived, observed, solved" would be an accident of spelling.
+ */
+const TIER_RANK: Record<StudyFinding['tier'], number> = { direct: 0, derived: 1, system: 2 };
+
+const COLUMNS: Array<{ id: ColumnId; label: string; cls: string } & SortableColumn<StudyFinding>> = [
+  { id: 'gene', label: 'Gene', cls: 'col-gene', numeric: false, accessor: (f) => f.gene },
+  { id: 'expression', label: 'Expressed', cls: 'col-expressed', numeric: false, accessor: (f) => f.expression },
+  { id: 'magnitude', label: 'Points', cls: 'numeric col-points', numeric: true, accessor: (f) => f.magnitude },
+  { id: 'tier', label: 'How', cls: 'col-how', numeric: true, accessor: (f) => TIER_RANK[f.tier] },
+  { id: 'support', label: 'Agreeing', cls: 'numeric col-agreeing', numeric: true, accessor: (f) => f.support },
+];
+
+/**
+ * `null` means the engine's own order, which is not arbitrary — most certain
+ * first, then best supported. That is the right default, so the first click
+ * on a header is a deliberate departure from it rather than a return to it.
+ */
+let sortCol = $state<ColumnId | null>(null);
+let sortDir = $state<'asc' | 'desc'>('asc');
+
+const rows = $derived.by(() => {
+  const column = COLUMNS.find((c) => c.id === sortCol);
+  return column ? sortByColumn([...findings], column, sortDir) : [...findings];
+});
+
+function setSort(id: ColumnId): void {
+  if (sortCol === id) {
+    // Third click returns to the engine's order rather than cycling between
+    // two sorts the player may not have wanted either of.
+    if (sortDir === 'desc') sortCol = null;
+    else sortDir = 'desc';
+    return;
+  }
+  sortCol = id;
+  // Numbers descend first: the largest magnitude and the best-supported
+  // finding are what anyone opens this table to see.
+  sortDir = COLUMNS.find((c) => c.id === id)?.numeric ? 'desc' : 'asc';
+}
+
+const indicator = (id: ColumnId) => (sortCol !== id ? '' : sortDir === 'asc' ? ' ▲' : ' ▼');
 
 const key = (f: StudyFinding) => `${f.gene}:${f.expression}`;
 
@@ -44,16 +97,28 @@ function subject(id: string): string {
 		<table>
 			<thead>
 				<tr>
-					<th scope="col" class="col-gene">Gene</th>
-					<th scope="col" class="col-expressed">Expressed</th>
-					<th scope="col" class="numeric col-points">Points</th>
-					<th scope="col" class="col-how">How</th>
-					<th scope="col" class="numeric col-agreeing">Agreeing</th>
+					{#each COLUMNS as col (col.id)}
+						<th
+							scope="col"
+							class={col.cls}
+							class:active={sortCol === col.id}
+							aria-sort={sortCol !== col.id ? 'none' : sortDir === 'asc' ? 'ascending' : 'descending'}
+						>
+							<button
+								type="button"
+								class="sort-btn"
+								data-testid="study-sort-{col.id}"
+								onclick={() => setSort(col.id)}
+							>
+								{col.label}{indicator(col.id)}
+							</button>
+						</th>
+					{/each}
 					<th scope="col"><span class="sr-only">Evidence</span></th>
 				</tr>
 			</thead>
 			<tbody>
-				{#each findings as finding (key(finding))}
+				{#each rows as finding (key(finding))}
 					<tr class:open={expanded === key(finding)}>
 						<td class="gene">{finding.gene}</td>
 						<td class="expression">{finding.expression}</td>
@@ -198,6 +263,25 @@ function subject(id: string): string {
 	}
 	.col-agreeing {
 		width: 6rem;
+	}
+
+	.sort-btn {
+		width: 100%;
+		padding: var(--space-2xs) var(--space-sm);
+		margin: calc(-1 * var(--space-2xs)) calc(-1 * var(--space-sm));
+		background: transparent;
+		border: none;
+		color: inherit;
+		font: inherit;
+		cursor: pointer;
+		text-align: inherit;
+		white-space: nowrap;
+	}
+	.sort-btn:hover {
+		background: var(--bg-tertiary);
+	}
+	thead th.active {
+		color: var(--text-secondary);
 	}
 
 	thead th {
