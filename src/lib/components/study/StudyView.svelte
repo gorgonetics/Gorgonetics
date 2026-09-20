@@ -441,6 +441,7 @@ async function solve(target: string): Promise<void> {
 						: `on ${run.validation.stabledTested.toLocaleString()} checkable pairs`}
 				</span>
 			</div>
+			<div class="corpus-block">
 			<p class="community">
 				<!-- Explicit, never on mount: one Firestore read per catalogue
 				     entry against a Spark quota. -->
@@ -473,6 +474,7 @@ async function solve(target: string): Promise<void> {
 					aside: {#each run.corpus.excluded as ex, i (ex.reason)}{i > 0 ? ', ' : ''}{ex.count}
 						{EXCLUSION_LABEL[ex.reason] ?? ex.reason}{/each}{/if}
 			</p>
+			</div>
 		</header>
 
 		{#if run.corpus.subjects.length === 0}
@@ -723,7 +725,7 @@ async function solve(target: string): Promise<void> {
 		flex-wrap: wrap;
 		align-items: flex-start;
 		gap: var(--space-lg);
-		padding: var(--space-sm) var(--space-md) var(--space-xs);
+		padding: var(--space-xs) var(--space-md);
 		border-bottom: 1px solid var(--border-primary);
 	}
 
@@ -751,8 +753,18 @@ async function solve(target: string): Promise<void> {
 		color: var(--text-tertiary);
 	}
 
+	/* Beside the stats rather than under them: four stats leave most of a wide
+	   window empty, and these two lines used to claim a full row each. */
+	.corpus-block {
+		margin-left: auto;
+		display: flex;
+		flex-direction: column;
+		align-items: flex-end;
+		gap: var(--space-3xs);
+		text-align: right;
+	}
+
 	.community {
-		flex-basis: 100%;
 		display: flex;
 		align-items: baseline;
 		gap: var(--space-xs);
@@ -819,7 +831,6 @@ async function solve(target: string): Promise<void> {
 	}
 
 	.corpus {
-		flex-basis: 100%;
 		margin: 0;
 		font-size: 11px;
 		color: var(--text-tertiary);
@@ -945,6 +956,12 @@ async function solve(target: string): Promise<void> {
 	   fixed-width, and its nav goes back to a wrapping row so four buttons
 	   don't cost four rows of a pane that is already short on height. */
 	@media (max-width: 860px) {
+		.corpus-block {
+			margin-left: 0;
+			align-items: flex-start;
+			text-align: left;
+		}
+
 		.split {
 			flex-direction: column;
 		}

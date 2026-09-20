@@ -6,7 +6,13 @@ interface Props {
   findings: readonly StudyFinding[];
   /** Subject id to display name, for the evidence column. */
   names: Map<string, string>;
-  /** Slots in scope for this attribute, so the header can say what is left. */
+  /**
+   * Slots in scope for this attribute.
+   *
+   * Only the empty state uses it now — the attribute tab above the table
+   * already reads "Enthusiasm 59/124", and repeating that over the table
+   * cost a row of a pane that was short of them.
+   */
   slots: number;
 }
 
@@ -83,13 +89,9 @@ function subject(id: string): string {
 </script>
 
 <div class="findings" data-testid="study-findings">
-	<div class="findings-head">
-		<span class="found">{findings.length}</span> of {slots} known
-	</div>
-
 	{#if findings.length === 0}
 		<p class="empty">
-			Nothing is pinned for this attribute yet. A magnitude is only known once two animals
+			None of this attribute's {slots} effects is pinned yet. A magnitude is only known once two animals
 			differ at exactly one of its genes — or once every other gene in a wider pair is already known.
 		</p>
 	{:else}
@@ -204,18 +206,7 @@ function subject(id: string): string {
 		overflow: hidden;
 	}
 
-	.findings-head {
-		flex-shrink: 0;
-		padding: var(--space-xs) var(--space-md);
-		font-size: 12px;
-		color: var(--text-tertiary);
-		border-bottom: 1px solid var(--border-primary);
-	}
 
-	.found {
-		color: var(--text-secondary);
-		font-weight: 600;
-	}
 
 	.empty {
 		margin: 0;

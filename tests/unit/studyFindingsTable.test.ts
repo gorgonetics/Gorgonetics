@@ -52,9 +52,12 @@ describe('StudyFindingsTable', () => {
     expect(screen.getByText(/\/\s*1/)).toBeTruthy();
   });
 
-  it('says how much is still unknown', () => {
-    render(StudyFindingsTable, { findings: [finding()], names, slots: 112 });
-    expect(screen.getByText(/of 112 known/)).toBeTruthy();
+  it('says how much is still unknown when there is nothing to show', () => {
+    // The count moved to the attribute tab above the table, which already
+    // reads "Enthusiasm 59/124" — repeating it over the table cost a row.
+    // It survives here, where the table has nothing else to say.
+    render(StudyFindingsTable, { findings: [], names, slots: 112 });
+    expect(screen.getByText(/112 effects/)).toBeTruthy();
   });
 
   it('reveals the witness pair by name on demand', async () => {
@@ -73,7 +76,7 @@ describe('StudyFindingsTable', () => {
 
   it('explains an empty attribute rather than showing a bare table', () => {
     render(StudyFindingsTable, { findings: [], names, slots: 112 });
-    expect(screen.getByText(/Nothing is pinned for this attribute yet/)).toBeTruthy();
+    expect(screen.getByText(/None of this attribute's 112 effects is pinned yet/)).toBeTruthy();
   });
 });
 
