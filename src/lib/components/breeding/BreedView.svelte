@@ -18,6 +18,7 @@ import StatusPane from '$lib/components/shared/StatusPane.svelte';
 import { magnitudesForBreed, rankBreedingPairs } from '$lib/services/breedingService.js';
 import { getAllAttributeNames, getSupportedSpecies, normalizeSpecies } from '$lib/services/configService.js';
 import { capabilitySummary } from '$lib/services/geneticQualityService.js';
+import { localPetsRevision } from '$lib/services/petService.js';
 import { attributeMagnitudesFor, peekAttributeMagnitudes } from '$lib/services/studyService.js';
 import { breedingView, clearBench, toggleBench } from '$lib/stores/breeding.svelte.js';
 // `loading` aliased: this component has its own ranking `loading` flag.
@@ -224,7 +225,14 @@ $effect(() => {
   const sp = species;
   const breed = breedingView.offspringBreed;
   const ps = candidates;
-  const key = `${candidateKey}|${breed}|${breedLockWeight ?? 'auto'}`;
+  // The roster revision is in the key because `candidateKey` is only the set
+  // of *ids*: correcting an attribute or renaming an animal leaves it
+  // identical, so a mounted table would keep showing scores and point
+  // baselines built from the reading that was just replaced. Reading the
+  // counter does not subscribe to it — the `$pets` emission that follows the
+  // edit is what re-runs this effect; the revision only stops it returning
+  // early once it does.
+  const key = `${candidateKey}|${breed}|${breedLockWeight ?? 'auto'}|${localPetsRevision()}`;
 
   // Only close an open Trio on a genuine species change. An unrelated store
   // refresh (or an offspring-breed change) must not yank the projection shut.

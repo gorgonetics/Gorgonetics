@@ -37,7 +37,7 @@
 
 import { normalizeSpecies } from '$lib/services/configService.js';
 import { buildInClauseParams, getDb, type TxStatement } from '$lib/services/database.js';
-import { getGeneEffectsCached } from '$lib/services/geneService.js';
+import { geneDeclarationsRevision, getGeneEffectsCached } from '$lib/services/geneService.js';
 import { parseGenome } from '$lib/services/genomeParser.js';
 import { parseStructuredPetName } from '$lib/services/nameParser.js';
 import { getAllPets, localPetsRevision } from '$lib/services/petService.js';
@@ -576,28 +576,43 @@ export async function namesForSubjects(ids: readonly string[]): Promise<Map<stri
  * an uploader corrected, which `refreshStudyCorpus` clears explicitly. A
  * local edit does the same thing more quietly: attribute readings are parsed
  * from the pet's name, so renaming a stabled animal revises every magnitude
- * deduced from it, and deleting one withdraws its equations. That is what
- * `localPetsRevision` is compared against below — without it the Study tab
- * and the Breeding tab can disagree for a whole session.
+ * deduced from it, and deleting one withdraws its equations. Editing the gene
+ * table is the third case and the sharpest, because it revises the question
+ * rather than the answer — see `stamp`. Those last two are what the cached
+ * revision below is compared against; without it the Study tab and the
+ * Breeding tab can disagree for a whole session.
  *
  * Species without a measurement path (`STUDYABLE_SPECIES`) return the empty
  * table without touching the DB, which is what makes every scorer fall back
  * to counting for them.
  */
 interface MagnitudeEntry {
-  /** `localPetsRevision()` when the study was started. */
-  revision: number;
+  /** `stamp()` when the study was started. */
+  revision: string;
   value: Promise<AttributeMagnitudes>;
   /** The resolved table, once it is in. Read by `peekAttributeMagnitudes`. */
   settled?: AttributeMagnitudes;
 }
+
+/**
+ * What the memoised table was solved against: the roster it read, and the
+ * gene declarations it read them through.
+ *
+ * Both matter, for different reasons. A roster edit revises a *reading*, so
+ * the same slot gets a new magnitude. A gene-table edit revises the
+ * *question*: findings are keyed by `gene:expression`, and the attribute a
+ * slot belongs to is re-derived from the declarations at scoring time, so a
+ * magnitude solved before a slot was re-pointed would be applied to whatever
+ * attribute that slot names now — a wrong number, not a missing one.
+ */
+const stamp = () => `${localPetsRevision()}:${geneDeclarationsRevision()}`;
 
 const magnitudeCache = new Map<string, MagnitudeEntry>();
 
 export async function attributeMagnitudesFor(species: string): Promise<AttributeMagnitudes> {
   const normalized = normalizeSpecies(species);
   if (!STUDYABLE_SPECIES.includes(normalized)) return EMPTY_MAGNITUDES;
-  const revision = localPetsRevision();
+  const revision = stamp();
   const existing = magnitudeCache.get(normalized);
   if (existing && existing.revision === revision) return existing.value;
 
@@ -642,7 +657,7 @@ export function peekAttributeMagnitudes(species: string): AttributeMagnitudes | 
   const normalized = normalizeSpecies(species);
   if (!STUDYABLE_SPECIES.includes(normalized)) return EMPTY_MAGNITUDES;
   const entry = magnitudeCache.get(normalized);
-  if (!entry || entry.revision !== localPetsRevision()) return undefined;
+  if (!entry || entry.revision !== stamp()) return undefined;
   return entry.settled;
 }
 

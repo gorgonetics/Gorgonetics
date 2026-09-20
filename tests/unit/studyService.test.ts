@@ -329,6 +329,26 @@ describe('attributeMagnitudesFor', () => {
     expect(magnitudeOf(second, '01A1', 'dominant')).toBeUndefined();
   });
 
+  it('re-solves after a gene-table edit, which revises the question rather than the answer', async () => {
+    await upload(name('Kb', 45, 80, 'With'), 'DRRR');
+    await upload(name('Kb', 40, 80, 'Without'), 'RRRR');
+
+    const first = await attributeMagnitudesFor('horse');
+    expect(magnitudeOf(first, '01A1', 'dominant')).toBe(5);
+    expect(coverageOf(first, 'Temperament').known).toBe(1);
+
+    // Findings are keyed by `gene:expression`, and which attribute a slot
+    // belongs to is re-derived from the declarations at scoring time. Re-point
+    // 01A1's dominant slot and the old magnitude would be applied to
+    // Toughness — a wrong number, not a missing one.
+    await geneService.upsertGene('horse', '01', '01A1', { effectDominant: 'Toughness+', breed: '' });
+    geneService.clearGeneEffectsCache('horse');
+
+    const second = await attributeMagnitudesFor('horse');
+    expect(second).not.toBe(first);
+    expect(coverageOf(second, 'Temperament').known).toBe(0);
+  });
+
   it('re-solves after a delete, which withdraws the equations that animal supported', async () => {
     await upload(name('Kb', 45, 80, 'With'), 'DRRR');
     const withoutId = await upload(name('Kb', 40, 80, 'Without'), 'RRRR');
@@ -366,6 +386,16 @@ describe('peekAttributeMagnitudes', () => {
     expect(peekAttributeMagnitudes('horse')).toBeDefined();
 
     await petService.updatePet(withoutId, { attributes: { temperament: 36 } });
+    expect(peekAttributeMagnitudes('horse')).toBeUndefined();
+  });
+
+  it('goes back to undefined once the gene table has changed under it', async () => {
+    await upload(name('Kb', 45, 80, 'With'), 'DRRR');
+    await upload(name('Kb', 40, 80, 'Without'), 'RRRR');
+    await attributeMagnitudesFor('horse');
+    expect(peekAttributeMagnitudes('horse')).toBeDefined();
+
+    geneService.clearGeneEffectsCache('horse');
     expect(peekAttributeMagnitudes('horse')).toBeUndefined();
   });
 

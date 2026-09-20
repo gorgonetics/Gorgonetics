@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { rankBreedingPairs } from '$lib/services/breedingService.js';
+import { localPetsRevision } from '$lib/services/petService.js';
 import { attributeMagnitudesFor, peekAttributeMagnitudes } from '$lib/services/studyService.js';
 import { breedingView } from '$lib/stores/breeding.svelte.js';
 import { loading, pets } from '$lib/stores/pets.js';
@@ -28,6 +29,13 @@ vi.mock('$lib/services/studyService.js', () => {
     peekAttributeMagnitudes: vi.fn(() => empty),
   };
 });
+
+// Only the revision is stubbed — the pets store imports this module too, so
+// the rest has to stay real.
+vi.mock('$lib/services/petService.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('$lib/services/petService.js')>()),
+  localPetsRevision: vi.fn(() => 0),
+}));
 
 // The capability readout hits the DB through the quality service; a fixed
 // summary keeps these tests about the view's wording and gating.
@@ -535,6 +543,41 @@ describe('BreedView — ranking does not wait on the study', () => {
     // The default mock resolves to an empty table: the count ranking already
     // standing is the best answer there is, so redoing it buys nothing.
     await Promise.resolve();
+    expect(vi.mocked(rankBreedingPairs)).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('BreedView — an edit to a listed animal re-ranks', () => {
+  beforeEach(() => {
+    pets.set([stallion, mare]);
+    vi.mocked(rankBreedingPairs).mockClear();
+    vi.mocked(rankBreedingPairs).mockResolvedValue([pairStub(0.25)]);
+    vi.mocked(localPetsRevision).mockReturnValue(0);
+  });
+
+  it('re-ranks when a reading is corrected, though the candidate ids are unchanged', async () => {
+    const { rerender } = render(BreedView);
+    await rerender({});
+    await waitFor(() => expect(vi.mocked(rankBreedingPairs)).toHaveBeenCalledTimes(1));
+
+    // Correcting an attribute or renaming an animal leaves the candidate set
+    // identical, so the id-based key alone would hold the old scores on
+    // screen against a reading that has been replaced.
+    vi.mocked(localPetsRevision).mockReturnValue(1);
+    pets.set([stallion, mare]);
+    await rerender({});
+    await waitFor(() => expect(vi.mocked(rankBreedingPairs)).toHaveBeenCalledTimes(2));
+  });
+
+  it('still skips a bare store re-emit that changes nothing', async () => {
+    const { rerender } = render(BreedView);
+    await rerender({});
+    await waitFor(() => expect(vi.mocked(rankBreedingPairs)).toHaveBeenCalledTimes(1));
+
+    // A background `loadPets` hands back the same animals in a new array. The
+    // whole point of the key is that this costs nothing.
+    pets.set([stallion, mare]);
+    await rerender({});
     expect(vi.mocked(rankBreedingPairs)).toHaveBeenCalledTimes(1);
   });
 });
