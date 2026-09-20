@@ -345,7 +345,7 @@ describe('BreedingPairTable — attribute columns', () => {
     findings,
     contradictions: [],
     geneDoubts: [],
-    validation: { tested: 0, exact: 0, stabledTested: 0, stabledExact: 0 },
+    validation: { tested: 0, exact: 0, stabledTested: 0, stabledExact: 0, suspects: [] },
     contributors: 2,
   });
 

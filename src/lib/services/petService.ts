@@ -293,6 +293,9 @@ function enrichPet(pet: Record<string, unknown>, tags: string[]): Pet {
     starred: Boolean(pet.starred),
     stabled: Boolean(pet.stabled),
     is_pet_quality: Boolean(pet.is_pet_quality),
+    // Absent on rows written before the column existed, and the study should
+    // learn from them until told otherwise.
+    use_for_studies: pet.use_for_studies === undefined ? true : Boolean(pet.use_for_studies),
     positive_genes: Number(pet.positive_genes ?? 0),
     total_genes: Number(pet.total_genes ?? 0),
     known_genes: Number(pet.known_genes ?? 0),
@@ -710,9 +713,10 @@ const UPDATABLE_COLUMNS = new Set([
   'starred',
   'stabled',
   'is_pet_quality',
+  'use_for_studies',
 ]);
 
-const BOOLEAN_COLUMNS = new Set(['starred', 'stabled', 'is_pet_quality']);
+const BOOLEAN_COLUMNS = new Set(['starred', 'stabled', 'is_pet_quality', 'use_for_studies']);
 
 /**
  * Update a pet record.

@@ -2,12 +2,14 @@
 import { normalizeSpecies } from '$lib/services/configService.js';
 import {
   confirmGeneDeclaration,
+  listExcludedSubjects,
   namesForSubjects,
   type RefreshProgress,
   refreshStudyCorpus,
   runAttributeStudy,
   STUDYABLE_SPECIES,
   type StudyRun,
+  setUseForStudies,
   studyCorpusStatus,
 } from '$lib/services/studyService.js';
 import { pets } from '$lib/stores/pets.js';
@@ -135,6 +137,30 @@ async function confirmDoubt(d: GeneDoubt): Promise<void> {
 }
 let loading = $state(true);
 let failure = $state<string | null>(null);
+let excluded = $state<Array<{ subjectId: string; name: string }>>([]);
+let busySubject = $state<string | null>(null);
+let excludeError = $state<string | null>(null);
+
+/**
+ * Stop learning from an animal, or start again.
+ *
+ * Re-solves rather than filtering the view: an excluded animal changes which
+ * magnitudes are entailed at all, so the whole study is different afterwards
+ * and a filtered display would be a different claim than the numbers on
+ * screen.
+ */
+async function toggleUse(subjectId: string, use: boolean): Promise<void> {
+  busySubject = subjectId;
+  excludeError = null;
+  try {
+    await setUseForStudies(species, subjectId, use);
+    await solve(species);
+  } catch (err) {
+    excludeError = err instanceof Error ? err.message : String(err);
+  } finally {
+    busySubject = null;
+  }
+}
 
 const studies = $derived(run?.studies ?? []);
 const current = $derived(studies.find((s) => s.attribute === attribute) ?? studies[0]);
@@ -239,6 +265,7 @@ async function solve(target: string): Promise<void> {
     const status = await studyCorpusStatus(target);
     cachedCount = status.cached;
     fetchedAt = status.fetchedAt;
+    excluded = await listExcludedSubjects(target);
   } catch (err) {
     if (mine !== generation) return;
     failure = err instanceof Error ? err.message : String(err);
@@ -447,10 +474,70 @@ async function solve(target: string): Promise<void> {
 								</li>
 							{/each}
 						</ul>
-						{#if confirmError}
-							<p class="doubt-error">Could not save that: {confirmError}</p>
-						{/if}
 					</aside>
+				{/if}
+
+				{#if run && run.suspects.length > 0}
+					<aside class="panel misrecorded shaded">
+						<h3>Animals the predictions disagree with</h3>
+						<p>
+							Each of these takes part in predictions that come out wrong. One mis-typed attribute
+							shifts an animal by a constant, so a high share at a single offset is the signature of a
+							bad record rather than bad luck. Turning one off stops the study learning from it; you
+							can turn it back on at any time.
+						</p>
+						<ul>
+							{#each run.suspects.slice(0, 8) as s (s.subjectId)}
+								<li>
+									<span class="suspect-name">{names.get(s.subjectId) ?? `#${s.subjectId}`}</span>
+									<span class="suspect-count" title="Failed predictions this animal appears in"
+										>{s.failures}</span
+									>
+									<span
+										class="offset"
+										title="Most of its failures are wrong by this same amount, which is what one mis-typed attribute looks like."
+										>off by {s.offset} · {Math.round(s.offsetShare * 100)}%</span
+									>
+									<button
+										type="button"
+										class="doubt-confirm"
+										data-testid="exclude-{s.subjectId}"
+										disabled={busySubject !== null}
+										onclick={() => toggleUse(s.subjectId, false)}
+									>
+										{busySubject === s.subjectId ? 'Saving…' : 'Stop using'}
+									</button>
+								</li>
+							{/each}
+						</ul>
+					</aside>
+				{/if}
+
+				{#if excluded.length > 0}
+					<aside class="panel excluded-panel">
+						<h3>Not used for studies</h3>
+						<p>These animals are excluded from inference. Their records are kept exactly as they are.</p>
+						<ul>
+							{#each excluded as e (e.subjectId)}
+								<li>
+									<span class="suspect-name">{e.name}</span>
+									<button
+										type="button"
+										class="doubt-confirm"
+										data-testid="restore-{e.subjectId}"
+										disabled={busySubject !== null}
+										onclick={() => toggleUse(e.subjectId, true)}
+									>
+										{busySubject === e.subjectId ? 'Saving…' : 'Use again'}
+									</button>
+								</li>
+							{/each}
+						</ul>
+					</aside>
+				{/if}
+
+				{#if confirmError || excludeError}
+					<p class="doubt-error">Could not save that: {confirmError ?? excludeError}</p>
 				{/if}
 			</div>
 		{/if}
@@ -552,6 +639,12 @@ async function solve(target: string): Promise<void> {
 
 	.refresh-error {
 		color: var(--gene-negative);
+	}
+
+	.offset {
+		font-size: 11px;
+		color: var(--text-tertiary);
+		font-variant-numeric: tabular-nums;
 	}
 
 	.doubt-error {

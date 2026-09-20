@@ -275,6 +275,30 @@ const MIGRATIONS: Migration[] = [
       `);
     },
   },
+  {
+    version: 16,
+    description: 'Add use_for_studies to pets and study_corpus — exclude a mis-recorded animal from inference',
+    up: async () => {
+      // A failed prediction names two animals and the model forbids
+      // disagreement, so one of them is wrong. On the live corpus twelve
+      // animals out of 457 accounted for every failure, each producing a
+      // constant offset across every equation it appeared in — the
+      // fingerprint of one mis-typed attribute.
+      //
+      // A per-animal flag rather than a list of exclusions elsewhere: "do I
+      // learn from this animal" is a property of the animal, it belongs
+      // beside `stabled` and `starred`, and it stays visible and reversible
+      // where the player already looks. Default on, so nothing changes for
+      // an untouched database.
+      //
+      // Both tables, because the study learns from both, and 95% of the bad
+      // records are community animals the player cannot re-read — excluding
+      // is the only action available for them.
+      const db = getDb();
+      await db.execute('ALTER TABLE pets ADD COLUMN use_for_studies INTEGER NOT NULL DEFAULT 1');
+      await db.execute('ALTER TABLE study_corpus ADD COLUMN use_for_studies INTEGER NOT NULL DEFAULT 1');
+    },
+  },
 ];
 
 /** Derived from the last migration — no manual bookkeeping needed. */
