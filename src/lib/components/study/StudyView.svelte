@@ -108,6 +108,7 @@ let names = $state(new Map<string, string>());
 let attribute = $state<string | null>(null);
 /** The slot a confirmation is being written for, so its button can say so. */
 let confirming = $state<string | null>(null);
+let confirmError = $state<string | null>(null);
 
 /**
  * Record that the player checked this gene in game and the table was right.
@@ -118,13 +119,16 @@ let confirming = $state<string | null>(null);
  * place to look, and the reason this is worth recording at all.
  */
 async function confirmDoubt(d: GeneDoubt): Promise<void> {
-  const key = `${d.gene}:${d.expression}`;
-  confirming = key;
+  confirming = `${d.gene}:${d.expression}`;
+  confirmError = null;
   try {
     await confirmGeneDeclaration(species, d.gene, d.expression, d.attribute, d.declared);
-    ranFor = '';
+    // `solve` directly rather than clearing `ranFor` to provoke the effect:
+    // the species has not changed, so re-arming the effect only schedules a
+    // second identical solve that the generation guard then throws away.
     await solve(species);
-    ranFor = species;
+  } catch (err) {
+    confirmError = err instanceof Error ? err.message : String(err);
   } finally {
     confirming = null;
   }
@@ -202,10 +206,9 @@ async function refresh(): Promise<void> {
     // lot, so it gets named rather than left under the same spinner.
     progress = { phase: 'solving' };
     // Re-solve rather than patch: the new animals change every count on
-    // screen, not just the cache line.
-    ranFor = '';
+    // screen, not just the cache line. Called directly — clearing `ranFor`
+    // would re-arm the effect and schedule a second identical solve.
     await solve(species);
-    ranFor = species;
   } catch (err) {
     refreshError = err instanceof Error ? err.message : String(err);
   } finally {
@@ -411,6 +414,9 @@ async function solve(target: string): Promise<void> {
 								</li>
 							{/each}
 						</ul>
+						{#if confirmError}
+							<p class="doubt-error">Could not save that: {confirmError}</p>
+						{/if}
 					</aside>
 				{/if}
 
@@ -435,6 +441,9 @@ async function solve(target: string): Promise<void> {
 								</li>
 							{/each}
 						</ul>
+						{#if confirmError}
+							<p class="doubt-error">Could not save that: {confirmError}</p>
+						{/if}
 					</aside>
 				{/if}
 			</div>
@@ -536,6 +545,12 @@ async function solve(target: string): Promise<void> {
 	}
 
 	.refresh-error {
+		color: var(--gene-negative);
+	}
+
+	.doubt-error {
+		margin: var(--space-2xs) 0 0;
+		font-size: 12px;
 		color: var(--gene-negative);
 	}
 

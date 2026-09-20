@@ -649,6 +649,20 @@ describe('refreshStudyCorpus', () => {
     expect(seen.findLast((p) => p.phase === 'genomes')?.total).toBe(2);
   });
 
+  it('reports the last entry even when the batch does not land on it', async () => {
+    // Two entries, reported in batches of 25: without a final report the
+    // verify phase would sit at zero and read as a stall.
+    const a = await entry('A', 'DRRR');
+    const b = await entry('B', 'RRRR');
+    mockCatalogue([shared(a.hash), shared(b.hash)], { [a.hash]: a.text, [b.hash]: b.text });
+
+    const seen: RefreshProgress[] = [];
+    await refreshStudyCorpus('horse', (p) => seen.push(p));
+
+    const checking = seen.filter((p) => p.phase === 'checking');
+    expect(checking.at(-1)).toMatchObject({ done: 2, total: 2 });
+  });
+
   it('runs without a progress callback, which most callers do not want', async () => {
     const a = await entry('A', 'DRRR');
     mockCatalogue([shared(a.hash)], { [a.hash]: a.text });

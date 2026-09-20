@@ -495,7 +495,12 @@ export async function refreshStudyCorpus(
     // this app's own work rather than the network's, and it is the phase
     // that looks hung. Report in batches: every entry would cost more in
     // repaints than the work itself.
-    if (checked % 25 === 0) await report({ phase: 'checking', done: checked, total: metadata.size });
+    // The last entry always reports, whatever the batch size: a corpus of
+    // twelve would otherwise sit at zero throughout, and a partial final
+    // batch would stop short of the total and read as a stall.
+    if (checked % 25 === 0 || checked === metadata.size) {
+      await report({ phase: 'checking', done: checked, total: metadata.size });
+    }
     if (normalizeSpecies(pet.species) !== normalized) continue;
     const genome = genomes.get(hash) ?? '';
     if (genome.length === 0) continue;
