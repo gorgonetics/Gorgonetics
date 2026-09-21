@@ -24,8 +24,8 @@ importers:
         specifier: ^2.3.1
         version: 2.3.1
       '@tauri-apps/plugin-sql':
-        specifier: ^2.4.0
-        version: 2.4.0
+        specifier: ^2.4.1
+        version: 2.4.1
       '@tauri-apps/plugin-updater':
         specifier: ^2.11.0
         version: 2.11.0
@@ -1041,8 +1041,8 @@ packages:
   '@tauri-apps/plugin-process@2.3.1':
     resolution: {integrity: sha512-nCa4fGVaDL/B9ai03VyPOjfAHRHSBz5v6F/ObsB73r/dA3MHHhZtldaDMIc0V/pnUw9ehzr2iEG+XkSEyC0JJA==}
 
-  '@tauri-apps/plugin-sql@2.4.0':
-    resolution: {integrity: sha512-SIICc5JlnK6OrBZzOw7MmhXHPlmASpt5zLWIu10WW4kLr5cDYOXHdV2MoCgYQkgZLQfyBYgF3SQa5XCisUiQkw==}
+  '@tauri-apps/plugin-sql@2.4.1':
+    resolution: {integrity: sha512-w9fImJ2XaCLFEj+kLbs8nO/Idq89mpjl//Bm37JZo8AugbaVzaW5iHTjjcozHjtLgjb0IAQjYromv0YpzDOFkA==}
 
   '@tauri-apps/plugin-updater@2.11.0':
     resolution: {integrity: sha512-AE36XkOoSna24G40jZMY15nzAnkXEPL/73tGoseGrtGOHuI/cZwWzHpZFLjKXDPgzYZ435z1gHu28LgrsBwIxQ==}
@@ -4835,7 +4835,7 @@ snapshots:
     dependencies:
       '@tauri-apps/api': 2.11.1
 
-  '@tauri-apps/plugin-sql@2.4.0':
+  '@tauri-apps/plugin-sql@2.4.1':
     dependencies:
       '@tauri-apps/api': 2.11.1
 
