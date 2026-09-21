@@ -808,6 +808,22 @@ export async function liveGeneConfirmations(
 }
 
 /**
+ * Bump whenever the solve changes.
+ *
+ * `studyFingerprint` hashes the solver's *inputs*; this stands for the
+ * solver itself. Persisted rows outlive an upgrade — migration 17 creates
+ * `study_magnitudes` and nothing ever drops rows — so without this term an
+ * install whose animals and genes had not changed would go on serving the
+ * previous release's numbers, while the Study tab, which re-runs
+ * `runAttributeStudy` on demand, showed the new ones.
+ *
+ * Changing `studyAll`, `buildAttributeMagnitudes`, `buildEffectSlots`, the
+ * eligibility rules in `loadStudyCorpus`, or the shape `persistMagnitudes`
+ * writes all count as changing the solve.
+ */
+const SOLVER_VERSION = 1;
+
+/**
  * A durable fingerprint of everything the solve depends on.
  *
  * The in-memory revisions (`localPetsRevision`, `geneDeclarationsRevision`)
@@ -877,6 +893,7 @@ async function studyFingerprint(species: string): Promise<string> {
 
   return sha256Hex(
     [
+      `solver:${SOLVER_VERSION}`,
       // The inputs themselves rather than `updated_at`: a rename and an
       // attribute correction are both study inputs, and a timestamp is only
       // as good as its resolution — two edits inside one tick would collide.
@@ -1010,17 +1027,35 @@ export async function attributeMagnitudesFor(species: string): Promise<Attribute
   const value = (async () => {
     // The persisted table first: solving is quadratic in corpus size, and
     // nothing about it changes between sessions unless an input does.
-    const fingerprint = await studyFingerprint(normalized);
-    const stored = await loadPersistedMagnitudes(normalized, fingerprint);
-    if (stored) return stored;
+    //
+    // Every read here is best-effort. The whole table is an accelerator, so
+    // a fault anywhere in it must cost a solve and nothing more; allowed to
+    // reach the outer catch it would drop every scorer back to counting for
+    // the rest of the session, which is the opposite of what it is for. A
+    // missing `study_magnitudes` after a part-applied migration and a locked
+    // database both arrive this way.
+    const fingerprint = await studyFingerprint(normalized).catch((error: unknown) => {
+      console.warn('study_magnitudes: could not fingerprint the inputs', error);
+      return undefined;
+    });
+    if (fingerprint !== undefined) {
+      const stored = await loadPersistedMagnitudes(normalized, fingerprint).catch((error: unknown) => {
+        console.warn('study_magnitudes: could not read', error);
+        return undefined;
+      });
+      if (stored) return stored;
+    }
     const run = await runAttributeStudy(normalized);
     const built = buildAttributeMagnitudes(run.studies);
     // The solve is deliberately slow, and an input can move while it runs —
     // an exclusion toggled and toggled back, say. Storing it under the
     // fingerprint taken beforehand would tag this table with inputs it was
     // not solved from, and every later session would trust the match.
-    const after = await studyFingerprint(normalized);
-    if (after === fingerprint) {
+    //
+    // `undefined` on either side means the comparison cannot be made, so
+    // nothing is written: an unverifiable row is worse than no row.
+    const after = fingerprint === undefined ? undefined : await studyFingerprint(normalized).catch(() => undefined);
+    if (after !== undefined && after === fingerprint) {
       // Best-effort: a table that could not be written is a slow next
       // session, not a wrong one, and must not fail the ranking that just
       // succeeded.

@@ -489,6 +489,60 @@ describe('persisted magnitudes', () => {
     expect(magnitudeOf(after, '01A4', 'dominant')).toBe(5);
   });
 
+  /**
+   * Make one of the cache's own reads fail, and count the failures so the
+   * test cannot pass by matching nothing if a query is later reworded.
+   */
+  const breakSelect = (match: RegExp) => {
+    const db = getDb();
+    const real = db.select.bind(db);
+    let threw = 0;
+    const spy = vi.spyOn(db, 'select').mockImplementation(async (query: string, bindValues?: unknown) => {
+      if (match.test(query)) {
+        threw++;
+        throw new Error('database is locked');
+      }
+      return real(query, bindValues as never);
+    });
+    return { restore: () => spy.mockRestore(), count: () => threw };
+  };
+
+  it('solves anyway when the persisted table cannot be read', async () => {
+    await upload(name('Kb', 45, 80, 'With'), 'DRRR');
+    await upload(name('Kb', 40, 80, 'Without'), 'RRRR');
+
+    // A part-applied migration leaves `study_magnitudes` missing. That must
+    // cost a solve, not the whole feature: before this was guarded the error
+    // reached the outer catch and every scorer ranked by counts for the rest
+    // of the session.
+    const broken = breakSelect(/study_magnitudes/i);
+    try {
+      expect(magnitudeOf(await attributeMagnitudesFor('horse'), '01A1', 'dominant')).toBe(5);
+      expect(broken.count()).toBeGreaterThan(0);
+    } finally {
+      broken.restore();
+    }
+  });
+
+  it('solves anyway when the fingerprint itself cannot be taken', async () => {
+    await upload(name('Kb', 45, 80, 'With'), 'DRRR');
+    await upload(name('Kb', 40, 80, 'Without'), 'RRRR');
+
+    // Only the fingerprint's own unscoped projection read — the solver reads
+    // `pet_genes` too, and breaking that would prove nothing.
+    const broken = breakSelect(/^SELECT pet_id, gene_id, gene_type FROM pet_genes$/);
+    try {
+      expect(magnitudeOf(await attributeMagnitudesFor('horse'), '01A1', 'dominant')).toBe(5);
+      expect(broken.count()).toBeGreaterThan(0);
+    } finally {
+      broken.restore();
+    }
+
+    // Nothing was written under a fingerprint that could not be taken.
+    const rows = await getDb().select<Array<Record<string, unknown>>>('SELECT species FROM study_magnitudes');
+    expect(rows).toEqual([]);
+  });
+
   it('refuses a row whose columns parse to null rather than reading it as empty', async () => {
     await upload(name('Kb', 45, 80, 'With'), 'DRRR');
     await upload(name('Kb', 40, 80, 'Without'), 'RRRR');
