@@ -297,8 +297,7 @@ function enrichPet(pet: Record<string, unknown>, tags: string[]): Pet {
     // Absent on rows written before the column existed, and the study should
     // learn from them until told otherwise.
     use_for_studies: pet.use_for_studies === undefined ? true : Boolean(pet.use_for_studies),
-    // Unset means "not a reading": the flag is written at import and by any
-    // attribute edit, so a row without it was never measured.
+    // Unset means "not a reading" — every writer sets it explicitly.
     attributes_measured: Boolean(pet.attributes_measured),
     positive_genes: Number(pet.positive_genes ?? 0),
     total_genes: Number(pet.total_genes ?? 0),
@@ -670,8 +669,8 @@ export async function uploadPet(content: string, options: UploadPetOptions = {})
         total_genes: geneCounts.total,
         known_genes: geneCounts.known,
         unknown_genes: geneCounts.unknown,
-        // The one place the answer is known: `attrValues` came from the name
-        // above, or from `defaults` because it did not parse.
+        // `attrValues` came from the name above, or from `defaults` because
+        // it did not parse — the answer is known here and nowhere later.
         attributes_measured: parsed ? 1 : 0,
       },
     );
@@ -725,8 +724,8 @@ const UPDATABLE_COLUMNS = new Set([
   'stabled',
   'is_pet_quality',
   'use_for_studies',
-  // Settable directly by a caller that knows the provenance of the values it
-  // is writing — `importCommunityPet` does, and it is not the editor.
+  // Settable by a caller that knows the provenance of the values it writes,
+  // rather than leaving `updatePet` to infer it below.
   'attributes_measured',
 ]);
 
@@ -766,19 +765,13 @@ export async function updatePet(petId: number, updates: Record<string, unknown>)
     }
   }
 
-  // A value the player typed in is a reading, whatever the name says —
-  // without this, correcting an attribute on an animal imported under an
-  // unparseable name would leave it out of the study anyway, which is the
-  // complaint that produced the flag (#526).
+  // A value the player typed in is a reading, whatever the name says (#526).
   //
-  // Inferred only when the caller did not say. `importCommunityPet` writes
-  // attributes it did not measure — they are another player's columns, all
-  // 50 of them if *that* player never measured either — so it passes the
-  // answer explicitly and this must not overrule it.
-  //
-  // Never inferred false: `use_for_studies` is how a record is withdrawn and
-  // it says what the player means, whereas clearing this would assert the
-  // values are the untouched default, which after an edit they are not.
+  // Only inferred when the caller did not say: `importCommunityPet` writes
+  // attributes it did not measure and passes its own verdict. And only ever
+  // inferred true — clearing it would assert the values are the untouched
+  // default, which after an edit they are not; `use_for_studies` is how a
+  // record is withdrawn.
   if (flat.attributes_measured === undefined && ATTRIBUTE_KEYS.some((key) => flat[key] !== undefined)) {
     setClauses.push('attributes_measured = $attributes_measured');
     params.attributes_measured = 1;

@@ -140,8 +140,9 @@ export interface Pet {
    * which the player can edit, and which says nothing about a value they
    * typed in by hand.
    *
-   * Set at import, and again by `updatePet` whenever an attribute is
-   * written: a hand-entered value is a reading.
+   * Set at import, and by `updatePet` whenever an attribute is written — a
+   * hand-entered value is a reading — unless the caller states otherwise.
+   * Local only: a community animal is judged by `carriesReadings` instead.
    */
   attributes_measured: boolean;
   // Computed fields (added by service layer)

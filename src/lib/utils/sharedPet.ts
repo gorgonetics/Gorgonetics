@@ -35,24 +35,25 @@ export const ATTRIBUTE_KEYS = [
 ] as const;
 
 /**
- * Whether a set of attribute values are readings rather than the untouched
- * default.
+ * Whether attribute values are readings rather than the untouched default.
  *
- * Nothing in the app can write a non-default value without a measurement
- * behind it: `uploadPet` stores either the values a structured name carries
- * or `DEFAULT_ATTRIBUTE_VALUE` across the board, and the only other writer
- * is the editor, where the player types what they read in the game. So one
- * value away from the default is proof the animal was measured.
+ * Nothing can write a non-default value without a measurement behind it:
+ * `uploadPet` stores either the values a structured name carries or
+ * `DEFAULT_ATTRIBUTE_VALUE` across the board, and the only other writer is
+ * the editor. So one value off the default is proof.
  *
- * Used where a stored `attributes_measured` flag is not available — every
- * community animal, whose provenance the catalogue does not publish, and
- * whose uploader has no reason to use anyone else's naming convention.
+ * Stands in for `Pet.attributes_measured` wherever that flag is not
+ * available — a community animal, whose provenance the catalogue does not
+ * publish, or a row that predates the column.
  *
  * Errs towards excluding: an animal genuinely measured at the default on all
- * eight reads as unmeasured here. That costs one subject, where the opposite
- * error feeds the solver defaults dressed as data.
+ * eight reads as unmeasured. That costs one subject, where the opposite error
+ * feeds the solver defaults dressed as data.
+ *
+ * Takes a loose row so a raw database or archive row can be passed as it is;
+ * a non-numeric value is no evidence either way.
  */
-export function carriesReadings(attributes: Record<string, number> | undefined): boolean {
+export function carriesReadings(attributes: Record<string, unknown> | undefined): boolean {
   if (!attributes) return false;
   return ATTRIBUTE_KEYS.some((key) => {
     const value = attributes[key];
@@ -154,9 +155,8 @@ export function sharedPetToPet(shared: SharedPet): Pet {
     is_pet_quality: false,
     // A preview of someone else's animal; it is not in any corpus.
     use_for_studies: true,
-    // Provenance for a community animal is its published name, which the
-    // study parses on its own path — a preview never reaches that path, and
-    // this field is local-only, so it claims nothing.
+    // Local-only, and a preview is not in the database. The study judges a
+    // community animal by its values instead — see `carriesReadings`.
     attributes_measured: false,
   };
 }

@@ -14,12 +14,10 @@ import type {
   ImportResult,
 } from '$lib/types/index.js';
 import { isTauri } from '$lib/utils/environment.js';
-import { carriesReadings } from '$lib/utils/sharedPet.js';
 import { now } from '$lib/utils/timestamp.js';
 import { getDb, type TxStatement } from './database.js';
 import { pickExportSavePath, saveExportBinaryFile } from './fileService.js';
-import { CURRENT_SCHEMA_VERSION, getSchemaVersion } from './migrationService.js';
-import { parseStructuredPetName } from './nameParser.js';
+import { CURRENT_SCHEMA_VERSION, derivedProvenance, getSchemaVersion } from './migrationService.js';
 
 const EXPORT_FORMAT = 'gorgonetics-backup' as const;
 const EXPORT_FORMAT_VERSION = 2;
@@ -400,15 +398,10 @@ async function importGenesAndPets(
         // ends up in the same legacy-row state as a v12 import — the
         // user can backfill it later by re-picking the original file.
         else if (col === 'genome_text') row[col] = pet[col] ?? '';
-        // Pre-v18 backups predate the column. Derived exactly as the v18
-        // migration derives it for the same rows — a restore and an upgrade
-        // of the same database have to agree about the corpus.
-        else if (col === 'attributes_measured') {
-          const derived =
-            parseStructuredPetName(String(pet.name ?? ''), String(pet.species ?? '')) !== null ||
-            carriesReadings(pet as Record<string, number>);
-          row[col] = pet[col] ?? (derived ? 1 : 0);
-        } else row[col] = pet[col] ?? null;
+        // Pre-v18 archives predate the column, and the v18 migration owns
+        // what to do about that.
+        else if (col === 'attributes_measured') row[col] = pet[col] ?? (derivedProvenance(pet) ? 1 : 0);
+        else row[col] = pet[col] ?? null;
       }
       petRows.push(row);
       if (typeof pet.content_hash === 'string') restoredHashes.push(pet.content_hash);

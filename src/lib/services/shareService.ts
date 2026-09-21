@@ -781,12 +781,11 @@ async function applyImportMetadata(petId: number, shared: SharedPet): Promise<vo
   // all-50 defaults when the name isn't structured). Absent on legacy
   // entries — then the re-derived values stand, as before.
   //
-  // Provenance travels with them, explicitly. `buildMetadataPayload`
-  // publishes the uploader's eight columns whatever they are, so a catalogue
-  // entry can carry *their* untouched defaults — and `updatePet` would
-  // otherwise read the write itself as evidence that someone measured these
-  // values. Judged from the values, as the study's own cached path judges
-  // the same entry (#526).
+  // Provenance is stated rather than left to `updatePet`, which would read
+  // the write itself as evidence of a reading: `buildMetadataPayload`
+  // publishes the uploader's columns whatever they are, so these may be
+  // *their* untouched defaults. Judged from the values, as the study judges
+  // the same entry on its cached path (#526).
   if (shared.attributes) {
     updates.attributes = shared.attributes;
     updates.attributes_measured = carriesReadings(shared.attributes);
