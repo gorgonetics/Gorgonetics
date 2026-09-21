@@ -4,12 +4,31 @@
  * Runs pending migrations on startup.
  */
 
-import { getDb } from './database.js';
+import { ATTRIBUTE_KEYS, carriesReadings } from '$lib/utils/sharedPet.js';
+import { buildInClauseParams, getDb } from './database.js';
+import { parseStructuredPetName } from './nameParser.js';
 
 interface Migration {
   version: number;
   description: string;
   up: () => Promise<void>;
+}
+
+/**
+ * `attributes_measured` for a pet row that predates the column.
+ *
+ * Either proof will do. A name that parses is an animal the pre-v18 gate
+ * admitted, and its values came from that name. A value off the default is a
+ * measurement whatever the name says — including the ones the old gate was
+ * wrong about, hand-corrected in the editor under a name it could not read.
+ *
+ * Exported because a restore has to reach the same verdict as an upgrade: a
+ * pre-v18 archive carries no column either, and the two paths disagreeing
+ * would mean the same database had a different corpus depending on how it
+ * got here.
+ */
+export function derivedProvenance(row: Record<string, unknown>): boolean {
+  return parseStructuredPetName(String(row.name ?? ''), String(row.species ?? '')) !== null || carriesReadings(row);
 }
 
 /**
@@ -323,6 +342,39 @@ const MIGRATIONS: Migration[] = [
           computed_at TEXT NOT NULL
         )
       `);
+    },
+  },
+  {
+    version: 18,
+    description: 'Add attributes_measured to pets — record attribute provenance instead of re-reading it off the name',
+    up: async () => {
+      // Eligibility used to re-derive at study time what was decided at
+      // import, by parsing the animal's *current* name — see
+      // `Pet.attributes_measured` for what the column holds and #526 for
+      // what re-deriving it from an editable field cost.
+      //
+      // Backfilled by `derivedProvenance`, so every animal the old gate
+      // admitted is still in the corpus and the ones it was wrong about —
+      // hand-corrected under a name that never parsed — join it.
+      const db = getDb();
+      await db.execute('ALTER TABLE pets ADD COLUMN attributes_measured INTEGER NOT NULL DEFAULT 0');
+      const rows = await db.select<Array<Record<string, unknown>>>(
+        `SELECT id, name, species, ${ATTRIBUTE_KEYS.join(', ')} FROM pets`,
+      );
+      const measured = rows.filter(derivedProvenance);
+      // Chunked: a roster can outgrow SQLite's 999-parameter ceiling, and one
+      // statement per animal would be hundreds of round trips.
+      const chunk = 500;
+      for (let i = 0; i < measured.length; i += chunk) {
+        const { placeholders, params } = buildInClauseParams(
+          measured.slice(i, i + chunk).map((row) => Number(row.id)),
+          'id',
+        );
+        await db.execute(`UPDATE pets SET attributes_measured = $measured WHERE id IN (${placeholders})`, {
+          measured: 1,
+          ...params,
+        });
+      }
     },
   },
 ];

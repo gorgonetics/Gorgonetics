@@ -103,6 +103,64 @@ describe('loadStudyCorpus', () => {
     expect(corpus.excluded).toContainEqual({ reason: 'unmeasured', count: 1 });
   });
 
+  it('keeps an animal renamed out of the structured format, whose readings are stored', async () => {
+    // The name is how the readings were recorded, not where they live. A
+    // player renaming a horse used to drop it from the corpus (#526).
+    const petId = await upload(name('Kb', 40, 80), 'RRRR');
+    await petService.updatePet(petId, { name: 'Dobbin' });
+
+    const corpus = await loadStudyCorpus('horse');
+    expect(corpus.subjects).toHaveLength(1);
+    expect(corpus.subjects[0].attributes.temperament).toBe(40);
+  });
+
+  it('admits an animal whose attributes were typed in by hand', async () => {
+    // Imported under a name that does not parse, so every attribute was the
+    // importer's default. Entering the real values in the editor makes them
+    // readings — which is what the player sees, and used to be told was
+    // "attributes never recorded" (#526).
+    const petId = await upload('Just A Horse', 'RRRR');
+    expect((await loadStudyCorpus('horse')).subjects).toEqual([]);
+
+    await petService.updatePet(petId, {
+      breed: 'Kurbone',
+      attributes: { temperament: 40, toughness: 80 },
+    });
+
+    const corpus = await loadStudyCorpus('horse');
+    expect(corpus.subjects).toHaveLength(1);
+    expect(corpus.subjects[0]).toMatchObject({ breed: 'Kurbone' });
+    expect(corpus.subjects[0].attributes.temperament).toBe(40);
+  });
+
+  it('takes a caller at its word when it says the values it wrote are not readings', async () => {
+    // The shape `importCommunityPet` writes: someone else's attribute
+    // columns, copied wholesale, which are that player's defaults when they
+    // never measured either. The write is not evidence of a reading here and
+    // the caller says so, or the corpus fills with 50s dressed as data.
+    const petId = await upload('Just A Horse', 'RRRR');
+    await petService.updatePet(petId, {
+      breed: 'Kurbone',
+      attributes: { temperament: 50, toughness: 50 },
+      attributes_measured: false,
+    });
+
+    const corpus = await loadStudyCorpus('horse');
+    expect(corpus.subjects).toEqual([]);
+    expect(corpus.excluded).toContainEqual({ reason: 'unmeasured', count: 1 });
+  });
+
+  it('does not call an animal measured because some other field was edited', async () => {
+    // Only an attribute write is evidence of a reading. A rename, a star or
+    // a tag says nothing about the eight 50s this animal was imported with.
+    const petId = await upload('Just A Horse', 'RRRR');
+    await petService.updatePet(petId, { breed: 'Kurbone', starred: true, name: 'Dobbin' });
+
+    const corpus = await loadStudyCorpus('horse');
+    expect(corpus.subjects).toEqual([]);
+    expect(corpus.excluded).toContainEqual({ reason: 'unmeasured', count: 1 });
+  });
+
   it('excludes an animal with an unrevealed locus by default', async () => {
     await upload(name('Kb', 40, 80), 'RR?R');
     const corpus = await loadStudyCorpus('horse');
@@ -320,21 +378,19 @@ describe('attributeMagnitudesFor', () => {
     expect(magnitudeOf(second, '01A1', 'dominant')).toBe(9);
   });
 
-  it('re-solves after a rename, which is what decides whether an animal is a subject at all', async () => {
+  it('keeps its answer through a rename, which is not a study input', async () => {
     await upload(name('Kb', 45, 80, 'With'), 'DRRR');
     const withoutId = await upload(name('Kb', 40, 80, 'Without'), 'RRRR');
 
     const first = await attributeMagnitudesFor('horse');
     expect(magnitudeOf(first, '01A1', 'dominant')).toBe(5);
 
-    // Eligibility turns on the name parsing, so a rename out of the
-    // structured format withdraws the animal — and with it the only
-    // equation the magnitude rested on.
+    // The name recorded the readings at import; the readings themselves are
+    // in the columns now. Renaming used to withdraw the animal and take the
+    // magnitude with it (#526).
     await petService.updatePet(withoutId, { name: 'Dobbin' });
 
-    const second = await attributeMagnitudesFor('horse');
-    expect(second).not.toBe(first);
-    expect(magnitudeOf(second, '01A1', 'dominant')).toBeUndefined();
+    expect(magnitudeOf(await attributeMagnitudesFor('horse'), '01A1', 'dominant')).toBe(5);
   });
 
   it('re-solves after a gene-table edit, which revises the question rather than the answer', async () => {
@@ -801,6 +857,21 @@ describe('cached community animals', () => {
     expect(items).toEqual([]);
   });
 
+  it('studies a cached animal whose name is not the structured format', async () => {
+    // Its values are the provenance here: one off the default is proof the
+    // uploader measured it, whatever they chose to call it.
+    await cache('h9', 'Thunderhoof', 'RRRR', attrs(40, 80));
+    expect((await loadStudyCorpus('horse')).subjects).toHaveLength(1);
+  });
+
+  it('drops a cached animal whose attributes are all the default', async () => {
+    const defaults = Object.fromEntries(Object.keys(attrs(0, 0)).map((k) => [k, 50]));
+    await cache('h10', name('Kb', 50, 50, 'Untouched'), 'RRRR', defaults);
+    const corpus = await loadStudyCorpus('horse');
+    expect(corpus.subjects).toEqual([]);
+    expect(corpus.excluded).toContainEqual({ reason: 'unmeasured', count: 1 });
+  });
+
   it('never marks a community animal checkable', async () => {
     // You cannot re-read someone else's animal in the game.
     await cache('h1', name('Kb', 40, 80, 'Shared'), 'RRRR', attrs(40, 80));
@@ -1008,16 +1079,31 @@ describe('refreshStudyCorpus', () => {
   });
 
   it('skips an entry whose attributes were never measured', async () => {
-    // Attributes are present and well-formed; the name is what betrays them
-    // as the importer's defaults rather than readings.
+    // Attributes are present and well-formed, and every one of them is the
+    // untouched default — the uploader's importer wrote them, nobody read
+    // them off an animal.
     const wild = await entry('Wild Horse', 'RRRR');
     const ok = await entry(name('Kb', 41, 80, 'ok'), 'DRRR');
-    mockCatalogue([shared(wild.hash, { name: 'Wild Horse' }), shared(ok.hash, { name: name('Kb', 41, 80, 'ok') })], {
-      [wild.hash]: wild.text,
-      [ok.hash]: ok.text,
-    });
+    const defaults = Object.fromEntries(Object.keys(ATTRS).map((k) => [k, 50]));
+    mockCatalogue(
+      [
+        shared(wild.hash, { name: 'Wild Horse', attributes: defaults }),
+        shared(ok.hash, { name: name('Kb', 41, 80, 'ok') }),
+      ],
+      { [wild.hash]: wild.text, [ok.hash]: ok.text },
+    );
     const result = await refreshStudyCorpus('horse');
     expect(result).toMatchObject({ cached: 1, skipped: 1 });
+  });
+
+  it('caches an entry from a player who does not use the structured name', async () => {
+    // The name format is one player's labelling convention; the catalogue is
+    // full of animals named normally whose published attributes are real.
+    // Gating on the name threw all of them away (#526).
+    const theirs = await entry('Thunderhoof', 'DRRR');
+    mockCatalogue([shared(theirs.hash, { name: 'Thunderhoof' })], { [theirs.hash]: theirs.text });
+    const result = await refreshStudyCorpus('horse');
+    expect(result).toMatchObject({ cached: 1, skipped: 0 });
   });
 
   it('caches nothing for a species with no entries', async () => {

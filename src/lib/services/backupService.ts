@@ -17,7 +17,7 @@ import { isTauri } from '$lib/utils/environment.js';
 import { now } from '$lib/utils/timestamp.js';
 import { getDb, type TxStatement } from './database.js';
 import { pickExportSavePath, saveExportBinaryFile } from './fileService.js';
-import { CURRENT_SCHEMA_VERSION, getSchemaVersion } from './migrationService.js';
+import { CURRENT_SCHEMA_VERSION, derivedProvenance, getSchemaVersion } from './migrationService.js';
 
 const EXPORT_FORMAT = 'gorgonetics-backup' as const;
 const EXPORT_FORMAT_VERSION = 2;
@@ -66,6 +66,9 @@ const PET_COLUMNS = [
   'starred',
   'stabled',
   'is_pet_quality',
+  // Attribute provenance (migration v18). Without it every restored animal
+  // reads as never measured and the study corpus comes back empty.
+  'attributes_measured',
 ];
 
 // --- Export ---
@@ -395,6 +398,9 @@ async function importGenesAndPets(
         // ends up in the same legacy-row state as a v12 import — the
         // user can backfill it later by re-picking the original file.
         else if (col === 'genome_text') row[col] = pet[col] ?? '';
+        // Pre-v18 archives predate the column, and the v18 migration owns
+        // what to do about that.
+        else if (col === 'attributes_measured') row[col] = pet[col] ?? (derivedProvenance(pet) ? 1 : 0);
         else row[col] = pet[col] ?? null;
       }
       petRows.push(row);

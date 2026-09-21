@@ -6,6 +6,7 @@ import type { GeneStatsEntry, Genome, Pet } from '$lib/types/index.js';
 import { GENOME_FILE_MARKERS } from '$lib/types/index.js';
 import { fromGeneId, type ParsedChromosome, type ParsedGene, toGeneId } from '$lib/utils/geneAnalysis.js';
 import { sha256Hex } from '$lib/utils/hash.js';
+import { ATTRIBUTE_KEYS } from '$lib/utils/sharedPet.js';
 import { capitalize } from '$lib/utils/string.js';
 import { now } from '$lib/utils/timestamp.js';
 import { runBatchBackfill } from './backfill.js';
@@ -296,6 +297,8 @@ function enrichPet(pet: Record<string, unknown>, tags: string[]): Pet {
     // Absent on rows written before the column existed, and the study should
     // learn from them until told otherwise.
     use_for_studies: pet.use_for_studies === undefined ? true : Boolean(pet.use_for_studies),
+    // Unset means "not a reading" — every writer sets it explicitly.
+    attributes_measured: Boolean(pet.attributes_measured),
     positive_genes: Number(pet.positive_genes ?? 0),
     total_genes: Number(pet.total_genes ?? 0),
     known_genes: Number(pet.known_genes ?? 0),
@@ -369,6 +372,7 @@ const ALL_PET_COLUMNS = [
   'known_genes',
   'unknown_genes',
   'use_for_studies',
+  'attributes_measured',
 ];
 
 /**
@@ -630,11 +634,13 @@ export async function uploadPet(content: string, options: UploadPetOptions = {})
        (name, species, gender, breed, breeder, content_hash, genome_data, genome_text, notes,
         created_at, updated_at,
         intelligence, toughness, friendliness, ruggedness, enthusiasm, virility, ferocity, temperament, sort_order,
-        starred, stabled, is_pet_quality, positive_genes, total_genes, known_genes, unknown_genes)
+        starred, stabled, is_pet_quality, positive_genes, total_genes, known_genes, unknown_genes,
+        attributes_measured)
        VALUES ($name, $species, $gender, $breed, $breeder, $content_hash, $genome_data, $genome_text, $notes,
                $created_at, $updated_at,
                $intelligence, $toughness, $friendliness, $ruggedness, $enthusiasm, $virility, $ferocity, $temperament, $sort_order,
-               $starred, $stabled, $is_pet_quality, $positive_genes, $total_genes, $known_genes, $unknown_genes)`,
+               $starred, $stabled, $is_pet_quality, $positive_genes, $total_genes, $known_genes, $unknown_genes,
+               $attributes_measured)`,
       {
         name: petName,
         species: genome.genome_type,
@@ -663,6 +669,9 @@ export async function uploadPet(content: string, options: UploadPetOptions = {})
         total_genes: geneCounts.total,
         known_genes: geneCounts.known,
         unknown_genes: geneCounts.unknown,
+        // `attrValues` came from the name above, or from `defaults` because
+        // it did not parse — the answer is known here and nowhere later.
+        attributes_measured: parsed ? 1 : 0,
       },
     );
     if (res.lastInsertId) {
@@ -715,9 +724,12 @@ const UPDATABLE_COLUMNS = new Set([
   'stabled',
   'is_pet_quality',
   'use_for_studies',
+  // Settable by a caller that knows the provenance of the values it writes,
+  // rather than leaving `updatePet` to infer it below.
+  'attributes_measured',
 ]);
 
-const BOOLEAN_COLUMNS = new Set(['starred', 'stabled', 'is_pet_quality', 'use_for_studies']);
+const BOOLEAN_COLUMNS = new Set(['starred', 'stabled', 'is_pet_quality', 'use_for_studies', 'attributes_measured']);
 
 /**
  * Update a pet record.
@@ -751,6 +763,18 @@ export async function updatePet(petId: number, updates: Record<string, unknown>)
     } else {
       params[field] = value;
     }
+  }
+
+  // A value the player typed in is a reading, whatever the name says (#526).
+  //
+  // Only inferred when the caller did not say: `importCommunityPet` writes
+  // attributes it did not measure and passes its own verdict. And only ever
+  // inferred true — clearing it would assert the values are the untouched
+  // default, which after an edit they are not; `use_for_studies` is how a
+  // record is withdrawn.
+  if (flat.attributes_measured === undefined && ATTRIBUTE_KEYS.some((key) => flat[key] !== undefined)) {
+    setClauses.push('attributes_measured = $attributes_measured');
+    params.attributes_measured = 1;
   }
 
   // If the genome or breed changed, the stored positive_genes count is

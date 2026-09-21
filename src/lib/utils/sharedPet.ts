@@ -35,6 +35,33 @@ export const ATTRIBUTE_KEYS = [
 ] as const;
 
 /**
+ * Whether attribute values are readings rather than the untouched default.
+ *
+ * Nothing can write a non-default value without a measurement behind it:
+ * `uploadPet` stores either the values a structured name carries or
+ * `DEFAULT_ATTRIBUTE_VALUE` across the board, and the only other writer is
+ * the editor. So one value off the default is proof.
+ *
+ * Stands in for `Pet.attributes_measured` wherever that flag is not
+ * available — a community animal, whose provenance the catalogue does not
+ * publish, or a row that predates the column.
+ *
+ * Errs towards excluding: an animal genuinely measured at the default on all
+ * eight reads as unmeasured. That costs one subject, where the opposite error
+ * feeds the solver defaults dressed as data.
+ *
+ * Takes a loose row so a raw database or archive row can be passed as it is;
+ * a non-numeric value is no evidence either way.
+ */
+export function carriesReadings(attributes: Record<string, unknown> | undefined): boolean {
+  if (!attributes) return false;
+  return ATTRIBUTE_KEYS.some((key) => {
+    const value = attributes[key];
+    return typeof value === 'number' && value !== DEFAULT_ATTRIBUTE_VALUE;
+  });
+}
+
+/**
  * Resolve a catalogue entry's identity from its FIRST-share doc. The
  * catalogue is add-only and reads collapse a hash to its latest entry —
  * but only attributes/tags/notes are correction-eligible; the identity
@@ -128,5 +155,8 @@ export function sharedPetToPet(shared: SharedPet): Pet {
     is_pet_quality: false,
     // A preview of someone else's animal; it is not in any corpus.
     use_for_studies: true,
+    // Local-only, and a preview is not in the database. The study judges a
+    // community animal by its values instead — see `carriesReadings`.
+    attributes_measured: false,
   };
 }

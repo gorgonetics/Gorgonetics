@@ -66,7 +66,7 @@ import {
 } from '$lib/services/petService.js';
 import { Gender, type ListPetsOpts, type Pet, type SharedPet, type SharedPetsPage } from '$lib/types/index.js';
 import { sha256Hex } from '$lib/utils/hash.js';
-import { ATTRIBUTE_KEYS, mergeCorrectionIdentity } from '$lib/utils/sharedPet.js';
+import { ATTRIBUTE_KEYS, carriesReadings, mergeCorrectionIdentity } from '$lib/utils/sharedPet.js';
 
 declare const __APP_VERSION__: string;
 const APP_VERSION = __APP_VERSION__;
@@ -780,7 +780,16 @@ async function applyImportMetadata(petId: number, shared: SharedPet): Promise<vo
   // `petService.uploadPet` re-derived from the genome/name (which are the
   // all-50 defaults when the name isn't structured). Absent on legacy
   // entries — then the re-derived values stand, as before.
-  if (shared.attributes) updates.attributes = shared.attributes;
+  //
+  // Provenance is stated rather than left to `updatePet`, which would read
+  // the write itself as evidence of a reading: `buildMetadataPayload`
+  // publishes the uploader's columns whatever they are, so these may be
+  // *their* untouched defaults. Judged from the values, as the study judges
+  // the same entry on its cached path (#526).
+  if (shared.attributes) {
+    updates.attributes = shared.attributes;
+    updates.attributes_measured = carriesReadings(shared.attributes);
+  }
   if (Object.keys(updates).length === 0) return;
   try {
     await updatePet(petId, updates);

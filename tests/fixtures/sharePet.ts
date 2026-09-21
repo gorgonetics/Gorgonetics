@@ -74,6 +74,7 @@ export function makePet({ rawText = DEFAULT_RAW_TEXT, contentHash, ...overrides 
     stabled: false,
     is_pet_quality: false,
     use_for_studies: true,
+    attributes_measured: false,
     ...overrides,
   };
 }
