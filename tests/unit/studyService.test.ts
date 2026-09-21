@@ -9,6 +9,7 @@ vi.mock('$lib/services/shareService.js', () => ({
 
 import { closeDatabase, getDb, initDatabase } from '$lib/services/database.js';
 import * as geneService from '$lib/services/geneService.js';
+import { parseGenome } from '$lib/services/genomeParser.js';
 import { runMigrations } from '$lib/services/migrationService.js';
 import * as petService from '$lib/services/petService.js';
 import * as shareService from '$lib/services/shareService.js';
@@ -368,6 +369,201 @@ describe('attributeMagnitudesFor', () => {
     const second = await attributeMagnitudesFor('horse');
     expect(second).not.toBe(first);
     expect(magnitudeOf(second, '01A1', 'dominant')).toBeUndefined();
+  });
+});
+
+describe('persisted magnitudes', () => {
+  beforeEach(() => clearAttributeMagnitudesCache());
+
+  /** A new session: the in-memory memo is gone, the database is not. */
+  const newSession = () => clearAttributeMagnitudesCache();
+
+  it('survives a session, so the solve is paid for once', async () => {
+    await upload(name('Kb', 45, 80, 'With'), 'DRRR');
+    await upload(name('Kb', 40, 80, 'Without'), 'RRRR');
+    const first = await attributeMagnitudesFor('horse');
+    expect(magnitudeOf(first, '01A1', 'dominant')).toBe(5);
+
+    newSession();
+    const second = await attributeMagnitudesFor('horse');
+    // A different object — it came back through JSON — carrying the same
+    // answer, which is the whole point of persisting it.
+    expect(second).not.toBe(first);
+    expect(magnitudeOf(second, '01A1', 'dominant')).toBe(5);
+    expect(coverageOf(second, 'Temperament')).toEqual(coverageOf(first, 'Temperament'));
+  });
+
+  it('re-solves when a reading changes, across sessions', async () => {
+    await upload(name('Kb', 45, 80, 'With'), 'DRRR');
+    const withoutId = await upload(name('Kb', 40, 80, 'Without'), 'RRRR');
+    expect(magnitudeOf(await attributeMagnitudesFor('horse'), '01A1', 'dominant')).toBe(5);
+
+    await petService.updatePet(withoutId, { attributes: { temperament: 36 } });
+    newSession();
+    // The in-memory revision counters reset with the session, so only the
+    // fingerprint can catch this — which is the reason it exists.
+    expect(magnitudeOf(await attributeMagnitudesFor('horse'), '01A1', 'dominant')).toBe(9);
+  });
+
+  it('re-solves when the gene table changes, across sessions', async () => {
+    await upload(name('Kb', 45, 80, 'With'), 'DRRR');
+    await upload(name('Kb', 40, 80, 'Without'), 'RRRR');
+    expect(coverageOf(await attributeMagnitudesFor('horse'), 'Temperament').known).toBe(1);
+
+    await geneService.upsertGene('horse', '01', '01A1', { effectDominant: 'Toughness+', breed: '' });
+    geneService.clearGeneEffectsCache('horse');
+    newSession();
+    expect(coverageOf(await attributeMagnitudesFor('horse'), 'Temperament').known).toBe(0);
+  });
+
+  it('re-solves when an animal is excluded, across sessions', async () => {
+    await upload(name('Kb', 45, 80, 'With'), 'DRRR');
+    const withoutId = await upload(name('Kb', 40, 80, 'Without'), 'RRRR');
+    expect(magnitudeOf(await attributeMagnitudesFor('horse'), '01A1', 'dominant')).toBe(5);
+
+    await setUseForStudies('horse', String(withoutId), false);
+    newSession();
+    expect(magnitudeOf(await attributeMagnitudesFor('horse'), '01A1', 'dominant')).toBeUndefined();
+  });
+
+  it('keeps one row per species however many times it re-solves', async () => {
+    await upload(name('Kb', 45, 80, 'With'), 'DRRR');
+    const withoutId = await upload(name('Kb', 40, 80, 'Without'), 'RRRR');
+
+    for (const temperament of [40, 36, 32, 30]) {
+      await petService.updatePet(withoutId, { attributes: { temperament } });
+      newSession();
+      await attributeMagnitudesFor('horse');
+    }
+
+    // `INSERT OR REPLACE` only replaces if the adapter knows what identifies
+    // a row. Without that it appends, `rows[0]` stays the oldest forever, and
+    // the cache silently stops hitting while the table grows per solve.
+    const rows = await getDb().select<Array<Record<string, unknown>>>('SELECT species FROM study_magnitudes');
+    expect(rows.length).toBe(1);
+  });
+
+  it('re-solves when the genome changes, though the name and readings do not', async () => {
+    await upload(name('Kb', 45, 80, 'With'), 'DRRR');
+    const withoutId = await upload(name('Kb', 40, 80, 'Without'), 'RRRR');
+    expect(magnitudeOf(await attributeMagnitudesFor('horse'), '01A1', 'dominant')).toBe(5);
+
+    // Same name, same attributes, different alleles. `genome_data` holds the
+    // *parsed* genome — handed the raw text, `updatePet` fails to parse it
+    // and rewrites nothing, which is what an earlier version of this test
+    // did and why it proved nothing.
+    await petService.updatePet(withoutId, {
+      genome_data: parseGenome(genome(name('Kb', 40, 80, 'Without'), 'DRRR')),
+    });
+    newSession();
+    expect(magnitudeOf(await attributeMagnitudesFor('horse'), '01A1', 'dominant')).not.toBe(5);
+  });
+
+  it('re-solves when a genome rewrite leaves every gene count where it was', async () => {
+    const withId = await upload(name('Kb', 45, 80, 'With'), 'DRRR');
+    await upload(name('Kb', 40, 80, 'Without'), 'RRRR');
+    expect(magnitudeOf(await attributeMagnitudesFor('horse'), '01A1', 'dominant')).toBe(5);
+
+    const counts = async () =>
+      (
+        await getDb().select<Array<Record<string, unknown>>>(
+          'SELECT positive_genes, total_genes, known_genes, unknown_genes FROM pets WHERE id = $id',
+          { id: withId },
+        )
+      )[0];
+    const before = await counts();
+
+    // `RRRD` for `DRRR`: one `+` locus either way, four revealed genes
+    // either way. `01A4` is Kurbone-locked and this animal is Kurbone, so
+    // the swap moves the magnitude rather than dropping it. Nothing the
+    // gene-count columns can see has moved — only the projection — so a
+    // fingerprint built on those counts would serve the stale table.
+    await petService.updatePet(withId, {
+      genome_data: parseGenome(genome(name('Kb', 45, 80, 'With'), 'RRRD')),
+    });
+    expect(await counts()).toEqual(before);
+
+    newSession();
+    const after = await attributeMagnitudesFor('horse');
+    expect(magnitudeOf(after, '01A1', 'dominant')).toBeUndefined();
+    expect(magnitudeOf(after, '01A4', 'dominant')).toBe(5);
+  });
+
+  /**
+   * Make one of the cache's own reads fail, and count the failures so the
+   * test cannot pass by matching nothing if a query is later reworded.
+   */
+  const breakSelect = (match: RegExp) => {
+    const db = getDb();
+    const real = db.select.bind(db);
+    let threw = 0;
+    const spy = vi.spyOn(db, 'select').mockImplementation(async (query: string, bindValues?: unknown) => {
+      if (match.test(query)) {
+        threw++;
+        throw new Error('database is locked');
+      }
+      return real(query, bindValues as never);
+    });
+    return { restore: () => spy.mockRestore(), count: () => threw };
+  };
+
+  it('solves anyway when the persisted table cannot be read', async () => {
+    await upload(name('Kb', 45, 80, 'With'), 'DRRR');
+    await upload(name('Kb', 40, 80, 'Without'), 'RRRR');
+
+    // A part-applied migration leaves `study_magnitudes` missing. That must
+    // cost a solve, not the whole feature: before this was guarded the error
+    // reached the outer catch and every scorer ranked by counts for the rest
+    // of the session.
+    const broken = breakSelect(/study_magnitudes/i);
+    try {
+      expect(magnitudeOf(await attributeMagnitudesFor('horse'), '01A1', 'dominant')).toBe(5);
+      expect(broken.count()).toBeGreaterThan(0);
+    } finally {
+      broken.restore();
+    }
+  });
+
+  it('solves anyway when the fingerprint itself cannot be taken', async () => {
+    await upload(name('Kb', 45, 80, 'With'), 'DRRR');
+    await upload(name('Kb', 40, 80, 'Without'), 'RRRR');
+
+    // Only the fingerprint's own unscoped projection read — the solver reads
+    // `pet_genes` too, and breaking that would prove nothing.
+    const broken = breakSelect(/^SELECT pet_id, gene_id, gene_type FROM pet_genes$/);
+    try {
+      expect(magnitudeOf(await attributeMagnitudesFor('horse'), '01A1', 'dominant')).toBe(5);
+      expect(broken.count()).toBeGreaterThan(0);
+    } finally {
+      broken.restore();
+    }
+
+    // Nothing was written under a fingerprint that could not be taken.
+    const rows = await getDb().select<Array<Record<string, unknown>>>('SELECT species FROM study_magnitudes');
+    expect(rows).toEqual([]);
+  });
+
+  it('refuses a row whose columns parse to null rather than reading it as empty', async () => {
+    await upload(name('Kb', 45, 80, 'With'), 'DRRR');
+    await upload(name('Kb', 40, 80, 'Without'), 'RRRR');
+    await attributeMagnitudesFor('horse');
+
+    // `new Map(null)` is a legal empty map, so this would otherwise read as
+    // "nothing is known" and drop every scorer back to counting.
+    await getDb().execute("UPDATE study_magnitudes SET points = $bad WHERE species = 'horse'", { bad: 'null' });
+    newSession();
+    expect(magnitudeOf(await attributeMagnitudesFor('horse'), '01A1', 'dominant')).toBe(5);
+  });
+
+  it('re-solves rather than serving a row it cannot parse', async () => {
+    await upload(name('Kb', 45, 80, 'With'), 'DRRR');
+    await upload(name('Kb', 40, 80, 'Without'), 'RRRR');
+    await attributeMagnitudesFor('horse');
+
+    await getDb().execute("UPDATE study_magnitudes SET points = $bad WHERE species = 'horse'", { bad: 'not json' });
+    newSession();
+    // Half a table is worse than none, so a corrupt row is ignored outright.
+    expect(magnitudeOf(await attributeMagnitudesFor('horse'), '01A1', 'dominant')).toBe(5);
   });
 });
 

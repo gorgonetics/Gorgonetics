@@ -808,6 +808,161 @@ export async function liveGeneConfirmations(
 }
 
 /**
+ * Bump whenever the solve changes.
+ *
+ * `studyFingerprint` hashes the solver's *inputs*; this stands for the
+ * solver itself. Persisted rows outlive an upgrade — migration 17 creates
+ * `study_magnitudes` and nothing ever drops rows — so without this term an
+ * install whose animals and genes had not changed would go on serving the
+ * previous release's numbers, while the Study tab, which re-runs
+ * `runAttributeStudy` on demand, showed the new ones.
+ *
+ * Changing `studyAll`, `buildAttributeMagnitudes`, `buildEffectSlots`, the
+ * eligibility rules in `loadStudyCorpus`, or the shape `persistMagnitudes`
+ * writes all count as changing the solve.
+ */
+const SOLVER_VERSION = 1;
+
+/**
+ * A durable fingerprint of everything the solve depends on.
+ *
+ * The in-memory revisions (`localPetsRevision`, `geneDeclarationsRevision`)
+ * are counters that reset when the app restarts, so they cannot key a cache
+ * that outlives the session. This reads the inputs themselves instead.
+ *
+ * Deliberately cheap: small per-row summaries, never the genomes themselves.
+ * A cached animal's `content_hash` is its genome's digest, so that half is
+ * exact. A local animal's is not — `content_hash` is set at upload and
+ * `updatePet` never recomputes it — so local genomes are covered by their
+ * `pet_genes` projection, which is what the solver reads anyway.
+ *
+ * The gene-count columns (`positive_genes` and the total/known/unknown trio)
+ * are deliberately *not* used in their place. They are a proxy for the
+ * projection, and a lossy one: `updatePet` is exported and takes
+ * `genome_data`, so a rewrite into a different allele layout with identical
+ * counts, name, breed and readings would fingerprint the same and be served
+ * a stale table.
+ *
+ * Errs towards re-solving: any input this misses would be a stale table, so
+ * everything the corpus load and the solver read is represented here.
+ */
+async function studyFingerprint(species: string): Promise<string> {
+  const db = getDb();
+  const normalized = normalizeSpecies(species);
+  // Plain selects, summarised in JS. The in-memory adapter used by the tests
+  // implements a small subset of SQL — no aggregates, no subqueries, and it
+  // drops a `WHERE` it cannot parse rather than failing — so a fingerprint
+  // built by the database would be constant there and silently serve a stale
+  // table to every test.
+  const [pets, loci, cached, genes, confirmations] = await Promise.all([
+    db.select<Array<Record<string, unknown>>>(
+      `SELECT id, species, name, breed, content_hash, use_for_studies, stabled, ${ATTRIBUTE_KEYS.join(', ')} FROM pets`,
+    ),
+    db.select<Array<Record<string, unknown>>>('SELECT pet_id, gene_id, gene_type FROM pet_genes'),
+    db.select<Array<Record<string, unknown>>>(
+      'SELECT content_hash, species, name, breed, attributes, use_for_studies FROM study_corpus',
+    ),
+    db.select<Array<Record<string, unknown>>>(
+      `SELECT animal_type, gene, dominant_attribute, dominant_sign, recessive_attribute, recessive_sign, breed
+         FROM genes`,
+    ),
+    db.select<Array<Record<string, unknown>>>(
+      'SELECT species, gene, expression, attribute, sign FROM gene_confirmations',
+    ),
+  ]);
+
+  const line = (row: Record<string, unknown>, keys: readonly string[]) =>
+    keys.map((k) => String(row[k] ?? '')).join(':');
+  const summarise = (rows: Array<Record<string, unknown>>, speciesKey: string, keys: readonly string[]) =>
+    rows
+      .filter((r) => normalizeSpecies(String(r[speciesKey] ?? '')) === normalized)
+      .map((r) => line(r, keys))
+      .sort()
+      .join(',');
+
+  // `pet_genes` carries no species column, so scope it by the ids of the
+  // pets this fingerprint already covers.
+  const ourPetIds = new Set(
+    pets.filter((r) => normalizeSpecies(String(r.species ?? '')) === normalized).map((r) => String(r.id)),
+  );
+  const projection = loci
+    .filter((r) => ourPetIds.has(String(r.pet_id)))
+    .map((r) => line(r, ['pet_id', 'gene_id', 'gene_type']))
+    .sort()
+    .join(',');
+
+  return sha256Hex(
+    [
+      `solver:${SOLVER_VERSION}`,
+      // The inputs themselves rather than `updated_at`: a rename and an
+      // attribute correction are both study inputs, and a timestamp is only
+      // as good as its resolution — two edits inside one tick would collide.
+      summarise(pets, 'species', [
+        'id',
+        'name',
+        'breed',
+        'content_hash',
+        'use_for_studies',
+        'stabled',
+        ...ATTRIBUTE_KEYS,
+      ]),
+      // The genome of every local animal, exactly as the solver reads it.
+      projection,
+      summarise(cached, 'species', ['content_hash', 'name', 'breed', 'attributes', 'use_for_studies']),
+      summarise(genes, 'animal_type', [
+        'gene',
+        'dominant_attribute',
+        'dominant_sign',
+        'recessive_attribute',
+        'recessive_sign',
+        'breed',
+      ]),
+      summarise(confirmations, 'species', ['gene', 'expression', 'attribute', 'sign']),
+    ].join('|'),
+  );
+}
+
+/** Read the persisted table, if it was solved from exactly these inputs. */
+async function loadPersistedMagnitudes(species: string, fingerprint: string): Promise<AttributeMagnitudes | undefined> {
+  const rows = await getDb().select<Array<{ fingerprint: string; points: string; coverage: string }>>(
+    'SELECT fingerprint, points, coverage FROM study_magnitudes WHERE species = $species',
+    { species: normalizeSpecies(species) },
+  );
+  const row = rows[0];
+  if (!row || row.fingerprint !== fingerprint) return undefined;
+  try {
+    const points: unknown = JSON.parse(row.points);
+    const coverage: unknown = JSON.parse(row.coverage);
+    // `JSON.parse('null')` does not throw and `new Map(null)` is a legal
+    // empty map, so without this a null column would read as "nothing is
+    // known" and silently drop every scorer back to counting.
+    if (!Array.isArray(points) || !Array.isArray(coverage)) return undefined;
+    return {
+      points: new Map(points as Array<[string, number]>),
+      coverage: new Map(coverage as Array<[string, { known: number; total: number }]>),
+    };
+  } catch {
+    // A row that will not parse is worse than no row: re-solve rather than
+    // serve half a table.
+    return undefined;
+  }
+}
+
+async function persistMagnitudes(species: string, fingerprint: string, table: AttributeMagnitudes): Promise<void> {
+  await getDb().execute(
+    `INSERT OR REPLACE INTO study_magnitudes (species, fingerprint, points, coverage, computed_at)
+     VALUES ($species, $fingerprint, $points, $coverage, $computed_at)`,
+    {
+      species: normalizeSpecies(species),
+      fingerprint,
+      points: JSON.stringify([...table.points]),
+      coverage: JSON.stringify([...table.coverage]),
+      computed_at: now(),
+    },
+  );
+}
+
+/**
  * Known effect sizes for a species, memoised for the session.
  *
  * The breeding scorers need the magnitudes, not the study around them, and
@@ -869,9 +1024,48 @@ export async function attributeMagnitudesFor(species: string): Promise<Attribute
   // into the initialiser would leave no way to identify this entry from
   // inside its own handlers, which is what the catch turns on.
   let entry: MagnitudeEntry;
-  const value = runAttributeStudy(normalized)
-    .then((run) => {
-      const built = buildAttributeMagnitudes(run.studies);
+  const value = (async () => {
+    // The persisted table first: solving is quadratic in corpus size, and
+    // nothing about it changes between sessions unless an input does.
+    //
+    // Every read here is best-effort. The whole table is an accelerator, so
+    // a fault anywhere in it must cost a solve and nothing more; allowed to
+    // reach the outer catch it would drop every scorer back to counting for
+    // the rest of the session, which is the opposite of what it is for. A
+    // missing `study_magnitudes` after a part-applied migration and a locked
+    // database both arrive this way.
+    const fingerprint = await studyFingerprint(normalized).catch((error: unknown) => {
+      console.warn('study_magnitudes: could not fingerprint the inputs', error);
+      return undefined;
+    });
+    if (fingerprint !== undefined) {
+      const stored = await loadPersistedMagnitudes(normalized, fingerprint).catch((error: unknown) => {
+        console.warn('study_magnitudes: could not read', error);
+        return undefined;
+      });
+      if (stored) return stored;
+    }
+    const run = await runAttributeStudy(normalized);
+    const built = buildAttributeMagnitudes(run.studies);
+    // The solve is deliberately slow, and an input can move while it runs —
+    // an exclusion toggled and toggled back, say. Storing it under the
+    // fingerprint taken beforehand would tag this table with inputs it was
+    // not solved from, and every later session would trust the match.
+    //
+    // `undefined` on either side means the comparison cannot be made, so
+    // nothing is written: an unverifiable row is worse than no row.
+    const after = fingerprint === undefined ? undefined : await studyFingerprint(normalized).catch(() => undefined);
+    if (after !== undefined && after === fingerprint) {
+      // Best-effort: a table that could not be written is a slow next
+      // session, not a wrong one, and must not fail the ranking that just
+      // succeeded.
+      await persistMagnitudes(normalized, fingerprint, built).catch((error: unknown) =>
+        console.warn('study_magnitudes: could not persist', error),
+      );
+    }
+    return built;
+  })()
+    .then((built) => {
       entry.settled = built;
       return built;
     })

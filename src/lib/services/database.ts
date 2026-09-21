@@ -42,6 +42,8 @@ const PARAM_PREFIX_RE = /^[A-Za-z_]\w*$/;
 const REPLACE_KEYS: Record<string, string[]> = {
   genes: ['animal_type', 'gene'],
   study_corpus: ['content_hash'],
+  gene_confirmations: ['species', 'gene', 'expression'],
+  study_magnitudes: ['species'],
 };
 
 /**
