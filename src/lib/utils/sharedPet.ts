@@ -128,5 +128,9 @@ export function sharedPetToPet(shared: SharedPet): Pet {
     is_pet_quality: false,
     // A preview of someone else's animal; it is not in any corpus.
     use_for_studies: true,
+    // Provenance for a community animal is its published name, which the
+    // study parses on its own path — a preview never reaches that path, and
+    // this field is local-only, so it claims nothing.
+    attributes_measured: false,
   };
 }

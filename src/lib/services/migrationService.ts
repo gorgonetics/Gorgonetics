@@ -4,13 +4,17 @@
  * Runs pending migrations on startup.
  */
 
-import { getDb } from './database.js';
+import { buildInClauseParams, getDb } from './database.js';
+import { parseStructuredPetName } from './nameParser.js';
 
 interface Migration {
   version: number;
   description: string;
   up: () => Promise<void>;
 }
+
+/** Bound on one `IN (…)` list — SQLite's default parameter ceiling is 999. */
+const CHUNK = 500;
 
 /**
  * Ordered list of migrations.
@@ -323,6 +327,46 @@ const MIGRATIONS: Migration[] = [
           computed_at TEXT NOT NULL
         )
       `);
+    },
+  },
+  {
+    version: 18,
+    description: 'Add attributes_measured to pets — record attribute provenance instead of re-reading it off the name',
+    up: async () => {
+      // An animal only teaches the study something if its attributes are
+      // readings. They are not always: `importGenomeFile` writes
+      // `parsed?.attributes ?? defaults`, so a name that does not parse
+      // silently stores eight 50s, and a defaulted 50 is indistinguishable
+      // from a measured one once it is in the column.
+      //
+      // That fact was decided at import and never recorded, so eligibility
+      // re-derived it by parsing the *current* name. The name is editable,
+      // and re-deriving a fixed fact from a mutable field cost both ways: a
+      // rename dropped the animal from the corpus, and an attribute typed in
+      // by hand never counted (#526).
+      //
+      // Backfilled from the name, so the corpus on the first run after this
+      // migration is the one the previous build produced. After it the flag
+      // is written at import and whenever an attribute is edited, and the
+      // name is free to change.
+      const db = getDb();
+      await db.execute('ALTER TABLE pets ADD COLUMN attributes_measured INTEGER NOT NULL DEFAULT 0');
+      const rows = await db.select<Array<{ id: number; name: string; species: string }>>(
+        'SELECT id, name, species FROM pets',
+      );
+      const measured = rows.filter((row) => parseStructuredPetName(row.name ?? '', row.species ?? '') !== null);
+      // Chunked: a roster can be larger than SQLite's 999-parameter ceiling,
+      // and one statement per animal would be hundreds of round trips.
+      for (let i = 0; i < measured.length; i += CHUNK) {
+        const { placeholders, params } = buildInClauseParams(
+          measured.slice(i, i + CHUNK).map((row) => row.id),
+          'id',
+        );
+        await db.execute(`UPDATE pets SET attributes_measured = $measured WHERE id IN (${placeholders})`, {
+          measured: 1,
+          ...params,
+        });
+      }
     },
   },
 ];

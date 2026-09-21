@@ -6,6 +6,7 @@ import type { GeneStatsEntry, Genome, Pet } from '$lib/types/index.js';
 import { GENOME_FILE_MARKERS } from '$lib/types/index.js';
 import { fromGeneId, type ParsedChromosome, type ParsedGene, toGeneId } from '$lib/utils/geneAnalysis.js';
 import { sha256Hex } from '$lib/utils/hash.js';
+import { ATTRIBUTE_KEYS } from '$lib/utils/sharedPet.js';
 import { capitalize } from '$lib/utils/string.js';
 import { now } from '$lib/utils/timestamp.js';
 import { runBatchBackfill } from './backfill.js';
@@ -296,6 +297,9 @@ function enrichPet(pet: Record<string, unknown>, tags: string[]): Pet {
     // Absent on rows written before the column existed, and the study should
     // learn from them until told otherwise.
     use_for_studies: pet.use_for_studies === undefined ? true : Boolean(pet.use_for_studies),
+    // Unset means "not a reading": the flag is written at import and by any
+    // attribute edit, so a row without it was never measured.
+    attributes_measured: Boolean(pet.attributes_measured),
     positive_genes: Number(pet.positive_genes ?? 0),
     total_genes: Number(pet.total_genes ?? 0),
     known_genes: Number(pet.known_genes ?? 0),
@@ -369,6 +373,7 @@ const ALL_PET_COLUMNS = [
   'known_genes',
   'unknown_genes',
   'use_for_studies',
+  'attributes_measured',
 ];
 
 /**
@@ -630,11 +635,13 @@ export async function uploadPet(content: string, options: UploadPetOptions = {})
        (name, species, gender, breed, breeder, content_hash, genome_data, genome_text, notes,
         created_at, updated_at,
         intelligence, toughness, friendliness, ruggedness, enthusiasm, virility, ferocity, temperament, sort_order,
-        starred, stabled, is_pet_quality, positive_genes, total_genes, known_genes, unknown_genes)
+        starred, stabled, is_pet_quality, positive_genes, total_genes, known_genes, unknown_genes,
+        attributes_measured)
        VALUES ($name, $species, $gender, $breed, $breeder, $content_hash, $genome_data, $genome_text, $notes,
                $created_at, $updated_at,
                $intelligence, $toughness, $friendliness, $ruggedness, $enthusiasm, $virility, $ferocity, $temperament, $sort_order,
-               $starred, $stabled, $is_pet_quality, $positive_genes, $total_genes, $known_genes, $unknown_genes)`,
+               $starred, $stabled, $is_pet_quality, $positive_genes, $total_genes, $known_genes, $unknown_genes,
+               $attributes_measured)`,
       {
         name: petName,
         species: genome.genome_type,
@@ -663,6 +670,9 @@ export async function uploadPet(content: string, options: UploadPetOptions = {})
         total_genes: geneCounts.total,
         known_genes: geneCounts.known,
         unknown_genes: geneCounts.unknown,
+        // The one place the answer is known: `attrValues` came from the name
+        // above, or from `defaults` because it did not parse.
+        attributes_measured: parsed ? 1 : 0,
       },
     );
     if (res.lastInsertId) {
@@ -751,6 +761,20 @@ export async function updatePet(petId: number, updates: Record<string, unknown>)
     } else {
       params[field] = value;
     }
+  }
+
+  // A value the player typed in is a reading, whatever the name says. This
+  // and `importGenomeFile` are the only two places provenance is decided —
+  // see `Pet.attributes_measured`. Without it, correcting an attribute on an
+  // animal imported under an unparseable name would leave it out of the
+  // study anyway, which is the complaint that produced the flag (#526).
+  //
+  // Only ever set: `use_for_studies` is the way to withdraw a record, and it
+  // says what the player means. Clearing this would instead re-assert that
+  // the values are the all-50 default, which after an edit they are not.
+  if (ATTRIBUTE_KEYS.some((key) => flat[key] !== undefined)) {
+    setClauses.push('attributes_measured = $attributes_measured');
+    params.attributes_measured = 1;
   }
 
   // If the genome or breed changed, the stored positive_genes count is

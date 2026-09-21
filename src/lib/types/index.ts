@@ -129,6 +129,21 @@ export interface Pet {
    * about a record, not a property of the horse.
    */
   use_for_studies: boolean;
+  /**
+   * Whether the stored attribute values are readings rather than defaults.
+   *
+   * `importGenomeFile` reads the values out of a structured name and falls
+   * back to `DEFAULT_ATTRIBUTE_VALUE` for every attribute when the name does
+   * not parse. Nothing downstream can tell those eight 50s from measured
+   * ones, and the study must not difference against them, so the answer is
+   * recorded here at import rather than re-derived later from the name —
+   * which the player can edit, and which says nothing about a value they
+   * typed in by hand.
+   *
+   * Set at import, and again by `updatePet` whenever an attribute is
+   * written: a hand-entered value is a reading.
+   */
+  attributes_measured: boolean;
   // Computed fields (added by service layer)
   readonly?: boolean;
   is_demo?: boolean;

@@ -18,6 +18,7 @@ import { now } from '$lib/utils/timestamp.js';
 import { getDb, type TxStatement } from './database.js';
 import { pickExportSavePath, saveExportBinaryFile } from './fileService.js';
 import { CURRENT_SCHEMA_VERSION, getSchemaVersion } from './migrationService.js';
+import { parseStructuredPetName } from './nameParser.js';
 
 const EXPORT_FORMAT = 'gorgonetics-backup' as const;
 const EXPORT_FORMAT_VERSION = 2;
@@ -66,6 +67,9 @@ const PET_COLUMNS = [
   'starred',
   'stabled',
   'is_pet_quality',
+  // Attribute provenance (migration v18). Without it every restored animal
+  // reads as never measured and the study corpus comes back empty.
+  'attributes_measured',
 ];
 
 // --- Export ---
@@ -395,7 +399,12 @@ async function importGenesAndPets(
         // ends up in the same legacy-row state as a v12 import — the
         // user can backfill it later by re-picking the original file.
         else if (col === 'genome_text') row[col] = pet[col] ?? '';
-        else row[col] = pet[col] ?? null;
+        // Pre-v18 backups predate the column. Derived from the name, which
+        // is what the v18 migration does to the same rows — a restore and an
+        // upgrade of the same database have to agree about the corpus.
+        else if (col === 'attributes_measured') {
+          row[col] = pet[col] ?? (parseStructuredPetName(String(pet.name ?? ''), String(pet.species ?? '')) ? 1 : 0);
+        } else row[col] = pet[col] ?? null;
       }
       petRows.push(row);
       if (typeof pet.content_hash === 'string') restoredHashes.push(pet.content_hash);

@@ -4,7 +4,7 @@
  * Owns the DB reads, the species scoping and the eligibility rules; all
  * the arithmetic lives in `utils/attributeStudy.js`.
  *
- * ## Why eligibility is a name check
+ * ## Why eligibility turns on provenance
  *
  * An animal only teaches us something if its attributes are *measurements*.
  * They are not always: `importGenomeFile` sets
@@ -15,10 +15,16 @@
  * magnitudes out of nothing. In the live catalogue one such animal alone
  * produced 18 contradictory deductions.
  *
- * So `parseStructuredPetName` is the gate: if the name parses, the stored
- * values came from a reading. The *stored* values are then used rather
- * than the re-parsed ones, because a user who edits an attribute afterwards
- * is correcting the name, not contradicting it.
+ * For a local animal that answer is stored, in `pets.attributes_measured`.
+ * It used to be re-derived here by parsing the animal's *current* name,
+ * which the player can edit: renaming a horse dropped it from the corpus,
+ * and an attribute typed in by hand never counted — both reported as
+ * "attributes never recorded" (#526). The flag is written where the answer
+ * is actually known, at import and on any attribute edit.
+ *
+ * A community animal has no such flag. Its name is the only provenance
+ * signal there is, it arrives with the catalogue entry and cannot be edited
+ * locally, so that path still parses it.
  *
  * ## Why community animals are cached, not imported
  *
@@ -68,7 +74,8 @@ const MIXED_BREED = 'Mixed';
  *
  * Inference needs attributes it can trust, and the only provenance signal
  * is a structured name — which `parseStructuredPetName` parses for horses
- * alone. Offering a species without one yields a permanently empty study
+ * alone, so `attributes_measured` is only ever set on one. Offering a
+ * species without a measurement path yields a permanently empty study
  * that blames the animals ("attributes never recorded") for a gap in the
  * app. Widening this means giving that species a measurement path first.
  */
@@ -100,7 +107,7 @@ function viewOf(genes: Record<string, string>): GenomeView {
 
 /** Why an animal was left out of the corpus. */
 export type ExclusionReason =
-  /** Name does not parse, so its attributes are defaults rather than readings. */
+  /** Attributes were never recorded, so they are defaults rather than readings. */
   | 'unmeasured'
   /** Carries at least one unrevealed locus. */
   | 'unrevealed'
@@ -209,7 +216,7 @@ export async function loadStudyCorpus(species: string, options: LoadCorpusOption
   // locus read; the genome gates run below once the loci are in hand.
   const candidates: Pet[] = [];
   for (const pet of items) {
-    const reason = eligibility(pet, null, [], false);
+    const reason = eligibility({ measured: pet.attributes_measured, breed: pet.breed }, null, [], false);
     if (reason) {
       exclude(reason);
       continue;
@@ -232,7 +239,12 @@ export async function loadStudyCorpus(species: string, options: LoadCorpusOption
       exclude('no-genome');
       continue;
     }
-    const reason = eligibility(pet, loci, required, requireFullGenome);
+    const reason = eligibility(
+      { measured: pet.attributes_measured, breed: pet.breed },
+      loci,
+      required,
+      requireFullGenome,
+    );
     if (reason) {
       exclude(reason);
       continue;
@@ -297,7 +309,7 @@ async function cachedSubjects(
       for (const gene of list) genes[`${chromosome}${gene.block}${gene.position}`] = gene.gene_type;
 
     const reason = eligibility(
-      { name: row.name, species: normalized, breed: row.breed },
+      { measured: parseStructuredPetName(row.name, normalized) !== null, breed: row.breed },
       viewOf(genes),
       required,
       requireFullGenome,
@@ -337,6 +349,10 @@ async function cachedSubjects(
  * breed gates entirely because they had been applied at write time. A rule
  * that lives in one place cannot disagree with itself.
  *
+ * `measured` is the one input the two sources answer differently, so each
+ * resolves it and this decides on it: a local animal reads its stored flag,
+ * a community one parses the name it was published under.
+ *
  * Pass `null` for the genome to check only what an animal's own fields can
  * answer — the local path does this to reject what it can before paying for
  * the locus read, then calls again with the loci.
@@ -344,14 +360,15 @@ async function cachedSubjects(
  * Returns null when the animal is usable.
  */
 function eligibility(
-  animal: { name: string; species: string; breed: string },
+  animal: { measured: boolean; breed: string },
   genome: GenomeView | null,
   required: readonly string[],
   requireFullGenome: boolean,
 ): ExclusionReason | null {
-  // Name first: an unparsed name is *why* such an animal also has no breed,
-  // so checking breed first would report the symptom and hide the cause.
-  if (!parseStructuredPetName(animal.name, animal.species)) return 'unmeasured';
+  // Provenance first: an animal whose attributes were never recorded has no
+  // breed for the same reason — neither was ever parsed out of its name — so
+  // checking breed first would report the symptom and hide the cause.
+  if (!animal.measured) return 'unmeasured';
   if (!animal.breed) return 'no-breed';
   if (animal.breed === MIXED_BREED) return 'mixed-breed';
   if (!genome) return null;
@@ -465,7 +482,8 @@ interface CachedRow {
  */
 function usableSharedPet(pet: SharedPet, genes: Record<string, string>): boolean {
   if (!pet.attributes) return false;
-  return eligibility({ name: pet.name, species: pet.species, breed: pet.breed }, viewOf(genes), [], false) === null;
+  const measured = parseStructuredPetName(pet.name, pet.species) !== null;
+  return eligibility({ measured, breed: pet.breed }, viewOf(genes), [], false) === null;
 }
 
 /**
@@ -821,7 +839,7 @@ export async function liveGeneConfirmations(
  * eligibility rules in `loadStudyCorpus`, or the shape `persistMagnitudes`
  * writes all count as changing the solve.
  */
-const SOLVER_VERSION = 1;
+const SOLVER_VERSION = 2;
 
 /**
  * A durable fingerprint of everything the solve depends on.
@@ -856,7 +874,7 @@ async function studyFingerprint(species: string): Promise<string> {
   // table to every test.
   const [pets, loci, cached, genes, confirmations] = await Promise.all([
     db.select<Array<Record<string, unknown>>>(
-      `SELECT id, species, name, breed, content_hash, use_for_studies, stabled, ${ATTRIBUTE_KEYS.join(', ')} FROM pets`,
+      `SELECT id, species, attributes_measured, breed, content_hash, use_for_studies, stabled, ${ATTRIBUTE_KEYS.join(', ')} FROM pets`,
     ),
     db.select<Array<Record<string, unknown>>>('SELECT pet_id, gene_id, gene_type FROM pet_genes'),
     db.select<Array<Record<string, unknown>>>(
@@ -894,12 +912,17 @@ async function studyFingerprint(species: string): Promise<string> {
   return sha256Hex(
     [
       `solver:${SOLVER_VERSION}`,
-      // The inputs themselves rather than `updated_at`: a rename and an
-      // attribute correction are both study inputs, and a timestamp is only
-      // as good as its resolution — two edits inside one tick would collide.
+      // The inputs themselves rather than `updated_at`: a correction and a
+      // re-breed are both study inputs, and a timestamp is only as good as
+      // its resolution — two edits inside one tick would collide.
+      //
+      // `name` is not among them: since #526 nothing the solver reads is
+      // derived from a local animal's name, so a rename is not a study input
+      // and must not throw away a solved table. `attributes_measured` is
+      // what the name used to stand in for here.
       summarise(pets, 'species', [
         'id',
-        'name',
+        'attributes_measured',
         'breed',
         'content_hash',
         'use_for_studies',

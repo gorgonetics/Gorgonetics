@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { closeDatabase, initDatabase } from '$lib/services/database.js';
+import { closeDatabase, getDb, initDatabase } from '$lib/services/database.js';
 import { CURRENT_SCHEMA_VERSION, getSchemaVersion, runMigrations } from '$lib/services/migrationService.js';
 
 describe('Migration Service', () => {
@@ -29,6 +29,40 @@ describe('Migration Service', () => {
     await runMigrations();
     const version = await getSchemaVersion();
     expect(version).toBe(CURRENT_SCHEMA_VERSION);
+  });
+
+  it('backfills attributes_measured from the name the readings were recorded in', async () => {
+    // v18 stores what eligibility used to re-derive by parsing the current
+    // name. Backfilling keeps the corpus the same across the upgrade; from
+    // here a rename cannot change it (#526).
+    const db = getDb();
+    const insert = (name: string, hash: string) =>
+      db.execute(
+        `INSERT INTO pets (name, species, gender, content_hash, genome_data, created_at, updated_at)
+         VALUES ($name, $species, $gender, $content_hash, $genome_data, $created_at, $updated_at)`,
+        {
+          name,
+          species: 'Horse',
+          gender: 'Female',
+          content_hash: hash,
+          genome_data: '{}',
+          created_at: '2024-01-01',
+          updated_at: '2024-01-01',
+        },
+      );
+    await insert('Kb F 40 80 70 70 70 70 70', 'structured');
+    await insert('Dobbin', 'plain');
+
+    await runMigrations();
+
+    const rows = await db.select<Array<{ content_hash: string; attributes_measured: number }>>(
+      'SELECT content_hash, attributes_measured FROM pets',
+    );
+    const flagOf = (hash: string) => rows.find((row) => row.content_hash === hash)?.attributes_measured;
+    expect(flagOf('structured')).toBe(1);
+    // NOT NULL DEFAULT 0 in production; the in-memory adapter leaves the
+    // column off the row rather than adding it, so accept either.
+    expect(flagOf('plain') ?? 0).toBe(0);
   });
 
   it('creates settings table after migration', async () => {

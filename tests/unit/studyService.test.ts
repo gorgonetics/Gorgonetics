@@ -103,6 +103,47 @@ describe('loadStudyCorpus', () => {
     expect(corpus.excluded).toContainEqual({ reason: 'unmeasured', count: 1 });
   });
 
+  it('keeps an animal renamed out of the structured format, whose readings are stored', async () => {
+    // The name is how the readings were recorded, not where they live. A
+    // player renaming a horse used to drop it from the corpus (#526).
+    const petId = await upload(name('Kb', 40, 80), 'RRRR');
+    await petService.updatePet(petId, { name: 'Dobbin' });
+
+    const corpus = await loadStudyCorpus('horse');
+    expect(corpus.subjects).toHaveLength(1);
+    expect(corpus.subjects[0].attributes.temperament).toBe(40);
+  });
+
+  it('admits an animal whose attributes were typed in by hand', async () => {
+    // Imported under a name that does not parse, so every attribute was the
+    // importer's default. Entering the real values in the editor makes them
+    // readings — which is what the player sees, and used to be told was
+    // "attributes never recorded" (#526).
+    const petId = await upload('Just A Horse', 'RRRR');
+    expect((await loadStudyCorpus('horse')).subjects).toEqual([]);
+
+    await petService.updatePet(petId, {
+      breed: 'Kurbone',
+      attributes: { temperament: 40, toughness: 80 },
+    });
+
+    const corpus = await loadStudyCorpus('horse');
+    expect(corpus.subjects).toHaveLength(1);
+    expect(corpus.subjects[0]).toMatchObject({ breed: 'Kurbone' });
+    expect(corpus.subjects[0].attributes.temperament).toBe(40);
+  });
+
+  it('does not call an animal measured because some other field was edited', async () => {
+    // Only an attribute write is evidence of a reading. A rename, a star or
+    // a tag says nothing about the eight 50s this animal was imported with.
+    const petId = await upload('Just A Horse', 'RRRR');
+    await petService.updatePet(petId, { breed: 'Kurbone', starred: true, name: 'Dobbin' });
+
+    const corpus = await loadStudyCorpus('horse');
+    expect(corpus.subjects).toEqual([]);
+    expect(corpus.excluded).toContainEqual({ reason: 'unmeasured', count: 1 });
+  });
+
   it('excludes an animal with an unrevealed locus by default', async () => {
     await upload(name('Kb', 40, 80), 'RR?R');
     const corpus = await loadStudyCorpus('horse');
@@ -320,21 +361,19 @@ describe('attributeMagnitudesFor', () => {
     expect(magnitudeOf(second, '01A1', 'dominant')).toBe(9);
   });
 
-  it('re-solves after a rename, which is what decides whether an animal is a subject at all', async () => {
+  it('keeps its answer through a rename, which is not a study input', async () => {
     await upload(name('Kb', 45, 80, 'With'), 'DRRR');
     const withoutId = await upload(name('Kb', 40, 80, 'Without'), 'RRRR');
 
     const first = await attributeMagnitudesFor('horse');
     expect(magnitudeOf(first, '01A1', 'dominant')).toBe(5);
 
-    // Eligibility turns on the name parsing, so a rename out of the
-    // structured format withdraws the animal — and with it the only
-    // equation the magnitude rested on.
+    // The name recorded the readings at import; the readings themselves are
+    // in the columns now. Renaming used to withdraw the animal and take the
+    // magnitude with it (#526).
     await petService.updatePet(withoutId, { name: 'Dobbin' });
 
-    const second = await attributeMagnitudesFor('horse');
-    expect(second).not.toBe(first);
-    expect(magnitudeOf(second, '01A1', 'dominant')).toBeUndefined();
+    expect(magnitudeOf(await attributeMagnitudesFor('horse'), '01A1', 'dominant')).toBe(5);
   });
 
   it('re-solves after a gene-table edit, which revises the question rather than the answer', async () => {
