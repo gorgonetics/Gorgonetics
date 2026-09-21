@@ -459,6 +459,36 @@ describe('persisted magnitudes', () => {
     expect(magnitudeOf(await attributeMagnitudesFor('horse'), '01A1', 'dominant')).not.toBe(5);
   });
 
+  it('re-solves when a genome rewrite leaves every gene count where it was', async () => {
+    const withId = await upload(name('Kb', 45, 80, 'With'), 'DRRR');
+    await upload(name('Kb', 40, 80, 'Without'), 'RRRR');
+    expect(magnitudeOf(await attributeMagnitudesFor('horse'), '01A1', 'dominant')).toBe(5);
+
+    const counts = async () =>
+      (
+        await getDb().select<Array<Record<string, unknown>>>(
+          'SELECT positive_genes, total_genes, known_genes, unknown_genes FROM pets WHERE id = $id',
+          { id: withId },
+        )
+      )[0];
+    const before = await counts();
+
+    // `RRRD` for `DRRR`: one `+` locus either way, four revealed genes
+    // either way. `01A4` is Kurbone-locked and this animal is Kurbone, so
+    // the swap moves the magnitude rather than dropping it. Nothing the
+    // gene-count columns can see has moved — only the projection — so a
+    // fingerprint built on those counts would serve the stale table.
+    await petService.updatePet(withId, {
+      genome_data: parseGenome(genome(name('Kb', 45, 80, 'With'), 'RRRD')),
+    });
+    expect(await counts()).toEqual(before);
+
+    newSession();
+    const after = await attributeMagnitudesFor('horse');
+    expect(magnitudeOf(after, '01A1', 'dominant')).toBeUndefined();
+    expect(magnitudeOf(after, '01A4', 'dominant')).toBe(5);
+  });
+
   it('refuses a row whose columns parse to null rather than reading it as empty', async () => {
     await upload(name('Kb', 45, 80, 'With'), 'DRRR');
     await upload(name('Kb', 40, 80, 'Without'), 'RRRR');

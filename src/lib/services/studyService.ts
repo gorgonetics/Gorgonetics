@@ -816,16 +816,16 @@ export async function liveGeneConfirmations(
  *
  * Deliberately cheap: small per-row summaries, never the genomes themselves.
  * A cached animal's `content_hash` is its genome's digest, so that half is
- * exact. A local animal's is not: `content_hash` is set at upload and
- * `updatePet` never recomputes it, so a direct `genome_data` rewrite is
- * covered only by the gene counts it does recompute — `positive_genes` and
- * the total/known/unknown trio.
+ * exact. A local animal's is not — `content_hash` is set at upload and
+ * `updatePet` never recomputes it — so local genomes are covered by their
+ * `pet_genes` projection, which is what the solver reads anyway.
  *
- * **The one gap that leaves**: a genome rewritten through `updatePet` into a
- * different genome with identical counts, name, breed and readings would
- * fingerprint the same. No UI path passes `genome_data` to `updatePet` today,
- * so it is unreachable; a path that added one should move `content_hash`
- * with it, which would make this exact again.
+ * The gene-count columns (`positive_genes` and the total/known/unknown trio)
+ * are deliberately *not* used in their place. They are a proxy for the
+ * projection, and a lossy one: `updatePet` is exported and takes
+ * `genome_data`, so a rewrite into a different allele layout with identical
+ * counts, name, breed and readings would fingerprint the same and be served
+ * a stale table.
  *
  * Errs towards re-solving: any input this misses would be a stale table, so
  * everything the corpus load and the solver read is represented here.
@@ -838,11 +838,11 @@ async function studyFingerprint(species: string): Promise<string> {
   // drops a `WHERE` it cannot parse rather than failing — so a fingerprint
   // built by the database would be constant there and silently serve a stale
   // table to every test.
-  const [pets, cached, genes, confirmations] = await Promise.all([
+  const [pets, loci, cached, genes, confirmations] = await Promise.all([
     db.select<Array<Record<string, unknown>>>(
-      `SELECT id, species, name, breed, content_hash, use_for_studies, stabled,
-              positive_genes, total_genes, known_genes, unknown_genes, ${ATTRIBUTE_KEYS.join(', ')} FROM pets`,
+      `SELECT id, species, name, breed, content_hash, use_for_studies, stabled, ${ATTRIBUTE_KEYS.join(', ')} FROM pets`,
     ),
+    db.select<Array<Record<string, unknown>>>('SELECT pet_id, gene_id, gene_type FROM pet_genes'),
     db.select<Array<Record<string, unknown>>>(
       'SELECT content_hash, species, name, breed, attributes, use_for_studies FROM study_corpus',
     ),
@@ -864,6 +864,17 @@ async function studyFingerprint(species: string): Promise<string> {
       .sort()
       .join(',');
 
+  // `pet_genes` carries no species column, so scope it by the ids of the
+  // pets this fingerprint already covers.
+  const ourPetIds = new Set(
+    pets.filter((r) => normalizeSpecies(String(r.species ?? '')) === normalized).map((r) => String(r.id)),
+  );
+  const projection = loci
+    .filter((r) => ourPetIds.has(String(r.pet_id)))
+    .map((r) => line(r, ['pet_id', 'gene_id', 'gene_type']))
+    .sort()
+    .join(',');
+
   return sha256Hex(
     [
       // The inputs themselves rather than `updated_at`: a rename and an
@@ -876,15 +887,10 @@ async function studyFingerprint(species: string): Promise<string> {
         'content_hash',
         'use_for_studies',
         'stabled',
-        // Recomputed by `updatePet` whenever the genome is rewritten, which
-        // is the only way `pet_genes` changes without a fresh upload. See the
-        // caveat in this function's doc.
-        'positive_genes',
-        'total_genes',
-        'known_genes',
-        'unknown_genes',
         ...ATTRIBUTE_KEYS,
       ]),
+      // The genome of every local animal, exactly as the solver reads it.
+      projection,
       summarise(cached, 'species', ['content_hash', 'name', 'breed', 'attributes', 'use_for_studies']),
       summarise(genes, 'animal_type', [
         'gene',
