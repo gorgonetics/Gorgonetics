@@ -57,7 +57,6 @@ import {
 
 import { firestore as defaultFirestore } from '$lib/firebase.js';
 import { CURRENT_SCHEMA_VERSION } from '$lib/services/migrationService.js';
-import { parseStructuredPetName } from '$lib/services/nameParser.js';
 import {
   findPetByHash,
   getPet,
@@ -67,7 +66,7 @@ import {
 } from '$lib/services/petService.js';
 import { Gender, type ListPetsOpts, type Pet, type SharedPet, type SharedPetsPage } from '$lib/types/index.js';
 import { sha256Hex } from '$lib/utils/hash.js';
-import { ATTRIBUTE_KEYS, mergeCorrectionIdentity } from '$lib/utils/sharedPet.js';
+import { ATTRIBUTE_KEYS, carriesReadings, mergeCorrectionIdentity } from '$lib/utils/sharedPet.js';
 
 declare const __APP_VERSION__: string;
 const APP_VERSION = __APP_VERSION__;
@@ -784,13 +783,13 @@ async function applyImportMetadata(petId: number, shared: SharedPet): Promise<vo
   //
   // Provenance travels with them, explicitly. `buildMetadataPayload`
   // publishes the uploader's eight columns whatever they are, so a catalogue
-  // entry can carry *their* defaults — and `updatePet` would otherwise infer
-  // from the write itself that someone had measured these values. The
-  // published name is the only evidence there is either way, which is what
-  // the study's own cached path reads (#526).
+  // entry can carry *their* untouched defaults — and `updatePet` would
+  // otherwise read the write itself as evidence that someone measured these
+  // values. Judged from the values, as the study's own cached path judges
+  // the same entry (#526).
   if (shared.attributes) {
     updates.attributes = shared.attributes;
-    updates.attributes_measured = parseStructuredPetName(shared.name, shared.species) !== null;
+    updates.attributes_measured = carriesReadings(shared.attributes);
   }
   if (Object.keys(updates).length === 0) return;
   try {

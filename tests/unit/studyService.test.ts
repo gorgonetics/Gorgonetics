@@ -857,6 +857,21 @@ describe('cached community animals', () => {
     expect(items).toEqual([]);
   });
 
+  it('studies a cached animal whose name is not the structured format', async () => {
+    // Its values are the provenance here: one off the default is proof the
+    // uploader measured it, whatever they chose to call it.
+    await cache('h9', 'Thunderhoof', 'RRRR', attrs(40, 80));
+    expect((await loadStudyCorpus('horse')).subjects).toHaveLength(1);
+  });
+
+  it('drops a cached animal whose attributes are all the default', async () => {
+    const defaults = Object.fromEntries(Object.keys(attrs(0, 0)).map((k) => [k, 50]));
+    await cache('h10', name('Kb', 50, 50, 'Untouched'), 'RRRR', defaults);
+    const corpus = await loadStudyCorpus('horse');
+    expect(corpus.subjects).toEqual([]);
+    expect(corpus.excluded).toContainEqual({ reason: 'unmeasured', count: 1 });
+  });
+
   it('never marks a community animal checkable', async () => {
     // You cannot re-read someone else's animal in the game.
     await cache('h1', name('Kb', 40, 80, 'Shared'), 'RRRR', attrs(40, 80));
@@ -1064,16 +1079,31 @@ describe('refreshStudyCorpus', () => {
   });
 
   it('skips an entry whose attributes were never measured', async () => {
-    // Attributes are present and well-formed; the name is what betrays them
-    // as the importer's defaults rather than readings.
+    // Attributes are present and well-formed, and every one of them is the
+    // untouched default — the uploader's importer wrote them, nobody read
+    // them off an animal.
     const wild = await entry('Wild Horse', 'RRRR');
     const ok = await entry(name('Kb', 41, 80, 'ok'), 'DRRR');
-    mockCatalogue([shared(wild.hash, { name: 'Wild Horse' }), shared(ok.hash, { name: name('Kb', 41, 80, 'ok') })], {
-      [wild.hash]: wild.text,
-      [ok.hash]: ok.text,
-    });
+    const defaults = Object.fromEntries(Object.keys(ATTRS).map((k) => [k, 50]));
+    mockCatalogue(
+      [
+        shared(wild.hash, { name: 'Wild Horse', attributes: defaults }),
+        shared(ok.hash, { name: name('Kb', 41, 80, 'ok') }),
+      ],
+      { [wild.hash]: wild.text, [ok.hash]: ok.text },
+    );
     const result = await refreshStudyCorpus('horse');
     expect(result).toMatchObject({ cached: 1, skipped: 1 });
+  });
+
+  it('caches an entry from a player who does not use the structured name', async () => {
+    // The name format is one player's labelling convention; the catalogue is
+    // full of animals named normally whose published attributes are real.
+    // Gating on the name threw all of them away (#526).
+    const theirs = await entry('Thunderhoof', 'DRRR');
+    mockCatalogue([shared(theirs.hash, { name: 'Thunderhoof' })], { [theirs.hash]: theirs.text });
+    const result = await refreshStudyCorpus('horse');
+    expect(result).toMatchObject({ cached: 1, skipped: 0 });
   });
 
   it('caches nothing for a species with no entries', async () => {

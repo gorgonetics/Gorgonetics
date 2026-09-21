@@ -22,9 +22,13 @@
  * "attributes never recorded" (#526). The flag is written where the answer
  * is actually known, at import and on any attribute edit.
  *
- * A community animal has no such flag. Its name is the only provenance
- * signal there is, it arrives with the catalogue entry and cannot be edited
- * locally, so that path still parses it.
+ * A community animal has no such flag — the catalogue publishes the
+ * uploader's eight columns and nothing about where they came from — so that
+ * path reads the values instead: `carriesReadings` asks whether any of them
+ * has moved off the default. Nothing in the app can write a non-default
+ * value without a measurement behind it, so one is proof, and the structured
+ * name cannot stand in here: it is one player's labelling convention and
+ * most of the catalogue does not follow it.
  *
  * ## Why community animals are cached, not imported
  *
@@ -45,7 +49,6 @@ import { normalizeSpecies } from '$lib/services/configService.js';
 import { buildInClauseParams, getDb, type TxStatement } from '$lib/services/database.js';
 import { geneDeclarationsRevision, getGeneEffectsCached } from '$lib/services/geneService.js';
 import { parseGenome } from '$lib/services/genomeParser.js';
-import { parseStructuredPetName } from '$lib/services/nameParser.js';
 import { getAllPets, localPetsRevision } from '$lib/services/petService.js';
 import { listGenomes, listPets } from '$lib/services/shareService.js';
 import { GeneType, type Pet, type SharedPet } from '$lib/types/index.js';
@@ -63,7 +66,7 @@ import {
 } from '$lib/utils/attributeStudy.js';
 import { sha256Hex } from '$lib/utils/hash.js';
 import { loadAllPetLoci, type PetLoci } from '$lib/utils/petLoci.js';
-import { ATTRIBUTE_KEYS, dedupeLatest } from '$lib/utils/sharedPet.js';
+import { ATTRIBUTE_KEYS, carriesReadings, dedupeLatest } from '$lib/utils/sharedPet.js';
 import { now } from '$lib/utils/timestamp.js';
 
 /** The breed value for an animal of no single breed; see the exclusion in `loadStudyCorpus`. */
@@ -72,12 +75,12 @@ const MIXED_BREED = 'Mixed';
 /**
  * Species the study can actually measure.
  *
- * Inference needs attributes it can trust, and the only provenance signal
- * is a structured name — which `parseStructuredPetName` parses for horses
- * alone, so `attributes_measured` is only ever set on one. Offering a
- * species without a measurement path yields a permanently empty study
- * that blames the animals ("attributes never recorded") for a gap in the
- * app. Widening this means giving that species a measurement path first.
+ * Inference needs attributes it can trust, and the only way into this app's
+ * columns is the structured name `parseStructuredPetName` reads, which is
+ * defined for horses alone — so no other species is ever measured at import.
+ * Offering one anyway yields a permanently empty study that blames the
+ * animals ("attributes never recorded") for a gap in the app. Widening this
+ * means giving that species a measurement path first.
  */
 export const STUDYABLE_SPECIES: readonly string[] = ['horse'];
 
@@ -308,17 +311,7 @@ async function cachedSubjects(
     for (const [chromosome, list] of Object.entries(parseGenome(row.genome_text).genes))
       for (const gene of list) genes[`${chromosome}${gene.block}${gene.position}`] = gene.gene_type;
 
-    const reason = eligibility(
-      { measured: parseStructuredPetName(row.name, normalized) !== null, breed: row.breed },
-      viewOf(genes),
-      required,
-      requireFullGenome,
-    );
-    if (reason) {
-      drop(reason);
-      continue;
-    }
-
+    // Read before the gate, because here the values are the provenance.
     let attributes: Record<string, number>;
     try {
       const raw = JSON.parse(row.attributes) as Record<string, unknown>;
@@ -326,6 +319,17 @@ async function cachedSubjects(
       for (const [key, value] of Object.entries(raw)) if (typeof value === 'number') attributes[key] = value;
     } catch {
       drop('unmeasured');
+      continue;
+    }
+
+    const reason = eligibility(
+      { measured: carriesReadings(attributes), breed: row.breed },
+      viewOf(genes),
+      required,
+      requireFullGenome,
+    );
+    if (reason) {
+      drop(reason);
       continue;
     }
     subjects.push({
@@ -481,9 +485,9 @@ interface CachedRow {
  * time keeps the cache useful when they do.
  */
 function usableSharedPet(pet: SharedPet, genes: Record<string, string>): boolean {
-  if (!pet.attributes) return false;
-  const measured = parseStructuredPetName(pet.name, pet.species) !== null;
-  return eligibility({ measured, breed: pet.breed }, viewOf(genes), [], false) === null;
+  return (
+    eligibility({ measured: carriesReadings(pet.attributes), breed: pet.breed }, viewOf(genes), [], false) === null
+  );
 }
 
 /**

@@ -366,9 +366,9 @@ describe('Backup Service', () => {
 
     it('restores attribute provenance, and derives it for a pre-v18 backup', async () => {
       // The flag decides whether the study may learn from an animal. A
-      // backup taken before the column existed carries the same answer in
-      // the name, so derive it there rather than restoring a roster that
-      // reads as never measured.
+      // backup taken before the column existed still carries the answer, in
+      // the name or in the values, so derive it rather than restoring a
+      // roster that reads as never measured.
       const carried = { ...samplePet, content_hash: 'carried', attributes_measured: 1 };
       const legacyHorse: Record<string, unknown> = {
         ...samplePet,
@@ -379,8 +379,15 @@ describe('Backup Service', () => {
       delete legacyHorse.attributes_measured;
       const legacyBee: Record<string, unknown> = { ...samplePet, content_hash: 'legacy_bee' };
       delete legacyBee.attributes_measured;
+      // Ordinary name, edited values — measured, and the name cannot say so.
+      const legacyEdited: Record<string, unknown> = {
+        ...samplePet,
+        content_hash: 'legacy_edited',
+        toughness: 83,
+      };
+      delete legacyEdited.attributes_measured;
 
-      const zipData = await buildZip({ pets: [carried, legacyHorse, legacyBee] });
+      const zipData = await buildZip({ pets: [carried, legacyHorse, legacyBee, legacyEdited] });
       await importDatabase(zipData, importOpts('replace'));
 
       const rows = await getDb().select<Array<{ content_hash: string; attributes_measured: number }>>(
@@ -389,6 +396,7 @@ describe('Backup Service', () => {
       const flagOf = (hash: string) => rows.find((row) => row.content_hash === hash)?.attributes_measured;
       expect(flagOf('carried')).toBe(1);
       expect(flagOf('legacy_horse')).toBe(1);
+      expect(flagOf('legacy_edited')).toBe(1);
       expect(flagOf('legacy_bee')).toBe(0);
     });
 

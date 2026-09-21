@@ -1036,12 +1036,12 @@ describe('shareService.importCommunityPet', () => {
     expect(updatePet).toHaveBeenCalledWith(61, expect.objectContaining({ attributes: shared.attributes }));
   });
 
-  it('carries the published provenance with the attributes it copies', async () => {
+  it('judges the provenance of the attributes it copies from their values', async () => {
     // The catalogue publishes the uploader's eight columns whatever they
-    // are, so these may be *their* all-50 defaults. `updatePet` treats an
+    // are, so these may be *their* untouched defaults. `updatePet` treats an
     // attribute write as evidence of a reading, which is true of the editor
-    // and false here — so the import states the answer, judged the only way
-    // it can be: the name the entry was published under (#526).
+    // and false here — so the import states the answer, read off the values
+    // themselves (#526).
     const unstructured = await makeShared('UNSTRUCTURED');
     unstructured.species = 'Horse';
     unstructured.attributes = Object.fromEntries(ATTRIBUTE_KEYS.map((k) => [k, 50]));
@@ -1057,9 +1057,11 @@ describe('shareService.importCommunityPet', () => {
     await importCommunityPet(unstructured);
     expect(updatePet).toHaveBeenCalledWith(71, expect.objectContaining({ attributes_measured: false }));
 
+    // Ordinary name, real values — another player's animal, which the old
+    // name gate threw away.
     const structured = await makeShared('STRUCTURED');
     structured.species = 'Horse';
-    structured.name = 'Kb F 40 80 70 70 70 70 70';
+    structured.name = 'Thunderhoof';
     structured.attributes = { ...unstructured.attributes, temperament: 40, toughness: 80 };
     uploadPetLocallyMock.mockResolvedValueOnce({
       status: 'success',

@@ -14,6 +14,7 @@ import type {
   ImportResult,
 } from '$lib/types/index.js';
 import { isTauri } from '$lib/utils/environment.js';
+import { carriesReadings } from '$lib/utils/sharedPet.js';
 import { now } from '$lib/utils/timestamp.js';
 import { getDb, type TxStatement } from './database.js';
 import { pickExportSavePath, saveExportBinaryFile } from './fileService.js';
@@ -399,11 +400,14 @@ async function importGenesAndPets(
         // ends up in the same legacy-row state as a v12 import — the
         // user can backfill it later by re-picking the original file.
         else if (col === 'genome_text') row[col] = pet[col] ?? '';
-        // Pre-v18 backups predate the column. Derived from the name, which
-        // is what the v18 migration does to the same rows — a restore and an
-        // upgrade of the same database have to agree about the corpus.
+        // Pre-v18 backups predate the column. Derived exactly as the v18
+        // migration derives it for the same rows — a restore and an upgrade
+        // of the same database have to agree about the corpus.
         else if (col === 'attributes_measured') {
-          row[col] = pet[col] ?? (parseStructuredPetName(String(pet.name ?? ''), String(pet.species ?? '')) ? 1 : 0);
+          const derived =
+            parseStructuredPetName(String(pet.name ?? ''), String(pet.species ?? '')) !== null ||
+            carriesReadings(pet as Record<string, number>);
+          row[col] = pet[col] ?? (derived ? 1 : 0);
         } else row[col] = pet[col] ?? null;
       }
       petRows.push(row);

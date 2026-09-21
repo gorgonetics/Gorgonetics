@@ -4,6 +4,7 @@
  * Runs pending migrations on startup.
  */
 
+import { ATTRIBUTE_KEYS, carriesReadings } from '$lib/utils/sharedPet.js';
 import { buildInClauseParams, getDb } from './database.js';
 import { parseStructuredPetName } from './nameParser.js';
 
@@ -345,21 +346,27 @@ const MIGRATIONS: Migration[] = [
       // rename dropped the animal from the corpus, and an attribute typed in
       // by hand never counted (#526).
       //
-      // Backfilled from the name, so the corpus on the first run after this
-      // migration is the one the previous build produced. After it the flag
-      // is written at import and whenever an attribute is edited, and the
-      // name is free to change.
+      // Backfilled two ways, because either is proof. A name that still
+      // parses is the animal the previous build admitted. A value off the
+      // default is a measurement whatever the name says — nothing can write
+      // one without a reading behind it — and those are the animals the old
+      // gate was wrong about: hand-corrected in the editor, then excluded
+      // for a name that never parsed. They join the corpus on upgrade.
       const db = getDb();
       await db.execute('ALTER TABLE pets ADD COLUMN attributes_measured INTEGER NOT NULL DEFAULT 0');
-      const rows = await db.select<Array<{ id: number; name: string; species: string }>>(
-        'SELECT id, name, species FROM pets',
+      const rows = await db.select<Array<Record<string, unknown>>>(
+        `SELECT id, name, species, ${ATTRIBUTE_KEYS.join(', ')} FROM pets`,
       );
-      const measured = rows.filter((row) => parseStructuredPetName(row.name ?? '', row.species ?? '') !== null);
+      const measured = rows.filter(
+        (row) =>
+          parseStructuredPetName(String(row.name ?? ''), String(row.species ?? '')) !== null ||
+          carriesReadings(row as Record<string, number>),
+      );
       // Chunked: a roster can be larger than SQLite's 999-parameter ceiling,
       // and one statement per animal would be hundreds of round trips.
       for (let i = 0; i < measured.length; i += CHUNK) {
         const { placeholders, params } = buildInClauseParams(
-          measured.slice(i, i + CHUNK).map((row) => row.id),
+          measured.slice(i, i + CHUNK).map((row) => Number(row.id)),
           'id',
         );
         await db.execute(`UPDATE pets SET attributes_measured = $measured WHERE id IN (${placeholders})`, {
