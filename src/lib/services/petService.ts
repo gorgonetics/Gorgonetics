@@ -725,9 +725,12 @@ const UPDATABLE_COLUMNS = new Set([
   'stabled',
   'is_pet_quality',
   'use_for_studies',
+  // Settable directly by a caller that knows the provenance of the values it
+  // is writing — `importCommunityPet` does, and it is not the editor.
+  'attributes_measured',
 ]);
 
-const BOOLEAN_COLUMNS = new Set(['starred', 'stabled', 'is_pet_quality', 'use_for_studies']);
+const BOOLEAN_COLUMNS = new Set(['starred', 'stabled', 'is_pet_quality', 'use_for_studies', 'attributes_measured']);
 
 /**
  * Update a pet record.
@@ -763,16 +766,20 @@ export async function updatePet(petId: number, updates: Record<string, unknown>)
     }
   }
 
-  // A value the player typed in is a reading, whatever the name says. This
-  // and `importGenomeFile` are the only two places provenance is decided —
-  // see `Pet.attributes_measured`. Without it, correcting an attribute on an
-  // animal imported under an unparseable name would leave it out of the
-  // study anyway, which is the complaint that produced the flag (#526).
+  // A value the player typed in is a reading, whatever the name says —
+  // without this, correcting an attribute on an animal imported under an
+  // unparseable name would leave it out of the study anyway, which is the
+  // complaint that produced the flag (#526).
   //
-  // Only ever set: `use_for_studies` is the way to withdraw a record, and it
-  // says what the player means. Clearing this would instead re-assert that
-  // the values are the all-50 default, which after an edit they are not.
-  if (ATTRIBUTE_KEYS.some((key) => flat[key] !== undefined)) {
+  // Inferred only when the caller did not say. `importCommunityPet` writes
+  // attributes it did not measure — they are another player's columns, all
+  // 50 of them if *that* player never measured either — so it passes the
+  // answer explicitly and this must not overrule it.
+  //
+  // Never inferred false: `use_for_studies` is how a record is withdrawn and
+  // it says what the player means, whereas clearing this would assert the
+  // values are the untouched default, which after an edit they are not.
+  if (flat.attributes_measured === undefined && ATTRIBUTE_KEYS.some((key) => flat[key] !== undefined)) {
     setClauses.push('attributes_measured = $attributes_measured');
     params.attributes_measured = 1;
   }

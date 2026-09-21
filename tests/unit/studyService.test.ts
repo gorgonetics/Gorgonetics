@@ -133,6 +133,23 @@ describe('loadStudyCorpus', () => {
     expect(corpus.subjects[0].attributes.temperament).toBe(40);
   });
 
+  it('takes a caller at its word when it says the values it wrote are not readings', async () => {
+    // The shape `importCommunityPet` writes: someone else's attribute
+    // columns, copied wholesale, which are that player's defaults when they
+    // never measured either. The write is not evidence of a reading here and
+    // the caller says so, or the corpus fills with 50s dressed as data.
+    const petId = await upload('Just A Horse', 'RRRR');
+    await petService.updatePet(petId, {
+      breed: 'Kurbone',
+      attributes: { temperament: 50, toughness: 50 },
+      attributes_measured: false,
+    });
+
+    const corpus = await loadStudyCorpus('horse');
+    expect(corpus.subjects).toEqual([]);
+    expect(corpus.excluded).toContainEqual({ reason: 'unmeasured', count: 1 });
+  });
+
   it('does not call an animal measured because some other field was edited', async () => {
     // Only an attribute write is evidence of a reading. A rename, a star or
     // a tag says nothing about the eight 50s this animal was imported with.

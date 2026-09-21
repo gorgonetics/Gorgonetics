@@ -57,6 +57,7 @@ import {
 
 import { firestore as defaultFirestore } from '$lib/firebase.js';
 import { CURRENT_SCHEMA_VERSION } from '$lib/services/migrationService.js';
+import { parseStructuredPetName } from '$lib/services/nameParser.js';
 import {
   findPetByHash,
   getPet,
@@ -780,7 +781,17 @@ async function applyImportMetadata(petId: number, shared: SharedPet): Promise<vo
   // `petService.uploadPet` re-derived from the genome/name (which are the
   // all-50 defaults when the name isn't structured). Absent on legacy
   // entries — then the re-derived values stand, as before.
-  if (shared.attributes) updates.attributes = shared.attributes;
+  //
+  // Provenance travels with them, explicitly. `buildMetadataPayload`
+  // publishes the uploader's eight columns whatever they are, so a catalogue
+  // entry can carry *their* defaults — and `updatePet` would otherwise infer
+  // from the write itself that someone had measured these values. The
+  // published name is the only evidence there is either way, which is what
+  // the study's own cached path reads (#526).
+  if (shared.attributes) {
+    updates.attributes = shared.attributes;
+    updates.attributes_measured = parseStructuredPetName(shared.name, shared.species) !== null;
+  }
   if (Object.keys(updates).length === 0) return;
   try {
     await updatePet(petId, updates);

@@ -78,6 +78,7 @@ import {
 } from '$lib/services/shareService.js';
 import { Gender, type Pet, type SharedPet } from '$lib/types/index.js';
 import { sha256Hex } from '$lib/utils/hash.js';
+import { ATTRIBUTE_KEYS } from '$lib/utils/sharedPet.js';
 import { makePet, DEFAULT_RAW_TEXT as RAW_TEXT, DEFAULT_RAW_TEXT_HASH as RAW_TEXT_HASH } from '../fixtures/sharePet.js';
 
 // The Firestore SDK and petService are mocked above; `vi.mocked` re-types each
@@ -1033,6 +1034,43 @@ describe('shareService.importCommunityPet', () => {
     await importCommunityPet(shared);
 
     expect(updatePet).toHaveBeenCalledWith(61, expect.objectContaining({ attributes: shared.attributes }));
+  });
+
+  it('carries the published provenance with the attributes it copies', async () => {
+    // The catalogue publishes the uploader's eight columns whatever they
+    // are, so these may be *their* all-50 defaults. `updatePet` treats an
+    // attribute write as evidence of a reading, which is true of the editor
+    // and false here — so the import states the answer, judged the only way
+    // it can be: the name the entry was published under (#526).
+    const unstructured = await makeShared('UNSTRUCTURED');
+    unstructured.species = 'Horse';
+    unstructured.attributes = Object.fromEntries(ATTRIBUTE_KEYS.map((k) => [k, 50]));
+    uploadPetLocallyMock.mockResolvedValueOnce({
+      status: 'success',
+      kind: 'created',
+      message: '',
+      pet_id: 71,
+      name: unstructured.name,
+    });
+    updatePetMock.mockResolvedValue(true);
+
+    await importCommunityPet(unstructured);
+    expect(updatePet).toHaveBeenCalledWith(71, expect.objectContaining({ attributes_measured: false }));
+
+    const structured = await makeShared('STRUCTURED');
+    structured.species = 'Horse';
+    structured.name = 'Kb F 40 80 70 70 70 70 70';
+    structured.attributes = { ...unstructured.attributes, temperament: 40, toughness: 80 };
+    uploadPetLocallyMock.mockResolvedValueOnce({
+      status: 'success',
+      kind: 'created',
+      message: '',
+      pet_id: 72,
+      name: structured.name,
+    });
+
+    await importCommunityPet(structured);
+    expect(updatePet).toHaveBeenCalledWith(72, expect.objectContaining({ attributes_measured: true }));
   });
 
   it('does not touch attributes when the shared entry is legacy (no attributes)', async () => {
