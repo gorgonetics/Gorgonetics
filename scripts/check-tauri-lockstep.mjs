@@ -45,13 +45,27 @@ const ENTRY_PATTERN = /^\s*-\s+(@?[a-z][a-z0-9/-]*)\s+\S+:\s*(.+?)\s*$/;
 const NPM_SCOPE = '@tauri-apps/';
 
 /**
+ * A name -> version map, where null means the CLI reported the package as
+ * absent. This file is plain JS, but svelte-check type-checks it (the unit
+ * tests import it), so the shapes are annotated.
+ *
+ * @typedef {Map<string, string | null>} VersionMap
+ */
+
+/**
  * Splits `tauri info` output into { crates, npm }, each a name -> version map.
  * A package the CLI reports as absent maps to null, which is not a mismatch:
  * tauri-plugin-log, for one, is deliberately Rust-only here.
+ *
+ * @param {string} output Raw stdout from `pnpm tauri info`.
+ * @returns {{ crates: VersionMap, npm: VersionMap }}
  */
 export function parseTauriInfo(output) {
+  /** @type {VersionMap} */
   const crates = new Map();
+  /** @type {VersionMap} */
   const npm = new Map();
+  /** @type {string | null} */
   let section = null;
 
   for (const rawLine of output.replace(ANSI_PATTERN, '').split('\n')) {
@@ -60,7 +74,7 @@ export function parseTauriInfo(output) {
       section = header[1];
       continue;
     }
-    if (!VERSIONED_SECTIONS.has(section)) continue;
+    if (section === null || !VERSIONED_SECTIONS.has(section)) continue;
 
     const entry = rawLine.match(ENTRY_PATTERN);
     if (!entry) continue;
@@ -79,7 +93,12 @@ export function parseTauriInfo(output) {
   return { crates, npm };
 }
 
-/** "2.11.5" -> "2.11"; "2.0.0-rc.3" -> "2.0". */
+/**
+ * "2.11.5" -> "2.11"; "2.0.0-rc.3" -> "2.0".
+ *
+ * @param {string} version
+ * @returns {string}
+ */
 function majorMinor(version) {
   const [major, minor] = version.split('.');
   return `${major}.${minor}`;
@@ -94,6 +113,9 @@ function majorMinor(version) {
  * Note: @tauri-apps/cli is deliberately not paired here. Its Rust counterpart
  * (the tauri-cli crate) isn't a dependency of this project, so `tauri info`
  * reports no crate version to compare it against.
+ *
+ * @param {VersionMap} crates
+ * @returns {Generator<[string, string]>} [crate, npm package] pairs.
  */
 function* pairs(crates) {
   for (const crate of crates.keys()) {
@@ -105,8 +127,25 @@ function* pairs(crates) {
   }
 }
 
-/** The pairs with both halves installed — the ones actually comparable. */
+/**
+ * A crate/npm pair with both halves installed, and the versions to compare.
+ *
+ * @typedef {object} ComparablePair
+ * @property {string} crate
+ * @property {string} crateVersion
+ * @property {string} npmPackage
+ * @property {string} npmVersion
+ */
+
+/**
+ * The pairs with both halves installed — the ones actually comparable.
+ *
+ * @param {VersionMap} crates
+ * @param {VersionMap} npm
+ * @returns {ComparablePair[]}
+ */
 function comparablePairs(crates, npm) {
+  /** @type {ComparablePair[]} */
   const comparable = [];
 
   for (const [crate, npmPackage] of pairs(crates)) {
@@ -124,6 +163,9 @@ function comparablePairs(crates, npm) {
 /**
  * Returns one entry per crate/npm pair that would stop `tauri build`.
  * An empty array means the tree is in lockstep.
+ *
+ * @param {string} output Raw stdout from `pnpm tauri info`.
+ * @returns {ComparablePair[]}
  */
 export function findMismatches(output) {
   const { crates, npm } = parseTauriInfo(output);
@@ -137,10 +179,12 @@ function main() {
   let output;
   try {
     output = execFileSync('pnpm', ['tauri', 'info'], { encoding: 'utf-8' });
-  } catch (error) {
+  } catch (cause) {
     // `tauri info` reports environment gaps (a missing Xcode, say) through
     // its exit code. Those say nothing about version lockstep, so keep going
-    // whenever it still produced output to read.
+    // whenever it still produced output to read — execFileSync hangs the
+    // captured stdout off the error it throws.
+    const error = /** @type {{ stdout?: string; message: string }} */ (cause);
     output = error.stdout;
     if (!output) {
       console.error('Could not run `pnpm tauri info`:', error.message);
