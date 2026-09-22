@@ -8,6 +8,7 @@
     "prepare": "svelte-kit sync",
     "gen:gene-colors-css": "node scripts/gen-gene-colors-css.mjs",
     "sync:bundled-assets": "node scripts/sync-bundled-assets.mjs",
+    "check:tauri-versions": "node scripts/check-tauri-lockstep.mjs",
     "dev": "pnpm gen:gene-colors-css && pnpm sync:bundled-assets && vite dev",
     "build": "pnpm gen:gene-colors-css && pnpm sync:bundled-assets && vite build",
     "preview": "vite preview",

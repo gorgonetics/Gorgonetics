@@ -84,6 +84,7 @@ pnpm dev                          # Frontend dev server only (port 5174)
 # Quality (MUST pass before committing)
 pnpm run lint:ci                  # Biome (zero errors)
 cargo check                       # Rust compilation (run from src-tauri/)
+pnpm check:tauri-versions         # Tauri crate/npm pairs on same major/minor
 
 # Tests
 pnpm test                         # Vitest unit tests

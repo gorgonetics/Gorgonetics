@@ -5,7 +5,8 @@ set -euo pipefail
 # Usage: bash scripts/release.sh <major|minor|patch> [notes-file]
 #
 # Steps:
-#   1. Bumps version in package.json, tauri.conf.json, Cargo.toml, Cargo.lock
+#   1. Verifies Tauri crate/npm version lockstep, then bumps version in
+#      package.json, tauri.conf.json, Cargo.toml, Cargo.lock
 #   2. Regenerates screenshots (starts dev server, runs pnpm screenshots)
 #   3. Runs lint and E2E tests
 #   4. Reads release notes from notes-file (defaults to RELEASE_NOTES.md),
@@ -48,6 +49,14 @@ fi
 cd "$(git rev-parse --show-toplevel)"
 
 git pull --ff-only
+
+# --- Pre-flight: Tauri crate/npm lockstep ---
+# `tauri build` refuses to run when a plugin's crate and npm package differ on
+# major/minor, and the release workflow is the only place that runs it — which
+# is how v0.9.1 got tagged and then failed to build on all three platforms.
+# Checked here, before anything is bumped, so a failure leaves the tree clean.
+echo "Checking Tauri crate/npm version lockstep..."
+pnpm check:tauri-versions
 
 # --- Read current version ---
 CURRENT=$(node -p "require('./package.json').version")
