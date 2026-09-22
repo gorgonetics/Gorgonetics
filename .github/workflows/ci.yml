@@ -105,6 +105,12 @@ jobs:
       - name: Install JS dependencies
         run: pnpm install
 
+      # Runs before the slow steps so a dependabot bump that moves only one
+      # half of a crate/npm pair fails here in seconds, rather than at tag
+      # time when the release workflow runs the only `tauri build` we have.
+      - name: Check Tauri crate/npm version lockstep
+        run: pnpm check:tauri-versions
+
       - name: Build frontend
         run: pnpm build
 
