@@ -94,10 +94,7 @@ export async function openGeneEditor(page: Page) {
   // Reference is map-first since #368 §7; the template editor lives behind the
   // Edit toggle, which is what exposes the chromosome picker.
   await page.getByTestId('reference-edit-toggle').click();
-  await expect(page.locator('#animalType option')).not.toHaveCount(1);
-
-  const firstValue = await page.locator('#animalType option').nth(1).getAttribute('value');
-  await page.locator('#animalType').selectOption(firstValue);
+  // A species is preselected; its chromosomes load without a pick.
 
   await expect(page.locator('#chromosome option')).not.toHaveCount(1);
 
