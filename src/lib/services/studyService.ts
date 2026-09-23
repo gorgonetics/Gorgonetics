@@ -97,7 +97,8 @@ export const STUDYABLE_SPECIES: readonly string[] = ['horse', 'beewasp'];
  * which says nothing about the base; the assumption rests on player
  * knowledge. If the bases differ, every Bee–Wasp equation carries the gap
  * into a magnitude, and the out-of-sample validation score is where that
- * would show. Adding `beewasp` here splits the pool.
+ * would show. Adding `beewasp` here splits the pool, and then also excludes
+ * beewasps with no breed.
  */
 const BREED_SCOPED_SPECIES: ReadonlySet<string> = new Set(['horse']);
 
