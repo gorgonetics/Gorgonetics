@@ -39,10 +39,11 @@ test.describe('Gene impact lens', () => {
     await expect(page.getByTestId('stats-impact-note')).toBeVisible();
   });
 
-  test('a species the study does not cover says so', async ({ page }) => {
+  test('beewasps are studied too, so no coverage caveat shows', async ({ page }) => {
     await openPetOfSpecies(page, 'beewasp');
     await page.getByTestId('view-impact-btn').click();
-    await expect(page.getByTestId('impact-status')).toContainText('does not cover');
+    await expect(page.getByTestId('impact-summary')).toBeVisible();
+    await expect(page.getByTestId('impact-status')).not.toContainText('does not cover');
   });
 
   test('genome map has an impact lens that is remembered', async ({ page }) => {
