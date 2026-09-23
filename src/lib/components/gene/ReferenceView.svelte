@@ -1,9 +1,10 @@
 <script lang="ts">
 /**
- * Reference — the full-width gene-template editor. The animal-type / chromosome
- * pickers sit in a top toolbar (consistent with the other destinations' top
- * controls); the editing grid fills the area below. Replaces the old sidebar
- * GeneEditor + MasterPanel rail. See docs/design/redesign-library-workspace-v1.md (§9).
+ * Reference — the full-width gene-template editor. The species selector and
+ * chromosome picker sit in a top toolbar (consistent with the other
+ * destinations' top controls); the editing grid fills the area below. Replaces
+ * the old sidebar GeneEditor + MasterPanel rail. See
+ * docs/design/redesign-library-workspace-v1.md (§9).
  */
 import { onMount } from 'svelte';
 import GeneEditingView from '$lib/components/GeneEditingView.svelte';
@@ -14,13 +15,22 @@ import { normalizeSpecies } from '$lib/services/configService.js';
 import { petsForTier, type RarityTier } from '$lib/services/frequencyService.js';
 import * as geneService from '$lib/services/geneService.js';
 import { pets as allPets, appState, geneEditingView } from '$lib/stores/pets.js';
-import { BREEDS_BY_SPECIES } from '$lib/utils/species.js';
+import { referenceView } from '$lib/stores/reference.svelte.js';
+import { BREEDS_BY_SPECIES, getSpeciesEmoji, mostPopulatedSpecies } from '$lib/utils/species.js';
+import { capitalize } from '$lib/utils/string.js';
 
 const geneEdit = $derived($geneEditingView as { animalType?: string; chromosome?: string } | null);
 
-let selectedAnimalType = $state('');
 let selectedChromosome = $state('');
 let animalTypes = $state<string[]>([]);
+
+// Default to the most-populated species rather than an empty prompt; an
+// explicit pick persists in referenceView across destination switches. A
+// remembered pick the gene table no longer has falls through to the default.
+const defaultAnimalType = $derived(mostPopulatedSpecies($allPets, animalTypes));
+const selectedAnimalType = $derived(
+  animalTypes.includes(referenceView.animalType) ? referenceView.animalType : defaultAnimalType,
+);
 let chromosomes = $state<string[]>([]);
 let loadingChromosomes = $state(false);
 let editorError = $state('');
@@ -97,15 +107,22 @@ $effect(() => {
        redundant repeat of the nav tab (its description is the tab's tooltip). -->
   <h2 class="sr-only">Reference</h2>
   <div class="ref-toolbar">
-    <label class="ref-field">
-      <span>Animal type</span>
-      <select id="animalType" bind:value={selectedAnimalType} disabled={loadingChromosomes}>
-        <option value="">Select…</option>
+    {#if animalTypes.length > 0}
+      <div class="seg ref-species" role="group" aria-label="Species" data-testid="reference-species">
         {#each animalTypes as type (type)}
-          <option value={type}>{type}</option>
+          <button
+            type="button"
+            class="seg-btn species-btn"
+            class:active={selectedAnimalType === type}
+            aria-pressed={selectedAnimalType === type}
+            data-species={type}
+            onclick={() => { referenceView.animalType = type; }}
+          >
+            {getSpeciesEmoji(type)} {capitalize(normalizeSpecies(type) || type)}
+          </button>
         {/each}
-      </select>
-    </label>
+      </div>
+    {/if}
     {#if editMode}
       <label class="ref-field">
         <span>Chromosome</span>
@@ -172,17 +189,13 @@ $effect(() => {
         <EmptyState
           icon="📚"
           title="Edit gene templates"
-          body="Pick an animal type and chromosome above, then choose Edit Genes."
+          body="Pick a chromosome above, then choose Edit Genes."
         />
       {/if}
     {:else if selectedAnimalType}
       <GenomeMap species={selectedAnimalType} {populationPets} {breedFilter} />
-    {:else}
-      <EmptyState
-        icon="🧬"
-        title="Genome map"
-        body="Pick an animal type above to see how rare each gene value is across your pets."
-      />
+    {:else if !editorError}
+      <EmptyState icon="🧬" title="Genome map" body="No gene templates are loaded yet." />
     {/if}
   </div>
 </div>
@@ -211,6 +224,9 @@ $effect(() => {
   /* The map owns its own scrolling (its cell size is measured from that box),
      so the wrapper must not scroll or the two would fight. */
   .ref-body-map { overflow: hidden; display: flex; min-width: 0; }
+
+  .ref-species { flex-shrink: 0; }
+  .species-btn { padding: var(--space-2xs) var(--space-lg); }
 
   .edit-toggle {
     margin-left: auto; padding: 7px var(--space-xl); border: 1px solid var(--border-secondary);

@@ -35,7 +35,7 @@ import {
 import { suggestPlans } from '$lib/utils/breedingPlan.js';
 import { parseBreedLockWeight } from '$lib/utils/geneticQuality.js';
 import { keyedResource } from '$lib/utils/keyedResource.svelte.js';
-import { getSpeciesEmoji } from '$lib/utils/species.js';
+import { getSpeciesEmoji, mostPopulatedSpecies } from '$lib/utils/species.js';
 import { capitalize } from '$lib/utils/string.js';
 
 // Species options, normalized for matching but shown with their display name.
@@ -46,28 +46,13 @@ const speciesOptions = getSupportedSpecies().map((s) => ({
 }));
 
 // Until the player picks a species, default to the most-populated *stabled*
-// one (a user with 25 stabled horses and 7 beewasps should land on horses,
-// not the alphabetical first). Derived, not assigned at mount: the pet list
-// lands well after mount (AuthWrapper's loadPets), so a mount-time pick would
-// race it and lock in the fallback. Ties go to supported-species order.
-const defaultSpecies = $derived.by(() => {
-  const counts = new Map<string, number>();
-  for (const p of $pets) {
-    if (!p.stabled) continue;
-    const key = normalizeSpecies(p.species);
-    counts.set(key, (counts.get(key) ?? 0) + 1);
-  }
-  let best = '';
-  let bestCount = 0;
-  for (const opt of speciesOptions) {
-    const count = counts.get(opt.key) ?? 0;
-    if (count > bestCount) {
-      best = opt.key;
-      bestCount = count;
-    }
-  }
-  return best || (speciesOptions[0]?.key ?? '');
-});
+// one. Ties go to supported-species order.
+const defaultSpecies = $derived(
+  mostPopulatedSpecies(
+    $pets.filter((p) => p.stabled),
+    speciesOptions.map((o) => o.key),
+  ),
+);
 
 // An explicit pick persists in breedingView.species across destination
 // switches (this component unmounts); '' falls through to the default.

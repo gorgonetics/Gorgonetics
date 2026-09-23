@@ -141,20 +141,17 @@ test.describe('Gene Editor (Reference)', () => {
 
   test('shows the selector form on the Reference destination', async ({ page }) => {
     await gotoDestination(page, 'Reference');
-    // Animal type is shared by both modes; the chromosome picker belongs to the
-    // editor, which is behind the Edit toggle now that Reference is map-first.
-    await expect(page.locator('#animalType')).toBeVisible();
+    // The species selector is shared by both modes; the chromosome picker belongs
+    // to the editor, which is behind the Edit toggle now that Reference is map-first.
+    await expect(page.getByTestId('reference-species')).toBeVisible();
     await page.getByTestId('reference-edit-toggle').click();
     await expect(page.locator('#chromosome')).toBeVisible();
   });
 
-  test('populates animal types and loads chromosomes', async ({ page }) => {
+  test('preselects a species and loads its chromosomes', async ({ page }) => {
     await gotoDestination(page, 'Reference');
     await page.getByTestId('reference-edit-toggle').click();
-    await expect(page.locator('#animalType option')).not.toHaveCount(1);
-
-    const firstValue = await page.locator('#animalType option').nth(1).getAttribute('value');
-    await page.locator('#animalType').selectOption(firstValue);
+    await expect(page.locator('[data-testid="reference-species"] .seg-btn.active')).toHaveCount(1);
     await expect(page.locator('#chromosome option')).not.toHaveCount(1);
   });
 
@@ -180,7 +177,7 @@ test.describe('Destination Navigation', () => {
 
     await gotoDestination(page, 'Reference');
     await expect(page.locator('[data-testid="tab-reference"]')).toHaveClass(/active/);
-    await expect(page.locator('#animalType')).toBeVisible();
+    await expect(page.getByTestId('reference-species')).toBeVisible();
 
     await gotoDestination(page, 'My Pets');
     await expect(page.locator('[data-testid="tab-mypets"]')).toHaveClass(/active/);
