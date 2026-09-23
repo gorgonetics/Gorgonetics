@@ -7,6 +7,7 @@ import { allTags as allTagsStore, appState } from '$lib/stores/pets.js';
 import type { AttributeInfo, Gender, Pet } from '$lib/types/index.js';
 import { HORSE_BREEDS } from '$lib/types/index.js';
 import { focusTrap } from '$lib/utils/focusTrap.js';
+import { updatesFromName } from '$lib/utils/nameAttributes.js';
 import { computePetChanges } from '$lib/utils/petChanges.js';
 import TagInput from './TagInput.svelte';
 
@@ -115,7 +116,29 @@ function discardChanges(): void {
   onClose?.();
 }
 
+/**
+ * Whether the attribute fields were last set from the name. Import reads a
+ * structured name once; renaming into the format here fills the fields the
+ * same way, before Save, so the player sees the values and can still adjust
+ * them. Typing in a field afterwards clears the note, not the values.
+ */
+let filledFromName = $state(false);
+
+function handleNameInput(value: string): void {
+  editName = value;
+  const updates = updatesFromName({ name: value, species: pet.species, breed: editBreed });
+  if (!updates) {
+    filledFromName = false;
+    return;
+  }
+  for (const [key, attrValue] of Object.entries(updates.attributes)) editAttributes[key] = attrValue;
+  editGender = updates.gender;
+  if (updates.breed && breedOptions.includes(updates.breed)) editBreed = updates.breed;
+  filledFromName = true;
+}
+
 function updateAttribute(attrKey: string, value: string): void {
+  filledFromName = false;
   editAttributes[attrKey] = Number.parseInt(value, 10) || 0;
 }
 </script>
@@ -134,7 +157,16 @@ function updateAttribute(attrKey: string, value: string): void {
             <h3>Basic Information</h3>
             <div class="field">
               <label for="petName">Pet Name</label>
-              <input id="petName" type="text" bind:value={editName} placeholder="Enter pet name" />
+              <input
+                id="petName"
+                type="text"
+                value={editName}
+                oninput={(e) => handleNameInput((e.currentTarget as HTMLInputElement).value)}
+                placeholder="Enter pet name"
+              />
+              {#if filledFromName}
+                <p class="name-fill-note" data-testid="pet-editor-name-fill">Attributes filled from the name.</p>
+              {/if}
             </div>
             <div class="field-row">
               <div class="field">
@@ -446,6 +478,12 @@ function updateAttribute(attrKey: string, value: string): void {
     color: var(--text-muted);
     font-size: 12px;
     margin-left: auto;
+  }
+
+  .name-fill-note {
+    margin: var(--space-2xs) 0 0;
+    font-size: 12px;
+    color: var(--text-tertiary);
   }
 
   .save-error {

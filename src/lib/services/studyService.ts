@@ -68,6 +68,7 @@ import { sha256Hex } from '$lib/utils/hash.js';
 import { loadAllPetLoci, type PetLoci } from '$lib/utils/petLoci.js';
 import { ATTRIBUTE_KEYS, carriesReadings, dedupeLatest } from '$lib/utils/sharedPet.js';
 import { now } from '$lib/utils/timestamp.js';
+import { parseStructuredPetName } from './nameParser.js';
 
 /** The breed value for an animal of no single breed; see the exclusion in `loadStudyCorpus`. */
 const MIXED_BREED = 'Mixed';
@@ -106,6 +107,22 @@ function viewOf(genes: Record<string, string>): GenomeView {
     has: (gene) => genes[gene] !== undefined,
     values: () => Object.values(genes),
   };
+}
+
+/**
+ * A community animal's readings: the published values when they carry any,
+ * else the ones its structured name spells out.
+ *
+ * Many entries were shared with a structured name but no attributes entered,
+ * so the catalogue publishes defaults. The catalogue cannot be corrected by
+ * anyone but its uploader, and the name is the uploader's own record of the
+ * values, so it stands in when the published columns are empty. Published
+ * readings always win: they are the later, deliberate entry.
+ */
+function communityReadings(attributes: Record<string, number>, name: string, species: string): Record<string, number> {
+  if (carriesReadings(attributes)) return attributes;
+  const parsed = parseStructuredPetName(name, species);
+  return parsed ? { ...attributes, ...parsed.attributes } : attributes;
 }
 
 /** Why an animal was left out of the corpus. */
@@ -315,8 +332,9 @@ async function cachedSubjects(
     let attributes: Record<string, number>;
     try {
       const raw = JSON.parse(row.attributes) as Record<string, unknown>;
-      attributes = {};
-      for (const [key, value] of Object.entries(raw)) if (typeof value === 'number') attributes[key] = value;
+      const published: Record<string, number> = {};
+      for (const [key, value] of Object.entries(raw)) if (typeof value === 'number') published[key] = value;
+      attributes = communityReadings(published, row.name, normalized);
     } catch {
       drop('unmeasured');
       continue;
@@ -484,10 +502,9 @@ interface CachedRow {
  * caller options that can change between refreshes. Filtering those at read
  * time keeps the cache useful when they do.
  */
-function usableSharedPet(pet: SharedPet, genes: Record<string, string>): boolean {
-  return (
-    eligibility({ measured: carriesReadings(pet.attributes), breed: pet.breed }, viewOf(genes), [], false) === null
-  );
+function usableSharedPet(pet: SharedPet, genes: Record<string, string>, species: string): boolean {
+  const readings = communityReadings(pet.attributes ?? {}, pet.name, species);
+  return eligibility({ measured: carriesReadings(readings), breed: pet.breed }, viewOf(genes), [], false) === null;
 }
 
 /**
@@ -592,7 +609,7 @@ export async function refreshStudyCorpus(
     const genes: Record<string, string> = {};
     for (const [chromosome, list] of Object.entries(parseGenome(genome).genes))
       for (const gene of list) genes[`${chromosome}${gene.block}${gene.position}`] = gene.gene_type;
-    if (!usableSharedPet(pet, genes)) continue;
+    if (!usableSharedPet(pet, genes, normalized)) continue;
 
     rows.push({
       content_hash: hash,
@@ -843,7 +860,7 @@ export async function liveGeneConfirmations(
  * eligibility rules in `loadStudyCorpus`, or the shape `persistMagnitudes`
  * writes all count as changing the solve.
  */
-const SOLVER_VERSION = 2;
+const SOLVER_VERSION = 3;
 
 /**
  * A durable fingerprint of everything the solve depends on.
