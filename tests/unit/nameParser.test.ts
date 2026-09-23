@@ -103,8 +103,8 @@ describe('parseStructuredPetName', () => {
   });
 
   describe('returns null for non-matching names', () => {
-    it('returns null for non-Horse species', () => {
-      expect(parseStructuredPetName('Kb F 60 70 65 80 90 100 55', 'BeeWasp')).toBeNull();
+    it('returns null for a species with no rule', () => {
+      expect(parseStructuredPetName('Kb F 60 70 65 80 90 100 55', 'Dragon')).toBeNull();
     });
 
     it('returns null for unknown breed shortcode', () => {
@@ -138,6 +138,45 @@ describe('parseStructuredPetName', () => {
 
     it('returns null for empty name', () => {
       expect(parseStructuredPetName('', 'Horse')).toBeNull();
+    });
+  });
+
+  describe('BeeWasp', () => {
+    it('ignores the first token and reads Ferocity first, then the core attributes', () => {
+      const result = parseStructuredPetName('Bz F 60 70 65 80 90 100 55', 'BeeWasp');
+      expect(result).toEqual({
+        breed: '',
+        gender: 'Female',
+        attributes: {
+          ferocity: 60,
+          toughness: 70,
+          ruggedness: 65,
+          enthusiasm: 80,
+          friendliness: 90,
+          intelligence: 100,
+          virility: 55,
+        },
+        label: null,
+      });
+    });
+
+    it('accepts any first word, since beewasps have no breed code', () => {
+      for (const first of ['Bee', 'Wasp', 'x', 'Kb']) {
+        expect(parseStructuredPetName(`${first} M 50 50 50 50 50 50 50`, 'BeeWasp')?.breed).toBe('');
+      }
+    });
+
+    it('keeps a trailing label and matches gender case-insensitively', () => {
+      const result = parseStructuredPetName('bee m 50 50 50 50 50 50 50 Queen Of Hive', 'beewasp');
+      expect(result?.gender).toBe('Male');
+      expect(result?.label).toBe('Queen Of Hive');
+    });
+
+    it('applies the horse rule to everything after the first word', () => {
+      expect(parseStructuredPetName('Bee X 50 50 50 50 50 50 50', 'BeeWasp')).toBeNull();
+      expect(parseStructuredPetName('Bee F 50 50 50', 'BeeWasp')).toBeNull();
+      expect(parseStructuredPetName('Bee F 50 50 50 101 50 50 50', 'BeeWasp')).toBeNull();
+      expect(parseStructuredPetName('Buzzy', 'BeeWasp')).toBeNull();
     });
   });
 });

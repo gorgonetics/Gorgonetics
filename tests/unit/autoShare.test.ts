@@ -42,9 +42,9 @@ function summary(over: Partial<Record<string, number>> = {}) {
   return { created: 0, alreadyShared: 0, skipped: 0, failed: 0, items: [], ...over } as never;
 }
 
-// Structured Horse names (breed + M/F + 7 attribute values) parse into
-// known-good attributes, so they clear the auto-share gate. Everything else
-// (unstructured names, all BeeWasp) is held back for a reviewed manual share.
+// Structured names (breed code + M/F + 7 attribute values; a BeeWasp's first
+// word is ignored) parse into known-good attributes, so they clear the
+// auto-share gate. Unstructured names are held back for a reviewed manual share.
 const STRUCTURED_1 = { id: 1, name: 'Sb M 50 50 50 50 50 50 50', species: 'Horse', notes: 'private-1' };
 const STRUCTURED_3 = { id: 3, name: 'Sb F 60 60 60 60 60 60 60', species: 'Horse', notes: 'private-3' };
 const UNSTRUCTURED_2 = { id: 2, name: 'Just A Name', species: 'Horse', notes: '' };
@@ -68,6 +68,14 @@ describe('autoShareImportedPets', () => {
       { ...STRUCTURED_3, notes: '' },
     ]);
     expect(result).toEqual(summary({ created: 2 }));
+  });
+
+  it('shares a structured BeeWasp', async () => {
+    const bee = { id: 4, name: 'Bee F 60 60 60 60 60 60 60', species: 'BeeWasp', notes: '' };
+    h.pets.set([bee, { id: 5, name: 'Buzzy', species: 'BeeWasp', notes: '' }]);
+    uploadPetsMock.mockResolvedValue(summary({ created: 1 }));
+    await autoShareImportedPets([4, 5]);
+    expect(uploadPetsMock.mock.calls[0][0]).toEqual([bee]);
   });
 
   it('skips pets whose attributes are not known-good (unstructured name)', async () => {
