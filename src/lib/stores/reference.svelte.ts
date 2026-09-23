@@ -12,4 +12,6 @@ export const referenceView = $state({
    * species) instead of showing an empty prompt.
    */
   animalType: '' as string,
+  /** Which genome-map lens is showing. */
+  lens: 'rarity' as 'rarity' | 'impact',
 });
