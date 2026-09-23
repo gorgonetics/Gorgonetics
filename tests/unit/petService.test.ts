@@ -154,14 +154,14 @@ describe('Pet Service', () => {
       expect(pet.name).toBe('Kb F 60 70 65 80 90 100 55');
     });
 
-    it('infers gender and attributes from a structured BeeWasp name, with no breed', async () => {
+    it('infers breed, gender and attributes from a structured BeeWasp name', async () => {
       const entity = SAMPLE_BEEWASP.match(/^Entity=.*$/m)![0];
       const structuredBee = SAMPLE_BEEWASP.replace(entity, 'Entity=Bee M 60 70 65 80 90 100 55');
       const result = await petService.uploadPet(structuredBee, { name: '', gender: 'Female' });
       expect(result.status).toBe('success');
 
       const pet = (await petService.getPet(result.pet_id!))!;
-      expect(pet.breed).toBe('');
+      expect(pet.breed).toBe('Bee');
       expect(pet.gender).toBe('Male');
       expect(pet.ferocity).toBe(60);
       expect(pet.toughness).toBe(70);

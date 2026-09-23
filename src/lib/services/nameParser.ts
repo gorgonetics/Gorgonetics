@@ -1,4 +1,5 @@
 import { Gender, HORSE_BREED_ABBREVIATIONS } from '$lib/types/index.js';
+import { BREEDS_BY_SPECIES } from '$lib/utils/species.js';
 import { getCoreAttributeNames, getSpeciesAttributeNames, normalizeSpecies } from './configService.js';
 
 export interface StructuredPetName {
@@ -24,16 +25,21 @@ const HORSE_BREED_LOOKUP: Record<string, string> = Object.fromEntries(
   Object.entries(HORSE_BREED_ABBREVIATIONS).map(([abbr, fullName]) => [abbr.toLowerCase(), fullName]),
 );
 
+const BEEWASP_BREED_LOOKUP: Record<string, string> = Object.fromEntries(
+  Object.keys(BREEDS_BY_SPECIES.beewasp).map((breed) => [breed.toLowerCase(), breed]),
+);
+
 const RULES: Record<string, NameRule> = {
   horse: {
     attributeOrder: [...getSpeciesAttributeNames('horse'), ...getCoreAttributeNames()],
     breedOf: (token) => HORSE_BREED_LOOKUP[token.toLowerCase()] ?? null,
   },
-  // Beewasps have no breeds. The first token keeps the horse layout so one
-  // naming habit works for both species, but its value is not read.
+  // The first token keeps the horse layout so one naming habit works for both
+  // species. `Bee` or `Wasp` there sets that breed (the values the app offers
+  // for a beewasp); any other word is accepted and leaves the breed unset.
   beewasp: {
     attributeOrder: [...getSpeciesAttributeNames('beewasp'), ...getCoreAttributeNames()],
-    breedOf: () => '',
+    breedOf: (token) => BEEWASP_BREED_LOOKUP[token.toLowerCase()] ?? '',
   },
 };
 
@@ -42,8 +48,9 @@ const RULES: Record<string, NameRule> = {
  *
  * Format: <breed_shortcode> <M|F> <attribute values...> [optional label...]
  *
- * For a beewasp the first token is required but ignored, and the breed comes
- * back as ''. Breed code and gender match case-insensitively.
+ * For a beewasp the first token is required; `Bee` or `Wasp` there is the
+ * breed, and any other word leaves it ''. Breed code and gender match
+ * case-insensitively.
  *
  * Returns null if the name does not match the expected format, or the
  * species has no rule.

@@ -17,10 +17,13 @@ interface Migration {
 /**
  * `attributes_measured` for a pet row that predates the column.
  *
- * Either proof will do. A name that parses is an animal the pre-v18 gate
- * admitted, and its values came from that name. A value off the default is a
- * measurement whatever the name says — including the ones the old gate was
- * wrong about, hand-corrected in the editor under a name it could not read.
+ * Either proof will do. A name that parses *and whose values the row holds*
+ * is an animal whose values came from that name. Parsing alone is not enough:
+ * a species can gain a name rule after its animals were imported (beewasps
+ * did), and those rows kept the defaults under a name that now parses. A
+ * value off the default is a measurement whatever the name says — including
+ * the ones the old gate was wrong about, hand-corrected in the editor under a
+ * name it could not read.
  *
  * Exported because a restore has to reach the same verdict as an upgrade: a
  * pre-v18 archive carries no column either, and the two paths disagreeing
@@ -28,7 +31,9 @@ interface Migration {
  * got here.
  */
 export function derivedProvenance(row: Record<string, unknown>): boolean {
-  return parseStructuredPetName(String(row.name ?? ''), String(row.species ?? '')) !== null || carriesReadings(row);
+  if (carriesReadings(row)) return true;
+  const parsed = parseStructuredPetName(String(row.name ?? ''), String(row.species ?? ''));
+  return parsed !== null && Object.entries(parsed.attributes).every(([key, value]) => row[key] === value);
 }
 
 /**

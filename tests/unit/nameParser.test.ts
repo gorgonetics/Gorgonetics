@@ -142,7 +142,7 @@ describe('parseStructuredPetName', () => {
   });
 
   describe('BeeWasp', () => {
-    it('ignores the first token and reads Ferocity first, then the core attributes', () => {
+    it('reads Ferocity first, then the core attributes', () => {
       const result = parseStructuredPetName('Bz F 60 70 65 80 90 100 55', 'BeeWasp');
       expect(result).toEqual({
         breed: '',
@@ -160,8 +160,10 @@ describe('parseStructuredPetName', () => {
       });
     });
 
-    it('accepts any first word, since beewasps have no breed code', () => {
-      for (const first of ['Bee', 'Wasp', 'x', 'Kb']) {
+    it('reads Bee or Wasp from the first word, in any case, and accepts any other word', () => {
+      expect(parseStructuredPetName('Bee M 50 50 50 50 50 50 50', 'BeeWasp')?.breed).toBe('Bee');
+      expect(parseStructuredPetName('wasp M 50 50 50 50 50 50 50', 'BeeWasp')?.breed).toBe('Wasp');
+      for (const first of ['x', 'Kb', 'Bz']) {
         expect(parseStructuredPetName(`${first} M 50 50 50 50 50 50 50`, 'BeeWasp')?.breed).toBe('');
       }
     });
