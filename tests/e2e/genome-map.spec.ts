@@ -103,10 +103,7 @@ const tinted = (paint: Paint, neutral: string) =>
  * spuriously rare. Both are asserted below.
  */
 async function selectSpecies(page: import('@playwright/test').Page, name: string) {
-  const labels = await page.locator('#animalType option').allTextContents();
-  const match = labels.find((l) => l.toLowerCase() === name);
-  expect(match, `no ${name} among ${JSON.stringify(labels)}`).toBeTruthy();
-  await page.locator('#animalType').selectOption({ label: match as string });
+  await page.locator(`[data-testid="reference-species"] [data-species="${name}"]`).click();
   await expect(page.getByTestId('genome-map-grid')).toBeVisible();
 }
 

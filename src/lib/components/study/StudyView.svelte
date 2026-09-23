@@ -1,5 +1,4 @@
 <script lang="ts">
-import { normalizeSpecies } from '$lib/services/configService.js';
 import {
   confirmGeneDeclaration,
   listExcludedSubjects,
@@ -15,6 +14,7 @@ import {
 import { pets } from '$lib/stores/pets.js';
 import { settings, settingsActions } from '$lib/stores/settings.js';
 import type { GeneDoubt } from '$lib/utils/attributeStudy.js';
+import { mostPopulatedSpecies } from '$lib/utils/species.js';
 import StudyFindingsTable from './StudyFindingsTable.svelte';
 
 // Only species the study can measure. Listing one it cannot gives a panel
@@ -35,23 +35,7 @@ const COMMUNITY_HINT =
  * because the pet list arrives well after mount.
  */
 let picked = $state('');
-const defaultSpecies = $derived.by(() => {
-  const counts = new Map<string, number>();
-  for (const p of $pets) {
-    const key = normalizeSpecies(p.species);
-    counts.set(key, (counts.get(key) ?? 0) + 1);
-  }
-  let best = '';
-  let bestCount = 0;
-  for (const key of speciesOptions) {
-    const count = counts.get(key) ?? 0;
-    if (count > bestCount) {
-      best = key;
-      bestCount = count;
-    }
-  }
-  return best || (speciesOptions[0] ?? '');
-});
+const defaultSpecies = $derived(mostPopulatedSpecies($pets, speciesOptions));
 const species = $derived(picked || defaultSpecies);
 
 /** Plain-English reasons, so the corpus line reads as a sentence. */

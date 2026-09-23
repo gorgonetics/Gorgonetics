@@ -69,6 +69,9 @@ const PET_COLUMNS = [
   // Attribute provenance (migration v18). Without it every restored animal
   // reads as never measured and the study corpus comes back empty.
   'attributes_measured',
+  // Study exclusion (migration v16). Without it a restore puts every animal
+  // the player judged mis-recorded back into the study corpus.
+  'use_for_studies',
 ];
 
 // --- Export ---
@@ -390,7 +393,7 @@ async function importGenesAndPets(
       for (const col of PET_COLUMNS) {
         if (col === 'genome_data') row[col] = genomeData;
         else if (col === 'sort_order') row[col] = ((pet[col] as number) ?? 0) + sortOrderOffset;
-        else if (col === 'stabled') row[col] = pet[col] ?? 1;
+        else if (col === 'stabled' || col === 'use_for_studies') row[col] = pet[col] ?? 1;
         else if (col === 'starred' || col === 'is_pet_quality') row[col] = pet[col] ?? 0;
         // Pre-v13 backups don't carry genome_text. The column is
         // NOT NULL DEFAULT '', and explicit-NULL inserts bypass the

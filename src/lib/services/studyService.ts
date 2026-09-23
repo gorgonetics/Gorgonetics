@@ -47,7 +47,12 @@
 
 import { normalizeSpecies } from '$lib/services/configService.js';
 import { buildInClauseParams, getDb, type TxStatement } from '$lib/services/database.js';
-import { geneDeclarationsRevision, getGeneEffectsCached } from '$lib/services/geneService.js';
+import {
+  geneDeclarationsRevision,
+  getGeneEffectsCached,
+  getParsedGenesCached,
+  type ParsedGeneRecord,
+} from '$lib/services/geneService.js';
 import { parseGenome } from '$lib/services/genomeParser.js';
 import { getAllPets, localPetsRevision } from '$lib/services/petService.js';
 import { listGenomes, listPets } from '$lib/services/shareService.js';
@@ -1076,6 +1081,13 @@ const stamp = () => `${localPetsRevision()}:${geneDeclarationsRevision()}`;
 
 const magnitudeCache = new Map<string, MagnitudeEntry>();
 
+/**
+ * Species whose latest study attempt failed. `attributeMagnitudesFor`
+ * answers a failure with the empty table so scorers fall back to counting,
+ * which a view cannot tell apart from "nothing measured yet"; this can.
+ */
+const failedStudies = new Set<string>();
+
 export async function attributeMagnitudesFor(species: string): Promise<AttributeMagnitudes> {
   const normalized = normalizeSpecies(species);
   if (!STUDYABLE_SPECIES.includes(normalized)) return EMPTY_MAGNITUDES;
@@ -1131,6 +1143,7 @@ export async function attributeMagnitudesFor(species: string): Promise<Attribute
   })()
     .then((built) => {
       entry.settled = built;
+      failedStudies.delete(normalized);
       return built;
     })
     .catch((error: unknown) => {
@@ -1140,6 +1153,7 @@ export async function attributeMagnitudesFor(species: string): Promise<Attribute
       // one that a rename or an explicit clear had already put in its place.
       if (magnitudeCache.get(normalized) === entry) magnitudeCache.delete(normalized);
       console.error('attributeMagnitudesFor failed', error);
+      failedStudies.add(normalized);
       return EMPTY_MAGNITUDES;
     });
   entry = { revision, value };
@@ -1171,4 +1185,29 @@ export function peekAttributeMagnitudes(species: string): AttributeMagnitudes | 
 export function clearAttributeMagnitudesCache(species?: string): void {
   if (species) magnitudeCache.delete(normalizeSpecies(species));
   else magnitudeCache.clear();
+}
+
+/** What the impact lens paints from: the gene declarations and the study's magnitudes. */
+export interface GeneImpactData {
+  species: string;
+  parsed: Record<string, ParsedGeneRecord>;
+  magnitudes: AttributeMagnitudes;
+  /** The study failed, so `magnitudes` is the empty fallback, not a result. */
+  studyFailed: boolean;
+}
+
+/**
+ * A key that changes whenever the study's inputs may have: the species plus
+ * the roster and gene-table revisions. A view keyed on it reloads after an
+ * edit instead of painting the table solved before it.
+ */
+export function studyInputsKey(species: string): string {
+  return `${normalizeSpecies(species)}|${stamp()}`;
+}
+
+/** Load everything the impact lens needs for one species (or a `studyInputsKey`). */
+export async function loadGeneImpact(speciesOrKey: string): Promise<GeneImpactData> {
+  const species = normalizeSpecies(speciesOrKey.split('|')[0]);
+  const [parsed, magnitudes] = await Promise.all([getParsedGenesCached(species), attributeMagnitudesFor(species)]);
+  return { species, parsed, magnitudes, studyFailed: failedStudies.has(species) };
 }
