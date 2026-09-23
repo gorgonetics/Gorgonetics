@@ -86,6 +86,18 @@ async function loadChromosomes(): Promise<void> {
   }
 }
 
+/**
+ * Entering the editor pins the species on screen as the player's pick. Left
+ * derived, the default could move under an open editor when the pet list
+ * reloads (an import, any edit), and the chromosome reload that follows
+ * closes the editor and drops its unsaved changes.
+ */
+function toggleEditMode(): void {
+  editMode = !editMode;
+  if (editMode) referenceView.animalType = selectedAnimalType;
+  else appState.clearGeneEditingView();
+}
+
 function openGeneEditor(): void {
   if (!selectedAnimalType || !selectedChromosome) return;
   try {
@@ -172,7 +184,7 @@ $effect(() => {
       aria-pressed={editMode}
       data-testid="reference-edit-toggle"
       title="Edit gene templates for a chromosome"
-      onclick={() => { editMode = !editMode; if (!editMode) appState.clearGeneEditingView(); }}
+      onclick={toggleEditMode}
     >
       Edit
     </button>
