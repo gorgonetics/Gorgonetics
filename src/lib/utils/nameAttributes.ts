@@ -35,10 +35,25 @@ export interface AttributeDifference {
   fromName: number;
 }
 
+/** A non-attribute field the name would also change. */
+export interface FieldChange {
+  field: 'gender' | 'breed';
+  stored: string;
+  fromName: string;
+}
+
 export interface NameBackfillPlan {
   fill: Array<{ pet: Pet; updates: NameUpdates }>;
-  conflicts: Array<{ pet: Pet; updates: NameUpdates; differences: AttributeDifference[] }>;
+  conflicts: Array<{
+    pet: Pet;
+    updates: NameUpdates;
+    differences: AttributeDifference[];
+    fieldChanges: FieldChange[];
+  }>;
 }
+
+/** Pet id -> the name under which the player kept the stored values. */
+export type KeptStoredValues = Readonly<Record<string, string>>;
 
 /** What a pet's name supplies, or `null` when the name does not parse. */
 export function updatesFromName(pet: Pick<Pet, 'name' | 'species' | 'breed'>): NameUpdates | null {
@@ -60,7 +75,22 @@ export function attributeDifferences(pet: Pet, attributes: Record<string, number
   return out;
 }
 
-export function planNameBackfill(pets: readonly Pet[]): NameBackfillPlan {
+/** Gender and breed the name would set, where they differ from what is stored. */
+export function fieldChanges(pet: Pet, updates: NameUpdates): FieldChange[] {
+  const out: FieldChange[] = [];
+  if (updates.gender !== pet.gender) out.push({ field: 'gender', stored: pet.gender ?? '', fromName: updates.gender });
+  if (updates.breed !== undefined && updates.breed !== pet.breed) {
+    out.push({ field: 'breed', stored: pet.breed ?? '', fromName: updates.breed });
+  }
+  return out;
+}
+
+/**
+ * `kept` holds the disagreements the player has settled in favour of the
+ * stored values; one is skipped while the pet still carries the name it was
+ * settled under.
+ */
+export function planNameBackfill(pets: readonly Pet[], kept: KeptStoredValues = {}): NameBackfillPlan {
   const plan: NameBackfillPlan = { fill: [], conflicts: [] };
   for (const pet of pets) {
     const updates = updatesFromName(pet);
@@ -71,8 +101,10 @@ export function planNameBackfill(pets: readonly Pet[]): NameBackfillPlan {
       plan.fill.push({ pet, updates });
       continue;
     }
+    if (kept[String(pet.id)] === pet.name) continue;
     const differences = attributeDifferences(pet, updates.attributes);
-    if (differences.length > 0) plan.conflicts.push({ pet, updates, differences });
+    if (differences.length > 0)
+      plan.conflicts.push({ pet, updates, differences, fieldChanges: fieldChanges(pet, updates) });
   }
   return plan;
 }

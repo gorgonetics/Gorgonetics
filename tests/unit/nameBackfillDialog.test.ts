@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import NameBackfillDialog from '$lib/components/mypets/NameBackfillDialog.svelte';
 import { appState, pets } from '$lib/stores/pets.js';
+import { settings, settingsActions } from '$lib/stores/settings.js';
 import type { Pet } from '$lib/types/index.js';
 
 const VALUES = {
@@ -26,9 +27,17 @@ const pet = (over: Partial<Pet>): Pet =>
 
 describe('NameBackfillDialog', () => {
   beforeEach(() => {
+    settings.set({ 'names.keptStoredValues': {} });
     pets.set([
       pet({ id: 1, name: 'Kb F 60 70 65 80 90 100 55' }),
-      pet({ id: 2, name: 'Kb F 60 70 65 80 90 100 55 Edited', attributes_measured: true, ...VALUES, toughness: 72 }),
+      pet({
+        id: 2,
+        name: 'Kb F 60 70 65 80 90 100 55 Edited',
+        attributes_measured: true,
+        ...VALUES,
+        toughness: 72,
+        gender: 'Male' as never,
+      }),
       pet({ id: 3, name: 'Dusty' }),
     ]);
   });
@@ -57,5 +66,20 @@ describe('NameBackfillDialog', () => {
 
     await fireEvent.click(getByText('Use name values'));
     expect(update.mock.calls[0][0][0].petId).toBe(2);
+  });
+
+  it('shows the gender the name would change, not only the attributes', () => {
+    const { getAllByTestId } = render(NameBackfillDialog, { onClose: () => {} });
+    expect(getAllByTestId('name-backfill-conflict')[0].textContent).toContain('Gender Male → Female');
+  });
+
+  it('keeps the stored values on request, recording the name they were kept under', async () => {
+    const update = vi.spyOn(settingsActions, 'update').mockImplementation(async (key, value) => {
+      settings.update((s) => ({ ...s, [key]: value }));
+    });
+    const { getByTestId, queryAllByTestId } = render(NameBackfillDialog, { onClose: () => {} });
+    await fireEvent.click(getByTestId('name-backfill-keep'));
+    expect(update).toHaveBeenCalledWith('names.keptStoredValues', { '2': 'Kb F 60 70 65 80 90 100 55 Edited' });
+    expect(queryAllByTestId('name-backfill-conflict')).toHaveLength(0);
   });
 });

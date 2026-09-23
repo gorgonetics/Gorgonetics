@@ -68,4 +68,26 @@ describe('planNameBackfill', () => {
     const matching = pet({ attributes_measured: true, ...HORSE_VALUES } as Partial<Pet>);
     expect(planNameBackfill([matching])).toEqual({ fill: [], conflicts: [] });
   });
+
+  it('reports gender and breed the name would change alongside the attributes', () => {
+    const measured = pet({
+      id: 4,
+      attributes_measured: true,
+      ...HORSE_VALUES,
+      toughness: 72,
+      gender: 'Male',
+    } as Partial<Pet>);
+    const [conflict] = planNameBackfill([measured]).conflicts;
+    expect(conflict.fieldChanges).toEqual([
+      { field: 'gender', stored: 'Male', fromName: 'Female' },
+      { field: 'breed', stored: '', fromName: 'Kurbone' },
+    ]);
+  });
+
+  it('skips a disagreement kept under the same name, and brings it back after a rename', () => {
+    const measured = pet({ id: 5, attributes_measured: true, ...HORSE_VALUES, toughness: 72 } as Partial<Pet>);
+    expect(planNameBackfill([measured], { '5': HORSE_NAME }).conflicts).toEqual([]);
+    const renamed = { ...measured, name: `${HORSE_NAME} Renamed` } as Pet;
+    expect(planNameBackfill([renamed], { '5': HORSE_NAME }).conflicts).toHaveLength(1);
+  });
 });

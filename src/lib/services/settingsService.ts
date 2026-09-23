@@ -21,6 +21,10 @@ const SETTING_DEFAULTS: Record<string, unknown> = {
   // it is a workspace preference — how much of the window this player wants
   // spent on evidence rather than findings — not a per-visit choice.
   'study.evidenceWidth': 300,
+  // Pets whose stored attributes the player chose to keep over their
+  // structured name, as pet id -> the name at the time. Renaming the pet
+  // brings the disagreement back, since the new name is a new claim.
+  'names.keptStoredValues': {},
   'display.fontScale': 100,
   'display.theme': 'system',
   'import.gameFolderPath': '',

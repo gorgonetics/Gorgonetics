@@ -124,13 +124,31 @@ function discardChanges(): void {
  */
 let filledFromName = $state(false);
 
+/** What the name last said, so an edit that keeps those values fills nothing. */
+const nameClaim = (updates: ReturnType<typeof updatesFromName>): string | null =>
+  updates ? JSON.stringify([updates.attributes, updates.gender]) : null;
+
+/**
+ * The claim already accounted for. For a measured pet that is its current
+ * name's claim: the stored values may be hand corrections made under it, and
+ * adding a label must not revert them. An unmeasured pet starts with none, so
+ * its name's values fill as soon as the name is touched.
+ */
+let lastClaim: string | null = untrack(() =>
+  pet.attributes_measured
+    ? nameClaim(updatesFromName({ name: pet.name, species: pet.species, breed: pet.breed }))
+    : null,
+);
+
 function handleNameInput(value: string): void {
   editName = value;
   const updates = updatesFromName({ name: value, species: pet.species, breed: editBreed });
-  if (!updates) {
-    filledFromName = false;
+  const claim = nameClaim(updates);
+  if (!updates || claim === lastClaim) {
+    if (!updates) filledFromName = false;
     return;
   }
+  lastClaim = claim;
   for (const [key, attrValue] of Object.entries(updates.attributes)) editAttributes[key] = attrValue;
   editGender = updates.gender;
   if (updates.breed && breedOptions.includes(updates.breed)) editBreed = updates.breed;

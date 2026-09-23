@@ -7,8 +7,9 @@
  * and change only on an explicit per-pet choice.
  */
 import { appState, pets } from '$lib/stores/pets.js';
+import { settings, settingsActions } from '$lib/stores/settings.js';
 import { focusTrap } from '$lib/utils/focusTrap.js';
-import { type NameBackfillPlan, planNameBackfill } from '$lib/utils/nameAttributes.js';
+import { type KeptStoredValues, type NameBackfillPlan, planNameBackfill } from '$lib/utils/nameAttributes.js';
 import { capitalize } from '$lib/utils/string.js';
 
 interface Props {
@@ -17,8 +18,16 @@ interface Props {
 
 const { onClose }: Props = $props();
 
+const KEPT_KEY = 'names.keptStoredValues';
+const kept = $derived(($settings[KEPT_KEY] ?? {}) as KeptStoredValues);
+
 // Re-planned from the live list, so each write drops its pet out of the plan.
-const plan: NameBackfillPlan = $derived(planNameBackfill($pets));
+const plan: NameBackfillPlan = $derived(planNameBackfill($pets, kept));
+
+/** Settle a disagreement for the stored values, until the pet is renamed. */
+async function keepStored(petId: number, name: string): Promise<void> {
+  await settingsActions.update(KEPT_KEY, { ...kept, [String(petId)]: name });
+}
 
 let busy = $state(false);
 let error = $state('');
@@ -103,16 +112,28 @@ async function run(entries: NameBackfillPlan['fill']): Promise<void> {
               <li class="nb-conflict" data-testid="name-backfill-conflict">
                 <div class="nb-conflict-head">
                   <span class="nb-conflict-name">{entry.pet.name}</span>
-                  <button
-                    type="button"
-                    class="btn btn-secondary nb-use"
-                    disabled={busy}
-                    onclick={() => run([entry])}
-                  >Use name values</button>
+                  <span class="nb-actions">
+                    <button
+                      type="button"
+                      class="btn btn-secondary nb-use"
+                      disabled={busy}
+                      data-testid="name-backfill-keep"
+                      onclick={() => keepStored(entry.pet.id, entry.pet.name)}
+                    >Keep stored</button>
+                    <button
+                      type="button"
+                      class="btn btn-secondary nb-use"
+                      disabled={busy}
+                      onclick={() => run([entry])}
+                    >Use name values</button>
+                  </span>
                 </div>
                 <span class="nb-diffs">
                   {#each entry.differences as d (d.attribute)}
                     <span class="nb-diff">{capitalize(d.attribute)} {d.stored ?? '—'} → {d.fromName}</span>
+                  {/each}
+                  {#each entry.fieldChanges as c (c.field)}
+                    <span class="nb-diff nb-field">{capitalize(c.field)} {c.stored || 'not set'} → {c.fromName}</span>
                   {/each}
                 </span>
               </li>
@@ -208,6 +229,17 @@ async function run(entries: NameBackfillPlan['fill']): Promise<void> {
     font-weight: 600;
     color: var(--text-primary);
     overflow-wrap: anywhere;
+  }
+
+  .nb-actions {
+    display: inline-flex;
+    gap: var(--space-xs);
+    flex-shrink: 0;
+  }
+
+  .nb-field {
+    color: var(--text-secondary);
+    font-weight: 600;
   }
 
   .nb-use {

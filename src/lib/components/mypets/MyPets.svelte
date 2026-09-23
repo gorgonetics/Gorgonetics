@@ -26,11 +26,12 @@ import { bulkShareJob, startBulkShare } from '$lib/stores/bulkShare.svelte.js';
 import { pendingImportCount } from '$lib/stores/gameImport.js';
 import { clearMyPetsSelection, getMyPetsFilters, myPetsView } from '$lib/stores/mypets.svelte.js';
 import { allTags, appState, loading, pets } from '$lib/stores/pets.js';
+import { settings } from '$lib/stores/settings.js';
 import { type Gender, type Pet } from '$lib/types/index.js';
 import { focusTrap } from '$lib/utils/focusTrap.js';
 import { MIN_POPULATION } from '$lib/utils/geneticQuality.js';
 import { createGenomeUploadController } from '$lib/utils/genomeUploadController.svelte.js';
-import { planNameBackfill } from '$lib/utils/nameAttributes.js';
+import { type KeptStoredValues, planNameBackfill } from '$lib/utils/nameAttributes.js';
 import { filterPets } from '$lib/utils/petFilter.js';
 import { BREEDS_BY_SPECIES, getSpeciesEmoji } from '$lib/utils/species.js';
 
@@ -181,7 +182,7 @@ let freeSlotsOpen = $state(false);
 // button only appears when there is something to fill or review.
 let nameBackfillOpen = $state(false);
 const nameBackfillPending = $derived.by(() => {
-  const plan = planNameBackfill($pets);
+  const plan = planNameBackfill($pets, ($settings['names.keptStoredValues'] ?? {}) as KeptStoredValues);
   return plan.fill.length + plan.conflicts.length;
 });
 const stabledOfSpecies = $derived(

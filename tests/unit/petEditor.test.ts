@@ -71,4 +71,21 @@ describe('PetEditor — attributes from a structured name', () => {
     await fireEvent.input(nameInput(container), { target: { value: 'Kb F 60 70 65 80 90 100 55' } });
     expect(breedSelect(container).value).toBe('Standardbred');
   });
+
+  it('keeps hand corrections on a measured pet when only a label is added', async () => {
+    const measured = pet({
+      name: 'Kb F 60 70 65 80 90 100 55',
+      attributes_measured: true,
+      temperament: 61,
+      gender: 'Female',
+    } as never);
+    const { container, queryByTestId } = render(PetEditor, { pet: measured });
+    await fireEvent.input(nameInput(container), { target: { value: 'Kb F 60 70 65 80 90 100 55 Keeper' } });
+    expect(attr(container, 'temperament')).toBe('61');
+    expect(queryByTestId('pet-editor-name-fill')).toBeNull();
+
+    // Changing a number is a new claim, and fills.
+    await fireEvent.input(nameInput(container), { target: { value: 'Kb F 62 70 65 80 90 100 55 Keeper' } });
+    expect(attr(container, 'temperament')).toBe('62');
+  });
 });
