@@ -154,6 +154,22 @@ describe('Pet Service', () => {
       expect(pet.name).toBe('Kb F 60 70 65 80 90 100 55');
     });
 
+    it('infers breed, gender and attributes from a structured BeeWasp name', async () => {
+      const entity = SAMPLE_BEEWASP.match(/^Entity=.*$/m)![0];
+      const structuredBee = SAMPLE_BEEWASP.replace(entity, 'Entity=Bee M 60 70 65 80 90 100 55');
+      const result = await petService.uploadPet(structuredBee, { name: '', gender: 'Female' });
+      expect(result.status).toBe('success');
+
+      const pet = (await petService.getPet(result.pet_id!))!;
+      expect(pet.breed).toBe('Bee');
+      expect(pet.gender).toBe('Male');
+      expect(pet.ferocity).toBe(60);
+      expect(pet.toughness).toBe(70);
+      expect(pet.virility).toBe(55);
+      // Readings, so the study may learn from it.
+      expect(pet.attributes_measured).toBe(true);
+    });
+
     it('uses defaults when Horse name is not structured', async () => {
       const result = await petService.uploadPet(SAMPLE_HORSE, { name: '', gender: 'Male' });
       expect(result.status).toBe('success');

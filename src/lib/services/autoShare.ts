@@ -13,7 +13,7 @@
  * import must succeed regardless of whether the share did.
  *
  * Attribute gate: a freshly-imported pet only has correct attributes when they
- * were parsed from a structured name (Horse only); otherwise `petService`
+ * were parsed from a structured name (Horse or BeeWasp); otherwise `petService`
  * stores all-50 defaults that the user must hand-edit. Auto-sharing those would
  * publish wrong data with no review, so auto-share only publishes pets whose
  * name parses structurally. Everything else (all BeeWasp, unstructured Horses)
