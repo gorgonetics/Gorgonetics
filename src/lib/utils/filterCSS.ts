@@ -285,13 +285,27 @@ export function buildVisualizerFilterCSS(input: VisualizerFilterInput): string {
   } else if (view === 'impact') {
     // Impact is about what this pet expresses, so it matches the active
     // allele's attribute (`data-attr`) alone: a locus whose other allele could
-    // affect the attribute contributes nothing to it here.
+    // affect the attribute contributes nothing to it here. It also requires a
+    // signed declaration (`positive`/`negative`), which is exactly when the
+    // impact lens counts a slot — an unsigned or potential effect names an
+    // attribute but is not in the totals, and must not stay lit under them.
+    const impactOf = (a: string) => [
+      `[data-attr="${a}"][data-effecttype="positive"]`,
+      `[data-attr="${a}"][data-effecttype="negative"]`,
+    ];
     if (sa.length > 0) {
-      const not = sa.map((a) => `:not([data-attr="${a}"])`).join('');
+      const not = sa
+        .flatMap(impactOf)
+        .map((m) => `:not(${m})`)
+        .join('');
       rules.push(`${VG} .gene-cell[data-gene-id]${not} ${DIMMED_25}`);
     }
     for (const h of ha) {
-      rules.push(`${VG} .gene-cell[data-attr="${h}"] ${DIMMED_25}`);
+      rules.push(
+        `${impactOf(h)
+          .map((m) => `${VG} .gene-cell${m}`)
+          .join(', ')} ${DIMMED_25}`,
+      );
     }
   } else if (view === 'appearance') {
     if (sa.length > 0) {

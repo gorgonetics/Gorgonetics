@@ -42,4 +42,26 @@ describe('GeneStatsTable — impact mode', () => {
     expect(cells(container, 'Toughness')[3]).toBe('—');
     expect(getByTestId('stats-impact-note').textContent).toContain('never recorded');
   });
+
+  it('shows no breakdown while the impact data is not in', () => {
+    const { container, getByTestId } = render(GeneStatsTable, {
+      currentView: 'impact',
+      petSpecies: 'Horse',
+      pet: pet(),
+      impactRows: null,
+    });
+    // Not "72 of base, nothing unmeasured": nothing is known yet.
+    expect(cells(container, 'Toughness').slice(1)).toEqual(['72', '—', '—', '—', '—']);
+    expect(getByTestId('stats-impact-note').textContent).toContain('not loaded');
+  });
+
+  it('keeps a row for an attribute the chips show but the species config lacks', () => {
+    const { container } = render(GeneStatsTable, {
+      currentView: 'impact',
+      petSpecies: 'Horse',
+      pet: pet(),
+      impactRows: [...rows, { attribute: 'Stamina', points: 3, known: 1, unknownPositive: 0, unknownNegative: 0 }],
+    });
+    expect(cells(container, 'Stamina')[2]).toBe('+3');
+  });
 });

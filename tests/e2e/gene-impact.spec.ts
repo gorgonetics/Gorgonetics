@@ -52,7 +52,8 @@ test.describe('Gene impact lens', () => {
         const cell = document.querySelector(s);
         return cell ? getComputedStyle(cell).opacity : null;
       }, selector);
-    await expect.poll(() => opacityOf(`.view-impact .gene-cell[data-attr="${attribute}"]`)).toBe('1');
+    const lit = `[data-attr="${attribute}"][data-effecttype="positive"]`;
+    await expect.poll(() => opacityOf(`.view-impact .gene-cell${lit}`)).toBe('1');
     await expect
       .poll(() => opacityOf(`.view-impact .gene-cell[data-gene-id]:not([data-attr="${attribute}"])`))
       .not.toBe('1');

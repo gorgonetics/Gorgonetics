@@ -192,14 +192,21 @@ describe('buildVisualizerFilterCSS', () => {
     expect(css).toBe(`${VG} .gene-cell[data-appearance]:not([data-appearance="coat"]) ${DIM}`);
   });
 
-  it('impact view: dims cells whose expressed attribute is not selected', () => {
+  it('impact view: dims cells not expressing a signed effect on a selected attribute', () => {
     const css = buildVisualizerFilterCSS({ ...base, currentView: 'impact', selectedAttributes: ['Toughness'] });
-    expect(css).toBe(`${VG} .gene-cell[data-gene-id]:not([data-attr="Toughness"]) ${DIM}`);
+    expect(css).toBe(
+      `${VG} .gene-cell[data-gene-id]` +
+        ':not([data-attr="Toughness"][data-effecttype="positive"])' +
+        `:not([data-attr="Toughness"][data-effecttype="negative"]) ${DIM}`,
+    );
   });
 
   it('impact view: dims a hidden attribute on the expressed allele only', () => {
     const css = buildVisualizerFilterCSS({ ...base, currentView: 'impact', hiddenAttributes: ['Toughness'] });
-    expect(css).toBe(`${VG} .gene-cell[data-attr="Toughness"] ${DIM}`);
+    expect(css).toBe(
+      `${VG} .gene-cell[data-attr="Toughness"][data-effecttype="positive"], ` +
+        `${VG} .gene-cell[data-attr="Toughness"][data-effecttype="negative"] ${DIM}`,
+    );
   });
 
   it('applies the effect filter only in the attribute view', () => {

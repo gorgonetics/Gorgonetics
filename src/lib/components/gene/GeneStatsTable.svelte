@@ -41,6 +41,19 @@ const {
 }: Props = $props();
 
 const impactByAttribute = $derived(new Map((impactRows ?? []).map((row) => [row.attribute, row])));
+/** Null rows mean the impact data is not in yet (loading, failed, other species). */
+const impactReady = $derived(impactRows !== null);
+/**
+ * Config attributes, then any the impact rows name that the config does not,
+ * so the table never drops an attribute the chips above the grid show.
+ */
+const impactAttributeList = $derived.by((): AttributeInfo[] => {
+  const known = new Set(attributeList.map((attr) => attr.key));
+  const extra = (impactRows ?? [])
+    .filter((row) => !known.has(row.attribute))
+    .map((row) => ({ key: row.attribute, name: row.attribute, icon: '' }) as AttributeInfo);
+  return [...attributeList, ...extra];
+});
 /**
  * Whether the pet's attribute values are readings. The rest column is the
  * observed value minus what the measured genes account for, which means
@@ -197,7 +210,7 @@ const hiddenLookup = $derived(
             </thead>
             <tbody id="tableBody">
                 {#if currentView === "impact"}
-                    {#each attributeList as attr (attr.key)}
+                    {#each impactAttributeList as attr (attr.key)}
                         {@const row = impactByAttribute.get(attr.key)}
                         {@const value = petAttrValue(attr.key.toLowerCase())}
                         {@const measured = row?.points ?? 0}
@@ -216,9 +229,9 @@ const hiddenLookup = $derived(
                             <td class="num" class:pos={measured > 0} class:neg={measured < 0}>
                                 {row && row.known > 0 ? formatPoints(measured) : "—"}
                             </td>
-                            <td class="num">{observedIsReading ? value - measured : "—"}</td>
-                            <td class="num pos">{row?.unknownPositive ?? 0}</td>
-                            <td class="num neg">{row?.unknownNegative ?? 0}</td>
+                            <td class="num">{impactReady && observedIsReading ? value - measured : "—"}</td>
+                            <td class="num pos">{impactReady ? (row?.unknownPositive ?? 0) : "—"}</td>
+                            <td class="num neg">{impactReady ? (row?.unknownNegative ?? 0) : "—"}</td>
                         </tr>
                     {/each}
                 {:else if currentView === "attribute"}
@@ -294,7 +307,9 @@ const hiddenLookup = $derived(
 
         {#if currentView === "impact"}
             <p class="impact-note" data-testid="stats-impact-note">
-                {#if !observedIsReading}
+                {#if !impactReady}
+                    Gene impact is not loaded yet; the legend above the grid says why.
+                {:else if !observedIsReading}
                     This pet's attributes were never recorded, so there is no observed value to explain.
                 {:else}
                     Rest is the attribute's base plus every effect not yet measured — the study never
