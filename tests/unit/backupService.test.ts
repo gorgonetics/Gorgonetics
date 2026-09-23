@@ -370,11 +370,19 @@ describe('Backup Service', () => {
       // the name or in the values, so derive it rather than restoring a
       // roster that reads as never measured.
       const carried = { ...samplePet, content_hash: 'carried', attributes_measured: 1 };
+      // Imported under a structured name, so it holds that name's values.
       const legacyHorse: Record<string, unknown> = {
         ...samplePet,
         content_hash: 'legacy_horse',
         species: 'Horse',
         name: 'Kb F 40 80 70 70 70 70 70',
+        temperament: 40,
+        toughness: 80,
+        ruggedness: 70,
+        enthusiasm: 70,
+        friendliness: 70,
+        intelligence: 70,
+        virility: 70,
       };
       delete legacyHorse.attributes_measured;
       const legacyBee: Record<string, unknown> = { ...samplePet, content_hash: 'legacy_bee' };
@@ -386,8 +394,16 @@ describe('Backup Service', () => {
         toughness: 83,
       };
       delete legacyEdited.attributes_measured;
+      // A beewasp from before its species had a name rule: the name parses
+      // now, but the row still holds the defaults it was imported with.
+      const legacyUnreadBee: Record<string, unknown> = {
+        ...samplePet,
+        content_hash: 'legacy_unread_bee',
+        name: 'Bee F 60 70 65 80 90 100 55',
+      };
+      delete legacyUnreadBee.attributes_measured;
 
-      const zipData = await buildZip({ pets: [carried, legacyHorse, legacyBee, legacyEdited] });
+      const zipData = await buildZip({ pets: [carried, legacyHorse, legacyBee, legacyEdited, legacyUnreadBee] });
       await importDatabase(zipData, importOpts('replace'));
 
       const rows = await getDb().select<Array<{ content_hash: string; attributes_measured: number }>>(
@@ -398,6 +414,7 @@ describe('Backup Service', () => {
       expect(flagOf('legacy_horse')).toBe(1);
       expect(flagOf('legacy_edited')).toBe(1);
       expect(flagOf('legacy_bee')).toBe(0);
+      expect(flagOf('legacy_unread_bee')).toBe(0);
     });
 
     it('coerces missing genome_text to "" for pre-v13 backups', async () => {
