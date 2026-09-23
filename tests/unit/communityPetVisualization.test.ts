@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest';
-import { cleanup, render, waitFor } from '@testing-library/svelte';
+import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { SharedPet } from '$lib/types/index.js';
 
@@ -176,16 +176,28 @@ describe('CommunityPetVisualization detail header', () => {
     expect(container.querySelector('.rarity-population')).toBeNull();
   });
 
-  it('keeps Attributes/Appearance segmented and Stats as a separate pressed toggle', () => {
+  it('keeps the grid views segmented and Stats as a separate pressed toggle', () => {
     getSharedPet.mockReturnValue(new Promise(() => {}));
     const { container, getByTestId } = render(CommunityPetVisualization, { pet: makeSharedPet() });
     const segment = container.querySelector('.view-controls') as HTMLElement;
+    // Impact is offered, unlike rarity: measured gene effects are a property
+    // of the genome, not of your own stock.
     expect([...segment.querySelectorAll('button')].map((b) => b.textContent?.trim())).toEqual([
       'Attributes',
       'Appearance',
+      'Impact',
     ]);
     const stats = getByTestId('detail-stats-toggle');
     expect(stats.getAttribute('aria-pressed')).toBe('false');
     expect(container.querySelector('.header-actions [data-testid="community-import"]')).not.toBeNull();
+  });
+
+  it('titles the stats drawer for the impact view', async () => {
+    getSharedPet.mockResolvedValue(makeSharedPet({ genomeData: GENOME }));
+    const { container, getByTestId } = render(CommunityPetVisualization, { pet: makeSharedPet() });
+    await waitFor(() => expect(getByTestId('child-stub')).toBeTruthy());
+    await fireEvent.click(getByTestId('view-impact-btn'));
+    await fireEvent.click(getByTestId('detail-stats-toggle'));
+    expect(container.querySelector('.stats-drawer-title')?.textContent?.trim()).toBe('Impact');
   });
 });

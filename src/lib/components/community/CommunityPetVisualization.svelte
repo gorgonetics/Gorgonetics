@@ -20,15 +20,17 @@ import { getSharedPet, type ImportResult } from '$lib/services/shareService.js';
 import { communityView, importSelected } from '$lib/stores/community.svelte.js';
 import { HORSE_BREEDS, type Pet, type SharedPet } from '$lib/types/index.js';
 import { errorMessage } from '$lib/utils/error.js';
+import type { AttributeImpact } from '$lib/utils/geneImpact.js';
 import type { StatsMap } from '$lib/utils/geneStats.js';
 import { genomeTextToGrid } from '$lib/utils/genomeGrid.js';
 import { keyedResource } from '$lib/utils/keyedResource.svelte.js';
-import { sharedPetToPet } from '$lib/utils/sharedPet.js';
+import { carriesReadings, sharedPetToPet } from '$lib/utils/sharedPet.js';
 import { formatShortDate } from '$lib/utils/timestamp.js';
 
 interface GeneVisualizerInstance {
   getStatsData(): {
     currentStats: StatsMap | null;
+    impactRows: AttributeImpact[] | null;
     currentView: string;
     selectedAttributes: string[];
     hiddenAttributes: string[];
@@ -64,7 +66,11 @@ const genomeError = $derived(
       : null,
 );
 
-const previewPet = $derived<Pet | null>(fullPet ? sharedPetToPet(fullPet) : null);
+// Provenance for the impact stats: published values off the default are
+// readings; an all-default record is an uploader who never entered any.
+const previewPet = $derived<Pet | null>(
+  fullPet ? { ...sharedPetToPet(fullPet), attributes_measured: carriesReadings(fullPet.attributes) } : null,
+);
 const grid = $derived(fullPet?.genomeData ? genomeTextToGrid(fullPet.genomeData) : null);
 
 const isHorse = $derived(pet.species?.toLowerCase() === 'horse');
@@ -164,6 +170,13 @@ function handleBreedChange(fullName: string): void {
       <div class="seg view-controls" role="group" aria-label="Grid view">
         <button class="seg-btn" class:active={currentView === 'attribute'} onclick={() => handleViewChange('attribute')}>Attributes</button>
         <button class="seg-btn" class:active={currentView === 'appearance'} onclick={() => handleViewChange('appearance')}>Appearance</button>
+        <button
+          class="seg-btn"
+          class:active={currentView === 'impact'}
+          data-testid="view-impact-btn"
+          title="Colour each gene by the attribute points the study measured for it"
+          onclick={() => handleViewChange('impact')}
+        >Impact</button>
       </div>
       <button
         class="toggle-btn"
@@ -224,7 +237,9 @@ function handleBreedChange(fullName: string): void {
       {#if statsOpen}
         <div class="stats-drawer">
           <div class="stats-drawer-header">
-            <span class="stats-drawer-title">{currentView === 'attribute' ? 'Attribute Effects' : 'Appearance Effects'}</span>
+            <span class="stats-drawer-title">
+              {currentView === 'attribute' ? 'Attribute Effects' : currentView === 'impact' ? 'Impact' : 'Appearance Effects'}
+            </span>
             <button class="stats-close" onclick={toggleStats}>×</button>
           </div>
           <div class="stats-drawer-body">
@@ -237,6 +252,7 @@ function handleBreedChange(fullName: string): void {
               neutralGenes={stats?.neutralGenes ?? 0}
               petSpecies={stats?.petSpecies ?? pet.species}
               pet={previewPet}
+              impactRows={stats?.impactRows ?? null}
               on:attributeFilter={handleAttributeFilter}
             />
           </div>
