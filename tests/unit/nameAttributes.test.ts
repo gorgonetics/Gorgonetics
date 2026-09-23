@@ -37,10 +37,11 @@ describe('updatesFromName', () => {
     expect(updatesFromName(pet({ breed: 'Paint' }))?.breed).toBeUndefined();
   });
 
-  it('gives a beewasp no breed', () => {
-    const updates = updatesFromName(pet({ species: 'BeeWasp', name: 'Bee M 60 70 65 80 90 100 55' }));
+  it('takes a beewasp breed from a leading Bee or Wasp, and none from another word', () => {
+    const updates = updatesFromName(pet({ species: 'BeeWasp', name: 'Wasp M 60 70 65 80 90 100 55' }));
     expect(updates?.attributes.ferocity).toBe(60);
-    expect(updates?.breed).toBeUndefined();
+    expect(updates?.breed).toBe('Wasp');
+    expect(updatesFromName(pet({ species: 'BeeWasp', name: 'Bz M 60 70 65 80 90 100 55' }))?.breed).toBeUndefined();
   });
 
   it('is null for a name that does not parse', () => {

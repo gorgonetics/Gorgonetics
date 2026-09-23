@@ -215,10 +215,10 @@ describe('loadStudyCorpus', () => {
     expect(corpus.excluded).toContainEqual({ reason: 'mixed-breed', count: 1 });
   });
 
-  it('offers only species it can actually measure', async () => {
-    // `parseStructuredPetName` parses horses alone, so any other species
-    // would give a permanently empty study blaming the animals for it.
-    expect([...STUDYABLE_SPECIES]).toEqual(['horse']);
+  it('offers every species with a measurement path', async () => {
+    // Stored provenance, not the horse-only name parser, is the gate since
+    // #527, so a beewasp measured by hand or through the catalogue counts.
+    expect([...STUDYABLE_SPECIES]).toEqual(['horse', 'beewasp']);
   });
 
   it('scopes to one species', async () => {
@@ -226,6 +226,58 @@ describe('loadStudyCorpus', () => {
     const corpus = await loadStudyCorpus('beewasp');
     expect(corpus.subjects).toEqual([]);
     expect(corpus.considered).toBe(0);
+  });
+});
+
+describe('a species without breeds', () => {
+  const BEE_GENES: Array<[string, { effectDominant?: string; effectRecessive?: string }]> = [
+    ['01A1', { effectDominant: 'Ferocity+' }],
+    ['01A2', {}],
+    ['01A3', {}],
+    ['01A4', {}],
+  ];
+
+  function beeGenome(entity: string, genes: string): string {
+    return genome(entity, genes).replace('Genome=Horse', 'Genome=BeeWasp');
+  }
+
+  async function bee(entity: string, genes: string, ferocity: number, breed = ''): Promise<number> {
+    const result = await petService.uploadPet(beeGenome(entity, genes));
+    const petId = (result as { pet_id?: number }).pet_id;
+    if (!petId) throw new Error(`upload failed for ${entity}: ${JSON.stringify(result)}`);
+    // No structured-name rule exists for beewasps, so readings arrive by hand.
+    await petService.updatePet(petId, { breed, attributes: { ferocity } });
+    return petId;
+  }
+
+  beforeEach(async () => {
+    for (const [gene, data] of BEE_GENES) await geneService.upsertGene('beewasp', '01', gene, { ...data, breed: '' });
+  });
+
+  it('admits a hand-measured animal with no breed', async () => {
+    await bee('Buzz', 'RRRR', 40);
+    const corpus = await loadStudyCorpus('beewasp');
+    expect(corpus.subjects).toHaveLength(1);
+    expect(corpus.subjects[0]).toMatchObject({ breed: '' });
+    expect(corpus.subjects[0].attributes.ferocity).toBe(40);
+  });
+
+  it('pairs every animal in one pool, whatever its breed field says', async () => {
+    // Nothing in the beewasp gene table is breed-locked, so a Bee and a Wasp
+    // share the attribute base and their difference isolates the locus.
+    await bee('Low', 'RRRR', 40, 'Bee');
+    await bee('High', 'DRRR', 45, 'Wasp');
+    const run = await runAttributeStudy('beewasp');
+    const ferocity = run.studies.find((study) => study.attribute === 'ferocity');
+    expect(ferocity?.findings[0]).toMatchObject({ gene: '01A1', expression: 'dominant', magnitude: 5 });
+  });
+
+  it('still requires a breed where the gene table is breed-scoped', async () => {
+    const petId = await upload('Just A Horse', 'RRRR');
+    await petService.updatePet(petId, { attributes: { temperament: 40 } });
+    const corpus = await loadStudyCorpus('horse');
+    expect(corpus.subjects).toEqual([]);
+    expect(corpus.excluded).toContainEqual({ reason: 'no-breed', count: 1 });
   });
 });
 
@@ -356,7 +408,7 @@ describe('attributeMagnitudesFor', () => {
   });
 
   it('is empty for a species with no measurement path, without touching the corpus', async () => {
-    const magnitudes = await attributeMagnitudesFor('beewasp');
+    const magnitudes = await attributeMagnitudesFor('dragon');
     expect(magnitudes).toBe(EMPTY_MAGNITUDES);
     expect(hasMagnitudes(magnitudes)).toBe(false);
   });
@@ -661,7 +713,7 @@ describe('peekAttributeMagnitudes', () => {
   it('is the empty table, not undefined, for a species that can never be measured', () => {
     // "Not ready" and "nothing to know" are different answers: a caller that
     // confused them would keep waiting for a solve that will never run.
-    expect(peekAttributeMagnitudes('beewasp')).toBe(EMPTY_MAGNITUDES);
+    expect(peekAttributeMagnitudes('dragon')).toBe(EMPTY_MAGNITUDES);
   });
 });
 
@@ -1129,6 +1181,18 @@ describe('refreshStudyCorpus', () => {
     const g = await entry('Thunderhoof', 'RRRR');
     mockCatalogue([shared(g.hash, { name: 'Thunderhoof', attributes: {} })], { [g.hash]: g.text });
     expect(await refreshStudyCorpus('horse')).toMatchObject({ cached: 0, skipped: 1 });
+  });
+
+  it('caches a community beewasp that has no breed', async () => {
+    const g = await entry('Stinger', 'DRRR');
+    const text = g.text.replace('Genome=Horse', 'Genome=BeeWasp');
+    const hash = await sha256Hex(text);
+    mockCatalogue([shared(hash, { species: 'BeeWasp', breed: '', name: 'Stinger', attributes: { ferocity: 45 } })], {
+      [hash]: text,
+    });
+    const result = await refreshStudyCorpus('beewasp');
+    expect(result).toMatchObject({ considered: 1, cached: 1 });
+    expect((await loadStudyCorpus('beewasp')).subjects).toHaveLength(1);
   });
 
   it('caches nothing for a species with no entries', async () => {

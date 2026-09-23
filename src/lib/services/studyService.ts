@@ -74,16 +74,39 @@ import { parseStructuredPetName } from './nameParser.js';
 const MIXED_BREED = 'Mixed';
 
 /**
- * Species the study can actually measure.
+ * Species the study can measure.
  *
- * Inference needs attributes it can trust, and the only way into this app's
- * columns is the structured name `parseStructuredPetName` reads, which is
- * defined for horses alone — so no other species is ever measured at import.
- * Offering one anyway yields a permanently empty study that blames the
- * animals ("attributes never recorded") for a gap in the app. Widening this
- * means giving that species a measurement path first.
+ * Inference needs attributes it can trust. Since #527 that is a stored
+ * provenance flag for a local animal — set by a structured name at import or
+ * by any attribute edit — and non-default published values for a community
+ * one, so it is no longer tied to the horse-only name parser. A species with
+ * no structured-name rule is measured by hand or through the catalogue.
  */
-export const STUDYABLE_SPECIES: readonly string[] = ['horse'];
+export const STUDYABLE_SPECIES: readonly string[] = ['horse', 'beewasp'];
+
+/**
+ * Species whose gene table is scoped by breed.
+ *
+ * The engine cancels the unknown attribute base by subtracting two animals
+ * that share it, and for horses that means the same breed: breeds carry
+ * their own loci, so pairing across them would compare different sums. A
+ * species outside this set pairs all its animals in one pool, whatever their
+ * `breed` field says.
+ *
+ * Unverified: pooling beewasps assumes Bee and Wasp share one attribute
+ * base. The gene table only shows that no beewasp locus is breed-locked,
+ * which says nothing about the base; the assumption rests on player
+ * knowledge. If the bases differ, every Bee–Wasp equation carries the gap
+ * into a magnitude, and the out-of-sample validation score is where that
+ * would show. Adding `beewasp` here splits the pool, and then also excludes
+ * beewasps with no breed.
+ */
+const BREED_SCOPED_SPECIES: ReadonlySet<string> = new Set(['horse']);
+
+/** The breed an animal pairs within: its own for a breed-scoped species, else one shared pool. */
+function pairingBreed(species: string, breed: string): string {
+  return BREED_SCOPED_SPECIES.has(species) ? breed : '';
+}
 
 /**
  * The genome, as eligibility needs to see it.
@@ -198,7 +221,7 @@ export interface StudyRun {
   suspects: ValidationSuspect[];
 }
 
-function subjectFrom(pet: Pet, loci: PetLoci): StudySubject {
+function subjectFrom(pet: Pet, loci: PetLoci, species: string): StudySubject {
   const genes: Record<string, string> = {};
   for (const [geneId, geneType] of loci) genes[geneId] = geneType;
   const attributes: Record<string, number> = {};
@@ -208,7 +231,13 @@ function subjectFrom(pet: Pet, loci: PetLoci): StudySubject {
   }
   // `stabled` is what makes a reading checkable: only a stabled animal can
   // be looked up in the game and its attributes confirmed.
-  return { id: String(pet.id), breed: pet.breed, genes, attributes, stabled: pet.stabled === true };
+  return {
+    id: String(pet.id),
+    breed: pairingBreed(species, pet.breed),
+    genes,
+    attributes,
+    stabled: pet.stabled === true,
+  };
 }
 
 /**
@@ -221,6 +250,7 @@ export async function loadStudyCorpus(species: string, options: LoadCorpusOption
   const requireFullGenome = options.requireFullGenome ?? true;
   const required = options.requiredGenes ? [...options.requiredGenes] : [];
   const normalized = normalizeSpecies(species);
+  const breedScoped = BREED_SCOPED_SPECIES.has(normalized);
   // The `species` column holds the raw genome header (`Horse`), so a SQL
   // equality against the canonical key silently matches nothing. Scope in
   // JS through `normalizeSpecies`, as the rarity baseline does.
@@ -236,7 +266,7 @@ export async function loadStudyCorpus(species: string, options: LoadCorpusOption
   // locus read; the genome gates run below once the loci are in hand.
   const candidates: Pet[] = [];
   for (const pet of items) {
-    const reason = eligibility({ measured: pet.attributes_measured, breed: pet.breed }, null, [], false);
+    const reason = eligibility({ measured: pet.attributes_measured, breed: pet.breed, breedScoped }, null, [], false);
     if (reason) {
       exclude(reason);
       continue;
@@ -260,7 +290,7 @@ export async function loadStudyCorpus(species: string, options: LoadCorpusOption
       continue;
     }
     const reason = eligibility(
-      { measured: pet.attributes_measured, breed: pet.breed },
+      { measured: pet.attributes_measured, breed: pet.breed, breedScoped },
       loci,
       required,
       requireFullGenome,
@@ -269,7 +299,7 @@ export async function loadStudyCorpus(species: string, options: LoadCorpusOption
       exclude(reason);
       continue;
     }
-    subjects.push(subjectFrom(pet, loci));
+    subjects.push(subjectFrom(pet, loci, normalized));
   }
 
   const community = await cachedSubjects(
@@ -341,7 +371,7 @@ async function cachedSubjects(
     }
 
     const reason = eligibility(
-      { measured: carriesReadings(attributes), breed: row.breed },
+      { measured: carriesReadings(attributes), breed: row.breed, breedScoped: BREED_SCOPED_SPECIES.has(normalized) },
       viewOf(genes),
       required,
       requireFullGenome,
@@ -352,7 +382,7 @@ async function cachedSubjects(
     }
     subjects.push({
       id: `${SHARED_ID_PREFIX}${row.content_hash}`,
-      breed: row.breed,
+      breed: pairingBreed(normalized, row.breed),
       genes,
       attributes,
       // Someone else's animal: it can raise a disagreement but never settle one.
@@ -382,17 +412,21 @@ async function cachedSubjects(
  * Returns null when the animal is usable.
  */
 function eligibility(
-  animal: { measured: boolean; breed: string },
+  animal: { measured: boolean; breed: string; breedScoped: boolean },
   genome: GenomeView | null,
   required: readonly string[],
   requireFullGenome: boolean,
 ): ExclusionReason | null {
-  // Provenance first: an animal whose attributes were never recorded has no
-  // breed for the same reason — neither was ever parsed out of its name — so
-  // checking breed first would report the symptom and hide the cause.
+  // Provenance first: an animal whose attributes were never recorded usually
+  // has no breed for the same reason — neither was parsed out of its name —
+  // so checking breed first would report the symptom and hide the cause.
   if (!animal.measured) return 'unmeasured';
-  if (!animal.breed) return 'no-breed';
-  if (animal.breed === MIXED_BREED) return 'mixed-breed';
+  // Breed only gates a species whose loci are breed-scoped; elsewhere every
+  // animal pairs in one pool and its breed field is not consulted.
+  if (animal.breedScoped) {
+    if (!animal.breed) return 'no-breed';
+    if (animal.breed === MIXED_BREED) return 'mixed-breed';
+  }
   if (!genome) return null;
   // Empty rather than throwing: `parseGenome` yields no loci for a junk
   // blob, and a pet row can simply have no projection yet.
@@ -503,8 +537,12 @@ interface CachedRow {
  * time keeps the cache useful when they do.
  */
 function usableSharedPet(pet: SharedPet, genes: Record<string, string>, species: string): boolean {
-  const readings = communityReadings(pet.attributes ?? {}, pet.name, species);
-  return eligibility({ measured: carriesReadings(readings), breed: pet.breed }, viewOf(genes), [], false) === null;
+  const animal = {
+    measured: carriesReadings(communityReadings(pet.attributes ?? {}, pet.name, species)),
+    breed: pet.breed,
+    breedScoped: BREED_SCOPED_SPECIES.has(species),
+  };
+  return eligibility(animal, viewOf(genes), [], false) === null;
 }
 
 /**
@@ -860,7 +898,7 @@ export async function liveGeneConfirmations(
  * eligibility rules in `loadStudyCorpus`, or the shape `persistMagnitudes`
  * writes all count as changing the solve.
  */
-const SOLVER_VERSION = 3;
+const SOLVER_VERSION = 4;
 
 /**
  * A durable fingerprint of everything the solve depends on.
@@ -1021,9 +1059,9 @@ async function persistMagnitudes(species: string, fingerprint: string, table: At
  * rather than an estimate — so an import does not invalidate. Two things
  * *revise* a finding, and both must. A community refresh replaces a reading
  * an uploader corrected, which `refreshStudyCorpus` clears explicitly. A
- * local edit does the same thing more quietly: attribute readings are parsed
- * from the pet's name, so renaming a stabled animal revises every magnitude
- * deduced from it, and deleting one withdraws its equations. Editing the gene
+ * local edit does the same thing more quietly: correcting a stabled animal's
+ * attributes revises every magnitude deduced from it, and deleting one
+ * withdraws its equations. Editing the gene
  * table is the third case and the sharpest, because it revises the question
  * rather than the answer — see `stamp`. Those last two are what the cached
  * revision below is compared against; without it the Study tab and the
