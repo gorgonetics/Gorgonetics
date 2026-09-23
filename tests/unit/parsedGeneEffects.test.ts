@@ -248,3 +248,49 @@ describe('backfillParsedGeneEffectsIfNeeded', () => {
     expect(rows[0].cnt).toBe(0);
   });
 });
+
+describe('gene writes invalidate the parsed-gene cache', () => {
+  beforeEach(async () => {
+    await closeDatabase();
+    await initDatabase();
+    await runMigrations();
+    geneService.clearGeneEffectsCache();
+  });
+
+  it('upsertGene makes the new declaration visible without a manual clear', async () => {
+    await geneService.upsertGene('beewasp', '01', '01A1', { effectDominant: 'Toughness+' });
+    expect((await geneService.getParsedGenesCached('beewasp'))['01A1'].dominantAttribute).toBe('toughness');
+
+    const before = geneService.geneDeclarationsRevision();
+    await geneService.upsertGene('beewasp', '01', '01A1', { effectDominant: 'Intelligence-' });
+    expect(geneService.geneDeclarationsRevision()).toBeGreaterThan(before);
+    expect((await geneService.getParsedGenesCached('beewasp'))['01A1']).toMatchObject({
+      dominantAttribute: 'intelligence',
+      dominantSign: '-',
+    });
+  });
+
+  it('updateGene makes the new declaration visible without a manual clear', async () => {
+    await geneService.upsertGene('beewasp', '01', '01A1', { effectDominant: 'Toughness+' });
+    await geneService.getParsedGenesCached('beewasp');
+
+    const before = geneService.geneDeclarationsRevision();
+    await geneService.updateGene('beewasp', '01A1', { effectDominant: 'Ferocity-' });
+    expect(geneService.geneDeclarationsRevision()).toBeGreaterThan(before);
+    expect((await geneService.getParsedGenesCached('beewasp'))['01A1']).toMatchObject({
+      dominantAttribute: 'ferocity',
+      dominantSign: '-',
+    });
+  });
+
+  it('upsertGenesBulk clears once for the whole batch', async () => {
+    const before = geneService.geneDeclarationsRevision();
+    await geneService.upsertGenesBulk('beewasp', '01', [
+      { gene: '01A1', effectDominant: 'Toughness+' },
+      { gene: '01A2', effectDominant: 'Intelligence-' },
+      { gene: '01A3', effectRecessive: 'Friendliness+' },
+    ]);
+    expect(geneService.geneDeclarationsRevision()).toBe(before + 1);
+    expect(Object.keys(await geneService.getParsedGenesCached('beewasp')).sort()).toEqual(['01A1', '01A2', '01A3']);
+  });
+});
