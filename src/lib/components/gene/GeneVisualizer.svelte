@@ -442,6 +442,28 @@ const impactSummary = $derived(
   ),
 );
 
+// The stats drawer reads a snapshot through `getStatsData`, and the impact
+// totals arrive after the view switch, so announce them when they do.
+$effect(() => {
+  if (currentView !== 'impact') return;
+  const _rows = impactSummary;
+  onStatsUpdated?.();
+});
+
+/** Toggle an attribute filter from an impact chip, with the stats table's click rules. */
+function handleImpactChipClick(attribute: string, event: MouseEvent) {
+  const result = resolveFilterClick(
+    selectedAttributes,
+    hiddenAttributes,
+    attribute,
+    event.ctrlKey || event.metaKey,
+    event.altKey,
+  );
+  selectedAttributes = result.selected;
+  hiddenAttributes = result.hidden;
+  onStatsUpdated?.();
+}
+
 /** Whether the study covers this species at all, or only the declarations can be shown. */
 const impactStudied = $derived(!!currentPet && STUDYABLE_SPECIES.includes(normalizeSpecies(currentPet.species)));
 
@@ -1269,6 +1291,7 @@ export function setBreedFilter(breed: string) {
 export function getStatsData() {
   return {
     currentStats,
+    impactRows: impactReady ? impactSummary : null,
     currentView,
     selectedAttributes,
     hiddenAttributes,
@@ -1420,10 +1443,15 @@ const blockIndices = $derived.by(() => {
                                 <div class="legend-row impact-summary" data-testid="impact-summary">
                                     {#each impactSummary as row (row.attribute)}
                                         {@const unknown = row.unknownPositive + row.unknownNegative}
-                                        <span
+                                        <button
+                                            type="button"
                                             class="impact-chip"
+                                            class:selected={selectedAttributes.includes(row.attribute)}
+                                            class:hidden-effect={hiddenAttributes.includes(row.attribute)}
+                                            aria-pressed={selectedAttributes.includes(row.attribute)}
                                             data-attribute={row.attribute}
-                                            title={`${row.known} measured, ${row.unknownPositive} unmeasured positive, ${row.unknownNegative} unmeasured negative`}
+                                            title={`${row.known} measured, ${row.unknownPositive} unmeasured positive, ${row.unknownNegative} unmeasured negative. Click to show only genes affecting ${row.attribute}; Ctrl+click to add; Alt+click to hide.`}
+                                            onclick={(e) => handleImpactChipClick(row.attribute, e)}
                                         >
                                             <span class="impact-chip-name">{row.attribute}</span>
                                             {#if row.known > 0}
@@ -1432,7 +1460,7 @@ const blockIndices = $derived.by(() => {
                                             {#if unknown > 0}
                                                 <span class="impact-chip-unknown">{unknown} unknown</span>
                                             {/if}
-                                        </span>
+                                        </button>
                                     {/each}
                                 </div>
                             {/if}
@@ -1501,6 +1529,7 @@ const blockIndices = $derived.by(() => {
                                                                 data-effect={cell.effect}
                                                                 data-appearance-effect={cell.appearanceEffect}
                                                                 data-attrs={cell.attrs}
+                                                                data-attr={cell.attr}
                                                                 data-appearance={cell.appearance}
                                                                 data-effecttype={cell.effectType}
                                                                 data-zygosity={cell.zygosity}
@@ -1647,6 +1676,26 @@ const blockIndices = $derived.by(() => {
         border: 1px solid var(--border-secondary);
         border-radius: 999px;
         background: var(--bg-primary);
+    }
+
+    .impact-chip {
+        font: inherit;
+        color: inherit;
+        cursor: pointer;
+    }
+
+    .impact-chip:hover {
+        background: var(--bg-secondary);
+    }
+
+    .impact-chip.selected {
+        border-color: var(--accent);
+        background: var(--bg-selected);
+    }
+
+    .impact-chip.hidden-effect {
+        opacity: 0.45;
+        text-decoration: line-through;
     }
 
     .impact-chip-name {

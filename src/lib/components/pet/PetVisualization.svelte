@@ -11,12 +11,14 @@ import { pets as allPets } from '$lib/stores/pets.js';
 import { settings } from '$lib/stores/settings.js';
 import type { DialogResult, Pet } from '$lib/types/index.js';
 import { HORSE_BREEDS } from '$lib/types/index.js';
+import type { AttributeImpact } from '$lib/utils/geneImpact.js';
 import type { StatsMap } from '$lib/utils/geneStats.js';
 import PetImageGallery from './PetImageGallery.svelte';
 
 interface GeneVisualizerInstance {
   getStatsData(): {
     currentStats: StatsMap | null;
+    impactRows: AttributeImpact[] | null;
     currentView: string;
     selectedAttributes: string[];
     hiddenAttributes: string[];
@@ -44,7 +46,7 @@ const DRAWER_TITLES: Record<string, string> = {
   attribute: 'Attribute Effects',
   appearance: 'Appearance Effects',
   rarity: 'Stats',
-  impact: 'Stats',
+  impact: 'Impact',
 };
 
 let geneVisualizerRef = $state<GeneVisualizerInstance | undefined>(undefined);
@@ -374,12 +376,6 @@ onDestroy(() => {
                             The legend below the grid shows the scale, and hovering a
                             gene gives its exact figures.
                         </p>
-                    {:else if currentView === "impact"}
-                        <p class="stats-empty" data-testid="stats-impact-note">
-                            Effect and appearance stats don't apply to the impact view.
-                            The per-attribute totals above the grid sum the measured
-                            genes, and hovering a gene gives its figures.
-                        </p>
                     {:else}
                         <GeneStatsTable
                             currentStats={stats?.currentStats}
@@ -390,6 +386,7 @@ onDestroy(() => {
                             neutralGenes={stats?.neutralGenes ?? 0}
                             petSpecies={stats?.petSpecies ?? pet?.species}
                             pet={pet}
+                            impactRows={stats?.impactRows ?? null}
                             on:attributeFilter={handleAttributeFilter}
                         />
                     {/if}

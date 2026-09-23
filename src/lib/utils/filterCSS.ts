@@ -221,10 +221,11 @@ export interface VisualizerFilterInput {
   currentValueFilter: string[];
   hiddenValueFilters: string[];
   /**
-   * `'rarity'` and `'impact'` deliberately activate **neither** the attribute
-   * nor the appearance focus clauses: those legends do not exist in these
-   * views, so their filters are inactive there. Chromosome, breed and value
-   * filters are outside the view branch and keep working.
+   * `'rarity'` deliberately activates **neither** the attribute nor the
+   * appearance focus clauses: those legends do not exist in the rarity view,
+   * so their filters are inactive there. `'impact'` has its own attribute
+   * clause, on the expressed allele. Chromosome, breed and value filters are
+   * outside the view branch and keep working.
    */
   currentView: 'attribute' | 'appearance' | 'rarity' | 'impact';
   breedFilter: string;
@@ -280,6 +281,17 @@ export function buildVisualizerFilterCSS(input: VisualizerFilterInput): string {
     // — otherwise focus and hide would disagree on the same attribute.
     for (const h of ha) {
       rules.push(`${VG} .gene-cell[data-attrs*="${delim(h)}"] ${DIMMED_25}`);
+    }
+  } else if (view === 'impact') {
+    // Impact is about what this pet expresses, so it matches the active
+    // allele's attribute (`data-attr`) alone: a locus whose other allele could
+    // affect the attribute contributes nothing to it here.
+    if (sa.length > 0) {
+      const not = sa.map((a) => `:not([data-attr="${a}"])`).join('');
+      rules.push(`${VG} .gene-cell[data-gene-id]${not} ${DIMMED_25}`);
+    }
+    for (const h of ha) {
+      rules.push(`${VG} .gene-cell[data-attr="${h}"] ${DIMMED_25}`);
     }
   } else if (view === 'appearance') {
     if (sa.length > 0) {
