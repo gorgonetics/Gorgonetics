@@ -918,9 +918,9 @@ describe('cached community animals', () => {
     expect((await loadStudyCorpus('horse')).subjects).toHaveLength(1);
   });
 
-  it('drops a cached animal whose attributes are all the default', async () => {
+  it('drops a cached animal whose attributes are all the default and whose name carries none', async () => {
     const defaults = Object.fromEntries(Object.keys(attrs(0, 0)).map((k) => [k, 50]));
-    await cache('h10', name('Kb', 50, 50, 'Untouched'), 'RRRR', defaults);
+    await cache('h10', 'Untouched', 'RRRR', defaults);
     const corpus = await loadStudyCorpus('horse');
     expect(corpus.subjects).toEqual([]);
     expect(corpus.excluded).toContainEqual({ reason: 'unmeasured', count: 1 });
@@ -1158,6 +1158,31 @@ describe('refreshStudyCorpus', () => {
     mockCatalogue([shared(theirs.hash, { name: 'Thunderhoof' })], { [theirs.hash]: theirs.text });
     const result = await refreshStudyCorpus('horse');
     expect(result).toMatchObject({ cached: 1, skipped: 0 });
+  });
+
+  it("reads a community entry's attributes from its name when none were published", async () => {
+    const g = await entry(name('Kb', 40, 80, 'Named'), 'RRRR');
+    mockCatalogue([shared(g.hash, { name: name('Kb', 40, 80, 'Named'), attributes: {} })], { [g.hash]: g.text });
+    expect(await refreshStudyCorpus('horse')).toMatchObject({ cached: 1 });
+
+    const [subject] = (await loadStudyCorpus('horse')).subjects;
+    expect(subject.attributes.temperament).toBe(40);
+    expect(subject.attributes.toughness).toBe(80);
+  });
+
+  it('prefers published readings over the name', async () => {
+    const g = await entry(name('Kb', 40, 80, 'Stale'), 'RRRR');
+    mockCatalogue([shared(g.hash, { name: name('Kb', 40, 80, 'Stale'), attributes: { ...ATTRS, temperament: 45 } })], {
+      [g.hash]: g.text,
+    });
+    await refreshStudyCorpus('horse');
+    expect((await loadStudyCorpus('horse')).subjects[0].attributes.temperament).toBe(45);
+  });
+
+  it('still skips an entry with neither published readings nor a structured name', async () => {
+    const g = await entry('Thunderhoof', 'RRRR');
+    mockCatalogue([shared(g.hash, { name: 'Thunderhoof', attributes: {} })], { [g.hash]: g.text });
+    expect(await refreshStudyCorpus('horse')).toMatchObject({ cached: 0, skipped: 1 });
   });
 
   it('caches a community beewasp that has no breed', async () => {

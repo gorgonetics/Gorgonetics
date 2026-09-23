@@ -144,6 +144,25 @@ export const appState = {
   },
 
   /**
+   * Apply several updates, then reload the list once. `updatePet` reloads
+   * per call, which for a batch of dozens is dozens of full reloads.
+   */
+  async updatePets(updates: ReadonlyArray<{ petId: number; data: Record<string, unknown> }>) {
+    try {
+      loading.set(true);
+      error.set(null);
+      for (const { petId, data } of updates) await petService.updatePet(petId, data);
+    } catch (err: unknown) {
+      error.set(`Failed to update pets: ${errorMessage(err)}`);
+      throw err;
+    } finally {
+      // Reload whatever landed, including a partial batch.
+      await this.loadPets();
+      loading.set(false);
+    }
+  },
+
+  /**
    * Flip a single boolean marker (starred/stabled/pet-quality) in place.
    *
    * Unlike `updatePet`, this does NOT reload the whole pet list or raise the
