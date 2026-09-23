@@ -1,5 +1,5 @@
 <script lang="ts">
-import { onDestroy, onMount, untrack } from 'svelte';
+import { onDestroy, onMount } from 'svelte';
 import './geneCell.css';
 import StatusPane from '$lib/components/shared/StatusPane.svelte';
 import {
@@ -13,12 +13,12 @@ import {
   normalizeSpecies,
 } from '$lib/services/configService.js';
 import { computeRarityLookup, type RarityLookup } from '$lib/services/frequencyService.js';
-import { getGeneEffectsCached, getParsedGenesCached, type ParsedGeneRecord } from '$lib/services/geneService.js';
+import { getGeneEffectsCached } from '$lib/services/geneService.js';
 import { loadPetGridFromDb } from '$lib/services/petService.js';
-import { attributeMagnitudesFor, peekAttributeMagnitudes, STUDYABLE_SPECIES } from '$lib/services/studyService.js';
+import { loadGeneImpact, STUDYABLE_SPECIES, studyInputsKey } from '$lib/services/studyService.js';
+import { pets as petList } from '$lib/stores/pets.js';
 import { EFFECT_COLORS } from '$lib/theme/gene-colors.js';
 import type { AppearanceInfo, GeneType, Pet } from '$lib/types/index.js';
-import type { AttributeMagnitudes } from '$lib/utils/attributePoints.js';
 import { buildVisualizerFilterCSS, type ChrBreedRelevance, joinAttrs } from '$lib/utils/filterCSS.js';
 import { resolveFilterClick } from '$lib/utils/filterToggle.js';
 import {
@@ -49,6 +49,7 @@ import {
   type StatsMap,
 } from '$lib/utils/geneStats.js';
 import { handleGridNavigation } from '$lib/utils/keyboard.js';
+import { keyedResource } from '$lib/utils/keyedResource.svelte.js';
 import { buildRarityCSS, type RarityCell } from '$lib/utils/rarityCSS.js';
 import { buildRarityTooltip, placeRarityTooltip } from '$lib/utils/rarityTooltip.js';
 import { capitalize, escapeHtml, pluralise } from '$lib/utils/string.js';
@@ -186,18 +187,6 @@ let rarityError = $state<string | null>(null);
 /** Guards against an out-of-order baseline resolving after a newer request. */
 let raritySeq = 0;
 let geneEffectsDB: Record<string, Record<string, GeneEffectData>> | null = null;
-
-// --- Impact lens state ------------------------------------------------------
-// Loaded lazily, like the rarity baseline, and never through `loading` for the
-// same reason: the grid stays on screen while the study table arrives.
-let impactData = $state<{
-  species: string;
-  parsed: Record<string, ParsedGeneRecord>;
-  magnitudes: AttributeMagnitudes;
-} | null>(null);
-let impactLoading = $state(false);
-let impactError = $state<string | null>(null);
-let impactSeq = 0;
 
 // Stats
 let currentStats = $state<StatsMap | null>(null);
@@ -391,39 +380,27 @@ $effect(() => {
   rarityStyleEl.textContent = buildRarityCSS({ cells: renderedCells(), lookup: rarityLookup });
 });
 
-// Load the gene declarations and the study's magnitudes once the lens is
-// opened, and again on a species change. The memoised table is used as-is when
-// it is current; otherwise the study runs, which can take a while on the first
-// open of a session — the legend says so meanwhile.
-$effect(() => {
-  if (currentView !== 'impact' || !currentPet) return;
-  const species = normalizeSpecies(currentPet.species);
-  // Everything past the trigger is untracked: the load writes the state it
-  // would otherwise read, and a failed study returns no memoised table, so a
-  // tracked guard would re-run the study in a loop.
-  untrack(() => loadImpact(species));
+// --- Impact lens ------------------------------------------------------------
+// Loaded lazily, like the rarity baseline, and never through `loading` for the
+// same reason: the grid stays on screen while the study table arrives. Keyed
+// on the study's inputs, read whenever the pet list reloads (which every pet
+// edit does), so a correction repaints the lens instead of leaving the table
+// solved before it on screen.
+const impactKey = $derived.by(() => {
+  if (currentView !== 'impact' || !currentPet) return null;
+  const _reloaded = $petList;
+  return studyInputsKey(currentPet.species);
 });
-
-function loadImpact(species: string): void {
-  const mine = ++impactSeq;
-  // A reload for the species already on screen keeps painting the old table
-  // until the new one lands, rather than flashing every cell neutral.
-  if (impactData?.species !== species) impactLoading = true;
-  impactError = null;
-  Promise.all([getParsedGenesCached(species), peekAttributeMagnitudes(species) ?? attributeMagnitudesFor(species)])
-    .then(([parsed, magnitudes]) => {
-      if (mine !== impactSeq) return;
-      impactData = { species, parsed, magnitudes };
-      impactLoading = false;
-    })
-    .catch((err: unknown) => {
-      if (mine !== impactSeq) return;
-      console.error('Failed to load gene impact:', err);
-      impactError = 'Could not load gene impact';
-      impactData = null;
-      impactLoading = false;
-    });
-}
+const impact = keyedResource(() => impactKey, loadGeneImpact);
+const impactData = $derived(impact.value ?? null);
+const impactLoading = $derived(impact.loading);
+const impactError = $derived(
+  impact.error
+    ? 'Could not load gene impact'
+    : impactData?.studyFailed
+      ? 'The study failed — showing declared effects only'
+      : null,
+);
 
 /** Same readiness rule as the rarity baseline: the data must be about this species. */
 const impactReady = $derived(

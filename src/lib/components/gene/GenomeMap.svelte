@@ -13,21 +13,22 @@
  * stylesheet are the *same code* the pet grid uses, with no map-specific
  * colouring at all. Recessive top-left, dominant bottom-right, as there.
  */
-import { onDestroy, onMount, untrack } from 'svelte';
+import { onDestroy, onMount } from 'svelte';
 import './geneCell.css';
 import GeneTooltip from '$lib/components/gene/GeneTooltip.svelte';
 import EmptyState from '$lib/components/shared/EmptyState.svelte';
 import { normalizeSpecies } from '$lib/services/configService.js';
 import { computeRarityLookup, type RarityLookup } from '$lib/services/frequencyService.js';
-import { getGeneEffectsCached, getParsedGenesCached, type ParsedGeneRecord } from '$lib/services/geneService.js';
-import { attributeMagnitudesFor, peekAttributeMagnitudes, STUDYABLE_SPECIES } from '$lib/services/studyService.js';
+import { getGeneEffectsCached } from '$lib/services/geneService.js';
+import { loadGeneImpact, STUDYABLE_SPECIES, studyInputsKey } from '$lib/services/studyService.js';
+import { pets as petList } from '$lib/stores/pets.js';
 import { GeneType, type Pet } from '$lib/types/index.js';
-import type { AttributeMagnitudes } from '$lib/utils/attributePoints.js';
 import { breedFor, effectFor, type GeneEffectData } from '$lib/utils/geneAnalysis.js';
 import { computeGeneCellSize } from '$lib/utils/geneGridCells.js';
 import { buildImpactCSS, buildImpactTooltip, maxAbsPoints, slotImpact } from '$lib/utils/geneImpact.js';
 import { buildGenomeMapGrid, type GenomeMapGrid } from '$lib/utils/genomeMapGrid.js';
 import { handleGridNavigation } from '$lib/utils/keyboard.js';
+import { keyedResource } from '$lib/utils/keyedResource.svelte.js';
 import { buildRarityCSS, type RarityCell } from '$lib/utils/rarityCSS.js';
 import { buildRarityTooltip, placeRarityTooltip } from '$lib/utils/rarityTooltip.js';
 import { capitalize } from '$lib/utils/string.js';
@@ -73,15 +74,22 @@ let effectsSeq = 0;
 let lookupSeq = 0;
 
 // Impact lens: the gene declarations and the study's magnitudes, loaded only
-// when the lens is on. Seq-guarded and species-checked like the baseline.
-let impact = $state<{
-  species: string;
-  parsed: Record<string, ParsedGeneRecord>;
-  magnitudes: AttributeMagnitudes;
-} | null>(null);
-let impactLoading = $state(false);
-let impactError = $state<string | null>(null);
-let impactSeq = 0;
+// when the lens is on and keyed on the study's inputs, like the pet grid's.
+const impactKey = $derived.by(() => {
+  if (!speciesKey || lens !== 'impact') return null;
+  const _reloaded = $petList;
+  return studyInputsKey(speciesKey);
+});
+const impactResource = keyedResource(() => impactKey, loadGeneImpact);
+const impact = $derived(impactResource.value ?? null);
+const impactLoading = $derived(impactResource.loading);
+const impactError = $derived(
+  impactResource.error
+    ? 'Could not load gene impact'
+    : impact?.studyFailed
+      ? 'The study failed — showing declared effects only'
+      : null,
+);
 
 let containerEl = $state<HTMLElement | null>(null);
 let containerWidth = $state(0);
@@ -188,35 +196,7 @@ $effect(() => {
     });
 });
 
-$effect(() => {
-  const key = speciesKey;
-  if (!key || lens !== 'impact') return;
-  // Untracked for the same reason as the pet grid's impact load.
-  untrack(() => loadImpact(key));
-});
-
-function loadImpact(key: string): void {
-  const mine = ++impactSeq;
-  // A reload for the species already on screen keeps painting the old table
-  // until the new one lands, rather than flashing every cell neutral.
-  if (impact?.species !== key) impactLoading = true;
-  impactError = null;
-  Promise.all([getParsedGenesCached(key), peekAttributeMagnitudes(key) ?? attributeMagnitudesFor(key)])
-    .then(([parsed, magnitudes]) => {
-      if (mine !== impactSeq) return;
-      impact = { species: key, parsed, magnitudes };
-      impactLoading = false;
-    })
-    .catch((err: unknown) => {
-      if (mine !== impactSeq) return;
-      console.error('Failed to load gene impact for the genome map:', err);
-      impactError = 'Could not load gene impact';
-      impact = null;
-      impactLoading = false;
-    });
-}
-
-const impactReady = $derived(!impactLoading && !impactError && impact !== null && impact.species === speciesKey);
+const impactReady = $derived(!impactLoading && impact !== null && impact.species === speciesKey);
 const impactMaxAbs = $derived(impact ? maxAbsPoints(impact.magnitudes) : 0);
 const impactStudied = $derived(STUDYABLE_SPECIES.includes(speciesKey));
 
