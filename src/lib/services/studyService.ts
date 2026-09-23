@@ -89,9 +89,15 @@ export const STUDYABLE_SPECIES: readonly string[] = ['horse', 'beewasp'];
  * The engine cancels the unknown attribute base by subtracting two animals
  * that share it, and for horses that means the same breed: breeds carry
  * their own loci, so pairing across them would compare different sums. A
- * species outside this set has no breed-locked loci — every beewasp locus is
- * untagged — so all its animals share one base and pair with each other,
- * whatever their `breed` field says.
+ * species outside this set pairs all its animals in one pool, whatever their
+ * `breed` field says.
+ *
+ * Unverified: pooling beewasps assumes Bee and Wasp share one attribute
+ * base. The gene table only shows that no beewasp locus is breed-locked,
+ * which says nothing about the base; the assumption rests on player
+ * knowledge. If the bases differ, every Bee–Wasp equation carries the gap
+ * into a magnitude, and the out-of-sample validation score is where that
+ * would show. Adding `beewasp` here splits the pool.
  */
 const BREED_SCOPED_SPECIES: ReadonlySet<string> = new Set(['horse']);
 
@@ -873,7 +879,7 @@ export async function liveGeneConfirmations(
  * eligibility rules in `loadStudyCorpus`, or the shape `persistMagnitudes`
  * writes all count as changing the solve.
  */
-const SOLVER_VERSION = 2;
+const SOLVER_VERSION = 3;
 
 /**
  * A durable fingerprint of everything the solve depends on.
