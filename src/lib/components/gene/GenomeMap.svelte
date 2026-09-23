@@ -13,16 +13,19 @@
  * stylesheet are the *same code* the pet grid uses, with no map-specific
  * colouring at all. Recessive top-left, dominant bottom-right, as there.
  */
-import { onDestroy, onMount } from 'svelte';
+import { onDestroy, onMount, untrack } from 'svelte';
 import './geneCell.css';
 import GeneTooltip from '$lib/components/gene/GeneTooltip.svelte';
 import EmptyState from '$lib/components/shared/EmptyState.svelte';
 import { normalizeSpecies } from '$lib/services/configService.js';
 import { computeRarityLookup, type RarityLookup } from '$lib/services/frequencyService.js';
-import { getGeneEffectsCached } from '$lib/services/geneService.js';
+import { getGeneEffectsCached, getParsedGenesCached, type ParsedGeneRecord } from '$lib/services/geneService.js';
+import { attributeMagnitudesFor, peekAttributeMagnitudes, STUDYABLE_SPECIES } from '$lib/services/studyService.js';
 import { GeneType, type Pet } from '$lib/types/index.js';
+import type { AttributeMagnitudes } from '$lib/utils/attributePoints.js';
 import { breedFor, effectFor, type GeneEffectData } from '$lib/utils/geneAnalysis.js';
 import { computeGeneCellSize } from '$lib/utils/geneGridCells.js';
+import { buildImpactCSS, buildImpactTooltip, maxAbsPoints, slotImpact } from '$lib/utils/geneImpact.js';
 import { buildGenomeMapGrid, type GenomeMapGrid } from '$lib/utils/genomeMapGrid.js';
 import { handleGridNavigation } from '$lib/utils/keyboard.js';
 import { buildRarityCSS, type RarityCell } from '$lib/utils/rarityCSS.js';
@@ -43,9 +46,14 @@ interface Props {
    * *views* are just a filter, and the two must not be conflated.
    */
   breedFilter?: string;
+  /**
+   * What the cells show: allele rarity across `populationPets`, or each
+   * slot's measured attribute points from the study (`utils/geneImpact.ts`).
+   */
+  lens?: 'rarity' | 'impact';
 }
 
-const { species, populationPets = [], breedFilter = '' }: Props = $props();
+const { species, populationPets = [], breedFilter = '', lens = 'rarity' }: Props = $props();
 
 let effects = $state<Record<string, GeneEffectData>>({});
 let loading = $state(true);
@@ -63,6 +71,17 @@ let lookupError = $state<string | null>(null);
 // never commit — the map would render empty forever.
 let effectsSeq = 0;
 let lookupSeq = 0;
+
+// Impact lens: the gene declarations and the study's magnitudes, loaded only
+// when the lens is on. Seq-guarded and species-checked like the baseline.
+let impact = $state<{
+  species: string;
+  parsed: Record<string, ParsedGeneRecord>;
+  magnitudes: AttributeMagnitudes;
+} | null>(null);
+let impactLoading = $state(false);
+let impactError = $state<string | null>(null);
+let impactSeq = 0;
 
 let containerEl = $state<HTMLElement | null>(null);
 let containerWidth = $state(0);
@@ -146,7 +165,7 @@ $effect(() => {
 $effect(() => {
   const key = speciesKey;
   const pets = populationPets;
-  if (!key) return;
+  if (!key || lens !== 'rarity') return;
   const mine = ++lookupSeq;
   lookupLoading = true;
   lookupError = null;
@@ -167,6 +186,49 @@ $effect(() => {
       lookup = null;
       lookupLoading = false;
     });
+});
+
+$effect(() => {
+  const key = speciesKey;
+  if (!key || lens !== 'impact') return;
+  // Untracked for the same reason as the pet grid's impact load.
+  untrack(() => loadImpact(key));
+});
+
+function loadImpact(key: string): void {
+  const mine = ++impactSeq;
+  // A reload for the species already on screen keeps painting the old table
+  // until the new one lands, rather than flashing every cell neutral.
+  if (impact?.species !== key) impactLoading = true;
+  impactError = null;
+  Promise.all([getParsedGenesCached(key), peekAttributeMagnitudes(key) ?? attributeMagnitudesFor(key)])
+    .then(([parsed, magnitudes]) => {
+      if (mine !== impactSeq) return;
+      impact = { species: key, parsed, magnitudes };
+      impactLoading = false;
+    })
+    .catch((err: unknown) => {
+      if (mine !== impactSeq) return;
+      console.error('Failed to load gene impact for the genome map:', err);
+      impactError = 'Could not load gene impact';
+      impact = null;
+      impactLoading = false;
+    });
+}
+
+const impactReady = $derived(!impactLoading && !impactError && impact !== null && impact.species === speciesKey);
+const impactMaxAbs = $derived(impact ? maxAbsPoints(impact.magnitudes) : 0);
+const impactStudied = $derived(STUDYABLE_SPECIES.includes(speciesKey));
+
+/** Measured slots over declared slots, across every attribute. */
+const impactCoverage = $derived.by(() => {
+  let known = 0;
+  let total = 0;
+  for (const c of impact?.magnitudes.coverage.values() ?? []) {
+    known += c.known;
+    total += c.total;
+  }
+  return { known, total };
 });
 
 $effect(() => {
@@ -229,6 +291,23 @@ const lookupReady = $derived(!lookupLoading && !lookupError && lookup !== null &
 // unchanged — no map-specific colour logic exists.
 $effect(() => {
   if (!styleEl) return;
+  if (lens === 'impact') {
+    if (!impactReady || !impact) {
+      styleEl.textContent = '';
+      return;
+    }
+    const { parsed, magnitudes } = impact;
+    styleEl.textContent = buildImpactCSS({
+      scope: '.view-impact.gene-grid-container',
+      cells: visibleGeneIds.map((geneId) => ({
+        geneId,
+        dom: slotImpact(parsed[geneId], geneId, 'dominant', magnitudes),
+        rec: slotImpact(parsed[geneId], geneId, 'recessive', magnitudes),
+      })),
+      maxAbs: impactMaxAbs,
+    });
+    return;
+  }
   if (!lookupReady || !lookup) {
     styleEl.textContent = '';
     return;
@@ -244,10 +323,7 @@ $effect(() => {
  * and drops the card in the corner of the panel.
  */
 function showTooltip(geneId: string, clientX: number, clientY: number): void {
-  const { subtitle, lines } = buildRarityTooltip(lookupReady ? lookup : null, geneId, capitalize(species), {
-    dominant: effectFor(effects[geneId], 'D'),
-    recessive: effectFor(effects[geneId], 'R'),
-  });
+  const { subtitle, lines } = lens === 'impact' ? impactTooltip(geneId) : rarityTooltip(geneId);
   const { x, y } = placeRarityTooltip(clientX, clientY, lines.length, {
     width: window.innerWidth,
     height: window.innerHeight,
@@ -259,6 +335,23 @@ function showTooltip(geneId: string, clientX: number, clientY: number): void {
   tooltipSubtitle = subtitle;
   tooltipLines = lines;
   tooltipVisible = true;
+}
+
+function impactTooltip(geneId: string): { subtitle: string; lines: string[] } {
+  if (!impactReady || !impact) return { subtitle: impactError ?? 'Loading…', lines: [] };
+  const gd = impact.parsed[geneId];
+  return buildImpactTooltip(
+    slotImpact(gd, geneId, 'dominant', impact.magnitudes),
+    slotImpact(gd, geneId, 'recessive', impact.magnitudes),
+    null,
+  );
+}
+
+function rarityTooltip(geneId: string): { subtitle: string; lines: string[] } {
+  return buildRarityTooltip(lookupReady ? lookup : null, geneId, capitalize(species), {
+    dominant: effectFor(effects[geneId], 'D'),
+    recessive: effectFor(effects[geneId], 'R'),
+  });
 }
 </script>
 
@@ -277,7 +370,32 @@ function showTooltip(geneId: string, clientX: number, clientY: number): void {
         <!-- Shares `.gene-grid-container` AND `.view-rarity` deliberately: that is
              what makes the pet grid's static rarity CSS and the injected
              stylesheet apply here with no duplication. -->
-        {#if lookupError}
+        {#if lens === 'impact'}
+            <div class="map-legend" data-testid="map-impact-legend">
+                {#each [4, 3, 2, 1] as l (l)}
+                    <span class="swatch" style="background: var(--impact-neg-{l})"></span>
+                {/each}
+                <span class="swatch" style="background: var(--impact-neutral)" title="No attribute effect"></span>
+                {#each [1, 2, 3, 4] as l (l)}
+                    <span class="swatch" style="background: var(--impact-pos-{l})"></span>
+                {/each}
+                <span class="legend-text">{impactMaxAbs > 0 ? `Measured points, up to ±${impactMaxAbs}` : 'Measured points'}</span>
+                <span class="swatch legend-gap" style="background: var(--impact-pos-unknown)"></span>
+                <span class="swatch" style="background: var(--impact-neg-unknown)"></span>
+                <span class="legend-text">Declared, size not measured</span>
+                <span class="legend-text legend-muted legend-gap" data-testid="map-impact-status">
+                    {#if impactError}
+                        {impactError}
+                    {:else if !impactReady}
+                        Loading study…
+                    {:else if !impactStudied}
+                        The study does not cover {capitalize(speciesKey)} yet — only declared effects are shown.
+                    {:else}
+                        {impactCoverage.known} of {impactCoverage.total} effect sizes measured · recessive top-left, dominant bottom-right
+                    {/if}
+                </span>
+            </div>
+        {:else if lookupError}
             <!-- The genome is still worth showing — only the frequencies are
                  missing, and the dashed cells say so per-cell. -->
             <p class="map-status" data-testid="map-baseline-error">
@@ -285,8 +403,8 @@ function showTooltip(geneId: string, clientX: number, clientY: number): void {
             </p>
         {/if}
         <div
-            class="gene-grid-container view-rarity"
-            class:rarity-unscored={!lookupReady}
+            class="gene-grid-container {lens === 'impact' ? 'view-impact' : 'view-rarity'}"
+            class:rarity-unscored={lens === 'rarity' && !lookupReady}
             data-testid="genome-map-grid"
             bind:this={containerEl}
             style="--cell-size: {cellSize}px"
@@ -313,6 +431,7 @@ function showTooltip(geneId: string, clientX: number, clientY: number): void {
                                         {#if geneId}
                                             <div
                                                 class="gene-cell gene-mixed"
+                                                class:impact-split={lens === 'impact'}
                                                 data-gene-id={geneId}
                                                 data-zygosity="mixed"
                                                 role="button"
@@ -341,7 +460,7 @@ function showTooltip(geneId: string, clientX: number, clientY: number): void {
         geneId={tooltipGeneId}
         geneType="x"
         subtitle={tooltipSubtitle}
-        effectsLabel="Rarity"
+        effectsLabel={lens === 'impact' ? 'Impact' : 'Rarity'}
         valenceFromText={false}
         potentialEffects={tooltipLines}
     />
@@ -409,6 +528,36 @@ function showTooltip(geneId: string, clientX: number, clientY: number): void {
 
     .position-header.block-start:first-of-type {
         padding-left: var(--space-3xs);
+    }
+
+    .map-legend {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.35em;
+        margin: 0 0 var(--space-xs);
+        font-size: 11px;
+        color: var(--text-secondary);
+    }
+
+    .map-legend .swatch {
+        width: 1.15em;
+        height: 1.15em;
+        border-radius: 3px;
+        border: 1px solid var(--border-secondary);
+    }
+
+    .map-legend .legend-text {
+        font-weight: 600;
+    }
+
+    .map-legend .legend-muted {
+        color: var(--text-tertiary);
+        font-weight: 500;
+    }
+
+    .map-legend .legend-gap {
+        margin-left: 1.5em;
     }
 
     .map-status {

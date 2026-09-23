@@ -148,6 +148,28 @@ $effect(() => {
         </label>
       {/if}
       <div class="ref-field">
+        <span>Show</span>
+        <div class="seg" role="group" aria-label="Genome map lens">
+          <button
+            class="seg-btn"
+            class:active={referenceView.lens === 'rarity'}
+            aria-pressed={referenceView.lens === 'rarity'}
+            data-testid="map-lens-rarity"
+            title="Shade each gene by how rare its values are across your pets"
+            onclick={() => { referenceView.lens = 'rarity'; }}
+          >Rarity</button>
+          <button
+            class="seg-btn"
+            class:active={referenceView.lens === 'impact'}
+            aria-pressed={referenceView.lens === 'impact'}
+            data-testid="map-lens-impact"
+            title="Colour each gene by the attribute points the study measured for it"
+            onclick={() => { referenceView.lens = 'impact'; }}
+          >Impact</button>
+        </div>
+      </div>
+      {#if referenceView.lens === 'rarity'}
+      <div class="ref-field">
         <span>Baseline</span>
         <div class="seg" role="group" aria-label="Rarity baseline">
           <button
@@ -165,6 +187,7 @@ $effect(() => {
           <button class="seg-btn" disabled title="Needs a shared aggregate — not yet available">Community · soon</button>
         </div>
       </div>
+      {/if}
     {/if}
     <button
       class="edit-toggle"
@@ -193,7 +216,7 @@ $effect(() => {
         />
       {/if}
     {:else if selectedAnimalType}
-      <GenomeMap species={selectedAnimalType} {populationPets} {breedFilter} />
+      <GenomeMap species={selectedAnimalType} {populationPets} {breedFilter} lens={referenceView.lens} />
     {:else if !editorError}
       <EmptyState icon="🧬" title="Genome map" body="No gene templates are loaded yet." />
     {/if}

@@ -111,12 +111,13 @@ describe('PetVisualization detail header', () => {
     it('keeps the grid views as the exclusive segmented group, with Stats/Gallery and actions in their own clusters', () => {
       const { container } = render(PetVisualization, { pet: makePet() });
       const segment = q(container, '.view-controls') as HTMLElement;
-      // Rarity is a third grid view, so it belongs in this group. The rarity
-      // baseline toggle is a different axis and lives in `.rarity-population`.
+      // Rarity and Impact are grid views, so they belong in this group. The
+      // rarity baseline toggle is a different axis and lives in `.rarity-population`.
       expect([...segment.querySelectorAll('button')].map((b) => b.textContent?.trim())).toEqual([
         'Attributes',
         'Appearance',
         'Rarity',
+        'Impact',
       ]);
       expect(q(container, '.toggle-controls [data-testid="detail-stats-toggle"]')).not.toBeNull();
       expect(q(container, '.toggle-controls [data-testid="detail-gallery-toggle"]')).not.toBeNull();
@@ -252,6 +253,18 @@ describe('PetVisualization detail header', () => {
       expect((drawer as HTMLElement).style.width).toBe(widthBefore);
       // The body swaps rather than the drawer disappearing.
       expect(q(container, '[data-testid="stats-rarity-note"]')).not.toBeNull();
+    });
+
+    it('keeps the stats drawer mounted in the impact view, with its own note', async () => {
+      const { container, getByTestId } = render(PetVisualization, { pet: makePet() });
+      await fireEvent.click(getByTestId('detail-stats-toggle'));
+      const widthBefore = (q(container, '.stats-drawer') as HTMLElement).style.width;
+
+      await fireEvent.click(btn(container, 'Impact'));
+      const drawer = q(container, '.stats-drawer');
+      expect(drawer).not.toBeNull();
+      expect((drawer as HTMLElement).style.width).toBe(widthBefore);
+      expect(q(container, '[data-testid="stats-impact-note"]')).not.toBeNull();
     });
 
     it('leaves the Stats toggle usable in the rarity view', async () => {

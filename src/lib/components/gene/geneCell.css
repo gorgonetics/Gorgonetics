@@ -15,6 +15,95 @@
  * intentionally absent here.
  */
 
+/* --- Impact lens --------------------------------------------------------------
+ *
+ * Attribute points per slot, from the study (utils/geneImpact.ts). Green and
+ * red are right here, unlike the rarity lens: points have a valence, and the
+ * attribute view has already taught that reading. Intensity is the size of a
+ * measured effect. A declared effect whose size the study has not measured is
+ * hatched in its declared sign colour — visibly a direction without a number.
+ *
+ * The injected sheet only sets custom properties: `--impact-fill` for a whole
+ * cell (a pet's expressed slot), `--impact-dom` / `--impact-rec` for the
+ * genome map's split cells, and `--impact-label` for a known cell's points.
+ */
+:root,
+[data-theme="dark"] {
+  --impact-neutral: color-mix(in oklab, var(--text-muted) 16%, transparent);
+  --impact-cell-edge: color-mix(in oklab, var(--text-muted) 45%, transparent);
+  --impact-pos-1: color-mix(in oklab, var(--gene-positive) 30%, transparent);
+  --impact-pos-2: color-mix(in oklab, var(--gene-positive) 52%, transparent);
+  --impact-pos-3: color-mix(in oklab, var(--gene-positive) 76%, transparent);
+  --impact-pos-4: var(--gene-positive);
+  --impact-neg-1: color-mix(in oklab, var(--gene-negative) 30%, transparent);
+  --impact-neg-2: color-mix(in oklab, var(--gene-negative) 52%, transparent);
+  --impact-neg-3: color-mix(in oklab, var(--gene-negative) 76%, transparent);
+  --impact-neg-4: var(--gene-negative);
+  /* Measured, and measured to be nothing: a known result, so not hatched. */
+  --impact-zero: color-mix(in oklab, var(--text-muted) 38%, transparent);
+  --impact-pos-unknown: repeating-linear-gradient(
+    135deg,
+    color-mix(in oklab, var(--gene-positive) 75%, transparent) 0 1.5px,
+    color-mix(in oklab, var(--gene-positive) 12%, transparent) 1.5px 4px
+  );
+  --impact-neg-unknown: repeating-linear-gradient(
+    135deg,
+    color-mix(in oklab, var(--gene-negative) 75%, transparent) 0 1.5px,
+    color-mix(in oklab, var(--gene-negative) 12%, transparent) 1.5px 4px
+  );
+  --impact-ink: var(--text-primary);
+  --impact-ink-strong: #fff;
+}
+
+/* Same uniform 1px hairline as the rarity lens, for the same reason: every
+   cell paints the same area, so size never stands in for a value. */
+.view-impact.gene-grid-container .gene-cell:not(.gene-unknown) {
+  border-width: 1px;
+  border-color: var(--impact-cell-edge);
+  background: var(--impact-fill, var(--impact-neutral));
+}
+
+.view-impact.gene-grid-container .gene-cell:not(.gene-unknown)::after {
+  content: var(--impact-label, none);
+  font-size: calc(var(--cell-size, 16px) * 0.42);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: var(--impact-ink);
+  pointer-events: none;
+}
+
+/* Labels only where they are legible; the tooltip has every number anyway. */
+.view-impact.gene-grid-container.impact-no-labels .gene-cell::after {
+  content: none;
+}
+
+/* Split cells (genome map): recessive top-left, dominant bottom-right, the
+   same axis as every other mixed cell. Triangles are pseudo-elements rather
+   than a two-stop gradient because a stop cannot hold a hatch pattern. */
+.view-impact.gene-grid-container .gene-cell.impact-split {
+  background: var(--impact-neutral);
+  overflow: hidden;
+}
+
+.view-impact.gene-grid-container .gene-cell.impact-split::before,
+.view-impact.gene-grid-container .gene-cell.impact-split::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
+.view-impact.gene-grid-container .gene-cell.impact-split::before {
+  background: var(--impact-rec, transparent);
+  clip-path: polygon(0 0, 100% 0, 0 100%);
+}
+
+.view-impact.gene-grid-container .gene-cell.impact-split::after {
+  background: var(--impact-dom, transparent);
+  clip-path: polygon(100% 0, 100% 100%, 0 100%);
+}
+
 /* --- Rarity lens (#368) ----------------------------------------------------
  *
  * A diverging scale with a shared neutral centre: purple = a scarce DOMINANT

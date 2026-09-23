@@ -44,6 +44,7 @@ const DRAWER_TITLES: Record<string, string> = {
   attribute: 'Attribute Effects',
   appearance: 'Appearance Effects',
   rarity: 'Stats',
+  impact: 'Stats',
 };
 
 let geneVisualizerRef = $state<GeneVisualizerInstance | undefined>(undefined);
@@ -245,6 +246,15 @@ onDestroy(() => {
                 >
                     Rarity
                 </button>
+                <button
+                    class="seg-btn view-btn"
+                    class:active={!galleryOpen && currentView === "impact"}
+                    data-testid="view-impact-btn"
+                    title="Colour each gene by the attribute points the study measured for it"
+                    onclick={() => handleViewChange("impact")}
+                >
+                    Impact
+                </button>
             </div>
             {#if currentView === "rarity" && !galleryOpen}
                 <!-- Its own class, not `view-controls`: it shares the segmented
@@ -363,6 +373,12 @@ onDestroy(() => {
                             Effect and appearance stats don't apply to the rarity view.
                             The legend below the grid shows the scale, and hovering a
                             gene gives its exact figures.
+                        </p>
+                    {:else if currentView === "impact"}
+                        <p class="stats-empty" data-testid="stats-impact-note">
+                            Effect and appearance stats don't apply to the impact view.
+                            The per-attribute totals above the grid sum the measured
+                            genes, and hovering a gene gives its figures.
                         </p>
                     {:else}
                         <GeneStatsTable

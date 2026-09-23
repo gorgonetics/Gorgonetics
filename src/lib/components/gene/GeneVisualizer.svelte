@@ -1,10 +1,11 @@
 <script lang="ts">
-import { onDestroy, onMount } from 'svelte';
+import { onDestroy, onMount, untrack } from 'svelte';
 import './geneCell.css';
 import StatusPane from '$lib/components/shared/StatusPane.svelte';
 import {
   getAllAppearanceDisplayInfo,
   getAllAttributeDisplayInfo,
+  getAllAttributeNames,
   getAppearanceAttributes,
   getAppearanceConfig,
   getAttributeConfig,
@@ -12,10 +13,12 @@ import {
   normalizeSpecies,
 } from '$lib/services/configService.js';
 import { computeRarityLookup, type RarityLookup } from '$lib/services/frequencyService.js';
-import { getGeneEffectsCached } from '$lib/services/geneService.js';
+import { getGeneEffectsCached, getParsedGenesCached, type ParsedGeneRecord } from '$lib/services/geneService.js';
 import { loadPetGridFromDb } from '$lib/services/petService.js';
+import { attributeMagnitudesFor, peekAttributeMagnitudes, STUDYABLE_SPECIES } from '$lib/services/studyService.js';
 import { EFFECT_COLORS } from '$lib/theme/gene-colors.js';
 import type { AppearanceInfo, GeneType, Pet } from '$lib/types/index.js';
+import type { AttributeMagnitudes } from '$lib/utils/attributePoints.js';
 import { buildVisualizerFilterCSS, type ChrBreedRelevance, joinAttrs } from '$lib/utils/filterCSS.js';
 import { resolveFilterClick } from '$lib/utils/filterToggle.js';
 import {
@@ -28,6 +31,18 @@ import {
 } from '$lib/utils/geneAnalysis.js';
 import { RARITY_BUCKET_NEVER, RARITY_STEP_LABELS } from '$lib/utils/geneFrequency.js';
 import { computeGeneCellSize } from '$lib/utils/geneGridCells.js';
+import {
+  buildImpactCSS,
+  buildImpactTooltip,
+  expressedImpact,
+  expressedSlot,
+  formatPoints,
+  type ImpactCell,
+  maxAbsPoints,
+  type SlotImpact,
+  slotImpact,
+  summarizeImpact,
+} from '$lib/utils/geneImpact.js';
 import {
   updateStats as accumulateStats,
   initializeStats as buildEmptyStats,
@@ -158,7 +173,7 @@ let currentPet = $state<{
   breed: string;
   grid: Record<string, ParsedChromosome>;
 } | null>(null);
-let currentView = $state<'attribute' | 'appearance' | 'rarity'>('attribute');
+let currentView = $state<'attribute' | 'appearance' | 'rarity' | 'impact'>('attribute');
 
 // --- Rarity lens state ------------------------------------------------------
 // `rarityLoading` is deliberately NOT the component's `loading`: that one swaps
@@ -171,6 +186,18 @@ let rarityError = $state<string | null>(null);
 /** Guards against an out-of-order baseline resolving after a newer request. */
 let raritySeq = 0;
 let geneEffectsDB: Record<string, Record<string, GeneEffectData>> | null = null;
+
+// --- Impact lens state ------------------------------------------------------
+// Loaded lazily, like the rarity baseline, and never through `loading` for the
+// same reason: the grid stays on screen while the study table arrives.
+let impactData = $state<{
+  species: string;
+  parsed: Record<string, ParsedGeneRecord>;
+  magnitudes: AttributeMagnitudes;
+} | null>(null);
+let impactLoading = $state(false);
+let impactError = $state<string | null>(null);
+let impactSeq = 0;
 
 // Stats
 let currentStats = $state<StatsMap | null>(null);
@@ -274,6 +301,7 @@ let globalGeneEffectsDB: Record<string, Record<string, GeneEffectData>> = {};
 let filterStyleEl: HTMLStyleElement | null = null;
 /** Separate sheet from the filters one — never overload that. */
 let rarityStyleEl: HTMLStyleElement | null = null;
+let impactStyleEl: HTMLStyleElement | null = null;
 
 onMount(() => {
   filterStyleEl = document.createElement('style');
@@ -282,6 +310,9 @@ onMount(() => {
   rarityStyleEl = document.createElement('style');
   rarityStyleEl.id = 'gene-visualizer-rarity';
   document.head.appendChild(rarityStyleEl);
+  impactStyleEl = document.createElement('style');
+  impactStyleEl.id = 'gene-visualizer-impact';
+  document.head.appendChild(impactStyleEl);
   // Warm the effect cache for the common species; the load path also loads
   // on demand, so this is a best-effort optimisation only.
   void preloadGeneEffects();
@@ -292,6 +323,8 @@ onDestroy(() => {
   filterStyleEl = null;
   rarityStyleEl?.remove();
   rarityStyleEl = null;
+  impactStyleEl?.remove();
+  impactStyleEl = null;
   cleanup();
 });
 
@@ -356,6 +389,101 @@ $effect(() => {
     return;
   }
   rarityStyleEl.textContent = buildRarityCSS({ cells: renderedCells(), lookup: rarityLookup });
+});
+
+// Load the gene declarations and the study's magnitudes once the lens is
+// opened, and again on a species change. The memoised table is used as-is when
+// it is current; otherwise the study runs, which can take a while on the first
+// open of a session — the legend says so meanwhile.
+$effect(() => {
+  if (currentView !== 'impact' || !currentPet) return;
+  const species = normalizeSpecies(currentPet.species);
+  // Everything past the trigger is untracked: the load writes the state it
+  // would otherwise read, and a failed study returns no memoised table, so a
+  // tracked guard would re-run the study in a loop.
+  untrack(() => loadImpact(species));
+});
+
+function loadImpact(species: string): void {
+  const mine = ++impactSeq;
+  // A reload for the species already on screen keeps painting the old table
+  // until the new one lands, rather than flashing every cell neutral.
+  if (impactData?.species !== species) impactLoading = true;
+  impactError = null;
+  Promise.all([getParsedGenesCached(species), peekAttributeMagnitudes(species) ?? attributeMagnitudesFor(species)])
+    .then(([parsed, magnitudes]) => {
+      if (mine !== impactSeq) return;
+      impactData = { species, parsed, magnitudes };
+      impactLoading = false;
+    })
+    .catch((err: unknown) => {
+      if (mine !== impactSeq) return;
+      console.error('Failed to load gene impact:', err);
+      impactError = 'Could not load gene impact';
+      impactData = null;
+      impactLoading = false;
+    });
+}
+
+/** Same readiness rule as the rarity baseline: the data must be about this species. */
+const impactReady = $derived(
+  currentView === 'impact' &&
+    !impactLoading &&
+    impactData !== null &&
+    currentPet !== null &&
+    impactData.species === normalizeSpecies(currentPet.species),
+);
+
+/** Each rendered cell's expressed slot, or `none` for `?` and off-breed loci. */
+const impactCells = $derived.by((): { geneId: string; type: string; impact: SlotImpact }[] => {
+  if (!impactReady || !impactData || !currentPet) return [];
+  const sk = normalizeSpecies(currentPet.species);
+  const { parsed, magnitudes } = impactData;
+  const out: { geneId: string; type: string; impact: SlotImpact }[] = [];
+  for (const row of chromosomeData) {
+    for (const block of row.cells) {
+      for (const cell of block) {
+        if (!cell) continue;
+        const inactive = !isGeneRelevantToBreed(sk, cell.id);
+        out.push({
+          geneId: cell.id,
+          type: cell.type,
+          impact: expressedImpact(parsed[cell.id], cell.id, cell.type, magnitudes, inactive),
+        });
+      }
+    }
+  }
+  return out;
+});
+
+const impactMaxAbs = $derived(impactData ? maxAbsPoints(impactData.magnitudes) : 0);
+
+const impactSummary = $derived(
+  summarizeImpact(
+    impactCells.map((c) => c.impact),
+    currentPet ? getAllAttributeNames(currentPet.species).map(capitalize) : [],
+  ),
+);
+
+/** Whether the study covers this species at all, or only the declarations can be shown. */
+const impactStudied = $derived(!!currentPet && STUDYABLE_SPECIES.includes(normalizeSpecies(currentPet.species)));
+
+/** Below this a points label no longer fits inside a cell. */
+const IMPACT_LABEL_MIN_CELL = 17;
+
+$effect(() => {
+  if (!impactStyleEl) return;
+  if (!impactReady) {
+    impactStyleEl.textContent = '';
+    return;
+  }
+  const cells: ImpactCell[] = impactCells.map((c) => ({ geneId: c.geneId, fill: c.impact }));
+  impactStyleEl.textContent = buildImpactCSS({
+    scope: '.view-impact.gene-grid-container',
+    cells,
+    maxAbs: impactMaxAbs,
+    labels: true,
+  });
 });
 
 /** Every cell currently in the grid, as the rarity sheet needs them. */
@@ -778,7 +906,7 @@ function computeStats() {
   // shape for rarity, and the drawer swaps its body for a note in that view
   // (it stays mounted — unmounting it would resize the grid). So there is
   // nothing to recompute; leave the last computed stats in place.
-  if (currentView === 'rarity') return;
+  if (currentView === 'rarity' || currentView === 'impact') return;
   const view = currentView;
   const names = view === 'attribute' ? attributeStatNames : appearanceStatNames;
   const stats = buildEmptyStats(view, names);
@@ -845,6 +973,39 @@ function showTooltipForCell(cell: HTMLElement, clientX: number, clientY: number)
     tooltipEffect = '';
     tooltipSubtitle = subtitle;
     tooltipEffectsLabel = 'Rarity';
+    tooltipPotentialEffects = lines;
+    tooltipVisible = true;
+    return;
+  }
+  if (currentView === 'impact') {
+    const sk = currentPet ? normalizeSpecies(currentPet.species) : '';
+    const gd = impactReady ? impactData?.parsed[geneId] : undefined;
+    const magnitudes = impactData?.magnitudes;
+    let subtitle = '';
+    let lines: string[] = [];
+    if (!impactReady || !magnitudes) {
+      subtitle = impactError ?? 'Loading…';
+    } else if (!isGeneRelevantToBreed(sk, geneId)) {
+      subtitle = `${getGeneBreed(sk, geneId)} breed only — no effect on this pet`;
+    } else {
+      ({ subtitle, lines } = buildImpactTooltip(
+        slotImpact(gd, geneId, 'dominant', magnitudes),
+        slotImpact(gd, geneId, 'recessive', magnitudes),
+        expressedSlot(geneType),
+      ));
+      if (expressedSlot(geneType) === null) subtitle = 'Not revealed — nothing known is expressed';
+    }
+    const { x, y } = placeRarityTooltip(clientX, clientY, lines.length, {
+      width: window.innerWidth,
+      height: window.innerHeight,
+    });
+    tooltipX = x;
+    tooltipY = y;
+    tooltipGeneId = geneId;
+    tooltipGeneType = geneType;
+    tooltipEffect = '';
+    tooltipSubtitle = subtitle;
+    tooltipEffectsLabel = 'Impact';
     tooltipPotentialEffects = lines;
     tooltipVisible = true;
     return;
@@ -1113,7 +1274,7 @@ export function handleAttributeFilter(event: CustomEvent<{ attribute: string; ct
 }
 
 /** The views this component can render. Anything else coerces to `attribute`. */
-const VIEWS = ['attribute', 'appearance', 'rarity'] as const;
+const VIEWS = ['attribute', 'appearance', 'rarity', 'impact'] as const;
 
 export function handleViewChange(view: string) {
   // The coercion is load-bearing: an unrecognised value must not leave the
@@ -1253,6 +1414,51 @@ const blockIndices = $derived.by(() => {
                                     {/if}
                                 </span>
                             </div>
+                        {:else if currentView === "impact"}
+                            <div class="legend-row impact-legend" data-testid="impact-legend">
+                                {#each [4, 3, 2, 1] as l (l)}
+                                    <span class="rarity-swatch" style="background: var(--impact-neg-{l})"></span>
+                                {/each}
+                                <span class="rarity-swatch" style="background: var(--impact-neutral)" title="No attribute effect"></span>
+                                {#each [1, 2, 3, 4] as l (l)}
+                                    <span class="rarity-swatch" style="background: var(--impact-pos-{l})"></span>
+                                {/each}
+                                <span class="legend-label">
+                                    {#if impactMaxAbs > 0}Measured points, up to ±{impactMaxAbs}{:else}Measured points{/if}
+                                </span>
+                                <span class="rarity-swatch legend-gap" style="background: var(--impact-pos-unknown)"></span>
+                                <span class="rarity-swatch" style="background: var(--impact-neg-unknown)"></span>
+                                <span class="legend-label">Declared, size not measured</span>
+                                <span class="legend-label legend-label-muted" data-testid="impact-status">
+                                    {#if impactError}
+                                        {impactError}
+                                    {:else if !impactReady}
+                                        Loading study…
+                                    {:else if !impactStudied}
+                                        The study does not cover {capitalize(currentPet?.species ?? "this species")} yet — only declared effects are shown.
+                                    {/if}
+                                </span>
+                            </div>
+                            {#if impactReady && impactSummary.length > 0}
+                                <div class="legend-row impact-summary" data-testid="impact-summary">
+                                    {#each impactSummary as row (row.attribute)}
+                                        {@const unknown = row.unknownPositive + row.unknownNegative}
+                                        <span
+                                            class="impact-chip"
+                                            data-attribute={row.attribute}
+                                            title={`${row.known} measured, ${row.unknownPositive} unmeasured positive, ${row.unknownNegative} unmeasured negative`}
+                                        >
+                                            <span class="impact-chip-name">{row.attribute}</span>
+                                            {#if row.known > 0}
+                                                <span class="impact-chip-points" class:pos={row.points > 0} class:neg={row.points < 0}>{formatPoints(row.points)}</span>
+                                            {/if}
+                                            {#if unknown > 0}
+                                                <span class="impact-chip-unknown">{unknown} unknown</span>
+                                            {/if}
+                                        </span>
+                                    {/each}
+                                </div>
+                            {/if}
                         {:else if currentView === "appearance"}
                             <div class="legend-row">
                                 <span class="legend-label legend-label-appearance">Appearance:</span>
@@ -1279,8 +1485,9 @@ const blockIndices = $derived.by(() => {
                      Tooltip + keyboard-nav listeners are delegated on this
                      container via addEventListener (see the $effect above). -->
                 <div
-                    class="gene-grid-container {currentView === 'rarity' ? 'view-rarity' : ''}"
+                    class="gene-grid-container {currentView === 'rarity' ? 'view-rarity' : ''} {currentView === 'impact' ? 'view-impact' : ''}"
                     class:rarity-unscored={currentView === "rarity" && !rarityReady}
+                    class:impact-no-labels={cellSize < IMPACT_LABEL_MIN_CELL}
                     bind:this={gridContainerEl}
                     style="--cell-size: {cellSize}px"
                 >
@@ -1311,7 +1518,7 @@ const blockIndices = $derived.by(() => {
                                                     <td class="gene-cell-container {i === 0 ? 'block-start' : ''} {!cell ? 'empty' : ''}">
                                                         {#if cell}
                                                             <div
-                                                                class={currentView === "appearance" ? cell.appearanceCls : currentView === "rarity" ? cell.rarityCls : cell.attributeCls}
+                                                                class={currentView === "appearance" ? cell.appearanceCls : currentView === "rarity" || currentView === "impact" ? cell.rarityCls : cell.attributeCls}
                                                                 data-gene-id={cell.id}
                                                                 data-gene-type={cell.type}
                                                                 data-effect={cell.effect}
@@ -1351,7 +1558,7 @@ const blockIndices = $derived.by(() => {
         potentialEffects={tooltipPotentialEffects}
         subtitle={tooltipSubtitle}
         effectsLabel={tooltipEffectsLabel}
-        valenceFromText={currentView !== "rarity"}
+        valenceFromText={currentView !== "rarity" && currentView !== "impact"}
     />
 </div>
 
@@ -1430,6 +1637,60 @@ const blockIndices = $derived.by(() => {
 
     .rarity-legend .legend-label {
         font-weight: 600;
+    }
+
+    .impact-legend,
+    .impact-summary {
+        font-size: 11px;
+        color: var(--text-secondary);
+    }
+
+    .impact-legend {
+        gap: 0.35em;
+    }
+
+    .impact-legend .legend-label {
+        font-weight: 600;
+    }
+
+    .impact-legend .legend-gap {
+        margin-left: 1.5em;
+    }
+
+    .impact-summary {
+        gap: var(--space-xs);
+        margin-top: var(--space-xs);
+    }
+
+    .impact-chip {
+        display: inline-flex;
+        align-items: baseline;
+        gap: 0.4em;
+        padding: 0.15em 0.55em;
+        border: 1px solid var(--border-secondary);
+        border-radius: 999px;
+        background: var(--bg-primary);
+    }
+
+    .impact-chip-name {
+        font-weight: 600;
+    }
+
+    .impact-chip-points {
+        font-variant-numeric: tabular-nums;
+        font-weight: 700;
+    }
+
+    .impact-chip-points.pos {
+        color: var(--gene-positive);
+    }
+
+    .impact-chip-points.neg {
+        color: var(--gene-negative);
+    }
+
+    .impact-chip-unknown {
+        color: var(--text-tertiary);
     }
 
     .legend-label-muted {
