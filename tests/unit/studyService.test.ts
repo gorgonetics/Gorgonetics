@@ -19,6 +19,7 @@ import {
   confirmGeneDeclaration,
   listExcludedSubjects,
   liveGeneConfirmations,
+  loadGeneImpact,
   loadStudyCorpus,
   namesForSubjects,
   peekAttributeMagnitudes,
@@ -28,6 +29,7 @@ import {
   STUDYABLE_SPECIES,
   setUseForStudies,
   studyCorpusStatus,
+  studyInputsKey,
   withdrawGeneConfirmation,
 } from '$lib/services/studyService.js';
 import { coverageOf, EMPTY_MAGNITUDES, hasMagnitudes, magnitudeOf } from '$lib/utils/attributePoints.js';
@@ -1200,5 +1202,40 @@ describe('refreshStudyCorpus', () => {
     mockCatalogue([shared(g.hash, { species: 'BeeWasp' })], { [g.hash]: g.text });
     const result = await refreshStudyCorpus('horse');
     expect(result).toMatchObject({ considered: 0, cached: 0 });
+  });
+});
+
+describe('loadGeneImpact', () => {
+  it('returns the declarations and the solved magnitudes', async () => {
+    await upload(name('Kb', 45, 80, 'With'), 'DRRR');
+    await upload(name('Kb', 40, 80, 'Without'), 'RRRR');
+    const data = await loadGeneImpact('Horse');
+    expect(data.species).toBe('horse');
+    expect(data.parsed['01A1']).toMatchObject({ dominantAttribute: 'temperament' });
+    expect(magnitudeOf(data.magnitudes, '01A1', 'dominant')).toBe(5);
+    expect(data.studyFailed).toBe(false);
+  });
+
+  it('says when the study failed, rather than passing off the fallback as a result', async () => {
+    await upload(name('Kb', 45, 80), 'DRRR');
+    clearAttributeMagnitudesCache();
+    const boom = vi.spyOn(petService, 'getAllPets').mockRejectedValue(new Error('locked'));
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const data = await loadGeneImpact('horse');
+    expect(data.magnitudes).toBe(EMPTY_MAGNITUDES);
+    expect(data.studyFailed).toBe(true);
+
+    // The next successful solve clears the flag.
+    boom.mockRestore();
+    expect((await loadGeneImpact('horse')).studyFailed).toBe(false);
+    vi.restoreAllMocks();
+  });
+
+  it('keys on the study inputs, so a pet edit yields a new key', async () => {
+    const petId = await upload(name('Kb', 45, 80), 'DRRR');
+    const before = studyInputsKey('horse');
+    expect(studyInputsKey('Horse')).toBe(before);
+    await petService.updatePet(petId, { attributes: { temperament: 46 } });
+    expect(studyInputsKey('horse')).not.toBe(before);
   });
 });

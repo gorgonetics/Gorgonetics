@@ -221,12 +221,12 @@ export interface VisualizerFilterInput {
   currentValueFilter: string[];
   hiddenValueFilters: string[];
   /**
-   * `'rarity'` deliberately activates **neither** the attribute nor the
-   * appearance focus clauses: those legends do not exist in the rarity view, so
-   * their filters are inactive there. Chromosome, breed and value filters are
-   * outside the view branch and keep working.
+   * `'rarity'` and `'impact'` deliberately activate **neither** the attribute
+   * nor the appearance focus clauses: those legends do not exist in these
+   * views, so their filters are inactive there. Chromosome, breed and value
+   * filters are outside the view branch and keep working.
    */
-  currentView: 'attribute' | 'appearance' | 'rarity';
+  currentView: 'attribute' | 'appearance' | 'rarity' | 'impact';
   breedFilter: string;
   isHorse: boolean;
   chrBreedRelevance: Record<string, ChrBreedRelevance>;
