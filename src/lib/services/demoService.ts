@@ -5,7 +5,7 @@
 
 import { getDb } from './database.js';
 import { listBundledResources, loadBundledResource } from './fileService.js';
-import { clearGeneEffectsCache, upsertGene } from './geneService.js';
+import { upsertGenesBulk } from './geneService.js';
 import { hasPets, updatePet, uploadPet } from './petService.js';
 import { getSetting, resetSetting, setSetting } from './settingsService.js';
 
@@ -106,7 +106,7 @@ export async function refreshGeneTemplatesIfChanged(): Promise<void> {
 
   const db = getDb();
   // Pre-fetch existing notes per species so we can pass them through to
-  // upsertGene — INSERT OR REPLACE deletes the prior row, so without this
+  // upsertGenesBulk — INSERT OR REPLACE deletes the prior row, so without this
   // any user-authored notes would be lost on refresh.
   const notesBySpecies = new Map<string, Map<string, string>>();
   for (const species of new Set(parsed.map((c) => c.species))) {
@@ -117,21 +117,21 @@ export async function refreshGeneTemplatesIfChanged(): Promise<void> {
     notesBySpecies.set(species, new Map(rows.map((r) => [r.gene, r.notes ?? ''])));
   }
 
-  const speciesTouched = new Set<string>();
   for (const { species, chromosome, genes } of parsed) {
     const existingNotes = notesBySpecies.get(species) ?? new Map<string, string>();
-    for (const gene of genes) {
-      await upsertGene(species, chromosome, gene.gene, {
+    await upsertGenesBulk(
+      species,
+      chromosome,
+      genes.map((gene) => ({
+        gene: gene.gene,
         effectDominant: gene.effectDominant,
         effectRecessive: gene.effectRecessive,
         appearance: gene.appearance,
         breed: gene.breed,
         notes: existingNotes.get(gene.gene) ?? gene.notes ?? '',
-      });
-    }
-    speciesTouched.add(species);
+      })),
+    );
   }
-  for (const sp of speciesTouched) clearGeneEffectsCache(sp);
 
   // pets.positive_genes is computed from gene effects and persisted on
   // the pets table. The backfill that populates it is guard-gated by a

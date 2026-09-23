@@ -161,6 +161,16 @@ export async function getGenesForAnimal(animalType: string): Promise<Record<stri
  * downstream SQL queries don't have to re-parse the effect string.
  */
 export async function updateGene(animalType: string, gene: string, updates: Record<string, string>): Promise<boolean> {
+  const ok = await writeGeneUpdate(animalType, gene, updates);
+  if (ok) clearGeneEffectsCache(animalType);
+  return ok;
+}
+
+/**
+ * The `updateGene` write without cache invalidation, so a bulk caller
+ * can clear once for the whole batch instead of once per gene.
+ */
+async function writeGeneUpdate(animalType: string, gene: string, updates: Record<string, string>): Promise<boolean> {
   const db = getDb();
   const setClauses: string[] = [];
   const params: Record<string, unknown> = {};
@@ -209,7 +219,7 @@ export async function updateGenesBulk(
 ): Promise<number> {
   let count = 0;
   for (const g of genes) {
-    const ok = await updateGene(animalType, g.gene, {
+    const ok = await writeGeneUpdate(animalType, g.gene, {
       effectDominant: g.effectDominant,
       effectRecessive: g.effectRecessive,
       appearance: g.appearance,
@@ -222,14 +232,47 @@ export async function updateGenesBulk(
   return count;
 }
 
+type GeneUpsertData = {
+  effectDominant?: string;
+  effectRecessive?: string;
+  appearance?: string;
+  breed?: string;
+  notes?: string;
+};
+
 /**
- * Insert or update a gene record (used during template loading).
+ * Insert or update a gene record.
  */
 export async function upsertGene(
   animalType: string,
   chromosome: string,
   gene: string,
-  data: { effectDominant?: string; effectRecessive?: string; appearance?: string; breed?: string; notes?: string },
+  data: GeneUpsertData,
+): Promise<void> {
+  await writeGeneUpsert(animalType, chromosome, gene, data);
+  clearGeneEffectsCache(animalType);
+}
+
+/**
+ * Insert or update many genes of one chromosome, clearing the cache once
+ * at the end (used during template loading).
+ */
+export async function upsertGenesBulk(
+  animalType: string,
+  chromosome: string,
+  genes: ({ gene: string } & GeneUpsertData)[],
+): Promise<void> {
+  for (const { gene, ...data } of genes) {
+    await writeGeneUpsert(animalType, chromosome, gene, data);
+  }
+  clearGeneEffectsCache(animalType);
+}
+
+async function writeGeneUpsert(
+  animalType: string,
+  chromosome: string,
+  gene: string,
+  data: GeneUpsertData,
 ): Promise<void> {
   const db = getDb();
   const ts = now();
