@@ -400,6 +400,22 @@ describe('Backup Service', () => {
       expect(flagOf('legacy_bee')).toBe(0);
     });
 
+    it('restores the study exclusion, defaulting to included for older backups', async () => {
+      const excluded = { ...samplePet, content_hash: 'excluded', use_for_studies: 0 };
+      const legacy: Record<string, unknown> = { ...samplePet, content_hash: 'legacy' };
+      delete legacy.use_for_studies;
+
+      const zipData = await buildZip({ pets: [excluded, legacy] });
+      await importDatabase(zipData, importOpts('replace'));
+
+      const rows = await getDb().select<Array<{ content_hash: string; use_for_studies: number }>>(
+        'SELECT content_hash, use_for_studies FROM pets',
+      );
+      const flagOf = (hash: string) => rows.find((row) => row.content_hash === hash)?.use_for_studies;
+      expect(flagOf('excluded')).toBe(0);
+      expect(flagOf('legacy')).toBe(1);
+    });
+
     it('coerces missing genome_text to "" for pre-v13 backups', async () => {
       // v12-and-earlier exports didn't carry genome_text. The column is
       // NOT NULL DEFAULT '', and explicit-NULL inserts bypass the default,
