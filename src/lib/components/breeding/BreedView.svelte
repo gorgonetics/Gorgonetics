@@ -451,6 +451,13 @@ onDestroy(() => {
   {/if}
 
   <div class="bv-body">
+    {#if !errored && hiddenCandidates.length > 0}
+      <div class="banner banner-warn bv-hidden" role="status" data-testid="breed-hidden-warning">
+        ⚠ {hiddenCandidates.length} of {candidates.length} animals here {hiddenCandidates.length === 1 ? 'has' : 'have'} hidden genes (studied at a lower
+        Genetics level). Hidden genes score as nothing, so pairs with them can rank lower — or higher — than their
+        real genes deserve. Re-study them to rank them fully.
+      </div>
+    {/if}
     {#if errored}
       <StatusPane variant="error" title="Couldn't rank these pairs." body="Something went wrong computing scores. Switch species to retry." />
     {:else if loading && pairs.length === 0}
@@ -474,13 +481,6 @@ onDestroy(() => {
         body="Breeding pairs a male with a female. You need at least one stabled male and one stabled female of this species."
       />
     {:else}
-      {#if hiddenCandidates.length > 0}
-        <div class="banner banner-warn bv-hidden" role="status" data-testid="breed-hidden-warning">
-          ⚠ {hiddenCandidates.length} of {candidates.length} animals here {hiddenCandidates.length === 1 ? 'has' : 'have'} hidden genes (studied at a lower
-          Genetics level). Hidden genes score as nothing, so pairs with them can rank lower — or higher — than their
-          real genes deserve. Re-study them to rank them fully.
-        </div>
-      {/if}
       <div class="bv-meta">
         {#if breedingView.spots > 0}
           {@const planSize = plans?.[0]?.pairs.length ?? 0}

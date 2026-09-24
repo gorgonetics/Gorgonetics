@@ -132,11 +132,21 @@ const releases = $derived(plan?.releases ?? []);
  * releasing an animal whose own genome is incomplete takes an explicit yes.
  */
 const hiddenInStable = $derived(petsWithHiddenGenes(pets));
-const hiddenReleases = $derived(releases.filter((r) => hiddenGeneCount(r.pet) > 0));
+/**
+ * Hidden counts come from the current `pets`, not the plan's copies: the
+ * startup gene-count backfill can reload the same animals with their counts
+ * filled in after the plan was computed, and the warning, the tags and the
+ * gate must all read that one snapshot.
+ */
+const petById = $derived(new Map(pets.map((p) => [p.id, p])));
+const hiddenOf = (pet: Pet) => hiddenGeneCount(petById.get(pet.id) ?? pet);
+const hiddenReleases = $derived(releases.filter((r) => hiddenOf(r.pet) > 0));
 let hiddenAcknowledged = $state(false);
-// A new list is a new decision: an earlier acknowledgement covered other animals.
+// A new list is a new decision, and so is a change in which listed animals
+// hide genes: an earlier acknowledgement covered something else.
+const hiddenKey = $derived(`${requestKey}|${hiddenReleases.map((r) => `${r.pet.id}:${hiddenOf(r.pet)}`).join(',')}`);
 $effect(() => {
-  void requestKey;
+  void hiddenKey;
   hiddenAcknowledged = false;
 });
 const releaseBlocked = $derived(hiddenReleases.length > 0 && !hiddenAcknowledged);
@@ -329,13 +339,13 @@ async function release() {
                 {:else}
                   <span class="tag free" title="Every beneficial allele it carries is held by an animal you keep">free</span>
                 {/if}
-                {#if hiddenGeneCount(r.pet) > 0}
+                {#if hiddenOf(r.pet) > 0}
                   <span
                     class="tag hidden"
                     data-testid="free-slots-hidden-tag"
-                    title="This animal's genome has {hiddenGeneCount(r.pet)} hidden {hiddenGeneCount(r.pet) === 1 ? 'gene' : 'genes'}. Its cost only covers the genes you can see."
+                    title="This animal's genome has {hiddenOf(r.pet)} hidden {hiddenOf(r.pet) === 1 ? 'gene' : 'genes'}. Its cost only covers the genes you can see."
                   >
-                    ⚠ {hiddenGeneCount(r.pet)} hidden
+                    ⚠ {hiddenOf(r.pet)} hidden
                   </span>
                 {/if}
                 {#if r.liabilityRemoved > 0}

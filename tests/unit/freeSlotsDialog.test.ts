@@ -400,6 +400,26 @@ describe('hidden genes', () => {
     await waitFor(() => expect(released).not.toBeNull());
   });
 
+  it('reads hidden counts that arrive after the plan, and gates on them', async () => {
+    // The startup backfill can reload the same animals with their hidden
+    // counts filled in after the dialog computed its plan.
+    const pets = await stable();
+    const { container, rerender } = render(FreeSlotsDialog, {
+      species: 'beewasp',
+      pets,
+      onRelease: noop,
+      onClose: noop,
+    });
+    await waitFor(() => expect(items(container).length).toBeGreaterThan(0));
+    expect(confirm(container).disabled).toBe(false);
+
+    await rerender({ pets: pets.map((p) => ({ ...p, unknown_genes: 2 })) });
+    await waitFor(() => expect(container.querySelector('[data-testid="free-slots-hidden-ack"]')).toBeTruthy());
+    expect(container.querySelectorAll('[data-testid="free-slots-hidden-tag"]').length).toBe(items(container).length);
+    expect(container.querySelector('[data-testid="free-slots-hidden-ack"]')).toBeTruthy();
+    expect(confirm(container).disabled).toBe(true);
+  });
+
   it('asks again when the list changes', async () => {
     const pets = await stable(['Dup1', 'Dup2', 'Dup3', 'Dup4', 'Dup5', 'Dup6']);
     const { container } = render(FreeSlotsDialog, { species: 'beewasp', pets, onRelease: noop, onClose: noop });
