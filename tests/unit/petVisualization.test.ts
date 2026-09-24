@@ -255,7 +255,7 @@ describe('PetVisualization detail header', () => {
       expect(q(container, '[data-testid="stats-rarity-note"]')).not.toBeNull();
     });
 
-    it('keeps the stats drawer mounted in the impact view, with its own note', async () => {
+    it('keeps the stats drawer mounted in the impact view, titled for it', async () => {
       const { container, getByTestId } = render(PetVisualization, { pet: makePet() });
       await fireEvent.click(getByTestId('detail-stats-toggle'));
       const widthBefore = (q(container, '.stats-drawer') as HTMLElement).style.width;
@@ -264,7 +264,10 @@ describe('PetVisualization detail header', () => {
       const drawer = q(container, '.stats-drawer');
       expect(drawer).not.toBeNull();
       expect((drawer as HTMLElement).style.width).toBe(widthBefore);
-      expect(q(container, '[data-testid="stats-impact-note"]')).not.toBeNull();
+      // The stats table (stubbed here) has an impact mode, so the body is the
+      // table rather than the note the rarity view gets.
+      expect(q(container, '.stats-drawer-title')?.textContent?.trim()).toBe('Impact');
+      expect(q(container, '[data-testid="stats-rarity-note"]')).toBeNull();
     });
 
     it('leaves the Stats toggle usable in the rarity view', async () => {

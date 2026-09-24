@@ -39,6 +39,31 @@ test.describe('Gene impact lens', () => {
     await expect(page.getByTestId('stats-impact-note')).toBeVisible();
   });
 
+  test('clicking an attribute shows only the genes expressing it, and the stats explain it', async ({ page }) => {
+    await openPetOfSpecies(page, 'horse');
+    await page.getByTestId('view-impact-btn').click();
+    const chip = page.locator('[data-testid="impact-summary"] .impact-chip').first();
+    const attribute = await chip.getAttribute('data-attribute');
+    await chip.click();
+    await expect(chip).toHaveClass(/selected/);
+
+    const opacityOf = (selector: string) =>
+      page.evaluate((s) => {
+        const cell = document.querySelector(s);
+        return cell ? getComputedStyle(cell).opacity : null;
+      }, selector);
+    const lit = `[data-attr="${attribute}"][data-effecttype="positive"]`;
+    await expect.poll(() => opacityOf(`.view-impact .gene-cell${lit}`)).toBe('1');
+    await expect
+      .poll(() => opacityOf(`.view-impact .gene-cell[data-gene-id]:not([data-attr="${attribute}"])`))
+      .not.toBe('1');
+
+    await page.getByTestId('detail-stats-toggle').click();
+    const row = page.locator(`.stats-drawer tr[data-attribute="${attribute}"]`);
+    await expect(row).toHaveClass(/selected/);
+    await expect(page.getByTestId('stats-impact-note')).toBeVisible();
+  });
+
   test('beewasps are studied too, so no coverage caveat shows', async ({ page }) => {
     await openPetOfSpecies(page, 'beewasp');
     await page.getByTestId('view-impact-btn').click();

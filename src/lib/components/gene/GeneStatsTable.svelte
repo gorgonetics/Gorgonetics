@@ -3,6 +3,7 @@ import { createEventDispatcher } from 'svelte';
 import { run } from 'svelte/legacy';
 import { getAppearanceConfig, getAttributeConfig, normalizeSpecies } from '$lib/services/configService.js';
 import type { AppearanceInfo, AttributeInfo, Pet } from '$lib/types/index.js';
+import { type AttributeImpact, formatPoints } from '$lib/utils/geneImpact.js';
 
 const dispatch = createEventDispatcher();
 
@@ -23,6 +24,8 @@ interface Props {
   neutralGenes?: number;
   petSpecies?: string | null;
   pet?: Pet | null;
+  /** Impact view: per-attribute totals over the pet's expressed genes (`summarizeImpact`). */
+  impactRows?: AttributeImpact[] | null;
 }
 
 const {
@@ -34,7 +37,29 @@ const {
   neutralGenes = 0,
   petSpecies = null,
   pet = null,
+  impactRows = null,
 }: Props = $props();
+
+const impactByAttribute = $derived(new Map((impactRows ?? []).map((row) => [row.attribute, row])));
+/** Null rows mean the impact data is not in yet (loading, failed, other species). */
+const impactReady = $derived(impactRows !== null);
+/**
+ * Config attributes, then any the impact rows name that the config does not,
+ * so the table never drops an attribute the chips above the grid show.
+ */
+const impactAttributeList = $derived.by((): AttributeInfo[] => {
+  const known = new Set(attributeList.map((attr) => attr.key));
+  const extra = (impactRows ?? [])
+    .filter((row) => !known.has(row.attribute))
+    .map((row) => ({ key: row.attribute, name: row.attribute, icon: '' }) as AttributeInfo);
+  return [...attributeList, ...extra];
+});
+/**
+ * Whether the pet's attribute values are readings. The rest column is the
+ * observed value minus what the measured genes account for, which means
+ * nothing when the observed value is the importer's default.
+ */
+const observedIsReading = $derived(!!pet?.attributes_measured);
 
 let attributeList = $state<AttributeInfo[]>([]);
 let appearanceList = $state<AppearanceInfo[]>([]);
@@ -137,7 +162,9 @@ const hiddenLookup = $derived(
             <h4 id="tableTitle">
                 {currentView === "attribute"
                     ? "Attribute Effects Summary"
-                    : "Appearance Effects Summary"}
+                    : currentView === "impact"
+                      ? "Measured Gene Impact"
+                      : "Appearance Effects Summary"}
             </h4>
             <div class="selection-counters">
                 {#if selectedCount > 0}
@@ -154,7 +181,16 @@ const hiddenLookup = $derived(
 
         <table class="stats-table">
             <thead id="tableHeaders">
-                {#if currentView === "attribute"}
+                {#if currentView === "impact"}
+                    <tr>
+                        <th>Attribute</th>
+                        <th class="num" title="Pet's attribute value">Value</th>
+                        <th class="num" title="Sum of the measured effects of the genes this pet expresses">Measured</th>
+                        <th class="num" title="Value minus measured: the attribute's base plus every unmeasured effect">Rest</th>
+                        <th class="num pos" title="Expressed genes declared positive whose size is not measured">+?</th>
+                        <th class="num neg" title="Expressed genes declared negative whose size is not measured">−?</th>
+                    </tr>
+                {:else if currentView === "attribute"}
                     <tr>
                         <th>Attribute</th>
                         <th class="num" title="Pet's attribute value">Value</th>
@@ -173,7 +209,32 @@ const hiddenLookup = $derived(
                 {/if}
             </thead>
             <tbody id="tableBody">
-                {#if currentView === "attribute"}
+                {#if currentView === "impact"}
+                    {#each impactAttributeList as attr (attr.key)}
+                        {@const row = impactByAttribute.get(attr.key)}
+                        {@const value = petAttrValue(attr.key.toLowerCase())}
+                        {@const measured = row?.points ?? 0}
+                        <tr
+                            class="attribute-row"
+                            class:selected={selectedLookup[attr.key]}
+                            class:hidden-attribute={hiddenLookup[attr.key]}
+                            data-attribute={attr.key}
+                            onclick={(e) => handleAttributeClick(attr.key, e)}
+                        >
+                            <td>
+                                {attr.icon}
+                                {attr.name}
+                            </td>
+                            <td class="num" class:muted={!observedIsReading}>{value}</td>
+                            <td class="num" class:pos={measured > 0} class:neg={measured < 0}>
+                                {row && row.known > 0 ? formatPoints(measured) : "—"}
+                            </td>
+                            <td class="num">{impactReady && observedIsReading ? value - measured : "—"}</td>
+                            <td class="num pos">{impactReady ? (row?.unknownPositive ?? 0) : "—"}</td>
+                            <td class="num neg">{impactReady ? (row?.unknownNegative ?? 0) : "—"}</td>
+                        </tr>
+                    {/each}
+                {:else if currentView === "attribute"}
                     {#each attributeList as attr (attr.key)}
                         {@const s = asAttrStats(currentStats?.[attr.key])}
                         {@const value = petAttrValue(attr.key.toLowerCase())}
@@ -244,10 +305,23 @@ const hiddenLookup = $derived(
             </tbody>
         </table>
 
-        <div class="summary-info">
-            <span>Active Genes: <span id="totalGenesDisplay">{totalGenes}</span></span>
-            <span>No Effects: <span id="neutralGenesDisplay">{neutralGenes}</span></span>
-        </div>
+        {#if currentView === "impact"}
+            <p class="impact-note" data-testid="stats-impact-note">
+                {#if !impactReady}
+                    Gene impact is not loaded yet; the legend above the grid says why.
+                {:else if !observedIsReading}
+                    This pet's attributes were never recorded, so there is no observed value to explain.
+                {:else}
+                    Rest is the attribute's base plus every effect not yet measured — the study never
+                    estimates either, so it is not split further.
+                {/if}
+            </p>
+        {:else}
+            <div class="summary-info">
+                <span>Active Genes: <span id="totalGenesDisplay">{totalGenes}</span></span>
+                <span>No Effects: <span id="neutralGenesDisplay">{neutralGenes}</span></span>
+            </div>
+        {/if}
     </div>
 </div>
 
@@ -342,6 +416,16 @@ const hiddenLookup = $derived(
     .stats-table th.neg,
     .stats-table td.neg {
         color: #dc2626;
+    }
+
+    .stats-table td.muted {
+        color: var(--text-muted);
+    }
+
+    .impact-note {
+        margin: var(--space-sm) 0 0;
+        font-size: 11px;
+        color: var(--text-tertiary);
     }
 
     .stats-table th {
