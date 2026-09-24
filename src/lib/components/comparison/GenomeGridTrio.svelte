@@ -23,6 +23,7 @@ import { attributePotentialFilterCSS } from '$lib/utils/filterCSS.js';
 import { triStateToggle } from '$lib/utils/filterToggle.js';
 import { breedFor, effectFor, type GeneEffectData, isNoEffect } from '$lib/utils/geneAnalysis.js';
 import { buildAppearanceLookup, createGeneCellBuilder, type GeneCell } from '$lib/utils/geneGridCells.js';
+import { hiddenGeneCount } from '$lib/utils/hiddenGenes.js';
 import { getSpeciesEmoji } from '$lib/utils/species.js';
 import { capitalize } from '$lib/utils/string.js';
 import {
@@ -58,6 +59,13 @@ interface Props {
 const { father, mother, offspringBreed = '', pool, breedLockWeight, scores, onClose }: Props = $props();
 
 const isHorse = $derived(normalizeSpecies(father.species) === 'horse');
+/** Parents whose genomes hide genes, for the warning above the grid. */
+const hiddenParents = $derived(
+  [
+    { label: `♂ ${father.name || 'Father'}`, count: hiddenGeneCount(father) },
+    { label: `♀ ${mother.name || 'Mother'}`, count: hiddenGeneCount(mother) },
+  ].filter((p) => p.count > 0),
+);
 const speciesLabel = $derived(normalizeSpecies(father.species));
 
 let loading = $state(false);
@@ -574,6 +582,13 @@ function handleCellLeave() {
     {/snippet}
 
     <div class="trio-body">
+    {#if hiddenParents.length > 0}
+        <div class="banner banner-warn trio-hidden" role="status" data-testid="trio-hidden-warning">
+            ⚠ {hiddenParents.map((p) => `${p.label} has ${p.count} hidden ${p.count === 1 ? 'gene' : 'genes'}`).join(' · ')}
+            (studied at a lower Genetics level). The foal's outcome at those genes is unknown and not counted, so this
+            view can miss gains and losses there.
+        </div>
+    {/if}
     {#if !error}
         <div class="trio-filters">
             {#if isHorse}
@@ -880,6 +895,7 @@ function handleCellLeave() {
 
     /* Body fills the overlay; a flex column so the grid is the single scroll
        region and the filter row stays pinned above it. */
+    .trio-hidden { font-size: 12px; margin: 0 0 var(--space-xs); flex-shrink: 0; }
     .trio-body {
         flex: 1;
         min-height: 0;

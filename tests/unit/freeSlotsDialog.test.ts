@@ -43,17 +43,21 @@ async function seedGenes() {
   geneService.clearGeneEffectsCache('beewasp');
 }
 
-/** One irreplaceable founder plus six interchangeable animals. */
-async function stable(): Promise<Pet[]> {
+/**
+ * One irreplaceable founder plus six interchangeable animals, fully revealed
+ * unless `hidden` names the ones studied too shallowly to show every gene.
+ */
+async function stable(hidden: readonly string[] = []): Promise<Pet[]> {
   await seedGenes();
+  const rest = (name: string) => (hidden.includes(name) ? '??' : 'DD');
   return [
-    await upload('Founder', Gender.FEMALE, 'R??'),
-    await upload('Dup1', Gender.MALE, 'D??'),
-    await upload('Dup2', Gender.MALE, 'D??'),
-    await upload('Dup3', Gender.FEMALE, 'D??'),
-    await upload('Dup4', Gender.FEMALE, 'D??'),
-    await upload('Dup5', Gender.MALE, 'D??'),
-    await upload('Dup6', Gender.MALE, 'D??'),
+    await upload('Founder', Gender.FEMALE, `R${rest('Founder')}`),
+    await upload('Dup1', Gender.MALE, `D${rest('Dup1')}`),
+    await upload('Dup2', Gender.MALE, `D${rest('Dup2')}`),
+    await upload('Dup3', Gender.FEMALE, `D${rest('Dup3')}`),
+    await upload('Dup4', Gender.FEMALE, `D${rest('Dup4')}`),
+    await upload('Dup5', Gender.MALE, `D${rest('Dup5')}`),
+    await upload('Dup6', Gender.MALE, `D${rest('Dup6')}`),
   ];
 }
 
@@ -353,5 +357,60 @@ describe('FreeSlotsDialog', () => {
       onClose: noop,
     });
     expect(container.querySelector('.foot-note')?.textContent).toContain('Nothing is deleted');
+  });
+});
+
+describe('hidden genes', () => {
+  const confirm = (c: HTMLElement) => c.querySelector('[data-testid="free-slots-confirm"]') as HTMLButtonElement;
+
+  it('says nothing when every genome is fully revealed', async () => {
+    const pets = await stable();
+    const { container } = render(FreeSlotsDialog, { species: 'beewasp', pets, onRelease: noop, onClose: noop });
+    await waitFor(() => expect(items(container).length).toBeGreaterThan(0));
+    expect(container.querySelector('[data-testid="free-slots-hidden-warning"]')).toBeNull();
+    expect(container.querySelector('[data-testid="free-slots-hidden-ack"]')).toBeNull();
+    expect(confirm(container).disabled).toBe(false);
+  });
+
+  it('warns, flags the animal, and holds Release until the player acknowledges it', async () => {
+    const pets = await stable(['Dup1', 'Dup2', 'Dup3', 'Dup4', 'Dup5', 'Dup6']);
+    let released: number[] | null = null;
+    const { container } = render(FreeSlotsDialog, {
+      species: 'beewasp',
+      pets,
+      onRelease: async (ids) => {
+        released = ids;
+      },
+      onClose: noop,
+    });
+    await waitFor(() => expect(items(container).length).toBeGreaterThan(0));
+    expect(container.querySelector('[data-testid="free-slots-hidden-warning"]')?.textContent).toContain(
+      '6 of 7 animals have hidden genes',
+    );
+    expect(container.querySelectorAll('[data-testid="free-slots-hidden-tag"]').length).toBe(items(container).length);
+
+    expect(confirm(container).disabled).toBe(true);
+    await fireEvent.click(confirm(container));
+    expect(released).toBeNull();
+
+    const ack = container.querySelector('[data-testid="free-slots-hidden-ack"] input') as HTMLInputElement;
+    await fireEvent.click(ack);
+    expect(confirm(container).disabled).toBe(false);
+    await fireEvent.click(confirm(container));
+    await waitFor(() => expect(released).not.toBeNull());
+  });
+
+  it('asks again when the list changes', async () => {
+    const pets = await stable(['Dup1', 'Dup2', 'Dup3', 'Dup4', 'Dup5', 'Dup6']);
+    const { container } = render(FreeSlotsDialog, { species: 'beewasp', pets, onRelease: noop, onClose: noop });
+    await waitFor(() => expect(items(container).length).toBeGreaterThan(0));
+    await fireEvent.click(container.querySelector('[data-testid="free-slots-hidden-ack"] input') as HTMLInputElement);
+    expect(confirm(container).disabled).toBe(false);
+
+    await fireEvent.input(container.querySelector('[data-testid="free-slots-count"]') as HTMLInputElement, {
+      target: { value: '2' },
+    });
+    await waitFor(() => expect(items(container).length).toBe(2));
+    expect(confirm(container).disabled).toBe(true);
   });
 });
