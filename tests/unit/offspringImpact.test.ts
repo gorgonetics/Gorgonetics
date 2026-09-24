@@ -65,13 +65,13 @@ describe('offspringAttributeOutlooks', () => {
     expect(t.pBelowBoth).toBe(0);
     expect(t.bestGain).toBe(4);
     expect(t.pBest).toBe(0.25);
-    // A quarter of foals reach +4, so one in ten does: the top figure is +4.
+    // A quarter of foals reach +4: exactly the top quarter, so the top figure is +4.
     expect(t.topGain).toBe(4);
     // Base from each parent's value minus its measured points (60 and 55), averaged.
     expect(t.topValue).toBe(62);
   });
 
-  it('reports what one foal in ten reaches, not the all-lucky extreme', () => {
+  it('reports what one foal in four reaches, not the all-lucky extreme', () => {
     // Four independent 25% chances of +4: all four land in 1 of 256 foals.
     const ids = ['01A1', '01A2', '01A3', '01A4'];
     const [t] = offspringAttributeOutlooks({
@@ -84,9 +84,23 @@ describe('offspringAttributeOutlooks', () => {
     });
     expect(t.bestGain).toBe(16);
     expect(t.pBest).toBeCloseTo(1 / 256);
-    // P(X ≥ 8) = 1 − P(0) − P(4) = 1 − 0.316 − 0.422 ≈ 0.26 ≥ 10%; P(X ≥ 12) ≈ 0.05.
+    // P(X ≥ 8) = 1 − P(0) − P(4) = 1 − 0.316 − 0.422 ≈ 0.26 ≥ 25%; P(X ≥ 12) ≈ 0.05.
     expect(t.topGain).toBe(8);
     expect(t.topValue).toBe(58);
+  });
+
+  it('uses the top quarter of foals', () => {
+    // Three 25% chances of +4: P(X ≥ 8) ≈ 16% is short of a quarter; P(X ≥ 4) ≈ 58% covers it.
+    const ids = ['01A1', '01A2', '01A3'];
+    const [t] = offspringAttributeOutlooks({
+      ...base,
+      parsed: Object.fromEntries(ids.map((id) => [id, gene()])),
+      magnitudes: magnitudes(Object.fromEntries(ids.map((id) => [`${id}:recessive`, 4]))),
+      loci: ids.map((id) => mixedCross(id)),
+      father: parent('Kurbone'),
+      mother: parent('Kurbone'),
+    });
+    expect(t.topGain).toBe(4);
   });
 
   it('keeps predicted values inside the attribute range', () => {

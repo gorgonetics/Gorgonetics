@@ -59,7 +59,7 @@ export interface AttributeOutlook {
   pBeatsBoth: number | null;
   pBelowBoth: number | null;
   /**
-   * Gain over the better comparable parent that one foal in ten reaches or
+   * Gain over the better comparable parent that one foal in four reaches or
    * beats; null with no comparable parent. The realistic upside: the very
    * best case needs every uncertain gene to land at once.
    */
@@ -121,10 +121,10 @@ function slotsOf(gd: ParsedGeneRecord | undefined, geneId: string, magnitudes: A
 }
 
 /**
- * Share of foals the "top" figure describes: the value one foal in ten
+ * Share of foals the "top" figure describes: the value one foal in four
  * reaches or beats. A choice of presentation, not of genetics.
  */
-export const TOP_SHARE = 0.1;
+export const TOP_SHARE = 0.25;
 
 /**
  * The attribute range the app records (the name parser and the editor take
@@ -253,7 +253,7 @@ export function offspringAttributeOutlooks(input: OffspringImpactInput): Attribu
       const [maxPoints, pMax] = distribution[distribution.length - 1] ?? [0, 1];
       bestGain = maxPoints - top;
       pBest = pMax;
-      // Walk down from the top until a tenth of foals is covered.
+      // Walk down from the top until a quarter of foals is covered.
       let covered = 0;
       let topPoints = maxPoints;
       for (let i = distribution.length - 1; i >= 0; i--) {

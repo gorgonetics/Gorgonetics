@@ -969,7 +969,7 @@ function handleCellLeave() {
                                     <th class="num" title="Father's recorded value">♂</th>
                                     <th class="num" title="Mother's recorded value">♀</th>
                                     <th class="num" title="Chance the foal beats both parents on measured genes">↑ both</th>
-                                    <th class="num" title="The value one foal in ten reaches or beats (hover for the very best case)">Top 10%</th>
+                                    <th class="num" title="The value one foal in four reaches or beats (hover for the very best case)">Top 25%</th>
                                     <th class="num" title="Chance the foal falls below both parents on measured genes">↓ both</th>
                                     <th class="num" title="Unmeasured effects the foal is expected to gain beyond both parents, up / down (size unknown)">?</th>
                                 </tr>
@@ -987,7 +987,7 @@ function handleCellLeave() {
                                             class="num best"
                                             title={o.topGain === null
                                                 ? 'Neither parent shares the foal\'s base'
-                                                : `One foal in ten reaches ${o.topValue ?? formatPoints(o.topGain)} or more (${formatPoints(o.topGain)} against the better parent). The very best case, ${o.bestValue ?? formatPoints(o.bestGain ?? 0)}, needs every uncertain gene to land at once: ${pct(o.pBest)} of foals.`}
+                                                : `One foal in four reaches ${o.topValue ?? formatPoints(o.topGain)} or more (${formatPoints(o.topGain)} against the better parent). The very best case, ${o.bestValue ?? formatPoints(o.bestGain ?? 0)}, needs every uncertain gene to land at once: ${pct(o.pBest)} of foals.`}
                                         >
                                             {#if o.topGain === null}
                                                 —
@@ -1009,8 +1009,8 @@ function handleCellLeave() {
                         <p class="score-note">
                             {#if anyComparable}
                                 Chances come from the measured genes: a parent of the foal's breed shares its base,
-                                so the foal beats it exactly when its measured points exceed the parent's own. Top 10%
-                                is the value one foal in ten reaches or beats (its gain when no value is recorded).
+                                so the foal beats it exactly when its measured points exceed the parent's own. Top 25%
+                                is the value one foal in four reaches or beats (its gain when no value is recorded).
                                 ? counts unmeasured effects expected beyond both parents, with no size.
                             {:else}
                                 Neither parent is a {selectedBreed}, so neither shares the foal's base and the foal
