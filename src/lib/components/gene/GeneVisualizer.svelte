@@ -1,5 +1,5 @@
 <script lang="ts">
-import { onDestroy, onMount, untrack } from 'svelte';
+import { onDestroy, onMount } from 'svelte';
 import './geneCell.css';
 import StatusPane from '$lib/components/shared/StatusPane.svelte';
 import {
@@ -89,7 +89,6 @@ function categorizeAppearance(species: string, appearance: string) {
 
 interface Props {
   pet?: Pet | null;
-  onStatsUpdated?: () => void;
   /**
    * Pre-built chromosome grid to render instead of loading from the local
    * DB by `pet.id`. Used for community-catalogue previews, whose genome
@@ -163,7 +162,7 @@ interface HeaderStructure {
   blockMaxGenes: Map<string, number>;
 }
 
-const { pet, onStatsUpdated, gridOverride = null, populationPets = [] }: Props = $props();
+const { pet, gridOverride = null, populationPets = [] }: Props = $props();
 
 let loading = $state(false);
 let error = $state<string | null>(null);
@@ -442,21 +441,9 @@ const impactSummary = $derived(
   ),
 );
 
-// The stats drawer reads a snapshot through `getStatsData`, and the impact
-// totals arrive after the view switch, so announce them when they do.
-$effect(() => {
-  if (currentView !== 'impact') return;
-  const _rows = impactSummary;
-  // Untracked: the parent reads filter and stats state back through
-  // `getStatsData`, and tracking those reads would re-fire this on every chip
-  // click and drawer toggle rather than only when the totals change.
-  untrack(() => onStatsUpdated?.());
-});
-
 /** Toggle an attribute filter from an impact chip, with the stats table's click rules. */
 function handleImpactChipClick(attribute: string, event: MouseEvent) {
   applyAttributeFilter(attribute, event.ctrlKey || event.metaKey, event.altKey);
-  onStatsUpdated?.();
 }
 
 /** Whether the study covers this species at all, or only the declarations can be shown. */
@@ -928,7 +915,6 @@ function computeStats() {
   } else {
     neutralGenes = typeof stats['appearance-neutral'] === 'number' ? stats['appearance-neutral'] : 0;
   }
-  onStatsUpdated?.();
 }
 
 // --- Tooltip (event-delegated; no per-cell components / handlers) -----------
@@ -1289,6 +1275,11 @@ export function setBreedFilter(breed: string) {
   currentBreedFilter = breed;
 }
 
+/**
+ * The drawer's view of this grid. Every field is read from reactive state, so
+ * a parent that calls this inside `$derived` stays current with no callback:
+ * filter clicks, view switches and impact totals arriving later all re-run it.
+ */
 export function getStatsData() {
   return {
     currentStats,

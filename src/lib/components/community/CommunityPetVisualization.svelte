@@ -78,7 +78,9 @@ const isHorse = $derived(pet.species?.toLowerCase() === 'horse');
 let geneVisualizerRef = $state<GeneVisualizerInstance | undefined>(undefined);
 let currentView = $state('attribute');
 let statsOpen = $state(false);
-let stats = $state<ReturnType<GeneVisualizerInstance['getStatsData']> | null>(null);
+// Read inside `$derived`, so the drawer follows the grid's state with no refresh
+// calls. Only while the drawer is open: closed, it reads nothing.
+const stats = $derived(statsOpen ? (geneVisualizerRef?.getStatsData() ?? null) : null);
 let breedFilter = $state('');
 
 // --- Import ---------------------------------------------------------------
@@ -108,26 +110,15 @@ async function handleImport(): Promise<void> {
 function handleViewChange(view: string): void {
   currentView = view;
   geneVisualizerRef?.handleViewChange(view);
-  refreshStats();
 }
 
 function toggleStats(): void {
   statsOpen = !statsOpen;
-  if (statsOpen) refreshStats();
-}
-
-function refreshStats(): void {
-  if (geneVisualizerRef) stats = geneVisualizerRef.getStatsData();
-}
-
-function handleStatsUpdated(): void {
-  if (statsOpen) refreshStats();
 }
 
 function handleAttributeFilter(event: CustomEvent<{ attribute: string; ctrlKey: boolean; altKey: boolean }>): void {
   if (geneVisualizerRef?.handleAttributeFilter) {
     geneVisualizerRef.handleAttributeFilter(event);
-    refreshStats();
   }
 }
 
@@ -230,7 +221,7 @@ function handleBreedChange(fullName: string): void {
     {:else if previewPet && grid}
       <div class="visualizer-container">
         {#key pet.contentHash}
-          <GeneVisualizer pet={previewPet} bind:this={geneVisualizerRef} onStatsUpdated={handleStatsUpdated} gridOverride={grid} />
+          <GeneVisualizer pet={previewPet} bind:this={geneVisualizerRef} gridOverride={grid} />
         {/key}
       </div>
 

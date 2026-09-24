@@ -54,7 +54,9 @@ let currentView = $state('attribute');
 let statsOpen = $state(false);
 let galleryOpen = $state(false);
 let drawerWidth = $state<number>(320);
-let stats = $state<ReturnType<GeneVisualizerInstance['getStatsData']> | null>(null);
+// Read inside `$derived`, so the drawer follows the grid's state with no refresh
+// calls. Only while the drawer is open: closed, it reads nothing.
+const stats = $derived(statsOpen ? (geneVisualizerRef?.getStatsData() ?? null) : null);
 let breedFilter = $state('');
 let autoBreed = $state(false);
 let showShare = $state(false);
@@ -120,7 +122,6 @@ function handleViewChange(view: string): void {
   if (geneVisualizerRef) {
     geneVisualizerRef.handleViewChange(view);
   }
-  refreshStats();
 }
 
 function toggleStats(): void {
@@ -128,7 +129,6 @@ function toggleStats(): void {
   // back if the gallery took over, so pressed state always matches the screen.
   if (!statsOpen) galleryOpen = false;
   statsOpen = !statsOpen;
-  if (statsOpen) refreshStats();
 }
 
 function toggleGallery(): void {
@@ -138,22 +138,10 @@ function toggleGallery(): void {
   if (galleryOpen) statsOpen = false;
 }
 
-function refreshStats(): void {
-  if (geneVisualizerRef) {
-    stats = geneVisualizerRef.getStatsData();
-  }
-}
-
 function handleAttributeFilter(event: CustomEvent<{ attribute: string; ctrlKey: boolean; altKey: boolean }>): void {
   if (geneVisualizerRef?.handleAttributeFilter) {
     geneVisualizerRef.handleAttributeFilter(event);
-    refreshStats();
   }
-}
-
-// Called by GeneVisualizer when stats data changes
-function handleStatsUpdated(): void {
-  if (statsOpen) refreshStats();
 }
 
 function startResize(e: MouseEvent): void {
@@ -349,7 +337,7 @@ onDestroy(() => {
         </div>
       {:else}
         <div class="visualizer-container">
-            <GeneVisualizer {pet} {populationPets} bind:this={geneVisualizerRef} onStatsUpdated={handleStatsUpdated} />
+            <GeneVisualizer {pet} {populationPets} bind:this={geneVisualizerRef} />
         </div>
 
         <!-- The drawer stays MOUNTED in every view, including rarity.
