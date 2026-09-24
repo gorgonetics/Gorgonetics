@@ -103,6 +103,22 @@ describe('offspringAttributeOutlooks', () => {
     expect(t.topGain).toBe(4);
   });
 
+  it('leaves a hidden locus out rather than counting it as no effect', () => {
+    // The father expresses a +4 recessive; the mother's allele is hidden, so
+    // the foal's outcome is unknown. Scoring it as 0 would put every foal
+    // below the father.
+    const [t] = offspringAttributeOutlooks({
+      ...base,
+      loci: [{ geneId: '01A1', fatherType: GeneType.RECESSIVE, motherType: GeneType.UNKNOWN, dist: dist(0, 0, 0, 1) }],
+      father: parent('Kurbone'),
+      mother: parent('Kurbone'),
+    });
+    expect(t.hiddenLoci).toBe(1);
+    expect(t.fatherPoints).toBe(0);
+    expect(t.pBelowBoth).toBe(0);
+    expect(t.distribution).toEqual([[0, 1]]);
+  });
+
   it('keeps predicted values inside the attribute range', () => {
     const [t] = offspringAttributeOutlooks({
       ...base,
@@ -182,6 +198,17 @@ describe('offspringAttributeOutlooks', () => {
 });
 
 describe('locusOutlook', () => {
+  it('says nothing about a hidden locus', () => {
+    const hidden = {
+      geneId: '01A1',
+      fatherType: GeneType.RECESSIVE,
+      motherType: GeneType.UNKNOWN,
+      dist: dist(0, 0, 0, 1),
+    };
+    const o = locusOutlook(hidden, gene(), magnitudes({ '01A1:recessive': 4 }));
+    expect(o).toMatchObject({ upside: 0, downside: 0, unmeasuredSign: null, attributes: [] });
+  });
+
   it('reports the upside over the better parent and the downside below the weaker one', () => {
     const gd = gene({ dominantAttribute: 'toughness', dominantSign: '-' });
     const o = locusOutlook(mixedCross(), gd, magnitudes({ '01A1:recessive': 4, '01A1:dominant': -3 }));

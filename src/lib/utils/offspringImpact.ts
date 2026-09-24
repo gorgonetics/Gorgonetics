@@ -73,6 +73,17 @@ export interface AttributeOutlook {
   /** Expected count of unmeasured effects the foal gains beyond both parents, up / down. */
   unmeasuredUp: number;
   unmeasuredDown: number;
+  /**
+   * Genes affecting this attribute whose outcome is hidden — a parent's allele
+   * is not visible at the player's genetics skill. Left out of every figure
+   * above rather than counted as no effect, which would read as a loss.
+   */
+  hiddenLoci: number;
+}
+
+/** Whether the foal's outcome at a locus is known: a hidden parent allele hides it. */
+export function locusVisible(locus: PairLocus): boolean {
+  return locus.dist.unknown <= 0 && locus.fatherType !== GeneType.UNKNOWN && locus.motherType !== GeneType.UNKNOWN;
 }
 
 /** Probability the foal expresses a slot. `x` expresses as dominant; unknown mass expresses nothing knowable. */
@@ -175,18 +186,27 @@ export function offspringAttributeOutlooks(input: OffspringImpactInput): Attribu
     kM: number;
     up: number;
     down: number;
+    hidden: number;
   }
   const acc = new Map<string, Acc>();
   const get = (attribute: string): Acc => {
     let a = acc.get(attribute);
     if (!a) {
-      a = { dist: new Map([[0, 1]]), kF: 0, kM: 0, up: 0, down: 0 };
+      a = { dist: new Map([[0, 1]]), kF: 0, kM: 0, up: 0, down: 0, hidden: 0 };
       acc.set(attribute, a);
     }
     return a;
   };
 
   for (const locus of input.loci) {
+    if (!locusVisible(locus)) {
+      // Hidden on both sides of the comparison: the foal's outcome and the
+      // hidden parent's contribution are equally unknown, so the locus is
+      // counted and left out, for the foal and both parents alike.
+      const attrs = new Set(slotsOf(parsed[locus.geneId], locus.geneId, magnitudes).map((s) => s.attribute));
+      for (const attribute of attrs) get(attribute).hidden++;
+      continue;
+    }
     // The two slots of a locus are exclusive (a foal is D/x or R), so a
     // locus contributes one outcome per slot plus "neither", per attribute.
     const outcomes = new Map<string, Array<[number, number]>>();
@@ -291,6 +311,7 @@ export function offspringAttributeOutlooks(input: OffspringImpactInput): Attribu
       bestGain,
       pBest,
       bestValue,
+      hiddenLoci: a.hidden,
       unmeasuredUp: a.up,
       unmeasuredDown: a.down,
     };
@@ -318,6 +339,8 @@ export function locusOutlook(
 ): LocusOutlook {
   const byAttribute = new Map<string, { outcomes: Array<[number, number]>; father: number; mother: number }>();
   let unmeasured = 0;
+  const empty: LocusOutlook = { upside: 0, pUp: 0, downside: 0, pDown: 0, unmeasuredSign: null, attributes: [] };
+  if (!locusVisible(locus)) return empty;
   for (const slot of slotsOf(gd, locus.geneId, magnitudes)) {
     const pFoal = foalExpresses(locus.dist, slot.expression);
     const pF = parentExpresses(locus.fatherType, slot.expression);

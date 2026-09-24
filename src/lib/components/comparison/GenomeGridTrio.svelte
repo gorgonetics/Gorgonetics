@@ -157,6 +157,7 @@ const outlooks = $derived.by((): AttributeOutlook[] => {
     attributes: attributeDisplayInfo.map((a) => a.key),
   });
 });
+const hiddenTotal = $derived(outlooks.reduce((s, o) => s + o.hiddenLoci, 0));
 /** Whether either parent shares the foal's base, so the foal can be compared with it. */
 const anyComparable = $derived(outlooks.some((o) => o.pBeatsBoth !== null));
 
@@ -959,6 +960,10 @@ function handleCellLeave() {
                                 {/each}
                             </div>
                         {/if}
+                    {:else if impactResource.error}
+                        <p class="score-note" data-testid="trio-impact-error">
+                            Could not load gene impact, so the foal cannot be compared. Reopen the trio to retry.
+                        </p>
                     {:else if !impactData}
                         <p class="score-note">Loading study…</p>
                     {:else}
@@ -977,7 +982,11 @@ function handleCellLeave() {
                             <tbody>
                                 {#each outlooks as o (o.attribute)}
                                     <tr data-attribute={o.attribute}>
-                                        <td>{o.attribute}</td>
+                                        <td
+                                            title={o.hiddenLoci > 0
+                                                ? `${o.hiddenLoci} gene${o.hiddenLoci === 1 ? '' : 's'} affecting ${o.attribute} ${o.hiddenLoci === 1 ? 'is' : 'are'} hidden at your genetics skill and left out`
+                                                : undefined}
+                                        >{o.attribute}{#if o.hiddenLoci > 0}<span class="hidden-count"> ·{o.hiddenLoci}?</span>{/if}</td>
                                         <td class="num">{o.fatherValue ?? '—'}</td>
                                         <td class="num">{o.motherValue ?? '—'}</td>
                                         <td class="num beats" class:up={(o.pBeatsBoth ?? 0) > 0}>
@@ -1006,6 +1015,12 @@ function handleCellLeave() {
                                 {/each}
                             </tbody>
                         </table>
+                        {#if hiddenTotal > 0}
+                            <p class="score-note" data-testid="trio-impact-hidden">
+                                Genes hidden at your genetics skill (·N? by an attribute) are left out: the foal's
+                                outcome there is unknown, so they are not counted as no effect.
+                            </p>
+                        {/if}
                         <p class="score-note">
                             {#if anyComparable}
                                 Chances come from the measured genes: a parent of the foal's breed shares its base,
@@ -1186,6 +1201,7 @@ function handleCellLeave() {
     .impact-table .num { text-align: right; font-variant-numeric: tabular-nums; }
     .impact-table .beats.up, .impact-table .best .up { color: var(--gene-positive); font-weight: 700; }
     .impact-table .best { font-weight: 600; }
+    .impact-table .hidden-count { color: var(--text-tertiary); font-weight: 400; }
     .impact-table .below.down { color: var(--gene-negative); font-weight: 700; }
     .impact-table .unmeasured .up { color: var(--gene-positive); }
     .impact-table .unmeasured .down { color: var(--gene-negative); margin-left: 0.3em; }
