@@ -64,6 +64,26 @@ test.describe('Gene impact lens', () => {
     await expect(page.getByTestId('stats-impact-note')).toBeVisible();
   });
 
+  test('an open stats drawer follows the grid with no refresh', async ({ page }) => {
+    // The drawer reads the grid's state reactively (#537): open it first, then
+    // change view and filter, and it must keep up on its own.
+    await openPetOfSpecies(page, 'horse');
+    await page.getByTestId('detail-stats-toggle').click();
+    await expect(page.locator('.stats-drawer-title')).toHaveText('Attribute Effects');
+
+    await page.getByTestId('view-impact-btn').click();
+    await expect(page.locator('.stats-drawer-title')).toHaveText('Impact');
+    // Impact totals load after the switch; the table picks them up.
+    await expect(page.locator('.stats-drawer .stats-table td.pos').first()).not.toHaveText('—');
+
+    const chip = page.locator('[data-testid="impact-summary"] .impact-chip').first();
+    const attribute = await chip.getAttribute('data-attribute');
+    await chip.click();
+    await expect(page.locator(`.stats-drawer tr[data-attribute="${attribute}"]`)).toHaveClass(/selected/);
+    await chip.click();
+    await expect(page.locator(`.stats-drawer tr[data-attribute="${attribute}"]`)).not.toHaveClass(/selected/);
+  });
+
   test('beewasps are studied too, so no coverage caveat shows', async ({ page }) => {
     await openPetOfSpecies(page, 'beewasp');
     await page.getByTestId('view-impact-btn').click();
