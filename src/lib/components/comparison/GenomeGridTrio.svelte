@@ -28,10 +28,10 @@ import { buildAppearanceLookup, createGeneCellBuilder, type GeneCell } from '$li
 import { expressedImpact, formatPoints, impactPaint, maxAbsPoints } from '$lib/utils/geneImpact.js';
 import { keyedResource } from '$lib/utils/keyedResource.svelte.js';
 import {
-  type AnchorParent,
-  type AttributeExpectation,
-  locusExpectedPoints,
-  offspringAttributeExpectations,
+  type AttributeOutlook,
+  locusOutlook,
+  offspringAttributeOutlooks,
+  type PairParent,
 } from '$lib/utils/offspringImpact.js';
 import { ATTRIBUTE_KEYS } from '$lib/utils/sharedPet.js';
 import { getSpeciesEmoji } from '$lib/utils/species.js';
@@ -137,27 +137,28 @@ const impactMaxAbs = $derived(impactData ? maxAbsPoints(impactData.magnitudes) :
 /** Tint only when the loci on screen are the foal's: data in, and a breed where one is needed. */
 const impactTint = $derived(lens === 'impact' && impactData !== null && !impactBreedMissing);
 
-function anchorOf(p: Pet): AnchorParent {
+function parentOf(p: Pet): PairParent {
   const row = p as unknown as Record<string, unknown>;
   const values: Record<string, number> = {};
   for (const key of ATTRIBUTE_KEYS) if (typeof row[key] === 'number') values[key] = row[key] as number;
-  return { breed: p.breed ?? '', measured: !!p.attributes_measured, values };
+  return { breed: p.breed ?? '', values: p.attributes_measured ? values : null };
 }
 
-const expectations = $derived.by((): AttributeExpectation[] => {
+const outlooks = $derived.by((): AttributeOutlook[] => {
   if (!impactTint || !impactData || !grid) return [];
-  return offspringAttributeExpectations({
+  return offspringAttributeOutlooks({
     loci: grid.rows.flatMap((row) => Object.values(row.cells)),
     parsed: impactData.parsed,
     magnitudes: impactData.magnitudes,
-    father: anchorOf(father),
-    mother: anchorOf(mother),
+    father: parentOf(father),
+    mother: parentOf(mother),
     offspringBreed: selectedBreed,
     breedScoped,
     attributes: attributeDisplayInfo.map((a) => a.key),
   });
 });
-const anyAnchor = $derived(expectations.some((e) => e.expected !== null));
+/** Whether either parent shares the foal's base, so the foal can be compared with it. */
+const anyComparable = $derived(outlooks.some((o) => o.pBeatsBoth !== null));
 
 /** Parent cell under the impact lens: the slot it expresses, painted as the pet lens paints it. */
 function parentImpactStyle(cell: TrioLocusCell, type: GeneType | null): string | undefined {
@@ -171,27 +172,43 @@ function parentImpactStyle(cell: TrioLocusCell, type: GeneType | null): string |
   return `background: ${paint}; border: 1px solid var(--impact-cell-edge);`;
 }
 
-/** Foal cell under the impact lens: expected measured points, else the unmeasured direction. */
+/**
+ * Foal cell under the impact lens: what this gene can do against the parents.
+ * Green for a chance to beat the better parent here, by how much; red for a
+ * chance to fall below the weaker one; hatched when only unmeasured effects
+ * move.
+ */
 function offspringImpactBackground(cell: TrioLocusCell): string {
   if (!impactData) return 'var(--impact-neutral)';
-  const { points, unmeasuredSign } = locusExpectedPoints(cell, impactData.parsed[cell.geneId], impactData.magnitudes);
-  if (points !== 0) {
-    return impactPaint({ kind: 'known', attribute: '', sign: points < 0 ? '-' : '+', points }, impactMaxAbs) ?? '';
+  const o = locusOutlook(cell, impactData.parsed[cell.geneId], impactData.magnitudes);
+  if (o.upside > 0)
+    return impactPaint({ kind: 'known', attribute: '', sign: '+', points: o.upside }, impactMaxAbs) ?? '';
+  if (o.downside > 0) {
+    return impactPaint({ kind: 'known', attribute: '', sign: '-', points: -o.downside }, impactMaxAbs) ?? '';
   }
-  if (unmeasuredSign) return `var(--impact-${unmeasuredSign === '+' ? 'pos' : 'neg'}-unknown)`;
+  if (o.unmeasuredSign) return `var(--impact-${o.unmeasuredSign === '+' ? 'pos' : 'neg'}-unknown)`;
   return 'var(--impact-neutral)';
 }
 
-const fmt1 = (n: number) => n.toFixed(1);
-/** Whether the expected foal value beats both parents, trails both, or neither. */
-function trend(e: AttributeExpectation): 'up' | 'down' | null {
-  if (e.expected === null) return null;
-  const values = [e.father?.value, e.mother?.value].filter((v): v is number => typeof v === 'number');
-  if (values.length === 0) return null;
-  if (e.expected > Math.max(...values)) return 'up';
-  if (e.expected < Math.min(...values)) return 'down';
-  return null;
+/** Tooltip lines for a foal cell under the impact lens: each attribute's outcomes against the parents. */
+function offspringImpactLines(cell: TrioLocusCell): string[] {
+  if (!impactData) return [];
+  const o = locusOutlook(cell, impactData.parsed[cell.geneId], impactData.magnitudes);
+  const lines = o.attributes.map(({ attribute, outcomes, father: kF, mother: kM }) => {
+    const spread = outcomes
+      .sort((a, b) => b[0] - a[0])
+      .map(([points, p]) => `${formatPoints(points)} ${pct(p)}`)
+      .join(' · ');
+    return `${attribute}: ${spread} <span style="color: var(--text-muted)">(♂ ${formatPoints(kF)}, ♀ ${formatPoints(kM)})</span>`;
+  });
+  if (o.unmeasuredSign)
+    lines.push(
+      `<span style="color: var(--text-muted)">Unmeasured effect may move ${o.unmeasuredSign === '+' ? 'up' : 'down'}</span>`,
+    );
+  return lines;
 }
+
+const pct = (p: number) => (p > 0 && p < 0.005 ? '<1%' : `${Math.round(p * 100)}%`);
 
 /**
  * The three lenses, in display order — one table rather than a mode list, a
@@ -577,6 +594,18 @@ function handleParentEnter(e: MouseEvent, parent: GeneCell | null) {
 /** Offspring cell: the Punnett outcome split vs the parents. */
 function handleOffspringEnter(e: MouseEvent, cell: TrioLocusCell) {
   const lines: string[] = [];
+  if (impactTint) {
+    positionTooltip(e);
+    tooltipGeneId = cell.geneId;
+    tooltipGeneType = '';
+    tooltipEffect = '';
+    tooltipSubtitle = '';
+    tooltipLabel = 'Foal outcomes';
+    const impactLines = offspringImpactLines(cell);
+    tooltipPotentialEffects = impactLines.length > 0 ? impactLines : ['No measured attribute effect'];
+    tooltipVisible = true;
+    return;
+  }
   if (contributionMode !== 'off') {
     const v = contributionOf(cell.contributions, contributionMode);
     const label = labelFor(contributionMode);
@@ -912,7 +941,7 @@ function handleCellLeave() {
         {#if lens === 'impact'}
             <aside class="score-panel impact-panel" data-testid="trio-impact-panel">
                 <section class="score-group">
-                    <h4 class="score-head">Expected foal attributes</h4>
+                    <h4 class="score-head">Foal vs parents</h4>
                     {#if impactBreedMissing}
                         <p class="score-note" data-testid="trio-impact-breed-needed">
                             Pick an offspring breed. Each breed has its own genes and its own attribute base, so
@@ -937,51 +966,56 @@ function handleCellLeave() {
                             <thead>
                                 <tr>
                                     <th>Attribute</th>
-                                    <th class="num" title="Father's value">♂</th>
-                                    <th class="num" title="Mother's value">♀</th>
-                                    <th class="num" title="Expected foal value, ± the spread of the measured genes">Foal</th>
-                                    <th class="num" title="Unmeasured effects expected to push the value up / down (size unknown)">?</th>
+                                    <th class="num" title="Father's recorded value">♂</th>
+                                    <th class="num" title="Mother's recorded value">♀</th>
+                                    <th class="num" title="Chance the foal beats both parents on measured genes">↑ both</th>
+                                    <th class="num" title="Best case over the better parent, and its chance">Best</th>
+                                    <th class="num" title="Chance the foal falls below both parents on measured genes">↓ both</th>
+                                    <th class="num" title="Unmeasured effects the foal is expected to gain beyond both parents, up / down (size unknown)">?</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {#each expectations as e (e.attribute)}
-                                    {@const t = trend(e)}
-                                    <tr data-attribute={e.attribute}>
-                                        <td>{e.attribute}</td>
-                                        <td class="num">{e.father?.value ?? '—'}</td>
-                                        <td class="num">{e.mother?.value ?? '—'}</td>
+                                {#each outlooks as o (o.attribute)}
+                                    <tr data-attribute={o.attribute}>
+                                        <td>{o.attribute}</td>
+                                        <td class="num">{o.fatherValue ?? '—'}</td>
+                                        <td class="num">{o.motherValue ?? '—'}</td>
+                                        <td class="num beats" class:up={(o.pBeatsBoth ?? 0) > 0}>
+                                            {o.pBeatsBoth === null ? '—' : pct(o.pBeatsBoth)}
+                                        </td>
                                         <td
-                                            class="num foal"
-                                            class:up={t === 'up'}
-                                            class:down={t === 'down'}
-                                            title={e.expected === null
-                                                ? `Measured genes: ${formatPoints(Math.round(e.measuredMean * 10) / 10)} (no parent to anchor an absolute value)`
-                                                : `Expected ${fmt1(e.expected)} ± ${fmt1(e.sd)}`}
+                                            class="num best"
+                                            title={o.bestGain !== null && o.bestGain > 0
+                                                ? `${o.bestValue !== null ? `${o.bestValue} ` : ''}(${formatPoints(o.bestGain)} over the better parent) in ${pct(o.pBest)} of foals`
+                                                : 'No measured gene lets the foal beat the better parent'}
                                         >
-                                            {#if e.expected !== null}
-                                                {fmt1(e.expected)}{#if e.sd >= 0.05}<span class="sd"> ±{fmt1(e.sd)}</span>{/if}
+                                            {#if o.bestGain !== null && o.bestGain > 0}
+                                                <span class="up">{o.bestValue ?? formatPoints(o.bestGain)}</span>
+                                                <span class="sd">{pct(o.pBest)}</span>
                                             {:else}
-                                                <span class="muted">{e.measuredMean >= 0 ? '+' : ''}{fmt1(e.measuredMean)}</span>
+                                                —
                                             {/if}
                                         </td>
+                                        <td class="num below" class:down={(o.pBelowBoth ?? 0) > 0}>
+                                            {o.pBelowBoth === null ? '—' : pct(o.pBelowBoth)}
+                                        </td>
                                         <td class="num unmeasured">
-                                            {#if e.unmeasuredUp >= 0.05}<span class="up">↑{fmt1(e.unmeasuredUp)}</span>{/if}
-                                            {#if e.unmeasuredDown >= 0.05}<span class="down">↓{fmt1(e.unmeasuredDown)}</span>{/if}
+                                            {#if o.unmeasuredUp >= 0.05}<span class="up">↑{o.unmeasuredUp.toFixed(1)}</span>{/if}
+                                            {#if o.unmeasuredDown >= 0.05}<span class="down">↓{o.unmeasuredDown.toFixed(1)}</span>{/if}
                                         </td>
                                     </tr>
                                 {/each}
                             </tbody>
                         </table>
                         <p class="score-note">
-                            {#if anyAnchor}
-                                Foal = a {breedScoped ? `${selectedBreed} ` : ''}parent's value plus the change the
-                                measured genes predict; the base cancels. Green beats both parents, red trails both.
-                                ? counts unmeasured effects expected to move the value, with no size.
+                            {#if anyComparable}
+                                Chances come from the measured genes: a parent of the foal's breed shares its base,
+                                so the foal beats it exactly when its measured points exceed the parent's own. Best is
+                                the foal's value in its best case (its gain when no value is recorded). ? counts
+                                unmeasured effects expected beyond both parents, with no size.
                             {:else}
-                                {breedScoped
-                                    ? `Neither parent is a ${selectedBreed} with recorded attributes`
-                                    : 'Neither parent has recorded attributes'}, so there is no value to anchor on: the
-                                column shows only what the measured genes add.
+                                Neither parent is a {selectedBreed}, so neither shares the foal's base and the foal
+                                cannot be compared with them.
                             {/if}
                         </p>
                     {/if}
@@ -1143,7 +1177,7 @@ function handleCellLeave() {
         background: var(--bg-secondary); font-size: 11px;
     }
     .score-group { display: flex; flex-direction: column; gap: var(--space-2xs); }
-    .impact-panel { flex-basis: 300px; width: 300px; }
+    .impact-panel { flex-basis: 360px; width: 360px; }
     .impact-table { width: 100%; border-collapse: collapse; font-size: 11px; }
     .impact-table th, .impact-table td {
         padding: var(--space-3xs) var(--space-2xs); border-bottom: 1px solid var(--border-primary);
@@ -1151,10 +1185,9 @@ function handleCellLeave() {
     }
     .impact-table th { color: var(--text-tertiary); font-weight: 600; }
     .impact-table .num { text-align: right; font-variant-numeric: tabular-nums; }
-    .impact-table .foal { font-weight: 700; }
-    .impact-table .foal.up { color: var(--gene-positive); }
-    .impact-table .foal.down { color: var(--gene-negative); }
-    .impact-table .sd, .impact-table .muted { color: var(--text-tertiary); font-weight: 400; }
+    .impact-table .beats.up, .impact-table .best .up { color: var(--gene-positive); font-weight: 700; }
+    .impact-table .below.down { color: var(--gene-negative); font-weight: 700; }
+    .impact-table .sd { color: var(--text-tertiary); font-weight: 400; margin-left: 0.25em; }
     .impact-table .unmeasured .up { color: var(--gene-positive); }
     .impact-table .unmeasured .down { color: var(--gene-negative); margin-left: 0.3em; }
     .breed-picks { display: flex; flex-wrap: wrap; gap: var(--space-2xs); }

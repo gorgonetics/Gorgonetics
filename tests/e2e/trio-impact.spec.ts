@@ -39,7 +39,7 @@ test.describe('Trio impact lens', () => {
     await expect(page.getByTestId('trio-impact-breed-needed')).toHaveCount(0);
   });
 
-  test('anchors the foal on same-breed parents with recorded attributes', async ({ page }) => {
+  test('compares the foal with same-breed parents, showing their recorded values', async ({ page }) => {
     // Both demo horses are Standardbred; record Toughness on each.
     await setToughness(page, 'Sample Horse', 60);
     await setToughness(page, 'Roach', 70);
@@ -49,8 +49,9 @@ test.describe('Trio impact lens', () => {
     const row = page.locator('[data-testid="trio-impact-table"] tr[data-attribute="Toughness"]');
     await expect(row.locator('td').nth(1)).toHaveText('60');
     await expect(row.locator('td').nth(2)).toHaveText('70');
-    // No magnitudes are measured in the demo data, so the foal is the parents'
-    // mean: the anchored estimate, with nothing measured to move it.
-    await expect(row.locator('td.foal')).toContainText('65.0');
+    // The demo data has no measured effects, so no gene can move the foal
+    // past either parent: comparable, with a 0% chance either way.
+    await expect(row.locator('td.beats')).toHaveText('0%');
+    await expect(row.locator('td.below')).toHaveText('0%');
   });
 });

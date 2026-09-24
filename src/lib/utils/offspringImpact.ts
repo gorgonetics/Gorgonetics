@@ -1,19 +1,23 @@
 /**
- * Expected foal attributes for a breeding pair, from the study's measured
- * gene effects.
+ * What a breeding pair's foal can do to each attribute, from the study's
+ * measured gene effects.
  *
  * An attribute is `base + Σ expressed effects`, and the study never learns
- * `base`. It does not need to here either, for the same reason the study
- * itself does not: a parent of the foal's breed shares the foal's base, so
+ * `base`. A parent of the foal's breed shares it, so against that parent
  *
- *     E[foal] − parent = Σ over slots (P_foal(slot) − parent expresses slot) · m
+ *     foal − parent = X − K_parent
  *
- * and the base cancels. With a measured `m` that term is a number; with an
- * unmeasured one it is a direction only, reported as the expected count of
- * unmeasured effects that move the value up or down. Anchored on each
- * parent of the breed whose attributes are readings; two anchors are
- * averaged. With none, only the measured genes' expected contribution is
- * known, and no absolute value is claimed.
+ * where `X` is the foal's measured points and `K_parent` the points that
+ * parent expresses — the base cancels, and no attribute reading is needed to
+ * compare. `X` is a distribution, not a number: two mixed parents give a
+ * 25% chance of a recessive foal, and when the recessive slot is `+m` that is
+ * a quarter of foals beating both parents by `m`. A mean would report it as
+ * `+m/4` for everyone, which is the case this module exists to keep visible,
+ * so it reports probabilities and a best case rather than an expectation.
+ *
+ * Unmeasured slots have no size, only a declared direction; they are
+ * reported as the expected count of effects the foal gains beyond both
+ * parents, up or down.
  *
  * Pure. No DB, no Svelte.
  */
@@ -33,37 +37,33 @@ export interface PairLocus {
   dist: AlleleDistribution;
 }
 
-/** A parent as an anchor: its breed, whether its attributes are readings, and the values. */
-export interface AnchorParent {
+/** A parent: its breed, and its attribute readings when it has any. */
+export interface PairParent {
   breed: string;
-  measured: boolean;
-  /** Lowercased attribute name -> value. */
-  values: Record<string, number>;
+  /** Lowercased attribute name -> value; only when the values are readings. */
+  values: Record<string, number> | null;
 }
 
-export interface AnchorEstimate {
-  /** The parent's observed value. */
-  value: number;
-  /** The foal's expected value, anchored on this parent. */
-  expected: number;
-}
-
-export interface AttributeExpectation {
+export interface AttributeOutlook {
   /** Capitalised, as the breeding scorers and the UI name attributes. */
   attribute: string;
-  /** Σ E[foal's measured points] over the breed's loci. */
-  measuredMean: number;
-  /** Spread of the measured points (independent loci, exclusive slots within one). */
-  sd: number;
-  father: AnchorEstimate | null;
-  mother: AnchorEstimate | null;
-  /** Mean of the anchor estimates, or null with no anchor. */
-  expected: number | null;
-  /**
-   * Expected count of unmeasured effects moving the value up / down against
-   * the anchor parent(s) — a direction with no size. Against no anchor, the
-   * foal's expected unmeasured positives and negatives.
-   */
+  /** The foal's measured points: [points, probability], ascending. */
+  distribution: Array<[number, number]>;
+  /** Measured points each parent expresses, or null when it cannot be compared (another breed). */
+  fatherPoints: number | null;
+  motherPoints: number | null;
+  /** Readings, for display and the absolute best case. */
+  fatherValue: number | null;
+  motherValue: number | null;
+  /** P(foal above / below every comparable parent), null with none. */
+  pBeatsBoth: number | null;
+  pBelowBoth: number | null;
+  /** Largest gain over the better comparable parent, and its probability; null with none. */
+  bestGain: number | null;
+  pBest: number;
+  /** The foal's value in that best case, when a comparable parent has readings. */
+  bestValue: number | null;
+  /** Expected count of unmeasured effects the foal gains beyond both parents, up / down. */
   unmeasuredUp: number;
   unmeasuredDown: number;
 }
@@ -79,11 +79,13 @@ export function parentExpresses(type: GeneType | null, expression: Expression): 
   return type === GeneType.RECESSIVE ? 1 : 0;
 }
 
-/** Whether a parent can anchor the foal's breed: same breed, readings, and a breed that is one. */
-export function canAnchor(parent: AnchorParent, offspringBreed: string, breedScoped: boolean): boolean {
-  if (!parent.measured) return false;
+/**
+ * Whether a parent shares the foal's base, so the two can be compared. For
+ * a breed-scoped species that is the same, real breed: Mixed has no single
+ * base, since which breed-locked loci apply to it is unknowable.
+ */
+export function comparable(parent: PairParent, offspringBreed: string, breedScoped: boolean): boolean {
   if (!breedScoped) return true;
-  // Mixed has no single base: which breed-locked loci apply to it is unknowable.
   return !!offspringBreed && offspringBreed !== 'Mixed' && parent.breed === offspringBreed;
 }
 
@@ -111,12 +113,28 @@ function slotsOf(gd: ParsedGeneRecord | undefined, geneId: string, magnitudes: A
   return out;
 }
 
+/** Keys for a points distribution: magnitudes are whole numbers, but sums of floats need a stable key. */
+const key = (points: number) => Math.round(points * 1e6) / 1e6;
+
+/** Convolve a distribution with one locus's outcomes (each [points, probability], summing to 1). */
+function convolve(dist: Map<number, number>, outcomes: Array<[number, number]>): Map<number, number> {
+  const next = new Map<number, number>();
+  for (const [value, p] of dist) {
+    for (const [points, q] of outcomes) {
+      if (q <= 0) continue;
+      const k = key(value + points);
+      next.set(k, (next.get(k) ?? 0) + p * q);
+    }
+  }
+  return next;
+}
+
 export interface OffspringImpactInput {
   loci: Iterable<PairLocus>;
   parsed: Record<string, ParsedGeneRecord>;
   magnitudes: AttributeMagnitudes;
-  father: AnchorParent;
-  mother: AnchorParent;
+  father: PairParent;
+  mother: PairParent;
   offspringBreed: string;
   /** Whether the species' loci and bases are breed-scoped (horses). */
   breedScoped: boolean;
@@ -124,66 +142,62 @@ export interface OffspringImpactInput {
   attributes: readonly string[];
 }
 
-export function offspringAttributeExpectations(input: OffspringImpactInput): AttributeExpectation[] {
+export function offspringAttributeOutlooks(input: OffspringImpactInput): AttributeOutlook[] {
   const { parsed, magnitudes, father, mother, offspringBreed, breedScoped, attributes } = input;
-  const anchorF = canAnchor(father, offspringBreed, breedScoped);
-  const anchorM = canAnchor(mother, offspringBreed, breedScoped);
+  const fatherComparable = comparable(father, offspringBreed, breedScoped);
+  const motherComparable = comparable(mother, offspringBreed, breedScoped);
 
-  const acc = new Map<
-    string,
-    {
-      mean: number;
-      variance: number;
-      knownF: number;
-      knownM: number;
-      upF: number;
-      downF: number;
-      upM: number;
-      downM: number;
-      up: number;
-      down: number;
-    }
-  >();
-  const get = (attribute: string) => {
+  interface Acc {
+    dist: Map<number, number>;
+    kF: number;
+    kM: number;
+    up: number;
+    down: number;
+  }
+  const acc = new Map<string, Acc>();
+  const get = (attribute: string): Acc => {
     let a = acc.get(attribute);
     if (!a) {
-      a = { mean: 0, variance: 0, knownF: 0, knownM: 0, upF: 0, downF: 0, upM: 0, downM: 0, up: 0, down: 0 };
+      a = { dist: new Map([[0, 1]]), kF: 0, kM: 0, up: 0, down: 0 };
       acc.set(attribute, a);
     }
     return a;
   };
 
   for (const locus of input.loci) {
-    const slots = slotsOf(parsed[locus.geneId], locus.geneId, magnitudes);
-    // Within one locus the two slots are exclusive (a foal is D/x or R), so
-    // same-attribute slots share one variance term: E[X²] − E[X]².
-    const perAttribute = new Map<string, { m1: number; m2: number }>();
-    for (const slot of slots) {
+    // The two slots of a locus are exclusive (a foal is D/x or R), so a
+    // locus contributes one outcome per slot plus "neither", per attribute.
+    const outcomes = new Map<string, Array<[number, number]>>();
+    for (const slot of slotsOf(parsed[locus.geneId], locus.geneId, magnitudes)) {
       const a = get(slot.attribute);
       const pFoal = foalExpresses(locus.dist, slot.expression);
       const pF = parentExpresses(locus.fatherType, slot.expression);
       const pM = parentExpresses(locus.motherType, slot.expression);
       if (slot.points !== undefined) {
-        a.mean += pFoal * slot.points;
-        a.knownF += pF * slot.points;
-        a.knownM += pM * slot.points;
-        const moments = perAttribute.get(slot.attribute) ?? { m1: 0, m2: 0 };
-        moments.m1 += pFoal * slot.points;
-        moments.m2 += pFoal * slot.points * slot.points;
-        perAttribute.set(slot.attribute, moments);
+        a.kF += pF * slot.points;
+        a.kM += pM * slot.points;
+        const list = outcomes.get(slot.attribute) ?? [];
+        list.push([slot.points, pFoal]);
+        outcomes.set(slot.attribute, list);
+        continue;
+      }
+      // Unmeasured: the chance of expressing it beyond what either parent
+      // does (a gain in its declared direction), or of dropping one both
+      // parents have (a loss against its direction).
+      const gained = Math.max(0, pFoal - Math.max(pF, pM));
+      const dropped = Math.max(0, Math.min(pF, pM) - pFoal);
+      if (slot.sign === '+') {
+        a.up += gained;
+        a.down += dropped;
       } else {
-        const dir = slot.sign === '+' ? 1 : -1;
-        const vsF = dir * (pFoal - pF);
-        const vsM = dir * (pFoal - pM);
-        a.upF += Math.max(0, vsF);
-        a.downF += Math.max(0, -vsF);
-        a.upM += Math.max(0, vsM);
-        a.downM += Math.max(0, -vsM);
-        if (dir > 0) a.up += pFoal;
-        else a.down += pFoal;
+        a.down += gained;
+        a.up += dropped;
       }
     }
-    for (const [attribute, { m1, m2 }] of perAttribute) get(attribute).variance += m2 - m1 * m1;
+    for (const [attribute, list] of outcomes) {
+      const expressed = list.reduce((s, [, p]) => s + p, 0);
+      get(attribute).dist = convolve(get(attribute).dist, [...list, [0, Math.max(0, 1 - expressed)]]);
+    }
   }
 
   const order = [...attributes];
@@ -191,45 +205,112 @@ export function offspringAttributeExpectations(input: OffspringImpactInput): Att
 
   return order.map((attribute) => {
     const a = acc.get(attribute) ?? get(attribute);
-    const key = attribute.toLowerCase();
-    const anchor = (ok: boolean, parent: AnchorParent, known: number): AnchorEstimate | null => {
-      const value = parent.values[key];
-      if (!ok || typeof value !== 'number') return null;
-      return { value, expected: value + a.mean - known };
+    const distribution = [...a.dist.entries()].filter(([, p]) => p > 1e-12).sort((x, y) => x[0] - y[0]);
+    const lowerKey = attribute.toLowerCase();
+    const readingOf = (parent: PairParent) => {
+      const v = parent.values?.[lowerKey];
+      return typeof v === 'number' ? v : null;
     };
-    const f = anchor(anchorF, father, a.knownF);
-    const m = anchor(anchorM, mother, a.knownM);
-    const estimates = [f, m].filter((e): e is AnchorEstimate => e !== null);
-    const expected = estimates.length ? estimates.reduce((s, e) => s + e.expected, 0) / estimates.length : null;
-    // Unmeasured direction against the same anchors the estimate used.
-    const n = (f ? 1 : 0) + (m ? 1 : 0);
-    const unmeasuredUp = n ? ((f ? a.upF : 0) + (m ? a.upM : 0)) / n : a.up;
-    const unmeasuredDown = n ? ((f ? a.downF : 0) + (m ? a.downM : 0)) / n : a.down;
+    const fatherPoints = fatherComparable ? a.kF : null;
+    const motherPoints = motherComparable ? a.kM : null;
+    const parentPoints = [fatherPoints, motherPoints].filter((k): k is number => k !== null);
+
+    let pBeatsBoth: number | null = null;
+    let pBelowBoth: number | null = null;
+    let bestGain: number | null = null;
+    let pBest = 0;
+    let bestValue: number | null = null;
+    if (parentPoints.length > 0) {
+      const top = Math.max(...parentPoints);
+      const bottom = Math.min(...parentPoints);
+      const eps = 1e-9;
+      pBeatsBoth = distribution.filter(([v]) => v > top + eps).reduce((s, [, p]) => s + p, 0);
+      pBelowBoth = distribution.filter(([v]) => v < bottom - eps).reduce((s, [, p]) => s + p, 0);
+      const [maxPoints, pMax] = distribution[distribution.length - 1] ?? [0, 1];
+      bestGain = maxPoints - top;
+      pBest = pMax;
+      // Absolute best case, anchored on the better comparable parent when it
+      // has readings: its value plus the foal's lead over it.
+      const betterIsFather = fatherPoints !== null && fatherPoints === top;
+      const anchor = betterIsFather ? readingOf(father) : readingOf(mother);
+      if (anchor !== null) bestValue = anchor + bestGain;
+    }
+
     return {
       attribute,
-      measuredMean: a.mean,
-      sd: Math.sqrt(Math.max(0, a.variance)),
-      father: f,
-      mother: m,
-      expected,
-      unmeasuredUp,
-      unmeasuredDown,
+      distribution,
+      fatherPoints,
+      motherPoints,
+      fatherValue: readingOf(father),
+      motherValue: readingOf(mother),
+      pBeatsBoth,
+      pBelowBoth,
+      bestGain,
+      pBest,
+      bestValue,
+      unmeasuredUp: a.up,
+      unmeasuredDown: a.down,
     };
   });
 }
 
-/** Expected measured points the foal gets at one locus, over every attribute, for the lens tint. */
-export function locusExpectedPoints(
+/** What one locus can do to the foal against its parents, for the lens tint and tooltip. */
+export interface LocusOutlook {
+  /** Largest gain over the better parent at this locus, on any attribute, and its probability. */
+  upside: number;
+  pUp: number;
+  /** Largest loss below the weaker parent at this locus, and its probability. */
+  downside: number;
+  pDown: number;
+  /** Direction of any unmeasured change beyond the parents, when nothing measured moves. */
+  unmeasuredSign: '+' | '-' | null;
+  /** Per-attribute outcomes, for the tooltip: [points, probability] plus each parent's points. */
+  attributes: Array<{ attribute: string; outcomes: Array<[number, number]>; father: number; mother: number }>;
+}
+
+export function locusOutlook(
   locus: PairLocus,
   gd: ParsedGeneRecord | undefined,
   magnitudes: AttributeMagnitudes,
-): { points: number; unmeasuredSign: '+' | '-' | null } {
-  let points = 0;
+): LocusOutlook {
+  const byAttribute = new Map<string, { outcomes: Array<[number, number]>; father: number; mother: number }>();
   let unmeasured = 0;
   for (const slot of slotsOf(gd, locus.geneId, magnitudes)) {
-    const p = foalExpresses(locus.dist, slot.expression);
-    if (slot.points !== undefined) points += p * slot.points;
-    else unmeasured += (slot.sign === '+' ? 1 : -1) * p;
+    const pFoal = foalExpresses(locus.dist, slot.expression);
+    const pF = parentExpresses(locus.fatherType, slot.expression);
+    const pM = parentExpresses(locus.motherType, slot.expression);
+    if (slot.points === undefined) {
+      const change = Math.max(0, pFoal - Math.max(pF, pM)) - Math.max(0, Math.min(pF, pM) - pFoal);
+      unmeasured += (slot.sign === '+' ? 1 : -1) * change;
+      continue;
+    }
+    const entry = byAttribute.get(slot.attribute) ?? { outcomes: [], father: 0, mother: 0 };
+    entry.outcomes.push([slot.points, pFoal]);
+    entry.father += pF * slot.points;
+    entry.mother += pM * slot.points;
+    byAttribute.set(slot.attribute, entry);
   }
-  return { points, unmeasuredSign: unmeasured > 0 ? '+' : unmeasured < 0 ? '-' : null };
+  const out: LocusOutlook = { upside: 0, pUp: 0, downside: 0, pDown: 0, unmeasuredSign: null, attributes: [] };
+  for (const [attribute, entry] of byAttribute) {
+    const expressed = entry.outcomes.reduce((s, [, p]) => s + p, 0);
+    const outcomes = [...entry.outcomes, [0, Math.max(0, 1 - expressed)] as [number, number]].filter(
+      ([, p]) => p > 1e-12,
+    );
+    out.attributes.push({ attribute, outcomes, father: entry.father, mother: entry.mother });
+    const top = Math.max(entry.father, entry.mother);
+    const bottom = Math.min(entry.father, entry.mother);
+    for (const [points, p] of outcomes) {
+      if (points - top > out.upside + 1e-9) {
+        out.upside = points - top;
+        out.pUp = p;
+      }
+      if (bottom - points > out.downside + 1e-9) {
+        out.downside = bottom - points;
+        out.pDown = p;
+      }
+    }
+  }
+  if (out.upside === 0 && out.downside === 0)
+    out.unmeasuredSign = unmeasured > 1e-9 ? '+' : unmeasured < -1e-9 ? '-' : null;
+  return out;
 }
