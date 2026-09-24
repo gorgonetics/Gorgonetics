@@ -58,10 +58,17 @@ export interface AttributeOutlook {
   /** P(foal above / below every comparable parent), null with none. */
   pBeatsBoth: number | null;
   pBelowBoth: number | null;
-  /** Largest gain over the better comparable parent, and its probability; null with none. */
+  /**
+   * Gain over the better comparable parent that one foal in ten reaches or
+   * beats; null with no comparable parent. The realistic upside: the very
+   * best case needs every uncertain gene to land at once.
+   */
+  topGain: number | null;
+  /** The foal's value at that point, when a comparable parent has readings; within the attribute range. */
+  topValue: number | null;
+  /** The very best case: its gain, chance and value, for the tooltip. */
   bestGain: number | null;
   pBest: number;
-  /** The foal's value in that best case, when a comparable parent has readings. */
   bestValue: number | null;
   /** Expected count of unmeasured effects the foal gains beyond both parents, up / down. */
   unmeasuredUp: number;
@@ -112,6 +119,21 @@ function slotsOf(gd: ParsedGeneRecord | undefined, geneId: string, magnitudes: A
   add(gd.recessiveAttribute, gd.recessiveSign, 'recessive');
   return out;
 }
+
+/**
+ * Share of foals the "top" figure describes: the value one foal in ten
+ * reaches or beats. A choice of presentation, not of genetics.
+ */
+export const TOP_SHARE = 0.1;
+
+/**
+ * The attribute range the app records (the name parser and the editor take
+ * 0–100). A predicted value outside it is shown at the bound, since a reading
+ * cannot go past it.
+ */
+const ATTRIBUTE_MIN = 0;
+const ATTRIBUTE_MAX = 100;
+const clampValue = (v: number) => Math.min(ATTRIBUTE_MAX, Math.max(ATTRIBUTE_MIN, v));
 
 /** Keys for a points distribution: magnitudes are whole numbers, but sums of floats need a stable key. */
 const key = (points: number) => Math.round(points * 1e6) / 1e6;
@@ -217,6 +239,8 @@ export function offspringAttributeOutlooks(input: OffspringImpactInput): Attribu
 
     let pBeatsBoth: number | null = null;
     let pBelowBoth: number | null = null;
+    let topGain: number | null = null;
+    let topValue: number | null = null;
     let bestGain: number | null = null;
     let pBest = 0;
     let bestValue: number | null = null;
@@ -229,11 +253,28 @@ export function offspringAttributeOutlooks(input: OffspringImpactInput): Attribu
       const [maxPoints, pMax] = distribution[distribution.length - 1] ?? [0, 1];
       bestGain = maxPoints - top;
       pBest = pMax;
-      // Absolute best case, anchored on the better comparable parent when it
-      // has readings: its value plus the foal's lead over it.
-      const betterIsFather = fatherPoints !== null && fatherPoints === top;
-      const anchor = betterIsFather ? readingOf(father) : readingOf(mother);
-      if (anchor !== null) bestValue = anchor + bestGain;
+      // Walk down from the top until a tenth of foals is covered.
+      let covered = 0;
+      let topPoints = maxPoints;
+      for (let i = distribution.length - 1; i >= 0; i--) {
+        covered += distribution[i][1];
+        topPoints = distribution[i][0];
+        if (covered >= TOP_SHARE - 1e-12) break;
+      }
+      topGain = topPoints - top;
+      // Absolute values need the shared base, which each comparable parent
+      // with readings estimates as its value minus its measured points. The
+      // estimates agree up to what unmeasured genes add, so they are averaged.
+      const residuals: number[] = [];
+      const fv = readingOf(father);
+      const mv = readingOf(mother);
+      if (fatherPoints !== null && fv !== null) residuals.push(fv - fatherPoints);
+      if (motherPoints !== null && mv !== null) residuals.push(mv - motherPoints);
+      if (residuals.length > 0) {
+        const base = residuals.reduce((s, r) => s + r, 0) / residuals.length;
+        topValue = clampValue(Math.round(base + topPoints));
+        bestValue = clampValue(Math.round(base + maxPoints));
+      }
     }
 
     return {
@@ -245,6 +286,8 @@ export function offspringAttributeOutlooks(input: OffspringImpactInput): Attribu
       motherValue: readingOf(mother),
       pBeatsBoth,
       pBelowBoth,
+      topGain,
+      topValue,
       bestGain,
       pBest,
       bestValue,

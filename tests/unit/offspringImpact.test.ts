@@ -65,8 +65,41 @@ describe('offspringAttributeOutlooks', () => {
     expect(t.pBelowBoth).toBe(0);
     expect(t.bestGain).toBe(4);
     expect(t.pBest).toBe(0.25);
-    // Anchored on the better parent by measured points (a tie, father first).
-    expect(t.bestValue).toBe(64);
+    // A quarter of foals reach +4, so one in ten does: the top figure is +4.
+    expect(t.topGain).toBe(4);
+    // Base from each parent's value minus its measured points (60 and 55), averaged.
+    expect(t.topValue).toBe(62);
+  });
+
+  it('reports what one foal in ten reaches, not the all-lucky extreme', () => {
+    // Four independent 25% chances of +4: all four land in 1 of 256 foals.
+    const ids = ['01A1', '01A2', '01A3', '01A4'];
+    const [t] = offspringAttributeOutlooks({
+      ...base,
+      parsed: Object.fromEntries(ids.map((id) => [id, gene()])),
+      magnitudes: magnitudes(Object.fromEntries(ids.map((id) => [`${id}:recessive`, 4]))),
+      loci: ids.map((id) => mixedCross(id)),
+      father: parent('Kurbone', 50),
+      mother: parent('Kurbone', 50),
+    });
+    expect(t.bestGain).toBe(16);
+    expect(t.pBest).toBeCloseTo(1 / 256);
+    // P(X ≥ 8) = 1 − P(0) − P(4) = 1 − 0.316 − 0.422 ≈ 0.26 ≥ 10%; P(X ≥ 12) ≈ 0.05.
+    expect(t.topGain).toBe(8);
+    expect(t.topValue).toBe(58);
+  });
+
+  it('keeps predicted values inside the attribute range', () => {
+    const [t] = offspringAttributeOutlooks({
+      ...base,
+      magnitudes: magnitudes({ '01A1:recessive': 20 }),
+      loci: [mixedCross()],
+      father: parent('Kurbone', 95),
+      mother: parent('Kurbone', 95),
+    });
+    expect(t.bestGain).toBe(20);
+    expect(t.bestValue).toBe(100);
+    expect(t.topValue).toBe(100);
   });
 
   it('combines loci, and compares with no readings at all', () => {
