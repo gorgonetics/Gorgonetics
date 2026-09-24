@@ -9,6 +9,8 @@ import StatusPane from '$lib/components/shared/StatusPane.svelte';
 import { getAttributeConfig, normalizeSpecies } from '$lib/services/configService.js';
 import { getGeneEffectsCached } from '$lib/services/geneService.js';
 import { computeOffspringTrio } from '$lib/services/offspringTrioService.js';
+import { isBreedScoped, loadGeneImpact, studyInputsKey } from '$lib/services/studyService.js';
+import { pets as petList } from '$lib/stores/pets.js';
 import {
   type AttributeInfo,
   type BreedingPairResult,
@@ -23,6 +25,15 @@ import { attributePotentialFilterCSS } from '$lib/utils/filterCSS.js';
 import { triStateToggle } from '$lib/utils/filterToggle.js';
 import { breedFor, effectFor, type GeneEffectData, isNoEffect } from '$lib/utils/geneAnalysis.js';
 import { buildAppearanceLookup, createGeneCellBuilder, type GeneCell } from '$lib/utils/geneGridCells.js';
+import { expressedImpact, formatPoints, impactPaint, maxAbsPoints } from '$lib/utils/geneImpact.js';
+import { keyedResource } from '$lib/utils/keyedResource.svelte.js';
+import {
+  type AttributeOutlook,
+  locusOutlook,
+  offspringAttributeOutlooks,
+  type PairParent,
+} from '$lib/utils/offspringImpact.js';
+import { ATTRIBUTE_KEYS } from '$lib/utils/sharedPet.js';
 import { getSpeciesEmoji } from '$lib/utils/species.js';
 import { capitalize } from '$lib/utils/string.js';
 import {
@@ -97,6 +108,108 @@ let contributionMode = $state<TrioContributionMode>('off');
 // answers "why is this number what it is", which is not the question the grid
 // itself is for.
 let showScores = $state(false);
+
+// --- Impact lens ------------------------------------------------------------
+// What the foal's attributes are expected to be, from the study's measured
+// gene effects. Replaces the outcome buckets while on: both parents and the
+// foal are tinted by points, and a panel estimates each attribute.
+let lens = $state<'outcome' | 'impact'>('outcome');
+const breedScoped = $derived(isBreedScoped(father.species));
+/**
+ * A breed-scoped species needs a real offspring breed here: breeds carry their
+ * own loci and their own attribute base, so without one neither the loci the
+ * foal has nor the parent to anchor its values on is defined. Mixed has no
+ * single base.
+ */
+const impactBreedMissing = $derived(breedScoped && (!selectedBreed || selectedBreed === 'Mixed'));
+/** The parents' own breeds, offered as one-click picks when none is chosen. */
+const parentBreeds = $derived(
+  [...new Set([father.breed, mother.breed])].filter((b): b is string => !!b && b !== 'Mixed' && !!HORSE_BREEDS[b]),
+);
+const impactKey = $derived.by(() => {
+  if (lens !== 'impact') return null;
+  const _reloaded = $petList;
+  return studyInputsKey(father.species);
+});
+const impactResource = keyedResource(() => impactKey, loadGeneImpact);
+const impactData = $derived(impactResource.value ?? null);
+const impactMaxAbs = $derived(impactData ? maxAbsPoints(impactData.magnitudes) : 0);
+/** Tint only when the loci on screen are the foal's: data in, and a breed where one is needed. */
+const impactTint = $derived(lens === 'impact' && impactData !== null && !impactBreedMissing);
+
+function parentOf(p: Pet): PairParent {
+  const row = p as unknown as Record<string, unknown>;
+  const values: Record<string, number> = {};
+  for (const key of ATTRIBUTE_KEYS) if (typeof row[key] === 'number') values[key] = row[key] as number;
+  return { breed: p.breed ?? '', values: p.attributes_measured ? values : null };
+}
+
+const outlooks = $derived.by((): AttributeOutlook[] => {
+  if (!impactTint || !impactData || !grid) return [];
+  return offspringAttributeOutlooks({
+    loci: grid.rows.flatMap((row) => Object.values(row.cells)),
+    parsed: impactData.parsed,
+    magnitudes: impactData.magnitudes,
+    father: parentOf(father),
+    mother: parentOf(mother),
+    offspringBreed: selectedBreed,
+    breedScoped,
+    attributes: attributeDisplayInfo.map((a) => a.key),
+  });
+});
+const hiddenTotal = $derived(outlooks.reduce((s, o) => s + o.hiddenLoci, 0));
+/** Whether either parent shares the foal's base, so the foal can be compared with it. */
+const anyComparable = $derived(outlooks.some((o) => o.pBeatsBoth !== null));
+
+/** Parent cell under the impact lens: the slot it expresses, painted as the pet lens paints it. */
+function parentImpactStyle(cell: TrioLocusCell, type: GeneType | null): string | undefined {
+  if (lens !== 'impact' || type === null || type === GeneType.UNKNOWN) return undefined;
+  // No breed yet, or no data: neutral, like the foal row, rather than the
+  // outcome lens's colours under an impact heading.
+  if (!impactTint || !impactData)
+    return 'background: var(--impact-neutral); border: 1px solid var(--impact-cell-edge);';
+  const impact = expressedImpact(impactData.parsed[cell.geneId], cell.geneId, type, impactData.magnitudes);
+  const paint = impactPaint(impact, impactMaxAbs) ?? 'var(--impact-neutral)';
+  return `background: ${paint}; border: 1px solid var(--impact-cell-edge);`;
+}
+
+/**
+ * Foal cell under the impact lens: what this gene can do against the parents.
+ * Green for a chance to beat the better parent here, by how much; red for a
+ * chance to fall below the weaker one; hatched when only unmeasured effects
+ * move.
+ */
+function offspringImpactBackground(cell: TrioLocusCell): string {
+  if (!impactData) return 'var(--impact-neutral)';
+  const o = locusOutlook(cell, impactData.parsed[cell.geneId], impactData.magnitudes);
+  if (o.upside > 0)
+    return impactPaint({ kind: 'known', attribute: '', sign: '+', points: o.upside }, impactMaxAbs) ?? '';
+  if (o.downside > 0) {
+    return impactPaint({ kind: 'known', attribute: '', sign: '-', points: -o.downside }, impactMaxAbs) ?? '';
+  }
+  if (o.unmeasuredSign) return `var(--impact-${o.unmeasuredSign === '+' ? 'pos' : 'neg'}-unknown)`;
+  return 'var(--impact-neutral)';
+}
+
+/** Tooltip lines for a foal cell under the impact lens: each attribute's outcomes against the parents. */
+function offspringImpactLines(cell: TrioLocusCell): string[] {
+  if (!impactData) return [];
+  const o = locusOutlook(cell, impactData.parsed[cell.geneId], impactData.magnitudes);
+  const lines = o.attributes.map(({ attribute, outcomes, father: kF, mother: kM }) => {
+    const spread = outcomes
+      .sort((a, b) => b[0] - a[0])
+      .map(([points, p]) => `${formatPoints(points)} ${pct(p)}`)
+      .join(' · ');
+    return `${attribute}: ${spread} <span style="color: var(--text-muted)">(♂ ${formatPoints(kF)}, ♀ ${formatPoints(kM)})</span>`;
+  });
+  if (o.unmeasuredSign)
+    lines.push(
+      `<span style="color: var(--text-muted)">Unmeasured effect may move ${o.unmeasuredSign === '+' ? 'up' : 'down'}</span>`,
+    );
+  return lines;
+}
+
+const pct = (p: number) => (p > 0 && p < 0.005 ? '<1%' : `${Math.round(p * 100)}%`);
 
 /**
  * The three lenses, in display order — one table rather than a mode list, a
@@ -482,6 +595,18 @@ function handleParentEnter(e: MouseEvent, parent: GeneCell | null) {
 /** Offspring cell: the Punnett outcome split vs the parents. */
 function handleOffspringEnter(e: MouseEvent, cell: TrioLocusCell) {
   const lines: string[] = [];
+  if (impactTint) {
+    positionTooltip(e);
+    tooltipGeneId = cell.geneId;
+    tooltipGeneType = '';
+    tooltipEffect = '';
+    tooltipSubtitle = '';
+    tooltipLabel = 'Foal outcomes';
+    const impactLines = offspringImpactLines(cell);
+    tooltipPotentialEffects = impactLines.length > 0 ? impactLines : ['No measured attribute effect'];
+    tooltipVisible = true;
+    return;
+  }
   if (contributionMode !== 'off') {
     const v = contributionOf(cell.contributions, contributionMode);
     const label = labelFor(contributionMode);
@@ -576,6 +701,26 @@ function handleCellLeave() {
     <div class="trio-body">
     {#if !error}
         <div class="trio-filters">
+            <div class="seg lens-mode" role="group" aria-label="Trio lens">
+                <button
+                    type="button"
+                    class="seg-btn"
+                    class:active={lens === 'outcome'}
+                    aria-pressed={lens === 'outcome'}
+                    data-testid="trio-lens-outcome"
+                    title="Show what the foal can gain or lose at each gene."
+                    onclick={() => { lens = 'outcome'; }}
+                >Outcome</button>
+                <button
+                    type="button"
+                    class="seg-btn"
+                    class:active={lens === 'impact'}
+                    aria-pressed={lens === 'impact'}
+                    data-testid="trio-lens-impact"
+                    title="Estimate the foal's attribute values from the genes' measured effects."
+                    onclick={() => { lens = 'impact'; }}
+                >Impact</button>
+            </div>
             {#if isHorse}
                 <div class="breed-filter" data-testid="trio-breed-filter">
                     <BreedSelector
@@ -597,7 +742,18 @@ function handleCellLeave() {
                     testid="trio-attribute-filter"
                 />
             {/if}
-            {#if grid && summary && grid.rows.length > 0}
+            {#if lens === 'impact'}
+                <span class="legend" data-testid="trio-impact-legend">
+                    <span class="legend-item"><span class="swatch" style="background: var(--impact-neg-3)"></span>−</span>
+                    <span class="legend-item"><span class="swatch" style="background: var(--impact-pos-3)"></span>+ measured points</span>
+                    <span class="legend-item"><span class="swatch" style="background: var(--impact-pos-unknown)"></span>size not measured</span>
+                    {#if impactResource.loading}
+                        <span class="legend-item">Loading study…</span>
+                    {:else if impactResource.error || impactData?.studyFailed}
+                        <span class="legend-item legend-warn">The study failed — declared effects only</span>
+                    {/if}
+                </span>
+            {:else if grid && summary && grid.rows.length > 0}
                 <div class="seg gain-mode" role="group" aria-label="Highlight which gain">
                     <button
                         type="button"
@@ -711,6 +867,7 @@ function handleCellLeave() {
                                                 class={cell.fatherCell.attributeCls}
                                                 class:fixed={isLocked(cell)}
                                                 data-attrs={cell.attrs}
+                                                style={parentImpactStyle(cell, cell.fatherType)}
                                                 role="img"
                                                 aria-label={parentTitle(cell.fatherCell, 'Father')}
                                                 onmouseenter={(e) => handleParentEnter(e, cell.fatherCell)}
@@ -741,7 +898,11 @@ function handleCellLeave() {
                                                 onmouseleave={handleCellLeave}
                                                 style={cell.buckets.unknown >= 1
                                                     ? undefined
-                                                    : contributionMode !== 'off'
+                                                    : lens === 'impact'
+                                                      ? impactTint
+                                                        ? `background: ${offspringImpactBackground(cell)}`
+                                                        : 'background: var(--impact-neutral)'
+                                                      : contributionMode !== 'off'
                                                       ? `background: ${contributionBackground(contributionOf(cell.contributions, contributionMode), contributionStats.max)}`
                                                       : `background: ${outcomeBoxBackground(cell.buckets, gainMode)}`}
                                             ></div>
@@ -761,6 +922,7 @@ function handleCellLeave() {
                                                 class={cell.motherCell.attributeCls}
                                                 class:fixed={isLocked(cell)}
                                                 data-attrs={cell.attrs}
+                                                style={parentImpactStyle(cell, cell.motherType)}
                                                 role="img"
                                                 aria-label={parentTitle(cell.motherCell, 'Mother')}
                                                 onmouseenter={(e) => handleParentEnter(e, cell.motherCell)}
@@ -777,6 +939,103 @@ function handleCellLeave() {
                 </tbody>
             </table>
         </div>
+        {#if lens === 'impact'}
+            <aside class="score-panel impact-panel" data-testid="trio-impact-panel">
+                <section class="score-group">
+                    <h4 class="score-head">Foal vs parents</h4>
+                    {#if impactBreedMissing}
+                        <p class="score-note" data-testid="trio-impact-breed-needed">
+                            Pick an offspring breed. Each breed has its own genes and its own attribute base, so
+                            the foal's values cannot be estimated without one.
+                        </p>
+                        {#if parentBreeds.length > 0}
+                            <div class="breed-picks">
+                                {#each parentBreeds as breed (breed)}
+                                    <button
+                                        type="button"
+                                        class="seg-btn breed-pick"
+                                        data-testid="trio-impact-pick-{breed}"
+                                        onclick={() => { selectedBreed = breed; }}
+                                    >{breed}</button>
+                                {/each}
+                            </div>
+                        {/if}
+                    {:else if impactResource.error}
+                        <p class="score-note" data-testid="trio-impact-error">
+                            Could not load gene impact, so the foal cannot be compared. Reopen the trio to retry.
+                        </p>
+                    {:else if !impactData}
+                        <p class="score-note">Loading study…</p>
+                    {:else}
+                        <table class="impact-table" data-testid="trio-impact-table">
+                            <thead>
+                                <tr>
+                                    <th>Attribute</th>
+                                    <th class="num" title="Father's recorded value">♂</th>
+                                    <th class="num" title="Mother's recorded value">♀</th>
+                                    <th class="num" title="Chance the foal beats both parents on measured genes">↑ both</th>
+                                    <th class="num" title="The value one foal in four reaches or beats (hover for the very best case)">Top 25%</th>
+                                    <th class="num" title="Chance the foal falls below both parents on measured genes">↓ both</th>
+                                    <th class="num" title="Unmeasured effects the foal is expected to gain beyond both parents, up / down (size unknown)">?</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {#each outlooks as o (o.attribute)}
+                                    <tr data-attribute={o.attribute}>
+                                        <td
+                                            title={o.hiddenLoci > 0
+                                                ? `${o.hiddenLoci} gene${o.hiddenLoci === 1 ? '' : 's'} affecting ${o.attribute} ${o.hiddenLoci === 1 ? 'is' : 'are'} hidden at your genetics skill and left out`
+                                                : undefined}
+                                        >{o.attribute}{#if o.hiddenLoci > 0}<span class="hidden-count"> ·{o.hiddenLoci}?</span>{/if}</td>
+                                        <td class="num">{o.fatherValue ?? '—'}</td>
+                                        <td class="num">{o.motherValue ?? '—'}</td>
+                                        <td class="num beats" class:up={(o.pBeatsBoth ?? 0) > 0}>
+                                            {o.pBeatsBoth === null ? '—' : pct(o.pBeatsBoth)}
+                                        </td>
+                                        <td
+                                            class="num best"
+                                            title={o.topGain === null
+                                                ? 'Neither parent shares the foal\'s base'
+                                                : `One foal in four reaches ${o.topValue ?? formatPoints(o.topGain)} or more (${formatPoints(o.topGain)} against the better parent). The very best case, ${o.bestValue ?? formatPoints(o.bestGain ?? 0)}, needs every uncertain gene to land at once: ${pct(o.pBest)} of foals.`}
+                                        >
+                                            {#if o.topGain === null}
+                                                —
+                                            {:else}
+                                                <span class:up={o.topGain > 0}>{o.topValue ?? formatPoints(o.topGain)}</span>
+                                            {/if}
+                                        </td>
+                                        <td class="num below" class:down={(o.pBelowBoth ?? 0) > 0}>
+                                            {o.pBelowBoth === null ? '—' : pct(o.pBelowBoth)}
+                                        </td>
+                                        <td class="num unmeasured">
+                                            {#if o.unmeasuredUp >= 0.05}<span class="up">↑{o.unmeasuredUp.toFixed(1)}</span>{/if}
+                                            {#if o.unmeasuredDown >= 0.05}<span class="down">↓{o.unmeasuredDown.toFixed(1)}</span>{/if}
+                                        </td>
+                                    </tr>
+                                {/each}
+                            </tbody>
+                        </table>
+                        {#if hiddenTotal > 0}
+                            <p class="score-note" data-testid="trio-impact-hidden">
+                                Genes hidden at your genetics skill (·N? by an attribute) are left out: the foal's
+                                outcome there is unknown, so they are not counted as no effect.
+                            </p>
+                        {/if}
+                        <p class="score-note">
+                            {#if anyComparable}
+                                Chances come from the measured genes: a parent of the foal's breed shares its base,
+                                so the foal beats it exactly when its measured points exceed the parent's own. Top 25%
+                                is the value one foal in four reaches or beats (its gain when no value is recorded).
+                                ? counts unmeasured effects expected beyond both parents, with no size.
+                            {:else}
+                                Neither parent is a {selectedBreed}, so neither shares the foal's base and the foal
+                                cannot be compared with them.
+                            {/if}
+                        </p>
+                    {/if}
+                </section>
+            </aside>
+        {/if}
         {#if showScores && scores}
             <aside class="score-panel" data-testid="trio-score-panel">
                 <section class="score-group">
@@ -932,6 +1191,22 @@ function handleCellLeave() {
         background: var(--bg-secondary); font-size: 11px;
     }
     .score-group { display: flex; flex-direction: column; gap: var(--space-2xs); }
+    .impact-panel { flex-basis: 360px; width: 360px; }
+    .impact-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    .impact-table th, .impact-table td {
+        padding: var(--space-3xs) var(--space-2xs); border-bottom: 1px solid var(--border-primary);
+        text-align: left; white-space: nowrap;
+    }
+    .impact-table th { color: var(--text-tertiary); font-weight: 600; }
+    .impact-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+    .impact-table .beats.up, .impact-table .best .up { color: var(--gene-positive); font-weight: 700; }
+    .impact-table .best { font-weight: 600; }
+    .impact-table .hidden-count { color: var(--text-tertiary); font-weight: 400; }
+    .impact-table .below.down { color: var(--gene-negative); font-weight: 700; }
+    .impact-table .unmeasured .up { color: var(--gene-positive); }
+    .impact-table .unmeasured .down { color: var(--gene-negative); margin-left: 0.3em; }
+    .breed-picks { display: flex; flex-wrap: wrap; gap: var(--space-2xs); }
+    .breed-pick { border: 1px solid var(--border-secondary); }
     .score-head {
         margin: 0; font-size: 10px; font-weight: 700; text-transform: uppercase;
         letter-spacing: 0.05em; color: var(--text-tertiary);

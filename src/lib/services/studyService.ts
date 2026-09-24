@@ -108,6 +108,11 @@ export const STUDYABLE_SPECIES: readonly string[] = ['horse', 'beewasp'];
  */
 const BREED_SCOPED_SPECIES: ReadonlySet<string> = new Set(['horse']);
 
+/** Whether a species' loci and attribute bases are scoped by breed (horses). */
+export function isBreedScoped(species: string): boolean {
+  return BREED_SCOPED_SPECIES.has(normalizeSpecies(species));
+}
+
 /** The breed an animal pairs within: its own for a breed-scoped species, else one shared pool. */
 function pairingBreed(species: string, breed: string): string {
   return BREED_SCOPED_SPECIES.has(species) ? breed : '';
