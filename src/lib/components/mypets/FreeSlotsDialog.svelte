@@ -34,6 +34,7 @@ import { settings } from '$lib/stores/settings.js';
 import { Gender, type Pet } from '$lib/types/index.js';
 import { focusTrap } from '$lib/utils/focusTrap.js';
 import { MIN_POPULATION, parseBreedLockWeight } from '$lib/utils/geneticQuality.js';
+import { hiddenGeneCount, petsWithHiddenGenes } from '$lib/utils/hiddenGenes.js';
 import { BREEDS_BY_SPECIES } from '$lib/utils/species.js';
 
 interface Props {
@@ -122,6 +123,33 @@ $effect(() => {
 });
 
 const releases = $derived(plan?.releases ?? []);
+
+/**
+ * Hidden genes score as carrying nothing, which cuts both ways here: an animal
+ * can look free to release while being the only carrier of something its
+ * genome hides, and a kept animal's hidden loci can make another look like the
+ * last carrier when it is not. The list cannot see either, so it says so, and
+ * releasing an animal whose own genome is incomplete takes an explicit yes.
+ */
+const hiddenInStable = $derived(petsWithHiddenGenes(pets));
+/**
+ * Hidden counts come from the current `pets`, not the plan's copies: the
+ * startup gene-count backfill can reload the same animals with their counts
+ * filled in after the plan was computed, and the warning, the tags and the
+ * gate must all read that one snapshot.
+ */
+const petById = $derived(new Map(pets.map((p) => [p.id, p])));
+const hiddenOf = (pet: Pet) => hiddenGeneCount(petById.get(pet.id) ?? pet);
+const hiddenReleases = $derived(releases.filter((r) => hiddenOf(r.pet) > 0));
+let hiddenAcknowledged = $state(false);
+// A new list is a new decision, and so is a change in which listed animals
+// hide genes: an earlier acknowledgement covered something else.
+const hiddenKey = $derived(`${requestKey}|${hiddenReleases.map((r) => `${r.pet.id}:${hiddenOf(r.pet)}`).join(',')}`);
+$effect(() => {
+  void hiddenKey;
+  hiddenAcknowledged = false;
+});
+const releaseBlocked = $derived(hiddenReleases.length > 0 && !hiddenAcknowledged);
 const shortfall = $derived(Math.max(0, target - releases.length));
 /**
  * Animals the walk was never allowed to touch. A union, not a sum of the three
@@ -144,7 +172,7 @@ const heldSexes = $derived((plan?.atFloor ?? []).map(sexLabel).join(' or '));
 const allFree = $derived(plan !== null && plan.totalCost === 0);
 
 async function release() {
-  if (releases.length === 0 || releasing) return;
+  if (releases.length === 0 || releasing || releaseBlocked) return;
   releasing = true;
   releaseFailed = false;
   try {
@@ -188,6 +216,14 @@ async function release() {
     </div>
 
     <div class="dialog-body">
+      {#if hiddenInStable.length > 0}
+        <div class="banner banner-warn hidden-warning" role="status" data-testid="free-slots-hidden-warning">
+          <strong>⚠ {hiddenInStable.length} of {pets.length} {pets.length === 1 ? 'animal has' : 'animals have'} hidden genes.</strong>
+          They were studied at a Genetics level too low to reveal every gene, and this list counts a hidden gene as
+          carrying nothing. An animal can look free to release while being the only carrier of something you cannot
+          see yet. Re-study them at a higher Genetics level before trusting this list.
+        </div>
+      {/if}
       <div class="slots-row">
         <label for="free-slots-count">Slots to free</label>
         <input
@@ -303,6 +339,15 @@ async function release() {
                 {:else}
                   <span class="tag free" title="Every beneficial allele it carries is held by an animal you keep">free</span>
                 {/if}
+                {#if hiddenOf(r.pet) > 0}
+                  <span
+                    class="tag hidden"
+                    data-testid="free-slots-hidden-tag"
+                    title="This animal's genome has {hiddenOf(r.pet)} hidden {hiddenOf(r.pet) === 1 ? 'gene' : 'genes'}. Its cost only covers the genes you can see."
+                  >
+                    ⚠ {hiddenOf(r.pet)} hidden
+                  </span>
+                {/if}
                 {#if r.liabilityRemoved > 0}
                   <span class="tag good" title="Negative-allele capability that leaves with it, in the same slot-units: 0.5 is the only carrier of a negative, 1 the only animal that breeds it true">
                     clears {fmt(r.liabilityRemoved)}
@@ -373,6 +418,15 @@ async function release() {
       {/if}
     </div>
 
+    {#if hiddenReleases.length > 0 && !loading}
+      <label class="hidden-ack" data-testid="free-slots-hidden-ack">
+        <input type="checkbox" bind:checked={hiddenAcknowledged} />
+        <span>
+          I understand {hiddenReleases.length === 1 ? 'one of these animals has' : `${hiddenReleases.length} of these animals have`}
+          hidden genes, and releasing may lose something this list cannot see.
+        </span>
+      </label>
+    {/if}
     <div class="dialog-footer">
       {#if releaseFailed}
         <span class="foot-note error" data-testid="free-slots-release-error">
@@ -386,7 +440,8 @@ async function release() {
         type="button"
         class="btn primary"
         data-testid="free-slots-confirm"
-        disabled={loading || releases.length === 0 || releasing}
+        disabled={loading || releases.length === 0 || releasing || releaseBlocked}
+        title={releaseBlocked ? 'Confirm you understand the hidden genes first' : undefined}
         onclick={release}
       >
         {releasing ? 'Releasing…' : releases.length > 0 ? `Release these ${releases.length}` : 'Release'}
@@ -397,6 +452,13 @@ async function release() {
 
 <style>
   .free-slots-dialog { max-width: 540px; }
+  .hidden-warning { font-size: 12px; line-height: 1.45; margin-bottom: var(--space-md); }
+  .tag.hidden { color: var(--warning-text); background: var(--warning-bg); font-weight: 600; }
+  .hidden-ack {
+    display: flex; gap: var(--space-xs); align-items: flex-start;
+    padding: var(--space-sm) var(--space-2xl); font-size: 12px; color: var(--text-secondary);
+    border-top: 1px solid var(--border-primary);
+  }
   .slots-row { display: flex; align-items: center; gap: var(--space-sm); margin-bottom: var(--space-sm); }
   .slots-row label { font-size: 13px; font-weight: 600; color: var(--text-secondary); }
   .slots-row input { width: 5ch; font: inherit; padding: var(--space-3xs) var(--space-xs); border: 1px solid var(--border-primary); border-radius: 6px; background: var(--bg-primary); color: var(--text-primary); }

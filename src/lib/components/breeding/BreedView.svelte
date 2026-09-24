@@ -34,6 +34,7 @@ import {
 } from '$lib/utils/breedingObjectives.js';
 import { suggestPlans } from '$lib/utils/breedingPlan.js';
 import { parseBreedLockWeight } from '$lib/utils/geneticQuality.js';
+import { petsWithHiddenGenes } from '$lib/utils/hiddenGenes.js';
 import { keyedResource } from '$lib/utils/keyedResource.svelte.js';
 import { getSpeciesEmoji, mostPopulatedSpecies } from '$lib/utils/species.js';
 import { capitalize } from '$lib/utils/string.js';
@@ -87,6 +88,8 @@ const attrNames = $derived(species ? getAllAttributeNames(species).map(capitaliz
 // `candidates` drops the benched ones and feeds the ranking.
 const pool = $derived($pets.filter((p) => p.stabled && normalizeSpecies(p.species) === species));
 const candidates = $derived(pool.filter((p) => !breedingView.benchedIds.has(p.id)));
+/** Candidates whose genomes hide genes the scores cannot count. */
+const hiddenCandidates = $derived(petsWithHiddenGenes(candidates));
 // Identity of the candidate set (which stabled pets of this species exist).
 // Lets us skip a re-rank when a `$pets` re-emit returns the same set with a new
 // array reference (a background loadPets, an unrelated marker toggle, …).
@@ -448,6 +451,13 @@ onDestroy(() => {
   {/if}
 
   <div class="bv-body">
+    {#if !errored && hiddenCandidates.length > 0}
+      <div class="banner banner-warn bv-hidden" role="status" data-testid="breed-hidden-warning">
+        ⚠ {hiddenCandidates.length} of {candidates.length} animals here {hiddenCandidates.length === 1 ? 'has' : 'have'} hidden genes (studied at a lower
+        Genetics level). Hidden genes score as nothing, so pairs with them can rank lower — or higher — than their
+        real genes deserve. Re-study them to rank them fully.
+      </div>
+    {/if}
     {#if errored}
       <StatusPane variant="error" title="Couldn't rank these pairs." body="Something went wrong computing scores. Switch species to retry." />
     {:else if loading && pairs.length === 0}
@@ -553,6 +563,7 @@ onDestroy(() => {
   .step-btn:disabled { color: var(--text-tertiary); cursor: default; }
   .spots-val { min-width: 32px; text-align: center; font-size: 13px; font-variant-numeric: tabular-nums; padding: 0 var(--space-2xs); }
   .bv-pool { margin: var(--space-sm) var(--space-2xl) 0; flex-shrink: 0; }
+  .bv-hidden { font-size: 12px; margin: 0; }
   .bv-body { flex: 1; min-height: 0; overflow: auto; padding: var(--space-sm) var(--space-2xl) var(--space-xl); display: flex; flex-direction: column; gap: var(--space-sm); }
   .bv-meta { font-size: 12px; color: var(--text-tertiary); }
   .bv-capability { margin-top: var(--space-2xs); color: var(--text-muted); }
