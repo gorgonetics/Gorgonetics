@@ -12,6 +12,7 @@
 
 import { compareBlockLetters } from '$lib/services/genomeParser.js';
 import type {
+  AlleleDistribution,
   GeneType,
   OffspringOutcomeBuckets,
   OffspringTrioResult,
@@ -32,6 +33,8 @@ export interface TrioLocusCell {
   motherType: GeneType | null;
   fatherCell: GeneCell | null;
   motherCell: GeneCell | null;
+  /** The foal's allele distribution; drives the impact lens's expected points. */
+  dist: AlleleDistribution;
   /** Offspring outcome split vs the parents; drives the middle-row box. */
   buckets: OffspringOutcomeBuckets;
   /** This locus's share of each additive pair score; drives the contribution lens. */
@@ -186,6 +189,7 @@ export function buildTrioGrid(result: OffspringTrioResult, cellBuilder: CellBuil
         motherType: g.motherType,
         fatherCell: g.fatherType ? cellBuilder.makeCell({ id: g.geneId, type: g.fatherType }) : null,
         motherCell: g.motherType ? cellBuilder.makeCell({ id: g.geneId, type: g.motherType }) : null,
+        dist: g.dist,
         buckets: g.buckets,
         contributions: g.contributions,
         verdict: g.verdict,

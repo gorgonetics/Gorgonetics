@@ -9,6 +9,8 @@ import StatusPane from '$lib/components/shared/StatusPane.svelte';
 import { getAttributeConfig, normalizeSpecies } from '$lib/services/configService.js';
 import { getGeneEffectsCached } from '$lib/services/geneService.js';
 import { computeOffspringTrio } from '$lib/services/offspringTrioService.js';
+import { isBreedScoped, loadGeneImpact, studyInputsKey } from '$lib/services/studyService.js';
+import { pets as petList } from '$lib/stores/pets.js';
 import {
   type AttributeInfo,
   type BreedingPairResult,
@@ -23,6 +25,15 @@ import { attributePotentialFilterCSS } from '$lib/utils/filterCSS.js';
 import { triStateToggle } from '$lib/utils/filterToggle.js';
 import { breedFor, effectFor, type GeneEffectData, isNoEffect } from '$lib/utils/geneAnalysis.js';
 import { buildAppearanceLookup, createGeneCellBuilder, type GeneCell } from '$lib/utils/geneGridCells.js';
+import { expressedImpact, formatPoints, impactPaint, maxAbsPoints } from '$lib/utils/geneImpact.js';
+import { keyedResource } from '$lib/utils/keyedResource.svelte.js';
+import {
+  type AnchorParent,
+  type AttributeExpectation,
+  locusExpectedPoints,
+  offspringAttributeExpectations,
+} from '$lib/utils/offspringImpact.js';
+import { ATTRIBUTE_KEYS } from '$lib/utils/sharedPet.js';
 import { getSpeciesEmoji } from '$lib/utils/species.js';
 import { capitalize } from '$lib/utils/string.js';
 import {
@@ -97,6 +108,90 @@ let contributionMode = $state<TrioContributionMode>('off');
 // answers "why is this number what it is", which is not the question the grid
 // itself is for.
 let showScores = $state(false);
+
+// --- Impact lens ------------------------------------------------------------
+// What the foal's attributes are expected to be, from the study's measured
+// gene effects. Replaces the outcome buckets while on: both parents and the
+// foal are tinted by points, and a panel estimates each attribute.
+let lens = $state<'outcome' | 'impact'>('outcome');
+const breedScoped = $derived(isBreedScoped(father.species));
+/**
+ * A breed-scoped species needs a real offspring breed here: breeds carry their
+ * own loci and their own attribute base, so without one neither the loci the
+ * foal has nor the parent to anchor its values on is defined. Mixed has no
+ * single base.
+ */
+const impactBreedMissing = $derived(breedScoped && (!selectedBreed || selectedBreed === 'Mixed'));
+/** The parents' own breeds, offered as one-click picks when none is chosen. */
+const parentBreeds = $derived(
+  [...new Set([father.breed, mother.breed])].filter((b): b is string => !!b && b !== 'Mixed' && !!HORSE_BREEDS[b]),
+);
+const impactKey = $derived.by(() => {
+  if (lens !== 'impact') return null;
+  const _reloaded = $petList;
+  return studyInputsKey(father.species);
+});
+const impactResource = keyedResource(() => impactKey, loadGeneImpact);
+const impactData = $derived(impactResource.value ?? null);
+const impactMaxAbs = $derived(impactData ? maxAbsPoints(impactData.magnitudes) : 0);
+/** Tint only when the loci on screen are the foal's: data in, and a breed where one is needed. */
+const impactTint = $derived(lens === 'impact' && impactData !== null && !impactBreedMissing);
+
+function anchorOf(p: Pet): AnchorParent {
+  const row = p as unknown as Record<string, unknown>;
+  const values: Record<string, number> = {};
+  for (const key of ATTRIBUTE_KEYS) if (typeof row[key] === 'number') values[key] = row[key] as number;
+  return { breed: p.breed ?? '', measured: !!p.attributes_measured, values };
+}
+
+const expectations = $derived.by((): AttributeExpectation[] => {
+  if (!impactTint || !impactData || !grid) return [];
+  return offspringAttributeExpectations({
+    loci: grid.rows.flatMap((row) => Object.values(row.cells)),
+    parsed: impactData.parsed,
+    magnitudes: impactData.magnitudes,
+    father: anchorOf(father),
+    mother: anchorOf(mother),
+    offspringBreed: selectedBreed,
+    breedScoped,
+    attributes: attributeDisplayInfo.map((a) => a.key),
+  });
+});
+const anyAnchor = $derived(expectations.some((e) => e.expected !== null));
+
+/** Parent cell under the impact lens: the slot it expresses, painted as the pet lens paints it. */
+function parentImpactStyle(cell: TrioLocusCell, type: GeneType | null): string | undefined {
+  if (lens !== 'impact' || type === null || type === GeneType.UNKNOWN) return undefined;
+  // No breed yet, or no data: neutral, like the foal row, rather than the
+  // outcome lens's colours under an impact heading.
+  if (!impactTint || !impactData)
+    return 'background: var(--impact-neutral); border: 1px solid var(--impact-cell-edge);';
+  const impact = expressedImpact(impactData.parsed[cell.geneId], cell.geneId, type, impactData.magnitudes);
+  const paint = impactPaint(impact, impactMaxAbs) ?? 'var(--impact-neutral)';
+  return `background: ${paint}; border: 1px solid var(--impact-cell-edge);`;
+}
+
+/** Foal cell under the impact lens: expected measured points, else the unmeasured direction. */
+function offspringImpactBackground(cell: TrioLocusCell): string {
+  if (!impactData) return 'var(--impact-neutral)';
+  const { points, unmeasuredSign } = locusExpectedPoints(cell, impactData.parsed[cell.geneId], impactData.magnitudes);
+  if (points !== 0) {
+    return impactPaint({ kind: 'known', attribute: '', sign: points < 0 ? '-' : '+', points }, impactMaxAbs) ?? '';
+  }
+  if (unmeasuredSign) return `var(--impact-${unmeasuredSign === '+' ? 'pos' : 'neg'}-unknown)`;
+  return 'var(--impact-neutral)';
+}
+
+const fmt1 = (n: number) => n.toFixed(1);
+/** Whether the expected foal value beats both parents, trails both, or neither. */
+function trend(e: AttributeExpectation): 'up' | 'down' | null {
+  if (e.expected === null) return null;
+  const values = [e.father?.value, e.mother?.value].filter((v): v is number => typeof v === 'number');
+  if (values.length === 0) return null;
+  if (e.expected > Math.max(...values)) return 'up';
+  if (e.expected < Math.min(...values)) return 'down';
+  return null;
+}
 
 /**
  * The three lenses, in display order — one table rather than a mode list, a
@@ -576,6 +671,26 @@ function handleCellLeave() {
     <div class="trio-body">
     {#if !error}
         <div class="trio-filters">
+            <div class="seg lens-mode" role="group" aria-label="Trio lens">
+                <button
+                    type="button"
+                    class="seg-btn"
+                    class:active={lens === 'outcome'}
+                    aria-pressed={lens === 'outcome'}
+                    data-testid="trio-lens-outcome"
+                    title="Show what the foal can gain or lose at each gene."
+                    onclick={() => { lens = 'outcome'; }}
+                >Outcome</button>
+                <button
+                    type="button"
+                    class="seg-btn"
+                    class:active={lens === 'impact'}
+                    aria-pressed={lens === 'impact'}
+                    data-testid="trio-lens-impact"
+                    title="Estimate the foal's attribute values from the genes' measured effects."
+                    onclick={() => { lens = 'impact'; }}
+                >Impact</button>
+            </div>
             {#if isHorse}
                 <div class="breed-filter" data-testid="trio-breed-filter">
                     <BreedSelector
@@ -597,7 +712,18 @@ function handleCellLeave() {
                     testid="trio-attribute-filter"
                 />
             {/if}
-            {#if grid && summary && grid.rows.length > 0}
+            {#if lens === 'impact'}
+                <span class="legend" data-testid="trio-impact-legend">
+                    <span class="legend-item"><span class="swatch" style="background: var(--impact-neg-3)"></span>−</span>
+                    <span class="legend-item"><span class="swatch" style="background: var(--impact-pos-3)"></span>+ measured points</span>
+                    <span class="legend-item"><span class="swatch" style="background: var(--impact-pos-unknown)"></span>size not measured</span>
+                    {#if impactResource.loading}
+                        <span class="legend-item">Loading study…</span>
+                    {:else if impactResource.error || impactData?.studyFailed}
+                        <span class="legend-item legend-warn">The study failed — declared effects only</span>
+                    {/if}
+                </span>
+            {:else if grid && summary && grid.rows.length > 0}
                 <div class="seg gain-mode" role="group" aria-label="Highlight which gain">
                     <button
                         type="button"
@@ -711,6 +837,7 @@ function handleCellLeave() {
                                                 class={cell.fatherCell.attributeCls}
                                                 class:fixed={isLocked(cell)}
                                                 data-attrs={cell.attrs}
+                                                style={parentImpactStyle(cell, cell.fatherType)}
                                                 role="img"
                                                 aria-label={parentTitle(cell.fatherCell, 'Father')}
                                                 onmouseenter={(e) => handleParentEnter(e, cell.fatherCell)}
@@ -741,7 +868,11 @@ function handleCellLeave() {
                                                 onmouseleave={handleCellLeave}
                                                 style={cell.buckets.unknown >= 1
                                                     ? undefined
-                                                    : contributionMode !== 'off'
+                                                    : lens === 'impact'
+                                                      ? impactTint
+                                                        ? `background: ${offspringImpactBackground(cell)}`
+                                                        : 'background: var(--impact-neutral)'
+                                                      : contributionMode !== 'off'
                                                       ? `background: ${contributionBackground(contributionOf(cell.contributions, contributionMode), contributionStats.max)}`
                                                       : `background: ${outcomeBoxBackground(cell.buckets, gainMode)}`}
                                             ></div>
@@ -761,6 +892,7 @@ function handleCellLeave() {
                                                 class={cell.motherCell.attributeCls}
                                                 class:fixed={isLocked(cell)}
                                                 data-attrs={cell.attrs}
+                                                style={parentImpactStyle(cell, cell.motherType)}
                                                 role="img"
                                                 aria-label={parentTitle(cell.motherCell, 'Mother')}
                                                 onmouseenter={(e) => handleParentEnter(e, cell.motherCell)}
@@ -777,6 +909,85 @@ function handleCellLeave() {
                 </tbody>
             </table>
         </div>
+        {#if lens === 'impact'}
+            <aside class="score-panel impact-panel" data-testid="trio-impact-panel">
+                <section class="score-group">
+                    <h4 class="score-head">Expected foal attributes</h4>
+                    {#if impactBreedMissing}
+                        <p class="score-note" data-testid="trio-impact-breed-needed">
+                            Pick an offspring breed. Each breed has its own genes and its own attribute base, so
+                            the foal's values cannot be estimated without one.
+                        </p>
+                        {#if parentBreeds.length > 0}
+                            <div class="breed-picks">
+                                {#each parentBreeds as breed (breed)}
+                                    <button
+                                        type="button"
+                                        class="seg-btn breed-pick"
+                                        data-testid="trio-impact-pick-{breed}"
+                                        onclick={() => { selectedBreed = breed; }}
+                                    >{breed}</button>
+                                {/each}
+                            </div>
+                        {/if}
+                    {:else if !impactData}
+                        <p class="score-note">Loading study…</p>
+                    {:else}
+                        <table class="impact-table" data-testid="trio-impact-table">
+                            <thead>
+                                <tr>
+                                    <th>Attribute</th>
+                                    <th class="num" title="Father's value">♂</th>
+                                    <th class="num" title="Mother's value">♀</th>
+                                    <th class="num" title="Expected foal value, ± the spread of the measured genes">Foal</th>
+                                    <th class="num" title="Unmeasured effects expected to push the value up / down (size unknown)">?</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {#each expectations as e (e.attribute)}
+                                    {@const t = trend(e)}
+                                    <tr data-attribute={e.attribute}>
+                                        <td>{e.attribute}</td>
+                                        <td class="num">{e.father?.value ?? '—'}</td>
+                                        <td class="num">{e.mother?.value ?? '—'}</td>
+                                        <td
+                                            class="num foal"
+                                            class:up={t === 'up'}
+                                            class:down={t === 'down'}
+                                            title={e.expected === null
+                                                ? `Measured genes: ${formatPoints(Math.round(e.measuredMean * 10) / 10)} (no parent to anchor an absolute value)`
+                                                : `Expected ${fmt1(e.expected)} ± ${fmt1(e.sd)}`}
+                                        >
+                                            {#if e.expected !== null}
+                                                {fmt1(e.expected)}{#if e.sd >= 0.05}<span class="sd"> ±{fmt1(e.sd)}</span>{/if}
+                                            {:else}
+                                                <span class="muted">{e.measuredMean >= 0 ? '+' : ''}{fmt1(e.measuredMean)}</span>
+                                            {/if}
+                                        </td>
+                                        <td class="num unmeasured">
+                                            {#if e.unmeasuredUp >= 0.05}<span class="up">↑{fmt1(e.unmeasuredUp)}</span>{/if}
+                                            {#if e.unmeasuredDown >= 0.05}<span class="down">↓{fmt1(e.unmeasuredDown)}</span>{/if}
+                                        </td>
+                                    </tr>
+                                {/each}
+                            </tbody>
+                        </table>
+                        <p class="score-note">
+                            {#if anyAnchor}
+                                Foal = a {breedScoped ? `${selectedBreed} ` : ''}parent's value plus the change the
+                                measured genes predict; the base cancels. Green beats both parents, red trails both.
+                                ? counts unmeasured effects expected to move the value, with no size.
+                            {:else}
+                                {breedScoped
+                                    ? `Neither parent is a ${selectedBreed} with recorded attributes`
+                                    : 'Neither parent has recorded attributes'}, so there is no value to anchor on: the
+                                column shows only what the measured genes add.
+                            {/if}
+                        </p>
+                    {/if}
+                </section>
+            </aside>
+        {/if}
         {#if showScores && scores}
             <aside class="score-panel" data-testid="trio-score-panel">
                 <section class="score-group">
@@ -932,6 +1143,22 @@ function handleCellLeave() {
         background: var(--bg-secondary); font-size: 11px;
     }
     .score-group { display: flex; flex-direction: column; gap: var(--space-2xs); }
+    .impact-panel { flex-basis: 300px; width: 300px; }
+    .impact-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+    .impact-table th, .impact-table td {
+        padding: var(--space-3xs) var(--space-2xs); border-bottom: 1px solid var(--border-primary);
+        text-align: left; white-space: nowrap;
+    }
+    .impact-table th { color: var(--text-tertiary); font-weight: 600; }
+    .impact-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+    .impact-table .foal { font-weight: 700; }
+    .impact-table .foal.up { color: var(--gene-positive); }
+    .impact-table .foal.down { color: var(--gene-negative); }
+    .impact-table .sd, .impact-table .muted { color: var(--text-tertiary); font-weight: 400; }
+    .impact-table .unmeasured .up { color: var(--gene-positive); }
+    .impact-table .unmeasured .down { color: var(--gene-negative); margin-left: 0.3em; }
+    .breed-picks { display: flex; flex-wrap: wrap; gap: var(--space-2xs); }
+    .breed-pick { border: 1px solid var(--border-secondary); }
     .score-head {
         margin: 0; font-size: 10px; font-weight: 700; text-transform: uppercase;
         letter-spacing: 0.05em; color: var(--text-tertiary);
