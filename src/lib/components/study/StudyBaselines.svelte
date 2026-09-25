@@ -22,15 +22,19 @@ const signed = (n: number) => (n < 0 ? `−${-n}` : String(n));
  * unknown — the lump is still shown, because it is what differences between
  * breeds are read from.
  */
+const isExact = (r: BaselineReading) => r.min !== null && r.min === r.max;
+
 function baseText(r: BaselineReading): string {
-  if (r.unresolved.length === 0) return signed(r.value);
+  if (isExact(r)) return signed(r.min as number);
   if (r.max !== null) return `≤ ${signed(r.max)}`;
   if (r.min !== null) return `≥ ${signed(r.min)}`;
   return '?';
 }
 
+/** How the base was read: from this breed's own animals, or through a gap to another breed. */
 function lumpText(r: BaselineReading): string {
   if (r.unresolved.length === 0) return 'exact';
+  if (r.via) return `${breedLabel(r.via.breed)} ${r.via.offset < 0 ? '−' : '+'} ${Math.abs(r.via.offset)}`;
   const shown = r.unresolved.slice(0, 3).map(slotLabel).join(' + ');
   const more = r.unresolved.length > 3 ? ` + ${r.unresolved.length - 3} more` : '';
   return `base + ${shown}${more} = ${signed(r.value)}`;
@@ -48,8 +52,8 @@ function lumpText(r: BaselineReading): string {
 		</summary>
 		<p class="lead">
 			The value before any gene effect. Where a slot every animal expresses is still unknown, no pair can
-			separate it from the base, so the base is only bounded by its declared sign. Breeds that leave the same
-			slots unknown still give an exact gap.
+			separate it from the base, so the base is only bounded by its declared sign. Animals of different breeds
+			are compared through the gap between their bases, which is exact even when neither base is.
 		</p>
 		<table>
 			<thead>
@@ -64,7 +68,7 @@ function lumpText(r: BaselineReading): string {
 				{#each baselines.readings as r (r.breed)}
 					<tr data-testid="baseline-{r.breed || 'none'}">
 						<td>{breedLabel(r.breed)}</td>
-						<td class="numeric base" class:exact={r.unresolved.length === 0}>{baseText(r)}</td>
+						<td class="numeric base" class:exact={isExact(r)}>{baseText(r)}</td>
 						<td class="lump" title={r.unresolved.map(slotLabel).join(', ')}>{lumpText(r)}</td>
 						<td class="numeric">
 							{r.support}{#if r.dissent > 0}<span class="dissent" title="Animals with the same unknown slots reading another value"

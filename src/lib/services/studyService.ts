@@ -93,10 +93,10 @@ export const STUDYABLE_SPECIES: readonly string[] = ['horse', 'beewasp'];
  * Species whose gene table is scoped by breed.
  *
  * The engine cancels the unknown attribute base by subtracting two animals
- * that share it, and for horses that means the same breed: breeds carry
- * their own loci, so pairing across them would compare different sums. A
- * species outside this set pairs all its animals in one pool, whatever their
- * `breed` field says.
+ * that share it, and for horses that means the same breed. Breeds are paired
+ * apart and compared only through an explicit base-gap unknown the solver
+ * pins. A species outside this set pairs all its animals in one pool,
+ * whatever their `breed` field says, which assumes the gap is zero.
  *
  * Unverified: pooling beewasps assumes Bee and Wasp share one attribute
  * base. The gene table only shows that no beewasp locus is breed-locked,

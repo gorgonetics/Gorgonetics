@@ -61,4 +61,25 @@ describe('StudyBaselines', () => {
     });
     expect(screen.getByTestId('baseline-offset-Paint').textContent).toMatch(/Paint = Kurbone\s+\+ 50/);
   });
+
+  it('shows a base made exact through a gap to another breed', () => {
+    render(StudyBaselines, {
+      baselines: {
+        readings: [
+          reading({
+            breed: 'Paint',
+            value: 63,
+            unresolved: ['01A2:dominant', '01A3:dominant'],
+            min: 60,
+            max: 60,
+            via: { breed: 'Kurbone', offset: 20 },
+          }),
+        ],
+        offsets: [],
+      },
+    });
+    const row = screen.getByTestId('baseline-Paint').textContent ?? '';
+    expect(row).toContain('60');
+    expect(row).toContain('Kurbone + 20');
+  });
 });

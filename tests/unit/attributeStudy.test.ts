@@ -293,7 +293,18 @@ describe('studyAttribute', () => {
 
   it('counts nobody when the eligible animals cannot be paired', () => {
     // Eligible is not the same as contributing: identical active sets yield
-    // no equation, and neither does a breed with a single animal.
+    // no equation.
+    const study = studyAttribute(
+      [horse('same1', base(), { temperament: 40 }), horse('same2', base(), { temperament: 40 })],
+      'temperament',
+      temperament,
+    );
+    expect(study.contributors).toBe(0);
+  });
+
+  it('lets a breed of one animal contribute its base gap', () => {
+    // 14B4 is Kurbone's, so the Paint expresses nothing: the pair differs
+    // only by the two bases, and that is the gap.
     const study = studyAttribute(
       [
         horse('same1', base(), { temperament: 40 }),
@@ -303,7 +314,11 @@ describe('studyAttribute', () => {
       'temperament',
       temperament,
     );
-    expect(study.contributors).toBe(0);
+    expect(study.contributors).toBe(3);
+    expect(study.findings).toEqual([]);
+    expect(study.baselines.offsets).toEqual([
+      expect.objectContaining({ breed: 'Paint', relativeTo: 'Kurbone', offset: 5 }),
+    ]);
   });
 });
 
@@ -815,7 +830,8 @@ describe('baselines', () => {
       ['Paint', 24],
     ]);
     expect(study.baselines.offsets).toEqual([
-      { breed: 'Paint', relativeTo: 'Kurbone', offset: 20, support: 1, dissent: 0, animals: 4 },
+      // Every Kurbone–Paint pair: 01A1 cancels, and each side's other slot is known.
+      { breed: 'Paint', relativeTo: 'Kurbone', offset: 20, support: 4, dissent: 0, animals: 4 },
     ]);
   });
 
@@ -863,5 +879,110 @@ describe('baselines', () => {
     expect(study.baselines.readings.map((r) => r.breed).sort()).toEqual(['', 'Bee', 'Wasp']);
     // The unbred group could be either, so it is never compared.
     expect(study.baselines.offsets).toEqual([expect.objectContaining({ breed: 'Wasp', relativeTo: 'Bee', offset: 0 })]);
+  });
+});
+
+describe('comparing across breeds', () => {
+  it('solves a shared gene from animals of two breeds once their gap is known', () => {
+    // Kurbone: k1/k2 give 14B4 = 3. Paint: p1 vs k1 differs only by the base
+    // gap. Paint has more animals, so it is the reference and the gap is
+    // reported as Kurbone's.
+    const study = studyAttribute(
+      [
+        horse('k1', base(), { temperament: 40 }),
+        horse('k2', base({ '14B4': 'D' }), { temperament: 43 }),
+        horse('p1', base(), { temperament: 60 }, 'Paint'),
+        horse('p2', base({ '01A3': 'D', '02C1': 'D' }), { temperament: 67 }, 'Paint'),
+        horse('p3', base({ '02C1': 'D' }), { temperament: 62 }, 'Paint'),
+      ],
+      'temperament',
+      temperament,
+    );
+    const byKey = new Map(study.findings.map((f) => [slotKey(f), f.magnitude]));
+    expect(byKey.get('14B4:dominant')).toBe(3);
+    expect(byKey.get('02C1:dominant')).toBe(2);
+    expect(byKey.get('01A3:dominant')).toBe(5);
+    expect(study.baselines.offsets).toEqual([
+      expect.objectContaining({ breed: 'Kurbone', relativeTo: 'Paint', offset: -20 }),
+    ]);
+  });
+
+  it('reaches a pair too far apart on raw slots once most of them are known', () => {
+    // a and b differ at five known slots and one unknown (01A1). With
+    // maxDistance 2 the raw pair is never built; measured by unknowns it is
+    // a single-difference equation.
+    const study = studyAttribute(
+      [
+        horse('ref', base(), { temperament: 40 }),
+        horse('s1', base({ '14B4': 'D' }), { temperament: 43 }),
+        horse('s2', base({ '01A2': 'D' }), { temperament: 38 }),
+        horse('s3', base({ '01A3': 'D' }), { temperament: 44 }),
+        horse('far', base({ '14B4': 'D', '01A2': 'D', '01A3': 'D', '01A1': 'R' }), { temperament: 50 }),
+      ],
+      'temperament',
+      temperament,
+      { maxDistance: 2 },
+    );
+    const byKey = new Map(study.findings.map((f) => [slotKey(f), f.magnitude]));
+    // 50 = 40 + 3 − 2 + 4 + m(01A1)
+    expect(byKey.get('01A1:recessive')).toBe(5);
+  });
+
+  it('does not invent an exact base when the gap is confounded with a slot', () => {
+    const study = studyAttribute(
+      [
+        horse('k1', base(), { temperament: 40 }),
+        horse('k2', base({ '14B4': 'D' }), { temperament: 43 }),
+        // Every Paint carries 01A1, so on its own Paint only bounds its base.
+        horse('p1', base({ '01A1': 'R' }), { temperament: 65 }, 'Paint'),
+        horse('p2', base({ '01A1': 'R', '02C1': 'D' }), { temperament: 67 }, 'Paint'),
+      ],
+      'temperament',
+      temperament,
+    );
+    const paint = study.baselines.readings.find((r) => r.breed === 'Paint');
+    // Kurbone base 40 exactly; cross pairs pin gap + 01A1 = 25 but not the gap
+    // alone, so Paint keeps only its own bound: base + 01A1 = 65.
+    expect(study.baselines.readings.find((r) => r.breed === 'Kurbone')).toMatchObject({ min: 40, max: 40 });
+    expect(study.baselines.offsets).toEqual([]);
+    expect(paint).toMatchObject({ min: null, max: 64 });
+    expect(paint?.via).toBeUndefined();
+  });
+
+  it("turns one breed's exact base into another's through the gap", () => {
+    const study = studyAttribute(
+      [
+        horse('k1', base(), { temperament: 40 }),
+        horse('k2', base({ '14B4': 'D' }), { temperament: 43 }),
+        horse('p1', base(), { temperament: 60 }, 'Paint'),
+        // Most Paints carry 01A2 (−) and 01A3 (+) together, which no pair
+        // separates and whose mixed signs bound nothing.
+        horse('p2', base({ '01A2': 'D', '01A3': 'D' }), { temperament: 63 }, 'Paint'),
+        horse('p3', base({ '01A2': 'D', '01A3': 'D', '14B2': 'R' }), { temperament: 63 }, 'Paint'),
+      ],
+      'temperament',
+      temperament,
+    );
+    const paint = study.baselines.readings.find((r) => r.breed === 'Paint');
+    expect(paint).toMatchObject({ value: 63, unresolved: ['01A2:dominant', '01A3:dominant'], min: 60, max: 60 });
+  });
+
+  it('never publishes a base gap as a gene finding', () => {
+    const study = studyAttribute(
+      [horse('k', base(), { temperament: 40 }), horse('p', base(), { temperament: 60 }, 'Paint')],
+      'temperament',
+      temperament,
+    );
+    expect(study.findings).toEqual([]);
+    expect(study.baselines.offsets[0]).toMatchObject({ breed: 'Paint', offset: 20 });
+  });
+
+  it('keeps a gap of zero, which is a result rather than a missing effect', () => {
+    const study = studyAttribute(
+      [horse('k', base(), { temperament: 40 }), horse('p', base(), { temperament: 40 }, 'Paint')],
+      'temperament',
+      temperament,
+    );
+    expect(study.baselines.offsets[0]).toMatchObject({ breed: 'Paint', offset: 0 });
   });
 });
