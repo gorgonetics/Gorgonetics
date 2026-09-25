@@ -24,6 +24,17 @@ describe('StudyBaselines', () => {
     expect(screen.queryByTestId('study-baselines')).toBeNull();
   });
 
+  it('still shows a breed gap when no reading has settled', () => {
+    render(StudyBaselines, {
+      baselines: {
+        readings: [],
+        offsets: [{ breed: 'Paint', relativeTo: 'Kurbone', offset: 50, support: 3, dissent: 0, animals: 4 }],
+      },
+    });
+    expect(screen.getByTestId('study-baselines')).toBeTruthy();
+    expect(screen.getByTestId('baseline-offset-Paint').textContent).toMatch(/Paint = Kurbone\s+\+ 50/);
+  });
+
   it('shows an exact base as a plain number', () => {
     render(StudyBaselines, { baselines: { readings: [reading()], offsets: [] } });
     expect(screen.getByTestId('baseline-Kurbone').textContent).toContain('exact');

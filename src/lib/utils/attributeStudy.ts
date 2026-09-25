@@ -437,12 +437,6 @@ const BASE_SLOT_GENE = '@base';
 const BASE_SLOT_PREFIX = `${BASE_SLOT_GENE}:`;
 const isBaseSlot = (key: string): boolean => key.startsWith(BASE_SLOT_PREFIX);
 
-/**
- * Cross-breed rounds before giving up. Each round only runs because the one
- * before it solved something, and on the live corpus it settles in three.
- */
-const MAX_CROSS_ROUNDS = 8;
-
 function distinctAnimals(pairs: ReadonlyArray<readonly [string, string]>): number {
   const seen = new Set<string>();
   for (const [left, right] of pairs) seen.add(left).add(right);
@@ -1077,10 +1071,12 @@ export function studyAttribute(
   // breeds, with the base gap as one of them, and within a breed for pairs
   // too far apart on raw slots for the first pass. New findings shrink every
   // animal's unknowns, so a later round can reach pairs an earlier one could
-  // not; stop when a round adds nothing.
+  // not; stop when a round adds nothing. No round cap: every round that
+  // continues has solved at least one more of finitely many slots, so the
+  // loop ends, and a cap could only drop findings a longer chain entails.
   const built = new Set(equations.map((e) => `${e.left}|${e.right}`));
   const pooled = [...byBreed.values()].flat();
-  for (let round = 0; round < MAX_CROSS_ROUNDS; round++) {
+  for (;;) {
     const extra = crossEquations(pooled, solved, built, maxDistance, baseSlotOf);
     if (extra.length === 0) break;
     for (const equation of extra) {

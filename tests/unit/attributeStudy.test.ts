@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   activeSlots,
   buildEffectSlots,
+  type EffectSlot,
   type StudySubject,
   slotKey,
   slotsByAttribute,
@@ -965,6 +966,33 @@ describe('comparing across breeds', () => {
     );
     const paint = study.baselines.readings.find((r) => r.breed === 'Paint');
     expect(paint).toMatchObject({ value: 63, unresolved: ['01A2:dominant', '01A3:dominant'], min: 60, max: 60 });
+  });
+
+  it('keeps adding rounds for as long as each one solves something', () => {
+    // A chain where every round unlocks the next two slots: a_k expresses
+    // g(k−1) and g(k), so it only becomes a single-unknown pair once g(k−1)
+    // is known. With maxDistance 1, nothing past g2 is reachable in the
+    // first pass, and the 21-slot chain needs ten cross rounds.
+    const chain: EffectSlot[] = Array.from({ length: 21 }, (_, i) => ({
+      gene: `g${i + 1}`,
+      expression: 'dominant',
+      attribute: 'temperament',
+      sign: 1,
+      breed: '',
+    }));
+    const carrying = (...ks: number[]) =>
+      Object.fromEntries(chain.map((slot, i) => [slot.gene, ks.includes(i + 1) ? 'D' : 'R']));
+    const subjects = [
+      horse('ref', carrying(), { temperament: 10 }),
+      horse('a1', carrying(1), { temperament: 11 }),
+      ...Array.from({ length: 20 }, (_, i) => {
+        const k = i + 2;
+        return horse(`a${k}`, carrying(k - 1, k), { temperament: 10 + (k - 1) + k });
+      }),
+    ];
+    const study = studyAttribute(subjects, 'temperament', chain, { maxDistance: 1 });
+    expect(study.findings).toHaveLength(21);
+    expect(new Map(study.findings.map((f) => [f.gene, f.magnitude])).get('g21')).toBe(21);
   });
 
   it('never publishes a base gap as a gene finding', () => {

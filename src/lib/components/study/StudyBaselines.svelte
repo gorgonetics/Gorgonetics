@@ -41,7 +41,9 @@ function lumpText(r: BaselineReading): string {
 }
 </script>
 
-{#if baselines.readings.length > 0}
+<!-- Either alone is worth showing: a solver gap can be exact while every
+     breed's own reading is still tied. -->
+{#if baselines.readings.length > 0 || baselines.offsets.length > 0}
 	<details class="baselines" data-testid="study-baselines">
 		<summary>
 			<span class="label">Base values</span>
@@ -49,12 +51,16 @@ function lumpText(r: BaselineReading): string {
 				<span class="chip">{breedLabel(r.breed)} <strong>{baseText(r)}</strong></span>
 			{/each}
 			{#if baselines.readings.length > 4}<span class="chip more">+{baselines.readings.length - 4}</span>{/if}
+			{#if baselines.readings.length === 0}<span class="chip"
+					>{baselines.offsets.length} breed gap{baselines.offsets.length === 1 ? '' : 's'}</span
+				>{/if}
 		</summary>
 		<p class="lead">
 			The value before any gene effect. Where a slot every animal expresses is still unknown, no pair can
 			separate it from the base, so the base is only bounded by its declared sign. Animals of different breeds
 			are compared through the gap between their bases, which is exact even when neither base is.
 		</p>
+		{#if baselines.readings.length > 0}
 		<table>
 			<thead>
 				<tr>
@@ -79,6 +85,7 @@ function lumpText(r: BaselineReading): string {
 				{/each}
 			</tbody>
 		</table>
+		{/if}
 		{#if baselines.offsets.length > 0}
 			<ul class="offsets">
 				{#each baselines.offsets as o (o.breed)}
