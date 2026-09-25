@@ -27,8 +27,9 @@
  * **Difference, don't solve.** An observed value is `base + Σ effects`, and
  * `base` is unknown. Subtracting two same-breed animals cancels it, so the
  * unknown base never has to be determined and cross-breed base differences
- * (if any exist) cannot contaminate a finding. Every equation here is a
- * difference for that reason.
+ * cannot contaminate a finding. Every equation here is a difference for that
+ * reason. The bases are recovered afterwards, per animal, from the solved
+ * magnitudes — see `inferBaselines` — and they do differ by breed.
  *
  * ## Three tiers of finding, which must not be confused
  *
@@ -102,6 +103,90 @@ export interface StudySubject {
    * just as likely to be correct, only unfalsifiable.
    */
   stabled?: boolean;
+  /**
+   * The group whose base this animal reads, when it is not `breed`.
+   *
+   * `breed` is the pairing pool, and a species paired as one pool (beewasps)
+   * has an empty one. Its animals still have a recorded breed, and whether
+   * those breeds share one base is an open question the baselines answer —
+   * so they are grouped by this, not by the pool. Defaults to `breed`.
+   */
+  baselineGroup?: string;
+}
+
+/**
+ * What the corpus entails about one breed's base for one attribute.
+ *
+ * The base is the value before any gene effect. It is read off animals, not
+ * pairs: once every magnitude an animal expresses is known, `value − Σ
+ * magnitudes` is its breed's base. Usually some expressed slot is still
+ * unknown, and often it is one that *every* animal of the breed expresses —
+ * such a slot never differs between two animals, so no difference can
+ * separate it from the base. What the corpus pins then is the lump
+ * `base + Σ unresolved`, and that is what `value` holds.
+ *
+ * Nothing bounds the base itself. The displayed attribute is clamped to
+ * 0–100, but the base sits under the effects, and on the live corpus a
+ * Kurbone's temperament base is at most −36.
+ */
+export interface BaselineReading {
+  /** The baseline group, normally the breed. */
+  breed: string;
+  /** `base + Σ unresolved`. The base itself when `unresolved` is empty. */
+  value: number;
+  /** Expressed slots still unknown, as sorted `slotKey`s. */
+  unresolved: string[];
+  /**
+   * Bounds on the base itself, from the declared signs of `unresolved`.
+   *
+   * A declared `+` is worth at least `+1`, so when every unresolved slot is
+   * positive the base is at most `value − |unresolved|`, and symmetrically
+   * for negatives. A mix bounds nothing: no magnitude has an upper limit.
+   * Both equal `value` when the base is exact. Rests on the declarations,
+   * which the study can dispute, so a doubted sign weakens it.
+   */
+  min: number | null;
+  max: number | null;
+  /** Animals reading `value`. */
+  support: number;
+  /** Animals with the same unresolved set reading something else. */
+  dissent: number;
+  /** Dissenting animals: each is mis-recorded or sits on a wrong magnitude. */
+  dissenters: string[];
+  /** A few supporting animals, for "show the work". */
+  witnesses: string[];
+}
+
+/**
+ * The exact gap between two breeds' bases.
+ *
+ * Two breeds whose animals leave the *same* slots unresolved read lumps that
+ * differ only by their bases, so the gap is exact even when neither base is.
+ * For a species paired as one pool this is the test of that pooling: a gap
+ * of zero is what sharing a base predicts, and anything else falsifies it.
+ */
+export interface BaselineOffset {
+  breed: string;
+  relativeTo: string;
+  /** `base(breed) − base(relativeTo)`. */
+  offset: number;
+  /** Unresolved sets shared by both breeds that give this offset. */
+  support: number;
+  /** Shared unresolved sets giving another offset. */
+  dissent: number;
+  /** Distinct animals behind the supporting sets, on both sides. */
+  animals: number;
+}
+
+export interface AttributeBaselines {
+  /**
+   * Per breed, the reading most animals agree on, then the one leaving fewest
+   * slots unresolved. Backing comes first: a single animal can leave fewer
+   * slots unresolved than the other 240 of its breed, and one mis-recorded
+   * reading must not become the breed's base.
+   */
+  readings: BaselineReading[];
+  offsets: BaselineOffset[];
 }
 
 /**
@@ -268,6 +353,7 @@ export interface AttributeStudy {
   validation: ValidationReport;
   /** Subjects that contributed at least one equation. */
   contributors: number;
+  baselines: AttributeBaselines;
 }
 
 export interface StudyOptions {
@@ -544,7 +630,12 @@ function record(tally: Tally, magnitude: number, pair: [string, string]): void {
  * as a finding, and that value then feeds substitution and validation as
  * though it were known. The corpus simply has not settled the slot.
  */
-function majority(tally: Tally): { magnitude: number; support: number; dissent: number; tied: boolean } {
+function majority<T>(tally: Map<number, readonly T[]>): {
+  magnitude: number;
+  support: number;
+  dissent: number;
+  tied: boolean;
+} {
   let best = 0;
   let bestCount = -1;
   let tied = false;
@@ -868,7 +959,119 @@ export function studyAttribute(
       .sort((a, b) => Number(b.stabled) - Number(a.stabled) || b.count - a.count),
     validation: validate(equations, solved, consumed),
     contributors,
+    baselines: inferBaselines([...byBreed.values()].flat(), solved, signOf),
   };
+}
+
+/**
+ * Read each breed's base off the animals, once the magnitudes are in.
+ *
+ * Every equation above is a difference so that the base never had to be
+ * known. With the magnitudes solved it falls out per animal: subtract what
+ * is known and `base + Σ unresolved` is left. Animals of one breed leaving
+ * the same slots unresolved must read the same lump, so they are tallied
+ * together and the majority rule applies as it does to magnitudes.
+ *
+ * A lump is not a lesser result. When the unresolved slot is one every
+ * animal expresses, the corpus can never do better — no pair differs at it —
+ * and the lump is exactly what the game's arithmetic makes observable.
+ */
+function inferBaselines(
+  observations: readonly Observation[],
+  solved: ReadonlyMap<string, StudyFinding>,
+  signOf: ReadonlyMap<string, 1 | -1>,
+): AttributeBaselines {
+  /** Breed, then unresolved signature, then lump value to the animals reading it. */
+  const lumps = new Map<string, Map<string, Map<number, string[]>>>();
+  for (const { subject, active, value } of observations) {
+    let lump = value;
+    const unresolved: string[] = [];
+    for (const key of active) {
+      const known = solved.get(key);
+      if (known) lump -= known.magnitude;
+      else unresolved.push(key);
+    }
+    const group = subject.baselineGroup ?? subject.breed;
+    const bySignature = lumps.get(group) ?? new Map<string, Map<number, string[]>>();
+    lumps.set(group, bySignature);
+    const signature = unresolved.sort().join(',');
+    const tally = bySignature.get(signature) ?? new Map<number, string[]>();
+    bySignature.set(signature, tally);
+    const ids = tally.get(lump);
+    if (ids) ids.push(subject.id);
+    else tally.set(lump, [subject.id]);
+  }
+
+  /** Per breed, every settled lump by signature. */
+  const settled = new Map<string, Map<string, BaselineReading>>();
+  for (const [breed, bySignature] of lumps) {
+    const readings = new Map<string, BaselineReading>();
+    for (const [signature, tally] of bySignature) {
+      const { magnitude: lump, support, dissent, tied } = majority(tally);
+      // Two readings with equal backing: the corpus has not settled this lump.
+      if (tied) continue;
+      const unresolved = signature ? signature.split(',') : [];
+      let positives = 0;
+      let negatives = 0;
+      for (const key of unresolved) {
+        if (signOf.get(key) === 1) positives++;
+        else negatives++;
+      }
+      readings.set(signature, {
+        breed,
+        value: lump,
+        unresolved,
+        min: positives === 0 ? lump + negatives : null,
+        max: negatives === 0 ? lump - positives : null,
+        support,
+        dissent,
+        dissenters: [...tally].filter(([v]) => v !== lump).flatMap(([, ids]) => ids),
+        witnesses: (tally.get(lump) ?? []).slice(0, MAX_WITNESSES),
+      });
+    }
+    if (readings.size > 0) settled.set(breed, readings);
+  }
+
+  const readings = [...settled.values()]
+    .map((bySignature) =>
+      [...bySignature.values()].reduce((best, r) =>
+        r.support > best.support || (r.support === best.support && r.unresolved.length < best.unresolved.length)
+          ? r
+          : best,
+      ),
+    )
+    .sort((a, b) => b.support - a.support || a.breed.localeCompare(b.breed));
+
+  // Offsets are read relative to the best-supported breed, so each breed is
+  // placed once against a common reference rather than against every other.
+  // An animal of no recorded breed (possible only in a pooled species) could
+  // be any of them, so its group is never compared.
+  const offsets: BaselineOffset[] = [];
+  const reference = readings.find((r) => r.breed !== '')?.breed;
+  const anchor = reference === undefined ? undefined : settled.get(reference);
+  if (anchor) {
+    for (const [breed, bySignature] of settled) {
+      if (breed === reference || breed === '') continue;
+      const tally = new Map<number, Array<[BaselineReading, BaselineReading]>>();
+      for (const [signature, reading] of bySignature) {
+        const other = anchor.get(signature);
+        if (!other) continue;
+        const offset = reading.value - other.value;
+        const list = tally.get(offset);
+        if (list) list.push([reading, other]);
+        else tally.set(offset, [[reading, other]]);
+      }
+      if (tally.size === 0) continue;
+      const { magnitude: offset, support, dissent, tied } = majority(tally);
+      if (tied) continue;
+      let animals = 0;
+      for (const [a, b] of tally.get(offset) ?? []) animals += a.support + b.support;
+      offsets.push({ breed, relativeTo: reference as string, offset, support, dissent, animals });
+    }
+  }
+  offsets.sort((a, b) => b.animals - a.animals || a.breed.localeCompare(b.breed));
+
+  return { readings, offsets };
 }
 
 /** A slot the equations pin jointly, though no single equation isolates it. */

@@ -15,6 +15,7 @@ import { pets } from '$lib/stores/pets.js';
 import { settings, settingsActions } from '$lib/stores/settings.js';
 import type { GeneDoubt } from '$lib/utils/attributeStudy.js';
 import { mostPopulatedSpecies } from '$lib/utils/species.js';
+import StudyBaselines from './StudyBaselines.svelte';
 import StudyFindingsTable from './StudyFindingsTable.svelte';
 
 // Only species the study can measure. Listing one it cannot gives a panel
@@ -462,6 +463,18 @@ async function solve(target: string): Promise<void> {
 					aside: {#each run.corpus.excluded as ex, i (ex.reason)}{i > 0 ? ', ' : ''}{ex.count}
 						{EXCLUSION_LABEL[ex.reason] ?? ex.reason}{/each}{/if}
 			</p>
+			{#if run.sharedBase && run.sharedBase.same.length + run.sharedBase.different.length > 0}
+				<!-- The pool pairs every breed together on the assumption they share
+				     a base; this is the corpus testing that assumption. -->
+				<p class="corpus shared-base" class:warn={run.sharedBase.different.length > 0} data-testid="study-shared-base">
+					{#if run.sharedBase.different.length > 0}
+						Breeds read different bases for {run.sharedBase.different.join(', ')} — pairing them together
+						may skew those effects
+					{:else}
+						Breeds read the same base on all {run.sharedBase.same.length} attributes that can be compared
+					{/if}
+				</p>
+			{/if}
 			</div>
 		</header>
 
@@ -492,6 +505,7 @@ async function solve(target: string): Promise<void> {
 					<div class="main">
 
 					{#if current}
+						<StudyBaselines baselines={current.baselines} />
 						<StudyFindingsTable findings={current.findings} {names} slots={current.slots} />
 					{/if}
 				</div>
@@ -822,6 +836,10 @@ async function solve(target: string): Promise<void> {
 		margin: 0;
 		font-size: 11px;
 		color: var(--text-tertiary);
+	}
+
+	.shared-base.warn {
+		color: var(--gene-negative);
 	}
 
 	.body {

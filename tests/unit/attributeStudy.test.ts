@@ -747,3 +747,121 @@ describe('determined subsystems', () => {
     expect(study.findings).toEqual([]);
   });
 });
+
+describe('baselines', () => {
+  it('reads an exact base once every expressed magnitude is known', () => {
+    const study = studyAttribute(
+      [horse('a', base(), { temperament: 40 }), horse('b', base({ '14B4': 'D' }), { temperament: 43 })],
+      'temperament',
+      temperament,
+    );
+    expect(study.baselines.readings).toEqual([
+      expect.objectContaining({
+        breed: 'Kurbone',
+        value: 40,
+        unresolved: [],
+        min: 40,
+        max: 40,
+        support: 2,
+        dissent: 0,
+      }),
+    ]);
+  });
+
+  it('allows a negative base, seen only through animals lifted clear of the floor', () => {
+    // 14B4 = 8 and 01A3 = 7, so all three animals put the base at -3. An
+    // animal expressing neither would read -3, clamp to 0, and be dropped.
+    const study = studyAttribute(
+      [
+        horse('a', base({ '14B4': 'D', '01A3': 'D' }), { temperament: 12 }),
+        horse('b', base({ '14B4': 'D' }), { temperament: 5 }),
+        horse('c', base({ '01A3': 'D' }), { temperament: 4 }),
+      ],
+      'temperament',
+      temperament,
+    );
+    expect(study.baselines.readings[0]).toMatchObject({ value: -3, unresolved: [], support: 3 });
+  });
+
+  it('bounds the base by the declared sign of a slot every animal expresses', () => {
+    // 01A1 is recessive-positive and every animal is `R`, so no pair differs
+    // at it: only base + 01A1 is observable, and the base is below it.
+    const study = studyAttribute(
+      [
+        horse('a', base({ '01A1': 'R' }), { temperament: 5 }),
+        horse('b', base({ '01A1': 'R', '14B4': 'D' }), { temperament: 8 }),
+      ],
+      'temperament',
+      temperament,
+    );
+    expect(study.baselines.readings).toEqual([
+      expect.objectContaining({ value: 5, unresolved: ['01A1:recessive'], min: null, max: 4, support: 2 }),
+    ]);
+  });
+
+  it('gives an exact gap between breeds that leave the same slots unresolved', () => {
+    const study = studyAttribute(
+      [
+        horse('k1', base({ '01A1': 'R' }), { temperament: 5 }),
+        horse('k2', base({ '01A1': 'R', '14B4': 'D' }), { temperament: 8 }),
+        horse('p1', base({ '01A1': 'R' }), { temperament: 25 }, 'Paint'),
+        horse('p2', base({ '01A1': 'R', '02C1': 'D' }), { temperament: 27 }, 'Paint'),
+      ],
+      'temperament',
+      temperament,
+    );
+    expect(study.baselines.readings.map((r) => [r.breed, r.max])).toEqual([
+      ['Kurbone', 4],
+      ['Paint', 24],
+    ]);
+    expect(study.baselines.offsets).toEqual([
+      { breed: 'Paint', relativeTo: 'Kurbone', offset: 20, support: 1, dissent: 0, animals: 4 },
+    ]);
+  });
+
+  it('names the animal that reads another base', () => {
+    const study = studyAttribute(
+      [
+        // Same active set, so no pair among them is an equation: the base
+        // reading is the only check that can catch the odd one out.
+        horse('a', base(), { temperament: 40 }),
+        horse('b', base({ '14B2': 'R' }), { temperament: 40 }),
+        horse('bad', base(), { temperament: 43 }),
+      ],
+      'temperament',
+      temperament,
+    );
+    const [reading] = study.baselines.readings;
+    expect(reading).toMatchObject({ value: 40, support: 2, dissent: 1, dissenters: ['bad'] });
+  });
+
+  it('publishes nothing for a breed whose animals split evenly', () => {
+    const study = studyAttribute(
+      [horse('a', base(), { temperament: 40 }), horse('b', base(), { temperament: 41 })],
+      'temperament',
+      temperament,
+    );
+    expect(study.baselines.readings).toEqual([]);
+  });
+
+  it('groups by recorded breed inside one pairing pool', () => {
+    const pooled = (id: string, genes: Record<string, string>, value: number, group: string): StudySubject => ({
+      ...horse(id, genes, { temperament: value }, ''),
+      baselineGroup: group,
+    });
+    const study = studyAttribute(
+      [
+        pooled('b1', base(), 40, 'Bee'),
+        pooled('b2', base({ '01A3': 'D' }), 44, 'Bee'),
+        pooled('w1', base(), 40, 'Wasp'),
+        pooled('n1', base(), 40, ''),
+      ],
+      'temperament',
+      // Only the generic loci: a pooled species has no breed-locked ones.
+      temperament.filter((slot) => slot.breed === ''),
+    );
+    expect(study.baselines.readings.map((r) => r.breed).sort()).toEqual(['', 'Bee', 'Wasp']);
+    // The unbred group could be either, so it is never compared.
+    expect(study.baselines.offsets).toEqual([expect.objectContaining({ breed: 'Wasp', relativeTo: 'Bee', offset: 0 })]);
+  });
+});

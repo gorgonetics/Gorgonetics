@@ -134,6 +134,7 @@ function fullMagnitudeTable(): AttributeMagnitudes {
         geneDoubts: [],
         validation: { tested: 0, exact: 0, stabledTested: 0, stabledExact: 0, suspects: [] },
         contributors: NUM_MALES + NUM_FEMALES,
+        baselines: { readings: [], offsets: [] },
       }),
     ),
   );
