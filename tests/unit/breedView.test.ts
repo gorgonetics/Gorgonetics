@@ -426,6 +426,11 @@ describe('BreedView — when Reach new ground has run dry', () => {
     expect(text).toContain('879');
     expect(text).toContain('3.0');
     expect(container.querySelector('[data-testid="breed-reach-exhausted"]')).toBeNull();
+    // The generic split carries its own genome ceiling, so slots nobody
+    // carries are not hidden behind the reachable count.
+    const generic =
+      container.querySelector('[data-testid="breed-capability-generic"]')?.textContent?.replace(/\s+/g, ' ') ?? '';
+    expect(generic).toContain('170.0 of 190 reachable breed-generic (202 in the genome)');
   });
 
   it('says so, and points at the other strategies, once the best reach plan adds under a slot-unit', async () => {
