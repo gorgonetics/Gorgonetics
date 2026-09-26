@@ -1,4 +1,5 @@
 <script lang="ts">
+import { getAllAttributeNames } from '$lib/services/configService.js';
 import {
   confirmGeneDeclaration,
   isCommunitySubject,
@@ -219,7 +220,19 @@ async function toggleUse(subjectId: string, use: boolean): Promise<void> {
   }
 }
 
-const studies = $derived(run?.studies ?? []);
+/**
+ * The attribute tabs, in the app-wide naming order rather than the solver's
+ * alphabetical one: the species' own attribute first, then the core ones.
+ */
+function inNamingOrder<T extends { attribute: string }>(list: readonly T[], target: string): T[] {
+  const order = getAllAttributeNames(target);
+  const rank = (attribute: string) => {
+    const i = order.indexOf(attribute);
+    return i === -1 ? order.length : i;
+  };
+  return [...list].sort((a, b) => rank(a.attribute) - rank(b.attribute) || a.attribute.localeCompare(b.attribute));
+}
+const studies = $derived(run ? inNamingOrder(run.studies, species) : []);
 const current = $derived(studies.find((s) => s.attribute === attribute) ?? studies[0]);
 
 const coverage = $derived(run && run.totals.slots > 0 ? Math.round((run.totals.found / run.totals.slots) * 100) : 0);
@@ -348,7 +361,7 @@ async function solve(target: string): Promise<void> {
     if (mine !== generation) return;
     names = resolved;
     run = result;
-    attribute = result.studies[0]?.attribute ?? null;
+    attribute = inNamingOrder(result.studies, target)[0]?.attribute ?? null;
     // Both reads before any assignment, then one guard: a solve that started
     // while these were in flight has already published its own numbers, and
     // writing these afterwards would pair the new study with the old corpus.

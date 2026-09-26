@@ -7,17 +7,16 @@
  * attribute applies to that row's species: Temperament for horses, Ferocity
  * for bees. Anything else reads as absent, never as a zero.
  *
- * In the order a structured pet name spells them (`nameParser`): each
- * species' own attribute, then the core attributes in their configured order.
+ * In the order a structured pet name spells them (`nameParser`), which is the
+ * app-wide display order: each species' own attribute, then the core ones.
  * Not the storage order in `ATTRIBUTE_KEYS`, which starts with Intelligence
  * and reads nothing like a name or the in-game stable.
  */
 
 import {
+  getAllAttributeDisplayInfo,
   getAllAttributeNames,
   getAllAttributes,
-  getCoreAttributeNames,
-  getSpeciesAttributeNames,
   getSupportedSpecies,
 } from '$lib/services/configService.js';
 import { ATTRIBUTE_KEYS } from '$lib/utils/sharedPet.js';
@@ -35,14 +34,10 @@ export const ATTRIBUTE_COLUMNS: readonly AttributeColumn[] = (() => {
       displayNames[key] ??= info.name ?? capitalize(key);
     }
   }
-  const order: string[] = [];
-  const add = (key: string) => {
-    if (!order.includes(key)) order.push(key);
-  };
-  for (const species of getSupportedSpecies()) for (const key of getSpeciesAttributeNames(species)) add(key);
-  for (const key of getCoreAttributeNames()) add(key);
+  // The app-wide display order, species' own attributes first, then core.
+  const order = getAllAttributeDisplayInfo().map((info) => info.key.toLowerCase());
   // A stored attribute the config does not place goes last, rather than out.
-  for (const key of ATTRIBUTE_KEYS) add(key);
+  for (const key of ATTRIBUTE_KEYS) if (!order.includes(key)) order.push(key);
   const stored = new Set<string>(ATTRIBUTE_KEYS);
   return order.filter((key) => stored.has(key)).map((key) => ({ key, label: displayNames[key] ?? capitalize(key) }));
 })();

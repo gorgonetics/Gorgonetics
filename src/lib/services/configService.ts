@@ -236,7 +236,9 @@ const SPECIES_ATTRIBUTE_NAMES: Readonly<Record<string, readonly string[]>> = (()
 const ALL_ATTRIBUTE_NAMES_BY_SPECIES: Readonly<Record<string, readonly string[]>> = (() => {
   const result: Record<string, readonly string[]> = {};
   for (const species of Object.keys(SPECIES_ATTRIBUTES)) {
-    result[species] = Object.freeze([...CORE_ATTRIBUTE_NAMES_FROZEN, ...SPECIES_ATTRIBUTE_NAMES[species]]);
+    // Naming order (`nameParser`), which is the in-game stable's: the species'
+    // own attribute first, then the core attributes.
+    result[species] = Object.freeze([...SPECIES_ATTRIBUTE_NAMES[species], ...CORE_ATTRIBUTE_NAMES_FROZEN]);
   }
   return Object.freeze(result);
 })();
@@ -307,10 +309,18 @@ export function getAllAttributeNames(species: string): string[] {
 }
 
 /**
- * Get all attributes for a species (core + species-specific).
+ * Get all attributes for a species (core + species-specific), keyed in naming
+ * order — the order every attribute list in the UI follows.
  */
 export function getAllAttributes(species: string) {
-  return { ...CORE_ATTRIBUTES, ...getSpeciesAttributes(species) };
+  const merged: Record<string, (typeof CORE_ATTRIBUTES)[string]> = {
+    ...CORE_ATTRIBUTES,
+    ...getSpeciesAttributes(species),
+  };
+  const ordered: Record<string, (typeof CORE_ATTRIBUTES)[string]> = {};
+  for (const name of getAllAttributeNames(species)) if (merged[name]) ordered[name] = merged[name];
+  for (const [name, info] of Object.entries(merged)) ordered[name] ??= info;
+  return ordered;
 }
 
 /**

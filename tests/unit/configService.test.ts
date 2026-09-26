@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   getAllAttributeNames,
+  getAllAttributes,
   getAppearanceAttributeNames,
   getAppearanceConfig,
   getAttributeConfig,
@@ -16,6 +17,7 @@ import {
   normalizeSpecies,
   validateAttributeDict,
 } from '$lib/services/configService.js';
+import { parseStructuredPetName } from '$lib/services/nameParser.js';
 
 describe('normalizeSpecies', () => {
   it('normalizes "BeeWasp" to "beewasp"', () => {
@@ -288,5 +290,23 @@ describe('getAttributeMatcher', () => {
     const m = getAttributeMatcher('beewasp');
     expect(Object.isFrozen(m)).toBe(true);
     expect(Object.isFrozen(m.names)).toBe(true);
+  });
+});
+
+describe('attribute order', () => {
+  // Every attribute list in the UI follows the order a structured name spells
+  // them, which mirrors the in-game stable: the species' own attribute first,
+  // then Toughness … Virility. Read off the parser so the two cannot drift.
+  it.each([
+    ['horse', 'Kb F 1 2 3 4 5 6 7'],
+    ['beewasp', 'Bee F 1 2 3 4 5 6 7'],
+  ])('matches the naming order for %s', (species, name) => {
+    const parsed = parseStructuredPetName(name, species);
+    const naming = Object.entries(parsed?.attributes ?? {})
+      .sort((a, b) => a[1] - b[1])
+      .map(([key]) => key);
+    expect(getAllAttributeNames(species)).toEqual(naming);
+    expect(Object.keys(getAllAttributes(species))).toEqual(naming);
+    expect(getAttributeConfig(species).attributes.map((a) => a.key.toLowerCase())).toEqual(naming);
   });
 });
