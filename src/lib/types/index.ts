@@ -573,7 +573,7 @@ export type TrioGainMode = 'attributes' | 'clarification';
  * locus has an exact, extractable contribution that sums back to the column
  * the breeding table shows.
  *
- * `Ceiling`, `Floor` and `Cleanup` deliberately have no field here. They are
+ * `Ceiling`, `Floor`, `Cleanup` and `Clarify` deliberately have no field here. They are
  * `E[max(0, X - baseline)]` evaluated *after* the loop, from three scalars
  * (mean, spread, baseline); a locus reaches them only through the first two.
  * The gradient of that integral with respect to the mean is a single

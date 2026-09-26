@@ -110,7 +110,7 @@ let gainMode = $state<TrioGainMode>('attributes');
 // Which additive pair score the offspring boxes are tinted by, or `off` for
 // the default outcome-bucket rendering. Only the two scores that are a plain
 // sum over loci appear here — see `TrioLocusContributions` for why Ceiling,
-// Floor and Cleanup cannot join them.
+// Floor, Cleanup and Clarify cannot join them.
 let contributionMode = $state<TrioContributionMode>('off');
 // Open the arithmetic behind the non-additive scores. Off by default: it
 // answers "why is this number what it is", which is not the question the grid
@@ -703,7 +703,7 @@ function handleCellLeave() {
                         class:active={showScores}
                         aria-pressed={showScores}
                         data-testid="trio-show-scores"
-                        title="Show how this pair's Ceiling, Floor and Cleanup scores were produced."
+                        title="Show how this pair's Ceiling, Floor, Cleanup and Clarify scores were produced."
                         onclick={() => { showScores = !showScores; }}
                     >📊 Scores</button>
                 {/if}
