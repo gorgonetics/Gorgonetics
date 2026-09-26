@@ -30,6 +30,7 @@ import {
   setUseForStudies,
   studyCorpusStatus,
   studyInputsKey,
+  studyRunFor,
   withdrawGeneConfirmation,
 } from '$lib/services/studyService.js';
 import { coverageOf, EMPTY_MAGNITUDES, hasMagnitudes, magnitudeOf } from '$lib/utils/attributePoints.js';
@@ -228,6 +229,39 @@ describe('loadStudyCorpus', () => {
     const corpus = await loadStudyCorpus('beewasp');
     expect(corpus.subjects).toEqual([]);
     expect(corpus.considered).toBe(0);
+  });
+});
+
+describe('local loci', () => {
+  const lociOf = async (id: number) =>
+    (await loadStudyCorpus('horse')).subjects.find((s) => s.id === String(id))?.genes;
+
+  it('reads a pet from its stored genome text, not the per-locus rows', async () => {
+    const petId = await upload(name('Kb', 40, 80), 'DRRR');
+    // Tamper with one projected row: the corpus still reports the text's
+    // genotype, so the text is what it read.
+    await getDb().execute('UPDATE pet_genes SET gene_type = $type WHERE pet_id = $id AND gene_id = $gene', {
+      type: 'x',
+      id: petId,
+      gene: '01A1',
+    });
+    expect(await lociOf(petId)).toMatchObject({ '01A1': 'D', '01A2': 'R' });
+  });
+
+  it('falls back to the per-locus rows for a pet with no stored text', async () => {
+    const petId = await upload(name('Kb', 40, 80), 'DRRR');
+    await getDb().execute('UPDATE pets SET genome_text = $text WHERE id = $id', { text: '', id: petId });
+    expect(await lociOf(petId)).toMatchObject({ '01A1': 'D', '01A2': 'R' });
+  });
+
+  it('clears the stored text when the genome is rewritten, so the study reads the new genes', async () => {
+    const petId = await upload(name('Kb', 40, 80), 'DRRR');
+    await petService.updatePet(petId, { genome_data: parseGenome(genome(name('Kb', 40, 80), 'RRRD')) });
+    const [row] = await getDb().select<Array<{ genome_text: string }>>('SELECT genome_text FROM pets WHERE id = $id', {
+      id: petId,
+    });
+    expect(row.genome_text).toBe('');
+    expect(await lociOf(petId)).toMatchObject({ '01A1': 'R', '01A4': 'D' });
   });
 });
 
@@ -510,6 +544,74 @@ describe('attributeMagnitudesFor', () => {
     const second = await attributeMagnitudesFor('horse');
     expect(second).not.toBe(first);
     expect(magnitudeOf(second, '01A1', 'dominant')).toBeUndefined();
+  });
+});
+
+describe('studyRunFor', () => {
+  beforeEach(() => clearAttributeMagnitudesCache());
+
+  const seed = async () => {
+    await upload(name('Kb', 45, 80, 'With'), 'DRRR');
+    return upload(name('Kb', 40, 80, 'Without'), 'RRRR');
+  };
+
+  it('returns the same run on every open until an input moves', async () => {
+    await seed();
+    const first = await studyRunFor('horse');
+    expect(await studyRunFor('Horse')).toBe(first);
+  });
+
+  it('re-solves after an upload, so a just-imported animal shows', async () => {
+    await seed();
+    const first = await studyRunFor('horse');
+    await upload(name('Kb', 40, 83, 'ToughA'), 'RRDR');
+    const second = await studyRunFor('horse');
+    expect(second).not.toBe(first);
+    expect(second.corpus.subjects).toHaveLength(3);
+  });
+
+  it('re-solves after an edit, an exclusion or a confirmation', async () => {
+    const petId = await seed();
+
+    let run = await studyRunFor('horse');
+    await petService.updatePet(petId, { stabled: false });
+    expect(await studyRunFor('horse')).not.toBe(run);
+
+    run = await studyRunFor('horse');
+    await setUseForStudies('horse', String(petId), false);
+    expect(await studyRunFor('horse')).not.toBe(run);
+
+    run = await studyRunFor('horse');
+    await confirmGeneDeclaration('horse', '01A1', 'dominant', 'temperament', 1);
+    expect(await studyRunFor('horse')).not.toBe(run);
+
+    run = await studyRunFor('horse');
+    await withdrawGeneConfirmation('horse', '01A1', 'dominant');
+    expect(await studyRunFor('horse')).not.toBe(run);
+  });
+
+  it('shares the solve behind the magnitude table', async () => {
+    await seed();
+    await attributeMagnitudesFor('horse');
+    // The Breed tab's solve already produced the run: opening the Study tab
+    // reads nothing from the database at all.
+    const select = vi.spyOn(getDb(), 'select');
+    const run = await studyRunFor('horse');
+    expect(select).not.toHaveBeenCalled();
+    expect(run.studies.length).toBeGreaterThan(0);
+    select.mockRestore();
+  });
+});
+
+describe('study timing', () => {
+  it('logs the load and solve halves of every run separately', async () => {
+    await upload(name('Kb', 45, 80, 'With'), 'DRRR');
+    await upload(name('Kb', 40, 80, 'Without'), 'RRRR');
+    const info = vi.spyOn(console, 'info').mockImplementation(() => {});
+    await runAttributeStudy('horse');
+    const line = info.mock.calls.map((c) => String(c[0])).find((l) => l.startsWith('study horse:'));
+    expect(line).toMatch(/^study horse: load \d+ ms, solve \d+ ms, 2 subjects$/);
+    info.mockRestore();
   });
 });
 

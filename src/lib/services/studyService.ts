@@ -54,7 +54,7 @@ import {
   type ParsedGeneRecord,
 } from '$lib/services/geneService.js';
 import { parseGenome } from '$lib/services/genomeParser.js';
-import { getAllPets, localPetsRevision } from '$lib/services/petService.js';
+import { getAllPets, localPetsAdded, localPetsRevision } from '$lib/services/petService.js';
 import { listGenomes, listPets } from '$lib/services/shareService.js';
 import { GeneType, type Pet, type SharedPet } from '$lib/types/index.js';
 import { type AttributeMagnitudes, buildAttributeMagnitudes, EMPTY_MAGNITUDES } from '$lib/utils/attributePoints.js';
@@ -70,7 +70,7 @@ import {
   type ValidationSuspect,
 } from '$lib/utils/attributeStudy.js';
 import { sha256Hex } from '$lib/utils/hash.js';
-import { loadAllPetLoci, type PetLoci } from '$lib/utils/petLoci.js';
+import { coerceGeneType, loadAllPetLoci, type PetLoci } from '$lib/utils/petLoci.js';
 import { ATTRIBUTE_KEYS, carriesReadings, dedupeLatest } from '$lib/utils/sharedPet.js';
 import { now } from '$lib/utils/timestamp.js';
 import { parseStructuredPetName } from './nameParser.js';
@@ -300,7 +300,7 @@ export async function loadStudyCorpus(species: string, options: LoadCorpusOption
     candidates.push(pet);
   }
 
-  const lociByPet = await loadAllPetLoci(candidates.map((p) => p.id));
+  const lociByPet = await localLoci(candidates.map((p) => p.id));
 
   const subjects: StudySubject[] = [];
   for (const pet of candidates) {
@@ -336,6 +336,45 @@ export async function loadStudyCorpus(species: string, options: LoadCorpusOption
     considered: items.length + community.considered,
     excluded: [...tally.entries()].map(([reason, count]) => ({ reason, count })).sort((a, b) => b.count - a.count),
   };
+}
+
+/**
+ * Local animals' loci, parsed from the genome text each row stores.
+ *
+ * The `pet_genes` projection holds the same loci, but reading it means one
+ * row per locus — about 757k rows for a 492-pet stable — and in the app each
+ * row crosses from the database to the page as its own object. That read was
+ * most of a 3.8 s corpus load; the text is 1.2 MB for the same stable and
+ * parses in tens of milliseconds, the way the community cache already does.
+ *
+ * The two agree because `pet_genes` is projected from the same import: on the
+ * live 492-pet database every animal matched locus for locus. The one way they
+ * could part is `updatePet` rewriting `genome_data`, which re-projects
+ * `pet_genes` but keeps the imported text; no screen does that. A row with no
+ * text — imported before v13 — falls back to `pet_genes`.
+ */
+async function localLoci(petIds: readonly number[]): Promise<Map<number, PetLoci>> {
+  const map = new Map<number, PetLoci>();
+  const db = getDb();
+  // Chunked: a roster can outgrow SQLite's parameter ceiling.
+  const chunk = 500;
+  for (let i = 0; i < petIds.length; i += chunk) {
+    const { placeholders, params } = buildInClauseParams(petIds.slice(i, i + chunk), 'id');
+    const rows = await db.select<Array<{ id: number; genome_text: string | null }>>(
+      `SELECT id, genome_text FROM pets WHERE id IN (${placeholders})`,
+      params,
+    );
+    for (const row of rows) {
+      if (!row.genome_text) continue;
+      const loci: PetLoci = new Map();
+      for (const [chromosome, list] of Object.entries(parseGenome(row.genome_text).genes))
+        for (const gene of list) loci.set(`${chromosome}${gene.block}${gene.position}`, coerceGeneType(gene.gene_type));
+      if (loci.size > 0) map.set(row.id, loci);
+    }
+  }
+  const missing = petIds.filter((id) => !map.has(id));
+  if (missing.length > 0) for (const [id, loci] of await loadAllPetLoci(missing)) map.set(id, loci);
+  return map;
 }
 
 /**
@@ -464,6 +503,11 @@ export async function runAttributeStudy(
   species: string,
   options: LoadCorpusOptions & StudyOptions = {},
 ): Promise<StudyRun> {
+  // Timed in two halves, because they call for different fixes (#542): the
+  // corpus load is database reads and genome parsing, the solve is the
+  // equation work. Only a measurement in the packaged app says which one
+  // dominates, so it is logged on every run.
+  const started = performance.now();
   // Effects first: the declared loci are what makes a genome "complete"
   // for this study, so the corpus load needs them.
   const effects = await getGeneEffectsCached(species);
@@ -472,10 +516,13 @@ export async function runAttributeStudy(
     ...options,
     requiredGenes: options.requiredGenes ?? new Set(slots.map((slot) => slot.gene)),
   });
-  const studies = studyAll(corpus.subjects, slots, {
-    ...options,
-    confirmedSlots: options.confirmedSlots ?? (await liveGeneConfirmations(species, slots)),
-  });
+  const confirmedSlots = options.confirmedSlots ?? (await liveGeneConfirmations(species, slots));
+  const loaded = performance.now();
+  const studies = studyAll(corpus.subjects, slots, { ...options, confirmedSlots });
+  const solvedAt = performance.now();
+  console.info(
+    `study ${normalizeSpecies(species)}: load ${Math.round(loaded - started)} ms, solve ${Math.round(solvedAt - loaded)} ms, ${corpus.subjects.length} subjects`,
+  );
 
   const totals = { slots: 0, found: 0, direct: 0, derived: 0, system: 0 };
   const validation = { tested: 0, exact: 0, stabledTested: 0, stabledExact: 0 };
@@ -881,6 +928,9 @@ export async function confirmGeneDeclaration(
       confirmed_at: now(),
     },
   );
+  // Magnitudes do not move — a confirmation publishes none — but the run's
+  // doubts and suspects do.
+  clearStudyRunCache(species);
 }
 
 /** Forget a confirmation, so the gene can be recommended for checking again. */
@@ -889,6 +939,7 @@ export async function withdrawGeneConfirmation(species: string, gene: string, ex
     'DELETE FROM gene_confirmations WHERE species = $species AND gene = $gene AND expression = $expression',
     { species: normalizeSpecies(species), gene, expression },
   );
+  clearStudyRunCache(species);
 }
 
 /**
@@ -1131,6 +1182,51 @@ const stamp = () => `${localPetsRevision()}:${geneDeclarationsRevision()}`;
 const magnitudeCache = new Map<string, MagnitudeEntry>();
 
 /**
+ * The last full study run per species, kept for the session.
+ *
+ * The persisted table holds only magnitudes, which is all the scorers need.
+ * The Study tab needs the whole run — findings, witnesses, doubts, suspects,
+ * validation — so without this it re-solved on every open. Not persisted:
+ * the run is large and its shape changes with the solver, and a stale copy
+ * on disk would need its own invalidation for every field.
+ *
+ * Keyed wider than the magnitude table. A fresh upload is included, because
+ * the tab lists the corpus and a just-imported animal must show. The other
+ * inputs that move the run without moving the stamp — exclusions, a
+ * catalogue refresh, gene confirmations — clear it where they are written.
+ */
+interface RunEntry {
+  key: string;
+  value: Promise<StudyRun>;
+}
+
+const runCache = new Map<string, RunEntry>();
+const runKey = () => `${stamp()}:${localPetsAdded()}`;
+
+/** `runAttributeStudy` with default options, memoised for the session. */
+export function studyRunFor(species: string): Promise<StudyRun> {
+  const normalized = normalizeSpecies(species);
+  const key = runKey();
+  const existing = runCache.get(normalized);
+  if (existing && existing.key === key) return existing.value;
+  let entry: RunEntry;
+  const value = runAttributeStudy(normalized).catch((error: unknown) => {
+    // Only this entry: a newer one may already stand in its place.
+    if (runCache.get(normalized) === entry) runCache.delete(normalized);
+    throw error;
+  });
+  entry = { key, value };
+  runCache.set(normalized, entry);
+  return value;
+}
+
+/** Drop the memoised run for a species, or all of them. */
+export function clearStudyRunCache(species?: string): void {
+  if (species) runCache.delete(normalizeSpecies(species));
+  else runCache.clear();
+}
+
+/**
  * Species whose latest study attempt failed. `attributeMagnitudesFor`
  * answers a failure with the empty table so scorers fall back to counting,
  * which a view cannot tell apart from "nothing measured yet"; this can.
@@ -1170,7 +1266,8 @@ export async function attributeMagnitudesFor(species: string): Promise<Attribute
       });
       if (stored) return stored;
     }
-    const run = await runAttributeStudy(normalized);
+    // Through the run cache, so the Study tab reuses a solve Breed paid for.
+    const run = await studyRunFor(normalized);
     const built = buildAttributeMagnitudes(run.studies);
     // The solve is deliberately slow, and an input can move while it runs —
     // an exclusion toggled and toggled back, say. Storing it under the
@@ -1234,6 +1331,8 @@ export function peekAttributeMagnitudes(species: string): AttributeMagnitudes | 
 export function clearAttributeMagnitudesCache(species?: string): void {
   if (species) magnitudeCache.delete(normalizeSpecies(species));
   else magnitudeCache.clear();
+  // Every caller clears because a study input moved, and the run read it too.
+  clearStudyRunCache(species);
 }
 
 /** What the impact lens paints from: the gene declarations and the study's magnitudes. */

@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { runAttributeStudy, type StudyRun } from '$lib/services/studyService.js';
+import { type StudyRun, studyRunFor } from '$lib/services/studyService.js';
 import { pets } from '$lib/stores/pets.js';
 import type { Pet } from '$lib/types/index.js';
 
@@ -8,7 +8,7 @@ import type { Pet } from '$lib/types/index.js';
 // so `isCommunitySubject` and the constants stay real.
 vi.mock('$lib/services/studyService.js', async (importOriginal) => ({
   ...(await importOriginal<typeof import('$lib/services/studyService.js')>()),
-  runAttributeStudy: vi.fn(),
+  studyRunFor: vi.fn(),
   namesForSubjects: vi.fn(
     async () =>
       new Map([
@@ -57,7 +57,7 @@ const runWith = (contradictions: Contradiction[]): StudyRun =>
   }) as unknown as StudyRun;
 
 async function openSuspects(contradictions: Contradiction[]): Promise<HTMLElement> {
-  vi.mocked(runAttributeStudy).mockResolvedValue(runWith(contradictions));
+  vi.mocked(studyRunFor).mockResolvedValue(runWith(contradictions));
   render(StudyView);
   const tab = await screen.findByTestId('study-evidence-suspects');
   await fireEvent.click(tab);

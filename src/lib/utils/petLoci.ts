@@ -43,7 +43,7 @@ const VALID_GENE_TYPES = new Set<string>(Object.values(GeneType));
  * logic — anything unrecognised becomes `UNKNOWN`, which the breeding
  * and comparison services already handle naturally.
  */
-function coerceGeneType(raw: string): GeneType {
+export function coerceGeneType(raw: string): GeneType {
   return VALID_GENE_TYPES.has(raw) ? (raw as GeneType) : GeneType.UNKNOWN;
 }
 
