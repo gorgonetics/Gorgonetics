@@ -98,6 +98,49 @@ describe('Migration Service', () => {
     expect(flagOf('plain') ?? 0).toBe(0);
   });
 
+  it('unstables community imports written before they were inserted unstabled', async () => {
+    // Pre-v0.10.0 community imports kept `stabled = 1`, so the study named
+    // other players' animals as checkable. The ledger's `community:` path
+    // is what identifies them.
+    await runMigrations();
+    const db = getDb();
+    const insert = async (name: string, hash: string, sourcePath: string, stabled: number) => {
+      await db.execute(
+        `INSERT INTO pets (name, species, gender, content_hash, genome_data, created_at, updated_at, stabled)
+         VALUES ($name, $species, $gender, $content_hash, $genome_data, $created_at, $updated_at, $stabled)`,
+        {
+          name,
+          species: 'Horse',
+          gender: 'Female',
+          content_hash: hash,
+          genome_data: '{}',
+          created_at: '2024-01-01',
+          updated_at: '2024-01-01',
+          stabled,
+        },
+      );
+      await db.execute(
+        'INSERT INTO imported_files (content_hash, source_path, imported_at) VALUES ($hash, $path, $ts)',
+        { hash, path: sourcePath, ts: '2024-01-01' },
+      );
+    };
+    await insert('Theirs', 'theirs', 'community:theirs', 1);
+    await insert('Mine', 'mine', '~/Library/Application Support/Genes_Mine.txt', 1);
+    await insert('Mine benched', 'benched', '~/Genes_Benched.txt', 0);
+    await db.execute('PRAGMA user_version = 18');
+
+    await runMigrations();
+
+    const rows = await db.select<Array<{ content_hash: string; stabled: number }>>(
+      'SELECT content_hash, stabled FROM pets',
+    );
+    const stabledOf = (hash: string) => Number(rows.find((row) => row.content_hash === hash)?.stabled);
+    expect(stabledOf('theirs')).toBe(0);
+    expect(stabledOf('mine')).toBe(1);
+    expect(stabledOf('benched')).toBe(0);
+    expect(await getSchemaVersion()).toBe(CURRENT_SCHEMA_VERSION);
+  });
+
   it('creates settings table after migration', async () => {
     await runMigrations();
     const db = (await import('$lib/services/database.js')).getDb();

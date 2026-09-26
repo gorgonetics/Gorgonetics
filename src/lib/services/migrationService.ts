@@ -382,6 +382,47 @@ const MIGRATIONS: Migration[] = [
       }
     },
   },
+  {
+    version: 19,
+    description: 'Unstable community imports made before they were inserted unstabled',
+    up: async () => {
+      // `importCommunityPet` inserts unstabled since v0.10.0, but rows it
+      // wrote before that kept `stabled = 1`. The study reads `stabled` as
+      // "the player can re-read this in game", so someone else's animal was
+      // flagged checkable, and Breed, rarity and Free up slots counted it as
+      // stock.
+      //
+      // The `community:<hash>` ledger path is the marker: every community
+      // import has written it since the Community tab shipped, and the
+      // ledger keeps the first-seen path, so a genome the player imported
+      // from their own files first is not caught. The `community` tag is
+      // not used — the player can add or remove it.
+      //
+      // Filtered in JS: the in-memory test adapter has no LIKE or joins.
+      const db = getDb();
+      const ledger = await db.select<Array<{ content_hash: string; source_path: string }>>(
+        'SELECT content_hash, source_path FROM imported_files',
+      );
+      const community = new Set(
+        ledger.filter((row) => row.source_path?.startsWith('community:')).map((row) => row.content_hash),
+      );
+      if (community.size === 0) return;
+      const pets = await db.select<Array<{ id: number; content_hash: string; stabled: number }>>(
+        'SELECT id, content_hash, stabled FROM pets',
+      );
+      const ids = pets
+        .filter((pet) => Number(pet.stabled) !== 0 && community.has(pet.content_hash))
+        .map((pet) => pet.id);
+      const chunk = 500;
+      for (let i = 0; i < ids.length; i += chunk) {
+        const { placeholders, params } = buildInClauseParams(ids.slice(i, i + chunk), 'id');
+        await db.execute(`UPDATE pets SET stabled = $stabled WHERE id IN (${placeholders})`, {
+          stabled: 0,
+          ...params,
+        });
+      }
+    },
+  },
 ];
 
 /** Derived from the last migration — no manual bookkeeping needed. */
