@@ -464,6 +464,11 @@ export async function runAttributeStudy(
   species: string,
   options: LoadCorpusOptions & StudyOptions = {},
 ): Promise<StudyRun> {
+  // Timed in two halves, because they call for different fixes (#542): the
+  // corpus load is database reads and genome parsing, the solve is the
+  // equation work. Only a measurement in the packaged app says which one
+  // dominates, so it is logged on every run.
+  const started = performance.now();
   // Effects first: the declared loci are what makes a genome "complete"
   // for this study, so the corpus load needs them.
   const effects = await getGeneEffectsCached(species);
@@ -472,10 +477,13 @@ export async function runAttributeStudy(
     ...options,
     requiredGenes: options.requiredGenes ?? new Set(slots.map((slot) => slot.gene)),
   });
-  const studies = studyAll(corpus.subjects, slots, {
-    ...options,
-    confirmedSlots: options.confirmedSlots ?? (await liveGeneConfirmations(species, slots)),
-  });
+  const confirmedSlots = options.confirmedSlots ?? (await liveGeneConfirmations(species, slots));
+  const loaded = performance.now();
+  const studies = studyAll(corpus.subjects, slots, { ...options, confirmedSlots });
+  const solvedAt = performance.now();
+  console.info(
+    `study ${normalizeSpecies(species)}: load ${Math.round(loaded - started)} ms, solve ${Math.round(solvedAt - loaded)} ms, ${corpus.subjects.length} subjects`,
+  );
 
   const totals = { slots: 0, found: 0, direct: 0, derived: 0, system: 0 };
   const validation = { tested: 0, exact: 0, stabledTested: 0, stabledExact: 0 };

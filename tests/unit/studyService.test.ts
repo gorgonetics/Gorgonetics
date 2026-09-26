@@ -570,6 +570,18 @@ describe('studyRunFor', () => {
   });
 });
 
+describe('study timing', () => {
+  it('logs the load and solve halves of every run separately', async () => {
+    await upload(name('Kb', 45, 80, 'With'), 'DRRR');
+    await upload(name('Kb', 40, 80, 'Without'), 'RRRR');
+    const info = vi.spyOn(console, 'info').mockImplementation(() => {});
+    await runAttributeStudy('horse');
+    const line = info.mock.calls.map((c) => String(c[0])).find((l) => l.startsWith('study horse:'));
+    expect(line).toMatch(/^study horse: load \d+ ms, solve \d+ ms, 2 subjects$/);
+    info.mockRestore();
+  });
+});
+
 describe('persisted magnitudes', () => {
   beforeEach(() => clearAttributeMagnitudesCache());
 
