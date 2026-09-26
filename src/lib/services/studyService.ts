@@ -70,7 +70,7 @@ import {
   type ValidationSuspect,
 } from '$lib/utils/attributeStudy.js';
 import { sha256Hex } from '$lib/utils/hash.js';
-import { loadAllPetLoci, type PetLoci } from '$lib/utils/petLoci.js';
+import { coerceGeneType, loadAllPetLoci, type PetLoci } from '$lib/utils/petLoci.js';
 import { ATTRIBUTE_KEYS, carriesReadings, dedupeLatest } from '$lib/utils/sharedPet.js';
 import { now } from '$lib/utils/timestamp.js';
 import { parseStructuredPetName } from './nameParser.js';
@@ -300,7 +300,7 @@ export async function loadStudyCorpus(species: string, options: LoadCorpusOption
     candidates.push(pet);
   }
 
-  const lociByPet = await loadAllPetLoci(candidates.map((p) => p.id));
+  const lociByPet = await localLoci(candidates.map((p) => p.id));
 
   const subjects: StudySubject[] = [];
   for (const pet of candidates) {
@@ -336,6 +336,45 @@ export async function loadStudyCorpus(species: string, options: LoadCorpusOption
     considered: items.length + community.considered,
     excluded: [...tally.entries()].map(([reason, count]) => ({ reason, count })).sort((a, b) => b.count - a.count),
   };
+}
+
+/**
+ * Local animals' loci, parsed from the genome text each row stores.
+ *
+ * The `pet_genes` projection holds the same loci, but reading it means one
+ * row per locus — about 757k rows for a 492-pet stable — and in the app each
+ * row crosses from the database to the page as its own object. That read was
+ * most of a 3.8 s corpus load; the text is 1.2 MB for the same stable and
+ * parses in tens of milliseconds, the way the community cache already does.
+ *
+ * The two agree because `pet_genes` is projected from the same import: on the
+ * live 492-pet database every animal matched locus for locus. The one way they
+ * could part is `updatePet` rewriting `genome_data`, which re-projects
+ * `pet_genes` but keeps the imported text; no screen does that. A row with no
+ * text — imported before v13 — falls back to `pet_genes`.
+ */
+async function localLoci(petIds: readonly number[]): Promise<Map<number, PetLoci>> {
+  const map = new Map<number, PetLoci>();
+  const db = getDb();
+  // Chunked: a roster can outgrow SQLite's parameter ceiling.
+  const chunk = 500;
+  for (let i = 0; i < petIds.length; i += chunk) {
+    const { placeholders, params } = buildInClauseParams(petIds.slice(i, i + chunk), 'id');
+    const rows = await db.select<Array<{ id: number; genome_text: string | null }>>(
+      `SELECT id, genome_text FROM pets WHERE id IN (${placeholders})`,
+      params,
+    );
+    for (const row of rows) {
+      if (!row.genome_text) continue;
+      const loci: PetLoci = new Map();
+      for (const [chromosome, list] of Object.entries(parseGenome(row.genome_text).genes))
+        for (const gene of list) loci.set(`${chromosome}${gene.block}${gene.position}`, coerceGeneType(gene.gene_type));
+      if (loci.size > 0) map.set(row.id, loci);
+    }
+  }
+  const missing = petIds.filter((id) => !map.has(id));
+  if (missing.length > 0) for (const [id, loci] of await loadAllPetLoci(missing)) map.set(id, loci);
+  return map;
 }
 
 /**

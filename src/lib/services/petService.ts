@@ -816,6 +816,13 @@ export async function updatePet(petId: number, updates: Record<string, unknown>)
         params.total_genes = counts.total;
         params.known_genes = counts.known;
         params.unknown_genes = counts.unknown;
+        // The stored text is the file this genome was parsed from, and it no
+        // longer is. Cleared rather than kept, so any text a row holds always
+        // matches its genes: the study parses it in place of `pet_genes`, and
+        // sharing would otherwise publish the old genome. The row then reads
+        // as a pre-v13 one, which re-importing the file fills again.
+        setClauses.push('genome_text = $genome_text');
+        params.genome_text = '';
       }
     }
   }

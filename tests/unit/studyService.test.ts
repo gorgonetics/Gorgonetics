@@ -232,6 +232,39 @@ describe('loadStudyCorpus', () => {
   });
 });
 
+describe('local loci', () => {
+  const lociOf = async (id: number) =>
+    (await loadStudyCorpus('horse')).subjects.find((s) => s.id === String(id))?.genes;
+
+  it('reads a pet from its stored genome text, not the per-locus rows', async () => {
+    const petId = await upload(name('Kb', 40, 80), 'DRRR');
+    // Tamper with one projected row: the corpus still reports the text's
+    // genotype, so the text is what it read.
+    await getDb().execute('UPDATE pet_genes SET gene_type = $type WHERE pet_id = $id AND gene_id = $gene', {
+      type: 'x',
+      id: petId,
+      gene: '01A1',
+    });
+    expect(await lociOf(petId)).toMatchObject({ '01A1': 'D', '01A2': 'R' });
+  });
+
+  it('falls back to the per-locus rows for a pet with no stored text', async () => {
+    const petId = await upload(name('Kb', 40, 80), 'DRRR');
+    await getDb().execute('UPDATE pets SET genome_text = $text WHERE id = $id', { text: '', id: petId });
+    expect(await lociOf(petId)).toMatchObject({ '01A1': 'D', '01A2': 'R' });
+  });
+
+  it('clears the stored text when the genome is rewritten, so the study reads the new genes', async () => {
+    const petId = await upload(name('Kb', 40, 80), 'DRRR');
+    await petService.updatePet(petId, { genome_data: parseGenome(genome(name('Kb', 40, 80), 'RRRD')) });
+    const [row] = await getDb().select<Array<{ genome_text: string }>>('SELECT genome_text FROM pets WHERE id = $id', {
+      id: petId,
+    });
+    expect(row.genome_text).toBe('');
+    expect(await lociOf(petId)).toMatchObject({ '01A1': 'R', '01A4': 'D' });
+  });
+});
+
 describe('a species without breeds', () => {
   const BEE_GENES: Array<[string, { effectDominant?: string; effectRecessive?: string }]> = [
     ['01A1', { effectDominant: 'Ferocity+' }],
