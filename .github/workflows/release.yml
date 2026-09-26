@@ -71,7 +71,7 @@ jobs:
           releaseBody: "See the [commit log](https://github.com/${{ github.repository }}/commits/${{ github.ref_name }}) for details."
           releaseDraft: true
           prerelease: false
-          includeUpdaterJson: true
+          uploadUpdaterJson: true
           args: --target ${{ matrix.target }}
 
       - name: Build Tauri app (manual)
