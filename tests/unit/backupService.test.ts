@@ -1,10 +1,35 @@
 import JSZip from 'jszip';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { importDatabase, inspectBackup, type LoadedBackup, loadBackup } from '$lib/services/backupService.js';
+
+// The browser export path hands the archive to `saveExportBinaryFile`; keep
+// the bytes so a test can read its own export back.
+const exported = vi.hoisted(() => ({ bytes: null as Uint8Array | null }));
+vi.mock('$lib/services/fileService.js', () => ({
+  pickExportSavePath: vi.fn(),
+  saveExportBinaryFile: vi.fn(async (_name: string, bytes: Uint8Array) => {
+    exported.bytes = bytes;
+    return true;
+  }),
+}));
+
+import {
+  exportDatabase,
+  importDatabase,
+  inspectBackup,
+  type LoadedBackup,
+  loadBackup,
+} from '$lib/services/backupService.js';
 import { closeDatabase, getDb, initDatabase } from '$lib/services/database.js';
 import { CURRENT_SCHEMA_VERSION, runMigrations } from '$lib/services/migrationService.js';
 import { clearAttributeMagnitudesCache, studyRunFor } from '$lib/services/studyService.js';
 import type { ImportMode } from '$lib/types/index.js';
+import { loadAllPetLoci } from '$lib/utils/petLoci.js';
+
+async function exportToBytes(): Promise<Uint8Array> {
+  await exportDatabase({ includeGenes: false, includePets: true, includeImages: false });
+  if (!exported.bytes) throw new Error('export produced no archive');
+  return exported.bytes;
+}
 
 interface BuildZipOptions {
   metaOverrides?: Record<string, unknown>;
@@ -322,15 +347,80 @@ describe('Backup Service', () => {
       expect(rows[1].sort_order).toBeGreaterThan(0);
     });
 
-    it('handles genome_data as object (auto-stringifies)', async () => {
-      const pet = { ...samplePet, genome_data: { genes: { chr01: [] } } };
-      const zipData = await buildZip({ pets: [pet] });
-      await importDatabase(zipData, importOpts('replace'));
+    it('restores the genes of an archive written before the loci column', async () => {
+      // Such an archive carries `genome_data` (here already parsed to an
+      // object) and no loci; the restore encodes them, as v19 would have.
+      const pet = {
+        ...samplePet,
+        genome_data: {
+          genes: {
+            '01': [
+              { chromosome: '01', block: 'A', position: 2, gene_type: 'R' },
+              { chromosome: '01', block: 'A', position: 1, gene_type: 'D' },
+            ],
+          },
+        },
+      };
+      await importDatabase(await buildZip({ pets: [pet] }), importOpts('replace'));
 
       const db = getDb();
-      const rows = await db.select<{ genome_data: string }[]>('SELECT genome_data FROM pets');
-      expect(typeof rows[0].genome_data).toBe('string');
-      expect(JSON.parse(rows[0].genome_data)).toEqual({ genes: { chr01: [] } });
+      const [row] = await db.select<{ id: number; loci: string }[]>('SELECT id, loci FROM pets');
+      expect(row.loci).toBe('DR');
+      expect([...((await loadAllPetLoci([row.id])).get(row.id) ?? [])]).toEqual([
+        ['01A1', 'D'],
+        ['01A2', 'R'],
+      ]);
+    });
+
+    it('does not trust an archive layout whose ids do not match its key', async () => {
+      // Same length, different genes: accepted, it would silently pin every
+      // allele on the wrong locus. The restore falls back to genome_data.
+      const genes = { '01': [{ chromosome: '01', block: 'A', position: 1, gene_type: 'D' }] };
+      const zip = new JSZip();
+      zip.file(
+        'metadata.json',
+        JSON.stringify({
+          format: 'gorgonetics-backup',
+          format_version: 2,
+          schema_version: CURRENT_SCHEMA_VERSION,
+          app_version: '0.2.0',
+          exported_at: '2026-01-01T00:00:00Z',
+          contents: { genes: false, pets: true, images: false },
+          record_counts: { genes: 0, pets: 1, images: 0 },
+        }),
+      );
+      zip.file(
+        'pets.json',
+        JSON.stringify([{ ...samplePet, genome_data: { genes }, loci: 'R', loci_layout: 'forged' }]),
+      );
+      zip.file('locus_layouts.json', JSON.stringify([{ layout: 'forged', ids: '09Z9' }]));
+      await importDatabase(await zip.generateAsync({ type: 'uint8array' }), importOpts('replace'));
+
+      const [row] = await getDb().select<{ id: number; loci: string; loci_layout: string }[]>(
+        'SELECT id, loci, loci_layout FROM pets',
+      );
+      expect(row.loci).toBe('D');
+      expect(row.loci_layout).not.toBe('forged');
+      expect([...((await loadAllPetLoci([row.id])).get(row.id) ?? [])]).toEqual([['01A1', 'D']]);
+    });
+
+    it('round-trips the loci of a pet that has no genome text', async () => {
+      // Imported before v13: the loci are the only copy of its genes.
+      await importDatabase(
+        await buildZip({
+          pets: [
+            {
+              ...samplePet,
+              genome_data: { genes: { '01': [{ chromosome: '01', block: 'A', position: 1, gene_type: 'x' }] } },
+            },
+          ],
+        }),
+        importOpts('replace'),
+      );
+      const exported = await loadBackup(await exportToBytes());
+      await importDatabase(exported, importOpts('replace'));
+      const [row] = await getDb().select<{ loci: string }[]>('SELECT loci FROM pets');
+      expect(row.loci).toBe('x');
     });
 
     it('skips pets when includePets is false', async () => {

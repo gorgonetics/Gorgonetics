@@ -120,9 +120,7 @@ export async function uploadPet(pet: Pet, db: Firestore = defaultFirestore): Pro
     throw new Error('uploadPet: pet.content_hash is required');
   }
   // `pet.genome_text` is the raw genome file text whose SHA-256 is the
-  // doc ID. `pet.genome_data` is the parsed-and-JSON-stringified form,
-  // whose hash would NOT match — using it on the wire would break the
-  // hash-verify check on the importer side. See migration v13.
+  // doc ID; the importer re-hashes it to verify the blob. See migration v13.
   if (!pet.genome_text) {
     throw new Error(
       'uploadPet: pet.genome_text is required. Pets imported before migration v13 ' +

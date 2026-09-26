@@ -73,8 +73,8 @@ describe('loadAllPetLoci', () => {
     expect(map.get(id)?.get('01A2')).toBe('?');
   });
 
-  it('fills the loci from genome_data when a legacy pet has none', async () => {
-    // Simulates an un-backfilled pet: row exists in `pets`, genome_data
+  it('fills the loci from genome_text when a pet has none', async () => {
+    // Simulates a pet with an empty column: row exists in `pets`, genome_text
     // is intact, but its loci column is empty. Without the fallback the pet
     // would be silently absent from the result and downstream comparison
     // / breeding would treat it as missing.

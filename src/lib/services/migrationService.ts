@@ -4,7 +4,7 @@
  * Runs pending migrations on startup.
  */
 
-import { encodeLoci } from '$lib/utils/lociCodec.js';
+import { encodeLoci, storedGenomeEntries } from '$lib/utils/lociCodec.js';
 import { ATTRIBUTE_KEYS, carriesReadings } from '$lib/utils/sharedPet.js';
 import { buildInClauseParams, getDb, type TxStatement } from './database.js';
 import { parseStructuredPetName } from './nameParser.js';
@@ -452,6 +452,50 @@ const MIGRATIONS: Migration[] = [
       ]);
     },
   },
+  {
+    version: 20,
+    description: 'Drop pets.genome_data; genes live in loci, the file in genome_text (#556)',
+    vacuumAfter: true,
+    up: async () => {
+      // `genome_data` was the parsed genome as JSON — about 178 KB per horse,
+      // 87.5 MB of a 92 MB database. Its genes are in `loci` since v19 and the
+      // file it was parsed from is in `genome_text`, so nothing is lost with
+      // it — except for a pet whose `loci` is still empty and that has no
+      // text: imported before v13 and never backfilled. Those are converted
+      // here, from the column that is about to go.
+      //
+      // All-or-nothing, as v19: read and encode first, then one transaction
+      // fills the stragglers, drops the column and advances `user_version`.
+      const db = getDb();
+      const empty = await db.select<{ id: number }[]>('SELECT id FROM pets WHERE loci = $empty', { empty: '' });
+      const layouts = new Map<string, string>();
+      const updates: TxStatement[] = [];
+      for (const { id } of empty) {
+        const [row] = await db.select<{ genome_data: string | null; genome_text: string | null }[]>(
+          'SELECT genome_data, genome_text FROM pets WHERE id = $id',
+          { id },
+        );
+        const entries = storedGenomeEntries(row?.genome_data, row?.genome_text);
+        if (entries.length === 0) continue;
+        const encoded = await encodeLoci(entries);
+        layouts.set(encoded.layout, encoded.ids);
+        updates.push({
+          sql: 'UPDATE pets SET loci = $loci, loci_layout = $layout WHERE id = $id',
+          params: { loci: encoded.loci, layout: encoded.layout, id: Number(id) },
+        });
+      }
+
+      await db.transaction([
+        ...[...layouts].map(([layout, ids]) => ({
+          sql: 'INSERT OR REPLACE INTO locus_layouts (layout, ids) VALUES ($layout, $ids)',
+          params: { layout, ids },
+        })),
+        ...updates,
+        { sql: 'ALTER TABLE pets DROP COLUMN genome_data' },
+        { sql: 'PRAGMA user_version = 20' },
+      ]);
+    },
+  },
 ];
 
 /** Derived from the last migration — no manual bookkeeping needed. */
@@ -488,6 +532,11 @@ export async function runMigrations(upTo: number = CURRENT_SCHEMA_VERSION): Prom
   // wrong one, and must not fail the startup that just migrated.
   if (pending.some((m) => m.vacuumAfter)) {
     await db.execute('VACUUM').catch((error: unknown) => console.warn('VACUUM after migration failed', error));
+    // In WAL mode VACUUM writes the rebuilt file through the log, and SQLite
+    // keeps the log at its largest size until a truncating checkpoint.
+    await db
+      .execute('PRAGMA wal_checkpoint(TRUNCATE)')
+      .catch((error: unknown) => console.warn('WAL checkpoint after migration failed', error));
   }
 
   console.log(`Database migrated to v${CURRENT_SCHEMA_VERSION}`);

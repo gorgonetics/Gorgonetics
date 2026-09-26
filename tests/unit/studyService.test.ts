@@ -36,6 +36,7 @@ import {
 import { coverageOf, EMPTY_MAGNITUDES, hasMagnitudes, magnitudeOf } from '$lib/utils/attributePoints.js';
 import { buildEffectSlots } from '$lib/utils/attributeStudy.js';
 import { sha256Hex } from '$lib/utils/hash.js';
+import { encodeLoci } from '$lib/utils/lociCodec.js';
 
 /**
  * Four horse loci on chromosome 01. `01A1` is generic, `01A4` belongs to
@@ -63,6 +64,28 @@ Genome=Horse
 [Genes]
 1=${genes}
 `;
+}
+
+/**
+ * Replace a stored pet's genes without touching anything else. No screen does
+ * this — `updatePet` no longer takes a genome (#556) — so the column is
+ * written directly, the way a corrupted or hand-edited row would look.
+ */
+async function rewriteGenes(petId: number, genes: string): Promise<void> {
+  const parsed = parseGenome(genome('Rewritten', genes));
+  const entries: Array<[string, string]> = [];
+  for (const [chromosome, list] of Object.entries(parsed.genes))
+    for (const gene of list) entries.push([`${chromosome}${gene.block}${gene.position}`, gene.gene_type]);
+  const encoded = await encodeLoci(entries);
+  await getDb().execute('INSERT OR REPLACE INTO locus_layouts (layout, ids) VALUES ($layout, $ids)', {
+    layout: encoded.layout,
+    ids: encoded.ids,
+  });
+  await getDb().execute('UPDATE pets SET loci = $loci, loci_layout = $layout WHERE id = $id', {
+    loci: encoded.loci,
+    layout: encoded.layout,
+    id: petId,
+  });
 }
 
 async function upload(entity: string, genes: string): Promise<number> {
@@ -658,13 +681,8 @@ describe('persisted magnitudes', () => {
     const withoutId = await upload(name('Kb', 40, 80, 'Without'), 'RRRR');
     expect(magnitudeOf(await attributeMagnitudesFor('horse'), '01A1', 'dominant')).toBe(5);
 
-    // Same name, same attributes, different alleles. `genome_data` holds the
-    // *parsed* genome — handed the raw text, `updatePet` fails to parse it
-    // and rewrites nothing, which is what an earlier version of this test
-    // did and why it proved nothing.
-    await petService.updatePet(withoutId, {
-      genome_data: parseGenome(genome(name('Kb', 40, 80, 'Without'), 'DRRR')),
-    });
+    // Same name, same attributes, different alleles.
+    await rewriteGenes(withoutId, 'DRRR');
     newSession();
     expect(magnitudeOf(await attributeMagnitudesFor('horse'), '01A1', 'dominant')).not.toBe(5);
   });
@@ -688,9 +706,7 @@ describe('persisted magnitudes', () => {
     // the swap moves the magnitude rather than dropping it. Nothing the
     // gene-count columns can see has moved — only the projection — so a
     // fingerprint built on those counts would serve the stale table.
-    await petService.updatePet(withId, {
-      genome_data: parseGenome(genome(name('Kb', 45, 80, 'With'), 'RRRD')),
-    });
+    await rewriteGenes(withId, 'RRRD');
     expect(await counts()).toEqual(before);
 
     newSession();

@@ -81,14 +81,14 @@ describe('loadPetGridFromDb', () => {
   });
 
   it('returns an empty record when the pet does not exist at all', async () => {
-    // No pets row → fallback can't find genome_data → still {}.
+    // No pets row → fallback can't find genome_text → still {}.
     const grid = await petService.loadPetGridFromDb(9999);
     expect(grid).toEqual({});
   });
 
-  it('falls back to genome_data and refills the loci when the column is empty', async () => {
+  it('falls back to genome_text and refills the loci when the column is empty', async () => {
     // Simulates an un-backfilled legacy pet: row exists in `pets`,
-    // genome_data is intact, but its loci haven't been written yet.
+    // genome_text is intact, but its loci haven't been written yet.
     const upload = await petService.uploadPet(MULTI_BLOCK_BEEWASP, { name: 'Legacy', gender: 'Female' });
     const db = (await import('$lib/services/database.js')).getDb();
     await db.execute('UPDATE pets SET loci = $empty WHERE id = $id', { empty: '', id: upload.pet_id });

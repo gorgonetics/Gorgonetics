@@ -20,8 +20,6 @@ import { getSetting, setSetting } from './settingsService.js';
 
 type GeneCountSummary = { total: number; known: number; unknown: number };
 
-const EMPTY_GENE_COUNTS: GeneCountSummary = { total: 0, known: 0, unknown: 0 };
-
 /**
  * Bumped whenever an animal already in the roster is **revised or removed**,
  * so a consumer that caches something derived from the roster can tell its
@@ -62,33 +60,28 @@ export function localPetsAdded(): number {
   return rosterAdditions;
 }
 
-/** Count total / known / unknown genes from a parsed Genome. */
-function countGenesFromGenome(genome: Genome): GeneCountSummary {
-  let total = 0;
-  let known = 0;
-  let unknown = 0;
+/** A parsed genome's loci as `gene id → genotype` entries, in file order. */
+function genomeEntries(genome: Genome): Array<[string, string]> {
+  const entries: Array<[string, string]> = [];
   for (const chrGenes of Object.values(genome.genes ?? {})) {
     if (!Array.isArray(chrGenes)) continue;
     for (const g of chrGenes) {
       if (!g || typeof g !== 'object') continue;
-      total++;
-      const t = g.gene_type;
-      if (t === '?' || (typeof t === 'string' && t.toUpperCase() === 'UNKNOWN')) unknown++;
-      else known++;
+      entries.push([toGeneId(g), g.gene_type]);
     }
   }
-  return { total, known, unknown };
+  return entries;
 }
 
-/** Count genes in a genome (string or parsed). Returns zeros on malformed input. */
-function countGenes(genomeData: unknown): GeneCountSummary {
-  try {
-    const parsed: unknown = typeof genomeData === 'string' ? JSON.parse(genomeData) : genomeData;
-    if (!parsed || typeof parsed !== 'object') return EMPTY_GENE_COUNTS;
-    return countGenesFromGenome(parsed as Genome);
-  } catch {
-    return EMPTY_GENE_COUNTS;
+/** Count total / known / unknown loci. */
+function countLoci(loci: Iterable<readonly [string, string]>): GeneCountSummary {
+  let total = 0;
+  let unknown = 0;
+  for (const [, type] of loci) {
+    total++;
+    if (type === '?') unknown++;
   }
+  return { total, known: total - unknown, unknown };
 }
 
 /** Build an empty stats entry — exported so the comparison view can fall back on it. */
@@ -97,34 +90,27 @@ export function emptyStatsEntry(): GeneStatsEntry {
 }
 
 /**
- * Count the genes in a genome that confer a confirmed positive attribute
- * effect. Returns 0 on malformed input — upload/update can't abort on a
- * single bad row.
+ * Count the loci that express a declared positive effect for `breed`.
+ * Returns 0 for a species with no gene table — upload and update can't abort
+ * on a single bad row.
  */
-export async function computePositiveGenesForGenome(
-  genomeData: string | Genome,
+export async function countPositiveGenes(
+  loci: Iterable<readonly [string, string]>,
+  species: string,
   breed: string | undefined,
 ): Promise<number> {
+  const key = normalizeSpecies(species);
+  if (!key) return 0;
   try {
-    const parsed: unknown = typeof genomeData === 'string' ? JSON.parse(genomeData) : genomeData;
-    if (!parsed || typeof parsed !== 'object') return 0;
-    const genome = parsed as Genome;
-    const species = normalizeSpecies(genome.genome_type);
-    if (!species) return 0;
-    const parsedGenes = await getParsedGenesCached(species);
+    const parsedGenes = await getParsedGenesCached(key);
     let count = 0;
-    for (const chrGenes of Object.values(genome.genes ?? {})) {
-      if (!Array.isArray(chrGenes)) continue;
-      for (const g of chrGenes) {
-        if (!g || typeof g !== 'object') continue;
-        const type = g.gene_type;
-        if (!type || type === '?') continue;
-        const gd = parsedGenes[toGeneId(g)];
-        if (!gd) continue;
-        if (isHorseBreedFiltered(species, breed, gd.breed)) continue;
-        const sign = type === 'R' ? gd.recessiveSign : gd.dominantSign;
-        if (sign === '+') count++;
-      }
+    for (const [geneId, type] of loci) {
+      if (!type || type === '?') continue;
+      const gd = parsedGenes[geneId];
+      if (!gd) continue;
+      if (isHorseBreedFiltered(key, breed, gd.breed)) continue;
+      const sign = type === 'R' ? gd.recessiveSign : gd.dominantSign;
+      if (sign === '+') count++;
     }
     return count;
   } catch {
@@ -175,39 +161,54 @@ export async function readPetLoci(petIds: readonly number[]): Promise<Map<number
   return out;
 }
 
+/**
+ * Loci for many pets in one read, filling any empty column first. A pet with
+ * no usable genome is omitted. `loadAllPetLoci` is the public face of this.
+ */
+export async function loadPetLociMany(petIds: readonly number[]): Promise<Map<number, Map<string, GeneType>>> {
+  const map = await readPetLoci(petIds);
+  if (map.size === petIds.length) return map;
+  const populated: number[] = [];
+  for (const id of petIds) if (!map.has(id) && (await ensurePetLociPopulated(id))) populated.push(id);
+  if (populated.length > 0) for (const [id, loci] of await readPetLoci(populated)) map.set(id, loci);
+  return map;
+}
+
+/** One pet's loci, filling an empty column first; undefined if it has no genome. */
+async function loadPetLociFor(petId: number): Promise<Map<string, GeneType> | undefined> {
+  return (await loadPetLociMany([petId])).get(petId);
+}
+
 async function selectLociRows(petId: number): Promise<{ gene_id: string; gene_type: string }[]> {
-  let loci = (await readPetLoci([petId])).get(petId);
-  if (!loci && (await ensurePetLociPopulated(petId))) loci = (await readPetLoci([petId])).get(petId);
+  const loci = await loadPetLociFor(petId);
   return loci ? [...loci].map(([gene_id, gene_type]) => ({ gene_id, gene_type })) : [];
 }
 
 /**
- * Fill the `loci` column for a single pet from its `genome_data`. Used as a
- * fallback for pets imported before the column existed and not yet reached by
- * the startup backfill — without this, the visualizer (and any other loci
- * reader) would render empty for those pets.
+ * Fill the `loci` column for a single pet from its stored genome text. Used
+ * as a fallback for a pet whose column is empty — a backup restored without
+ * it, or a write that failed — so the visualizer (and any other loci reader)
+ * never renders empty for an otherwise-valid pet.
  *
  * Returns `true` if the column was written; `false` if the pet doesn't exist
- * or its `genome_data` is malformed.
+ * or has no genome text to read.
  */
 export async function ensurePetLociPopulated(petId: number): Promise<boolean> {
   const db = getDb();
-  const rows = await db.select<{ genome_data: string }[]>('SELECT genome_data FROM pets WHERE id = $id', { id: petId });
-  if (rows.length === 0) return false;
-  let genome: Genome;
+  const rows = await db.select<{ genome_text: string | null }[]>('SELECT genome_text FROM pets WHERE id = $id', {
+    id: petId,
+  });
+  const text = rows[0]?.genome_text;
+  if (!text) return false;
+  // A text that is not a genome file throws in the parser, and a write can
+  // fail. Either way this pet stays empty and every other pet in the same
+  // `loadAllPetLoci` call is unaffected.
   try {
-    genome = JSON.parse(rows[0].genome_data) as Genome;
-  } catch {
-    return false;
-  }
-  // `writePetLoci` iterates `genome.genes`; a malformed JSON missing that
-  // field (or with non-array values) would throw mid-tx. Catch so the
-  // documented `false`-on-malformed contract holds — a single corrupt pet
-  // shouldn't poison loadAllPetLoci for every other pet in the same call.
-  try {
-    await withTransaction(() => writePetLoci(petId, genome));
+    const entries = genomeEntries(parseGenome(text));
+    if (entries.length === 0) return false;
+    await withTransaction(() => writePetLoci(petId, entries));
   } catch (e) {
-    console.warn(`ensurePetLociPopulated: write failed for pet ${petId}`, e);
+    console.warn(`ensurePetLociPopulated: failed for pet ${petId}`, e);
     return false;
   }
   return true;
@@ -216,7 +217,7 @@ export async function ensurePetLociPopulated(petId: number): Promise<boolean> {
 /**
  * Load a pet's grid from its `loci` column as a per-chromosome, per-block
  * structure. Used by the visualizer and the comparison view's grid
- * diff — no `genome_data` parse on the read path.
+ * diff — no genome parse on the read path.
  *
  * Block ordering matches `blockLetter`: shorter strings before longer,
  * lex within length (A, B, ..., Z, AA, AB, ...). Chromosomes sort by
@@ -399,7 +400,6 @@ const ALL_PET_COLUMNS = [
   'breed',
   'breeder',
   'content_hash',
-  'genome_data',
   'genome_text',
   'notes',
   'tags',
@@ -429,7 +429,7 @@ const ALL_PET_COLUMNS = [
 
 /**
  * Columns the list path (`getAllPets`) does NOT select:
- *  - `genome_data` / `genome_text`: heavy blobs (up to 64 KiB each) the
+ *  - `genome_text`: the imported file (about 2.5 KB per horse), which the
  *    list/grid UIs never render — issue #254. Gene rendering re-reads
  *    `loci` by id (`loadPetGridFromDb`); the share path lazy-fetches
  *    `genome_text` (`getPetGenomeText`).
@@ -438,7 +438,7 @@ const ALL_PET_COLUMNS = [
  *  - `tags`: vestigial — tags live in `pet_tags` and `enrichPet` overwrites
  *    the field from the junction.
  */
-const NON_LIST_PET_COLUMNS = new Set(['genome_data', 'genome_text', 'tags', 'loci', 'loci_layout']);
+const NON_LIST_PET_COLUMNS = new Set(['genome_text', 'tags', 'loci', 'loci_layout']);
 
 /** Explicit list-path projection: every pets column minus the heavy/vestigial ones. */
 const LIST_PET_COLUMNS = ALL_PET_COLUMNS.filter((c) => !NON_LIST_PET_COLUMNS.has(c)).join(', ');
@@ -657,7 +657,7 @@ export async function uploadPet(content: string, options: UploadPetOptions = {})
 
   // Parse the genome
   const genome = parseGenome(content);
-  const genomeJson = JSON.stringify(genome, null, 2);
+  const entries = genomeEntries(genome);
 
   // Determine pet name
   const petName = genome.name.trim() || name.trim() || 'Unknown Pet';
@@ -669,8 +669,8 @@ export async function uploadPet(content: string, options: UploadPetOptions = {})
   const petBreed = parsed?.breed ?? '';
   const attrValues = parsed?.attributes ?? defaults;
 
-  const positiveGenes = await computePositiveGenesForGenome(genome, petBreed);
-  const geneCounts = countGenesFromGenome(genome);
+  const positiveGenes = await countPositiveGenes(entries, genome.genome_type, petBreed);
+  const geneCounts = countLoci(entries);
 
   const db = getDb();
   const ts = now();
@@ -685,12 +685,12 @@ export async function uploadPet(content: string, options: UploadPetOptions = {})
   const result = await withTransaction(async () => {
     const res = await db.execute(
       `INSERT INTO pets
-       (name, species, gender, breed, breeder, content_hash, genome_data, genome_text, notes,
+       (name, species, gender, breed, breeder, content_hash, genome_text, notes,
         created_at, updated_at,
         intelligence, toughness, friendliness, ruggedness, enthusiasm, virility, ferocity, temperament, sort_order,
         starred, stabled, is_pet_quality, positive_genes, total_genes, known_genes, unknown_genes,
         attributes_measured)
-       VALUES ($name, $species, $gender, $breed, $breeder, $content_hash, $genome_data, $genome_text, $notes,
+       VALUES ($name, $species, $gender, $breed, $breeder, $content_hash, $genome_text, $notes,
                $created_at, $updated_at,
                $intelligence, $toughness, $friendliness, $ruggedness, $enthusiasm, $virility, $ferocity, $temperament, $sort_order,
                $starred, $stabled, $is_pet_quality, $positive_genes, $total_genes, $known_genes, $unknown_genes,
@@ -702,7 +702,6 @@ export async function uploadPet(content: string, options: UploadPetOptions = {})
         breed: petBreed,
         breeder: genome.breeder,
         content_hash: contentHash,
-        genome_data: genomeJson,
         genome_text: content,
         notes: notes ?? '',
         created_at: ts,
@@ -729,7 +728,7 @@ export async function uploadPet(content: string, options: UploadPetOptions = {})
       },
     );
     if (res.lastInsertId) {
-      await writePetLoci(res.lastInsertId, genome);
+      await writePetLoci(res.lastInsertId, entries);
     }
     return res;
   });
@@ -765,7 +764,6 @@ const UPDATABLE_COLUMNS = new Set([
   'gender',
   'breed',
   'notes',
-  'genome_data',
   'sort_order',
   'intelligence',
   'toughness',
@@ -811,9 +809,7 @@ export async function updatePet(petId: number, updates: Record<string, unknown>)
   for (const [field, value] of Object.entries(flat)) {
     if (!UPDATABLE_COLUMNS.has(field)) continue;
     setClauses.push(`${field} = $${field}`);
-    if (field === 'genome_data' && typeof value !== 'string') {
-      params[field] = JSON.stringify(value);
-    } else if (BOOLEAN_COLUMNS.has(field)) {
+    if (BOOLEAN_COLUMNS.has(field)) {
       params[field] = value ? 1 : 0;
     } else {
       params[field] = value;
@@ -832,38 +828,14 @@ export async function updatePet(petId: number, updates: Record<string, unknown>)
     params.attributes_measured = 1;
   }
 
-  // If the genome or breed changed, the stored positive_genes count is
-  // stale. Parse the next genome once and reuse for the downstream
-  // positive_genes recompute and loci rewrite.
-  let nextGenome: Genome | null = null;
-  if (flat.genome_data !== undefined || flat.breed !== undefined) {
+  // A breed change moves which breed-locked loci count, so the stored
+  // positive_genes count is stale.
+  if (flat.breed !== undefined) {
     const current = await getPet(petId);
     if (current) {
-      const nextGenomeData = (params.genome_data as string | undefined) ?? current.genome_data ?? '';
-      const nextBreed = (flat.breed as string | undefined) ?? current.breed ?? '';
-      try {
-        nextGenome = JSON.parse(nextGenomeData) as Genome;
-      } catch {
-        nextGenome = null;
-      }
-      const positiveGenes = await computePositiveGenesForGenome(nextGenome ?? nextGenomeData, nextBreed);
+      const loci = (await loadPetLociFor(petId)) ?? new Map<string, string>();
       setClauses.push('positive_genes = $positive_genes');
-      params.positive_genes = positiveGenes;
-
-      if (flat.genome_data !== undefined) {
-        const counts = nextGenome ? countGenesFromGenome(nextGenome) : EMPTY_GENE_COUNTS;
-        setClauses.push('total_genes = $total_genes', 'known_genes = $known_genes', 'unknown_genes = $unknown_genes');
-        params.total_genes = counts.total;
-        params.known_genes = counts.known;
-        params.unknown_genes = counts.unknown;
-        // The stored text is the file this genome was parsed from, and it no
-        // longer is. Cleared rather than kept, so any text a row holds always
-        // matches its genes — sharing would otherwise publish the old genome.
-        // The row then reads as a pre-v13 one, which re-importing the file
-        // fills again.
-        setClauses.push('genome_text = $genome_text');
-        params.genome_text = '';
-      }
+      params.positive_genes = await countPositiveGenes(loci, current.species, (flat.breed as string) ?? '');
     }
   }
 
@@ -878,24 +850,12 @@ export async function updatePet(petId: number, updates: Record<string, unknown>)
   // success even though the tag write never landed.
   let petsRowsAffected = -1;
 
-  const wantsPetsUpdate = setClauses.length > 0;
-  const wantsLociRewrite = flat.genome_data !== undefined && nextGenome !== null;
-
-  if (wantsPetsUpdate || wantsLociRewrite) {
-    // Atomic: if the loci rewrite fails the pets UPDATE rolls back too, so
-    // readers never see `genome_data` out of sync with `loci`.
-    await withTransaction(async () => {
-      if (wantsPetsUpdate) {
-        setClauses.push('updated_at = $updated_at');
-        params.updated_at = now();
-        params.w_id = petId;
-        const result = await db.execute(`UPDATE pets SET ${setClauses.join(', ')} WHERE id = $w_id`, params);
-        petsRowsAffected = result.rowsAffected ?? 0;
-      }
-      if (wantsLociRewrite && nextGenome) {
-        await writePetLoci(petId, nextGenome);
-      }
-    });
+  if (setClauses.length > 0) {
+    setClauses.push('updated_at = $updated_at');
+    params.updated_at = now();
+    params.w_id = petId;
+    const result = await db.execute(`UPDATE pets SET ${setClauses.join(', ')} WHERE id = $w_id`, params);
+    petsRowsAffected = result.rowsAffected ?? 0;
     changed = true;
   }
 
@@ -1008,14 +968,11 @@ export async function getPetGenomeText(petId: number): Promise<string | null> {
 }
 
 /**
- * Write a pet's `loci` column from its genome, and register the layout.
+ * Write a pet's `loci` column from its `gene id → genotype` entries, and
+ * register the layout.
  * Atomic via `db.transaction`: the layout row and the pet row land together.
  */
-async function writePetLoci(petId: number, genome: Genome): Promise<void> {
-  const entries: Array<[string, string]> = [];
-  for (const chrGenes of Object.values(genome.genes)) {
-    for (const g of chrGenes) entries.push([toGeneId(g), g.gene_type]);
-  }
+async function writePetLoci(petId: number, entries: Iterable<readonly [string, string]>): Promise<void> {
   const encoded = await encodeLoci(entries);
   const statements: TxStatement[] = [
     {
@@ -1079,17 +1036,22 @@ export async function backfillPetLociIfNeeded(): Promise<boolean> {
  * depends on the JS-side gene-effects DB.
  */
 export async function backfillPositiveGenesIfNeeded(): Promise<void> {
-  type Row = { id: number; genome_data: string; breed: string | null };
+  type Row = { id: number; species: string; breed: string | null; loci?: Map<string, string> };
   type Update = { id: number; positive: number };
   const db = getDb();
   await runBatchBackfill<Row, Update>({
     label: 'positive_genes backfill',
     batchSize: 8,
     guard: async () => (await getSetting<boolean>(POSITIVE_GENES_BACKFILL_KEY)) ?? false,
-    loadWorkSet: () => db.select<Row[]>('SELECT id, genome_data, breed FROM pets'),
+    // Every pet's loci in one read, not one query per pet.
+    loadWorkSet: async () => {
+      const rows = await db.select<Row[]>('SELECT id, species, breed FROM pets');
+      const loci = await loadPetLociMany(rows.map((row) => Number(row.id)));
+      return rows.map((row) => ({ ...row, loci: loci.get(Number(row.id)) }));
+    },
     computeUpdate: async (row) => {
       try {
-        const positive = await computePositiveGenesForGenome(row.genome_data, row.breed ?? '');
+        const positive = await countPositiveGenes(row.loci ?? new Map(), row.species, row.breed ?? '');
         return { id: row.id, positive };
       } catch (e) {
         console.warn(`positive_genes backfill: failed for pet ${row.id}`, e);
@@ -1156,16 +1118,27 @@ const GENE_COUNTS_BACKFILL_KEY = 'pets.gene_counts_backfilled';
  * the caller can refresh downstream stores.
  */
 export async function backfillGeneCountsIfNeeded(): Promise<boolean> {
-  type Row = { id: number; genome_data: string; total_genes: number; known_genes: number; unknown_genes: number };
+  type Row = {
+    id: number;
+    total_genes: number;
+    known_genes: number;
+    unknown_genes: number;
+    loci?: Map<string, string>;
+  };
   type Update = { id: number; counts: GeneCountSummary };
   const db = getDb();
   return runBatchBackfill<Row, Update>({
     label: 'gene_counts backfill',
     batchSize: 16,
     guard: async () => (await getSetting<boolean>(GENE_COUNTS_BACKFILL_KEY)) ?? false,
-    loadWorkSet: () => db.select<Row[]>('SELECT id, genome_data, total_genes, known_genes, unknown_genes FROM pets'),
+    // Every pet's loci in one read, not one query per pet.
+    loadWorkSet: async () => {
+      const rows = await db.select<Row[]>('SELECT id, total_genes, known_genes, unknown_genes FROM pets');
+      const loci = await loadPetLociMany(rows.map((row) => Number(row.id)));
+      return rows.map((row) => ({ ...row, loci: loci.get(Number(row.id)) }));
+    },
     computeUpdate: (row) => {
-      const counts = countGenes(row.genome_data);
+      const counts = countLoci(row.loci ?? []);
       const cur = { total: row.total_genes ?? 0, known: row.known_genes ?? 0, unknown: row.unknown_genes ?? 0 };
       if (counts.total === cur.total && counts.known === cur.known && counts.unknown === cur.unknown) return null;
       return { id: row.id, counts };

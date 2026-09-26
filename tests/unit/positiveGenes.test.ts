@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { closeDatabase, getDb, initDatabase } from '$lib/services/database.js';
 import * as geneService from '$lib/services/geneService.js';
 import { runMigrations } from '$lib/services/migrationService.js';
@@ -25,13 +25,6 @@ Genome=BeeWasp
 `;
 
 /** Genome JSON with no genes — used to force recomputation to drop to 0. */
-const EMPTY_GENOME_JSON = JSON.stringify({
-  format_version: '1.0',
-  breeder: 'Tester',
-  name: 'Empty',
-  genome_type: 'BeeWasp',
-  genes: {},
-});
 
 /**
  * Seed exactly two positive dominant effects on the minimal genome. Expected
@@ -69,19 +62,6 @@ describe('positive_genes computation', () => {
     const result = await petService.uploadPet(MINIMAL_BEEWASP_GENOME, { name: 'Minimal', gender: 'Female' });
     const pet = await petService.getPet(result.pet_id!);
     expect(pet?.positive_genes).toBe(2);
-  });
-
-  it('updatePet recomputes positive_genes when genome_data changes', async () => {
-    await seedTwoPositiveEffects();
-    const result = await petService.uploadPet(MINIMAL_BEEWASP_GENOME, { name: 'Minimal', gender: 'Female' });
-    const before = await petService.getPet(result.pet_id!);
-    expect(before?.positive_genes).toBe(2);
-
-    // Replace the genome with one that has no genes — recompute must drop the
-    // stored count to 0, proving the update hook actually runs.
-    await petService.updatePet(result.pet_id!, { genome_data: EMPTY_GENOME_JSON });
-    const after = await petService.getPet(result.pet_id!);
-    expect(after?.positive_genes).toBe(0);
   });
 });
 
@@ -139,10 +119,26 @@ describe('backfillPositiveGenesIfNeeded', () => {
     expect(after?.positive_genes).toBe(0);
   });
 
-  it('returns 0 without throwing when genome_data is malformed JSON', async () => {
-    // computePositiveGenesForGenome is defensive — called directly to avoid
-    // uploadPet's format validation.
-    const n = await petService.computePositiveGenesForGenome('{not valid json', '');
+  it('reads every pet loci in one query, not one per pet', async () => {
+    await seedTwoPositiveEffects();
+    for (const name of ['A', 'B', 'C', 'D'])
+      await petService.uploadPet(MINIMAL_BEEWASP_GENOME.replace('Entity=Minimal Bee', `Entity=${name}`), {
+        name,
+        gender: 'Female',
+      });
+    const db = getDb();
+    await db.execute('DELETE FROM settings WHERE key = $k', { k: 'pets.positive_genes_backfilled' });
+    const select = vi.spyOn(db, 'select');
+    await petService.backfillPositiveGenesIfNeeded();
+    const lociReads = select.mock.calls.filter(([q]) => /SELECT id, loci, loci_layout FROM pets/.test(String(q)));
+    expect(lociReads).toHaveLength(1);
+    select.mockRestore();
+  });
+
+  it('returns 0 without throwing for a species with no gene table', async () => {
+    // countPositiveGenes is defensive — called directly to avoid uploadPet's
+    // format validation.
+    const n = await petService.countPositiveGenes([['01A1', 'D']], 'Dragon', '');
     expect(n).toBe(0);
   });
 });

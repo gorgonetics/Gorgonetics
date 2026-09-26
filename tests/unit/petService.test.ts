@@ -265,7 +265,7 @@ describe('Pet Service', () => {
       const listQuery = queries.find((q) => /from pets/i.test(q) && !/count\(/i.test(q));
       expect(listQuery).toBeDefined();
 
-      const excluded = new Set(['genome_data', 'genome_text', 'tags', 'loci', 'loci_layout']);
+      const excluded = new Set(['genome_text', 'tags', 'loci', 'loci_layout']);
       for (const col of schemaCols) {
         const inQuery = new RegExp(`\\b${col}\\b`).test(listQuery!);
         if (excluded.has(col)) {

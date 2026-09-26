@@ -338,7 +338,7 @@ describe('a pet with no usable gene projection', () => {
   });
 
   it('is excluded from the population rather than counted in the denominator', async () => {
-    // A pet whose genome_data cannot be projected contributes no rows. Counting
+    // A pet whose genome cannot be read contributes no rows. Counting
     // it would divide by a pet that is not in the numerator: every frequency
     // reads low, and a recessive only that pet carries reads as never seen —
     // telling the player to capture an allele they already own.

@@ -11,7 +11,7 @@
  */
 
 import { compareBlockLetters } from '$lib/services/genomeParser.js';
-import { ensurePetLociPopulated, readPetLoci } from '$lib/services/petService.js';
+import { loadPetLociMany } from '$lib/services/petService.js';
 import { GeneType } from '$lib/types/index.js';
 import { fromGeneId } from '$lib/utils/geneAnalysis.js';
 
@@ -38,24 +38,12 @@ export interface ChromosomeLocus {
  * a pet with no usable genome is **omitted entirely**, so callers cannot
  * mistake a missing pet for one whose every locus is unknown.
  *
- * A pet whose `loci` column is still empty (imported before it existed, and
- * not yet reached by the startup backfill) is filled from its `genome_data`
- * inline and read again, so a consumer never sees a phantom empty genome.
+ * A pet whose `loci` column is still empty (a backup restored without it, or
+ * a write that failed) is filled from its `genome_text` inline and read
+ * again, so a consumer never sees a phantom empty genome.
  */
 export async function loadAllPetLoci(petIds: readonly number[]): Promise<Map<number, PetLoci>> {
-  const map = await readPetLoci(petIds);
-  if (map.size === petIds.length) return map;
-
-  const missing = petIds.filter((id) => !map.has(id));
-  const populated: number[] = [];
-  for (const id of missing) {
-    if (await ensurePetLociPopulated(id)) populated.push(id);
-  }
-  if (populated.length === 0) return map;
-
-  const refreshed = await readPetLoci(populated);
-  for (const [id, loci] of refreshed) map.set(id, loci);
-  return map;
+  return loadPetLociMany(petIds);
 }
 
 /**

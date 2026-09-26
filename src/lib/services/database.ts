@@ -154,6 +154,18 @@ class InMemoryDatabase implements DatabaseAdapter {
   private autoIncrements: Record<string, number> = {};
   /** Columns added by `ALTER TABLE`, and their defaults, per table. */
   private addedColumns: Record<string, Record<string, unknown>> = {};
+  /**
+   * Columns removed by `DROP COLUMN`, per table. The adapter knows no schema
+   * beyond what rows carry, so without this a later write could recreate a
+   * dropped column and a test would pass where SQLite rejects the statement.
+   */
+  private droppedColumns: Record<string, Set<string>> = {};
+
+  private rejectDropped(table: string, columns: readonly string[]): void {
+    const dropped = this.droppedColumns[table];
+    const hit = dropped && columns.find((column) => dropped.has(column));
+    if (hit) throw new Error(`table ${table} has no column named ${hit}`);
+  }
   private userVersion = 0;
   private snapshot: { tables: string; autoIncrements: string; userVersion: number } | null = null;
 
@@ -312,6 +324,18 @@ class InMemoryDatabase implements DatabaseAdapter {
       return { rowsAffected: 0, lastInsertId: 0 };
     }
 
+    // ALTER TABLE … DROP COLUMN: removed from every row, as SQLite does.
+    const dropColumn = q.match(/alter\s+table\s+(\w+)\s+drop\s+column\s+(\w+)/i);
+    if (dropColumn) {
+      const table = dropColumn[1].toLowerCase();
+      const column = dropColumn[2];
+      for (const row of this.tables[table] ?? []) delete row[column];
+      if (this.addedColumns[table]) delete this.addedColumns[table][column];
+      if (!this.droppedColumns[table]) this.droppedColumns[table] = new Set();
+      this.droppedColumns[table].add(column);
+      return { rowsAffected: 0, lastInsertId: 0 };
+    }
+
     // DROP TABLE / DROP INDEX / VACUUM: indexes are not emulated, and VACUUM
     // has nothing to reclaim in memory, so only a dropped table changes state.
     const dropTable = q.match(/drop\s+table\s+(?:if\s+exists\s+)?(\w+)/i);
@@ -344,6 +368,7 @@ class InMemoryDatabase implements DatabaseAdapter {
       if (tableMatch) {
         const table = tableMatch[1].toLowerCase();
         const cols = tableMatch[2].split(',').map((c) => c.trim());
+        this.rejectDropped(table, cols);
         if (!this.tables[table]) {
           this.tables[table] = [];
           this.autoIncrements[table] = 0;
@@ -431,6 +456,10 @@ class InMemoryDatabase implements DatabaseAdapter {
         if (!setSection) return { rowsAffected: 0, lastInsertId: 0 };
 
         const setClauses = setSection[1].split(',').map((c) => c.trim());
+        this.rejectDropped(
+          table,
+          setClauses.map((c) => c.split('=')[0].trim()),
+        );
         const setParamCount = setClauses.filter((c) => c.includes('?')).length;
 
         // Parse WHERE conditions
@@ -475,6 +504,7 @@ class InMemoryDatabase implements DatabaseAdapter {
       tables: JSON.stringify(this.tables),
       autoIncrements: JSON.stringify(this.autoIncrements),
       addedColumns: JSON.stringify(this.addedColumns),
+      droppedColumns: Object.entries(this.droppedColumns).map(([t, c]) => [t, [...c]] as [string, string[]]),
       userVersion: this.userVersion,
     };
     try {
@@ -487,6 +517,7 @@ class InMemoryDatabase implements DatabaseAdapter {
       this.tables = JSON.parse(snapshot.tables);
       this.autoIncrements = JSON.parse(snapshot.autoIncrements);
       this.addedColumns = JSON.parse(snapshot.addedColumns);
+      this.droppedColumns = Object.fromEntries(snapshot.droppedColumns.map(([t, c]) => [t, new Set(c)]));
       this.userVersion = snapshot.userVersion;
       throw e;
     }

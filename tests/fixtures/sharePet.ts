@@ -55,7 +55,6 @@ export function makePet({ rawText = DEFAULT_RAW_TEXT, contentHash, ...overrides 
     breed: '',
     breeder: 'PlayerOne',
     content_hash: hash,
-    genome_data: JSON.stringify({ name: 'Buzz', breeder: 'PlayerOne', genes: {} }),
     genome_text: rawText,
     notes: '',
     tags: ['fast', 'fierce'],

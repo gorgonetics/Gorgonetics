@@ -14,6 +14,7 @@ import type {
   ImportResult,
 } from '$lib/types/index.js';
 import { isTauri } from '$lib/utils/environment.js';
+import { decodeLoci, encodeLoci, layoutId, storedGenomeEntries } from '$lib/utils/lociCodec.js';
 import { now } from '$lib/utils/timestamp.js';
 import { getDb, type TxStatement } from './database.js';
 import { pickExportSavePath, saveExportBinaryFile } from './fileService.js';
@@ -49,10 +50,13 @@ const PET_COLUMNS = [
   'breed',
   'breeder',
   'content_hash',
-  'genome_data',
   // Raw genome file text (migration v13) — restoring without this would
   // leave the imported pet stuck in legacy state and unable to share.
   'genome_text',
+  // The genes (migration v19), with their layout in `locus_layouts.json`. The
+  // only copy of the genome for a pet imported before v13, which has no text.
+  'loci',
+  'loci_layout',
   'notes',
   'created_at',
   'updated_at',
@@ -131,17 +135,12 @@ async function gatherBackupContents(
     const petsExport = pets.map((pet) => {
       const copy = { ...pet };
       delete copy.id;
-      if (typeof copy.genome_data === 'string') {
-        try {
-          copy.genome_data = JSON.parse(copy.genome_data as string);
-        } catch {
-          /* keep as string */
-        }
-      }
       return copy;
     });
     if (options.includePets) {
       textEntries.push({ archive_path: 'pets.json', contents: JSON.stringify(petsExport) });
+      const layouts = await db.select<{ layout: string; ids: string }[]>('SELECT layout, ids FROM locus_layouts');
+      textEntries.push({ archive_path: 'locus_layouts.json', contents: JSON.stringify(layouts) });
       petCount = petsExport.length;
 
       // Export pet tags from junction table, keyed by content_hash for portability
@@ -335,10 +334,33 @@ function buildBatchInserts(
   return out;
 }
 
+/**
+ * The loci a restored pet gets. An archive written since v19 carries them with
+ * their layout, and those are used as they are — once the layout's ids are
+ * checked against its content address, since an archive is outside data and
+ * a same-length but different id list would pin every allele on the wrong
+ * gene. Otherwise, as for an older archive with only `genome_data` and
+ * `genome_text`, the loci are encoded from those: the same result the v19
+ * and v20 migrations would have produced.
+ */
+async function restoredLoci(
+  pet: Record<string, unknown>,
+  layouts: ReadonlyMap<string, string>,
+): Promise<{ loci: string; layout: string; ids: string }> {
+  const loci = typeof pet.loci === 'string' ? pet.loci : '';
+  const layout = typeof pet.loci_layout === 'string' ? pet.loci_layout : '';
+  const ids = layouts.get(layout);
+  if (loci && ids && decodeLoci(ids.split(','), loci) && (await layoutId(ids)) === layout) return { loci, layout, ids };
+  const entries = storedGenomeEntries(pet.genome_data, pet.genome_text);
+  if (entries.length === 0) return { loci: '', layout: '', ids: '' };
+  return encodeLoci(entries);
+}
+
 /** Shared gene/pet import logic used by both v1 and v2 paths. */
 async function importGenesAndPets(
   genes: Record<string, unknown>[] | null,
   pets: Record<string, unknown>[] | null,
+  layouts: ReadonlyMap<string, string>,
   options: ImportOptions,
 ): Promise<{ genes: number; pets: number; petsSkipped: number }> {
   const db = getDb();
@@ -391,16 +413,18 @@ async function importGenesAndPets(
   if (options.includePets && pets) {
     const petRows: Record<string, unknown>[] = [];
     const restoredHashes: string[] = [];
+    const usedLayouts = new Map<string, string>();
     for (const pet of pets) {
       if (existingHashes?.has(pet.content_hash as string)) {
         petsSkipped++;
         continue;
       }
-      let genomeData = pet.genome_data;
-      if (typeof genomeData === 'object' && genomeData !== null) genomeData = JSON.stringify(genomeData);
+      const loci = await restoredLoci(pet, layouts);
+      if (loci.layout) usedLayouts.set(loci.layout, loci.ids);
       const row: Record<string, unknown> = {};
       for (const col of PET_COLUMNS) {
-        if (col === 'genome_data') row[col] = genomeData;
+        if (col === 'loci') row[col] = loci.loci;
+        else if (col === 'loci_layout') row[col] = loci.layout;
         else if (col === 'sort_order') row[col] = ((pet[col] as number) ?? 0) + sortOrderOffset;
         else if (col === 'stabled' || col === 'use_for_studies') row[col] = pet[col] ?? 1;
         else if (col === 'starred' || col === 'is_pet_quality') row[col] = pet[col] ?? 0;
@@ -417,6 +441,12 @@ async function importGenesAndPets(
       }
       petRows.push(row);
       if (typeof pet.content_hash === 'string') restoredHashes.push(pet.content_hash);
+    }
+    for (const [layout, ids] of usedLayouts) {
+      statements.push({
+        sql: 'INSERT OR REPLACE INTO locus_layouts (layout, ids) VALUES ($layout, $ids)',
+        params: { layout, ids },
+      });
     }
     statements.push(...buildBatchInserts('pets', PET_COLUMNS, petRows));
     petsImported = petRows.length;
@@ -456,12 +486,20 @@ async function importFromZip(zip: JSZip, options: ImportOptions): Promise<Import
     if (genesFile) genes = JSON.parse(await genesFile.async('string'));
   }
 
+  const layouts = new Map<string, string>();
   if (options.includePets) {
     const petsFile = zip.file('pets.json');
     if (petsFile) pets = JSON.parse(await petsFile.async('string'));
+    // Written since v19; an archive without it has its genes in `genome_data`.
+    const layoutsFile = zip.file('locus_layouts.json');
+    if (layoutsFile) {
+      for (const row of JSON.parse(await layoutsFile.async('string')) as Array<Record<string, unknown>>) {
+        if (typeof row.layout === 'string' && typeof row.ids === 'string') layouts.set(row.layout, row.ids);
+      }
+    }
   }
 
-  const result = await importGenesAndPets(genes, pets, options);
+  const result = await importGenesAndPets(genes, pets, layouts, options);
 
   // Build pet hash-to-id map (shared by tag and image import)
   const db = getDb();
