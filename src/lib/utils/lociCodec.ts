@@ -42,6 +42,11 @@ export interface EncodedLoci {
   loci: string;
 }
 
+/** The content address of a layout: the start of the SHA-256 of its comma-joined ids. */
+export async function layoutId(ids: string): Promise<string> {
+  return (await sha256Hex(ids)).slice(0, 16);
+}
+
 /**
  * Encode `gene id → genotype` entries. An unrecognised genotype is stored as
  * `?`, the same coercion the `pet_genes` reader applied.
@@ -50,7 +55,7 @@ export async function encodeLoci(entries: Iterable<readonly [string, string]>): 
   const sorted = [...entries].sort((a, b) => compareGeneIds(a[0], b[0]));
   const ids = sorted.map(([id]) => id).join(',');
   const loci = sorted.map(([, type]) => (CODES.has(type) ? type : GeneType.UNKNOWN)).join('');
-  return { layout: (await sha256Hex(ids)).slice(0, 16), ids, loci };
+  return { layout: await layoutId(ids), ids, loci };
 }
 
 /**

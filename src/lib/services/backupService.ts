@@ -14,7 +14,7 @@ import type {
   ImportResult,
 } from '$lib/types/index.js';
 import { isTauri } from '$lib/utils/environment.js';
-import { decodeLoci, encodeLoci, storedGenomeEntries } from '$lib/utils/lociCodec.js';
+import { decodeLoci, encodeLoci, layoutId, storedGenomeEntries } from '$lib/utils/lociCodec.js';
 import { now } from '$lib/utils/timestamp.js';
 import { getDb, type TxStatement } from './database.js';
 import { pickExportSavePath, saveExportBinaryFile } from './fileService.js';
@@ -336,9 +336,12 @@ function buildBatchInserts(
 
 /**
  * The loci a restored pet gets. An archive written since v19 carries them with
- * their layout, and those are used as they are. An older archive has only
- * `genome_data` and `genome_text`, so the loci are encoded from those — the
- * same result the v19 and v20 migrations would have produced.
+ * their layout, and those are used as they are — once the layout's ids are
+ * checked against its content address, since an archive is outside data and
+ * a same-length but different id list would pin every allele on the wrong
+ * gene. Otherwise, as for an older archive with only `genome_data` and
+ * `genome_text`, the loci are encoded from those: the same result the v19
+ * and v20 migrations would have produced.
  */
 async function restoredLoci(
   pet: Record<string, unknown>,
@@ -347,7 +350,7 @@ async function restoredLoci(
   const loci = typeof pet.loci === 'string' ? pet.loci : '';
   const layout = typeof pet.loci_layout === 'string' ? pet.loci_layout : '';
   const ids = layouts.get(layout);
-  if (loci && ids && decodeLoci(ids.split(','), loci)) return { loci, layout, ids };
+  if (loci && ids && decodeLoci(ids.split(','), loci) && (await layoutId(ids)) === layout) return { loci, layout, ids };
   const entries = storedGenomeEntries(pet.genome_data, pet.genome_text);
   if (entries.length === 0) return { loci: '', layout: '', ids: '' };
   return encodeLoci(entries);

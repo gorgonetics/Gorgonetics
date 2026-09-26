@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { closeDatabase, getDb, initDatabase } from '$lib/services/database.js';
 import * as geneService from '$lib/services/geneService.js';
 import { runMigrations } from '$lib/services/migrationService.js';
@@ -117,6 +117,22 @@ describe('backfillPositiveGenesIfNeeded', () => {
 
     const after = await petService.getPet(upload.pet_id!);
     expect(after?.positive_genes).toBe(0);
+  });
+
+  it('reads every pet loci in one query, not one per pet', async () => {
+    await seedTwoPositiveEffects();
+    for (const name of ['A', 'B', 'C', 'D'])
+      await petService.uploadPet(MINIMAL_BEEWASP_GENOME.replace('Entity=Minimal Bee', `Entity=${name}`), {
+        name,
+        gender: 'Female',
+      });
+    const db = getDb();
+    await db.execute('DELETE FROM settings WHERE key = $k', { k: 'pets.positive_genes_backfilled' });
+    const select = vi.spyOn(db, 'select');
+    await petService.backfillPositiveGenesIfNeeded();
+    const lociReads = select.mock.calls.filter(([q]) => /SELECT id, loci, loci_layout FROM pets/.test(String(q)));
+    expect(lociReads).toHaveLength(1);
+    select.mockRestore();
   });
 
   it('returns 0 without throwing for a species with no gene table', async () => {

@@ -372,6 +372,38 @@ describe('Backup Service', () => {
       ]);
     });
 
+    it('does not trust an archive layout whose ids do not match its key', async () => {
+      // Same length, different genes: accepted, it would silently pin every
+      // allele on the wrong locus. The restore falls back to genome_data.
+      const genes = { '01': [{ chromosome: '01', block: 'A', position: 1, gene_type: 'D' }] };
+      const zip = new JSZip();
+      zip.file(
+        'metadata.json',
+        JSON.stringify({
+          format: 'gorgonetics-backup',
+          format_version: 2,
+          schema_version: CURRENT_SCHEMA_VERSION,
+          app_version: '0.2.0',
+          exported_at: '2026-01-01T00:00:00Z',
+          contents: { genes: false, pets: true, images: false },
+          record_counts: { genes: 0, pets: 1, images: 0 },
+        }),
+      );
+      zip.file(
+        'pets.json',
+        JSON.stringify([{ ...samplePet, genome_data: { genes }, loci: 'R', loci_layout: 'forged' }]),
+      );
+      zip.file('locus_layouts.json', JSON.stringify([{ layout: 'forged', ids: '09Z9' }]));
+      await importDatabase(await zip.generateAsync({ type: 'uint8array' }), importOpts('replace'));
+
+      const [row] = await getDb().select<{ id: number; loci: string; loci_layout: string }[]>(
+        'SELECT id, loci, loci_layout FROM pets',
+      );
+      expect(row.loci).toBe('D');
+      expect(row.loci_layout).not.toBe('forged');
+      expect([...((await loadAllPetLoci([row.id])).get(row.id) ?? [])]).toEqual([['01A1', 'D']]);
+    });
+
     it('round-trips the loci of a pet that has no genome text', async () => {
       // Imported before v13: the loci are the only copy of its genes.
       await importDatabase(

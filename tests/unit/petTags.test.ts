@@ -42,7 +42,7 @@ const basePet = {
   breed: '',
   breeder: 'Tester',
   content_hash: 'hash_tags_test',
-  genome_data: '{"genes":{}}',
+  genome_text: '',
   notes: '',
   created_at: '2026-01-01',
   updated_at: '2026-01-01',

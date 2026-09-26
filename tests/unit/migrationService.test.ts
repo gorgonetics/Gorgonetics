@@ -112,14 +112,14 @@ describe('Migration Service', () => {
     await runMigrations();
     const db = (await import('$lib/services/database.js')).getDb();
     const result = await db.execute(
-      `INSERT INTO pets (name, species, gender, content_hash, genome_data, created_at, updated_at)
-       VALUES ($name, $species, $gender, $content_hash, $genome_data, $created_at, $updated_at)`,
+      `INSERT INTO pets (name, species, gender, content_hash, genome_text, created_at, updated_at)
+       VALUES ($name, $species, $gender, $content_hash, $genome_text, $created_at, $updated_at)`,
       {
         name: 'Test',
         species: 'BeeWasp',
         gender: 'Female',
         content_hash: 'mighash',
-        genome_data: '{}',
+        genome_text: '',
         created_at: '2024-01-01',
         updated_at: '2024-01-01',
       },

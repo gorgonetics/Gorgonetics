@@ -161,11 +161,22 @@ export async function readPetLoci(petIds: readonly number[]): Promise<Map<number
   return out;
 }
 
+/**
+ * Loci for many pets in one read, filling any empty column first. A pet with
+ * no usable genome is omitted. `loadAllPetLoci` is the public face of this.
+ */
+export async function loadPetLociMany(petIds: readonly number[]): Promise<Map<number, Map<string, GeneType>>> {
+  const map = await readPetLoci(petIds);
+  if (map.size === petIds.length) return map;
+  const populated: number[] = [];
+  for (const id of petIds) if (!map.has(id) && (await ensurePetLociPopulated(id))) populated.push(id);
+  if (populated.length > 0) for (const [id, loci] of await readPetLoci(populated)) map.set(id, loci);
+  return map;
+}
+
 /** One pet's loci, filling an empty column first; undefined if it has no genome. */
 async function loadPetLociFor(petId: number): Promise<Map<string, GeneType> | undefined> {
-  const loci = (await readPetLoci([petId])).get(petId);
-  if (loci || !(await ensurePetLociPopulated(petId))) return loci;
-  return (await readPetLoci([petId])).get(petId);
+  return (await loadPetLociMany([petId])).get(petId);
 }
 
 async function selectLociRows(petId: number): Promise<{ gene_id: string; gene_type: string }[]> {
@@ -1025,18 +1036,22 @@ export async function backfillPetLociIfNeeded(): Promise<boolean> {
  * depends on the JS-side gene-effects DB.
  */
 export async function backfillPositiveGenesIfNeeded(): Promise<void> {
-  type Row = { id: number; species: string; breed: string | null };
+  type Row = { id: number; species: string; breed: string | null; loci?: Map<string, string> };
   type Update = { id: number; positive: number };
   const db = getDb();
   await runBatchBackfill<Row, Update>({
     label: 'positive_genes backfill',
     batchSize: 8,
     guard: async () => (await getSetting<boolean>(POSITIVE_GENES_BACKFILL_KEY)) ?? false,
-    loadWorkSet: () => db.select<Row[]>('SELECT id, species, breed FROM pets'),
+    // Every pet's loci in one read, not one query per pet.
+    loadWorkSet: async () => {
+      const rows = await db.select<Row[]>('SELECT id, species, breed FROM pets');
+      const loci = await loadPetLociMany(rows.map((row) => Number(row.id)));
+      return rows.map((row) => ({ ...row, loci: loci.get(Number(row.id)) }));
+    },
     computeUpdate: async (row) => {
       try {
-        const loci = (await loadPetLociFor(row.id)) ?? new Map<string, string>();
-        const positive = await countPositiveGenes(loci, row.species, row.breed ?? '');
+        const positive = await countPositiveGenes(row.loci ?? new Map(), row.species, row.breed ?? '');
         return { id: row.id, positive };
       } catch (e) {
         console.warn(`positive_genes backfill: failed for pet ${row.id}`, e);
@@ -1103,16 +1118,27 @@ const GENE_COUNTS_BACKFILL_KEY = 'pets.gene_counts_backfilled';
  * the caller can refresh downstream stores.
  */
 export async function backfillGeneCountsIfNeeded(): Promise<boolean> {
-  type Row = { id: number; total_genes: number; known_genes: number; unknown_genes: number };
+  type Row = {
+    id: number;
+    total_genes: number;
+    known_genes: number;
+    unknown_genes: number;
+    loci?: Map<string, string>;
+  };
   type Update = { id: number; counts: GeneCountSummary };
   const db = getDb();
   return runBatchBackfill<Row, Update>({
     label: 'gene_counts backfill',
     batchSize: 16,
     guard: async () => (await getSetting<boolean>(GENE_COUNTS_BACKFILL_KEY)) ?? false,
-    loadWorkSet: () => db.select<Row[]>('SELECT id, total_genes, known_genes, unknown_genes FROM pets'),
-    computeUpdate: async (row) => {
-      const counts = countLoci((await loadPetLociFor(row.id)) ?? []);
+    // Every pet's loci in one read, not one query per pet.
+    loadWorkSet: async () => {
+      const rows = await db.select<Row[]>('SELECT id, total_genes, known_genes, unknown_genes FROM pets');
+      const loci = await loadPetLociMany(rows.map((row) => Number(row.id)));
+      return rows.map((row) => ({ ...row, loci: loci.get(Number(row.id)) }));
+    },
+    computeUpdate: (row) => {
+      const counts = countLoci(row.loci ?? []);
       const cur = { total: row.total_genes ?? 0, known: row.known_genes ?? 0, unknown: row.unknown_genes ?? 0 };
       if (counts.total === cur.total && counts.known === cur.known && counts.unknown === cur.unknown) return null;
       return { id: row.id, counts };

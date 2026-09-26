@@ -36,7 +36,7 @@ vi.mock('@tauri-apps/plugin-fs', () => ({
 import { exportDatabase } from '$lib/services/backupService.js';
 
 const GENES = [{ animal_type: 'BeeWasp', chromosome: 'chr01', gene: '01A1' }];
-const PETS = [{ id: 1, name: 'TestBee', content_hash: 'hash_abc', genome_data: '{"genes":{}}' }];
+const PETS = [{ id: 1, name: 'TestBee', content_hash: 'hash_abc', genome_text: '' }];
 const IMAGE_ROWS = [
   { pet_id: 1, filename: 'a.png', content_hash: 'hash_abc', original_name: 'a.png', created_at: '2026-01-01' },
   { pet_id: 1, filename: 'b.png', content_hash: 'hash_abc', original_name: 'b.png', created_at: '2026-01-01' },

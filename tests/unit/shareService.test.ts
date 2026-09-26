@@ -201,8 +201,7 @@ describe('shareService.uploadPet — first share', () => {
     // Attributes are published as a nested, clamped 0–100 int map.
     expect(meta.payload.attributes).toEqual(FIXTURE_ATTRS);
 
-    // Genome doc gets the raw genome_text, NOT the JSON-stringified
-    // genome_data. content_hash is sha256(raw text).
+    // Genome doc gets the raw genome_text; content_hash is sha256(raw text).
     expect(Object.keys(genome.payload)).toEqual(['genomeData']);
     expect(genome.payload.genomeData).toBe('[Overview]\nCharacter=PlayerOne\nEntity=Buzz\n[Genes]\n');
   });

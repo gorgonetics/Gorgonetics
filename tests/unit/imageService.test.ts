@@ -30,10 +30,10 @@ const originalResolver = _imageUrlInternals.resolver;
 async function seedPet() {
   const db = getDb();
   const result = await db.execute(
-    `INSERT INTO pets (name, species, gender, breed, breeder, content_hash, genome_data, notes, created_at, updated_at,
+    `INSERT INTO pets (name, species, gender, breed, breeder, content_hash, genome_text, notes, created_at, updated_at,
       intelligence, toughness, friendliness, ruggedness, enthusiasm, virility, ferocity, temperament, sort_order,
       starred, stabled, is_pet_quality)
-     VALUES ($name, $species, $gender, '', '', $content_hash, '{}', '', '2026-01-01', '2026-01-01',
+     VALUES ($name, $species, $gender, '', '', $content_hash, '', '', '2026-01-01', '2026-01-01',
       50, 50, 50, 50, 50, 50, 50, 50, 0,
       0, 1, 0)`,
     { name: 'Test', species: 'BeeWasp', gender: 'Female', content_hash: `hash_${Math.random()}` },
