@@ -379,7 +379,7 @@ await page.waitForTimeout(200);
 // "no data" and shows nothing of the feature.
 await page.getByTestId('tab-reference').click();
 await page.waitForTimeout(200);
-await page.locator('#animalType').selectOption('horse');
+await page.locator('[data-testid="reference-species"] [data-species="horse"]').click();
 await waitFor(page, '[data-testid="genome-map-grid"]');
 await page.waitForTimeout(800);
 await shot(page, '17-reference.png');
@@ -389,7 +389,7 @@ await shot(page, '17-reference.png');
 // beewasp here: 10 chromosomes make a legible editor screenshot.
 await page.getByTestId('reference-edit-toggle').click();
 await waitFor(page, '#chromosome');
-await page.locator('#animalType').selectOption('beewasp');
+await page.locator('[data-testid="reference-species"] [data-species="beewasp"]').click();
 await page.waitForTimeout(400);
 await page.locator('#chromosome').selectOption({ index: 1 });
 await page.waitForTimeout(200);
