@@ -17,7 +17,9 @@ import { isTauri } from '$lib/utils/environment.js';
 import { now } from '$lib/utils/timestamp.js';
 import { getDb, type TxStatement } from './database.js';
 import { pickExportSavePath, saveExportBinaryFile } from './fileService.js';
+import { clearGeneEffectsCache } from './geneService.js';
 import { CURRENT_SCHEMA_VERSION, derivedProvenance, getSchemaVersion } from './migrationService.js';
+import { clearAttributeMagnitudesCache } from './studyService.js';
 
 const EXPORT_FORMAT = 'gorgonetics-backup' as const;
 const EXPORT_FORMAT_VERSION = 2;
@@ -281,7 +283,14 @@ export async function importDatabase(source: Uint8Array | LoadedBackup, options:
   // Re-validate even for pre-loaded backups: the LoadedBackup shape is plain
   // data and a caller could construct one without going through loadBackup.
   validateMetadata(loaded.metadata);
-  return importFromZip(loaded.zip, options);
+  const result = await importFromZip(loaded.zip, options);
+  // The restore rewrote tables the session caches were derived from, without
+  // going through the services that keep them in step. Without this the gene
+  // effects, the study's magnitudes and its memoised run all keep describing
+  // the database as it was before the import.
+  if (options.includeGenes) clearGeneEffectsCache();
+  if (options.includeGenes || options.includePets) clearAttributeMagnitudesCache();
+  return result;
 }
 
 // SQLite's default SQLITE_MAX_VARIABLE_NUMBER is 999. Cap each multi-row

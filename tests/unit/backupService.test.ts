@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { importDatabase, inspectBackup, type LoadedBackup, loadBackup } from '$lib/services/backupService.js';
 import { closeDatabase, getDb, initDatabase } from '$lib/services/database.js';
 import { CURRENT_SCHEMA_VERSION, runMigrations } from '$lib/services/migrationService.js';
+import { clearAttributeMagnitudesCache, studyRunFor } from '$lib/services/studyService.js';
 import type { ImportMode } from '$lib/types/index.js';
 
 interface BuildZipOptions {
@@ -74,6 +75,33 @@ describe('Backup Service', () => {
     await closeDatabase();
     await initDatabase();
     await runMigrations();
+  });
+
+  describe('session caches', () => {
+    beforeEach(() => clearAttributeMagnitudesCache());
+
+    it('drops the memoised study run after a pets restore', async () => {
+      const before = await studyRunFor('beewasp');
+      expect(await studyRunFor('beewasp')).toBe(before);
+      await importDatabase(await buildZip({ pets: [samplePet] }), {
+        mode: 'replace',
+        includeGenes: false,
+        includePets: true,
+        includeImages: false,
+      });
+      expect(await studyRunFor('beewasp')).not.toBe(before);
+    });
+
+    it('drops the memoised study run after a genes restore', async () => {
+      const before = await studyRunFor('beewasp');
+      await importDatabase(await buildZip({ genes: [sampleGene] }), {
+        mode: 'replace',
+        includeGenes: true,
+        includePets: false,
+        includeImages: false,
+      });
+      expect(await studyRunFor('beewasp')).not.toBe(before);
+    });
   });
 
   // --- inspectBackup ---
