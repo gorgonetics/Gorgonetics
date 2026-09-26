@@ -543,6 +543,11 @@ export interface RefreshResult {
 /** Marks a subject id as a cached community animal rather than a `pets` row. */
 const SHARED_ID_PREFIX = 'shared:';
 
+/** Whether a subject id names a cached community animal, not one of the player's pets. */
+export function isCommunitySubject(subjectId: string): boolean {
+  return subjectId.startsWith(SHARED_ID_PREFIX);
+}
+
 /** A cached community animal, as the study consumes it. */
 interface CachedRow {
   content_hash: string;
