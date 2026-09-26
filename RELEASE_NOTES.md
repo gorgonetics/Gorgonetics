@@ -1,29 +1,31 @@
-# v0.9.4
+# v0.10.0
 
-The breeding scores now show their work. A ranked pair told you which number won and never what produced it; the Trio and the pair table now answer that. Still pre-1.0.
+A new **Study** tab works out what each gene is worth in attribute points, from the animals you already have and from the community catalogue. Breed, the pet grid, the genome map and the Trio now read those numbers. Still pre-1.0.
 
-## What the Trio shows
+## The Study tab
 
-Select a pair and the offspring projection explains its own ranking.
+Attributes and gene effects are integers, so the study treats the stable as a system of equations, not a fit. Two animals of one breed that differ at one slot give that slot's value outright. Known values substituted into wider pairs give more, and an elimination pass solves slots that are only determined jointly.
 
-- **Tint by score contribution** — colour the offspring row by each locus's share of **Quality**, **Pool-weighted +** or **Total +**, so you can see which slots carry the score rather than inferring it.
-- **Clarification** — the mean, the spread and the baseline behind **Ceiling**, **Floor** and **Cleanup**. Ceiling and Floor share a mean and a spread and differ only in their baseline (the better and the weaker parent); Cleanup reads against the cleaner parent's negatives.
+- **Community animals** — yield depends on corpus size: 7% of horse effects from a 36-horse stable, over half from ~450. **Fetch community animals** caches the catalogue as study evidence only; My Pets and the breeding pool do not change. Fetching is explicit, shows progress, and hash-verifies each genome.
+- **Honest findings** — each value says how it was found (direct, derived, or solved as a system) and every result is checked against held-out pairs. On the live corpus that check is 100% exact once mis-recorded animals are excluded.
+- **Gene doubts** — the declared +/− is never an input to the arithmetic, so it stays an independent check. When animals disagree with it, the gene is listed to check in game. **Table is right** confirms the declaration and moves the blame to the animals involved.
+- **Suspect readings** — a mis-typed attribute shows as a constant offset across every equation the animal is in. Suspects are listed with **Stop using**, exclusions with **Use again**. The flag survives catalogue refreshes and backups.
+- **Base values** — each breed's attribute base is inferred from the solved magnitudes, and animals of different breeds are now compared through their base gap. Horses: 513 of 879 effects known.
+- Beewasps are studied too, in one shared pool. There is no real beewasp data yet, so this is not validated.
+- Solved magnitudes persist across sessions and re-solve only when an input changes.
 
-Only the first three scores are a sum over loci, so only they get a lens. Ceiling, Floor and Cleanup are `E[max(0, X − baseline)]` taken after the loop, and that integral's gradient with respect to the mean is one constant across the genome — a per-locus Ceiling lens would rank identically to Floor's and to Total +'s, so it is deliberately not built.
+## Where the numbers show up
 
-## What the pair table shows
+- **Breed** — per-attribute objectives rank by attribute points where the study measured them, and by positive count where it did not. A pair carrying one +5 gene now outranks one carrying three +1s, and negatives count against. Column headers say how many effects are measured.
+- **Impact lens** — a fourth pet-grid view, and a Rarity | Impact toggle on the Reference genome map. Measured slots are tinted by sign and size; declared but unmeasured effects are hatched. Click an attribute chip to filter, and the stats pane splits each value into Measured and Rest. Community previews get it too.
+- **Trio** — an Outcome | Impact toggle. Foal cells show the chance to beat the better parent or fall below the weaker one; the panel gives, per attribute, P(beats both), the Top 25% value and P(below both). Horses need an offspring breed for this.
 
-Absolute columns now carry the reference you should read them against.
+## Also
 
-- Each parent's own positive count sits beside its name, on the same locus basis and breed scope as the offspring figures.
-- **Total +** and every attribute column carry an unclamped signed gap against the better parent. Ceiling bottoms out at zero, so on its own it cannot separate a foal one positive short of the better parent from one ninety short. The gap can. A difference that rounds to nothing is left off rather than shown as a decorative `+0.0`.
-
-No gap is shown on the pool-weighted column or on Mixed/Unknown: those figures are weighted and the parents' counts are not, so subtracting them would compare different units. The parent counts on the row remain the honest reference there.
-
-## One rename
-
-**Pool gain** is now **Pool-weighted +**. It re-weights an absolute positive count by how thinly the pool already covers each slot; it does not measure a gain over the parents, and a positive both parents already breed true still scores, at the lowest weight. Display only — the sort key is unchanged, so saved sort settings still apply.
-
-## Notes
-
-Also in this release: dependency updates to Svelte, SvelteKit, Vite, Biome, `@lucide/svelte`, `tauri-plugin-sql` and `tauri-plugin-log`.
+- **Hidden genes** — every breeding score counts a `?` locus as carrying nothing. Free up slots, Breed and the Trio now warn when that applies, and Free up slots asks for an acknowledgement before it releases an animal with hidden genes.
+- **Attributes from names** — typing a structured name in the editor fills the attributes. **My Pets → Fill from names** fills unmeasured pets in one step and lists disagreements on measured ones. BeeWasp structured names are now parsed.
+- Whether a pet's attributes are real readings is now stored, not re-read from the name, so a rename no longer drops an animal from the study.
+- Community imports are now added unstabled.
+- Reference uses the same remembered species selector as Breed.
+- Fix: restoring a backup keeps each animal's study exclusion.
+- Dependency updates to Firebase, jszip, `tauri-plugin-sql`, Biome and Playwright.
