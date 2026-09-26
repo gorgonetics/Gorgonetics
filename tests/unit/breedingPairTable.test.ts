@@ -440,14 +440,45 @@ describe('BreedingPairTable — attribute columns', () => {
       study('toughness', 9, [finding('01A1', 'toughness', 4)]),
       study('friendliness', 4, [finding('01A2', 'friendliness', -2)]),
     ]);
-    const { container, rerender } = render(BreedingPairTable, {
-      results: [{ ...scored()[0], evPointsByAttribute: { Toughness: 6, Friendliness: -1.5 } }],
-      attrNames: ['Toughness', 'Friendliness'],
-      magnitudes: two,
+    // Parent nets: male 4 + 0 = 4, female 2 − 3 = −1. The better parent is 4.
+    const profile = (toughness: number, friendliness: number) => ({
+      positives: 0,
+      negatives: 0,
+      positivesByAttribute: {},
+      pointsByAttribute: { Toughness: toughness, Friendliness: friendliness },
+      lockedPositives: 0,
     });
+    const render_ = (foalFriendliness: number) =>
+      render(BreedingPairTable, {
+        results: [
+          {
+            ...scored()[0],
+            evPointsByAttribute: { Toughness: 6, Friendliness: foalFriendliness },
+            maleProfile: profile(4, 0),
+            femaleProfile: profile(2, -3),
+          },
+        ],
+        attrNames: ['Toughness', 'Friendliness'],
+        magnitudes: two,
+      });
+
+    const { container, rerender, unmount } = render_(-1.5);
     await rerender({});
     const header = [...container.querySelectorAll('th')].find((th) => th.textContent?.trim() === 'Net pts');
     expect(header?.getAttribute('title')).toContain('2 of 13');
-    expect(container.querySelector('[data-testid="pair-net-points"]')?.textContent?.trim()).toMatch(/^4\.5/);
+    const cell = container.querySelector('[data-testid="pair-net-points"]');
+    expect(cell?.textContent?.trim()).toMatch(/^4\.5/);
+    // 4.5 against the better parent's 4.
+    const up = cell?.querySelector('[data-testid="pair-delta"]');
+    expect(up?.textContent).toBe('+0.5');
+    expect(up?.className).toContain('up');
+    unmount();
+
+    // A foal below the better parent gets a signed gap the other way: 6 − 4 = 2 < 4.
+    const below = render_(-4);
+    await below.rerender({});
+    const down = below.container.querySelector('[data-testid="pair-net-points"] [data-testid="pair-delta"]');
+    expect(down?.textContent).toBe('−2.0');
+    expect(down?.className).toContain('down');
   });
 });

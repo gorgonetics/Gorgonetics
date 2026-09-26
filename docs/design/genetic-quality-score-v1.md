@@ -155,7 +155,8 @@ stable cannot support. Capability claims nothing about the world: it asks
 only "can I already breed this outcome from animals I own", which is a
 fact about one stable and is *supposed* to move when the stable moves.
 
-`missing` from `GAP_WEIGHT` has no analogue. Tiers are only computed for
+`missing` from `GAP_WEIGHT` (the pool-weighted score, since removed in
+#548) has no analogue. Tiers are only computed for
 an allele the animal itself carries, so "nothing carries it" cannot arise
 — the inert tier of `#358` is structurally impossible here rather than
 merely unused.
@@ -488,8 +489,8 @@ bites when no `offspringBreed` is committed — with one, `isHorseBreedFiltered`
 has already dropped the other breeds and every surviving locus weighs 1.
 Without one, it is the difference between "Reach new ground" chasing the 677
 breed-locked slots and chasing the 202 generic ones a base animal is made of.
-The expressed-positive counts (`evPositiveTotal`, `evPositiveWeighted`) are
-left unweighted: they are the `positive_genes` lens, counting what a foal
+The expressed-positive count (`evPositiveTotal`) is
+left unweighted: it is the `positive_genes` lens, counting what a foal
 *expresses*, and reach is a statement about what an allele is *for*.
 
 **Consequence worth knowing:** the cull walk now prices in reach-weighted
