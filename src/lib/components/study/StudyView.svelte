@@ -1,6 +1,7 @@
 <script lang="ts">
 import {
   confirmGeneDeclaration,
+  isCommunitySubject,
   listExcludedSubjects,
   namesForSubjects,
   type RefreshProgress,
@@ -601,17 +602,29 @@ async function solve(target: string): Promise<void> {
 						<h3>Suspect readings</h3>
 						<p>
 							These animals disagree with magnitudes the rest of the stable agrees on. The arithmetic
-							is exact, so a high count almost always means a mis-recorded attribute. Stabled animals
-							come first — those are the ones you can re-read in game and settle.
+							is exact, so a high count almost always means a mis-recorded attribute.
+							<!-- Only when the list has one: with no stabled animal it read as a
+							     claim about the rows below. -->
+							{#if suspects.some(([, s]) => s.stabled)}
+								Stabled animals come first — those are the ones you can re-read in game and settle.
+							{/if}
 						</p>
 						<ul>
 							{#each suspects as [id, s] (id)}
-								<li>
+								<li data-testid="suspect-{id}">
 									<span class="suspect-name">{names.get(id) ?? `#${id}`}</span>
+									<!-- Origin, because a pet whose genome someone also shared is named
+									     like theirs and otherwise reads as someone else's animal. -->
 									{#if s.stabled}
 										<span class="checkable" title="Stabled — re-read this animal in game to settle the disagreement."
 											>checkable</span
 										>
+									{:else if isCommunitySubject(id)}
+										<span class="origin" title="From the community cache — someone else's animal, so you cannot re-read it."
+											>community</span
+										>
+									{:else}
+										<span class="origin" title="One of your pets, but not stabled.">unstabled</span>
 									{/if}
 									<span class="suspect-count">{s.count}</span>
 								</li>
@@ -1107,7 +1120,8 @@ async function solve(target: string): Promise<void> {
 		font-variant-numeric: tabular-nums;
 	}
 
-	.checkable {
+	.checkable,
+	.origin {
 		flex-shrink: 0;
 		padding: 0 var(--space-2xs);
 		border: 1px solid var(--border-primary);
