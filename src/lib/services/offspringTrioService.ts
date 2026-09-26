@@ -87,11 +87,11 @@ export interface OffspringTrioOptions {
    * The candidate pool the pair was ranked against — **the same list**, the
    * parents included.
    *
-   * `Quality` and `Pool gain` are not properties of the pairing: both ask
-   * what the *rest of the stable* can already breed, so attributing them to
-   * loci needs the pool that produced them. Pass a different list and the
-   * trio will honestly explain a score the breeding table never showed.
-   * Omit it and those two contribution lenses are simply not offered.
+   * `Quality` is not a property of the pairing: it asks what the *rest of
+   * the stable* can already breed, so attributing it to loci needs the pool
+   * that produced it. Pass a different list and the trio will honestly
+   * explain a score the breeding table never showed. Omit it and the Quality
+   * lens is simply not offered.
    */
   pool?: readonly Pet[];
   /** Breed-lock weight for `Quality`; mirrors `rankBreedingPairs`. */
