@@ -27,46 +27,17 @@
 import FilterBar from '$lib/components/shared/FilterBar.svelte';
 import StatusBanner from '$lib/components/shared/StatusBanner.svelte';
 import StatusPane from '$lib/components/shared/StatusPane.svelte';
-import { getAllAttributeNames, getAllAttributes, getSupportedSpecies } from '$lib/services/configService.js';
+import { getSupportedSpecies } from '$lib/services/configService.js';
 import { communityView, loadInitial, loadMore, selectPet } from '$lib/stores/community.svelte.js';
 import { type Gender, type SharedPet } from '$lib/types/index.js';
-import { ATTRIBUTE_KEYS } from '$lib/utils/sharedPet.js';
+import { ATTRIBUTE_COLUMNS as ATTR_COLUMNS, attributeApplies } from '$lib/utils/attributeColumns.js';
 import { filterSharedPets, sharedPetOwner } from '$lib/utils/sharedPetFilter.js';
 import { type SortableColumn, sortByColumn } from '$lib/utils/sortColumn.js';
 import { BREEDS_BY_SPECIES } from '$lib/utils/species.js';
-import { capitalize } from '$lib/utils/string.js';
 import { formatShortDate } from '$lib/utils/timestamp.js';
 
-/**
- * The eight published attribute columns, in wire order. Labels come from
- * the config's display names (merged across the supported species, since
- * this table is species-agnostic), matching the My Pets roster's full
- * header naming.
- */
-const ATTR_COLUMNS = (() => {
-  const displayNames: Record<string, string> = {};
-  for (const species of getSupportedSpecies()) {
-    for (const [key, info] of Object.entries(getAllAttributes(species) as Record<string, { name?: string }>)) {
-      displayNames[key] ??= info.name ?? capitalize(key);
-    }
-  }
-  return ATTRIBUTE_KEYS.map((key) => ({ key, label: displayNames[key] ?? capitalize(key) }));
-})();
-
-// Which of the eight attributes apply to a given species — cached per
-// species string so we don't recompute for every cell/row.
-const speciesAttrCache = new Map<string, Set<string>>();
-function attrsForSpecies(species: string): Set<string> {
-  let set = speciesAttrCache.get(species);
-  if (!set) {
-    set = new Set(getAllAttributeNames(species).map((a) => a.toLowerCase()));
-    speciesAttrCache.set(species, set);
-  }
-  return set;
-}
-
 function attrApplies(pet: SharedPet, key: string): boolean {
-  return attrsForSpecies(pet.species).has(key);
+  return attributeApplies(pet.species, key);
 }
 
 /**

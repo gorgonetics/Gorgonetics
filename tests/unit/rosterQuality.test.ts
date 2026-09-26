@@ -131,12 +131,14 @@ describe('Roster — genetic quality column', () => {
     expect(headers(container)).not.toContain('Quality');
   });
 
-  it('hides the column when no single species is selected', async () => {
+  it('scores each species against its own stable when no species is selected (#557)', async () => {
     const pets = await seed();
     petStore.set(pets);
     setView('');
     const { container } = render(Roster, { pets });
-    await waitFor(() => expect(container.querySelector('.roster-table')).toBeTruthy());
-    expect(headers(container)).not.toContain('Quality');
+    await waitFor(() => expect(headers(container)).toContain('Quality'));
+    await waitFor(() => expect(cellFor(container, 'Founder')?.textContent?.trim()).toBe('100.0%◆'));
+    // The share is of this species' stable, and the tooltip says which.
+    expect(cellFor(container, 'Founder')?.getAttribute('title')).toContain('share of the beewasp stable');
   });
 });

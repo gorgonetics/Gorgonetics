@@ -1,25 +1,28 @@
 <script lang="ts">
 /**
- * Roster — the Library's full attribute table, shown in the Workspace when no
- * pet is selected. Absorbs the old Stable tab: a sortable matrix of the
- * filtered pets with Name / Gender / Breed / per-species attributes / Total /
- * +Genes. Receives the already-filtered pets from MyPets (one filterPets pass
- * shared by table and selection); sort + multi-select live in `myPetsView`.
+ * Roster — the My Pets table. A sortable matrix of the filtered pets with
+ * Name / Species / Gender / Breed / attributes / Total / +Genes / Quality /
+ * Imported, laid out like the Community table (#557): attribute columns are
+ * species-aware, filled only where the attribute applies to that row's
+ * species, so every column is useful without choosing a species first.
+ * Receives the already-filtered pets from MyPets (one filterPets pass shared
+ * by table and selection); sort + multi-select live in `myPetsView`.
  * Clicking a name opens that pet; checkboxes build a multi-selection for the
  * lenses.
  * See docs/design/redesign-library-workspace-v1.md (§2.1).
  */
 import PetActions from '$lib/components/shared/PetActions.svelte';
-import { getAllAttributeNames, getAllAttributes, normalizeSpecies } from '$lib/services/configService.js';
+import { normalizeSpecies } from '$lib/services/configService.js';
 import { scoreStable } from '$lib/services/geneticQualityService.js';
 import { myPetsView, setMyPetsSelection, toggleMyPetsSelection } from '$lib/stores/mypets.svelte.js';
 import { pets as allPets } from '$lib/stores/pets.js';
 import { settings } from '$lib/stores/settings.js';
 import type { Pet } from '$lib/types/index.js';
-import { parseBreedLockWeight } from '$lib/utils/geneticQuality.js';
+import { ATTRIBUTE_COLUMNS, attributeApplies } from '$lib/utils/attributeColumns.js';
+import { type GeneticQualityResult, parseBreedLockWeight } from '$lib/utils/geneticQuality.js';
 import { keyedResource } from '$lib/utils/keyedResource.svelte.js';
 import { type SortableColumn, sortByColumn } from '$lib/utils/sortColumn.js';
-import { capitalize } from '$lib/utils/string.js';
+import { formatShortDate } from '$lib/utils/timestamp.js';
 
 interface Props {
   /** The already-filtered pets to list. MyPets computes the visible set once
@@ -36,10 +39,16 @@ interface Column {
   id: string;
   label: string;
   numeric: boolean;
-  accessor: (pet: Pet) => string | number;
+  /** Null where the column does not apply to the pet; rendered as a dash. */
+  accessor: (pet: Pet) => string | number | null;
 }
 
-const num = (pet: Pet, k: string) => (pet as unknown as Record<string, number>)[k] ?? 0;
+/** An attribute's value, or null when it is not one of the pet's species'. */
+function attrValue(pet: Pet, key: string): number | null {
+  if (!attributeApplies(pet.species, key)) return null;
+  const v = (pet as unknown as Record<string, unknown>)[key];
+  return typeof v === 'number' ? v : null;
+}
 
 /**
  * Genetic quality is measured against the **stabled population of one
@@ -48,14 +57,17 @@ const num = (pet: Pet, k: string) => (pet as unknown as Record<string, number>)[
  * would make a search box silently change every score — a pet would look
  * irreplaceable simply because you filtered its rivals out of sight.
  *
- * Needs a single species for the same reason the attribute columns do: the
- * gene set differs per species, so an all-species roster has nothing
- * coherent to compare.
+ * One species at a time, because the gene set differs per species. With no
+ * species chosen each species is scored against its own stable, and a pet's
+ * share is of its own species' total — shares are comparable within a
+ * species, not across (#557).
  */
-const scoredSpecies = $derived(myPetsView.species ? normalizeSpecies(myPetsView.species) : '');
-const scoredPool = $derived(
-  scoredSpecies ? $allPets.filter((p) => p.stabled && normalizeSpecies(p.species) === scoredSpecies) : [],
+const scoredSpecies = $derived(
+  myPetsView.species
+    ? [normalizeSpecies(myPetsView.species)]
+    : [...new Set($allPets.filter((p) => p.stabled).map((p) => normalizeSpecies(p.species)))].sort(),
 );
+const poolOf = (species: string) => $allPets.filter((p) => p.stabled && normalizeSpecies(p.species) === species);
 /**
  * The breed the score values at full weight, and what a benefit locked to
  * any other breed is worth against a breed-generic one.
@@ -72,13 +84,49 @@ const breedLockWeight = $derived(parseBreedLockWeight($settings['quality.breedLo
 // `$pets` re-emit with the same members does not re-score but a settings
 // change does.
 const qualityKey = $derived(
-  scoredPool.length > 0
-    ? `${scoredSpecies}|${focusBreed}|${breedLockWeight ?? 'auto'}|${scoredPool.map((p) => p.id).join(',')}`
+  scoredSpecies.length > 0
+    ? `${focusBreed}|${breedLockWeight ?? 'auto'}|${scoredSpecies
+        .map(
+          (sp) =>
+            `${sp}:${poolOf(sp)
+              .map((p) => p.id)
+              .join(',')}`,
+        )
+        .join(';')}`
     : null,
 );
+/**
+ * Every species' scores merged into one lookup. Species' pet ids never
+ * overlap, and `meaningful` is true when any species clears the population
+ * floor — a species that does not is scored but reads as unmeasured.
+ */
 const quality = keyedResource(
   () => qualityKey,
-  () => scoreStable({ species: scoredSpecies, pets: scoredPool, focusBreed, breedLockWeight }),
+  async () => {
+    const merged = {
+      scores: new Map<number, GeneticQualityResult>(),
+      shares: new Map<number, number>(),
+      unscored: [] as number[],
+      meaningful: false,
+      speciesOf: new Map<number, string>(),
+      /** Species scored but with too few stabled animals to compare. */
+      belowFloor: new Set<string>(),
+    };
+    for (const species of scoredSpecies) {
+      const pool = poolOf(species);
+      const result = await scoreStable({ species, pets: pool, focusBreed, breedLockWeight });
+      merged.unscored.push(...result.unscored);
+      if (!result.meaningful) {
+        merged.belowFloor.add(species);
+        continue;
+      }
+      merged.meaningful = true;
+      for (const [id, r] of result.scores) merged.scores.set(id, r);
+      for (const [id, share] of result.shares) merged.shares.set(id, share);
+      for (const p of pool) merged.speciesOf.set(p.id, species);
+    }
+    return merged;
+  },
 );
 const qualityShare = (pet: Pet) => quality.value?.shares.get(pet.id) ?? 0;
 // Set, not the array: the tooltip asks per row, and the roster renders every
@@ -97,7 +145,7 @@ let qualityEverMeaningful = $state(false);
 $effect(() => {
   if (quality.value) qualityEverMeaningful = quality.value.meaningful;
 });
-const showQuality = $derived(Boolean(scoredSpecies) && (quality.value?.meaningful ?? qualityEverMeaningful));
+const showQuality = $derived(scoredSpecies.length > 0 && (quality.value?.meaningful ?? qualityEverMeaningful));
 
 /**
  * Whether this pet was in the scored population at all. An un-stabled pet
@@ -111,9 +159,12 @@ const wasScored = (pet: Pet) => quality.value?.scores.has(pet.id) ?? false;
 function qualityTitle(pet: Pet): string {
   const r = quality.value?.scores.get(pet.id);
   if (!r) {
-    return unscoredIds.has(pet.id)
-      ? 'Not scored — no usable genome data for this pet. Re-import its genome file.'
-      : 'Not scored — only stabled pets are, since capability is what you can breed from.';
+    if (unscoredIds.has(pet.id)) return 'Not scored — no usable genome data for this pet. Re-import its genome file.';
+    const species = normalizeSpecies(pet.species);
+    if (pet.stabled && quality.value?.belowFloor.has(species)) {
+      return `Not scored — too few stabled ${species} pets to compare against each other.`;
+    }
+    return 'Not scored — only stabled pets are, since capability is what you can breed from.';
   }
   if (r.atRiskCapability === 0) {
     return 'Nothing here is irreplaceable — every beneficial allele it carries is available from another stabled pet.';
@@ -132,7 +183,8 @@ function qualityTitle(pet: Pet): string {
     parts.push(`sole source of ${r.soleSourceSlots}${generic}`);
   }
   if (r.soleLockSlots > 0) parts.push(`only one able to breed ${r.soleLockSlots} true`);
-  parts.push("shown as a share of the stable's total irreplaceable capability");
+  const species = quality.value?.speciesOf.get(pet.id);
+  parts.push(`shown as a share of the ${species ? `${species} ` : ''}stable's total irreplaceable capability`);
   return parts.join(' · ');
 }
 
@@ -150,68 +202,61 @@ const genericLed = (pet: Pet): boolean => {
   return !!r && r.atRiskCapability > 0 && r.genericCapability > r.atRiskCapability / 2;
 };
 
-// Per-attribute columns only when a single species is selected (different
-// species expose different attributes); species-agnostic columns are always
-// shown so the roster is useful for an all-species view too.
-const attrNames = $derived(myPetsView.species ? getAllAttributeNames(myPetsView.species) : []);
-const attrInfo = $derived(
-  myPetsView.species ? (getAllAttributes(myPetsView.species) as Record<string, { name?: string }>) : {},
+/**
+ * Attribute columns that some pet in scope uses. Scope is the species filter
+ * alone, not every filter, so columns stay put while the player types in the
+ * search box — the Community table's rule — but a horse-only view drops the
+ * bees' Ferocity.
+ */
+const inScope = $derived(
+  myPetsView.species
+    ? $allPets.filter((p) => normalizeSpecies(p.species) === normalizeSpecies(myPetsView.species))
+    : $allPets,
 );
+const attrCols = $derived(ATTRIBUTE_COLUMNS.filter((col) => inScope.some((p) => attrValue(p, col.key) !== null)));
 
 // Precompute one attribute total per visible pet so sorting by Total doesn't
 // re-sum every attribute on each O(n log n) comparison.
 const totals = $derived.by(() => {
-  if (attrNames.length === 0) return null;
   const m = new Map<number, number>();
-  for (const p of filtered)
-    m.set(
-      p.id,
-      attrNames.reduce((sum, a) => sum + num(p, a), 0),
-    );
+  for (const p of filtered) {
+    let sum = 0;
+    for (const col of ATTRIBUTE_COLUMNS) sum += attrValue(p, col.key) ?? 0;
+    m.set(p.id, sum);
+  }
   return m;
 });
 
-const columns = $derived.by((): Column[] => {
-  const attrCols: Column[] = attrNames.map((attr) => ({
-    id: attr,
-    label: attrInfo[attr]?.name ?? capitalize(attr),
-    numeric: true,
-    accessor: (pet: Pet) => num(pet, attr),
-  }));
+const importedAt = (pet: Pet): number => {
+  const t = Date.parse(pet.created_at ?? '');
+  return Number.isNaN(t) ? 0 : t;
+};
 
-  // Total only makes sense alongside the per-species attribute columns; under
-  // "All" species there are no attributes to sum, so it would read 0 for every
-  // pet — omit it (and the attr columns) there.
-  const totalCol: Column[] = attrNames.length
-    ? [{ id: 'attr_total', label: 'Total', numeric: true, accessor: (p: Pet) => totals?.get(p.id) ?? 0 }]
-    : [];
-
-  return [
-    { id: 'name', label: 'Name', numeric: false, accessor: (p) => p.name ?? '' },
-    { id: 'gender', label: 'Gender', numeric: false, accessor: (p) => p.gender ?? '' },
-    { id: 'breed', label: 'Breed', numeric: false, accessor: (p) => p.breed ?? '' },
-    ...attrCols,
-    ...totalCol,
-    { id: 'positive_genes', label: '+ Genes', numeric: true, accessor: (p) => p.positive_genes ?? 0 },
-    ...(showQuality
-      ? [
-          {
-            id: 'genetic_quality',
-            label: 'Quality',
-            numeric: true,
-            accessor: (p: Pet) => qualityShare(p),
-          },
-        ]
-      : []),
-  ];
-});
+const columns = $derived.by((): Column[] => [
+  { id: 'name', label: 'Name', numeric: false, accessor: (p) => p.name ?? '' },
+  { id: 'species', label: 'Species', numeric: false, accessor: (p) => p.species ?? '' },
+  { id: 'gender', label: 'Gender', numeric: false, accessor: (p) => p.gender ?? '' },
+  { id: 'breed', label: 'Breed', numeric: false, accessor: (p) => p.breed ?? '' },
+  ...attrCols.map(
+    (col): Column => ({ id: col.key, label: col.label, numeric: true, accessor: (p) => attrValue(p, col.key) }),
+  ),
+  ...(attrCols.length > 0
+    ? [{ id: 'attr_total', label: 'Total', numeric: true, accessor: (p: Pet) => totals.get(p.id) ?? 0 }]
+    : []),
+  { id: 'positive_genes', label: '+ Genes', numeric: true, accessor: (p) => p.positive_genes ?? 0 },
+  ...(showQuality
+    ? [{ id: 'genetic_quality', label: 'Quality', numeric: true, accessor: (p: Pet) => qualityShare(p) }]
+    : []),
+  { id: 'created_at', label: 'Imported', numeric: true, accessor: importedAt },
+]);
 
 const sorted = $derived.by(() => {
   const col = columns.find((c) => c.id === myPetsView.sortCol) ?? columns[0];
   // Reuse the shared, tested comparator (numeric subtract vs localeCompare).
+  // A dash sorts below every value, as in the Community table.
   const sortable: SortableColumn<Pet> = col.numeric
-    ? { numeric: true, accessor: (p) => Number(col.accessor(p)) }
-    : { numeric: false, accessor: (p) => String(col.accessor(p)) };
+    ? { numeric: true, accessor: (p) => Number(col.accessor(p) ?? -1) }
+    : { numeric: false, accessor: (p) => String(col.accessor(p) ?? '') };
   return sortByColumn(filtered, sortable, myPetsView.sortDir);
 });
 
@@ -234,7 +279,8 @@ function toggleSort(colId: string): void {
     myPetsView.sortDir = myPetsView.sortDir === 'asc' ? 'desc' : 'asc';
   } else {
     myPetsView.sortCol = colId;
-    myPetsView.sortDir = 'asc';
+    // Text reads most naturally A→Z; numbers and dates largest or newest first.
+    myPetsView.sortDir = columns.find((c) => c.id === colId)?.numeric ? 'desc' : 'asc';
   }
 }
 
@@ -297,10 +343,17 @@ function open(pet: Pet): void {
               />
             </td>
             {#each columns as col (col.id)}
-              <td class:numeric={col.numeric}>
+              {@const value = col.accessor(pet)}
+              <td
+                class:numeric={col.numeric}
+                class:cell-text={!col.numeric && col.id !== 'name'}
+                class:cell-total={col.id === 'attr_total'}
+                class:cell-date={col.id === 'created_at'}
+                class:muted={value === null}
+              >
                 {#if col.id === 'name'}
                   <button type="button" class="name-btn" data-testid="roster-open" onclick={() => open(pet)}>
-                    {col.accessor(pet)}
+                    {value || '(unnamed)'}
                   </button>
                 {:else if col.id === 'genetic_quality'}
                   <span
@@ -321,8 +374,10 @@ function open(pet: Pet): void {
                         >{/if}
                     {/if}
                   </span>
+                {:else if col.id === 'created_at'}
+                  {value ? formatShortDate(new Date(value)) : '—'}
                 {:else}
-                  {col.accessor(pet)}
+                  {value ?? '—'}
                 {/if}
               </td>
             {/each}
@@ -343,7 +398,14 @@ function open(pet: Pet): void {
   .roster-table td { padding: var(--space-xs) var(--space-md); text-align: left; border-bottom: 1px solid var(--border-primary); white-space: nowrap; }
   .roster-table th.numeric,
   .roster-table td.numeric { text-align: right; }
-  .roster-table thead th { position: sticky; top: 0; background: var(--bg-tertiary); color: var(--text-secondary); font-weight: 600; z-index: 1; }
+  .roster-table thead th { position: sticky; top: 0; background: var(--bg-tertiary); color: var(--text-secondary); font-size: 11px; font-weight: 600; z-index: 1; }
+  /* Cell treatment shared with the Community table (#557). */
+  .roster-table td { color: var(--text-primary); vertical-align: middle; }
+  .roster-table td.numeric { font-variant-numeric: tabular-nums; }
+  .roster-table td.cell-text { color: var(--text-secondary); }
+  .roster-table td.cell-total { font-weight: 600; }
+  .roster-table td.cell-date,
+  .roster-table td.muted { color: var(--text-tertiary); }
   .roster-table th.active-sort { color: var(--accent-text, var(--accent)); }
   .sel-col { width: 1%; text-align: center; }
   .act-col { width: 1%; white-space: nowrap; text-align: right; }

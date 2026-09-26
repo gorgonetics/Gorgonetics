@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import Roster from '$lib/components/mypets/Roster.svelte';
 import { myPetsView } from '$lib/stores/mypets.svelte.js';
+import { pets as petsStore } from '$lib/stores/pets.js';
 import type { Pet } from '$lib/types/index.js';
 
 const pet = (over: Partial<Pet>): Pet =>
@@ -18,9 +19,24 @@ const pet = (over: Partial<Pet>): Pet =>
   }) as unknown as Pet;
 
 const SAMPLE = [
-  pet({ id: 1, name: 'Dusty', gender: 'Male', positive_genes: 30, toughness: 60 } as Partial<Pet>),
-  pet({ id: 2, name: 'Roach', gender: 'Female', positive_genes: 36, toughness: 40 } as Partial<Pet>),
+  pet({
+    id: 1,
+    name: 'Dusty',
+    gender: 'Male',
+    positive_genes: 30,
+    toughness: 60,
+    created_at: '2026-03-01T00:00:00Z',
+  } as Partial<Pet>),
+  pet({
+    id: 2,
+    name: 'Roach',
+    gender: 'Female',
+    positive_genes: 36,
+    toughness: 40,
+    created_at: '2026-05-01T00:00:00Z',
+  } as Partial<Pet>),
 ];
+const BEE = pet({ id: 3, name: 'Buzz', species: 'BeeWasp', breed: '', ferocity: 70, toughness: 55 } as Partial<Pet>);
 
 function resetView() {
   myPetsView.search = '';
@@ -38,11 +54,15 @@ function resetView() {
 
 beforeEach(() => {
   resetView();
+  // Column visibility reads the whole collection, as the Community table
+  // reads the whole loaded catalogue.
+  petsStore.set([...SAMPLE, BEE]);
 });
 
 afterEach(() => {
   cleanup();
   resetView();
+  petsStore.set([]);
 });
 
 const headers = (c: HTMLElement) => [...c.querySelectorAll('thead .sort-btn')].map((b) => b.textContent?.trim());
@@ -50,23 +70,37 @@ const rowNames = (c: HTMLElement) =>
   [...c.querySelectorAll('[data-testid="roster-open"]')].map((b) => b.textContent?.trim());
 
 describe('Roster', () => {
-  it('shows species-agnostic columns when no species is selected (no per-attribute columns)', () => {
-    const { container } = render(Roster, { pets: SAMPLE });
-    const labels = headers(container);
-    expect(labels?.some((l) => l?.startsWith('Name'))).toBe(true);
-    expect(labels).toContain('Gender');
-    expect(labels?.some((l) => l?.startsWith('+ Genes'))).toBe(true);
-    // No horse attribute column (e.g. Toughness) until a species is chosen…
-    expect(labels?.some((l) => l?.toLowerCase().includes('toughness'))).toBe(false);
-    // …and no Total either — with no attributes to sum it would read 0 for all.
-    expect(labels?.some((l) => l?.startsWith('Total'))).toBe(false);
+  it('shows attribute columns without a species, filled only where they apply (#557)', () => {
+    const { container } = render(Roster, { pets: [...SAMPLE, BEE] });
+    const labels = headers(container).map((l) => l?.toLowerCase() ?? '');
+    expect(labels).toEqual(expect.arrayContaining(['species', 'gender', 'toughness', 'ferocity', 'total', 'imported']));
+    // Ferocity is a bee attribute: a horse row shows a dash, not a zero.
+    const cellsOf = (id: number) => [
+      ...(container.querySelector(`tr[data-pet-id="${id}"]`)?.querySelectorAll('td') ?? []),
+    ];
+    const ferocityAt = headers(container).findIndex((l) => l?.toLowerCase().startsWith('ferocity')) + 1;
+    expect(cellsOf(1)[ferocityAt]?.textContent?.trim()).toBe('—');
+    expect(cellsOf(3)[ferocityAt]?.textContent?.trim()).toBe('70');
   });
 
-  it('adds per-attribute columns when a species is selected', () => {
+  it("drops the other species' attributes when a species is selected", () => {
     myPetsView.species = 'horse';
     const { container } = render(Roster, { pets: SAMPLE });
     const labels = headers(container).map((l) => l?.toLowerCase() ?? '');
     expect(labels.some((l) => l.includes('toughness'))).toBe(true);
+    expect(labels.some((l) => l.includes('ferocity'))).toBe(false);
+  });
+
+  it('sorts by import date, newest first on the first click (#557)', async () => {
+    const { container } = render(Roster, { pets: SAMPLE });
+    const imported = [...container.querySelectorAll('thead .sort-btn')].find((b) =>
+      b.textContent?.startsWith('Imported'),
+    ) as HTMLButtonElement;
+    await fireEvent.click(imported);
+    expect(myPetsView.sortCol).toBe('created_at');
+    expect(rowNames(container)).toEqual(['Roach', 'Dusty']);
+    await fireEvent.click(imported);
+    expect(rowNames(container)).toEqual(['Dusty', 'Roach']);
   });
 
   // Filtering itself lives in MyPets (one filterPets pass, #405); the roster
@@ -85,28 +119,29 @@ describe('Roster', () => {
       b.textContent?.startsWith('Total'),
     ) as HTMLButtonElement;
     expect(total).toBeTruthy();
-    // Dusty toughness 60, Roach 40 → asc: Roach, Dusty.
+    // Dusty toughness 60, Roach 40 → a number sorts largest first: Dusty, Roach.
     await fireEvent.click(total);
     expect(myPetsView.sortCol).toBe('attr_total');
-    expect(rowNames(container)).toEqual(['Roach', 'Dusty']);
-    await fireEvent.click(total);
     expect(rowNames(container)).toEqual(['Dusty', 'Roach']);
+    await fireEvent.click(total);
+    expect(rowNames(container)).toEqual(['Roach', 'Dusty']);
   });
 
   it('sorts by a clicked column and toggles direction', async () => {
     const { container } = render(Roster, { pets: SAMPLE });
     // Default name asc → Dusty, Roach.
     expect(rowNames(container)).toEqual(['Dusty', 'Roach']);
-    // Click +Genes → asc (30, 36) → Dusty, Roach; click again → desc → Roach, Dusty.
+    // Click +Genes → desc (36, 30) → Roach, Dusty; click again → asc → Dusty, Roach.
     const plusGenes = [...container.querySelectorAll('thead .sort-btn')].find((b) =>
       b.textContent?.includes('+ Genes'),
     ) as HTMLButtonElement;
     await fireEvent.click(plusGenes);
     expect(myPetsView.sortCol).toBe('positive_genes');
-    expect(rowNames(container)).toEqual(['Dusty', 'Roach']);
-    await fireEvent.click(plusGenes);
     expect(myPetsView.sortDir).toBe('desc');
     expect(rowNames(container)).toEqual(['Roach', 'Dusty']);
+    await fireEvent.click(plusGenes);
+    expect(myPetsView.sortDir).toBe('asc');
+    expect(rowNames(container)).toEqual(['Dusty', 'Roach']);
   });
 
   it('clicking a pet name invokes onOpen with that pet (separate from selection)', async () => {
