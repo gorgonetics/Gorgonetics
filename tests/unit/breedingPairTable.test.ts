@@ -408,4 +408,72 @@ describe('BreedingPairTable — attribute columns', () => {
     expect(cells.some((text) => text?.startsWith('6'))).toBe(true);
     expect(cells.some((text) => text?.startsWith('0.5'))).toBe(true);
   });
+
+  it('has no Net pts column until the study has measured something', async () => {
+    const { container, rerender } = render(BreedingPairTable, {
+      results: scored(),
+      attrNames: ['Toughness', 'Friendliness'],
+    });
+    await rerender({});
+    expect(headers(container)).not.toContain('Net pts');
+    expect(container.querySelector('[data-testid="pair-net-points"]')).toBeNull();
+  });
+
+  it('sums the measured attributes into Net pts, with coverage over every attribute', async () => {
+    const finding = (gene: string, attribute: string, magnitude: number): StudyFinding => ({
+      gene,
+      expression: 'dominant',
+      attribute,
+      magnitude,
+      tier: 'direct',
+      depth: 0,
+      support: 5,
+      dissent: 0,
+      witnesses: [],
+    });
+    const two = buildAttributeMagnitudes([
+      study('toughness', 9, [finding('01A1', 'toughness', 4)]),
+      study('friendliness', 4, [finding('01A2', 'friendliness', -2)]),
+    ]);
+    // Parent nets: male 4 + 0 = 4, female 2 − 3 = −1. The better parent is 4.
+    const profile = (toughness: number, friendliness: number) => ({
+      positives: 0,
+      negatives: 0,
+      positivesByAttribute: {},
+      pointsByAttribute: { Toughness: toughness, Friendliness: friendliness },
+      lockedPositives: 0,
+    });
+    const render_ = (foalFriendliness: number) =>
+      render(BreedingPairTable, {
+        results: [
+          {
+            ...scored()[0],
+            evPointsByAttribute: { Toughness: 6, Friendliness: foalFriendliness },
+            maleProfile: profile(4, 0),
+            femaleProfile: profile(2, -3),
+          },
+        ],
+        attrNames: ['Toughness', 'Friendliness'],
+        magnitudes: two,
+      });
+
+    const { container, rerender, unmount } = render_(-1.5);
+    await rerender({});
+    const header = [...container.querySelectorAll('th')].find((th) => th.textContent?.trim() === 'Net pts');
+    expect(header?.getAttribute('title')).toContain('2 of 13');
+    const cell = container.querySelector('[data-testid="pair-net-points"]');
+    expect(cell?.textContent?.trim()).toMatch(/^4\.5/);
+    // 4.5 against the better parent's 4.
+    const up = cell?.querySelector('[data-testid="pair-delta"]');
+    expect(up?.textContent).toBe('+0.5');
+    expect(up?.className).toContain('up');
+    unmount();
+
+    // A foal below the better parent gets a signed gap the other way: 6 − 4 = 2 < 4.
+    const below = render_(-4);
+    await below.rerender({});
+    const down = below.container.querySelector('[data-testid="pair-net-points"] [data-testid="pair-delta"]');
+    expect(down?.textContent).toBe('−2.0');
+    expect(down?.className).toContain('down');
+  });
 });
