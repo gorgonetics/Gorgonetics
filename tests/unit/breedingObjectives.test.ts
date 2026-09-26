@@ -26,8 +26,13 @@ function pair(overrides: Partial<BreedingPairResult>): BreedingPairResult {
     evNegativeTotal: 0,
     evLiabilityReduction: 0,
     cleanerParentNegatives: 0,
-    maleProfile: { positives: 0, negatives: 0, positivesByAttribute: {} },
-    femaleProfile: { positives: 0, negatives: 0, positivesByAttribute: {} },
+    evLockedPositives: 0,
+    evClarifyImprovement: 0,
+    betterParentLockedPositives: 0,
+    lockedPositiveSd: 0,
+    lockedInPoints: false,
+    maleProfile: { positives: 0, negatives: 0, positivesByAttribute: {}, lockedPositives: 0 },
+    femaleProfile: { positives: 0, negatives: 0, positivesByAttribute: {}, lockedPositives: 0 },
     positiveSd: 0,
     negativeSd: 0,
     evUnknown: 0,
@@ -50,9 +55,18 @@ describe('breeding objectives', () => {
       evPairUpgrade: 3,
       evLiabilityReduction: 4,
       evPositiveTotal: 5,
+      evClarifyImprovement: 6,
     });
     const scores = BREEDING_OBJECTIVES.map((o) => o.score(p));
     expect(new Set(scores).size).toBe(BREEDING_OBJECTIVES.length);
+  });
+
+  it('ranks Clarify positives by the foal breeding true beyond the better parent', () => {
+    const clarify = BREEDING_OBJECTIVES.find((o) => o.id === 'clarify') as (typeof BREEDING_OBJECTIVES)[number];
+    // A high locked level alone scores nothing; only the improvement counts.
+    const level = pair({ evLockedPositives: 40, evClarifyImprovement: 0.1 });
+    const improver = pair({ evLockedPositives: 12, evClarifyImprovement: 3 });
+    expect(clarify.score(improver)).toBeGreaterThan(clarify.score(level));
   });
 
   it('picks genuinely different winners — the point of offering a choice', () => {

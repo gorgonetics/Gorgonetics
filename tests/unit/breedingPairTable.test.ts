@@ -34,8 +34,13 @@ const result = (male: Pet, female: Pet): BreedingPairResult => ({
   evNegativeTotal: 0,
   evLiabilityReduction: 0,
   cleanerParentNegatives: 0,
-  maleProfile: { positives: 2, negatives: 0, positivesByAttribute: {} },
-  femaleProfile: { positives: 1, negatives: 0, positivesByAttribute: {} },
+  evLockedPositives: 0,
+  evClarifyImprovement: 0,
+  betterParentLockedPositives: 0,
+  lockedPositiveSd: 0,
+  lockedInPoints: false,
+  maleProfile: { positives: 2, negatives: 0, positivesByAttribute: {}, lockedPositives: 0 },
+  femaleProfile: { positives: 1, negatives: 0, positivesByAttribute: {}, lockedPositives: 0 },
   positiveSd: 0,
   negativeSd: 0,
   evUnknown: 0,
@@ -259,8 +264,8 @@ describe('BreedingPairTable — reading the absolute columns against the parents
       betterParentPositives: 336,
       weakerParentPositives: 236,
       evPositiveImprovement: 0,
-      maleProfile: { positives: 336, negatives: 0, positivesByAttribute: {} },
-      femaleProfile: { positives: 236, negatives: 0, positivesByAttribute: {} },
+      maleProfile: { positives: 336, negatives: 0, positivesByAttribute: {}, lockedPositives: 0 },
+      femaleProfile: { positives: 236, negatives: 0, positivesByAttribute: {}, lockedPositives: 0 },
     };
     const { container, rerender } = render(BreedingPairTable, { results: [worse], attrNames: [] });
     await rerender({});
@@ -280,8 +285,8 @@ describe('BreedingPairTable — reading the absolute columns against the parents
       ...result(male, female),
       evPositiveTotal: 12,
       betterParentPositives: 8,
-      maleProfile: { positives: 8, negatives: 0, positivesByAttribute: {} },
-      femaleProfile: { positives: 3, negatives: 0, positivesByAttribute: {} },
+      maleProfile: { positives: 8, negatives: 0, positivesByAttribute: {}, lockedPositives: 0 },
+      femaleProfile: { positives: 3, negatives: 0, positivesByAttribute: {}, lockedPositives: 0 },
     };
     const { container, rerender } = render(BreedingPairTable, { results: [better], attrNames: [] });
     await rerender({});
@@ -305,8 +310,8 @@ describe('BreedingPairTable — reading the absolute columns against the parents
       evPositiveByAttribute: { Intelligence: 6 },
       // Aggregate counts are equal, so the + genes gap is nil — but the male
       // leads on Intelligence, and the foal falls four short of him there.
-      maleProfile: { positives: 40, negatives: 0, positivesByAttribute: { Intelligence: 10 } },
-      femaleProfile: { positives: 40, negatives: 0, positivesByAttribute: { Intelligence: 4 } },
+      maleProfile: { positives: 40, negatives: 0, positivesByAttribute: { Intelligence: 10 }, lockedPositives: 0 },
+      femaleProfile: { positives: 40, negatives: 0, positivesByAttribute: { Intelligence: 4 }, lockedPositives: 0 },
     };
     const { container, rerender } = render(BreedingPairTable, { results: [pair], attrNames: ['Intelligence'] });
     await rerender({});

@@ -278,7 +278,7 @@ const contributionStats = $derived.by(() => {
 const breedDiverged = $derived(selectedBreed !== offspringBreed);
 
 /**
- * The three scores that cannot be attributed to a locus, each with the three
+ * The scores that cannot be attributed to a locus, each with the three
  * numbers that actually produce it. Ceiling and Floor share a mean and a
  * spread and differ only in the baseline — laying them out together is the
  * clearest statement of what separates the two strategies.
@@ -315,6 +315,18 @@ const improvementRows = $derived.by(() => {
       sd: scores.negativeSd,
       baseline: scores.cleanerParentNegatives,
       baselineLabel: 'cleaner parent',
+    },
+    {
+      id: 'clarify',
+      label: 'Clarify',
+      score: scores.evClarifyImprovement,
+      formula: scores.lockedInPoints
+        ? 'E[max(0, foal locked positive points − better parent)]'
+        : 'E[max(0, foal locked positives − better parent)]',
+      mean: scores.evLockedPositives,
+      sd: scores.lockedPositiveSd,
+      baseline: scores.betterParentLockedPositives,
+      baselineLabel: 'better parent',
     },
   ];
 });
