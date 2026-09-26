@@ -45,35 +45,11 @@ import { getAllAttributeNames, normalizeSpecies } from './configService.js';
 import { getParsedGenesCached, isHorseBreedFiltered, type ParsedGeneRecord } from './geneService.js';
 
 /**
- * How well the candidate pool already covers a positive slot:
- * `locked` — some pet expresses it outright, `partial` — only carriers
- * exist, `missing` — nothing in the pool carries it.
- */
-export type CoverageTier = 'locked' | 'partial' | 'missing';
-
-/** Per-gene pool coverage, tracked separately for each positive slot. */
-export interface SlotCoverage {
-  /** Coverage of the dominant-positive slot (`dominantSign === '+'`). */
-  dom: CoverageTier;
-  /** Coverage of the recessive-positive slot (`recessiveSign === '+'`). */
-  rec: CoverageTier;
-}
-
-export type PoolCoverage = Map<string, SlotCoverage>;
-
-/**
- * Gap weight per tier — a missing positive is worth more than re-covering a
- * locked one. Mirrors PGBeeYiKeeper's coverage multipliers, adapted to the
- * horse two-slot model (see issue #358).
- */
-export const GAP_WEIGHT: Record<CoverageTier, number> = { missing: 2.0, partial: 1.2, locked: 0.6 };
-
-/**
  * The (capitalized) attribute each positive slot targets, or null when that
  * slot isn't a named positive — a slot counts only when its sign is `'+'` and
  * it names an attribute. The single source of truth for slot eligibility,
- * shared by `buildPoolCoverage` and `accumulatePositive` so coverage and
- * scoring can't drift on which loci count.
+ * shared by `accumulatePositive` and `ownExpressedProfile` so a foal and its
+ * parents are counted over the same loci.
  */
 function positiveSlots(gd: ParsedGeneRecord): { dom: string | null; rec: string | null } {
   return {
@@ -87,7 +63,7 @@ function positiveSlots(gd: ParsedGeneRecord): { dom: string | null; rec: string 
  *
  * Deliberately not `positiveSlots`. That one is the eligibility rule for
  * counting — a slot counts when it is a *positive* naming an attribute —
- * and coverage and scoring share it so they cannot drift. Points need the
+ * and the foal and parent counts share it so they cannot drift. Points need the
  * other set: an attribute's expected change is what the foal gains minus
  * what it loses, so a points figure built from positive slots alone would
  * rank a pairing adding `+5` and `-6` above one adding `+4`. Two rules
@@ -98,57 +74,6 @@ function attributeSlots(gd: ParsedGeneRecord): { dom: string | null; rec: string
     dom: gd.dominantAttribute ? capitalize(gd.dominantAttribute) : null,
     rec: gd.recessiveAttribute ? capitalize(gd.recessiveAttribute) : null,
   };
-}
-
-/**
- * One pass over the whole candidate pool to classify, per gene, how well each
- * positive slot is already covered. A horse gene has up to two positive slots
- * (a dominant-positive and a recessive-positive, often on *different*
- * attributes), so coverage is tracked per slot, not per gene:
- *
- * - dominant-positive: `locked` if any pet is `D`, else `partial` if any `x`,
- *   else `missing` (all `R`/unknown).
- * - recessive-positive: `locked` if any pet is `R`, else `partial` if any `x`
- *   (carrier), else `missing` (all `D`/unknown).
- *
- * Only genes with at least one positive slot are tracked; breed-locked-to-
- * other-breed loci are excluded (same `isHorseBreedFiltered` gate as scoring),
- * so coverage and scoring agree on which loci exist.
- */
-export function buildPoolCoverage(
-  lociList: Iterable<PetLoci>,
-  parsedGenes: Record<string, ParsedGeneRecord>,
-  species: string,
-  offspringBreed: string | undefined,
-): PoolCoverage {
-  const flags = new Map<string, { d: boolean; x: boolean; r: boolean }>();
-  for (const loci of lociList) {
-    for (const [geneId, type] of loci) {
-      const gd = parsedGenes[geneId];
-      if (!gd) continue;
-      const slots = positiveSlots(gd);
-      if (!slots.dom && !slots.rec) continue;
-      if (isHorseBreedFiltered(species, offspringBreed, gd.breed)) continue;
-      let f = flags.get(geneId);
-      if (!f) {
-        f = { d: false, x: false, r: false };
-        flags.set(geneId, f);
-      }
-      if (type === GeneType.DOMINANT) f.d = true;
-      else if (type === GeneType.MIXED) f.x = true;
-      else if (type === GeneType.RECESSIVE) f.r = true;
-      // UNKNOWN carries no positive allele → contributes no coverage.
-    }
-  }
-
-  const coverage: PoolCoverage = new Map();
-  for (const [geneId, f] of flags) {
-    coverage.set(geneId, {
-      dom: f.d ? 'locked' : f.x ? 'partial' : 'missing',
-      rec: f.r ? 'locked' : f.x ? 'partial' : 'missing',
-    });
-  }
-  return coverage;
 }
 
 export interface RankBreedingPairsOptions {
@@ -193,16 +118,10 @@ export interface RankBreedingPairsOptions {
 
 /**
  * Add this locus's contribution to the per-attribute positive-expression
- * tally (`into`). Returns the raw total plus the pool-gap-weighted total —
- * each slot's mass scaled by `GAP_WEIGHT` for its coverage tier — so the
- * caller keeps both running aggregates without re-summing the record. Only
- * the scalar weighted total is surfaced; the breakdown stays raw (the UI
- * sorts the weighted figure as a single "Pool gain" column).
+ * tally (`into`) and its variance, and return the locus's expected positive
+ * count so the caller can keep the running total.
  *
- * `cov` is this gene's pool coverage; absent (shouldn't happen for a locus
- * present in the pool) it defaults to the `missing` weight.
- *
- * Exported for the trio view, which attributes a pair's `Pool gain` back to
+ * Exported for the trio view, which attributes a pair's `+ genes` back to
  * individual loci. It calls this with scratch records it discards, keeping
  * one implementation of the slot math: a second copy would be free to drift
  * on which slots count, and the explanation would then contradict the column
@@ -211,13 +130,11 @@ export interface RankBreedingPairsOptions {
 export function accumulatePositive(
   dist: AlleleDistribution,
   gd: ParsedGeneRecord,
-  cov: SlotCoverage | undefined,
   into: Record<string, number>,
   variance: Record<string, number>,
-): { total: number; weighted: number } {
+): number {
   const slots = positiveSlots(gd);
   let total = 0;
-  let weighted = 0;
   let pDom = 0;
   let pRec = 0;
   if (slots.dom) {
@@ -227,7 +144,6 @@ export function accumulatePositive(
       into[slots.dom] = (into[slots.dom] ?? 0) + p;
       variance[slots.dom] = (variance[slots.dom] ?? 0) + p * (1 - p);
       total += p;
-      weighted += p * GAP_WEIGHT[cov?.dom ?? 'missing'];
     }
   }
   if (slots.rec) {
@@ -237,14 +153,13 @@ export function accumulatePositive(
       into[slots.rec] = (into[slots.rec] ?? 0) + p;
       variance[slots.rec] = (variance[slots.rec] ?? 0) + p * (1 - p);
       total += p;
-      weighted += p * GAP_WEIGHT[cov?.rec ?? 'missing'];
     }
   }
   // No shipped gene template has both *positive* slots on one attribute
   // (checked across all horse and beewasp chromosomes), but gene tables are
   // user-editable, so the correction is applied rather than assumed away.
   if (slots.dom && slots.dom === slots.rec) exclusiveSlotCovariance(slots.dom, pDom, 1, pRec, 1, variance);
-  return { total, weighted };
+  return total;
 }
 
 /**
@@ -416,7 +331,6 @@ function scorePair(
   mLoci: PetLoci,
   fLoci: PetLoci,
   parsedGenes: Record<string, ParsedGeneRecord>,
-  coverage: PoolCoverage,
   tallies: Map<string, AlleleTally>,
   ownProfiles: Map<number, ParentExpressedProfile>,
   offspringBreed: string | undefined,
@@ -438,7 +352,6 @@ function scorePair(
   let evMixed = 0;
   let evUnknown = 0;
   let evPositiveTotal = 0;
-  let evPositiveWeighted = 0;
   let evCapabilityGain = 0;
   // Variance of the offspring's positive count. Per-locus outcomes are
   // independent given the parents, so the count is Poisson-binomial and its
@@ -457,15 +370,7 @@ function scorePair(
     evUnknown += dist.unknown;
     totalLoci++;
     if (gd) {
-      const { total, weighted } = accumulatePositive(
-        dist,
-        gd,
-        coverage.get(geneId),
-        evPositiveByAttribute,
-        attributeVariance,
-      );
-      evPositiveTotal += total;
-      evPositiveWeighted += weighted;
+      evPositiveTotal += accumulatePositive(dist, gd, evPositiveByAttribute, attributeVariance);
       if (evPointsByAttribute && pointVariance)
         accumulatePoints(dist, geneId, gd, magnitudes, evPointsByAttribute, pointVariance);
       // Breed reach: without a committed offspring breed every locus in the
@@ -524,7 +429,6 @@ function scorePair(
     evPositiveByAttribute,
     ...(evPointsByAttribute ? { evPointsByAttribute, evAttributePointImprovement } : {}),
     evPositiveTotal,
-    evPositiveWeighted,
     evCapabilityGain,
     evPositiveImprovement: expectedImprovement(evPositiveTotal, sd, betterParentPositives),
     evPairUpgrade: expectedImprovement(evPositiveTotal, sd, weakerParentPositives),
@@ -628,9 +532,6 @@ export async function rankBreedingPairs(opts: RankBreedingPairsOptions): Promise
   const empty: PetLoci = new Map();
   const results: BreedingPairResult[] = [];
 
-  // Pool coverage is computed once over the whole candidate set, then shared
-  // across every pair — the gap weights describe the pool, not the pair.
-  const coverage = buildPoolCoverage(petLociMap.values(), parsedGenes, species, opts.offspringBreed);
   // Capability is measured against the whole candidate pool, parents
   // included: a pairing that only reproduces what the stable already breeds
   // true must score nothing, and that has to fall out of the arithmetic.
@@ -667,7 +568,6 @@ export async function rankBreedingPairs(opts: RankBreedingPairsOptions): Promise
           mLoci,
           fLoci,
           parsedGenes,
-          coverage,
           tallies,
           ownProfiles,
           opts.offspringBreed,

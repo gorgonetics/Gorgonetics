@@ -253,7 +253,6 @@ describe('computeOffspringTrio — per-locus score contributions', () => {
     const sum = (pick: (g: (typeof genes)[number]) => number) => genes.reduce((acc, g) => acc + pick(g), 0);
 
     expect(sum((g) => g.contributions.positive)).toBeCloseTo(row!.evPositiveTotal, 10);
-    expect(sum((g) => g.contributions.poolGain)).toBeCloseTo(row!.evPositiveWeighted, 10);
     expect(sum((g) => g.contributions.capability)).toBeCloseTo(row!.evCapabilityGain, 10);
   });
 
@@ -271,19 +270,16 @@ describe('computeOffspringTrio — per-locus score contributions', () => {
 
     // 01A1 is recessive-positive; x × x puts 0.25 on the recessive outcome.
     expect(byId['01A1'].contributions.positive).toBeCloseTo(0.25, 10);
-    // Only carriers in the pool → the `partial` gap weight, 1.2.
-    expect(byId['01A1'].contributions.poolGain).toBeCloseTo(0.3, 10);
     // Pool capability at the slot is 0.5 (carriers, no homozygote); the foal
     // reaches homozygous-recessive a quarter of the time.
     expect(byId['01A1'].contributions.capability).toBeCloseTo(0.125, 10);
 
     // 01A2 is recessive-negative: no positive slot, so nothing to attribute.
-    expect(byId['01A2'].contributions).toEqual({ positive: 0, poolGain: 0, capability: 0 });
+    expect(byId['01A2'].contributions).toEqual({ positive: 0, capability: 0 });
 
     // 01A3 is dominant-positive and x × D, so the foal always expresses it —
     // but the pool already locks it, so it adds no capability.
     expect(byId['01A3'].contributions.positive).toBeCloseTo(1, 10);
-    expect(byId['01A3'].contributions.poolGain).toBeCloseTo(0.6, 10);
     expect(byId['01A3'].contributions.capability).toBe(0);
   });
 
@@ -291,7 +287,7 @@ describe('computeOffspringTrio — per-locus score contributions', () => {
    * The pool is handed over unfiltered, but `rankBreedingPairs` only ever
    * loads the animals it pairs. A row whose gender is neither — `Gender` is a
    * TypeScript union, not a database constraint — would otherwise feed this
-   * view's coverage and tallies alone, and the totals would stop reconciling.
+   * view's tallies alone, and the totals would stop reconciling.
    */
   it('ignores a pool member the ranking would never pair', async () => {
     await registerGenes();
@@ -310,7 +306,6 @@ describe('computeOffspringTrio — per-locus score contributions', () => {
     const genes = chromosomes.flatMap((c) => c.genes);
     const sum = (pick: (g: (typeof genes)[number]) => number) => genes.reduce((acc, g) => acc + pick(g), 0);
 
-    expect(sum((g) => g.contributions.poolGain)).toBeCloseTo(row!.evPositiveWeighted, 10);
     expect(sum((g) => g.contributions.capability)).toBeCloseTo(row!.evCapabilityGain, 10);
   });
 
@@ -323,24 +318,21 @@ describe('computeOffspringTrio — per-locus score contributions', () => {
     expect(summary.poolScored).toBe(false);
 
     const genes = chromosomes.flatMap((c) => c.genes);
-    // Total + needs only the two parents, so it is still attributed...
+    // + genes needs only the two parents, so it is still attributed...
     expect(genes.some((g) => g.contributions.positive > 0)).toBe(true);
-    // ...but Quality and Pool gain are measured against the rest of the
-    // stable, and must read zero rather than fall back to a `missing` gap
-    // weight that would invent a pool the caller never supplied.
+    // ...but Quality is measured against the rest of the stable, and must
+    // read zero rather than invent a pool the caller never supplied.
     expect(genes.every((g) => g.contributions.capability === 0)).toBe(true);
-    expect(genes.every((g) => g.contributions.poolGain === 0)).toBe(true);
   });
 
   /**
    * A locus where both parents are homozygous for the same allele is "locked":
    * every foal is that genotype, so nothing about it can change. It still
-   * contributes to Pool gain and Total +, because neither measures a change —
-   * both are absolute expected counts of what the foal expresses, and Pool
-   * gain only re-weights that count by pool coverage. Quality is the one that
-   * differences, so a locked positive contributes exactly nothing to it.
+   * contributes to + genes, because that measures no change — it is the
+   * absolute expected count of what the foal expresses. Quality is the one
+   * that differences, so a locked positive contributes exactly nothing to it.
    */
-  it('counts a locked positive toward Pool gain and Total + but never toward Quality', async () => {
+  it('counts a locked positive toward + genes but never toward Quality', async () => {
     await registerGenes();
     // Both parents homozygous dominant at every locus → every locus locked.
     const father = await uploadParent('Sire', Gender.MALE, 'DDD');
@@ -351,18 +343,16 @@ describe('computeOffspringTrio — per-locus score contributions', () => {
     const byId = Object.fromEntries(chromosomes.flatMap((c) => c.genes).map((g) => [g.geneId, g]));
 
     // 01A3 is dominant-positive, so a D × D lock means the foal always
-    // expresses it: full mass on Total +, scaled by the `locked` gap weight
-    // (0.6) for Pool gain.
+    // expresses it: full mass on + genes.
     expect(byId['01A3'].fatherType).toBe('D');
     expect(byId['01A3'].motherType).toBe('D');
     expect(byId['01A3'].contributions.positive).toBeCloseTo(1, 10);
-    expect(byId['01A3'].contributions.poolGain).toBeCloseTo(0.6, 10);
     // ...but the pool already breeds it true, so it adds no capability at all.
     expect(byId['01A3'].contributions.capability).toBe(0);
 
     // 01A1's positive is on the recessive allele, which a D × D pair can never
     // produce — locked, and contributing to nothing.
-    expect(byId['01A1'].contributions).toEqual({ positive: 0, poolGain: 0, capability: 0 });
+    expect(byId['01A1'].contributions).toEqual({ positive: 0, capability: 0 });
   });
 
   /**

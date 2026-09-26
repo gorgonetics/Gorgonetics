@@ -238,16 +238,10 @@ const CONTRIBUTION_LENSES: readonly {
     help: 'Tint each locus by its share of Quality — the capability the foal adds that the pool cannot already breed true.',
   },
   {
-    id: 'poolGain',
-    label: 'Pool-weighted +',
-    needsPool: true,
-    help: 'Tint each locus by its share of Pool-weighted + — expected positives weighted by how thinly the pool already covers each slot. Not a gain over the parents: a positive both parents already breed true still counts, at the lowest weight.',
-  },
-  {
     id: 'positive',
-    label: 'Total +',
+    label: '+ genes',
     needsPool: false,
-    help: 'Tint each locus by its share of Total + — the probability the foal expresses a positive here.',
+    help: 'Tint each locus by its share of + genes — the probability the foal expresses a positive here. A count, not a size.',
   },
 ];
 
@@ -330,7 +324,6 @@ const additiveRows = $derived.by(() => {
   if (!scores) return [];
   const score: Record<Exclude<TrioContributionMode, 'off'>, number> = {
     capability: scores.evCapabilityGain,
-    poolGain: scores.evPositiveWeighted,
     positive: scores.evPositiveTotal,
   };
   return availableLenses.map((l) => ({ id: l.id, label: l.label, score: score[l.id] }));
@@ -464,7 +457,7 @@ async function load(f: Pet, m: Pet, breed: string) {
       getGeneEffectsCached(sp),
     ]);
     if (mine !== loadSeq) return;
-    // Quality and Pool gain need the candidate pool. Opened without one (or
+    // Quality needs the candidate pool. Opened without one (or
     // with an empty one), fall back rather than tint every cell at zero — a
     // uniform grid reads as "nothing contributes", which is a different claim.
     if (!result.summary.poolScored && contributionMode !== 'off' && contributionMode !== 'positive') {

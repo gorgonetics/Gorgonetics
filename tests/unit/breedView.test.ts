@@ -80,7 +80,6 @@ const pairStub = (evCapabilityGain: number): BreedingPairResult => ({
   evMixed: 0,
   evPositiveByAttribute: {},
   evPositiveTotal: 0,
-  evPositiveWeighted: 0,
   evCapabilityGain,
   evPositiveImprovement: 0,
   evPairUpgrade: 0,

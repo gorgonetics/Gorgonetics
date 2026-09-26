@@ -25,7 +25,6 @@ const result = (male: Pet, female: Pet): BreedingPairResult => ({
   evMixed: 1,
   evPositiveByAttribute: {},
   evPositiveTotal: 2,
-  evPositiveWeighted: 2,
   evCapabilityGain: 1,
   evPositiveImprovement: 0.5,
   evPairUpgrade: 1.5,
@@ -222,12 +221,12 @@ describe('BreedingPairTable — column integrity', () => {
     expect(at('Quality')).toBe('1.0');
     expect(at('Ceiling')).toBe('0.5');
     expect(at('Floor')).toBe('1.5');
-    expect(at('Total +')).toBe('2.0');
+    expect(at('+ genes')).toBe('2.0');
   });
 });
 
 /**
- * The absolute columns (Total +, the per-attribute ones) are expected counts
+ * The absolute columns (+ genes, the per-attribute ones) are expected counts
  * with no baseline of their own. Read alone they cannot answer the question
  * breeding is actually asking — is this foal better than its parents — so the
  * table carries the parents' own counts and the signed gap.
@@ -251,7 +250,7 @@ describe('BreedingPairTable — reading the absolute columns against the parents
    * `E[max(0, ...)]`, so a foal far below the better parent and one barely
    * below it both read 0.00. The gap has to come from somewhere else.
    */
-  it('shows an unclamped signed gap under Total +, including when the foal is worse', async () => {
+  it('shows an unclamped signed gap under + genes, including when the foal is worse', async () => {
     const male = pet({ id: 1, name: 'Dusty', gender: 'Male' });
     const female = pet({ id: 2, name: 'Roach' });
     const worse: BreedingPairResult = {
@@ -270,8 +269,8 @@ describe('BreedingPairTable — reading the absolute columns against the parents
     // Ceiling bottoms out at zero and says nothing about the size of the gap...
     expect(at('Ceiling').textContent?.trim()).toBe('0.0');
     // ...so the gap is stated outright, with its sign.
-    expect(at('Total +').querySelector('[data-testid="pair-delta"]')?.textContent).toBe('−94.3');
-    expect(at('Total +').querySelector('[data-testid="pair-delta"]')?.className).toContain('down');
+    expect(at('+ genes').querySelector('[data-testid="pair-delta"]')?.textContent).toBe('−94.3');
+    expect(at('+ genes').querySelector('[data-testid="pair-delta"]')?.className).toContain('down');
   });
 
   it('marks a foal expected to beat the better parent as up', async () => {
@@ -286,7 +285,7 @@ describe('BreedingPairTable — reading the absolute columns against the parents
     };
     const { container, rerender } = render(BreedingPairTable, { results: [better], attrNames: [] });
     await rerender({});
-    const tag = cellsByHeader(container)('Total +').querySelector('[data-testid="pair-delta"]');
+    const tag = cellsByHeader(container)('+ genes').querySelector('[data-testid="pair-delta"]');
     expect(tag?.textContent).toBe('+4.0');
     expect(tag?.className).toContain('up');
   });
@@ -304,7 +303,7 @@ describe('BreedingPairTable — reading the absolute columns against the parents
       evPositiveTotal: 40,
       betterParentPositives: 40,
       evPositiveByAttribute: { Intelligence: 6 },
-      // Aggregate counts are equal, so the Total + gap is nil — but the male
+      // Aggregate counts are equal, so the + genes gap is nil — but the male
       // leads on Intelligence, and the foal falls four short of him there.
       maleProfile: { positives: 40, negatives: 0, positivesByAttribute: { Intelligence: 10 } },
       femaleProfile: { positives: 40, negatives: 0, positivesByAttribute: { Intelligence: 4 } },
@@ -313,7 +312,7 @@ describe('BreedingPairTable — reading the absolute columns against the parents
     await rerender({});
     const at = cellsByHeader(container);
 
-    expect(at('Total +').querySelector('[data-testid="pair-delta"]')).toBeNull();
+    expect(at('+ genes').querySelector('[data-testid="pair-delta"]')).toBeNull();
     expect(at('Intelligence').querySelector('[data-testid="pair-delta"]')?.textContent).toBe('−4.0');
   });
 
@@ -325,16 +324,16 @@ describe('BreedingPairTable — reading the absolute columns against the parents
   });
 
   /**
-   * The old label read as an improvement over the parents. It is an absolute
-   * expected count re-weighted by pool coverage — a positive both parents
-   * already breed true still scores, at the lowest weight.
+   * With measured points beside it, "Total +" read as a quality figure. It is
+   * a count, and the pool-weighted variant of it is gone.
    */
-  it('names the weighted column for what it measures, not for a gain', async () => {
+  it('labels the positive count as a count and drops the pool-weighted column', async () => {
     const { container, rerender } = render(BreedingPairTable, { results: RESULTS, attrNames: [] });
     await rerender({});
     const headers = [...container.querySelectorAll('thead th')].map((h) => h.textContent?.replace(/[▲▼]/g, '').trim());
-    expect(headers).toContain('Pool-weighted +');
-    expect(headers).not.toContain('Pool gain');
+    expect(headers).toContain('+ genes');
+    expect(headers).not.toContain('Total +');
+    expect(headers).not.toContain('Pool-weighted +');
   });
 });
 

@@ -13,7 +13,7 @@
  * global optimum, and not necessarily led by the single top pair).
  *
  * **Plans are ranked by the SUM of their pairs' scores, which assumes the
- * objective is additive.** `evPositiveWeighted` is. `evCapabilityGain` is
+ * objective is additive.** `evPositiveTotal` is. `evCapabilityGain` is
  * not: two pairs that secure the same allele add it once, not twice, so a
  * plan summing them overcounts — measured at ~7% on a six-pair plan against
  * a 31-horse stable. Tolerated rather than corrected, because an

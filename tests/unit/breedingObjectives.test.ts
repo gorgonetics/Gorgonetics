@@ -17,7 +17,6 @@ function pair(overrides: Partial<BreedingPairResult>): BreedingPairResult {
     evMixed: 0,
     evPositiveByAttribute: {},
     evPositiveTotal: 0,
-    evPositiveWeighted: 0,
     evCapabilityGain: 0,
     evPositiveImprovement: 0,
     evPairUpgrade: 0,

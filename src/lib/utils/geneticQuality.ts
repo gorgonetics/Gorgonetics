@@ -86,11 +86,8 @@ export function capability(homozygotes: number, carriers: number): number {
  *  - `partial` — other carriers, none homozygous (capability 0.5).
  *  - `secured` — another animal is homozygous (capability 1).
  *
- * Named apart from `breedingService`'s `CoverageTier`
- * (`locked`/`partial`/`missing`) because that one describes a pool
- * *including* the animal and this one excludes it. `GAP_WEIGHT`'s inert
- * `missing` tier has no analogue: tiers are only computed for an allele
- * the animal itself carries, so "nothing carries it" cannot arise.
+ * There is no "nothing carries it" tier: tiers are only computed for an
+ * allele the animal itself carries, so that case cannot arise.
  */
 export type SupplyTier = 'sole' | 'partial' | 'secured';
 
@@ -978,8 +975,7 @@ export function capabilitySummary(
  * The breeding-side counterpart of `scorePet`, running the same capability
  * function forward instead of backward. Because a foal can only realise
  * capability its parents actually supply, an allele nobody carries can
- * never be credited — which is precisely the `missing`-tier problem that
- * made `GAP_WEIGHT`'s top tier inert in the Breeding Assistant.
+ * never be credited.
  *
  * `tally` must cover the whole stable, parents included: a pairing that
  * merely reproduces what the herd already breeds true adds nothing, and

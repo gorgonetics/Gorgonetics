@@ -19,7 +19,6 @@ const pair = (maleId: number, femaleId: number, score: number): BreedingPairResu
   // Left at zero deliberately: it is the fixture's "some other objective"
   // field, used to prove a custom selector is honoured.
   evPositiveTotal: 0,
-  evPositiveWeighted: score,
   evCapabilityGain: score,
   evPositiveImprovement: score,
   evPairUpgrade: score,
