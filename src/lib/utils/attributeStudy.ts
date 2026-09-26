@@ -516,6 +516,78 @@ export function activeSlots(subject: StudySubject, attributeSlots: readonly Effe
 }
 
 /**
+ * One attribute's slots, numbered so a slot set can be a bitset.
+ *
+ * The solver compares slot sets constantly — every candidate pair, every
+ * round — and asks one question of each comparison: how many slots differ?
+ * As `Set`s that is a walk over both sets; as bitsets it is an XOR and a bit
+ * count over a few words. Only the comparisons change: equations still carry
+ * slot keys, so everything downstream reads exactly what it did.
+ *
+ * Numbered in the order a subject's active set is built (the attribute's
+ * slots, then the breed base slots), so walking set bits in ascending order
+ * yields terms in the same order the set walk did.
+ */
+interface SlotIndex {
+  keys: string[];
+  index: Map<string, number>;
+  words: number;
+}
+
+function indexSlots(keys: readonly string[]): SlotIndex {
+  const unique = [...new Set(keys)];
+  return {
+    keys: unique,
+    index: new Map(unique.map((k, i) => [k, i])),
+    words: Math.max(1, Math.ceil(unique.length / 32)),
+  };
+}
+
+function toBits(keys: Iterable<string>, slots: SlotIndex): Uint32Array {
+  const bits = new Uint32Array(slots.words);
+  for (const key of keys) {
+    const i = slots.index.get(key) as number;
+    bits[i >>> 5] |= 1 << (i & 31);
+  }
+  return bits;
+}
+
+function popcount(x: number): number {
+  let v = x - ((x >>> 1) & 0x55555555);
+  v = (v & 0x33333333) + ((v >>> 2) & 0x33333333);
+  return (((v + (v >>> 4)) & 0x0f0f0f0f) * 0x01010101) >>> 24;
+}
+
+/** Slots in exactly one of the two sets, or `limit + 1` once it passes `limit`. */
+function differing(a: Uint32Array, b: Uint32Array, limit: number): number {
+  let count = 0;
+  for (let w = 0; w < a.length; w++) {
+    count += popcount(a[w] ^ b[w]);
+    if (count > limit) return limit + 1;
+  }
+  return count;
+}
+
+/** The difference equation's terms: `+1` for slots only in `a`, then `-1` for slots only in `b`. */
+function termsBetween(a: Uint32Array, b: Uint32Array, slots: SlotIndex): Map<string, 1 | -1> {
+  const terms = new Map<string, 1 | -1>();
+  for (const [from, other, sign] of [
+    [a, b, 1],
+    [b, a, -1],
+  ] as const) {
+    for (let w = 0; w < from.length; w++) {
+      let only = from[w] & ~other[w];
+      while (only !== 0) {
+        const bit = only & -only;
+        terms.set(slots.keys[(w << 5) + (31 - Math.clz32(bit))], sign);
+        only ^= bit;
+      }
+    }
+  }
+  return terms;
+}
+
+/**
  * Exact rational arithmetic, on `BigInt` so nothing rounds.
  *
  * Integrality is this module's correctness check — a determined slot that
@@ -559,6 +631,9 @@ interface Equation {
   delta: number;
   left: string;
   right: string;
+  /** `left` and `right` as positions in the pooled observations; see `pairId`. */
+  leftAt: number;
+  rightAt: number;
   /** Both animals are stabled, so this equation is one the player can audit. */
   stabled: boolean;
 }
@@ -567,7 +642,18 @@ interface Observation {
   subject: StudySubject;
   active: Set<string>;
   value: number;
+  /** `active` as a bitset over the attribute's `SlotIndex`. */
+  bits: Uint32Array;
+  /** Position in the pooled observations, which numbers every pair. */
+  at: number;
 }
+
+/**
+ * A number naming an ordered pair of observations. Replaces the
+ * `${left}|${right}` strings the pair sets were keyed by, which cost a string
+ * build on every lookup across hundreds of thousands of pairs.
+ */
+const pairId = (leftAt: number, rightAt: number, count: number): number => leftAt * count + rightAt;
 
 /**
  * An observation is usable only if the reading is a measurement.
@@ -586,42 +672,23 @@ function isMeasured(value: number | undefined): value is number {
   return value !== undefined && Number.isInteger(value) && value > ATTRIBUTE_FLOOR && value < ATTRIBUTE_CEILING;
 }
 
-function buildEquations(observations: readonly Observation[], maxDistance: number): Equation[] {
+function buildEquations(observations: readonly Observation[], maxDistance: number, slots: SlotIndex): Equation[] {
   const equations: Equation[] = [];
   for (let i = 0; i < observations.length; i++) {
     const a = observations[i];
     for (let j = i + 1; j < observations.length; j++) {
       const b = observations[j];
-      // Sizes bound the symmetric difference, so this rejects most pairs
-      // before touching their contents.
-      if (Math.abs(a.active.size - b.active.size) > maxDistance) continue;
-      const terms = new Map<string, 1 | -1>();
-      let over = false;
-      for (const key of a.active) {
-        if (!b.active.has(key)) {
-          terms.set(key, 1);
-          if (terms.size > maxDistance) {
-            over = true;
-            break;
-          }
-        }
-      }
-      if (over) continue;
-      for (const key of b.active) {
-        if (!a.active.has(key)) {
-          terms.set(key, -1);
-          if (terms.size > maxDistance) {
-            over = true;
-            break;
-          }
-        }
-      }
-      if (over || terms.size === 0) continue;
+      // The equation's size is the number of slots the two differ in, so the
+      // bit count decides the pair before any terms are built.
+      const distance = differing(a.bits, b.bits, maxDistance);
+      if (distance === 0 || distance > maxDistance) continue;
       equations.push({
-        terms,
+        terms: termsBetween(a.bits, b.bits, slots),
         delta: a.value - b.value,
         left: a.subject.id,
         right: b.subject.id,
+        leftAt: a.at,
+        rightAt: b.at,
         stabled: a.subject.stabled === true && b.subject.stabled === true,
       });
     }
@@ -651,55 +718,45 @@ function buildEquations(observations: readonly Observation[], maxDistance: numbe
 function crossEquations(
   observations: readonly Observation[],
   solved: ReadonlyMap<string, StudyFinding>,
-  built: ReadonlySet<string>,
+  built: ReadonlySet<number>,
   maxDistance: number,
   baseSlotOf: (pool: string) => string | null,
+  slots: SlotIndex,
 ): Equation[] {
+  const solvedBits = toBits(
+    [...solved.keys()].filter((key) => slots.index.has(key)),
+    slots,
+  );
   const residuals = observations.map((o) => {
     let value = o.value;
-    const unknown = new Set<string>();
     const base = baseSlotOf(o.subject.breed);
+    const withBase = base ? toBits([base], slots) : null;
+    const unknown = new Uint32Array(slots.words);
+    for (let w = 0; w < unknown.length; w++) unknown[w] = (o.bits[w] | (withBase ? withBase[w] : 0)) & ~solvedBits[w];
     for (const key of base ? [...o.active, base] : o.active) {
       const known = solved.get(key);
       if (known) value -= known.magnitude;
-      else unknown.add(key);
     }
-    return { subject: o.subject, value, unknown };
+    return { observation: o, value, unknown };
   });
 
+  const count = observations.length;
   const equations: Equation[] = [];
   for (let i = 0; i < residuals.length; i++) {
     const a = residuals[i];
     for (let j = i + 1; j < residuals.length; j++) {
       const b = residuals[j];
-      if (Math.abs(a.unknown.size - b.unknown.size) > maxDistance) continue;
-      if (built.has(`${a.subject.id}|${b.subject.id}`)) continue;
-      const terms = new Map<string, 1 | -1>();
-      let over = false;
-      for (const key of a.unknown) {
-        if (b.unknown.has(key)) continue;
-        terms.set(key, 1);
-        if (terms.size > maxDistance) {
-          over = true;
-          break;
-        }
-      }
-      if (over) continue;
-      for (const key of b.unknown) {
-        if (a.unknown.has(key)) continue;
-        terms.set(key, -1);
-        if (terms.size > maxDistance) {
-          over = true;
-          break;
-        }
-      }
-      if (over || terms.size === 0) continue;
+      if (built.has(pairId(a.observation.at, b.observation.at, count))) continue;
+      const distance = differing(a.unknown, b.unknown, maxDistance);
+      if (distance === 0 || distance > maxDistance) continue;
       equations.push({
-        terms,
+        terms: termsBetween(a.unknown, b.unknown, slots),
         delta: a.value - b.value,
-        left: a.subject.id,
-        right: b.subject.id,
-        stabled: a.subject.stabled === true && b.subject.stabled === true,
+        left: a.observation.subject.id,
+        right: b.observation.subject.id,
+        leftAt: a.observation.at,
+        rightAt: b.observation.at,
+        stabled: a.observation.subject.stabled === true && b.observation.subject.stabled === true,
       });
     }
   }
@@ -781,13 +838,12 @@ export function studyAttribute(
     if (!isMeasured(value)) continue;
     const active = activeSlots(subject, attributeSlots);
     if (!active) continue;
+    // `bits` and `at` are filled in once every slot is numbered, below.
+    const observation: Observation = { subject, active, value, bits: new Uint32Array(0), at: -1 };
     const list = byBreed.get(subject.breed);
-    if (list) list.push({ subject, active, value });
-    else byBreed.set(subject.breed, [{ subject, active, value }]);
+    if (list) list.push(observation);
+    else byBreed.set(subject.breed, [observation]);
   }
-
-  const equations: Equation[] = [];
-  for (const observations of byBreed.values()) equations.push(...buildEquations(observations, maxDistance));
 
   // Each breed's base is measured from the breed with the most animals, which
   // has no base slot of its own. Only gaps are observable from differences,
@@ -801,6 +857,29 @@ export function studyAttribute(
       reference = pool;
     }
   const baseSlotOf = (pool: string): string | null => (pool === reference ? null : `${BASE_SLOT_PREFIX}${pool}`);
+
+  const slotIndex = indexSlots([
+    ...attributeSlots.map(slotKey),
+    ...[...byBreed.keys()].map(baseSlotOf).filter((key): key is string => key !== null),
+  ]);
+  // Pooled order is breed by breed, so within a breed it is the order the
+  // first pass pairs in: a pair's orientation is the same in both passes.
+  const pooled = [...byBreed.values()].flat();
+  pooled.forEach((o, at) => {
+    o.bits = toBits(o.active, slotIndex);
+    o.at = at;
+  });
+  const pairOf = new Map(pooled.map((o) => [o.subject.id, o.at]));
+  const consumedId = (left: string, right: string): number =>
+    pairId(pairOf.get(left) as number, pairOf.get(right) as number, pooled.length);
+
+  const equations: Equation[] = [];
+  for (const observations of byBreed.values()) equations.push(...buildEquations(observations, maxDistance, slotIndex));
+  // Equations with an unknown left, in `equations` order. Slots are only ever
+  // solved, never unsolved, so an equation with none left can never offer a
+  // candidate or a row again: the rounds skip it rather than re-walk it.
+  // `validate` still reads every equation.
+  let pending: Equation[] = [...equations];
 
   const signOf = new Map<string, 1 | -1>();
   for (const slot of attributeSlots) signOf.set(slotKey(slot), slot.sign);
@@ -817,7 +896,7 @@ export function studyAttribute(
   // of the very equation, so it reproduces that delta by construction and
   // would score a guaranteed hit. Roughly a third of multi-term equations
   // are in this position once substitution has run.
-  const consumed = new Set<string>();
+  const consumed = new Set<number>();
   /** Per base slot, the distinct animals behind its published gap. */
   const gapAnimals = new Map<string, number>();
   const stabledIds = new Set<string>();
@@ -935,7 +1014,7 @@ export function studyAttribute(
       doubt(key, tally, magnitude, support, dissent, 'unstable');
     }
     if (tier === 'derived')
-      for (const pairs of tally.values()) for (const [left, right] of pairs) consumed.add(`${left}|${right}`);
+      for (const pairs of tally.values()) for (const [left, right] of pairs) consumed.add(consumedId(left, right));
     if (isBaseSlot(key)) gapAnimals.set(key, distinctAnimals(tally.get(magnitude) ?? []));
     const [gene, expression] = key.split(':') as [string, Expression];
     solved.set(key, {
@@ -964,7 +1043,8 @@ export function studyAttribute(
     let depth = first;
     for (; ; depth++) {
       const candidates = new Map<string, Tally>();
-      for (const equation of equations) {
+      const stillPending: Equation[] = [];
+      for (const equation of pending) {
         let unknown: string | null = null;
         let coefficient: 1 | -1 = 1;
         let residual = equation.delta;
@@ -981,9 +1061,12 @@ export function studyAttribute(
             break;
           }
         }
-        if (!solvable || unknown === null) continue;
+        if (unknown === null) continue;
+        stillPending.push(equation);
+        if (!solvable) continue;
         record(tallyFor(candidates, unknown), residual * coefficient, [equation.left, equation.right]);
       }
+      pending = stillPending;
       let added = 0;
       for (const [key, tally] of candidates) {
         if (solved.has(key) || doubted.has(key)) continue;
@@ -1002,7 +1085,7 @@ export function studyAttribute(
   // that `doubt` and `contradictions` rest on, and a subsystem solve returns
   // one value with no tally and can reproduce none of that.
   const solveJointly = (): void => {
-    const subsystem = determinedSlots(equations, solved);
+    const subsystem = determinedSlots(pending, solved, slotIndex, pooled.length);
     for (const key of subsystem.consumed) consumed.add(key);
     for (const found of subsystem.found) {
       if (solved.has(found.key) || doubted.has(found.key)) continue;
@@ -1074,14 +1157,14 @@ export function studyAttribute(
   // not; stop when a round adds nothing. No round cap: every round that
   // continues has solved at least one more of finitely many slots, so the
   // loop ends, and a cap could only drop findings a longer chain entails.
-  const built = new Set(equations.map((e) => `${e.left}|${e.right}`));
-  const pooled = [...byBreed.values()].flat();
+  const built = new Set(equations.map((e) => pairId(e.leftAt, e.rightAt, pooled.length)));
   for (;;) {
-    const extra = crossEquations(pooled, solved, built, maxDistance, baseSlotOf);
+    const extra = crossEquations(pooled, solved, built, maxDistance, baseSlotOf, slotIndex);
     if (extra.length === 0) break;
     for (const equation of extra) {
       equations.push(equation);
-      built.add(`${equation.left}|${equation.right}`);
+      pending.push(equation);
+      built.add(pairId(equation.leftAt, equation.rightAt, pooled.length));
     }
     const before = solved.size;
     depth = substitute(depth + 1);
@@ -1127,7 +1210,7 @@ export function studyAttribute(
     contradictions: [...dissenters.entries()]
       .map(([subjectId, count]) => ({ subjectId, count, stabled: stabledIds.has(subjectId) }))
       .sort((a, b) => Number(b.stabled) - Number(a.stabled) || b.count - a.count),
-    validation: validate(equations, solved, consumed),
+    validation: validate(equations, solved, consumed, pooled.length),
     contributors,
     baselines: inferBaselines(pooled, solved, signOf, gaps),
   };
@@ -1334,7 +1417,7 @@ interface SubsystemResult {
    * derived finding came from. Scoring against them would be the engine
    * marking its own work.
    */
-  consumed: Set<string>;
+  consumed: Set<number>;
 }
 
 /**
@@ -1371,13 +1454,18 @@ interface SubsystemResult {
  * those dispute findings that are already published, which the fixpoint's
  * blame accounting reports through `contradictions`.
  */
-function determinedSlots(equations: readonly Equation[], solved: ReadonlyMap<string, StudyFinding>): SubsystemResult {
+function determinedSlots(
+  equations: readonly Equation[],
+  solved: ReadonlyMap<string, StudyFinding>,
+  slots: SlotIndex,
+  count: number,
+): SubsystemResult {
   // Residual system: substitute what is already known, keep what is not.
   interface Row {
     terms: Map<string, 1 | -1>;
     delta: number;
     pair: [string, string];
-    id: string;
+    id: number;
   }
   const rowsIn: Row[] = [];
   for (const equation of equations) {
@@ -1392,7 +1480,12 @@ function determinedSlots(equations: readonly Equation[], solved: ReadonlyMap<str
     // published, not about a new slot. Disagreement among those is the
     // fixpoint's business and is already reported through `contradictions`.
     if (terms.size === 0) continue;
-    rowsIn.push({ terms, delta, pair: [equation.left, equation.right], id: `${equation.left}|${equation.right}` });
+    rowsIn.push({
+      terms,
+      delta,
+      pair: [equation.left, equation.right],
+      id: pairId(equation.leftAt, equation.rightAt, count),
+    });
   }
   if (rowsIn.length === 0) return { found: [], consumed: new Set() };
 
@@ -1402,37 +1495,40 @@ function determinedSlots(equations: readonly Equation[], solved: ReadonlyMap<str
   // grows with the square of the row count rather than with the unknowns.
   // Components also make "inconsistent" a local verdict: one mis-recorded
   // animal must not be able to withdraw an unrelated slot.
-  const parent = new Map<string, string>();
-  const find = (x: string): string => {
+  // Union-find over slot numbers, in a typed array rather than a `Map` of keys.
+  const parent = new Int32Array(slots.keys.length).map((_, i) => i);
+  const find = (x: number): number => {
     let root = x;
-    while (parent.get(root) !== root) root = parent.get(root) as string;
-    while (parent.get(x) !== root) {
-      const next = parent.get(x) as string;
-      parent.set(x, root);
+    while (parent[root] !== root) root = parent[root];
+    while (parent[x] !== root) {
+      const next = parent[x];
+      parent[x] = root;
       x = next;
     }
     return root;
   };
-  const union = (a: string, b: string): void => {
-    const ra = find(a);
-    const rb = find(b);
-    if (ra !== rb) parent.set(ra, rb);
+  const firstSlot = (row: Row): number => {
+    for (const key of row.terms.keys()) return slots.index.get(key) as number;
+    return -1;
   };
-  for (const row of rowsIn) for (const key of row.terms.keys()) if (!parent.has(key)) parent.set(key, key);
   for (const row of rowsIn) {
-    const keys = [...row.terms.keys()];
-    for (let i = 1; i < keys.length; i++) union(keys[0], keys[i]);
+    const first = firstSlot(row);
+    for (const key of row.terms.keys()) {
+      const ra = find(first);
+      const rb = find(slots.index.get(key) as number);
+      if (ra !== rb) parent[ra] = rb;
+    }
   }
-  const components = new Map<string, Row[]>();
+  const components = new Map<number, Row[]>();
   for (const row of rowsIn) {
-    const root = find([...row.terms.keys()][0]);
+    const root = find(firstSlot(row));
     const list = components.get(root);
     if (list) list.push(row);
     else components.set(root, [row]);
   }
 
   const found: DeterminedSlot[] = [];
-  const consumed = new Set<string>();
+  const consumed = new Set<number>();
 
   for (const componentRows of components.values()) {
     // Identical equations carry identical information. Two animals differing
@@ -1441,9 +1537,10 @@ function determinedSlots(equations: readonly Equation[], solved: ReadonlyMap<str
     const seen = new Set<string>();
     const rows: Row[] = [];
     for (const row of componentRows) {
+      // Slot numbers rather than keys: a numeric sort, and a short string.
       const signature = `${[...row.terms]
-        .sort((a, b) => a[0].localeCompare(b[0]))
-        .map(([k, s]) => `${k}${s}`)
+        .map(([k, s]) => (slots.index.get(k) as number) * 2 + (s === 1 ? 0 : 1))
+        .sort((a, b) => a - b)
         .join(',')}=${row.delta}`;
       if (seen.has(signature)) continue;
       seen.add(signature);
@@ -1539,7 +1636,8 @@ function determinedSlots(equations: readonly Equation[], solved: ReadonlyMap<str
 function validate(
   equations: readonly Equation[],
   solved: ReadonlyMap<string, StudyFinding>,
-  consumed: ReadonlySet<string>,
+  consumed: ReadonlySet<number>,
+  count: number,
 ): ValidationReport {
   let tested = 0;
   let exact = 0;
@@ -1556,7 +1654,7 @@ function validate(
     // `terms.size < 2` drops the single-difference equations a direct
     // finding is read off; `consumed` drops the wider ones a derived
     // finding was read off. What remains is genuinely held out.
-    if (equation.terms.size < 2 || consumed.has(`${equation.left}|${equation.right}`)) continue;
+    if (equation.terms.size < 2 || consumed.has(pairId(equation.leftAt, equation.rightAt, count))) continue;
     let predicted = 0;
     let complete = true;
     for (const [key, sign] of equation.terms) {
