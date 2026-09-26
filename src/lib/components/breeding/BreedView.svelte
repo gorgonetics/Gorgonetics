@@ -498,7 +498,7 @@ onDestroy(() => {
                 · <span
                   class="bv-generic"
                   data-testid="breed-capability-generic"
-                  title="A slot no stabled animal carries cannot be bred in, so it is outside the reachable count."
+                  title="A slot no animal in the breeding pool carries cannot be bred in from it, so it is outside the reachable count. Benched animals are not in the pool."
                   >{summary.value.generic.capability.toFixed(1)} of {summary.value.generic.reachable} reachable breed-generic
                   ({summary.value.generic.ceiling} in the genome)</span
                 >

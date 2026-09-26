@@ -431,6 +431,10 @@ describe('BreedView — when Reach new ground has run dry', () => {
     const generic =
       container.querySelector('[data-testid="breed-capability-generic"]')?.textContent?.replace(/\s+/g, ' ') ?? '';
     expect(generic).toContain('170.0 of 190 reachable breed-generic (202 in the genome)');
+    // The count is over the breeding pool, which excludes benched animals.
+    const title = container.querySelector('[data-testid="breed-capability-generic"]')?.getAttribute('title') ?? '';
+    expect(title).toContain('breeding pool');
+    expect(title).toContain('Benched animals are not in the pool');
   });
 
   it('says so, and points at the other strategies, once the best reach plan adds under a slot-unit', async () => {
