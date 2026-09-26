@@ -274,6 +274,31 @@ describe('a species without breeds', () => {
     expect(ferocity?.findings[0]).toMatchObject({ gene: '01A1', expression: 'dominant', magnitude: 5 });
   });
 
+  it('reads a base per recorded breed and reports that Bee and Wasp agree', async () => {
+    await bee('Low', 'RRRR', 40, 'Bee');
+    await bee('High', 'DRRR', 45, 'Bee');
+    await bee('Other', 'RRRR', 40, 'Wasp');
+    const run = await runAttributeStudy('beewasp');
+    const ferocity = run.studies.find((study) => study.attribute === 'ferocity');
+    expect(ferocity?.baselines.readings.map((r) => [r.breed, r.value, r.unresolved])).toEqual([
+      ['Bee', 40, []],
+      ['Wasp', 40, []],
+    ]);
+    expect(run.sharedBase).toEqual({ same: ['ferocity'], different: [] });
+  });
+
+  it('reports a Bee–Wasp base gap as evidence against pooling', async () => {
+    await bee('Low', 'RRRR', 40, 'Bee');
+    await bee('High', 'DRRR', 45, 'Bee');
+    await bee('Other', 'RRRR', 50, 'Wasp');
+    const run = await runAttributeStudy('beewasp');
+    const ferocity = run.studies.find((study) => study.attribute === 'ferocity');
+    expect(ferocity?.baselines.offsets).toEqual([
+      expect.objectContaining({ breed: 'Wasp', relativeTo: 'Bee', offset: 10 }),
+    ]);
+    expect(run.sharedBase).toEqual({ same: [], different: ['ferocity'] });
+  });
+
   it('still requires a breed where the gene table is breed-scoped', async () => {
     const petId = await upload('Just A Horse', 'RRRR');
     await petService.updatePet(petId, { attributes: { temperament: 40 } });
@@ -331,6 +356,12 @@ describe('runAttributeStudy', () => {
       tier: 'direct',
     });
     expect(run.totals).toMatchObject({ found: 1, direct: 1, derived: 0 });
+    // With 01A1 known, both animals read the same base.
+    expect(temperament?.baselines.readings).toEqual([
+      expect.objectContaining({ breed: 'Kurbone', value: 40, unresolved: [], min: 40, max: 40, support: 2 }),
+    ]);
+    // Horse breeds are paired apart, so their gaps test nothing about pooling.
+    expect(run.sharedBase).toBeNull();
   });
 
   it('never scores a Kurbone-only gene against a Paint animal', async () => {

@@ -93,18 +93,19 @@ export const STUDYABLE_SPECIES: readonly string[] = ['horse', 'beewasp'];
  * Species whose gene table is scoped by breed.
  *
  * The engine cancels the unknown attribute base by subtracting two animals
- * that share it, and for horses that means the same breed: breeds carry
- * their own loci, so pairing across them would compare different sums. A
- * species outside this set pairs all its animals in one pool, whatever their
- * `breed` field says.
+ * that share it, and for horses that means the same breed. Breeds are paired
+ * apart and compared only through an explicit base-gap unknown the solver
+ * pins. A species outside this set pairs all its animals in one pool,
+ * whatever their `breed` field says, which assumes the gap is zero.
  *
  * Unverified: pooling beewasps assumes Bee and Wasp share one attribute
  * base. The gene table only shows that no beewasp locus is breed-locked,
  * which says nothing about the base; the assumption rests on player
  * knowledge. If the bases differ, every Bee–Wasp equation carries the gap
- * into a magnitude, and the out-of-sample validation score is where that
- * would show. Adding `beewasp` here splits the pool, and then also excludes
- * beewasps with no breed.
+ * into a magnitude. `StudyRun.sharedBase` is the direct test: baselines are
+ * read per recorded breed even inside one pool, so a non-zero Bee–Wasp gap
+ * falsifies the pooling. Adding `beewasp` here splits the pool, and then
+ * also excludes beewasps with no breed.
  */
 const BREED_SCOPED_SPECIES: ReadonlySet<string> = new Set(['horse']);
 
@@ -229,6 +230,14 @@ export interface StudyRun {
    * failure.
    */
   suspects: ValidationSuspect[];
+  /**
+   * For a species paired as one pool, whether its breeds read one base.
+   *
+   * Attributes whose exact breed gaps are all zero go in `same`, any other
+   * in `different`. `null` for a breed-scoped species: horse breeds are
+   * paired apart, so a gap there is expected and tests nothing.
+   */
+  sharedBase: { same: string[]; different: string[] } | null;
 }
 
 function subjectFrom(pet: Pet, loci: PetLoci, species: string): StudySubject {
@@ -244,6 +253,7 @@ function subjectFrom(pet: Pet, loci: PetLoci, species: string): StudySubject {
   return {
     id: String(pet.id),
     breed: pairingBreed(species, pet.breed),
+    baselineGroup: pet.breed ?? '',
     genes,
     attributes,
     stabled: pet.stabled === true,
@@ -393,6 +403,7 @@ async function cachedSubjects(
     subjects.push({
       id: `${SHARED_ID_PREFIX}${row.content_hash}`,
       breed: pairingBreed(normalized, row.breed),
+      baselineGroup: row.breed,
       genes,
       attributes,
       // Someone else's animal: it can raise a disagreement but never settle one.
@@ -505,7 +516,17 @@ export async function runAttributeStudy(
   });
   suspects.sort((a, b) => b.failures - a.failures || b.offsetShare - a.offsetShare);
 
-  return { corpus, studies, totals, validation, suspects };
+  let sharedBase: StudyRun['sharedBase'] = null;
+  if (!isBreedScoped(species)) {
+    sharedBase = { same: [], different: [] };
+    for (const study of studies) {
+      const { offsets } = study.baselines;
+      if (offsets.length === 0) continue;
+      (offsets.every((o) => o.offset === 0) ? sharedBase.same : sharedBase.different).push(study.attribute);
+    }
+  }
+
+  return { corpus, studies, totals, validation, suspects, sharedBase };
 }
 
 export interface RefreshResult {

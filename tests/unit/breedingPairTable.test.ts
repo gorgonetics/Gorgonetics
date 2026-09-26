@@ -347,6 +347,7 @@ describe('BreedingPairTable — attribute columns', () => {
     geneDoubts: [],
     validation: { tested: 0, exact: 0, stabledTested: 0, stabledExact: 0, suspects: [] },
     contributors: 2,
+    baselines: { readings: [], offsets: [] },
   });
 
   const magnitudes = buildAttributeMagnitudes([

@@ -27,8 +27,11 @@
  * **Difference, don't solve.** An observed value is `base + Σ effects`, and
  * `base` is unknown. Subtracting two same-breed animals cancels it, so the
  * unknown base never has to be determined and cross-breed base differences
- * (if any exist) cannot contaminate a finding. Every equation here is a
- * difference for that reason.
+ * cannot contaminate a finding. Every equation here is a difference for that
+ * reason. Animals of different breeds are still compared, but only with the
+ * gap between their bases as an explicit unknown — see `crossEquations`. The
+ * bases themselves are recovered afterwards, per animal, from the solved
+ * magnitudes — see `inferBaselines` — and they do differ by breed.
  *
  * ## Three tiers of finding, which must not be confused
  *
@@ -102,6 +105,98 @@ export interface StudySubject {
    * just as likely to be correct, only unfalsifiable.
    */
   stabled?: boolean;
+  /**
+   * The group whose base this animal reads, when it is not `breed`.
+   *
+   * `breed` is the pairing pool, and a species paired as one pool (beewasps)
+   * has an empty one. Its animals still have a recorded breed, and whether
+   * those breeds share one base is an open question the baselines answer —
+   * so they are grouped by this, not by the pool. Defaults to `breed`.
+   */
+  baselineGroup?: string;
+}
+
+/**
+ * What the corpus entails about one breed's base for one attribute.
+ *
+ * The base is the value before any gene effect. It is read off animals, not
+ * pairs: once every magnitude an animal expresses is known, `value − Σ
+ * magnitudes` is its breed's base. Usually some expressed slot is still
+ * unknown, and often it is one that *every* animal of the breed expresses —
+ * such a slot never differs between two animals, so no difference can
+ * separate it from the base. What the corpus pins then is the lump
+ * `base + Σ unresolved`, and that is what `value` holds.
+ *
+ * Nothing bounds the base itself. The displayed attribute is clamped to
+ * 0–100, but the base sits under the effects, and on the live corpus a
+ * Kurbone's temperament base is at most −36.
+ */
+export interface BaselineReading {
+  /** The baseline group, normally the breed. */
+  breed: string;
+  /** `base + Σ unresolved`. The base itself when `unresolved` is empty. */
+  value: number;
+  /** Expressed slots still unknown, as sorted `slotKey`s. */
+  unresolved: string[];
+  /**
+   * Bounds on the base itself, from the declared signs of `unresolved`.
+   *
+   * A declared `+` is worth at least `+1`, so when every unresolved slot is
+   * positive the base is at most `value − |unresolved|`, and symmetrically
+   * for negatives. A mix bounds nothing: no magnitude has an upper limit.
+   * Both equal `value` when the base is exact. Rests on the declarations,
+   * which the study can dispute, so a doubted sign weakens it.
+   */
+  min: number | null;
+  max: number | null;
+  /**
+   * Set when the bounds were tightened through a gap to another breed:
+   * `base = base(via.breed) + via.offset`, and that breed's bounds were the
+   * tighter ones. Absent when the bounds are this breed's own.
+   */
+  via?: { breed: string; offset: number };
+  /** Animals reading `value`. */
+  support: number;
+  /** Animals with the same unresolved set reading something else. */
+  dissent: number;
+  /** Dissenting animals: each is mis-recorded or sits on a wrong magnitude. */
+  dissenters: string[];
+  /** A few supporting animals, for "show the work". */
+  witnesses: string[];
+}
+
+/**
+ * The exact gap between two breeds' bases.
+ *
+ * Breeds paired apart get their gap from the solver: every cross-breed pair
+ * carries it as one more unknown slot, pinned like any gene effect. Groups
+ * inside one pool (Bee and Wasp) are paired on the assumption that the gap
+ * is zero, so the solver cannot test it; there it is read from lumps
+ * instead — two groups leaving the *same* slots unresolved differ only by
+ * their bases — and a non-zero gap falsifies the pooling.
+ */
+export interface BaselineOffset {
+  breed: string;
+  relativeTo: string;
+  /** `base(breed) − base(relativeTo)`. */
+  offset: number;
+  /** Unresolved sets shared by both breeds that give this offset. */
+  support: number;
+  /** Shared unresolved sets giving another offset. */
+  dissent: number;
+  /** Distinct animals behind the supporting evidence, on both sides. */
+  animals: number;
+}
+
+export interface AttributeBaselines {
+  /**
+   * Per breed, the reading most animals agree on, then the one leaving fewest
+   * slots unresolved. Backing comes first: a single animal can leave fewer
+   * slots unresolved than the other 240 of its breed, and one mis-recorded
+   * reading must not become the breed's base.
+   */
+  readings: BaselineReading[];
+  offsets: BaselineOffset[];
 }
 
 /**
@@ -268,6 +363,7 @@ export interface AttributeStudy {
   validation: ValidationReport;
   /** Subjects that contributed at least one equation. */
   contributors: number;
+  baselines: AttributeBaselines;
 }
 
 export interface StudyOptions {
@@ -331,6 +427,21 @@ function needsTwoMistakes(pairs: ReadonlyArray<readonly [string, string]>): bool
 }
 
 const DEFAULT_MAX_DISTANCE = 6;
+
+/**
+ * A breed's base gap travels through the solver as an ordinary slot, so it
+ * is tallied, substituted and jointly solved exactly as a gene effect is. The
+ * `@` keeps it out of the gene namespace; `findings` filters it back out.
+ */
+const BASE_SLOT_GENE = '@base';
+const BASE_SLOT_PREFIX = `${BASE_SLOT_GENE}:`;
+const isBaseSlot = (key: string): boolean => key.startsWith(BASE_SLOT_PREFIX);
+
+function distinctAnimals(pairs: ReadonlyArray<readonly [string, string]>): number {
+  const seen = new Set<string>();
+  for (const [left, right] of pairs) seen.add(left).add(right);
+  return seen.size;
+}
 /** Witness pairs retained per finding. Kept small; this is for display. */
 const MAX_WITNESSES = 3;
 
@@ -518,6 +629,83 @@ function buildEquations(observations: readonly Observation[], maxDistance: numbe
   return equations;
 }
 
+/**
+ * Pairs worth adding once some magnitudes are known.
+ *
+ * The first pass caps a pair at `maxDistance` *raw* slots, because each
+ * one is an unknown. Once magnitudes are solved that is the wrong measure:
+ * a known slot is just a number to subtract. So this measures a pair by what
+ * is still unknown in it, and builds the equation with the known part already
+ * subtracted — the same equation, substituted early. A pair far apart on raw
+ * slots can then be as useful as a single-difference one.
+ *
+ * Every animal outside the reference breed also carries its breed's base
+ * slot. Within a breed the two cancel; across breeds they leave the gap as
+ * one more unknown. That is what lets animals of different breeds be
+ * compared at all: the gap is solved like any other slot, and until it is,
+ * a cross-breed pair constrains nothing it does not also constrain the gap by.
+ *
+ * Pairs already built, and pairs with nothing unknown left, are skipped. The
+ * latter would only re-test published findings, and there are far too many.
+ */
+function crossEquations(
+  observations: readonly Observation[],
+  solved: ReadonlyMap<string, StudyFinding>,
+  built: ReadonlySet<string>,
+  maxDistance: number,
+  baseSlotOf: (pool: string) => string | null,
+): Equation[] {
+  const residuals = observations.map((o) => {
+    let value = o.value;
+    const unknown = new Set<string>();
+    const base = baseSlotOf(o.subject.breed);
+    for (const key of base ? [...o.active, base] : o.active) {
+      const known = solved.get(key);
+      if (known) value -= known.magnitude;
+      else unknown.add(key);
+    }
+    return { subject: o.subject, value, unknown };
+  });
+
+  const equations: Equation[] = [];
+  for (let i = 0; i < residuals.length; i++) {
+    const a = residuals[i];
+    for (let j = i + 1; j < residuals.length; j++) {
+      const b = residuals[j];
+      if (Math.abs(a.unknown.size - b.unknown.size) > maxDistance) continue;
+      if (built.has(`${a.subject.id}|${b.subject.id}`)) continue;
+      const terms = new Map<string, 1 | -1>();
+      let over = false;
+      for (const key of a.unknown) {
+        if (b.unknown.has(key)) continue;
+        terms.set(key, 1);
+        if (terms.size > maxDistance) {
+          over = true;
+          break;
+        }
+      }
+      if (over) continue;
+      for (const key of b.unknown) {
+        if (a.unknown.has(key)) continue;
+        terms.set(key, -1);
+        if (terms.size > maxDistance) {
+          over = true;
+          break;
+        }
+      }
+      if (over || terms.size === 0) continue;
+      equations.push({
+        terms,
+        delta: a.value - b.value,
+        left: a.subject.id,
+        right: b.subject.id,
+        stabled: a.subject.stabled === true && b.subject.stabled === true,
+      });
+    }
+  }
+  return equations;
+}
+
 /** Candidate magnitudes for one slot, with the pairs that implied each. */
 type Tally = Map<number, Array<[string, string]>>;
 
@@ -544,7 +732,12 @@ function record(tally: Tally, magnitude: number, pair: [string, string]): void {
  * as a finding, and that value then feeds substitution and validation as
  * though it were known. The corpus simply has not settled the slot.
  */
-function majority(tally: Tally): { magnitude: number; support: number; dissent: number; tied: boolean } {
+function majority<T>(tally: Map<number, readonly T[]>): {
+  magnitude: number;
+  support: number;
+  dissent: number;
+  tied: boolean;
+} {
   let best = 0;
   let bestCount = -1;
   let tied = false;
@@ -579,8 +772,9 @@ export function studyAttribute(
   const maxDistance = options.maxDistance ?? DEFAULT_MAX_DISTANCE;
   const confirmedSlots = options.confirmedSlots ?? new Set<string>();
 
-  // Equations only cancel the unknown base within a breed, so subjects are
-  // never paired across breeds.
+  // The first equations cancel the unknown base by pairing within a breed.
+  // Pairs across breeds come later, once the gap between the two bases is
+  // an unknown the solver can pin — see `crossEquations`.
   const byBreed = new Map<string, Observation[]>();
   for (const subject of subjects) {
     const value = subject.attributes[attribute];
@@ -594,12 +788,19 @@ export function studyAttribute(
 
   const equations: Equation[] = [];
   for (const observations of byBreed.values()) equations.push(...buildEquations(observations, maxDistance));
-  // Subjects that actually produced an equation, not subjects that were
-  // merely eligible: two animals with identical active sets yield nothing,
-  // and a breed with a single measured animal yields nothing at all.
-  const contributing = new Set<string>();
-  for (const equation of equations) contributing.add(equation.left).add(equation.right);
-  const contributors = contributing.size;
+
+  // Each breed's base is measured from the breed with the most animals, which
+  // has no base slot of its own. Only gaps are observable from differences,
+  // so without a fixed point every base slot would move together and none
+  // would ever be determined.
+  let reference = '';
+  let largest = -1;
+  for (const [pool, observations] of byBreed)
+    if (observations.length > largest) {
+      largest = observations.length;
+      reference = pool;
+    }
+  const baseSlotOf = (pool: string): string | null => (pool === reference ? null : `${BASE_SLOT_PREFIX}${pool}`);
 
   const signOf = new Map<string, 1 | -1>();
   for (const slot of attributeSlots) signOf.set(slotKey(slot), slot.sign);
@@ -617,6 +818,8 @@ export function studyAttribute(
   // would score a guaranteed hit. Roughly a third of multi-term equations
   // are in this position once substitution has run.
   const consumed = new Set<string>();
+  /** Per base slot, the distinct animals behind its published gap. */
+  const gapAnimals = new Map<string, number>();
   const stabledIds = new Set<string>();
   for (const observations of byBreed.values())
     for (const o of observations) if (o.subject.stabled) stabledIds.add(o.subject.id);
@@ -733,6 +936,7 @@ export function studyAttribute(
     }
     if (tier === 'derived')
       for (const pairs of tally.values()) for (const [left, right] of pairs) consumed.add(`${left}|${right}`);
+    if (isBaseSlot(key)) gapAnimals.set(key, distinctAnimals(tally.get(magnitude) ?? []));
     const [gene, expression] = key.split(':') as [string, Expression];
     solved.set(key, {
       gene,
@@ -755,107 +959,164 @@ export function studyAttribute(
   }
   for (const [key, tally] of direct) commit(key, tally, 'direct', 0);
 
-  for (let depth = 1; ; depth++) {
-    const candidates = new Map<string, Tally>();
-    for (const equation of equations) {
-      let unknown: string | null = null;
-      let coefficient: 1 | -1 = 1;
-      let residual = equation.delta;
-      let solvable = true;
-      for (const [key, sign] of equation.terms) {
-        const known = solved.get(key);
-        if (known) {
-          residual -= sign * known.magnitude;
-        } else if (unknown === null) {
-          unknown = key;
-          coefficient = sign;
-        } else {
-          solvable = false;
-          break;
+  /** Substitute to a fixpoint, numbering rounds on from `first`; returns the last round run. */
+  const substitute = (first: number): number => {
+    let depth = first;
+    for (; ; depth++) {
+      const candidates = new Map<string, Tally>();
+      for (const equation of equations) {
+        let unknown: string | null = null;
+        let coefficient: 1 | -1 = 1;
+        let residual = equation.delta;
+        let solvable = true;
+        for (const [key, sign] of equation.terms) {
+          const known = solved.get(key);
+          if (known) {
+            residual -= sign * known.magnitude;
+          } else if (unknown === null) {
+            unknown = key;
+            coefficient = sign;
+          } else {
+            solvable = false;
+            break;
+          }
         }
+        if (!solvable || unknown === null) continue;
+        record(tallyFor(candidates, unknown), residual * coefficient, [equation.left, equation.right]);
       }
-      if (!solvable || unknown === null) continue;
-      record(tallyFor(candidates, unknown), residual * coefficient, [equation.left, equation.right]);
+      let added = 0;
+      for (const [key, tally] of candidates) {
+        if (solved.has(key) || doubted.has(key)) continue;
+        const before = solved.size;
+        commit(key, tally, 'derived', depth);
+        if (solved.size > before) added++;
+      }
+      if (added === 0) break;
     }
-    let added = 0;
-    for (const [key, tally] of candidates) {
-      if (solved.has(key) || doubted.has(key)) continue;
-      const before = solved.size;
-      commit(key, tally, 'derived', depth);
-      if (solved.size > before) added++;
-    }
-    if (added === 0) break;
-  }
+    return depth;
+  };
 
   // Substitution has gone as far as it can; whatever it left may still be
   // pinned by the equations jointly. Run after the fixpoint rather than
   // instead of it: the fixpoint is what builds the support/dissent tallies
   // that `doubt` and `contradictions` rest on, and a subsystem solve returns
   // one value with no tally and can reproduce none of that.
-  const subsystem = determinedSlots(equations, solved);
-  for (const key of subsystem.consumed) consumed.add(key);
-  for (const found of subsystem.found) {
-    if (solved.has(found.key) || doubted.has(found.key)) continue;
-    const declared = signOf.get(found.key);
-    const value = Number(found.value.n) / Number(found.value.d);
-    const witnesses = found.pairs.slice(0, MAX_WITNESSES);
-    /**
-     * File a doubt about this slot, unless one bad animal could explain the
-     * whole thing — the same guard `commit` applies, because a doubt that
-     * sends the player into the game for nothing costs them a trip. The
-     * tally has a single entry, so the doubt surface reads the same for a
-     * subsystem result as for a disputed one.
-     */
-    const raise = (reason: GeneDoubtReason): void => {
-      // The whole pair list, not the displayed slice: `doubt` counts the
-      // distinct animals from this tally and asks whether any pair is
-      // stabled, and both decide how the panel ranks the doubt. It truncates
-      // for display itself.
-      if (needsTwoMistakes(found.pairs)) {
-        doubt(found.key, new Map([[value, found.pairs]]), value, found.support, 0, reason);
+  const solveJointly = (): void => {
+    const subsystem = determinedSlots(equations, solved);
+    for (const key of subsystem.consumed) consumed.add(key);
+    for (const found of subsystem.found) {
+      if (solved.has(found.key) || doubted.has(found.key)) continue;
+      const declared = signOf.get(found.key);
+      const value = Number(found.value.n) / Number(found.value.d);
+      const witnesses = found.pairs.slice(0, MAX_WITNESSES);
+      /**
+       * File a doubt about this slot, unless one bad animal could explain the
+       * whole thing — the same guard `commit` applies, because a doubt that
+       * sends the player into the game for nothing costs them a trip. The
+       * tally has a single entry, so the doubt surface reads the same for a
+       * subsystem result as for a disputed one.
+       */
+      const raise = (reason: GeneDoubtReason): void => {
+        // The whole pair list, not the displayed slice: `doubt` counts the
+        // distinct animals from this tally and asks whether any pair is
+        // stabled, and both decide how the panel ranks the doubt. It truncates
+        // for display itself.
+        if (needsTwoMistakes(found.pairs)) {
+          doubt(found.key, new Map([[value, found.pairs]]), value, found.support, 0, reason);
+        }
+      };
+
+      // The three gates, each a check this engine already believes in.
+      if (!fIsInteger(found.value)) {
+        // Determined, but to a fraction — impossible for an integral game, so
+        // an animal in this subsystem is mis-recorded. Only this tier can see
+        // it, because only this tier combines enough equations to notice.
+        raise('non-integer');
+        continue;
       }
-    };
+      const magnitude = Number(found.value.n);
+      // Two breeds sharing a base is a finding, not a missing effect.
+      if (magnitude === 0 && !isBaseSlot(found.key)) {
+        raise('no-effect');
+        continue;
+      }
+      if (declared !== undefined && magnitude * declared <= 0) {
+        raise('contradicts-sign');
+        continue;
+      }
 
-    // The three gates, each a check this engine already believes in.
-    if (!fIsInteger(found.value)) {
-      // Determined, but to a fraction — impossible for an integral game, so
-      // an animal in this subsystem is mis-recorded. Only this tier can see
-      // it, because only this tier combines enough equations to notice.
-      raise('non-integer');
-      continue;
+      const [gene, expression] = found.key.split(':') as [string, Expression];
+      solved.set(found.key, {
+        gene,
+        expression,
+        attribute,
+        magnitude,
+        tier: 'system',
+        depth: 0,
+        support: found.support,
+        // An inconsistent subsystem publishes nothing at all rather than a
+        // majority, so a published one has nothing dissenting from it.
+        dissent: 0,
+        witnesses,
+      });
+      if (isBaseSlot(found.key)) gapAnimals.set(found.key, distinctAnimals(found.pairs));
     }
-    const magnitude = Number(found.value.n);
-    if (magnitude === 0) {
-      raise('no-effect');
-      continue;
-    }
-    if (declared !== undefined && magnitude * declared <= 0) {
-      raise('contradicts-sign');
-      continue;
-    }
+  };
 
-    const [gene, expression] = found.key.split(':') as [string, Expression];
-    solved.set(found.key, {
-      gene,
-      expression,
-      attribute,
-      magnitude,
-      tier: 'system',
-      depth: 0,
-      support: found.support,
-      // An inconsistent subsystem publishes nothing at all rather than a
-      // majority, so a published one has nothing dissenting from it.
-      dissent: 0,
-      witnesses,
+  let depth = substitute(1);
+  solveJointly();
+
+  // Cross-breed rounds. Each one pairs animals whose difference, after
+  // substituting everything known so far, has few enough unknowns — across
+  // breeds, with the base gap as one of them, and within a breed for pairs
+  // too far apart on raw slots for the first pass. New findings shrink every
+  // animal's unknowns, so a later round can reach pairs an earlier one could
+  // not; stop when a round adds nothing. No round cap: every round that
+  // continues has solved at least one more of finitely many slots, so the
+  // loop ends, and a cap could only drop findings a longer chain entails.
+  const built = new Set(equations.map((e) => `${e.left}|${e.right}`));
+  const pooled = [...byBreed.values()].flat();
+  for (;;) {
+    const extra = crossEquations(pooled, solved, built, maxDistance, baseSlotOf);
+    if (extra.length === 0) break;
+    for (const equation of extra) {
+      equations.push(equation);
+      built.add(`${equation.left}|${equation.right}`);
+    }
+    const before = solved.size;
+    depth = substitute(depth + 1);
+    solveJointly();
+    if (solved.size === before) break;
+  }
+
+  // Subjects that actually produced an equation, not subjects that were
+  // merely eligible: two animals with identical active sets yield nothing,
+  // and a breed with a single measured animal yields nothing at all.
+  const contributing = new Set<string>();
+  for (const equation of equations) contributing.add(equation.left).add(equation.right);
+  const contributors = contributing.size;
+
+  const gaps = new Map<string, BaselineOffset>();
+  for (const [key, finding] of solved) {
+    if (!isBaseSlot(key)) continue;
+    const breed = key.slice(BASE_SLOT_PREFIX.length);
+    gaps.set(breed, {
+      breed,
+      relativeTo: reference,
+      offset: finding.magnitude,
+      support: finding.support,
+      dissent: finding.dissent,
+      animals: gapAnimals.get(key) ?? 0,
     });
   }
 
   return {
     attribute,
     slots: attributeSlots.length,
-    findings: [...solved.values()].sort(
-      (a, b) => a.depth - b.depth || b.support - a.support || a.gene.localeCompare(b.gene),
-    ),
+    // Base gaps travel in the solver as slots but are not gene effects.
+    findings: [...solved.values()]
+      .filter((f) => f.gene !== BASE_SLOT_GENE)
+      .sort((a, b) => a.depth - b.depth || b.support - a.support || a.gene.localeCompare(b.gene)),
     // Stabled animals first: a disagreement the player can go and settle is
     // worth more than a louder one they cannot check, however large its count.
     // Checkable first, then the widest disagreements: a doubt backed by many
@@ -868,7 +1129,181 @@ export function studyAttribute(
       .sort((a, b) => Number(b.stabled) - Number(a.stabled) || b.count - a.count),
     validation: validate(equations, solved, consumed),
     contributors,
+    baselines: inferBaselines(pooled, solved, signOf, gaps),
   };
+}
+
+/**
+ * Read each breed's base off the animals, once the magnitudes are in.
+ *
+ * Every equation above is a difference so that the base never had to be
+ * known. With the magnitudes solved it falls out per animal: subtract what
+ * is known and `base + Σ unresolved` is left. Animals of one breed leaving
+ * the same slots unresolved must read the same lump, so they are tallied
+ * together and the majority rule applies as it does to magnitudes.
+ *
+ * A lump is not a lesser result. When the unresolved slot is one every
+ * animal expresses, the corpus can never do better — no pair differs at it —
+ * and the lump is exactly what the game's arithmetic makes observable.
+ */
+function inferBaselines(
+  observations: readonly Observation[],
+  solved: ReadonlyMap<string, StudyFinding>,
+  signOf: ReadonlyMap<string, 1 | -1>,
+  gaps: ReadonlyMap<string, BaselineOffset>,
+): AttributeBaselines {
+  /** Breed, then unresolved signature, then lump value to the animals reading it. */
+  const lumps = new Map<string, Map<string, Map<number, string[]>>>();
+  /** Baseline group to the pairing pool its animals are in. */
+  const poolOf = new Map<string, string>();
+  for (const { subject, active, value } of observations) {
+    poolOf.set(subject.baselineGroup ?? subject.breed, subject.breed);
+    let lump = value;
+    const unresolved: string[] = [];
+    for (const key of active) {
+      const known = solved.get(key);
+      if (known) lump -= known.magnitude;
+      else unresolved.push(key);
+    }
+    const group = subject.baselineGroup ?? subject.breed;
+    const bySignature = lumps.get(group) ?? new Map<string, Map<number, string[]>>();
+    lumps.set(group, bySignature);
+    const signature = unresolved.sort().join(',');
+    const tally = bySignature.get(signature) ?? new Map<number, string[]>();
+    bySignature.set(signature, tally);
+    const ids = tally.get(lump);
+    if (ids) ids.push(subject.id);
+    else tally.set(lump, [subject.id]);
+  }
+
+  /** Per breed, every settled lump by signature. */
+  const settled = new Map<string, Map<string, BaselineReading>>();
+  for (const [breed, bySignature] of lumps) {
+    const readings = new Map<string, BaselineReading>();
+    for (const [signature, tally] of bySignature) {
+      const { magnitude: lump, support, dissent, tied } = majority(tally);
+      // Two readings with equal backing: the corpus has not settled this lump.
+      if (tied) continue;
+      const unresolved = signature ? signature.split(',') : [];
+      let positives = 0;
+      let negatives = 0;
+      for (const key of unresolved) {
+        if (signOf.get(key) === 1) positives++;
+        else negatives++;
+      }
+      readings.set(signature, {
+        breed,
+        value: lump,
+        unresolved,
+        min: positives === 0 ? lump + negatives : null,
+        max: negatives === 0 ? lump - positives : null,
+        support,
+        dissent,
+        dissenters: [...tally].filter(([v]) => v !== lump).flatMap(([, ids]) => ids),
+        witnesses: (tally.get(lump) ?? []).slice(0, MAX_WITNESSES),
+      });
+    }
+    if (readings.size > 0) settled.set(breed, readings);
+  }
+
+  const readings = [...settled.values()]
+    .map((bySignature) =>
+      [...bySignature.values()].reduce((best, r) =>
+        r.support > best.support || (r.support === best.support && r.unresolved.length < best.unresolved.length)
+          ? r
+          : best,
+      ),
+    )
+    .sort((a, b) => b.support - a.support || a.breed.localeCompare(b.breed));
+
+  // Lump gaps, only between groups that share a pool: across pools the
+  // solver's gap already used every pair these lumps could offer, and more.
+  // Read relative to the best-supported group, so each is placed once
+  // against a common reference rather than against every other. An animal of
+  // no recorded breed could be any of them, so its group is never compared.
+  const offsets: BaselineOffset[] = [...gaps.values()];
+  const reference = readings.find((r) => r.breed !== '')?.breed;
+  const anchor = reference === undefined ? undefined : settled.get(reference);
+  if (anchor) {
+    for (const [breed, bySignature] of settled) {
+      if (breed === reference || breed === '' || poolOf.get(breed) !== poolOf.get(reference as string)) continue;
+      const tally = new Map<number, Array<[BaselineReading, BaselineReading]>>();
+      for (const [signature, reading] of bySignature) {
+        const other = anchor.get(signature);
+        if (!other) continue;
+        const offset = reading.value - other.value;
+        const list = tally.get(offset);
+        if (list) list.push([reading, other]);
+        else tally.set(offset, [[reading, other]]);
+      }
+      if (tally.size === 0) continue;
+      const { magnitude: offset, support, dissent, tied } = majority(tally);
+      if (tied) continue;
+      let animals = 0;
+      for (const [a, b] of tally.get(offset) ?? []) animals += a.support + b.support;
+      offsets.push({ breed, relativeTo: reference as string, offset, support, dissent, animals });
+    }
+  }
+  offsets.sort((a, b) => b.animals - a.animals || a.breed.localeCompare(b.breed));
+
+  return { readings: tightenThroughGaps(readings, gaps), offsets };
+}
+
+/**
+ * Share bounds between breeds whose gap is known.
+ *
+ * `base(B) = base(R) + gap`, so a bound on either base is a bound on the
+ * other. The gaps all point at one reference breed, so pooling every bound
+ * onto the reference and handing it back out is the whole propagation.
+ * This is where an exact base in one breed becomes an exact base in every
+ * breed linked to it.
+ */
+function tightenThroughGaps(
+  readings: readonly BaselineReading[],
+  gaps: ReadonlyMap<string, BaselineOffset>,
+): BaselineReading[] {
+  const first = gaps.values().next();
+  if (first.done) return [...readings];
+  const referenceBreed = first.value.relativeTo;
+  const reference = readings.find((r) => r.breed === referenceBreed);
+  if (!reference) return [...readings];
+
+  const tighterMin = (a: number | null, b: number | null) => (a === null ? b : b === null ? a : Math.max(a, b));
+  const tighterMax = (a: number | null, b: number | null) => (a === null ? b : b === null ? a : Math.min(a, b));
+
+  // The reference's bounds, tightened by every linked breed, and which
+  // breed supplied each side.
+  let min = reference.min;
+  let max = reference.max;
+  let minFrom: string | null = null;
+  let maxFrom: string | null = null;
+  for (const r of readings) {
+    const gap = gaps.get(r.breed);
+    if (!gap) continue;
+    if (r.min !== null && (min === null || r.min - gap.offset > min)) {
+      min = r.min - gap.offset;
+      minFrom = r.breed;
+    }
+    if (r.max !== null && (max === null || r.max - gap.offset < max)) {
+      max = r.max - gap.offset;
+      maxFrom = r.breed;
+    }
+  }
+
+  return readings.map((r) => {
+    if (r.breed === referenceBreed) {
+      const from = minFrom ?? maxFrom;
+      if (from === null) return r;
+      const gap = gaps.get(from) as BaselineOffset;
+      return { ...r, min, max, via: { breed: from, offset: -gap.offset } };
+    }
+    const gap = gaps.get(r.breed);
+    if (!gap) return r;
+    const nextMin = tighterMin(r.min, min === null ? null : min + gap.offset);
+    const nextMax = tighterMax(r.max, max === null ? null : max + gap.offset);
+    if (nextMin === r.min && nextMax === r.max) return r;
+    return { ...r, min: nextMin, max: nextMax, via: { breed: referenceBreed, offset: gap.offset } };
+  });
 }
 
 /** A slot the equations pin jointly, though no single equation isolates it. */
