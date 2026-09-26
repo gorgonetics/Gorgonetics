@@ -136,7 +136,7 @@ export async function refreshGeneTemplatesIfChanged(): Promise<void> {
   // pets.positive_genes is computed from gene effects and persisted on
   // the pets table. The backfill that populates it is guard-gated by a
   // one-shot flag, so without clearing the flag a refresh that changes
-  // effects would leave every pet's "Total +" count stale forever. The
+  // effects would leave every pet's positive-gene count stale forever. The
   // backfill task is already queued in AuthWrapper's startup tail —
   // clearing the flag here lets it re-fire on the same launch.
   await resetSetting('pets.positive_genes_backfilled');

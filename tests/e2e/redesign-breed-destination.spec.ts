@@ -272,7 +272,7 @@ test.describe('Redesign — Breed destination — explaining a pair’s scores',
     expect(before).toBeGreaterThan(0);
 
     await trio.getByTestId('trio-contrib-positive').click();
-    await expect(trio.getByTestId('trio-contrib-total')).toContainText('Total +');
+    await expect(trio.getByTestId('trio-contrib-total')).toContainText('+ genes');
     await expect(hatched).toHaveCount(before);
     // And they carry no contribution tint of their own.
     await expect(hatched.first()).not.toHaveAttribute('style', /--trio-contrib/);
@@ -302,10 +302,10 @@ test.describe('Redesign — Breed destination — explaining a pair’s scores',
     const trio = await openTrio(page);
     await trio.getByTestId('trio-show-scores').click();
 
-    const lens = trio.getByTestId('trio-score-lens-poolGain');
+    const lens = trio.getByTestId('trio-score-lens-positive');
     await lens.click();
     await expect(lens).toContainText('highlighting');
-    await expect(trio.getByTestId('trio-contrib-total')).toContainText('Pool-weighted +');
+    await expect(trio.getByTestId('trio-contrib-total')).toContainText('+ genes');
 
     // Clicking the active lens turns it back off.
     await lens.click();

@@ -47,7 +47,7 @@ const entry = (over: Partial<GeneTrioEntry>): GeneTrioEntry => ({
   attribute: 'Speed',
   pPositive: 0.25,
   pNegative: 0.75,
-  contributions: { positive: 0.25, poolGain: 0.3, capability: 0.5 },
+  contributions: { positive: 0.25, capability: 0.5 },
   fatherEffect: 'Speed-',
   motherEffect: 'Speed-',
   ...over,
@@ -182,11 +182,10 @@ describe('outcomeBoxBackground', () => {
 });
 
 describe('contributionOf', () => {
-  const c = { positive: 0.25, poolGain: 0.3, capability: 0.125 };
+  const c = { positive: 0.25, capability: 0.125 };
 
   it('reads the field each lens names', () => {
     expect(contributionOf(c, 'positive')).toBe(0.25);
-    expect(contributionOf(c, 'poolGain')).toBe(0.3);
     expect(contributionOf(c, 'capability')).toBe(0.125);
   });
 

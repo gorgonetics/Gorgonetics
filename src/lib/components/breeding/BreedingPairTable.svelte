@@ -77,13 +77,15 @@ const columns = $derived<Column[]>([
   { id: 'evLiabilityReduction', label: 'Cleanup', accessor: (r) => r.evLiabilityReduction, numeric: true },
   { id: 'evMixed', label: 'Mixed', accessor: (r) => r.evMixed, numeric: true },
   { id: 'evUnknown', label: 'Unknown', accessor: (r) => r.evUnknown, numeric: true },
-  { id: 'evPositiveTotal', label: 'Total +', accessor: (r) => r.evPositiveTotal, numeric: true },
-  // Named for what it is. It was "Pool gain", which reads as an improvement
-  // over the parents; it is the absolute expected positive count re-weighted
-  // by pool coverage, and a positive both parents already breed true still
-  // scores (at the lowest `locked` weight). Display-only rename — the sort key
-  // is still `evPositiveWeighted`, so persisted sort settings are unaffected.
-  { id: 'evPositiveWeighted', label: 'Pool-weighted +', accessor: (r) => r.evPositiveWeighted, numeric: true },
+  // Labelled as a count: with measured magnitudes beside it, "Total +" read as
+  // a quality figure. The sort key is unchanged, so saved sorts still apply.
+  {
+    id: 'evPositiveTotal',
+    label: '+ genes',
+    hint: 'Expected number of positive genes the foal expresses. A count, not a size: one +5 gene and one +1 gene count the same.',
+    accessor: (r) => r.evPositiveTotal,
+    numeric: true,
+  },
   ...attrNames.map((name): Column => {
     if (!inPoints(name)) {
       return {
@@ -312,11 +314,6 @@ function persistScroll() {
                     {fmt(pair.evPositiveTotal)}
                     {@render deltaTag(delta(pair.evPositiveTotal, pair.betterParentPositives), 'the better parent')}
                 </td>
-                <!-- No delta here: the figure is gap-weighted and the parents'
-                     counts are not, so a difference between them would compare
-                     two different units. The parent counts on the row are the
-                     honest reference for it. -->
-                <td class="numeric">{fmt(pair.evPositiveWeighted)}</td>
                 {#each attrNames as name (name)}
                     {@const value = inPoints(name) ? (pair.evPointsByAttribute?.[name] ?? 0) : (pair.evPositiveByAttribute[name] ?? 0)}
                     <td class="numeric">

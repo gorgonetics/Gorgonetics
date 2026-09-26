@@ -108,7 +108,7 @@ let hideLocked = $state(false);
 // homozygous, so it breeds true). The other collapses into the muted keep shade.
 let gainMode = $state<TrioGainMode>('attributes');
 // Which additive pair score the offspring boxes are tinted by, or `off` for
-// the default outcome-bucket rendering. Only the three scores that are a plain
+// the default outcome-bucket rendering. Only the two scores that are a plain
 // sum over loci appear here — see `TrioLocusContributions` for why Ceiling,
 // Floor and Cleanup cannot join them.
 let contributionMode = $state<TrioContributionMode>('off');
@@ -220,7 +220,7 @@ function offspringImpactLines(cell: TrioLocusCell): string[] {
 const pct = (p: number) => (p > 0 && p < 0.005 ? '<1%' : `${Math.round(p * 100)}%`);
 
 /**
- * The three lenses, in display order — one table rather than a mode list, a
+ * The two lenses, in display order — one table rather than a mode list, a
  * label map and a help map that have to agree. `needsPool` is which of them
  * measure against the rest of the stable and so cannot be offered when the
  * trio was opened without a candidate pool.
@@ -238,16 +238,10 @@ const CONTRIBUTION_LENSES: readonly {
     help: 'Tint each locus by its share of Quality — the capability the foal adds that the pool cannot already breed true.',
   },
   {
-    id: 'poolGain',
-    label: 'Pool-weighted +',
-    needsPool: true,
-    help: 'Tint each locus by its share of Pool-weighted + — expected positives weighted by how thinly the pool already covers each slot. Not a gain over the parents: a positive both parents already breed true still counts, at the lowest weight.',
-  },
-  {
     id: 'positive',
-    label: 'Total +',
+    label: '+ genes',
     needsPool: false,
-    help: 'Tint each locus by its share of Total + — the probability the foal expresses a positive here.',
+    help: 'Tint each locus by its share of + genes — the probability the foal expresses a positive here. A count, not a size.',
   },
 ];
 
@@ -330,7 +324,6 @@ const additiveRows = $derived.by(() => {
   if (!scores) return [];
   const score: Record<Exclude<TrioContributionMode, 'off'>, number> = {
     capability: scores.evCapabilityGain,
-    poolGain: scores.evPositiveWeighted,
     positive: scores.evPositiveTotal,
   };
   return availableLenses.map((l) => ({ id: l.id, label: l.label, score: score[l.id] }));
@@ -464,7 +457,7 @@ async function load(f: Pet, m: Pet, breed: string) {
       getGeneEffectsCached(sp),
     ]);
     if (mine !== loadSeq) return;
-    // Quality and Pool gain need the candidate pool. Opened without one (or
+    // Quality needs the candidate pool. Opened without one (or
     // with an empty one), fall back rather than tint every cell at zero — a
     // uniform grid reads as "nothing contributes", which is a different claim.
     if (!result.summary.poolScored && contributionMode !== 'off' && contributionMode !== 'positive') {

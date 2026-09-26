@@ -330,18 +330,6 @@ export interface ParentExpressedProfile {
  * every locus the parents share (attribute + appearance + selector) and
  * is the predictability metric; `evPositiveByAttribute` is attribute-only
  * and broken down per attribute so the breeder can sort to target one.
- *
- * `evPositiveWeighted` is the pool-gap-aware variant: each positive slot's
- * expected mass is scaled by how well the candidate pool already covers that
- * slot (missing > partial > locked), so a pair that fills a gap nothing else
- * covers outranks one re-covering an already-secured positive. Raw EV stays
- * untouched for display; the weighted figure is a separate "Pool-weighted +"
- * column.
- *
- * **It is not a gain over the parents**, despite an earlier name that said so.
- * It is the same absolute expected count, re-weighted: a positive both parents
- * already breed true still scores, at the lowest `locked` weight. Only
- * `evCapabilityGain` differences against what the stable can already do.
  */
 export interface BreedingPairResult {
   male: Pet;
@@ -349,13 +337,11 @@ export interface BreedingPairResult {
   evMixed: number;
   evPositiveByAttribute: Record<string, number>;
   evPositiveTotal: number;
-  evPositiveWeighted: number;
   /**
    * Expected capability the foal adds to the stable — the Genetic Quality
    * Score's measure run forward (see `docs/design/genetic-quality-score-v1.md`).
-   * Unlike `evPositiveWeighted` it cannot credit an allele nothing in the
-   * pool carries, because a foal only realises what its parents supply, so
-   * the inert `missing` tier of `GAP_WEIGHT` cannot arise.
+   * It cannot credit an allele nothing in the pool carries, because a foal
+   * only realises what its parents supply.
    *
    * Deliberately coarse: it takes 17 distinct values across a 234-pair
    * stable, 64 of them zero. Sort by it first and break ties on
@@ -555,8 +541,7 @@ export type TrioGainMode = 'attributes' | 'clarification';
  * One locus's share of the pair scores that are a plain sum over loci.
  *
  * **Only the additive scores appear here, and that is the point.** `Quality`
- * (`evCapabilityGain`), `Pool-weighted +` (`evPositiveWeighted`) and `Total +`
- * (`evPositiveTotal`) are accumulated locus by locus in `scorePair`, so each
+ * (`evCapabilityGain`) and `+ genes` (`evPositiveTotal`) are accumulated locus by locus in `scorePair`, so each
  * locus has an exact, extractable contribution that sums back to the column
  * the breeding table shows.
  *
@@ -566,7 +551,7 @@ export type TrioGainMode = 'attributes' | 'clarification';
  * The gradient of that integral with respect to the mean is a single
  * constant across the whole genome, so any honest per-locus attribution for
  * Ceiling collapses to `pPositive` scaled by that constant — identical to
- * Floor's, and identical in ranking to `Total +`. Offering them as distinct
+ * Floor's, and identical in ranking to `+ genes`. Offering them as distinct
  * lenses would draw a distinction the arithmetic does not make, so the trio
  * explains those three with the score panel instead.
  */
@@ -574,16 +559,9 @@ export interface TrioLocusContributions {
   /** Share of `evPositiveTotal` — p(offspring expresses a positive here). */
   positive: number;
   /**
-   * Share of `evPositiveWeighted` (Pool-weighted +): the positive mass scaled by
-   * `GAP_WEIGHT` for how well the pool already covers each slot. Zero when
-   * the trio was built without a candidate pool — coverage is a fact about
-   * the pool, not the pair, so it cannot be recovered from two parents.
-   */
-  poolGain: number;
-  /**
    * Share of `evCapabilityGain` (Quality), breed-reach weighted. Zero
-   * without a candidate pool, for the same reason: capability is measured
-   * against what the rest of the stable can already breed true.
+   * without a candidate pool: capability is measured against what the rest
+   * of the stable can already breed true, which two parents cannot tell.
    */
   capability: number;
 }
@@ -592,7 +570,7 @@ export interface TrioLocusContributions {
  * Which additive score the trio's offspring cells are tinted by, or `off`
  * for the default outcome-bucket rendering.
  */
-export type TrioContributionMode = 'off' | 'capability' | 'poolGain' | 'positive';
+export type TrioContributionMode = 'off' | 'capability' | 'positive';
 
 /**
  * One locus in the trio view. `dist` is the offspring's probabilistic
@@ -643,11 +621,10 @@ export interface OffspringTrioResult {
     lockedIn: number;
     unknownLoci: number;
     /**
-     * Whether a candidate pool was supplied, so `capability` and `poolGain`
-     * contributions are real rather than zero. Both are measured against the
-     * rest of the stable, so without a pool the view must offer neither
-     * rather than show a column of zeroes that reads as "contributes
-     * nothing".
+     * Whether a candidate pool was supplied, so `capability` contributions
+     * are real rather than zero. Capability is measured against the rest of
+     * the stable, so without a pool the view must not offer it rather than
+     * show a column of zeroes that reads as "contributes nothing".
      */
     poolScored: boolean;
   };
