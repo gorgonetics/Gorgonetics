@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { closeDatabase, getDb, initDatabase } from '$lib/services/database.js';
-import { runMigrations } from '$lib/services/migrationService.js';
+import { getSchemaVersion, runMigrations } from '$lib/services/migrationService.js';
 import * as petService from '$lib/services/petService.js';
 import { compareGeneIds, decodeLoci, encodeLoci } from '$lib/utils/lociCodec.js';
 import { loadAllPetLoci } from '$lib/utils/petLoci.js';
@@ -220,35 +220,68 @@ describe('backfillPetLociIfNeeded', () => {
 });
 
 describe('migration v19', () => {
-  it('moves pet_genes rows into the loci column and drops the table', async () => {
+  /** A database exactly as v18 left it: `pet_genes` rows and no loci columns. */
+  const v18WithPet = async (): Promise<number> => {
     await closeDatabase();
     await initDatabase();
-    await runMigrations();
+    await runMigrations(18);
     const db = getDb();
-    // Stand the database back up as v18 saw it: a pet with projected rows,
-    // out of locus order to show the column is canonical, and no loci yet.
-    const result = await petService.uploadPet(MINIMAL_BEEWASP_GENOME, { name: 'Minimal', gender: 'Female' });
-    await db.execute('UPDATE pets SET loci = $empty, loci_layout = $empty WHERE id = $id', {
-      empty: '',
-      id: result.pet_id,
-    });
-    await db.execute('CREATE TABLE IF NOT EXISTS pet_genes (pet_id INTEGER, gene_id TEXT, gene_type TEXT)');
+    const ins = await db.execute(
+      `INSERT INTO pets (name, species, gender, content_hash, genome_data, created_at, updated_at)
+       VALUES ($name, $species, $gender, $content_hash, $genome_data, $created_at, $updated_at)`,
+      {
+        name: 'Minimal',
+        species: 'BeeWasp',
+        gender: 'Female',
+        content_hash: 'v18hash',
+        // Deliberately not the rows below: the migration must read the rows.
+        genome_data: JSON.stringify({ genes: {} }),
+        created_at: '2024-01-01',
+        updated_at: '2024-01-01',
+      },
+    );
+    const id = Number(ins.lastInsertId);
+    // Out of locus order, to show the column is canonical.
     for (const [gene, type] of [
       ['01A3', 'x'],
       ['01A1', 'D'],
       ['01A2', 'R'],
     ])
       await db.execute('INSERT INTO pet_genes (pet_id, gene_id, gene_type) VALUES ($pid, $gid, $gt)', {
-        pid: result.pet_id,
+        pid: id,
         gid: gene,
         gt: type,
       });
-    await db.execute('PRAGMA user_version = 18');
+    return id;
+  };
+
+  it('moves pet_genes rows into the loci column and drops the table', async () => {
+    const id = await v18WithPet();
+    await runMigrations();
+    expect((await lociRow(id)).loci).toBe('DRx');
+    expect(await lociOf(id)).toEqual([
+      ['01A1', 'D'],
+      ['01A2', 'R'],
+      ['01A3', 'x'],
+    ]);
+    await expect(getDb().select('SELECT pet_id FROM pet_genes')).resolves.toEqual([]);
+  });
+
+  it('leaves a plain v18 database when interrupted, so the next launch migrates again', async () => {
+    const id = await v18WithPet();
+    const db = getDb();
+    const transaction = db.transaction.bind(db);
+    // Fail the write transaction partway: after the columns are added, a
+    // statement that cannot run. The transaction must roll all of it back.
+    db.transaction = async (statements) => {
+      db.transaction = transaction;
+      return transaction([...statements.slice(0, 3), { sql: 'ALTER TABLE pets ADD COLUMN loci TEXT' }]);
+    };
+    await expect(runMigrations()).rejects.toThrow('duplicate column name');
+    expect(await getSchemaVersion()).toBe(18);
 
     await runMigrations();
-
-    // The rows, not the stored genome (`DDD`), are what readers saw before.
-    expect((await lociRow(result.pet_id)).loci).toBe('DRx');
-    await expect(db.select('SELECT pet_id FROM pet_genes')).resolves.toEqual([]);
+    expect(await getSchemaVersion()).toBe(19);
+    expect((await lociRow(id)).loci).toBe('DRx');
   });
 });

@@ -301,6 +301,11 @@ class InMemoryDatabase implements DatabaseAdapter {
       const fallback = raw === undefined ? null : /^-?\d+(\.\d+)?$/.test(raw) ? Number(raw) : raw;
       const rows = this.tables[table];
       if (rows) {
+        // SQLite refuses a second ADD COLUMN of the same name. Refusing here
+        // too keeps a migration that is not restart-safe from passing in tests.
+        if (column in (this.addedColumns[table] ?? {}) || rows.some((row) => column in row)) {
+          throw new Error(`duplicate column name: ${column}`);
+        }
         this.addedColumns[table] = { ...(this.addedColumns[table] ?? {}), [column]: fallback };
         for (const row of rows) if (!(column in row)) row[column] = fallback;
       }
@@ -469,6 +474,7 @@ class InMemoryDatabase implements DatabaseAdapter {
     const snapshot = {
       tables: JSON.stringify(this.tables),
       autoIncrements: JSON.stringify(this.autoIncrements),
+      addedColumns: JSON.stringify(this.addedColumns),
       userVersion: this.userVersion,
     };
     try {
@@ -480,6 +486,7 @@ class InMemoryDatabase implements DatabaseAdapter {
     } catch (e) {
       this.tables = JSON.parse(snapshot.tables);
       this.autoIncrements = JSON.parse(snapshot.autoIncrements);
+      this.addedColumns = JSON.parse(snapshot.addedColumns);
       this.userVersion = snapshot.userVersion;
       throw e;
     }

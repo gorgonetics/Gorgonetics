@@ -394,15 +394,21 @@ const MIGRATIONS: Migration[] = [
       // 492-pet stable, and 49 MB with its indexes. Every reader rebuilt a
       // per-pet map from those rows, so one encoded string per pet serves them
       // all; see `lociCodec`.
+      //
+      // All-or-nothing. Everything is read and encoded first, which changes
+      // nothing; then one transaction adds the columns, fills them, drops the
+      // table and advances `user_version`. SQLite applies DDL and the version
+      // inside the transaction, so an interrupted run leaves a plain v18
+      // database that the next launch migrates again, not a half-applied one
+      // that fails on a duplicate `ADD COLUMN`.
       const db = getDb();
-      await db.execute("ALTER TABLE pets ADD COLUMN loci TEXT NOT NULL DEFAULT ''");
-      await db.execute("ALTER TABLE pets ADD COLUMN loci_layout TEXT NOT NULL DEFAULT ''");
-      await db.execute('CREATE TABLE IF NOT EXISTS locus_layouts (layout TEXT PRIMARY KEY, ids TEXT NOT NULL)');
 
       // Converted from the rows themselves, not re-parsed from `genome_data`,
       // so every reader sees exactly the loci it saw before. A pet with no
       // rows keeps an empty column; the startup backfill fills it.
       const pets = await db.select<{ id: number }[]>('SELECT id FROM pets');
+      const layouts = new Map<string, string>();
+      const updates: TxStatement[] = [];
       const chunk = 50;
       for (let i = 0; i < pets.length; i += chunk) {
         const { placeholders, params } = buildInClauseParams(
@@ -420,26 +426,30 @@ const MIGRATIONS: Migration[] = [
           if (list) list.push([row.gene_id, row.gene_type]);
           else byPet.set(id, [[row.gene_id, row.gene_type]]);
         }
-        const statements: TxStatement[] = [];
         for (const [id, entries] of byPet) {
           const encoded = await encodeLoci(entries);
-          statements.push(
-            {
-              sql: 'INSERT OR REPLACE INTO locus_layouts (layout, ids) VALUES ($layout, $ids)',
-              params: { layout: encoded.layout, ids: encoded.ids },
-            },
-            {
-              sql: 'UPDATE pets SET loci = $loci, loci_layout = $layout WHERE id = $id',
-              params: { loci: encoded.loci, layout: encoded.layout, id },
-            },
-          );
+          layouts.set(encoded.layout, encoded.ids);
+          updates.push({
+            sql: 'UPDATE pets SET loci = $loci, loci_layout = $layout WHERE id = $id',
+            params: { loci: encoded.loci, layout: encoded.layout, id },
+          });
         }
-        if (statements.length > 0) await db.transaction(statements);
       }
 
-      await db.execute('DROP INDEX IF EXISTS idx_pet_genes_pet');
-      await db.execute('DROP INDEX IF EXISTS idx_pet_genes_lookup');
-      await db.execute('DROP TABLE IF EXISTS pet_genes');
+      await db.transaction([
+        { sql: "ALTER TABLE pets ADD COLUMN loci TEXT NOT NULL DEFAULT ''" },
+        { sql: "ALTER TABLE pets ADD COLUMN loci_layout TEXT NOT NULL DEFAULT ''" },
+        { sql: 'CREATE TABLE IF NOT EXISTS locus_layouts (layout TEXT PRIMARY KEY, ids TEXT NOT NULL)' },
+        ...[...layouts].map(([layout, ids]) => ({
+          sql: 'INSERT OR REPLACE INTO locus_layouts (layout, ids) VALUES ($layout, $ids)',
+          params: { layout, ids },
+        })),
+        ...updates,
+        { sql: 'DROP INDEX IF EXISTS idx_pet_genes_pet' },
+        { sql: 'DROP INDEX IF EXISTS idx_pet_genes_lookup' },
+        { sql: 'DROP TABLE IF EXISTS pet_genes' },
+        { sql: 'PRAGMA user_version = 19' },
+      ]);
     },
   },
 ];
@@ -459,11 +469,12 @@ export async function getSchemaVersion(): Promise<number> {
 /**
  * Run all pending migrations and update the schema version.
  */
-export async function runMigrations(): Promise<void> {
+export async function runMigrations(upTo: number = CURRENT_SCHEMA_VERSION): Promise<void> {
   const db = getDb();
   const currentVersion = await getSchemaVersion();
 
-  const pending = MIGRATIONS.filter((m) => m.version > currentVersion);
+  // `upTo` exists for tests that need a database as an older version left it.
+  const pending = MIGRATIONS.filter((m) => m.version > currentVersion && m.version <= upTo);
   if (pending.length === 0) return;
 
   for (const migration of pending) {
