@@ -532,6 +532,11 @@ export async function runMigrations(upTo: number = CURRENT_SCHEMA_VERSION): Prom
   // wrong one, and must not fail the startup that just migrated.
   if (pending.some((m) => m.vacuumAfter)) {
     await db.execute('VACUUM').catch((error: unknown) => console.warn('VACUUM after migration failed', error));
+    // In WAL mode VACUUM writes the rebuilt file through the log, and SQLite
+    // keeps the log at its largest size until a truncating checkpoint.
+    await db
+      .execute('PRAGMA wal_checkpoint(TRUNCATE)')
+      .catch((error: unknown) => console.warn('WAL checkpoint after migration failed', error));
   }
 
   console.log(`Database migrated to v${CURRENT_SCHEMA_VERSION}`);
