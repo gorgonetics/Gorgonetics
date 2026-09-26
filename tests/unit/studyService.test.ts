@@ -738,9 +738,11 @@ describe('persisted magnitudes', () => {
     await upload(name('Kb', 45, 80, 'With'), 'DRRR');
     await upload(name('Kb', 40, 80, 'Without'), 'RRRR');
 
-    // Only the fingerprint's own unscoped projection read — the solver reads
-    // `pet_genes` too, and breaking that would prove nothing.
-    const broken = breakSelect(/^SELECT pet_id, gene_id, gene_type FROM pet_genes$/);
+    // Only the fingerprint's own pets read — the solver reads the loci too,
+    // and breaking that would prove nothing.
+    const broken = breakSelect(
+      /^SELECT id, species, attributes_measured, breed, content_hash, use_for_studies, stabled, loci,/,
+    );
     try {
       expect(magnitudeOf(await attributeMagnitudesFor('horse'), '01A1', 'dominant')).toBe(5);
       expect(broken.count()).toBeGreaterThan(0);

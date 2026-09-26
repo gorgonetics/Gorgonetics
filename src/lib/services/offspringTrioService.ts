@@ -106,7 +106,7 @@ interface PoolContext {
 
 /**
  * Load the candidate pool and derive exactly what `rankBreedingPairs`
- * derives from it: allele tallies and the breed-reach weight. A second `pet_genes` pass over animals the ranking already read,
+ * derives from it: allele tallies and the breed-reach weight. A second loci read over animals the ranking already read,
  * accepted because it happens once when the player opens the trio, not per
  * pair.
  */
@@ -158,7 +158,7 @@ function locusContributions(
 /**
  * Build the trio view for one (father × mother) pair.
  *
- * Both parents must have at least one projected `pet_genes` row; a parent
+ * Both parents must have usable loci; a parent
  * missing from the projection is treated as a load failure.
  */
 export async function computeOffspringTrio(

@@ -7,7 +7,7 @@
  * because the UI needs the contribution split *per attribute*, not the
  * single aggregate probability that helper returns.
  *
- * Reads from the pre-projected `pet_genes` table — no genome JSON parse
+ * Reads each pet's `loci` column via `petLoci` — no genome JSON parse
  * on the hot path — via the shared `petLoci` utility, and from the
  * cached parsed-effect columns on the `genes` table.
  */

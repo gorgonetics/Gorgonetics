@@ -44,6 +44,7 @@ const REPLACE_KEYS: Record<string, string[]> = {
   study_corpus: ['content_hash'],
   gene_confirmations: ['species', 'gene', 'expression'],
   study_magnitudes: ['species'],
+  locus_layouts: ['layout'],
 };
 
 /**
@@ -200,70 +201,6 @@ class InMemoryDatabase implements DatabaseAdapter {
       return [{ [alias]: base + Number(addend) }] as T;
     }
 
-    // SELECT <groupCol>, SUM(CASE WHEN <col> = '<literal>' THEN 1 ELSE 0 END) AS <alias>, …
-    //   FROM <table> [WHERE …] GROUP BY <groupCol>
-    //
-    // Added for the rarity baseline (#368), which aggregates `pet_genes` into
-    // one row per locus rather than shipping one row per pet per locus.
-    //
-    // Parsed from `q0` (original case), NOT `q`: the lowercasing at the top of
-    // this method would turn a `'D'` literal into `'d'`, which never matches a
-    // stored gene_type — the same hazard `matchesWhere` documents for `'Horse'`.
-    // Without this branch the query would fall through to the generic
-    // `SELECT … FROM` case below and silently return raw rows instead of
-    // aggregates, so dev and tests would disagree with production SQLite.
-    // The group-by column is NOT anchored to end-of-string: a trailing ORDER BY,
-    // HAVING or LIMIT would then fall through to the raw-rows branch below and
-    // return one row per pet per locus with no aggregate columns — silently
-    // yielding empty tallies in dev and test while the packaged SQLite build
-    // works, which is exactly the dev/prod divergence this branch exists to stop.
-    const q0n = q0.replace(/\s+/g, ' ').trim();
-    const groupMatch = q0n.match(/^select\s+(\w+)\s*,\s*(.+?)\s+from\s+(\w+)\b.*?\s+group\s+by\s+(\w+)\b(.*)$/i);
-    if (groupMatch) {
-      const [, groupCol, selectList, table, groupBy, tail] = groupMatch;
-      // ORDER BY / HAVING / LIMIT are not emulated. Throwing is deliberate: the
-      // alternative is to ignore them, which means dev and test quietly disagree
-      // with production SQLite — the failure mode this whole branch exists to
-      // prevent. A loud error tells whoever adds such a query to extend this.
-      const unsupported = tail.trim().match(/^(order\s+by|having|limit)\b/i);
-      if (unsupported) {
-        throw new Error(
-          `InMemoryDatabase: GROUP BY with a trailing ${unsupported[1].toUpperCase()} is not emulated (${q0n}). ` +
-            'Extend the aggregate branch rather than relying on SQLite-only behaviour.',
-        );
-      }
-      const aggregates = [
-        ...selectList.matchAll(
-          /sum\(\s*case\s+when\s+(\w+)\s*=\s*'([^']*)'\s+then\s+1\s+else\s+0\s+end\s*\)\s+as\s+(\w+)/gi,
-        ),
-      ].map(([, col, literal, alias]) => ({ col, literal, alias }));
-      if (aggregates.length > 0) {
-        const rows = this.getTable(table.toLowerCase());
-        // `applyWhere`'s WHERE regex runs to end-of-string, so it would swallow
-        // the trailing GROUP BY as part of the predicate. Hand it the head only.
-        const cut = q.lastIndexOf(' group by ');
-        const filtered = this.applyWhere(rows, cut >= 0 ? q.slice(0, cut) : q, values);
-
-        const groups = new Map<unknown, Record<string, unknown>[]>();
-        for (const row of filtered) {
-          const key = row[groupBy];
-          let bucket = groups.get(key);
-          if (!bucket) {
-            bucket = [];
-            groups.set(key, bucket);
-          }
-          bucket.push(row);
-        }
-        return [...groups.entries()].map(([key, groupRows]) => {
-          const out: Record<string, unknown> = { [groupCol]: key };
-          for (const { col, literal, alias } of aggregates) {
-            out[alias] = groupRows.reduce((n, r) => n + (String(r[col]) === literal ? 1 : 0), 0);
-          }
-          return out;
-        }) as T;
-      }
-    }
-
     // SELECT * FROM table
     const selectMatch = q.match(/select\s+.+?\s+from\s+(\w+)/);
     if (selectMatch) {
@@ -364,9 +301,28 @@ class InMemoryDatabase implements DatabaseAdapter {
       const fallback = raw === undefined ? null : /^-?\d+(\.\d+)?$/.test(raw) ? Number(raw) : raw;
       const rows = this.tables[table];
       if (rows) {
+        // SQLite refuses a second ADD COLUMN of the same name. Refusing here
+        // too keeps a migration that is not restart-safe from passing in tests.
+        if (column in (this.addedColumns[table] ?? {}) || rows.some((row) => column in row)) {
+          throw new Error(`duplicate column name: ${column}`);
+        }
         this.addedColumns[table] = { ...(this.addedColumns[table] ?? {}), [column]: fallback };
         for (const row of rows) if (!(column in row)) row[column] = fallback;
       }
+      return { rowsAffected: 0, lastInsertId: 0 };
+    }
+
+    // DROP TABLE / DROP INDEX / VACUUM: indexes are not emulated, and VACUUM
+    // has nothing to reclaim in memory, so only a dropped table changes state.
+    const dropTable = q.match(/drop\s+table\s+(?:if\s+exists\s+)?(\w+)/i);
+    if (dropTable) {
+      const table = dropTable[1].toLowerCase();
+      delete this.tables[table];
+      delete this.autoIncrements[table];
+      delete this.addedColumns[table];
+      return { rowsAffected: 0, lastInsertId: 0 };
+    }
+    if (qLower.startsWith('drop index') || qLower.startsWith('vacuum')) {
       return { rowsAffected: 0, lastInsertId: 0 };
     }
 
@@ -518,6 +474,7 @@ class InMemoryDatabase implements DatabaseAdapter {
     const snapshot = {
       tables: JSON.stringify(this.tables),
       autoIncrements: JSON.stringify(this.autoIncrements),
+      addedColumns: JSON.stringify(this.addedColumns),
       userVersion: this.userVersion,
     };
     try {
@@ -529,6 +486,7 @@ class InMemoryDatabase implements DatabaseAdapter {
     } catch (e) {
       this.tables = JSON.parse(snapshot.tables);
       this.autoIncrements = JSON.parse(snapshot.autoIncrements);
+      this.addedColumns = JSON.parse(snapshot.addedColumns);
       this.userVersion = snapshot.userVersion;
       throw e;
     }

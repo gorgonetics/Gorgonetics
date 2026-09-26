@@ -2,7 +2,7 @@
  * Genetic Quality Score service — the DB-aware composition over
  * `utils/geneticQuality`.
  *
- * Reads the pre-projected `pet_genes` table via the shared `petLoci`
+ * Reads each pet's `loci` column via the shared `petLoci`
  * utility and the cached parsed-effect columns on `genes`, then hands both
  * to the pure scoring core. Mirrors `breedingService`'s split: no genetics
  * arithmetic lives here.
@@ -112,7 +112,7 @@ export interface StableScores {
    */
   scores: Map<number, GeneticQualityResult>;
   /**
-   * Pets with no `pet_genes` rows — nothing imported, or a genome that failed
+   * Pets with no usable loci — nothing imported, or a genome that failed
    * to parse. Left out of `scores` rather than scored as empty, because an
    * empty genome reads as "contributes nothing", which is the vocabulary for
    * *redundant*, and a pet nobody has measured is not that.
@@ -136,7 +136,7 @@ export interface StableScores {
 /**
  * Score a stable: what each animal holds that the others cannot supply.
  *
- * One `pet_genes` read and one tally pass for the whole set, then a scoring
+ * One loci read and one tally pass for the whole set, then a scoring
  * pass per animal — O(pets × loci), roughly 60k operations for a 38-horse
  * stable.
  */

@@ -165,7 +165,7 @@ export type ExclusionReason =
   | 'unmeasured'
   /** Carries at least one unrevealed locus. */
   | 'unrevealed'
-  /** No projected `pet_genes` rows — malformed or unparsed genome. */
+  /** No usable loci — malformed or unparsed genome. */
   | 'no-genome'
   /** No breed, so it cannot be paired with anything. */
   | 'no-breed'
@@ -190,7 +190,7 @@ export interface LoadCorpusOptions {
    * Gene ids the study needs present on every subject.
    *
    * A projection can be short — a truncated genome, a half-written
-   * `pet_genes` write, or a locus added in Reference that no stored genome
+   * loci write, or a locus added in Reference that no stored genome
    * carries. `activeSlots` withdraws such a subject from the affected
    * attribute, which is correct but silent: it would still be counted among
    * the animals studied while contributing nothing. Passing the declared
@@ -959,7 +959,7 @@ const SOLVER_VERSION = 4;
  * A cached animal's `content_hash` is its genome's digest, so that half is
  * exact. A local animal's is not — `content_hash` is set at upload and
  * `updatePet` never recomputes it — so local genomes are covered by their
- * `pet_genes` projection, which is what the solver reads anyway.
+ * `loci` column, which is what the solver reads anyway.
  *
  * The gene-count columns (`positive_genes` and the total/known/unknown trio)
  * are deliberately *not* used in their place. They are a proxy for the
@@ -979,11 +979,10 @@ async function studyFingerprint(species: string): Promise<string> {
   // drops a `WHERE` it cannot parse rather than failing — so a fingerprint
   // built by the database would be constant there and silently serve a stale
   // table to every test.
-  const [pets, loci, cached, genes, confirmations] = await Promise.all([
+  const [pets, cached, genes, confirmations] = await Promise.all([
     db.select<Array<Record<string, unknown>>>(
-      `SELECT id, species, attributes_measured, breed, content_hash, use_for_studies, stabled, ${ATTRIBUTE_KEYS.join(', ')} FROM pets`,
+      `SELECT id, species, attributes_measured, breed, content_hash, use_for_studies, stabled, loci, loci_layout, ${ATTRIBUTE_KEYS.join(', ')} FROM pets`,
     ),
-    db.select<Array<Record<string, unknown>>>('SELECT pet_id, gene_id, gene_type FROM pet_genes'),
     db.select<Array<Record<string, unknown>>>(
       'SELECT content_hash, species, name, breed, attributes, use_for_studies FROM study_corpus',
     ),
@@ -1005,17 +1004,6 @@ async function studyFingerprint(species: string): Promise<string> {
       .sort()
       .join(',');
 
-  // `pet_genes` carries no species column, so scope it by the ids of the
-  // pets this fingerprint already covers.
-  const ourPetIds = new Set(
-    pets.filter((r) => normalizeSpecies(String(r.species ?? '')) === normalized).map((r) => String(r.id)),
-  );
-  const projection = loci
-    .filter((r) => ourPetIds.has(String(r.pet_id)))
-    .map((r) => line(r, ['pet_id', 'gene_id', 'gene_type']))
-    .sort()
-    .join(',');
-
   return sha256Hex(
     [
       `solver:${SOLVER_VERSION}`,
@@ -1034,10 +1022,11 @@ async function studyFingerprint(species: string): Promise<string> {
         'content_hash',
         'use_for_studies',
         'stabled',
+        // The genome of every local animal, exactly as the solver reads it.
+        'loci',
+        'loci_layout',
         ...ATTRIBUTE_KEYS,
       ]),
-      // The genome of every local animal, exactly as the solver reads it.
-      projection,
       summarise(cached, 'species', ['content_hash', 'name', 'breed', 'attributes', 'use_for_studies']),
       summarise(genes, 'animal_type', [
         'gene',

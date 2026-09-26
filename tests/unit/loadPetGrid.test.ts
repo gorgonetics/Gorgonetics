@@ -46,7 +46,7 @@ describe('loadPetGridFromDb', () => {
     await runMigrations();
   });
 
-  it('builds the per-block grid from pet_genes for an uploaded pet', async () => {
+  it('builds the per-block grid from the loci column for an uploaded pet', async () => {
     // MULTI_BLOCK_BEEWASP layout:
     //   chr 01 → A=DDD (3), B=RR? (3), C=xD (2)
     //   chr 02 → A=DR (2)
@@ -86,12 +86,12 @@ describe('loadPetGridFromDb', () => {
     expect(grid).toEqual({});
   });
 
-  it('falls back to genome_data and re-projects pet_genes when the row set is empty', async () => {
+  it('falls back to genome_data and refills the loci when the column is empty', async () => {
     // Simulates an un-backfilled legacy pet: row exists in `pets`,
-    // genome_data is intact, but pet_genes hasn't been populated yet.
+    // genome_data is intact, but its loci haven't been written yet.
     const upload = await petService.uploadPet(MULTI_BLOCK_BEEWASP, { name: 'Legacy', gender: 'Female' });
     const db = (await import('$lib/services/database.js')).getDb();
-    await db.execute('DELETE FROM pet_genes WHERE pet_id = $id', { id: upload.pet_id });
+    await db.execute('UPDATE pets SET loci = $empty WHERE id = $id', { empty: '', id: upload.pet_id });
 
     const grid = await petService.loadPetGridFromDb(upload.pet_id as number);
     // Same shape as the steady-state test above — the fallback must
@@ -109,11 +109,9 @@ describe('loadPetGridFromDb', () => {
     ]);
     expect(grid['02'].allGenes.map((g) => g.id)).toEqual(['02A1', '02A2']);
 
-    // Fallback also writes pet_genes back, so the next call sees rows.
-    const writtenRows = await db.select<{ n: number }[]>('SELECT COUNT(*) as n FROM pet_genes WHERE pet_id = $id', {
-      id: upload.pet_id,
-    });
-    expect(writtenRows[0].n).toBeGreaterThan(0);
+    // Fallback also writes the column back, so the next call reads it.
+    const [row] = await db.select<{ loci: string }[]>('SELECT loci FROM pets WHERE id = $id', { id: upload.pet_id });
+    expect(row.loci.length).toBeGreaterThan(0);
   });
 });
 
