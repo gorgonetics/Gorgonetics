@@ -300,7 +300,7 @@ describe('FreeSlotsDialog', () => {
     const db = getDb();
     for (const p of pets.slice(0, 4)) {
       await petService.updatePet(p.id, { starred: true });
-      await db.execute('DELETE FROM pet_genes WHERE pet_id = $id', { id: p.id });
+      await db.execute('UPDATE pets SET loci = $empty WHERE id = $id', { empty: '', id: p.id });
       await db.execute('UPDATE pets SET genome_data = $g WHERE id = $id', { g: '{}', id: p.id });
     }
     const refreshed = await Promise.all(pets.map(async (p) => (await petService.getPet(p.id)) as Pet));

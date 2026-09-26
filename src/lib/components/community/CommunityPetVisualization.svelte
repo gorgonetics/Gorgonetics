@@ -5,7 +5,7 @@
  * (Gallery / Share / Edit / Delete) and adds the catalogue metadata plus
  * the Import-to-stable action.
  *
- * The genome comes from the share blob, not `pet_genes`: the full
+ * The genome comes from the share blob, not the local `loci` column: the full
  * SharedPet (with `genomeData`) is lazy-fetched here via `getSharedPet`,
  * parsed into a grid with `genomeTextToGrid`, and handed to GeneVisualizer
  * through its `gridOverride` prop. A synthetic Pet (`sharedPetToPet`)

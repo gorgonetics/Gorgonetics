@@ -92,7 +92,7 @@ interface Props {
   /**
    * Pre-built chromosome grid to render instead of loading from the local
    * DB by `pet.id`. Used for community-catalogue previews, whose genome
-   * lives in the share blob (not `pet_genes`) — see `genomeTextToGrid`.
+   * lives in the share blob (not the local `loci`) — see `genomeTextToGrid`.
    * When set, `loadPetGridFromDb` is bypassed entirely.
    */
   gridOverride?: Record<string, ParsedChromosome> | null;

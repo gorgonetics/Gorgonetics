@@ -246,7 +246,7 @@ describe('Pet Service', () => {
     // captured list SELECT against the LIVE schema columns (SELECT * keys),
     // so a future `ALTER TABLE pets ADD COLUMN` not reflected in
     // ALL_PET_COLUMNS fails here instead of vanishing from list pets in prod.
-    it('list SELECT covers every pets column except the genome blobs and vestigial tags', async () => {
+    it('list SELECT covers every pets column except the genome blobs, loci and vestigial tags', async () => {
       await petService.uploadPet(SAMPLE_BEEWASP, { name: 'Bee', gender: 'Female' });
       const db = getDb();
       const schemaCols = Object.keys((await db.select<Record<string, unknown>[]>('SELECT * FROM pets LIMIT 1'))[0]);
@@ -265,7 +265,7 @@ describe('Pet Service', () => {
       const listQuery = queries.find((q) => /from pets/i.test(q) && !/count\(/i.test(q));
       expect(listQuery).toBeDefined();
 
-      const excluded = new Set(['genome_data', 'genome_text', 'tags']);
+      const excluded = new Set(['genome_data', 'genome_text', 'tags', 'loci', 'loci_layout']);
       for (const col of schemaCols) {
         const inQuery = new RegExp(`\\b${col}\\b`).test(listQuery!);
         if (excluded.has(col)) {

@@ -86,7 +86,7 @@ export interface Pet {
    * that excludes the heavy genome columns (issue #254), so pets flowing
    * from the list / `selectedPet` carry `undefined` here. Full-row fetches
    * (`getPet`, `findPetByHash`) still populate it. Gene rendering re-reads
-   * from `pet_genes` by id (`loadPetGridFromDb`), so list consumers never
+   * from `loci` by id (`loadPetGridFromDb`), so list consumers never
    * need this field.
    */
   genome_data?: string;

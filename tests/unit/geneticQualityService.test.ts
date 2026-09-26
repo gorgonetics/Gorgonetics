@@ -308,7 +308,7 @@ describe('safeCullSet — what the score cannot see', () => {
     // Strip Ghost's projection and make the fallback re-population fail, as
     // a pet whose genome never parsed would look.
     const db = getDb();
-    await db.execute('DELETE FROM pet_genes WHERE pet_id = $id', { id: pets[0].id });
+    await db.execute('UPDATE pets SET loci = $empty WHERE id = $id', { empty: '', id: pets[0].id });
     await db.execute('UPDATE pets SET genome_data = $g WHERE id = $id', { g: '{}', id: pets[0].id });
 
     const set = await safeCullSet({ species: 'BeeWasp', pets, slots: 2, pairs: 0, protectBest: false });
@@ -362,7 +362,7 @@ describe('safeCullSet — the population the floor counts', () => {
     for (let i = 0; i < 3; i++) pets.push(await upload(`Real${i}`, Gender.FEMALE, 'xDx'));
     const db = getDb();
     for (const p of pets.slice(0, 7)) {
-      await db.execute('DELETE FROM pet_genes WHERE pet_id = $id', { id: p.id });
+      await db.execute('UPDATE pets SET loci = $empty WHERE id = $id', { empty: '', id: p.id });
       await db.execute('UPDATE pets SET genome_data = $g WHERE id = $id', { g: '{}', id: p.id });
     }
 

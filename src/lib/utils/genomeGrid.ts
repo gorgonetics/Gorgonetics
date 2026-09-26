@@ -3,7 +3,7 @@
  * with no database round-trip.
  *
  * `loadPetGridFromDb` (petService) produces the same `ParsedChromosome`
- * shape from the persisted `pet_genes` rows for a *local* pet. Community
+ * shape from the persisted `loci` column for a *local* pet. Community
  * pets aren't in the local DB — the share catalogue hands us the raw
  * `[Overview]/[Genes]` text (`SharedPet.genomeData`) — so this helper
  * parses that text and assembles an equivalent grid the `GeneVisualizer`

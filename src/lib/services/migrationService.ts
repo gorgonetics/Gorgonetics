@@ -4,14 +4,17 @@
  * Runs pending migrations on startup.
  */
 
+import { encodeLoci } from '$lib/utils/lociCodec.js';
 import { ATTRIBUTE_KEYS, carriesReadings } from '$lib/utils/sharedPet.js';
-import { buildInClauseParams, getDb } from './database.js';
+import { buildInClauseParams, getDb, type TxStatement } from './database.js';
 import { parseStructuredPetName } from './nameParser.js';
 
 interface Migration {
   version: number;
   description: string;
   up: () => Promise<void>;
+  /** Frees enough space that the file should be compacted once the run ends. */
+  vacuumAfter?: boolean;
 }
 
 /**
@@ -382,6 +385,63 @@ const MIGRATIONS: Migration[] = [
       }
     },
   },
+  {
+    version: 19,
+    description: "Store each pet's loci in one column and drop pet_genes (#554)",
+    vacuumAfter: true,
+    up: async () => {
+      // `pet_genes` held one row per locus — about 1,576 per horse, 757k on a
+      // 492-pet stable, and 49 MB with its indexes. Every reader rebuilt a
+      // per-pet map from those rows, so one encoded string per pet serves them
+      // all; see `lociCodec`.
+      const db = getDb();
+      await db.execute("ALTER TABLE pets ADD COLUMN loci TEXT NOT NULL DEFAULT ''");
+      await db.execute("ALTER TABLE pets ADD COLUMN loci_layout TEXT NOT NULL DEFAULT ''");
+      await db.execute('CREATE TABLE IF NOT EXISTS locus_layouts (layout TEXT PRIMARY KEY, ids TEXT NOT NULL)');
+
+      // Converted from the rows themselves, not re-parsed from `genome_data`,
+      // so every reader sees exactly the loci it saw before. A pet with no
+      // rows keeps an empty column; the startup backfill fills it.
+      const pets = await db.select<{ id: number }[]>('SELECT id FROM pets');
+      const chunk = 50;
+      for (let i = 0; i < pets.length; i += chunk) {
+        const { placeholders, params } = buildInClauseParams(
+          pets.slice(i, i + chunk).map((p) => Number(p.id)),
+          'pet',
+        );
+        const rows = await db.select<{ pet_id: number; gene_id: string; gene_type: string }[]>(
+          `SELECT pet_id, gene_id, gene_type FROM pet_genes WHERE pet_id IN (${placeholders})`,
+          params,
+        );
+        const byPet = new Map<number, Array<[string, string]>>();
+        for (const row of rows) {
+          const id = Number(row.pet_id);
+          const list = byPet.get(id);
+          if (list) list.push([row.gene_id, row.gene_type]);
+          else byPet.set(id, [[row.gene_id, row.gene_type]]);
+        }
+        const statements: TxStatement[] = [];
+        for (const [id, entries] of byPet) {
+          const encoded = await encodeLoci(entries);
+          statements.push(
+            {
+              sql: 'INSERT OR REPLACE INTO locus_layouts (layout, ids) VALUES ($layout, $ids)',
+              params: { layout: encoded.layout, ids: encoded.ids },
+            },
+            {
+              sql: 'UPDATE pets SET loci = $loci, loci_layout = $layout WHERE id = $id',
+              params: { loci: encoded.loci, layout: encoded.layout, id },
+            },
+          );
+        }
+        if (statements.length > 0) await db.transaction(statements);
+      }
+
+      await db.execute('DROP INDEX IF EXISTS idx_pet_genes_pet');
+      await db.execute('DROP INDEX IF EXISTS idx_pet_genes_lookup');
+      await db.execute('DROP TABLE IF EXISTS pet_genes');
+    },
+  },
 ];
 
 /** Derived from the last migration — no manual bookkeeping needed. */
@@ -410,6 +470,13 @@ export async function runMigrations(): Promise<void> {
     console.log(`Running migration v${migration.version}: ${migration.description}`);
     await migration.up();
     await db.execute(`PRAGMA user_version = ${migration.version}`);
+  }
+
+  // A dropped table only marks its pages free; the file keeps its size until
+  // it is rebuilt. Best-effort: a failed VACUUM leaves a larger file, not a
+  // wrong one, and must not fail the startup that just migrated.
+  if (pending.some((m) => m.vacuumAfter)) {
+    await db.execute('VACUUM').catch((error: unknown) => console.warn('VACUUM after migration failed', error));
   }
 
   console.log(`Database migrated to v${CURRENT_SCHEMA_VERSION}`);

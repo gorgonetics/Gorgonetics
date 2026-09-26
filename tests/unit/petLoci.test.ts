@@ -65,37 +65,31 @@ describe('loadAllPetLoci', () => {
   });
 
   it('coerces unrecognised gene_type values to UNKNOWN rather than propagating them', async () => {
-    // Direct INSERT bypasses writePetGenes so we can simulate a corrupt
-    // row from a legacy backup or an out-of-band write.
+    // A direct UPDATE bypasses writePetLoci so we can simulate a corrupt
+    // row from an out-of-band write.
     const id = await uploadPet('A', 'DDD');
-    await getDb().execute('INSERT INTO pet_genes (pet_id, gene_id, gene_type) VALUES ($pid, $gid, $gt)', {
-      pid: id,
-      gid: '01Z9',
-      gt: 'BOGUS',
-    });
+    await getDb().execute('UPDATE pets SET loci = $loci WHERE id = $id', { loci: 'DQD', id });
     const map = await loadAllPetLoci([id]);
-    expect(map.get(id)?.get('01Z9')).toBe('?');
+    expect(map.get(id)?.get('01A2')).toBe('?');
   });
 
-  it('re-projects pet_genes from genome_data when a legacy pet has no projected rows', async () => {
+  it('fills the loci from genome_data when a legacy pet has none', async () => {
     // Simulates an un-backfilled pet: row exists in `pets`, genome_data
-    // is intact, but pet_genes is empty. Without the fallback the pet
+    // is intact, but its loci column is empty. Without the fallback the pet
     // would be silently absent from the result and downstream comparison
     // / breeding would treat it as missing.
     const id = await uploadPet('A', 'DRx');
-    await getDb().execute('DELETE FROM pet_genes WHERE pet_id = $id', { id });
+    await getDb().execute('UPDATE pets SET loci = $empty WHERE id = $id', { empty: '', id });
 
     const map = await loadAllPetLoci([id]);
     expect(map.has(id)).toBe(true);
     expect(map.get(id)?.size).toBe(3);
     expect(map.get(id)?.get('01A1')).toBe('D');
 
-    // Side effect: the projection is now persisted, subsequent reads
-    // skip the fallback path.
-    const rows = await getDb().select<{ n: number }[]>('SELECT COUNT(*) as n FROM pet_genes WHERE pet_id = $id', {
-      id,
-    });
-    expect(rows[0].n).toBeGreaterThan(0);
+    // Side effect: the column is now persisted, subsequent reads skip the
+    // fallback path.
+    const [row] = await getDb().select<{ loci: string }[]>('SELECT loci FROM pets WHERE id = $id', { id });
+    expect(row.loci).toBe('DRx');
   });
 
   it('still omits pet ids that have no `pets` row at all', async () => {

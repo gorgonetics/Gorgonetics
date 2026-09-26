@@ -8,7 +8,7 @@ import { runMigrations } from '$lib/services/migrationService.js';
 import {
   backfillGeneCountsIfNeeded,
   backfillImportedFilesIfNeeded,
-  backfillPetGenesIfNeeded,
+  backfillPetLociIfNeeded,
   backfillPositiveGenesIfNeeded,
 } from '$lib/services/petService.js';
 import { refreshPendingImportCount } from '$lib/stores/gameImport.js';
@@ -106,7 +106,7 @@ onMount(async () => {
   // them fight for it. parsed-effects must come first because positive_genes
   // reads the parsed columns it populates. Reload pets after each backfill
   // that affects pet-row columns so the UI surfaces updates without waiting
-  // for the slow ones (pet_genes can take minutes on big stables).
+  // for the slow ones.
   void (async () => {
     try {
       try {
@@ -123,9 +123,9 @@ onMount(async () => {
       }
 
       try {
-        await backfillPetGenesIfNeeded();
+        await backfillPetLociIfNeeded();
       } catch (err) {
-        console.warn('pet_genes backfill aborted:', err);
+        console.warn('loci backfill aborted:', err);
       }
 
       try {

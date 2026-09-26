@@ -133,31 +133,27 @@ describe('the SQL aggregate agrees with the reference JS tally', () => {
   });
 
   /**
-   * The aggregate runs as `GROUP BY` in SQLite in production but through a
-   * hand-written branch in `InMemoryDatabase` here. That branch is exactly the
-   * kind of emulation that drifts from real SQL — #433 was the same class of
-   * bug — so pin it to `computeLocusFrequencies`, which is the reference the
-   * pure unit tests already cover.
+   * The baseline is tallied from the decoded loci of each pet (#554). Pin it
+   * to `computeLocusFrequencies`, the reference the pure unit tests cover, so
+   * the service cannot drift from it in which pets and loci it counts.
    */
   it('produces identical tallies to computeLocusFrequencies over the same pets', async () => {
     const genomes = ['DDD', 'DRx', 'xxR', 'RRD', 'D?R', 'xRD', '?xD'];
     const pets: Pet[] = [];
     for (const [i, g] of genomes.entries()) pets.push(await upload('Horse', `H${i}`, g));
 
-    const viaSql = await computeRarityLookup(pets, 'Horse');
+    const viaService = await computeRarityLookup(pets, 'Horse');
 
     const byPet = await loadAllPetLoci(pets.map((p) => p.id));
     const viaJs = computeLocusFrequencies(byPet.values());
 
-    expect([...viaSql.loci.keys()].sort()).toEqual([...viaJs.keys()].sort());
+    expect([...viaService.loci.keys()].sort()).toEqual([...viaJs.keys()].sort());
     for (const [geneId, expected] of viaJs) {
-      expect(viaSql.tally(geneId), `locus ${geneId}`).toEqual(expected);
+      expect(viaService.tally(geneId), `locus ${geneId}`).toEqual(expected);
     }
   });
 
-  it('excludes ? from the denominator without a "?" literal in the SQL', async () => {
-    // A '?' literal would be miscounted as a positional placeholder, so the
-    // query has no `<> '?'` predicate — unknown rows simply match no CASE arm.
+  it('excludes ? from the denominator', async () => {
     const pets = [
       await upload('Horse', 'H1', 'D??'),
       await upload('Horse', 'H2', 'D??'),

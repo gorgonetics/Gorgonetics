@@ -183,7 +183,7 @@ const REACH_EXHAUSTED = 1;
  */
 const breedLockWeight = $derived(parseBreedLockWeight($settings['quality.breedLockWeight']));
 // Only fetched while planning: the readout is shown there, and the summary is
-// a second `pet_genes` pass over the same animals the ranking just read.
+// a second loci read over the same animals the ranking just read.
 const summaryKey = $derived(breedingView.spots > 0 && candidates.length > 0 ? candidateKey : null);
 const summary = keyedResource(
   () => summaryKey,

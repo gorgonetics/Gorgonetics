@@ -2,10 +2,11 @@
  * Pet data service for Gorgonetics.
  */
 
-import type { GeneStatsEntry, Genome, Pet } from '$lib/types/index.js';
+import type { GeneStatsEntry, GeneType, Genome, Pet } from '$lib/types/index.js';
 import { GENOME_FILE_MARKERS } from '$lib/types/index.js';
 import { fromGeneId, type ParsedChromosome, type ParsedGene, toGeneId } from '$lib/utils/geneAnalysis.js';
 import { sha256Hex } from '$lib/utils/hash.js';
+import { decodeLoci, encodeLoci } from '$lib/utils/lociCodec.js';
 import { ATTRIBUTE_KEYS } from '$lib/utils/sharedPet.js';
 import { capitalize } from '$lib/utils/string.js';
 import { now } from '$lib/utils/timestamp.js';
@@ -117,23 +118,65 @@ export async function computePositiveGenesForGenome(
   }
 }
 
-async function selectPetGenesRows(petId: number): Promise<{ gene_id: string; gene_type: string }[]> {
-  return getDb().select<{ gene_id: string; gene_type: string }[]>(
-    'SELECT gene_id, gene_type FROM pet_genes WHERE pet_id = $pid',
-    { pid: petId },
+/** Layout id → ordered gene ids. Layouts are content-addressed, so an entry never goes stale. */
+const layoutCache = new Map<string, string[]>();
+
+async function loadLayouts(layouts: Iterable<string>): Promise<void> {
+  const missing = [...new Set(layouts)].filter((layout) => layout && !layoutCache.has(layout));
+  if (missing.length === 0) return;
+  const { placeholders, params } = buildInClauseParams(missing, 'layout');
+  const rows = await getDb().select<{ layout: string; ids: string }[]>(
+    `SELECT layout, ids FROM locus_layouts WHERE layout IN (${placeholders})`,
+    params,
   );
+  for (const row of rows) layoutCache.set(row.layout, row.ids.split(','));
 }
 
 /**
- * Populate `pet_genes` for a single pet from its `genome_data`. Used as
- * a fallback for pets uploaded before the projection existed and not
- * yet reached by the startup backfill — without this, the visualizer
- * (and any other `pet_genes` reader) would render empty for those pets.
+ * Read the `loci` column for a set of pets, decoded to `gene id → genotype`.
  *
- * Returns `true` if rows were written; `false` if the pet doesn't
- * exist or its `genome_data` is malformed.
+ * One row per pet instead of one per locus (#554). Pets whose column is still
+ * empty — imported before it existed and not yet backfilled — are omitted;
+ * `loadAllPetLoci` fills those in and retries.
  */
-export async function ensurePetGenesPopulated(petId: number): Promise<boolean> {
+export async function readPetLoci(petIds: readonly number[]): Promise<Map<number, Map<string, GeneType>>> {
+  const out = new Map<number, Map<string, GeneType>>();
+  const db = getDb();
+  // Chunked: a roster can outgrow SQLite's parameter ceiling.
+  const chunk = 500;
+  for (let i = 0; i < petIds.length; i += chunk) {
+    const { placeholders, params } = buildInClauseParams(petIds.slice(i, i + chunk), 'id');
+    const rows = await db.select<{ id: number; loci: string | null; loci_layout: string | null }[]>(
+      `SELECT id, loci, loci_layout FROM pets WHERE id IN (${placeholders})`,
+      params,
+    );
+    const filled = rows.filter((row) => row.loci && row.loci_layout);
+    await loadLayouts(filled.map((row) => row.loci_layout as string));
+    for (const row of filled) {
+      const ids = layoutCache.get(row.loci_layout as string);
+      const loci = ids ? decodeLoci(ids, row.loci as string) : null;
+      if (loci) out.set(Number(row.id), loci);
+    }
+  }
+  return out;
+}
+
+async function selectLociRows(petId: number): Promise<{ gene_id: string; gene_type: string }[]> {
+  let loci = (await readPetLoci([petId])).get(petId);
+  if (!loci && (await ensurePetLociPopulated(petId))) loci = (await readPetLoci([petId])).get(petId);
+  return loci ? [...loci].map(([gene_id, gene_type]) => ({ gene_id, gene_type })) : [];
+}
+
+/**
+ * Fill the `loci` column for a single pet from its `genome_data`. Used as a
+ * fallback for pets imported before the column existed and not yet reached by
+ * the startup backfill — without this, the visualizer (and any other loci
+ * reader) would render empty for those pets.
+ *
+ * Returns `true` if the column was written; `false` if the pet doesn't exist
+ * or its `genome_data` is malformed.
+ */
+export async function ensurePetLociPopulated(petId: number): Promise<boolean> {
   const db = getDb();
   const rows = await db.select<{ genome_data: string }[]>('SELECT genome_data FROM pets WHERE id = $id', { id: petId });
   if (rows.length === 0) return false;
@@ -143,22 +186,21 @@ export async function ensurePetGenesPopulated(petId: number): Promise<boolean> {
   } catch {
     return false;
   }
-  // The writePetGenes path iterates `genome.genes`; a malformed JSON
-  // missing that field (or with non-array values) would throw mid-tx.
-  // Catch so the documented `false`-on-malformed contract holds — a
-  // single corrupt pet shouldn't poison loadAllPetLoci for every other
-  // pet in the same call.
+  // `writePetLoci` iterates `genome.genes`; a malformed JSON missing that
+  // field (or with non-array values) would throw mid-tx. Catch so the
+  // documented `false`-on-malformed contract holds — a single corrupt pet
+  // shouldn't poison loadAllPetLoci for every other pet in the same call.
   try {
-    await withTransaction(() => writePetGenes(petId, genome));
+    await withTransaction(() => writePetLoci(petId, genome));
   } catch (e) {
-    console.warn(`ensurePetGenesPopulated: write failed for pet ${petId}`, e);
+    console.warn(`ensurePetLociPopulated: write failed for pet ${petId}`, e);
     return false;
   }
   return true;
 }
 
 /**
- * Load a pet's grid from `pet_genes` as a per-chromosome, per-block
+ * Load a pet's grid from its `loci` column as a per-chromosome, per-block
  * structure. Used by the visualizer and the comparison view's grid
  * diff — no `genome_data` parse on the read path.
  *
@@ -167,15 +209,12 @@ export async function ensurePetGenesPopulated(petId: number): Promise<boolean> {
  * numeric value, positions ascend within a block. `globalPosition` is
  * assigned in iteration order across blocks of a chromosome.
  *
- * If `pet_genes` is empty for a pet that does exist (un-backfilled
+ * If `loci` is empty for a pet that does exist (un-backfilled
  * legacy row), this populates it inline and retries — so the visualizer
  * never sees a phantom empty grid for an otherwise-valid pet.
  */
 export async function loadPetGridFromDb(petId: number): Promise<Record<string, ParsedChromosome>> {
-  let rows = await selectPetGenesRows(petId);
-  if (rows.length === 0 && (await ensurePetGenesPopulated(petId))) {
-    rows = await selectPetGenesRows(petId);
-  }
+  const rows = await selectLociRows(petId);
 
   type RawGene = { id: string; type: string; position: number };
   const byChromosome = new Map<string, Map<string, RawGene[]>>();
@@ -233,7 +272,7 @@ export async function loadPetGridFromDb(petId: number): Promise<Record<string, P
 }
 
 /**
- * Per-attribute gene stats for one pet, aggregated from pet_genes against
+ * Per-attribute gene stats for one pet, aggregated from its loci against
  * the cached parsed-effect columns. Breed-mismatched horse genes count
  * toward `totalGenes` but contribute to neither `stats` nor `neutralGenes`.
  */
@@ -244,10 +283,7 @@ export async function getPetGeneStats(
 ): Promise<{ stats: Record<string, GeneStatsEntry>; totalGenes: number; neutralGenes: number }> {
   const speciesKey = normalizeSpecies(species);
   const db = getDb();
-  const rows = await db.select<{ gene_id: string; gene_type: string }[]>(
-    'SELECT gene_id, gene_type FROM pet_genes WHERE pet_id = $pid',
-    { pid: petId },
-  );
+  const rows = await selectLociRows(petId);
   const parsedGenes = await getParsedGenesCached(speciesKey);
   const stats: Record<string, GeneStatsEntry> = {};
   for (const attr of getAttributeConfig(speciesKey).attributes) {
@@ -373,18 +409,22 @@ const ALL_PET_COLUMNS = [
   'unknown_genes',
   'use_for_studies',
   'attributes_measured',
+  'loci',
+  'loci_layout',
 ];
 
 /**
  * Columns the list path (`getAllPets`) does NOT select:
  *  - `genome_data` / `genome_text`: heavy blobs (up to 64 KiB each) the
  *    list/grid UIs never render — issue #254. Gene rendering re-reads
- *    `pet_genes` by id (`loadPetGridFromDb`); the share path lazy-fetches
+ *    `loci` by id (`loadPetGridFromDb`); the share path lazy-fetches
  *    `genome_text` (`getPetGenomeText`).
+ *  - `loci` / `loci_layout`: about 1.5 KB per horse, read only by the gene
+ *    readers through `readPetLoci`.
  *  - `tags`: vestigial — tags live in `pet_tags` and `enrichPet` overwrites
  *    the field from the junction.
  */
-const NON_LIST_PET_COLUMNS = new Set(['genome_data', 'genome_text', 'tags']);
+const NON_LIST_PET_COLUMNS = new Set(['genome_data', 'genome_text', 'tags', 'loci', 'loci_layout']);
 
 /** Explicit list-path projection: every pets column minus the heavy/vestigial ones. */
 const LIST_PET_COLUMNS = ALL_PET_COLUMNS.filter((c) => !NON_LIST_PET_COLUMNS.has(c)).join(', ');
@@ -625,8 +665,8 @@ export async function uploadPet(content: string, options: UploadPetOptions = {})
     'SELECT IFNULL(MAX(sort_order), -1) + 1 AS next FROM pets',
   );
 
-  // Atomic with the pet_genes projection: a half-written pet (row in
-  // `pets` but no rows in `pet_genes`) would block retries via the
+  // Atomic with the loci column: a half-written pet (row in `pets` but no
+  // `loci`) would block retries via the
   // UNIQUE content_hash and skew gene-stats reads.
   const result = await withTransaction(async () => {
     const res = await db.execute(
@@ -675,7 +715,7 @@ export async function uploadPet(content: string, options: UploadPetOptions = {})
       },
     );
     if (res.lastInsertId) {
-      await writePetGenes(res.lastInsertId, genome);
+      await writePetLoci(res.lastInsertId, genome);
     }
     return res;
   });
@@ -779,7 +819,7 @@ export async function updatePet(petId: number, updates: Record<string, unknown>)
 
   // If the genome or breed changed, the stored positive_genes count is
   // stale. Parse the next genome once and reuse for the downstream
-  // positive_genes recompute and pet_genes rewrite.
+  // positive_genes recompute and loci rewrite.
   let nextGenome: Genome | null = null;
   if (flat.genome_data !== undefined || flat.breed !== undefined) {
     const current = await getPet(petId);
@@ -801,6 +841,13 @@ export async function updatePet(petId: number, updates: Record<string, unknown>)
         params.total_genes = counts.total;
         params.known_genes = counts.known;
         params.unknown_genes = counts.unknown;
+        // The stored text is the file this genome was parsed from, and it no
+        // longer is. Cleared rather than kept, so any text a row holds always
+        // matches its genes — sharing would otherwise publish the old genome.
+        // The row then reads as a pre-v13 one, which re-importing the file
+        // fills again.
+        setClauses.push('genome_text = $genome_text');
+        params.genome_text = '';
       }
     }
   }
@@ -817,12 +864,11 @@ export async function updatePet(petId: number, updates: Record<string, unknown>)
   let petsRowsAffected = -1;
 
   const wantsPetsUpdate = setClauses.length > 0;
-  const wantsPetGenesRewrite = flat.genome_data !== undefined && nextGenome !== null;
+  const wantsLociRewrite = flat.genome_data !== undefined && nextGenome !== null;
 
-  if (wantsPetsUpdate || wantsPetGenesRewrite) {
-    // Atomic: if the pet_genes rewrite fails the pets UPDATE rolls back
-    // too, so readers never see `genome_data` out of sync with the
-    // projection in `pet_genes`.
+  if (wantsPetsUpdate || wantsLociRewrite) {
+    // Atomic: if the loci rewrite fails the pets UPDATE rolls back too, so
+    // readers never see `genome_data` out of sync with `loci`.
     await withTransaction(async () => {
       if (wantsPetsUpdate) {
         setClauses.push('updated_at = $updated_at');
@@ -831,8 +877,8 @@ export async function updatePet(petId: number, updates: Record<string, unknown>)
         const result = await db.execute(`UPDATE pets SET ${setClauses.join(', ')} WHERE id = $w_id`, params);
         petsRowsAffected = result.rowsAffected ?? 0;
       }
-      if (wantsPetGenesRewrite && nextGenome) {
-        await writePetGenes(petId, nextGenome);
+      if (wantsLociRewrite && nextGenome) {
+        await writePetLoci(petId, nextGenome);
       }
     });
     changed = true;
@@ -887,7 +933,6 @@ export async function deletePet(petId: number): Promise<boolean> {
   const db = getDb();
   // The in-memory test adapter doesn't honour the FK cascade — explicit
   // DELETE keeps test behaviour aligned with real SQLite.
-  await db.execute('DELETE FROM pet_genes WHERE pet_id = $id', { id: petId });
   const result = await db.execute('DELETE FROM pets WHERE id = $id', { id: petId });
   const deleted = result.rowsAffected > 0;
   if (deleted) rosterRevision++;
@@ -948,40 +993,27 @@ export async function getPetGenomeText(petId: number): Promise<string | null> {
 }
 
 /**
- * Replace a pet's rows in `pet_genes` with one row per genome position.
- * Atomic via `db.transaction` — readers never see a half-populated
- * genome even if a chunk fails midway.
+ * Write a pet's `loci` column from its genome, and register the layout.
+ * Atomic via `db.transaction`: the layout row and the pet row land together.
  */
-async function writePetGenes(petId: number, genome: Genome): Promise<void> {
-  const entries: Array<{ geneId: string; geneType: string }> = [];
+async function writePetLoci(petId: number, genome: Genome): Promise<void> {
+  const entries: Array<[string, string]> = [];
   for (const chrGenes of Object.values(genome.genes)) {
-    for (const g of chrGenes) {
-      entries.push({ geneId: toGeneId(g), geneType: g.gene_type });
-    }
+    for (const g of chrGenes) entries.push([toGeneId(g), g.gene_type]);
   }
-
-  const statements: TxStatement[] = [{ sql: 'DELETE FROM pet_genes WHERE pet_id = $pid', params: { pid: petId } }];
-
-  // Multi-row INSERT collapses ~500 IPC calls per pet to a few. Chunked
-  // at 300 rows × 3 params = 900 to stay under SQLite's default
-  // SQLITE_MAX_VARIABLE_NUMBER=999 on older builds.
-  const CHUNK = 300;
-  for (let i = 0; i < entries.length; i += CHUNK) {
-    const chunk = entries.slice(i, i + CHUNK);
-    const placeholders = chunk.map((_, j) => `($p${j}, $g${j}, $t${j})`).join(', ');
-    const params: Record<string, unknown> = {};
-    chunk.forEach((e, j) => {
-      params[`p${j}`] = petId;
-      params[`g${j}`] = e.geneId;
-      params[`t${j}`] = e.geneType;
-    });
-    statements.push({
-      sql: `INSERT INTO pet_genes (pet_id, gene_id, gene_type) VALUES ${placeholders}`,
-      params,
-    });
-  }
-
+  const encoded = await encodeLoci(entries);
+  const statements: TxStatement[] = [
+    {
+      sql: 'INSERT OR REPLACE INTO locus_layouts (layout, ids) VALUES ($layout, $ids)',
+      params: { layout: encoded.layout, ids: encoded.ids },
+    },
+    {
+      sql: 'UPDATE pets SET loci = $loci, loci_layout = $layout WHERE id = $id',
+      params: { loci: encoded.loci, layout: encoded.layout, id: petId },
+    },
+  ];
   await getDb().transaction(statements);
+  layoutCache.set(encoded.layout, encoded.ids.split(','));
 }
 
 /**
@@ -996,52 +1028,29 @@ export async function hasPets(): Promise<boolean> {
 const POSITIVE_GENES_BACKFILL_KEY = 'pets.positive_genes_backfilled';
 
 /**
- * Populate `pet_genes` for any pet whose genome hasn't been projected into
- * rows yet. Runs at startup off the critical path. Probe-style guard — a
- * pet appears in the work set when no `pet_genes` row references it, so a
- * backup-restore that rewrites pets without touching pet_genes self-heals.
+ * Fill the `loci` column for any pet that does not have it yet. Runs at
+ * startup off the critical path. Probe-style guard — a pet is in the work set
+ * while its column is empty, so a backup restore (which does not carry the
+ * column) self-heals.
  *
  * Returns `true` if any rows were written so the caller can decide
  * whether to refresh downstream stores.
  */
-export async function backfillPetGenesIfNeeded(): Promise<boolean> {
-  type Pending = { id: number; genome_data: string };
-  type Update = { id: number; genome: Genome };
+export async function backfillPetLociIfNeeded(): Promise<boolean> {
+  type Pending = { id: number };
   const db = getDb();
-  return runBatchBackfill<Pending, Update>({
-    label: 'pet_genes backfill',
+  return runBatchBackfill<Pending, Pending>({
+    label: 'loci backfill',
     batchSize: 8,
-    loadWorkSet: async () => {
-      // Two simple queries + a Set diff, instead of a NOT EXISTS subquery —
-      // the in-memory test adapter's WHERE parser only understands plain
-      // `col = ?`, so a JOIN/subquery predicate is silently ignored there.
-      const allPets = await db.select<Pending[]>('SELECT id, genome_data FROM pets');
-      if (allPets.length === 0) return [];
-      const existing = await db.select<{ pet_id: number }[]>('SELECT pet_id FROM pet_genes');
-      const populated = new Set(existing.map((r) => r.pet_id));
-      return allPets.filter((p) => !populated.has(p.id));
-    },
-    computeUpdate: (row) => {
-      try {
-        return { id: row.id, genome: JSON.parse(row.genome_data) as Genome };
-      } catch (e) {
-        console.warn(`pet_genes backfill: failed for pet ${row.id}`, e);
-        return null;
-      }
-    },
+    // Ids only: each genome is read when its pet is filled, so a startup with
+    // nothing to do reads no genome at all.
+    loadWorkSet: async () => db.select<Pending[]>('SELECT id FROM pets WHERE loci = $empty', { empty: '' }),
+    computeUpdate: (row) => row,
     applyBatch: async (updates) => {
-      // Per-row transaction with per-row catch — one bad pet must not abort
-      // the rest of the batch. Return the success count so the helper's
-      // applied tally reflects only actually-written rows.
+      // One pet at a time, each failing on its own — one bad pet must not
+      // abort the rest of the batch. The count is of pets actually written.
       let succeeded = 0;
-      for (const u of updates) {
-        try {
-          await withTransaction(() => writePetGenes(u.id, u.genome));
-          succeeded++;
-        } catch (e) {
-          console.warn(`pet_genes backfill: failed for pet ${u.id}`, e);
-        }
-      }
+      for (const u of updates) if (await ensurePetLociPopulated(u.id)) succeeded++;
       return succeeded;
     },
   });
