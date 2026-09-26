@@ -493,8 +493,14 @@ onDestroy(() => {
                    breeds' locked loci, and a breeder working one breed is only
                    ever chasing the generic block plus their own. -->
               {#if summary.value.generic.ceiling > 0 && summary.value.generic.ceiling < summary.value.ceiling}
-                · <span class="bv-generic" data-testid="breed-capability-generic"
-                  >{summary.value.generic.capability.toFixed(1)} of {summary.value.generic.reachable} breed-generic</span
+                <!-- The genome figure is shown here too: without it "of 179" read as
+                     the whole generic block, hiding slots no animal carries. -->
+                · <span
+                  class="bv-generic"
+                  data-testid="breed-capability-generic"
+                  title="A slot no animal in the breeding pool carries cannot be bred in from it, so it is outside the reachable count. Benched animals are not in the pool."
+                  >{summary.value.generic.capability.toFixed(1)} of {summary.value.generic.reachable} reachable breed-generic
+                  ({summary.value.generic.ceiling} in the genome)</span
                 >
               {/if}
               {#if reachGain !== null}
