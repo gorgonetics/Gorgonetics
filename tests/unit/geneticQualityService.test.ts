@@ -309,7 +309,7 @@ describe('safeCullSet — what the score cannot see', () => {
     // a pet whose genome never parsed would look.
     const db = getDb();
     await db.execute('UPDATE pets SET loci = $empty WHERE id = $id', { empty: '', id: pets[0].id });
-    await db.execute('UPDATE pets SET genome_data = $g WHERE id = $id', { g: '{}', id: pets[0].id });
+    await db.execute('UPDATE pets SET genome_text = $g WHERE id = $id', { g: '', id: pets[0].id });
 
     const set = await safeCullSet({ species: 'BeeWasp', pets, slots: 2, pairs: 0, protectBest: false });
     expect(set.unscored.map((p) => p.name)).toEqual(['Ghost']);
@@ -363,7 +363,7 @@ describe('safeCullSet — the population the floor counts', () => {
     const db = getDb();
     for (const p of pets.slice(0, 7)) {
       await db.execute('UPDATE pets SET loci = $empty WHERE id = $id', { empty: '', id: p.id });
-      await db.execute('UPDATE pets SET genome_data = $g WHERE id = $id', { g: '{}', id: p.id });
+      await db.execute('UPDATE pets SET genome_text = $g WHERE id = $id', { g: '', id: p.id });
     }
 
     const set = await safeCullSet({ species: 'BeeWasp', pets, slots: 6, pairs: 0, protectBest: false });

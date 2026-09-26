@@ -253,7 +253,7 @@ describe('Pets Store', () => {
       expect(list[0].name).toBeTruthy();
       // List-path shape: the heavy blobs getAllPets omits (#254) are stripped.
       expect(list[0].genome_text).toBeUndefined();
-      expect(list[0].genome_data).toBeUndefined();
+      expect(list[0].loci).toBeUndefined();
     });
 
     it('is a no-op when the pet is already in the store', async () => {

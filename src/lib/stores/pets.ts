@@ -250,14 +250,14 @@ export const appState = {
    * O(N) full `loadPets()` reload (#256). Community imports land at
    * `MAX(sort_order)+1`, so the new row sorts last under getAllPets'
    * `ORDER BY sort_order, name` — appending matches that order. The heavy
-   * `genome_text` / `genome_data` blobs are stripped to keep the list-store
+   * `genome_text` blob and `loci` are stripped to keep the list-store
    * shape aligned with the list path (#254). No-op if the id is already
    * present or the fetch returns nothing.
    */
   async appendPet(petId: number) {
     const pet = await petService.getPet(petId);
     if (!pet) return;
-    const { genome_text, genome_data, ...listPet } = pet;
+    const { genome_text, loci, loci_layout, ...listPet } = pet;
     let appended = false;
     pets.update((list) => {
       if (list.some((p) => p.id === petId)) return list;

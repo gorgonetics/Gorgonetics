@@ -13,9 +13,9 @@
  * Pure: no database access. Callers read and write the columns.
  */
 
-import { compareBlockLetters } from '$lib/services/genomeParser.js';
-import { GeneType } from '$lib/types/index.js';
-import { fromGeneId } from '$lib/utils/geneAnalysis.js';
+import { compareBlockLetters, parseGenome } from '$lib/services/genomeParser.js';
+import { GeneType, type Genome } from '$lib/types/index.js';
+import { fromGeneId, toGeneId } from '$lib/utils/geneAnalysis.js';
 import { sha256Hex } from '$lib/utils/hash.js';
 
 const CODES = new Set<string>([GeneType.DOMINANT, GeneType.RECESSIVE, GeneType.MIXED, GeneType.UNKNOWN]);
@@ -64,4 +64,33 @@ export function decodeLoci(ids: readonly string[], loci: string): Map<string, Ge
   const out = new Map<string, GeneType>();
   for (let i = 0; i < ids.length; i++) out.set(ids[i], CODES.has(loci[i]) ? (loci[i] as GeneType) : GeneType.UNKNOWN);
   return out;
+}
+
+/**
+ * A genome's loci from the forms older rows and backups store it in: the
+ * parsed `genome_data` JSON (a string or already an object), or failing that
+ * the `genome_text` file. Empty when neither yields any, which means the pet
+ * has no usable genome.
+ */
+export function storedGenomeEntries(genomeData: unknown, genomeText: unknown): Array<[string, string]> {
+  const fromGenome = (genome: Genome | null | undefined): Array<[string, string]> => {
+    const entries: Array<[string, string]> = [];
+    for (const list of Object.values(genome?.genes ?? {})) {
+      if (!Array.isArray(list)) continue;
+      for (const g of list) if (g && typeof g === 'object') entries.push([toGeneId(g), g.gene_type]);
+    }
+    return entries;
+  };
+  try {
+    const genome = typeof genomeData === 'string' ? (JSON.parse(genomeData) as Genome) : (genomeData as Genome | null);
+    const entries = fromGenome(genome && typeof genome === 'object' ? genome : null);
+    if (entries.length > 0) return entries;
+  } catch {
+    // Malformed JSON: fall through to the text.
+  }
+  try {
+    return typeof genomeText === 'string' && genomeText ? fromGenome(parseGenome(genomeText)) : [];
+  } catch {
+    return [];
+  }
 }

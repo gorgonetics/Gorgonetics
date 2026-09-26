@@ -312,6 +312,16 @@ class InMemoryDatabase implements DatabaseAdapter {
       return { rowsAffected: 0, lastInsertId: 0 };
     }
 
+    // ALTER TABLE … DROP COLUMN: removed from every row, as SQLite does.
+    const dropColumn = q.match(/alter\s+table\s+(\w+)\s+drop\s+column\s+(\w+)/i);
+    if (dropColumn) {
+      const table = dropColumn[1].toLowerCase();
+      const column = dropColumn[2];
+      for (const row of this.tables[table] ?? []) delete row[column];
+      if (this.addedColumns[table]) delete this.addedColumns[table][column];
+      return { rowsAffected: 0, lastInsertId: 0 };
+    }
+
     // DROP TABLE / DROP INDEX / VACUUM: indexes are not emulated, and VACUUM
     // has nothing to reclaim in memory, so only a dropped table changes state.
     const dropTable = q.match(/drop\s+table\s+(?:if\s+exists\s+)?(\w+)/i);

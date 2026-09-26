@@ -81,24 +81,24 @@ export interface Pet {
   breeder: string;
   content_hash: string;
   /**
-   * Parsed-and-JSON-stringified genome. **Optional on the type because the
-   * hot list path omits it:** `getAllPets` SELECTs an explicit column list
+   * The genes, one character per locus (see `lociCodec`). **Optional on the
+   * type because the hot list path omits it:** `getAllPets` SELECTs an explicit column list
    * that excludes the heavy genome columns (issue #254), so pets flowing
    * from the list / `selectedPet` carry `undefined` here. Full-row fetches
    * (`getPet`, `findPetByHash`) still populate it. Gene rendering re-reads
    * from `loci` by id (`loadPetGridFromDb`), so list consumers never
    * need this field.
    */
-  genome_data?: string;
+  loci?: string;
+  /** The `locus_layouts` row that names `loci`'s order. Optional as `loci`. */
+  loci_layout?: string;
   /**
    * Raw `[Overview]` / `[Genes]` text of the genome file, byte-identical to
    * what was uploaded. Used by the community share path: `content_hash` is
-   * the SHA-256 of this string, and `genome_data` is the parsed JSON
-   * representation (which is lossy w.r.t. whitespace, so its hash would
-   * not match `content_hash`). Empty for rows that predate migration v13.
+   * the SHA-256 of this string. Empty for rows that predate migration v13.
    *
-   * Optional for the same reason as `genome_data` — omitted on the list
-   * path. The share dialog lazy-fetches it by id via `getPetGenomeText`.
+   * Optional for the same reason as `loci` — omitted on the list path. The
+   * share dialog lazy-fetches it by id via `getPetGenomeText`.
    */
   genome_text?: string;
   notes: string;

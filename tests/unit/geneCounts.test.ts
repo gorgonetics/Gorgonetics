@@ -41,36 +41,6 @@ describe('uploadPet persists gene-count columns', () => {
   });
 });
 
-describe('updatePet refreshes gene-count columns when genome_data changes', () => {
-  beforeEach(async () => {
-    await closeDatabase();
-    await initDatabase();
-    await runMigrations();
-  });
-
-  it('rewrites counts when genome_data is replaced', async () => {
-    const result = await petService.uploadPet(MINIMAL_BEEWASP_GENOME, { name: 'Minimal', gender: 'Female' });
-    const before = (await petService.getPet(result.pet_id!))!;
-    expect(before.total_genes).toBe(3);
-
-    // Empty-genome JSON forces counts to 0 — proves the update hook ran.
-    const empty = JSON.stringify({
-      format_version: '1.0',
-      breeder: 'Tester',
-      name: 'Empty',
-      genome_type: 'BeeWasp',
-      genes: {},
-    });
-    await petService.updatePet(result.pet_id!, { genome_data: empty });
-
-    const after = (await petService.getPet(result.pet_id!))!;
-    expect(after.total_genes).toBe(0);
-    expect(after.known_genes).toBe(0);
-    expect(after.unknown_genes).toBe(0);
-    expect(after.has_unknown_genes).toBe(false);
-  });
-});
-
 describe('backfillGeneCountsIfNeeded', () => {
   beforeEach(async () => {
     await closeDatabase();

@@ -963,10 +963,9 @@ const SOLVER_VERSION = 4;
  *
  * The gene-count columns (`positive_genes` and the total/known/unknown trio)
  * are deliberately *not* used in their place. They are a proxy for the
- * projection, and a lossy one: `updatePet` is exported and takes
- * `genome_data`, so a rewrite into a different allele layout with identical
- * counts, name, breed and readings would fingerprint the same and be served
- * a stale table.
+ * projection, and a lossy one: two genomes with a different allele layout
+ * but identical counts, name, breed and readings would fingerprint the same
+ * and be served a stale table.
  *
  * Errs towards re-solving: any input this misses would be a stale table, so
  * everything the corpus load and the solver read is represented here.
