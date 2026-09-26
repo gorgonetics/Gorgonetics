@@ -408,4 +408,41 @@ describe('BreedingPairTable — attribute columns', () => {
     expect(cells.some((text) => text?.startsWith('6'))).toBe(true);
     expect(cells.some((text) => text?.startsWith('0.5'))).toBe(true);
   });
+
+  it('has no Net pts column until the study has measured something', async () => {
+    const { container, rerender } = render(BreedingPairTable, {
+      results: scored(),
+      attrNames: ['Toughness', 'Friendliness'],
+    });
+    await rerender({});
+    expect(headers(container)).not.toContain('Net pts');
+    expect(container.querySelector('[data-testid="pair-net-points"]')).toBeNull();
+  });
+
+  it('sums the measured attributes into Net pts, with coverage over every attribute', async () => {
+    const finding = (gene: string, attribute: string, magnitude: number): StudyFinding => ({
+      gene,
+      expression: 'dominant',
+      attribute,
+      magnitude,
+      tier: 'direct',
+      depth: 0,
+      support: 5,
+      dissent: 0,
+      witnesses: [],
+    });
+    const two = buildAttributeMagnitudes([
+      study('toughness', 9, [finding('01A1', 'toughness', 4)]),
+      study('friendliness', 4, [finding('01A2', 'friendliness', -2)]),
+    ]);
+    const { container, rerender } = render(BreedingPairTable, {
+      results: [{ ...scored()[0], evPointsByAttribute: { Toughness: 6, Friendliness: -1.5 } }],
+      attrNames: ['Toughness', 'Friendliness'],
+      magnitudes: two,
+    });
+    await rerender({});
+    const header = [...container.querySelectorAll('th')].find((th) => th.textContent?.trim() === 'Net pts');
+    expect(header?.getAttribute('title')).toContain('2 of 13');
+    expect(container.querySelector('[data-testid="pair-net-points"]')?.textContent?.trim()).toMatch(/^4\.5/);
+  });
 });

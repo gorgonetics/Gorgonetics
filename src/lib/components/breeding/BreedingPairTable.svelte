@@ -44,6 +44,26 @@ const { results, attrNames, plans, onBench, magnitudes = EMPTY_MAGNITUDES }: Pro
  */
 const inPoints = (name: string) => hasMagnitudes(magnitudes) && coverageOf(magnitudes, name).known > 0;
 
+/**
+ * Net pts: the per-attribute points columns summed. Every attribute counts
+ * as an equal and nothing is capped at 100, so it is a secondary signal
+ * beside the columns it adds up, not a ranking objective. Absent until the
+ * study has measured something.
+ */
+const pointAttrs = $derived(attrNames.filter(inPoints));
+const netPoints = (r: BreedingPairResult) => pointAttrs.reduce((sum, a) => sum + (r.evPointsByAttribute?.[a] ?? 0), 0);
+const parentNetPoints = (profile: ParentExpressedProfile) =>
+  pointAttrs.reduce((sum, a) => sum + (profile.pointsByAttribute?.[a] ?? 0), 0);
+const netCoverage = $derived(
+  attrNames.reduce(
+    (acc, a) => {
+      const c = coverageOf(magnitudes, a);
+      return { known: acc.known + c.known, total: acc.total + c.total };
+    },
+    { known: 0, total: 0 },
+  ),
+);
+
 // Distinct hues per option — saturated mid-tones that read in light and dark.
 const OPTION_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#ef4444'];
 const optionColor = (i: number) => OPTION_COLORS[i % OPTION_COLORS.length];
@@ -86,6 +106,17 @@ const columns = $derived<Column[]>([
     accessor: (r) => r.evPositiveTotal,
     numeric: true,
   },
+  ...(pointAttrs.length > 0
+    ? [
+        {
+          id: 'netPoints',
+          label: 'Net pts',
+          hint: `Expected net attribute points, all attributes added together, over the ${netCoverage.known} of ${netCoverage.total} effects the study has measured. Unmeasured effects count as 0, attributes count as equals and nothing is capped at 100, so read it beside the per-attribute columns.`,
+          accessor: netPoints,
+          numeric: true,
+        } as Column,
+      ]
+    : []),
   ...attrNames.map((name): Column => {
     if (!inPoints(name)) {
       return {
@@ -314,6 +345,16 @@ function persistScroll() {
                     {fmt(pair.evPositiveTotal)}
                     {@render deltaTag(delta(pair.evPositiveTotal, pair.betterParentPositives), 'the better parent')}
                 </td>
+                {#if pointAttrs.length > 0}
+                    {@const net = netPoints(pair)}
+                    <td class="numeric" data-testid="pair-net-points">
+                        {fmt(net)}
+                        {@render deltaTag(
+                            delta(net, Math.max(parentNetPoints(pair.maleProfile), parentNetPoints(pair.femaleProfile))),
+                            'the better parent',
+                        )}
+                    </td>
+                {/if}
                 {#each attrNames as name (name)}
                     {@const value = inPoints(name) ? (pair.evPointsByAttribute?.[name] ?? 0) : (pair.evPositiveByAttribute[name] ?? 0)}
                     <td class="numeric">
