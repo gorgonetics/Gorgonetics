@@ -6,11 +6,11 @@ import {
   namesForSubjects,
   type RefreshProgress,
   refreshStudyCorpus,
-  runAttributeStudy,
   STUDYABLE_SPECIES,
   type StudyRun,
   setUseForStudies,
   studyCorpusStatus,
+  studyRunFor,
 } from '$lib/services/studyService.js';
 import { pets } from '$lib/stores/pets.js';
 import { settings, settingsActions } from '$lib/stores/settings.js';
@@ -331,7 +331,7 @@ async function solve(target: string): Promise<void> {
   loading = true;
   failure = null;
   try {
-    const result = await runAttributeStudy(target);
+    const result = await studyRunFor(target);
     if (mine !== generation) return;
     // Resolve every id the UI can surface — witnesses and suspects — in one
     // query rather than per row.

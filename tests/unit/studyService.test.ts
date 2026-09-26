@@ -30,6 +30,7 @@ import {
   setUseForStudies,
   studyCorpusStatus,
   studyInputsKey,
+  studyRunFor,
   withdrawGeneConfirmation,
 } from '$lib/services/studyService.js';
 import { coverageOf, EMPTY_MAGNITUDES, hasMagnitudes, magnitudeOf } from '$lib/utils/attributePoints.js';
@@ -510,6 +511,62 @@ describe('attributeMagnitudesFor', () => {
     const second = await attributeMagnitudesFor('horse');
     expect(second).not.toBe(first);
     expect(magnitudeOf(second, '01A1', 'dominant')).toBeUndefined();
+  });
+});
+
+describe('studyRunFor', () => {
+  beforeEach(() => clearAttributeMagnitudesCache());
+
+  const seed = async () => {
+    await upload(name('Kb', 45, 80, 'With'), 'DRRR');
+    return upload(name('Kb', 40, 80, 'Without'), 'RRRR');
+  };
+
+  it('returns the same run on every open until an input moves', async () => {
+    await seed();
+    const first = await studyRunFor('horse');
+    expect(await studyRunFor('Horse')).toBe(first);
+  });
+
+  it('re-solves after an upload, so a just-imported animal shows', async () => {
+    await seed();
+    const first = await studyRunFor('horse');
+    await upload(name('Kb', 40, 83, 'ToughA'), 'RRDR');
+    const second = await studyRunFor('horse');
+    expect(second).not.toBe(first);
+    expect(second.corpus.subjects).toHaveLength(3);
+  });
+
+  it('re-solves after an edit, an exclusion or a confirmation', async () => {
+    const petId = await seed();
+
+    let run = await studyRunFor('horse');
+    await petService.updatePet(petId, { stabled: false });
+    expect(await studyRunFor('horse')).not.toBe(run);
+
+    run = await studyRunFor('horse');
+    await setUseForStudies('horse', String(petId), false);
+    expect(await studyRunFor('horse')).not.toBe(run);
+
+    run = await studyRunFor('horse');
+    await confirmGeneDeclaration('horse', '01A1', 'dominant', 'temperament', 1);
+    expect(await studyRunFor('horse')).not.toBe(run);
+
+    run = await studyRunFor('horse');
+    await withdrawGeneConfirmation('horse', '01A1', 'dominant');
+    expect(await studyRunFor('horse')).not.toBe(run);
+  });
+
+  it('shares the solve behind the magnitude table', async () => {
+    await seed();
+    await attributeMagnitudesFor('horse');
+    // The Breed tab's solve already produced the run: opening the Study tab
+    // reads nothing from the database at all.
+    const select = vi.spyOn(getDb(), 'select');
+    const run = await studyRunFor('horse');
+    expect(select).not.toHaveBeenCalled();
+    expect(run.studies.length).toBeGreaterThan(0);
+    select.mockRestore();
   });
 });
 

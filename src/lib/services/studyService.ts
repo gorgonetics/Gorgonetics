@@ -54,7 +54,7 @@ import {
   type ParsedGeneRecord,
 } from '$lib/services/geneService.js';
 import { parseGenome } from '$lib/services/genomeParser.js';
-import { getAllPets, localPetsRevision } from '$lib/services/petService.js';
+import { getAllPets, localPetsAdded, localPetsRevision } from '$lib/services/petService.js';
 import { listGenomes, listPets } from '$lib/services/shareService.js';
 import { GeneType, type Pet, type SharedPet } from '$lib/types/index.js';
 import { type AttributeMagnitudes, buildAttributeMagnitudes, EMPTY_MAGNITUDES } from '$lib/utils/attributePoints.js';
@@ -881,6 +881,9 @@ export async function confirmGeneDeclaration(
       confirmed_at: now(),
     },
   );
+  // Magnitudes do not move — a confirmation publishes none — but the run's
+  // doubts and suspects do.
+  clearStudyRunCache(species);
 }
 
 /** Forget a confirmation, so the gene can be recommended for checking again. */
@@ -889,6 +892,7 @@ export async function withdrawGeneConfirmation(species: string, gene: string, ex
     'DELETE FROM gene_confirmations WHERE species = $species AND gene = $gene AND expression = $expression',
     { species: normalizeSpecies(species), gene, expression },
   );
+  clearStudyRunCache(species);
 }
 
 /**
@@ -1131,6 +1135,51 @@ const stamp = () => `${localPetsRevision()}:${geneDeclarationsRevision()}`;
 const magnitudeCache = new Map<string, MagnitudeEntry>();
 
 /**
+ * The last full study run per species, kept for the session.
+ *
+ * The persisted table holds only magnitudes, which is all the scorers need.
+ * The Study tab needs the whole run — findings, witnesses, doubts, suspects,
+ * validation — so without this it re-solved on every open. Not persisted:
+ * the run is large and its shape changes with the solver, and a stale copy
+ * on disk would need its own invalidation for every field.
+ *
+ * Keyed wider than the magnitude table. A fresh upload is included, because
+ * the tab lists the corpus and a just-imported animal must show. The other
+ * inputs that move the run without moving the stamp — exclusions, a
+ * catalogue refresh, gene confirmations — clear it where they are written.
+ */
+interface RunEntry {
+  key: string;
+  value: Promise<StudyRun>;
+}
+
+const runCache = new Map<string, RunEntry>();
+const runKey = () => `${stamp()}:${localPetsAdded()}`;
+
+/** `runAttributeStudy` with default options, memoised for the session. */
+export function studyRunFor(species: string): Promise<StudyRun> {
+  const normalized = normalizeSpecies(species);
+  const key = runKey();
+  const existing = runCache.get(normalized);
+  if (existing && existing.key === key) return existing.value;
+  let entry: RunEntry;
+  const value = runAttributeStudy(normalized).catch((error: unknown) => {
+    // Only this entry: a newer one may already stand in its place.
+    if (runCache.get(normalized) === entry) runCache.delete(normalized);
+    throw error;
+  });
+  entry = { key, value };
+  runCache.set(normalized, entry);
+  return value;
+}
+
+/** Drop the memoised run for a species, or all of them. */
+export function clearStudyRunCache(species?: string): void {
+  if (species) runCache.delete(normalizeSpecies(species));
+  else runCache.clear();
+}
+
+/**
  * Species whose latest study attempt failed. `attributeMagnitudesFor`
  * answers a failure with the empty table so scorers fall back to counting,
  * which a view cannot tell apart from "nothing measured yet"; this can.
@@ -1170,7 +1219,8 @@ export async function attributeMagnitudesFor(species: string): Promise<Attribute
       });
       if (stored) return stored;
     }
-    const run = await runAttributeStudy(normalized);
+    // Through the run cache, so the Study tab reuses a solve Breed paid for.
+    const run = await studyRunFor(normalized);
     const built = buildAttributeMagnitudes(run.studies);
     // The solve is deliberately slow, and an input can move while it runs —
     // an exclusion toggled and toggled back, say. Storing it under the
@@ -1234,6 +1284,8 @@ export function peekAttributeMagnitudes(species: string): AttributeMagnitudes | 
 export function clearAttributeMagnitudesCache(species?: string): void {
   if (species) magnitudeCache.delete(normalizeSpecies(species));
   else magnitudeCache.clear();
+  // Every caller clears because a study input moved, and the run read it too.
+  clearStudyRunCache(species);
 }
 
 /** What the impact lens paints from: the gene declarations and the study's magnitudes. */
