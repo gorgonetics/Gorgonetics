@@ -42,7 +42,7 @@ export interface BreedingObjective {
 }
 
 /**
- * The five general strategies. Deliberately not ordered by quality — the
+ * The six general strategies. Deliberately not ordered by quality — the
  * first is a reasonable default, not a recommendation, and the rest are
  * peers rather than fallbacks.
  */
@@ -70,6 +70,13 @@ export const BREEDING_OBJECTIVES: readonly BreedingObjective[] = Object.freeze([
     label: 'Clean the line',
     description: 'Foals carrying fewer negative effects than the cleaner parent.',
     score: (p) => p.evLiabilityReduction,
+  },
+  {
+    id: 'clarify',
+    label: 'Clarify positives',
+    description:
+      'Foals that breed more of their positives true than the better parent, weighted by measured points where the study has them, so the next generation is less of a gamble.',
+    score: (p) => p.evClarifyImprovement,
   },
   {
     id: 'positives',

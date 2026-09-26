@@ -110,7 +110,7 @@ let gainMode = $state<TrioGainMode>('attributes');
 // Which additive pair score the offspring boxes are tinted by, or `off` for
 // the default outcome-bucket rendering. Only the two scores that are a plain
 // sum over loci appear here — see `TrioLocusContributions` for why Ceiling,
-// Floor and Cleanup cannot join them.
+// Floor, Cleanup and Clarify cannot join them.
 let contributionMode = $state<TrioContributionMode>('off');
 // Open the arithmetic behind the non-additive scores. Off by default: it
 // answers "why is this number what it is", which is not the question the grid
@@ -278,7 +278,7 @@ const contributionStats = $derived.by(() => {
 const breedDiverged = $derived(selectedBreed !== offspringBreed);
 
 /**
- * The three scores that cannot be attributed to a locus, each with the three
+ * The scores that cannot be attributed to a locus, each with the three
  * numbers that actually produce it. Ceiling and Floor share a mean and a
  * spread and differ only in the baseline — laying them out together is the
  * clearest statement of what separates the two strategies.
@@ -315,6 +315,18 @@ const improvementRows = $derived.by(() => {
       sd: scores.negativeSd,
       baseline: scores.cleanerParentNegatives,
       baselineLabel: 'cleaner parent',
+    },
+    {
+      id: 'clarify',
+      label: 'Clarify',
+      score: scores.evClarifyImprovement,
+      formula: scores.lockedInPoints
+        ? 'E[max(0, foal locked positive points − better parent)]'
+        : 'E[max(0, foal locked positives − better parent)]',
+      mean: scores.evLockedPositives,
+      sd: scores.lockedPositiveSd,
+      baseline: scores.betterParentLockedPositives,
+      baselineLabel: 'better parent',
     },
   ];
 });
@@ -691,7 +703,7 @@ function handleCellLeave() {
                         class:active={showScores}
                         aria-pressed={showScores}
                         data-testid="trio-show-scores"
-                        title="Show how this pair's Ceiling, Floor and Cleanup scores were produced."
+                        title="Show how this pair's Ceiling, Floor, Cleanup and Clarify scores were produced."
                         onclick={() => { showScores = !showScores; }}
                     >📊 Scores</button>
                 {/if}

@@ -5,6 +5,7 @@ import * as geneService from '$lib/services/geneService.js';
 import { runMigrations } from '$lib/services/migrationService.js';
 import * as petService from '$lib/services/petService.js';
 import { Gender, GeneType, type Pet } from '$lib/types/index.js';
+import type { AttributeMagnitudes } from '$lib/utils/attributePoints.js';
 
 /**
  * Three-locus beewasp genome: positions 01A1, 01A2, 01A3 — alleles
@@ -160,6 +161,68 @@ describe('rankBreedingPairs — expected positives per attribute', () => {
     expect(pair.evPositiveByAttribute.Toughness).toBeCloseTo(1, 10);
     expect(pair.evPositiveByAttribute.Intelligence).toBeCloseTo(0.75, 10);
     expect(pair.evPositiveTotal).toBeCloseTo(1.75, 10);
+  });
+});
+
+describe('rankBreedingPairs — Clarify positives', () => {
+  beforeEach(reset);
+
+  async function setup() {
+    // 01A1: dominant-positive, locked by D. 01A2: recessive-positive, locked by R.
+    await geneService.upsertGene('beewasp', '01', '01A1', { effectDominant: 'Toughness+', effectRecessive: 'None' });
+    await geneService.upsertGene('beewasp', '01', '01A2', { effectDominant: 'None', effectRecessive: 'Intelligence+' });
+    geneService.clearGeneEffectsCache('beewasp');
+    const male = await uploadParent('M', Gender.MALE, 'Dx?');
+    const female = await uploadParent('F', Gender.FEMALE, 'xx?');
+    return { male, female };
+  }
+
+  it('counts locked positive slots when no study has run', async () => {
+    const { male, female } = await setup();
+    const [pair] = await rankBreedingPairs({ species: 'BeeWasp', pets: [male, female] });
+
+    // 01A1 D×x → P(D)=0.5; 01A2 x×x → P(R)=0.25.
+    expect(pair.lockedInPoints).toBe(false);
+    expect(pair.evLockedPositives).toBeCloseTo(0.75, 10);
+    // The male is D at 01A1, so he already breeds that positive true.
+    expect(pair.maleProfile.lockedPositives).toBe(1);
+    expect(pair.femaleProfile.lockedPositives).toBe(0);
+    expect(pair.betterParentLockedPositives).toBe(1);
+    expect(pair.evClarifyImprovement).toBeGreaterThan(0);
+    expect(pair.evClarifyImprovement).toBeLessThan(0.75);
+  });
+
+  it('weights locked slots by measured points, and an unmeasured one by nothing', async () => {
+    const { male, female } = await setup();
+    const magnitudes: AttributeMagnitudes = {
+      points: new Map([['01A1:dominant', 5]]),
+      coverage: new Map([
+        ['Toughness', { known: 1, total: 1 }],
+        ['Intelligence', { known: 0, total: 1 }],
+      ]),
+    };
+    const [pair] = await rankBreedingPairs({ species: 'BeeWasp', pets: [male, female], magnitudes });
+
+    expect(pair.lockedInPoints).toBe(true);
+    // 0.5 × 5 at 01A1; 01A2 is unmeasured, so its lock is worth 0.
+    expect(pair.evLockedPositives).toBeCloseTo(2.5, 10);
+    expect(pair.maleProfile.lockedPositives).toBe(5);
+    expect(pair.betterParentLockedPositives).toBe(5);
+  });
+
+  it('accounts for D and R excluding each other when both slots are positive', async () => {
+    await geneService.upsertGene('beewasp', '01', '01A1', {
+      effectDominant: 'Toughness+',
+      effectRecessive: 'Intelligence+',
+    });
+    geneService.clearGeneEffectsCache('beewasp');
+    const male = await uploadParent('M', Gender.MALE, 'x??');
+    const female = await uploadParent('F', Gender.FEMALE, 'x??');
+    const [pair] = await rankBreedingPairs({ species: 'BeeWasp', pets: [male, female] });
+
+    // x×x: P(D)=P(R)=0.25, so mean 0.5. Variance 2×0.25×0.75 − 2×0.25×0.25 = 0.25.
+    expect(pair.evLockedPositives).toBeCloseTo(0.5, 10);
+    expect(pair.lockedPositiveSd).toBeCloseTo(0.5, 10);
   });
 });
 

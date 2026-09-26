@@ -146,6 +146,7 @@ const OBJECTIVE_COLUMN: Record<string, string> = {
   ceiling: 'evPositiveImprovement',
   floor: 'evPairUpgrade',
   clean: 'evLiabilityReduction',
+  clarify: 'evClarifyImprovement',
   positives: 'evPositiveTotal',
 };
 

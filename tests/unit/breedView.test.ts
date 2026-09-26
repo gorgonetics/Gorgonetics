@@ -7,6 +7,7 @@ import { breedingView } from '$lib/stores/breeding.svelte.js';
 import { loading, pets } from '$lib/stores/pets.js';
 import type { BreedingPairResult, Pet } from '$lib/types/index.js';
 import { type AttributeMagnitudes, EMPTY_MAGNITUDES } from '$lib/utils/attributePoints.js';
+import { BREEDING_OBJECTIVES } from '$lib/utils/breedingObjectives.js';
 
 // The ranking service is exercised by its own suite; stub it so these tests
 // stay a focused check of BreedView's species defaulting and trio lifecycle.
@@ -89,8 +90,13 @@ const pairStub = (evCapabilityGain: number): BreedingPairResult => ({
   evNegativeTotal: 0,
   evLiabilityReduction: 0,
   cleanerParentNegatives: 0,
-  maleProfile: { positives: 0, negatives: 0, positivesByAttribute: {} },
-  femaleProfile: { positives: 0, negatives: 0, positivesByAttribute: {} },
+  evLockedPositives: 0,
+  evClarifyImprovement: 0,
+  betterParentLockedPositives: 0,
+  lockedPositiveSd: 0,
+  lockedInPoints: false,
+  maleProfile: { positives: 0, negatives: 0, positivesByAttribute: {}, lockedPositives: 0 },
+  femaleProfile: { positives: 0, negatives: 0, positivesByAttribute: {}, lockedPositives: 0 },
   positiveSd: 0,
   negativeSd: 0,
   evUnknown: 0,
@@ -470,6 +476,31 @@ describe('BreedView — when Reach new ground has run dry', () => {
     await waitFor(() => expect(container.querySelector('[data-testid="breed-capability"]')).toBeTruthy());
     expect(container.querySelector('[data-testid="breed-capability"]')?.textContent).toContain('per pair');
     expect(container.querySelector('[data-testid="breed-reach-exhausted"]')).toBeTruthy();
+  });
+
+  it('sorts the table by the column each strategy ranks by', async () => {
+    // Every general strategy must move the table's sort, or picking it
+    // re-scores the plans while the table stays sorted by the last one.
+    breedingView.spots = 0;
+    vi.mocked(rankBreedingPairs).mockResolvedValue([pairStub(0.25)]);
+    const { container, rerender } = render(BreedView);
+    await rerender({});
+    const select = await waitFor(() => {
+      const el = container.querySelector<HTMLSelectElement>('#breed-objective-select');
+      if (!el) throw new Error('objective select not rendered');
+      return el;
+    });
+    const activeHeader = () => container.querySelector('thead th.active')?.textContent?.replace(/[▲▼]/g, '').trim();
+    for (const objective of BREEDING_OBJECTIVES) {
+      const other = objective.id === 'reach' ? 'ceiling' : 'reach';
+      await fireEvent.change(select, { target: { value: other } });
+      const before = activeHeader();
+      await fireEvent.change(select, { target: { value: objective.id } });
+      await waitFor(() => expect(activeHeader(), objective.id).toBeTruthy());
+      expect(activeHeader(), objective.id).not.toBe(before);
+    }
+    await fireEvent.change(select, { target: { value: 'clarify' } });
+    expect(breedingView.sortCol).toBe('evClarifyImprovement');
   });
 
   it('stays quiet when the player is already breeding for something else', async () => {

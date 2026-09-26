@@ -323,6 +323,13 @@ export interface ParentExpressedProfile {
    * measured on the same slots the offspring EV uses.
    */
   pointsByAttribute?: Record<string, number>;
+  /**
+   * Positive slots this parent is homozygous for (`D` on a dominant-positive,
+   * `R` on a recessive-positive), so it always passes them on. In measured
+   * points when the study knows any magnitude, a count otherwise — the same
+   * unit as `BreedingPairResult.evLockedPositives`.
+   */
+  lockedPositives: number;
 }
 
 /**
@@ -447,6 +454,27 @@ export interface BreedingPairResult {
   /** The cleaner parent's own negative count. Baseline for the above. */
   cleanerParentNegatives: number;
   /**
+   * Expected positive slots the foal is homozygous for, so it breeds them
+   * true — the "Clarification" outcome, summed. In measured points when
+   * `lockedInPoints`, where an unmeasured slot is worth 0; a count otherwise.
+   */
+  evLockedPositives: number;
+  /**
+   * `E[max(0, foal locked positives - better parent's)]` — Clarify positives.
+   *
+   * Aims at a foal that breeds more of its positives true than either
+   * parent, so the next generation is less of a gamble. Distinct from
+   * `evCapabilityGain`, which credits a lock only where no animal in the
+   * stable has one yet; this compares the foal against its own parents.
+   */
+  evClarifyImprovement: number;
+  /** The better parent's own `lockedPositives`. Baseline for the above. */
+  betterParentLockedPositives: number;
+  /** Spread of `evLockedPositives`. */
+  lockedPositiveSd: number;
+  /** Whether the three figures above are in measured points or a count. */
+  lockedInPoints: boolean;
+  /**
    * Each parent's own expressed profile, same locus basis as the offspring EV.
    *
    * `betterParentPositives` and friends are the baselines the improvement
@@ -545,7 +573,7 @@ export type TrioGainMode = 'attributes' | 'clarification';
  * locus has an exact, extractable contribution that sums back to the column
  * the breeding table shows.
  *
- * `Ceiling`, `Floor` and `Cleanup` deliberately have no field here. They are
+ * `Ceiling`, `Floor`, `Cleanup` and `Clarify` deliberately have no field here. They are
  * `E[max(0, X - baseline)]` evaluated *after* the loop, from three scalars
  * (mean, spread, baseline); a locus reaches them only through the first two.
  * The gradient of that integral with respect to the mean is a single

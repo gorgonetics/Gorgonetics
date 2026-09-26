@@ -264,10 +264,39 @@ export function accumulatePoints(
   if (slots.dom && slots.dom === slots.rec) exclusiveSlotCovariance(slots.dom, pDom, mDom, pRec, mRec, variance);
 }
 
+/**
+ * What locking each positive slot of one gene is worth to Clarify positives.
+ *
+ * A slot is locked when the animal is homozygous for its positive allele —
+ * `D` for a dominant-positive, `R` for a recessive-positive — so it always
+ * passes that allele on. Scored in points once the study has measured
+ * anything for the species, so clarifying a `+6` outranks clarifying a
+ * `+1`; an unmeasured slot is then worth 0, as in every points figure. With
+ * no study at all every positive slot counts 1.
+ *
+ * A measured magnitude at or below zero is worth 0: the slot is declared
+ * positive, and the study does not agree, so locking it is not a gain.
+ */
+function lockWeights(
+  geneId: string,
+  gd: ParsedGeneRecord,
+  magnitudes: AttributeMagnitudes,
+  inPoints: boolean,
+): { dom: number; rec: number } {
+  const slots = positiveSlots(gd);
+  const weigh = (expression: 'dominant' | 'recessive'): number => {
+    if (!inPoints) return 1;
+    const magnitude = magnitudeOf(magnitudes, geneId, expression);
+    return magnitude !== undefined && magnitude > 0 ? magnitude : 0;
+  };
+  return { dom: slots.dom ? weigh('dominant') : 0, rec: slots.rec ? weigh('recessive') : 0 };
+}
+
 const EMPTY_PROFILE: Readonly<ParentExpressedProfile> = Object.freeze({
   positives: 0,
   negatives: 0,
   positivesByAttribute: {},
+  lockedPositives: 0,
 });
 
 /**
@@ -288,12 +317,16 @@ function ownExpressedProfile(
   offspringBreed: string | undefined,
   magnitudes: AttributeMagnitudes,
 ): ParentExpressedProfile {
-  const profile: ParentExpressedProfile = { positives: 0, negatives: 0, positivesByAttribute: {} };
+  const profile: ParentExpressedProfile = { positives: 0, negatives: 0, positivesByAttribute: {}, lockedPositives: 0 };
   const points: Record<string, number> | null = hasMagnitudes(magnitudes) ? {} : null;
   for (const [geneId, type] of loci) {
     const gd = parsedGenes[geneId];
     if (!gd) continue;
     if (isHorseBreedFiltered(species, offspringBreed, gd.breed)) continue;
+    if (type === GeneType.DOMINANT || type === GeneType.RECESSIVE) {
+      const w = lockWeights(geneId, gd, magnitudes, points !== null);
+      profile.lockedPositives += type === GeneType.DOMINANT ? w.dom : w.rec;
+    }
     const sign = expressedSign(type, gd);
     if (sign === '+') {
       profile.positives++;
@@ -360,6 +393,10 @@ function scorePair(
   let positiveVariance = 0;
   let evNegativeTotal = 0;
   let negativeVariance = 0;
+  // Clarify positives: expected locked positive slots (or points) and spread.
+  const lockInPoints = hasMagnitudes(magnitudes);
+  let evLockedPositives = 0;
+  let lockedVariance = 0;
   let totalLoci = 0;
 
   walkPairLoci(mLoci, fLoci, (geneId, t1, t2) => {
@@ -383,6 +420,14 @@ function scorePair(
       const pNeg = negativeExpressionProbability(dist, gd);
       evNegativeTotal += pNeg;
       negativeVariance += pNeg * (1 - pNeg);
+      const w = lockWeights(geneId, gd, magnitudes, lockInPoints);
+      evLockedPositives += w.dom * dist.D + w.rec * dist.R;
+      // `D` and `R` exclude each other at one locus, hence the covariance
+      // term when both slots of a gene are positive.
+      lockedVariance +=
+        w.dom * w.dom * dist.D * (1 - dist.D) +
+        w.rec * w.rec * dist.R * (1 - dist.R) -
+        2 * w.dom * w.rec * dist.D * dist.R;
     }
   });
 
@@ -393,6 +438,8 @@ function scorePair(
   const sd = Math.sqrt(positiveVariance);
   const negativeSd = Math.sqrt(negativeVariance);
   const cleanerParentNegatives = Math.min(mProfile.negatives, fProfile.negatives);
+  const betterParentLockedPositives = Math.max(mProfile.lockedPositives, fProfile.lockedPositives);
+  const lockedPositiveSd = stdDev(lockedVariance);
   // Per-attribute improvement, each against the better parent *on that
   // attribute*. Targeting a weak trait is a strategy in its own right, and
   // the absolute per-attribute EV cannot express it — a pairing can lead on
@@ -438,6 +485,11 @@ function scorePair(
     evNegativeTotal,
     evLiabilityReduction: expectedReduction(evNegativeTotal, negativeSd, cleanerParentNegatives),
     cleanerParentNegatives,
+    evLockedPositives,
+    evClarifyImprovement: expectedImprovement(evLockedPositives, lockedPositiveSd, betterParentLockedPositives),
+    betterParentLockedPositives,
+    lockedPositiveSd,
+    lockedInPoints: lockInPoints,
     maleProfile: mProfile,
     femaleProfile: fProfile,
     positiveSd: sd,

@@ -95,6 +95,15 @@ const columns = $derived<Column[]>([
   { id: 'evPositiveImprovement', label: 'Ceiling', accessor: (r) => r.evPositiveImprovement, numeric: true },
   { id: 'evPairUpgrade', label: 'Floor', accessor: (r) => r.evPairUpgrade, numeric: true },
   { id: 'evLiabilityReduction', label: 'Cleanup', accessor: (r) => r.evLiabilityReduction, numeric: true },
+  {
+    id: 'evClarifyImprovement',
+    label: 'Clarify',
+    hint: results[0]?.lockedInPoints
+      ? 'Expected points the foal breeds true beyond the better parent: positive slots it is homozygous for, weighted by measured points. Unmeasured positives count 0.'
+      : 'Expected positive slots the foal breeds true beyond the better parent: slots it is homozygous for, so it always passes them on.',
+    accessor: (r) => r.evClarifyImprovement,
+    numeric: true,
+  },
   { id: 'evMixed', label: 'Mixed', accessor: (r) => r.evMixed, numeric: true },
   { id: 'evUnknown', label: 'Unknown', accessor: (r) => r.evUnknown, numeric: true },
   // Labelled as a count: with measured magnitudes beside it, "Total +" read as
@@ -339,6 +348,7 @@ function persistScroll() {
                 <td class="numeric">{fmt(pair.evPositiveImprovement)}</td>
                 <td class="numeric">{fmt(pair.evPairUpgrade)}</td>
                 <td class="numeric">{fmt(pair.evLiabilityReduction)}</td>
+                <td class="numeric">{fmt(pair.evClarifyImprovement)}</td>
                 <td class="numeric">{fmt(pair.evMixed)}</td>
                 <td class="numeric">{fmt(pair.evUnknown)}</td>
                 <td class="numeric">
