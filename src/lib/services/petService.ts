@@ -47,6 +47,20 @@ export function localPetsRevision(): number {
   return rosterRevision;
 }
 
+/**
+ * Counts fresh uploads, which `rosterRevision` deliberately ignores.
+ *
+ * The magnitude table may lag a new animal, since that costs coverage and
+ * not correctness. The Study tab may not: it lists the corpus, so an animal
+ * the player just imported has to appear the next time the tab opens.
+ */
+let rosterAdditions = 0;
+
+/** Current upload count; see `rosterAdditions`. */
+export function localPetsAdded(): number {
+  return rosterAdditions;
+}
+
 /** Count total / known / unknown genes from a parsed Genome. */
 function countGenesFromGenome(genome: Genome): GeneCountSummary {
   let total = 0;
@@ -692,9 +706,10 @@ export async function uploadPet(content: string, options: UploadPetOptions = {})
     console.warn('imported_files: failed to record after successful upload', err);
   }
 
-  // No bump: a new animal only *adds* equations to the study, and a memoised
-  // result that is merely short costs coverage rather than correctness. See
-  // `rosterRevision`.
+  // No roster bump: a new animal only *adds* equations to the study, and a
+  // memoised table that is merely short costs coverage rather than
+  // correctness. See `rosterRevision` and `rosterAdditions`.
+  rosterAdditions++;
   return {
     status: 'success',
     kind: 'created',
