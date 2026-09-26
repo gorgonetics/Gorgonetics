@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import Roster from '$lib/components/mypets/Roster.svelte';
+import { parseStructuredPetName } from '$lib/services/nameParser.js';
 import { myPetsView } from '$lib/stores/mypets.svelte.js';
 import { pets as petsStore } from '$lib/stores/pets.js';
 import type { Pet } from '$lib/types/index.js';
@@ -81,6 +82,47 @@ describe('Roster', () => {
     const ferocityAt = headers(container).findIndex((l) => l?.toLowerCase().startsWith('ferocity')) + 1;
     expect(cellsOf(1)[ferocityAt]?.textContent?.trim()).toBe('—');
     expect(cellsOf(3)[ferocityAt]?.textContent?.trim()).toBe('70');
+  });
+
+  it('orders attribute columns as a structured name spells them', () => {
+    // The naming convention mirrors the in-game stable, so read the order off
+    // the parser: value n in the name is the nth attribute column.
+    for (const [species, name] of [
+      ['horse', 'Kb F 1 2 3 4 5 6 7'],
+      ['beewasp', 'Bee F 1 2 3 4 5 6 7'],
+    ] as const) {
+      myPetsView.species = species;
+      const parsed = parseStructuredPetName(name, species);
+      const expected = Object.entries(parsed?.attributes ?? {})
+        .sort((a, b) => a[1] - b[1])
+        .map(([key]) => key);
+      expect(expected, species).toHaveLength(7);
+      // Every attribute stored, as on a real pet, so no column is hidden.
+      const full = pet({
+        id: 9,
+        species: species === 'horse' ? 'Horse' : 'BeeWasp',
+        ...Object.fromEntries(
+          [
+            'intelligence',
+            'toughness',
+            'friendliness',
+            'ruggedness',
+            'enthusiasm',
+            'virility',
+            'ferocity',
+            'temperament',
+          ].map((k) => [k, 50]),
+        ),
+      } as Partial<Pet>);
+      petsStore.set([full]);
+      const { container, unmount } = render(Roster, { pets: [full] });
+      const labels = headers(container).map((l) => l?.toLowerCase().replace(/[▲▼\s]/g, '') ?? '');
+      expect(
+        labels.filter((l) => expected.includes(l)),
+        species,
+      ).toEqual(expected);
+      unmount();
+    }
   });
 
   it("drops the other species' attributes when a species is selected", () => {
