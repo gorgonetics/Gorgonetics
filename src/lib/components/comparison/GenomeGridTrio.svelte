@@ -108,7 +108,7 @@ let hideLocked = $state(false);
 // homozygous, so it breeds true). The other collapses into the muted keep shade.
 let gainMode = $state<TrioGainMode>('attributes');
 // Which additive pair score the offspring boxes are tinted by, or `off` for
-// the default outcome-bucket rendering. Only the three scores that are a plain
+// the default outcome-bucket rendering. Only the two scores that are a plain
 // sum over loci appear here — see `TrioLocusContributions` for why Ceiling,
 // Floor and Cleanup cannot join them.
 let contributionMode = $state<TrioContributionMode>('off');
@@ -220,7 +220,7 @@ function offspringImpactLines(cell: TrioLocusCell): string[] {
 const pct = (p: number) => (p > 0 && p < 0.005 ? '<1%' : `${Math.round(p * 100)}%`);
 
 /**
- * The three lenses, in display order — one table rather than a mode list, a
+ * The two lenses, in display order — one table rather than a mode list, a
  * label map and a help map that have to agree. `needsPool` is which of them
  * measure against the rest of the stable and so cannot be offered when the
  * trio was opened without a candidate pool.
