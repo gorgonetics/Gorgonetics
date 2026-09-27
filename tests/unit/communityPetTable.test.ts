@@ -81,8 +81,10 @@ describe('CommunityPetTable', () => {
     // Uploaded = 14 cells. Temperament (horse-only, empty for every loaded
     // row) is hidden entirely rather than rendering a dash.
     expect(cells).toHaveLength(14);
-    // Attribute columns start at index 5; Ferocity is the 7th visible attr.
-    expect(cells[11]).toHaveTextContent('40');
+    // Attribute columns start at index 5, in naming order: a bee's own
+    // attribute first, then Toughness … Virility.
+    expect(cells[5]).toHaveTextContent('40');
+    expect(cells[6]).toHaveTextContent('20');
     // Total sums the applicable published attributes (10+20+40 = 70).
     expect(cells[12]).toHaveTextContent('70');
   });

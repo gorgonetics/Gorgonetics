@@ -18,20 +18,20 @@ import { Gender, type Pet } from '$lib/types/index.js';
  * real population needs the service layer, which is what this does.
  */
 
-function genome(name: string, alleles: string) {
+function genome(name: string, alleles: string, species = 'BeeWasp') {
   return `[Overview]
 Format=1.0
 Character=Tester
 Entity=${name}
-Genome=BeeWasp
+Genome=${species}
 
 [Genes]
 1=${alleles}
 `;
 }
 
-async function upload(name: string, gender: Gender, alleles: string): Promise<Pet> {
-  const r = await petService.uploadPet(genome(name, alleles), { name, gender });
+async function upload(name: string, gender: Gender, alleles: string, species?: string): Promise<Pet> {
+  const r = await petService.uploadPet(genome(name, alleles, species), { name, gender });
   expect(r.status).toBe('success');
   return (await petService.getPet(r.pet_id as number)) as Pet;
 }
@@ -131,12 +131,82 @@ describe('Roster — genetic quality column', () => {
     expect(headers(container)).not.toContain('Quality');
   });
 
-  it('hides the column when no single species is selected', async () => {
+  it('scores each species against its own stable when no species is selected (#557)', async () => {
     const pets = await seed();
     petStore.set(pets);
     setView('');
     const { container } = render(Roster, { pets });
-    await waitFor(() => expect(container.querySelector('.roster-table')).toBeTruthy());
-    expect(headers(container)).not.toContain('Quality');
+    await waitFor(() => expect(headers(container)).toContain('Quality'));
+    await waitFor(() => expect(cellFor(container, 'Founder')?.textContent?.trim()).toBe('100.0%◆'));
+    // The share is of this species' stable, and the tooltip says which.
+    expect(cellFor(container, 'Founder')?.getAttribute('title')).toContain('share of the beewasp stable');
+  });
+
+  /** A horse stable of one sole carrier and three duplicates. */
+  async function seedHorses(): Promise<Pet[]> {
+    await geneService.upsertGene('horse', '01', '01A1', {
+      effectDominant: 'Toughness-',
+      effectRecessive: 'Intelligence+',
+    });
+    geneService.clearGeneEffectsCache('horse');
+    return [
+      await upload('Stallion', Gender.MALE, 'R??', 'Horse'),
+      await upload('Mare1', Gender.FEMALE, 'D??', 'Horse'),
+      await upload('Mare2', Gender.FEMALE, 'D??', 'Horse'),
+      await upload('Mare3', Gender.FEMALE, 'D??', 'Horse'),
+    ];
+  }
+
+  it('keeps each species share of its own stable total when species are mixed (#557)', async () => {
+    // Two bee/wasp sole carriers split their stable; the horse founder holds
+    // all of its own. One pooled denominator would give each a third.
+    await geneService.upsertGene('beewasp', '01', '01A1', {
+      effectDominant: 'Toughness-',
+      effectRecessive: 'Intelligence+',
+    });
+    await geneService.upsertGene('beewasp', '01', '01A2', {
+      effectDominant: 'Toughness-',
+      effectRecessive: 'Intelligence+',
+    });
+    geneService.clearGeneEffectsCache('beewasp');
+    const bees = [
+      await upload('QueenA', Gender.FEMALE, 'RD?'),
+      await upload('QueenB', Gender.FEMALE, 'DR?'),
+      await upload('Drone1', Gender.MALE, 'DD?'),
+      await upload('Drone2', Gender.MALE, 'DD?'),
+    ];
+    const pets = [...bees, ...(await seedHorses())];
+    petStore.set(pets);
+    setView('');
+    const { container } = render(Roster, { pets });
+
+    await waitFor(() => expect(cellFor(container, 'Stallion')?.textContent?.trim()).toMatch(/^100\.0%/));
+    expect(cellFor(container, 'QueenA')?.textContent?.trim()).toMatch(/^50\.0%/);
+    expect(cellFor(container, 'QueenB')?.textContent?.trim()).toMatch(/^50\.0%/);
+    expect(cellFor(container, 'Mare1')?.textContent?.trim()).toBe('—');
+    expect(cellFor(container, 'Stallion')?.getAttribute('title')).toContain('share of the horse stable');
+    expect(cellFor(container, 'QueenA')?.getAttribute('title')).toContain('share of the beewasp stable');
+  });
+
+  it('marks a below-floor species unscored while another species is scored (#557)', async () => {
+    await geneService.upsertGene('beewasp', '01', '01A1', {
+      effectDominant: 'Toughness-',
+      effectRecessive: 'Intelligence+',
+    });
+    geneService.clearGeneEffectsCache('beewasp');
+    const bees = [await upload('Only', Gender.FEMALE, 'R??'), await upload('Other', Gender.MALE, 'D??')];
+    const pets = [...bees, ...(await seedHorses())];
+    petStore.set(pets);
+    setView('');
+    const { container } = render(Roster, { pets });
+
+    await waitFor(() => expect(cellFor(container, 'Stallion')?.textContent?.trim()).toMatch(/^100\.0%/));
+    // Two bees: every allele would read as sole, so they are not measured —
+    // not shown as redundant, and not given a share.
+    for (const name of ['Only', 'Other']) {
+      expect(cellFor(container, name)?.textContent?.trim()).toBe('·');
+      expect(cellFor(container, name)?.classList.contains('unscored')).toBe(true);
+      expect(cellFor(container, name)?.getAttribute('title')).toContain('too few stabled beewasp pets');
+    }
   });
 });
