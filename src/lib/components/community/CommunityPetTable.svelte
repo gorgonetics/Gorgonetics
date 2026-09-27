@@ -252,7 +252,7 @@ function handleKey(e: KeyboardEvent, hash: string): void {
         </thead>
         <tbody>
           {#if sorted.length === 0}
-            <tr role="row">
+            <tr>
               <td role="gridcell" class="filter-empty" colspan={columnCount} data-testid="community-filter-empty">
                 No loaded pets match these filters.
                 {#if communityView.hasMore}Load more to search older entries.{/if}
