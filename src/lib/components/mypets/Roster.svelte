@@ -39,7 +39,8 @@ interface Column {
   id: string;
   label: string;
   numeric: boolean;
-  /** Null where the column does not apply to the pet; rendered as a dash. */
+  /** Null where the column does not apply to the pet; rendered as a dash, as
+   *  is an empty text value (a species without breeds). */
   accessor: (pet: Pet) => string | number | null;
 }
 
@@ -349,7 +350,7 @@ function open(pet: Pet): void {
                 class:cell-text={!col.numeric && col.id !== 'name'}
                 class:cell-total={col.id === 'attr_total'}
                 class:cell-date={col.id === 'created_at'}
-                class:muted={value === null}
+                class:muted={value === null || value === ''}
               >
                 {#if col.id === 'name'}
                   <button type="button" class="name-btn" data-testid="roster-open" onclick={() => open(pet)}>
@@ -377,7 +378,7 @@ function open(pet: Pet): void {
                 {:else if col.id === 'created_at'}
                   {value ? formatShortDate(new Date(value)) : '—'}
                 {:else}
-                  {value ?? '—'}
+                  {value === '' ? '—' : (value ?? '—')}
                 {/if}
               </td>
             {/each}

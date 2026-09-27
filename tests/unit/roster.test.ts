@@ -82,6 +82,10 @@ describe('Roster', () => {
     const ferocityAt = headers(container).findIndex((l) => l?.toLowerCase().startsWith('ferocity')) + 1;
     expect(cellsOf(1)[ferocityAt]?.textContent?.trim()).toBe('—');
     expect(cellsOf(3)[ferocityAt]?.textContent?.trim()).toBe('70');
+    // An empty text value reads as a dash too, not a blank cell.
+    const breedAt = headers(container).findIndex((l) => l?.toLowerCase().startsWith('breed')) + 1;
+    expect(cellsOf(3)[breedAt]?.textContent?.trim()).toBe('—');
+    expect(cellsOf(1)[breedAt]?.textContent?.trim()).toBe('Standardbred');
   });
 
   it('orders attribute columns as a structured name spells them', () => {
