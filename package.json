@@ -54,11 +54,11 @@
   "dependencies": {
     "@lucide/svelte": "^1.44.0",
     "@tauri-apps/api": "^2.12.1",
-    "@tauri-apps/plugin-dialog": "^2.7.3",
-    "@tauri-apps/plugin-fs": "^2.5.1",
+    "@tauri-apps/plugin-dialog": "^2.8.1",
+    "@tauri-apps/plugin-fs": "^2.6.0",
     "@tauri-apps/plugin-process": "^2.3.1",
     "@tauri-apps/plugin-sql": "^2.4.1",
-    "@tauri-apps/plugin-updater": "^2.11.0",
+    "@tauri-apps/plugin-updater": "^2.13.2",
     "firebase": "^12.19.0",
     "jszip": "^3.10.2"
   },
