@@ -5,7 +5,7 @@ description = "Gorgonetics - Pet Genetics Breeding Tool"
 authors = ["Javier Lopez Pena"]
 license = "MIT"
 edition = "2021"
-rust-version = "1.97"
+rust-version = "1.99"
 
 [lib]
 name = "gorgonetics_lib"
