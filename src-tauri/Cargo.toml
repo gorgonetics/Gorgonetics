@@ -17,6 +17,15 @@ strip = true
 codegen-units = 1
 opt-level = "s"
 
+# Line tables only: panic backtraces keep file:line, but there is no variable or
+# type info for a debugger. Full debug info is most of the size of target/.
+# Dependencies get none.
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+debug = false
+
 [build-dependencies]
 tauri-build = { version = "2.6.1", features = [] }
 
