@@ -1,44 +1,12 @@
 <script lang="ts">
-import type { AttributeBaselines, BaselineReading } from '$lib/utils/attributeStudy.js';
+import type { AttributeBaselines } from '$lib/utils/attributeStudy.js';
+import { baseText, breedLabel, isExactBase as isExact, lumpText, slotLabel } from '$lib/utils/baseMatrix.js';
 
 interface Props {
   baselines: AttributeBaselines;
 }
 
 const { baselines }: Props = $props();
-
-/** `05F2:recessive` reads as `05F2 recessive` — the colon is an internal key separator. */
-const slotLabel = (key: string) => key.replace(':', ' ');
-
-const breedLabel = (breed: string) => breed || 'No breed';
-
-const signed = (n: number) => (n < 0 ? `−${-n}` : String(n));
-
-/**
- * The base as the corpus pins it: exact, one-sided, or not at all.
- *
- * Only the exact case is a number for the base itself. A bound is what the
- * declared signs of the unresolved slots allow, and without one the base is
- * unknown — the lump is still shown, because it is what differences between
- * breeds are read from.
- */
-const isExact = (r: BaselineReading) => r.min !== null && r.min === r.max;
-
-function baseText(r: BaselineReading): string {
-  if (isExact(r)) return signed(r.min as number);
-  if (r.max !== null) return `≤ ${signed(r.max)}`;
-  if (r.min !== null) return `≥ ${signed(r.min)}`;
-  return '?';
-}
-
-/** How the base was read: from this breed's own animals, or through a gap to another breed. */
-function lumpText(r: BaselineReading): string {
-  if (r.unresolved.length === 0) return 'exact';
-  if (r.via) return `${breedLabel(r.via.breed)} ${r.via.offset < 0 ? '−' : '+'} ${Math.abs(r.via.offset)}`;
-  const shown = r.unresolved.slice(0, 3).map(slotLabel).join(' + ');
-  const more = r.unresolved.length > 3 ? ` + ${r.unresolved.length - 3} more` : '';
-  return `base + ${shown}${more} = ${signed(r.value)}`;
-}
 </script>
 
 <!-- Either alone is worth showing: a solver gap can be exact while every
