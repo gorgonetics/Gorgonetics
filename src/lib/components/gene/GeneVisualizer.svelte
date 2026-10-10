@@ -490,12 +490,15 @@ const qualityPool = $derived(
 );
 const qualityFocus = $derived(String($settings['quality.focusBreed'] ?? ''));
 const qualityLockWeight = $derived(parseBreedLockWeight($settings['quality.breedLockWeight']));
+// Read from the live prop: an in-place sex edit keeps the id, so it does not
+// reload `currentPet`, and a recessive is judged per sex.
+const qualityGender = $derived(pet && currentPet && pet.id === currentPet.id ? pet.gender : currentPet?.gender);
 const qualityKey = $derived.by(() => {
   if (currentView !== 'quality' || !currentPet) return null;
   return [
     currentPet.species,
     currentPet.id,
-    currentPet.gender,
+    qualityGender,
     pet?.content_hash ?? '',
     qualityFocus,
     qualityLockWeight ?? 'auto',
@@ -511,7 +514,7 @@ const quality = keyedResource(
       species: p.species,
       petId: p.id,
       loci: gridToLoci(p.grid),
-      gender: p.gender,
+      gender: qualityGender,
       pool: qualityPool,
       focusBreed: qualityFocus,
       breedLockWeight: qualityLockWeight,
