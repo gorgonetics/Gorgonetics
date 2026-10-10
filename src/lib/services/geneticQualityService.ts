@@ -28,12 +28,15 @@ import {
   capabilityShare,
   type GeneticQualityResult,
   hasMeaningfulPopulation,
+  type QualityStanding,
   rareBenefitAlleles,
   type SafeCullResult,
   type ScoredGene,
   safeCullOrder,
   scoreGroup,
+  scorePet,
   capabilitySummary as summarise,
+  tallyAlleles,
 } from '$lib/utils/geneticQuality.js';
 import { loadAllPetLoci, type PetLoci } from '$lib/utils/petLoci.js';
 import { getAllAttributeNames, normalizeSpecies } from './configService.js';
@@ -153,6 +156,58 @@ export async function scoreStable(opts: ScoreStableOptions): Promise<StableScore
     scores,
     unscored: ids.filter((id) => !loci.has(id)),
     shares: capabilityShare(scores),
+    meaningful: hasMeaningfulPopulation(scored.length),
+  };
+}
+
+export interface ExplainQualityOptions {
+  species: string;
+  /** The animal to explain. A preview (community) pet carries `PREVIEW_PET_ID`. */
+  petId: number;
+  /** Its genome, from whatever grid is on screen — the DB is not read for it. */
+  loci: PetLoci;
+  /** The stabled animals of the species, as the roster scores them. */
+  pool: readonly Pet[];
+  focusBreed?: string;
+  breedLockWeight?: number;
+}
+
+export interface QualityReport {
+  result: GeneticQualityResult;
+  /** Per locus, the strongest standing of a benefit allele it carries. */
+  standing: Map<string, QualityStanding>;
+  /** Its share of the stable's total at-risk capability, 0–100. */
+  share: number;
+  /** In the scored stable; otherwise scored as if it were added to it. */
+  inStable: boolean;
+  /** Same floor as the roster column. */
+  meaningful: boolean;
+}
+
+/**
+ * The roster's Quality score for one animal, with the genes behind it.
+ *
+ * Same population, weighting and arithmetic as `scoreStable`, so the lens
+ * and the column cannot disagree. An animal outside the stable (unstabled,
+ * or a community pet) is scored as if added to it: what it would bring that
+ * the stable cannot already breed.
+ */
+export async function explainQuality(opts: ExplainQualityOptions): Promise<QualityReport> {
+  const others = opts.pool.filter((p) => p.id !== opts.petId);
+  const { loci, genes, ids } = await loadInputs(opts.species, others);
+  const inStable = others.length < opts.pool.length;
+  loci.set(opts.petId, opts.loci);
+  const scored = [...ids.filter((id) => loci.has(id)), opts.petId];
+  const weight = breedReachFor(genes, opts.focusBreed, opts.breedLockWeight);
+  const shares = capabilityShare(scoreGroup(loci, genes, scored, { weight }));
+  const standing = new Map<string, QualityStanding>();
+  const tallies = tallyAlleles(scored.map((id) => loci.get(id) as PetLoci));
+  const result = scorePet(opts.loci, genes, tallies, { weight, standing });
+  return {
+    result,
+    standing,
+    share: shares.get(opts.petId) ?? 0,
+    inStable,
     meaningful: hasMeaningfulPopulation(scored.length),
   };
 }

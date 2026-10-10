@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { closeDatabase, getDb, initDatabase } from '$lib/services/database.js';
 import * as geneService from '$lib/services/geneService.js';
-import { safeCullSet, scoreStable } from '$lib/services/geneticQualityService.js';
+import { explainQuality, safeCullSet, scoreStable } from '$lib/services/geneticQualityService.js';
 import { runMigrations } from '$lib/services/migrationService.js';
 import * as petService from '$lib/services/petService.js';
 import { Gender, type Pet } from '$lib/types/index.js';
+import { loadAllPetLoci, type PetLoci } from '$lib/utils/petLoci.js';
 
 /**
  * Three-locus beewasp genome; the third line carries the alleles. Same
@@ -602,5 +603,44 @@ describe('breed reach', () => {
     // Its whole price sits at Beta's locus, so nothing of it is generic.
     expect(locked?.cost).toBeGreaterThan(0);
     expect(locked?.genericCost).toBe(0);
+  });
+});
+
+describe('explainQuality', () => {
+  beforeEach(reset);
+
+  const lociOf = async (pet: Pet) => (await loadAllPetLoci([pet.id])).get(pet.id) as PetLoci;
+
+  it('agrees with scoreStable for a stabled pet, and names its genes', async () => {
+    const sole = await upload('Sole', Gender.FEMALE, 'RDx');
+    const pool = [sole, await upload('X', Gender.MALE, 'DDx'), await upload('Y', Gender.MALE, 'DDx')];
+    const stable = await scoreStable({ species: 'BeeWasp', pets: pool });
+    const report = await explainQuality({ species: 'BeeWasp', petId: sole.id, loci: await lociOf(sole), pool });
+    expect(report.inStable).toBe(true);
+    expect(report.meaningful).toBe(true);
+    expect(report.result.atRiskCapability).toBeCloseTo(stable.scores.get(sole.id)?.atRiskCapability ?? -1);
+    expect(report.share).toBeCloseTo(stable.shares.get(sole.id) ?? -1);
+    expect(report.standing.get('01A1')).toBe('sole');
+    expect(report.standing.get('01A2')).toBe('backed');
+    expect(new Set(report.result.contributions.map((c) => c.gene))).toEqual(new Set(['01A1']));
+  });
+
+  it('scores a pet outside the stable as if added to it', async () => {
+    const pool = [
+      await upload('X', Gender.MALE, 'DDx'),
+      await upload('Y', Gender.MALE, 'DDx'),
+      await upload('Z', Gender.FEMALE, 'DDx'),
+    ];
+    const outsider = await upload('Out', Gender.FEMALE, 'RDx');
+    const report = await explainQuality({
+      species: 'BeeWasp',
+      petId: outsider.id,
+      loci: await lociOf(outsider),
+      pool,
+    });
+    expect(report.inStable).toBe(false);
+    expect(report.standing.get('01A1')).toBe('sole');
+    expect(report.result.atRiskCapability).toBeGreaterThan(0);
+    expect(report.share).toBeCloseTo(100);
   });
 });

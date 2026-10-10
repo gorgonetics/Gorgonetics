@@ -225,9 +225,10 @@ export interface VisualizerFilterInput {
    * appearance focus clauses: those legends do not exist in the rarity view,
    * so their filters are inactive there. `'impact'` has its own attribute
    * clause, on the expressed allele. Chromosome, breed and value filters are
-   * outside the view branch and keep working.
+   * outside the view branch and keep working. `'quality'` behaves like
+   * `'rarity'`: no attribute legend, so no attribute clause.
    */
-  currentView: 'attribute' | 'appearance' | 'rarity' | 'impact';
+  currentView: 'attribute' | 'appearance' | 'rarity' | 'quality' | 'impact';
   breedFilter: string;
   isHorse: boolean;
   chrBreedRelevance: Record<string, ChrBreedRelevance>;

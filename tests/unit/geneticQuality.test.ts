@@ -408,6 +408,7 @@ describe('scoreGroup', () => {
       soleLockSlots: 0,
       liabilityAtRisk: 0,
       byAttribute: {},
+      contributions: [],
     });
   });
 });
@@ -753,5 +754,49 @@ describe('the generic / breed-locked split', () => {
     expect(s.ceiling).toBe(6);
     expect(s.generic.ceiling).toBe(2);
     expect(s.generic.capability).toBeLessThanOrEqual(s.capability);
+  });
+});
+
+describe('scorePet contributions and standing', () => {
+  const genes = { '01A1': CHR01, '01A2': gene('+', null, 'friendliness', null) };
+
+  it('lists the slots behind the score, summing to it exactly', () => {
+    // Sole R at 01A1 (two slots: add temperament, clear virility); D at 01A2 locked by nobody else.
+    const me: PetLoci = new Map([
+      ['01A1', R],
+      ['01A2', D],
+    ]);
+    const others: PetLoci[] = [
+      new Map([
+        ['01A1', D],
+        ['01A2', X],
+      ]),
+      new Map([
+        ['01A1', D],
+        ['01A2', X],
+      ]),
+    ];
+    const tallies = tallyAlleles([me, ...others]);
+    const r = scorePet(me, genes, tallies);
+    const sum = r.contributions.reduce((a, c) => a + c.value, 0);
+    expect(sum).toBeCloseTo(r.atRiskCapability);
+    expect(r.contributions.filter((c) => c.gene === '01A1').map((c) => [c.kind, c.standing])).toEqual([
+      ['add', 'sole'],
+      ['clear', 'sole'],
+    ]);
+    expect(r.contributions.find((c) => c.gene === '01A2')).toMatchObject({ standing: 'lock', value: 0.5 });
+  });
+
+  it('marks a benefit allele the rest of the stable supplies as backed, and only when asked', () => {
+    const me: PetLoci = new Map([['01A2', D]]);
+    const tallies = tallyAlleles([me, new Map([['01A2', D]])]);
+    const standing = new Map();
+    const r = scorePet(me, genes, tallies, { standing });
+    expect(r.contributions).toEqual([]);
+    expect(standing.get('01A2')).toBe('backed');
+    // A locus with no benefit allele carried gets no standing.
+    const plain = new Map();
+    scorePet(new Map([['01A1', D]]), genes, tallyAlleles([new Map([['01A1', D]])]), { standing: plain });
+    expect(plain.has('01A1')).toBe(false);
   });
 });

@@ -420,6 +420,32 @@ function ownCapability(ownType: GeneType, allele: Allele): number {
   return ownType === allele ? 1 : 0.5;
 }
 
+/**
+ * How much the stable needs this animal for one allele it carries, read off
+ * the same leave-one-out step as the score:
+ *
+ *  - `sole` — no other animal carries it.
+ *  - `lock` — others carry it, but no other animal breeds it true.
+ *  - `backed` — the rest of the stable supplies it; nothing is lost.
+ *
+ * The first two are exactly the alleles that add to `atRiskCapability`.
+ */
+export type QualityStanding = 'sole' | 'lock' | 'backed';
+
+const STANDING_RANK: Readonly<Record<QualityStanding, number>> = { backed: 0, lock: 1, sole: 2 };
+
+/** One benefit slot behind the score: what it is, and what it adds. */
+export interface QualityContribution {
+  gene: string;
+  allele: Allele;
+  kind: BenefitSlot['kind'];
+  attribute: string | null;
+  standing: Exclude<QualityStanding, 'backed'>;
+  generic: boolean;
+  /** Its part of `atRiskCapability`, weighted like the headline. */
+  value: number;
+}
+
 export interface ScorePetOptions {
   /**
    * Scale each locus's benefits by what they are worth to this breeder —
@@ -431,6 +457,12 @@ export interface ScorePetOptions {
    * than dead weight.
    */
   weight?: BenefitWeight;
+  /**
+   * Filled with the strongest standing at every locus where the animal
+   * carries a benefit allele — the per-cell reading of the Quality lens.
+   * Opt-in: the cull walk scores thousands of times and needs none of it.
+   */
+  standing?: Map<string, QualityStanding>;
 }
 
 export interface GeneticQualityResult {
@@ -476,6 +508,11 @@ export interface GeneticQualityResult {
    * placeholder.
    */
   byAttribute: Record<string, number>;
+  /**
+   * The slots that make up `atRiskCapability`, in genome order. They sum to
+   * it exactly, so a UI can name the genes behind the number.
+   */
+  contributions: QualityContribution[];
 }
 
 function emptyResult(): GeneticQualityResult {
@@ -488,6 +525,7 @@ function emptyResult(): GeneticQualityResult {
     soleLockSlots: 0,
     liabilityAtRisk: 0,
     byAttribute: {},
+    contributions: [],
   };
 }
 
@@ -525,11 +563,27 @@ export function scorePet(
       const tier = supplyTier(tally, allele, type);
       const without = TIER_CAPABILITY[tier];
       const delta = Math.max(0, ownCapability(type, allele) - without);
+      // A positive delta outside `sole` can only be a homozygote whose
+      // allele others merely carry.
+      const standing: QualityStanding = delta === 0 ? 'backed' : tier === 'sole' ? 'sole' : 'lock';
+      if (opts.standing && slots.some((slot) => slot.allele === allele)) {
+        const before = opts.standing.get(geneId);
+        if (!before || STANDING_RANK[standing] > STANDING_RANK[before]) opts.standing.set(geneId, standing);
+      }
       if (delta === 0) continue;
 
       for (const slot of slots) {
         if (slot.allele !== allele) continue;
         const value = delta * weight;
+        result.contributions.push({
+          gene: geneId,
+          allele,
+          kind: slot.kind,
+          attribute: slot.attribute,
+          standing: standing === 'sole' ? 'sole' : 'lock',
+          generic,
+          value,
+        });
         result.atRiskCapability += value;
         if (generic) result.genericCapability += value;
         else result.breedCapability += value;
