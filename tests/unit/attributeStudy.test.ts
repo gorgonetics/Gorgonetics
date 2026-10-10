@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   activeSlots,
+  type BaselineReading,
   buildEffectSlots,
   type EffectSlot,
   type StudySubject,
@@ -8,6 +9,7 @@ import {
   slotsByAttribute,
   studyAll,
   studyAttribute,
+  tightenThroughGaps,
 } from '$lib/utils/attributeStudy.js';
 import type { GeneEffectData } from '$lib/utils/geneAnalysis.js';
 
@@ -947,7 +949,8 @@ describe('comparing across breeds', () => {
     expect(study.baselines.readings.find((r) => r.breed === 'Kurbone')).toMatchObject({ min: 40, max: 40 });
     expect(study.baselines.offsets).toEqual([]);
     expect(paint).toMatchObject({ min: null, max: 64 });
-    expect(paint?.via).toBeUndefined();
+    expect(paint?.minVia).toBeUndefined();
+    expect(paint?.maxVia).toBeUndefined();
   });
 
   it("turns one breed's exact base into another's through the gap", () => {
@@ -966,6 +969,8 @@ describe('comparing across breeds', () => {
     );
     const paint = study.baselines.readings.find((r) => r.breed === 'Paint');
     expect(paint).toMatchObject({ value: 63, unresolved: ['01A2:dominant', '01A3:dominant'], min: 60, max: 60 });
+    expect(paint?.minVia).toEqual({ breed: 'Kurbone', offset: 20 });
+    expect(paint?.maxVia).toEqual({ breed: 'Kurbone', offset: 20 });
   });
 
   it('keeps adding rounds for as long as each one solves something', () => {
@@ -1012,5 +1017,47 @@ describe('comparing across breeds', () => {
       temperament,
     );
     expect(study.baselines.offsets[0]).toMatchObject({ breed: 'Paint', offset: 0 });
+  });
+});
+
+describe('tightenThroughGaps', () => {
+  const reading = (breed: string, min: number | null, max: number | null): BaselineReading => ({
+    breed,
+    value: 0,
+    unresolved: ['01A1:recessive'],
+    min,
+    max,
+    support: 5,
+    dissent: 0,
+    dissenters: [],
+    witnesses: [],
+  });
+  const gap = (breed: string, offset: number) =>
+    new Map([[breed, { breed, relativeTo: 'Kurbone', offset, support: 1, dissent: 0, animals: 2 }]]);
+
+  it('turns opposite one-sided bounds into a range on both breeds', () => {
+    const [kurbone, paint] = tightenThroughGaps(
+      [reading('Kurbone', null, 10), reading('Paint', 25, null)],
+      gap('Paint', 20),
+    );
+    expect(kurbone).toMatchObject({ min: 5, max: 10, minVia: { breed: 'Paint', offset: -20 } });
+    expect(kurbone.maxVia).toBeUndefined();
+    expect(paint).toMatchObject({ min: 25, max: 30, maxVia: { breed: 'Kurbone', offset: 20 } });
+    expect(paint.minVia).toBeUndefined();
+  });
+
+  it('links two breeds through a reference with no reading of its own', () => {
+    const gaps = new Map([
+      ['Paint', { breed: 'Paint', relativeTo: 'Kurbone', offset: 20, support: 1, dissent: 0, animals: 2 }],
+      ['Statehelm', { breed: 'Statehelm', relativeTo: 'Kurbone', offset: 5, support: 1, dissent: 0, animals: 2 }],
+    ]);
+    const [paint] = tightenThroughGaps([reading('Paint', null, 40), reading('Statehelm', 10, null)], gaps);
+    expect(paint).toMatchObject({ min: 25, max: 40, minVia: { breed: 'Statehelm', offset: 15 } });
+  });
+
+  it('leaves a breed alone when its own bound is already the tightest', () => {
+    const own = reading('Paint', null, 20);
+    const [, paint] = tightenThroughGaps([reading('Kurbone', null, 10), own], gap('Paint', 20));
+    expect(paint).toBe(own);
   });
 });

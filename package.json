@@ -24,6 +24,7 @@
     "test:watch": "svelte-kit sync && vitest",
     "test:firestore": "svelte-kit sync && firebase emulators:exec --only firestore --project demo-gorgonetics 'vitest run --config vitest.integration.config.js'",
     "test:e2e": "playwright test",
+    "measure:bases": "svelte-kit sync && vitest run --config vitest.measure.config.js --disableConsoleIntercept",
     "test:e2e:headed": "playwright test --headed",
     "screenshots": "node scripts/capture-quickstart-screenshots.mjs",
     "monitor:spark": "node scripts/monitor-spark-usage.mjs",
