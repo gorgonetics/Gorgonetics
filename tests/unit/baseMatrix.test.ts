@@ -41,11 +41,21 @@ describe('buildBaseMatrix', () => {
     expect(statehelm.cells[1]).toEqual({ reading: null, gap: null });
   });
 
-  it('includes breeds known only through a gap, and the gap reference', () => {
+  it('includes breeds known only through a gap, and gives the reference the inverse gap', () => {
     const matrix = buildBaseMatrix([study('temperament', [], [offset()])]);
     expect(matrix.rows.map((r) => r.breed)).toEqual(['Kurbone', 'Paint']);
     expect(matrix.rows[1].cells[0].gap?.offset).toBe(50);
-    expect(matrix.rows[0].cells[0].gap).toBeNull();
+    const reference = matrix.rows[0].cells[0].gap;
+    expect(reference).toMatchObject({ breed: 'Kurbone', relativeTo: 'Paint', offset: -50, animals: 4 });
+    expect(gapText(reference as BaselineOffset)).toBe('Paint − 50');
+  });
+
+  it("prefers a breed's own gap over an inverted one", () => {
+    const matrix = buildBaseMatrix([
+      study('temperament', [], [offset(), offset({ breed: 'Kurbone', relativeTo: 'Calico', offset: 3 })]),
+    ]);
+    const kurbone = matrix.rows.find((r) => r.breed === 'Kurbone');
+    expect(kurbone?.cells[0].gap).toMatchObject({ relativeTo: 'Calico', offset: 3 });
   });
 
   it('puts animals of no breed last', () => {

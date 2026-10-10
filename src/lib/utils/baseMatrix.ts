@@ -11,7 +11,10 @@ import type { AttributeStudy, BaselineOffset, BaselineReading, BaseSource } from
 export interface BaseCell {
   /** The breed's settled reading on this attribute, if any. */
   reading: BaselineReading | null;
-  /** The exact gap to another breed's base, if one is known. */
+  /**
+   * The exact gap to another breed's base, if one is known — read either way
+   * round, so the reference breed of a gap shows it too.
+   */
   gap: BaselineOffset | null;
 }
 
@@ -38,10 +41,22 @@ export function buildBaseMatrix(studies: readonly AttributeStudy[]): BaseMatrix 
       breed,
       cells: studies.map(({ baselines }) => ({
         reading: baselines.readings.find((r) => r.breed === breed) ?? null,
-        gap: baselines.offsets.find((o) => o.breed === breed) ?? null,
+        gap: gapOf(baselines.offsets, breed),
       })),
     })),
   };
+}
+
+/**
+ * The breed's own gap, else the inverse of one read against it: `Paint =
+ * Kurbone + 50` is equally `Kurbone = Paint − 50`. Offsets come sorted by
+ * backing, so the first match is the best supported.
+ */
+function gapOf(offsets: readonly BaselineOffset[], breed: string): BaselineOffset | null {
+  const own = offsets.find((o) => o.breed === breed);
+  if (own) return own;
+  const against = offsets.find((o) => o.relativeTo === breed);
+  return against ? { ...against, breed, relativeTo: against.breed, offset: 0 - against.offset } : null;
 }
 
 export const breedLabel = (breed: string) => breed || 'No breed';

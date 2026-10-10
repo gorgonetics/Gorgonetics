@@ -52,7 +52,8 @@ function cellTitle(cell: BaseCell): string {
 		<p class="lead">
 			Each breed's value before any gene effect. <strong>Bold</strong> is exact. ≤ and ≥ are bounds from the
 			declared sign of a gene every animal of the breed expresses, which no pair can separate from the base;
-			a range a … b combines bounds from breeds linked by a gap.
+			a range a … b combines bounds from breeds linked by a gap. ? is a breed whose animals agree on a total but
+			not on the base inside it; — is a breed with nothing settled on that attribute yet.
 			A second line is the exact gap to another breed's base. * marks a value some animals disagree with. Select
 			a column for the evidence.
 		</p>

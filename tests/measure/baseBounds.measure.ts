@@ -1,9 +1,9 @@
 /**
  * How well the study pins each breed's base, on the player's real database.
  *
- * Runs the same study the Study tab runs and counts every (breed, attribute)
- * cell by what is known: exact, a two-sided range, one side only, nothing,
- * or crossed bounds. Read-only: the database is snapshotted into a temporary
+ * Runs the same study the Study tab runs and counts every cell of the Base
+ * values table by what is known: exact, a two-sided range, one side only, a
+ * lump with no bound, crossed bounds, a gap alone, or nothing settled. Read-only: the database is snapshotted into a temporary
  * file first, because a study run persists its magnitude table.
  *
  *   pnpm measure:bases
@@ -75,13 +75,13 @@ afterAll(() => {
 it('measures base bounds per breed and attribute', async () => {
   const { initDatabase } = await import('$lib/services/database.js');
   const { runAttributeStudy, STUDYABLE_SPECIES } = await import('$lib/services/studyService.js');
-  const { baseText, breedLabel, gapText } = await import('$lib/utils/baseMatrix.js');
+  const { baseText, breedLabel, buildBaseMatrix, gapText } = await import('$lib/utils/baseMatrix.js');
   await initDatabase();
 
   const lines = [`Snapshot of ${source}`];
   for (const species of STUDYABLE_SPECIES) {
     const run = await runAttributeStudy(species);
-    const counts: Record<Kind | 'gap only', number> = {
+    const counts: Record<Kind | 'gap only' | 'nothing', number> = {
       exact: 0,
       range: 0,
       upper: 0,
@@ -89,12 +89,21 @@ it('measures base bounds per breed and attribute', async () => {
       unknown: 0,
       conflict: 0,
       'gap only': 0,
+      nothing: 0,
     };
     let throughGap = 0;
     const cells: string[] = [];
-    for (const study of run.studies) {
-      const { readings, offsets } = study.baselines;
-      for (const r of readings) {
+    // The table's own cells, so the totals match what the tab shows.
+    const matrix = buildBaseMatrix(run.studies);
+    matrix.attributes.forEach((attribute, i) => {
+      for (const row of matrix.rows) {
+        const { reading: r, gap } = row.cells[i];
+        const where = `  ${attribute.padEnd(13)} ${breedLabel(row.breed).padEnd(13)}`;
+        if (!r) {
+          counts[gap ? 'gap only' : 'nothing']++;
+          if (gap) cells.push(`${where} ${gapText(gap)}`);
+          continue;
+        }
         const kind = kindOf(r);
         counts[kind]++;
         if (r.minVia || r.maxVia) throughGap++;
@@ -105,15 +114,10 @@ it('measures base bounds per breed and attribute', async () => {
           .filter(Boolean)
           .join(', ');
         cells.push(
-          `  ${study.attribute.padEnd(13)} ${breedLabel(r.breed).padEnd(13)} ${baseText(r).padEnd(10)} ${kind.padEnd(8)} lump ${r.value}, ${r.unresolved.length} unresolved, ${r.support} animals${via ? `; ${via}` : ''}`,
+          `${where} ${baseText(r).padEnd(10)} ${kind.padEnd(8)} lump ${r.value}, ${r.unresolved.length} unresolved, ${r.support} animals${via ? `; ${via}` : ''}`,
         );
       }
-      for (const o of offsets) {
-        if (readings.some((r) => r.breed === o.breed)) continue;
-        counts['gap only']++;
-        cells.push(`  ${study.attribute.padEnd(13)} ${breedLabel(o.breed).padEnd(13)} ${gapText(o)}`);
-      }
-    }
+    });
     lines.push(
       '',
       `${species}: ${run.corpus.subjects.length} animals studied`,

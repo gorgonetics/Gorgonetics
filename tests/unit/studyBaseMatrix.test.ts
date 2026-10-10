@@ -50,6 +50,24 @@ describe('StudyBaseMatrix', () => {
     expect(bound.getAttribute('title')).toContain('05F2 recessive');
   });
 
+  it('gives the reference breed of a gap the inverse gap', () => {
+    render(StudyBaseMatrix, { studies });
+    expect(screen.getByTestId('base-matrix-Kurbone-temperament').textContent).toContain('Paint − 50');
+  });
+
+  it('shows a dash, explained in the lead, where nothing has settled', () => {
+    render(StudyBaseMatrix, {
+      studies: [
+        { attribute: 'temperament', baselines: { readings: [reading()], offsets: [] } },
+        { attribute: 'intelligence', baselines: { readings: [reading({ breed: 'Calico' })], offsets: [] } },
+      ] as unknown as AttributeStudy[],
+    });
+    const cell = screen.getByTestId('base-matrix-Calico-temperament');
+    expect(cell.textContent?.trim()).toBe('—');
+    expect(cell.getAttribute('title')).toBe('Not settled yet');
+    expect(screen.getByTestId('study-base-matrix').textContent).toContain('— is a breed with nothing settled');
+  });
+
   it('opens an attribute from its column', async () => {
     const onselect = vi.fn();
     render(StudyBaseMatrix, { studies, onselect });
