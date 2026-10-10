@@ -1,5 +1,5 @@
 import { cleanup, render, waitFor } from '@testing-library/svelte';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import Roster from '$lib/components/mypets/Roster.svelte';
 import { closeDatabase, initDatabase } from '$lib/services/database.js';
 import * as geneService from '$lib/services/geneService.js';
@@ -104,6 +104,23 @@ describe('Roster — genetic quality column', () => {
     expect(cellFor(container, 'Founder')?.querySelector('[data-testid="quality-generic"]')).toBeTruthy();
     // Nothing to mark on a pet holding nothing irreplaceable.
     expect(cellFor(container, 'Dup1')?.querySelector('[data-testid="quality-generic"]')).toBeFalsy();
+  });
+
+  it('names the genes behind the share and opens the pet in the Quality lens', async () => {
+    const pets = await seed();
+    petStore.set(pets);
+    const onOpen = vi.fn();
+    const { container } = render(Roster, { pets, onOpen });
+    await waitFor(() => expect(cellFor(container, 'Founder')?.textContent?.trim()).toBe('100.0%◆'));
+    const founder = cellFor(container, 'Founder') as HTMLElement;
+    expect(founder.getAttribute('title')).toContain(
+      'Genes: 01A1 R (Intelligence +, no Toughness −, only female carrier)',
+    );
+    expect(founder.tagName).toBe('BUTTON');
+    founder.click();
+    expect(onOpen).toHaveBeenCalledWith(pets[0], 'quality');
+    // Nothing to explore on a redundant pet: not a button.
+    expect(cellFor(container, 'Dup1')?.tagName).toBe('SPAN');
   });
 
   it('scores against the stabled population, not the filtered rows', async () => {

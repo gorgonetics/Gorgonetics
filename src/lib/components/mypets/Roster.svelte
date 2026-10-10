@@ -21,6 +21,7 @@ import type { Pet } from '$lib/types/index.js';
 import { ATTRIBUTE_COLUMNS, attributeApplies } from '$lib/utils/attributeColumns.js';
 import { type GeneticQualityResult, parseBreedLockWeight } from '$lib/utils/geneticQuality.js';
 import { keyedResource } from '$lib/utils/keyedResource.svelte.js';
+import { qualityRows, rowText } from '$lib/utils/qualityLens.js';
 import { type SortableColumn, sortByColumn } from '$lib/utils/sortColumn.js';
 import { formatShortDate } from '$lib/utils/timestamp.js';
 
@@ -28,9 +29,10 @@ interface Props {
   /** The already-filtered pets to list. MyPets computes the visible set once
    *  (filterPets + getMyPetsFilters) and shares it with the roster (#405). */
   pets: Pet[];
-  /** Open a pet's detail (clicking its name). Distinct from the row checkbox,
-   *  which builds the multi-selection for bulk actions. */
-  onOpen?: (pet: Pet) => void;
+  /** Open a pet's detail (clicking its name), optionally in a given view —
+   *  the Quality column opens the Quality lens. Distinct from the row
+   *  checkbox, which builds the multi-selection for bulk actions. */
+  onOpen?: (pet: Pet, view?: string) => void;
 }
 
 const { pets: filtered, onOpen }: Props = $props();
@@ -156,6 +158,9 @@ const showQuality = $derived(scoredSpecies.length > 0 && (quality.value?.meaning
  */
 const wasScored = (pet: Pet) => quality.value?.scores.has(pet.id) ?? false;
 
+/** Genes named in the Quality tooltip; the Quality lens lists the rest. */
+const QUALITY_TITLE_GENES = 5;
+
 /** Tooltip: what the percentage is a share of, and why it is what it is. */
 function qualityTitle(pet: Pet): string {
   const r = quality.value?.scores.get(pet.id);
@@ -171,7 +176,7 @@ function qualityTitle(pet: Pet): string {
     return 'Nothing here is irreplaceable — every beneficial allele it carries is available from another stabled pet.';
   }
   const parts = [
-    `${r.atRiskCapability.toFixed(1)} slot-units the stable would lose without it (0.5 = only carrier, 1 = only one breeding it true)`,
+    `${r.atRiskCapability.toFixed(1)} slot-units the stable would lose without it (1 = only carrier, breeding it true; 0.5 = only carrier, or only true breeder where others carry it; a recessive needs a copy from each parent, so it is judged only against pets of the same sex)`,
   ];
   if (r.genericCapability > 0) {
     parts.push(`${r.genericCapability.toFixed(1)} of that is breed-generic — a base for any breed you target`);
@@ -186,7 +191,10 @@ function qualityTitle(pet: Pet): string {
   if (r.soleLockSlots > 0) parts.push(`only one able to breed ${r.soleLockSlots} true`);
   const species = quality.value?.speciesOf.get(pet.id);
   parts.push(`shown as a share of the ${species ? `${species} ` : ''}stable's total irreplaceable capability`);
-  return parts.join(' · ');
+  const rows = qualityRows(r.contributions);
+  const top = rows.slice(0, QUALITY_TITLE_GENES).map(rowText);
+  if (rows.length > QUALITY_TITLE_GENES) top.push(`${rows.length - QUALITY_TITLE_GENES} more`);
+  return `${parts.join(' · ')}\n\nGenes: ${top.join('; ')}\n\nClick to see them on the genome.`;
 }
 
 /**
@@ -299,8 +307,8 @@ function toggleSelectAll(): void {
 
 // Open a single pet's detail. The row checkbox is separate (multi-select for
 // bulk actions); clicking the name opens the full-view detail.
-function open(pet: Pet): void {
-  onOpen?.(pet);
+function open(pet: Pet, view?: string): void {
+  onOpen?.(pet, view);
 }
 </script>
 
@@ -357,24 +365,35 @@ function open(pet: Pet): void {
                     {value || '(unnamed)'}
                   </button>
                 {:else if col.id === 'genetic_quality'}
-                  <span
-                    class="quality"
-                    class:redundant={wasScored(pet) && qualityShare(pet) === 0}
-                    class:unscored={!wasScored(pet)}
-                    title={qualityTitle(pet)}
-                  >
-                    {#if !wasScored(pet)}
-                      ·
-                    {:else if qualityShare(pet) < 0.05}
-                      —
-                    {:else}
-                      {qualityShare(pet).toFixed(1)}%{#if genericLed(pet)}<span
-                          class="generic-mark"
-                          data-testid="quality-generic"
-                          aria-label="mostly breed-generic">◆</span
-                        >{/if}
-                    {/if}
-                  </span>
+                  {#if wasScored(pet) && qualityShare(pet) > 0}
+                    <button
+                      type="button"
+                      class="quality explore"
+                      data-testid="roster-quality"
+                      title={qualityTitle(pet)}
+                      onclick={() => open(pet, 'quality')}
+                    >
+                      {#if qualityShare(pet) < 0.05}
+                        —
+                      {:else}
+                        {qualityShare(pet).toFixed(1)}%{#if genericLed(pet)}<span
+                            class="generic-mark"
+                            data-testid="quality-generic"
+                            aria-label="mostly breed-generic">◆</span
+                          >{/if}
+                      {/if}
+                    </button>
+                  {:else}
+                    <span
+                      class="quality"
+                      class:redundant={wasScored(pet)}
+                      class:unscored={!wasScored(pet)}
+                      data-testid="roster-quality"
+                      title={qualityTitle(pet)}
+                    >
+                      {wasScored(pet) ? '—' : '·'}
+                    </span>
+                  {/if}
                 {:else if col.id === 'created_at'}
                   {value ? formatShortDate(new Date(value)) : '—'}
                 {:else}
@@ -422,6 +441,9 @@ function open(pet: Pet): void {
      the useful signal for culling, so it is muted rather than shouted — the
      column is scanned for what is safe to release, not for a winner. */
   .quality { font-variant-numeric: tabular-nums; cursor: help; }
+  /* Opens the Quality lens: looks like the number it is, not a button. */
+  .quality.explore { background: none; border: none; padding: 0; font: inherit; color: inherit; cursor: pointer; }
+  .quality.explore:hover { text-decoration: underline; }
   .quality.redundant { color: var(--text-muted); cursor: default; }
   /* Not measured, not redundant — a distinct mark so an un-stabled pet is
      never mistaken for one whose alleles are all covered elsewhere. */

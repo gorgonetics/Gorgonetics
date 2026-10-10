@@ -1,8 +1,17 @@
 <script lang="ts">
-import { onDestroy } from 'svelte';
+/**
+ * The detail view of one animal: the genome grid with its lenses, the stats
+ * drawer and the breed filter. One view for every source — My Pets passes a
+ * stable pet; the community catalogue passes a preview pet, its genome as
+ * `grid`, and its own header items and actions through the snippets.
+ * Gallery, Share and Edit/Delete need the animal in the local database, so
+ * they show only for one that is.
+ */
+import { onDestroy, type Snippet, untrack } from 'svelte';
 import SharePetDialog from '$lib/components/community/SharePetDialog.svelte';
 import GeneStatsTable from '$lib/components/gene/GeneStatsTable.svelte';
 import GeneVisualizer from '$lib/components/gene/GeneVisualizer.svelte';
+import QualityGeneList from '$lib/components/gene/QualityGeneList.svelte';
 import BreedSelector from '$lib/components/shared/BreedSelector.svelte';
 import PetActions from '$lib/components/shared/PetActions.svelte';
 import StatusBanner from '$lib/components/shared/StatusBanner.svelte';
@@ -11,14 +20,19 @@ import { pets as allPets } from '$lib/stores/pets.js';
 import { settings } from '$lib/stores/settings.js';
 import type { DialogResult, Pet } from '$lib/types/index.js';
 import { HORSE_BREEDS } from '$lib/types/index.js';
+import type { ParsedChromosome } from '$lib/utils/geneAnalysis.js';
 import type { AttributeImpact } from '$lib/utils/geneImpact.js';
 import type { StatsMap } from '$lib/utils/geneStats.js';
+import type { QualityRow } from '$lib/utils/qualityLens.js';
+import { PREVIEW_PET_ID } from '$lib/utils/sharedPet.js';
 import PetImageGallery from './PetImageGallery.svelte';
 
 interface GeneVisualizerInstance {
   getStatsData(): {
     currentStats: StatsMap | null;
     impactRows: AttributeImpact[] | null;
+    quality: { rows: QualityRow[]; share: number; total: number; inStable: boolean; meaningful: boolean } | null;
+    highlightedGene: string | null;
     currentView: string;
     selectedAttributes: string[];
     hiddenAttributes: string[];
@@ -29,13 +43,29 @@ interface GeneVisualizerInstance {
   handleViewChange(view: string): void;
   handleAttributeFilter(event: CustomEvent<{ attribute: string; ctrlKey: boolean; altKey: boolean }>): void;
   setBreedFilter(breed: string): void;
+  highlightGene(geneId: string): void;
 }
 
 interface Props {
   pet?: Pet | null;
+  /** Genome from outside the local database (a community pet). Without it the grid loads `pet.id`'s loci. */
+  grid?: Record<string, ParsedChromosome> | null;
+  /** More items for the meta line. */
+  meta?: Snippet;
+  /** More header actions, after the local ones. */
+  actions?: Snippet;
+  /** Strips under the header: notes, status banners. */
+  notice?: Snippet;
+  /** Shown in place of the grid while the genome cannot be (loading, failed). */
+  placeholder?: Snippet;
+  /** The view to open in, e.g. `quality` from the roster's Quality column. */
+  initialView?: string;
 }
 
-const { pet }: Props = $props();
+const { pet, grid = null, meta, actions, notice, placeholder, initialView = 'attribute' }: Props = $props();
+
+/** In the local database, so its images, sharing and editing exist. */
+const inStable = $derived(!!pet && pet.id !== PREVIEW_PET_ID);
 
 /**
  * Drawer heading per view. A record rather than a chain of ternaries so adding a
@@ -46,12 +76,16 @@ const DRAWER_TITLES: Record<string, string> = {
   attribute: 'Attribute Effects',
   appearance: 'Appearance Effects',
   rarity: 'Stats',
+  quality: 'Genes behind the Quality score',
   impact: 'Impact',
 };
 
 let geneVisualizerRef = $state<GeneVisualizerInstance | undefined>(undefined);
-let currentView = $state('attribute');
-let statsOpen = $state(false);
+// The prop only seeds the view; the buttons own it from then on.
+// svelte-ignore state_referenced_locally
+let currentView = $state(initialView);
+// svelte-ignore state_referenced_locally
+let statsOpen = $state(initialView === 'quality');
 let galleryOpen = $state(false);
 let drawerWidth = $state<number>(320);
 // Read inside `$derived`, so the drawer follows the grid's state with no refresh
@@ -77,9 +111,11 @@ function handleShareResult(result: DialogResult): void {
 const isHorse = $derived(pet?.species?.toLowerCase() === 'horse');
 const petHasKnownBreed = $derived(isHorse && pet?.breed && HORSE_BREEDS[pet.breed]);
 
-// Initialize autoBreed from setting when a new pet is loaded
+// Initialize autoBreed from setting when a new pet is loaded. Previews all
+// share one id, so the content hash tells them apart.
 $effect(() => {
-  const _petId = pet?.id; // track pet changes
+  void pet?.id;
+  void pet?.content_hash;
   autoBreed = !!$settings['horse.autoSelectBreedFilter'];
 });
 
@@ -91,6 +127,14 @@ $effect(() => {
   if (geneVisualizerRef) {
     geneVisualizerRef.setBreedFilter(breedFilter);
   }
+});
+
+// Hand the view to the grid whenever one mounts: the first time, and again
+// when a new genome remounts it, which would otherwise reset it to Attributes
+// under a header still showing the old view.
+$effect(() => {
+  const ref = geneVisualizerRef;
+  if (ref) untrack(() => ref.handleViewChange(currentView));
 });
 
 function toggleAutoBreed(): void {
@@ -189,6 +233,7 @@ onDestroy(() => {
                     <span class="meta-dot">·</span>
                     <span class="unknown-badge">⚠ Unknown genes</span>
                 {/if}
+                {@render meta?.()}
             </div>
         </div>
         <div class="header-controls">
@@ -235,6 +280,15 @@ onDestroy(() => {
                     onclick={() => handleViewChange("rarity")}
                 >
                     Rarity
+                </button>
+                <button
+                    class="seg-btn view-btn"
+                    class:active={!galleryOpen && currentView === "quality"}
+                    data-testid="view-quality-btn"
+                    title="Colour each gene by how much your stable needs this pet for it — the genes behind the Quality score"
+                    onclick={() => handleViewChange("quality")}
+                >
+                    Quality
                 </button>
                 <button
                     class="seg-btn view-btn"
@@ -287,30 +341,39 @@ onDestroy(() => {
                 >
                     Stats
                 </button>
-                <button
-                    class="toggle-btn"
-                    class:active={galleryOpen}
-                    aria-pressed={galleryOpen}
-                    data-testid="detail-gallery-toggle"
-                    title="Toggle the image gallery"
-                    onclick={toggleGallery}
-                >
-                    Gallery
-                </button>
+                {#if inStable}
+                    <button
+                        class="toggle-btn"
+                        class:active={galleryOpen}
+                        aria-pressed={galleryOpen}
+                        data-testid="detail-gallery-toggle"
+                        title="Toggle the image gallery"
+                        onclick={toggleGallery}
+                    >
+                        Gallery
+                    </button>
+                {/if}
             </div>
-            <div class="seg header-actions">
-                <button
-                    class="seg-btn"
-                    data-testid="share-pet-btn"
-                    title="Share this pet to the public community catalogue"
-                    onclick={() => { showShare = true; }}
-                >
-                    Share
-                </button>
-                {#if pet}<PetActions {pet} variant="button" />{/if}
-            </div>
+            {#if inStable && pet}
+                <div class="seg header-actions">
+                    <button
+                        class="seg-btn"
+                        data-testid="share-pet-btn"
+                        title="Share this pet to the public community catalogue"
+                        onclick={() => { showShare = true; }}
+                    >
+                        Share
+                    </button>
+                    <PetActions {pet} variant="button" />
+                </div>
+            {/if}
+            {#if actions}
+                <div class="extra-actions">{@render actions()}</div>
+            {/if}
         </div>
     </div>
+
+    {@render notice?.()}
 
     {#if showShare && pet}
         <SharePetDialog
@@ -335,9 +398,14 @@ onDestroy(() => {
         <div class="gallery-container">
             <PetImageGallery {pet} />
         </div>
+      {:else if placeholder}
+        {@render placeholder()}
       {:else}
         <div class="visualizer-container">
-            <GeneVisualizer {pet} {populationPets} bind:this={geneVisualizerRef} />
+            <!-- Keyed on the grid: previews share one id, so a new genome must remount. -->
+            {#key grid}
+                <GeneVisualizer {pet} gridOverride={grid} {populationPets} bind:this={geneVisualizerRef} />
+            {/key}
         </div>
 
         <!-- The drawer stays MOUNTED in every view, including rarity.
@@ -358,7 +426,21 @@ onDestroy(() => {
                     <button class="stats-close" onclick={toggleStats}>×</button>
                 </div>
                 <div class="stats-drawer-body">
-                    {#if currentView === "rarity"}
+                    {#if currentView === "quality"}
+                        {#if stats?.quality}
+                            <QualityGeneList
+                                rows={stats.quality.rows}
+                                share={stats.quality.share}
+                                total={stats.quality.total}
+                                inStable={stats.quality.inStable}
+                                meaningful={stats.quality.meaningful}
+                                highlighted={stats.highlightedGene}
+                                onSelect={(gene) => geneVisualizerRef?.highlightGene(gene)}
+                            />
+                        {:else}
+                            <p class="stats-empty">Scoring…</p>
+                        {/if}
+                    {:else if currentView === "rarity"}
                         <p class="stats-empty" data-testid="stats-rarity-note">
                             Effect and appearance stats don't apply to the rarity view.
                             The legend below the grid shows the scale, and hovering a
@@ -422,6 +504,10 @@ onDestroy(() => {
     .detail-meta {
         font-size: 12px;
         color: var(--text-tertiary);
+        display: flex;
+        align-items: center;
+        gap: var(--space-xs);
+        flex-wrap: wrap;
     }
 
     .unknown-badge {
@@ -467,6 +553,11 @@ onDestroy(() => {
         background: var(--auto-active);
         border-color: var(--auto-active);
         color: var(--bg-primary);
+    }
+
+    .extra-actions {
+        display: flex;
+        align-items: center;
     }
 
     .toggle-controls {

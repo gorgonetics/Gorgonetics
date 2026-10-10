@@ -1,7 +1,8 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte';
+import { writable } from 'svelte/store';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { SharedPet } from '$lib/types/index.js';
+import type { Pet, SharedPet } from '$lib/types/index.js';
 
 // Covers the community preview's lazy genome fetch (migrated onto keyedResource
 // from the retired CommunityPetDetail): loading, loaded, fetch error, and a
@@ -22,6 +23,15 @@ vi.mock('$lib/stores/community.svelte.js', () => ({
 const getSharedPet = vi.fn();
 vi.mock('$lib/services/shareService.js', () => ({
   getSharedPet: (hash: string) => getSharedPet(hash),
+}));
+
+// The shared PetVisualization reads these for the Auto breed and the rarity baseline.
+vi.mock('$lib/stores/settings.js', () => ({
+  settings: writable<Record<string, unknown>>({}),
+}));
+vi.mock('$lib/stores/pets.js', () => ({
+  appState: { deletePet: vi.fn(async () => {}) },
+  pets: writable<Pet[]>([]),
 }));
 
 // Stub the heavy children so the test stays focused on fetch/import state.
@@ -137,20 +147,17 @@ describe('CommunityPetVisualization import feedback (#398)', () => {
   });
 });
 
-// Header rework (#394/#395): the community detail adopts the shared
-// BreedSelector popover (no Auto — there is no local pet to follow) and
-// separates the Attributes/Appearance segmented pair from the Stats toggle
-// and the Import action.
+// One detail view (PetVisualization) for My Pets and the catalogue: the same
+// breed control, lenses and Stats toggle, with Import in place of the local
+// Gallery / Share / Edit / Delete.
 describe('CommunityPetVisualization detail header', () => {
-  it('renders the shared BreedSelector for horses instead of the abbreviation row', () => {
+  it('renders the shared BreedSelector with Auto for a horse of a known breed', () => {
     getSharedPet.mockReturnValue(new Promise(() => {}));
     const { container } = render(CommunityPetVisualization, {
       pet: makeSharedPet({ species: 'Horse', breed: 'Kurbone' }),
     });
     expect(container.querySelector('[data-testid="breed-selector-trigger"]')).not.toBeNull();
-    expect(container.querySelectorAll('.breed-btn')).toHaveLength(0);
-    // No Auto button in the community view.
-    expect(container.querySelector('.auto-btn')).toBeNull();
+    expect(container.querySelector('.auto-btn')).not.toBeNull();
   });
 
   it('omits the breed control for non-horse species', () => {
@@ -159,37 +166,58 @@ describe('CommunityPetVisualization detail header', () => {
     expect(container.querySelector('[data-testid="breed-selector"]')).toBeNull();
   });
 
-  it('does not offer the rarity lens — a community pet cannot be bred with (#368 §8)', () => {
-    // A shared pet is not yours, so a scarcity readout on it has no action
-    // attached; it would also make `carriers = 0` reachable (an allele no pet of
-    // yours carries), which needs a step beyond bucket 4 serving a decision the
-    // player cannot act on. Horse on purpose: the species that has a real local
-    // baseline is the one where the button would be tempting.
+  it('offers every lens of the My Pets view, rarity included', () => {
     getSharedPet.mockReturnValue(new Promise(() => {}));
-    const { container } = render(CommunityPetVisualization, {
-      pet: makeSharedPet({ species: 'Horse', breed: 'Kurbone' }),
-    });
-    const buttons = [...container.querySelectorAll('button')].map((b) => b.textContent?.trim() ?? '');
-    expect(buttons).not.toContain('Rarity');
-    expect(container.querySelector('[data-testid="view-rarity-btn"]')).toBeNull();
-    // ...and no baseline control, which only exists to serve that view.
-    expect(container.querySelector('.rarity-population')).toBeNull();
-  });
-
-  it('keeps the grid views segmented and Stats as a separate pressed toggle', () => {
-    getSharedPet.mockReturnValue(new Promise(() => {}));
-    const { container, getByTestId } = render(CommunityPetVisualization, { pet: makeSharedPet() });
+    const { container } = render(CommunityPetVisualization, { pet: makeSharedPet() });
     const segment = container.querySelector('.view-controls') as HTMLElement;
-    // Impact is offered, unlike rarity: measured gene effects are a property
-    // of the genome, not of your own stock.
     expect([...segment.querySelectorAll('button')].map((b) => b.textContent?.trim())).toEqual([
       'Attributes',
       'Appearance',
+      'Rarity',
+      'Quality',
       'Impact',
     ]);
-    const stats = getByTestId('detail-stats-toggle');
-    expect(stats.getAttribute('aria-pressed')).toBe('false');
-    expect(container.querySelector('.header-actions [data-testid="community-import"]')).not.toBeNull();
+  });
+
+  it('shows Import, not the local-only Gallery / Share / Edit / Delete', () => {
+    getSharedPet.mockReturnValue(new Promise(() => {}));
+    const { container, getByTestId, queryByTestId } = render(CommunityPetVisualization, { pet: makeSharedPet() });
+    expect(getByTestId('detail-stats-toggle').getAttribute('aria-pressed')).toBe('false');
+    expect(queryByTestId('detail-gallery-toggle')).toBeNull();
+    expect(queryByTestId('share-pet-btn')).toBeNull();
+    expect(container.querySelector('.header-actions')).toBeNull();
+    expect(container.querySelector('.extra-actions [data-testid="community-import"]')).not.toBeNull();
+  });
+
+  it('keeps the catalogue metadata, tags and notes in the header', () => {
+    getSharedPet.mockReturnValue(new Promise(() => {}));
+    const { container, getByText } = render(CommunityPetVisualization, {
+      pet: makeSharedPet({ breeder: 'Alice', tags: ['champion'], notes: 'Calm temper' }),
+    });
+    const meta = container.querySelector('.detail-meta') as HTMLElement;
+    expect(meta).toHaveTextContent('by Alice');
+    expect(meta).toHaveTextContent('champion');
+    expect(getByText('Calm temper')).toBeTruthy();
+  });
+
+  it('shows the breeder from the fetched record, which restores first-share identity', async () => {
+    getSharedPet.mockResolvedValue(makeSharedPet({ genomeData: GENOME, breeder: 'Original' }));
+    const { container, getByTestId } = render(CommunityPetVisualization, {
+      pet: makeSharedPet({ breeder: 'Spoofed' }),
+    });
+    await waitFor(() => expect(getByTestId('child-stub')).toBeTruthy());
+    const meta = container.querySelector('.detail-meta') as HTMLElement;
+    expect(meta).toHaveTextContent('by Original');
+    expect(meta).not.toHaveTextContent('Spoofed');
+  });
+
+  it('hands a view picked while the genome loads to the grid once it mounts', async () => {
+    let resolve: (p: SharedPet) => void = () => {};
+    getSharedPet.mockReturnValue(new Promise((r) => (resolve = r)));
+    const { getByTestId } = render(CommunityPetVisualization, { pet: makeSharedPet() });
+    await fireEvent.click(getByTestId('view-impact-btn'));
+    resolve(makeSharedPet({ genomeData: GENOME }));
+    await waitFor(() => expect(getByTestId('child-stub').dataset.view).toBe('impact'));
   });
 
   it('titles the stats drawer for the impact view', async () => {

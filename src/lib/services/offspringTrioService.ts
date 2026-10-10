@@ -24,15 +24,15 @@ import type {
 import { Gender, GeneType } from '$lib/types/index.js';
 import { classifyTrioLocus, offspringDistribution, offspringOutcomeBuckets } from '$lib/utils/breedingGenetics.js';
 import {
-  type AlleleTally,
   type BenefitWeight,
   breedReachFor,
-  expectedCapabilityGain,
+  maleFoalProbability,
+  type PoolTallies,
+  poolCapabilityGain,
   type ScoredGene,
-  tallyAlleles,
-  tallyFor,
+  tallyPool,
 } from '$lib/utils/geneticQuality.js';
-import { type ChromosomeLocus, groupLociByChromosome, loadAllPetLoci } from '$lib/utils/petLoci.js';
+import { type ChromosomeLocus, groupLociByChromosome, loadAllPetLoci, type PetLoci } from '$lib/utils/petLoci.js';
 import { capitalize } from '$lib/utils/string.js';
 import { normalizeSpecies } from './configService.js';
 
@@ -100,7 +100,7 @@ export interface OffspringTrioOptions {
 
 /** The pool-derived state the additive scores are attributed against. */
 interface PoolContext {
-  tallies: Map<string, AlleleTally>;
+  tallies: PoolTallies;
   weight: BenefitWeight | undefined;
 }
 
@@ -123,8 +123,10 @@ async function loadPoolContext(
   // reconciling, which is the one thing this pool is here to guarantee.
   const paired = pool.filter((p) => p.gender === Gender.MALE || p.gender === Gender.FEMALE);
   const poolLoci = await loadAllPetLoci(paired.map((p) => p.id));
+  const lociOf = (g: Gender) =>
+    paired.filter((p) => p.gender === g && poolLoci.has(p.id)).map((p) => poolLoci.get(p.id) as PetLoci);
   return {
-    tallies: tallyAlleles(poolLoci.values()),
+    tallies: tallyPool(lociOf(Gender.MALE), lociOf(Gender.FEMALE)),
     weight: breedReachFor(parsedGenes, offspringBreed, breedLockWeight),
   };
 }
@@ -145,12 +147,13 @@ function locusContributions(
   gd: ScoredGene | undefined,
   geneId: string,
   poolCtx: PoolContext | null,
+  pMale: number,
 ): TrioLocusContributions {
   if (!gd) return { positive: 0, capability: 0 };
   return {
     positive: accumulatePositive(dist, gd, {}, {}),
     capability: poolCtx
-      ? expectedCapabilityGain(dist, gd, tallyFor(poolCtx.tallies, geneId)) * (poolCtx.weight ? poolCtx.weight(gd) : 1)
+      ? poolCapabilityGain(dist, gd, geneId, poolCtx.tallies, pMale) * (poolCtx.weight ? poolCtx.weight(gd) : 1)
       : 0,
   };
 }
@@ -167,6 +170,8 @@ export async function computeOffspringTrio(
   opts: OffspringTrioOptions,
 ): Promise<OffspringTrioResult> {
   const species = normalizeSpecies(opts.species);
+  // Same foal-sex odds as `rankBreedingPairs`, so the trio reconciles with it.
+  const pMale = maleFoalProbability(father.virility, mother.virility);
   const [petLociMap, effectsData, parsedGenes] = await Promise.all([
     loadAllPetLoci([father.id, mother.id]),
     getGeneEffectsCached(species),
@@ -240,7 +245,7 @@ export async function computeOffspringTrio(
         lockedIn: cls.lockedIn,
         pPositive: cls.pPositive,
         pNegative: cls.pNegative,
-        contributions: locusContributions(dist, gd, geneId, poolCtx),
+        contributions: locusContributions(dist, gd, geneId, poolCtx, pMale),
         attribute: attribute ? capitalize(attribute) : undefined,
         fatherEffect: parentEffect(fatherType, effects),
         motherEffect: parentEffect(motherType, effects),

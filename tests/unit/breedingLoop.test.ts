@@ -4,7 +4,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { rankBreedingPairs } from '$lib/services/breedingService.js';
 import { closeDatabase, initDatabase } from '$lib/services/database.js';
 import * as geneService from '$lib/services/geneService.js';
-import { cullBenefitWeight, safeCullSet } from '$lib/services/geneticQualityService.js';
+import { cullBenefitWeight, lociBySex, safeCullSet } from '$lib/services/geneticQualityService.js';
 import { runMigrations } from '$lib/services/migrationService.js';
 import * as petService from '$lib/services/petService.js';
 import { Gender, GeneType, type Pet } from '$lib/types/index.js';
@@ -194,7 +194,10 @@ async function upload(name: string, gender: Gender, loci: PetLoci): Promise<numb
  */
 async function stableCapability(pets: readonly Pet[], genes: Record<string, ScoredGene>): Promise<number> {
   const loci = await loadAllPetLoci(pets.map((p) => p.id));
-  return capabilitySummary(loci.values(), genes, { weight: cullBenefitWeight(genes) }).capability;
+  return capabilitySummary(loci.values(), genes, {
+    weight: cullBenefitWeight(genes),
+    bySex: lociBySex(pets, loci),
+  }).capability;
 }
 
 describe('breeding loop: cull six, breed six under Reach new ground, repeat', () => {

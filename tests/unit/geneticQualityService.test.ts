@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { closeDatabase, getDb, initDatabase } from '$lib/services/database.js';
 import * as geneService from '$lib/services/geneService.js';
-import { safeCullSet, scoreStable } from '$lib/services/geneticQualityService.js';
+import { explainQuality, safeCullSet, scoreStable } from '$lib/services/geneticQualityService.js';
 import { runMigrations } from '$lib/services/migrationService.js';
 import * as petService from '$lib/services/petService.js';
 import { Gender, type Pet } from '$lib/types/index.js';
+import { loadAllPetLoci, type PetLoci } from '$lib/utils/petLoci.js';
 
 /**
  * Three-locus beewasp genome; the third line carries the alleles. Same
@@ -105,7 +106,7 @@ describe('scoreStable', () => {
 
   it('scores relative to the set it is given, not the whole database', async () => {
     const a = await upload('A', Gender.FEMALE, 'RDx');
-    const b = await upload('B', Gender.MALE, 'RDx');
+    const b = await upload('B', Gender.FEMALE, 'RDx');
     const c = await upload('C', Gender.MALE, 'DDx');
     // A and B are mutually redundant → neither is irreplaceable.
     const both = await scoreStable({ species: 'BeeWasp', pets: [a, b, c] });
@@ -114,6 +115,22 @@ describe('scoreStable', () => {
     const withoutB = await scoreStable({ species: 'BeeWasp', pets: [a, c] });
     expect(withoutB.scores.get(a.id)?.atRiskCapability).toBeCloseTo(2, 10);
   });
+
+  it('does not let one sex back up the other for a recessive', async () => {
+    // A recessive needs a copy from each parent: the female cannot replace
+    // the only male carrier in a pair, nor he her.
+    const male = await upload('M', Gender.MALE, 'RDx');
+    const female = await upload('F', Gender.FEMALE, 'RDx');
+    const rest = [await upload('M2', Gender.MALE, 'DDx'), await upload('F2', Gender.FEMALE, 'DDx')];
+    const { scores } = await scoreStable({ species: 'BeeWasp', pets: [male, female, ...rest] });
+    for (const p of [male, female]) {
+      const r = scores.get(p.id);
+      expect(r?.atRiskCapability).toBeCloseTo(2, 10);
+      expect(r?.contributions.every((c) => c.standing === 'sole' && c.sex === p.gender)).toBe(true);
+    }
+    // A dominant needs one parent only: the 01A2 D both carry stays backed.
+    expect(scores.get(male.id)?.contributions.some((c) => c.gene === '01A2')).toBe(false);
+  });
 });
 
 describe('safeCullSet', () => {
@@ -121,7 +138,8 @@ describe('safeCullSet', () => {
 
   it('releases redundant animals but never the last source', async () => {
     // Two carriers of the recessive positive plus four animals without it.
-    const carriers = [await upload('C1', Gender.FEMALE, 'xDx'), await upload('C2', Gender.MALE, 'xDx')];
+    // Same sex, so each backs the other up.
+    const carriers = [await upload('C1', Gender.FEMALE, 'xDx'), await upload('C2', Gender.FEMALE, 'xDx')];
     const rest = [
       await upload('R1', Gender.MALE, 'DDx'),
       await upload('R2', Gender.MALE, 'DDx'),
@@ -602,5 +620,44 @@ describe('breed reach', () => {
     // Its whole price sits at Beta's locus, so nothing of it is generic.
     expect(locked?.cost).toBeGreaterThan(0);
     expect(locked?.genericCost).toBe(0);
+  });
+});
+
+describe('explainQuality', () => {
+  beforeEach(reset);
+
+  const lociOf = async (pet: Pet) => (await loadAllPetLoci([pet.id])).get(pet.id) as PetLoci;
+
+  it('agrees with scoreStable for a stabled pet, and names its genes', async () => {
+    const sole = await upload('Sole', Gender.FEMALE, 'RDx');
+    const pool = [sole, await upload('X', Gender.MALE, 'DDx'), await upload('Y', Gender.MALE, 'DDx')];
+    const stable = await scoreStable({ species: 'BeeWasp', pets: pool });
+    const report = await explainQuality({ species: 'BeeWasp', petId: sole.id, loci: await lociOf(sole), pool });
+    expect(report.inStable).toBe(true);
+    expect(report.meaningful).toBe(true);
+    expect(report.result.atRiskCapability).toBeCloseTo(stable.scores.get(sole.id)?.atRiskCapability ?? -1);
+    expect(report.share).toBeCloseTo(stable.shares.get(sole.id) ?? -1);
+    expect(report.standing.get('01A1')).toBe('sole');
+    expect(report.standing.get('01A2')).toBe('backed');
+    expect(new Set(report.result.contributions.map((c) => c.gene))).toEqual(new Set(['01A1']));
+  });
+
+  it('scores a pet outside the stable as if added to it', async () => {
+    const pool = [
+      await upload('X', Gender.MALE, 'DDx'),
+      await upload('Y', Gender.MALE, 'DDx'),
+      await upload('Z', Gender.FEMALE, 'DDx'),
+    ];
+    const outsider = await upload('Out', Gender.FEMALE, 'RDx');
+    const report = await explainQuality({
+      species: 'BeeWasp',
+      petId: outsider.id,
+      loci: await lociOf(outsider),
+      pool,
+    });
+    expect(report.inStable).toBe(false);
+    expect(report.standing.get('01A1')).toBe('sole');
+    expect(report.result.atRiskCapability).toBeGreaterThan(0);
+    expect(report.share).toBeCloseTo(100);
   });
 });

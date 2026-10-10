@@ -179,10 +179,51 @@ not yet capture it: a transmitted `D` at a dominant-negative locus
 **guarantees** expression, while a transmitted `R` at a recessive-negative
 locus only bites if the other parent also passes `R`. Recorded in §11.
 
+### 3b. A recessive needs both sexes
+
+A pair is one male and one female. A dominant outcome needs the allele from
+one parent, so the whole stable supplies it, as above. A recessive outcome
+(`R` add, or `R` escaping a dominant negative) needs a copy from each
+parent. Sex-blind leave-one-out got this wrong: a male `R/R` and a female
+`R/R` each read as backed up by the other, so each scored zero, though
+without either one no pair could breed the outcome.
+
+With sexes known, a recessive slot is **one supply per sex**, each valued
+like a dominant slot, and an animal is judged against its own sex only:
+
+| stable | slot capability | each animal's cost |
+|---|---|---|
+| male `R/R`, female `R/R` | 2 | 1 each |
+| two male `R/R`, female `R/R` | 2 | 0 per male, 1 for the female |
+| male `x` only | 0.5 | 0.5 |
+
+A per-sex mean was tried first and rejected. It keeps each slot in [0, 1],
+but no measure in that range can do both jobs: if the sole `R/R` scores 1,
+then two `R/R` of different sexes must each score 0. The mean paid for the
+range by halving every recessive, so a sole recessive carrier scored half
+a sole dominant one. Recessives are the harder alleles to get, and the
+release list would have spent them first. The minimum (the strict pair
+reading) is worse: it scores the sole carrier at zero whenever the other
+sex lacks the allele, and offers up the last copy.
+
+The cost of the sum: a recessive held in both sexes weighs 2 in the
+stable's total where a dominant weighs 1. That is deliberate. Each needs
+an animal of each sex to keep.
+
+The same rule runs everywhere the score does. `capabilitySummary` takes the
+split (`bySex`) and counts a recessive slot once per sex in capability,
+reachable and ceiling, so the cull walk's costs still add up to the drop in
+the total. `expectedCapabilityGain` prices a foal as either sex against that sex's
+supply: a male `R/R` foal is worth something where only females breed the
+allele true. The chance of a male is the sire's share of the pair's
+virility (`maleFoalProbability`). That is a player's approximation, not a
+known game formula; even odds when neither parent has virility. Without sexes,
+everything falls back to the sex-blind reading.
+
 ## 4. Validation
 
 Nothing here is fitted, so this section validates rather than calibrates.
-Against the 31-stabled-horse reference collection:
+Measured before §3b, so recessive slots are priced sex-blind. Against the 31-stabled-horse reference collection:
 
 | | at-risk capability | share | sole source | sole lock | negatives removed |
 |---|---|---|---|---|---|

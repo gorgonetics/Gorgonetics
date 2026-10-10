@@ -18,6 +18,7 @@ import { settings, settingsActions } from '$lib/stores/settings.js';
 import type { GeneDoubt } from '$lib/utils/attributeStudy.js';
 import { mostPopulatedSpecies } from '$lib/utils/species.js';
 import StudyBaselines from './StudyBaselines.svelte';
+import StudyBaseMatrix from './StudyBaseMatrix.svelte';
 import StudyFindingsTable from './StudyFindingsTable.svelte';
 
 // Only species the study can measure. Listing one it cannot gives a panel
@@ -96,6 +97,8 @@ function progressLabel(p: RefreshProgress | { phase: 'solving' }): string {
 }
 let names = $state(new Map<string, string>());
 let attribute = $state<string | null>(null);
+/** Every breed's base on every attribute, in place of one attribute's study. */
+let showBases = $state(false);
 /** The slot a confirmation is being written for, so its button can say so. */
 /** The row an action is running for, so only that button says "Saving…". */
 let busyRow = $state<string | null>(null);
@@ -506,19 +509,39 @@ async function solve(target: string): Promise<void> {
 							<button
 								type="button"
 								class="attr-tab"
-								class:active={study.attribute === current?.attribute}
+								class:active={!showBases && study.attribute === current?.attribute}
 								data-testid="study-attr-{study.attribute}"
-								onclick={() => (attribute = study.attribute)}
+								onclick={() => {
+									attribute = study.attribute;
+									showBases = false;
+								}}
 							>
 								{study.attribute}
 								<span class="attr-count">{study.findings.length}/{study.slots}</span>
 							</button>
 						{/each}
+						<button
+							type="button"
+							class="attr-tab bases-tab"
+							class:active={showBases}
+							data-testid="study-attr-bases"
+							onclick={() => (showBases = true)}
+						>
+							Base values
+						</button>
 					</nav>
 				<div class="split" bind:this={splitEl} style="--evidence-width: {evidenceWidth}px">
 					<div class="main">
 
-					{#if current}
+					{#if showBases}
+						<StudyBaseMatrix
+							{studies}
+							onselect={(a) => {
+								attribute = a;
+								showBases = false;
+							}}
+						/>
+					{:else if current}
 						<StudyBaselines baselines={current.baselines} />
 						<StudyFindingsTable findings={current.findings} {names} slots={current.slots} />
 					{/if}
@@ -1048,6 +1071,11 @@ async function solve(target: string): Promise<void> {
 	.attr-tab:hover {
 		color: var(--text-secondary);
 	}
+	/* Set apart from the attributes: it spans all of them. */
+	.bases-tab {
+		margin-left: auto;
+	}
+
 	.attr-tab.active {
 		background: var(--bg-secondary);
 		border-color: var(--border-primary);

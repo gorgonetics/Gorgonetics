@@ -293,21 +293,58 @@ describe('rankBreedingPairs — capability gain', () => {
     const m = await uploadParent('M', Gender.MALE, 'x??');
     const f = await uploadParent('F', Gender.FEMALE, 'x??');
     const [pair] = await rankBreedingPairs({ species: 'BeeWasp', pets: [m, f] });
-    // Pool capability is 0.5 (carriers only); a homozygous foal lifts it to
-    // 1 with probability 0.25.
+    // Each sex holds carriers only (0.5). A homozygous foal, with
+    // probability 0.25, lifts its own sex to 1 — whichever sex it is.
     expect(pair.evCapabilityGain).toBeCloseTo(0.25 * 0.5, 10);
   });
 
   it('credits nothing when the pool already breeds the positive true', async () => {
     await geneService.upsertGene('beewasp', '01', '01A1', { effectDominant: 'None', effectRecessive: 'Toughness+' });
     geneService.clearGeneEffectsCache('beewasp');
-    // A third animal is already `R`, so the outcome is secured and a foal
-    // adds nothing — the inert-`missing`-tier problem in reverse.
+    // An `R` of each sex, so the outcome is secured and a foal adds nothing
+    // — the inert-`missing`-tier problem in reverse.
     const m = await uploadParent('M', Gender.MALE, 'x??');
     const f = await uploadParent('F', Gender.FEMALE, 'x??');
-    const secured = await uploadParent('S', Gender.FEMALE, 'R??');
-    const results = await rankBreedingPairs({ species: 'BeeWasp', pets: [m, f, secured] });
+    const securedF = await uploadParent('SF', Gender.FEMALE, 'R??');
+    const securedM = await uploadParent('SM', Gender.MALE, 'R??');
+    const results = await rankBreedingPairs({ species: 'BeeWasp', pets: [m, f, securedF, securedM] });
     for (const r of results) expect(r.evCapabilityGain).toBe(0);
+  });
+
+  it('credits a recessive foal of the sex that cannot breed it true', async () => {
+    await geneService.upsertGene('beewasp', '01', '01A1', { effectDominant: 'None', effectRecessive: 'Toughness+' });
+    geneService.clearGeneEffectsCache('beewasp');
+    // Only a female breeds it true. A male `R` foal would let a pair breed it
+    // true; a female one adds nothing.
+    const m = await uploadParent('M', Gender.MALE, 'x??');
+    const secured = await uploadParent('S', Gender.FEMALE, 'R??');
+    const [pair] = await rankBreedingPairs({ species: 'BeeWasp', pets: [m, secured] });
+    // x × R: half the foals are `R`; half of those are male; the male side
+    // goes 0.5 → 1.
+    expect(pair.evCapabilityGain).toBeCloseTo(0.5 * 0.5 * 0.5, 10);
+  });
+
+  it('credits spreading a male-only recessive to a daughter', async () => {
+    await geneService.upsertGene('beewasp', '01', '01A1', { effectDominant: 'None', effectRecessive: 'Toughness+' });
+    geneService.clearGeneEffectsCache('beewasp');
+    // The sire is the only carrier, so no pair can breed it. Every foal is
+    // `x`; a daughter gives the females a carrier, and a pair becomes possible.
+    const m = await uploadParent('M', Gender.MALE, 'R??');
+    const f = await uploadParent('F', Gender.FEMALE, 'D??');
+    const [pair] = await rankBreedingPairs({ species: 'BeeWasp', pets: [m, f] });
+    // Half the foals are female; the female side goes 0 → 0.5. A son adds
+    // nothing: the sire already breeds it true.
+    expect(pair.evCapabilityGain).toBeCloseTo(0.5 * 0.5, 10);
+  });
+
+  it('weights that foal by the chance of a male, from the parents virility', async () => {
+    await geneService.upsertGene('beewasp', '01', '01A1', { effectDominant: 'None', effectRecessive: 'Toughness+' });
+    geneService.clearGeneEffectsCache('beewasp');
+    const m = { ...(await uploadParent('M', Gender.MALE, 'x??')), virility: 75 };
+    const secured = { ...(await uploadParent('S', Gender.FEMALE, 'R??')), virility: 25 };
+    const [pair] = await rankBreedingPairs({ species: 'BeeWasp', pets: [m, secured] });
+    // Three foals in four are male.
+    expect(pair.evCapabilityGain).toBeCloseTo(0.5 * 0.75 * 0.5, 10);
   });
 
   it('is coarser than evPositiveTotal, which is why it is the primary sort', async () => {

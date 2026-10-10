@@ -83,7 +83,8 @@ describe('StudyBaselines', () => {
             unresolved: ['01A2:dominant', '01A3:dominant'],
             min: 60,
             max: 60,
-            via: { breed: 'Kurbone', offset: 20 },
+            minVia: { breed: 'Kurbone', offset: 20 },
+            maxVia: { breed: 'Kurbone', offset: 20 },
           }),
         ],
         offsets: [],
@@ -92,5 +93,26 @@ describe('StudyBaselines', () => {
     const row = screen.getByTestId('baseline-Paint').textContent ?? '';
     expect(row).toContain('60');
     expect(row).toContain('Kurbone + 20');
+  });
+
+  it('shows bounds from two breeds as a range, each with its source', () => {
+    render(StudyBaselines, {
+      baselines: {
+        readings: [
+          reading({
+            value: 12,
+            unresolved: ['01A1:recessive'],
+            min: 5,
+            max: 11,
+            minVia: { breed: 'Paint', offset: -20 },
+          }),
+        ],
+        offsets: [],
+      },
+    });
+    const row = screen.getByTestId('baseline-Kurbone').textContent ?? '';
+    expect(row).toContain('5 … 11');
+    expect(row).toContain('≥ via Paint − 20');
+    expect(row).not.toContain('≤ via');
   });
 });

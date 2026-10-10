@@ -131,6 +131,12 @@ export interface StudySubject {
  * 0–100, but the base sits under the effects, and on the live corpus a
  * Kurbone's temperament base is at most −36.
  */
+/** Another breed whose reading bounds this base: `base = base(breed) + offset`. */
+export interface BaseSource {
+  breed: string;
+  offset: number;
+}
+
 export interface BaselineReading {
   /** The baseline group, normally the breed. */
   breed: string;
@@ -150,11 +156,14 @@ export interface BaselineReading {
   min: number | null;
   max: number | null;
   /**
-   * Set when the bounds were tightened through a gap to another breed:
-   * `base = base(via.breed) + via.offset`, and that breed's bounds were the
-   * tighter ones. Absent when the bounds are this breed's own.
+   * Per side, set when that bound came through a gap to another breed:
+   * `base = base(breed) + offset`, and that breed's own reading supplied it.
+   * Absent when the bound is this breed's own. The two sides can come from
+   * different breeds, which is how a base gets both bounds at once: one
+   * breed's always-on unknown is positive and another's is negative.
    */
-  via?: { breed: string; offset: number };
+  minVia?: BaseSource;
+  maxVia?: BaseSource;
   /** Animals reading `value`. */
   support: number;
   /** Animals with the same unresolved set reading something else. */
@@ -1339,53 +1348,51 @@ function inferBaselines(
  * other. The gaps all point at one reference breed, so pooling every bound
  * onto the reference and handing it back out is the whole propagation.
  * This is where an exact base in one breed becomes an exact base in every
- * breed linked to it.
+ * breed linked to it, and where two one-sided bounds of opposite sign
+ * become a range.
  */
-function tightenThroughGaps(
+export function tightenThroughGaps(
   readings: readonly BaselineReading[],
   gaps: ReadonlyMap<string, BaselineOffset>,
 ): BaselineReading[] {
   const first = gaps.values().next();
   if (first.done) return [...readings];
+  // No reading for the reference itself is needed: the gaps alone link
+  // every other breed to each other.
   const referenceBreed = first.value.relativeTo;
-  const reference = readings.find((r) => r.breed === referenceBreed);
-  if (!reference) return [...readings];
 
-  const tighterMin = (a: number | null, b: number | null) => (a === null ? b : b === null ? a : Math.max(a, b));
-  const tighterMax = (a: number | null, b: number | null) => (a === null ? b : b === null ? a : Math.min(a, b));
+  /** `base(breed) − base(reference)`, for every breed linked to the reference. */
+  const shift = (breed: string) => (breed === referenceBreed ? 0 : gaps.get(breed)?.offset);
 
-  // The reference's bounds, tightened by every linked breed, and which
-  // breed supplied each side.
-  let min = reference.min;
-  let max = reference.max;
-  let minFrom: string | null = null;
-  let maxFrom: string | null = null;
+  // Every linked breed's own bounds, moved onto the reference's scale, and
+  // which breed supplied each side. Min and max are pooled apart: a breed
+  // whose own reading bounds only one side still bounds that side for all.
+  let min: { value: number; from: string } | null = null;
+  let max: { value: number; from: string } | null = null;
   for (const r of readings) {
-    const gap = gaps.get(r.breed);
-    if (!gap) continue;
-    if (r.min !== null && (min === null || r.min - gap.offset > min)) {
-      min = r.min - gap.offset;
-      minFrom = r.breed;
-    }
-    if (r.max !== null && (max === null || r.max - gap.offset < max)) {
-      max = r.max - gap.offset;
-      maxFrom = r.breed;
-    }
+    const offset = shift(r.breed);
+    if (offset === undefined) continue;
+    if (r.min !== null && (min === null || r.min - offset > min.value)) min = { value: r.min - offset, from: r.breed };
+    if (r.max !== null && (max === null || r.max - offset < max.value)) max = { value: r.max - offset, from: r.breed };
   }
 
   return readings.map((r) => {
-    if (r.breed === referenceBreed) {
-      const from = minFrom ?? maxFrom;
-      if (from === null) return r;
-      const gap = gaps.get(from) as BaselineOffset;
-      return { ...r, min, max, via: { breed: from, offset: -gap.offset } };
+    const offset = shift(r.breed);
+    if (offset === undefined) return r;
+    const next = { ...r };
+    let changed = false;
+    // A bound supplied by the breed's own reading is not "via" anything.
+    if (min && min.from !== r.breed && (r.min === null || min.value + offset > r.min)) {
+      next.min = min.value + offset;
+      next.minVia = { breed: min.from, offset: offset - (shift(min.from) as number) };
+      changed = true;
     }
-    const gap = gaps.get(r.breed);
-    if (!gap) return r;
-    const nextMin = tighterMin(r.min, min === null ? null : min + gap.offset);
-    const nextMax = tighterMax(r.max, max === null ? null : max + gap.offset);
-    if (nextMin === r.min && nextMax === r.max) return r;
-    return { ...r, min: nextMin, max: nextMax, via: { breed: referenceBreed, offset: gap.offset } };
+    if (max && max.from !== r.breed && (r.max === null || max.value + offset < r.max)) {
+      next.max = max.value + offset;
+      next.maxVia = { breed: max.from, offset: offset - (shift(max.from) as number) };
+      changed = true;
+    }
+    return changed ? next : r;
   });
 }
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { GeneType } from '$lib/types/index.js';
+import { Gender, GeneType } from '$lib/types/index.js';
 import {
   type AlleleTally,
   benefitSlots,
@@ -14,6 +14,7 @@ import {
   isBreedGeneric,
   liabilityCounts,
   MIN_POPULATION,
+  maleFoalProbability,
   parseBreedLockWeight,
   type ScoredGene,
   safeCullOrder,
@@ -408,6 +409,7 @@ describe('scoreGroup', () => {
       soleLockSlots: 0,
       liabilityAtRisk: 0,
       byAttribute: {},
+      contributions: [],
     });
   });
 });
@@ -753,5 +755,183 @@ describe('the generic / breed-locked split', () => {
     expect(s.ceiling).toBe(6);
     expect(s.generic.ceiling).toBe(2);
     expect(s.generic.capability).toBeLessThanOrEqual(s.capability);
+  });
+});
+
+describe('scorePet contributions and standing', () => {
+  const genes = { '01A1': CHR01, '01A2': gene('+', null, 'friendliness', null) };
+
+  it('lists the slots behind the score, summing to it exactly', () => {
+    // Sole R at 01A1 (two slots: add temperament, clear virility); D at 01A2 locked by nobody else.
+    const me: PetLoci = new Map([
+      ['01A1', R],
+      ['01A2', D],
+    ]);
+    const others: PetLoci[] = [
+      new Map([
+        ['01A1', D],
+        ['01A2', X],
+      ]),
+      new Map([
+        ['01A1', D],
+        ['01A2', X],
+      ]),
+    ];
+    const tallies = tallyAlleles([me, ...others]);
+    const r = scorePet(me, genes, tallies);
+    const sum = r.contributions.reduce((a, c) => a + c.value, 0);
+    expect(sum).toBeCloseTo(r.atRiskCapability);
+    expect(r.contributions.filter((c) => c.gene === '01A1').map((c) => [c.kind, c.standing])).toEqual([
+      ['add', 'sole'],
+      ['clear', 'sole'],
+    ]);
+    expect(r.contributions.find((c) => c.gene === '01A2')).toMatchObject({ standing: 'lock', value: 0.5 });
+  });
+
+  it('marks a benefit allele the rest of the stable supplies as backed, and only when asked', () => {
+    const me: PetLoci = new Map([['01A2', D]]);
+    const tallies = tallyAlleles([me, new Map([['01A2', D]])]);
+    const standing = new Map();
+    const r = scorePet(me, genes, tallies, { standing });
+    expect(r.contributions).toEqual([]);
+    expect(standing.get('01A2')).toBe('backed');
+    // A locus with no benefit allele carried gets no standing.
+    const plain = new Map();
+    scorePet(new Map([['01A1', D]]), genes, tallyAlleles([new Map([['01A1', D]])]), { standing: plain });
+    expect(plain.has('01A1')).toBe(false);
+  });
+});
+
+describe('pairing — a recessive needs both sexes', () => {
+  it('weights the foal sex by the parents virility', () => {
+    expect(maleFoalProbability(75, 25)).toBe(0.75);
+    expect(maleFoalProbability(50, 50)).toBe(0.5);
+    expect(maleFoalProbability(0, 0)).toBe(0.5);
+    const dist = { D: 0, x: 0, R: 1, unknown: 0 };
+    const securedF = tally(0, 0, 1, 1);
+    const none = tally(0, 0, 0, 0);
+    // Only a male foal adds here, so the gain is the chance of a male.
+    expect(expectedCapabilityGain(dist, gene(null, '+'), securedF, [none, securedF], 0.75)).toBe(0.75);
+  });
+
+  it('prices a foal as either sex, equally likely, for a recessive only', () => {
+    const dist = { D: 0, x: 0, R: 1, unknown: 0 };
+    const securedF = tally(0, 0, 1, 1);
+    const none = tally(0, 0, 0, 0);
+    // Females breed it true, males lack it: only a male foal adds.
+    expect(expectedCapabilityGain(dist, gene(null, '+'), securedF, [none, securedF])).toBe(0.5);
+    expect(expectedCapabilityGain(dist, gene(null, '+'), securedF)).toBe(0);
+    // A dominant needs one parent: sex makes no difference.
+    const domDist = { D: 1, x: 0, R: 0, unknown: 0 };
+    expect(expectedCapabilityGain(domDist, gene('+', null), none, [none, none])).toBe(1);
+  });
+
+  const REC = gene(null, '+');
+  const DOM = gene('+', null);
+  const M = Gender.MALE;
+  const F = Gender.FEMALE;
+
+  /** One locus per pet, keyed 1..n, with the matching sex map. */
+  function herd(rows: [GeneType, Gender][]) {
+    const loci = new Map(rows.map(([t], i) => [i + 1, new Map([['01A1', t]]) as PetLoci]));
+    const sex = new Map(rows.map(([, g], i) => [i + 1, g]));
+    return { loci, sex, ids: rows.map((_, i) => i + 1) };
+  }
+
+  it('keeps a male R/R that only a female backs up', () => {
+    const { loci, sex, ids } = herd([
+      [R, M],
+      [R, F],
+      [D, M],
+      [D, F],
+    ]);
+    const blind = scoreGroup(loci, { '01A1': REC }, ids);
+    expect(blind.get(1)?.atRiskCapability).toBe(0);
+    const paired = scoreGroup(loci, { '01A1': REC }, ids, { sex });
+    // Each animal is its sex's only R/R, so neither is backed up.
+    expect(paired.get(1)?.atRiskCapability).toBe(1);
+    expect(paired.get(2)?.atRiskCapability).toBe(1);
+    expect(paired.get(1)?.contributions[0]).toMatchObject({ standing: 'sole', sex: M });
+  });
+
+  it('still lets a same-sex R/R back it up', () => {
+    const { loci, sex, ids } = herd([
+      [R, M],
+      [R, M],
+      [R, F],
+      [D, F],
+    ]);
+    const paired = scoreGroup(loci, { '01A1': REC }, ids, { sex });
+    expect(paired.get(1)?.atRiskCapability).toBe(0);
+    expect(paired.get(3)?.atRiskCapability).toBe(1);
+  });
+
+  it('values the sole carrier of a recessive like the sole carrier of a dominant', () => {
+    const rec = herd([
+      [X, M],
+      [D, F],
+      [D, M],
+      [D, F],
+    ]);
+    const dom = herd([
+      [X, M],
+      [R, F],
+      [R, M],
+      [R, F],
+    ]);
+    const recScore = scoreGroup(rec.loci, { '01A1': REC }, rec.ids, { sex: rec.sex }).get(1)?.atRiskCapability;
+    const domScore = scoreGroup(dom.loci, { '01A1': DOM }, dom.ids, { sex: dom.sex }).get(1)?.atRiskCapability;
+    expect(recScore).toBe(0.5);
+    expect(recScore).toBe(domScore);
+  });
+
+  it('counts a recessive slot once per sex in the summary', () => {
+    const loci = pop([R, X]);
+    const bySex = { [M]: [loci[0]], [F]: [loci[1]] } as Record<Gender, PetLoci[]>;
+    expect(capabilitySummary(loci, { '01A1': REC }, { bySex })).toMatchObject({
+      capability: 1.5,
+      reachable: 2,
+      ceiling: 2,
+    });
+  });
+
+  it('leaves a dominant judged across both sexes', () => {
+    const { loci, sex, ids } = herd([
+      [D, M],
+      [D, F],
+      [R, M],
+      [R, F],
+    ]);
+    const paired = scoreGroup(loci, { '01A1': DOM }, ids, { sex });
+    expect(paired.get(1)?.atRiskCapability).toBe(0);
+    expect(paired.get(1)?.contributions).toEqual([]);
+  });
+
+  it('prices a cull walk in the same units as capabilitySummary', () => {
+    const { loci, sex, ids } = herd([
+      [R, M],
+      [R, F],
+      [X, M],
+      [D, F],
+      [D, M],
+      [X, F],
+    ]);
+    const genes = { '01A1': REC };
+    const summary = (keep: number[]) =>
+      capabilitySummary(
+        keep.map((id) => loci.get(id) as PetLoci),
+        genes,
+        {
+          bySex: {
+            [M]: keep.filter((id) => sex.get(id) === M).map((id) => loci.get(id) as PetLoci),
+            [F]: keep.filter((id) => sex.get(id) === F).map((id) => loci.get(id) as PetLoci),
+          } as Record<Gender, PetLoci[]>,
+        },
+      ).capability;
+    const walk = safeCullOrder(loci, genes, ids, { sex, target: 2 });
+    const kept = ids.filter((id) => !walk.releases.some((r) => r.id === id));
+    expect(summary(ids) - summary(kept)).toBeCloseTo(walk.totalCost, 10);
+    expect(walk.releases.map((r) => r.id)).not.toContain(1);
+    expect(walk.releases.map((r) => r.id)).not.toContain(2);
   });
 });
