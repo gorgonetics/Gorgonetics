@@ -10,6 +10,8 @@
 import { onDestroy } from 'svelte';
 import BreedingPairTable from '$lib/components/breeding/BreedingPairTable.svelte';
 import BreedingPoolPanel from '$lib/components/breeding/BreedingPoolPanel.svelte';
+import ClearChromosome from '$lib/components/breeding/ClearChromosome.svelte';
+import ImproveHorse from '$lib/components/breeding/ImproveHorse.svelte';
 import TrioView from '$lib/components/breeding/TrioView.svelte';
 import BreedSelector from '$lib/components/shared/BreedSelector.svelte';
 import EmptyState from '$lib/components/shared/EmptyState.svelte';
@@ -390,7 +392,35 @@ onDestroy(() => {
         {/each}
       </div>
 
-      {#if breedsForSpecies}
+      <div class="seg" role="group" aria-label="Breeding mode" data-testid="breed-mode">
+        <button
+          type="button"
+          class="seg-btn"
+          class:active={breedingView.mode === 'pairs'}
+          aria-pressed={breedingView.mode === 'pairs'}
+          data-testid="breed-mode-pairs"
+          onclick={() => { breedingView.mode = 'pairs'; }}
+        >All pairs</button>
+        <button
+          type="button"
+          class="seg-btn"
+          class:active={breedingView.mode === 'improve'}
+          aria-pressed={breedingView.mode === 'improve'}
+          data-testid="breed-mode-improve"
+          onclick={() => { breedingView.mode = 'improve'; }}
+        >Improve one</button>
+        <button
+          type="button"
+          class="seg-btn"
+          class:active={breedingView.mode === 'clear'}
+          aria-pressed={breedingView.mode === 'clear'}
+          data-testid="breed-mode-clear"
+          title="Breed toward animals at the best genotype on every generic locus of chromosome 1"
+          onclick={() => { breedingView.mode = 'clear'; }}
+        >Clear chromosome 1</button>
+      </div>
+
+      {#if breedsForSpecies && breedingView.mode === 'pairs'}
         <div data-testid="breed-offspring">
           <BreedSelector
             value={breedingView.offspringBreed}
@@ -401,7 +431,7 @@ onDestroy(() => {
         </div>
       {/if}
 
-      {#if pool.length > 0}
+      {#if pool.length > 0 && breedingView.mode === 'pairs'}
         <div class="tb-objective" data-testid="breed-objective">
           <label class="plan-label" for="breed-objective-select">Breed for</label>
           <select
@@ -459,7 +489,11 @@ onDestroy(() => {
         real genes deserve. Re-study them to rank them fully.
       </div>
     {/if}
-    {#if errored}
+    {#if breedingView.mode === 'improve' && pool.length > 0}
+      <ImproveHorse {pool} {candidates} {attrNames} />
+    {:else if breedingView.mode === 'clear' && pool.length > 0}
+      <ClearChromosome {candidates} {species} />
+    {:else if errored}
       <StatusPane variant="error" title="Couldn't rank these pairs." body="Something went wrong computing scores. Switch species to retry." />
     {:else if loading && pairs.length === 0}
       <StatusPane variant="loading" body="Computing pair scores…" />

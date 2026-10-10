@@ -93,6 +93,18 @@ export const breedingView = $state({
    */
   scrollTop: 0,
   scrollLeft: 0,
+  /**
+   * `pairs` ranks every pairing in the stable; `improve` keeps one animal and
+   * ranks its partners by how likely a foal is to beat it on `targets`;
+   * `clear` breeds toward animals at the best genotype on a whole chromosome.
+   */
+  mode: 'pairs' as 'pairs' | 'improve' | 'clear',
+  /** The animal being improved in `improve` mode. */
+  anchorId: null as number | null,
+  /** Capitalised attributes the foal must beat the anchor on. */
+  targets: [] as string[],
+  /** Points any other attribute may fall below the anchor and still count as kept. */
+  tolerance: 0,
 });
 
 /**
