@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { GeneType } from '$lib/types/index.js';
+import { Gender, GeneType } from '$lib/types/index.js';
 import type { ParsedChromosome } from '$lib/utils/geneAnalysis.js';
 import type { QualityContribution } from '$lib/utils/geneticQuality.js';
 import {
@@ -9,6 +9,9 @@ import {
   qualityRows,
   qualityTooltip,
   rowText,
+  STANDING_LABEL,
+  standingHint,
+  standingLabel,
 } from '$lib/utils/qualityLens.js';
 
 const D = GeneType.DOMINANT;
@@ -91,5 +94,23 @@ describe('qualityTooltip', () => {
 
   it('says so when the pet carries no benefit allele there', () => {
     expect(qualityTooltip('03A1', undefined, [])).toEqual({ subtitle: 'No benefit allele here', lines: [] });
+  });
+});
+
+describe('standing by sex', () => {
+  it('names the sex when a recessive was judged within it', () => {
+    expect(standingLabel('sole', Gender.MALE)).toBe('Only male carrier');
+    expect(standingLabel('lock', Gender.FEMALE)).toBe('Only female true breeder');
+    expect(standingLabel('sole')).toBe(STANDING_LABEL.sole);
+    expect(standingLabel('backed', Gender.MALE)).toBe(STANDING_LABEL.backed);
+    expect(standingHint('sole', Gender.FEMALE)).toContain('No other stabled females carry');
+  });
+
+  it('carries the sex into the row text and the tooltip', () => {
+    const contributions = [c({ sex: Gender.FEMALE })];
+    expect(rowText(qualityRows(contributions)[0])).toContain('only female carrier');
+    expect(qualityTooltip('01A1', 'sole', contributions).subtitle).toMatch(
+      /^Only female carrier — no other stabled females/,
+    );
   });
 });

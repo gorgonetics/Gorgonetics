@@ -176,7 +176,7 @@ function qualityTitle(pet: Pet): string {
     return 'Nothing here is irreplaceable — every beneficial allele it carries is available from another stabled pet.';
   }
   const parts = [
-    `${r.atRiskCapability.toFixed(1)} slot-units the stable would lose without it (1 = only carrier, breeding it true; 0.5 = only carrier, or only true breeder where others carry it)`,
+    `${r.atRiskCapability.toFixed(1)} slot-units the stable would lose without it (1 = only carrier, breeding it true; 0.5 = only carrier, or only true breeder where others carry it; a recessive needs a copy from each parent, so it is judged only against pets of the same sex)`,
   ];
   if (r.genericCapability > 0) {
     parts.push(`${r.genericCapability.toFixed(1)} of that is breed-generic — a base for any breed you target`);

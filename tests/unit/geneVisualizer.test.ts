@@ -295,4 +295,27 @@ describe('GeneVisualizer quality lens', () => {
     api.highlightGene('01A1');
     await waitFor(() => expect(sheet()).not.toContain('--quality-ring'));
   });
+
+  it('rescores with the new sex after an in-place edit', async () => {
+    explainQuality.mockResolvedValue({
+      result: { atRiskCapability: 0, contributions: [] },
+      standing: new Map(),
+      share: 0,
+      inStable: true,
+      meaningful: true,
+    });
+    const rendered = render(GeneVisualizer, { pet: makePet({ id: 4, gender: 'Male' }) });
+    await waitFor(() => expect(mocks.loadPetGridFromDb).toHaveBeenCalledWith(4));
+    mocks.gridResolvers.get(4)?.(gridText('1=Rx\n'));
+    await waitFor(() => expect(rendered.container.querySelector('[data-chromosome="01"]')).not.toBeNull());
+    (rendered.component as unknown as { handleViewChange: (v: string) => void }).handleViewChange('quality');
+    await waitFor(() => expect(explainQuality).toHaveBeenCalledTimes(1));
+    expect(explainQuality.mock.calls[0][0].gender).toBe('Male');
+
+    await rendered.rerender({ pet: makePet({ id: 4, gender: 'Female' }) });
+    await waitFor(() => expect(explainQuality).toHaveBeenCalledTimes(2));
+    expect(explainQuality.mock.calls[1][0].gender).toBe('Female');
+    // Same id: the grid is not reloaded.
+    expect(mocks.loadPetGridFromDb).toHaveBeenCalledTimes(1);
+  });
 });

@@ -39,6 +39,13 @@
  * breed-locked material. `GeneticQualityResult` reports the two shares
  * separately so the UI can say which kind an animal holds.
  *
+ * A **recessive** benefit needs the allele from both parents, and a pair is
+ * one male and one female. So with sexes known, a recessive slot is one
+ * supply per sex, each valued like a dominant slot, and an animal is judged
+ * against its own sex: a male `R/R` is not backed up by a female `R/R`,
+ * because she cannot stand in for him in the pair. A dominant benefit needs
+ * one parent only, so it stays one supply over the whole stable.
+ *
  * This is **not** the rarity lens. `geneFrequency` reads pool frequency as
  * an estimate of a global property; nothing here claims anything about the
  * world. It asks only "can I already breed this outcome from animals I
@@ -48,7 +55,7 @@
  * Pure functions over already-loaded loci. No DB, no Svelte.
  */
 
-import type { AlleleDistribution } from '$lib/types/index.js';
+import type { AlleleDistribution, Gender } from '$lib/types/index.js';
 import { GeneType } from '$lib/types/index.js';
 import type { GeneSignSummary } from '$lib/utils/breedingGenetics.js';
 import { type LocusTally, RARITY_THRESHOLDS, type RarityOptions, rarityBucket } from '$lib/utils/geneFrequency.js';
@@ -441,9 +448,25 @@ export interface QualityContribution {
   kind: BenefitSlot['kind'];
   attribute: string | null;
   standing: Exclude<QualityStanding, 'backed'>;
+  /**
+   * Set when the standing was read against this sex only: a recessive
+   * allele, scored with sexes known. `sole` then means the only carrier of
+   * that sex.
+   */
+  sex?: Gender;
   generic: boolean;
   /** Its part of `atRiskCapability`, weighted like the headline. */
   value: number;
+}
+
+/**
+ * The animal's sex and the tally of its own sex (itself included), so a
+ * recessive allele is judged against the animals that can take its place
+ * in a pair. `scoreGroup` builds it from a sex map.
+ */
+export interface Pairing {
+  sex: Gender;
+  sameSex: Map<string, AlleleTally>;
 }
 
 export interface ScorePetOptions {
@@ -463,6 +486,11 @@ export interface ScorePetOptions {
    * Opt-in: the cull walk scores thousands of times and needs none of it.
    */
   standing?: Map<string, QualityStanding>;
+  /**
+   * Judge recessive alleles against the animal's own sex. Omit when the sex
+   * is unknown: every allele is then judged against the whole stable.
+   */
+  pairing?: Pairing;
 }
 
 export interface GeneticQualityResult {
@@ -484,7 +512,10 @@ export interface GeneticQualityResult {
   genericCapability: number;
   /** The breed-locked share of `atRiskCapability`. */
   breedCapability: number;
-  /** Benefit slots no other animal carries at all. */
+  /**
+   * Benefit slots no other animal carries at all — for a recessive allele
+   * judged by sex, no other animal of its sex.
+   */
   soleSourceSlots: number;
   /**
    * The breed-generic part of `soleSourceSlots`. The strongest single
@@ -492,7 +523,10 @@ export interface GeneticQualityResult {
    * every breed can use.
    */
   genericSoleSourceSlots: number;
-  /** Benefit slots no other animal can breed true, though carriers exist. */
+  /**
+   * Benefit slots no other animal can breed true, though carriers exist —
+   * of its sex, for a recessive allele judged by sex.
+   */
   soleLockSlots: number;
   /**
    * Negative-allele capability that would also leave — the upside of
@@ -534,7 +568,8 @@ function emptyResult(): GeneticQualityResult {
  *
  * `tallies` must be built from a population that **includes** this animal —
  * the leave-one-out step subtracts it back out. Passing a tally that
- * already excludes it double-discounts and understates every slot.
+ * already excludes it double-discounts and understates every slot. The same
+ * holds for `opts.pairing.sameSex`.
  */
 export function scorePet(
   loci: PetLoci,
@@ -560,7 +595,10 @@ export function scorePet(
 
     for (const allele of [GeneType.DOMINANT, GeneType.RECESSIVE] as const) {
       if (!carries(type, allele)) continue;
-      const tier = supplyTier(tally, allele, type);
+      // The other parent must pass a recessive too, so only the animal's own
+      // sex can replace it in a pair.
+      const bySex = allele === GeneType.RECESSIVE ? opts.pairing : undefined;
+      const tier = supplyTier(bySex ? tallyFor(bySex.sameSex, geneId) : tally, allele, type);
       const without = TIER_CAPABILITY[tier];
       const delta = Math.max(0, ownCapability(type, allele) - without);
       // A positive delta outside `sole` can only be a homozygote whose
@@ -581,6 +619,7 @@ export function scorePet(
           kind: slot.kind,
           attribute: slot.attribute,
           standing: standing === 'sole' ? 'sole' : 'lock',
+          ...(bySex ? { sex: bySex.sex } : {}),
           generic,
           value,
         });
@@ -633,6 +672,15 @@ export function hasMeaningfulPopulation(size: number): boolean {
   return size >= MIN_POPULATION;
 }
 
+export interface ScoreGroupOptions extends Omit<ScorePetOptions, 'pairing'> {
+  /**
+   * Each animal's sex. With it, recessive alleles are judged against the
+   * animal's own sex (see `Pairing`); an animal missing from the map is
+   * judged against the whole group.
+   */
+  sex?: ReadonlyMap<number, Gender>;
+}
+
 /**
  * Score every animal in a group against that same group.
  *
@@ -649,13 +697,23 @@ export function scoreGroup(
   lociByPet: Map<number, PetLoci>,
   genes: Readonly<Record<string, ScoredGene>>,
   ids: readonly number[],
-  opts: ScorePetOptions = {},
+  opts: ScoreGroupOptions = {},
 ): Map<number, GeneticQualityResult> {
+  const { sex, ...scoreOpts } = opts;
   const empty: PetLoci = new Map();
-  const tallies = tallyAlleles(ids.map((id) => lociByPet.get(id) ?? empty));
+  const lociOf = (id: number) => lociByPet.get(id) ?? empty;
+  const tallies = tallyAlleles(ids.map(lociOf));
+  const sameSex = new Map<Gender, Map<string, AlleleTally>>();
+  if (sex) {
+    for (const g of new Set(ids.map((id) => sex.get(id)))) {
+      if (g !== undefined) sameSex.set(g, tallyAlleles(ids.filter((id) => sex.get(id) === g).map(lociOf)));
+    }
+  }
   const out = new Map<number, GeneticQualityResult>();
   for (const id of ids) {
-    out.set(id, scorePet(lociByPet.get(id) ?? empty, genes, tallies, opts));
+    const g = sex?.get(id);
+    const pairing = g === undefined ? undefined : { sex: g, sameSex: sameSex.get(g) as Map<string, AlleleTally> };
+    out.set(id, scorePet(lociOf(id), genes, tallies, { ...scoreOpts, pairing }));
   }
   return out;
 }
@@ -785,6 +843,8 @@ export interface SafeCullOrderOptions {
    * positives. The clamp is the caller's; see `breedReach`.
    */
   weight?: BenefitWeight;
+  /** Each animal's sex, so recessive alleles are judged per sex at every re-score. */
+  sex?: ReadonlyMap<number, Gender>;
 }
 
 /**
@@ -890,7 +950,7 @@ export function safeCullOrder(
   };
 
   const pick = (): CullStep | null => {
-    const scored = scoreGroup(lociByPet, genes, remaining, { weight: opts.weight });
+    const scored = scoreGroup(lociByPet, genes, remaining, { weight: opts.weight, sex: opts.sex });
     const held = heldGroups();
     let best: CullStep | null = null;
     for (const id of remaining) {
@@ -988,13 +1048,35 @@ export interface CapabilitySummary {
  * bar whose denominator moved with a settings change would be unreadable.
  * `reachable` and `ceiling` stay raw slot counts either way; only
  * `capability` is scaled.
+ *
+ * Pass `bySex` (the same animals split by sex) to price recessive slots as
+ * `scorePet` does with sexes known; the cull walk's costs then add up to
+ * exactly the drop in this total. A recessive slot then counts once per
+ * sex in all three numbers.
  */
 export function capabilitySummary(
   lociByPet: Iterable<PetLoci>,
   genes: Readonly<Record<string, ScoredGene>>,
-  opts: { weight?: BenefitWeight } = {},
+  opts: { weight?: BenefitWeight; bySex?: Readonly<Record<Gender, Iterable<PetLoci>>> } = {},
 ): CapabilitySummary {
   const tallies = tallyAlleles(lociByPet);
+  const sexTallies = opts.bySex ? Object.values(opts.bySex).map((group) => tallyAlleles(group)) : null;
+  const perSex = (slot: BenefitSlot) => sexTallies !== null && slot.allele === GeneType.RECESSIVE;
+  /**
+   * Capability and carrying supplies at one slot. A recessive with sexes
+   * known is one supply per sex, as `scorePet` prices it.
+   */
+  const supplies = (geneId: string, slot: BenefitSlot, tally: AlleleTally): { cap: number; carried: number } => {
+    const groups = perSex(slot) ? (sexTallies as Map<string, AlleleTally>[]).map((t) => tallyFor(t, geneId)) : [tally];
+    let cap = 0;
+    let carried = 0;
+    for (const t of groups) {
+      const c = countsFor(t, slot.allele);
+      cap += capability(c.hom, c.car);
+      if (c.car > 0) carried += 1;
+    }
+    return { cap, carried };
+  };
   let held = 0;
   let reachable = 0;
   let ceiling = 0;
@@ -1004,22 +1086,73 @@ export function capabilitySummary(
     if (w <= 0) continue;
     const slots = benefitSlots(gene);
     const isGeneric = isBreedGeneric(gene);
-    ceiling += slots.length;
-    if (isGeneric) generic.ceiling += slots.length;
+    const units = slots.reduce((n, slot) => n + (perSex(slot) ? 2 : 1), 0);
+    ceiling += units;
+    if (isGeneric) generic.ceiling += units;
     const tally = tallies.get(geneId);
     if (!tally) continue;
     for (const slot of slots) {
-      const { hom, car } = countsFor(tally, slot.allele);
-      const cap = capability(hom, car) * w;
+      const { cap: raw, carried } = supplies(geneId, slot, tally);
+      const cap = raw * w;
       held += cap;
-      if (car > 0) reachable += 1;
+      reachable += carried;
       if (isGeneric) {
         generic.capability += cap;
-        if (car > 0) generic.reachable += 1;
+        generic.reachable += carried;
       }
     }
   }
   return { capability: held, reachable, ceiling, generic };
+}
+
+/**
+ * A breeding pool's tallies: the whole pool, and the males and females
+ * apart, so a foal's recessive gain is priced per sex.
+ */
+export interface PoolTallies {
+  all: Map<string, AlleleTally>;
+  bySex: readonly [Map<string, AlleleTally>, Map<string, AlleleTally>];
+}
+
+export function tallyPool(males: Iterable<PetLoci>, females: Iterable<PetLoci>): PoolTallies {
+  const m = [...males];
+  const f = [...females];
+  return { all: tallyAlleles([...m, ...f]), bySex: [tallyAlleles(m), tallyAlleles(f)] };
+}
+
+/**
+ * Chance a foal is male: the sire's share of the pair's virility. The
+ * player's approximation, not a known game formula — the exact proportion
+ * is not known. Even odds when neither parent has any virility to share.
+ */
+export function maleFoalProbability(sireVirility: number, damVirility: number): number {
+  const sire = Math.max(0, sireVirility);
+  const total = sire + Math.max(0, damVirility);
+  return total > 0 ? sire / total : 0.5;
+}
+
+/** `expectedCapabilityGain` at one locus of a pool, per sex. The one call both breeding views share. */
+export function poolCapabilityGain(
+  dist: AlleleDistribution,
+  gene: ScoredGene,
+  geneId: string,
+  pool: PoolTallies,
+  pMale = 0.5,
+): number {
+  const [m, f] = pool.bySex;
+  return expectedCapabilityGain(
+    dist,
+    gene,
+    tallyFor(pool.all, geneId),
+    [tallyFor(m, geneId), tallyFor(f, geneId)],
+    pMale,
+  );
+}
+
+/** Gain at one slot from a foal homozygous with `pHom`, a carrier with `pX`, over a base capability. */
+function slotGain(pHom: number, pX: number, base: number): number {
+  if (base >= 1) return 0;
+  return pHom * (1 - base) + pX * Math.max(0, 0.5 - base);
 }
 
 /**
@@ -1034,15 +1167,30 @@ export function capabilitySummary(
  * `tally` must cover the whole stable, parents included: a pairing that
  * merely reproduces what the herd already breeds true adds nothing, and
  * that has to fall out of the arithmetic rather than be special-cased.
+ *
+ * Pass `bySex` (the male and female tallies at this locus) to price
+ * recessive slots as `scorePet` and `capabilitySummary` do: one supply per
+ * sex, and the foal joins one of them — male with `pMale` (see
+ * `maleFoalProbability`), female otherwise. `bySex` is `[male, female]`.
  */
-export function expectedCapabilityGain(dist: AlleleDistribution, gene: ScoredGene, tally: AlleleTally): number {
+export function expectedCapabilityGain(
+  dist: AlleleDistribution,
+  gene: ScoredGene,
+  tally: AlleleTally,
+  bySex?: readonly [AlleleTally, AlleleTally],
+  pMale = 0.5,
+): number {
   let gain = 0;
   for (const slot of benefitSlots(gene)) {
-    const { hom, car } = countsFor(tally, slot.allele);
-    const base = capability(hom, car);
-    if (base >= 1) continue;
     const pHomozygous = slot.allele === GeneType.DOMINANT ? dist.D : dist.R;
-    gain += pHomozygous * (1 - base) + dist.x * Math.max(0, 0.5 - base);
+    if (bySex && slot.allele === GeneType.RECESSIVE) {
+      const [m, f] = bySex;
+      gain += pMale * slotGain(pHomozygous, dist.x, capability(m.homR, m.carR));
+      gain += (1 - pMale) * slotGain(pHomozygous, dist.x, capability(f.homR, f.carR));
+      continue;
+    }
+    const { hom, car } = countsFor(tally, slot.allele);
+    gain += slotGain(pHomozygous, dist.x, capability(hom, car));
   }
   return gain;
 }

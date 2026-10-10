@@ -20,7 +20,7 @@ import { loadGeneImpact, STUDYABLE_SPECIES, studyInputsKey } from '$lib/services
 import { pets as petList } from '$lib/stores/pets.js';
 import { settings } from '$lib/stores/settings.js';
 import { EFFECT_COLORS } from '$lib/theme/gene-colors.js';
-import type { AppearanceInfo, GeneType, Pet } from '$lib/types/index.js';
+import type { AppearanceInfo, Gender, GeneType, Pet } from '$lib/types/index.js';
 import { buildVisualizerFilterCSS, type ChrBreedRelevance, joinAttrs } from '$lib/utils/filterCSS.js';
 import { resolveFilterClick } from '$lib/utils/filterToggle.js';
 import {
@@ -175,6 +175,7 @@ let currentPet = $state<{
   name: string;
   species: string;
   breed: string;
+  gender: Gender;
   grid: Record<string, ParsedChromosome>;
 } | null>(null);
 let currentView = $state<'attribute' | 'appearance' | 'rarity' | 'quality' | 'impact'>('attribute');
@@ -489,15 +490,19 @@ const qualityPool = $derived(
 );
 const qualityFocus = $derived(String($settings['quality.focusBreed'] ?? ''));
 const qualityLockWeight = $derived(parseBreedLockWeight($settings['quality.breedLockWeight']));
+// Read from the live prop: an in-place sex edit keeps the id, so it does not
+// reload `currentPet`, and a recessive is judged per sex.
+const qualityGender = $derived(pet && currentPet && pet.id === currentPet.id ? pet.gender : currentPet?.gender);
 const qualityKey = $derived.by(() => {
   if (currentView !== 'quality' || !currentPet) return null;
   return [
     currentPet.species,
     currentPet.id,
+    qualityGender,
     pet?.content_hash ?? '',
     qualityFocus,
     qualityLockWeight ?? 'auto',
-    qualityPool.map((p) => p.id).join(','),
+    qualityPool.map((p) => `${p.id}${p.gender}`).join(','),
   ].join('|');
 });
 const quality = keyedResource(
@@ -509,6 +514,7 @@ const quality = keyedResource(
       species: p.species,
       petId: p.id,
       loci: gridToLoci(p.grid),
+      gender: qualityGender,
       pool: qualityPool,
       focusBreed: qualityFocus,
       breedLockWeight: qualityLockWeight,
@@ -634,7 +640,7 @@ async function loadPetData() {
     error = null;
 
     const grid = gridOverride ?? (await loadPetGridFromDb(p.id));
-    currentPet = { id: p.id, name: p.name, species: p.species, breed: p.breed, grid };
+    currentPet = { id: p.id, name: p.name, species: p.species, breed: p.breed, gender: p.gender, grid };
 
     await loadGeneEffectsForSpecies(p.species);
     loadAppearanceConfigForSpecies(p.species);
