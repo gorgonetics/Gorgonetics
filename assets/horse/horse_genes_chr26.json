@@ -50,7 +50,7 @@
   {
     "gene": "26B3",
     "effectDominant": "None",
-    "effectRecessive": "Toughness+",
+    "effectRecessive": "Toughness-",
     "appearance": "Attributes",
     "breed": "Satincoat",
     "notes": ""
