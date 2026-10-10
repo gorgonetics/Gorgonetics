@@ -1,5 +1,13 @@
 <script lang="ts">
-import { onDestroy } from 'svelte';
+/**
+ * The detail view of one animal: the genome grid with its lenses, the stats
+ * drawer and the breed filter. One view for every source — My Pets passes a
+ * stable pet; the community catalogue passes a preview pet, its genome as
+ * `grid`, and its own header items and actions through the snippets.
+ * Gallery, Share and Edit/Delete need the animal in the local database, so
+ * they show only for one that is.
+ */
+import { onDestroy, type Snippet } from 'svelte';
 import SharePetDialog from '$lib/components/community/SharePetDialog.svelte';
 import GeneStatsTable from '$lib/components/gene/GeneStatsTable.svelte';
 import GeneVisualizer from '$lib/components/gene/GeneVisualizer.svelte';
@@ -11,8 +19,10 @@ import { pets as allPets } from '$lib/stores/pets.js';
 import { settings } from '$lib/stores/settings.js';
 import type { DialogResult, Pet } from '$lib/types/index.js';
 import { HORSE_BREEDS } from '$lib/types/index.js';
+import type { ParsedChromosome } from '$lib/utils/geneAnalysis.js';
 import type { AttributeImpact } from '$lib/utils/geneImpact.js';
 import type { StatsMap } from '$lib/utils/geneStats.js';
+import { PREVIEW_PET_ID } from '$lib/utils/sharedPet.js';
 import PetImageGallery from './PetImageGallery.svelte';
 
 interface GeneVisualizerInstance {
@@ -33,9 +43,22 @@ interface GeneVisualizerInstance {
 
 interface Props {
   pet?: Pet | null;
+  /** Genome from outside the local database (a community pet). Without it the grid loads `pet.id`'s loci. */
+  grid?: Record<string, ParsedChromosome> | null;
+  /** More items for the meta line. */
+  meta?: Snippet;
+  /** More header actions, after the local ones. */
+  actions?: Snippet;
+  /** Strips under the header: notes, status banners. */
+  notice?: Snippet;
+  /** Shown in place of the grid while the genome cannot be (loading, failed). */
+  placeholder?: Snippet;
 }
 
-const { pet }: Props = $props();
+const { pet, grid = null, meta, actions, notice, placeholder }: Props = $props();
+
+/** In the local database, so its images, sharing and editing exist. */
+const inStable = $derived(!!pet && pet.id !== PREVIEW_PET_ID);
 
 /**
  * Drawer heading per view. A record rather than a chain of ternaries so adding a
@@ -77,9 +100,11 @@ function handleShareResult(result: DialogResult): void {
 const isHorse = $derived(pet?.species?.toLowerCase() === 'horse');
 const petHasKnownBreed = $derived(isHorse && pet?.breed && HORSE_BREEDS[pet.breed]);
 
-// Initialize autoBreed from setting when a new pet is loaded
+// Initialize autoBreed from setting when a new pet is loaded. Previews all
+// share one id, so the content hash tells them apart.
 $effect(() => {
-  const _petId = pet?.id; // track pet changes
+  void pet?.id;
+  void pet?.content_hash;
   autoBreed = !!$settings['horse.autoSelectBreedFilter'];
 });
 
@@ -189,6 +214,7 @@ onDestroy(() => {
                     <span class="meta-dot">·</span>
                     <span class="unknown-badge">⚠ Unknown genes</span>
                 {/if}
+                {@render meta?.()}
             </div>
         </div>
         <div class="header-controls">
@@ -287,30 +313,39 @@ onDestroy(() => {
                 >
                     Stats
                 </button>
-                <button
-                    class="toggle-btn"
-                    class:active={galleryOpen}
-                    aria-pressed={galleryOpen}
-                    data-testid="detail-gallery-toggle"
-                    title="Toggle the image gallery"
-                    onclick={toggleGallery}
-                >
-                    Gallery
-                </button>
+                {#if inStable}
+                    <button
+                        class="toggle-btn"
+                        class:active={galleryOpen}
+                        aria-pressed={galleryOpen}
+                        data-testid="detail-gallery-toggle"
+                        title="Toggle the image gallery"
+                        onclick={toggleGallery}
+                    >
+                        Gallery
+                    </button>
+                {/if}
             </div>
-            <div class="seg header-actions">
-                <button
-                    class="seg-btn"
-                    data-testid="share-pet-btn"
-                    title="Share this pet to the public community catalogue"
-                    onclick={() => { showShare = true; }}
-                >
-                    Share
-                </button>
-                {#if pet}<PetActions {pet} variant="button" />{/if}
-            </div>
+            {#if inStable && pet}
+                <div class="seg header-actions">
+                    <button
+                        class="seg-btn"
+                        data-testid="share-pet-btn"
+                        title="Share this pet to the public community catalogue"
+                        onclick={() => { showShare = true; }}
+                    >
+                        Share
+                    </button>
+                    <PetActions {pet} variant="button" />
+                </div>
+            {/if}
+            {#if actions}
+                <div class="extra-actions">{@render actions()}</div>
+            {/if}
         </div>
     </div>
+
+    {@render notice?.()}
 
     {#if showShare && pet}
         <SharePetDialog
@@ -335,9 +370,14 @@ onDestroy(() => {
         <div class="gallery-container">
             <PetImageGallery {pet} />
         </div>
+      {:else if placeholder}
+        {@render placeholder()}
       {:else}
         <div class="visualizer-container">
-            <GeneVisualizer {pet} {populationPets} bind:this={geneVisualizerRef} />
+            <!-- Keyed on the grid: previews share one id, so a new genome must remount. -->
+            {#key grid}
+                <GeneVisualizer {pet} gridOverride={grid} {populationPets} bind:this={geneVisualizerRef} />
+            {/key}
         </div>
 
         <!-- The drawer stays MOUNTED in every view, including rarity.
@@ -422,6 +462,10 @@ onDestroy(() => {
     .detail-meta {
         font-size: 12px;
         color: var(--text-tertiary);
+        display: flex;
+        align-items: center;
+        gap: var(--space-xs);
+        flex-wrap: wrap;
     }
 
     .unknown-badge {
@@ -467,6 +511,11 @@ onDestroy(() => {
         background: var(--auto-active);
         border-color: var(--auto-active);
         color: var(--bg-primary);
+    }
+
+    .extra-actions {
+        display: flex;
+        align-items: center;
     }
 
     .toggle-controls {
