@@ -7,7 +7,7 @@
  * Gallery, Share and Edit/Delete need the animal in the local database, so
  * they show only for one that is.
  */
-import { onDestroy, type Snippet } from 'svelte';
+import { onDestroy, type Snippet, untrack } from 'svelte';
 import SharePetDialog from '$lib/components/community/SharePetDialog.svelte';
 import GeneStatsTable from '$lib/components/gene/GeneStatsTable.svelte';
 import GeneVisualizer from '$lib/components/gene/GeneVisualizer.svelte';
@@ -116,6 +116,14 @@ $effect(() => {
   if (geneVisualizerRef) {
     geneVisualizerRef.setBreedFilter(breedFilter);
   }
+});
+
+// Hand the view to the grid whenever one mounts: the first time, and again
+// when a new genome remounts it, which would otherwise reset it to Attributes
+// under a header still showing the old view.
+$effect(() => {
+  const ref = geneVisualizerRef;
+  if (ref) untrack(() => ref.handleViewChange(currentView));
 });
 
 function toggleAutoBreed(): void {

@@ -199,6 +199,26 @@ describe('CommunityPetVisualization detail header', () => {
     expect(getByText('Calm temper')).toBeTruthy();
   });
 
+  it('shows the breeder from the fetched record, which restores first-share identity', async () => {
+    getSharedPet.mockResolvedValue(makeSharedPet({ genomeData: GENOME, breeder: 'Original' }));
+    const { container, getByTestId } = render(CommunityPetVisualization, {
+      pet: makeSharedPet({ breeder: 'Spoofed' }),
+    });
+    await waitFor(() => expect(getByTestId('child-stub')).toBeTruthy());
+    const meta = container.querySelector('.detail-meta') as HTMLElement;
+    expect(meta).toHaveTextContent('by Original');
+    expect(meta).not.toHaveTextContent('Spoofed');
+  });
+
+  it('hands a view picked while the genome loads to the grid once it mounts', async () => {
+    let resolve: (p: SharedPet) => void = () => {};
+    getSharedPet.mockReturnValue(new Promise((r) => (resolve = r)));
+    const { getByTestId } = render(CommunityPetVisualization, { pet: makeSharedPet() });
+    await fireEvent.click(getByTestId('view-impact-btn'));
+    resolve(makeSharedPet({ genomeData: GENOME }));
+    await waitFor(() => expect(getByTestId('child-stub').dataset.view).toBe('impact'));
+  });
+
   it('titles the stats drawer for the impact view', async () => {
     getSharedPet.mockResolvedValue(makeSharedPet({ genomeData: GENOME }));
     const { container, getByTestId } = render(CommunityPetVisualization, { pet: makeSharedPet() });

@@ -47,10 +47,9 @@ const genomeError = $derived(
 // The fetched record re-merges identity from the first share, so it wins once
 // in. Provenance for the impact stats: published values off the default are
 // readings; an all-default record is an uploader who never entered any.
-const previewPet = $derived.by<Pet>(() => {
-  const source = fullPet ?? pet;
-  return { ...sharedPetToPet(source), attributes_measured: carriesReadings(source.attributes) };
-});
+/** The fetched record once in, else the list row: everything shown reads from it. */
+const shown = $derived(fullPet ?? pet);
+const previewPet = $derived<Pet>({ ...sharedPetToPet(shown), attributes_measured: carriesReadings(shown.attributes) });
 const grid = $derived(fullPet?.genomeData ? genomeTextToGrid(fullPet.genomeData) : null);
 
 // --- Import ---------------------------------------------------------------
@@ -80,13 +79,13 @@ async function handleImport(): Promise<void> {
 <div class="community-detail" data-testid="community-detail">
   <PetVisualization pet={previewPet} {grid} placeholder={grid ? undefined : genomeState}>
     {#snippet meta()}
-      {#if pet.breeder}
+      {#if shown.breeder}
         <span class="meta-dot">·</span>
-        <span>by {pet.breeder}</span>
+        <span>by {shown.breeder}</span>
       {/if}
       <span class="meta-dot">·</span>
-      <span>{formatShortDate(pet.uploadedAt)}</span>
-      {#each pet.tags as t (t)}
+      <span>{formatShortDate(shown.uploadedAt)}</span>
+      {#each shown.tags as t (t)}
         <span class="tag-badge">{t}</span>
       {/each}
     {/snippet}
@@ -113,10 +112,10 @@ async function handleImport(): Promise<void> {
     {/snippet}
 
     {#snippet notice()}
-      {#if pet.notes}
+      {#if shown.notes}
         <div class="notes-strip">
           <span class="block-label">Notes from the uploader</span>
-          <span class="notes-text">{pet.notes}</span>
+          <span class="notes-text">{shown.notes}</span>
         </div>
       {/if}
       {#if importStatus}
