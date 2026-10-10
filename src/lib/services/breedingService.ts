@@ -32,12 +32,12 @@ import {
   positiveExpressionProbability,
 } from '$lib/utils/breedingGenetics.js';
 import {
-  type AlleleTally,
   type BenefitWeight,
   breedReachFor,
-  expectedCapabilityGain,
-  tallyAlleles,
-  tallyFor,
+  maleFoalProbability,
+  type PoolTallies,
+  poolCapabilityGain,
+  tallyPool,
 } from '$lib/utils/geneticQuality.js';
 import { loadAllPetLoci, type PetLoci, walkPairLoci } from '$lib/utils/petLoci.js';
 import { capitalize } from '$lib/utils/string.js';
@@ -364,7 +364,7 @@ function scorePair(
   mLoci: PetLoci,
   fLoci: PetLoci,
   parsedGenes: Record<string, ParsedGeneRecord>,
-  tallies: Map<string, AlleleTally>,
+  tallies: PoolTallies,
   ownProfiles: Map<number, ParentExpressedProfile>,
   offspringBreed: string | undefined,
   species: string,
@@ -398,6 +398,8 @@ function scorePair(
   let evLockedPositives = 0;
   let lockedVariance = 0;
   let totalLoci = 0;
+  // The foal's sex decides which side of a recessive it can supply.
+  const pMale = maleFoalProbability(male.virility, female.virility);
 
   walkPairLoci(mLoci, fLoci, (geneId, t1, t2) => {
     const gd = parsedGenes[geneId];
@@ -414,7 +416,7 @@ function scorePair(
       // genome is in play, and three-quarters of them belong to a breed this
       // foal will not be. Weighting keeps "Reach new ground" pointed at
       // material that stays useful whatever breed the player ends up on.
-      evCapabilityGain += expectedCapabilityGain(dist, gd, tallyFor(tallies, geneId)) * (weight ? weight(gd) : 1);
+      evCapabilityGain += poolCapabilityGain(dist, gd, geneId, tallies, pMale) * (weight ? weight(gd) : 1);
       const pPos = positiveExpressionProbability(dist, gd);
       positiveVariance += pPos * (1 - pPos);
       const pNeg = negativeExpressionProbability(dist, gd);
@@ -587,7 +589,9 @@ export async function rankBreedingPairs(opts: RankBreedingPairsOptions): Promise
   // Capability is measured against the whole candidate pool, parents
   // included: a pairing that only reproduces what the stable already breeds
   // true must score nothing, and that has to fall out of the arithmetic.
-  const tallies = tallyAlleles(petLociMap.values());
+  // Split by sex too: a recessive gain depends on which sex lacks it.
+  const lociOf = (pets: Pet[]) => pets.map((p) => petLociMap.get(p.id) ?? empty);
+  const tallies = tallyPool(lociOf(males), lociOf(females));
   // The focus is whatever breed the player committed to; with none, generic
   // loci simply outweigh the breed-locked ones.
   const weight = breedReachFor(parsedGenes, opts.offspringBreed, opts.breedLockWeight);

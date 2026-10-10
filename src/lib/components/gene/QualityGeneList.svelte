@@ -4,7 +4,7 @@
  * drawer body of the Quality lens. Picking a row outlines the gene on the
  * grid.
  */
-import { type QualityRow, STANDING_HINT, STANDING_LABEL } from '$lib/utils/qualityLens.js';
+import { type QualityRow, standingHint, standingLabel } from '$lib/utils/qualityLens.js';
 
 interface Props {
   rows: readonly QualityRow[];
@@ -32,8 +32,9 @@ const value = (v: number) => v.toFixed(v < 0.1 ? 2 : 1);
   {:else}
     <p class="note">
       {value(total)} slot-units, {share.toFixed(0)}% of the stable's total{inStable ? '' : ' if added to it'}. 1 = the only
-      carrier, breeding it true; 0.5 = the only carrier, or the only true breeder where others carry it. Alleles locked
-      to a breed you are not breeding count less.
+      carrier, breeding it true; 0.5 = the only carrier, or the only true breeder where others carry it. A recessive
+      needs a copy from each parent, so it is judged only against pets of the same sex. Alleles locked to a breed you are not
+      breeding count less.
     </p>
     <table>
       <thead>
@@ -62,7 +63,7 @@ const value = (v: number) => v.toFixed(v < 0.1 ? 2 : 1);
               {row.benefits.join(', ')}
               {#if !row.generic}<span class="muted">· breed-locked</span>{/if}
             </td>
-            <td class="standing {row.standing}" title={STANDING_HINT[row.standing]}>{STANDING_LABEL[row.standing]}</td>
+            <td class="standing {row.standing}" title={standingHint(row.standing, row.sex)}>{standingLabel(row.standing, row.sex)}</td>
             <td class="numeric">{value(row.value)}</td>
           </tr>
         {/each}

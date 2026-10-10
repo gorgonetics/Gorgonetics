@@ -113,7 +113,9 @@ describe('Roster — genetic quality column', () => {
     const { container } = render(Roster, { pets, onOpen });
     await waitFor(() => expect(cellFor(container, 'Founder')?.textContent?.trim()).toBe('100.0%◆'));
     const founder = cellFor(container, 'Founder') as HTMLElement;
-    expect(founder.getAttribute('title')).toContain('Genes: 01A1 R (Intelligence +, no Toughness −, only carrier)');
+    expect(founder.getAttribute('title')).toContain(
+      'Genes: 01A1 R (Intelligence +, no Toughness −, only female carrier)',
+    );
     expect(founder.tagName).toBe('BUTTON');
     founder.click();
     expect(onOpen).toHaveBeenCalledWith(pets[0], 'quality');

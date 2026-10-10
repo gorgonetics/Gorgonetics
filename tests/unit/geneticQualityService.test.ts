@@ -106,7 +106,7 @@ describe('scoreStable', () => {
 
   it('scores relative to the set it is given, not the whole database', async () => {
     const a = await upload('A', Gender.FEMALE, 'RDx');
-    const b = await upload('B', Gender.MALE, 'RDx');
+    const b = await upload('B', Gender.FEMALE, 'RDx');
     const c = await upload('C', Gender.MALE, 'DDx');
     // A and B are mutually redundant → neither is irreplaceable.
     const both = await scoreStable({ species: 'BeeWasp', pets: [a, b, c] });
@@ -115,6 +115,22 @@ describe('scoreStable', () => {
     const withoutB = await scoreStable({ species: 'BeeWasp', pets: [a, c] });
     expect(withoutB.scores.get(a.id)?.atRiskCapability).toBeCloseTo(2, 10);
   });
+
+  it('does not let one sex back up the other for a recessive', async () => {
+    // A recessive needs a copy from each parent: the female cannot replace
+    // the only male carrier in a pair, nor he her.
+    const male = await upload('M', Gender.MALE, 'RDx');
+    const female = await upload('F', Gender.FEMALE, 'RDx');
+    const rest = [await upload('M2', Gender.MALE, 'DDx'), await upload('F2', Gender.FEMALE, 'DDx')];
+    const { scores } = await scoreStable({ species: 'BeeWasp', pets: [male, female, ...rest] });
+    for (const p of [male, female]) {
+      const r = scores.get(p.id);
+      expect(r?.atRiskCapability).toBeCloseTo(2, 10);
+      expect(r?.contributions.every((c) => c.standing === 'sole' && c.sex === p.gender)).toBe(true);
+    }
+    // A dominant needs one parent only: the 01A2 D both carry stays backed.
+    expect(scores.get(male.id)?.contributions.some((c) => c.gene === '01A2')).toBe(false);
+  });
 });
 
 describe('safeCullSet', () => {
@@ -122,7 +138,8 @@ describe('safeCullSet', () => {
 
   it('releases redundant animals but never the last source', async () => {
     // Two carriers of the recessive positive plus four animals without it.
-    const carriers = [await upload('C1', Gender.FEMALE, 'xDx'), await upload('C2', Gender.MALE, 'xDx')];
+    // Same sex, so each backs the other up.
+    const carriers = [await upload('C1', Gender.FEMALE, 'xDx'), await upload('C2', Gender.FEMALE, 'xDx')];
     const rest = [
       await upload('R1', Gender.MALE, 'DDx'),
       await upload('R2', Gender.MALE, 'DDx'),

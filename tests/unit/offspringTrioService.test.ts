@@ -270,9 +270,9 @@ describe('computeOffspringTrio — per-locus score contributions', () => {
 
     // 01A1 is recessive-positive; x × x puts 0.25 on the recessive outcome.
     expect(byId['01A1'].contributions.positive).toBeCloseTo(0.25, 10);
-    // Pool capability at the slot is 0.5 (carriers, no homozygote); the foal
-    // reaches homozygous-recessive a quarter of the time.
-    expect(byId['01A1'].contributions.capability).toBeCloseTo(0.125, 10);
+    // Each sex holds carriers only (0.5). A homozygous foal, a quarter of the
+    // time, lifts its own sex to 1 — whichever sex it is.
+    expect(byId['01A1'].contributions.capability).toBeCloseTo(0.25 * 0.5, 10);
 
     // 01A2 is recessive-negative: no positive slot, so nothing to attribute.
     expect(byId['01A2'].contributions).toEqual({ positive: 0, capability: 0 });

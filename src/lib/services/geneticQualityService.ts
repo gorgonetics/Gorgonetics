@@ -28,6 +28,7 @@ import {
   capabilityShare,
   type GeneticQualityResult,
   hasMeaningfulPopulation,
+  type Pairing,
   type QualityStanding,
   rareBenefitAlleles,
   type SafeCullResult,
@@ -57,6 +58,11 @@ async function loadInputs(
   const ids = pets.map((p) => p.id);
   const [loci, genes] = await Promise.all([loadAllPetLoci(ids), getParsedGenesCached(canonical)]);
   return { canonical, loci, genes, ids };
+}
+
+/** Each pet's sex, so recessive alleles are judged per sex (see `Pairing`). */
+function sexOf(pets: readonly Pet[]): Map<number, Gender> {
+  return new Map(pets.map((p) => [p.id, p.gender]));
 }
 
 /**
@@ -151,6 +157,7 @@ export async function scoreStable(opts: ScoreStableOptions): Promise<StableScore
   const scored = ids.filter((id) => loci.has(id));
   const scores = scoreGroup(loci, genes, scored, {
     weight: breedReachFor(genes, opts.focusBreed, opts.breedLockWeight),
+    sex: sexOf(opts.pets),
   });
   return {
     scores,
@@ -166,6 +173,8 @@ export interface ExplainQualityOptions {
   petId: number;
   /** Its genome, from whatever grid is on screen — the DB is not read for it. */
   loci: PetLoci;
+  /** Its sex. Defaults to its entry in `pool`; with neither, recessive alleles are judged sex-blind. */
+  gender?: Gender;
   /** The stabled animals of the species, as the roster scores them. */
   pool: readonly Pet[];
   focusBreed?: string;
@@ -199,10 +208,17 @@ export async function explainQuality(opts: ExplainQualityOptions): Promise<Quali
   loci.set(opts.petId, opts.loci);
   const scored = [...ids.filter((id) => loci.has(id)), opts.petId];
   const weight = breedReachFor(genes, opts.focusBreed, opts.breedLockWeight);
-  const shares = capabilityShare(scoreGroup(loci, genes, scored, { weight }));
+  const sex = sexOf(others);
+  const gender = opts.gender ?? opts.pool.find((p) => p.id === opts.petId)?.gender;
+  if (gender) sex.set(opts.petId, gender);
+  const shares = capabilityShare(scoreGroup(loci, genes, scored, { weight, sex }));
   const standing = new Map<string, QualityStanding>();
-  const tallies = tallyAlleles(scored.map((id) => loci.get(id) as PetLoci));
-  const result = scorePet(opts.loci, genes, tallies, { weight, standing });
+  const lociOf = (ids: number[]) => ids.map((id) => loci.get(id) as PetLoci);
+  const tallies = tallyAlleles(lociOf(scored));
+  const pairing: Pairing | undefined = gender
+    ? { sex: gender, sameSex: tallyAlleles(lociOf(scored.filter((id) => sex.get(id) === gender))) }
+    : undefined;
+  const result = scorePet(opts.loci, genes, tallies, { weight, standing, pairing });
   return {
     result,
     standing,
@@ -220,7 +236,13 @@ export async function explainQuality(opts: ExplainQualityOptions): Promise<Quali
  */
 export async function capabilitySummary(opts: { species: string; pets: readonly Pet[] }): Promise<CapabilitySummary> {
   const { loci, genes } = await loadInputs(opts.species, opts.pets);
-  return summarise(loci.values(), genes);
+  return summarise(loci.values(), genes, { bySex: lociBySex(opts.pets, loci) });
+}
+
+/** The loaded loci split by sex, for `capabilitySummary`. */
+export function lociBySex(pets: readonly Pet[], loci: Map<number, PetLoci>): Record<Gender, PetLoci[]> {
+  const of = (g: Gender) => pets.filter((p) => p.gender === g && loci.has(p.id)).map((p) => loci.get(p.id) as PetLoci);
+  return { [Gender.MALE]: of(Gender.MALE), [Gender.FEMALE]: of(Gender.FEMALE) } as Record<Gender, PetLoci[]>;
 }
 
 export interface SafeCullOptions {
@@ -436,7 +458,7 @@ export async function safeCullSet(opts: SafeCullOptions): Promise<SafeCullSet> {
     for (const p of [byPositives, byAttributes]) if (p && !pinned.has(p.id)) protectedBest.add(p.id);
   }
 
-  const sex = new Map<number, string>(opts.pets.map((p) => [p.id, p.gender]));
+  const sex = sexOf(opts.pets);
   const slots = opts.slots ?? 0;
   const floor = Math.max(0, opts.pairs ?? Math.min(slots, Math.floor((population.length - slots) / 2)));
   const excluded = new Set<number>([...pinned, ...protectedBest]);
@@ -448,6 +470,7 @@ export async function safeCullSet(opts: SafeCullOptions): Promise<SafeCullSet> {
     netLiability: opts.mode === 'clean',
     target: opts.slots,
     weight,
+    sex,
   });
 
   // `totalCost` comes from the walk, so the two totals must be summed over the
