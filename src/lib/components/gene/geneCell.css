@@ -104,6 +104,31 @@
   clip-path: polygon(100% 0, 100% 100%, 0 100%);
 }
 
+/* --- Quality lens -------------------------------------------------------------
+ *
+ * How much the stable needs this pet for the benefit allele it carries at a
+ * locus (utils/qualityLens.ts): only carrier, only true breeder, backed up.
+ * One green ramp, because every coloured cell is a benefit; the strength is
+ * how irreplaceable it is. Loci with no benefit allele stay neutral. The
+ * injected sheet sets `--quality-fill`, and `--quality-ring` on the gene
+ * picked in the drawer.
+ */
+:root,
+[data-theme="dark"] {
+  --quality-sole: var(--gene-positive);
+  --quality-lock: color-mix(in oklab, var(--gene-positive) 55%, transparent);
+  --quality-backed: color-mix(in oklab, var(--gene-positive) 16%, transparent);
+  --quality-highlight: var(--text-primary);
+}
+
+.view-quality.gene-grid-container .gene-cell:not(.gene-unknown) {
+  border-width: 1px;
+  border-color: var(--impact-cell-edge);
+  background: var(--quality-fill, var(--impact-neutral));
+  outline: 2px solid var(--quality-ring, transparent);
+  outline-offset: 1px;
+}
+
 /* --- Rarity lens (#368) ----------------------------------------------------
  *
  * A diverging scale with a shared neutral centre: purple = a scarce DOMINANT

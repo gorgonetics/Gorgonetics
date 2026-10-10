@@ -117,6 +117,7 @@ describe('PetVisualization detail header', () => {
         'Attributes',
         'Appearance',
         'Rarity',
+        'Quality',
         'Impact',
       ]);
       expect(q(container, '.toggle-controls [data-testid="detail-stats-toggle"]')).not.toBeNull();
@@ -139,6 +140,13 @@ describe('PetVisualization detail header', () => {
       // PetActions renders into .header-actions from a child component — the
       // case that previously forced the self-styled `.hdr-btn` mimic.
       expect(q(container, '.header-actions [data-testid="pet-edit-btn"]')?.classList.contains('seg-btn')).toBe(true);
+    });
+
+    it('opens in the view it is asked for, with the drawer listing the Quality genes', () => {
+      const { container, getByTestId } = render(PetVisualization, { pet: makePet(), initialView: 'quality' });
+      expect(btn(container, 'Quality').classList.contains('active')).toBe(true);
+      expect(getByTestId('detail-stats-toggle').getAttribute('aria-pressed')).toBe('true');
+      expect(q(container, '.stats-drawer-title')?.textContent?.trim()).toBe('Genes behind the Quality score');
     });
 
     it('Stats is a pressed toggle, not a sibling view highlight', async () => {

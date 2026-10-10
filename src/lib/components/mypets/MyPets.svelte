@@ -60,6 +60,8 @@ function toggleTag(tag: string): void {
 
 // --- View mode: table (default) | detail | compare -------------------------
 let detailPetId = $state<number | null>(null);
+/** The view the detail opens in; the roster's Quality column asks for `quality`. */
+let detailView = $state('attribute');
 let comparing = $state(false);
 
 // Switching species changes the candidate universe. In one effect, keyed on the
@@ -98,6 +100,7 @@ $effect(() => {
   const requested = myPetsView.openPetId;
   if (requested == null) return;
   if (!$pets.some((p) => p.id === requested)) return;
+  detailView = 'attribute';
   detailPetId = requested;
   comparing = false;
   myPetsView.openPetId = null;
@@ -149,8 +152,9 @@ $effect(() => {
   if (comparing && !canCompare) comparing = false;
 });
 
-function openDetail(pet: Pet): void {
+function openDetail(pet: Pet, view = 'attribute'): void {
   comparing = false;
+  detailView = view;
   detailPetId = pet.id;
 }
 function closeDetail(): void {
@@ -402,7 +406,7 @@ const canShareAll = $derived(!isPlaceholderConfig && $pets.length > 0);
     <DetailOverlay testid="pet-detail" backTestid="pet-detail-back" backLabel="← Pets" ariaLabel="Pet detail" onBack={closeDetail}>
       {#snippet title()}{getSpeciesEmoji(detailPet.species)} {detailPet.name || 'Pet'}{/snippet}
       <!-- PetVisualization owns its own header (views / stats / gallery / share / edit / delete). -->
-      <PetVisualization pet={detailPet} />
+      <PetVisualization pet={detailPet} initialView={detailView} />
     </DetailOverlay>
   {:else if comparing && canCompare}
     <!-- GenomeGridDiff owns its DetailOverlay shell (back button, title, and the

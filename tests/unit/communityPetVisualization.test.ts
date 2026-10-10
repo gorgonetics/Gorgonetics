@@ -174,6 +174,7 @@ describe('CommunityPetVisualization detail header', () => {
       'Attributes',
       'Appearance',
       'Rarity',
+      'Quality',
       'Impact',
     ]);
   });

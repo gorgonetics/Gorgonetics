@@ -62,6 +62,8 @@ const mocks = vi.hoisted(() => {
 vi.mock('$lib/services/petService.js', () => ({ loadPetGridFromDb: mocks.loadPetGridFromDb }));
 vi.mock('$lib/services/geneService.js', () => ({ getGeneEffectsCached: mocks.getGeneEffectsCached }));
 vi.mock('$lib/services/frequencyService.js', () => ({ computeRarityLookup: mocks.computeRarityLookup }));
+const explainQuality = vi.hoisted(() => vi.fn());
+vi.mock('$lib/services/geneticQualityService.js', () => ({ explainQuality }));
 
 import GeneVisualizer from '$lib/components/gene/GeneVisualizer.svelte';
 
@@ -93,6 +95,8 @@ afterEach(() => {
   mocks.baseline.defer = false;
   document.getElementById('gene-visualizer-filters')?.remove();
   document.getElementById('gene-visualizer-rarity')?.remove();
+  document.getElementById('gene-visualizer-quality')?.remove();
+  explainQuality.mockReset();
 });
 
 describe('GeneVisualizer load reconciliation (#403 review #1)', () => {
@@ -236,5 +240,59 @@ describe('GeneVisualizer breed relevance reactivity (#403 review #4)', () => {
       expect(css).toContain('tr[data-chromosome="01"]'); // hidden: no Arabian/generic gene
       expect(css).not.toContain('tr[data-chromosome="02"]'); // generic → kept
     });
+  });
+});
+
+describe('GeneVisualizer quality lens', () => {
+  const sheet = () => document.getElementById('gene-visualizer-quality')?.textContent ?? '';
+
+  it('scores the grid on screen, paints each standing, and outlines a picked gene', async () => {
+    explainQuality.mockResolvedValue({
+      result: {
+        atRiskCapability: 1.5,
+        contributions: [
+          {
+            gene: '01A1',
+            allele: 'R',
+            kind: 'add',
+            attribute: 'temperament',
+            standing: 'sole',
+            generic: true,
+            value: 1,
+          },
+        ],
+      },
+      standing: new Map([
+        ['01A1', 'sole'],
+        ['01A2', 'backed'],
+      ]),
+      share: 37,
+      inStable: true,
+      meaningful: true,
+    });
+    const rendered = render(GeneVisualizer, { pet: makePet({ id: 4 }) });
+    await waitFor(() => expect(mocks.loadPetGridFromDb).toHaveBeenCalledWith(4));
+    mocks.gridResolvers.get(4)?.(gridText('1=Rx\n'));
+    await waitFor(() => expect(rendered.container.querySelector('[data-chromosome="01"]')).not.toBeNull());
+    const api = rendered.component as unknown as {
+      handleViewChange: (v: string) => void;
+      highlightGene: (g: string) => void;
+      getStatsData: () => { quality: { rows: Array<{ gene: string }> } | null };
+    };
+    api.handleViewChange('quality');
+
+    await waitFor(() => expect(sheet()).toContain('var(--quality-sole)'));
+    // Scored from the rendered grid, so a preview pet needs no DB read.
+    expect(explainQuality.mock.calls[0][0].loci.get('01A1')).toBe('R');
+    expect(rendered.container.querySelector('.gene-grid-container.view-quality')).not.toBeNull();
+    expect(rendered.container.querySelector('[data-testid="quality-status"]')?.textContent).toContain(
+      "1.5 slot-units, 37% of the stable's total",
+    );
+    expect(api.getStatsData().quality?.rows.map((r) => r.gene)).toEqual(['01A1']);
+
+    api.highlightGene('01A1');
+    await waitFor(() => expect(sheet()).toContain('--quality-ring'));
+    api.highlightGene('01A1');
+    await waitFor(() => expect(sheet()).not.toContain('--quality-ring'));
   });
 });

@@ -14,9 +14,11 @@ import {
 } from '$lib/services/configService.js';
 import { computeRarityLookup, type RarityLookup } from '$lib/services/frequencyService.js';
 import { getGeneEffectsCached } from '$lib/services/geneService.js';
+import { explainQuality } from '$lib/services/geneticQualityService.js';
 import { loadPetGridFromDb } from '$lib/services/petService.js';
 import { loadGeneImpact, STUDYABLE_SPECIES, studyInputsKey } from '$lib/services/studyService.js';
 import { pets as petList } from '$lib/stores/pets.js';
+import { settings } from '$lib/stores/settings.js';
 import { EFFECT_COLORS } from '$lib/theme/gene-colors.js';
 import type { AppearanceInfo, GeneType, Pet } from '$lib/types/index.js';
 import { buildVisualizerFilterCSS, type ChrBreedRelevance, joinAttrs } from '$lib/utils/filterCSS.js';
@@ -48,8 +50,10 @@ import {
   initializeStats as buildEmptyStats,
   type StatsMap,
 } from '$lib/utils/geneStats.js';
+import { parseBreedLockWeight } from '$lib/utils/geneticQuality.js';
 import { handleGridNavigation } from '$lib/utils/keyboard.js';
 import { keyedResource } from '$lib/utils/keyedResource.svelte.js';
+import { buildQualityCSS, gridToLoci, qualityRows, qualityTooltip, STANDING_HINT } from '$lib/utils/qualityLens.js';
 import { buildRarityCSS, type RarityCell } from '$lib/utils/rarityCSS.js';
 import { buildRarityTooltip, placeRarityTooltip } from '$lib/utils/rarityTooltip.js';
 import { capitalize, escapeHtml, pluralise } from '$lib/utils/string.js';
@@ -173,7 +177,7 @@ let currentPet = $state<{
   breed: string;
   grid: Record<string, ParsedChromosome>;
 } | null>(null);
-let currentView = $state<'attribute' | 'appearance' | 'rarity' | 'impact'>('attribute');
+let currentView = $state<'attribute' | 'appearance' | 'rarity' | 'quality' | 'impact'>('attribute');
 
 // --- Rarity lens state ------------------------------------------------------
 // `rarityLoading` is deliberately NOT the component's `loading`: that one swaps
@@ -290,6 +294,7 @@ let filterStyleEl: HTMLStyleElement | null = null;
 /** Separate sheet from the filters one — never overload that. */
 let rarityStyleEl: HTMLStyleElement | null = null;
 let impactStyleEl: HTMLStyleElement | null = null;
+let qualityStyleEl: HTMLStyleElement | null = null;
 
 onMount(() => {
   filterStyleEl = document.createElement('style');
@@ -301,6 +306,9 @@ onMount(() => {
   impactStyleEl = document.createElement('style');
   impactStyleEl.id = 'gene-visualizer-impact';
   document.head.appendChild(impactStyleEl);
+  qualityStyleEl = document.createElement('style');
+  qualityStyleEl.id = 'gene-visualizer-quality';
+  document.head.appendChild(qualityStyleEl);
   // Warm the effect cache for the common species; the load path also loads
   // on demand, so this is a best-effort optimisation only.
   void preloadGeneEffects();
@@ -313,6 +321,8 @@ onDestroy(() => {
   rarityStyleEl = null;
   impactStyleEl?.remove();
   impactStyleEl = null;
+  qualityStyleEl?.remove();
+  qualityStyleEl = null;
   cleanup();
 });
 
@@ -465,6 +475,61 @@ $effect(() => {
     maxAbs: impactMaxAbs,
     labels: true,
   });
+});
+
+// --- Quality lens -----------------------------------------------------------
+// The roster's Quality score for this pet, drawn per cell. Scored against the
+// same population and weighting as the column — the stabled pets of the
+// species and the two quality settings — so the two cannot disagree. Lazy,
+// like the other lenses, and keyed on everything the score reads.
+const qualityPool = $derived(
+  currentPet
+    ? $petList.filter((p) => p.stabled && normalizeSpecies(p.species) === normalizeSpecies(currentPet?.species ?? ''))
+    : [],
+);
+const qualityFocus = $derived(String($settings['quality.focusBreed'] ?? ''));
+const qualityLockWeight = $derived(parseBreedLockWeight($settings['quality.breedLockWeight']));
+const qualityKey = $derived.by(() => {
+  if (currentView !== 'quality' || !currentPet) return null;
+  return [
+    currentPet.species,
+    currentPet.id,
+    pet?.content_hash ?? '',
+    qualityFocus,
+    qualityLockWeight ?? 'auto',
+    qualityPool.map((p) => p.id).join(','),
+  ].join('|');
+});
+const quality = keyedResource(
+  () => qualityKey,
+  () => {
+    const p = currentPet;
+    if (!p) return Promise.reject(new Error('No pet'));
+    return explainQuality({
+      species: p.species,
+      petId: p.id,
+      loci: gridToLoci(p.grid),
+      pool: qualityPool,
+      focusBreed: qualityFocus,
+      breedLockWeight: qualityLockWeight,
+    });
+  },
+);
+const qualityReport = $derived(currentView === 'quality' && !quality.loading ? (quality.value ?? null) : null);
+const qualityError = $derived(quality.error ? 'Could not score this pet' : null);
+const qualityGeneRows = $derived(qualityReport ? qualityRows(qualityReport.result.contributions) : []);
+/** A gene picked in the drawer list, outlined on the grid. */
+let highlightedGene = $state<string | null>(null);
+
+$effect(() => {
+  if (!qualityStyleEl) return;
+  qualityStyleEl.textContent = qualityReport
+    ? buildQualityCSS({
+        scope: '.view-quality.gene-grid-container',
+        standing: qualityReport.standing,
+        highlight: highlightedGene,
+      })
+    : '';
 });
 
 /** Every cell currently in the grid, as the rarity sheet needs them. */
@@ -888,7 +953,7 @@ function computeStats() {
   // (unmounting it would resize the grid); rarity swaps its body for a note,
   // and impact reads `impactSummary` through `getStatsData` instead. So there
   // is nothing to recompute; leave the last computed stats in place.
-  if (currentView === 'rarity' || currentView === 'impact') return;
+  if (currentView === 'rarity' || currentView === 'impact' || currentView === 'quality') return;
   const view = currentView;
   const names = view === 'attribute' ? attributeStatNames : appearanceStatNames;
   const stats = buildEmptyStats(view, names);
@@ -954,6 +1019,25 @@ function showTooltipForCell(cell: HTMLElement, clientX: number, clientY: number)
     tooltipEffect = '';
     tooltipSubtitle = subtitle;
     tooltipEffectsLabel = 'Rarity';
+    tooltipPotentialEffects = lines;
+    tooltipVisible = true;
+    return;
+  }
+  if (currentView === 'quality') {
+    const { subtitle, lines } = qualityReport
+      ? qualityTooltip(geneId, qualityReport.standing.get(geneId), qualityReport.result.contributions)
+      : { subtitle: qualityError ?? 'Scoring…', lines: [] };
+    const { x, y } = placeRarityTooltip(clientX, clientY, lines.length, {
+      width: window.innerWidth,
+      height: window.innerHeight,
+    });
+    tooltipX = x;
+    tooltipY = y;
+    tooltipGeneId = geneId;
+    tooltipGeneType = geneType;
+    tooltipEffect = '';
+    tooltipSubtitle = subtitle;
+    tooltipEffectsLabel = 'Quality';
     tooltipPotentialEffects = lines;
     tooltipVisible = true;
     return;
@@ -1260,7 +1344,7 @@ export function handleAttributeFilter(event: CustomEvent<{ attribute: string; ct
 }
 
 /** The views this component can render. Anything else coerces to `attribute`. */
-const VIEWS = ['attribute', 'appearance', 'rarity', 'impact'] as const;
+const VIEWS = ['attribute', 'appearance', 'rarity', 'quality', 'impact'] as const;
 
 export function handleViewChange(view: string) {
   // The coercion is load-bearing: an unrecognised value must not leave the
@@ -1268,7 +1352,19 @@ export function handleViewChange(view: string) {
   // than a ternary chain, so adding a view means adding it there — not editing
   // a condition that silently no-ops when missed.
   currentView = (VIEWS as readonly string[]).includes(view) ? (view as (typeof VIEWS)[number]) : 'attribute';
+  highlightedGene = null;
   computeStats();
+}
+
+/**
+ * Outline a gene and scroll it into view; the same gene again clears it.
+ * Used by the Quality drawer list.
+ */
+export function highlightGene(geneId: string) {
+  highlightedGene = highlightedGene === geneId ? null : geneId;
+  if (!highlightedGene) return;
+  const cell = gridContainerEl?.querySelector<HTMLElement>(`.gene-cell[data-gene-id="${CSS.escape(geneId)}"]`);
+  cell?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
 }
 
 export function setBreedFilter(breed: string) {
@@ -1284,6 +1380,16 @@ export function getStatsData() {
   return {
     currentStats,
     impactRows: impactReady ? impactSummary : null,
+    quality: qualityReport
+      ? {
+          rows: qualityGeneRows,
+          share: qualityReport.share,
+          total: qualityReport.result.atRiskCapability,
+          inStable: qualityReport.inStable,
+          meaningful: qualityReport.meaningful,
+        }
+      : null,
+    highlightedGene,
     currentView,
     selectedAttributes,
     hiddenAttributes,
@@ -1406,6 +1512,26 @@ const blockIndices = $derived.by(() => {
                                     {/if}
                                 </span>
                             </div>
+                        {:else if currentView === "quality"}
+                            <div class="legend-row quality-legend" data-testid="quality-legend">
+                                {#each [["sole", "Only carrier"], ["lock", "Only true breeder"], ["backed", "Backed up"]] as [key, label] (key)}
+                                    <span class="rarity-swatch" style="background: var(--quality-{key})" title={STANDING_HINT[key as "sole"]}></span>
+                                    <span class="legend-label">{label}</span>
+                                {/each}
+                                <span class="rarity-swatch legend-gap" style="background: var(--impact-neutral)"></span>
+                                <span class="legend-label legend-label-muted">No benefit allele</span>
+                                <span class="legend-label legend-label-muted" data-testid="quality-status">
+                                    {#if qualityError}
+                                        {qualityError}
+                                    {:else if !qualityReport}
+                                        Scoring…
+                                    {:else if !qualityReport.meaningful}
+                                        Too few stabled {capitalize(currentPet?.species ?? "pet")}s to compare against each other.
+                                    {:else}
+                                        {qualityReport.result.atRiskCapability.toFixed(1)} slot-units, {qualityReport.share.toFixed(0)}% of the stable's total{qualityReport.inStable ? "" : " if added to it"}
+                                    {/if}
+                                </span>
+                            </div>
                         {:else if currentView === "impact"}
                             <div class="legend-row impact-legend" data-testid="impact-legend">
                                 {#each [4, 3, 2, 1] as l (l)}
@@ -1482,7 +1608,7 @@ const blockIndices = $derived.by(() => {
                      Tooltip + keyboard-nav listeners are delegated on this
                      container via addEventListener (see the $effect above). -->
                 <div
-                    class="gene-grid-container {currentView === 'rarity' ? 'view-rarity' : ''} {currentView === 'impact' ? 'view-impact' : ''}"
+                    class="gene-grid-container {currentView === 'rarity' ? 'view-rarity' : ''} {currentView === 'impact' ? 'view-impact' : ''} {currentView === 'quality' ? 'view-quality' : ''}"
                     class:rarity-unscored={currentView === "rarity" && !rarityReady}
                     class:impact-no-labels={cellSize < IMPACT_LABEL_MIN_CELL}
                     bind:this={gridContainerEl}
@@ -1515,7 +1641,7 @@ const blockIndices = $derived.by(() => {
                                                     <td class="gene-cell-container {i === 0 ? 'block-start' : ''} {!cell ? 'empty' : ''}">
                                                         {#if cell}
                                                             <div
-                                                                class={currentView === "appearance" ? cell.appearanceCls : currentView === "rarity" || currentView === "impact" ? cell.rarityCls : cell.attributeCls}
+                                                                class={currentView === "appearance" ? cell.appearanceCls : currentView === "rarity" || currentView === "impact" || currentView === "quality" ? cell.rarityCls : cell.attributeCls}
                                                                 data-gene-id={cell.id}
                                                                 data-gene-type={cell.type}
                                                                 data-effect={cell.effect}
