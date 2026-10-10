@@ -273,8 +273,8 @@
   },
   {
     "gene": "47I3",
-    "effectDominant": "None",
-    "effectRecessive": "Virility+",
+    "effectDominant": "Virility+",
+    "effectRecessive": "None",
     "appearance": "Markings",
     "breed": "Calico",
     "notes": ""
