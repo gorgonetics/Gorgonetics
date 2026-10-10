@@ -14,6 +14,7 @@ import { GeneType } from '$lib/types/index.js';
 import type { ParsedChromosome } from '$lib/utils/geneAnalysis.js';
 import type { QualityContribution, QualityStanding } from '$lib/utils/geneticQuality.js';
 import type { PetLoci } from '$lib/utils/petLoci.js';
+import { escapeHtml } from '$lib/utils/string.js';
 
 /** The pet's genotypes from a rendered grid, so a preview pet needs no DB read. */
 export function gridToLoci(grid: Readonly<Record<string, ParsedChromosome>>): PetLoci {
@@ -111,7 +112,10 @@ export function buildQualityCSS({ scope, standing, highlight }: QualityCSSInput)
   return out.join('\n');
 }
 
-/** Tooltip card for one cell. Lines are HTML; every interpolated string here is a gene id or fixed text. */
+/**
+ * Tooltip card for one cell. Lines are HTML (GeneTooltip renders them with
+ * `{@html}`), and the attribute name comes from the gene table, so it is escaped.
+ */
 export function qualityTooltip(
   gene: string,
   standing: QualityStanding | undefined,
@@ -121,7 +125,7 @@ export function qualityTooltip(
   const mine = contributions.filter((c) => c.gene === gene);
   const lines = mine.map(
     (c) =>
-      `${allele(c.allele)}: ${benefitText(c)} · ${c.generic ? 'any breed' : 'breed-locked'} · ${c.value.toFixed(c.value < 0.1 ? 2 : 1)}`,
+      `${allele(c.allele)}: ${escapeHtml(benefitText(c))} · ${c.generic ? 'any breed' : 'breed-locked'} · ${c.value.toFixed(c.value < 0.1 ? 2 : 1)}`,
   );
   return { subtitle: `${STANDING_LABEL[standing]} — ${STANDING_HINT[standing].toLowerCase()}`, lines };
 }

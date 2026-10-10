@@ -22,13 +22,13 @@ describe('QualityGeneList', () => {
     expect(getByTestId('quality-gene-list')).toHaveTextContent("42% of the stable's total");
   });
 
-  it('picks a gene on click and on Enter, and marks the highlighted one', async () => {
+  it('picks a gene with a real button, and marks the highlighted one', async () => {
     const onSelect = vi.fn();
-    const { getByTestId } = render(QualityGeneList, { ...base, highlighted: '09B2', onSelect });
-    await fireEvent.click(getByTestId('quality-row-01A1'));
-    await fireEvent.keyDown(getByTestId('quality-row-09B2'), { key: 'Enter' });
-    expect(onSelect.mock.calls).toEqual([['01A1'], ['09B2']]);
+    const { getByRole, getByTestId } = render(QualityGeneList, { ...base, highlighted: '09B2', onSelect });
+    await fireEvent.click(getByRole('button', { name: 'Show 01A1 on the grid' }));
+    expect(onSelect).toHaveBeenCalledWith('01A1');
     expect(getByTestId('quality-row-09B2')).toHaveClass('selected');
+    expect(getByTestId('quality-show-09B2').getAttribute('aria-pressed')).toBe('true');
   });
 
   it('explains an empty list, and a pet outside the stable', () => {

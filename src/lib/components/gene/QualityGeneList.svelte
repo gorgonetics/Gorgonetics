@@ -32,7 +32,8 @@ const value = (v: number) => v.toFixed(v < 0.1 ? 2 : 1);
   {:else}
     <p class="note">
       {value(total)} slot-units, {share.toFixed(0)}% of the stable's total{inStable ? '' : ' if added to it'}. 1 = the only
-      pet breeding an allele true, 0.5 = the only carrier; alleles locked to a breed you are not breeding count less.
+      carrier, breeding it true; 0.5 = the only carrier, or the only true breeder where others carry it. Alleles locked
+      to a breed you are not breeding count less.
     </p>
     <table>
       <thead>
@@ -45,20 +46,18 @@ const value = (v: number) => v.toFixed(v < 0.1 ? 2 : 1);
       </thead>
       <tbody>
         {#each rows as row (`${row.gene}:${row.allele}`)}
-          <tr
-            class:selected={highlighted === row.gene}
-            data-testid="quality-row-{row.gene}"
-            tabindex="0"
-            title="Show {row.gene} on the grid"
-            onclick={() => onSelect(row.gene)}
-            onkeydown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                onSelect(row.gene);
-              }
-            }}
-          >
-            <td class="gene">{row.gene} {row.allele}</td>
+          <tr class:selected={highlighted === row.gene} data-testid="quality-row-{row.gene}">
+            <td class="gene">
+              <button
+                type="button"
+                class="gene-btn"
+                data-testid="quality-show-{row.gene}"
+                aria-label="Show {row.gene} on the grid"
+                aria-pressed={highlighted === row.gene}
+                title="Show {row.gene} on the grid"
+                onclick={() => onSelect(row.gene)}>{row.gene} {row.allele}</button
+              >
+            </td>
             <td>
               {row.benefits.join(', ')}
               {#if !row.generic}<span class="muted">· breed-locked</span>{/if}
@@ -104,13 +103,19 @@ const value = (v: number) => v.toFixed(v < 0.1 ? 2 : 1);
     vertical-align: top;
   }
 
-  tbody tr {
-    cursor: pointer;
+  tbody tr:hover,
+  tbody tr:focus-within {
+    background: var(--bg-tertiary);
   }
 
-  tbody tr:hover,
-  tbody tr:focus-visible {
-    background: var(--bg-tertiary);
+  .gene-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    font: inherit;
+    color: var(--accent-text, var(--accent));
+    cursor: pointer;
+    text-decoration: underline;
   }
 
   tbody tr.selected {

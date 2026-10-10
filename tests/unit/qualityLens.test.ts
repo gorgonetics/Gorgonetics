@@ -83,6 +83,12 @@ describe('qualityTooltip', () => {
     expect(t.lines).toEqual(['R: Temperament + · breed-locked · 0.1']);
   });
 
+  it('escapes the attribute name, which comes from the gene table', () => {
+    const t = qualityTooltip('01A1', 'sole', [c({ attribute: '<img src=x onerror=alert(1)>' })]);
+    expect(t.lines[0]).not.toContain('<img');
+    expect(t.lines[0]).toContain('&lt;img');
+  });
+
   it('says so when the pet carries no benefit allele there', () => {
     expect(qualityTooltip('03A1', undefined, [])).toEqual({ subtitle: 'No benefit allele here', lines: [] });
   });
