@@ -60,17 +60,16 @@ describe('refreshGeneTemplatesIfChanged', () => {
     expect(await getSetting('genes.templateBundleHash')).toBe(hash1);
   });
 
-  it('refreshes effects from the bundle when the hash differs, while preserving notes', async () => {
+  it('refreshes untouched effects from the bundle when the hash differs, while preserving notes', async () => {
     await refreshGeneTemplatesIfChanged();
     const realHash = await getSetting('genes.templateBundleHash');
 
-    // Pretend the user is running a previous version of the app.
+    // Pretend the user is running a previous version of the app, whose
+    // template had a different effect for this gene, and wrote a note.
     await setSetting('genes.templateBundleHash', 'stale');
-    // User scribbled some notes and (in this fake old version) the gene also
-    // had a different effect on disk.
     const db = getDb();
     await db.execute(
-      `UPDATE genes SET effectDominant = $effect, notes = $notes
+      `UPDATE genes SET effectDominant = $effect, template_dominant = $effect, notes = $notes
        WHERE animal_type = $animal_type AND gene = $gene`,
       { effect: 'StaleEffect+', notes: 'my hand-written note', animal_type: 'horse', gene: '15A1' },
     );
@@ -78,12 +77,108 @@ describe('refreshGeneTemplatesIfChanged', () => {
     await refreshGeneTemplatesIfChanged();
 
     const refreshed = await geneService.getGene('horse', '15A1');
-    // Effect was overwritten from the bundled template.
+    // Effect equalled its template, so it takes the new template value.
     expect(refreshed?.effectDominant).toBe('Intelligence-');
-    // Note was kept.
     expect(refreshed?.notes).toBe('my hand-written note');
-    // Hash sentinel updated.
     expect(await getSetting('genes.templateBundleHash')).toBe(realHash);
+  });
+
+  async function rowOf(gene: string) {
+    const [row] = await getDb().select<Record<string, string | null>[]>(
+      `SELECT effectDominant, effectRecessive, template_dominant, template_recessive
+       FROM genes WHERE animal_type = $animal_type AND gene = $gene`,
+      { animal_type: 'horse', gene },
+    );
+    return row;
+  }
+
+  /** Set columns of one horse gene row. Values are bound: the in-memory adapter applies only bound values. */
+  async function setRow(db: ReturnType<typeof getDb>, gene: string, values: Record<string, string | null>) {
+    const set = Object.keys(values)
+      .map((col) => `${col} = $${col}`)
+      .join(', ');
+    await db.execute(`UPDATE genes SET ${set} WHERE animal_type = $animal_type AND gene = $gene`, {
+      ...values,
+      animal_type: 'horse',
+      gene,
+    });
+  }
+
+  it('keeps an effect the user edited, and records the new template under it', async () => {
+    await refreshGeneTemplatesIfChanged();
+    // The user corrects the dominant effect in the gene editor.
+    await geneService.updateGenesBulk('horse', 'chr15', [
+      { gene: '15A1', effectDominant: 'Virility+', effectRecessive: 'None', appearance: 'Attributes', notes: '' },
+    ]);
+    await setSetting('genes.templateBundleHash', 'stale');
+
+    await refreshGeneTemplatesIfChanged();
+
+    expect(await rowOf('15A1')).toMatchObject({
+      effectDominant: 'Virility+',
+      template_dominant: 'Intelligence-',
+    });
+  });
+
+  it('decides each effect on its own: keeps an edited recessive, refreshes an untouched dominant', async () => {
+    await refreshGeneTemplatesIfChanged();
+    const db = getDb();
+    // Old template: dominant 'Old+', recessive 'None'. The user edited only the recessive.
+    await setRow(db, '15A1', {
+      effectDominant: 'Old+',
+      template_dominant: 'Old+',
+      effectRecessive: 'Toughness-',
+      template_recessive: 'None',
+    });
+    await setSetting('genes.templateBundleHash', 'stale');
+
+    await refreshGeneTemplatesIfChanged();
+
+    expect(await rowOf('15A1')).toMatchObject({ effectDominant: 'Intelligence-', effectRecessive: 'Toughness-' });
+  });
+
+  it('treats a cleared effect stored as an empty string like None', async () => {
+    await refreshGeneTemplatesIfChanged();
+    const db = getDb();
+    // The editor stores a cleared effect as ''. Template 'None', value '' is untouched.
+    await setRow(db, '15A1', { effectRecessive: '', template_recessive: 'None' });
+    await setSetting('genes.templateBundleHash', 'stale');
+
+    await refreshGeneTemplatesIfChanged();
+
+    expect((await rowOf('15A1')).effectRecessive).toBe('None');
+  });
+
+  describe('rows from before schema v21 (no template recorded)', () => {
+    async function upgradeFrom(gene: string, dominant: string, recessive: string) {
+      await refreshGeneTemplatesIfChanged();
+      await setRow(getDb(), gene, {
+        effectDominant: dominant,
+        effectRecessive: recessive,
+        template_dominant: null,
+        template_recessive: null,
+      });
+      await setSetting('genes.templateBundleHash', 'stale');
+      await refreshGeneTemplatesIfChanged();
+      return rowOf(gene);
+    }
+
+    it('takes the new template for a value an earlier release shipped', async () => {
+      // v0.10.3 shipped 26B3 with recessive Toughness+; the template now has Toughness-.
+      const row = await upgradeFrom('26B3', 'None', 'Toughness+');
+      expect(row).toMatchObject({ effectRecessive: 'Toughness-', template_recessive: 'Toughness-' });
+    });
+
+    it('takes the new template for a value an older release shipped', async () => {
+      // 15D1's dominant was Ruggedness+ in an older release (corrected since).
+      const row = await upgradeFrom('15D1', 'Ruggedness+', 'None');
+      expect(row?.effectDominant).not.toBe('Ruggedness+');
+    });
+
+    it('keeps a value no release shipped: the user edited it', async () => {
+      const row = await upgradeFrom('26B3', 'None', 'Ferocity+');
+      expect(row).toMatchObject({ effectRecessive: 'Ferocity+', template_recessive: 'Toughness-' });
+    });
   });
 
   it('clears the positive_genes backfill flag so stale per-pet counts get recomputed', async () => {

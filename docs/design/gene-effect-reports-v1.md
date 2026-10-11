@@ -157,9 +157,11 @@ Without authentication, the rate of writes cannot be limited per sender. This is
 - If this happens, the fix is a second Spark project only for reports, which isolates its quota. Not done in v1 because it adds a second Firebase config to the client.
 - Extend `scripts/monitor-spark-usage.mjs` to count `geneReports`.
 
-## 9. Gotcha: template refresh erases user effect edits
+## 9. Template refresh keeps user effect edits
 
-`refreshGeneTemplatesIfChanged` keeps only `notes` when a new template bundle arrives. Effect edits are overwritten without a warning. A user who edits an effect, does not report it, and then installs an update loses the correction, and the report surface has nothing to show. This feature does not fix that. It does make reporting before an update more useful. Preserving or warning about effect edits on refresh is a separate issue.
+Before schema v21, `refreshGeneTemplatesIfChanged` kept only `notes` when a new template bundle arrived, so an update erased the corrections this feature collects. From v21 each gene row stores the template effects it was refreshed against (`template_dominant`, `template_recessive`). On a refresh, an effect that equals its stored template is untouched and takes the new value; any other value is the user's edit and is kept. Each effect is decided on its own.
+
+Rows from before v21 have no stored template. For those, a value that any release up to v0.10.3 shipped counts as untouched: `src/lib/data/gene-template-history.json`, generated once from the release tags by `scripts/gen-gene-template-history.mjs` and loaded only when such rows exist. The file is frozen; after the first refresh every row has a stored template.
 
 ## 10. Out of scope (v1)
 

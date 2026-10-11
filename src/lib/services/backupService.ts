@@ -41,6 +41,10 @@ const GENE_COLUMNS = [
   'notes',
   'created_at',
   'updated_at',
+  // Template effects (migration v21), so a restore keeps track of which
+  // effects are the user's edits. Older backups restore them as NULL.
+  'template_dominant',
+  'template_recessive',
 ];
 
 const PET_COLUMNS = [

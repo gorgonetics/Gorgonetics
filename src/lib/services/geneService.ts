@@ -238,6 +238,9 @@ type GeneUpsertData = {
   appearance?: string;
   breed?: string;
   notes?: string;
+  /** Template effects the row's effects are compared with on the next refresh. */
+  templateDominant?: string | null;
+  templateRecessive?: string | null;
 };
 
 /**
@@ -283,9 +286,9 @@ async function writeGeneUpsert(
   await db.execute(
     `INSERT OR REPLACE INTO genes
      (animal_type, chromosome, gene, effectDominant, effectRecessive, appearance, breed, notes, created_at, updated_at,
-      dominant_attribute, dominant_sign, recessive_attribute, recessive_sign)
+      dominant_attribute, dominant_sign, recessive_attribute, recessive_sign, template_dominant, template_recessive)
      VALUES ($animal_type, $chromosome, $gene, $effectDominant, $effectRecessive, $appearance, $breed, $notes, $created_at, $updated_at,
-             $dominant_attribute, $dominant_sign, $recessive_attribute, $recessive_sign)`,
+             $dominant_attribute, $dominant_sign, $recessive_attribute, $recessive_sign, $template_dominant, $template_recessive)`,
     {
       animal_type: animalType,
       chromosome,
@@ -301,6 +304,8 @@ async function writeGeneUpsert(
       dominant_sign: dom.sign,
       recessive_attribute: rec.attribute,
       recessive_sign: rec.sign,
+      template_dominant: data.templateDominant ?? null,
+      template_recessive: data.templateRecessive ?? null,
     },
   );
 }
