@@ -122,6 +122,7 @@ Reports are not readable by clients. They are not public data, and closing reads
 - **`src/lib/services/geneReportService.ts`** (new): `findReportableChanges(species)` gives the diff against the bundle. `submitGeneReports(changes, note)` writes one document per gene in a single `writeBatch`. It writes at most 50 genes per submission (one chromosome is the normal case).
 - **Local record:** store the doc IDs that were sent in settings, so that the UI shows "Reported" and does not offer the same correction again.
 - **UI in `GeneEditingView`:** a "Report changes upstream" button. It is shown when the current chromosome has genes that differ from the bundle. It opens a dialog that shows every field that will be sent: species, gene, bundled → proposed effects, note, template version (`templateBundleHash`), app version and schema version, plus "submission time: set by the server". It also says that the data goes to a public-project database. Sending needs a second click.
+- **Size limits in the client:** the note field has `maxlength="1000"`, and `submitGeneReports` checks every field against the §5 limits before any network call and refuses to send if one fails. This gives honest users an early error. It is not the security control: a modified client can skip it, so the rules (§5) are what reject an oversized report.
 - **Offline / failure:** show the error and keep the changes reportable. No retry queue in v1.
 
 ## 7. GitHub Action
@@ -149,6 +150,7 @@ The limit of 20 genes per run also limits the issues created, updated or reopene
 Without authentication, the rate of writes cannot be limited per sender. This is the same exposure that `/pets` has now.
 
 - Strict field rules and size limits stop junk content. They do not stop junk volume.
+- **Oversized payloads.** A report with a huge note fails the rules and stores nothing, so it cannot fill storage. The `/geneReports` rules call no `get()` or `exists()`, so a denied write causes no rule reads, and denied requests do not count toward network bandwidth ([Firestore pricing](https://firebase.google.com/docs/firestore/pricing)). **Unverified:** whether a denied write counts toward the 20k writes/day quota. The docs do not say. Check this in the emulator or the console usage graphs before implementation. Either way, the quota risk is the number of requests, not their size.
 - Spark allows 20k writes/day for the whole project (figure from [public-pet-sharing-v1.md](public-pet-sharing-v1.md) §2, verified 2026-05-09). A flood of reports could use up the day's quota and block pet sharing until the quota resets. On Spark this costs no money.
 - If this happens, the fix is a second Spark project only for reports, which isolates its quota. Not done in v1 because it adds a second Firebase config to the client.
 - Extend `scripts/monitor-spark-usage.mjs` to count `geneReports`.
