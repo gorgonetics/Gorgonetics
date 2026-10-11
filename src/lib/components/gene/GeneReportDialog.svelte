@@ -1,12 +1,7 @@
 <script lang="ts">
 import StatusBanner from '$lib/components/shared/StatusBanner.svelte';
 import { isPlaceholderConfig } from '$lib/firebase.js';
-import {
-  findReportableChanges,
-  MAX_NOTE_LENGTH,
-  type ReportableChange,
-  submitGeneReports,
-} from '$lib/services/geneReportService.js';
+import { MAX_NOTE_LENGTH, type ReportableChange, submitGeneReports } from '$lib/services/geneReportService.js';
 import type { DialogResult } from '$lib/types/index.js';
 import { errorMessage } from '$lib/utils/error.js';
 import { focusTrap } from '$lib/utils/focusTrap.js';
@@ -14,15 +9,18 @@ import { focusTrap } from '$lib/utils/focusTrap.js';
 interface Props {
   species: string;
   chromosome: string;
+  /** The editor's current reportable changes; the dialog does not reload them. */
+  changes: ReportableChange[];
   onClose: () => void;
   onResult: (result: DialogResult) => void;
 }
 
-const { species, chromosome, onClose, onResult }: Props = $props();
+const { species, chromosome, changes: initialChanges, onClose, onResult }: Props = $props();
 
-let changes = $state<ReportableChange[]>([]);
-let loading = $state(true);
-let loadError = $state('');
+// Local copy: after a partial failure, the sent ones are marked here so the
+// dialog can stay open on the rest without reloading anything.
+// svelte-ignore state_referenced_locally
+let changes = $state<ReportableChange[]>(initialChanges);
 let note = $state('');
 let sending = $state(false);
 let sendError = $state('');
@@ -31,22 +29,11 @@ const pending = $derived(changes.filter((c) => !c.alreadySent));
 // Every change on one chromosome shares these; show them once.
 const shared = $derived(changes[0]?.report);
 
-$effect(() => {
-  const s = species;
-  const c = chromosome;
-  loading = true;
-  loadError = '';
-  findReportableChanges(s, c)
-    .then((result) => {
-      if (s === species && c === chromosome) changes = result;
-    })
-    .catch((err) => {
-      loadError = errorMessage(err);
-    })
-    .finally(() => {
-      loading = false;
-    });
-});
+// Closing mid-send would drop the result: the parent would refresh before
+// the writes finish, and a failure would land on a destroyed dialog.
+function close(): void {
+  if (!sending) onClose();
+}
 
 async function handleSend() {
   if (isPlaceholderConfig || pending.length === 0 || sending) return;
@@ -55,9 +42,11 @@ async function handleSend() {
   try {
     const result = await submitGeneReports(pending, note.trim());
     if (result.failed > 0) {
-      // Keep the dialog open: the failed reports are still pending.
-      changes = await findReportableChanges(species, chromosome);
-      sendError = `${result.failed} report(s) could not be sent: ${result.error}`;
+      // Keep the dialog open on the failed ones; mark the rest as sent.
+      const recorded = new Set(result.recorded);
+      changes = changes.map((c) => (recorded.has(c.docId) ? { ...c, alreadySent: true } : c));
+      const done = result.sent + result.duplicates;
+      sendError = (done > 0 ? `${done} report(s) sent. ` : '') + `${result.failed} could not be sent: ${result.error}`;
       return;
     }
     const parts = [`Sent ${result.sent} gene report(s) for ${chromosome}.`];
@@ -75,9 +64,9 @@ async function handleSend() {
 <!-- svelte-ignore a11y_no_static_element_interactions a11y_click_events_have_key_events -->
 <div
   class="modal-backdrop"
-  onclick={onClose}
+  onclick={close}
   onkeydown={(e) => {
-    if (e.key === 'Escape') onClose();
+    if (e.key === 'Escape') close();
   }}
   role="presentation"
   data-testid="gene-report-backdrop"
@@ -92,12 +81,12 @@ async function handleSend() {
     use:focusTrap
     onclick={(e) => e.stopPropagation()}
     onkeydown={(e) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') close();
     }}
   >
     <div class="dialog-header">
       <h3>Report gene corrections — {species} {chromosome}</h3>
-      <button class="close-btn" onclick={onClose} aria-label="Close">×</button>
+      <button class="close-btn" onclick={close} disabled={sending} aria-label="Close">×</button>
     </div>
 
     <div class="dialog-body">
@@ -114,13 +103,7 @@ async function handleSend() {
         data. Only the fields below are sent. Reports cannot be edited or deleted after sending.
       </p>
 
-      {#if loading}
-        <div class="banner" data-testid="gene-report-loading">Comparing with the bundled gene data…</div>
-      {:else if loadError}
-        <div data-testid="gene-report-load-error">
-          <StatusBanner type="error" message={`Couldn't compare with the bundled gene data: ${loadError}`} />
-        </div>
-      {:else if changes.length === 0}
+      {#if changes.length === 0}
         <div class="banner" data-testid="gene-report-empty">
           No gene on this chromosome differs from the bundled data.
         </div>
@@ -198,12 +181,12 @@ async function handleSend() {
     </div>
 
     <div class="dialog-footer">
-      <button class="btn btn-secondary" onclick={onClose} disabled={sending}>Cancel</button>
+      <button class="btn btn-secondary" onclick={close} disabled={sending}>Cancel</button>
       <button
         class="btn btn-primary"
         data-testid="gene-report-send"
         onclick={handleSend}
-        disabled={sending || loading || isPlaceholderConfig || pending.length === 0}
+        disabled={sending || isPlaceholderConfig || pending.length === 0}
       >
         {sending ? 'Sending…' : `Send ${pending.length} report(s)`}
       </button>

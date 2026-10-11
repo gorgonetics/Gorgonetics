@@ -105,7 +105,8 @@ function isValidGeneReport(d) {
 }
 
 match /geneReports/{docId} {
-  allow read: if false;   // the Action reads with the Admin SDK, which bypasses rules
+  allow get: if true;     // by ID only: lets a client tell a duplicate from a refusal
+  allow list: if false;   // the Action reads with the Admin SDK, which bypasses rules
   allow create: if docId.matches('^[a-f0-9]{64}$') && isValidGeneReport(request.resource.data);
   allow update, delete: if false;
 }
@@ -115,7 +116,7 @@ match /geneReports/{docId} {
 
 Every gene ID in `assets/` is four characters and matches `^[0-9]{2}[A-Z][0-9]$` (checked 2026-10-11). The effect lists are per species, from `CORE_ATTRIBUTES` plus `SPECIES_ATTRIBUTES` in `configService.ts`: Horse has Temperament, BeeWasp has Ferocity. They match the effects that occur in `assets/<species>/`. When an attribute is added to `configService.ts`, the rules must change with it; a unit test compares the two (§11).
 
-Reports are not readable by clients. They are not public data, and closing reads removes a free way to use up the Spark read quota.
+Clients cannot list reports. They can get one by ID, so that a client whose create was denied can check whether the report is already on the server (a duplicate) or was refused. Only the reporting install can derive an ID, because it is salted with the local install ID, so this exposes no one else's reports. The check runs only after a denial, never on the normal path.
 
 ## 6. Client
 
@@ -123,7 +124,7 @@ Reports are not readable by clients. They are not public data, and closing reads
 - **Local record:** store the doc IDs that were sent in settings, so that the UI shows "Reported" and does not offer the same correction again.
 - **UI in `GeneEditingView`:** a "Report changes upstream" button. It is shown when the current chromosome has genes that differ from the bundle. It opens a dialog that shows every field that will be sent: species, gene, bundled → proposed effects, note, template version (`templateBundleHash`), app version and schema version, plus "submission time: set by the server". It also says that the data goes to a public-project database. Sending needs a second click.
 - **Size limits in the client:** the note field has `maxlength="1000"`, and `submitGeneReports` checks every field against the §5 limits before any network call and refuses to send if one fails. This gives honest users an early error. It is not the security control: a modified client can skip it, so the rules (§5) are what reject an oversized report.
-- **Offline / failure:** show the error and keep the changes reportable. No retry queue in v1.
+- **Offline / failure:** each write has a 20 s timeout, because offline Firestore queues a write and never rejects it. Show the error and keep the changes reportable. A timed-out write may still go out later; the next send of it is then a duplicate, which the get-by-ID check detects. No retry queue in v1.
 
 ## 7. GitHub Action
 

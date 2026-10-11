@@ -4,16 +4,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 // The send path cannot run in e2e (Firestore traffic is blocked there), so
 // this suite drives the dialog with the service mocked: preview, note,
-// send, the "Reported" state and partial failure.
+// send, the "Reported" state, partial failure and closing during a send.
 
 vi.mock('$lib/firebase.js', () => ({ isPlaceholderConfig: false }));
 vi.mock('$lib/utils/focusTrap.js', () => ({ focusTrap: () => ({}) }));
 
-const findReportableChanges = vi.fn();
 const submitGeneReports = vi.fn();
 vi.mock('$lib/services/geneReportService.js', () => ({
   MAX_NOTE_LENGTH: 1000,
-  findReportableChanges: (s: string, c: string) => findReportableChanges(s, c),
   submitGeneReports: (changes: unknown, note: string) => submitGeneReports(changes, note),
 }));
 
@@ -22,7 +20,6 @@ import type { ReportableChange } from '$lib/services/geneReportService.js';
 
 afterEach(() => {
   cleanup();
-  findReportableChanges.mockReset();
   submitGeneReports.mockReset();
 });
 
@@ -44,20 +41,17 @@ function change(gene: string, alreadySent = false): ReportableChange {
   };
 }
 
-function renderDialog() {
+function renderDialog(changes: ReportableChange[]) {
   const onClose = vi.fn();
   const onResult = vi.fn();
-  const view = render(GeneReportDialog, { species: 'horse', chromosome: 'chr26', onClose, onResult });
+  const view = render(GeneReportDialog, { species: 'horse', chromosome: 'chr26', changes, onClose, onResult });
   return { ...view, onClose, onResult };
 }
 
 describe('GeneReportDialog', () => {
-  it('previews every field that is sent', async () => {
-    findReportableChanges.mockResolvedValue([change('26B3')]);
-    const { getByTestId } = renderDialog();
+  it('previews every field that is sent', () => {
+    const { getByTestId } = renderDialog([change('26B3')]);
 
-    await waitFor(() => expect(getByTestId('gene-report-preview')).toBeInTheDocument());
-    expect(findReportableChanges).toHaveBeenCalledWith('horse', 'chr26');
     expect(getByTestId('gene-report-preview')).toHaveTextContent('26B3');
     expect(getByTestId('gene-report-preview')).toHaveTextContent('Toughness+ → Ruggedness+');
     const fields = getByTestId('gene-report-fields');
@@ -69,11 +63,9 @@ describe('GeneReportDialog', () => {
 
   it('sends the pending changes with the trimmed note, then closes', async () => {
     const pending = change('26B3');
-    findReportableChanges.mockResolvedValue([pending, change('26B4', true)]);
-    submitGeneReports.mockResolvedValue({ sent: 1, duplicates: 0, failed: 0 });
-    const { getByTestId, onClose, onResult } = renderDialog();
+    submitGeneReports.mockResolvedValue({ sent: 1, duplicates: 0, failed: 0, recorded: [pending.docId] });
+    const { getByTestId, onClose, onResult } = renderDialog([pending, change('26B4', true)]);
 
-    await waitFor(() => expect(getByTestId('gene-report-send')).toBeEnabled());
     await fireEvent.input(getByTestId('gene-report-note'), { target: { value: '  bred twice  ' } });
     await fireEvent.click(getByTestId('gene-report-send'));
 
@@ -82,38 +74,62 @@ describe('GeneReportDialog', () => {
     expect(onResult).toHaveBeenCalledWith({ type: 'success', message: expect.stringContaining('Sent 1') });
   });
 
-  it('shows sent changes as Reported and disables Send when nothing is pending', async () => {
-    findReportableChanges.mockResolvedValue([change('26B3', true)]);
-    const { getByTestId, queryByTestId } = renderDialog();
+  it('shows sent changes as Reported and disables Send when nothing is pending', () => {
+    const { getByTestId, queryByTestId } = renderDialog([change('26B3', true)]);
 
-    await waitFor(() => expect(getByTestId('gene-report-sent')).toHaveTextContent('Reported'));
+    expect(getByTestId('gene-report-sent')).toHaveTextContent('Reported');
     expect(getByTestId('gene-report-send')).toBeDisabled();
     expect(queryByTestId('gene-report-note')).toBeNull();
   });
 
-  it('caps the note at the rules limit', async () => {
-    findReportableChanges.mockResolvedValue([change('26B3')]);
-    const { getByTestId } = renderDialog();
-    await waitFor(() => expect(getByTestId('gene-report-note')).toBeInTheDocument());
+  it('caps the note at the rules limit', () => {
+    const { getByTestId } = renderDialog([change('26B3')]);
     expect(getByTestId('gene-report-note')).toHaveAttribute('maxlength', '1000');
   });
 
-  it('stays open and shows the error when some reports fail', async () => {
-    findReportableChanges.mockResolvedValue([change('26B3')]);
-    submitGeneReports.mockResolvedValue({ sent: 0, duplicates: 0, failed: 1, error: 'unavailable' });
-    const { getByTestId, onClose } = renderDialog();
+  it('on a partial failure, stays open, marks the sent ones and keeps the rest pending', async () => {
+    const a = change('26B3');
+    const b = change('26B4');
+    submitGeneReports.mockResolvedValue({
+      sent: 1,
+      duplicates: 0,
+      failed: 1,
+      error: 'unavailable',
+      recorded: [a.docId],
+    });
+    const { getByTestId, getAllByTestId, onClose } = renderDialog([a, b]);
 
-    await waitFor(() => expect(getByTestId('gene-report-send')).toBeEnabled());
     await fireEvent.click(getByTestId('gene-report-send'));
 
-    await waitFor(() => expect(getByTestId('gene-report-error')).toHaveTextContent('unavailable'));
+    await waitFor(() => expect(getByTestId('gene-report-error')).toHaveTextContent('1 report(s) sent'));
+    expect(getByTestId('gene-report-error')).toHaveTextContent('unavailable');
+    expect(getAllByTestId('gene-report-sent')).toHaveLength(1);
+    expect(getByTestId('gene-report-send')).toHaveTextContent('Send 1 report(s)');
     expect(onClose).not.toHaveBeenCalled();
   });
 
-  it('says so when nothing differs from the bundled data', async () => {
-    findReportableChanges.mockResolvedValue([]);
-    const { getByTestId } = renderDialog();
-    await waitFor(() => expect(getByTestId('gene-report-empty')).toBeInTheDocument());
+  it('cannot be closed while sending', async () => {
+    let finish!: (value: unknown) => void;
+    submitGeneReports.mockReturnValue(
+      new Promise((r) => {
+        finish = r;
+      }),
+    );
+    const { getByTestId, getByLabelText, onClose } = renderDialog([change('26B3')]);
+
+    await fireEvent.click(getByTestId('gene-report-send'));
+    await fireEvent.keyDown(getByTestId('gene-report-backdrop'), { key: 'Escape' });
+    await fireEvent.click(getByTestId('gene-report-backdrop'));
+    expect(getByLabelText('Close')).toBeDisabled();
+    expect(onClose).not.toHaveBeenCalled();
+
+    finish({ sent: 1, duplicates: 0, failed: 0, recorded: [change('26B3').docId] });
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+  });
+
+  it('says so when nothing differs from the bundled data', () => {
+    const { getByTestId } = renderDialog([]);
+    expect(getByTestId('gene-report-empty')).toBeInTheDocument();
     expect(getByTestId('gene-report-send')).toBeDisabled();
   });
 });

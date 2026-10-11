@@ -7,22 +7,23 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const setDoc = vi.fn();
+const getDoc = vi.fn();
 vi.mock('firebase/firestore', () => ({
   doc: (_db: unknown, col: string, id: string) => ({ col, id }),
   serverTimestamp: () => 'SERVER_TIMESTAMP',
   setDoc: (ref: unknown, data: unknown) => setDoc(ref, data),
+  getDoc: (ref: unknown) => getDoc(ref),
 }));
 vi.mock('$lib/firebase.js', () => ({ firestore: {} }));
 
 const settings = new Map<string, unknown>();
 vi.mock('$lib/services/settingsService.js', () => ({
+  TEMPLATE_BUNDLE_HASH_KEY: 'genes.templateBundleHash',
   getSetting: async (key: string) => settings.get(key),
   setSetting: async (key: string, value: unknown) => {
     settings.set(key, value);
   },
 }));
-
-vi.mock('$lib/services/demoService.js', () => ({ TEMPLATE_BUNDLE_HASH_KEY: 'genes.templateBundleHash' }));
 
 const loadBundledResource = vi.fn();
 vi.mock('$lib/services/fileService.js', () => ({
@@ -35,10 +36,12 @@ vi.mock('$lib/services/geneService.js', () => ({
 }));
 
 import {
+  clearGeneReportCaches,
   findReportableChanges,
   MAX_REPORTS_PER_SUBMISSION,
   type ReportableChange,
   reportDocId,
+  SEND_TIMEOUT_MS,
   submitGeneReports,
   validateGeneReport,
 } from '$lib/services/geneReportService.js';
@@ -57,6 +60,7 @@ function setDb(current: { gene: string; effectDominant: string; effectRecessive:
 }
 
 beforeEach(() => {
+  clearGeneReportCaches();
   settings.clear();
   settings.set('genes.templateBundleHash', HASH);
   loadBundledResource.mockResolvedValue(JSON.stringify(BUNDLED));
@@ -64,7 +68,9 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   setDoc.mockReset();
+  getDoc.mockReset();
   loadBundledResource.mockReset();
   exportGenesToJson.mockReset();
 });
@@ -147,6 +153,44 @@ describe('findReportableChanges', () => {
   });
 });
 
+describe('findReportableChanges caching and install ID', () => {
+  it('uses the rows the caller passes instead of reading the DB', async () => {
+    const [c] = await findReportableChanges('horse', 'chr26', [
+      { gene: '26B1', effectDominant: 'Ruggedness+', effectRecessive: '' },
+    ]);
+    expect(exportGenesToJson).not.toHaveBeenCalled();
+    expect(c.report).toMatchObject({ gene: '26B1', proposedDominant: 'Ruggedness+', proposedRecessive: 'None' });
+  });
+
+  it('reads each bundled chromosome file once', async () => {
+    await findReportableChanges('horse', 'chr26');
+    await findReportableChanges('horse', 'chr26');
+    expect(loadBundledResource).toHaveBeenCalledTimes(1);
+  });
+
+  it('retries a bundled file whose read failed', async () => {
+    loadBundledResource.mockRejectedValueOnce(new Error('missing'));
+    await expect(findReportableChanges('horse', 'chr26')).rejects.toThrow('missing');
+    await expect(findReportableChanges('horse', 'chr26')).resolves.toEqual([]);
+    expect(loadBundledResource).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not create an install ID when nothing differs', async () => {
+    await findReportableChanges('horse', 'chr26');
+    expect(settings.has('geneReports.installId')).toBe(false);
+  });
+
+  it('concurrent first calls share one install ID', async () => {
+    setDb([{ ...BUNDLED[0], effectDominant: 'Ruggedness+' }]);
+    const [[a], [b]] = await Promise.all([
+      findReportableChanges('horse', 'chr26'),
+      findReportableChanges('horse', 'chr26'),
+    ]);
+    expect(a.docId).toBe(b.docId);
+    expect(await reportDocId(settings.get('geneReports.installId') as string, a.report)).toBe(a.docId);
+  });
+});
+
 describe('reportDocId', () => {
   const r: Pick<GeneReport, 'species' | 'gene' | 'proposedDominant' | 'proposedRecessive'> = {
     species: 'horse',
@@ -194,7 +238,12 @@ describe('submitGeneReports', () => {
   it('writes each pending report with the note and a server timestamp', async () => {
     setDoc.mockResolvedValue(undefined);
     const result = await submitGeneReports([change('26B3'), change('26B4')], 'checked in game');
-    expect(result).toEqual({ sent: 2, duplicates: 0, failed: 0, error: undefined });
+    expect(result).toEqual({
+      sent: 2,
+      duplicates: 0,
+      failed: 0,
+      recorded: [change('26B3').docId, change('26B4').docId],
+    });
     expect(setDoc).toHaveBeenCalledTimes(2);
     const [ref, data] = setDoc.mock.calls[0];
     expect(ref).toEqual({ col: 'geneReports', id: change('26B3').docId });
@@ -222,17 +271,47 @@ describe('submitGeneReports', () => {
     expect(setDoc).not.toHaveBeenCalled();
   });
 
-  it('counts a rules denial as a duplicate and records it as sent', async () => {
+  it('counts a denied create as a duplicate only when the doc is on the server', async () => {
     setDoc.mockResolvedValueOnce(undefined).mockRejectedValueOnce({ code: 'permission-denied' });
+    getDoc.mockResolvedValue({ exists: () => true });
     const result = await submitGeneReports([change('26B3'), change('26B4')], '');
     expect(result).toMatchObject({ sent: 1, duplicates: 1, failed: 0 });
+    expect(getDoc).toHaveBeenCalledWith({ col: 'geneReports', id: change('26B4').docId });
     expect(settings.get('geneReports.sent')).toEqual([change('26B3').docId, change('26B4').docId]);
+  });
+
+  it('treats a denied create with no doc on the server as refused, not sent', async () => {
+    setDoc.mockRejectedValue({ code: 'permission-denied' });
+    getDoc.mockResolvedValue({ exists: () => false });
+    const result = await submitGeneReports([change('26B3')], '');
+    expect(result).toMatchObject({ sent: 0, duplicates: 0, failed: 1, recorded: [] });
+    expect(result.error).toMatch(/refused/);
+    expect(settings.has('geneReports.sent')).toBe(false);
+  });
+
+  it('treats a denied create as refused when the duplicate check fails', async () => {
+    setDoc.mockRejectedValue({ code: 'permission-denied' });
+    getDoc.mockRejectedValue(new Error('offline'));
+    const result = await submitGeneReports([change('26B3')], '');
+    expect(result).toMatchObject({ failed: 1, recorded: [] });
+    expect(result.error).toMatch(/offline/);
+  });
+
+  it('times out a write the server never confirms', async () => {
+    vi.useFakeTimers();
+    setDoc.mockReturnValue(new Promise(() => {}));
+    const pending = submitGeneReports([change('26B3')], '');
+    await vi.advanceTimersByTimeAsync(SEND_TIMEOUT_MS);
+    const result = await pending;
+    expect(result).toMatchObject({ sent: 0, failed: 1, recorded: [] });
+    expect(result.error).toMatch(/did not answer in time/);
   });
 
   it('reports other failures and keeps those changes unsent', async () => {
     setDoc.mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error('unavailable'));
     const result = await submitGeneReports([change('26B3'), change('26B4')], '');
     expect(result).toMatchObject({ sent: 1, duplicates: 0, failed: 1, error: 'unavailable' });
+    expect(getDoc).not.toHaveBeenCalled();
     expect(settings.get('geneReports.sent')).toEqual([change('26B3').docId]);
   });
 });

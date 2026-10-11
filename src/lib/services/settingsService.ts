@@ -7,6 +7,9 @@
 import { now } from '$lib/utils/timestamp.js';
 import { getDb } from './database.js';
 
+/** SHA-256 of the gene template bundle last applied to the genes table (demoService). */
+export const TEMPLATE_BUNDLE_HASH_KEY = 'genes.templateBundleHash';
+
 const SETTING_DEFAULTS: Record<string, unknown> = {
   'horse.autoSelectBreedFilter': true,
   // The breed the genetic quality score values at full weight; '' = no

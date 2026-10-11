@@ -102,16 +102,18 @@ async function saveAllChanges(): Promise<void> {
 }
 
 // Reporting is a side feature: a failure here must not break editing, so
-// it only hides the button.
+// it only hides the button. Called after a load or save, when `genes` equals
+// the saved rows, so they are passed in rather than read again. A request
+// counter drops results that a later refresh has overtaken.
+let reportRequest = 0;
 async function refreshReportable(): Promise<void> {
-  const s = animalType;
-  const c = chromosome;
+  const request = ++reportRequest;
   try {
-    const result = await findReportableChanges(s, c);
-    if (s === animalType && c === chromosome) reportable = result;
+    const result = await findReportableChanges(animalType, chromosome, genes);
+    if (request === reportRequest) reportable = result;
   } catch (err) {
     console.warn('Could not compare genes with the bundled templates:', err);
-    reportable = [];
+    if (request === reportRequest) reportable = [];
   }
 }
 
@@ -419,6 +421,7 @@ run(() => {
     <GeneReportDialog
         species={animalType}
         {chromosome}
+        changes={reportable}
         onClose={() => {
             showReportDialog = false;
             void refreshReportable();
