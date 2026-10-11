@@ -766,6 +766,26 @@ export const TEMPLATE_SPECIES = ['beewasp', 'horse'] as const;
 export type GeneReportSpecies = (typeof TEMPLATE_SPECIES)[number];
 
 /**
+ * Every attribute a gene effect can name, across all template species.
+ * Which ones a species admits comes from configService
+ * (`getEffectOptionsForSpecies`); tests/unit/geneReportRules.test.ts keeps
+ * this list equal to their union.
+ */
+export const EFFECT_ATTRIBUTES = [
+  'Enthusiasm',
+  'Ferocity',
+  'Friendliness',
+  'Intelligence',
+  'Ruggedness',
+  'Temperament',
+  'Toughness',
+  'Virility',
+] as const;
+
+/** A gene effect string as stored in the templates: `'None'` or `<Attribute>+` / `<Attribute>-`. */
+export type GeneEffect = 'None' | `${(typeof EFFECT_ATTRIBUTES)[number]}${'+' | '-'}`;
+
+/**
  * One gene-effect correction sent to `/geneReports/{docId}`, minus the
  * server-set `submittedAt`. `firestore.rules` (`isValidGeneReport`) is the
  * authority for every field limit; see docs/design/gene-effect-reports-v1.md.
@@ -774,10 +794,10 @@ export interface GeneReport {
   species: GeneReportSpecies;
   gene: string;
   /** Template values on the reporter's install — the baseline, not the DB. */
-  bundledDominant: string;
-  bundledRecessive: string;
-  proposedDominant: string;
-  proposedRecessive: string;
+  bundledDominant: GeneEffect;
+  bundledRecessive: GeneEffect;
+  proposedDominant: GeneEffect;
+  proposedRecessive: GeneEffect;
   /** 0–1000 chars; empty when the user writes nothing. */
   note: string;
   /** `genes.templateBundleHash` setting: SHA-256 hex of the template bundle. */

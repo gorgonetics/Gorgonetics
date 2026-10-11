@@ -202,7 +202,7 @@ service cloud.firestore {
     // Gene effect reports (docs/design/gene-effect-reports-v1.md). A user
     // who corrects a gene effect in the Genes tab can send the correction
     // here; a scheduled GitHub Action drains new reports into one issue
-    // per gene. Create-only and unreadable by clients: the Action reads
+    // per gene. Create-only. Clients cannot list reports; the Action reads
     // with the Admin SDK, which bypasses rules.
 
     // Allowed effect strings per species: 'None' plus +/- for each
@@ -273,8 +273,14 @@ service cloud.firestore {
     // second send of the same correction from one install is a duplicate
     // create and fails. The rules cannot check the hash: this deduplicates
     // honest clients only.
+    //
+    // `get` by ID is allowed so a client whose create was denied can tell a
+    // duplicate (the doc exists) from a real refusal. Only the reporting
+    // install can derive an ID (it is salted with a local random install
+    // ID), and `list` stays denied, so no one can read others' reports.
     match /geneReports/{docId} {
-      allow read: if false;
+      allow get: if true;
+      allow list: if false;
       allow create: if docId.matches('^[a-f0-9]{64}$')
                  && isValidGeneReport(request.resource.data);
       allow update, delete: if false;

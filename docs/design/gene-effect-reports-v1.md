@@ -105,7 +105,8 @@ function isValidGeneReport(d) {
 }
 
 match /geneReports/{docId} {
-  allow read: if false;   // the Action reads with the Admin SDK, which bypasses rules
+  allow get: if true;     // by ID only: lets a client tell a duplicate from a refusal
+  allow list: if false;   // the Action reads with the Admin SDK, which bypasses rules
   allow create: if docId.matches('^[a-f0-9]{64}$') && isValidGeneReport(request.resource.data);
   allow update, delete: if false;
 }
@@ -115,15 +116,15 @@ match /geneReports/{docId} {
 
 Every gene ID in `assets/` is four characters and matches `^[0-9]{2}[A-Z][0-9]$` (checked 2026-10-11). The effect lists are per species, from `CORE_ATTRIBUTES` plus `SPECIES_ATTRIBUTES` in `configService.ts`: Horse has Temperament, BeeWasp has Ferocity. They match the effects that occur in `assets/<species>/`. When an attribute is added to `configService.ts`, the rules must change with it; a unit test compares the two (§11).
 
-Reports are not readable by clients. They are not public data, and closing reads removes a free way to use up the Spark read quota.
+Clients cannot list reports. They can get one by ID, so that a client whose create was denied can check whether the report is already on the server (a duplicate) or was refused. Only the reporting install can derive an ID, because it is salted with the local install ID, so this exposes no one else's reports. The check runs only after a denial, never on the normal path.
 
 ## 6. Client
 
-- **`src/lib/services/geneReportService.ts`** (new): `findReportableChanges(species)` gives the diff against the bundle. `submitGeneReports(changes, note)` writes one document per gene in a single `writeBatch`. It writes at most 50 genes per submission (one chromosome is the normal case).
+- **`src/lib/services/geneReportService.ts`** (new): `findReportableChanges(species, chromosome)` gives the diff against the bundle. `submitGeneReports(changes, note)` writes one document per gene as independent creates, not one batch: a batch fails as a whole, so one duplicate would block the new reports with it. After a rules denial, the client gets the doc by ID: the report counts as a duplicate (and is recorded as sent) only if the doc exists. A missing doc or a failed check is a refusal, and the change stays reportable. It writes at most 50 genes per submission (one chromosome is the normal case).
 - **Local record:** store the doc IDs that were sent in settings, so that the UI shows "Reported" and does not offer the same correction again.
 - **UI in `GeneEditingView`:** a "Report changes upstream" button. It is shown when the current chromosome has genes that differ from the bundle. It opens a dialog that shows every field that will be sent: species, gene, bundled → proposed effects, note, template version (`templateBundleHash`), app version and schema version, plus "submission time: set by the server". It also says that the data goes to a public-project database. Sending needs a second click.
 - **Size limits in the client:** the note field has `maxlength="1000"`, and `submitGeneReports` checks every field against the §5 limits before any network call and refuses to send if one fails. This gives honest users an early error. It is not the security control: a modified client can skip it, so the rules (§5) are what reject an oversized report.
-- **Offline / failure:** show the error and keep the changes reportable. No retry queue in v1.
+- **Offline / failure:** each write has a 20 s timeout, because offline Firestore queues a write and never rejects it. Show the error and keep the changes reportable. A timed-out write may still go out later; the next send of it is then a duplicate, which the get-by-ID check detects. No retry queue in v1.
 
 ## 7. GitHub Action
 
@@ -150,6 +151,7 @@ The limit of 20 genes per run also limits the issues created, updated or reopene
 Without authentication, the rate of writes cannot be limited per sender. This is the same exposure that `/pets` has now.
 
 - Strict field rules and size limits stop junk content. They do not stop junk volume.
+- The same applies to reads. The get-by-ID that duplicate detection needs is unauthenticated, so a flood of gets could use up the daily read quota. This is not a new exposure: `/pets` and `/genomes` already allow unlimited reads. The client only issues the get after a denied create.
 - **Oversized payloads.** A report with a huge note fails the rules and stores nothing, so it cannot fill storage. The `/geneReports` rules call no `get()` or `exists()`, so a denied write causes no rule reads, and denied requests do not count toward network bandwidth ([Firestore pricing](https://firebase.google.com/docs/firestore/pricing)). **Unverified:** whether a denied write counts toward the 20k writes/day quota. The docs do not say. Check this in the emulator or the console usage graphs before implementation. Either way, the quota risk is the number of requests, not their size.
 - Spark allows 20k writes/day for the whole project (figure from [public-pet-sharing-v1.md](public-pet-sharing-v1.md) §2, verified 2026-05-09). A flood of reports could use up the day's quota and block pet sharing until the quota resets. On Spark this costs no money.
 - If this happens, the fix is a second Spark project only for reports, which isolates its quota. Not done in v1 because it adds a second Firebase config to the client.
@@ -169,9 +171,9 @@ Without authentication, the rate of writes cannot be limited per sender. This is
 
 ## 11. Tests
 
-- **Rules** (`pnpm test:firestore`, emulator): valid create passes for each species. Each of these fails: a missing field, an extra field, each field with the wrong type, a bad species, a gene ID that does not match, an effect of the other species (`Ferocity+` for horse, `Temperament+` for beewasp), a proposal equal to bundled, a note over 1000 chars, a `templateBundleHash` that is not 64 hex chars, an `appVersion` of 0 or 33 chars, `schemaVersion` other than 1, `submittedAt` not server time, a doc ID that is not 64 hex chars, any read, update, delete, and a second create with the same ID.
+- **Rules** (`pnpm test:firestore`, emulator): valid create passes for each species. Each of these fails: a missing field, an extra field, each field with the wrong type, a bad species, a gene ID that does not match, an effect of the other species (`Ferocity+` for horse, `Temperament+` for beewasp), a proposal equal to bundled, a note over 1000 chars, a `templateBundleHash` that is not 64 hex chars, an `appVersion` of 0 or 33 chars, `schemaVersion` other than 1, `submittedAt` not server time, a doc ID that is not 64 hex chars, a collection query, update, delete, and a second create with the same ID. A get by ID succeeds for an existing doc and finds nothing for an unknown ID.
 - **Unit:** `findReportableChanges` against a fixture bundle. Doc-ID hashing is stable. The per-species effect lists in `firestore.rules` equal `configService.getEffectOptionsForSpecies`. Sync script: paging with equal timestamps, the 20-gene stop and its cursor, tally rebuilt from all reports of a gene, "already applied", the batch marker preventing a second comment on retry, note sanitising, and note truncation.
-- **E2E:** edit an effect, open the report dialog, check the preview, send with the service mocked, and check that the gene shows "Reported".
+- **E2E:** edit an effect, save, open the report dialog and check the preview. E2E blocks Firestore, so the send path and the "Reported" state are in a component test with the service mocked (`tests/unit/geneReportDialog.test.ts`).
 
 ## 12. PR breakdown
 

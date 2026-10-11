@@ -8,3 +8,8 @@
 export function errorMessage(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
+
+/** True for a Firestore error whose code is `permission-denied` (a rules denial). */
+export function isPermissionDenied(err: unknown): boolean {
+  return typeof err === 'object' && err !== null && (err as { code?: unknown }).code === 'permission-denied';
+}

@@ -190,9 +190,16 @@ describe('firestore.rules — /geneReports after create', () => {
     await expectRejected(deleteDoc(doc(db, COLLECTION, DOC_ID)));
   });
 
-  it('rejects a single-document read', async () => {
+  it('allows a get by ID, so a denied create can be checked for a duplicate', async () => {
     await write();
-    await expectRejected(getDoc(doc(db, COLLECTION, DOC_ID)));
+    const snap = await getDoc(doc(db, COLLECTION, DOC_ID));
+    expect(snap.exists()).toBe(true);
+    expect(snap.data()?.gene).toBe('26B3');
+  });
+
+  it('a get by an unknown ID finds nothing', async () => {
+    const snap = await getDoc(doc(db, COLLECTION, 'd'.repeat(64)));
+    expect(snap.exists()).toBe(false);
   });
 
   it('rejects a collection query', async () => {

@@ -1,8 +1,10 @@
 <script lang="ts">
 import { onDestroy } from 'svelte';
 import { run, stopPropagation } from 'svelte/legacy';
+import GeneReportDialog from '$lib/components/gene/GeneReportDialog.svelte';
 import * as configService from '$lib/services/configService.js';
 import { saveExportTextFile } from '$lib/services/fileService.js';
+import { findReportableChanges, type ReportableChange } from '$lib/services/geneReportService.js';
 import * as geneService from '$lib/services/geneService.js';
 import { errorMessage as toErrorMessage } from '$lib/utils/error.js';
 
@@ -43,6 +45,10 @@ const EFFECT_TYPES = [
 let hasUnsavedChanges = $state(false);
 let savingChanges = $state(false);
 let exporting = $state(false);
+// Saved genes that differ from the bundled template, for "Report upstream".
+let reportable = $state<ReportableChange[]>([]);
+let showReportDialog = $state(false);
+const unreportedCount = $derived(reportable.filter((c) => !c.alreadySent).length);
 
 onDestroy(() => clearTimeout(successTimer));
 
@@ -52,20 +58,33 @@ function loadEffectOptions(): void {
 }
 
 // Load genes for the selected chromosome
+// Each load gets a generation number; a load that a newer one has
+// overtaken (the user switched chromosome again) drops its result.
+let loadGeneration = 0;
+let reportRequest = 0;
+
 async function loadGenes(): Promise<void> {
   if (!animalType || !chromosome) return;
+  const generation = ++loadGeneration;
 
+  // The previous chromosome's reports must not stay clickable under the new
+  // heading while this load runs; also drop any refresh still in flight.
+  reportRequest++;
+  reportable = [];
   loadingGenes = true;
   errorMessage = '';
 
   try {
-    genes = (await geneService.getGenesByChromosome(animalType, chromosome)) as GeneRow[];
+    const rows = (await geneService.getGenesByChromosome(animalType, chromosome)) as GeneRow[];
+    if (generation !== loadGeneration) return;
+    genes = rows;
     originalGenes = JSON.parse(JSON.stringify(genes));
     hasUnsavedChanges = false;
+    void refreshReportable();
   } catch (err) {
-    errorMessage = `Error loading genes: ${toErrorMessage(err)}`;
+    if (generation === loadGeneration) errorMessage = `Error loading genes: ${toErrorMessage(err)}`;
   } finally {
-    loadingGenes = false;
+    if (generation === loadGeneration) loadingGenes = false;
   }
 }
 
@@ -81,6 +100,7 @@ async function saveAllChanges(): Promise<void> {
     await geneService.updateGenesBulk(animalType, chromosome, genes);
     originalGenes = JSON.parse(JSON.stringify(genes));
     hasUnsavedChanges = false;
+    void refreshReportable();
     successMessage = 'All changes saved successfully!';
     clearTimeout(successTimer);
     successTimer = setTimeout(() => {
@@ -91,6 +111,30 @@ async function saveAllChanges(): Promise<void> {
   } finally {
     savingChanges = false;
   }
+}
+
+// Reporting is a side feature: a failure here must not break editing, so
+// it only hides the button. Called after a load or save, when `genes` equals
+// the saved rows, so they are passed in rather than read again. A request
+// counter (`reportRequest`, declared with `loadGeneration`) drops results
+// that a later refresh has overtaken.
+async function refreshReportable(): Promise<void> {
+  const request = ++reportRequest;
+  try {
+    const result = await findReportableChanges(animalType, chromosome, genes);
+    if (request === reportRequest) reportable = result;
+  } catch (err) {
+    console.warn('Could not compare genes with the bundled templates:', err);
+    if (request === reportRequest) reportable = [];
+  }
+}
+
+function showMessage(message: string): void {
+  successMessage = message;
+  clearTimeout(successTimer);
+  successTimer = setTimeout(() => {
+    successMessage = '';
+  }, 3000);
 }
 
 // Export chromosome to JSON file
@@ -242,6 +286,19 @@ run(() => {
             >
                 {exporting ? 'Exporting...' : 'Export'}
             </button>
+            {#if reportable.length > 0}
+                <button
+                    class="action-btn report-btn"
+                    data-testid="gene-report-btn"
+                    onclick={() => (showReportDialog = true)}
+                    disabled={hasUnsavedChanges}
+                    title={hasUnsavedChanges
+                        ? 'Save your changes before reporting them'
+                        : 'Send your corrections to the maintainer for checking'}
+                >
+                    {unreportedCount > 0 ? `Report upstream (${unreportedCount})` : 'Reported'}
+                </button>
+            {/if}
         </div>
     </div>
 
@@ -371,6 +428,22 @@ run(() => {
         {/if}
     </div>
 </div>
+
+{#if showReportDialog}
+    <GeneReportDialog
+        species={animalType}
+        {chromosome}
+        changes={reportable}
+        onClose={() => {
+            showReportDialog = false;
+            void refreshReportable();
+        }}
+        onResult={(result) => {
+            if (result.type === 'error') errorMessage = result.message;
+            else showMessage(result.message);
+        }}
+    />
+{/if}
 
 <!-- Click outside to close dropdown -->
 <svelte:window

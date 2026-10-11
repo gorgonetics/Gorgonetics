@@ -8,9 +8,7 @@ import { getDb } from './database.js';
 import { listBundledResources, loadBundledResource } from './fileService.js';
 import { upsertGenesBulk } from './geneService.js';
 import { hasPets, updatePet, uploadPet } from './petService.js';
-import { getSetting, resetSetting, setSetting } from './settingsService.js';
-
-const TEMPLATE_BUNDLE_HASH_KEY = 'genes.templateBundleHash';
+import { getSetting, resetSetting, setSetting, TEMPLATE_BUNDLE_HASH_KEY } from './settingsService.js';
 
 type TemplateGene = {
   gene: string;
