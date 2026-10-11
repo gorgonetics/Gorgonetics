@@ -21,6 +21,7 @@ import { refreshGeneTemplatesIfChanged } from './demoService.js';
 import { pickExportSavePath, saveExportBinaryFile } from './fileService.js';
 import { clearGeneEffectsCache } from './geneService.js';
 import { CURRENT_SCHEMA_VERSION, derivedProvenance, getSchemaVersion } from './migrationService.js';
+import { backfillPositiveGenesIfNeeded } from './petService.js';
 import { resetSetting, TEMPLATE_BUNDLE_HASH_KEY } from './settingsService.js';
 import { clearAttributeMagnitudesCache } from './studyService.js';
 
@@ -297,6 +298,10 @@ export async function importDatabase(source: Uint8Array | LoadedBackup, options:
   if (options.includeGenes) {
     await resetSetting(TEMPLATE_BUNDLE_HASH_KEY);
     await refreshGeneTemplatesIfChanged();
+    // Each pet's stored "+ Genes" count depends on the effects. The startup
+    // backfill that recomputes it has already run this session, so run it
+    // now; the import dialog's reload then shows the corrected counts.
+    await backfillPositiveGenesIfNeeded();
   }
   // The restore rewrote tables the session caches were derived from, without
   // going through the services that keep them in step. Without this the gene

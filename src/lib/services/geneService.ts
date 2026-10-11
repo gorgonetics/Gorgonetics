@@ -297,8 +297,9 @@ async function writeGeneUpsert(
        WHERE animal_type = $animal_type AND gene = $gene`,
       { animal_type: animalType, gene },
     );
-    templateDominant ??= stored?.template_dominant ?? null;
-    templateRecessive ??= stored?.template_recessive ?? null;
+    // Only a missing field is filled in: an explicit null clears it.
+    if (templateDominant === undefined) templateDominant = stored?.template_dominant ?? null;
+    if (templateRecessive === undefined) templateRecessive = stored?.template_recessive ?? null;
   }
   await db.execute(
     `INSERT OR REPLACE INTO genes

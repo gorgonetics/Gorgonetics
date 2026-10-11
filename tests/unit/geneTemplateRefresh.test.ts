@@ -185,6 +185,18 @@ describe('refreshGeneTemplatesIfChanged', () => {
 
     expect(await rowOf('26B3')).toMatchObject({ effectRecessive: 'Toughness-', template_recessive: 'Toughness-' });
     expect(await rowOf('15A1')).toMatchObject({ effectDominant: 'Virility+', template_dominant: 'Intelligence-' });
+    // The per-pet "+ Genes" counts were recomputed in the same session.
+    expect(await getSetting('pets.positive_genes_backfilled')).toBe(true);
+  });
+
+  it('an upsert keeps a stored template it is not given, and clears one given as null', async () => {
+    await refreshGeneTemplatesIfChanged();
+    await geneService.upsertGene('horse', 'chr15', '15A1', {
+      effectDominant: 'Virility+',
+      effectRecessive: 'None',
+      templateDominant: null,
+    });
+    expect(await rowOf('15A1')).toMatchObject({ template_dominant: null, template_recessive: 'None' });
   });
 
   describe('rows from before schema v21 (no template recorded)', () => {
