@@ -157,6 +157,7 @@ Spark plan — Firestore storage snapshot
 Project:                gorgonetics
 /pets docs:             1,247  (3.1 MiB)
 /genomes docs:          1,247  (62.8 MiB)
+/geneReports docs:      12  (14.2 KiB)
 Total estimated:        65.9 MiB of 1.00 GiB (6.4%)  [OK]
 
 Reads/writes/egress quotas are tracked on the Firebase console
@@ -166,3 +167,51 @@ dashboard — this script only covers the storage cap.
 Exit code: `0` for OK/WARN (≥75%), `2` for OVER (≥100%). The
 non-zero exit at OVER means the script can be wired into a cron/CI
 alert later without parsing stdout.
+
+## Gene report sync
+
+`.github/workflows/gene-reports.yml` runs `scripts/sync-gene-reports.mjs`
+daily. It reads new docs from `/geneReports` with the Admin SDK and keeps
+one GitHub issue per gene, labelled `gene-report`. Design:
+`docs/design/gene-effect-reports-v1.md` §7.
+
+### One-time setup
+
+1. Create a service account key for the Action. The script only needs to
+   read and write Firestore documents, so a dedicated service account with
+   that access is safer than the project-wide Firebase Admin SDK key. In
+   the Google Cloud console for the `gorgonetics` project, create a
+   service account, grant it the **Cloud Datastore User** role, and create
+   a JSON key for it. (Unverified: confirm in the console that this role
+   is enough for Firestore reads and writes before the first run.)
+2. GitHub → repo **Settings → Secrets and variables → Actions** → new
+   repository secret `FIREBASE_SERVICE_ACCOUNT`, value = the whole key
+   JSON. Delete the local copy of the key afterwards.
+3. Deploy the rules (`pnpm exec firebase deploy --only firestore:rules`),
+   if not done yet.
+
+The `gene-report` label must exist in the repo; the script finds its
+issues by that label. The cursor lives in `/meta/geneReportSync`; no rule
+matches `/meta`, so clients cannot read or write it.
+
+### Running
+
+- **Manually:** Actions → *Gene reports* → *Run workflow*. Tick *dry
+  run* to print the issues and comments it would write, without writing
+  them or moving the cursor.
+- **Locally:**
+
+  ```bash
+  FIREBASE_SERVICE_ACCOUNT_PATH=~/.config/gorgonetics/gene-reports-key.json \
+  GITHUB_TOKEN=$(gh auth token) GITHUB_REPOSITORY=gorgonetics/Gorgonetics \
+    pnpm sync:gene-reports --dry-run
+  ```
+
+  A local run without `--dry-run` posts as the token's user. Set
+  `GENE_REPORT_BOT_LOGIN` to that login, or the script will not recognise
+  its own comments on a retry and may post twice.
+
+Each run handles at most 20 genes and 5,000 reports; a backlog drains
+over later runs. Reports for genes that are not in the templates are
+skipped. Later runs only change the "Reports so far" line of an issue
+body, so other edits to the body stay.

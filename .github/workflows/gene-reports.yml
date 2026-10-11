@@ -1,0 +1,53 @@
+name: Gene reports
+
+# Drain new gene effect reports from Firestore into GitHub issues, one per
+# gene. See scripts/sync-gene-reports.mjs and
+# docs/design/gene-effect-reports-v1.md §7. Needs the
+# FIREBASE_SERVICE_ACCOUNT secret (docs/firebase-setup.md).
+
+on:
+  schedule:
+    - cron: "23 5 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Print what would change; write no issues and no cursor"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  issues: write
+
+# Two runs at once could each create an issue for the same gene.
+concurrency:
+  group: gene-reports
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Sync gene reports
+        run: node scripts/sync-gene-reports.mjs ${{ inputs.dry_run && '--dry-run' || '' }}
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
