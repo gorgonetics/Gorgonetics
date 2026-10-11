@@ -759,6 +759,30 @@ export interface SharedPetsPage {
   cursor: unknown | null;
 }
 
+/** Species keys accepted by `/geneReports` (the `assets/<species>/` names). */
+export type GeneReportSpecies = 'horse' | 'beewasp';
+
+/**
+ * One gene-effect correction sent to `/geneReports/{docId}`, minus the
+ * server-set `submittedAt`. `firestore.rules` (`isValidGeneReport`) is the
+ * authority for every field limit; see docs/design/gene-effect-reports-v1.md.
+ */
+export interface GeneReport {
+  species: GeneReportSpecies;
+  gene: string;
+  /** Template values on the reporter's install — the baseline, not the DB. */
+  bundledDominant: string;
+  bundledRecessive: string;
+  proposedDominant: string;
+  proposedRecessive: string;
+  /** 0–1000 chars; empty when the user writes nothing. */
+  note: string;
+  /** `genes.templateBundleHash` setting: SHA-256 hex of the template bundle. */
+  templateBundleHash: string;
+  appVersion: string;
+  schemaVersion: 1;
+}
+
 /** Cursor-based pagination options for `listPets`. */
 export interface ListPetsOpts {
   limit?: number;
