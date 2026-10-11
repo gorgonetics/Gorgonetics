@@ -17,9 +17,12 @@ import { isTauri } from '$lib/utils/environment.js';
 import { decodeLoci, encodeLoci, layoutId, storedGenomeEntries } from '$lib/utils/lociCodec.js';
 import { now } from '$lib/utils/timestamp.js';
 import { getDb, type TxStatement } from './database.js';
+import { refreshGeneTemplatesIfChanged } from './demoService.js';
 import { pickExportSavePath, saveExportBinaryFile } from './fileService.js';
 import { clearGeneEffectsCache } from './geneService.js';
 import { CURRENT_SCHEMA_VERSION, derivedProvenance, getSchemaVersion } from './migrationService.js';
+import { backfillPositiveGenesIfNeeded } from './petService.js';
+import { resetSetting, TEMPLATE_BUNDLE_HASH_KEY } from './settingsService.js';
 import { clearAttributeMagnitudesCache } from './studyService.js';
 
 const EXPORT_FORMAT = 'gorgonetics-backup' as const;
@@ -41,6 +44,10 @@ const GENE_COLUMNS = [
   'notes',
   'created_at',
   'updated_at',
+  // Template effects (migration v21), so a restore keeps track of which
+  // effects are the user's edits. Older backups restore them as NULL.
+  'template_dominant',
+  'template_recessive',
 ];
 
 const PET_COLUMNS = [
@@ -283,6 +290,19 @@ export async function importDatabase(source: Uint8Array | LoadedBackup, options:
   // data and a caller could construct one without going through loadBackup.
   validateMetadata(loaded.metadata);
   const result = await importFromZip(loaded.zip, options);
+  // A backup from before schema v21 restores effects with no recorded
+  // template, and one from an older release restores older template values.
+  // Run the template refresh now, as on an upgrade: untouched effects take
+  // the current bundled values and the user's edits are kept. Clearing the
+  // stored bundle hash makes it run even though the bundle did not change.
+  if (options.includeGenes) {
+    await resetSetting(TEMPLATE_BUNDLE_HASH_KEY);
+    await refreshGeneTemplatesIfChanged();
+    // Each pet's stored "+ Genes" count depends on the effects. The startup
+    // backfill that recomputes it has already run this session, so run it
+    // now; the import dialog's reload then shows the corrected counts.
+    await backfillPositiveGenesIfNeeded();
+  }
   // The restore rewrote tables the session caches were derived from, without
   // going through the services that keep them in step. Without this the gene
   // effects, the study's magnitudes and its memoised run all keep describing
