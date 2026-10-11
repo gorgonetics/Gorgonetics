@@ -24,9 +24,9 @@
  * this is a human-eyeballing tool. If a CI gate needs structured
  * usage telemetry later, the `--json` flag is a natural extension.
  */
-import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { loadServiceAccount } from './firebase-service-account.mjs';
 
 // Spark plan limits (verified against
 // https://firebase.google.com/pricing on 2026-05-09). These are the
@@ -43,22 +43,6 @@ export const ERROR_THRESHOLD = 1.0;
 function fail(message) {
   console.error(`monitor-spark-usage: ${message}`);
   process.exit(1);
-}
-
-function loadServiceAccount() {
-  const path = process.env.FIREBASE_SERVICE_ACCOUNT_PATH;
-  if (!path) {
-    fail(
-      'FIREBASE_SERVICE_ACCOUNT_PATH env var is required. Generate a key via Firebase console → Project settings → Service accounts and save it OUTSIDE this repo. See docs/firebase-setup.md.',
-    );
-  }
-  const abs = resolve(path);
-  if (!existsSync(abs)) fail(`service account key not found at ${abs}`);
-  try {
-    return JSON.parse(readFileSync(abs, 'utf-8'));
-  } catch (err) {
-    fail(`service account key at ${abs} is not valid JSON: ${err instanceof Error ? err.message : String(err)}`);
-  }
 }
 
 /**
@@ -105,7 +89,13 @@ export function statusFor(ratio) {
 }
 
 async function main() {
-  const serviceAccount = loadServiceAccount();
+  /** @type {Record<string, any>} */
+  let serviceAccount;
+  try {
+    serviceAccount = loadServiceAccount({ allowInline: false });
+  } catch (err) {
+    fail(err instanceof Error ? err.message : String(err));
+  }
   // Lazy-load the heavy Admin SDK so the module's pure helpers can be
   // unit-tested without pulling firebase-admin into the test process.
   // Modular API: firebase-admin v14 no longer has the namespaced

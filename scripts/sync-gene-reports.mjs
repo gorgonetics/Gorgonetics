@@ -18,16 +18,22 @@
  * writes neither issues nor the cursor; it prints what it would do.
  * See docs/firebase-setup.md for the key and secret setup.
  */
-import { createHash } from 'node:crypto';
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { loadServiceAccount } from './firebase-service-account.mjs';
 
 export const LABEL = 'gene-report';
 export const MAX_GENES_PER_RUN = 20;
 export const PAGE_SIZE = 200;
 export const MAX_NOTES_PER_COMMENT = 20;
 export const MAX_NOTE_CHARS_PER_COMMENT = 30_000;
+/**
+ * Only reports older than this are taken. Guards the cursor against a
+ * report that becomes visible after a later-stamped one: once the cursor
+ * passed it, it would be skipped for good. Costs nothing for a daily job.
+ */
+export const SETTLE_MS = 5 * 60_000;
 const CURSOR_DOC = 'meta/geneReportSync';
 const COLLECTION = 'geneReports';
 
@@ -54,12 +60,16 @@ const COLLECTION = 'geneReports';
  * @typedef {object} ReportStore
  * @property {() => Promise<Cursor | null>} readCursor
  * @property {(cursor: Cursor) => Promise<void>} writeCursor
- * @property {(after: Cursor | null, limit: number) => Promise<Report[]>} pageAfter
- *   Reports ordered by (submittedAt, doc ID), strictly after `after`.
+ * @property {(after: Cursor | null, limit: number, before: Instant) => Promise<Report[]>} pageAfter
+ *   Reports ordered by (submittedAt, doc ID), strictly after `after` and
+ *   submitted strictly before `before`.
  * @property {(species: string, gene: string) => Promise<Report[]>} reportsForGene
  *
  * @typedef {object} IssueTracker
  * @property {() => Promise<Map<string, Issue>>} listReportIssues  keyed by `species/gene`
+ * @property {(title: string) => Promise<Issue | null>} findIssueByTitle
+ *   Fallback for an issue that lost its label; exact title match.
+ * @property {(number: number) => Promise<void>} addLabel
  * @property {(title: string, body: string) => Promise<Issue>} createIssue
  * @property {(number: number, patch: { body?: string, state?: 'open' }) => Promise<void>} updateIssue
  * @property {(number: number) => Promise<string[]>} listCommentBodies
@@ -104,16 +114,46 @@ export function sanitiseNote(note) {
   return note.replaceAll('`', '').replace(/[@#](?=\w)/g, '').trim();
 }
 
-/** @param {string[]} docIds */
-export function batchIdFor(docIds) {
-  return createHash('sha256')
-    .update([...docIds].sort().join('\n'))
-    .digest('hex');
+/** @param {Report} r @returns {Cursor} */
+function positionOf(r) {
+  return { submittedAt: r.submittedAt, docId: r.id };
 }
 
-/** @param {string} batchId */
-export function batchMarker(batchId) {
-  return `<!-- gene-report-batch:${batchId} -->`;
+/** Order of two positions in sync order. @param {Cursor} a @param {Cursor} b */
+export function compareCursor(a, b) {
+  return (
+    a.submittedAt.seconds - b.submittedAt.seconds ||
+    a.submittedAt.nanoseconds - b.submittedAt.nanoseconds ||
+    (a.docId < b.docId ? -1 : a.docId > b.docId ? 1 : 0)
+  );
+}
+
+/**
+ * Hidden marker in each batch comment: the position of the last report it
+ * covers. Reports reach a gene's comments in sync order, so every report at
+ * or before the highest marker on an issue has been posted. A retry skips
+ * those, even when new reports for the gene arrived in between.
+ * @param {Cursor} c
+ */
+export function progressMarker(c) {
+  return `<!-- gene-report-upto:${c.submittedAt.seconds}.${String(c.submittedAt.nanoseconds).padStart(9, '0')}:${c.docId} -->`;
+}
+
+/**
+ * The highest position marked in a set of comment bodies, or null.
+ * @param {string[]} bodies
+ * @returns {Cursor | null}
+ */
+export function postedUpTo(bodies) {
+  /** @type {Cursor | null} */
+  let max = null;
+  for (const body of bodies) {
+    for (const m of body.matchAll(/<!-- gene-report-upto:(\d+)\.(\d{9}):(\S+) -->/g)) {
+      const c = { submittedAt: { seconds: Number(m[1]), nanoseconds: Number(m[2]) }, docId: m[3] };
+      if (!max || compareCursor(c, max) > 0) max = c;
+    }
+  }
+  return max;
 }
 
 /**
@@ -206,12 +246,12 @@ export function renderIssueBody(species, gene, current, tally) {
 }
 
 /**
- * One comment for the gene's new reports in this run, with the newest
- * notes. The marker makes it idempotent across retries.
- * @param {Report[]} newReports
+ * One comment for a gene's newly posted reports, with the newest notes.
+ * @param {Report[]} newReports  in sync order
  */
 export function renderBatchComment(newReports) {
-  const marker = batchMarker(batchIdFor(newReports.map((r) => r.id)));
+  const last = newReports.reduce((a, b) => (compareCursor(positionOf(b), positionOf(a)) > 0 ? b : a));
+  const marker = progressMarker(positionOf(last));
   /** @type {Map<string, number>} */
   const counts = new Map();
   for (const r of newReports) {
@@ -227,7 +267,9 @@ export function renderBatchComment(newReports) {
   const noteBlocks = [];
   let chars = 0;
   for (const { r, note } of withNotes) {
-    if (noteBlocks.length >= MAX_NOTES_PER_COMMENT || chars + note.length > MAX_NOTE_CHARS_PER_COMMENT) break;
+    if (noteBlocks.length >= MAX_NOTES_PER_COMMENT) break;
+    // A shorter later note may still fit.
+    if (chars + note.length > MAX_NOTE_CHARS_PER_COMMENT) continue;
     chars += note.length;
     const when = new Date(r.submittedAt.seconds * 1000).toISOString().slice(0, 10);
     noteBlocks.push(`${when}, app ${code(r.appVersion)}:\n\`\`\`text\n${note}\n\`\`\``);
@@ -279,6 +321,8 @@ export function loadTemplates(assetsDir) {
  *   templates: Templates,
  *   maxGenes?: number,
  *   pageSize?: number,
+ *   now?: number,
+ *   settleMs?: number,
  *   log?: (msg: string) => void,
  * }} deps
  */
@@ -288,8 +332,14 @@ export async function syncGeneReports({
   templates,
   maxGenes = MAX_GENES_PER_RUN,
   pageSize = PAGE_SIZE,
+  now = Date.now(),
+  settleMs = SETTLE_MS,
   log = () => {},
 }) {
+  const cutoffMs = now - settleMs;
+  /** @type {Instant} */
+  const before = { seconds: Math.floor(cutoffMs / 1000), nanoseconds: (cutoffMs % 1000) * 1_000_000 };
+
   // 1–2. New reports in order, up to the gene limit.
   const start = await store.readCursor();
   let cursor = start;
@@ -298,12 +348,14 @@ export async function syncGeneReports({
   /** @type {Map<string, Report[]>} */
   const newByGene = new Map();
   for (;;) {
-    const page = await store.pageAfter(cursor, pageSize);
+    const page = await store.pageAfter(cursor, pageSize, before);
     if (page.length === 0) break;
     const { taken, full } = takeWithinGeneLimit(page, genes, maxGenes);
     for (const r of taken) {
       const key = geneKey(r.species, r.gene);
-      newByGene.set(key, [...(newByGene.get(key) ?? []), r]);
+      const list = newByGene.get(key);
+      if (list) list.push(r);
+      else newByGene.set(key, [r]);
     }
     if (taken.length > 0) {
       const last = taken[taken.length - 1];
@@ -316,21 +368,42 @@ export async function syncGeneReports({
     return { genes: 0, reports: 0 };
   }
 
-  const issues = await tracker.listReportIssues();
+  // 3. Every report of each picked gene, read in parallel (independent
+  // Firestore reads). The GitHub writes below stay sequential.
+  const [issues, allByGene] = await Promise.all([
+    tracker.listReportIssues(),
+    Promise.all(
+      [...newByGene.keys()].map(async (key) => {
+        const [species, gene] = key.split('/');
+        return /** @type {const} */ ([key, await store.reportsForGene(species, gene)]);
+      }),
+    ).then((entries) => new Map(entries)),
+  ]);
+
   let reports = 0;
   for (const [key, newReports] of newByGene) {
     const [species, gene] = key.split('/');
     const current = templates.get(key);
     reports += newReports.length;
 
-    // 3. Recount from every report of the gene, not just the new ones.
-    const tally = buildTally(await store.reportsForGene(species, gene), current);
+    // Recount from every report of the gene, not just the new ones.
+    const tally = buildTally(allByGene.get(key) ?? [], current);
     const body = renderIssueBody(species, gene, current, tally);
 
-    // 4. Create or rewrite the issue.
+    // 4. Create or rewrite the issue. An issue that lost its label is not
+    // in `issues`; find it by title and relabel it rather than duplicate it.
+    const title = issueTitle(species, gene);
     let issue = issues.get(key);
     if (!issue) {
-      issue = await tracker.createIssue(issueTitle(species, gene), body);
+      const unlabelled = await tracker.findIssueByTitle(title);
+      if (unlabelled) {
+        await tracker.addLabel(unlabelled.number);
+        log(`Relabelled issue #${unlabelled.number} for ${key}.`);
+        issue = unlabelled;
+      }
+    }
+    if (!issue) {
+      issue = await tracker.createIssue(title, body);
       log(`Created issue #${issue.number} for ${key}.`);
     } else {
       // 6. Reopen when a new report proposes something not yet in the templates.
@@ -346,13 +419,11 @@ export async function syncGeneReports({
       }
     }
 
-    // 5. One comment per batch, skipped if a retry already posted it.
-    const comment = renderBatchComment(newReports);
-    const marker = comment.split('\n', 1)[0];
-    const existing = await tracker.listCommentBodies(issue.number);
-    if (!existing.some((b) => b.startsWith(marker))) {
-      await tracker.createComment(issue.number, comment);
-    }
+    // 5. One comment for the reports not yet posted. After a failed run,
+    // the retry skips those an earlier comment already covers.
+    const upTo = postedUpTo(await tracker.listCommentBodies(issue.number));
+    const unposted = upTo ? newReports.filter((r) => compareCursor(positionOf(r), upTo) > 0) : newReports;
+    if (unposted.length > 0) await tracker.createComment(issue.number, renderBatchComment(unposted));
   }
 
   // 7. Cursor last: a failure above repeats this batch on the next run.
@@ -404,8 +475,12 @@ export function firestoreStore(firestoreModule, db) {
         docId: cursor.docId,
       });
     },
-    async pageAfter(after, limit) {
-      let q = db.collection(COLLECTION).orderBy('submittedAt').orderBy(FieldPath.documentId());
+    async pageAfter(after, limit, before) {
+      let q = db
+        .collection(COLLECTION)
+        .where('submittedAt', '<', new Timestamp(before.seconds, before.nanoseconds))
+        .orderBy('submittedAt')
+        .orderBy(FieldPath.documentId());
       if (after) q = q.startAfter(new Timestamp(after.submittedAt.seconds, after.submittedAt.nanoseconds), after.docId);
       const snap = await q.limit(limit).get();
       return snap.docs.map(toReport);
@@ -426,8 +501,14 @@ export function firestoreStore(firestoreModule, db) {
  */
 export function githubTracker(repo, token, fetchImpl = fetch) {
   /** @param {string} path @param {RequestInit} [init] */
-  async function api(path, init = {}) {
-    const res = await fetchImpl(`https://api.github.com/repos/${repo}${path}`, {
+  function api(path, init = {}) {
+    return apiUrl(`https://api.github.com/repos/${repo}${path}`, init);
+  }
+
+  /** @param {string} url @param {RequestInit} [init] */
+  async function apiUrl(url, init = {}) {
+    const path = url.replace('https://api.github.com', '');
+    const res = await fetchImpl(url, {
       ...init,
       headers: {
         Accept: 'application/vnd.github+json',
@@ -466,6 +547,17 @@ export function githubTracker(repo, token, fetchImpl = fetch) {
       }
       return byKey;
     },
+    async findIssueByTitle(title) {
+      // Search lags for new issues, but this only looks for old issues that
+      // lost their label; a just-created issue still has it.
+      const q = encodeURIComponent(`repo:${repo} is:issue in:title "${title}"`);
+      const result = await apiUrl(`https://api.github.com/search/issues?q=${q}&per_page=10`);
+      const i = (result.items ?? []).find((/** @type {any} */ x) => x.title === title && !x.pull_request);
+      return i ? { number: i.number, state: i.state, body: i.body ?? '' } : null;
+    },
+    async addLabel(number) {
+      await api(`/issues/${number}/labels`, { method: 'POST', body: JSON.stringify({ labels: [LABEL] }) });
+    },
     async createIssue(title, body) {
       const i = await api('/issues', { method: 'POST', body: JSON.stringify({ title, body, labels: [LABEL] }) });
       return { number: i.number, state: i.state, body: i.body ?? '' };
@@ -492,6 +584,10 @@ export function dryRunTracker(tracker, log) {
   let next = -1;
   return {
     listReportIssues: () => tracker.listReportIssues(),
+    findIssueByTitle: (title) => tracker.findIssueByTitle(title),
+    async addLabel(number) {
+      log(`[dry run] would add label ${LABEL} to #${number}`);
+    },
     listCommentBodies: (n) => (n < 0 ? Promise.resolve([]) : tracker.listCommentBodies(n)),
     async createIssue(title, body) {
       log(`[dry run] would create "${title}":\n${body}\n`);
@@ -514,21 +610,6 @@ function fail(message) {
   process.exit(1);
 }
 
-function loadServiceAccount() {
-  const inline = process.env.FIREBASE_SERVICE_ACCOUNT;
-  if (inline) {
-    try {
-      return JSON.parse(inline);
-    } catch {
-      fail('FIREBASE_SERVICE_ACCOUNT is not valid JSON.');
-    }
-  }
-  const path = process.env.FIREBASE_SERVICE_ACCOUNT_PATH;
-  if (!path) fail('Set FIREBASE_SERVICE_ACCOUNT (key JSON) or FIREBASE_SERVICE_ACCOUNT_PATH. See docs/firebase-setup.md.');
-  const abs = resolve(path);
-  if (!existsSync(abs)) fail(`service account key not found at ${abs}`);
-  return JSON.parse(readFileSync(abs, 'utf-8'));
-}
 
 async function main() {
   const dryRun = process.argv.includes('--dry-run');
@@ -536,7 +617,13 @@ async function main() {
   const token = process.env.GITHUB_TOKEN;
   if (!repo || !token) fail('GITHUB_REPOSITORY and GITHUB_TOKEN are required.');
 
-  const serviceAccount = loadServiceAccount();
+  /** @type {Record<string, any>} */
+  let serviceAccount;
+  try {
+    serviceAccount = loadServiceAccount();
+  } catch (err) {
+    fail(err instanceof Error ? err.message : String(err));
+  }
   // Loaded here, not at the top, so tests can import the pure helpers
   // without the Admin SDK.
   const { initializeApp, cert } = await import('firebase-admin/app');

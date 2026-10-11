@@ -56,7 +56,16 @@ function put(id: string, gene: string, seconds: number, nanoseconds = 0) {
     });
 }
 
+const FAR_FUTURE = { seconds: 4_000_000_000, nanoseconds: 0 };
+
 describe('firestoreStore', () => {
+  it('returns only reports submitted before the cut-off', async () => {
+    await put('a'.repeat(64), '01A1', 100);
+    await put('b'.repeat(64), '01A2', 200);
+    const page = await store.pageAfter(null, 10, { seconds: 150, nanoseconds: 0 });
+    expect(page.map((r) => r.id[0])).toEqual(['a']);
+  });
+
   it('pages in (submittedAt, doc ID) order, including equal timestamps', async () => {
     await put('c'.repeat(64), '01A1', 100);
     await put('a'.repeat(64), '01A2', 100);
@@ -66,7 +75,7 @@ describe('firestoreStore', () => {
     const ids: string[] = [];
     let after = null;
     for (;;) {
-      const page = await store.pageAfter(after, 1);
+      const page = await store.pageAfter(after, 1, FAR_FUTURE);
       if (page.length === 0) break;
       ids.push(page[0].id[0]);
       after = { submittedAt: page[0].submittedAt, docId: page[0].id };
