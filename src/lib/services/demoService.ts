@@ -3,14 +3,13 @@
  * Loads bundled gene templates and sample genomes on first launch.
  */
 
+import { TEMPLATE_SPECIES } from '$lib/types/index.js';
+import { normaliseEffect } from '$lib/utils/geneAnalysis.js';
 import { getDb } from './database.js';
 import { listBundledResources, loadBundledResource } from './fileService.js';
 import { upsertGenesBulk } from './geneService.js';
 import { hasPets, updatePet, uploadPet } from './petService.js';
-import { getSetting, resetSetting, setSetting } from './settingsService.js';
-
-const TEMPLATE_SPECIES = ['beewasp', 'horse'] as const;
-const TEMPLATE_BUNDLE_HASH_KEY = 'genes.templateBundleHash';
+import { getSetting, resetSetting, setSetting, TEMPLATE_BUNDLE_HASH_KEY } from './settingsService.js';
 
 type TemplateGene = {
   gene: string;
@@ -51,14 +50,49 @@ async function bundleHash(raw: RawChromosome[]): Promise<string> {
     .join('');
 }
 
+type ExistingGeneRow = {
+  gene: string;
+  notes: string | null;
+  effectDominant: string | null;
+  effectRecessive: string | null;
+  template_dominant: string | null;
+  template_recessive: string | null;
+};
+
+/** Per `species/gene`: the dominant and recessive values releases up to v0.10.3 shipped. */
+type ShippedHistory = Record<string, [string[], string[]] | undefined>;
+
+/**
+ * The effect to store after a refresh: the new template value, unless the
+ * current value is the user's edit. A row is untouched when its effect
+ * equals the template it came from; for rows from before v21, which did not
+ * record it, when it equals any value a release shipped.
+ */
+function keepOrTake(
+  current: string | null,
+  template: string | null,
+  next: string,
+  shipped: string[] | undefined,
+): string {
+  // No value at all is not an edit: take the template.
+  if (current == null) return next;
+  const value = normaliseEffect(current);
+  const untouched =
+    template != null
+      ? value === normaliseEffect(template)
+      : value === normaliseEffect(next) || (shipped ?? []).includes(value);
+  return untouched ? next : current;
+}
+
 /**
  * Sync the genes table with the bundled JSON templates whenever the
  * bundle's content hash differs from what was last applied.
  *
  * On first launch the genes table is empty and every row is inserted.
  * On app upgrades that ship corrected templates, existing rows are
- * refreshed in place — `notes` is preserved on conflict so any
- * user-authored gene notes survive the refresh.
+ * refreshed in place. `notes` and any effect the user edited are kept;
+ * each row records the template effects it was refreshed against, so the
+ * next refresh can tell an edit from an untouched row.
  */
 export async function refreshGeneTemplatesIfChanged(): Promise<void> {
   let raw: RawChromosome[];
@@ -105,33 +139,65 @@ export async function refreshGeneTemplatesIfChanged(): Promise<void> {
   }
 
   const db = getDb();
-  // Pre-fetch existing notes per species so we can pass them through to
-  // upsertGenesBulk — INSERT OR REPLACE deletes the prior row, so without this
-  // any user-authored notes would be lost on refresh.
-  const notesBySpecies = new Map<string, Map<string, string>>();
+  // Pre-fetch existing rows per species: INSERT OR REPLACE deletes the prior
+  // row, so notes and the user's effect edits must be passed through.
+  const rowsBySpecies = new Map<string, Map<string, ExistingGeneRow>>();
   for (const species of new Set(parsed.map((c) => c.species))) {
-    const rows = await db.select<{ gene: string; notes: string }[]>(
-      'SELECT gene, notes FROM genes WHERE animal_type = $animal_type',
+    const rows = await db.select<ExistingGeneRow[]>(
+      `SELECT gene, notes, effectDominant, effectRecessive, template_dominant, template_recessive
+       FROM genes WHERE animal_type = $animal_type`,
       { animal_type: species },
     );
-    notesBySpecies.set(species, new Map(rows.map((r) => [r.gene, r.notes ?? ''])));
+    rowsBySpecies.set(species, new Map(rows.map((r) => [r.gene, r])));
   }
 
+  // Rows from before schema v21 have no recorded template; decide those
+  // from the values releases shipped. Loaded only when a gene still in the
+  // bundle needs it: a row of a gene the bundle dropped never gets a
+  // template, and must not force the load on every later refresh.
+  const needsHistory = parsed.some(({ species, genes }) => {
+    const rows = rowsBySpecies.get(species);
+    return genes.some((g) => {
+      const r = rows?.get(g.gene);
+      return r !== undefined && (r.template_dominant == null || r.template_recessive == null);
+    });
+  });
+  const history: ShippedHistory = needsHistory
+    ? ((await import('$lib/data/gene-template-history.json')).default as unknown as ShippedHistory)
+    : {};
+
+  let kept = 0;
   for (const { species, chromosome, genes } of parsed) {
-    const existingNotes = notesBySpecies.get(species) ?? new Map<string, string>();
+    const existing = rowsBySpecies.get(species) ?? new Map<string, ExistingGeneRow>();
     await upsertGenesBulk(
       species,
       chromosome,
-      genes.map((gene) => ({
-        gene: gene.gene,
-        effectDominant: gene.effectDominant,
-        effectRecessive: gene.effectRecessive,
-        appearance: gene.appearance,
-        breed: gene.breed,
-        notes: existingNotes.get(gene.gene) ?? gene.notes ?? '',
-      })),
+      genes.map((gene) => {
+        const row = existing.get(gene.gene);
+        const shipped = history[`${species}/${gene.gene}`];
+        const nextDominant = normaliseEffect(gene.effectDominant);
+        const nextRecessive = normaliseEffect(gene.effectRecessive);
+        const effectDominant = row
+          ? keepOrTake(row.effectDominant, row.template_dominant, nextDominant, shipped?.[0])
+          : nextDominant;
+        const effectRecessive = row
+          ? keepOrTake(row.effectRecessive, row.template_recessive, nextRecessive, shipped?.[1])
+          : nextRecessive;
+        if (effectDominant !== nextDominant || effectRecessive !== nextRecessive) kept++;
+        return {
+          gene: gene.gene,
+          effectDominant,
+          effectRecessive,
+          appearance: gene.appearance,
+          breed: gene.breed,
+          notes: row?.notes ?? gene.notes ?? '',
+          templateDominant: nextDominant,
+          templateRecessive: nextRecessive,
+        };
+      }),
     );
   }
+  if (kept > 0) console.log(`Kept user-edited effects on ${kept} gene(s).`);
 
   // pets.positive_genes is computed from gene effects and persisted on
   // the pets table. The backfill that populates it is guard-gated by a

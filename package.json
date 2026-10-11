@@ -1,6 +1,6 @@
 {
   "name": "gorgonetics",
-  "version": "0.10.3",
+  "version": "0.11.0",
   "description": "Gorgon genetics breeding tool for Project Gorgon",
   "type": "module",
   "private": true,
@@ -28,6 +28,7 @@
     "test:e2e:headed": "playwright test --headed",
     "screenshots": "node scripts/capture-quickstart-screenshots.mjs",
     "monitor:spark": "node scripts/monitor-spark-usage.mjs",
+    "sync:gene-reports": "node scripts/sync-gene-reports.mjs",
     "release": "bash scripts/release.sh",
     "clean": "rm -rf node_modules/.cache/ .vite/ test-results/ playwright-report/",
     "setup": "pnpm install"

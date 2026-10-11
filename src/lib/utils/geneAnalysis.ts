@@ -19,6 +19,15 @@ export function isNoEffect(effect: string | null | undefined): boolean {
 }
 
 /**
+ * An effect as the templates write it: the gene editor stores a cleared
+ * effect as `''`, and templates and gene reports use `'None'`. The template
+ * refresh and the reportable diff must agree on this, so both use it.
+ */
+export function normaliseEffect(value: string | null | undefined): string {
+  return value == null || value === '' ? 'None' : value;
+}
+
+/**
  * Pre-parsed representation of a gene effect. Returned by `parseEffect` so
  * the resolved attribute/sign can be persisted to the genes table and
  * queried directly — the raw effect string no longer needs re-parsing on

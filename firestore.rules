@@ -198,5 +198,92 @@ service cloud.firestore {
 
       allow update, delete: if false;
     }
+
+    // Gene effect reports (docs/design/gene-effect-reports-v1.md). A user
+    // who corrects a gene effect in the Genes tab can send the correction
+    // here; a scheduled GitHub Action drains new reports into one issue
+    // per gene. Create-only. Clients cannot list reports; the Action reads
+    // with the Admin SDK, which bypasses rules.
+
+    // Allowed effect strings per species: 'None' plus +/- for each
+    // attribute in CORE_ATTRIBUTES + SPECIES_ATTRIBUTES (configService.ts).
+    // tests/unit/geneReportRules.test.ts keeps these lists in step with
+    // configService.getEffectOptionsForSpecies.
+    function effectsFor(species) {
+      return {
+        'horse': [
+          'None',
+          'Enthusiasm+', 'Enthusiasm-', 'Friendliness+', 'Friendliness-',
+          'Intelligence+', 'Intelligence-', 'Ruggedness+', 'Ruggedness-',
+          'Temperament+', 'Temperament-', 'Toughness+', 'Toughness-',
+          'Virility+', 'Virility-'
+        ],
+        'beewasp': [
+          'None',
+          'Enthusiasm+', 'Enthusiasm-', 'Ferocity+', 'Ferocity-',
+          'Friendliness+', 'Friendliness-', 'Intelligence+', 'Intelligence-',
+          'Ruggedness+', 'Ruggedness-', 'Toughness+', 'Toughness-',
+          'Virility+', 'Virility-'
+        ]
+      }[species];
+    }
+
+    // `allowed` arrives as an argument so effectsFor() is built and indexed
+    // once per evaluation, not once per field (rules have no `let`; same
+    // pattern as identityMatchesFirstShare above).
+    function effectsValid(d, allowed) {
+      return d.bundledDominant is string && d.bundledDominant in allowed
+        && d.bundledRecessive is string && d.bundledRecessive in allowed
+        && d.proposedDominant is string && d.proposedDominant in allowed
+        && d.proposedRecessive is string && d.proposedRecessive in allowed;
+    }
+
+    // The species check runs before effectsFor(d.species), which errors
+    // (and so denies) on an unknown key.
+    function isValidGeneReport(d) {
+      return d.keys().hasAll([
+               'species', 'gene',
+               'bundledDominant', 'bundledRecessive',
+               'proposedDominant', 'proposedRecessive',
+               'note', 'templateBundleHash', 'appVersion',
+               'schemaVersion', 'submittedAt'
+             ])
+        && d.keys().hasOnly([
+               'species', 'gene',
+               'bundledDominant', 'bundledRecessive',
+               'proposedDominant', 'proposedRecessive',
+               'note', 'templateBundleHash', 'appVersion',
+               'schemaVersion', 'submittedAt'
+             ])
+        && d.species in ['horse', 'beewasp']
+        && d.gene is string && d.gene.matches('^[0-9]{2}[A-Z][0-9]$')
+        && effectsValid(d, effectsFor(d.species))
+        && (d.proposedDominant != d.bundledDominant
+            || d.proposedRecessive != d.bundledRecessive)
+        && d.note is string && d.note.size() <= 1000
+        && d.templateBundleHash is string
+        && d.templateBundleHash.matches('^[a-f0-9]{64}$')
+        && d.appVersion is string
+        && d.appVersion.size() >= 1 && d.appVersion.size() <= 32
+        && d.schemaVersion is int && d.schemaVersion == 1
+        && d.submittedAt is timestamp && d.submittedAt == request.time;
+    }
+
+    // Doc ID = SHA-256 hex of installId|species|gene|proposed effects, so a
+    // second send of the same correction from one install is a duplicate
+    // create and fails. The rules cannot check the hash: this deduplicates
+    // honest clients only.
+    //
+    // `get` by ID is allowed so a client whose create was denied can tell a
+    // duplicate (the doc exists) from a real refusal. Only the reporting
+    // install can derive an ID (it is salted with a local random install
+    // ID), and `list` stays denied, so no one can read others' reports.
+    match /geneReports/{docId} {
+      allow get: if true;
+      allow list: if false;
+      allow create: if docId.matches('^[a-f0-9]{64}$')
+                 && isValidGeneReport(request.resource.data);
+      allow update, delete: if false;
+    }
   }
 }

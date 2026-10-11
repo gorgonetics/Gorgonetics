@@ -2,7 +2,7 @@
 /**
  * Spark-plan soft-cap monitor for the public pet sharing catalogue.
  *
- * Reads every doc in `/pets` and `/genomes`, sums their serialised
+ * Reads every doc in `/pets`, `/genomes` and `/geneReports`, sums their serialised
  * sizes, and prints a usage report against Firebase Spark limits.
  * Run manually — there's no in-app surface for this. The Firebase
  * console dashboard is still the authoritative source for
@@ -24,9 +24,9 @@
  * this is a human-eyeballing tool. If a CI gate needs structured
  * usage telemetry later, the `--json` flag is a natural extension.
  */
-import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { loadServiceAccount } from './firebase-service-account.mjs';
 
 // Spark plan limits (verified against
 // https://firebase.google.com/pricing on 2026-05-09). These are the
@@ -45,22 +45,6 @@ function fail(message) {
   process.exit(1);
 }
 
-function loadServiceAccount() {
-  const path = process.env.FIREBASE_SERVICE_ACCOUNT_PATH;
-  if (!path) {
-    fail(
-      'FIREBASE_SERVICE_ACCOUNT_PATH env var is required. Generate a key via Firebase console → Project settings → Service accounts and save it OUTSIDE this repo. See docs/firebase-setup.md.',
-    );
-  }
-  const abs = resolve(path);
-  if (!existsSync(abs)) fail(`service account key not found at ${abs}`);
-  try {
-    return JSON.parse(readFileSync(abs, 'utf-8'));
-  } catch (err) {
-    fail(`service account key at ${abs} is not valid JSON: ${err instanceof Error ? err.message : String(err)}`);
-  }
-}
-
 /**
  * Sum the serialised JSON byte size of every doc in `collection`.
  * Approximates Firestore's on-disk storage cost — the actual
@@ -68,7 +52,7 @@ function loadServiceAccount() {
  * metadata), but the approximation is within ~10% in practice and
  * good enough for a soft-cap warning.
  *
- * @param {any} db  Admin SDK Firestore instance (legacy namespaced API; see main)
+ * @param {import('firebase-admin/firestore').Firestore} db
  * @param {string} name
  */
 async function summariseCollection(db, name) {
@@ -105,22 +89,31 @@ export function statusFor(ratio) {
 }
 
 async function main() {
-  const serviceAccount = loadServiceAccount();
+  /** @type {Record<string, any>} */
+  let serviceAccount;
+  try {
+    serviceAccount = loadServiceAccount({ allowInline: false });
+  } catch (err) {
+    fail(err instanceof Error ? err.message : String(err));
+  }
   // Lazy-load the heavy Admin SDK so the module's pure helpers can be
   // unit-tested without pulling firebase-admin into the test process.
-  // Typed as `any`: this uses the legacy namespaced API (admin.credential /
-  // admin.firestore) which firebase-admin v14 ships at runtime but no longer
-  // exposes through its modular type definitions.
-  const { default: admin } = /** @type {{ default: any }} */ (await import('firebase-admin'));
-  admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
-  const db = admin.firestore();
+  // Modular API: firebase-admin v14 no longer has the namespaced
+  // `admin.credential` / `admin.firestore` on its default export.
+  const { initializeApp, cert } = await import('firebase-admin/app');
+  const { getFirestore } = await import('firebase-admin/firestore');
+  const db = getFirestore(initializeApp({ credential: cert(serviceAccount) }));
 
   // The two halves of the split-collection catalogue (see
-  // shareService.ts). Metadata is the small one; the genome blobs
-  // dominate the total.
-  const [pets, genomes] = await Promise.all([summariseCollection(db, 'pets'), summariseCollection(db, 'genomes')]);
+  // shareService.ts) — metadata is the small one, the genome blobs
+  // dominate the total — plus the gene effect reports.
+  const [pets, genomes, geneReports] = await Promise.all([
+    summariseCollection(db, 'pets'),
+    summariseCollection(db, 'genomes'),
+    summariseCollection(db, 'geneReports'),
+  ]);
 
-  const totalBytes = pets.bytes + genomes.bytes;
+  const totalBytes = pets.bytes + genomes.bytes + geneReports.bytes;
   const ratio = totalBytes / SPARK_STORAGE_BYTES;
   const pct = (ratio * 100).toFixed(1);
   const status = statusFor(ratio);
@@ -130,6 +123,9 @@ async function main() {
   console.log(formatRow('Project:', serviceAccount.project_id));
   console.log(formatRow('/pets docs:', `${pets.count.toLocaleString()}  (${formatBytes(pets.bytes)})`));
   console.log(formatRow('/genomes docs:', `${genomes.count.toLocaleString()}  (${formatBytes(genomes.bytes)})`));
+  console.log(
+    formatRow('/geneReports docs:', `${geneReports.count.toLocaleString()}  (${formatBytes(geneReports.bytes)})`),
+  );
   console.log(formatRow('Total estimated:', `${formatBytes(totalBytes)} of ${formatBytes(SPARK_STORAGE_BYTES)} (${pct}%)  [${status}]`));
   console.log('');
   console.log('Reads/writes/egress quotas are tracked on the Firebase console');

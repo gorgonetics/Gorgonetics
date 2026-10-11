@@ -65,6 +65,7 @@ import {
   uploadPet as uploadPetLocally,
 } from '$lib/services/petService.js';
 import { Gender, type ListPetsOpts, type Pet, type SharedPet, type SharedPetsPage } from '$lib/types/index.js';
+import { isPermissionDenied } from '$lib/utils/error.js';
 import { sha256Hex } from '$lib/utils/hash.js';
 import { ATTRIBUTE_KEYS, carriesReadings, mergeCorrectionIdentity } from '$lib/utils/sharedPet.js';
 
@@ -820,10 +821,6 @@ export function sanitizeTags(tags: unknown): string[] {
 }
 
 // --- internals ---
-
-function isPermissionDenied(err: unknown): boolean {
-  return typeof err === 'object' && err !== null && (err as { code?: unknown }).code === 'permission-denied';
-}
 
 function buildMetadataPayload(pet: Pet) {
   // Pet.breeder holds the genome's [Overview] Character= value (set by

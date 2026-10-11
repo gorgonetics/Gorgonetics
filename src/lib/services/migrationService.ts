@@ -496,6 +496,23 @@ const MIGRATIONS: Migration[] = [
       ]);
     },
   },
+  {
+    version: 21,
+    description: 'Remember the template effects each gene row came from, so a refresh keeps user edits',
+    up: async () => {
+      // A template refresh overwrote every effect, so a user's corrections
+      // were lost on any update that changed the bundled genes. With the
+      // template value stored per row, the refresh can tell an edit (effect
+      // differs from its template) from an untouched row. NULL means "not
+      // recorded yet" (rows from before this version); the next refresh
+      // decides those from the shipped-value history (demoService).
+      await getDb().transaction([
+        { sql: 'ALTER TABLE genes ADD COLUMN template_dominant TEXT' },
+        { sql: 'ALTER TABLE genes ADD COLUMN template_recessive TEXT' },
+        { sql: 'PRAGMA user_version = 21' },
+      ]);
+    },
+  },
 ];
 
 /** Derived from the last migration — no manual bookkeeping needed. */
