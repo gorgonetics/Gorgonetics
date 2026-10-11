@@ -2,7 +2,7 @@
  * The Firestore adapter of scripts/sync-gene-reports.mjs against the
  * Firestore Emulator: page order by (submittedAt, doc ID) including equal
  * timestamps, the cursor round trip at stored precision, and the
- * per-gene query. The sync logic itself is unit-tested with fakes.
+ * per-gene count. The sync logic itself is unit-tested with fakes.
  *
  * Run with `pnpm test:firestore`.
  */
@@ -92,12 +92,11 @@ describe('firestoreStore', () => {
     expect(await store.readCursor()).toEqual(cursor);
   });
 
-  it('returns every report of one gene', async () => {
+  it('counts every report of one gene on the server', async () => {
     await put('a'.repeat(64), '26B3', 1);
     await put('b'.repeat(64), '26B3', 2);
     await put('c'.repeat(64), '26B4', 3);
-    const reports = await store.reportsForGene('horse', '26B3');
-    expect(reports.map((r) => r.id[0]).sort()).toEqual(['a', 'b']);
-    expect(reports[0]).toMatchObject({ species: 'horse', gene: '26B3', proposedDominant: 'Ruggedness+' });
+    expect(await store.countForGene('horse', '26B3')).toBe(2);
+    expect(await store.countForGene('horse', '01A1')).toBe(0);
   });
 });

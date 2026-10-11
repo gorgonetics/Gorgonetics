@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
-  buildTally,
   dryRunTracker,
   githubTracker,
   issueMarker,
@@ -15,15 +14,17 @@ import {
   sanitiseNote,
   syncGeneReports,
   takeWithinGeneLimit,
+  withReportCount,
 } from '../../scripts/sync-gene-reports.mjs';
 
 // Covers the sync logic with an in-memory report store and issue tracker.
-// The Firestore adapter's query order is covered against the emulator in
+// The Firestore adapter's queries are covered against the emulator in
 // tests/integration/syncGeneReports.emulator.test.ts.
 
-type Report = Parameters<typeof buildTally>[0][number];
+type Report = Parameters<typeof renderBatchComment>[0][number];
 type Issue = { number: number; state: 'open' | 'closed'; body: string };
 type FakeIssue = Issue & { title: string; labelled: boolean };
+type Comment = { body: string; login: string };
 
 let seq = 0;
 function report(overrides: Partial<Report> = {}): Report {
@@ -39,15 +40,17 @@ function report(overrides: Partial<Report> = {}): Report {
     note: '',
     templateBundleHash: 'c'.repeat(64),
     appVersion: '0.10.3',
-    submittedAt: { seconds: 1_790_000_000 + seq, nanoseconds: 0 },
+    submittedAt: { seconds: 1_700_000_000 + seq, nanoseconds: 0 },
     ...overrides,
   };
 }
 
-const TEMPLATES = new Map([
-  ['horse/26B3', { effectDominant: 'Toughness+', effectRecessive: 'None' }],
-  ['horse/26B4', { effectDominant: 'None', effectRecessive: 'Virility-' }],
-]);
+const TEMPLATES = new Map(
+  ['26B3', '26B4', '01A1', '01A2', '01A3', '01A4'].map((g) => [
+    `horse/${g}`,
+    { effectDominant: 'Toughness+', effectRecessive: 'None' },
+  ]),
+);
 
 /** In-memory store with the same ordering contract as the Firestore adapter. */
 function fakeStore(reports: Report[]) {
@@ -85,19 +88,22 @@ function fakeStore(reports: Report[]) {
         .filter((r) => !c || after(r, c))
         .slice(0, limit),
     ),
-    reportsForGene: vi.fn(async (species: string, gene: string) =>
-      all.filter((r) => r.species === species && r.gene === gene),
+    countForGene: vi.fn(
+      async (species: string, gene: string) => all.filter((r) => r.species === species && r.gene === gene).length,
     ),
   };
 }
 
+const BOT = 'github-actions[bot]';
+
 function fakeTracker(initial: FakeIssue[] = []) {
   const issues = new Map<number, FakeIssue>(initial.map((i) => [i.number, { ...i }]));
-  const comments = new Map<number, string[]>();
+  const comments = new Map<number, Comment[]>();
   let next = 100;
   return {
     issues,
     comments,
+    bodies: (n: number) => (comments.get(n) ?? []).map((c) => c.body),
     listReportIssues: vi.fn(async () => {
       const byKey = new Map<string, Issue>();
       for (const i of issues.values()) {
@@ -123,10 +129,23 @@ function fakeTracker(initial: FakeIssue[] = []) {
       const i = issues.get(number);
       if (i) Object.assign(i, patch);
     }),
-    listCommentBodies: vi.fn(async (number: number) => comments.get(number) ?? []),
+    // Same filter as githubTracker: only the bot's own comments count.
+    listCommentBodies: vi.fn(async (number: number) =>
+      (comments.get(number) ?? []).filter((c) => c.login === BOT).map((c) => c.body),
+    ),
     createComment: vi.fn(async (number: number, body: string) => {
-      comments.set(number, [...(comments.get(number) ?? []), body]);
+      comments.set(number, [...(comments.get(number) ?? []), { body, login: BOT }]);
     }),
+  };
+}
+
+function openIssue(number: number, state: 'open' | 'closed' = 'open'): FakeIssue {
+  return {
+    number,
+    state,
+    title: 'Gene report: horse 26B3',
+    labelled: true,
+    body: renderIssueBody(report(), { effectDominant: 'Toughness+', effectRecessive: 'None' }, 1),
   };
 }
 
@@ -141,37 +160,44 @@ describe('sanitiseNote', () => {
 });
 
 describe('takeWithinGeneLimit', () => {
+  const known = () => true;
+
   it('stops before the report that would add one gene too many', () => {
     const rs = [report({ gene: '01A1' }), report({ gene: '01A2' }), report({ gene: '01A1' }), report({ gene: '01A3' })];
-    const genes = new Set<string>();
-    const { taken, full } = takeWithinGeneLimit(rs, genes, 2);
+    const { taken, full } = takeWithinGeneLimit(rs, new Set<string>(), 2, known);
     expect(taken.map((r) => r.gene)).toEqual(['01A1', '01A2', '01A1']);
     expect(full).toBe(true);
   });
+
+  it('takes unknown genes without using a gene slot', () => {
+    const rs = [report({ gene: '99Z1' }), report({ gene: '99Z2' }), report({ gene: '01A1' })];
+    const genes = new Set<string>();
+    const { taken, full } = takeWithinGeneLimit(rs, genes, 1, (k) => k === 'horse/01A1');
+    expect(taken).toHaveLength(3);
+    expect(full).toBe(false);
+    expect([...genes]).toEqual(['horse/01A1']);
+  });
 });
 
-describe('buildTally and renderIssueBody', () => {
-  it('counts each proposal, marks one equal to the current template as applied', () => {
-    const tally = buildTally(
-      [
-        report(),
-        report(),
-        report({ proposedDominant: 'Toughness+', proposedRecessive: 'None', templateBundleHash: 'd'.repeat(64) }),
-      ],
-      TEMPLATES.get('horse/26B3'),
-    );
-    expect(tally.total).toBe(3);
-    expect(tally.proposals).toEqual([
-      { dominant: 'Ruggedness+', recessive: 'None', count: 2, applied: false },
-      { dominant: 'Toughness+', recessive: 'None', count: 1, applied: true },
-    ]);
-
-    const body = renderIssueBody('horse', '26B3', TEMPLATES.get('horse/26B3'), tally);
-    expect(body.startsWith(issueMarker('horse', '26B3'))).toBe(true);
+describe('issue body', () => {
+  it('describes the gene, the first proposal and the count', () => {
+    const body = renderIssueBody(report(), { effectDominant: 'None', effectRecessive: 'Virility-' }, 3);
     expect(keyFromIssueBody(body)).toBe('horse/26B3');
-    expect(body).toContain('| `Ruggedness+` | `None` | 2 |');
-    expect(body).toContain('already applied');
-    expect(body).toContain('`cccccccccccc` (2)');
+    expect(body).toContain('dominant `None`, recessive `Virility-`');
+    expect(body).toContain('First report proposes: dominant `Ruggedness+`, recessive `None`');
+    expect(body).toContain('Reports so far: **3**');
+  });
+
+  it('refreshes only the count line and keeps the rest', () => {
+    const body = `${renderIssueBody(report(), { effectDominant: 'None', effectRecessive: 'None' }, 1)}\n\nMaintainer note.`;
+    const updated = withReportCount(body, 5);
+    expect(updated).toContain('Reports so far: **5**');
+    expect(updated).not.toContain('Reports so far: **1**');
+    expect(updated).toContain('Maintainer note.');
+  });
+
+  it('appends the count line if a maintainer removed it', () => {
+    expect(withReportCount('edited body', 2)).toBe('edited body\n\nReports so far: **2** <!-- gene-report-count -->');
   });
 });
 
@@ -183,6 +209,24 @@ describe('renderBatchComment', () => {
     expect(marker).toBe(progressMarker({ submittedAt: b.submittedAt, docId: b.id }));
     expect(renderBatchComment([b, a]).split('\n')[0]).toBe(marker);
     expect(postedUpTo(['x', `${marker}\nbody`])).toEqual({ submittedAt: b.submittedAt, docId: b.id });
+  });
+
+  it('puts sanitised notes in fenced blocks, newest first, and caps them', () => {
+    const rs = Array.from({ length: MAX_NOTES_PER_COMMENT + 3 }, (_, i) => report({ note: `note ${i} @someone` }));
+    const comment = renderBatchComment(rs);
+    expect(comment).not.toContain('@someone');
+    expect(comment.match(/```text/g)).toHaveLength(MAX_NOTES_PER_COMMENT);
+    expect(comment.indexOf(`note ${rs.length - 1}`)).toBeLessThan(comment.indexOf('note 3 '));
+    expect(comment).not.toContain('note 0 ');
+    expect(comment).toContain('3 more note(s) not shown');
+  });
+
+  it('orders notes within the same second by full position, newest first', () => {
+    const at = 1_700_500_000;
+    const older = report({ note: 'older-note', submittedAt: { seconds: at, nanoseconds: 1000 } });
+    const newer = report({ note: 'newer-note', submittedAt: { seconds: at, nanoseconds: 2000 } });
+    const comment = renderBatchComment([older, newer]);
+    expect(comment.indexOf('newer-note')).toBeLessThan(comment.indexOf('older-note'));
   });
 
   it('skips a note that does not fit the size cap but keeps later ones that do', () => {
@@ -197,16 +241,6 @@ describe('renderBatchComment', () => {
     expect(comment).toContain('1 more note(s) not shown');
   });
 
-  it('puts sanitised notes in fenced blocks, newest first, and caps them', () => {
-    const rs = Array.from({ length: MAX_NOTES_PER_COMMENT + 3 }, (_, i) => report({ note: `note ${i} @someone` }));
-    const comment = renderBatchComment(rs);
-    expect(comment).not.toContain('@someone');
-    expect(comment.match(/```text/g)).toHaveLength(MAX_NOTES_PER_COMMENT);
-    expect(comment.indexOf(`note ${rs.length - 1}`)).toBeLessThan(comment.indexOf('note 3 '));
-    expect(comment).not.toContain('note 0 ');
-    expect(comment).toContain('3 more note(s) not shown');
-  });
-
   it('skips empty notes', () => {
     expect(renderBatchComment([report({ note: '  ' })])).not.toContain('```');
   });
@@ -214,18 +248,19 @@ describe('renderBatchComment', () => {
 
 describe('syncGeneReports', () => {
   it('creates one issue per gene with a comment, then writes the cursor', async () => {
-    const rs = [report(), report({ gene: '26B4', proposedRecessive: 'None' }), report({ note: 'bred twice' })];
+    const rs = [report(), report({ gene: '26B4' }), report({ note: 'bred twice' })];
     const store = fakeStore(rs);
     const tracker = fakeTracker();
 
     const result = await syncGeneReports({ store, tracker, templates: TEMPLATES });
 
-    expect(result).toEqual({ genes: 2, reports: 3 });
-    expect(tracker.createIssue).toHaveBeenCalledTimes(2);
+    expect(result).toEqual({ genes: 2, reports: 3, unknown: 0 });
     expect(tracker.createIssue.mock.calls.map((c) => c[0]).sort()).toEqual([
       'Gene report: horse 26B3',
       'Gene report: horse 26B4',
     ]);
+    const issue26B3 = [...tracker.issues.values()].find((i) => i.title.endsWith('26B3'));
+    expect(issue26B3?.body).toContain('Reports so far: **2**');
     expect(tracker.createComment).toHaveBeenCalledTimes(2);
     expect(store.cursor).toEqual({ submittedAt: rs[2].submittedAt, docId: rs[2].id });
   });
@@ -233,9 +268,23 @@ describe('syncGeneReports', () => {
   it('does nothing and keeps the cursor when there are no new reports', async () => {
     const store = fakeStore([]);
     const tracker = fakeTracker();
-    expect(await syncGeneReports({ store, tracker, templates: TEMPLATES })).toEqual({ genes: 0, reports: 0 });
+    expect(await syncGeneReports({ store, tracker, templates: TEMPLATES })).toEqual({
+      genes: 0,
+      reports: 0,
+      unknown: 0,
+    });
     expect(store.writeCursor).not.toHaveBeenCalled();
     expect(tracker.listReportIssues).not.toHaveBeenCalled();
+  });
+
+  it('skips genes not in the templates without creating issues, and moves the cursor past them', async () => {
+    const rs = [report({ gene: '99Z9' }), report({ gene: '98Y8' })];
+    const store = fakeStore(rs);
+    const tracker = fakeTracker();
+    const result = await syncGeneReports({ store, tracker, templates: TEMPLATES, maxGenes: 1 });
+    expect(result).toEqual({ genes: 0, reports: 0, unknown: 2 });
+    expect(tracker.createIssue).not.toHaveBeenCalled();
+    expect(store.cursor?.docId).toBe(rs[1].id);
   });
 
   it('pages through reports and stops at the gene limit, leaving the rest for the next run', async () => {
@@ -252,6 +301,17 @@ describe('syncGeneReports', () => {
     expect(store.cursor?.docId).toBe(rs[4].id);
   });
 
+  it('stops at the report limit even when every report is for one gene', async () => {
+    const rs = Array.from({ length: 7 }, () => report());
+    const store = fakeStore(rs);
+    const tracker = fakeTracker();
+
+    const result = await syncGeneReports({ store, tracker, templates: TEMPLATES, maxReports: 5, pageSize: 2 });
+    expect(result.reports).toBe(5);
+    expect(store.cursor?.docId).toBe(rs[4].id);
+    expect(store.pageAfter.mock.calls.map((c) => c[1])).toEqual([2, 2, 1]);
+  });
+
   it('pages correctly when reports share a timestamp', async () => {
     const at = { seconds: 1_700_000_000, nanoseconds: 5 };
     const rs = ['01A1', '01A2', '01A3'].map((gene) => report({ gene, submittedAt: at }));
@@ -261,7 +321,7 @@ describe('syncGeneReports', () => {
     expect(tracker.createIssue).toHaveBeenCalledTimes(3);
   });
 
-  it('rebuilds the tally from all reports of the gene, not only the new ones', async () => {
+  it('refreshes the count line and adds a comment on later runs', async () => {
     const store = fakeStore([report(), report()]);
     const tracker = fakeTracker();
     await syncGeneReports({ store, tracker, templates: TEMPLATES });
@@ -270,8 +330,8 @@ describe('syncGeneReports', () => {
     await syncGeneReports({ store, tracker, templates: TEMPLATES });
 
     const [issue] = tracker.issues.values();
-    expect(issue.body).toContain('| `Ruggedness+` | `None` | 3 |');
-    expect(tracker.comments.get(issue.number)).toHaveLength(2);
+    expect(issue.body).toContain('Reports so far: **3**');
+    expect(tracker.bodies(issue.number)).toHaveLength(2);
   });
 
   it('after a failed run, posts only the reports no comment covers yet, even if more arrived', async () => {
@@ -286,7 +346,7 @@ describe('syncGeneReports', () => {
     await syncGeneReports({ store, tracker, templates: TEMPLATES });
 
     const [issue] = tracker.issues.values();
-    const comments = tracker.comments.get(issue.number) ?? [];
+    const comments = tracker.bodies(issue.number);
     expect(comments).toHaveLength(2);
     expect(comments[1]).toContain('1 new report(s)');
     expect(comments[1]).toContain('note-gamma');
@@ -294,21 +354,23 @@ describe('syncGeneReports', () => {
     expect(comments[1]).not.toContain('note-beta');
   });
 
+  it('ignores a forged marker in a comment from another user', async () => {
+    const store = fakeStore([report({ note: 'real-note' })]);
+    const tracker = fakeTracker([openIssue(7)]);
+    const forged = progressMarker({ submittedAt: { seconds: 4_000_000_000, nanoseconds: 0 }, docId: 'z' });
+    tracker.comments.set(7, [{ body: forged, login: 'someone' }]);
+
+    await syncGeneReports({ store, tracker, templates: TEMPLATES });
+    expect(tracker.createComment).toHaveBeenCalledWith(7, expect.stringContaining('real-note'));
+  });
+
   it('relabels an issue that lost its label instead of creating a second one', async () => {
     const store = fakeStore([report()]);
-    const tracker = fakeTracker([
-      {
-        number: 9,
-        state: 'open',
-        body: issueMarker('horse', '26B3'),
-        title: 'Gene report: horse 26B3',
-        labelled: false,
-      },
-    ]);
+    const tracker = fakeTracker([{ ...openIssue(9), labelled: false }]);
     await syncGeneReports({ store, tracker, templates: TEMPLATES });
     expect(tracker.createIssue).not.toHaveBeenCalled();
     expect(tracker.addLabel).toHaveBeenCalledWith(9);
-    expect(tracker.comments.get(9)).toHaveLength(1);
+    expect(tracker.bodies(9)).toHaveLength(1);
   });
 
   it('leaves reports younger than the settle time for a later run', async () => {
@@ -326,47 +388,17 @@ describe('syncGeneReports', () => {
     expect(tracker.createIssue).toHaveBeenCalledTimes(2);
   });
 
-  it('does not post a batch comment twice when the cursor write failed', async () => {
-    const store = fakeStore([report()]);
-    store.writeCursor.mockRejectedValueOnce(new Error('cursor write failed'));
-    const tracker = fakeTracker();
-
-    await expect(syncGeneReports({ store, tracker, templates: TEMPLATES })).rejects.toThrow('cursor write failed');
-    await syncGeneReports({ store, tracker, templates: TEMPLATES });
-
-    expect(tracker.createIssue).toHaveBeenCalledTimes(1);
-    expect(tracker.createComment).toHaveBeenCalledTimes(1);
-    expect(tracker.updateIssue).not.toHaveBeenCalled();
-  });
-
   it('reopens a closed issue for a proposal not yet in the templates', async () => {
     const store = fakeStore([report()]);
-    const tracker = fakeTracker([
-      {
-        number: 7,
-        state: 'closed',
-        body: issueMarker('horse', '26B3'),
-        title: 'Gene report: horse 26B3',
-        labelled: true,
-      },
-    ]);
+    const tracker = fakeTracker([openIssue(7, 'closed')]);
     await syncGeneReports({ store, tracker, templates: TEMPLATES });
     expect(tracker.updateIssue).toHaveBeenCalledWith(7, expect.objectContaining({ state: 'open' }));
   });
 
   it('leaves a closed issue closed when the new report is already applied', async () => {
     const store = fakeStore([report({ proposedDominant: 'Toughness+', bundledDominant: 'Ruggedness+' })]);
-    const tracker = fakeTracker([
-      {
-        number: 7,
-        state: 'closed',
-        body: issueMarker('horse', '26B3'),
-        title: 'Gene report: horse 26B3',
-        labelled: true,
-      },
-    ]);
+    const tracker = fakeTracker([openIssue(7, 'closed')]);
     await syncGeneReports({ store, tracker, templates: TEMPLATES });
-    expect(tracker.updateIssue).toHaveBeenCalledWith(7, { body: expect.any(String) });
     expect(tracker.issues.get(7)?.state).toBe('closed');
   });
 });
@@ -388,6 +420,10 @@ describe('dryRunTracker', () => {
   });
 });
 
+function jsonResponse(body: unknown, status = 200) {
+  return { ok: status < 400, status, json: async () => body, text: async () => JSON.stringify(body) };
+}
+
 describe('githubTracker', () => {
   it('lists labelled issues across pages, skipping pull requests and unmarked issues', async () => {
     const page1 = Array.from({ length: 100 }, (_, i) => ({
@@ -399,12 +435,7 @@ describe('githubTracker', () => {
       { number: 200, state: 'closed', body: issueMarker('beewasp', '01A1') },
       { number: 201, state: 'open', body: issueMarker('horse', '01A1'), pull_request: {} },
     ];
-    const fetchImpl = vi.fn(async (url: string) => ({
-      ok: true,
-      status: 200,
-      json: async () => (url.endsWith('&page=1') ? page1 : page2),
-      text: async () => '',
-    }));
+    const fetchImpl = vi.fn(async (url: string) => jsonResponse(url.endsWith('&page=1') ? page1 : page2));
     const tracker = githubTracker('o/r', 'tok', fetchImpl as unknown as typeof fetch);
 
     const issues = await tracker.listReportIssues();
@@ -414,33 +445,43 @@ describe('githubTracker', () => {
     );
   });
 
+  it("returns only the bot's own comment bodies", async () => {
+    const fetchImpl = vi.fn(async () =>
+      jsonResponse([
+        { body: 'from bot', user: { login: 'github-actions[bot]' } },
+        { body: 'from someone', user: { login: 'someone' } },
+        { body: 'no user' },
+      ]),
+    );
+    const tracker = githubTracker('o/r', 'tok', fetchImpl as unknown as typeof fetch);
+    expect(await tracker.listCommentBodies(5)).toEqual(['from bot']);
+
+    const local = githubTracker('o/r', 'tok', fetchImpl as unknown as typeof fetch, 'someone');
+    expect(await local.listCommentBodies(5)).toEqual(['from someone']);
+  });
+
   it('creates issues with the label and throws on an HTTP error', async () => {
     const fetchImpl = vi
       .fn()
-      .mockResolvedValueOnce({ ok: true, status: 201, json: async () => ({ number: 5, state: 'open', body: 'b' }) })
-      .mockResolvedValueOnce({ ok: false, status: 403, text: async () => 'forbidden' });
+      .mockResolvedValueOnce(jsonResponse({ number: 5, state: 'open', body: 'b' }, 201))
+      .mockResolvedValueOnce(jsonResponse('forbidden', 403));
     const tracker = githubTracker('o/r', 'tok', fetchImpl as unknown as typeof fetch);
 
     expect(await tracker.createIssue('t', 'b')).toEqual({ number: 5, state: 'open', body: 'b' });
     expect(JSON.parse(fetchImpl.mock.calls[0][1].body)).toEqual({ title: 't', body: 'b', labels: ['gene-report'] });
     await expect(tracker.createComment(5, 'c')).rejects.toThrow(/HTTP 403/);
   });
-});
 
-describe('githubTracker.findIssueByTitle', () => {
-  it('searches by exact title and ignores near matches and pull requests', async () => {
-    const fetchImpl = vi.fn(async () => ({
-      ok: true,
-      status: 200,
-      json: async () => ({
+  it('finds an issue by exact title, ignoring near matches and pull requests', async () => {
+    const fetchImpl = vi.fn(async () =>
+      jsonResponse({
         items: [
           { number: 1, title: 'Gene report: horse 26B31', state: 'open', body: '' },
           { number: 2, title: 'Gene report: horse 26B3', state: 'open', body: '', pull_request: {} },
           { number: 3, title: 'Gene report: horse 26B3', state: 'closed', body: 'b' },
         ],
       }),
-      text: async () => '',
-    }));
+    );
     const tracker = githubTracker('o/r', 'tok', fetchImpl as unknown as typeof fetch);
     expect(await tracker.findIssueByTitle('Gene report: horse 26B3')).toEqual({
       number: 3,

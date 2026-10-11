@@ -1,13 +1,15 @@
 #!/usr/bin/env node
 /**
  * Drain new gene effect reports from Firestore `/geneReports` into GitHub
- * issues: one issue per gene, with a tally of proposals. Run daily by
- * .github/workflows/gene-reports.yml. Design: docs/design/gene-effect-reports-v1.md §7.
+ * issues: one issue per gene. Run daily by .github/workflows/gene-reports.yml.
+ * Design: docs/design/gene-effect-reports-v1.md §7.
  *
- * Firestore is the only state. Each issue body is rebuilt from all of the
- * gene's reports and the current templates in `assets/`, so a run can be
- * repeated safely; batch comments carry a marker so a retry does not post
- * twice; the cursor is written last, so a failed run repeats, never skips.
+ * The issue body describes the gene and the first proposal, plus a
+ * "Reports so far" line refreshed from a server-side count. Each run adds
+ * one comment per gene for its new reports. Every run is bounded: at most
+ * MAX_REPORTS_PER_RUN reports and MAX_GENES_PER_RUN genes. Comments carry a
+ * marker so a retry does not post twice; the cursor is written last, so a
+ * failed run repeats, never skips.
  *
  * Usage:
  *   FIREBASE_SERVICE_ACCOUNT='<key JSON>' GITHUB_TOKEN=… GITHUB_REPOSITORY=owner/repo \
@@ -25,7 +27,11 @@ import { loadServiceAccount } from './firebase-service-account.mjs';
 
 export const LABEL = 'gene-report';
 export const MAX_GENES_PER_RUN = 20;
+/** Bounds a run's reads and runtime when one gene is flooded. */
+export const MAX_REPORTS_PER_RUN = 5000;
 export const PAGE_SIZE = 200;
+/** The identity the workflow's GITHUB_TOKEN posts as; only its comment markers are trusted. */
+export const DEFAULT_BOT_LOGIN = 'github-actions[bot]';
 export const MAX_NOTES_PER_COMMENT = 20;
 export const MAX_NOTE_CHARS_PER_COMMENT = 30_000;
 /**
@@ -63,7 +69,8 @@ const COLLECTION = 'geneReports';
  * @property {(after: Cursor | null, limit: number, before: Instant) => Promise<Report[]>} pageAfter
  *   Reports ordered by (submittedAt, doc ID), strictly after `after` and
  *   submitted strictly before `before`.
- * @property {(species: string, gene: string) => Promise<Report[]>} reportsForGene
+ * @property {(species: string, gene: string) => Promise<number>} countForGene
+ *   Server-side count of all reports of one gene.
  *
  * @typedef {object} IssueTracker
  * @property {() => Promise<Map<string, Issue>>} listReportIssues  keyed by `species/gene`
@@ -73,6 +80,8 @@ const COLLECTION = 'geneReports';
  * @property {(title: string, body: string) => Promise<Issue>} createIssue
  * @property {(number: number, patch: { body?: string, state?: 'open' }) => Promise<void>} updateIssue
  * @property {(number: number) => Promise<string[]>} listCommentBodies
+ *   Bodies of comments written by the sync's own identity only: anyone can
+ *   comment on a public issue, and a forged marker must not stop posting.
  * @property {(number: number, body: string) => Promise<void>} createComment
  */
 
@@ -157,20 +166,22 @@ export function postedUpTo(bodies) {
 }
 
 /**
- * Take reports in order until the next one would add a gene past
- * `maxGenes`. Returns the reports taken, grouped by gene, and the cursor
- * after the last one taken (null when none were taken).
+ * Take reports in order until the next one would add a known gene past
+ * `maxGenes`. Reports for genes not in the templates are taken (so the
+ * cursor moves past them) but use no gene slot: a flood of made-up gene
+ * IDs cannot block real reports.
  * @param {Report[]} reports  in (submittedAt, id) order
- * @param {Set<string>} genes  genes already picked this run (mutated)
+ * @param {Set<string>} genes  known genes already picked this run (mutated)
  * @param {number} maxGenes
+ * @param {(key: string) => boolean} isKnown
  */
-export function takeWithinGeneLimit(reports, genes, maxGenes) {
+export function takeWithinGeneLimit(reports, genes, maxGenes, isKnown) {
   /** @type {Report[]} */
   const taken = [];
   let full = false;
   for (const r of reports) {
     const key = geneKey(r.species, r.gene);
-    if (!genes.has(key)) {
+    if (isKnown(key) && !genes.has(key)) {
       if (genes.size >= maxGenes) {
         full = true;
         break;
@@ -182,67 +193,44 @@ export function takeWithinGeneLimit(reports, genes, maxGenes) {
   return { taken, full };
 }
 
-/**
- * Tally all reports of one gene by proposal.
- * @param {Report[]} reports
- * @param {TemplateGene | undefined} current  template on main
- */
-export function buildTally(reports, current) {
-  /** @type {Map<string, { dominant: string, recessive: string, count: number, applied: boolean }>} */
-  const proposals = new Map();
-  /** @type {Map<string, number>} */
-  const hashes = new Map();
-  for (const r of reports) {
-    const key = `${r.proposedDominant}|${r.proposedRecessive}`;
-    const entry = proposals.get(key) ?? {
-      dominant: r.proposedDominant,
-      recessive: r.proposedRecessive,
-      count: 0,
-      applied:
-        current !== undefined &&
-        current.effectDominant === r.proposedDominant &&
-        current.effectRecessive === r.proposedRecessive,
-    };
-    entry.count++;
-    proposals.set(key, entry);
-    hashes.set(r.templateBundleHash, (hashes.get(r.templateBundleHash) ?? 0) + 1);
-  }
-  const sorted = [...proposals.values()].sort(
-    (a, b) => b.count - a.count || a.dominant.localeCompare(b.dominant) || a.recessive.localeCompare(b.recessive),
-  );
-  return { proposals: sorted, hashes, total: reports.length };
+const COUNT_LINE = /^Reports so far: .*<!-- gene-report-count -->$/m;
+
+/** @param {number} count */
+function countLine(count) {
+  return `Reports so far: **${count}** <!-- gene-report-count -->`;
 }
 
 /**
- * The full issue body. Rebuilt from scratch every run; no notes, so its
- * size is bounded by the number of distinct proposals.
- * @param {string} species
- * @param {string} gene
- * @param {TemplateGene | undefined} current
- * @param {ReturnType<typeof buildTally>} tally
+ * Body of a new issue: the gene, its template on main, the first proposal
+ * and the report count. Written once; later runs only refresh the count line.
+ * @param {Report} first
+ * @param {TemplateGene} current
+ * @param {number} count
  */
-export function renderIssueBody(species, gene, current, tally) {
-  const lines = [
-    issueMarker(species, gene),
-    `Gene effect reports for **${species} ${gene}**, sent from the app.`,
+export function renderIssueBody(first, current, count) {
+  return [
+    issueMarker(first.species, first.gene),
+    `Gene effect report for **${first.species} ${first.gene}**, sent from the app.`,
     '',
-    current
-      ? `Current template on \`main\`: dominant ${code(current.effectDominant)}, recessive ${code(current.effectRecessive)}.`
-      : 'This gene is not in the current templates on `main`.',
+    `Template on \`main\` when this issue was opened: dominant ${code(current.effectDominant)}, recessive ${code(current.effectRecessive)}.`,
     '',
-    '| Proposed dominant | Proposed recessive | Reports | |',
-    '|---|---|---|---|',
-    ...tally.proposals.map(
-      (p) => `| ${code(p.dominant)} | ${code(p.recessive)} | ${p.count} | ${p.applied ? 'already applied' : ''} |`,
-    ),
+    `First report proposes: dominant ${code(first.proposedDominant)}, recessive ${code(first.proposedRecessive)} ` +
+      `(the reporter's app had dominant ${code(first.bundledDominant)}, recessive ${code(first.bundledRecessive)}).`,
     '',
-    `Reports: ${tally.total}. Template bundles they were made against: ${[...tally.hashes]
-      .map(([h, n]) => `${code(h.slice(0, 12))} (${n})`)
-      .join(', ')}.`,
+    countLine(count),
     '',
-    '_This body is rewritten by `scripts/sync-gene-reports.mjs` on every run; edits to it are lost. Notes are in the comments._',
-  ];
-  return lines.join('\n');
+    'Each sync adds a comment with its new reports, including other proposals, and their notes.',
+  ].join('\n');
+}
+
+/**
+ * The body with its count line set to `count`; appended if a maintainer
+ * removed the line. The rest of the body, including edits, is kept.
+ * @param {string} body
+ * @param {number} count
+ */
+export function withReportCount(body, count) {
+  return COUNT_LINE.test(body) ? body.replace(COUNT_LINE, countLine(count)) : `${body}\n\n${countLine(count)}`;
 }
 
 /**
@@ -262,7 +250,7 @@ export function renderBatchComment(newReports) {
   const withNotes = newReports
     .map((r) => ({ r, note: sanitiseNote(r.note) }))
     .filter((x) => x.note.length > 0)
-    .sort((a, b) => b.r.submittedAt.seconds - a.r.submittedAt.seconds);
+    .sort((a, b) => compareCursor(positionOf(b.r), positionOf(a.r)));
   /** @type {string[]} */
   const noteBlocks = [];
   let chars = 0;
@@ -320,6 +308,7 @@ export function loadTemplates(assetsDir) {
  *   tracker: IssueTracker,
  *   templates: Templates,
  *   maxGenes?: number,
+ *   maxReports?: number,
  *   pageSize?: number,
  *   now?: number,
  *   settleMs?: number,
@@ -331,6 +320,7 @@ export async function syncGeneReports({
   tracker,
   templates,
   maxGenes = MAX_GENES_PER_RUN,
+  maxReports = MAX_REPORTS_PER_RUN,
   pageSize = PAGE_SIZE,
   now = Date.now(),
   settleMs = SETTLE_MS,
@@ -339,97 +329,100 @@ export async function syncGeneReports({
   const cutoffMs = now - settleMs;
   /** @type {Instant} */
   const before = { seconds: Math.floor(cutoffMs / 1000), nanoseconds: (cutoffMs % 1000) * 1_000_000 };
+  const isKnown = (/** @type {string} */ key) => templates.has(key);
 
-  // 1–2. New reports in order, up to the gene limit.
+  // 1–2. New reports in order, up to the report and gene limits.
   const start = await store.readCursor();
   let cursor = start;
   /** @type {Set<string>} */
   const genes = new Set();
   /** @type {Map<string, Report[]>} */
   const newByGene = new Map();
-  for (;;) {
-    const page = await store.pageAfter(cursor, pageSize, before);
+  let takenCount = 0;
+  let unknown = 0;
+  while (takenCount < maxReports) {
+    const page = await store.pageAfter(cursor, Math.min(pageSize, maxReports - takenCount), before);
     if (page.length === 0) break;
-    const { taken, full } = takeWithinGeneLimit(page, genes, maxGenes);
+    const { taken, full } = takeWithinGeneLimit(page, genes, maxGenes, isKnown);
     for (const r of taken) {
       const key = geneKey(r.species, r.gene);
+      if (!isKnown(key)) {
+        unknown++;
+        continue;
+      }
       const list = newByGene.get(key);
       if (list) list.push(r);
       else newByGene.set(key, [r]);
     }
+    takenCount += taken.length;
     if (taken.length > 0) {
       const last = taken[taken.length - 1];
       cursor = { submittedAt: last.submittedAt, docId: last.id };
     }
     if (full || page.length < pageSize) break;
   }
-  if (newByGene.size === 0) {
-    log('No new reports.');
-    return { genes: 0, reports: 0 };
-  }
+  if (unknown > 0) log(`Skipped ${unknown} report(s) for genes not in the templates.`);
 
-  // 3. Every report of each picked gene, read in parallel (independent
-  // Firestore reads). The GitHub writes below stay sequential.
-  const [issues, allByGene] = await Promise.all([
-    tracker.listReportIssues(),
-    Promise.all(
-      [...newByGene.keys()].map(async (key) => {
-        const [species, gene] = key.split('/');
-        return /** @type {const} */ ([key, await store.reportsForGene(species, gene)]);
-      }),
-    ).then((entries) => new Map(entries)),
-  ]);
+  if (newByGene.size > 0) {
+    // 3. Report counts, read in parallel (independent server-side counts).
+    // The GitHub writes below stay sequential.
+    const [issues, counts] = await Promise.all([
+      tracker.listReportIssues(),
+      Promise.all(
+        [...newByGene.keys()].map(async (key) => {
+          const [species, gene] = key.split('/');
+          return /** @type {const} */ ([key, await store.countForGene(species, gene)]);
+        }),
+      ).then((entries) => new Map(entries)),
+    ]);
 
-  let reports = 0;
-  for (const [key, newReports] of newByGene) {
-    const [species, gene] = key.split('/');
-    const current = templates.get(key);
-    reports += newReports.length;
+    for (const [key, newReports] of newByGene) {
+      const [species, gene] = key.split('/');
+      const current = /** @type {TemplateGene} */ (templates.get(key));
+      const count = counts.get(key) ?? newReports.length;
 
-    // Recount from every report of the gene, not just the new ones.
-    const tally = buildTally(allByGene.get(key) ?? [], current);
-    const body = renderIssueBody(species, gene, current, tally);
-
-    // 4. Create or rewrite the issue. An issue that lost its label is not
-    // in `issues`; find it by title and relabel it rather than duplicate it.
-    const title = issueTitle(species, gene);
-    let issue = issues.get(key);
-    if (!issue) {
-      const unlabelled = await tracker.findIssueByTitle(title);
-      if (unlabelled) {
-        await tracker.addLabel(unlabelled.number);
-        log(`Relabelled issue #${unlabelled.number} for ${key}.`);
-        issue = unlabelled;
+      // 4. Find the issue (relabel one that lost its label rather than
+      // duplicate it), or create it from the gene's first new report.
+      const title = issueTitle(species, gene);
+      let issue = issues.get(key);
+      if (!issue) {
+        const unlabelled = await tracker.findIssueByTitle(title);
+        if (unlabelled) {
+          await tracker.addLabel(unlabelled.number);
+          log(`Relabelled issue #${unlabelled.number} for ${key}.`);
+          issue = unlabelled;
+        }
       }
-    }
-    if (!issue) {
-      issue = await tracker.createIssue(title, body);
-      log(`Created issue #${issue.number} for ${key}.`);
-    } else {
-      // 6. Reopen when a new report proposes something not yet in the templates.
-      const reopen =
-        issue.state === 'closed' &&
-        newReports.some(
-          (r) =>
-            !current || r.proposedDominant !== current.effectDominant || r.proposedRecessive !== current.effectRecessive,
-        );
-      if (issue.body !== body || reopen) {
-        await tracker.updateIssue(issue.number, reopen ? { body, state: 'open' } : { body });
-        log(`${reopen ? 'Reopened' : 'Updated'} issue #${issue.number} for ${key}.`);
+      if (!issue) {
+        issue = await tracker.createIssue(title, renderIssueBody(newReports[0], current, count));
+        log(`Created issue #${issue.number} for ${key}.`);
+      } else {
+        // 6. Reopen when a new report proposes something not yet in the templates.
+        const reopen =
+          issue.state === 'closed' &&
+          newReports.some(
+            (r) => r.proposedDominant !== current.effectDominant || r.proposedRecessive !== current.effectRecessive,
+          );
+        const body = withReportCount(issue.body, count);
+        if (body !== issue.body || reopen) {
+          await tracker.updateIssue(issue.number, reopen ? { body, state: 'open' } : { body });
+          log(`${reopen ? 'Reopened' : 'Updated'} issue #${issue.number} for ${key}.`);
+        }
       }
-    }
 
-    // 5. One comment for the reports not yet posted. After a failed run,
-    // the retry skips those an earlier comment already covers.
-    const upTo = postedUpTo(await tracker.listCommentBodies(issue.number));
-    const unposted = upTo ? newReports.filter((r) => compareCursor(positionOf(r), upTo) > 0) : newReports;
-    if (unposted.length > 0) await tracker.createComment(issue.number, renderBatchComment(unposted));
+      // 5. One comment for the reports not yet posted. After a failed run,
+      // the retry skips those an earlier comment already covers.
+      const upTo = postedUpTo(await tracker.listCommentBodies(issue.number));
+      const unposted = upTo ? newReports.filter((r) => compareCursor(positionOf(r), upTo) > 0) : newReports;
+      if (unposted.length > 0) await tracker.createComment(issue.number, renderBatchComment(unposted));
+    }
   }
 
   // 7. Cursor last: a failure above repeats this batch on the next run.
   if (cursor && cursor !== start) await store.writeCursor(cursor);
-  log(`Processed ${reports} report(s) across ${newByGene.size} gene(s).`);
-  return { genes: newByGene.size, reports };
+  const reports = [...newByGene.values()].reduce((n, list) => n + list.length, 0);
+  log(newByGene.size > 0 ? `Processed ${reports} report(s) across ${newByGene.size} gene(s).` : 'No new reports.');
+  return { genes: newByGene.size, reports, unknown };
 }
 
 // ── Adapters ───────────────────────────────────────────────────────────────
@@ -485,9 +478,11 @@ export function firestoreStore(firestoreModule, db) {
       const snap = await q.limit(limit).get();
       return snap.docs.map(toReport);
     },
-    async reportsForGene(species, gene) {
-      const snap = await db.collection(COLLECTION).where('species', '==', species).where('gene', '==', gene).get();
-      return snap.docs.map(toReport);
+    async countForGene(species, gene) {
+      // An aggregation query: counted on the server, about one read per
+      // 1,000 reports, so a flood on one gene stays cheap and loads nothing.
+      const snap = await db.collection(COLLECTION).where('species', '==', species).where('gene', '==', gene).count().get();
+      return snap.data().count;
     },
   };
 }
@@ -497,9 +492,10 @@ export function firestoreStore(firestoreModule, db) {
  * @param {string} repo  `owner/name`
  * @param {string} token
  * @param {typeof fetch} [fetchImpl]
+ * @param {string} [botLogin]  the login the token posts as
  * @returns {IssueTracker}
  */
-export function githubTracker(repo, token, fetchImpl = fetch) {
+export function githubTracker(repo, token, fetchImpl = fetch, botLogin = DEFAULT_BOT_LOGIN) {
   /** @param {string} path @param {RequestInit} [init] */
   function api(path, init = {}) {
     return apiUrl(`https://api.github.com/repos/${repo}${path}`, init);
@@ -566,7 +562,9 @@ export function githubTracker(repo, token, fetchImpl = fetch) {
       await api(`/issues/${number}`, { method: 'PATCH', body: JSON.stringify(patch) });
     },
     async listCommentBodies(number) {
-      return (await paginate(`/issues/${number}/comments`)).map((c) => c.body ?? '');
+      return (await paginate(`/issues/${number}/comments`))
+        .filter((c) => c.user?.login === botLogin)
+        .map((c) => c.body ?? '');
     },
     async createComment(number, body) {
       await api(`/issues/${number}/comments`, { method: 'POST', body: JSON.stringify({ body }) });
@@ -631,7 +629,8 @@ async function main() {
   const app = initializeApp({ credential: cert(serviceAccount) });
 
   const log = (/** @type {string} */ msg) => console.log(msg);
-  const tracker = githubTracker(repo, token);
+  // Local runs post as the token's user; set GENE_REPORT_BOT_LOGIN to it.
+  const tracker = githubTracker(repo, token, fetch, process.env.GENE_REPORT_BOT_LOGIN || DEFAULT_BOT_LOGIN);
   const store = firestoreStore(firestoreModule, firestoreModule.getFirestore(app));
   const result = await syncGeneReports({
     store: dryRun ? { ...store, writeCursor: async () => {} } : store,

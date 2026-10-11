@@ -207,6 +207,11 @@ matches `/meta`, so clients cannot read or write it.
     pnpm sync:gene-reports --dry-run
   ```
 
-Each run handles at most 20 genes; a backlog drains over later runs. An
-issue body is rewritten from Firestore whenever its gene gets a new
-report, so manual edits to a body are lost; discuss in comments instead.
+  A local run without `--dry-run` posts as the token's user. Set
+  `GENE_REPORT_BOT_LOGIN` to that login, or the script will not recognise
+  its own comments on a retry and may post twice.
+
+Each run handles at most 20 genes and 5,000 reports; a backlog drains
+over later runs. Reports for genes that are not in the templates are
+skipped. Later runs only change the "Reports so far" line of an issue
+body, so other edits to the body stay.
