@@ -58,21 +58,33 @@ function loadEffectOptions(): void {
 }
 
 // Load genes for the selected chromosome
+// Each load gets a generation number; a load that a newer one has
+// overtaken (the user switched chromosome again) drops its result.
+let loadGeneration = 0;
+let reportRequest = 0;
+
 async function loadGenes(): Promise<void> {
   if (!animalType || !chromosome) return;
+  const generation = ++loadGeneration;
 
+  // The previous chromosome's reports must not stay clickable under the new
+  // heading while this load runs; also drop any refresh still in flight.
+  reportRequest++;
+  reportable = [];
   loadingGenes = true;
   errorMessage = '';
 
   try {
-    genes = (await geneService.getGenesByChromosome(animalType, chromosome)) as GeneRow[];
+    const rows = (await geneService.getGenesByChromosome(animalType, chromosome)) as GeneRow[];
+    if (generation !== loadGeneration) return;
+    genes = rows;
     originalGenes = JSON.parse(JSON.stringify(genes));
     hasUnsavedChanges = false;
     void refreshReportable();
   } catch (err) {
-    errorMessage = `Error loading genes: ${toErrorMessage(err)}`;
+    if (generation === loadGeneration) errorMessage = `Error loading genes: ${toErrorMessage(err)}`;
   } finally {
-    loadingGenes = false;
+    if (generation === loadGeneration) loadingGenes = false;
   }
 }
 
@@ -104,8 +116,8 @@ async function saveAllChanges(): Promise<void> {
 // Reporting is a side feature: a failure here must not break editing, so
 // it only hides the button. Called after a load or save, when `genes` equals
 // the saved rows, so they are passed in rather than read again. A request
-// counter drops results that a later refresh has overtaken.
-let reportRequest = 0;
+// counter (`reportRequest`, declared with `loadGeneration`) drops results
+// that a later refresh has overtaken.
 async function refreshReportable(): Promise<void> {
   const request = ++reportRequest;
   try {

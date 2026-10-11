@@ -74,6 +74,17 @@ test.describe('Gene effect reports', () => {
     await expect(page.getByTestId('gene-report-btn')).toBeEnabled();
   });
 
+  test("switching chromosome drops the previous chromosome's reports", async ({ page }) => {
+    await editAndSaveFirstGene(page);
+    await expect(page.getByTestId('gene-report-btn')).toBeVisible();
+
+    const next = await page.locator('#chromosome option').nth(2).getAttribute('value');
+    await page.locator('#chromosome').selectOption(next);
+    await page.locator('button.load-btn').click();
+    await expect(page.locator('.gene-editing-title')).toContainText(next ?? '');
+    await expect(page.getByTestId('gene-report-btn')).toHaveCount(0);
+  });
+
   test('Cancel and Escape close the dialog', async ({ page }) => {
     await editAndSaveFirstGene(page);
     const dialog = page.getByRole('dialog', { name: 'Report gene corrections' });
