@@ -1,0 +1,152 @@
+# Gene Effect Reports — v1 Design
+
+**Status:** Proposed.
+**Target:** When a user corrects a gene effect in the Genes tab, the user can send the correction to the maintainer. Each report becomes a GitHub issue that the maintainer checks, and a confirmed correction ships in the bundled gene templates. Users do not need a GitHub account.
+
+---
+
+## 1. Goals and constraints
+
+**Goals**
+- Users can report gene-effect corrections from inside the app, with no account of any kind.
+- Reports arrive in GitHub, grouped by gene, with a count of how many reports agree.
+- No secret ships in the app binary.
+
+**Constraints** (the same as [public pet sharing](public-pet-sharing-v1.md))
+- No user authentication. Firebase App Check does not fit a desktop binary ([app-check-public-sharing-v2.md](app-check-public-sharing-v2.md)).
+- Firebase Spark plan only: no Cloud Functions, no card on file.
+- No token-holding proxy or other hosted service.
+- Sending is opt-in. The app never sends a report without an explicit user action.
+
+## 2. Architecture
+
+```
+GeneEditingView ──(user clicks "Report")──▶ Firestore /geneReports   (create-only, rules-validated)
+                                                     │
+                     GitHub Action (daily cron) ◀────┘ reads new reports with firebase-admin
+                                │
+                                ▼
+                     one issue per gene, label `gene-report`, opened by github-actions[bot]
+                                │
+                                ▼
+                     maintainer checks in game, edits assets/<species>/*.json in a normal PR
+```
+
+The client uses the Firestore setup that pet sharing already has (`src/lib/firebase.ts`; the CSP already allows `firestore.googleapis.com`). The Action holds the only credentials: a Firebase service-account key as a repo secret, and the built-in `GITHUB_TOKEN` with `issues: write`.
+
+### Rejected alternatives
+
+| Option | Why rejected |
+|---|---|
+| GitHub token or GitHub App key in the app | Anyone can extract it from the binary. Abuse would need revocation, which breaks every installed copy. |
+| Relay server (Cloudflare Worker, Cloud Function) holding a GitHub App key | A second backend to run. Cloud Functions needs Blaze. The project already rejected token-holding proxies for pet sharing. |
+| Pre-filled "new issue" URL opened in the browser | Needs a GitHub account, which most users do not have. Kept as a possible secondary link for users who do (§10). |
+
+## 3. What a report contains
+
+The baseline is the **bundled template value**, not the value in the local DB when the view loaded. `GeneEditingView` keeps `originalGenes` as the DB state at load time, so it is the wrong baseline: after one save, a second edit would report the user's own earlier edit as the original.
+
+The report surface therefore compares the `genes` table with the bundled templates (`loadBundledResource`, as `refreshGeneTemplatesIfChanged` in `demoService.ts` already does). It lists every gene whose `effectDominant` or `effectRecessive` differs, including edits from earlier sessions.
+
+Scope is effects only. Changes to `appearance` and `notes` are not reported in v1.
+
+## 4. Data model
+
+`/geneReports/{docId}` — one document per reported gene.
+
+| Field | Type | Notes |
+|---|---|---|
+| `species` | `'horse' \| 'beewasp'` | Matches `TEMPLATE_SPECIES` and `assets/<species>/`. |
+| `gene` | string | Gene ID, for example `26B3`. |
+| `bundledDominant`, `bundledRecessive` | string | Template value on the reporter's install. |
+| `proposedDominant`, `proposedRecessive` | string | The user's value. |
+| `note` | string, ≤ 1000 chars | Optional free text. |
+| `templateBundleHash` | string | `genes.templateBundleHash` setting. Tells which template version the baseline came from. |
+| `appVersion` | string, ≤ 32 chars | |
+| `schemaVersion` | int | Starts at 1. |
+| `submittedAt` | timestamp | Must equal `request.time`. |
+
+Effect strings are `None` or `<Attribute>+` / `<Attribute>-` (`configService.getEffectOptionsForSpecies`). The full string goes into the report so that a wrong attribute is visible, not only a wrong sign. The study cannot detect about half of these misattributions, so user reports cover a real gap.
+
+**Document ID** = SHA-256 hex of `installId | species | gene | proposedDominant | proposedRecessive`. `installId` is a random UUID that the app creates once and stores in local settings. It is never sent as a field. Because the rules allow create only, a second send of the same correction from the same install fails, so one install counts once per proposal. The rules cannot check the hash, so this stops honest duplicates, not an attacker.
+
+## 5. Security rules
+
+Add to `firestore.rules`, in the style of `/pets`:
+
+```
+match /geneReports/{docId} {
+  allow read: if false;   // the Action reads with the Admin SDK, which bypasses rules
+  allow create: if docId.matches('^[a-f0-9]{64}$')
+    && request.resource.data.keys().hasOnly([...fields above...])
+    && request.resource.data.species in ['horse', 'beewasp']
+    && request.resource.data.gene.matches('^[0-9]{1,2}[A-Z][0-9]{1,2}$')
+    && isEffect(...)  // each of the four effect fields is in EFFECTS (below)
+    && request.resource.data.note.size() <= 1000
+    && request.resource.data.submittedAt == request.time
+    && ( proposed differs from bundled in at least one field );
+  allow update, delete: if false;
+}
+```
+
+Every gene ID in `assets/` matches the gene pattern (checked 2026-10-11). `EFFECTS` is an explicit list: `None` plus `+` and `-` for the eight attributes that occur in `assets/` (Enthusiasm, Ferocity, Friendliness, Intelligence, Ruggedness, Temperament, Toughness, Virility). If a species-specific effect attribute is added, the list in the rules must change with it.
+
+Reports are not readable by clients. They are not public data, and closing reads removes a free way to use up the Spark read quota.
+
+## 6. Client
+
+- **`src/lib/services/geneReportService.ts`** (new): `findReportableChanges(species)` gives the diff against the bundle. `submitGeneReports(changes, note)` writes one document per gene in a single `writeBatch`. It writes at most 50 genes per submission (one chromosome is the normal case).
+- **Local record:** store the doc IDs that were sent in settings, so that the UI shows "Reported" and does not offer the same correction again.
+- **UI in `GeneEditingView`:** a "Report changes upstream" button. It is shown when the current chromosome has genes that differ from the bundle. It opens a dialog that shows exactly what will be sent (gene, bundled → proposed, note, app version) and says that the data goes to a public-project database. Sending needs a second click.
+- **Offline / failure:** show the error and keep the changes reportable. No retry queue in v1.
+
+## 7. GitHub Action
+
+`.github/workflows/gene-reports.yml`: runs on `schedule` (daily) and `workflow_dispatch`, with `permissions: issues: write, contents: read`. It runs `scripts/sync-gene-reports.mjs` (`firebase-admin` is already a dev dependency).
+
+1. Read the cursor from `/meta/geneReportSync` (an Admin-only document; clients cannot read it because no rule matches it). Query `geneReports` where `submittedAt > cursor`. Reads per run = new reports + 1.
+2. Group the reports by `species/gene`. For each gene, compare each proposal with the **current** template on `main` (the Action has the checkout). A proposal that equals the current template counts as "already applied".
+3. Find the issue with label `gene-report` and a hidden body marker `<!-- gene-report:horse/26B3 -->`. Create it if it does not exist. Rewrite the tally table in the body: current template value, each proposal and its report count, and the template hashes seen. Add a comment for each new batch.
+4. If the issue is closed and a new report proposes a value that is not the current template, reopen it.
+5. Write the new cursor last, so that a failed run repeats rather than skips.
+
+**Untrusted text.** `note` is user input. Put it in the issue only inside a fenced code block. Remove backticks from it, and remove `@` and `#` before word characters, so that a note cannot mention users or link issues. Limit each run to 20 issues created or reopened. A flood then shows as a large count on a few issues, not as hundreds of issues.
+
+## 8. Abuse and quota
+
+Without authentication, the rate of writes cannot be limited per sender. This is the same exposure that `/pets` has now.
+
+- Strict field rules and size limits stop junk content. They do not stop junk volume.
+- Spark allows 20k writes/day for the whole project (figure from [public-pet-sharing-v1.md](public-pet-sharing-v1.md) §2, verified 2026-05-09). A flood of reports could use up the day's quota and block pet sharing until the quota resets. On Spark this costs no money.
+- If this happens, the fix is a second Spark project only for reports, which isolates its quota. Not done in v1 because it adds a second Firebase config to the client.
+- Extend `scripts/monitor-spark-usage.mjs` to count `geneReports`.
+
+## 9. Gotcha: template refresh erases user effect edits
+
+`refreshGeneTemplatesIfChanged` keeps only `notes` when a new template bundle arrives. Effect edits are overwritten without a warning. A user who edits an effect, does not report it, and then installs an update loses the correction, and the report surface has nothing to show. This feature does not fix that. It does make reporting before an update more useful. Preserving or warning about effect edits on refresh is a separate issue.
+
+## 10. Out of scope (v1)
+
+- Automatic PRs that change `assets/`. A possible v2: a `confirmed` label on the issue triggers a PR from the winning proposal.
+- Reports for `appearance` or `notes`.
+- Showing other users' reports in the app.
+- A pre-filled GitHub issue link for users who have an account.
+- Contact details or in-game names in reports.
+
+## 11. Tests
+
+- **Rules** (`pnpm test:firestore`, emulator): valid create passes. Each of these fails: extra field, bad species, bad effect string, proposal equal to bundled, `submittedAt` not server time, any read, update, delete, and a second create with the same ID.
+- **Unit:** `findReportableChanges` against a fixture bundle. Doc-ID hashing is stable. Sync script: grouping, tally, "already applied", note sanitising, issue cap.
+- **E2E:** edit an effect, open the report dialog, check the preview, send with the service mocked, and check that the gene shows "Reported".
+
+## 12. PR breakdown
+
+1. Rules, types and emulator tests.
+2. `geneReportService`, the dialog and E2E tests.
+3. Sync script, workflow, the repo secret and the `gene-report` label. Document the secret setup in `docs/firebase-setup.md`.
+
+## 13. Open questions
+
+- Should the report button also appear after a save, or only in the chromosome toolbar?
+- Is one count per install per proposal the right weight, or should the issue show proposals only and leave weighting to the maintainer?
+- Daily cron, or more often? Daily keeps Action minutes and Firestore reads low.
