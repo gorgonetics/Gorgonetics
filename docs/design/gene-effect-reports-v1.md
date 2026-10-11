@@ -60,11 +60,13 @@ Scope is effects only. Changes to `appearance` and `notes` are not reported in v
 | `gene` | string | Gene ID, for example `26B3`. |
 | `bundledDominant`, `bundledRecessive` | string | Template value on the reporter's install. |
 | `proposedDominant`, `proposedRecessive` | string | The user's value. |
-| `note` | string, ≤ 1000 chars | Optional free text. |
-| `templateBundleHash` | string | `genes.templateBundleHash` setting. Tells which template version the baseline came from. |
-| `appVersion` | string, ≤ 32 chars | |
-| `schemaVersion` | int | Starts at 1. |
+| `note` | string, 0–1000 chars | Free text. Always present; empty when the user writes nothing. |
+| `templateBundleHash` | string, 64 hex chars | `genes.templateBundleHash` setting (SHA-256 of the bundle). Tells which template version the baseline came from. |
+| `appVersion` | string, 1–32 chars | `__APP_VERSION__`, as in `shareService.ts`. |
+| `schemaVersion` | int | `1` in v1. |
 | `submittedAt` | timestamp | Must equal `request.time`. |
+
+All eleven fields are required. No other field is allowed.
 
 Effect strings are `None` or `<Attribute>+` / `<Attribute>-` (`configService.getEffectOptionsForSpecies`). The full string goes into the report so that a wrong attribute is visible, not only a wrong sign. The study cannot detect about half of these misattributions, so user reports cover a real gap.
 
@@ -75,21 +77,43 @@ Effect strings are `None` or `<Attribute>+` / `<Attribute>-` (`configService.get
 Add to `firestore.rules`, in the style of `/pets`:
 
 ```
+function effectsFor(species) {
+  return {
+    'horse':   ['None', 'Enthusiasm+', 'Enthusiasm-', 'Friendliness+', 'Friendliness-',
+                'Intelligence+', 'Intelligence-', 'Ruggedness+', 'Ruggedness-',
+                'Temperament+', 'Temperament-', 'Toughness+', 'Toughness-', 'Virility+', 'Virility-'],
+    'beewasp': ['None', 'Enthusiasm+', 'Enthusiasm-', 'Ferocity+', 'Ferocity-',
+                'Friendliness+', 'Friendliness-', 'Intelligence+', 'Intelligence-',
+                'Ruggedness+', 'Ruggedness-', 'Toughness+', 'Toughness-', 'Virility+', 'Virility-']
+  }[species];
+}
+
+function isValidGeneReport(d) {
+  return d.keys().hasAll(REPORT_KEYS) && d.keys().hasOnly(REPORT_KEYS)
+    && d.species in ['horse', 'beewasp']
+    && d.gene is string && d.gene.matches('^[0-9]{2}[A-Z][0-9]$')
+    && d.bundledDominant   is string && d.bundledDominant   in effectsFor(d.species)
+    && d.bundledRecessive  is string && d.bundledRecessive  in effectsFor(d.species)
+    && d.proposedDominant  is string && d.proposedDominant  in effectsFor(d.species)
+    && d.proposedRecessive is string && d.proposedRecessive in effectsFor(d.species)
+    && (d.proposedDominant != d.bundledDominant || d.proposedRecessive != d.bundledRecessive)
+    && d.note is string && d.note.size() <= 1000
+    && d.templateBundleHash is string && d.templateBundleHash.matches('^[a-f0-9]{64}$')
+    && d.appVersion is string && d.appVersion.size() >= 1 && d.appVersion.size() <= 32
+    && d.schemaVersion is int && d.schemaVersion == 1
+    && d.submittedAt is timestamp && d.submittedAt == request.time;
+}
+
 match /geneReports/{docId} {
   allow read: if false;   // the Action reads with the Admin SDK, which bypasses rules
-  allow create: if docId.matches('^[a-f0-9]{64}$')
-    && request.resource.data.keys().hasOnly([...fields above...])
-    && request.resource.data.species in ['horse', 'beewasp']
-    && request.resource.data.gene.matches('^[0-9]{1,2}[A-Z][0-9]{1,2}$')
-    && isEffect(...)  // each of the four effect fields is in EFFECTS (below)
-    && request.resource.data.note.size() <= 1000
-    && request.resource.data.submittedAt == request.time
-    && ( proposed differs from bundled in at least one field );
+  allow create: if docId.matches('^[a-f0-9]{64}$') && isValidGeneReport(request.resource.data);
   allow update, delete: if false;
 }
 ```
 
-Every gene ID in `assets/` matches the gene pattern (checked 2026-10-11). `EFFECTS` is an explicit list: `None` plus `+` and `-` for the eight attributes that occur in `assets/` (Enthusiasm, Ferocity, Friendliness, Intelligence, Ruggedness, Temperament, Toughness, Virility). If a species-specific effect attribute is added, the list in the rules must change with it.
+`REPORT_KEYS` stands for the eleven field names in §4, written out in full in the real rules. A document is then at most about 1.4 KB, so a single report cannot be padded.
+
+Every gene ID in `assets/` is four characters and matches `^[0-9]{2}[A-Z][0-9]$` (checked 2026-10-11). The effect lists are per species, from `CORE_ATTRIBUTES` plus `SPECIES_ATTRIBUTES` in `configService.ts`: Horse has Temperament, BeeWasp has Ferocity. They match the effects that occur in `assets/<species>/`. When an attribute is added to `configService.ts`, the rules must change with it; a unit test compares the two (§11).
 
 Reports are not readable by clients. They are not public data, and closing reads removes a free way to use up the Spark read quota.
 
@@ -97,20 +121,28 @@ Reports are not readable by clients. They are not public data, and closing reads
 
 - **`src/lib/services/geneReportService.ts`** (new): `findReportableChanges(species)` gives the diff against the bundle. `submitGeneReports(changes, note)` writes one document per gene in a single `writeBatch`. It writes at most 50 genes per submission (one chromosome is the normal case).
 - **Local record:** store the doc IDs that were sent in settings, so that the UI shows "Reported" and does not offer the same correction again.
-- **UI in `GeneEditingView`:** a "Report changes upstream" button. It is shown when the current chromosome has genes that differ from the bundle. It opens a dialog that shows exactly what will be sent (gene, bundled → proposed, note, app version) and says that the data goes to a public-project database. Sending needs a second click.
+- **UI in `GeneEditingView`:** a "Report changes upstream" button. It is shown when the current chromosome has genes that differ from the bundle. It opens a dialog that shows every field that will be sent: species, gene, bundled → proposed effects, note, template version (`templateBundleHash`), app version and schema version, plus "submission time: set by the server". It also says that the data goes to a public-project database. Sending needs a second click.
 - **Offline / failure:** show the error and keep the changes reportable. No retry queue in v1.
 
 ## 7. GitHub Action
 
 `.github/workflows/gene-reports.yml`: runs on `schedule` (daily) and `workflow_dispatch`, with `permissions: issues: write, contents: read`. It runs `scripts/sync-gene-reports.mjs` (`firebase-admin` is already a dev dependency).
 
-1. Read the cursor from `/meta/geneReportSync` (an Admin-only document; clients cannot read it because no rule matches it). Query `geneReports` where `submittedAt > cursor`. Reads per run = new reports + 1.
-2. Group the reports by `species/gene`. For each gene, compare each proposal with the **current** template on `main` (the Action has the checkout). A proposal that equals the current template counts as "already applied".
-3. Find the issue with label `gene-report` and a hidden body marker `<!-- gene-report:horse/26B3 -->`. Create it if it does not exist. Rewrite the tally table in the body: current template value, each proposal and its report count, and the template hashes seen. Add a comment for each new batch.
-4. If the issue is closed and a new report proposes a value that is not the current template, reopen it.
-5. Write the new cursor last, so that a failed run repeats rather than skips.
+Firestore is the only state. The issue body is output, never input: the Action can rebuild every issue from Firestore and `main`.
 
-**Untrusted text.** `note` is user input. Put it in the issue only inside a fenced code block. Remove backticks from it, and remove `@` and `#` before word characters, so that a note cannot mention users or link issues. Limit each run to 20 issues created or reopened. A flood then shows as a large count on a few issues, not as hundreds of issues.
+1. **Find new reports.** Read the cursor `(submittedAt, docId)` from `/meta/geneReportSync` (an Admin-only document; clients cannot read it because no rule matches it). Query `geneReports` ordered by `submittedAt`, then document ID, starting after the cursor, in pages of 200. The two-part order makes paging deterministic when timestamps are equal.
+2. **Pick the genes to process.** Walk the new reports in order, page by page, and collect their `species/gene` keys. Stop before the first report whose gene would be the 21st distinct gene in this run. The last report taken is the new cursor. Reports after it stay for the next run; nothing is skipped and nothing is processed twice.
+3. **Recount each picked gene from all its reports.** Query `geneReports` where `species == s` and `gene == g` (equality filters only, so no composite index). Build the tally from these documents, not from the issue body. Compare each proposal with the **current** template on `main` (the Action has the checkout); a proposal equal to the current template counts as "already applied". Reads per run = new reports read in step 1 + all reports of the picked genes + 1.
+4. **Write the issue.** Find the issue with label `gene-report` and hidden body marker `<!-- gene-report:horse/26B3 -->`, or create it. Replace the body with the tally: current template value, each proposal with its report count, and the template hashes seen. Rewriting the whole body from step 3 gives the same result on every retry.
+5. **Comment once per batch.** For the gene's new reports in this run, compute `batchId` = SHA-256 of their sorted document IDs. Post a comment with `<!-- gene-report-batch:<batchId> -->` and the new notes, unless a comment with that marker already exists. A retry after a failed cursor write then finds the marker and does not post again.
+6. **Reopen.** If the issue is closed and a new report proposes a value that is not the current template, reopen it.
+7. **Write the cursor last**, after every picked gene is done, so that a failed run repeats rather than skips.
+
+**Untrusted text and size limits.** `note` is user input. Put it in the issue only inside a fenced code block. Remove backticks from it, and remove `@` and `#` before word characters, so that a note cannot mention users or link issues. GitHub limits an issue body or comment to 65,536 characters, so:
+- The issue body holds the tally and no notes. Its size depends on the number of distinct proposals, which the per-species effect lists limit to 15 × 15 per gene.
+- A batch comment holds at most the 20 newest non-empty notes and at most 30,000 characters of note text. It says how many notes it left out. All notes stay in Firestore.
+
+The limit of 20 genes per run also limits the issues created, updated or reopened per run to 20. A flood shows as large counts on a few issues, not as hundreds of issues, and any backlog drains over later runs.
 
 ## 8. Abuse and quota
 
@@ -135,8 +167,8 @@ Without authentication, the rate of writes cannot be limited per sender. This is
 
 ## 11. Tests
 
-- **Rules** (`pnpm test:firestore`, emulator): valid create passes. Each of these fails: extra field, bad species, bad effect string, proposal equal to bundled, `submittedAt` not server time, any read, update, delete, and a second create with the same ID.
-- **Unit:** `findReportableChanges` against a fixture bundle. Doc-ID hashing is stable. Sync script: grouping, tally, "already applied", note sanitising, issue cap.
+- **Rules** (`pnpm test:firestore`, emulator): valid create passes for each species. Each of these fails: a missing field, an extra field, each field with the wrong type, a bad species, a gene ID that does not match, an effect of the other species (`Ferocity+` for horse, `Temperament+` for beewasp), a proposal equal to bundled, a note over 1000 chars, a `templateBundleHash` that is not 64 hex chars, an `appVersion` of 0 or 33 chars, `schemaVersion` other than 1, `submittedAt` not server time, a doc ID that is not 64 hex chars, any read, update, delete, and a second create with the same ID.
+- **Unit:** `findReportableChanges` against a fixture bundle. Doc-ID hashing is stable. The per-species effect lists in `firestore.rules` equal `configService.getEffectOptionsForSpecies`. Sync script: paging with equal timestamps, the 20-gene stop and its cursor, tally rebuilt from all reports of a gene, "already applied", the batch marker preventing a second comment on retry, note sanitising, and note truncation.
 - **E2E:** edit an effect, open the report dialog, check the preview, send with the service mocked, and check that the gene shows "Reported".
 
 ## 12. PR breakdown
