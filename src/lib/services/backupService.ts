@@ -17,9 +17,11 @@ import { isTauri } from '$lib/utils/environment.js';
 import { decodeLoci, encodeLoci, layoutId, storedGenomeEntries } from '$lib/utils/lociCodec.js';
 import { now } from '$lib/utils/timestamp.js';
 import { getDb, type TxStatement } from './database.js';
+import { refreshGeneTemplatesIfChanged } from './demoService.js';
 import { pickExportSavePath, saveExportBinaryFile } from './fileService.js';
 import { clearGeneEffectsCache } from './geneService.js';
 import { CURRENT_SCHEMA_VERSION, derivedProvenance, getSchemaVersion } from './migrationService.js';
+import { resetSetting, TEMPLATE_BUNDLE_HASH_KEY } from './settingsService.js';
 import { clearAttributeMagnitudesCache } from './studyService.js';
 
 const EXPORT_FORMAT = 'gorgonetics-backup' as const;
@@ -287,6 +289,15 @@ export async function importDatabase(source: Uint8Array | LoadedBackup, options:
   // data and a caller could construct one without going through loadBackup.
   validateMetadata(loaded.metadata);
   const result = await importFromZip(loaded.zip, options);
+  // A backup from before schema v21 restores effects with no recorded
+  // template, and one from an older release restores older template values.
+  // Run the template refresh now, as on an upgrade: untouched effects take
+  // the current bundled values and the user's edits are kept. Clearing the
+  // stored bundle hash makes it run even though the bundle did not change.
+  if (options.includeGenes) {
+    await resetSetting(TEMPLATE_BUNDLE_HASH_KEY);
+    await refreshGeneTemplatesIfChanged();
+  }
   // The restore rewrote tables the session caches were derived from, without
   // going through the services that keep them in step. Without this the gene
   // effects, the study's magnitudes and its memoised run all keep describing

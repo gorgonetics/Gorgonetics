@@ -1,11 +1,13 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import JSZip from 'jszip';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { importDatabase } from '$lib/services/backupService.js';
 import { closeDatabase, getDb, initDatabase } from '$lib/services/database.js';
 import { refreshGeneTemplatesIfChanged } from '$lib/services/demoService.js';
 import * as fileService from '$lib/services/fileService.js';
 import * as geneService from '$lib/services/geneService.js';
-import { runMigrations } from '$lib/services/migrationService.js';
+import { CURRENT_SCHEMA_VERSION, runMigrations } from '$lib/services/migrationService.js';
 import { getSetting, setSetting } from '$lib/services/settingsService.js';
 
 // `loadBundledResource` resolves `resources/assets/...` to `/assets/...` and
@@ -149,6 +151,42 @@ describe('refreshGeneTemplatesIfChanged', () => {
     expect((await rowOf('15A1')).effectRecessive).toBe('None');
   });
 
+  it('restoring a pre-v21 backup refreshes stale effects and keeps the edits in it', async () => {
+    await refreshGeneTemplatesIfChanged();
+    // A v0.10.3-era backup: no template columns, 26B3 with the recessive
+    // v0.10.3 shipped, and the user's own edit on 15A1.
+    const rows = await getDb().select<Record<string, unknown>[]>('SELECT * FROM genes');
+    const genes = rows.map(({ template_dominant: _d, template_recessive: _r, ...g }) => {
+      if (g.animal_type === 'horse' && g.gene === '26B3') return { ...g, effectRecessive: 'Toughness+' };
+      if (g.animal_type === 'horse' && g.gene === '15A1') return { ...g, effectDominant: 'Virility+' };
+      return g;
+    });
+    const zip = new JSZip();
+    zip.file(
+      'metadata.json',
+      JSON.stringify({
+        format: 'gorgonetics-backup',
+        format_version: 2,
+        schema_version: CURRENT_SCHEMA_VERSION - 1,
+        app_version: '0.10.3',
+        exported_at: '2026-10-01T00:00:00Z',
+        contents: { genes: true, pets: false, images: false },
+        record_counts: { genes: genes.length, pets: 0, images: 0 },
+      }),
+    );
+    zip.file('genes.json', JSON.stringify(genes));
+
+    await importDatabase(await zip.generateAsync({ type: 'uint8array' }), {
+      mode: 'replace',
+      includeGenes: true,
+      includePets: false,
+      includeImages: false,
+    });
+
+    expect(await rowOf('26B3')).toMatchObject({ effectRecessive: 'Toughness-', template_recessive: 'Toughness-' });
+    expect(await rowOf('15A1')).toMatchObject({ effectDominant: 'Virility+', template_dominant: 'Intelligence-' });
+  });
+
   describe('rows from before schema v21 (no template recorded)', () => {
     async function upgradeFrom(gene: string, dominant: string, recessive: string) {
       await refreshGeneTemplatesIfChanged();
@@ -172,7 +210,12 @@ describe('refreshGeneTemplatesIfChanged', () => {
     it('takes the new template for a value an older release shipped', async () => {
       // 15D1's dominant was Ruggedness+ in an older release (corrected since).
       const row = await upgradeFrom('15D1', 'Ruggedness+', 'None');
-      expect(row?.effectDominant).not.toBe('Ruggedness+');
+      expect(row).toMatchObject({
+        effectDominant: 'None',
+        effectRecessive: 'Ruggedness+',
+        template_dominant: 'None',
+        template_recessive: 'Ruggedness+',
+      });
     });
 
     it('keeps a value no release shipped: the user edited it', async () => {

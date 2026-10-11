@@ -238,7 +238,10 @@ type GeneUpsertData = {
   appearance?: string;
   breed?: string;
   notes?: string;
-  /** Template effects the row's effects are compared with on the next refresh. */
+  /**
+   * Template effects the row's effects are compared with on the next
+   * refresh. `undefined` keeps the stored ones; `null` clears them.
+   */
   templateDominant?: string | null;
   templateRecessive?: string | null;
 };
@@ -283,6 +286,20 @@ async function writeGeneUpsert(
   const effectRecessive = data.effectRecessive ?? 'None';
   const dom = parsedEffectColumns(effectDominant);
   const rec = parsedEffectColumns(effectRecessive);
+  // INSERT OR REPLACE rewrites the whole row. A caller that does not pass
+  // the template keeps the stored one: erasing it would make the next
+  // template refresh fall back to the frozen shipped-value history.
+  let templateDominant = data.templateDominant;
+  let templateRecessive = data.templateRecessive;
+  if (templateDominant === undefined || templateRecessive === undefined) {
+    const [stored] = await db.select<{ template_dominant: string | null; template_recessive: string | null }[]>(
+      `SELECT template_dominant, template_recessive FROM genes
+       WHERE animal_type = $animal_type AND gene = $gene`,
+      { animal_type: animalType, gene },
+    );
+    templateDominant ??= stored?.template_dominant ?? null;
+    templateRecessive ??= stored?.template_recessive ?? null;
+  }
   await db.execute(
     `INSERT OR REPLACE INTO genes
      (animal_type, chromosome, gene, effectDominant, effectRecessive, appearance, breed, notes, created_at, updated_at,
@@ -304,8 +321,8 @@ async function writeGeneUpsert(
       dominant_sign: dom.sign,
       recessive_attribute: rec.attribute,
       recessive_sign: rec.sign,
-      template_dominant: data.templateDominant ?? null,
-      template_recessive: data.templateRecessive ?? null,
+      template_dominant: templateDominant,
+      template_recessive: templateRecessive,
     },
   );
 }

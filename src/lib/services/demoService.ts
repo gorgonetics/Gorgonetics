@@ -4,6 +4,7 @@
  */
 
 import { TEMPLATE_SPECIES } from '$lib/types/index.js';
+import { normaliseEffect } from '$lib/utils/geneAnalysis.js';
 import { getDb } from './database.js';
 import { listBundledResources, loadBundledResource } from './fileService.js';
 import { upsertGenesBulk } from './geneService.js';
@@ -61,11 +62,6 @@ type ExistingGeneRow = {
 /** Per `species/gene`: the dominant and recessive values releases up to v0.10.3 shipped. */
 type ShippedHistory = Record<string, [string[], string[]] | undefined>;
 
-/** The gene editor stores a cleared effect as `''`; templates use `'None'`. */
-function normaliseEffect(value: string | null | undefined): string {
-  return value == null || value === '' ? 'None' : value;
-}
-
 /**
  * The effect to store after a refresh: the new template value, unless the
  * current value is the user's edit. A row is untouched when its effect
@@ -78,12 +74,14 @@ function keepOrTake(
   next: string,
   shipped: string[] | undefined,
 ): string {
+  // No value at all is not an edit: take the template.
+  if (current == null) return next;
   const value = normaliseEffect(current);
   const untouched =
     template != null
       ? value === normaliseEffect(template)
       : value === normaliseEffect(next) || (shipped ?? []).includes(value);
-  return untouched ? next : (current as string);
+  return untouched ? next : current;
 }
 
 /**
@@ -154,10 +152,16 @@ export async function refreshGeneTemplatesIfChanged(): Promise<void> {
   }
 
   // Rows from before schema v21 have no recorded template; decide those
-  // from the values releases shipped. Loaded only when needed.
-  const needsHistory = [...rowsBySpecies.values()].some((rows) =>
-    [...rows.values()].some((r) => r.template_dominant == null || r.template_recessive == null),
-  );
+  // from the values releases shipped. Loaded only when a gene still in the
+  // bundle needs it: a row of a gene the bundle dropped never gets a
+  // template, and must not force the load on every later refresh.
+  const needsHistory = parsed.some(({ species, genes }) => {
+    const rows = rowsBySpecies.get(species);
+    return genes.some((g) => {
+      const r = rows?.get(g.gene);
+      return r !== undefined && (r.template_dominant == null || r.template_recessive == null);
+    });
+  });
   const history: ShippedHistory = needsHistory
     ? ((await import('$lib/data/gene-template-history.json')).default as unknown as ShippedHistory)
     : {};

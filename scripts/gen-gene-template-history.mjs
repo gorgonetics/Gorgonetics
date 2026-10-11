@@ -4,6 +4,11 @@
  * each dominant and recessive effect value shipped in a release up to and
  * including `--upto` (default v0.10.3).
  *
+ * Every gene-data tree in a tag is read, not only `assets/`: up to v0.6.3
+ * the desktop app bundled a separately committed `src-tauri/resources/assets`
+ * that differs from `assets/` at those tags. Values from any tree count as
+ * shipped.
+ *
  * Releases before schema v21 did not record which template value a gene row
  * came from. On the first template refresh after the upgrade, a row whose
  * effect equals any value a release shipped is treated as untouched and gets
@@ -21,7 +26,9 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const git = (/** @type {string[]} */ ...args) => execFileSync('git', args, { encoding: 'utf-8', maxBuffer: 1e9 });
+// Mirrors normaliseEffect in src/lib/utils/geneAnalysis.ts.
 const norm = (/** @type {string | null | undefined} */ v) => (v == null || v === '' ? 'None' : v);
+const TREES = ['assets', 'src-tauri/resources/assets', 'src/static/assets', 'static/assets'];
 
 const uptoIndex = process.argv.indexOf('--upto');
 const upto = uptoIndex >= 0 ? process.argv[uptoIndex + 1] : 'v0.10.3';
@@ -33,12 +40,12 @@ if (last < 0) throw new Error(`tag ${upto} not found; run git fetch --tags`);
 /** @type {Record<string, [string[], string[]]>} */
 const history = {};
 for (const tag of tags.slice(0, last + 1)) {
-  const paths = git('ls-tree', '-r', '--name-only', tag, '--', 'assets')
+  const paths = git('ls-tree', '-r', '--name-only', tag, '--', ...TREES)
     .trim()
     .split('\n')
-    .filter((p) => /^assets\/[a-z]+\/[^/]+\.json$/.test(p));
+    .filter((p) => /(^|\/)assets\/(horse|beewasp)\/[^/]+\.json$/.test(p));
   for (const path of paths) {
-    const species = path.split('/')[1];
+    const species = /** @type {string} */ (path.match(/assets\/([a-z]+)\//)?.[1]);
     for (const g of JSON.parse(git('show', `${tag}:${path}`))) {
       const entry = (history[`${species}/${g.gene}`] ??= [[], []]);
       const dom = norm(g.effectDominant);
