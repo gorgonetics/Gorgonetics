@@ -228,6 +228,18 @@ service cloud.firestore {
       }[species];
     }
 
+    // `allowed` arrives as an argument so effectsFor() is built and indexed
+    // once per evaluation, not once per field (rules have no `let`; same
+    // pattern as identityMatchesFirstShare above).
+    function effectsValid(d, allowed) {
+      return d.bundledDominant is string && d.bundledDominant in allowed
+        && d.bundledRecessive is string && d.bundledRecessive in allowed
+        && d.proposedDominant is string && d.proposedDominant in allowed
+        && d.proposedRecessive is string && d.proposedRecessive in allowed;
+    }
+
+    // The species check runs before effectsFor(d.species), which errors
+    // (and so denies) on an unknown key.
     function isValidGeneReport(d) {
       return d.keys().hasAll([
                'species', 'gene',
@@ -245,10 +257,7 @@ service cloud.firestore {
              ])
         && d.species in ['horse', 'beewasp']
         && d.gene is string && d.gene.matches('^[0-9]{2}[A-Z][0-9]$')
-        && d.bundledDominant is string && d.bundledDominant in effectsFor(d.species)
-        && d.bundledRecessive is string && d.bundledRecessive in effectsFor(d.species)
-        && d.proposedDominant is string && d.proposedDominant in effectsFor(d.species)
-        && d.proposedRecessive is string && d.proposedRecessive in effectsFor(d.species)
+        && effectsValid(d, effectsFor(d.species))
         && (d.proposedDominant != d.bundledDominant
             || d.proposedRecessive != d.bundledRecessive)
         && d.note is string && d.note.size() <= 1000

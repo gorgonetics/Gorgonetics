@@ -45,11 +45,14 @@ afterAll(async () => {
 });
 
 afterEach(async () => {
-  // Rules deny SDK deletes; clear through the emulator REST endpoint.
-  await fetch(
+  // Rules deny SDK deletes; clear through the emulator REST endpoint. Every
+  // test reuses DOC_ID, so a failed clear would turn the next create into an
+  // update — denied for the wrong reason. Fail loudly instead.
+  const res = await fetch(
     `http://${EMULATOR_HOST}:${EMULATOR_PORT}/emulator/v1/projects/${PROJECT_ID}/databases/(default)/documents`,
     { method: 'DELETE' },
   );
+  if (!res.ok) throw new Error(`emulator clear failed: HTTP ${res.status}`);
 });
 
 const DOC_ID = 'b'.repeat(64);
@@ -73,13 +76,14 @@ function write(override: Record<string, unknown> = {}, id = DOC_ID) {
   return setDoc(doc(db, COLLECTION, id), { ...validReport(), submittedAt: serverTimestamp(), ...override });
 }
 
+/** Only a rules denial counts: an SDK-side `invalid-argument` never reached the rules. */
 async function expectRejected(promise: Promise<unknown>) {
   let threw = false;
   try {
     await promise;
   } catch (e) {
     threw = true;
-    expect(String(e)).toMatch(/permission|invalid/i);
+    expect((e as { code?: string }).code).toBe('permission-denied');
   }
   expect(threw).toBe(true);
 }
@@ -126,6 +130,7 @@ describe('firestore.rules — /geneReports create', () => {
     ['an extra field', { extra: 'x' }],
     ['an unknown species', { species: 'dragon' }],
     ['a capitalised species', { species: 'Horse' }],
+    ['a non-string species', { species: 1 }],
     ['a non-string gene', { gene: 263 }],
     ['a malformed gene ID', { gene: '26B' }],
     ['a gene ID with a two-digit tail', { gene: '26B31' }],
@@ -135,12 +140,12 @@ describe('firestore.rules — /geneReports create', () => {
     ['a beewasp effect on a horse', { proposedDominant: 'Ferocity+' }],
     ['a horse effect on a beewasp', { species: 'beewasp', proposedDominant: 'Temperament+' }],
     ['a bad bundled effect', { bundledRecessive: 'Nothing' }],
-    ['a non-string effect', { proposedRecessive: 1 }],
     ['a proposal equal to the bundled values', { proposedDominant: 'Toughness+' }],
     ['a note over 1000 chars', { note: 'x'.repeat(1001) }],
     ['a non-string note', { note: 5 }],
     ['a short templateBundleHash', { templateBundleHash: 'c'.repeat(63) }],
     ['an upper-case templateBundleHash', { templateBundleHash: 'C'.repeat(64) }],
+    ['a non-string templateBundleHash', { templateBundleHash: 7 }],
     ['a padded templateBundleHash', { templateBundleHash: 'c'.repeat(5000) }],
     ['an empty appVersion', { appVersion: '' }],
     ['a 33-char appVersion', { appVersion: 'v'.repeat(33) }],
@@ -153,6 +158,13 @@ describe('firestore.rules — /geneReports create', () => {
   ])('rejects %s', async (_label, override) => {
     await expectRejected(write(override));
   });
+
+  it.each(['bundledDominant', 'bundledRecessive', 'proposedDominant', 'proposedRecessive'])(
+    'rejects a non-string %s',
+    async (field) => {
+      await expectRejected(write({ [field]: 1 }));
+    },
+  );
 
   it.each([
     ['a short ID', 'short-id'],

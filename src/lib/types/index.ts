@@ -759,8 +759,11 @@ export interface SharedPetsPage {
   cursor: unknown | null;
 }
 
-/** Species keys accepted by `/geneReports` (the `assets/<species>/` names). */
-export type GeneReportSpecies = 'horse' | 'beewasp';
+/** Species with bundled gene templates: the `assets/<species>/` directory names. */
+export const TEMPLATE_SPECIES = ['beewasp', 'horse'] as const;
+
+/** Species keys accepted by `/geneReports`. */
+export type GeneReportSpecies = (typeof TEMPLATE_SPECIES)[number];
 
 /**
  * One gene-effect correction sent to `/geneReports/{docId}`, minus the
