@@ -1,8 +1,10 @@
 <script lang="ts">
 import { onDestroy } from 'svelte';
 import { run, stopPropagation } from 'svelte/legacy';
+import GeneReportDialog from '$lib/components/gene/GeneReportDialog.svelte';
 import * as configService from '$lib/services/configService.js';
 import { saveExportTextFile } from '$lib/services/fileService.js';
+import { findReportableChanges, type ReportableChange } from '$lib/services/geneReportService.js';
 import * as geneService from '$lib/services/geneService.js';
 import { errorMessage as toErrorMessage } from '$lib/utils/error.js';
 
@@ -43,6 +45,10 @@ const EFFECT_TYPES = [
 let hasUnsavedChanges = $state(false);
 let savingChanges = $state(false);
 let exporting = $state(false);
+// Saved genes that differ from the bundled template, for "Report upstream".
+let reportable = $state<ReportableChange[]>([]);
+let showReportDialog = $state(false);
+const unreportedCount = $derived(reportable.filter((c) => !c.alreadySent).length);
 
 onDestroy(() => clearTimeout(successTimer));
 
@@ -62,6 +68,7 @@ async function loadGenes(): Promise<void> {
     genes = (await geneService.getGenesByChromosome(animalType, chromosome)) as GeneRow[];
     originalGenes = JSON.parse(JSON.stringify(genes));
     hasUnsavedChanges = false;
+    void refreshReportable();
   } catch (err) {
     errorMessage = `Error loading genes: ${toErrorMessage(err)}`;
   } finally {
@@ -81,6 +88,7 @@ async function saveAllChanges(): Promise<void> {
     await geneService.updateGenesBulk(animalType, chromosome, genes);
     originalGenes = JSON.parse(JSON.stringify(genes));
     hasUnsavedChanges = false;
+    void refreshReportable();
     successMessage = 'All changes saved successfully!';
     clearTimeout(successTimer);
     successTimer = setTimeout(() => {
@@ -91,6 +99,28 @@ async function saveAllChanges(): Promise<void> {
   } finally {
     savingChanges = false;
   }
+}
+
+// Reporting is a side feature: a failure here must not break editing, so
+// it only hides the button.
+async function refreshReportable(): Promise<void> {
+  const s = animalType;
+  const c = chromosome;
+  try {
+    const result = await findReportableChanges(s, c);
+    if (s === animalType && c === chromosome) reportable = result;
+  } catch (err) {
+    console.warn('Could not compare genes with the bundled templates:', err);
+    reportable = [];
+  }
+}
+
+function showMessage(message: string): void {
+  successMessage = message;
+  clearTimeout(successTimer);
+  successTimer = setTimeout(() => {
+    successMessage = '';
+  }, 3000);
 }
 
 // Export chromosome to JSON file
@@ -242,6 +272,19 @@ run(() => {
             >
                 {exporting ? 'Exporting...' : 'Export'}
             </button>
+            {#if reportable.length > 0}
+                <button
+                    class="action-btn report-btn"
+                    data-testid="gene-report-btn"
+                    onclick={() => (showReportDialog = true)}
+                    disabled={hasUnsavedChanges}
+                    title={hasUnsavedChanges
+                        ? 'Save your changes before reporting them'
+                        : 'Send your corrections to the maintainer for checking'}
+                >
+                    {unreportedCount > 0 ? `Report upstream (${unreportedCount})` : 'Reported'}
+                </button>
+            {/if}
         </div>
     </div>
 
@@ -371,6 +414,21 @@ run(() => {
         {/if}
     </div>
 </div>
+
+{#if showReportDialog}
+    <GeneReportDialog
+        species={animalType}
+        {chromosome}
+        onClose={() => {
+            showReportDialog = false;
+            void refreshReportable();
+        }}
+        onResult={(result) => {
+            if (result.type === 'error') errorMessage = result.message;
+            else showMessage(result.message);
+        }}
+    />
+{/if}
 
 <!-- Click outside to close dropdown -->
 <svelte:window

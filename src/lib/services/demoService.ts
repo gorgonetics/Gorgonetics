@@ -10,7 +10,7 @@ import { upsertGenesBulk } from './geneService.js';
 import { hasPets, updatePet, uploadPet } from './petService.js';
 import { getSetting, resetSetting, setSetting } from './settingsService.js';
 
-const TEMPLATE_BUNDLE_HASH_KEY = 'genes.templateBundleHash';
+export const TEMPLATE_BUNDLE_HASH_KEY = 'genes.templateBundleHash';
 
 type TemplateGene = {
   gene: string;

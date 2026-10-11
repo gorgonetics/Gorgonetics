@@ -31,6 +31,13 @@ const SETTING_DEFAULTS: Record<string, unknown> = {
   // Privacy-sensitive: sharing publishes a pet to the public catalogue, so this
   // stays OFF unless the user explicitly opts in. See autoShare.ts.
   'community.autoShareOnImport': false,
+  // Random ID made on the first gene report and never sent: it only salts
+  // report doc IDs so one install counts once per proposal. See
+  // geneReportService.ts.
+  'geneReports.installId': '',
+  // Doc IDs of gene reports this install has sent, so the UI shows them as
+  // reported and does not offer them again.
+  'geneReports.sent': [],
 };
 
 export function getDefaultSettings(): Record<string, unknown> {

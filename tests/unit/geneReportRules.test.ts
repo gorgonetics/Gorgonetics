@@ -10,7 +10,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { getEffectOptionsForSpecies } from '$lib/services/configService.js';
-import { TEMPLATE_SPECIES } from '$lib/types/index.js';
+import { EFFECT_ATTRIBUTES, TEMPLATE_SPECIES } from '$lib/types/index.js';
 
 const RULES = readFileSync(resolve('firestore.rules'), 'utf-8');
 const ASSETS = resolve('assets');
@@ -83,8 +83,12 @@ describe('firestore.rules /geneReports invariants', () => {
     expect(rejected).toEqual([]);
   });
 
-  it('does not admit an attribute of the other species', () => {
-    expect(rulesEffects('horse')).not.toContain('Ferocity+');
-    expect(rulesEffects('beewasp')).not.toContain('Temperament+');
+  it('EFFECT_ATTRIBUTES (the GeneEffect type) covers exactly the attributes of every species', () => {
+    const names = new Set(
+      ASSET_SPECIES.flatMap((s) => getEffectOptionsForSpecies(s))
+        .filter((e) => e !== 'None')
+        .map((e) => e.slice(0, -1)),
+    );
+    expect([...EFFECT_ATTRIBUTES].sort()).toEqual([...names].sort());
   });
 });

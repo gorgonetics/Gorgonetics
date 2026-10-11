@@ -119,7 +119,7 @@ Reports are not readable by clients. They are not public data, and closing reads
 
 ## 6. Client
 
-- **`src/lib/services/geneReportService.ts`** (new): `findReportableChanges(species)` gives the diff against the bundle. `submitGeneReports(changes, note)` writes one document per gene in a single `writeBatch`. It writes at most 50 genes per submission (one chromosome is the normal case).
+- **`src/lib/services/geneReportService.ts`** (new): `findReportableChanges(species, chromosome)` gives the diff against the bundle. `submitGeneReports(changes, note)` writes one document per gene as independent creates, not one batch: a batch fails as a whole, so one duplicate would block the new reports with it. A rules denial after client validation is counted as a duplicate. It writes at most 50 genes per submission (one chromosome is the normal case).
 - **Local record:** store the doc IDs that were sent in settings, so that the UI shows "Reported" and does not offer the same correction again.
 - **UI in `GeneEditingView`:** a "Report changes upstream" button. It is shown when the current chromosome has genes that differ from the bundle. It opens a dialog that shows every field that will be sent: species, gene, bundled → proposed effects, note, template version (`templateBundleHash`), app version and schema version, plus "submission time: set by the server". It also says that the data goes to a public-project database. Sending needs a second click.
 - **Size limits in the client:** the note field has `maxlength="1000"`, and `submitGeneReports` checks every field against the §5 limits before any network call and refuses to send if one fails. This gives honest users an early error. It is not the security control: a modified client can skip it, so the rules (§5) are what reject an oversized report.
@@ -171,7 +171,7 @@ Without authentication, the rate of writes cannot be limited per sender. This is
 
 - **Rules** (`pnpm test:firestore`, emulator): valid create passes for each species. Each of these fails: a missing field, an extra field, each field with the wrong type, a bad species, a gene ID that does not match, an effect of the other species (`Ferocity+` for horse, `Temperament+` for beewasp), a proposal equal to bundled, a note over 1000 chars, a `templateBundleHash` that is not 64 hex chars, an `appVersion` of 0 or 33 chars, `schemaVersion` other than 1, `submittedAt` not server time, a doc ID that is not 64 hex chars, any read, update, delete, and a second create with the same ID.
 - **Unit:** `findReportableChanges` against a fixture bundle. Doc-ID hashing is stable. The per-species effect lists in `firestore.rules` equal `configService.getEffectOptionsForSpecies`. Sync script: paging with equal timestamps, the 20-gene stop and its cursor, tally rebuilt from all reports of a gene, "already applied", the batch marker preventing a second comment on retry, note sanitising, and note truncation.
-- **E2E:** edit an effect, open the report dialog, check the preview, send with the service mocked, and check that the gene shows "Reported".
+- **E2E:** edit an effect, save, open the report dialog and check the preview. E2E blocks Firestore, so the send path and the "Reported" state are in a component test with the service mocked (`tests/unit/geneReportDialog.test.ts`).
 
 ## 12. PR breakdown
 
