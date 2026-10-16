@@ -265,15 +265,21 @@ const doubts = $derived(
  * Animals contradicting an otherwise-agreed magnitude, pooled across every
  * attribute. The model forbids disagreement, so a name high on this list is
  * almost always a mis-recorded row rather than a discovery.
+ *
+ * Each row keeps its per-attribute counts: the pooled total says an animal
+ * is suspect, but only the attribute says which reading to go and check.
  */
 const suspects = $derived.by(() => {
-  const totals = new Map<string, { count: number; stabled: boolean }>();
+  const totals = new Map<string, { count: number; stabled: boolean; attributes: Array<[string, number]> }>();
   for (const study of studies)
     for (const c of study.contradictions) {
       const seen = totals.get(c.subjectId);
-      if (seen) seen.count += c.count;
-      else totals.set(c.subjectId, { count: c.count, stabled: c.stabled });
+      if (seen) {
+        seen.count += c.count;
+        seen.attributes.push([study.attribute, c.count]);
+      } else totals.set(c.subjectId, { count: c.count, stabled: c.stabled, attributes: [[study.attribute, c.count]] });
     }
+  for (const s of totals.values()) s.attributes.sort(([, a], [, b]) => b - a);
   // Stabled first: only those can be settled by re-reading the animal, so a
   // smaller checkable disagreement beats a larger unfalsifiable one.
   return [...totals.entries()]
@@ -663,6 +669,12 @@ async function solve(target: string): Promise<void> {
 										<span class="origin" title="One of your pets, but not stabled.">unstabled</span>
 									{/if}
 									<span class="suspect-count">{s.count}</span>
+									<span class="suspect-attributes" data-testid="suspect-attributes-{id}">
+										{#each s.attributes as [attr, n], i (attr)}{i > 0 ? ' · ' : ''}<span
+												class="suspect-attribute"
+												title="{n} disagreeing equation{n === 1 ? '' : 's'} on {attr}">{attr} {n}</span
+											>{/each}
+									</span>
 								</li>
 							{/each}
 						</ul>
@@ -1186,6 +1198,18 @@ async function solve(target: string): Promise<void> {
 	.suspect-count {
 		color: var(--gene-negative);
 		font-variant-numeric: tabular-nums;
+	}
+
+	/* Own line under the name, so a long list never squeezes the name out. */
+	.suspect-attributes {
+		flex-basis: 100%;
+		color: var(--text-tertiary);
+		font-size: 11px;
+		font-variant-numeric: tabular-nums;
+	}
+
+	.suspect-attribute {
+		text-transform: capitalize;
 	}
 
 	.center-state {

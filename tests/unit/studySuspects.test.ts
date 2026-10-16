@@ -35,20 +35,23 @@ const textOf = (el: HTMLElement) => (el.textContent ?? '').replace(/\s+/g, ' ');
 
 type Contradiction = { subjectId: string; count: number; stabled: boolean };
 
-const runWith = (contradictions: Contradiction[]): StudyRun =>
+const studyOf = (attribute: string, contradictions: Contradiction[]) => ({
+  attribute,
+  slots: 1,
+  findings: [],
+  geneDoubts: [],
+  contradictions,
+  validation: { tested: 0, exact: 0, stabledTested: 0, stabledExact: 0, suspects: [] },
+  contributors: 3,
+  baselines: [],
+});
+
+const runWith = (contradictions: Contradiction[], more: Record<string, Contradiction[]> = {}): StudyRun =>
   ({
     corpus: { subjects: [{ id: '1' }, { id: '2' }], considered: 3, excluded: [] },
     studies: [
-      {
-        attribute: 'enthusiasm',
-        slots: 1,
-        findings: [],
-        geneDoubts: [],
-        contradictions,
-        validation: { tested: 0, exact: 0, stabledTested: 0, stabledExact: 0, suspects: [] },
-        contributors: 3,
-        baselines: [],
-      },
+      studyOf('enthusiasm', contradictions),
+      ...Object.entries(more).map(([attribute, list]) => studyOf(attribute, list)),
     ],
     totals: { slots: 1, found: 0, direct: 0, derived: 0, system: 0 },
     validation: { tested: 0, exact: 0, stabledTested: 0, stabledExact: 0 },
@@ -56,8 +59,11 @@ const runWith = (contradictions: Contradiction[]): StudyRun =>
     sharedBase: null,
   }) as unknown as StudyRun;
 
-async function openSuspects(contradictions: Contradiction[]): Promise<HTMLElement> {
-  vi.mocked(studyRunFor).mockResolvedValue(runWith(contradictions));
+async function openSuspects(
+  contradictions: Contradiction[],
+  more: Record<string, Contradiction[]> = {},
+): Promise<HTMLElement> {
+  vi.mocked(studyRunFor).mockResolvedValue(runWith(contradictions, more));
   render(StudyView);
   const tab = await screen.findByTestId('study-evidence-suspects');
   await fireEvent.click(tab);
@@ -100,5 +106,15 @@ describe('Suspect readings', () => {
     ]);
     expect(textOf(panel)).not.toContain('Stabled animals come first');
     expect(panel.querySelector('.checkable')).toBeNull();
+  });
+
+  it('names the attributes each suspect disagrees on, worst first', async () => {
+    // The pooled count alone does not say which reading to re-check.
+    const panel = await openSuspects([{ subjectId: 'shared:abc', count: 1, stabled: false }], {
+      toughness: [{ subjectId: 'shared:abc', count: 4, stabled: false }],
+    });
+    const row = panel.querySelector<HTMLElement>('[data-testid="suspect-attributes-shared:abc"]');
+    expect(row && textOf(row).trim()).toBe('toughness 4 · enthusiasm 1');
+    expect(panel.querySelector('[data-testid="suspect-shared:abc"] .suspect-count')?.textContent).toBe('5');
   });
 });
