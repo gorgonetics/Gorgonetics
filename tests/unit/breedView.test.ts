@@ -114,6 +114,9 @@ function resetView() {
   breedingView.benchedIds = new Set();
   breedingView.spots = 0;
   breedingView.objective = 'reach';
+  breedingView.mode = 'pairs';
+  breedingView.anchorId = null;
+  breedingView.targets = [];
 }
 
 beforeEach(() => {
@@ -618,5 +621,34 @@ describe('BreedView — an edit to a listed animal re-ranks', () => {
     pets.set([stallion, mare]);
     await rerender({});
     expect(vi.mocked(rankBreedingPairs)).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('BreedView — improve one animal', () => {
+  it('swaps the pair ranking and its controls for the partner finder', async () => {
+    pets.set([stallion, mare]);
+    const { container, getByTestId, queryByTestId, rerender } = render(BreedView);
+    await rerender({});
+    expect(queryByTestId('breed-objective')).toBeTruthy();
+    await fireEvent.click(getByTestId('breed-mode-improve'));
+    expect(breedingView.mode).toBe('improve');
+    expect(queryByTestId('improve-horse')).toBeTruthy();
+    expect(queryByTestId('breed-objective')).toBeNull();
+    expect(queryByTestId('breed-plan-controls')).toBeNull();
+    expect(queryByTestId('breed-offspring')).toBeNull();
+    expect(container.querySelector('[data-testid="improve-anchor"] option[value="1"]')?.textContent).toContain('Dusty');
+  });
+});
+
+describe('BreedView — clear a chromosome', () => {
+  it('swaps in the clearing view and drops the pair-ranking controls', async () => {
+    pets.set([stallion, mare]);
+    const { getByTestId, queryByTestId, rerender } = render(BreedView);
+    await rerender({});
+    await fireEvent.click(getByTestId('breed-mode-clear'));
+    expect(breedingView.mode).toBe('clear');
+    expect(queryByTestId('clear-chromosome')).toBeTruthy();
+    expect(queryByTestId('breed-objective')).toBeNull();
+    expect(queryByTestId('breed-offspring')).toBeNull();
   });
 });
