@@ -644,7 +644,9 @@ async function solve(target: string): Promise<void> {
 						<h3>Suspect readings</h3>
 						<p>
 							These animals disagree with magnitudes the rest of the stable agrees on. The arithmetic
-							is exact, so a high count almost always means a mis-recorded attribute.
+							is exact, so a high count almost always means a mis-recorded attribute. Each disagreement
+							counts against both animals in it, so a low count beside a high one is usually the high
+							one's error. Turning one off stops the study learning from it.
 							<!-- Only when the list has one: with no stabled animal it read as a
 							     claim about the rows below. -->
 							{#if suspects.some(([, s]) => s.stabled)}
@@ -669,6 +671,18 @@ async function solve(target: string): Promise<void> {
 										<span class="origin" title="One of your pets, but not stabled.">unstabled</span>
 									{/if}
 									<span class="suspect-count">{s.count}</span>
+									<!-- Here as well as under Mis-recorded: a bad row caught by the solver's
+									     own tally never fails a held-out prediction, so it may not be
+									     listed there and this would be the only way to drop it. -->
+									<button
+										type="button"
+										class="row-action"
+										data-testid="exclude-suspect-{id}"
+										disabled={busyRow !== null}
+										onclick={() => toggleUse(id, false)}
+									>
+										{busyRow === id ? 'Saving…' : 'Stop using'}
+									</button>
 									<span class="suspect-attributes" data-testid="suspect-attributes-{id}">
 										{#each s.attributes as [attr, n], i (attr)}{i > 0 ? ' · ' : ''}<span
 												class="suspect-attribute"

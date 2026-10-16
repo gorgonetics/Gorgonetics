@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { type StudyRun, studyRunFor } from '$lib/services/studyService.js';
+import { type StudyRun, setUseForStudies, studyRunFor } from '$lib/services/studyService.js';
 import { pets } from '$lib/stores/pets.js';
 import type { Pet } from '$lib/types/index.js';
 
@@ -18,6 +18,7 @@ vi.mock('$lib/services/studyService.js', async (importOriginal) => ({
       ]),
   ),
   studyCorpusStatus: vi.fn(async () => ({ cached: 1, fetchedAt: null })),
+  setUseForStudies: vi.fn(async () => {}),
   listExcludedSubjects: vi.fn(async () => []),
 }));
 
@@ -116,5 +117,16 @@ describe('Suspect readings', () => {
     const row = panel.querySelector<HTMLElement>('[data-testid="suspect-attributes-shared:abc"]');
     expect(row && textOf(row).trim()).toBe('toughness 4 · enthusiasm 1');
     expect(panel.querySelector('[data-testid="suspect-shared:abc"] .suspect-count')?.textContent).toBe('5');
+  });
+
+  it('can stop using a suspect without it being listed as mis-recorded', async () => {
+    // A bad row caught by the solver's tally need not fail a held-out
+    // prediction, so the Mis-recorded panel may never offer it.
+    const panel = await openSuspects([{ subjectId: '2', count: 16, stabled: false }]);
+    const button = panel.querySelector<HTMLButtonElement>('[data-testid="exclude-suspect-2"]');
+    expect(button).not.toBeNull();
+    await fireEvent.click(button as HTMLButtonElement);
+    await waitFor(() => expect(setUseForStudies).toHaveBeenCalledWith(expect.any(String), '2', false));
+    expect(studyRunFor).toHaveBeenCalledTimes(2);
   });
 });
