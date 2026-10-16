@@ -634,9 +634,6 @@ async function solve(target: string): Promise<void> {
 								</li>
 							{/each}
 						</ul>
-						{#if actionError}
-							<p class="action-error">Could not save that: {actionError}</p>
-						{/if}
 						</div>
 				{:else if evidenceSection === 'suspects' && suspects.length > 0}
 
@@ -750,6 +747,11 @@ async function solve(target: string): Promise<void> {
 							{/each}
 						</ul>
 					</div>
+				{/if}
+				<!-- Outside the panels: every one of them has a row action, and an
+				     error shown only in a panel that is not open is no error at all. -->
+				{#if actionError}
+					<p class="action-error" data-testid="study-action-error">Could not save that: {actionError}</p>
 				{/if}
 					</div>
 				</aside>

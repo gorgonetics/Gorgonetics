@@ -129,4 +129,12 @@ describe('Suspect readings', () => {
     await waitFor(() => expect(setUseForStudies).toHaveBeenCalledWith(expect.any(String), '2', false));
     expect(studyRunFor).toHaveBeenCalledTimes(2);
   });
+
+  it('shows a failed exclusion in the panel it was made from', async () => {
+    vi.mocked(setUseForStudies).mockRejectedValueOnce(new Error('disk full'));
+    const panel = await openSuspects([{ subjectId: '2', count: 16, stabled: false }]);
+    await fireEvent.click(panel.querySelector('[data-testid="exclude-suspect-2"]') as HTMLButtonElement);
+    const error = await screen.findByTestId('study-action-error');
+    expect(textOf(error)).toContain('disk full');
+  });
 });
