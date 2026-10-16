@@ -89,3 +89,19 @@ describe('PetEditor — attributes from a structured name', () => {
     expect(attr(container, 'temperament')).toBe('62');
   });
 });
+
+describe('PetEditor — use for studies', () => {
+  const toggle = (c: HTMLElement) => c.querySelector('[data-testid="pet-editor-exclude-study"]') as HTMLButtonElement;
+
+  it('shows a pet with no stored flag as in use', () => {
+    const { container } = render(PetEditor, { pet: pet() });
+    expect(toggle(container).getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('shows an excluded pet as excluded and can turn it back on', async () => {
+    const { container } = render(PetEditor, { pet: pet({ use_for_studies: false }) });
+    expect(toggle(container).getAttribute('aria-pressed')).toBe('true');
+    await fireEvent.click(toggle(container));
+    expect(toggle(container).getAttribute('aria-pressed')).toBe('false');
+  });
+});

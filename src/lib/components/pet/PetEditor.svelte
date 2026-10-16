@@ -1,5 +1,5 @@
 <script lang="ts">
-import { House, PawPrint, Star } from '@lucide/svelte';
+import { FlaskConicalOff, House, PawPrint, Star } from '@lucide/svelte';
 import { untrack } from 'svelte';
 import DetailOverlay from '$lib/components/shared/DetailOverlay.svelte';
 import { getAllAttributeDisplayInfo, getAllAttributeNames } from '$lib/services/configService.js';
@@ -56,6 +56,7 @@ let editTags: string[] = $state(untrack(() => [...(pet.tags ?? [])]));
 let editStarred: boolean = $state(untrack(() => !!pet.starred));
 let editStabled: boolean = $state(untrack(() => !!pet.stabled));
 let editIsPetQuality: boolean = $state(untrack(() => !!pet.is_pet_quality));
+let editUseForStudies: boolean = $state(untrack(() => pet.use_for_studies !== false));
 let saveError: string = $state('');
 let confirmingDiscard: boolean = $state(false);
 
@@ -77,6 +78,7 @@ function currentEdits() {
     starred: editStarred,
     stabled: editStabled,
     isPetQuality: editIsPetQuality,
+    useForStudies: editUseForStudies,
   };
 }
 
@@ -250,6 +252,21 @@ function updateAttribute(attrKey: string, value: string): void {
                 <PawPrint size={15} fill={editIsPetQuality ? 'currentColor' : 'none'} />
                 <span>Pet quality</span>
                 <span class="marker-hint">not used for breeding</span>
+              </button>
+              <!-- The Study tab offers this only for animals it lists, and its
+                   lists are capped: a bad record can be crowded out by its own
+                   partners, so it has to be reachable from the pet as well. -->
+              <button
+                type="button"
+                class="marker no-study"
+                class:active={!editUseForStudies}
+                aria-pressed={!editUseForStudies}
+                data-testid="pet-editor-exclude-study"
+                onclick={() => { editUseForStudies = !editUseForStudies; }}
+              >
+                <FlaskConicalOff size={15} />
+                <span>Excluded from studies</span>
+                <span class="marker-hint">attributes not trusted</span>
               </button>
             </div>
           </section>
@@ -485,6 +502,11 @@ function updateAttribute(attrKey: string, value: string): void {
   .marker.stable.active {
     color: var(--accent);
     border-color: var(--accent);
+  }
+
+  .marker.no-study.active {
+    color: var(--gene-negative);
+    border-color: var(--gene-negative);
   }
 
   .marker.pet-quality.active {
