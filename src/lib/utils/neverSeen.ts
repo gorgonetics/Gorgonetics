@@ -13,7 +13,7 @@
  */
 
 import { GeneType } from '$lib/types/index.js';
-import { fromGeneId } from '$lib/utils/geneAnalysis.js';
+import { effectFor, fromGeneId, type GeneEffectData, isNoEffect } from '$lib/utils/geneAnalysis.js';
 import { type Allele, RARITY_BUCKET_NEVER } from '$lib/utils/geneFrequency.js';
 import { compareGeneIds } from '$lib/utils/lociCodec.js';
 import type { RarityBucketSource } from '$lib/utils/rarityCSS.js';
@@ -29,6 +29,24 @@ export function neverSeenAlleles(geneIds: Iterable<string>, lookup: RarityBucket
   for (const geneId of geneIds) {
     if (lookup.bucketOf(geneId, GeneType.DOMINANT) === RARITY_BUCKET_NEVER) out.set(geneId, GeneType.DOMINANT);
     else if (lookup.bucketOf(geneId, GeneType.RECESSIVE) === RARITY_BUCKET_NEVER) out.set(geneId, GeneType.RECESSIVE);
+  }
+  return out;
+}
+
+/**
+ * Only the never-seen alleles whose own effect is declared in the gene
+ * template. The test is on the missing allele, not the gene: a gene whose other
+ * allele has an effect is still nothing to look for if the missing one has
+ * none. Template-only, like every effect in the app: an effect not yet entered
+ * reads as none. A locus with no template entry counts as no effect.
+ */
+export function withDeclaredEffect(
+  alleles: ReadonlyMap<string, Allele>,
+  effects: Readonly<Record<string, GeneEffectData>>,
+): Map<string, Allele> {
+  const out = new Map<string, Allele>();
+  for (const [geneId, allele] of alleles) {
+    if (!isNoEffect(effectFor(effects[geneId], allele))) out.set(geneId, allele);
   }
   return out;
 }

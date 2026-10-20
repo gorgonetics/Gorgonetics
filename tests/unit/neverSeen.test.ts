@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { GeneType } from '$lib/types/index.js';
 import { computeLocusFrequencies, rarityBucket, SOLE_CARRIER_MIN_PETS } from '$lib/utils/geneFrequency.js';
-import { groupNeverSeenByChromosome, neverSeenAlleles } from '$lib/utils/neverSeen.js';
+import { groupNeverSeenByChromosome, neverSeenAlleles, withDeclaredEffect } from '$lib/utils/neverSeen.js';
 import type { PetLoci } from '$lib/utils/petLoci.js';
 import type { RarityBucketSource } from '$lib/utils/rarityCSS.js';
 
@@ -78,5 +78,37 @@ describe('groupNeverSeenByChromosome', () => {
   it('drops ids that do not parse and returns nothing for no alleles', () => {
     expect(groupNeverSeenByChromosome(new Map([['bogus', R]]))).toEqual([]);
     expect(groupNeverSeenByChromosome(new Map())).toEqual([]);
+  });
+});
+
+describe('withDeclaredEffect', () => {
+  const gene = (effectDominant: string, effectRecessive: string) => ({
+    effectDominant,
+    effectRecessive,
+    breed: '',
+    appearance: 'Attributes',
+  });
+
+  it('tests the missing allele, not the gene', () => {
+    const effects = { '01A1': gene('Toughness+', 'None'), '01A2': gene('None', 'Virility-') };
+    const alleles = new Map([
+      ['01A1', R],
+      ['01A2', R],
+    ] as const);
+    expect([...withDeclaredEffect(alleles, effects)]).toEqual([['01A2', R]]);
+  });
+
+  it('treats a blank effect and a locus missing from the template as no effect', () => {
+    const effects = { '01A1': gene('', 'None') };
+    const alleles = new Map([
+      ['01A1', D],
+      ['09Z9', D],
+    ] as const);
+    expect(withDeclaredEffect(alleles, effects).size).toBe(0);
+  });
+
+  it('keeps an effect whose size is not known yet', () => {
+    const effects = { '01A1': gene('Toughness?', 'None') };
+    expect(withDeclaredEffect(new Map([['01A1', D]] as const), effects).size).toBe(1);
   });
 });

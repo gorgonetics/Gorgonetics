@@ -188,6 +188,21 @@ $effect(() => {
           >Never seen</button>
         </div>
       </div>
+      {#if referenceView.lens === 'never'}
+        <div class="ref-field">
+          <span>Hide</span>
+          <span class="ref-checks">
+            <label class="ref-check-row" title="Show only the chromosomes that have an allele none of your pets carry">
+              <input type="checkbox" bind:checked={referenceView.hideSeenChromosomes} data-testid="map-hide-seen" />
+              Fully seen chromosomes
+            </label>
+            <label class="ref-check-row" title="Leave out never-seen alleles whose gene template declares no effect for them">
+              <input type="checkbox" bind:checked={referenceView.hideNoEffect} data-testid="map-hide-no-effect" />
+              Genes with no effect
+            </label>
+          </span>
+        </div>
+      {/if}
       {#if referenceView.lens !== 'impact'}
       <div class="ref-field">
         <span>Baseline</span>
@@ -236,7 +251,14 @@ $effect(() => {
         />
       {/if}
     {:else if selectedAnimalType}
-      <GenomeMap species={selectedAnimalType} {populationPets} {breedFilter} lens={referenceView.lens} />
+      <GenomeMap
+        species={selectedAnimalType}
+        {populationPets}
+        {breedFilter}
+        lens={referenceView.lens}
+        hideSeenChromosomes={referenceView.hideSeenChromosomes}
+        hideNoEffect={referenceView.hideNoEffect}
+      />
     {:else if !editorError}
       <EmptyState icon="🧬" title="Genome map" body="No gene templates are loaded yet." />
     {/if}
@@ -262,6 +284,11 @@ $effect(() => {
   }
   .load-btn:hover:not(:disabled) { filter: brightness(1.05); }
   .load-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .ref-checks { display: flex; gap: var(--space-lg); }
+  .ref-check-row {
+    display: inline-flex; align-items: center; gap: var(--space-xs);
+    padding: var(--space-xs) 0; font-size: 13px; font-weight: 500; color: var(--text-primary); cursor: pointer;
+  }
   .ref-error { font-size: 12px; color: var(--error-text); display: inline-flex; align-items: center; gap: var(--space-2xs); }
   .ref-body { flex: 1; min-height: 0; overflow: auto; padding: var(--space-xl) var(--space-2xl); }
   /* The map owns its own scrolling (its cell size is measured from that box),

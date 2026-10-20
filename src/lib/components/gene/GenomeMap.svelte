@@ -30,7 +30,7 @@ import { buildImpactCSS, buildImpactTooltip, maxAbsPoints, slotImpact } from '$l
 import { buildGenomeMapGrid, type GenomeMapGrid } from '$lib/utils/genomeMapGrid.js';
 import { handleGridNavigation } from '$lib/utils/keyboard.js';
 import { keyedResource } from '$lib/utils/keyedResource.svelte.js';
-import { groupNeverSeenByChromosome, neverSeenAlleles } from '$lib/utils/neverSeen.js';
+import { groupNeverSeenByChromosome, neverSeenAlleles, withDeclaredEffect } from '$lib/utils/neverSeen.js';
 import { buildRarityCSS, type RarityCell } from '$lib/utils/rarityCSS.js';
 import { buildRarityTooltip, placeRarityTooltip } from '$lib/utils/rarityTooltip.js';
 import { capitalize } from '$lib/utils/string.js';
@@ -55,9 +55,24 @@ interface Props {
    * the alleles no pet in `populationPets` carries (`utils/neverSeen.ts`).
    */
   lens?: 'rarity' | 'impact' | 'never';
+  /**
+   * Never-seen lens only: drop chromosome rows with nothing to look for. Ignored
+   * while there is no never-seen allele at all, so the map never collapses to
+   * an empty grid while the baseline loads or is too small to judge.
+   */
+  hideSeenChromosomes?: boolean;
+  /** Never-seen lens only: leave out never-seen alleles with no declared effect. */
+  hideNoEffect?: boolean;
 }
 
-const { species, populationPets = [], breedFilter = '', lens = 'rarity' }: Props = $props();
+const {
+  species,
+  populationPets = [],
+  breedFilter = '',
+  lens = 'rarity',
+  hideSeenChromosomes = false,
+  hideNoEffect = false,
+}: Props = $props();
 
 let effects = $state<Record<string, GeneEffectData>>({});
 let loading = $state(true);
@@ -271,10 +286,18 @@ $effect(() => {
 const lookupReady = $derived(!lookupLoading && !lookupError && lookup !== null && lookup.species === speciesKey);
 
 /** Never-seen lens: the one allele to look for at each locus that has one. */
-const neverSeen = $derived(
+const allNeverSeen = $derived(
   lens === 'never' && lookupReady && lookup ? neverSeenAlleles(visibleGeneIds, lookup) : new Map<string, Allele>(),
 );
+/** What the lens shows: `allNeverSeen`, less the no-effect alleles when hidden. */
+const neverSeen = $derived(hideNoEffect ? withDeclaredEffect(allNeverSeen, effects) : allNeverSeen);
+const hiddenNoEffect = $derived(allNeverSeen.size - neverSeen.size);
 const neverSeenList = $derived(groupNeverSeenByChromosome(neverSeen));
+const displayRows = $derived(
+  lens === 'never' && hideSeenChromosomes && neverSeen.size > 0
+    ? grid.rows.filter((row) => row.cells.some((block) => block.some((id) => id !== null && neverSeen.has(id))))
+    : grid.rows,
+);
 const neverSeenCounts = $derived.by(() => {
   let dominant = 0;
   let recessive = 0;
@@ -411,10 +434,10 @@ function rarityTooltip(geneId: string): { subtitle: string; lines: string[] } {
                         Analysing…
                     {:else if (lookup?.petCount ?? 0) < SOLE_CARRIER_MIN_PETS}
                         Needs at least {SOLE_CARRIER_MIN_PETS} {capitalize(speciesKey)} pets to call an allele never seen — this baseline has {lookup?.petCount ?? 0}
-                    {:else if neverSeen.size === 0}
+                    {:else if allNeverSeen.size === 0}
                         Each allele here is carried by at least one of your {lookup?.petCount} pets · genes read on fewer than {SOLE_CARRIER_MIN_PETS} pets are not counted
                     {:else}
-                        {neverSeen.size} allele{neverSeen.size === 1 ? '' : 's'} that none of your {lookup?.petCount} pets carry ({neverSeenCounts.recessive} R, {neverSeenCounts.dominant} D) · genes read on fewer than {SOLE_CARRIER_MIN_PETS} pets are not counted
+                        {neverSeen.size} allele{neverSeen.size === 1 ? '' : 's'} that none of your {lookup?.petCount} pets carry ({neverSeenCounts.recessive} R, {neverSeenCounts.dominant} D){hiddenNoEffect > 0 ? ` · ${hiddenNoEffect} with no effect hidden` : ''} · genes read on fewer than {SOLE_CARRIER_MIN_PETS} pets are not counted
                     {/if}
                 </span>
             </div>
@@ -445,7 +468,7 @@ function rarityTooltip(geneId: string): { subtitle: string; lines: string[] } {
                     </tr>
                 </thead>
                 <tbody class="gene-rows">
-                    {#each grid.rows as row (row.chromosome)}
+                    {#each displayRows as row (row.chromosome)}
                         <tr class="chromosome-row" data-chromosome={row.chromosome}>
                             <td class="chromosome-label">{row.chromosome}</td>
                             {#each grid.sortedBlocks as block, bi (block)}

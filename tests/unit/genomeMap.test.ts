@@ -87,10 +87,15 @@ afterEach(() => {
   document.getElementById('genome-map-rarity')?.remove();
 });
 
-async function renderMap(species = 'Horse', lens: 'rarity' | 'impact' | 'never' = 'rarity') {
-  mocks.effects.value.horse = HORSE_TEMPLATE;
-  mocks.effects.value.beewasp = HORSE_TEMPLATE;
-  const rendered = render(GenomeMap, { species, populationPets: [], lens });
+async function renderMap(
+  species = 'Horse',
+  lens: 'rarity' | 'impact' | 'never' = 'rarity',
+  extra: { hideSeenChromosomes?: boolean; hideNoEffect?: boolean } = {},
+  template: Record<string, Record<string, unknown>> = HORSE_TEMPLATE,
+) {
+  mocks.effects.value.horse = template;
+  mocks.effects.value.beewasp = template;
+  const rendered = render(GenomeMap, { species, populationPets: [], lens, ...extra });
   await waitFor(() => expect(rendered.container.querySelector('[data-testid="genome-map-grid"]')).not.toBeNull());
   return rendered;
 }
@@ -199,5 +204,56 @@ describe('GenomeMap never-seen lens', () => {
     expect(container.querySelectorAll('.gene-cell[data-allele]').length).toBe(0);
     for (const resolve of mocks.resolvers) resolve();
     await waitFor(() => expect(container.querySelectorAll('.gene-cell[data-allele]').length).toBe(2));
+  });
+});
+
+describe('GenomeMap never-seen filters', () => {
+  /** Two chromosomes; only 01A1 has a never-seen allele, and only 02A1's has an effect. */
+  const TEMPLATE = {
+    ...HORSE_TEMPLATE,
+    '02A1': { effectDominant: 'None', effectRecessive: 'Ruggedness+', breed: '', appearance: 'None' },
+  };
+  const NEVER: Record<string, string> = { '01A1': 'R', '02A1': 'R' };
+  const rows = (container: HTMLElement) =>
+    [...container.querySelectorAll<HTMLElement>('.chromosome-row')].map((r) => r.dataset.chromosome);
+  const lit = (container: HTMLElement) =>
+    [...container.querySelectorAll<HTMLElement>('.gene-cell[data-allele]')].map((c) => c.dataset.geneId);
+
+  it('hides chromosomes with nothing to look for', async () => {
+    mocks.baseline.bucketOf = (geneId, allele) => (geneId === '01A1' && allele === 'R' ? 5 : 0);
+    const { container } = await renderMap('Horse', 'never', { hideSeenChromosomes: true }, TEMPLATE);
+    await waitFor(() => expect(rows(container)).toEqual(['01']));
+  });
+
+  it('keeps every chromosome while there is nothing to look for, so the map never empties', async () => {
+    mocks.baseline.bucketOf = () => 0;
+    const { container } = await renderMap('Horse', 'never', { hideSeenChromosomes: true }, TEMPLATE);
+    await waitFor(() =>
+      expect(container.querySelector('[data-testid="map-never-status"]')?.textContent).toContain('Each allele'),
+    );
+    expect(rows(container)).toEqual(['01', '02']);
+  });
+
+  it('hides never-seen alleles with no declared effect, and says how many', async () => {
+    mocks.baseline.bucketOf = (geneId, allele) => (NEVER[geneId] === allele ? 5 : 0);
+    const { container } = await renderMap('Horse', 'never', { hideNoEffect: true }, TEMPLATE);
+
+    // 01A1's R is "None" in the template; 02A1's R is Ruggedness+.
+    await waitFor(() => expect(lit(container)).toEqual(['02A1']));
+    const status = container.querySelector('[data-testid="map-never-status"]')?.textContent ?? '';
+    expect(status).toContain('1 allele that none of your 12 pets carry');
+    expect(status).toContain('1 with no effect hidden');
+    expect(container.querySelector('[data-testid="map-never-list"] li[data-chromosome="01"]')).toBeNull();
+  });
+
+  it('combines both: a chromosome left with only no-effect alleles is hidden', async () => {
+    mocks.baseline.bucketOf = (geneId, allele) => (NEVER[geneId] === allele ? 5 : 0);
+    const { container } = await renderMap(
+      'Horse',
+      'never',
+      { hideSeenChromosomes: true, hideNoEffect: true },
+      TEMPLATE,
+    );
+    await waitFor(() => expect(rows(container)).toEqual(['02']));
   });
 });
