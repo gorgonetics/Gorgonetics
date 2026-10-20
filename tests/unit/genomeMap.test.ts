@@ -229,7 +229,9 @@ describe('GenomeMap never-seen filters', () => {
     mocks.baseline.bucketOf = () => 0;
     const { container } = await renderMap('Horse', 'never', { hideSeenChromosomes: true }, TEMPLATE);
     await waitFor(() =>
-      expect(container.querySelector('[data-testid="map-never-status"]')?.textContent).toContain('Each allele'),
+      expect(container.querySelector('[data-testid="map-never-status"]')?.textContent).toContain(
+        'No never-seen alleles',
+      ),
     );
     expect(rows(container)).toEqual(['01', '02']);
   });

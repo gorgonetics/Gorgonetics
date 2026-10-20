@@ -435,7 +435,7 @@ function rarityTooltip(geneId: string): { subtitle: string; lines: string[] } {
                     {:else if (lookup?.petCount ?? 0) < SOLE_CARRIER_MIN_PETS}
                         Needs at least {SOLE_CARRIER_MIN_PETS} {capitalize(speciesKey)} pets to call an allele never seen — this baseline has {lookup?.petCount ?? 0}
                     {:else if allNeverSeen.size === 0}
-                        Each allele here is carried by at least one of your {lookup?.petCount} pets · genes read on fewer than {SOLE_CARRIER_MIN_PETS} pets are not counted
+                        No never-seen alleles at genes read on {SOLE_CARRIER_MIN_PETS} or more of your pets · genes read on fewer, or not yet revealed, are not counted
                     {:else}
                         {neverSeen.size} allele{neverSeen.size === 1 ? '' : 's'} that none of your {lookup?.petCount} pets carry ({neverSeenCounts.recessive} R, {neverSeenCounts.dominant} D){hiddenNoEffect > 0 ? ` · ${hiddenNoEffect} with no effect hidden` : ''} · genes read on fewer than {SOLE_CARRIER_MIN_PETS} pets are not counted
                     {/if}
@@ -587,12 +587,19 @@ function rarityTooltip(geneId: string): { subtitle: string; lines: string[] } {
         color: var(--text-secondary);
     }
 
+    /* The letter names the allele; the hue is an underline, not the text
+       colour, because the light-theme orange is below 4.5:1 on this surface. */
+    .never-entry b {
+        color: var(--text-primary);
+        border-bottom: 2px solid;
+    }
+
     .never-entry[data-allele="D"] b {
-        color: var(--rarity-purple);
+        border-bottom-color: var(--rarity-purple);
     }
 
     .never-entry[data-allele="R"] b {
-        color: var(--rarity-orange);
+        border-bottom-color: var(--rarity-orange);
     }
 
     .gene-grid-container {

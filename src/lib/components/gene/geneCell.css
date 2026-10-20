@@ -300,6 +300,9 @@
 .view-never.gene-grid-container .gene-cell[data-allele="R"] {
   background: var(--rarity-r-5);
   border-color: var(--rarity-r-5);
+  /* Dark ink in both themes: white on the light-theme orange is 3.8:1, below
+     4.5:1 for a label this small. This ink is 4.7:1 and 8.3:1 on the two fills. */
+  color: #111827;
 }
 
 /* Gene effect colors */
