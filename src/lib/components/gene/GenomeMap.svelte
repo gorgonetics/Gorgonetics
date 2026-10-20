@@ -24,11 +24,13 @@ import { loadGeneImpact, STUDYABLE_SPECIES, studyInputsKey } from '$lib/services
 import { pets as petList } from '$lib/stores/pets.js';
 import { GeneType, type Pet } from '$lib/types/index.js';
 import { breedFor, effectFor, type GeneEffectData } from '$lib/utils/geneAnalysis.js';
+import { type Allele, SOLE_CARRIER_MIN_PETS } from '$lib/utils/geneFrequency.js';
 import { computeGeneCellSize } from '$lib/utils/geneGridCells.js';
 import { buildImpactCSS, buildImpactTooltip, maxAbsPoints, slotImpact } from '$lib/utils/geneImpact.js';
 import { buildGenomeMapGrid, type GenomeMapGrid } from '$lib/utils/genomeMapGrid.js';
 import { handleGridNavigation } from '$lib/utils/keyboard.js';
 import { keyedResource } from '$lib/utils/keyedResource.svelte.js';
+import { groupNeverSeenByChromosome, neverSeenAlleles } from '$lib/utils/neverSeen.js';
 import { buildRarityCSS, type RarityCell } from '$lib/utils/rarityCSS.js';
 import { buildRarityTooltip, placeRarityTooltip } from '$lib/utils/rarityTooltip.js';
 import { capitalize } from '$lib/utils/string.js';
@@ -48,10 +50,11 @@ interface Props {
    */
   breedFilter?: string;
   /**
-   * What the cells show: allele rarity across `populationPets`, or each
-   * slot's measured attribute points from the study (`utils/geneImpact.ts`).
+   * What the cells show: allele rarity across `populationPets`, each slot's
+   * measured attribute points from the study (`utils/geneImpact.ts`), or only
+   * the alleles no pet in `populationPets` carries (`utils/neverSeen.ts`).
    */
-  lens?: 'rarity' | 'impact';
+  lens?: 'rarity' | 'impact' | 'never';
 }
 
 const { species, populationPets = [], breedFilter = '', lens = 'rarity' }: Props = $props();
@@ -173,7 +176,7 @@ $effect(() => {
 $effect(() => {
   const key = speciesKey;
   const pets = populationPets;
-  if (!key || lens !== 'rarity') return;
+  if (!key || lens === 'impact') return;
   const mine = ++lookupSeq;
   lookupLoading = true;
   lookupError = null;
@@ -267,10 +270,30 @@ $effect(() => {
  */
 const lookupReady = $derived(!lookupLoading && !lookupError && lookup !== null && lookup.species === speciesKey);
 
+/** Never-seen lens: the one allele to look for at each locus that has one. */
+const neverSeen = $derived(
+  lens === 'never' && lookupReady && lookup ? neverSeenAlleles(visibleGeneIds, lookup) : new Map<string, Allele>(),
+);
+const neverSeenList = $derived(groupNeverSeenByChromosome(neverSeen));
+const neverSeenCounts = $derived.by(() => {
+  let dominant = 0;
+  let recessive = 0;
+  for (const allele of neverSeen.values()) {
+    if (allele === GeneType.DOMINANT) dominant++;
+    else recessive++;
+  }
+  return { dominant, recessive };
+});
+
 // Every cell is the mixed case, so the pet grid's stylesheet builder applies
 // unchanged — no map-specific colour logic exists.
 $effect(() => {
   if (!styleEl) return;
+  // The never-seen lens marks its cells in the markup; it needs no sheet.
+  if (lens === 'never') {
+    styleEl.textContent = '';
+    return;
+  }
   if (lens === 'impact') {
     if (!impactReady || !impact) {
       styleEl.textContent = '';
@@ -375,6 +398,26 @@ function rarityTooltip(geneId: string): { subtitle: string; lines: string[] } {
                     {/if}
                 </span>
             </div>
+        {:else if lens === 'never'}
+            <div class="map-legend" data-testid="map-never-legend">
+                <span class="swatch" style="background: var(--rarity-r-5)"></span>
+                <span class="legend-text">R never seen</span>
+                <span class="swatch legend-gap" style="background: var(--rarity-d-5)"></span>
+                <span class="legend-text">D never seen</span>
+                <span class="legend-text legend-muted legend-gap" data-testid="map-never-status">
+                    {#if lookupError}
+                        {lookupError}
+                    {:else if !lookupReady}
+                        Analysing…
+                    {:else if (lookup?.petCount ?? 0) < SOLE_CARRIER_MIN_PETS}
+                        Needs at least {SOLE_CARRIER_MIN_PETS} {capitalize(speciesKey)} pets to call an allele never seen — this baseline has {lookup?.petCount ?? 0}
+                    {:else if neverSeen.size === 0}
+                        Each allele here is carried by at least one of your {lookup?.petCount} pets · genes read on fewer than {SOLE_CARRIER_MIN_PETS} pets are not counted
+                    {:else}
+                        {neverSeen.size} allele{neverSeen.size === 1 ? '' : 's'} that none of your {lookup?.petCount} pets carry ({neverSeenCounts.recessive} R, {neverSeenCounts.dominant} D) · genes read on fewer than {SOLE_CARRIER_MIN_PETS} pets are not counted
+                    {/if}
+                </span>
+            </div>
         {:else if lookupError}
             <!-- The genome is still worth showing — only the frequencies are
                  missing, and the dashed cells say so per-cell. -->
@@ -382,8 +425,9 @@ function rarityTooltip(geneId: string): { subtitle: string; lines: string[] } {
                 <span aria-hidden="true">⚠️</span> {lookupError} — the genome is shown without frequencies.
             </p>
         {/if}
+        <div class="map-body">
         <div
-            class="gene-grid-container {lens === 'impact' ? 'view-impact' : 'view-rarity'}"
+            class="gene-grid-container {lens === 'impact' ? 'view-impact' : lens === 'never' ? 'view-never' : 'view-rarity'}"
             class:rarity-unscored={lens === 'rarity' && !lookupReady}
             data-testid="genome-map-grid"
             bind:this={containerEl}
@@ -407,6 +451,7 @@ function rarityTooltip(geneId: string): { subtitle: string; lines: string[] } {
                             {#each grid.sortedBlocks as block, bi (block)}
                                 {#each blockIndices[block] as i (i)}
                                     {@const geneId = row.cells[bi]?.[i] ?? null}
+                                    {@const never = geneId ? neverSeen.get(geneId) : undefined}
                                     <td class="gene-cell-container {i === 0 ? 'block-start' : ''} {!geneId ? 'empty' : ''}">
                                         {#if geneId}
                                             <div
@@ -414,14 +459,15 @@ function rarityTooltip(geneId: string): { subtitle: string; lines: string[] } {
                                                 class:impact-split={lens === 'impact'}
                                                 data-gene-id={geneId}
                                                 data-zygosity="mixed"
+                                                data-allele={never}
                                                 role="button"
                                                 tabindex="0"
-                                                aria-label={geneId}
+                                                aria-label={never ? `${geneId}: ${never} never seen` : geneId}
                                                 onmouseenter={(e) => showTooltip(geneId, e.clientX, e.clientY)}
                                                 onmouseleave={() => { tooltipVisible = false; }}
                                                 onfocus={(e) => { const r = e.currentTarget.getBoundingClientRect(); showTooltip(geneId, r.left + r.width / 2, r.top); }}
                                                 onblur={() => { tooltipVisible = false; }}
-                                            ></div>
+                                            >{never ?? ''}</div>
                                         {/if}
                                     </td>
                                 {/each}
@@ -430,6 +476,23 @@ function rarityTooltip(geneId: string): { subtitle: string; lines: string[] } {
                     {/each}
                 </tbody>
             </table>
+        </div>
+        {#if lens === 'never' && neverSeenList.length > 0}
+            <!-- The same alleles as text, for reading off beside a wild pet's
+                 genome without matching columns. -->
+            <ol class="never-list" aria-label="Never-seen alleles by chromosome" data-testid="map-never-list">
+                {#each neverSeenList as line (line.chromosome)}
+                    <li data-chromosome={line.chromosome}>
+                        <span class="never-chr">{line.chromosome}</span>
+                        <span class="never-alleles">
+                            {#each line.alleles as a (a.geneId)}
+                                <span class="never-entry" data-allele={a.allele}>{a.slot}&nbsp;<b>{a.allele}</b></span>
+                            {/each}
+                        </span>
+                    </li>
+                {/each}
+            </ol>
+        {/if}
         </div>
     {/if}
 
@@ -455,8 +518,63 @@ function rarityTooltip(geneId: string): { subtitle: string; lines: string[] } {
         min-width: 0;
     }
 
+    .map-body {
+        display: flex;
+        gap: var(--space-md);
+        flex: 1;
+        min-height: 0;
+        min-width: 0;
+    }
+
+    .never-list {
+        flex: 0 0 auto;
+        width: 15rem;
+        margin: 0;
+        padding: var(--space-xs) var(--space-sm);
+        overflow: auto;
+        list-style: none;
+        border: 1px solid var(--border-primary);
+        border-radius: 6px;
+        background: var(--bg-secondary);
+        font-size: 12px;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .never-list li {
+        display: flex;
+        gap: var(--space-sm);
+        padding: var(--space-3xs) 0;
+    }
+
+    .never-list li + li {
+        border-top: 1px solid var(--border-primary);
+    }
+
+    .never-chr {
+        flex: 0 0 auto;
+        width: 1.75em;
+        color: var(--text-tertiary);
+        font-weight: 600;
+    }
+
+    .never-alleles {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--space-2xs) var(--space-sm);
+        color: var(--text-secondary);
+    }
+
+    .never-entry[data-allele="D"] b {
+        color: var(--rarity-purple);
+    }
+
+    .never-entry[data-allele="R"] b {
+        color: var(--rarity-orange);
+    }
+
     .gene-grid-container {
         flex: 1;
+        min-width: 0;
         min-height: 0;
         overflow: auto;
         border: 1px solid var(--border-primary);

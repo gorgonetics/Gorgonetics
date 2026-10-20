@@ -178,9 +178,17 @@ $effect(() => {
             title="Colour each gene by the attribute points the study measured for it"
             onclick={() => { referenceView.lens = 'impact'; }}
           >Impact</button>
+          <button
+            class="seg-btn"
+            class:active={referenceView.lens === 'never'}
+            aria-pressed={referenceView.lens === 'never'}
+            data-testid="map-lens-never"
+            title="Show only the alleles none of your pets carry — what to look for before a capture"
+            onclick={() => { referenceView.lens = 'never'; }}
+          >Never seen</button>
         </div>
       </div>
-      {#if referenceView.lens === 'rarity'}
+      {#if referenceView.lens !== 'impact'}
       <div class="ref-field">
         <span>Baseline</span>
         <div class="seg" role="group" aria-label="Rarity baseline">

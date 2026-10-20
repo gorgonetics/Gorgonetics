@@ -13,5 +13,5 @@ export const referenceView = $state({
    */
   animalType: '' as string,
   /** Which genome-map lens is showing. */
-  lens: 'rarity' as 'rarity' | 'impact',
+  lens: 'rarity' as 'rarity' | 'impact' | 'never',
 });

@@ -277,6 +277,31 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
+/* --- Never-seen lens (genome map only) ----------------------------------------
+ *
+ * A capture checklist: a cell shows the one allele no pet of yours carries, in
+ * the rarity map's own never-seen hues and with its letter, or nothing. Empty
+ * cells keep a hairline so a lit cell can still be located by row and column. */
+.view-never.gene-grid-container .gene-cell {
+  border-width: 1px;
+  border-color: var(--rarity-cell-edge);
+  background: transparent;
+  color: var(--text-inverse);
+  font-size: calc(var(--cell-size, 16px) * 0.55);
+  font-weight: 700;
+  line-height: 1;
+}
+
+.view-never.gene-grid-container .gene-cell[data-allele="D"] {
+  background: var(--rarity-d-5);
+  border-color: var(--rarity-d-5);
+}
+
+.view-never.gene-grid-container .gene-cell[data-allele="R"] {
+  background: var(--rarity-r-5);
+  border-color: var(--rarity-r-5);
+}
+
 /* Gene effect colors */
 .gene-positive.gene-dominant {
   background-color: var(--gene-positive);
