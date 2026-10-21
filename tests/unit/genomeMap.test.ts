@@ -1,6 +1,9 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup, render, waitFor } from '@testing-library/svelte';
+import { tick } from 'svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { RarityPopulation } from '#lib/services/frequencyService.js';
+import { corpusRevision } from '#lib/stores/corpus.js';
 import type { Pet } from '#lib/types/index.js';
 
 /**
@@ -23,21 +26,24 @@ const mocks = vi.hoisted(() => {
     defer: boolean;
     reject: boolean;
     petCount: number;
+    refreshAdvised: boolean;
     bucketOf: (geneId: string, allele: string) => number | null;
   } = {
     species: null,
     defer: false,
     reject: false,
     petCount: 12,
+    refreshAdvised: false,
     bucketOf: () => 3,
   };
   const resolvers: Array<() => void> = [];
-  const computeRarityLookup = vi.fn((_pets: unknown, species: string) => {
+  const loadRarityLookup = vi.fn((_population: unknown, species: string) => {
     if (baseline.reject) return Promise.reject(new Error('pet_genes read failed'));
     const lookup = {
       species: baseline.species ?? String(species).toLowerCase(),
       petCount: baseline.petCount,
       partialPets: 0,
+      refreshAdvised: baseline.refreshAdvised,
       loci: new Map(),
       tally: () => ({ knownPets: 12, pureD: 12, pureR: 0, mixed: 0 }),
       bucketOf: baseline.bucketOf,
@@ -50,11 +56,11 @@ const mocks = vi.hoisted(() => {
       resolvers.push(() => resolve(lookup));
     });
   });
-  return { effects, getGeneEffectsCached, baseline, resolvers, computeRarityLookup };
+  return { effects, getGeneEffectsCached, baseline, resolvers, loadRarityLookup };
 });
 
 vi.mock('#lib/services/geneService.js', () => ({ getGeneEffectsCached: mocks.getGeneEffectsCached }));
-vi.mock('#lib/services/frequencyService.js', () => ({ computeRarityLookup: mocks.computeRarityLookup }));
+vi.mock('#lib/services/frequencyService.js', () => ({ loadRarityLookup: mocks.loadRarityLookup }));
 
 import GenomeMap from '#lib/components/gene/GenomeMap.svelte';
 
@@ -77,7 +83,7 @@ afterEach(() => {
   cleanup();
   mocks.resolvers.length = 0;
   mocks.getGeneEffectsCached.mockClear();
-  mocks.computeRarityLookup.mockClear();
+  mocks.loadRarityLookup.mockClear();
   mocks.effects.value = {};
   mocks.baseline.species = null;
   mocks.baseline.defer = false;
@@ -90,15 +96,67 @@ afterEach(() => {
 async function renderMap(
   species = 'Horse',
   lens: 'rarity' | 'impact' | 'never' = 'rarity',
-  extra: { hideSeenChromosomes?: boolean; hideNoEffect?: boolean } = {},
+  extra: { hideSeenChromosomes?: boolean; hideNoEffect?: boolean; population?: RarityPopulation } = {},
   template: Record<string, Record<string, unknown>> = HORSE_TEMPLATE,
 ) {
   mocks.effects.value.horse = template;
   mocks.effects.value.beewasp = template;
-  const rendered = render(GenomeMap, { species, populationPets: [], lens, ...extra });
+  const rendered = render(GenomeMap, { species, population: { tier: 'all', pets: [] }, lens, ...extra });
   await waitFor(() => expect(rendered.container.querySelector('[data-testid="genome-map-grid"]')).not.toBeNull());
   return rendered;
 }
+
+describe('GenomeMap community baseline', () => {
+  const community: RarityPopulation = { tier: 'community' };
+  const text = (container: HTMLElement, id: string) =>
+    container.querySelector(`[data-testid="${id}"]`)?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
+
+  afterEach(() => {
+    mocks.baseline.petCount = 12;
+    mocks.baseline.refreshAdvised = false;
+  });
+
+  it('points the never-seen lens to the Study tab when nothing is cached', async () => {
+    mocks.baseline.petCount = 0;
+    const { container } = await renderMap('Horse', 'never', { population: community });
+    await waitFor(() => expect(text(container, 'map-never-status')).toContain('No shared Horses cached'));
+    expect(text(container, 'map-never-status')).toContain('Study tab');
+  });
+
+  it('advises a refresh when an older build cached the rows', async () => {
+    mocks.baseline.refreshAdvised = true;
+    const { container } = await renderMap('Horse', 'rarity', { population: community });
+    await waitFor(() => expect(text(container, 'map-community-refresh')).toContain('refresh in the Study tab'));
+  });
+
+  it('advises a refresh in the never-seen lens too', async () => {
+    mocks.baseline.refreshAdvised = true;
+    const { container } = await renderMap('Horse', 'never', { population: community });
+    await waitFor(() => expect(text(container, 'map-community-refresh')).toContain('refresh in the Study tab'));
+  });
+
+  it('reloads a community baseline when a refresh commits, and leaves a local one alone', async () => {
+    await renderMap('Horse', 'rarity', { population: community });
+    await waitFor(() => expect(mocks.loadRarityLookup).toHaveBeenCalledTimes(1));
+    corpusRevision.update((n) => n + 1);
+    await waitFor(() => expect(mocks.loadRarityLookup).toHaveBeenCalledTimes(2));
+    cleanup();
+
+    mocks.loadRarityLookup.mockClear();
+    await renderMap('Horse', 'rarity');
+    await waitFor(() => expect(mocks.loadRarityLookup).toHaveBeenCalledTimes(1));
+    corpusRevision.update((n) => n + 1);
+    await tick();
+    expect(mocks.loadRarityLookup).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not advise a refresh on a local baseline', async () => {
+    mocks.baseline.refreshAdvised = true;
+    const { container } = await renderMap('Horse', 'rarity');
+    await waitFor(() => expect(mocks.loadRarityLookup).toHaveBeenCalled());
+    expect(container.querySelector('[data-testid="map-community-refresh"]')).toBeNull();
+  });
+});
 
 describe('GenomeMap baseline readiness', () => {
   it('renders the genome unscored while the baseline is in flight', async () => {
@@ -118,7 +176,7 @@ describe('GenomeMap baseline readiness', () => {
     mocks.baseline.species = 'horse';
     const { container } = await renderMap('BeeWasp');
 
-    await waitFor(() => expect(mocks.computeRarityLookup).toHaveBeenCalled());
+    await waitFor(() => expect(mocks.loadRarityLookup).toHaveBeenCalled());
     expect(container.querySelector('.gene-grid-container.rarity-unscored')).not.toBeNull();
     expect(sheet()).toBe('');
   });
@@ -153,7 +211,7 @@ describe('GenomeMap baseline failure', () => {
     mocks.baseline.reject = false;
     await rerender({
       species: 'Horse',
-      populationPets: [{ id: 1, species: 'Horse', stabled: true } as unknown as Pet],
+      population: { tier: 'all', pets: [{ id: 1, species: 'Horse', stabled: true } as unknown as Pet] },
     });
 
     await waitFor(() => expect(container.querySelector('[data-testid="map-baseline-error"]')).toBeNull());

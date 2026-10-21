@@ -18,11 +18,12 @@ import './geneCell.css';
 import GeneTooltip from '#lib/components/gene/GeneTooltip.svelte';
 import EmptyState from '#lib/components/shared/EmptyState.svelte';
 import { normalizeSpecies } from '#lib/services/configService.js';
-import { computeRarityLookup, type RarityLookup } from '#lib/services/frequencyService.js';
+import { loadRarityLookup, type RarityLookup, type RarityPopulation } from '#lib/services/frequencyService.js';
 import { getGeneEffectsCached } from '#lib/services/geneService.js';
 import { loadGeneImpact, STUDYABLE_SPECIES, studyInputsKey } from '#lib/services/studyService.js';
+import { corpusRevision } from '#lib/stores/corpus.js';
 import { pets as petList } from '#lib/stores/pets.js';
-import { GeneType, type Pet } from '#lib/types/index.js';
+import { GeneType } from '#lib/types/index.js';
 import { breedFor, effectFor, type GeneEffectData } from '#lib/utils/geneAnalysis.js';
 import { type Allele, SOLE_CARRIER_MIN_PETS } from '#lib/utils/geneFrequency.js';
 import { computeGeneCellSize } from '#lib/utils/geneGridCells.js';
@@ -39,7 +40,7 @@ interface Props {
   /** Animal type from the Reference toolbar, e.g. `Horse`. */
   species: string;
   /** Population the baseline is measured over. */
-  populationPets?: readonly Pet[];
+  population?: RarityPopulation;
   /**
    * Breed to display, or '' for the whole genome.
    *
@@ -50,9 +51,9 @@ interface Props {
    */
   breedFilter?: string;
   /**
-   * What the cells show: allele rarity across `populationPets`, each slot's
+   * What the cells show: allele rarity across `population`, each slot's
    * measured attribute points from the study (`utils/geneImpact.ts`), or only
-   * the alleles no pet in `populationPets` carries (`utils/neverSeen.ts`).
+   * the alleles no animal in `population` carries (`utils/neverSeen.ts`).
    */
   lens?: 'rarity' | 'impact' | 'never';
   /**
@@ -67,7 +68,7 @@ interface Props {
 
 const {
   species,
-  populationPets = [],
+  population = { tier: 'all', pets: [] },
   breedFilter = '',
   lens = 'rarity',
   hideSeenChromosomes = false,
@@ -190,12 +191,15 @@ $effect(() => {
 // after viewing a pet is free.
 $effect(() => {
   const key = speciesKey;
-  const pets = populationPets;
+  const pop = population;
   if (!key || lens === 'impact') return;
+  // A community baseline reads the cache, so a refresh must reload it; a local
+  // one must not reload on it.
+  if (pop.tier === 'community') void $corpusRevision;
   const mine = ++lookupSeq;
   lookupLoading = true;
   lookupError = null;
-  computeRarityLookup(pets, species)
+  loadRarityLookup(pop, species)
     .then((result) => {
       if (mine !== lookupSeq) return;
       lookup = result;
@@ -432,20 +436,33 @@ function rarityTooltip(geneId: string): { subtitle: string; lines: string[] } {
                         {lookupError}
                     {:else if !lookupReady}
                         Analysing…
+                    {:else if population.tier === 'community' && (lookup?.petCount ?? 0) === 0}
+                        No shared {capitalize(speciesKey)}s cached · fetch them in the Study tab
                     {:else if (lookup?.petCount ?? 0) < SOLE_CARRIER_MIN_PETS}
                         Needs at least {SOLE_CARRIER_MIN_PETS} {capitalize(speciesKey)} pets to call an allele never seen — this baseline has {lookup?.petCount ?? 0}
                     {:else if allNeverSeen.size === 0}
-                        No never-seen alleles at genes read on {SOLE_CARRIER_MIN_PETS} or more of your pets · genes read on fewer, or not yet revealed, are not counted
+                        No never-seen alleles at genes read on {SOLE_CARRIER_MIN_PETS} or more of {population.tier === 'community' ? 'the shared' : 'your'} pets · genes read on fewer, or not yet revealed, are not counted
                     {:else}
-                        {neverSeen.size} allele{neverSeen.size === 1 ? '' : 's'} that none of your {lookup?.petCount} pets carry ({neverSeenCounts.recessive} R, {neverSeenCounts.dominant} D){hiddenNoEffect > 0 ? ` · ${hiddenNoEffect} with no effect hidden` : ''} · genes read on fewer than {SOLE_CARRIER_MIN_PETS} pets are not counted
+                        {neverSeen.size} allele{neverSeen.size === 1 ? '' : 's'} that none of {population.tier === 'community' ? `the ${lookup?.petCount} shared` : `your ${lookup?.petCount}`} pets carry ({neverSeenCounts.recessive} R, {neverSeenCounts.dominant} D){hiddenNoEffect > 0 ? ` · ${hiddenNoEffect} with no effect hidden` : ''} · genes read on fewer than {SOLE_CARRIER_MIN_PETS} pets are not counted
                     {/if}
                 </span>
             </div>
+        {:else if population.tier === 'community' && lookupReady && lookup?.petCount === 0}
+            <p class="map-status" data-testid="map-community-empty">
+                No shared {capitalize(speciesKey)}s cached · fetch them in the Study tab.
+            </p>
         {:else if lookupError}
             <!-- The genome is still worth showing — only the frequencies are
                  missing, and the dashed cells say so per-cell. -->
             <p class="map-status" data-testid="map-baseline-error">
                 <span aria-hidden="true">⚠️</span> {lookupError} — the genome is shown without frequencies.
+            </p>
+        {/if}
+        <!-- Outside the lens chain: an incomplete cache skews the never-seen
+             lens as much as the rarity one, so both must say so. -->
+        {#if lens !== 'impact' && population.tier === 'community' && lookupReady && (lookup?.petCount ?? 0) > 0 && lookup?.refreshAdvised}
+            <p class="map-status" data-testid="map-community-refresh">
+                Cached by an older version · refresh in the Study tab to add the animals it left out.
             </p>
         {/if}
         <div class="map-body">

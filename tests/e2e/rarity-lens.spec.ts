@@ -153,6 +153,13 @@ test.describe('Gene rarity lens', () => {
     expect(await geometry(page)).toEqual(before);
   });
 
+  test('the Community baseline says when nothing is cached', async ({ page }) => {
+    await openPetDetail(page);
+    await page.getByRole('button', { name: 'Rarity', exact: true }).click();
+    await page.getByTestId('rarity-pop-community').click();
+    await expect(page.getByTestId('rarity-legend')).toContainText(/No shared \w+s cached/);
+  });
+
   test('every zygosity paints the same area on the same uniform edge', async ({ page }) => {
     // `.gene-cell` carries an unconditional `border: 2px solid` (4px on
     // recessive) and `box-sizing: border-box` is global, so a hued or thicker
