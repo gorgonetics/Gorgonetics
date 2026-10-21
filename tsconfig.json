@@ -1,19 +1,12 @@
 {
-  "extends": "./.svelte-kit/tsconfig.json",
+  // $app/tsconfig sets allowJs and checkJs. Full type coverage: every
+  // component uses <script lang="ts"> and all of src/ and tests/ is .ts
+  // (#306). checkJs catches any stray JS reintroduced later. CI runs
+  // `pnpm run check`, so a regression fails the build.
+  "extends": "$app/tsconfig",
   "compilerOptions": {
-    // Kept on for any incidental .js (config files); no .js remains under
-    // src/ or tests/ after the #306 migration.
-    "allowJs": true,
-    // Full type coverage: every component uses <script lang="ts"> and all of
-    // src/ and tests/ is .ts (#306). checkJs catches any stray JS reintroduced
-    // later. CI runs `pnpm run check`, so a regression fails the build.
-    "checkJs": true,
-    "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true,
-    "skipLibCheck": true,
     "sourceMap": true,
-    "strict": true,
-    "moduleResolution": "bundler"
-  }
+    "strict": true
+  },
+  "include": ["src", "tests", "vite.config.js", "playwright.config.js"]
 }
