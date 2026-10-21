@@ -21,6 +21,7 @@ import { normalizeSpecies } from '#lib/services/configService.js';
 import { loadRarityLookup, type RarityLookup, type RarityPopulation } from '#lib/services/frequencyService.js';
 import { getGeneEffectsCached } from '#lib/services/geneService.js';
 import { loadGeneImpact, STUDYABLE_SPECIES, studyInputsKey } from '#lib/services/studyService.js';
+import { corpusRevision } from '#lib/stores/corpus.js';
 import { pets as petList } from '#lib/stores/pets.js';
 import { GeneType } from '#lib/types/index.js';
 import { breedFor, effectFor, type GeneEffectData } from '#lib/utils/geneAnalysis.js';
@@ -192,6 +193,9 @@ $effect(() => {
   const key = speciesKey;
   const pop = population;
   if (!key || lens === 'impact') return;
+  // A community baseline reads the cache, so a refresh must reload it; a local
+  // one must not reload on it.
+  if (pop.tier === 'community') void $corpusRevision;
   const mine = ++lookupSeq;
   lookupLoading = true;
   lookupError = null;
@@ -447,15 +451,18 @@ function rarityTooltip(geneId: string): { subtitle: string; lines: string[] } {
             <p class="map-status" data-testid="map-community-empty">
                 No shared {capitalize(speciesKey)}s cached · fetch them in the Study tab.
             </p>
-        {:else if population.tier === 'community' && lookupReady && lookup?.refreshAdvised}
-            <p class="map-status" data-testid="map-community-refresh">
-                Cached by an older version · refresh in the Study tab to add the animals it left out.
-            </p>
         {:else if lookupError}
             <!-- The genome is still worth showing — only the frequencies are
                  missing, and the dashed cells say so per-cell. -->
             <p class="map-status" data-testid="map-baseline-error">
                 <span aria-hidden="true">⚠️</span> {lookupError} — the genome is shown without frequencies.
+            </p>
+        {/if}
+        <!-- Outside the lens chain: an incomplete cache skews the never-seen
+             lens as much as the rarity one, so both must say so. -->
+        {#if lens !== 'impact' && population.tier === 'community' && lookupReady && (lookup?.petCount ?? 0) > 0 && lookup?.refreshAdvised}
+            <p class="map-status" data-testid="map-community-refresh">
+                Cached by an older version · refresh in the Study tab to add the animals it left out.
             </p>
         {/if}
         <div class="map-body">

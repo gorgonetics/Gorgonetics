@@ -1,7 +1,9 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup, render, waitFor } from '@testing-library/svelte';
+import { tick } from 'svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { RarityPopulation } from '#lib/services/frequencyService.js';
+import { corpusRevision } from '#lib/stores/corpus.js';
 import type { Pet } from '#lib/types/index.js';
 
 /**
@@ -125,6 +127,27 @@ describe('GenomeMap community baseline', () => {
     mocks.baseline.refreshAdvised = true;
     const { container } = await renderMap('Horse', 'rarity', { population: community });
     await waitFor(() => expect(text(container, 'map-community-refresh')).toContain('refresh in the Study tab'));
+  });
+
+  it('advises a refresh in the never-seen lens too', async () => {
+    mocks.baseline.refreshAdvised = true;
+    const { container } = await renderMap('Horse', 'never', { population: community });
+    await waitFor(() => expect(text(container, 'map-community-refresh')).toContain('refresh in the Study tab'));
+  });
+
+  it('reloads a community baseline when a refresh commits, and leaves a local one alone', async () => {
+    await renderMap('Horse', 'rarity', { population: community });
+    await waitFor(() => expect(mocks.loadRarityLookup).toHaveBeenCalledTimes(1));
+    corpusRevision.update((n) => n + 1);
+    await waitFor(() => expect(mocks.loadRarityLookup).toHaveBeenCalledTimes(2));
+    cleanup();
+
+    mocks.loadRarityLookup.mockClear();
+    await renderMap('Horse', 'rarity');
+    await waitFor(() => expect(mocks.loadRarityLookup).toHaveBeenCalledTimes(1));
+    corpusRevision.update((n) => n + 1);
+    await tick();
+    expect(mocks.loadRarityLookup).toHaveBeenCalledTimes(1);
   });
 
   it('does not advise a refresh on a local baseline', async () => {

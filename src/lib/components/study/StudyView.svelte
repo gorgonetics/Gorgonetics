@@ -13,6 +13,7 @@ import {
   studyCorpusStatus,
   studyRunFor,
 } from '#lib/services/studyService.js';
+import { corpusRevision } from '#lib/stores/corpus.js';
 import { pets } from '#lib/stores/pets.js';
 import { settings, settingsActions } from '#lib/stores/settings.js';
 import type { GeneDoubt } from '#lib/utils/attributeStudy.js';
@@ -334,6 +335,9 @@ async function refresh(): Promise<void> {
     await refreshStudyCorpus(species, (p) => {
       progress = p;
     });
+    // Runs even if the player has left the tab, so an open Community rarity
+    // view picks the new cache up.
+    corpusRevision.update((n) => n + 1);
     // The re-solve is the view's own step and can be the longest of the
     // lot, so it gets named rather than left under the same spinner.
     progress = { phase: 'solving' };

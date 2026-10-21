@@ -17,6 +17,7 @@ import { getGeneEffectsCached } from '#lib/services/geneService.js';
 import { explainQuality } from '#lib/services/geneticQualityService.js';
 import { loadPetGridFromDb } from '#lib/services/petService.js';
 import { loadGeneImpact, STUDYABLE_SPECIES, studyInputsKey } from '#lib/services/studyService.js';
+import { corpusRevision } from '#lib/stores/corpus.js';
 import { pets as petList } from '#lib/stores/pets.js';
 import { settings } from '#lib/stores/settings.js';
 import { EFFECT_COLORS } from '#lib/theme/gene-colors.js';
@@ -334,6 +335,9 @@ $effect(() => {
   if (currentView !== 'rarity' || !currentPet) return;
   const species = currentPet.species;
   const pop = population;
+  // A community baseline reads the cache, so a refresh must reload it; a local
+  // one must not reload on it.
+  if (pop.tier === 'community') void $corpusRevision;
   const mine = ++raritySeq;
   rarityLoading = true;
   rarityError = null;
