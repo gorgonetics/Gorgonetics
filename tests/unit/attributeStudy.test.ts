@@ -1061,3 +1061,106 @@ describe('tightenThroughGaps', () => {
     expect(paint).toBe(own);
   });
 });
+
+describe('cross rounds over groups (#542)', () => {
+  /** Small seeded PRNG, so a failure names the seed that reproduces it. */
+  function rng(seed: number): () => number {
+    let x = seed >>> 0 || 1;
+    return () => {
+      x ^= x << 13;
+      x ^= x >>> 17;
+      x ^= x << 5;
+      return (x >>> 0) / 2 ** 32;
+    };
+  }
+
+  const MAGNITUDE: Record<string, number> = {
+    '14B4:dominant': 3,
+    '01A1:recessive': 5,
+    '01A2:dominant': -2,
+    '01A3:dominant': 4,
+    '02C1:dominant': 2,
+    '14B2:recessive': -4,
+  };
+  const BASE: Record<string, { temperament: number; toughness: number }> = {
+    Kurbone: { temperament: 40, toughness: 60 },
+    Paint: { temperament: 55, toughness: 52 },
+    Calico: { temperament: 47, toughness: 66 },
+  };
+  const toughness = slotsByAttribute(slots).get('toughness') ?? [];
+
+  /**
+   * A corpus with repeats — the groups the rounds pair — and the occasional
+   * mis-recorded reading, so dissent, blame and doubts are all exercised.
+   */
+  function corpus(seed: number): StudySubject[] {
+    const next = rng(seed);
+    const pick = <T>(list: readonly T[]): T => list[Math.floor(next() * list.length)];
+    const breeds = Object.keys(BASE).slice(0, 2 + Math.floor(next() * 2));
+    const out: StudySubject[] = [];
+    const size = 8 + Math.floor(next() * 30);
+    for (let i = 0; i < size; i++) {
+      const copy = out.length > 0 && next() < 0.35 ? pick(out) : null;
+      const breed = copy?.breed ?? pick(breeds);
+      const genes = copy
+        ? { ...copy.genes }
+        : Object.fromEntries(Object.keys(effectsDB).map((gene) => [gene, pick(['D', 'R', 'x'])]));
+      const subject = horse(`a${i}`, genes, {}, breed, next() < 0.3);
+      for (const [attribute, attributeSlots] of [
+        ['temperament', temperament],
+        ['toughness', toughness],
+      ] as const) {
+        let value = BASE[breed][attribute];
+        for (const key of activeSlots(subject, attributeSlots) ?? []) value += MAGNITUDE[key] ?? 0;
+        if (next() < 0.08) value += pick([-3, -1, 1, 2]);
+        subject.attributes[attribute] = value;
+      }
+      out.push(subject);
+    }
+    return out;
+  }
+
+  /** Everything but the witnesses, which a group pair samples from its members. */
+  const comparable = (studies: unknown): unknown =>
+    JSON.parse(JSON.stringify(studies, (key, value) => (key === 'witnesses' ? undefined : value)));
+
+  it('gives the pair-by-pair result on random corpora with repeated animals', () => {
+    for (let seed = 1; seed <= 150; seed++) {
+      const subjects = corpus(seed);
+      for (const maxDistance of [1, 2, 6]) {
+        const grouped = studyAll(subjects, slots, { maxDistance });
+        const paired = studyAll(subjects, slots, { maxDistance, pairByAnimal: true });
+        expect(comparable(grouped), `seed ${seed}, maxDistance ${maxDistance}`).toEqual(comparable(paired));
+      }
+    }
+  });
+
+  it('counts every animal pair behind a group pair in support, dissent and blame', () => {
+    // Paint is the reference (five animals). Every Kurbone reads 40 once 14B4
+    // is known, and every sound Paint 60, so the gap is one equation between
+    // two groups standing for 4 × 5 pairs. p6 is mis-recorded by one point.
+    const study = studyAttribute(
+      [
+        horse('k1', base(), { temperament: 40 }),
+        horse('k2', base(), { temperament: 40 }),
+        horse('k3', base(), { temperament: 40 }),
+        horse('k4', base({ '14B4': 'D' }), { temperament: 43 }),
+        horse('p1', base(), { temperament: 60 }, 'Paint'),
+        horse('p2', base(), { temperament: 60 }, 'Paint'),
+        horse('p3', base(), { temperament: 60 }, 'Paint'),
+        horse('p4', base(), { temperament: 60 }, 'Paint'),
+        horse('p5', base({ '02C1': 'D' }), { temperament: 62 }, 'Paint'),
+        horse('p6', base(), { temperament: 61 }, 'Paint'),
+      ],
+      'temperament',
+      temperament,
+    );
+    expect(study.baselines.offsets).toEqual([
+      expect.objectContaining({ breed: 'Kurbone', relativeTo: 'Paint', offset: -20, support: 20, dissent: 4 }),
+    ]);
+    const blame = new Map(study.contradictions.map((c) => [c.subjectId, c.count]));
+    // p6 dissents from 02C1 once (against p5) and from the gap once per Kurbone.
+    expect(blame.get('p6')).toBe(5);
+    expect(blame.get('k1')).toBe(1);
+  });
+});

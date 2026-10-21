@@ -77,6 +77,9 @@ it('measures base bounds per breed and attribute', async () => {
   const { runAttributeStudy, STUDYABLE_SPECIES } = await import('#lib/services/studyService.js');
   const { baseText, breedLabel, buildBaseMatrix, gapText } = await import('#lib/utils/baseMatrix.js');
   await initDatabase();
+  // The snapshot is at whatever schema the app last ran; the study reads the current one.
+  const { runMigrations } = await import('#lib/services/migrationService.js');
+  await runMigrations();
 
   const lines = [`Snapshot of ${source}`];
   for (const species of STUDYABLE_SPECIES) {
