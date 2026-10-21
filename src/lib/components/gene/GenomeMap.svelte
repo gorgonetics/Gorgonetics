@@ -432,6 +432,8 @@ function rarityTooltip(geneId: string): { subtitle: string; lines: string[] } {
                         {lookupError}
                     {:else if !lookupReady}
                         Analysing…
+                    {:else if population.tier === 'community' && (lookup?.petCount ?? 0) === 0}
+                        No shared {capitalize(speciesKey)}s cached · fetch them in the Study tab
                     {:else if (lookup?.petCount ?? 0) < SOLE_CARRIER_MIN_PETS}
                         Needs at least {SOLE_CARRIER_MIN_PETS} {capitalize(speciesKey)} pets to call an allele never seen — this baseline has {lookup?.petCount ?? 0}
                     {:else if allNeverSeen.size === 0}
@@ -444,6 +446,10 @@ function rarityTooltip(geneId: string): { subtitle: string; lines: string[] } {
         {:else if population.tier === 'community' && lookupReady && lookup?.petCount === 0}
             <p class="map-status" data-testid="map-community-empty">
                 No shared {capitalize(speciesKey)}s cached · fetch them in the Study tab.
+            </p>
+        {:else if population.tier === 'community' && lookupReady && lookup?.refreshAdvised}
+            <p class="map-status" data-testid="map-community-refresh">
+                Cached by an older version · refresh in the Study tab to add the animals it left out.
             </p>
         {:else if lookupError}
             <!-- The genome is still worth showing — only the frequencies are

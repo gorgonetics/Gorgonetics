@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { type StudyRun, setUseForStudies, studyRunFor } from '#lib/services/studyService.js';
+import { type StudyRun, setUseForStudies, studyCorpusStatus, studyRunFor } from '#lib/services/studyService.js';
 import { pets } from '#lib/stores/pets.js';
 import type { Pet } from '#lib/types/index.js';
 
@@ -17,7 +17,7 @@ vi.mock('#lib/services/studyService.js', async (importOriginal) => ({
         ['shared:abc', 'Theirs'],
       ]),
   ),
-  studyCorpusStatus: vi.fn(async () => ({ cached: 1, fetchedAt: null })),
+  studyCorpusStatus: vi.fn(async () => ({ cached: 1, stored: 1, fetchedAt: null })),
   setUseForStudies: vi.fn(async () => {}),
   listExcludedSubjects: vi.fn(async () => []),
 }));
@@ -136,5 +136,30 @@ describe('Suspect readings', () => {
     await fireEvent.click(panel.querySelector('[data-testid="exclude-suspect-2"]') as HTMLButtonElement);
     const error = await screen.findByTestId('study-action-error');
     expect(textOf(error)).toContain('disk full');
+  });
+});
+
+describe('Community cache count', () => {
+  beforeEach(() => {
+    pets.set([{ id: 1, name: 'Mine stabled', species: 'Horse', stabled: true, tags: [] } as unknown as Pet]);
+  });
+  afterEach(() => {
+    cleanup();
+    vi.mocked(studyCorpusStatus).mockResolvedValue({ cached: 1, stored: 1, fetchedAt: null });
+  });
+
+  it('shows every cached genome and how many the study can use, so it matches the rarity legend', async () => {
+    vi.mocked(studyCorpusStatus).mockResolvedValue({ cached: 500, stored: 720, fetchedAt: '2026-10-17T00:00:00Z' });
+    vi.mocked(studyRunFor).mockResolvedValue(runWith([]));
+    render(StudyView);
+    const count = await screen.findByTestId('study-corpus-count');
+    expect(textOf(count)).toBe('720 cached, 500 usable by the study, last fetched 2026-10-17');
+  });
+
+  it('shows one figure when every cached genome is usable', async () => {
+    vi.mocked(studyCorpusStatus).mockResolvedValue({ cached: 720, stored: 720, fetchedAt: null });
+    vi.mocked(studyRunFor).mockResolvedValue(runWith([]));
+    render(StudyView);
+    expect(textOf(await screen.findByTestId('study-corpus-count'))).toBe('720 cached');
   });
 });

@@ -1512,6 +1512,9 @@ const blockIndices = $derived.by(() => {
                                             No shared {capitalize(currentPet?.species ?? "pet")}s cached · fetch them in the Study tab
                                         {:else if population.tier === "community"}
                                             baseline: {pluralise(rarityLookup.petCount, `shared ${capitalize(currentPet?.species ?? "pet")}`)}
+                                            {#if rarityLookup.refreshAdvised}
+                                                <span class="rarity-coverage" data-testid="rarity-refresh-advised">· refresh in the Study tab to add the animals an older version left out</span>
+                                            {/if}
                                         {:else}
                                             baseline: {pluralise(rarityLookup.petCount, capitalize(currentPet?.species ?? "pet"))}
                                         {/if}

@@ -62,6 +62,7 @@ let ranFor = $state('');
  */
 let generation = 0;
 let cachedCount = $state(0);
+let storedCount = $state(0);
 let fetchedAt = $state<string | null>(null);
 let refreshing = $state(false);
 let refreshError = $state<string | null>(null);
@@ -377,6 +378,7 @@ async function solve(target: string): Promise<void> {
     const [status, excludedNow] = await Promise.all([studyCorpusStatus(target), listExcludedSubjects(target)]);
     if (mine !== generation) return;
     cachedCount = status.cached;
+    storedCount = status.stored;
     fetchedAt = status.fetchedAt;
     excluded = excludedNow;
   } catch (err) {
@@ -471,9 +473,14 @@ async function solve(target: string): Promise<void> {
 					<span class="refresh-error">{refreshError}</span>
 				{:else if progress}
 					<span class="refresh-progress" aria-live="polite">{progressLabel(progress)}</span>
-				{:else if cachedCount > 0}
-					<span class="community-detail">
-						{cachedCount.toLocaleString()} cached{fetchedAt ? `, last fetched ${fetchedAt.slice(0, 10)}` : ''}
+				{:else if storedCount > 0}
+					<!-- Both counts when they differ: the rarity lens's Community
+					     baseline counts every cached genome, the study only the
+					     ones it can learn from. -->
+					<span class="community-detail" data-testid="study-corpus-count">
+						{storedCount.toLocaleString()} cached{storedCount !== cachedCount
+							? `, ${cachedCount > 0 ? cachedCount.toLocaleString() : 'none'} usable by the study`
+							: ''}{fetchedAt ? `, last fetched ${fetchedAt.slice(0, 10)}` : ''}
 					</span>
 				{:else}
 					<span class="community-detail">none cached — the study sees only your own animals</span>

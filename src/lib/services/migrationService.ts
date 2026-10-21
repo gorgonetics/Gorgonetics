@@ -515,16 +515,24 @@ const MIGRATIONS: Migration[] = [
   },
   {
     version: 22,
-    description: 'Cache every verified community genome, flagging the ones the study can use (#463)',
+    description: 'Cache every verified community genome with its loci, flagging the ones the study can use (#463)',
     up: async () => {
       // The cache admitted only the animals the study can learn from, which
       // dropped valid genomes the rarity baseline needs: an animal with no
       // attribute readings, or a Mixed horse, still has a genome. The study's
-      // gate moves to this column, so a refresh can keep every verified genome
-      // without the study seeing more than before. Default on: every row
-      // cached so far passed that gate.
+      // gate moves to `study_usable`, so a refresh can keep every verified
+      // genome without the study seeing more than before. Default on: every
+      // row cached so far passed that gate.
+      //
+      // `loci` / `loci_layout` hold the genome encoded as `pets` holds it
+      // (#554), so readers decode instead of parsing the file. Left empty on
+      // existing rows rather than backfilled: an empty `loci` is how a reader
+      // knows the row was cached under the old gate, and that a refresh would
+      // add the animals that gate dropped. Readers parse `genome_text` until then.
       await getDb().transaction([
         { sql: 'ALTER TABLE study_corpus ADD COLUMN study_usable INTEGER NOT NULL DEFAULT 1' },
+        { sql: "ALTER TABLE study_corpus ADD COLUMN loci TEXT NOT NULL DEFAULT ''" },
+        { sql: "ALTER TABLE study_corpus ADD COLUMN loci_layout TEXT NOT NULL DEFAULT ''" },
         { sql: 'PRAGMA user_version = 22' },
       ]);
     },

@@ -25,8 +25,15 @@ const mocks = vi.hoisted(() => {
    * Stand-in baseline. `species` overrides what the lookup claims it was built
    * for (to exercise the mismatch guard) and `defer` holds it in flight.
    */
-  const baseline: { petCount: number; partialPets: number; species: string | null; defer: boolean } = {
+  const baseline: {
+    petCount: number;
+    partialPets: number;
+    refreshAdvised: boolean;
+    species: string | null;
+    defer: boolean;
+  } = {
     petCount: 30,
+    refreshAdvised: false,
     partialPets: 0,
     species: null,
     defer: false,
@@ -37,6 +44,7 @@ const mocks = vi.hoisted(() => {
       species: baseline.species ?? String(species).toLowerCase(),
       petCount: baseline.petCount,
       partialPets: baseline.partialPets,
+      refreshAdvised: baseline.refreshAdvised,
       loci: new Map(),
       tally: () => ({ knownPets: 0, pureD: 0, pureR: 0, mixed: 0 }),
       bucketOf: () => null,
@@ -219,6 +227,16 @@ describe('GeneVisualizer rarity baseline legend', () => {
   it('names a community baseline as shared animals', async () => {
     const { container } = await openRarityView(0, { tier: 'community' });
     await waitFor(() => expect(baselineText(container)).toContain('30 shared Horses'));
+  });
+
+  it('advises a refresh when an older build cached the shared animals', async () => {
+    mocks.baseline.refreshAdvised = true;
+    try {
+      const { container } = await openRarityView(0, { tier: 'community' });
+      await waitFor(() => expect(baselineText(container)).toContain('refresh in the Study tab'));
+    } finally {
+      mocks.baseline.refreshAdvised = false;
+    }
   });
 
   it('points to the Study tab when no shared animals are cached', async () => {

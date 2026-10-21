@@ -6,11 +6,13 @@ import {
   invalidateRarityCache,
   loadRarityLookup,
   populationForTier,
+  resetRarityCache,
 } from '#lib/services/frequencyService.js';
 import { runMigrations } from '#lib/services/migrationService.js';
 import * as petService from '#lib/services/petService.js';
 import { GeneType, type Pet } from '#lib/types/index.js';
 import { computeLocusFrequencies, RARITY_BUCKET_NEVER, RARITY_BUCKET_SOLE } from '#lib/utils/geneFrequency.js';
+import { encodeLoci, storedGenomeEntries } from '#lib/utils/lociCodec.js';
 import { loadAllPetLoci } from '#lib/utils/petLoci.js';
 import { buildRarityCSS } from '#lib/utils/rarityCSS.js';
 import { buildRarityTooltip } from '#lib/utils/rarityTooltip.js';
@@ -45,7 +47,7 @@ describe('computeRarityLookup', () => {
     await closeDatabase();
     await initDatabase();
     await runMigrations();
-    invalidateRarityCache();
+    resetRarityCache();
   });
 
   it('scopes the baseline to one species — a beewasp cannot leak into a horse baseline', async () => {
@@ -135,7 +137,7 @@ describe('the SQL aggregate agrees with the reference JS tally', () => {
     await closeDatabase();
     await initDatabase();
     await runMigrations();
-    invalidateRarityCache();
+    resetRarityCache();
   });
 
   /**
@@ -191,7 +193,7 @@ describe('uneven study depth within one population', () => {
     await closeDatabase();
     await initDatabase();
     await runMigrations();
-    invalidateRarityCache();
+    resetRarityCache();
   });
 
   /** Five horses, revealed to three different depths across four loci. */
@@ -291,7 +293,7 @@ describe('alleles nobody in the population carries', () => {
     await closeDatabase();
     await initDatabase();
     await runMigrations();
-    invalidateRarityCache();
+    resetRarityCache();
   });
 
   /** `n` horses, all pure dominant at every locus. */
@@ -340,7 +342,7 @@ describe('a pet with no usable gene projection', () => {
     await closeDatabase();
     await initDatabase();
     await runMigrations();
-    invalidateRarityCache();
+    resetRarityCache();
   });
 
   it('is excluded from the population rather than counted in the denominator', async () => {
@@ -409,7 +411,7 @@ describe('baseline caching', () => {
     await closeDatabase();
     await initDatabase();
     await runMigrations();
-    invalidateRarityCache();
+    resetRarityCache();
   });
 
   it('reuses the baseline for the same id SET, not the same array identity', async () => {
@@ -453,7 +455,7 @@ describe('computeCommunityRarityLookup', () => {
     await closeDatabase();
     await initDatabase();
     await runMigrations();
-    invalidateRarityCache();
+    resetRarityCache();
   });
 
   async function cache(
@@ -529,6 +531,90 @@ describe('computeCommunityRarityLookup', () => {
     await cache('h1', 'horse', 'DDD');
     const first = await computeCommunityRarityLookup('Horse');
     expect(await computeCommunityRarityLookup('Horse')).toBe(first);
+  });
+
+  /** A row as a current refresh writes it: the genome encoded into `loci`. */
+  async function cacheEncoded(hash: string, genes: string, fetchedAt = '2026-10-01T00:00:00.000Z'): Promise<void> {
+    const text = genome('Horse', hash, genes);
+    const encoded = await encodeLoci(storedGenomeEntries(null, text));
+    await getDb().execute('INSERT OR REPLACE INTO locus_layouts (layout, ids) VALUES ($layout, $ids)', {
+      layout: encoded.layout,
+      ids: encoded.ids,
+    });
+    await getDb().execute(
+      `INSERT OR REPLACE INTO study_corpus
+         (content_hash, species, breed, name, attributes, genome_text, fetched_at, use_for_studies, study_usable,
+          loci, loci_layout)
+       VALUES ($hash, $species, $breed, $name, $attributes, $genome, $ts, $use, $usable, $loci, $layout)`,
+      {
+        hash,
+        species: 'horse',
+        breed: '',
+        name: hash,
+        attributes: '{}',
+        genome: text,
+        ts: fetchedAt,
+        use: 1,
+        usable: 1,
+        loci: encoded.loci,
+        layout: encoded.layout,
+      },
+    );
+  }
+
+  it('decodes rows that carry loci, and advises a refresh only for rows an older build cached', async () => {
+    await cacheEncoded('h1', 'DDx');
+    await cacheEncoded('h2', 'DRx');
+    const current = await computeCommunityRarityLookup('Horse');
+    expect(current.tally('01A2')).toEqual({ knownPets: 2, pureD: 1, pureR: 1, mixed: 0 });
+    expect(current.refreshAdvised).toBe(false);
+
+    await cache('h3', 'horse', 'RRR', { fetchedAt: '2026-10-02T00:00:00.000Z' });
+    const mixed = await computeCommunityRarityLookup('Horse');
+    expect(mixed.petCount).toBe(3);
+    expect(mixed.refreshAdvised).toBe(true);
+  });
+
+  it('skips a cached genome that does not parse rather than failing the baseline', async () => {
+    await cache('h1', 'horse', 'DDD');
+    await getDb().execute(
+      `INSERT OR REPLACE INTO study_corpus
+         (content_hash, species, breed, name, attributes, genome_text, fetched_at, use_for_studies, study_usable)
+       VALUES ($hash, $species, $breed, $name, $attributes, $genome, $ts, $use, $usable)`,
+      {
+        hash: 'bad',
+        species: 'horse',
+        breed: '',
+        name: 'bad',
+        attributes: '{}',
+        genome: 'not a genome file',
+        ts: '2026-10-01T00:00:00.000Z',
+        use: 1,
+        usable: 1,
+      },
+    );
+    expect((await computeCommunityRarityLookup('Horse')).petCount).toBe(1);
+  });
+
+  it('rebuilds when a refresh rewrites the rows, even at the same count', async () => {
+    await cacheEncoded('h1', 'DDD');
+    expect((await computeCommunityRarityLookup('Horse')).tally('01A1').pureD).toBe(1);
+
+    await cacheEncoded('h1', 'RRR', '2026-10-02T00:00:00.000Z');
+    expect((await computeCommunityRarityLookup('Horse')).tally('01A1')).toMatchObject({ pureD: 0, pureR: 1 });
+  });
+
+  it('keeps the community baseline when pet changes invalidate the local ones', async () => {
+    await cacheEncoded('h1', 'DDD');
+    const first = await computeCommunityRarityLookup('Horse');
+    invalidateRarityCache();
+    expect(await computeCommunityRarityLookup('Horse')).toBe(first);
+  });
+
+  it('hands back one community population whatever the roster, so a roster change reruns nothing', () => {
+    const a = [{ id: 1 }] as unknown as Pet[];
+    const b = [{ id: 2 }] as unknown as Pet[];
+    expect(populationForTier('community', a)).toBe(populationForTier('community', b));
   });
 
   it('is what loadRarityLookup returns for the community tier', async () => {

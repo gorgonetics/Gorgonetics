@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup, render, waitFor } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { RarityPopulation } from '#lib/services/frequencyService.js';
 import type { Pet } from '#lib/types/index.js';
 
 /**
@@ -23,12 +24,14 @@ const mocks = vi.hoisted(() => {
     defer: boolean;
     reject: boolean;
     petCount: number;
+    refreshAdvised: boolean;
     bucketOf: (geneId: string, allele: string) => number | null;
   } = {
     species: null,
     defer: false,
     reject: false,
     petCount: 12,
+    refreshAdvised: false,
     bucketOf: () => 3,
   };
   const resolvers: Array<() => void> = [];
@@ -38,6 +41,7 @@ const mocks = vi.hoisted(() => {
       species: baseline.species ?? String(species).toLowerCase(),
       petCount: baseline.petCount,
       partialPets: 0,
+      refreshAdvised: baseline.refreshAdvised,
       loci: new Map(),
       tally: () => ({ knownPets: 12, pureD: 12, pureR: 0, mixed: 0 }),
       bucketOf: baseline.bucketOf,
@@ -90,7 +94,7 @@ afterEach(() => {
 async function renderMap(
   species = 'Horse',
   lens: 'rarity' | 'impact' | 'never' = 'rarity',
-  extra: { hideSeenChromosomes?: boolean; hideNoEffect?: boolean } = {},
+  extra: { hideSeenChromosomes?: boolean; hideNoEffect?: boolean; population?: RarityPopulation } = {},
   template: Record<string, Record<string, unknown>> = HORSE_TEMPLATE,
 ) {
   mocks.effects.value.horse = template;
@@ -99,6 +103,37 @@ async function renderMap(
   await waitFor(() => expect(rendered.container.querySelector('[data-testid="genome-map-grid"]')).not.toBeNull());
   return rendered;
 }
+
+describe('GenomeMap community baseline', () => {
+  const community: RarityPopulation = { tier: 'community' };
+  const text = (container: HTMLElement, id: string) =>
+    container.querySelector(`[data-testid="${id}"]`)?.textContent?.replace(/\s+/g, ' ').trim() ?? '';
+
+  afterEach(() => {
+    mocks.baseline.petCount = 12;
+    mocks.baseline.refreshAdvised = false;
+  });
+
+  it('points the never-seen lens to the Study tab when nothing is cached', async () => {
+    mocks.baseline.petCount = 0;
+    const { container } = await renderMap('Horse', 'never', { population: community });
+    await waitFor(() => expect(text(container, 'map-never-status')).toContain('No shared Horses cached'));
+    expect(text(container, 'map-never-status')).toContain('Study tab');
+  });
+
+  it('advises a refresh when an older build cached the rows', async () => {
+    mocks.baseline.refreshAdvised = true;
+    const { container } = await renderMap('Horse', 'rarity', { population: community });
+    await waitFor(() => expect(text(container, 'map-community-refresh')).toContain('refresh in the Study tab'));
+  });
+
+  it('does not advise a refresh on a local baseline', async () => {
+    mocks.baseline.refreshAdvised = true;
+    const { container } = await renderMap('Horse', 'rarity');
+    await waitFor(() => expect(mocks.loadRarityLookup).toHaveBeenCalled());
+    expect(container.querySelector('[data-testid="map-community-refresh"]')).toBeNull();
+  });
+});
 
 describe('GenomeMap baseline readiness', () => {
   it('renders the genome unscored while the baseline is in flight', async () => {

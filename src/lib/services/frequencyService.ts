@@ -10,7 +10,7 @@
 
 import { normalizeSpecies } from '#lib/services/configService.js';
 import { getDb } from '#lib/services/database.js';
-import { parseGenome } from '#lib/services/genomeParser.js';
+import { cachedByOlderBuild, corpusLoci } from '#lib/services/studyCorpus.js';
 import { GeneType, type Pet } from '#lib/types/index.js';
 import {
   type Allele,
@@ -56,6 +56,12 @@ export interface RarityLookup {
    */
   readonly partialPets: number;
   /**
+   * Community tier only: shared animals an older build left out of the cache,
+   * which a refresh in the Study tab would add. True when any cached row
+   * predates migration 22, whose gate dropped unmeasured and Mixed animals.
+   */
+  readonly refreshAdvised: boolean;
+  /**
    * Per-locus tallies. Absent gene ids mean no pet in the population had
    * a known reading there.
    */
@@ -95,8 +101,15 @@ export type RarityPopulation =
  * populations while showing the same label. Species scoping happens later, in
  * `computeRarityLookup`.
  */
+/**
+ * The one community population. A constant, so a `$derived` over the roster
+ * hands back the same object when pets change and nothing downstream reruns:
+ * the shared catalogue does not depend on the player's pets.
+ */
+const COMMUNITY: RarityPopulation = Object.freeze({ tier: 'community' });
+
 export function populationForTier(tier: RarityTier, pets: readonly Pet[]): RarityPopulation {
-  if (tier === 'community') return { tier };
+  if (tier === 'community') return COMMUNITY;
   return { tier, pets: tier === 'stabled' ? pets.filter((pet) => pet.stabled) : pets };
 }
 
@@ -151,8 +164,24 @@ function remember(key: string, lookup: RarityLookup): RarityLookup {
   return lookup;
 }
 
-/** Drop every cached baseline. Call when pets are added, edited or removed. */
+const COMMUNITY_KEY = 'community|';
+
+/**
+ * Drop every cached baseline over local pets. Call when pets are added, edited
+ * or removed. Community baselines stay: they are built from the shared cache,
+ * not from pets, and their key already changes when a refresh rewrites it.
+ */
 export function invalidateRarityCache(): void {
+  for (const key of [...cache.keys()]) if (!key.startsWith(COMMUNITY_KEY)) cache.delete(key);
+}
+
+/**
+ * Drop every cached baseline, community ones included. For when the database
+ * itself is replaced under the cache — tests that reset it between cases. The
+ * community key cannot see that: a fresh cache with the same row count and
+ * fetch time would read as unchanged.
+ */
+export function resetRarityCache(): void {
   cache.clear();
 }
 
@@ -162,12 +191,14 @@ function buildLookup(
   partialPets: number,
   loci: Map<string, LocusTally>,
   opts: RarityOptions,
+  refreshAdvised = false,
 ): RarityLookup {
   const tally = (geneId: string): LocusTally => loci.get(geneId) ?? EMPTY_TALLY;
   return {
     species,
     petCount,
     partialPets,
+    refreshAdvised,
     loci,
     tally,
     bucketOf: (geneId, allele) => rarityBucket(tally(geneId), allele, opts),
@@ -264,37 +295,35 @@ export async function computeRarityLookup(
  * the population only if they uploaded them — the tier is "rare among shared
  * pets", not a merge of the two.
  *
- * Keyed on the cached rows' hashes and fetch time, read without the genomes,
- * so a cache hit costs one small query and a refresh is picked up on the next
- * open without an explicit invalidation.
+ * Keyed on the row count and the latest fetch time: a refresh rewrites every
+ * row of the species with one timestamp, so the pair changes exactly when the
+ * cache does, and a refresh is picked up without an explicit invalidation.
+ * Counted in JS from a read of two short columns — the in-memory adapter has
+ * no aggregates.
  */
 export async function computeCommunityRarityLookup(species: string, opts: RarityOptions = {}): Promise<RarityLookup> {
   const key = normalizeSpecies(species);
   const db = getDb();
-  const index = await db.select<Array<{ content_hash: string; fetched_at: string }>>(
-    'SELECT content_hash, fetched_at FROM study_corpus WHERE species = $species',
+  const index = await db.select<Array<{ fetched_at: string; loci_layout: string | null }>>(
+    'SELECT fetched_at, loci_layout FROM study_corpus WHERE species = $species',
     { species: key },
   );
-  const version = index
-    .map((row) => `${row.content_hash}@${row.fetched_at}`)
-    .sort()
-    .join(',');
-  const cacheId = `community|${cacheKey(key, [], opts)}|${version}`;
+  let latest = '';
+  for (const row of index) if (row.fetched_at > latest) latest = row.fetched_at;
+  const cacheId = `${COMMUNITY_KEY}${cacheKey(key, [], opts)}|${index.length}|${latest}`;
   const cached = cache.get(cacheId);
   if (cached) return cached;
 
-  const rows = await db.select<Array<{ genome_text: string }>>(
-    'SELECT genome_text FROM study_corpus WHERE species = $species',
+  const rows = await db.select<Array<{ content_hash: string; loci: string | null; loci_layout: string | null }>>(
+    'SELECT content_hash, loci, loci_layout FROM study_corpus WHERE species = $species',
     { species: key },
   );
-  const population: PetLoci[] = [];
-  for (const row of rows) {
-    const loci: PetLoci = new Map();
-    for (const [chromosome, genes] of Object.entries(parseGenome(row.genome_text).genes))
-      for (const gene of genes) loci.set(`${chromosome}${gene.block}${gene.position}`, gene.gene_type);
-    if (loci.size > 0) population.push(loci);
-  }
-  if (population.length === 0) return remember(cacheId, buildLookup(key, 0, 0, new Map(), opts));
+  const refreshAdvised = rows.some(cachedByOlderBuild);
+  const population = [...(await corpusLoci(rows)).values()].filter((loci) => loci.size > 0);
+  if (population.length === 0) return remember(cacheId, buildLookup(key, 0, 0, new Map(), opts, refreshAdvised));
   const loci = computeLocusFrequencies(population);
-  return remember(cacheId, buildLookup(key, population.length, partialPetCount(population), loci, opts));
+  return remember(
+    cacheId,
+    buildLookup(key, population.length, partialPetCount(population), loci, opts, refreshAdvised),
+  );
 }
