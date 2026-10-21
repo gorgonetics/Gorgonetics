@@ -124,7 +124,7 @@ One feature, a widening denominator. Same computation at each tier; only `P` gro
 |---|---|---|---|
 | **Stabled** | Pets with the `stabled` marker set | Local SQLite, instant | ✅ |
 | **All my pets** (default) | Every pet in the local DB (`getAllPets()`) | Local SQLite, instant | ✅ |
-| **Community** | The shared catalogue | See below | ❌ deferred |
+| **Community** | The shared catalogue, as cached by the Study tab | Local SQLite, parsed once per refresh | ✅ (#463) |
 
 The two local tiers map to existing state: **Stabled** = the `stabled` boolean marker (`MarkerKey` in `stores/pets.ts`); **All my pets** = the full `getAllPets()` set. The app has **no "released" pet state** — a pet is either in the local DB or it isn't — so "All my pets" is simply "not filtered to the stabled subset", not a superset that adds released animals.
 
@@ -137,11 +137,15 @@ The two local tiers map to existing state: **Stabled** = the `stabled` boolean m
 
 So the tier is worth building for granularity, and worth labelling honestly: it answers "rare among shared pets", and that phrasing should reach the UI rather than an unqualified "rare".
 
-**Why it is deferred.** The catalogue is split so the list path is cheap: `/pets/{hash}` holds metadata only, `/genomes/{hash}` holds the genome blob (see `public-pet-sharing-v1.md`). `listPets()` never fetches genomes. A community baseline would require fetching *every* genome doc to tally per-locus values — hundreds of reads against the Firestore Spark free quota (50k reads/day), repeated as the catalogue grows. It needs either a precomputed server-side aggregate or an aggressively cached client tally, which is its own design. Out of scope for v1; the population selector will show a disabled "Community · soon" affordance so the tiering is legible.
+**How it is built (#463).** It was deferred from v1 because a baseline needs *every* genome doc — hundreds of reads against the Firestore Spark free quota (50k reads/day), repeated as the catalogue grows. The genetic study then needed the same genomes and built a client cache for them (`study_corpus`, filled by the Study tab's explicit refresh: one paged scan of `/pets` and one of `/genomes`). The Community tier reads that cache and never Firestore, so it adds no quota cost and works offline.
 
-Two facts measured off the live catalogue that the eventual design must handle:
+- **Every verified genome counts.** The cache used to admit only animals the study can learn from, which dropped genomes with no attribute readings and Mixed horses. Rarity needs only the genome, so the cache now keeps every genome whose content hash verifies, and a `study_usable` column holds the study's gate. The Study tab's "excluded from studies" flag is ignored for the same reason: it marks a bad attribute reading, not a bad genome.
+- **Shared only, not merged with the local tiers.** The population is the cached catalogue. A local pet counts only if it was uploaded, and then once, by content hash. Measured when this was built: 720 shared Horses, 467 of them uploaded from the maintainer's own 481.
+- **Dedupe by `contentHash`, before tallying (#466).** The catalogue is add-only: a correction is a second `/pets` doc for the same hash, and `listPets()` returns both. A baseline tallied over raw `listPets()` would count a genome once per correction and inflate whichever line has the most corrections. The refresh collapses them with `dedupeLatest`, and `content_hash` is the cache's primary key, so each genome is tallied once. (An earlier draft of this section read the 32 correction docs as "pets with no genome" and asked the builder to tolerate missing genomes. There are none; see #454.)
+- **Cost.** Parsing and tallying 720 cached genomes takes about 165 ms in Node. It runs when the tier is first opened after a refresh; the baseline cache keys on the cached rows' hashes and fetch time, so later opens are a cache hit and a refresh is picked up without an explicit invalidation.
 
-- **Not every listed pet has a genome.** 84 pet docs, 52 genome docs, **32 pets whose `/genomes/{hash}` does not exist** (and no orphan genomes). A baseline builder that fetches per listed pet must tolerate misses rather than treating them as errors — and must not let them shrink the denominator silently. Tracked separately as #454.
+One fact measured off the live catalogue that the tier must handle:
+
 - **Denominator spread widens.** Per-locus denominators already vary within a single collection (§2); a community population stacks many owners' study histories on top of that, so the spread is larger and `minKnown` will exclude more loci. Measured on the current catalogue the effect is still small — including the one partial genome shifts `p_D` by a median of 0.0028 over 1576 loci and drops that locus range's denominator from 52 to 51.
 
 ## 4. Where it lives, and how it renders (the critical decision)
@@ -426,7 +430,7 @@ Breed slices sit in a narrow band — 38% to 54% of each breed's loci reached b2
 - **Reference becomes map-first** (§7): full-genome rarity map as the default view, with animal-type, breed and baseline controls matching the other destinations; the gene-template editor demoted to a secondary mode. Includes the thin pet-less grid component the map needs.
 
 **Explicitly out of scope for v1:**
-- Community **tier** — using the shared catalogue as the *population* (needs a cached/aggregated baseline — §3). Distinct from scoring a community *pet* against your own pets, which is in scope above.
+- Community **tier** — using the shared catalogue as the *population*. Shipped later from the study's cache (§3, #463).
 - Any ranked "scarcest loci" table on either surface (§1).
 - Integration with #369 (let the player define "beneficial" and combine rare×desirable).
 - #367 wild-horse capture analysis (a downstream consumer of this baseline).

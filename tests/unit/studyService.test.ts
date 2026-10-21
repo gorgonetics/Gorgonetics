@@ -1268,6 +1268,33 @@ describe('refreshStudyCorpus', () => {
     expect(result).toMatchObject({ cached: 1, skipped: 1 });
   });
 
+  it('keeps a skipped genome for the rarity baseline without showing it to the study', async () => {
+    // The study cannot learn from an unmeasured animal, but its genome is
+    // still evidence of which alleles exist (#463).
+    const wild = await entry('Wild Horse', 'RRRR');
+    const ok = await entry(name('Kb', 41, 80, 'ok'), 'DRRR');
+    const defaults = Object.fromEntries(Object.keys(ATTRS).map((k) => [k, 50]));
+    mockCatalogue(
+      [
+        shared(wild.hash, { name: 'Wild Horse', attributes: defaults }),
+        shared(ok.hash, { name: name('Kb', 41, 80, 'ok') }),
+      ],
+      { [wild.hash]: wild.text, [ok.hash]: ok.text },
+    );
+    await refreshStudyCorpus('horse');
+
+    const rows = await getDb().select<Array<{ content_hash: string; study_usable: number }>>(
+      'SELECT content_hash, study_usable FROM study_corpus WHERE species = $species',
+      { species: 'horse' },
+    );
+    expect(Object.fromEntries(rows.map((r) => [r.content_hash, Number(r.study_usable)]))).toEqual({
+      [wild.hash]: 0,
+      [ok.hash]: 1,
+    });
+    expect((await studyCorpusStatus('horse')).cached).toBe(1);
+    expect((await loadStudyCorpus('horse')).subjects.map((s) => s.id)).toEqual([`shared:${ok.hash}`]);
+  });
+
   it('caches an entry from a player who does not use the structured name', async () => {
     // The name format is one player's labelling convention; the catalogue is
     // full of animals named normally whose published attributes are real.

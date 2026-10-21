@@ -513,6 +513,22 @@ const MIGRATIONS: Migration[] = [
       ]);
     },
   },
+  {
+    version: 22,
+    description: 'Cache every verified community genome, flagging the ones the study can use (#463)',
+    up: async () => {
+      // The cache admitted only the animals the study can learn from, which
+      // dropped valid genomes the rarity baseline needs: an animal with no
+      // attribute readings, or a Mixed horse, still has a genome. The study's
+      // gate moves to this column, so a refresh can keep every verified genome
+      // without the study seeing more than before. Default on: every row
+      // cached so far passed that gate.
+      await getDb().transaction([
+        { sql: 'ALTER TABLE study_corpus ADD COLUMN study_usable INTEGER NOT NULL DEFAULT 1' },
+        { sql: 'PRAGMA user_version = 22' },
+      ]);
+    },
+  },
 ];
 
 /** Derived from the last migration — no manual bookkeeping needed. */

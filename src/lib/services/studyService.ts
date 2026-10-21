@@ -35,7 +35,10 @@
  * The study learns from animals; the roster holds animals the player owns.
  * Importing the catalogue to widen the corpus would conflate the two and
  * drop hundreds of other people's horses into My Pets. So community
- * entries live in `study_corpus`, read by the study and by nothing else.
+ * entries live in `study_corpus`, read by the study and by the rarity
+ * baseline's Community tier, and by nothing else. The cache keeps every
+ * verified genome of the species; `study_usable` marks the ones the study
+ * can learn from, because rarity needs only the genome (#463).
  *
  * They are never checkable: `stabled` means the player can re-read the
  * animal in the game, and they cannot re-read someone else's.
@@ -355,8 +358,8 @@ async function cachedSubjects(
 ): Promise<{ subjects: StudySubject[]; considered: number; excluded: Map<ExclusionReason, number> }> {
   const rows = await getDb().select<CachedRow[]>(
     `SELECT content_hash, breed, name, attributes, genome_text, use_for_studies
-       FROM study_corpus WHERE species = $species`,
-    { species: normalized },
+       FROM study_corpus WHERE species = $species AND study_usable = $usable`,
+    { species: normalized, usable: 1 },
   );
   const subjects: StudySubject[] = [];
   const excluded = new Map<ExclusionReason, number>();
@@ -565,6 +568,8 @@ interface CachedRow {
   genome_text: string;
   /** Absent on the write path, which sets it explicitly; 1 when unset. */
   use_for_studies?: number;
+  /** Whether the study's cache gate admitted it (`usableSharedPet`). */
+  study_usable?: number;
 }
 
 /**
@@ -691,7 +696,8 @@ export async function refreshStudyCorpus(
     const genes: Record<string, string> = {};
     for (const [chromosome, list] of Object.entries(parseGenome(genome).genes))
       for (const gene of list) genes[`${chromosome}${gene.block}${gene.position}`] = gene.gene_type;
-    if (!usableSharedPet(pet, genes, normalized)) continue;
+    const studyUsable = usableSharedPet(pet, genes, normalized);
+    if (studyUsable) cached++;
 
     rows.push({
       content_hash: hash,
@@ -699,6 +705,7 @@ export async function refreshStudyCorpus(
       name: pet.name,
       attributes: JSON.stringify(pet.attributes ?? {}),
       genome_text: genome,
+      study_usable: studyUsable ? 1 : 0,
     });
   }
 
@@ -706,8 +713,9 @@ export async function refreshStudyCorpus(
   // BEGIN/COMMIT on the Tauri path (see its own doc), so a per-statement
   // loop would be several hundred round trips that leave a half-written
   // cache if one fails. Replacing the species' rows wholesale also drops
-  // entries the catalogue no longer serves, or that no longer pass the
-  // gate — an add-only cache would keep feeding them to the study forever.
+  // entries the catalogue no longer serves, and re-decides `study_usable`
+  // for the rest — an add-only cache would keep feeding stale rows to the
+  // study forever.
   // The refresh replaces this species' rows wholesale, so anything the
   // player has judged about them has to be carried across or a refresh would
   // silently re-admit every record they excluded.
@@ -725,8 +733,8 @@ export async function refreshStudyCorpus(
     { sql: 'DELETE FROM study_corpus WHERE species = $species', params: { species: normalized } },
     ...rows.map((row) => ({
       sql: `INSERT OR REPLACE INTO study_corpus
-            (content_hash, species, breed, name, attributes, genome_text, fetched_at, use_for_studies)
-            VALUES ($hash, $species, $breed, $name, $attributes, $genome, $ts, $use_for_studies)`,
+            (content_hash, species, breed, name, attributes, genome_text, fetched_at, use_for_studies, study_usable)
+            VALUES ($hash, $species, $breed, $name, $attributes, $genome, $ts, $use_for_studies, $study_usable)`,
       params: {
         hash: row.content_hash,
         species: normalized,
@@ -736,11 +744,11 @@ export async function refreshStudyCorpus(
         genome: row.genome_text,
         ts,
         use_for_studies: previouslyExcluded.has(row.content_hash) ? 0 : 1,
+        study_usable: row.study_usable,
       },
     })),
   ];
   await getDb().transaction(statements);
-  cached = rows.length;
   // The corpus just changed under the memoised magnitudes, and a refresh is
   // the one event that can *revise* a finding rather than only add one: an
   // uploader's correction replaces the reading a magnitude was deduced from.
@@ -753,8 +761,8 @@ export async function refreshStudyCorpus(
 /** How much community evidence is cached, and when it was last pulled. */
 export async function studyCorpusStatus(species: string): Promise<{ cached: number; fetchedAt: string | null }> {
   const rows = await getDb().select<Array<{ content_hash: string; fetched_at: string }>>(
-    'SELECT content_hash, fetched_at FROM study_corpus WHERE species = $species',
-    { species: normalizeSpecies(species) },
+    'SELECT content_hash, fetched_at FROM study_corpus WHERE species = $species AND study_usable = $usable',
+    { species: normalizeSpecies(species), usable: 1 },
   );
   let latest: string | null = null;
   for (const row of rows) if (latest === null || row.fetched_at > latest) latest = row.fetched_at;
@@ -803,8 +811,8 @@ export async function listExcludedSubjects(species: string): Promise<Array<{ sub
   const normalized = normalizeSpecies(species);
   const db = getDb();
   const cached = await db.select<Array<{ content_hash: string; name: string }>>(
-    'SELECT content_hash, name FROM study_corpus WHERE species = $species AND use_for_studies = $off',
-    { species: normalized, off: 0 },
+    'SELECT content_hash, name FROM study_corpus WHERE species = $species AND use_for_studies = $off AND study_usable = $usable',
+    { species: normalized, off: 0, usable: 1 },
   );
   const local = (
     await db.select<Array<{ id: number; name: string; species: string }>>(
@@ -983,7 +991,7 @@ async function studyFingerprint(species: string): Promise<string> {
       `SELECT id, species, attributes_measured, breed, content_hash, use_for_studies, stabled, loci, loci_layout, ${ATTRIBUTE_KEYS.join(', ')} FROM pets`,
     ),
     db.select<Array<Record<string, unknown>>>(
-      'SELECT content_hash, species, name, breed, attributes, use_for_studies FROM study_corpus',
+      'SELECT content_hash, species, name, breed, attributes, use_for_studies, study_usable FROM study_corpus',
     ),
     db.select<Array<Record<string, unknown>>>(
       `SELECT animal_type, gene, dominant_attribute, dominant_sign, recessive_attribute, recessive_sign, breed
@@ -1026,7 +1034,13 @@ async function studyFingerprint(species: string): Promise<string> {
         'loci_layout',
         ...ATTRIBUTE_KEYS,
       ]),
-      summarise(cached, 'species', ['content_hash', 'name', 'breed', 'attributes', 'use_for_studies']),
+      // Rows the study cannot use are cached for the rarity baseline only, so
+      // they must not invalidate a solved table.
+      summarise(
+        cached.filter((r) => Number(r.study_usable ?? 1) === 1),
+        'species',
+        ['content_hash', 'name', 'breed', 'attributes', 'use_for_studies'],
+      ),
       summarise(genes, 'animal_type', [
         'gene',
         'dominant_attribute',

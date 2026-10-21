@@ -9,6 +9,8 @@
  */
 
 import { normalizeSpecies } from '#lib/services/configService.js';
+import { getDb } from '#lib/services/database.js';
+import { parseGenome } from '#lib/services/genomeParser.js';
 import { GeneType, type Pet } from '#lib/types/index.js';
 import {
   type Allele,
@@ -71,10 +73,18 @@ export interface RarityLookup {
 }
 
 /**
- * Which of your pets a baseline is measured over. `community` is deferred — it
- * needs a precomputed aggregate rather than fetching every shared genome.
+ * What a baseline is measured over: the stabled pets, every local pet, or the
+ * shared catalogue as cached in `study_corpus` (#463).
  */
-export type RarityTier = 'stabled' | 'all';
+export type RarityTier = 'stabled' | 'all' | 'community';
+
+/**
+ * A tier resolved to its members. The local tiers are a set of pets; the
+ * community tier is the cache, read inside the service, so it carries none.
+ */
+export type RarityPopulation =
+  | { readonly tier: 'stabled' | 'all'; readonly pets: readonly Pet[] }
+  | { readonly tier: 'community' };
 
 /**
  * Resolve a tier to the pets it means.
@@ -85,8 +95,20 @@ export type RarityTier = 'stabled' | 'all';
  * populations while showing the same label. Species scoping happens later, in
  * `computeRarityLookup`.
  */
-export function petsForTier(tier: RarityTier, pets: readonly Pet[]): readonly Pet[] {
-  return tier === 'stabled' ? pets.filter((pet) => pet.stabled) : pets;
+export function populationForTier(tier: RarityTier, pets: readonly Pet[]): RarityPopulation {
+  if (tier === 'community') return { tier };
+  return { tier, pets: tier === 'stabled' ? pets.filter((pet) => pet.stabled) : pets };
+}
+
+/** Build (or reuse) the baseline for `population`, scoped to `species`. */
+export function loadRarityLookup(
+  population: RarityPopulation,
+  species: string,
+  opts: RarityOptions = {},
+): Promise<RarityLookup> {
+  return population.tier === 'community'
+    ? computeCommunityRarityLookup(species, opts)
+    : computeRarityLookup(population.pets, species, opts);
 }
 
 /**
@@ -162,8 +184,8 @@ function buildLookup(
  * missing both produce identical per-locus tallies. `?` is not a reading, so
  * it does not count as known.
  */
-function partialPetCount(lociByPet: ReadonlyMap<number, PetLoci>): number {
-  const known = [...lociByPet.values()].map((loci) => {
+function partialPetCount(population: Iterable<PetLoci>): number {
+  const known = [...population].map((loci) => {
     let count = 0;
     for (const type of loci.values()) if (type !== GeneType.UNKNOWN) count++;
     return count;
@@ -223,5 +245,56 @@ export async function computeRarityLookup(
   // per locus across the IPC boundary; with one loci string per pet there is
   // nothing large to ship.
   const loci = computeLocusFrequencies(lociByPet.values());
-  return remember(cacheId, buildLookup(key, lociByPet.size, partialPetCount(lociByPet), loci, opts));
+  return remember(cacheId, buildLookup(key, lociByPet.size, partialPetCount(lociByPet.values()), loci, opts));
+}
+
+/**
+ * Build (or reuse) the baseline over the shared catalogue for one species.
+ *
+ * Reads the local cache that `refreshStudyCorpus` fills, never Firestore: one
+ * scan of the catalogue per refresh is the quota cost the cache already pays,
+ * and a baseline that fetched on open would pay it again on every view (§3).
+ * The cache holds one row per content hash, and the refresh keeps the newest
+ * record for each (`dedupeLatest`), so an animal with corrections appended
+ * counts once (#466).
+ *
+ * Every cached genome counts, including ones the study cannot use and ones
+ * the player excluded from the study: both rules are about attribute
+ * readings, and rarity reads only the genome. The player's own pets are in
+ * the population only if they uploaded them — the tier is "rare among shared
+ * pets", not a merge of the two.
+ *
+ * Keyed on the cached rows' hashes and fetch time, read without the genomes,
+ * so a cache hit costs one small query and a refresh is picked up on the next
+ * open without an explicit invalidation.
+ */
+export async function computeCommunityRarityLookup(species: string, opts: RarityOptions = {}): Promise<RarityLookup> {
+  const key = normalizeSpecies(species);
+  const db = getDb();
+  const index = await db.select<Array<{ content_hash: string; fetched_at: string }>>(
+    'SELECT content_hash, fetched_at FROM study_corpus WHERE species = $species',
+    { species: key },
+  );
+  const version = index
+    .map((row) => `${row.content_hash}@${row.fetched_at}`)
+    .sort()
+    .join(',');
+  const cacheId = `community|${cacheKey(key, [], opts)}|${version}`;
+  const cached = cache.get(cacheId);
+  if (cached) return cached;
+
+  const rows = await db.select<Array<{ genome_text: string }>>(
+    'SELECT genome_text FROM study_corpus WHERE species = $species',
+    { species: key },
+  );
+  const population: PetLoci[] = [];
+  for (const row of rows) {
+    const loci: PetLoci = new Map();
+    for (const [chromosome, genes] of Object.entries(parseGenome(row.genome_text).genes))
+      for (const gene of genes) loci.set(`${chromosome}${gene.block}${gene.position}`, gene.gene_type);
+    if (loci.size > 0) population.push(loci);
+  }
+  if (population.length === 0) return remember(cacheId, buildLookup(key, 0, 0, new Map(), opts));
+  const loci = computeLocusFrequencies(population);
+  return remember(cacheId, buildLookup(key, population.length, partialPetCount(population), loci, opts));
 }

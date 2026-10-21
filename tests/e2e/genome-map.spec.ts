@@ -214,6 +214,16 @@ test.describe('Genome map', () => {
     expect(await rect()).toEqual(before);
   });
 
+  test('the Community baseline explains an empty cache instead of painting the map common', async ({ page }) => {
+    // The browser build never fetches the catalogue, so the cache is empty:
+    // the map must say why nothing is scored, not show a flat genome.
+    await selectSpecies(page, 'horse');
+    await page.getByTestId('map-pop-community').click();
+    await expect(page.getByTestId('map-pop-community')).toHaveClass(/active/);
+    await expect(page.getByTestId('map-community-empty')).toContainText('No shared Horses cached');
+    expect(await colouredCells(page)).toBe(0);
+  });
+
   test('is reachable and navigable by keyboard', async ({ page }) => {
     // The map is the one surface where allele frequencies are readable without a
     // pet, so a keyboard user losing access to it loses the data entirely.

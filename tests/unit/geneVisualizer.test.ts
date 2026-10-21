@@ -2,6 +2,7 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup, render, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { RarityPopulation } from '#lib/services/frequencyService.js';
 import type { Pet } from '#lib/types/index.js';
 import { genomeTextToGrid } from '#lib/utils/genomeGrid.js';
 
@@ -31,7 +32,7 @@ const mocks = vi.hoisted(() => {
     defer: false,
   };
   const rarityResolvers: Array<() => void> = [];
-  const computeRarityLookup = vi.fn((_pets: unknown, species: string) => {
+  const loadRarityLookup = vi.fn((_population: unknown, species: string) => {
     const lookup = {
       species: baseline.species ?? String(species).toLowerCase(),
       petCount: baseline.petCount,
@@ -54,14 +55,14 @@ const mocks = vi.hoisted(() => {
     effects,
     getGeneEffectsCached,
     baseline,
-    computeRarityLookup,
+    loadRarityLookup,
     rarityResolvers,
   };
 });
 
 vi.mock('#lib/services/petService.js', () => ({ loadPetGridFromDb: mocks.loadPetGridFromDb }));
 vi.mock('#lib/services/geneService.js', () => ({ getGeneEffectsCached: mocks.getGeneEffectsCached }));
-vi.mock('#lib/services/frequencyService.js', () => ({ computeRarityLookup: mocks.computeRarityLookup }));
+vi.mock('#lib/services/frequencyService.js', () => ({ loadRarityLookup: mocks.loadRarityLookup }));
 const explainQuality = vi.hoisted(() => vi.fn());
 vi.mock('#lib/services/geneticQualityService.js', () => ({ explainQuality }));
 
@@ -87,7 +88,7 @@ afterEach(() => {
   mocks.rarityResolvers.length = 0;
   mocks.loadPetGridFromDb.mockClear();
   mocks.getGeneEffectsCached.mockClear();
-  mocks.computeRarityLookup.mockClear();
+  mocks.loadRarityLookup.mockClear();
   mocks.effects.value = {};
   mocks.baseline.petCount = 30;
   mocks.baseline.partialPets = 0;
@@ -135,7 +136,7 @@ describe('GeneVisualizer rarity readiness', () => {
 
   /** Render, land the grid, and switch into the rarity view. */
   async function openRarity(pet: Pet) {
-    const rendered = render(GeneVisualizer, { pet, populationPets: [] });
+    const rendered = render(GeneVisualizer, { pet, population: { tier: 'all', pets: [] } });
     await waitFor(() => expect(mocks.loadPetGridFromDb).toHaveBeenCalledWith(pet.id));
     mocks.gridResolvers.get(pet.id)?.(gridText('1=D\n2=x\n'));
     (rendered.component as unknown as { handleViewChange: (v: string) => void }).handleViewChange('rarity');
@@ -147,7 +148,7 @@ describe('GeneVisualizer rarity readiness', () => {
     mocks.baseline.defer = true;
     const { container } = await openRarity(makePet({ id: 1 }));
 
-    await waitFor(() => expect(mocks.computeRarityLookup).toHaveBeenCalled());
+    await waitFor(() => expect(mocks.loadRarityLookup).toHaveBeenCalled());
     // Cells read as missing data rather than falling through to bucket 0, which
     // would assert that nothing in the collection is scarce.
     expect(container.querySelector('.gene-grid-container.rarity-unscored')).not.toBeNull();
@@ -164,7 +165,7 @@ describe('GeneVisualizer rarity readiness', () => {
     mocks.baseline.species = 'horse';
     const { container } = await openRarity(makePet({ id: 2, species: 'BeeWasp' }));
 
-    await waitFor(() => expect(mocks.computeRarityLookup).toHaveBeenCalled());
+    await waitFor(() => expect(mocks.loadRarityLookup).toHaveBeenCalled());
     await tick();
     expect(container.querySelector('.gene-grid-container.rarity-unscored')).not.toBeNull();
     expect(sheet()).toBe('');
@@ -184,9 +185,9 @@ describe('GeneVisualizer rarity readiness', () => {
 // leave the exact per-locus figure to the tooltip, where it can be right.
 describe('GeneVisualizer rarity baseline legend', () => {
   /** Render, resolve the grid load, and switch into the rarity view. */
-  async function openRarityView(partialPets: number) {
+  async function openRarityView(partialPets: number, population: RarityPopulation = { tier: 'all', pets: [] }) {
     mocks.baseline.partialPets = partialPets;
-    const rendered = render(GeneVisualizer, { pet: makePet({ id: 1 }), populationPets: [] });
+    const rendered = render(GeneVisualizer, { pet: makePet({ id: 1 }), population });
     await waitFor(() => expect(mocks.loadPetGridFromDb).toHaveBeenCalledWith(1));
     mocks.gridResolvers.get(1)?.(gridText('1=D\n'));
     (rendered.component as unknown as { handleViewChange: (v: string) => void }).handleViewChange('rarity');
@@ -213,6 +214,22 @@ describe('GeneVisualizer rarity baseline legend', () => {
     // A flag on an even population would be noise on most collections.
     expect(baselineText(container)).not.toContain('less deeply');
     expect(container.querySelector('.rarity-coverage')).toBeNull();
+  });
+
+  it('names a community baseline as shared animals', async () => {
+    const { container } = await openRarityView(0, { tier: 'community' });
+    await waitFor(() => expect(baselineText(container)).toContain('30 shared Horses'));
+  });
+
+  it('points to the Study tab when no shared animals are cached', async () => {
+    mocks.baseline.petCount = 0;
+    try {
+      const { container } = await openRarityView(0, { tier: 'community' });
+      await waitFor(() => expect(baselineText(container)).toContain('No shared Horses cached'));
+      expect(baselineText(container)).toContain('Study tab');
+    } finally {
+      mocks.baseline.petCount = 30;
+    }
   });
 });
 

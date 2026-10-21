@@ -12,7 +12,7 @@ import GenomeMap from '#lib/components/gene/GenomeMap.svelte';
 import BreedSelector from '#lib/components/shared/BreedSelector.svelte';
 import EmptyState from '#lib/components/shared/EmptyState.svelte';
 import { normalizeSpecies } from '#lib/services/configService.js';
-import { petsForTier, type RarityTier } from '#lib/services/frequencyService.js';
+import { populationForTier, type RarityTier } from '#lib/services/frequencyService.js';
 import * as geneService from '#lib/services/geneService.js';
 import { pets as allPets, appState, geneEditingView } from '#lib/stores/pets.js';
 import { referenceView } from '#lib/stores/reference.svelte.js';
@@ -45,7 +45,7 @@ let rarityPopulation = $state<RarityTier>('all');
 
 const speciesKey = $derived(normalizeSpecies(selectedAnimalType));
 const breedsForSpecies = $derived(speciesKey ? BREEDS_BY_SPECIES[speciesKey] : undefined);
-const populationPets = $derived(petsForTier(rarityPopulation, $allPets));
+const population = $derived(populationForTier(rarityPopulation, $allPets));
 
 // A breed only means something within its own species.
 $effect(() => {
@@ -167,7 +167,7 @@ $effect(() => {
             class:active={referenceView.lens === 'rarity'}
             aria-pressed={referenceView.lens === 'rarity'}
             data-testid="map-lens-rarity"
-            title="Shade each gene by how rare its values are across your pets"
+            title="Shade each gene by how rare its values are across the baseline"
             onclick={() => { referenceView.lens = 'rarity'; }}
           >Rarity</button>
           <button
@@ -183,7 +183,7 @@ $effect(() => {
             class:active={referenceView.lens === 'never'}
             aria-pressed={referenceView.lens === 'never'}
             data-testid="map-lens-never"
-            title="Show only the alleles none of your pets carry — what to look for before a capture"
+            title="Show only the alleles no animal in the baseline carries — what to look for before a capture"
             onclick={() => { referenceView.lens = 'never'; }}
           >Never seen</button>
         </div>
@@ -192,7 +192,7 @@ $effect(() => {
         <div class="ref-field">
           <span>Hide</span>
           <span class="ref-checks">
-            <label class="ref-check-row" title="Show only the chromosomes that have an allele none of your pets carry">
+            <label class="ref-check-row" title="Show only the chromosomes that have an allele no animal in the baseline carries">
               <input type="checkbox" bind:checked={referenceView.hideSeenChromosomes} data-testid="map-hide-seen" />
               Fully seen chromosomes
             </label>
@@ -219,7 +219,13 @@ $effect(() => {
             data-testid="map-pop-all"
             onclick={() => { rarityPopulation = 'all'; }}
           >All my pets</button>
-          <button class="seg-btn" disabled title="Needs a shared aggregate — not yet available">Community · soon</button>
+          <button
+            class="seg-btn"
+            class:active={rarityPopulation === 'community'}
+            data-testid="map-pop-community"
+            title="The shared catalogue as last fetched in the Study tab: rare among uploaded pets"
+            onclick={() => { rarityPopulation = 'community'; }}
+          >Community</button>
         </div>
       </div>
       {/if}
@@ -253,7 +259,7 @@ $effect(() => {
     {:else if selectedAnimalType}
       <GenomeMap
         species={selectedAnimalType}
-        {populationPets}
+        {population}
         {breedFilter}
         lens={referenceView.lens}
         hideSeenChromosomes={referenceView.hideSeenChromosomes}

@@ -1,6 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { closeDatabase, initDatabase } from '#lib/services/database.js';
-import { computeRarityLookup, invalidateRarityCache, petsForTier } from '#lib/services/frequencyService.js';
+import { closeDatabase, getDb, initDatabase } from '#lib/services/database.js';
+import {
+  computeCommunityRarityLookup,
+  computeRarityLookup,
+  invalidateRarityCache,
+  loadRarityLookup,
+  populationForTier,
+} from '#lib/services/frequencyService.js';
 import { runMigrations } from '#lib/services/migrationService.js';
 import * as petService from '#lib/services/petService.js';
 import { GeneType, type Pet } from '#lib/types/index.js';
@@ -363,29 +369,38 @@ describe('a pet with no usable gene projection', () => {
   });
 });
 
-describe('petsForTier', () => {
+describe('populationForTier', () => {
   const roster = [
     { id: 1, stabled: true },
     { id: 2, stabled: false },
     { id: 3, stabled: true },
   ] as unknown as Pet[];
+  const pets = (tier: 'stabled' | 'all', list: Pet[]): readonly Pet[] => {
+    const population = populationForTier(tier, list);
+    if (population.tier === 'community') throw new Error('expected a local tier');
+    return population.pets;
+  };
 
   it('keeps only stabled pets for the stabled tier', () => {
-    expect(petsForTier('stabled', roster).map((p) => p.id)).toEqual([1, 3]);
+    expect(pets('stabled', roster).map((p) => p.id)).toEqual([1, 3]);
   });
 
   it('returns the whole roster for the all tier, untouched', () => {
-    expect(petsForTier('all', roster)).toBe(roster);
+    expect(pets('all', roster)).toBe(roster);
   });
 
   it('does not mutate the roster it was given', () => {
-    petsForTier('stabled', roster);
+    pets('stabled', roster);
     expect(roster).toHaveLength(3);
   });
 
   it('treats a missing stabled flag as not stabled rather than throwing', () => {
     const partial = [{ id: 9 }] as unknown as Pet[];
-    expect(petsForTier('stabled', partial)).toEqual([]);
+    expect(pets('stabled', partial)).toEqual([]);
+  });
+
+  it('carries no pets for the community tier: the cache is the population', () => {
+    expect(populationForTier('community', roster)).toEqual({ tier: 'community' });
   });
 });
 
@@ -430,5 +445,96 @@ describe('baseline caching', () => {
 
     expect(second).not.toBe(first);
     expect(second.tally('01A1')).toEqual(first.tally('01A1'));
+  });
+});
+
+describe('computeCommunityRarityLookup', () => {
+  beforeEach(async () => {
+    await closeDatabase();
+    await initDatabase();
+    await runMigrations();
+    invalidateRarityCache();
+  });
+
+  async function cache(
+    hash: string,
+    species: string,
+    genes: string,
+    extra: { fetchedAt?: string; usable?: number; useForStudies?: number } = {},
+  ): Promise<void> {
+    await getDb().execute(
+      `INSERT OR REPLACE INTO study_corpus
+         (content_hash, species, breed, name, attributes, genome_text, fetched_at, use_for_studies, study_usable)
+       VALUES ($hash, $species, $breed, $name, $attributes, $genome, $ts, $use, $usable)`,
+      {
+        hash,
+        species,
+        breed: '',
+        name: hash,
+        attributes: '{}',
+        genome: genome(species === 'beewasp' ? 'BeeWasp' : 'Horse', hash, genes),
+        ts: extra.fetchedAt ?? '2026-10-01T00:00:00.000Z',
+        use: extra.useForStudies ?? 1,
+        usable: extra.usable ?? 1,
+      },
+    );
+  }
+
+  it('tallies the cached genomes of one species only', async () => {
+    await cache('h1', 'horse', 'DDx');
+    await cache('h2', 'horse', 'DRx');
+    await cache('b1', 'beewasp', 'RRR');
+
+    const lookup = await computeCommunityRarityLookup('Horse');
+
+    expect(lookup.petCount).toBe(2);
+    expect(lookup.tally('01A1')).toEqual({ knownPets: 2, pureD: 2, pureR: 0, mixed: 0 });
+    expect(lookup.tally('01A2')).toEqual({ knownPets: 2, pureD: 1, pureR: 1, mixed: 0 });
+    expect(lookup.tally('01A3')).toEqual({ knownPets: 2, pureD: 0, pureR: 0, mixed: 2 });
+  });
+
+  it('counts genomes the study cannot use or was told to skip: rarity reads only the genome', async () => {
+    await cache('h1', 'horse', 'DDD');
+    await cache('h2', 'horse', 'RRR', { usable: 0 });
+    await cache('h3', 'horse', 'RRR', { useForStudies: 0 });
+
+    expect((await computeCommunityRarityLookup('Horse')).petCount).toBe(3);
+  });
+
+  it('leaves out local pets that were never shared', async () => {
+    await cache('h1', 'horse', 'DDD');
+    await upload('Horse', 'Local', 'RRR');
+
+    const lookup = await computeCommunityRarityLookup('Horse');
+
+    expect(lookup.petCount).toBe(1);
+    expect(lookup.tally('01A1').pureR).toBe(0);
+  });
+
+  it('is an empty baseline, not an error, when nothing is cached', async () => {
+    const lookup = await computeCommunityRarityLookup('Horse');
+    expect(lookup.petCount).toBe(0);
+    expect(lookup.measurable('01A1')).toBe(false);
+  });
+
+  it('picks up a refresh without an explicit invalidation', async () => {
+    await cache('h1', 'horse', 'DDD');
+    expect((await computeCommunityRarityLookup('Horse')).petCount).toBe(1);
+
+    await cache('h2', 'horse', 'RRR', { fetchedAt: '2026-10-02T00:00:00.000Z' });
+    expect((await computeCommunityRarityLookup('Horse')).petCount).toBe(2);
+  });
+
+  it('serves a repeat read from the cache', async () => {
+    await cache('h1', 'horse', 'DDD');
+    const first = await computeCommunityRarityLookup('Horse');
+    expect(await computeCommunityRarityLookup('Horse')).toBe(first);
+  });
+
+  it('is what loadRarityLookup returns for the community tier', async () => {
+    await cache('h1', 'horse', 'DDD');
+    await upload('Horse', 'Local', 'RRR');
+
+    expect((await loadRarityLookup({ tier: 'community' }, 'Horse')).petCount).toBe(1);
   });
 });

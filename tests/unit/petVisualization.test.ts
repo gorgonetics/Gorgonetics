@@ -236,14 +236,14 @@ describe('PetVisualization detail header', () => {
       expect(getByTestId('rarity-pop-all').classList.contains('active')).toBe(false);
     });
 
-    it('offers Community as a disabled affordance so the tiering stays legible', async () => {
-      const { container } = render(PetVisualization, { pet: makePet() });
+    it('offers Community as a working baseline', async () => {
+      const { container, getByTestId } = render(PetVisualization, { pet: makePet() });
       await fireEvent.click(btn(container, 'Rarity'));
-      const community = [...(q(container, '.rarity-population') as HTMLElement).querySelectorAll('button')].find((b) =>
-        b.textContent?.includes('Community'),
-      ) as HTMLButtonElement;
-      expect(community).toBeDefined();
-      expect(community.disabled).toBe(true);
+      const community = getByTestId('rarity-pop-community') as HTMLButtonElement;
+      expect(community.disabled).toBe(false);
+      await fireEvent.click(community);
+      expect(community.classList.contains('active')).toBe(true);
+      expect(getByTestId('rarity-pop-all').classList.contains('active')).toBe(false);
     });
 
     it('keeps the stats drawer MOUNTED in the rarity view — unmounting it resizes the grid', async () => {

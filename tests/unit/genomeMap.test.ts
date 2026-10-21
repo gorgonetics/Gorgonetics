@@ -32,7 +32,7 @@ const mocks = vi.hoisted(() => {
     bucketOf: () => 3,
   };
   const resolvers: Array<() => void> = [];
-  const computeRarityLookup = vi.fn((_pets: unknown, species: string) => {
+  const loadRarityLookup = vi.fn((_population: unknown, species: string) => {
     if (baseline.reject) return Promise.reject(new Error('pet_genes read failed'));
     const lookup = {
       species: baseline.species ?? String(species).toLowerCase(),
@@ -50,11 +50,11 @@ const mocks = vi.hoisted(() => {
       resolvers.push(() => resolve(lookup));
     });
   });
-  return { effects, getGeneEffectsCached, baseline, resolvers, computeRarityLookup };
+  return { effects, getGeneEffectsCached, baseline, resolvers, loadRarityLookup };
 });
 
 vi.mock('#lib/services/geneService.js', () => ({ getGeneEffectsCached: mocks.getGeneEffectsCached }));
-vi.mock('#lib/services/frequencyService.js', () => ({ computeRarityLookup: mocks.computeRarityLookup }));
+vi.mock('#lib/services/frequencyService.js', () => ({ loadRarityLookup: mocks.loadRarityLookup }));
 
 import GenomeMap from '#lib/components/gene/GenomeMap.svelte';
 
@@ -77,7 +77,7 @@ afterEach(() => {
   cleanup();
   mocks.resolvers.length = 0;
   mocks.getGeneEffectsCached.mockClear();
-  mocks.computeRarityLookup.mockClear();
+  mocks.loadRarityLookup.mockClear();
   mocks.effects.value = {};
   mocks.baseline.species = null;
   mocks.baseline.defer = false;
@@ -95,7 +95,7 @@ async function renderMap(
 ) {
   mocks.effects.value.horse = template;
   mocks.effects.value.beewasp = template;
-  const rendered = render(GenomeMap, { species, populationPets: [], lens, ...extra });
+  const rendered = render(GenomeMap, { species, population: { tier: 'all', pets: [] }, lens, ...extra });
   await waitFor(() => expect(rendered.container.querySelector('[data-testid="genome-map-grid"]')).not.toBeNull());
   return rendered;
 }
@@ -118,7 +118,7 @@ describe('GenomeMap baseline readiness', () => {
     mocks.baseline.species = 'horse';
     const { container } = await renderMap('BeeWasp');
 
-    await waitFor(() => expect(mocks.computeRarityLookup).toHaveBeenCalled());
+    await waitFor(() => expect(mocks.loadRarityLookup).toHaveBeenCalled());
     expect(container.querySelector('.gene-grid-container.rarity-unscored')).not.toBeNull();
     expect(sheet()).toBe('');
   });
@@ -153,7 +153,7 @@ describe('GenomeMap baseline failure', () => {
     mocks.baseline.reject = false;
     await rerender({
       species: 'Horse',
-      populationPets: [{ id: 1, species: 'Horse', stabled: true } as unknown as Pet],
+      population: { tier: 'all', pets: [{ id: 1, species: 'Horse', stabled: true } as unknown as Pet] },
     });
 
     await waitFor(() => expect(container.querySelector('[data-testid="map-baseline-error"]')).toBeNull());

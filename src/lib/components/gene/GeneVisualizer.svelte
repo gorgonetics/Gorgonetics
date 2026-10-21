@@ -12,7 +12,7 @@ import {
   getAttributeMatcher,
   normalizeSpecies,
 } from '#lib/services/configService.js';
-import { computeRarityLookup, type RarityLookup } from '#lib/services/frequencyService.js';
+import { loadRarityLookup, type RarityLookup, type RarityPopulation } from '#lib/services/frequencyService.js';
 import { getGeneEffectsCached } from '#lib/services/geneService.js';
 import { explainQuality } from '#lib/services/geneticQualityService.js';
 import { loadPetGridFromDb } from '#lib/services/petService.js';
@@ -102,10 +102,10 @@ interface Props {
   gridOverride?: Record<string, ParsedChromosome> | null;
   /**
    * Population the rarity baseline is computed over (rarity view only).
-   * Owned by the parent so the Stabled / All-my-pets toggle lives with the
-   * other view controls. Filtered to the viewed pet's species internally.
+   * Owned by the parent so the baseline toggle lives with the other view
+   * controls. Filtered to the viewed pet's species internally.
    */
-  populationPets?: readonly Pet[];
+  population?: RarityPopulation;
 }
 
 /**
@@ -166,7 +166,7 @@ interface HeaderStructure {
   blockMaxGenes: Map<string, number>;
 }
 
-const { pet, gridOverride = null, populationPets = [] }: Props = $props();
+const { pet, gridOverride = null, population = { tier: 'all', pets: [] } }: Props = $props();
 
 let loading = $state(false);
 let error = $state<string | null>(null);
@@ -333,11 +333,11 @@ onDestroy(() => {
 $effect(() => {
   if (currentView !== 'rarity' || !currentPet) return;
   const species = currentPet.species;
-  const pets = populationPets;
+  const pop = population;
   const mine = ++raritySeq;
   rarityLoading = true;
   rarityError = null;
-  computeRarityLookup(pets, species)
+  loadRarityLookup(pop, species)
     .then((lookup) => {
       if (mine !== raritySeq) return;
       rarityLookup = lookup;
@@ -1508,7 +1508,13 @@ const blockIndices = $derived.by(() => {
                                              single number here is right for every cell. The
                                              exact per-locus figure belongs in the tooltip,
                                              where it can be. -->
-                                        baseline: {pluralise(rarityLookup.petCount, capitalize(currentPet?.species ?? "pet"))}
+                                        {#if population.tier === "community" && rarityLookup.petCount === 0}
+                                            No shared {capitalize(currentPet?.species ?? "pet")}s cached · fetch them in the Study tab
+                                        {:else if population.tier === "community"}
+                                            baseline: {pluralise(rarityLookup.petCount, `shared ${capitalize(currentPet?.species ?? "pet")}`)}
+                                        {:else}
+                                            baseline: {pluralise(rarityLookup.petCount, capitalize(currentPet?.species ?? "pet"))}
+                                        {/if}
                                         {#if rarityLookup.partialPets > 0}
                                             <span
                                                 class="rarity-coverage"
