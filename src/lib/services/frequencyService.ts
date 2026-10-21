@@ -10,6 +10,7 @@
 
 import { normalizeSpecies } from '#lib/services/configService.js';
 import { getDb } from '#lib/services/database.js';
+import { localGenomesRevision } from '#lib/services/petService.js';
 import { cachedByOlderBuild, corpusLoci } from '#lib/services/studyCorpus.js';
 import { GeneType, type Pet } from '#lib/types/index.js';
 import {
@@ -167,19 +168,10 @@ function remember(key: string, lookup: RarityLookup): RarityLookup {
 const COMMUNITY_KEY = 'community|';
 
 /**
- * Drop every cached baseline over local pets. Call when pets are added, edited
- * or removed. Community baselines stay: they are built from the shared cache,
- * not from pets, and their key already changes when a refresh rewrites it.
- */
-export function invalidateRarityCache(): void {
-  for (const key of [...cache.keys()]) if (!key.startsWith(COMMUNITY_KEY)) cache.delete(key);
-}
-
-/**
- * Drop every cached baseline, community ones included. For when the database
- * itself is replaced under the cache — tests that reset it between cases. The
- * community key cannot see that: a fresh cache with the same row count and
- * fetch time would read as unchanged.
+ * Drop every cached baseline. Nothing in the app needs it: every key changes
+ * with what its baseline was built from — the id set and genome revision for
+ * local tiers, the row count and fetch time for the community one. It is for
+ * tests that replace the database between cases, which no key can see.
  */
 export function resetRarityCache(): void {
   cache.clear();
@@ -244,7 +236,9 @@ export async function computeRarityLookup(
   const key = normalizeSpecies(species);
   const petIds = pets.filter((p) => normalizeSpecies(p.species) === key).map((p) => p.id);
 
-  const cacheId = cacheKey(key, petIds, opts);
+  // The genome revision covers the one change the id set cannot see: a pet's
+  // genome written in place, by a backfill or a repair (`localGenomesRevision`).
+  const cacheId = `${cacheKey(key, petIds, opts)}|g${localGenomesRevision()}`;
   const cached = cache.get(cacheId);
   if (cached) return cached;
 
@@ -258,7 +252,7 @@ export async function computeRarityLookup(
   // count and the frequencies' denominator are the same set. Keyed on the
   // *requested* ids, though — projecting first would cost a DB round trip on
   // every cache hit — so recovery from a transient write failure comes from
-  // `invalidateRarityCache`, which `appState.loadPets` calls.
+  // the genome revision in the key, which the repair bumps.
   //
   // `loadAllPetLoci` omits a pet with no usable genome (malformed, or a
   // failed write). Counting it in the population would divide by a pet that

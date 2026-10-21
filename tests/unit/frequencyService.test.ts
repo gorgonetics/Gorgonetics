@@ -3,7 +3,6 @@ import { closeDatabase, getDb, initDatabase } from '#lib/services/database.js';
 import {
   computeCommunityRarityLookup,
   computeRarityLookup,
-  invalidateRarityCache,
   loadRarityLookup,
   populationForTier,
   resetRarityCache,
@@ -80,7 +79,7 @@ describe('computeRarityLookup', () => {
     expect(lookup.measurable('01A1')).toBe(false);
     expect(lookup.bucketOf('01A1', D)).toBeNull();
 
-    // No `invalidateRarityCache()` between these two calls, deliberately: the
+    // No `resetRarityCache()` between these two calls, deliberately: the
     // options are part of the cache key, so the relaxed request must not be
     // served the strict baseline. Needing to clear the cache here was the shape
     // of the bug.
@@ -437,16 +436,28 @@ describe('baseline caching', () => {
     expect(pair.petCount).toBe(2);
   });
 
-  it('drops everything on invalidate, so an edited pet cannot serve a stale baseline', async () => {
+  it('keeps the baseline across a pet edit: nothing an edit can change feeds it', async () => {
     const a = await upload('Horse', 'H1', 'DDD');
     const b = await upload('Horse', 'H2', 'DRD');
     const first = await computeRarityLookup([a, b], 'Horse');
 
-    invalidateRarityCache();
+    await petService.updatePet(a.id, { name: 'Renamed', intelligence: 70, breed: 'Kurbone' });
+    expect(await computeRarityLookup([a, b], 'Horse')).toBe(first);
+  });
+
+  it('rebuilds when a genome is written in place under the same id', async () => {
+    // The loci repair turns a pet with no usable genome into one with a genome,
+    // without changing the id set the key is built from.
+    const a = await upload('Horse', 'H1', 'DDD');
+    const b = await upload('Horse', 'H2', 'DRD');
+    const first = await computeRarityLookup([a, b], 'Horse');
+
+    await getDb().execute('UPDATE pets SET loci = $empty WHERE id = $id', { empty: '', id: b.id });
+    expect(await petService.ensurePetLociPopulated(b.id)).toBe(true);
     const second = await computeRarityLookup([a, b], 'Horse');
 
     expect(second).not.toBe(first);
-    expect(second.tally('01A1')).toEqual(first.tally('01A1'));
+    expect(second.tally('01A2')).toEqual(first.tally('01A2'));
   });
 });
 
@@ -604,10 +615,13 @@ describe('computeCommunityRarityLookup', () => {
     expect((await computeCommunityRarityLookup('Horse')).tally('01A1')).toMatchObject({ pureD: 0, pureR: 1 });
   });
 
-  it('keeps the community baseline when pet changes invalidate the local ones', async () => {
+  it('keeps the community baseline when a local genome is repaired', async () => {
     await cacheEncoded('h1', 'DDD');
+    const local = await upload('Horse', 'Local', 'RRR');
     const first = await computeCommunityRarityLookup('Horse');
-    invalidateRarityCache();
+
+    await getDb().execute('UPDATE pets SET loci = $empty WHERE id = $id', { empty: '', id: local.id });
+    await petService.ensurePetLociPopulated(local.id);
     expect(await computeCommunityRarityLookup('Horse')).toBe(first);
   });
 

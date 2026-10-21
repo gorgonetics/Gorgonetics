@@ -60,6 +60,22 @@ export function localPetsAdded(): number {
   return rosterAdditions;
 }
 
+/**
+ * Counts genomes written in place under an existing pet id: the legacy
+ * `genome_text` backfill on re-import, and the `loci` repair.
+ *
+ * A genome cannot be edited, so every other roster change adds or removes ids,
+ * and a cache keyed on the id set sees it. These two can turn a pet that had
+ * no usable genome into one that has, under the same id. The rarity baselines
+ * read this rather than being cleared on every pet edit.
+ */
+let genomeRevision = 0;
+
+/** Current in-place genome write count; see `genomeRevision`. */
+export function localGenomesRevision(): number {
+  return genomeRevision;
+}
+
 /** A parsed genome's loci as `gene id → genotype` entries, in file order. */
 function genomeEntries(genome: Genome): Array<[string, string]> {
   const entries: Array<[string, string]> = [];
@@ -239,6 +255,7 @@ export async function ensurePetLociPopulated(petId: number): Promise<boolean> {
     console.warn(`ensurePetLociPopulated: failed for pet ${petId}`, e);
     return false;
   }
+  genomeRevision++;
   return true;
 }
 
@@ -657,6 +674,7 @@ export async function uploadPet(content: string, options: UploadPetOptions = {})
       // A backfilled genome can make an animal studyable that was not, so
       // anything caching a study result has to re-solve.
       rosterRevision++;
+      genomeRevision++;
       // Record the ledger entry so the auto-scanner skips this file on
       // future passes — without it the next scan would re-pick the same
       // file, hit the now-NOT-EMPTY genome_text branch below, and report
