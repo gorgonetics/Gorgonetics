@@ -1,9 +1,9 @@
 import { derived, type Writable, writable } from 'svelte/store';
-import { invalidateRarityCache } from '$lib/services/frequencyService.js';
-import type { UploadPetOptions } from '$lib/services/petService.js';
-import * as petService from '$lib/services/petService.js';
-import type { Pet } from '$lib/types/index.js';
-import { errorMessage } from '$lib/utils/error.js';
+import { invalidateRarityCache } from '#lib/services/frequencyService.js';
+import type { UploadPetOptions } from '#lib/services/petService.js';
+import * as petService from '#lib/services/petService.js';
+import type { Pet } from '#lib/types/index.js';
+import { errorMessage } from '#lib/utils/error.js';
 
 export type Tab = 'mypets' | 'breed' | 'study' | 'community' | 'reference';
 

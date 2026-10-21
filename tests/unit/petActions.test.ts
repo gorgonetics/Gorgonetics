@@ -2,7 +2,7 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte';
 import { get } from 'svelte/store';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { Pet } from '$lib/types/index.js';
+import type { Pet } from '#lib/types/index.js';
 
 // PetActions is the redesign's edit/delete affordance (icon variant for library
 // rows, button variant for the workspace header). Editing is a top-level
@@ -11,12 +11,12 @@ import type { Pet } from '$lib/types/index.js';
 // deleting via appState.deletePet (spied on here).
 
 const deletePet = vi.fn(async (_id: number) => {});
-vi.mock('$lib/stores/pets.js', () => ({
+vi.mock('#lib/stores/pets.js', () => ({
   appState: { deletePet: (id: number) => deletePet(id) },
 }));
 
-import PetActions from '$lib/components/shared/PetActions.svelte';
-import { editingPet } from '$lib/stores/ui.js';
+import PetActions from '#lib/components/shared/PetActions.svelte';
+import { editingPet } from '#lib/stores/ui.js';
 
 const pet = { id: 7, name: 'Dobbin' } as Pet;
 

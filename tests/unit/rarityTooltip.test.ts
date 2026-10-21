@@ -5,13 +5,13 @@ import {
   isMeasurable,
   type LocusTally,
   rarityBucket,
-} from '$lib/utils/geneFrequency.js';
+} from '#lib/utils/geneFrequency.js';
 import {
   buildRarityTooltip,
   placeRarityTooltip,
   type RarityTooltipSource,
   rarityTooltipSize,
-} from '$lib/utils/rarityTooltip.js';
+} from '#lib/utils/rarityTooltip.js';
 
 /**
  * The rarity tooltip (#368, design §6).

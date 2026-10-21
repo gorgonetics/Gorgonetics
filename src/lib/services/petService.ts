@@ -2,14 +2,14 @@
  * Pet data service for Gorgonetics.
  */
 
-import type { GeneStatsEntry, GeneType, Genome, Pet } from '$lib/types/index.js';
-import { GENOME_FILE_MARKERS } from '$lib/types/index.js';
-import { fromGeneId, type ParsedChromosome, type ParsedGene, toGeneId } from '$lib/utils/geneAnalysis.js';
-import { sha256Hex } from '$lib/utils/hash.js';
-import { decodeLoci, encodeLoci } from '$lib/utils/lociCodec.js';
-import { ATTRIBUTE_KEYS } from '$lib/utils/sharedPet.js';
-import { capitalize } from '$lib/utils/string.js';
-import { now } from '$lib/utils/timestamp.js';
+import type { GeneStatsEntry, GeneType, Genome, Pet } from '#lib/types/index.js';
+import { GENOME_FILE_MARKERS } from '#lib/types/index.js';
+import { fromGeneId, type ParsedChromosome, type ParsedGene, toGeneId } from '#lib/utils/geneAnalysis.js';
+import { sha256Hex } from '#lib/utils/hash.js';
+import { decodeLoci, encodeLoci } from '#lib/utils/lociCodec.js';
+import { ATTRIBUTE_KEYS } from '#lib/utils/sharedPet.js';
+import { capitalize } from '#lib/utils/string.js';
+import { now } from '#lib/utils/timestamp.js';
 import { runBatchBackfill } from './backfill.js';
 import { getAttributeConfig, getDefaultValues, normalizeSpecies } from './configService.js';
 import { buildInClauseParams, getDb, type TxStatement, withTransaction } from './database.js';

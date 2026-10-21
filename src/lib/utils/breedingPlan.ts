@@ -28,7 +28,7 @@
  * planning is degenerate and a single option is returned.
  */
 
-import type { BreedingPairResult } from '$lib/types/index.js';
+import type { BreedingPairResult } from '#lib/types/index.js';
 
 export interface SuggestedPlan {
   /** The plan's pairs, in greedy pick order. Length is `min(slots, max matching)`. */

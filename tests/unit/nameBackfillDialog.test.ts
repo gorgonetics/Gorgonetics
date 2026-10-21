@@ -1,9 +1,9 @@
 import { cleanup, fireEvent, render } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import NameBackfillDialog from '$lib/components/mypets/NameBackfillDialog.svelte';
-import { appState, pets } from '$lib/stores/pets.js';
-import { settings, settingsActions } from '$lib/stores/settings.js';
-import type { Pet } from '$lib/types/index.js';
+import NameBackfillDialog from '#lib/components/mypets/NameBackfillDialog.svelte';
+import { appState, pets } from '#lib/stores/pets.js';
+import { settings, settingsActions } from '#lib/stores/settings.js';
+import type { Pet } from '#lib/types/index.js';
 
 const VALUES = {
   temperament: 60,

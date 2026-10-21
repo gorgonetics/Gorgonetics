@@ -1,10 +1,10 @@
 import { cleanup, fireEvent, render } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import BreedingPairTable from '$lib/components/breeding/BreedingPairTable.svelte';
-import { breedingView } from '$lib/stores/breeding.svelte.js';
-import type { BreedingPairResult, Pet } from '$lib/types/index.js';
-import { buildAttributeMagnitudes } from '$lib/utils/attributePoints.js';
-import type { AttributeStudy, StudyFinding } from '$lib/utils/attributeStudy.js';
+import BreedingPairTable from '#lib/components/breeding/BreedingPairTable.svelte';
+import { breedingView } from '#lib/stores/breeding.svelte.js';
+import type { BreedingPairResult, Pet } from '#lib/types/index.js';
+import { buildAttributeMagnitudes } from '#lib/utils/attributePoints.js';
+import type { AttributeStudy, StudyFinding } from '#lib/utils/attributeStudy.js';
 
 const pet = (over: Partial<Pet>): Pet =>
   ({

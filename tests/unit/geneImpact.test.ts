@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import type { ParsedGeneRecord } from '$lib/services/geneService.js';
-import { GeneType } from '$lib/types/index.js';
-import { type AttributeMagnitudes, EMPTY_MAGNITUDES } from '$lib/utils/attributePoints.js';
+import type { ParsedGeneRecord } from '#lib/services/geneService.js';
+import { GeneType } from '#lib/types/index.js';
+import { type AttributeMagnitudes, EMPTY_MAGNITUDES } from '#lib/utils/attributePoints.js';
 import {
   buildImpactCSS,
   buildImpactTooltip,
@@ -12,7 +12,7 @@ import {
   type SlotImpact,
   slotImpact,
   summarizeImpact,
-} from '$lib/utils/geneImpact.js';
+} from '#lib/utils/geneImpact.js';
 
 const gene = (over: Partial<ParsedGeneRecord> = {}): ParsedGeneRecord => ({
   dominantAttribute: 'toughness',

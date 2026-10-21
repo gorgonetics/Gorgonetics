@@ -1,11 +1,11 @@
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import FreeSlotsDialog from '$lib/components/mypets/FreeSlotsDialog.svelte';
-import { closeDatabase, getDb, initDatabase } from '$lib/services/database.js';
-import * as geneService from '$lib/services/geneService.js';
-import { runMigrations } from '$lib/services/migrationService.js';
-import * as petService from '$lib/services/petService.js';
-import { Gender, type Pet } from '$lib/types/index.js';
+import FreeSlotsDialog from '#lib/components/mypets/FreeSlotsDialog.svelte';
+import { closeDatabase, getDb, initDatabase } from '#lib/services/database.js';
+import * as geneService from '#lib/services/geneService.js';
+import { runMigrations } from '#lib/services/migrationService.js';
+import * as petService from '#lib/services/petService.js';
+import { Gender, type Pet } from '#lib/types/index.js';
 
 /**
  * The free-up-slots dialog.

@@ -72,5 +72,8 @@
   ],
   "author": "Javier Lopez Pena",
   "license": "MIT",
-  "packageManager": "pnpm@11.0.9"
+  "packageManager": "pnpm@11.0.9",
+  "imports": {
+    "#lib/*": "./src/lib/*"
+  }
 }

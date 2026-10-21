@@ -11,8 +11,8 @@
  * this module stays the single place that defines match semantics.
  */
 
-import { normalizeSpecies } from '$lib/services/configService.js';
-import type { Gender, SharedPet } from '$lib/types/index.js';
+import { normalizeSpecies } from '#lib/services/configService.js';
+import type { Gender, SharedPet } from '#lib/types/index.js';
 
 export interface SharedPetFilters {
   /** Search text, matched case-insensitively against name, owner (character/breeder) and species. Empty means "no search". */

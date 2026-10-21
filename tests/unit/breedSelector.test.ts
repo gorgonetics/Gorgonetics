@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render } from '@testing-library/svelte';
 import type { ComponentProps } from 'svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import BreedSelector from '$lib/components/shared/BreedSelector.svelte';
+import BreedSelector from '#lib/components/shared/BreedSelector.svelte';
 
 type Props = ComponentProps<typeof BreedSelector>;
 

@@ -15,25 +15,25 @@
  */
 import { onDestroy, onMount } from 'svelte';
 import './geneCell.css';
-import GeneTooltip from '$lib/components/gene/GeneTooltip.svelte';
-import EmptyState from '$lib/components/shared/EmptyState.svelte';
-import { normalizeSpecies } from '$lib/services/configService.js';
-import { computeRarityLookup, type RarityLookup } from '$lib/services/frequencyService.js';
-import { getGeneEffectsCached } from '$lib/services/geneService.js';
-import { loadGeneImpact, STUDYABLE_SPECIES, studyInputsKey } from '$lib/services/studyService.js';
-import { pets as petList } from '$lib/stores/pets.js';
-import { GeneType, type Pet } from '$lib/types/index.js';
-import { breedFor, effectFor, type GeneEffectData } from '$lib/utils/geneAnalysis.js';
-import { type Allele, SOLE_CARRIER_MIN_PETS } from '$lib/utils/geneFrequency.js';
-import { computeGeneCellSize } from '$lib/utils/geneGridCells.js';
-import { buildImpactCSS, buildImpactTooltip, maxAbsPoints, slotImpact } from '$lib/utils/geneImpact.js';
-import { buildGenomeMapGrid, type GenomeMapGrid } from '$lib/utils/genomeMapGrid.js';
-import { handleGridNavigation } from '$lib/utils/keyboard.js';
-import { keyedResource } from '$lib/utils/keyedResource.svelte.js';
-import { groupNeverSeenByChromosome, neverSeenAlleles, withDeclaredEffect } from '$lib/utils/neverSeen.js';
-import { buildRarityCSS, type RarityCell } from '$lib/utils/rarityCSS.js';
-import { buildRarityTooltip, placeRarityTooltip } from '$lib/utils/rarityTooltip.js';
-import { capitalize } from '$lib/utils/string.js';
+import GeneTooltip from '#lib/components/gene/GeneTooltip.svelte';
+import EmptyState from '#lib/components/shared/EmptyState.svelte';
+import { normalizeSpecies } from '#lib/services/configService.js';
+import { computeRarityLookup, type RarityLookup } from '#lib/services/frequencyService.js';
+import { getGeneEffectsCached } from '#lib/services/geneService.js';
+import { loadGeneImpact, STUDYABLE_SPECIES, studyInputsKey } from '#lib/services/studyService.js';
+import { pets as petList } from '#lib/stores/pets.js';
+import { GeneType, type Pet } from '#lib/types/index.js';
+import { breedFor, effectFor, type GeneEffectData } from '#lib/utils/geneAnalysis.js';
+import { type Allele, SOLE_CARRIER_MIN_PETS } from '#lib/utils/geneFrequency.js';
+import { computeGeneCellSize } from '#lib/utils/geneGridCells.js';
+import { buildImpactCSS, buildImpactTooltip, maxAbsPoints, slotImpact } from '#lib/utils/geneImpact.js';
+import { buildGenomeMapGrid, type GenomeMapGrid } from '#lib/utils/genomeMapGrid.js';
+import { handleGridNavigation } from '#lib/utils/keyboard.js';
+import { keyedResource } from '#lib/utils/keyedResource.svelte.js';
+import { groupNeverSeenByChromosome, neverSeenAlleles, withDeclaredEffect } from '#lib/utils/neverSeen.js';
+import { buildRarityCSS, type RarityCell } from '#lib/utils/rarityCSS.js';
+import { buildRarityTooltip, placeRarityTooltip } from '#lib/utils/rarityTooltip.js';
+import { capitalize } from '#lib/utils/string.js';
 
 interface Props {
   /** Animal type from the Reference toolbar, e.g. `Horse`. */

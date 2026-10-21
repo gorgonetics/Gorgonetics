@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { closeDatabase, getDb, initDatabase } from '$lib/services/database.js';
-import * as geneService from '$lib/services/geneService.js';
-import { explainQuality, safeCullSet, scoreStable } from '$lib/services/geneticQualityService.js';
-import { runMigrations } from '$lib/services/migrationService.js';
-import * as petService from '$lib/services/petService.js';
-import { Gender, type Pet } from '$lib/types/index.js';
-import { loadAllPetLoci, type PetLoci } from '$lib/utils/petLoci.js';
+import { closeDatabase, getDb, initDatabase } from '#lib/services/database.js';
+import * as geneService from '#lib/services/geneService.js';
+import { explainQuality, safeCullSet, scoreStable } from '#lib/services/geneticQualityService.js';
+import { runMigrations } from '#lib/services/migrationService.js';
+import * as petService from '#lib/services/petService.js';
+import { Gender, type Pet } from '#lib/types/index.js';
+import { loadAllPetLoci, type PetLoci } from '#lib/utils/petLoci.js';
 
 /**
  * Three-locus beewasp genome; the third line carries the alleles. Same

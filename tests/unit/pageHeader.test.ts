@@ -1,7 +1,7 @@
 import { cleanup, render } from '@testing-library/svelte';
 import type { ComponentProps } from 'svelte';
 import { afterEach, describe, expect, it } from 'vitest';
-import PageHeader from '$lib/components/shared/PageHeader.svelte';
+import PageHeader from '#lib/components/shared/PageHeader.svelte';
 import PageHeaderHarness from '../fixtures/PageHeaderHarness.svelte';
 
 type Props = ComponentProps<typeof PageHeader>;

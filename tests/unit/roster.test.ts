@@ -1,10 +1,10 @@
 import { cleanup, fireEvent, render } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import Roster from '$lib/components/mypets/Roster.svelte';
-import { parseStructuredPetName } from '$lib/services/nameParser.js';
-import { myPetsView } from '$lib/stores/mypets.svelte.js';
-import { pets as petsStore } from '$lib/stores/pets.js';
-import type { Pet } from '$lib/types/index.js';
+import Roster from '#lib/components/mypets/Roster.svelte';
+import { parseStructuredPetName } from '#lib/services/nameParser.js';
+import { myPetsView } from '#lib/stores/mypets.svelte.js';
+import { pets as petsStore } from '#lib/stores/pets.js';
+import type { Pet } from '#lib/types/index.js';
 
 const pet = (over: Partial<Pet>): Pet =>
   ({

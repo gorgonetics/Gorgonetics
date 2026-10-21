@@ -4,9 +4,9 @@
  * All functions are synchronous — this is pure static configuration data.
  */
 
-import { getBeewaspAppearanceColor, getHorseAppearanceColor } from '$lib/theme/gene-colors.js';
-import type { AppearanceInfo, AttributeInfo } from '$lib/types/index.js';
-import { capitalize } from '$lib/utils/string.js';
+import { getBeewaspAppearanceColor, getHorseAppearanceColor } from '#lib/theme/gene-colors.js';
+import type { AppearanceInfo, AttributeInfo } from '#lib/types/index.js';
+import { capitalize } from '#lib/utils/string.js';
 
 // --- Core attribute order (matches game order) ---
 

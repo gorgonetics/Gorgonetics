@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 // The browser export path hands the archive to `saveExportBinaryFile`; keep
 // the bytes so a test can read its own export back.
 const exported = vi.hoisted(() => ({ bytes: null as Uint8Array | null }));
-vi.mock('$lib/services/fileService.js', () => ({
+vi.mock('#lib/services/fileService.js', () => ({
   pickExportSavePath: vi.fn(),
   saveExportBinaryFile: vi.fn(async (_name: string, bytes: Uint8Array) => {
     exported.bytes = bytes;
@@ -18,12 +18,12 @@ import {
   inspectBackup,
   type LoadedBackup,
   loadBackup,
-} from '$lib/services/backupService.js';
-import { closeDatabase, getDb, initDatabase } from '$lib/services/database.js';
-import { CURRENT_SCHEMA_VERSION, runMigrations } from '$lib/services/migrationService.js';
-import { clearAttributeMagnitudesCache, studyRunFor } from '$lib/services/studyService.js';
-import type { ImportMode } from '$lib/types/index.js';
-import { loadAllPetLoci } from '$lib/utils/petLoci.js';
+} from '#lib/services/backupService.js';
+import { closeDatabase, getDb, initDatabase } from '#lib/services/database.js';
+import { CURRENT_SCHEMA_VERSION, runMigrations } from '#lib/services/migrationService.js';
+import { clearAttributeMagnitudesCache, studyRunFor } from '#lib/services/studyService.js';
+import type { ImportMode } from '#lib/types/index.js';
+import { loadAllPetLoci } from '#lib/utils/petLoci.js';
 
 async function exportToBytes(): Promise<Uint8Array> {
   await exportDatabase({ includeGenes: false, includePets: true, includeImages: false });

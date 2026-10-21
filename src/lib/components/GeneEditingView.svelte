@@ -1,12 +1,12 @@
 <script lang="ts">
 import { onDestroy } from 'svelte';
 import { run, stopPropagation } from 'svelte/legacy';
-import GeneReportDialog from '$lib/components/gene/GeneReportDialog.svelte';
-import * as configService from '$lib/services/configService.js';
-import { saveExportTextFile } from '$lib/services/fileService.js';
-import { findReportableChanges, type ReportableChange } from '$lib/services/geneReportService.js';
-import * as geneService from '$lib/services/geneService.js';
-import { errorMessage as toErrorMessage } from '$lib/utils/error.js';
+import GeneReportDialog from '#lib/components/gene/GeneReportDialog.svelte';
+import * as configService from '#lib/services/configService.js';
+import { saveExportTextFile } from '#lib/services/fileService.js';
+import { findReportableChanges, type ReportableChange } from '#lib/services/geneReportService.js';
+import * as geneService from '#lib/services/geneService.js';
+import { errorMessage as toErrorMessage } from '#lib/utils/error.js';
 
 interface GeneRow {
   gene: string;

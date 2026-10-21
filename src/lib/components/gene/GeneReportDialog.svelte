@@ -1,10 +1,10 @@
 <script lang="ts">
-import StatusBanner from '$lib/components/shared/StatusBanner.svelte';
-import { isPlaceholderConfig } from '$lib/firebase.js';
-import { MAX_NOTE_LENGTH, type ReportableChange, submitGeneReports } from '$lib/services/geneReportService.js';
-import type { DialogResult } from '$lib/types/index.js';
-import { errorMessage } from '$lib/utils/error.js';
-import { focusTrap } from '$lib/utils/focusTrap.js';
+import StatusBanner from '#lib/components/shared/StatusBanner.svelte';
+import { isPlaceholderConfig } from '#lib/firebase.js';
+import { MAX_NOTE_LENGTH, type ReportableChange, submitGeneReports } from '#lib/services/geneReportService.js';
+import type { DialogResult } from '#lib/types/index.js';
+import { errorMessage } from '#lib/utils/error.js';
+import { focusTrap } from '#lib/utils/focusTrap.js';
 
 interface Props {
   species: string;

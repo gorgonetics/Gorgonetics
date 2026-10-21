@@ -4,7 +4,7 @@
  * drawer body of the Quality lens. Picking a row outlines the gene on the
  * grid.
  */
-import { type QualityRow, standingHint, standingLabel } from '$lib/utils/qualityLens.js';
+import { type QualityRow, standingHint, standingLabel } from '#lib/utils/qualityLens.js';
 
 interface Props {
   rows: readonly QualityRow[];

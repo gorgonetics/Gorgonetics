@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { BreedingPairResult, Pet } from '$lib/types/index.js';
-import { suggestPlans } from '$lib/utils/breedingPlan.js';
+import type { BreedingPairResult, Pet } from '#lib/types/index.js';
+import { suggestPlans } from '#lib/utils/breedingPlan.js';
 
 const pet = (id: number, gender: 'Male' | 'Female'): Pet =>
   ({ id, name: `P${id}`, gender, species: 'Horse', breed: '', tags: [], stabled: true }) as unknown as Pet;

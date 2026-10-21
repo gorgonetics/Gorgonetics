@@ -4,7 +4,7 @@
  * Mounted once at the layout root so it persists across destination switches
  * while the job runs. Reads the module-scoped `bulkShareJob` state directly.
  */
-import { bulkShareJob, bulkSharePercent, cancelBulkShare, dismissBulkShare } from '$lib/stores/bulkShare.svelte.js';
+import { bulkShareJob, bulkSharePercent, cancelBulkShare, dismissBulkShare } from '#lib/stores/bulkShare.svelte.js';
 
 const job = bulkShareJob;
 

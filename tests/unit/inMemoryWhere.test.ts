@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { buildInClauseParams, closeDatabase, getDb, initDatabase } from '$lib/services/database.js';
+import { buildInClauseParams, closeDatabase, getDb, initDatabase } from '#lib/services/database.js';
 
 /**
  * The in-memory adapter's WHERE evaluation. Regression guard for the `IN (…)`

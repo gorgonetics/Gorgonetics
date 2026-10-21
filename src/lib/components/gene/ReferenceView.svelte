@@ -7,17 +7,17 @@
  * docs/design/redesign-library-workspace-v1.md (§9).
  */
 import { onMount } from 'svelte';
-import GeneEditingView from '$lib/components/GeneEditingView.svelte';
-import GenomeMap from '$lib/components/gene/GenomeMap.svelte';
-import BreedSelector from '$lib/components/shared/BreedSelector.svelte';
-import EmptyState from '$lib/components/shared/EmptyState.svelte';
-import { normalizeSpecies } from '$lib/services/configService.js';
-import { petsForTier, type RarityTier } from '$lib/services/frequencyService.js';
-import * as geneService from '$lib/services/geneService.js';
-import { pets as allPets, appState, geneEditingView } from '$lib/stores/pets.js';
-import { referenceView } from '$lib/stores/reference.svelte.js';
-import { BREEDS_BY_SPECIES, getSpeciesEmoji, mostPopulatedSpecies } from '$lib/utils/species.js';
-import { capitalize } from '$lib/utils/string.js';
+import GeneEditingView from '#lib/components/GeneEditingView.svelte';
+import GenomeMap from '#lib/components/gene/GenomeMap.svelte';
+import BreedSelector from '#lib/components/shared/BreedSelector.svelte';
+import EmptyState from '#lib/components/shared/EmptyState.svelte';
+import { normalizeSpecies } from '#lib/services/configService.js';
+import { petsForTier, type RarityTier } from '#lib/services/frequencyService.js';
+import * as geneService from '#lib/services/geneService.js';
+import { pets as allPets, appState, geneEditingView } from '#lib/stores/pets.js';
+import { referenceView } from '#lib/stores/reference.svelte.js';
+import { BREEDS_BY_SPECIES, getSpeciesEmoji, mostPopulatedSpecies } from '#lib/utils/species.js';
+import { capitalize } from '#lib/utils/string.js';
 
 const geneEdit = $derived($geneEditingView as { animalType?: string; chromosome?: string } | null);
 

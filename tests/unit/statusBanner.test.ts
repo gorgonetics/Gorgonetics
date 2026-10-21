@@ -1,7 +1,7 @@
 import { cleanup, render } from '@testing-library/svelte';
 import type { ComponentProps } from 'svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import StatusBanner from '$lib/components/shared/StatusBanner.svelte';
+import StatusBanner from '#lib/components/shared/StatusBanner.svelte';
 
 // StatusBanner declares its props via an untyped `$props()`, so the
 // inferred props treat every field as required. The banner's

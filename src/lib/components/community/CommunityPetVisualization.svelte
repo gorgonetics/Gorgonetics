@@ -10,16 +10,16 @@
  * synthetic Pet (`sharedPetToPet`) carries the species/breed/attributes the
  * visualizer and stats table read — it is never persisted.
  */
-import PetVisualization from '$lib/components/pet/PetVisualization.svelte';
-import StatusBanner from '$lib/components/shared/StatusBanner.svelte';
-import { getSharedPet, type ImportResult } from '$lib/services/shareService.js';
-import { communityView, importSelected } from '$lib/stores/community.svelte.js';
-import type { Pet, SharedPet } from '$lib/types/index.js';
-import { errorMessage } from '$lib/utils/error.js';
-import { genomeTextToGrid } from '$lib/utils/genomeGrid.js';
-import { keyedResource } from '$lib/utils/keyedResource.svelte.js';
-import { carriesReadings, sharedPetToPet } from '$lib/utils/sharedPet.js';
-import { formatShortDate } from '$lib/utils/timestamp.js';
+import PetVisualization from '#lib/components/pet/PetVisualization.svelte';
+import StatusBanner from '#lib/components/shared/StatusBanner.svelte';
+import { getSharedPet, type ImportResult } from '#lib/services/shareService.js';
+import { communityView, importSelected } from '#lib/stores/community.svelte.js';
+import type { Pet, SharedPet } from '#lib/types/index.js';
+import { errorMessage } from '#lib/utils/error.js';
+import { genomeTextToGrid } from '#lib/utils/genomeGrid.js';
+import { keyedResource } from '#lib/utils/keyedResource.svelte.js';
+import { carriesReadings, sharedPetToPet } from '#lib/utils/sharedPet.js';
+import { formatShortDate } from '#lib/utils/timestamp.js';
 
 interface Props {
   /** Metadata-only SharedPet from the catalogue list (no `genomeData`). */

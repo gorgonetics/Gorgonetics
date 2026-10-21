@@ -10,9 +10,9 @@
  * Composes the pure genetics in `breedingGenetics` for the middle row.
  */
 
-import { accumulatePositive } from '$lib/services/breedingService.js';
-import { getGeneEffectsCached, getParsedGenesCached, isHorseBreedFiltered } from '$lib/services/geneService.js';
-import { compareBlockLetters } from '$lib/services/genomeParser.js';
+import { accumulatePositive } from '#lib/services/breedingService.js';
+import { getGeneEffectsCached, getParsedGenesCached, isHorseBreedFiltered } from '#lib/services/geneService.js';
+import { compareBlockLetters } from '#lib/services/genomeParser.js';
 import type {
   AlleleDistribution,
   ChromosomeTrio,
@@ -20,9 +20,9 @@ import type {
   OffspringTrioResult,
   Pet,
   TrioLocusContributions,
-} from '$lib/types/index.js';
-import { Gender, GeneType } from '$lib/types/index.js';
-import { classifyTrioLocus, offspringDistribution, offspringOutcomeBuckets } from '$lib/utils/breedingGenetics.js';
+} from '#lib/types/index.js';
+import { Gender, GeneType } from '#lib/types/index.js';
+import { classifyTrioLocus, offspringDistribution, offspringOutcomeBuckets } from '#lib/utils/breedingGenetics.js';
 import {
   type BenefitWeight,
   breedReachFor,
@@ -31,9 +31,9 @@ import {
   poolCapabilityGain,
   type ScoredGene,
   tallyPool,
-} from '$lib/utils/geneticQuality.js';
-import { type ChromosomeLocus, groupLociByChromosome, loadAllPetLoci, type PetLoci } from '$lib/utils/petLoci.js';
-import { capitalize } from '$lib/utils/string.js';
+} from '#lib/utils/geneticQuality.js';
+import { type ChromosomeLocus, groupLociByChromosome, loadAllPetLoci, type PetLoci } from '#lib/utils/petLoci.js';
+import { capitalize } from '#lib/utils/string.js';
 import { normalizeSpecies } from './configService.js';
 
 interface GeneEffectColumns {

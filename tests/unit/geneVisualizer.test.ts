@@ -2,8 +2,8 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup, render, waitFor } from '@testing-library/svelte';
 import { tick } from 'svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { Pet } from '$lib/types/index.js';
-import { genomeTextToGrid } from '$lib/utils/genomeGrid.js';
+import type { Pet } from '#lib/types/index.js';
+import { genomeTextToGrid } from '#lib/utils/genomeGrid.js';
 
 // GeneVisualizer's data layer is mocked; configService (pure static config) is
 // real. `loadPetGridFromDb` is deferred so we can drive a pet switch that lands
@@ -59,13 +59,13 @@ const mocks = vi.hoisted(() => {
   };
 });
 
-vi.mock('$lib/services/petService.js', () => ({ loadPetGridFromDb: mocks.loadPetGridFromDb }));
-vi.mock('$lib/services/geneService.js', () => ({ getGeneEffectsCached: mocks.getGeneEffectsCached }));
-vi.mock('$lib/services/frequencyService.js', () => ({ computeRarityLookup: mocks.computeRarityLookup }));
+vi.mock('#lib/services/petService.js', () => ({ loadPetGridFromDb: mocks.loadPetGridFromDb }));
+vi.mock('#lib/services/geneService.js', () => ({ getGeneEffectsCached: mocks.getGeneEffectsCached }));
+vi.mock('#lib/services/frequencyService.js', () => ({ computeRarityLookup: mocks.computeRarityLookup }));
 const explainQuality = vi.hoisted(() => vi.fn());
-vi.mock('$lib/services/geneticQualityService.js', () => ({ explainQuality }));
+vi.mock('#lib/services/geneticQualityService.js', () => ({ explainQuality }));
 
-import GeneVisualizer from '$lib/components/gene/GeneVisualizer.svelte';
+import GeneVisualizer from '#lib/components/gene/GeneVisualizer.svelte';
 
 // jsdom has no ResizeObserver; the responsive-cell-size effect uses one.
 class ResizeObserverStub {

@@ -27,7 +27,7 @@
  * selector as a parameter.
  */
 
-import type { BreedingPairResult } from '$lib/types/index.js';
+import type { BreedingPairResult } from '#lib/types/index.js';
 
 /** A named breeding strategy: what to optimise, and how to explain it. */
 export interface BreedingObjective {

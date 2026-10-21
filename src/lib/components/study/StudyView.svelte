@@ -1,5 +1,5 @@
 <script lang="ts">
-import { getAllAttributeNames } from '$lib/services/configService.js';
+import { getAllAttributeNames } from '#lib/services/configService.js';
 import {
   confirmGeneDeclaration,
   isCommunitySubject,
@@ -12,11 +12,11 @@ import {
   setUseForStudies,
   studyCorpusStatus,
   studyRunFor,
-} from '$lib/services/studyService.js';
-import { pets } from '$lib/stores/pets.js';
-import { settings, settingsActions } from '$lib/stores/settings.js';
-import type { GeneDoubt } from '$lib/utils/attributeStudy.js';
-import { mostPopulatedSpecies } from '$lib/utils/species.js';
+} from '#lib/services/studyService.js';
+import { pets } from '#lib/stores/pets.js';
+import { settings, settingsActions } from '#lib/stores/settings.js';
+import type { GeneDoubt } from '#lib/utils/attributeStudy.js';
+import { mostPopulatedSpecies } from '#lib/utils/species.js';
 import StudyBaselines from './StudyBaselines.svelte';
 import StudyBaseMatrix from './StudyBaseMatrix.svelte';
 import StudyFindingsTable from './StudyFindingsTable.svelte';

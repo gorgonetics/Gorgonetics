@@ -1,6 +1,6 @@
 <script lang="ts">
-import type { AttributeBaselines } from '$lib/utils/attributeStudy.js';
-import { baseText, breedLabel, isExactBase as isExact, lumpText, slotLabel } from '$lib/utils/baseMatrix.js';
+import type { AttributeBaselines } from '#lib/utils/attributeStudy.js';
+import { baseText, breedLabel, isExactBase as isExact, lumpText, slotLabel } from '#lib/utils/baseMatrix.js';
 
 interface Props {
   baselines: AttributeBaselines;

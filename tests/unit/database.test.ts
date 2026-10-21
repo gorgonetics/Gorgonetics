@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { buildInClauseParams, closeDatabase, getDb, initDatabase } from '$lib/services/database.js';
-import { runMigrations } from '$lib/services/migrationService.js';
+import { buildInClauseParams, closeDatabase, getDb, initDatabase } from '#lib/services/database.js';
+import { runMigrations } from '#lib/services/migrationService.js';
 
 // The in-memory database is used automatically outside Tauri
 

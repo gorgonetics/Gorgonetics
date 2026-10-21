@@ -1,7 +1,7 @@
 import { cleanup, render } from '@testing-library/svelte';
 import { afterEach, describe, expect, it } from 'vitest';
-import GeneStatsTable from '$lib/components/gene/GeneStatsTable.svelte';
-import type { Pet } from '$lib/types/index.js';
+import GeneStatsTable from '#lib/components/gene/GeneStatsTable.svelte';
+import type { Pet } from '#lib/types/index.js';
 
 const pet = (over: Partial<Pet> = {}) =>
   ({ id: 1, species: 'Horse', attributes_measured: true, toughness: 72, temperament: 40, ...over }) as unknown as Pet;

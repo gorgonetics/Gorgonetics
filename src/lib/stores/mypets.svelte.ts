@@ -4,8 +4,8 @@
  * See docs/design/redesign-library-workspace-v1.md (§9, IA v2).
  */
 
-import type { Gender } from '$lib/types/index.js';
-import type { PetListFilters } from '$lib/utils/petFilter.js';
+import type { Gender } from '#lib/types/index.js';
+import type { PetListFilters } from '#lib/utils/petFilter.js';
 
 export const myPetsView = $state({
   search: '',

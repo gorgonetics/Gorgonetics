@@ -1,5 +1,5 @@
-import { normalizeSpecies } from '$lib/services/configService.js';
-import { HORSE_BREEDS } from '$lib/types/index.js';
+import { normalizeSpecies } from '#lib/services/configService.js';
+import { HORSE_BREEDS } from '#lib/types/index.js';
 
 export function getSpeciesEmoji(species: string | undefined | null): string {
   const s = (species || '').toLowerCase();

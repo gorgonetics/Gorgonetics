@@ -10,11 +10,11 @@
  */
 
 import { doc, type Firestore, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
-import { firestore as defaultFirestore } from '$lib/firebase.js';
-import { type GeneEffect, type GeneReport, type GeneReportSpecies, TEMPLATE_SPECIES } from '$lib/types/index.js';
-import { errorMessage, isPermissionDenied } from '$lib/utils/error.js';
-import { normaliseEffect } from '$lib/utils/geneAnalysis.js';
-import { sha256Hex } from '$lib/utils/hash.js';
+import { firestore as defaultFirestore } from '#lib/firebase.js';
+import { type GeneEffect, type GeneReport, type GeneReportSpecies, TEMPLATE_SPECIES } from '#lib/types/index.js';
+import { errorMessage, isPermissionDenied } from '#lib/utils/error.js';
+import { normaliseEffect } from '#lib/utils/geneAnalysis.js';
+import { sha256Hex } from '#lib/utils/hash.js';
 import { getEffectOptionsForSpecies } from './configService.js';
 import { loadBundledResource } from './fileService.js';
 import { exportGenesToJson } from './geneService.js';

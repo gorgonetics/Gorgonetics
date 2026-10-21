@@ -10,8 +10,6 @@ export default defineConfig({
     sveltekit({
       adapter: adapter({ pages: 'build', assets: 'build', fallback: 'index.html' }),
       prerender: { handleHttpError: 'ignore' },
-      // SvelteKit 3 no longer generates $lib; keep it until the #lib rename lands.
-      alias: { $lib: 'src/lib' },
     }),
   ],
   define: { __APP_VERSION__: JSON.stringify(pkg.version) },

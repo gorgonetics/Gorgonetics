@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { GeneType } from '$lib/types/index.js';
-import type { GeneSignSummary } from '$lib/utils/breedingGenetics.js';
+import type { GeneType } from '#lib/types/index.js';
+import type { GeneSignSummary } from '#lib/utils/breedingGenetics.js';
 import {
   classifyTrioLocus,
   expressedSign,
@@ -8,7 +8,7 @@ import {
   offspringDistribution,
   offspringOutcomeBuckets,
   positiveExpressionProbability,
-} from '$lib/utils/breedingGenetics.js';
+} from '#lib/utils/breedingGenetics.js';
 
 const KNOWN_TYPES: GeneType[] = ['D', 'R', 'x'];
 const ALL_TYPES: GeneType[] = [...KNOWN_TYPES, '?'];

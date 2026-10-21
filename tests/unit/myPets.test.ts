@@ -1,9 +1,9 @@
 import { cleanup, render } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import MyPets from '$lib/components/mypets/MyPets.svelte';
-import { myPetsView } from '$lib/stores/mypets.svelte.js';
-import { pets } from '$lib/stores/pets.js';
-import type { Pet } from '$lib/types/index.js';
+import MyPets from '#lib/components/mypets/MyPets.svelte';
+import { myPetsView } from '#lib/stores/mypets.svelte.js';
+import { pets } from '#lib/stores/pets.js';
+import type { Pet } from '#lib/types/index.js';
 
 const pet = (over: Partial<Pet>): Pet =>
   ({

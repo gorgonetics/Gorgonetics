@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { Pet } from '$lib/types/index.js';
-import { computePetChanges, type PetEditDraft } from '$lib/utils/petChanges.js';
+import type { Pet } from '#lib/types/index.js';
+import { computePetChanges, type PetEditDraft } from '#lib/utils/petChanges.js';
 
 // Stored pet fixture — only the fields the diff reads.
 const pet = (over: Record<string, unknown> = {}): Pet =>

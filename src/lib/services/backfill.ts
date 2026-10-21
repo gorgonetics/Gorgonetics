@@ -5,7 +5,7 @@
  * `markDone` writes it — avoids re-scanning large tables every startup).
  */
 
-import { yieldToUI } from '$lib/utils/async.js';
+import { yieldToUI } from '#lib/utils/async.js';
 
 export interface BackfillSpec<Row, Update> {
   /** Used as the prefix for console.info progress logs. */

@@ -45,19 +45,19 @@
  * mount, and the cache persists until they ask again.
  */
 
-import { normalizeSpecies } from '$lib/services/configService.js';
-import { buildInClauseParams, getDb, type TxStatement } from '$lib/services/database.js';
+import { normalizeSpecies } from '#lib/services/configService.js';
+import { buildInClauseParams, getDb, type TxStatement } from '#lib/services/database.js';
 import {
   geneDeclarationsRevision,
   getGeneEffectsCached,
   getParsedGenesCached,
   type ParsedGeneRecord,
-} from '$lib/services/geneService.js';
-import { parseGenome } from '$lib/services/genomeParser.js';
-import { getAllPets, localPetsAdded, localPetsRevision } from '$lib/services/petService.js';
-import { listGenomes, listPets } from '$lib/services/shareService.js';
-import { GeneType, type Pet, type SharedPet } from '$lib/types/index.js';
-import { type AttributeMagnitudes, buildAttributeMagnitudes, EMPTY_MAGNITUDES } from '$lib/utils/attributePoints.js';
+} from '#lib/services/geneService.js';
+import { parseGenome } from '#lib/services/genomeParser.js';
+import { getAllPets, localPetsAdded, localPetsRevision } from '#lib/services/petService.js';
+import { listGenomes, listPets } from '#lib/services/shareService.js';
+import { GeneType, type Pet, type SharedPet } from '#lib/types/index.js';
+import { type AttributeMagnitudes, buildAttributeMagnitudes, EMPTY_MAGNITUDES } from '#lib/utils/attributePoints.js';
 import {
   type AttributeStudy,
   buildEffectSlots,
@@ -68,11 +68,11 @@ import {
   slotKey,
   studyAll,
   type ValidationSuspect,
-} from '$lib/utils/attributeStudy.js';
-import { sha256Hex } from '$lib/utils/hash.js';
-import { loadAllPetLoci, type PetLoci } from '$lib/utils/petLoci.js';
-import { ATTRIBUTE_KEYS, carriesReadings, dedupeLatest } from '$lib/utils/sharedPet.js';
-import { now } from '$lib/utils/timestamp.js';
+} from '#lib/utils/attributeStudy.js';
+import { sha256Hex } from '#lib/utils/hash.js';
+import { loadAllPetLoci, type PetLoci } from '#lib/utils/petLoci.js';
+import { ATTRIBUTE_KEYS, carriesReadings, dedupeLatest } from '#lib/utils/sharedPet.js';
+import { now } from '#lib/utils/timestamp.js';
 import { parseStructuredPetName } from './nameParser.js';
 
 /** The breed value for an animal of no single breed; see the exclusion in `loadStudyCorpus`. */

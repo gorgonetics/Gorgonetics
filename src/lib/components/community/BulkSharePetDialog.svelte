@@ -7,9 +7,9 @@
  * global, non-blocking BulkShareProgress widget. On confirm it hands the pets to
  * the parent and closes; it never blocks on the network itself.
  */
-import { isPlaceholderConfig } from '$lib/firebase.js';
-import type { Pet } from '$lib/types/index.js';
-import { focusTrap } from '$lib/utils/focusTrap.js';
+import { isPlaceholderConfig } from '#lib/firebase.js';
+import type { Pet } from '#lib/types/index.js';
+import { focusTrap } from '#lib/utils/focusTrap.js';
 
 interface Props {
   pets: Pet[];

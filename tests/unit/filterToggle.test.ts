@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { resolveFilterClick, toggleFilterState, triStateToggle } from '$lib/utils/filterToggle.js';
+import { resolveFilterClick, toggleFilterState, triStateToggle } from '#lib/utils/filterToggle.js';
 
 describe('toggleFilterState', () => {
   it('selects an unselected key', () => {

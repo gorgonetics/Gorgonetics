@@ -4,7 +4,7 @@
  * the drop-filtering rules can be unit-tested without a component harness.
  */
 
-import type { UploadPetResult } from '$lib/services/petService.js';
+import type { UploadPetResult } from '#lib/services/petService.js';
 
 /** A pending upload: a display name plus a lazy reader for its text content. */
 export interface UploadSource {

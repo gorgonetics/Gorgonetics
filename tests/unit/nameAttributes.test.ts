@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { Pet } from '$lib/types/index.js';
-import { planNameBackfill, updatesFromName } from '$lib/utils/nameAttributes.js';
+import type { Pet } from '#lib/types/index.js';
+import { planNameBackfill, updatesFromName } from '#lib/utils/nameAttributes.js';
 
 const HORSE_NAME = 'Kb F 60 70 65 80 90 100 55';
 const HORSE_VALUES = {

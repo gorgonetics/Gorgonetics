@@ -6,8 +6,8 @@
  * user navigates away, but this state persists for the session.
  */
 
-import type { BreedingPairResult } from '$lib/types/index.js';
-import { DEFAULT_BREEDING_OBJECTIVE } from '$lib/utils/breedingObjectives.js';
+import type { BreedingPairResult } from '#lib/types/index.js';
+import { DEFAULT_BREEDING_OBJECTIVE } from '#lib/utils/breedingObjectives.js';
 
 /**
  * The pair currently open in the trio detail view — the whole ranked row,

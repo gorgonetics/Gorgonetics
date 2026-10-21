@@ -1,9 +1,9 @@
 <script lang="ts">
-import StatusBanner from '$lib/components/shared/StatusBanner.svelte';
-import { exportDatabase } from '$lib/services/backupService.js';
-import { getTotalImageCount } from '$lib/services/imageService.js';
-import { errorMessage } from '$lib/utils/error.js';
-import { focusTrap } from '$lib/utils/focusTrap.js';
+import StatusBanner from '#lib/components/shared/StatusBanner.svelte';
+import { exportDatabase } from '#lib/services/backupService.js';
+import { getTotalImageCount } from '#lib/services/imageService.js';
+import { errorMessage } from '#lib/utils/error.js';
+import { focusTrap } from '#lib/utils/focusTrap.js';
 
 interface StatusResult {
   type: 'success' | 'error';

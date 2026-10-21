@@ -5,7 +5,7 @@
  * copy, so an empty state always explains what *this* surface needs.
  * See docs/design/redesign-library-workspace-v1.md.
  */
-import StatusPane from '$lib/components/shared/StatusPane.svelte';
+import StatusPane from '#lib/components/shared/StatusPane.svelte';
 
 interface Props {
   /** Optional decorative glyph (emoji). Omit for a text-only state. */

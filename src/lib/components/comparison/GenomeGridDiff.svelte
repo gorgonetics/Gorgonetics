@@ -1,21 +1,21 @@
 <script lang="ts">
 import { onDestroy, onMount } from 'svelte';
-import '$lib/components/gene/geneCell.css';
-import GenomeDiffControls from '$lib/components/comparison/GenomeDiffControls.svelte';
-import GeneTooltip from '$lib/components/gene/GeneTooltip.svelte';
-import DetailOverlay from '$lib/components/shared/DetailOverlay.svelte';
-import StatusPane from '$lib/components/shared/StatusPane.svelte';
-import { getAppearanceConfig, getAttributeConfig, normalizeSpecies } from '$lib/services/configService.js';
-import { getGeneEffectsCached } from '$lib/services/geneService.js';
-import { loadPetGridFromDb } from '$lib/services/petService.js';
-import { settings } from '$lib/stores/settings.js';
-import type { AppearanceInfo, AttributeInfo, GenomeDiffSummary, Pet } from '$lib/types/index.js';
-import { HORSE_BREEDS } from '$lib/types/index.js';
-import { buildFilterCSS, joinAttrs } from '$lib/utils/filterCSS.js';
-import { triStateToggle } from '$lib/utils/filterToggle.js';
-import { breedFor, effectFor, type GeneEffectData, isNoEffect } from '$lib/utils/geneAnalysis.js';
-import { buildAppearanceLookup, createGeneCellBuilder, type GeneCell } from '$lib/utils/geneGridCells.js';
-import { capitalize } from '$lib/utils/string.js';
+import '#lib/components/gene/geneCell.css';
+import GenomeDiffControls from '#lib/components/comparison/GenomeDiffControls.svelte';
+import GeneTooltip from '#lib/components/gene/GeneTooltip.svelte';
+import DetailOverlay from '#lib/components/shared/DetailOverlay.svelte';
+import StatusPane from '#lib/components/shared/StatusPane.svelte';
+import { getAppearanceConfig, getAttributeConfig, normalizeSpecies } from '#lib/services/configService.js';
+import { getGeneEffectsCached } from '#lib/services/geneService.js';
+import { loadPetGridFromDb } from '#lib/services/petService.js';
+import { settings } from '#lib/stores/settings.js';
+import type { AppearanceInfo, AttributeInfo, GenomeDiffSummary, Pet } from '#lib/types/index.js';
+import { HORSE_BREEDS } from '#lib/types/index.js';
+import { buildFilterCSS, joinAttrs } from '#lib/utils/filterCSS.js';
+import { triStateToggle } from '#lib/utils/filterToggle.js';
+import { breedFor, effectFor, type GeneEffectData, isNoEffect } from '#lib/utils/geneAnalysis.js';
+import { buildAppearanceLookup, createGeneCellBuilder, type GeneCell } from '#lib/utils/geneGridCells.js';
+import { capitalize } from '#lib/utils/string.js';
 
 interface ChromosomeRow {
   chr: string;

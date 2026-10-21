@@ -7,7 +7,7 @@ import {
   parseGenome,
   parseGenomeFileGenes,
   parseGenomeFileHeader,
-} from '$lib/services/genomeParser.js';
+} from '#lib/services/genomeParser.js';
 
 const SAMPLE_GENOME = `[Overview]
 Format=v1.0

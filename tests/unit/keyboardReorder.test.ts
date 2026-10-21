@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, type Mock, vi } from 'vitest';
-import { arrayMove, createKeyboardReorder, moveByFilteredIndex } from '$lib/utils/dragReorder.svelte.js';
+import { arrayMove, createKeyboardReorder, moveByFilteredIndex } from '#lib/utils/dragReorder.svelte.js';
 
 // Fake keyboard event with the only two methods the helper calls.
 function key(k: string) {

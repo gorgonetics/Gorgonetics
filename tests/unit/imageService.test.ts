@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 // asset-protocol path runs and populates the cache). Make it stateful so
 // each test can flip it after DB init.
 let mockIsTauriValue = false;
-vi.mock('$lib/utils/environment.js', () => ({
+vi.mock('#lib/utils/environment.js', () => ({
   isTauri: () => mockIsTauriValue,
 }));
 
@@ -16,9 +16,9 @@ vi.mock('@tauri-apps/plugin-fs', () => ({
   BaseDirectory: { AppData: 0 },
 }));
 
-const { closeDatabase, getDb, initDatabase } = await import('$lib/services/database.js');
-const { runMigrations } = await import('$lib/services/migrationService.js');
-const imageService = await import('$lib/services/imageService.js');
+const { closeDatabase, getDb, initDatabase } = await import('#lib/services/database.js');
+const { runMigrations } = await import('#lib/services/migrationService.js');
+const imageService = await import('#lib/services/imageService.js');
 const { _imageUrlInternals } = imageService;
 
 // Replace the real Tauri-backed resolver with a deterministic spy. The cache

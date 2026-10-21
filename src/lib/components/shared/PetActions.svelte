@@ -10,10 +10,10 @@
  * `appState.deletePet`. See docs/design/redesign-library-workspace-v1.md §5.
  */
 
-import { appState } from '$lib/stores/pets.js';
-import { uiActions } from '$lib/stores/ui.js';
-import type { Pet } from '$lib/types/index.js';
-import { focusTrap } from '$lib/utils/focusTrap.js';
+import { appState } from '#lib/stores/pets.js';
+import { uiActions } from '#lib/stores/ui.js';
+import type { Pet } from '#lib/types/index.js';
+import { focusTrap } from '#lib/utils/focusTrap.js';
 
 interface Props {
   pet: Pet;

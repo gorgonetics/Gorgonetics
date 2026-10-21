@@ -5,13 +5,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 // the pet detail and the Pet Editor — including when focus sits on
 // document.body rather than inside the overlay (#396).
 
-vi.mock('$lib/services/settingsService.js', () => ({
+vi.mock('#lib/services/settingsService.js', () => ({
   getAllSettings: vi.fn().mockResolvedValue({}),
   getDefaultSettings: () => ({}),
   setSetting: vi.fn().mockResolvedValue(undefined),
 }));
 
-import SettingsView from '$lib/components/layout/SettingsView.svelte';
+import SettingsView from '#lib/components/layout/SettingsView.svelte';
 
 afterEach(cleanup);
 

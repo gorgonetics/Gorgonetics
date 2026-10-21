@@ -1,16 +1,16 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { rankBreedingPairs } from '$lib/services/breedingService.js';
-import { closeDatabase, initDatabase } from '$lib/services/database.js';
-import * as geneService from '$lib/services/geneService.js';
-import { parseGenome } from '$lib/services/genomeParser.js';
-import { runMigrations } from '$lib/services/migrationService.js';
-import * as petService from '$lib/services/petService.js';
-import { Gender, type Pet } from '$lib/types/index.js';
-import { type AttributeMagnitudes, buildAttributeMagnitudes } from '$lib/utils/attributePoints.js';
-import type { AttributeStudy, StudyFinding } from '$lib/utils/attributeStudy.js';
-import { toGeneId } from '$lib/utils/geneAnalysis.js';
+import { rankBreedingPairs } from '#lib/services/breedingService.js';
+import { closeDatabase, initDatabase } from '#lib/services/database.js';
+import * as geneService from '#lib/services/geneService.js';
+import { parseGenome } from '#lib/services/genomeParser.js';
+import { runMigrations } from '#lib/services/migrationService.js';
+import * as petService from '#lib/services/petService.js';
+import { Gender, type Pet } from '#lib/types/index.js';
+import { type AttributeMagnitudes, buildAttributeMagnitudes } from '#lib/utils/attributePoints.js';
+import type { AttributeStudy, StudyFinding } from '#lib/utils/attributeStudy.js';
+import { toGeneId } from '#lib/utils/geneAnalysis.js';
 
 /**
  * Worst-case Gorgonetics scale, sized against the real game data:

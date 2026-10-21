@@ -1,10 +1,5 @@
-import { resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { defineConfig } from 'vitest/config';
-
-const __dirname = fileURLToPath(new URL('.', import.meta.url));
-const libAlias = { $lib: resolve(__dirname, './src/lib') };
 
 // Integration tests live in `tests/integration/` and require an external
 // service (Firestore Emulator). They are excluded from the default
@@ -22,9 +17,5 @@ export default defineConfig({
     globals: true,
     include: ['tests/integration/**/*.{test,spec}.{js,ts}'],
     testTimeout: 30000,
-    alias: libAlias,
-  },
-  resolve: {
-    alias: libAlias,
   },
 });

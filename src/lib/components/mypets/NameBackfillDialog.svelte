@@ -6,11 +6,11 @@
  * unmeasured pets are filled in one step, disagreements are shown one by one
  * and change only on an explicit per-pet choice.
  */
-import { appState, pets } from '$lib/stores/pets.js';
-import { settings, settingsActions } from '$lib/stores/settings.js';
-import { focusTrap } from '$lib/utils/focusTrap.js';
-import { type KeptStoredValues, type NameBackfillPlan, planNameBackfill } from '$lib/utils/nameAttributes.js';
-import { capitalize } from '$lib/utils/string.js';
+import { appState, pets } from '#lib/stores/pets.js';
+import { settings, settingsActions } from '#lib/stores/settings.js';
+import { focusTrap } from '#lib/utils/focusTrap.js';
+import { type KeptStoredValues, type NameBackfillPlan, planNameBackfill } from '#lib/utils/nameAttributes.js';
+import { capitalize } from '#lib/utils/string.js';
 
 interface Props {
   onClose: () => void;

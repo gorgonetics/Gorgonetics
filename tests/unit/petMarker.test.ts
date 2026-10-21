@@ -1,16 +1,16 @@
 import { get } from 'svelte/store';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('$lib/services/petService.js', () => ({
+vi.mock('#lib/services/petService.js', () => ({
   updatePet: vi.fn(),
   getAllPets: vi.fn(),
   deletePet: vi.fn(),
   uploadPet: vi.fn(),
 }));
 
-import { updatePet } from '$lib/services/petService.js';
-import { appState, error, loading, pets, selectedPet } from '$lib/stores/pets.js';
-import type { Pet } from '$lib/types/index.js';
+import { updatePet } from '#lib/services/petService.js';
+import { appState, error, loading, pets, selectedPet } from '#lib/stores/pets.js';
+import type { Pet } from '#lib/types/index.js';
 
 function makePet(id: number, overrides: Partial<Pet> = {}): Pet {
   return {

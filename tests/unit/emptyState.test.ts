@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render } from '@testing-library/svelte';
 import type { ComponentProps } from 'svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import EmptyState from '$lib/components/shared/EmptyState.svelte';
+import EmptyState from '#lib/components/shared/EmptyState.svelte';
 
 type Props = ComponentProps<typeof EmptyState>;
 

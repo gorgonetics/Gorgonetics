@@ -13,8 +13,8 @@
  * once per genome load.
  */
 
-import { getAppearanceAttributes } from '$lib/services/configService.js';
-import { breedFor, effectFor, type GeneEffectData, isNoEffect } from '$lib/utils/geneAnalysis.js';
+import { getAppearanceAttributes } from '#lib/services/configService.js';
+import { breedFor, effectFor, type GeneEffectData, isNoEffect } from '#lib/utils/geneAnalysis.js';
 
 /** The loaded per-species state every cell computation reads from. */
 export interface GeneCellContext {

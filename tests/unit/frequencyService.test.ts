@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { closeDatabase, initDatabase } from '$lib/services/database.js';
-import { computeRarityLookup, invalidateRarityCache, petsForTier } from '$lib/services/frequencyService.js';
-import { runMigrations } from '$lib/services/migrationService.js';
-import * as petService from '$lib/services/petService.js';
-import { GeneType, type Pet } from '$lib/types/index.js';
-import { computeLocusFrequencies, RARITY_BUCKET_NEVER, RARITY_BUCKET_SOLE } from '$lib/utils/geneFrequency.js';
-import { loadAllPetLoci } from '$lib/utils/petLoci.js';
-import { buildRarityCSS } from '$lib/utils/rarityCSS.js';
-import { buildRarityTooltip } from '$lib/utils/rarityTooltip.js';
+import { closeDatabase, initDatabase } from '#lib/services/database.js';
+import { computeRarityLookup, invalidateRarityCache, petsForTier } from '#lib/services/frequencyService.js';
+import { runMigrations } from '#lib/services/migrationService.js';
+import * as petService from '#lib/services/petService.js';
+import { GeneType, type Pet } from '#lib/types/index.js';
+import { computeLocusFrequencies, RARITY_BUCKET_NEVER, RARITY_BUCKET_SOLE } from '#lib/utils/geneFrequency.js';
+import { loadAllPetLoci } from '#lib/utils/petLoci.js';
+import { buildRarityCSS } from '#lib/utils/rarityCSS.js';
+import { buildRarityTooltip } from '#lib/utils/rarityTooltip.js';
 
 const D = GeneType.DOMINANT;
 const R = GeneType.RECESSIVE;

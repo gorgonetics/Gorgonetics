@@ -11,8 +11,8 @@
  * See docs/design/redesign-library-workspace-v1.md.
  */
 
-import { normalizeSpecies } from '$lib/services/configService.js';
-import type { Gender, Pet } from '$lib/types/index.js';
+import { normalizeSpecies } from '#lib/services/configService.js';
+import type { Gender, Pet } from '#lib/types/index.js';
 
 export interface PetListFilters {
   /** Search text, matched case-insensitively against name and species. Empty means "no search". */

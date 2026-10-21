@@ -1,20 +1,20 @@
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('$lib/services/geneService.js', async (orig) => ({
-  ...(await orig<typeof import('$lib/services/geneService.js')>()),
+vi.mock('#lib/services/geneService.js', async (orig) => ({
+  ...(await orig<typeof import('#lib/services/geneService.js')>()),
   getAnimalTypes: vi.fn(async () => ['beewasp', 'horse']),
   getChromosomes: vi.fn(async () => ['01', '02']),
 }));
 // The map is not under test and needs a database.
-vi.mock('$lib/components/gene/GenomeMap.svelte', async () => ({
+vi.mock('#lib/components/gene/GenomeMap.svelte', async () => ({
   default: (await import('./fixtures/ChildStub.svelte')).default,
 }));
 
-import ReferenceView from '$lib/components/gene/ReferenceView.svelte';
-import { pets } from '$lib/stores/pets.js';
-import { referenceView } from '$lib/stores/reference.svelte.js';
-import type { Pet } from '$lib/types/index.js';
+import ReferenceView from '#lib/components/gene/ReferenceView.svelte';
+import { pets } from '#lib/stores/pets.js';
+import { referenceView } from '#lib/stores/reference.svelte.js';
+import type { Pet } from '#lib/types/index.js';
 
 const many = (species: string, n: number, from = 0) =>
   Array.from({ length: n }, (_, i) => ({ id: from + i, species }) as unknown as Pet);

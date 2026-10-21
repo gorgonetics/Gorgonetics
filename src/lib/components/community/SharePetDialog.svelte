@@ -1,12 +1,12 @@
 <script lang="ts">
-import StatusBanner from '$lib/components/shared/StatusBanner.svelte';
-import { isPlaceholderConfig } from '$lib/firebase.js';
-import { getPetGenomeText } from '$lib/services/petService.js';
-import { sanitizeTags, uploadPet } from '$lib/services/shareService.js';
-import type { DialogResult, Pet } from '$lib/types/index.js';
-import { errorMessage } from '$lib/utils/error.js';
-import { focusTrap } from '$lib/utils/focusTrap.js';
-import { keyedResource } from '$lib/utils/keyedResource.svelte.js';
+import StatusBanner from '#lib/components/shared/StatusBanner.svelte';
+import { isPlaceholderConfig } from '#lib/firebase.js';
+import { getPetGenomeText } from '#lib/services/petService.js';
+import { sanitizeTags, uploadPet } from '#lib/services/shareService.js';
+import type { DialogResult, Pet } from '#lib/types/index.js';
+import { errorMessage } from '#lib/utils/error.js';
+import { focusTrap } from '#lib/utils/focusTrap.js';
+import { keyedResource } from '#lib/utils/keyedResource.svelte.js';
 
 interface Props {
   pet: Pet;

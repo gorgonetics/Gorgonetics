@@ -1,12 +1,12 @@
 <script lang="ts">
 import '../app.css';
 import { onDestroy, onMount, type Snippet } from 'svelte';
-import AuthWrapper from '$lib/components/AuthWrapper.svelte';
-import BulkShareProgress from '$lib/components/community/BulkShareProgress.svelte';
-import TopBar from '$lib/components/layout/TopBar.svelte';
-import { settings, settingsActions } from '$lib/stores/settings.js';
-import { applyFontScale, clampScale, getFontScale, STEP } from '$lib/utils/fontScale.js';
-import { applyTheme, getThemePreference } from '$lib/utils/theme.js';
+import AuthWrapper from '#lib/components/AuthWrapper.svelte';
+import BulkShareProgress from '#lib/components/community/BulkShareProgress.svelte';
+import TopBar from '#lib/components/layout/TopBar.svelte';
+import { settings, settingsActions } from '#lib/stores/settings.js';
+import { applyFontScale, clampScale, getFontScale, STEP } from '#lib/utils/fontScale.js';
+import { applyTheme, getThemePreference } from '#lib/utils/theme.js';
 
 interface Props {
   children: Snippet;

@@ -12,11 +12,11 @@
  * never seen.
  */
 
-import { GeneType } from '$lib/types/index.js';
-import { effectFor, fromGeneId, type GeneEffectData, isNoEffect } from '$lib/utils/geneAnalysis.js';
-import { type Allele, RARITY_BUCKET_NEVER } from '$lib/utils/geneFrequency.js';
-import { compareGeneIds } from '$lib/utils/lociCodec.js';
-import type { RarityBucketSource } from '$lib/utils/rarityCSS.js';
+import { GeneType } from '#lib/types/index.js';
+import { effectFor, fromGeneId, type GeneEffectData, isNoEffect } from '#lib/utils/geneAnalysis.js';
+import { type Allele, RARITY_BUCKET_NEVER } from '#lib/utils/geneFrequency.js';
+import { compareGeneIds } from '#lib/utils/lociCodec.js';
+import type { RarityBucketSource } from '#lib/utils/rarityCSS.js';
 
 /**
  * The never-seen allele at each locus that has one, keyed by gene id.

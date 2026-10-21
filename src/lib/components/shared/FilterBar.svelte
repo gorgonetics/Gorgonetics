@@ -11,7 +11,7 @@
  * change. Every section is optional — omit a prop and that control disappears,
  * so the same bar serves species-scoped and species-agnostic surfaces.
  */
-import BreedSelector from '$lib/components/shared/BreedSelector.svelte';
+import BreedSelector from '#lib/components/shared/BreedSelector.svelte';
 
 interface FlagSpec {
   key: string;

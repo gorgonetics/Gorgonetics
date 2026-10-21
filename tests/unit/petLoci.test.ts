@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { closeDatabase, getDb, initDatabase } from '$lib/services/database.js';
-import { runMigrations } from '$lib/services/migrationService.js';
-import * as petService from '$lib/services/petService.js';
-import { Gender, type GeneType } from '$lib/types/index.js';
-import { groupLociByChromosome, loadAllPetLoci, type PetLoci, walkPairLoci } from '$lib/utils/petLoci.js';
+import { closeDatabase, getDb, initDatabase } from '#lib/services/database.js';
+import { runMigrations } from '#lib/services/migrationService.js';
+import * as petService from '#lib/services/petService.js';
+import { Gender, type GeneType } from '#lib/types/index.js';
+import { groupLociByChromosome, loadAllPetLoci, type PetLoci, walkPairLoci } from '#lib/utils/petLoci.js';
 
 // `1=${alleles}` is a single chromosome (id 01) carrying one block A
 // with as many positions as `alleles` characters. Three-character input

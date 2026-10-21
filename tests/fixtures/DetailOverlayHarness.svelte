@@ -5,7 +5,7 @@
  * topmost), and an optional fake true-modal (.modal-backdrop) that Escape
  * must defer to.
  */
-import DetailOverlay from '$lib/components/shared/DetailOverlay.svelte';
+import DetailOverlay from '#lib/components/shared/DetailOverlay.svelte';
 
 interface Props {
   onBackA: () => void;

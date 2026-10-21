@@ -1,14 +1,14 @@
 <script lang="ts">
 import { FlaskConicalOff, House, PawPrint, Star } from '@lucide/svelte';
 import { untrack } from 'svelte';
-import DetailOverlay from '$lib/components/shared/DetailOverlay.svelte';
-import { getAllAttributeDisplayInfo, getAllAttributeNames } from '$lib/services/configService.js';
-import { allTags as allTagsStore, appState } from '$lib/stores/pets.js';
-import type { AttributeInfo, Gender, Pet } from '$lib/types/index.js';
-import { HORSE_BREEDS } from '$lib/types/index.js';
-import { focusTrap } from '$lib/utils/focusTrap.js';
-import { updatesFromName } from '$lib/utils/nameAttributes.js';
-import { computePetChanges } from '$lib/utils/petChanges.js';
+import DetailOverlay from '#lib/components/shared/DetailOverlay.svelte';
+import { getAllAttributeDisplayInfo, getAllAttributeNames } from '#lib/services/configService.js';
+import { allTags as allTagsStore, appState } from '#lib/stores/pets.js';
+import type { AttributeInfo, Gender, Pet } from '#lib/types/index.js';
+import { HORSE_BREEDS } from '#lib/types/index.js';
+import { focusTrap } from '#lib/utils/focusTrap.js';
+import { updatesFromName } from '#lib/utils/nameAttributes.js';
+import { computePetChanges } from '#lib/utils/petChanges.js';
 import TagInput from './TagInput.svelte';
 
 interface Props {

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { isFileDrag, runGenomeUpload, selectGenomeFiles } from '$lib/utils/genomeUpload.js';
+import { isFileDrag, runGenomeUpload, selectGenomeFiles } from '#lib/utils/genomeUpload.js';
 
 // Minimal stand-in for an upload source; `read` resolves to genome text.
 function source(name: string, content: string) {
