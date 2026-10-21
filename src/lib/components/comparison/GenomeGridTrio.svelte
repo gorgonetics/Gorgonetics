@@ -136,7 +136,7 @@ const parentBreeds = $derived(
 );
 const impactKey = $derived.by(() => {
   if (lens !== 'impact') return null;
-  const _reloaded = $petList;
+  void $petList;
   return studyInputsKey(father.species);
 });
 const impactResource = keyedResource(() => impactKey, loadGeneImpact);

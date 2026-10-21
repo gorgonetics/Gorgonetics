@@ -297,7 +297,6 @@ export async function getPetGeneStats(
   breed?: string,
 ): Promise<{ stats: Record<string, GeneStatsEntry>; totalGenes: number; neutralGenes: number }> {
   const speciesKey = normalizeSpecies(species);
-  const db = getDb();
   const rows = await selectLociRows(petId);
   const parsedGenes = await getParsedGenesCached(speciesKey);
   const stats: Record<string, GeneStatsEntry> = {};

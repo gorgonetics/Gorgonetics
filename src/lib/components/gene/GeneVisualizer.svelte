@@ -398,7 +398,7 @@ $effect(() => {
 // solved before it on screen.
 const impactKey = $derived.by(() => {
   if (currentView !== 'impact' || !currentPet) return null;
-  const _reloaded = $petList;
+  void $petList;
   return studyInputsKey(currentPet.species);
 });
 const impact = keyedResource(() => impactKey, loadGeneImpact);
