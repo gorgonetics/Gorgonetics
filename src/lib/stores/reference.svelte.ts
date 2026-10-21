@@ -13,5 +13,9 @@ export const referenceView = $state({
    */
   animalType: '' as string,
   /** Which genome-map lens is showing. */
-  lens: 'rarity' as 'rarity' | 'impact',
+  lens: 'rarity' as 'rarity' | 'impact' | 'never',
+  /** Never-seen lens: hide chromosome rows with no never-seen allele. */
+  hideSeenChromosomes: false,
+  /** Never-seen lens: hide never-seen alleles with no declared effect. */
+  hideNoEffect: false,
 });
