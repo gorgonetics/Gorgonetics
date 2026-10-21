@@ -19,7 +19,7 @@ import { type ImportResult, importCommunityPet, listPets } from '#lib/services/s
 import { activeTab, appState } from '#lib/stores/pets.js';
 import type { SharedPet } from '#lib/types/index.js';
 import { errorMessage } from '#lib/utils/error.js';
-import { dedupeLatest, mergeCorrectionIdentity } from '#lib/utils/sharedPet.js';
+import { dedupeLatest } from '#lib/utils/sharedPet.js';
 
 const PAGE_SIZE = 50;
 

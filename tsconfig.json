@@ -5,6 +5,9 @@
   // `pnpm run check`, so a regression fails the build.
   "extends": "$app/tsconfig",
   "compilerOptions": {
+    // Covers .svelte, where Biome's unused rules stay off (biome.json):
+    // svelte2tsx emits template references, so markup-only imports count.
+    "noUnusedLocals": true,
     "sourceMap": true,
     "strict": true
   },

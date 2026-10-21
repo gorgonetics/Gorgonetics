@@ -49,7 +49,7 @@ const populationPets = $derived(petsForTier(rarityPopulation, $allPets));
 
 // A breed only means something within its own species.
 $effect(() => {
-  const _key = speciesKey;
+  void speciesKey;
   breedFilter = '';
 });
 // Discards a stale chromosome fetch when the animal type changes again before

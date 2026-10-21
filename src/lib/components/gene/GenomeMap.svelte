@@ -95,7 +95,7 @@ let lookupSeq = 0;
 // when the lens is on and keyed on the study's inputs, like the pet grid's.
 const impactKey = $derived.by(() => {
   if (!speciesKey || lens !== 'impact') return null;
-  const _reloaded = $petList;
+  void $petList;
   return studyInputsKey(speciesKey);
 });
 const impactResource = keyedResource(() => impactKey, loadGeneImpact);

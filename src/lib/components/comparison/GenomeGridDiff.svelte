@@ -56,7 +56,6 @@ let speciesKey = $state('');
 const isHorse = $derived(speciesKey === 'horse');
 
 let sortedBlocks = $state<string[]>([]);
-let blockMaxGenes = new Map<string, number>();
 let blockIndices = $state<Record<string, number[]>>({});
 
 let allAttributeNames: string[] = [];
@@ -87,8 +86,8 @@ let manualBreedOverride = $state(false);
 
 $effect(() => {
   // Re-initialize autoBreed from setting when pets change, reset manual override
-  const _a = petA?.id;
-  const _b = petB?.id;
+  void petA?.id;
+  void petB?.id;
   manualBreedOverride = false;
   autoBreed = !!$settings['horse.autoSelectBreedFilter'];
 });
@@ -212,7 +211,6 @@ async function loadData() {
       }
     }
     sortedBlocks = [...allBlks].sort();
-    blockMaxGenes = maxGenes;
 
     const indices: Record<string, number[]> = {};
     for (const block of sortedBlocks) {

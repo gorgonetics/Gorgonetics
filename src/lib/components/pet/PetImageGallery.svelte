@@ -176,7 +176,7 @@ const kbReorder = createKeyboardReorder({
 onDestroy(() => clearTimeout(statusTimer ?? undefined));
 
 $effect(() => {
-  const _id = pet?.id;
+  void pet?.id;
   loadImages();
 });
 </script>
