@@ -19,8 +19,8 @@
  * it to a column would guarantee a stale value.
  */
 
-import { Gender, type Pet } from '$lib/types/index.js';
-import { computeLocusFrequencies } from '$lib/utils/geneFrequency.js';
+import { Gender, type Pet } from '#lib/types/index.js';
+import { computeLocusFrequencies } from '#lib/utils/geneFrequency.js';
 import {
   type BenefitWeight,
   breedReachFor,
@@ -38,8 +38,8 @@ import {
   scorePet,
   capabilitySummary as summarise,
   tallyAlleles,
-} from '$lib/utils/geneticQuality.js';
-import { loadAllPetLoci, type PetLoci } from '$lib/utils/petLoci.js';
+} from '#lib/utils/geneticQuality.js';
+import { loadAllPetLoci, type PetLoci } from '#lib/utils/petLoci.js';
 import { getAllAttributeNames, normalizeSpecies } from './configService.js';
 import { getParsedGenesCached } from './geneService.js';
 

@@ -1,7 +1,7 @@
 <script lang="ts">
 import { onDestroy, onMount } from 'svelte';
 import './geneCell.css';
-import StatusPane from '$lib/components/shared/StatusPane.svelte';
+import StatusPane from '#lib/components/shared/StatusPane.svelte';
 import {
   getAllAppearanceDisplayInfo,
   getAllAttributeDisplayInfo,
@@ -11,18 +11,18 @@ import {
   getAttributeConfig,
   getAttributeMatcher,
   normalizeSpecies,
-} from '$lib/services/configService.js';
-import { computeRarityLookup, type RarityLookup } from '$lib/services/frequencyService.js';
-import { getGeneEffectsCached } from '$lib/services/geneService.js';
-import { explainQuality } from '$lib/services/geneticQualityService.js';
-import { loadPetGridFromDb } from '$lib/services/petService.js';
-import { loadGeneImpact, STUDYABLE_SPECIES, studyInputsKey } from '$lib/services/studyService.js';
-import { pets as petList } from '$lib/stores/pets.js';
-import { settings } from '$lib/stores/settings.js';
-import { EFFECT_COLORS } from '$lib/theme/gene-colors.js';
-import type { AppearanceInfo, Gender, GeneType, Pet } from '$lib/types/index.js';
-import { buildVisualizerFilterCSS, type ChrBreedRelevance, joinAttrs } from '$lib/utils/filterCSS.js';
-import { resolveFilterClick } from '$lib/utils/filterToggle.js';
+} from '#lib/services/configService.js';
+import { computeRarityLookup, type RarityLookup } from '#lib/services/frequencyService.js';
+import { getGeneEffectsCached } from '#lib/services/geneService.js';
+import { explainQuality } from '#lib/services/geneticQualityService.js';
+import { loadPetGridFromDb } from '#lib/services/petService.js';
+import { loadGeneImpact, STUDYABLE_SPECIES, studyInputsKey } from '#lib/services/studyService.js';
+import { pets as petList } from '#lib/stores/pets.js';
+import { settings } from '#lib/stores/settings.js';
+import { EFFECT_COLORS } from '#lib/theme/gene-colors.js';
+import type { AppearanceInfo, Gender, GeneType, Pet } from '#lib/types/index.js';
+import { buildVisualizerFilterCSS, type ChrBreedRelevance, joinAttrs } from '#lib/utils/filterCSS.js';
+import { resolveFilterClick } from '#lib/utils/filterToggle.js';
 import {
   breedFor,
   effectFor,
@@ -30,9 +30,9 @@ import {
   isNoEffect,
   type ParsedChromosome,
   type ParsedGene,
-} from '$lib/utils/geneAnalysis.js';
-import { RARITY_BUCKET_NEVER, RARITY_STEP_LABELS } from '$lib/utils/geneFrequency.js';
-import { computeGeneCellSize } from '$lib/utils/geneGridCells.js';
+} from '#lib/utils/geneAnalysis.js';
+import { RARITY_BUCKET_NEVER, RARITY_STEP_LABELS } from '#lib/utils/geneFrequency.js';
+import { computeGeneCellSize } from '#lib/utils/geneGridCells.js';
 import {
   buildImpactCSS,
   buildImpactTooltip,
@@ -44,19 +44,19 @@ import {
   type SlotImpact,
   slotImpact,
   summarizeImpact,
-} from '$lib/utils/geneImpact.js';
+} from '#lib/utils/geneImpact.js';
 import {
   updateStats as accumulateStats,
   initializeStats as buildEmptyStats,
   type StatsMap,
-} from '$lib/utils/geneStats.js';
-import { parseBreedLockWeight } from '$lib/utils/geneticQuality.js';
-import { handleGridNavigation } from '$lib/utils/keyboard.js';
-import { keyedResource } from '$lib/utils/keyedResource.svelte.js';
-import { buildQualityCSS, gridToLoci, qualityRows, qualityTooltip, STANDING_HINT } from '$lib/utils/qualityLens.js';
-import { buildRarityCSS, type RarityCell } from '$lib/utils/rarityCSS.js';
-import { buildRarityTooltip, placeRarityTooltip } from '$lib/utils/rarityTooltip.js';
-import { capitalize, escapeHtml, pluralise } from '$lib/utils/string.js';
+} from '#lib/utils/geneStats.js';
+import { parseBreedLockWeight } from '#lib/utils/geneticQuality.js';
+import { handleGridNavigation } from '#lib/utils/keyboard.js';
+import { keyedResource } from '#lib/utils/keyedResource.svelte.js';
+import { buildQualityCSS, gridToLoci, qualityRows, qualityTooltip, STANDING_HINT } from '#lib/utils/qualityLens.js';
+import { buildRarityCSS, type RarityCell } from '#lib/utils/rarityCSS.js';
+import { buildRarityTooltip, placeRarityTooltip } from '#lib/utils/rarityTooltip.js';
+import { capitalize, escapeHtml, pluralise } from '#lib/utils/string.js';
 import GeneTooltip from './GeneTooltip.svelte';
 
 const ALL_ATTRIBUTES = getAllAttributeDisplayInfo();

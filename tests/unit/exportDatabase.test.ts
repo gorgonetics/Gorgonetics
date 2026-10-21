@@ -7,19 +7,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 // filtering / count reconciliation around the native write_zip command.
 
 const isTauri = vi.fn();
-vi.mock('$lib/utils/environment.js', () => ({ isTauri: () => isTauri() }));
+vi.mock('#lib/utils/environment.js', () => ({ isTauri: () => isTauri() }));
 
 const select = vi.fn();
-vi.mock('$lib/services/database.js', () => ({ getDb: () => ({ select }) }));
+vi.mock('#lib/services/database.js', () => ({ getDb: () => ({ select }) }));
 
-vi.mock('$lib/services/migrationService.js', () => ({
+vi.mock('#lib/services/migrationService.js', () => ({
   CURRENT_SCHEMA_VERSION: 14,
   getSchemaVersion: () => Promise.resolve(14),
 }));
 
 const pickExportSavePath = vi.fn();
 const saveExportBinaryFile = vi.fn();
-vi.mock('$lib/services/fileService.js', () => ({
+vi.mock('#lib/services/fileService.js', () => ({
   pickExportSavePath: (...a: unknown[]) => pickExportSavePath(...a),
   saveExportBinaryFile: (...a: unknown[]) => saveExportBinaryFile(...a),
 }));
@@ -33,7 +33,7 @@ vi.mock('@tauri-apps/plugin-fs', () => ({
   BaseDirectory: { AppData: 'AppData' },
 }));
 
-import { exportDatabase } from '$lib/services/backupService.js';
+import { exportDatabase } from '#lib/services/backupService.js';
 
 const GENES = [{ animal_type: 'BeeWasp', chromosome: 'chr01', gene: '01A1' }];
 const PETS = [{ id: 1, name: 'TestBee', content_hash: 'hash_abc', genome_text: '' }];

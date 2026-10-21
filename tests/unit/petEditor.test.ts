@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render } from '@testing-library/svelte';
 import { afterEach, describe, expect, it } from 'vitest';
-import PetEditor from '$lib/components/pet/PetEditor.svelte';
-import type { Pet } from '$lib/types/index.js';
+import PetEditor from '#lib/components/pet/PetEditor.svelte';
+import type { Pet } from '#lib/types/index.js';
 
 const pet = (over: Partial<Pet> = {}): Pet =>
   ({

@@ -9,8 +9,8 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { getEffectOptionsForSpecies } from '$lib/services/configService.js';
-import { EFFECT_ATTRIBUTES, TEMPLATE_SPECIES } from '$lib/types/index.js';
+import { getEffectOptionsForSpecies } from '#lib/services/configService.js';
+import { EFFECT_ATTRIBUTES, TEMPLATE_SPECIES } from '#lib/types/index.js';
 
 const RULES = readFileSync(resolve('firestore.rules'), 'utf-8');
 const ASSETS = resolve('assets');

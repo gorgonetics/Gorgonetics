@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { closeDatabase, initDatabase } from '$lib/services/database.js';
-import * as geneService from '$lib/services/geneService.js';
-import { runMigrations } from '$lib/services/migrationService.js';
-import * as petService from '$lib/services/petService.js';
+import { closeDatabase, initDatabase } from '#lib/services/database.js';
+import * as geneService from '#lib/services/geneService.js';
+import { runMigrations } from '#lib/services/migrationService.js';
+import * as petService from '#lib/services/petService.js';
 
 /**
  * Three-gene beewasp genome at 01A1 / 01A2 / 01A3, all dominant. Tests

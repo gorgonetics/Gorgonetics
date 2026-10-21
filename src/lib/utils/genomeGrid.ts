@@ -14,8 +14,8 @@
  * chromosome's blocks.
  */
 
-import { compareBlockLetters, parseGenome } from '$lib/services/genomeParser.js';
-import { type ParsedChromosome, type ParsedGene, toGeneId } from '$lib/utils/geneAnalysis.js';
+import { compareBlockLetters, parseGenome } from '#lib/services/genomeParser.js';
+import { type ParsedChromosome, type ParsedGene, toGeneId } from '#lib/utils/geneAnalysis.js';
 
 /**
  * Parse raw genome file text into the `{ chromosome: ParsedChromosome }`

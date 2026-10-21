@@ -4,7 +4,7 @@
  */
 
 import { writable } from 'svelte/store';
-import { getAllSettings, getDefaultSettings, setSetting } from '$lib/services/settingsService.js';
+import { getAllSettings, getDefaultSettings, setSetting } from '#lib/services/settingsService.js';
 
 export const settings = writable<Record<string, unknown>>(getDefaultSettings());
 

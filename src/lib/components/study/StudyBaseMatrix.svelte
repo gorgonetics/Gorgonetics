@@ -1,5 +1,5 @@
 <script lang="ts">
-import type { AttributeStudy } from '$lib/utils/attributeStudy.js';
+import type { AttributeStudy } from '#lib/utils/attributeStudy.js';
 import {
   type BaseCell,
   baseText,
@@ -9,7 +9,7 @@ import {
   isConflict,
   isExactBase,
   lumpText,
-} from '$lib/utils/baseMatrix.js';
+} from '#lib/utils/baseMatrix.js';
 
 interface Props {
   /** In display order: the columns follow it. */

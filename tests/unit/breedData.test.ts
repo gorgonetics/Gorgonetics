@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { HORSE_BREEDS } from '$lib/types/index.js';
+import { HORSE_BREEDS } from '#lib/types/index.js';
 
 const horseDir = resolve('assets/horse');
 const files = readdirSync(horseDir)

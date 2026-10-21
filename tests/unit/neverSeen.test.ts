@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { GeneType } from '$lib/types/index.js';
-import { computeLocusFrequencies, rarityBucket, SOLE_CARRIER_MIN_PETS } from '$lib/utils/geneFrequency.js';
-import { groupNeverSeenByChromosome, neverSeenAlleles, withDeclaredEffect } from '$lib/utils/neverSeen.js';
-import type { PetLoci } from '$lib/utils/petLoci.js';
-import type { RarityBucketSource } from '$lib/utils/rarityCSS.js';
+import { GeneType } from '#lib/types/index.js';
+import { computeLocusFrequencies, rarityBucket, SOLE_CARRIER_MIN_PETS } from '#lib/utils/geneFrequency.js';
+import { groupNeverSeenByChromosome, neverSeenAlleles, withDeclaredEffect } from '#lib/utils/neverSeen.js';
+import type { PetLoci } from '#lib/utils/petLoci.js';
+import type { RarityBucketSource } from '#lib/utils/rarityCSS.js';
 
 const D = GeneType.DOMINANT;
 const R = GeneType.RECESSIVE;

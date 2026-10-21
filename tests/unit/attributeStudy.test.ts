@@ -10,8 +10,8 @@ import {
   studyAll,
   studyAttribute,
   tightenThroughGaps,
-} from '$lib/utils/attributeStudy.js';
-import type { GeneEffectData } from '$lib/utils/geneAnalysis.js';
+} from '#lib/utils/attributeStudy.js';
+import type { GeneEffectData } from '#lib/utils/geneAnalysis.js';
 
 /**
  * A miniature horse genome. `14B4`/`14B2` mirror the real reference data —

@@ -2,11 +2,11 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { get } from 'svelte/store';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { closeDatabase, initDatabase } from '$lib/services/database.js';
-import { runMigrations } from '$lib/services/migrationService.js';
-import * as petService from '$lib/services/petService.js';
-import { activeTab, appState, error, geneEditingView, loading, notice, pets, selectedPet } from '$lib/stores/pets.js';
-import type { Pet } from '$lib/types/index.js';
+import { closeDatabase, initDatabase } from '#lib/services/database.js';
+import { runMigrations } from '#lib/services/migrationService.js';
+import * as petService from '#lib/services/petService.js';
+import { activeTab, appState, error, geneEditingView, loading, notice, pets, selectedPet } from '#lib/stores/pets.js';
+import type { Pet } from '#lib/types/index.js';
 
 // The store's `selectPet` takes a full `Pet`; these tests only need the
 // `id`/`name` fields the assertions read, so cast the partial literal.

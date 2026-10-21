@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { hiddenGeneCount, petsWithHiddenGenes } from '$lib/utils/hiddenGenes.js';
+import { hiddenGeneCount, petsWithHiddenGenes } from '#lib/utils/hiddenGenes.js';
 
 describe('hidden genes', () => {
   it('counts hidden loci, falling back to the flag when no count is stored', () => {

@@ -18,9 +18,9 @@ import {
   getAllAttributeNames,
   getAllAttributes,
   getSupportedSpecies,
-} from '$lib/services/configService.js';
-import { ATTRIBUTE_KEYS } from '$lib/utils/sharedPet.js';
-import { capitalize } from '$lib/utils/string.js';
+} from '#lib/services/configService.js';
+import { ATTRIBUTE_KEYS } from '#lib/utils/sharedPet.js';
+import { capitalize } from '#lib/utils/string.js';
 
 export interface AttributeColumn {
   key: string;

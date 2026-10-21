@@ -14,10 +14,10 @@ vi.mock('firebase/firestore', () => ({
   setDoc: (ref: unknown, data: unknown) => setDoc(ref, data),
   getDoc: (ref: unknown) => getDoc(ref),
 }));
-vi.mock('$lib/firebase.js', () => ({ firestore: {} }));
+vi.mock('#lib/firebase.js', () => ({ firestore: {} }));
 
 const settings = new Map<string, unknown>();
-vi.mock('$lib/services/settingsService.js', () => ({
+vi.mock('#lib/services/settingsService.js', () => ({
   TEMPLATE_BUNDLE_HASH_KEY: 'genes.templateBundleHash',
   getSetting: async (key: string) => settings.get(key),
   setSetting: async (key: string, value: unknown) => {
@@ -26,12 +26,12 @@ vi.mock('$lib/services/settingsService.js', () => ({
 }));
 
 const loadBundledResource = vi.fn();
-vi.mock('$lib/services/fileService.js', () => ({
+vi.mock('#lib/services/fileService.js', () => ({
   loadBundledResource: (path: string) => loadBundledResource(path),
 }));
 
 const exportGenesToJson = vi.fn();
-vi.mock('$lib/services/geneService.js', () => ({
+vi.mock('#lib/services/geneService.js', () => ({
   exportGenesToJson: (species: string, chromosome: string) => exportGenesToJson(species, chromosome),
 }));
 
@@ -44,8 +44,8 @@ import {
   SEND_TIMEOUT_MS,
   submitGeneReports,
   validateGeneReport,
-} from '$lib/services/geneReportService.js';
-import type { GeneReport } from '$lib/types/index.js';
+} from '#lib/services/geneReportService.js';
+import type { GeneReport } from '#lib/types/index.js';
 
 const HASH = 'c'.repeat(64);
 

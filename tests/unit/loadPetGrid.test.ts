@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { closeDatabase, initDatabase } from '$lib/services/database.js';
-import { compareBlockLetters } from '$lib/services/genomeParser.js';
-import { runMigrations } from '$lib/services/migrationService.js';
-import * as petService from '$lib/services/petService.js';
-import { fromGeneId, toGeneId } from '$lib/utils/geneAnalysis.js';
+import { closeDatabase, initDatabase } from '#lib/services/database.js';
+import { compareBlockLetters } from '#lib/services/genomeParser.js';
+import { runMigrations } from '#lib/services/migrationService.js';
+import * as petService from '#lib/services/petService.js';
+import { fromGeneId, toGeneId } from '#lib/utils/geneAnalysis.js';
 
 const MULTI_BLOCK_BEEWASP = `[Overview]
 Format=1.0
@@ -90,7 +90,7 @@ describe('loadPetGridFromDb', () => {
     // Simulates an un-backfilled legacy pet: row exists in `pets`,
     // genome_text is intact, but its loci haven't been written yet.
     const upload = await petService.uploadPet(MULTI_BLOCK_BEEWASP, { name: 'Legacy', gender: 'Female' });
-    const db = (await import('$lib/services/database.js')).getDb();
+    const db = (await import('#lib/services/database.js')).getDb();
     await db.execute('UPDATE pets SET loci = $empty WHERE id = $id', { empty: '', id: upload.pet_id });
 
     const grid = await petService.loadPetGridFromDb(upload.pet_id as number);

@@ -13,10 +13,10 @@
  * Pure: no database access. Callers read and write the columns.
  */
 
-import { compareBlockLetters, parseGenome } from '$lib/services/genomeParser.js';
-import { GeneType, type Genome } from '$lib/types/index.js';
-import { fromGeneId, toGeneId } from '$lib/utils/geneAnalysis.js';
-import { sha256Hex } from '$lib/utils/hash.js';
+import { compareBlockLetters, parseGenome } from '#lib/services/genomeParser.js';
+import { GeneType, type Genome } from '#lib/types/index.js';
+import { fromGeneId, toGeneId } from '#lib/utils/geneAnalysis.js';
+import { sha256Hex } from '#lib/utils/hash.js';
 
 const CODES = new Set<string>([GeneType.DOMINANT, GeneType.RECESSIVE, GeneType.MIXED, GeneType.UNKNOWN]);
 

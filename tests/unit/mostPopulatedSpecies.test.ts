@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { mostPopulatedSpecies } from '$lib/utils/species.js';
+import { mostPopulatedSpecies } from '#lib/utils/species.js';
 
 const pets = (...species: string[]) => species.map((s) => ({ species: s }));
 

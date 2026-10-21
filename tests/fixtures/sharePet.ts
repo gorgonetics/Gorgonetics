@@ -11,8 +11,8 @@
  * (`content_hash === sha256(genome_text)`). The hash is precomputed at module
  * load via top-level await so `makePet` stays synchronous for test bodies.
  */
-import { Gender, type Pet } from '$lib/types/index.js';
-import { sha256Hex } from '$lib/utils/hash.js';
+import { Gender, type Pet } from '#lib/types/index.js';
+import { sha256Hex } from '#lib/utils/hash.js';
 
 /** Options accepted by {@link makePet}: hashing knobs plus arbitrary `Pet` field overrides. */
 interface MakePetOpts extends Partial<Pet> {

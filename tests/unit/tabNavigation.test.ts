@@ -1,15 +1,15 @@
 import { get } from 'svelte/store';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('$lib/services/petService.js', () => ({
+vi.mock('#lib/services/petService.js', () => ({
   updatePet: vi.fn(),
   getAllPets: vi.fn(),
   deletePet: vi.fn(),
   uploadPet: vi.fn(),
 }));
 
-import { activeTab, appState, canGoBack, selectedPet } from '$lib/stores/pets.js';
-import type { Pet } from '$lib/types/index.js';
+import { activeTab, appState, canGoBack, selectedPet } from '#lib/stores/pets.js';
+import type { Pet } from '#lib/types/index.js';
 
 beforeEach(() => {
   // Drain any history left over from a previous test, then return to a

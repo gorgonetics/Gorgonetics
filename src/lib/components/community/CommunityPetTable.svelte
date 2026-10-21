@@ -24,17 +24,17 @@
  * Sorting is client-side over the filtered rows; it re-orders what's on
  * screen without refetching.
  */
-import FilterBar from '$lib/components/shared/FilterBar.svelte';
-import StatusBanner from '$lib/components/shared/StatusBanner.svelte';
-import StatusPane from '$lib/components/shared/StatusPane.svelte';
-import { getSupportedSpecies } from '$lib/services/configService.js';
-import { communityView, loadInitial, loadMore, selectPet } from '$lib/stores/community.svelte.js';
-import { type Gender, type SharedPet } from '$lib/types/index.js';
-import { ATTRIBUTE_COLUMNS as ATTR_COLUMNS, attributeApplies } from '$lib/utils/attributeColumns.js';
-import { filterSharedPets, sharedPetOwner } from '$lib/utils/sharedPetFilter.js';
-import { type SortableColumn, sortByColumn } from '$lib/utils/sortColumn.js';
-import { BREEDS_BY_SPECIES } from '$lib/utils/species.js';
-import { formatShortDate } from '$lib/utils/timestamp.js';
+import FilterBar from '#lib/components/shared/FilterBar.svelte';
+import StatusBanner from '#lib/components/shared/StatusBanner.svelte';
+import StatusPane from '#lib/components/shared/StatusPane.svelte';
+import { getSupportedSpecies } from '#lib/services/configService.js';
+import { communityView, loadInitial, loadMore, selectPet } from '#lib/stores/community.svelte.js';
+import { type Gender, type SharedPet } from '#lib/types/index.js';
+import { ATTRIBUTE_COLUMNS as ATTR_COLUMNS, attributeApplies } from '#lib/utils/attributeColumns.js';
+import { filterSharedPets, sharedPetOwner } from '#lib/utils/sharedPetFilter.js';
+import { type SortableColumn, sortByColumn } from '#lib/utils/sortColumn.js';
+import { BREEDS_BY_SPECIES } from '#lib/utils/species.js';
+import { formatShortDate } from '#lib/utils/timestamp.js';
 
 function attrApplies(pet: SharedPet, key: string): boolean {
   return attributeApplies(pet.species, key);

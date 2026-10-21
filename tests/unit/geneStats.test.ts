@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { initializeStats, updateStats } from '$lib/utils/geneStats.js';
+import { initializeStats, updateStats } from '#lib/utils/geneStats.js';
 
 describe('initializeStats — attribute view', () => {
   const stats = initializeStats('attribute', ['Toughness', 'Speed']);

@@ -13,7 +13,7 @@
  * would re-derive.
  */
 
-import { DEFAULT_ATTRIBUTE_VALUE, type Pet, type SharedPet } from '$lib/types/index.js';
+import { DEFAULT_ATTRIBUTE_VALUE, type Pet, type SharedPet } from '#lib/types/index.js';
 
 /** Sentinel id for a not-in-DB preview pet. Never persisted or queried. */
 export const PREVIEW_PET_ID = -1;

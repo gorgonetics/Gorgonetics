@@ -1,11 +1,11 @@
 <script lang="ts">
-import { breedingView } from '$lib/stores/breeding.svelte.js';
-import { requestOpenPet } from '$lib/stores/mypets.svelte.js';
-import { appState } from '$lib/stores/pets.js';
-import type { BreedingPairResult, ParentExpressedProfile, Pet } from '$lib/types/index.js';
-import { type AttributeMagnitudes, coverageOf, EMPTY_MAGNITUDES, hasMagnitudes } from '$lib/utils/attributePoints.js';
-import type { SuggestedPlan } from '$lib/utils/breedingPlan.js';
-import { type SortableColumn, sortByColumn } from '$lib/utils/sortColumn.js';
+import { breedingView } from '#lib/stores/breeding.svelte.js';
+import { requestOpenPet } from '#lib/stores/mypets.svelte.js';
+import { appState } from '#lib/stores/pets.js';
+import type { BreedingPairResult, ParentExpressedProfile, Pet } from '#lib/types/index.js';
+import { type AttributeMagnitudes, coverageOf, EMPTY_MAGNITUDES, hasMagnitudes } from '#lib/utils/attributePoints.js';
+import type { SuggestedPlan } from '#lib/utils/breedingPlan.js';
+import { type SortableColumn, sortByColumn } from '#lib/utils/sortColumn.js';
 
 interface Props {
   results: BreedingPairResult[];

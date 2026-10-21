@@ -9,8 +9,8 @@
  * Pure: takes gene ids in, returns rows out. No DB, no Svelte.
  */
 
-import { compareBlockLetters } from '$lib/services/genomeParser.js';
-import { fromGeneId } from '$lib/utils/geneAnalysis.js';
+import { compareBlockLetters } from '#lib/services/genomeParser.js';
+import { fromGeneId } from '#lib/utils/geneAnalysis.js';
 
 export interface GenomeMapRow {
   chromosome: string;

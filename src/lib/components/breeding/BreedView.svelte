@@ -8,36 +8,36 @@
  * TrioView. See docs/design/redesign-library-workspace-v1.md (§2, IA v2).
  */
 import { onDestroy } from 'svelte';
-import BreedingPairTable from '$lib/components/breeding/BreedingPairTable.svelte';
-import BreedingPoolPanel from '$lib/components/breeding/BreedingPoolPanel.svelte';
-import TrioView from '$lib/components/breeding/TrioView.svelte';
-import BreedSelector from '$lib/components/shared/BreedSelector.svelte';
-import EmptyState from '$lib/components/shared/EmptyState.svelte';
-import PageHeader from '$lib/components/shared/PageHeader.svelte';
-import StatusPane from '$lib/components/shared/StatusPane.svelte';
-import { magnitudesForBreed, rankBreedingPairs } from '$lib/services/breedingService.js';
-import { getAllAttributeNames, getSupportedSpecies, normalizeSpecies } from '$lib/services/configService.js';
-import { capabilitySummary } from '$lib/services/geneticQualityService.js';
-import { localPetsRevision } from '$lib/services/petService.js';
-import { attributeMagnitudesFor, peekAttributeMagnitudes } from '$lib/services/studyService.js';
-import { breedingView, clearBench, toggleBench } from '$lib/stores/breeding.svelte.js';
+import BreedingPairTable from '#lib/components/breeding/BreedingPairTable.svelte';
+import BreedingPoolPanel from '#lib/components/breeding/BreedingPoolPanel.svelte';
+import TrioView from '#lib/components/breeding/TrioView.svelte';
+import BreedSelector from '#lib/components/shared/BreedSelector.svelte';
+import EmptyState from '#lib/components/shared/EmptyState.svelte';
+import PageHeader from '#lib/components/shared/PageHeader.svelte';
+import StatusPane from '#lib/components/shared/StatusPane.svelte';
+import { magnitudesForBreed, rankBreedingPairs } from '#lib/services/breedingService.js';
+import { getAllAttributeNames, getSupportedSpecies, normalizeSpecies } from '#lib/services/configService.js';
+import { capabilitySummary } from '#lib/services/geneticQualityService.js';
+import { localPetsRevision } from '#lib/services/petService.js';
+import { attributeMagnitudesFor, peekAttributeMagnitudes } from '#lib/services/studyService.js';
+import { breedingView, clearBench, toggleBench } from '#lib/stores/breeding.svelte.js';
 // `loading` aliased: this component has its own ranking `loading` flag.
-import { pets, loading as petsLoading } from '$lib/stores/pets.js';
-import { settings } from '$lib/stores/settings.js';
-import { type BreedingPairResult, HORSE_BREEDS } from '$lib/types/index.js';
-import { type AttributeMagnitudes, EMPTY_MAGNITUDES, hasMagnitudes } from '$lib/utils/attributePoints.js';
+import { pets, loading as petsLoading } from '#lib/stores/pets.js';
+import { settings } from '#lib/stores/settings.js';
+import { type BreedingPairResult, HORSE_BREEDS } from '#lib/types/index.js';
+import { type AttributeMagnitudes, EMPTY_MAGNITUDES, hasMagnitudes } from '#lib/utils/attributePoints.js';
 import {
   attributeObjective,
   BREEDING_OBJECTIVES,
   type BreedingObjective,
   resolveObjective,
-} from '$lib/utils/breedingObjectives.js';
-import { suggestPlans } from '$lib/utils/breedingPlan.js';
-import { parseBreedLockWeight } from '$lib/utils/geneticQuality.js';
-import { petsWithHiddenGenes } from '$lib/utils/hiddenGenes.js';
-import { keyedResource } from '$lib/utils/keyedResource.svelte.js';
-import { getSpeciesEmoji, mostPopulatedSpecies } from '$lib/utils/species.js';
-import { capitalize } from '$lib/utils/string.js';
+} from '#lib/utils/breedingObjectives.js';
+import { suggestPlans } from '#lib/utils/breedingPlan.js';
+import { parseBreedLockWeight } from '#lib/utils/geneticQuality.js';
+import { petsWithHiddenGenes } from '#lib/utils/hiddenGenes.js';
+import { keyedResource } from '#lib/utils/keyedResource.svelte.js';
+import { getSpeciesEmoji, mostPopulatedSpecies } from '#lib/utils/species.js';
+import { capitalize } from '#lib/utils/string.js';
 
 // Species options, normalized for matching but shown with their display name.
 const speciesOptions = getSupportedSpecies().map((s) => ({

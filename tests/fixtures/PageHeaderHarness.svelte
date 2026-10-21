@@ -1,7 +1,7 @@
 <script lang="ts">
 /** Test harness: renders PageHeader with an `actions` snippet so the slot
  * can be asserted without hand-rolling createRawSnippet in the test. */
-import PageHeader from '$lib/components/shared/PageHeader.svelte';
+import PageHeader from '#lib/components/shared/PageHeader.svelte';
 
 interface Props {
   title?: string;

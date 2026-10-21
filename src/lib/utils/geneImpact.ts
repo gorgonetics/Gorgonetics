@@ -25,11 +25,11 @@
  * Pure functions. No DB, no Svelte.
  */
 
-import type { ParsedGeneRecord } from '$lib/services/geneService.js';
-import { GeneType } from '$lib/types/index.js';
-import { type AttributeMagnitudes, magnitudeOf } from '$lib/utils/attributePoints.js';
-import type { Expression } from '$lib/utils/attributeStudy.js';
-import { capitalize, escapeHtml } from '$lib/utils/string.js';
+import type { ParsedGeneRecord } from '#lib/services/geneService.js';
+import { GeneType } from '#lib/types/index.js';
+import { type AttributeMagnitudes, magnitudeOf } from '#lib/utils/attributePoints.js';
+import type { Expression } from '#lib/utils/attributeStudy.js';
+import { capitalize, escapeHtml } from '#lib/utils/string.js';
 
 export type SlotImpact =
   | { kind: 'none' }

@@ -6,12 +6,12 @@ import {
   pickImageFiles,
   reorderImages,
   uploadImage,
-} from '$lib/services/imageService.js';
-import type { Pet, PetImage } from '$lib/types/index.js';
-import { arrayMove, createDragState, createKeyboardReorder } from '$lib/utils/dragReorder.svelte.js';
-import { errorMessage } from '$lib/utils/error.js';
-import { focusTrap } from '$lib/utils/focusTrap.js';
-import { getBasename } from '$lib/utils/path.js';
+} from '#lib/services/imageService.js';
+import type { Pet, PetImage } from '#lib/types/index.js';
+import { arrayMove, createDragState, createKeyboardReorder } from '#lib/utils/dragReorder.svelte.js';
+import { errorMessage } from '#lib/utils/error.js';
+import { focusTrap } from '#lib/utils/focusTrap.js';
+import { getBasename } from '#lib/utils/path.js';
 
 interface Props {
   pet: Pet;

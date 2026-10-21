@@ -8,7 +8,7 @@
  */
 
 import { writable } from 'svelte/store';
-import { countPendingImports } from '$lib/services/gameImport.js';
+import { countPendingImports } from '#lib/services/gameImport.js';
 
 export const pendingImportCount = writable(0);
 

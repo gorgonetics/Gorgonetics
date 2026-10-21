@@ -4,16 +4,16 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 // Backing out of the Pet Editor (Cancel / back button / Escape) with pending
 // changes must ask for confirmation instead of silently discarding them (#396).
 
-vi.mock('$lib/services/petService.js', () => ({
+vi.mock('#lib/services/petService.js', () => ({
   updatePet: vi.fn(),
   getAllPets: vi.fn(),
   deletePet: vi.fn(),
   uploadPet: vi.fn(),
 }));
 
-import PetEditor from '$lib/components/pet/PetEditor.svelte';
-import { getAllAttributeDisplayInfo } from '$lib/services/configService.js';
-import type { Pet } from '$lib/types/index.js';
+import PetEditor from '#lib/components/pet/PetEditor.svelte';
+import { getAllAttributeDisplayInfo } from '#lib/services/configService.js';
+import type { Pet } from '#lib/types/index.js';
 
 // Give the pet a value for every editable attribute so the untouched form
 // diffs clean against it (initEditState defaults missing attributes to 50).

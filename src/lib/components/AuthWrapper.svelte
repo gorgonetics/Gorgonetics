@@ -1,19 +1,19 @@
 <script lang="ts">
 import { onMount, type Snippet } from 'svelte';
-import { initDatabase } from '$lib/services/database.js';
-import { loadDemoPetsIfNeeded, refreshGeneTemplatesIfChanged } from '$lib/services/demoService.js';
-import { autoScanGameFolder, watchGameFolder } from '$lib/services/gameImport.js';
-import { backfillParsedGeneEffectsIfNeeded } from '$lib/services/geneService.js';
-import { runMigrations } from '$lib/services/migrationService.js';
+import { initDatabase } from '#lib/services/database.js';
+import { loadDemoPetsIfNeeded, refreshGeneTemplatesIfChanged } from '#lib/services/demoService.js';
+import { autoScanGameFolder, watchGameFolder } from '#lib/services/gameImport.js';
+import { backfillParsedGeneEffectsIfNeeded } from '#lib/services/geneService.js';
+import { runMigrations } from '#lib/services/migrationService.js';
 import {
   backfillGeneCountsIfNeeded,
   backfillImportedFilesIfNeeded,
   backfillPetLociIfNeeded,
   backfillPositiveGenesIfNeeded,
-} from '$lib/services/petService.js';
-import { refreshPendingImportCount } from '$lib/stores/gameImport.js';
-import { appState } from '$lib/stores/pets.js';
-import { settings, settingsActions } from '$lib/stores/settings.js';
+} from '#lib/services/petService.js';
+import { refreshPendingImportCount } from '#lib/stores/gameImport.js';
+import { appState } from '#lib/stores/pets.js';
+import { settings, settingsActions } from '#lib/stores/settings.js';
 
 interface Props {
   children: Snippet;

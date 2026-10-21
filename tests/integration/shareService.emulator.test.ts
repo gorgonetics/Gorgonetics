@@ -31,9 +31,9 @@ import {
   writeBatch,
 } from 'firebase/firestore';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { getSharedPet, listPets, uploadPet } from '$lib/services/shareService.js';
-import { Gender } from '$lib/types/index.js';
-import { sha256Hex } from '$lib/utils/hash.js';
+import { getSharedPet, listPets, uploadPet } from '#lib/services/shareService.js';
+import { Gender } from '#lib/types/index.js';
+import { sha256Hex } from '#lib/utils/hash.js';
 import { freshPet } from '../fixtures/sharePet.js';
 
 const META_COLLECTION = 'pets';
@@ -53,7 +53,7 @@ beforeAll(() => {
 
 afterAll(async () => {
   // The default Firebase app gets initialised as a side-effect of importing
-  // shareService → $lib/firebase. The integration tests never use it, but
+  // shareService → #lib/firebase. The integration tests never use it, but
   // leaving it open holds a gRPC channel until process exit — a real leak
   // for any long-running test harness. The test-scoped app is its own
   // cleanup below.

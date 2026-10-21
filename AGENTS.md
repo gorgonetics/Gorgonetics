@@ -127,7 +127,7 @@ Output: `src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/Gorgonetics
 - **Framework**: Svelte 5 with runes (`$props()`, `$state()`, `$derived()`, `$effect()`)
 - **Services**: All data access goes through `src/lib/services/` modules
 - **State**: Svelte writable stores in `src/lib/stores/`
-- **Imports**: Use `$lib/` alias (e.g., `import { getDb } from '$lib/services/database.js'`)
+- **Imports**: Use `#lib/` subpath imports from `package.json` (e.g., `import { getDb } from '#lib/services/database.js'`)
 - **CSS**: Plain CSS with Svelte scoped styles; shared classes in `src/app.css`
 - **No raw fetch**: All data access through service layer, not HTTP calls
 

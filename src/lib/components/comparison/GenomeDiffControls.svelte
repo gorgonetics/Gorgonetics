@@ -1,8 +1,8 @@
 <script lang="ts">
-import BreedSelector from '$lib/components/shared/BreedSelector.svelte';
-import GeneFilterPills, { type FilterPillItem } from '$lib/components/shared/GeneFilterPills.svelte';
-import type { AppearanceInfo, AttributeInfo } from '$lib/types/index.js';
-import { HORSE_BREEDS } from '$lib/types/index.js';
+import BreedSelector from '#lib/components/shared/BreedSelector.svelte';
+import GeneFilterPills, { type FilterPillItem } from '#lib/components/shared/GeneFilterPills.svelte';
+import type { AppearanceInfo, AttributeInfo } from '#lib/types/index.js';
+import { HORSE_BREEDS } from '#lib/types/index.js';
 
 /**
  * The compare view's filter row: breed picker + attribute/appearance tri-state

@@ -52,11 +52,11 @@ vi.mock('firebase/firestore', async () => {
   };
 });
 
-vi.mock('$lib/firebase.js', () => ({
+vi.mock('#lib/firebase.js', () => ({
   firestore: { __mock: 'firestore' },
 }));
 
-vi.mock('$lib/services/petService.js', () => ({
+vi.mock('#lib/services/petService.js', () => ({
   findPetByHash: vi.fn(),
   getPet: vi.fn(),
   getPetGenomeText: vi.fn(),
@@ -65,8 +65,8 @@ vi.mock('$lib/services/petService.js', () => ({
 }));
 
 import { getDoc, getDocs, orderBy, setDoc, startAfter, Timestamp, writeBatch } from 'firebase/firestore';
-import { findPetByHash, getPet, updatePet, uploadPet as uploadPetLocally } from '$lib/services/petService.js';
-import type { UploadResult } from '$lib/services/shareService.js';
+import { findPetByHash, getPet, updatePet, uploadPet as uploadPetLocally } from '#lib/services/petService.js';
+import type { UploadResult } from '#lib/services/shareService.js';
 import {
   getSharedPet,
   importCommunityPet,
@@ -75,10 +75,10 @@ import {
   uploadPet,
   uploadPets,
   verifySharedPet,
-} from '$lib/services/shareService.js';
-import { Gender, type Pet, type SharedPet } from '$lib/types/index.js';
-import { sha256Hex } from '$lib/utils/hash.js';
-import { ATTRIBUTE_KEYS } from '$lib/utils/sharedPet.js';
+} from '#lib/services/shareService.js';
+import { Gender, type Pet, type SharedPet } from '#lib/types/index.js';
+import { sha256Hex } from '#lib/utils/hash.js';
+import { ATTRIBUTE_KEYS } from '#lib/utils/sharedPet.js';
 import { makePet, DEFAULT_RAW_TEXT as RAW_TEXT, DEFAULT_RAW_TEXT_HASH as RAW_TEXT_HASH } from '../fixtures/sharePet.js';
 
 // The Firestore SDK and petService are mocked above; `vi.mocked` re-types each

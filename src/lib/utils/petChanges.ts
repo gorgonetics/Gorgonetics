@@ -11,7 +11,7 @@
  * when the result is non-empty.
  */
 
-import type { Gender, Pet } from '$lib/types/index.js';
+import type { Gender, Pet } from '#lib/types/index.js';
 
 /** Editable snapshot of a pet, as held by the `PetEditor` form state. */
 export interface PetEditDraft {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { capitalize, escapeHtml, pluralise } from '$lib/utils/string.js';
+import { capitalize, escapeHtml, pluralise } from '#lib/utils/string.js';
 
 describe('capitalize', () => {
   it('raises the first character and leaves the rest alone', () => {

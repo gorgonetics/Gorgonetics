@@ -1,13 +1,13 @@
 import { cleanup, render, waitFor } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import Roster from '$lib/components/mypets/Roster.svelte';
-import { closeDatabase, initDatabase } from '$lib/services/database.js';
-import * as geneService from '$lib/services/geneService.js';
-import { runMigrations } from '$lib/services/migrationService.js';
-import * as petService from '$lib/services/petService.js';
-import { myPetsView } from '$lib/stores/mypets.svelte.js';
-import { pets as petStore } from '$lib/stores/pets.js';
-import { Gender, type Pet } from '$lib/types/index.js';
+import Roster from '#lib/components/mypets/Roster.svelte';
+import { closeDatabase, initDatabase } from '#lib/services/database.js';
+import * as geneService from '#lib/services/geneService.js';
+import { runMigrations } from '#lib/services/migrationService.js';
+import * as petService from '#lib/services/petService.js';
+import { myPetsView } from '#lib/stores/mypets.svelte.js';
+import { pets as petStore } from '#lib/stores/pets.js';
+import { Gender, type Pet } from '#lib/types/index.js';
 
 /**
  * The Quality column, tested at component level rather than E2E.

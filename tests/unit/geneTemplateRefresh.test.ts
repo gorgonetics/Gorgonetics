@@ -2,13 +2,13 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import JSZip from 'jszip';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { importDatabase } from '$lib/services/backupService.js';
-import { closeDatabase, getDb, initDatabase } from '$lib/services/database.js';
-import { refreshGeneTemplatesIfChanged } from '$lib/services/demoService.js';
-import * as fileService from '$lib/services/fileService.js';
-import * as geneService from '$lib/services/geneService.js';
-import { CURRENT_SCHEMA_VERSION, runMigrations } from '$lib/services/migrationService.js';
-import { getSetting, setSetting } from '$lib/services/settingsService.js';
+import { importDatabase } from '#lib/services/backupService.js';
+import { closeDatabase, getDb, initDatabase } from '#lib/services/database.js';
+import { refreshGeneTemplatesIfChanged } from '#lib/services/demoService.js';
+import * as fileService from '#lib/services/fileService.js';
+import * as geneService from '#lib/services/geneService.js';
+import { CURRENT_SCHEMA_VERSION, runMigrations } from '#lib/services/migrationService.js';
+import { getSetting, setSetting } from '#lib/services/settingsService.js';
 
 // `loadBundledResource` resolves `resources/assets/...` to `/assets/...` and
 // calls `fetch`. Stub fetch so it reads the real asset files off disk.

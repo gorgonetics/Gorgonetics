@@ -14,8 +14,8 @@
  * recessive effect.
  */
 
-import type { AlleleDistribution, OffspringOutcomeBuckets } from '$lib/types/index.js';
-import { GeneType } from '$lib/types/index.js';
+import type { AlleleDistribution, OffspringOutcomeBuckets } from '#lib/types/index.js';
+import { GeneType } from '#lib/types/index.js';
 
 /**
  * Minimal parsed-gene shape this module needs. Defined locally to keep

@@ -1,14 +1,14 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { magnitudesForBreed, rankBreedingPairs } from '$lib/services/breedingService.js';
-import { closeDatabase, initDatabase } from '$lib/services/database.js';
-import * as geneService from '$lib/services/geneService.js';
-import { runMigrations } from '$lib/services/migrationService.js';
-import * as petService from '$lib/services/petService.js';
-import { Gender, type Pet } from '$lib/types/index.js';
-import { type AttributeMagnitudes, buildAttributeMagnitudes, coverageOf } from '$lib/utils/attributePoints.js';
-import type { AttributeStudy, Expression, StudyFinding } from '$lib/utils/attributeStudy.js';
-import { expectedImprovement } from '$lib/utils/breedingGenetics.js';
-import { attributeObjective } from '$lib/utils/breedingObjectives.js';
+import { magnitudesForBreed, rankBreedingPairs } from '#lib/services/breedingService.js';
+import { closeDatabase, initDatabase } from '#lib/services/database.js';
+import * as geneService from '#lib/services/geneService.js';
+import { runMigrations } from '#lib/services/migrationService.js';
+import * as petService from '#lib/services/petService.js';
+import { Gender, type Pet } from '#lib/types/index.js';
+import { type AttributeMagnitudes, buildAttributeMagnitudes, coverageOf } from '#lib/utils/attributePoints.js';
+import type { AttributeStudy, Expression, StudyFinding } from '#lib/utils/attributeStudy.js';
+import { expectedImprovement } from '#lib/utils/breedingGenetics.js';
+import { attributeObjective } from '#lib/utils/breedingObjectives.js';
 
 /** One chromosome, one locus per allele — the body the other breeding tests use. */
 function genomeOf(species: string, name: string, alleles: string) {

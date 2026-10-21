@@ -22,11 +22,11 @@
  * Pure. No DB, no Svelte.
  */
 
-import type { ParsedGeneRecord } from '$lib/services/geneService.js';
-import { type AlleleDistribution, GeneType } from '$lib/types/index.js';
-import { type AttributeMagnitudes, magnitudeOf } from '$lib/utils/attributePoints.js';
-import type { Expression } from '$lib/utils/attributeStudy.js';
-import { capitalize } from '$lib/utils/string.js';
+import type { ParsedGeneRecord } from '#lib/services/geneService.js';
+import { type AlleleDistribution, GeneType } from '#lib/types/index.js';
+import { type AttributeMagnitudes, magnitudeOf } from '#lib/utils/attributePoints.js';
+import type { Expression } from '#lib/utils/attributeStudy.js';
+import { capitalize } from '#lib/utils/string.js';
 
 /** One locus of the pair, as the trio has it. */
 export interface PairLocus {

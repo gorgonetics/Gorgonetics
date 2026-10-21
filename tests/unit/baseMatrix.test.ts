@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { AttributeStudy, BaselineOffset, BaselineReading } from '$lib/utils/attributeStudy.js';
-import { baseText, buildBaseMatrix, gapText } from '$lib/utils/baseMatrix.js';
+import type { AttributeStudy, BaselineOffset, BaselineReading } from '#lib/utils/attributeStudy.js';
+import { baseText, buildBaseMatrix, gapText } from '#lib/utils/baseMatrix.js';
 
 const reading = (over: Partial<BaselineReading> = {}): BaselineReading => ({
   breed: 'Kurbone',

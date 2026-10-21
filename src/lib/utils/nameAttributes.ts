@@ -17,8 +17,8 @@
  * Pure. No DB, no Svelte.
  */
 
-import { parseStructuredPetName } from '$lib/services/nameParser.js';
-import type { Gender, Pet } from '$lib/types/index.js';
+import { parseStructuredPetName } from '#lib/services/nameParser.js';
+import type { Gender, Pet } from '#lib/types/index.js';
 
 /** The fields a name can supply, in the shape `updatePet` accepts. */
 export interface NameUpdates {

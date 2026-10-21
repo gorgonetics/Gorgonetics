@@ -1,8 +1,8 @@
 <script lang="ts">
 import { onMount } from 'svelte';
-import DetailOverlay from '$lib/components/shared/DetailOverlay.svelte';
-import { clearSelection, loadInitial, selectedSharedPet } from '$lib/stores/community.svelte.js';
-import { getSpeciesEmoji } from '$lib/utils/species.js';
+import DetailOverlay from '#lib/components/shared/DetailOverlay.svelte';
+import { clearSelection, loadInitial, selectedSharedPet } from '#lib/stores/community.svelte.js';
+import { getSpeciesEmoji } from '#lib/utils/species.js';
 import CommunityPetTable from './CommunityPetTable.svelte';
 import CommunityPetVisualization from './CommunityPetVisualization.svelte';
 

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { closeDatabase, initDatabase } from '$lib/services/database.js';
-import { runMigrations } from '$lib/services/migrationService.js';
-import * as settings from '$lib/services/settingsService.js';
+import { closeDatabase, initDatabase } from '#lib/services/database.js';
+import { runMigrations } from '#lib/services/migrationService.js';
+import * as settings from '#lib/services/settingsService.js';
 
 describe('Settings Service', () => {
   beforeEach(async () => {

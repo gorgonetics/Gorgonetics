@@ -5,8 +5,8 @@ import {
   EMPTY_MAGNITUDES,
   hasMagnitudes,
   magnitudeOf,
-} from '$lib/utils/attributePoints.js';
-import type { AttributeStudy, StudyFinding } from '$lib/utils/attributeStudy.js';
+} from '#lib/utils/attributePoints.js';
+import type { AttributeStudy, StudyFinding } from '#lib/utils/attributeStudy.js';
 
 function finding(overrides: Partial<StudyFinding> & Pick<StudyFinding, 'gene' | 'magnitude'>): StudyFinding {
   return {

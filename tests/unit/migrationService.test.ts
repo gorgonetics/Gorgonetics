@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { closeDatabase, getDb, initDatabase } from '$lib/services/database.js';
-import { CURRENT_SCHEMA_VERSION, getSchemaVersion, runMigrations } from '$lib/services/migrationService.js';
+import { closeDatabase, getDb, initDatabase } from '#lib/services/database.js';
+import { CURRENT_SCHEMA_VERSION, getSchemaVersion, runMigrations } from '#lib/services/migrationService.js';
 
 describe('Migration Service', () => {
   beforeEach(async () => {
@@ -100,7 +100,7 @@ describe('Migration Service', () => {
 
   it('creates settings table after migration', async () => {
     await runMigrations();
-    const db = (await import('$lib/services/database.js')).getDb();
+    const db = (await import('#lib/services/database.js')).getDb();
     const result = await db.execute(
       'INSERT INTO settings (key, value, updated_at) VALUES ($key, $value, $updated_at)',
       { key: 'test', value: '"hello"', updated_at: '2024-01-01' },
@@ -110,7 +110,7 @@ describe('Migration Service', () => {
 
   it('creates pet_images table after migration', async () => {
     await runMigrations();
-    const db = (await import('$lib/services/database.js')).getDb();
+    const db = (await import('#lib/services/database.js')).getDb();
     const result = await db.execute(
       `INSERT INTO pets (name, species, gender, content_hash, genome_text, created_at, updated_at)
        VALUES ($name, $species, $gender, $content_hash, $genome_text, $created_at, $updated_at)`,

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import type { ParsedGeneRecord } from '$lib/services/geneService.js';
-import { GeneType } from '$lib/types/index.js';
-import type { AttributeMagnitudes } from '$lib/utils/attributePoints.js';
-import { comparable, locusOutlook, offspringAttributeOutlooks, type PairLocus } from '$lib/utils/offspringImpact.js';
+import type { ParsedGeneRecord } from '#lib/services/geneService.js';
+import { GeneType } from '#lib/types/index.js';
+import type { AttributeMagnitudes } from '#lib/utils/attributePoints.js';
+import { comparable, locusOutlook, offspringAttributeOutlooks, type PairLocus } from '#lib/utils/offspringImpact.js';
 
 const gene = (over: Partial<ParsedGeneRecord> = {}): ParsedGeneRecord => ({
   dominantAttribute: null,

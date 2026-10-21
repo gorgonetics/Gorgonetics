@@ -1,6 +1,6 @@
 // tests/unit/nameParser.test.js
 import { describe, expect, it } from 'vitest';
-import { parseStructuredPetName } from '$lib/services/nameParser.js';
+import { parseStructuredPetName } from '#lib/services/nameParser.js';
 
 describe('parseStructuredPetName', () => {
   describe('valid Horse names', () => {

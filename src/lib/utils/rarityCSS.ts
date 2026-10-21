@@ -10,8 +10,8 @@
  * See `docs/design/gene-rarity-lens-v1.md` §4.
  */
 
-import { GeneType } from '$lib/types/index.js';
-import { RARITY_BUCKET_NEVER, RARITY_LEVELS } from '$lib/utils/geneFrequency.js';
+import { GeneType } from '#lib/types/index.js';
+import { RARITY_BUCKET_NEVER, RARITY_LEVELS } from '#lib/utils/geneFrequency.js';
 
 /** The scoping selector. Matches the container class the view toggles on. */
 const SCOPE = '.view-rarity.gene-grid-container';

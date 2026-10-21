@@ -5,18 +5,18 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 // Issue #92 slice: the export dialog warns when the image library is large
 // enough that the in-memory zip build could fail on a low-memory machine.
 
-vi.mock('$lib/utils/focusTrap.js', () => ({ focusTrap: () => ({}) }));
+vi.mock('#lib/utils/focusTrap.js', () => ({ focusTrap: () => ({}) }));
 
 const getTotalImageCount = vi.fn();
-vi.mock('$lib/services/imageService.js', () => ({
+vi.mock('#lib/services/imageService.js', () => ({
   getTotalImageCount: () => getTotalImageCount(),
 }));
 
-vi.mock('$lib/services/backupService.js', () => ({
+vi.mock('#lib/services/backupService.js', () => ({
   exportDatabase: vi.fn(),
 }));
 
-import ExportDialog from '$lib/components/layout/ExportDialog.svelte';
+import ExportDialog from '#lib/components/layout/ExportDialog.svelte';
 
 afterEach(() => {
   cleanup();

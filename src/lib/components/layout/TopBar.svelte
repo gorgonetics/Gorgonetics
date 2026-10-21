@@ -1,8 +1,8 @@
 <script lang="ts">
 import { ArrowLeft } from '@lucide/svelte';
-import logoImg from '$lib/assets/logo.png';
-import { activeTab, appState, canGoBack, type Tab } from '$lib/stores/pets.js';
-import { overlayOpen, uiActions } from '$lib/stores/ui.js';
+import logoImg from '#lib/assets/logo.png';
+import { activeTab, appState, canGoBack, type Tab } from '#lib/stores/pets.js';
+import { overlayOpen, uiActions } from '#lib/stores/ui.js';
 import DataMenu from './DataMenu.svelte';
 
 // Destination navigation is gated (disabled) while a root overlay (Settings /

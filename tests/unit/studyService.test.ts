@@ -2,17 +2,17 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // The catalogue is a network read; stub it so the refresh path can be
 // exercised against the real cache table.
-vi.mock('$lib/services/shareService.js', () => ({
+vi.mock('#lib/services/shareService.js', () => ({
   listPets: vi.fn(),
   listGenomes: vi.fn(),
 }));
 
-import { closeDatabase, getDb, initDatabase } from '$lib/services/database.js';
-import * as geneService from '$lib/services/geneService.js';
-import { parseGenome } from '$lib/services/genomeParser.js';
-import { runMigrations } from '$lib/services/migrationService.js';
-import * as petService from '$lib/services/petService.js';
-import * as shareService from '$lib/services/shareService.js';
+import { closeDatabase, getDb, initDatabase } from '#lib/services/database.js';
+import * as geneService from '#lib/services/geneService.js';
+import { parseGenome } from '#lib/services/genomeParser.js';
+import { runMigrations } from '#lib/services/migrationService.js';
+import * as petService from '#lib/services/petService.js';
+import * as shareService from '#lib/services/shareService.js';
 import {
   attributeMagnitudesFor,
   clearAttributeMagnitudesCache,
@@ -32,11 +32,11 @@ import {
   studyInputsKey,
   studyRunFor,
   withdrawGeneConfirmation,
-} from '$lib/services/studyService.js';
-import { coverageOf, EMPTY_MAGNITUDES, hasMagnitudes, magnitudeOf } from '$lib/utils/attributePoints.js';
-import { buildEffectSlots } from '$lib/utils/attributeStudy.js';
-import { sha256Hex } from '$lib/utils/hash.js';
-import { encodeLoci } from '$lib/utils/lociCodec.js';
+} from '#lib/services/studyService.js';
+import { coverageOf, EMPTY_MAGNITUDES, hasMagnitudes, magnitudeOf } from '#lib/utils/attributePoints.js';
+import { buildEffectSlots } from '#lib/utils/attributeStudy.js';
+import { sha256Hex } from '#lib/utils/hash.js';
+import { encodeLoci } from '#lib/utils/lociCodec.js';
 
 /**
  * Four horse loci on chromosome 01. `01A1` is generic, `01A4` belongs to

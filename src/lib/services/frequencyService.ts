@@ -8,8 +8,8 @@
  * See `docs/design/gene-rarity-lens-v1.md` §5.
  */
 
-import { normalizeSpecies } from '$lib/services/configService.js';
-import { GeneType, type Pet } from '$lib/types/index.js';
+import { normalizeSpecies } from '#lib/services/configService.js';
+import { GeneType, type Pet } from '#lib/types/index.js';
 import {
   type Allele,
   alleleCarriers,
@@ -21,8 +21,8 @@ import {
   type RarityOptions,
   rarityBucket,
   SOLE_CARRIER_MIN_PETS,
-} from '$lib/utils/geneFrequency.js';
-import { loadAllPetLoci, type PetLoci } from '$lib/utils/petLoci.js';
+} from '#lib/utils/geneFrequency.js';
+import { loadAllPetLoci, type PetLoci } from '#lib/utils/petLoci.js';
 
 const EMPTY_TALLY: LocusTally = Object.freeze({
   knownPets: 0,

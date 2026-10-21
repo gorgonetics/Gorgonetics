@@ -1,13 +1,13 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { type StudyRun, setUseForStudies, studyRunFor } from '$lib/services/studyService.js';
-import { pets } from '$lib/stores/pets.js';
-import type { Pet } from '$lib/types/index.js';
+import { type StudyRun, setUseForStudies, studyRunFor } from '#lib/services/studyService.js';
+import { pets } from '#lib/stores/pets.js';
+import type { Pet } from '#lib/types/index.js';
 
 // The study hits the DB; only the calls StudyView makes on mount are stubbed,
 // so `isCommunitySubject` and the constants stay real.
-vi.mock('$lib/services/studyService.js', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('$lib/services/studyService.js')>()),
+vi.mock('#lib/services/studyService.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('#lib/services/studyService.js')>()),
   studyRunFor: vi.fn(),
   namesForSubjects: vi.fn(
     async () =>
@@ -22,14 +22,14 @@ vi.mock('$lib/services/studyService.js', async (importOriginal) => ({
   listExcludedSubjects: vi.fn(async () => []),
 }));
 
-vi.mock('$lib/components/study/StudyFindingsTable.svelte', async () => ({
+vi.mock('#lib/components/study/StudyFindingsTable.svelte', async () => ({
   default: (await import('./fixtures/ChildStub.svelte')).default,
 }));
-vi.mock('$lib/components/study/StudyBaselines.svelte', async () => ({
+vi.mock('#lib/components/study/StudyBaselines.svelte', async () => ({
   default: (await import('./fixtures/ChildStub.svelte')).default,
 }));
 
-import StudyView from '$lib/components/study/StudyView.svelte';
+import StudyView from '#lib/components/study/StudyView.svelte';
 
 /** Rendered text with markup line breaks collapsed, so a wrapped sentence still matches. */
 const textOf = (el: HTMLElement) => (el.textContent ?? '').replace(/\s+/g, ' ');

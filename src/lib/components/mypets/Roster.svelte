@@ -11,19 +11,19 @@
  * lenses.
  * See docs/design/redesign-library-workspace-v1.md (§2.1).
  */
-import PetActions from '$lib/components/shared/PetActions.svelte';
-import { normalizeSpecies } from '$lib/services/configService.js';
-import { scoreStable } from '$lib/services/geneticQualityService.js';
-import { myPetsView, setMyPetsSelection, toggleMyPetsSelection } from '$lib/stores/mypets.svelte.js';
-import { pets as allPets } from '$lib/stores/pets.js';
-import { settings } from '$lib/stores/settings.js';
-import type { Pet } from '$lib/types/index.js';
-import { ATTRIBUTE_COLUMNS, attributeApplies } from '$lib/utils/attributeColumns.js';
-import { type GeneticQualityResult, parseBreedLockWeight } from '$lib/utils/geneticQuality.js';
-import { keyedResource } from '$lib/utils/keyedResource.svelte.js';
-import { qualityRows, rowText } from '$lib/utils/qualityLens.js';
-import { type SortableColumn, sortByColumn } from '$lib/utils/sortColumn.js';
-import { formatShortDate } from '$lib/utils/timestamp.js';
+import PetActions from '#lib/components/shared/PetActions.svelte';
+import { normalizeSpecies } from '#lib/services/configService.js';
+import { scoreStable } from '#lib/services/geneticQualityService.js';
+import { myPetsView, setMyPetsSelection, toggleMyPetsSelection } from '#lib/stores/mypets.svelte.js';
+import { pets as allPets } from '#lib/stores/pets.js';
+import { settings } from '#lib/stores/settings.js';
+import type { Pet } from '#lib/types/index.js';
+import { ATTRIBUTE_COLUMNS, attributeApplies } from '#lib/utils/attributeColumns.js';
+import { type GeneticQualityResult, parseBreedLockWeight } from '#lib/utils/geneticQuality.js';
+import { keyedResource } from '#lib/utils/keyedResource.svelte.js';
+import { qualityRows, rowText } from '#lib/utils/qualityLens.js';
+import { type SortableColumn, sortByColumn } from '#lib/utils/sortColumn.js';
+import { formatShortDate } from '#lib/utils/timestamp.js';
 
 interface Props {
   /** The already-filtered pets to list. MyPets computes the visible set once

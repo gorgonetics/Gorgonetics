@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { Pet } from '$lib/types/index.js';
-import { filterPets, petMatchesFilters } from '$lib/utils/petFilter.js';
+import type { Pet } from '#lib/types/index.js';
+import { filterPets, petMatchesFilters } from '#lib/utils/petFilter.js';
 
 // Minimal pet fixtures — only the fields the filter reads.
 const pet = (over: Partial<Pet> = {}): Pet =>

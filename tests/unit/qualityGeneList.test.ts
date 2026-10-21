@@ -1,8 +1,8 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import QualityGeneList from '$lib/components/gene/QualityGeneList.svelte';
-import type { QualityRow } from '$lib/utils/qualityLens.js';
+import QualityGeneList from '#lib/components/gene/QualityGeneList.svelte';
+import type { QualityRow } from '#lib/utils/qualityLens.js';
 
 const rows: QualityRow[] = [
   { gene: '01A1', allele: 'R', benefits: ['Temperament +'], standing: 'sole', generic: true, value: 1 },

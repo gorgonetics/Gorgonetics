@@ -1,8 +1,8 @@
 <script lang="ts">
 import { onDestroy, tick } from 'svelte';
-import { type LoadedBackup, loadBackup } from '$lib/services/backupService.js';
-import { pickBackupFile, readBinaryFile } from '$lib/services/fileService.js';
-import { errorMessage } from '$lib/utils/error.js';
+import { type LoadedBackup, loadBackup } from '#lib/services/backupService.js';
+import { pickBackupFile, readBinaryFile } from '#lib/services/fileService.js';
+import { errorMessage } from '#lib/utils/error.js';
 import ExportDialog from './ExportDialog.svelte';
 import ImportDialog from './ImportDialog.svelte';
 

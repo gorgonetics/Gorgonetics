@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/svelte';
 import { afterEach, describe, expect, it } from 'vitest';
-import StudyFindingsTable from '$lib/components/study/StudyFindingsTable.svelte';
-import type { StudyFinding } from '$lib/utils/attributeStudy.js';
+import StudyFindingsTable from '#lib/components/study/StudyFindingsTable.svelte';
+import type { StudyFinding } from '#lib/utils/attributeStudy.js';
 
 const finding = (over: Partial<StudyFinding> = {}): StudyFinding => ({
   gene: '14B4',

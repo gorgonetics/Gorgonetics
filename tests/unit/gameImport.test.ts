@@ -1,11 +1,11 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { closeDatabase, initDatabase } from '$lib/services/database.js';
-import * as gameImport from '$lib/services/gameImport.js';
-import { runMigrations } from '$lib/services/migrationService.js';
-import * as petService from '$lib/services/petService.js';
-import { sha256Hex } from '$lib/utils/hash.js';
+import { closeDatabase, initDatabase } from '#lib/services/database.js';
+import * as gameImport from '#lib/services/gameImport.js';
+import { runMigrations } from '#lib/services/migrationService.js';
+import * as petService from '#lib/services/petService.js';
+import { sha256Hex } from '#lib/utils/hash.js';
 
 const SAMPLE_BEEWASP = readFileSync(resolve('data/Genes_SampleFaeBee.txt'), 'utf-8');
 
@@ -209,7 +209,7 @@ describe('gameImport service', () => {
       const upload = await petService.uploadPet(SAMPLE_BEEWASP, { name: 'Test', gender: 'Female' });
       expect(upload.status).toBe('success');
 
-      const { getDb } = await import('$lib/services/database.js');
+      const { getDb } = await import('#lib/services/database.js');
       await getDb().execute('DELETE FROM imported_files');
       // Reset the guard flag so the backfill actually runs.
       await getDb().execute("DELETE FROM settings WHERE key = 'pets.imported_files_backfilled'");

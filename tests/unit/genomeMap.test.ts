@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup, render, waitFor } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { Pet } from '$lib/types/index.js';
+import type { Pet } from '#lib/types/index.js';
 
 /**
  * The Reference genome map (#368 §7).
@@ -53,10 +53,10 @@ const mocks = vi.hoisted(() => {
   return { effects, getGeneEffectsCached, baseline, resolvers, computeRarityLookup };
 });
 
-vi.mock('$lib/services/geneService.js', () => ({ getGeneEffectsCached: mocks.getGeneEffectsCached }));
-vi.mock('$lib/services/frequencyService.js', () => ({ computeRarityLookup: mocks.computeRarityLookup }));
+vi.mock('#lib/services/geneService.js', () => ({ getGeneEffectsCached: mocks.getGeneEffectsCached }));
+vi.mock('#lib/services/frequencyService.js', () => ({ computeRarityLookup: mocks.computeRarityLookup }));
 
-import GenomeMap from '$lib/components/gene/GenomeMap.svelte';
+import GenomeMap from '#lib/components/gene/GenomeMap.svelte';
 
 class ResizeObserverStub {
   observe() {}

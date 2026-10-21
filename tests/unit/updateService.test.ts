@@ -6,7 +6,7 @@
 
 import type { Update } from '@tauri-apps/plugin-updater';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { installUpdateWithBackup } from '$lib/services/updateService.js';
+import { installUpdateWithBackup } from '#lib/services/updateService.js';
 
 // Shared step log so every actor — the Update, the backup command, and
 // relaunch — records into the same ordering across a run.

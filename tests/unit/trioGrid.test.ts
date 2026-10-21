@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import type { GeneTrioEntry, OffspringOutcomeBuckets, OffspringTrioResult } from '$lib/types/index.js';
-import { createGeneCellBuilder } from '$lib/utils/geneGridCells.js';
+import type { GeneTrioEntry, OffspringOutcomeBuckets, OffspringTrioResult } from '#lib/types/index.js';
+import { createGeneCellBuilder } from '#lib/utils/geneGridCells.js';
 import {
   buildTrioGrid,
   contributionBackground,
   contributionOf,
   outcomeBoxBackground,
   poolIdentity,
-} from '$lib/utils/trioGrid.js';
+} from '#lib/utils/trioGrid.js';
 
 const effectsDB = {
   // carrier gene: harmful dominant, beneficial recessive

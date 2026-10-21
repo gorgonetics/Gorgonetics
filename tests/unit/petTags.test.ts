@@ -2,10 +2,10 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import JSZip from 'jszip';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { importDatabase } from '$lib/services/backupService.js';
-import { closeDatabase, initDatabase } from '$lib/services/database.js';
-import { CURRENT_SCHEMA_VERSION, runMigrations } from '$lib/services/migrationService.js';
-import * as petService from '$lib/services/petService.js';
+import { importDatabase } from '#lib/services/backupService.js';
+import { closeDatabase, initDatabase } from '#lib/services/database.js';
+import { CURRENT_SCHEMA_VERSION, runMigrations } from '#lib/services/migrationService.js';
+import * as petService from '#lib/services/petService.js';
 
 const SAMPLE_BEEWASP = readFileSync(resolve('data/Genes_SampleFaeBee.txt'), 'utf-8');
 

@@ -1,23 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Pet } from '$lib/types/index.js';
+import type { Pet } from '#lib/types/index.js';
 
 const h = vi.hoisted(() => ({ placeholder: false }));
 
-vi.mock('$lib/firebase.js', () => ({
+vi.mock('#lib/firebase.js', () => ({
   get isPlaceholderConfig() {
     return h.placeholder;
   },
 }));
-vi.mock('$lib/services/shareService.js', () => ({ uploadPets: vi.fn() }));
+vi.mock('#lib/services/shareService.js', () => ({ uploadPets: vi.fn() }));
 
-import { uploadPets } from '$lib/services/shareService.js';
+import { uploadPets } from '#lib/services/shareService.js';
 import {
   bulkShareJob,
   bulkSharePercent,
   cancelBulkShare,
   dismissBulkShare,
   startBulkShare,
-} from '$lib/stores/bulkShare.svelte.js';
+} from '#lib/stores/bulkShare.svelte.js';
 
 const uploadPetsMock = vi.mocked(uploadPets);
 const pet = (id: number, notes = `note-${id}`) => ({ id, name: `Pet ${id}`, notes }) as unknown as Pet;

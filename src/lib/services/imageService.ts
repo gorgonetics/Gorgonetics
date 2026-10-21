@@ -4,10 +4,10 @@
  * Images are stored on the filesystem; metadata in the pet_images table.
  */
 
-import type { PetImage } from '$lib/types/index.js';
-import { isTauri } from '$lib/utils/environment.js';
-import { getBasename, getExtension } from '$lib/utils/path.js';
-import { now } from '$lib/utils/timestamp.js';
+import type { PetImage } from '#lib/types/index.js';
+import { isTauri } from '#lib/utils/environment.js';
+import { getBasename, getExtension } from '#lib/utils/path.js';
+import { now } from '#lib/utils/timestamp.js';
 import { getDb, reorderRows } from './database.js';
 import { openFileDialog } from './fileService.js';
 

@@ -41,9 +41,9 @@
  * Pure functions over an already-computed study. No DB, no Svelte.
  */
 
-import type { AttributeStudy, Expression } from '$lib/utils/attributeStudy.js';
-import { slotKey } from '$lib/utils/attributeStudy.js';
-import { capitalize } from '$lib/utils/string.js';
+import type { AttributeStudy, Expression } from '#lib/utils/attributeStudy.js';
+import { slotKey } from '#lib/utils/attributeStudy.js';
+import { capitalize } from '#lib/utils/string.js';
 
 /** How much of one attribute's arithmetic the corpus has pinned down. */
 export interface AttributeCoverage {

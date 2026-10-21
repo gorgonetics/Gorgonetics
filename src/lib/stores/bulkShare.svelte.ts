@@ -10,9 +10,9 @@
  * `resource-exhausted`) so a few-hundred-pet share doesn't trip the Spark-plan
  * per-second write quota.
  */
-import { isPlaceholderConfig } from '$lib/firebase.js';
-import { type BulkUploadSummary, uploadPets } from '$lib/services/shareService.js';
-import type { Pet } from '$lib/types/index.js';
+import { isPlaceholderConfig } from '#lib/firebase.js';
+import { type BulkUploadSummary, uploadPets } from '#lib/services/shareService.js';
+import type { Pet } from '#lib/types/index.js';
 
 /** Pause between pets. Conservative: ~6–7 writes/s keeps clear of Spark limits. */
 const SHARE_ALL_DELAY_MS = 150;

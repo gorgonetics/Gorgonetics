@@ -1,5 +1,5 @@
 import { derived, writable } from 'svelte/store';
-import type { Pet } from '$lib/types/index.js';
+import type { Pet } from '#lib/types/index.js';
 
 /**
  * Global in-space overlays that live over the main workspace — Settings and the

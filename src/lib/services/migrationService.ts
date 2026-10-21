@@ -4,8 +4,8 @@
  * Runs pending migrations on startup.
  */
 
-import { encodeLoci, storedGenomeEntries } from '$lib/utils/lociCodec.js';
-import { ATTRIBUTE_KEYS, carriesReadings } from '$lib/utils/sharedPet.js';
+import { encodeLoci, storedGenomeEntries } from '#lib/utils/lociCodec.js';
+import { ATTRIBUTE_KEYS, carriesReadings } from '#lib/utils/sharedPet.js';
 import { buildInClauseParams, getDb, type TxStatement } from './database.js';
 import { parseStructuredPetName } from './nameParser.js';
 

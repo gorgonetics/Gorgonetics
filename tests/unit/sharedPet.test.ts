@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_ATTRIBUTE_VALUE, type SharedPet } from '$lib/types/index.js';
-import { PREVIEW_PET_ID, sharedPetToPet } from '$lib/utils/sharedPet.js';
+import { DEFAULT_ATTRIBUTE_VALUE, type SharedPet } from '#lib/types/index.js';
+import { PREVIEW_PET_ID, sharedPetToPet } from '#lib/utils/sharedPet.js';
 
 function makeShared(overrides: Partial<SharedPet> = {}): SharedPet {
   return {

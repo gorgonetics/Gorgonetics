@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getAppearanceAttributes } from '$lib/services/configService.js';
+import { getAppearanceAttributes } from '#lib/services/configService.js';
 import {
   buildAppearanceLookup,
   computeGeneCellSize,
@@ -7,7 +7,7 @@ import {
   GENE_CELL_DEFAULT,
   GENE_CELL_MAX,
   GENE_CELL_MIN,
-} from '$lib/utils/geneGridCells.js';
+} from '#lib/utils/geneGridCells.js';
 
 const effectsDB = {
   // dominant positive

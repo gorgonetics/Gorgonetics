@@ -24,7 +24,7 @@ import {
   updateDoc,
 } from 'firebase/firestore';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
-import type { GeneReport } from '$lib/types/index.js';
+import type { GeneReport } from '#lib/types/index.js';
 
 const COLLECTION = 'geneReports';
 const EMULATOR_HOST = process.env.FIRESTORE_EMULATOR_HOST?.split(':')[0] ?? 'localhost';

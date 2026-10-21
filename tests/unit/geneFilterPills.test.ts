@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import GeneFilterPills, { type FilterPillItem } from '$lib/components/shared/GeneFilterPills.svelte';
+import GeneFilterPills, { type FilterPillItem } from '#lib/components/shared/GeneFilterPills.svelte';
 
 // The shared tri-state focus/hide filter row used by the Compare diff controls
 // (attributes + appearances) and the Trio view (attributes). Click = focus,

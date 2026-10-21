@@ -10,10 +10,10 @@
  * scoring — those stay in their consuming services.
  */
 
-import { compareBlockLetters } from '$lib/services/genomeParser.js';
-import { loadPetLociMany } from '$lib/services/petService.js';
-import { GeneType } from '$lib/types/index.js';
-import { fromGeneId } from '$lib/utils/geneAnalysis.js';
+import { compareBlockLetters } from '#lib/services/genomeParser.js';
+import { loadPetLociMany } from '#lib/services/petService.js';
+import { GeneType } from '#lib/types/index.js';
+import { fromGeneId } from '#lib/utils/geneAnalysis.js';
 
 /** `gene_id → gene_type` for one pet, in locus order. */
 export type PetLoci = Map<string, GeneType>;
