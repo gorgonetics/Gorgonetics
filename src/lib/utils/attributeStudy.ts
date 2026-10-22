@@ -464,12 +464,21 @@ function distinctAnimals(votes: readonly Vote[]): number {
 /** Witness pairs retained per finding. Kept small; this is for display. */
 const MAX_WITNESSES = 3;
 
-/** The first `MAX_WITNESSES` pairs behind some votes, for display. */
+/**
+ * The first `MAX_WITNESSES` distinct pairs behind some votes, for display.
+ *
+ * A group pair samples its members without knowing which of their pairs an
+ * earlier vote already holds, so two votes can show the same pair.
+ */
 function witnessesOf(votes: readonly Vote[]): Array<[string, string]> {
   const out: Array<[string, string]> = [];
+  const seen = new Set<string>();
   for (const vote of votes)
     for (const pair of vote.sample) {
       if (out.length === MAX_WITNESSES) return out;
+      const key = `${pair[0]}\u0000${pair[1]}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
       out.push([pair[0], pair[1]]);
     }
   return out;

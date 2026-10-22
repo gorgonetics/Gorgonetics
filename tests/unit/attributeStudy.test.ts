@@ -1135,6 +1135,27 @@ describe('cross rounds over groups (#542)', () => {
     }
   });
 
+  it('never repeats a witness pair within a finding', () => {
+    // The table keys "Show work" rows by the pair, so a repeat breaks it.
+    const keys = (studies: unknown): string[][] => {
+      const out: string[][] = [];
+      JSON.stringify(studies, (key, value) => {
+        // Base bounds list animals; findings, offsets and doubts list pairs.
+        if (key === 'witnesses') out.push((value as Array<string | string[]>).map((w) => [w].flat().join('-')));
+        return value;
+      });
+      return out;
+    };
+    for (let seed = 1; seed <= 400; seed++) {
+      const subjects = corpus(seed);
+      for (const maxDistance of [1, 2, 6]) {
+        for (const witnesses of keys(studyAll(subjects, slots, { maxDistance }))) {
+          expect(new Set(witnesses).size, `seed ${seed}, maxDistance ${maxDistance}`).toBe(witnesses.length);
+        }
+      }
+    }
+  });
+
   it('counts every animal pair behind a group pair in support, dissent and blame', () => {
     // Paint is the reference (five animals). Every Kurbone reads 40 once 14B4
     // is known, and every sound Paint 60, so the gap is one equation between
