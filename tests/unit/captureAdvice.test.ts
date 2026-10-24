@@ -232,6 +232,11 @@ describe('assessWildPet', () => {
     expect(result.advice[Gender.FEMALE].capture).toBe(true);
     expect(result.advice[Gender.FEMALE].pinned).toEqual([]);
 
+    // Bred for an attribute neither gene touches, it is no better a parent.
+    const virility = await assessWildPet({ wild, pets: items, wanted: new Set(['virility']) });
+    expect(virility.advice[Gender.FEMALE].breeding).toMatchObject({ withIt: { total: 0 }, weakest: { total: 0 } });
+    expect(virility.advice[Gender.FEMALE].capture).toBe(false);
+
     // A pinned recessive counts only for the sex that lacks it.
     const pinned = await assessWildPet({ wild, pets: items, pins: new Set([pinKey('01A2', R)]) });
     expect(pinned.advice[Gender.FEMALE].pinned.map((t) => t.geneId)).toEqual(['01A2']);

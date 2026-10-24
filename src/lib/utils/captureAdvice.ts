@@ -9,8 +9,8 @@
  *    the hunt list, and the animal carries one the stable still lacks for
  *    its sex.
  *  - **A better parent** — across its stabled partners, its median foal has
- *    a higher expected attribute total than the weakest stabled parent of its
- *    sex. It would earn the place of that animal, not beat the stable's best
+ *    a higher expected total on the wanted attributes than the weakest
+ *    stabled parent of its sex. It would earn the place of that animal, not beat the stable's best
  *    pair. One generation only: a wild animal's negatives weigh on its first
  *    foals, so this is a strict test.
  *

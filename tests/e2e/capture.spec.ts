@@ -46,6 +46,23 @@ test.describe('Capture tab', () => {
     await expect(page.locator('[data-testid="capture-breeding"]')).toContainText('As a parent its median foal');
   });
 
+  test('shows nothing to decide once the last wild horse was captured', async ({ page }) => {
+    await page.goto('/');
+    await waitForAppReady(page);
+    await page.evaluate(
+      async ([wild, captured]) => {
+        const { appState } = await import(/* @vite-ignore */ '/src/lib/stores/pets.ts' as string);
+        await appState.uploadPet(wild);
+        await appState.uploadPet(captured);
+        await appState.loadPets();
+      },
+      [withEntity('Wild Horse'), withEntity('Kb F 40 80 70 70 70 70 70')],
+    );
+    await page.locator('[data-testid="tab-capture"]').click();
+    await expect(page.getByText('No wild horse waiting')).toBeVisible();
+    await expect(page.locator('[data-testid="capture-verdict"]')).toHaveCount(0);
+  });
+
   test('pins an allele from the hunt list', async ({ page }) => {
     await page.goto('/');
     await waitForAppReady(page);

@@ -33,12 +33,23 @@ import {
 import { parseBreedLockWeight } from '#lib/utils/geneticQuality.js';
 import { keyedResource } from '#lib/utils/keyedResource.svelte.js';
 import { benefitText } from '#lib/utils/qualityLens.js';
+import { capitalize, pluralise } from '#lib/utils/string.js';
 
 const PINS_KEY = 'capture.pins';
 const ATTRIBUTES_KEY = 'capture.attributes';
 
 const wildPets = $derived($pets.filter((p) => p.wild).sort((a, b) => b.created_at.localeCompare(a.created_at)));
-const wild = $derived(wildPets[0] ?? null);
+/**
+ * The animal from the latest wild file, or `null` once it was captured. A
+ * captured row keeps the created_at of its wild import, so an older wild row
+ * cannot pass for the animal just analysed.
+ */
+const lastWildImport = $derived(
+  $pets
+    .filter((p) => p.wild || p.captured_at)
+    .reduce((latest, p) => (p.created_at > latest ? p.created_at : latest), ''),
+);
+const wild = $derived(wildPets[0] && wildPets[0].created_at === lastWildImport ? wildPets[0] : null);
 const species = $derived(wild ? normalizeSpecies(wild.species) : '');
 const sex = $derived(wild ? (captureView.sexOf[wild.id] ?? null) : null);
 
@@ -98,10 +109,19 @@ const shown = $derived.by((): { sex: Gender; advice: CaptureAdvice }[] => {
   return sexes.map((s) => ({ sex: s, advice: value.advice[s] }));
 });
 
-function setSex(next: Gender): void {
+async function setSex(next: Gender): Promise<void> {
   if (!wild) return;
-  captureView.sexOf = { ...captureView.sexOf, [wild.id]: next };
-  if (wild.gender !== next) void appState.updatePet(wild.id, { gender: next });
+  const id = wild.id;
+  const before = captureView.sexOf[id];
+  captureView.sexOf = { ...captureView.sexOf, [id]: next };
+  if (wild.gender === next) return;
+  try {
+    await appState.updatePet(id, { gender: next });
+  } catch {
+    // The store has set its error banner; show the sex that is stored.
+    const { [id]: _, ...rest } = captureView.sexOf;
+    captureView.sexOf = before ? { ...rest, [id]: before } : rest;
+  }
 }
 
 function togglePin(key: string): void {
@@ -125,21 +145,19 @@ function showOlder(): void {
   appState.switchTab('mypets');
 }
 
-const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const alleleText = (allele: string) => (allele === GeneType.DOMINANT ? 'D' : 'R');
 const keyText = (key: string) => key.replace(':', ' ');
 const targetText = (a: HuntAllele) => `${a.geneId} ${alleleText(a.allele)} · ${a.targets.map(benefitText).join(' · ')}`;
 const sexWord = (s: Gender) => (s === Gender.MALE ? 'male' : 'female');
 const sexesText = (a: HuntAllele) => (a.sexes.length === 2 ? 'either sex' : `a ${sexWord(a.sexes[0])}`);
 const pct = (share: number) => `${share.toFixed(1)}%`;
-const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
 function infoTitle(r: CaptureInfo): string {
   switch (r.kind) {
     case 'needed':
-      return `Also brings ${plural(groupByAllele(r.targets).length, 'unpinned allele')} your stable cannot breed${wanted.size > 0 ? ', on your attributes' : ''}`;
+      return `Also brings ${pluralise(groupByAllele(r.targets).length, 'unpinned allele')} your stable cannot breed${wanted.size > 0 ? ', on your attributes' : ''}`;
     case 'never-seen':
-      return `Carries ${plural(r.alleles.length, 'allele')} none of your stabled horses has`;
+      return `Carries ${pluralise(r.alleles.length, 'allele')} none of your stabled horses has`;
     case 'quality':
       return `Quality ${pct(r.share)} as stabled; your weakest, ${r.weakest.name}, has ${pct(r.weakest.share)}`;
   }
@@ -151,15 +169,18 @@ const signed = (n: number, unit: BreedingComparison['unit']) =>
 /** The pin half of the verdict: what it carries, or why nothing pinned counts. */
 function pinWhy(advice: CaptureAdvice): string {
   if (advice.pinned.length > 0)
-    return `Carries ${plural(groupByAllele(advice.pinned).length, 'pinned allele')} your stable lacks`;
+    return `Carries ${pluralise(groupByAllele(advice.pinned).length, 'pinned allele')} your stable lacks`;
   if (pinList.length === 0) return 'No alleles pinned';
-  return `Carries none of your ${plural(pinStatus.filter((p) => p.target).length, 'open pin')}`;
+  const open = pinStatus.filter((p) => p.target).length;
+  if (open === 0) return 'Your stable has every pinned allele now';
+  return `Carries none of your ${pluralise(open, 'open pin')}`;
 }
 
 /** The breeding half: the animal as a parent against the weakest stabled one of its sex. */
 function breedingWhy(b: BreedingComparison, s: Gender): string {
   if (!b.withIt) return `No stabled ${s === Gender.MALE ? 'female' : 'male'} to pair it with`;
-  const mine = `As a parent its median foal, over ${plural(b.withIt.partners, 'partner')}, is ${signed(b.withIt.total, b.unit)}`;
+  const on = wanted.size > 0 ? ` on your attributes${b.unit === 'effects' ? ' (positives only)' : ''}` : '';
+  const mine = `As a parent its median foal, over ${pluralise(b.withIt.partners, 'partner')}, is ${signed(b.withIt.total, b.unit)}${on}`;
   if (!b.weakest) return `${mine}; you have no stabled ${sexWord(s)} to compare it with`;
   const verb = breedsBetter(b) ? 'better than' : 'not better than';
   return `${mine}: ${verb} your weakest ${sexWord(s)}, ${b.weakest.name} (${signed(b.weakest.total, b.unit)})`;
@@ -174,9 +195,18 @@ function breedingWhy(b: BreedingComparison, s: Gender): string {
     {#if !wild}
       <EmptyState
         icon="🌿"
-        title="No wild horse imported yet"
-        body="Save a wild horse's genes in the game and import the file. With auto-import on, it appears here as soon as the game writes it."
+        title={lastWildImport ? 'No wild horse waiting' : 'No wild horse imported yet'}
+        body={lastWildImport
+          ? 'The last wild horse you analysed was captured. Save the next one in the game; with auto-import on, it appears here as soon as the game writes it.'
+          : "Save a wild horse's genes in the game and import the file. With auto-import on, it appears here as soon as the game writes it."}
       />
+      {#if wildPets.length > 0}
+        <div class="cv-actions">
+          <button type="button" class="btn btn-secondary" data-testid="capture-older" onclick={showOlder}>
+            {wildPets.length} earlier wild {wildPets.length === 1 ? 'entry' : 'entries'}
+          </button>
+        </div>
+      {/if}
     {:else}
       <section class="cv-card" data-testid="capture-wild">
         <div class="cv-who">
@@ -250,7 +280,7 @@ function breedingWhy(b: BreedingComparison, s: Gender): string {
             {/each}
           </div>
           <p class="cv-muted">
-            Read against your {plural(assessment.value.stableSize, `stabled ${wild.species.toLowerCase()}`)}{focusBreed ? `, breeding toward ${focusBreed}` : ''}.
+            Read against your {pluralise(assessment.value.stableSize, `stabled ${wild.species.toLowerCase()}`)}{focusBreed ? `, breeding toward ${focusBreed}` : ''}.
             Foal totals are the genetic part of the expected attribute total for one generation, ranked as the Breed tab ranks pairs.
             Highlighted alleles are breed-generic. After a capture, import its gene file: this entry becomes the stabled horse.
           </p>
@@ -297,7 +327,7 @@ function breedingWhy(b: BreedingComparison, s: Gender): string {
         {#if assessment.value}
           <details class="cv-hunt">
             <summary>
-              {plural(huntList.length, 'benefit allele')} your stable cannot breed{wanted.size > 0 ? ' on these attributes' : ''}
+              {pluralise(huntList.length, 'benefit allele')} your stable cannot breed{wanted.size > 0 ? ' on these attributes' : ''}
             </summary>
             {#if huntList.length === 0}
               <p class="cv-muted">Your stable carries every one{focusBreed ? ` for ${focusBreed}` : ''}.</p>
