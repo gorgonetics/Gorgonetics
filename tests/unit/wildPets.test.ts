@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { closeDatabase, getDb, initDatabase } from '#lib/services/database.js';
 import * as geneService from '#lib/services/geneService.js';
-import { runMigrations } from '#lib/services/migrationService.js';
+import { getSchemaVersion, runMigrations } from '#lib/services/migrationService.js';
 import * as petService from '#lib/services/petService.js';
 import { breedFromSelectors, wildEntity, wildPetName } from '#lib/utils/wildPet.js';
 
@@ -173,6 +173,21 @@ describe('wild pets', () => {
     await petService.uploadPet(otherGenes(WILD));
     const { items } = await petService.getAllPets();
     expect(items.map((p) => p.wild)).toEqual([true, true]);
+  });
+});
+
+describe('migration 24', () => {
+  beforeEach(async () => {
+    await closeDatabase();
+    await initDatabase();
+  });
+
+  it('adds captured_at to a database that already ran migration 23', async () => {
+    await runMigrations(23);
+    const { pet_id } = await petService.uploadPet(WILD);
+    await runMigrations();
+    expect(await getSchemaVersion()).toBe(24);
+    expect((await petService.getPet(pet_id!))?.captured_at).toBe('');
   });
 });
 
