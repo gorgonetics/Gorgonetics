@@ -88,6 +88,8 @@ const PET_COLUMNS = [
   // Wild animals (migration v23). Without it a restored wild animal reads as
   // a stabled one and counts in every baseline.
   'wild',
+  // Capture time (migration v24). Without it the Capture tab can show an
+  // older wild row as the animal just analysed.
   'captured_at',
 ];
 
