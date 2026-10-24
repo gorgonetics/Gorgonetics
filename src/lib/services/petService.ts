@@ -649,7 +649,7 @@ async function captureWildPet(
   contentHash: string,
   genome: Genome,
   entries: Array<[string, string]>,
-  sourcePath: string | undefined,
+  options: Pick<UploadPetOptions, 'sourcePath' | 'name' | 'gender'>,
 ): Promise<UploadPetResult | null> {
   const db = getDb();
   const encoded = await encodeLoci(entries);
@@ -661,7 +661,7 @@ async function captureWildPet(
   const match = matches.find((row) => normalizeSpecies(row.species) === species);
   if (!match) return null;
 
-  const petName = genome.name.trim() || 'Unknown Pet';
+  const petName = genome.name.trim() || options.name?.trim() || 'Unknown Pet';
   const parsed = parseStructuredPetName(petName, genome.genome_type);
   const attrValues = parsed?.attributes ?? getDefaultValues(genome.genome_type);
   // A name that does not parse keeps the breed the selectors gave the wild row.
@@ -680,9 +680,11 @@ async function captureWildPet(
     updated_at: now(),
   };
   for (const key of ATTRIBUTE_KEYS) params[key] = attrValues[key] ?? 50;
-  // A wild row has a placeholder gender; keep it only if the name says nothing.
-  const genderClause = parsed?.gender ? 'gender = $gender, ' : '';
-  if (parsed?.gender) params.gender = parsed.gender;
+  // The name's gender, else one the caller gave; with neither, the wild row's
+  // stays — the sex set in the Capture tab, or the import default.
+  const gender = parsed?.gender ?? options.gender;
+  const genderClause = gender ? 'gender = $gender, ' : '';
+  if (gender) params.gender = gender;
 
   const result = await db.execute(
     `UPDATE pets SET name = $name, ${genderClause}breed = $breed, breeder = $breeder,
@@ -695,7 +697,7 @@ async function captureWildPet(
   if ((result.rowsAffected ?? 0) === 0) return null;
 
   try {
-    await recordImportedFile(contentHash, sourcePath);
+    await recordImportedFile(contentHash, options.sourcePath);
   } catch (err) {
     console.warn('imported_files: failed to record after capture', err);
   }
@@ -801,7 +803,11 @@ export async function uploadPet(content: string, options: UploadPetOptions = {})
   // genes is someone else's capture, and must not take over the wild row.
   const wild = wildEntity(content);
   if (!wild && stabled) {
-    const captured = await captureWildPet(content, contentHash, genome, entries, sourcePath);
+    const captured = await captureWildPet(content, contentHash, genome, entries, {
+      sourcePath,
+      name: options.name,
+      gender: options.gender,
+    });
     if (captured) return captured;
   }
 
@@ -955,7 +961,11 @@ export async function updatePet(petId: number, updates: Record<string, unknown>)
   }
 
   // A wild animal is not in the stable until its captured file is imported.
-  if (flat.stabled && (await getPet(petId))?.wild) delete flat.stabled;
+  // Refused rather than dropped, so a marker toggle rolls back with this
+  // reason instead of reporting the pet missing.
+  if (flat.stabled && (await getPet(petId))?.wild) {
+    throw new Error('A wild animal cannot be stabled. Capture it and import its file first.');
+  }
 
   for (const [field, value] of Object.entries(flat)) {
     if (!UPDATABLE_COLUMNS.has(field)) continue;
