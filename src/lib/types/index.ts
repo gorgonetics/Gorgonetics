@@ -145,6 +145,15 @@ export interface Pet {
    * Local only: a community animal is judged by `carriesReadings` instead.
    */
   attributes_measured: boolean;
+  /**
+   * A genome analysed before capture (#367): no name, no attributes, and never
+   * stabled. Set at import from the file's `Entity` line, and cleared when the
+   * captured animal's file is imported over it. Kept out of every baseline,
+   * since nothing in the stable can breed from it.
+   */
+  wild: boolean;
+  /** When a captured file replaced this pet's wild entry; `''` if it never was wild. */
+  captured_at: string;
   // Computed fields (added by service layer)
   readonly?: boolean;
   is_demo?: boolean;

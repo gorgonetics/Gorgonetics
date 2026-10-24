@@ -44,12 +44,14 @@ const flags = $derived([
   { key: 'starred', label: '★ Starred', active: myPetsView.starredOnly },
   { key: 'stabled', label: '🏠 Stabled', active: myPetsView.stabledOnly },
   { key: 'petQuality', label: '🏆 Pet quality', active: myPetsView.petQualityOnly },
+  { key: 'wild', label: '🌿 Wild', active: myPetsView.wildOnly },
 ]);
 
 function toggleFlag(key: string): void {
   if (key === 'starred') myPetsView.starredOnly = !myPetsView.starredOnly;
   else if (key === 'stabled') myPetsView.stabledOnly = !myPetsView.stabledOnly;
   else if (key === 'petQuality') myPetsView.petQualityOnly = !myPetsView.petQualityOnly;
+  else if (key === 'wild') myPetsView.wildOnly = !myPetsView.wildOnly;
 }
 
 function toggleTag(tag: string): void {
@@ -234,7 +236,9 @@ function confirmBulkShare(toShare: Pet[]): void {
 // label/confirm say so to avoid conflating it with the Stabled flag. Hidden
 // when there's nothing to share or this build can't reach the catalogue.
 let showShareAllConfirm = $state(false);
-const canShareAll = $derived(!isPlaceholderConfig && $pets.length > 0);
+// Wild animals cannot be shared (#367), so the counts leave them out.
+const shareablePets = $derived($pets.filter((p) => !p.wild));
+const canShareAll = $derived(!isPlaceholderConfig && shareablePets.length > 0);
 </script>
 
 <div class="my-pets" data-testid="my-pets">
@@ -377,10 +381,12 @@ const canShareAll = $derived(!isPlaceholderConfig && $pets.length > 0);
             type="button"
             class="act-btn"
             data-testid="mypets-share"
-            disabled={bulkShareJob.status === 'running'}
+            disabled={bulkShareJob.status === 'running' || selectedPets.every((p) => p.wild)}
             title={bulkShareJob.status === 'running'
               ? 'A bulk share is already running'
-              : 'Share the selected pets to the community catalogue'}
+              : selectedPets.every((p) => p.wild)
+                ? 'Wild animals cannot be shared'
+                : 'Share the selected pets to the community catalogue'}
             onclick={() => { bulkShareOpen = true; }}
           >🌐 Share</button>
           <button type="button" class="act-btn ghost" data-testid="mypets-clear" onclick={clearMyPetsSelection}>Clear</button>
@@ -417,7 +423,7 @@ const canShareAll = $derived(!isPlaceholderConfig && $pets.length > 0);
 
 {#if bulkShareOpen}
   <BulkSharePetDialog
-    pets={selectedPets}
+    pets={selectedPets.filter((p) => !p.wild)}
     onClose={() => { bulkShareOpen = false; }}
     onConfirm={confirmBulkShare}
   />
@@ -443,7 +449,7 @@ const canShareAll = $derived(!isPlaceholderConfig && $pets.length > 0);
       onclick={(e) => e.stopPropagation()}
       onkeydown={(e) => { if (e.key === 'Escape') showShareAllConfirm = false; }}
     >
-      <div class="dialog-header"><h3>Share all {$pets.length} {$pets.length === 1 ? 'pet' : 'pets'} to the community?</h3></div>
+      <div class="dialog-header"><h3>Share all {shareablePets.length} {shareablePets.length === 1 ? 'pet' : 'pets'} to the community?</h3></div>
       <div class="dialog-body">
         <p class="dialog-desc">
           This publishes <strong>every pet in your collection</strong> — not just stabled ones — to the public
@@ -457,7 +463,7 @@ const canShareAll = $derived(!isPlaceholderConfig && $pets.length > 0);
           type="button"
           class="upload-btn"
           data-testid="share-all-confirm"
-          onclick={() => { startBulkShare($pets); showShareAllConfirm = false; }}
+          onclick={() => { startBulkShare(shareablePets); showShareAllConfirm = false; }}
         >🌐 Share all</button>
       </div>
     </div>

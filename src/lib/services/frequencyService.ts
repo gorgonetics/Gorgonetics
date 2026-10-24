@@ -111,7 +111,8 @@ const COMMUNITY: RarityPopulation = Object.freeze({ tier: 'community' });
 
 export function populationForTier(tier: RarityTier, pets: readonly Pet[]): RarityPopulation {
   if (tier === 'community') return COMMUNITY;
-  return { tier, pets: tier === 'stabled' ? pets.filter((pet) => pet.stabled) : pets };
+  // A wild animal is what the baseline is held up against, never part of it.
+  return { tier, pets: pets.filter((pet) => (tier === 'stabled' ? pet.stabled : !pet.wild)) };
 }
 
 /** Build (or reuse) the baseline for `population`, scoped to `species`. */

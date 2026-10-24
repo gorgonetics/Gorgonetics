@@ -143,14 +143,16 @@ export function createGenomeUploadController() {
       // autoScanGameFolder refreshes the pets store itself on a DB change (#253),
       // and auto-shares the fresh inserts itself when the opt-in is on (#363).
       const backfillNote = result.backfilled > 0 ? `, ${result.backfilled} unlocked for sharing` : '';
+      const capturedNote =
+        result.captured > 0 ? `, ${result.captured} wild ${result.captured === 1 ? 'entry' : 'entries'} captured` : '';
       const shareNote = summarizeAutoShare(result.shared ?? null);
       const summary =
-        `Auto-import: ${result.imported} new, ${result.skipped} already imported${backfillNote} (of ${result.scanned} files).` +
+        `Auto-import: ${result.imported} new, ${result.skipped} already imported${backfillNote}${capturedNote} (of ${result.scanned} files).` +
         (shareNote ? `\n${shareNote}` : '');
       if (result.failures.length > 0) {
         const lines = result.failures.map((f: { file: string; reason: string }) => `${f.file}: ${f.reason}`);
         error.set(`${summary}\n${result.failures.length} failed:\n${lines.join('\n')}`);
-      } else if (result.imported > 0 || result.backfilled > 0) {
+      } else if (result.imported > 0 || result.backfilled > 0 || result.captured > 0) {
         notice.set(summary);
       }
     } catch (err) {

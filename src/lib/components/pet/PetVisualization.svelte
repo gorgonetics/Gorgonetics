@@ -359,14 +359,16 @@ onDestroy(() => {
             </div>
             {#if inStable && pet}
                 <div class="seg header-actions">
-                    <button
-                        class="seg-btn"
-                        data-testid="share-pet-btn"
-                        title="Share this pet to the public community catalogue"
-                        onclick={() => { showShare = true; }}
-                    >
-                        Share
-                    </button>
+                    {#if !pet.wild}
+                        <button
+                            class="seg-btn"
+                            data-testid="share-pet-btn"
+                            title="Share this pet to the public community catalogue"
+                            onclick={() => { showShare = true; }}
+                        >
+                            Share
+                        </button>
+                    {/if}
                     <PetActions {pet} variant="button" />
                 </div>
             {/if}

@@ -236,11 +236,12 @@ function updateAttribute(attrKey: string, value: string): void {
                 class="marker stable"
                 class:active={editStabled}
                 aria-pressed={editStabled}
+                disabled={pet.wild}
                 onclick={() => { editStabled = !editStabled; }}
               >
                 <House size={15} fill={editStabled ? 'currentColor' : 'none'} />
                 <span>Stabled</span>
-                <span class="marker-hint">available in your stables</span>
+                <span class="marker-hint">{pet.wild ? 'wild: import its file after capture' : 'available in your stables'}</span>
               </button>
               <button
                 type="button"
@@ -489,9 +490,14 @@ function updateAttribute(attrKey: string, value: string): void {
     text-align: left;
   }
 
-  .marker:hover {
+  .marker:hover:not(:disabled) {
     border-color: var(--border-secondary);
     color: var(--text-primary);
+  }
+
+  .marker:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
   }
 
   .marker.star.active {

@@ -386,8 +386,14 @@ describe('populationForTier', () => {
     expect(pets('stabled', roster).map((p) => p.id)).toEqual([1, 3]);
   });
 
-  it('returns the whole roster for the all tier, untouched', () => {
-    expect(pets('all', roster)).toBe(roster);
+  it('returns the whole roster for the all tier', () => {
+    expect(pets('all', roster).map((p) => p.id)).toEqual([1, 2, 3]);
+  });
+
+  it('leaves wild animals out of every local tier', () => {
+    const withWild = [...roster, { id: 4, stabled: false, wild: true }] as unknown as Pet[];
+    expect(pets('all', withWild).map((p) => p.id)).toEqual([1, 2, 3]);
+    expect(pets('stabled', withWild).map((p) => p.id)).toEqual([1, 3]);
   });
 
   it('does not mutate the roster it was given', () => {

@@ -47,6 +47,7 @@ function resetView() {
   myPetsView.starredOnly = false;
   myPetsView.stabledOnly = false;
   myPetsView.petQualityOnly = false;
+  myPetsView.wildOnly = false;
   myPetsView.tags = [];
   myPetsView.sortCol = 'name';
   myPetsView.sortDir = 'asc';
@@ -156,6 +157,14 @@ describe('Roster', () => {
     expect(rowNames(container)).toEqual(['Dusty', 'Roach']);
     await rerender({ pets: SAMPLE.filter((p) => p.name === 'Roach') });
     expect(rowNames(container)).toEqual(['Roach']);
+  });
+
+  it('marks wild animals beside their name, and only them (#367)', () => {
+    const wild = pet({ id: 9, name: 'Wild Horse 2026-10-24 09:05', stabled: false, wild: true } as Partial<Pet>);
+    const { container } = render(Roster, { pets: [...SAMPLE, wild] });
+    const marks = [...container.querySelectorAll('[data-testid="roster-wild"]')];
+    expect(marks).toHaveLength(1);
+    expect(marks[0].closest('tr')?.dataset.petId).toBe('9');
   });
 
   it('sorts by the per-species Total column', async () => {

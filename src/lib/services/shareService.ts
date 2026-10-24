@@ -120,6 +120,11 @@ export async function uploadPet(pet: Pet, db: Firestore = defaultFirestore): Pro
   if (!pet.content_hash) {
     throw new Error('uploadPet: pet.content_hash is required');
   }
+  // An uncaptured animal has no attributes, and its captured file is a
+  // different genome text with a different hash (#367).
+  if (pet.wild) {
+    throw new Error('Wild animals cannot be shared. Capture it and import its file first.');
+  }
   // `pet.genome_text` is the raw genome file text whose SHA-256 is the
   // doc ID; the importer re-hashes it to verify the blob. See migration v13.
   if (!pet.genome_text) {

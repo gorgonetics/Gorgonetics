@@ -106,6 +106,8 @@ export interface AutoScanResult {
    * separate from `imported` to keep "fresh insert" accurate.
    */
   backfilled: number;
+  /** Files of captured animals that replaced their wild entry (#367). */
+  captured: number;
   failures: Array<{ file: string; reason: string }>;
   /**
    * Auto-share outcome for the freshly-imported pets, when the opt-in
@@ -116,7 +118,17 @@ export interface AutoScanResult {
 }
 
 function emptyResult(status: AutoScanResult['status'], message?: string): AutoScanResult {
-  return { status, message, scanned: 0, skipped: 0, imported: 0, backfilled: 0, failures: [], shared: null };
+  return {
+    status,
+    message,
+    scanned: 0,
+    skipped: 0,
+    imported: 0,
+    backfilled: 0,
+    captured: 0,
+    failures: [],
+    shared: null,
+  };
 }
 
 /**
@@ -156,6 +168,7 @@ export async function autoScanGameFolder(options?: {
     skipped: 0,
     imported: 0,
     backfilled: 0,
+    captured: 0,
     failures: [],
     shared: null,
   };
@@ -225,6 +238,10 @@ export async function autoScanGameFolder(options?: {
       if (upload.status === 'success') {
         if (upload.kind === 'backfilled') {
           result.backfilled++;
+        } else if (upload.kind === 'captured') {
+          // Now a named, stabled pet: as shareable as a fresh import.
+          result.captured++;
+          if (upload.pet_id != null) createdPetIds.push(upload.pet_id);
         } else {
           result.imported++;
           if (upload.pet_id != null) createdPetIds.push(upload.pet_id);
@@ -246,7 +263,7 @@ export async function autoScanGameFolder(options?: {
   // autoScanGameFolder (e.g. PetList building its summary toast) observe the
   // fresh list rather than rendering against stale rows; a reload failure
   // surfaces via the store's own error state, so it must not reject the scan.
-  if (result.imported > 0 || result.backfilled > 0) {
+  if (result.imported > 0 || result.backfilled > 0 || result.captured > 0) {
     const { appState } = await import('#lib/stores/pets.js');
     // loadPets() handles its own errors (surfaces via the store's error state)
     // and never rejects, so awaiting it bare is safe.
