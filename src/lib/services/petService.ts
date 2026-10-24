@@ -396,6 +396,7 @@ function enrichPet(pet: Record<string, unknown>, tags: string[]): Pet {
     // Unset means "not a reading" — every writer sets it explicitly.
     attributes_measured: Boolean(pet.attributes_measured),
     wild: Boolean(pet.wild),
+    captured_at: String(pet.captured_at ?? ''),
     positive_genes: Number(pet.positive_genes ?? 0),
     total_genes: Number(pet.total_genes ?? 0),
     known_genes: Number(pet.known_genes ?? 0),
@@ -470,6 +471,7 @@ const ALL_PET_COLUMNS = [
   'use_for_studies',
   'attributes_measured',
   'wild',
+  'captured_at',
   'loci',
   'loci_layout',
 ];
@@ -688,7 +690,7 @@ async function captureWildPet(
 
   const result = await db.execute(
     `UPDATE pets SET name = $name, ${genderClause}breed = $breed, breeder = $breeder,
-       content_hash = $content_hash, genome_text = $genome_text, wild = $wild, stabled = $stabled,
+       content_hash = $content_hash, genome_text = $genome_text, wild = $wild, stabled = $stabled, captured_at = $updated_at,
        positive_genes = $positive_genes, attributes_measured = $attributes_measured,
        ${ATTRIBUTE_KEYS.map((key) => `${key} = $${key}`).join(', ')}, updated_at = $updated_at
      WHERE id = $id`,
