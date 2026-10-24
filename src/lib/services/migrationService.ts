@@ -540,7 +540,7 @@ const MIGRATIONS: Migration[] = [
   },
   {
     version: 23,
-    description: 'Mark wild animals — genomes analysed before capture (#367)',
+    description: 'Mark wild animals — genomes analysed before capture (#367) — and when one was captured',
     up: async () => {
       // A wild animal's file names it `Entity=Wild Horse`, and it was imported
       // as a stabled pet of that name: counted in every baseline and offered
@@ -570,6 +570,11 @@ const MIGRATIONS: Migration[] = [
       }
       await db.transaction([
         { sql: 'ALTER TABLE pets ADD COLUMN wild INTEGER NOT NULL DEFAULT 0' },
+        // Set when a captured file replaces the row. The row keeps the
+        // created_at of its wild import, so the latest wild import stays
+        // known after a capture — which is what tells the Capture tab an
+        // older wild row is not the animal just analysed.
+        { sql: "ALTER TABLE pets ADD COLUMN captured_at TEXT NOT NULL DEFAULT ''" },
         ...updates,
         { sql: 'PRAGMA user_version = 23' },
       ]);

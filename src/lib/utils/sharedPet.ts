@@ -159,5 +159,6 @@ export function sharedPetToPet(shared: SharedPet): Pet {
     // community animal by its values instead — see `carriesReadings`.
     attributes_measured: false,
     wild: false,
+    captured_at: '',
   };
 }

@@ -152,6 +152,8 @@ export interface Pet {
    * since nothing in the stable can breed from it.
    */
   wild: boolean;
+  /** When a captured file replaced this pet's wild entry; `''` if it never was wild. */
+  captured_at: string;
   // Computed fields (added by service layer)
   readonly?: boolean;
   is_demo?: boolean;

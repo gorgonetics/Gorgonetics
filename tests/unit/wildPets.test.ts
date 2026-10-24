@@ -127,6 +127,7 @@ describe('wild pets', () => {
     const wild = await petService.uploadPet(WILD);
     await petService.updatePet(wild.pet_id!, { notes: 'grey mare by the river', tags: ['scouted'] });
 
+    const wildRow = (await petService.getPet(wild.pet_id!))!;
     const result = await petService.uploadPet(CAPTURED);
     expect(result.status).toBe('success');
     expect(result.kind).toBe('captured');
@@ -147,6 +148,8 @@ describe('wild pets', () => {
       tags: ['scouted'],
       genome_text: CAPTURED,
     });
+    expect(pet!.captured_at).not.toBe('');
+    expect(pet!.created_at).toBe(wildRow.created_at);
     // The captured file is in the ledger, so a rescan skips it.
     expect(await petService.hasImportedFile(pet!.content_hash)).toBe(true);
   });

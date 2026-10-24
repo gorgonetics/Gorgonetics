@@ -88,6 +88,7 @@ const PET_COLUMNS = [
   // Wild animals (migration v23). Without it a restored wild animal reads as
   // a stabled one and counts in every baseline.
   'wild',
+  'captured_at',
 ];
 
 // --- Export ---
@@ -459,6 +460,7 @@ async function importGenesAndPets(
         else if (col === 'genome_text') row[col] = pet[col] ?? '';
         // Pre-v18 archives predate the column, and the v18 migration owns
         // what to do about that.
+        else if (col === 'captured_at') row[col] = pet[col] ?? '';
         else if (col === 'attributes_measured') row[col] = pet[col] ?? (derivedProvenance(pet) ? 1 : 0);
         else row[col] = pet[col] ?? null;
       }
