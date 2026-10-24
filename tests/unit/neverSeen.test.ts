@@ -89,13 +89,23 @@ describe('withDeclaredEffect', () => {
     appearance: 'Attributes',
   });
 
-  it('tests the missing allele, not the gene', () => {
-    const effects = { '01A1': gene('Toughness+', 'None'), '01A2': gene('None', 'Virility-') };
+  it('tests the gene, not the missing allele', () => {
+    // 01A1: RR drops a dominant effect. 01A2: D masks a recessive effect.
+    // 01A3: neither allele has an effect.
+    const effects = {
+      '01A1': gene('Toughness-', 'None'),
+      '01A2': gene('None', 'Virility-'),
+      '01A3': gene('None', 'None'),
+    };
     const alleles = new Map([
       ['01A1', R],
-      ['01A2', R],
+      ['01A2', D],
+      ['01A3', R],
     ] as const);
-    expect([...withDeclaredEffect(alleles, effects)]).toEqual([['01A2', R]]);
+    expect([...withDeclaredEffect(alleles, effects)]).toEqual([
+      ['01A1', R],
+      ['01A2', D],
+    ]);
   });
 
   it('treats a blank effect and a locus missing from the template as no effect', () => {

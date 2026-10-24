@@ -18,6 +18,7 @@ export const myPetsView = $state({
   starredOnly: false,
   stabledOnly: false,
   petQualityOnly: false,
+  wildOnly: false,
   tags: [] as string[],
   /** Roster (table) sort — column id + direction. */
   sortCol: 'name' as string,
@@ -42,6 +43,7 @@ export function getMyPetsFilters(): PetListFilters {
     starredOnly: myPetsView.starredOnly,
     stabledOnly: myPetsView.stabledOnly,
     petQualityOnly: myPetsView.petQualityOnly,
+    wildOnly: myPetsView.wildOnly,
     species: myPetsView.species,
     breed: myPetsView.breed,
     gender: myPetsView.gender,

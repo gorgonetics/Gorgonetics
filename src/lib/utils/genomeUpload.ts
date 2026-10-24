@@ -31,8 +31,9 @@ export interface UploadSummary {
   /** `"<name>: <reason>"` for each source that failed to read or import. */
   failures: string[];
   /**
-   * Ids of pets freshly created by this batch (`kind: 'created'`), in upload
-   * order. Excludes backfilled/repaired rows, which already existed. Lets the
+   * Ids of pets freshly created by this batch (`kind: 'created'`), and of wild
+   * entries a captured file replaced (`kind: 'captured'`), in upload order.
+   * Excludes backfilled/repaired rows, which already existed. Lets the
    * caller auto-share exactly the new pets without re-deriving them.
    */
   createdPetIds: number[];
@@ -58,7 +59,8 @@ export async function runGenomeUpload(
       const content = await read();
       const result = await upload(content);
       if (result.status === 'error') failures.push(`${name}: ${result.message}`);
-      else if (result.kind === 'created' && result.pet_id != null) createdPetIds.push(result.pet_id);
+      else if ((result.kind === 'created' || result.kind === 'captured') && result.pet_id != null)
+        createdPetIds.push(result.pet_id);
     } catch (err) {
       failures.push(`${name}: ${err instanceof Error ? err.message : String(err)}`);
     }

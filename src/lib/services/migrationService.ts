@@ -6,6 +6,7 @@
 
 import { encodeLoci, storedGenomeEntries } from '#lib/utils/lociCodec.js';
 import { ATTRIBUTE_KEYS, carriesReadings } from '#lib/utils/sharedPet.js';
+import { wildEntity, wildPetName } from '#lib/utils/wildPet.js';
 import { buildInClauseParams, getDb, type TxStatement } from './database.js';
 import { parseStructuredPetName } from './nameParser.js';
 
@@ -534,6 +535,58 @@ const MIGRATIONS: Migration[] = [
         { sql: "ALTER TABLE study_corpus ADD COLUMN loci TEXT NOT NULL DEFAULT ''" },
         { sql: "ALTER TABLE study_corpus ADD COLUMN loci_layout TEXT NOT NULL DEFAULT ''" },
         { sql: 'PRAGMA user_version = 22' },
+      ]);
+    },
+  },
+  {
+    version: 23,
+    description: 'Mark wild animals — genomes analysed before capture (#367)',
+    up: async () => {
+      // A wild animal's file names it `Entity=Wild Horse`, and it was imported
+      // as a stabled pet of that name: counted in every baseline and offered
+      // for breeding, though nothing in the stable can breed from it. Rows
+      // already imported are found by that line in their file and given the
+      // same state a fresh wild import gets. A renamed one keeps its name.
+      //
+      // One transaction with the ALTER, as v19–v22: an ALTER committed alone
+      // would make a failed retry stop on a duplicate column for good.
+      const db = getDb();
+      const rows = await db.select<{ id: number; name: string; genome_text: string | null; created_at: string }[]>(
+        'SELECT id, name, genome_text, created_at FROM pets',
+      );
+      const updates: TxStatement[] = [];
+      for (const row of rows) {
+        const entity = row.genome_text ? wildEntity(row.genome_text) : null;
+        if (!entity) continue;
+        updates.push({
+          sql: 'UPDATE pets SET wild = $wild, stabled = $stabled, name = $name WHERE id = $id',
+          params: {
+            id: Number(row.id),
+            wild: 1,
+            stabled: 0,
+            name: row.name === entity ? wildPetName(entity, new Date(row.created_at)) : row.name,
+          },
+        });
+      }
+      await db.transaction([
+        { sql: 'ALTER TABLE pets ADD COLUMN wild INTEGER NOT NULL DEFAULT 0' },
+        ...updates,
+        { sql: 'PRAGMA user_version = 23' },
+      ]);
+    },
+  },
+  {
+    version: 24,
+    description: 'Record when a wild animal was captured (#367)',
+    up: async () => {
+      // Set when a captured file replaces a wild row. The row keeps the
+      // created_at of its wild import, so the latest wild import stays known
+      // after a capture — which is what tells the Capture tab an older wild
+      // row is not the animal just analysed. Its own version, not part of
+      // v23: development databases had already run v23 without it.
+      await getDb().transaction([
+        { sql: "ALTER TABLE pets ADD COLUMN captured_at TEXT NOT NULL DEFAULT ''" },
+        { sql: 'PRAGMA user_version = 24' },
       ]);
     },
   },

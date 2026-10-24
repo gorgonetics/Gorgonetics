@@ -1,6 +1,7 @@
 <script lang="ts">
 import { onMount } from 'svelte';
 import BreedView from '#lib/components/breeding/BreedView.svelte';
+import CaptureView from '#lib/components/capture/CaptureView.svelte';
 import CommunityTab from '#lib/components/community/CommunityTab.svelte';
 import ReferenceView from '#lib/components/gene/ReferenceView.svelte';
 import SettingsView from '#lib/components/layout/SettingsView.svelte';
@@ -48,6 +49,8 @@ onMount(async () => {
 			<ReferenceView />
 		{:else if $activeTab === 'breed'}
 			<BreedView />
+		{:else if $activeTab === 'capture'}
+			<CaptureView />
 		{:else if $activeTab === 'study'}
 			<StudyView />
 		{:else if $activeTab === 'community'}

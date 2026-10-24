@@ -42,7 +42,9 @@ export function bulkSharePercent(): number {
  * the list is empty, or this build can't reach the catalogue. Does NOT await the
  * upload — returns once the job is kicked off; callers read `bulkShareJob`.
  */
-export function startBulkShare(pets: Pet[]): void {
+export function startBulkShare(selected: Pet[]): void {
+  // Wild animals cannot be shared (#367); leave them out rather than count them as failures.
+  const pets = selected.filter((p) => !p.wild);
   if (bulkShareJob.status === 'running' || pets.length === 0 || isPlaceholderConfig) return;
 
   cancelRequested = false;

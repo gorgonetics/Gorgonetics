@@ -364,6 +364,9 @@ function open(pet: Pet, view?: string): void {
                   <button type="button" class="name-btn" data-testid="roster-open" onclick={() => open(pet)}>
                     {value || '(unnamed)'}
                   </button>
+                  {#if pet.wild}
+                    <span class="wild-mark" data-testid="roster-wild" title="Analysed before capture: not in your stable, and not counted in any baseline">Wild</span>
+                  {/if}
                 {:else if col.id === 'genetic_quality'}
                   {#if wasScored(pet) && qualityShare(pet) > 0}
                     <button
@@ -434,6 +437,7 @@ function open(pet: Pet, view?: string): void {
   .sort-btn:hover { color: var(--accent-text, var(--accent)); }
   .name-btn { background: none; border: none; padding: 0; font: inherit; font-weight: 600; color: var(--accent-text, var(--accent)); cursor: pointer; }
   .name-btn:hover { text-decoration: underline; }
+  .wild-mark { margin-left: var(--space-xs); padding: 0 var(--space-xs); border: 1px solid var(--border-primary); border-radius: var(--radius-sm); font-size: 10px; color: var(--text-secondary); cursor: help; }
   .roster-table tbody tr:hover { background: var(--bg-secondary); }
   .roster-table tbody tr.row-selected { background: var(--bg-selected); }
   .empty { text-align: center; color: var(--text-muted); font-style: italic; padding: var(--space-3xl); }

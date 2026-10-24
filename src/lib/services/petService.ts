@@ -10,6 +10,7 @@ import { decodeLoci, encodeLoci, storedGenomeEntries } from '#lib/utils/lociCode
 import { ATTRIBUTE_KEYS } from '#lib/utils/sharedPet.js';
 import { capitalize } from '#lib/utils/string.js';
 import { now } from '#lib/utils/timestamp.js';
+import { breedFromSelectors, wildEntity, wildPetName } from '#lib/utils/wildPet.js';
 import { runBatchBackfill } from './backfill.js';
 import { getAttributeConfig, getDefaultValues, normalizeSpecies } from './configService.js';
 import { buildInClauseParams, getDb, type TxStatement, withTransaction } from './database.js';
@@ -394,6 +395,8 @@ function enrichPet(pet: Record<string, unknown>, tags: string[]): Pet {
     use_for_studies: pet.use_for_studies === undefined ? true : Boolean(pet.use_for_studies),
     // Unset means "not a reading" — every writer sets it explicitly.
     attributes_measured: Boolean(pet.attributes_measured),
+    wild: Boolean(pet.wild),
+    captured_at: String(pet.captured_at ?? ''),
     positive_genes: Number(pet.positive_genes ?? 0),
     total_genes: Number(pet.total_genes ?? 0),
     known_genes: Number(pet.known_genes ?? 0),
@@ -467,6 +470,8 @@ const ALL_PET_COLUMNS = [
   'unknown_genes',
   'use_for_studies',
   'attributes_measured',
+  'wild',
+  'captured_at',
   'loci',
   'loci_layout',
 ];
@@ -616,7 +621,99 @@ export interface UploadPetResult {
    * Callers that track import counts should bucket `backfilled`
    * separately from `created` — see gameImport's AutoScanResult.
    */
-  kind?: 'created' | 'backfilled';
+  kind?: 'created' | 'backfilled' | 'captured';
+}
+
+/**
+ * The breed a wild animal's selector genes name (see `breedFromSelectors`), read
+ * against the species' gene template. `''` for a species without breeds.
+ */
+async function selectorBreed(entries: Array<[string, string]>, species: string): Promise<string> {
+  const rows = await getDb().select<{ gene: string; breed: string | null }[]>(
+    'SELECT gene, breed FROM genes WHERE animal_type = $animalType AND appearance = $appearance',
+    { animalType: normalizeSpecies(species), appearance: 'Selector' },
+  );
+  const selectorBreeds = new Map(rows.filter((r) => r.breed).map((r) => [r.gene, r.breed as string]));
+  return breedFromSelectors(entries, selectorBreeds);
+}
+
+/**
+ * The captured animal's file replaces its wild entry (#367).
+ *
+ * Capture changes the file's `Entity` from the wild kind to the pet's name, so
+ * its hash is new and it would import as a second animal. Its genes are the
+ * same, which is how the wild row is found. The row keeps its id, notes, tags
+ * and images, and takes the name, attributes and file of the captured animal.
+ * Returns `null` when no wild row has these genes.
+ */
+async function captureWildPet(
+  content: string,
+  contentHash: string,
+  genome: Genome,
+  entries: Array<[string, string]>,
+  options: Pick<UploadPetOptions, 'sourcePath' | 'name' | 'gender'>,
+): Promise<UploadPetResult | null> {
+  const db = getDb();
+  const encoded = await encodeLoci(entries);
+  const matches = await db.select<{ id: number; species: string; breed: string | null }[]>(
+    'SELECT id, species, breed FROM pets WHERE wild = $wild AND loci = $loci AND loci_layout = $layout',
+    { wild: 1, loci: encoded.loci, layout: encoded.layout },
+  );
+  const species = normalizeSpecies(genome.genome_type);
+  const match = matches.find((row) => normalizeSpecies(row.species) === species);
+  if (!match) return null;
+
+  const petName = genome.name.trim() || options.name?.trim() || 'Unknown Pet';
+  const parsed = parseStructuredPetName(petName, genome.genome_type);
+  const attrValues = parsed?.attributes ?? getDefaultValues(genome.genome_type);
+  // A name that does not parse keeps the breed the selectors gave the wild row.
+  const petBreed = parsed?.breed ?? match.breed ?? '';
+  const params: Record<string, unknown> = {
+    id: Number(match.id),
+    name: petName,
+    breed: petBreed,
+    breeder: genome.breeder,
+    content_hash: contentHash,
+    genome_text: content,
+    wild: 0,
+    stabled: 1,
+    positive_genes: await countPositiveGenes(entries, genome.genome_type, petBreed),
+    attributes_measured: parsed ? 1 : 0,
+    updated_at: now(),
+  };
+  for (const key of ATTRIBUTE_KEYS) params[key] = attrValues[key] ?? 50;
+  // The name's gender, else one the caller gave; with neither, the wild row's
+  // stays — the sex set in the Capture tab, or the import default.
+  const gender = parsed?.gender ?? options.gender;
+  const genderClause = gender ? 'gender = $gender, ' : '';
+  if (gender) params.gender = gender;
+
+  const result = await db.execute(
+    `UPDATE pets SET name = $name, ${genderClause}breed = $breed, breeder = $breeder,
+       content_hash = $content_hash, genome_text = $genome_text, wild = $wild, stabled = $stabled, captured_at = $updated_at,
+       positive_genes = $positive_genes, attributes_measured = $attributes_measured,
+       ${ATTRIBUTE_KEYS.map((key) => `${key} = $${key}`).join(', ')}, updated_at = $updated_at
+     WHERE id = $id`,
+    params,
+  );
+  if ((result.rowsAffected ?? 0) === 0) return null;
+
+  try {
+    await recordImportedFile(contentHash, options.sourcePath);
+  } catch (err) {
+    console.warn('imported_files: failed to record after capture', err);
+  }
+  // The row is revised (name, attributes) and joins the stable under an id the
+  // study and the baselines already knew as a wild animal.
+  rosterRevision++;
+  rosterAdditions++;
+  return {
+    status: 'success',
+    kind: 'captured',
+    message: `Captured: '${petName}' replaces its wild entry`,
+    pet_id: Number(match.id),
+    name: petName,
+  };
 }
 
 /**
@@ -704,14 +801,26 @@ export async function uploadPet(content: string, options: UploadPetOptions = {})
   const genome = parseGenome(content);
   const entries = genomeEntries(genome);
 
+  // Only the player's own import captures: a community animal with the same
+  // genes is someone else's capture, and must not take over the wild row.
+  const wild = wildEntity(content);
+  if (!wild && stabled) {
+    const captured = await captureWildPet(content, contentHash, genome, entries, {
+      sourcePath,
+      name: options.name,
+      gender: options.gender,
+    });
+    if (captured) return captured;
+  }
+
   // Determine pet name
-  const petName = genome.name.trim() || name.trim() || 'Unknown Pet';
+  const petName = wild ? wildPetName(wild, new Date()) : genome.name.trim() || name.trim() || 'Unknown Pet';
 
   const parsed = parseStructuredPetName(petName, genome.genome_type);
   const defaults = getDefaultValues(genome.genome_type);
 
   const petGender = parsed?.gender ?? gender;
-  const petBreed = parsed?.breed ?? '';
+  const petBreed = parsed?.breed ?? (wild ? await selectorBreed(entries, genome.genome_type) : '');
   const attrValues = parsed?.attributes ?? defaults;
 
   const positiveGenes = await countPositiveGenes(entries, genome.genome_type, petBreed);
@@ -734,12 +843,12 @@ export async function uploadPet(content: string, options: UploadPetOptions = {})
         created_at, updated_at,
         intelligence, toughness, friendliness, ruggedness, enthusiasm, virility, ferocity, temperament, sort_order,
         starred, stabled, is_pet_quality, positive_genes, total_genes, known_genes, unknown_genes,
-        attributes_measured)
+        attributes_measured, wild)
        VALUES ($name, $species, $gender, $breed, $breeder, $content_hash, $genome_text, $notes,
                $created_at, $updated_at,
                $intelligence, $toughness, $friendliness, $ruggedness, $enthusiasm, $virility, $ferocity, $temperament, $sort_order,
                $starred, $stabled, $is_pet_quality, $positive_genes, $total_genes, $known_genes, $unknown_genes,
-               $attributes_measured)`,
+               $attributes_measured, $wild)`,
       {
         name: petName,
         species: genome.genome_type,
@@ -761,7 +870,8 @@ export async function uploadPet(content: string, options: UploadPetOptions = {})
         temperament: attrValues.temperament ?? 50,
         sort_order: nextOrder,
         starred: 0,
-        stabled: stabled ? 1 : 0,
+        // A wild animal is not in anyone's stable yet.
+        stabled: stabled && !wild ? 1 : 0,
         is_pet_quality: 0,
         positive_genes: positiveGenes,
         total_genes: geneCounts.total,
@@ -770,6 +880,7 @@ export async function uploadPet(content: string, options: UploadPetOptions = {})
         // `attrValues` came from the name above, or from `defaults` because
         // it did not parse — the answer is known here and nowhere later.
         attributes_measured: parsed ? 1 : 0,
+        wild: wild ? 1 : 0,
       },
     );
     if (res.lastInsertId) {
@@ -849,6 +960,13 @@ export async function updatePet(petId: number, updates: Record<string, unknown>)
     } else {
       flat[field] = value;
     }
+  }
+
+  // A wild animal is not in the stable until its captured file is imported.
+  // Refused rather than dropped, so a marker toggle rolls back with this
+  // reason instead of reporting the pet missing.
+  if (flat.stabled && (await getPet(petId))?.wild) {
+    throw new Error('A wild animal cannot be stabled. Capture it and import its file first.');
   }
 
   for (const [field, value] of Object.entries(flat)) {

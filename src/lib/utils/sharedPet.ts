@@ -158,5 +158,7 @@ export function sharedPetToPet(shared: SharedPet): Pet {
     // Local-only, and a preview is not in the database. The study judges a
     // community animal by its values instead — see `carriesReadings`.
     attributes_measured: false,
+    wild: false,
+    captured_at: '',
   };
 }
