@@ -70,6 +70,16 @@ function handleMouseUp(e: MouseEvent) {
         </button>
         <button
             class="tab-btn"
+            class:active={$activeTab === "capture"}
+            data-testid="tab-capture"
+            disabled={$overlayOpen}
+            onclick={() => switchTab("capture")}
+            title="Capture or let go the wild horse you just analysed, and see which alleles your stable needs."
+        >
+            🌿 Capture
+        </button>
+        <button
+            class="tab-btn"
             class:active={$activeTab === "breed"}
             data-testid="tab-breed"
             disabled={$overlayOpen}
