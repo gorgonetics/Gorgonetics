@@ -40,6 +40,28 @@ test.describe('Capture tab', () => {
     await page.locator('[data-testid="capture-sex"]').getByRole('button', { name: 'Female' }).click();
     await expect(verdicts).toHaveCount(1);
     await expect(verdicts.first()).toHaveAttribute('data-sex', 'Female');
-    await expect(verdicts.first()).toContainText(/Capture|Let go/);
+    // Nothing pinned yet, so nothing is worth a capture.
+    await expect(verdicts.first()).toContainText('Let go');
+    await expect(page.locator('[data-testid="capture-why"]')).toContainText('No alleles pinned');
+  });
+
+  test('pins an allele from the hunt list', async ({ page }) => {
+    await page.goto('/');
+    await waitForAppReady(page);
+    await page.evaluate(
+      async ([wild]) => {
+        const { appState } = await import(/* @vite-ignore */ '/src/lib/stores/pets.ts' as string);
+        await appState.uploadPet(wild);
+        await appState.loadPets();
+      },
+      [withEntity('Wild Horse')],
+    );
+    await page.locator('[data-testid="tab-capture"]').click();
+    const hunt = page.locator('[data-testid="capture-hunt"]');
+    await hunt.locator('summary').click();
+    const first = hunt.locator('[data-testid="capture-hunt-list"] li').first();
+    const label = (await first.locator('.cv-chip').textContent())?.trim() ?? '';
+    await first.locator('.cv-pin').click();
+    await expect(page.locator('[data-testid="capture-pins"]')).toContainText(label.split(' · ')[0]);
   });
 });

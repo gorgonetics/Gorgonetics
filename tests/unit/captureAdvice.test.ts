@@ -7,7 +7,14 @@ import * as geneService from '#lib/services/geneService.js';
 import { runMigrations } from '#lib/services/migrationService.js';
 import * as petService from '#lib/services/petService.js';
 import { Gender, GeneType } from '#lib/types/index.js';
-import { captureAdvice, type HuntTarget, huntTargets, targetsSupplied } from '#lib/utils/captureAdvice.js';
+import {
+  captureAdvice,
+  type HuntTarget,
+  huntTargets,
+  onAttributes,
+  pinKey,
+  targetsSupplied,
+} from '#lib/utils/captureAdvice.js';
 import type { ScoredGene } from '#lib/utils/geneticQuality.js';
 import type { PetLoci } from '#lib/utils/petLoci.js';
 
@@ -78,42 +85,67 @@ describe('targetsSupplied', () => {
 });
 
 describe('captureAdvice', () => {
-  const target: HuntTarget = {
-    geneId: '01A1',
+  const target = (geneId: string, attribute = 'toughness'): HuntTarget => ({
+    geneId,
     allele: D,
     kind: 'add',
-    attribute: 'toughness',
+    attribute,
     generic: true,
     sexes: [Gender.MALE, Gender.FEMALE],
-  };
+  });
   const weakest = { id: 7, name: 'Roach', share: 2 };
+  const none = new Set<string>();
 
-  it('captures for a needed allele and lists it once, not also as never seen', () => {
+  it('captures only for a pinned allele, and lists the rest as information', () => {
     const advice = captureAdvice({
-      supplied: [target],
+      supplied: [target('01A1'), target('02A1')],
+      pins: new Set([pinKey('01A1', D)]),
+      wanted: none,
       neverSeen: [
         { geneId: '01A1', allele: D },
         { geneId: '05B2', allele: R },
       ],
-      quality: { share: 1, weakest },
+      quality: { share: 9, weakest },
     });
     expect(advice.capture).toBe(true);
-    expect(advice.reasons.map((r) => r.kind)).toEqual(['needed', 'never-seen']);
-    expect(advice.reasons[1]).toMatchObject({ alleles: [{ geneId: '05B2', allele: R }] });
+    expect(advice.pinned.map((t) => t.geneId)).toEqual(['01A1']);
+    expect(advice.info).toEqual([
+      { kind: 'needed', targets: [target('02A1')] },
+      { kind: 'never-seen', alleles: [{ geneId: '05B2', allele: R }] },
+      { kind: 'quality', share: 9, weakest },
+    ]);
   });
 
-  it('captures an animal that beats the weakest stabled one', () => {
-    const advice = captureAdvice({ supplied: [], neverSeen: [], quality: { share: 5, weakest } });
-    expect(advice).toEqual({ capture: true, reasons: [{ kind: 'beats-weakest', share: 5, weakest }] });
+  it('lets go an animal that brings needed alleles and a Quality lead but no pin', () => {
+    const advice = captureAdvice({
+      supplied: [target('02A1')],
+      pins: new Set([pinKey('01A1', D)]),
+      wanted: none,
+      neverSeen: [],
+      quality: { share: 30, weakest },
+    });
+    expect(advice.capture).toBe(false);
+    expect(advice.info.map((i) => i.kind)).toEqual(['needed', 'quality']);
   });
 
-  it('lets go otherwise, and says how far below the weakest it is', () => {
-    const advice = captureAdvice({ supplied: [], neverSeen: [], quality: { share: 2, weakest } });
-    expect(advice).toEqual({ capture: false, reasons: [{ kind: 'below-weakest', share: 2, weakest }] });
+  it('keeps needed information to the wanted attributes, but a pin on any attribute still counts', () => {
+    const advice = captureAdvice({
+      supplied: [target('01A1', 'virility'), target('02A1', 'virility'), target('03A1', 'toughness')],
+      pins: new Set([pinKey('01A1', D)]),
+      wanted: new Set(['toughness']),
+      neverSeen: [],
+      quality: null,
+    });
+    expect(advice.capture).toBe(true);
+    expect(advice.info).toEqual([{ kind: 'needed', targets: [target('03A1', 'toughness')] }]);
   });
+});
 
-  it('lets go with no reason when the stable is too small to compare', () => {
-    expect(captureAdvice({ supplied: [], neverSeen: [], quality: null })).toEqual({ capture: false, reasons: [] });
+describe('onAttributes', () => {
+  it('keeps every target when no attribute is wanted', () => {
+    const targets = huntTargets({ [Gender.MALE]: [loci({ '01A1': R })], [Gender.FEMALE]: [] }, GENES);
+    expect(onAttributes(targets, new Set())).toEqual(targets);
+    expect(onAttributes(targets, new Set(['virility']))).toEqual([]);
   });
 });
 
@@ -160,12 +192,18 @@ describe('assessWildPet', () => {
       ['01A2', R, [Gender.FEMALE]],
     ]);
     const needed = (sex: Gender) => {
-      const reason = result.advice[sex].reasons.find((r) => r.kind === 'needed');
-      return reason?.kind === 'needed' ? reason.targets.map((t) => t.geneId) : [];
+      const info = result.advice[sex].info.find((r) => r.kind === 'needed');
+      return info?.kind === 'needed' ? info.targets.map((t) => t.geneId) : [];
     };
-    expect(result.advice[Gender.FEMALE].capture).toBe(true);
     expect(needed(Gender.FEMALE)).toEqual(['01A1', '01A2']);
     expect(needed(Gender.MALE)).toEqual(['01A1']);
+    // Nothing pinned: nothing to capture for, whatever it brings.
+    expect(result.advice[Gender.FEMALE].capture).toBe(false);
+
+    // A pinned recessive is a reason only for the sex that lacks it.
+    const pinned = await assessWildPet({ wild, pets: items, pins: new Set([pinKey('01A2', R)]) });
+    expect(pinned.advice[Gender.FEMALE].capture).toBe(true);
+    expect(pinned.advice[Gender.MALE].capture).toBe(false);
   });
 
   it('lets go a wild horse that brings nothing the stable lacks', async () => {
@@ -179,6 +217,6 @@ describe('assessWildPet', () => {
     const result = await assessWildPet({ wild: items.find((p) => p.id === pet_id)!, pets: items });
     expect(result.targets).toEqual([]);
     expect(result.advice[Gender.MALE].capture).toBe(false);
-    expect(result.advice[Gender.MALE].reasons.map((r) => r.kind)).toEqual(['below-weakest']);
+    expect(result.advice[Gender.MALE].info.map((r) => r.kind)).toEqual(['quality']);
   });
 });

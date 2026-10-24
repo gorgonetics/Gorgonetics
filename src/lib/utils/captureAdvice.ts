@@ -1,19 +1,22 @@
 /**
  * Capture or let go: the advice for one wild animal (#367).
  *
- * A capture starts a cooldown before the next one, so capturing every wild
- * animal wastes it on animals the stable does not need. The advice reads the
- * wild animal against the stabled animals of its species and gives every
- * reason it found, so the player can overrule it knowingly:
+ * A capture starts a cooldown, stable space is small, and a wild animal's own
+ * attributes are usually poor, so it is worth a capture only for an allele
+ * the player is hunting. **Only a pinned hunt allele triggers a capture**:
+ * the player pins the alleles they want from the hunt list, and the advice is
+ * Capture when the animal carries one the stable still lacks for its sex.
  *
- *  - **Needed** — it carries a benefit allele the stable cannot breed: no
- *    stabled animal carries it, or, for a recessive, no stabled animal of
- *    this sex. These are the hunt targets, the alleles worth going out for.
- *  - **Never seen** — it carries an allele no stabled animal carries, at a
- *    gene with an effect. Weaker than needed: the allele need not be a
- *    benefit.
- *  - **Beats the weakest** — its Quality, scored as if it were stabled, is
- *    above that of the weakest stabled animal, which it could later replace.
+ * Everything else is shown as information, because with a small stable nearly
+ * every animal brings something:
+ *
+ *  - **Needed** — a benefit allele the stable cannot breed: no stabled animal
+ *    carries it, or, for a recessive, no stabled animal of this sex. These
+ *    make the hunt list the pins are picked from.
+ *  - **Never seen** — an allele no stabled animal carries, at a gene with an
+ *    effect. The allele need not be a benefit.
+ *  - **Quality** — its Quality, scored as if stabled, against the weakest
+ *    stabled animal's.
  *
  * Pure: the service reads the stable and the templates and hands them in.
  */
@@ -132,22 +135,37 @@ export function targetsSupplied(loci: PetLoci, sex: Gender | null, targets: read
   });
 }
 
-/** One reason behind the advice. */
-export type CaptureReason =
+/** The key a pin is stored under, within one species. */
+export function pinKey(geneId: string, allele: Allele): string {
+  return `${geneId}:${allele}`;
+}
+
+/** The targets on the wanted attributes; an empty set wants every attribute. */
+export function onAttributes(targets: readonly HuntTarget[], wanted: ReadonlySet<string>): HuntTarget[] {
+  return wanted.size === 0 ? [...targets] : targets.filter((t) => t.attribute !== null && wanted.has(t.attribute));
+}
+
+/** Information shown beside the advice. None of it triggers a capture. */
+export type CaptureInfo =
   | { kind: 'needed'; targets: HuntTarget[] }
   | { kind: 'never-seen'; alleles: { geneId: string; allele: Allele }[] }
-  | { kind: 'beats-weakest'; share: number; weakest: { id: number; name: string; share: number } }
-  | { kind: 'below-weakest'; share: number; weakest: { id: number; name: string; share: number } };
+  | { kind: 'quality'; share: number; weakest: { id: number; name: string; share: number } };
 
 export interface CaptureAdvice {
+  /** True when the animal carries a pinned allele the stable lacks for its sex. */
   capture: boolean;
-  /** For a capture, every reason to; for a let-go, why there is none. */
-  reasons: CaptureReason[];
+  /** The pinned hunt targets it brings: the reason to capture. */
+  pinned: HuntTarget[];
+  info: CaptureInfo[];
 }
 
 export interface CaptureAdviceInput {
-  /** Hunt targets the animal brings (`targetsSupplied`). */
+  /** Hunt targets the animal brings (`targetsSupplied`), on every attribute. */
   supplied: HuntTarget[];
+  /** Pinned alleles, as `pinKey`s. */
+  pins: ReadonlySet<string>;
+  /** The attributes the player breeds for; empty for all. Filters `needed` only. */
+  wanted: ReadonlySet<string>;
   /** Alleles it carries that no stabled animal carries, at genes with an effect. */
   neverSeen: { geneId: string; allele: Allele }[];
   /**
@@ -158,18 +176,16 @@ export interface CaptureAdviceInput {
   quality: { share: number; weakest: { id: number; name: string; share: number } } | null;
 }
 
-/** Capture when any reason holds; let go otherwise. */
-export function captureAdvice({ supplied, neverSeen, quality }: CaptureAdviceInput): CaptureAdvice {
-  const reasons: CaptureReason[] = [];
-  if (supplied.length > 0) reasons.push({ kind: 'needed', targets: supplied });
-  // A needed allele is never seen too; list it once, under the stronger reason.
-  const neededKeys = new Set(supplied.map((t) => `${t.geneId}:${t.allele}`));
-  const unseen = neverSeen.filter((a) => !neededKeys.has(`${a.geneId}:${a.allele}`));
-  if (unseen.length > 0) reasons.push({ kind: 'never-seen', alleles: unseen });
-  const beats = quality !== null && quality.share > quality.weakest.share;
-  if (beats) reasons.push({ kind: 'beats-weakest', share: quality.share, weakest: quality.weakest });
-  const capture = reasons.length > 0;
-  if (!capture && quality !== null)
-    reasons.push({ kind: 'below-weakest', share: quality.share, weakest: quality.weakest });
-  return { capture, reasons };
+export function captureAdvice({ supplied, pins, wanted, neverSeen, quality }: CaptureAdviceInput): CaptureAdvice {
+  const pinned = supplied.filter((t) => pins.has(pinKey(t.geneId, t.allele)));
+  const info: CaptureInfo[] = [];
+  // Each allele once, under the strongest heading it qualifies for.
+  const listed = new Set(pinned.map((t) => pinKey(t.geneId, t.allele)));
+  const needed = onAttributes(supplied, wanted).filter((t) => !listed.has(pinKey(t.geneId, t.allele)));
+  if (needed.length > 0) info.push({ kind: 'needed', targets: needed });
+  for (const t of supplied) listed.add(pinKey(t.geneId, t.allele));
+  const unseen = neverSeen.filter((a) => !listed.has(pinKey(a.geneId, a.allele)));
+  if (unseen.length > 0) info.push({ kind: 'never-seen', alleles: unseen });
+  if (quality !== null) info.push({ kind: 'quality', share: quality.share, weakest: quality.weakest });
+  return { capture: pinned.length > 0, pinned, info };
 }

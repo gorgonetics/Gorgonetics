@@ -16,6 +16,7 @@ import {
   captureAdvice,
   type HuntTarget,
   huntTargets,
+  onAttributes,
   targetsSupplied,
 } from '#lib/utils/captureAdvice.js';
 import {
@@ -35,8 +36,10 @@ import { lociBySex } from './geneticQualityService.js';
 export interface CaptureAssessment {
   /** Stabled animals of the species the wild animal was read against. */
   stableSize: number;
-  /** Every benefit allele the stable cannot breed: the hunt list. */
+  /** Every benefit allele the stable cannot breed, on the wanted attributes: the hunt list. */
   targets: HuntTarget[];
+  /** The same on every attribute, so a pin outside the wanted ones can be told met or not. */
+  allTargets: HuntTarget[];
   /** The advice if the wild animal is of each sex. */
   advice: Record<Gender, CaptureAdvice>;
 }
@@ -47,6 +50,10 @@ export interface AssessWildOptions {
   pets: readonly Pet[];
   focusBreed?: string;
   breedLockWeight?: number;
+  /** Pinned hunt alleles, as `pinKey`s. Only these trigger a capture. */
+  pins?: ReadonlySet<string>;
+  /** Attributes the player breeds for; empty or omitted for all. */
+  wanted?: ReadonlySet<string>;
 }
 
 export async function assessWildPet(opts: AssessWildOptions): Promise<CaptureAssessment> {
@@ -63,6 +70,8 @@ export async function assessWildPet(opts: AssessWildOptions): Promise<CaptureAss
   const scoredPool = pool.filter((p) => loci.has(p.id));
 
   const targets = huntTargets(lociBySex(scoredPool, loci), genes, { focusBreed: opts.focusBreed });
+  const pins = opts.pins ?? new Set<string>();
+  const wanted = opts.wanted ?? new Set<string>();
   // The never-seen allele at each locus, kept where this animal carries it.
   const unseen = withDeclaredEffect(neverSeenAlleles(wildLoci.keys(), lookup), effects?.effects ?? {});
   const neverSeen = [...unseen]
@@ -86,6 +95,8 @@ export async function assessWildPet(opts: AssessWildOptions): Promise<CaptureAss
     }
     return captureAdvice({
       supplied: targetsSupplied(wildLoci, sex, targets),
+      pins,
+      wanted,
       neverSeen,
       quality: meaningful && weakest !== null ? { share: shares.get(opts.wild.id) ?? 0, weakest } : null,
     });
@@ -93,7 +104,8 @@ export async function assessWildPet(opts: AssessWildOptions): Promise<CaptureAss
 
   return {
     stableSize: scoredPool.length,
-    targets,
+    targets: onAttributes(targets, wanted),
+    allTargets: targets,
     advice: { [Gender.MALE]: adviceFor(Gender.MALE), [Gender.FEMALE]: adviceFor(Gender.FEMALE) } as Record<
       Gender,
       CaptureAdvice
