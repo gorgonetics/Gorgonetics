@@ -196,7 +196,7 @@ $effect(() => {
               <input type="checkbox" bind:checked={referenceView.hideSeenChromosomes} data-testid="map-hide-seen" />
               Fully seen chromosomes
             </label>
-            <label class="ref-check-row" title="Leave out never-seen alleles whose gene template declares no effect for them">
+            <label class="ref-check-row" title="Leave out never-seen alleles at genes whose template declares no effect for either allele">
               <input type="checkbox" bind:checked={referenceView.hideNoEffect} data-testid="map-hide-no-effect" />
               Genes with no effect
             </label>

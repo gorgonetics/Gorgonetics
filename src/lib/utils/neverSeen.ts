@@ -34,11 +34,13 @@ export function neverSeenAlleles(geneIds: Iterable<string>, lookup: RarityBucket
 }
 
 /**
- * Only the never-seen alleles whose own effect is declared in the gene
- * template. The test is on the missing allele, not the gene: a gene whose other
- * allele has an effect is still nothing to look for if the missing one has
- * none. Template-only, like every effect in the app: an effect not yet entered
- * reads as none. A locus with no template entry counts as no effect.
+ * Only the never-seen alleles at genes whose template declares an effect for
+ * either allele. The test is on the gene, not the missing allele: an allele
+ * with no effect of its own still changes the phenotype when the other has one.
+ * A never-seen R makes `RR` possible, which drops a dominant effect; a
+ * never-seen D masks a recessive one. Template-only, like every effect in the
+ * app: an effect not yet entered reads as none. A locus with no template entry
+ * counts as no effect.
  */
 export function withDeclaredEffect(
   alleles: ReadonlyMap<string, Allele>,
@@ -46,7 +48,10 @@ export function withDeclaredEffect(
 ): Map<string, Allele> {
   const out = new Map<string, Allele>();
   for (const [geneId, allele] of alleles) {
-    if (!isNoEffect(effectFor(effects[geneId], allele))) out.set(geneId, allele);
+    const gene = effects[geneId];
+    if (!isNoEffect(effectFor(gene, GeneType.DOMINANT)) || !isNoEffect(effectFor(gene, GeneType.RECESSIVE))) {
+      out.set(geneId, allele);
+    }
   }
   return out;
 }

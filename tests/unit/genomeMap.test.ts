@@ -266,9 +266,10 @@ describe('GenomeMap never-seen lens', () => {
 });
 
 describe('GenomeMap never-seen filters', () => {
-  /** Two chromosomes; only 01A1 has a never-seen allele, and only 02A1's has an effect. */
+  /** Two chromosomes; only 01A1 has a never-seen allele, and only 02A1's gene has an effect. */
   const TEMPLATE = {
     ...HORSE_TEMPLATE,
+    '01A1': { effectDominant: 'None', effectRecessive: 'None', breed: '', appearance: 'None' },
     '02A1': { effectDominant: 'None', effectRecessive: 'Ruggedness+', breed: '', appearance: 'None' },
   };
   const NEVER: Record<string, string> = { '01A1': 'R', '02A1': 'R' };
@@ -298,7 +299,7 @@ describe('GenomeMap never-seen filters', () => {
     mocks.baseline.bucketOf = (geneId, allele) => (NEVER[geneId] === allele ? 5 : 0);
     const { container } = await renderMap('Horse', 'never', { hideNoEffect: true }, TEMPLATE);
 
-    // 01A1's R is "None" in the template; 02A1's R is Ruggedness+.
+    // 01A1 has no effect on either allele; 02A1's R is Ruggedness+.
     await waitFor(() => expect(lit(container)).toEqual(['02A1']));
     const status = container.querySelector('[data-testid="map-never-status"]')?.textContent ?? '';
     expect(status).toContain('1 allele that none of your 12 pets carry');
