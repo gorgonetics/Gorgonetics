@@ -28,6 +28,7 @@ function resetView() {
   myPetsView.starredOnly = false;
   myPetsView.stabledOnly = false;
   myPetsView.petQualityOnly = false;
+  myPetsView.wildOnly = false;
   myPetsView.tags = [];
   myPetsView.selectedIds = new Set();
 }

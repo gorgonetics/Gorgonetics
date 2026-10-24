@@ -6,6 +6,7 @@
 
 import { encodeLoci, storedGenomeEntries } from '#lib/utils/lociCodec.js';
 import { ATTRIBUTE_KEYS, carriesReadings } from '#lib/utils/sharedPet.js';
+import { wildEntity, wildPetName } from '#lib/utils/wildPet.js';
 import { buildInClauseParams, getDb, type TxStatement } from './database.js';
 import { parseStructuredPetName } from './nameParser.js';
 
@@ -535,6 +536,37 @@ const MIGRATIONS: Migration[] = [
         { sql: "ALTER TABLE study_corpus ADD COLUMN loci_layout TEXT NOT NULL DEFAULT ''" },
         { sql: 'PRAGMA user_version = 22' },
       ]);
+    },
+  },
+  {
+    version: 23,
+    description: 'Mark wild animals — genomes analysed before capture (#367)',
+    up: async () => {
+      // A wild animal's file names it `Entity=Wild Horse`, and it was imported
+      // as a stabled pet of that name: counted in every baseline and offered
+      // for breeding, though nothing in the stable can breed from it. Rows
+      // already imported are found by that line in their file and given the
+      // same state a fresh wild import gets. A renamed one keeps its name.
+      const db = getDb();
+      await db.execute('ALTER TABLE pets ADD COLUMN wild INTEGER NOT NULL DEFAULT 0');
+      const rows = await db.select<{ id: number; name: string; genome_text: string | null; created_at: string }[]>(
+        'SELECT id, name, genome_text, created_at FROM pets',
+      );
+      const updates: TxStatement[] = [];
+      for (const row of rows) {
+        const entity = row.genome_text ? wildEntity(row.genome_text) : null;
+        if (!entity) continue;
+        updates.push({
+          sql: 'UPDATE pets SET wild = $wild, stabled = $stabled, name = $name WHERE id = $id',
+          params: {
+            id: Number(row.id),
+            wild: 1,
+            stabled: 0,
+            name: row.name === entity ? wildPetName(entity, new Date(row.created_at)) : row.name,
+          },
+        });
+      }
+      await db.transaction([...updates, { sql: 'PRAGMA user_version = 23' }]);
     },
   },
 ];

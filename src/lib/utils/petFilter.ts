@@ -28,6 +28,8 @@ export interface PetListFilters {
   /** Exact gender; '' or omitted means all genders. */
   gender?: Gender | '';
   petQualityOnly?: boolean;
+  /** Only animals analysed before capture (#367). */
+  wildOnly?: boolean;
 }
 
 /** Whether a pet passes the active list filters. */
@@ -45,6 +47,7 @@ export function petMatchesFilters(pet: Pet, filters: PetListFilters): boolean {
   if (filters.starredOnly && !pet.starred) return false;
   if (filters.stabledOnly && !pet.stabled) return false;
   if (filters.petQualityOnly && !pet.is_pet_quality) return false;
+  if (filters.wildOnly && !pet.wild) return false;
   if (filters.species && normalizeSpecies(pet.species) !== filters.species) return false;
   if (filters.breed && pet.breed !== filters.breed) return false;
   if (filters.gender && pet.gender !== filters.gender) return false;

@@ -85,6 +85,9 @@ const PET_COLUMNS = [
   // Study exclusion (migration v16). Without it a restore puts every animal
   // the player judged mis-recorded back into the study corpus.
   'use_for_studies',
+  // Wild animals (migration v23). Without it a restored wild animal reads as
+  // a stabled one and counts in every baseline.
+  'wild',
 ];
 
 // --- Export ---
@@ -447,7 +450,7 @@ async function importGenesAndPets(
         else if (col === 'loci_layout') row[col] = loci.layout;
         else if (col === 'sort_order') row[col] = ((pet[col] as number) ?? 0) + sortOrderOffset;
         else if (col === 'stabled' || col === 'use_for_studies') row[col] = pet[col] ?? 1;
-        else if (col === 'starred' || col === 'is_pet_quality') row[col] = pet[col] ?? 0;
+        else if (col === 'starred' || col === 'is_pet_quality' || col === 'wild') row[col] = pet[col] ?? 0;
         // Pre-v13 backups don't carry genome_text. The column is
         // NOT NULL DEFAULT '', and explicit-NULL inserts bypass the
         // default, so coerce a missing/null value to '' here. The pet
