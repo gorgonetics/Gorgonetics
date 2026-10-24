@@ -2,10 +2,17 @@
  * Capture or let go: the advice for one wild animal (#367).
  *
  * A capture starts a cooldown, stable space is small, and a wild animal's own
- * attributes are usually poor, so it is worth a capture only for an allele
- * the player is hunting. **Only a pinned hunt allele triggers a capture**:
- * the player pins the alleles they want from the hunt list, and the advice is
- * Capture when the animal carries one the stable still lacks for its sex.
+ * attributes are usually poor, so it is worth a capture only for what it
+ * would pass on. Two things trigger a capture:
+ *
+ *  - **A pinned hunt allele** — the player pins the alleles they want from
+ *    the hunt list, and the animal carries one the stable still lacks for
+ *    its sex.
+ *  - **A better parent** — across its stabled partners, its median foal has
+ *    a higher expected attribute total than the weakest stabled parent of its
+ *    sex. It would earn the place of that animal, not beat the stable's best
+ *    pair. One generation only: a wild animal's negatives weigh on its first
+ *    foals, so this is a strict test.
  *
  * Everything else is shown as information, because with a small stable nearly
  * every animal brings something:
@@ -145,6 +152,33 @@ export function onAttributes(targets: readonly HuntTarget[], wanted: ReadonlySet
   return wanted.size === 0 ? [...targets] : targets.filter((t) => t.attribute !== null && wanted.has(t.attribute));
 }
 
+/**
+ * The animal as a parent against the weakest stabled parent of its sex.
+ *
+ * A parent's value is the median, over its stabled partners of the other sex,
+ * of the expected attribute total of a foal. The median over partners, not the
+ * best one: a parent is used with more than one partner, and one good match
+ * says little about the rest. Within one pairing the foal total is a sum over
+ * many independently inherited loci, so its median is close to its expected
+ * value, which is what is used. In attribute points where the study
+ * has measured effects, else in net effects (positives less negatives). The
+ * breed's base values are the same for every pair, so the totals compare the
+ * genetic part only.
+ */
+export interface BreedingComparison {
+  unit: 'points' | 'effects';
+  /** Its median foal over its partners, and how many partners. `null` with no partner to pair. */
+  withIt: { total: number; partners: number } | null;
+  /** The stabled animal of its sex whose median foal is worst. `null` when there is none. */
+  weakest: { total: number; name: string } | null;
+}
+
+/** Whether the animal is a better parent than the weakest stabled one of its sex. */
+export function breedsBetter(b: BreedingComparison): boolean {
+  if (!b.withIt) return false;
+  return b.weakest === null || b.withIt.total > b.weakest.total + 1e-9;
+}
+
 /** Information shown beside the advice. None of it triggers a capture. */
 export type CaptureInfo =
   | { kind: 'needed'; targets: HuntTarget[] }
@@ -152,10 +186,12 @@ export type CaptureInfo =
   | { kind: 'quality'; share: number; weakest: { id: number; name: string; share: number } };
 
 export interface CaptureAdvice {
-  /** True when the animal carries a pinned allele the stable lacks for its sex. */
+  /** True when it brings a pinned allele or breeds better foals. */
   capture: boolean;
-  /** The pinned hunt targets it brings: the reason to capture. */
+  /** The pinned hunt targets it brings for its sex. */
   pinned: HuntTarget[];
+  /** The breeding comparison, whether or not it triggers. `null` when nothing could be ranked. */
+  breeding: BreedingComparison | null;
   info: CaptureInfo[];
 }
 
@@ -174,9 +210,17 @@ export interface CaptureAdviceInput {
    * mean anything.
    */
   quality: { share: number; weakest: { id: number; name: string; share: number } } | null;
+  breeding?: BreedingComparison | null;
 }
 
-export function captureAdvice({ supplied, pins, wanted, neverSeen, quality }: CaptureAdviceInput): CaptureAdvice {
+export function captureAdvice({
+  supplied,
+  pins,
+  wanted,
+  neverSeen,
+  quality,
+  breeding = null,
+}: CaptureAdviceInput): CaptureAdvice {
   const pinned = supplied.filter((t) => pins.has(pinKey(t.geneId, t.allele)));
   const info: CaptureInfo[] = [];
   // Each allele once, under the strongest heading it qualifies for.
@@ -187,5 +231,6 @@ export function captureAdvice({ supplied, pins, wanted, neverSeen, quality }: Ca
   const unseen = neverSeen.filter((a) => !listed.has(pinKey(a.geneId, a.allele)));
   if (unseen.length > 0) info.push({ kind: 'never-seen', alleles: unseen });
   if (quality !== null) info.push({ kind: 'quality', share: quality.share, weakest: quality.weakest });
-  return { capture: pinned.length > 0, pinned, info };
+  const capture = pinned.length > 0 || (breeding !== null && breedsBetter(breeding));
+  return { capture, pinned, breeding, info };
 }

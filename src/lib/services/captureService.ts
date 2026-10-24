@@ -9,9 +9,13 @@
  * something only to the sex that lacks it.
  */
 
+import { magnitudesForBreed, rankBreedingPairs } from '#lib/services/breedingService.js';
 import { loadRarityLookup, populationForTier } from '#lib/services/frequencyService.js';
-import { Gender, type Pet } from '#lib/types/index.js';
+import { attributeMagnitudesFor } from '#lib/services/studyService.js';
+import { type BreedingPairResult, Gender, type Pet } from '#lib/types/index.js';
+import { type AttributeMagnitudes, EMPTY_MAGNITUDES, hasMagnitudes } from '#lib/utils/attributePoints.js';
 import {
+  type BreedingComparison,
   type CaptureAdvice,
   captureAdvice,
   type HuntTarget,
@@ -56,6 +60,63 @@ export interface AssessWildOptions {
   wanted?: ReadonlySet<string>;
 }
 
+/** A foal's expected attribute total: points where measured, net effects otherwise. */
+function foalTotal(pair: BreedingPairResult, unit: BreedingComparison['unit']): number {
+  if (unit === 'points') return Object.values(pair.evPointsByAttribute ?? {}).reduce((sum, v) => sum + v, 0);
+  return pair.evPositiveTotal - pair.evNegativeTotal;
+}
+
+/** The median of a non-empty list. */
+function median(values: number[]): number {
+  const sorted = [...values].sort((x, y) => x - y);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 1 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+/**
+ * Rank every pairing of the stable with the animal added, as the Breed tab
+ * ranks them, and compare the animal as a parent with each stabled animal of
+ * the sex given: a parent's value is its median foal over its partners.
+ * Stabled parents are valued on the stable as it is, so a pairing with the
+ * animal never counts for them.
+ */
+async function compareBreeding(
+  wild: Pet,
+  sex: Gender,
+  pool: readonly Pet[],
+  species: string,
+  opts: { offspringBreed?: string; breedLockWeight?: number; magnitudes: AttributeMagnitudes },
+): Promise<BreedingComparison | null> {
+  const pairs = await rankBreedingPairs({
+    species,
+    pets: [...pool, { ...wild, gender: sex, stabled: true }],
+    offspringBreed: opts.offspringBreed,
+    breedLockWeight: opts.breedLockWeight,
+    magnitudes: opts.magnitudes,
+  });
+  if (pairs.length === 0) return null;
+  const unit: BreedingComparison['unit'] = hasMagnitudes(opts.magnitudes) ? 'points' : 'effects';
+  const parentOf = (pair: BreedingPairResult) => (sex === Gender.MALE ? pair.male : pair.female);
+  const partnerOf = (pair: BreedingPairResult) => (sex === Gender.MALE ? pair.female : pair.male);
+  /** Each parent of this sex: its foal totals, one per partner. */
+  const foals = new Map<number, { name: string; totals: number[] }>();
+  for (const pair of pairs) {
+    const parent = parentOf(pair);
+    if (parent.id !== wild.id && partnerOf(pair).id === wild.id) continue;
+    const entry = foals.get(parent.id) ?? { name: parent.name, totals: [] };
+    entry.totals.push(foalTotal(pair, unit));
+    foals.set(parent.id, entry);
+  }
+  const own = foals.get(wild.id);
+  let weakest: BreedingComparison['weakest'] = null;
+  for (const [id, { name, totals }] of foals) {
+    if (id === wild.id) continue;
+    const total = median(totals);
+    if (weakest === null || total < weakest.total) weakest = { total, name };
+  }
+  return { unit, withIt: own ? { total: median(own.totals), partners: own.totals.length } : null, weakest };
+}
+
 export async function assessWildPet(opts: AssessWildOptions): Promise<CaptureAssessment> {
   const species = normalizeSpecies(opts.wild.species);
   const pool = opts.pets.filter((p) => p.stabled && !p.wild && normalizeSpecies(p.species) === species);
@@ -81,6 +142,16 @@ export async function assessWildPet(opts: AssessWildOptions): Promise<CaptureAss
     })
     .map(([geneId, allele]) => ({ geneId, allele }));
 
+  const offspringBreed = opts.focusBreed || undefined;
+  const known = await attributeMagnitudesFor(species).catch(() => EMPTY_MAGNITUDES);
+  const magnitudes = await magnitudesForBreed(known, species, offspringBreed);
+  const breedingOpts = { offspringBreed, breedLockWeight: opts.breedLockWeight, magnitudes };
+  const [maleBreeding, femaleBreeding] = await Promise.all([
+    compareBreeding(opts.wild, Gender.MALE, scoredPool, species, breedingOpts),
+    compareBreeding(opts.wild, Gender.FEMALE, scoredPool, species, breedingOpts),
+  ]);
+  const breedingFor = (sex: Gender) => (sex === Gender.MALE ? maleBreeding : femaleBreeding);
+
   const meaningful = hasMeaningfulPopulation(scoredPool.length + 1);
   const weight = breedReachFor(genes, opts.focusBreed, opts.breedLockWeight);
   const ids = [...scoredPool.map((p) => p.id), opts.wild.id];
@@ -99,6 +170,7 @@ export async function assessWildPet(opts: AssessWildOptions): Promise<CaptureAss
       wanted,
       neverSeen,
       quality: meaningful && weakest !== null ? { share: shares.get(opts.wild.id) ?? 0, weakest } : null,
+      breeding: breedingFor(sex),
     });
   };
 

@@ -8,6 +8,7 @@ import { runMigrations } from '#lib/services/migrationService.js';
 import * as petService from '#lib/services/petService.js';
 import { Gender, GeneType } from '#lib/types/index.js';
 import {
+  breedsBetter,
   captureAdvice,
   type HuntTarget,
   huntTargets,
@@ -141,6 +142,32 @@ describe('captureAdvice', () => {
   });
 });
 
+describe('breedsBetter', () => {
+  const withIt = { total: 3, partners: 2 };
+  it('needs a strictly better median foal than the weakest parent of its sex', () => {
+    expect(breedsBetter({ unit: 'points', withIt, weakest: { total: 2, name: 'Dobbin' } })).toBe(true);
+    expect(breedsBetter({ unit: 'points', withIt, weakest: { total: 3, name: 'Dobbin' } })).toBe(false);
+  });
+
+  it('fills an empty sex, and cannot breed with no partner', () => {
+    expect(breedsBetter({ unit: 'points', withIt, weakest: null })).toBe(true);
+    expect(breedsBetter({ unit: 'points', withIt: null, weakest: null })).toBe(false);
+  });
+
+  it('triggers a capture without a pin', () => {
+    const advice = captureAdvice({
+      supplied: [],
+      pins: new Set(),
+      wanted: new Set(),
+      neverSeen: [],
+      quality: null,
+      breeding: { unit: 'effects', withIt, weakest: { total: 1, name: 'Dobbin' } },
+    });
+    expect(advice.capture).toBe(true);
+    expect(advice.pinned).toEqual([]);
+  });
+});
+
 describe('onAttributes', () => {
   it('keeps every target when no attribute is wanted', () => {
     const targets = huntTargets({ [Gender.MALE]: [loci({ '01A1': R })], [Gender.FEMALE]: [] }, GENES);
@@ -197,13 +224,18 @@ describe('assessWildPet', () => {
     };
     expect(needed(Gender.FEMALE)).toEqual(['01A1', '01A2']);
     expect(needed(Gender.MALE)).toEqual(['01A1']);
-    // Nothing pinned: nothing to capture for, whatever it brings.
-    expect(result.advice[Gender.FEMALE].capture).toBe(false);
+    // Its dominant Toughness+ makes it a better parent than the one stabled
+    // female, who passes nothing positive at either locus.
+    const breeding = result.advice[Gender.FEMALE].breeding;
+    expect(breeding).toMatchObject({ unit: 'effects', weakest: { name: 'Kb F 50 50 50 50 50 50 50' } });
+    expect(breeding && breedsBetter(breeding)).toBe(true);
+    expect(result.advice[Gender.FEMALE].capture).toBe(true);
+    expect(result.advice[Gender.FEMALE].pinned).toEqual([]);
 
-    // A pinned recessive is a reason only for the sex that lacks it.
+    // A pinned recessive counts only for the sex that lacks it.
     const pinned = await assessWildPet({ wild, pets: items, pins: new Set([pinKey('01A2', R)]) });
-    expect(pinned.advice[Gender.FEMALE].capture).toBe(true);
-    expect(pinned.advice[Gender.MALE].capture).toBe(false);
+    expect(pinned.advice[Gender.FEMALE].pinned.map((t) => t.geneId)).toEqual(['01A2']);
+    expect(pinned.advice[Gender.MALE].pinned).toEqual([]);
   });
 
   it('lets go a wild horse that brings nothing the stable lacks', async () => {

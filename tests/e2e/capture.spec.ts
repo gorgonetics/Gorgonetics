@@ -40,9 +40,10 @@ test.describe('Capture tab', () => {
     await page.locator('[data-testid="capture-sex"]').getByRole('button', { name: 'Female' }).click();
     await expect(verdicts).toHaveCount(1);
     await expect(verdicts.first()).toHaveAttribute('data-sex', 'Female');
-    // Nothing pinned yet, so nothing is worth a capture.
-    await expect(verdicts.first()).toContainText('Let go');
+    await expect(verdicts.first()).toContainText(/Capture|Let go/);
+    // Nothing pinned yet: only the parent comparison can call for a capture.
     await expect(page.locator('[data-testid="capture-why"]')).toContainText('No alleles pinned');
+    await expect(page.locator('[data-testid="capture-breeding"]')).toContainText('As a parent its median foal');
   });
 
   test('pins an allele from the hunt list', async ({ page }) => {

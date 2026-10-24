@@ -22,6 +22,8 @@ import { appState, pets } from '#lib/stores/pets.js';
 import { settings, settingsActions } from '#lib/stores/settings.js';
 import { Gender, GeneType } from '#lib/types/index.js';
 import {
+  type BreedingComparison,
+  breedsBetter,
   type CaptureAdvice,
   type CaptureInfo,
   groupByAllele,
@@ -143,17 +145,30 @@ function infoTitle(r: CaptureInfo): string {
   }
 }
 
-function verdictWhy(advice: CaptureAdvice): string {
-  if (advice.capture)
+const signed = (n: number, unit: BreedingComparison['unit']) =>
+  `${n >= 0 ? '+' : '−'}${Math.abs(n).toFixed(1)} ${unit === 'points' ? 'points' : 'net effects'}`;
+
+/** The pin half of the verdict: what it carries, or why nothing pinned counts. */
+function pinWhy(advice: CaptureAdvice): string {
+  if (advice.pinned.length > 0)
     return `Carries ${plural(groupByAllele(advice.pinned).length, 'pinned allele')} your stable lacks`;
-  if (pinList.length === 0) return 'No alleles pinned. Pin the ones you hunt for in the list below.';
+  if (pinList.length === 0) return 'No alleles pinned';
   return `Carries none of your ${plural(pinStatus.filter((p) => p.target).length, 'open pin')}`;
+}
+
+/** The breeding half: the animal as a parent against the weakest stabled one of its sex. */
+function breedingWhy(b: BreedingComparison, s: Gender): string {
+  if (!b.withIt) return `No stabled ${s === Gender.MALE ? 'female' : 'male'} to pair it with`;
+  const mine = `As a parent its median foal, over ${plural(b.withIt.partners, 'partner')}, is ${signed(b.withIt.total, b.unit)}`;
+  if (!b.weakest) return `${mine}; you have no stabled ${sexWord(s)} to compare it with`;
+  const verb = breedsBetter(b) ? 'better than' : 'not better than';
+  return `${mine}: ${verb} your weakest ${sexWord(s)}, ${b.weakest.name} (${signed(b.weakest.total, b.unit)})`;
 }
 </script>
 
 <div class="capture-view" data-testid="capture-view">
   <h2 class="sr-only">Capture</h2>
-  <PageHeader subtitle="Capture or let go the wild horse you just analysed. Only an allele you pinned suggests a capture: a capture starts a cooldown, and stable space is small." />
+  <PageHeader subtitle="Capture or let go the wild horse you just analysed. A capture is suggested only for an allele you pinned, or when it is a better parent than your weakest horse of its sex: a capture starts a cooldown, and stable space is small." />
 
   <div class="cv-body">
     {#if !wild}
@@ -197,13 +212,18 @@ function verdictWhy(advice: CaptureAdvice): string {
                   {#if !sex}<span class="cv-as">As a {sexWord(s)}:</span>{/if}
                   <strong>{advice.capture ? 'Capture' : 'Let go'}</strong>
                 </div>
-                <p class="cv-why" data-testid="capture-why">{verdictWhy(advice)}</p>
+                <p class="cv-why" class:met={advice.pinned.length > 0} data-testid="capture-why">{pinWhy(advice)}</p>
                 {#if advice.pinned.length > 0}
                   <span class="cv-chips">
                     {#each groupByAllele(advice.pinned) as t (`${t.geneId}${t.allele}`)}
                       <span class="cv-chip pinned" class:generic={t.generic}>📌 {targetText(t)}</span>
                     {/each}
                   </span>
+                {/if}
+                {#if advice.breeding}
+                  <p class="cv-why" class:met={breedsBetter(advice.breeding)} data-testid="capture-breeding">
+                    {breedingWhy(advice.breeding, s)}
+                  </p>
                 {/if}
                 <ul class="cv-info">
                   {#each advice.info as info (info.kind)}
@@ -231,6 +251,7 @@ function verdictWhy(advice: CaptureAdvice): string {
           </div>
           <p class="cv-muted">
             Read against your {plural(assessment.value.stableSize, `stabled ${wild.species.toLowerCase()}`)}{focusBreed ? `, breeding toward ${focusBreed}` : ''}.
+            Foal totals are the genetic part of the expected attribute total for one generation, ranked as the Breed tab ranks pairs.
             Highlighted alleles are breed-generic. After a capture, import its gene file: this entry becomes the stabled horse.
           </p>
         {/if}
@@ -320,7 +341,8 @@ function verdictWhy(advice: CaptureAdvice): string {
   .cv-verdict.capture { border-left-color: var(--accent); }
   .cv-answer { font-size: 16px; }
   .cv-as { font-size: 12px; color: var(--text-secondary); margin-right: var(--space-xs); }
-  .cv-why { margin: 0; font-size: 13px; color: var(--text-primary); }
+  .cv-why { margin: 0; font-size: 13px; color: var(--text-secondary); }
+  .cv-why.met { color: var(--text-primary); font-weight: 600; }
   .cv-info { list-style: none; margin: var(--space-xs) 0 0; padding: var(--space-xs) 0 0; border-top: 1px solid var(--border-primary); display: flex; flex-direction: column; gap: var(--space-xs); }
   .cv-reason { font-size: 12px; color: var(--text-tertiary); }
   .cv-chips { display: flex; flex-wrap: wrap; gap: var(--space-2xs); margin-top: var(--space-2xs); align-items: center; }
