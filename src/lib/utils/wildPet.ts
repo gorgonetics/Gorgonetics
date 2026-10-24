@@ -28,3 +28,28 @@ export function wildPetName(entity: string, at: Date): string {
   const date = `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}`;
   return `${entity} ${date} ${pad(at.getHours())}:${pad(at.getMinutes())}`;
 }
+
+/**
+ * The breed a pure-bred animal's selector genes name, or `''` when they name none.
+ *
+ * Each selector chromosome belongs to one breed in the gene template, and a
+ * pure breed carries its own breed's selectors all dominant. A wild animal has
+ * no name to read the breed from, so this is the only source. Exactly one
+ * all-dominant chromosome is required, so mixed selectors give no breed. `?`
+ * genes are not readings and do not count against a chromosome.
+ *
+ * @param selectorBreeds gene id → breed, for the species' selector genes only
+ */
+export function breedFromSelectors(
+  entries: Iterable<readonly [string, string]>,
+  selectorBreeds: ReadonlyMap<string, string>,
+): string {
+  const allDominant = new Map<string, boolean>();
+  for (const [geneId, type] of entries) {
+    const breed = selectorBreeds.get(geneId);
+    if (!breed || type === '?') continue;
+    allDominant.set(breed, (allDominant.get(breed) ?? true) && type === 'D');
+  }
+  const named = [...allDominant].filter(([, dominant]) => dominant).map(([breed]) => breed);
+  return named.length === 1 ? named[0] : '';
+}

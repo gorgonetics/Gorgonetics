@@ -10,7 +10,7 @@ import { decodeLoci, encodeLoci, storedGenomeEntries } from '#lib/utils/lociCode
 import { ATTRIBUTE_KEYS } from '#lib/utils/sharedPet.js';
 import { capitalize } from '#lib/utils/string.js';
 import { now } from '#lib/utils/timestamp.js';
-import { wildEntity, wildPetName } from '#lib/utils/wildPet.js';
+import { breedFromSelectors, wildEntity, wildPetName } from '#lib/utils/wildPet.js';
 import { runBatchBackfill } from './backfill.js';
 import { getAttributeConfig, getDefaultValues, normalizeSpecies } from './configService.js';
 import { buildInClauseParams, getDb, type TxStatement, withTransaction } from './database.js';
@@ -623,6 +623,19 @@ export interface UploadPetResult {
 }
 
 /**
+ * The breed a wild animal's selector genes name (see `breedFromSelectors`), read
+ * against the species' gene template. `''` for a species without breeds.
+ */
+async function selectorBreed(entries: Array<[string, string]>, species: string): Promise<string> {
+  const rows = await getDb().select<{ gene: string; breed: string | null }[]>(
+    'SELECT gene, breed FROM genes WHERE animal_type = $animalType AND appearance = $appearance',
+    { animalType: normalizeSpecies(species), appearance: 'Selector' },
+  );
+  const selectorBreeds = new Map(rows.filter((r) => r.breed).map((r) => [r.gene, r.breed as string]));
+  return breedFromSelectors(entries, selectorBreeds);
+}
+
+/**
  * The captured animal's file replaces its wild entry (#367).
  *
  * Capture changes the file's `Entity` from the wild kind to the pet's name, so
@@ -640,8 +653,8 @@ async function captureWildPet(
 ): Promise<UploadPetResult | null> {
   const db = getDb();
   const encoded = await encodeLoci(entries);
-  const matches = await db.select<{ id: number; species: string }[]>(
-    'SELECT id, species FROM pets WHERE wild = $wild AND loci = $loci AND loci_layout = $layout',
+  const matches = await db.select<{ id: number; species: string; breed: string | null }[]>(
+    'SELECT id, species, breed FROM pets WHERE wild = $wild AND loci = $loci AND loci_layout = $layout',
     { wild: 1, loci: encoded.loci, layout: encoded.layout },
   );
   const species = normalizeSpecies(genome.genome_type);
@@ -651,7 +664,8 @@ async function captureWildPet(
   const petName = genome.name.trim() || 'Unknown Pet';
   const parsed = parseStructuredPetName(petName, genome.genome_type);
   const attrValues = parsed?.attributes ?? getDefaultValues(genome.genome_type);
-  const petBreed = parsed?.breed ?? '';
+  // A name that does not parse keeps the breed the selectors gave the wild row.
+  const petBreed = parsed?.breed ?? match.breed ?? '';
   const params: Record<string, unknown> = {
     id: Number(match.id),
     name: petName,
@@ -798,7 +812,7 @@ export async function uploadPet(content: string, options: UploadPetOptions = {})
   const defaults = getDefaultValues(genome.genome_type);
 
   const petGender = parsed?.gender ?? gender;
-  const petBreed = parsed?.breed ?? '';
+  const petBreed = parsed?.breed ?? (wild ? await selectorBreed(entries, genome.genome_type) : '');
   const attrValues = parsed?.attributes ?? defaults;
 
   const positiveGenes = await countPositiveGenes(entries, genome.genome_type, petBreed);

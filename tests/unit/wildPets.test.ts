@@ -2,14 +2,36 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { closeDatabase, getDb, initDatabase } from '#lib/services/database.js';
+import * as geneService from '#lib/services/geneService.js';
 import { runMigrations } from '#lib/services/migrationService.js';
 import * as petService from '#lib/services/petService.js';
-import { wildEntity, wildPetName } from '#lib/utils/wildPet.js';
+import { breedFromSelectors, wildEntity, wildPetName } from '#lib/utils/wildPet.js';
 
 const SAMPLE_HORSE = readFileSync(resolve('data/Genes_SampleHorse.txt'), 'utf-8');
 const withEntity = (entity: string, text = SAMPLE_HORSE) => text.replace(/^Entity=.*$/m, `Entity=${entity}`);
 const WILD = withEntity('Wild Horse');
 const CAPTURED = withEntity('Kb F 40 80 70 70 70 70 70');
+
+const SELECTOR_CHROMOSOMES = ['09', '13', '17', '21', '25', '29', '33', '37', '41', '45'];
+
+/** `text` with every selector chromosome recessive except `dominant`, as a pure breed carries them. */
+function pureBred(text: string, dominant: string): string {
+  return text.replace(/^(\d+)=(\s*)(.*)$/gm, (line, chr: string, gap: string, genes: string) =>
+    SELECTOR_CHROMOSOMES.includes(chr)
+      ? `${chr}=${gap}${genes.replace(/[DRx?]/g, chr === dominant ? 'D' : 'R')}`
+      : line,
+  );
+}
+
+/** Seed the selector genes of the bundled horse template: each chromosome names one breed. */
+async function seedSelectorTemplate(): Promise<void> {
+  for (const chr of SELECTOR_CHROMOSOMES) {
+    const genes = JSON.parse(readFileSync(resolve(`assets/horse/horse_genes_chr${chr}.json`), 'utf-8'));
+    for (const g of Array.isArray(genes) ? genes : genes.genes) {
+      await geneService.upsertGene('horse', chr, g.gene, { appearance: g.appearance, breed: g.breed });
+    }
+  }
+}
 
 /** The same file with one gene flipped, so its genes differ from `WILD`. */
 function otherGenes(text: string): string {
@@ -25,6 +47,23 @@ describe('wildEntity', () => {
 
   it('reads a file with Windows line endings', () => {
     expect(wildEntity(WILD.replace(/\n/g, '\r\n'))).toBe('Wild Horse');
+  });
+
+  it('reads the breed from the one all-dominant selector chromosome', () => {
+    const selectors = new Map([
+      ['33A1', 'Blanketed'],
+      ['33A2', 'Blanketed'],
+      ['13A1', 'Kurbone'],
+      ['13A2', 'Kurbone'],
+    ]);
+    const breed = (genes: Record<string, string>) => breedFromSelectors(Object.entries(genes), selectors);
+    expect(breed({ '33A1': 'D', '33A2': 'D', '13A1': 'R', '13A2': 'D' })).toBe('Blanketed');
+    // An unrevealed gene is not a reading against the chromosome.
+    expect(breed({ '33A1': 'D', '33A2': '?', '13A1': 'R', '13A2': 'R' })).toBe('Blanketed');
+    // Mixed selectors name no breed, and neither do two all-dominant ones.
+    expect(breed({ '33A1': 'D', '33A2': 'x', '13A1': 'R', '13A2': 'D' })).toBe('');
+    expect(breed({ '33A1': 'D', '33A2': 'D', '13A1': 'D', '13A2': 'D' })).toBe('');
+    expect(breed({ '01A1': 'D' })).toBe('');
   });
 
   it('names a wild animal by its import time', () => {
@@ -48,6 +87,19 @@ describe('wild pets', () => {
     expect(pet?.stabled).toBe(false);
     expect(pet?.attributes_measured).toBe(false);
     expect(pet?.name).toMatch(/^Wild Horse \d{4}-\d{2}-\d{2} \d{2}:\d{2}$/);
+  });
+
+  it('gives a pure-bred wild horse the breed its selectors name', async () => {
+    await seedSelectorTemplate();
+    const pure = await petService.uploadPet(pureBred(WILD, '33'));
+    expect((await petService.getPet(pure.pet_id!))?.breed).toBe('Blanketed');
+    // The sample's own selectors are mixed: no breed to read.
+    const mixed = await petService.uploadPet(WILD);
+    expect((await petService.getPet(mixed.pet_id!))?.breed).toBe('');
+    // Captured under a name that does not parse, it keeps the selectors' breed.
+    const captured = await petService.uploadPet(pureBred(withEntity('Dobbin'), '33'));
+    expect(captured).toMatchObject({ kind: 'captured', pet_id: pure.pet_id });
+    expect(await petService.getPet(pure.pet_id!)).toMatchObject({ name: 'Dobbin', breed: 'Blanketed' });
   });
 
   it('keeps a wild animal out of the stable whatever an edit asks', async () => {
