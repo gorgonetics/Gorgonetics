@@ -547,8 +547,10 @@ const MIGRATIONS: Migration[] = [
       // for breeding, though nothing in the stable can breed from it. Rows
       // already imported are found by that line in their file and given the
       // same state a fresh wild import gets. A renamed one keeps its name.
+      //
+      // One transaction with the ALTER, as v19–v22: an ALTER committed alone
+      // would make a failed retry stop on a duplicate column for good.
       const db = getDb();
-      await db.execute('ALTER TABLE pets ADD COLUMN wild INTEGER NOT NULL DEFAULT 0');
       const rows = await db.select<{ id: number; name: string; genome_text: string | null; created_at: string }[]>(
         'SELECT id, name, genome_text, created_at FROM pets',
       );
@@ -566,7 +568,11 @@ const MIGRATIONS: Migration[] = [
           },
         });
       }
-      await db.transaction([...updates, { sql: 'PRAGMA user_version = 23' }]);
+      await db.transaction([
+        { sql: 'ALTER TABLE pets ADD COLUMN wild INTEGER NOT NULL DEFAULT 0' },
+        ...updates,
+        { sql: 'PRAGMA user_version = 23' },
+      ]);
     },
   },
 ];

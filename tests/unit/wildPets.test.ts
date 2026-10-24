@@ -102,12 +102,25 @@ describe('wild pets', () => {
     expect(await petService.getPet(pure.pet_id!)).toMatchObject({ name: 'Dobbin', breed: 'Blanketed' });
   });
 
-  it('keeps a wild animal out of the stable whatever an edit asks', async () => {
+  it('refuses to stable a wild animal, and says why', async () => {
     const { pet_id } = await petService.uploadPet(WILD);
-    await petService.updatePet(pet_id!, { stabled: true, notes: 'grey mare by the river' });
-    const pet = await petService.getPet(pet_id!);
-    expect(pet?.stabled).toBe(false);
-    expect(pet?.notes).toBe('grey mare by the river');
+    await expect(petService.updatePet(pet_id!, { stabled: true, notes: 'grey mare' })).rejects.toThrow(
+      'cannot be stabled',
+    );
+    expect((await petService.getPet(pet_id!))?.stabled).toBe(false);
+    await petService.updatePet(pet_id!, { notes: 'grey mare by the river' });
+    expect((await petService.getPet(pet_id!))?.notes).toBe('grey mare by the river');
+  });
+
+  it('gives a captured animal whose name does not parse the sex set on its wild entry, or the one passed', async () => {
+    const set = await petService.uploadPet(WILD);
+    await petService.updatePet(set.pet_id!, { gender: 'Female' });
+    await petService.uploadPet(withEntity('Dobbin'));
+    expect((await petService.getPet(set.pet_id!))?.gender).toBe('Female');
+
+    const passed = await petService.uploadPet(otherGenes(WILD));
+    await petService.uploadPet(otherGenes(withEntity('Daisy')), { gender: 'Female' });
+    expect((await petService.getPet(passed.pet_id!))?.gender).toBe('Female');
   });
 
   it('replaces the wild entry when the captured file is imported', async () => {
