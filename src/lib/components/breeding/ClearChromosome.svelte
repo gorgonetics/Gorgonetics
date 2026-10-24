@@ -6,8 +6,8 @@
  * your best of its gender — then the routes to a fully clear foal. See
  * `utils/chromosomeClearing` for the arithmetic.
  */
-import { type ClearingPlan, planClearing } from '$lib/services/clearingService.js';
-import { Gender, type Pet } from '$lib/types/index.js';
+import { type ClearingPlan, planClearing } from '#lib/services/clearingService.js';
+import { Gender, type Pet } from '#lib/types/index.js';
 
 interface Props {
   /** Stabled animals of the species, benched ones out. */
@@ -65,7 +65,6 @@ const targetSummary = (targets: ClearingPlan['targets']) => {
 	{:else if plan.targets.length === 0}
 		<p class="hint">Chromosome {Number(chromosome)} has no generic locus with a better genotype to aim for.</p>
 	{:else}
-		{@const closest = plan.animals[0]}
 		<p class="best" data-testid="clear-summary">
 			Target: <strong>{targetSummary(plan.targets)}</strong> generic loci of chromosome {Number(chromosome)}, the genotype
 			expressing the better effect at each. Closest male:

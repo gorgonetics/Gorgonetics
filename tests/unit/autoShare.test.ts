@@ -23,18 +23,18 @@ const h = vi.hoisted(() => {
   };
 });
 
-vi.mock('$lib/firebase.js', () => ({
+vi.mock('#lib/firebase.js', () => ({
   get isPlaceholderConfig() {
     return h.placeholder;
   },
 }));
 
-vi.mock('$lib/stores/settings.js', () => ({ settings: h.settings.store }));
-vi.mock('$lib/stores/pets.js', () => ({ pets: h.pets.store }));
-vi.mock('$lib/services/shareService.js', () => ({ uploadPets: vi.fn() }));
+vi.mock('#lib/stores/settings.js', () => ({ settings: h.settings.store }));
+vi.mock('#lib/stores/pets.js', () => ({ pets: h.pets.store }));
+vi.mock('#lib/services/shareService.js', () => ({ uploadPets: vi.fn() }));
 
-import { AUTO_SHARE_ON_IMPORT, autoShareImportedPets, summarizeAutoShare } from '$lib/services/autoShare.js';
-import { uploadPets } from '$lib/services/shareService.js';
+import { AUTO_SHARE_ON_IMPORT, autoShareImportedPets, summarizeAutoShare } from '#lib/services/autoShare.js';
+import { uploadPets } from '#lib/services/shareService.js';
 
 const uploadPetsMock = vi.mocked(uploadPets);
 

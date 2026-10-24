@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { Gender, GeneType } from '$lib/types/index.js';
-import type { ParsedChromosome } from '$lib/utils/geneAnalysis.js';
-import type { QualityContribution } from '$lib/utils/geneticQuality.js';
+import { Gender, GeneType } from '#lib/types/index.js';
+import type { ParsedChromosome } from '#lib/utils/geneAnalysis.js';
+import type { QualityContribution } from '#lib/utils/geneticQuality.js';
 import {
   benefitText,
   buildQualityCSS,
@@ -12,7 +12,7 @@ import {
   STANDING_LABEL,
   standingHint,
   standingLabel,
-} from '$lib/utils/qualityLens.js';
+} from '#lib/utils/qualityLens.js';
 
 const D = GeneType.DOMINANT;
 const R = GeneType.RECESSIVE;

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { closeDatabase, getDb, initDatabase } from '$lib/services/database.js';
-import { runMigrations } from '$lib/services/migrationService.js';
+import { closeDatabase, getDb, initDatabase } from '#lib/services/database.js';
+import { runMigrations } from '#lib/services/migrationService.js';
 
 /**
  * Tests for the in-memory adapter's `transaction()` implementation.

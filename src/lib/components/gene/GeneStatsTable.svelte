@@ -1,9 +1,9 @@
 <script lang="ts">
 import { createEventDispatcher } from 'svelte';
 import { run } from 'svelte/legacy';
-import { getAppearanceConfig, getAttributeConfig, normalizeSpecies } from '$lib/services/configService.js';
-import type { AppearanceInfo, AttributeInfo, Pet } from '$lib/types/index.js';
-import { type AttributeImpact, formatPoints } from '$lib/utils/geneImpact.js';
+import { getAppearanceConfig, getAttributeConfig, normalizeSpecies } from '#lib/services/configService.js';
+import type { AppearanceInfo, AttributeInfo, Pet } from '#lib/types/index.js';
+import { type AttributeImpact, formatPoints } from '#lib/utils/geneImpact.js';
 
 const dispatch = createEventDispatcher();
 

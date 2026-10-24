@@ -1,24 +1,24 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { rankBreedingPairs } from '$lib/services/breedingService.js';
-import { closeDatabase, initDatabase } from '$lib/services/database.js';
-import * as geneService from '$lib/services/geneService.js';
-import { cullBenefitWeight, lociBySex, safeCullSet } from '$lib/services/geneticQualityService.js';
-import { runMigrations } from '$lib/services/migrationService.js';
-import * as petService from '$lib/services/petService.js';
-import { Gender, GeneType, type Pet } from '$lib/types/index.js';
-import { resolveObjective } from '$lib/utils/breedingObjectives.js';
-import { suggestPlans } from '$lib/utils/breedingPlan.js';
-import { fromGeneId } from '$lib/utils/geneAnalysis.js';
+import { rankBreedingPairs } from '#lib/services/breedingService.js';
+import { closeDatabase, initDatabase } from '#lib/services/database.js';
+import * as geneService from '#lib/services/geneService.js';
+import { cullBenefitWeight, lociBySex, safeCullSet } from '#lib/services/geneticQualityService.js';
+import { runMigrations } from '#lib/services/migrationService.js';
+import * as petService from '#lib/services/petService.js';
+import { Gender, GeneType, type Pet } from '#lib/types/index.js';
+import { resolveObjective } from '#lib/utils/breedingObjectives.js';
+import { suggestPlans } from '#lib/utils/breedingPlan.js';
+import { fromGeneId } from '#lib/utils/geneAnalysis.js';
 import {
   benefitSlots,
   capabilitySummary,
   MIN_POPULATION,
   type ScoredGene,
   scoreGroup,
-} from '$lib/utils/geneticQuality.js';
-import { loadAllPetLoci, type PetLoci } from '$lib/utils/petLoci.js';
+} from '#lib/utils/geneticQuality.js';
+import { loadAllPetLoci, type PetLoci } from '#lib/utils/petLoci.js';
 
 /**
  * The breeding loop a player actually runs: free six slots with the cull

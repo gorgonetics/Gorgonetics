@@ -1,5 +1,5 @@
-import { Gender, HORSE_BREED_ABBREVIATIONS } from '$lib/types/index.js';
-import { BREEDS_BY_SPECIES } from '$lib/utils/species.js';
+import { Gender, HORSE_BREED_ABBREVIATIONS } from '#lib/types/index.js';
+import { BREEDS_BY_SPECIES } from '#lib/utils/species.js';
 import { getCoreAttributeNames, getSpeciesAttributeNames, normalizeSpecies } from './configService.js';
 
 export interface StructuredPetName {

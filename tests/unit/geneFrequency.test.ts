@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { GeneType } from '$lib/types/index.js';
+import { GeneType } from '#lib/types/index.js';
 import {
   alleleCarriers,
   alleleFrequency,
@@ -10,8 +10,8 @@ import {
   RARITY_BUCKET_SOLE,
   RARITY_LEVELS,
   rarityBucket,
-} from '$lib/utils/geneFrequency.js';
-import type { PetLoci } from '$lib/utils/petLoci.js';
+} from '#lib/utils/geneFrequency.js';
+import type { PetLoci } from '#lib/utils/petLoci.js';
 
 const D = GeneType.DOMINANT;
 const R = GeneType.RECESSIVE;

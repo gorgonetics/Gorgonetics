@@ -12,8 +12,8 @@
  * cached parsed-effect columns on the `genes` table.
  */
 
-import type { AlleleDistribution, BreedingPairResult, ParentExpressedProfile, Pet } from '$lib/types/index.js';
-import { Gender, GeneType } from '$lib/types/index.js';
+import type { AlleleDistribution, BreedingPairResult, ParentExpressedProfile, Pet } from '#lib/types/index.js';
+import { Gender, GeneType } from '#lib/types/index.js';
 import {
   type AttributeCoverage,
   type AttributeMagnitudes,
@@ -21,8 +21,8 @@ import {
   EMPTY_MAGNITUDES,
   hasMagnitudes,
   magnitudeOf,
-} from '$lib/utils/attributePoints.js';
-import { type Expression, slotKey } from '$lib/utils/attributeStudy.js';
+} from '#lib/utils/attributePoints.js';
+import { type Expression, slotKey } from '#lib/utils/attributeStudy.js';
 import {
   expectedImprovement,
   expectedReduction,
@@ -30,7 +30,7 @@ import {
   negativeExpressionProbability,
   offspringDistribution,
   positiveExpressionProbability,
-} from '$lib/utils/breedingGenetics.js';
+} from '#lib/utils/breedingGenetics.js';
 import {
   type BenefitWeight,
   breedReachFor,
@@ -38,9 +38,9 @@ import {
   type PoolTallies,
   poolCapabilityGain,
   tallyPool,
-} from '$lib/utils/geneticQuality.js';
-import { loadAllPetLoci, type PetLoci, walkPairLoci } from '$lib/utils/petLoci.js';
-import { capitalize } from '$lib/utils/string.js';
+} from '#lib/utils/geneticQuality.js';
+import { loadAllPetLoci, type PetLoci, walkPairLoci } from '#lib/utils/petLoci.js';
+import { capitalize } from '#lib/utils/string.js';
 import { getAllAttributeNames, normalizeSpecies } from './configService.js';
 import { getParsedGenesCached, isHorseBreedFiltered, type ParsedGeneRecord } from './geneService.js';
 

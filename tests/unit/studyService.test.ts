@@ -2,17 +2,17 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // The catalogue is a network read; stub it so the refresh path can be
 // exercised against the real cache table.
-vi.mock('$lib/services/shareService.js', () => ({
+vi.mock('#lib/services/shareService.js', () => ({
   listPets: vi.fn(),
   listGenomes: vi.fn(),
 }));
 
-import { closeDatabase, getDb, initDatabase } from '$lib/services/database.js';
-import * as geneService from '$lib/services/geneService.js';
-import { parseGenome } from '$lib/services/genomeParser.js';
-import { runMigrations } from '$lib/services/migrationService.js';
-import * as petService from '$lib/services/petService.js';
-import * as shareService from '$lib/services/shareService.js';
+import { closeDatabase, getDb, initDatabase } from '#lib/services/database.js';
+import * as geneService from '#lib/services/geneService.js';
+import { parseGenome } from '#lib/services/genomeParser.js';
+import { runMigrations } from '#lib/services/migrationService.js';
+import * as petService from '#lib/services/petService.js';
+import * as shareService from '#lib/services/shareService.js';
 import {
   attributeMagnitudesFor,
   clearAttributeMagnitudesCache,
@@ -32,11 +32,11 @@ import {
   studyInputsKey,
   studyRunFor,
   withdrawGeneConfirmation,
-} from '$lib/services/studyService.js';
-import { coverageOf, EMPTY_MAGNITUDES, hasMagnitudes, magnitudeOf } from '$lib/utils/attributePoints.js';
-import { buildEffectSlots } from '$lib/utils/attributeStudy.js';
-import { sha256Hex } from '$lib/utils/hash.js';
-import { encodeLoci } from '$lib/utils/lociCodec.js';
+} from '#lib/services/studyService.js';
+import { coverageOf, EMPTY_MAGNITUDES, hasMagnitudes, magnitudeOf } from '#lib/utils/attributePoints.js';
+import { buildEffectSlots } from '#lib/utils/attributeStudy.js';
+import { sha256Hex } from '#lib/utils/hash.js';
+import { encodeLoci } from '#lib/utils/lociCodec.js';
 
 /**
  * Four horse loci on chromosome 01. `01A1` is generic, `01A4` belongs to
@@ -1266,6 +1266,82 @@ describe('refreshStudyCorpus', () => {
     );
     const result = await refreshStudyCorpus('horse');
     expect(result).toMatchObject({ cached: 1, skipped: 1 });
+  });
+
+  it('keeps a skipped genome for the rarity baseline without showing it to the study', async () => {
+    // The study cannot learn from an unmeasured animal, but its genome is
+    // still evidence of which alleles exist (#463).
+    const wild = await entry('Wild Horse', 'RRRR');
+    const ok = await entry(name('Kb', 41, 80, 'ok'), 'DRRR');
+    const defaults = Object.fromEntries(Object.keys(ATTRS).map((k) => [k, 50]));
+    mockCatalogue(
+      [
+        shared(wild.hash, { name: 'Wild Horse', attributes: defaults }),
+        shared(ok.hash, { name: name('Kb', 41, 80, 'ok') }),
+      ],
+      { [wild.hash]: wild.text, [ok.hash]: ok.text },
+    );
+    await refreshStudyCorpus('horse');
+
+    const rows = await getDb().select<Array<{ content_hash: string; study_usable: number }>>(
+      'SELECT content_hash, study_usable FROM study_corpus WHERE species = $species',
+      { species: 'horse' },
+    );
+    expect(Object.fromEntries(rows.map((r) => [r.content_hash, Number(r.study_usable)]))).toEqual({
+      [wild.hash]: 0,
+      [ok.hash]: 1,
+    });
+    expect(await studyCorpusStatus('horse')).toMatchObject({ cached: 1, stored: 2 });
+    expect((await loadStudyCorpus('horse')).subjects.map((s) => s.id)).toEqual([`shared:${ok.hash}`]);
+  });
+
+  it('stores the genome encoded, and the study reads it back unchanged', async () => {
+    const a = await entry(name('Kb', 40, 80, 'a'), 'DRxR');
+    mockCatalogue([shared(a.hash, { name: name('Kb', 40, 80, 'a') })], { [a.hash]: a.text });
+    await refreshStudyCorpus('horse');
+
+    const [row] = await getDb().select<Array<{ loci: string; loci_layout: string }>>(
+      'SELECT loci, loci_layout FROM study_corpus WHERE content_hash = $hash',
+      { hash: a.hash },
+    );
+    expect(row.loci).toBe('DRxR');
+    expect(row.loci_layout).not.toBe('');
+    const [subject] = (await loadStudyCorpus('horse')).subjects;
+    expect(subject.genes).toEqual({ '01A1': 'D', '01A2': 'R', '01A3': 'x', '01A4': 'R' });
+  });
+
+  it('still reads a row cached before migration 22, from its genome file', async () => {
+    const a = await entry(name('Kb', 40, 80, 'old'), 'DRRR');
+    await getDb().execute(
+      `INSERT OR REPLACE INTO study_corpus
+         (content_hash, species, breed, name, attributes, genome_text, fetched_at, use_for_studies, study_usable)
+       VALUES ($hash, $species, $breed, $name, $attributes, $genome, $ts, $use, $usable)`,
+      {
+        hash: a.hash,
+        species: 'horse',
+        breed: 'Kurbone',
+        name: name('Kb', 40, 80, 'old'),
+        attributes: JSON.stringify(ATTRS),
+        genome: a.text,
+        ts: '2026-09-01T00:00:00.000Z',
+        use: 1,
+        usable: 1,
+      },
+    );
+    const [subject] = (await loadStudyCorpus('horse')).subjects;
+    expect(subject.genes['01A1']).toBe('D');
+  });
+
+  it('skips a verified blob that is not a genome file instead of aborting the refresh', async () => {
+    const ok = await entry(name('Kb', 41, 80, 'ok'), 'DRRR');
+    const junk = 'not a genome file';
+    const junkHash = await sha256Hex(junk);
+    mockCatalogue([shared(ok.hash, { name: name('Kb', 41, 80, 'ok') }), shared(junkHash)], {
+      [ok.hash]: ok.text,
+      [junkHash]: junk,
+    });
+    await expect(refreshStudyCorpus('horse')).resolves.toMatchObject({ cached: 1 });
+    expect((await studyCorpusStatus('horse')).stored).toBe(1);
   });
 
   it('caches an entry from a player who does not use the structured name', async () => {

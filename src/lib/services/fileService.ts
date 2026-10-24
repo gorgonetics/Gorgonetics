@@ -4,7 +4,7 @@
  * Falls back to browser APIs when running outside Tauri (tests).
  */
 
-import { isTauri } from '$lib/utils/environment.js';
+import { isTauri } from '#lib/utils/environment.js';
 
 export async function openFileDialog(
   title: string,

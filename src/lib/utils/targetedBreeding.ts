@@ -46,14 +46,14 @@
  * Pure: no DB, no Svelte.
  */
 
-import type { AlleleDistribution } from '$lib/types/index.js';
-import { GeneType } from '$lib/types/index.js';
-import type { AttributeMagnitudes } from '$lib/utils/attributePoints.js';
-import { magnitudeOf } from '$lib/utils/attributePoints.js';
-import type { Expression } from '$lib/utils/attributeStudy.js';
-import { offspringDistribution } from '$lib/utils/breedingGenetics.js';
-import type { PetLoci } from '$lib/utils/petLoci.js';
-import { capitalize } from '$lib/utils/string.js';
+import type { AlleleDistribution } from '#lib/types/index.js';
+import { GeneType } from '#lib/types/index.js';
+import type { AttributeMagnitudes } from '#lib/utils/attributePoints.js';
+import { magnitudeOf } from '#lib/utils/attributePoints.js';
+import type { Expression } from '#lib/utils/attributeStudy.js';
+import { offspringDistribution } from '#lib/utils/breedingGenetics.js';
+import type { PetLoci } from '#lib/utils/petLoci.js';
+import { capitalize } from '#lib/utils/string.js';
 
 /** What a gene's two slots act on; lowercase attribute names, as the gene table parses them. */
 export interface SlotAttributes {

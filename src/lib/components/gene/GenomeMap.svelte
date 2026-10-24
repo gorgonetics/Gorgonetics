@@ -15,29 +15,32 @@
  */
 import { onDestroy, onMount } from 'svelte';
 import './geneCell.css';
-import GeneTooltip from '$lib/components/gene/GeneTooltip.svelte';
-import EmptyState from '$lib/components/shared/EmptyState.svelte';
-import { normalizeSpecies } from '$lib/services/configService.js';
-import { computeRarityLookup, type RarityLookup } from '$lib/services/frequencyService.js';
-import { getGeneEffectsCached } from '$lib/services/geneService.js';
-import { loadGeneImpact, STUDYABLE_SPECIES, studyInputsKey } from '$lib/services/studyService.js';
-import { pets as petList } from '$lib/stores/pets.js';
-import { GeneType, type Pet } from '$lib/types/index.js';
-import { breedFor, effectFor, type GeneEffectData } from '$lib/utils/geneAnalysis.js';
-import { computeGeneCellSize } from '$lib/utils/geneGridCells.js';
-import { buildImpactCSS, buildImpactTooltip, maxAbsPoints, slotImpact } from '$lib/utils/geneImpact.js';
-import { buildGenomeMapGrid, type GenomeMapGrid } from '$lib/utils/genomeMapGrid.js';
-import { handleGridNavigation } from '$lib/utils/keyboard.js';
-import { keyedResource } from '$lib/utils/keyedResource.svelte.js';
-import { buildRarityCSS, type RarityCell } from '$lib/utils/rarityCSS.js';
-import { buildRarityTooltip, placeRarityTooltip } from '$lib/utils/rarityTooltip.js';
-import { capitalize } from '$lib/utils/string.js';
+import GeneTooltip from '#lib/components/gene/GeneTooltip.svelte';
+import EmptyState from '#lib/components/shared/EmptyState.svelte';
+import { normalizeSpecies } from '#lib/services/configService.js';
+import { loadRarityLookup, type RarityLookup, type RarityPopulation } from '#lib/services/frequencyService.js';
+import { getGeneEffectsCached } from '#lib/services/geneService.js';
+import { loadGeneImpact, STUDYABLE_SPECIES, studyInputsKey } from '#lib/services/studyService.js';
+import { corpusRevision } from '#lib/stores/corpus.js';
+import { pets as petList } from '#lib/stores/pets.js';
+import { GeneType } from '#lib/types/index.js';
+import { breedFor, effectFor, type GeneEffectData } from '#lib/utils/geneAnalysis.js';
+import { type Allele, SOLE_CARRIER_MIN_PETS } from '#lib/utils/geneFrequency.js';
+import { computeGeneCellSize } from '#lib/utils/geneGridCells.js';
+import { buildImpactCSS, buildImpactTooltip, maxAbsPoints, slotImpact } from '#lib/utils/geneImpact.js';
+import { buildGenomeMapGrid, type GenomeMapGrid } from '#lib/utils/genomeMapGrid.js';
+import { handleGridNavigation } from '#lib/utils/keyboard.js';
+import { keyedResource } from '#lib/utils/keyedResource.svelte.js';
+import { groupNeverSeenByChromosome, neverSeenAlleles, withDeclaredEffect } from '#lib/utils/neverSeen.js';
+import { buildRarityCSS, type RarityCell } from '#lib/utils/rarityCSS.js';
+import { buildRarityTooltip, placeRarityTooltip } from '#lib/utils/rarityTooltip.js';
+import { capitalize } from '#lib/utils/string.js';
 
 interface Props {
   /** Animal type from the Reference toolbar, e.g. `Horse`. */
   species: string;
   /** Population the baseline is measured over. */
-  populationPets?: readonly Pet[];
+  population?: RarityPopulation;
   /**
    * Breed to display, or '' for the whole genome.
    *
@@ -48,13 +51,29 @@ interface Props {
    */
   breedFilter?: string;
   /**
-   * What the cells show: allele rarity across `populationPets`, or each
-   * slot's measured attribute points from the study (`utils/geneImpact.ts`).
+   * What the cells show: allele rarity across `population`, each slot's
+   * measured attribute points from the study (`utils/geneImpact.ts`), or only
+   * the alleles no animal in `population` carries (`utils/neverSeen.ts`).
    */
-  lens?: 'rarity' | 'impact';
+  lens?: 'rarity' | 'impact' | 'never';
+  /**
+   * Never-seen lens only: drop chromosome rows with nothing to look for. Ignored
+   * while there is no never-seen allele at all, so the map never collapses to
+   * an empty grid while the baseline loads or is too small to judge.
+   */
+  hideSeenChromosomes?: boolean;
+  /** Never-seen lens only: leave out never-seen alleles with no declared effect. */
+  hideNoEffect?: boolean;
 }
 
-const { species, populationPets = [], breedFilter = '', lens = 'rarity' }: Props = $props();
+const {
+  species,
+  population = { tier: 'all', pets: [] },
+  breedFilter = '',
+  lens = 'rarity',
+  hideSeenChromosomes = false,
+  hideNoEffect = false,
+}: Props = $props();
 
 let effects = $state<Record<string, GeneEffectData>>({});
 let loading = $state(true);
@@ -77,7 +96,7 @@ let lookupSeq = 0;
 // when the lens is on and keyed on the study's inputs, like the pet grid's.
 const impactKey = $derived.by(() => {
   if (!speciesKey || lens !== 'impact') return null;
-  const _reloaded = $petList;
+  void $petList;
   return studyInputsKey(speciesKey);
 });
 const impactResource = keyedResource(() => impactKey, loadGeneImpact);
@@ -172,12 +191,15 @@ $effect(() => {
 // after viewing a pet is free.
 $effect(() => {
   const key = speciesKey;
-  const pets = populationPets;
-  if (!key || lens !== 'rarity') return;
+  const pop = population;
+  if (!key || lens === 'impact') return;
+  // A community baseline reads the cache, so a refresh must reload it; a local
+  // one must not reload on it.
+  if (pop.tier === 'community') void $corpusRevision;
   const mine = ++lookupSeq;
   lookupLoading = true;
   lookupError = null;
-  computeRarityLookup(pets, species)
+  loadRarityLookup(pop, species)
     .then((result) => {
       if (mine !== lookupSeq) return;
       lookup = result;
@@ -267,10 +289,38 @@ $effect(() => {
  */
 const lookupReady = $derived(!lookupLoading && !lookupError && lookup !== null && lookup.species === speciesKey);
 
+/** Never-seen lens: the one allele to look for at each locus that has one. */
+const allNeverSeen = $derived(
+  lens === 'never' && lookupReady && lookup ? neverSeenAlleles(visibleGeneIds, lookup) : new Map<string, Allele>(),
+);
+/** What the lens shows: `allNeverSeen`, less the no-effect alleles when hidden. */
+const neverSeen = $derived(hideNoEffect ? withDeclaredEffect(allNeverSeen, effects) : allNeverSeen);
+const hiddenNoEffect = $derived(allNeverSeen.size - neverSeen.size);
+const neverSeenList = $derived(groupNeverSeenByChromosome(neverSeen));
+const displayRows = $derived(
+  lens === 'never' && hideSeenChromosomes && neverSeen.size > 0
+    ? grid.rows.filter((row) => row.cells.some((block) => block.some((id) => id !== null && neverSeen.has(id))))
+    : grid.rows,
+);
+const neverSeenCounts = $derived.by(() => {
+  let dominant = 0;
+  let recessive = 0;
+  for (const allele of neverSeen.values()) {
+    if (allele === GeneType.DOMINANT) dominant++;
+    else recessive++;
+  }
+  return { dominant, recessive };
+});
+
 // Every cell is the mixed case, so the pet grid's stylesheet builder applies
 // unchanged — no map-specific colour logic exists.
 $effect(() => {
   if (!styleEl) return;
+  // The never-seen lens marks its cells in the markup; it needs no sheet.
+  if (lens === 'never') {
+    styleEl.textContent = '';
+    return;
+  }
   if (lens === 'impact') {
     if (!impactReady || !impact) {
       styleEl.textContent = '';
@@ -375,6 +425,32 @@ function rarityTooltip(geneId: string): { subtitle: string; lines: string[] } {
                     {/if}
                 </span>
             </div>
+        {:else if lens === 'never'}
+            <div class="map-legend" data-testid="map-never-legend">
+                <span class="swatch" style="background: var(--rarity-r-5)"></span>
+                <span class="legend-text">R never seen</span>
+                <span class="swatch legend-gap" style="background: var(--rarity-d-5)"></span>
+                <span class="legend-text">D never seen</span>
+                <span class="legend-text legend-muted legend-gap" data-testid="map-never-status">
+                    {#if lookupError}
+                        {lookupError}
+                    {:else if !lookupReady}
+                        Analysing…
+                    {:else if population.tier === 'community' && (lookup?.petCount ?? 0) === 0}
+                        No shared {capitalize(speciesKey)}s cached · fetch them in the Study tab
+                    {:else if (lookup?.petCount ?? 0) < SOLE_CARRIER_MIN_PETS}
+                        Needs at least {SOLE_CARRIER_MIN_PETS} {capitalize(speciesKey)} pets to call an allele never seen — this baseline has {lookup?.petCount ?? 0}
+                    {:else if allNeverSeen.size === 0}
+                        No never-seen alleles at genes read on {SOLE_CARRIER_MIN_PETS} or more of {population.tier === 'community' ? 'the shared' : 'your'} pets · genes read on fewer, or not yet revealed, are not counted
+                    {:else}
+                        {neverSeen.size} allele{neverSeen.size === 1 ? '' : 's'} that none of {population.tier === 'community' ? `the ${lookup?.petCount} shared` : `your ${lookup?.petCount}`} pets carry ({neverSeenCounts.recessive} R, {neverSeenCounts.dominant} D){hiddenNoEffect > 0 ? ` · ${hiddenNoEffect} with no effect hidden` : ''} · genes read on fewer than {SOLE_CARRIER_MIN_PETS} pets are not counted
+                    {/if}
+                </span>
+            </div>
+        {:else if population.tier === 'community' && lookupReady && lookup?.petCount === 0}
+            <p class="map-status" data-testid="map-community-empty">
+                No shared {capitalize(speciesKey)}s cached · fetch them in the Study tab.
+            </p>
         {:else if lookupError}
             <!-- The genome is still worth showing — only the frequencies are
                  missing, and the dashed cells say so per-cell. -->
@@ -382,8 +458,16 @@ function rarityTooltip(geneId: string): { subtitle: string; lines: string[] } {
                 <span aria-hidden="true">⚠️</span> {lookupError} — the genome is shown without frequencies.
             </p>
         {/if}
+        <!-- Outside the lens chain: an incomplete cache skews the never-seen
+             lens as much as the rarity one, so both must say so. -->
+        {#if lens !== 'impact' && population.tier === 'community' && lookupReady && (lookup?.petCount ?? 0) > 0 && lookup?.refreshAdvised}
+            <p class="map-status" data-testid="map-community-refresh">
+                Cached by an older version · refresh in the Study tab to add the animals it left out.
+            </p>
+        {/if}
+        <div class="map-body">
         <div
-            class="gene-grid-container {lens === 'impact' ? 'view-impact' : 'view-rarity'}"
+            class="gene-grid-container {lens === 'impact' ? 'view-impact' : lens === 'never' ? 'view-never' : 'view-rarity'}"
             class:rarity-unscored={lens === 'rarity' && !lookupReady}
             data-testid="genome-map-grid"
             bind:this={containerEl}
@@ -401,12 +485,13 @@ function rarityTooltip(geneId: string): { subtitle: string; lines: string[] } {
                     </tr>
                 </thead>
                 <tbody class="gene-rows">
-                    {#each grid.rows as row (row.chromosome)}
+                    {#each displayRows as row (row.chromosome)}
                         <tr class="chromosome-row" data-chromosome={row.chromosome}>
                             <td class="chromosome-label">{row.chromosome}</td>
                             {#each grid.sortedBlocks as block, bi (block)}
                                 {#each blockIndices[block] as i (i)}
                                     {@const geneId = row.cells[bi]?.[i] ?? null}
+                                    {@const never = geneId ? neverSeen.get(geneId) : undefined}
                                     <td class="gene-cell-container {i === 0 ? 'block-start' : ''} {!geneId ? 'empty' : ''}">
                                         {#if geneId}
                                             <div
@@ -414,14 +499,15 @@ function rarityTooltip(geneId: string): { subtitle: string; lines: string[] } {
                                                 class:impact-split={lens === 'impact'}
                                                 data-gene-id={geneId}
                                                 data-zygosity="mixed"
+                                                data-allele={never}
                                                 role="button"
                                                 tabindex="0"
-                                                aria-label={geneId}
+                                                aria-label={never ? `${geneId}: ${never} never seen` : geneId}
                                                 onmouseenter={(e) => showTooltip(geneId, e.clientX, e.clientY)}
                                                 onmouseleave={() => { tooltipVisible = false; }}
                                                 onfocus={(e) => { const r = e.currentTarget.getBoundingClientRect(); showTooltip(geneId, r.left + r.width / 2, r.top); }}
                                                 onblur={() => { tooltipVisible = false; }}
-                                            ></div>
+                                            >{never ?? ''}</div>
                                         {/if}
                                     </td>
                                 {/each}
@@ -430,6 +516,23 @@ function rarityTooltip(geneId: string): { subtitle: string; lines: string[] } {
                     {/each}
                 </tbody>
             </table>
+        </div>
+        {#if lens === 'never' && neverSeenList.length > 0}
+            <!-- The same alleles as text, for reading off beside a wild pet's
+                 genome without matching columns. -->
+            <ol class="never-list" aria-label="Never-seen alleles by chromosome" data-testid="map-never-list">
+                {#each neverSeenList as line (line.chromosome)}
+                    <li data-chromosome={line.chromosome}>
+                        <span class="never-chr">{line.chromosome}</span>
+                        <span class="never-alleles">
+                            {#each line.alleles as a (a.geneId)}
+                                <span class="never-entry" data-allele={a.allele}>{a.slot}&nbsp;<b>{a.allele}</b></span>
+                            {/each}
+                        </span>
+                    </li>
+                {/each}
+            </ol>
+        {/if}
         </div>
     {/if}
 
@@ -455,8 +558,70 @@ function rarityTooltip(geneId: string): { subtitle: string; lines: string[] } {
         min-width: 0;
     }
 
+    .map-body {
+        display: flex;
+        gap: var(--space-md);
+        flex: 1;
+        min-height: 0;
+        min-width: 0;
+    }
+
+    .never-list {
+        flex: 0 0 auto;
+        width: 15rem;
+        margin: 0;
+        padding: var(--space-xs) var(--space-sm);
+        overflow: auto;
+        list-style: none;
+        border: 1px solid var(--border-primary);
+        border-radius: 6px;
+        background: var(--bg-secondary);
+        font-size: 12px;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .never-list li {
+        display: flex;
+        gap: var(--space-sm);
+        padding: var(--space-3xs) 0;
+    }
+
+    .never-list li + li {
+        border-top: 1px solid var(--border-primary);
+    }
+
+    .never-chr {
+        flex: 0 0 auto;
+        width: 1.75em;
+        color: var(--text-tertiary);
+        font-weight: 600;
+    }
+
+    .never-alleles {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--space-2xs) var(--space-sm);
+        color: var(--text-secondary);
+    }
+
+    /* The letter names the allele; the hue is an underline, not the text
+       colour, because the light-theme orange is below 4.5:1 on this surface. */
+    .never-entry b {
+        color: var(--text-primary);
+        border-bottom: 2px solid;
+    }
+
+    .never-entry[data-allele="D"] b {
+        border-bottom-color: var(--rarity-purple);
+    }
+
+    .never-entry[data-allele="R"] b {
+        border-bottom-color: var(--rarity-orange);
+    }
+
     .gene-grid-container {
         flex: 1;
+        min-width: 0;
         min-height: 0;
         overflow: auto;
         border: 1px solid var(--border-primary);

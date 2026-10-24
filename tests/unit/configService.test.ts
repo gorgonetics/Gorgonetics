@@ -16,8 +16,8 @@ import {
   isValidAttribute,
   normalizeSpecies,
   validateAttributeDict,
-} from '$lib/services/configService.js';
-import { parseStructuredPetName } from '$lib/services/nameParser.js';
+} from '#lib/services/configService.js';
+import { parseStructuredPetName } from '#lib/services/nameParser.js';
 
 describe('normalizeSpecies', () => {
   it('normalizes "BeeWasp" to "beewasp"', () => {

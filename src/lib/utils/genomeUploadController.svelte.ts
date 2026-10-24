@@ -11,15 +11,15 @@
  * the drop overlay. See docs/design/redesign-library-workspace-v1.md §5.
  */
 import { get } from 'svelte/store';
-import { autoShareImportedPets, summarizeAutoShare } from '$lib/services/autoShare.js';
-import { pickGenomeFiles, readFileContent } from '$lib/services/fileService.js';
-import { autoScanGameFolder } from '$lib/services/gameImport.js';
-import { refreshPendingImportCount } from '$lib/stores/gameImport.js';
-import { appState, error, notice } from '$lib/stores/pets.js';
-import { errorMessage } from '$lib/utils/error.js';
-import type { UploadSource } from '$lib/utils/genomeUpload.js';
-import { isFileDrag, runGenomeUpload, selectGenomeFiles } from '$lib/utils/genomeUpload.js';
-import { getBasename } from '$lib/utils/path.js';
+import { autoShareImportedPets, summarizeAutoShare } from '#lib/services/autoShare.js';
+import { pickGenomeFiles, readFileContent } from '#lib/services/fileService.js';
+import { autoScanGameFolder } from '#lib/services/gameImport.js';
+import { refreshPendingImportCount } from '#lib/stores/gameImport.js';
+import { appState, error, notice } from '#lib/stores/pets.js';
+import { errorMessage } from '#lib/utils/error.js';
+import type { UploadSource } from '#lib/utils/genomeUpload.js';
+import { isFileDrag, runGenomeUpload, selectGenomeFiles } from '#lib/utils/genomeUpload.js';
+import { getBasename } from '#lib/utils/path.js';
 
 interface Progress {
   current: number;

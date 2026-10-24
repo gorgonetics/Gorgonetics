@@ -1,6 +1,6 @@
 <script lang="ts">
 import { onDestroy, untrack } from 'svelte';
-import type { StatusType } from '$lib/types/index.js';
+import type { StatusType } from '#lib/types/index.js';
 
 /**
  * Inline or toast-mode status banner. Colour palette comes from the

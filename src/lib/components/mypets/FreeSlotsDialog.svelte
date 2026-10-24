@@ -28,14 +28,14 @@
  * reading of "make room", and it is what the copy promises.
  */
 import { get } from 'svelte/store';
-import BreedSelector from '$lib/components/shared/BreedSelector.svelte';
-import { type SafeCullSet, safeCullSet } from '$lib/services/geneticQualityService.js';
-import { settings } from '$lib/stores/settings.js';
-import { Gender, type Pet } from '$lib/types/index.js';
-import { focusTrap } from '$lib/utils/focusTrap.js';
-import { MIN_POPULATION, parseBreedLockWeight } from '$lib/utils/geneticQuality.js';
-import { hiddenGeneCount, petsWithHiddenGenes } from '$lib/utils/hiddenGenes.js';
-import { BREEDS_BY_SPECIES } from '$lib/utils/species.js';
+import BreedSelector from '#lib/components/shared/BreedSelector.svelte';
+import { type SafeCullSet, safeCullSet } from '#lib/services/geneticQualityService.js';
+import { settings } from '#lib/stores/settings.js';
+import { Gender, type Pet } from '#lib/types/index.js';
+import { focusTrap } from '#lib/utils/focusTrap.js';
+import { MIN_POPULATION, parseBreedLockWeight } from '#lib/utils/geneticQuality.js';
+import { hiddenGeneCount, petsWithHiddenGenes } from '#lib/utils/hiddenGenes.js';
+import { BREEDS_BY_SPECIES } from '#lib/utils/species.js';
 
 interface Props {
   /** Canonical species key — capability is only comparable within one. */

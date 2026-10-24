@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, within } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { SharedPet } from '$lib/types/index.js';
+import type { SharedPet } from '#lib/types/index.js';
 
 // The community table mirrors the local roster: species-aware attribute
 // columns + Total, sortable, click-to-open, and (#397) a shared FilterBar
@@ -20,7 +20,7 @@ const store = {
   selectedHash: null as string | null,
 };
 
-vi.mock('$lib/stores/community.svelte.js', () => ({
+vi.mock('#lib/stores/community.svelte.js', () => ({
   get communityView() {
     return store;
   },
@@ -29,11 +29,11 @@ vi.mock('$lib/stores/community.svelte.js', () => ({
   selectPet: (hash: string) => selectPet(hash),
 }));
 
-vi.mock('$lib/utils/timestamp.js', () => ({
+vi.mock('#lib/utils/timestamp.js', () => ({
   formatShortDate: (d: Date) => (d instanceof Date ? d.toISOString().slice(0, 10) : ''),
 }));
 
-import CommunityPetTable from '$lib/components/community/CommunityPetTable.svelte';
+import CommunityPetTable from '#lib/components/community/CommunityPetTable.svelte';
 
 function makePet(overrides: Partial<SharedPet> = {}): SharedPet {
   return {

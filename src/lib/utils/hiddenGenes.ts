@@ -11,7 +11,7 @@
  * these scores warn with these helpers.
  */
 
-import type { Pet } from '$lib/types/index.js';
+import type { Pet } from '#lib/types/index.js';
 
 /** Hidden loci in a pet's genome; 0 when fully revealed. */
 export function hiddenGeneCount(pet: Pick<Pet, 'unknown_genes' | 'has_unknown_genes'>): number {

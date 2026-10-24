@@ -5,7 +5,7 @@ import {
   buildVisualizerFilterCSS,
   joinAttrs,
   type VisualizerFilterInput,
-} from '$lib/utils/filterCSS.js';
+} from '#lib/utils/filterCSS.js';
 
 const FILTERED = '{ opacity: 0.15 !important; filter: grayscale(1) !important; pointer-events: none !important; }';
 const HIDDEN = '{ display: none !important; }';

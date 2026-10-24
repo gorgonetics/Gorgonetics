@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render } from '@testing-library/svelte';
 import { afterEach, describe, expect, it } from 'vitest';
-import PetEditor from '$lib/components/pet/PetEditor.svelte';
-import type { Pet } from '$lib/types/index.js';
+import PetEditor from '#lib/components/pet/PetEditor.svelte';
+import type { Pet } from '#lib/types/index.js';
 
 const pet = (over: Partial<Pet> = {}): Pet =>
   ({
@@ -87,5 +87,21 @@ describe('PetEditor — attributes from a structured name', () => {
     // Changing a number is a new claim, and fills.
     await fireEvent.input(nameInput(container), { target: { value: 'Kb F 62 70 65 80 90 100 55 Keeper' } });
     expect(attr(container, 'temperament')).toBe('62');
+  });
+});
+
+describe('PetEditor — use for studies', () => {
+  const toggle = (c: HTMLElement) => c.querySelector('[data-testid="pet-editor-exclude-study"]') as HTMLButtonElement;
+
+  it('shows a pet with no stored flag as in use', () => {
+    const { container } = render(PetEditor, { pet: pet() });
+    expect(toggle(container).getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('shows an excluded pet as excluded and can turn it back on', async () => {
+    const { container } = render(PetEditor, { pet: pet({ use_for_studies: false }) });
+    expect(toggle(container).getAttribute('aria-pressed')).toBe('true');
+    await fireEvent.click(toggle(container));
+    expect(toggle(container).getAttribute('aria-pressed')).toBe('false');
   });
 });

@@ -1,7 +1,7 @@
 <script lang="ts">
 import { onDestroy, onMount } from 'svelte';
 import './geneCell.css';
-import StatusPane from '$lib/components/shared/StatusPane.svelte';
+import StatusPane from '#lib/components/shared/StatusPane.svelte';
 import {
   getAllAppearanceDisplayInfo,
   getAllAttributeDisplayInfo,
@@ -11,18 +11,19 @@ import {
   getAttributeConfig,
   getAttributeMatcher,
   normalizeSpecies,
-} from '$lib/services/configService.js';
-import { computeRarityLookup, type RarityLookup } from '$lib/services/frequencyService.js';
-import { getGeneEffectsCached } from '$lib/services/geneService.js';
-import { explainQuality } from '$lib/services/geneticQualityService.js';
-import { loadPetGridFromDb } from '$lib/services/petService.js';
-import { loadGeneImpact, STUDYABLE_SPECIES, studyInputsKey } from '$lib/services/studyService.js';
-import { pets as petList } from '$lib/stores/pets.js';
-import { settings } from '$lib/stores/settings.js';
-import { EFFECT_COLORS } from '$lib/theme/gene-colors.js';
-import type { AppearanceInfo, Gender, GeneType, Pet } from '$lib/types/index.js';
-import { buildVisualizerFilterCSS, type ChrBreedRelevance, joinAttrs } from '$lib/utils/filterCSS.js';
-import { resolveFilterClick } from '$lib/utils/filterToggle.js';
+} from '#lib/services/configService.js';
+import { loadRarityLookup, type RarityLookup, type RarityPopulation } from '#lib/services/frequencyService.js';
+import { getGeneEffectsCached } from '#lib/services/geneService.js';
+import { explainQuality } from '#lib/services/geneticQualityService.js';
+import { loadPetGridFromDb } from '#lib/services/petService.js';
+import { loadGeneImpact, STUDYABLE_SPECIES, studyInputsKey } from '#lib/services/studyService.js';
+import { corpusRevision } from '#lib/stores/corpus.js';
+import { pets as petList } from '#lib/stores/pets.js';
+import { settings } from '#lib/stores/settings.js';
+import { EFFECT_COLORS } from '#lib/theme/gene-colors.js';
+import type { AppearanceInfo, Gender, GeneType, Pet } from '#lib/types/index.js';
+import { buildVisualizerFilterCSS, type ChrBreedRelevance, joinAttrs } from '#lib/utils/filterCSS.js';
+import { resolveFilterClick } from '#lib/utils/filterToggle.js';
 import {
   breedFor,
   effectFor,
@@ -30,9 +31,9 @@ import {
   isNoEffect,
   type ParsedChromosome,
   type ParsedGene,
-} from '$lib/utils/geneAnalysis.js';
-import { RARITY_BUCKET_NEVER, RARITY_STEP_LABELS } from '$lib/utils/geneFrequency.js';
-import { computeGeneCellSize } from '$lib/utils/geneGridCells.js';
+} from '#lib/utils/geneAnalysis.js';
+import { RARITY_BUCKET_NEVER, RARITY_STEP_LABELS } from '#lib/utils/geneFrequency.js';
+import { computeGeneCellSize } from '#lib/utils/geneGridCells.js';
 import {
   buildImpactCSS,
   buildImpactTooltip,
@@ -44,19 +45,19 @@ import {
   type SlotImpact,
   slotImpact,
   summarizeImpact,
-} from '$lib/utils/geneImpact.js';
+} from '#lib/utils/geneImpact.js';
 import {
   updateStats as accumulateStats,
   initializeStats as buildEmptyStats,
   type StatsMap,
-} from '$lib/utils/geneStats.js';
-import { parseBreedLockWeight } from '$lib/utils/geneticQuality.js';
-import { handleGridNavigation } from '$lib/utils/keyboard.js';
-import { keyedResource } from '$lib/utils/keyedResource.svelte.js';
-import { buildQualityCSS, gridToLoci, qualityRows, qualityTooltip, STANDING_HINT } from '$lib/utils/qualityLens.js';
-import { buildRarityCSS, type RarityCell } from '$lib/utils/rarityCSS.js';
-import { buildRarityTooltip, placeRarityTooltip } from '$lib/utils/rarityTooltip.js';
-import { capitalize, escapeHtml, pluralise } from '$lib/utils/string.js';
+} from '#lib/utils/geneStats.js';
+import { parseBreedLockWeight } from '#lib/utils/geneticQuality.js';
+import { handleGridNavigation } from '#lib/utils/keyboard.js';
+import { keyedResource } from '#lib/utils/keyedResource.svelte.js';
+import { buildQualityCSS, gridToLoci, qualityRows, qualityTooltip, STANDING_HINT } from '#lib/utils/qualityLens.js';
+import { buildRarityCSS, type RarityCell } from '#lib/utils/rarityCSS.js';
+import { buildRarityTooltip, placeRarityTooltip } from '#lib/utils/rarityTooltip.js';
+import { capitalize, escapeHtml, pluralise } from '#lib/utils/string.js';
 import GeneTooltip from './GeneTooltip.svelte';
 
 const ALL_ATTRIBUTES = getAllAttributeDisplayInfo();
@@ -102,10 +103,10 @@ interface Props {
   gridOverride?: Record<string, ParsedChromosome> | null;
   /**
    * Population the rarity baseline is computed over (rarity view only).
-   * Owned by the parent so the Stabled / All-my-pets toggle lives with the
-   * other view controls. Filtered to the viewed pet's species internally.
+   * Owned by the parent so the baseline toggle lives with the other view
+   * controls. Filtered to the viewed pet's species internally.
    */
-  populationPets?: readonly Pet[];
+  population?: RarityPopulation;
 }
 
 /**
@@ -166,7 +167,7 @@ interface HeaderStructure {
   blockMaxGenes: Map<string, number>;
 }
 
-const { pet, gridOverride = null, populationPets = [] }: Props = $props();
+const { pet, gridOverride = null, population = { tier: 'all', pets: [] } }: Props = $props();
 
 let loading = $state(false);
 let error = $state<string | null>(null);
@@ -333,11 +334,14 @@ onDestroy(() => {
 $effect(() => {
   if (currentView !== 'rarity' || !currentPet) return;
   const species = currentPet.species;
-  const pets = populationPets;
+  const pop = population;
+  // A community baseline reads the cache, so a refresh must reload it; a local
+  // one must not reload on it.
+  if (pop.tier === 'community') void $corpusRevision;
   const mine = ++raritySeq;
   rarityLoading = true;
   rarityError = null;
-  computeRarityLookup(pets, species)
+  loadRarityLookup(pop, species)
     .then((lookup) => {
       if (mine !== raritySeq) return;
       rarityLookup = lookup;
@@ -398,7 +402,7 @@ $effect(() => {
 // solved before it on screen.
 const impactKey = $derived.by(() => {
   if (currentView !== 'impact' || !currentPet) return null;
-  const _reloaded = $petList;
+  void $petList;
   return studyInputsKey(currentPet.species);
 });
 const impact = keyedResource(() => impactKey, loadGeneImpact);
@@ -1508,7 +1512,16 @@ const blockIndices = $derived.by(() => {
                                              single number here is right for every cell. The
                                              exact per-locus figure belongs in the tooltip,
                                              where it can be. -->
-                                        baseline: {pluralise(rarityLookup.petCount, capitalize(currentPet?.species ?? "pet"))}
+                                        {#if population.tier === "community" && rarityLookup.petCount === 0}
+                                            No shared {capitalize(currentPet?.species ?? "pet")}s cached · fetch them in the Study tab
+                                        {:else if population.tier === "community"}
+                                            baseline: {pluralise(rarityLookup.petCount, `shared ${capitalize(currentPet?.species ?? "pet")}`)}
+                                            {#if rarityLookup.refreshAdvised}
+                                                <span class="rarity-coverage" data-testid="rarity-refresh-advised">· refresh in the Study tab to add the animals an older version left out</span>
+                                            {/if}
+                                        {:else}
+                                            baseline: {pluralise(rarityLookup.petCount, capitalize(currentPet?.species ?? "pet"))}
+                                        {/if}
                                         {#if rarityLookup.partialPets > 0}
                                             <span
                                                 class="rarity-coverage"

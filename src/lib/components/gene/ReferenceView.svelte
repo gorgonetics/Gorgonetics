@@ -7,17 +7,17 @@
  * docs/design/redesign-library-workspace-v1.md (§9).
  */
 import { onMount } from 'svelte';
-import GeneEditingView from '$lib/components/GeneEditingView.svelte';
-import GenomeMap from '$lib/components/gene/GenomeMap.svelte';
-import BreedSelector from '$lib/components/shared/BreedSelector.svelte';
-import EmptyState from '$lib/components/shared/EmptyState.svelte';
-import { normalizeSpecies } from '$lib/services/configService.js';
-import { petsForTier, type RarityTier } from '$lib/services/frequencyService.js';
-import * as geneService from '$lib/services/geneService.js';
-import { pets as allPets, appState, geneEditingView } from '$lib/stores/pets.js';
-import { referenceView } from '$lib/stores/reference.svelte.js';
-import { BREEDS_BY_SPECIES, getSpeciesEmoji, mostPopulatedSpecies } from '$lib/utils/species.js';
-import { capitalize } from '$lib/utils/string.js';
+import GeneEditingView from '#lib/components/GeneEditingView.svelte';
+import GenomeMap from '#lib/components/gene/GenomeMap.svelte';
+import BreedSelector from '#lib/components/shared/BreedSelector.svelte';
+import EmptyState from '#lib/components/shared/EmptyState.svelte';
+import { normalizeSpecies } from '#lib/services/configService.js';
+import { populationForTier, type RarityTier } from '#lib/services/frequencyService.js';
+import * as geneService from '#lib/services/geneService.js';
+import { pets as allPets, appState, geneEditingView } from '#lib/stores/pets.js';
+import { referenceView } from '#lib/stores/reference.svelte.js';
+import { BREEDS_BY_SPECIES, getSpeciesEmoji, mostPopulatedSpecies } from '#lib/utils/species.js';
+import { capitalize } from '#lib/utils/string.js';
 
 const geneEdit = $derived($geneEditingView as { animalType?: string; chromosome?: string } | null);
 
@@ -45,11 +45,11 @@ let rarityPopulation = $state<RarityTier>('all');
 
 const speciesKey = $derived(normalizeSpecies(selectedAnimalType));
 const breedsForSpecies = $derived(speciesKey ? BREEDS_BY_SPECIES[speciesKey] : undefined);
-const populationPets = $derived(petsForTier(rarityPopulation, $allPets));
+const population = $derived(populationForTier(rarityPopulation, $allPets));
 
 // A breed only means something within its own species.
 $effect(() => {
-  const _key = speciesKey;
+  void speciesKey;
   breedFilter = '';
 });
 // Discards a stale chromosome fetch when the animal type changes again before
@@ -167,7 +167,7 @@ $effect(() => {
             class:active={referenceView.lens === 'rarity'}
             aria-pressed={referenceView.lens === 'rarity'}
             data-testid="map-lens-rarity"
-            title="Shade each gene by how rare its values are across your pets"
+            title="Shade each gene by how rare its values are across the baseline"
             onclick={() => { referenceView.lens = 'rarity'; }}
           >Rarity</button>
           <button
@@ -178,9 +178,32 @@ $effect(() => {
             title="Colour each gene by the attribute points the study measured for it"
             onclick={() => { referenceView.lens = 'impact'; }}
           >Impact</button>
+          <button
+            class="seg-btn"
+            class:active={referenceView.lens === 'never'}
+            aria-pressed={referenceView.lens === 'never'}
+            data-testid="map-lens-never"
+            title="Show only the alleles no animal in the baseline carries — what to look for before a capture"
+            onclick={() => { referenceView.lens = 'never'; }}
+          >Never seen</button>
         </div>
       </div>
-      {#if referenceView.lens === 'rarity'}
+      {#if referenceView.lens === 'never'}
+        <div class="ref-field">
+          <span>Hide</span>
+          <span class="ref-checks">
+            <label class="ref-check-row" title="Show only the chromosomes that have an allele no animal in the baseline carries">
+              <input type="checkbox" bind:checked={referenceView.hideSeenChromosomes} data-testid="map-hide-seen" />
+              Fully seen chromosomes
+            </label>
+            <label class="ref-check-row" title="Leave out never-seen alleles whose gene template declares no effect for them">
+              <input type="checkbox" bind:checked={referenceView.hideNoEffect} data-testid="map-hide-no-effect" />
+              Genes with no effect
+            </label>
+          </span>
+        </div>
+      {/if}
+      {#if referenceView.lens !== 'impact'}
       <div class="ref-field">
         <span>Baseline</span>
         <div class="seg" role="group" aria-label="Rarity baseline">
@@ -196,7 +219,13 @@ $effect(() => {
             data-testid="map-pop-all"
             onclick={() => { rarityPopulation = 'all'; }}
           >All my pets</button>
-          <button class="seg-btn" disabled title="Needs a shared aggregate — not yet available">Community · soon</button>
+          <button
+            class="seg-btn"
+            class:active={rarityPopulation === 'community'}
+            data-testid="map-pop-community"
+            title="The shared catalogue as last fetched in the Study tab: rare among uploaded pets"
+            onclick={() => { rarityPopulation = 'community'; }}
+          >Community</button>
         </div>
       </div>
       {/if}
@@ -228,7 +257,14 @@ $effect(() => {
         />
       {/if}
     {:else if selectedAnimalType}
-      <GenomeMap species={selectedAnimalType} {populationPets} {breedFilter} lens={referenceView.lens} />
+      <GenomeMap
+        species={selectedAnimalType}
+        {population}
+        {breedFilter}
+        lens={referenceView.lens}
+        hideSeenChromosomes={referenceView.hideSeenChromosomes}
+        hideNoEffect={referenceView.hideNoEffect}
+      />
     {:else if !editorError}
       <EmptyState icon="🧬" title="Genome map" body="No gene templates are loaded yet." />
     {/if}
@@ -254,6 +290,11 @@ $effect(() => {
   }
   .load-btn:hover:not(:disabled) { filter: brightness(1.05); }
   .load-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .ref-checks { display: flex; gap: var(--space-lg); }
+  .ref-check-row {
+    display: inline-flex; align-items: center; gap: var(--space-xs);
+    padding: var(--space-xs) 0; font-size: 13px; font-weight: 500; color: var(--text-primary); cursor: pointer;
+  }
   .ref-error { font-size: 12px; color: var(--error-text); display: inline-flex; align-items: center; gap: var(--space-2xs); }
   .ref-body { flex: 1; min-height: 0; overflow: auto; padding: var(--space-xl) var(--space-2xl); }
   /* The map owns its own scrolling (its cell size is measured from that box),

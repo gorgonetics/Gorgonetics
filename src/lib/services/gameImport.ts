@@ -8,9 +8,9 @@
  * doesn't come back on the next scan.
  */
 
-import { isTauri } from '$lib/utils/environment.js';
-import { errorMessage } from '$lib/utils/error.js';
-import { sha256Hex } from '$lib/utils/hash.js';
+import { isTauri } from '#lib/utils/environment.js';
+import { errorMessage } from '#lib/utils/error.js';
+import { sha256Hex } from '#lib/utils/hash.js';
 import {
   filterImportedHashes,
   findPetGenomeTextByHash,
@@ -247,7 +247,7 @@ export async function autoScanGameFolder(options?: {
   // fresh list rather than rendering against stale rows; a reload failure
   // surfaces via the store's own error state, so it must not reject the scan.
   if (result.imported > 0 || result.backfilled > 0) {
-    const { appState } = await import('$lib/stores/pets.js');
+    const { appState } = await import('#lib/stores/pets.js');
     // loadPets() handles its own errors (surfaces via the store's error state)
     // and never rejects, so awaiting it bare is safe.
     await appState.loadPets();

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { Pet } from '$lib/types/index.js';
-import { computePetChanges, type PetEditDraft } from '$lib/utils/petChanges.js';
+import type { Pet } from '#lib/types/index.js';
+import { computePetChanges, type PetEditDraft } from '#lib/utils/petChanges.js';
 
 // Stored pet fixture — only the fields the diff reads.
 const pet = (over: Record<string, unknown> = {}): Pet =>
@@ -28,6 +28,7 @@ const draft = (over: Partial<PetEditDraft> = {}): PetEditDraft =>
     starred: false,
     stabled: false,
     isPetQuality: false,
+    useForStudies: true,
     ...over,
   }) as unknown as PetEditDraft;
 
@@ -112,6 +113,12 @@ describe('computePetChanges — boolean markers', () => {
 
   it('detects is_pet_quality flip', () => {
     expect(computePetChanges(pet(), draft({ isPetQuality: true }))).toEqual({ is_pet_quality: true });
+  });
+
+  it('detects use_for_studies flip, treating an unset flag as on', () => {
+    expect(computePetChanges(pet(), draft({ useForStudies: false }))).toEqual({ use_for_studies: false });
+    expect(computePetChanges(pet({ use_for_studies: true }), draft())).toEqual({});
+    expect(computePetChanges(pet({ use_for_studies: false }), draft())).toEqual({ use_for_studies: true });
   });
 
   it('coerces truthy/falsy stored markers via !! before comparing', () => {

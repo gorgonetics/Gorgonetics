@@ -1,17 +1,17 @@
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { rankBreedingPairs } from '$lib/services/breedingService.js';
-import { localPetsRevision } from '$lib/services/petService.js';
-import { attributeMagnitudesFor, peekAttributeMagnitudes } from '$lib/services/studyService.js';
-import { breedingView } from '$lib/stores/breeding.svelte.js';
-import { loading, pets } from '$lib/stores/pets.js';
-import type { BreedingPairResult, Pet } from '$lib/types/index.js';
-import { type AttributeMagnitudes, EMPTY_MAGNITUDES } from '$lib/utils/attributePoints.js';
-import { BREEDING_OBJECTIVES } from '$lib/utils/breedingObjectives.js';
+import { rankBreedingPairs } from '#lib/services/breedingService.js';
+import { localPetsRevision } from '#lib/services/petService.js';
+import { attributeMagnitudesFor, peekAttributeMagnitudes } from '#lib/services/studyService.js';
+import { breedingView } from '#lib/stores/breeding.svelte.js';
+import { loading, pets } from '#lib/stores/pets.js';
+import type { BreedingPairResult, Pet } from '#lib/types/index.js';
+import { type AttributeMagnitudes, EMPTY_MAGNITUDES } from '#lib/utils/attributePoints.js';
+import { BREEDING_OBJECTIVES } from '#lib/utils/breedingObjectives.js';
 
 // The ranking service is exercised by its own suite; stub it so these tests
 // stay a focused check of BreedView's species defaulting and trio lifecycle.
-vi.mock('$lib/services/breedingService.js', () => ({
+vi.mock('#lib/services/breedingService.js', () => ({
   rankBreedingPairs: vi.fn(async () => []),
   // Breed scoping is covered by the breeding suite; here it only has to
   // hand back a table the view can label its columns from.
@@ -21,7 +21,7 @@ vi.mock('$lib/services/breedingService.js', () => ({
 // The study is the expensive half of a ranking and hits the DB. Default it to
 // "already solved, nothing known" so the rest of these tests take the single
 // ranking pass; the progressive-render tests drive it explicitly.
-vi.mock('$lib/services/studyService.js', () => {
+vi.mock('#lib/services/studyService.js', () => {
   // Built here rather than imported: `vi.mock` factories are hoisted above
   // the import block, so `EMPTY_MAGNITUDES` would not be initialised yet.
   const empty = { points: new Map<string, number>(), coverage: new Map() };
@@ -33,14 +33,14 @@ vi.mock('$lib/services/studyService.js', () => {
 
 // Only the revision is stubbed — the pets store imports this module too, so
 // the rest has to stay real.
-vi.mock('$lib/services/petService.js', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('$lib/services/petService.js')>()),
+vi.mock('#lib/services/petService.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('#lib/services/petService.js')>()),
   localPetsRevision: vi.fn(() => 0),
 }));
 
 // The capability readout hits the DB through the quality service; a fixed
 // summary keeps these tests about the view's wording and gating.
-vi.mock('$lib/services/geneticQualityService.js', () => ({
+vi.mock('#lib/services/geneticQualityService.js', () => ({
   capabilitySummary: vi.fn(async () => ({
     capability: 700,
     reachable: 800,
@@ -52,11 +52,11 @@ vi.mock('$lib/services/geneticQualityService.js', () => ({
 
 // The real TrioView mounts the heavy offspring grid (~2304 cells); the guard
 // under test only cares whether the pair is still selected.
-vi.mock('$lib/components/breeding/TrioView.svelte', async () => ({
+vi.mock('#lib/components/breeding/TrioView.svelte', async () => ({
   default: (await import('./fixtures/ChildStub.svelte')).default,
 }));
 
-import BreedView from '$lib/components/breeding/BreedView.svelte';
+import BreedView from '#lib/components/breeding/BreedView.svelte';
 
 const pet = (over: Partial<Pet>): Pet =>
   ({

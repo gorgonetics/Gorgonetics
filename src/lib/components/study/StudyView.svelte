@@ -1,5 +1,5 @@
 <script lang="ts">
-import { getAllAttributeNames } from '$lib/services/configService.js';
+import { getAllAttributeNames } from '#lib/services/configService.js';
 import {
   confirmGeneDeclaration,
   isCommunitySubject,
@@ -12,11 +12,12 @@ import {
   setUseForStudies,
   studyCorpusStatus,
   studyRunFor,
-} from '$lib/services/studyService.js';
-import { pets } from '$lib/stores/pets.js';
-import { settings, settingsActions } from '$lib/stores/settings.js';
-import type { GeneDoubt } from '$lib/utils/attributeStudy.js';
-import { mostPopulatedSpecies } from '$lib/utils/species.js';
+} from '#lib/services/studyService.js';
+import { corpusRevision } from '#lib/stores/corpus.js';
+import { pets } from '#lib/stores/pets.js';
+import { settings, settingsActions } from '#lib/stores/settings.js';
+import type { GeneDoubt } from '#lib/utils/attributeStudy.js';
+import { mostPopulatedSpecies } from '#lib/utils/species.js';
 import StudyBaselines from './StudyBaselines.svelte';
 import StudyBaseMatrix from './StudyBaseMatrix.svelte';
 import StudyFindingsTable from './StudyFindingsTable.svelte';
@@ -62,6 +63,7 @@ let ranFor = $state('');
  */
 let generation = 0;
 let cachedCount = $state(0);
+let storedCount = $state(0);
 let fetchedAt = $state<string | null>(null);
 let refreshing = $state(false);
 let refreshError = $state<string | null>(null);
@@ -265,15 +267,21 @@ const doubts = $derived(
  * Animals contradicting an otherwise-agreed magnitude, pooled across every
  * attribute. The model forbids disagreement, so a name high on this list is
  * almost always a mis-recorded row rather than a discovery.
+ *
+ * Each row keeps its per-attribute counts: the pooled total says an animal
+ * is suspect, but only the attribute says which reading to go and check.
  */
 const suspects = $derived.by(() => {
-  const totals = new Map<string, { count: number; stabled: boolean }>();
+  const totals = new Map<string, { count: number; stabled: boolean; attributes: Array<[string, number]> }>();
   for (const study of studies)
     for (const c of study.contradictions) {
       const seen = totals.get(c.subjectId);
-      if (seen) seen.count += c.count;
-      else totals.set(c.subjectId, { count: c.count, stabled: c.stabled });
+      if (seen) {
+        seen.count += c.count;
+        seen.attributes.push([study.attribute, c.count]);
+      } else totals.set(c.subjectId, { count: c.count, stabled: c.stabled, attributes: [[study.attribute, c.count]] });
     }
+  for (const s of totals.values()) s.attributes.sort(([, a], [, b]) => b - a);
   // Stabled first: only those can be settled by re-reading the animal, so a
   // smaller checkable disagreement beats a larger unfalsifiable one.
   return [...totals.entries()]
@@ -327,6 +335,9 @@ async function refresh(): Promise<void> {
     await refreshStudyCorpus(species, (p) => {
       progress = p;
     });
+    // Runs even if the player has left the tab, so an open Community rarity
+    // view picks the new cache up.
+    corpusRevision.update((n) => n + 1);
     // The re-solve is the view's own step and can be the longest of the
     // lot, so it gets named rather than left under the same spinner.
     progress = { phase: 'solving' };
@@ -371,6 +382,7 @@ async function solve(target: string): Promise<void> {
     const [status, excludedNow] = await Promise.all([studyCorpusStatus(target), listExcludedSubjects(target)]);
     if (mine !== generation) return;
     cachedCount = status.cached;
+    storedCount = status.stored;
     fetchedAt = status.fetchedAt;
     excluded = excludedNow;
   } catch (err) {
@@ -465,9 +477,14 @@ async function solve(target: string): Promise<void> {
 					<span class="refresh-error">{refreshError}</span>
 				{:else if progress}
 					<span class="refresh-progress" aria-live="polite">{progressLabel(progress)}</span>
-				{:else if cachedCount > 0}
-					<span class="community-detail">
-						{cachedCount.toLocaleString()} cached{fetchedAt ? `, last fetched ${fetchedAt.slice(0, 10)}` : ''}
+				{:else if storedCount > 0}
+					<!-- Both counts when they differ: the rarity lens's Community
+					     baseline counts every cached genome, the study only the
+					     ones it can learn from. -->
+					<span class="community-detail" data-testid="study-corpus-count">
+						{storedCount.toLocaleString()} cached{storedCount !== cachedCount
+							? `, ${cachedCount > 0 ? cachedCount.toLocaleString() : 'none'} usable by the study`
+							: ''}{fetchedAt ? `, last fetched ${fetchedAt.slice(0, 10)}` : ''}
 					</span>
 				{:else}
 					<span class="community-detail">none cached — the study sees only your own animals</span>
@@ -628,9 +645,6 @@ async function solve(target: string): Promise<void> {
 								</li>
 							{/each}
 						</ul>
-						{#if actionError}
-							<p class="action-error">Could not save that: {actionError}</p>
-						{/if}
 						</div>
 				{:else if evidenceSection === 'suspects' && suspects.length > 0}
 
@@ -638,7 +652,9 @@ async function solve(target: string): Promise<void> {
 						<h3>Suspect readings</h3>
 						<p>
 							These animals disagree with magnitudes the rest of the stable agrees on. The arithmetic
-							is exact, so a high count almost always means a mis-recorded attribute.
+							is exact, so a high count almost always means a mis-recorded attribute. Each disagreement
+							counts against both animals in it, so a low count beside a high one is usually the high
+							one's error. Turning one off stops the study learning from it.
 							<!-- Only when the list has one: with no stabled animal it read as a
 							     claim about the rows below. -->
 							{#if suspects.some(([, s]) => s.stabled)}
@@ -663,6 +679,24 @@ async function solve(target: string): Promise<void> {
 										<span class="origin" title="One of your pets, but not stabled.">unstabled</span>
 									{/if}
 									<span class="suspect-count">{s.count}</span>
+									<!-- Here as well as under Mis-recorded: a bad row caught by the solver's
+									     own tally never fails a held-out prediction, so it may not be
+									     listed there and this would be the only way to drop it. -->
+									<button
+										type="button"
+										class="row-action"
+										data-testid="exclude-suspect-{id}"
+										disabled={busyRow !== null}
+										onclick={() => toggleUse(id, false)}
+									>
+										{busyRow === id ? 'Saving…' : 'Stop using'}
+									</button>
+									<span class="suspect-attributes" data-testid="suspect-attributes-{id}">
+										{#each s.attributes as [attr, n], i (attr)}{i > 0 ? ' · ' : ''}<span
+												class="suspect-attribute"
+												title="{n} disagreeing equation{n === 1 ? '' : 's'} on {attr}">{attr} {n}</span
+											>{/each}
+									</span>
 								</li>
 							{/each}
 						</ul>
@@ -724,6 +758,11 @@ async function solve(target: string): Promise<void> {
 							{/each}
 						</ul>
 					</div>
+				{/if}
+				<!-- Outside the panels: every one of them has a row action, and an
+				     error shown only in a panel that is not open is no error at all. -->
+				{#if actionError}
+					<p class="action-error" data-testid="study-action-error">Could not save that: {actionError}</p>
 				{/if}
 					</div>
 				</aside>
@@ -1186,6 +1225,18 @@ async function solve(target: string): Promise<void> {
 	.suspect-count {
 		color: var(--gene-negative);
 		font-variant-numeric: tabular-nums;
+	}
+
+	/* Own line under the name, so a long list never squeezes the name out. */
+	.suspect-attributes {
+		flex-basis: 100%;
+		color: var(--text-tertiary);
+		font-size: 11px;
+		font-variant-numeric: tabular-nums;
+	}
+
+	.suspect-attribute {
+		text-transform: capitalize;
 	}
 
 	.center-state {

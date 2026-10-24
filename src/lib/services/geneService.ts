@@ -2,8 +2,8 @@
  * Gene data service for Gorgonetics.
  */
 
-import { parsedEffectColumns } from '$lib/utils/geneAnalysis.js';
-import { now } from '$lib/utils/timestamp.js';
+import { parsedEffectColumns } from '#lib/utils/geneAnalysis.js';
+import { now } from '#lib/utils/timestamp.js';
 import { runBatchBackfill } from './backfill.js';
 import { normalizeSpecies } from './configService.js';
 import { getDb, withTransaction } from './database.js';

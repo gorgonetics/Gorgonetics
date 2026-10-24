@@ -1,7 +1,7 @@
 import { cleanup, render, screen } from '@testing-library/svelte';
 import { afterEach, describe, expect, it } from 'vitest';
-import StudyBaselines from '$lib/components/study/StudyBaselines.svelte';
-import type { BaselineReading } from '$lib/utils/attributeStudy.js';
+import StudyBaselines from '#lib/components/study/StudyBaselines.svelte';
+import type { BaselineReading } from '#lib/utils/attributeStudy.js';
 
 const reading = (over: Partial<BaselineReading> = {}): BaselineReading => ({
   breed: 'Kurbone',

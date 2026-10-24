@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
-import { GeneType, type Pet } from '$lib/types/index.js';
+import { GeneType, type Pet } from '#lib/types/index.js';
 
 const { DOMINANT: D, MIXED: x, RECESSIVE: R } = GeneType;
 
-vi.mock('$lib/utils/petLoci.js', () => ({
+vi.mock('#lib/utils/petLoci.js', () => ({
   loadAllPetLoci: vi.fn(async () => {
     const l = (a: GeneType, b: GeneType) =>
       new Map([
@@ -19,14 +19,14 @@ vi.mock('$lib/utils/petLoci.js', () => ({
   }),
 }));
 
-vi.mock('$lib/services/geneService.js', () => ({
+vi.mock('#lib/services/geneService.js', () => ({
   getParsedGenesCached: vi.fn(async () => ({
     '01A1': { dominantSign: '-', recessiveSign: '+', breed: '' },
     '01A2': { dominantSign: '-', recessiveSign: '+', breed: '' },
   })),
 }));
 
-import { planClearing } from '$lib/services/clearingService.js';
+import { planClearing } from '#lib/services/clearingService.js';
 
 const pet = (id: number, gender: 'Male' | 'Female'): Pet =>
   ({ id, name: `P${id}`, species: 'Horse', breed: 'Kurbone', gender, stabled: true }) as unknown as Pet;

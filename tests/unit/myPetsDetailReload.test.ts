@@ -1,8 +1,8 @@
 import { cleanup, render } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { myPetsView } from '$lib/stores/mypets.svelte.js';
-import { loading, pets } from '$lib/stores/pets.js';
-import type { Pet } from '$lib/types/index.js';
+import { myPetsView } from '#lib/stores/mypets.svelte.js';
+import { loading, pets } from '#lib/stores/pets.js';
+import type { Pet } from '#lib/types/index.js';
 
 // MyPets opens a pet's detail as a full-view overlay. AuthWrapper runs startup
 // backfills that each call `loadPets()` → `pets.set(...)` well after mount, so
@@ -13,11 +13,11 @@ import type { Pet } from '$lib/types/index.js';
 //
 // The real PetVisualization (gene grid, window/document reads) is stubbed so
 // this stays a focused test of MyPets' overlay lifecycle.
-vi.mock('$lib/components/pet/PetVisualization.svelte', async () => ({
+vi.mock('#lib/components/pet/PetVisualization.svelte', async () => ({
   default: (await import('../fixtures/PetVisualizationStub.svelte')).default,
 }));
 
-import MyPets from '$lib/components/mypets/MyPets.svelte';
+import MyPets from '#lib/components/mypets/MyPets.svelte';
 
 const pet = (over: Partial<Pet>): Pet =>
   ({

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Gender, GeneType } from '$lib/types/index.js';
+import { Gender, GeneType } from '#lib/types/index.js';
 import {
   type AlleleTally,
   benefitSlots,
@@ -24,8 +24,8 @@ import {
   TIER_CAPABILITY,
   tallyAlleles,
   transmissionProbability,
-} from '$lib/utils/geneticQuality.js';
-import type { PetLoci } from '$lib/utils/petLoci.js';
+} from '#lib/utils/geneticQuality.js';
+import type { PetLoci } from '#lib/utils/petLoci.js';
 
 const D = GeneType.DOMINANT;
 const R = GeneType.RECESSIVE;

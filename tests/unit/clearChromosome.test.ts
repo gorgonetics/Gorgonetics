@@ -1,11 +1,11 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { type ClearingPlan, planClearing } from '$lib/services/clearingService.js';
-import type { Pet } from '$lib/types/index.js';
+import { type ClearingPlan, planClearing } from '#lib/services/clearingService.js';
+import type { Pet } from '#lib/types/index.js';
 
-vi.mock('$lib/services/clearingService.js', () => ({ planClearing: vi.fn() }));
+vi.mock('#lib/services/clearingService.js', () => ({ planClearing: vi.fn() }));
 
-import ClearChromosome from '$lib/components/breeding/ClearChromosome.svelte';
+import ClearChromosome from '#lib/components/breeding/ClearChromosome.svelte';
 
 const pet = (over: Partial<Pet>): Pet =>
   ({

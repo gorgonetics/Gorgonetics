@@ -2,7 +2,7 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte';
 import { writable } from 'svelte/store';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { Pet, SharedPet } from '$lib/types/index.js';
+import type { Pet, SharedPet } from '#lib/types/index.js';
 
 // Covers the community preview's lazy genome fetch (migrated onto keyedResource
 // from the retired CommunityPetDetail): loading, loaded, fetch error, and a
@@ -13,7 +13,7 @@ import type { Pet, SharedPet } from '$lib/types/index.js';
 const importingHash: { value: string | null } = { value: null };
 const importedHashes: { value: Set<string> } = { value: new Set() };
 const importSelected = vi.fn();
-vi.mock('$lib/stores/community.svelte.js', () => ({
+vi.mock('#lib/stores/community.svelte.js', () => ({
   get communityView() {
     return { importingHash: importingHash.value, importedHashes: importedHashes.value };
   },
@@ -21,28 +21,28 @@ vi.mock('$lib/stores/community.svelte.js', () => ({
 }));
 
 const getSharedPet = vi.fn();
-vi.mock('$lib/services/shareService.js', () => ({
+vi.mock('#lib/services/shareService.js', () => ({
   getSharedPet: (hash: string) => getSharedPet(hash),
 }));
 
 // The shared PetVisualization reads these for the Auto breed and the rarity baseline.
-vi.mock('$lib/stores/settings.js', () => ({
+vi.mock('#lib/stores/settings.js', () => ({
   settings: writable<Record<string, unknown>>({}),
 }));
-vi.mock('$lib/stores/pets.js', () => ({
+vi.mock('#lib/stores/pets.js', () => ({
   appState: { deletePet: vi.fn(async () => {}) },
   pets: writable<Pet[]>([]),
 }));
 
 // Stub the heavy children so the test stays focused on fetch/import state.
-vi.mock('$lib/components/gene/GeneVisualizer.svelte', async () => ({
+vi.mock('#lib/components/gene/GeneVisualizer.svelte', async () => ({
   default: (await import('./fixtures/ChildStub.svelte')).default,
 }));
-vi.mock('$lib/components/gene/GeneStatsTable.svelte', async () => ({
+vi.mock('#lib/components/gene/GeneStatsTable.svelte', async () => ({
   default: (await import('./fixtures/ChildStub.svelte')).default,
 }));
 
-import CommunityPetVisualization from '$lib/components/community/CommunityPetVisualization.svelte';
+import CommunityPetVisualization from '#lib/components/community/CommunityPetVisualization.svelte';
 
 const GENOME = `[Overview]\nEntity=Buzz\nGenome=BeeWasp\n\n[Genes]\n1=DR\n`;
 

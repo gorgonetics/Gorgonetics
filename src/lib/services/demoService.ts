@@ -3,8 +3,8 @@
  * Loads bundled gene templates and sample genomes on first launch.
  */
 
-import { TEMPLATE_SPECIES } from '$lib/types/index.js';
-import { normaliseEffect } from '$lib/utils/geneAnalysis.js';
+import { TEMPLATE_SPECIES } from '#lib/types/index.js';
+import { normaliseEffect } from '#lib/utils/geneAnalysis.js';
 import { getDb } from './database.js';
 import { listBundledResources, loadBundledResource } from './fileService.js';
 import { upsertGenesBulk } from './geneService.js';
@@ -163,7 +163,7 @@ export async function refreshGeneTemplatesIfChanged(): Promise<void> {
     });
   });
   const history: ShippedHistory = needsHistory
-    ? ((await import('$lib/data/gene-template-history.json')).default as unknown as ShippedHistory)
+    ? ((await import('#lib/data/gene-template-history.json')).default as unknown as ShippedHistory)
     : {};
 
   let kept = 0;

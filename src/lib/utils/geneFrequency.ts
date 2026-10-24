@@ -17,8 +17,8 @@
  * layer maps buckets to CSS custom properties.
  */
 
-import { GeneType } from '$lib/types/index.js';
-import type { PetLoci } from '$lib/utils/petLoci.js';
+import { GeneType } from '#lib/types/index.js';
+import type { PetLoci } from '#lib/utils/petLoci.js';
 
 /** The two real alleles. `x` is one of each; `?` is missing data. */
 export type Allele = typeof GeneType.DOMINANT | typeof GeneType.RECESSIVE;

@@ -1,16 +1,16 @@
 <script lang="ts">
 import { onDestroy, onMount, untrack } from 'svelte';
-import '$lib/components/gene/geneCell.css';
-import GeneTooltip from '$lib/components/gene/GeneTooltip.svelte';
-import BreedSelector from '$lib/components/shared/BreedSelector.svelte';
-import DetailOverlay from '$lib/components/shared/DetailOverlay.svelte';
-import GeneFilterPills, { type FilterPillItem } from '$lib/components/shared/GeneFilterPills.svelte';
-import StatusPane from '$lib/components/shared/StatusPane.svelte';
-import { getAttributeConfig, normalizeSpecies } from '$lib/services/configService.js';
-import { getGeneEffectsCached } from '$lib/services/geneService.js';
-import { computeOffspringTrio } from '$lib/services/offspringTrioService.js';
-import { isBreedScoped, loadGeneImpact, studyInputsKey } from '$lib/services/studyService.js';
-import { pets as petList } from '$lib/stores/pets.js';
+import '#lib/components/gene/geneCell.css';
+import GeneTooltip from '#lib/components/gene/GeneTooltip.svelte';
+import BreedSelector from '#lib/components/shared/BreedSelector.svelte';
+import DetailOverlay from '#lib/components/shared/DetailOverlay.svelte';
+import GeneFilterPills, { type FilterPillItem } from '#lib/components/shared/GeneFilterPills.svelte';
+import StatusPane from '#lib/components/shared/StatusPane.svelte';
+import { getAttributeConfig, normalizeSpecies } from '#lib/services/configService.js';
+import { getGeneEffectsCached } from '#lib/services/geneService.js';
+import { computeOffspringTrio } from '#lib/services/offspringTrioService.js';
+import { isBreedScoped, loadGeneImpact, studyInputsKey } from '#lib/services/studyService.js';
+import { pets as petList } from '#lib/stores/pets.js';
 import {
   type AttributeInfo,
   type BreedingPairResult,
@@ -20,23 +20,23 @@ import {
   type Pet,
   type TrioContributionMode,
   type TrioGainMode,
-} from '$lib/types/index.js';
-import { attributePotentialFilterCSS } from '$lib/utils/filterCSS.js';
-import { triStateToggle } from '$lib/utils/filterToggle.js';
-import { breedFor, effectFor, type GeneEffectData, isNoEffect } from '$lib/utils/geneAnalysis.js';
-import { buildAppearanceLookup, createGeneCellBuilder, type GeneCell } from '$lib/utils/geneGridCells.js';
-import { expressedImpact, formatPoints, impactPaint, maxAbsPoints } from '$lib/utils/geneImpact.js';
-import { hiddenGeneCount } from '$lib/utils/hiddenGenes.js';
-import { keyedResource } from '$lib/utils/keyedResource.svelte.js';
+} from '#lib/types/index.js';
+import { attributePotentialFilterCSS } from '#lib/utils/filterCSS.js';
+import { triStateToggle } from '#lib/utils/filterToggle.js';
+import { breedFor, effectFor, type GeneEffectData, isNoEffect } from '#lib/utils/geneAnalysis.js';
+import { buildAppearanceLookup, createGeneCellBuilder, type GeneCell } from '#lib/utils/geneGridCells.js';
+import { expressedImpact, formatPoints, impactPaint, maxAbsPoints } from '#lib/utils/geneImpact.js';
+import { hiddenGeneCount } from '#lib/utils/hiddenGenes.js';
+import { keyedResource } from '#lib/utils/keyedResource.svelte.js';
 import {
   type AttributeOutlook,
   locusOutlook,
   offspringAttributeOutlooks,
   type PairParent,
-} from '$lib/utils/offspringImpact.js';
-import { ATTRIBUTE_KEYS } from '$lib/utils/sharedPet.js';
-import { getSpeciesEmoji } from '$lib/utils/species.js';
-import { capitalize } from '$lib/utils/string.js';
+} from '#lib/utils/offspringImpact.js';
+import { ATTRIBUTE_KEYS } from '#lib/utils/sharedPet.js';
+import { getSpeciesEmoji } from '#lib/utils/species.js';
+import { capitalize } from '#lib/utils/string.js';
 import {
   buildTrioGrid,
   contributionBackground,
@@ -45,7 +45,7 @@ import {
   poolIdentity,
   type TrioGrid,
   type TrioLocusCell,
-} from '$lib/utils/trioGrid.js';
+} from '#lib/utils/trioGrid.js';
 
 interface Props {
   father: Pet;
@@ -136,7 +136,7 @@ const parentBreeds = $derived(
 );
 const impactKey = $derived.by(() => {
   if (lens !== 'impact') return null;
-  const _reloaded = $petList;
+  void $petList;
   return studyInputsKey(father.species);
 });
 const impactResource = keyedResource(() => impactKey, loadGeneImpact);

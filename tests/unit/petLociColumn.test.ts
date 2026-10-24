@@ -1,11 +1,11 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { closeDatabase, getDb, initDatabase } from '$lib/services/database.js';
-import { getSchemaVersion, runMigrations } from '$lib/services/migrationService.js';
-import * as petService from '$lib/services/petService.js';
-import { compareGeneIds, decodeLoci, encodeLoci } from '$lib/utils/lociCodec.js';
-import { loadAllPetLoci } from '$lib/utils/petLoci.js';
+import { closeDatabase, getDb, initDatabase } from '#lib/services/database.js';
+import { getSchemaVersion, runMigrations } from '#lib/services/migrationService.js';
+import * as petService from '#lib/services/petService.js';
+import { compareGeneIds, decodeLoci, encodeLoci } from '#lib/utils/lociCodec.js';
+import { loadAllPetLoci } from '#lib/utils/petLoci.js';
 
 const SAMPLE_BEEWASP = readFileSync(resolve('data/Genes_SampleFaeBee.txt'), 'utf-8');
 

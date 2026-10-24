@@ -2,7 +2,7 @@
  * Genome file parser for Gorgonetics.
  */
 
-import type { Gene, GeneType, Genome } from '$lib/types/index.js';
+import type { Gene, GeneType, Genome } from '#lib/types/index.js';
 
 const VALID_GENE_CHARS = new Set(['R', 'D', 'x', '?']);
 

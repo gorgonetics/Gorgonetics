@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { rankBreedingPairs } from '$lib/services/breedingService.js';
-import { closeDatabase, initDatabase } from '$lib/services/database.js';
-import * as geneService from '$lib/services/geneService.js';
-import { runMigrations } from '$lib/services/migrationService.js';
-import { computeOffspringTrio } from '$lib/services/offspringTrioService.js';
-import * as petService from '$lib/services/petService.js';
-import type { Pet } from '$lib/types/index.js';
-import { Gender } from '$lib/types/index.js';
+import { rankBreedingPairs } from '#lib/services/breedingService.js';
+import { closeDatabase, initDatabase } from '#lib/services/database.js';
+import * as geneService from '#lib/services/geneService.js';
+import { runMigrations } from '#lib/services/migrationService.js';
+import { computeOffspringTrio } from '#lib/services/offspringTrioService.js';
+import * as petService from '#lib/services/petService.js';
+import type { Pet } from '#lib/types/index.js';
+import { Gender } from '#lib/types/index.js';
 
 /** Three-locus beewasp genome at 01A1, 01A2, 01A3, alleles set per test. */
 function beewaspGenome(name: string, alleles: string) {

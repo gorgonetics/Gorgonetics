@@ -1,6 +1,6 @@
 <script lang="ts">
-import type { StudyFinding } from '$lib/utils/attributeStudy.js';
-import { type SortableColumn, sortByColumn } from '$lib/utils/sortColumn.js';
+import type { StudyFinding } from '#lib/utils/attributeStudy.js';
+import { type SortableColumn, sortByColumn } from '#lib/utils/sortColumn.js';
 
 interface Props {
   findings: readonly StudyFinding[];

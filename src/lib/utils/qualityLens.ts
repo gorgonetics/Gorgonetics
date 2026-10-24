@@ -10,11 +10,11 @@
  * Pure: no DB, no Svelte.
  */
 
-import { type Gender, GeneType } from '$lib/types/index.js';
-import type { ParsedChromosome } from '$lib/utils/geneAnalysis.js';
-import type { QualityContribution, QualityStanding } from '$lib/utils/geneticQuality.js';
-import type { PetLoci } from '$lib/utils/petLoci.js';
-import { escapeHtml } from '$lib/utils/string.js';
+import { type Gender, GeneType } from '#lib/types/index.js';
+import type { ParsedChromosome } from '#lib/utils/geneAnalysis.js';
+import type { QualityContribution, QualityStanding } from '#lib/utils/geneticQuality.js';
+import type { PetLoci } from '#lib/utils/petLoci.js';
+import { escapeHtml } from '#lib/utils/string.js';
 
 /** The pet's genotypes from a rendered grid, so a preview pet needs no DB read. */
 export function gridToLoci(grid: Readonly<Record<string, ParsedChromosome>>): PetLoci {

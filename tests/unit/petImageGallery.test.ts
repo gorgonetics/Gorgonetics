@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, waitFor } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('$lib/services/imageService.js', () => ({
+vi.mock('#lib/services/imageService.js', () => ({
   getImagesForPet: vi.fn(),
   deleteImage: vi.fn(),
   pickImageFiles: vi.fn().mockResolvedValue([]),
@@ -9,9 +9,9 @@ vi.mock('$lib/services/imageService.js', () => ({
   uploadImage: vi.fn(),
 }));
 
-import PetImageGallery from '$lib/components/pet/PetImageGallery.svelte';
-import { getImagesForPet } from '$lib/services/imageService.js';
-import type { Pet, PetImage } from '$lib/types/index.js';
+import PetImageGallery from '#lib/components/pet/PetImageGallery.svelte';
+import { getImagesForPet } from '#lib/services/imageService.js';
+import type { Pet, PetImage } from '#lib/types/index.js';
 
 const IMAGES = [
   { id: 1, pet_id: 1, url: 'blob:a', original_name: 'a.png', sort_order: 0 },

@@ -4,10 +4,10 @@
  * `utils/targetedBreeding`; this layer picks the partners and loads the
  * genomes, gene table and effect sizes it needs.
  */
-import { Gender, type Pet } from '$lib/types/index.js';
-import { type AttributeMagnitudes, EMPTY_MAGNITUDES } from '$lib/utils/attributePoints.js';
-import { loadAllPetLoci, type PetLoci } from '$lib/utils/petLoci.js';
-import { capitalize } from '$lib/utils/string.js';
+import { Gender, type Pet } from '#lib/types/index.js';
+import { type AttributeMagnitudes, EMPTY_MAGNITUDES } from '#lib/utils/attributePoints.js';
+import { loadAllPetLoci, type PetLoci } from '#lib/utils/petLoci.js';
+import { capitalize } from '#lib/utils/string.js';
 import {
   bridgeOutlook,
   expectedFoals,
@@ -21,7 +21,7 @@ import {
   type SlotAttributes,
   type Wanted,
   wantedFrom,
-} from '$lib/utils/targetedBreeding.js';
+} from '#lib/utils/targetedBreeding.js';
 import { magnitudesForBreed } from './breedingService.js';
 import { getAllAttributeNames, normalizeSpecies } from './configService.js';
 import { getParsedGenesCached, isHorseBreedFiltered } from './geneService.js';

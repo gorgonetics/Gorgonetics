@@ -1,7 +1,7 @@
 <script lang="ts">
-import GenomeGridTrio from '$lib/components/comparison/GenomeGridTrio.svelte';
-import type { SelectedBreedingPair } from '$lib/stores/breeding.svelte.js';
-import type { Pet } from '$lib/types/index.js';
+import GenomeGridTrio from '#lib/components/comparison/GenomeGridTrio.svelte';
+import type { SelectedBreedingPair } from '#lib/stores/breeding.svelte.js';
+import type { Pet } from '#lib/types/index.js';
 
 interface Props {
   pair: SelectedBreedingPair;

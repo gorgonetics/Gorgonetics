@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { GeneType } from '$lib/types/index.js';
-import type { AttributeMagnitudes } from '$lib/utils/attributePoints.js';
-import type { PetLoci } from '$lib/utils/petLoci.js';
+import { GeneType } from '#lib/types/index.js';
+import type { AttributeMagnitudes } from '#lib/utils/attributePoints.js';
+import type { PetLoci } from '#lib/utils/petLoci.js';
 import {
   bridgeOutlook,
   expectedFoals,
@@ -10,7 +10,7 @@ import {
   partnerOutlook,
   type SlotAttributes,
   wantedFrom,
-} from '$lib/utils/targetedBreeding.js';
+} from '#lib/utils/targetedBreeding.js';
 
 const { DOMINANT: D, MIXED: x, RECESSIVE: R, UNKNOWN: U } = GeneType;
 

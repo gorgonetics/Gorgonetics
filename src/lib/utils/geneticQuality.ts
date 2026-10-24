@@ -55,11 +55,11 @@
  * Pure functions over already-loaded loci. No DB, no Svelte.
  */
 
-import type { AlleleDistribution, Gender } from '$lib/types/index.js';
-import { GeneType } from '$lib/types/index.js';
-import type { GeneSignSummary } from '$lib/utils/breedingGenetics.js';
-import { type LocusTally, RARITY_THRESHOLDS, type RarityOptions, rarityBucket } from '$lib/utils/geneFrequency.js';
-import type { PetLoci } from '$lib/utils/petLoci.js';
+import type { AlleleDistribution, Gender } from '#lib/types/index.js';
+import { GeneType } from '#lib/types/index.js';
+import type { GeneSignSummary } from '#lib/utils/breedingGenetics.js';
+import { type LocusTally, RARITY_THRESHOLDS, type RarityOptions, rarityBucket } from '#lib/utils/geneFrequency.js';
+import type { PetLoci } from '#lib/utils/petLoci.js';
 
 /** The two transmissible alleles. `x` carries one of each; `?` carries neither. */
 export type Allele = typeof GeneType.DOMINANT | typeof GeneType.RECESSIVE;

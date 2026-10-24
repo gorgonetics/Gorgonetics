@@ -8,23 +8,23 @@
  * they show only for one that is.
  */
 import { onDestroy, type Snippet, untrack } from 'svelte';
-import SharePetDialog from '$lib/components/community/SharePetDialog.svelte';
-import GeneStatsTable from '$lib/components/gene/GeneStatsTable.svelte';
-import GeneVisualizer from '$lib/components/gene/GeneVisualizer.svelte';
-import QualityGeneList from '$lib/components/gene/QualityGeneList.svelte';
-import BreedSelector from '$lib/components/shared/BreedSelector.svelte';
-import PetActions from '$lib/components/shared/PetActions.svelte';
-import StatusBanner from '$lib/components/shared/StatusBanner.svelte';
-import { petsForTier, type RarityTier } from '$lib/services/frequencyService.js';
-import { pets as allPets } from '$lib/stores/pets.js';
-import { settings } from '$lib/stores/settings.js';
-import type { DialogResult, Pet } from '$lib/types/index.js';
-import { HORSE_BREEDS } from '$lib/types/index.js';
-import type { ParsedChromosome } from '$lib/utils/geneAnalysis.js';
-import type { AttributeImpact } from '$lib/utils/geneImpact.js';
-import type { StatsMap } from '$lib/utils/geneStats.js';
-import type { QualityRow } from '$lib/utils/qualityLens.js';
-import { PREVIEW_PET_ID } from '$lib/utils/sharedPet.js';
+import SharePetDialog from '#lib/components/community/SharePetDialog.svelte';
+import GeneStatsTable from '#lib/components/gene/GeneStatsTable.svelte';
+import GeneVisualizer from '#lib/components/gene/GeneVisualizer.svelte';
+import QualityGeneList from '#lib/components/gene/QualityGeneList.svelte';
+import BreedSelector from '#lib/components/shared/BreedSelector.svelte';
+import PetActions from '#lib/components/shared/PetActions.svelte';
+import StatusBanner from '#lib/components/shared/StatusBanner.svelte';
+import { populationForTier, type RarityTier } from '#lib/services/frequencyService.js';
+import { pets as allPets } from '#lib/stores/pets.js';
+import { settings } from '#lib/stores/settings.js';
+import type { DialogResult, Pet } from '#lib/types/index.js';
+import { HORSE_BREEDS } from '#lib/types/index.js';
+import type { ParsedChromosome } from '#lib/utils/geneAnalysis.js';
+import type { AttributeImpact } from '#lib/utils/geneImpact.js';
+import type { StatsMap } from '#lib/utils/geneStats.js';
+import type { QualityRow } from '#lib/utils/qualityLens.js';
+import { PREVIEW_PET_ID } from '#lib/utils/sharedPet.js';
 import PetImageGallery from './PetImageGallery.svelte';
 
 interface GeneVisualizerInstance {
@@ -102,7 +102,7 @@ let shareStatus = $state<DialogResult | null>(null);
 // your genetic stock. It also keeps the default clear of the small-baseline
 // regime where the sole-carrier step is suppressed.
 let rarityPopulation = $state<RarityTier>('all');
-const populationPets = $derived(petsForTier(rarityPopulation, $allPets));
+const population = $derived(populationForTier(rarityPopulation, $allPets));
 
 function handleShareResult(result: DialogResult): void {
   shareStatus = result;
@@ -276,7 +276,7 @@ onDestroy(() => {
                     class="seg-btn view-btn"
                     class:active={!galleryOpen && currentView === "rarity"}
                     data-testid="view-rarity-btn"
-                    title="Shade each gene by how rare its value is across your pets"
+                    title="Shade each gene by how rare its value is across the baseline"
                     onclick={() => handleViewChange("rarity")}
                 >
                     Rarity
@@ -322,11 +322,14 @@ onDestroy(() => {
                     >
                         All my pets
                     </button>
-                    <!-- Deferred, not forgotten: a community baseline needs a
-                         precomputed aggregate rather than fetching every genome.
-                         Shown disabled so the tiering stays legible. -->
-                    <button class="seg-btn view-btn" disabled title="Needs a shared aggregate — not yet available">
-                        Community · soon
+                    <button
+                        class="seg-btn view-btn"
+                        class:active={rarityPopulation === "community"}
+                        data-testid="rarity-pop-community"
+                        title="The shared catalogue as last fetched in the Study tab: rare among uploaded pets"
+                        onclick={() => { rarityPopulation = "community"; }}
+                    >
+                        Community
                     </button>
                 </div>
             {/if}
@@ -404,7 +407,7 @@ onDestroy(() => {
         <div class="visualizer-container">
             <!-- Keyed on the grid: previews share one id, so a new genome must remount. -->
             {#key grid}
-                <GeneVisualizer {pet} gridOverride={grid} {populationPets} bind:this={geneVisualizerRef} />
+                <GeneVisualizer {pet} gridOverride={grid} {population} bind:this={geneVisualizerRef} />
             {/key}
         </div>
 

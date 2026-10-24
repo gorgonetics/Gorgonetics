@@ -7,22 +7,22 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 // it can share. These tests drive that path with `genome_text` absent on
 // the prop (the production list scenario) and control the fetch result.
 
-vi.mock('$lib/firebase.js', () => ({ isPlaceholderConfig: false }));
-vi.mock('$lib/utils/focusTrap.js', () => ({ focusTrap: () => ({}) }));
+vi.mock('#lib/firebase.js', () => ({ isPlaceholderConfig: false }));
+vi.mock('#lib/utils/focusTrap.js', () => ({ focusTrap: () => ({}) }));
 
 const getPetGenomeText = vi.fn();
-vi.mock('$lib/services/petService.js', () => ({
+vi.mock('#lib/services/petService.js', () => ({
   getPetGenomeText: (id: number) => getPetGenomeText(id),
 }));
 
 const uploadPet = vi.fn();
-vi.mock('$lib/services/shareService.js', () => ({
+vi.mock('#lib/services/shareService.js', () => ({
   uploadPet: (pet: unknown) => uploadPet(pet),
   sanitizeTags: (tags: unknown) => tags ?? [],
 }));
 
-import SharePetDialog from '$lib/components/community/SharePetDialog.svelte';
-import type { Pet } from '$lib/types/index.js';
+import SharePetDialog from '#lib/components/community/SharePetDialog.svelte';
+import type { Pet } from '#lib/types/index.js';
 
 afterEach(() => {
   cleanup();

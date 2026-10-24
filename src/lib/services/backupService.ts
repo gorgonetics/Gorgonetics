@@ -12,10 +12,10 @@ import type {
   GorgonExportMetadata,
   ImportOptions,
   ImportResult,
-} from '$lib/types/index.js';
-import { isTauri } from '$lib/utils/environment.js';
-import { decodeLoci, encodeLoci, layoutId, storedGenomeEntries } from '$lib/utils/lociCodec.js';
-import { now } from '$lib/utils/timestamp.js';
+} from '#lib/types/index.js';
+import { isTauri } from '#lib/utils/environment.js';
+import { decodeLoci, encodeLoci, layoutId, storedGenomeEntries } from '#lib/utils/lociCodec.js';
+import { now } from '#lib/utils/timestamp.js';
 import { getDb, type TxStatement } from './database.js';
 import { refreshGeneTemplatesIfChanged } from './demoService.js';
 import { pickExportSavePath, saveExportBinaryFile } from './fileService.js';

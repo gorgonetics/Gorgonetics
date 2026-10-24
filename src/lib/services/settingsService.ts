@@ -4,7 +4,7 @@
  * Each setting has a typed default; missing keys fall back to defaults.
  */
 
-import { now } from '$lib/utils/timestamp.js';
+import { now } from '#lib/utils/timestamp.js';
 import { getDb } from './database.js';
 
 /** SHA-256 of the gene template bundle last applied to the genes table (demoService). */

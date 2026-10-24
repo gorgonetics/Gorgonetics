@@ -12,7 +12,7 @@
  * point so tests (including the Firestore Emulator integration tests in
  * `tests/integration/`) can inject a non-production Firestore instance
  * without having to mock module-level state. Production callers omit the
- * argument and get the singleton from `$lib/firebase`.
+ * argument and get the singleton from `#lib/firebase.js`.
  *
  * The catalogue is **add-only**. There is no auth and nothing is ever
  * mutated: the *first* share of a genome writes `/pets/{hash}` (metadata)
@@ -55,19 +55,19 @@ import {
   writeBatch,
 } from 'firebase/firestore';
 
-import { firestore as defaultFirestore } from '$lib/firebase.js';
-import { CURRENT_SCHEMA_VERSION } from '$lib/services/migrationService.js';
+import { firestore as defaultFirestore } from '#lib/firebase.js';
+import { CURRENT_SCHEMA_VERSION } from '#lib/services/migrationService.js';
 import {
   findPetByHash,
   getPet,
   getPetGenomeText,
   updatePet,
   uploadPet as uploadPetLocally,
-} from '$lib/services/petService.js';
-import { Gender, type ListPetsOpts, type Pet, type SharedPet, type SharedPetsPage } from '$lib/types/index.js';
-import { isPermissionDenied } from '$lib/utils/error.js';
-import { sha256Hex } from '$lib/utils/hash.js';
-import { ATTRIBUTE_KEYS, carriesReadings, mergeCorrectionIdentity } from '$lib/utils/sharedPet.js';
+} from '#lib/services/petService.js';
+import { Gender, type ListPetsOpts, type Pet, type SharedPet, type SharedPetsPage } from '#lib/types/index.js';
+import { isPermissionDenied } from '#lib/utils/error.js';
+import { sha256Hex } from '#lib/utils/hash.js';
+import { ATTRIBUTE_KEYS, carriesReadings, mergeCorrectionIdentity } from '#lib/utils/sharedPet.js';
 
 declare const __APP_VERSION__: string;
 const APP_VERSION = __APP_VERSION__;

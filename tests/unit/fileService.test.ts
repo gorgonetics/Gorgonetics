@@ -8,7 +8,7 @@ import {
   readBinaryFile,
   saveExportBinaryFile,
   saveExportTextFile,
-} from '$lib/services/fileService.js';
+} from '#lib/services/fileService.js';
 
 // All tests run outside Tauri (isTauri() returns false), testing browser fallback paths.
 

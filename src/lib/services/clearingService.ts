@@ -3,7 +3,7 @@
  * clear foal, and which two-step routes get there when no cross can. The
  * arithmetic is in `utils/chromosomeClearing`.
  */
-import { Gender, type Pet } from '$lib/types/index.js';
+import { Gender, type Pet } from '#lib/types/index.js';
 import {
   type AnimalStatus,
   allelesToGo,
@@ -15,8 +15,8 @@ import {
   type Homozygote,
   type PairClearing,
   pairClearing,
-} from '$lib/utils/chromosomeClearing.js';
-import { loadAllPetLoci, type PetLoci } from '$lib/utils/petLoci.js';
+} from '#lib/utils/chromosomeClearing.js';
+import { loadAllPetLoci, type PetLoci } from '#lib/utils/petLoci.js';
 import { normalizeSpecies } from './configService.js';
 import { getParsedGenesCached } from './geneService.js';
 

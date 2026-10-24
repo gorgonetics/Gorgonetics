@@ -1,6 +1,6 @@
 {
   "name": "gorgonetics",
-  "version": "0.11.0",
+  "version": "0.12.0",
   "description": "Gorgon genetics breeding tool for Project Gorgon",
   "type": "module",
   "private": true,
@@ -24,7 +24,8 @@
     "test:watch": "svelte-kit sync && vitest",
     "test:firestore": "svelte-kit sync && firebase emulators:exec --only firestore --project demo-gorgonetics 'vitest run --config vitest.integration.config.js'",
     "test:e2e": "playwright test",
-    "measure:bases": "svelte-kit sync && vitest run --config vitest.measure.config.js --disableConsoleIntercept",
+    "measure:bases": "svelte-kit sync && vitest run --config vitest.measure.config.js tests/measure/baseBounds.measure.ts --disableConsoleIntercept",
+    "measure:study": "svelte-kit sync && vitest run --config vitest.measure.config.js tests/measure/studyTime.measure.ts --disableConsoleIntercept",
     "test:e2e:headed": "playwright test --headed",
     "screenshots": "node scripts/capture-quickstart-screenshots.mjs",
     "monitor:spark": "node scripts/monitor-spark-usage.mjs",
@@ -35,9 +36,9 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.14",
-    "@playwright/test": "^1.63.0",
-    "@sveltejs/adapter-static": "^3.0.10",
-    "@sveltejs/kit": "^2.70.3",
+    "@playwright/test": "^1.64.0",
+    "@sveltejs/adapter-static": "^4.0.0",
+    "@sveltejs/kit": "^3.1.0",
     "@sveltejs/vite-plugin-svelte": "^7.3.1",
     "@tauri-apps/cli": "^2.12.1",
     "@testing-library/jest-dom": "^7.0.1",
@@ -45,7 +46,7 @@
     "@types/node": "^26.4.0",
     "@vitest/ui": "^4.1.10",
     "firebase-admin": "^14.5.0",
-    "firebase-tools": "^15.26.0",
+    "firebase-tools": "^15.33.0",
     "jsdom": "^30.0.1",
     "svelte": "^5.57.1",
     "svelte-check": "^4.7.6",
@@ -58,8 +59,8 @@
     "@tauri-apps/api": "^2.12.1",
     "@tauri-apps/plugin-dialog": "^2.8.1",
     "@tauri-apps/plugin-fs": "^2.6.0",
-    "@tauri-apps/plugin-process": "^2.3.1",
-    "@tauri-apps/plugin-sql": "^2.4.1",
+    "@tauri-apps/plugin-process": "^2.4.0",
+    "@tauri-apps/plugin-sql": "^2.6.0",
     "@tauri-apps/plugin-updater": "^2.13.2",
     "firebase": "^12.19.0",
     "jszip": "^3.10.2"
@@ -72,5 +73,8 @@
   ],
   "author": "Javier Lopez Pena",
   "license": "MIT",
-  "packageManager": "pnpm@11.0.9"
+  "packageManager": "pnpm@11.0.9",
+  "imports": {
+    "#lib/*": "./src/lib/*"
+  }
 }

@@ -22,9 +22,9 @@
  * append a superseding entry.
  */
 import { get } from 'svelte/store';
-import { isPlaceholderConfig } from '$lib/firebase.js';
-import { pets } from '$lib/stores/pets.js';
-import { settings } from '$lib/stores/settings.js';
+import { isPlaceholderConfig } from '#lib/firebase.js';
+import { pets } from '#lib/stores/pets.js';
+import { settings } from '#lib/stores/settings.js';
 import { parseStructuredPetName } from './nameParser.js';
 import { type BulkUploadSummary, uploadPets } from './shareService.js';
 

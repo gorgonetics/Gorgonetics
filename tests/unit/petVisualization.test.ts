@@ -2,7 +2,7 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render } from '@testing-library/svelte';
 import { writable } from 'svelte/store';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { Pet } from '$lib/types/index.js';
+import type { Pet } from '#lib/types/index.js';
 
 // Covers the detail header rework (#394/#395): the shared BreedSelector
 // popover replaces the 11-wide abbreviation row (with the Auto follow-the-pet
@@ -11,31 +11,31 @@ import type { Pet } from '$lib/types/index.js';
 // clears the sibling view highlight (the stale-highlight bug), and the pet
 // name is no longer duplicated under the DetailOverlay title.
 
-vi.mock('$lib/stores/settings.js', () => ({
+vi.mock('#lib/stores/settings.js', () => ({
   settings: writable<Record<string, unknown>>({}),
 }));
 
-vi.mock('$lib/stores/pets.js', () => ({
+vi.mock('#lib/stores/pets.js', () => ({
   appState: { deletePet: vi.fn(async () => {}) },
   // The rarity baseline population is derived from this store.
   pets: writable<Pet[]>([]),
 }));
 
 // Stub the heavy/irrelevant children; the header behaviour is what's under test.
-vi.mock('$lib/components/gene/GeneVisualizer.svelte', async () => ({
+vi.mock('#lib/components/gene/GeneVisualizer.svelte', async () => ({
   default: (await import('./fixtures/ChildStub.svelte')).default,
 }));
-vi.mock('$lib/components/gene/GeneStatsTable.svelte', async () => ({
+vi.mock('#lib/components/gene/GeneStatsTable.svelte', async () => ({
   default: (await import('./fixtures/ChildStub.svelte')).default,
 }));
-vi.mock('$lib/components/pet/PetImageGallery.svelte', async () => ({
+vi.mock('#lib/components/pet/PetImageGallery.svelte', async () => ({
   default: (await import('./fixtures/ChildStub.svelte')).default,
 }));
-vi.mock('$lib/components/community/SharePetDialog.svelte', async () => ({
+vi.mock('#lib/components/community/SharePetDialog.svelte', async () => ({
   default: (await import('./fixtures/ChildStub.svelte')).default,
 }));
 
-import PetVisualization from '$lib/components/pet/PetVisualization.svelte';
+import PetVisualization from '#lib/components/pet/PetVisualization.svelte';
 
 function makePet(overrides: Partial<Pet> = {}): Pet {
   return {
@@ -236,14 +236,14 @@ describe('PetVisualization detail header', () => {
       expect(getByTestId('rarity-pop-all').classList.contains('active')).toBe(false);
     });
 
-    it('offers Community as a disabled affordance so the tiering stays legible', async () => {
-      const { container } = render(PetVisualization, { pet: makePet() });
+    it('offers Community as a working baseline', async () => {
+      const { container, getByTestId } = render(PetVisualization, { pet: makePet() });
       await fireEvent.click(btn(container, 'Rarity'));
-      const community = [...(q(container, '.rarity-population') as HTMLElement).querySelectorAll('button')].find((b) =>
-        b.textContent?.includes('Community'),
-      ) as HTMLButtonElement;
-      expect(community).toBeDefined();
-      expect(community.disabled).toBe(true);
+      const community = getByTestId('rarity-pop-community') as HTMLButtonElement;
+      expect(community.disabled).toBe(false);
+      await fireEvent.click(community);
+      expect(community.classList.contains('active')).toBe(true);
+      expect(getByTestId('rarity-pop-all').classList.contains('active')).toBe(false);
     });
 
     it('keeps the stats drawer MOUNTED in the rarity view — unmounting it resizes the grid', async () => {

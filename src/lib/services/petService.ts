@@ -2,14 +2,14 @@
  * Pet data service for Gorgonetics.
  */
 
-import type { GeneStatsEntry, GeneType, Genome, Pet } from '$lib/types/index.js';
-import { GENOME_FILE_MARKERS } from '$lib/types/index.js';
-import { fromGeneId, type ParsedChromosome, type ParsedGene, toGeneId } from '$lib/utils/geneAnalysis.js';
-import { sha256Hex } from '$lib/utils/hash.js';
-import { decodeLoci, encodeLoci } from '$lib/utils/lociCodec.js';
-import { ATTRIBUTE_KEYS } from '$lib/utils/sharedPet.js';
-import { capitalize } from '$lib/utils/string.js';
-import { now } from '$lib/utils/timestamp.js';
+import type { GeneStatsEntry, GeneType, Genome, Pet } from '#lib/types/index.js';
+import { GENOME_FILE_MARKERS } from '#lib/types/index.js';
+import { fromGeneId, type ParsedChromosome, type ParsedGene, toGeneId } from '#lib/utils/geneAnalysis.js';
+import { sha256Hex } from '#lib/utils/hash.js';
+import { decodeLoci, encodeLoci, storedGenomeEntries } from '#lib/utils/lociCodec.js';
+import { ATTRIBUTE_KEYS } from '#lib/utils/sharedPet.js';
+import { capitalize } from '#lib/utils/string.js';
+import { now } from '#lib/utils/timestamp.js';
 import { runBatchBackfill } from './backfill.js';
 import { getAttributeConfig, getDefaultValues, normalizeSpecies } from './configService.js';
 import { buildInClauseParams, getDb, type TxStatement, withTransaction } from './database.js';
@@ -58,6 +58,22 @@ let rosterAdditions = 0;
 /** Current upload count; see `rosterAdditions`. */
 export function localPetsAdded(): number {
   return rosterAdditions;
+}
+
+/**
+ * Counts genomes written in place under an existing pet id: the legacy
+ * `genome_text` backfill on re-import, and the `loci` repair.
+ *
+ * A genome cannot be edited, so every other roster change adds or removes ids,
+ * and a cache keyed on the id set sees it. These two can turn a pet that had
+ * no usable genome into one that has, under the same id. The rarity baselines
+ * read this rather than being cleared on every pet edit.
+ */
+let genomeRevision = 0;
+
+/** Current in-place genome write count; see `genomeRevision`. */
+export function localGenomesRevision(): number {
+  return genomeRevision;
 }
 
 /** A parsed genome's loci as `gene id → genotype` entries, in file order. */
@@ -133,6 +149,36 @@ async function loadLayouts(layouts: Iterable<string>): Promise<void> {
 }
 
 /**
+ * Decode stored `loci` / `loci_layout` columns from any table that keys its
+ * layouts into `locus_layouts`. A row whose columns are empty, name an unknown
+ * layout or disagree with it in length decodes to null.
+ */
+export async function decodeLociColumns(
+  rows: ReadonlyArray<{ loci: string | null; loci_layout: string | null }>,
+): Promise<Array<Map<string, GeneType> | null>> {
+  await loadLayouts(rows.filter((row) => row.loci && row.loci_layout).map((row) => row.loci_layout as string));
+  return rows.map((row) => {
+    if (!row.loci || !row.loci_layout) return null;
+    const ids = layoutCache.get(row.loci_layout);
+    return ids ? decodeLoci(ids, row.loci) : null;
+  });
+}
+
+/**
+ * Loci of stored genomes: decoded from `loci` where the row has it, otherwise
+ * parsed from `genome_text`. Empty for a row with neither, or with a file that
+ * does not parse — one bad row must not fail the rest.
+ */
+export async function lociOfStoredGenomes(
+  rows: ReadonlyArray<{ loci: string | null; loci_layout: string | null; genome_text: string | null }>,
+): Promise<Array<Map<string, GeneType>>> {
+  const decoded = await decodeLociColumns(rows);
+  return rows.map(
+    (row, i) => decoded[i] ?? new Map(storedGenomeEntries(null, row.genome_text) as Array<[string, GeneType]>),
+  );
+}
+
+/**
  * Read the `loci` column for a set of pets, decoded to `gene id → genotype`.
  *
  * One row per pet instead of one per locus (#554). Pets whose column is still
@@ -150,13 +196,11 @@ export async function readPetLoci(petIds: readonly number[]): Promise<Map<number
       `SELECT id, loci, loci_layout FROM pets WHERE id IN (${placeholders})`,
       params,
     );
-    const filled = rows.filter((row) => row.loci && row.loci_layout);
-    await loadLayouts(filled.map((row) => row.loci_layout as string));
-    for (const row of filled) {
-      const ids = layoutCache.get(row.loci_layout as string);
-      const loci = ids ? decodeLoci(ids, row.loci as string) : null;
+    const decoded = await decodeLociColumns(rows);
+    rows.forEach((row, i) => {
+      const loci = decoded[i];
       if (loci) out.set(Number(row.id), loci);
-    }
+    });
   }
   return out;
 }
@@ -211,6 +255,7 @@ export async function ensurePetLociPopulated(petId: number): Promise<boolean> {
     console.warn(`ensurePetLociPopulated: failed for pet ${petId}`, e);
     return false;
   }
+  genomeRevision++;
   return true;
 }
 
@@ -297,7 +342,6 @@ export async function getPetGeneStats(
   breed?: string,
 ): Promise<{ stats: Record<string, GeneStatsEntry>; totalGenes: number; neutralGenes: number }> {
   const speciesKey = normalizeSpecies(species);
-  const db = getDb();
   const rows = await selectLociRows(petId);
   const parsedGenes = await getParsedGenesCached(speciesKey);
   const stats: Record<string, GeneStatsEntry> = {};
@@ -630,6 +674,7 @@ export async function uploadPet(content: string, options: UploadPetOptions = {})
       // A backfilled genome can make an animal studyable that was not, so
       // anything caching a study result has to re-solve.
       rosterRevision++;
+      genomeRevision++;
       // Record the ledger entry so the auto-scanner skips this file on
       // future passes — without it the next scan would re-pick the same
       // file, hit the now-NOT-EMPTY genome_text branch below, and report

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { GeneType } from '$lib/types/index.js';
+import { GeneType } from '#lib/types/index.js';
 import {
   allelesToGo,
   animalStatus,
@@ -8,8 +8,8 @@ import {
   closerThan,
   pairClearing,
   type SlotSigns,
-} from '$lib/utils/chromosomeClearing.js';
-import type { PetLoci } from '$lib/utils/petLoci.js';
+} from '#lib/utils/chromosomeClearing.js';
+import type { PetLoci } from '#lib/utils/petLoci.js';
 
 const { DOMINANT: D, MIXED: x, RECESSIVE: R, UNKNOWN: U } = GeneType;
 const loci = (entries: Record<string, GeneType>): PetLoci => new Map(Object.entries(entries));

@@ -5,7 +5,7 @@
  */
 
 import { invoke } from '@tauri-apps/api/core';
-import { isTauri } from '$lib/utils/environment.js';
+import { isTauri } from '#lib/utils/environment.js';
 
 let db: DatabaseAdapter | null = null;
 

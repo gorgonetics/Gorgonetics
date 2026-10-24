@@ -10,11 +10,11 @@
  * AND desirable" pairing the design otherwise defers to #369.
  */
 
-import { EFFECT_COLORS } from '$lib/theme/gene-colors.js';
-import { GeneType } from '$lib/types/index.js';
-import { isNoEffect, parseEffect } from '$lib/utils/geneAnalysis.js';
-import { type Allele, type LocusTally, RARITY_BUCKET_NEVER } from '$lib/utils/geneFrequency.js';
-import { escapeHtml, pluralise } from '$lib/utils/string.js';
+import { EFFECT_COLORS } from '#lib/theme/gene-colors.js';
+import { GeneType } from '#lib/types/index.js';
+import { isNoEffect, parseEffect } from '#lib/utils/geneAnalysis.js';
+import { type Allele, type LocusTally, RARITY_BUCKET_NEVER } from '#lib/utils/geneFrequency.js';
+import { escapeHtml, pluralise } from '#lib/utils/string.js';
 
 /** Structural subset of `RarityLookup`, so this stays unit-testable with a stub. */
 export interface RarityTooltipSource {

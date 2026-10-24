@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { GeneType } from '$lib/types/index.js';
-import { computeLocusFrequencies, rarityBucket } from '$lib/utils/geneFrequency.js';
-import type { PetLoci } from '$lib/utils/petLoci.js';
+import { GeneType } from '#lib/types/index.js';
+import { computeLocusFrequencies, rarityBucket } from '#lib/utils/geneFrequency.js';
+import type { PetLoci } from '#lib/utils/petLoci.js';
 
 const TYPES = [GeneType.DOMINANT, GeneType.RECESSIVE, GeneType.MIXED, GeneType.UNKNOWN];
 const LOCI = 1576; // a real horse genome

@@ -6,17 +6,17 @@ import {
   rankBridges,
   rankPartners,
   type TargetedPlan,
-} from '$lib/services/targetedBreedingService.js';
-import { breedingView } from '$lib/stores/breeding.svelte.js';
-import type { Pet } from '$lib/types/index.js';
+} from '#lib/services/targetedBreedingService.js';
+import { breedingView } from '#lib/stores/breeding.svelte.js';
+import type { Pet } from '#lib/types/index.js';
 
-vi.mock('$lib/services/targetedBreedingService.js', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('$lib/services/targetedBreedingService.js')>()),
+vi.mock('#lib/services/targetedBreedingService.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('#lib/services/targetedBreedingService.js')>()),
   rankPartners: vi.fn(),
   rankBridges: vi.fn(),
 }));
 
-vi.mock('$lib/services/studyService.js', () => {
+vi.mock('#lib/services/studyService.js', () => {
   const empty = { points: new Map<string, number>(), coverage: new Map() };
   return {
     attributeMagnitudesFor: vi.fn(async () => empty),
@@ -24,7 +24,7 @@ vi.mock('$lib/services/studyService.js', () => {
   };
 });
 
-import ImproveHorse from '$lib/components/breeding/ImproveHorse.svelte';
+import ImproveHorse from '#lib/components/breeding/ImproveHorse.svelte';
 
 const pet = (over: Partial<Pet>): Pet =>
   ({

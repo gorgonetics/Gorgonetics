@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('$lib/firebase.js', () => ({
+vi.mock('#lib/firebase.js', () => ({
   // Placeholder check used by `loadInitial` to short-circuit when the
   // build doesn't have a real Firestore wired up. We set it to `false`
   // so the store's happy paths exercise the actual fetch/cache logic.
@@ -8,7 +8,7 @@ vi.mock('$lib/firebase.js', () => ({
   firestore: { __mock: 'firestore' },
 }));
 
-vi.mock('$lib/services/shareService.js', () => ({
+vi.mock('#lib/services/shareService.js', () => ({
   listPets: vi.fn(),
   importCommunityPet: vi.fn(),
   getSharedPet: vi.fn(),
@@ -17,7 +17,7 @@ vi.mock('$lib/services/shareService.js', () => ({
   verifySharedPet: vi.fn(),
 }));
 
-vi.mock('$lib/stores/pets.js', async () => {
+vi.mock('#lib/stores/pets.js', async () => {
   const { writable } = await import('svelte/store');
   return {
     // The store subscribes to `activeTab` at module scope to clear the open
@@ -34,7 +34,7 @@ import {
   type ImportResult,
   importCommunityPet as importCommunityPetReal,
   listPets as listPetsReal,
-} from '$lib/services/shareService.js';
+} from '#lib/services/shareService.js';
 import {
   _resetCommunityStoreState,
   clearSelection,
@@ -44,9 +44,9 @@ import {
   loadMore,
   selectedSharedPet,
   selectPet,
-} from '$lib/stores/community.svelte.js';
-import { activeTab, appState as appStateReal } from '$lib/stores/pets.js';
-import { Gender, type SharedPet } from '$lib/types/index.js';
+} from '#lib/stores/community.svelte.js';
+import { activeTab, appState as appStateReal } from '#lib/stores/pets.js';
+import { Gender, type SharedPet } from '#lib/types/index.js';
 
 // These modules are `vi.mock`ed above, so the imported bindings are
 // `vi.fn()` mocks at runtime. Re-expose them through `vi.mocked` so the

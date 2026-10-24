@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 // desync the nav highlight from what's visible and could bypass the editor's
 // unsaved-changes guard (#396).
 
-vi.mock('$lib/services/petService.js', () => ({
+vi.mock('#lib/services/petService.js', () => ({
   updatePet: vi.fn(),
   getAllPets: vi.fn(),
   deletePet: vi.fn(),
@@ -15,14 +15,14 @@ vi.mock('$lib/services/petService.js', () => ({
 }));
 
 // Stub DataMenu — it drags in backup/file services and is irrelevant here.
-vi.mock('$lib/components/layout/DataMenu.svelte', async () => ({
+vi.mock('#lib/components/layout/DataMenu.svelte', async () => ({
   default: (await import('./fixtures/ChildStub.svelte')).default,
 }));
 
-import TopBar from '$lib/components/layout/TopBar.svelte';
-import { activeTab, appState, canGoBack } from '$lib/stores/pets.js';
-import { editingPet, settingsOpen } from '$lib/stores/ui.js';
-import type { Pet } from '$lib/types/index.js';
+import TopBar from '#lib/components/layout/TopBar.svelte';
+import { activeTab, appState, canGoBack } from '#lib/stores/pets.js';
+import { editingPet, settingsOpen } from '#lib/stores/ui.js';
+import type { Pet } from '#lib/types/index.js';
 
 beforeEach(() => {
   let guard = 0;

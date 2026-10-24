@@ -6,17 +6,17 @@
  * for the arithmetic and its limits.
  */
 
-import { normalizeSpecies } from '$lib/services/configService.js';
-import { attributeMagnitudesFor, peekAttributeMagnitudes } from '$lib/services/studyService.js';
+import { normalizeSpecies } from '#lib/services/configService.js';
+import { attributeMagnitudesFor, peekAttributeMagnitudes } from '#lib/services/studyService.js';
 import {
   type BridgeResult,
   rankBridges,
   rankPartners,
   type TargetedPlan,
-} from '$lib/services/targetedBreedingService.js';
-import { breedingView } from '$lib/stores/breeding.svelte.js';
-import type { Pet } from '$lib/types/index.js';
-import { expectedFoals, type KeepRule, type PartnerOutlook } from '$lib/utils/targetedBreeding.js';
+} from '#lib/services/targetedBreedingService.js';
+import { breedingView } from '#lib/stores/breeding.svelte.js';
+import type { Pet } from '#lib/types/index.js';
+import { expectedFoals, type KeepRule, type PartnerOutlook } from '#lib/utils/targetedBreeding.js';
 
 interface Props {
   /** Stabled animals of the species: who can be improved. */

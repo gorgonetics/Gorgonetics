@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { type SortableColumn, sortByColumn } from '$lib/utils/sortColumn.js';
+import { type SortableColumn, sortByColumn } from '#lib/utils/sortColumn.js';
 
 interface Row {
   name: string;

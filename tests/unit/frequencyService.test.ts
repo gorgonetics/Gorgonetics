@@ -1,13 +1,20 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { closeDatabase, initDatabase } from '$lib/services/database.js';
-import { computeRarityLookup, invalidateRarityCache, petsForTier } from '$lib/services/frequencyService.js';
-import { runMigrations } from '$lib/services/migrationService.js';
-import * as petService from '$lib/services/petService.js';
-import { GeneType, type Pet } from '$lib/types/index.js';
-import { computeLocusFrequencies, RARITY_BUCKET_NEVER, RARITY_BUCKET_SOLE } from '$lib/utils/geneFrequency.js';
-import { loadAllPetLoci } from '$lib/utils/petLoci.js';
-import { buildRarityCSS } from '$lib/utils/rarityCSS.js';
-import { buildRarityTooltip } from '$lib/utils/rarityTooltip.js';
+import { closeDatabase, getDb, initDatabase } from '#lib/services/database.js';
+import {
+  computeCommunityRarityLookup,
+  computeRarityLookup,
+  loadRarityLookup,
+  populationForTier,
+  resetRarityCache,
+} from '#lib/services/frequencyService.js';
+import { runMigrations } from '#lib/services/migrationService.js';
+import * as petService from '#lib/services/petService.js';
+import { GeneType, type Pet } from '#lib/types/index.js';
+import { computeLocusFrequencies, RARITY_BUCKET_NEVER, RARITY_BUCKET_SOLE } from '#lib/utils/geneFrequency.js';
+import { encodeLoci, storedGenomeEntries } from '#lib/utils/lociCodec.js';
+import { loadAllPetLoci } from '#lib/utils/petLoci.js';
+import { buildRarityCSS } from '#lib/utils/rarityCSS.js';
+import { buildRarityTooltip } from '#lib/utils/rarityTooltip.js';
 
 const D = GeneType.DOMINANT;
 const R = GeneType.RECESSIVE;
@@ -39,7 +46,7 @@ describe('computeRarityLookup', () => {
     await closeDatabase();
     await initDatabase();
     await runMigrations();
-    invalidateRarityCache();
+    resetRarityCache();
   });
 
   it('scopes the baseline to one species — a beewasp cannot leak into a horse baseline', async () => {
@@ -72,7 +79,7 @@ describe('computeRarityLookup', () => {
     expect(lookup.measurable('01A1')).toBe(false);
     expect(lookup.bucketOf('01A1', D)).toBeNull();
 
-    // No `invalidateRarityCache()` between these two calls, deliberately: the
+    // No `resetRarityCache()` between these two calls, deliberately: the
     // options are part of the cache key, so the relaxed request must not be
     // served the strict baseline. Needing to clear the cache here was the shape
     // of the bug.
@@ -129,7 +136,7 @@ describe('the SQL aggregate agrees with the reference JS tally', () => {
     await closeDatabase();
     await initDatabase();
     await runMigrations();
-    invalidateRarityCache();
+    resetRarityCache();
   });
 
   /**
@@ -185,7 +192,7 @@ describe('uneven study depth within one population', () => {
     await closeDatabase();
     await initDatabase();
     await runMigrations();
-    invalidateRarityCache();
+    resetRarityCache();
   });
 
   /** Five horses, revealed to three different depths across four loci. */
@@ -285,7 +292,7 @@ describe('alleles nobody in the population carries', () => {
     await closeDatabase();
     await initDatabase();
     await runMigrations();
-    invalidateRarityCache();
+    resetRarityCache();
   });
 
   /** `n` horses, all pure dominant at every locus. */
@@ -334,7 +341,7 @@ describe('a pet with no usable gene projection', () => {
     await closeDatabase();
     await initDatabase();
     await runMigrations();
-    invalidateRarityCache();
+    resetRarityCache();
   });
 
   it('is excluded from the population rather than counted in the denominator', async () => {
@@ -363,29 +370,38 @@ describe('a pet with no usable gene projection', () => {
   });
 });
 
-describe('petsForTier', () => {
+describe('populationForTier', () => {
   const roster = [
     { id: 1, stabled: true },
     { id: 2, stabled: false },
     { id: 3, stabled: true },
   ] as unknown as Pet[];
+  const pets = (tier: 'stabled' | 'all', list: Pet[]): readonly Pet[] => {
+    const population = populationForTier(tier, list);
+    if (population.tier === 'community') throw new Error('expected a local tier');
+    return population.pets;
+  };
 
   it('keeps only stabled pets for the stabled tier', () => {
-    expect(petsForTier('stabled', roster).map((p) => p.id)).toEqual([1, 3]);
+    expect(pets('stabled', roster).map((p) => p.id)).toEqual([1, 3]);
   });
 
   it('returns the whole roster for the all tier, untouched', () => {
-    expect(petsForTier('all', roster)).toBe(roster);
+    expect(pets('all', roster)).toBe(roster);
   });
 
   it('does not mutate the roster it was given', () => {
-    petsForTier('stabled', roster);
+    pets('stabled', roster);
     expect(roster).toHaveLength(3);
   });
 
   it('treats a missing stabled flag as not stabled rather than throwing', () => {
     const partial = [{ id: 9 }] as unknown as Pet[];
-    expect(petsForTier('stabled', partial)).toEqual([]);
+    expect(pets('stabled', partial)).toEqual([]);
+  });
+
+  it('carries no pets for the community tier: the cache is the population', () => {
+    expect(populationForTier('community', roster)).toEqual({ tier: 'community' });
   });
 });
 
@@ -394,7 +410,7 @@ describe('baseline caching', () => {
     await closeDatabase();
     await initDatabase();
     await runMigrations();
-    invalidateRarityCache();
+    resetRarityCache();
   });
 
   it('reuses the baseline for the same id SET, not the same array identity', async () => {
@@ -420,15 +436,205 @@ describe('baseline caching', () => {
     expect(pair.petCount).toBe(2);
   });
 
-  it('drops everything on invalidate, so an edited pet cannot serve a stale baseline', async () => {
+  it('keeps the baseline across a pet edit: nothing an edit can change feeds it', async () => {
     const a = await upload('Horse', 'H1', 'DDD');
     const b = await upload('Horse', 'H2', 'DRD');
     const first = await computeRarityLookup([a, b], 'Horse');
 
-    invalidateRarityCache();
+    await petService.updatePet(a.id, { name: 'Renamed', intelligence: 70, breed: 'Kurbone' });
+    expect(await computeRarityLookup([a, b], 'Horse')).toBe(first);
+  });
+
+  it('rebuilds when a genome is written in place under the same id', async () => {
+    // The loci repair turns a pet with no usable genome into one with a genome,
+    // without changing the id set the key is built from.
+    const a = await upload('Horse', 'H1', 'DDD');
+    const b = await upload('Horse', 'H2', 'DRD');
+    const first = await computeRarityLookup([a, b], 'Horse');
+
+    await getDb().execute('UPDATE pets SET loci = $empty WHERE id = $id', { empty: '', id: b.id });
+    expect(await petService.ensurePetLociPopulated(b.id)).toBe(true);
     const second = await computeRarityLookup([a, b], 'Horse');
 
     expect(second).not.toBe(first);
-    expect(second.tally('01A1')).toEqual(first.tally('01A1'));
+    expect(second.tally('01A2')).toEqual(first.tally('01A2'));
+  });
+});
+
+describe('computeCommunityRarityLookup', () => {
+  beforeEach(async () => {
+    await closeDatabase();
+    await initDatabase();
+    await runMigrations();
+    resetRarityCache();
+  });
+
+  async function cache(
+    hash: string,
+    species: string,
+    genes: string,
+    extra: { fetchedAt?: string; usable?: number; useForStudies?: number } = {},
+  ): Promise<void> {
+    await getDb().execute(
+      `INSERT OR REPLACE INTO study_corpus
+         (content_hash, species, breed, name, attributes, genome_text, fetched_at, use_for_studies, study_usable)
+       VALUES ($hash, $species, $breed, $name, $attributes, $genome, $ts, $use, $usable)`,
+      {
+        hash,
+        species,
+        breed: '',
+        name: hash,
+        attributes: '{}',
+        genome: genome(species === 'beewasp' ? 'BeeWasp' : 'Horse', hash, genes),
+        ts: extra.fetchedAt ?? '2026-10-01T00:00:00.000Z',
+        use: extra.useForStudies ?? 1,
+        usable: extra.usable ?? 1,
+      },
+    );
+  }
+
+  it('tallies the cached genomes of one species only', async () => {
+    await cache('h1', 'horse', 'DDx');
+    await cache('h2', 'horse', 'DRx');
+    await cache('b1', 'beewasp', 'RRR');
+
+    const lookup = await computeCommunityRarityLookup('Horse');
+
+    expect(lookup.petCount).toBe(2);
+    expect(lookup.tally('01A1')).toEqual({ knownPets: 2, pureD: 2, pureR: 0, mixed: 0 });
+    expect(lookup.tally('01A2')).toEqual({ knownPets: 2, pureD: 1, pureR: 1, mixed: 0 });
+    expect(lookup.tally('01A3')).toEqual({ knownPets: 2, pureD: 0, pureR: 0, mixed: 2 });
+  });
+
+  it('counts genomes the study cannot use or was told to skip: rarity reads only the genome', async () => {
+    await cache('h1', 'horse', 'DDD');
+    await cache('h2', 'horse', 'RRR', { usable: 0 });
+    await cache('h3', 'horse', 'RRR', { useForStudies: 0 });
+
+    expect((await computeCommunityRarityLookup('Horse')).petCount).toBe(3);
+  });
+
+  it('leaves out local pets that were never shared', async () => {
+    await cache('h1', 'horse', 'DDD');
+    await upload('Horse', 'Local', 'RRR');
+
+    const lookup = await computeCommunityRarityLookup('Horse');
+
+    expect(lookup.petCount).toBe(1);
+    expect(lookup.tally('01A1').pureR).toBe(0);
+  });
+
+  it('is an empty baseline, not an error, when nothing is cached', async () => {
+    const lookup = await computeCommunityRarityLookup('Horse');
+    expect(lookup.petCount).toBe(0);
+    expect(lookup.measurable('01A1')).toBe(false);
+  });
+
+  it('picks up a refresh without an explicit invalidation', async () => {
+    await cache('h1', 'horse', 'DDD');
+    expect((await computeCommunityRarityLookup('Horse')).petCount).toBe(1);
+
+    await cache('h2', 'horse', 'RRR', { fetchedAt: '2026-10-02T00:00:00.000Z' });
+    expect((await computeCommunityRarityLookup('Horse')).petCount).toBe(2);
+  });
+
+  it('serves a repeat read from the cache', async () => {
+    await cache('h1', 'horse', 'DDD');
+    const first = await computeCommunityRarityLookup('Horse');
+    expect(await computeCommunityRarityLookup('Horse')).toBe(first);
+  });
+
+  /** A row as a current refresh writes it: the genome encoded into `loci`. */
+  async function cacheEncoded(hash: string, genes: string, fetchedAt = '2026-10-01T00:00:00.000Z'): Promise<void> {
+    const text = genome('Horse', hash, genes);
+    const encoded = await encodeLoci(storedGenomeEntries(null, text));
+    await getDb().execute('INSERT OR REPLACE INTO locus_layouts (layout, ids) VALUES ($layout, $ids)', {
+      layout: encoded.layout,
+      ids: encoded.ids,
+    });
+    await getDb().execute(
+      `INSERT OR REPLACE INTO study_corpus
+         (content_hash, species, breed, name, attributes, genome_text, fetched_at, use_for_studies, study_usable,
+          loci, loci_layout)
+       VALUES ($hash, $species, $breed, $name, $attributes, $genome, $ts, $use, $usable, $loci, $layout)`,
+      {
+        hash,
+        species: 'horse',
+        breed: '',
+        name: hash,
+        attributes: '{}',
+        genome: text,
+        ts: fetchedAt,
+        use: 1,
+        usable: 1,
+        loci: encoded.loci,
+        layout: encoded.layout,
+      },
+    );
+  }
+
+  it('decodes rows that carry loci, and advises a refresh only for rows an older build cached', async () => {
+    await cacheEncoded('h1', 'DDx');
+    await cacheEncoded('h2', 'DRx');
+    const current = await computeCommunityRarityLookup('Horse');
+    expect(current.tally('01A2')).toEqual({ knownPets: 2, pureD: 1, pureR: 1, mixed: 0 });
+    expect(current.refreshAdvised).toBe(false);
+
+    await cache('h3', 'horse', 'RRR', { fetchedAt: '2026-10-02T00:00:00.000Z' });
+    const mixed = await computeCommunityRarityLookup('Horse');
+    expect(mixed.petCount).toBe(3);
+    expect(mixed.refreshAdvised).toBe(true);
+  });
+
+  it('skips a cached genome that does not parse rather than failing the baseline', async () => {
+    await cache('h1', 'horse', 'DDD');
+    await getDb().execute(
+      `INSERT OR REPLACE INTO study_corpus
+         (content_hash, species, breed, name, attributes, genome_text, fetched_at, use_for_studies, study_usable)
+       VALUES ($hash, $species, $breed, $name, $attributes, $genome, $ts, $use, $usable)`,
+      {
+        hash: 'bad',
+        species: 'horse',
+        breed: '',
+        name: 'bad',
+        attributes: '{}',
+        genome: 'not a genome file',
+        ts: '2026-10-01T00:00:00.000Z',
+        use: 1,
+        usable: 1,
+      },
+    );
+    expect((await computeCommunityRarityLookup('Horse')).petCount).toBe(1);
+  });
+
+  it('rebuilds when a refresh rewrites the rows, even at the same count', async () => {
+    await cacheEncoded('h1', 'DDD');
+    expect((await computeCommunityRarityLookup('Horse')).tally('01A1').pureD).toBe(1);
+
+    await cacheEncoded('h1', 'RRR', '2026-10-02T00:00:00.000Z');
+    expect((await computeCommunityRarityLookup('Horse')).tally('01A1')).toMatchObject({ pureD: 0, pureR: 1 });
+  });
+
+  it('keeps the community baseline when a local genome is repaired', async () => {
+    await cacheEncoded('h1', 'DDD');
+    const local = await upload('Horse', 'Local', 'RRR');
+    const first = await computeCommunityRarityLookup('Horse');
+
+    await getDb().execute('UPDATE pets SET loci = $empty WHERE id = $id', { empty: '', id: local.id });
+    await petService.ensurePetLociPopulated(local.id);
+    expect(await computeCommunityRarityLookup('Horse')).toBe(first);
+  });
+
+  it('hands back one community population whatever the roster, so a roster change reruns nothing', () => {
+    const a = [{ id: 1 }] as unknown as Pet[];
+    const b = [{ id: 2 }] as unknown as Pet[];
+    expect(populationForTier('community', a)).toBe(populationForTier('community', b));
+  });
+
+  it('is what loadRarityLookup returns for the community tier', async () => {
+    await cache('h1', 'horse', 'DDD');
+    await upload('Horse', 'Local', 'RRR');
+
+    expect((await loadRarityLookup({ tier: 'community' }, 'Horse')).petCount).toBe(1);
   });
 });

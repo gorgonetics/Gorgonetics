@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildGenomeMapGrid } from '$lib/utils/genomeMapGrid.js';
+import { buildGenomeMapGrid } from '#lib/utils/genomeMapGrid.js';
 
 describe('buildGenomeMapGrid', () => {
   it('groups ids into chromosome rows and block columns', () => {

@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import BreedingPoolPanel from '$lib/components/breeding/BreedingPoolPanel.svelte';
-import type { Pet } from '$lib/types/index.js';
+import BreedingPoolPanel from '#lib/components/breeding/BreedingPoolPanel.svelte';
+import type { Pet } from '#lib/types/index.js';
 
 const pet = (over: Partial<Pet>): Pet =>
   ({

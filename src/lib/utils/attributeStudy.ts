@@ -399,6 +399,12 @@ export interface StudyOptions {
    * corpus entails.
    */
   confirmedSlots?: ReadonlySet<string>;
+  /**
+   * Pair animals one by one in the cross rounds, as before #542, instead of
+   * pairing groups. Every result except the witnesses shown is the same either
+   * way; this exists so tests can check that.
+   */
+  pairByAnimal?: boolean;
 }
 
 /**
@@ -421,15 +427,19 @@ export interface StudyOptions {
  * `unstable` is exempt: it already requires dissent no single animal
  * accounts for, which is this same test by another route.
  */
-function needsTwoMistakes(pairs: ReadonlyArray<readonly [string, string]>): boolean {
-  if (pairs.length === 0) return false;
+function needsTwoMistakes(votes: readonly Vote[]): boolean {
+  if (votes.length === 0) return false;
   let common: Set<string> | null = null;
-  for (const [left, right] of pairs) {
+  for (const vote of votes) {
+    // An animal is in every one of a vote's pairs exactly when it is in as
+    // many pairs as the vote stands for: no pair holds an animal twice.
+    const mine = vote.animals.filter(([, count]) => count === vote.weight).map(([id]) => id);
     if (common === null) {
-      common = new Set([left, right]);
-      continue;
+      common = new Set(mine);
+    } else {
+      const keep = new Set(mine);
+      for (const id of [...common]) if (!keep.has(id)) common.delete(id);
     }
-    for (const id of [...common]) if (id !== left && id !== right) common.delete(id);
     if (common.size === 0) return true;
   }
   return (common?.size ?? 0) === 0;
@@ -446,13 +456,33 @@ const BASE_SLOT_GENE = '@base';
 const BASE_SLOT_PREFIX = `${BASE_SLOT_GENE}:`;
 const isBaseSlot = (key: string): boolean => key.startsWith(BASE_SLOT_PREFIX);
 
-function distinctAnimals(pairs: ReadonlyArray<readonly [string, string]>): number {
+function distinctAnimals(votes: readonly Vote[]): number {
   const seen = new Set<string>();
-  for (const [left, right] of pairs) seen.add(left).add(right);
+  for (const vote of votes) for (const [id] of vote.animals) seen.add(id);
   return seen.size;
 }
 /** Witness pairs retained per finding. Kept small; this is for display. */
 const MAX_WITNESSES = 3;
+
+/**
+ * The first `MAX_WITNESSES` distinct pairs behind some votes, for display.
+ *
+ * A group pair samples its members without knowing which of their pairs an
+ * earlier vote already holds, so two votes can show the same pair.
+ */
+function witnessesOf(votes: readonly Vote[]): Array<[string, string]> {
+  const out: Array<[string, string]> = [];
+  const seen = new Set<string>();
+  for (const vote of votes)
+    for (const pair of vote.sample) {
+      if (out.length === MAX_WITNESSES) return out;
+      const key = `${pair[0]}\u0000${pair[1]}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push([pair[0], pair[1]]);
+    }
+  return out;
+}
 
 /** Stable key for a slot. */
 export function slotKey(slot: Pick<EffectSlot, 'gene' | 'expression'>): string {
@@ -633,18 +663,49 @@ const fDiv = (a: Frac, b: Frac): Frac => frac(a.n * b.d, a.d * b.n);
 const fIsZero = (a: Frac): boolean => a.n === 0n;
 const fIsInteger = (a: Frac): boolean => a.d === 1n;
 
+/**
+ * The evidence one equation contributes to a tally.
+ *
+ * A first-pass equation is one pair of animals. A cross-round equation is a
+ * pair of *groups* — animals with the same unknown slots and the same residual
+ * write the same equation against any other animal, so one equation stands
+ * for every pair between the two groups that was not built before (#542).
+ * Each such pair is still one vote: `weight` keeps support and dissent exact,
+ * and the per-animal counts keep blame exact, without building the pairs.
+ */
+interface Vote {
+  /** The equation's id, so a derived finding can mark it consumed. */
+  equation: number;
+  /** Animal pairs it stands for: 1 for a pair, more for a group pair. */
+  weight: number;
+  /** Of those, the pairs whose animals are both stabled. */
+  stabledWeight: number;
+  /** Per animal, how many of those pairs it is in. */
+  animals: ReadonlyArray<readonly [string, number]>;
+  /** Pairs to show as witnesses: the pair itself, or members of the two groups. */
+  sample: ReadonlyArray<readonly [string, string]>;
+}
+
 /** A difference equation: `Σ coefficient × magnitude = delta`. */
 interface Equation {
   /** Slot key to +1 (present in the left subject) or -1 (in the right). */
   terms: Map<string, 1 | -1>;
   delta: number;
-  left: string;
-  right: string;
-  /** `left` and `right` as positions in the pooled observations; see `pairId`. */
-  leftAt: number;
-  rightAt: number;
-  /** Both animals are stabled, so this equation is one the player can audit. */
-  stabled: boolean;
+  vote: Vote;
+}
+
+/** The vote of a single pair of animals. */
+function pairVote(equation: number, a: Observation, b: Observation): Vote {
+  return {
+    equation,
+    weight: 1,
+    stabledWeight: a.subject.stabled === true && b.subject.stabled === true ? 1 : 0,
+    animals: [
+      [a.subject.id, 1],
+      [b.subject.id, 1],
+    ],
+    sample: [[a.subject.id, b.subject.id]],
+  };
 }
 
 interface Observation {
@@ -656,13 +717,6 @@ interface Observation {
   /** Position in the pooled observations, which numbers every pair. */
   at: number;
 }
-
-/**
- * A number naming an ordered pair of observations. Replaces the
- * `${left}|${right}` strings the pair sets were keyed by, which cost a string
- * build on every lookup across hundreds of thousands of pairs.
- */
-const pairId = (leftAt: number, rightAt: number, count: number): number => leftAt * count + rightAt;
 
 /**
  * An observation is usable only if the reading is a measurement.
@@ -681,7 +735,18 @@ function isMeasured(value: number | undefined): value is number {
   return value !== undefined && Number.isInteger(value) && value > ATTRIBUTE_FLOOR && value < ATTRIBUTE_CEILING;
 }
 
-function buildEquations(observations: readonly Observation[], maxDistance: number, slots: SlotIndex): Equation[] {
+/**
+ * First-pass equations within one breed, one per pair of animals. `built`
+ * receives each pair as positions in the pooled observations, so the cross
+ * rounds can tell which pairs already have an equation.
+ */
+function buildEquations(
+  observations: readonly Observation[],
+  maxDistance: number,
+  slots: SlotIndex,
+  nextId: () => number,
+  built: Array<readonly [number, number]>,
+): Equation[] {
   const equations: Equation[] = [];
   for (let i = 0; i < observations.length; i++) {
     const a = observations[i];
@@ -694,12 +759,9 @@ function buildEquations(observations: readonly Observation[], maxDistance: numbe
       equations.push({
         terms: termsBetween(a.bits, b.bits, slots),
         delta: a.value - b.value,
-        left: a.subject.id,
-        right: b.subject.id,
-        leftAt: a.at,
-        rightAt: b.at,
-        stabled: a.subject.stabled === true && b.subject.stabled === true,
+        vote: pairVote(nextId(), a, b),
       });
+      built.push([a.at, b.at]);
     }
   }
   return equations;
@@ -723,57 +785,161 @@ function buildEquations(observations: readonly Observation[], maxDistance: numbe
  *
  * Pairs already built, and pairs with nothing unknown left, are skipped. The
  * latter would only re-test published findings, and there are far too many.
+ *
+ * **Pairs groups, not animals (#542).** Animals with the same unknown slots
+ * and the same residual write the same equation against anyone, so they are
+ * grouped and one equation is built per pair of groups, weighted by the pairs
+ * it stands for. On the live corpus that is about 1.6k group pairs where the
+ * animals made 680k. Groups only ever merge from one round to the next: the
+ * members share their unknown slots, so a newly solved slot changes every
+ * member's residual by the same amount. That is what lets "already built" be
+ * counted per animal and per group rather than per pair — `builtTo[i]` maps a
+ * group to how many of its members animal `i` already has an equation with.
+ *
+ * Returns the next round's equations for the magnitudes solved so far.
  */
-function crossEquations(
+function crossRounds(
   observations: readonly Observation[],
-  solved: ReadonlyMap<string, StudyFinding>,
-  built: ReadonlySet<number>,
+  firstPass: ReadonlyArray<readonly [number, number]>,
   maxDistance: number,
   baseSlotOf: (pool: string) => string | null,
   slots: SlotIndex,
-): Equation[] {
-  const solvedBits = toBits(
-    [...solved.keys()].filter((key) => slots.index.has(key)),
-    slots,
-  );
-  const residuals = observations.map((o) => {
-    let value = o.value;
-    const base = baseSlotOf(o.subject.breed);
-    const withBase = base ? toBits([base], slots) : null;
-    const unknown = new Uint32Array(slots.words);
-    for (let w = 0; w < unknown.length; w++) unknown[w] = (o.bits[w] | (withBase ? withBase[w] : 0)) & ~solvedBits[w];
-    for (const key of base ? [...o.active, base] : o.active) {
-      const known = solved.get(key);
-      if (known) value -= known.magnitude;
-    }
-    return { observation: o, value, unknown };
-  });
+  nextId: () => number,
+  pairByAnimal = false,
+): (solved: ReadonlyMap<string, StudyFinding>) => Equation[] {
+  /** The previous round's group of each observation, or null before the first round. */
+  let groupOf: Int32Array | null = null;
+  /** Per observation: group → pairs with that group's members already built. */
+  let builtTo: Array<Map<number, number>> = [];
+  /** Per observation: group → of those, the pairs with stabled members. */
+  let builtStabled: Array<Map<number, number>> = [];
 
-  const count = observations.length;
-  const equations: Equation[] = [];
-  for (let i = 0; i < residuals.length; i++) {
-    const a = residuals[i];
-    for (let j = i + 1; j < residuals.length; j++) {
-      const b = residuals[j];
-      if (built.has(pairId(a.observation.at, b.observation.at, count))) continue;
-      const distance = differing(a.unknown, b.unknown, maxDistance);
-      if (distance === 0 || distance > maxDistance) continue;
-      equations.push({
-        terms: termsBetween(a.unknown, b.unknown, slots),
-        delta: a.value - b.value,
-        left: a.observation.subject.id,
-        right: b.observation.subject.id,
-        leftAt: a.observation.at,
-        rightAt: b.observation.at,
-        stabled: a.observation.subject.stabled === true && b.observation.subject.stabled === true,
-      });
+  const add = (map: Map<number, number>, key: number, n: number): void => {
+    map.set(key, (map.get(key) ?? 0) + n);
+  };
+
+  return (solved) => {
+    const solvedBits = toBits(
+      [...solved.keys()].filter((key) => slots.index.has(key)),
+      slots,
+    );
+
+    interface Group {
+      unknown: Uint32Array;
+      value: number;
+      members: number[];
+      stabled: number;
     }
-  }
-  return equations;
+    const groups: Group[] = [];
+    const byKey = new Map<string, number>();
+    const nextGroupOf = new Int32Array(observations.length);
+    for (const o of observations) {
+      let value = o.value;
+      const base = baseSlotOf(o.subject.breed);
+      const withBase = base ? toBits([base], slots) : null;
+      const unknown = new Uint32Array(slots.words);
+      for (let w = 0; w < unknown.length; w++) unknown[w] = (o.bits[w] | (withBase ? withBase[w] : 0)) & ~solvedBits[w];
+      for (const key of base ? [...o.active, base] : o.active) {
+        const known = solved.get(key);
+        if (known) value -= known.magnitude;
+      }
+      const key = pairByAnimal ? String(o.at) : `${unknown.join(',')}|${value}`;
+      let g = byKey.get(key);
+      if (g === undefined) {
+        g = groups.length;
+        byKey.set(key, g);
+        groups.push({ unknown, value, members: [], stabled: 0 });
+      }
+      groups[g].members.push(o.at);
+      if (o.subject.stabled === true) groups[g].stabled++;
+      nextGroupOf[o.at] = g;
+    }
+
+    if (groupOf === null) {
+      builtTo = observations.map(() => new Map());
+      builtStabled = observations.map(() => new Map());
+      for (const [a, b] of firstPass) {
+        add(builtTo[a], nextGroupOf[b], 1);
+        add(builtTo[b], nextGroupOf[a], 1);
+        if (observations[b].subject.stabled === true) add(builtStabled[a], nextGroupOf[b], 1);
+        if (observations[a].subject.stabled === true) add(builtStabled[b], nextGroupOf[a], 1);
+      }
+    } else {
+      // Every member of an old group lands in the same new group, so the
+      // old group's number names exactly one new one.
+      const renumber = new Int32Array(Math.max(...groupOf) + 1);
+      for (let i = 0; i < observations.length; i++) renumber[groupOf[i]] = nextGroupOf[i];
+      const remap = (map: Map<number, number>): Map<number, number> => {
+        const out = new Map<number, number>();
+        for (const [g, n] of map) add(out, renumber[g], n);
+        return out;
+      };
+      builtTo = builtTo.map(remap);
+      builtStabled = builtStabled.map(remap);
+    }
+    groupOf = nextGroupOf;
+
+    const equations: Equation[] = [];
+    for (let gi = 0; gi < groups.length; gi++) {
+      const left = groups[gi];
+      for (let gj = gi + 1; gj < groups.length; gj++) {
+        const right = groups[gj];
+        const distance = differing(left.unknown, right.unknown, maxDistance);
+        if (distance === 0 || distance > maxDistance) continue;
+
+        // The pairs between the two groups that have no equation yet, per
+        // animal on each side; their sum from either side is the weight.
+        const animals: Array<[string, number]> = [];
+        let weight = 0;
+        let stabledWeight = 0;
+        const pickedLeft: number[] = [];
+        const pickedRight: number[] = [];
+        for (const a of left.members) {
+          const n = right.members.length - (builtTo[a].get(gj) ?? 0);
+          if (n === 0) continue;
+          weight += n;
+          animals.push([observations[a].subject.id, n]);
+          if (observations[a].subject.stabled === true) stabledWeight += right.stabled - (builtStabled[a].get(gj) ?? 0);
+          if (pickedLeft.length < MAX_WITNESSES) pickedLeft.push(a);
+        }
+        if (weight === 0) continue;
+        for (const b of right.members) {
+          const n = left.members.length - (builtTo[b].get(gi) ?? 0);
+          if (n === 0) continue;
+          animals.push([observations[b].subject.id, n]);
+          if (pickedRight.length < MAX_WITNESSES) pickedRight.push(b);
+        }
+
+        // Witnesses, oriented as a pair-by-pair pass would have written them.
+        const sample: Array<[string, string]> = [];
+        for (const a of pickedLeft)
+          for (const b of pickedRight) {
+            if (sample.length === MAX_WITNESSES) break;
+            const [first, second] = a < b ? [a, b] : [b, a];
+            sample.push([observations[first].subject.id, observations[second].subject.id]);
+          }
+
+        equations.push({
+          terms: termsBetween(left.unknown, right.unknown, slots),
+          delta: left.value - right.value,
+          vote: { equation: nextId(), weight, stabledWeight, animals, sample },
+        });
+        for (const a of left.members) {
+          builtTo[a].set(gj, right.members.length);
+          builtStabled[a].set(gj, right.stabled);
+        }
+        for (const b of right.members) {
+          builtTo[b].set(gi, left.members.length);
+          builtStabled[b].set(gi, left.stabled);
+        }
+      }
+    }
+    return equations;
+  };
 }
 
-/** Candidate magnitudes for one slot, with the pairs that implied each. */
-type Tally = Map<number, Array<[string, string]>>;
+/** Candidate magnitudes for one slot, with the votes that implied each. */
+type Tally = Map<number, Vote[]>;
 
 function tallyFor(map: Map<string, Tally>, key: string): Tally {
   let tally = map.get(key);
@@ -784,11 +950,14 @@ function tallyFor(map: Map<string, Tally>, key: string): Tally {
   return tally;
 }
 
-function record(tally: Tally, magnitude: number, pair: [string, string]): void {
+function record(tally: Tally, magnitude: number, vote: Vote): void {
   const list = tally.get(magnitude);
-  if (list) list.push(pair);
-  else tally.set(magnitude, [pair]);
+  if (list) list.push(vote);
+  else tally.set(magnitude, [vote]);
 }
+
+/** Animal pairs behind some votes. */
+const weightOf = (votes: readonly Vote[]): number => votes.reduce((sum, vote) => sum + vote.weight, 0);
 
 /**
  * The value with strictly the most backing.
@@ -798,7 +967,10 @@ function record(tally: Tally, magnitude: number, pair: [string, string]): void {
  * as a finding, and that value then feeds substitution and validation as
  * though it were known. The corpus simply has not settled the slot.
  */
-function majority<T>(tally: Map<number, readonly T[]>): {
+function majority<T>(
+  tally: Map<number, readonly T[]>,
+  countOf: (items: readonly T[]) => number = (items) => items.length,
+): {
   magnitude: number;
   support: number;
   dissent: number;
@@ -808,13 +980,14 @@ function majority<T>(tally: Map<number, readonly T[]>): {
   let bestCount = -1;
   let tied = false;
   let total = 0;
-  for (const [magnitude, pairs] of tally) {
-    total += pairs.length;
-    if (pairs.length > bestCount) {
+  for (const [magnitude, items] of tally) {
+    const count = countOf(items);
+    total += count;
+    if (count > bestCount) {
       best = magnitude;
-      bestCount = pairs.length;
+      bestCount = count;
       tied = false;
-    } else if (pairs.length === bestCount) {
+    } else if (count === bestCount) {
       tied = true;
     }
   }
@@ -878,12 +1051,12 @@ export function studyAttribute(
     o.bits = toBits(o.active, slotIndex);
     o.at = at;
   });
-  const pairOf = new Map(pooled.map((o) => [o.subject.id, o.at]));
-  const consumedId = (left: string, right: string): number =>
-    pairId(pairOf.get(left) as number, pairOf.get(right) as number, pooled.length);
-
+  let equationCount = 0;
+  const nextId = (): number => equationCount++;
+  const firstPass: Array<readonly [number, number]> = [];
   const equations: Equation[] = [];
-  for (const observations of byBreed.values()) equations.push(...buildEquations(observations, maxDistance, slotIndex));
+  for (const observations of byBreed.values())
+    equations.push(...buildEquations(observations, maxDistance, slotIndex, nextId, firstPass));
   // Equations with an unknown left, in `equations` order. Slots are only ever
   // solved, never unsolved, so an equation with none left can never offer a
   // candidate or a row again: the rounds skip it rather than re-walk it.
@@ -914,14 +1087,8 @@ export function studyAttribute(
 
   /** Distinct animals appearing anywhere in a tally, and whether any pair is checkable. */
   const censusOf = (tally: Tally): { animals: number; checkable: boolean } => {
-    const seen = new Set<string>();
-    let checkable = false;
-    for (const pairs of tally.values())
-      for (const [left, right] of pairs) {
-        seen.add(left).add(right);
-        if (stabledIds.has(left) && stabledIds.has(right)) checkable = true;
-      }
-    return { animals: seen.size, checkable };
+    const votes = [...tally.values()].flat();
+    return { animals: distinctAnimals(votes), checkable: votes.some((vote) => vote.stabledWeight > 0) };
   };
 
   const doubt = (
@@ -948,12 +1115,12 @@ export function studyAttribute(
       dissent,
       animals,
       checkable,
-      witnesses: (tally.get(observed) ?? []).slice(0, MAX_WITNESSES),
+      witnesses: witnessesOf(tally.get(observed) ?? []),
     });
   };
 
   const commit = (key: string, tally: Tally, tier: FindingTier, depth: number): void => {
-    const { magnitude, support, dissent, tied } = majority(tally);
+    const { magnitude, support, dissent, tied } = majority(tally, weightOf);
     // Nothing leads: the slot is unresolved, not resolved-to-the-smaller.
     // Reported as `unstable` when the disagreement is broad enough to
     // implicate the declaration, and left open either way so a later round
@@ -986,11 +1153,9 @@ export function studyAttribute(
         // contradicts something now known to be true. Still no finding: the
         // arithmetic disagrees with a confirmed fact, so what the corpus
         // entails here is that a record is wrong, not what the gene is worth.
-        for (const pairs of tally.values())
-          for (const [left, right] of pairs) {
-            dissenters.set(left, (dissenters.get(left) ?? 0) + 1);
-            dissenters.set(right, (dissenters.get(right) ?? 0) + 1);
-          }
+        for (const votes of tally.values())
+          for (const vote of votes)
+            for (const [id, n] of vote.animals) dissenters.set(id, (dissenters.get(id) ?? 0) + n);
         return;
       }
       if (needsTwoMistakes(tally.get(magnitude) ?? [])) {
@@ -1000,17 +1165,15 @@ export function studyAttribute(
     }
     let worstAnimal = 0;
     const blame = new Map<string, number>();
-    for (const [value, pairs] of tally) {
+    for (const [value, votes] of tally) {
       if (value === magnitude) continue;
-      for (const [left, right] of pairs) {
-        dissenters.set(left, (dissenters.get(left) ?? 0) + 1);
-        dissenters.set(right, (dissenters.get(right) ?? 0) + 1);
-        for (const id of [left, right]) {
-          const n = (blame.get(id) ?? 0) + 1;
-          blame.set(id, n);
-          if (n > worstAnimal) worstAnimal = n;
+      for (const vote of votes)
+        for (const [id, n] of vote.animals) {
+          dissenters.set(id, (dissenters.get(id) ?? 0) + n);
+          const total = (blame.get(id) ?? 0) + n;
+          blame.set(id, total);
+          if (total > worstAnimal) worstAnimal = total;
         }
-      }
     }
     // One mis-recorded animal turns up in most of the dissent it causes.
     // When no animal does — the disagreement is spread thin — the only
@@ -1022,8 +1185,7 @@ export function studyAttribute(
     if (dissent > 0 && worstAnimal * 2 <= dissent && !confirmedSlots.has(key)) {
       doubt(key, tally, magnitude, support, dissent, 'unstable');
     }
-    if (tier === 'derived')
-      for (const pairs of tally.values()) for (const [left, right] of pairs) consumed.add(consumedId(left, right));
+    if (tier === 'derived') for (const votes of tally.values()) for (const vote of votes) consumed.add(vote.equation);
     if (isBaseSlot(key)) gapAnimals.set(key, distinctAnimals(tally.get(magnitude) ?? []));
     const [gene, expression] = key.split(':') as [string, Expression];
     solved.set(key, {
@@ -1035,7 +1197,7 @@ export function studyAttribute(
       depth,
       support,
       dissent,
-      witnesses: (tally.get(magnitude) ?? []).slice(0, MAX_WITNESSES),
+      witnesses: witnessesOf(tally.get(magnitude) ?? []),
     });
   };
 
@@ -1043,7 +1205,7 @@ export function studyAttribute(
   for (const equation of equations) {
     if (equation.terms.size !== 1) continue;
     const [key, coefficient] = [...equation.terms][0];
-    record(tallyFor(direct, key), equation.delta * coefficient, [equation.left, equation.right]);
+    record(tallyFor(direct, key), equation.delta * coefficient, equation.vote);
   }
   for (const [key, tally] of direct) commit(key, tally, 'direct', 0);
 
@@ -1073,7 +1235,7 @@ export function studyAttribute(
         if (unknown === null) continue;
         stillPending.push(equation);
         if (!solvable) continue;
-        record(tallyFor(candidates, unknown), residual * coefficient, [equation.left, equation.right]);
+        record(tallyFor(candidates, unknown), residual * coefficient, equation.vote);
       }
       pending = stillPending;
       let added = 0;
@@ -1094,13 +1256,13 @@ export function studyAttribute(
   // that `doubt` and `contradictions` rest on, and a subsystem solve returns
   // one value with no tally and can reproduce none of that.
   const solveJointly = (): void => {
-    const subsystem = determinedSlots(pending, solved, slotIndex, pooled.length);
+    const subsystem = determinedSlots(pending, solved, slotIndex);
     for (const key of subsystem.consumed) consumed.add(key);
     for (const found of subsystem.found) {
       if (solved.has(found.key) || doubted.has(found.key)) continue;
       const declared = signOf.get(found.key);
       const value = Number(found.value.n) / Number(found.value.d);
-      const witnesses = found.pairs.slice(0, MAX_WITNESSES);
+      const witnesses = witnessesOf(found.votes);
       /**
        * File a doubt about this slot, unless one bad animal could explain the
        * whole thing — the same guard `commit` applies, because a doubt that
@@ -1113,8 +1275,8 @@ export function studyAttribute(
         // distinct animals from this tally and asks whether any pair is
         // stabled, and both decide how the panel ranks the doubt. It truncates
         // for display itself.
-        if (needsTwoMistakes(found.pairs)) {
-          doubt(found.key, new Map([[value, found.pairs]]), value, found.support, 0, reason);
+        if (needsTwoMistakes(found.votes)) {
+          doubt(found.key, new Map([[value, found.votes]]), value, found.support, 0, reason);
         }
       };
 
@@ -1151,7 +1313,7 @@ export function studyAttribute(
         dissent: 0,
         witnesses,
       });
-      if (isBaseSlot(found.key)) gapAnimals.set(found.key, distinctAnimals(found.pairs));
+      if (isBaseSlot(found.key)) gapAnimals.set(found.key, distinctAnimals(found.votes));
     }
   };
 
@@ -1166,14 +1328,13 @@ export function studyAttribute(
   // not; stop when a round adds nothing. No round cap: every round that
   // continues has solved at least one more of finitely many slots, so the
   // loop ends, and a cap could only drop findings a longer chain entails.
-  const built = new Set(equations.map((e) => pairId(e.leftAt, e.rightAt, pooled.length)));
+  const nextRound = crossRounds(pooled, firstPass, maxDistance, baseSlotOf, slotIndex, nextId, options.pairByAnimal);
   for (;;) {
-    const extra = crossEquations(pooled, solved, built, maxDistance, baseSlotOf, slotIndex);
+    const extra = nextRound(solved);
     if (extra.length === 0) break;
     for (const equation of extra) {
       equations.push(equation);
       pending.push(equation);
-      built.add(pairId(equation.leftAt, equation.rightAt, pooled.length));
     }
     const before = solved.size;
     depth = substitute(depth + 1);
@@ -1185,7 +1346,7 @@ export function studyAttribute(
   // merely eligible: two animals with identical active sets yield nothing,
   // and a breed with a single measured animal yields nothing at all.
   const contributing = new Set<string>();
-  for (const equation of equations) contributing.add(equation.left).add(equation.right);
+  for (const equation of equations) for (const [id] of equation.vote.animals) contributing.add(id);
   const contributors = contributing.size;
 
   const gaps = new Map<string, BaselineOffset>();
@@ -1208,18 +1369,33 @@ export function studyAttribute(
     // Base gaps travel in the solver as slots but are not gene effects.
     findings: [...solved.values()]
       .filter((f) => f.gene !== BASE_SLOT_GENE)
-      .sort((a, b) => a.depth - b.depth || b.support - a.support || a.gene.localeCompare(b.gene)),
+      .sort(
+        (a, b) =>
+          a.depth - b.depth ||
+          b.support - a.support ||
+          a.gene.localeCompare(b.gene) ||
+          a.expression.localeCompare(b.expression),
+      ),
     // Stabled animals first: a disagreement the player can go and settle is
     // worth more than a louder one they cannot check, however large its count.
     // Checkable first, then the widest disagreements: a doubt backed by many
     // animals is far more likely the declaration's fault than one animal's.
+    // The last keys only make ties deterministic, so the order does not depend
+    // on which equations were walked first.
     geneDoubts: geneDoubts.sort(
-      (a, b) => Number(b.checkable) - Number(a.checkable) || b.animals - a.animals || b.support - a.support,
+      (a, b) =>
+        Number(b.checkable) - Number(a.checkable) ||
+        b.animals - a.animals ||
+        b.support - a.support ||
+        a.gene.localeCompare(b.gene) ||
+        a.expression.localeCompare(b.expression),
     ),
     contradictions: [...dissenters.entries()]
       .map(([subjectId, count]) => ({ subjectId, count, stabled: stabledIds.has(subjectId) }))
-      .sort((a, b) => Number(b.stabled) - Number(a.stabled) || b.count - a.count),
-    validation: validate(equations, solved, consumed, pooled.length),
+      .sort(
+        (a, b) => Number(b.stabled) - Number(a.stabled) || b.count - a.count || a.subjectId.localeCompare(b.subjectId),
+      ),
+    validation: validate(equations, solved, consumed),
     contributors,
     baselines: inferBaselines(pooled, solved, signOf, gaps),
   };
@@ -1400,17 +1576,17 @@ export function tightenThroughGaps(
 interface DeterminedSlot {
   key: string;
   value: Frac;
-  /** Residual equations mentioning this slot — how much evidence touches it. */
+  /** Animal pairs behind the residual equations mentioning this slot — how much evidence touches it. */
   support: number;
   /**
-   * Every pair behind those equations, whole.
+   * Every vote behind those equations, whole.
    *
    * Truncated to `MAX_WITNESSES` only where it is displayed.
    * `needsTwoMistakes` intersects the pairs to ask whether one animal could
    * be behind the lot, and handing it a three-item sample would answer that
    * question about the sample rather than about the evidence.
    */
-  pairs: Array<[string, string]>;
+  votes: Vote[];
 }
 
 /** What a subsystem pass produced, plus the equations it used them from. */
@@ -1465,14 +1641,12 @@ function determinedSlots(
   equations: readonly Equation[],
   solved: ReadonlyMap<string, StudyFinding>,
   slots: SlotIndex,
-  count: number,
 ): SubsystemResult {
   // Residual system: substitute what is already known, keep what is not.
   interface Row {
     terms: Map<string, 1 | -1>;
     delta: number;
-    pair: [string, string];
-    id: number;
+    vote: Vote;
   }
   const rowsIn: Row[] = [];
   for (const equation of equations) {
@@ -1487,12 +1661,7 @@ function determinedSlots(
     // published, not about a new slot. Disagreement among those is the
     // fixpoint's business and is already reported through `contradictions`.
     if (terms.size === 0) continue;
-    rowsIn.push({
-      terms,
-      delta,
-      pair: [equation.left, equation.right],
-      id: pairId(equation.leftAt, equation.rightAt, count),
-    });
+    rowsIn.push({ terms, delta, vote: equation.vote });
   }
   if (rowsIn.length === 0) return { found: [], consumed: new Set() };
 
@@ -1616,18 +1785,14 @@ function determinedSlots(
       if (!isolated) continue;
       const key = vars[pc];
       const touching = componentRows.filter((r) => r.terms.has(key));
-      componentFound.push({
-        key,
-        value: matrix[i][vars.length],
-        support: touching.length,
-        pairs: touching.map((r) => r.pair),
-      });
+      const votes = touching.map((r) => r.vote);
+      componentFound.push({ key, value: matrix[i][vars.length], support: weightOf(votes), votes });
     }
     if (componentFound.length === 0) continue;
     found.push(...componentFound);
     // Every equation here is reproduced by the solution read off it, so none
     // of them is a held-out test any more.
-    for (const row of componentRows) consumed.add(row.id);
+    for (const row of componentRows) consumed.add(row.vote.equation);
   }
 
   return { found, consumed };
@@ -1644,7 +1809,6 @@ function validate(
   equations: readonly Equation[],
   solved: ReadonlyMap<string, StudyFinding>,
   consumed: ReadonlySet<number>,
-  count: number,
 ): ValidationReport {
   let tested = 0;
   let exact = 0;
@@ -1652,16 +1816,16 @@ function validate(
   let stabledExact = 0;
   /** Per animal, how often each error size was seen. */
   const misses = new Map<string, Map<number, number>>();
-  const noteMiss = (id: string, error: number): void => {
+  const noteMiss = (id: string, error: number, times: number): void => {
     const byError = misses.get(id) ?? new Map<number, number>();
-    byError.set(error, (byError.get(error) ?? 0) + 1);
+    byError.set(error, (byError.get(error) ?? 0) + times);
     misses.set(id, byError);
   };
   for (const equation of equations) {
     // `terms.size < 2` drops the single-difference equations a direct
     // finding is read off; `consumed` drops the wider ones a derived
     // finding was read off. What remains is genuinely held out.
-    if (equation.terms.size < 2 || consumed.has(pairId(equation.leftAt, equation.rightAt, count))) continue;
+    if (equation.terms.size < 2 || consumed.has(equation.vote.equation)) continue;
     let predicted = 0;
     let complete = true;
     for (const [key, sign] of equation.terms) {
@@ -1673,18 +1837,17 @@ function validate(
       predicted += sign * finding.magnitude;
     }
     if (!complete) continue;
+    // Weighted: a group equation is one test per animal pair it stands for.
+    const { weight, stabledWeight, animals } = equation.vote;
     const hit = predicted === equation.delta;
-    tested++;
-    if (hit) exact++;
+    tested += weight;
+    if (hit) exact += weight;
     else {
       const error = Math.abs(predicted - equation.delta);
-      noteMiss(equation.left, error);
-      noteMiss(equation.right, error);
+      for (const [id, n] of animals) noteMiss(id, error, n);
     }
-    if (equation.stabled) {
-      stabledTested++;
-      if (hit) stabledExact++;
-    }
+    stabledTested += stabledWeight;
+    if (hit) stabledExact += stabledWeight;
   }
 
   const suspects: ValidationSuspect[] = [];
@@ -1703,7 +1866,9 @@ function validate(
   }
   // Worst first, and a concentrated offset ahead of a scattered one at the
   // same count: the concentrated one is the likelier mis-typed record.
-  suspects.sort((a, b) => b.failures - a.failures || b.offsetShare - a.offsetShare);
+  suspects.sort(
+    (a, b) => b.failures - a.failures || b.offsetShare - a.offsetShare || a.subjectId.localeCompare(b.subjectId),
+  );
 
   return { tested, exact, stabledTested, stabledExact, suspects };
 }

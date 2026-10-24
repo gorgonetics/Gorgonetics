@@ -11,7 +11,7 @@
  * when the result is non-empty.
  */
 
-import type { Gender, Pet } from '$lib/types/index.js';
+import type { Gender, Pet } from '#lib/types/index.js';
 
 /** Editable snapshot of a pet, as held by the `PetEditor` form state. */
 export interface PetEditDraft {
@@ -26,6 +26,8 @@ export interface PetEditDraft {
   starred: boolean;
   stabled: boolean;
   isPetQuality: boolean;
+  /** Stored as `use_for_studies`, which defaults on: an unset flag means in use. */
+  useForStudies: boolean;
 }
 
 /**
@@ -58,6 +60,7 @@ export function computePetChanges(pet: Pet, draft: PetEditDraft): Record<string,
   if (draft.starred !== !!pet.starred) updateData.starred = draft.starred;
   if (draft.stabled !== !!pet.stabled) updateData.stabled = draft.stabled;
   if (draft.isPetQuality !== !!pet.is_pet_quality) updateData.is_pet_quality = draft.isPetQuality;
+  if (draft.useForStudies !== (pet.use_for_studies !== false)) updateData.use_for_studies = draft.useForStudies;
 
   return updateData;
 }

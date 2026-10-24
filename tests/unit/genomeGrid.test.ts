@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { genomeTextToGrid } from '$lib/utils/genomeGrid.js';
+import { genomeTextToGrid } from '#lib/utils/genomeGrid.js';
 
 // genomeTextToGrid must produce the same ParsedChromosome shape and ordering
 // contract as petService.loadPetGridFromDb, but straight from raw genome

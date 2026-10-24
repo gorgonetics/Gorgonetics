@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { closeDatabase, getDb, initDatabase } from '$lib/services/database.js';
-import * as geneService from '$lib/services/geneService.js';
-import { runMigrations } from '$lib/services/migrationService.js';
-import { parseEffect } from '$lib/utils/geneAnalysis.js';
+import { closeDatabase, getDb, initDatabase } from '#lib/services/database.js';
+import * as geneService from '#lib/services/geneService.js';
+import { runMigrations } from '#lib/services/migrationService.js';
+import { parseEffect } from '#lib/utils/geneAnalysis.js';
 
 type GeneRow = Record<string, string | number | null>;
 

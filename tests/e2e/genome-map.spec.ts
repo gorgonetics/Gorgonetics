@@ -166,6 +166,40 @@ test.describe('Genome map', () => {
     expect(await colouredCells(page)).toBe(0);
   });
 
+  test('the never-seen lens keeps the genome and marks at most one allele per locus', async ({ page }) => {
+    await selectSpecies(page, 'horse');
+    const cells = page.locator('[data-testid="genome-map-grid"] .gene-cell');
+    await expect.poll(async () => cells.count()).toBeGreaterThan(100);
+    const total = await cells.count();
+
+    await page.getByTestId('map-lens-never').click();
+    await expect(page.getByTestId('map-never-legend')).toBeVisible();
+    await expect(page.getByTestId('map-never-status')).not.toHaveText('Analysing…');
+    // Same lattice, so a lit cell can be found by row and column.
+    expect(await cells.count()).toBe(total);
+    const lit = await page.evaluate(() =>
+      [...document.querySelectorAll<HTMLElement>('[data-testid="genome-map-grid"] .gene-cell[data-allele]')].map(
+        (c) => ({ allele: c.dataset.allele, text: c.textContent }),
+      ),
+    );
+    for (const { allele, text } of lit) {
+      expect(['D', 'R']).toContain(allele);
+      expect(text).toBe(allele);
+    }
+
+    // Hiding fully seen chromosomes keeps exactly the rows with a lit cell, or
+    // every row when nothing is lit.
+    const rows = page.locator('[data-testid="genome-map-grid"] .chromosome-row');
+    const allRows = await rows.count();
+    await page.getByTestId('map-hide-seen').check();
+    await page.getByTestId('map-hide-no-effect').check();
+    const kept = await rows.count();
+    const litRows = await page
+      .locator('[data-testid="genome-map-grid"] .chromosome-row:has(.gene-cell[data-allele])')
+      .count();
+    expect(kept).toBe(litRows > 0 ? litRows : allRows);
+  });
+
   test('the baseline toggle does not change the grid geometry', async ({ page }) => {
     await selectSpecies(page, 'horse');
     const rect = () =>
@@ -178,6 +212,16 @@ test.describe('Genome map', () => {
     await page.getByTestId('map-pop-stabled').click();
     await page.waitForTimeout(400);
     expect(await rect()).toEqual(before);
+  });
+
+  test('the Community baseline explains an empty cache instead of painting the map common', async ({ page }) => {
+    // The browser build never fetches the catalogue, so the cache is empty:
+    // the map must say why nothing is scored, not show a flat genome.
+    await selectSpecies(page, 'horse');
+    await page.getByTestId('map-pop-community').click();
+    await expect(page.getByTestId('map-pop-community')).toHaveClass(/active/);
+    await expect(page.getByTestId('map-community-empty')).toContainText('No shared Horses cached');
+    expect(await colouredCells(page)).toBe(0);
   });
 
   test('is reachable and navigable by keyboard', async ({ page }) => {

@@ -23,10 +23,10 @@
  * Pure: no DB, no Svelte.
  */
 
-import type { GeneType } from '$lib/types/index.js';
-import { offspringDistribution } from '$lib/utils/breedingGenetics.js';
-import { fromGeneId } from '$lib/utils/geneAnalysis.js';
-import type { PetLoci } from '$lib/utils/petLoci.js';
+import type { GeneType } from '#lib/types/index.js';
+import { offspringDistribution } from '#lib/utils/breedingGenetics.js';
+import { fromGeneId } from '#lib/utils/geneAnalysis.js';
+import type { PetLoci } from '#lib/utils/petLoci.js';
 
 export type Homozygote = 'D' | 'R';
 type Genotype = 'D' | 'x' | 'R';

@@ -14,7 +14,7 @@ import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { backup, DatabaseSync, type SQLInputValue } from 'node:sqlite';
 import { afterAll, beforeAll, it, vi } from 'vitest';
-import type { BaselineReading } from '$lib/utils/attributeStudy.js';
+import type { BaselineReading } from '#lib/utils/attributeStudy.js';
 
 const source =
   process.env.GORGONETICS_DB ?? join(homedir(), 'Library/Application Support/com.gorgonetics.app/gorgonetics.db');
@@ -31,7 +31,7 @@ function run(sql: string, values?: unknown[]) {
   return { rowsAffected: Number(changes), lastInsertId: Number(lastInsertRowid) };
 }
 
-vi.mock('$lib/utils/environment.js', () => ({ isTauri: () => true }));
+vi.mock('#lib/utils/environment.js', () => ({ isTauri: () => true }));
 vi.mock('@tauri-apps/plugin-sql', () => ({
   default: {
     load: async () => ({
@@ -73,10 +73,13 @@ afterAll(() => {
 });
 
 it('measures base bounds per breed and attribute', async () => {
-  const { initDatabase } = await import('$lib/services/database.js');
-  const { runAttributeStudy, STUDYABLE_SPECIES } = await import('$lib/services/studyService.js');
-  const { baseText, breedLabel, buildBaseMatrix, gapText } = await import('$lib/utils/baseMatrix.js');
+  const { initDatabase } = await import('#lib/services/database.js');
+  const { runAttributeStudy, STUDYABLE_SPECIES } = await import('#lib/services/studyService.js');
+  const { baseText, breedLabel, buildBaseMatrix, gapText } = await import('#lib/utils/baseMatrix.js');
   await initDatabase();
+  // The snapshot is at whatever schema the app last ran; the study reads the current one.
+  const { runMigrations } = await import('#lib/services/migrationService.js');
+  await runMigrations();
 
   const lines = [`Snapshot of ${source}`];
   for (const species of STUDYABLE_SPECIES) {

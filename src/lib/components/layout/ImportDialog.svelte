@@ -1,10 +1,10 @@
 <script lang="ts">
-import { importDatabase, type LoadedBackup } from '$lib/services/backupService.js';
-import { appState } from '$lib/stores/pets.js';
-import type { ImportMode } from '$lib/types/index.js';
-import { errorMessage } from '$lib/utils/error.js';
-import { focusTrap } from '$lib/utils/focusTrap.js';
-import { formatShortDate } from '$lib/utils/timestamp.js';
+import { importDatabase, type LoadedBackup } from '#lib/services/backupService.js';
+import { appState } from '#lib/stores/pets.js';
+import type { ImportMode } from '#lib/types/index.js';
+import { errorMessage } from '#lib/utils/error.js';
+import { focusTrap } from '#lib/utils/focusTrap.js';
+import { formatShortDate } from '#lib/utils/timestamp.js';
 
 interface StatusResult {
   type: 'success' | 'error';

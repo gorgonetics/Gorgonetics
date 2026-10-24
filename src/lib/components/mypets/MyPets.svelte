@@ -9,31 +9,31 @@
  * See docs/design/redesign-library-workspace-v1.md (§2, IA v2).
  */
 
-import BulkSharePetDialog from '$lib/components/community/BulkSharePetDialog.svelte';
-import GenomeGridDiff from '$lib/components/comparison/GenomeGridDiff.svelte';
-import FreeSlotsDialog from '$lib/components/mypets/FreeSlotsDialog.svelte';
-import NameBackfillDialog from '$lib/components/mypets/NameBackfillDialog.svelte';
-import Roster from '$lib/components/mypets/Roster.svelte';
-import PetVisualization from '$lib/components/pet/PetVisualization.svelte';
-import DetailOverlay from '$lib/components/shared/DetailOverlay.svelte';
-import EmptyState from '$lib/components/shared/EmptyState.svelte';
-import FilterBar from '$lib/components/shared/FilterBar.svelte';
-import PageHeader from '$lib/components/shared/PageHeader.svelte';
-import { isPlaceholderConfig } from '$lib/firebase.js';
-import { getSupportedSpecies, normalizeSpecies } from '$lib/services/configService.js';
-import { updatePet } from '$lib/services/petService.js';
-import { bulkShareJob, startBulkShare } from '$lib/stores/bulkShare.svelte.js';
-import { pendingImportCount } from '$lib/stores/gameImport.js';
-import { clearMyPetsSelection, getMyPetsFilters, myPetsView } from '$lib/stores/mypets.svelte.js';
-import { allTags, appState, loading, pets } from '$lib/stores/pets.js';
-import { settings } from '$lib/stores/settings.js';
-import { type Gender, type Pet } from '$lib/types/index.js';
-import { focusTrap } from '$lib/utils/focusTrap.js';
-import { MIN_POPULATION } from '$lib/utils/geneticQuality.js';
-import { createGenomeUploadController } from '$lib/utils/genomeUploadController.svelte.js';
-import { type KeptStoredValues, planNameBackfill } from '$lib/utils/nameAttributes.js';
-import { filterPets } from '$lib/utils/petFilter.js';
-import { BREEDS_BY_SPECIES, getSpeciesEmoji } from '$lib/utils/species.js';
+import BulkSharePetDialog from '#lib/components/community/BulkSharePetDialog.svelte';
+import GenomeGridDiff from '#lib/components/comparison/GenomeGridDiff.svelte';
+import FreeSlotsDialog from '#lib/components/mypets/FreeSlotsDialog.svelte';
+import NameBackfillDialog from '#lib/components/mypets/NameBackfillDialog.svelte';
+import Roster from '#lib/components/mypets/Roster.svelte';
+import PetVisualization from '#lib/components/pet/PetVisualization.svelte';
+import DetailOverlay from '#lib/components/shared/DetailOverlay.svelte';
+import EmptyState from '#lib/components/shared/EmptyState.svelte';
+import FilterBar from '#lib/components/shared/FilterBar.svelte';
+import PageHeader from '#lib/components/shared/PageHeader.svelte';
+import { isPlaceholderConfig } from '#lib/firebase.js';
+import { getSupportedSpecies, normalizeSpecies } from '#lib/services/configService.js';
+import { updatePet } from '#lib/services/petService.js';
+import { bulkShareJob, startBulkShare } from '#lib/stores/bulkShare.svelte.js';
+import { pendingImportCount } from '#lib/stores/gameImport.js';
+import { clearMyPetsSelection, getMyPetsFilters, myPetsView } from '#lib/stores/mypets.svelte.js';
+import { allTags, appState, loading, pets } from '#lib/stores/pets.js';
+import { settings } from '#lib/stores/settings.js';
+import { type Gender, type Pet } from '#lib/types/index.js';
+import { focusTrap } from '#lib/utils/focusTrap.js';
+import { MIN_POPULATION } from '#lib/utils/geneticQuality.js';
+import { createGenomeUploadController } from '#lib/utils/genomeUploadController.svelte.js';
+import { type KeptStoredValues, planNameBackfill } from '#lib/utils/nameAttributes.js';
+import { filterPets } from '#lib/utils/petFilter.js';
+import { BREEDS_BY_SPECIES, getSpeciesEmoji } from '#lib/utils/species.js';
 
 const speciesOptions = getSupportedSpecies();
 const upload = createGenomeUploadController();

@@ -14,12 +14,12 @@
  * this store is the UI glue layer only.
  */
 
-import { isPlaceholderConfig } from '$lib/firebase.js';
-import { type ImportResult, importCommunityPet, listPets } from '$lib/services/shareService.js';
-import { activeTab, appState } from '$lib/stores/pets.js';
-import type { SharedPet } from '$lib/types/index.js';
-import { errorMessage } from '$lib/utils/error.js';
-import { dedupeLatest, mergeCorrectionIdentity } from '$lib/utils/sharedPet.js';
+import { isPlaceholderConfig } from '#lib/firebase.js';
+import { type ImportResult, importCommunityPet, listPets } from '#lib/services/shareService.js';
+import { activeTab, appState } from '#lib/stores/pets.js';
+import type { SharedPet } from '#lib/types/index.js';
+import { errorMessage } from '#lib/utils/error.js';
+import { dedupeLatest } from '#lib/utils/sharedPet.js';
 
 const PAGE_SIZE = 50;
 
@@ -217,7 +217,7 @@ export async function loadMore(): Promise<void> {
  * Test-only escape hatch — resets the module-level `lastLoadedAt`
  * cache stamp and the in-flight generation counter so unit suites
  * can run from a pristine state. Not exported via the public
- * `$lib/stores/community` barrel; only the test file imports it
+ * `#lib/stores/community` barrel; only the test file imports it
  * directly. Real callers should not use this.
  */
 export function _resetCommunityStoreState(): void {

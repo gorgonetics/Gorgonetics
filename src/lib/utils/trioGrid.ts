@@ -10,7 +10,7 @@
  * the shape so it can be unit-tested without rendering.
  */
 
-import { compareBlockLetters } from '$lib/services/genomeParser.js';
+import { compareBlockLetters } from '#lib/services/genomeParser.js';
 import type {
   AlleleDistribution,
   GeneType,
@@ -20,9 +20,9 @@ import type {
   TrioGainMode,
   TrioLocusContributions,
   TrioVerdict,
-} from '$lib/types/index.js';
-import { joinAttrs } from '$lib/utils/filterCSS.js';
-import type { GeneCell } from '$lib/utils/geneGridCells.js';
+} from '#lib/types/index.js';
+import { joinAttrs } from '#lib/utils/filterCSS.js';
+import type { GeneCell } from '#lib/utils/geneGridCells.js';
 
 /** A fully-resolved locus ready to render across the three rows. */
 export interface TrioLocusCell {

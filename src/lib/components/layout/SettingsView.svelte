@@ -4,14 +4,14 @@ declare const __APP_VERSION__: string;
 
 <script lang="ts">
 import type { Update } from '@tauri-apps/plugin-updater';
-import BreedSelector from '$lib/components/shared/BreedSelector.svelte';
-import DetailOverlay from '$lib/components/shared/DetailOverlay.svelte';
-import { detectPlatform, getDefaultGameFolder } from '$lib/services/gameImport.js';
-import { settings, settingsActions } from '$lib/stores/settings.js';
-import { HORSE_BREEDS } from '$lib/types/index.js';
-import { isTauri } from '$lib/utils/environment.js';
-import { getFontScale as _getFontScale, clampScale, MAX_SCALE, MIN_SCALE } from '$lib/utils/fontScale.js';
-import { getThemePreference } from '$lib/utils/theme.js';
+import BreedSelector from '#lib/components/shared/BreedSelector.svelte';
+import DetailOverlay from '#lib/components/shared/DetailOverlay.svelte';
+import { detectPlatform, getDefaultGameFolder } from '#lib/services/gameImport.js';
+import { settings, settingsActions } from '#lib/stores/settings.js';
+import { HORSE_BREEDS } from '#lib/types/index.js';
+import { isTauri } from '#lib/utils/environment.js';
+import { getFontScale as _getFontScale, clampScale, MAX_SCALE, MIN_SCALE } from '#lib/utils/fontScale.js';
+import { getThemePreference } from '#lib/utils/theme.js';
 
 interface Props {
   onClose: () => void;
@@ -111,7 +111,7 @@ async function installUpdate() {
   updateStatus = 'downloading';
   downloadProgress = 0;
   try {
-    const { installUpdateWithBackup } = await import('$lib/services/updateService.js');
+    const { installUpdateWithBackup } = await import('#lib/services/updateService.js');
     await installUpdateWithBackup(pendingUpdate, (percent) => {
       downloadProgress = percent;
     });

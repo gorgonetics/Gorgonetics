@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import type { BreedingPairResult, Pet } from '$lib/types/index.js';
+import type { BreedingPairResult, Pet } from '#lib/types/index.js';
 import {
   attributeObjective,
   BREEDING_OBJECTIVE_IDS,
   BREEDING_OBJECTIVES,
   DEFAULT_BREEDING_OBJECTIVE,
   resolveObjective,
-} from '$lib/utils/breedingObjectives.js';
+} from '#lib/utils/breedingObjectives.js';
 
 const pet = (id: number) => ({ id, name: `p${id}` }) as Pet;
 

@@ -6,17 +6,17 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 // this suite drives the dialog with the service mocked: preview, note,
 // send, the "Reported" state, partial failure and closing during a send.
 
-vi.mock('$lib/firebase.js', () => ({ isPlaceholderConfig: false }));
-vi.mock('$lib/utils/focusTrap.js', () => ({ focusTrap: () => ({}) }));
+vi.mock('#lib/firebase.js', () => ({ isPlaceholderConfig: false }));
+vi.mock('#lib/utils/focusTrap.js', () => ({ focusTrap: () => ({}) }));
 
 const submitGeneReports = vi.fn();
-vi.mock('$lib/services/geneReportService.js', () => ({
+vi.mock('#lib/services/geneReportService.js', () => ({
   MAX_NOTE_LENGTH: 1000,
   submitGeneReports: (changes: unknown, note: string) => submitGeneReports(changes, note),
 }));
 
-import GeneReportDialog from '$lib/components/gene/GeneReportDialog.svelte';
-import type { ReportableChange } from '$lib/services/geneReportService.js';
+import GeneReportDialog from '#lib/components/gene/GeneReportDialog.svelte';
+import type { ReportableChange } from '#lib/services/geneReportService.js';
 
 afterEach(() => {
   cleanup();

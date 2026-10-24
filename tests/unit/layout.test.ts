@@ -22,12 +22,6 @@ function extractStyles(content: string): string {
   return match ? match[1] : '';
 }
 
-function extractTemplate(content: string): string {
-  // Everything between </script> and <style>
-  const match = content.match(/<\/script>([\s\S]*?)<style/);
-  return match ? match[1] : '';
-}
-
 // Helper: check that a CSS class has a specific property
 function hasProperty(css: string, selector: string, property: string, value?: string): boolean {
   // Find the rule block for the selector
@@ -83,7 +77,6 @@ describe('Layout: detail pane constrains to viewport', () => {
 describe('Layout: PetVisualization flex structure', () => {
   const viz = readComponent('src/lib/components/pet/PetVisualization.svelte');
   const css = extractStyles(viz);
-  const html = extractTemplate(viz);
 
   it('pet-visualization is flex column with overflow:hidden', () => {
     expect(hasProperty(css, '.pet-visualization', 'display', 'flex')).toBe(true);

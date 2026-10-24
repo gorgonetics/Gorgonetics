@@ -7,7 +7,7 @@
  * rows dim and check off *in place* — order never shifts under you. Collapsed by
  * default so it doesn't crowd the ranking; the header keeps the counts visible.
  */
-import { Gender, type Pet } from '$lib/types/index.js';
+import { Gender, type Pet } from '#lib/types/index.js';
 
 interface Props {
   /** Every stabled pet of the chosen species — benched or not. */
