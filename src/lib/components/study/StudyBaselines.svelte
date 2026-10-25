@@ -28,6 +28,13 @@ const { baselines }: Props = $props();
 			separate it from the base, so the base is only bounded by its declared sign. Animals of different breeds
 			are compared through the gap between their bases, which is exact even when neither base is.
 		</p>
+		{#if baselines.folded?.length}
+			<p class="lead" data-testid="study-baselines-folded">
+				These bases include the dominant effect of {baselines.folded.join(', ')}. Both of
+				{baselines.folded.length === 1 ? 'its' : 'their'} effects land on this attribute, so no pair can tell the
+				dominant one apart from the base.
+			</p>
+		{/if}
 		{#if baselines.readings.length > 0}
 		<table>
 			<thead>

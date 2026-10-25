@@ -54,6 +54,25 @@ export function parseEffect(effect: string | null | undefined): ParsedEffect | n
 }
 
 /**
+ * Whether a gene's two effects land on one attribute with opposite signs
+ * (`Enthusiasm-` / `Enthusiasm+`). Only the gap between such effects is
+ * measurable, so the study solves the gene as one swing; see
+ * `buildEffectSlots`.
+ */
+export function isSwingGene(
+  dominant: { attribute: string | null; sign: string | null } | null,
+  recessive: { attribute: string | null; sign: string | null } | null,
+): boolean {
+  return (
+    !!dominant?.attribute &&
+    !!dominant.sign &&
+    !!recessive?.sign &&
+    dominant.attribute === recessive.attribute &&
+    dominant.sign !== recessive.sign
+  );
+}
+
+/**
  * Parse an effect into the `(attribute, sign)` pair used as bind params
  * for the genes table's parsed columns — either resolved values or both
  * nulls when the effect isn't attribute-targeting.
