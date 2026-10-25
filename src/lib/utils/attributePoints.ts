@@ -90,8 +90,19 @@ export function hasMagnitudes(magnitudes: AttributeMagnitudes): boolean {
 export function buildAttributeMagnitudes(studies: readonly AttributeStudy[]): AttributeMagnitudes {
   const points = new Map<string, number>();
   const coverage = new Map<string, AttributeCoverage>();
+  const splits = swingSplits(studies);
   for (const study of studies) {
-    for (const finding of study.findings) points.set(slotKey(finding), finding.magnitude);
+    for (const finding of study.findings) {
+      const split = finding.swing ? splits.get(finding.gene) : undefined;
+      if (split) {
+        points.set(slotKey({ gene: finding.gene, expression: 'recessive' }), split.recessive);
+        points.set(slotKey({ gene: finding.gene, expression: 'dominant' }), split.dominant);
+      } else {
+        // An unsplit swing sits on the recessive slot with the dominant one
+        // unknown, which scores `R` against `D` by exactly the swing.
+        points.set(slotKey(finding), finding.magnitude);
+      }
+    }
     const attribute = capitalize(study.attribute);
     const existing = coverage.get(attribute);
     // Attributes are studied once each, but a merge keeps this total
@@ -102,6 +113,67 @@ export function buildAttributeMagnitudes(studies: readonly AttributeStudy[]): At
     });
   }
   return { points, coverage };
+}
+
+/** Positive findings on a chromosome needed before their shared value splits a swing. */
+const MIN_SPLIT_PEERS = 3;
+
+/**
+ * A swing finding shared out between the gene's two effects, for display.
+ *
+ * The corpus pins only the swing `recessive − dominant`; the split is an
+ * assumption, not a finding. It is taken from the gene's chromosome: when
+ * every known positive effect there has the same value, the swing's positive
+ * side gets that value and the negative side the rest. Chromosome 01 is the
+ * case this exists for — all its positives read `+5`.
+ */
+export interface SwingSplit {
+  gene: string;
+  swing: number;
+  recessive: number;
+  dominant: number;
+  /** Positive findings on the chromosome that agree on the shared value. */
+  peers: number;
+}
+
+/**
+ * Split every swing finding whose chromosome supports it, keyed by gene.
+ *
+ * A swing gets no split when its chromosome's positives disagree, when too
+ * few are known, or when the shared value would leave the negative side at
+ * zero or above — a declared `-` is at least `-1`. Scoring is unchanged
+ * either way: every split keeps `recessive − dominant` equal to the swing.
+ */
+export function swingSplits(studies: readonly AttributeStudy[]): Map<string, SwingSplit> {
+  const positives = new Map<string, Set<number>>();
+  const counts = new Map<string, number>();
+  for (const study of studies)
+    for (const finding of study.findings) {
+      if (finding.swing || finding.magnitude <= 0) continue;
+      const chromosome = finding.gene.slice(0, 2);
+      const values = positives.get(chromosome) ?? new Set<number>();
+      values.add(finding.magnitude);
+      positives.set(chromosome, values);
+      counts.set(chromosome, (counts.get(chromosome) ?? 0) + 1);
+    }
+  const out = new Map<string, SwingSplit>();
+  for (const study of studies)
+    for (const finding of study.findings) {
+      if (!finding.swing) continue;
+      const chromosome = finding.gene.slice(0, 2);
+      const values = positives.get(chromosome);
+      const peers = counts.get(chromosome) ?? 0;
+      if (values?.size !== 1 || peers < MIN_SPLIT_PEERS) continue;
+      const [shared] = values;
+      const swing = finding.magnitude;
+      // `swing = recessive − dominant`, and the positive side is whichever
+      // the swing's sign says.
+      const recessive = swing > 0 ? shared : shared + swing;
+      const dominant = recessive - swing;
+      if (Math.min(recessive, dominant) >= 0) continue;
+      out.set(finding.gene, { gene: finding.gene, swing, recessive, dominant, peers });
+    }
+  return out;
 }
 
 /** Signed points for one slot, or `undefined` where the corpus is silent. */

@@ -16,6 +16,7 @@ import {
 import { corpusRevision } from '#lib/stores/corpus.js';
 import { pets } from '#lib/stores/pets.js';
 import { settings, settingsActions } from '#lib/stores/settings.js';
+import { swingSplits } from '#lib/utils/attributePoints.js';
 import type { GeneDoubt } from '#lib/utils/attributeStudy.js';
 import { mostPopulatedSpecies } from '#lib/utils/species.js';
 import StudyBaselines from './StudyBaselines.svelte';
@@ -239,6 +240,7 @@ function inNamingOrder<T extends { attribute: string }>(list: readonly T[], targ
 }
 const studies = $derived(run ? inNamingOrder(run.studies, species) : []);
 const current = $derived(studies.find((s) => s.attribute === attribute) ?? studies[0]);
+const splits = $derived(run ? swingSplits(run.studies) : new Map());
 
 const coverage = $derived(run && run.totals.slots > 0 ? Math.round((run.totals.found / run.totals.slots) * 100) : 0);
 const accuracy = $derived(
@@ -560,7 +562,7 @@ async function solve(target: string): Promise<void> {
 						/>
 					{:else if current}
 						<StudyBaselines baselines={current.baselines} />
-						<StudyFindingsTable findings={current.findings} {names} slots={current.slots} />
+						<StudyFindingsTable findings={current.findings} {names} slots={current.slots} {splits} />
 					{/if}
 				</div>
 

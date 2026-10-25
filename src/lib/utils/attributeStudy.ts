@@ -86,6 +86,11 @@ export interface EffectSlot {
   sign: 1 | -1;
   /** Owning breed, or `''` for a gene that applies to every breed. */
   breed: string;
+  /**
+   * The gene's two effects land on this one attribute with opposite signs,
+   * and this slot stands for the gap between them — see `buildEffectSlots`.
+   */
+  swing?: true;
 }
 
 /** An animal the corpus can learn from. */
@@ -244,6 +249,11 @@ export interface StudyFinding {
   dissent: number;
   /** A few subject-id pairs that witness the finding, for "show the work". */
   witnesses: Array<[string, string]>;
+  /**
+   * `magnitude` is the gap between the gene's recessive and dominant effect
+   * on this attribute, not the recessive effect alone. See `buildEffectSlots`.
+   */
+  swing?: true;
 }
 
 /**
@@ -495,10 +505,34 @@ export function slotKey(slot: Pick<EffectSlot, 'gene' | 'expression'>): string {
  * A locus contributes up to two slots — its dominant and its recessive
  * effect are unrelated quantities and may even land on different
  * attributes, so they are never solved as one.
+ *
+ * Except when both land on the *same* attribute with opposite signs
+ * (`Enthusiasm-` / `Enthusiasm+`). Every revealed locus expresses exactly
+ * one of its two effects, so such a gene adds `−a` or `+b` and nothing else:
+ * `base + b − (a+b)·[dominant]`. Differences only ever see `a+b`, and how
+ * it splits is indistinguishable from moving `b` into the base. As two
+ * slots they always appear together, so neither is ever the sole unknown
+ * and every pair differing at the locus is stuck. They are solved instead
+ * as one recessive slot worth the swing `a+b`, with the dominant effect
+ * folded into the base. A same-sign pair has the same problem, but its
+ * swing has no declared sign to test, so it is left as two slots.
  */
 export function buildEffectSlots(effectsDB: Record<string, GeneEffectData>): EffectSlot[] {
   const slots: EffectSlot[] = [];
   for (const [gene, data] of Object.entries(effectsDB)) {
+    const dominant = parseEffect(data.effectDominant);
+    const recessive = parseEffect(data.effectRecessive);
+    if (dominant && recessive && dominant.attribute === recessive.attribute && dominant.sign !== recessive.sign) {
+      slots.push({
+        gene,
+        expression: 'recessive',
+        attribute: recessive.attribute,
+        sign: recessive.sign === '+' ? 1 : -1,
+        breed: data.breed ?? '',
+        swing: true,
+      });
+      continue;
+    }
     for (const [expression, raw] of [
       ['dominant', data.effectDominant],
       ['recessive', data.effectRecessive],
@@ -1065,6 +1099,7 @@ export function studyAttribute(
 
   const signOf = new Map<string, 1 | -1>();
   for (const slot of attributeSlots) signOf.set(slotKey(slot), slot.sign);
+  const swings = new Set(attributeSlots.filter((slot) => slot.swing).map(slotKey));
 
   const solved = new Map<string, StudyFinding>();
   const dissenters = new Map<string, number>();
@@ -1369,6 +1404,7 @@ export function studyAttribute(
     // Base gaps travel in the solver as slots but are not gene effects.
     findings: [...solved.values()]
       .filter((f) => f.gene !== BASE_SLOT_GENE)
+      .map((f) => (swings.has(slotKey(f)) ? { ...f, swing: true as const } : f))
       .sort(
         (a, b) =>
           a.depth - b.depth ||

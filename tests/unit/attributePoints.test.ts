@@ -5,6 +5,7 @@ import {
   EMPTY_MAGNITUDES,
   hasMagnitudes,
   magnitudeOf,
+  swingSplits,
 } from '#lib/utils/attributePoints.js';
 import type { AttributeStudy, StudyFinding } from '#lib/utils/attributeStudy.js';
 
@@ -87,5 +88,52 @@ describe('attribute magnitudes', () => {
       hasMagnitudes(buildAttributeMagnitudes([study('toughness', 9, [finding({ gene: 'g', magnitude: 1 })])])),
     ).toBe(true);
     expect(coverageOf(EMPTY_MAGNITUDES, 'Toughness')).toEqual({ known: 0, total: 0 });
+  });
+});
+
+describe('swing splits', () => {
+  /** Chromosome 01 as the live corpus reads it: every known positive is +5. */
+  const peers = ['01A1', '01A2', '01A3'].map((gene) =>
+    finding({ gene, expression: 'recessive', attribute: 'temperament', magnitude: 5 }),
+  );
+  const swing = (magnitude: number, gene = '01A4') =>
+    finding({ gene, expression: 'recessive', attribute: 'enthusiasm', magnitude, swing: true });
+
+  it('gives the positive side the chromosome’s shared value and the negative side the rest', () => {
+    const studies = [study('temperament', 3, peers), study('enthusiasm', 1, [swing(8)])];
+    expect(swingSplits(studies).get('01A4')).toEqual({
+      gene: '01A4',
+      swing: 8,
+      recessive: 5,
+      dominant: -3,
+      peers: 3,
+    });
+    const magnitudes = buildAttributeMagnitudes(studies);
+    expect(magnitudeOf(magnitudes, '01A4', 'recessive')).toBe(5);
+    expect(magnitudeOf(magnitudes, '01A4', 'dominant')).toBe(-3);
+    // The split is one slot of the attribute's arithmetic, not two.
+    expect(coverageOf(magnitudes, 'Enthusiasm')).toEqual({ known: 1, total: 1 });
+  });
+
+  it('does not split when the chromosome’s positives disagree', () => {
+    const mixed = [...peers, finding({ gene: '01B1', attribute: 'toughness', magnitude: 4 })];
+    const studies = [study('temperament', 4, mixed), study('enthusiasm', 1, [swing(8)])];
+    expect(swingSplits(studies).size).toBe(0);
+    const magnitudes = buildAttributeMagnitudes(studies);
+    expect(magnitudeOf(magnitudes, '01A4', 'recessive')).toBe(8);
+    expect(magnitudeOf(magnitudes, '01A4', 'dominant')).toBeUndefined();
+  });
+
+  it('does not split on too few positives', () => {
+    expect(swingSplits([study('temperament', 2, peers.slice(0, 2)), study('enthusiasm', 1, [swing(8)])]).size).toBe(0);
+  });
+
+  it('does not split when the negative side would be zero or positive', () => {
+    expect(swingSplits([study('temperament', 3, peers), study('enthusiasm', 1, [swing(5)])]).size).toBe(0);
+  });
+
+  it('reads positives from the swing’s own chromosome only', () => {
+    const elsewhere = peers.map((p) => ({ ...p, gene: p.gene.replace('01', '02') }));
+    expect(swingSplits([study('temperament', 3, elsewhere), study('enthusiasm', 1, [swing(8)])]).size).toBe(0);
   });
 });

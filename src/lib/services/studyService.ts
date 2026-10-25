@@ -981,7 +981,7 @@ export async function liveGeneConfirmations(
  * eligibility rules in `loadStudyCorpus`, or the shape `persistMagnitudes`
  * writes all count as changing the solve.
  */
-const SOLVER_VERSION = 4;
+const SOLVER_VERSION = 5;
 
 /**
  * A durable fingerprint of everything the solve depends on.

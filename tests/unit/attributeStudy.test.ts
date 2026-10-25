@@ -65,6 +65,48 @@ describe('buildEffectSlots', () => {
   });
 });
 
+describe('swing slots', () => {
+  // 01A4's two effects both land on enthusiasm, so every revealed animal
+  // carries one of them and only the gap between them is observable.
+  const swingDB: Record<string, GeneEffectData> = {
+    '01A4': { effectDominant: 'Enthusiasm-', effectRecessive: 'Enthusiasm+', breed: '' },
+    '01B1': { effectDominant: 'None', effectRecessive: 'Enthusiasm+', breed: '' },
+    '01C1': { effectDominant: 'Toughness+', effectRecessive: 'Toughness+', breed: '' },
+  };
+  const swingSlots = buildEffectSlots(swingDB);
+  const enthusiasm = slotsByAttribute(swingSlots).get('enthusiasm') ?? [];
+
+  it('collapses opposed effects on one attribute into a single recessive slot', () => {
+    expect(enthusiasm.map(slotKey).sort()).toEqual(['01A4:recessive', '01B1:recessive']);
+    expect(enthusiasm.find((s) => s.gene === '01A4')).toMatchObject({ sign: 1, swing: true });
+    expect(enthusiasm.find((s) => s.gene === '01B1')?.swing).toBeUndefined();
+  });
+
+  it('leaves a same-sign pair as two slots, since its swing has no declared sign', () => {
+    expect(
+      swingSlots
+        .filter((s) => s.gene === '01C1')
+        .map(slotKey)
+        .sort(),
+    ).toEqual(['01C1:dominant', '01C1:recessive']);
+  });
+
+  it('pins the swing from a pair differing only at that gene', () => {
+    // As two slots this pair held two unknowns and pinned nothing.
+    const study = studyAttribute(
+      [
+        horse('r', { '01A4': 'R', '01B1': 'D' }, { enthusiasm: 30 }),
+        horse('x', { '01A4': 'x', '01B1': 'D' }, { enthusiasm: 22 }),
+      ],
+      'enthusiasm',
+      enthusiasm,
+    );
+    expect(study.findings).toEqual([
+      expect.objectContaining({ gene: '01A4', expression: 'recessive', magnitude: 8, tier: 'direct', swing: true }),
+    ]);
+  });
+});
+
 describe('activeSlots', () => {
   it('treats a mixed locus exactly as a dominant one', () => {
     const dominant = horse('d', base({ '14B4': 'D' }), { temperament: 50 });
