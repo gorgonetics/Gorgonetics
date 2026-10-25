@@ -60,7 +60,12 @@ import { getAllPets, localPetsAdded, localPetsRevision } from '#lib/services/pet
 import { listGenomes, listPets } from '#lib/services/shareService.js';
 import { corpusLoci } from '#lib/services/studyCorpus.js';
 import { GeneType, type Pet, type SharedPet } from '#lib/types/index.js';
-import { type AttributeMagnitudes, buildAttributeMagnitudes, EMPTY_MAGNITUDES } from '#lib/utils/attributePoints.js';
+import {
+  type AttributeMagnitudes,
+  buildAttributeMagnitudes,
+  EMPTY_MAGNITUDES,
+  withAssumedSplits,
+} from '#lib/utils/attributePoints.js';
 import {
   type AttributeStudy,
   buildEffectSlots,
@@ -72,6 +77,7 @@ import {
   studyAll,
   type ValidationSuspect,
 } from '#lib/utils/attributeStudy.js';
+import { isSwingGene } from '#lib/utils/geneAnalysis.js';
 import { sha256Hex } from '#lib/utils/hash.js';
 import { encodeLoci, storedGenomeEntries } from '#lib/utils/lociCodec.js';
 import { loadAllPetLoci, type PetLoci } from '#lib/utils/petLoci.js';
@@ -1340,6 +1346,7 @@ export function clearAttributeMagnitudesCache(species?: string): void {
 export interface GeneImpactData {
   species: string;
   parsed: Record<string, ParsedGeneRecord>;
+  /** A display table: swings show their assumed split (`withAssumedSplits`). Not for scoring. */
   magnitudes: AttributeMagnitudes;
   /** The study failed, so `magnitudes` is the empty fallback, not a result. */
   studyFailed: boolean;
@@ -1357,6 +1364,17 @@ export function studyInputsKey(species: string): string {
 /** Load everything the impact lens needs for one species (or a `studyInputsKey`). */
 export async function loadGeneImpact(speciesOrKey: string): Promise<GeneImpactData> {
   const species = normalizeSpecies(speciesOrKey.split('|')[0]);
-  const [parsed, magnitudes] = await Promise.all([getParsedGenesCached(species), attributeMagnitudesFor(species)]);
+  const [parsed, scoring] = await Promise.all([getParsedGenesCached(species), attributeMagnitudesFor(species)]);
+  const swingGenes = new Set(
+    Object.entries(parsed)
+      .filter(([, gd]) =>
+        isSwingGene(
+          { attribute: gd.dominantAttribute, sign: gd.dominantSign },
+          { attribute: gd.recessiveAttribute, sign: gd.recessiveSign },
+        ),
+      )
+      .map(([geneId]) => geneId),
+  );
+  const magnitudes = withAssumedSplits(scoring, swingGenes);
   return { species, parsed, magnitudes, studyFailed: failedStudies.has(species) };
 }

@@ -46,7 +46,8 @@
  * as the study folds it. That keeps every difference between animals exact
  * and makes both slots known, so coverage and lock weights treat the gene
  * like any other. How the gap really splits is not known and is not guessed
- * here: `swingSplits` offers an assumed split for the Study tab only.
+ * here: `swingSplits` offers an assumed split, and `withAssumedSplits` paints
+ * it into a copy of the table for display. Neither ever reaches a scorer.
  *
  * Pure functions over an already-computed study. No DB, no Svelte.
  */
@@ -77,6 +78,11 @@ export interface AttributeCoverage {
 export interface AttributeMagnitudes {
   points: ReadonlyMap<string, number>;
   coverage: ReadonlyMap<string, AttributeCoverage>;
+  /**
+   * Slots whose points are an assumed swing split, not a finding. Set only on
+   * a display copy from `withAssumedSplits`; a scoring table never has it.
+   */
+  assumed?: ReadonlySet<string>;
 }
 
 /** No study has run, or it found nothing: every scorer falls back to counting. */
@@ -158,37 +164,80 @@ export interface SwingSplit {
  * an import only adds to it.
  */
 export function swingSplits(studies: readonly AttributeStudy[]): Map<string, SwingSplit> {
+  const swingGenes = new Set(studies.flatMap((study) => study.findings.filter((f) => f.swing).map((f) => f.gene)));
+  return splitsOver(buildAttributeMagnitudes(studies).points, swingGenes);
+}
+
+/**
+ * `swingSplits` read off a points table, which holds one entry per finding
+ * and a swing as its gap (see "Swings" above), so the two give the same splits.
+ */
+function splitsOver(points: ReadonlyMap<string, number>, swingGenes: ReadonlySet<string>): Map<string, SwingSplit> {
   const positives = new Map<string, Set<number>>();
   const counts = new Map<string, number>();
-  for (const study of studies)
-    for (const finding of study.findings) {
-      if (finding.swing || finding.magnitude <= 0) continue;
-      const chromosome = fromGeneId(finding.gene)?.chromosome;
-      if (!chromosome) continue;
-      const values = positives.get(chromosome) ?? new Set<number>();
-      values.add(finding.magnitude);
-      positives.set(chromosome, values);
-      counts.set(chromosome, (counts.get(chromosome) ?? 0) + 1);
-    }
+  for (const [key, value] of points) {
+    const gene = key.slice(0, key.indexOf(':'));
+    if (swingGenes.has(gene) || value <= 0) continue;
+    const chromosome = fromGeneId(gene)?.chromosome;
+    if (!chromosome) continue;
+    const values = positives.get(chromosome) ?? new Set<number>();
+    values.add(value);
+    positives.set(chromosome, values);
+    counts.set(chromosome, (counts.get(chromosome) ?? 0) + 1);
+  }
   const out = new Map<string, SwingSplit>();
-  for (const study of studies)
-    for (const finding of study.findings) {
-      if (!finding.swing) continue;
-      const chromosome = fromGeneId(finding.gene)?.chromosome;
-      if (!chromosome) continue;
-      const values = positives.get(chromosome);
-      const peers = counts.get(chromosome) ?? 0;
-      if (values?.size !== 1 || peers < MIN_SPLIT_PEERS) continue;
-      const [shared] = values;
-      const swing = finding.magnitude;
-      // `swing = recessive − dominant`, and the positive side is whichever
-      // the swing's sign says.
-      const recessive = swing > 0 ? shared : shared + swing;
-      const dominant = recessive - swing;
-      if (Math.min(recessive, dominant) >= 0) continue;
-      out.set(finding.gene, { gene: finding.gene, swing, recessive, dominant, peers });
-    }
+  for (const gene of swingGenes) {
+    const recessiveSide = points.get(slotKey({ gene, expression: 'recessive' }));
+    const dominantSide = points.get(slotKey({ gene, expression: 'dominant' }));
+    const chromosome = fromGeneId(gene)?.chromosome;
+    if (recessiveSide === undefined || dominantSide === undefined || !chromosome) continue;
+    const values = positives.get(chromosome);
+    const peers = counts.get(chromosome) ?? 0;
+    if (values?.size !== 1 || peers < MIN_SPLIT_PEERS) continue;
+    const [shared] = values;
+    const swing = recessiveSide - dominantSide;
+    // `swing = recessive − dominant`, and the positive side is whichever
+    // the swing's sign says.
+    const recessive = swing > 0 ? shared : shared + swing;
+    const dominant = recessive - swing;
+    if (Math.min(recessive, dominant) >= 0) continue;
+    out.set(gene, { gene, swing, recessive, dominant, peers });
+  }
   return out;
+}
+
+/**
+ * A display copy of a scoring table, with each swing shown as its assumed
+ * split instead of the gap-and-zero the scorers read, and those slots listed
+ * in `assumed`. Where the chromosome supports no split, the negative side is
+ * left unknown rather than shown as a `0` nobody measured.
+ *
+ * Every difference between animals is the same in both tables, so a view
+ * built on this agrees with the scores. It is still for painting only: the
+ * split can change on import, which the scoring cache must not see.
+ */
+export function withAssumedSplits(
+  magnitudes: AttributeMagnitudes,
+  swingGenes: ReadonlySet<string>,
+): AttributeMagnitudes {
+  if (swingGenes.size === 0 || !hasMagnitudes(magnitudes)) return magnitudes;
+  const splits = splitsOver(magnitudes.points, swingGenes);
+  const points = new Map(magnitudes.points);
+  const assumed = new Set<string>();
+  for (const gene of swingGenes) {
+    const recessiveKey = slotKey({ gene, expression: 'recessive' });
+    const dominantKey = slotKey({ gene, expression: 'dominant' });
+    const split = splits.get(gene);
+    if (split) {
+      points.set(recessiveKey, split.recessive);
+      points.set(dominantKey, split.dominant);
+      assumed.add(recessiveKey).add(dominantKey);
+    } else if (points.has(recessiveKey) && points.has(dominantKey)) {
+      // The zero side is the negative effect folded into the base.
+      points.delete((points.get(recessiveKey) ?? 0) > 0 ? dominantKey : recessiveKey);
+    }
+  }
+  return { ...magnitudes, points, assumed };
 }
 
 /** Signed points for one slot, or `undefined` where the corpus is silent. */

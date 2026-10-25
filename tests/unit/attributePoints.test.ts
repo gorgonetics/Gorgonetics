@@ -6,6 +6,7 @@ import {
   hasMagnitudes,
   magnitudeOf,
   swingSplits,
+  withAssumedSplits,
 } from '#lib/utils/attributePoints.js';
 import type { AttributeStudy, StudyFinding } from '#lib/utils/attributeStudy.js';
 
@@ -148,5 +149,25 @@ describe('swing splits', () => {
     expect(
       swingSplits([study('temperament', 3, peers), study('enthusiasm', 1, [swing(-7)])]).get('01A4'),
     ).toMatchObject({ recessive: -2, dominant: 5 });
+  });
+
+  it('paints the assumed split into a display copy, leaving the scoring table alone', () => {
+    const scoring = buildAttributeMagnitudes([study('temperament', 3, peers), study('enthusiasm', 1, [swing(6)])]);
+    const display = withAssumedSplits(scoring, new Set(['01A4']));
+    expect(magnitudeOf(display, '01A4', 'recessive')).toBe(5);
+    expect(magnitudeOf(display, '01A4', 'dominant')).toBe(-1);
+    expect([...(display.assumed ?? [])].sort()).toEqual(['01A4:dominant', '01A4:recessive']);
+    expect(magnitudeOf(display, '01A1', 'recessive')).toBe(5);
+    expect(magnitudeOf(scoring, '01A4', 'recessive')).toBe(6);
+    expect(magnitudeOf(scoring, '01A4', 'dominant')).toBe(0);
+    expect(scoring.assumed).toBeUndefined();
+  });
+
+  it('shows the negative side as unknown, not zero, when nothing supports a split', () => {
+    const scoring = buildAttributeMagnitudes([study('enthusiasm', 1, [swing(6)])]);
+    const display = withAssumedSplits(scoring, new Set(['01A4']));
+    expect(magnitudeOf(display, '01A4', 'recessive')).toBe(6);
+    expect(magnitudeOf(display, '01A4', 'dominant')).toBeUndefined();
+    expect(display.assumed?.size).toBe(0);
   });
 });
