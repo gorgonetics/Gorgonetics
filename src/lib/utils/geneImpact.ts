@@ -13,6 +13,10 @@
  *    and never given an estimated number: `attributePoints` refuses to
  *    impute one, and a view that did would undo that.
  *
+ * A swing gene (both effects on one attribute, opposite signs) is measured
+ * only as the gap between them, so its positive slot shows the whole gap and
+ * its negative slot a known `0` — see `attributePoints`.
+ *
  * A known slot is coloured by the sign of its *measured* points, not by the
  * declared sign. The study holds the declared sign out of the solve and uses
  * it as an independent check, so when the two disagree the measurement is

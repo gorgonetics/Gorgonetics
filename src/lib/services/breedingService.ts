@@ -31,6 +31,7 @@ import {
   offspringDistribution,
   positiveExpressionProbability,
 } from '#lib/utils/breedingGenetics.js';
+import { isSwingGene } from '#lib/utils/geneAnalysis.js';
 import {
   type BenefitWeight,
   breedReachFor,
@@ -276,6 +277,10 @@ export function accumulatePoints(
  *
  * A measured magnitude at or below zero is worth 0: the slot is declared
  * positive, and the study does not agree, so locking it is not a gain.
+ *
+ * A swing gene's positive slot carries the whole gap between its two effects
+ * (see `attributePoints`), which is what locking it gains on that attribute
+ * over the other allele.
  */
 function lockWeights(
   geneId: string,
@@ -534,18 +539,25 @@ function scopeMagnitudesToBreed(
   for (const [geneId, gd] of Object.entries(parsedGenes)) {
     if (isHorseBreedFiltered(species, offspringBreed, gd.breed)) continue;
     const slots = attributeSlots(gd);
+    // The study solves a swing gene as one slot, so it counts once here too,
+    // or the Breed tab would report coverage the Study tab does not.
+    const swing = isSwingGene(
+      { attribute: gd.dominantAttribute, sign: gd.dominantSign },
+      { attribute: gd.recessiveAttribute, sign: gd.recessiveSign },
+    );
     for (const [expression, attribute] of [
       ['dominant', slots.dom],
       ['recessive', slots.rec],
     ] as Array<[Expression, string | null]>) {
       if (!attribute) continue;
       const magnitude = magnitudeOf(magnitudes, geneId, expression);
+      if (magnitude !== undefined) points.set(slotKey({ gene: geneId, expression }), magnitude);
+      if (swing && expression === 'dominant') continue;
       const seen = coverage.get(attribute) ?? { known: 0, total: 0 };
       coverage.set(attribute, {
         known: seen.known + (magnitude === undefined ? 0 : 1),
         total: seen.total + 1,
       });
-      if (magnitude !== undefined) points.set(slotKey({ gene: geneId, expression }), magnitude);
     }
   }
   return { points, coverage };

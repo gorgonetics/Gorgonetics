@@ -104,6 +104,23 @@ describe('swing slots', () => {
     expect(study.findings).toEqual([
       expect.objectContaining({ gene: '01A4', expression: 'recessive', magnitude: 8, tier: 'direct', swing: true }),
     ]);
+    expect(study.baselines.folded).toEqual(['01A4']);
+  });
+
+  it('doubts a swing of one, which the two declarations cannot produce', () => {
+    // Each declared effect is worth at least a point, so the gap is at least
+    // two. Three independent pairs, so no single animal can be behind it.
+    const subjects = [
+      horse('r1', { '01A4': 'R', '01B1': 'D' }, { enthusiasm: 31 }),
+      horse('d1', { '01A4': 'D', '01B1': 'D' }, { enthusiasm: 30 }),
+      horse('r2', { '01A4': 'R', '01B1': 'R' }, { enthusiasm: 41 }),
+      horse('d2', { '01A4': 'D', '01B1': 'R' }, { enthusiasm: 40 }),
+    ];
+    const study = studyAttribute(subjects, 'enthusiasm', enthusiasm);
+    expect(study.findings.find((f) => f.gene === '01A4')).toBeUndefined();
+    expect(study.geneDoubts).toEqual([
+      expect.objectContaining({ gene: '01A4', observed: 1, reason: 'contradicts-sign', swing: true }),
+    ]);
   });
 });
 

@@ -137,12 +137,12 @@ function subject(id: string): string {
 							<td class="expression">{finding.expression}</td>
 						{/if}
 						<td class="numeric points" class:up={finding.magnitude > 0} class:down={finding.magnitude < 0}>
-							{signed(finding.magnitude)}{#if splits.get(finding.gene)}{@const split = splits.get(finding.gene) as SwingSplit}<span
+							{signed(finding.magnitude)}{#if finding.swing}{@const split = splits.get(finding.gene)}{#if split}<span
 									class="split"
 									data-testid="study-swing-split"
 									title="Assumed, not measured: every other known positive on this chromosome is {signed(Math.max(split.recessive, split.dominant))} ({split.peers} findings). Recessive {signed(split.recessive)}, dominant {signed(split.dominant)}."
 								>{signed(split.recessive)}&thinsp;/&thinsp;{signed(split.dominant)}</span
-								>{/if}
+								>{/if}{/if}
 						</td>
 						<td>
 							<!-- A direct finding is read straight off a pair; a derived one

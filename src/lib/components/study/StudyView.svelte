@@ -120,6 +120,8 @@ async function confirmDoubt(d: GeneDoubt): Promise<void> {
   actionError = null;
   try {
     await confirmGeneDeclaration(species, d.gene, d.expression, d.attribute, d.declared);
+    // A swing stands for both of the gene's declarations: see `liveGeneConfirmations`.
+    if (d.swing) await confirmGeneDeclaration(species, d.gene, 'dominant', d.attribute, d.declared > 0 ? -1 : 1);
     // `solve` directly rather than clearing `ranFor` to provoke the effect:
     // the species has not changed, so re-arming the effect only schedules a
     // second identical solve that the generation guard then throws away.
@@ -616,7 +618,15 @@ async function solve(target: string): Promise<void> {
 								<li>
 									<span class="doubt-gene">{d.gene}</span>
 									<span class="doubt-claim">
-										{#if d.reason === 'contradicts-sign'}
+										{#if d.swing && (d.reason === 'contradicts-sign' || d.reason === 'no-effect')}
+											<!-- Both declarations are in question, so both are named: each
+											     effect is at least one point, so the recessive should beat
+											     the dominant by two or more in the declared direction. -->
+											declared {d.attribute}{d.declared > 0 ? '−' : '+'} dominant and {d.attribute}{d.declared > 0
+												? '+'
+												: '−'} recessive, but recessive vs dominant reads
+											{d.observed === 0 ? 'the same' : `${d.observed > 0 ? '+' : '−'}${Math.abs(d.observed)}`}
+										{:else if d.reason === 'contradicts-sign'}
 											declared {d.attribute}{d.declared > 0 ? '+' : '−'}, but reads
 											{d.observed > 0 ? '+' : '−'}{Math.abs(d.observed)}
 										{:else if d.reason === 'no-effect'}
@@ -639,7 +649,9 @@ async function solve(target: string): Promise<void> {
 										class="row-action"
 										data-testid="gene-confirm-{d.gene}-{d.expression}"
 										disabled={busyRow !== null}
-										title="I checked in game and the declared effect is right. Stop recommending this gene, and treat the animals in the dispute as the mis-recorded ones."
+										title={d.swing
+											? 'I checked in game and both declared effects are right. Stop recommending this gene, and treat the animals in the dispute as the mis-recorded ones.'
+											: 'I checked in game and the declared effect is right. Stop recommending this gene, and treat the animals in the dispute as the mis-recorded ones.'}
 										onclick={() => confirmDoubt(d)}
 									>
 										{busyRow === `${d.gene}:${d.expression}` ? 'Saving…' : 'Table is right'}

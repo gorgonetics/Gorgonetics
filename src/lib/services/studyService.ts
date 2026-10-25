@@ -947,6 +947,12 @@ export async function withdrawGeneConfirmation(species: string, gene: string, ex
  * back to being an open question. Stale rows are left in place rather than
  * deleted: re-declaring a gene back to what it was should bring the old
  * confirmation back with it, since the player really did check that claim.
+ *
+ * A swing slot stands for two declarations, and a doubt about it may be the
+ * fault of either, so it is confirmed only when both are: confirming a swing
+ * doubt writes both rows. A row for one side alone, such as one saved before
+ * these genes were solved as swings, stays in place and counts once the other
+ * side is confirmed too.
  */
 export async function liveGeneConfirmations(
   species: string,
@@ -959,10 +965,15 @@ export async function liveGeneConfirmations(
   );
   const confirmed = new Map(rows.map((r) => [`${r.gene}:${r.expression}`, r]));
   const live = new Set<string>();
+  const holds = (key: string, attribute: string, sign: number): boolean => {
+    const row = confirmed.get(key);
+    return !!row && row.attribute === attribute && row.sign === sign;
+  };
   for (const slot of slots) {
     const key = slotKey(slot);
-    const row = confirmed.get(key);
-    if (row && row.attribute === slot.attribute && row.sign === slot.sign) live.add(key);
+    if (!holds(key, slot.attribute, slot.sign)) continue;
+    if (slot.swing && !holds(`${slot.gene}:dominant`, slot.attribute, -slot.sign)) continue;
+    live.add(key);
   }
   return live;
 }
@@ -981,7 +992,7 @@ export async function liveGeneConfirmations(
  * eligibility rules in `loadStudyCorpus`, or the shape `persistMagnitudes`
  * writes all count as changing the solve.
  */
-const SOLVER_VERSION = 5;
+const SOLVER_VERSION = 6;
 
 /**
  * A durable fingerprint of everything the solve depends on.

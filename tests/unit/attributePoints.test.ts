@@ -108,20 +108,27 @@ describe('swing splits', () => {
       dominant: -3,
       peers: 3,
     });
-    const magnitudes = buildAttributeMagnitudes(studies);
-    expect(magnitudeOf(magnitudes, '01A4', 'recessive')).toBe(5);
-    expect(magnitudeOf(magnitudes, '01A4', 'dominant')).toBe(-3);
-    // The split is one slot of the attribute's arithmetic, not two.
+  });
+
+  it('keeps the assumed split out of the scoring table', () => {
+    // The table holds only what the corpus entails: the whole gap on the
+    // positive side, nothing on the negative one, split or no split.
+    const magnitudes = buildAttributeMagnitudes([study('temperament', 3, peers), study('enthusiasm', 1, [swing(8)])]);
+    expect(magnitudeOf(magnitudes, '01A4', 'recessive')).toBe(8);
+    expect(magnitudeOf(magnitudes, '01A4', 'dominant')).toBe(0);
     expect(coverageOf(magnitudes, 'Enthusiasm')).toEqual({ known: 1, total: 1 });
+  });
+
+  it('puts a dominant-positive swing on the dominant slot', () => {
+    const magnitudes = buildAttributeMagnitudes([study('enthusiasm', 1, [swing(-4)])]);
+    expect(magnitudeOf(magnitudes, '01A4', 'dominant')).toBe(4);
+    expect(magnitudeOf(magnitudes, '01A4', 'recessive')).toBe(0);
   });
 
   it('does not split when the chromosome’s positives disagree', () => {
     const mixed = [...peers, finding({ gene: '01B1', attribute: 'toughness', magnitude: 4 })];
     const studies = [study('temperament', 4, mixed), study('enthusiasm', 1, [swing(8)])];
     expect(swingSplits(studies).size).toBe(0);
-    const magnitudes = buildAttributeMagnitudes(studies);
-    expect(magnitudeOf(magnitudes, '01A4', 'recessive')).toBe(8);
-    expect(magnitudeOf(magnitudes, '01A4', 'dominant')).toBeUndefined();
   });
 
   it('does not split on too few positives', () => {
@@ -135,5 +142,11 @@ describe('swing splits', () => {
   it('reads positives from the swing’s own chromosome only', () => {
     const elsewhere = peers.map((p) => ({ ...p, gene: p.gene.replace('01', '02') }));
     expect(swingSplits([study('temperament', 3, elsewhere), study('enthusiasm', 1, [swing(8)])]).size).toBe(0);
+  });
+
+  it('splits a dominant-positive swing with the shared value on the dominant side', () => {
+    expect(
+      swingSplits([study('temperament', 3, peers), study('enthusiasm', 1, [swing(-7)])]).get('01A4'),
+    ).toMatchObject({ recessive: -2, dominant: 5 });
   });
 });

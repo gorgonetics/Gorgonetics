@@ -38,11 +38,22 @@
  * narrower question — "how many points, as far as the corpus knows" — and a
  * scorer has nothing useful to do with a substitution chain's depth.
  *
+ * ## Swings
+ *
+ * A swing gene (see `buildEffectSlots`) is measured only as the gap between
+ * its two effects. The table puts the whole gap on the positive side and `0`
+ * on the negative side, which is the negative effect folded into the base,
+ * as the study folds it. That keeps every difference between animals exact
+ * and makes both slots known, so coverage and lock weights treat the gene
+ * like any other. How the gap really splits is not known and is not guessed
+ * here: `swingSplits` offers an assumed split for the Study tab only.
+ *
  * Pure functions over an already-computed study. No DB, no Svelte.
  */
 
 import type { AttributeStudy, Expression } from '#lib/utils/attributeStudy.js';
 import { slotKey } from '#lib/utils/attributeStudy.js';
+import { fromGeneId } from '#lib/utils/geneAnalysis.js';
 import { capitalize } from '#lib/utils/string.js';
 
 /** How much of one attribute's arithmetic the corpus has pinned down. */
@@ -90,16 +101,14 @@ export function hasMagnitudes(magnitudes: AttributeMagnitudes): boolean {
 export function buildAttributeMagnitudes(studies: readonly AttributeStudy[]): AttributeMagnitudes {
   const points = new Map<string, number>();
   const coverage = new Map<string, AttributeCoverage>();
-  const splits = swingSplits(studies);
   for (const study of studies) {
     for (const finding of study.findings) {
-      const split = finding.swing ? splits.get(finding.gene) : undefined;
-      if (split) {
-        points.set(slotKey({ gene: finding.gene, expression: 'recessive' }), split.recessive);
-        points.set(slotKey({ gene: finding.gene, expression: 'dominant' }), split.dominant);
+      if (finding.swing) {
+        // `magnitude` is `recessive − dominant`: the whole gap on the positive
+        // side, nothing on the negative one. See "Swings" above.
+        points.set(slotKey({ gene: finding.gene, expression: 'recessive' }), Math.max(finding.magnitude, 0));
+        points.set(slotKey({ gene: finding.gene, expression: 'dominant' }), Math.max(-finding.magnitude, 0));
       } else {
-        // An unsplit swing sits on the recessive slot with the dominant one
-        // unknown, which scores `R` against `D` by exactly the swing.
         points.set(slotKey(finding), finding.magnitude);
       }
     }
@@ -141,8 +150,12 @@ export interface SwingSplit {
  *
  * A swing gets no split when its chromosome's positives disagree, when too
  * few are known, or when the shared value would leave the negative side at
- * zero or above — a declared `-` is at least `-1`. Scoring is unchanged
- * either way: every split keeps `recessive − dominant` equal to the swing.
+ * zero or above — a declared `-` is at least `-1`.
+ *
+ * For display only. The split is an assumption, and it can appear, change or
+ * go when an import pins another positive on the chromosome, so it must stay
+ * out of `buildAttributeMagnitudes`, whose table is cached on the promise that
+ * an import only adds to it.
  */
 export function swingSplits(studies: readonly AttributeStudy[]): Map<string, SwingSplit> {
   const positives = new Map<string, Set<number>>();
@@ -150,7 +163,8 @@ export function swingSplits(studies: readonly AttributeStudy[]): Map<string, Swi
   for (const study of studies)
     for (const finding of study.findings) {
       if (finding.swing || finding.magnitude <= 0) continue;
-      const chromosome = finding.gene.slice(0, 2);
+      const chromosome = fromGeneId(finding.gene)?.chromosome;
+      if (!chromosome) continue;
       const values = positives.get(chromosome) ?? new Set<number>();
       values.add(finding.magnitude);
       positives.set(chromosome, values);
@@ -160,7 +174,8 @@ export function swingSplits(studies: readonly AttributeStudy[]): Map<string, Swi
   for (const study of studies)
     for (const finding of study.findings) {
       if (!finding.swing) continue;
-      const chromosome = finding.gene.slice(0, 2);
+      const chromosome = fromGeneId(finding.gene)?.chromosome;
+      if (!chromosome) continue;
       const values = positives.get(chromosome);
       const peers = counts.get(chromosome) ?? 0;
       if (values?.size !== 1 || peers < MIN_SPLIT_PEERS) continue;

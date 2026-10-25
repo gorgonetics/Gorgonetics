@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { rankBreedingPairs } from '#lib/services/breedingService.js';
+import { magnitudesForBreed, rankBreedingPairs } from '#lib/services/breedingService.js';
 import { closeDatabase, initDatabase } from '#lib/services/database.js';
 import * as geneService from '#lib/services/geneService.js';
 import { runMigrations } from '#lib/services/migrationService.js';
@@ -223,6 +223,49 @@ describe('rankBreedingPairs — Clarify positives', () => {
     // x×x: P(D)=P(R)=0.25, so mean 0.5. Variance 2×0.25×0.75 − 2×0.25×0.25 = 0.25.
     expect(pair.evLockedPositives).toBeCloseTo(0.5, 10);
     expect(pair.lockedPositiveSd).toBeCloseTo(0.5, 10);
+  });
+});
+
+describe('magnitudesForBreed — swing genes', () => {
+  beforeEach(reset);
+
+  it('counts a swing gene as one slot, as the study does', async () => {
+    await geneService.upsertGene('beewasp', '01', '01A1', {
+      effectDominant: 'Toughness-',
+      effectRecessive: 'Toughness+',
+    });
+    geneService.clearGeneEffectsCache('beewasp');
+    const magnitudes: AttributeMagnitudes = {
+      points: new Map([
+        ['01A1:recessive', 6],
+        ['01A1:dominant', 0],
+      ]),
+      coverage: new Map([['Toughness', { known: 1, total: 1 }]]),
+    };
+    const scoped = await magnitudesForBreed(magnitudes, 'BeeWasp', undefined);
+    expect(scoped.coverage.get('Toughness')).toEqual({ known: 1, total: 1 });
+    expect(scoped.points.get('01A1:recessive')).toBe(6);
+    expect(scoped.points.get('01A1:dominant')).toBe(0);
+  });
+
+  it('weights locking a swing gene by its whole gap', async () => {
+    await geneService.upsertGene('beewasp', '01', '01A1', {
+      effectDominant: 'Toughness-',
+      effectRecessive: 'Toughness+',
+    });
+    geneService.clearGeneEffectsCache('beewasp');
+    const male = await uploadParent('M', Gender.MALE, 'R??');
+    const female = await uploadParent('F', Gender.FEMALE, 'D??');
+    const magnitudes: AttributeMagnitudes = {
+      points: new Map([
+        ['01A1:recessive', 6],
+        ['01A1:dominant', 0],
+      ]),
+      coverage: new Map([['Toughness', { known: 1, total: 1 }]]),
+    };
+    const [pair] = await rankBreedingPairs({ species: 'BeeWasp', pets: [male, female], magnitudes });
+    expect(pair.maleProfile.lockedPositives).toBe(6);
+    expect(pair.femaleProfile.lockedPositives).toBe(0);
   });
 });
 

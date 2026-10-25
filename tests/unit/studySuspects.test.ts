@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  confirmGeneDeclaration,
   refreshStudyCorpus,
   type StudyRun,
   setUseForStudies,
@@ -28,6 +29,7 @@ vi.mock('#lib/services/studyService.js', async (importOriginal) => ({
   setUseForStudies: vi.fn(async () => {}),
   listExcludedSubjects: vi.fn(async () => []),
   refreshStudyCorpus: vi.fn(async () => ({ considered: 0, cached: 0, skipped: 0, unverified: 0 })),
+  confirmGeneDeclaration: vi.fn(async () => {}),
 }));
 
 vi.mock('#lib/components/study/StudyFindingsTable.svelte', async () => ({
@@ -207,5 +209,48 @@ describe('Community refresh', () => {
     await screen.findByText('offline');
     expect(revision).toBe(before);
     stop();
+  });
+});
+
+describe('Gene checks on a swing gene', () => {
+  const swingDoubt = {
+    gene: '01A4',
+    expression: 'recessive',
+    attribute: 'enthusiasm',
+    declared: 1,
+    observed: 1,
+    reason: 'contradicts-sign',
+    support: 2,
+    dissent: 0,
+    animals: 4,
+    checkable: false,
+    witnesses: [],
+    swing: true,
+  };
+
+  beforeEach(() => {
+    pets.set([]);
+    const run = runWith([]);
+    (run.studies[0] as { geneDoubts: unknown[] }).geneDoubts = [swingDoubt];
+    vi.mocked(studyRunFor).mockResolvedValue(run);
+  });
+  afterEach(() => {
+    cleanup();
+    vi.clearAllMocks();
+  });
+
+  it('names both declarations, since either may be wrong', async () => {
+    render(StudyView);
+    const claim = await screen.findByText(/recessive vs dominant reads/);
+    expect(textOf(claim)).toContain('declared enthusiasm− dominant and enthusiasm+ recessive');
+    expect(textOf(claim)).toContain('reads +1');
+  });
+
+  it('confirms both declarations at once', async () => {
+    render(StudyView);
+    await fireEvent.click(await screen.findByTestId('gene-confirm-01A4-recessive'));
+    await waitFor(() => expect(confirmGeneDeclaration).toHaveBeenCalledTimes(2));
+    expect(confirmGeneDeclaration).toHaveBeenCalledWith(expect.anything(), '01A4', 'recessive', 'enthusiasm', 1);
+    expect(confirmGeneDeclaration).toHaveBeenCalledWith(expect.anything(), '01A4', 'dominant', 'enthusiasm', -1);
   });
 });
