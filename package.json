@@ -62,7 +62,7 @@
     "@tauri-apps/plugin-process": "^2.4.0",
     "@tauri-apps/plugin-sql": "^2.6.0",
     "@tauri-apps/plugin-updater": "^2.13.2",
-    "firebase": "^12.19.0",
+    "firebase": "^13.1.0",
     "jszip": "^3.10.2"
   },
   "keywords": [
