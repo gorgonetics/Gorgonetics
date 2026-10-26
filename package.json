@@ -48,7 +48,7 @@
     "firebase-admin": "^14.5.0",
     "firebase-tools": "^15.33.0",
     "jsdom": "^30.0.1",
-    "svelte": "^5.57.1",
+    "svelte": "^5.57.2",
     "svelte-check": "^4.7.6",
     "typescript": "^6.0.3",
     "vite": "^8.3.0",
