@@ -162,4 +162,32 @@ describe('StudyFindingsTable sorting', () => {
     expect(sorted.length).toBe(1);
     expect(sorted[0].getAttribute('aria-sort')).toBe('descending');
   });
+
+  it('labels a swing and shows its assumed split apart from the measured points', () => {
+    const swing = finding({
+      gene: '01A4',
+      expression: 'recessive',
+      attribute: 'enthusiasm',
+      magnitude: 6,
+      swing: true,
+    });
+    const splits = new Map([['01A4', { gene: '01A4', swing: 6, recessive: 5, dominant: -1, peers: 21 }]]);
+    render(StudyFindingsTable, { findings: [swing], names, slots: 121, splits });
+    expect(screen.getByText('swing')).toBeTruthy();
+    expect(screen.getByTestId('study-swing-split').textContent).toBe('+5\u2009/\u2009−1');
+    expect(screen.getByTestId('study-swing-split').getAttribute('title')).toMatch(/^Assumed, not measured/);
+  });
+
+  it('shows no split for a swing its chromosome does not support', () => {
+    const swing = finding({
+      gene: '01A4',
+      expression: 'recessive',
+      attribute: 'enthusiasm',
+      magnitude: 6,
+      swing: true,
+    });
+    render(StudyFindingsTable, { findings: [swing], names, slots: 121 });
+    expect(screen.getByText('+6')).toBeTruthy();
+    expect(screen.queryByTestId('study-swing-split')).toBeNull();
+  });
 });

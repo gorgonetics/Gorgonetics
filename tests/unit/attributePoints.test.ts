@@ -5,6 +5,8 @@ import {
   EMPTY_MAGNITUDES,
   hasMagnitudes,
   magnitudeOf,
+  swingSplits,
+  withAssumedSplits,
 } from '#lib/utils/attributePoints.js';
 import type { AttributeStudy, StudyFinding } from '#lib/utils/attributeStudy.js';
 
@@ -87,5 +89,85 @@ describe('attribute magnitudes', () => {
       hasMagnitudes(buildAttributeMagnitudes([study('toughness', 9, [finding({ gene: 'g', magnitude: 1 })])])),
     ).toBe(true);
     expect(coverageOf(EMPTY_MAGNITUDES, 'Toughness')).toEqual({ known: 0, total: 0 });
+  });
+});
+
+describe('swing splits', () => {
+  /** Chromosome 01 as the live corpus reads it: every known positive is +5. */
+  const peers = ['01A1', '01A2', '01A3'].map((gene) =>
+    finding({ gene, expression: 'recessive', attribute: 'temperament', magnitude: 5 }),
+  );
+  const swing = (magnitude: number, gene = '01A4') =>
+    finding({ gene, expression: 'recessive', attribute: 'enthusiasm', magnitude, swing: true });
+
+  it('gives the positive side the chromosome’s shared value and the negative side the rest', () => {
+    const studies = [study('temperament', 3, peers), study('enthusiasm', 1, [swing(8)])];
+    expect(swingSplits(studies).get('01A4')).toEqual({
+      gene: '01A4',
+      swing: 8,
+      recessive: 5,
+      dominant: -3,
+      peers: 3,
+    });
+  });
+
+  it('keeps the assumed split out of the scoring table', () => {
+    // The table holds only what the corpus entails: the whole gap on the
+    // positive side, nothing on the negative one, split or no split.
+    const magnitudes = buildAttributeMagnitudes([study('temperament', 3, peers), study('enthusiasm', 1, [swing(8)])]);
+    expect(magnitudeOf(magnitudes, '01A4', 'recessive')).toBe(8);
+    expect(magnitudeOf(magnitudes, '01A4', 'dominant')).toBe(0);
+    expect(coverageOf(magnitudes, 'Enthusiasm')).toEqual({ known: 1, total: 1 });
+  });
+
+  it('puts a dominant-positive swing on the dominant slot', () => {
+    const magnitudes = buildAttributeMagnitudes([study('enthusiasm', 1, [swing(-4)])]);
+    expect(magnitudeOf(magnitudes, '01A4', 'dominant')).toBe(4);
+    expect(magnitudeOf(magnitudes, '01A4', 'recessive')).toBe(0);
+  });
+
+  it('does not split when the chromosome’s positives disagree', () => {
+    const mixed = [...peers, finding({ gene: '01B1', attribute: 'toughness', magnitude: 4 })];
+    const studies = [study('temperament', 4, mixed), study('enthusiasm', 1, [swing(8)])];
+    expect(swingSplits(studies).size).toBe(0);
+  });
+
+  it('does not split on too few positives', () => {
+    expect(swingSplits([study('temperament', 2, peers.slice(0, 2)), study('enthusiasm', 1, [swing(8)])]).size).toBe(0);
+  });
+
+  it('does not split when the negative side would be zero or positive', () => {
+    expect(swingSplits([study('temperament', 3, peers), study('enthusiasm', 1, [swing(5)])]).size).toBe(0);
+  });
+
+  it('reads positives from the swing’s own chromosome only', () => {
+    const elsewhere = peers.map((p) => ({ ...p, gene: p.gene.replace('01', '02') }));
+    expect(swingSplits([study('temperament', 3, elsewhere), study('enthusiasm', 1, [swing(8)])]).size).toBe(0);
+  });
+
+  it('splits a dominant-positive swing with the shared value on the dominant side', () => {
+    expect(
+      swingSplits([study('temperament', 3, peers), study('enthusiasm', 1, [swing(-7)])]).get('01A4'),
+    ).toMatchObject({ recessive: -2, dominant: 5 });
+  });
+
+  it('paints the assumed split into a display copy, leaving the scoring table alone', () => {
+    const scoring = buildAttributeMagnitudes([study('temperament', 3, peers), study('enthusiasm', 1, [swing(6)])]);
+    const display = withAssumedSplits(scoring, new Set(['01A4']));
+    expect(magnitudeOf(display, '01A4', 'recessive')).toBe(5);
+    expect(magnitudeOf(display, '01A4', 'dominant')).toBe(-1);
+    expect([...(display.assumed ?? [])].sort()).toEqual(['01A4:dominant', '01A4:recessive']);
+    expect(magnitudeOf(display, '01A1', 'recessive')).toBe(5);
+    expect(magnitudeOf(scoring, '01A4', 'recessive')).toBe(6);
+    expect(magnitudeOf(scoring, '01A4', 'dominant')).toBe(0);
+    expect(scoring.assumed).toBeUndefined();
+  });
+
+  it('shows the negative side as unknown, not zero, when nothing supports a split', () => {
+    const scoring = buildAttributeMagnitudes([study('enthusiasm', 1, [swing(6)])]);
+    const display = withAssumedSplits(scoring, new Set(['01A4']));
+    expect(magnitudeOf(display, '01A4', 'recessive')).toBe(6);
+    expect(magnitudeOf(display, '01A4', 'dominant')).toBeUndefined();
+    expect(display.assumed?.size).toBe(0);
   });
 });

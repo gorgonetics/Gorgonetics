@@ -19,6 +19,16 @@ const reading = (over: Partial<BaselineReading> = {}): BaselineReading => ({
 afterEach(cleanup);
 
 describe('StudyBaselines', () => {
+  it('says which swing genes sit inside the base', () => {
+    render(StudyBaselines, { baselines: { readings: [reading()], offsets: [], folded: ['01A4', '01C3'] } });
+    expect(screen.getByTestId('study-baselines-folded').textContent).toMatch(/dominant effect of 01A4, 01C3/);
+  });
+
+  it('adds no swing note when there are no swing genes', () => {
+    render(StudyBaselines, { baselines: { readings: [reading()], offsets: [] } });
+    expect(screen.queryByTestId('study-baselines-folded')).toBeNull();
+  });
+
   it('renders nothing when no breed has a reading', () => {
     render(StudyBaselines, { baselines: { readings: [], offsets: [] } });
     expect(screen.queryByTestId('study-baselines')).toBeNull();

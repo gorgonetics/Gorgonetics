@@ -897,6 +897,22 @@ describe('gene confirmations', () => {
     expect([...(await liveGeneConfirmations('horse', slots))]).not.toContain('01A1:dominant');
   });
 
+  it('confirms a swing only once both of its declarations are confirmed', async () => {
+    // A swing doubt may be either declaration's fault, so one side alone —
+    // such as a row saved before the gene was solved as a swing — is not enough.
+    await geneService.upsertGene('horse', '01', '01A1', {
+      effectDominant: 'Temperament-',
+      effectRecessive: 'Temperament+',
+      breed: '',
+    });
+    geneService.clearGeneEffectsCache('horse');
+    const slots = buildEffectSlots((await geneService.getGeneEffectsCached('horse'))?.effects ?? {});
+    await confirmGeneDeclaration('horse', '01A1', 'recessive', 'temperament', 1);
+    expect([...(await liveGeneConfirmations('horse', slots))]).not.toContain('01A1:recessive');
+    await confirmGeneDeclaration('horse', '01A1', 'dominant', 'temperament', -1);
+    expect([...(await liveGeneConfirmations('horse', slots))]).toContain('01A1:recessive');
+  });
+
   it('can be withdrawn, which puts the gene back on the list', async () => {
     await disputed();
     await confirmGeneDeclaration('horse', '01A1', 'dominant', 'temperament', 1);

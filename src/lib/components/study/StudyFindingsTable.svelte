@@ -1,4 +1,5 @@
 <script lang="ts">
+import type { SwingSplit } from '#lib/utils/attributePoints.js';
 import type { StudyFinding } from '#lib/utils/attributeStudy.js';
 import { type SortableColumn, sortByColumn } from '#lib/utils/sortColumn.js';
 
@@ -14,9 +15,11 @@ interface Props {
    * cost a row of a pane that was short of them.
    */
   slots: number;
+  /** Assumed splits of swing findings, by gene. See `swingSplits`. */
+  splits?: ReadonlyMap<string, SwingSplit>;
 }
 
-const { findings, names, slots }: Props = $props();
+const { findings, names, slots, splits = new Map() }: Props = $props();
 
 let expanded = $state<string | null>(null);
 
@@ -123,9 +126,23 @@ function subject(id: string): string {
 				{#each rows as finding (key(finding))}
 					<tr class:open={expanded === key(finding)}>
 						<td class="gene">{finding.gene}</td>
-						<td class="expression">{finding.expression}</td>
+						{#if finding.swing}
+							<td
+								class="expression"
+								title="Both of this gene's effects land on {finding.attribute}. The points are what a recessive gains over a dominant."
+							>
+								swing
+							</td>
+						{:else}
+							<td class="expression">{finding.expression}</td>
+						{/if}
 						<td class="numeric points" class:up={finding.magnitude > 0} class:down={finding.magnitude < 0}>
-							{signed(finding.magnitude)}
+							{signed(finding.magnitude)}{#if finding.swing}{@const split = splits.get(finding.gene)}{#if split}<span
+									class="split"
+									data-testid="study-swing-split"
+									title="Assumed, not measured: every other known positive on this chromosome is {signed(Math.max(split.recessive, split.dominant))} ({split.peers} findings). Recessive {signed(split.recessive)}, dominant {signed(split.dominant)}."
+								>{signed(split.recessive)}&thinsp;/&thinsp;{signed(split.dominant)}</span
+								>{/if}{/if}
 						</td>
 						<td>
 							<!-- A direct finding is read straight off a pair; a derived one
@@ -180,6 +197,10 @@ function subject(id: string): string {
 										possible value.
 									{:else}
 										Every other {finding.attribute} gene in these pairs was already known, leaving this one.
+									{/if}
+									{#if finding.swing}
+										The animals only ever show the gap between this gene's two effects, never how it splits
+										between them.
 									{/if}
 								</p>
 								<ul>
@@ -251,6 +272,12 @@ function subject(id: string): string {
 	}
 	.col-how {
 		width: 7.5rem;
+	}
+
+	.split {
+		display: block;
+		font-size: 11px;
+		color: var(--text-tertiary);
 	}
 	.col-agreeing {
 		width: 6rem;

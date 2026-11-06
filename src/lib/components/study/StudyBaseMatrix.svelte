@@ -21,6 +21,8 @@ interface Props {
 const { studies, onselect }: Props = $props();
 
 const matrix = $derived(buildBaseMatrix(studies));
+/** Per attribute, swing genes whose dominant effect sits inside the base. */
+const folded = $derived(studies.filter((s) => s.baselines.folded?.length));
 
 function cellKind(cell: BaseCell): 'exact' | 'conflict' | 'bound' | 'unknown' | 'gap' | 'none' {
   if (cell.reading) {
@@ -57,6 +59,13 @@ function cellTitle(cell: BaseCell): string {
 			A second line is the exact gap to another breed's base. * marks a value some animals disagree with. Select
 			a column for the evidence.
 		</p>
+		{#if folded.length > 0}
+			<p class="lead" data-testid="study-base-matrix-folded">
+				{#each folded as s, i (s.attribute)}{i > 0 ? '; ' : ''}{s.attribute} includes the dominant effect of
+					{s.baselines.folded?.join(', ')}{/each}: both effects of these genes land on one attribute, so no pair
+				can tell the dominant one apart from the base.
+			</p>
+		{/if}
 		<div class="scroll">
 			<table>
 				<thead>

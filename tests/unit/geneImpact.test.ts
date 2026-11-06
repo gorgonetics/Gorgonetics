@@ -194,3 +194,41 @@ describe('buildImpactTooltip', () => {
     expect(lines[0]).toContain('&lt;b&gt;X&lt;/b&gt;');
   });
 });
+
+describe('assumed swing splits', () => {
+  const swingGene = gene({
+    dominantAttribute: 'enthusiasm',
+    dominantSign: '-',
+    recessiveAttribute: 'enthusiasm',
+    recessiveSign: '+',
+  });
+  const display: AttributeMagnitudes = {
+    points: new Map([
+      ['01A4:recessive', 5],
+      ['01A4:dominant', -1],
+    ]),
+    coverage: new Map(),
+    assumed: new Set(['01A4:recessive', '01A4:dominant']),
+  };
+
+  it('marks a slot whose points are an assumed split', () => {
+    expect(slotImpact(swingGene, '01A4', 'dominant', display)).toEqual({
+      kind: 'known',
+      attribute: 'Enthusiasm',
+      sign: '-',
+      points: -1,
+      assumed: true,
+    });
+    expect(slotImpact(gene(), '01A1', 'dominant', magnitudes({ '01A1:dominant': 3 }))).not.toHaveProperty('assumed');
+  });
+
+  it('says so in the tooltip', () => {
+    const { lines } = buildImpactTooltip(
+      slotImpact(swingGene, '01A4', 'dominant', display),
+      slotImpact(swingGene, '01A4', 'recessive', display),
+      'dominant',
+    );
+    expect(lines[0]).toContain('Enthusiasm -1');
+    expect(lines[0]).toContain('assumed split');
+  });
+});

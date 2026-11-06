@@ -33,6 +33,20 @@ const studies = [
 afterEach(cleanup);
 
 describe('StudyBaseMatrix', () => {
+  it('notes which attributes carry a swing gene’s dominant effect in their base', () => {
+    const withSwing = [
+      { ...studies[0], attribute: 'enthusiasm', baselines: { ...studies[0].baselines, folded: ['01A4', '01E2'] } },
+      studies[1],
+    ] as unknown as AttributeStudy[];
+    render(StudyBaseMatrix, { studies: withSwing });
+    expect(screen.getByTestId('study-base-matrix-folded').textContent).toMatch(
+      /enthusiasm includes the dominant effect of\s+01A4, 01E2/,
+    );
+    cleanup();
+    render(StudyBaseMatrix, { studies });
+    expect(screen.queryByTestId('study-base-matrix-folded')).toBeNull();
+  });
+
   it('shows every breed against every attribute', () => {
     render(StudyBaseMatrix, { studies });
     expect(screen.getByTestId('base-matrix-Kurbone-temperament').textContent).toContain('≤ −36');

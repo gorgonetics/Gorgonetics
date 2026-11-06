@@ -63,7 +63,7 @@
  * health, and it belongs on screen.
  */
 
-import { type GeneEffectData, parseEffect } from './geneAnalysis.js';
+import { type GeneEffectData, isSwingGene, parseEffect } from './geneAnalysis.js';
 
 /** Lowest and highest value the game will display for an attribute. */
 const ATTRIBUTE_FLOOR = 0;
@@ -86,6 +86,11 @@ export interface EffectSlot {
   sign: 1 | -1;
   /** Owning breed, or `''` for a gene that applies to every breed. */
   breed: string;
+  /**
+   * The gene's two effects land on this one attribute with opposite signs,
+   * and this slot stands for the gap between them — see `buildEffectSlots`.
+   */
+  swing?: true;
 }
 
 /** An animal the corpus can learn from. */
@@ -206,6 +211,12 @@ export interface AttributeBaselines {
    */
   readings: BaselineReading[];
   offsets: BaselineOffset[];
+  /**
+   * Swing genes in scope, whose dominant effect sits inside the base: no
+   * difference can separate it (see `buildEffectSlots`). A breed-locked one
+   * moves only its breed's base, and so its gap as well.
+   */
+  folded?: string[];
 }
 
 /**
@@ -244,6 +255,11 @@ export interface StudyFinding {
   dissent: number;
   /** A few subject-id pairs that witness the finding, for "show the work". */
   witnesses: Array<[string, string]>;
+  /**
+   * `magnitude` is the gap between the gene's recessive and dominant effect
+   * on this attribute, not the recessive effect alone. See `buildEffectSlots`.
+   */
+  swing?: true;
 }
 
 /**
@@ -293,6 +309,12 @@ export interface GeneDoubt {
   /** At least one witness pair is stabled on both sides, so this is settleable now. */
   checkable: boolean;
   witnesses: Array<[string, string]>;
+  /**
+   * The doubt is about a swing (see `buildEffectSlots`): `declared` is the
+   * recessive sign, and the dominant one, opposite to it, is equally in
+   * question.
+   */
+  swing?: true;
 }
 
 /** An animal whose readings conflict with an otherwise-agreed magnitude. */
@@ -495,10 +517,38 @@ export function slotKey(slot: Pick<EffectSlot, 'gene' | 'expression'>): string {
  * A locus contributes up to two slots — its dominant and its recessive
  * effect are unrelated quantities and may even land on different
  * attributes, so they are never solved as one.
+ *
+ * Except when both land on the *same* attribute with opposite signs
+ * (`Enthusiasm-` / `Enthusiasm+`). Every revealed locus expresses exactly
+ * one of its two effects, so such a gene adds `−a` or `+b` and nothing else:
+ * `base + b − (a+b)·[dominant]`. Differences only ever see `a+b`, and how
+ * it splits is indistinguishable from moving `b` into the base. As two
+ * slots they always appear together, so neither is ever the sole unknown
+ * and every pair differing at the locus is stuck. They are solved instead
+ * as one recessive slot worth the swing `a+b`, with the dominant effect
+ * folded into the base. A same-sign pair has the same problem, but its
+ * swing has no declared sign to test, so it is left as two slots.
+ *
+ * Both declared effects are at least one point each, so a swing is at least
+ * two: a gap of one is as much a contradiction of the declarations as a gap
+ * of the wrong sign.
  */
 export function buildEffectSlots(effectsDB: Record<string, GeneEffectData>): EffectSlot[] {
   const slots: EffectSlot[] = [];
   for (const [gene, data] of Object.entries(effectsDB)) {
+    const dominant = parseEffect(data.effectDominant);
+    const recessive = parseEffect(data.effectRecessive);
+    if (recessive && isSwingGene(dominant, recessive)) {
+      slots.push({
+        gene,
+        expression: 'recessive',
+        attribute: recessive.attribute,
+        sign: recessive.sign === '+' ? 1 : -1,
+        breed: data.breed ?? '',
+        swing: true,
+      });
+      continue;
+    }
     for (const [expression, raw] of [
       ['dominant', data.effectDominant],
       ['recessive', data.effectRecessive],
@@ -1065,6 +1115,9 @@ export function studyAttribute(
 
   const signOf = new Map<string, 1 | -1>();
   for (const slot of attributeSlots) signOf.set(slotKey(slot), slot.sign);
+  const swings = new Set(attributeSlots.filter((slot) => slot.swing).map(slotKey));
+  /** The smallest magnitude the declaration allows, in its own direction. */
+  const leastOf = (key: string): number => (swings.has(key) ? 2 : 1);
 
   const solved = new Map<string, StudyFinding>();
   const dissenters = new Map<string, number>();
@@ -1136,7 +1189,7 @@ export function studyAttribute(
     // declaration is a suspect in its own right. No finding is published
     // either way: a slot resting on a declaration we doubt is not knowledge.
     const sign = signOf.get(key);
-    if (sign !== undefined && magnitude * sign <= 0) {
+    if (sign !== undefined && magnitude * sign < leastOf(key)) {
       // No finding either way — a slot resting on a declaration the animals
       // contradict is not knowledge. But only *file* the doubt when more
       // than one bad animal would be needed to fake it.
@@ -1294,7 +1347,7 @@ export function studyAttribute(
         raise('no-effect');
         continue;
       }
-      if (declared !== undefined && magnitude * declared <= 0) {
+      if (declared !== undefined && magnitude * declared < leastOf(found.key)) {
         raise('contradicts-sign');
         continue;
       }
@@ -1369,6 +1422,7 @@ export function studyAttribute(
     // Base gaps travel in the solver as slots but are not gene effects.
     findings: [...solved.values()]
       .filter((f) => f.gene !== BASE_SLOT_GENE)
+      .map((f) => (swings.has(slotKey(f)) ? { ...f, swing: true as const } : f))
       .sort(
         (a, b) =>
           a.depth - b.depth ||
@@ -1382,14 +1436,16 @@ export function studyAttribute(
     // animals is far more likely the declaration's fault than one animal's.
     // The last keys only make ties deterministic, so the order does not depend
     // on which equations were walked first.
-    geneDoubts: geneDoubts.sort(
-      (a, b) =>
-        Number(b.checkable) - Number(a.checkable) ||
-        b.animals - a.animals ||
-        b.support - a.support ||
-        a.gene.localeCompare(b.gene) ||
-        a.expression.localeCompare(b.expression),
-    ),
+    geneDoubts: geneDoubts
+      .map((d) => (swings.has(slotKey(d)) ? { ...d, swing: true as const } : d))
+      .sort(
+        (a, b) =>
+          Number(b.checkable) - Number(a.checkable) ||
+          b.animals - a.animals ||
+          b.support - a.support ||
+          a.gene.localeCompare(b.gene) ||
+          a.expression.localeCompare(b.expression),
+      ),
     contradictions: [...dissenters.entries()]
       .map(([subjectId, count]) => ({ subjectId, count, stabled: stabledIds.has(subjectId) }))
       .sort(
@@ -1397,7 +1453,10 @@ export function studyAttribute(
       ),
     validation: validate(equations, solved, consumed),
     contributors,
-    baselines: inferBaselines(pooled, solved, signOf, gaps),
+    baselines: {
+      ...inferBaselines(pooled, solved, signOf, gaps),
+      ...(swings.size > 0 && { folded: [...swings].map((key) => key.split(':')[0]).sort() }),
+    },
   };
 }
 

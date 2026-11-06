@@ -13,6 +13,11 @@
  *    and never given an estimated number: `attributePoints` refuses to
  *    impute one, and a view that did would undo that.
  *
+ * A swing gene (both effects on one attribute, opposite signs) is measured
+ * only as the gap between them. The lens is handed a display table
+ * (`withAssumedSplits`) that shows the gap's assumed split, marked `assumed`;
+ * with no split, the negative side is unknown.
+ *
  * A known slot is coloured by the sign of its *measured* points, not by the
  * declared sign. The study holds the declared sign out of the solve and uses
  * it as an independent check, so when the two disagree the measurement is
@@ -28,13 +33,13 @@
 import type { ParsedGeneRecord } from '#lib/services/geneService.js';
 import { GeneType } from '#lib/types/index.js';
 import { type AttributeMagnitudes, magnitudeOf } from '#lib/utils/attributePoints.js';
-import type { Expression } from '#lib/utils/attributeStudy.js';
+import { type Expression, slotKey } from '#lib/utils/attributeStudy.js';
 import { capitalize, escapeHtml } from '#lib/utils/string.js';
 
 export type SlotImpact =
   | { kind: 'none' }
   | { kind: 'unknown'; attribute: string; sign: '+' | '-' }
-  | { kind: 'known'; attribute: string; sign: '+' | '-'; points: number };
+  | { kind: 'known'; attribute: string; sign: '+' | '-'; points: number; assumed?: true };
 
 const NONE: SlotImpact = Object.freeze({ kind: 'none' });
 
@@ -54,7 +59,10 @@ export function slotImpact(
   if (!rawAttribute) return NONE;
   const attribute = capitalize(rawAttribute);
   const points = magnitudeOf(magnitudes, geneId, expression);
-  if (points !== undefined) return { kind: 'known', attribute, sign: points < 0 ? '-' : '+', points };
+  if (points !== undefined) {
+    const known: SlotImpact = { kind: 'known', attribute, sign: points < 0 ? '-' : '+', points };
+    return magnitudes.assumed?.has(slotKey({ gene: geneId, expression })) ? { ...known, assumed: true } : known;
+  }
   // An attribute with no sign is not a declaration anything can be read from.
   if (!declaredSign) return NONE;
   return { kind: 'unknown', attribute, sign: declaredSign };
@@ -241,7 +249,10 @@ function describeSlot(label: string, impact: SlotImpact): string | null {
   const colour = impact.sign === '+' ? 'var(--gene-positive)' : 'var(--gene-negative)';
   const attribute = escapeHtml(impact.attribute);
   if (impact.kind === 'known') {
-    return `${label}: <span style="color: ${colour}">${attribute} ${formatPoints(impact.points)}</span>`;
+    const assumed = impact.assumed
+      ? ' <span style="color: var(--text-muted)">· assumed split of a measured gap</span>'
+      : '';
+    return `${label}: <span style="color: ${colour}">${attribute} ${formatPoints(impact.points)}</span>${assumed}`;
   }
   return `${label}: <span style="color: ${colour}">${attribute}${impact.sign}</span> <span style="color: var(--text-muted)">· size not measured</span>`;
 }
